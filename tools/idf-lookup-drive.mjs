@@ -4,8 +4,8 @@
 // are `tools/idf-stubs.mjs` (`// --- 625 ---`, `idfLookupStub`; the deciding master is named through 619's masters
 // door, `IDF_MASTER_TAW` added to its state):
 //   GET IdfPriority/lookup → `IDF_LOOKUPS` (an insurer-decided answer; a general fallback with three skipped tiers
-//   and the cash rule); any other item → a business refusal (`UNKNOWN_ITEM`)
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3168 is unbuilt. Ticket 628 swaps in the doors.
+//   and the cash rule, no insurer); any other item → a business refusal (`IDF-00019`)
+// The stubs carry the shapes 3168 / 3166 built (oms 628): payer = the insurer customer id, the door's tier words.
 //
 // It verifies, in LTR and RTL:
 //   1. the IDF lookup leaf is in the rail and lit; before a search the page asks for one and reads no door;
@@ -81,12 +81,12 @@ for (const dir of ['ltr', 'rtl']) {
 
     await page.fill('[data-lookup-field="item"]', ' 100300 ')
     await page.fill('[data-lookup-field="store"]', 'P019')
-    await page.fill('[data-lookup-field="payer"]', 'TAWUNIYA')
+    await page.fill('[data-lookup-field="payer"]', '0001100412')
     await page.click('[data-lookup-submit]')
     await page.locator('[data-idf-lookup-answer]').waitFor({ timeout: 60000 })
     const u = new URL(page.url())
-    check(`${dir} 2. the search lands in the URL`, u.pathname === '/insurance-rules/idf/lookup' && u.search === '?item=100300&store=P019&payer=TAWUNIYA', u.search)
-    check(`${dir} 2. sent to the door, no blank document type`, lookups.length >= 1 && lookups.every((q) => q === 'item=100300&store=P019&payer=TAWUNIYA'), JSON.stringify(lookups))
+    check(`${dir} 2. the search lands in the URL`, u.pathname === '/insurance-rules/idf/lookup' && u.search === '?item=100300&store=P019&payer=0001100412', u.search)
+    check(`${dir} 2. sent to the door, no blank document type`, lookups.length >= 1 && lookups.every((q) => q === 'item=100300&store=P019&payer=0001100412'), JSON.stringify(lookups))
 
     const ans = page.locator('[data-idf-lookup-answer]')
     const dec = page.locator('[data-lookup-decision]')
@@ -96,7 +96,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. priority and "hard above 5, reminder above 2"`, (await text(dec.locator('[data-col="priority"]'))) === 'Priority 2' && (await text(dec.locator('[data-col="thresholds"]'))) === 'Hard above 5, reminder above 2' && JSON.stringify(await ltrIn(dec.locator('[data-col="thresholds"]'))) === '["5","2"]')
     check(`${dir} 3. no cash line when the answer does not carry it`, (await page.locator('[data-lookup-cash]').count()) === 0)
     const skipped = await page.locator('[data-lookup-skipped] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-tier')))
-    check(`${dir} 3. one skipped tier with its reason in a bdi`, JSON.stringify(skipped) === '["insurerStoreList"]' && (await text(page.locator('[data-lookup-skipped] li [data-col="reason"] bdi'))) === 'Store P019 is not on the pilot list' && (await text(page.locator('[data-lookup-skipped] li [data-col="tier"]'))) === 'Insurer on a store list')
+    check(`${dir} 3. one skipped tier with its reason in a bdi`, JSON.stringify(skipped) === '["insurerAtStoreList"]' && (await text(page.locator('[data-lookup-skipped] li [data-col="reason"] bdi'))) === 'Store P019 is not on the pilot list' && (await text(page.locator('[data-lookup-skipped] li [data-col="tier"]'))) === 'Insurer on a store list')
     const rows = await page.locator('[data-lookup-group] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-item')}:${e.hasAttribute('data-looked-up')}:${e.querySelector('[data-col="sourceTier"]').textContent}`))
     check(`${dir} 3. the ranked group as sent, source tiers, the looked-up row marked`, JSON.stringify(rows) === JSON.stringify(['100200:false:Insurer', '100300:true:Insurer', '100400:false:General']), JSON.stringify(rows))
     const mine = page.locator('[data-lookup-group] tr[data-looked-up]')
@@ -108,15 +108,15 @@ for (const dir of ['ltr', 'rtl']) {
   {
     // a shared link: the general fallback
     const { context, page, errors } = await open(dir)
-    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=200100&store=P001&payer=CASH&documentType=RX`)
+    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=200100&store=P001&documentType=Cash`)
     await page.locator('[data-idf-lookup-answer]').waitFor({ timeout: 60000 }).catch(() => {})
     const ans = page.locator('[data-idf-lookup-answer]')
-    check(`${dir} 4. a shared URL fills the form`, (await page.inputValue('[data-lookup-field="documentType"]')) === 'RX' && (await page.inputValue('[data-lookup-field="item"]')) === '200100')
+    check(`${dir} 4. a shared URL fills the form`, (await page.inputValue('[data-lookup-field="documentType"]')) === 'Cash' && (await page.inputValue('[data-lookup-field="item"]')) === '200100')
     check(`${dir} 4. general decided, no master named`, (await ans.getAttribute('data-deciding-tier')) === 'general' && (await page.locator('[data-lookup-decision] [data-col="general"]').count()) === 1 && (await page.locator('[data-lookup-decision] [data-col="master"]').count()) === 0)
     const skipped = await page.locator('[data-lookup-skipped] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-tier')))
-    check(`${dir} 4. three skipped tiers in the fixed order`, JSON.stringify(skipped) === '["insurerStoreList","insurer","operationPharmacy"]', JSON.stringify(skipped))
-    check(`${dir} 4. no thresholds sent → 4 and 1`, (await text(page.locator('[data-lookup-decision] [data-col="thresholds"]'))) === 'Hard above 4, reminder above 1')
-    check(`${dir} 4. the cash rule carried → shown`, (await page.locator('[data-lookup-cash]').count()) === 1)
+    check(`${dir} 4. three skipped tiers in the fixed order (no insurer: the payer is optional)`, JSON.stringify(skipped) === '["insurerAtStoreList","insurer","store"]', JSON.stringify(skipped))
+    check(`${dir} 4. thresholds 4 and 1`, (await text(page.locator('[data-lookup-decision] [data-col="thresholds"]'))) === 'Hard above 4, reminder above 1')
+    check(`${dir} 4. a cash document type cannot force a pick → the cash rule shown`, (await page.locator('[data-lookup-cash]').count()) === 1)
     const rows = await page.locator('[data-lookup-group] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-item')}:${e.hasAttribute('data-looked-up')}`))
     check(`${dir} 4. the looked-up row marked`, JSON.stringify(rows) === '["200050:false","200100:true"]', JSON.stringify(rows))
     check(`${dir} 4. no page errors`, errors.length === 0, errors.join(' | '))
@@ -124,7 +124,7 @@ for (const dir of ['ltr', 'rtl']) {
   }
   {
     const { context, page, errors } = await open(dir)
-    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=999999&store=P019&payer=TAWUNIYA`)
+    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=999999&store=P019&payer=0001100412`)
     await page.locator('[data-idf-lookup-error]').waitFor({ timeout: 60000 }).catch(() => {})
     check(`${dir} 5. an unknown item: the server's message, no answer`, (await text(page.locator('[data-idf-lookup-error]'))).includes('Item 999999 is not a known item.') && (await page.locator('[data-idf-lookup-answer]').count()) === 0)
     check(`${dir} 5. no page errors (refusal)`, errors.length === 0, errors.join(' | '))
@@ -132,7 +132,7 @@ for (const dir of ['ltr', 'rtl']) {
   }
   {
     const { context, page, errors } = await open(dir, { deny: ['lookup'] })
-    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=100300&store=P019&payer=TAWUNIYA`)
+    await page.goto(`${BASE}/insurance-rules/idf/lookup?item=100300&store=P019&payer=0001100412`)
     await page.locator('[data-idf-lookup-denied]').waitFor({ timeout: 60000 }).catch(() => {})
     check(`${dir} 5. a bare 403 → "You do not have access"`, (await page.locator('[data-idf-lookup-denied]').count()) === 1 && (await text(page.locator('[data-idf-lookup-denied]'))).startsWith('You do not have access') && (await page.locator('[data-idf-lookup-answer]').count()) === 0)
     check(`${dir} 5. no page errors (denied)`, errors.length === 0, errors.join(' | '))

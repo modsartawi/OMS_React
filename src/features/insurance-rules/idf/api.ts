@@ -4,8 +4,10 @@
  * (`BackOffice/.issues/assets/3157-oms-react-idf-brief.md`); the BackOffice ticket that builds a door owns its
  * final spelling and 628 reconciles.
  *
- * ⚠️ Stubbed until oms 628 (`tools/idf-stubs.mjs`): no door here has met a real SIS.Api. UNGATED like the rest of
- * the group: a session without the IDF view grant is answered a bare 403 and each page says "no access".
+ * 628 reconciled every door with the brief's `## Changes` (the doors as 3161–3169 built them; the payer key is the
+ * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. The reads are
+ * UNGATED like the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says
+ * "no access". 654: the 3185 writes are gated on `GET IdfPriority/Access` (`idfAccessQuery`, fail closed).
  *
  * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
@@ -14,15 +16,26 @@
 import { api, type FileResponse } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster, IdfMasterVersion } from './masters'
-import { storeSetBody, type IdfStoreList } from './store-lists' // 620
+import { storeSetBody, type IdfStoreList, type IdfStoreListCreateBody, type IdfStoreListRenameBody } from './store-lists' // 620
 import type { IdfException, IdfExceptionBody } from './exceptions' // 624
-import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
+import { lookupDoorParams, type IdfLookupAnswer, type IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, filterDoorParams, type IdfEventsFilter, type IdfEventsQuery } from './events-filter' // 626, 627
 import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
-import type { IdfSwapReportRow } from './report' // 627
+import { reportOrEmpty, type IdfSwapReport } from './report' // 627
+import { pageOrEmpty } from './paging' // 3185 review
+import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
+import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
+import type { IdfDraftGroupBody } from './draft' // 646
+import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
+import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
+import type { IdfChangesPage } from './changes' // 650
+import { changesDoorParams, changesExportParams, type IdfChangesQuery } from './changes-filter' // 650
+import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
+import type { IdfGeneralApplyResult, IdfGeneralUploadReport } from './general-upload' // 649
+import { idfGrants, type IdfGrants } from './access' // 654
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -41,6 +54,18 @@ export function mastersQuery() {
   return { queryKey: IDF_MASTERS_KEY, queryFn: () => idfApi.masters(), retry: false } as const
 }
 
+// 654 · the grant probe — `GET IdfPriority/Access` (3191): `{ canViewIdf, canEditIdf, canEditGeneral }`, cookie-only, never
+// grant-gated. Fails closed: an absent, malformed or failed answer is no grant (`useIdfAccess` reads a pending one so).
+export const IDF_ACCESS_KEY = [...IDF_KEY, 'access'] as const
+export const idfAccessApi = {
+  async access(): Promise<IdfGrants> {
+    return idfGrants(await api.get<Partial<IdfGrants> | null>(`${IDF_BASE}/Access`))
+  },
+}
+export function idfAccessQuery() {
+  return { queryKey: IDF_ACCESS_KEY, queryFn: () => idfAccessApi.access(), retry: false, staleTime: 5 * 60_000 } as const
+}
+
 // 620 · store lists — `idfStoreListsApi` (3162)
 export const IDF_STORE_LISTS_KEY = [...IDF_KEY, 'store-lists'] as const
 export const idfStoreListsApi = {
@@ -48,21 +73,17 @@ export const idfStoreListsApi = {
   async lists(): Promise<IdfStoreList[]> {
     return (await api.get<IdfStoreList[] | null>(`${IDF_BASE}/store-lists`)) ?? []
   },
-  /** `POST IdfPriority/store-lists` `{ name }` — a new, empty list. */
-  create(name: string): Promise<IdfStoreList> {
-    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, { name })
+  /** `POST IdfPriority/store-lists` `{ code, nameEn, nameAr, storeCodes? }` — a new list (code: plain ASCII, ≤ 26, unique). */
+  create(body: IdfStoreListCreateBody): Promise<IdfStoreList> {
+    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, body)
   },
-  /** `PUT IdfPriority/store-lists/{id}` `{ name }` — rename. */
-  rename(id: string, name: string): Promise<IdfStoreList> {
-    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, { name })
+  /** `PUT IdfPriority/store-lists/{id}` `{ nameEn, nameAr }` — rename; the code never changes. */
+  rename(id: string, body: IdfStoreListRenameBody): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, body)
   },
-  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. */
+  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. 3162 has no delete door. */
   saveStores(id: string, storeCodes: string[]): Promise<IdfStoreList> {
     return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}/stores`, storeSetBody(storeCodes))
-  },
-  /** `DELETE IdfPriority/store-lists/{id}` — never offered for the pilot list. ⚠️ Not in the brief's sketch: 628 confirms. */
-  remove(id: string): Promise<unknown> {
-    return api.del<unknown>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`)
   },
 }
 export function storeListsQuery() {
@@ -117,10 +138,7 @@ export function versionsQuery(masterId: string) {
 
 // 624 · exceptions — `idfExceptionsApi` (3166)
 export const IDF_EXCEPTIONS_KEY = [...IDF_KEY, 'exceptions'] as const
-/**
- * 624 · `IdfPriority/exceptions` (3166). The brief gives DELETE a `{ reason }`; `api.del` takes no body (the estate's
- * DELETEs name their target on the query string), so the reason rides as `?reason=` — 628 reconciles with 3166.
- */
+/** 624 · `IdfPriority/exceptions` (3166). DELETE takes a JSON body `{ reason }` (3166 binds it `[FromBody]`) and answers `{ exceptionId }`. */
 export const idfExceptionsApi = {
   async list(): Promise<IdfException[]> {
     return (await api.get<IdfException[] | null>(`${IDF_BASE}/exceptions`)) ?? []
@@ -131,8 +149,8 @@ export const idfExceptionsApi = {
   edit(id: string, body: IdfExceptionBody): Promise<IdfException> {
     return api.put<IdfException>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, body)
   },
-  remove(id: string, reason: string): Promise<unknown> {
-    return api.del<unknown>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, { reason })
+  remove(id: string, reason: string): Promise<{ exceptionId: string }> {
+    return api.delWithBody<{ exceptionId: string }>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, { reason })
   },
 }
 export function exceptionsQuery() {
@@ -142,9 +160,12 @@ export function exceptionsQuery() {
 // 625 · lookup — `idfLookupApi` (3168)
 export const IDF_LOOKUP_KEY = [...IDF_KEY, 'lookup'] as const
 export const idfLookupApi = {
-  /** `GET IdfPriority/lookup?item=&store=&payer=&documentType=` (3168) — "why this priority". `buildQuery` drops a blank document type. */
+  /**
+   * `GET IdfPriority/lookup?item=&store=&payer=&documentType=&subDocumentType=&nphiesClaimType=` (3168, 3166) — "why
+   * this priority". `payer` is the insurer's customer id; `buildQuery` drops every blank field.
+   */
   lookup(q: IdfLookupQuery): Promise<IdfLookupAnswer> {
-    return api.get<IdfLookupAnswer>(`${IDF_BASE}/lookup`, { item: q.item, store: q.store, payer: q.payer, documentType: q.documentType })
+    return api.get<IdfLookupAnswer>(`${IDF_BASE}/lookup`, lookupDoorParams(q))
   },
 }
 
@@ -155,10 +176,10 @@ export function lookupQuery(q: IdfLookupQuery) {
 // 626 · events — `idfEventsApi` (3167)
 export const IDF_EVENTS_KEY = [...IDF_KEY, 'events'] as const
 export const idfEventsApi = {
-  /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log. */
+  /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log, `{ page, pageSize, total, rows }`. */
   async events(q: IdfEventsQuery): Promise<IdfEventsPage> {
     const page = await api.get<IdfEventsPage | null>(`${IDF_BASE}/events`, eventsDoorParams(q))
-    return page ?? { items: [], total: 0, page: q.page, pageSize: 0 }
+    return pageOrEmpty(page, q.page)
   },
 }
 export function eventsQuery(q: IdfEventsQuery) {
@@ -169,9 +190,9 @@ export function eventsQuery(q: IdfEventsQuery) {
 export const IDF_REPORT_KEY = [...IDF_KEY, 'swap-report'] as const
 /** Both doors take the event log's SHARED filter (window, store, payer, master) — never its outcome or page. */
 export const idfReportApi = {
-  /** `GET IdfPriority/swap-report?from&to&store&payer&masterId` (3169) — rows grouped master × store × payer. */
-  async report(f: IdfEventsFilter): Promise<IdfSwapReportRow[]> {
-    return (await api.get<IdfSwapReportRow[] | null>(`${IDF_BASE}/swap-report`, filterDoorParams(f))) ?? []
+  /** `GET IdfPriority/swap-report?from&to&store&payer&masterId` (3169) — `{ from, to, rows, totals }`, rows grouped master × store × payer. */
+  async report(f: IdfEventsFilter): Promise<IdfSwapReport> {
+    return reportOrEmpty(await api.get<IdfSwapReport | null>(`${IDF_BASE}/swap-report`, filterDoorParams(f)))
   },
   /** `GET IdfPriority/swap-report/export` (3169) — the server's `.xlsx` for the same filter. */
   export(f: IdfEventsFilter): Promise<FileResponse> {
@@ -180,4 +201,253 @@ export const idfReportApi = {
 }
 export function swapReportQuery(f: IdfEventsFilter) {
   return { queryKey: [...IDF_REPORT_KEY, filterDoorParams(f)] as const, queryFn: () => idfReportApi.report(f), retry: false } as const
+}
+
+// 643 · a version's items — `idfEntriesApi` (3187)
+export const IDF_ENTRIES_KEY = [...IDF_KEY, 'entries'] as const
+export const idfEntriesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/entries?search&idf&page` (3187) — one page of that version's items. */
+  async entries(masterId: string, versionId: string, q: IdfItemsQuery): Promise<IdfEntriesPage> {
+    const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
+    const page = await api.get<IdfEntriesPage | null>(path, itemsDoorParams(q))
+    return pageOrEmpty(page, q.page)
+  },
+}
+export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQuery) {
+  return {
+    queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, itemsDoorParams(q)] as const,
+    queryFn: () => idfEntriesApi.entries(masterId, versionId, q),
+    retry: false,
+  } as const
+}
+
+// 644 · master export + template — `idfMasterFilesApi` (3188)
+export const idfMasterFilesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/export` — that version (live or old) as `.xlsx` in the upload format. */
+  export(masterId: string, versionId: string): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/export`)
+  },
+  /** `GET IdfPriority/masters/template` — the upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/template`)
+  },
+}
+
+// 645 · draft (3189) — `idfDraftApi`
+export const IDF_DRAFT_KEY = [...IDF_KEY, 'draft'] as const
+/** The base version's rows are read this many a page (the server may cap it lower; the loop follows `total`). */
+export const IDF_DRAFT_BASE_PAGE_SIZE = 500
+const draftPath = (masterId: string) => `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/draft`
+export const idfDraftApi = {
+  /** `GET …/masters/{id}/draft` — the open draft with every row, or null when none. */
+  async draft(masterId: string): Promise<IdfDraft | null> {
+    return (await api.get<IdfDraft | null>(draftPath(masterId))) ?? null
+  },
+  /** `POST …/draft` — copies the live items into a new draft (none live: an empty draft, `baseVersionId ''`). Refused while one is open (`IDF-00034`, `data { draftId, by, startedAt, changedAt }`). */
+  start(masterId: string): Promise<IdfDraft | null> {
+    return api.post<IdfDraft | null>(draftPath(masterId), {})
+  },
+  /** `POST …/draft/items { itemNumber, idfNumber, priority }` — refused with `data { rule, messageEn, messageAr }`. */
+  add(masterId: string, body: IdfDraftAddBody): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/items`, body)
+  },
+  /** `PUT …/draft/items/{itemNumber} { priority }`. */
+  reRank(masterId: string, itemNumber: string, priority: number): Promise<unknown> {
+    return api.put<unknown>(`${draftPath(masterId)}/items/${encodeURIComponent(itemNumber)}`, { priority })
+  },
+  /** `DELETE …/draft/items/{itemNumber}`. */
+  remove(masterId: string, itemNumber: string): Promise<unknown> {
+    return api.del<unknown>(`${draftPath(masterId)}/items/${encodeURIComponent(itemNumber)}`)
+  },
+  /** `POST …/draft/publish { note }` → the new live version (null when the answer carries no body). Refused while stale. */
+  async publish(masterId: string, note: string): Promise<IdfMasterVersion | null> {
+    return (await api.post<IdfMasterVersion | null>(`${draftPath(masterId)}/publish`, { note })) ?? null
+  },
+  /** `DELETE …/draft` — discards it (anyone with the edit grant; recorded). */
+  discard(masterId: string): Promise<unknown> {
+    return api.del<unknown>(draftPath(masterId))
+  },
+  /**
+   * Every row of the version a draft was copied from, for the draft diff: the entries door (3187). Page 1 first; when it
+   * states a `total`, the remaining pages are read at once (in page order); when it does not, page after page while a
+   * page comes back full. An empty page ends the rows either way. 654: 3189 as built marks no rows, so the base read
+   * stays; a draft with no base (`baseVersionId ''`) never calls it (`draftBaseVersion`). Pages of 500, the door's most.
+   */
+  async baseRows(masterId: string, versionId: string): Promise<IdfEntryRow[]> {
+    const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
+    const read = (page: number) => api.get<Partial<IdfEntriesPage> | null>(path, { page: String(page), pageSize: String(IDF_DRAFT_BASE_PAGE_SIZE) })
+    const first = await read(1)
+    const rows = [...(first?.rows ?? [])]
+    if (rows.length === 0) return rows
+    // The server may cap the page size below the one asked for: its own `pageSize`, else the size asked for.
+    const size = first?.pageSize && first.pageSize > 0 ? first.pageSize : IDF_DRAFT_BASE_PAGE_SIZE
+    if (typeof first?.total === 'number') {
+      const pages = Math.ceil(first.total / Math.max(size, rows.length))
+      const rest = await Promise.all(Array.from({ length: Math.max(0, pages - 1) }, (_, i) => read(i + 2)))
+      for (const got of rest) {
+        const batch = got?.rows ?? []
+        if (batch.length === 0) break
+        rows.push(...batch)
+      }
+      return rows
+    }
+    for (let page = 2, last = rows.length; last >= size; page += 1) {
+      const batch = (await read(page))?.rows ?? []
+      rows.push(...batch)
+      last = batch.length
+    }
+    return rows
+  },
+}
+export function draftQuery(masterId: string) {
+  return { queryKey: [...IDF_DRAFT_KEY, masterId] as const, queryFn: () => idfDraftApi.draft(masterId), retry: false } as const
+}
+/** The base rows live under the entries key, so a publish's `IDF_KEY` invalidation refreshes them too. */
+export function draftBaseQuery(masterId: string, versionId: string) {
+  return { queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, 'all'] as const, queryFn: () => idfDraftApi.baseRows(masterId, versionId), retry: false } as const
+}
+
+// 646 · draft owner, rebase, add a group (3190) — `idfDraftOwnerApi`
+export const idfDraftOwnerApi = {
+  /**
+   * `POST …/draft/rebase` (the door binds no body) — replays the draft's edits on the live version; answers `{ draft,
+   * reapplied, rows }`, `rows` the edits that failed their re-check and were dropped (read it with `rebaseResult`).
+   */
+  rebase(masterId: string): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/rebase`, {})
+  },
+  /**
+   * `POST …/draft/groups { idfNumber, priority }` — every member of the group, each checked as an add; answers `{ draft,
+   * added, rows: [{ itemNumber, edit, rule, messageEn, messageAr }] }` (read it with `groupAddResult`). An unknown group or
+   * a bad priority is `IDF-00030`; a group with no items `IDF-00036`.
+   */
+  addGroup(masterId: string, body: IdfDraftGroupBody): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/groups`, body)
+  },
+}
+
+// 647 · general master items — `idfGeneralApi` (3191). 648–651 key their reads under `IDF_GENERAL_KEY` (650's change
+// log as `IDF_GENERAL_CHANGES_KEY`) so a general write can invalidate the general master alone.
+export const IDF_GENERAL_KEY = [...IDF_KEY, 'general'] as const
+export const IDF_GENERAL_ITEMS_KEY = [...IDF_GENERAL_KEY, 'items'] as const
+export const idfGeneralApi = {
+  /** `GET IdfPriority/general/items?search&idf&page` (3191) — one page of the general master's items (643's shape). */
+  async items(q: IdfItemsQuery): Promise<IdfEntriesPage> {
+    const page = await api.get<IdfEntriesPage | null>(`${IDF_BASE}/general/items`, itemsDoorParams(q))
+    return pageOrEmpty(page, q.page)
+  },
+}
+export function generalItemsQuery(q: IdfItemsQuery) {
+  return {
+    queryKey: [...IDF_GENERAL_ITEMS_KEY, itemsDoorParams(q)] as const,
+    queryFn: () => idfGeneralApi.items(q),
+    retry: false,
+  } as const
+}
+
+// 648 · set / clear one general item (3192). Both apply at once; the caller invalidates `IDF_GENERAL_KEY`.
+export const idfGeneralEditApi = {
+  /** `PUT IdfPriority/general/items/{itemNumber} { idfNumber, priority, reason }` — set or re-rank one item. */
+  set(itemNumber: string, body: IdfGeneralSetBody): Promise<unknown> {
+    return api.put<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+  /** `DELETE IdfPriority/general/items/{itemNumber} { reason }` — the reason in the BODY. */
+  clear(itemNumber: string, reason: string): Promise<unknown> {
+    const body: IdfGeneralClearBody = { reason }
+    return api.delWithBody<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+}
+
+// 649 · general upload → preview → apply — `idfGeneralUploadApi` (3193; 654 reconciled with the door as built). Apply
+// writes the general master: the page invalidates `IDF_GENERAL_KEY`.
+export const idfGeneralUploadApi = {
+  /** `POST IdfPriority/general/uploads` multipart `{ file }` → the row report + change preview. Writes nothing. */
+  async upload(file: File): Promise<IdfGeneralUploadReport> {
+    const r = await api.upload<IdfGeneralUploadReport | null>(`${IDF_BASE}/general/uploads`, uploadForm(file))
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, lineCount: r?.lineCount ?? null, rows: r?.rows ?? [], preview: r?.preview ?? null }
+  },
+  /** `POST …/general/uploads/{uploadId}/apply { reason }` → `{ applied, failedBatches }`. Refused unless the upload's `ok`. */
+  async apply(uploadId: string, reason: string): Promise<IdfGeneralApplyResult> {
+    const r = await api.post<IdfGeneralApplyResult | null>(`${IDF_BASE}/general/uploads/${encodeURIComponent(uploadId)}/apply`, { reason })
+    return { applied: r?.applied ?? 0, failedBatches: r?.failedBatches ?? [] }
+  },
+}
+
+// 650 · general change log — `idfChangesApi` (3194)
+export const IDF_GENERAL_CHANGES_KEY = [...IDF_GENERAL_KEY, 'changes'] as const
+export const idfChangesApi = {
+  /** `GET IdfPriority/general/changes?item&idf&user&from&to&page` (3194) — one page of the log, newest first. */
+  async changes(q: IdfChangesQuery): Promise<IdfChangesPage> {
+    const page = await api.get<IdfChangesPage | null>(`${IDF_BASE}/general/changes`, changesDoorParams(q))
+    return pageOrEmpty(page, q.page)
+  },
+  /** `GET IdfPriority/general/changes/export` (3194) — the server's `.xlsx` of the filtered rows (no page). */
+  export(q: IdfChangesQuery): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/changes/export`, changesExportParams(q))
+  },
+}
+export function generalChangesQuery(q: IdfChangesQuery) {
+  return { queryKey: [...IDF_GENERAL_CHANGES_KEY, changesDoorParams(q)] as const, queryFn: () => idfChangesApi.changes(q), retry: false } as const
+}
+
+// 651 · general export + template — `idfGeneralFilesApi` (3195)
+export const idfGeneralFilesApi = {
+  /** `GET IdfPriority/general/export` — the whole general master as `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/export`)
+  },
+  /** `GET IdfPriority/general/template` — the general upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/template`)
+  },
+}
+
+// 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; 654 reconciled with the door as built)
+export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const
+export const idfGroupsApi = {
+  /** `GET IdfPriority/groups?search=&page=` — one page of groups, `{ page, pageSize, total, rows }`, each with its item count. */
+  async list(q: IdfGroupsQuery): Promise<IdfGroupsPage> {
+    const page = await api.get<IdfGroupsPage | null>(`${IDF_BASE}/groups`, groupsDoorParams(q))
+    return pageOrEmpty(page, q.page)
+  },
+  /** `POST IdfPriority/groups { idfNumber, description, dosageForm }`. */
+  add(body: IdfGroupBody): Promise<IdfGroup> {
+    return api.post<IdfGroup>(`${IDF_BASE}/groups`, body)
+  },
+  /** `PUT IdfPriority/groups/{idfNumber} { description, dosageForm }` — the number never changes. */
+  edit(idfNumber: string, body: IdfGroupEditBody): Promise<IdfGroup> {
+    return api.put<IdfGroup>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`, body)
+  },
+  /** `DELETE IdfPriority/groups/{idfNumber}` — refused (`IDF-00047`, `data { idfNumber, itemCount, entryCount }`) while items point at it or a live version ranks it. */
+  remove(idfNumber: string): Promise<unknown> {
+    return api.del<unknown>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`)
+  },
+  /** `GET IdfPriority/groups/export` — every group as the server's `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/groups/export`)
+  },
+  /** `GET IdfPriority/groups/template` — the import's header, no rows (653's Import uses it). */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/groups/template`)
+  },
+}
+export function groupsQuery(q: IdfGroupsQuery) {
+  return { queryKey: [...IDF_GROUPS_KEY, groupsDoorParams(q)] as const, queryFn: () => idfGroupsApi.list(q), retry: false } as const
+}
+
+// 653 · IDF groups import — `idfGroupsImportApi` (BackOffice 3197; 654 reconciled with the door as built)
+export const idfGroupsImportApi = {
+  /** `POST IdfPriority/groups/uploads` multipart `{ file }` → every row with its action, failing rows with their rule. Writes nothing. */
+  async upload(file: File): Promise<IdfGroupsImportReport> {
+    const r = await api.upload<IdfGroupsImportReport | null>(`${IDF_BASE}/groups/uploads`, uploadForm(file))
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, lineCount: r?.lineCount ?? null, rows: r?.rows ?? [] }
+  },
+  /**
+   * `POST …/groups/uploads/{uploadId}/apply` (the door binds no body; `{}` is sent) → `{ added, updated, unchanged }`.
+   * Refused unless the upload is clean and not yet applied (`IDF-00049`).
+   */
+  async apply(uploadId: string): Promise<IdfGroupsImportResult> {
+    const r = await api.post<Partial<IdfGroupsImportResult> | null>(`${IDF_BASE}/groups/uploads/${encodeURIComponent(uploadId)}/apply`, {})
+    return { added: r?.added ?? 0, updated: r?.updated ?? 0, unchanged: r?.unchanged ?? 0 }
+  },
 }

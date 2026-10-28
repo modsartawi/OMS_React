@@ -14,11 +14,11 @@ describe('events filter builds the query; core buildQuery drops the empty fields
   })
 
   it('readsEveryField_andIgnoresAnUnknownOutcomeOrABadPage', () => {
-    expect(read('from=2026-10-01&to=2026-10-15&store=P019&payer=BUPA&master=M-OPS&outcome=forcedPickTaken&page=3')).toEqual({
+    expect(read('from=2026-10-01&to=2026-10-15&store=P019&payer=0001100336&master=M-OPS&outcome=forcedPickTaken&page=3')).toEqual({
       from: '2026-10-01',
       to: '2026-10-15',
       store: 'P019',
-      payer: 'BUPA',
+      payer: '0001100336',
       masterId: 'M-OPS',
       outcome: 'forcedPickTaken',
       page: 3,
@@ -28,16 +28,18 @@ describe('events filter builds the query; core buildQuery drops the empty fields
     expect(read('page=x')).toMatchObject({ page: 1 })
     // the reserved outcomes are not offered until IDF requests exist, so an address cannot select them either
     expect(read('outcome=requestRaised')).toMatchObject({ outcome: '' })
+    // 3167 adds alternativeTaken to the live outcomes
+    expect(read('outcome=alternativeTaken')).toMatchObject({ outcome: 'alternativeTaken' })
   })
 
   it('trimsTheTypedStoreAndPayer', () => {
-    expect(read('store=%20P019%20&payer=%20BUPA')).toMatchObject({ store: 'P019', payer: 'BUPA' })
+    expect(read('store=%20P019%20&payer=%200001100336')).toMatchObject({ store: 'P019', payer: '0001100336' })
   })
 
   it('writesOnlyWhatDiffersFromTheDefaults_soTheBareAddressStaysBare', () => {
     expect(writeIdfEventsQuery(read(''), TODAY).toString()).toBe('')
-    expect(writeIdfEventsQuery({ ...read(''), payer: 'BUPA', masterId: 'M-OPS', outcome: 'reminder', page: 2 }, TODAY).toString()).toBe(
-      'payer=BUPA&master=M-OPS&outcome=reminder&page=2',
+    expect(writeIdfEventsQuery({ ...read(''), payer: '0001100336', masterId: 'M-OPS', outcome: 'reminder', page: 2 }, TODAY).toString()).toBe(
+      'payer=0001100336&master=M-OPS&outcome=reminder&page=2',
     )
   })
 
@@ -63,11 +65,11 @@ describe('events filter builds the query; core buildQuery drops the empty fields
 
   it('theLog_addsTheOutcomeAndThePage', () => {
     expect(eventsDoorParams(read(''))).toEqual({ from: '2026-10-21', to: '2026-10-27', store: '', payer: '', masterId: '', outcome: '', page: '1' })
-    expect(eventsDoorParams(read('payer=BUPA&outcome=lineAbandoned&page=2'))).toEqual({
+    expect(eventsDoorParams(read('payer=0001100336&outcome=lineAbandoned&page=2'))).toEqual({
       from: '2026-10-21',
       to: '2026-10-27',
       store: '',
-      payer: 'BUPA',
+      payer: '0001100336',
       masterId: '',
       outcome: 'lineAbandoned',
       page: '2',

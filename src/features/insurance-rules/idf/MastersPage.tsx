@@ -11,12 +11,13 @@ import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { ByAt, DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { mastersQuery, storeListsQuery } from './api'
-import { masterRow, type IdfMaster, type IdfMasterRow } from './masters'
+import { masterRow, type EditableIdfMaster, type IdfMaster, type IdfMasterRow } from './masters'
 import MasterFormDialog from './MasterFormDialog' // 621
+import { storeListName } from './store-lists'
 
 /**
  * Insurance rules ▸ IDF masters — `/insurance-rules/idf/masters` (BackOffice spec 3157, door 3161; oms ticket 619).
- * Every IDF priority master: kind (insurer with its payer, store with its store list, or an insurer master scoped
+ * Every IDF priority master: kind (insurer with its customer id, store with its store list, or an insurer master scoped
  * to a store list showing both), the name in the reader's language, "hard above N, reminder above M", and the live
  * version (number, by, at, note) — or that there is none yet.
  *
@@ -30,7 +31,7 @@ export default function MastersPage() {
   const { t, i18n } = useTranslation('insurance-idf')
   const masters = useQuery(mastersQuery())
   // 621 · the dialog: `null` closed, `'new'` create, a master edit
-  const [editing, setEditing] = useState<IdfMaster | 'new' | null>(null)
+  const [editing, setEditing] = useState<EditableIdfMaster | 'new' | null>(null)
   return (
     <section className="flex h-full w-full flex-col gap-4" data-idf-masters-page="">
       <header className="max-w-3xl">
@@ -65,12 +66,15 @@ export default function MastersPage() {
   )
 }
 
-function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: string; onEdit: (m: IdfMaster) => void }) {
+function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: string; onEdit: (m: EditableIdfMaster) => void }) {
   const { t } = useTranslation('insurance-idf')
   const rows: IdfMasterRow[] = masters.map((m) => masterRow(m, lang))
   // 621 · the store list's name where 620's lists know it, else its id
   const lists = useQuery(storeListsQuery())
-  const listName = (id: string) => lists.data?.find((l) => l.storeListId === id)?.name ?? null
+  const listName = (id: string) => {
+    const l = lists.data?.find((x) => x.storeListId === id)
+    return l ? storeListName(l, lang) : null
+  }
   return (
     <div className="overflow-x-auto rounded-md border border-border/60">
       <table className="w-full text-sm" data-idf-masters="">
@@ -93,8 +97,8 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
           {rows.map((r, i) => (
             <tr key={r.masterId} className="border-t border-border/60" data-master={r.masterId} data-kind={r.kind}>
               <td className={`${TD} font-medium`} data-col="name">
-                {/* 622 · the name opens the master's page */}
-                <Link to={`/insurance-rules/idf/masters/${encodeURIComponent(r.masterId)}`} className="hover:underline" data-idf-open-master="">
+                {/* 622 · the name opens the master's page; 647 · the general master's opens the General page */}
+                <Link to={r.href} className="hover:underline" data-idf-open-master="">
                   <bdi>{r.name}</bdi>
                 </Link>
               </td>
@@ -102,15 +106,20 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
                 {t(`masters.kind.${r.kind}`, { defaultValue: r.kind })}
               </td>
               <td className={TD} data-col="payer">
-                {r.payerCode && <Ltr>{r.payerCode}</Ltr>}
+                {r.insurerCustomerId && <Ltr>{r.insurerCustomerId}</Ltr>}
               </td>
               <td className={TD} data-col="storeList">
                 {r.storeListId && (listName(r.storeListId) ? <bdi data-store-list-id={r.storeListId}>{listName(r.storeListId)}</bdi> : <Ltr>{r.storeListId}</Ltr>)}
               </td>
               <td className={TD} data-col="thresholds">
-                <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(r.hard), reminder: formatFigure(r.reminder) }} components={{ v: <Ltr /> }} />
+                {r.hard !== null && r.reminder !== null && (
+                  <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(r.hard), reminder: formatFigure(r.reminder) }} components={{ v: <Ltr /> }} />
+                )}
               </td>
-              {r.live ? (
+              {r.kind === 'general' ? (
+                // 647 · the general master has no versions: nothing to say in the version cells
+                <td className={TD} colSpan={3} data-col="noVersion" />
+              ) : r.live ? (
                 <>
                   <td className={NUM} data-col="version">
                     <Ltr>{formatFigure(r.live.number)}</Ltr>
@@ -128,9 +137,12 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
                 </td>
               )}
               <td className={`${TD} text-end`} data-col="actions">
-                <Button variant="text" onClick={() => onEdit(masters[i])} aria-label={t('masterForm.editLabel', { name: fsi(r.name) })} data-idf-master-edit={r.masterId}>
-                  {t('masterForm.edit')}
-                </Button>
+                {/* 647 · no Edit on the general master (`editable` false), so the cast is safe */}
+                {r.editable && (
+                  <Button variant="text" onClick={() => onEdit(masters[i] as EditableIdfMaster)} aria-label={t('masterForm.editLabel', { name: fsi(r.name) })} data-idf-master-edit={r.masterId}>
+                    {t('masterForm.edit')}
+                  </Button>
+                )}
               </td>
             </tr>
           ))}

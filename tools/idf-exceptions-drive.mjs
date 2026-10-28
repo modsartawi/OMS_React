@@ -3,13 +3,14 @@
 // Drives the REAL app in Chromium against a STUB of the exceptions door (and 619's masters door for the picker),
 // on the REAL envelope. Fixtures and the handler are `tools/idf-stubs.mjs` (`// --- 624 ---`, `idfStub`):
 //   GET    IdfPriority/exceptions         → `IDF_EXCEPTIONS` (the spec's seed shapes)
-//   POST   IdfPriority/exceptions         { keyKind, key, handling, masterId, reason }
-//   PUT    IdfPriority/exceptions/{id}    { keyKind, key, handling, masterId, reason }
-//   DELETE IdfPriority/exceptions/{id}?reason=
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3166 is unbuilt. Ticket 628 swaps in the doors.
+//   POST   IdfPriority/exceptions         { keyKind, key, handling, masterId, allStores, reason }
+//   PUT    IdfPriority/exceptions/{id}    { keyKind, key, handling, masterId, allStores, reason }
+//   DELETE IdfPriority/exceptions/{id}    { reason }  (in the BODY, as 3166 binds it)
+// The stubs carry the shapes 3166 built (oms 628); the list reads most specific key kind first.
 //
 // It verifies, in LTR and RTL:
-//   1. the IDF exceptions leaf is in the rail and lit; the rows as sent (key kind, key ltr, handling, master named);
+//   1. the IDF exceptions leaf is in the rail and lit; the rows as sent (key kind, key ltr, handling, master named,
+//      every store vs pilot stores only);
 //   2. add: a blank key and reason are refused in the dialog (nothing sent); a reminder row is added with its reason;
 //   3. edit: switching it to "master" asks for a master and a NEW reason; then it saves with the picked master;
 //   4. delete: a blank reason is refused; with a reason the row goes, the reason on the DELETE;
@@ -80,12 +81,12 @@ for (const dir of ['ltr', 'rtl']) {
     const leaf = page.locator('a[href="/insurance-rules/idf/exceptions"]')
     check(`${dir} 1. the rail has the IDF exceptions leaf, lit`, (await leaf.count()) >= 1 && (await leaf.first().getAttribute('aria-current')) === 'page')
     check(`${dir} 1. the title`, strip(await page.locator('h1').first().innerText()) === 'IDF exceptions')
-    check(`${dir} 1. the rows as sent`, JSON.stringify(await rowIds(page)) === JSON.stringify(['X-1:skip', 'X-2:skip', 'X-3:skip', 'X-4:master']), JSON.stringify(await rowIds(page)))
+    check(`${dir} 1. the rows as sent (most specific key kind first)`, JSON.stringify(await rowIds(page)) === JSON.stringify(['X-2:skip', 'X-3:skip', 'X-4:master', 'X-1:skip']), JSON.stringify(await rowIds(page)))
     const x1 = page.locator('[data-exception="X-1"]')
-    check(`${dir} 1. key kind word, key ltr, handling word`, (await cell(x1, 'keyKind')) === 'Document type' && (await x1.locator('[data-col="key"] bdi[dir="ltr"]').innerText()) === 'SABIC' && (await cell(x1, 'handling')) === 'Skip')
+    check(`${dir} 1. key kind word, key ltr, handling word`, (await cell(x1, 'keyKind')) === 'Document type' && (await x1.locator('[data-col="key"] bdi[dir="ltr"]').innerText()) === 'SABIC' && (await cell(x1, 'handling')) === 'Skip' && (await cell(x1, 'stores')) === 'Every store')
     check(`${dir} 1. reason in a bdi, by · at ltr`, strip(await x1.locator('[data-col="reason"] bdi').innerText()) === 'SABIC contract orders' && strip(await x1.locator('[data-col="changed"] bdi[dir="ltr"]').innerText()) === 'nalharbi · 2026-10-10 08:30', strip(await x1.locator('[data-col="changed"]').innerText()))
     const x4 = page.locator('[data-exception="X-4"]')
-    check(`${dir} 1. master handling names the master from 619's list`, (await cell(x4, 'keyKind')) === 'Nphies claim type' && strip(await x4.locator('[data-master-name] bdi').innerText()) === 'Operation pharmacies')
+    check(`${dir} 1. master handling names the master from 619's list; pilot stores only`, (await cell(x4, 'stores')) === 'Pilot stores only' && (await cell(x4, 'keyKind')) === 'Nphies claim type' && strip(await x4.locator('[data-master-name] bdi').innerText()) === 'Operation pharmacies')
 
     // 2. add a reminder row
     await page.locator('[data-idf-exception-add]').click()
@@ -102,7 +103,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-exception-save]').click()
     await dlg.waitFor({ state: 'detached' })
     const added = writes[0]
-    check(`${dir} 2. POST carries the row and its reason, no master`, added?.method === 'POST' && JSON.stringify(added.body) === JSON.stringify({ keyKind: 'subDocumentType', key: 'ZC-PILOT', handling: 'reminder', masterId: null, reason: 'Pilot sub-document type' }), JSON.stringify(added))
+    check(`${dir} 2. POST carries the row and its reason, no master`, added?.method === 'POST' && JSON.stringify(added.body) === JSON.stringify({ keyKind: 'subDocumentType', key: 'ZC-PILOT', handling: 'reminder', masterId: null, allStores: false, reason: 'Pilot sub-document type' }), JSON.stringify(added))
     await page.locator('[data-exception="X-104"]').waitFor()
     check(`${dir} 2. the list re-reads and shows the reminder row`, (await cell(page.locator('[data-exception="X-104"]'), 'handling')) === 'Reminder' && reads.exceptions === 2, JSON.stringify(reads))
 
@@ -119,13 +120,14 @@ for (const dir of ['ltr', 'rtl']) {
     const probs2 = await ed.locator('[data-problem]').evaluateAll((els) => els.map((e) => e.getAttribute('data-problem')).sort())
     check(`${dir} 3. master handling asks for a master and a new reason`, JSON.stringify(probs2) === JSON.stringify(['masterRequired', 'reasonRequired']) && writes.length === 1, JSON.stringify(probs2))
     await ed.locator('[data-field="masterId"]').selectOption('M-BUPA')
+    await ed.locator('[data-field="allStores"]').check()
     await ed.locator('[data-field="reason"]').fill('Use Bupa priorities')
     await page.locator('[data-exception-save]').click()
     await ed.waitFor({ state: 'detached' })
     const put = writes[1]
-    check(`${dir} 3. PUT carries the master and the new reason`, put?.method === 'PUT' && put.path === 'IdfPriority/exceptions/X-104' && JSON.stringify(put.body) === JSON.stringify({ keyKind: 'subDocumentType', key: 'ZC-PILOT', handling: 'master', masterId: 'M-BUPA', reason: 'Use Bupa priorities' }), JSON.stringify(put))
+    check(`${dir} 3. PUT carries the master and the new reason`, put?.method === 'PUT' && put.path === 'IdfPriority/exceptions/X-104' && JSON.stringify(put.body) === JSON.stringify({ keyKind: 'subDocumentType', key: 'ZC-PILOT', handling: 'master', masterId: 'M-BUPA', allStores: true, reason: 'Use Bupa priorities' }), JSON.stringify(put))
     await page.locator('[data-exception="X-104"][data-handling="master"]').waitFor()
-    check(`${dir} 3. the row now names its master`, strip(await added104.locator('[data-master-name] bdi').innerText()) === 'Bupa general' && strip(await added104.locator('[data-col="reason"] bdi').innerText()) === 'Use Bupa priorities')
+    check(`${dir} 3. the row now names its master, at every store`, (await cell(added104, 'stores')) === 'Every store' && strip(await added104.locator('[data-master-name] bdi').innerText()) === 'Bupa general' && strip(await added104.locator('[data-col="reason"] bdi').innerText()) === 'Use Bupa priorities')
 
     // 4. delete with a reason
     await added104.locator('[data-exception-delete]').click()
@@ -137,9 +139,9 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-exception-delete-confirm]').click()
     await del.waitFor({ state: 'detached' })
     const d = writes[2]
-    check(`${dir} 4. DELETE carries the reason`, d?.method === 'DELETE' && d.path === 'IdfPriority/exceptions/X-104' && d.reason === 'Pilot over', JSON.stringify(d))
+    check(`${dir} 4. DELETE carries the reason in its body`, d?.method === 'DELETE' && d.path === 'IdfPriority/exceptions/X-104' && d.reason === 'Pilot over', JSON.stringify(d))
     await page.locator('[data-exception="X-104"]').waitFor({ state: 'detached' })
-    check(`${dir} 4. the row is gone, the seed stays`, JSON.stringify(await rowIds(page)) === JSON.stringify(['X-1:skip', 'X-2:skip', 'X-3:skip', 'X-4:master']))
+    check(`${dir} 4. the row is gone, the seed stays`, JSON.stringify(await rowIds(page)) === JSON.stringify(['X-2:skip', 'X-3:skip', 'X-4:master', 'X-1:skip']))
 
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
     check(`${dir} 5. no page errors`, errors.length === 0, errors.join(' | '))

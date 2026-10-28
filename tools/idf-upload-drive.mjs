@@ -8,7 +8,7 @@
 //   POST IdfPriority/masters/{id}/uploads/{uploadId}/publish  → the new live version, or a business refusal
 //   GET  IdfPriority/masters/{id}/versions                    → the history (623, `IDF_VERSIONS`)
 //   POST IdfPriority/masters/{id}/versions/{vid}/restore      → a NEW live version (623)
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3161 is unbuilt. Ticket 628 swaps in the doors.
+// The stubs carry the shapes 3161 built (oms 628): `lineCount`, rules incl. `notInInsurerItems` and `itemNotInGroup`.
 //
 // It verifies, in LTR and RTL:
 //   1. a master's name on the list opens its page (`/insurance-rules/idf/masters/:masterId`), the leaf stays lit;
@@ -99,7 +99,7 @@ for (const dir of ['ltr', 'rtl']) {
     const leaf = page.locator('a[href="/insurance-rules/idf/masters"][aria-current="page"]')
     check(`${dir} 1. the IDF masters leaf stays lit`, (await leaf.count()) >= 1)
     const head = page.locator('[data-idf-master="M-BUPA"]')
-    check(`${dir} 1. header: name in a bdi, payer ltr, thresholds`, strip(await head.locator('h1 bdi').innerText()) === 'Bupa general' && JSON.stringify(await ltr(head.locator('[data-col="payer"]'))) === '["BUPA"]' && strip(await head.locator('[data-col="thresholds"]').innerText()) === 'Hard above 5, reminder above 2')
+    check(`${dir} 1. header: name in a bdi, insurer customer id ltr, thresholds`, strip(await head.locator('h1 bdi').innerText()) === 'Bupa general' && JSON.stringify(await ltr(head.locator('[data-col="payer"]'))) === '["0001100336"]' && strip(await head.locator('[data-col="thresholds"]').innerText()) === 'Hard above 5, reminder above 2')
     check(`${dir} 1. header: live version 3 by · at, note`, JSON.stringify(await ltr(head.locator('[data-live-number]'))) === '["3"]' && strip((await ltr(head.locator('[data-live-by-at]'))).join('')) === 'nalharbi · 2026-10-20 09:15' && strip(await head.locator('[data-live-note] bdi').innerText()) === 'October refresh')
 
     const publish = page.locator('[data-idf-publish]')
@@ -111,9 +111,9 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-report="failed"]').waitFor({ timeout: 30000 })
     const up = calls.filter((c) => c.method === 'POST' && c.path === 'IdfPriority/masters/M-BUPA/uploads')
     check(`${dir} 2. the upload is multipart with the file`, up.length === 1 && up[0].multipart && /filename="bupa-dirty.csv"/.test(up[0].body ?? ''))
-    check(`${dir} 2. the summary counts the failing rows`, strip(await page.locator('[data-idf-report-summary]').innerText()).startsWith('3 rows failed.') && JSON.stringify(await ltr(page.locator('[data-idf-report-summary]'))) === '["3"]', strip(await page.locator('[data-idf-report-summary]').innerText()))
+    check(`${dir} 2. the summary counts the failing rows`, strip(await page.locator('[data-idf-report-summary]').innerText()).startsWith('4 rows failed.') && JSON.stringify(await ltr(page.locator('[data-idf-report-summary]'))) === '["4"]', strip(await page.locator('[data-idf-report-summary]').innerText()))
     const rows = page.locator('[data-idf-report-rows] tbody tr')
-    check(`${dir} 2. every failing row, in the server's order`, JSON.stringify(await rows.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-line')}:${e.getAttribute('data-rule')}`))) === JSON.stringify(['3:unknownItem', '7:notInItemCustomer', '9:badPriority']))
+    check(`${dir} 2. every failing row, in the server's order`, JSON.stringify(await rows.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-line')}:${e.getAttribute('data-rule')}`))) === JSON.stringify(['3:unknownItem', '7:notInInsurerItems', '8:itemNotInGroup', '9:badPriority']))
     const r1 = page.locator('[data-idf-report-rows] tbody tr[data-line="7"]')
     check(`${dir} 2. line and item are ltr, the rule in words, the message in a bdi`, JSON.stringify(await ltr(r1.locator('[data-col="line"]'))) === '["7"]' && JSON.stringify(await ltr(r1.locator('[data-col="item"]'))) === '["100871"]' && strip(await r1.locator('[data-col="rule"]').innerText()) === "Item not in the insurer's items" && strip(await r1.locator('[data-col="message"] bdi').innerText()) === "Item 100871 is not one of Bupa's items.")
     await page.locator('[data-idf-publish-note]').fill('November refresh')

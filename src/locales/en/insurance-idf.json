@@ -12,7 +12,7 @@
     "columns": {
       "name": "Name",
       "kind": "Kind",
-      "payer": "Payer",
+      "payer": "Insurer customer id",
       "storeList": "Store list",
       "thresholds": "Thresholds",
       "version": "Live version",
@@ -21,7 +21,8 @@
     },
     "kind": {
       "insurer": "Insurer",
-      "store": "Store"
+      "store": "Store",
+      "general": "General"
     },
     "thresholds": "Hard above <v>{{hard}}</v>, reminder above <v>{{reminder}}</v>",
     "noLive": "No live version yet"
@@ -41,26 +42,24 @@
     "cancel": "Cancel",
     "columns": {
       "name": "Name",
-      "id": "List",
+      "code": "Code",
       "stores": "Stores"
     },
     "create": {
       "label": "New list",
-      "placeholder": "Name of the list",
+      "code": "Code",
+      "codePlaceholder": "Plain letters, digits and dashes (26 at most)",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
       "action": "Create list",
       "done": "Store list created"
     },
     "rename": {
       "action": "Rename",
-      "label": "New name",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
       "save": "Save name",
       "done": "Store list renamed"
-    },
-    "delete": {
-      "action": "Delete",
-      "title": "Delete store list",
-      "confirm": "Delete the store list {{name}}? Masters that point at it lose their stores.",
-      "done": "Store list deleted"
     },
     "stores": {
       "title": "Stores in <n>{{name}}</n>",
@@ -71,7 +70,16 @@
       "remove": "Remove {{code}}",
       "save": "Save stores",
       "done": "Stores saved"
-    }
+    },
+    "problem": {
+      "codeRequired": "Enter the code.",
+      "codeAscii": "Use plain letters, digits and dashes only (no spaces or commas).",
+      "codeTooLong": "The code is longer than 26 characters.",
+      "nameRequired": "Enter the name."
+    },
+    "badStores": "Unknown store codes: <v>{{codes}}</v>",
+    "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
+    "sharedStores": "Stores both cover: <v>{{stores}}</v>"
   },
   "masterForm": {
     "newAction": "New master",
@@ -82,8 +90,8 @@
     "editTitle": "Edit IDF master",
     "kind": "Kind",
     "kindFixed": "The kind cannot be changed after the master is created.",
-    "payer": "Payer code",
-    "payerPlaceholder": "e.g. BUPA",
+    "payer": "Insurer customer id",
+    "payerPlaceholder": "e.g. 0001100336",
     "storeList": "Store list",
     "storeListOptional": "All stores (no store list)",
     "pickStoreList": "Pick a store list",
@@ -97,7 +105,7 @@
     "orderHint": "For each item the first master that names it decides, most specific first:",
     "thisOne": "This master",
     "problem": {
-      "payerRequired": "Enter the payer code.",
+      "insurerRequired": "Enter the insurer's customer id.",
       "storeListRequired": "Pick a store list.",
       "nameRequired": "Enter the name.",
       "wholeNumber": "Enter a whole number of 0 or more.",
@@ -111,7 +119,9 @@
     "refusedFallback": "The server refused the change.",
     "refusalCode": "Code <v>{{code}}</v>",
     "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
-    "denied": "You do not have access to change IDF masters."
+    "denied": "You do not have access to change IDF masters.",
+    "payerHint": "The insurer's customer id, as its ItemCustomer rows carry it.",
+    "sharedStores": "Stores both cover: <v>{{stores}}</v>"
   },
   "upload": {
     "back": "All IDF masters",
@@ -120,7 +130,7 @@
     "notFound": "There is no IDF master {{id}}.",
     "live": "Live version",
     "title": "Upload a new version",
-    "hint": "A file with three columns: item, IDF group, priority. Uploading checks every row and publishes nothing.",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: item, IDF group, priority (a header row is optional). Uploading checks every row and publishes nothing.",
     "file": "File to upload",
     "submit": "Upload and check",
     "uploadFailed": "The file could not be uploaded.",
@@ -136,8 +146,9 @@
     },
     "rule": {
       "unknownItem": "Unknown item",
-      "notInItemCustomer": "Item not in the insurer's items",
+      "notInInsurerItems": "Item not in the insurer's items",
       "unknownGroup": "Unknown IDF group",
+      "itemNotInGroup": "Item not in the IDF group the line names",
       "badPriority": "Priority not a whole number of 1 or more",
       "duplicateItem": "Item listed twice"
     },
@@ -147,7 +158,8 @@
     "publishHint": "Publish stays off until the report is clean and a note is written.",
     "published": "Published",
     "publishedDetail": "Version {{n}} is live now.",
-    "publishFailed": "The upload could not be published."
+    "publishFailed": "The upload could not be published.",
+    "lineCount": "Lines in the file: <v>{{n}}</v>"
   },
   "versions": {
     "title": "Versions",
@@ -159,6 +171,7 @@
     "columns": {
       "number": "Version",
       "byAt": "Published",
+      "entries": "Items",
       "note": "Note",
       "actions": "Actions"
     },
@@ -183,6 +196,7 @@
       "keyKind": "Key kind",
       "key": "Key",
       "handling": "Handling",
+      "stores": "Stores",
       "reason": "Reason",
       "changed": "Changed",
       "actions": "Actions"
@@ -216,20 +230,35 @@
     "problem": {
       "keyRequired": "Enter the key.",
       "masterRequired": "Pick the master to use.",
-      "reasonRequired": "Give a reason for this change."
+      "reasonRequired": "Give a reason for this change.",
+      "keyWholeNumber": "A Nphies claim type is a whole number.",
+      "reasonTooLong": "Keep the reason to 400 characters."
+    },
+    "allStores": "Apply at every store",
+    "allStoresHint": "Off: the row applies at the IDF pilot stores only.",
+    "stores": {
+      "all": "Every store",
+      "pilot": "Pilot stores only"
+    },
+    "keyPlaceholder": {
+      "documentType": "A document type name, e.g. InsuranceOrder",
+      "subDocumentType": "Free text, matched ignoring case",
+      "nphiesClaimType": "A whole number"
     }
   },
   "lookup": {
     "title": "IDF lookup",
-    "lede": "Why this priority: for an item, a store and a payer, the master that decided, the tiers skipped before it and the ranked IDF group.",
+    "lede": "Why this priority: for an item and a store (and optionally an insurer and a document type), the master that decided, the tiers skipped before it and the ranked IDF group.",
     "fields": {
       "item": "Item",
       "store": "Store",
-      "payer": "Payer",
-      "documentType": "Document type (optional)"
+      "payer": "Insurer customer id (optional)",
+      "documentType": "Document type (optional)",
+      "subDocumentType": "Sub-document type (optional)",
+      "nphiesClaimType": "Nphies claim type (optional)"
     },
     "submit": "Look up",
-    "hint": "Enter an item, a store and a payer to see why the item has its priority.",
+    "hint": "Enter an item and a store (the insurer customer id is optional) to see why the item has its priority.",
     "loading": "Looking up the priority…",
     "failed": "The lookup could not be answered.",
     "decidedBy": "Decided by",
@@ -248,10 +277,26 @@
     },
     "lookedUp": "Looked up",
     "tier": {
-      "insurerStoreList": "Insurer on a store list",
+      "insurerAtStoreList": "Insurer on a store list",
       "insurer": "Insurer",
-      "operationPharmacy": "Operation pharmacy",
-      "general": "General"
+      "store": "Store (operation pharmacy)",
+      "general": "General",
+      "exceptionMaster": "Exception's master"
+    },
+    "payerPlaceholder": "e.g. 0001100336",
+    "itemTitle": "Item <v>{{item}}</v>",
+    "idfGroup": "IDF group <v>{{group}}</v>",
+    "insurer": "Insurer <v>{{insurer}}</v>",
+    "exceptionTitle": "Exception applied",
+    "skippedMaster": "master <v>{{id}}</v>",
+    "skipReason": {
+      "notOnPilotList": "The store is not on the pilot list",
+      "notAnIdfItem": "Not an IDF item",
+      "noPayer": "No insurer on the order",
+      "noMaster": "No master at this tier",
+      "masterDoesNotNameItem": "The master does not name the item",
+      "unreadable": "The master could not be read",
+      "exceptionRow": "An exception row applied"
     }
   },
   "events": {
@@ -270,7 +315,7 @@
       "from": "From",
       "to": "To",
       "store": "Store",
-      "payer": "Payer",
+      "payer": "Insurer customer id",
       "master": "Master",
       "outcome": "Outcome",
       "invalid": "Pick a valid from and to date.",
@@ -281,12 +326,18 @@
     "columns": {
       "at": "When",
       "store": "Store",
-      "payer": "Payer",
+      "till": "Till",
+      "trx": "Transaction",
+      "payer": "Insurer customer id",
       "documentType": "Document type",
       "itemScanned": "Item scanned",
       "itemDispensed": "Item dispensed",
+      "source": "Deciding tier",
       "master": "Deciding master",
+      "decision": "Decision",
       "outcome": "Outcome",
+      "scannedPrice": "Scanned price (per base unit)",
+      "dispensedPrice": "Dispensed price (per base unit)",
       "timeSpent": "Time spent"
     },
     "outcome": {
@@ -296,8 +347,17 @@
       "lineAbandoned": "Line abandoned",
       "skippedByException": "Skipped by exception",
       "refusedPreAuth": "Refused (pre-authorisation)",
+      "alternativeTaken": "Alternative taken",
       "requestRaised": "Request raised",
       "autoApproved": "Auto-approved"
+    },
+    "decision": {
+      "None": "None",
+      "Reminder": "Reminder",
+      "ForcedPick": "Forced pick"
+    },
+    "reason": {
+      "allCandidatesDearer": "every candidate was dearer"
     }
   },
   "report": {
@@ -315,10 +375,373 @@
     "columns": {
       "master": "Master",
       "store": "Store",
-      "payer": "Payer",
-      "priceDifference": "Price difference (picks taken)",
-      "averageTime": "Average time",
-      "otherOutcome": "Other outcomes"
+      "payer": "Insurer customer id",
+      "events": "Events",
+      "reminders": "Reminders",
+      "remindersAllCandidatesDearer": "Reminders: all candidates dearer",
+      "forcedPicksTaken": "Forced picks taken",
+      "alternativesTaken": "Alternatives taken",
+      "picksCancelled": "Picks cancelled",
+      "linesAbandoned": "Lines abandoned",
+      "skippedByException": "Skipped by exception",
+      "refusedPreAuth": "Refused (pre-authorisation)",
+      "priceDifference": "Price difference on picks taken (per base unit)",
+      "averageTime": "Average time"
+    },
+    "totalRow": "Total",
+    "general": "General"
+  },
+  "groups": {
+    "title": "IDF groups",
+    "lede": "The groups of interchangeable items the IDF masters rank. Search by group number or description; a group can be removed only when no item points at it and no master’s live version ranks it.",
+    "help": "The WPF IDF Import screen still writes groups, unchecked and unlogged — a change made there appears here on the next read.",
+    "loading": "Loading IDF groups…",
+    "failed": "The IDF groups could not be loaded.",
+    "empty": "No IDF group matches.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Group number or description",
+    "total": "Groups found: <v>{{total}}</v>",
+    "add": "Add group",
+    "addTitle": "Add an IDF group",
+    "edit": "Edit",
+    "editTitle": "Edit IDF group {{number}}",
+    "number": "Group number",
+    "numberFixed": "The group number cannot change.",
+    "description": "Description",
+    "dosageForm": "Dosage form",
+    "save": "Save",
+    "cancel": "Cancel",
+    "added": "Group added",
+    "saved": "Group saved",
+    "saveFailed": "The group could not be saved",
+    "remove": "Remove",
+    "removeTitle": "Remove IDF group {{number}}?",
+    "removeHint": "No item points at this group. Removing it cannot be undone.",
+    "removed": "Group removed",
+    "removeFailed": "The group could not be removed",
+    "refusedCount_one": "<v>{{n}}</v> item still points at this group.",
+    "refusedCount_other": "<v>{{n}}</v> items still point at this group.",
+    "export": "Export",
+    "exportFailed": "The groups could not be exported",
+    "columns": {
+      "number": "Group",
+      "description": "Description",
+      "dosageForm": "Dosage form",
+      "itemCount": "Items",
+      "actions": "Actions"
+    },
+    "problem": {
+      "numberRequired": "Enter the group number.",
+      "numberTooLong": "At most 8 characters.",
+      "descriptionRequired": "Enter a description.",
+      "descriptionTooLong": "At most 300 characters.",
+      "dosageFormTooLong": "At most 50 characters."
+    },
+    "refusedEntries_one": "<v>{{n}}</v> entry of a master’s live version still ranks this group.",
+    "refusedEntries_other": "<v>{{n}}</v> entries of masters’ live versions still rank this group."
+  },
+  "download": {
+    "export": "Export",
+    "exportFailed": "The file could not be exported",
+    "template": "Template",
+    "templateFailed": "The template could not be downloaded"
+  },
+  "items": {
+    "title": "Items",
+    "lede": "The ranking this version holds: each item, its IDF group and its priority in the group.",
+    "version": "Version",
+    "versionOption": "Version {{n}}",
+    "versionOptionLive": "Version {{n}} (live)",
+    "notLive": "You are looking at version <v>{{n}}</v>. It is not live.",
+    "showLive": "Show the live version",
+    "noLive": "This master has no live version yet. Upload a file and publish it to see its items here.",
+    "search": "Item",
+    "searchPlaceholder": "Item number or description",
+    "group": "IDF group",
+    "groupPlaceholder": "Group number",
+    "loading": "Loading the items…",
+    "failed": "The items could not be loaded.",
+    "empty": "This version holds no items.",
+    "noMatch": "No items match this search.",
+    "total": "Items: <v>{{total}}</v>",
+    "columns": {
+      "item": "Item",
+      "description": "Description",
+      "group": "IDF group",
+      "priority": "Priority",
+      "mark": "Change",
+      "actions": "Actions"
     }
+  },
+  "groupsImport": {
+    "template": "Template",
+    "templateFailed": "The template could not be downloaded",
+    "open": "Import",
+    "title": "Import IDF groups",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: group number, description, dosage form (a header row is optional). Checking lists every row and writes nothing.",
+    "file": "Groups file",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. You can apply this file.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "notOk": "The server did not pass this file. Upload it again.",
+    "counts": "Rows that would add a group: <v>{{add}}</v> · update one: <v>{{update}}</v>",
+    "close": "Close",
+    "apply": "Apply",
+    "applyHint": "Apply stays off until every row passes. It writes the whole file at once.",
+    "applied": "Groups imported",
+    "appliedDetail": "Added {{added}}, updated {{updated}}, unchanged {{unchanged}}.",
+    "applyFailed": "The file could not be applied.",
+    "result": "Applied. Groups added: <v>{{added}}</v> · updated: <v>{{updated}}</v> · unchanged: <v>{{unchanged}}</v>",
+    "columns": {
+      "line": "Line",
+      "group": "Group",
+      "action": "Action",
+      "rule": "Rule broken",
+      "message": "Message"
+    },
+    "action": {
+      "add": "Add",
+      "update": "Update"
+    },
+    "rule": {
+      "missingNumber": "Group number missing",
+      "duplicateNumber": "Group number listed twice",
+      "numberTooLong": "Group number longer than 8 characters",
+      "missingDescription": "Description missing",
+      "descriptionTooLong": "Description longer than 300 characters",
+      "dosageFormTooLong": "Dosage form longer than 50 characters"
+    }
+  },
+  "draft": {
+    "title": "Draft",
+    "lede": "Edit the items here and publish them as one new version. Each edit is checked like an upload line; nothing reaches the tills until you publish.",
+    "loading": "Loading the draft…",
+    "failed": "The draft could not be loaded.",
+    "none": "No draft is open for this master. Start one to add, re-rank or remove items without a file.",
+    "start": "Start a draft",
+    "startFailed": "The draft could not be started.",
+    "started": "Started",
+    "changed": "Last changed",
+    "changes": "Changes",
+    "counts": "Added <v>{{added}}</v>, re-ranked <v>{{reRanked}}</v>, moved <v>{{moved}}</v>, removed <v>{{removed}}</v>",
+    "comparing": "Comparing with the version it was copied from…",
+    "addTitle": "Add an item",
+    "item": "Item",
+    "itemPlaceholder": "Item number",
+    "group": "IDF group",
+    "groupPlaceholder": "Group number",
+    "priority": "Priority",
+    "add": "Add",
+    "editFailed": "The draft could not be changed.",
+    "reRank": "Re-rank",
+    "reRankTitle": "Re-rank item {{item}}",
+    "newPriority": "New priority",
+    "save": "Save",
+    "remove": "Remove",
+    "removeTitle": "Remove item {{item}} from the draft?",
+    "removeHint": "The item leaves the draft. The live version stays as it is until you publish.",
+    "cancel": "Cancel",
+    "note": "Note",
+    "notePlaceholder": "What this version changes",
+    "publish": "Publish the draft",
+    "publishHint": "Publishing makes the draft the new live version in one step, with your note.",
+    "published": "Draft published",
+    "publishedDetail": "Version {{n}} is now live.",
+    "publishFailed": "The draft could not be published.",
+    "discard": "Discard the draft",
+    "discardTitle": "Discard this draft?",
+    "discardHint": "Every edit in it is lost. The live version stays as it is.",
+    "discarded": "Draft discarded",
+    "discardFailed": "The draft could not be discarded.",
+    "shown": "Draft (not published)",
+    "owner": "Owner",
+    "you": "(you)",
+    "base": "Copied from",
+    "baseVersion": "Version <v>{{n}}</v>",
+    "baseNone": "No version (the master was never published)",
+    "someoneElse": "Draft open by <b>{{by}}</b> since <v>{{since}}</v>. Only they can edit, rebase or publish it; you can discard it.",
+    "stale": "The live version has changed since this draft was copied. Rebase it onto the live version before you publish.",
+    "rebase": "Rebase onto the live version",
+    "rebased": "Draft rebased onto the live version",
+    "rebaseFailed": "The draft could not be rebased.",
+    "discardOtherTitle": "Discard someone else's draft?",
+    "discardOtherHint": "This draft is <b>{{by}}</b>'s work, open since <v>{{since}}</v>. Every edit in it is lost. The live version stays as it is.",
+    "startRefused": "A draft is already open by <b>{{by}}</b>, last changed <v>{{changedAt}}</v>.",
+    "startRefusedNoDate": "A draft is already open by <b>{{by}}</b>.",
+    "groupTitle": "Add a whole group",
+    "groupHint": "Each member of the group is added with this priority, checked like an add; a member that fails a rule is left out and listed.",
+    "addGroup": "Add the group",
+    "groupAdded_one": "<v>{{n}}</v> item added.",
+    "groupAdded_other": "<v>{{n}}</v> items added.",
+    "groupRefused": "Members not added",
+    "rule": "Rule",
+    "message": "Message",
+    "mark": {
+      "added": "Added",
+      "reRanked": "Re-ranked",
+      "moved": "Moved",
+      "unchanged": "Unchanged",
+      "removed": "Removed"
+    },
+    "baseFailed": "The version this draft was copied from could not be read, so its changes cannot be shown.",
+    "baseRetry": "Try again",
+    "ruleWord": {
+      "notInDraft": "Item no longer ranked by the live version"
+    },
+    "edit": {
+      "add": "Add",
+      "reRank": "Re-rank"
+    },
+    "editColumn": "Edit",
+    "rebaseReapplied_one": "<v>{{n}}</v> edit re-applied on the live version.",
+    "rebaseReapplied_other": "<v>{{n}}</v> edits re-applied on the live version.",
+    "rebaseDropped": "Edits that could not be re-applied (left out of the draft)",
+    "viewOnly": "You can view this draft but not change it: editing a master needs the IDF edit permission."
+  },
+  "general": {
+    "title": "General master",
+    "tier": "Tier <v>{{n}}</v>: the ranking used when no insurer or store master ranks the item.",
+    "help": "The general master has no versions: a change applies at once. The WPF IDF screens still write it too, unchecked, so it can change outside this screen.",
+    "tabs": {
+      "label": "General master views",
+      "items": "Items",
+      "changes": "Change log"
+    },
+    "itemsLede": "Each item the general master ranks, its IDF group and its priority in the group.",
+    "empty": "The general master ranks no items yet."
+  },
+  "changes": {
+    "lede": "Every change to the general master and the IDF groups, newest first: who, when, what it was before and after, and why.",
+    "filter": {
+      "label": "Filter the change log",
+      "item": "Item",
+      "idf": "IDF group",
+      "user": "User",
+      "from": "From",
+      "to": "To",
+      "invalid": "Pick a valid date.",
+      "reversed": "The to date is before the from date."
+    },
+    "columns": {
+      "at": "When",
+      "by": "Who",
+      "entity": "What",
+      "key": "Item or group",
+      "action": "Change",
+      "before": "Before",
+      "after": "After",
+      "reason": "Reason",
+      "upload": "Upload"
+    },
+    "entity": {
+      "item": "Item",
+      "group": "IDF group"
+    },
+    "action": {
+      "set": "Set",
+      "clear": "Cleared",
+      "add": "Added",
+      "edit": "Edited",
+      "remove": "Removed"
+    },
+    "none": "None",
+    "total": "Changes: <v>{{total}}</v>",
+    "empty": "No change is logged yet.",
+    "noMatch": "No change matches this filter.",
+    "loading": "Loading the change log…",
+    "failed": "The change log could not be read",
+    "export": "Export",
+    "exportFailed": "The change log could not be exported"
+  },
+  "generalEdit": {
+    "setItem": "Set item",
+    "edit": "Edit",
+    "clear": "Clear",
+    "setTitle": "Set an item in the general master",
+    "editTitle": "Edit {{item}} in the general master",
+    "clearTitle": "Clear {{item}} from the general master",
+    "lede": "The change applies at once and is recorded with its reason.",
+    "clearHint": "The item leaves the general master at once; it keeps its rank in any insurer or store master.",
+    "item": "Item",
+    "group": "IDF group",
+    "priority": "Priority in the group",
+    "reason": "Reason for this change",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saved": "The general item was saved.",
+    "cleared": "The general item was cleared.",
+    "saveFailed": "The general item could not be saved.",
+    "clearFailed": "The general item could not be cleared.",
+    "problem": {
+      "itemRequired": "Enter the item number.",
+      "groupRequired": "Enter the IDF group.",
+      "priorityRequired": "Enter the priority.",
+      "priorityWholeNumber": "The priority is a whole number of 1 or more.",
+      "reasonRequired": "Give a reason for this change.",
+      "reasonTooLong": "Keep the reason to 400 characters.",
+      "groupTooLong": "An IDF group number has at most 8 characters."
+    }
+  },
+  "generalUpload": {
+    "title": "Upload a general file",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: item, IDF group, priority (a header row is optional). Checking shows what would change and writes nothing.",
+    "file": "General file",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. Check the changes below, then apply.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "notOk": "The server did not pass this file. Upload it again.",
+    "lineCount": "Lines in the file: <v>{{n}}</v>",
+    "previewTitle": "What applying this file would change",
+    "filterLabel": "Show changes",
+    "notRanked": "Not ranked",
+    "noChanges": "No change of this kind.",
+    "columns": {
+      "line": "Line",
+      "item": "Item",
+      "rule": "Rule broken",
+      "message": "Message",
+      "change": "Change",
+      "before": "Before",
+      "after": "After"
+    },
+    "kind": {
+      "all": "All",
+      "added": "Added",
+      "reRanked": "Re-ranked",
+      "moved": "Moved",
+      "unchanged": "Unchanged"
+    },
+    "apply": "Apply…",
+    "applyHint": "Apply stays off until every row passes. It writes the whole file to the general master, which every till reads.",
+    "applyTitle": "Apply the general file",
+    "applyLede": "Every item in the file is written to the general master, and every till reads it. Say why.",
+    "reason": "Reason",
+    "confirm": "Apply",
+    "cancel": "Cancel",
+    "problem": {
+      "reasonRequired": "Give a reason for this change.",
+      "reasonTooLong": "Keep the reason to 400 characters."
+    },
+    "applied": "General file applied",
+    "appliedDetail": "Items applied: {{n}}.",
+    "applyFailed": "The file could not be applied.",
+    "result": "Applied. Items written: <v>{{n}}</v>",
+    "batchesFailed_one": "<v>{{n}}</v> batch failed; its items were not written.",
+    "batchesFailed_other": "<v>{{n}}</v> batches failed; their items were not written.",
+    "batchColumns": {
+      "lines": "Lines",
+      "message": "Message"
+    },
+    "appliedPartial": "General file applied in part",
+    "appliedPartialDetail": "Items applied: {{n}}. Some batches failed; their items were not written.",
+    "appliedNone": "Nothing was applied",
+    "appliedNoneDetail": "No item of the file was written to the general master.",
+    "resultPartial": "Applied in part. Items written: <v>{{n}}</v>",
+    "resultNone": "Nothing was applied. Items written: <v>{{n}}</v>",
+    "applyAgain": "The items that went in stay. You can confirm the same file again: it re-checks each item and writes only what is still different."
   }
 }

@@ -18,7 +18,8 @@
     "idfStoreLists": "IDF store lists",
     "idfExceptions": "IDF exceptions",
     "idfLookup": "IDF lookup",
-    "idfEvents": "IDF events"
+    "idfEvents": "IDF events",
+    "idfGroups": "IDF groups"
   },
   "state": {
     "draft": "Draft",

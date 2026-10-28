@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
-import { CheckCircle2, Loader2, Send, Upload } from 'lucide-react'
+import { Link, Navigate, useParams } from 'react-router'
+import { Loader2, Send, Upload } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
@@ -13,11 +13,18 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
-import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
-import { IDF_KEY, idfUploadApi, mastersQuery } from './api'
-import { masterRow, type IdfMasterRow } from './masters'
-import { isPublishable, rowMessage, type IdfUploadReport } from './upload'
+import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { IDF_KEY, idfUploadApi, mastersQuery, storeListsQuery } from './api'
+import { storeListName } from './store-lists'
+import { IDF_GENERAL_PATH, masterRow, type IdfMasterRow } from './masters'
+import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, type IdfUploadReport } from './upload'
+import UploadRowReport from './UploadRowReport' // 653 extracted 622's row report
 import VersionsSection from './VersionsSection' // 623
+import ItemsSection from './ItemsSection' // 643
+import DraftPanel from './DraftPanel' // 645
+import { idfMasterFilesApi } from './api' // 644
+import DownloadButton from './DownloadButton' // 644
+import { masterTemplateFileName } from './download' // 644
 
 /**
  * Insurance rules ▸ IDF masters ▸ one master — `/insurance-rules/idf/masters/:masterId` (BackOffice spec 3157,
@@ -36,6 +43,8 @@ export default function MasterPage() {
   const { masterId = '' } = useParams()
   const masters = useQuery(mastersQuery())
   const master = masters.data?.find((m) => m.masterId === masterId)
+  // 647 · the general master is listed with the others (`masterId: 'general'`) but has its own page
+  if (masterId === 'general' || master?.kind === 'general') return <Navigate to={IDF_GENERAL_PATH} replace />
   return (
     <section className="flex h-full w-full flex-col gap-4" data-idf-master-page="">
       <Link to="/insurance-rules/idf/masters" className="text-xs text-muted-foreground hover:text-foreground" data-idf-back="">
@@ -54,6 +63,10 @@ export default function MasterPage() {
       ) : (
         <>
           <MasterHeader row={masterRow(master, i18n.language)} />
+          {/* 643 · Items */}
+          <ItemsSection key={`items-${master.masterId}`} masterId={master.masterId} liveVersionId={master.liveVersion?.versionId ?? null} />
+          {/* 645 · Draft */}
+          <DraftPanel key={`draft-${master.masterId}`} masterId={master.masterId} />
           <UploadStep key={master.masterId} masterId={master.masterId} />
           {/* 623 · Versions */}
           <VersionsSection key={`versions-${master.masterId}`} masterId={master.masterId} liveVersionId={master.liveVersion?.versionId ?? null} />
@@ -64,7 +77,9 @@ export default function MasterPage() {
 }
 
 function MasterHeader({ row }: { row: IdfMasterRow }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
+  const lists = useQuery(storeListsQuery())
+  const list = row.storeListId ? lists.data?.find((l) => l.storeListId === row.storeListId) : undefined
   return (
     <header className="flex max-w-3xl flex-col gap-2" data-idf-master={row.masterId} data-kind={row.kind}>
       <h1 className="text-lg font-semibold tracking-tight">
@@ -73,11 +88,11 @@ function MasterHeader({ row }: { row: IdfMasterRow }) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">{t('masters.columns.kind')}</dt>
         <dd data-col="kind">{t(`masters.kind.${row.kind}`, { defaultValue: row.kind })}</dd>
-        {row.payerCode && (
+        {row.insurerCustomerId && (
           <>
             <dt className="text-muted-foreground">{t('masters.columns.payer')}</dt>
             <dd data-col="payer">
-              <Ltr>{row.payerCode}</Ltr>
+              <Ltr>{row.insurerCustomerId}</Ltr>
             </dd>
           </>
         )}
@@ -85,14 +100,18 @@ function MasterHeader({ row }: { row: IdfMasterRow }) {
           <>
             <dt className="text-muted-foreground">{t('masters.columns.storeList')}</dt>
             <dd data-col="storeList">
-              <Ltr>{row.storeListId}</Ltr>
+              {list ? <bdi data-store-list-id={row.storeListId}>{storeListName(list, i18n.language)}</bdi> : <Ltr>{row.storeListId}</Ltr>}
             </dd>
           </>
         )}
-        <dt className="text-muted-foreground">{t('masters.columns.thresholds')}</dt>
-        <dd data-col="thresholds">
-          <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(row.hard), reminder: formatFigure(row.reminder) }} components={{ v: <Ltr /> }} />
-        </dd>
+        {row.hard !== null && row.reminder !== null && (
+          <>
+            <dt className="text-muted-foreground">{t('masters.columns.thresholds')}</dt>
+            <dd data-col="thresholds">
+              <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(row.hard), reminder: formatFigure(row.reminder) }} components={{ v: <Ltr /> }} />
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">{t('upload.live')}</dt>
         {row.live ? (
           <dd className="flex flex-wrap items-baseline gap-x-3" data-col="live">
@@ -142,7 +161,7 @@ function UploadStep({ masterId }: { masterId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept={IDF_UPLOAD_ACCEPT}
           aria-label={t('upload.file')}
           data-idf-upload-file=""
           className="text-sm"
@@ -165,13 +184,23 @@ function UploadStep({ masterId }: { masterId: string }) {
           {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Upload className="h-3.5 w-3.5" aria-hidden />}
           {t('upload.submit')}
         </Button>
+        {/* 644 · Template */}
+        <div className="ms-auto">
+          <DownloadButton
+            fetch={() => idfMasterFilesApi.template()}
+            fallbackName={masterTemplateFileName()}
+            label={t('download.template')}
+            failedLabel={t('download.templateFailed')}
+            hook="data-idf-master-template"
+          />
+        </div>
       </div>
       {upload.isError && (
         <div data-idf-upload-refused="">
           <ErrorBanner message={apiErrorMessage(upload.error, t('upload.uploadFailed'))} />
         </div>
       )}
-      {report && <Report report={report} />}
+      {report && <UploadRowReport report={report} kind="item" applicable={isPublishable(report)} ruleWordKey={ruleWordKey} keyPrefix="upload" />}
       <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
         <Field label={t('upload.note')} className="min-w-64 flex-1">
           <Input value={note} placeholder={t('upload.notePlaceholder')} data-idf-publish-note="" onChange={(e) => setNote(e.target.value)} />
@@ -185,62 +214,6 @@ function UploadStep({ masterId }: { masterId: string }) {
       {publish.isError && (
         <div data-idf-publish-refused="">
           <ErrorBanner message={apiErrorMessage(publish.error, t('upload.publishFailed'))} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Report({ report }: { report: IdfUploadReport }) {
-  const { t, i18n } = useTranslation('insurance-idf')
-  const rows = report.rows ?? []
-  if (isPublishable(report)) {
-    return (
-      <p className="flex items-center gap-2 text-sm" data-idf-report="clean">
-        <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-        {t('upload.clean')}
-      </p>
-    )
-  }
-  return (
-    <div className="flex flex-col gap-2" data-idf-report="failed" data-upload-id={report.uploadId}>
-      <p className="text-sm" data-idf-report-summary="">
-        {rows.length === 0 ? (
-          t('upload.notOk')
-        ) : (
-          <Trans t={t} i18nKey="upload.rowsFailed" count={rows.length} values={{ n: formatFigure(rows.length) }} components={{ v: <Ltr /> }} />
-        )}
-      </p>
-      {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-md border border-border/60">
-          <table className="w-full text-sm" data-idf-report-rows="">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className={`${TH} text-end`}>{t('upload.columns.line')}</th>
-                <th className={TH}>{t('upload.columns.item')}</th>
-                <th className={TH}>{t('upload.columns.rule')}</th>
-                <th className={TH}>{t('upload.columns.message')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.line}-${i}`} className="border-t border-border/60" data-line={r.line} data-rule={r.rule}>
-                  <td className={`${TD} text-end tabular-nums`} data-col="line">
-                    <Ltr>{formatFigure(r.line)}</Ltr>
-                  </td>
-                  <td className={TD} data-col="item">
-                    {r.itemNumber && <Ltr>{r.itemNumber}</Ltr>}
-                  </td>
-                  <td className={TD} data-col="rule">
-                    {t(`upload.rule.${r.rule}`, { defaultValue: '' }) || <Ltr>{r.rule}</Ltr>}
-                  </td>
-                  <td className={TD} data-col="message">
-                    <bdi>{rowMessage(r, i18n.language)}</bdi>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
     </div>

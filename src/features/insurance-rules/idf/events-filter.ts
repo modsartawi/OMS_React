@@ -1,4 +1,5 @@
 import { addDays, localToday, windowProblem, type LocalDate, type WindowProblem } from '@/core/util/date-window'
+import { readPage } from './paging'
 import { IDF_EVENT_FILTER_OUTCOMES, type IdfEventFilterOutcome } from './events'
 
 // The IDF events address (ticket 626): `?from&to&store&payer&master&outcome&page`. Pure; the page reads it through
@@ -13,7 +14,7 @@ export interface IdfEventsFilter {
   to: LocalDate
   /** A store code; '' = every store. */
   store: string
-  /** A payer code; '' = every payer. */
+  /** The insurer's customer id (3167 `payer=`, e.g. `0001100336`); '' = every payer. */
   payer: string
   /** A master id from 619's list (`?master=`); '' = every master. */
   masterId: string
@@ -34,16 +35,11 @@ export type IdfEventsTab = (typeof IDF_EVENTS_TABS)[number]
 
 /** The default window: the last 7 local days to today. */
 export const DEFAULT_WINDOW_DAYS = 7
-/** The longest window a read may ask for. ⚠️ GUESSED cap (the brief names none; 3167 may set one). */
+/** The longest window a read may ask for. The screen's own cap: 3167 / 3169 set none (only `to` before `from`, `IDF-00020`). */
 export const MAX_WINDOW_DAYS = 366
 
 function defaults(today: LocalDate): IdfEventsQuery {
   return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, store: '', payer: '', masterId: '', outcome: '', page: 1, tab: 'events' }
-}
-
-function readPage(value: string | null): number {
-  const n = Number(value)
-  return Number.isInteger(n) && n >= 1 ? n : 1
 }
 
 export function readIdfEventsQuery(params: URLSearchParams, today: LocalDate): IdfEventsQuery {

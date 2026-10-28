@@ -2,11 +2,24 @@
  * An IDF master's upload, pure (BackOffice spec 3157, door 3161; oms ticket 622). A file (item, IDF group,
  * priority) goes to `POST IdfPriority/masters/{id}/uploads`, which publishes nothing and answers a row report:
  * every failing row with its line, item number, the rule it broke and the message in both languages. The server
- * checks, in order: unknown item · item not in the insurer's ItemCustomer rows · unknown IDF group · priority not a
- * whole number ≥ 1 · item listed twice. The screen renders whatever `rule` the report names.
+ * checks, in order (3161 + the 3157 review), and a line reports its FIRST failed rule: unknown item · item not in the
+ * insurer's ItemCustomer rows · unknown IDF group · item not a member of the IDF group the line names · priority not a
+ * whole number ≥ 1 · item listed twice. The screen renders whatever `rule` the report names (a rule it has no word
+ * for shows its code).
+ *
+ * The file (3161): an `.xlsx` (first sheet), a tab-separated `.txt` / `.tsv`, or a `.csv`; header row optional, else
+ * the columns are item, IDF group, priority. Every upload gets an `uploadId`, and the answer is a 200 even when rows
+ * fail.
  *
  * Publish is all-or-nothing: only a clean report (`ok` and no failing row) may be published.
  */
+
+/** The rules a row can break, in the order the server checks them. */
+export const IDF_UPLOAD_RULES = ['unknownItem', 'notInInsurerItems', 'unknownGroup', 'itemNotInGroup', 'badPriority', 'duplicateItem'] as const
+export type IdfUploadRule = (typeof IDF_UPLOAD_RULES)[number]
+
+/** The file types the upload door reads. */
+export const IDF_UPLOAD_ACCEPT = '.xlsx,.txt,.tsv,.csv'
 
 /** One failing row of the report. `line` and `itemNumber` are machine values; the messages are free text. */
 export interface IdfUploadRow {
@@ -21,7 +34,14 @@ export interface IdfUploadRow {
 export interface IdfUploadReport {
   uploadId: string
   ok: boolean
+  /** How many lines the file held (3161). */
+  lineCount?: number | null
   rows: IdfUploadRow[]
+}
+
+/** The `insurance-idf` key of a rule's word, or null for a rule this build does not know. */
+export function ruleWordKey(rule: string): string | null {
+  return (IDF_UPLOAD_RULES as readonly string[]).includes(rule) ? `upload.rule.${rule}` : null
 }
 
 /** Publish only a clean report: the server's `ok` and no failing row, both — a disagreement never publishes. */

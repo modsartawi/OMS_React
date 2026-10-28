@@ -1,0 +1,229 @@
+/**
+ * Ticket 628 — the IDF doors send and read the shapes 3161–3169 built (the brief's `## Changes`), not the brief's
+ * first sketch: a master's payer key is `insurerCustomerId`; a store list is created with `{ code, nameEn, nameAr }`
+ * and renamed with `{ nameEn, nameAr }` (there is no delete door); an exception's DELETE carries `{ reason }` in its
+ * BODY; the lookup's `payer=` is the insurer's customer id beside the optional sub-document and Nphies claim types;
+ * the events page is `{ page, pageSize, total, rows }`. The network is stubbed at the `@/core/api` boundary.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn(), delWithBody: vi.fn(), upload: vi.fn(), blob: vi.fn() }))
+vi.mock('@/core/api', () => ({ api }))
+
+const { idfEventsApi, idfExceptionsApi, idfLookupApi, idfMasterFormApi, idfStoreListsApi } = await import('./api')
+const { masterBody, newMasterForm } = await import('./master-form')
+const { exceptionBody, EMPTY_EXCEPTION_FORM } = await import('./exceptions')
+const { readIdfEventsQuery } = await import('./events-filter')
+
+beforeEach(() => {
+  for (const fn of Object.values(api)) fn.mockReset().mockResolvedValue(null)
+})
+
+describe('the IDF doors send the shapes the BackOffice tickets built', () => {
+  it('a master create posts insurerCustomerId, never payerCode', async () => {
+    const body = masterBody({ ...newMasterForm('insurer'), insurerCustomerId: '0001100336', nameEn: 'Bupa', nameAr: 'بوبا' })
+    await idfMasterFormApi.create(body)
+    expect(api.post).toHaveBeenCalledWith('IdfPriority/masters', {
+      kind: 'insurer',
+      insurerCustomerId: '0001100336',
+      storeListId: null,
+      nameEn: 'Bupa',
+      nameAr: 'بوبا',
+      hardThreshold: 4,
+      reminderThreshold: 1,
+    })
+  })
+
+  it('a store list is created with its code and both names, renamed with both names; no delete door is offered', async () => {
+    await idfStoreListsApi.create({ code: 'OPS-EAST', nameEn: 'East operation', nameAr: 'تشغيل الشرقية' })
+    expect(api.post).toHaveBeenCalledWith('IdfPriority/store-lists', { code: 'OPS-EAST', nameEn: 'East operation', nameAr: 'تشغيل الشرقية' })
+    await idfStoreListsApi.rename('SL 1', { nameEn: 'East', nameAr: 'الشرقية' })
+    expect(api.put).toHaveBeenCalledWith('IdfPriority/store-lists/SL%201', { nameEn: 'East', nameAr: 'الشرقية' })
+    expect('remove' in idfStoreListsApi).toBe(false)
+  })
+
+  it('an exception save carries allStores; its DELETE carries the reason in the body', async () => {
+    await idfExceptionsApi.add(exceptionBody({ ...EMPTY_EXCEPTION_FORM, key: 'InsuranceOrder', allStores: true, reason: 'Contract' }))
+    expect(api.post).toHaveBeenCalledWith('IdfPriority/exceptions', { keyKind: 'documentType', key: 'InsuranceOrder', handling: 'skip', masterId: null, allStores: true, reason: 'Contract' })
+    await idfExceptionsApi.remove('X-1', 'No longer needed')
+    expect(api.delWithBody).toHaveBeenCalledWith('IdfPriority/exceptions/X-1', { reason: 'No longer needed' })
+    expect(api.del).not.toHaveBeenCalled()
+  })
+
+  it('the lookup sends payer = the insurer customer id, and the optional sub-document and Nphies claim types', async () => {
+    await idfLookupApi.lookup({ item: '100300', store: 'P019', payer: '0001100336', documentType: '', subDocumentType: 'SABIC', nphiesClaimType: '3' })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/lookup', {
+      item: '100300',
+      store: 'P019',
+      payer: '0001100336',
+      documentType: '',
+      subDocumentType: 'SABIC',
+      nphiesClaimType: '3',
+    })
+  })
+
+  it('the events page reads { page, pageSize, total, rows }; a missing body is an empty page', async () => {
+    const q = readIdfEventsQuery(new URLSearchParams('payer=0001100336&outcome=alternativeTaken&page=2'), '2026-10-27')
+    api.get.mockResolvedValue({ page: 2, pageSize: 50, total: 51, rows: [{ eventId: 'E-1' }] })
+    expect(await idfEventsApi.events(q)).toEqual({ page: 2, pageSize: 50, total: 51, rows: [{ eventId: 'E-1' }] })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/events', expect.objectContaining({ payer: '0001100336', outcome: 'alternativeTaken', page: '2' }))
+    api.get.mockResolvedValue(null)
+    expect(await idfEventsApi.events(q)).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+  })
+})
+
+// 643 · a version's items (3187)
+describe('643 · the entries door', () => {
+  it('reads one page of a version, search and group as the door names them, and fills a null body', async () => {
+    const { idfEntriesApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 2, pageSize: 25, total: 60, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 1 }] })
+    const page = await idfEntriesApi.entries('M BUPA', 'V/11', { q: 'pan', idf: 'IDF-PARA', page: 2 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/entries', { search: 'pan', idf: 'IDF-PARA', page: '2' })
+    expect(page.total).toBe(60)
+    expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
+  })
+})
+
+// 644 · master export + template (3188)
+describe('644 · the master export and template doors', () => {
+  it('export reads the version as a file; template reads the blank file', async () => {
+    const { idfMasterFilesApi } = await import('./api')
+    await idfMasterFilesApi.export('M BUPA', 'V/11')
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/export')
+    await idfMasterFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/template')
+  })
+})
+
+// 645 · a master's draft (3189)
+describe('645 · the draft doors', () => {
+  it('reads, starts, edits, publishes and discards the draft at its paths', async () => {
+    const { idfDraftApi } = await import('./api')
+    expect(await idfDraftApi.draft('M BUPA')).toBeNull()
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/draft')
+    await idfDraftApi.start('M-BUPA')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft', {})
+    await idfDraftApi.add('M-BUPA', { itemNumber: '100999', idfNumber: 'IDF-PARA', priority: 4 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items', { itemNumber: '100999', idfNumber: 'IDF-PARA', priority: 4 })
+    await idfDraftApi.reRank('M-BUPA', '100/300', 3)
+    expect(api.put).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items/100%2F300', { priority: 3 })
+    await idfDraftApi.remove('M-BUPA', '200100')
+    expect(api.del).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items/200100')
+    await idfDraftApi.publish('M-BUPA', 'Three edits')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/publish', { note: 'Three edits' })
+    await idfDraftApi.discard('M-BUPA')
+    expect(api.del).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft')
+  })
+
+  it('reads every row of the base version, page after page, for the diff', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), descriptionEn: '', descriptionAr: '', idfNumber: 'G', priority: 1 })
+    api.get
+      .mockResolvedValueOnce({ page: 1, pageSize: 2, total: 5, rows: [r(1), r(2)] })
+      .mockResolvedValueOnce({ page: 2, pageSize: 2, total: 5, rows: [r(3), r(4)] })
+      .mockResolvedValueOnce({ page: 3, pageSize: 2, total: 5, rows: [r(5)] })
+    const rows = await idfDraftApi.baseRows('M-BUPA', 'V-11')
+    expect(rows.map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
+    expect(api.get).toHaveBeenNthCalledWith(1, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '1', pageSize: '500' })
+    expect(api.get).toHaveBeenNthCalledWith(3, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '3', pageSize: '500' })
+  })
+
+  it('an empty page ends the rows even when the total says more', async () => {
+    const { idfDraftApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 1, total: 4, rows: [{ itemNumber: '1', idfNumber: 'G', priority: 1 }] }).mockResolvedValueOnce({ page: 2, pageSize: 1, total: 4, rows: [] })
+    api.get.mockResolvedValueOnce({ page: 3, pageSize: 1, total: 4, rows: [{ itemNumber: '3', idfNumber: 'G', priority: 1 }] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).map((x) => x.itemNumber)).toEqual(['1'])
+  })
+
+  // 3185 review, finding 6
+  it('with no total, keeps reading while a page comes back full', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), idfNumber: 'G', priority: 1 })
+    api.get
+      .mockResolvedValueOnce({ page: 1, pageSize: 2, rows: [r(1), r(2)] })
+      .mockResolvedValueOnce({ page: 2, pageSize: 2, rows: [r(3), r(4)] })
+      .mockResolvedValueOnce({ page: 3, pageSize: 2, rows: [r(5)] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
+    expect(api.get).toHaveBeenCalledTimes(3)
+  })
+
+  it('with no total and no page size, a page of the size asked for (500) is full', async () => {
+    const { idfDraftApi } = await import('./api')
+    const full = Array.from({ length: 500 }, (_, i) => ({ itemNumber: String(i), idfNumber: 'G', priority: 1 }))
+    api.get.mockResolvedValueOnce({ rows: full }).mockResolvedValueOnce({ rows: [{ itemNumber: 'last', idfNumber: 'G', priority: 1 }] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).length).toBe(501)
+    expect(api.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('once the total is known, the remaining pages are read at once, kept in page order', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), idfNumber: 'G', priority: 1 })
+    const pending: Array<(v: unknown) => void> = []
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 2, total: 5, rows: [r(1), r(2)] })
+    api.get.mockImplementation(() => new Promise((resolve) => pending.push(resolve)))
+    const all = idfDraftApi.baseRows('M-BUPA', 'V-11')
+    await vi.waitFor(() => expect(api.get).toHaveBeenCalledTimes(3))
+    expect(api.get).toHaveBeenNthCalledWith(2, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '2', pageSize: '500' })
+    expect(api.get).toHaveBeenNthCalledWith(3, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '3', pageSize: '500' })
+    pending[1]({ page: 3, pageSize: 2, total: 5, rows: [r(5)] })
+    pending[0]({ page: 2, pageSize: 2, total: 5, rows: [r(3), r(4)] })
+    expect((await all).map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
+  })
+})
+
+// 646 · draft owner, rebase, add a group (3190)
+describe('646 · the rebase and add-a-group doors', () => {
+  it('rebases and adds a group at the draft paths', async () => {
+    const { idfDraftOwnerApi } = await import('./api')
+    await idfDraftOwnerApi.rebase('M BUPA')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M%20BUPA/draft/rebase', {})
+    await idfDraftOwnerApi.addGroup('M-BUPA', { idfNumber: 'IDF-CETI', priority: 2 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/groups', { idfNumber: 'IDF-CETI', priority: 2 })
+  })
+})
+
+// 647 · the general master's items (3191)
+describe('647 · the general items door', () => {
+  it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {
+    const { idfGeneralApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 25, total: 2, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 1 }] })
+    const page = await idfGeneralApi.items({ q: 'pan', idf: 'IDF-PARA', page: 1 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/items', { search: 'pan', idf: 'IDF-PARA', page: '1' })
+    expect(page.rows).toHaveLength(1)
+    expect(await idfGeneralApi.items({ q: '', idf: '', page: 2 })).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+  })
+})
+
+// 650 · the general change log (3194)
+describe('650 · the general change log doors', () => {
+  it('reads one page with the filter by the door names, fills a null body, and exports the filter without the page', async () => {
+    const { idfChangesApi } = await import('./api')
+    const q = { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27', page: 2 }
+    expect(await idfChangesApi.changes(q)).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/changes', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27', page: '2' })
+    await idfChangesApi.export(q)
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/changes/export', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27' })
+  })
+})
+
+// 648 · set / clear one general item (3192)
+describe('648 · the general item edit doors', () => {
+  it('sets an item with PUT { idfNumber, priority, reason } and clears it with DELETE { reason } in the body', async () => {
+    const { idfGeneralEditApi } = await import('./api')
+    await idfGeneralEditApi.set('300 110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    expect(api.put).toHaveBeenCalledWith('IdfPriority/general/items/300%20110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    await idfGeneralEditApi.clear('300110', 'Withdrawn')
+    expect(api.delWithBody).toHaveBeenCalledWith('IdfPriority/general/items/300110', { reason: 'Withdrawn' })
+  })
+})
+
+// 651 · general export + template (3195)
+describe('651 · the general export and template doors', () => {
+  it('export reads the whole general master as a file; template reads the blank file', async () => {
+    const { idfGeneralFilesApi } = await import('./api')
+    await idfGeneralFilesApi.export()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/export')
+    await idfGeneralFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/template')
+  })
+})

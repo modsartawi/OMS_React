@@ -12,6 +12,8 @@ import { ListX } from 'lucide-react' // 624
 import { SearchCheck } from 'lucide-react' // 625
 // 626 · icons
 import { History } from 'lucide-react' // 626
+// 652 · icons
+import { Layers } from 'lucide-react' // 652
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -125,10 +127,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
 
     // 619 · IDF masters
     {
-      // 619 — the IDF priority masters; a master's page (`/insurance-rules/idf/masters/:masterId`, 622) lights it too.
+      // 619 — the IDF priority masters; a master's page (`/insurance-rules/idf/masters/:masterId`, 622) lights it too,
+      // and so does the general master's (`/insurance-rules/idf/general`, 647).
       labelKey: 'insurance-rules:menu.idfMasters',
       icon: ListOrdered,
       routerLink: '/insurance-rules/idf/masters',
+      activePrefix: ['/insurance-rules/idf/masters', '/insurance-rules/idf/general'],
     },
 
     // 620 · IDF store lists (`menu.idfStoreLists`, `/insurance-rules/idf/store-lists`)
@@ -161,6 +165,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfEvents',
       icon: History,
       routerLink: '/insurance-rules/idf/events',
+    },
+
+    // 652 · IDF groups (`menu.idfGroups`, `/insurance-rules/idf/groups`)
+    {
+      // 652 — the IDF groups (number, description, dosage form, item count); 653's import is on its page.
+      labelKey: 'insurance-rules:menu.idfGroups',
+      icon: Layers,
+      routerLink: '/insurance-rules/idf/groups',
     },
   ],
 }

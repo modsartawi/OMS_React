@@ -12,6 +12,7 @@
  * customer-PII surface left in the nav because a probe errored.
  */
 import { describe, expect, it } from 'vitest'
+import { LOY_GROUPS_ACCESS_KEY } from '@/core/loy-groups/api'
 import { LOY_ACCESS_KEY } from '@/features/loy/member/api'
 import { MENU, type ShellMenuItem } from './menu-model'
 import { resolveMenu, type ProbeState } from './useVisibleMenu'
@@ -32,7 +33,7 @@ describe('the Loyalty nav group', () => {
   it('exists, with the member lookup gated behind the ONE shared key', () => {
     expect(loyalty).toBeDefined()
     const leaves = gatedLeaves([loyalty!])
-    expect(leaves).toHaveLength(1)
+    expect(leaves).toHaveLength(2)
     expect(leaves[0].routerLink).toBe('/loy/members')
     // The screen's own guard reads this same exported key — that identity is what
     // makes the nav and the screen one answer and one network call.
@@ -40,7 +41,7 @@ describe('the Loyalty nav group', () => {
   })
 
   it('appears for a granted session', () => {
-    expect(labels(resolveMenu([loyalty!], [probed({ canOpenLoyMember: true })]).items)).toEqual([
+    expect(labels(resolveMenu([loyalty!], [probed({ canOpenLoyMember: true }), errored]).items)).toEqual([
       'loy:menu.loyalty',
       'loy:menu.members',
     ])
@@ -56,11 +57,48 @@ describe('the Loyalty nav group', () => {
     ]) {
       // The group vanishes with its only child, so an empty "Loyalty" header is
       // never left offering a screen that cannot be opened.
-      expect(resolveMenu([loyalty!], [state]).items).toEqual([])
+      expect(resolveMenu([loyalty!], [state, state]).items).toEqual([])
     }
   })
 
   it('reports an errored probe as SETTLED — failing closed must not hang the menu', () => {
-    expect(resolveMenu([loyalty!], [errored]).settled).toBe(true)
+    expect(resolveMenu([loyalty!], [errored, errored]).settled).toBe(true)
+  })
+})
+
+/**
+ * The Loyalty groups leaf (oms ticket 629, BackOffice spec 3173) — its own probe on its own key,
+ * `GET LoyGroupWeb/Access`, failing closed like the member leaf beside it.
+ */
+describe('the Loyalty groups leaf', () => {
+  const groupsLeaf = () => gatedLeaves([loyalty!])[1]
+
+  it('sits beside Members, gated on the shared loy-groups key', () => {
+    expect(groupsLeaf().routerLink).toBe('/loy/groups')
+    expect(groupsLeaf().labelKey).toBe('loy-groups:menu.groups')
+    expect(groupsLeaf().access!.key).toBe(LOY_GROUPS_ACCESS_KEY)
+  })
+
+  it('appears on a view grant, alone if the member grant is missing', () => {
+    expect(labels(resolveMenu([loyalty!], [errored, probed({ canView: true, canMaintain: false })]).items)).toEqual([
+      'loy:menu.loyalty',
+      'loy-groups:menu.groups',
+    ])
+  })
+
+  it('🚩 hides on a denial, an error, a pending probe, a malformed answer and maintain-without-view', () => {
+    for (const state of [
+      probed({ canView: false, canMaintain: false }),
+      probed({ canMaintain: true }),
+      probed({}),
+      probed({ canView: 'true' }),
+      errored,
+      pending,
+    ]) {
+      expect(labels(resolveMenu([loyalty!], [probed({ canOpenLoyMember: true }), state]).items)).toEqual([
+        'loy:menu.loyalty',
+        'loy:menu.members',
+      ])
+    }
   })
 })

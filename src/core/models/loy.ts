@@ -90,6 +90,12 @@ export interface LoyMemberPayload {
    * split is spec 231 §6's, and this is the wire half of it.
    */
   blockedReason: string | null
+  /**
+   * The member's loyalty-group codes — active only, sorted (BackOffice 3176, brief 3173; ticket 635).
+   * 🚩 Absent or `[]` for a caller without the groups view grant, so **absent means "not shown", never
+   * "in no group"** — read it through `memberGroups` (`features/loy/member/member-groups.ts`) only.
+   */
+  groups?: string[]
 }
 
 /**

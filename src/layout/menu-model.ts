@@ -51,6 +51,10 @@ import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
 // the OMS and Nphies probes into `@/core/`. `layout` may import a feature.
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/member/api'
+// The loyalty-groups probe lives in `@/core/` (ticket 629): bonus-buy maintenance, simulation and the
+// member screen read it too, and a feature may not import another.
+import { canViewLoyGroups, LOY_GROUPS_ACCESS_KEY, loyGroupsApi } from '@/core/loy-groups/api'
+import { UsersRound } from 'lucide-react'
 // The Collections probe moved to `@/core/` at ticket 268, for the OMS/Nphies reason
 // rather than the Loy one: `features/collection/settlement` is now a SECOND consumer
 // beside `features/collection/inquiry`, and a feature may not import another
@@ -688,6 +692,20 @@ export const MENU: ShellMenuItem[] = [
           key: LOY_ACCESS_KEY,
           run: () => loyAccessApi.access(),
           visible: canOpenLoyMember,
+        }),
+      },
+      {
+        // Loyalty groups (BackOffice spec 3173, oms ticket 629). HQ-only. Its own probe on its own key —
+        // `LoyGroupWeb/Access` — read by the page's gate too. 🚩 FAILS CLOSED: the door is deployed nowhere
+        // yet, so a pending, errored, 403 or malformed probe hides the leaf.
+        labelKey: 'loy-groups:menu.groups',
+        icon: UsersRound,
+        routerLink: '/loy/groups',
+        activePrefix: '/loy/groups',
+        access: accessProbe({
+          key: LOY_GROUPS_ACCESS_KEY,
+          run: () => loyGroupsApi.access(),
+          visible: canViewLoyGroups,
         }),
       },
     ],

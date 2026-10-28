@@ -37,6 +37,10 @@
     "absent": "—",
     "loading": "Loading member…",
     "loadFailed": "This member could not be loaded.",
+    "groups": {
+      "label": "Groups",
+      "none": "In no group"
+    },
     "points": {
       "balance": "Points balance",
       "unit": "pts",

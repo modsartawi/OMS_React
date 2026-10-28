@@ -50,6 +50,10 @@ import {
   fillCouponMaterial,
   formChanged,
   fromDocument,
+  loyFindingsAfterEdit,
+  loyGroupFindings,
+  type LoyGroupFindings,
+  NO_LOY_FINDINGS,
   newEditor,
   orgCurrency,
   readEditorOutcome,
@@ -206,6 +210,11 @@ function EditorBody({
   const [busy, setBusy] = useState(false)
   const [groupingOpen, setGroupingOpen] = useState(false)
   const [markOpen, setMarkOpen] = useState(false)
+  // The last Check or Save's loyalty-group findings, listed under that field (636), and the field's
+  // value that Check or Save sent: once the field moves off it, the findings are cleared for good.
+  const [loyChecked, setLoyChecked] = useState<{ findings: LoyGroupFindings; value: string }>({ findings: NO_LOY_FINDINGS, value: '' })
+  const loyFindings = loyFindingsAfterEdit(loyChecked.findings, loyChecked.value, state.engine.loyGroups)
+  if (loyFindings !== loyChecked.findings) setLoyChecked({ findings: loyFindings, value: state.engine.loyGroups })
   // The Buy line New coupon material was pressed on, while its prompt is open.
   const [couponLineKey, setCouponLineKey] = useState<string | null>(null)
   // The ONE access answer the screen gate already read (same key): the tester grant rides on it.
@@ -231,7 +240,8 @@ function EditorBody({
   }
 
   /** Check and Save answer alike: every refusal and warning, each with its code and both languages. */
-  function show(kind: 'check' | 'save', outcome: ReturnType<typeof readEditorOutcome>): Report {
+  function show(kind: 'check' | 'save', outcome: ReturnType<typeof readEditorOutcome>, sent: EditorState): Report {
+    setLoyChecked({ findings: loyGroupFindings(outcome), value: sent.engine.loyGroups })
     const rows = [
       ...(outcome.refusals.length ? [{ refusals: outcome.refusals }] : []),
       ...(outcome.warnings.length ? [{ outcome: t('editor.warnings'), refusals: outcome.warnings }] : []),
@@ -250,14 +260,16 @@ function EditorBody({
   const check = () =>
     guarded(async () => {
       setReport(null)
-      show('check', readEditorOutcome(await bbyMaintainApi.validate(toRequest(state))))
+      const sent = state
+      show('check', readEditorOutcome(await bbyMaintainApi.validate(toRequest(sent))), sent)
     })
 
   const save = () =>
     guarded(async () => {
       setReport(null)
-      const outcome = readEditorOutcome(await bbyMaintainApi.save(toRequest(state)))
-      const shown = show('save', outcome)
+      const sent = state
+      const outcome = readEditorOutcome(await bbyMaintainApi.save(toRequest(sent)))
+      const shown = show('save', outcome, sent)
       if (outcome.kind !== 'saved') return
       await queryClient.invalidateQueries({ queryKey: promotionKey(promo.promoNumber) })
       await queryClient.invalidateQueries({ queryKey: promotionListKey })
@@ -497,7 +509,9 @@ function EditorBody({
               couponMaterial={couponMaterial}
             />
           )}
-          {tab === 'engine' && <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} />}
+          {tab === 'engine' && (
+            <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} loyFindings={loyFindings} />
+          )}
           {tab === 'promotion' && <PromotionTab promo={promo} />}
           {tab === 'history' && <HistoryTab doc={doc} />}
         </fieldset>

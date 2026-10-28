@@ -20,6 +20,15 @@
     "yes": "Yes",
     "no": "No"
   },
+  "multiSelect": {
+    "none": "None — choose",
+    "add": "Add",
+    "remove": "Remove {{value}}",
+    "find": "Find",
+    "loading": "Loading…",
+    "failed": "The list could not be loaded.",
+    "empty": "Nothing matches."
+  },
   "topbar": {
     "account": "Account menu",
     "crumb": "Breadcrumb",

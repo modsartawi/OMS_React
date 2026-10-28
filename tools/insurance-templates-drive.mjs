@@ -2,11 +2,11 @@
 //
 // Drives the REAL app in Chromium against STUBS of the templates and folders doors, on the REAL envelope
 // (`tools/insurance-rules-stubs.mjs`, its `// --- 609 ---` section, on 608's stateful draft):
-//   GET  InsuranceRules/Guards/Templates             → 3093's phase-1 templates + team templates
-//   POST InsuranceRules/Guards/Templates             → `{ ruleId, name, blanks }` → a team template
-//   POST InsuranceRules/Guards/Templates/{id}/Create → `{ values, folder }` → the new draft rule (HQ mints the id)
-//   GET / POST / PUT InsuranceRules/Guards/Folders   → paths; `{ path }` new, `{ from, to }` rename, `{ rules, to }` move
-// 🚩 NOTHING here is driven against a live SIS.Api: the doors (BackOffice 3139) are unbuilt. 618 swaps them in.
+//   GET  InsuranceRules/Guards/Templates             → 3093's phase-1 templates + team templates (blank PATHS, HQ names none)
+//   POST InsuranceRules/Guards/Templates             → `{ id, ruleId, name, blanks }` → a team template
+//   POST InsuranceRules/Guards/Templates/{id}/Create → `{ revision, ruleId, folder, values }` → the draft (the client names the rule)
+//   GET / POST / PUT InsuranceRules/Guards/Folders   → `{ folders }`; `{ path }` new, `{ from, to }` rename, `{ ruleId, folder }` move
+// The stubs serve the doors AS BUILT (oms 618); the drive's re-run against staging is 618's Done-when.
 //
 // It verifies, in LTR and RTL:
 //   1. the gallery: every phase-1 template with its DUR conflict code (an LTR isolate) and severity; no team one yet;
@@ -105,10 +105,12 @@ for (const dir of ['ltr', 'rtl']) {
   check(`${dir} 2. one control per blank`, (await dialog(page).locator('[data-blank]').count()) === QTY.blanks.length)
   check(`${dir} 2. Create waits: the name and the item list are empty`, (await page.locator('[data-fill-create]').isDisabled()) && (await page.locator('[data-missing]').getAttribute('data-missing')) === '2')
   check(`${dir} 2. a number blank keeps its default`, (await input(dialog(page), 'when[0].windowDays').inputValue()) === '28')
-  check(`${dir} 2. HQ's label names the blank`, strip(await dialog(page).locator('[data-blank="filters[0].list"] [data-blank-label]').innerText()) === 'Item list', strip(await dialog(page).locator('[data-blank="filters[0].list"] [data-blank-label]').innerText()))
+  const listLabel = strip(await dialog(page).locator('[data-blank="when[0].match"] [data-blank-label]').innerText())
+  check(`${dir} 2. a blank is named by its key's word and its path (HQ sends paths only)`, listLabel.includes('when[0].match') && !listLabel.includes('template.blank'), listLabel)
+  check(`${dir} 2. a match naming a list is picked from the ruleset's lists`, (await dialog(page).locator('[data-blank="when[0].match"]').getAttribute('data-blank-kind')) === 'list')
   await input(dialog(page), 'name.en').fill('GLP-1: two pens per 14 days')
   await input(dialog(page), 'name.ar').fill('GLP-1: قلمان كل 14 يوماً')
-  await input(dialog(page), 'filters[0].list').selectOption('glp1')
+  await input(dialog(page), 'when[0].match').selectOption('glp1')
   await input(dialog(page), 'when[0].windowDays').fill('14')
   await input(dialog(page), 'when[0].atLeast').fill('3')
   await input(dialog(page), 'folder').fill('Specialty medicines/GLP-1')
@@ -120,8 +122,8 @@ for (const dir of ['ltr', 'rtl']) {
   const id1 = NEXT(1)
   const w = lastWrite(state, 'templates.create')
   check(
-    `${dir} 2. the POST carries the values by path, and the folder`,
-    w && w.body.values['filters[0].list'] === 'glp1' && w.body.values['when[0].windowDays'] === 14 && w.body.values['when[0].atLeast'] === 3 && w.body.values.name?.ar === 'GLP-1: قلمان كل 14 يوماً' && w.body.folder === 'Specialty medicines/GLP-1',
+    `${dir} 2. the POST carries the draft's revision, the rule id, the changed values by path, and the folder`,
+    w && w.body.revision === 12 && w.body.ruleId === NEXT(1) && w.body.values['when[0].match'] === 'list:glp1' && w.body.values['when[0].windowDays'] === 14 && w.body.values['when[0].atLeast'] === 3 && w.body.values.name?.ar === 'GLP-1: قلمان كل 14 يوماً' && w.body.folder === 'Specialty medicines/GLP-1',
     JSON.stringify(w?.body),
   )
   check(`${dir} 2. the editor opens on the new draft rule`, new URL(page.url()).pathname === `/insurance-rules/guards/${id1}/edit`, page.url())
@@ -130,11 +132,11 @@ for (const dir of ['ltr', 'rtl']) {
   const r1 = state.store.draft.rules.find((r) => r.id === id1)
   check(
     `${dir} 2. HQ holds the rule with the blanks' values`,
-    r1 && r1.filters[0].list === 'glp1' && r1.when[0].windowDays === 14 && r1.when[0].atLeast === 3 && r1.folder === 'Specialty medicines/GLP-1' && r1.then[0].codes?.conflict === 'HD',
+    r1 && r1.when[0].match === 'list:glp1' && r1.when[0].windowDays === 14 && r1.when[0].atLeast === 3 && r1.folder === 'Specialty medicines/GLP-1' && r1.then[0].codes?.conflict === 'HD',
     JSON.stringify(r1),
   )
   const tq = state.templates.find((t) => t.id === 'T-QTY')
-  check(`${dir} 2. the template is untouched`, tq.rule.filters[0].list === '' && tq.rule.when[0].windowDays === 28 && tq.rule.name.en === '')
+  check(`${dir} 2. the template is untouched`, tq.rule.when[0].match === '' && tq.rule.when[0].windowDays === 28 && tq.rule.name.en === '')
 
   // ── 3: save the rule as a team template ───────────────────────────────────────────────────────
   await page.goto(`${BASE}/insurance-rules/guards/${id1}`)
@@ -142,9 +144,9 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-save-template]').click()
   await page.locator('[data-save-template-dialog]').waitFor()
   const offered = await page.locator('[data-candidate]').evaluateAll((els) => els.map((e) => e.getAttribute('data-candidate')))
-  check(`${dir} 3. the values offered as blanks`, JSON.stringify(offered) === JSON.stringify(['name', 'filters[0].list', 'when[0].windowDays', 'when[0].atLeast', 'then[0].says']), JSON.stringify(offered))
+  check(`${dir} 3. the values offered as blanks`, JSON.stringify(offered) === JSON.stringify(['name', 'when[0].match', 'when[0].windowDays', 'when[0].atLeast', 'then[0].says']), JSON.stringify(offered))
   check(`${dir} 3. a value shows as it reads now (an LTR isolate)`, (await page.locator('[data-candidate="when[0].windowDays"] bdi[dir="ltr"]').last().innerText()) === '14')
-  await page.locator('[data-blank-toggle="filters[0].list"]').check()
+  await page.locator('[data-blank-toggle="when[0].match"]').check()
   await page.locator('[data-blank-toggle="when[0].atLeast"]').check()
   check(`${dir} 3. two blanks chosen`, (await page.locator('[data-blank-count]').getAttribute('data-blank-count')) === '2')
   await input(page, 'template-name.en').fill('Pens per fortnight')
@@ -153,8 +155,8 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-save-template-dialog]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
   const sw = lastWrite(state, 'templates.save')
   check(
-    `${dir} 3. the POST names the rule, the template and the blanks (in the rule's order)`,
-    sw && sw.body.ruleId === id1 && sw.body.name.en === 'Pens per fortnight' && JSON.stringify(sw.body.blanks) === JSON.stringify(['filters[0].list', 'when[0].atLeast']),
+    `${dir} 3. the POST names the template id, the rule, the name and the blanks (in the rule's order)`,
+    sw && sw.body.id === `team-${id1}` && sw.body.ruleId === id1 && sw.body.name.en === 'Pens per fortnight' && JSON.stringify(sw.body.blanks) === JSON.stringify(['when[0].match', 'when[0].atLeast']),
     JSON.stringify(sw?.body),
   )
   await page.goto(`${BASE}/insurance-rules/templates`)
@@ -166,17 +168,17 @@ for (const dir of ['ltr', 'rtl']) {
   const teamId = await team.getAttribute('data-template')
   await page.locator(`[data-use-template="${teamId}"]`).click()
   await dialog(page).waitFor()
-  check(`${dir} 3. the list blank starts empty, the number keeps the rule's`, (await input(dialog(page), 'filters[0].list').inputValue()) === '' && (await input(dialog(page), 'when[0].atLeast').inputValue()) === '3')
+  check(`${dir} 3. each blank starts from the rule's value (HQ keeps it as the default)`, (await input(dialog(page), 'when[0].match').inputValue()) === 'glp1' && (await input(dialog(page), 'when[0].atLeast').inputValue()) === '3')
   check(`${dir} 3. a team blank is named by its path`, strip(await dialog(page).locator('[data-blank="when[0].atLeast"] [data-blank-label]').innerText()).includes('when[0].atLeast'))
-  await input(dialog(page), 'filters[0].list').selectOption('controlled')
+  await input(dialog(page), 'when[0].match').selectOption('controlled')
   await input(dialog(page), 'when[0].atLeast').fill('6')
   await page.locator('[data-fill-create]').click()
   const id2 = NEXT(2)
   await page.waitForURL(new RegExp(`/guards/${id2}/edit$`), { timeout: 15000 }).catch(() => {})
   const r2 = state.store.draft.rules.find((r) => r.id === id2)
   const r1again = state.store.draft.rules.find((r) => r.id === id1)
-  check(`${dir} 3. refilled: another draft rule with the new values`, r2 && r2.filters[0].list === 'controlled' && r2.when[0].atLeast === 6 && r2.when[0].windowDays === 14 && r2.name.en === r1.name.en, JSON.stringify(r2))
-  check(`${dir} 3. the first rule is untouched`, r1again.filters[0].list === 'glp1' && r1again.when[0].atLeast === 3)
+  check(`${dir} 3. refilled: another draft rule with the new values`, r2 && r2.when[0].match === 'list:controlled' && r2.when[0].atLeast === 6 && r2.when[0].windowDays === 14 && r2.name.en === r1.name.en, JSON.stringify(r2))
+  check(`${dir} 3. the first rule is untouched`, r1again.when[0].match === 'list:glp1' && r1again.when[0].atLeast === 3)
 
   // ── 4: move a rule to a folder from its page ──────────────────────────────────────────────────
   await page.goto(`${BASE}/insurance-rules/guards/${id2}`)
@@ -188,7 +190,7 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-move]').click()
   await page.waitForFunction(() => document.querySelector('[data-rule-folder]')?.textContent?.includes('Biologics'), null, { timeout: 10000 }).catch(() => {})
   const mv = lastWrite(state, 'folders.move')
-  check(`${dir} 4. one PUT moves the rule, no approval asked`, mv && JSON.stringify(mv.body) === JSON.stringify({ rules: [id2], to: 'Specialty medicines/Biologics' }) && state.store.draft.rules.find((r) => r.id === id2)?.state === 'draft', JSON.stringify(mv?.body))
+  check(`${dir} 4. one PUT moves the rule, no approval asked`, mv && JSON.stringify(mv.body) === JSON.stringify({ ruleId: id2, folder: 'Specialty medicines/Biologics' }) && state.store.draft.rules.find((r) => r.id === id2)?.state === 'draft', JSON.stringify(mv?.body))
   check(`${dir} 4. the page reads the new folder`, strip(await page.locator('[data-rule-folder]').innerText()) === 'Specialty medicines/Biologics')
 
   // ── 5: folders on the Guards list ─────────────────────────────────────────────────────────────

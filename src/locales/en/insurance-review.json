@@ -23,7 +23,8 @@
   "kind": {
     "override": "Override",
     "exception": "Exception used",
-    "unchecked": "Unchecked"
+    "unchecked": "Unchecked",
+    "refused": "Refused order"
   },
   "columns": {
     "at": "When",
@@ -70,7 +71,10 @@
     "revokeTitle": "Revoke this exception?",
     "revokeBody": "The patient's lines are checked by the guards again from now on.",
     "revoked": "The exception is revoked.",
-    "revokeFailed": "The exception could not be revoked."
+    "revokeFailed": "The exception could not be revoked.",
+    "patientKey": "Patient key",
+    "askPatient": "Type a patient's National ID or Iqama to list their exceptions.",
+    "revokeNote": "Why it is revoked"
   },
   "exceptionColumns": {
     "id": "Exception",

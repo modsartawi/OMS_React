@@ -56,9 +56,12 @@ export function windowOf(q: Pick<MetricsQuery, 'from' | 'to'>): WindowProblem | 
   return windowProblem(q.from, q.to, { maxDays: MAX_WINDOW_DAYS })
 }
 
-/** The door's params: `by` for the metrics, `payer` (dropped when empty) for the rejection report. */
+/**
+ * The door's params: `by` + `daily` for the metrics (HQ answers per day unless `daily=false`; the day view asks the rule
+ * rows per day, 3141 has no `by=day`), `payer` (dropped when empty) for the rejection report.
+ */
 export function metricsParams(q: MetricsQuery, rejections = false): Record<string, string> {
   const window = { from: q.from, to: q.to }
-  if (!rejections) return { by: q.by, ...window }
+  if (!rejections) return q.by === 'day' ? { by: 'rule', ...window, daily: 'true' } : { by: q.by, ...window, daily: 'false' }
   return q.payer ? { payer: q.payer, ...window } : window
 }

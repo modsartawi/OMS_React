@@ -24,7 +24,7 @@ import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { DeniedCard } from '@/core/insurance-rules/parts'
 
-const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'code', unit: '' }
+const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'text', unit: '' }
 
 /**
  * Insurance rules ▸ Fields — `/insurance-rules/fields` (BackOffice spec 3126, door 3132; oms ticket 610). The

@@ -195,7 +195,7 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
           }}
         >
           {!offered.some((f) => factPath(f) === c.path) && <option value={c.path}>{fsi(c.path)}</option>}
-          {(['request', 'item', 'eligibility', 'patient'] as const).map((scope) => {
+          {(['request', 'line', 'eligibility', 'patient'] as const).map((scope) => {
             const inScope = offered.filter((f) => f.scope === scope)
             return inScope.length ? (
               <optgroup key={scope} label={t(`conditions.scope.${scope}`)}>

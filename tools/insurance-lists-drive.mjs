@@ -358,10 +358,10 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/fields`)
     await page.locator('[data-field-row]').first().waitFor({ timeout: 30000 })
     const scopes = await page.locator('[data-fields-scope]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-fields-scope')}=${e.querySelectorAll('[data-field-row]').length}`))
-    check(`${dir} 5. one table per scope`, JSON.stringify(scopes) === JSON.stringify(['item=4', 'request=1', 'patient=1', 'eligibility=1']), JSON.stringify(scopes))
+    check(`${dir} 5. one table per scope`, JSON.stringify(scopes) === JSON.stringify(['item=4', 'request=1', 'patient=1', 'eligibility=1', 'line=0']), JSON.stringify(scopes))
     const ecode = page.locator('[data-field-row="ECode"]')
     await page.waitForFunction(() => document.querySelector('[data-field-row="ECode"] [data-field-users]')?.getAttribute('data-field-users') !== '0', null, { timeout: 5000 }).catch(() => {})
-    check(`${dir} 5. ECode: key and source ltr isolates`, (await ecode.locator('td').nth(1).locator('bdi[dir="ltr"]').innerText()) === 'ECode' && strip(await ecode.locator('[data-field-source] bdi[dir="ltr"]').innerText()) === 'ItemInfo.ECode / EDesc')
+    check(`${dir} 5. ECode: key and source ltr isolates`, (await ecode.locator('td').nth(1).locator('bdi[dir="ltr"]').innerText()) === 'ECode' && strip(await ecode.locator('[data-field-source] bdi[dir="ltr"]').innerText()) === 'ItemInfo.ECode')
     check(`${dir} 5. ECode is used by the lists that name it`, (await ecode.locator('[data-field-users]').getAttribute('data-field-users')) === '2' && JSON.stringify(await ecode.locator('[data-field-users] bdi[dir="ltr"]').allInnerTexts()) === '["glp1","chronic"]')
     check(`${dir} 5. daysSupply is used by G-004, with its unit`, strip(await page.locator('[data-field-row="daysSupply"] [data-field-users]').innerText()) === 'G-004' && (await page.locator('[data-field-row="daysSupply"] td').nth(2).locator('bdi[dir="ltr"]').innerText()) === 'days')
     check(`${dir} 5. a retired field is badged and has no Retire`, (await page.locator('[data-field-row="OldGroup"]').getAttribute('data-retired')) === 'true' && (await page.locator('[data-field-retire="OldGroup"]').count()) === 0 && (await page.locator('[data-field-retire="ECode"]').count()) === 1)
@@ -379,13 +379,13 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. …a new source suggests its column`, (await form.locator('[data-add-key]').inputValue()) === 'HouseBrand')
     await form.locator('[data-add-label-en]').fill('House brand')
     await form.locator('[data-add-label-ar]').fill('العلامة الخاصة')
-    await form.locator('[data-add-type]').selectOption('code')
+    await form.locator('[data-add-type]').selectOption('text')
     await form.locator('[data-add-submit]').click()
     await page.locator('[data-field-row="HouseBrand"]').waitFor({ timeout: 5000 }).catch(() => {})
     const added = writesOf(state, 'addField')
     check(
       `${dir} 5. an ItemInfo field is POSTed: key, EN + AR label, scope, type, unit, source`,
-      added.length === 1 && JSON.stringify(added[0].body) === JSON.stringify({ key: 'HouseBrand', label: { en: 'House brand', ar: 'العلامة الخاصة' }, scope: 'item', type: 'code', unit: null, source: 'ItemInfo.HouseBrand' }),
+      added.length === 1 && JSON.stringify(added[0].body) === JSON.stringify({ key: 'HouseBrand', label: { en: 'House brand', ar: 'العلامة الخاصة' }, scope: 'item', type: 'text', unit: null, source: 'ItemInfo.HouseBrand' }),
       JSON.stringify(added[0]?.body),
     )
     check(`${dir} 5. …shows in the item table, the Arabic label right to left`, (await page.locator('[data-fields-scope="item"] [data-field-row="HouseBrand"]').count()) === 1 && (await page.locator('[data-field-row="HouseBrand"] bdi[data-says-ar][dir="rtl"]').innerText()) === 'العلامة الخاصة')

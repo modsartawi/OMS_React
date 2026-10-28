@@ -58,11 +58,10 @@
     "timeAdded": "Time added (median)"
   },
   "outcome": {
-    "removed": "Removed",
-    "changed": "Changed",
     "overridden": "Overridden",
     "acknowledged": "Acknowledged",
-    "exception": "HQ exception"
+    "exception": "HQ exception",
+    "unanswered": "Unanswered"
   },
   "unit": {
     "pct": "{{n}}%",
@@ -91,13 +90,15 @@
       "cancel": "Cancel",
       "saved": "The flag thresholds are saved.",
       "failed": "The thresholds could not be saved.",
-      "invalid": "A rate is 1–100%, a count or a number of days is a whole number from 1, and a jump is more than 1 time.",
+      "invalid": "Each threshold is a whole number from 1: a rate up to 100%, a window up to 366 days.",
       "field": {
         "noisyPct": "Noisy above",
         "noisyMinFires": "Of at least (fires)",
-        "windowDays": "Within",
         "silentDays": "Silent after",
-        "jumpFactor": "Jumps at"
+        "jumpFactor": "Jumps at",
+        "noisyDays": "Within",
+        "jumpDays": "Against the average of",
+        "jumpMinFires": "And at least (fires)"
       },
       "unit": {
         "pct": "%",

@@ -132,7 +132,9 @@ async function open(dir, grants) {
       reads[doc[1]] = (reads[doc[1]] ?? 0) + 1
       const o = orders[doc[1]]
       if (!o) return route.fulfill(envelope(null, { status: 400, success: false, message: 'Not found' }))
-      return route.fulfill(envelope({ ...capture, documentNo: doc[1], lines: docLines(), guardState: o.guardState, guards: o.guards }))
+      // 3143 as built: the detail has no `guardState` — `guards.state` is the order's (a pending order's `guards` holds no lines).
+      const guards = o.guards ? { ...o.guards, state: o.guardState } : o.guardState ? { state: o.guardState, checkId: '', lineHash: '', decisionId: '', checkedAt: '0001-01-01T00:00:00', failure: 'the guard check could not run', releasedBy: '', releaseReason: '', lines: [] } : undefined
+      return route.fulfill(envelope({ ...capture, documentNo: doc[1], lines: docLines(), ...(guards ? { guards } : {}) }))
     }
     if (/\/(Logs|Outbox|DonorRequests|PrescriptionSessions)$/.test(p)) return route.fulfill(envelope([]))
     if (/\/Callout$/.test(p)) return route.fulfill(envelope({ asOf: '2026-10-27T10:00:00', deliveryNumber: '', callouts: [] }))
@@ -371,7 +373,8 @@ for (const dir of ['ltr', 'rtl']) {
     await page.waitForTimeout(600)
     const rel = writes.find((w) => w.door === 'release')
     check(`${L} 5: the exact Release body`, rel?.documentNo === PENDING && JSON.stringify(rel.body) === JSON.stringify({ reason: 'Insurer approved by phone' }), JSON.stringify(rel))
-    check(`${L} 5: released — the order is read again and the panel goes`, reads[PENDING] > before && (await page.locator('[data-order-guards]').count()) === 0)
+    // 3143 as built: Release frees a pending order as `unchecked` (it went on without its check) — the panel says so.
+    check(`${L} 5: released — the order is read again and reads unchecked`, reads[PENDING] > before && (await page.locator('[data-order-guards="unchecked"]').count()) === 1)
     await page.screenshot({ path: `${SHOTS}/${dir}-5-released.png` })
     check(`${L} 5: no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()

@@ -6,11 +6,12 @@
 
 import type { Says } from './model'
 
-export const FIELD_SCOPES = ['item', 'request', 'patient', 'eligibility'] as const
+/** As BUILT (3132; `line` added by 3171 for a fact the check computes, `idfPriority`). */
+export const FIELD_SCOPES = ['item', 'request', 'patient', 'eligibility', 'line'] as const
 export type FieldScope = (typeof FIELD_SCOPES)[number]
 
-/** ⚠️ PROVISIONAL values: the brief names a `type` and a `unit`, not their vocabulary. */
-export const FIELD_TYPES = ['code', 'text', 'number', 'date', 'bool'] as const
+/** As BUILT (3132, `InsuranceRuleFieldTypes`): a code is a `text`, a yes / no a `flag`. */
+export const FIELD_TYPES = ['text', 'number', 'date', 'flag'] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
 /** A fact a rule can test, named by `key` (rename-safe). Retired, never deleted. `GET InsuranceRules/Fields`. */
@@ -19,20 +20,19 @@ export interface RegistryField {
   label: Says
   scope: FieldScope
   type: FieldType
-  /** `days`, `SAR`, `years`… — null when the value has none. */
+  /** `days`, `SAR`, `%`… — empty (HQ sends `''`) or null when the value has none. */
   unit: string | null
-  /** Where HQ reads it: `ItemInfo.ECode / EDesc`, `Nphies eligibility answer`, … */
+  /** Where HQ reads it: an item field's `ItemInfo.<column>`, an eligibility fact's answer path, … */
   source: string
+  /** An item field's description column for the value picker (`ItemInfo.EDesc`); empty when none. */
+  pickerSource?: string | null
   retired: boolean
 }
 
 /** `POST InsuranceRules/Fields` body. */
 export type NewRegistryField = Omit<RegistryField, 'retired'>
 
-/**
- * A value of a code field for the picker: `GET InsuranceRules/Fields/{key}/Values?q=`.
- * ⚠️ PROVISIONAL spelling (`code`, `description`) — the brief says "code + description values".
- */
+/** A value of an item field for the picker: `GET InsuranceRules/Fields/{key}/Values?q=` → `[{ code, description }]` (50). */
 export interface FieldValue {
   code: string
   description: string

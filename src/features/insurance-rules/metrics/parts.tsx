@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { Link } from 'react-router'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { guardRulePath, type Says } from '@/core/insurance-rules/model'
@@ -27,9 +29,14 @@ export function Tile({ label, hook, tag, tone, children }: { label: string; hook
   )
 }
 
-/** A rule named by its id (a link to the rule read as sentences) and its name in the reader's language. */
-export function RuleName({ id, name }: { id: string; name: Says | null }) {
+/**
+ * A rule named by its id (a link to the rule read as sentences) and its name in the reader's language. HQ's metrics and
+ * flags carry the id only (3141): the name is read from the guard ruleset (the cached draft) when none is given.
+ */
+export function RuleName({ id, name: given }: { id: string; name: Says | null }) {
   const { i18n } = useTranslation()
+  const doc = useQuery({ ...guardDraftQuery(), enabled: !given }).data
+  const name = given ?? doc?.rules.find((r) => r.id === id)?.name ?? null
   return (
     <span className="flex flex-col leading-tight">
       <Link to={guardRulePath(id)} className="w-fit text-primary hover:underline" data-rule-link={id}>

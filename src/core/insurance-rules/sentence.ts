@@ -78,7 +78,8 @@ function listValue(id: string, ctx: GuardSentenceContext): SentenceValue {
 }
 
 function matchValue(match: GuardMatch, ctx: GuardSentenceContext, otherKind = false): SentenceValue {
-  if (match.startsWith('list:')) return phrase('match.list', { list: listValue(match.slice(5), ctx) })
+  // An empty match is a template's list blank not yet filled: it reads as a list, unnamed.
+  if (match.startsWith('list:') || !match) return phrase('match.list', { list: listValue(match.slice(5), ctx) })
   if (match === 'sameClass' && otherKind) return phrase('match.sameClassOtherKind')
   return phrase(`match.${match}`)
 }
@@ -189,7 +190,8 @@ function whenSentences(rule: GuardRule): KeySentence[] {
   const stores = rule.audience?.stores ?? []
   const out: KeySentence[] = [
     S('when.audience', {
-      channels: channels.length ? { kind: 'list', join: 'and', items: channels.map((ch) => phrase(`channel.${ch}`)) } : phrase('when.noChannel'),
+      // No channel named = EVERY channel (the engine checks a rule with no `audience.channels` everywhere; oms 618).
+      channels: channels.length ? { kind: 'list', join: 'and', items: channels.map((ch) => phrase(`channel.${ch}`)) } : phrase('when.everyChannel'),
       stores: stores.length ? phrase('when.stores', { stores: { kind: 'list', join: 'and', items: stores.map(code) } }) : phrase('when.allStores'),
     }),
   ]

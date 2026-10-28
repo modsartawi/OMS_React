@@ -4,12 +4,13 @@
  * editor (608), templates (609) and approval (611) share. 608/609/611 add their Guards doors HERE
  * (Validate, Submit, Approve, SendBack, Promote, Versions, Folders, Templates).
  *
- * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`): no door here has met a real SIS.Api.
+ * `GET InsuranceRules/Guards` as BUILT (3139 / 3141): `{ id, name, folder, state, severity, group, shadowSince,
+ * shadowFires, inDraft, lastFired, flags: [{ kind, since }] }` — the screens read the 607 fields of `GuardRuleRow`.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { GuardRuleRow, Says } from '@/core/insurance-rules/model'
-import type { GuardTemplate } from '@/core/insurance-rules/templates' // 609
+import { templateIn, type GuardTemplate, type GuardTemplateReply } from '@/core/insurance-rules/templates' // 609
 
 export const guardsApi = {
   /** `GET InsuranceRules/Guards` — every guard rule with its state, severity, last fired and flags. */
@@ -25,28 +26,33 @@ export function guardsQuery() {
 }
 
 // ── 609 · folders (authoring only, no approval) and "Save as template" ──────────────────────────
-// ⚠️ PROVISIONAL bodies (609), 618 reconciles — the brief names `GET / POST / PUT …/Folders` ("path tree") and
-// `POST …/Templates` ("from a rule, `blanks: [path]`") only:
-// - `GET …/Folders` → every folder path (`string[]`), an empty one included;
-// - `POST …/Folders` `{ path }` makes one; `PUT …/Folders` `{ from, to }` renames one (its rules and folders
-//   under it follow) or `{ rules: [id], to }` moves rules; each answers the paths again;
-// - `POST …/Templates` `{ ruleId, name: {en, ar}, blanks: [path] }` → the saved team template.
+// As BUILT (BackOffice 3139; oms 618):
+// - `GET …/Folders` → `{ folders: [{ path, rules }] }` (every path, made by the team or in use; `rules` = rules sitting
+//   directly in it);
+// - `POST …/Folders { path }` makes one; `PUT …/Folders { from, to }` renames one (its rules and folders under it
+//   follow) or `{ ruleId, folder }` moves ONE rule (blank folder = the root); each answers the tree again;
+// - `POST …/Templates { id, name: { en, ar }, ruleId, blanks: [path] }` → the saved team template.
+
+type FolderTreeReply = { folders?: { path: string; rules: number }[] } | null
+const folderPathsOf = (reply: FolderTreeReply): string[] => (reply?.folders ?? []).map((f) => f.path)
+const FOLDERS = `${INSURANCE_RULES_BASE}/Guards/Folders`
 
 export const guardFoldersApi = {
   async list(): Promise<string[]> {
-    return (await api.get<string[] | null>(`${INSURANCE_RULES_BASE}/Guards/Folders`)) ?? []
+    return folderPathsOf(await api.get<FolderTreeReply>(FOLDERS))
   },
   async create(path: string): Promise<string[]> {
-    return (await api.post<string[] | null>(`${INSURANCE_RULES_BASE}/Guards/Folders`, { path })) ?? []
+    return folderPathsOf(await api.post<FolderTreeReply>(FOLDERS, { path }))
   },
   async rename(from: string, to: string): Promise<string[]> {
-    return (await api.put<string[] | null>(`${INSURANCE_RULES_BASE}/Guards/Folders`, { from, to })) ?? []
+    return folderPathsOf(await api.put<FolderTreeReply>(FOLDERS, { from, to }))
   },
-  async move(rules: string[], to: string): Promise<string[]> {
-    return (await api.put<string[] | null>(`${INSURANCE_RULES_BASE}/Guards/Folders`, { rules, to })) ?? []
+  /** One rule to a folder ('' = no folder). */
+  async move(ruleId: string, folder: string): Promise<string[]> {
+    return folderPathsOf(await api.put<FolderTreeReply>(FOLDERS, { ruleId, folder }))
   },
-  saveAsTemplate(body: { ruleId: string; name: Says; blanks: string[] }): Promise<GuardTemplate> {
-    return api.post<GuardTemplate>(`${INSURANCE_RULES_BASE}/Guards/Templates`, body)
+  async saveAsTemplate(body: { id: string; ruleId: string; name: Says; blanks: string[] }): Promise<GuardTemplate> {
+    return templateIn(await api.post<GuardTemplateReply>(`${INSURANCE_RULES_BASE}/Guards/Templates`, body))
   },
 }
 

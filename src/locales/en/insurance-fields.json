@@ -16,7 +16,8 @@
     "item": "Item fields",
     "request": "Request facts",
     "patient": "Patient facts",
-    "eligibility": "Eligibility facts"
+    "eligibility": "Eligibility facts",
+    "line": "Line facts"
   },
   "col": {
     "field": "Field",
@@ -26,11 +27,10 @@
     "usedBy": "Used by"
   },
   "type": {
-    "code": "Code",
     "text": "Text",
     "number": "Number",
     "date": "Date",
-    "bool": "Yes / no"
+    "flag": "Yes / no"
   },
   "retire": {
     "done": "Field retired",

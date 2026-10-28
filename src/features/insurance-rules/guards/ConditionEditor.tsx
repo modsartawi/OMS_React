@@ -616,7 +616,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               }}
             >
               {!offered.some((f) => factPath(f) === c.path) && <option value={c.path}>{fsi(c.path)}</option>}
-              {(['patient', 'request', 'eligibility', 'item'] as const).map((scope) => {
+              {(['patient', 'request', 'eligibility', 'line'] as const).map((scope) => {
                 const inScope = offered.filter((f) => f.scope === scope)
                 return inScope.length ? (
                   <optgroup key={scope} label={t(`editor.factScope.${scope}`)}>

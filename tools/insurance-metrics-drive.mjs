@@ -25,7 +25,7 @@
 //   1. run the app:  npx vite --port 5136 --strictPort
 //   2. node tools/insurance-metrics-drive.mjs        (DRIVE_PORT overrides 5136)
 import { createRequire } from 'node:module'
-import { envelope, insuranceMetricsStub } from './insurance-rules-stubs.mjs'
+import { envelope, insuranceMetricsStub, insuranceRulesStub } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -60,7 +60,8 @@ async function open(dir, { deny = [] } = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     stubOpts.asked = asked
     stubOpts.body = req.method() === 'PUT' ? JSON.parse(req.postData() || 'null') : null
-    const hit = insuranceMetricsStub(req.method(), p, url.searchParams, stubOpts)
+    // 618: HQ's metrics name a rule by id only; the screen reads names from the guard draft.
+    const hit = insuranceMetricsStub(req.method(), p, url.searchParams, stubOpts) ?? insuranceRulesStub(req.method(), p, null)
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
@@ -94,7 +95,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the title`, strip(await page.locator('h1').first().innerText()) === 'Metrics')
     check(`${dir} 1. Metrics tab and Rule are picked`, (await page.locator('[data-tab="metrics"]').getAttribute('aria-selected')) === 'true' && (await page.locator('[data-by="rule"]').getAttribute('aria-pressed')) === 'true')
     const win = await defaultWindow(page)
-    check(`${dir} 1. the door is asked per rule over the last 30 local days`, JSON.stringify(lastAsk(asked, 'metrics')) === JSON.stringify({ by: 'rule', ...win }), JSON.stringify(lastAsk(asked, 'metrics')))
+    check(`${dir} 1. the door is asked per rule over the last 30 local days`, JSON.stringify(lastAsk(asked, 'metrics')) === JSON.stringify({ by: 'rule', ...win, daily: 'false' }), JSON.stringify(lastAsk(asked, 'metrics')))
     check(`${dir} 1. the window inputs show it`, (await page.locator('[data-window-from]').inputValue()) === win.from && (await page.locator('[data-window-to]').inputValue()) === win.to)
 
     // 2. tiles
@@ -112,8 +113,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. the fires bar: G-002 all override, full length`, JSON.stringify(segs) === JSON.stringify(['override']) && (await page.locator('[data-row="G-002"] [data-fires-bar] > span').getAttribute('style')).includes('100%'))
     check(`${dir} 3. G-010's bar is 45% of the busiest`, (await page.locator('[data-row="G-010"] [data-fires-bar] > span').getAttribute('style')).includes('45%'))
     const mix = await page.locator('[data-row="G-002"] [data-outcome-bar] [data-segment]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-segment')}=${e.getAttribute('data-count')}`))
-    check(`${dir} 3. G-002 outcome mix`, JSON.stringify(mix) === JSON.stringify(['removed=2', 'changed=2', 'overridden=36']), JSON.stringify(mix))
-    check(`${dir} 3. the mix's tooltip names each share`, strip((await page.locator('[data-row="G-002"] [data-outcome-bar]').getAttribute('title')) ?? '') === 'Removed: 2 (5%); Changed: 2 (5%); Overridden: 36 (90%)')
+    check(`${dir} 3. G-002 outcome mix`, JSON.stringify(mix) === JSON.stringify(['overridden=36', 'unanswered=4']), JSON.stringify(mix))
+    check(`${dir} 3. the mix's tooltip names each share`, strip((await page.locator('[data-row="G-002"] [data-outcome-bar]').getAttribute('title')) ?? '') === 'Overridden: 36 (90%); Unanswered: 4 (10%)', (await page.locator('[data-row="G-002"] [data-outcome-bar]').getAttribute('title')) ?? '')
     const cells = async (k) => Promise.all(['overrideRate', 'sarProtected', 'rejectionsAfterPass', 'timeAdded'].map(async (c) => strip(await page.locator(`[data-row="${k}"] [data-col="${c}"]`).innerText())))
     check(`${dir} 3. G-002: 90%, 845.50, 1, 12.4 s`, JSON.stringify(await cells('G-002')) === JSON.stringify(['90%', '845.50', '1', '12.4 s']), JSON.stringify(await cells('G-002')))
     check(`${dir} 3. G-007: no time measured is a dash`, JSON.stringify(await cells('G-007')) === JSON.stringify(['80%', '2210.00', '2', '—']), JSON.stringify(await cells('G-007')))
@@ -127,6 +128,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. per store: most fires first, codes ltr`, JSON.stringify(await rowKeys(page)) === JSON.stringify(['P001', 'P019']) && (await page.locator('[data-row="P001"] [data-col="key"] bdi[dir="ltr"]').innerText()) === 'P001')
     await page.locator('[data-by="day"]').click()
     await page.locator('[data-day-chart]').waitFor({ timeout: 10000 }).catch(() => {})
+    await page.locator('[data-row="2026-10-24"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 4. per day: calendar order`, JSON.stringify(await rowKeys(page)) === JSON.stringify(['2026-10-24', '2026-10-25', '2026-10-26']), JSON.stringify(await rowKeys(page)))
     const xs = await page.locator('[data-chart-day]').evaluateAll((els) => els.map((g) => Number(g.querySelector('[data-chart-bar]').getAttribute('x'))))
     check(`${dir} 4. the chart's first day sits at the reading start`, dir === 'ltr' ? xs[0] < xs[2] : xs[0] > xs[2], JSON.stringify(xs))
@@ -181,14 +183,15 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-flag-settings-edit]').click()
     const form = page.locator('[data-flag-settings-form]')
     check(`${dir} 6b. the form reads the current thresholds, the rate as a percent`, (await form.locator('[data-input="noisyPct"]').inputValue()) === '80' && (await form.locator('[data-input="silentDays"]').inputValue()) === '60')
-    await form.locator('[data-input="jumpFactor"]').fill('1')
-    check(`${dir} 6b. a jump of 1 is refused, Save off`, (await form.locator('[data-flag-settings-problems="jumpFactor"]').count()) === 1 && (await form.locator('[data-flag-settings-save]').isDisabled()))
+    // 618: HQ takes whole numbers from 1 (3141): a jump of 1.5 is refused, 1 is allowed.
+    await form.locator('[data-input="jumpFactor"]').fill('1.5')
+    check(`${dir} 6b. a jump that is not a whole number is refused, Save off`, (await form.locator('[data-flag-settings-problems="jumpFactor"]').count()) === 1 && (await form.locator('[data-flag-settings-save]').isDisabled()))
     await form.locator('[data-input="jumpFactor"]').fill('8')
     await form.locator('[data-input="noisyPct"]').fill('75')
     await form.locator('[data-flag-settings-save]').click()
     await page.locator('[data-flag-settings-form]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
     const put = writes.find((w) => w.door === 'saveFlagSettings')
-    check(`${dir} 6b. the exact PUT body`, JSON.stringify(put?.body) === JSON.stringify({ noisyOverrideRate: 0.75, noisyMinFires: 30, windowDays: 30, silentDays: 60, jumpFactor: 8 }), JSON.stringify(put))
+    check(`${dir} 6b. the exact PUT body`, JSON.stringify(put?.body) === JSON.stringify({ noisyOverridePct: 75, noisyMinFires: 30, noisyDays: 30, silentDays: 60, jumpFactor: 8, jumpDays: 30, jumpMinFires: 10 }), JSON.stringify(put))
     check(
       `${dir} 6b. the sentence reads the saved thresholds`,
       strip(await page.locator('[data-flag-thresholds]').innerText()).startsWith('A rule is noisy when more than 75% of at least 30 fires') &&

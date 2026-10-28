@@ -4,8 +4,8 @@
  * doors over their own documents (`rulesetDoors` in core `ruleset-draft`: `GET / PUT InsuranceRules/{Categories|
  * Coverage}/Draft`, Validate, Submit / Approve / SendBack, Versions / Restore).
  *
- * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 617); no door here has met a real SIS.Api.
- * No access probe: a session without the grant is answered a bare 403.
+ * Reconciled with 3144-3146 as built in oms 618: the documents travel in SIS.Rules' spelling through core `guard-wire`
+ * (`rulesetDoors`). No access probe: a session without the grant is answered a bare 403.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'

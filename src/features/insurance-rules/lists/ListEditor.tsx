@@ -338,15 +338,31 @@ function Problem({ problem }: { problem: ListProblem }) {
 
 function PreviewResult({ preview }: { preview: ListPreview }) {
   const { t } = useTranslation('insurance-lists')
+  // HQ's own words (English) on a list that does not read, or that names a field the registry lacks.
+  const said = [...preview.errors, ...preview.warnings]
+  const words =
+    said.length > 0 ? (
+      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground" data-preview-said={said.length}>
+        {said.map((w) => (
+          <li key={w}>
+            <bdi>{w}</bdi>
+          </li>
+        ))}
+      </ul>
+    ) : null
   if (preview.matchesNothing || preview.count === 0)
     return (
-      <p className="flex items-center gap-2 rounded-md bg-attention-050 p-2 text-sm text-attention-800" role="alert" data-preview-nothing="">
-        <AlertTriangle className="h-4 w-4" aria-hidden />
-        {t('preview.nothing')}
-      </p>
+      <div className="flex flex-col gap-1">
+        <p className="flex items-center gap-2 rounded-md bg-attention-050 p-2 text-sm text-attention-800" role="alert" data-preview-nothing="">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          {t('preview.nothing')}
+        </p>
+        {words}
+      </div>
     )
   return (
     <div className="flex flex-col gap-2" data-preview-result="">
+      {words}
       <p className="text-sm" data-preview-count={preview.count}>
         {t('preview.count', { count: preview.count, n: fsi(preview.count) })}
         {preview.items.length < preview.count && (

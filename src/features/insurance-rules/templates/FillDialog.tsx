@@ -9,7 +9,8 @@ import { folderPaths, folderTree } from '@/core/insurance-rules/folders'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, type GuardRuleset, type Says } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
-import { blankKind, fillTemplate, missingBlanks, valueAt, type BlankValue, type GuardTemplate } from '@/core/insurance-rules/templates'
+import { nextGuardId } from '@/core/insurance-rules/guard-edit'
+import { blankKind, changedValues, fillTemplate, listBlankId, listBlankValue, missingBlanks, valueAt, type BlankValue, type GuardTemplate } from '@/core/insurance-rules/templates'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
@@ -39,13 +40,15 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
   const preview = useMemo(() => guardSentence(fillTemplate(template, values, { id: '' }), draft.lists), [template, values, draft.lists])
   const set = (path: string, v: BlankValue) => setValues((x) => ({ ...x, [path]: v }))
 
+  // HQ adds the rule under the id the client names, to the draft at the revision on screen.
+  const ruleId = useMemo(() => nextGuardId(draft.rules), [draft.rules])
   const create = useMutation({
-    mutationFn: () => templatesApi.create(template.id, values, folder.trim()),
-    onSuccess: (rule) => {
-      void queryClient.invalidateQueries({ queryKey: GUARD_DRAFT_KEY })
+    mutationFn: () => templatesApi.create(template.id, { revision: draft.revision, ruleId, folder: folder.trim(), values: changedValues(template, values) }),
+    onSuccess: (next) => {
+      queryClient.setQueryData(GUARD_DRAFT_KEY, next)
       void queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'list'] })
-      notify.success(t('fill.created', { id: fsi(rule.id) }))
-      navigate(guardEditPath(rule.id))
+      notify.success(t('fill.created', { id: fsi(ruleId) }))
+      navigate(guardEditPath(ruleId))
     },
     onError: (err) => notify.apiError(t('fill.failed'), err, t('fill.failed')),
   })
@@ -104,7 +107,7 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
               ) : (
                 <Field label={<BlankLabel blank={b} />}>
                   {kind === 'list' ? (
-                    <Select value={String(v ?? '')} onChange={(e) => set(b.path, e.target.value)} aria-invalid={empty || undefined} className="w-64" data-input={b.path}>
+                    <Select value={listBlankId(b.path, v)} onChange={(e) => set(b.path, listBlankValue(b.path, e.target.value))} aria-invalid={empty || undefined} className="w-64" data-input={b.path}>
                       <option value="">{t('fill.pickList')}</option>
                       {draft.lists.map((l) => (
                         <option key={l.id} value={l.id}>

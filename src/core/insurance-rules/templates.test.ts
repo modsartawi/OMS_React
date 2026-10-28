@@ -5,11 +5,11 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES } from '../../../tools/insurance-rules-stubs.mjs'
-import { blankCandidates, fillTemplate, missingBlanks, valueAt, type GuardTemplate } from './templates'
+import { blankCandidates, fillTemplate, missingBlanks, templateIn, valueAt, type GuardTemplate } from './templates'
 
 const DUPLICATE: GuardTemplate = {
   id: 'T-DUP',
-  source: 'phase1',
+  origin: 'phase1',
   name: { en: 'Duplicate dispense', ar: 'صرف مكرر' },
   conflictCode: '83',
   blanks: [
@@ -99,7 +99,7 @@ describe('missingBlanks', () => {
 })
 
 describe('blankCandidates', () => {
-  it('offers the name, each filter list, every typed value of the conditions and each message — never the block kinds', () => {
+  it('offers the name, every typed value of the conditions and each message by the path HQ reads — never a filter or a block kind', () => {
     const g007 = {
       ...DUPLICATE.rule,
       id: 'G-007',
@@ -117,9 +117,10 @@ describe('blankCandidates', () => {
         },
       ],
     }
+    // 618: HQ stores no `filters` (a blank there is refused): the line's list itself is the blank.
     expect(blankCandidates(g007).map((c) => c.path)).toEqual([
       'name',
-      'filters[0].list',
+      'when[0].conditions[0].inList',
       'when[0].conditions[2].inList',
       'when[0].conditions[3].windowDays',
       'when[0].conditions[3].atLeast',
@@ -143,10 +144,11 @@ describe('blankCandidates — request blocks switch on field', () => {
   })
 })
 
-describe("the drive's phase-1 templates (3093)", () => {
-  it('every blank points at a value of its rule, and each template has a name blank', () => {
-    for (const t of TEMPLATES) {
-      expect([t.id, t.blanks[0]?.path]).toEqual([t.id, 'name'])
+describe("the drive's phase-1 templates (3093), as GET …/Templates serves them (618)", () => {
+  it('every blank path points at a value of its rule, read as the gallery reads it, and each template has a name blank', () => {
+    for (const reply of TEMPLATES) {
+      const t = templateIn(reply)
+      expect([t.id, t.origin, t.blanks[0]?.path]).toEqual([t.id, 'phase1', 'name'])
       for (const b of t.blanks) expect([t.id, b.path, valueAt(t.rule, b.path) !== undefined]).toEqual([t.id, b.path, true])
     }
   })

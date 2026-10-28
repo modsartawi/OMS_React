@@ -55,7 +55,7 @@ export default function GuardDialog({
   const { t } = useTranslation('insurance-order-guards')
   const user = useSession((s) => s.userId) ?? ''
   const [drafts, setDrafts] = useState<GuardDrafts>({})
-  const reasons = useQuery({ ...guardReasonsQuery(), enabled: open })
+  const reasons = useQuery({ ...guardReasonsQuery(guards.checkId), enabled: open })
   const form = guardAnswer({ guards, reasons: reasons.data ?? null, drafts, user, canOverride })
   const send = useMutation({
     mutationFn: () => orderGuardsApi.answer(guards.checkId, form.body!),

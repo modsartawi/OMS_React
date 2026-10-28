@@ -5,7 +5,7 @@ import { Link } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
+import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftStateQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
 import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
@@ -22,9 +22,9 @@ import Ltr from '@/core/ui/Ltr'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { formatDay, toIsoDate } from '@/core/util/date-format'
-import { actionsFor, type ApprovalAction, type DraftApproval } from '@/core/insurance-rules/approval'
+import { actionsFor, approvalOf, type ApprovalAction, type DraftApproval } from '@/core/insurance-rules/approval'
 import { promoteGate } from './approval'
-import { APPROVALS_KEY, approvalQuery, approvalsApi, shadowFiguresQuery, versionsQuery, type RulesetVersion } from './api'
+import { approvalsApi, shadowFiguresQuery, versionsQuery, type RulesetVersion } from './api'
 import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 const NS = 'insurance-approvals'
@@ -40,27 +40,28 @@ const BACKTEST_MISSING = 'GUARDS_BACKTEST_MISSING'
  * back. Shadow rules with their shadow figures and days in shadow, which the approver promotes (or, under 14 days,
  * skips shadow with a reason). The ruleset's versions — who, when, note — each restorable as a new draft.
  *
- * 🚩 UNGATED: no access probe until 618; the role comes from the (guessed) Approval read, and a bare 403 is
- * "You do not have access".
+ * 🚩 UNGATED: BackOffice has no insurance-rules grant probe (618), so both roles are offered and HQ refuses what the
+ * session may not do; where the draft stands is the draft itself (`approvalOf`). A bare 403 is "You do not have access".
  */
 export default function ApprovalsPage() {
   const { t } = useTranslation(NS)
-  const draft = useQuery(guardDraftQuery())
-  const approval = useQuery(approvalQuery())
+  const draft = useQuery(guardDraftStateQuery())
 
-  const error = draft.error ?? approval.error
+  const error = draft.error
   let body: ReactNode
   if (error && isBareDenial(error)) body = <DeniedCard ns="insurance-approvals" hook="approvals-denied" />
   else if (error) body = <ErrorBanner className="p-3" message={apiErrorMessage(error, t('failed'))} />
-  else if (!draft.data || !approval.data) body = <Loading text={t('loading')} />
-  else
+  else if (!draft.data) body = <Loading text={t('loading')} />
+  else {
+    const approval = approvalOf(draft.data)
     body = (
       <>
-        <DraftPanel doc={draft.data} approval={approval.data} />
-        <ShadowSection doc={draft.data} approver={approval.data.viewer.approver} />
-        <VersionsSection author={approval.data.viewer.author} />
+        <DraftPanel doc={draft.data.document} approval={approval} />
+        <ShadowSection doc={draft.data.document} approver={approval.viewer.approver} />
+        <VersionsSection author={approval.viewer.author} />
       </>
     )
+  }
 
   return (
     <section className="flex w-full max-w-5xl flex-col gap-5" data-approvals-page="">
@@ -93,11 +94,14 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   const [note, setNote] = useState('')
 
   const act = useMutation({
-    mutationFn: (kind: ApprovalAction['kind']) =>
-      kind === 'submit' ? approvalsApi.submit(note.trim()) : kind === 'approve' ? approvalsApi.approve(note.trim()) : approvalsApi.sendBack(note.trim()),
-    onSuccess: async (next, kind) => {
+    mutationFn: (kind: ApprovalAction['kind']): Promise<unknown> =>
+      kind === 'submit'
+        ? approvalsApi.submit(approval.revision, note.trim())
+        : kind === 'approve'
+          ? approvalsApi.approve(approval.revision, note.trim())
+          : approvalsApi.sendBack(note.trim()),
+    onSuccess: async (_next, kind) => {
       setNote('')
-      queryClient.setQueryData(APPROVALS_KEY, next)
       notify.success(t(`done.${kind}`))
       // The rules' states move with the draft (waiting → shadow / live, or back to draft).
       await queryClient.invalidateQueries({ queryKey: GUARD_DRAFT_KEY })
@@ -390,7 +394,7 @@ function VersionsSection({ author }: { author: boolean }) {
           </thead>
           <tbody>
             {versions.data.map((v) => (
-              <VersionRow key={v.version} v={v} author={author} />
+              <VersionRow key={v.versionNo} v={v} author={author} />
             ))}
           </tbody>
         </table>
@@ -403,11 +407,10 @@ function VersionRow({ v, author }: { v: RulesetVersion; author: boolean }) {
   const { t } = useTranslation(NS)
   const queryClient = useQueryClient()
   const restore = useMutation({
-    mutationFn: () => approvalsApi.restore(v.version),
-    onSuccess: async (doc) => {
-      queryClient.setQueryData(GUARD_DRAFT_KEY, doc)
-      notify.success(t('versions.restored', { version: fsi(v.version), revision: fsi(doc.revision) }))
-      await queryClient.invalidateQueries({ queryKey: APPROVALS_KEY })
+    mutationFn: () => approvalsApi.restore(v.versionNo),
+    onSuccess: async (draft) => {
+      queryClient.setQueryData(GUARD_DRAFT_KEY, draft)
+      notify.success(t('versions.restored', { version: fsi(v.versionNo), revision: fsi(draft.revision) }))
       await queryClient.invalidateQueries({ queryKey: GUARD_BACKTESTS_KEY })
       await queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'list'] })
     },
@@ -415,22 +418,22 @@ function VersionRow({ v, author }: { v: RulesetVersion; author: boolean }) {
   })
   const onRestore = async () => {
     if (restore.isPending) return
-    if (await confirmAction(t('versions.confirmBody', { version: fsi(v.version) }), t('versions.confirmTitle'))) restore.mutate()
+    if (await confirmAction(t('versions.confirmBody', { version: fsi(v.versionNo) }), t('versions.confirmTitle'))) restore.mutate()
   }
   return (
-    <tr className="border-b border-border/40" data-version={v.version}>
+    <tr className="border-b border-border/40" data-version={v.versionNo}>
       <td className="py-1.5" data-col="version">
-        <Ltr>{v.version}</Ltr>
+        <Ltr>{v.versionNo}</Ltr>
       </td>
       <td className="py-1.5" data-col="byAt">
-        <ByAt by={v.by} at={v.at} />
+        <ByAt by={v.publishedBy} at={v.publishedAt} />
       </td>
       <td className="py-1.5" data-col="note">
         {v.note ? <bdi>{v.note}</bdi> : <span className="text-muted-foreground">{t('versions.noNote')}</span>}
       </td>
       <td className="py-1.5 text-end">
         {author && (
-          <Button variant="text" onClick={() => void onRestore()} aria-disabled={restore.isPending} data-restore={v.version}>
+          <Button variant="text" onClick={() => void onRestore()} aria-disabled={restore.isPending} data-restore={v.versionNo}>
             {restore.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
             {t('versions.restore')}
           </Button>

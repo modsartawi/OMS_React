@@ -185,7 +185,7 @@
       "audience": "تُفحص قبل إرسال الطلب عبر <channels>{{channels}}</channels>، <stores>{{stores}}</stores>",
       "allStores": "في كل الفروع",
       "stores": "في الفروع <stores>{{stores}}</stores>",
-      "noChannel": "على لا قناة",
+      "everyChannel": "كل القنوات",
       "from": "من <from>{{from}}</from>، بلا نهاية",
       "fromUntil": "من <from>{{from}}</from> حتى <until>{{until}}</until>",
       "until": "حتى <until>{{until}}</until>",
@@ -244,7 +244,11 @@
       "assumeDays": "أيام الكمية المفترضة",
       "priceAbove": "الهامش (ريال)",
       "consumedBelow": "نسبة الاستهلاك",
-      "other": "القيمة"
+      "other": "القيمة",
+      "severity": "درجة الخطورة",
+      "match": "ما يُحتسب",
+      "by": "يُحتسب لكل",
+      "eligibleDaysBeforeDueFor": "الأيام قبل الاستحقاق لكل قائمة"
     }
   },
   "approval": {

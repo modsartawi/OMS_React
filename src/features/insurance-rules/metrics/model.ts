@@ -1,6 +1,7 @@
 // The insurance team's metrics, flags and rejection report (BackOffice spec 3126, door ticket 3141; oms ticket
-// 615). Shapes follow the brief's "HQ contract: exceptions, review, metrics (3135, 3141)", which names the data
-// but not every field: each ⚠️ GUESSED spelling below is recorded under 615's ## Comments for 618 to reconcile.
+// 615), reconciled with 3141 as built in oms 618: a metrics row carries no rule name (the screen names a rule by
+// its id), its outcome mix is `{ acknowledged, overridden, exception, unanswered }`, a flag row
+// `{ ruleId, kind, since, lastSeenOn, fires, overridden, previousAverage }` and the thresholds HQ's seven integers.
 //
 // Every date on the wire is LOCAL wall-clock (`yyyy-MM-dd`, `yyyy-MM-ddTHH:mm:ss`), never with a `Z`. No patient
 // key reaches these views (the brief masks them on metrics). Pure: no React, no `t`.
@@ -20,17 +21,19 @@ export interface FiresBySeverity {
   warn: number
 }
 
-/** What happened to a fired line — the "outcome mix". ⚠️ GUESSED spelling. */
-export const METRICS_OUTCOMES = ['removed', 'changed', 'overridden', 'acknowledged', 'exception'] as const
+/** What happened to a fired line — the "outcome mix", as 3141 counts it. */
+export const METRICS_OUTCOMES = ['acknowledged', 'overridden', 'exception', 'unanswered'] as const
 export type MetricsOutcome = (typeof METRICS_OUTCOMES)[number]
 export type OutcomeMix = Record<MetricsOutcome, number>
 
-/** One rule, store, pharmacist or local day. ⚠️ `key`, `name`, `fires{}`, `outcomes{}`, `timeAddedMedianMs` GUESSED. */
+/** One rule, store, pharmacist or local day. */
 export interface MetricsRow {
   /** The rule id, store code, pharmacist id, or the local day (`yyyy-MM-dd`). */
   key: string
-  /** The rule's EN + AR name (by=rule); null otherwise. */
+  /** HQ sends no name (by=rule the screen links the id); kept for a caller that knows one. */
   name: Says | null
+  /** The row's local day when HQ answers per day (`daily=true`); null over the range. */
+  day?: string | null
   fires: FiresBySeverity
   shadowFires: number
   outcomes: OutcomeMix
@@ -103,10 +106,11 @@ export function outcomeShares(mix: OutcomeMix): OutcomeShare[] {
 
 // ── Flags (`GET InsuranceRules/Flags`, `GET InsuranceRules/Settings/Flags`) ─────────────────────
 
-/** A current flag with the numbers that raised it. ⚠️ every field but `kind` and `since` GUESSED. */
+/** A current flag with the numbers that raised it (`GET InsuranceRules/Flags`, 3141). */
 export interface FlagRow {
   ruleId: string
-  name: Says
+  /** HQ sends no name: null. */
+  name: Says | null
   kind: GuardFlagKind
   /** Local day the flag was raised. */
   since: string
@@ -116,17 +120,62 @@ export interface FlagRow {
   overridden: number
   /** The previous 30 days' fires (the jump's yardstick); null when not measured. */
   previousAverage: number | null
-  /** Local moment of the rule's last fire, or null when it never fired. */
+  /** HQ sends no last fire on a flag (the Guards list carries `lastFired`): null. */
   lastFired: string | null
+  /** The last local day the job saw the flag hold. */
+  lastSeenOn?: string | null
 }
 
-/** The thresholds the flag job uses ("Thresholds are settings"). ⚠️ GUESSED spelling. */
+/** The thresholds the flag job uses (`GET / PUT InsuranceRules/Settings/Flags`, 3141): seven whole numbers. */
 export interface FlagSettings {
-  noisyOverrideRate: number
+  noisyOverridePct: number
   noisyMinFires: number
-  windowDays: number
+  noisyDays: number
   silentDays: number
   jumpFactor: number
+  jumpDays: number
+  jumpMinFires: number
+}
+
+/** A flag as HQ sends it → the screen's row. */
+export const flagIn = (f: Omit<FlagRow, 'name' | 'lastFired'> & Partial<FlagRow>): FlagRow => ({
+  ...f,
+  name: f.name ?? null,
+  lastFired: f.lastFired ?? null,
+  previousAverage: f.previousAverage || null,
+})
+
+/**
+ * `by=day` is no door option (3141 keys rows by rule / store / pharmacist, each per day by default): the day view is the
+ * per-day rule rows summed per day, keyed by the day.
+ */
+export function rowsByDay(rows: readonly MetricsRow[]): MetricsRow[] {
+  const days = new Map<string, MetricsRow>()
+  for (const r of rows) {
+    const day = r.day ?? ''
+    if (!day) continue
+    const d = days.get(day) ?? {
+      key: day,
+      name: null,
+      day,
+      fires: { refuse: 0, override: 0, warn: 0 },
+      shadowFires: 0,
+      outcomes: { acknowledged: 0, overridden: 0, exception: 0, unanswered: 0 },
+      overrideRate: null,
+      sarProtectedEstimate: 0,
+      rejectionsAfterPass: 0,
+      timeAddedMedianMs: null,
+    }
+    d.fires = { refuse: d.fires.refuse + r.fires.refuse, override: d.fires.override + r.fires.override, warn: d.fires.warn + r.fires.warn }
+    d.shadowFires += r.shadowFires
+    for (const o of METRICS_OUTCOMES) d.outcomes[o] += r.outcomes?.[o] ?? 0
+    d.sarProtectedEstimate = round2(d.sarProtectedEstimate + r.sarProtectedEstimate)
+    d.rejectionsAfterPass += r.rejectionsAfterPass
+    const fired = d.fires.override
+    d.overrideRate = fired > 0 ? round2(d.outcomes.overridden / fired) : null
+    days.set(day, d)
+  }
+  return [...days.values()]
 }
 
 /** A flag's reason: a key in the `insurance-metrics` namespace and its values. */

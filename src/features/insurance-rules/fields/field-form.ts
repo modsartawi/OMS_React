@@ -16,8 +16,11 @@ export interface FieldForm {
 
 export type FieldProblem = 'sourceMissing' | 'keyMissing' | 'keyInvalid' | 'keyTaken' | 'labelMissing'
 
-/** Letters first, then letters, digits, `_` or `.` (eligibility facts are dotted: `coverage.periodEnd`). */
-const FIELD_KEY = /^[A-Za-z][A-Za-z0-9_.]{0,59}$/
+/**
+ * HQ's key shape (3132): a letter, then letters, digits, `.`, `_`, `[`, `]` or `*`, up to 100 — eligibility facts are
+ * dotted and indexed (`coverage.periodEnd`, `benefit[*].copayPct`).
+ */
+const FIELD_KEY = /^[A-Za-z][A-Za-z0-9_.[\]*]{0,99}$/
 
 export function fieldProblems(form: FieldForm, existing: readonly RegistryField[]): FieldProblem[] {
   const out: FieldProblem[] = []

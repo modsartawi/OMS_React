@@ -29,7 +29,7 @@
 //   1. run the app:  npx vite --port 5210 --strictPort
 //   2. node tools/insurance-coverage-drive.mjs        (DRIVE_PORT overrides 5210)
 import { createRequire } from 'node:module'
-import { BUPA, INSURER_SETTINGS, K_001, MEDGULF, NO_DEDUCTIBLE, TAWUNIYA, envelope, coverageStub, insuranceRulesStub, newCoverageState } from './insurance-rules-stubs.mjs'
+import { BUPA, INSURER_SETTINGS, K_001, MEDGULF, NO_DEDUCTIBLE, TAWUNIYA, envelope, coverageStub, insuranceRulesStub, newCoverageState, wireRule } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -181,8 +181,8 @@ for (const dir of ['ltr', 'rtl']) {
     await ed.locator('select[data-add-condition=""]').selectOption('fact')
     await ed.locator('[data-block="1"]').waitFor()
     const factOpts = await ed.locator('[data-block="1"] [data-input="fact"] option').evaluateAll((els) => els.map((e) => e.value))
-    check(`${dir} 2. the fields come from the registry, eligibility included`, factOpts.includes('$item.ItemCode') && factOpts.includes('$eligibility.benefit.dayBenefit') && !factOpts.includes('$item.OldGroup') && !factOpts.includes('$eligibility.coverage.periodEnd'), JSON.stringify(factOpts))
-    await input(ed.locator('[data-block="1"]'), 'fact').selectOption('$item.ItemCode')
+    check(`${dir} 2. the fields come from the registry, eligibility and line facts included, item fields not (618: list filters only)`, !factOpts.includes('$item.ItemCode') && factOpts.includes('$line.idfPriority') && factOpts.includes('$eligibility.benefit.dayBenefit') && !factOpts.includes('$item.OldGroup') && !factOpts.includes('$eligibility.coverage.periodEnd'), JSON.stringify(factOpts))
+    await input(ed.locator('[data-block="1"]'), 'fact').selectOption('$request.policy')
     await input(ed.locator('[data-block="1"]'), 'codes').fill('100245')
     await ed.locator('[data-group-pick="G3"]').click()
     await ed.locator('[data-group-pick="G2"]').click()
@@ -212,7 +212,7 @@ for (const dir of ['ltr', 'rtl']) {
     const saved = put[0]?.body
     check(`${dir} 2. one PUT of the whole document at revision 4, in its new order`, put.length === 1 && saved.revision === 4 && saved.kind === 'category' && JSON.stringify(saved.rules.map((r) => r.id)) === JSON.stringify(['K-003', 'K-002']), JSON.stringify(saved?.rules?.map((r) => r.id)))
     const k = saved?.rules?.[0]
-    check(`${dir} 2. the saved rule IS K-001 "Bupa: Glucophage XR is Brand" (one setCategory)`, k && canon({ name: k.name, folder: k.folder, when: k.when, then: k.then }) === canon(K_001) && k.state === 'draft', canon(k))
+    check(`${dir} 2. the saved rule IS K-001 "Bupa: Glucophage XR is Brand" (one setCategory)`, k && canon({ name: k.name, folder: k.folder, when: k.when, then: k.then }) === canon(wireRule(K_001)) /* 618: the PUT carries the engine's spelling */ && k.state === 'draft', canon(k))
     check(`${dir} 2. saved: nothing unsaved, the revision moves on`, (await page.locator('[data-unsaved]').count()) === 0 && state.categories.revision === 5)
     check(`${dir} 6. no raw keys (categories)`, await noRawKeys(page))
     check(`${dir} 6. no page errors (categories)`, errors.length === 0, errors.join(' | '))
@@ -287,7 +287,7 @@ for (const dir of ['ltr', 'rtl']) {
     await inv.waitFor({ timeout: 10000 })
     await inv.locator('select[data-add-condition=""]').selectOption('fact')
     await inv.locator('[data-block="0"]').waitFor()
-    await input(inv.locator('[data-block="0"]'), 'fact').selectOption('$item.ItemCode')
+    await input(inv.locator('[data-block="0"]'), 'fact').selectOption('$line.idfPriority')
     await inv.locator('select[data-pick-effect]').selectOption('segment')
     check(`${dir} 3. a segment rule that reads the item is refused in words`, (await inv.locator('[data-rule-problem="invoiceReadsLine"]').count()) === 1 && (await inv.locator('[data-effect-level="invoice"]').count()) === 1)
     await input(inv.locator('[data-effect="segment"]'), 'value').selectOption('SABIC')

@@ -3,7 +3,8 @@
  * need the master-data grant; there is no probe until 618, so a bare 403 on either is said in words. The read
  * (`GET InsuranceRules/Fields`) is `@/core/insurance-rules/registry-api`, which the guard palette shares.
  *
- * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 610): no door here has met a real SIS.Api.
+ * Reconciled with 3132 as built in oms 618: Add answers the field, Retire the retired field (409 `INSFIELDS_EXISTS`, 404
+ * `INSFIELDS_NOT_FOUND`; master data `BackOfficeScreen[InsuranceRuleAuthoring, 01]`).
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'

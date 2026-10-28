@@ -15,6 +15,8 @@ import { masterItemsFromParams, masterItemsToParams } from './items'
 import { DRAFT_SHOWN, draftPage, itemsShown, pickShown, removedShown } from './draft' // 645
 import { DraftMark, DraftRowActions } from './DraftPanel' // 645
 import { useDraft } from './useDraft' // 645
+import { draftEditable, draftPanelState } from './draft' // 646
+import { useSession } from '@/core/session' // 646
 import ItemsTable from './ItemsTable'
 import { versionRows } from './versions'
 import { idfMasterFilesApi } from './api' // 644
@@ -44,6 +46,8 @@ export default function ItemsSection({ masterId, liveVersionId }: { masterId: st
   const rows = versionRows(versions.data, liveVersionId)
   const { draft, diff } = useDraft(masterId) // 645
   const draftOpen = !!draft.data
+  const userId = useSession((s) => s.userId) // 646
+  const editable = draftEditable(draftPanelState(draft.data, userId)) // 646: only my own draft takes edits
   const showing = itemsShown(query, liveVersionId, draftOpen)
   const versionId = showing?.kind === 'version' ? showing.versionId : null
   const shown = rows.find((v) => v.versionId === versionId)
@@ -118,7 +122,7 @@ export default function ItemsSection({ masterId, liveVersionId }: { masterId: st
               busy={draft.isFetching}
               // ItemsTable marks the removed rows through the same callback: a removed item is in no draft row.
               mark={(r) => <DraftMark mark={diff ? (diff.mark(r.itemNumber) ?? 'removed') : null} />}
-              actions={(r) => <DraftRowActions masterId={masterId} row={r} />}
+              actions={editable ? (r) => <DraftRowActions masterId={masterId} row={r} /> : undefined}
               removed={diff ? removedShown(diff.removed, query, draftShown.total) : undefined}
             />
           ) : (

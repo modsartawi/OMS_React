@@ -673,6 +673,72 @@ export function idfDraftStub(method, path, body, opts = {}) {
 }
 
 // --- 646 --- draft owner, rebase, add a group (door 3190).
+// `POST …/draft/rebase` re-applies the draft's edits (its rows against `baseVersionId`'s: added / changed rows upserted,
+// removed rows dropped) on the master's current live version, then `baseVersionId` = live and `isStale` = false.
+// `POST …/draft/groups { idfNumber, priority }` adds every member of the group at that priority, each checked as an
+// add: a member already in the draft → duplicateItem; `IDF_GROUP_MEMBERS` fixture members flagged `rule` are refused
+// with it. Answers the draft spread with `{ added, rows }` (the brief's "the draft plus …"). An unknown group or a bad
+// priority refuses the whole call as a single add does (645's `draftRuleRefusal`). Refusal codes are invented
+// (IDF-00051+; the brief names none). Seed `state.drafts[masterId]` from the drive for someone else's / a stale draft.
+export const IDF_GROUP_MEMBERS = {
+  'IDF-CETI': [
+    { itemNumber: '300100', descriptionEn: 'Zyrtec 10 mg', descriptionAr: 'زيرتك ١٠ مجم' },
+    { itemNumber: '300110', descriptionEn: 'Cetirizine 10 mg', descriptionAr: 'سيتريزين ١٠ مجم' },
+    { itemNumber: '300120', descriptionEn: 'Allercet 10 mg', descriptionAr: 'أليرسيت ١٠ مجم' },
+    { itemNumber: '300130', descriptionEn: 'Cetal 10 mg', descriptionAr: 'سيتال ١٠ مجم', rule: 'notInInsurerItems', messageEn: 'Item 300130 is not on the insurer item list.', messageAr: 'الصنف 300130 ليس ضمن أصناف المؤمّن.' },
+    { itemNumber: '300140', descriptionEn: 'Old cetirizine', descriptionAr: 'سيتريزين قديم', rule: 'unknownItem', messageEn: 'Item 300140 does not exist.', messageAr: 'الصنف 300140 غير موجود.' },
+  ],
+}
+
+export function idfDraftOwnerStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], draftWrites = [] } = opts
+  const m = /^IdfPriority\/masters\/([^/]+)\/draft\/(rebase|groups)$/.exec(path)
+  if (!m || method !== 'POST') return null
+  const masterId = decodeURIComponent(m[1])
+  const door = m[2]
+  state.drafts ??= {}
+  const draft = state.drafts[masterId] ?? null
+  draftWrites.push({ method, door, body })
+  if (deny.includes('draft')) return bare403()
+  if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00051' })
+  draft.changedAt = '2026-10-28T10:20:00'
+
+  if (door === 'rebase') {
+    const live = state.masters.find((x) => x.masterId === masterId)?.liveVersion?.versionId ?? null
+    const base = new Map((IDF_ENTRIES[draft.baseVersionId] ?? []).map((r) => [r.itemNumber, r]))
+    const kept = new Set(draft.rows.map((r) => r.itemNumber))
+    const edits = draft.rows.filter((r) => {
+      const was = base.get(r.itemNumber)
+      return !was || was.idfNumber !== r.idfNumber || was.priority !== r.priority
+    })
+    const rows = (IDF_ENTRIES[live] ?? []).filter((r) => !(base.has(r.itemNumber) && !kept.has(r.itemNumber))).map((r) => structuredClone(r))
+    for (const e of edits) {
+      const at = rows.findIndex((r) => r.itemNumber === e.itemNumber)
+      if (at < 0) rows.push(structuredClone(e))
+      else rows[at] = structuredClone(e)
+    }
+    Object.assign(draft, { rows, baseVersionId: live, isStale: false })
+    return envelope(draft)
+  }
+
+  const { idfNumber = '', priority } = body ?? {}
+  const members = IDF_GROUP_MEMBERS[idfNumber] ?? (IDF_ENTRY_GROUPS.includes(idfNumber) ? (IDF_ENTRIES['V-11'] ?? []).filter((r) => r.idfNumber === idfNumber) : null)
+  if (!members) return draftRuleRefusal('unknownGroup', `IDF group ${idfNumber} does not exist.`, `مجموعة IDF ${idfNumber} غير موجودة.`)
+  const bad = draftPriorityProblem(priority)
+  if (bad) return bad
+  const rows = []
+  let added = 0
+  for (const mem of members) {
+    if (mem.rule) rows.push({ itemNumber: mem.itemNumber, rule: mem.rule, messageEn: mem.messageEn, messageAr: mem.messageAr })
+    else if (draft.rows.some((r) => r.itemNumber === mem.itemNumber))
+      rows.push({ itemNumber: mem.itemNumber, rule: 'duplicateItem', messageEn: `Item ${mem.itemNumber} is already in the draft.`, messageAr: `الصنف ${mem.itemNumber} موجود في المسودة.` })
+    else {
+      draft.rows.push({ itemNumber: mem.itemNumber, descriptionEn: mem.descriptionEn, descriptionAr: mem.descriptionAr, idfNumber, priority })
+      added += 1
+    }
+  }
+  return envelope({ ...draft, added, rows })
+}
 
 // --- 647 --- general master items (door 3191).
 
@@ -849,6 +915,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 645 · draft
     idfDraftStub(method, bare, body, opts) ??
     // 646 · draft owner, rebase, add a group
+    idfDraftOwnerStub(method, bare, body, opts) ??
     // 647 · general master items
     // 648 · set / clear one general item
     // 649 · general upload

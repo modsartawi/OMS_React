@@ -158,3 +158,14 @@ describe('648 · the general item edit doors', () => {
     expect(api.delWithBody).toHaveBeenCalledWith('IdfPriority/general/items/300110', { reason: 'Withdrawn' })
   })
 })
+
+// 651 · general export + template (3195)
+describe('651 · the general export and template doors', () => {
+  it('export reads the whole general master as a file; template reads the blank file', async () => {
+    const { idfGeneralFilesApi } = await import('./api')
+    await idfGeneralFilesApi.export()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/export')
+    await idfGeneralFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/template')
+  })
+})

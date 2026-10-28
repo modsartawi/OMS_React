@@ -747,7 +747,34 @@ export function idfGeneralEditStub(method, path, body, opts = {}) {
 
 // --- 650 --- general change log (door 3194).
 
-// --- 651 --- general export + template (door 3195).
+// --- 651 --- general export + template (door 3195): `GET IdfPriority/general/export` → the whole general master as
+// `.xlsx` (server name `IDF_GENERAL_EXPORT_NAME`), `GET IdfPriority/general/template` → the header. `opts.deny`
+// `generalExport` / `generalTemplate` refuse on the JSON 400 envelope; `opts.noFileName` drops the
+// `Content-Disposition` name so the client's fallback shows. `opts.reads.generalExport` / `generalTemplate` count.
+export const IDF_GENERAL_EXPORT_NAME = 'idf-general-20261028.xlsx'
+export const IDF_GENERAL_TEMPLATE_NAME = 'idf-general-template-20261028.xlsx'
+export function idfGeneralFilesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, noFileName = false } = opts
+  if (method !== 'GET') return null
+  const bare = path.split('?')[0]
+  const which = bare === 'IdfPriority/general/export' ? 'generalExport' : bare === 'IdfPriority/general/template' ? 'generalTemplate' : null
+  if (!which) return null
+  reads[which] = (reads[which] ?? 0) + 1
+  if (deny.includes(which)) {
+    return which === 'generalExport'
+      ? envelope(null, { status: 400, success: false, message: 'The general master could not be exported.', errorCode: 'IDF-00095' })
+      : envelope(null, { status: 400, success: false, message: 'The general template could not be built.', errorCode: 'IDF-00096' })
+  }
+  const name = which === 'generalExport' ? IDF_GENERAL_EXPORT_NAME : IDF_GENERAL_TEMPLATE_NAME
+  return {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...(noFileName ? {} : { 'Content-Disposition': `attachment; filename="${name}"` }),
+    },
+    body: Buffer.from('PK stub xlsx'),
+  }
+}
 
 // --- 652 --- IDF groups (door 3196, the brief's "Spec 3185" sketch): `GET IdfPriority/groups?search=&page=&pageSize=`
 // (paged, search on number or description, page size `opts.groupsPageSize` or 50), `POST`, `PUT …/{idfNumber}`,
@@ -921,6 +948,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 649 · general upload
     // 650 · general change log
     // 651 · general export + template
+    idfGeneralFilesStub(method, path, opts) ??
     // 652 · IDF groups
     idfGroupsStub(method, path, body, opts) ??
     // 653 · IDF groups import

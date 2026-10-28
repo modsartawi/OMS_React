@@ -19,6 +19,9 @@ import type { IdfEntryRow } from './items'
 // 649 · imports (GeneralUpload)
 // 650 · imports (ChangeLog)
 // 651 · imports (the download buttons)
+import { idfGeneralFilesApi } from './api' // 651
+import DownloadButton from './DownloadButton' // 651
+import { generalExportFileName, generalTemplateFileName } from './download' // 651
 
 /** The general master's tier in the resolution order (insurer at a store list → insurer → store → general). */
 const GENERAL_TIER = 4
@@ -66,7 +69,21 @@ export default function GeneralPage() {
           {t('generalEdit.setItem')}
         </Button>
         {setting && <GeneralItemDialog row={null} onClose={() => setSetting(false)} />}
-        {/* 651 · Export / Template */}
+        {/* 651 · Export / Template — the ticket puts Template beside 649's Upload; it sits here until the review places it. */}
+        <DownloadButton
+          fetch={() => idfGeneralFilesApi.export()}
+          fallbackName={generalExportFileName()}
+          label={t('download.export')}
+          failedLabel={t('download.exportFailed')}
+          hook="data-idf-general-export"
+        />
+        <DownloadButton
+          fetch={() => idfGeneralFilesApi.template()}
+          fallbackName={generalTemplateFileName()}
+          label={t('download.template')}
+          failedLabel={t('download.templateFailed')}
+          hook="data-idf-general-template"
+        />
       </div>
 
       {/* 649 · Upload */}

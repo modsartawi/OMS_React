@@ -546,6 +546,100 @@ export function idfEntriesStub(method, path, opts = {}) {
 // --- 644 --- master export + template (door 3188).
 
 // --- 645 --- draft (door 3189).
+// One open draft per master on `state.drafts[masterId]`. `GET …/draft` → it or null; `POST …/draft` copies the live
+// version's `IDF_ENTRIES` (refused while one is open, `data { by, changedAt }`); add / re-rank / remove re-check the
+// upload rules and a failing edit is a 400 carrying `data { rule, messageEn, messageAr }` with the draft untouched:
+// item `100234` → unknownItem, a group not in IDF_ENTRY_GROUPS → unknownGroup, item `100302` under any group but
+// IDF-IBU → itemNotInGroup, a priority not a whole number ≥ 1 → badPriority, an item already in the draft →
+// duplicateItem. Publish `{ note }` makes ONE new live version holding the draft's rows (registered in IDF_ENTRIES so
+// 643's door reads them) and closes the draft; refused while `isStale` or without a note. `DELETE …/draft` discards.
+// `opts.draftWrites` collects every write as `{ method, door, body }`.
+const IDF_DRAFT_REFUSAL = 'IDF-00028'
+function draftRuleRefusal(rule, messageEn, messageAr) {
+  return envelope({ rule, messageEn, messageAr }, { status: 400, success: false, message: messageEn, errorCode: IDF_DRAFT_REFUSAL })
+}
+function draftPriorityProblem(priority) {
+  return Number.isInteger(priority) && priority >= 1
+    ? null
+    : draftRuleRefusal('badPriority', `Priority "${priority}" is not a whole number of 1 or more.`, `الأولوية "${priority}" ليست عددًا صحيحًا يساوي 1 أو أكثر.`)
+}
+
+export function idfDraftStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], draftWrites = [], published = [] } = opts
+  const m = /^IdfPriority\/masters\/([^/]+)\/draft(?:\/(items(?:\/([^/]+))?|publish))?$/.exec(path)
+  if (!m) return null
+  const masterId = decodeURIComponent(m[1])
+  const door = m[2] ? (m[2] === 'publish' ? 'publish' : 'items') : 'draft'
+  const itemNumber = m[3] ? decodeURIComponent(m[3]) : null
+  state.drafts ??= {}
+  const master = state.masters.find((x) => x.masterId === masterId)
+  const draft = state.drafts[masterId] ?? null
+  if (method !== 'GET') draftWrites.push({ method, door, itemNumber, body })
+  if (deny.includes('draft')) return bare403()
+  const touch = (d) => {
+    d.changedAt = '2026-10-28T10:05:00'
+    return envelope(d)
+  }
+
+  if (door === 'draft' && method === 'GET') return envelope(draft)
+  if (door === 'draft' && method === 'POST') {
+    if (draft)
+      return envelope({ by: draft.by, changedAt: draft.changedAt }, { status: 400, success: false, message: `A draft is already open by ${draft.by}.`, errorCode: 'IDF-00029' })
+    const baseVersionId = master?.liveVersion?.versionId ?? null
+    state.drafts[masterId] = {
+      draftId: `D-${masterId}`,
+      by: 'msartawi',
+      startedAt: '2026-10-28T10:00:00',
+      changedAt: '2026-10-28T10:00:00',
+      baseVersionId,
+      isStale: false,
+      rows: structuredClone(IDF_ENTRIES[baseVersionId] ?? []),
+    }
+    return envelope(state.drafts[masterId])
+  }
+  if (door === 'draft' && method === 'DELETE') {
+    if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+    delete state.drafts[masterId]
+    return envelope({ draftId: draft.draftId })
+  }
+  if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+
+  if (door === 'items' && method === 'POST') {
+    const { itemNumber: item = '', idfNumber = '', priority } = body ?? {}
+    if (item === '100234') return draftRuleRefusal('unknownItem', 'Item 100234 does not exist.', 'الصنف 100234 غير موجود.')
+    if (!IDF_ENTRY_GROUPS.includes(idfNumber)) return draftRuleRefusal('unknownGroup', `IDF group ${idfNumber} does not exist.`, `مجموعة IDF ${idfNumber} غير موجودة.`)
+    if (item === '100302' && idfNumber !== 'IDF-IBU')
+      return draftRuleRefusal('itemNotInGroup', `Item 100302 is not in IDF group ${idfNumber}.`, `الصنف 100302 ليس في مجموعة ${idfNumber}.`)
+    const bad = draftPriorityProblem(priority)
+    if (bad) return bad
+    if (draft.rows.some((r) => r.itemNumber === item)) return draftRuleRefusal('duplicateItem', `Item ${item} is already in the draft.`, `الصنف ${item} موجود في المسودة.`)
+    draft.rows.push({ itemNumber: item, descriptionEn: `Item ${item}`, descriptionAr: `الصنف ${item}`, idfNumber, priority })
+    return touch(draft)
+  }
+  if (door === 'items' && itemNumber && (method === 'PUT' || method === 'DELETE')) {
+    const at = draft.rows.findIndex((r) => r.itemNumber === itemNumber)
+    if (at < 0) return envelope(null, { status: 404, success: false, message: `Item ${itemNumber} is not in the draft.`, errorCode: 'IDF-00031' })
+    if (method === 'DELETE') draft.rows.splice(at, 1)
+    else {
+      const bad = draftPriorityProblem(body?.priority)
+      if (bad) return bad
+      draft.rows[at] = { ...draft.rows[at], priority: body.priority }
+    }
+    return touch(draft)
+  }
+  if (door === 'publish' && method === 'POST') {
+    if (draft.isStale) return envelope(null, { status: 400, success: false, message: 'The live version has moved; rebase the draft first.', errorCode: 'IDF-00032' })
+    if (!String(body?.note ?? '').trim()) return envelope(null, { status: 400, success: false, message: 'A note is required.', errorCode: 'NOTE_REQUIRED' })
+    const number = (master?.liveVersion?.number ?? 0) + 1
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-28T10:30:00', note: body.note, entryCount: draft.rows.length, isLive: true }
+    IDF_ENTRIES[version.versionId] = structuredClone(draft.rows)
+    if (master) master.liveVersion = version
+    delete state.drafts[masterId]
+    published.push({ masterId, draftId: draft.draftId, note: body.note })
+    return envelope(version)
+  }
+  return null
+}
 
 // --- 646 --- draft owner, rebase, add a group (door 3190).
 
@@ -666,6 +760,7 @@ export function idfStub(method, path, body, opts = {}) {
     idfEntriesStub(method, path, opts) ??
     // 644 · master export + template
     // 645 · draft
+    idfDraftStub(method, bare, body, opts) ??
     // 646 · draft owner, rebase, add a group
     // 647 · general master items
     // 648 · set / clear one general item

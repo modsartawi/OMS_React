@@ -20,6 +20,7 @@ import { masterRow, type IdfMasterRow } from './masters'
 import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, rowMessage, type IdfUploadReport } from './upload'
 import VersionsSection from './VersionsSection' // 623
 import ItemsSection from './ItemsSection' // 643
+import DraftPanel from './DraftPanel' // 645
 
 /**
  * Insurance rules ▸ IDF masters ▸ one master — `/insurance-rules/idf/masters/:masterId` (BackOffice spec 3157,
@@ -58,6 +59,8 @@ export default function MasterPage() {
           <MasterHeader row={masterRow(master, i18n.language)} />
           {/* 643 · Items */}
           <ItemsSection key={`items-${master.masterId}`} masterId={master.masterId} liveVersionId={master.liveVersion?.versionId ?? null} />
+          {/* 645 · Draft */}
+          <DraftPanel key={`draft-${master.masterId}`} masterId={master.masterId} />
           <UploadStep key={master.masterId} masterId={master.masterId} />
           {/* 623 · Versions */}
           <VersionsSection key={`versions-${master.masterId}`} masterId={master.masterId} liveVersionId={master.liveVersion?.versionId ?? null} />

@@ -24,7 +24,8 @@ import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
-import { itemsDoorParams, type IdfEntriesPage, type IdfItemsQuery } from './items' // 643
+import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
+import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 
 export const IDF_BASE = 'IdfPriority'
@@ -201,7 +202,62 @@ export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQue
 
 // 644 · master export + template (3188)
 
-// 645 · draft (3189)
+// 645 · draft (3189) — `idfDraftApi`
+export const IDF_DRAFT_KEY = [...IDF_KEY, 'draft'] as const
+/** The base version's rows are read this many a page (the server may cap it lower; the loop follows `total`). */
+export const IDF_DRAFT_BASE_PAGE_SIZE = 500
+const draftPath = (masterId: string) => `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/draft`
+export const idfDraftApi = {
+  /** `GET …/masters/{id}/draft` — the open draft with every row, or null when none. */
+  async draft(masterId: string): Promise<IdfDraft | null> {
+    return (await api.get<IdfDraft | null>(draftPath(masterId))) ?? null
+  },
+  /** `POST …/draft` — copies the live items into a new draft. Refused while one is open (`data { by, changedAt }`). */
+  start(masterId: string): Promise<IdfDraft | null> {
+    return api.post<IdfDraft | null>(draftPath(masterId), {})
+  },
+  /** `POST …/draft/items { itemNumber, idfNumber, priority }` — refused with `data { rule, messageEn, messageAr }`. */
+  add(masterId: string, body: IdfDraftAddBody): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/items`, body)
+  },
+  /** `PUT …/draft/items/{itemNumber} { priority }`. */
+  reRank(masterId: string, itemNumber: string, priority: number): Promise<unknown> {
+    return api.put<unknown>(`${draftPath(masterId)}/items/${encodeURIComponent(itemNumber)}`, { priority })
+  },
+  /** `DELETE …/draft/items/{itemNumber}`. */
+  remove(masterId: string, itemNumber: string): Promise<unknown> {
+    return api.del<unknown>(`${draftPath(masterId)}/items/${encodeURIComponent(itemNumber)}`)
+  },
+  /** `POST …/draft/publish { note }` → the new live version. Refused while the draft is stale. */
+  publish(masterId: string, note: string): Promise<IdfMasterVersion> {
+    return api.post<IdfMasterVersion>(`${draftPath(masterId)}/publish`, { note })
+  },
+  /** `DELETE …/draft` — discards it (anyone with the edit grant; recorded). */
+  discard(masterId: string): Promise<unknown> {
+    return api.del<unknown>(draftPath(masterId))
+  },
+  /**
+   * Every row of the version a draft was copied from, for the draft diff: the entries door (3187) page after page
+   * until `total` (or an empty page). ⚠️ 654: replace with the draft door's own per-row marks if 3189 adds them.
+   */
+  async baseRows(masterId: string, versionId: string): Promise<IdfEntryRow[]> {
+    const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
+    const rows: IdfEntryRow[] = []
+    for (let page = 1; ; page += 1) {
+      const got = await api.get<IdfEntriesPage | null>(path, { page: String(page), pageSize: String(IDF_DRAFT_BASE_PAGE_SIZE) })
+      const batch = got?.rows ?? []
+      rows.push(...batch)
+      if (batch.length === 0 || rows.length >= (got?.total ?? 0)) return rows
+    }
+  },
+}
+export function draftQuery(masterId: string) {
+  return { queryKey: [...IDF_DRAFT_KEY, masterId] as const, queryFn: () => idfDraftApi.draft(masterId), retry: false } as const
+}
+/** The base rows live under the entries key, so a publish's `IDF_KEY` invalidation refreshes them too. */
+export function draftBaseQuery(masterId: string, versionId: string) {
+  return { queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, 'all'] as const, queryFn: () => idfDraftApi.baseRows(masterId, versionId), retry: false } as const
+}
 
 // 646 · draft owner, rebase, add a group (3190)
 

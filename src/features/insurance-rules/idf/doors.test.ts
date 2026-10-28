@@ -83,3 +83,44 @@ describe('643 · the entries door', () => {
     expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
   })
 })
+
+// 645 · a master's draft (3189)
+describe('645 · the draft doors', () => {
+  it('reads, starts, edits, publishes and discards the draft at its paths', async () => {
+    const { idfDraftApi } = await import('./api')
+    expect(await idfDraftApi.draft('M BUPA')).toBeNull()
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/draft')
+    await idfDraftApi.start('M-BUPA')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft', {})
+    await idfDraftApi.add('M-BUPA', { itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items', { itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
+    await idfDraftApi.reRank('M-BUPA', '100/300', 3)
+    expect(api.put).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items/100%2F300', { priority: 3 })
+    await idfDraftApi.remove('M-BUPA', '200100')
+    expect(api.del).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items/200100')
+    await idfDraftApi.publish('M-BUPA', 'Three edits')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/publish', { note: 'Three edits' })
+    await idfDraftApi.discard('M-BUPA')
+    expect(api.del).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft')
+  })
+
+  it('reads every row of the base version, page after page, for the diff', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), descriptionEn: '', descriptionAr: '', idfNumber: 'G', priority: 1 })
+    api.get
+      .mockResolvedValueOnce({ page: 1, pageSize: 2, total: 5, rows: [r(1), r(2)] })
+      .mockResolvedValueOnce({ page: 2, pageSize: 2, total: 5, rows: [r(3), r(4)] })
+      .mockResolvedValueOnce({ page: 3, pageSize: 2, total: 5, rows: [r(5)] })
+    const rows = await idfDraftApi.baseRows('M-BUPA', 'V-11')
+    expect(rows.map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
+    expect(api.get).toHaveBeenNthCalledWith(1, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '1', pageSize: '500' })
+    expect(api.get).toHaveBeenNthCalledWith(3, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '3', pageSize: '500' })
+  })
+
+  it('stops on an empty page even when the total says more', async () => {
+    const { idfDraftApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 1, total: 9, rows: [{ itemNumber: '1', idfNumber: 'G', priority: 1 }] }).mockResolvedValueOnce({ page: 2, pageSize: 1, total: 9, rows: [] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).length).toBe(1)
+    expect(api.get).toHaveBeenCalledTimes(2)
+  })
+})

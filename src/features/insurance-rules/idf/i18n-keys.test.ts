@@ -18,6 +18,7 @@ import { IDF_SKIP_REASONS, IDF_TIERS } from './lookup' // 625
 import { IDF_UPLOAD_RULES } from './upload' // 622
 import { SWAP_REPORT_COUNTS } from './report' // 627
 import { IDF_EVENT_OUTCOMES } from './events' // 627
+import { IDF_DRAFT_MARKS } from './draft' // 645
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -226,6 +227,22 @@ describe('insurance-idf — the keys the items section builds exist (643)', () =
     const items = locale.items as Record<string, unknown> | undefined
     expect(String(items?.total)).toContain('<v>{{total}}</v>')
     expect(String(items?.notLive)).toContain('<v>{{n}}</v>')
+  })
+})
+
+// 645 · the draft panel
+describe('insurance-idf — the keys the draft panel builds exist (645)', () => {
+  it.each([en, ar])('panel, add, re-rank, remove, publish, discard and every mark', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'loading', 'failed', 'none', 'start', 'startFailed', 'started', 'changed', 'changes', 'counts', 'comparing'].map((k) => `draft.${k}`),
+      ...['addTitle', 'item', 'itemPlaceholder', 'group', 'groupPlaceholder', 'priority', 'add', 'editFailed', 'reRank', 'reRankTitle', 'newPriority', 'save'].map((k) => `draft.${k}`),
+      ...['remove', 'removeTitle', 'removeHint', 'cancel', 'note', 'notePlaceholder', 'publish', 'publishHint', 'published', 'publishedDetail', 'publishFailed'].map((k) => `draft.${k}`),
+      ...['discard', 'discardTitle', 'discardHint', 'discarded', 'discardFailed', 'shown'].map((k) => `draft.${k}`),
+      ...[...IDF_DRAFT_MARKS, 'removed'].map((m) => `draft.mark.${m}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const counts = String((locale.draft as Record<string, unknown> | undefined)?.counts)
+    for (const v of ['added', 'reRanked', 'moved', 'removed']) expect(counts).toContain(`<v>{{${v}}}</v>`)
   })
 })
 

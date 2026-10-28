@@ -25,6 +25,7 @@ import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
+import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -211,4 +212,17 @@ export const idfGroupsApi = {
 }
 export function groupsQuery(q: IdfGroupsQuery) {
   return { queryKey: [...IDF_GROUPS_KEY, groupsDoorParams(q)] as const, queryFn: () => idfGroupsApi.list(q), retry: false } as const
+}
+
+// 653 · IDF groups import — `idfGroupsImportApi` (BackOffice 3197; spec 3185 sketch, 654 reconciles)
+export const idfGroupsImportApi = {
+  /** `POST IdfPriority/groups/uploads` multipart `{ file }` → every row with its action, failing rows with their rule. Writes nothing. */
+  async upload(file: File): Promise<IdfGroupsImportReport> {
+    const r = await api.upload<IdfGroupsImportReport | null>(`${IDF_BASE}/groups/uploads`, uploadForm(file))
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, rows: r?.rows ?? [] }
+  },
+  /** `POST …/groups/uploads/{uploadId}/apply` (no body stated; `{}`) → `{ added, updated }`. Refused unless the upload's `ok`. */
+  apply(uploadId: string): Promise<IdfGroupsImportResult> {
+    return api.post<IdfGroupsImportResult>(`${IDF_BASE}/groups/uploads/${encodeURIComponent(uploadId)}/apply`, {})
+  },
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { CheckCircle2, Loader2, Send, Upload } from 'lucide-react'
+import { Loader2, Send, Upload } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
@@ -13,11 +13,12 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
-import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
+import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 import { IDF_KEY, idfUploadApi, mastersQuery, storeListsQuery } from './api'
 import { storeListName } from './store-lists'
 import { masterRow, type IdfMasterRow } from './masters'
-import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, rowMessage, type IdfUploadReport } from './upload'
+import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, type IdfUploadReport } from './upload'
+import UploadRowReport from './UploadRowReport' // 653 extracted 622's row report
 import VersionsSection from './VersionsSection' // 623
 
 /**
@@ -174,7 +175,7 @@ function UploadStep({ masterId }: { masterId: string }) {
           <ErrorBanner message={apiErrorMessage(upload.error, t('upload.uploadFailed'))} />
         </div>
       )}
-      {report && <Report report={report} />}
+      {report && <UploadRowReport report={report} kind="item" applicable={isPublishable(report)} ruleWordKey={ruleWordKey} keyPrefix="upload" />}
       <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
         <Field label={t('upload.note')} className="min-w-64 flex-1">
           <Input value={note} placeholder={t('upload.notePlaceholder')} data-idf-publish-note="" onChange={(e) => setNote(e.target.value)} />
@@ -188,75 +189,6 @@ function UploadStep({ masterId }: { masterId: string }) {
       {publish.isError && (
         <div data-idf-publish-refused="">
           <ErrorBanner message={apiErrorMessage(publish.error, t('upload.publishFailed'))} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Report({ report }: { report: IdfUploadReport }) {
-  const { t, i18n } = useTranslation('insurance-idf')
-  const rows = report.rows ?? []
-  const lines =
-    report.lineCount != null ? (
-      <p className="text-xs text-muted-foreground" data-idf-report-lines="">
-        <Trans t={t} i18nKey="upload.lineCount" values={{ n: formatFigure(report.lineCount) }} components={{ v: <Ltr /> }} />
-      </p>
-    ) : null
-  if (isPublishable(report)) {
-    return (
-      <div className="flex flex-col gap-1">
-        <p className="flex items-center gap-2 text-sm" data-idf-report="clean">
-          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-          {t('upload.clean')}
-        </p>
-        {lines}
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-col gap-2" data-idf-report="failed" data-upload-id={report.uploadId}>
-      {lines}
-      <p className="text-sm" data-idf-report-summary="">
-        {rows.length === 0 ? (
-          t('upload.notOk')
-        ) : (
-          <Trans t={t} i18nKey="upload.rowsFailed" count={rows.length} values={{ n: formatFigure(rows.length) }} components={{ v: <Ltr /> }} />
-        )}
-      </p>
-      {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-md border border-border/60">
-          <table className="w-full text-sm" data-idf-report-rows="">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className={`${TH} text-end`}>{t('upload.columns.line')}</th>
-                <th className={TH}>{t('upload.columns.item')}</th>
-                <th className={TH}>{t('upload.columns.rule')}</th>
-                <th className={TH}>{t('upload.columns.message')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const word = ruleWordKey(r.rule)
-                return (
-                <tr key={`${r.line}-${i}`} className="border-t border-border/60" data-line={r.line} data-rule={r.rule}>
-                  <td className={`${TD} text-end tabular-nums`} data-col="line">
-                    <Ltr>{formatFigure(r.line)}</Ltr>
-                  </td>
-                  <td className={TD} data-col="item">
-                    {r.itemNumber && <Ltr>{r.itemNumber}</Ltr>}
-                  </td>
-                  <td className={TD} data-col="rule">
-                    {word ? t(word) : <Ltr>{r.rule}</Ltr>}
-                  </td>
-                  <td className={TD} data-col="message">
-                    <bdi>{rowMessage(r, i18n.language)}</bdi>
-                  </td>
-                </tr>
-                )
-              })}
-            </tbody>
-          </table>
         </div>
       )}
     </div>

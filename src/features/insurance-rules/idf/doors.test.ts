@@ -136,6 +136,17 @@ describe('645 · the draft doors', () => {
   })
 })
 
+// 646 · draft owner, rebase, add a group (3190)
+describe('646 · the rebase and add-a-group doors', () => {
+  it('rebases and adds a group at the draft paths', async () => {
+    const { idfDraftOwnerApi } = await import('./api')
+    await idfDraftOwnerApi.rebase('M BUPA')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M%20BUPA/draft/rebase', {})
+    await idfDraftOwnerApi.addGroup('M-BUPA', { idfNumber: 'IDF-CETI', priority: 2 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/groups', { idfNumber: 'IDF-CETI', priority: 2 })
+  })
+})
+
 // 647 · the general master's items (3191)
 describe('647 · the general items door', () => {
   it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {

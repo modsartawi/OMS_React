@@ -1,4 +1,4 @@
-// Insurance rules ▸ IDF master ▸ Draft drive (BackOffice spec 3185 / door 3189; oms ticket 645).
+// Insurance rules ▸ IDF master ▸ Draft drive (BackOffice spec 3185 / doors 3189 + 3190; oms tickets 645 + 646).
 //
 // Drives the REAL app in Chromium against STUBS on the REAL envelope. Fixtures and handlers are `tools/idf-stubs.mjs`
 // (`// --- 619 ---`, `// --- 623 ---`, `// --- 643 ---`, `// --- 645 ---`, `idfStub`):
@@ -18,11 +18,17 @@
 //   6. Publish wants a note; it makes exactly ONE new live version (header, versions list, items) and closes the draft;
 //   7. a second run discards: Discard asks first, the draft closes and the live version is untouched;
 //   8. no raw keys; no page errors.
+// 646 (door 3190: POST …/draft/rebase, POST …/draft/groups — `// --- 646 ---` in the stubs):
+//   9. someone else's draft: "Draft open by X since …", no Start / edits / Publish; Discard confirms it is their work;
+//  10. a Start refused because a draft opened meanwhile names its owner and last change;
+//  11. my stale draft: Publish off, Rebase on; after the rebase the base version and the diff refresh; then it publishes;
+//  12. a group add says how many were added and lists the two refused members with their rule and message; an unknown
+//      group is refused inline.
 //
 //   1. run the app:  npx vite --port 5213 --strictPort
 //   2. node tools/idf-draft-drive.mjs        (DRIVE_PORT overrides 5213)
 import { createRequire } from 'node:module'
-import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
+import { envelope, idfStub, newIdfState, IDF_ENTRIES } from './idf-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -100,14 +106,15 @@ for (const dir of ['ltr', 'rtl']) {
 
     // 2. start
     await page.locator('[data-idf-draft-start]').click()
-    await panel(page, 'open')
+    await panel(page, 'mine')
     await page.locator('[data-idf-items-section][data-version-shown="draft"]').waitFor({ timeout: 30000 })
     await page.locator('[data-idf-items] [data-col="mark"] [data-mark]').first().waitFor({ timeout: 30000 })
     check(`${dir} 2. Start posts the draft door once`, JSON.stringify(draftWrites.map((w) => `${w.method} ${w.door}`)) === '["POST draft"]', JSON.stringify(draftWrites))
     check(`${dir} 2. the picker names the draft first and shows it`, (await page.locator('[data-idf-items-version]').inputValue()) === '' && strip(await page.locator('[data-idf-items-version] option').first().innerText()) === 'Draft (not published)')
     check(`${dir} 2. the draft holds the live items, all unchanged`, strip(await page.locator('[data-idf-items-total]').innerText()) === 'Items: 60' && (await markOf(page, '100110')) === 'unchanged' && (await counts(page)) === 'Added 0, re-ranked 0, moved 0, removed 0')
     check(`${dir} 2. the base version is read whole for the diff`, (reads.entries ?? []).some((r) => r.versionId === 'V-11' && /pageSize=500/.test(r.qs)), JSON.stringify(reads.entries))
-    check(`${dir} 2. the draft's start is shown by whom and when, ltr`, strip(await page.locator('[data-idf-draft] [data-col="started"]').innerText()).startsWith('msartawi') && (await ltr(page.locator('[data-idf-draft] [data-col="started"]'))).length === 1)
+    check(`${dir} 2. the header names the owner (me), free text, and the start, ltr`, strip(await page.locator('[data-idf-draft] [data-col="owner"] bdi').innerText()) === 'msartawi' && strip(await page.locator('[data-idf-draft] [data-col="owner"]').innerText()) .endsWith('(you)') && JSON.stringify(await ltr(page.locator('[data-idf-draft] [data-col="started"]'))) === '["2026-10-28 10:00"]')
+    check(`${dir} 2. the header names the base version, its number ltr`, strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 3' && JSON.stringify(await ltr(page.locator('[data-idf-draft] [data-col="base"]'))) === '["3"]')
 
     // 3. three edits, in group IDF-PARA-500 (one page)
     await filterGroup(page, 'IDF-PARA-500')
@@ -159,7 +166,7 @@ for (const dir of ['ltr', 'rtl']) {
 
     // 5. reload
     await page.reload()
-    await panel(page, 'open')
+    await panel(page, 'mine')
     await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 1' }).waitFor({ timeout: 30000 })
     check(`${dir} 5. the draft survives a reload`, (await counts(page)) === 'Added 1, re-ranked 1, moved 0, removed 1' && (await markOf(page, '100999')) === 'added')
 
@@ -183,7 +190,7 @@ for (const dir of ['ltr', 'rtl']) {
     const { context, page, errors, draftWrites, published } = await open(dir)
     await start(page)
     await page.locator('[data-idf-draft-start]').click()
-    await panel(page, 'open')
+    await panel(page, 'mine')
     await page.locator('[data-idf-draft-remove="100100"]').click()
     await page.locator('[data-idf-draft-remove-confirm]').click()
     await page.locator('[data-idf-draft-counts]').filter({ hasText: 'removed 1' }).waitFor({ timeout: 30000 })
@@ -197,6 +204,113 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 7. the live version is untouched`, strip(await page.locator('[data-idf-master] [data-live-number]').innerText()) === '3' && (await row(page, '100100').count()) === 1 && (await page.locator('[data-idf-items] [data-col="mark"]').count()) === 0)
     check(`${dir} 8. no raw keys (discard)`, await noRawKeys(page))
     check(`${dir} 8. no page errors (discard)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+// --- 646 --- whose draft, stale → rebase, add a group
+const seed = (state, d) => {
+  state.drafts ??= {}
+  state.drafts['M-BUPA'] = {
+    draftId: 'D-M-BUPA',
+    startedAt: '2026-10-27T08:00:00',
+    changedAt: '2026-10-27T09:30:00',
+    baseVersionId: 'V-11',
+    isStale: false,
+    rows: structuredClone(IDF_ENTRIES['V-11']),
+    ...d,
+  }
+}
+const editControls = (page) => page.locator('[data-idf-draft-start], [data-idf-draft-add], [data-idf-draft-group], [data-idf-draft-publish], [data-idf-draft-rerank], [data-idf-draft-remove]').count()
+
+for (const dir of ['ltr', 'rtl']) {
+  {
+    // 9. someone else's draft
+    const { context, page, errors, draftWrites, state } = await open(dir)
+    seed(state, { by: 'nalharbi' })
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'someoneElse')
+    await page.locator('[data-idf-items] [data-col="mark"] [data-mark]').first().waitFor({ timeout: 60000 })
+    const note = page.locator('[data-idf-draft-someone-else]')
+    check(`${dir} 9. someone else's draft says whose and since when`, strip(await note.innerText()).startsWith('Draft open by nalharbi since 2026-10-27 08:00.') && strip(await note.locator('bdi:not([dir])').first().innerText()) === 'nalharbi' && JSON.stringify(await ltr(note)) === '["2026-10-27 08:00"]', strip(await note.innerText()))
+    check(`${dir} 9. the header names the owner without "(you)"`, strip(await page.locator('[data-idf-draft] [data-col="owner"]').innerText()) === 'nalharbi')
+    check(`${dir} 9. no Start, no edits, no group add, no Publish`, (await editControls(page)) === 0)
+    check(`${dir} 9. the items still show the draft, marked`, (await page.locator('[data-idf-items-section]').getAttribute('data-version-shown')) === 'draft' && (await markOf(page, '100110')) === 'unchanged')
+    await page.locator('[data-idf-draft-discard]').click()
+    const dlg = page.locator('[data-idf-draft-discard-dialog="someone-else"]')
+    await dlg.waitFor({ timeout: 30000 })
+    check(`${dir} 9. Discard confirms it is someone else's work`, strip(await page.locator('dialog[open] h2, dialog[open] [id]').first().innerText()) === "Discard someone else's draft?" && strip(await dlg.innerText()).startsWith("This draft is nalharbi's work, open since 2026-10-27 08:00.") && !draftWrites.some((w) => w.method === 'DELETE'))
+    await page.locator('[data-idf-draft-discard-confirm]').click()
+    await panel(page, 'none')
+    check(`${dir} 9. confirming discards it once`, draftWrites.filter((w) => w.method === 'DELETE' && w.door === 'draft').length === 1)
+    check(`${dir} 9. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 10. a Start refused: someone opened a draft meanwhile
+    const { context, page, errors, state } = await open(dir)
+    await start(page)
+    seed(state, { by: 'nalharbi' })
+    await page.locator('[data-idf-draft-start]').click()
+    const refused = page.locator('[data-idf-draft-start-refused="nalharbi"]')
+    await refused.waitFor({ timeout: 30000 })
+    check(`${dir} 10. a refused Start names the owner and the last change`, strip(await refused.innerText()) === 'A draft is already open by nalharbi, last changed 2026-10-27 09:30.' && JSON.stringify(await ltr(refused)) === '["2026-10-27 09:30"]', strip(await refused.innerText()))
+    check(`${dir} 10. the refusal is not an error toast`, (await errorToasts(page)) === 0 && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 11. my stale draft (copied from version 2, V-7; live is version 3, V-11): re-rank 200100, add 100999
+    const { context, page, errors, draftWrites, published, state } = await open(dir)
+    const rows = structuredClone(IDF_ENTRIES['V-7']).map((r) => (r.itemNumber === '200100' ? { ...r, priority: 3 } : r))
+    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 11 })
+    seed(state, { by: 'msartawi', baseVersionId: 'V-7', isStale: true, rows })
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'stale')
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 1' }).waitFor({ timeout: 60000 })
+    check(`${dir} 11. a stale draft says so and offers Rebase`, (await page.locator('[data-idf-draft-stale]').count()) === 1 && (await page.locator('[data-idf-draft-rebase]').count()) === 1)
+    check(`${dir} 11. its base is version 2 and the diff is against it`, strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 2' && (await counts(page)) === 'Added 1, re-ranked 1, moved 0, removed 0', await counts(page))
+    await page.locator('[data-idf-draft-note]').fill('After rebase')
+    check(`${dir} 11. Publish is off while stale, even with a note`, await page.locator('[data-idf-draft-publish]').isDisabled())
+    await page.locator('[data-idf-draft-rebase]').click()
+    await panel(page, 'mine')
+    await page.locator('[data-idf-draft] [data-col="base"][data-base="V-11"]').waitFor({ timeout: 30000 })
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 2' }).waitFor({ timeout: 30000 })
+    check(`${dir} 11. Rebase posts once; the base and the diff refresh`, draftWrites.filter((w) => w.door === 'rebase').length === 1 && strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 3' && (await counts(page)) === 'Added 2, re-ranked 0, moved 0, removed 0' && (await page.locator('[data-idf-draft-stale]').count()) === 0, await counts(page))
+    await page.locator('[data-idf-draft-note]').fill('After rebase')
+    await page.locator('[data-idf-draft-publish]').click()
+    await panel(page, 'none')
+    await page.locator('[data-idf-master] [data-live-number]').filter({ hasText: '4' }).waitFor({ timeout: 30000 })
+    check(`${dir} 11. the rebased draft publishes as one version`, published.length === 1 && published[0].note === 'After rebase')
+    check(`${dir} 11. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 12. a group add
+    const { context, page, errors, draftWrites } = await open(dir)
+    await start(page)
+    await page.locator('[data-idf-draft-start]').click()
+    await panel(page, 'mine')
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 0' }).waitFor({ timeout: 60000 })
+    const grp = page.locator('[data-idf-draft-group]')
+    await grp.locator('[data-field="idfNumber"]').fill('IDF-NOPE')
+    await grp.locator('[data-field="priority"]').fill('2')
+    await grp.locator('[data-idf-draft-group-submit]').click()
+    await grp.locator('[data-idf-draft-refused="unknownGroup"]').waitFor({ timeout: 30000 })
+    check(`${dir} 12. an unknown group is refused inline with its rule`, strip(await grp.locator('[data-idf-draft-refused] [data-col="rule"]').innerText()) === 'Unknown IDF group' && (await errorToasts(page)) === 0)
+    await grp.locator('[data-field="idfNumber"]').fill('IDF-CETI')
+    await grp.locator('[data-idf-draft-group-submit]').click()
+    const result = grp.locator('[data-idf-draft-group-result]')
+    await result.waitFor({ timeout: 30000 })
+    check(`${dir} 12. the group add posts the group and priority`, JSON.stringify(draftWrites.filter((w) => w.door === 'groups').at(-1)?.body) === '{"idfNumber":"IDF-CETI","priority":2}')
+    check(`${dir} 12. the result says how many were added, ltr`, strip(await result.locator('[data-idf-draft-group-added]').innerText()) === '3 items added.' && JSON.stringify(await ltr(result.locator('[data-idf-draft-group-added]'))) === '["3"]')
+    const refusedRows = result.locator('[data-idf-draft-group-refused] tbody tr')
+    const lines = await refusedRows.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-item')}|${e.querySelector('[data-col="rule"]').textContent}|${e.querySelector('[data-col="message"] bdi').textContent}`))
+    check(`${dir} 12. the two refused members are listed with their rule and message`, JSON.stringify(lines) === JSON.stringify(["300130|Item not in the insurer's items|Item 300130 is not on the insurer item list.", '300140|Unknown item|Item 300140 does not exist.']), JSON.stringify(lines))
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 3' }).waitFor({ timeout: 30000 })
+    await filterGroup(page, 'IDF-CETI')
+    await row(page, '300100').waitFor({ timeout: 30000 })
+    check(`${dir} 12. the added members show in the draft, marked Added`, (await markOf(page, '300100')) === 'added' && (await row(page, '300130').count()) === 0 && (await counts(page)) === 'Added 3, re-ranked 0, moved 0, removed 0')
+    check(`${dir} 12. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

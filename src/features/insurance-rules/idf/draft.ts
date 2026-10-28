@@ -141,8 +141,61 @@ export function draftAddBody(form: IdfDraftAddForm): IdfDraftAddBody | null {
   return { itemNumber, idfNumber, priority }
 }
 
-/** What the draft panel draws. 646 splits `open` into mine / someone else's / stale. */
-export type IdfDraftPanelView = 'none' | 'open'
-export function draftPanelView(draft: IdfDraft | null | undefined): IdfDraftPanelView {
-  return draft ? 'open' : 'none'
+/**
+ * What the draft panel draws (646): no draft; mine; someone else's (read-only here but for Discard — the owner edits,
+ * rebases and publishes it); or mine and stale (the live version moved since its base: Publish off, Rebase on). A
+ * draft belongs to the master, so the owner is only ever compared, never required. User ids compare case-blind and
+ * trimmed; without a signed-in user nothing is claimed as mine.
+ */
+export type IdfDraftPanelState = 'none' | 'mine' | 'someoneElse' | 'stale'
+export function draftPanelState(draft: IdfDraft | null | undefined, userId: string | null | undefined): IdfDraftPanelState {
+  if (!draft) return 'none'
+  const me = (userId ?? '').trim().toLowerCase()
+  if (!me || (draft.by ?? '').trim().toLowerCase() !== me) return 'someoneElse'
+  return draft.isStale ? 'stale' : 'mine'
+}
+
+/** Whether this user edits the draft (add, re-rank, remove, add a group): their own, stale or not. */
+export function draftEditable(state: IdfDraftPanelState): boolean {
+  return state === 'mine' || state === 'stale'
+}
+
+/** A refused Start's `data { by, changedAt }` — the draft already open — or null when it names no owner. */
+export function draftStartRefusal(data: unknown): { by: string; changedAt: string | null } | null {
+  if (!data || typeof data !== 'object') return null
+  const d = data as { by?: unknown; changedAt?: unknown }
+  if (typeof d.by !== 'string' || !d.by) return null
+  return { by: d.by, changedAt: typeof d.changedAt === 'string' && d.changedAt ? d.changedAt : null }
+}
+
+/** `POST …/draft/groups { idfNumber, priority }`. */
+export interface IdfDraftGroupBody {
+  idfNumber: string
+  priority: number
+}
+
+/** A member the group add refused, ready to show (as `IdfDraftRefusal`, with its item). */
+export interface IdfDraftGroupRefusal extends IdfDraftRefusal {
+  itemNumber: string
+}
+
+/**
+ * The group add's answer — the brief says "the draft plus `{ added, rows }`", so it is read the same whether the
+ * draft sits beside the counts (`{ draft, added, rows }`) or is spread into them. ⚠️ 654: settle the shape.
+ */
+export function groupAddResult(answer: unknown, lang: string): { added: number; refused: IdfDraftGroupRefusal[] } {
+  const a = (answer && typeof answer === 'object' ? answer : {}) as { added?: unknown; rows?: unknown }
+  const rows = Array.isArray(a.rows) ? (a.rows as { itemNumber?: unknown; rule?: unknown; messageEn?: unknown; messageAr?: unknown }[]) : []
+  return {
+    added: typeof a.added === 'number' ? a.added : 0,
+    refused: rows.map((r) => {
+      const rule = String(r.rule ?? '')
+      return {
+        itemNumber: String(r.itemNumber ?? ''),
+        rule,
+        wordKey: ruleWordKey(rule),
+        message: rowMessage({ messageEn: String(r.messageEn ?? ''), messageAr: String(r.messageAr ?? '') }, lang),
+      }
+    }),
+  }
 }

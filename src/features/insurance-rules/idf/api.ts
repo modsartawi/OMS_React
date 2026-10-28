@@ -26,6 +26,7 @@ import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
 import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
 import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
+import type { IdfDraftGroupBody } from './draft' // 646
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
@@ -271,7 +272,20 @@ export function draftBaseQuery(masterId: string, versionId: string) {
   return { queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, 'all'] as const, queryFn: () => idfDraftApi.baseRows(masterId, versionId), retry: false } as const
 }
 
-// 646 · draft owner, rebase, add a group (3190)
+// 646 · draft owner, rebase, add a group (3190) — `idfDraftOwnerApi`
+export const idfDraftOwnerApi = {
+  /** `POST …/draft/rebase` — re-applies the draft's edits on the current live version. The answer is not specced; refetch. */
+  rebase(masterId: string): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/rebase`, {})
+  },
+  /**
+   * `POST …/draft/groups { idfNumber, priority }` — every member of the group, each checked as an add; answers the draft
+   * plus `{ added, rows: [{ itemNumber, rule, messageEn, messageAr }] }` (read it with `groupAddResult`).
+   */
+  addGroup(masterId: string, body: IdfDraftGroupBody): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/groups`, body)
+  },
+}
 
 // 647 · general master items — `idfGeneralApi` (3191). 648–651 key their reads under `IDF_GENERAL_KEY` (650's change
 // log as `IDF_GENERAL_CHANGES_KEY`) so a general write can invalidate the general master alone.

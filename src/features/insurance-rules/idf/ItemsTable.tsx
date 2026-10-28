@@ -28,6 +28,8 @@ export interface ItemsTableProps {
   actions?: (row: IdfEntryRow) => ReactNode
   /** 645 · rows a draft removes, drawn struck through after the page's rows. */
   removed?: IdfEntryRow[]
+  /** 647 · what an unfiltered empty table says (default `items.empty`, "This version holds no items."). */
+  empty?: string
 }
 
 /**
@@ -36,7 +38,7 @@ export interface ItemsTableProps {
  * description (reader's language), IDF group and priority, a page at a time. Item, group and priority are machine
  * values (`Ltr`); the description free text (`bdi`). The caller reads the page and owns the address.
  */
-export default function ItemsTable({ page, error, query, onQuery, busy, mark, actions, removed }: ItemsTableProps) {
+export default function ItemsTable({ page, error, query, onQuery, busy, mark, actions, removed, empty }: ItemsTableProps) {
   const { t } = useTranslation('insurance-idf')
   const filtered = query.q !== '' || query.idf !== ''
   return (
@@ -52,7 +54,7 @@ export default function ItemsTable({ page, error, query, onQuery, busy, mark, ac
         <Loading text={t('items.loading')} />
       ) : page.rows.length === 0 && !removed?.length ? (
         <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-idf-items-empty={filtered ? 'noMatch' : 'empty'}>
-          {t(filtered ? 'items.noMatch' : 'items.empty')}
+          {filtered ? t('items.noMatch') : (empty ?? t('items.empty'))}
         </p>
       ) : (
         <>

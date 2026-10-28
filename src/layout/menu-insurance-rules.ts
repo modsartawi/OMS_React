@@ -127,10 +127,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
 
     // 619 · IDF masters
     {
-      // 619 — the IDF priority masters; a master's page (`/insurance-rules/idf/masters/:masterId`, 622) lights it too.
+      // 619 — the IDF priority masters; a master's page (`/insurance-rules/idf/masters/:masterId`, 622) lights it too,
+      // and so does the general master's (`/insurance-rules/idf/general`, 647).
       labelKey: 'insurance-rules:menu.idfMasters',
       icon: ListOrdered,
       routerLink: '/insurance-rules/idf/masters',
+      activePrefix: ['/insurance-rules/idf/masters', '/insurance-rules/idf/general'],
     },
 
     // 620 · IDF store lists (`menu.idfStoreLists`, `/insurance-rules/idf/store-lists`)

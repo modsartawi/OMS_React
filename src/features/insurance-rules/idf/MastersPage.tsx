@@ -11,7 +11,7 @@ import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { ByAt, DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { mastersQuery, storeListsQuery } from './api'
-import { masterRow, type IdfMaster, type IdfMasterRow } from './masters'
+import { masterRow, type EditableIdfMaster, type IdfMaster, type IdfMasterRow } from './masters'
 import MasterFormDialog from './MasterFormDialog' // 621
 import { storeListName } from './store-lists'
 
@@ -31,7 +31,7 @@ export default function MastersPage() {
   const { t, i18n } = useTranslation('insurance-idf')
   const masters = useQuery(mastersQuery())
   // 621 · the dialog: `null` closed, `'new'` create, a master edit
-  const [editing, setEditing] = useState<IdfMaster | 'new' | null>(null)
+  const [editing, setEditing] = useState<EditableIdfMaster | 'new' | null>(null)
   return (
     <section className="flex h-full w-full flex-col gap-4" data-idf-masters-page="">
       <header className="max-w-3xl">
@@ -66,7 +66,7 @@ export default function MastersPage() {
   )
 }
 
-function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: string; onEdit: (m: IdfMaster) => void }) {
+function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: string; onEdit: (m: EditableIdfMaster) => void }) {
   const { t } = useTranslation('insurance-idf')
   const rows: IdfMasterRow[] = masters.map((m) => masterRow(m, lang))
   // 621 · the store list's name where 620's lists know it, else its id
@@ -97,8 +97,8 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
           {rows.map((r, i) => (
             <tr key={r.masterId} className="border-t border-border/60" data-master={r.masterId} data-kind={r.kind}>
               <td className={`${TD} font-medium`} data-col="name">
-                {/* 622 · the name opens the master's page */}
-                <Link to={`/insurance-rules/idf/masters/${encodeURIComponent(r.masterId)}`} className="hover:underline" data-idf-open-master="">
+                {/* 622 · the name opens the master's page; 647 · the general master's opens the General page */}
+                <Link to={r.href} className="hover:underline" data-idf-open-master="">
                   <bdi>{r.name}</bdi>
                 </Link>
               </td>
@@ -112,9 +112,14 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
                 {r.storeListId && (listName(r.storeListId) ? <bdi data-store-list-id={r.storeListId}>{listName(r.storeListId)}</bdi> : <Ltr>{r.storeListId}</Ltr>)}
               </td>
               <td className={TD} data-col="thresholds">
-                <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(r.hard), reminder: formatFigure(r.reminder) }} components={{ v: <Ltr /> }} />
+                {r.hard !== null && r.reminder !== null && (
+                  <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(r.hard), reminder: formatFigure(r.reminder) }} components={{ v: <Ltr /> }} />
+                )}
               </td>
-              {r.live ? (
+              {r.kind === 'general' ? (
+                // 647 · the general master has no versions: nothing to say in the version cells
+                <td className={TD} colSpan={3} data-col="noVersion" />
+              ) : r.live ? (
                 <>
                   <td className={NUM} data-col="version">
                     <Ltr>{formatFigure(r.live.number)}</Ltr>
@@ -132,9 +137,12 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
                 </td>
               )}
               <td className={`${TD} text-end`} data-col="actions">
-                <Button variant="text" onClick={() => onEdit(masters[i])} aria-label={t('masterForm.editLabel', { name: fsi(r.name) })} data-idf-master-edit={r.masterId}>
-                  {t('masterForm.edit')}
-                </Button>
+                {/* 647 · no Edit on the general master (`editable` false), so the cast is safe */}
+                {r.editable && (
+                  <Button variant="text" onClick={() => onEdit(masters[i] as EditableIdfMaster)} aria-label={t('masterForm.editLabel', { name: fsi(r.name) })} data-idf-master-edit={r.masterId}>
+                    {t('masterForm.edit')}
+                  </Button>
+                )}
               </td>
             </tr>
           ))}

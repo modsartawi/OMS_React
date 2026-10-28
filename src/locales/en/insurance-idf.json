@@ -21,7 +21,8 @@
     },
     "kind": {
       "insurer": "Insurer",
-      "store": "Store"
+      "store": "Store",
+      "general": "General"
     },
     "thresholds": "Hard above <v>{{hard}}</v>, reminder above <v>{{reminder}}</v>",
     "noLive": "No live version yet"
@@ -461,5 +462,16 @@
       "mark": "Change",
       "actions": "Actions"
     }
+  },
+  "general": {
+    "title": "General master",
+    "tier": "Tier <v>{{n}}</v>: the ranking used when no insurer or store master ranks the item.",
+    "help": "The general master has no versions: a change applies at once. The WPF IDF screens still write it too, unchecked, so it can change outside this screen.",
+    "tabs": {
+      "label": "General master views",
+      "items": "Items"
+    },
+    "itemsLede": "Each item the general master ranks, its IDF group and its priority in the group.",
+    "empty": "The general master ranks no items yet."
   }
 }

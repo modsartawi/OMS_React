@@ -24,7 +24,7 @@ import {
   withKind,
 } from './master-form'
 import { IDF_RESOLUTION_ORDER, type IdfTier } from './lookup'
-import { IDF_MASTER_KINDS, masterName, type IdfMaster } from './masters'
+import { IDF_MASTER_KINDS, masterName, type EditableIdfMaster, type IdfMaster } from './masters'
 import { storeListName } from './store-lists'
 
 /**
@@ -38,7 +38,7 @@ import { storeListName } from './store-lists'
  * `sharedStores`). A bare 403 says "no
  * access" (🚩 UNGATED until 628).
  */
-export default function MasterFormDialog({ master, masters, onClose }: { master: IdfMaster | null; masters: IdfMaster[]; onClose: () => void }) {
+export default function MasterFormDialog({ master, masters, onClose }: { master: EditableIdfMaster | null; masters: IdfMaster[]; onClose: () => void }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const qc = useQueryClient()
   const lists = useQuery(storeListsQuery())

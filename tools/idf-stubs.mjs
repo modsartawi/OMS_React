@@ -47,6 +47,8 @@ export const IDF_MASTERS = [
     reminderThreshold: 1,
     liveVersion: { versionId: 'V-4', number: 1, by: 'falotaibi', at: '2026-10-01T14:02:00', note: '', entryCount: 96, isLive: true },
   },
+  // 647 · the general master (tier 4, door 3191): the real door always lists it, last, with no version or thresholds.
+  { masterId: 'general', kind: 'general', nameEn: 'General', nameAr: 'عام', liveVersion: null },
 ]
 
 export function newIdfState() {
@@ -151,8 +153,10 @@ export function idfMasterFormStub(method, path, body, opts = {}) {
     Object.assign(current, fields)
     return envelope(current)
   }
-  const master = { masterId: `M-NEW-${state.masters.length + 1}`, kind, ...fields, liveVersion: null }
-  state.masters.push(master)
+  // 647 · a new master is numbered among the ranking masters and listed before the general one (always last)
+  const ranked = state.masters.filter((m) => m.kind !== 'general')
+  const master = { masterId: `M-NEW-${ranked.length + 1}`, kind, ...fields, liveVersion: null }
+  state.masters.splice(ranked.length, 0, master)
   return envelope(master)
 }
 
@@ -550,6 +554,38 @@ export function idfEntriesStub(method, path, opts = {}) {
 // --- 646 --- draft owner, rebase, add a group (door 3190).
 
 // --- 647 --- general master items (door 3191).
+// `GET IdfPriority/general/items?search&idf&page&pageSize` → one page `{ page, pageSize, total, rows }` (643's shape),
+// filtered and paged like the entries. `IDF_GENERAL_ITEMS` = 40 items over 4 groups (two pages of 25). 648/649 edit a
+// copy in `state.general` (`state.general ??= structuredClone(IDF_GENERAL_ITEMS)`), which this read honours.
+// `opts.reads.generalItems` collects each read's query string; `deny: ['generalItems']` answers a bare 403.
+export const IDF_GENERAL_ITEMS = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI'].flatMap((idfNumber, g) =>
+  IDF_GENERIC.map(([en, ar], i) => ({
+    itemNumber: String(300100 + g * 100 + i * 10),
+    descriptionEn: `${en} general ${g + 1}${i}`,
+    descriptionAr: `${ar} عام ${g + 1}${i}`,
+    idfNumber,
+    priority: i + 1,
+  })),
+)
+
+export function idfGeneralItemsStub(method, path, opts = {}) {
+  const { state = {}, deny = [], reads = {} } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (method !== 'GET' || bare !== 'IdfPriority/general/items') return null
+  ;(reads.generalItems ??= []).push(qs)
+  if (deny.includes('generalItems')) return bare403()
+  const q = new URLSearchParams(qs)
+  const search = (q.get('search') ?? '').toLowerCase()
+  const idf = q.get('idf') ?? ''
+  const all = (state.general ?? IDF_GENERAL_ITEMS).filter(
+    (r) =>
+      (!idf || r.idfNumber === idf) &&
+      (!search || r.itemNumber.includes(search) || r.descriptionEn.toLowerCase().includes(search) || r.descriptionAr.includes(search)),
+  )
+  const pageSize = Number(q.get('pageSize')) || IDF_ENTRIES_PAGE_SIZE
+  const page = Math.max(1, Number(q.get('page')) || 1)
+  return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
+}
 
 // --- 648 --- set / clear one general item (door 3192).
 
@@ -668,6 +704,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 645 · draft
     // 646 · draft owner, rebase, add a group
     // 647 · general master items
+    idfGeneralItemsStub(method, path, opts) ??
     // 648 · set / clear one general item
     // 649 · general upload
     // 650 · general change log

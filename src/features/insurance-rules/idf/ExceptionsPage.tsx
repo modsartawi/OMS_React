@@ -28,7 +28,7 @@ import {
   type IdfException,
   type IdfExceptionForm,
 } from './exceptions'
-import { masterName, type IdfMaster } from './masters'
+import { masterName, rankedMasters, type IdfMaster } from './masters'
 
 /**
  * Insurance rules ▸ IDF exceptions — `/insurance-rules/idf/exceptions` (BackOffice spec 3157, door 3166; oms ticket
@@ -248,7 +248,8 @@ function ExceptionDialog({ row, masters, onClose }: { row: IdfException | null; 
           <Field label={t('exceptions.master')} error={problemOf(tried, problems.masterId)}>
             <Select value={form.masterId} onChange={(e) => set('masterId', e.target.value)} data-field="masterId">
               <option value="">{t('exceptions.pickMaster')}</option>
-              {masters.map((m) => (
+              {/* 647 · an exception names a ranking master, never the general one */}
+              {rankedMasters(masters).map((m) => (
                 <option key={m.masterId} value={m.masterId}>
                   {fsi(masterName(m, i18n.language))}
                 </option>

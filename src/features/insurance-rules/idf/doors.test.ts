@@ -83,3 +83,15 @@ describe('643 · the entries door', () => {
     expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
   })
 })
+
+// 647 · the general master's items (3191)
+describe('647 · the general items door', () => {
+  it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {
+    const { idfGeneralApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 25, total: 2, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 1 }] })
+    const page = await idfGeneralApi.items({ q: 'pan', idf: 'IDF-PARA-500', page: 1 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/items', { search: 'pan', idf: 'IDF-PARA-500', page: '1' })
+    expect(page.rows).toHaveLength(1)
+    expect(await idfGeneralApi.items({ q: '', idf: '', page: 2 })).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+  })
+})

@@ -740,14 +740,13 @@ export function createReviewStubs(opts = {}) {
   }
 }
 
-// --- 613 --- reference editions (BackOffice 3138): the SFDA Human Drug List and the CHI Drug Formulary.
-// Shapes beyond the brief's are GUESSES recorded on ticket 613 (618 reconciles): the history row
-// (`id, list, fileName, rows, uploadedBy, uploadedAt, state: pending|live|retired, publishedBy, publishedAt`),
-// `added / dropped / changed` as counts and `newlyUnmatched` as rows `{ item, itemName, sfdaCode }`,
-// `backtestFires` one number, the gap row `{ kind: noMatch|junk|gtinMismatch|withdrawn, item, itemName,
-// sfdaCode, gtin, detail }`, the export door `GET …/Editions/{id}/Gaps/Export` (an .xlsx), and the
-// uploader's refusal code `UPLOADER_CANNOT_PUBLISH`. Its own handler, `editionsStub`, so 607's stays untouched.
+// --- 613 --- reference editions (BackOffice 3138), AS BUILT (oms 618): an edition `{ id, list, editionNo, state:
+// pending|published, live, fileName, rows: { sfda, map, indications }, problems, uploadedBy/At, publishedBy/At }`;
+// the diff's counts and `newlyUnmatched: [{ item, sfdaCode }]`; the gaps `{ id, counts, rows: [{ kind: noMatch|junkCode|
+// gtinMismatch|withdrawn, item, description, sfdaCode, detail }] }`; the export `GET …/Gaps/Export` (an .xlsx); the
+// uploader's publish refused 403 `EDITIONS_SELF_PUBLISH`. Its own handler, `editionsStub`, so 607's stays untouched.
 
+// The fixtures keep the screen's words for a state (`pending|live|retired`); `wireEdition` sends HQ's.
 const edition = (id, list, fileName, rows, uploadedBy, uploadedAt, state, publishedBy = null, publishedAt = null) => ({
   id,
   list,
@@ -759,6 +758,21 @@ const edition = (id, list, fileName, rows, uploadedBy, uploadedAt, state, publis
   publishedBy,
   publishedAt,
 })
+const wireEdition = (e) => ({
+  id: e.id,
+  list: e.list,
+  editionNo: Number(/(\d+)$/.exec(e.id)?.[1] ?? 0),
+  state: e.state === 'pending' ? 'pending' : 'published',
+  live: e.state === 'live',
+  fileName: e.fileName,
+  rows: e.list === 'sfda' ? { sfda: e.rows, map: 0, indications: 0 } : { sfda: 0, map: e.rows, indications: 0 },
+  problems: [],
+  uploadedBy: e.uploadedBy,
+  uploadedAt: e.uploadedAt,
+  publishedBy: e.publishedBy ?? '',
+  publishedAt: e.publishedAt,
+})
+const wireGap = (g) => ({ kind: g.kind === 'junk' ? 'junkCode' : g.kind, item: g.item ?? '', description: g.itemName?.en ?? '', sfdaCode: g.sfdaCode ?? '', detail: g.kind === 'gtinMismatch' ? `edition GTIN ${g.detail}; item barcodes ${g.gtin}` : (g.detail ?? '') })
 
 /** `GET InsuranceRules/Editions?list=` — every edition of both lists, newest first. */
 export const EDITIONS = [
@@ -830,19 +844,22 @@ export function editionsStub(method, path, opts = {}) {
   }
   const [base, query] = path.split('?')
   const list = new URLSearchParams(query ?? '').get('list')
-  if (method === 'GET' && base === 'InsuranceRules/Editions') return hit('editions', st.editions.filter((e) => !list || e.list === list))
+  if (method === 'GET' && base === 'InsuranceRules/Editions') return hit('editions', st.editions.filter((e) => !list || e.list === list).map(wireEdition))
   if (method === 'POST' && base === 'InsuranceRules/Editions') {
     if (deny.includes('upload')) return { status: 403, body: '' }
     const u = upload ?? { list: 'sfda', fileName: UPLOADED_FILE_NAME }
     st.editions = st.editions.filter((e) => e.id !== UPLOADED_EDITION_ID)
     st.editions.unshift(edition(UPLOADED_EDITION_ID, u.list, u.fileName, 9439, user, now, 'pending'))
-    return envelope({ id: UPLOADED_EDITION_ID })
+    return envelope(wireEdition(st.editions[0]))
   }
   const m = /^InsuranceRules\/Editions\/([^/]+)\/(Diff|Gaps|Gaps\/Export|Publish)$/.exec(base)
   if (!m) return null
   const id = decodeURIComponent(m[1])
-  if (method === 'GET' && m[2] === 'Diff') return hit('diff', EDITION_DIFFS[id] ?? null)
-  if (method === 'GET' && m[2] === 'Gaps') return hit('gaps', EDITION_GAPS[id] ?? [])
+  if (method === 'GET' && m[2] === 'Diff') {
+    const d = EDITION_DIFFS[id]
+    return hit('diff', d ? { id, list: id.includes('CHI') ? 'chi' : 'sfda', against: null, samples: { added: [], dropped: [], changed: [] }, ...d, newlyUnmatched: d.newlyUnmatched.map(({ item, sfdaCode }) => ({ item, sfdaCode })) } : null)
+  }
+  if (method === 'GET' && m[2] === 'Gaps') return hit('gaps', { id, counts: {}, rows: (EDITION_GAPS[id] ?? []).map(wireGap) })
   if (method === 'GET' && m[2] === 'Gaps/Export') {
     reads.export = (reads.export ?? 0) + 1
     return {
@@ -855,12 +872,13 @@ export function editionsStub(method, path, opts = {}) {
   if (method === 'POST' && m[2] === 'Publish') {
     if (refusePublish) return envelope(null, { success: false, ...refusePublish })
     const ed = st.editions.find((e) => e.id === id)
-    if (!ed) return envelope(null, { status: 404, success: false, message: 'No edition has this id.', errorCode: 'NOT_FOUND' })
+    if (!ed) return envelope(null, { status: 404, success: false, message: 'no such edition', errorCode: 'EDITIONS_NOT_FOUND' })
     if (ed.uploadedBy.toLowerCase() === user.toLowerCase())
-      return envelope(null, { status: 409, success: false, message: 'The user who uploaded an edition cannot publish it.', errorCode: 'UPLOADER_CANNOT_PUBLISH' })
+      return envelope(null, { status: 403, success: false, message: 'the user who uploaded an edition cannot publish it', errorCode: 'EDITIONS_SELF_PUBLISH' })
+    if (ed.state !== 'pending') return envelope(null, { status: 409, success: false, message: 'the edition is already published', errorCode: 'EDITIONS_NOT_PENDING' })
     for (const e of st.editions) if (e.list === ed.list && e.state === 'live') e.state = 'retired'
     Object.assign(ed, { state: 'live', publishedBy: user, publishedAt: now })
-    return envelope(ed)
+    return envelope(wireEdition(ed))
   }
   return null
 }

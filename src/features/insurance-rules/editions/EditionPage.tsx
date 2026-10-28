@@ -347,7 +347,7 @@ function GapsSection({ edition }: { edition: Edition }) {
                     <td className="px-3 py-2" data-col="item">
                       {g.item && <Ltr>{g.item}</Ltr>}
                     </td>
-                    <td className="px-3 py-2">{g.itemName && <SaysBoth says={g.itemName} />}</td>
+                    <td className="px-3 py-2">{g.itemName ? <SaysBoth says={g.itemName} /> : g.description && <bdi>{g.description}</bdi>}</td>
                     <td className="px-3 py-2" data-col="sfdaCode">
                       {g.sfdaCode && <Ltr>{g.sfdaCode}</Ltr>}
                     </td>
@@ -355,7 +355,7 @@ function GapsSection({ edition }: { edition: Edition }) {
                       {g.gtin && <Ltr>{g.gtin}</Ltr>}
                     </td>
                     <td className="px-3 py-2" data-col="detail">
-                      {g.detail && <Ltr>{g.detail}</Ltr>}
+                      {g.detail && <bdi>{g.detail}</bdi>}
                     </td>
                   </tr>
                 ))}

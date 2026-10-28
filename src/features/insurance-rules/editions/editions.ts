@@ -3,8 +3,10 @@
  * Formulary are uploaded as editions, diffed against the live one, published by a SECOND user, and each
  * carries a gap report for the master-file team. Old editions are read-only.
  *
- * ⚠️ The brief spells only the doors and the diff's top level; every field below that it does not spell is a
- * guess recorded on ticket 613 (618 reconciles). `diffCounts` therefore reads a count OR rows.
+ * Reconciled with 3138 as built in oms 618: the wire rows (`EditionReply`, `GapsReply`) are read by `editionIn` /
+ * `gapsIn` into the screen's model — HQ's `state: pending|published` + `live` is the screen's `pending|live|retired`,
+ * its row counts `{ sfda, map, indications }` one total, its gap kind `junkCode` the screen's `junk`, and a gap's
+ * `description` / `detail` are HQ's words (the item master's description; "edition GTIN …; item barcodes …").
  */
 import type { Says } from '@/core/insurance-rules/model'
 import { INSURANCE_RULES_PATH } from '@/core/insurance-rules/model'
@@ -26,6 +28,8 @@ export interface Edition {
   state: EditionState
   publishedBy?: string | null
   publishedAt?: string | null
+  /** HQ's words on missing optional columns and skipped rows (upload). */
+  problems?: string[]
 }
 
 export interface UnmatchedItem {
@@ -33,6 +37,54 @@ export interface UnmatchedItem {
   itemName?: Says | null
   sfdaCode?: string | null
 }
+
+/** An edition as `GET …/Editions` / `POST …/Editions` / `POST …/{id}/Publish` send it (3138). */
+export interface EditionReply {
+  id: string
+  list: EditionList
+  editionNo?: number
+  state: 'pending' | 'published' | string
+  live: boolean
+  fileName?: string | null
+  rows?: { sfda?: number; map?: number; indications?: number } | null
+  problems?: string[]
+  uploadedBy: string
+  uploadedAt?: string | null
+  publishedBy?: string | null
+  publishedAt?: string | null
+}
+
+/** HQ's edition → the screen's: published + live is `live`, an older published one `retired`; one row total. */
+export function editionIn(e: EditionReply): Edition {
+  const r = e.rows
+  return {
+    id: e.id,
+    list: e.list,
+    fileName: e.fileName ?? null,
+    rows: r ? (r.sfda ?? 0) + (r.map ?? 0) + (r.indications ?? 0) : null,
+    uploadedBy: e.uploadedBy,
+    uploadedAt: e.uploadedAt ?? null,
+    state: e.state === 'pending' ? 'pending' : e.live ? 'live' : 'retired',
+    publishedBy: e.publishedBy || null,
+    publishedAt: e.publishedAt ?? null,
+    problems: e.problems ?? [],
+  }
+}
+
+/** `GET …/Editions/{id}/Gaps` as built: `{ id, counts, rows: [{ kind, item, description, sfdaCode, detail }] }`. */
+export interface GapsReply {
+  id?: string
+  rows?: { kind: string; item?: string | null; description?: string | null; sfdaCode?: string | null; detail?: string | null }[]
+}
+
+export const gapsIn = (g: GapsReply | null | undefined): GapRow[] =>
+  (g?.rows ?? []).map((r) => ({
+    kind: (r.kind === 'junkCode' ? 'junk' : r.kind) as GapKind,
+    item: r.item || null,
+    description: r.description || null,
+    sfdaCode: r.sfdaCode || null,
+    detail: r.detail || null,
+  }))
 
 /** `GET InsuranceRules/Editions/{id}/Diff`. */
 export interface EditionDiff {
@@ -51,9 +103,11 @@ export interface GapRow {
   kind: GapKind
   item?: string | null
   itemName?: Says | null
+  /** The item master's description (HQ's words, one language). */
+  description?: string | null
   sfdaCode?: string | null
   gtin?: string | null
-  /** The other side of a mismatch (the SFDA row's GTIN). */
+  /** HQ's words on the gap: "edition GTIN …; item barcodes …", the withdrawn status, … */
   detail?: string | null
 }
 

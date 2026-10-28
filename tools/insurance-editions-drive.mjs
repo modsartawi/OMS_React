@@ -5,7 +5,7 @@
 //   GET  InsuranceRules/Editions?list=          → the history (`EDITIONS`, then what the run uploads)
 //   POST InsuranceRules/Editions (multipart)    → { id: 'ED-SFDA-59' }
 //   GET  InsuranceRules/Editions/{id}/Diff      → `EDITION_DIFFS`
-//   POST InsuranceRules/Editions/{id}/Publish   → refused for the uploader (409 UPLOADER_CANNOT_PUBLISH)
+//   POST InsuranceRules/Editions/{id}/Publish   → refused for the uploader (403 EDITIONS_SELF_PUBLISH)
 //   GET  InsuranceRules/Editions/{id}/Gaps      → `EDITION_GAPS`
 //   GET  InsuranceRules/Editions/{id}/Gaps/Export → an .xlsx (guessed door)
 // 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3138 is unbuilt. Ticket 618 swaps in the doors.
@@ -126,7 +126,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. added / dropped / changed / newly unmatched`, JSON.stringify(counts) === JSON.stringify(['added=31', 'dropped=4', 'changed=118', 'newlyUnmatched=2']), JSON.stringify(counts))
     check(`${dir} 3. against the live edition`, (await page.locator('[data-diff-against] bdi[dir="ltr"]').innerText()) === 'ED-SFDA-58')
     const un = page.locator('[data-unmatched-row="100234"]')
-    check(`${dir} 3. an item newly unmatched: item and SFDA code ltr, the Arabic name rtl`, (await un.locator('[data-col="item"] bdi[dir="ltr"]').innerText()) === '100234' && (await un.locator('[data-col="sfdaCode"] bdi[dir="ltr"]').innerText()) === '2412246474' && (await un.locator('bdi[data-says-ar][dir="rtl"]').innerText()) === 'أوزمبيك 1 ملغ قلم')
+    // 618: as built a newly unmatched row is `{ item, sfdaCode }` — HQ sends no item name.
+    check(`${dir} 3. an item newly unmatched: item and SFDA code ltr`, (await un.locator('[data-col="item"] bdi[dir="ltr"]').innerText()) === '100234' && (await un.locator('[data-col="sfdaCode"] bdi[dir="ltr"]').innerText()) === '2412246474')
     const rules = await page.locator('[data-rule-affected]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-rule-affected')}=${e.querySelector('[data-col="fires"] bdi').textContent}`))
     check(`${dir} 3. the rules affected with their back-test fires`, JSON.stringify(rules) === JSON.stringify(['G-008=41', 'G-009=7']), JSON.stringify(rules))
     check(`${dir} 3. a rule links to its page`, (await page.locator('[data-rule-affected="G-008"] a').getAttribute('href')) === '/insurance-rules/guards/G-008')
@@ -149,7 +150,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. a junk code is an ltr isolate as sent`, (await page.locator('[data-gap-row][data-item="100512"] [data-col="sfdaCode"] bdi[dir="ltr"]').innerText()) === 'OLD DELISTED SFDA')
     await page.locator('[data-gap-kind="gtinMismatch"]').click()
     const g = page.locator('[data-gap-row="gtinMismatch"]')
-    check(`${dir} 5. a GTIN mismatch shows both GTINs`, (await g.locator('[data-col="gtin"] bdi[dir="ltr"]').innerText()) === '06281234500017' && (await g.locator('[data-col="detail"] bdi[dir="ltr"]').innerText()) === '06281234500024' && strip(await g.locator('td').first().innerText()) === 'GTIN mismatch')
+    // 618: HQ sends the mismatch as its own words in `detail` ("edition GTIN …; item barcodes …"), isolated as text.
+    check(`${dir} 5. a GTIN mismatch shows both GTINs in HQ's words`, strip(await g.locator('[data-col="detail"] bdi').innerText()) === 'edition GTIN 06281234500024; item barcodes 06281234500017' && strip(await g.locator('td').first().innerText()) === 'GTIN mismatch', strip(await g.innerText()))
     await page.locator('[data-gap-kind=""]').click()
     check(`${dir} 5. All gaps clears the filter`, (await page.locator('[data-gap-row]').count()) === 5)
     const [download] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }).catch(() => null), page.locator('[data-gaps-export]').click()])

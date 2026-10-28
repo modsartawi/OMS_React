@@ -83,3 +83,14 @@ describe('643 · the entries door', () => {
     expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
   })
 })
+
+// 644 · master export + template (3188)
+describe('644 · the master export and template doors', () => {
+  it('export reads the version as a file; template reads the blank file', async () => {
+    const { idfMasterFilesApi } = await import('./api')
+    await idfMasterFilesApi.export('M BUPA', 'V/11')
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/export')
+    await idfMasterFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/template')
+  })
+})

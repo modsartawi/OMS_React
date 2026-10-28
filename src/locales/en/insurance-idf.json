@@ -435,6 +435,12 @@
       "descriptionRequired": "Enter a description."
     }
   },
+  "download": {
+    "export": "Export",
+    "exportFailed": "The file could not be exported",
+    "template": "Template",
+    "templateFailed": "The template could not be downloaded"
+  },
   "items": {
     "title": "Items",
     "lede": "The ranking this version holds: each item, its IDF group and its priority in the group.",

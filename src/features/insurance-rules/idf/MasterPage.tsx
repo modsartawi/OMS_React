@@ -20,6 +20,9 @@ import { masterRow, type IdfMasterRow } from './masters'
 import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, rowMessage, type IdfUploadReport } from './upload'
 import VersionsSection from './VersionsSection' // 623
 import ItemsSection from './ItemsSection' // 643
+import { idfMasterFilesApi } from './api' // 644
+import DownloadButton from './DownloadButton' // 644
+import { masterTemplateFileName } from './download' // 644
 
 /**
  * Insurance rules ▸ IDF masters ▸ one master — `/insurance-rules/idf/masters/:masterId` (BackOffice spec 3157,
@@ -171,6 +174,16 @@ function UploadStep({ masterId }: { masterId: string }) {
           {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Upload className="h-3.5 w-3.5" aria-hidden />}
           {t('upload.submit')}
         </Button>
+        {/* 644 · Template */}
+        <div className="ms-auto">
+          <DownloadButton
+            fetch={() => idfMasterFilesApi.template()}
+            fallbackName={masterTemplateFileName()}
+            label={t('download.template')}
+            failedLabel={t('download.templateFailed')}
+            hook="data-idf-master-template"
+          />
+        </div>
       </div>
       {upload.isError && (
         <div data-idf-upload-refused="">

@@ -199,7 +199,17 @@ export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQue
   } as const
 }
 
-// 644 · master export + template (3188)
+// 644 · master export + template — `idfMasterFilesApi` (3188)
+export const idfMasterFilesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/export` — that version (live or old) as `.xlsx` in the upload format. */
+  export(masterId: string, versionId: string): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/export`)
+  },
+  /** `GET IdfPriority/masters/template` — the upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/template`)
+  },
+}
 
 // 645 · draft (3189)
 

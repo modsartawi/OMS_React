@@ -229,6 +229,15 @@ describe('insurance-idf — the keys the items section builds exist (643)', () =
   })
 })
 
+// 644 · the keys the master export + template build
+describe('insurance-idf — the keys the master export and template build exist (644)', () => {
+  it.each([en, ar])('export, template and their refusal titles', (locale) => {
+    for (const key of ['download.export', 'download.exportFailed', 'download.template', 'download.templateFailed']) {
+      expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    }
+  })
+})
+
 // 652 · the IDF groups leaf
 describe('insurance-idf — the keys the IDF groups leaf builds exist (652)', () => {
   it.each([en, ar])('page, columns, form, problems, remove, export', (locale) => {

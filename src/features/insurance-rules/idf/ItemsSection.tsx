@@ -14,6 +14,9 @@ import { entriesQuery, IDF_ENTRIES_KEY, versionsQuery } from './api'
 import { entriesVersionId, masterItemsFromParams, masterItemsToParams, pickVersion } from './items'
 import ItemsTable from './ItemsTable'
 import { versionRows } from './versions'
+import { idfMasterFilesApi } from './api' // 644
+import DownloadButton from './DownloadButton' // 644
+import { masterExportFileName } from './download' // 644
 
 /** Where the version id sits in an entries query key (`[...IDF_ENTRIES_KEY, masterId, versionId, params]`). */
 const VERSION_AT = IDF_ENTRIES_KEY.length + 1
@@ -76,6 +79,16 @@ export default function ItemsSection({ masterId, liveVersionId }: { masterId: st
                 {t('items.showLive')}
               </Button>
             )}
+            {/* 644 · Export the version on show */}
+            <div className="ms-auto">
+              <DownloadButton
+                fetch={() => idfMasterFilesApi.export(masterId, versionId)}
+                fallbackName={masterExportFileName(masterId, { versionId, number: shown?.number })}
+                label={t('download.export')}
+                failedLabel={t('download.exportFailed')}
+                hook="data-idf-master-export"
+              />
+            </div>
           </div>
           {notLive && (
             <p className="rounded-md border border-attention-border bg-attention-050 p-2 text-sm text-attention-800" role="status" data-idf-items-not-live={versionId}>

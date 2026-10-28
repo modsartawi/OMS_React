@@ -543,7 +543,38 @@ export function idfEntriesStub(method, path, opts = {}) {
   return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
 }
 
-// --- 644 --- master export + template (door 3188).
+// --- 644 --- master export + template (door 3188): `GET IdfPriority/masters/{id}/versions/{vid}/export` → that version
+// as `.xlsx` (server name `IDF_MASTER_EXPORT_NAME(masterId, versionId)`), `GET IdfPriority/masters/template` → the header.
+// `opts.deny` `masterExport` / `masterTemplate` refuse on the JSON 400 envelope; `opts.noFileName` drops the
+// `Content-Disposition` name so the client's fallback shows. `opts.reads.masterExport` collects `{ masterId, versionId }`,
+// `opts.reads.masterTemplate` counts.
+export const IDF_MASTER_EXPORT_NAME = (masterId, versionId) => `idf-${masterId}-${versionId}-20261028.xlsx`
+export const IDF_MASTER_TEMPLATE_NAME = 'idf-master-template-20261028.xlsx'
+export function idfMasterFilesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, noFileName = false } = opts
+  if (method !== 'GET') return null
+  const bare = path.split('?')[0]
+  const m = /^IdfPriority\/masters\/([^/]+)\/versions\/([^/]+)\/export$/.exec(bare)
+  if (!m && bare !== 'IdfPriority/masters/template') return null
+  const file = (name) => ({
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...(noFileName ? {} : { 'Content-Disposition': `attachment; filename="${name}"` }),
+    },
+    body: Buffer.from('PK stub xlsx'),
+  })
+  if (!m) {
+    reads.masterTemplate = (reads.masterTemplate ?? 0) + 1
+    if (deny.includes('masterTemplate')) return envelope(null, { status: 400, success: false, message: 'The template could not be built.', errorCode: 'IDF-00040' })
+    return file(IDF_MASTER_TEMPLATE_NAME)
+  }
+  const masterId = decodeURIComponent(m[1])
+  const versionId = decodeURIComponent(m[2])
+  ;(reads.masterExport ??= []).push({ masterId, versionId })
+  if (deny.includes('masterExport')) return envelope(null, { status: 400, success: false, message: 'This version could not be exported.', errorCode: 'IDF-00041' })
+  return file(IDF_MASTER_EXPORT_NAME(masterId, versionId))
+}
 
 // --- 645 --- draft (door 3189).
 
@@ -665,6 +696,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 643 · a version's items
     idfEntriesStub(method, path, opts) ??
     // 644 · master export + template
+    idfMasterFilesStub(method, path, opts) ??
     // 645 · draft
     // 646 · draft owner, rebase, add a group
     // 647 · general master items

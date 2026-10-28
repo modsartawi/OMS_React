@@ -17,7 +17,7 @@ import Button from '@/core/ui/Button'
 import { ClearGeneralItemDialog, GeneralItemDialog } from './GeneralItemDialog'
 import type { IdfEntryRow } from './items'
 import GeneralUpload from './GeneralUpload' // 649
-// 650 · imports (ChangeLog)
+import ChangeLog from './ChangeLog' // 650
 // 651 · imports (the download buttons)
 import { idfGeneralFilesApi } from './api' // 651
 import DownloadButton from './DownloadButton' // 651
@@ -98,7 +98,8 @@ export default function GeneralPage() {
       </div>
 
       {query.tab === 'items' && <GeneralItems query={query} update={update} />}
-      {/* 650 · Change log tab: {query.tab === 'changes' && <ChangeLog … />} */}
+      {/* 650 · Change log tab */}
+      {query.tab === 'changes' && <ChangeLog query={query.changes} onQuery={(change) => update((q) => ({ ...q, changes: change(q.changes) }))} />}
     </section>
   )
 }

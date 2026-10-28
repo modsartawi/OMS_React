@@ -159,6 +159,18 @@ describe('647 · the general items door', () => {
   })
 })
 
+// 650 · the general change log (3194)
+describe('650 · the general change log doors', () => {
+  it('reads one page with the filter by the door names, fills a null body, and exports the filter without the page', async () => {
+    const { idfChangesApi } = await import('./api')
+    const q = { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27', page: 2 }
+    expect(await idfChangesApi.changes(q)).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/changes', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27', page: '2' })
+    await idfChangesApi.export(q)
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/changes/export', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27' })
+  })
+})
+
 // 648 · set / clear one general item (3192)
 describe('648 · the general item edit doors', () => {
   it('sets an item with PUT { idfNumber, priority, reason } and clears it with DELETE { reason } in the body', async () => {

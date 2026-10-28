@@ -22,6 +22,11 @@ export function masterTemplateFileName(): string {
 }
 
 // 650 · change log export (changesExportFileName)
+/** The general change log as `.xlsx`, its window in the name (`-yyyyMMdd`, `-to-yyyyMMdd`), an open end left out. */
+export function changesExportFileName(window: { from: string; to: string }): string {
+  const day = (d: string) => d.replace(/-/g, '')
+  return `idf-general-changes${window.from ? `-${day(window.from)}` : ''}${window.to ? `-to-${day(window.to)}` : ''}.xlsx`
+}
 
 // 651 · general export + template (generalExportFileName, generalTemplateFileName)
 export function generalExportFileName(): string {

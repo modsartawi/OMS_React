@@ -29,6 +29,8 @@ import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
 import type { IdfDraftGroupBody } from './draft' // 646
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
+import type { IdfChangesPage } from './changes' // 650
+import { changesDoorParams, changesExportParams, type IdfChangesQuery } from './changes-filter' // 650
 import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
 import type { IdfGeneralApplyResult, IdfGeneralUploadReport } from './general-upload' // 649
 
@@ -335,7 +337,22 @@ export const idfGeneralUploadApi = {
   },
 }
 
-// 650 · general change log (3194)
+// 650 · general change log — `idfChangesApi` (3194)
+export const IDF_GENERAL_CHANGES_KEY = [...IDF_GENERAL_KEY, 'changes'] as const
+export const idfChangesApi = {
+  /** `GET IdfPriority/general/changes?item&idf&user&from&to&page` (3194) — one page of the log, newest first. */
+  async changes(q: IdfChangesQuery): Promise<IdfChangesPage> {
+    const page = await api.get<IdfChangesPage | null>(`${IDF_BASE}/general/changes`, changesDoorParams(q))
+    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+  },
+  /** `GET IdfPriority/general/changes/export` (3194) — the server's `.xlsx` of the filtered rows (no page). */
+  export(q: IdfChangesQuery): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/changes/export`, changesExportParams(q))
+  },
+}
+export function generalChangesQuery(q: IdfChangesQuery) {
+  return { queryKey: [...IDF_GENERAL_CHANGES_KEY, changesDoorParams(q)] as const, queryFn: () => idfChangesApi.changes(q), retry: false } as const
+}
 
 // 651 · general export + template — `idfGeneralFilesApi` (3195)
 export const idfGeneralFilesApi = {

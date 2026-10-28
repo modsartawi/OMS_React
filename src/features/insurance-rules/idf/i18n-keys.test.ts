@@ -14,6 +14,7 @@ import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { IDF_LISTED_KINDS } from './masters' // 647: every listed kind, general included
 import { IDF_GENERAL_TABS } from './general' // 647
+import { IDF_CHANGE_ACTIONS, IDF_CHANGE_ENTITIES } from './changes' // 650
 import { IDF_EXCEPTION_HANDLINGS, IDF_EXCEPTION_KEY_KINDS } from './exceptions' // 624
 import { IDF_SKIP_REASONS, IDF_TIERS } from './lookup' // 625
 import { IDF_UPLOAD_RULES } from './upload' // 622
@@ -323,6 +324,25 @@ describe('insurance-idf — the keys the General page builds exist (647)', () =>
   })
   it.each([en, ar])('the tier sentence isolates its number as a tag', (locale) => {
     expect(String((locale as { general: { tier: string } }).general.tier)).toContain('<v>{{n}}</v>')
+  })
+})
+
+// 650 · the keys the Change log tab builds
+describe('insurance-idf — the keys the Change log tab builds exist (650)', () => {
+  it.each([en, ar])('filter, columns, entity and action words, states and export', (locale) => {
+    const keys = [
+      'general.tabs.changes',
+      'changes.lede',
+      ...['label', 'item', 'idf', 'user', 'from', 'to', 'invalid', 'reversed'].map((k) => `changes.filter.${k}`),
+      ...['at', 'by', 'entity', 'key', 'action', 'before', 'after', 'reason', 'upload'].map((k) => `changes.columns.${k}`),
+      ...IDF_CHANGE_ENTITIES.map((k) => `changes.entity.${k}`),
+      ...IDF_CHANGE_ACTIONS.map((k) => `changes.action.${k}`),
+      ...['none', 'total', 'empty', 'noMatch', 'loading', 'failed', 'export', 'exportFailed'].map((k) => `changes.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the total isolates its figure as a tag', (locale) => {
+    expect(String((locale as { changes: { total: string } }).changes.total)).toContain('<v>{{total}}</v>')
   })
 })
 

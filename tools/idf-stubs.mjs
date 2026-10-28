@@ -873,6 +873,62 @@ export function idfGeneralUploadStub(method, path, body, opts = {}) {
 }
 
 // --- 650 --- general change log (door 3194).
+// `GET IdfPriority/general/changes?item&idf&user&from&to&page&pageSize` → one page `{ page, pageSize, total, rows }`,
+// newest first, 25 a page. `item` = an item row's key; `idf` = a group row's key or an item row's group before or after;
+// `user` = `by`; `from`/`to` local days, both counted (on `at`'s date). `to` before `from` is refused `IDF-00090` (an
+// invented sketch code — the screen refuses it before any read). `GET …/changes/export` (same filter) → `.xlsx`
+// named `IDF_CHANGES_EXPORT_NAME`; `opts.refuseChangesExport` answers the JSON 400 instead. `opts.reads.changes` /
+// `reads.changesExport` collect each query string; `deny: ['changes']` answers a bare 403 on the read.
+export const IDF_CHANGES_EXPORT_NAME = 'idf-general-changes-20261028.xlsx'
+export const IDF_GENERAL_CHANGES = (() => {
+  const users = ['msartawi', 'aali', 'hkhan']
+  const groups = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI']
+  const rows = []
+  for (let i = 0; i < 30; i++) {
+    const day = String(27 - Math.floor(i / 2)).padStart(2, '0')
+    const at = `2026-10-${day}T${i % 2 ? '09' : '15'}:${String(10 + i).padStart(2, '0')}:00`
+    const base = { changeId: `C-${30 - i}`, by: users[i % 3], at, uploadId: null }
+    if (i % 5 === 4) {
+      rows.push({ ...base, entity: 'group', key: 'IDF-0102', action: 'edit', before: { description: 'Ibuprofen 400 mg', dosageForm: '' }, after: { description: 'Ibuprofen 400 mg', dosageForm: 'Tablet' }, reason: 'Dosage form was missing' })
+      continue
+    }
+    const g = groups[i % 4]
+    const item = String(300110 + (i % 4) * 100 + (i % 3) * 10)
+    const action = i % 5 === 3 ? 'clear' : 'set'
+    const before = i % 5 === 0 ? null : { idfNumber: g, priority: (i % 3) + 2 }
+    const after = action === 'clear' ? null : { idfNumber: g, priority: (i % 3) + 1 }
+    rows.push({ ...base, entity: 'item', key: item, action, before, after, reason: i % 7 === 0 ? 'رفع الأولوية حسب المورد' : 'Supplier change', uploadId: i % 6 === 1 ? 'GU-3' : null })
+  }
+  return rows
+})()
+
+export function idfGeneralChangesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, refuseChangesExport = false } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (method !== 'GET' || (bare !== 'IdfPriority/general/changes' && bare !== 'IdfPriority/general/changes/export')) return null
+  const exporting = bare.endsWith('/export')
+  ;(reads[exporting ? 'changesExport' : 'changes'] ??= []).push(qs)
+  if (!exporting && deny.includes('changes')) return bare403()
+  const q = new URLSearchParams(qs)
+  const [item, idf, user, from, to] = ['item', 'idf', 'user', 'from', 'to'].map((k) => q.get(k) ?? '')
+  if (from && to && to < from) return envelope(null, { status: 400, success: false, message: 'The to date is before the from date.', errorCode: 'IDF-00090' })
+  if (exporting && refuseChangesExport) return envelope(null, { status: 400, success: false, message: 'The change log export is not available right now.', errorCode: 'IDF-00091' })
+  if (exporting) return xlsx(IDF_CHANGES_EXPORT_NAME)
+  const all = IDF_GENERAL_CHANGES.filter((c) => {
+    const day = c.at.slice(0, 10)
+    const groupOf = (side) => side?.idfNumber ?? ''
+    return (
+      (!item || (c.entity === 'item' && c.key === item)) &&
+      (!idf || (c.entity === 'group' ? c.key === idf : groupOf(c.before) === idf || groupOf(c.after) === idf)) &&
+      (!user || c.by === user) &&
+      (!from || day >= from) &&
+      (!to || day <= to)
+    )
+  })
+  const pageSize = Number(q.get('pageSize')) || 25
+  const page = Math.max(1, Number(q.get('page')) || 1)
+  return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
+}
 
 // --- 651 --- general export + template (door 3195): `GET IdfPriority/general/export` → the whole general master as
 // `.xlsx` (server name `IDF_GENERAL_EXPORT_NAME`), `GET IdfPriority/general/template` → the header. `opts.deny`
@@ -1076,6 +1132,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 649 · general upload
     idfGeneralUploadStub(method, path, body, opts) ??
     // 650 · general change log
+    idfGeneralChangesStub(method, path, opts) ??
     // 651 · general export + template
     idfGeneralFilesStub(method, path, opts) ??
     // 652 · IDF groups

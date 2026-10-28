@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { masterExportFileName, masterTemplateFileName } from './download'
+import { changesExportFileName } from './download' // 650
 
 // 644 · master export + template
 describe('master export + template file names (644)', () => {
@@ -26,6 +27,14 @@ describe('master export + template file names (644)', () => {
 })
 
 // 650 · change log export
+describe('change log export file name (650)', () => {
+  it('names the general change log and its window, an open end left out', () => {
+    expect(changesExportFileName({ from: '', to: '' })).toBe('idf-general-changes.xlsx')
+    expect(changesExportFileName({ from: '2026-10-01', to: '2026-10-27' })).toBe('idf-general-changes-20261001-to-20261027.xlsx')
+    expect(changesExportFileName({ from: '2026-10-01', to: '' })).toBe('idf-general-changes-20261001.xlsx')
+    expect(changesExportFileName({ from: '', to: '2026-10-27' })).toBe('idf-general-changes-to-20261027.xlsx')
+  })
+})
 
 // 651 · general export + template
 import { generalExportFileName, generalTemplateFileName } from './download' // 651

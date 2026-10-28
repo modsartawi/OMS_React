@@ -8,14 +8,16 @@ import { readGeneralQuery, switchGeneralTab, writeGeneralQuery } from './general
 
 const read = (qs: string) => readGeneralQuery(new URLSearchParams(qs))
 const write = (q: ReturnType<typeof read>) => writeGeneralQuery(q).toString()
+// 650 · the Change log tab's query sits at its defaults while Items shows
+const NO_LOG = { item: '', idf: '', user: '', from: '', to: '', page: 1 }
 
 describe('the general address keeps the items query on the default tab', () => {
   it('a bare address is the Items tab, page 1, no search or group', () => {
-    expect(read('')).toEqual({ tab: 'items', items: { q: '', idf: '', page: 1 } })
+    expect(read('')).toEqual({ tab: 'items', items: { q: '', idf: '', page: 1 }, changes: NO_LOG })
     expect(write(read(''))).toBe('')
   })
   it('the items search, group and page round-trip, the default tab left out', () => {
-    expect(read('q=adol&idf=IDF-IBU&page=2')).toEqual({ tab: 'items', items: { q: 'adol', idf: 'IDF-IBU', page: 2 } })
+    expect(read('q=adol&idf=IDF-IBU&page=2')).toEqual({ tab: 'items', items: { q: 'adol', idf: 'IDF-IBU', page: 2 }, changes: NO_LOG })
     expect(write(read('q=adol&idf=IDF-IBU&page=2'))).toBe('q=adol&idf=IDF-IBU&page=2')
   })
   it('an unknown tab reads as Items', () => {

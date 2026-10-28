@@ -568,5 +568,58 @@
     },
     "itemsLede": "Each item the general master ranks, its IDF group and its priority in the group.",
     "empty": "The general master ranks no items yet."
+  },
+  "generalUpload": {
+    "title": "Upload a general file",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: item, IDF group, priority (a header row is optional). Checking shows what would change and writes nothing.",
+    "file": "General file",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. Check the changes below, then apply.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "notOk": "The server did not pass this file. Upload it again.",
+    "lineCount": "Lines in the file: <v>{{n}}</v>",
+    "previewTitle": "What applying this file would change",
+    "filterLabel": "Show changes",
+    "notRanked": "Not ranked",
+    "noChanges": "No change of this kind.",
+    "columns": {
+      "line": "Line",
+      "item": "Item",
+      "rule": "Rule broken",
+      "message": "Message",
+      "change": "Change",
+      "before": "Before",
+      "after": "After"
+    },
+    "kind": {
+      "all": "All",
+      "added": "Added",
+      "reRanked": "Re-ranked",
+      "moved": "Moved",
+      "unchanged": "Unchanged"
+    },
+    "apply": "Apply…",
+    "applyHint": "Apply stays off until every row passes. It writes the whole file to the general master, which every till reads.",
+    "applyTitle": "Apply the general file",
+    "applyLede": "Every item in the file is written to the general master, and every till reads it. Say why.",
+    "reason": "Reason",
+    "confirm": "Apply",
+    "cancel": "Cancel",
+    "problem": {
+      "reasonRequired": "Give a reason for this change.",
+      "reasonTooLong": "Keep the reason to 400 characters."
+    },
+    "applied": "General file applied",
+    "appliedDetail": "Items applied: {{n}}.",
+    "applyFailed": "The file could not be applied.",
+    "result": "Applied. Items written: <v>{{n}}</v>",
+    "batchesFailed_one": "<v>{{n}}</v> batch failed; its items were not written.",
+    "batchesFailed_other": "<v>{{n}}</v> batches failed; their items were not written.",
+    "batchColumns": {
+      "lines": "Lines",
+      "message": "Message"
+    }
   }
 }

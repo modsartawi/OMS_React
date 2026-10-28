@@ -714,7 +714,68 @@ export function idfGeneralItemsStub(method, path, opts = {}) {
 
 // --- 648 --- set / clear one general item (door 3192).
 
-// --- 649 --- general upload → preview → apply (door 3193).
+// --- 649 --- general upload → preview → apply (door 3193, the brief's "Spec 3185" sketch): `POST
+// IdfPriority/general/uploads` (multipart `file`) → 622's report + `preview` (computed against `state.general`, so a
+// re-check after an apply says unchanged); `POST …/general/uploads/{uploadId}/apply { reason }` → `{ applied,
+// failedBatches }`, refused unless `ok` (IDF-00085). The report depends on the file's NAME: `dirty` → two failing rows,
+// `ok: false`, no preview; `notok` → `ok: false`, no rows; `batch` → clean, but lines 3–4 fail on apply (not
+// written); any other → clean. `opts.generalUploads` keeps the uploads, `opts.writes` the applies,
+// `opts.refuseGeneralApply` refuses a clean apply (IDF-00086). Apply writes `state.general ??= structuredClone(IDF_GENERAL_ITEMS)`.
+export const IDF_GENERAL_UPLOAD_LINES = [
+  { line: 2, itemNumber: '300700', idfNumber: 'IDF-IBU', priority: 5 }, // added
+  { line: 3, itemNumber: '300110', idfNumber: 'IDF-PARA-500', priority: 1 }, // re-ranked (was 2)
+  { line: 4, itemNumber: '300230', idfNumber: 'IDF-AMOX', priority: 1 }, // moved (was IDF-IBU 4)
+  { line: 5, itemNumber: '300120', idfNumber: 'IDF-PARA-500', priority: 3 }, // unchanged
+]
+export const IDF_GENERAL_UPLOAD_DIRTY = [
+  { line: 3, itemNumber: '999999', rule: 'unknownItem', messageEn: 'Item 999999 is not a known item.', messageAr: 'الصنف 999999 غير معروف.' },
+  { line: 4, itemNumber: '300230', rule: 'badPriority', messageEn: 'Priority "x" on line 4 is not a whole number of 1 or more.', messageAr: 'الأولوية "x" في السطر 4 ليست عددًا صحيحًا من 1 فأكثر.' },
+]
+export const IDF_GENERAL_FAILED_BATCH = { fromLine: 3, toLine: 4, messageEn: 'Lines 3–4 could not be written: the items changed while applying.', messageAr: 'تعذّرت كتابة الأسطر 3–4: تغيّرت الأصناف أثناء التطبيق.' }
+
+function generalPreview(items) {
+  const changes = IDF_GENERAL_UPLOAD_LINES.map(({ itemNumber, idfNumber, priority }) => {
+    const was = items.find((r) => r.itemNumber === itemNumber)
+    const before = was ? { idfNumber: was.idfNumber, priority: was.priority } : null
+    const change = !before ? 'added' : before.idfNumber !== idfNumber ? 'moved' : before.priority !== priority ? 'reRanked' : 'unchanged'
+    return { itemNumber, change, before, after: { idfNumber, priority } }
+  })
+  const n = (k) => changes.filter((c) => c.change === k).length
+  return { added: n('added'), reRanked: n('reRanked'), moved: n('moved'), unchanged: n('unchanged'), changes }
+}
+
+export function idfGeneralUploadStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), generalUploads = {}, writes = [], refuseGeneralApply = false } = opts
+  const [bare] = path.split('?')
+  if (method !== 'POST' || !bare.startsWith('IdfPriority/general/uploads')) return null
+  state.general ??= structuredClone(IDF_GENERAL_ITEMS)
+  if (bare === 'IdfPriority/general/uploads') {
+    const name = /filename="([^"]*)"/.exec(String(body ?? ''))?.[1] ?? ''
+    const uploadId = `GU-${Object.keys(generalUploads).length + 1}`
+    const dirty = /dirty/i.test(name)
+    const ok = !dirty && !/notok/i.test(name)
+    const report = { uploadId, ok, lineCount: 5, rows: dirty ? IDF_GENERAL_UPLOAD_DIRTY : [], preview: ok ? generalPreview(state.general) : null }
+    generalUploads[uploadId] = { name, report, batch: /batch/i.test(name) }
+    return envelope(report)
+  }
+  const m = /^IdfPriority\/general\/uploads\/([^/]+)\/apply$/.exec(bare)
+  if (!m) return null
+  writes.push({ method, path: bare, body })
+  const u = generalUploads[decodeURIComponent(m[1])]
+  if (!u || !u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing rows and cannot be applied.', errorCode: 'IDF-00085' })
+  if (refuseGeneralApply) return envelope(null, { status: 409, success: false, message: 'The general master changed since this file was checked; upload it again.', errorCode: 'IDF-00086' })
+  const failedBatches = u.batch ? [IDF_GENERAL_FAILED_BATCH] : []
+  let applied = 0
+  for (const r of IDF_GENERAL_UPLOAD_LINES) {
+    if (failedBatches.some((b) => r.line >= b.fromLine && r.line <= b.toLine)) continue
+    const i = state.general.findIndex((g) => g.itemNumber === r.itemNumber)
+    if (i < 0) state.general.push({ itemNumber: r.itemNumber, descriptionEn: `Item ${r.itemNumber}`, descriptionAr: `صنف ${r.itemNumber}`, idfNumber: r.idfNumber, priority: r.priority })
+    else state.general[i] = { ...state.general[i], idfNumber: r.idfNumber, priority: r.priority }
+    applied++
+  }
+  u.applied = true
+  return envelope({ applied, failedBatches })
+}
 
 // --- 650 --- general change log (door 3194).
 
@@ -889,6 +950,7 @@ export function idfStub(method, path, body, opts = {}) {
     idfGeneralItemsStub(method, path, opts) ??
     // 648 · set / clear one general item
     // 649 · general upload
+    idfGeneralUploadStub(method, path, body, opts) ??
     // 650 · general change log
     // 651 · general export + template
     // 652 · IDF groups

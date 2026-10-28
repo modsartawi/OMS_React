@@ -11,7 +11,7 @@ import { generalItemsQuery } from './api'
 import { generalFromParams, generalToParams, IDF_GENERAL_TABS, switchGeneralTab, type IdfGeneralQuery } from './general'
 import ItemsTable from './ItemsTable' // 643's table, shared
 // 648 · imports (GeneralItemDialog, the Clear modal)
-// 649 · imports (GeneralUpload)
+import GeneralUpload from './GeneralUpload' // 649
 // 650 · imports (ChangeLog)
 // 651 · imports (the download buttons)
 
@@ -59,6 +59,7 @@ export default function GeneralPage() {
       </div>
 
       {/* 649 · Upload */}
+      <GeneralUpload />
 
       <div className="flex gap-1" role="tablist" aria-label={t('general.tabs.label')} data-idf-general-tabs="">
         {IDF_GENERAL_TABS.map((id) => (

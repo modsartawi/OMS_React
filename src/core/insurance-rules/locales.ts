@@ -52,6 +52,11 @@ import insuranceOrderGuardsAr from '@/locales/ar/insurance-order-guards.json'
 import insuranceCoverageEn from '@/locales/en/insurance-coverage.json'
 import insuranceCoverageAr from '@/locales/ar/insurance-coverage.json'
 
+// 619 · imports — the IDF priority screens (`features/insurance-rules/idf`, spec 3157). ONE namespace for 619–627:
+// each leaf adds its keys under its own top-level object in `insurance-idf.json`, never a new namespace.
+import insuranceIdfEn from '@/locales/en/insurance-idf.json'
+import insuranceIdfAr from '@/locales/ar/insurance-idf.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -83,6 +88,9 @@ export const INSURANCE_RULES_NS = [
 
   // 617 · ns
   'insurance-coverage',
+
+  // 619 · ns
+  'insurance-idf',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -116,6 +124,9 @@ export const INSURANCE_RULES_EN = {
 
   // 617 · en
   'insurance-coverage': insuranceCoverageEn,
+
+  // 619 · en
+  'insurance-idf': insuranceIdfEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -149,4 +160,7 @@ export const INSURANCE_RULES_AR = {
 
   // 617 · ar
   'insurance-coverage': insuranceCoverageAr,
+
+  // 619 · ar
+  'insurance-idf': insuranceIdfAr,
 }

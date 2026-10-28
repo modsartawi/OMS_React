@@ -1,0 +1,324 @@
+{
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the IDF priority permission."
+  },
+  "masters": {
+    "title": "IDF masters",
+    "lede": "Every IDF priority master: whom it applies to, its thresholds and the version that is live now.",
+    "loading": "Loading the IDF masters…",
+    "failed": "The IDF masters could not be loaded.",
+    "empty": "There are no IDF masters yet.",
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "payer": "Payer",
+      "storeList": "Store list",
+      "thresholds": "Thresholds",
+      "version": "Live version",
+      "published": "Published",
+      "note": "Note"
+    },
+    "kind": {
+      "insurer": "Insurer",
+      "store": "Store"
+    },
+    "thresholds": "Hard above <v>{{hard}}</v>, reminder above <v>{{reminder}}</v>",
+    "noLive": "No live version yet"
+  },
+  "storeLists": {
+    "title": "IDF store lists",
+    "lede": "Named lists of stores that a store master or an insurer master can apply to: the operation pharmacies, the pilot rollout list.",
+    "loading": "Loading the store lists…",
+    "failed": "The store lists could not be loaded.",
+    "empty": "There are no store lists yet.",
+    "refused": "The change was refused",
+    "refusedFallback": "The server refused the change.",
+    "refusalCode": "Code <v>{{code}}</v>",
+    "pilot": "Pilot",
+    "open": "Open",
+    "close": "Close",
+    "cancel": "Cancel",
+    "columns": {
+      "name": "Name",
+      "id": "List",
+      "stores": "Stores"
+    },
+    "create": {
+      "label": "New list",
+      "placeholder": "Name of the list",
+      "action": "Create list",
+      "done": "Store list created"
+    },
+    "rename": {
+      "action": "Rename",
+      "label": "New name",
+      "save": "Save name",
+      "done": "Store list renamed"
+    },
+    "delete": {
+      "action": "Delete",
+      "title": "Delete store list",
+      "confirm": "Delete the store list {{name}}? Masters that point at it lose their stores.",
+      "done": "Store list deleted"
+    },
+    "stores": {
+      "title": "Stores in <n>{{name}}</n>",
+      "empty": "This list has no stores yet.",
+      "addLabel": "Add stores",
+      "addPlaceholder": "Store codes, separated by commas or spaces",
+      "add": "Add",
+      "remove": "Remove {{code}}",
+      "save": "Save stores",
+      "done": "Stores saved"
+    }
+  },
+  "masterForm": {
+    "newAction": "New master",
+    "edit": "Edit",
+    "editLabel": "Edit {{name}}",
+    "columnActions": "Actions",
+    "createTitle": "New IDF master",
+    "editTitle": "Edit IDF master",
+    "kind": "Kind",
+    "kindFixed": "The kind cannot be changed after the master is created.",
+    "payer": "Payer code",
+    "payerPlaceholder": "e.g. BUPA",
+    "storeList": "Store list",
+    "storeListOptional": "All stores (no store list)",
+    "pickStoreList": "Pick a store list",
+    "storeListsFailed": "The store lists could not be loaded.",
+    "nameEn": "Name in English",
+    "nameAr": "Name in Arabic",
+    "hard": "Hard above",
+    "reminder": "Reminder above",
+    "thresholdsHint": "A pick is forced above the hard threshold and only reminded above the reminder threshold. Whole numbers; the defaults are 4 and 1.",
+    "orderTitle": "Which master decides",
+    "orderHint": "For each item the first master that names it decides, most specific first:",
+    "thisOne": "This master",
+    "problem": {
+      "payerRequired": "Enter the payer code.",
+      "storeListRequired": "Pick a store list.",
+      "nameRequired": "Enter the name.",
+      "wholeNumber": "Enter a whole number of 0 or more.",
+      "reminderAboveHard": "The reminder threshold cannot be above the hard threshold."
+    },
+    "save": "Save",
+    "cancel": "Cancel",
+    "created": "Master created",
+    "saved": "Master saved",
+    "refused": "The master was not saved",
+    "refusedFallback": "The server refused the change.",
+    "refusalCode": "Code <v>{{code}}</v>",
+    "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
+    "denied": "You do not have access to change IDF masters."
+  },
+  "upload": {
+    "back": "All IDF masters",
+    "loading": "Loading the master…",
+    "failed": "The master could not be loaded.",
+    "notFound": "There is no IDF master {{id}}.",
+    "live": "Live version",
+    "title": "Upload a new version",
+    "hint": "A file with three columns: item, IDF group, priority. Uploading checks every row and publishes nothing.",
+    "file": "File to upload",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. You can publish this upload.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing can be published until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing can be published until every row passes.",
+    "notOk": "The server did not pass this upload. Upload the file again.",
+    "columns": {
+      "line": "Line",
+      "item": "Item",
+      "rule": "Rule broken",
+      "message": "Message"
+    },
+    "rule": {
+      "unknownItem": "Unknown item",
+      "notInItemCustomer": "Item not in the insurer's items",
+      "unknownGroup": "Unknown IDF group",
+      "badPriority": "Priority not a whole number of 1 or more",
+      "duplicateItem": "Item listed twice"
+    },
+    "note": "Note for this version",
+    "notePlaceholder": "What changed and why",
+    "publish": "Publish",
+    "publishHint": "Publish stays off until the report is clean and a note is written.",
+    "published": "Published",
+    "publishedDetail": "Version {{n}} is live now.",
+    "publishFailed": "The upload could not be published."
+  },
+  "versions": {
+    "title": "Versions",
+    "lede": "Every version of this master, newest first. Restoring an earlier version makes a new live version from it; nothing is overwritten.",
+    "loading": "Loading the versions…",
+    "failed": "The versions could not be loaded.",
+    "empty": "No version has been published yet.",
+    "live": "Live",
+    "columns": {
+      "number": "Version",
+      "byAt": "Published",
+      "note": "Note",
+      "actions": "Actions"
+    },
+    "restore": "Restore",
+    "restoreTitle": "Restore version <v>{{n}}</v>",
+    "restoreHint": "A new version is made from this one and becomes live. Version <v>{{n}}</v> stays in the history as it is.",
+    "note": "Note for the new version",
+    "notePlaceholder": "Why restore this version",
+    "confirm": "Restore as a new version",
+    "cancel": "Cancel",
+    "restored": "Restored",
+    "restoredDetail": "Version {{from}} is live again as version {{n}}.",
+    "restoreFailed": "The version could not be restored."
+  },
+  "exceptions": {
+    "title": "IDF exceptions",
+    "lede": "Orders whose document type, sub-document type or Nphies claim type skip IDF priority, only remind, or use a named master. Every change records a reason.",
+    "loading": "Loading the IDF exceptions…",
+    "failed": "The IDF exceptions could not be loaded.",
+    "empty": "There are no IDF exceptions.",
+    "columns": {
+      "keyKind": "Key kind",
+      "key": "Key",
+      "handling": "Handling",
+      "reason": "Reason",
+      "changed": "Changed",
+      "actions": "Actions"
+    },
+    "keyKind": {
+      "documentType": "Document type",
+      "subDocumentType": "Sub-document type",
+      "nphiesClaimType": "Nphies claim type"
+    },
+    "handling": {
+      "skip": "Skip",
+      "reminder": "Reminder",
+      "master": "Master"
+    },
+    "master": "Master",
+    "pickMaster": "Pick a master",
+    "reason": "Reason for this change",
+    "add": "New exception",
+    "addTitle": "New IDF exception",
+    "editTitle": "Edit IDF exception",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete the exception for {{key}}",
+    "cancel": "Cancel",
+    "save": "Save",
+    "added": "The exception was added.",
+    "saved": "The exception was saved.",
+    "deleted": "The exception was deleted.",
+    "saveFailed": "The exception could not be saved.",
+    "deleteFailed": "The exception could not be deleted.",
+    "problem": {
+      "keyRequired": "Enter the key.",
+      "masterRequired": "Pick the master to use.",
+      "reasonRequired": "Give a reason for this change."
+    }
+  },
+  "lookup": {
+    "title": "IDF lookup",
+    "lede": "Why this priority: for an item, a store and a payer, the master that decided, the tiers skipped before it and the ranked IDF group.",
+    "fields": {
+      "item": "Item",
+      "store": "Store",
+      "payer": "Payer",
+      "documentType": "Document type (optional)"
+    },
+    "submit": "Look up",
+    "hint": "Enter an item, a store and a payer to see why the item has its priority.",
+    "loading": "Looking up the priority…",
+    "failed": "The lookup could not be answered.",
+    "decidedBy": "Decided by",
+    "generalMaster": "The item's own priority (general master)",
+    "version": "version <v>{{version}}</v>",
+    "priority": "Priority <v>{{priority}}</v>",
+    "cash": "Cash never forces a pick: on a cash invoice the till only reminds.",
+    "skippedTitle": "Tiers skipped before it",
+    "skippedNone": "No tier was skipped: the most specific tier decided.",
+    "groupTitle": "The ranked IDF group",
+    "columns": {
+      "item": "Item",
+      "description": "Description",
+      "priority": "Priority",
+      "sourceTier": "Source tier"
+    },
+    "lookedUp": "Looked up",
+    "tier": {
+      "insurerStoreList": "Insurer on a store list",
+      "insurer": "Insurer",
+      "operationPharmacy": "Operation pharmacy",
+      "general": "General"
+    }
+  },
+  "events": {
+    "title": "IDF events",
+    "lede": "Every IDF moment at the till: what was scanned, what was dispensed, which master decided and how it ended.",
+    "loading": "Loading the IDF events…",
+    "failed": "The IDF events could not be loaded.",
+    "empty": "No IDF events match these filters.",
+    "anyOutcome": "Any outcome",
+    "anyMaster": "Any master",
+    "unknownMaster": "Unknown master",
+    "version": "version <v>{{number}}</v>",
+    "total": "Events found: <v>{{total}}</v>",
+    "filter": {
+      "label": "Filter the events",
+      "from": "From",
+      "to": "To",
+      "store": "Store",
+      "payer": "Payer",
+      "master": "Master",
+      "outcome": "Outcome",
+      "invalid": "Pick a valid from and to date.",
+      "reversed": "The from date is after the to date.",
+      "tooLong": "Pick a window of a year or less.",
+      "outOfBounds": "The window is outside the dates that can be read."
+    },
+    "columns": {
+      "at": "When",
+      "store": "Store",
+      "payer": "Payer",
+      "documentType": "Document type",
+      "itemScanned": "Item scanned",
+      "itemDispensed": "Item dispensed",
+      "master": "Deciding master",
+      "outcome": "Outcome",
+      "timeSpent": "Time spent"
+    },
+    "outcome": {
+      "reminder": "Reminder",
+      "forcedPickTaken": "Forced pick taken",
+      "pickCancelled": "Pick cancelled",
+      "lineAbandoned": "Line abandoned",
+      "skippedByException": "Skipped by exception",
+      "refusedPreAuth": "Refused (pre-authorisation)",
+      "requestRaised": "Request raised",
+      "autoApproved": "Auto-approved"
+    }
+  },
+  "report": {
+    "tabs": {
+      "label": "IDF events views",
+      "events": "Event log",
+      "report": "Swap report"
+    },
+    "loading": "Loading the swap report…",
+    "failed": "The swap report could not be loaded.",
+    "empty": "No IDF swaps match these filters.",
+    "total": "Groups: <v>{{total}}</v>",
+    "export": "Export to Excel",
+    "exportFailed": "The swap report could not be exported.",
+    "columns": {
+      "master": "Master",
+      "store": "Store",
+      "payer": "Payer",
+      "priceDifference": "Price difference (picks taken)",
+      "averageTime": "Average time",
+      "otherOutcome": "Other outcomes"
+    }
+  }
+}

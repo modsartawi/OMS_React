@@ -13,7 +13,12 @@
     "simulator": "المحاكي",
     "insurers": "شركات التأمين",
     "categories": "الفئات",
-    "coverage": "التغطية"
+    "coverage": "التغطية",
+    "idfMasters": "قوائم IDF الرئيسية",
+    "idfStoreLists": "قوائم صيدليات IDF",
+    "idfExceptions": "استثناءات IDF",
+    "idfLookup": "استعلام IDF",
+    "idfEvents": "أحداث IDF"
   },
   "state": {
     "draft": "مسودة",

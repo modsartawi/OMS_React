@@ -4,6 +4,14 @@ import { BadgeCheck } from 'lucide-react' // 611
 import { LayoutTemplate } from 'lucide-react' // 609
 import { FlaskConical } from 'lucide-react' // 612
 import { Building2, Tags, Umbrella } from 'lucide-react' // 617
+import { ListOrdered } from 'lucide-react' // 619
+// 620 · icons
+import { Store } from 'lucide-react' // 620
+// 624 · icons
+import { ListX } from 'lucide-react' // 624
+import { SearchCheck } from 'lucide-react' // 625
+// 626 · icons
+import { History } from 'lucide-react' // 626
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -111,6 +119,48 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.coverage',
       icon: Umbrella,
       routerLink: '/insurance-rules/coverage',
+    },
+
+    // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).
+
+    // 619 · IDF masters
+    {
+      // 619 — the IDF priority masters; a master's page (`/insurance-rules/idf/masters/:masterId`, 622) lights it too.
+      labelKey: 'insurance-rules:menu.idfMasters',
+      icon: ListOrdered,
+      routerLink: '/insurance-rules/idf/masters',
+    },
+
+    // 620 · IDF store lists (`menu.idfStoreLists`, `/insurance-rules/idf/store-lists`)
+    {
+      // 620 — the named store lists (operation pharmacies, the pilot list) and their stores.
+      labelKey: 'insurance-rules:menu.idfStoreLists',
+      icon: Store,
+      routerLink: '/insurance-rules/idf/store-lists',
+    },
+
+    // 624 · IDF exceptions (`menu.idfExceptions`, `/insurance-rules/idf/exceptions`)
+    {
+      // 624 — IDF exceptions by document type / sub-document type / Nphies claim type (not 614's guard exceptions).
+      labelKey: 'insurance-rules:menu.idfExceptions',
+      icon: ListX,
+      routerLink: '/insurance-rules/idf/exceptions',
+    },
+
+    // 625 · IDF lookup (`menu.idfLookup`, `/insurance-rules/idf/lookup`)
+    {
+      // 625 — "why this priority" for an item, store and payer; the search rides the URL (`?item=&store=&payer=`).
+      labelKey: 'insurance-rules:menu.idfLookup',
+      icon: SearchCheck,
+      routerLink: '/insurance-rules/idf/lookup',
+    },
+
+    // 626 · IDF events (`menu.idfEvents`, `/insurance-rules/idf/events`; 627's swap report is its tab)
+    {
+      // 626 — the IDF event log, filtered by window, store, payer, master and outcome; 627's swap report is its tab.
+      labelKey: 'insurance-rules:menu.idfEvents',
+      icon: History,
+      routerLink: '/insurance-rules/idf/events',
     },
   ],
 }

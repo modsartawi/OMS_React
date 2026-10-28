@@ -13,7 +13,12 @@
     "simulator": "Simulator",
     "insurers": "Insurers",
     "categories": "Categories",
-    "coverage": "Coverage"
+    "coverage": "Coverage",
+    "idfMasters": "IDF masters",
+    "idfStoreLists": "IDF store lists",
+    "idfExceptions": "IDF exceptions",
+    "idfLookup": "IDF lookup",
+    "idfEvents": "IDF events"
   },
   "state": {
     "draft": "Draft",

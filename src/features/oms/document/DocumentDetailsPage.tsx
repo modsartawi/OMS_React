@@ -763,7 +763,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             */}
             <OrderGuardPanel
               documentNo={document.documentNo}
-              state={document.guardState}
+              state={document.guardState ?? document.guards?.state}
               guards={document.guards}
               lineItem={(n) => {
                 const line = (document.lines ?? []).find((l) => l.lineNumber === n)

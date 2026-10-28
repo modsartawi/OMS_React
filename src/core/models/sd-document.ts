@@ -301,7 +301,7 @@ export interface SdDocumentHeaderModel {
   /**
    * The insured order's guard check (BackOffice 3142/3143, client ticket 616): where it stands, and the
    * last check's lines. Optional: an order with no guard check, or an older SIS.Api, omits both.
-   * GUESS: the brief gives `guardState` to list and find-by-id rows only; the detail is read to carry it too.
+   * As built (3143) the detail carries no `guardState`: `guards.state` is the order's (kept optional for an older read).
    */
   guardState?: OrderGuardState
   guards?: OrderGuards | null

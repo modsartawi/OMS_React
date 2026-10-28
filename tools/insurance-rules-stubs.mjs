@@ -994,8 +994,10 @@ export function insuranceMetricsStub(method, path, query, opts = {}) {
   return envelope((payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS).map(withGuards))
 }
 
-// --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134). Order doors in the
-// brief's spelling, `Oms/Orders/{id}/Guards/Recheck|Release` (review 3126 P1); `{id}` read as the document no.
+// --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134), AS BUILT (oms 618):
+// `GET Guards/Reasons` sends `{ intervention, outcome, reason, rules: [{ ruleId, accepts, reasonRequired, caps }],
+// capped }`; the order detail's `guards` carries its own `state`; Recheck / Release answer the order's guard row.
+// ⚠️ Live, `Guards/Reasons` and `Guards/{checkId}/Answer` are api-key doors: a browser gets a bare 403 (618's list).
 
 const reasonCode = (code, en, ar, active = true) => ({ code, en, ar, active })
 
@@ -1020,8 +1022,15 @@ export const ORDER_GUARD_REASONS = {
     reasonCode('07', 'Medically necessary', 'ضرورة طبية'),
     reasonCode('13', 'Payer-recognized emergency', 'حالة طارئة معترف بها'),
   ],
-  accepts: { 'G-002': ['03', '04', '05', '07'] },
-  caps: { '04': 1 },
+  rules: [
+    {
+      ruleId: 'G-002',
+      accepts: { intervention: [], outcome: [], reason: ['03', '04', '05', '07'] },
+      reasonRequired: true,
+      caps: [{ reason: '04', count: 1, days: 365, neverOnList: null }],
+    },
+  ],
+  capped: [],
 }
 
 const guardFired = (ruleId, severity, en, ar, over = {}) => ({
@@ -1065,7 +1074,13 @@ const LINE_50 = { line: 50, outcome: 'pass', fired: [], unknowns: [] }
 
 /** Order detail's `guards` before the order changed: line 10 is REFUSED (180 days in one request). */
 export const ORDER_GUARDS_HELD = {
+  state: 'actionNeeded',
   checkId: 'CHK-7001',
+  decisionId: '',
+  checkedAt: '2026-10-27T09:00:00',
+  failure: '',
+  releasedBy: '',
+  releaseReason: '',
   lineHash: 'h-7001-a',
   lines: [
     {
@@ -1083,7 +1098,13 @@ export const ORDER_GUARDS_HELD = {
 
 /** …and after line 10 was changed and the check run again: no refusal, a new check and line hash. */
 export const ORDER_GUARDS_RECHECKED = {
+  state: 'actionNeeded',
   checkId: 'CHK-7002',
+  decisionId: '',
+  checkedAt: '2026-10-27T10:00:00',
+  failure: '',
+  releasedBy: '',
+  releaseReason: '',
   lineHash: 'h-7002-a',
   lines: [{ line: 10, outcome: 'pass', fired: [], unknowns: [] }, LINE_20, LINE_30, LINE_40, LINE_50],
 }
@@ -1114,20 +1135,23 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
       return envelope(null, { status: r.status ?? 400, success: false, message: r.message, errorCode: r.errorCode })
     }
     if (body?.lineHash !== order.guards?.lineHash)
-      return envelope(null, { status: 409, success: false, message: 'The order lines changed since the check.', errorCode: 'GUARD-LINES-CHANGED' })
+      return envelope(null, { status: 409, success: false, message: 'the lines changed since the check', errorCode: 'GUARDS_LINE_HASH' })
     order.guardState = 'none'
+    if (order.guards) order.guards = { ...order.guards, state: 'none', decisionId: 'DEC-9001' }
     return envelope({ decisionId: 'DEC-9001' })
   }
   const door = method === 'POST' && path.match(/^Oms\/Orders\/([^/]+)\/Guards\/(Recheck|Release)$/)
   if (door) {
     writes.push({ door: door[2].toLowerCase(), documentNo: decodeURIComponent(door[1]), body })
+    const row = (g) => ({ documentNo: decodeURIComponent(door[1]), guardState: order.guardState, checkId: g?.checkId ?? '', lineHash: g?.lineHash ?? '', decisionId: g?.decisionId ?? '', checkedAt: g?.checkedAt ?? '0001-01-01T00:00:00', failure: g?.failure ?? '' })
     if (door[2] === 'Recheck') {
       order.guards = ORDER_GUARDS_RECHECKED
       order.guardState = 'actionNeeded'
-      return envelope(ORDER_GUARDS_RECHECKED)
+      return envelope(row(order.guards))
     }
-    order.guardState = 'none'
-    return envelope({ released: true })
+    order.guardState = 'unchecked'
+    if (order.guards) order.guards = { ...order.guards, state: 'unchecked', releasedBy: 'msartawi', releaseReason: body?.reason ?? '' }
+    return envelope(row(order.guards))
   }
   return null
 }

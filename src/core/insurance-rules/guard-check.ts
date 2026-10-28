@@ -4,7 +4,8 @@
 // dialog on Delivery details. In core because the dialog is drawn by the OMS document feature and a
 // feature may not import another (the `core/dispatch/ReleaseLockDialog` precedent).
 //
-// ⚠️ Stubbed until oms 618. Fields marked GUESS are not spelled by the brief; 618 reconciles them.
+// Reconciled with 3134 / 3143 as built in oms 618: the detail's `guards` carries its own `state` (the detail row has no
+// `guardState`), `GET Guards/Reasons` is read by `reasonsIn`, Recheck / Release answer the order's guard row (`OrderGuardRow`).
 
 import type { GuardSeverity } from './model'
 
@@ -12,13 +13,10 @@ import type { GuardSeverity } from './model'
 export const GUARD_LINE_OUTCOMES = ['pass', 'refuse', 'override', 'warn', 'exception'] as const
 export type GuardLineOutcome = (typeof GUARD_LINE_OUTCOMES)[number]
 
-/**
- * The suggestion a template offers (3093 `suggest`): at most so many units, or so many days' supply.
- * GUESS: the check's `suggestion` takes the template's `suggest` shape with its placeholder filled.
- */
+/** The suggestion a rule offers, its placeholder filled (3130): `{ maxQuantity: number|null, maxDaysSupply: number|null }`. */
 export interface GuardSuggestion {
-  maxQuantity?: string | number
-  maxDaysSupply?: string | number
+  maxQuantity?: string | number | null
+  maxDaysSupply?: string | number | null
 }
 
 /** One rule that fired on a line. `en` / `ar` are the rule's message, filled by the engine. */
@@ -28,7 +26,8 @@ export interface GuardFired {
   severity: GuardSeverity
   en: string
   ar: string
-  codes: { conflict: string; nphies: string }
+  /** Either may be null (3127: a block with no NPHIES code). */
+  codes: { conflict: string | null; nphies: string | null }
   suggestion?: GuardSuggestion | null
   /** Set when an HQ exception passed this rule for this patient. */
   exceptionId?: string | null
@@ -43,12 +42,31 @@ export interface GuardCheckLine {
   unknowns: string[]
 }
 
-/** Order detail's `guards` (3142): the last check of the order, as `POST Guards/Check` answered it. */
+/** Order detail's `guards` (3143 as built): where the order stands and its last check, as `POST Guards/Check` answered it. */
 export interface OrderGuards {
+  /** The detail row carries no `guardState`: this is the order's. */
+  state?: OrderGuardState
   checkId: string
   /** The hash of the lines checked: an answer for different lines is refused. */
   lineHash: string
+  decisionId?: string | null
+  checkedAt?: string | null
+  /** Why the check could not run (`pending`), or why the order is `unchecked` (a passport holder). */
+  failure?: string | null
+  releasedBy?: string | null
+  releaseReason?: string | null
   lines: GuardCheckLine[]
+}
+
+/** `POST Oms/Orders/{documentNo}/Guards/Recheck | Release` → the order's guard row (not its lines: read the order again). */
+export interface OrderGuardRow {
+  documentNo: string
+  guardState: OrderGuardState
+  checkId: string
+  lineHash: string
+  decisionId: string
+  checkedAt: string
+  failure: string
 }
 
 /** The order list and find-by-id rows' `guardState` (3142). */
@@ -64,10 +82,10 @@ export interface GuardReasonCode {
 }
 
 /**
- * `GET Guards/Reasons`. The brief: "plus per-template `accepts` and `caps`".
- * GUESS: `accepts` is keyed by RULE id (a fired rule names no template) → the reason codes the rule takes;
- * a rule absent from it asks no reason. `caps` is keyed by reason code → how many more times this user may
- * give it; a code absent from it is uncapped.
+ * The reasons as the screens read them (`reasonsIn` over `GET Guards/Reasons?checkId=`, 3134 as built): `accepts` keyed
+ * by rule id → the reason codes an OVERRIDE of it must name (a rule that requires none is absent); `caps` keyed by
+ * reason code → how many more times it may be given on this check — HQ names the reasons already past their cap
+ * (`capped`), so such a code reads 0 and any other is uncapped.
  */
 export interface GuardReasons {
   intervention: GuardReasonCode[]
@@ -98,6 +116,26 @@ export interface GuardAnswerBody {
   lineHash: string
   user: string
   answers: GuardAnswer[]
+}
+
+/** `GET Guards/Reasons` as built (3134). */
+export interface GuardReasonsReply {
+  intervention: GuardReasonCode[]
+  outcome: GuardReasonCode[]
+  reason: GuardReasonCode[]
+  rules?: { ruleId: string; accepts: { intervention: string[]; outcome: string[]; reason: string[] }; reasonRequired: boolean; caps: { reason: string; count: number; days: number; neverOnList: string | null }[] }[]
+  capped?: { line: number; ruleId: string; reason: string }[]
+}
+
+export function reasonsIn(r: GuardReasonsReply | null | undefined): GuardReasons {
+  const accepts: Record<string, string[]> = {}
+  for (const rule of r?.rules ?? []) if (rule.reasonRequired) accepts[rule.ruleId] = rule.accepts?.reason ?? []
+  // A reason a rule caps at n uses may be given at most n times in one answer (HQ also counts the patient's history and
+  // refuses past it, 409 GUARDS_REASON_CAPPED); one already past its cap on this check, not at all.
+  const caps: Record<string, number> = {}
+  for (const rule of r?.rules ?? []) for (const c of rule.caps ?? []) caps[c.reason] = Math.min(caps[c.reason] ?? Infinity, c.count)
+  for (const c of r?.capped ?? []) caps[c.reason] = 0
+  return { intervention: r?.intervention ?? [], outcome: r?.outcome ?? [], reason: r?.reason ?? [], accepts, caps }
 }
 
 export interface GuardAnswerResult {

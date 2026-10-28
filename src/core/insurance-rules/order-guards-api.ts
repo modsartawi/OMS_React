@@ -3,19 +3,22 @@
  * order; client ticket 616). In core because the guard dialog is drawn by the OMS document feature and the
  * list's guard state by the deliveries feature — a feature may not import another.
  *
- * ⚠️ Stubbed until oms 618. The order doors take the brief's spelling, `Oms/Orders/{id}/Guards/Recheck|Release`
- * (review 3126 P1). GUESS: `{id}` is the order's document number, the key every OMS order read already uses.
+ * As BUILT (oms 618): `Oms/Orders/{documentNo}/Guards/Recheck|Release` answer the order's guard row (read the order
+ * again for its lines); `GET Guards/Reasons?checkId=` is read by `reasonsIn`.
+ * ⚠️ `Guards/Reasons` and `Guards/{checkId}/Answer` are API-KEY doors in BackOffice 3134 (`GuardEndpoints`, no
+ * `AllowCookieSession`): a browser session is answered a bare 403, so the dialog cannot answer a guard until
+ * BackOffice opens them to the cookie session (or adds an order door for it) — on 618's list.
  */
 import { api } from '@/core/api'
-import type { GuardAnswerBody, GuardAnswerResult, GuardReasons, GuardReleaseBody, OrderGuards } from './guard-check'
+import { reasonsIn, type GuardAnswerBody, type GuardAnswerResult, type GuardReasons, type GuardReasonsReply, type GuardReleaseBody, type OrderGuardRow } from './guard-check'
 import { INSURANCE_RULES_KEY } from './api'
 
 const orderGuards = (documentNo: string) => `Oms/Orders/${encodeURIComponent(documentNo.trim())}/Guards`
 
 export const orderGuardsApi = {
-  /** `GET Guards/Reasons` → the NCPDP intervention / outcome / reason codes, `accepts` and `caps`. */
-  reasons(): Promise<GuardReasons> {
-    return api.get<GuardReasons>('Guards/Reasons')
+  /** `GET Guards/Reasons[?checkId=]` → the NCPDP codes, what each rule accepts, and the reasons capped on this check. */
+  async reasons(checkId?: string | null): Promise<GuardReasons> {
+    return reasonsIn(await api.get<GuardReasonsReply | null>('Guards/Reasons', { checkId: checkId ?? undefined }))
   },
   /**
    * `POST Guards/{checkId}/Answer` `{ lineHash, user, answers }` → `{ decisionId }`. Refused: an OVERRIDE
@@ -24,19 +27,19 @@ export const orderGuardsApi = {
   answer(checkId: string, body: GuardAnswerBody): Promise<GuardAnswerResult> {
     return api.post<GuardAnswerResult>(`Guards/${encodeURIComponent(checkId)}/Answer`, body)
   },
-  /** `POST …/Guards/Recheck` — runs the check again on the order as it is now. GUESS: answers the new `guards`. */
-  recheck(documentNo: string): Promise<OrderGuards | null> {
-    return api.post<OrderGuards | null>(`${orderGuards(documentNo)}/Recheck`, {})
+  /** `POST …/Guards/Recheck` (no body) — runs the check again on the order as it is now → its guard row. */
+  recheck(documentNo: string): Promise<OrderGuardRow> {
+    return api.post<OrderGuardRow>(`${orderGuards(documentNo)}/Recheck`, {})
   },
-  /** `POST …/Guards/Release` `{ reason }` — the release grant; the order goes on without its guard check. */
-  release(documentNo: string, body: GuardReleaseBody): Promise<unknown> {
-    return api.post<unknown>(`${orderGuards(documentNo)}/Release`, body)
+  /** `POST …/Guards/Release { reason }` — `INS_GUARD[RELEASE]`; frees a `pending` order as `unchecked` → its guard row. */
+  release(documentNo: string, body: GuardReleaseBody): Promise<OrderGuardRow> {
+    return api.post<OrderGuardRow>(`${orderGuards(documentNo)}/Release`, body)
   },
 }
 
 export const GUARD_REASONS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'reasons'] as const
 
-/** The reason codes change only with HQ's master data: read once per page life. */
-export function guardReasonsQuery() {
-  return { queryKey: GUARD_REASONS_KEY, queryFn: () => orderGuardsApi.reasons(), staleTime: Infinity, retry: false } as const
+/** The reason codes change only with HQ's master data: read once per page life (per check, for its capped reasons). */
+export function guardReasonsQuery(checkId?: string | null) {
+  return { queryKey: [...GUARD_REASONS_KEY, checkId ?? ''], queryFn: () => orderGuardsApi.reasons(checkId), staleTime: Infinity, retry: false } as const
 }

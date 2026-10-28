@@ -211,3 +211,24 @@ describe('insurance-idf — the keys the swap report columns build exist (627)',
     expect(c.priceDifference).toMatch(locale === en ? /per base unit/ : /وحدة أساسية/)
   })
 })
+
+// 652 · the IDF groups leaf
+describe('insurance-idf — the keys the IDF groups leaf builds exist (652)', () => {
+  it.each([en, ar])('page, columns, form, problems, remove, export', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'help', 'loading', 'failed', 'empty', 'searchLabel', 'searchPlaceholder', 'add', 'addTitle', 'edit', 'editTitle'].map((k) => `groups.${k}`),
+      ...['number', 'numberFixed', 'description', 'dosageForm', 'save', 'cancel', 'added', 'saved', 'saveFailed'].map((k) => `groups.${k}`),
+      ...['remove', 'removeTitle', 'removeHint', 'removed', 'removeFailed', 'export', 'exportFailed'].map((k) => `groups.${k}`),
+      ...['number', 'description', 'dosageForm', 'itemCount', 'actions'].map((c) => `groups.columns.${c}`),
+      ...['numberRequired', 'numberTooLong', 'descriptionRequired'].map((p) => `groups.problem.${p}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const g = locale.groups as Record<string, unknown>
+    expect(String(g.total)).toContain('<v>{{total}}</v>')
+    for (const [k, v] of Object.entries(g)) if (k.startsWith('refusedCount_')) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+    expect(Object.keys(g).some((k) => k.startsWith('refusedCount_'))).toBe(true)
+  })
+  it.each([areaEn, areaAr])('the IDF groups menu label in the area namespace', (locale) => {
+    expect(hasLocaleKey(locale, 'menu.idfGroups')).toBe(true)
+  })
+})

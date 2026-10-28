@@ -24,6 +24,7 @@ import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
+import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -177,4 +178,37 @@ export const idfReportApi = {
 }
 export function swapReportQuery(f: IdfEventsFilter) {
   return { queryKey: [...IDF_REPORT_KEY, filterDoorParams(f)] as const, queryFn: () => idfReportApi.report(f), retry: false } as const
+}
+
+// 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
+export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const
+export const idfGroupsApi = {
+  /** `GET IdfPriority/groups?search=&page=` — one page of groups, `{ page, pageSize, total, rows }`, each with its item count. */
+  async list(q: IdfGroupsQuery): Promise<IdfGroupsPage> {
+    const page = await api.get<IdfGroupsPage | null>(`${IDF_BASE}/groups`, groupsDoorParams(q))
+    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+  },
+  /** `POST IdfPriority/groups { idfNumber, description, dosageForm }`. */
+  add(body: IdfGroupBody): Promise<IdfGroup> {
+    return api.post<IdfGroup>(`${IDF_BASE}/groups`, body)
+  },
+  /** `PUT IdfPriority/groups/{idfNumber} { description, dosageForm }` — the number never changes. */
+  edit(idfNumber: string, body: IdfGroupEditBody): Promise<IdfGroup> {
+    return api.put<IdfGroup>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`, body)
+  },
+  /** `DELETE IdfPriority/groups/{idfNumber}` — refused while items point at it (`data.itemCount`). */
+  remove(idfNumber: string): Promise<unknown> {
+    return api.del<unknown>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`)
+  },
+  /** `GET IdfPriority/groups/export` — every group as the server's `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/groups/export`)
+  },
+  /** `GET IdfPriority/groups/template` — the import's header, no rows (653's Import uses it). */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/groups/template`)
+  },
+}
+export function groupsQuery(q: IdfGroupsQuery) {
+  return { queryKey: [...IDF_GROUPS_KEY, groupsDoorParams(q)] as const, queryFn: () => idfGroupsApi.list(q), retry: false } as const
 }

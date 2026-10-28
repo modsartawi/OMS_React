@@ -482,6 +482,83 @@ export function idfReportStub(method, path, opts = {}) {
   return envelope({ from: q.get('from') ? `${q.get('from')}T00:00:00` : null, to: q.get('to') ? `${q.get('to')}T00:00:00` : null, rows, totals })
 }
 
+// --- 652 --- IDF groups (door 3196, the brief's "Spec 3185" sketch): `GET IdfPriority/groups?search=&page=&pageSize=`
+// (paged, search on number or description, page size `opts.groupsPageSize` or 50), `POST`, `PUT …/{idfNumber}`,
+// `DELETE …/{idfNumber}` (refused while items point at it, `data.itemCount`), `GET …/export|template` → `.xlsx`.
+// `state.groups` is made on first use. A row's `liveCount` is the server's real member count: the list shows
+// `itemCount` (as last counted — the WPF may have added members since) until a refused remove re-counts it.
+export const IDF_GROUPS = [
+  { idfNumber: 'IDF-0101', description: 'Paracetamol 500 mg', dosageForm: 'Tablet', itemCount: 6 },
+  { idfNumber: 'IDF-0102', description: 'Ibuprofen 400 mg', dosageForm: 'Tablet', itemCount: 4 },
+  { idfNumber: 'IDF-0207', description: 'Amoxicillin 250 mg/5 ml', dosageForm: 'Suspension', itemCount: 3 },
+  { idfNumber: 'IDF-0310', description: 'أوميبرازول 20 ملغ', dosageForm: 'Capsule', itemCount: 0 },
+  { idfNumber: 'IDF-0399', description: 'Cetirizine 10 mg', dosageForm: '', itemCount: 0, liveCount: 2 },
+]
+export const IDF_GROUPS_EXPORT_NAME = 'idf-groups-20261028.xlsx'
+const xlsx = (name) => ({
+  status: 200,
+  headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${name}"` },
+  body: Buffer.from('PK stub xlsx'),
+})
+
+export function idfGroupsStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], reads = {}, writes = [], groupsPageSize = 50 } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (bare !== 'IdfPriority/groups' && !bare.startsWith('IdfPriority/groups/')) return null
+  if (bare.startsWith('IdfPriority/groups/uploads')) return null // 653
+  state.groups ??= structuredClone(IDF_GROUPS)
+  const pub = ({ liveCount: _l, ...g }) => g
+  if (method === 'GET' && bare === 'IdfPriority/groups') {
+    ;(reads.groups ??= []).push(qs)
+    if (deny.includes('groups')) return bare403()
+    const q = new URLSearchParams(qs)
+    const search = (q.get('search') ?? '').toLowerCase()
+    const page = Number(q.get('page') ?? 1) || 1
+    const all = state.groups.filter((g) => !search || g.idfNumber.toLowerCase().includes(search) || g.description.toLowerCase().includes(search))
+    const rows = all.slice((page - 1) * groupsPageSize, page * groupsPageSize).map(pub)
+    return envelope({ page, pageSize: groupsPageSize, total: all.length, rows })
+  }
+  if (method === 'GET' && (bare === 'IdfPriority/groups/export' || bare === 'IdfPriority/groups/template')) {
+    const kind = bare.endsWith('/export') ? 'groupsExport' : 'groupsTemplate'
+    reads[kind] = (reads[kind] ?? 0) + 1
+    if (deny.includes(kind)) return envelope(null, { status: 400, success: false, message: 'The groups file could not be built.', errorCode: 'IDF-00030' })
+    return xlsx(kind === 'groupsExport' ? IDF_GROUPS_EXPORT_NAME : 'idf-groups-template.xlsx')
+  }
+  const refuse = (message, errorCode, data = null) => envelope(data, { status: 400, success: false, message, errorCode })
+  if (method === 'POST' && bare === 'IdfPriority/groups') {
+    writes.push({ method, path: bare, body })
+    const n = String(body?.idfNumber ?? '').trim()
+    if (!n || n.length > 26) return refuse('The group number is required, at most 26 characters.', 'IDF-00031')
+    if (state.groups.some((g) => g.idfNumber === n)) return refuse('That group number is taken.', 'IDF-00032')
+    const row = { idfNumber: n, description: body.description, dosageForm: body.dosageForm ?? '', itemCount: 0 }
+    state.groups.push(row)
+    return envelope(row)
+  }
+  const m = /^IdfPriority\/groups\/([^/]+)$/.exec(bare)
+  if (!m) return null
+  const idfNumber = decodeURIComponent(m[1])
+  const i = state.groups.findIndex((g) => g.idfNumber === idfNumber)
+  if (method === 'PUT') {
+    writes.push({ method, path: bare, body })
+    if (i < 0) return refuse('Unknown IDF group.', 'IDF-00033')
+    state.groups[i] = { ...state.groups[i], description: body.description, dosageForm: body.dosageForm ?? '' }
+    return envelope(pub(state.groups[i]))
+  }
+  if (method === 'DELETE') {
+    writes.push({ method, path: bare, body })
+    if (i < 0) return refuse('Unknown IDF group.', 'IDF-00033')
+    const g = state.groups[i]
+    const count = g.liveCount ?? g.itemCount
+    if (count > 0) {
+      state.groups[i] = { ...g, itemCount: count }
+      return refuse('Items still point at this IDF group; it cannot be removed.', 'IDF-00034', { itemCount: count })
+    }
+    state.groups.splice(i, 1)
+    return envelope({ idfNumber })
+  }
+  return null
+}
+
 /**
  * Every IDF door the drives stub: each slice's handler in turn, the first answer wins (null when none matched).
  * `path` is without `/api/` and may carry its query string.
@@ -506,6 +583,8 @@ export function idfStub(method, path, body, opts = {}) {
     idfEventsStub(method, path, opts) ??
     // 627 · swap report
     idfReportStub(method, path, opts) ??
+    // 652 · IDF groups
+    idfGroupsStub(method, path, body, opts) ??
     null
   )
 }

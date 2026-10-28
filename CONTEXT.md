@@ -321,6 +321,13 @@ Which of four kinds the reward grants: **Free Goods** (`N`, buy-x-get-y-free), *
 condition-type codes (`ZB01/02/03/12/13`, `VKA0`) are the engine's expression of the same four.
 _Avoid_: promo type (the *promotion* is the bonus buy; the discount type is the reward's kind).
 
+**Per** (of a get-side price or amount):
+How many units a Discount Price or Discount Amount is for — SAP's `KPEIN`, stored as the condition's
+pricing unit, in the get line's own unit. "100 SAR per 4 EA" is a **rate** of 25 per unit that scales
+with the units rewarded (six units under a From scale cost 150), not a fixed bundle total; a fixed
+total over the get lines together is the **Total Discount**. Defaults to 1; a percent has none.
+_Avoid_: pack size, bundle quantity (the get line's own quantity is a different field), pricing quantity.
+
 **BBY status**:
 The `BbyStatus` code on a `BbyHeader`, SAP's `KONBBYH.STATUS`: **blank** = Activated, **`1`** = Planned,
 **`2`** = Deactivated (BackOffice spec 2374), **`3`** = Tested (BackOffice spec 2396, ADR 0063, OMS

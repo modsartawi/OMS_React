@@ -286,7 +286,24 @@ export const idfDraftOwnerApi = {
   },
 }
 
-// 647 · general master items (3191)
+// 647 · general master items — `idfGeneralApi` (3191). 648–651 key their reads under `IDF_GENERAL_KEY` (650's change
+// log as `IDF_GENERAL_CHANGES_KEY`) so a general write can invalidate the general master alone.
+export const IDF_GENERAL_KEY = [...IDF_KEY, 'general'] as const
+export const IDF_GENERAL_ITEMS_KEY = [...IDF_GENERAL_KEY, 'items'] as const
+export const idfGeneralApi = {
+  /** `GET IdfPriority/general/items?search&idf&page` (3191) — one page of the general master's items (643's shape). */
+  async items(q: IdfItemsQuery): Promise<IdfEntriesPage> {
+    const page = await api.get<IdfEntriesPage | null>(`${IDF_BASE}/general/items`, itemsDoorParams(q))
+    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+  },
+}
+export function generalItemsQuery(q: IdfItemsQuery) {
+  return {
+    queryKey: [...IDF_GENERAL_ITEMS_KEY, itemsDoorParams(q)] as const,
+    queryFn: () => idfGeneralApi.items(q),
+    retry: false,
+  } as const
+}
 
 // 648 · set / clear one general item (3192)
 
@@ -294,7 +311,17 @@ export const idfDraftOwnerApi = {
 
 // 650 · general change log (3194)
 
-// 651 · general export + template (3195)
+// 651 · general export + template — `idfGeneralFilesApi` (3195)
+export const idfGeneralFilesApi = {
+  /** `GET IdfPriority/general/export` — the whole general master as `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/export`)
+  },
+  /** `GET IdfPriority/general/template` — the general upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/template`)
+  },
+}
 
 // 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
 export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const

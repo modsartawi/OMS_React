@@ -146,3 +146,26 @@ describe('646 · the rebase and add-a-group doors', () => {
     expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/groups', { idfNumber: 'IDF-CETI', priority: 2 })
   })
 })
+
+// 647 · the general master's items (3191)
+describe('647 · the general items door', () => {
+  it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {
+    const { idfGeneralApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 25, total: 2, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 1 }] })
+    const page = await idfGeneralApi.items({ q: 'pan', idf: 'IDF-PARA-500', page: 1 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/items', { search: 'pan', idf: 'IDF-PARA-500', page: '1' })
+    expect(page.rows).toHaveLength(1)
+    expect(await idfGeneralApi.items({ q: '', idf: '', page: 2 })).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
+  })
+})
+
+// 651 · general export + template (3195)
+describe('651 · the general export and template doors', () => {
+  it('export reads the whole general master as a file; template reads the blank file', async () => {
+    const { idfGeneralFilesApi } = await import('./api')
+    await idfGeneralFilesApi.export()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/export')
+    await idfGeneralFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/template')
+  })
+})

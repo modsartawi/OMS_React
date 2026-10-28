@@ -19,7 +19,7 @@ import { eventsQuery, mastersQuery } from './api'
 import { decisionWordKey, formatDurationMs, IDF_EVENT_FILTER_OUTCOMES, outcomeWordKey, reasonWordKey, tierOfSource, type IdfEvent } from './events'
 import { IDF_EVENTS_TABS, idfEventsFromParams, idfEventsToParams, typedFilter, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
 import { versionLabel } from './lookup'
-import { masterName } from './masters'
+import { masterName, rankedMasters } from './masters'
 import SwapReport from './SwapReport' // 627
 
 /**
@@ -104,7 +104,8 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
       <Field label={t('events.filter.master')}>
         <Select value={query.masterId} onChange={(e) => set({ masterId: e.target.value })} data-filter="master">
           <option value="">{t('events.anyMaster')}</option>
-          {(masters.data ?? []).map((m) => (
+          {/* 647 · the general master is listed by the door but is no ranking to filter by */}
+          {rankedMasters(masters.data ?? []).map((m) => (
             <option key={m.masterId} value={m.masterId}>
               {fsi(masterName(m, i18n.language))}
             </option>

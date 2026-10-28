@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
+import { Link, Navigate, useParams } from 'react-router'
 import { Loader2, Send, Upload } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
@@ -16,7 +16,7 @@ import { formatFigure } from '@/core/util/number-format'
 import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 import { IDF_KEY, idfUploadApi, mastersQuery, storeListsQuery } from './api'
 import { storeListName } from './store-lists'
-import { masterRow, type IdfMasterRow } from './masters'
+import { IDF_GENERAL_PATH, masterRow, type IdfMasterRow } from './masters'
 import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, type IdfUploadReport } from './upload'
 import UploadRowReport from './UploadRowReport' // 653 extracted 622's row report
 import VersionsSection from './VersionsSection' // 623
@@ -43,6 +43,8 @@ export default function MasterPage() {
   const { masterId = '' } = useParams()
   const masters = useQuery(mastersQuery())
   const master = masters.data?.find((m) => m.masterId === masterId)
+  // 647 · the general master is listed with the others (`masterId: 'general'`) but has its own page
+  if (masterId === 'general' || master?.kind === 'general') return <Navigate to={IDF_GENERAL_PATH} replace />
   return (
     <section className="flex h-full w-full flex-col gap-4" data-idf-master-page="">
       <Link to="/insurance-rules/idf/masters" className="text-xs text-muted-foreground hover:text-foreground" data-idf-back="">
@@ -102,10 +104,14 @@ function MasterHeader({ row }: { row: IdfMasterRow }) {
             </dd>
           </>
         )}
-        <dt className="text-muted-foreground">{t('masters.columns.thresholds')}</dt>
-        <dd data-col="thresholds">
-          <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(row.hard), reminder: formatFigure(row.reminder) }} components={{ v: <Ltr /> }} />
-        </dd>
+        {row.hard !== null && row.reminder !== null && (
+          <>
+            <dt className="text-muted-foreground">{t('masters.columns.thresholds')}</dt>
+            <dd data-col="thresholds">
+              <Trans t={t} i18nKey="masters.thresholds" values={{ hard: formatFigure(row.hard), reminder: formatFigure(row.reminder) }} components={{ v: <Ltr /> }} />
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">{t('upload.live')}</dt>
         {row.live ? (
           <dd className="flex flex-wrap items-baseline gap-x-3" data-col="live">

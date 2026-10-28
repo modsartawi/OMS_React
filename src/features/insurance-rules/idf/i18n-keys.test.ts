@@ -12,7 +12,8 @@ import ar from '@/locales/ar/insurance-idf.json'
 import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
-import { IDF_MASTER_KINDS } from './masters'
+import { IDF_LISTED_KINDS } from './masters' // 647: every listed kind, general included
+import { IDF_GENERAL_TABS } from './general' // 647
 import { IDF_EXCEPTION_HANDLINGS, IDF_EXCEPTION_KEY_KINDS } from './exceptions' // 624
 import { IDF_SKIP_REASONS, IDF_TIERS } from './lookup' // 625
 import { IDF_UPLOAD_RULES } from './upload' // 622
@@ -56,7 +57,7 @@ describe('insurance-idf keys mirror EN and AR', () => {
 describe('insurance-idf — the keys the masters list builds exist', () => {
   it.each([en, ar])('kinds, columns, thresholds, no live version, no access', (locale) => {
     const keys = [
-      ...IDF_MASTER_KINDS.map((k) => `masters.kind.${k}`),
+      ...IDF_LISTED_KINDS.map((k) => `masters.kind.${k}`),
       ...['name', 'kind', 'payer', 'storeList', 'thresholds', 'version', 'published', 'note'].map((c) => `masters.columns.${c}`),
       'masters.title',
       'masters.thresholds',
@@ -310,5 +311,16 @@ describe('insurance-idf — the keys the IDF groups import builds exist (653)', 
     expect(String(g.result)).toMatch(/<v>\{\{updated\}\}<\/v>/)
     expect(Object.keys(g).some((k) => k.startsWith('rowsFailed_'))).toBe(true)
     for (const [k, v] of Object.entries(g)) if (k.startsWith('rowsFailed_')) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+  })
+})
+
+// 647 · the keys the General page builds
+describe('insurance-idf — the keys the General page builds exist (647)', () => {
+  it.each([en, ar])('title, tier, help, tabs, items lede and empty', (locale) => {
+    const keys = ['general.title', 'general.tier', 'general.help', 'general.tabs.label', ...IDF_GENERAL_TABS.map((k) => `general.tabs.${k}`), 'general.itemsLede', 'general.empty']
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the tier sentence isolates its number as a tag', (locale) => {
+    expect(String((locale as { general: { tier: string } }).general.tier)).toContain('<v>{{n}}</v>')
   })
 })

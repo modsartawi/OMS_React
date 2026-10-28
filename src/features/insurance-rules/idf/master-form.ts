@@ -5,7 +5,7 @@
  * list. Both names are required. Thresholds read "hard above N, reminder above M", default to 4 and 1, are whole
  * numbers (0 allowed), and a reminder above the hard one is refused before anything is sent.
  */
-import { DEFAULT_HARD_THRESHOLD, DEFAULT_REMINDER_THRESHOLD, type IdfMaster, type IdfMasterKind } from './masters'
+import { DEFAULT_HARD_THRESHOLD, DEFAULT_REMINDER_THRESHOLD, type EditableIdfMaster, type IdfMasterKind } from './masters'
 
 /** What the dialog holds: the thresholds as typed, `''` where nothing is picked. */
 export interface IdfMasterForm {
@@ -50,7 +50,7 @@ export function withKind(form: IdfMasterForm, kind: IdfMasterKind): IdfMasterFor
 }
 
 /** Editing starts from the master as it is; a threshold it never sent shows its default. */
-export function formFromMaster(m: IdfMaster): IdfMasterForm {
+export function formFromMaster(m: EditableIdfMaster): IdfMasterForm {
   return {
     kind: m.kind,
     insurerCustomerId: m.insurerCustomerId ?? '',

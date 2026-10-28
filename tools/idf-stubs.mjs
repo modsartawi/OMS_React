@@ -47,6 +47,8 @@ export const IDF_MASTERS = [
     reminderThreshold: 1,
     liveVersion: { versionId: 'V-4', number: 1, by: 'falotaibi', at: '2026-10-01T14:02:00', note: '', entryCount: 96, isLive: true },
   },
+  // 647 · the general master (tier 4, door 3191): the real door always lists it, last, with no version or thresholds.
+  { masterId: 'general', kind: 'general', nameEn: 'General', nameAr: 'عام', liveVersion: null },
 ]
 
 export function newIdfState() {
@@ -151,8 +153,10 @@ export function idfMasterFormStub(method, path, body, opts = {}) {
     Object.assign(current, fields)
     return envelope(current)
   }
-  const master = { masterId: `M-NEW-${state.masters.length + 1}`, kind, ...fields, liveVersion: null }
-  state.masters.push(master)
+  // 647 · a new master is numbered among the ranking masters and listed before the general one (always last)
+  const ranked = state.masters.filter((m) => m.kind !== 'general')
+  const master = { masterId: `M-NEW-${ranked.length + 1}`, kind, ...fields, liveVersion: null }
+  state.masters.splice(ranked.length, 0, master)
   return envelope(master)
 }
 
@@ -741,6 +745,38 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
 }
 
 // --- 647 --- general master items (door 3191).
+// `GET IdfPriority/general/items?search&idf&page&pageSize` → one page `{ page, pageSize, total, rows }` (643's shape),
+// filtered and paged like the entries. `IDF_GENERAL_ITEMS` = 40 items over 4 groups (two pages of 25). 648/649 edit a
+// copy in `state.general` (`state.general ??= structuredClone(IDF_GENERAL_ITEMS)`), which this read honours.
+// `opts.reads.generalItems` collects each read's query string; `deny: ['generalItems']` answers a bare 403.
+export const IDF_GENERAL_ITEMS = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI'].flatMap((idfNumber, g) =>
+  IDF_GENERIC.map(([en, ar], i) => ({
+    itemNumber: String(300100 + g * 100 + i * 10),
+    descriptionEn: `${en} general ${g + 1}${i}`,
+    descriptionAr: `${ar} عام ${g + 1}${i}`,
+    idfNumber,
+    priority: i + 1,
+  })),
+)
+
+export function idfGeneralItemsStub(method, path, opts = {}) {
+  const { state = {}, deny = [], reads = {} } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (method !== 'GET' || bare !== 'IdfPriority/general/items') return null
+  ;(reads.generalItems ??= []).push(qs)
+  if (deny.includes('generalItems')) return bare403()
+  const q = new URLSearchParams(qs)
+  const search = (q.get('search') ?? '').toLowerCase()
+  const idf = q.get('idf') ?? ''
+  const all = (state.general ?? IDF_GENERAL_ITEMS).filter(
+    (r) =>
+      (!idf || r.idfNumber === idf) &&
+      (!search || r.itemNumber.includes(search) || r.descriptionEn.toLowerCase().includes(search) || r.descriptionAr.includes(search)),
+  )
+  const pageSize = Number(q.get('pageSize')) || IDF_ENTRIES_PAGE_SIZE
+  const page = Math.max(1, Number(q.get('page')) || 1)
+  return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
+}
 
 // --- 648 --- set / clear one general item (door 3192).
 
@@ -748,7 +784,34 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
 
 // --- 650 --- general change log (door 3194).
 
-// --- 651 --- general export + template (door 3195).
+// --- 651 --- general export + template (door 3195): `GET IdfPriority/general/export` → the whole general master as
+// `.xlsx` (server name `IDF_GENERAL_EXPORT_NAME`), `GET IdfPriority/general/template` → the header. `opts.deny`
+// `generalExport` / `generalTemplate` refuse on the JSON 400 envelope; `opts.noFileName` drops the
+// `Content-Disposition` name so the client's fallback shows. `opts.reads.generalExport` / `generalTemplate` count.
+export const IDF_GENERAL_EXPORT_NAME = 'idf-general-20261028.xlsx'
+export const IDF_GENERAL_TEMPLATE_NAME = 'idf-general-template-20261028.xlsx'
+export function idfGeneralFilesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, noFileName = false } = opts
+  if (method !== 'GET') return null
+  const bare = path.split('?')[0]
+  const which = bare === 'IdfPriority/general/export' ? 'generalExport' : bare === 'IdfPriority/general/template' ? 'generalTemplate' : null
+  if (!which) return null
+  reads[which] = (reads[which] ?? 0) + 1
+  if (deny.includes(which)) {
+    return which === 'generalExport'
+      ? envelope(null, { status: 400, success: false, message: 'The general master could not be exported.', errorCode: 'IDF-00095' })
+      : envelope(null, { status: 400, success: false, message: 'The general template could not be built.', errorCode: 'IDF-00096' })
+  }
+  const name = which === 'generalExport' ? IDF_GENERAL_EXPORT_NAME : IDF_GENERAL_TEMPLATE_NAME
+  return {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...(noFileName ? {} : { 'Content-Disposition': `attachment; filename="${name}"` }),
+    },
+    body: Buffer.from('PK stub xlsx'),
+  }
+}
 
 // --- 652 --- IDF groups (door 3196, the brief's "Spec 3185" sketch): `GET IdfPriority/groups?search=&page=&pageSize=`
 // (paged, search on number or description, page size `opts.groupsPageSize` or 50), `POST`, `PUT …/{idfNumber}`,
@@ -917,10 +980,12 @@ export function idfStub(method, path, body, opts = {}) {
     // 646 · draft owner, rebase, add a group
     idfDraftOwnerStub(method, bare, body, opts) ??
     // 647 · general master items
+    idfGeneralItemsStub(method, path, opts) ??
     // 648 · set / clear one general item
     // 649 · general upload
     // 650 · general change log
     // 651 · general export + template
+    idfGeneralFilesStub(method, path, opts) ??
     // 652 · IDF groups
     idfGroupsStub(method, path, body, opts) ??
     // 653 · IDF groups import

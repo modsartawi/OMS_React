@@ -4,7 +4,7 @@
  * above M", defaulting to 4 and 1). A master with no live version yet says so (`live: null`).
  */
 import { describe, expect, it } from 'vitest'
-import { masterRow, type IdfMaster } from './masters'
+import { masterRow, rankedMasters, type IdfMaster } from './masters'
 
 const insurer: IdfMaster = {
   masterId: 'M-1',
@@ -49,6 +49,8 @@ describe('idf master row reads its scope and thresholds', () => {
       hard: 5,
       reminder: 2,
       live: { number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh' },
+      editable: true,
+      href: '/insurance-rules/idf/masters/M-1',
     })
   })
 
@@ -62,6 +64,8 @@ describe('idf master row reads its scope and thresholds', () => {
       hard: 4,
       reminder: 1,
       live: null,
+      editable: true,
+      href: '/insurance-rules/idf/masters/M-2',
     })
   })
 
@@ -74,5 +78,35 @@ describe('idf master row reads its scope and thresholds', () => {
     expect(masterRow(insurer, 'ar').name).toBe('بوبا العام')
     expect(masterRow(store, 'ar-SA').name).toBe('صيدليات التشغيل')
     expect(masterRow(insurerOnList, 'ar').name).toBe('Tawuniya pilot')
+  })
+})
+
+/** Ticket 647 — the general master (tier 4) is listed but is not a ranking the list edits. */
+const general: IdfMaster = { masterId: 'general', kind: 'general', nameEn: 'General', nameAr: 'عام', liveVersion: null }
+
+describe('the general master in the masters list (647)', () => {
+  it('the list renders a general row without version, thresholds or edit', () => {
+    expect(masterRow(general, 'ar')).toEqual({
+      masterId: 'general',
+      kind: 'general',
+      insurerCustomerId: null,
+      storeListId: null,
+      name: 'عام',
+      hard: null,
+      reminder: null,
+      live: null,
+      editable: false,
+      href: '/insurance-rules/idf/general',
+    })
+  })
+  it('even a general row sent with thresholds or a version draws none', () => {
+    const row = masterRow({ ...general, hardThreshold: 4, reminderThreshold: 1, liveVersion: insurer.liveVersion }, 'en')
+    expect([row.hard, row.reminder, row.live, row.editable]).toEqual([null, null, null, false])
+  })
+  it('a master id with a slash is encoded in its link', () => {
+    expect(masterRow({ ...store, masterId: 'M/2 x' }, 'en').href).toBe('/insurance-rules/idf/masters/M%2F2%20x')
+  })
+  it('pickers of a ranking (events, exceptions) leave the general master out', () => {
+    expect(rankedMasters([insurer, general, store]).map((m) => m.masterId)).toEqual(['M-1', 'M-2'])
   })
 })

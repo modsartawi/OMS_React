@@ -95,7 +95,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. one read of the door`, reads.masters === 1, JSON.stringify(reads))
 
     const ids = await page.locator('[data-idf-masters] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-master')}:${e.getAttribute('data-kind')}`))
-    check(`${dir} 2. three rows, as sent`, JSON.stringify(ids) === JSON.stringify(['M-BUPA:insurer', 'M-TAW-PILOT:insurer', 'M-OPS:store']), JSON.stringify(ids))
+    check(`${dir} 2. four rows, as sent (647: the general one last)`, JSON.stringify(ids) === JSON.stringify(['M-BUPA:insurer', 'M-TAW-PILOT:insurer', 'M-OPS:store', 'general:general']), JSON.stringify(ids))
 
     const bupa = page.locator('[data-master="M-BUPA"]')
     check(`${dir} 2. insurer: name by language in a bdi, kind word`, strip(await bupa.locator('[data-col="name"] bdi').innerText()) === w.bupa && strip(await bupa.locator('[data-col="kind"]').innerText()) === w.insurer)

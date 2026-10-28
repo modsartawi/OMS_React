@@ -151,6 +151,12 @@ export const insuranceRulesRoute: RouteObject = {
 
     // 627 · swap report (a tab of 626's page; a route only if it is its own)
 
+    // 647 · the general master's page (`idf/general`; 648–651 build on it). `idf/masters/general` redirects here.
+    {
+      path: 'idf/general',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/GeneralPage')).default }),
+    },
+
     // 652 · IDF groups (`idf/groups`; 653's import is on its page)
     {
       path: 'idf/groups',

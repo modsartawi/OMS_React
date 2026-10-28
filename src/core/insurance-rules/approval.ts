@@ -5,11 +5,13 @@
 // and a DIFFERENT user approves it or sends it back. The guard draft also waits for a back-test of the current
 // revision (`./backtest`); every draft waits for HQ's checks to show no error (`checksVerdict`: warnings never block).
 //
-// PROVISIONAL (611), 618 reconciles: the brief has no door that says where the draft stands nor who the viewer is.
-// Guessed `GET InsuranceRules/{Guards|Categories|Coverage}/Approval` -> `DraftApproval` below; `viewer` stands in for
-// the authoring / approving grants until 618's access probe. The guard draft's back-test is found through
-// `GET …/Guards/Backtests` (3140, `draftBacktest`).
+// As BUILT (oms 618 reconciled 3139): there is no `…/Approval` door — where the draft stands is the draft itself
+// (`GET …/Guards/Draft`: `state`, `requestedBy/At`, `requestNote`, `reviewedBy`, `reviewNote`), read by `approvalOf`.
+// BackOffice has no insurance-rules grant probe, so `viewer` grants both roles and HQ refuses what the session may not
+// do (403 bare, or `GUARDS_SELF_APPROVAL`). The guard draft's back-test is found through `GET …/Guards/Backtests`
+// (3140, `draftBacktest`).
 import { backtestStanding, type GuardBacktest } from './backtest'
+import type { RulesetDraft } from './ruleset-draft'
 
 export interface DraftApproval {
   /** The draft revision this standing is of. */
@@ -21,10 +23,29 @@ export interface DraftApproval {
   submittedAt: string | null
   /** The author's note to the approver. */
   note: string | null
-  /** The approver's last send-back, shown to the author. */
-  sentBack: { by: string; at: string; note: string } | null
+  /** The approver's last send-back, shown to the author. HQ stamps no review time (`at` null). */
+  sentBack: { by: string; at: string | null; note: string } | null
+  /** Who last saved the draft: HQ refuses them the approval too (`GUARDS_SELF_APPROVAL`). */
+  lastEditedBy?: string | null
+  /** There is a draft to ask about (`state` is not `none`). */
+  exists?: boolean
   /** What the session may do — the authoring and approving grants. */
   viewer: { author: boolean; approver: boolean }
+}
+
+/** Where the draft stands, from the draft door's own fields. */
+export function approvalOf(d: Pick<RulesetDraft<unknown>, 'revision' | 'state' | 'requestedBy' | 'requestedAt' | 'requestNote' | 'reviewedBy' | 'reviewNote' | 'updatedBy'>): DraftApproval {
+  return {
+    revision: d.revision,
+    state: d.state === 'pending' ? 'waiting' : 'draft',
+    submittedBy: d.requestedBy,
+    submittedAt: d.requestedAt,
+    note: d.requestNote,
+    sentBack: d.state === 'sentBack' ? { by: d.reviewedBy ?? '', at: null, note: d.reviewNote ?? '' } : null,
+    lastEditedBy: d.updatedBy,
+    exists: d.state !== 'none',
+    viewer: { author: true, approver: true },
+  }
 }
 
 export type SubmitWhy = 'unsaved' | 'noBacktest' | 'backtestRunning' | 'backtestFailed' | 'backtestStale' | 'checking' | 'checks'
@@ -50,7 +71,7 @@ const STANDING_WHY = { none: 'noBacktest', running: 'backtestRunning', failed: '
 
 export function actionsFor({ approval, userId, backtest, checks, needsBacktest = true, dirty = false }: ActionsInput): ApprovalAction[] {
   if (approval.state === 'draft') {
-    if (!approval.viewer.author) return []
+    if (!approval.viewer.author || approval.exists === false) return []
     const standing = needsBacktest ? backtestStanding(backtest, approval.revision) : 'current'
     const why: SubmitWhy | null = dirty
       ? 'unsaved'
@@ -64,7 +85,8 @@ export function actionsFor({ approval, userId, backtest, checks, needsBacktest =
     return [{ kind: 'submit', enabled: why === null, why }]
   }
   if (!approval.viewer.approver) return []
-  const own = !userId || !approval.submittedBy || userId.toLowerCase() === approval.submittedBy.toLowerCase()
+  const same = (who: string | null | undefined) => !!who && userId!.toLowerCase() === who.toLowerCase()
+  const own = !userId || !approval.submittedBy || same(approval.submittedBy) || same(approval.lastEditedBy)
   const why: ApproveWhy | null = own ? 'ownSubmission' : null
   return [
     { kind: 'approve', enabled: !own, why },

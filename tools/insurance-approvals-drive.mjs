@@ -142,21 +142,23 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 2. Ask for approval opens`, !(await isDisabled(submit)) && (await page.locator('[data-why]').count()) === 0)
 
     // a server refusal reads the server's words (the draft changed hands behind the screen)
-    store.approval.state = 'waiting'
+    store.meta.state = 'pending'
     await submit.click()
     await page.locator('[data-action-refused]').waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 2. a refusal shows the server's words`, strip(await page.locator('[data-action-refused]').innerText()).includes('The draft is already waiting for approval.'))
-    store.approval.state = 'draft'
+    check(`${dir} 2. a refusal shows the server's words`, strip(await page.locator('[data-action-refused]').innerText()).includes('the draft is already waiting for approval'))
+    store.meta.state = 'editing'
 
     await page.locator('[data-note]').fill('GLP-1 rules: ready for review')
     await submit.click()
     await page.locator('[data-approval-state="waiting"]').waitFor({ timeout: 10000 }).catch(() => {})
     const sub = writesTo(store, '/Submit')
-    check(`${dir} 2. Submit carries the note`, sub.length === 2 && sub[1].body.note === 'GLP-1 rules: ready for review', JSON.stringify(sub))
+    check(`${dir} 2. Submit carries the draft's revision and the note`, sub.length === 2 && sub[1].body.revision === 12 && sub[1].body.note === 'GLP-1 rules: ready for review', JSON.stringify(sub))
     check(`${dir} 2. waiting for approval; the draft rules wait too`, (await page.locator('[data-approval-state="waiting"]').count()) === 1 && ruleState(store, 'G-006') === 'waiting' && ruleState(store, 'G-011') === 'waiting')
     check(`${dir} 2. asked by · when, one ltr isolate`, strip(await page.locator('[data-submitted] bdi[dir="ltr"]').innerText()) === 'nalharbi · 2026-10-27 10:30')
-    check(`${dir} 2. the author has nothing to do but wait`, (await page.locator('[data-approval-actions]').count()) === 0 && (await page.locator('[data-waiting-note]').count()) === 1)
-    check(`${dir} 2. the author has no promote button`, (await page.locator('[data-shadow-rule]').count()) === 2 && (await page.locator('[data-promote]').count()) === 0)
+    // 618: BackOffice has no insurance-rules grant probe, so the screen cannot tell an author from an approver; it
+    // offers both and HQ refuses. What it CAN tell: the asker never approves their own request.
+    check(`${dir} 2. the asker's Approve / Send back are off: their own submission`, (await isDisabled(page.locator('[data-action="approve"]'))) && (await page.locator('[data-why="ownSubmission"]').count()) === 1)
+    check(`${dir} 2. two shadow rules (promote offered; HQ refuses an author a bare 403)`, (await page.locator('[data-shadow-rule]').count()) === 2)
     check(`${dir} 2. no raw keys`, await noRawKeys(page))
     check(`${dir} 2. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -184,17 +186,18 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-action="sendBack"]').click()
     await page.locator('[data-approval-state="draft"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 4. sent back: a draft again, its rules too`, writesTo(store, '/SendBack').length === 1 && writesTo(store, '/SendBack')[0].body.note === 'أضف رمز ICD للسكري' && ruleState(store, 'G-006') === 'draft')
-    check(`${dir} 4. the approver has nothing to do on a draft`, (await page.locator('[data-approval-actions]').count()) === 0)
+    // 618: no grant probe — the draft's Ask is offered to anyone; HQ answers an approver without the author grant a bare 403.
+    check(`${dir} 4. on a draft the next step is Ask for approval`, (await page.locator('[data-action="submit"]').count()) === 1)
     await context.close()
   }
   {
     const { context, page } = await open(dir, store, AUTHOR)
     await ready(page)
-    check(`${dir} 4. the author reads who sent it back and why (Arabic rtl)`, strip(await page.locator('[data-sent-back] bdi[dir="ltr"]').innerText()) === 'falotaibi · 2026-10-27 10:30' && strip(await page.locator('[data-sent-back] p bdi').innerText()) === 'أضف رمز ICD للسكري')
+    check(`${dir} 4. the author reads who sent it back and why (Arabic rtl)`, strip(await page.locator('[data-sent-back] bdi[dir="ltr"]').innerText()) === 'falotaibi' && strip(await page.locator('[data-sent-back] p bdi').innerText()) === 'أضف رمز ICD للسكري')
     await page.locator('[data-checks="pass"]').waitFor({ timeout: 10000 }).catch(() => {})
     await page.locator('[data-action="submit"]').click()
     await page.locator('[data-approval-state="waiting"]').waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 4. the author asks again`, store.approval.state === 'waiting')
+    check(`${dir} 4. the author asks again`, store.meta.state === 'pending')
     await context.close()
   }
 
@@ -242,18 +245,19 @@ for (const dir of ['ltr', 'rtl']) {
     await ready(page)
     await page.locator('[data-version]').first().waitFor({ timeout: 10000 })
     const versions = await page.locator('[data-version]').evaluateAll((els) => els.map((e) => e.getAttribute('data-version')))
-    check(`${dir} 6. versions newest first`, JSON.stringify(versions) === JSON.stringify(['5', '4', '3', '2']), JSON.stringify(versions))
+    check(`${dir} 6. versions newest first`, JSON.stringify(versions) === JSON.stringify(['7', '6', '5', '4', '3', '2']), JSON.stringify(versions))
     check(`${dir} 6. a version: number and who · when ltr, the note`, (await page.locator('[data-version="4"] [data-col="version"] bdi[dir="ltr"]').innerText()) === '4' && strip(await page.locator('[data-version="4"] [data-col="byAt"] bdi[dir="ltr"]').innerText()) === 'falotaibi · 2026-10-20 11:15' && strip(await page.locator('[data-version="4"] [data-col="note"] bdi').innerText()) === 'SFDA not-marketed guard into shadow.')
     check(`${dir} 6. an Arabic note isolated, a missing one says so`, (await page.locator('[data-version="3"] [data-col="note"] bdi').innerText()) === 'أقلام GLP-1 كل 28 يوماً في وضع الظل' && strip(await page.locator('[data-version="2"] [data-col="note"]').innerText()) === 'No note', strip(await page.locator('[data-version="2"]').innerText()))
-    check(`${dir} 6. the back-test of revision 12 is current before the restore`, (await page.locator('[data-backtest-standing="current"]').count()) === 1)
+    // Approved: the draft row is gone, the door shows the new version at revision 0 (3139) — nothing to ask about.
+    check(`${dir} 6. after the approval there is no draft: nothing to ask for`, (await page.locator('[data-draft-revision] bdi[dir="ltr"]').innerText()) === '0' && (await page.locator('[data-action="submit"]').count()) === 0)
     await page.locator('[data-restore="3"]').click()
     const dialog = page.locator('dialog[open]')
     await dialog.waitFor({ timeout: 5000 }).catch(() => {})
     check(`${dir} 6. restore asks first`, strip(await dialog.innerText()).includes('Version 3 replaces the current draft as a new draft.'), strip(await dialog.innerText().catch(() => '')))
     check(`${dir} 6. nothing written before the answer`, writesTo(store, '/Restore').length === 0)
     await dialog.locator('button').last().click()
-    await page.locator('[data-draft-revision] bdi:text-is("13")').waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 6. restored as a NEW draft revision`, writesTo(store, '/Versions/3/Restore').length === 1 && (await page.locator('[data-draft-revision] bdi[dir="ltr"]').innerText()) === '13')
+    await page.locator('[data-draft-revision] bdi:text-is("1")').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 6. restored as a NEW draft`, writesTo(store, '/Versions/3/Restore').length === 1 && (await page.locator('[data-draft-revision] bdi[dir="ltr"]').innerText()) === '1')
     await page.locator('[data-backtest-standing="stale"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 6. its back-test is now out of date: Ask for approval waits`, (await page.locator('[data-backtest-standing="stale"]').count()) === 1 && (await page.locator('[data-why="backtestStale"]').count()) === 1)
     check(`${dir} 6. the draft is version 3's: shadow holds G-003 only`, JSON.stringify(await shadowIds(page)) === JSON.stringify(['G-003']), JSON.stringify(await shadowIds(page)))
@@ -264,7 +268,7 @@ for (const dir of ['ltr', 'rtl']) {
 
   // ── 7. a bare 403 ───────────────────────────────────────────────────────────────────────────
   {
-    const { context, page } = await open(dir, newApprovalStore(), AUTHOR, { deny: ['InsuranceRules/Guards/Approval'] })
+    const { context, page } = await open(dir, newApprovalStore(), AUTHOR, { deny: ['InsuranceRules/Guards/Draft'] })
     await page.locator('[data-approvals-denied]').waitFor({ timeout: 30000 }).catch(() => {})
     check(`${dir} 7. a bare 403 is "You do not have access"`, (await page.locator('[data-approvals-denied]').count()) === 1 && strip(await page.locator('[data-approvals-denied]').innerText()).startsWith('You do not have access'))
     await context.close()

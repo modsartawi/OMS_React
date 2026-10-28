@@ -278,6 +278,18 @@
     "refusal": {
       "BBY-PRICING-UNIT": "Per must be a whole number of at least 1 on a Discount Price or Discount Amount line."
     },
+    "hint": {
+      "P": {
+        "C": "= <total>{{total}}</total> for <quantity>{{quantity}}</quantity>",
+        "A": "= <total>{{total}}</total> for <quantity>{{quantity}}</quantity>, then <rate>{{rate}}</rate> each",
+        "B": "= <total>{{total}}</total> for up to <quantity>{{quantity}}</quantity>"
+      },
+      "R": {
+        "C": "= <total>{{total}}</total> off for <quantity>{{quantity}}</quantity>",
+        "A": "= <total>{{total}}</total> off for <quantity>{{quantity}}</quantity>, then <rate>{{rate}}</rate> off each",
+        "B": "= <total>{{total}}</total> off for up to <quantity>{{quantity}}</quantity>"
+      }
+    },
     "line": {
       "type": {
         "material": "Material",

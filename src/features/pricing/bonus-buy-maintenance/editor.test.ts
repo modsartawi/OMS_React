@@ -23,6 +23,7 @@ import {
   emptyBuyLine,
   emptyGetLine,
   getLineShowsPer,
+  perHint,
   refusalFallbackKey,
   engineListMeter,
   fillCouponMaterial,
@@ -825,5 +826,66 @@ describe('the BBY-PRICING-UNIT refusal has an English fallback key', () => {
     expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: '', arabic: '' })).toBe('editor.refusal.BBY-PRICING-UNIT')
     expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: 'Get line 1: Per must be a whole number of at least 1.', arabic: '' })).toBeNull()
     expect(refusalFallbackKey({ code: 'BBY-030', english: '', arabic: '' })).toBeNull()
+  })
+})
+
+// ── ticket 641: what the till will charge (spec 639 D10) ─────────────────────────────
+
+describe('the hint totals value / Per × quantity, worded by scale type', () => {
+  const line = (p: Partial<Parameters<typeof perHint>[1]> = {}) => ({
+    discountType: 'P' as const, value: '100', per: '4', quantity: '4', uom: '', scaleType: 'C' as const, ...p,
+  })
+
+  it('Equal on a price: = 100.00 SAR for 4 EA', () => {
+    expect(perHint(false, line(), 'SAR')).toEqual({ key: 'editor.hint.P.C', values: { total: '100.00 SAR', quantity: '4 EA' } })
+  })
+
+  it('From on a price carries the each-rate value / Per', () => {
+    expect(perHint(false, line({ scaleType: 'A' }), 'SAR')).toEqual({
+      key: 'editor.hint.P.A', values: { total: '100.00 SAR', quantity: '4 EA', rate: '25.00 SAR' },
+    })
+  })
+
+  it('Up To on a price', () => {
+    expect(perHint(false, line({ scaleType: 'B' }), 'SAR')).toEqual({ key: 'editor.hint.P.B', values: { total: '100.00 SAR', quantity: '4 EA' } })
+  })
+
+  it("an amount takes the R keys, in the line's own unit", () => {
+    expect(perHint(false, line({ discountType: 'R', uom: 'PAC' }), 'SAR')).toEqual({ key: 'editor.hint.R.C', values: { total: '100.00 SAR', quantity: '4 PAC' } })
+    expect(perHint(false, line({ discountType: 'R', scaleType: 'A', value: '10', per: '2', quantity: '6' }), 'SAR')).toEqual({
+      key: 'editor.hint.R.A', values: { total: '30.00 SAR', quantity: '6 EA', rate: '5.00 SAR' },
+    })
+    expect(perHint(false, line({ discountType: 'R', scaleType: 'B' }), 'SAR')?.key).toBe('editor.hint.R.B')
+  })
+
+  it('Per 1 totals the value for each unit: 100 × 4 = 400.00', () => {
+    expect(perHint(false, line({ per: '1' }), 'SAR')?.values.total).toBe('400.00 SAR')
+  })
+})
+
+describe('the hint shows uneven rates without refusing', () => {
+  it('Equal 4 / Per 3 → 133.33; Equal 2 / Per 4 → 50.00', () => {
+    expect(perHint(false, { discountType: 'P', value: '100', per: '3', quantity: '4', uom: 'EA', scaleType: 'C' }, 'SAR')?.values.total).toBe('133.33 SAR')
+    expect(perHint(false, { discountType: 'P', value: '100', per: '4', quantity: '2', uom: 'EA', scaleType: 'C' }, 'SAR')?.values.total).toBe('50.00 SAR')
+  })
+})
+
+describe('no hint for blank, non-numeric or Per ≤ 0 input, for % or under Total Discount', () => {
+  const base = { discountType: 'P' as const, value: '100', per: '4', quantity: '4', uom: 'EA', scaleType: 'C' as const }
+  it.each([
+    ['a blank value', { value: '' }],
+    ['a blank quantity', { quantity: ' ' }],
+    ['a blank Per', { per: '' }],
+    ['a non-numeric value', { value: 'abc' }],
+    ['a non-numeric quantity', { quantity: '4x' }],
+    ['Per 0', { per: '0' }],
+    ['a negative Per', { per: '-2' }],
+    ['a percent line', { discountType: '%' as const }],
+  ])('%s → nothing', (_, p) => {
+    expect(perHint(false, { ...base, ...p }, 'SAR')).toBeNull()
+  })
+
+  it('under Total Discount → nothing', () => {
+    expect(perHint(true, base, 'SAR')).toBeNull()
   })
 })

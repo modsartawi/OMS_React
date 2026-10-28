@@ -99,6 +99,10 @@
 //      an edit reaches the Save body (and % sends 0); a stubbed BBY-PRICING-UNIT is listed (EN + AR);
 //      switching to % and turning on Total Discount each hide the box. 35 also names column 25 PER (checked as 48).
 //
+// Ticket 641 — the hint under a P/R get line (spec 639 D10/D11):
+//  49. Equal 4 / P 100 / Per 4 → `= 100.00 SAR for 4 EA`; Per 1 → 400.00; From adds the each-rate;
+//      Up To, uneven 133.33, "off" on an amount; nothing on %, a blank Per or under Total Discount.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -553,12 +557,12 @@ async function run() {
   check('13. org row 1000 / 20, read-only type 01', eb.includes('1000') && eb.includes('Al-Dawaa Domestic') && eb.includes('Retail') && eb.includes('01 Organization'))
   check('13. no Requirement, Arb. Comb., price list or plant column', !/Requirement|Arb\. Comb|Price List|Plant/.test(eb))
   const buyRows = await page.locator('table[data-grid="buy"] tbody tr').count()
-  const getRows = await page.locator('table[data-grid="get"] tbody tr').count()
+  const getRows = await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').count()
   check('13. two buy lines and two get lines', buyRows === 2 && getRows === 2, `${buyRows}/${getRows}`)
   const groupingCell = await page.locator('table[data-grid="buy"] tbody tr').nth(1).innerText()
   check('13. a grouping line shows its member count', groupingCell.replace(/[⁦-⁩]/g, '').includes('3 materials'), JSON.stringify(groupingCell))
-  const priceRow = await page.locator('table[data-grid="get"] tbody tr').nth(0).innerText()
-  const pctRow = await page.locator('table[data-grid="get"] tbody tr').nth(1).innerText()
+  const priceRow = await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').nth(0).innerText()
+  const pctRow = await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').nth(1).innerText()
   check('13. Curr/Pe: a Price reads SAR + ex VAT', priceRow.includes('SAR') && priceRow.includes('ex VAT'), JSON.stringify(priceRow))
   check('13. Curr/Pe: a percent reads %, no ex VAT', pctRow.includes('%') && !pctRow.includes('ex VAT'), JSON.stringify(pctRow))
 
@@ -618,8 +622,8 @@ async function run() {
   check('18. dates default from the promotion', (await dts.nth(0).inputValue()) === '2026-10-05' && (await dts.nth(1).inputValue()) === '2026-10-31')
   await page.locator('input[maxlength="60"]').fill('1 + 1')
   await page.locator('table[data-grid="buy"] tbody tr').first().getByLabel('Line Item Identifier').fill('200033')
-  await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Line Item Identifier').fill('200033')
-  await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Value').fill('100')
+  await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').first().getByLabel('Line Item Identifier').fill('200033')
+  await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').first().getByLabel('Value').fill('100')
   posts.length = 0
   await page.locator('button', { hasText: /^Save$/ }).click()
   await page.waitForURL('**/bonus-buy/OMS000000125')
@@ -666,7 +670,7 @@ async function run() {
     await page.getByTestId('bby-paste-get').click()
     await page.locator('dialog[open]').last().getByTestId('bby-paste-box').fill('400001 400002')
     await page.locator('dialog[open]').last().locator('button', { hasText: /^OK$/ }).click()
-    const gids = await page.locator('table[data-grid="get"] tbody tr').getByLabel('Line Item Identifier').evaluateAll((els) => els.map((e) => e.value))
+    const gids = await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').getByLabel('Line Item Identifier').evaluateAll((els) => els.map((e) => e.value))
     check('19b. the Get panel takes a paste too', gids.slice(-2).join() === '400001,400002', gids.join(','))
 
     await page.locator('button', { hasText: /^Local Material Grouping$/ }).click()
@@ -715,8 +719,8 @@ async function run() {
   // ── 48. Per opens, edits, saves, is refused, and follows the type and Total Discount ──
   await page.goto(`${EDIT}/${PER_BBY}`)
   await page.waitForSelector('table[data-grid="get"]')
-  const perRow = page.locator('table[data-grid="get"] tbody tr').nth(0)
-  const pctRow640 = page.locator('table[data-grid="get"] tbody tr').nth(1)
+  const perRow = page.locator('table[data-grid="get"] tbody tr:not([data-hint])').nth(0)
+  const pctRow640 = page.locator('table[data-grid="get"] tbody tr:not([data-hint])').nth(1)
   const perBox = perRow.getByLabel('Per', { exact: true })
   const plain = (s) => s.replace(/[⁦-⁩]/g, '')
   check('48. the read’s pricingUnit 4 fills the Per box', (await perBox.inputValue()) === '4', await perBox.inputValue().catch(() => '—'))
@@ -752,6 +756,42 @@ async function run() {
   check('48. Total Discount hides the box and the Per column',
     (await page.locator('table[data-grid="get"] input[data-field="per"]').count()) === 0 && !(await getCols()).includes('per'))
   await page.getByLabel('Total Discount').uncheck()
+
+  // ════════ Ticket 641 — what the till will charge ════════
+  // ── 49. the hint totals value / Per × quantity, worded by scale type; it decides nothing ──
+  await page.goto(`${EDIT}/${PER_BBY}`)
+  await page.waitForSelector('table[data-grid="get"]')
+  const hintOf = async (key) => plain(await page.locator(`table[data-grid="get"] tr[data-hint="${key}"]`).innerText().catch(() => ''))
+  const hintRow = page.locator('table[data-grid="get"] tbody tr:not([data-hint])').nth(0)
+  const hintKey = await page.locator('table[data-grid="get"] tr[data-hint]').first().getAttribute('data-hint').catch(() => null)
+  check('49. Equal 4 / P 100 / Per 4 shows = 100.00 SAR for 4 EA', (await hintOf(hintKey)) === '= 100.00 SAR for 4 EA', JSON.stringify(await hintOf(hintKey)))
+  check('49. the % line shows no hint', (await page.locator('table[data-grid="get"] tr[data-hint]').count()) === 1)
+  check('49. each amount and quantity is isolated whole (Ltr)',
+    JSON.stringify(await page.locator(`tr[data-hint="${hintKey}"] bdi[dir="ltr"]`).allInnerTexts()) === JSON.stringify(['100.00 SAR', '4 EA']),
+    JSON.stringify(await page.locator(`tr[data-hint="${hintKey}"] bdi[dir="ltr"]`).allInnerTexts().catch(() => [])))
+  await hintRow.getByLabel('Per', { exact: true }).fill('1')
+  check('49. changing Per to 1 shows 400.00', (await hintOf(hintKey)) === '= 400.00 SAR for 4 EA', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Per', { exact: true }).fill('4')
+  await hintRow.getByLabel('Scale Type').selectOption('A')
+  check('49. switching to From adds the each-rate', (await hintOf(hintKey)) === '= 100.00 SAR for 4 EA, then 25.00 SAR each', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Scale Type').selectOption('B')
+  check('49. Up To reads for up to', (await hintOf(hintKey)) === '= 100.00 SAR for up to 4 EA', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Scale Type').selectOption('C')
+  await hintRow.getByLabel('Per', { exact: true }).fill('3')
+  check('49. an uneven Per still shows (4 / Per 3 → 133.33), with no refusal or colour',
+    (await hintOf(hintKey)) === '= 133.33 SAR for 4 EA' &&
+      (await page.locator(`tr[data-hint="${hintKey}"] td`).getAttribute('class')).includes('text-muted-foreground'),
+    JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Discount Type').selectOption('R')
+  check('49. a Discount Amount says off', (await hintOf(hintKey)) === '= 133.33 SAR off for 4 EA', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Per', { exact: true }).fill('')
+  check('49. a blank Per shows no hint', (await page.locator('table[data-grid="get"] tr[data-hint]').count()) === 0)
+  await hintRow.getByLabel('Per', { exact: true }).fill('4')
+  await page.getByLabel('Total Discount').check()
+  check('49. Total Discount shows no hint', (await page.locator('table[data-grid="get"] tr[data-hint]').count()) === 0)
+  await page.getByLabel('Total Discount').uncheck()
+  const k641 = await rawKey()
+  check('49. no raw i18n keys with the hint', k641 === null, (k641 || [''])[0])
 
   // ── 22–26. the upload dialog ──
   // Its own block: 417's section above declares the same helper names.
@@ -1225,8 +1265,8 @@ async function run() {
     await cdlg.locator('button', { hasText: /^Create$/ }).click()
     await firstId('COUP1036')
     check('42. each press is a new call and a new material', gens().length === 2 && (await id0.inputValue()) === 'COUP1036', `${gens().length} ${await id0.inputValue()}`)
-    await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Line Item Identifier').fill('200033')
-    await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Value').fill('20')
+    await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').first().getByLabel('Line Item Identifier').fill('200033')
+    await page.locator('table[data-grid="get"] tbody tr:not([data-hint])').first().getByLabel('Value').fill('20')
     posts.length = 0
     await page.locator('button', { hasText: /^Save$/ }).click()
     await page.waitForURL('**/bonus-buy/OMS000000125')

@@ -13,6 +13,7 @@
 import { type CodeListMeter, codeListMeter, normaliseCodeList } from '@/core/util/code-list'
 import { formatCount } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
+import { formatMoney } from '@/core/util/number-format'
 import type {
   BbyBonusBuyDocument,
   BbyBonusBuyWire,
@@ -427,6 +428,48 @@ export function currPe(discountType: DiscountType, currency: string, per = '1', 
   const n = Number(per.trim())
   const unit = per.trim() !== '' && Number.isFinite(n) && n > 1 ? formatCount(currency, `${n} ${uom.trim() || DEFAULT_UOM}`) : currency
   return { unit, exVat: discountType === 'P' }
+}
+
+/** What the till will charge for a get line's quantity (spec 639 D10): a key plus whole formatted values. */
+export interface PerHint {
+  key: `editor.hint.${'P' | 'R'}.${ScaleType}`
+  /** `total` and `rate` are amount + currency as one value; `quantity` is quantity + unit as one value. */
+  values: { total: string; quantity: string; rate?: string }
+}
+
+/** A box's number, or null when it is blank or not a number. */
+const boxNumber = (v: string): number | null => {
+  if (v.trim() === '') return null
+  const n = Number(v.trim())
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * The hint under a Discount Price or Discount Amount get line: `value / Per × quantity` to two
+ * places, worded by scale type (Equal "for", From "for, then each" with the rate `value / Per`,
+ * Up To "for up to"). Nothing for a blank or non-numeric input, a Per ≤ 0, a percent, or under
+ * Total Discount. It decides nothing: no refusal, no colour, no blocking.
+ */
+export function perHint(
+  totalDiscountOn: boolean,
+  line: Pick<GetLine, 'discountType' | 'value' | 'per' | 'quantity' | 'uom' | 'scaleType'>,
+  currency: string,
+): PerHint | null {
+  if (totalDiscountOn || line.discountType === '%') return null
+  const value = boxNumber(line.value)
+  const per = boxNumber(line.per)
+  const quantity = boxNumber(line.quantity)
+  if (value === null || per === null || quantity === null || per <= 0) return null
+  const rate = value / per
+  const money = (n: number) => `${formatMoney(n)} ${currency}`
+  return {
+    key: `editor.hint.${line.discountType}.${line.scaleType}`,
+    values: {
+      total: money(rate * quantity),
+      quantity: `${quantity} ${line.uom.trim() || DEFAULT_UOM}`,
+      ...(line.scaleType === 'A' ? { rate: money(rate) } : {}),
+    },
+  }
 }
 
 // ── groupings ─────────────────────────────────────────────────────────────────────────

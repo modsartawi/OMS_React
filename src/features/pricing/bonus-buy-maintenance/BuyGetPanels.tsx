@@ -1,5 +1,5 @@
-import { type Dispatch, type ReactNode, type SetStateAction, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { type Dispatch, Fragment, type ReactNode, type SetStateAction, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { ClipboardPaste, Plus, TicketPlus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
@@ -25,6 +25,7 @@ import {
   getLineShowsPer,
   getPanelLayout,
   LINK_CATEGORIES,
+  perHint,
   type LineItemType,
   type LinkCategory,
   pasteLines,
@@ -496,22 +497,25 @@ export function GetPanel({
             </thead>
             <tbody>
               {state.get.map((l, i) => (
-                <tr key={l.key}>
-                  {columns.map((c) => (
-                    <td
-                      key={c}
-                      className={`${TD} ${c === 'type' ? 'w-36' : c === 'identifier' ? 'w-36' : c === 'scaleType' || c === 'discountType' ? 'w-36' : c === 'quantity' || c === 'value' ? 'w-24' : c === 'per' ? 'w-20' : ''}`}
-                    >
-                      {cell(l, c)}
+                <Fragment key={l.key}>
+                  <tr>
+                    {columns.map((c) => (
+                      <td
+                        key={c}
+                        className={`${TD} ${c === 'type' ? 'w-36' : c === 'identifier' ? 'w-36' : c === 'scaleType' || c === 'discountType' ? 'w-36' : c === 'quantity' || c === 'value' ? 'w-24' : c === 'per' ? 'w-20' : ''}`}
+                      >
+                        {cell(l, c)}
+                      </td>
+                    ))}
+                    <td className={TD}>
+                      <RemoveCell
+                        label={t('editor.line.remove', { n: fsi(String(i + 1)) })}
+                        onClick={() => setState((s) => ({ ...s, get: s.get.filter((x) => x.key !== l.key) }))}
+                      />
                     </td>
-                  ))}
-                  <td className={TD}>
-                    <RemoveCell
-                      label={t('editor.line.remove', { n: fsi(String(i + 1)) })}
-                      onClick={() => setState((s) => ({ ...s, get: s.get.filter((x) => x.key !== l.key) }))}
-                    />
-                  </td>
-                </tr>
+                  </tr>
+                  <PerHintRow line={l} totalDiscountOn={state.totalDiscountOn} currency={currency} span={columns.length + 1} />
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -553,6 +557,29 @@ export function GetPanel({
         )}
       </div>
     </Panel>
+  )
+}
+
+/**
+ * What the till will charge for the line's quantity (spec 639 D10), under a Discount Price or
+ * Amount line. It decides nothing: no refusal, no colour, no blocking. Each amount and quantity is
+ * a whole machine value in its own `<Trans>` slot, isolated with `Ltr` (D11).
+ */
+function PerHintRow({ line, totalDiscountOn, currency, span }: { line: GetLine; totalDiscountOn: boolean; currency: string; span: number }) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  const hint = perHint(totalDiscountOn, line, currency)
+  if (!hint) return null
+  return (
+    <tr data-hint={line.key}>
+      <td colSpan={span} className="px-1 pb-1 text-end text-xs text-muted-foreground" data-per-hint="">
+        <Trans
+          t={t}
+          i18nKey={hint.key}
+          values={hint.values}
+          components={{ total: <Ltr />, quantity: <Ltr />, rate: <Ltr /> }}
+        />
+      </td>
+    </tr>
   )
 }
 

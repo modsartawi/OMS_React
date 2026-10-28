@@ -24,7 +24,7 @@
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. node tools/insurance-guard-editor-drive.mjs        (DRIVE_PORT overrides 5201)
 import { createRequire } from 'node:module'
-import { RULES, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
+import { RULES, WIRE_RULESET, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -190,13 +190,14 @@ for (const dir of ['ltr', 'rtl']) {
   const saved = store.puts[0]?.rules.find((r) => r.id === NEXT_ID)
   check(`${dir} 7. the saved conditions ARE G-007's`, saved && canon(saved.when) === canon(G007.when), canon(saved?.when))
   check(`${dir} 7. the policy-list block goes out as { check: "request", field: "policy", inList }`, canon(saved?.when?.[0]?.conditions?.[2]?.conditions?.[1]) === canon({ check: 'request', field: 'policy', inList: 'PO-EXT' }), canon(saved?.when?.[0]?.conditions?.[2]?.conditions?.[1]))
-  check(`${dir} 7. its list filter is G-007's`, saved && canon(saved.filters) === canon(G007.filters), canon(saved?.filters))
+  // 618: HQ stores no `filters` — the line block names the ruleset list itself (`inList: "glp1"`).
+  check(`${dir} 7. no filters on the wire; the line names G-007's list`, saved && !('filters' in saved) && saved.when?.[0]?.conditions?.[0]?.inList === 'glp1', canon(saved?.filters))
   check(
     `${dir} 7. its name, onUnknown and THEN are G-007's`,
     saved && canon(saved.name) === canon(G007.name) && saved.onUnknown === 'warn' && saved.then.length === 1 && saved.then[0].severity === 'OVERRIDE' && canon(saved.then[0].says) === canon(G007.then[0].says) && canon(saved.then[0].codes) === canon(G007.then[0].codes),
     canon(saved?.then),
   )
-  check(`${dir} 7. the other rules go back as they were read`, store.puts[0] && canon(store.puts[0].rules.filter((r) => r.id !== NEXT_ID)) === canon(RULES))
+  check(`${dir} 7. the other rules go back as they were read`, store.puts[0] && canon(store.puts[0].rules.filter((r) => r.id !== NEXT_ID)) === canon(WIRE_RULESET.rules), canon(store.puts[0]?.rules.filter((r) => r.id !== NEXT_ID)).slice(0, 400))
   check(`${dir} 7. the page moves to the rule's edit URL`, new URL(page.url()).pathname === `/insurance-rules/guards/${NEXT_ID}/edit`, page.url())
   await page.waitForFunction(() => document.querySelector('[data-editor-header] h1')?.getAttribute('data-mode') === 'edit', null, { timeout: 10000 }).catch(() => {})
   check(`${dir} 7. the same editor carries on as the rule's editor`, (await page.locator('[data-editor-header] h1').getAttribute('data-mode')) === 'edit' && (await page.locator('[data-back]').getAttribute('href')) === `/insurance-rules/guards/${NEXT_ID}`)

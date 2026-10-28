@@ -161,7 +161,7 @@
       "audience": "Checked before a request is sent on <channels>{{channels}}</channels>, <stores>{{stores}}</stores>",
       "allStores": "at every store",
       "stores": "at stores <stores>{{stores}}</stores>",
-      "noChannel": "on no channel",
+      "everyChannel": "every channel",
       "from": "From <from>{{from}}</from>, with no end",
       "fromUntil": "From <from>{{from}}</from> until <until>{{until}}</until>",
       "until": "Until <until>{{until}}</until>",
@@ -220,7 +220,11 @@
       "assumeDays": "Assumed days of supply",
       "priceAbove": "Tolerance (SAR)",
       "consumedBelow": "Share consumed",
-      "other": "Value"
+      "other": "Value",
+      "severity": "Severity",
+      "match": "What counts",
+      "by": "Counted per",
+      "eligibleDaysBeforeDueFor": "Days before due, per list"
     }
   },
   "approval": {

@@ -334,7 +334,11 @@ export function newGuardRule(id: string, folder = ''): GuardRule {
 
 const toggled = <T,>(xs: readonly T[], x: T): T[] => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x])
 
-const audienceOf = (r: GuardRule): GuardAudience => r.audience ?? { channels: [], stores: [] }
+const audienceOf = (r: GuardRule): GuardAudience => ({ ...r.audience, channels: r.audience?.channels ?? [], stores: r.audience?.stores ?? [] })
+
+/** The channels a rule is checked on: none named = EVERY channel (the engine's reading of an absent `channels`). */
+export const effectiveChannels = (r: Pick<GuardRule, 'audience'>): GuardChannel[] =>
+  r.audience?.channels?.length ? GUARD_CHANNELS.filter((c) => r.audience!.channels.includes(c)) : [...GUARD_CHANNELS]
 
 /** A history guard narrowed to (or widened from) one scope, kept in the fixed order; none left = estate-wide. */
 export function toggleNarrow(c: HistoryCondition, scope: HistoryNarrow): HistoryCondition {
@@ -364,7 +368,10 @@ export function removeDaysFor(c: SupplyCondition, i: number): SupplyCondition {
 /** A channel on or off the rule's audience, kept in the fixed channel order. */
 export function toggleChannel(r: GuardRule, ch: GuardChannel): GuardRule {
   const a = audienceOf(r)
-  const next = toggled(a.channels, ch)
+  // From the channels it is checked on now (none named = every one); the last one cannot be unticked — no channel
+  // at all would read as every channel again.
+  const next = toggled(effectiveChannels(r), ch)
+  if (next.length === 0) return r
   return { ...r, audience: { ...a, channels: GUARD_CHANNELS.filter((c) => next.includes(c)) } }
 }
 

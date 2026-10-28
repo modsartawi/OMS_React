@@ -4,6 +4,11 @@ import type { GuardList, GuardRule, GuardRuleRow, GuardRuleset } from '../src/co
 export declare const LISTS: GuardList[]
 export declare const RULES: GuardRule[]
 export declare const RULESET: GuardRuleset
+/** RULESET in the engine's spelling, as `GET …/Guards/Draft` serves it (oms 618). */
+export declare const WIRE_RULESET: Record<string, unknown> & { revision: number; rules: Record<string, unknown>[] }
+export declare function wireRule(r: GuardRule): Record<string, unknown>
+export declare function wireRuleset<T extends { rules: GuardRule[] }>(doc: T): Record<string, unknown>
+export declare function draftReply(document: unknown, over?: Record<string, unknown>): import('../src/core/insurance-rules/ruleset-draft').RulesetDraft<unknown>
 export declare const GUARD_ROWS: GuardRuleRow[]
 export declare const PATIENT_LIST_VIP: string
 export declare const POLICY_LIST_EXTENDED: string
@@ -134,31 +139,20 @@ export declare function orderGuardsStub(
 ): FulfillArg | null
 
 // --- 611 ---
-export interface GuardVersionRow {
-  version: number
-  by: string
-  at: string
-  note: string | null
-}
+export type GuardVersionRow = import('../src/core/insurance-rules/ruleset-draft').RulesetVersionRow
 export declare const GUARD_VERSIONS: GuardVersionRow[]
 export declare const BACKTEST_DONE_ID: string
 export declare const BACKTEST_DONE: import('../src/core/insurance-rules/backtest').GuardBacktest
 export interface ApprovalStore {
   draft: GuardRuleset
-  approval: {
-    state: 'draft' | 'waiting'
-    submittedBy: string | null
-    submittedAt: string | null
-    note: string | null
-    sentBack: { by: string; at: string; note: string } | null
-    backtestId: string | null
-  }
+  /** The draft door's state fields (3139): `state`, who asked / reviewed and their notes. */
+  meta: { state: import('../src/core/insurance-rules/ruleset-draft').DraftState; updatedBy: string | null; updatedAt: string | null; requestedBy: string | null; requestedAt: string | null; requestNote: string | null; reviewedBy: string | null; reviewNote: string | null; origin: string }
   backtests: Record<string, import('../src/core/insurance-rules/backtest').GuardBacktest>
   versions: GuardVersionRow[]
   versionDocs: Record<number, GuardRuleset>
   writes: { method: string; path: string; body: unknown; user: string }[]
 }
-export declare function newApprovalStore(o?: { backtest?: import('../src/core/insurance-rules/backtest').GuardBacktest | null }): ApprovalStore
+export declare function newApprovalStore(o?: { backtest?: import('../src/core/insurance-rules/backtest').GuardBacktest | null; draftState?: import('../src/core/insurance-rules/ruleset-draft').DraftState }): ApprovalStore
 export declare function approvalStub(
   method: string,
   path: string,
@@ -167,12 +161,13 @@ export declare function approvalStub(
 ): FulfillArg | null
 
 // --- 609 ---
-import type { GuardTemplate } from '../src/core/insurance-rules/templates'
-export declare const TEMPLATES: GuardTemplate[]
+import type { GuardTemplateReply } from '../src/core/insurance-rules/templates'
+/** As `GET …/Templates` serves them (3139): the rule in the engine's spelling, blanks as paths. */
+export declare const TEMPLATES: GuardTemplateReply[]
 export declare const EMPTY_FOLDERS: string[]
 export interface TemplatesState {
   store: GuardStore
-  templates: GuardTemplate[]
+  templates: GuardTemplateReply[]
   folders: string[]
   writes: { door: string; body: unknown }[]
 }

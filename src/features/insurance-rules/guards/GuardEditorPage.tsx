@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ArrowLeft, CircleCheck, Loader2, Redo2, Undo2 } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, STALE_REVISION, guardDraftQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
+import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, STALE_REVISION, guardDraftQuery, guardDraftStateQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict, indexChecks, type GuardIssue } from '@/core/insurance-rules/checks'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorHistory, type EditorAction } from '@/core/insurance-rules/editor-history'
@@ -42,6 +42,8 @@ export default function GuardEditorPage() {
   const { t } = useTranslation('insurance-guards')
   const { ruleId } = useParams()
   const draft = useQuery(guardDraftQuery())
+  // The draft's own state (same cache entry): a submitted draft is frozen until approved or sent back (3139).
+  const pending = useQuery(guardDraftStateQuery()).data?.state === 'pending'
   // A new rule's first save moves to its edit URL: the SAME editor carries on (its history, a stale banner),
   // so the id it created keeps the key it was mounted with.
   const [created, setCreated] = useState<string | null>(null)
@@ -62,6 +64,7 @@ export default function GuardEditorPage() {
         doc={draft.data}
         ruleId={ruleId ?? null}
         onCreated={setCreated}
+        pending={pending}
         refetch={async () => (await draft.refetch()).data}
       />
 
@@ -79,10 +82,13 @@ function Editor({
   ruleId,
   onCreated,
   refetch,
+  pending,
 }: {
   doc: GuardRuleset
   ruleId: string | null
   onCreated: (id: string) => void
+  /** The draft waits for approval: HQ refuses a save (409 `GUARDS_DRAFT_PENDING`), so none is offered. */
+  pending: boolean
   refetch: () => Promise<GuardRuleset | undefined>
 }) {
   const { t } = useTranslation('insurance-guards')
@@ -125,10 +131,11 @@ function Editor({
 
   const save = useMutation({
     mutationFn: (d: GuardRuleset) => insuranceRulesApi.saveGuardDraft(d),
-    onSuccess: (saved) => {
+    onSuccess: (draftNow) => {
+      const saved = draftNow.document
       setStale(null)
       dispatch({ type: 'saved', doc: saved })
-      queryClient.setQueryData(GUARD_DRAFT_KEY, saved)
+      queryClient.setQueryData(GUARD_DRAFT_KEY, draftNow)
       void queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'list'] })
       notify.success(t('editor.saved'))
       validate.mutate(saved)
@@ -181,6 +188,11 @@ function Editor({
         {t(isNew ? 'rule.back' : 'editor.back')}
       </Link>
 
+      {pending && (
+        <p className="rounded-md border border-border bg-attention-050 p-2 text-sm text-attention-800" role="status" data-draft-pending="">
+          {t('editor.pending')}
+        </p>
+      )}
       <header className="flex flex-col gap-2" data-editor-header="">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold tracking-tight" data-mode={isNew ? 'new' : 'edit'}>
@@ -207,7 +219,7 @@ function Editor({
               {t('editor.cancel')}
             </Button>
             <ChecksPill checks={checks} stale={checksStale} pending={validate.isPending} elsewhere={index.elsewhere.length} onCheck={() => validate.mutate(h.present)} />
-            <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy} data-save="">
+            <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy || pending} data-save="">
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
               {t(busy ? 'editor.saving' : 'editor.save')}
             </Button>

@@ -56,6 +56,76 @@ const rule = (id, en, ar, folder, state, o) => ({
 })
 const guard = (severity, en, ar, o = {}) => ({ effect: 'guard', severity, says: says(en, ar), codes: null, suggest: null, ...o })
 
+// ── oms 618: the doors as BUILT ─────────────────────────────────────────────────────────────────────────────
+// The fixtures above are written in the EDITOR's model (a rule binds lists to filter aliases, a fact is one `$`-path
+// block) so the vitest proofs read them as the screens do. SIS.Rules spells the same rules differently and HQ serves
+// that spelling, so every guard document a door answers goes out through `wireRuleset` (the subset of
+// `src/core/insurance-rules/guard-wire.ts` these fixtures need): no `filters`, each alias resolved to its list, a fact
+// block as the block of its scope, a line's `below` as `under`. A PUT body arrives in that spelling and is kept so.
+
+const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line']
+function wireCondition(c, alias) {
+  if (!c || typeof c !== 'object') return c
+  const o = { ...c }
+  if (o.check === 'group') return { ...o, conditions: (o.conditions ?? []).map((x) => wireCondition(x, alias)) }
+  if (typeof o.match === 'string' && o.match.startsWith('list:')) {
+    const a = o.match.slice(5)
+    o.match = `list:${alias.get(a) ?? a}`
+  }
+  if (o.check === 'line' && typeof o.inList === 'string') o.inList = alias.has(o.inList) ? alias.get(o.inList) : o.inList
+  if (o.check === 'line' && o.below !== undefined) {
+    o.under = o.below
+    delete o.below
+  }
+  const m = o.check === 'fact' && typeof o.path === 'string' ? /^\$([A-Za-z]+)\.(.+)$/.exec(o.path) : null
+  if (m && FACT_SCOPES.includes(m[1])) {
+    const out = { check: m[1], field: m[2] }
+    let not = o.not === true
+    if (o.op === 'atLeast') out.atLeast = o.value
+    else if (o.op === 'below') out.under = o.value
+    else if (o.op === 'anyOf') out.anyOf = o.value
+    else if (o.op === 'noneOf') {
+      out.anyOf = o.value
+      not = !not
+    }
+    if (not) out.not = true
+    return out
+  }
+  return o
+}
+/** An editor rule in the engine's spelling. */
+export function wireRule(r) {
+  const { filters, ...rest } = r
+  const alias = new Map((filters ?? []).map((f) => [f.id, f.list]))
+  const out = { ...rest, when: (r.when ?? []).map((c) => wireCondition(c, alias)) }
+  // As built an audience holds only the keys it sets: an empty list (none = every one) is left out.
+  if (out.audience && typeof out.audience === 'object')
+    out.audience = Object.fromEntries(Object.entries(out.audience).filter(([, v]) => !(Array.isArray(v) && v.length === 0)))
+  return out
+}
+/** A document in the engine's spelling. */
+export const wireRuleset = (doc) => ({ ...doc, rules: (doc.rules ?? []).map(wireRule) })
+
+/** `GET / PUT …/Draft`, Submit, SendBack, Restore and Create answer the DRAFT (3139), its document inside. */
+export const draftReply = (document, over = {}) => ({
+  revision: document.revision,
+  state: 'editing',
+  origin: '',
+  baseVersionNo: 4,
+  updatedBy: 'falotaibi',
+  updatedAt: '2026-10-26T15:00:00',
+  requestedBy: null,
+  requestedAt: null,
+  requestNote: null,
+  reviewedBy: null,
+  reviewNote: null,
+  document,
+  warnings: [],
+  ...over,
+})
+/** The stale-revision refusal as built (3139). */
+const staleDraft = () => envelope(null, { status: 409, success: false, message: 'The draft is at another revision: reload it.', errorCode: 'GUARDS_DRAFT_STALE' })
+
 export const RULES = [
   rule('G-001', 'Same item twice in 3 days', 'نفس الصنف مرتين خلال 3 أيام', 'Pharmacist conduct', 'live', {
     when: [{ check: 'history', match: 'sameItem', windowDays: 3, measure: 'dispenses', atLeast: 1, includeThisLine: false }],
@@ -148,8 +218,10 @@ export const RULES = [
   }),
 ]
 
-/** `GET / PUT InsuranceRules/Guards/Draft` — the whole document. */
+/** The whole guard document in the editor's model (the vitest proofs read it). */
 export const RULESET = { schema: 1, kind: 'guard', revision: 12, lists: LISTS, rules: RULES }
+/** …and as `GET InsuranceRules/Guards/Draft` serves it (`document` of `draftReply`). */
+export const WIRE_RULESET = wireRuleset(RULESET)
 
 /** Last fired and flags per rule, as `GET InsuranceRules/Guards` adds them. */
 const ACTIVITY = {
@@ -163,16 +235,21 @@ const ACTIVITY = {
 
 const severityOf = (r) => ['REFUSE', 'OVERRIDE', 'WARN'].find((s) => r.then.some((e) => e.severity === s))
 
-/** `GET InsuranceRules/Guards` — one row per rule. */
-export const GUARD_ROWS = RULES.map((r) => ({
+/** `GET InsuranceRules/Guards` as built (3139 / 3141) — one row per rule. */
+export const guardRow = (r) => ({
   id: r.id,
   name: r.name,
   folder: r.folder,
   state: r.state,
-  severity: severityOf(r),
+  severity: severityOf(r) ?? 'WARN',
+  group: null,
+  shadowSince: r.state === 'shadow' ? (r.shadowSince ?? null) : null,
+  shadowFires: r.state === 'shadow' ? 4 : 0,
+  inDraft: r.state === 'draft' || r.state === 'waiting',
   lastFired: ACTIVITY[r.id]?.lastFired ?? null,
   flags: ACTIVITY[r.id]?.flags ?? [],
-}))
+})
+export const GUARD_ROWS = RULES.map(guardRow)
 
 /** The REAL SIS.Api envelope, as a Playwright `route.fulfill` argument. */
 export const envelope = (data, { status = 200, success = true, message = '', errorCode } = {}) => ({
@@ -200,7 +277,7 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
     return envelope(data)
   }
   if (method === 'GET' && path === 'InsuranceRules/Guards') return hit('guards', GUARD_ROWS)
-  if (method === 'GET' && path === 'InsuranceRules/Guards/Draft') return hit('draft', RULESET)
+  if (method === 'GET' && path === 'InsuranceRules/Guards/Draft') return hit('draft', draftReply(WIRE_RULESET))
   return null
 }
 
@@ -215,10 +292,10 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
 
 /** `GET InsuranceRules/Fields` — every scope, one retired. */
 export const FIELDS = [
-  { key: 'ECode', label: says('E-code', 'الرمز الإلكتروني'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.ECode / EDesc', retired: false },
-  { key: 'ATC', label: says('ATC class', 'تصنيف ATC'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.ATC', retired: false },
-  { key: 'DosageForm', label: says('Dosage form', 'الشكل الصيدلاني'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.DosageForm', retired: false },
-  { key: 'OldGroup', label: says('Old item group', 'مجموعة الأصناف القديمة'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.OldGroup', retired: true },
+  { key: 'ECode', label: says('E-code', 'الرمز الإلكتروني'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.ECode', pickerSource: 'ItemInfo.EDesc', retired: false },
+  { key: 'ATC', label: says('ATC class', 'تصنيف ATC'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.ATC', retired: false },
+  { key: 'DosageForm', label: says('Dosage form', 'الشكل الصيدلاني'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.DosageForm', retired: false },
+  { key: 'OldGroup', label: says('Old item group', 'مجموعة الأصناف القديمة'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.OldGroup', retired: true },
   { key: 'daysSupply', label: says('Days of supply', 'أيام التوريد'), scope: 'request', type: 'number', unit: 'days', source: 'Request line', retired: false },
   { key: 'age', label: says('Age', 'العمر'), scope: 'patient', type: 'number', unit: 'years', source: 'Patient profile', retired: false },
   { key: 'coverage.periodEnd', label: says('Coverage ends on', 'نهاية التغطية'), scope: 'eligibility', type: 'date', unit: null, source: 'Nphies eligibility answer', retired: false },
@@ -308,7 +385,7 @@ export function newListsState() {
   const copy = (x) => JSON.parse(JSON.stringify(x))
   return {
     fields: copy(FIELDS),
-    ruleset: copy(RULESET),
+    ruleset: copy(WIRE_RULESET),
     entries: copy(ENTRIES),
     log: copy(LOG),
     lists: { patient: copy(PATIENT_LISTS), policy: copy(POLICY_LISTS), class: copy(CLASS_LISTS) },
@@ -359,20 +436,20 @@ export function insuranceListsStub(method, path, body, opts = {}) {
     return fn()
   }
 
-  if (p === 'Guards/Draft' && method === 'GET') return door('draft', () => envelope(state.ruleset))
+  if (p === 'Guards/Draft' && method === 'GET') return door('draft', () => envelope(draftReply(state.ruleset)))
   if (p === 'Guards/Draft' && method === 'PUT')
     return door('saveDraft', () => {
-      if (body.revision !== state.ruleset.revision) return envelope(null, { status: 409, success: false, message: 'The draft was saved by someone else.', errorCode: 'STALE_REVISION' })
+      if (body.revision !== state.ruleset.revision) return staleDraft()
       state.ruleset = { ...body, revision: state.ruleset.revision + 1 }
-      return envelope(state.ruleset)
+      return envelope(draftReply(state.ruleset, { updatedBy: 'msartawi', updatedAt: localNow() }))
     })
 
   if (p === 'Fields' && method === 'GET') return door('fields', () => envelope(state.fields))
   if (p === 'Fields' && method === 'POST')
     return door('addField', () => {
       if (state.fields.some((f) => f.key.toLowerCase() === String(body.key).toLowerCase()))
-        return envelope(null, { status: 409, success: false, message: 'A field has this key.', errorCode: 'KEY_TAKEN' })
-      const f = { ...body, retired: false }
+        return envelope(null, { status: 409, success: false, message: "a field with this key already exists (a key is never reused)", errorCode: 'INSFIELDS_EXISTS' })
+      const f = { unit: '', pickerSource: '', ...body, retired: false }
       state.fields.push(f)
       return envelope(f)
     })
@@ -380,8 +457,9 @@ export function insuranceListsStub(method, path, body, opts = {}) {
   if (m && method === 'POST')
     return door('retire', () => {
       const f = state.fields.find((x) => x.key === decodeURIComponent(m[1]))
-      if (f) f.retired = true
-      return envelope(null)
+      if (!f) return envelope(null, { status: 404, success: false, message: 'no such field', errorCode: 'INSFIELDS_NOT_FOUND' })
+      f.retired = true
+      return envelope(f)
     })
   m = /^Fields\/([^/]+)\/Values$/.exec(p)
   if (m && method === 'GET')
@@ -392,8 +470,15 @@ export function insuranceListsStub(method, path, body, opts = {}) {
 
   if (p === 'Lists/Preview' && method === 'POST')
     return door('preview', () => {
-      const items = matchItems(body.list, [...body.lists, body.list])
-      return envelope({ count: items.length, items: items.slice(0, pageSize).map(({ article, name }) => ({ article, name })), matchesNothing: items.length === 0 })
+      // 3132 as built: `{ count, unknown, items: [{ item, description }] (first 50), warnings, errors }`.
+      const items = matchItems(body.list, [...(body.lists ?? []), body.list])
+      return envelope({
+        count: items.length,
+        unknown: 0,
+        items: items.slice(0, pageSize).map(({ article, name }) => ({ item: article, description: name })),
+        warnings: items.length === 0 ? ["the list matches no item in today's master"] : [],
+        errors: [],
+      })
     })
 
   // The ONE `GET Insurers` handler: 3144's settings rows as built (`[{ payer, …settings }]`, `*` among them, no name).
@@ -462,15 +547,14 @@ export function insuranceListsStub(method, path, body, opts = {}) {
 }
 
 // --- 608 --- the guard editor's doors: the draft read and saved WHOLE, and HQ's checks of it.
-//   GET  InsuranceRules/Guards/Draft    → `opts.store.draft` (a copy of RULESET to start)
-//   PUT  InsuranceRules/Guards/Draft    → the saved document, `revision` + 1; a stale `revision` → 409
-//                                         `STALE_REVISION` (⚠️ provisional spelling; 3139 owns it)
+//   GET  InsuranceRules/Guards/Draft    → the draft (`draftReply`) of `opts.store.draft` (WIRE_RULESET to start)
+//   PUT  InsuranceRules/Guards/Draft    → the draft at `revision` + 1; a stale `revision` → 409 `GUARDS_DRAFT_STALE`
 //   POST InsuranceRules/Guards/Validate → `[{ ruleId, blockPath, field, severity, en, ar }]` (validateGuards)
 // `opts.store` is the drive's own `{ draft, puts: [], validates: [] }` (newGuardStore()); without one, 607's
 // stateless handler answers. Call `guardEditorStub` first and fall through to `insuranceRulesStub`.
 
 /** A drive's stateful draft: a deep copy of RULESET, and every PUT / Validate body it was sent. */
-export const newGuardStore = () => ({ draft: structuredClone(RULESET), puts: [], validates: [] })
+export const newGuardStore = () => ({ draft: structuredClone(WIRE_RULESET), puts: [], validates: [] })
 
 const issue = (ruleId, blockPath, field, en, ar, severity = 'error') => ({ ruleId, blockPath, field, severity, en, ar })
 
@@ -512,15 +596,14 @@ export function guardEditorStub(method, path, body, opts = {}) {
   if (path === 'InsuranceRules/Guards/Draft' && method === 'GET') {
     count('draft')
     if (deny.includes('draft')) return { status: 403, body: '' }
-    return envelope(store.draft)
+    return envelope(draftReply(store.draft))
   }
   if (path === 'InsuranceRules/Guards/Draft' && method === 'PUT') {
     count('save')
     store.puts.push(body)
-    if (body?.revision !== store.draft.revision)
-      return envelope(null, { status: 409, success: false, message: 'Someone saved the draft since you read it.', errorCode: 'STALE_REVISION' })
+    if (body?.revision !== store.draft.revision) return staleDraft()
     store.draft = { ...structuredClone(body), revision: store.draft.revision + 1 }
-    return envelope(store.draft)
+    return envelope(draftReply(store.draft, { updatedBy: 'msartawi' }))
   }
   if (path === 'InsuranceRules/Guards/Validate' && method === 'POST') {
     count('validate')
@@ -1000,46 +1083,52 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
   return null
 }
 
-// --- 611 --- approval by role, shadow promotion, versions (BackOffice 3139; the latest back-test 3140).
-//   GET  InsuranceRules/Guards/Approval            → where the draft stands + the viewer's roles (⚠️ guessed door)
+// --- 611 --- approval by role, shadow promotion, versions (BackOffice 3139; the latest back-test 3140), AS BUILT
+// (oms 618). There is no `…/Approval` door: where the draft stands is the draft (`draftReply`'s state fields).
+//   GET  InsuranceRules/Guards/Draft               → the draft: `state` none|editing|pending|sentBack, requestedBy/At, …
 //   GET  InsuranceRules/Guards/Backtests           → `store.backtests`, newest first (3140, 612's shape)
 //   GET  InsuranceRules/Guards/Backtests/{id}      → `store.backtests[id]`
-//   POST InsuranceRules/Guards/Submit { note }     → refused 409 GUARDS_BACKTEST_MISSING (3140) without a done
-//                                                    back-test of this revision; draft rules turn waiting
-//   POST InsuranceRules/Guards/Approve { note }    → approver only (403 NOT_APPROVER), never the author (409
-//                                                    OWN_SUBMISSION); waiting rules turn shadow today; a version
-//   POST InsuranceRules/Guards/SendBack { note }   → the same refusals; waiting rules back to draft
-//   POST InsuranceRules/Guards/Rules/{id}/Promote  → `{ skipReason? }`; refused 409 SHADOW_TOO_SHORT under 14 local
-//                                                    days without a reason; the rule turns live
-//   GET  InsuranceRules/Guards/Versions            → newest first; POST …/Versions/{v}/Restore → a NEW draft
+//   POST InsuranceRules/Guards/Submit { revision, note } → 409 GUARDS_BACKTEST_MISSING without a done back-test of
+//                                                    this revision; 409 GUARDS_DRAFT_PENDING when already asked;
+//                                                    draft rules turn waiting → the draft, `pending`
+//   POST InsuranceRules/Guards/Approve { revision, note } → a bare 403 without the approver grant; 409
+//                                                    GUARDS_DRAFT_NOT_PENDING; 403 GUARDS_SELF_APPROVAL for whoever
+//                                                    asked or last saved; waiting rules turn shadow today → the version
+//   POST InsuranceRules/Guards/SendBack { note }   → the same refusals, a note required (400) → the draft, `sentBack`
+//   POST InsuranceRules/Guards/Rules/{id}/Promote  → `{ skipReason? }`; 409 GUARDS_SHADOW_TOO_SHORT under 14 local
+//                                                    days without a reason, 409 GUARDS_NOT_IN_SHADOW → the version
+//   GET  InsuranceRules/Guards/Versions            → `[{ versionNo, publishedAt, publishedBy, requestedBy, action,
+//                                                    note }]` newest first; POST …/Versions/{v}/Restore → a NEW draft
+//                                                    (409 GUARDS_DRAFT_EXISTS over a draft)
 //   GET / PUT Draft, POST Validate                 → on `store.draft` (608's `validateGuards`)
-// Error codes are ⚠️ guessed spellings (3139 owns them). Never a live SIS.Api.
+// Never a live SIS.Api.
 
-/** The published versions, newest first: who, when, note. */
+/** The published versions, newest first (3139's `GET …/Versions`). */
 export const GUARD_VERSIONS = [
-  { version: 4, by: 'falotaibi', at: '2026-10-20T11:15:00', note: 'SFDA not-marketed guard into shadow.' },
-  { version: 3, by: 'falotaibi', at: '2026-10-15T09:30:00', note: 'أقلام GLP-1 كل 28 يوماً في وضع الظل' },
-  { version: 2, by: 'malqahtani', at: '2026-09-02T16:45:00', note: null },
+  { versionNo: 4, publishedAt: '2026-10-20T11:15:00', publishedBy: 'falotaibi', requestedBy: 'nalharbi', action: 'approve', note: 'SFDA not-marketed guard into shadow.' },
+  { versionNo: 3, publishedAt: '2026-10-15T09:30:00', publishedBy: 'falotaibi', requestedBy: 'nalharbi', action: 'approve', note: 'أقلام GLP-1 كل 28 يوماً في وضع الظل' },
+  { versionNo: 2, publishedAt: '2026-09-02T16:45:00', publishedBy: 'malqahtani', requestedBy: 'nalharbi', action: 'approve', note: '' },
 ]
 
 /** What each version held: version 3 had neither of the draft rules (G-006, G-011) nor G-008. */
 const VERSION_DOCS = {
-  4: { ...RULESET, revision: 10, rules: RULES.filter((r) => !['G-006', 'G-011'].includes(r.id)) },
-  3: { ...RULESET, revision: 8, rules: RULES.filter((r) => !['G-006', 'G-008', 'G-011'].includes(r.id)) },
-  2: { ...RULESET, revision: 5, rules: RULES.filter((r) => ['G-001', 'G-002', 'G-004', 'G-010'].includes(r.id)) },
+  4: wireRuleset({ ...RULESET, revision: 0, rules: RULES.filter((r) => !['G-006', 'G-011'].includes(r.id)) }),
+  3: wireRuleset({ ...RULESET, revision: 0, rules: RULES.filter((r) => !['G-006', 'G-008', 'G-011'].includes(r.id)) }),
+  2: wireRuleset({ ...RULESET, revision: 0, rules: RULES.filter((r) => ['G-001', 'G-002', 'G-004', 'G-010'].includes(r.id)) }),
 }
 
 /** The draft's back-test of revision 12 (RULESET's), done — 612's report over 30 days. */
 export const BACKTEST_DONE_ID = 'BT-40'
 export const BACKTEST_DONE = backtestReport(30, 12, BACKTEST_DONE_ID)
 
-/** One HQ for a drive: the draft, its approval, the latest back-test, the versions, every write. */
-/** `backtest`: the draft's back-test (612's shape) under `BACKTEST_DONE_ID`, or null for none. `backtests` keeps
- * insertion order (oldest first); the list door answers newest first. */
-export function newApprovalStore({ backtest = BACKTEST_DONE } = {}) {
+/** One HQ for a drive: the draft and its state fields, the latest back-test, the versions, every write.
+ * `backtest`: the draft's back-test (612's shape) under `BACKTEST_DONE_ID`, or null for none. `backtests` keeps
+ * insertion order (oldest first); the list door answers newest first. `draftState` starts the draft elsewhere
+ * (`none` = no draft row: the newest version shows at revision 0). */
+export function newApprovalStore({ backtest = BACKTEST_DONE, draftState = 'editing' } = {}) {
   return {
-    draft: structuredClone(RULESET),
-    approval: { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null },
+    draft: structuredClone(WIRE_RULESET),
+    meta: { state: draftState, updatedBy: 'ins.huda', updatedAt: '2026-10-26T15:00:00', requestedBy: null, requestedAt: null, requestNote: null, reviewedBy: null, reviewNote: null, origin: '' },
     backtests: backtest ? { [BACKTEST_DONE_ID]: { ...structuredClone(backtest), id: BACKTEST_DONE_ID } } : {},
     versions: structuredClone(GUARD_VERSIONS),
     versionDocs: structuredClone(VERSION_DOCS),
@@ -1054,30 +1143,34 @@ const localDays = (fromDay, now) => {
 }
 
 /**
- * 611's doors on a drive's `store` (newApprovalStore()). `opts.user` is the session's user id, `opts.viewer` its
- * roles `{ author, approver }`, `opts.now` the local moment HQ stamps. Null when not one of these.
+ * 611's doors on a drive's `store` (newApprovalStore()). `opts.user` is the session's user id, `opts.viewer` the
+ * grants HQ checks `{ author, approver }` (a door the session lacks the grant for is a bare 403, as built), `opts.now`
+ * the local moment HQ stamps. Null when not one of these.
  */
 export function approvalStub(method, path, body, opts = {}) {
   const { store, user = 'nalharbi', viewer = { author: true, approver: false }, now = '2026-10-27T10:30:00', deny = [] } = opts
   if (!store) return null
   const refuse = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
-  const view = () => ({ ...store.approval, revision: store.draft.revision, viewer })
+  const bare = () => ({ status: 403, body: '' })
+  const draft = () => envelope(draftReply(store.draft, { ...store.meta, revision: store.draft.revision }))
   const write = () => store.writes.push({ method, path, body, user })
   const G = 'InsuranceRules/Guards'
   const setStates = (from, to, extra = {}) => {
     store.draft.rules = store.draft.rules.map((r) => (r.state === from ? { ...r, state: to, ...extra } : r))
   }
-  if (deny.includes(path)) return { status: 403, body: '' }
+  const nextVersion = () => Math.max(0, ...store.versions.map((v) => v.versionNo)) + 1
+  if (deny.includes(path)) return bare()
 
-  if (method === 'GET' && path === `${G}/Draft`) return envelope(store.draft)
+  if (method === 'GET' && path === `${G}/Draft`) return draft()
   if (method === 'PUT' && path === `${G}/Draft`) {
     write()
-    if (body?.revision !== store.draft.revision) return refuse(409, 'STALE_REVISION', 'Someone saved the draft since you read it.')
+    if (store.meta.state === 'pending') return refuse(409, 'GUARDS_DRAFT_PENDING', 'the draft is waiting for approval')
+    if (body?.revision !== store.draft.revision) return staleDraft()
     store.draft = { ...structuredClone(body), revision: store.draft.revision + 1 }
-    return envelope(store.draft)
+    store.meta = { ...store.meta, state: 'editing', updatedBy: user, updatedAt: now }
+    return draft()
   }
   if (method === 'POST' && path === `${G}/Validate`) return envelope(validateGuards(body ?? store.draft))
-  if (method === 'GET' && path === `${G}/Approval`) return envelope(view())
   const btRead = method === 'GET' && path.match(/^InsuranceRules\/Guards\/Backtests\/([^/]+)$/)
   if (btRead && store.backtests[decodeURIComponent(btRead[1])]) return envelope(store.backtests[decodeURIComponent(btRead[1])])
   if (method === 'GET' && path === `${G}/Backtests`) return envelope(Object.values(store.backtests).reverse())
@@ -1085,66 +1178,80 @@ export function approvalStub(method, path, body, opts = {}) {
 
   if (method === 'POST' && path === `${G}/Submit`) {
     write()
+    if (!viewer.author) return bare()
+    if (store.meta.state === 'none') return refuse(404, 'GUARDS_NOT_FOUND', 'there is no draft to submit: save one first')
+    if (store.meta.state === 'pending') return refuse(409, 'GUARDS_DRAFT_PENDING', 'the draft is already waiting for approval')
+    if (body?.revision != null && body.revision !== store.draft.revision) return staleDraft()
     if (!Object.values(store.backtests).some((bt) => bt.status === 'done' && bt.revision === store.draft.revision))
-      return refuse(409, 'GUARDS_BACKTEST_MISSING', 'No finished back-test of the draft revision.')
-    if (store.approval.state !== 'draft') return refuse(409, 'NOT_DRAFT', 'The draft is already waiting for approval.')
-    store.approval = { ...store.approval, state: 'waiting', submittedBy: user, submittedAt: now, note: body?.note || null, sentBack: null }
+      return refuse(409, 'GUARDS_BACKTEST_MISSING', 'no finished back-test of the draft revision')
+    store.meta = { ...store.meta, state: 'pending', requestedBy: user, requestedAt: now, requestNote: body?.note || null }
     setStates('draft', 'waiting')
-    return envelope(view())
+    return draft()
   }
   if (method === 'POST' && (path === `${G}/Approve` || path === `${G}/SendBack`)) {
     write()
-    if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver approves the guard draft.')
-    if (store.approval.state !== 'waiting') return refuse(409, 'NOT_WAITING', 'The draft is not waiting for approval.')
-    if (user.toLowerCase() === (store.approval.submittedBy ?? '').toLowerCase())
-      return refuse(409, 'OWN_SUBMISSION', 'You asked for this approval; a different user approves it.')
+    if (!viewer.approver) return bare()
+    if (store.meta.state !== 'pending') return refuse(409, 'GUARDS_DRAFT_NOT_PENDING', 'no draft is waiting for approval')
+    const me = user.toLowerCase()
+    if (me === (store.meta.requestedBy ?? '').toLowerCase() || me === (store.meta.updatedBy ?? '').toLowerCase())
+      return refuse(403, 'GUARDS_SELF_APPROVAL', 'you asked for or last edited this draft: a different user approves it')
     if (path.endsWith('/Approve')) {
+      if (body?.revision != null && body.revision !== store.draft.revision) return staleDraft()
       setStates('waiting', 'shadow', { shadowSince: now.slice(0, 10) })
-      const version = Math.max(0, ...store.versions.map((v) => v.version)) + 1
-      store.versionDocs[version] = structuredClone(store.draft)
-      store.versions.unshift({ version, by: user, at: now, note: body?.note || store.approval.note })
-      store.approval = { ...store.approval, state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null }
-    } else {
-      setStates('waiting', 'draft')
-      store.approval = { ...store.approval, state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: { by: user, at: now, note: body?.note ?? '' } }
+      const version = { versionNo: nextVersion(), publishedAt: now, publishedBy: user, requestedBy: store.meta.requestedBy, action: 'approve', note: body?.note || store.meta.requestNote || '' }
+      store.versionDocs[version.versionNo] = { ...structuredClone(store.draft), revision: 0 }
+      store.versions.unshift(version)
+      // The draft row is gone: the draft door shows the new version at revision 0.
+      store.draft = { ...store.draft, revision: 0 }
+      store.meta = { ...store.meta, state: 'none', requestedBy: null, requestedAt: null, requestNote: null, reviewedBy: null, reviewNote: null }
+      return envelope(version)
     }
-    return envelope(view())
+    if (!body?.note?.trim()) return refuse(400, 'GUARDS_AUTHORING_BAD_REQUEST', 'say why the draft goes back')
+    setStates('waiting', 'draft')
+    store.meta = { ...store.meta, state: 'sentBack', reviewedBy: user, reviewNote: body.note }
+    return draft()
   }
   const promote = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Rules\/([^/]+)\/Promote$/)
   if (promote) {
     write()
     const id = decodeURIComponent(promote[1])
     const rule = store.draft.rules.find((r) => r.id === id)
-    if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver promotes a shadow rule.')
-    if (!rule || rule.state !== 'shadow') return refuse(409, 'NOT_SHADOW', 'This rule is not in shadow.')
+    if (!viewer.approver) return bare()
+    if (!rule || rule.state !== 'shadow') return refuse(409, 'GUARDS_NOT_IN_SHADOW', 'this rule is not in shadow in the newest version')
     if ((!rule.shadowSince || localDays(rule.shadowSince, now) < 14) && !body?.skipReason?.trim())
-      return refuse(409, 'SHADOW_TOO_SHORT', 'Under 14 days in shadow: give a reason to skip the rest.')
+      return refuse(409, 'GUARDS_SHADOW_TOO_SHORT', 'under 14 days in shadow: give a reason to skip the rest')
     store.draft.rules = store.draft.rules.map((r) => (r.id === id ? { ...r, state: 'live', shadowSince: null } : r))
-    return envelope({ ruleId: id, state: 'live' })
+    const version = { versionNo: nextVersion(), publishedAt: now, publishedBy: user, requestedBy: null, action: 'promote', note: body?.skipReason ?? '' }
+    store.versions.unshift(version)
+    return envelope(version)
   }
   const restore = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Versions\/(\d+)\/Restore$/)
   if (restore) {
     write()
+    if (store.meta.state !== 'none') return refuse(409, 'GUARDS_DRAFT_EXISTS', 'a draft exists: approve, send back or finish it first')
     const doc = store.versionDocs[restore[1]]
-    if (!doc) return refuse(404, 'NO_VERSION', 'No such version.')
-    store.draft = { ...structuredClone(doc), revision: store.draft.revision + 1 }
-    store.approval = { ...store.approval, state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null }
-    return envelope(store.draft)
+    if (!doc) return refuse(404, 'GUARDS_NOT_FOUND', 'no version ' + restore[1])
+    store.draft = { ...structuredClone(doc), revision: 1 }
+    store.meta = { ...store.meta, state: 'editing', origin: `restore:${restore[1]}`, updatedBy: user, updatedAt: now }
+    return draft()
   }
   return null
 }
 
-// --- 609 --- guard templates and folders (BackOffice 3139). ⚠️ Shapes beyond the brief are 609's guesses
-// (`src/core/insurance-rules/templates.ts`), 618 reconciles:
+// --- 609 --- guard templates and folders (BackOffice 3139), AS BUILT (oms 618):
 //   GET  InsuranceRules/Guards                      → rows from `state.store.draft` (moves and new rules show)
-//   GET  InsuranceRules/Guards/Folders              → every folder path (kept empty ones + the rules'), sorted
-//   POST InsuranceRules/Guards/Folders              → body `{ path }`; a taken path → 409 FOLDER_EXISTS
+//   GET  InsuranceRules/Guards/Folders              → `{ folders: [{ path, rules }] }` (kept empty ones + the rules')
+//   POST InsuranceRules/Guards/Folders              → body `{ path }` → the tree
 //   PUT  InsuranceRules/Guards/Folders              → `{ from, to }` renames a folder (its rules and sub-folders
-//                                                     follow); `{ rules: [id], to }` moves rules. No approval.
-//   GET  InsuranceRules/Guards/Templates            → phase-1 (3093, with conflict code) + team templates
-//   POST InsuranceRules/Guards/Templates            → body `{ ruleId, name, blanks: [path] }` → the template
-//   POST InsuranceRules/Guards/Templates/{id}/Create → body `{ values: { [path]: value }, folder }` → the new
-//                                                     draft rule (HQ mints `G-nnn`, adds it to the draft)
+//                                                     follow); `{ ruleId, folder }` moves ONE rule. No approval.
+//   GET  InsuranceRules/Guards/Templates            → `[{ id, origin, name, conflictCode, rule, blanks: [path],
+//                                                     updatedBy, updatedAt }]` (the rule in the engine's spelling)
+//   POST InsuranceRules/Guards/Templates            → body `{ id, name, ruleId, blanks: [path] }` → the template; a
+//                                                     phase-1 id → 409 GUARDS_TEMPLATE_READ_ONLY, a blank that is
+//                                                     not a field of the rule → 400
+//   POST InsuranceRules/Guards/Templates/{id}/Create → body `{ revision, ruleId, name?, folder?, values }` → the
+//                                                     DRAFT with the new rule; a stale revision → 409, a value for a
+//                                                     path that is not a blank → 400
 // Draft GET / PUT / Validate fall through to 608's `guardEditorStub` on the SAME `state.store`.
 
 const blank = (path, en, ar) => ({ path, label: says(en, ar) })
@@ -1162,7 +1269,28 @@ const tplRule = (o) => ({
   onUnknown: 'none',
   ...o,
 })
-const tpl = (id, en, ar, conflictCode, rule, blanks) => ({ id, source: 'phase1', name: says(en, ar), conflictCode, rule: tplRule(rule), blanks: [NAME_BLANK, ...blanks] })
+/**
+ * A phase-1 template as HQ serves it: the rule in the engine's spelling without id or state, its blanks as PATHS
+ * (HQ names none), a rule-filter blank (`filters[0].list`) moved to the block that names the list.
+ */
+function tpl(id, en, ar, conflictCode, rule, blanks) {
+  const editor = tplRule(rule)
+  // The stubs' `items` alias stands for "the list the author picks": the block names none yet (an empty blank).
+  const alias = editor.filters.map((f) => (f.list ? f : { ...f, list: f.id }))
+  const wire = wireRule({ ...editor, filters: alias })
+  const listAt = wire.when.findIndex((c) => (typeof c.match === 'string' && c.match.startsWith('list:')) || (c.check === 'line' && 'inList' in c))
+  if (listAt >= 0) {
+    const c = wire.when[listAt]
+    if (typeof c.match === 'string' && c.match === 'list:items') c.match = ''
+    if (c.check === 'line' && c.inList === 'items') c.inList = ''
+  }
+  const paths = [NAME_BLANK, ...blanks].map((b) =>
+    b.path === LIST_BLANK.path ? `when[${listAt}].${wire.when[listAt]?.check === 'line' ? 'inList' : 'match'}` : b.path,
+  )
+  delete wire.id
+  delete wire.state
+  return { id, origin: 'phase1', name: says(en, ar), conflictCode, rule: wire, blanks: paths, updatedBy: 'seed', updatedAt: '2026-10-01T00:00:00' }
+}
 const tplCodes = (conflict, nphies) => ({ conflict, nphies })
 const tplItems = () => [{ id: 'items', list: '' }]
 
@@ -1432,31 +1560,20 @@ export function templatesStub(method, path, body, opts = {}) {
 
   if (method === 'GET' && path === 'InsuranceRules/Guards') {
     if (denied('guards')) return { status: 403, body: '' }
-    const activity = Object.fromEntries(GUARD_ROWS.map((r) => [r.id, r]))
-    return envelope(
-      state.store.draft.rules.map((r) => ({
-        id: r.id,
-        name: r.name,
-        folder: r.folder,
-        state: r.state,
-        severity: severityOf(r) ?? 'WARN',
-        lastFired: activity[r.id]?.lastFired ?? null,
-        flags: activity[r.id]?.flags ?? [],
-      })),
-    )
+    return envelope(state.store.draft.rules.map(guardRow))
   }
   if (path === 'InsuranceRules/Guards/Folders') {
     if (denied(`folders.${method}`)) return { status: 403, body: '' }
     if (method === 'POST') {
       write('folders.create')
       const p = segs(body?.path).join('/')
-      if (!p) return fail(400, 'A folder needs a name.', 'FOLDER_NAME')
-      if (allFolders(state).some((f) => f.toLowerCase() === p.toLowerCase())) return fail(409, 'That folder already exists.', 'FOLDER_EXISTS')
+      if (!p) return fail(400, 'a folder has a path', 'GUARDS_AUTHORING_BAD_REQUEST')
       state.folders.push(p)
-    } else if (method === 'PUT' && Array.isArray(body?.rules)) {
+    } else if (method === 'PUT' && typeof body?.ruleId === 'string' && body.ruleId.trim()) {
       write('folders.move')
-      const to = segs(body.to).join('/')
-      state.store.draft = { ...state.store.draft, rules: state.store.draft.rules.map((r) => (body.rules.includes(r.id) ? { ...r, folder: to } : r)) }
+      const to = segs(body.folder).join('/')
+      if (!state.store.draft.rules.some((r) => r.id === body.ruleId)) return fail(404, `no rule '${body.ruleId}'`, 'GUARDS_NOT_FOUND')
+      state.store.draft = { ...state.store.draft, rules: state.store.draft.rules.map((r) => (r.id === body.ruleId ? { ...r, folder: to } : r)) }
       bump()
     } else if (method === 'PUT') {
       write('folders.rename')
@@ -1468,7 +1585,8 @@ export function templatesStub(method, path, body, opts = {}) {
       }
       bump()
     }
-    return envelope(allFolders(state))
+    const direct = (p) => state.store.draft.rules.filter((r) => segs(r.folder).join('/') === p).length
+    return envelope({ folders: allFolders(state).map((p) => ({ path: p, rules: direct(p) })) })
   }
   if (method === 'GET' && path === 'InsuranceRules/Guards/Templates') {
     if (denied('templates')) return { status: 403, body: '' }
@@ -1477,24 +1595,22 @@ export function templatesStub(method, path, body, opts = {}) {
   if (method === 'POST' && path === 'InsuranceRules/Guards/Templates') {
     if (denied('templates.save')) return { status: 403, body: '' }
     write('templates.save')
+    const code = String(body?.id ?? '').trim()
+    if (!/^[A-Za-z0-9._-]{1,40}$/.test(code)) return fail(400, "a template id is letters, digits, '.', '_' or '-', up to 40", 'GUARDS_AUTHORING_BAD_REQUEST')
+    if (!body?.name?.en?.trim() || !body?.name?.ar?.trim()) return fail(400, 'a template is named in English and in Arabic', 'GUARDS_AUTHORING_BAD_REQUEST')
     const r = state.store.draft.rules.find((x) => x.id === body?.ruleId)
-    if (!r) return fail(404, 'No rule has this id.', 'NOT_FOUND')
-    if (!body?.name?.en?.trim() || !body?.name?.ar?.trim()) return fail(400, 'The template needs a name in English and Arabic.', 'TEMPLATE_NAME')
-    const rule = { ...structuredClone(r), id: '', state: 'draft' }
+    if (!r) return fail(404, `no rule '${body?.ruleId}' to save as a template`, 'GUARDS_NOT_FOUND')
+    const rule = structuredClone(r)
+    delete rule.id
+    delete rule.state
     delete rule.shadowSince
-    // A text or message blank starts empty (the author fills it); a number keeps the rule's as its default.
-    for (const p of body.blanks ?? []) setPath(rule, p, emptyOf(getPath(rule, p)))
-    const t = {
-      id: `TT-${state.templates.length + 1}`,
-      source: 'team',
-      name: body.name,
-      conflictCode: r.then[0]?.codes?.conflict ?? null,
-      rule,
-      blanks: (body.blanks ?? []).map((p) => ({ path: p, label: null })),
-      createdBy: user,
-      createdAt: now,
-    }
-    state.templates.push(t)
+    for (const p of body.blanks ?? []) if (getPath(rule, p) === undefined) return fail(400, `blank '${p}' is not a field of rule '${r.id}'`, 'GUARDS_AUTHORING_BAD_REQUEST')
+    const at = state.templates.findIndex((x) => x.id === code)
+    if (at >= 0 && state.templates[at].origin !== 'team') return fail(409, `template '${code}' is a phase-1 template`, 'GUARDS_TEMPLATE_READ_ONLY')
+    // HQ keeps the rule's values as the blanks' defaults.
+    const t = { id: code, origin: 'team', name: body.name, conflictCode: r.then[0]?.codes?.conflict ?? null, rule, blanks: [...(body.blanks ?? [])], updatedBy: user, updatedAt: now }
+    if (at >= 0) state.templates[at] = t
+    else state.templates.push(t)
     return envelope(t)
   }
   const create = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Templates\/([^/]+)\/Create$/)
@@ -1502,14 +1618,22 @@ export function templatesStub(method, path, body, opts = {}) {
     if (denied('templates.create')) return { status: 403, body: '' }
     write('templates.create')
     const t = state.templates.find((x) => x.id === decodeURIComponent(create[1]))
-    if (!t) return fail(404, 'No template has this id.', 'NOT_FOUND')
+    if (!t) return fail(404, `no template '${decodeURIComponent(create[1])}'`, 'GUARDS_NOT_FOUND')
+    const id = String(body?.ruleId ?? '').trim()
+    if (!/^[A-Za-z0-9._-]{1,40}$/.test(id)) return fail(400, "a rule id is letters, digits, '.', '_' or '-', up to 40", 'GUARDS_AUTHORING_BAD_REQUEST')
+    if ((body?.revision ?? 0) !== state.store.draft.revision) return staleDraft()
+    if (state.store.draft.rules.some((r) => r.id === id)) return fail(400, `the draft already has a rule '${id}'`, 'GUARDS_AUTHORING_BAD_REQUEST')
     const rule = structuredClone(t.rule)
-    for (const b of t.blanks) if (b.path in (body?.values ?? {})) setPath(rule, b.path, structuredClone(body.values[b.path]))
-    const created = { ...rule, id: nextRuleId(state.store.draft.rules), folder: body?.folder ?? rule.folder, state: 'draft' }
-    delete created.shadowSince
+    for (const [p, v] of Object.entries(body?.values ?? {})) {
+      if (!t.blanks.includes(p)) return fail(400, `'${p}' is not a blank of template '${t.id}'`, 'GUARDS_AUTHORING_BAD_REQUEST')
+      setPath(rule, p, structuredClone(v))
+    }
+    const created = { id, ...rule, state: 'draft' }
+    if (body?.name?.en || body?.name?.ar) created.name = body.name
+    if (body?.folder != null) created.folder = segs(body.folder).join('/')
     state.store.draft = { ...state.store.draft, rules: [...state.store.draft.rules, created] }
     bump()
-    return envelope(created)
+    return envelope(draftReply(state.store.draft, { updatedBy: user, origin: `template:${t.id}` }))
   }
   return guardEditorStub(method, path, body, { store: state.store, deny, reads })
 }
@@ -1535,14 +1659,14 @@ export function templatesStub(method, path, body, opts = {}) {
 
 /** Fields 617's rules read beside 610's FIELDS (which keep their own counts): request, patient, item and eligibility facts. */
 export const COVERAGE_FIELDS = [
-  { key: 'payer', label: says('Insurer', 'شركة التأمين'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
-  { key: 'policy', label: says('Policy', 'الوثيقة'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
-  { key: 'class', label: says('Policy class', 'فئة الوثيقة'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
+  { key: 'payer', label: says('Insurer', 'شركة التأمين'), scope: 'request', type: 'text', unit: '', source: 'Request', retired: false },
+  { key: 'policy', label: says('Policy', 'الوثيقة'), scope: 'request', type: 'text', unit: '', source: 'Request', retired: false },
+  { key: 'class', label: says('Policy class', 'فئة الوثيقة'), scope: 'request', type: 'text', unit: '', source: 'Request', retired: false },
   { key: 'qty', label: says('Quantity', 'الكمية'), scope: 'request', type: 'number', unit: 'units', source: 'Request line', retired: false },
   { key: 'price', label: says('Line price', 'سعر السطر'), scope: 'request', type: 'number', unit: 'SAR', source: 'Request line', retired: false },
-  { key: 'gender', label: says('Gender', 'الجنس'), scope: 'patient', type: 'code', unit: null, source: 'Patient profile', retired: false },
-  { key: 'ItemCode', label: says('Item code', 'رمز الصنف'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.ItemCode', retired: false },
-  { key: 'coverage.class', label: says('Coverage class', 'فئة التغطية'), scope: 'eligibility', type: 'code', unit: null, source: 'Nphies eligibility answer', retired: false },
+  { key: 'gender', label: says('Gender', 'الجنس'), scope: 'patient', type: 'text', unit: '', source: 'Patient profile', retired: false },
+  { key: 'ItemCode', label: says('Item code', 'رمز الصنف'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.ItemCode', retired: false },
+  { key: 'coverage.class', label: says('Coverage class', 'فئة التغطية'), scope: 'eligibility', type: 'text', unit: '', source: 'Nphies eligibility answer', retired: false },
   { key: 'benefit.dayBenefit', label: says('Day benefit', 'منفعة اليوم'), scope: 'eligibility', type: 'number', unit: 'SAR', source: 'Nphies eligibility answer', retired: false },
   { key: 'benefit.genericCopayPct', label: says('Generic copay', 'تحمّل الجنيس'), scope: 'eligibility', type: 'number', unit: '%', source: 'Nphies eligibility answer', retired: false },
 ]

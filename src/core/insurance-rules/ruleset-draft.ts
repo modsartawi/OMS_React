@@ -15,8 +15,10 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from './api'
 import type { GuardIssue } from './checks'
+import { documentIn, documentOut, guardRulesetIn } from './guard-wire'
 
-export type RulesetDoorKind = 'Categories' | 'Coverage'
+/** `Guards` is the guard ruleset (3139); `Categories` / `Coverage` ride the same doors over their own documents. */
+export type RulesetDoorKind = 'Guards' | 'Categories' | 'Coverage'
 
 /** Where the draft stands: none (nothing to approve), editing, pending (asked for approval), sentBack. */
 export type DraftState = 'none' | 'editing' | 'pending' | 'sentBack'
@@ -36,6 +38,8 @@ export interface RulesetDraft<T> {
   reviewedBy: string | null
   reviewNote: string | null
   document: T
+  /** Review B7: on Submit, the warnings the submitted document still carries; empty otherwise. */
+  warnings?: GuardIssue[]
 }
 
 /** `GET …/Versions` row and the Approve reply. */
@@ -54,17 +58,42 @@ export const DRAFT_PENDING = 'GUARDS_DRAFT_PENDING'
 /** The document the editor holds, stamped with the draft's revision (the PUT's root `revision`). */
 export const draftDocument = <T extends { revision: number }>(d: RulesetDraft<T>): T => ({ ...d.document, revision: d.revision })
 
+/**
+ * A draft as the door sends it → the editor's: its `document` through the wire codec (`./guard-wire`: the engine's
+ * spelling of the blocks), stamped with the draft's revision (the PUT's root `revision`).
+ */
+export function draftIn<T extends { revision: number }>(raw: RulesetDraft<unknown> | null | undefined, kind?: RulesetDoorKind): RulesetDraft<T> {
+  const d = (raw ?? {}) as Partial<RulesetDraft<unknown>>
+  const revision = typeof d.revision === 'number' ? d.revision : 0
+  return {
+    revision,
+    state: d.state ?? 'none',
+    origin: d.origin || null,
+    baseVersionNo: d.baseVersionNo ?? null,
+    updatedBy: d.updatedBy || null,
+    updatedAt: d.updatedAt || null,
+    requestedBy: d.requestedBy || null,
+    requestedAt: d.requestedAt || null,
+    requestNote: d.requestNote || null,
+    reviewedBy: d.reviewedBy || null,
+    reviewNote: d.reviewNote || null,
+    document: { ...(kind === 'Guards' ? (guardRulesetIn(d.document) as unknown as T) : documentIn<T>(d.document)), revision },
+    warnings: d.warnings ?? [],
+  }
+}
+
 export function rulesetDoors<T extends { revision: number }>(kind: RulesetDoorKind) {
   const base = `${INSURANCE_RULES_BASE}/${kind}`
+  const draft = (p: Promise<RulesetDraft<unknown>>) => p.then((d) => draftIn<T>(d, kind))
   return {
-    draft: (): Promise<RulesetDraft<T>> => api.get<RulesetDraft<T>>(`${base}/Draft`),
-    save: (doc: T): Promise<RulesetDraft<T>> => api.put<RulesetDraft<T>>(`${base}/Draft`, doc),
-    validate: async (doc: T): Promise<GuardIssue[]> => (await api.post<GuardIssue[] | null>(`${base}/Validate`, doc)) ?? [],
-    submit: (revision: number, note: string): Promise<RulesetDraft<T>> => api.post<RulesetDraft<T>>(`${base}/Submit`, { revision, note }),
+    draft: (): Promise<RulesetDraft<T>> => draft(api.get<RulesetDraft<unknown>>(`${base}/Draft`)),
+    save: (doc: T): Promise<RulesetDraft<T>> => draft(api.put<RulesetDraft<unknown>>(`${base}/Draft`, documentOut(doc))),
+    validate: async (doc: T): Promise<GuardIssue[]> => (await api.post<GuardIssue[] | null>(`${base}/Validate`, documentOut(doc))) ?? [],
+    submit: (revision: number, note: string): Promise<RulesetDraft<T>> => draft(api.post<RulesetDraft<unknown>>(`${base}/Submit`, { revision, note })),
     approve: (revision: number, note: string): Promise<RulesetVersionRow> => api.post<RulesetVersionRow>(`${base}/Approve`, { revision, note }),
-    sendBack: (note: string): Promise<RulesetDraft<T>> => api.post<RulesetDraft<T>>(`${base}/SendBack`, { note }),
+    sendBack: (note: string): Promise<RulesetDraft<T>> => draft(api.post<RulesetDraft<unknown>>(`${base}/SendBack`, { note })),
     versions: async (): Promise<RulesetVersionRow[]> => (await api.get<RulesetVersionRow[] | null>(`${base}/Versions`)) ?? [],
-    restore: (v: number): Promise<RulesetDraft<T>> => api.post<RulesetDraft<T>>(`${base}/Versions/${v}/Restore`, {}),
+    restore: (v: number): Promise<RulesetDraft<T>> => draft(api.post<RulesetDraft<unknown>>(`${base}/Versions/${v}/Restore`, {})),
   }
 }
 

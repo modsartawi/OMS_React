@@ -115,6 +115,12 @@ describe('guardSentence — WHEN and THEN', () => {
     ])
   })
 
+  it('a rule naming no channel is checked on EVERY channel — never "on on no channel" (618, live walk)', () => {
+    const r = { ...rule('G-001'), audience: { channels: [], stores: [] } } as GuardRule
+    expect(text(guardSentence(r, LISTS).when[0])).toBe('Checked before a request is sent on every channel, at every store')
+    expect(text(guardSentence({ ...r, audience: null }, LISTS).when[0])).toBe('Checked before a request is sent on every channel, at every store')
+  })
+
   it('THEN says what the severity does, its codes and its suggestion (G-003); unknown facts per onUnknown', () => {
     const g = guardSentence(rule('G-003'), LISTS)
     expect(g.then.map((e) => [e.severity, text(e.does), e.codes.map(text), e.suggest.map(text)])).toEqual([

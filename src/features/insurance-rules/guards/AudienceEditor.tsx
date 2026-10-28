@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { CodesInput, Field } from '@/core/insurance-rules/controls'
-import { setAudienceStores, setWindow, toggleAudienceExclude, toggleChannel } from '@/core/insurance-rules/guard-edit'
+import { effectiveChannels, setAudienceStores, setWindow, toggleAudienceExclude, toggleChannel } from '@/core/insurance-rules/guard-edit'
 import { GUARD_CHANNELS, type GuardRule } from '@/core/insurance-rules/model'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
@@ -19,7 +19,9 @@ const EXCLUDE_LABEL = { patient: 'editor.audience.excludePatients', policy: 'edi
 
 export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: RuleEdit }) {
   const { t } = useTranslation('insurance-guards')
-  const a = rule.audience ?? { channels: [], stores: [] }
+  // As built an audience holds only the keys it sets: no channels / stores named = every one.
+  const a = { ...rule.audience, channels: rule.audience?.channels ?? [], stores: rule.audience?.stores ?? [] }
+  const on = effectiveChannels(rule)
   return (
     <div className="flex flex-col gap-3 text-xs" data-audience-editor="">
       <fieldset className="flex flex-wrap items-center gap-3">
@@ -27,7 +29,7 @@ export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: 
         <span className="text-muted-foreground">{t('editor.audience.channels')}</span>
         {GUARD_CHANNELS.map((ch) => (
           <label key={ch} className="inline-flex items-center gap-1">
-            <input type="checkbox" checked={a.channels.includes(ch)} data-channel={ch} onChange={() => edit((r) => toggleChannel(r, ch))} />
+            <input type="checkbox" checked={on.includes(ch)} data-channel={ch} onChange={() => edit((r) => toggleChannel(r, ch))} />
             {t(`insurance-rules:sentence.channel.${ch}`)}
           </label>
         ))}

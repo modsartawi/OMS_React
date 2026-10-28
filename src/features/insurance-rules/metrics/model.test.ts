@@ -46,7 +46,7 @@ const row = (o: Partial<MetricsRow>): MetricsRow => ({
   name: null,
   fires: { refuse: 0, override: 0, warn: 0 },
   shadowFires: 0,
-  outcomes: { removed: 0, changed: 0, overridden: 0, acknowledged: 0, exception: 0 },
+  outcomes: { acknowledged: 0, overridden: 0, exception: 0, unanswered: 0 },
   overrideRate: null,
   sarProtectedEstimate: 0,
   rejectionsAfterPass: 0,
@@ -72,17 +72,16 @@ describe('metricsTotals', () => {
 
 describe('outcomeShares', () => {
   it('eachOutcomeAsAShareOfTheirSum_inAFixedOrder', () => {
-    expect(outcomeShares({ removed: 1, changed: 1, overridden: 6, acknowledged: 2, exception: 0 })).toEqual([
-      { outcome: 'removed', count: 1, share: 0.1 },
-      { outcome: 'changed', count: 1, share: 0.1 },
-      { outcome: 'overridden', count: 6, share: 0.6 },
+    expect(outcomeShares({ acknowledged: 2, overridden: 6, exception: 0, unanswered: 2 })).toEqual([
       { outcome: 'acknowledged', count: 2, share: 0.2 },
+      { outcome: 'overridden', count: 6, share: 0.6 },
       { outcome: 'exception', count: 0, share: 0 },
+      { outcome: 'unanswered', count: 2, share: 0.2 },
     ])
   })
 
   it('noOutcome_isEmpty', () => {
-    expect(outcomeShares({ removed: 0, changed: 0, overridden: 0, acknowledged: 0, exception: 0 })).toEqual([])
+    expect(outcomeShares({ acknowledged: 0, overridden: 0, exception: 0, unanswered: 0 })).toEqual([])
   })
 })
 

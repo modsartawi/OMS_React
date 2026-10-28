@@ -906,13 +906,18 @@ export function editionsStub(method, path, opts = {}) {
   return null
 }
 
-// --- 615 --- metrics, flags, rejection report (BackOffice 3141). ⚠️ Field spellings beyond the brief are 615's
-// guesses (`src/features/insurance-rules/metrics/model.ts`; recorded under 615's ## Comments for 618).
+// --- 615 --- metrics, flags, rejection report (BackOffice 3141), AS BUILT (oms 618): a metrics row `{ key, day, fires:
+// { refuse, override, warn, total }, shadowFires, outcomes: { acknowledged, overridden, exception, unanswered },
+// overrideRate, sarProtectedEstimate, rejectionsAfterPass, rejectionsAfterOverride, rejectionsUnchecked,
+// uncheckedRequests, timeAddedMedianMs }` (no name; per day unless `daily=false`; no `by=day`), a flag `{ ruleId, kind,
+// since, lastSeenOn, fires, overridden, previousAverage }`, the thresholds HQ's seven integers.
 
-const fires = (refuse, override, warn) => ({ refuse, override, warn })
-const outcomes = (removed, changed, overridden, acknowledged, exception) => ({ removed, changed, overridden, acknowledged, exception })
-const mrow = (key, name, f, shadowFires, o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, timeAddedMedianMs) => ({
-  key, name, fires: f, shadowFires, outcomes: o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, timeAddedMedianMs,
+const fires = (refuse, override, warn) => ({ refuse, override, warn, total: refuse + override + warn })
+// The fixtures' first two figures were lines removed / changed after a guard: as built they are `unanswered`.
+const outcomes = (removed, changed, overridden, acknowledged, exception) => ({ acknowledged, overridden, exception, unanswered: removed + changed })
+const mrow = (key, _name, f, shadowFires, o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, timeAddedMedianMs) => ({
+  key, day: null, fires: f, shadowFires, outcomes: o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, rejectionsAfterOverride: 0,
+  rejectionsUnchecked: 0, uncheckedRequests: 0, timeAddedMedianMs,
 })
 const nameOf = (id) => RULES.find((r) => r.id === id).name
 
@@ -939,13 +944,13 @@ export const METRICS = {
 
 /** `GET InsuranceRules/Flags` — the current flags with the numbers that raised them. */
 export const FLAGS = [
-  { ruleId: 'G-002', name: nameOf('G-002'), kind: 'noisy', since: '2026-10-20', fires: 40, overridden: 36, previousAverage: 38, lastFired: '2026-10-27T09:05:00' },
-  { ruleId: 'G-003', name: nameOf('G-003'), kind: 'jump', since: '2026-10-25', fires: 240, overridden: 0, previousAverage: 16, lastFired: '2026-10-24T11:30:00' },
-  { ruleId: 'G-004', name: nameOf('G-004'), kind: 'silent', since: '2026-10-01', fires: 0, overridden: 0, previousAverage: 0, lastFired: null },
+  { ruleId: 'G-002', kind: 'noisy', since: '2026-10-20', lastSeenOn: '2026-10-26', fires: 40, overridden: 36, previousAverage: 38 },
+  { ruleId: 'G-003', kind: 'jump', since: '2026-10-25', lastSeenOn: '2026-10-26', fires: 240, overridden: 0, previousAverage: 16 },
+  { ruleId: 'G-004', kind: 'silent', since: '2026-10-01', lastSeenOn: '2026-10-26', fires: 0, overridden: 0, previousAverage: 0 },
 ]
 
 /** `GET InsuranceRules/Settings/Flags` — the flag job's thresholds (3141's defaults). */
-export const FLAG_SETTINGS = { noisyOverrideRate: 0.8, noisyMinFires: 30, windowDays: 30, silentDays: 60, jumpFactor: 10 }
+export const FLAG_SETTINGS = { noisyOverridePct: 80, noisyMinFires: 30, noisyDays: 30, silentDays: 60, jumpFactor: 10, jumpDays: 30, jumpMinFires: 10 }
 
 /** `GET InsuranceRules/Rejections` — by code (or the payer's words), payer and same kind. */
 export const REJECTIONS = [
@@ -979,11 +984,14 @@ export function insuranceMetricsStub(method, path, query, opts = {}) {
   if (!door) return null
   asked.push({ door, params: Object.fromEntries(query) })
   if (deny.includes(door)) return { status: 403, body: '' }
-  if (door === 'metrics') return envelope(METRICS[query.get('by')] ?? [])
+  // Per day unless `daily=false` (3141): the day fixtures stand for one rule's rows, each with its day.
+  if (door === 'metrics')
+    return envelope(query.get('daily') === 'false' ? (METRICS[query.get('by')] ?? []) : query.get('by') === 'rule' ? METRICS.day.map((r) => ({ ...r, key: 'G-002', day: r.key })) : [])
   if (door === 'flags') return envelope(FLAGS)
   if (door === 'flagSettings') return envelope(opts.settings ?? FLAG_SETTINGS)
   const payer = query.get('payer')
-  return envelope(payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS)
+  const withGuards = (r) => ({ ...r, words: r.words ?? '', guards: r.liveGuard ? ['G-002'] : [] })
+  return envelope((payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS).map(withGuards))
 }
 
 // --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134). Order doors in the

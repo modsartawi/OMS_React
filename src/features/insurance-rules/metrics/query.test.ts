@@ -31,7 +31,9 @@ describe('the metrics address', () => {
   })
 
   it('theDoorParams_dropAnEmptyPayer', () => {
-    expect(metricsParams(read('by=pharmacist'))).toEqual({ by: 'pharmacist', from: '2026-09-28', to: '2026-10-27' })
+    expect(metricsParams(read('by=pharmacist'))).toEqual({ by: 'pharmacist', from: '2026-09-28', to: '2026-10-27', daily: 'false' })
+    // 618: no `by=day` door — the day view reads the rule rows per day.
+    expect(metricsParams(read('by=day'))).toEqual({ by: 'rule', from: '2026-09-28', to: '2026-10-27', daily: 'true' })
     expect(metricsParams(read('payer=BUPA'), true)).toEqual({ payer: 'BUPA', from: '2026-09-28', to: '2026-10-27' })
   })
 })

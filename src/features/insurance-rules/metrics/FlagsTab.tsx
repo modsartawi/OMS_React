@@ -39,7 +39,7 @@ export default function FlagsTab() {
           <Trans
             t={t}
             i18nKey="flags.thresholds"
-            values={{ noisyPct: Math.round(s.noisyOverrideRate * 100), noisyMinFires: s.noisyMinFires, windowDays: s.windowDays, silentDays: s.silentDays, jumpFactor: s.jumpFactor }}
+            values={{ noisyPct: s.noisyOverridePct, noisyMinFires: s.noisyMinFires, windowDays: s.noisyDays, silentDays: s.silentDays, jumpFactor: s.jumpFactor }}
             components={{ v: <Ltr /> }}
           />
         ) : (
@@ -108,7 +108,13 @@ function SettingsForm({ settings, onDone }: { settings: FlagSettings; onDone: ()
     },
     onError: (err) => notify.apiError(t('flags.settings.failed'), err, isBareDenial(err) ? t('access.deniedHint') : t('flags.settings.failed')),
   })
-  const UNIT: Record<string, string> = { noisyPct: t('flags.settings.unit.pct'), windowDays: t('flags.settings.unit.days'), silentDays: t('flags.settings.unit.days'), jumpFactor: t('flags.settings.unit.times') }
+  const UNIT: Record<string, string> = {
+    noisyPct: t('flags.settings.unit.pct'),
+    noisyDays: t('flags.settings.unit.days'),
+    silentDays: t('flags.settings.unit.days'),
+    jumpFactor: t('flags.settings.unit.times'),
+    jumpDays: t('flags.settings.unit.days'),
+  }
   return (
     <form
       className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3"

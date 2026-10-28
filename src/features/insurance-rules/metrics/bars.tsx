@@ -8,11 +8,10 @@ import { METRICS_OUTCOMES, outcomeShares, totalFires, type FiresBySeverity, type
 // right). Each bar is a picture of numbers the row also writes out, so the bar itself is `aria-hidden`.
 
 export const OUTCOME_FILL: Record<MetricsOutcome, string> = {
-  removed: 'bg-danger',
-  changed: 'bg-attention',
-  overridden: 'bg-post',
   acknowledged: 'bg-primary',
+  overridden: 'bg-post',
   exception: 'bg-muted-foreground',
+  unanswered: 'bg-attention',
 }
 
 /** A row's fires, stacked heaviest first, the bar's length its share of the busiest row. */

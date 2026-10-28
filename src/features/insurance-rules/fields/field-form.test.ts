@@ -11,13 +11,13 @@ const field = (key: string, retired = false): RegistryField => ({
   key,
   label: { en: key, ar: key },
   scope: 'item',
-  type: 'code',
+  type: 'text',
   unit: null,
   source: `ItemInfo.${key}`,
   retired,
 })
 const existing = [field('ECode'), field('DCode', true)]
-const form: FieldForm = { source: 'ItemInfo.HouseBrand', key: 'HouseBrand', labelEn: 'House brand', labelAr: 'العلامة الخاصة', scope: 'item', type: 'code', unit: '' }
+const form: FieldForm = { source: 'ItemInfo.HouseBrand', key: 'HouseBrand', labelEn: 'House brand', labelAr: 'العلامة الخاصة', scope: 'item', type: 'text', unit: '' }
 
 describe('fieldProblems', () => {
   it('a complete form has none', () => {
@@ -44,7 +44,7 @@ describe('fieldBody and suggestKey', () => {
       key: 'HouseBrand',
       label: { en: 'House brand', ar: 'العلامة الخاصة' },
       scope: 'item',
-      type: 'code',
+      type: 'text',
       unit: null,
       source: 'ItemInfo.HouseBrand',
     })

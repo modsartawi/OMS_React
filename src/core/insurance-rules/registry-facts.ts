@@ -5,9 +5,8 @@ import { liveFields, type RegistryField } from './registry'
 // holds — item, request, patient and eligibility fields — so a field the team adds appears in every picker at
 // once, and an eligibility fact (`coverage.periodEnd`, a benefit's copay) is just a field of scope `eligibility`.
 //
-// ⚠️ PROVISIONAL `$`-path grammar (617; 608 guessed `$patient.age`, `$request.payer`): a field is read as
-// `$<scope>.<key>` — `$eligibility.coverage.periodEnd`, as the "supply past coverage end" template spells it.
-// 3131 / 3144 own it; 618 reconciles.
+// The `$`-path is the editor's name for a fact, `$<scope>.<key>` (`$eligibility.coverage.periodEnd`, `$patient.age`);
+// on the wire it is the engine's block of that scope, `{ check: <scope>, field: <key>, … }` (`./guard-wire`, oms 618).
 
 /** `$<scope>.<key>`. */
 export const factPath = (f: Pick<RegistryField, 'scope' | 'key'>): string => `$${f.scope}.${f.key}`
@@ -19,14 +18,24 @@ export const fieldOfPath = (fields: readonly RegistryField[], path: string): Reg
 export type FactKind = 'number' | 'date' | 'codes'
 export const factKind = (f: Pick<RegistryField, 'type'>): FactKind => (f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'codes')
 
-/** The `fact` block's fields: every live field that is not a day (a day is the `line` block's "after"). */
-export const factFields = (fields: readonly RegistryField[]): RegistryField[] => liveFields(fields).filter((f) => factKind(f) !== 'date')
+/**
+ * The `fact` block's fields: every live field that is not a day (a day is the `line` block's "after") and not an
+ * ITEM field — SIS.Rules reads an item-master field only as an item list's attribute filter (3132), never as a block
+ * of its own, so it is offered in the Lists screen, not here (oms 618).
+ */
+export const factFields = (fields: readonly RegistryField[]): RegistryField[] =>
+  liveFields(fields).filter((f) => f.scope !== 'item' && factKind(f) !== 'date')
 
 /** The days a line's supply end can be compared with ("after the coverage end"). */
 export const dateFields = (fields: readonly RegistryField[]): RegistryField[] => liveFields(fields).filter((f) => factKind(f) === 'date')
 
-/** The `line` block's numeric fields: the request line's numbers (days supply, quantity, price). */
-export const lineFields = (fields: readonly RegistryField[]): RegistryField[] => liveFields(fields, 'request').filter((f) => factKind(f) === 'number')
+/**
+ * The `line` block's numeric fields: the line facts HQ's registry holds (scope `line`, 3171's `idfPriority`) and any
+ * request number. ⚠️ The registry seeds none of the engine's own line fields (`daysSupply`, `quantity`, `price`) —
+ * listed on oms 618 for BackOffice.
+ */
+export const lineFields = (fields: readonly RegistryField[]): RegistryField[] =>
+  liveFields(fields).filter((f) => (f.scope === 'line' || f.scope === 'request') && factKind(f) === 'number')
 
 /** A unit as the locales name it (`editor.unit.*` / `sentence.fact.unit.*`), or null to show it as written. */
 export function unitKey(unit: string | null | undefined): 'days' | 'years' | 'units' | 'sar' | 'percent' | null {

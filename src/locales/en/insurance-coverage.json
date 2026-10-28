@@ -105,7 +105,8 @@
       "request": "Request",
       "item": "Item",
       "eligibility": "Eligibility (insurer's answer)",
-      "patient": "Patient"
+      "patient": "Patient",
+      "line": "Line facts"
     },
     "op": "Comparison",
     "opName": {

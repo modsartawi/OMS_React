@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3185 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3157-oms-react-idf-brief.md, section "Spec 3185")
 blocked-by: —
 ---
@@ -25,8 +25,8 @@ model/api · logic (form validity) · route + menu + component · i18n (EN+AR) �
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `group form: number required and ≤ 26, description required, number fixed on edit` · pure
-- [ ] drive `tools/idf-groups-drive.mjs` — search, add, edit, a refused remove of a group with items, remove of an empty
+- [x] `group form: number required and ≤ 26, description required, number fixed on edit` · pure
+- [x] drive `tools/idf-groups-drive.mjs` — search, add, edit, a refused remove of a group with items, remove of an empty
   group, export (LTR + RTL) · flow
 
 ## Boundaries
@@ -41,3 +41,18 @@ Against stubs, groups are listed, added, edited, exported, and removed only when
 ## Blocked by
 
 None (can start immediately).
+
+## Done (2026-10-28)
+
+- Pure `groups.ts` (form problems, add/edit bodies, `canRemoveGroup`, `refusedItemCount`, `?q=&page=` address) —
+  `groups.test.ts` 10/10; doors `idfGroupsApi` + `groupsQuery` (slot 652 in `api.ts`) — `groups-doors.test.ts` 3/3.
+- `GroupsPage.tsx` + `GroupDialog.tsx` (add/edit Modal, remove Modal with an inline refusal: message + count `Ltr`;
+  the list re-reads on a refusal so the row shows its real count). Route `idf/groups`, menu leaf `menu.idfGroups`,
+  i18n object `groups` EN+AR.
+- Shared download seam (notes §5b) created here: `download.ts` (slots for 644/650/651; 652's
+  `groupsExportFileName` / `groupsTemplateFileName`) + `DownloadButton.tsx` (`{ fetch, fallbackName, label,
+  failedLabel, hook, disabled? }`, 627's `api.blob` → `saveBlob` → `notify.apiError`).
+- `idfGroupsApi.template()` door is in; the Template BUTTON is left to 653 (beside its Import, `{/* 653 · … */}` slot).
+- Drive `tools/idf-groups-drive.mjs` (default port 5217) 60/60 stubbed, LTR + RTL. Gates: typecheck, lint, test green.
+- Settled myself (overrulable): a remove refusal stays in the dialog (business outcome), not a toast; the remove door
+  is called with no body (`api.del`); a refused export is an error toast with the server's message.

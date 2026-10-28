@@ -150,5 +150,11 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 627 · swap report (a tab of 626's page; a route only if it is its own)
+
+    // 652 · IDF groups (`idf/groups`; 653's import is on its page)
+    {
+      path: 'idf/groups',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/GroupsPage')).default }),
+    },
   ],
 }

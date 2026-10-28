@@ -18,7 +18,8 @@
     "idfStoreLists": "قوائم صيدليات IDF",
     "idfExceptions": "استثناءات IDF",
     "idfLookup": "استعلام IDF",
-    "idfEvents": "أحداث IDF"
+    "idfEvents": "أحداث IDF",
+    "idfGroups": "مجموعات IDF"
   },
   "state": {
     "draft": "مسودة",

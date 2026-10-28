@@ -1,3 +1,4 @@
+import { guardRuleIn } from './guard-wire'
 import { requestListField, type GuardRule, type Says } from './model'
 
 // Guard templates (BackOffice spec 3126, door 3139; oms ticket 609). The gallery holds HQ's phase-1 templates
@@ -6,35 +7,70 @@ import { requestListField, type GuardRule, type Says } from './model'
 // makes an independent draft rule. In core because the Templates gallery fills them and the Guards rule
 // page saves a rule as one (a feature may not import another).
 //
-// ⚠️ PROVISIONAL shapes (609), 618 reconciles — the brief names the doors only:
-// - `GET InsuranceRules/Guards/Templates` → `GuardTemplate[]` (`source`, `conflictCode`, `rule`, `blanks`);
-// - `POST …/Templates` body `{ ruleId, name, blanks: [path] }` → the saved `GuardTemplate`;
-// - `POST …/Templates/{id}/Create` body `{ values: { [path]: value }, folder }` → the created draft `GuardRule`
-//   (HQ mints its id and adds it to the draft).
-// - A blank path is the rule's JSON path, the grammar of HQ's checks (`when[0].conditions[2].windowDays`).
+// As BUILT (BackOffice 3139; oms 618 reconciled 609's guesses):
+// - `GET InsuranceRules/Guards/Templates` → `[{ id, origin: phase1|team, name, conflictCode, rule, blanks: [path],
+//   updatedBy, updatedAt }]` — read by `templateIn` (the rule through `./guard-wire`, each path a `TemplateBlank`);
+// - `POST …/Templates { id, name, ruleId, blanks: [path] }` saves a rule (the draft's, else the newest version's) as
+//   a team template; the same `id` replaces it, a phase-1 id is 409 `GUARDS_TEMPLATE_READ_ONLY`;
+// - `POST …/Templates/{id}/Create { revision, ruleId, name?, folder?, values: { [blank path]: value } }` adds an
+//   independent copy to the draft as `state: draft` and answers the DRAFT (the client names the rule; a value for a
+//   path that is not a blank is 400).
+// - A blank path is the rule's JSON path in the ENGINE's spelling (`when[0].windowDays`, `then[0].severity`); the
+//   codec keeps every index and every value a template blanks, so the path reads the same in the editor's rule.
 
+/** Where a template came from: HQ's phase-1 gallery (read-only) or saved by the team. HQ calls it `origin`. */
 export type TemplateSource = 'phase1' | 'team'
 
 export interface TemplateBlank {
-  /** The rule's JSON path the author fills: `name`, `filters[0].list`, `when[0].windowDays`. */
+  /** The rule's JSON path the author fills: `when[0].windowDays`, `then[0].severity`. */
   path: string
-  /** What the author is asked; a team template's blanks have none (the client names them by the path). */
+  /** What the author is asked. HQ sends paths only, so the client names a blank by its path's last key. */
   label?: Says | null
 }
 
 export interface GuardTemplate {
   id: string
-  source: TemplateSource
+  origin: TemplateSource
   name: Says
   /** The DUR conflict code (NCPDP 439-E4) the gallery shows; null when the template has none. */
   conflictCode: string | null
   /** The rule, each blank holding its default (a number) or an empty value. Its id and state are not used. */
   rule: GuardRule
   blanks: TemplateBlank[]
-  /** A team template's author and local moment. */
-  createdBy?: string | null
-  createdAt?: string | null
+  /** Who last saved it and when (local); `seed` for the phase-1 rows. */
+  updatedBy?: string | null
+  updatedAt?: string | null
 }
+
+/** A template as `GET …/Templates` sends it (3139). */
+export interface GuardTemplateReply {
+  id: string
+  origin: string
+  name: Says
+  conflictCode: string | null
+  rule: unknown
+  blanks: string[]
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+/** The reply → the gallery's template: the rule through the wire codec, each blank path a `TemplateBlank`. */
+export const templateIn = (t: GuardTemplateReply): GuardTemplate => ({
+  id: t.id,
+  origin: t.origin === 'team' ? 'team' : 'phase1',
+  name: t.name ?? { en: '', ar: '' },
+  conflictCode: t.conflictCode || null,
+  rule: guardRuleIn(t.rule),
+  blanks: (t.blanks ?? []).map((path) => ({ path })),
+  updatedBy: t.updatedBy || null,
+  updatedAt: t.updatedAt || null,
+})
+
+/**
+ * The id a rule's team template is saved under (`POST …/Templates` names it): `team-<rule id>`, letters, digits,
+ * `.`, `_`, `-`, up to 40. Saving the same rule again replaces its template.
+ */
+export const teamTemplateId = (ruleId: string): string => `team-${ruleId}`.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 40)
 
 /** A blank's value: a number, a text (a list id, a day), or EN + AR words. */
 export type BlankValue = number | string | Says
@@ -94,6 +130,10 @@ export function blankIsEmpty(v: unknown): boolean {
   return true
 }
 
+/** The list id a list blank holds (`match` blanks carry it as `list:<id>`), and the value that picks one. */
+export const listBlankId = (path: string, v: unknown): string => (blankKey(path) === 'match' ? String(v ?? '').replace(/^list:/, '') : String(v ?? ''))
+export const listBlankValue = (path: string, id: string): string => (blankKey(path) === 'match' && id ? `list:${id}` : id)
+
 // ── Fill a template ───────────────────────────────────────────────────────────────────────────
 
 /** The value each blank ends with: the author's, else the template's default. */
@@ -121,6 +161,17 @@ export function fillTemplate(
   return { ...rule, id, folder: folder ?? rule.folder, state: 'draft' }
 }
 
+/**
+ * The blank values Create sends: only blanks whose value differs from the template's (a blank not given keeps the
+ * template's value at HQ), so an untouched default is never re-sent in another spelling.
+ */
+export function changedValues(t: GuardTemplate, values: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const b of t.blanks)
+    if (b.path in values && JSON.stringify(values[b.path]) !== JSON.stringify(valueAt(t.rule, b.path))) out[b.path] = values[b.path]
+  return out
+}
+
 // ── Save a rule as a template ─────────────────────────────────────────────────────────────────
 
 export interface BlankCandidate {
@@ -128,30 +179,37 @@ export interface BlankCandidate {
   value: BlankValue
 }
 
-/** Texts in a condition worth a blank: a patient / policy list, a day, a formula. Block kinds never are. */
-const TEXT_KEYS = new Set(['after', 'formula', 'list'])
+/** Texts in a condition worth a blank: a patient / policy list, a day. Block kinds never are. */
+const TEXT_KEYS = new Set(['after', 'list'])
 
+/**
+ * The candidates of one condition, by the path HQ reads (the ENGINE's spelling, `./guard-wire`): a line block's
+ * `below` is `under` there, a `match: list:<id>` is offered whole, and a fact or formula block — spelled differently
+ * on the wire — offers none.
+ */
 function conditionCandidates(c: unknown, at: string, out: BlankCandidate[]) {
   if (c === null || typeof c !== 'object') return
   const o = c as Record<string, unknown>
+  if (o.check === 'fact' || o.check === 'formula') return
   for (const [k, v] of Object.entries(o)) {
-    const path = `${at}.${k}`
+    const key = o.check === 'line' && k === 'below' ? 'under' : k
+    const path = `${at}.${key}`
     if (k === 'conditions' && Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'number') out.push({ path, value: v })
-    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || requestListField(o as { check: string }) !== null)))) out.push({ path, value: v })
+    else if (typeof v === 'string' && k === 'match' && v.startsWith('list:')) out.push({ path, value: v })
+    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || o.check === 'line' || requestListField(o as { check: string }) !== null)))) out.push({ path, value: v })
     else if (Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'object' && v !== null) conditionCandidates(v, path, out)
   }
 }
 
 /**
- * The values of a rule an author may make blanks when saving it as a template, in the rule's order: its
- * name, each filter's list, every number and list / day / formula of its conditions, and each message.
- * A line's `inList` (a filter alias) is not offered — its filter's list is.
+ * The values of a rule an author may make blanks when saving it as a template, in the rule's order: its name,
+ * every number and list / day of its conditions, and each message — each by the path HQ checks it at (3139 refuses
+ * a blank that is not a field of the rule it stores, which has no `filters`).
  */
 export function blankCandidates(rule: GuardRule): BlankCandidate[] {
   const out: BlankCandidate[] = [{ path: 'name', value: rule.name }]
-  rule.filters.forEach((f, i) => out.push({ path: `filters[${i}].list`, value: f.list }))
   rule.when.forEach((c, i) => conditionCandidates(c, `when[${i}]`, out))
   rule.then.forEach((e, i) => out.push({ path: `then[${i}].says`, value: e.says }))
   return out
@@ -171,7 +229,10 @@ export function blankKind(t: Pick<GuardTemplate, 'rule'>, path: string): BlankKi
   const v = valueAt(t.rule, path)
   if (isSays(v)) return 'says'
   if (typeof v === 'number') return 'number'
-  return blankKey(path) === 'list' ? 'list' : 'text'
+  const key = blankKey(path)
+  if (key === 'list' || key === 'inList') return 'list'
+  // A history / volume block names its list as `match: "list:<id>"` (the engine's spelling, 3130).
+  return key === 'match' && typeof v === 'string' && (v === '' || v.startsWith('list:')) ? 'list' : 'text'
 }
 
 /** The blank keys named in words (`insurance-rules:template.blank.<key>`); any other reads `other` + its path. */
@@ -193,6 +254,10 @@ export const BLANK_WORDS = [
   'assumeDays',
   'priceAbove',
   'consumedBelow',
+  'severity',
+  'match',
+  'by',
+  'eligibleDaysBeforeDueFor',
 ] as const
 
 export const blankWord = (path: string): string => {

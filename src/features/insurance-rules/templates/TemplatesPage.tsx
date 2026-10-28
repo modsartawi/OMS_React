@@ -64,7 +64,7 @@ function Gallery() {
   return (
     <>
       {SOURCES.map((source) => {
-        const shown = templates.data.filter((x) => x.source === source)
+        const shown = templates.data.filter((x) => x.origin === source)
         return (
           <section key={source} className="flex flex-col gap-2" data-templates={source}>
             <h2 className="text-sm font-semibold">{t(`source.${source}`)}</h2>
@@ -114,9 +114,9 @@ function TemplateCard({ template, lists, onUse }: { template: GuardTemplate; lis
       <div className="text-xs" data-template-reads="">
         <ConditionTree nodes={s.conditions} />
       </div>
-      {template.source === 'team' && (template.createdBy || template.createdAt) && (
+      {template.origin === 'team' && (template.updatedBy || template.updatedAt) && (
         <p className="text-xs text-muted-foreground" data-template-by="">
-          {t('savedBy')} <bdi>{template.createdBy}</bdi> {template.createdAt && <Ltr>{formatDateTime(template.createdAt)}</Ltr>}
+          {t('savedBy')} <bdi>{template.updatedBy}</bdi> {template.updatedAt && <Ltr>{formatDateTime(template.updatedAt)}</Ltr>}
         </p>
       )}
       <div className="mt-auto flex items-center gap-2 pt-1">

@@ -7,7 +7,7 @@ import { GUARD_DRAFT_KEY } from '@/core/insurance-rules/api'
 import BlankLabel from '@/core/insurance-rules/BlankLabel'
 import { folderPaths, folderTree } from '@/core/insurance-rules/folders'
 import type { GuardRule } from '@/core/insurance-rules/model'
-import { GUARD_TEMPLATES_KEY, blankCandidates, type BlankValue } from '@/core/insurance-rules/templates'
+import { GUARD_TEMPLATES_KEY, blankCandidates, teamTemplateId, type BlankValue } from '@/core/insurance-rules/templates'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
@@ -19,9 +19,9 @@ import { fsi } from '@/core/util/bidi'
 import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi, guardFoldersQuery } from './api'
 
 /**
- * The rule page's Organize card (609): move the rule to a folder (`PUT …/Folders { rules, to }`, authoring
+ * The rule page's Organize card (609): move the rule to a folder (`PUT …/Folders { ruleId, folder }`, authoring
  * only, no approval) and save it as a team template, choosing which of its values become blanks
- * (`POST …/Templates { ruleId, name, blanks }`).
+ * (`POST …/Templates { id: team-<rule id>, ruleId, name, blanks }`).
  */
 export default function OrganizeCard({ rule, rules }: { rule: GuardRule; rules: readonly GuardRule[] }) {
   const { t } = useTranslation('insurance-guards')
@@ -32,7 +32,7 @@ export default function OrganizeCard({ rule, rules }: { rule: GuardRule; rules: 
   const [saving, setSaving] = useState(false)
 
   const move = useMutation({
-    mutationFn: (folder: string) => guardFoldersApi.move([rule.id], folder).then(() => folder),
+    mutationFn: (folder: string) => guardFoldersApi.move(rule.id, folder).then(() => folder),
     onSuccess: (folder) => {
       for (const queryKey of [GUARD_DRAFT_KEY, GUARDS_KEY, GUARD_FOLDERS_KEY]) void queryClient.invalidateQueries({ queryKey })
       notify.success(folder ? t('organize.moved', { folder: fsi(folder) }) : t('organize.movedOut'))
@@ -99,7 +99,8 @@ function SaveTemplateDialog({ rule, onClose, onSaved }: { rule: GuardRule; onClo
   const [name, setName] = useState({ en: rule.name.en, ar: rule.name.ar })
   const [blanks, setBlanks] = useState<string[]>([])
   const save = useMutation({
-    mutationFn: () => guardFoldersApi.saveAsTemplate({ ruleId: rule.id, name, blanks: candidates.map((c) => c.path).filter((p) => blanks.includes(p)) }),
+    mutationFn: () =>
+      guardFoldersApi.saveAsTemplate({ id: teamTemplateId(rule.id), ruleId: rule.id, name, blanks: candidates.map((c) => c.path).filter((p) => blanks.includes(p)) }),
     onSuccess: () => {
       notify.success(t('saveTemplate.saved', { name: fsi(name.en) }))
       onSaved()

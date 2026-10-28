@@ -26,10 +26,12 @@ import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
 import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
 import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
+import type { IdfDraftGroupBody } from './draft' // 646
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 import type { IdfChangesPage } from './changes' // 650
 import { changesDoorParams, changesExportParams, type IdfChangesQuery } from './changes-filter' // 650
+import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -272,7 +274,20 @@ export function draftBaseQuery(masterId: string, versionId: string) {
   return { queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, 'all'] as const, queryFn: () => idfDraftApi.baseRows(masterId, versionId), retry: false } as const
 }
 
-// 646 · draft owner, rebase, add a group (3190)
+// 646 · draft owner, rebase, add a group (3190) — `idfDraftOwnerApi`
+export const idfDraftOwnerApi = {
+  /** `POST …/draft/rebase` — re-applies the draft's edits on the current live version. The answer is not specced; refetch. */
+  rebase(masterId: string): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/rebase`, {})
+  },
+  /**
+   * `POST …/draft/groups { idfNumber, priority }` — every member of the group, each checked as an add; answers the draft
+   * plus `{ added, rows: [{ itemNumber, rule, messageEn, messageAr }] }` (read it with `groupAddResult`).
+   */
+  addGroup(masterId: string, body: IdfDraftGroupBody): Promise<unknown> {
+    return api.post<unknown>(`${draftPath(masterId)}/groups`, body)
+  },
+}
 
 // 647 · general master items — `idfGeneralApi` (3191). 648–651 key their reads under `IDF_GENERAL_KEY` (650's change
 // log as `IDF_GENERAL_CHANGES_KEY`) so a general write can invalidate the general master alone.
@@ -293,7 +308,18 @@ export function generalItemsQuery(q: IdfItemsQuery) {
   } as const
 }
 
-// 648 · set / clear one general item (3192)
+// 648 · set / clear one general item (3192). Both apply at once; the caller invalidates `IDF_GENERAL_KEY`.
+export const idfGeneralEditApi = {
+  /** `PUT IdfPriority/general/items/{itemNumber} { idfNumber, priority, reason }` — set or re-rank one item. */
+  set(itemNumber: string, body: IdfGeneralSetBody): Promise<unknown> {
+    return api.put<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+  /** `DELETE IdfPriority/general/items/{itemNumber} { reason }` — the reason in the BODY. */
+  clear(itemNumber: string, reason: string): Promise<unknown> {
+    const body: IdfGeneralClearBody = { reason }
+    return api.delWithBody<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+}
 
 // 649 · general upload → preview → apply (3193)
 
@@ -314,7 +340,17 @@ export function generalChangesQuery(q: IdfChangesQuery) {
   return { queryKey: [...IDF_GENERAL_CHANGES_KEY, changesDoorParams(q)] as const, queryFn: () => idfChangesApi.changes(q), retry: false } as const
 }
 
-// 651 · general export + template (3195)
+// 651 · general export + template — `idfGeneralFilesApi` (3195)
+export const idfGeneralFilesApi = {
+  /** `GET IdfPriority/general/export` — the whole general master as `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/export`)
+  },
+  /** `GET IdfPriority/general/template` — the general upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/template`)
+  },
+}
 
 // 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
 export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const

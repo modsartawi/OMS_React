@@ -136,6 +136,17 @@ describe('645 · the draft doors', () => {
   })
 })
 
+// 646 · draft owner, rebase, add a group (3190)
+describe('646 · the rebase and add-a-group doors', () => {
+  it('rebases and adds a group at the draft paths', async () => {
+    const { idfDraftOwnerApi } = await import('./api')
+    await idfDraftOwnerApi.rebase('M BUPA')
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M%20BUPA/draft/rebase', {})
+    await idfDraftOwnerApi.addGroup('M-BUPA', { idfNumber: 'IDF-CETI', priority: 2 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/groups', { idfNumber: 'IDF-CETI', priority: 2 })
+  })
+})
+
 // 647 · the general master's items (3191)
 describe('647 · the general items door', () => {
   it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {
@@ -157,5 +168,27 @@ describe('650 · the general change log doors', () => {
     expect(api.get).toHaveBeenCalledWith('IdfPriority/general/changes', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27', page: '2' })
     await idfChangesApi.export(q)
     expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/changes/export', { item: '300110', idf: '', user: 'aali', from: '2026-10-01', to: '2026-10-27' })
+  })
+})
+
+// 648 · set / clear one general item (3192)
+describe('648 · the general item edit doors', () => {
+  it('sets an item with PUT { idfNumber, priority, reason } and clears it with DELETE { reason } in the body', async () => {
+    const { idfGeneralEditApi } = await import('./api')
+    await idfGeneralEditApi.set('300 110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    expect(api.put).toHaveBeenCalledWith('IdfPriority/general/items/300%20110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    await idfGeneralEditApi.clear('300110', 'Withdrawn')
+    expect(api.delWithBody).toHaveBeenCalledWith('IdfPriority/general/items/300110', { reason: 'Withdrawn' })
+  })
+})
+
+// 651 · general export + template (3195)
+describe('651 · the general export and template doors', () => {
+  it('export reads the whole general master as a file; template reads the blank file', async () => {
+    const { idfGeneralFilesApi } = await import('./api')
+    await idfGeneralFilesApi.export()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/export')
+    await idfGeneralFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/general/template')
   })
 })

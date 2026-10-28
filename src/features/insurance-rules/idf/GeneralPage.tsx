@@ -11,9 +11,17 @@ import { generalItemsQuery } from './api'
 import { generalFromParams, generalToParams, IDF_GENERAL_TABS, switchGeneralTab, type IdfGeneralQuery } from './general'
 import ItemsTable from './ItemsTable' // 643's table, shared
 // 648 · imports (GeneralItemDialog, the Clear modal)
+import { useState } from 'react'
+import { Eraser, Pencil, Plus } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import { ClearGeneralItemDialog, GeneralItemDialog } from './GeneralItemDialog'
+import type { IdfEntryRow } from './items'
 // 649 · imports (GeneralUpload)
 import ChangeLog from './ChangeLog' // 650
 // 651 · imports (the download buttons)
+import { idfGeneralFilesApi } from './api' // 651
+import DownloadButton from './DownloadButton' // 651
+import { generalExportFileName, generalTemplateFileName } from './download' // 651
 
 /** The general master's tier in the resolution order (insurer at a store list → insurer → store → general). */
 const GENERAL_TIER = 4
@@ -38,6 +46,7 @@ const GENERAL_TIER = 4
 export default function GeneralPage() {
   const { t } = useTranslation('insurance-idf')
   const { query, update } = useUrlQuery(generalFromParams, generalToParams)
+  const [setting, setSetting] = useState(false) // 648 · Set item
   return (
     <section className="flex h-full w-full flex-col gap-4" data-idf-general-page="">
       <Link to="/insurance-rules/idf/masters" className="text-xs text-muted-foreground hover:text-foreground" data-idf-back="">
@@ -55,7 +64,26 @@ export default function GeneralPage() {
 
       <div className="flex flex-wrap items-center gap-2" data-idf-general-actions="">
         {/* 648 · Set item */}
-        {/* 651 · Export / Template */}
+        <Button variant="secondary" onClick={() => setSetting(true)} data-idf-general-set="">
+          <Plus className="h-4 w-4" aria-hidden />
+          {t('generalEdit.setItem')}
+        </Button>
+        {setting && <GeneralItemDialog row={null} onClose={() => setSetting(false)} />}
+        {/* 651 · Export / Template — the ticket puts Template beside 649's Upload; it sits here until the review places it. */}
+        <DownloadButton
+          fetch={() => idfGeneralFilesApi.export()}
+          fallbackName={generalExportFileName()}
+          label={t('download.export')}
+          failedLabel={t('download.exportFailed')}
+          hook="data-idf-general-export"
+        />
+        <DownloadButton
+          fetch={() => idfGeneralFilesApi.template()}
+          fallbackName={generalTemplateFileName()}
+          label={t('download.template')}
+          failedLabel={t('download.templateFailed')}
+          hook="data-idf-general-template"
+        />
       </div>
 
       {/* 649 · Upload */}
@@ -79,6 +107,7 @@ export default function GeneralPage() {
 function GeneralItems({ query, update }: { query: IdfGeneralQuery; update: (change: (q: IdfGeneralQuery) => IdfGeneralQuery) => void }) {
   const { t } = useTranslation('insurance-idf')
   const items = useQuery({ ...generalItemsQuery(query.items), placeholderData: keepPreviousData })
+  const [open, setOpen] = useState<{ kind: 'edit' | 'clear'; row: IdfEntryRow } | null>(null) // 648
   return (
     <div className="flex max-w-5xl flex-col gap-3 rounded-md border border-border/60 bg-card p-3" role="tabpanel" data-idf-general-items="">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -86,7 +115,7 @@ function GeneralItems({ query, update }: { query: IdfGeneralQuery; update: (chan
         {t('general.tabs.items')}
       </div>
       <p className="text-xs text-muted-foreground">{t('general.itemsLede')}</p>
-      {/* 648 · Edit / Clear on each row: pass `actions={(row) => …}` to ItemsTable below */}
+      {/* 648 · Edit / Clear on each row (ItemsTable's `actions`) */}
       <ItemsTable
         page={items.data}
         error={items.isError ? items.error : null}
@@ -94,7 +123,21 @@ function GeneralItems({ query, update }: { query: IdfGeneralQuery; update: (chan
         onQuery={(change) => update((q) => ({ ...q, items: change(q.items) }))}
         busy={items.isFetching}
         empty={t('general.empty')}
+        actions={(row) => (
+          <span className="flex gap-1">
+            <Button variant="text" onClick={() => setOpen({ kind: 'edit', row })} data-idf-general-edit={row.itemNumber}>
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t('generalEdit.edit')}
+            </Button>
+            <Button variant="text" onClick={() => setOpen({ kind: 'clear', row })} data-idf-general-clear={row.itemNumber}>
+              <Eraser className="h-3.5 w-3.5" aria-hidden />
+              {t('generalEdit.clear')}
+            </Button>
+          </span>
+        )}
       />
+      {open?.kind === 'edit' && <GeneralItemDialog row={open.row} onClose={() => setOpen(null)} />}
+      {open?.kind === 'clear' && <ClearGeneralItemDialog row={open.row} onClose={() => setOpen(null)} />}
     </div>
   )
 }

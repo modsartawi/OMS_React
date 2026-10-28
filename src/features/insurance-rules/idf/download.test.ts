@@ -37,5 +37,14 @@ describe('change log export file name (650)', () => {
 })
 
 // 651 · general export + template
+import { generalExportFileName, generalTemplateFileName } from './download' // 651
+describe('general export + template file names (651)', () => {
+  it('the export names the general master', () => {
+    expect(generalExportFileName()).toBe('idf-general.xlsx')
+  })
+  it("the template is the general upload's blank file", () => {
+    expect(generalTemplateFileName()).toBe('idf-general-template.xlsx')
+  })
+})
 
 // 652 · IDF groups export + template

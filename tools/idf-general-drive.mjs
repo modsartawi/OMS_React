@@ -15,12 +15,25 @@
 //   5. `/insurance-rules/idf/masters/general` lands on the General page;
 //   6. a bare 403 on the items says "no access" while the header stays; no raw keys; no page errors.
 //
-// 648 / 649 / 650 / 651 extend this drive (their slots on the page).
+// 648 (door 3192: `PUT|DELETE IdfPriority/general/items/{itemNumber}`, stub `// --- 648 ---`) adds:
+//  10. Set item: Save stays off until item, group, a whole priority >= 1 and a reason are there; the PUT carries
+//      `{ idfNumber, priority, reason }` and the master grows by one;
+//  11. a row's Edit starts from its group and priority (item fixed); a re-rank shows the new priority on the row;
+//  12. a refused group shows the server's message in the dialog, which stays open, the row unchanged;
+//  13. Clear asks for a reason, sends it in the DELETE body, and the item leaves the master.
+//
+// 649 / 650 / 651 extend this drive (their slots on the page).
+//
+// 651 (door 3195; `// --- 651 ---` in the stubs: GET IdfPriority/general/export · GET IdfPriority/general/template):
+//   7. Export and Template sit in the General page's action row; each saves its file under the server's name;
+//   8. no server name → the client's fallback names (`idf-general.xlsx`, `idf-general-template.xlsx`);
+//   9. a refused export / template (JSON 400 envelope) toasts the server's message and saves nothing.
 //
 //   1. run the app:  npx vite --port 5214 --strictPort
 //   2. node tools/idf-general-drive.mjs        (DRIVE_PORT overrides 5214)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
+import { IDF_GENERAL_EXPORT_NAME, IDF_GENERAL_TEMPLATE_NAME } from './idf-stubs.mjs' // 651
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -34,13 +47,14 @@ const check = (name, pass, detail = '') => {
 
 const browser = await chromium.launch()
 
-async function open(dir, { deny = [] } = {}) {
+async function open(dir, { deny = [], noFileName = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   page.setDefaultNavigationTimeout(120000)
   const errors = []
   const state = newIdfState()
   const reads = {}
+  const writes = [] // 648
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -58,16 +72,16 @@ async function open(dir, { deny = [] } = {}) {
     } catch {
       body = null
     }
-    const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny })
+    const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny, noFileName, writes })
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, reads }
+  return { context, page, errors, reads, writes }
 }
 
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
-const noRawKeys = async (page) => !/insurance-(rules|idf):|general\.|items\.|upload\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
+const noRawKeys = async (page) => !/insurance-(rules|idf):|general\.|generalEdit\.|items\.|download\.|upload\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
 const ltr = (loc) => loc.locator('bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent))
 const itemRows = (page) => page.locator('[data-idf-items] tbody tr').evaluateAll((els) => els.map((e) => e.getAttribute('data-item')))
 const groupsShown = (page) => page.locator('[data-idf-items] tbody tr').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-idf')))])
@@ -80,6 +94,14 @@ const totalIs = (page, n) =>
 const typeInto = async (page, field, value) => {
   await page.locator(`[data-idf-items-filter] [data-filter="${field}"]`).fill(value)
   await page.locator(`[data-idf-items-filter] [data-filter="${field}"]`).press('Enter')
+}
+
+// 651 · the download buttons
+const G_EXPORT = '[data-idf-general-export]'
+const G_TEMPLATE = '[data-idf-general-template]'
+const download = async (page, sel) => {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator(sel).click()])
+  return { name: dl.suggestedFilename(), saved: (await dl.path()) != null }
 }
 
 for (const dir of ['ltr', 'rtl']) {
@@ -163,12 +185,157 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. no page errors (redirect)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+  // 648 · set, re-rank and clear one general item; a refused group
+  {
+    const { context, page, errors, writes } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
+    const save = page.locator('[data-general-save]')
+    const field = (dlg, f) => page.locator(`[data-idf-general-dialog="${dlg}"] [data-field="${f}"]`)
+    check(`${dir} 10. each row has Edit and Clear`, (await page.locator('[data-idf-general-edit="300110"]').count()) === 1 && (await page.locator('[data-idf-general-clear="300110"]').count()) === 1)
+
+    // 10. Set item
+    await page.locator('[data-idf-general-set]').click()
+    await page.locator('[data-idf-general-dialog="new"]').waitFor({ timeout: 30000 })
+    check(`${dir} 10. Set item opens blank, Save off`, (await field('new', 'itemNumber').inputValue()) === '' && (await save.isDisabled()))
+    await field('new', 'itemNumber').fill('300999')
+    await field('new', 'idfNumber').fill('IDF-IBU')
+    await field('new', 'priority').fill('0')
+    await field('new', 'reason').fill('Added for the shortage')
+    check(
+      `${dir} 10. a priority of 0 is not a whole number >= 1; Save off`,
+      (await page.locator('[data-idf-general-dialog="new"] [data-problem="priorityWholeNumber"]').count()) === 1 && (await save.isDisabled()),
+    )
+    await field('new', 'priority').fill('5')
+    await field('new', 'reason').fill('')
+    check(`${dir} 10. without a reason Save stays off`, await save.isDisabled())
+    await field('new', 'reason').fill('Added for the shortage')
+    check(`${dir} 10. all three valid, Save on`, await save.isEnabled())
+    await save.click()
+    await page.locator('[data-idf-general-dialog]').waitFor({ state: 'detached', timeout: 30000 })
+    await totalIs(page, 41)
+    const put = writes.at(-1)
+    check(
+      `${dir} 10. the PUT names the item and carries group, priority and reason; the master holds 41`,
+      put?.method === 'PUT' && put.path === 'IdfPriority/general/items/300999' && JSON.stringify(put.body) === '{"idfNumber":"IDF-IBU","priority":5,"reason":"Added for the shortage"}',
+      JSON.stringify(put),
+    )
+
+    // 11. Edit → re-rank
+    await page.locator('[data-idf-general-edit="300110"]').click()
+    await page.locator('[data-idf-general-dialog="300110"]').waitFor({ timeout: 30000 })
+    check(
+      `${dir} 11. Edit starts from the row (item fixed), Save off until a reason`,
+      (await field('300110', 'itemNumber').inputValue()) === '300110' &&
+        (await field('300110', 'itemNumber').isDisabled()) &&
+        (await field('300110', 'idfNumber').inputValue()) === 'IDF-PARA-500' &&
+        (await field('300110', 'priority').inputValue()) === '2' &&
+        (await save.isDisabled()),
+    )
+    await field('300110', 'priority').fill('9')
+    await field('300110', 'reason').fill('Re-ranked after the recall')
+    await save.click()
+    await page.locator('[data-idf-items] tbody tr[data-item="300110"][data-priority="9"]').waitFor({ timeout: 30000 }).catch(() => {})
+    check(
+      `${dir} 11. a re-rank shows on the row, its priority ltr`,
+      JSON.stringify(await ltr(page.locator('[data-idf-items] tbody tr[data-item="300110"] [data-col="priority"]'))) === '["9"]' &&
+        JSON.stringify(writes.at(-1)?.body) === '{"idfNumber":"IDF-PARA-500","priority":9,"reason":"Re-ranked after the recall"}',
+      JSON.stringify(writes.at(-1)),
+    )
+
+    // 12. a refused group
+    await page.locator('[data-idf-general-edit="300120"]').click()
+    await page.locator('[data-idf-general-dialog="300120"]').waitFor({ timeout: 30000 })
+    await field('300120', 'idfNumber').fill('IDF-NOPE')
+    await field('300120', 'reason').fill('Moved to a new group')
+    await save.click()
+    await page.locator('[data-idf-general-refusal]').waitFor({ timeout: 30000 }).catch(() => {})
+    const refusal = strip(await page.locator('[data-idf-general-refusal]').innerText().catch(() => ''))
+    check(
+      `${dir} 12. a refused group shows its message in the dialog, which stays open`,
+      refusal.includes('IDF group IDF-NOPE does not exist.') && (await page.locator('[data-idf-general-dialog="300120"]').count()) === 1,
+      refusal,
+    )
+    await page.locator('dialog button', { hasText: 'Cancel' }).click()
+    await page.locator('[data-idf-general-dialog]').waitFor({ state: 'detached', timeout: 30000 })
+    check(`${dir} 12. the refused row is unchanged`, (await page.locator('[data-idf-items] tbody tr[data-item="300120"]').getAttribute('data-idf')) === 'IDF-PARA-500')
+
+    // 13. Clear
+    await page.locator('[data-idf-general-clear="300110"]').click()
+    await page.locator('[data-idf-general-clear-dialog="300110"]').waitFor({ timeout: 30000 })
+    const confirm = page.locator('[data-general-clear-confirm]')
+    check(`${dir} 13. Clear asks for a reason first`, await confirm.isDisabled())
+    await page.locator('[data-idf-general-clear-dialog="300110"] [data-field="reason"]').fill('Withdrawn from the market')
+    await confirm.click()
+    await page.locator('[data-idf-general-clear-dialog]').waitFor({ state: 'detached', timeout: 30000 })
+    await totalIs(page, 40)
+    const del = writes.at(-1)
+    check(
+      `${dir} 13. the DELETE carries the reason in its body; the item leaves the master`,
+      del?.method === 'DELETE' &&
+        del.path === 'IdfPriority/general/items/300110' &&
+        JSON.stringify(del.body) === '{"reason":"Withdrawn from the market"}' &&
+        (await page.locator('[data-idf-items] tbody tr[data-item="300110"]').count()) === 0,
+      JSON.stringify(del),
+    )
+    check(`${dir} 13. no raw keys`, await noRawKeys(page))
+    check(`${dir} 13. no page errors (edits)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
   {
     const { context, page, errors } = await open(dir, { deny: ['generalItems'] })
     await page.goto(`${BASE}/insurance-rules/idf/general`)
     await page.locator('[data-idf-items-denied]').waitFor({ timeout: 60000 }).catch(() => {})
     check(`${dir} 6. a bare 403 on the items says no access; the header stays`, (await page.locator('[data-idf-items-denied]').count()) === 1 && (await page.locator('[data-idf-general]').count()) === 1)
     check(`${dir} 6. no page errors (denied)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 651 · Export / Template
+  {
+    const { context, page, errors, reads } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
+    check(
+      `${dir} 7. Export and Template sit in the action row`,
+      (await page.locator(`[data-idf-general-actions] ${G_EXPORT}`).count()) === 1 && (await page.locator(`[data-idf-general-actions] ${G_TEMPLATE}`).count()) === 1,
+    )
+    const ex = await download(page, G_EXPORT)
+    check(`${dir} 7. Export saves the general master under the server's name`, ex.saved && ex.name === IDF_GENERAL_EXPORT_NAME && reads.generalExport === 1, ex.name)
+    const tpl = await download(page, G_TEMPLATE)
+    check(`${dir} 7. Template saves the blank file under the server's name`, tpl.saved && tpl.name === IDF_GENERAL_TEMPLATE_NAME && reads.generalTemplate === 1, tpl.name)
+    check(`${dir} 7. no raw keys (downloads)`, await noRawKeys(page))
+    check(`${dir} 7. no page errors (downloads)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open(dir, { noFileName: true })
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator(G_EXPORT).waitFor({ timeout: 60000 })
+    const ex = await download(page, G_EXPORT)
+    const tpl = await download(page, G_TEMPLATE)
+    check(`${dir} 8. no server name → the client's fallback names`, ex.name === 'idf-general.xlsx' && tpl.name === 'idf-general-template.xlsx', `${ex.name} ${tpl.name}`)
+    check(`${dir} 8. no page errors (fallback names)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors, reads } = await open(dir, { deny: ['generalExport', 'generalTemplate'] })
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator(G_EXPORT).waitFor({ timeout: 60000 })
+    let downloaded = false
+    page.on('download', () => (downloaded = true))
+    await page.locator(G_EXPORT).click()
+    const exToast = page.locator('[data-sonner-toast]', { hasText: 'The file could not be exported' })
+    await exToast.waitFor({ timeout: 10000 }).catch(() => {})
+    check(
+      `${dir} 9. a refused export toasts the server's message, no file`,
+      (await exToast.count()) === 1 && /The general master could not be exported/.test(await exToast.innerText()) && !downloaded && reads.generalExport === 1,
+    )
+    await page.locator(G_TEMPLATE).click()
+    const tplToast = page.locator('[data-sonner-toast]', { hasText: 'The template could not be downloaded' })
+    await tplToast.waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 9. a refused template toasts the server's message, no file`, (await tplToast.count()) === 1 && /The general template could not be built/.test(await tplToast.innerText()) && !downloaded)
+    check(`${dir} 9. the buttons are usable again after a refusal`, (await page.locator(G_EXPORT).isEnabled()) && (await page.locator(G_TEMPLATE).isEnabled()))
+    check(`${dir} 9. no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

@@ -249,6 +249,22 @@ describe('insurance-idf — the keys the draft panel builds exist (645)', () => 
   })
 })
 
+// 646 · whose draft, stale → rebase, add a group
+describe('insurance-idf — the keys the draft owner, rebase and group add build exist (646)', () => {
+  it.each([en, ar])('owner, someone else, stale, rebase, start refusal, group add', (locale) => {
+    const keys = [
+      ...['owner', 'you', 'base', 'baseVersion', 'baseNone', 'someoneElse', 'stale', 'rebase', 'rebased', 'rebaseFailed'].map((k) => `draft.${k}`),
+      ...['discardOtherTitle', 'discardOtherHint', 'startRefused', 'startRefusedNoDate'].map((k) => `draft.${k}`),
+      ...['groupTitle', 'groupHint', 'addGroup', 'groupRefused', 'rule', 'message'].map((k) => `draft.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const d = locale.draft as Record<string, unknown>
+    expect(String(d.someoneElse)).toContain('<b>{{by}}</b>')
+    expect(String(d.someoneElse)).toContain('<v>{{since}}</v>')
+    for (const f of locale === en ? ['_one', '_other'] : ['_zero', '_one', '_two', '_few', '_many', '_other']) expect(String(d[`groupAdded${f}`])).toContain('<v>{{n}}</v>')
+  })
+})
+
 // 644 · the keys the master export + template build
 describe('insurance-idf — the keys the master export and template build exist (644)', () => {
   it.each([en, ar])('export, template and their refusal titles', (locale) => {
@@ -326,5 +342,18 @@ describe('insurance-idf — the keys the Change log tab builds exist (650)', () 
   })
   it.each([en, ar])('the total isolates its figure as a tag', (locale) => {
     expect(String((locale as { changes: { total: string } }).changes.total)).toContain('<v>{{total}}</v>')
+  })
+})
+
+// 648 · the keys the general item dialogs build
+describe('insurance-idf — the keys the general item dialogs build exist (648)', () => {
+  const PROBLEMS = ['itemRequired', 'groupRequired', 'priorityRequired', 'priorityWholeNumber', 'reasonRequired', 'reasonTooLong']
+  it.each([en, ar])('actions, titles, fields, outcomes and every problem', (locale) => {
+    const keys = [
+      ...['setItem', 'edit', 'clear', 'setTitle', 'editTitle', 'clearTitle', 'lede', 'clearHint', 'item', 'group', 'priority', 'reason', 'cancel', 'save'],
+      ...['saved', 'cleared', 'saveFailed', 'clearFailed'],
+      ...PROBLEMS.map((p) => `problem.${p}`),
+    ].map((k) => `generalEdit.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })

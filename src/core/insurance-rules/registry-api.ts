@@ -4,7 +4,7 @@
  * picker, and the patient / policy / class lists a condition names by id, and the insurers a class-list entry names. Writes stay in the feature that makes them
  * (`features/insurance-rules/{fields,lists}/api.ts`). Every key under `['insurance-rules']`.
  *
- * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 610): no door here has met a real SIS.Api.
+ * Reconciled with 3132 / 3133 / 3144 as built in oms 618 (`tools/insurance-rules-stubs.mjs`, section 610, serves the same shapes).
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'

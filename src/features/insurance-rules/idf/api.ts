@@ -24,6 +24,7 @@ import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
+import { itemsDoorParams, type IdfEntriesPage, type IdfItemsQuery } from './items' // 643
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 
@@ -180,6 +181,50 @@ export const idfReportApi = {
 export function swapReportQuery(f: IdfEventsFilter) {
   return { queryKey: [...IDF_REPORT_KEY, filterDoorParams(f)] as const, queryFn: () => idfReportApi.report(f), retry: false } as const
 }
+
+// 643 · a version's items — `idfEntriesApi` (3187)
+export const IDF_ENTRIES_KEY = [...IDF_KEY, 'entries'] as const
+export const idfEntriesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/entries?search&idf&page` (3187) — one page of that version's items. */
+  async entries(masterId: string, versionId: string, q: IdfItemsQuery): Promise<IdfEntriesPage> {
+    const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
+    const page = await api.get<IdfEntriesPage | null>(path, itemsDoorParams(q))
+    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+  },
+}
+export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQuery) {
+  return {
+    queryKey: [...IDF_ENTRIES_KEY, masterId, versionId, itemsDoorParams(q)] as const,
+    queryFn: () => idfEntriesApi.entries(masterId, versionId, q),
+    retry: false,
+  } as const
+}
+
+// 644 · master export + template — `idfMasterFilesApi` (3188)
+export const idfMasterFilesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/export` — that version (live or old) as `.xlsx` in the upload format. */
+  export(masterId: string, versionId: string): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/export`)
+  },
+  /** `GET IdfPriority/masters/template` — the upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/template`)
+  },
+}
+
+// 645 · draft (3189)
+
+// 646 · draft owner, rebase, add a group (3190)
+
+// 647 · general master items (3191)
+
+// 648 · set / clear one general item (3192)
+
+// 649 · general upload → preview → apply (3193)
+
+// 650 · general change log (3194)
+
+// 651 · general export + template (3195)
 
 // 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
 export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const

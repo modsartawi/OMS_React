@@ -482,6 +482,114 @@ export function idfReportStub(method, path, opts = {}) {
   return envelope({ from: q.get('from') ? `${q.get('from')}T00:00:00` : null, to: q.get('to') ? `${q.get('to')}T00:00:00` : null, rows, totals })
 }
 
+// --- 643 --- a version's items (door 3187).
+// `GET IdfPriority/masters/{id}/versions/{vid}/entries?search&idf&page&pageSize` → one page `{ page, pageSize, total,
+// rows }`. `search` matches the item number or either description (case-blind), `idf` one group exactly; 25 a page
+// unless `pageSize` says. V-11 (Bupa live, v3) holds 60 items over 6 groups — three pages; V-7 (v2) and V-2 (v1) a
+// few; V-4 (Ops live). A version not listed here (a new publish or restore) holds none. `opts.reads.entries` collects
+// each read as `{ masterId, versionId, qs }`.
+const IDF_GENERIC = [
+  ['Panadol', 'بنادول'], ['Adol', 'أدول'], ['Fevadol', 'فيفادول'], ['Brufen', 'بروفين'], ['Augmentin', 'أوجمنتين'],
+  ['Nexium', 'نيكسيوم'], ['Glucophage', 'جلوكوفاج'], ['Lipitor', 'ليبيتور'], ['Concor', 'كونكور'], ['Zyrtec', 'زيرتك'],
+]
+const IDF_ENTRY_GROUPS = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI', 'IDF-MET', 'IDF-STAT']
+export const IDF_ENTRIES = {
+  'V-11': IDF_ENTRY_GROUPS.flatMap((idfNumber, g) =>
+    IDF_GENERIC.map(([en, ar], i) => ({
+      itemNumber: String(100100 + g * 100 + i * 10),
+      descriptionEn: `${en} ${g + 1}${i}0 mg`,
+      descriptionAr: `${ar} ${g + 1}${i}0 مجم`,
+      idfNumber,
+      priority: i + 1,
+    })),
+  ),
+  'V-7': [
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 2 },
+    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: 'أدول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
+    { itemNumber: '200100', descriptionEn: 'Brufen 400 mg', descriptionAr: 'بروفين ٤٠٠ مجم', idfNumber: 'IDF-IBU', priority: 1 },
+  ],
+  'V-2': [
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
+    { itemNumber: '100400', descriptionEn: 'Fevadol 500 mg', descriptionAr: 'فيفادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 2 },
+  ],
+  'V-4': [
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
+    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 2 },
+    { itemNumber: '200050', descriptionEn: 'Brufen 200 mg', descriptionAr: 'بروفين ٢٠٠ مجم', idfNumber: 'IDF-IBU', priority: 1 },
+    { itemNumber: '200100', descriptionEn: 'Brufen 400 mg', descriptionAr: 'بروفين ٤٠٠ مجم', idfNumber: 'IDF-IBU', priority: 2 },
+  ],
+}
+export const IDF_ENTRIES_PAGE_SIZE = 25
+
+export function idfEntriesStub(method, path, opts = {}) {
+  const { deny = [], reads = {} } = opts
+  const [bare, qs = ''] = path.split('?')
+  const m = /^IdfPriority\/masters\/([^/]+)\/versions\/([^/]+)\/entries$/.exec(bare)
+  if (method !== 'GET' || !m) return null
+  const masterId = decodeURIComponent(m[1])
+  const versionId = decodeURIComponent(m[2])
+  ;(reads.entries ??= []).push({ masterId, versionId, qs })
+  if (deny.includes('entries')) return bare403()
+  const q = new URLSearchParams(qs)
+  const search = (q.get('search') ?? '').toLowerCase()
+  const idf = q.get('idf') ?? ''
+  const all = (IDF_ENTRIES[versionId] ?? []).filter(
+    (r) =>
+      (!idf || r.idfNumber === idf) &&
+      (!search || r.itemNumber.includes(search) || r.descriptionEn.toLowerCase().includes(search) || r.descriptionAr.includes(search)),
+  )
+  const pageSize = Number(q.get('pageSize')) || IDF_ENTRIES_PAGE_SIZE
+  const page = Math.max(1, Number(q.get('page')) || 1)
+  return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
+}
+
+// --- 644 --- master export + template (door 3188): `GET IdfPriority/masters/{id}/versions/{vid}/export` → that version
+// as `.xlsx` (server name `IDF_MASTER_EXPORT_NAME(masterId, versionId)`), `GET IdfPriority/masters/template` → the header.
+// `opts.deny` `masterExport` / `masterTemplate` refuse on the JSON 400 envelope; `opts.noFileName` drops the
+// `Content-Disposition` name so the client's fallback shows. `opts.reads.masterExport` collects `{ masterId, versionId }`,
+// `opts.reads.masterTemplate` counts.
+export const IDF_MASTER_EXPORT_NAME = (masterId, versionId) => `idf-${masterId}-${versionId}-20261028.xlsx`
+export const IDF_MASTER_TEMPLATE_NAME = 'idf-master-template-20261028.xlsx'
+export function idfMasterFilesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, noFileName = false } = opts
+  if (method !== 'GET') return null
+  const bare = path.split('?')[0]
+  const m = /^IdfPriority\/masters\/([^/]+)\/versions\/([^/]+)\/export$/.exec(bare)
+  if (!m && bare !== 'IdfPriority/masters/template') return null
+  const file = (name) => ({
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...(noFileName ? {} : { 'Content-Disposition': `attachment; filename="${name}"` }),
+    },
+    body: Buffer.from('PK stub xlsx'),
+  })
+  if (!m) {
+    reads.masterTemplate = (reads.masterTemplate ?? 0) + 1
+    if (deny.includes('masterTemplate')) return envelope(null, { status: 400, success: false, message: 'The template could not be built.', errorCode: 'IDF-00040' })
+    return file(IDF_MASTER_TEMPLATE_NAME)
+  }
+  const masterId = decodeURIComponent(m[1])
+  const versionId = decodeURIComponent(m[2])
+  ;(reads.masterExport ??= []).push({ masterId, versionId })
+  if (deny.includes('masterExport')) return envelope(null, { status: 400, success: false, message: 'This version could not be exported.', errorCode: 'IDF-00041' })
+  return file(IDF_MASTER_EXPORT_NAME(masterId, versionId))
+}
+
+// --- 645 --- draft (door 3189).
+
+// --- 646 --- draft owner, rebase, add a group (door 3190).
+
+// --- 647 --- general master items (door 3191).
+
+// --- 648 --- set / clear one general item (door 3192).
+
+// --- 649 --- general upload → preview → apply (door 3193).
+
+// --- 650 --- general change log (door 3194).
+
+// --- 651 --- general export + template (door 3195).
+
 // --- 652 --- IDF groups (door 3196, the brief's "Spec 3185" sketch): `GET IdfPriority/groups?search=&page=&pageSize=`
 // (paged, search on number or description, page size `opts.groupsPageSize` or 50), `POST`, `PUT …/{idfNumber}`,
 // `DELETE …/{idfNumber}` (refused while items point at it, `data.itemCount`), `GET …/export|template` → `.xlsx`.
@@ -640,6 +748,17 @@ export function idfStub(method, path, body, opts = {}) {
     idfEventsStub(method, path, opts) ??
     // 627 · swap report
     idfReportStub(method, path, opts) ??
+    // 643 · a version's items
+    idfEntriesStub(method, path, opts) ??
+    // 644 · master export + template
+    idfMasterFilesStub(method, path, opts) ??
+    // 645 · draft
+    // 646 · draft owner, rebase, add a group
+    // 647 · general master items
+    // 648 · set / clear one general item
+    // 649 · general upload
+    // 650 · general change log
+    // 651 · general export + template
     // 652 · IDF groups
     idfGroupsStub(method, path, body, opts) ??
     // 653 · IDF groups import

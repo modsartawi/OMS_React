@@ -24,6 +24,13 @@
 //  11. my stale draft: Publish off, Rebase on; after the rebase the base version and the diff refresh; then it publishes;
 //  12. a group add says how many were added and lists the two refused members with their rule and message; an unknown
 //      group is refused inline.
+// 3185 review:
+//   4. a priority that is not a whole number of 1 or more (2.5, 0, 1e1) keeps the re-rank's Save off (nothing sent);
+//  10. the refused Start re-reads the draft: someone else's draft and its Discard show at once, the refusal above it;
+//  13. a rebase onto a live version published after the page was read names its number (the versions re-read), and the
+//      header's live version follows;
+//  14. a base version that cannot be read says so with Try again (no endless "comparing…"); the retry draws the diff;
+//  15. a publish answered with no body still closes the draft and re-reads the master (no page error).
 //
 //   1. run the app:  npx vite --port 5213 --strictPort
 //   2. node tools/idf-draft-drive.mjs        (DRIVE_PORT overrides 5213)
@@ -132,10 +139,12 @@ for (const dir of ['ltr', 'rtl']) {
     const rr = page.locator('[data-idf-draft-rerank-dialog="100110"]')
     await rr.waitFor({ timeout: 30000 })
     check(`${dir} 3. the re-rank dialog names the item`, strip(await page.locator('dialog[open] h2, dialog[open] [id]').first().innerText()).includes('100110'))
-    await rr.locator('[data-field="priority"]').fill('2.5')
-    await page.locator('[data-idf-draft-rerank-confirm]').click()
-    await rr.locator('[data-idf-draft-refused="badPriority"]').waitFor({ timeout: 30000 })
-    check(`${dir} 4. a refused re-rank shows its rule in the dialog`, strip(await rr.locator('[data-idf-draft-refused] [data-col="rule"]').innerText()) === 'Priority not a whole number of 1 or more' && (await errorToasts(page)) === 0)
+    const offFor = []
+    for (const p of ['2.5', '0', '1e1']) {
+      await rr.locator('[data-field="priority"]').fill(p)
+      if (await page.locator('[data-idf-draft-rerank-confirm]').isDisabled()) offFor.push(p)
+    }
+    check(`${dir} 4. a priority that is not a whole number of 1 or more keeps Save off, nothing sent`, offFor.length === 3 && !draftWrites.some((w) => w.method === 'PUT'), JSON.stringify(offFor))
     await rr.locator('[data-field="priority"]').fill('5')
     await page.locator('[data-idf-draft-rerank-confirm]').click()
     await rr.waitFor({ state: 'detached', timeout: 30000 })
@@ -256,6 +265,14 @@ for (const dir of ['ltr', 'rtl']) {
     await refused.waitFor({ timeout: 30000 })
     check(`${dir} 10. a refused Start names the owner and the last change`, strip(await refused.innerText()) === 'A draft is already open by nalharbi, last changed 2026-10-27 09:30.' && JSON.stringify(await ltr(refused)) === '["2026-10-27 09:30"]', strip(await refused.innerText()))
     check(`${dir} 10. the refusal is not an error toast`, (await errorToasts(page)) === 0 && errors.length === 0, errors.join(' | '))
+    await panel(page, 'someoneElse')
+    check(
+      `${dir} 10. the draft re-reads: someone else's draft and its Discard show, the refusal above it, no Start`,
+      (await page.locator('[data-idf-draft-someone-else="nalharbi"]').count()) === 1 &&
+        (await page.locator('[data-idf-draft-discard]').count()) === 1 &&
+        (await page.locator('[data-idf-draft-start-refused="nalharbi"]').count()) === 1 &&
+        (await page.locator('[data-idf-draft-start]').count()) === 0,
+    )
     await context.close()
   }
   {
@@ -311,6 +328,68 @@ for (const dir of ['ltr', 'rtl']) {
     await row(page, '300100').waitFor({ timeout: 30000 })
     check(`${dir} 12. the added members show in the draft, marked Added`, (await markOf(page, '300100')) === 'added' && (await row(page, '300130').count()) === 0 && (await counts(page)) === 'Added 3, re-ranked 0, moved 0, removed 0')
     check(`${dir} 12. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+// --- 3185 review --- rebase onto a newly published live version; an unreadable base; a publish with no body
+for (const dir of ['ltr', 'rtl']) {
+  {
+    // 13. the live version moves after the page was read; the stale draft rebases onto it
+    const { context, page, errors, state } = await open(dir)
+    const rows = structuredClone(IDF_ENTRIES['V-11'])
+    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 11 })
+    seed(state, { by: 'msartawi', baseVersionId: 'V-11', isStale: true, rows })
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'stale')
+    await page.locator('[data-idf-draft] [data-col="base"]').filter({ hasText: 'Version 3' }).waitFor({ timeout: 60000 })
+    // someone publishes version 4 meanwhile (not read by this page yet)
+    IDF_ENTRIES['V-REB-4'] = structuredClone(IDF_ENTRIES['V-11'])
+    state.masters.find((m) => m.masterId === 'M-BUPA').liveVersion = { versionId: 'V-REB-4', number: 4, by: 'nalharbi', at: '2026-10-28T09:00:00', note: 'Meanwhile', entryCount: 60, isLive: true }
+    await page.locator('[data-idf-draft-rebase]').click()
+    await page.locator('[data-idf-draft] [data-col="base"][data-base="V-REB-4"]').waitFor({ timeout: 30000 })
+    await page.locator('[data-idf-draft] [data-col="base"]').filter({ hasText: 'Version 4' }).waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 13. after the rebase the header names the new base by its number, not its id`, strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 4', strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()))
+    await page.locator('[data-idf-master] [data-live-number]').filter({ hasText: '4' }).waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 13. the master's live version re-reads too`, strip(await page.locator('[data-idf-master] [data-live-number]').innerText()) === '4')
+    check(`${dir} 13. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 14. the base version's read fails once
+    const { context, page, errors, state } = await open(dir)
+    seed(state, { by: 'msartawi' })
+    // Failing until the drive clears it: a second observer mounting re-reads an errored query.
+    state.entriesFailures = 99
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'mine')
+    const failedBase = page.locator('[data-idf-draft-base-failed]')
+    await failedBase.waitFor({ timeout: 60000 }).catch(() => {})
+    check(
+      `${dir} 14. an unreadable base says so with Try again, and not "comparing…"`,
+      (await failedBase.count()) === 1 && /could not be read right now/.test(await failedBase.innerText()) && !/Comparing/.test(await page.locator('[data-idf-draft-counts]').innerText()),
+    )
+    state.entriesFailures = 0
+    await page.locator('[data-idf-draft-base-retry]').click()
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 0' }).waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 14. Try again reads it; the diff draws and the banner goes`, (await counts(page)) === 'Added 0, re-ranked 0, moved 0, removed 0' && (await failedBase.count()) === 0, await counts(page))
+    check(`${dir} 14. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 15. a publish answered with no body
+    const { context, page, errors, state, published } = await open(dir)
+    await start(page)
+    state.publishAnswersNull = true
+    await page.locator('[data-idf-draft-start]').click()
+    await panel(page, 'mine')
+    await page.locator('[data-idf-draft-note]').fill('No body')
+    await page.locator('[data-idf-draft-publish]').click()
+    await panel(page, 'none')
+    await page.locator('[data-idf-master] [data-live-number]').filter({ hasText: '4' }).waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 15. a publish with no body closes the draft and re-reads the master`, published.length === 1 && strip(await page.locator('[data-idf-master] [data-live-number]').innerText()) === '4')
+    check(`${dir} 15. the success toast shows, without a version number`, (await page.locator('[data-sonner-toast][data-type="success"]', { hasText: 'Draft published' }).count()) === 1)
+    check(`${dir} 15. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

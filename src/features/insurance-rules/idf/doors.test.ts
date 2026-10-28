@@ -128,11 +128,46 @@ describe('645 · the draft doors', () => {
     expect(api.get).toHaveBeenNthCalledWith(3, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '3', pageSize: '500' })
   })
 
-  it('stops on an empty page even when the total says more', async () => {
+  it('an empty page ends the rows even when the total says more', async () => {
     const { idfDraftApi } = await import('./api')
-    api.get.mockResolvedValueOnce({ page: 1, pageSize: 1, total: 9, rows: [{ itemNumber: '1', idfNumber: 'G', priority: 1 }] }).mockResolvedValueOnce({ page: 2, pageSize: 1, total: 9, rows: [] })
-    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).length).toBe(1)
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 1, total: 4, rows: [{ itemNumber: '1', idfNumber: 'G', priority: 1 }] }).mockResolvedValueOnce({ page: 2, pageSize: 1, total: 4, rows: [] })
+    api.get.mockResolvedValueOnce({ page: 3, pageSize: 1, total: 4, rows: [{ itemNumber: '3', idfNumber: 'G', priority: 1 }] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).map((x) => x.itemNumber)).toEqual(['1'])
+  })
+
+  // 3185 review, finding 6
+  it('with no total, keeps reading while a page comes back full', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), idfNumber: 'G', priority: 1 })
+    api.get
+      .mockResolvedValueOnce({ page: 1, pageSize: 2, rows: [r(1), r(2)] })
+      .mockResolvedValueOnce({ page: 2, pageSize: 2, rows: [r(3), r(4)] })
+      .mockResolvedValueOnce({ page: 3, pageSize: 2, rows: [r(5)] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
+    expect(api.get).toHaveBeenCalledTimes(3)
+  })
+
+  it('with no total and no page size, a page of the size asked for (500) is full', async () => {
+    const { idfDraftApi } = await import('./api')
+    const full = Array.from({ length: 500 }, (_, i) => ({ itemNumber: String(i), idfNumber: 'G', priority: 1 }))
+    api.get.mockResolvedValueOnce({ rows: full }).mockResolvedValueOnce({ rows: [{ itemNumber: 'last', idfNumber: 'G', priority: 1 }] })
+    expect((await idfDraftApi.baseRows('M-BUPA', 'V-11')).length).toBe(501)
     expect(api.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('once the total is known, the remaining pages are read at once, kept in page order', async () => {
+    const { idfDraftApi } = await import('./api')
+    const r = (n: number) => ({ itemNumber: String(n), idfNumber: 'G', priority: 1 })
+    const pending: Array<(v: unknown) => void> = []
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 2, total: 5, rows: [r(1), r(2)] })
+    api.get.mockImplementation(() => new Promise((resolve) => pending.push(resolve)))
+    const all = idfDraftApi.baseRows('M-BUPA', 'V-11')
+    await vi.waitFor(() => expect(api.get).toHaveBeenCalledTimes(3))
+    expect(api.get).toHaveBeenNthCalledWith(2, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '2', pageSize: '500' })
+    expect(api.get).toHaveBeenNthCalledWith(3, 'IdfPriority/masters/M-BUPA/versions/V-11/entries', { page: '3', pageSize: '500' })
+    pending[1]({ page: 3, pageSize: 2, total: 5, rows: [r(5)] })
+    pending[0]({ page: 2, pageSize: 2, total: 5, rows: [r(3), r(4)] })
+    expect((await all).map((x) => x.itemNumber)).toEqual(['1', '2', '3', '4', '5'])
   })
 })
 

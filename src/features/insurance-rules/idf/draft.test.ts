@@ -115,13 +115,13 @@ describe('an open draft is what the items show unless the address names a versio
   })
 })
 
-describe('the add form sends a trimmed item, group and numeric priority, leaving the rules to the server', () => {
+describe('the add form sends a trimmed item, group and a whole priority of 1 or more', () => {
   it('a filled form is a body', () => {
     expect(draftAddBody({ itemNumber: ' 100999 ', idfNumber: ' IDF-PARA-500', priority: ' 4 ' })).toEqual({ itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
   })
-  it('a priority the server will judge (2.5, 0) is still sent', () => {
-    expect(draftAddBody({ itemNumber: '1', idfNumber: 'G', priority: '2.5' })?.priority).toBe(2.5)
-    expect(draftAddBody({ itemNumber: '1', idfNumber: 'G', priority: '0' })?.priority).toBe(0)
+  it('a priority that is not a whole number of 1 or more (3185 review) is no body', () => {
+    for (const priority of ['2.5', '0', '-1', '0x10', '1e1', ' + 3'])
+      expect(draftAddBody({ itemNumber: '1', idfNumber: 'G', priority }), priority).toBeNull()
   })
   it('a blank field or a priority that is not a number is no body', () => {
     expect(draftAddBody({ itemNumber: '', idfNumber: 'G', priority: '1' })).toBeNull()

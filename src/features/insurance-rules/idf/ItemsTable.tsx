@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
@@ -10,6 +10,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { showsPager } from '@/core/ui/pager'
 import { formatFigure } from '@/core/util/number-format'
+import { emptiedPageTarget } from './paging' // 3185 review
 import { itemDescription, typedItemsFilter, withItemsFilter, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items'
 
 export interface ItemsTableProps {
@@ -41,6 +42,14 @@ export interface ItemsTableProps {
 export default function ItemsTable({ page, error, query, onQuery, busy, mark, actions, removed, empty }: ItemsTableProps) {
   const { t } = useTranslation('insurance-idf')
   const filtered = query.q !== '' || query.idf !== ''
+  // 3185 review: clearing (or removing) the last row of the last page falls back to the new last page, never an empty
+  // one. A page read for another page than the address asks (a held placeholder) is never acted on.
+  const clampTo = page && !error ? emptiedPageTarget(page, query.page) : null
+  useEffect(() => {
+    if (clampTo !== null) onQuery((q) => ({ ...q, page: clampTo }))
+    // `onQuery` is the caller's inline updater; the clamp is keyed on its target alone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clampTo])
   return (
     <div className="flex flex-col gap-2">
       <ItemsFilter query={query} onQuery={onQuery} />
@@ -50,7 +59,7 @@ export default function ItemsTable({ page, error, query, onQuery, busy, mark, ac
         <div data-idf-items-failed="">
           <ErrorBanner message={apiErrorMessage(error, t('items.failed'))} />
         </div>
-      ) : !page ? (
+      ) : !page || clampTo !== null ? (
         <Loading text={t('items.loading')} />
       ) : page.rows.length === 0 && !removed?.length ? (
         <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-idf-items-empty={filtered ? 'noMatch' : 'empty'}>

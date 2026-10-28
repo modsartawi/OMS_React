@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
@@ -20,6 +20,7 @@ import DownloadButton from './DownloadButton'
 import { GroupDialog, RemoveGroupDialog } from './GroupDialog'
 import GroupsImport from './GroupsImport' // 653
 import { canRemoveGroup, readGroupsQuery, writeGroupsQuery, type IdfGroup, type IdfGroupsQuery } from './groups'
+import { emptiedPageTarget } from './paging' // 3185 review
 
 /**
  * Insurance rules ▸ IDF groups — `/insurance-rules/idf/groups` (BackOffice spec 3185, door 3196; oms ticket 652).
@@ -38,6 +39,11 @@ export default function GroupsPage() {
   const [editing, setEditing] = useState<IdfGroup | 'new' | null>(null)
   const [removing, setRemoving] = useState<IdfGroup | null>(null)
   const denied = groups.isError && isBareDenial(groups.error)
+  // 3185 review: removing the last group of the last page falls back to the new last page, never an empty one.
+  const clampTo = groups.data && !groups.isPlaceholderData ? emptiedPageTarget(groups.data, query.page) : null
+  useEffect(() => {
+    if (clampTo !== null) update((q) => ({ ...q, page: clampTo }))
+  }, [clampTo, update])
 
   return (
     <section className="flex h-full w-full max-w-5xl flex-col gap-4" data-idf-groups-page="">
@@ -75,7 +81,7 @@ export default function GroupsPage() {
         <DeniedCard ns="insurance-idf" hook="idf-groups-denied" />
       ) : groups.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(groups.error, t('groups.failed'))} />
-      ) : !groups.data ? (
+      ) : !groups.data || clampTo !== null ? (
         <Loading text={t('groups.loading')} />
       ) : (
         <GroupsTable

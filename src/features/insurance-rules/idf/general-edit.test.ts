@@ -4,7 +4,7 @@
  * (plus, for Set item, the item number); the body sent is `{ idfNumber, priority, reason }`.
  */
 import { describe, expect, it } from 'vitest'
-import { generalEditBody, generalEditProblems, generalFormFromRow, isGeneralEditValid, NEW_GENERAL_ITEM_FORM, type IdfGeneralEditForm } from './general-edit'
+import { generalEditBody, generalEditProblems, generalFormFromRow, isGeneralEditValid, NEW_GENERAL_ITEM_FORM, wholePriority, type IdfGeneralEditForm } from './general-edit'
 
 const ok: IdfGeneralEditForm = { itemNumber: '300110', idfNumber: 'IDF-IBU', priority: '3', reason: 'Re-ranked after the shortage' }
 
@@ -37,5 +37,15 @@ describe('648 · the general edit form', () => {
 
   it('the body is the group, the priority as a number and the reason, trimmed', () => {
     expect(generalEditBody({ itemNumber: ' 300999 ', idfNumber: ' IDF-IBU ', priority: ' 07 ', reason: ' New item ' })).toEqual({ idfNumber: 'IDF-IBU', priority: 7, reason: 'New item' })
+  })
+})
+
+describe('a priority is a whole number of 1 or more, shared by the draft and the general edits (3185 review)', () => {
+  it('reads a whole number of 1 or more, trimmed', () => {
+    expect(wholePriority(' 12 ')).toBe(12)
+    expect(wholePriority('1')).toBe(1)
+  })
+  it('anything else is null: blank, 0, negative, decimal, hex, exponent', () => {
+    for (const p of ['', ' ', '0', '-3', '2.5', '0x10', '1e1', 'two', '00']) expect(wholePriority(p), p).toBeNull()
   })
 })

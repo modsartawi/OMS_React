@@ -24,6 +24,7 @@ import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { reportOrEmpty, type IdfSwapReport } from './report' // 627
+import { pageOrEmpty } from './paging' // 3185 review
 import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
 import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
 import type { IdfDraftGroupBody } from './draft' // 646
@@ -164,7 +165,7 @@ export const idfEventsApi = {
   /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log, `{ page, pageSize, total, rows }`. */
   async events(q: IdfEventsQuery): Promise<IdfEventsPage> {
     const page = await api.get<IdfEventsPage | null>(`${IDF_BASE}/events`, eventsDoorParams(q))
-    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+    return pageOrEmpty(page, q.page)
   },
 }
 export function eventsQuery(q: IdfEventsQuery) {
@@ -195,7 +196,7 @@ export const idfEntriesApi = {
   async entries(masterId: string, versionId: string, q: IdfItemsQuery): Promise<IdfEntriesPage> {
     const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
     const page = await api.get<IdfEntriesPage | null>(path, itemsDoorParams(q))
-    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+    return pageOrEmpty(page, q.page)
   },
 }
 export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQuery) {
@@ -244,27 +245,44 @@ export const idfDraftApi = {
   remove(masterId: string, itemNumber: string): Promise<unknown> {
     return api.del<unknown>(`${draftPath(masterId)}/items/${encodeURIComponent(itemNumber)}`)
   },
-  /** `POST …/draft/publish { note }` → the new live version. Refused while the draft is stale. */
-  publish(masterId: string, note: string): Promise<IdfMasterVersion> {
-    return api.post<IdfMasterVersion>(`${draftPath(masterId)}/publish`, { note })
+  /** `POST …/draft/publish { note }` → the new live version (null when the answer carries no body). Refused while stale. */
+  async publish(masterId: string, note: string): Promise<IdfMasterVersion | null> {
+    return (await api.post<IdfMasterVersion | null>(`${draftPath(masterId)}/publish`, { note })) ?? null
   },
   /** `DELETE …/draft` — discards it (anyone with the edit grant; recorded). */
   discard(masterId: string): Promise<unknown> {
     return api.del<unknown>(draftPath(masterId))
   },
   /**
-   * Every row of the version a draft was copied from, for the draft diff: the entries door (3187) page after page
-   * until `total` (or an empty page). ⚠️ 654: replace with the draft door's own per-row marks if 3189 adds them.
+   * Every row of the version a draft was copied from, for the draft diff: the entries door (3187). Page 1 first; when it
+   * states a `total`, the remaining pages are read at once (in page order); when it does not, page after page while a
+   * page comes back full. An empty page ends the rows either way. ⚠️ 654: replace with the draft door's own per-row
+   * marks if 3189 adds them.
    */
   async baseRows(masterId: string, versionId: string): Promise<IdfEntryRow[]> {
     const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
-    const rows: IdfEntryRow[] = []
-    for (let page = 1; ; page += 1) {
-      const got = await api.get<IdfEntriesPage | null>(path, { page: String(page), pageSize: String(IDF_DRAFT_BASE_PAGE_SIZE) })
-      const batch = got?.rows ?? []
-      rows.push(...batch)
-      if (batch.length === 0 || rows.length >= (got?.total ?? 0)) return rows
+    const read = (page: number) => api.get<Partial<IdfEntriesPage> | null>(path, { page: String(page), pageSize: String(IDF_DRAFT_BASE_PAGE_SIZE) })
+    const first = await read(1)
+    const rows = [...(first?.rows ?? [])]
+    if (rows.length === 0) return rows
+    // The server may cap the page size below the one asked for: its own `pageSize`, else the size asked for.
+    const size = first?.pageSize && first.pageSize > 0 ? first.pageSize : IDF_DRAFT_BASE_PAGE_SIZE
+    if (typeof first?.total === 'number') {
+      const pages = Math.ceil(first.total / Math.max(size, rows.length))
+      const rest = await Promise.all(Array.from({ length: Math.max(0, pages - 1) }, (_, i) => read(i + 2)))
+      for (const got of rest) {
+        const batch = got?.rows ?? []
+        if (batch.length === 0) break
+        rows.push(...batch)
+      }
+      return rows
     }
+    for (let page = 2, last = rows.length; last >= size; page += 1) {
+      const batch = (await read(page))?.rows ?? []
+      rows.push(...batch)
+      last = batch.length
+    }
+    return rows
   },
 }
 export function draftQuery(masterId: string) {
@@ -298,7 +316,7 @@ export const idfGeneralApi = {
   /** `GET IdfPriority/general/items?search&idf&page` (3191) — one page of the general master's items (643's shape). */
   async items(q: IdfItemsQuery): Promise<IdfEntriesPage> {
     const page = await api.get<IdfEntriesPage | null>(`${IDF_BASE}/general/items`, itemsDoorParams(q))
-    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+    return pageOrEmpty(page, q.page)
   },
 }
 export function generalItemsQuery(q: IdfItemsQuery) {
@@ -343,7 +361,7 @@ export const idfChangesApi = {
   /** `GET IdfPriority/general/changes?item&idf&user&from&to&page` (3194) — one page of the log, newest first. */
   async changes(q: IdfChangesQuery): Promise<IdfChangesPage> {
     const page = await api.get<IdfChangesPage | null>(`${IDF_BASE}/general/changes`, changesDoorParams(q))
-    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+    return pageOrEmpty(page, q.page)
   },
   /** `GET IdfPriority/general/changes/export` (3194) — the server's `.xlsx` of the filtered rows (no page). */
   export(q: IdfChangesQuery): Promise<FileResponse> {
@@ -372,7 +390,7 @@ export const idfGroupsApi = {
   /** `GET IdfPriority/groups?search=&page=` — one page of groups, `{ page, pageSize, total, rows }`, each with its item count. */
   async list(q: IdfGroupsQuery): Promise<IdfGroupsPage> {
     const page = await api.get<IdfGroupsPage | null>(`${IDF_BASE}/groups`, groupsDoorParams(q))
-    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
+    return pageOrEmpty(page, q.page)
   },
   /** `POST IdfPriority/groups { idfNumber, description, dosageForm }`. */
   add(body: IdfGroupBody): Promise<IdfGroup> {

@@ -60,6 +60,16 @@ export interface IdfGeneralApplyResult {
   failedBatches: IdfGeneralFailedBatch[]
 }
 
+/**
+ * How an apply went (3185 review): `applied` — items written and no batch failed; `partial` — some written, some batch
+ * failed; `failed` — nothing written. Only `applied` is a success; the others keep the file's report on screen.
+ */
+export type IdfGeneralApplyOutcome = 'applied' | 'partial' | 'failed'
+export function applyOutcome(r: IdfGeneralApplyResult): IdfGeneralApplyOutcome {
+  if (r.applied <= 0) return 'failed'
+  return r.failedBatches.length > 0 ? 'partial' : 'applied'
+}
+
 /** Apply only a clean report: the server's `ok` and no failing row — 622's rule. */
 export function isGeneralUploadApplicable(report: IdfGeneralUploadReport | null | undefined): boolean {
   return isPublishable(report)

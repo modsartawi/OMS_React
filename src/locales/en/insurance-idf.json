@@ -578,7 +578,9 @@
       "moved": "Moved",
       "unchanged": "Unchanged",
       "removed": "Removed"
-    }
+    },
+    "baseFailed": "The version this draft was copied from could not be read, so its changes cannot be shown.",
+    "baseRetry": "Try again"
   },
   "general": {
     "title": "General master",
@@ -714,6 +716,12 @@
     "batchColumns": {
       "lines": "Lines",
       "message": "Message"
-    }
+    },
+    "appliedPartial": "General file applied in part",
+    "appliedPartialDetail": "Items applied: {{n}}. Some batches failed; their items were not written.",
+    "appliedNone": "Nothing was applied",
+    "appliedNoneDetail": "No item of the file was written to the general master.",
+    "resultPartial": "Applied in part. Items written: <v>{{n}}</v>",
+    "resultNone": "Nothing was applied. Items written: <v>{{n}}</v>"
   }
 }

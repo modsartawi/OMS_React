@@ -21,7 +21,7 @@ import ChangeLog from './ChangeLog' // 650
 // 651 · imports (the download buttons)
 import { idfGeneralFilesApi } from './api' // 651
 import DownloadButton from './DownloadButton' // 651
-import { generalExportFileName, generalTemplateFileName } from './download' // 651
+import { generalExportFileName } from './download' // 651
 
 /** The general master's tier in the resolution order (insurer at a store list → insurer → store → general). */
 const GENERAL_TIER = 4
@@ -39,7 +39,7 @@ const GENERAL_TIER = 4
  *   648 · Set item (the action row) + a row's Edit / Clear (`ItemsTable`'s `actions`, in `GeneralItems`)
  *   649 · Upload (its block under the action row)
  *   650 · Change log tab (`IDF_GENERAL_TABS` in `general.ts`, its panel below the tabs)
- *   651 · Export / Template (the action row)
+ *   651 · Export (the action row); Template beside 649's Upload
  *
  * 🚩 UNGATED until 654 (`canEditGeneral`): a bare 403 on the items is "You do not have access".
  */
@@ -69,20 +69,13 @@ export default function GeneralPage() {
           {t('generalEdit.setItem')}
         </Button>
         {setting && <GeneralItemDialog row={null} onClose={() => setSetting(false)} />}
-        {/* 651 · Export / Template — the ticket puts Template beside 649's Upload; it sits here until the review places it. */}
+        {/* 651 · Export (Template sits beside 649's Upload) */}
         <DownloadButton
           fetch={() => idfGeneralFilesApi.export()}
           fallbackName={generalExportFileName()}
           label={t('download.export')}
           failedLabel={t('download.exportFailed')}
           hook="data-idf-general-export"
-        />
-        <DownloadButton
-          fetch={() => idfGeneralFilesApi.template()}
-          fallbackName={generalTemplateFileName()}
-          label={t('download.template')}
-          failedLabel={t('download.templateFailed')}
-          hook="data-idf-general-template"
         />
       </div>
 

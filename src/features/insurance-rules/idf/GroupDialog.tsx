@@ -20,6 +20,7 @@ import {
   groupEditBody,
   groupFormProblems,
   refusedItemCount,
+  removeRefusedForGood,
   type IdfGroup,
   type IdfGroupForm,
 } from './groups'
@@ -122,7 +123,7 @@ export function RemoveGroupDialog({ row, onClose }: { row: IdfGroup; onClose: ()
           <Button variant="text" onClick={onClose}>
             {t('groups.cancel')}
           </Button>
-          <Button variant="danger" disabled={remove.isPending || err != null} data-group-remove-confirm="" onClick={() => remove.mutate()}>
+          <Button variant="danger" disabled={remove.isPending || (err != null && removeRefusedForGood(apiErrorData(err)))} data-group-remove-confirm="" onClick={() => remove.mutate()}>
             {t('groups.remove')}
           </Button>
         </>

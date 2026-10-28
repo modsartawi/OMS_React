@@ -1,4 +1,5 @@
 import { windowProblem, type LocalDate, type WindowProblem } from '@/core/util/date-window'
+import { readPage } from './paging'
 
 /**
  * The General page's Change log filter, pure (BackOffice spec 3185, door 3194; oms ticket 650). Shaped on 626's
@@ -26,11 +27,6 @@ export const NO_CHANGES_FILTER: IdfChangesQuery = { item: '', idf: '', user: '',
 
 /** The typed boxes (applied on leaving the box). */
 export type IdfChangesTypedField = 'item' | 'idf' | 'user'
-
-function readPage(value: string | null): number {
-  const n = Number(value)
-  return Number.isInteger(n) && n >= 1 ? n : 1
-}
 
 export function readChangesQuery(params: URLSearchParams): IdfChangesQuery {
   const get = (key: string) => params.get(key)?.trim() ?? ''

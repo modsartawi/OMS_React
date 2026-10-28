@@ -16,8 +16,12 @@ import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_GENERAL_KEY, idfGeneralUploadApi } from './api'
+import { idfGeneralFilesApi } from './api' // 651 · Template, beside Upload
+import DownloadButton from './DownloadButton' // 651
+import { generalTemplateFileName } from './download' // 651
 import { EXCEPTION_REASON_MAX, reasonProblem } from './exceptions'
 import {
+  applyOutcome,
   failedBatchLines,
   IDF_GENERAL_CHANGE_KINDS,
   isGeneralUploadApplicable,
@@ -37,6 +41,9 @@ import UploadRowReport from './UploadRowReport'
  * → a failing file shows 622's row report and Apply stays off; a clean one shows the change preview — added /
  * re-ranked / moved / unchanged, filterable, each change before → after. **Apply…** asks for a reason; the result
  * says how many items were written and lists any failed batch with its lines and message. The general items re-read.
+ * 3185 review: only a full apply is a success (toast + the report clears); a partial one (a batch failed) or one that
+ * wrote nothing warns, keeps the file's report on screen beside the result, and Apply stays off for that file.
+ * 651's Template sits beside Upload.
  *
  * 🚩 UNGATED until 654 adds the general-edit probe.
  */
@@ -82,6 +89,14 @@ export default function GeneralUpload() {
           {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Upload className="h-3.5 w-3.5" aria-hidden />}
           {t('generalUpload.submit')}
         </Button>
+        {/* 651 · Template, beside Upload */}
+        <DownloadButton
+          fetch={() => idfGeneralFilesApi.template()}
+          fallbackName={generalTemplateFileName()}
+          label={t('download.template')}
+          failedLabel={t('download.templateFailed')}
+          hook="data-idf-general-template"
+        />
       </div>
       {upload.isError && (
         <div data-idf-general-upload-refused="">
@@ -91,7 +106,7 @@ export default function GeneralUpload() {
       {report && <UploadRowReport report={report} kind="item" applicable={applicable} ruleWordKey={ruleWordKey} keyPrefix="generalUpload" />}
       {report && applicable && report.preview && <Preview preview={report.preview} />}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" disabled={!applicable} data-idf-general-upload-apply="" onClick={() => setConfirming(true)}>
+        <Button variant="primary" disabled={!applicable || result !== null} data-idf-general-upload-apply="" onClick={() => setConfirming(true)}>
           <CheckCheck className="h-3.5 w-3.5" aria-hidden />
           {t('generalUpload.apply')}
         </Button>
@@ -105,7 +120,8 @@ export default function GeneralUpload() {
           onApplied={async (res) => {
             setConfirming(false)
             setResult(res)
-            upload.reset()
+            // Only a full apply clears the file; a partial or empty one keeps its report beside the result.
+            if (applyOutcome(res) === 'applied') upload.reset()
             await qc.invalidateQueries({ queryKey: IDF_GENERAL_KEY })
           }}
         />
@@ -182,7 +198,11 @@ function ApplyDialog({ report, onClose, onApplied }: { report: IdfGeneralUploadR
   const apply = useMutation({
     mutationFn: () => idfGeneralUploadApi.apply(report.uploadId, reason.trim()),
     onSuccess: (res) => {
-      notify.success(t('generalUpload.applied'), t('generalUpload.appliedDetail', { n: fsi(formatFigure(res.applied)) }))
+      const n = fsi(formatFigure(res.applied))
+      const outcome = applyOutcome(res)
+      if (outcome === 'applied') notify.success(t('generalUpload.applied'), t('generalUpload.appliedDetail', { n }))
+      else if (outcome === 'partial') notify.warn(t('generalUpload.appliedPartial'), t('generalUpload.appliedPartialDetail', { n }))
+      else notify.error(t('generalUpload.appliedNone'), t('generalUpload.appliedNoneDetail'))
       onApplied(res)
     },
   })
@@ -240,10 +260,13 @@ function ApplyDialog({ report, onClose, onApplied }: { report: IdfGeneralUploadR
 function Result({ result }: { result: IdfGeneralApplyResult }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const failed = result.failedBatches
+  const outcome = applyOutcome(result)
+  const tone = outcome === 'applied' ? 'text-sm' : outcome === 'partial' ? 'rounded-md border border-attention-border bg-attention-050 p-2 text-sm text-attention-800' : 'rounded-md border border-danger-border bg-danger-050 p-2 text-sm text-danger-800'
+  const key = outcome === 'applied' ? 'generalUpload.result' : outcome === 'partial' ? 'generalUpload.resultPartial' : 'generalUpload.resultNone'
   return (
-    <div className="flex flex-col gap-2" data-idf-general-upload-result="" data-applied={result.applied} data-failed={failed.length}>
-      <p className="text-sm">
-        <Trans t={t} i18nKey="generalUpload.result" values={{ n: formatFigure(result.applied) }} components={{ v: <Ltr /> }} />
+    <div className="flex flex-col gap-2" data-idf-general-upload-result="" data-outcome={outcome} data-applied={result.applied} data-failed={failed.length}>
+      <p className={tone} role={outcome === 'applied' ? undefined : 'alert'} data-idf-general-upload-outcome="">
+        <Trans t={t} i18nKey={key} values={{ n: formatFigure(result.applied) }} components={{ v: <Ltr /> }} />
       </p>
       {failed.length > 0 && (
         <>

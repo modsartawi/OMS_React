@@ -20,6 +20,7 @@ import { IDF_DRAFT_KEY, IDF_KEY, idfDraftApi } from './api'
 import { idfDraftOwnerApi, versionsQuery } from './api' // 646
 import { draftAddBody, draftEditRefusal, EMPTY_DRAFT_ADD, type IdfDraft, type IdfDraftDiff, type IdfDraftMark, type IdfDraftAddForm } from './draft'
 import { draftPanelState, draftStartRefusal, groupAddResult, type IdfDraftPanelState } from './draft' // 646
+import { wholePriority } from './general-edit' // 3185 review
 import type { IdfEntryRow } from './items'
 import { useDraft } from './useDraft'
 
@@ -34,13 +35,21 @@ import { useDraft } from './useDraft'
  * `draftPanelState`'s four: no draft (Start — a refused one names the open draft's owner); mine (edits, Add a group,
  * Publish); mine and stale (the same, Publish off, Rebase on); someone else's ("Draft open by X since …", no edits,
  * Discard with a confirm that says it is their work).
+ * 3185 review: a refused Start re-reads the draft, so the open one (and its Discard) shows at once beside the refusal;
+ * a base version that cannot be read says so with a retry instead of "comparing…" forever.
  * 🚩 UNGATED until 654 adds the edit-grant probe.
  */
 export default function DraftPanel({ masterId }: { masterId: string }) {
   const { t } = useTranslation('insurance-idf')
-  const { draft, diff } = useDraft(masterId)
+  const { draft, base, diff } = useDraft(masterId)
   const userId = useSession((s) => s.userId)
   const view = draft.data === undefined ? null : draftPanelState(draft.data, userId)
+  const refresh = useDraftRefresh(masterId)
+  // Start lives here, not in `NoDraft`: a refused Start re-reads the draft (someone opened one meanwhile), which swaps
+  // `NoDraft` for their draft — the refusal naming them stays on show above it.
+  const start = useMutation({ mutationFn: () => idfDraftApi.start(masterId), onSettled: () => refresh() })
+  const namesOwner = start.isError && draftStartRefusal(apiErrorData(start.error)) !== null
+  const baseFailed = base.isError ? base.error : null
   return (
     <div className="flex max-w-5xl flex-col gap-3 rounded-md border border-border/60 bg-card p-3" data-idf-draft-panel={view ?? ''}>
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -56,9 +65,12 @@ export default function DraftPanel({ masterId }: { masterId: string }) {
       ) : view === null ? (
         <Loading text={t('draft.loading')} />
       ) : view === 'none' ? (
-        <NoDraft masterId={masterId} />
+        <NoDraft start={start} />
       ) : (
-        draft.data && <OpenDraft masterId={masterId} draft={draft.data} diff={diff} state={view} />
+        <>
+          {view === 'someoneElse' && namesOwner && <StartRefusal err={start.error} />}
+          {draft.data && <OpenDraft masterId={masterId} draft={draft.data} diff={diff} state={view} baseFailed={baseFailed} onRetryBase={() => void base.refetch()} />}
+        </>
       )}
     </div>
   )
@@ -70,10 +82,10 @@ function useDraftRefresh(masterId: string) {
   return () => queryClient.invalidateQueries({ queryKey: [...IDF_DRAFT_KEY, masterId] })
 }
 
-function NoDraft({ masterId }: { masterId: string }) {
+/** No draft: Start. A refusal that names no owner (nothing opened meanwhile) stays here as the envelope's message. */
+function NoDraft({ start }: { start: { isPending: boolean; isError: boolean; error: unknown; mutate: () => void } }) {
   const { t } = useTranslation('insurance-idf')
-  const refresh = useDraftRefresh(masterId)
-  const start = useMutation({ mutationFn: () => idfDraftApi.start(masterId), onSuccess: () => refresh() })
+  const namesOwner = start.isError && draftStartRefusal(apiErrorData(start.error)) !== null
   return (
     <>
       <p className="text-sm text-muted-foreground" data-idf-draft-none="">
@@ -85,12 +97,27 @@ function NoDraft({ masterId }: { masterId: string }) {
           {t('draft.start')}
         </Button>
       </div>
-      {start.isError && <StartRefusal err={start.error} />}
+      {start.isError && !namesOwner && <StartRefusal err={start.error} />}
     </>
   )
 }
 
-function OpenDraft({ masterId, draft, diff, state }: { masterId: string; draft: IdfDraft; diff: IdfDraftDiff | null; state: IdfDraftPanelState }) {
+function OpenDraft({
+  masterId,
+  draft,
+  diff,
+  state,
+  baseFailed,
+  onRetryBase,
+}: {
+  masterId: string
+  draft: IdfDraft
+  diff: IdfDraftDiff | null
+  state: IdfDraftPanelState
+  /** The base version's read failed (the diff cannot be drawn). */
+  baseFailed: unknown
+  onRetryBase: () => void
+}) {
   const { t } = useTranslation('insurance-idf')
   const [discarding, setDiscarding] = useState(false)
   return (
@@ -102,7 +129,16 @@ function OpenDraft({ masterId, draft, diff, state }: { masterId: string; draft: 
       ) : (
         <p className="text-xs text-muted-foreground">{t('draft.lede')}</p>
       )}
-      <DraftHeader masterId={masterId} draft={draft} diff={diff} mine={state !== 'someoneElse'} />
+      <DraftHeader masterId={masterId} draft={draft} diff={diff} mine={state !== 'someoneElse'} baseFailed={baseFailed != null} />
+      {baseFailed != null && (
+        <div data-idf-draft-base-failed="">
+          <ErrorBanner className="p-3" title={t('draft.baseFailed')} message={apiErrorMessage(baseFailed, t('draft.baseFailed'))}>
+            <Button variant="secondary" className="mt-2" data-idf-draft-base-retry="" onClick={onRetryBase}>
+              {t('draft.baseRetry')}
+            </Button>
+          </ErrorBanner>
+        </div>
+      )}
       {state === 'stale' && <Rebase masterId={masterId} />}
       {state === 'someoneElse' ? (
         <div className="border-t border-border/60 pt-3">
@@ -124,7 +160,7 @@ function OpenDraft({ masterId, draft, diff, state }: { masterId: string; draft: 
 }
 
 /** Whose draft, started and last changed when, copied from which version, and what it changes. */
-function DraftHeader({ masterId, draft, diff, mine }: { masterId: string; draft: IdfDraft; diff: IdfDraftDiff | null; mine: boolean }) {
+function DraftHeader({ masterId, draft, diff, mine, baseFailed }: { masterId: string; draft: IdfDraft; diff: IdfDraftDiff | null; mine: boolean; baseFailed: boolean }) {
   const { t } = useTranslation('insurance-idf')
   // The versions list's query (shared cache with the Versions section) names the base version by its number.
   const versions = useQuery(versionsQuery(masterId))
@@ -159,7 +195,7 @@ function DraftHeader({ masterId, draft, diff, mine }: { masterId: string; draft:
             values={{ added: formatFigure(diff.counts.added), reRanked: formatFigure(diff.counts.reRanked), moved: formatFigure(diff.counts.moved), removed: formatFigure(diff.counts.removed) }}
             components={{ v: <Ltr /> }}
           />
-        ) : (
+        ) : baseFailed ? null : (
           <span className="text-muted-foreground">{t('draft.comparing')}</span>
         )}
       </dd>
@@ -170,13 +206,14 @@ function DraftHeader({ masterId, draft, diff, mine }: { masterId: string; draft:
 /** A stale draft: Publish is off until the edits are re-applied on the current live version; the diff then refreshes. */
 function Rebase({ masterId }: { masterId: string }) {
   const { t } = useTranslation('insurance-idf')
-  const refresh = useDraftRefresh(masterId)
+  const queryClient = useQueryClient()
   const rebase = useMutation({
     mutationFn: () => idfDraftOwnerApi.rebase(masterId),
     onSuccess: async () => {
       notify.success(t('draft.rebased'))
-      // The draft's new `baseVersionId` keys a new base read, so the diff follows.
-      await refresh()
+      // Every IDF read, as Publish does: the draft's new `baseVersionId` keys a new base read (the diff follows), and
+      // the live version it was rebased onto is read into the masters list and the versions (the header's Base).
+      await queryClient.invalidateQueries({ queryKey: IDF_KEY })
     },
   })
   return (
@@ -225,10 +262,10 @@ function AddGroup({ masterId }: { masterId: string }) {
   const refresh = useDraftRefresh(masterId)
   const [idfNumber, setIdfNumber] = useState('')
   const [priority, setPriority] = useState('')
-  const value = Number(priority.trim())
-  const valid = idfNumber.trim() !== '' && priority.trim() !== '' && Number.isFinite(value)
+  const value = wholePriority(priority)
+  const valid = idfNumber.trim() !== '' && value !== null
   const add = useMutation({
-    mutationFn: () => idfDraftOwnerApi.addGroup(masterId, { idfNumber: idfNumber.trim(), priority: value }),
+    mutationFn: () => idfDraftOwnerApi.addGroup(masterId, { idfNumber: idfNumber.trim(), priority: value! }),
     onSuccess: async () => {
       await refresh()
     },
@@ -344,12 +381,13 @@ function Publish({ masterId, draft }: { masterId: string; draft: IdfDraft }) {
   const [discarding, setDiscarding] = useState(false)
   const publish = useMutation({
     mutationFn: () => idfDraftApi.publish(masterId, note.trim()),
-    onSuccess: async (v) => {
-      notify.success(t('draft.published'), t('draft.publishedDetail', { n: fsi(formatFigure(v.number)) }))
+    onSuccess: (v) => {
+      // The answer may come back without a body: the version's number is then left out of the toast.
+      notify.success(t('draft.published'), v ? t('draft.publishedDetail', { n: fsi(formatFigure(v.number)) }) : undefined)
       setNote('')
-      // Every IDF read: the master's live version, the versions list, the entries and the (now closed) draft.
-      await queryClient.invalidateQueries({ queryKey: IDF_KEY })
     },
+    // Every IDF read, whatever the answer: the master's live version, the versions list, the entries and the draft.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: IDF_KEY }),
   })
   return (
     <div className="flex flex-col gap-2 border-t border-border/60 pt-3" data-idf-draft-publish-step="">
@@ -487,10 +525,10 @@ function ReRankDialog({ masterId, row, onClose }: { masterId: string; row: IdfEn
   const { t } = useTranslation('insurance-idf')
   const refresh = useDraftRefresh(masterId)
   const [priority, setPriority] = useState(String(row.priority))
-  const value = Number(priority.trim())
-  const valid = priority.trim() !== '' && Number.isFinite(value)
+  const value = wholePriority(priority)
+  const valid = value !== null
   const reRank = useMutation({
-    mutationFn: () => idfDraftApi.reRank(masterId, row.itemNumber, value),
+    mutationFn: () => idfDraftApi.reRank(masterId, row.itemNumber, value!),
     onSuccess: async () => {
       onClose()
       await refresh()

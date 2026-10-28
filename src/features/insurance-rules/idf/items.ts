@@ -7,6 +7,7 @@
  * `?version` (absent = the live one), 647's General page its own `tab`. `q` is an item number or description, `idf`
  * one IDF group number. A new search or group goes back to page 1.
  */
+import { readPage } from './paging'
 
 /** A row of the entries (and general items) door. */
 export interface IdfEntryRow {
@@ -46,11 +47,6 @@ export interface IdfItemsQuery {
 export interface IdfMasterItemsQuery extends IdfItemsQuery {
   /** A version id; '' = the master's live version. */
   version: string
-}
-
-function readPage(value: string | null): number {
-  const n = Number(value)
-  return Number.isInteger(n) && n >= 1 ? n : 1
 }
 
 export function readItemsQuery(params: URLSearchParams): IdfItemsQuery {

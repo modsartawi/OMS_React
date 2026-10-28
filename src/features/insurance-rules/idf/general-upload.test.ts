@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  applyOutcome,
   failedBatchLines,
   IDF_GENERAL_CHANGE_KINDS,
   isGeneralUploadApplicable,
@@ -71,5 +72,19 @@ describe('one side of a change, and a failed batch, as one string each', () => {
   it("a batch's lines are one range; a one-line batch is its line", () => {
     expect(failedBatchLines({ fromLine: 201, toLine: 400, messageEn: '', messageAr: '' })).toBe('201–400')
     expect(failedBatchLines({ fromLine: 7, toLine: 7, messageEn: '', messageAr: '' })).toBe('7')
+  })
+})
+
+describe('an apply is a success only when every batch was written and something was (3185 review)', () => {
+  const batch = { fromLine: 3, toLine: 4, messageEn: 'x', messageAr: 'x' }
+  it('items written and no failed batch: applied', () => {
+    expect(applyOutcome({ applied: 4, failedBatches: [] })).toBe('applied')
+  })
+  it('items written but a batch failed: partial', () => {
+    expect(applyOutcome({ applied: 2, failedBatches: [batch] })).toBe('partial')
+  })
+  it('nothing written, with or without a failed batch: failed', () => {
+    expect(applyOutcome({ applied: 0, failedBatches: [batch] })).toBe('failed')
+    expect(applyOutcome({ applied: 0, failedBatches: [] })).toBe('failed')
   })
 })

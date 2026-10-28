@@ -14,6 +14,8 @@
 //   3. Apply asks for a reason (a blank one is refused in the dialog, nothing sent); with one it posts `{ reason }`,
 //      shows how many items were written, clears the report, and the general items re-read with the new ranks;
 //   4. a file whose apply fails a batch: the result lists it, its lines as one ltr range and its message in a bdi;
+//      (3185 review) it is not a success: "Applied in part", a warning toast (no success toast), the file's report stays
+//      on screen and Apply stays off; a file that writes nothing says "Nothing was applied" with an error toast;
 //   5. a refused apply stays in the dialog as the server's message;
 //   6. no raw keys; no page errors.
 //
@@ -184,8 +186,37 @@ for (const dir of ['ltr', 'rtl']) {
         strip(await b.locator('[data-col="message"] bdi').innerText()) === 'Lines 3–4 could not be written: the items changed while applying.',
       JSON.stringify(await ltr(b)),
     )
+    check(
+      `${dir} 4. a partial apply is not a success: its wording, a warning toast, no success toast`,
+      (await res.getAttribute('data-outcome')) === 'partial' &&
+        strip(await res.locator('[data-idf-general-upload-outcome]').innerText()) === 'Applied in part. Items written: 2' &&
+        (await page.locator('[data-sonner-toast][data-type="warning"]', { hasText: 'General file applied in part' }).count()) === 1 &&
+        (await page.locator('[data-sonner-toast][data-type="success"]').count()) === 0,
+      strip(await res.innerText()),
+    )
+    check(`${dir} 4. the file's report stays on screen; Apply stays off`, (await page.locator(`${UP} [data-idf-report="clean"]`).count()) === 1 && (await applyOff(page)))
     check(`${dir} 6. no raw keys (batch)`, await noRawKeys(page))
     check(`${dir} 6. no page errors (batch)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 4. (3185 review) a file that writes nothing
+  {
+    const { context, page, errors } = await open(dir)
+    await uploadFile(page, 'general-nothing.csv')
+    await applyWith(page, 'Trial')
+    const res = page.locator('[data-idf-general-upload-result]')
+    await res.waitFor({ timeout: 30000 })
+    check(
+      `${dir} 4. nothing written: "Nothing was applied", an error toast, the batch listed, the report kept`,
+      (await res.getAttribute('data-outcome')) === 'failed' &&
+        strip(await res.locator('[data-idf-general-upload-outcome]').innerText()) === 'Nothing was applied. Items written: 0' &&
+        (await page.locator('[data-sonner-toast][data-type="error"]', { hasText: 'Nothing was applied' }).count()) === 1 &&
+        (await page.locator('[data-idf-general-upload-batches] tbody tr').count()) === 1 &&
+        (await page.locator(`${UP} [data-idf-report="clean"]`).count()) === 1 &&
+        (await applyOff(page)),
+      strip(await res.innerText()),
+    )
+    check(`${dir} 6. no page errors (nothing)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
   // 5. a refused apply

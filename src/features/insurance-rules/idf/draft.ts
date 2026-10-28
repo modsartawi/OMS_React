@@ -10,6 +10,7 @@
  * door marks rows itself, prefer its marks and drop the base read.
  */
 import { ruleWordKey, rowMessage } from './upload'
+import { wholePriority } from './general-edit'
 import type { IdfEntriesPage, IdfEntryRow, IdfItemsQuery } from './items'
 
 /** `GET …/draft` — the open draft. */
@@ -131,13 +132,12 @@ export interface IdfDraftAddForm {
 }
 export const EMPTY_DRAFT_ADD: IdfDraftAddForm = { itemNumber: '', idfNumber: '', priority: '' }
 
-/** The add body, or null while a field is blank or the priority is not a number. Whole-number ≥ 1 is the server's rule. */
+/** The add body, or null while a field is blank or the priority is not a whole number of 1 or more (`wholePriority`). */
 export function draftAddBody(form: IdfDraftAddForm): IdfDraftAddBody | null {
   const itemNumber = form.itemNumber.trim()
   const idfNumber = form.idfNumber.trim()
-  const p = form.priority.trim()
-  const priority = Number(p)
-  if (!itemNumber || !idfNumber || !p || !Number.isFinite(priority)) return null
+  const priority = wholePriority(form.priority)
+  if (!itemNumber || !idfNumber || priority === null) return null
   return { itemNumber, idfNumber, priority }
 }
 

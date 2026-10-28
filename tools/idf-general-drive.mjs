@@ -21,11 +21,13 @@
 //  11. a row's Edit starts from its group and priority (item fixed); a re-rank shows the new priority on the row;
 //  12. a refused group shows the server's message in the dialog, which stays open, the row unchanged;
 //  13. Clear asks for a reason, sends it in the DELETE body, and the item leaves the master.
+//  14. (3185 review) clearing the only item on the last page falls back to the new last page, never an empty one.
 //
 // 649 / 650 / 651 extend this drive (their slots on the page).
 //
 // 651 (door 3195; `// --- 651 ---` in the stubs: GET IdfPriority/general/export · GET IdfPriority/general/template):
-//   7. Export and Template sit in the General page's action row; each saves its file under the server's name;
+//   7. Export sits in the General page's action row, Template beside 649's Upload (3185 review); each saves its file
+//      under the server's name;
 //   8. no server name → the client's fallback names (`idf-general.xlsx`, `idf-general-template.xlsx`);
 //   9. a refused export / template (JSON 400 envelope) toasts the server's message and saves nothing.
 //
@@ -34,6 +36,7 @@
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
 import { IDF_GENERAL_EXPORT_NAME, IDF_GENERAL_TEMPLATE_NAME } from './idf-stubs.mjs' // 651
+import { IDF_GENERAL_ITEMS } from './idf-stubs.mjs' // 3185 review
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -77,7 +80,7 @@ async function open(dir, { deny = [], noFileName = false } = {}) {
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, reads, writes }
+  return { context, page, errors, reads, writes, state }
 }
 
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -296,8 +299,11 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/idf/general`)
     await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
     check(
-      `${dir} 7. Export and Template sit in the action row`,
-      (await page.locator(`[data-idf-general-actions] ${G_EXPORT}`).count()) === 1 && (await page.locator(`[data-idf-general-actions] ${G_TEMPLATE}`).count()) === 1,
+      `${dir} 7. Export sits in the action row, Template beside Upload`,
+      (await page.locator(`[data-idf-general-actions] ${G_EXPORT}`).count()) === 1 &&
+        (await page.locator(`[data-idf-general-actions] ${G_TEMPLATE}`).count()) === 0 &&
+        (await page.locator(`[data-idf-general-upload] ${G_TEMPLATE}`).count()) === 1 &&
+        (await page.locator(`[data-idf-general-upload] [data-idf-general-upload-submit] ~ ${G_TEMPLATE}`).count()) === 1,
     )
     const ex = await download(page, G_EXPORT)
     check(`${dir} 7. Export saves the general master under the server's name`, ex.saved && ex.name === IDF_GENERAL_EXPORT_NAME && reads.generalExport === 1, ex.name)
@@ -338,6 +344,29 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 9. no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+}
+
+// --- 3185 review --- the only item of the last page cleared → the new last page
+for (const dir of ['ltr', 'rtl']) {
+  const { context, page, errors, state } = await open(dir)
+  state.general = structuredClone(IDF_GENERAL_ITEMS).slice(0, 26)
+  const last = state.general[25].itemNumber
+  await page.goto(`${BASE}/insurance-rules/idf/general?page=2`)
+  await page.locator(`[data-idf-items] tbody tr[data-item="${last}"]`).waitFor({ timeout: 60000 })
+  check(`${dir} 14. page 2 holds one item`, JSON.stringify(await itemRows(page)) === JSON.stringify([last]), JSON.stringify(await itemRows(page)))
+  await page.locator(`[data-idf-general-clear="${last}"]`).click()
+  await page.locator(`[data-idf-general-clear-dialog="${last}"] [data-field="reason"]`).fill('Withdrawn')
+  await page.locator('[data-general-clear-confirm]').click()
+  await page.locator('[data-idf-general-clear-dialog]').waitFor({ state: 'detached', timeout: 30000 })
+  await page.waitForURL((u) => !u.searchParams.has('page'), { timeout: 30000 }).catch(() => {})
+  await totalIs(page, 25).catch(() => {})
+  check(
+    `${dir} 14. the emptied page 2 falls back to page 1, its 25 rows, no "empty" message`,
+    !new URL(page.url()).searchParams.has('page') && (await itemRows(page)).length === 25 && (await page.locator('[data-idf-items-empty]').count()) === 0,
+    `${page.url()} ${(await itemRows(page)).length}`,
+  )
+  check(`${dir} 14. no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
 }
 
 await browser.close()

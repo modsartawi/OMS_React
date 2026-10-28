@@ -534,6 +534,11 @@ export function idfEntriesStub(method, path, opts = {}) {
   const versionId = decodeURIComponent(m[2])
   ;(reads.entries ??= []).push({ masterId, versionId, qs })
   if (deny.includes('entries')) return bare403()
+  // 3185 review: `state.entriesFailures` = n answers the next n reads a 500 envelope (a transient failure).
+  if (opts.state?.entriesFailures > 0) {
+    opts.state.entriesFailures -= 1
+    return envelope(null, { status: 500, success: false, message: 'The entries could not be read right now.', errorCode: 'IDF-00098' })
+  }
   const q = new URLSearchParams(qs)
   const search = (q.get('search') ?? '').toLowerCase()
   const idf = q.get('idf') ?? ''
@@ -671,7 +676,8 @@ export function idfDraftStub(method, path, body, opts = {}) {
     if (master) master.liveVersion = version
     delete state.drafts[masterId]
     published.push({ masterId, draftId: draft.draftId, note: body.note })
-    return envelope(version)
+    // 3185 review: `state.publishAnswersNull` answers the publish with no body (the version is still made).
+    return envelope(state.publishAnswersNull ? null : version)
   }
   return null
 }
@@ -826,6 +832,7 @@ export const IDF_GENERAL_UPLOAD_DIRTY = [
   { line: 3, itemNumber: '999999', rule: 'unknownItem', messageEn: 'Item 999999 is not a known item.', messageAr: 'الصنف 999999 غير معروف.' },
   { line: 4, itemNumber: '300230', rule: 'badPriority', messageEn: 'Priority "x" on line 4 is not a whole number of 1 or more.', messageAr: 'الأولوية "x" في السطر 4 ليست عددًا صحيحًا من 1 فأكثر.' },
 ]
+export const IDF_GENERAL_NOTHING_BATCH = { fromLine: 2, toLine: 5, messageEn: 'Lines 2–5 could not be written: the general master is locked.', messageAr: 'تعذّرت كتابة الأسطر 2–5: القائمة العامة مقفلة.' }
 export const IDF_GENERAL_FAILED_BATCH = { fromLine: 3, toLine: 4, messageEn: 'Lines 3–4 could not be written: the items changed while applying.', messageAr: 'تعذّرت كتابة الأسطر 3–4: تغيّرت الأصناف أثناء التطبيق.' }
 
 function generalPreview(items) {
@@ -859,7 +866,8 @@ export function idfGeneralUploadStub(method, path, body, opts = {}) {
   const u = generalUploads[decodeURIComponent(m[1])]
   if (!u || !u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing rows and cannot be applied.', errorCode: 'IDF-00085' })
   if (refuseGeneralApply) return envelope(null, { status: 409, success: false, message: 'The general master changed since this file was checked; upload it again.', errorCode: 'IDF-00086' })
-  const failedBatches = u.batch ? [IDF_GENERAL_FAILED_BATCH] : []
+  // 3185 review: a file named `nothing` fails one batch over every line — nothing is written.
+  const failedBatches = /nothing/i.test(u.name) ? [IDF_GENERAL_NOTHING_BATCH] : u.batch ? [IDF_GENERAL_FAILED_BATCH] : []
   let applied = 0
   for (const r of IDF_GENERAL_UPLOAD_LINES) {
     if (failedBatches.some((b) => r.line >= b.fromLine && r.line <= b.toLine)) continue
@@ -979,7 +987,8 @@ const xlsx = (name) => ({
 })
 
 export function idfGroupsStub(method, path, body, opts = {}) {
-  const { state = newIdfState(), deny = [], reads = {}, writes = [], groupsPageSize = 50 } = opts
+  const { state = newIdfState(), deny = [], reads = {}, writes = [] } = opts
+  const groupsPageSize = opts.groupsPageSize ?? state.groupsPageSize ?? 50
   const [bare, qs = ''] = path.split('?')
   if (bare !== 'IdfPriority/groups' && !bare.startsWith('IdfPriority/groups/')) return null
   if (bare.startsWith('IdfPriority/groups/uploads')) return null // 653
@@ -1023,6 +1032,11 @@ export function idfGroupsStub(method, path, body, opts = {}) {
   }
   if (method === 'DELETE') {
     writes.push({ method, path: bare, body })
+    // 3185 review: `state.groupRemoveFailures` = n answers the next n removes a 500 (transient; no count).
+    if (state.groupRemoveFailures > 0) {
+      state.groupRemoveFailures -= 1
+      return envelope(null, { status: 500, success: false, message: 'The group could not be removed right now.', errorCode: 'IDF-00037' })
+    }
     if (i < 0) return refuse('Unknown IDF group.', 'IDF-00033')
     const g = state.groups[i]
     const count = g.liveCount ?? g.itemCount

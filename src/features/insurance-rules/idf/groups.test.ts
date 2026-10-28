@@ -4,7 +4,7 @@
  * list's address (`?q=&page=`).
  */
 import { describe, expect, it } from 'vitest'
-import { canRemoveGroup, groupBody, groupEditBody, groupFormProblems, groupsDoorParams, readGroupsQuery, refusedItemCount, writeGroupsQuery } from './groups'
+import { canRemoveGroup, groupBody, groupEditBody, groupFormProblems, groupsDoorParams, readGroupsQuery, refusedItemCount, removeRefusedForGood, writeGroupsQuery } from './groups'
 import { groupsExportFileName, groupsTemplateFileName } from './download'
 
 describe('group form: number required and ≤ 26, description required, number fixed on edit', () => {
@@ -51,6 +51,18 @@ describe('a refused remove names the count it carries', () => {
     expect(refusedItemCount({ itemCount: 12 })).toBe(12)
     expect(refusedItemCount(null)).toBeNull()
     expect(refusedItemCount({ itemCount: '12' })).toBeNull()
+  })
+})
+
+describe('only the "group has items" refusal keeps Remove off; any other failure may be retried (3185 review)', () => {
+  it('a refusal naming items is final', () => {
+    expect(removeRefusedForGood({ itemCount: 2 })).toBe(true)
+  })
+  it('a refusal with no count, a count of 0, or no data at all (a network or server failure) allows a retry', () => {
+    expect(removeRefusedForGood(null)).toBe(false)
+    expect(removeRefusedForGood(undefined)).toBe(false)
+    expect(removeRefusedForGood({ itemCount: 0 })).toBe(false)
+    expect(removeRefusedForGood({ message: 'Timeout' })).toBe(false)
   })
 })
 

@@ -38,6 +38,17 @@ export const NEW_GENERAL_ITEM_FORM: IdfGeneralEditForm = { itemNumber: '', idfNu
 export type IdfGeneralEditProblem = 'itemRequired' | 'groupRequired' | 'priorityRequired' | 'priorityWholeNumber' | 'reasonRequired' | 'reasonTooLong'
 export type IdfGeneralEditProblems = Partial<Record<keyof IdfGeneralEditForm, IdfGeneralEditProblem>>
 
+/**
+ * A typed priority as the doors take it — a whole number of 1 or more (digits only: no sign, decimal, hex or exponent)
+ * — or null. The one rule for every IDF priority box (the general edit, the draft's add, add-a-group and re-rank).
+ */
+export function wholePriority(typed: string): number | null {
+  const p = typed.trim()
+  if (!/^\d+$/.test(p)) return null
+  const n = Number(p)
+  return n >= 1 ? n : null
+}
+
 /** An edit starts from the row's group and priority; the reason is always the user's own. */
 export function generalFormFromRow(row: IdfEntryRow): IdfGeneralEditForm {
   return { itemNumber: row.itemNumber, idfNumber: row.idfNumber, priority: String(row.priority), reason: '' }
@@ -48,9 +59,8 @@ export function generalEditProblems(f: IdfGeneralEditForm, mode: IdfGeneralEditM
   const out: IdfGeneralEditProblems = {}
   if (mode === 'set' && !f.itemNumber.trim()) out.itemNumber = 'itemRequired'
   if (!f.idfNumber.trim()) out.idfNumber = 'groupRequired'
-  const p = f.priority.trim()
-  if (!p) out.priority = 'priorityRequired'
-  else if (!/^\d+$/.test(p) || Number(p) < 1) out.priority = 'priorityWholeNumber'
+  if (!f.priority.trim()) out.priority = 'priorityRequired'
+  else if (wholePriority(f.priority) === null) out.priority = 'priorityWholeNumber'
   const reason = reasonProblem(f.reason)
   if (reason) out.reason = reason as IdfGeneralEditProblem
   return out

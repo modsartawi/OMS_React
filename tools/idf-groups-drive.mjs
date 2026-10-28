@@ -28,10 +28,13 @@
 //   12. a clean file with an update: counts add 1 / update 1, Apply applies, the result shows added + updated, the
 //       list re-reads (the new group listed, the updated description shown); 13. a refused apply shows its message.
 //
+//   3185 review: 14. a remove that fails for a passing reason (a 500, no count) keeps Remove on, and a retry removes;
+//       removing the last group of the last page falls back to the new last page (never an empty page with no pager).
+//
 //   1. run the app:  npx vite --port 5217 --strictPort
 //   2. node tools/idf-groups-drive.mjs        (DRIVE_PORT overrides 5217)
 import { createRequire } from 'node:module'
-import { envelope, idfStub, newIdfState, IDF_GROUPS_EXPORT_NAME } from './idf-stubs.mjs'
+import { envelope, idfStub, newIdfState, IDF_GROUPS, IDF_GROUPS_EXPORT_NAME } from './idf-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -330,6 +333,40 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 8. no page errors (denied)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+}
+
+// --- 3185 review --- a transient remove failure is retried; an emptied last page falls back
+for (const dir of ['ltr', 'rtl']) {
+  const { context, page, errors, state } = await open(dir)
+  state.groups = structuredClone(IDF_GROUPS).filter((g) => g.idfNumber !== 'IDF-0399')
+  state.groupsPageSize = 3
+  state.groupRemoveFailures = 1
+  await page.goto(`${BASE}/insurance-rules/idf/groups?page=2`)
+  await page.locator('[data-idf-groups] tbody tr[data-group="IDF-0310"]').waitFor({ timeout: 60000 })
+  check(`${dir} 14. page 2 holds one group`, JSON.stringify(await rowIds(page)) === '["IDF-0310"]', JSON.stringify(await rowIds(page)))
+  await page.locator('[data-group-remove="IDF-0310"]').click()
+  const rm = page.locator('[data-idf-group-remove-dialog="IDF-0310"]')
+  await rm.waitFor()
+  await page.locator('[data-group-remove-confirm]').click()
+  await rm.locator('[data-idf-group-remove-refusal]').waitFor({ timeout: 30000 })
+  check(
+    `${dir} 14. a passing failure shows its message and leaves Remove on`,
+    /could not be removed right now/.test(await rm.locator('[data-idf-group-remove-refusal]').innerText()) && (await page.locator('[data-group-remove-confirm]').isEnabled()),
+  )
+  await page.locator('[data-group-remove-confirm]').click()
+  await rm.waitFor({ state: 'detached', timeout: 30000 })
+  await page.waitForURL((u) => !u.searchParams.has('page'), { timeout: 30000 }).catch(() => {})
+  await page.locator('[data-idf-groups] tbody tr').first().waitFor({ timeout: 30000 }).catch(() => {})
+  check(
+    `${dir} 14. the retry removes; the emptied page 2 falls back to page 1 with its rows`,
+    !state.groups.some((g) => g.idfNumber === 'IDF-0310') &&
+      !new URL(page.url()).searchParams.has('page') &&
+      JSON.stringify(await rowIds(page)) === '["IDF-0101","IDF-0102","IDF-0207"]' &&
+      (await page.locator('[data-idf-groups-empty]').count()) === 0,
+    `${page.url()} ${JSON.stringify(await rowIds(page))}`,
+  )
+  check(`${dir} 14. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+  await context.close()
 }
 
 await browser.close()

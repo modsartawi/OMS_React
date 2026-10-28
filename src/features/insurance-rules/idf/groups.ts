@@ -6,6 +6,7 @@
  *
  * Shapes are the brief's sketch ("Spec 3185"); 654 reconciles them with the doors as built.
  */
+import { readPage } from './paging'
 
 /** A row of `GET IdfPriority/groups`. */
 export interface IdfGroup {
@@ -79,6 +80,14 @@ export function refusedItemCount(data: unknown): number | null {
   return typeof n === 'number' && Number.isFinite(n) ? n : null
 }
 
+/**
+ * Whether a failed remove is final: only the door's "items still point at it" refusal (a count above 0 in its data)
+ * keeps Remove off. Any other failure — a transient server or network error — may be retried.
+ */
+export function removeRefusedForGood(data: unknown): boolean {
+  return (refusedItemCount(data) ?? 0) > 0
+}
+
 // ── the address: `?q=&page=` (defaults omitted)
 
 export interface IdfGroupsQuery {
@@ -86,11 +95,6 @@ export interface IdfGroupsQuery {
   q: string
   /** 1-based. */
   page: number
-}
-
-function readPage(value: string | null): number {
-  const n = Number(value)
-  return Number.isInteger(n) && n >= 1 ? n : 1
 }
 
 export function readGroupsQuery(params: URLSearchParams): IdfGroupsQuery {

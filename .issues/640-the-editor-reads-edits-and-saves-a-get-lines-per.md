@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 639 (server half BackOffice 3181)
 blocked-by: —
 ---
@@ -33,11 +33,11 @@ model (get-line wire type) · logic (editor state, `fromDocument`/`toRequest`, G
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `a get line's Per round-trips read → state → request` — Per 4 stays 4; a read's 0 on P/R opens as 1; `%` and Total Discount send 0; a blank sends 0 · pure, `editor.test.ts`
-- [ ] `the Per column shows only on Discount Price and Discount Amount lines, never under Total Discount` · pure
-- [ ] `curr/pe reads currency / N unit when Per is above 1` — extends the existing curr/pe block · pure
-- [ ] `new, pasted and generated lines start at Per 1; a Per edit makes formChanged true` · pure
-- [ ] `bby maintenance drive: Per` — a stubbed read with `pricingUnit: 4` shows `SAR / 4 EA`; an edit reaches the Save body; switching to % and turning on Total Discount each hide the box; a stubbed `BBY-PRICING-UNIT` is listed; the upload note names column 25 · flow, `tools/bby-maintenance-drive.mjs`
+- [x] `a get line's Per round-trips read → state → request` — Per 4 stays 4; a read's 0 on P/R opens as 1; `%` and Total Discount send 0; a blank sends 0 · pure, `editor.test.ts`
+- [x] `the Per column shows only on Discount Price and Discount Amount lines, never under Total Discount` · pure
+- [x] `curr/pe reads currency / N unit when Per is above 1` — extends the existing curr/pe block · pure
+- [x] `new, pasted and generated lines start at Per 1; a Per edit makes formChanged true` · pure
+- [x] `bby maintenance drive: Per` — a stubbed read with `pricingUnit: 4` shows `SAR / 4 EA`; an edit reaches the Save body; switching to % and turning on Total Discount each hide the box; a stubbed `BBY-PRICING-UNIT` is listed; the upload note names column 25 · flow, `tools/bby-maintenance-drive.mjs`
 
 ## Boundaries
 
@@ -55,3 +55,7 @@ the drive are green.
 ## Blocked by
 
 —
+
+## Comments
+
+- 2026-10-28 — Done — Per box, Curr/Pe `SAR / 4 EA`, pricingUnit round trip, BBY-PRICING-UNIT fallback key and upload note col 25 on branch ticket/640-get-line-per, commit 670c0a7d; typecheck, lint, vitest 7348/7348 and drive 220/220 (new step 48) green; STUBBED (BackOffice 3181 not built). Judgement calls (OWNER DECISION, overrulable): (1) a read's 0 opens as 1 on every line, % included, so switching % → P shows 1; the Per header stays in the grid on non-Total-Discount layouts and only the cell is empty on a % line; (2) the en fallback is shown only when the server sends BBY-PRICING-UNIT with no English text — a worded refusal is shown as sent; (3) no generated-coupon get line exists (coupon material is a Buy-line act), so D12 is covered by add line + paste; (4) drive step numbered 48 because 45–47 were already taken.

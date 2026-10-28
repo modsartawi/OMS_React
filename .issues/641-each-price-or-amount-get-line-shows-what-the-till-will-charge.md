@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 639 (server half BackOffice 3181)
 blocked-by: 640
 ---
@@ -30,10 +30,10 @@ logic (a pure hint function in the editor's pure half) · component (Get panel r
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `the hint totals value / Per × quantity, worded by scale type` — Equal, From, Up To × P, R · pure, `editor.test.ts`
-- [ ] `the hint shows uneven rates without refusing` — 4/3 → 133.33, 2/4 → 50.00 · pure
-- [ ] `no hint for blank, non-numeric or Per ≤ 0 input, for % or under Total Discount` · pure
-- [ ] `bby maintenance drive: hint` — Equal 4 / P 100 / Per 4 shows `= 100.00 SAR for 4 EA`; changing Per to 1 shows `400.00`; switching to From adds the each-rate · flow
+- [x] `the hint totals value / Per × quantity, worded by scale type` — Equal, From, Up To × P, R · pure, `editor.test.ts`
+- [x] `the hint shows uneven rates without refusing` — 4/3 → 133.33, 2/4 → 50.00 · pure
+- [x] `no hint for blank, non-numeric or Per ≤ 0 input, for % or under Total Discount` · pure
+- [x] `bby maintenance drive: hint` — Equal 4 / P 100 / Per 4 shows `= 100.00 SAR for 4 EA`; changing Per to 1 shows `400.00`; switching to From adds the each-rate · flow
 
 ## Boundaries
 
@@ -47,3 +47,7 @@ The hint shows as above on stubs, and typecheck, lint, vitest and the drive are 
 ## Blocked by
 
 [640](640-the-editor-reads-edits-and-saves-a-get-lines-per.md)
+
+## Comments
+
+- 2026-10-28 — Done — pure `perHint` (value / Per × qty to 2 places, Equal/From/Up To × P/R, From carries the rate) + a muted hint row under each P/R get line, amounts and quantities in `<Trans>` slots isolated with `Ltr`, commit 5f6b3c8e; typecheck, lint, vitest 7363/7363 and drive 231/231 (new step 49; one 5c column-filter timing flake on a first run, green on rerun) green; STUBBED (BackOffice 3181 not built). Judgement calls (OWNER DECISION, overrulable): (1) the hint sits in its own row under the line, text-end, muted like every hint on the screen, with no tone change ever; (2) the From rate on an amount reads "then 25.00 SAR off each"; (3) the quantity is shown as typed, so a fractional quantity shows (the server's BBY-QUANTITY decides); (4) "SAR" is the bonus buy's currency, so a BHD org would read BHD.

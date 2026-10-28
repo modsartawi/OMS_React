@@ -24,6 +24,12 @@ export function masterTemplateFileName(): string {
 // 650 · change log export (changesExportFileName)
 
 // 651 · general export + template (generalExportFileName, generalTemplateFileName)
+export function generalExportFileName(): string {
+  return 'idf-general.xlsx'
+}
+export function generalTemplateFileName(): string {
+  return 'idf-general-template.xlsx'
+}
 
 // 652 · IDF groups export + template
 export function groupsExportFileName(): string {

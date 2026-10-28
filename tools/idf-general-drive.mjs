@@ -17,10 +17,16 @@
 //
 // 648 / 649 / 650 / 651 extend this drive (their slots on the page).
 //
+// 651 (door 3195; `// --- 651 ---` in the stubs: GET IdfPriority/general/export · GET IdfPriority/general/template):
+//   7. Export and Template sit in the General page's action row; each saves its file under the server's name;
+//   8. no server name → the client's fallback names (`idf-general.xlsx`, `idf-general-template.xlsx`);
+//   9. a refused export / template (JSON 400 envelope) toasts the server's message and saves nothing.
+//
 //   1. run the app:  npx vite --port 5214 --strictPort
 //   2. node tools/idf-general-drive.mjs        (DRIVE_PORT overrides 5214)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
+import { IDF_GENERAL_EXPORT_NAME, IDF_GENERAL_TEMPLATE_NAME } from './idf-stubs.mjs' // 651
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -34,7 +40,7 @@ const check = (name, pass, detail = '') => {
 
 const browser = await chromium.launch()
 
-async function open(dir, { deny = [] } = {}) {
+async function open(dir, { deny = [], noFileName = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   page.setDefaultNavigationTimeout(120000)
@@ -58,7 +64,7 @@ async function open(dir, { deny = [] } = {}) {
     } catch {
       body = null
     }
-    const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny })
+    const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny, noFileName })
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
@@ -67,7 +73,7 @@ async function open(dir, { deny = [] } = {}) {
 }
 
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
-const noRawKeys = async (page) => !/insurance-(rules|idf):|general\.|items\.|upload\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
+const noRawKeys = async (page) => !/insurance-(rules|idf):|general\.|items\.|download\.|upload\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
 const ltr = (loc) => loc.locator('bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent))
 const itemRows = (page) => page.locator('[data-idf-items] tbody tr').evaluateAll((els) => els.map((e) => e.getAttribute('data-item')))
 const groupsShown = (page) => page.locator('[data-idf-items] tbody tr').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-idf')))])
@@ -80,6 +86,14 @@ const totalIs = (page, n) =>
 const typeInto = async (page, field, value) => {
   await page.locator(`[data-idf-items-filter] [data-filter="${field}"]`).fill(value)
   await page.locator(`[data-idf-items-filter] [data-filter="${field}"]`).press('Enter')
+}
+
+// 651 · the download buttons
+const G_EXPORT = '[data-idf-general-export]'
+const G_TEMPLATE = '[data-idf-general-template]'
+const download = async (page, sel) => {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator(sel).click()])
+  return { name: dl.suggestedFilename(), saved: (await dl.path()) != null }
 }
 
 for (const dir of ['ltr', 'rtl']) {
@@ -169,6 +183,54 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-items-denied]').waitFor({ timeout: 60000 }).catch(() => {})
     check(`${dir} 6. a bare 403 on the items says no access; the header stays`, (await page.locator('[data-idf-items-denied]').count()) === 1 && (await page.locator('[data-idf-general]').count()) === 1)
     check(`${dir} 6. no page errors (denied)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 651 · Export / Template
+  {
+    const { context, page, errors, reads } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
+    check(
+      `${dir} 7. Export and Template sit in the action row`,
+      (await page.locator(`[data-idf-general-actions] ${G_EXPORT}`).count()) === 1 && (await page.locator(`[data-idf-general-actions] ${G_TEMPLATE}`).count()) === 1,
+    )
+    const ex = await download(page, G_EXPORT)
+    check(`${dir} 7. Export saves the general master under the server's name`, ex.saved && ex.name === IDF_GENERAL_EXPORT_NAME && reads.generalExport === 1, ex.name)
+    const tpl = await download(page, G_TEMPLATE)
+    check(`${dir} 7. Template saves the blank file under the server's name`, tpl.saved && tpl.name === IDF_GENERAL_TEMPLATE_NAME && reads.generalTemplate === 1, tpl.name)
+    check(`${dir} 7. no raw keys (downloads)`, await noRawKeys(page))
+    check(`${dir} 7. no page errors (downloads)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open(dir, { noFileName: true })
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator(G_EXPORT).waitFor({ timeout: 60000 })
+    const ex = await download(page, G_EXPORT)
+    const tpl = await download(page, G_TEMPLATE)
+    check(`${dir} 8. no server name → the client's fallback names`, ex.name === 'idf-general.xlsx' && tpl.name === 'idf-general-template.xlsx', `${ex.name} ${tpl.name}`)
+    check(`${dir} 8. no page errors (fallback names)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors, reads } = await open(dir, { deny: ['generalExport', 'generalTemplate'] })
+    await page.goto(`${BASE}/insurance-rules/idf/general`)
+    await page.locator(G_EXPORT).waitFor({ timeout: 60000 })
+    let downloaded = false
+    page.on('download', () => (downloaded = true))
+    await page.locator(G_EXPORT).click()
+    const exToast = page.locator('[data-sonner-toast]', { hasText: 'The file could not be exported' })
+    await exToast.waitFor({ timeout: 10000 }).catch(() => {})
+    check(
+      `${dir} 9. a refused export toasts the server's message, no file`,
+      (await exToast.count()) === 1 && /The general master could not be exported/.test(await exToast.innerText()) && !downloaded && reads.generalExport === 1,
+    )
+    await page.locator(G_TEMPLATE).click()
+    const tplToast = page.locator('[data-sonner-toast]', { hasText: 'The template could not be downloaded' })
+    await tplToast.waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 9. a refused template toasts the server's message, no file`, (await tplToast.count()) === 1 && /The general template could not be built/.test(await tplToast.innerText()) && !downloaded)
+    check(`${dir} 9. the buttons are usable again after a refusal`, (await page.locator(G_EXPORT).isEnabled()) && (await page.locator(G_TEMPLATE).isEnabled()))
+    check(`${dir} 9. no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

@@ -40,7 +40,7 @@ function canonical(request: SimulateRequest): string {
       text(header.distributionChannel),
       text(header.pricingDate),
       text(header.documentPricingProcedureKey),
-      text(header.loyGroups),
+      text(header.loyGroups?.join(',')),
       text(header.loyTier),
       header.isPromotionApplicable === true,
       header.skipBonusBuyActivationCheck === true,

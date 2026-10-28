@@ -62,7 +62,7 @@ export function runChips(request: SimulateRequest): RunChip[] {
 
   const proc = lever(header.documentPricingProcedureKey)
   if (proc) chips.push({ kind: 'keyed', key: 'proc', value: proc })
-  const loy = lever(header.loyGroups)
+  const loy = lever(header.loyGroups?.join(','))
   if (loy) chips.push({ kind: 'keyed', key: 'loy', value: loy })
   const tier = lever(header.loyTier)
   if (tier) chips.push({ kind: 'keyed', key: 'tier', value: tier })

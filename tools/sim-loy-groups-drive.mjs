@@ -6,7 +6,7 @@
 //   1. with the view grant, the header's "Loyalty group" field is the core picker over
 //      `Groups?includeInactive=true`, not a text box;
 //   2. ticking GOLD and SILVER: Escape closes the panel and NOT the run form;
-//   3. Process posts `loyGroups: "GOLD,SILVER"` (one comma string) and the collapsed strip's LOY chip
+//   3. Process posts `loyGroups: ["GOLD","SILVER"]` (the engine binds string[]) and the collapsed strip's LOY chip
 //      shows it; taking every group off posts `null` and the LOY chip goes;
 //   4. without the grant (D3) — and while the probe is pending, and when it has failed — the field is
 //      today's FREE TEXT (not the picker's read-only fallback), sent as typed, and no list is asked;
@@ -125,9 +125,9 @@ async function granted(dir) {
   const chosen = await picker.locator('[data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip')))
   check(`${dir} 2. the chips read GOLD, SILVER`, JSON.stringify(chosen) === '["GOLD","SILVER"]', JSON.stringify(chosen))
 
-  // ── 3. run: the comma string rides the request; the LOY chip shows it ──
+  // ── 3. run: the picked codes ride the request as an array; the LOY chip shows it ──
   const body = await processRun(page, posted)
-  check(`${dir} 3. Process posts loyGroups "GOLD,SILVER"`, body?.header?.loyGroups === 'GOLD,SILVER', JSON.stringify(body?.header?.loyGroups))
+  check(`${dir} 3. Process posts loyGroups ["GOLD","SILVER"]`, JSON.stringify(body?.header?.loyGroups) === '["GOLD","SILVER"]', JSON.stringify(body?.header?.loyGroups))
   const chips = await stripText(page)
   check(`${dir} 3. the collapsed strip's LOY chip shows the picked groups`, chips.includes('GOLD,SILVER'), chips)
   await page.screenshot({ path: `${SHOTS}/${dir}-ran.png` }).catch(() => {})
@@ -156,8 +156,8 @@ async function freeText(dir, probe) {
     (await page.locator('[data-multi-select], [data-loy-groups-readonly]').count()) === 0)
   await box.locator('input').fill(' gold, 0001 ')
   const body = await processRun(page, posted)
-  check(`${dir} 4. ${probe}: Process posts the text as typed (trimmed)`, body?.header?.loyGroups === 'gold, 0001', JSON.stringify(body?.header?.loyGroups))
-  check(`${dir} 4. ${probe}: the LOY chip shows it`, (await stripText(page)).includes('gold, 0001'))
+  check(`${dir} 4. ${probe}: Process posts the typed codes, split and trimmed`, JSON.stringify(body?.header?.loyGroups) === '["gold","0001"]', JSON.stringify(body?.header?.loyGroups))
+  check(`${dir} 4. ${probe}: the LOY chip shows the codes sent`, (await stripText(page)).includes('gold,0001'))
   check(`${dir} 4. ${probe}: no groups list is asked`, asked.length === 0, asked.join(' | '))
   check(`${dir} 4. ${probe}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await browser.close()
@@ -176,7 +176,7 @@ async function lateProbe(dir) {
   const chips = await picker.locator('[data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip')))
   check(`${dir} 6. late probe: the picker shows the typed codes normalised`, JSON.stringify(chips) === '["GOLD","SILVER"]', JSON.stringify(chips))
   const body = await processRun(page, posted)
-  check(`${dir} 6. late probe: Process posts what the picker shows`, body?.header?.loyGroups === 'GOLD,SILVER', JSON.stringify(body?.header?.loyGroups))
+  check(`${dir} 6. late probe: Process posts what the picker shows`, JSON.stringify(body?.header?.loyGroups) === '["GOLD","SILVER"]', JSON.stringify(body?.header?.loyGroups))
   check(`${dir} 6. late probe: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await browser.close()
 }

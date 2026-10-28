@@ -42,3 +42,4 @@ On stubs, a simulation runs with picked groups, falls back to text without the g
 - 2026-10-28 — Owner: shared change — `core/ui/MultiSelect` marks its Escape handled and `SimRunStrip` ignores a handled Escape (else Escape closed the whole form).
 - 2026-10-28 — Owner: free text sends what was typed, trimmed, not upper-cased; the picker sends upper-case. The LOY run chip is still not isolated for RTL (pre-existing).
 - 2026-10-28 — sim-strip drive's "<150 ms no spinner" check is flaky on this machine (fails on the base too).
+- 2026-10-28 — Live walk (638) bug, fixed: the engine binds `SimulateHeaderDto.LoyGroups` as `string[]`, but the client had sent one comma string since 5e59edc1 (July) — any group at all failed `SYS-00099 JsonConvertError … $.header.loyGroups`. The form still holds the comma string; the request now splits it into codes (trimmed, blanks dropped, none → `null`). The LOY chip shows the codes sent (`gold,0001`), no longer the free text as typed.

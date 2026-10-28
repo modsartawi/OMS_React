@@ -3,6 +3,12 @@ import type { SimHeaderState } from './SimHeaderForm'
 import type { SimItemRow } from './SimItemsEntry'
 import type { SimManualConditionRow } from './SimManualConditions'
 
+/** The comma string split into codes, each trimmed, blanks dropped; none → `null`. */
+function loyGroupCodes(value: string): string[] | null {
+  const codes = value.split(',').map((code) => code.trim()).filter((code) => code !== '')
+  return codes.length > 0 ? codes : null
+}
+
 /** Everything on screen that a run reads. */
 export interface SimRequestInputs {
   header: SimHeaderState
@@ -17,8 +23,8 @@ export interface SimRequestInputs {
  * The request the inputs on screen describe — Process posts it, and the run strip's chips and the
  * staleness check read it (ticket 113). Out of the Page so it is node-testable (ticket 637).
  *
- * `loyGroups` is the one comma string the core picker writes (or, without the view grant, today's
- * free text — D3); either way blank goes as `null`.
+ * `loyGroups` is held as the one comma string the core picker writes (or, without the view grant,
+ * free text — D3) and sent as the code array the engine binds; no code at all goes as `null`.
  */
 export function buildSimulateRequest({
   header,
@@ -36,7 +42,7 @@ export function buildSimulateRequest({
       // A blank date lets the engine use "now"; a set date goes as midnight ISO.
       pricingDate: header.pricingDate ? `${header.pricingDate}T00:00:00` : '',
       documentPricingProcedureKey: header.documentPricingProcedureKey.trim(),
-      loyGroups: header.loyGroups.trim() || null,
+      loyGroups: loyGroupCodes(header.loyGroups),
       loyTier: header.loyTier.trim() || null,
       isPromotionApplicable: promotion,
       skipBonusBuyActivationCheck: unactivated,

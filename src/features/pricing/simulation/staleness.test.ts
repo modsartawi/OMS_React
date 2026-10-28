@@ -67,7 +67,7 @@ describe('isStaleRun marks the results as describing an older basket', () => {
 
   it('is stale on a changed lever — as stale as a changed determination field', () => {
     const edited = request()
-    edited.header.loyGroups = '0001'
+    edited.header.loyGroups = ['0001']
     expect(isStaleRun(edited, request())).toBe(true)
   })
 
@@ -141,7 +141,7 @@ describe('isStaleRun marks the results as describing an older basket', () => {
   describe('the false positive that would stick the mark on permanently', () => {
     it('reads blank, null and undefined on an optional lever as the same absence', () => {
       const blank = request()
-      blank.header.loyGroups = ''
+      blank.header.loyGroups = []
       blank.header.loyTier = ''
       const nulled = request() // loyGroups/loyTier null
       const missing = request()

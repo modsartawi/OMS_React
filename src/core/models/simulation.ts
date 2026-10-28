@@ -38,7 +38,8 @@ export interface SimulateHeaderInput {
   distributionChannel: string
   pricingDate: string
   documentPricingProcedureKey: string
-  loyGroups: string | null
+  /** The basket's loyalty-group codes; the engine binds `string[]` (`SimulateHeaderDto.LoyGroups`). */
+  loyGroups: string[] | null
   loyTier: string | null
   isPromotionApplicable: boolean
   /**

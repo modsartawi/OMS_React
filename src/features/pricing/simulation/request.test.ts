@@ -4,8 +4,8 @@ import { buildSimulateRequest, type SimRequestInputs } from './request'
 
 /**
  * The request Process posts, built from what is on screen (ticket 637). The basket's loyalty
- * groups are picked with the core picker, which hands back the wire's one comma string — the
- * request carries it as it is, and no group at all is `null` (as a blank text field always was).
+ * groups are picked with the core picker, which hands back one comma string; the engine binds
+ * `SimulateHeaderDto.LoyGroups` as `string[]`, so the request splits it, and no group is `null`.
  */
 function inputs(loyGroups: string): SimRequestInputs {
   return {
@@ -27,14 +27,16 @@ function inputs(loyGroups: string): SimRequestInputs {
 }
 
 describe('the simulate request carries the basket loyalty groups', () => {
-  it('simulate request carries picked groups as the comma string; none → null', () => {
+  it('simulate request carries picked groups as a code array; none → null', () => {
     // What the picker hands back after GOLD then SILVER are ticked.
-    expect(buildSimulateRequest(inputs(writeLoyGroupSelection(['GOLD', 'SILVER']))).header.loyGroups).toBe('GOLD,SILVER')
+    expect(buildSimulateRequest(inputs(writeLoyGroupSelection(['GOLD', 'SILVER']))).header.loyGroups).toEqual(['GOLD', 'SILVER'])
     // Every group taken off: the picker writes '', and the request says no group.
     expect(buildSimulateRequest(inputs(writeLoyGroupSelection([]))).header.loyGroups).toBeNull()
-    // Without the view grant the field is today's free text (D3): sent as typed, trimmed, blank → null.
-    expect(buildSimulateRequest(inputs(' 0001 ')).header.loyGroups).toBe('0001')
+    // Without the view grant the field is free text (D3): split on commas, each trimmed, blanks dropped.
+    expect(buildSimulateRequest(inputs(' 0001 ')).header.loyGroups).toEqual(['0001'])
+    expect(buildSimulateRequest(inputs('gold, 0001,,')).header.loyGroups).toEqual(['gold', '0001'])
     expect(buildSimulateRequest(inputs('   ')).header.loyGroups).toBeNull()
+    expect(buildSimulateRequest(inputs(' , ')).header.loyGroups).toBeNull()
   })
 
   it('builds the rest of the request as Process always posted it', () => {

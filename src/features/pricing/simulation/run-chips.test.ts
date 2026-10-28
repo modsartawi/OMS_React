@@ -59,7 +59,7 @@ describe('runChips reads the determination a run actually used', () => {
 
   it('is eight chips when the three test levers are set', () => {
     const chips = runChips(
-      request({ documentPricingProcedureKey: 'W', loyGroups: '0001', loyTier: 'G' }),
+      request({ documentPricingProcedureKey: 'W', loyGroups: ['0001'], loyTier: 'G' }),
     )
     expect(chips).toHaveLength(8)
     expect(chips.slice(5)).toEqual([
@@ -71,7 +71,7 @@ describe('runChips reads the determination a run actually used', () => {
 
   it('is nine chips when the pricing-elements flag is on, and the flag chips key-only', () => {
     const chips = runChips({
-      ...request({ documentPricingProcedureKey: 'W', loyGroups: '0001', loyTier: 'G' }),
+      ...request({ documentPricingProcedureKey: 'W', loyGroups: ['0001'], loyTier: 'G' }),
       includePricingElements: true,
     })
     expect(chips).toHaveLength(9)
@@ -84,7 +84,7 @@ describe('runChips reads the determination a run actually used', () => {
     // 083 D-3 / 100 §4. Every spelling of "unset" the request can carry.
     for (const blank of ['', '   ', null]) {
       const chips = runChips(
-        request({ documentPricingProcedureKey: blank ?? '', loyGroups: blank, loyTier: blank }),
+        request({ documentPricingProcedureKey: blank ?? '', loyGroups: blank === null ? null : [blank], loyTier: blank }),
       )
       expect(chips).toHaveLength(5)
     }
@@ -119,7 +119,7 @@ describe('runChips reads the determination a run actually used', () => {
   })
 
   it('trims the values it chips so a stray space never widens the strip', () => {
-    const chips = runChips(request({ plant: ' P002 ', loyGroups: ' 0001 ' }))
+    const chips = runChips(request({ plant: ' P002 ', loyGroups: [' 0001 '] }))
     expect(chips[0]).toEqual({ kind: 'keyed', key: 'plant', value: 'P002' })
     expect(chips.at(-1)).toEqual({ kind: 'keyed', key: 'loy', value: '0001' })
   })

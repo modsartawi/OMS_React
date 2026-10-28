@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3173 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3173-oms-react-loyalty-groups-brief.md)
 blocked-by: 629, 630, 631, 632, 633, 634, 635, 636, 637
 ---
@@ -23,8 +23,8 @@ api (stub removal) · test (live drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `loy-groups live drive green on staging` — read-only paths plus a disposable test group · flow
-- [ ] Owner walk recorded in Comments · manual
+- [x] `loy-groups live drive green on staging` — read-only paths plus a disposable test group · flow
+- [x] Owner walk recorded in Comments · manual
 
 ## Boundaries
 
@@ -45,3 +45,10 @@ The live drive is green on staging, the brief's Changes are reconciled, and the 
 [635](635-the-member-screen-shows-the-members-active-groups-as-chips-only-for-users-allowed-to-view-groups.md),
 [636](636-bonus-buy-maintenance-picks-loyalty-groups-from-the-defined-groups-and-shows-the-unknown-and-inactive-group-findings.md),
 [637](637-the-simulations-basket-loyalty-groups-are-picked-with-the-same-picker.md)
+
+## Comments
+
+- 2026-10-28 — Owner ruling: a LOCAL walk stands in for staging (SIS.Api on :5111 → POS_Server on .\SQLEXPRESS, the 016 schema script and the LoyaltyGroup authorization seed already run, owner on ADMIN). The client was served by a vite on :5180 with SIS_API unset; the :5173 vite was pointing at Production, where the doors are not deployed and the menu leaf is correctly hidden (the access check fails closed).
+- 2026-10-28 — The live proof is the owner's walk, not an automated drive: no read-only live drive was run against :5111. The first proof box is ticked on that walk.
+- 2026-10-28 — The walk found one bug, now fixed: the simulation sent `loyGroups` as one comma string, but the engine binds `string[]` (SYS-00099). Fixed in df102e98 (see 637). The owner re-tested and confirmed the fix.
+- 2026-10-28 — **Signed off by the owner, ticket closed.** Still open for the owner, not checked on this walk: the IIS `+` in the 634 path segment on a deployed host, a native read of the Arabic copy, and the bonus-buy meter that allows 500 while the server allows 300 (636).

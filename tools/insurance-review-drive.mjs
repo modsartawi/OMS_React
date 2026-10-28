@@ -105,7 +105,8 @@ for (const dir of ['ltr', 'rtl']) {
         (await r1.locator('[data-rule-id] bdi[dir="ltr"]').innerText()) === 'G-002',
     )
     check(`${dir} 1. the reason is one "code · words" isolate`, (await r1.locator('[data-reason="05"] bdi[dir="ltr"]').innerText()) === '05 · Therapy change')
-    check(`${dir} 1. the item is one "code · name" isolate`, (await r1.locator('[data-col="item"] bdi[dir="ltr"]').innerText()) === '100234 · Ator 20mg 30s')
+    // 618: as built a review row's `item` is the item code (a request's items comma-separated) — HQ sends no name.
+    check(`${dir} 1. the item is the code, an ltr isolate`, strip(await r1.locator('[data-col="item"] bdi[dir="ltr"]').innerText()) === '100234', strip(await r1.locator('[data-col="item"]').innerText()))
     check(`${dir} 1. an Arabic note sits in a <bdi>`, (await page.locator('[data-review-row="D-9002"] [data-col="note"] bdi').innerText()) === 'تلف القلم أثناء النقل')
     check(`${dir} 1. kind words; the exception row names its exception`, strip(await page.locator('[data-review-row="D-9003"] [data-col="kind"]').innerText()) === 'Exception used#X-101' && (await page.locator('[data-review-row="D-9003"] [data-exception-id="X-101"] bdi[dir="ltr"]').innerText()) === '#X-101' && strip(await page.locator('[data-review-row="D-9004"] [data-col="kind"]').innerText()) === 'Unchecked', strip(await page.locator('[data-review-row="D-9003"] [data-col="kind"]').innerText()))
     check(`${dir} 1. an unchecked row ran no rule`, strip(await page.locator('[data-review-row="D-9004"] [data-col="rule"]').innerText()) === 'No rule ran')
@@ -180,13 +181,17 @@ for (const dir of ['ltr', 'rtl']) {
   {
     const { context, page, errors, writes } = await open(dir)
     await page.goto(`${BASE}/insurance-rules/exceptions`)
+    // 618: HQ lists one patient's exceptions — the page asks for the key first.
+    await page.locator('[data-exceptions-ask]').waitFor({ timeout: 30000 })
+    check(`${dir} 4. no list until a patient key is typed`, (await page.locator('[data-exception-row]').count()) === 0)
+    await page.locator('[data-field="exceptions-patient"]').fill('1023456777')
     await page.locator('[data-exception-row]').first().waitFor({ timeout: 30000 })
     check(`${dir} 4. the title`, strip(await page.locator('h1').first().innerText()) === 'Exceptions')
     const status = await rowIds(page, '[data-exception-row]', 'data-status')
     check(`${dir} 4. statuses: active, revoked, expired (valid until yesterday)`, JSON.stringify(status) === JSON.stringify(['active', 'revoked', 'expired']), JSON.stringify(status))
     const x1 = page.locator('[data-exception-row="X-101"]')
     check(`${dir} 4. id and patient key are ltr isolates`, (await x1.locator('[data-id] bdi[dir="ltr"]').innerText()) === 'X-101' && (await x1.locator('[data-patient] bdi[dir="ltr"]').innerText()) === '1023456777')
-    check(`${dir} 4. one rule, item scope, valid until, reason, uses`, strip(await x1.locator('[data-col="rule"]').innerText()) === 'G-007' && strip(await x1.locator('[data-col="scope"]').innerText()) === 'This item 200871' && strip(await x1.locator('[data-col="validUntil"]').innerText()) === '2026-12-31' && strip(await x1.locator('[data-reason]').innerText()) === '07 · Medically necessary' && strip(await x1.locator('[data-col="uses"]').innerText()) === '2 uses')
+    check(`${dir} 4. one rule, item scope, valid until, reason, uses`, strip(await x1.locator('[data-col="rule"]').innerText()) === 'G-007' && strip(await x1.locator('[data-col="scope"]').innerText()) === 'This item 200871' && strip(await x1.locator('[data-col="validUntil"]').innerText()) === '2026-12-31' && strip(await x1.locator('[data-reason]').innerText()) === '07 · Medically necessary' && strip(await x1.locator('[data-col="uses"]').innerText()) === '')
     const x2 = page.locator('[data-exception-row="X-102"]')
     check(`${dir} 4. all guards; a list scope names its list`, strip(await x2.locator('[data-col="rule"]').innerText()) === 'All guards' && (await x2.locator('[data-scope-value] bdi[dir="ltr"]').innerText()) === 'glp1' && (await x2.locator('bdi[data-scope-name]').innerText()) === 'GLP-1 and biologics')
     check(`${dir} 4. same kind scope`, strip(await page.locator('[data-exception-row="X-099"] [data-col="scope"]').innerText()) === 'Same kind as 100234')
@@ -202,10 +207,12 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. the log's title names the exception`, strip(await page.locator('dialog[open] h2').innerText()) === 'Log of exception X-101')
     await page.keyboard.press('Escape')
     await x1.locator('[data-revoke]').click()
-    await page.locator('dialog[open]').waitFor({ timeout: 5000 })
-    await page.locator('dialog[open] button').last().click()
+    await page.locator('[data-revoke-dialog]').waitFor({ timeout: 5000 })
+    check(`${dir} 4. Revoke waits for a note (HQ requires one)`, await page.locator('[data-revoke-confirm]').isDisabled())
+    await page.locator('[data-revoke-note]').fill('Insurer withdrew the approval')
+    await page.locator('[data-revoke-confirm]').click()
     await page.locator('[data-exception-row="X-101"][data-status="revoked"]').waitFor({ timeout: 8000 }).catch(() => {})
-    check(`${dir} 4. Revoke (confirmed) posts and the row turns revoked`, JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: 'InsuranceRules/Exceptions/X-101/Revoke', body: {} }) && (await x1.getAttribute('data-status')) === 'revoked')
+    check(`${dir} 4. Revoke posts its note and the row turns revoked`, JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: 'InsuranceRules/Exceptions/X-101/Revoke', body: { note: 'Insurer withdrew the approval' } }) && (await x1.getAttribute('data-status')) === 'revoked')
 
     // 5. issue
     await page.locator('[data-issue-open]').click()
@@ -234,6 +241,7 @@ for (const dir of ['ltr', 'rtl']) {
         JSON.stringify({ method: 'POST', path: 'InsuranceRules/Exceptions', body: { patientKey: '2398765455', ruleId: null, scope: { list: 'glp1' }, validUntil: '2027-01-25', reason: '07', note: 'مريض سكري مؤكد' } }),
       JSON.stringify(writes.at(-1)),
     )
+    check(`${dir} 5. the list moves to the patient it was issued to`, (await page.locator('[data-field="exceptions-patient"]').inputValue()) === '2398765455')
     check(`${dir} 5. the new exception tops the list, active`, (await rowIds(page, '[data-exception-row]', 'data-exception-row'))[0] === 'X-103' && (await page.locator('[data-exception-row="X-103"]').getAttribute('data-status')) === 'active' && (await page.locator('[data-issue-dialog]').count()) === 0)
     await page.locator('[data-issue-open]').click()
     await page.locator('[data-field="patientKey"]').fill('1023456777')
@@ -244,6 +252,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-field="reason"]').selectOption('03')
     await page.locator('[data-issue-submit]').click()
     await page.locator('[data-exception-row="X-104"]').waitFor({ timeout: 8000 }).catch(() => {})
+    check(`${dir} 5. …and back to the first patient, X-104 on top`, (await rowIds(page, '[data-exception-row]', 'data-exception-row'))[0] === 'X-104')
     check(`${dir} 5. one rule and same kind; today itself is allowed`, JSON.stringify(writes.at(-1)?.body) === JSON.stringify({ patientKey: '1023456777', ruleId: 'G-002', scope: { sameKind: '100234' }, validUntil: '2026-10-27', reason: '03', note: '' }), JSON.stringify(writes.at(-1)?.body))
     check(`${dir} 7. no raw keys on exceptions`, await noRawKeys(page))
     check(`${dir} 7. no page errors`, errors.length === 0, errors.join(' | '))
@@ -257,6 +266,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-review-denied]').waitFor({ timeout: 20000 }).catch(() => {})
     check(`${dir} 6. a bare 403 on the review list → "You do not have access"`, strip(await page.locator('[data-review-denied]').innerText()).startsWith('You do not have access') && (await page.locator('[data-review-table], [data-review-empty]').count()) === 0)
     await page.goto(`${BASE}/insurance-rules/exceptions`)
+    await page.locator('[data-field="exceptions-patient"]').fill('1023456777')
     await page.locator('[data-exceptions-denied]').waitFor({ timeout: 20000 }).catch(() => {})
     check(`${dir} 6. a bare 403 on the exceptions → "You do not have access"`, (await page.locator('[data-exceptions-denied]').count()) === 1 && (await page.locator('[data-exceptions-table], [data-exceptions-empty]').count()) === 0)
     await context.close()

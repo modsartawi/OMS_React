@@ -614,9 +614,12 @@ export function guardEditorStub(method, path, body, opts = {}) {
 }
 
 // --- 614 ---------------------------------------------------------------------------------------------------
-// The Review list and HQ exceptions (BackOffice 3134, 3135, 3141). The doors and bodies are the brief's; the
-// ROW shapes are guesses recorded on ticket 614 (618 reconciles). `createReviewStubs()` keeps its own state so
-// a drive's mark / issue / revoke shows on the next read. Today in the drives is 2026-10-27 (local).
+// The Review list and HQ exceptions (BackOffice 3134, 3135, 3141), AS BUILT (oms 618). The fixtures are in the
+// screen's model; `wireReview` / `wireException` / `wireLog` send them as HQ does (a review row's `patient`, `item` as a
+// code list and `mark` as an object; an exception's `exceptionId`, three-key `scope`, `active`; a log row's `action`).
+// `GET Exceptions` lists ONE patient's (`?patientKey=`, 10 digits, else 400); a revoke needs a `note`.
+// `createReviewStubs()` keeps its own state so a drive's mark / issue / revoke shows on the next read. Today in the
+// drives is 2026-10-27 (local).
 
 /** `GET Guards/Reasons` (3134) — the seeded NCPDP codes; reason `13` is retired (inactive). */
 export const GUARD_REASONS = {
@@ -650,14 +653,28 @@ export const REVIEW_ROWS = [
   reviewRow({ id: 'D-9005', kind: 'override', at: '2026-10-23T09:30:00', store: 'P107', pharmacist: 'PH-1107-03', patientKey: '23••••••55', ruleId: 'G-002', item: { code: '100235', name: 'Lipitor 20mg 30s' }, reason: '03', note: 'Travel supply', mark: 'ok', markNote: '', markedBy: 'rev.salem', markedAt: '2026-10-24T10:00:00' }),
 ]
 
-/** `GET InsuranceRules/Exceptions` rows (the list door and its shape are guesses). */
+/** One patient's exceptions (`GET InsuranceRules/Exceptions?patientKey=1023456777`), in the screen's model. */
 export const EXCEPTIONS = [
   { id: 'X-101', patientKey: '1023456777', ruleId: 'G-007', scope: { item: '200871' }, validUntil: '2026-12-31', reason: '07', note: 'Diagnosis confirmed by the insurer', issuedBy: 'ins.huda', issuedAt: '2026-10-20T10:00:00', revokedBy: null, revokedAt: null, uses: 2 },
-  { id: 'X-102', patientKey: '2412345619', ruleId: null, scope: { list: 'glp1' }, validUntil: '2026-11-30', reason: '05', note: '', issuedBy: 'ins.huda', issuedAt: '2026-10-01T09:00:00', revokedBy: 'ins.omar', revokedAt: '2026-10-10T15:00:00', uses: 0 },
-  { id: 'X-099', patientKey: '1198765408', ruleId: 'G-002', scope: { sameKind: '100234' }, validUntil: '2026-10-26', reason: '03', note: 'Hajj travel', issuedBy: 'ins.omar', issuedAt: '2026-09-01T11:00:00', revokedBy: null, revokedAt: null, uses: 1 },
+  { id: 'X-102', patientKey: '1023456777', ruleId: null, scope: { list: 'glp1' }, validUntil: '2026-11-30', reason: '05', note: '', issuedBy: 'ins.huda', issuedAt: '2026-10-01T09:00:00', revokedBy: 'ins.omar', revokedAt: '2026-10-10T15:00:00', uses: 0 },
+  { id: 'X-099', patientKey: '1023456777', ruleId: 'G-002', scope: { sameKind: '100234' }, validUntil: '2026-10-26', reason: '03', note: 'Hajj travel', issuedBy: 'ins.omar', issuedAt: '2026-09-01T11:00:00', revokedBy: null, revokedAt: null, uses: 1 },
 ]
 
 const logEntry = (at, kind, by, o = {}) => ({ at, kind, by, store: null, ruleId: null, sourceRef: null, ...o })
+
+const wireReview = (r) => ({
+  id: r.id, kind: r.kind, at: r.at, store: r.store, pharmacist: r.pharmacist, channel: 'nphies', sourceRef: `NPH-${r.id}`, ruleId: r.ruleId,
+  ruleVersion: r.ruleId ? 4 : null, severity: r.ruleId ? 'OVERRIDE' : null, item: r.item?.code ?? null, patient: r.patientKey,
+  intervention: r.kind === 'override' ? 'M0' : null, outcome: r.kind === 'override' ? '1B' : null, reason: r.reason, note: r.note, exceptionId: r.exceptionId,
+  mark: r.mark ? { mark: r.mark, note: r.markNote ?? '', by: r.markedBy, at: r.markedAt } : null,
+})
+const wireException = (e, today = '2026-10-27') => ({
+  exceptionId: e.id, patientKey: e.patientKey, ruleId: e.ruleId,
+  scope: { item: e.scope.item ?? null, sameKind: e.scope.sameKind ?? null, list: e.scope.list ?? null },
+  validUntil: e.validUntil, reason: e.reason, note: e.note, issuedBy: e.issuedBy, issuedAt: e.issuedAt,
+  revokedBy: e.revokedBy, revokedAt: e.revokedAt, revokeNote: e.revokeNote ?? null, active: !e.revokedAt && e.validUntil >= today,
+})
+const wireLog = (l) => ({ at: l.at, by: l.by, action: l.kind, note: l.note ?? '', checkId: null, channel: l.sourceRef ? 'nphies' : null, sourceRef: l.sourceRef, line: l.kind === 'use' ? 1 : null, ruleId: l.ruleId, severity: l.kind === 'use' ? 'REFUSE' : null, store: l.store })
 
 /** `GET InsuranceRules/Exceptions/{id}/Log`. */
 export const EXCEPTION_LOGS = {
@@ -701,7 +718,7 @@ export function createReviewStubs(opts = {}) {
           (!f('rule') || r.ruleId === f('rule')) &&
           (!f('reason') || r.reason === f('reason')),
       )
-      return read('review', out)
+      return read('review', out.map(wireReview))
     }
     let m = /^InsuranceRules\/Review\/([^/]+)$/.exec(path)
     if (method === 'POST' && m) {
@@ -711,9 +728,14 @@ export function createReviewStubs(opts = {}) {
       const row = rows.find((r) => r.id === decodeURIComponent(m[1]))
       if (!row) return envelope(null, { status: 404, success: false, message: 'No such decision row.', errorCode: 'NOT_FOUND' })
       Object.assign(row, { mark: body.mark, markNote: body.note, markedBy: 'msartawi', markedAt: '2026-10-27T10:05:00' })
-      return envelope(null)
+      return envelope({ mark: body.mark, note: body.note, by: 'msartawi', at: '2026-10-27T10:05:00' })
     }
-    if (method === 'GET' && path === 'InsuranceRules/Exceptions') return read('exceptions', exceptions)
+    if (method === 'GET' && path === 'InsuranceRules/Exceptions') {
+      const key = params.get('patientKey') ?? ''
+      if (!/^\d{10}$/.test(key) && !deny.includes('exceptions'))
+        return envelope(null, { status: 400, success: false, message: 'patientKey is a National ID or Iqama (10 digits)', errorCode: 'GUARD_EXCEPTIONS_BAD_REQUEST' })
+      return read('exceptions', exceptions.filter((e) => e.patientKey === key).map((e) => wireException(e)))
+    }
     if (method === 'POST' && path === 'InsuranceRules/Exceptions') {
       writes.push({ method, path, body })
       const no = refused('issue')
@@ -721,7 +743,7 @@ export function createReviewStubs(opts = {}) {
       const made = { id: `X-${next++}`, ...body, issuedBy: 'msartawi', issuedAt: '2026-10-27T10:05:00', revokedBy: null, revokedAt: null, uses: 0 }
       exceptions.unshift(made)
       logs[made.id] = [logEntry(made.issuedAt, 'issue', 'msartawi')]
-      return envelope(made)
+      return envelope(wireException(made))
     }
     m = /^InsuranceRules\/Exceptions\/([^/]+)\/Revoke$/.exec(path)
     if (method === 'POST' && m) {
@@ -729,13 +751,14 @@ export function createReviewStubs(opts = {}) {
       const no = refused('revoke')
       if (no) return no
       const e = exceptions.find((x) => x.id === decodeURIComponent(m[1]))
-      if (!e) return envelope(null, { status: 404, success: false, message: 'No such exception.', errorCode: 'NOT_FOUND' })
-      Object.assign(e, { revokedBy: 'msartawi', revokedAt: '2026-10-27T10:06:00' })
-      logs[e.id] = [...(logs[e.id] ?? []), logEntry(e.revokedAt, 'revoke', 'msartawi')]
-      return envelope(null)
+      if (!e) return envelope(null, { status: 404, success: false, message: 'no such exception', errorCode: 'GUARD_EXCEPTIONS_NOT_FOUND' })
+      if (!body?.note?.trim()) return envelope(null, { status: 400, success: false, message: 'a revoke says why (note)', errorCode: 'GUARD_EXCEPTIONS_BAD_REQUEST' })
+      Object.assign(e, { revokedBy: 'msartawi', revokedAt: '2026-10-27T10:06:00', revokeNote: body.note })
+      logs[e.id] = [...(logs[e.id] ?? []), logEntry(e.revokedAt, 'revoke', 'msartawi', { note: body.note })]
+      return envelope(wireException(e))
     }
     m = /^InsuranceRules\/Exceptions\/([^/]+)\/Log$/.exec(path)
-    if (method === 'GET' && m) return read('log', logs[decodeURIComponent(m[1])] ?? [])
+    if (method === 'GET' && m) return read('log', (logs[decodeURIComponent(m[1])] ?? []).map(wireLog))
     return null
   }
 }

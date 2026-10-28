@@ -178,7 +178,7 @@ function Review() {
                       {r.ruleId ? <RuleId id={r.ruleId} /> : <span className="text-xs text-muted-foreground">{t('mark.noRule')}</span>}
                     </td>
                     <td className={TD} data-col="item">
-                      {r.item && <Ltr>{formatPair(r.item.code, r.item.name)}</Ltr>}
+                      {r.item && <Ltr>{r.item.name ? formatPair(r.item.code, r.item.name) : r.item.code}</Ltr>}
                     </td>
                     <td className={TD} data-col="reason">
                       <ReasonText code={r.reason} reasons={reasonList} />

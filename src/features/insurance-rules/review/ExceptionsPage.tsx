@@ -7,7 +7,6 @@ import { guardReasonsQuery } from '@/core/insurance-rules/order-guards-api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { saysIn } from '@/core/rules/sentence'
-import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -48,6 +47,8 @@ import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
 export default function ExceptionsPage() {
   const { t } = useTranslation('insurance-review')
   const [issuing, setIssuing] = useState(false)
+  // HQ lists ONE patient's exceptions (3135): the key typed, or the patient an exception was just issued to.
+  const [key, setKey] = useState('')
   return (
     <section className="flex h-full w-full flex-col gap-4" data-exceptions-page="">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -60,25 +61,49 @@ export default function ExceptionsPage() {
           {t('exceptions.issue')}
         </Button>
       </header>
-      <Exceptions />
-      {issuing && <IssueDialog onClose={() => setIssuing(false)} />}
+      <Exceptions patientKey={key} onPatientKey={setKey} />
+      {issuing && <IssueDialog onClose={() => setIssuing(false)} onIssued={setKey} />}
     </section>
   )
 }
 
 const STATUS_SEV: Record<ExceptionStatus, Severity> = { active: 'ok', expired: 'mute', revoked: 'bad' }
 
-function Exceptions() {
+/** A National ID / Iqama: HQ lists one patient's exceptions (3135), never all of them. */
+const PATIENT_KEY = /^\d{10}$/
+
+function Exceptions({ patientKey: key, onPatientKey: setKey }: { patientKey: string; onPatientKey: (key: string) => void }) {
+  const { t } = useTranslation('insurance-review')
+  const typed = key.trim()
+  return (
+    <div className="flex flex-col gap-3">
+      <Field label={t('exceptions.patientKey')}>
+        <Input dir="ltr" inputMode="numeric" className="w-56" placeholder={t('issue.patientKeyHint')} value={key} onChange={(e) => setKey(e.target.value)} data-field="exceptions-patient" />
+      </Field>
+      {PATIENT_KEY.test(typed) ? (
+        <ExceptionsOf patientKey={typed} />
+      ) : (
+        <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-exceptions-ask="">
+          {t('exceptions.askPatient')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ExceptionsOf({ patientKey }: { patientKey: string }) {
   const { t, i18n } = useTranslation('insurance-review')
   const qc = useQueryClient()
-  const list = useQuery({ queryKey: EXCEPTIONS_KEY, queryFn: () => reviewApi.exceptions(), retry: false })
+  const list = useQuery({ queryKey: [...EXCEPTIONS_KEY, 'patient', patientKey], queryFn: () => reviewApi.exceptions(patientKey), retry: false })
   const reasons = useQuery(guardReasonsQuery())
   const draft = useQuery(guardDraftQuery())
   const [logOf, setLogOf] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<string | null>(null)
   const today = localToday()
   const revoke = useMutation({
-    mutationFn: (id: string) => reviewApi.revoke(id),
+    mutationFn: ({ id, note }: { id: string; note: string }) => reviewApi.revoke(id, note),
     onSuccess: () => {
+      setRevoking(null)
       notify.success(t('exceptions.revoked'))
       void qc.invalidateQueries({ queryKey: EXCEPTIONS_KEY })
     },
@@ -154,7 +179,7 @@ function Exceptions() {
                   <StatusBadge sev={STATUS_SEV[status]}>{t(`status.${status}`)}</StatusBadge>
                 </td>
                 <td className={TD} data-col="uses">
-                  {t('exceptions.uses', { count: e.uses })}
+                  {e.uses === null ? null : t('exceptions.uses', { count: e.uses })}
                 </td>
                 <td className={TD} data-col="issued">
                   <Ltr>{formatPair(e.issuedBy, formatDateTime(e.issuedAt))}</Ltr>
@@ -169,9 +194,7 @@ function Exceptions() {
                         variant="danger-outlined"
                         disabled={revoke.isPending}
                         data-revoke=""
-                        onClick={async () => {
-                          if (await confirmAction(t('exceptions.revokeBody'), t('exceptions.revokeTitle'))) revoke.mutate(e.id)
-                        }}
+                        onClick={() => setRevoking(e.id)}
                       >
                         {t('exceptions.revoke')}
                       </Button>
@@ -184,7 +207,39 @@ function Exceptions() {
         </tbody>
       </table>
       {logOf && <LogDialog id={logOf} onClose={() => setLogOf(null)} />}
+      {revoking && <RevokeDialog busy={revoke.isPending} onClose={() => setRevoking(null)} onRevoke={(note) => revoke.mutate({ id: revoking, note })} />}
     </div>
+  )
+}
+
+/** HQ revokes with a note saying why (3135: required). */
+function RevokeDialog({ busy, onClose, onRevoke }: { busy: boolean; onClose: () => void; onRevoke: (note: string) => void }) {
+  const { t } = useTranslation('insurance-review')
+  const [note, setNote] = useState('')
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      width="32rem"
+      title={t('exceptions.revokeTitle')}
+      footer={
+        <>
+          <Button variant="text" onClick={onClose} disabled={busy}>
+            {t('log.close')}
+          </Button>
+          <Button variant="danger" onClick={() => onRevoke(note.trim())} disabled={busy || !note.trim()} data-revoke-confirm="">
+            {t('exceptions.revoke')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-2 text-sm" data-revoke-dialog="">
+        <p>{t('exceptions.revokeBody')}</p>
+        <Field label={t('exceptions.revokeNote')}>
+          <Textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} className="w-full" data-revoke-note="" />
+        </Field>
+      </div>
+    </Modal>
   )
 }
 
@@ -246,7 +301,7 @@ function LogDialog({ id, onClose }: { id: string; onClose: () => void }) {
   )
 }
 
-function IssueDialog({ onClose }: { onClose: () => void }) {
+function IssueDialog({ onClose, onIssued }: { onClose: () => void; onIssued: (patientKey: string) => void }) {
   const { t, i18n } = useTranslation('insurance-review')
   const qc = useQueryClient()
   const reasons = useQuery(guardReasonsQuery())
@@ -262,6 +317,7 @@ function IssueDialog({ onClose }: { onClose: () => void }) {
     onSuccess: (made) => {
       notify.success(t('issue.issued', { id: fsi(made?.id ?? '') }))
       void qc.invalidateQueries({ queryKey: EXCEPTIONS_KEY })
+      onIssued(made.patientKey)
       onClose()
     },
     onError: (err) => notify.apiError(t('issue.failed'), err, t('issue.failed')),

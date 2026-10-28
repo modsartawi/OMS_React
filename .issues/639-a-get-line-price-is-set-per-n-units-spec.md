@@ -195,3 +195,26 @@ upload file takes an optional column 25 `PER`. A missing or blank value means 1.
   - The BBY Inquiry detail already renders "per N UoM" from the same column.
 - **The upload's 25th column breaks SAP's file shape**, as columns 23 and 24 already do. The dialog's
   note says so.
+
+## Comments
+
+- 2026-10-28 — BackOffice 3181 (BO-1) deviations from D1/D2/D3/D5, owner decisions after code review
+  (BackOffice tickets 3182-3184 Comments):
+  - **Missing `pricingUnit` = keep stored (D1).** Absent or `null` on a change keeps the Per stored on that
+    line's condition (matched by `condNumber`); absent on a new line is 1. Reason: the editor live today
+    does not send `pricingUnit` and must not reset a stored Per. The read is unchanged (stored value on
+    P/R, 0 on %/Total Discount).
+  - **0 on a P/R line = 1 (D2, D7).** `BBY-PRICING-UNIT` is no longer raised for 0, so a blank box sent
+    as 0 saves Per 1 rather than being refused; switching a `%` line (read as 0) to P/R, or turning Total
+    Discount off, passes. The refusal is now only for a negative, fractional or too-large Per.
+  - **Unit is always EA (D1, D3, D9).** The stored pricing-unit unit is `EA`, not the line's unit: Per
+    counts base units, as the engine does. Curr/Pe should read `SAR / 4 EA` whatever the line's unit.
+  - **Upper bound.** Per above 99,999 is refused `BBY-PRICING-UNIT` (message: "a whole number from 1 to
+    99999 (0 is 1)").
+  - **Upload refusal code `BBY-UPLOAD-PER` (D5).** A bad column-25 value (not digits, 0, or above 99,999)
+    is refused per row as `BBY-UPLOAD-PER` (EN + AR, row + serial); a row that is already unreadable gets
+    only `BBY-UPLOAD-UNREADABLE`.
+  - **Upload without column 25 keeps the stored Per (D5).** Like SCORE/LOY_TIERS (2399): a file that does
+    not carry column 25 keeps the bonus buy's stored Per on a re-upload (1 on a new one); a carried blank
+    is 1. Unchanged: blank 23/24 still reset SCORE/LOY_TIERS when 25 is carried, and PER on a `PERCENT`
+    row is silently inert.

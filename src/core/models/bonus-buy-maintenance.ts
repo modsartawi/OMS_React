@@ -147,6 +147,12 @@ export interface BbyGetLineWire {
   /** `P` price (VAT-exclusive) · `R` amount · `%` percent. Ignored under a Total Discount. */
   discountType: string | null
   value: number
+  /**
+   * Per (SAP's `KPEIN`, spec 639 D1): how many of the line's own unit `value` is for. A read sends
+   * the stored one on a `P`/`R` line and 0 on a percent line or under Total Discount; a save sends
+   * the same rule, and a missing field on save means 1.
+   */
+  pricingUnit: number
   requirement?: string | null
 }
 

@@ -21,6 +21,9 @@ import {
   currPe,
   editorAccess,
   emptyBuyLine,
+  emptyGetLine,
+  getLineShowsPer,
+  refusalFallbackKey,
   engineListMeter,
   fillCouponMaterial,
   formChanged,
@@ -78,10 +81,10 @@ const WIRE: BbyBonusBuyWire = {
     { material: 'COUP01', grouping: null, quantity: 1, uom: 'EA' },
   ],
   get: [
-    { condNumber: 'OMS0000101', material: '200044', grouping: null, quantity: 3, uom: 'EA', scaleType: 'C', discountType: 'P', value: 15 },
-    { condNumber: 'OMS0000102', material: '200055', grouping: null, quantity: 2, uom: 'EA', scaleType: 'A', discountType: 'R', value: 10.5 },
-    { condNumber: 'OMS0000103', material: null, grouping: 'GROUP2', quantity: 1, uom: 'EA', scaleType: 'B', discountType: '%', value: 100 },
-    { condNumber: 'OMS0000104', material: '200077', grouping: null, quantity: 4, uom: 'EA', scaleType: 'C', discountType: '%', value: 12.125 },
+    { condNumber: 'OMS0000101', material: '200044', grouping: null, quantity: 3, uom: 'EA', scaleType: 'C', discountType: 'P', value: 15, pricingUnit: 4 },
+    { condNumber: 'OMS0000102', material: '200055', grouping: null, quantity: 2, uom: 'EA', scaleType: 'A', discountType: 'R', value: 10.5, pricingUnit: 1 },
+    { condNumber: 'OMS0000103', material: null, grouping: 'GROUP2', quantity: 1, uom: 'EA', scaleType: 'B', discountType: '%', value: 100, pricingUnit: 0 },
+    { condNumber: 'OMS0000104', material: '200077', grouping: null, quantity: 4, uom: 'EA', scaleType: 'C', discountType: '%', value: 12.125, pricingUnit: 0 },
   ],
   groupings: [
     { id: 'GROUP1', materials: ['200011', '200012', '200013'] },
@@ -113,11 +116,11 @@ const outcome = (o: Partial<BbyMaintainOutcome>): BbyMaintainOutcome => ({
 })
 
 describe('total discount swaps the reward columns for the side panel', () => {
-  it('unticked: the get grid carries Discount Type, Value and Curr/Pe, and there is no side panel', () => {
+  it('unticked: the get grid carries Discount Type, Value, Per and Curr/Pe, and there is no side panel', () => {
     const layout = getPanelLayout(false)
     expect(layout.sidePanel).toBe(false)
     expect(layout.columns).toEqual([
-      'type', 'identifier', 'description', 'scaleType', 'quantity', 'unit', 'discountType', 'value', 'currPe',
+      'type', 'identifier', 'description', 'scaleType', 'quantity', 'unit', 'discountType', 'value', 'per', 'currPe',
     ])
   })
 
@@ -133,6 +136,7 @@ describe('total discount swaps the reward columns for the side panel', () => {
     const req = toRequest({ ...s, totalDiscountOn: true, total: { condNumber: null, discountType: 'P', value: '45' } })
     expect(req.totalDiscount).toEqual({ condNumber: null, discountType: 'P', value: 45 })
     expect(req.get.map((g) => [g.discountType, g.value])).toEqual([[null, 0], [null, 0], [null, 0], [null, 0]])
+    expect(req.get.map((g) => g.pricingUnit)).toEqual([0, 0, 0, 0])
     // …and the per-line rewards survive in the state, so unticking brings them back.
     expect(toRequest({ ...s, totalDiscountOn: false }).get.map((g) => g.discountType)).toEqual(['P', 'R', '%', '%'])
   })
@@ -736,5 +740,90 @@ describe('loyalty-group findings clear once the field moves off the checked valu
   })
   it('clears them once the value changes', () => {
     expect(loyFindingsAfterEdit(f, 'GOLD,STAFF_X', 'GOLD')).toEqual({ refusals: [], warnings: [] })
+  })
+})
+
+// ── ticket 640: a get line's Per (spec 639 D1, D7–D9, D12, D13) ──────────────────────
+
+describe("a get line's Per round-trips read → state → request", () => {
+  it('Per 4 on a price line stays 4; an amount line keeps its 1; percent lines send 0', () => {
+    const s = fromDocument(doc())
+    expect(s.get.map((l) => l.per)).toEqual(['4', '1', '1', '1'])
+    expect(toRequest(s).get.map((g) => g.pricingUnit)).toEqual([4, 1, 0, 0])
+  })
+
+  it("a read's 0 (or no field at all) on a P/R line opens as 1", () => {
+    const get = WIRE.get.map((g, i) => (i === 0 ? { ...g, pricingUnit: 0 } : i === 1 ? { ...g, pricingUnit: undefined as unknown as number } : g))
+    const s = fromDocument(doc({ bonusBuy: { ...WIRE, get } }))
+    expect(s.get[0].per).toBe('1')
+    expect(s.get[1].per).toBe('1')
+    expect(toRequest(s).get.slice(0, 2).map((g) => g.pricingUnit)).toEqual([1, 1])
+  })
+
+  it('switching a line to % sends 0, and back to P sends the kept Per', () => {
+    const s = fromDocument(doc())
+    const pct = { ...s, get: s.get.map((l, i) => (i === 0 ? { ...l, discountType: '%' as const } : l)) }
+    expect(toRequest(pct).get[0].pricingUnit).toBe(0)
+    const back = { ...pct, get: pct.get.map((l, i) => (i === 0 ? { ...l, discountType: 'P' as const } : l)) }
+    expect(toRequest(back).get[0].pricingUnit).toBe(4)
+  })
+
+  it('a blank Per goes up as 0, for the server to refuse (BBY-PRICING-UNIT)', () => {
+    const s = fromDocument(doc())
+    const blank = { ...s, get: s.get.map((l, i) => (i === 0 ? { ...l, per: ' ' } : l)) }
+    expect(toRequest(blank).get[0].pricingUnit).toBe(0)
+  })
+})
+
+describe('the Per column shows only on Discount Price and Discount Amount lines, never under Total Discount', () => {
+  it('a P or R line shows Per; a % line does not', () => {
+    expect(getLineShowsPer(false, 'P')).toBe(true)
+    expect(getLineShowsPer(false, 'R')).toBe(true)
+    expect(getLineShowsPer(false, '%')).toBe(false)
+  })
+
+  it('under Total Discount no line shows Per and the column leaves the grid', () => {
+    expect(getLineShowsPer(true, 'P')).toBe(false)
+    expect(getLineShowsPer(true, 'R')).toBe(false)
+    expect(getPanelLayout(true).columns).not.toContain('per')
+  })
+})
+
+describe('curr/pe reads currency / N unit when Per is above 1', () => {
+  it('Per 4 on a price reads SAR / 4 EA and keeps ex VAT', () => {
+    expect(currPe('P', 'SAR', '4', '')).toEqual({ unit: 'SAR / 4 EA', exVat: true })
+  })
+
+  it("Per above 1 on an amount reads the line's own unit", () => {
+    expect(currPe('R', 'SAR', '2', 'PAC')).toEqual({ unit: 'SAR / 2 PAC', exVat: false })
+  })
+
+  it('Per 1, a blank Per, or a percent reads as before', () => {
+    expect(currPe('P', 'SAR', '1', 'EA')).toEqual({ unit: 'SAR', exVat: true })
+    expect(currPe('R', 'SAR', '', 'EA')).toEqual({ unit: 'SAR', exVat: false })
+    expect(currPe('%', 'SAR', '4', 'EA')).toEqual({ unit: '%', exVat: false })
+  })
+})
+
+describe('new, pasted and generated lines start at Per 1; a Per edit makes formChanged true', () => {
+  it('a new bonus buy, an added line and pasted lines all start at Per 1', () => {
+    expect(newEditor(PROMO).get[0].per).toBe('1')
+    expect(emptyGetLine().per).toBe('1')
+    const pasted = pasteLines(newEditor(PROMO), 'get', '100,200')
+    expect(pasted.get.map((l) => l.per)).toEqual(['1', '1'])
+  })
+
+  it('a Per edit marks the form changed', () => {
+    const opened = fromDocument(doc())
+    const edited = { ...opened, get: opened.get.map((l, i) => (i === 0 ? { ...l, per: '6' } : l)) }
+    expect(formChanged(opened, edited)).toBe(true)
+  })
+})
+
+describe('the BBY-PRICING-UNIT refusal has an English fallback key', () => {
+  it('a refusal the server sent without English falls back to its key; a worded one does not', () => {
+    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: '', arabic: '' })).toBe('editor.refusal.BBY-PRICING-UNIT')
+    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: 'Get line 1: Per must be a whole number of at least 1.', arabic: '' })).toBeNull()
+    expect(refusalFallbackKey({ code: 'BBY-030', english: '', arabic: '' })).toBeNull()
   })
 })

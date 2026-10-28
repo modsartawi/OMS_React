@@ -92,6 +92,13 @@
 //  44. a Planned OMS bonus buy offers it on its Material line only; Tested, Activated, Deactivated,
 //      Display and SAP never.
 //
+// Ticket 640 — a get line's Per (spec 639; BackOffice 3181 NOT built: the read's, Save's and
+// Validate's `pricingUnit` on the get line and the refusal `BBY-PRICING-UNIT` are stubbed exactly
+// as spec 639 D1/D2 write them).
+//  48. a read with pricingUnit 4 shows Per 4 and Curr/Pe `SAR / 4 EA` + ex VAT; a % line has no box;
+//      an edit reaches the Save body (and % sends 0); a stubbed BBY-PRICING-UNIT is listed (EN + AR);
+//      switching to % and turning on Total Discount each hide the box. 35 also names column 25 PER (checked as 48).
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -153,8 +160,8 @@ const BBY = {
     { material: null, grouping: 'GROUP1', quantity: 1, uom: 'EA', discountType: null },
   ],
   get: [
-    { condNumber: 'OMS0000101', material: '200044', grouping: null, quantity: 3, uom: 'EA', scaleType: 'C', discountType: 'P', value: 15, requirement: null, scales: [] },
-    { condNumber: 'OMS0000102', material: '200055', grouping: null, quantity: 2, uom: 'EA', scaleType: 'C', discountType: '%', value: 10, requirement: null, scales: [] },
+    { condNumber: 'OMS0000101', material: '200044', grouping: null, quantity: 3, uom: 'EA', scaleType: 'C', discountType: 'P', value: 15, pricingUnit: 1, requirement: null, scales: [] },
+    { condNumber: 'OMS0000102', material: '200055', grouping: null, quantity: 2, uom: 'EA', scaleType: 'C', discountType: '%', value: 10, pricingUnit: 0, requirement: null, scales: [] },
   ],
   groupings: [{ id: 'GROUP1', materials: ['200011', '200012', '200013'] }],
 }
@@ -163,6 +170,8 @@ const bbyDoc = (number, over = {}) => ({
   version: BBY.version, changedBy: 'msartawi', changedAt: '2026-10-05T09:14:03', ...over,
 })
 let saveAnswer = 'stale'
+// Ticket 640: the bonus buy whose price line is read with Per 4.
+const PER_BBY = 'OMS000000126'
 let bonusBuyGets = 0
 // Ticket 419: each OMS bonus buy's status as the stub's server holds it (default Planned), and the
 // test mark the read carries. MarkTested / BackToPlanned move it, so a re-read shows the move.
@@ -202,6 +211,12 @@ async function run() {
       const n = decodeURIComponent(path.slice('BbyMaintainWeb/BonusBuy/'.length))
       bonusBuyGets++
       if (n === '000100001124') return route.fulfill(envelope(bbyDoc(n, { readOnly: true, bbyStatus: '' })))
+      // Ticket 640: "4 pcs @ 100 SAR" — the price line read back with its stored Per (spec 639 D1).
+      if (n === PER_BBY)
+        return route.fulfill(envelope({ ...bbyDoc(n), bonusBuy: { ...BBY, bbyNumber: n, get: [
+          { ...BBY.get[0], quantity: 4, value: 100, pricingUnit: 4 },
+          BBY.get[1],
+        ] } }))
       if (/^OMS0000001(24|25)$|^OMS00000000[1-49]$/.test(n))
         return route.fulfill(envelope(bbyDoc(n, {
           // As shipped (BackOffice 2398): readOnly also on an OMS bonus buy that is not Planned.
@@ -236,6 +251,15 @@ async function run() {
           envelope({ status: 'refused', number: PROMO.promoNumber, warnings: [], refusals: items.flatMap((i) => i.refusals), bonusBuys: items }),
         )
       }
+      if (op === 'BonusBuy/Validate' && body.bbyNumber === PER_BBY)
+        return route.fulfill(
+          envelope({
+            status: 'refused',
+            number: null,
+            refusals: [refusal('BBY-PRICING-UNIT', 'Get line 1: Per must be a whole number of at least 1.', 'سطر الحصول 1: يجب أن تكون الوحدة عددًا صحيحًا لا يقل عن 1.')],
+            warnings: [],
+          }),
+        )
       if (op === 'BonusBuy/Validate')
         return route.fulfill(
           envelope({
@@ -251,6 +275,7 @@ async function run() {
         )
       if (op === 'BonusBuy/Save') {
         if (!body.bbyNumber) return route.fulfill(envelope(saved('OMS000000125')))
+        if (body.bbyNumber === PER_BBY) return route.fulfill(envelope(saved(PER_BBY)))
         if (saveAnswer === 'stale')
           return route.fulfill(
             envelope({
@@ -686,6 +711,48 @@ async function run() {
   await page.goto(`${EDIT}/OMS000000124`)
   await page.waitForSelector('table[data-grid="get"]')
   await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor.png', fullPage: true }).catch(() => {})
+  // ════════ Ticket 640 — a get line's Per ════════
+  // ── 48. Per opens, edits, saves, is refused, and follows the type and Total Discount ──
+  await page.goto(`${EDIT}/${PER_BBY}`)
+  await page.waitForSelector('table[data-grid="get"]')
+  const perRow = page.locator('table[data-grid="get"] tbody tr').nth(0)
+  const pctRow640 = page.locator('table[data-grid="get"] tbody tr').nth(1)
+  const perBox = perRow.getByLabel('Per', { exact: true })
+  const plain = (s) => s.replace(/[⁦-⁩]/g, '')
+  check('48. the read’s pricingUnit 4 fills the Per box', (await perBox.inputValue()) === '4', await perBox.inputValue().catch(() => '—'))
+  const perText = plain(await perRow.innerText())
+  check('48. Curr/Pe reads SAR / 4 EA and keeps ex VAT', perText.includes('SAR / 4 EA') && perText.includes('ex VAT'), JSON.stringify(perText))
+  check('48. a % line has no Per box', (await pctRow640.getByLabel('Per', { exact: true }).count()) === 0)
+  check('48. the Per column sits between Value and Curr/Pe',
+    (await getCols()).join(',').includes('value,per,currPe'), (await getCols()).join(','))
+
+  await perBox.fill('6')
+  posts.length = 0
+  await page.locator('button', { hasText: /^Save$/ }).click()
+  for (let i = 0; i < 50 && !posts.some(([op]) => op === 'BonusBuy/Save'); i++) await page.waitForTimeout(100)
+  const perSave = posts.find(([op]) => op === 'BonusBuy/Save')?.[1]
+  check('48. the edit reaches the Save body as a number; the % line sends 0',
+    perSave?.get?.[0]?.pricingUnit === 6 && perSave?.get?.[1]?.pricingUnit === 0, JSON.stringify(perSave?.get))
+  await page.waitForTimeout(500)
+
+  await page.goto(`${EDIT}/${PER_BBY}`)
+  await page.waitForSelector('table[data-grid="get"]')
+  await page.locator('button', { hasText: /^Check$/ }).click()
+  await page.waitForSelector('text=BBY-PRICING-UNIT', { timeout: 5000 }).catch(() => {})
+  const perRef = await report417()
+  check('48. a stubbed BBY-PRICING-UNIT is listed with its code, English and Arabic',
+    perRef.includes('BBY-PRICING-UNIT') && perRef.includes('Per must be a whole number') && perRef.includes('يجب أن تكون الوحدة'), JSON.stringify(perRef))
+
+  await perRow.getByLabel('Discount Type').selectOption('%')
+  check('48. switching the line to % hides the box', (await perRow.getByLabel('Per', { exact: true }).count()) === 0)
+  await perRow.getByLabel('Discount Type').selectOption('P')
+  check('48. back to Discount Price, the box returns at its kept value',
+    (await perRow.getByLabel('Per', { exact: true }).inputValue().catch(() => '')) === '4')
+  await page.getByLabel('Total Discount').check()
+  check('48. Total Discount hides the box and the Per column',
+    (await page.locator('table[data-grid="get"] input[data-field="per"]').count()) === 0 && !(await getCols()).includes('per'))
+  await page.getByLabel('Total Discount').uncheck()
+
   // ── 22–26. the upload dialog ──
   // Its own block: 417's section above declares the same helper names.
   {
@@ -987,6 +1054,7 @@ async function run() {
     check('35. the help names 23 SCORE and 24 LOY_TIERS as OMS-only, and SAP refusing them',
       /23 SCORE/.test(cols) && /24 LOY_TIERS/.test(cols) && cols.includes('OMS-only') && cols.includes('SAP will not load'), cols)
     check('35. …and says uploads land Planned', form.includes('always land Planned'))
+    check('48. the help names column 25 PER, blank meaning 1 (ticket 640)', /25 PER/.test(cols) && cols.includes('blank means 1'), cols)
 
     // ── 36. a locked serial ──
     uploadAnswer = {

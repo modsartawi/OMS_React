@@ -22,6 +22,7 @@ import {
   emptyGetLine,
   type GetColumn,
   type GetLine,
+  getLineShowsPer,
   getPanelLayout,
   LINK_CATEGORIES,
   type LineItemType,
@@ -340,9 +341,20 @@ export function BuyPanel({
   )
 }
 
-function CurrPeCell({ discountType, currency }: { discountType: DiscountType; currency: string }) {
+/** Curr/Pe; `per` and `uom` only on a get line (the Total Discount side panel has no Per). */
+function CurrPeCell({
+  discountType,
+  currency,
+  per,
+  uom,
+}: {
+  discountType: DiscountType
+  currency: string
+  per?: string
+  uom?: string
+}) {
   const { t } = useTranslation('bonus-buy-maintenance')
-  const { unit, exVat } = currPe(discountType, currency)
+  const { unit, exVat } = currPe(discountType, currency, per, uom)
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       <span className="font-mono text-xs">
@@ -432,8 +444,22 @@ export function GetPanel({
             onChange={(e) => setLine(l.key, { value: e.target.value })}
           />
         )
+      case 'per':
+        // Per (spec 639 D8): only on a Discount Price or Amount; its unit is the line's own, shown in Curr/Pe.
+        return getLineShowsPer(state.totalDiscountOn, l.discountType) ? (
+          <Input
+            aria-label={t('editor.col.per')}
+            type="number"
+            min={1}
+            step={1}
+            className={`${CELL} text-end`}
+            value={l.per}
+            onChange={(e) => setLine(l.key, { per: e.target.value })}
+            data-field="per"
+          />
+        ) : null
       case 'currPe':
-        return <CurrPeCell discountType={l.discountType} currency={currency} />
+        return <CurrPeCell discountType={l.discountType} currency={currency} per={l.per} uom={l.uom} />
     }
   }
 
@@ -474,7 +500,7 @@ export function GetPanel({
                   {columns.map((c) => (
                     <td
                       key={c}
-                      className={`${TD} ${c === 'type' ? 'w-36' : c === 'identifier' ? 'w-36' : c === 'scaleType' || c === 'discountType' ? 'w-36' : c === 'quantity' || c === 'value' ? 'w-24' : ''}`}
+                      className={`${TD} ${c === 'type' ? 'w-36' : c === 'identifier' ? 'w-36' : c === 'scaleType' || c === 'discountType' ? 'w-36' : c === 'quantity' || c === 'value' ? 'w-24' : c === 'per' ? 'w-20' : ''}`}
                     >
                       {cell(l, c)}
                     </td>

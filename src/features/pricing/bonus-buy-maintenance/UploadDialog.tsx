@@ -25,8 +25,8 @@ import {
  * SAP's bonus-buy upload, from the promotion screen (ticket 418, BackOffice 2381/2382).
  *
  * The file goes up as bytes: SAP's 22-column tab-separated file, unchanged except that its
- * `AKTNR` is a `P…` number, optionally with the OMS-only columns 23 `SCORE` and 24 `LOY_TIERS`
- * (spec 2396). The door is all or nothing, so the answer is either the created and updated
+ * `AKTNR` is a `P…` number, optionally with the OMS-only columns 23 `SCORE`, 24 `LOY_TIERS`
+ * (spec 2396) and 25 `PER` (spec 639). The door is all or nothing, so the answer is either the created and updated
  * `OMS…` numbers, or every refused row with nothing written. An upload always lands Planned
  * (ticket 421 removed 418's activate option), and a re-upload reaching a serial that is not
  * Planned is refused like any other row, its number and status in the server's text. Only a

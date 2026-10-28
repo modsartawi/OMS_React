@@ -11,6 +11,7 @@
  * (`BBY-QUANTITY`, `BBY-VALUE-RANGE`): the client never decides that a value is acceptable.
  */
 import { type CodeListMeter, codeListMeter, normaliseCodeList } from '@/core/util/code-list'
+import { formatCount } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
 import type {
   BbyBonusBuyDocument,
@@ -78,6 +79,8 @@ export interface GetLine {
   uom: string
   discountType: DiscountType
   value: string
+  /** Per (spec 639 D7): how many units `value` is for, as the box holds it. Kept across a type change. */
+  per: string
 }
 
 export interface EngineRules {
@@ -164,6 +167,7 @@ export const emptyGetLine = (): GetLine => ({
   uom: '',
   discountType: '%',
   value: '',
+  per: '1',
 })
 
 const EMPTY_ENGINE: EngineRules = {
@@ -259,6 +263,8 @@ export function fromDocument(doc: BbyBonusBuyDocument): EditorState {
       uom: str(l.uom),
       discountType: discount(l.discountType),
       value: numStr(l.value),
+      // A read's 0 (a percent line, Total Discount, or an older server) opens as 1 (spec 639 D7).
+      per: (l.pricingUnit ?? 0) > 0 ? numStr(l.pricingUnit) : '1',
     })),
     groupings: (b.groupings ?? []).map((g) => ({ id: g.id, materials: [...(g.materials ?? [])] })),
     engine: r
@@ -358,6 +364,8 @@ export function toRequest(s: EditorState): BbyBonusBuyWire {
       scaleType: l.scaleType,
       discountType: s.totalDiscountOn ? null : l.discountType,
       value: s.totalDiscountOn ? 0 : num(l.value),
+      // A blank Per goes up as 0, for the server's BBY-PRICING-UNIT (spec 639 D2).
+      pricingUnit: getLineShowsPer(s.totalDiscountOn, l.discountType) ? num(l.per) : 0,
     })),
     groupings: s.groupings.map((g) => ({ id: g.id, materials: [...g.materials] })),
   }
@@ -383,10 +391,11 @@ export type GetColumn =
   | 'unit'
   | 'discountType'
   | 'value'
+  | 'per'
   | 'currPe'
 
 const GET_BASE: GetColumn[] = ['type', 'identifier', 'description', 'scaleType', 'quantity', 'unit']
-const GET_REWARD: GetColumn[] = ['discountType', 'value', 'currPe']
+const GET_REWARD: GetColumn[] = ['discountType', 'value', 'per', 'currPe']
 
 /** Total Discount is the one switch that changes the Get panel's shape (2330 §4): ticked, the
  *  reward columns leave the grid and the side panel takes their place. */
@@ -401,9 +410,23 @@ export function buyPanelLayout(s: Pick<EditorState, 'minValueOn'>, readOnly: boo
   return { minAmountEnabled: !readOnly && s.minValueOn }
 }
 
-/** SAP's Curr/Pe: `%` for a percent, the currency otherwise. A Price is VAT-exclusive and says so (story 23). */
-export function currPe(discountType: DiscountType, currency: string): { unit: string; exVat: boolean } {
-  return discountType === '%' ? { unit: '%', exVat: false } : { unit: currency, exVat: discountType === 'P' }
+/**
+ * A get line carries a Per box only on a Discount Price or Discount Amount, and never under Total
+ * Discount (spec 639 D8): a percent has no Per, and the bundle total keeps the "lines together" 0.
+ */
+export const getLineShowsPer = (totalDiscountOn: boolean, discountType: DiscountType): boolean =>
+  !totalDiscountOn && discountType !== '%'
+
+/**
+ * SAP's Curr/Pe: `%` for a percent, the currency otherwise. A Price is VAT-exclusive and says so
+ * (story 23). With a Per above 1 it reads the rate as SAP shows it, `SAR / 4 EA`, in the line's
+ * own unit (EA when it names none) — one string, for the caller to isolate once (spec 639 D9).
+ */
+export function currPe(discountType: DiscountType, currency: string, per = '1', uom = ''): { unit: string; exVat: boolean } {
+  if (discountType === '%') return { unit: '%', exVat: false }
+  const n = Number(per.trim())
+  const unit = per.trim() !== '' && Number.isFinite(n) && n > 1 ? formatCount(currency, `${n} ${uom.trim() || DEFAULT_UOM}`) : currency
+  return { unit, exVat: discountType === 'P' }
 }
 
 // ── groupings ─────────────────────────────────────────────────────────────────────────
@@ -420,6 +443,16 @@ export function upsertGrouping(s: EditorState, g: BbyGroupingWire): EditorState 
 }
 
 // ── outcomes ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Refusals the client can word itself when the server sends no English (spec 639 D11): only codes
+ * minted with an en fallback key. Every other refusal is shown exactly as the server worded it.
+ */
+const REFUSAL_FALLBACK: ReadonlySet<string> = new Set(['BBY-PRICING-UNIT'])
+
+/** The en key to show for a refusal that came without English, or null when it needs none. */
+export const refusalFallbackKey = (r: BbyRefusal): string | null =>
+  (r.english ?? '').trim() === '' && REFUSAL_FALLBACK.has(r.code) ? `editor.refusal.${r.code}` : null
 
 /** The refusal that means "someone saved after you opened it": a reload, not a fix. */
 export const STALE_VERSION_CODE = 'BBY-STALE-VERSION'

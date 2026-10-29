@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3243 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3243-oms-react-rule-playground-brief.md; spec C:\Work\DMSCO\BackOffice\.issues\3243-insurance-rule-playground-spec.md)
 blocked-by: —
 ---
@@ -50,11 +50,11 @@ component/route (page, route, menu leaf) · i18n (new ns, en + ar) · test (vite
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `outcomeView` — a reply with matched lines gives those lines with their trace rows; a reply where no line
+- [x] `outcomeView` — a reply with matched lines gives those lines with their trace rows; a reply where no line
       matched gives null ("nothing matched"); a non-empty `errors` gives only the errors; absent arrays read as empty — pure
-- [ ] `i18n-keys.test.ts` (playground) — en and ar `insurance-playground` mirror key-for-key, and every key the code
+- [x] `i18n-keys.test.ts` (playground) — en and ar `insurance-playground` mirror key-for-key, and every key the code
       builds exists — pure
-- [ ] `tools/insurance-playground-drive.mjs` (new; stub `Playground/Evaluate` in `tools/insurance-rules-stubs.mjs`
+- [x] `tools/insurance-playground-drive.mjs` (new; stub `Playground/Evaluate` in `tools/insurance-rules-stubs.mjs`
       under a `677` section) — open the leaf, Run, see matched lines and trace; edit the rule so nothing matches, and
       see "nothing matched"; a reader error shows alone; a bare 403 shows the no-access words; LTR + RTL — flow
 
@@ -77,3 +77,28 @@ None — can start immediately (parallel with 676: no shared files beyond the st
 
 - Which door answers the grant for the menu leaf? A new `Playground/Access` probe, or a flag on the insurance probe
   618 is getting? This is a BackOffice ask, carried to 691.
+
+## Comments
+
+- 2026-10-30 (677 built, branch `impl/3243-677`). Drive `tools/insurance-playground-drive.mjs` 64/64 (LTR + RTL) on
+  the stub (`// --- 677 ---` in `tools/insurance-rules-stubs.mjs`: `playgroundStub` / `evaluatePlayground`, a tiny
+  evaluator of `line` blocks; any other `check` is a reader error; data with no `lines` is `PLAYGROUND_DATA_INVALID`).
+  vitest: `outcome.test.ts` (5), `experiment.test.ts` (3), `i18n-keys.test.ts`. typecheck, lint, test, build green.
+- **Layout for later tickets** (`features/insurance-rules/playground/`):
+  - `PlaygroundPage.tsx` only wires state + the Run mutation; the panes are `JsonPane` (Data box, Rule box) and
+    `OutcomePane` (Tab A, draws an `OutcomeView` only). 678 replaces Run with auto-run + kind + as-of in the page;
+    679/682 put editors / the form beside a `JsonPane`; 686 adds the read log to `OutcomePane` + a reader in `outcome.ts`.
+  - `outcome.ts` — `outcomeView(reply)`: `{ kind: 'errors', errors }` (non-empty `errors[]`, nothing else) or
+    `{ kind: 'outcome', matched: LineView[] | null, lines }`. `lines` keeps EVERY line's trace (an unmatched line
+    still shows why); `matched` is null for "nothing matched". 678's verdict / 684's intake readers go beside it.
+  - `experiment.ts` — the seed (`SEED_DATA`, `SEED_DOCUMENT`: G-1 "daysSupply above 90" on a 120-day line) and
+    `evaluateBody({ dataText, documentText, asOf, kind? })` → body or the boxes that are not one JSON object.
+  - Core model types: `src/core/insurance-rules/playground.ts` (body, reply, `traceValueIn`, `localAsOf`) — in core
+    so 688's "Open in playground" can build an experiment from the guard / coverage / category screens.
+- **Shape guesses for 691:** trace `value` read as text `"true|false|unknown"` or a boolean (the 3140 precedent);
+  `why` read as one string (not EN+AR); a line without `line` takes its index from 1; `reads` / `verdict` / `intake`
+  are typed but drawn nowhere. A refusal shows `apiErrorMessage` + the code (`data-refusal-code`).
+- **Decisions (overrulable):** the menu leaf sits after Coverage, before the IDF block, ungated (607 ruling); the
+  seeded rule's name/message are example DATA in the JSON (not translated). The RTL drive keeps English words
+  (the app's `lng` is fixed to `en`; RTL flips direction only), as every insurance-rules drive does.
+

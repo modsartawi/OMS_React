@@ -14,6 +14,8 @@ import { SearchCheck } from 'lucide-react' // 625
 import { History } from 'lucide-react' // 626
 // 652 · icons
 import { Layers } from 'lucide-react' // 652
+// 677 · icons
+import { TestTubeDiagonal } from 'lucide-react' // 677
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -121,6 +123,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.coverage',
       icon: Umbrella,
       routerLink: '/insurance-rules/coverage',
+    },
+
+    // 677 · Playground (`menu.playground`, `/insurance-rules/playground`)
+    {
+      // 677 — try a scratch rule on made-up data and see what the engine saw. Ungated like the group (607 ruling); 691 gates it.
+      labelKey: 'insurance-rules:menu.playground',
+      icon: TestTubeDiagonal,
+      routerLink: '/insurance-rules/playground',
     },
 
     // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).

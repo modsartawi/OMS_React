@@ -4,7 +4,7 @@
  * split on `, ; |` space `\r \n \t`, trim, drop empties, join with `,`, never de-duplicate.
  */
 import { describe, expect, it } from 'vitest'
-import { codeListCount, codeListMeter, normaliseCodeList } from './code-list'
+import { codeListCount, codeListMeter, normaliseCodeList, pastedCodes } from './code-list'
 
 describe('normaliseCodeList', () => {
   it('a pasted column with CRLF, LF or tabs normalises to a comma list', () => {
@@ -56,5 +56,18 @@ describe('codeListMeter', () => {
 
   it('upper-cases when asked, as the server does for loyalty groups and tiers', () => {
     expect(codeListMeter('gold\tsilver', 10, { upper: true }).normalised).toBe('GOLD,SILVER')
+  })
+})
+
+describe('pastedCodes (420 materials, 655 item-list codes)', () => {
+  it('adds an Excel column in pasted order, once each, skipping what the target holds', () => {
+    expect(pastedCodes('100\r\n200\r\n\r\n300, 200 400\t500', ['400'])).toEqual(['100', '200', '300', '500'])
+  })
+  it('a blank paste, or one the target already holds, adds nothing', () => {
+    expect(pastedCodes('  \n ')).toEqual([])
+    expect(pastedCodes('E1497\r\nE1497', ['E1497'])).toEqual([])
+  })
+  it('trims what the target holds before comparing', () => {
+    expect(pastedCodes('100 200', [' 100 '])).toEqual(['200'])
   })
 })

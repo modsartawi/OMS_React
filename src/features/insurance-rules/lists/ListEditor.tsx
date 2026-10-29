@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ArrowRight, Loader2, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ClipboardPaste, Loader2, Plus, X } from 'lucide-react'
 
 import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY } from '@/core/insurance-rules/api'
@@ -14,6 +14,7 @@ import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
+import PasteCodesDialog from '@/core/ui/PasteCodesDialog'
 import Select from '@/core/ui/Select'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -233,7 +234,10 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
   )
 }
 
-/** One registry-field row: the field, any of / none of, the codes (each with its description), the picker. */
+/**
+ * One registry-field row: the field, any of / none of, the codes (each with its description), the picker, and a
+ * paste box for a column of codes from Excel (655) — item numbers, say, once the registry holds that field.
+ */
 function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAttribute; fields: RegistryField[]; onChange: (a: GuardListAttribute) => void; onRemove: () => void }) {
   const { t } = useTranslation('insurance-lists')
   const mode = attributeMode(attr)
@@ -245,6 +249,7 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
   const found = useQuery({ ...fieldValuesQuery(attr.field, settled), enabled: !!attr.field && settled !== '' })
   const describe = (code: string) => [...(known.data ?? []), ...(found.data ?? [])].find((v) => v.code === code)?.description ?? ''
   const options = (settled ? found.data : known.data)?.filter((v) => !codes.includes(v.code)).slice(0, 8) ?? []
+  const [pasting, setPasting] = useState(false)
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2" data-attribute-row={attr.field}>
@@ -279,6 +284,28 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
           </span>
         ))}
       </div>
+      <Button variant="text" className="w-fit" onClick={() => setPasting(true)} disabled={!attr.field} data-paste-codes="">
+        <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+        {t('editor.paste.action')}
+      </Button>
+      <PasteCodesDialog
+        open={pasting}
+        existing={codes}
+        testId="list-paste"
+        labels={{
+          title: t('editor.paste.title'),
+          hint: t('editor.paste.hint'),
+          added: (count) => t('editor.paste.added', { count, n: fsi(String(count)) }),
+          skipped: (count) => t('editor.paste.skipped', { count, n: fsi(String(count)) }),
+          ok: t('editor.paste.ok'),
+          cancel: t('editor.cancel'),
+        }}
+        onClose={() => setPasting(false)}
+        onConfirm={(pasted) => {
+          onChange(make(attr.field, mode, [...codes, ...pasted]))
+          setPasting(false)
+        }}
+      />
       <div className="flex flex-col gap-1">
         <Input
           className="max-w-sm"

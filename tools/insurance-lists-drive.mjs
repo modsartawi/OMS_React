@@ -8,7 +8,8 @@
 // It verifies, in LTR and RTL:
 //   1. the Lists and Fields leaves are in the rail; the Items tab shows the draft's lists as cards — fields with
 //      any of their codes (each `Ltr`), the lists included, the rules that use each;
-//   2. a NEW list "GLP-1 pens" from ECode values: codes searched and picked, each shown with its description;
+//   2. a NEW list "GLP-1 pens" from ECode values: codes searched and picked, each shown with its description, and
+//      a column of codes pasted from Excel (655);
 //      taking out a list that holds them all warns "matches no item"; the preview counts the rest and shows the
 //      first page; Save PUTs the whole draft at its revision and the card appears;
 //   3. a cycle (controlled → glp1-pens → controlled) is refused before the save: the path is read out and Save
@@ -154,6 +155,17 @@ for (const dir of ['ltr', 'rtl']) {
     await row.locator('[data-value-search]').fill('E152')
     await row.locator('[data-value-option="E1520"]').waitFor({ timeout: 5000 })
     await row.locator('[data-value-option="E1520"]').click()
+    // 655: a column pasted from Excel joins the field's codes — once each, the ones it already holds skipped.
+    await row.locator('[data-paste-codes]').click()
+    const pasteBox = page.locator('dialog[open]').last()
+    await pasteBox.getByTestId('list-paste-box').fill('E1520\r\nE1530\tE1531\r\nE1530\r\n\r\n')
+    // Arabic says two in its dual form, with no digit, so the meter is read for its two parts (added, skipped).
+    const meterParts = await pasteBox.getByTestId('list-paste-meter').locator('span').evaluateAll((els) => els.map((e) => e.textContent ?? ''))
+    check(`${dir} 2. the paste box says what it adds and what it skips`, meterParts.length === 2 && (dir === 'rtl' || (/^⁨?2⁩? codes to add$/.test(meterParts[0]) && /^⁨?2⁩? skipped/.test(meterParts[1]))), JSON.stringify(meterParts))
+    await pasteBox.getByTestId('list-paste-ok').click()
+    const afterPaste = await row.locator('[data-code-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-code-chip')))
+    check(`${dir} 2. the pasted codes join the field in order`, JSON.stringify(afterPaste) === JSON.stringify(['E1497', 'E1510', 'E1520', 'E1530', 'E1531']), JSON.stringify(afterPaste))
+    for (const c of ['E1530', 'E1531']) await row.locator(`[data-code-chip="${c}"] button`).click()
     await editor.locator('[data-ref="include:controlled"]').check()
     await editor.locator('[data-preview-run]').click()
     await editor.locator('[data-preview-result]').waitFor({ timeout: 5000 }).catch(() => {})

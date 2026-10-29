@@ -47,3 +47,21 @@ export function codeListMeter(value: string | null | undefined, max: number, opt
   const normalised = normaliseCodeList(value, options)
   return { normalised, count: codeListCount(normalised), length: normalised.length, max, over: normalised.length > max }
 }
+
+/**
+ * The codes a paste box adds to a target (bonus-buy materials, ticket 420; an insurance item list's codes, 655):
+ * the normalised codes in pasted order, without the ones the target already holds and without a repeat of the
+ * paste itself. Unlike a stored list, a target here is a set, so a repeat is dropped.
+ */
+export function pastedCodes(text: string, existing: readonly string[] = []): string[] {
+  const list = normaliseCodeList(text)
+  if (list === '') return []
+  const seen = new Set(existing.map((c) => c.trim()).filter((c) => c !== ''))
+  const out: string[] = []
+  for (const code of list.split(',')) {
+    if (seen.has(code)) continue
+    seen.add(code)
+    out.push(code)
+  }
+  return out
+}

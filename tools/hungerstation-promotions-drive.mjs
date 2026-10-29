@@ -38,7 +38,15 @@
 // it into (combination in words, SKU count, name on HungerStation); Send reads "Send 3 promotions to
 // 3 stores"; after Send the detail shows each part's own status, and one failed part reads Failed.
 //
-// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667 · 12 ticket 668.
+// Ticket 671 (§ 14) asserts, LTR and RTL: the Scheduled and Ended chips and the store box ("live on
+// this store") ride the URL and reach the door, a pasted URL fills them; Replace and Switch off are
+// disabled while any part is Sending (an unanswered part is not) and not offered on a draft or once
+// switched off, replaced or ended; Replace says in words what happens, waits until the name, stores,
+// start or end differ, and posts the contract body; a refused switch-off (DHS-00020) names the part
+// and leaves the old promotion unchanged; on success the new one opens and the two link to each
+// other (Replaced ⇄ Replaces); Switch off posts { reason } and the promotion reads Switched off.
+//
+// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667 · 12 ticket 668 · 13 ticket 670 · 14 ticket 671.
 //
 // Ticket 665 asserts, with the browser in Asia/Riyadh at 2026-10-29 11:00 local:
 //   0. every fixture's keys are EXACTLY the fields of its model interface (none invented, none missing);
@@ -1664,6 +1672,288 @@ async function bundleScenario(dir) {
 }
 await bundleScenario('ltr')
 await bundleScenario('rtl')
+
+// ── 14: Replace, Switch off, and the Scheduled / Ended / store filters (ticket 671) ─────────────
+// Door overrides only (the DOORS table is untouched): `read` answers from `state.details`, which
+// `replace` and `switchOff` change the way BackOffice 3216 describes — the old promotion's parts
+// switched off first, then a NEW record linked through `replacesId`; a refused switch-off
+// (DHS-00020) leaves everything as it was and names the part in the envelope's `data`.
+
+const REPLACE_REFUSAL = { partId: 'pt-1', name: 'Ramadan', httpStatus: 422, error: 'Vendor promotion locked' }
+const REPLACE_REFUSED_MSG = 'HungerStation refused to switch off a part; nothing new was sent. / رفضت هنقرستيشن إيقاف جزء؛ لم يُرسل شيء جديد.'
+const AT671 = '2026-10-29T11:00:00'
+
+function replaceDoors(state) {
+  const details = Object.fromEntries(freshRows().map((r) => [r.promotionId, detailOf(r)]))
+  // A live promotion with ONE part still Sending: both actions wait.
+  details['p-failed'] = { ...details['p-failed'], status: 'live', parts: [part('pt-1', { name: 'Vitamins' }), part('pt-2', { name: 'Vitamins · 2', latestJobStatus: 'QUEUED' })] }
+  // The promotion the drive replaces: its one part named as sent.
+  details['p-live'] = { ...details['p-live'], parts: [part('pt-1', { name: 'Ramadan' })] }
+  state.details = details
+  const offSends = (d, reason) => d.parts.map((p) => send(`s-off-${p.partId}`, { partId: p.partId, kind: 'switchOff', sentAt: AT671, reason }))
+  return {
+    read: (_ctx, m) => {
+      const d = state.details[decodeURIComponent(m[1])]
+      return d ? envelope(d) : refuse('DHS-00016')
+    },
+    replace: (_ctx, m, req) => {
+      const id = decodeURIComponent(m[1])
+      if (state.refuse) return envelope(REPLACE_REFUSAL, { status: 502, success: false, message: REPLACE_REFUSED_MSG, errorCode: 'DHS-00020' })
+      const b = req.postDataJSON()
+      const old = state.details[id]
+      // 1. every part of the old one switched off (accepted) …
+      state.details[id] = {
+        ...old,
+        status: 'replaced',
+        replacedById: 'p-r2',
+        parts: old.parts.map((p) => ({ ...p, active: false })),
+        sends: [...offSends(old, b.reason), ...old.sends],
+      }
+      // 2. … then the new record, linked back, the same items, the new stores, sent.
+      state.details['p-r2'] = detail(row('p-r2', { name: b.name, startAt: b.startAt, endAt: b.endAt, status: 'sending', lastSentAt: AT671 }), {
+        displayNameEn: old.displayNameEn,
+        displayNameAr: old.displayNameAr,
+        replacesId: id,
+        stores: b.storeCodes.map((c) => store(c)),
+        parts: [part('pt-r2', { name: b.name, latestJobStatus: 'QUEUED', skuCount: old.items.length })],
+        items: old.items.map((i) => ({ ...i, itemId: `r2-${i.itemId}`, partId: 'pt-r2' })),
+        sends: [send('s-r2', { partId: 'pt-r2', sentAt: AT671, reason: b.reason, jobStatus: 'QUEUED', hsUpdatedAt: null })],
+      })
+      return envelope(state.details['p-r2'])
+    },
+    switchOff: (_ctx, m, req) => {
+      const id = decodeURIComponent(m[1])
+      const b = req.postDataJSON()
+      const old = state.details[id]
+      state.details[id] = {
+        ...old,
+        status: 'switchedOff',
+        switchedOffAt: AT671,
+        switchedOffBy: 'msartawi',
+        switchedOffReason: b.reason,
+        parts: old.parts.map((p) => ({ ...p, active: false })),
+        sends: [...offSends(old, b.reason), ...old.sends],
+      }
+      return envelope(state.details[id])
+    },
+  }
+}
+
+// § 0's check for the refusal data this section's stub answers.
+{
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const want = modelFields(source, 'HungerStationPromotionReplaceRefusal').sort().join()
+  check('14: the DHS-00020 data the stub answers has exactly HungerStationPromotionReplaceRefusal’s fields', want === Object.keys(REPLACE_REFUSAL).sort().join(), want)
+}
+
+async function replaceScenario(dir) {
+  const state = { refuse: false }
+  const { context, page, errors, ctx } = await open(dir, { doors: replaceDoors(state) })
+  const L = '14 ' + dir.toUpperCase() + ': '
+  const last = () => lists(ctx).at(-1)
+  const sheetOf = (id) => page.locator(`dialog[open][data-promotion-sheet="${id}"]`)
+  const statusOf = (sheet) => sheet.locator('[data-promotion-field="status"] [data-promotion-status]').getAttribute('data-promotion-status')
+  const readsOf = (id) => ctx.calls.filter((c) => c.door === 'read' && c.path === `HungerStationWeb/Promotions/${id}`).length
+
+  // ── The filters ⇄ URL ⇄ door ──
+  await page.goto(BASE + '/hungerstation/promotions')
+  await waitRows(page, N)
+  await chip(page, 'scheduled')
+  await waitRows(page, 1)
+  check(L + 'Scheduled sends status=scheduled and rides the URL', last() === 'status=scheduled&skip=0&take=100' && search(page).getAll('status').join() === 'scheduled', last())
+  check(L + '… and lists the scheduled promotion only', (await cell(page, 'p-scheduled', 'name')) !== null)
+  await chip(page, 'ended')
+  await waitRows(page, 2)
+  check(L + 'Ended joins it (OR)', last() === 'status=scheduled&status=ended&skip=0&take=100' && search(page).getAll('status').join() === 'scheduled,ended', last())
+  await page.locator('[data-promotions-clear]').click()
+  await waitRows(page, N)
+  await page.locator('[data-filter-store]').fill(' 2001 ')
+  await page.locator('[data-promotions-search]').click()
+  await waitRows(page, 1)
+  check(L + 'the store box sends store=2001 (trimmed) on Search and rides the URL', last() === 'store=2001&skip=0&take=100' && search(page).get('store') === '2001', last())
+  check(L + '… "which promotions are live on this store": the one sent to 2001', (await cell(page, 'p-refused', 'name')) !== null)
+  await page.goto(BASE + '/hungerstation/promotions?status=ended&store=1001')
+  await waitRows(page, 1)
+  check(
+    L + 'a pasted URL drives the door and fills the store box and the chip',
+    last() === 'status=ended&store=1001&skip=0&take=100' &&
+      (await page.locator('[data-filter-store]').inputValue()) === '1001' &&
+      (await page.locator('[data-filter-status="ended"]').getAttribute('aria-pressed')) === 'true',
+    last(),
+  )
+  await page.locator('[data-promotions-clear]').click()
+  await waitRows(page, N)
+  check(L + 'Clear empties the store box and the URL', (await page.locator('[data-filter-store]').inputValue()) === '' && search(page).toString() === '')
+
+  // ── Both actions wait while any part is Sending; neither is offered once it no longer runs ──
+  await page.goto(BASE + '/hungerstation/promotions?promotion=p-failed')
+  let sheet = sheetOf('p-failed')
+  await sheet.locator('[data-promotion-replace]').waitFor({ timeout: 15000 })
+  check(
+    L + 'one part Sending → Replace and Switch off disabled, saying why',
+    (await sheet.locator('[data-promotion-replace]').isDisabled()) &&
+      (await sheet.locator('[data-promotion-switch-off]').isDisabled()) &&
+      (await sheet.locator('[data-promotion-replace]').getAttribute('title')) === 'Waits until every part has HungerStation’s answer.',
+  )
+  for (const id of ['p-draft', 'p-off', 'p-replaced', 'p-ended']) {
+    await page.goto(BASE + `/hungerstation/promotions?promotion=${id}`)
+    await sheetOf(id).locator('[data-promotion-header]').waitFor({ timeout: 15000 })
+    check(L + `${id}: neither Replace nor Switch off is offered`, (await sheetOf(id).locator('[data-promotion-replace], [data-promotion-switch-off]').count()) === 0)
+  }
+
+  // ── Replace: a refused switch-off names the part and leaves the old one unchanged ──
+  await page.goto(BASE + '/hungerstation/promotions?promotion=p-live')
+  sheet = sheetOf('p-live')
+  await sheet.locator('[data-promotion-replace]').waitFor({ timeout: 15000 })
+  check(L + 'a live promotion offers both, enabled', !(await sheet.locator('[data-promotion-replace]').isDisabled()) && !(await sheet.locator('[data-promotion-switch-off]').isDisabled()))
+  await sheet.locator('[data-promotion-replace]').click()
+  const dlg = page.locator('dialog[open]:has([data-replace-dialog="p-live"]):not(:has(dialog))')
+  await dlg.locator('[data-replace-store="2001"]').waitFor({ timeout: 10000 })
+  check(
+    L + 'the dialog says in words what happens',
+    (await dlg.locator('[data-reason-note]').innerText()).trim() ===
+      'HungerStation sees a new promotion. The current one is switched off first; if that is refused, nothing changes.',
+  )
+  const on = async () => dlg.locator('[data-replace-store-on="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-replace-store')))
+  check(
+    L + 'it starts as sent: the name, the window, the stores ticked as sent',
+    (await dlg.locator('[data-replace-name]').inputValue()) === 'Ramadan' &&
+      (await dlg.locator('[data-replace-end-date]').inputValue()) === '2026-11-30' &&
+      (await on()).join() === '1001,1002',
+    (await on()).join(),
+  )
+  await dlg.locator('[data-reason-input]').fill('Move to December')
+  check(L + 'unchanged → Confirm waits, and says what a replace is for', (await dlg.locator('[data-reason-confirm]').isDisabled()) && (await dlg.locator('[data-replace-unchanged]').count()) === 1)
+  await dlg.locator('[data-replace-name]').fill('Ramadan v2')
+  await dlg.locator('[data-replace-store="1002"] [data-replace-store-tick]').click()
+  await dlg.locator('[data-replace-store="2001"] [data-replace-store-tick]').click()
+  await dlg.locator('[data-replace-end-date]').fill('2026-12-15')
+  check(L + 'a changed name, stores and end → Confirm enabled', !(await dlg.locator('[data-reason-confirm]').isDisabled()) && (await dlg.locator('[data-replace-unchanged]').count()) === 0)
+  state.refuse = true
+  const readsBefore = readsOf('p-live')
+  await dlg.locator('[data-reason-confirm]').click()
+  const refused = dlg.locator('[data-replace-refused]')
+  await refused.waitFor({ timeout: 10000 })
+  const want = { name: 'Ramadan v2', startAt: '2026-11-01T00:00:00', endAt: '2026-12-15T23:59:00', allStores: false, storeCodes: ['1001', '2001'], reason: 'Move to December' }
+  const replaces = callsOf(ctx, 'replace')
+  check(
+    L + 'Replace posts the contract body to …/p-live/Replace',
+    replaces.length === 1 && replaces[0].path === 'HungerStationWeb/Promotions/p-live/Replace' && JSON.stringify(replaces[0].body) === JSON.stringify(want),
+    JSON.stringify(replaces[0]?.body),
+  )
+  {
+    const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+    const model = modelFields(source, 'HungerStationPromotionReplaceBody').sort().join()
+    check(L + 'the Replace body has exactly the model’s fields', model === Object.keys(replaces[0]?.body ?? {}).sort().join(), model)
+  }
+  const refusedText = (await refused.innerText()).replace(/\s+/g, ' ')
+  check(
+    L + 'the refused switch-off names the part, says nothing changed, and shows HungerStation’s answer and the code',
+    (await refused.getAttribute('data-replace-refused')) === 'pt-1' &&
+      refusedText.includes('HungerStation refused to switch off Ramadan.') &&
+      refusedText.includes('Nothing new was sent, and this promotion is unchanged.') &&
+      refusedText.includes('422') &&
+      refusedText.includes('Vendor promotion locked') &&
+      refusedText.includes('DHS-00020'),
+    refusedText,
+  )
+  check(L + '… once, not again in the generic banner', (await dlg.locator('[data-reason-error]').count()) === 0)
+  await page.waitForFunction(() => true)
+  await page.waitForTimeout(500)
+  check(
+    L + '… the old promotion is re-read and shown unchanged (Live, no successor)',
+    readsOf('p-live') > readsBefore && (await statusOf(sheet)) === 'live' && (await sheet.locator('[data-promotion-field="replacedBy"]').count()) === 0,
+    String(readsOf('p-live') - readsBefore),
+  )
+  if (dir === 'rtl') check(L + 'the refused part’s name is free text, isolated', (await refused.locator('bdi[data-replace-refused-part]:not([dir])').innerText()) === 'Ramadan')
+  await page.screenshot({ path: `${SHOTS}/${dir}-replace-refused.png` })
+
+  // ── Replace for real: the new one opens, and the two link to each other ──
+  state.refuse = false
+  await dlg.locator('[data-reason-confirm]').click()
+  const fresh = sheetOf('p-r2')
+  await fresh.locator('[data-promotion-replaces-link]').waitFor({ timeout: 15000 })
+  check(
+    L + 'the same body again; the NEW promotion opens (URL ?promotion=p-r2)',
+    callsOf(ctx, 'replace').length === 2 && JSON.stringify(callsOf(ctx, 'replace')[1].body) === JSON.stringify(want) && search(page).get('promotion') === 'p-r2',
+  )
+  check(
+    L + 'the new one: its name, its stores, Sending, and a link back to the one it replaces',
+    (await fresh.locator('[data-promotion-title]').innerText()).trim() === 'Ramadan v2' &&
+      (await fresh.locator('[data-promotion-store]').evaluateAll((els) => els.map((e) => e.getAttribute('data-promotion-store')))).join() === '1001,2001' &&
+      (await statusOf(fresh)) === 'sending' &&
+      (await fresh.locator('[data-promotion-replaces-link]').getAttribute('data-promotion-replaces-link')) === 'p-live',
+  )
+  check(L + '… its part is Sending, so its own Replace and Switch off wait', (await fresh.locator('[data-promotion-replace]').isDisabled()) && (await fresh.locator('[data-promotion-switch-off]').isDisabled()))
+  if (dir === 'rtl') check(L + 'a linked promotion id is an ltr isolate', (await fresh.locator('[data-promotion-replaces-link] bdi[dir="ltr"]').innerText()) === 'p-live')
+  await page.screenshot({ path: `${SHOTS}/${dir}-replace-new.png` })
+  await fresh.locator('[data-promotion-replaces-link]').click()
+  const old = sheetOf('p-live')
+  await old.locator('[data-promotion-replaced-by-link]').waitFor({ timeout: 15000 })
+  check(
+    L + 'the link opens the old one: Replaced, with a link to its successor, nothing more to offer',
+    search(page).get('promotion') === 'p-live' &&
+      (await statusOf(old)) === 'replaced' &&
+      (await old.locator('[data-promotion-replaced-by-link]').getAttribute('data-promotion-replaced-by-link')) === 'p-r2' &&
+      (await old.locator('[data-promotion-replace], [data-promotion-switch-off]').count()) === 0,
+  )
+  check(L + '… its sends show the switch-off', (await old.locator('[data-promotion-send="s-off-pt-1"] [data-promotion-send-kind="switchOff"]').count()) === 1)
+  await old.locator('[data-promotion-replaced-by-link]').click()
+  await sheetOf('p-r2').waitFor({ timeout: 15000 })
+  check(L + '… and back again', search(page).get('promotion') === 'p-r2')
+
+  // ── Switch off the whole promotion (an unanswered part is not Sending: it does not wait) ──
+  await page.goto(BASE + '/hungerstation/promotions?promotion=p-refused')
+  sheet = sheetOf('p-refused')
+  await sheet.locator('[data-promotion-switch-off]').waitFor({ timeout: 15000 })
+  check(L + 'a part with no answer for 24 hours does not hold Switch off back', !(await sheet.locator('[data-promotion-switch-off]').isDisabled()))
+  await sheet.locator('[data-promotion-switch-off]').click()
+  const off = page.locator('dialog[open]:has([data-switch-off-dialog="p-refused"]):not(:has(dialog))')
+  await off.waitFor({ timeout: 10000 })
+  const note = (await off.locator('[data-reason-note]').innerText()).replace(/\s+/g, ' ').trim()
+  check(
+    L + 'Switch off confirms in words, on the danger button, and waits for a reason',
+    note ===
+      'Switches off every part of Eid B2G1 on HungerStation at once. Nothing is deleted: the promotion, its items and its sends stay here, and it reads Switched off.' &&
+      (await off.locator('[data-reason-confirm]').isDisabled()) &&
+      ((await off.locator('[data-reason-confirm]').getAttribute('class')) ?? '').includes('danger'),
+    note,
+  )
+  await off.locator('[data-reason-input]').fill('  Campaign stopped ')
+  await off.locator('[data-reason-confirm]').click()
+  await page.locator('[data-switch-off-dialog]').waitFor({ state: 'detached', timeout: 10000 })
+  const offs = callsOf(ctx, 'switchOff')
+  check(
+    L + 'Switch off posts { reason } (trimmed) to …/p-refused/SwitchOff',
+    offs.length === 1 && offs[0].path === 'HungerStationWeb/Promotions/p-refused/SwitchOff' && JSON.stringify(offs[0].body) === JSON.stringify({ reason: 'Campaign stopped' }),
+    JSON.stringify(offs[0]?.body),
+  )
+  await page.waitForFunction(
+    () => document.querySelector('dialog[open] [data-promotion-field="status"] [data-promotion-status]')?.getAttribute('data-promotion-status') === 'switchedOff',
+    null,
+    { timeout: 10000 },
+  )
+  check(
+    L + 'it reads Switched off, with why; every part inactive; nothing deleted; nothing more to offer',
+    (await sheet.locator('[data-promotion-field="switchedOff"]').innerText()).includes('Campaign stopped') &&
+      (await sheet.locator('[data-promotion-item]').count()) === 4 &&
+      (await sheet.locator('[data-promotion-part-active="false"]').count()) === 2 &&
+      (await sheet.locator('[data-promotion-replace], [data-promotion-switch-off]').count()) === 0,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-switched-off.png` })
+
+  check(
+    L + 'only list, stores, read, replace and switch-off doors were called',
+    ctx.calls.every((c) => ['list', 'stores', 'read', 'replace', 'switchOff'].includes(c.door)),
+    [...new Set(ctx.calls.map((c) => c.door))].join(),
+  )
+  // The refused Replace answers 502 on purpose: the browser logs that load.
+  const unexpected = errors.filter((e) => !/status of 502/.test(e))
+  check(L + 'no page errors (beyond the refused Replace’s own 502)', unexpected.length === 0, unexpected.join(' | '))
+  await context.close()
+}
+await replaceScenario('ltr')
+await replaceScenario('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

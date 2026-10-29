@@ -3,6 +3,7 @@ import type {
   HungerStationPromotionCheckResult,
   HungerStationPromotionDetail,
   HungerStationPromotionReasonBody,
+  HungerStationPromotionReplaceBody,
   HungerStationPromotionSaveBody,
   HungerStationPromotionStoreChoice,
   HungerStationPromotionsPage,
@@ -88,5 +89,22 @@ export const promotionsApi = {
    *  00016 / 00017 (that part is Sending) / 00014 (HungerStation unavailable). */
   resend(promotionId: string, partId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
     return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Parts/${encodeURIComponent(partId)}/Resend`, body)
+  },
+
+  // ── 671: Replace and Switch off ──────────────────────────────────────────────────────────────
+
+  /** POST HungerStationWeb/Promotions/{promotionId}/Replace — the server switches off every part
+   *  of the old promotion FIRST; only if each is accepted it makes the new one (linked through
+   *  `replacesId`, the same items) and sends it. Returns the NEW promotion's detail (BackOffice
+   *  3216). DHS-00008 / 00016 / 00017 / 00019 / 00020 (a switch-off refused — nothing new was sent,
+   *  the old one unchanged; `data` names the part). */
+  replace(promotionId: string, body: HungerStationPromotionReplaceBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Replace`, body)
+  },
+
+  /** POST HungerStationWeb/Promotions/{promotionId}/SwitchOff — `active: false` for every part;
+   *  nothing is deleted. Returns the detail, then Switched off. DHS-00008 / 00016 / 00017 / 00014. */
+  switchOff(promotionId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/SwitchOff`, body)
   },
 }

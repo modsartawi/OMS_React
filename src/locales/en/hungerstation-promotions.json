@@ -57,7 +57,9 @@
     "qPlaceholder": "Promotion name",
     "status": "Status",
     "search": "Search",
-    "clear": "Clear"
+    "clear": "Clear",
+    "store": "Live on store",
+    "storePlaceholder": "Store code"
   },
   "columns": {
     "name": "Name",
@@ -169,7 +171,11 @@
     "edit": "Edit draft",
     "refresh": "Refresh",
     "refreshFailed": "HungerStation could not be asked",
-    "defaultBuyGet": "Default buy / get"
+    "defaultBuyGet": "Default buy / get",
+    "replace": "Replace",
+    "switchOff": "Switch off",
+    "actionsWhileSending": "Waits until every part has HungerStation’s answer.",
+    "openLinked": "Open this promotion"
   },
   "refusals": {
     "title": "What HungerStation refused",
@@ -409,5 +415,24 @@
       "ABSOLUTE": "Buy {{buy}} get {{get}} at {{value}} off",
       "FINAL_PRICE": "Buy {{buy}} get {{get}} for {{value}}"
     }
+  },
+  "replace": {
+    "title": "Replace the promotion",
+    "note": "HungerStation sees a new promotion. The current one is switched off first; if that is refused, nothing changes.",
+    "nameRequired": "Enter a name.",
+    "unchanged": "Change the name, the stores, the start or the end to replace it. Items and values are edited in place.",
+    "confirm": "Replace",
+    "refused": "HungerStation refused to switch off <part>{{part}}</part>.",
+    "refusedNoPart": "HungerStation refused to switch off a part.",
+    "refusedUnchanged": "Nothing new was sent, and this promotion is unchanged.",
+    "done": "Promotion replaced",
+    "doneDetail": "{{name}} is sending to HungerStation; the promotion it replaces reads Replaced."
+  },
+  "switchOff": {
+    "title": "Switch off the promotion",
+    "note": "Switches off every part of <name>{{name}}</name> on HungerStation at once. Nothing is deleted: the promotion, its items and its sends stay here, and it reads Switched off.",
+    "confirm": "Switch off",
+    "done": "Promotion switched off",
+    "doneDetail": "{{name}} is switched off on HungerStation."
   }
 }

@@ -68,9 +68,13 @@ function Promotions() {
 
   const [text, setText] = useState(query.q ?? '')
   useEffect(() => setText(query.q ?? ''), [query.q])
+  // 671: "which promotions are live on this store" — a store code, applied with the name on Search.
+  const [storeText, setStoreText] = useState(query.store ?? '')
+  useEffect(() => setStoreText(query.store ?? ''), [query.store])
 
-  // A filter change takes the name box as it reads, and starts again at the first page.
-  const update = (patch: Partial<PromotionsPageQuery>) => change((prev) => ({ ...prev, q: text.trim() || null, skip: 0, ...patch }))
+  // A filter change takes the name and store boxes as they read, and starts again at the first page.
+  const update = (patch: Partial<PromotionsPageQuery>) =>
+    change((prev) => ({ ...prev, q: text.trim() || null, store: storeText.trim() || null, skip: 0, ...patch }))
   const open = (promotion: string | null) => change((prev) => ({ ...prev, promotion }))
 
   const door = promotionsDoorParams(query)
@@ -112,7 +116,7 @@ function Promotions() {
         className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if ((text.trim() || null) === query.q && query.skip === 0) void promotions.refetch()
+          if ((text.trim() || null) === query.q && (storeText.trim() || null) === query.store && query.skip === 0) void promotions.refetch()
           else update({})
         }}
         data-promotions-filters=""
@@ -145,6 +149,17 @@ function Promotions() {
           <Field label={t('filters.q')} className="min-w-[18rem] flex-1">
             <Input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('filters.qPlaceholder')} data-filter-q="" />
           </Field>
+          <Field label={t('filters.store')}>
+            <Input
+              type="search"
+              dir="ltr"
+              value={storeText}
+              onChange={(e) => setStoreText(e.target.value)}
+              placeholder={t('filters.storePlaceholder')}
+              wrapperClassName="w-36"
+              data-filter-store=""
+            />
+          </Field>
           <Button type="submit" disabled={promotions.isFetching} data-promotions-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('filters.search')}
@@ -153,6 +168,7 @@ function Promotions() {
             variant="outlined"
             onClick={() => {
               setText('')
+              setStoreText('')
               change(() => promotionsFromParams(new URLSearchParams()))
             }}
             data-promotions-clear=""
@@ -267,6 +283,7 @@ function Promotions() {
             promotionId={query.promotion}
             onClose={() => open(null)}
             onEdit={() => change((prev) => ({ ...prev, edit: prev.promotion, promotion: null }))}
+            onOpen={open}
           />
         )
       )}

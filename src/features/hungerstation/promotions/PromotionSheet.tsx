@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Loader2, Pencil, RefreshCw, X } from 'lucide-react'
+import { Loader2, Pencil, Power, RefreshCw, Replace, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import {
   HUNGERSTATION_PROMOTION_ERRORS,
@@ -22,7 +22,10 @@ import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi } from './api'
 import PartRefusals from './PartRefusals'
 import { partSending, promotionPollInterval } from './part-refusals'
+import ReplaceDialog from './ReplaceDialog'
+import { promotionActions } from './replace-form'
 import ResendDialog, { type ResendTarget } from './ResendDialog'
+import SwitchOffDialog from './SwitchOffDialog'
 import { PromotionStatusBadge, typeText } from './columns'
 import { buyGetText, discountText, windowText } from './promotion-display'
 import { jobStatusLabel } from './promotion-status'
@@ -33,8 +36,23 @@ import { jobStatusLabel } from './promotion-status'
  * sent to HungerStation and its latest job status — its stores (vendor id as sent), its items
  * (material, SKU, subtype, value, max quantity, part) and every send (when, who, reason, HTTP
  * status, job status). Opened from `?promotion=<id>`. The frame is the house side sheet.
+ *
+ * 671: a sent promotion that still runs offers **Replace** (a new name, stores, start or end) and
+ * **Switch off** (the whole promotion), both disabled while any part is Sending. The promotion it
+ * replaced and the one that replaced it are links (`onOpen`).
  */
-export default function PromotionSheet({ promotionId, onClose, onEdit }: { promotionId: string; onClose: () => void; onEdit: () => void }) {
+export default function PromotionSheet({
+  promotionId,
+  onClose,
+  onEdit,
+  onOpen,
+}: {
+  promotionId: string
+  onClose: () => void
+  onEdit: () => void
+  /** Open another promotion in this sheet (the replace links). */
+  onOpen: (promotionId: string) => void
+}) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
   // 🔑 The light poll (ticket 669): while any part is Sending the open detail re-reads itself every
@@ -49,6 +67,9 @@ export default function PromotionSheet({ promotionId, onClose, onEdit }: { promo
   const p = detail.data
   const refresh = useRefresh(promotionId)
   const [resend, setResend] = useState<ResendTarget | null>(null)
+  const [dialog, setDialog] = useState<'replace' | 'switchOff' | null>(null)
+  const actions = p ? promotionActions(p) : null
+  const waitTitle = actions?.sending ? t('detail.actionsWhileSending') : undefined
 
   return (
     <SideSheet onClose={onClose} width="w-[72rem]" aria-labelledby={titleId} data-promotion-sheet={promotionId}>
@@ -73,6 +94,19 @@ export default function PromotionSheet({ promotionId, onClose, onEdit }: { promo
               <RefreshCw className={'h-3.5 w-3.5' + (refresh.isPending ? ' animate-spin' : '')} aria-hidden />
               {t('detail.refresh')}
             </Button>
+          )}
+          {/* 671: what HungerStation keys a promotion by changes only through Replace. */}
+          {actions?.offered && (
+            <>
+              <Button variant="outlined" disabled={actions.sending} title={waitTitle} onClick={() => setDialog('replace')} data-promotion-replace="">
+                <Replace className="h-3.5 w-3.5" aria-hidden />
+                {t('detail.replace')}
+              </Button>
+              <Button variant="danger-outlined" disabled={actions.sending} title={waitTitle} onClick={() => setDialog('switchOff')} data-promotion-switch-off="">
+                <Power className="h-3.5 w-3.5" aria-hidden />
+                {t('detail.switchOff')}
+              </Button>
+            </>
           )}
           <IconButton label={t('detail.close')} onClick={onClose} data-promotion-close="">
             <X className="h-4 w-4" aria-hidden />
@@ -116,7 +150,7 @@ export default function PromotionSheet({ promotionId, onClose, onEdit }: { promo
           </div>
         ) : (
           <>
-            <Header p={detail.data} />
+            <Header p={detail.data} onOpen={onOpen} />
             {promotionPollInterval(detail.data) !== false && (
               <p className="flex items-center gap-2 text-xs text-muted-foreground" data-promotion-polling="">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -135,6 +169,8 @@ export default function PromotionSheet({ promotionId, onClose, onEdit }: { promo
         )}
       </div>
       {resend && <ResendDialog target={resend} onClose={() => setResend(null)} />}
+      {p && dialog === 'replace' && <ReplaceDialog promotion={p} onClose={() => setDialog(null)} onReplaced={onOpen} />}
+      {p && dialog === 'switchOff' && <SwitchOffDialog promotion={p} onClose={() => setDialog(null)} />}
     </SideSheet>
   )
 }
@@ -168,7 +204,7 @@ function ByAt({ at, by }: { at: string | null; by: string | null }) {
 }
 
 /** The promotion's header, label beside value. */
-function Header({ p }: { p: HungerStationPromotionDetail }) {
+function Header({ p, onOpen }: { p: HungerStationPromotionDetail; onOpen: (promotionId: string) => void }) {
   const { t } = useTranslation('hungerstation-promotions')
   const field = (label: string, value: ReactNode, data: string, wide = false) => (
     <div className={'flex flex-col gap-0.5' + (wide ? ' col-span-2' : '')} data-promotion-field={data}>
@@ -211,8 +247,9 @@ function Header({ p }: { p: HungerStationPromotionDetail }) {
           'defaultBuyGet',
         )}
       {field(t('detail.stores'), p.allStores ? t('detail.allStores') : <Ltr>{figure(p.stores?.length ?? 0)}</Ltr>, 'storesScope')}
-      {p.replacesId && field(t('detail.replaces'), code(p.replacesId), 'replaces')}
-      {p.replacedById && field(t('detail.replacedBy'), code(p.replacedById), 'replacedBy')}
+      {/* 671: the replace chain reads as one story — each end links to the other. */}
+      {p.replacesId && field(t('detail.replaces'), <PromotionLink id={p.replacesId} onOpen={onOpen} data="data-promotion-replaces-link" />, 'replaces')}
+      {p.replacedById && field(t('detail.replacedBy'), <PromotionLink id={p.replacedById} onOpen={onOpen} data="data-promotion-replaced-by-link" />, 'replacedBy')}
       {field(t('detail.created'), <ByAt at={p.createdAt} by={p.createdBy} />, 'created')}
       {field(t('detail.updated'), <ByAt at={p.updatedAt} by={p.updatedBy} />, 'updated')}
       {field(t('detail.sent'), <ByAt at={p.sentAt} by={p.sentBy} />, 'sent')}
@@ -227,6 +264,16 @@ function Header({ p }: { p: HungerStationPromotionDetail }) {
           true,
         )}
     </dl>
+  )
+}
+
+/** Another promotion, by its id, opened in this sheet. */
+function PromotionLink({ id, onOpen, data }: { id: string; onOpen: (promotionId: string) => void; data: string }) {
+  const { t } = useTranslation('hungerstation-promotions')
+  return (
+    <Button variant="link" className="font-mono" title={t('detail.openLinked')} onClick={() => onOpen(id)} {...{ [data]: id }}>
+      <Ltr>{id}</Ltr>
+    </Button>
   )
 }
 

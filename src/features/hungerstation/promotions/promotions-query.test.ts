@@ -40,6 +40,15 @@ describe('promotionsFromParams ⇄ promotionsToParams', () => {
     expect(promotionsToParams(read).toString()).toBe(url)
   })
 
+  it('671: Scheduled, Ended and the store ("live on this store") ride the URL and reach the door', () => {
+    const url = 'status=scheduled&status=ended&store=1001'
+    const read = promotionsFromParams(new URLSearchParams(url))
+    expect(read).toEqual(query({ status: ['scheduled', 'ended'], store: '1001' }))
+    expect(promotionsToParams(read).toString()).toBe(url)
+    expect(promotionsDoorParams(read)).toMatchObject({ status: ['scheduled', 'ended'], store: '1001' })
+    expect(promotionsFromParams(new URLSearchParams('store=%201001%20')).store).toBe('1001')
+  })
+
   it('a status or type the contract does not name is dropped (the door would 400 it); a repeated status counts once', () => {
     const read = promotionsFromParams(new URLSearchParams('status=live&status=bogus&status=live&type=BOGO'))
     expect(read.status).toEqual(['live'])

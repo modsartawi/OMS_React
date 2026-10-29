@@ -890,3 +890,14 @@ export interface HungerStationPromotionReplaceBody {
   storeCodes: string[]
   reason: string
 }
+
+/** The envelope `data` of a DHS-00020 refusal (Replace stopped): the part whose switch-off
+ *  HungerStation refused, HungerStation's HTTP status and its answer. 🚩 Not in the contract yet
+ *  (BackOffice 3216 says only "the refusal names the part"): an oms-react 671 assumption. */
+export interface HungerStationPromotionReplaceRefusal {
+  partId: string
+  /** The name the part was sent under. */
+  name: string
+  httpStatus: number | null
+  error: string | null
+}

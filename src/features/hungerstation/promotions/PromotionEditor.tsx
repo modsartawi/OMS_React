@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -16,11 +16,13 @@ import {
   HUNGERSTATION_ERRORS,
   HUNGERSTATION_PROMOTION_ERRORS,
   HUNGERSTATION_PROMOTION_MAX_SKUS,
+  type HungerStationPromotionCheckResult,
   type HungerStationPromotionDetail,
   type HungerStationPromotionItemInput,
   type HungerStationPromotionStoreChoice,
 } from '@/core/models/hungerstation'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -36,7 +38,8 @@ import { PromotionStatusBadge } from './columns'
 import { pickEndDay, windowProblem, type LocalWindow } from './local-window'
 import { discountText } from './promotion-display'
 import { DISCOUNT_SUBTYPES, HS_REASONS, emptyForm, formFromDetail, formProblems, saveBody, toggleStore, type FormField, type PromotionForm } from './promotion-form'
-import { rowRefusals } from './row-refusals'
+import CheckPanel from './CheckPanel'
+import { checkOfRefusal, checkSummary, fieldWords, problemWords, type CheckedRow } from './check-summary'
 import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type StrikethroughColumn } from './strikethrough-columns'
 
 /**
@@ -123,7 +126,17 @@ export default function PromotionEditor({
   )
 }
 
-const ITEM_COL_DEF: ColDef<HungerStationPromotionItemInput> = { ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true, suppressHeaderMenuButton: true }
+/** An item row of the preview grid with its Check answer ON the row: a new answer is new row data,
+ *  which AG Grid redraws (a value getter reading outside state would keep the old cell). */
+type ItemRow = HungerStationPromotionItemInput & { check: CheckedRow | null }
+
+const ITEM_COL_DEF: ColDef<ItemRow> = { ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true, suppressHeaderMenuButton: true }
+
+/** How the Check marks an item row: refused, warned (a price warning only), or not at all. */
+function rowKind(data: ItemRow | undefined): 'refused' | 'warned' | null {
+  const r = data?.check
+  return !r ? null : r.refusals.length ? 'refused' : r.warningStores.length ? 'warned' : null
+}
 
 function EditorBody({
   saved,
@@ -147,6 +160,10 @@ function EditorBody({
   const [chainText, setChainText] = useState(form.chainKey)
   const [dialog, setDialog] = useState<'items' | 'save' | 'send' | null>(null)
   const [storeQ, setStoreQ] = useState('')
+  // 667: the latest Check answer for the SAVED promotion (the Check door's, or the one a refused
+  // Send carried), and the preview grid's refused-only filter.
+  const [checked, setChecked] = useState<HungerStationPromotionCheckResult | null>(null)
+  const [refusedOnly, setRefusedOnly] = useState(false)
 
   const set = <F extends keyof PromotionForm>(field: F, value: PromotionForm[F]) => setForm((f) => ({ ...f, [field]: value }))
   const setWindow = (w: LocalWindow) => set('window', w)
@@ -167,6 +184,8 @@ function EditorBody({
   const storeChoices = useMemo(() => stores.data ?? [], [stores.data])
   const storeCodes = useMemo(() => storeChoices.map((s) => s.storeCode), [storeChoices])
 
+  const storeNames = useMemo(() => new Map(storeChoices.map((s) => [s.storeCode, s.storeName])), [storeChoices])
+
   const settle = (answer: HungerStationPromotionDetail) => {
     qc.setQueryData(promotionKey(answer.promotionId), answer)
     void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY })
@@ -183,9 +202,38 @@ function EditorBody({
       // The form stays as typed; it is now what the server holds.
       setSavedForm(JSON.stringify(form))
       setDialog(null)
-      if (!promotion) onSaved(answer.promotionId)
+      // The check read the old version: check the saved one now (Save reports, never refuses). A
+      // new draft's editor re-mounts on its id and checks itself there.
+      setChecked(null)
+      if (promotion) check.mutate({ promotionId: answer.promotionId, thenSend: false })
+      else onSaved(answer.promotionId)
     },
   })
+  // 667: Check on demand, and before Send — only a clean answer opens the Send dialog.
+  const check = useMutation({
+    mutationFn: ({ promotionId }: { promotionId: string; thenSend: boolean }) => promotionsApi.check(promotionId),
+    onSuccess: (answer, { thenSend }) => {
+      setChecked(answer)
+      if (thenSend && !checkSummary(answer).blocksSend) setDialog('send')
+    },
+  })
+  // A saved draft opened here is checked at once — once (the ref survives StrictMode's re-run),
+  // and by a plain call: a mutation fired from a mount effect is lost to StrictMode's re-subscribe.
+  const checkedOnOpen = useRef(false)
+  const [openCheck, setOpenCheck] = useState<{ pending: boolean; error: unknown }>({ pending: false, error: null })
+  useEffect(() => {
+    if (checkedOnOpen.current || saved?.status !== 'draft') return
+    checkedOnOpen.current = true
+    setOpenCheck({ pending: true, error: null })
+    promotionsApi.check(saved.promotionId).then(
+      (answer) => {
+        setChecked((c) => c ?? answer)
+        setOpenCheck({ pending: false, error: null })
+      },
+      (error: unknown) => setOpenCheck({ pending: false, error }),
+    )
+  }, [saved])
+  const checking = check.isPending || openCheck.pending
   const send = useMutation({
     mutationFn: (reason: string) => promotionsApi.send(promotion!.promotionId, { reason }),
     onSuccess: (answer) => {
@@ -193,21 +241,33 @@ function EditorBody({
       setDialog(null)
       onSent(answer.promotionId)
     },
+    // A Send refused for its checks (DHS-00018) carries the Check answer: the panel takes it.
+    onError: (err) => {
+      const answer = checkOfRefusal(err)
+      if (answer) setChecked(answer)
+    },
   })
 
   const nameRefusal = fieldRefusal(save.error, [HUNGERSTATION_PROMOTION_ERRORS.nameInUse], t('editor.failedHint'))
   const chainRefusal =
     fieldRefusal(save.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint')) ??
     fieldRefusal(stores.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint'))
-  const refusedRows = useMemo(() => rowRefusals(send.error), [send.error])
+  const summary = useMemo(() => (checked ? checkSummary(checked) : null), [checked])
+  const rowCheck = summary?.rows
+  const showRefusedOnly = refusedOnly && (summary?.refusedRows ?? 0) > 0
+  const shownItems = useMemo(() => {
+    const rows: ItemRow[] = form.items.map((i) => ({ ...i, check: rowCheck?.get(i.materialNumber) ?? null }))
+    return showRefusedOnly ? rows.filter((r) => rowKind(r) === 'refused') : rows
+  }, [showRefusedOnly, form.items, rowCheck])
+  const headerWords = (...fields: string[]) => fieldWords(t, summary, ...fields)
 
   const changeChain = (chainKey: string) => {
     setForm((f) => (f.chainKey === chainKey ? f : { ...f, chainKey, stores: 'all' }))
     save.reset()
   }
 
-  const itemColumns = useMemo<ColDef<HungerStationPromotionItemInput>[]>(
-    () => [
+  const itemColumns = useMemo(
+    (): ColDef<ItemRow>[] => [
       { colId: 'material', headerName: t('editor.items.material'), field: 'materialNumber', width: 160 },
       {
         colId: 'subtype',
@@ -234,11 +294,20 @@ function EditorBody({
         headerName: t('editor.items.refusal'),
         flex: 1,
         minWidth: 260,
-        valueGetter: ({ data }) => (data ? (refusedRows.get(data.materialNumber) ?? []).map((p) => p.message).join(' · ') : ''),
-        cellClass: 'text-danger-800',
+        // 667: the row's refusals in words, else its price warning.
+        valueGetter: ({ data }) => {
+          const r = data?.check
+          if (!r) return ''
+          if (r.refusals.length) return r.refusals.map((p) => problemWords(t, p)).join(' ')
+          return r.warningStores.length ? t('check.warningCell', { count: r.warningStores.length, n: figure(r.warningStores.length) }) : ''
+        },
+        cellClassRules: {
+          'text-danger-800': ({ data }) => rowKind(data) === 'refused',
+          'text-attention-800': ({ data }) => rowKind(data) === 'warned',
+        },
       },
     ],
-    [t, form.defaultSubtype, form.defaultValue, refusedRows],
+    [t, form.defaultSubtype, form.defaultValue],
   )
 
   const shownStores = useMemo(() => {
@@ -304,7 +373,7 @@ function EditorBody({
 
           {/* ── Header ── */}
           <section className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4" data-editor-header="">
-            <Field label={t('editor.name')} className="col-span-2" invalid={nameRefusal !== null}>
+            <Field label={t('editor.name')} className="col-span-2" invalid={nameRefusal !== null} error={headerWords('name')}>
               <Input value={form.name} onChange={(e) => {
                   set('name', e.target.value)
                   save.reset()
@@ -325,20 +394,20 @@ function EditorBody({
                 <InlineRefusal message={nameRefusal.message} code={nameRefusal.code} />
               </div>
             )}
-            <Field label={t('editor.displayNameEn')} className="col-span-2" hint={t('editor.displayNameHint')}>
+            <Field label={t('editor.displayNameEn')} className="col-span-2" hint={t('editor.displayNameHint')} error={headerWords('displayNameEn')}>
               <Input value={form.displayNameEn} onChange={(e) => set('displayNameEn', e.target.value)} dir="ltr" lang="en" maxLength={200} data-editor-display-en="" />
             </Field>
-            <Field label={t('editor.displayNameAr')} className="col-span-2" hint={t('editor.displayNameHint')}>
+            <Field label={t('editor.displayNameAr')} className="col-span-2" hint={t('editor.displayNameHint')} error={headerWords('displayNameAr')}>
               <Input value={form.displayNameAr} onChange={(e) => set('displayNameAr', e.target.value)} dir="rtl" lang="ar" maxLength={200} data-editor-display-ar="" />
             </Field>
 
-            <Field label={t('editor.startDate')}>
+            <Field label={t('editor.startDate')} error={headerWords('startAt')}>
               <Input type="date" value={form.window.startDate} onChange={(e) => setWindow({ ...form.window, startDate: e.target.value })} data-editor-start-date="" />
             </Field>
             <Field label={t('editor.startTime')} hint={t('editor.saudiTime')}>
               <Input type="time" value={form.window.startTime} onChange={(e) => setWindow({ ...form.window, startTime: e.target.value })} data-editor-start-time="" />
             </Field>
-            <Field label={t('editor.endDate')}>
+            <Field label={t('editor.endDate')} error={headerWords('endAt')}>
               <Input type="date" value={form.window.endDate} onChange={(e) => setWindow(pickEndDay(form.window, e.target.value))} data-editor-end-date="" />
             </Field>
             <Field label={t('editor.endTime')} hint={t('editor.saudiTime')}>
@@ -380,6 +449,11 @@ function EditorBody({
                 </span>
               )}
             </div>
+            {headerWords('stores') && (
+              <p role="alert" className="text-xs text-danger-800" data-check-field="stores">
+                {headerWords('stores')}
+              </p>
+            )}
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-editor-stores-note="">
               {t('editor.storesFrozen')}
             </p>
@@ -438,20 +512,27 @@ function EditorBody({
                 {t('editor.itemsOverCap', { max: fsi(figure(HUNGERSTATION_PROMOTION_MAX_SKUS)) })}
               </p>
             )}
-            {refusedRows.size > 0 && (
-              <p role="alert" className="text-xs font-medium text-danger-800" data-editor-rows-refused={refusedRows.size}>
-                <Trans t={t} i18nKey="editor.rowsRefused" count={refusedRows.size} values={{ n: figure(refusedRows.size) }} components={{ n: <Ltr /> }} />
+            {headerWords('items') && (
+              <p role="alert" className="text-xs text-danger-800" data-check-field="items">
+                {headerWords('items')}
               </p>
             )}
+            {(summary?.refusedRows ?? 0) > 0 && (
+              <div className="flex items-center gap-2">
+                <Chip on={showRefusedOnly} onClick={() => setRefusedOnly((v) => !v)} data-editor-refused-only={String(showRefusedOnly)}>
+                  {t('check.refusedOnly')}
+                </Chip>
+              </div>
+            )}
             {form.items.length > 0 && (
-              <div className="h-72" data-editor-items-grid="">
-                <AgGridReact<HungerStationPromotionItemInput>
+              <div className="h-72" data-editor-items-grid="" data-editor-items-shown={shownItems.length}>
+                <AgGridReact<ItemRow>
                   theme={omsGridTheme}
-                  rowData={form.items}
+                  rowData={shownItems}
                   columnDefs={itemColumns}
                   defaultColDef={ITEM_COL_DEF}
                   getRowId={({ data }) => data.materialNumber}
-                  rowClassRules={{ 'bg-danger-050': ({ data }) => !!data && refusedRows.has(data.materialNumber) }}
+                  rowClassRules={{ 'bg-danger-050': ({ data }) => rowKind(data) === 'refused', 'bg-attention-050': ({ data }) => rowKind(data) === 'warned' }}
                   rowHeight={OMS_GRID_ROW_HEIGHT}
                   headerHeight={OMS_GRID_HEADER_HEIGHT}
                   animateRows={false}
@@ -461,6 +542,18 @@ function EditorBody({
             )}
           </section>
         </fieldset>
+
+        {/* ── Check (667) ── */}
+        {editable && (
+          <CheckPanel
+            summary={summary}
+            checking={checking}
+            error={check.error ?? (check.isIdle ? openCheck.error : null)}
+            canCheck={!!promotion && !dirty}
+            onCheck={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: false })}
+            storeName={(code) => storeNames.get(code) || null}
+          />
+        )}
       </div>
 
       {/* ── Footer: Save draft, Send ── */}
@@ -476,9 +569,13 @@ function EditorBody({
             </Button>
             <Button
               variant="primary"
-              disabled={!promotion || dirty || problems.length > 0 || form.items.length === 0}
-              title={!promotion || dirty ? t('editor.sendNeedsSave') : form.items.length === 0 ? t('editor.sendNeedsItems') : undefined}
-              onClick={() => setDialog('send')}
+              disabled={!promotion || dirty || problems.length > 0 || form.items.length === 0 || summary?.blocksSend === true || checking}
+              title={
+                !promotion || dirty ? t('editor.sendNeedsSave') : form.items.length === 0 ? t('editor.sendNeedsItems') : summary?.blocksSend ? t('check.sendBlocked') : undefined
+              }
+              // Send runs the checks first; only a clean answer opens the reason dialog.
+              onClick={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: true })}
+              data-send-blocked={String(summary?.blocksSend === true)}
               data-editor-send=""
             >
               <Send className="h-3.5 w-3.5" aria-hidden />
@@ -500,6 +597,7 @@ function EditorBody({
           apply={(lines) => {
             set('items', lines.map((l) => itemOf(l.fields)))
             send.reset()
+            setChecked(null)
             setDialog(null)
           }}
           applyLabel={(count) => t('import.apply', { count, n: fsi(figure(count)) })}

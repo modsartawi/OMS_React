@@ -809,6 +809,49 @@ export interface HungerStationPromotionCheckResult {
   skuCount: number
 }
 
+/**
+ * The check codes a `HungerStationPromotionProblem` carries (ticket 667, BackOffice 3212), in the
+ * order 3212 lists the refusals. 🚩 PROVISIONAL: the contract's Check section is not written; these
+ * spellings are assumed (`NO_SKU` is 666's). The screen says each in its own words and shows the
+ * server's `message` for a code it does not know.
+ *
+ * A row refusal rides `rows[].refusals`; a header refusal rides `header[]` with its `field` —
+ * `name`, `displayNameEn`, `displayNameAr`, `startAt`, `endAt`, and for the promotion as a whole
+ * `items` (more than 20,000 SKUs) and `stores` (none).
+ */
+export const HUNGERSTATION_PROMOTION_CHECK_CODES = {
+  // Row: the material.
+  /** Not on the HungerStation material list (no SKU). */
+  noSku: 'NO_SKU',
+  /** On the list, disabled there. */
+  materialDisabled: 'MATERIAL_DISABLED',
+  /** On the list, deleted there. */
+  materialDeleted: 'MATERIAL_DELETED',
+  // Row: the value.
+  /** A `PERCENTAGE` outside 1–100. */
+  percentRange: 'PERCENT_RANGE',
+  /** A value of 0 or less. */
+  valueNotPositive: 'VALUE_NOT_POSITIVE',
+  /** More than 3 decimals. */
+  valueDecimals: 'VALUE_DECIMALS',
+  // Header.
+  /** `startAt` / `endAt`: the start is not before the end. */
+  windowOrder: 'WINDOW_ORDER',
+  /** `endAt`: the end has already passed. */
+  endPast: 'END_PAST',
+  /** `displayNameEn` / `displayNameAr`: missing. */
+  displayNameMissing: 'DISPLAY_NAME_MISSING',
+  /** `name`: used by another promotion of the chain not switched off, replaced or ended. */
+  nameInUse: 'NAME_IN_USE',
+  /** `items`: more than 20,000 SKUs. */
+  tooManySkus: 'TOO_MANY_SKUS',
+  /** `stores`: no store. */
+  noStores: 'NO_STORES',
+} as const
+
+/** The header fields a check names. */
+export const HUNGERSTATION_PROMOTION_CHECK_FIELDS = ['name', 'displayNameEn', 'displayNameAr', 'startAt', 'endAt', 'items', 'stores'] as const
+
 // The write doors that take only a reason ─────────────────────────────────────────────────────
 
 /** `POST …/Send`, `POST …/SwitchOff`, `POST …/Parts/{partId}/Resend` — each returns the detail.

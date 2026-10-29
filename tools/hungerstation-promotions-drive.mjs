@@ -16,11 +16,21 @@
 // req) => … } })`. Every call lands in `ctx.calls` as { door, method, path, query, body }.
 // Fixture builders (`row`, `detail`, `part`, `store`, `item`, `send`) take overrides.
 //
-// Ticket 669 (§ 6) asserts, LTR and RTL: a partly refused detail lists the three refusals per store
+// Ticket 669 (§ 10) asserts, LTR and RTL: a partly refused detail lists the three refusals per store
 // (counted, filtered by store, copied as filtered); the 24-hour part reads "No answer from
 // HungerStation" with its hint; HungerStation's own times show local; Resend sends { reason } to
 // …/Parts/{partId}/Resend, then the part reads Sending, its Resend is disabled and the sheet re-reads
 // itself every 15 s until the part is answered (Sending → Live); DHS-00017 stays in the dialog.
+//
+// Ticket 667 (§ 11) asserts, LTR and RTL: Save checks the saved draft (POST …/Check, no body); each
+// row refusal (NO_SKU, MATERIAL_DISABLED / _DELETED, PERCENT_RANGE, VALUE_NOT_POSITIVE, VALUE_DECIMALS)
+// renders in words on its row in the panel AND the preview grid, each header refusal (NAME_IN_USE,
+// DISPLAY_NAME_MISSING, WINDOW_ORDER, END_PAST, TOO_MANY_SKUS, NO_STORES) at its field; a price
+// warning names its stores in the attention colour and never blocks; Send is disabled while a refusal
+// stands and enabled after a fix; Send runs Check first and opens only on a clean answer; the grid
+// marks refused rows and a chip shows refused rows only.
+//
+// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667.
 //
 // Ticket 665 asserts, with the browser in Asia/Riyadh at 2026-10-29 11:00 local:
 //   0. every fixture's keys are EXACTLY the fields of its model interface (none invented, none missing);
@@ -739,6 +749,8 @@ const doors666 = (bend = {}) => ({
     }
     return envelope(ctx.saved[id])
   },
+  // 667: Save checks the saved draft and Send checks first — clean unless a scenario bends it.
+  check: (ctx) => (bend.check ? bend.check(ctx) : envelope({ sendable: true, header: [], rows: [], parts: [], skuCount: 0 })),
   refresh: (ctx, m) => {
     const id = decodeURIComponent(m[1])
     const p = ctx.saved[id]
@@ -973,7 +985,7 @@ function sameKeysCheck(name, obj) {
   await page.locator('dialog[open] [data-reason-error="DHS-00018"]').waitFor({ timeout: 10000 })
   await page.locator('dialog[open] [data-reason-cancel]').click()
   await ed2.locator('[data-editor-rows-refused="1"]').waitFor({ timeout: 10000 })
-  check('7: DHS-00018 names the material with no SKU on its row', (await itemCell(ed2, '101002', 'refusal')) === 'Material 101002 has no HungerStation SKU.' && (await itemCell(ed2, '101001', 'refusal')) === '')
+  check('7: DHS-00018 names the material with no SKU on its row', (await itemCell(ed2, '101002', 'refusal')) === 'The material is not on the HungerStation material list.' && (await itemCell(ed2, '101001', 'refusal')) === '')
   check('7: a refused Send leaves the draft a draft (no detail swap)', search(page).get('edit') === 'p-new1')
   await page.screenshot({ path: `${SHOTS}/ltr-editor-refused.png` })
 
@@ -1026,7 +1038,7 @@ function sameKeysCheck(name, obj) {
   await context.close()
 }
 
-// ── 6: refusals per store, Resend, the light poll (ticket 669) ─────────────────────────────────
+// ── 10: refusals per store, Resend, the light poll (ticket 669) ─────────────────────────────────
 // Its own fixtures, through the read / resend door overrides — the DOORS table above is untouched.
 
 const REFUSED_PT_A = {
@@ -1100,7 +1112,7 @@ async function refusalScenario(dir) {
   const state = { resent: 0, readsSinceResend: 0, refuse: null }
   const { context, page, errors, ctx } = await open(dir, { doors: refusedDoors(state) })
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
-  const L = '6 ' + dir.toUpperCase() + ': '
+  const L = '10 ' + dir.toUpperCase() + ': '
   const reads = () => ctx.calls.filter((c) => c.door === 'read').length
 
   // The list's own filter for it.
@@ -1227,6 +1239,214 @@ async function refusalScenario(dir) {
 }
 await refusalScenario('ltr')
 await refusalScenario('rtl')
+
+// ── 11: the Check panel (ticket 667) ─────────────────────────────────────────────────────────────
+// Its own check door over 666's write doors: rows are judged from the SAVED draft (the material,
+// the resolved value) the way BackOffice 3212 describes; the header refusals the form itself
+// prevents (display name, window, cap, stores) are injected through `state.header`.
+
+const ROW_WORDS = {
+  NO_SKU: 'The material is not on the HungerStation material list.',
+  MATERIAL_DISABLED: 'The material is disabled on the HungerStation material list.',
+  MATERIAL_DELETED: 'The material is deleted from the HungerStation material list.',
+  PERCENT_RANGE: 'A percentage must be from 1 to 100.',
+  VALUE_NOT_POSITIVE: 'The value must be more than 0.',
+  VALUE_DECIMALS: 'The value has more than 3 decimals.',
+}
+const HEADER_WORDS = {
+  NAME_IN_USE: 'Another promotion of this chain already uses this name.',
+  DISPLAY_NAME_MISSING: 'The display name is missing.',
+  WINDOW_ORDER: 'The start must be before the end.',
+  END_PAST: 'The end has already passed.',
+  TOO_MANY_SKUS: 'More than 20,000 SKUs: split the promotion.',
+  NO_STORES: 'No store is chosen.',
+}
+/** The header refusals the form prevents, injected; field → code. */
+const INJECTED = [
+  ['displayNameAr', 'DISPLAY_NAME_MISSING'],
+  ['startAt', 'WINDOW_ORDER'],
+  ['endAt', 'END_PAST'],
+  ['items', 'TOO_MANY_SKUS'],
+  ['stores', 'NO_STORES'],
+]
+const MATERIAL_REFUSALS = { 900001: 'NO_SKU', 900002: 'MATERIAL_DISABLED', 900003: 'MATERIAL_DELETED' }
+const PASTE667 = [
+  ['101001', 'PERCENTAGE', '25', ''],
+  ['900001', '', '', ''],
+  ['900002', '', '', ''],
+  ['900003', '', '', ''],
+  ['101004', 'PERCENTAGE', '150', ''],
+  ['101005', 'ABSOLUTE', '-5', ''],
+  ['101006', 'ABSOLUTE', '1.2345', ''],
+  ['101007', 'FINAL_PRICE', '12.5', ''],
+]
+  .map((r) => r.join('\t'))
+  .join('\n')
+const PASTE667_FIXED = [
+  ['101001', 'PERCENTAGE', '25', ''],
+  ['101007', 'FINAL_PRICE', '12.5', ''],
+]
+  .map((r) => r.join('\t'))
+  .join('\n')
+
+/** The stub's judgement of one saved item: (problem code | null)[] and a price warning. */
+function judge(i) {
+  const codes = []
+  if (MATERIAL_REFUSALS[i.materialNumber]) codes.push(MATERIAL_REFUSALS[i.materialNumber])
+  if (i.subtype === 'PERCENTAGE' && (i.value < 1 || i.value > 100)) codes.push('PERCENT_RANGE')
+  if (i.value !== null && i.value <= 0) codes.push('VALUE_NOT_POSITIVE')
+  if (i.value !== null && (String(i.value).split('.')[1] ?? '').length > 3) codes.push('VALUE_DECIMALS')
+  // Our VAT-inclusive price is 12.00 at 1001 and 2001, 15.00 at 1002: a final price of 12.5 is not below it at two.
+  const warn = (i.subtype === 'FINAL_PRICE' || i.subtype === 'ABSOLUTE') && i.value >= 12 ? { storeCodes: ['1001', '2001'] } : null
+  return { codes, warn }
+}
+
+const checkDoor667 = (state) => (ctx, m) => {
+  const p = ctx.saved?.[decodeURIComponent(m[1])]
+  if (!p) return refuse('DHS-00016')
+  const header = [
+    ...(p.name === 'Taken 667' ? [{ field: 'name', code: 'NAME_IN_USE', message: 'Name in use. / الاسم مستخدم.' }] : []),
+    ...state.header.map(([field, code]) => ({ field, code, message: `${code} (server words)` })),
+  ]
+  const rows = p.items
+    .map((i) => ({ i, ...judge(i) }))
+    .filter((r) => r.codes.length || r.warn)
+    .map((r) => ({ materialNumber: r.i.materialNumber, refusals: r.codes.map((code) => ({ code, message: `${code} (server words)` })), priceWarning: r.warn }))
+  const sendable = header.length === 0 && rows.every((r) => r.refusals.length === 0)
+  return envelope({ sendable, header, rows, parts: [], skuCount: p.items.length })
+}
+
+async function checkScenario(dir) {
+  const L = '11 ' + dir.toUpperCase() + ': '
+  const state = { header: INJECTED }
+  const { context, page, errors, ctx } = await open(dir, { doors: { ...doors666(), check: checkDoor667(state) } })
+  const ed = await startNew(page)
+  await fillHeader(ed)
+  await ed.locator('[data-editor-name]').fill('Taken 667')
+  await ed.locator('[data-editor-end-date]').fill('2026-11-30')
+  await paste(page, ed, PASTE667)
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="101007"]').waitFor({ timeout: 10000 })
+  check(L + 'before a save there is nothing to check (Check needs the saved draft)', await ed.locator('[data-check-run]').isDisabled())
+
+  await ed.locator('[data-editor-save]').click()
+  await reason(page, 'Check me')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('edit') === 'p-new1', null, { timeout: 15000 })
+  const ed2 = page.locator(EDITOR('p-new1'))
+  await ed2.locator('[data-check-panel="refused"]').waitFor({ timeout: 15000 })
+  const c1 = callsOf(ctx, 'check')
+  check(L + 'Save checks the saved draft: POST …/Check with NO body', c1.length === 1 && c1[0].path === 'HungerStationWeb/Promotions/p-new1/Check' && c1[0].body === null, JSON.stringify(c1))
+
+  // Every row refusal on its row: the panel, and the preview grid's Check column.
+  const want = { 900001: ['NO_SKU'], 900002: ['MATERIAL_DISABLED'], 900003: ['MATERIAL_DELETED'], 101004: ['PERCENT_RANGE'], 101005: ['VALUE_NOT_POSITIVE'], 101006: ['VALUE_DECIMALS'] }
+  for (const [material, codes] of Object.entries(want))
+    for (const code of codes) {
+      const li = ed2.locator(`[data-check-row="${material}"][data-check-code="${code}"]`)
+      const ok = (await li.count()) === 1 && (await li.innerText()).includes(ROW_WORDS[code])
+      check(L + `${code} renders in words on row ${material} (panel)`, ok, (await li.count()) ? await li.innerText() : 'absent')
+      check(L + `${code} renders in words on row ${material} (grid)`, (await itemCell(ed2, material, 'refusal')) === ROW_WORDS[code], await itemCell(ed2, material, 'refusal'))
+    }
+  check(L + 'a clean row has nothing in its Check cell', (await itemCell(ed2, '101001', 'refusal')) === '')
+  check(L + 'the refused rows are counted', (await ed2.locator('[data-editor-rows-refused]').getAttribute('data-editor-rows-refused')) === '6')
+
+  // Every header refusal at its field: the panel, and the field's own error line.
+  const headerWant = [['name', 'NAME_IN_USE'], ...INJECTED]
+  for (const [field, code] of headerWant) {
+    const li = ed2.locator(`[data-check-header="${field}"][data-check-code="${code}"]`)
+    check(L + `${code} renders in words at ${field} (panel)`, (await li.count()) === 1 && (await li.innerText()).replace(/[⁦-⁩]/g, '').includes(HEADER_WORDS[code]), (await li.count()) ? await li.innerText() : 'absent')
+  }
+  const headerText = await ed2.locator('[data-editor-header]').innerText()
+  check(L + 'the header fields carry their refusals under them', ['NAME_IN_USE', 'DISPLAY_NAME_MISSING', 'WINDOW_ORDER', 'END_PAST'].every((c) => headerText.includes(HEADER_WORDS[c])))
+  check(L + 'the field with a refusal is announced invalid', (await ed2.locator('[data-editor-display-ar]').getAttribute('aria-invalid')) === 'true')
+  check(L + 'no stores: said at the stores', (await ed2.locator('[data-check-field="stores"]').innerText()).trim() === HEADER_WORDS.NO_STORES)
+  check(L + 'over 20,000 SKUs: said at the items', (await ed2.locator('[data-check-field="items"]').innerText()).replace(/[⁦-⁩]/g, '').trim() === HEADER_WORDS.TOO_MANY_SKUS)
+  check(L + 'twelve refusals in all', (await ed2.locator('[data-check-refusals]').getAttribute('data-check-refusals')) === '12')
+
+  // The price warning: its stores, its words, its colour; it never blocks.
+  const w = ed2.locator('[data-check-warning="101007"]')
+  const stores = await w.locator('[data-check-warning-store]').evaluateAll((els) => els.map((e) => e.getAttribute('data-check-warning-store')))
+  check(L + 'the price warning names its stores (1001, 2001)', JSON.stringify(stores) === JSON.stringify(['1001', '2001']), stores.join())
+  check(L + '… with each store code and name as ONE ltr isolate', (await w.locator('[data-check-warning-store="1001"] bdi[dir="ltr"]').innerText()) === '1001 · صيدلية 1001')
+  check(L + '… in the words "HungerStation will refuse this material at these stores"', (await w.innerText()).includes('HungerStation will refuse this material at these stores'))
+  check(L + '… never "error"', !/error/i.test(await ed2.locator('[data-check-warnings-list]').innerText()))
+  check(L + '… in the attention colour, not the danger one', /bg-attention-050/.test((await ed2.locator('[data-check-warnings-list]').getAttribute('class')) ?? ''))
+  check(L + 'the warned row says so in its grid cell', (await itemCell(ed2, '101007', 'refusal')) === 'HungerStation will refuse it at 2 stores')
+  const rowClass = async (id) => (await ed2.locator(`[data-editor-items-grid] .ag-row[row-id="${id}"]`).first().getAttribute('class')) ?? ''
+  check(L + 'the grid marks a refused row (danger) and a warned one (attention)', /bg-danger-050/.test(await rowClass('900001')) && /bg-attention-050/.test(await rowClass('101007')) && !/bg-(danger|attention)-050/.test(await rowClass('101001')))
+
+  // Send waits while any refusal stands.
+  check(L + 'Send is disabled while a check refuses', (await ed2.locator('[data-editor-send]').isDisabled()) && (await ed2.locator('[data-editor-send]').getAttribute('data-send-blocked')) === 'true')
+  check(L + '… and says why', (await ed2.locator('[data-editor-send]').getAttribute('title')) === 'A check refuses: fix it, save, and check again.')
+
+  // Refused rows only.
+  const shown = () => ed2.locator('[data-editor-items-grid]').getAttribute('data-editor-items-shown')
+  await ed2.locator('[data-editor-refused-only]').click()
+  await ed2.locator('[data-editor-items-grid][data-editor-items-shown="6"]').waitFor({ timeout: 5000 })
+  await page.waitForTimeout(200)
+  const ids = await ed2.locator('[data-editor-items-grid] .ag-row[row-id]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('row-id')))].sort())
+  check(L + 'the refused-only filter shows the six refused rows, no clean or warned one', JSON.stringify(ids) === JSON.stringify(['101004', '101005', '101006', '900001', '900002', '900003']), ids.join())
+  await page.screenshot({ path: `${SHOTS}/${dir}-check-refused.png` })
+  await ed2.locator('[data-editor-refused-only]').click()
+  await ed2.locator('[data-editor-items-grid][data-editor-items-shown="8"]').waitFor({ timeout: 5000 })
+  check(L + 'off again: all eight rows', (await shown()) === '8')
+
+  // The fix: a clean paste, a fresh name, the injected header refusals gone → save → clean.
+  state.header = []
+  await ed2.locator('[data-editor-name]').fill('Ramadan 667')
+  await paste(page, ed2, PASTE667_FIXED)
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed2.locator('[data-editor-items-grid][data-editor-items-shown="2"]').waitFor({ timeout: 10000 })
+  check(L + 'a new paste drops the old check (it was for other rows)', (await ed2.locator('[data-check-panel="none"]').count()) === 1)
+  await ed2.locator('[data-editor-save]').click()
+  await reason(page, 'Fixed')
+  await ed2.locator('[data-check-panel="clean"]').waitFor({ timeout: 15000 })
+  check(L + 'after the fix the check is clean', (await ed2.locator('[data-check-clean]').count()) === 1 && (await ed2.locator('[data-check-refusals]').count()) === 0)
+  check(L + '… the price warning still stands', (await ed2.locator('[data-check-warning="101007"]').count()) === 1)
+  check(L + '… and Send is enabled: a warning does not stop it', !(await ed2.locator('[data-editor-send]').isDisabled()) && (await ed2.locator('[data-editor-send]').getAttribute('data-send-blocked')) === 'false')
+
+  // Send runs Check first: a refusal found then keeps the dialog shut.
+  state.header = [['stores', 'NO_STORES']]
+  const before = callsOf(ctx, 'check').length
+  await ed2.locator('[data-editor-send]').click()
+  await ed2.locator('[data-check-panel="refused"]').waitFor({ timeout: 10000 })
+  check(L + 'Send checks first, and a refusal keeps the Send dialog shut', callsOf(ctx, 'check').length === before + 1 && (await page.locator(REASON).count()) === 0 && callsOf(ctx, 'send').length === 0)
+  check(L + '… Send is disabled again', await ed2.locator('[data-editor-send]').isDisabled())
+  state.header = []
+  await ed2.locator('[data-check-run]').click()
+  await ed2.locator('[data-check-panel="clean"]').waitFor({ timeout: 10000 })
+  check(L + 'Check now re-runs on demand: clean, Send enabled', !(await ed2.locator('[data-editor-send]').isDisabled()) && callsOf(ctx, 'check').length === before + 2)
+  await ed2.locator('[data-editor-send]').click()
+  await page.locator(REASON).waitFor({ timeout: 10000 })
+  check(L + 'a clean check opens the Send dialog', callsOf(ctx, 'check').length === before + 3)
+  await reason(page, 'Go live')
+  await page.locator('dialog[open][data-promotion-sheet="p-new1"]').waitFor({ timeout: 15000 })
+  check(L + 'and the promotion is sent', JSON.stringify(callsOf(ctx, 'send')[0]?.body) === JSON.stringify({ reason: 'Go live' }))
+
+  if (dir === 'rtl') {
+    check(L + 'dir is rtl', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  }
+  check(L + 'no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// § 0's check for the Check answer the stub emits.
+{
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const ctx = { saved: { p: { name: 'Taken 667', items: [item('900001', { subtype: 'FINAL_PRICE', value: 15 })] } } }
+  const answer = JSON.parse(checkDoor667({ header: INJECTED })(ctx, ['', 'p']).body).data
+  const same = (name, obj) => {
+    const want = modelFields(source, name).sort()
+    const got = Object.keys(obj).sort()
+    check(`11: the ${name} the stub answers has exactly the model's fields`, JSON.stringify(want) === JSON.stringify(got), `model ${want.join(',')} | stub ${got.join(',')}`)
+  }
+  same('HungerStationPromotionCheckResult', answer)
+  same('HungerStationPromotionFieldProblem', answer.header[0])
+  same('HungerStationPromotionRowCheck', answer.rows[0])
+  same('HungerStationPromotionProblem', answer.rows[0].refusals[0])
+  same('HungerStationPromotionPriceWarning', answer.rows[0].priceWarning)
+}
+await checkScenario('ltr')
+await checkScenario('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

@@ -1,5 +1,6 @@
 import { api } from '@/core/api'
 import type {
+  HungerStationPromotionCheckResult,
   HungerStationPromotionDetail,
   HungerStationPromotionReasonBody,
   HungerStationPromotionSaveBody,
@@ -63,6 +64,13 @@ export const promotionsApi = {
   /** PUT HungerStationWeb/Promotions/{promotionId} — save the draft again. DHS-00008 / 00016 / 00017 / 00019. */
   save(promotionId: string, body: HungerStationPromotionSaveBody): Promise<HungerStationPromotionDetail> {
     return api.put<HungerStationPromotionDetail>(promotionPath(promotionId), body)
+  },
+
+  /** POST …/{promotionId}/Check — NO body: every pre-check on the SAVED promotion, nothing written
+   *  (ticket 667, BackOffice 3212). Refusals per row and per header field; price warnings name the
+   *  stores. DHS-00016. */
+  check(promotionId: string): Promise<HungerStationPromotionCheckResult> {
+    return api.post<HungerStationPromotionCheckResult>(`${promotionPath(promotionId)}/Check`, undefined)
   },
 
   /** POST …/{promotionId}/Send — the promotion then reads Sending. DHS-00008 / 00016 / 00017 / 00018. */

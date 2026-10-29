@@ -1,3 +1,6 @@
+// core/insurance-rules/editors (oms 676): the guard, coverage and category block editors, shared by the guards and
+// coverage features and the rule playground. They still read the `insurance-guards` / `insurance-coverage` namespaces —
+// a namespace is a string, not an import, so the boundary holds; the coverage feature's and core/insurance-rules' i18n-keys tests cover them.
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import {
@@ -14,8 +17,8 @@ import {
 } from '@/core/insurance-rules/coverage-model'
 import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
-import { PayerMark } from './parts'
-import { coverageRuleProblems, newCoverageEffect, withOverridesPayer } from './ruleset-edit'
+import { PayerMark } from './PayerMark'
+import { coverageRuleProblems, newCoverageEffect, withOverridesPayer } from './coverage-edit'
 import { Field, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 // What a category or coverage rule does (oms 617, BackOffice 3145 / 3146 as built): a category rule sets ONE group

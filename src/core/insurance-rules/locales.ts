@@ -57,6 +57,10 @@ import insuranceCoverageAr from '@/locales/ar/insurance-coverage.json'
 import insuranceIdfEn from '@/locales/en/insurance-idf.json'
 import insuranceIdfAr from '@/locales/ar/insurance-idf.json'
 
+// 677 · imports — the rule playground (`features/insurance-rules/playground`, spec 3243). ONE namespace for 677–690.
+import insurancePlaygroundEn from '@/locales/en/insurance-playground.json'
+import insurancePlaygroundAr from '@/locales/ar/insurance-playground.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -91,6 +95,9 @@ export const INSURANCE_RULES_NS = [
 
   // 619 · ns
   'insurance-idf',
+
+  // 677 · ns
+  'insurance-playground',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -127,6 +134,9 @@ export const INSURANCE_RULES_EN = {
 
   // 619 · en
   'insurance-idf': insuranceIdfEn,
+
+  // 677 · en
+  'insurance-playground': insurancePlaygroundEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -163,4 +173,7 @@ export const INSURANCE_RULES_AR = {
 
   // 619 · ar
   'insurance-idf': insuranceIdfAr,
+
+  // 677 · ar
+  'insurance-playground': insurancePlaygroundAr,
 }

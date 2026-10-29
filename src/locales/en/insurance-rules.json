@@ -19,7 +19,8 @@
     "idfExceptions": "IDF exceptions",
     "idfLookup": "IDF lookup",
     "idfEvents": "IDF events",
-    "idfGroups": "IDF groups"
+    "idfGroups": "IDF groups",
+    "playground": "Playground"
   },
   "state": {
     "draft": "Draft",

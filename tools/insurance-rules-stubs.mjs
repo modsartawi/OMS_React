@@ -2163,3 +2163,106 @@ export function simulatorStub(method, path, body, opts = {}) {
   }
   return null
 }
+
+// --- 677 --- the rule playground's door (BackOffice spec 3243, door 3244 guard), as the BRIEF draws it (691 reconciles):
+//   POST InsuranceRules/Playground/Evaluate { kind, data | raw, document, asOf }
+//     → { errors: [{ path, message }] }                                  (a reader error: nothing else)
+//     | { errors: [], lines: [{ line, matched, trace: [{ ruleId, blockPath, value: "true|false|unknown", why }], reads: [] }],
+//         verdict: null, intake: null }
+// A tiny evaluator of `line` blocks (`field` + `above` / `atLeast` / `under`): enough to match, not match, and read
+// unknown. Any other `check` is a reader error at `rules[i].when[j].check`. Data with no `lines` array is the refusal
+// `PLAYGROUND_DATA_INVALID`. `opts.deny` with 'evaluate' answers a bare 403.
+
+export const newPlaygroundStore = () => ({ evaluates: [] })
+
+const PLAYGROUND_TESTS = { above: (v, n) => v > n, atLeast: (v, n) => v >= n, under: (v, n) => v < n }
+const PLAYGROUND_SIGN = { above: '>', atLeast: '≥', under: '<' }
+
+export function evaluatePlayground(body) {
+  const rules = Array.isArray(body?.document?.rules) ? body.document.rules : []
+  const errors = []
+  rules.forEach((r, i) =>
+    (r?.when ?? []).forEach((b, j) => {
+      if (b?.check !== 'line') errors.push({ path: `rules[${i}].when[${j}].check`, message: `Unknown check "${b?.check}".` })
+    }),
+  )
+  if (errors.length) return { errors }
+  const lines = (body.data.lines ?? []).map((l, k) => {
+    const trace = []
+    let matched = false
+    for (const r of rules) {
+      let all = true
+      ;(r.when ?? []).forEach((b, j) => {
+        const test = Object.keys(PLAYGROUND_TESTS).find((t) => b[t] !== undefined)
+        const v = l?.[b.field]
+        let value = 'unknown'
+        let why = `${b.field} is not on the line`
+        if (typeof v === 'number' && test) {
+          value = String(PLAYGROUND_TESTS[test](v, b[test]))
+          why = `${b.field} ${v} ${value === 'true' ? '' : 'not '}${PLAYGROUND_SIGN[test]} ${b[test]}`
+        }
+        if (value !== 'true') all = false
+        trace.push({ ruleId: r.id, blockPath: `when[${j}]`, value, why })
+      })
+      if (all && (r.when ?? []).length) matched = true
+    }
+    return { line: l?.line ?? k + 1, matched, trace, reads: [] }
+  })
+  return { errors: [], lines, verdict: null, intake: null }
+}
+
+export function playgroundStub(method, path, body, opts = {}) {
+  const { store = newPlaygroundStore(), deny = [] } = opts
+  if (method === 'POST' && path === 'InsuranceRules/Playground/Evaluate') {
+    store.evaluates.push(body)
+    if (deny.includes('evaluate')) return { status: 403, body: '' }
+    if (typeof body?.raw === 'string') return rawPlayground(body)
+    if (!Array.isArray(body?.data?.lines))
+      return envelope(null, { status: 400, success: false, message: 'The data has no lines to evaluate.', errorCode: 'PLAYGROUND_DATA_INVALID' })
+    return envelope(evaluatePlayground(body))
+  }
+  return null
+}
+
+// --- 684 --- a Raw experiment (BackOffice 3246): `raw` text instead of `data`, as the BRIEF draws it (691 reconciles).
+//   text that is not one JSON object → the refusal `PLAYGROUND_RAW_INVALID`;
+//   otherwise each line key is read, ignored (an unknown key, with its near-miss hint) or refused (a number field
+//   holding something else, `expected: "number"`), and the read keys are evaluated as `data`. `intake` carries the three.
+const PLAYGROUND_LINE_KEYS = ['line', 'item', 'quantity', 'unit', 'daysSupply', 'icd', 'price', 'eCode', 'dCode', 'sfdaCode', 'idfPriority', 'attributes']
+const PLAYGROUND_LINE_NUMBERS = ['line', 'quantity', 'daysSupply', 'price', 'idfPriority']
+const PLAYGROUND_NEAR = { qty: 'quantity', days: 'daysSupply', supply: 'daysSupply', cost: 'price', article: 'item', icds: 'icd' }
+const PLAYGROUND_TOP_KEYS = ['request', 'patient', 'lines', 'history', 'reference', 'eligibility', 'payer']
+
+function rawPlayground(body) {
+  let parsed
+  try {
+    parsed = JSON.parse(body.raw)
+  } catch {
+    parsed = undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return envelope(null, { status: 400, success: false, message: 'The raw text is not one JSON object.', errorCode: 'PLAYGROUND_RAW_INVALID' })
+  const intake = { read: [], ignored: [], refused: [] }
+  const data = {}
+  for (const [k, v] of Object.entries(parsed)) {
+    if (!PLAYGROUND_TOP_KEYS.includes(k)) intake.ignored.push({ path: k, hint: null })
+    else if (k !== 'lines') {
+      data[k] = v
+      intake.read.push(k)
+    }
+  }
+  data.lines = (Array.isArray(parsed.lines) ? parsed.lines : []).map((l, i) => {
+    const line = {}
+    for (const [k, v] of Object.entries(l ?? {})) {
+      const path = `lines[${i}].${k}`
+      if (!PLAYGROUND_LINE_KEYS.includes(k)) intake.ignored.push({ path, hint: PLAYGROUND_NEAR[k] ?? null })
+      else if (PLAYGROUND_LINE_NUMBERS.includes(k) && v !== null && typeof v !== 'number') intake.refused.push({ path, expected: 'number' })
+      else {
+        line[k] = v
+        intake.read.push(path)
+      }
+    }
+    return line
+  })
+  return envelope({ ...evaluatePlayground({ ...body, data }), intake })
+}

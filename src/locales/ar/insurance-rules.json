@@ -19,7 +19,8 @@
     "idfExceptions": "استثناءات IDF",
     "idfLookup": "استعلام IDF",
     "idfEvents": "أحداث IDF",
-    "idfGroups": "مجموعات IDF"
+    "idfGroups": "مجموعات IDF",
+    "playground": "ساحة التجربة"
   },
   "state": {
     "draft": "مسودة",

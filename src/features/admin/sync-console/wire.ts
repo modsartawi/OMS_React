@@ -11,7 +11,10 @@
  * - no `agreement` → `notJudged`;
  * - no `rail` on a worker → `store` (the only worker an old door knows);
  * - no `mirror` on an hour → `noData` with zeros;
- * - no mirror totals on the last hour → zeros.
+ * - no mirror totals on the last hour → zeros;
+ * - no `title`, `attempts` or `state` on a store script (a door older than BackOffice 3207) → `null`.
+ *   A `null` title there means "not sent", never "legacy": the tab tells the two apart by the
+ *   state, which a 3207 door always sends (`storeScriptTitle`).
  *
  * Only a MISSING member is filled. A member the door did send is passed through as it
  * is, and no state is derived here: states stay the door's.
@@ -29,6 +32,8 @@ import {
   type StoreHour,
   type StoreHours,
   type StoreRow,
+  type StoreScript,
+  type StoreScripts,
   type SyncWorker,
   type SyncWorkers,
   type WorkerItem,
@@ -108,4 +113,18 @@ export type WireLastHour = { current: WireHourTotals; previous: WireHourTotals }
 /** `GET ActionSync/Fleet/LastHour`. */
 export function normaliseLastHour(data: WireLastHour): FleetLastHour {
   return { ...data, current: withMirrorTotals(data.current), previous: withMirrorTotals(data.previous) }
+}
+
+/** A store script as a door older than BackOffice 3207 sends it: no title, attempts or state. */
+export type WireStoreScripts = { items: Pre2563<StoreScript, 'title' | 'attempts' | 'state'>[] }
+
+/**
+ * `Store/Scripts`, filled: a member the door left out reads `null`, which the tab draws as before
+ * 3207 (a blank title, the `isExecuted` reading). A legacy script on a 3207 door also has a `null`
+ * title, but it has a state; `storeScriptTitle` reads them apart.
+ */
+export function normaliseStoreScripts(data: WireStoreScripts): StoreScripts {
+  return {
+    items: data.items.map((s) => ({ ...s, title: s.title ?? null, attempts: s.attempts ?? null, state: s.state ?? null })),
+  }
 }

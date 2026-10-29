@@ -19,6 +19,9 @@ import { REPLAY_PATH } from './replay-draft'
  *
  * Objects (ticket 662) is a read, shown to every console holder: the push objects and whether
  * the stores are enrolled. Its Enrol control is the page's, behind `canEnrol`.
+ *
+ * Scripts (ticket 663) is a read too, shown to every console holder: the store scripts sent and
+ * each store's state. Its Send, Withdraw and Retry (664) are the page's, behind `canRunScripts`.
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
@@ -28,6 +31,7 @@ const PAGES = [
   { to: '/admin/sync/new-store', key: 'newStore', end: false },
   { to: '/admin/sync/pending', key: 'pending', end: false },
   { to: '/admin/sync/objects', key: 'objects', end: false },
+  { to: '/admin/sync/scripts', key: 'scripts', end: false },
   { to: REPLAY_PATH, key: 'replay', end: false },
 ] as const
 

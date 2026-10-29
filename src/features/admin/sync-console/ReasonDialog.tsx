@@ -34,6 +34,7 @@ export default function ReasonDialog({
   codeLabel,
   onConfirm,
   onClose,
+  width = '34rem',
   children,
 }: {
   open: boolean
@@ -61,6 +62,8 @@ export default function ReasonDialog({
   /** The reason, already trimmed. */
   onConfirm: (reason: string) => void
   onClose: () => void
+  /** The modal's width; a dialog with a wide field of its own (the store script's SQL) asks for more. */
+  width?: string
   children?: ReactNode
 }) {
   const { t } = useTranslation('sync-console')
@@ -78,7 +81,7 @@ export default function ReasonDialog({
       // the dialog mounted and toggles `open` (ControlDialog unmounts it instead).
       onShow={() => setReason('')}
       title={title}
-      width="34rem"
+      width={width}
       footer={
         <>
           <Button variant="text" onClick={onClose} disabled={busy} data-reason-cancel="">

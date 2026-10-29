@@ -203,7 +203,7 @@ describe('auditQuery', () => {
 
 describe('auditActionKey', () => {
   it('labels every audit action, and leaves an unknown one raw', () => {
-    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView', 'ReceiptReplay']) {
+    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView', 'ReceiptReplay', 'EnrolObject']) {
       const key = auditActionKey(a)
       expect(key).toBe(`auditActions.${a}`)
       expect(lookup(key as string)).toBeTruthy()
@@ -213,6 +213,10 @@ describe('auditActionKey', () => {
 
   it('labels a receipt replay "Replayed a receipt" (spec 470)', () => {
     expect(lookup(auditActionKey('ReceiptReplay') as string)).toBe('Replayed a receipt')
+  })
+
+  it('labels an enrolment "Enrolled a push object" (ticket 662)', () => {
+    expect(lookup(auditActionKey('EnrolObject') as string)).toBe('Enrolled a push object')
   })
 })
 

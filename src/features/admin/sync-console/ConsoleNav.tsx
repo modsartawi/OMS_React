@@ -16,6 +16,9 @@ import { REPLAY_PATH } from './replay-draft'
  *
  * Replay (spec 470, ticket 472) is shown only with `canReplay`, which does not need
  * `canOperate`; its page keeps its own in-page denial behind a hand-typed link.
+ *
+ * Objects (ticket 662) is a read, shown to every console holder: the push objects and whether
+ * the stores are enrolled. Its Enrol control is the page's, behind `canEnrol`.
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
@@ -24,6 +27,7 @@ const PAGES = [
   { to: '/admin/sync/audit', key: 'audit', end: false },
   { to: '/admin/sync/new-store', key: 'newStore', end: false },
   { to: '/admin/sync/pending', key: 'pending', end: false },
+  { to: '/admin/sync/objects', key: 'objects', end: false },
   { to: REPLAY_PATH, key: 'replay', end: false },
 ] as const
 

@@ -102,6 +102,8 @@ export type AuditAction =
   | 'TransactionSnapshotView'
   // Receipt replay (spec 470): one row per push, naming the target store.
   | 'ReceiptReplay'
+  // Object enrolment (BackOffice 2558): one row per enrolment, naming the object.
+  | 'EnrolObject'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -197,6 +199,11 @@ export interface SyncConsoleAccess {
   canOnboard: boolean
   /** `ActionSync.Replay` (spec 470) — the Replay page. Independent of `canOperate`. */
   canReplay: boolean
+  /**
+   * `ActionSync.EnrollObject` (BackOffice 2558, ticket 662) — Enrol on the Objects page.
+   * Independent of `canOperate`. Optional: a door older than 2558 leaves it out, which reads as no.
+   */
+  canEnrol?: boolean
 }
 
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
@@ -956,4 +963,58 @@ export interface ReplayRow {
   registerId: string
   receiptNumber: string
   transactionId: string
+}
+
+// ── Object enrolment (`ActionSync.EnrollObject`, BackOffice 2558-2560, ticket 662) ──
+
+/**
+ * One row of `GET ActionSync/Objects` (`ActionSync.Health.View`): an object the deployed build
+ * pushes, in the distributor's order. The pull loop's `RetailTrx` / `RetailTrxAction` are never
+ * listed. Advice only: the enrol door re-checks every condition.
+ */
+export interface PushObject {
+  /** The counter `ObjectID`: the type's name (`IdfException`, `MaterialUnitOfMeasureEntity`). */
+  objectId: string
+  /** The mapped HQ table, no schema; `null` when HQ maps no such table. */
+  table: string | null
+  /** Any counter row exists for the object (the enrol door's `ALREADY_ENROLLED`). */
+  enrolled: boolean
+  /** The object's counter rows, every location's; 0 when not enrolled. */
+  storesEnrolled: number
+  /** The build's registry number, else the lowest its counter rows carry; `null` = cannot be enrolled here. */
+  lineNumber: number | null
+  /** The HQ table's rows from partition metadata (may lag a running write); `null` when HQ has no such table. */
+  hqRows: number | null
+}
+
+/** `GET ActionSync/Objects` → `{ items }`, not paged. */
+export interface PushObjects {
+  items: PushObject[]
+}
+
+/** `POST ActionSync/Objects/Enrol`'s body. `preview: true` writes nothing and takes no lock. */
+export interface EnrolObjectRequest {
+  objectId: string
+  reason: string
+  preview: boolean
+}
+
+/**
+ * `POST ActionSync/Objects/Enrol`'s answer; in a preview, what the call would do. Refusals
+ * (a 400): `BAD_REQUEST`, `REASON_REQUIRED`, `PULL_OBJECT`, `UNKNOWN_OBJECT`, `ALREADY_ENROLLED`,
+ * `NO_STORES`, `TOO_MANY_ROWS`, `BAD_KEY`; `ENROL_BUSY` is a 409.
+ */
+export interface EnrolObjectResponse {
+  objectId: string
+  lineNumber: number
+  /** The first action number of the reserved block; every store's counter starts one below it. */
+  blockStart: number
+  /** The last action number of the block (`blockStart - 1` for an empty table). */
+  blockEnd: number
+  /** One Insert action per current HQ row. */
+  actionsMinted: number
+  /** Every store with an `Item` counter. */
+  storesEnrolled: number
+  /** The `EnrolObject` audit row; `null` in a preview. */
+  auditId: string | null
 }

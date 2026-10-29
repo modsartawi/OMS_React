@@ -17,6 +17,7 @@ import {
   toggleNot,
   updateCondition,
   withListFilter,
+  withWhen,
   type ConditionPath,
   type PaletteBlock,
 } from '@/core/insurance-rules/guard-edit'
@@ -29,7 +30,9 @@ import { saysIn } from '@/core/rules/sentence'
 import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
-import { CodeInput, CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
+import GuardFormulaBox from './GuardFormulaBox'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
 // to three levels, NOT on any condition — and a palette at the foot of every list to add a block. The pure
@@ -48,9 +51,14 @@ const pathKey = (p: ConditionPath) => p.join('.')
 
 export default function ConditionEditor(ctx: Ctx) {
   const { t } = useTranslation('insurance-guards')
+  // oms 658: drag and drop and the condition tools; every move is one edit of the rule, so Undo takes it back.
   return (
+    <TreeToolsProvider when={ctx.rule.when} apply={(fn) => ctx.edit((r) => withWhen(r, fn(r.when)))}>
     <div className="flex flex-col gap-2" data-condition-root="">
-      <p className="text-xs text-muted-foreground">{t('editor.group.top')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{t('editor.group.top')}</p>
+        {ctx.rule.when.length > 0 && <TreeToolbar />}
+      </div>
       {ctx.rule.when.length === 0 && (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground" data-conditions-empty="">
           {t('editor.group.empty')}
@@ -58,6 +66,7 @@ export default function ConditionEditor(ctx: Ctx) {
       )}
       <ConditionList ctx={ctx} list={ctx.rule.when} parent={[]} />
     </div>
+    </TreeToolsProvider>
   )
 }
 
@@ -69,11 +78,15 @@ function ConditionList({ ctx, list, parent }: { ctx: Ctx; list: readonly GuardCo
           {list.map((c, i) => {
             const path = [...parent, i]
             return (
-              <li key={i}>{c.check === 'group' ? <GroupBox ctx={ctx} c={c} path={path} /> : <BlockRow ctx={ctx} c={c} path={path} />}</li>
+              <li key={i} className="flex flex-col gap-2">
+                <DropZone parent={parent} index={i} />
+                {c.check === 'group' ? <GroupBox ctx={ctx} c={c} path={path} /> : <BlockRow ctx={ctx} c={c} path={path} />}
+              </li>
             )
           })}
         </ul>
       )}
+      <DropZone parent={parent} index={list.length} empty={list.length === 0} />
       <AddCondition ctx={ctx} parent={parent} />
     </>
   )
@@ -160,6 +173,8 @@ function GroupBox({ ctx, c, path }: { ctx: Ctx; c: Extract<GuardCondition, { che
       data-level={path.length}
     >
       <div className="flex flex-wrap items-center gap-2">
+        <SelectTick path={path} />
+        <DragHandle path={path} />
         <NotToggle ctx={ctx} c={c} path={path} />
         <div className="inline-flex gap-1" role="group" aria-label={t('editor.group.mode')}>
           {(['all', 'any'] as const).map((m) => (
@@ -174,7 +189,8 @@ function GroupBox({ ctx, c, path }: { ctx: Ctx; c: Extract<GuardCondition, { che
           ))}
         </div>
         <span className="text-xs text-muted-foreground">{t(`editor.group.${c.mode}Hint`)}</span>
-        <span className="ms-auto">
+        <span className="ms-auto flex items-center gap-1">
+          <ConditionTools path={path} />
           <RemoveButton ctx={ctx} path={path} label={t('editor.group.removeGroup')} />
         </span>
       </div>
@@ -197,6 +213,8 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
       data-not={c.not ? 'true' : 'false'}
     >
       <div className="flex flex-wrap items-center gap-2">
+        <SelectTick path={path} />
+        <DragHandle path={path} />
         <NotToggle ctx={ctx} c={c} path={path} />
         <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium" data-block-label="">
           {t(`editor.block.${paletteBlockOf(c)}`)}
@@ -204,6 +222,7 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
         <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
           <BlockFields ctx={ctx} c={c} path={path} />
         </div>
+        <ConditionTools path={path} />
         <RemoveButton ctx={ctx} path={path} label={t('editor.group.remove')} />
       </div>
       <Issues issues={issues} hook={pathKey(path)} />
@@ -661,14 +680,8 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     case 'formula':
       return (
         <Field label={t('editor.field.formula')}>
-          <CodeInput
-            value={c.formula}
-            invalid={bad('formula')}
-            className="w-96"
-            title={t('editor.formulaHint')}
-            data-input="formula"
-            onValue={(s) => set((x) => ({ ...x, formula: s }), 'formula')}
-          />
+          {/* oms 657: the guided ƒx helper; typing coalesces into one step, an insert is a step of its own. */}
+          <GuardFormulaBox value={c.formula} invalid={bad('formula')} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
         </Field>
       )
     default:

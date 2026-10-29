@@ -327,5 +327,275 @@
     "save": "Save template",
     "saved": "Template {{name}} was saved for the team.",
     "failed": "The template could not be saved."
+  },
+  "fx": {
+    "toggle": "Fields, functions and recipes",
+    "symbol": "ƒx",
+    "tabs": "Formula helper",
+    "tab": {
+      "fields": "Fields",
+      "functions": "Functions",
+      "recipes": "Recipes"
+    },
+    "done": "Done",
+    "placeholder": "a test, for example patient.age < 12",
+    "empty": "Write a true / false test, or pick a recipe with ƒx.",
+    "reads": "Reads as written.",
+    "operators": "Operators",
+    "insertOperator": "Insert {{op}}",
+    "insertText": "Insert text in quotes",
+    "textChip": "'text'",
+    "hint": "A click puts it where your cursor was. A code in brackets is selected: type the benefit's code over it. HQ checks the formula with the rest of the draft.",
+    "search": "Search fields: age, payer, price…",
+    "noMatch": "Nothing matches.",
+    "insert": "Insert",
+    "use": "Use",
+    "example": "Example:",
+    "problem": {
+      "empty": "Write a true / false test.",
+      "unexpected": "Something unexpected at character <n>{{at}}</n>.",
+      "unclosed": "A bracket or a quote is not closed (character <n>{{at}}</n>).",
+      "unknownFilter": "A guard formula has no item filters (character <n>{{at}}</n>).",
+      "roundArgs": "round() takes a value, the decimals and a mode: round(x, 0, halfUp).",
+      "bandArgs": "band() takes a value and thresholds: band(x, 0:1, 12:2).",
+      "pairOutsideBand": "A threshold “a:b” only goes inside band() (character <n>{{at}}</n>)."
+    },
+    "group": {
+      "patient": "Patient",
+      "request": "Request",
+      "line": "The line",
+      "eligibility": "Eligibility (insurer's answer)"
+    },
+    "type": {
+      "money": "SAR",
+      "number": "123",
+      "text": "abc",
+      "bool": "yes/no"
+    },
+    "field": {
+      "patient": {
+        "age": {
+          "label": "Age",
+          "desc": "Whole years on the day of the check."
+        },
+        "gender": {
+          "label": "Gender",
+          "desc": "M or F."
+        },
+        "idType": {
+          "label": "ID type",
+          "desc": "From the patient's ID number: national ID, iqama, border number, passport."
+        }
+      },
+      "request": {
+        "payer": {
+          "label": "Insurer",
+          "desc": "The insurer's SAP customer id, such as 0001100041."
+        },
+        "policy": {
+          "label": "Policy",
+          "desc": "The policy number on the request."
+        },
+        "class": {
+          "label": "Class",
+          "desc": "The patient's class on the policy."
+        },
+        "channel": {
+          "label": "Channel",
+          "desc": "Which channel sent the request."
+        },
+        "store": {
+          "label": "Store",
+          "desc": "The store code of the request."
+        },
+        "pharmacist": {
+          "label": "Pharmacist",
+          "desc": "The pharmacist on the request."
+        }
+      },
+      "line": {
+        "item": {
+          "label": "Material",
+          "desc": "The line's material number."
+        },
+        "eCode": {
+          "label": "E-class",
+          "desc": "Today's E-class of the line's item."
+        },
+        "dCode": {
+          "label": "D-class",
+          "desc": "Today's D-class of the line's item."
+        },
+        "daysSupply": {
+          "label": "Days supply",
+          "desc": "Unknown when the channel did not send it."
+        },
+        "quantity": {
+          "label": "Quantity",
+          "desc": "The line's quantity as sent, in its unit."
+        },
+        "price": {
+          "label": "Price",
+          "desc": "The line's price in SAR."
+        },
+        "idfPriority": {
+          "label": "IDF priority",
+          "desc": "The item's place in its IDF group for this insurer and store; 1 is the first choice."
+        }
+      },
+      "eligibility": {
+        "response": {
+          "payer": {
+            "label": "Answering insurer",
+            "desc": "The insurer that answered the eligibility check."
+          },
+          "outcome": {
+            "label": "Outcome",
+            "desc": "The answer's outcome code."
+          },
+          "inForce": {
+            "label": "Answer in force",
+            "desc": "Yes when the answer says the cover is in force."
+          },
+          "eligible": {
+            "label": "Eligible",
+            "desc": "Yes when the patient is eligible."
+          },
+          "siteEligibility": {
+            "label": "Site eligibility",
+            "desc": "The site eligibility code of the answer."
+          },
+          "transfer": {
+            "label": "Transfer",
+            "desc": "Yes when the cover was transferred."
+          },
+          "newborn": {
+            "label": "Newborn",
+            "desc": "Yes for a newborn's cover."
+          },
+          "gender": {
+            "label": "Gender (insurer)",
+            "desc": "The gender the insurer holds."
+          },
+          "idType": {
+            "label": "ID type (insurer)",
+            "desc": "The ID type the insurer holds."
+          }
+        },
+        "coverage": {
+          "subscriberId": {
+            "label": "Subscriber id",
+            "desc": "The subscriber on the cover."
+          },
+          "memberId": {
+            "label": "Member id",
+            "desc": "The patient's member id on the cover."
+          },
+          "inForce": {
+            "label": "Cover in force",
+            "desc": "Yes when the cover is in force."
+          },
+          "network": {
+            "label": "Network",
+            "desc": "The cover's network."
+          },
+          "plan": {
+            "label": "Plan",
+            "desc": "The cover's plan."
+          },
+          "class": {
+            "label": "Cover class",
+            "desc": "The class the cover names."
+          },
+          "group": {
+            "label": "Group",
+            "desc": "The cover's group."
+          },
+          "holder": {
+            "label": "Policy holder",
+            "desc": "The cover's holder."
+          }
+        },
+        "benefit": {
+          "name": {
+            "label": "Benefit name",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "term": {
+            "label": "Benefit term",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "unit": {
+            "label": "Benefit unit",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "benefit": {
+            "label": "Benefit amount",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "approvalLimit": {
+            "label": "Approval limit",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "copayPct": {
+            "label": "Copay %",
+            "desc": "Type the benefit's code over <code>."
+          },
+          "copayMax": {
+            "label": "Copay maximum",
+            "desc": "Type the benefit's code over <code>."
+          }
+        },
+        "tob": {
+          "label": "Table of benefits entry",
+          "desc": "A number from the table of benefits: type its code over <code>."
+        }
+      }
+    },
+    "function": {
+      "in": "Whether x is one of the list: an insurer, a store, a class.",
+      "if": "Picks between two values.",
+      "min": "The smallest.",
+      "max": "The largest.",
+      "abs": "The value without its sign.",
+      "round": "Rounds x. The mode is halfUp, halfEven, down or up.",
+      "floor": "Rounds down to a whole number.",
+      "ceil": "Rounds up to a whole number.",
+      "band": "The rate of the highest threshold x reaches; 0 below the first one."
+    },
+    "recipe": {
+      "childQuantity": {
+        "title": "Child with a large quantity",
+        "desc": "Under 12 years old, and more than 2 on the line."
+      },
+      "priceAbove": {
+        "title": "Price above a limit",
+        "desc": "The line costs more than SAR 500."
+      },
+      "longSupply": {
+        "title": "Long supply",
+        "desc": "More than 30 days of supply."
+      },
+      "ageBandPayer": {
+        "title": "Adults with one insurer",
+        "desc": "18 to 64 years old, insured by 0001100041."
+      },
+      "payerOneOf": {
+        "title": "One of these insurers",
+        "desc": "The insurer is 0001100041 or 0001100052."
+      },
+      "notInForce": {
+        "title": "Cover not in force",
+        "desc": "The insurer's answer says the cover is not in force."
+      },
+      "notFirstChoice": {
+        "title": "Not the first IDF choice",
+        "desc": "Another item comes first in this item's IDF group."
+      },
+      "womanOver50": {
+        "title": "Women over 50",
+        "desc": "Gender F and older than 50."
+      }
+    }
   }
 }

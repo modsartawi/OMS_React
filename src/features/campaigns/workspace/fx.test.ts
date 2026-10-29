@@ -1,5 +1,5 @@
 /**
- * Tickets 507 / 522 — the guided ƒx helper inserts at the cursor; its text box reads into the
+ * Tickets 507 / 522 — the guided ƒx helper (its insert at the cursor is core's since oms 657: `@/core/rules/fx-helper/insert.test.ts`); its text box reads into the
  * stored JSON expression through the codec, and a stored one it cannot print shows as JSON.
  */
 import { describe, expect, it } from 'vitest'
@@ -7,36 +7,10 @@ import type { CampaignRule } from '@/core/models/rule-campaign'
 import { FORMULA_GUIDE } from '@/core/rules/formula-guide'
 import { CAMPAIGNS } from '../../../../tools/campaigns-fixtures.mjs'
 import { keyOf, withKeys } from './block-keys'
-import { boxOf, fxFields, insertAtCursor, operatorChip, readBox, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, valuesBefore } from './fx'
+import { boxOf, fxFields, readBox, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, valuesBefore } from './fx'
 
 let n = 0
 const rule = (code: string): CampaignRule => withKeys([structuredClone(CAMPAIGNS.find((c) => c.code === code)!.campaign.rules[0])], () => `k${++n}`)[0]
-
-describe('insertAtCursor', () => {
-  it('insertAtCursor_placesChipAndKeepsCaret', () => {
-    // A field at the caret, the caret after it.
-    expect(insertAtCursor('back > 0', { start: 0, end: 0 }, { text: 'spend' })).toEqual({ formula: 'spend back > 0', caret: 5 })
-    // Over a selection: it replaces what was selected.
-    expect(insertAtCursor('round(sum(eligible) * 10 / 100, decimals, halfUp)', { start: 6, end: 19 }, { text: 'spend' })).toEqual({
-      formula: 'round(spend * 10 / 100, decimals, halfUp)',
-      caret: 11,
-    })
-    // A function's snippet puts the caret inside it.
-    expect(insertAtCursor('', null, { text: 'min(, 100)', caret: 4 })).toEqual({ formula: 'min(, 100)', caret: 4 })
-    expect(insertAtCursor('spend', { start: 5, end: 5 }, { text: 'min(, 100)', caret: 4 })).toEqual({ formula: 'spend min(, 100)', caret: 10 })
-    // No caret yet: at the end.
-    expect(insertAtCursor('back', null, operatorChip('>='))).toEqual({ formula: 'back >= ', caret: 8 })
-    // An operator next to a space does not double it.
-    expect(insertAtCursor('back ', { start: 5, end: 5 }, operatorChip('*'))).toEqual({ formula: 'back * ', caret: 7 })
-    expect(insertAtCursor('a b', { start: 1, end: 1 }, operatorChip('+'))).toEqual({ formula: 'a + b', caret: 4 })
-    // Brackets come as a pair, the caret between them.
-    expect(insertAtCursor('x', { start: 1, end: 1 }, operatorChip('('))).toEqual({ formula: 'x ()', caret: 3 })
-    // A word before a word gets a space after too, so two names never run together.
-    expect(insertAtCursor('back', { start: 0, end: 0 }, { text: 'spend' }).formula).toBe('spend back')
-    // A caret past the end (the formula changed under it) is held to the end.
-    expect(insertAtCursor('ab', { start: 9, end: 12 }, { text: 'c' })).toEqual({ formula: 'ab c', caret: 4 })
-  })
-})
 
 describe('the box', () => {
   it('shows a stored expression as text and reads text back into it', () => {

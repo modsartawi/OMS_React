@@ -100,3 +100,29 @@ describe('exprCodec_roundTrips', () => {
     expect(problem('min(a, 2:3)')).toEqual({ code: 'pairOutsideBand', at: 7 })
   })
 })
+
+describe('a bracketed key in a path (oms 657: the guard formula reads eligibility keys)', () => {
+  const none = { filters: [] }
+  it('reads and prints a path segment with one key', () => {
+    for (const [text, path] of [
+      ['eligibility.benefit[GEN].copayPct', '$eligibility.benefit[GEN].copayPct'],
+      ['eligibility.benefit[GEN/01].copayMax', '$eligibility.benefit[GEN/01].copayMax'],
+      ['eligibility.tob[PHARM-1]', '$eligibility.tob[PHARM-1]'],
+    ]) {
+      expect(parseExpr(text, none)).toEqual({ ok: true, expr: path })
+      expect(printExpr(path, none)).toBe(text)
+    }
+    const expr = ['>', '$eligibility.benefit[GEN].copayPct', 20]
+    expect(parseExpr('eligibility.benefit[GEN].copayPct > 20', none)).toEqual({ ok: true, expr })
+    expect(printExpr(expr, none)).toBe('eligibility.benefit[GEN].copayPct > 20')
+  })
+
+  it('a placeholder, an empty key or a key glued to a name does not read', () => {
+    expect(parseExpr('eligibility.benefit[<code>].copayPct', none)).toEqual({ ok: false, problem: { code: 'unexpected', at: 19, token: '[' } })
+    expect(parseExpr('eligibility.tob[]', none).ok).toBe(false)
+    expect(parseExpr('eligibility.tob[A]x', none).ok).toBe(false)
+    expect(parseExpr('tob[A](1)', none).ok).toBe(false)
+    // and a stored path the text could not give back stays JSON
+    expect(printExpr('$eligibility.tob[a b]', none)).toBeNull()
+  })
+})

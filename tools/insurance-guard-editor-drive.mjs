@@ -19,7 +19,13 @@
 //   6. Undo / Redo step the draft; the placeholder chip types `{name}` at the caret; no `{lastStore}` chip;
 //   7. Save PUTs the WHOLE draft with its revision; the saved rule's conditions ARE G-007's; the page moves to
 //      the rule's edit URL with nothing unsaved; a stale revision says so and offers a reload;
-//   8. no raw keys and no page errors.
+//   8. no raw keys and no page errors;
+//  10. (oms 657) the ƒx helper on a formula block: Fields grouped Patient / Request / Line / Eligibility, a
+//      field and an operator go in at the caret, a keyed eligibility field leaves `<code>` selected for the
+//      code typed over it, a recipe writes the whole formula, and the formula is stored as the engine's expr;
+//  11. (oms 658) the tree is rearranged: two top-level conditions selected → Group as Any of, a third dragged
+//      into the group (a group dropped into itself is refused), one moved out with its tools menu, Undo / Redo
+//      of a move, Ungroup; the saved `when` is the rearranged tree.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. node tools/insurance-guard-editor-drive.mjs        (DRIVE_PORT overrides 5201)
@@ -82,6 +88,22 @@ const block = (page, path) => page.locator(`[data-block="${path}"]`)
 const group = (page, path) => page.locator(`[data-group="${path}"]`)
 const input = (scope, name) => scope.locator(`[data-input="${name}"]`).first()
 const effect = (page) => page.locator('[data-effect-editor="0"]')
+/** A native HTML5 drag from a handle onto a drop zone, through one DataTransfer (oms 658). */
+async function drag(page, handle, zone) {
+  await page.evaluate((h) => {
+    window.__dt = new DataTransfer()
+    document.querySelector(h).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: window.__dt }))
+  }, handle)
+  await page.locator(`${zone}[data-drop-state]`).waitFor({ timeout: 5000 })
+  const state = await page.locator(zone).getAttribute('data-drop-state')
+  await page.evaluate((z) => {
+    const el = document.querySelector(z)
+    for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: window.__dt }))
+  }, zone)
+  await page.evaluate((h) => document.querySelector(h)?.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: window.__dt })), handle)
+  return state
+}
+const checksOf = (page) => page.locator('[data-condition-root] [data-check], [data-condition-root] [data-group]').evaluateAll((els) => els.map((e) => (e.hasAttribute('data-group') ? `group:${e.getAttribute('data-mode')}@${e.getAttribute('data-group')}` : `${e.getAttribute('data-check')}@${e.getAttribute('data-block')}`)))
 const noRawKeys = async (page) => !/insurance-(rules|guards):|editor\.|sentence\.|\bstate\.|severity\./.test(await page.locator('main').innerText())
 
 const G007 = RULES.find((r) => r.id === 'G-007')
@@ -257,6 +279,106 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 9. the saved supply carries the list's own days`, saved && canon(saved.when[1].eligibleDaysBeforeDueFor) === canon([{ list: 'glp1', value: 7 }]), canon(saved?.when[1]))
     check(`${dir} 9. no raw keys`, await noRawKeys(page))
     check(`${dir} 9. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 10: the ƒx helper on a formula block (oms 657) ───────────────────────────────────────────────
+  {
+    const { context, page, errors, store } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/guards/new`)
+    await page.locator('[data-audience-editor]').waitFor({ timeout: 30000 })
+    await input(page, 'name.en').fill('Child with a large quantity')
+    await input(page, 'name.ar').fill('طفل بكمية كبيرة')
+    await add(page, '', 'formula')
+    await block(page, '0').waitFor()
+    const box = block(page, '0').locator('[data-fx-input]')
+    const fx = block(page, '0').locator('[data-fx-helper]')
+    await block(page, '0').locator('[data-fx-toggle]').click()
+    await fx.waitFor({ timeout: 5000 })
+    check(`${dir} 10. ƒx opens the helper under the formula box`, (await block(page, '0').locator('[data-fx-toggle]').getAttribute('aria-expanded')) === 'true')
+    const groups = await fx.locator('[data-fx-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-group')))
+    check(`${dir} 10. Fields grouped Patient / Request / Line / Eligibility`, JSON.stringify(groups) === JSON.stringify(['patient', 'request', 'line', 'eligibility']), JSON.stringify(groups))
+    check(`${dir} 10. each field wears its type badge`, (await fx.locator('[data-fx-item="line.price"] [data-fx-type="money"]').count()) === 1 && (await fx.locator('[data-fx-item="eligibility.coverage.inForce"] [data-fx-type="bool"]').count()) === 1)
+    check(`${dir} 10. no date path is offered (the engine reads dates in a block only)`, (await fx.locator('[data-fx-item="line.supplyEndsOn"], [data-fx-item="eligibility.coverage.periodEnd"]').count()) === 0)
+    await fx.locator('[data-fx-item="patient.age"]').click()
+    await fx.locator('[data-fx-op="<"]').click()
+    await page.keyboard.type('12')
+    check(`${dir} 10. a field and an operator go in at the caret`, (await box.inputValue()) === 'patient.age < 12', await box.inputValue())
+    await fx.locator('[data-fx-op="and"]').click()
+    await fx.locator('[data-fx-search]').fill('tob')
+    await fx.locator('[data-fx-item="eligibility.tob[<code>]"]').click()
+    const selected = await box.evaluate((el) => el.value.slice(el.selectionStart, el.selectionEnd))
+    check(`${dir} 10. a keyed field leaves <code> selected`, (await box.inputValue()) === 'patient.age < 12 and eligibility.tob[<code>]' && selected === '<code>', `${await box.inputValue()} / ${selected}`)
+    check(`${dir} 10. until its code is typed it does not read`, (await block(page, '0').locator('[data-fx-status="bad"]').count()) === 1 && (await box.getAttribute('aria-invalid')) === 'true')
+    await page.keyboard.type('PH')
+    await page.keyboard.press('End') // the caret is still inside the brackets: past them first
+    await fx.locator('[data-fx-op=">"]').click()
+    await page.keyboard.type('0')
+    check(`${dir} 10. the code typed over it reads`, (await box.inputValue()) === 'patient.age < 12 and eligibility.tob[PH] > 0' && (await block(page, '0').locator('[data-fx-status="ok"]').count()) === 1, await box.inputValue())
+    await fx.locator('[data-fx-tab="functions"]').click()
+    check(`${dir} 10. Functions: the guard's (in, if, round …), none that needs an item filter`, (await fx.locator('[data-fx-function="in"]').count()) === 1 && (await fx.locator('[data-fx-function="sum"], [data-fx-function="items"], [data-fx-function="count"]').count()) === 0)
+    await fx.locator('[data-fx-tab="recipes"]').click()
+    await fx.locator('[data-fx-use="childQuantity"]').click()
+    check(`${dir} 10. a recipe writes the whole formula`, (await box.inputValue()) === 'patient.age < 12 and line.quantity > 2', await box.inputValue())
+    await fx.locator('[data-fx-done]').click()
+    check(`${dir} 10. Done closes the helper`, (await block(page, '0').locator('[data-fx-helper]').count()) === 0)
+    check(`${dir} 10. no raw keys`, await noRawKeys(page))
+    await page.locator('[data-save]').click()
+    await page.waitForFunction(() => /\/guards\/G-\d+\/edit$/.test(location.pathname), null, { timeout: 15000 }).catch(() => {})
+    const saved = store.puts[0]?.rules.find((r) => r.name.en === 'Child with a large quantity')
+    check(
+      `${dir} 10. the formula is stored as the engine's expr`,
+      saved && canon(saved.when) === canon([{ check: 'formula', expr: ['and', ['<', '$patient.age', 12], ['>', '$line.quantity', 2]] }]),
+      canon(saved?.when),
+    )
+    check(`${dir} 10. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 11: rearranging the tree (oms 658) ──────────────────────────────────────────────────────────
+  {
+    const { context, page, errors, store } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/guards/new`)
+    await page.locator('[data-audience-editor]').waitFor({ timeout: 30000 })
+    await input(page, 'name.en').fill('Rearranged tree')
+    await input(page, 'name.ar').fill('شجرة معاد ترتيبها')
+    await add(page, '', 'line')
+    await add(page, '', 'formulary')
+    await add(page, '', 'patient')
+    await input(block(page, '2'), 'inList').selectOption('PL-VIP')
+    check(`${dir} 11. three top-level conditions`, JSON.stringify(await checksOf(page)) === JSON.stringify(['line@0', 'formulary@1', 'patient@2']), JSON.stringify(await checksOf(page)))
+    await page.locator('[data-select-mode]').click()
+    await page.locator('[data-select-condition="0"]').check()
+    await page.locator('[data-select-condition="1"]').check()
+    check(`${dir} 11. the toolbar counts the selection`, (await page.locator('[data-selected-count]').getAttribute('data-selected-count')) === '2')
+    await page.locator('[data-group-selected="any"]').click()
+    check(`${dir} 11. Group as Any of wraps the two selected`, JSON.stringify(await checksOf(page)) === JSON.stringify(['group:any@0', 'line@0.0', 'formulary@0.1', 'patient@1']), JSON.stringify(await checksOf(page)))
+    // A group dropped into itself is refused, and nothing moves.
+    const self = await drag(page, '[data-drag-handle="0"]', '[data-drop="0@1"]')
+    check(`${dir} 11. a group dropped into itself is refused`, self === 'refused' && JSON.stringify(await checksOf(page)) === JSON.stringify(['group:any@0', 'line@0.0', 'formulary@0.1', 'patient@1']), self)
+    const into = await drag(page, '[data-drag-handle="1"]', '[data-drop="0@2"]')
+    check(`${dir} 11. a third condition dragged into the group`, into === 'allowed' && JSON.stringify(await checksOf(page)) === JSON.stringify(['group:any@0', 'line@0.0', 'formulary@0.1', 'patient@0.2']), `${into} ${JSON.stringify(await checksOf(page))}`)
+    await page.locator('[data-tools="0.0"]').selectOption('out')
+    check(`${dir} 11. Move out of the group puts it after the group`, JSON.stringify(await checksOf(page)) === JSON.stringify(['group:any@0', 'formulary@0.0', 'patient@0.1', 'line@1']), JSON.stringify(await checksOf(page)))
+    await page.locator('[data-undo]').click()
+    check(`${dir} 11. Undo takes the move back`, JSON.stringify(await checksOf(page)) === JSON.stringify(['group:any@0', 'line@0.0', 'formulary@0.1', 'patient@0.2']), JSON.stringify(await checksOf(page)))
+    await page.locator('[data-redo]').click()
+    await page.locator('[data-not-toggle="0"]').click()
+    const negated = await page.locator('[data-tools="0"] option[value="ungroup"]').isDisabled()
+    await page.locator('[data-not-toggle="0"]').click()
+    check(`${dir} 11. a NOT group cannot be ungrouped`, negated)
+    await page.locator('[data-tools="0"]').selectOption('ungroup')
+    check(`${dir} 11. Ungroup puts its conditions in its place`, JSON.stringify(await checksOf(page)) === JSON.stringify(['formulary@0', 'patient@1', 'line@2']), JSON.stringify(await checksOf(page)))
+    check(`${dir} 11. no raw keys`, await noRawKeys(page))
+    await page.locator('[data-save]').click()
+    await page.waitForFunction(() => /\/guards\/G-\d+\/edit$/.test(location.pathname), null, { timeout: 15000 }).catch(() => {})
+    const saved = store.puts[0]?.rules.find((r) => r.name.en === 'Rearranged tree')
+    check(
+      `${dir} 11. the saved when is the rearranged tree`,
+      saved && canon(saved.when) === canon([{ check: 'formulary', indication: 'notListed' }, { check: 'patient', inList: 'PL-VIP' }, { check: 'line', field: 'daysSupply', above: 90 }]),
+      canon(saved?.when),
+    )
+    check(`${dir} 11. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

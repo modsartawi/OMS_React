@@ -11,6 +11,7 @@ import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
 import { CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
 
 // The conditions of a category or coverage rule (oms 617): the guard language's All of / Any of groups (three
 // levels at most), NOT on any condition, and the facts a coverage decision reads — item fields, the request's
@@ -35,8 +36,13 @@ function newBlock(kind: (typeof PALETTE)[number], fields: readonly RegistryField
 export default function RuleConditions({ when, edit }: { when: GuardCondition[]; edit: Edit }) {
   const { t } = useTranslation('insurance-coverage')
   return (
+    // oms 658: drag and drop and the condition tools, each move one edit of the rule.
+    <TreeToolsProvider when={when} apply={(fn) => edit(fn)}>
     <div className="flex flex-col gap-2" data-conditions-editor="">
-      <p className="text-xs text-muted-foreground">{t('conditions.top')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{t('conditions.top')}</p>
+        {when.length > 0 && <TreeToolbar />}
+      </div>
       {when.length === 0 && (
         <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-conditions-empty="">
           {t('conditions.empty')}
@@ -44,6 +50,7 @@ export default function RuleConditions({ when, edit }: { when: GuardCondition[];
       )}
       <List when={when} list={when} parent={[]} edit={edit} />
     </div>
+    </TreeToolsProvider>
   )
 }
 
@@ -53,12 +60,14 @@ function List({ when, list, parent, edit }: { when: GuardCondition[]; list: read
       {list.length > 0 && (
         <ul className="flex flex-col gap-2">
           {list.map((c, i) => (
-            <li key={i}>
+            <li key={i} className="flex flex-col gap-2">
+              <DropZone parent={parent} index={i} />
               <Node when={when} c={c} path={[...parent, i]} edit={edit} />
             </li>
           ))}
         </ul>
       )}
+      <DropZone parent={parent} index={list.length} empty={list.length === 0} />
       <Add when={when} parent={parent} edit={edit} />
     </>
   )
@@ -93,6 +102,8 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
   const { t } = useTranslation('insurance-coverage')
   const head = (
     <>
+      <SelectTick path={path} />
+      <DragHandle path={path} />
       <button
         type="button"
         aria-pressed={c.not === true}
@@ -129,7 +140,10 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
               </Chip>
             ))}
           </div>
-          <span className="ms-auto">{remove}</span>
+          <span className="ms-auto flex items-center gap-1">
+            <ConditionTools path={path} />
+            {remove}
+          </span>
         </div>
         <div className="ps-2">
           <List when={when} list={c.conditions} parent={path} edit={edit} />
@@ -142,6 +156,7 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <Leaf c={c} path={path} edit={edit} />
       </div>
+      <ConditionTools path={path} />
       {remove}
     </div>
   )

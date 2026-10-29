@@ -6,6 +6,8 @@ import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
+import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardsPath, ruleSeverity, type GuardList, type GuardRule } from '@/core/insurance-rules/model'
@@ -14,6 +16,7 @@ import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
+import { fsi } from '@/core/util/bidi'
 import OrganizeCard from './OrganizeCard' // 609
 import { DeniedCard } from '@/core/insurance-rules/parts'
 
@@ -77,7 +80,10 @@ function RuleRead({ rule, lists }: { rule: GuardRule; lists: GuardList[] }) {
           <RuleId id={rule.id} />
           <GuardStateBadge state={rule.state} />
           {severity && <GuardSeverityBadge severity={severity} />}
-          <Link to={guardEditPath(rule.id)} className="ms-auto inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-edit-rule="">
+          <span className="ms-auto">
+            <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={guardRuleOut(rule)} hook="rule" />
+          </span>
+          <Link to={guardEditPath(rule.id)} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-edit-rule="">
             <Pencil className="h-3.5 w-3.5" aria-hidden />
             {t('rule.edit')}
           </Link>

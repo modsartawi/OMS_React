@@ -7,6 +7,8 @@ import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api
 import BlankLabel from '@/core/insurance-rules/BlankLabel'
 import { folderPaths, folderTree } from '@/core/insurance-rules/folders'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
+import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import { guardEditPath, type GuardRuleset, type Says } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import { nextGuardId } from '@/core/insurance-rules/guard-edit'
@@ -66,6 +68,11 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
               {t('fill.missing', { count: missing.length, n: fsi(String(missing.length)) })}
             </span>
           )}
+          <JsonButton
+            title={t('fill.json', { id: fsi(ruleId) })}
+            value={guardRuleOut(fillTemplate(template, values, { id: ruleId, folder: folder.trim() }))}
+            hook="fill"
+          />
           <Button variant="text" onClick={onClose} disabled={create.isPending} data-fill-cancel="">
             {t('fill.cancel')}
           </Button>

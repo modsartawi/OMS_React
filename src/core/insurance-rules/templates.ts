@@ -1,4 +1,4 @@
-import { guardRuleIn } from './guard-wire'
+import { guardRuleIn, guardRuleOut } from './guard-wire'
 import { requestListField, type GuardRule, type Says } from './model'
 
 // Guard templates (BackOffice spec 3126, door 3139; oms ticket 609). The gallery holds HQ's phase-1 templates
@@ -65,6 +65,15 @@ export const templateIn = (t: GuardTemplateReply): GuardTemplate => ({
   updatedBy: t.updatedBy || null,
   updatedAt: t.updatedAt || null,
 })
+
+/**
+ * A template as HQ stores it (656's JSON view): its rule back in the engine's spelling, without the id and state a
+ * template does not carry, and its blanks as paths.
+ */
+export function templateOut(t: GuardTemplate): Record<string, unknown> {
+  const { id: _id, state: _state, ...rule } = guardRuleOut(t.rule)
+  return { id: t.id, origin: t.origin, name: t.name, conflictCode: t.conflictCode, blanks: t.blanks.map((b) => b.path), rule }
+}
 
 /**
  * The id a rule's team template is saved under (`POST …/Templates` names it): `team-<rule id>`, letters, digits,

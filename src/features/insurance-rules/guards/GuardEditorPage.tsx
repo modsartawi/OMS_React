@@ -10,6 +10,8 @@ import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-ru
 import { checksVerdict, indexChecks, type GuardIssue } from '@/core/insurance-rules/checks'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorHistory, type EditorAction } from '@/core/insurance-rules/editor-history'
 import { editGuard, newGuardRule, nextGuardId } from '@/core/insurance-rules/guard-edit'
+import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardRulePath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
@@ -207,6 +209,7 @@ function Editor({
             </span>
           )}
           <div className="ms-auto flex flex-wrap items-center gap-2" data-toolbar="">
+            <JsonButton title={t('editor.json', { id: fsi(rule.id) })} value={guardRuleOut(rule)} hook="editor" />
             <Button variant="ghost" onClick={() => dispatch({ type: 'undo' })} disabled={!canUndo(h) || busy} data-undo="">
               <Undo2 className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
               {t('editor.undo')}

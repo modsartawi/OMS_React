@@ -10,11 +10,14 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { folderTree, inFolder } from '@/core/insurance-rules/folders'
 import { GUARD_NEW_PATH, guardRulePath, type GuardRuleRow } from '@/core/insurance-rules/model'
+import { guardDraftQuery } from '@/core/insurance-rules/api'
+import { guardRulesetOut } from '@/core/insurance-rules/guard-wire'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { formatCount } from '@/core/util/bidi'
+import { formatCount, fsi } from '@/core/util/bidi'
 import { guardFoldersQuery, guardsQuery } from './api'
 import { GUARDS_DEFAULT_COL_DEF, buildGuardColumns } from './columns'
 import FolderActions from './FolderActions' // 609
@@ -38,13 +41,29 @@ export default function GuardsPage() {
           <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
         </div>
-        <Link to={GUARD_NEW_PATH} className="ms-auto inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/85" data-new-guard="">
+        <span className="ms-auto">
+          <DraftJson />
+        </span>
+        <Link to={GUARD_NEW_PATH} className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/85" data-new-guard="">
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('list.new')}
         </Link>
       </header>
       <Guards />
     </section>
+  )
+}
+
+/** 656 — the whole guard draft as HQ stores it: every rule and item list, at its revision. */
+function DraftJson() {
+  const { t } = useTranslation('insurance-guards')
+  const draft = useQuery(guardDraftQuery())
+  return (
+    <JsonButton
+      title={t('list.json', { n: fsi(String(draft.data?.revision ?? 0)) })}
+      value={draft.data ? guardRulesetOut(draft.data) : undefined}
+      hook="draft"
+    />
   )
 }
 

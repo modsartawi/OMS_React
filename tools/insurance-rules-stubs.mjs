@@ -2163,3 +2163,62 @@ export function simulatorStub(method, path, body, opts = {}) {
   }
   return null
 }
+
+// --- 677 --- the rule playground's door (BackOffice spec 3243, door 3244 guard), as the BRIEF draws it (691 reconciles):
+//   POST InsuranceRules/Playground/Evaluate { kind, data | raw, document, asOf }
+//     → { errors: [{ path, message }] }                                  (a reader error: nothing else)
+//     | { errors: [], lines: [{ line, matched, trace: [{ ruleId, blockPath, value: "true|false|unknown", why }], reads: [] }],
+//         verdict: null, intake: null }
+// A tiny evaluator of `line` blocks (`field` + `above` / `atLeast` / `under`): enough to match, not match, and read
+// unknown. Any other `check` is a reader error at `rules[i].when[j].check`. Data with no `lines` array is the refusal
+// `PLAYGROUND_DATA_INVALID`. `opts.deny` with 'evaluate' answers a bare 403.
+
+export const newPlaygroundStore = () => ({ evaluates: [] })
+
+const PLAYGROUND_TESTS = { above: (v, n) => v > n, atLeast: (v, n) => v >= n, under: (v, n) => v < n }
+const PLAYGROUND_SIGN = { above: '>', atLeast: '≥', under: '<' }
+
+export function evaluatePlayground(body) {
+  const rules = Array.isArray(body?.document?.rules) ? body.document.rules : []
+  const errors = []
+  rules.forEach((r, i) =>
+    (r?.when ?? []).forEach((b, j) => {
+      if (b?.check !== 'line') errors.push({ path: `rules[${i}].when[${j}].check`, message: `Unknown check "${b?.check}".` })
+    }),
+  )
+  if (errors.length) return { errors }
+  const lines = (body.data.lines ?? []).map((l, k) => {
+    const trace = []
+    let matched = false
+    for (const r of rules) {
+      let all = true
+      ;(r.when ?? []).forEach((b, j) => {
+        const test = Object.keys(PLAYGROUND_TESTS).find((t) => b[t] !== undefined)
+        const v = l?.[b.field]
+        let value = 'unknown'
+        let why = `${b.field} is not on the line`
+        if (typeof v === 'number' && test) {
+          value = String(PLAYGROUND_TESTS[test](v, b[test]))
+          why = `${b.field} ${v} ${value === 'true' ? '' : 'not '}${PLAYGROUND_SIGN[test]} ${b[test]}`
+        }
+        if (value !== 'true') all = false
+        trace.push({ ruleId: r.id, blockPath: `when[${j}]`, value, why })
+      })
+      if (all && (r.when ?? []).length) matched = true
+    }
+    return { line: l?.line ?? k + 1, matched, trace, reads: [] }
+  })
+  return { errors: [], lines, verdict: null, intake: null }
+}
+
+export function playgroundStub(method, path, body, opts = {}) {
+  const { store = newPlaygroundStore(), deny = [] } = opts
+  if (method === 'POST' && path === 'InsuranceRules/Playground/Evaluate') {
+    store.evaluates.push(body)
+    if (deny.includes('evaluate')) return { status: 403, body: '' }
+    if (!Array.isArray(body?.data?.lines))
+      return envelope(null, { status: 400, success: false, message: 'The data has no lines to evaluate.', errorCode: 'PLAYGROUND_DATA_INVALID' })
+    return envelope(evaluatePlayground(body))
+  }
+  return null
+}

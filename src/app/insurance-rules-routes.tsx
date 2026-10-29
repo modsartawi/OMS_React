@@ -105,6 +105,12 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/coverage/CoveragePage')).default }),
     },
 
+    // 677 · the rule playground (BackOffice spec 3243; 678–690 build on its page, never a new route).
+    {
+      path: 'playground',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/playground/PlaygroundPage')).default }),
+    },
+
     // ── IDF priority (BackOffice spec 3157; oms 619–627) — every IDF leaf lives under `idf/*`, because
     // `/insurance-rules/exceptions` is 614's guard exceptions. One feature folder: `features/insurance-rules/idf/`.
 

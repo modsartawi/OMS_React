@@ -148,3 +148,5 @@ tools/.bby-loy-groups-shots/
 # Simulation loyalty-group picker drive screenshots (tools/sim-loy-groups-drive.mjs, ticket 637)
 tools/.sim-loy-groups-shots/
 tools/.loy-groups-shots/
+# Rule playground drive screenshots (tools/insurance-playground-drive.mjs, spec 3243 / tickets 677-690)
+tools/.insurance-playground-shots/

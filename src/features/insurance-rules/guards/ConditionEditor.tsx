@@ -29,7 +29,8 @@ import { saysIn } from '@/core/rules/sentence'
 import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
-import { CodeInput, CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
+import GuardFormulaBox from './GuardFormulaBox'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
 // to three levels, NOT on any condition — and a palette at the foot of every list to add a block. The pure
@@ -661,14 +662,8 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     case 'formula':
       return (
         <Field label={t('editor.field.formula')}>
-          <CodeInput
-            value={c.formula}
-            invalid={bad('formula')}
-            className="w-96"
-            title={t('editor.formulaHint')}
-            data-input="formula"
-            onValue={(s) => set((x) => ({ ...x, formula: s }), 'formula')}
-          />
+          {/* oms 657: the guided ƒx helper; typing coalesces into one step, an insert is a step of its own. */}
+          <GuardFormulaBox value={c.formula} invalid={bad('formula')} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
         </Field>
       )
     default:

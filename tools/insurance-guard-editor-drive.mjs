@@ -19,7 +19,10 @@
 //   6. Undo / Redo step the draft; the placeholder chip types `{name}` at the caret; no `{lastStore}` chip;
 //   7. Save PUTs the WHOLE draft with its revision; the saved rule's conditions ARE G-007's; the page moves to
 //      the rule's edit URL with nothing unsaved; a stale revision says so and offers a reload;
-//   8. no raw keys and no page errors.
+//   8. no raw keys and no page errors;
+//  10. (oms 657) the ƒx helper on a formula block: Fields grouped Patient / Request / Line / Eligibility, a
+//      field and an operator go in at the caret, a keyed eligibility field leaves `<code>` selected for the
+//      code typed over it, a recipe writes the whole formula, and the formula is stored as the engine's expr.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. node tools/insurance-guard-editor-drive.mjs        (DRIVE_PORT overrides 5201)
@@ -259,6 +262,60 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 9. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+
+  // ── 10: the ƒx helper on a formula block (oms 657) ───────────────────────────────────────────────
+  {
+    const { context, page, errors, store } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/guards/new`)
+    await page.locator('[data-audience-editor]').waitFor({ timeout: 30000 })
+    await input(page, 'name.en').fill('Child with a large quantity')
+    await input(page, 'name.ar').fill('طفل بكمية كبيرة')
+    await add(page, '', 'formula')
+    await block(page, '0').waitFor()
+    const box = block(page, '0').locator('[data-fx-input]')
+    const fx = block(page, '0').locator('[data-fx-helper]')
+    await block(page, '0').locator('[data-fx-toggle]').click()
+    await fx.waitFor({ timeout: 5000 })
+    check(`${dir} 10. ƒx opens the helper under the formula box`, (await block(page, '0').locator('[data-fx-toggle]').getAttribute('aria-expanded')) === 'true')
+    const groups = await fx.locator('[data-fx-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-group')))
+    check(`${dir} 10. Fields grouped Patient / Request / Line / Eligibility`, JSON.stringify(groups) === JSON.stringify(['patient', 'request', 'line', 'eligibility']), JSON.stringify(groups))
+    check(`${dir} 10. each field wears its type badge`, (await fx.locator('[data-fx-item="line.price"] [data-fx-type="money"]').count()) === 1 && (await fx.locator('[data-fx-item="eligibility.coverage.inForce"] [data-fx-type="bool"]').count()) === 1)
+    check(`${dir} 10. no date path is offered (the engine reads dates in a block only)`, (await fx.locator('[data-fx-item="line.supplyEndsOn"], [data-fx-item="eligibility.coverage.periodEnd"]').count()) === 0)
+    await fx.locator('[data-fx-item="patient.age"]').click()
+    await fx.locator('[data-fx-op="<"]').click()
+    await page.keyboard.type('12')
+    check(`${dir} 10. a field and an operator go in at the caret`, (await box.inputValue()) === 'patient.age < 12', await box.inputValue())
+    await fx.locator('[data-fx-op="and"]').click()
+    await fx.locator('[data-fx-search]').fill('tob')
+    await fx.locator('[data-fx-item="eligibility.tob[<code>]"]').click()
+    const selected = await box.evaluate((el) => el.value.slice(el.selectionStart, el.selectionEnd))
+    check(`${dir} 10. a keyed field leaves <code> selected`, (await box.inputValue()) === 'patient.age < 12 and eligibility.tob[<code>]' && selected === '<code>', `${await box.inputValue()} / ${selected}`)
+    check(`${dir} 10. until its code is typed it does not read`, (await block(page, '0').locator('[data-fx-status="bad"]').count()) === 1 && (await box.getAttribute('aria-invalid')) === 'true')
+    await page.keyboard.type('PH')
+    await page.keyboard.press('End') // the caret is still inside the brackets: past them first
+    await fx.locator('[data-fx-op=">"]').click()
+    await page.keyboard.type('0')
+    check(`${dir} 10. the code typed over it reads`, (await box.inputValue()) === 'patient.age < 12 and eligibility.tob[PH] > 0' && (await block(page, '0').locator('[data-fx-status="ok"]').count()) === 1, await box.inputValue())
+    await fx.locator('[data-fx-tab="functions"]').click()
+    check(`${dir} 10. Functions: the guard's (in, if, round …), none that needs an item filter`, (await fx.locator('[data-fx-function="in"]').count()) === 1 && (await fx.locator('[data-fx-function="sum"], [data-fx-function="items"], [data-fx-function="count"]').count()) === 0)
+    await fx.locator('[data-fx-tab="recipes"]').click()
+    await fx.locator('[data-fx-use="childQuantity"]').click()
+    check(`${dir} 10. a recipe writes the whole formula`, (await box.inputValue()) === 'patient.age < 12 and line.quantity > 2', await box.inputValue())
+    await fx.locator('[data-fx-done]').click()
+    check(`${dir} 10. Done closes the helper`, (await block(page, '0').locator('[data-fx-helper]').count()) === 0)
+    check(`${dir} 10. no raw keys`, await noRawKeys(page))
+    await page.locator('[data-save]').click()
+    await page.waitForFunction(() => /\/guards\/G-\d+\/edit$/.test(location.pathname), null, { timeout: 15000 }).catch(() => {})
+    const saved = store.puts[0]?.rules.find((r) => r.name.en === 'Child with a large quantity')
+    check(
+      `${dir} 10. the formula is stored as the engine's expr`,
+      saved && canon(saved.when) === canon([{ check: 'formula', expr: ['and', ['<', '$patient.age', 12], ['>', '$line.quantity', 2]] }]),
+      canon(saved?.when),
+    )
+    check(`${dir} 10. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
 }
 
 await browser.close()

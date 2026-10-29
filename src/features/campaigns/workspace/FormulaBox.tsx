@@ -5,8 +5,10 @@ import type { CampaignRule, RuleExpr, RuleIssue } from '@/core/models/rule-campa
 import type { RuleFormulaExpect, RuleFormulaGuide } from '@/core/rules/formula-guide'
 import Ltr from '@/core/ui/Ltr'
 import { severityOf } from './checks'
+import FxToggle from '@/core/rules/fx-helper/FxToggle'
+import { useCaretInsert } from '@/core/rules/fx-helper/useCaretInsert'
 import FxHelper from './FxHelper'
-import { boxOf, insertAtCursor, readBox, type Chip, type Selection } from './fx'
+import { boxOf, readBox } from './fx'
 import Input from '@/core/ui/Input'
 
 export interface FormulaBoxProps {
@@ -38,9 +40,6 @@ export interface FormulaBoxProps {
 export default function FormulaBox({ id, value, onChange, expect, rule, valueKey = null, issues, guide, label, data }: FormulaBoxProps) {
   const { t } = useTranslation('campaign-workspace')
   const [open, setOpen] = useState(false)
-  const input = useRef<HTMLInputElement>(null)
-  const selection = useRef<Selection | null>(null)
-  const caretAfter = useRef<number | null>(null)
   const stored = boxOf(value, rule)
   /** The text as typed, while it differs from what is stored (it may not read yet). */
   const [typed, setTyped] = useState<string | null>(null)
@@ -68,39 +67,14 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored.text])
 
-  useEffect(() => {
-    const el = input.current
-    const caret = caretAfter.current
-    if (!el || caret === null) return
-    caretAfter.current = null
-    el.focus()
-    el.setSelectionRange(caret, caret)
-    selection.current = { start: caret, end: caret }
-  }, [text])
-
   const write = (next: string, keystroke: boolean) => {
     setTyped(next)
     const r = readBox(next, stored.json, rule)
     if (r.ok && JSON.stringify(r.expr) !== storedJson) onChange(r.expr, keystroke)
   }
 
-  const remember = () => {
-    const el = input.current
-    if (el && el.selectionStart !== null && el.selectionEnd !== null) selection.current = { start: el.selectionStart, end: el.selectionEnd }
-  }
-
-  const insert = (chip: Chip, replaceAll = false) => {
-    const at = replaceAll ? { start: 0, end: text.length } : selection.current
-    const next = insertAtCursor(text, at, chip)
-    caretAfter.current = next.caret
-    if (next.formula === text) {
-      input.current?.focus()
-      input.current?.setSelectionRange(next.caret, next.caret)
-      caretAfter.current = null
-      return
-    }
-    write(next.formula, false)
-  }
+  // An insert is a step of its own, not a keystroke.
+  const { input, remember, track, insert } = useCaretInsert(text, (next) => write(next, false))
 
   const statusId = `${id}-status`
   return (
@@ -120,7 +94,7 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
           aria-describedby={statusId}
           onChange={(e) => {
             write(e.target.value, true)
-            selection.current = { start: e.target.selectionStart ?? e.target.value.length, end: e.target.selectionEnd ?? e.target.value.length }
+            track(e)
           }}
           onSelect={remember}
           onKeyUp={remember}
@@ -129,21 +103,7 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
           data-fx-input=""
         />
         {!stored.json && (
-          <button
-            type="button"
-            className={
-              'inline-grid h-7 min-w-7 shrink-0 place-items-center rounded-full border px-2 font-serif text-sm font-semibold italic transition-colors ' +
-              (open ? 'border-primary bg-primary-050 text-primary-800' : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground')
-            }
-            aria-expanded={open}
-            aria-label={t('fx.toggle')}
-            title={t('fx.toggle')}
-            onMouseDown={remember}
-            onClick={() => setOpen((o) => !o)}
-            data-fx-toggle=""
-          >
-            {t('fx.symbol')}
-          </button>
+          <FxToggle ns="campaign-workspace" open={open} onToggle={() => setOpen((o) => !o)} onMouseDown={remember} />
         )}
       </div>
       {!reading.ok && reading.underline && (

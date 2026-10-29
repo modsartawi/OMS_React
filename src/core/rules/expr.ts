@@ -12,6 +12,10 @@ import type { RuleExpr } from '@/core/models/rule-campaign'
 //   'G'                 a text
 //   true  false
 //   session.total       a path: "$session.total"; a bare name is a named value: back → "$back"
+//   eligibility.benefit[GEN].copayPct, eligibility.tob[PHARM]
+//                       a path segment may carry one bracketed key (oms 657: the guard's eligibility
+//                       keys, `GuardEligibilityKeys`); a key holds no space, quote, bracket, comma,
+//                       parenthesis or < > — so a `<code>` placeholder never reads
 //   items('Eligible')   a filter of the rule, by its current name: ["items", "<filter id>"]
 //   a + b  a >= b  a and b  not a  -a      infix and prefix: ["+", a, b], ["not", a], ["-", 0, a]
 //   min(a, b)           any call: ["min", a, b]
@@ -39,6 +43,11 @@ const BP: Record<string, number> = { or: 1, and: 2, '>': 3, '>=': 3, '<': 3, '<=
 /** Above every infix operator: a prefix binds tighter than any of them. */
 const PREFIX_BP = 6
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/
+/** A bracketed key of a path segment (`benefit[GEN]`): what the tokenizer reads, and so what a path may print. */
+const KEY = String.raw`\[[^\[\]\s'"<>(),]+\]`
+const SEGMENT = String.raw`[A-Za-z_][A-Za-z0-9_]*(?:${KEY})?`
+/** A path as it prints: dotted segments, each with at most one bracketed key. */
+const PATH = new RegExp(String.raw`^${SEGMENT}(?:\.${SEGMENT})*$`)
 const KEYWORDS = new Set(['and', 'or', 'not', 'true', 'false'])
 /** The words the language keeps for itself: a name spelled like one cannot be read back. */
 export const EXPR_KEYWORDS: ReadonlySet<string> = KEYWORDS
@@ -65,7 +74,7 @@ function printText(s: string): string {
 
 function printPath(s: string): string {
   const name = s.slice(1)
-  if (!IDENT.test(name) || KEYWORDS.has(name)) fail()
+  if (!PATH.test(name) || KEYWORDS.has(name)) fail()
   return name
 }
 
@@ -141,7 +150,7 @@ const problem = (code: ExprProblem['code'], at: number, token?: string): never =
 
 function tokens(s: string): Token[] {
   const out: Token[] = []
-  const re = /(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_.]*)|('[^']*')|(>=|<=|==|!=|[-+*/(),:<>])/y
+  const re = new RegExp(String.raw`(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_.]*(?:${KEY}(?:\.[A-Za-z_][A-Za-z0-9_.]*)?)*)|('[^']*')|(>=|<=|==|!=|[-+*/(),:<>])`, 'y')
   let pos = 0
   for (;;) {
     while (pos < s.length && /\s/.test(s[pos])) pos++
@@ -244,7 +253,7 @@ export function parseExpr(text: string, ctx: ExprContext): ExprRead {
         if (t.v === 'false') return false
         if (t.v === 'and' || t.v === 'or') return problem('unexpected', t.at, t.v)
         if (isOp('(')) {
-          if (t.v.includes('.')) problem('unexpected', t.at, t.v)
+          if (t.v.includes('.') || t.v.includes('[')) problem('unexpected', t.at, t.v)
           const open = toks[i].at
           i++
           const args: Arg[] = []

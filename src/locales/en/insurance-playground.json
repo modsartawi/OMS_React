@@ -52,5 +52,47 @@
       "false": "False",
       "unknown": "Unknown"
     }
+  },
+  "reads": {
+    "title": "What the engine read",
+    "none": "The door sent no read log for this run, so the explanation reads from the trace alone.",
+    "line": "Line {{n}}",
+    "lineNone": "The engine read no fact on this line.",
+    "rule": "Rule",
+    "block": "Block",
+    "fact": "Fact",
+    "value": "Value",
+    "missing": "Missing",
+    "unknown": "Unknown",
+    "derived": "Derived",
+    "wholeRequest": "Whole request",
+    "wholeRequestHint": "An eligibility fact belongs to the whole request: the same value on every line.",
+    "noLiveSource": "No live source: reads unknown at the till",
+    "notA": {
+      "number": "Not a number",
+      "date": "Not a date",
+      "flag": "Not a yes or no",
+      "text": "Not text",
+      "any": "Did not parse"
+    }
+  },
+  "explain": {
+    "title": "Explain this result",
+    "matched": "On line {{line}}, rule {{rule}} matched: every block held.",
+    "false": "On line {{line}}, rule {{rule}} did not match because block {{block}} was false.",
+    "unknown": "On line {{line}}, rule {{rule}} did not match because block {{block}} was unknown.",
+    "why": "The engine said: {{why}}.",
+    "missing": "It was unknown because {{path}} was missing.",
+    "unparsed": "It was unknown because {{path}} read {{raw}}, which did not parse.",
+    "unparsedAs": {
+      "number": "It was unknown because {{path}} read {{raw}}, which is not a number.",
+      "date": "It was unknown because {{path}} read {{raw}}, which is not a date.",
+      "flag": "It was unknown because {{path}} read {{raw}}, which is not a yes or no.",
+      "text": "It was unknown because {{path}} read {{raw}}, which is not text."
+    },
+    "nothingMatched": "No line met a rule’s whole condition.",
+    "noLines": "The data had no lines, so the engine read nothing.",
+    "lineNoTrace": "On line {{line}}, the engine read no block.",
+    "noReads": "The door sent no read log, so this explanation reads from the trace alone."
   }
 }

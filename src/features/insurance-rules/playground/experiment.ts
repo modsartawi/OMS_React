@@ -1,7 +1,7 @@
 import type { PlaygroundDocument, PlaygroundEvaluateBody, PlaygroundKind } from '@/core/insurance-rules/playground'
 
 // One experiment as the 677 page holds it: the Data box (the door's `data`, engine shape) and the Rule box (the scratch
-// `document`), both JSON text. Pure. 678 adds the kind picker and "as of"; 682 the form ⇄ JSON; 687 the codec.
+// `document`), both JSON text. Pure. 678 adds the kind seeds (`kindSeed`); 682 the form ⇄ JSON; 687 the codec.
 
 /** The box a problem is in. */
 export type ExperimentBox = 'data' | 'document'
@@ -40,6 +40,57 @@ export const SEED_DOCUMENT: PlaygroundDocument = {
 const pretty = (v: unknown) => JSON.stringify(v, null, 2)
 export const SEED_DATA_TEXT = pretty(SEED_DATA)
 export const SEED_DOCUMENT_TEXT = pretty(SEED_DOCUMENT)
+
+// ── The kind seeds (678) ──────────────────────────────────────────────────────────────────
+// Switching the kind seeds that kind's starter: a document of that kind with one example rule (example DATA, not
+// copy), and the example data. A coverage experiment's data carries the engine's `payer` block (CoveragePayer:
+// the deductible the payer stated per group); its spelling is the brief's guess until 3245 / 691.
+
+/** GUESS (691): the engine's CoveragePayer — per deductible group the payer's own percent and maximum. */
+export const SEED_COVERAGE_PAYER = {
+  deductibles: { G1: { percent: 20, max: 50 }, G2: { percent: 30, max: 100 }, G3: { percent: null, max: null } },
+}
+
+export const SEED_COVERAGE_DOCUMENT: PlaygroundDocument = {
+  schema: 1,
+  kind: 'coverage',
+  revision: 0,
+  fields: [],
+  lists: [],
+  rules: [
+    {
+      id: 'C-1',
+      name: { en: 'One pack on a long supply', ar: 'عبوة واحدة للصرف الطويل' },
+      when: [{ check: 'line', field: 'daysSupply', above: 90 }],
+      then: [{ effect: 'quantityCap', value: 1 }],
+    },
+  ],
+}
+
+export const SEED_CATEGORY_DOCUMENT: PlaygroundDocument = {
+  schema: 1,
+  kind: 'category',
+  revision: 0,
+  fields: [],
+  lists: [],
+  rules: [
+    {
+      id: 'K-1',
+      name: { en: 'Long supply counts as brand', ar: 'الصرف الطويل يحسب علامة تجارية' },
+      when: [{ check: 'line', field: 'daysSupply', above: 90 }],
+      then: [{ effect: 'setCategory', group: 'G2' }],
+    },
+  ],
+}
+
+const SEEDS: Record<PlaygroundKind, { dataText: string; documentText: string }> = {
+  guard: { dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT },
+  coverage: { dataText: pretty({ ...SEED_DATA, payer: SEED_COVERAGE_PAYER }), documentText: pretty(SEED_COVERAGE_DOCUMENT) },
+  category: { dataText: SEED_DATA_TEXT, documentText: pretty(SEED_CATEGORY_DOCUMENT) },
+}
+
+/** The kind's starter boxes: its document and the example data. */
+export const kindSeed = (kind: PlaygroundKind) => SEEDS[kind]
 
 const parseObject = (text: string): { ok: true; value: unknown } | { ok: false } => {
   try {

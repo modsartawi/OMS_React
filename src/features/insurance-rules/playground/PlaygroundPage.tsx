@@ -1,78 +1,156 @@
-import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Play } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { localAsOf, type PlaygroundEvaluateBody } from '@/core/insurance-rules/playground'
+import { localAsOf, PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundEvaluateReply, type PlaygroundKind } from '@/core/insurance-rules/playground'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
-import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { playgroundApi } from './api'
-import { evaluateBody, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT, type ExperimentBox } from './experiment'
+import { evaluateBody, kindSeed } from './experiment'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
 import { outcomeView } from './outcome'
+import { asOfText, latestWins, RUN_DELAY_MS, type LatestWins, type RunSettle } from './run'
+import { verdictView } from './verdict'
 
 /**
- * Insurance rules ▸ Playground — `/insurance-rules/playground` (BackOffice spec 3243, door 3244; oms ticket 677).
+ * Insurance rules ▸ Playground — `/insurance-rules/playground` (BackOffice spec 3243, door 3244; oms tickets 677, 678).
  * Three panes: **Data** (the door's `data`, engine shape, as JSON) | **Rule** (a scratch mini-ruleset `document`, as
- * JSON) | **Outcome** (what the engine saw: matched lines or "nothing matched", and the trace). **Run** sends
- * `POST InsuranceRules/Playground/Evaluate` with `asOf` = local now. Writes nothing, never saves back.
+ * JSON) | **Outcome** (Tab A what the engine saw: matched lines or "nothing matched", and the trace; Tab B what the
+ * live check would say). Above them the experiment's **kind** (switching seeds that kind's rule and data) and its
+ * **"as of"**. About 500 ms after the last edit to the data, the rule, the kind or "as of", the experiment sends
+ * `POST InsuranceRules/Playground/Evaluate` by itself (678: no Run button); only the NEWEST request's answer is shown
+ * (`latestWins`), and the last good outcome stays while one is in flight. Writes nothing, never saves back.
  *
  * The page only wires the panes; each pane owns its drawing (`JsonPane`, `OutcomePane`) and the reply is read by the
- * pure `outcomeView`, so 678 (auto-run, kind, as of), 679 (editors beside the JSON) and 682 (form ⇄ JSON) each
- * replace one pane's insides without touching the others.
+ * pure `outcomeView` / `verdictView`, so 679 (editors beside the JSON) and 682 (form ⇄ JSON) each replace one pane's
+ * insides without touching the others.
  *
  * 🚩 UNGATED like the rest of the group (607 ruling): no probe answers the grant yet; a bare 403 is said in words. 691 gates it.
  */
 export default function PlaygroundPage() {
   const { t } = useTranslation('insurance-playground')
-  const [dataText, setDataText] = useState(SEED_DATA_TEXT)
-  const [documentText, setDocumentText] = useState(SEED_DOCUMENT_TEXT)
-  const [problems, setProblems] = useState<ExperimentBox[]>([])
-  const run = useMutation({ mutationFn: (body: PlaygroundEvaluateBody) => playgroundApi.evaluate(body) })
+  const [kind, setKind] = useState<PlaygroundKind>('guard')
+  const [dataText, setDataText] = useState(() => kindSeed('guard').dataText)
+  const [documentText, setDocumentText] = useState(() => kindSeed('guard').documentText)
+  // "As of": local now when the page opened; a cleared input falls back to that moment, never to a moving now.
+  const [openedAt] = useState(() => new Date())
+  const [asOfInput, setAsOfInput] = useState(() => localAsOf(openedAt))
+  const asOf = asOfText(asOfInput, openedAt)
 
-  const submit = () => {
-    const r = evaluateBody({ dataText, documentText, asOf: localAsOf(new Date()) })
-    setProblems(r.problems)
-    if (r.body) run.mutate(r.body)
+  const built = useMemo(() => evaluateBody({ dataText, documentText, asOf, kind }), [dataText, documentText, asOf, kind])
+  const [pending, setPending] = useState(false)
+  const [settled, setSettled] = useState<RunSettle<Answer> | null>(null)
+  const runner = useRef<LatestWins<PlaygroundEvaluateBody> | null>(null)
+
+  useEffect(() => {
+    const r = latestWins<PlaygroundEvaluateBody, Answer>({
+      delayMs: RUN_DELAY_MS,
+      run: async (body) => ({ kind: body.kind, reply: await playgroundApi.evaluate(body) }),
+      onStart: () => setPending(true),
+      onSettle: (s) => {
+        setPending(false)
+        setSettled(s)
+      },
+    })
+    runner.current = r
+    return () => {
+      r.dispose()
+      runner.current = null
+    }
+  }, [])
+  // Every edit restarts the window; JSON that does not parse sends nothing.
+  useEffect(() => runner.current?.edit(built.body), [built])
+
+  const pickKind = (k: PlaygroundKind) => {
+    if (k === kind) return
+    const seed = kindSeed(k)
+    setKind(k)
+    setDataText(seed.dataText)
+    setDocumentText(seed.documentText)
   }
+
+  const error = settled && !settled.ok ? settled.error : null
+  const answer = settled?.ok ? settled.value : null
 
   return (
     <section className="flex w-full flex-col gap-4" data-playground-page="">
-      <header className="flex flex-wrap items-start gap-3">
-        <div className="max-w-3xl">
-          <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
-        </div>
-        <Button variant="primary" className="ms-auto" onClick={submit} disabled={run.isPending} data-run="">
-          <Play className="h-4 w-4" aria-hidden />
-          {run.isPending ? t('run.running') : t('run.run')}
-        </Button>
+      <header className="max-w-3xl">
+        <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <JsonPane box="data" title={t('data.title')} hint={t('data.hint')} value={dataText} onChange={setDataText} invalid={problems.includes('data')} />
-        <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={problems.includes('document')} />
+      <div className="flex flex-wrap items-start gap-6" data-experiment-controls="">
+        <div className="flex flex-col gap-1">
+          <span id="playground-kind-label" className="text-xs font-medium text-muted-foreground">
+            {t('kind.label')}
+          </span>
+          <div role="group" aria-labelledby="playground-kind-label" aria-describedby="playground-kind-hint" className="flex gap-1" data-kind-picker={kind}>
+            {PLAYGROUND_KINDS.map((k) => (
+              <Chip key={k} on={k === kind} onClick={() => pickKind(k)} data-kind={k}>
+                {t(`kind.${k}`)}
+              </Chip>
+            ))}
+          </div>
+          <span id="playground-kind-hint" className="text-xs text-muted-foreground">
+            {t('kind.hint')}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="playground-as-of" className="text-xs font-medium text-muted-foreground">
+            {t('asOf.label')}
+          </label>
+          <Input
+            id="playground-as-of"
+            type="datetime-local"
+            step={1}
+            dir="ltr"
+            className="w-fit font-mono"
+            value={asOfInput}
+            onChange={(e) => setAsOfInput(e.target.value)}
+            aria-describedby="playground-as-of-hint"
+            data-as-of=""
+          />
+          <span id="playground-as-of-hint" className="flex flex-wrap gap-1 text-xs text-muted-foreground">
+            <span>{t('asOf.hint')}</span>
+            <span>{t('asOf.sent')}</span>
+            <span className="font-mono" data-as-of-sent={asOf}>
+              <Ltr>{asOf}</Ltr>
+            </span>
+          </span>
+        </div>
+      </div>
 
-        <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome">
-          <h2 className="text-base font-semibold tracking-tight">{t('outcome.title')}</h2>
-          {run.isError && isBareDenial(run.error) ? (
+      <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+        <JsonPane box="data" title={t('data.title')} hint={t('data.hint')} value={dataText} onChange={setDataText} invalid={built.problems.includes('data')} />
+        <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={built.problems.includes('document')} />
+
+        <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome" aria-busy={pending || undefined}>
+          <header className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold tracking-tight">{t('outcome.title')}</h2>
+            {pending && settled && (
+              <span className="ms-auto text-xs text-muted-foreground" role="status" data-running="">
+                {t('run.running')}
+              </span>
+            )}
+          </header>
+          {error && isBareDenial(error) ? (
             <DeniedCard ns="insurance-playground" hook="playground-denied" />
-          ) : run.isError ? (
-            <ErrorBanner className="p-3" title={t('outcome.refused')} message={apiErrorMessage(run.error, t('outcome.failed'))}>
-              {apiErrorCode(run.error) && (
-                <span className="text-xs" data-refusal-code={apiErrorCode(run.error)}>
-                  <Ltr>{apiErrorCode(run.error)}</Ltr>
+          ) : error ? (
+            <ErrorBanner className="p-3" title={t('outcome.refused')} message={apiErrorMessage(error, t('outcome.failed'))}>
+              {apiErrorCode(error) && (
+                <span className="text-xs" data-refusal-code={apiErrorCode(error)}>
+                  <Ltr>{apiErrorCode(error)}</Ltr>
                 </span>
               )}
             </ErrorBanner>
-          ) : run.isPending ? (
+          ) : answer ? (
+            <OutcomePane view={outcomeView(answer.reply)} verdict={verdictView(answer.kind, answer.reply?.verdict)} />
+          ) : pending ? (
             <Loading text={t('run.running')} />
-          ) : run.isSuccess ? (
-            <OutcomePane view={outcomeView(run.data)} />
           ) : (
             <p className="rounded-md border border-dashed border-border/60 p-4 text-sm text-muted-foreground" data-outcome-empty="">
               {t('outcome.empty')}
@@ -82,4 +160,10 @@ export default function PlaygroundPage() {
       </div>
     </section>
   )
+}
+
+/** One answer and the kind it was asked for (Tab B reads the verdict as that kind, not the picker's current one). */
+interface Answer {
+  kind: PlaygroundKind
+  reply: PlaygroundEvaluateReply | null
 }

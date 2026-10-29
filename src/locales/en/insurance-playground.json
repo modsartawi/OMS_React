@@ -1,12 +1,23 @@
 {
   "title": "Playground",
   "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is saved or published.",
+  "kind": {
+    "label": "Kind",
+    "guard": "Guard",
+    "coverage": "Coverage",
+    "category": "Category",
+    "hint": "Switching the kind starts its example rule and data."
+  },
+  "asOf": {
+    "label": "As of",
+    "hint": "The moment the engine evaluates at, in local time.",
+    "sent": "Sent as"
+  },
   "access": {
     "deniedTitle": "You do not have access to the playground",
     "deniedHint": "The playground needs the rule playground grant. Ask HQ to grant it."
   },
   "run": {
-    "run": "Run",
     "running": "Running…"
   },
   "data": {
@@ -25,12 +36,13 @@
   },
   "outcome": {
     "title": "Outcome",
-    "empty": "Press Run to see what the engine saw.",
+    "empty": "The outcome appears here shortly after an edit.",
     "failed": "The playground could not run this experiment.",
     "refused": "The playground refused this experiment",
     "tabs": {
       "label": "Outcome views",
-      "saw": "What the engine saw"
+      "saw": "What the engine saw",
+      "live": "What the live check would say"
     },
     "nothingMatched": "Nothing matched: no line met a rule's whole condition.",
     "matchedLines": "Matched lines:",
@@ -51,6 +63,63 @@
       "true": "True",
       "false": "False",
       "unknown": "Unknown"
+    }
+  },
+  "verdict": {
+    "none": "The live check said nothing for this experiment.",
+    "outcome": {
+      "label": "Outcome",
+      "pass": "Pass",
+      "refuse": "Refuse",
+      "override": "Override",
+      "warn": "Warn",
+      "exception": "Exception",
+      "unknown": "Not known"
+    },
+    "fired": {
+      "label": "Fired rules",
+      "none": "No rule fired."
+    },
+    "percent": "{{n}}%",
+    "coverage": {
+      "field": "Term",
+      "invoice": "Invoice",
+      "value": "Value",
+      "source": "Set by",
+      "yes": "Yes",
+      "no": "No",
+      "blank": "Not set",
+      "values": {
+        "covered": "Covered",
+        "priorApproval": "Prior approval",
+        "deductiblePercent": "Deductible %",
+        "deductibleMax": "Deductible maximum",
+        "priceCap": "Price cap",
+        "quantityCap": "Quantity cap",
+        "daysSupplyCap": "Days supply cap",
+        "segment": "Segment",
+        "exceptionPrescriptions": "Exception prescriptions"
+      },
+      "sources": {
+        "payer": "The payer",
+        "rule": "A rule (the payer said nothing)",
+        "ruleOverridesPayer": "A rule over the payer",
+        "none": "Nothing",
+        "unknown": "Not said"
+      }
+    },
+    "category": {
+      "line": "Line",
+      "category": "Category",
+      "group": "Group",
+      "source": "Set by",
+      "rule": "Rule",
+      "unknowns": "Could not decide",
+      "sources": {
+        "rule": "A category rule",
+        "default": "The item default",
+        "none": "Nothing"
+      }
     }
   }
 }

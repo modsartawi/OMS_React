@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3243 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3243-oms-react-rule-playground-brief.md; stories 3, 22, 23, 42, 44)
 blocked-by: 677
 ---
@@ -32,12 +32,12 @@ component (kind picker, as-of, tab B) · i18n (`insurance-playground`, en + ar) 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `latestWins` — of two in-flight runs, the older one's answer arriving last is dropped; edits inside the window
+- [x] `latestWins` — of two in-flight runs, the older one's answer arriving last is dropped; edits inside the window
       make one request — pure (fake timers)
-- [ ] `asOfText` — a local date-time prints as `yyyy-MM-ddTHH:mm:ss` with no `Z` and no offset; the default is now — pure
-- [ ] `verdictView` — guard, coverage and category verdicts each become their tab-B rows, and an absent verdict
+- [x] `asOfText` — a local date-time prints as `yyyy-MM-ddTHH:mm:ss` with no `Z` and no offset; the default is now — pure
+- [x] `verdictView` — guard, coverage and category verdicts each become their tab-B rows, and an absent verdict
       reads as none — pure
-- [ ] drive (extend `insurance-playground-drive.mjs`): type, wait, and the outcome refreshes with no Run; a stubbed
+- [x] drive (extend `insurance-playground-drive.mjs`): type, wait, and the outcome refreshes with no Run; a stubbed
       slow first reply is dropped; switch to category and see tab B's categories — flow
 
 ## Boundaries
@@ -52,3 +52,32 @@ tab B. Drive green; vitest green.
 ## Blocked by
 
 [677](677-a-guard-experiment-typed-as-json-runs-through-playground-evaluate-and-shows-the-matched-lines-or-nothing-matched-and-the-trace.md)
+
+## Comments
+
+- 2026-10-30 (678 built, branch `impl/3243-678`). vitest: `run.test.ts` (latestWins 6 + asOfText 3, fake timers),
+  `verdict.test.ts` (7), seeds in `experiment.test.ts` (+2), keys in `i18n-keys.test.ts` (+1). Drive
+  `tools/insurance-playground-drive.mjs` 116/116 (LTR + RTL; 677's steps now wait on the auto-run, no Run button).
+  Stub `// --- 678 ---` `playgroundVerdict(body, reply)` adds the verdict per kind; the slow reply is the drive's own
+  route delay (`slow` queue in `open()`), not a stub option. typecheck, lint, test, build green.
+- **Layout for later tickets:** `run.ts` — `latestWins({ delayMs, run, onStart, onSettle })` → `{ edit(body|null),
+  dispose() }` (latest-wins by a request sequence; `edit(null)` = JSON that does not parse: sends nothing, drops the
+  waiting body, keeps the last good outcome) and `asOfText(Date|string, now)`. `verdict.ts` — `verdictView(kind,
+  verdict)` → `none | guard | coverage | category`. `VerdictPane.tsx` draws it. `OutcomePane` takes `{ view, verdict }`
+  and owns the A/B tab state (`data-tab="saw" | "live"`); Tab A's insides (`Saw`, `ReaderErrors`) are untouched — a
+  reader error shows alone in BOTH tabs. `experiment.ts` — `kindSeed(kind)` (guard = 677's seed).
+  The page keeps `kind` and the answer's kind separately: Tab B reads the verdict as the kind it was ASKED for.
+- **Shape guesses for 691:** guard verdict `[{ line, outcome, fired: [{ ruleId, severity, en, ar }] }]` (3134's
+  `GuardCheckLine`; a fired rule as a bare id is read too); coverage `{ lines: [{ line, covered, priorApproval,
+  deductiblePercent, deductibleMax, priceCap, quantityCap, daysSupplyCap }], invoice: { segment,
+  exceptionPrescriptions } }`, each `{ value, source: payer|rule|ruleOverridesPayer|none, ruleId }` (BackOffice's
+  `CoverageLineReply`; a `deductible: { value: { percent, max } }` is unfolded, a bare value has no source);
+  category `[{ line, category | insuranceItemCategory, group, source: rule|default|none, ruleId, unknowns }]`. A list
+  may come bare or as `{ lines }`. Coverage `payer` seeded as `{ deductibles: { G1|G2|G3: { percent, max } } }`
+  (the engine's `CoveragePayer.Deductibles`) — a guess. The category seed's data has no item default category: 3245
+  says it "comes from the experiment's data" but names no field.
+- **Decisions (overrulable):** switching kind seeds a starter document with ONE example rule (C-1 quantity cap,
+  K-1 setCategory G2), not an empty `rules: []`, so Tab B has something to show; it overwrites both boxes. "As of"
+  defaults to the moment the page opened; a cleared input falls back to that moment (never a moving now, which would
+  re-run forever). A failure replaces the outcome until the next good answer; "running…" shows only once there is
+  something to keep. `run.run` ("Run") removed from both locales.

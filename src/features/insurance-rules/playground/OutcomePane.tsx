@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
@@ -7,26 +8,41 @@ import { fsi } from '@/core/util/bidi'
 import { TD, TH } from '@/core/insurance-rules/parts'
 import type { PlaygroundTraceValue } from '@/core/insurance-rules/playground'
 import type { LineView, OutcomeView } from './outcome'
+import type { VerdictView } from './verdict'
+import VerdictPane from './VerdictPane'
 
 const TAB_ID = 'playground-outcome-saw'
+const LIVE_TAB_ID = 'playground-outcome-live'
+export type OutcomeTab = 'saw' | 'live'
 
 /**
  * The Outcome pane (ticket 677): Tab A, "What the engine saw" — the matched lines (or "nothing matched") and each
- * line's trace; or, when the reader refused the document, only its errors. It draws a view model (`./outcome`)
- * and nothing of the raw reply. 678 adds Tab B (the verdict), 686 the read log and the explain paragraph.
+ * line's trace; or, when the reader refused the document, only its errors. Tab B (678), "What the live check would
+ * say" — the reply's verdict, drawn by `VerdictPane`. It draws view models (`./outcome`, `./verdict`) and nothing of
+ * the raw reply. 686 adds the read log and the explain paragraph to Tab A.
  */
-export default function OutcomePane({ view }: { view: OutcomeView }) {
+export default function OutcomePane({ view, verdict }: { view: OutcomeView; verdict: VerdictView }) {
   const { t } = useTranslation('insurance-playground')
+  const [tab, setTab] = useState<OutcomeTab>('saw')
   return (
     <div className="flex flex-col gap-3" data-outcome="">
       <div role="tablist" aria-label={t('outcome.tabs.label')} className="flex gap-1">
-        <Chip variant="tab" on aria-controls={TAB_ID} data-tab="saw">
+        <Chip variant="tab" on={tab === 'saw'} id={`${TAB_ID}-tab`} aria-controls={TAB_ID} onClick={() => setTab('saw')} data-tab="saw">
           {t('outcome.tabs.saw')}
         </Chip>
+        <Chip variant="tab" on={tab === 'live'} id={`${LIVE_TAB_ID}-tab`} aria-controls={LIVE_TAB_ID} onClick={() => setTab('live')} data-tab="live">
+          {t('outcome.tabs.live')}
+        </Chip>
       </div>
-      <div id={TAB_ID} role="tabpanel" className="flex flex-col gap-3">
-        {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <Saw matched={view.matched} lines={view.lines} />}
-      </div>
+      {tab === 'saw' ? (
+        <div id={TAB_ID} role="tabpanel" aria-labelledby={`${TAB_ID}-tab`} className="flex flex-col gap-3">
+          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <Saw matched={view.matched} lines={view.lines} />}
+        </div>
+      ) : (
+        <div id={LIVE_TAB_ID} role="tabpanel" aria-labelledby={`${LIVE_TAB_ID}-tab`} className="flex flex-col gap-3">
+          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <VerdictPane view={verdict} />}
+        </div>
+      )}
     </div>
   )
 }

@@ -247,3 +247,6 @@ export declare function simulatorStub(
 export declare function newPlaygroundStore(): { evaluates: unknown[] }
 export declare function evaluatePlayground(body: unknown): unknown
 export declare function playgroundStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null
+
+// --- 678 ---
+export declare function playgroundVerdict(body: unknown, reply: unknown): unknown

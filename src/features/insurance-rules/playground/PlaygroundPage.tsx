@@ -10,7 +10,9 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { playgroundApi } from './api'
-import { evaluateBody, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT, type ExperimentBox } from './experiment'
+import { DataPane } from './DataPane'
+import { evaluateBody, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT, type DataTab, type ExperimentBox } from './experiment'
+import { intakeView } from './intake'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
 import { outcomeView } from './outcome'
@@ -18,7 +20,7 @@ import { outcomeView } from './outcome'
 /**
  * Insurance rules ▸ Playground — `/insurance-rules/playground` (BackOffice spec 3243, door 3244; oms ticket 677).
  * Three panes: **Data** (the door's `data`, engine shape, as JSON) | **Rule** (a scratch mini-ruleset `document`, as
- * JSON) | **Outcome** (what the engine saw: matched lines or "nothing matched", and the trace). **Run** sends
+ * JSON, or a Raw text sent as it is — 684) | **Outcome** (what the engine saw: matched lines or "nothing matched", and the trace). **Run** sends
  * `POST InsuranceRules/Playground/Evaluate` with `asOf` = local now. Writes nothing, never saves back.
  *
  * The page only wires the panes; each pane owns its drawing (`JsonPane`, `OutcomePane`) and the reply is read by the
@@ -30,12 +32,14 @@ import { outcomeView } from './outcome'
 export default function PlaygroundPage() {
   const { t } = useTranslation('insurance-playground')
   const [dataText, setDataText] = useState(SEED_DATA_TEXT)
+  const [dataTab, setDataTab] = useState<DataTab>('json')
+  const [rawText, setRawText] = useState('')
   const [documentText, setDocumentText] = useState(SEED_DOCUMENT_TEXT)
   const [problems, setProblems] = useState<ExperimentBox[]>([])
   const run = useMutation({ mutationFn: (body: PlaygroundEvaluateBody) => playgroundApi.evaluate(body) })
 
   const submit = () => {
-    const r = evaluateBody({ dataText, documentText, asOf: localAsOf(new Date()) })
+    const r = evaluateBody({ dataText, documentText, asOf: localAsOf(new Date()), dataTab, rawText })
     setProblems(r.problems)
     if (r.body) run.mutate(r.body)
   }
@@ -54,7 +58,7 @@ export default function PlaygroundPage() {
       </header>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <JsonPane box="data" title={t('data.title')} hint={t('data.hint')} value={dataText} onChange={setDataText} invalid={problems.includes('data')} />
+        <DataPane tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={problems.includes('data')} />
         <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={problems.includes('document')} />
 
         <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome">
@@ -72,7 +76,7 @@ export default function PlaygroundPage() {
           ) : run.isPending ? (
             <Loading text={t('run.running')} />
           ) : run.isSuccess ? (
-            <OutcomePane view={outcomeView(run.data)} />
+            <OutcomePane view={outcomeView(run.data)} intake={intakeView(run.data?.intake)} />
           ) : (
             <p className="rounded-md border border-dashed border-border/60 p-4 text-sm text-muted-foreground" data-outcome-empty="">
               {t('outcome.empty')}

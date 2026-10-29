@@ -9,7 +9,7 @@ import ar from '@/locales/ar/insurance-playground.json'
 import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey, localeAt } from '@/core/test/locale'
-import type { ExperimentBox } from './experiment'
+import type { DataTab, ExperimentBox } from './experiment'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -17,6 +17,7 @@ function leaves(node: unknown, prefix = ''): string[] {
 }
 
 const BOXES: readonly ExperimentBox[] = ['data', 'document']
+const DATA_TABS: readonly DataTab[] = ['json', 'raw']
 
 describe('insurance-playground — en and ar mirror each other', () => {
   it('the same keys, and no plural family', () => {
@@ -40,6 +41,9 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'run.run',
       'run.running',
       ...BOXES.map((b) => `json.problem.${b}`),
+      // 684: the Data pane's tabs and the Raw experiment's intake report
+      ...['tabs.label', 'rawHint', ...DATA_TABS.map((k) => `tabs.${k}`)].map((k) => `data.${k}`),
+      ...['title', 'hint', 'ignored', 'didYouMean', 'refused', 'expected', 'read'].map((k) => `intake.${k}`),
       ...['true', 'false', 'unknown'].map((v) => `trace.value.${v}`),
       ...['title', 'empty', 'failed', 'refused', 'tabs.label', 'tabs.saw', 'nothingMatched', 'matchedLines', 'line', 'matched', 'notMatched', 'errors.title'].map((k) => `outcome.${k}`),
     ]

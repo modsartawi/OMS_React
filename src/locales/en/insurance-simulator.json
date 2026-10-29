@@ -67,7 +67,13 @@
         "G3": "NonMed"
       }
     },
-    "unknowns": "Could not decide (a fact is unknown):"
+    "unknowns": "Could not decide (a fact is unknown):",
+    "json": {
+      "request": "Request",
+      "reply": "Reply",
+      "requestTitle": "What was sent: POST InsuranceRules/Guards/Simulate",
+      "replyTitle": "What HQ answered: lines, fired guards, unknowns and the trace"
+    }
   },
   "outcome": {
     "pass": "Passes",

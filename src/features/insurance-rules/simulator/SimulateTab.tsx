@@ -20,6 +20,7 @@ import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { simulatorApi } from './api'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import CategoryNote from './CategoryNote'
 import { OutcomeBadge, TraceValueBadge } from './parts'
 import {
@@ -56,7 +57,7 @@ export default function SimulateTab() {
   const [problems, setProblems] = useState<SimProblem[]>([])
   const [asked, setAsked] = useState<SimulateBody | null>(null)
   const draft = useQuery(guardDraftQuery())
-  const run = useMutation({ mutationFn: (body: SimulateBody) => simulatorApi.simulate(body) })
+  const run = useMutation({ mutationFn: (body: SimulateBody) => simulatorApi.simulateWithReply(body) })
 
   const set = (patch: Partial<SimForm>) => setForm((f) => ({ ...f, ...patch }))
   const setLine = (i: number, patch: Partial<SimLineForm>) => setForm((f) => ({ ...f, lines: f.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }))
@@ -186,7 +187,7 @@ export default function SimulateTab() {
       ) : run.isPending ? (
         <Loading text={t('form.running')} />
       ) : run.data && asked ? (
-        <Result result={run.data} asked={asked} draft={draft.data ?? null} />
+        <Result result={run.data.result} reply={run.data.reply} asked={asked} draft={draft.data ?? null} />
       ) : (
         <p className="rounded-md border border-dashed border-border/60 p-4 text-sm text-muted-foreground" data-sim-empty="">
           {t('result.empty')}
@@ -214,11 +215,22 @@ function Problem({ p }: { p: SimProblem }) {
   )
 }
 
-function Result({ result, asked, draft }: { result: SimulateResult; asked: SimulateBody; draft: Parameters<typeof lineRules>[1] }) {
+function Result({ result, reply, asked, draft }: { result: SimulateResult; reply: unknown; asked: SimulateBody; draft: Parameters<typeof lineRules>[1] }) {
   const { t } = useTranslation('insurance-simulator')
   return (
     <section className="flex flex-col gap-3" data-sim-result="">
-      <h2 className="text-base font-semibold tracking-tight">{t('result.title')}</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold tracking-tight">{t('result.title')}</h2>
+        {/* 660 — what was sent to HQ and what HQ answered, as they went over the wire. */}
+        <span className="ms-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+          {t('result.json.request')}
+          <JsonButton title={t('result.json.requestTitle')} value={asked} hook="sim-request" />
+        </span>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          {t('result.json.reply')}
+          <JsonButton title={t('result.json.replyTitle')} value={reply ?? null} hook="sim-reply" />
+        </span>
+      </div>
       {result.lines.map((line, i) => {
         const n = line.line ?? i + 1
         return <LineResult key={n} n={n} item={asked.request.lines.find((l) => l.line === n)?.item ?? ''} line={line} draft={draft} asked={asked} />

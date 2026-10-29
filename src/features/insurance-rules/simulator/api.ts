@@ -24,7 +24,12 @@ export function simulateIn(r: SimulateResult | null | undefined): SimulateResult
 export const simulatorApi = {
   /** `POST InsuranceRules/Guards/Simulate` `{ request, patientKey, document? }` → per-line outcome, fired rules, unknowns and the trace. Writes nothing. */
   async simulate(body: SimulateBody): Promise<SimulateResult> {
-    return simulateIn(await api.post<SimulateResult | null>(`${GUARDS}/Simulate`, body))
+    return (await simulatorApi.simulateWithReply(body)).result
+  },
+  /** The same call, keeping HQ's reply as it came (660: the screen shows the request and the reply as JSON). */
+  async simulateWithReply(body: SimulateBody): Promise<{ result: SimulateResult; reply: unknown }> {
+    const reply = await api.post<SimulateResult | null>(`${GUARDS}/Simulate`, body)
+    return { result: simulateIn(reply), reply }
   },
   /** `POST InsuranceRules/Guards/Backtests` `{ days }` → the back-test of the saved draft (queued, or the one already running for it). */
   startBacktest(days: BacktestDays): Promise<GuardBacktest> {

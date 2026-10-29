@@ -46,6 +46,8 @@ import type {
   ReplayResult,
   ReplayRow,
   RePushResponse,
+  ScriptDetail,
+  SentScripts,
   StoreAgreement,
   StoreCounters,
   StoreDetail,
@@ -77,14 +79,17 @@ import {
   normaliseFleet,
   normaliseLastHour,
   normaliseStoreHours,
+  normaliseStoreScripts,
   normaliseWorkers,
   withMirrorLane,
   type WireLastHour,
   type WireStoreDetail,
   type WireStoreHours,
   type WireStoreRow,
+  type WireStoreScripts,
   type WireWorkers,
 } from './wire'
+import { SCRIPTS_PAGE_SIZE } from './scripts-helpers'
 
 /**
  * The ONE cache key the Admin menu leaf and the console's own in-page gate share, so
@@ -204,7 +209,7 @@ export const syncConsoleApi = {
 
   /** `GET ActionSync/Store/Scripts?code=` → the store's scripts. The SQL is never on the wire. */
   storeScripts(code: string): Promise<StoreScripts> {
-    return api.get<StoreScripts>('ActionSync/Store/Scripts', { code })
+    return api.get<WireStoreScripts>('ActionSync/Store/Scripts', { code }).then(normaliseStoreScripts)
   },
 
   /** `GET ActionSync/Store/Location?code=` → the sync location, never its credentials. */
@@ -411,6 +416,21 @@ export const syncConsoleApi = {
    */
   enrolObject(body: EnrolObjectRequest): Promise<EnrolObjectResponse> {
     return api.post<EnrolObjectResponse>('ActionSync/Objects/Enrol', body)
+  },
+
+  // ── Store scripts (ticket 663, BackOffice spec 3202 D11, door 3207 — not built; the drive stubs it) ──
+
+  /** `GET ActionSync/Scripts` (`ActionSync.Health.View`) → the sent store scripts, paged, newest first. */
+  scripts(page: number): Promise<SentScripts> {
+    return api.get<SentScripts>('ActionSync/Scripts', { page: Math.max(1, Math.floor(page)), pageSize: SCRIPTS_PAGE_SIZE })
+  },
+
+  /**
+   * `GET ActionSync/Scripts/Detail?scriptId=` (`Health.View`) → the header and each store's row.
+   * `sql` is the SQL only for a holder of `ActionSync.RunStoreScript`, and `null` otherwise.
+   */
+  scriptDetail(scriptId: string): Promise<ScriptDetail> {
+    return api.get<ScriptDetail>('ActionSync/Scripts/Detail', { scriptId })
   },
 }
 
@@ -657,4 +677,23 @@ export const OBJECTS_KEY = ['sync-console', 'objects'] as const
 export const pushObjectsQuery = () => ({
   queryKey: OBJECTS_KEY,
   queryFn: () => syncConsoleApi.pushObjects(),
+})
+
+/**
+ * The Scripts page's reads share this prefix (ticket 663), so 664's Send, Withdraw and Retry
+ * re-read the list and the open detail with one invalidation.
+ */
+export const SCRIPTS_KEY = ['sync-console', 'scripts'] as const
+
+/** A store script runs on each store's next visit, so the list rides the console's refresh while it is open. */
+export const scriptsQuery = (page: number) => ({
+  queryKey: [...SCRIPTS_KEY, 'list', page] as const,
+  queryFn: () => syncConsoleApi.scripts(page),
+  ...refresh,
+})
+
+export const scriptDetailQuery = (scriptId: string) => ({
+  queryKey: [...SCRIPTS_KEY, 'detail', scriptId] as const,
+  queryFn: () => syncConsoleApi.scriptDetail(scriptId),
+  ...refresh,
 })

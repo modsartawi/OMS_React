@@ -429,11 +429,21 @@ export interface PassDetail {
   items: PassDetailLine[]
 }
 
-/** One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire. */
+/**
+ * One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire.
+ * Spec BackOffice 3202 D11 (door 3207) adds `title`, `attempts` and `state`; a door older than
+ * 3207 leaves them out and the client reads them as `null` (the feature's `wire.ts`).
+ */
 export interface StoreScript {
   scriptId: string
-  /** Always `null` for now: HQ records no creation time for a script (2539). */
+  /** The sent time (`ActionSyncScript.SentAt`); `null` for a legacy script, or on a door older than 3207. */
   createdAt: string | null
+  /** `null` for a legacy script (no `ActionSyncScript` row), or on a door older than 3207. */
+  title: string | null
+  /** The store's attempts so far; `null` on a door older than 3207. */
+  attempts: number | null
+  /** The derived state (`ScriptState`); `null` on a door older than 3207, which then reads `isExecuted`. */
+  state: string | null
   isExecuted: boolean
   lastAttempt: string | null
   errorMessage: string | null
@@ -1017,4 +1027,58 @@ export interface EnrolObjectResponse {
   storesEnrolled: number
   /** The `EnrolObject` audit row; `null` in a preview. */
   auditId: string | null
+}
+
+// ── Store scripts (BackOffice spec 3202 D11, door 3207; ticket 663) ─────────────────────────
+
+/**
+ * A store's state for one store script, derived by HQ and never stored (spec 3202 D6):
+ * `executed`; `withdrawn` (not executed); `exhausted` (used up its attempts); `retrying` (failed,
+ * will try again); `pending` (anything else). 🚩 Wire casing guessed lowercase: the door is not built.
+ */
+export type ScriptState = 'executed' | 'pending' | 'retrying' | 'exhausted' | 'withdrawn'
+
+/**
+ * One row of `GET ActionSync/Scripts` (`ActionSync.Health.View`), paged, newest first. A script
+ * with no `ActionSyncScript` row is legacy: no sender, no time, and send/withdraw/retry do not
+ * apply to it.
+ */
+export interface SentScript {
+  scriptId: string
+  title: string | null
+  sentBy: string | null
+  sentAt: string | null
+  /** `all` | `chosen` (spec 3202 D2); `null` for a legacy script. */
+  targetMode: string | null
+  storeCount: number
+  executed: number
+  pending: number
+  retrying: number
+  exhausted: number
+  withdrawn: number
+  withdrawnAt: string | null
+  isLegacy: boolean
+}
+
+export type SentScripts = Paged<SentScript>
+
+/** One store's row of a script's detail. */
+export interface ScriptStoreRow {
+  code: string
+  description: string
+  state: string
+  attempts: number
+  lastAttempt: string | null
+  errorMessage: string | null
+}
+
+/**
+ * `GET ActionSync/Scripts/Detail?scriptId=` — the header and the per-store rows. 🚩 `sql` is sent
+ * only to a holder of `ActionSync.RunStoreScript`; for a `Health.View`-only holder it is `null`,
+ * and the screen then shows no SQL at all. Shape guessed flat (header fields + `stores` + `sql`):
+ * the door is not built.
+ */
+export interface ScriptDetail extends SentScript {
+  stores: ScriptStoreRow[]
+  sql: string | null
 }

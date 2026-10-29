@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3202 (D14: the screen lives in this console); doors BackOffice 3203, 3207
 blocked-by: BackOffice 3207
 ---
@@ -23,11 +23,11 @@ ui · api client · test · drive (stubbed)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `scripts-helpers.test.ts`: the state counts' labels, the legacy title, and the detail's state ordering
+- [x] `scripts-helpers.test.ts`: the state counts' labels, the legacy title, and the detail's state ordering
       (exhausted first)
-- [ ] `tools/sync-console-scripts-drive.mjs` (stubbed): the list, the detail, SQL absent when the door sends `null`,
+- [x] `tools/sync-console-scripts-drive.mjs` (stubbed): the list, the detail, SQL absent when the door sends `null`,
       and the store page's Scripts tab fields
-- [ ] `npm run typecheck`, `npm test`, `npm run lint`
+- [x] `npm run typecheck`, `npm test`, `npm run lint`
 
 ## Boundaries
 
@@ -40,3 +40,21 @@ The proofs above hold.
 ## Blocked by
 
 BackOffice [3207](C:/Work/DMSCO/BackOffice/.issues/3207-the-console-lists-sent-store-scripts-with-their-state-counts-and-only-a-grant-holder-reads-the-sql.md)
+
+## Done (2026-10-29) — stubbed; live waits on BackOffice 3207
+
+- `ScriptsPage` (`/admin/sync/scripts`, nav after Objects) off `GET ActionSync/Scripts?page=&pageSize=50`; a title
+  opens `ScriptDetailModal` off `GET ActionSync/Scripts/Detail?scriptId=` — header, SQL in a read-only `<pre>` only when
+  `sql` is a string (else a one-line note, never the text), per-store rows with the exhausted first
+  (`orderScriptStores`: exhausted, retrying, pending, withdrawn, executed, unknown last; door order kept within).
+- Store page Scripts tab: Title (legacy = "untitled (legacy)"), Sent at, State (the door's derived state; an older door
+  with no `state` still reads Executed / Failed / Not run), Attempts. `wire.normaliseStoreScripts` fills a pre-3207 door.
+- Proof: `scripts-helpers.test.ts` 14 + `wire.test.ts` +2 (mutation-checked); drive **36/36 stubbed**;
+  typecheck, vitest, lint 5/5, build green.
+- 🚩 Contract guesses (the doors are not built and the contract does not list them yet): state values lowercase
+  (`executed|pending|retrying|exhausted|withdrawn`), `targetMode` `all|chosen` (read case-insensitively), the detail
+  flat (header fields + `stores[]` + `sql`), the list paged by `page`/`pageSize`. The legacy title is the bundle's
+  words, never the door's string.
+- For 664: the list has no control column yet; the detail's footer and `buildScriptStoreColumns` are where Withdraw /
+  Retry all and the per-row Retry go; `SCRIPTS_KEY` invalidates list + detail together. `canRunScripts` is not yet on
+  the access model.

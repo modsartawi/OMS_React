@@ -281,13 +281,15 @@
     "loading": "Loading scripts…",
     "loadFailed": "The scripts could not be loaded.",
     "empty": "This store has no scripts.",
-    "note": "Scripts are read only here: they are written outside the console, and their SQL is never shown.",
+    "note": "Store scripts are read only here: they are sent from the console's Scripts page, and their SQL is never shown on this tab.",
     "executed": "Executed",
     "failed": "Failed",
     "notExecuted": "Not run yet",
     "columns": {
       "scriptId": "Script",
-      "createdAt": "Created",
+      "title": "Title",
+      "createdAt": "Sent at",
+      "attempts": "Attempts",
       "isExecuted": "State",
       "lastAttempt": "Last attempt",
       "errorMessage": "Error"
@@ -318,7 +320,8 @@
     "newStore": "New store",
     "pending": "Sync pending",
     "replay": "Replay",
-    "objects": "Objects"
+    "objects": "Objects",
+    "scripts": "Scripts"
   },
   "controls": {
     "label": "Controls",
@@ -1174,6 +1177,60 @@
       "TOO_MANY_ROWS": "The table is too large to enrol from the console. It needs a script run in a window.",
       "BAD_KEY": "A row's key contains a comma or is too long for the sync's action log.",
       "ENROL_BUSY": "Another enrolment is running. Try again in a minute."
+    }
+  },
+  "scriptStates": {
+    "executed": "Executed",
+    "pending": "Pending",
+    "retrying": "Retrying",
+    "exhausted": "Exhausted",
+    "withdrawn": "Withdrawn"
+  },
+  "scriptsPage": {
+    "title": "Store scripts",
+    "subtitle": "The store scripts sent to the worker stores, newest first, and how far each one has run.",
+    "note": "Each store runs a store script on its own database the next time the worker visits it. A store that has failed it as many times as it may try is exhausted: it waits for a hand retry or a withdraw.",
+    "loading": "Loading the store scripts…",
+    "failed": "The store scripts could not be loaded.",
+    "empty": "No store script has been sent.",
+    "emptyPage": "This page has no store scripts. Go back a page.",
+    "count_one": "<n>{{n}}</n> store script",
+    "count_other": "<n>{{n}}</n> store scripts",
+    "legacyTitle": "untitled (legacy)",
+    "targets": {
+      "all": "All worker stores",
+      "chosen": "Chosen stores"
+    },
+    "columns": {
+      "title": "Title",
+      "sentBy": "Sent by",
+      "sentAt": "Sent at",
+      "target": "Target",
+      "storeCount": "Stores"
+    }
+  },
+  "scriptDetail": {
+    "title": "Store script {{title}}",
+    "loading": "Loading the store script…",
+    "failed": "The store script could not be loaded.",
+    "empty": "This store script has no store rows.",
+    "close": "Close",
+    "scriptId": "Script",
+    "sentBy": "Sent by",
+    "sentAt": "Sent at",
+    "target": "Target",
+    "storeCount": "Stores",
+    "withdrawnAt": "Withdrawn at",
+    "legacyNote": "A legacy store script was written outside the console: it has no sender or time, and it cannot be withdrawn or retried.",
+    "sql": "SQL",
+    "sqlHidden": "The SQL is shown only to holders of the Send store scripts permission.",
+    "columns": {
+      "code": "Store",
+      "description": "Description",
+      "state": "State",
+      "attempts": "Attempts",
+      "lastAttempt": "Last attempt",
+      "errorMessage": "Last error"
     }
   }
 }

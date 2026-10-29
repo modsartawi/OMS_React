@@ -31,31 +31,18 @@ import {
 export const STRIKETHROUGH_COLUMNS = ['material', 'subtype', 'value', 'maxQuantity'] as const
 export type StrikethroughColumn = (typeof STRIKETHROUGH_COLUMNS)[number]
 
-export interface StrikethroughRead {
-  /** The preview: one line per distinct material (the last row's), then every line in error.
-   *  `line` is the line of the text, 1-based. */
-  lines: ImportLine<StrikethroughColumn>[]
-  /** The body's items, one per distinct material, first place kept. NEVER truncated. */
-  items: HungerStationPromotionItemInput[]
-  /** The first line, skipped as a header — else `null`. */
-  header: string | null
-  /** Every readable row, repeats included. */
-  entries: number
-  /** How many rows a later one of the same material replaced. */
-  repeats: number
-  /** How many materials past the cap; 0 when it may be used. */
-  overBy: number
-}
-
 const SUBTYPES: readonly HungerStationDiscountSubtype[] = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE']
 
-const subtypeOf = (cell: string): HungerStationDiscountSubtype | null | undefined => {
+/** A subtype cell: `null` when blank, `undefined` when it names no subtype. Shared with the
+ *  same-item bundle's reader (668). */
+export const subtypeOf = (cell: string): HungerStationDiscountSubtype | null | undefined => {
   if (cell === '') return null
   const name = cell.toUpperCase().replace(/[\s-]+/g, '_')
   return SUBTYPES.find((s) => s === name)
 }
 
-const numberOf = (cell: string, whole = false): number | null | undefined => {
+/** A number cell: `null` when blank, `undefined` when it is not a number (or not a whole one). */
+export const numberOf = (cell: string, whole = false): number | null | undefined => {
   if (cell === '') return null
   if (!/^-?\d+(\.\d+)?$/.test(cell)) return undefined
   const n = Number(cell)
@@ -74,7 +61,36 @@ export function itemOf(fields: Record<StrikethroughColumn, string>): HungerStati
   }
 }
 
-export function readStrikethrough(text: string, cap: number = HUNGERSTATION_PROMOTION_MAX_SKUS): StrikethroughRead {
+/** What a promotion items reader hands back, whatever its column spec. */
+export interface ItemSheetRead<K extends string> {
+  /** The preview: one line per distinct material (the last row's), then every line in error.
+   *  `line` is the line of the text, 1-based. */
+  lines: ImportLine<K>[]
+  /** The body's items, one per distinct material, first place kept. NEVER truncated. */
+  items: HungerStationPromotionItemInput[]
+  /** The first line, skipped as a header — else `null`. */
+  header: string | null
+  /** Every readable row, repeats included. */
+  entries: number
+  /** How many rows a later one of the same material replaced. */
+  repeats: number
+  /** How many materials past the cap; 0 when it may be used. */
+  overBy: number
+}
+
+/**
+ * The reading every promotion items sheet shares (666's rules, reused by 668's bundle): tab-split
+ * cells, a header skipped, at most `columns.length` cells, the first column the material, the LAST
+ * row of a material winning in its first place, the cap reported. `badCell` names the first cell
+ * the type cannot read, or `null`.
+ */
+export function readItemSheet<K extends string>(
+  text: string,
+  columns: readonly K[],
+  badCell: (fields: Record<K, string>) => K | null,
+  itemOfFields: (fields: Record<K, string>) => HungerStationPromotionItemInput,
+  cap: number,
+): ItemSheetRead<K> {
   const rows = text
     .split(/\r?\n|\r/)
     .map((raw, i) => ({ line: i + 1, raw, cells: raw.split('\t').map((c) => c.trim()) }))
@@ -83,31 +99,24 @@ export function readStrikethrough(text: string, cap: number = HUNGERSTATION_PROM
   let header: string | null = null
   if (rows.length > 0 && isHeader(rows[0].cells[0])) header = rows.shift()!.raw.trim()
 
-  const kept = new Map<string, { line: ImportLine<StrikethroughColumn>; item: HungerStationPromotionItemInput }>()
-  const errors: ImportLine<StrikethroughColumn>[] = []
+  const kept = new Map<string, { line: ImportLine<K>; item: HungerStationPromotionItemInput }>()
+  const errors: ImportLine<K>[] = []
   let entries = 0
   for (const { line, cells } of rows) {
-    if (cells.length > STRIKETHROUGH_COLUMNS.length) {
-      errors.push({ line, cells, error: { code: 'COLUMN_COUNT', found: cells.length, expected: STRIKETHROUGH_COLUMNS.length } })
+    if (cells.length > columns.length) {
+      errors.push({ line, cells, error: { code: 'COLUMN_COUNT', found: cells.length, expected: columns.length } })
       continue
     }
-    const [material = '', subtypeCell = '', valueCell = '', maxCell = ''] = cells
-    const subtype = subtypeOf(subtypeCell)
-    const value = numberOf(valueCell)
-    const maxQuantity = numberOf(maxCell, true)
-    const bad: StrikethroughColumn | null =
-      material === '' ? 'material' : subtype === undefined ? 'subtype' : value === undefined ? 'value' : maxQuantity === undefined ? 'maxQuantity' : null
+    const fields = Object.fromEntries(columns.map((key, c) => [key, cells[c] ?? ''])) as Record<K, string>
+    const material = fields[columns[0]]
+    const bad = material === '' ? columns[0] : badCell(fields)
     if (bad) {
       errors.push({ line, cells, error: { code: 'CELL', column: bad } })
       continue
     }
     entries++
-    const fields = { material, subtype: subtypeCell, value: valueCell, maxQuantity: maxCell }
     // `set` on a key already there keeps its place and takes the new row: the last row wins.
-    kept.set(material, {
-      line: { line, cells, action: 'upsert', fields },
-      item: itemOf(fields),
-    })
+    kept.set(material, { line: { line, cells, action: 'upsert', fields }, item: itemOfFields(fields) })
   }
   const items = [...kept.values()].map((k) => k.item)
   return {
@@ -118,4 +127,16 @@ export function readStrikethrough(text: string, cap: number = HUNGERSTATION_PROM
     repeats: entries - items.length,
     overBy: Math.max(0, items.length - cap),
   }
+}
+
+export type StrikethroughRead = ItemSheetRead<StrikethroughColumn>
+
+export function readStrikethrough(text: string, cap: number = HUNGERSTATION_PROMOTION_MAX_SKUS): StrikethroughRead {
+  return readItemSheet(
+    text,
+    STRIKETHROUGH_COLUMNS,
+    (f) => (subtypeOf(f.subtype) === undefined ? 'subtype' : numberOf(f.value) === undefined ? 'value' : numberOf(f.maxQuantity, true) === undefined ? 'maxQuantity' : null),
+    itemOf,
+    cap,
+  )
 }

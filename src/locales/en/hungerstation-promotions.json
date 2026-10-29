@@ -168,7 +168,8 @@
     "resendWhileSending": "Waits for HungerStation’s answer to this part.",
     "edit": "Edit draft",
     "refresh": "Refresh",
-    "refreshFailed": "HungerStation could not be asked"
+    "refreshFailed": "HungerStation could not be asked",
+    "defaultBuyGet": "Default buy / get"
   },
   "refusals": {
     "title": "What HungerStation refused",
@@ -200,9 +201,9 @@
     "doneDetail": "{{part}} is sending again; HungerStation’s answer follows on its own."
   },
   "editor": {
-    "new": "New strikethrough",
-    "eyebrow": "Strikethrough promotion",
-    "newTitle": "New strikethrough promotion",
+    "new": "New promotion",
+    "eyebrow": "HungerStation promotion",
+    "newTitle": "New HungerStation promotion",
     "chainTitle": "Chain",
     "chain": "HungerStation chain",
     "chainTyped": "Type the chain key, or pick one seen on the list.",
@@ -252,7 +253,10 @@
       "subtype": "Subtype",
       "value": "Value",
       "maxQuantity": "Max qty",
-      "refusal": "Check"
+      "refusal": "Check",
+      "buy": "Buy",
+      "get": "Get",
+      "combination": "Combination"
     },
     "stateNew": "Not saved yet.",
     "stateDirty": "Changed since it was saved.",
@@ -268,7 +272,15 @@
     "sendNote": "Sends the promotion to <stores>{{stores}}</stores> stores with <items>{{items}}</items> materials. It reads Sending, and edits wait, until HungerStation answers.",
     "failedHint": "Try again in a moment.",
     "lockedSending": "HungerStation has not answered yet. Edits wait until it does.",
-    "lockedSent": "This promotion has been sent. Only a draft is edited here."
+    "lockedSent": "This promotion has been sent. Only a draft is edited here.",
+    "type": "Type",
+    "typeClears": "Changing the type clears the pasted items.",
+    "defaultBuy": "Default buy",
+    "defaultGet": "Default get",
+    "quantityHint": "A row with a blank buy or get takes it.",
+    "quantityInvalid": "A whole number of at least 1, or blank.",
+    "sendParts_one": "Send {{n}} promotion to {{stores}} stores",
+    "sendParts_other": "Send {{n}} promotions to {{stores}} stores"
   },
   "check": {
     "title": "Check",
@@ -316,7 +328,17 @@
       "DISPLAY_NAME_MISSING": "The display name is missing.",
       "NAME_IN_USE": "Another promotion of this chain already uses this name.",
       "TOO_MANY_SKUS": "More than {{max}} SKUs: split the promotion.",
-      "NO_STORES": "No store is chosen."
+      "NO_STORES": "No store is chosen.",
+      "BUY_GET_RANGE": "Buy and get must each be at least 1."
+    },
+    "partsTitle": "Sent to HungerStation as",
+    "partsCount_one": "One HungerStation promotion, <n>{{n}}</n> part.",
+    "partsCount_other": "<n>{{n}}</n> separate HungerStation promotions, one per combination of buy, get and discount.",
+    "partsHint": "HungerStation takes one buy/get and one discount per promotion, so the server splits the sheet. You never split it by hand.",
+    "partColumns": {
+      "combination": "Combination",
+      "skus": "SKUs",
+      "name": "Name on HungerStation"
     }
   },
   "import": {
@@ -326,7 +348,9 @@
       "material": "Material",
       "subtype": "Subtype",
       "value": "Value",
-      "maxQuantity": "MaxQty"
+      "maxQuantity": "MaxQty",
+      "buyQuantity": "Buy",
+      "getQuantity": "Get"
     },
     "apply_one": "Use {{n}} material",
     "apply_other": "Use {{n}} materials",
@@ -368,8 +392,22 @@
         "material": "The material is blank.",
         "subtype": "The subtype is not PERCENTAGE, ABSOLUTE or FINAL_PRICE.",
         "value": "The value is not a number.",
-        "maxQuantity": "The max quantity is not a whole number."
+        "maxQuantity": "The max quantity is not a whole number.",
+        "buyQuantity": "The buy quantity is not a whole number of at least 1.",
+        "getQuantity": "The get quantity is not a whole number of at least 1."
       }
+    },
+    "bundleTitle": "Paste the buy / get items",
+    "bundleFormat": "One material per line, its columns separated by tabs as Excel copies them: material, buy, get, subtype (PERCENTAGE, ABSOLUTE or FINAL_PRICE), value, max quantity. A blank cell takes the default. Buy one get one free is 1, 1, PERCENTAGE, 100. A header row is skipped. Rows with different buy/get or discount are sent as separate HungerStation promotions.",
+    "bundleSplit": "Rows with different buy/get or discount are sent as separate HungerStation promotions."
+  },
+  "parts": {
+    "label": {
+      "none": "Buy {{buy}} get {{get}}",
+      "free": "Buy {{buy}} get {{get}} free",
+      "PERCENTAGE": "Buy {{buy}} get {{get}} at {{value}} off",
+      "ABSOLUTE": "Buy {{buy}} get {{get}} at {{value}} off",
+      "FINAL_PRICE": "Buy {{buy}} get {{get}} for {{value}}"
     }
   }
 }

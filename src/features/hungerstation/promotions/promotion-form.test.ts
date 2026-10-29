@@ -44,6 +44,8 @@ describe('saveBody', () => {
       globalLimit: null,
       defaultSubtype: 'PERCENTAGE',
       defaultValue: 20,
+      defaultBuyQuantity: null,
+      defaultGetQuantity: null,
       allStores: true,
       storeCodes: [],
       items: [{ materialNumber: '101001', subtype: null, value: null, maxQuantity: 3, buyQuantity: null, getQuantity: null }],
@@ -109,5 +111,56 @@ describe('formFromDetail', () => {
     const f = formFromDetail(d)
     expect([f.name, f.hsReason, f.orderLimit, f.globalLimit, f.defaultValue, f.stores, f.window.startTime]).toEqual(['Winter', 'OVERSTOCK', '2', '', '5.5', ['1001'], '09:30'])
     expect(f.items.map((i) => i.materialNumber)).toEqual(['101001'])
+  })
+})
+
+// Ticket 668 — the same-item bundle: its type, its default buy / get, its rows' own buy / get.
+describe('the same-item bundle (668)', () => {
+  const bundle = () => ({
+    ...filled(),
+    type: 'SAME_ITEM_BUNDLE' as const,
+    defaultBuy: '2',
+    defaultGet: '1',
+    defaultValue: '50',
+    items: [
+      { materialNumber: '201001', buyQuantity: null, getQuantity: null, subtype: null, value: null, maxQuantity: null },
+      { materialNumber: '201009', buyQuantity: 1, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 100, maxQuantity: 2 },
+    ],
+  })
+
+  it('a new form is a strikethrough with no default buy / get', () => {
+    const f = emptyForm(NOW)
+    expect([f.type, f.defaultBuy, f.defaultGet]).toEqual(['STRIKETHROUGH', '', ''])
+  })
+
+  it('the body names the type, the default buy / get, and each row as pasted (blank = null)', () => {
+    const body = saveBody(bundle(), 'Eid')
+    expect([body.type, body.defaultBuyQuantity, body.defaultGetQuantity, body.defaultValue]).toEqual(['SAME_ITEM_BUNDLE', 2, 1, 50])
+    expect(body.items).toEqual(bundle().items)
+  })
+
+  it('a strikethrough sends no default buy / get, whatever the boxes hold', () => {
+    const body = saveBody({ ...bundle(), type: 'STRIKETHROUGH', items: [] }, 'r')
+    expect([body.defaultBuyQuantity, body.defaultGetQuantity]).toEqual([null, null])
+  })
+
+  it('a default buy or get must be a whole number of at least 1, or blank', () => {
+    expect(formProblems(bundle(), NOW)).toEqual([])
+    expect(formProblems({ ...bundle(), defaultBuy: '0', defaultGet: '1.5' }, NOW)).toEqual(['defaultBuy', 'defaultGet'])
+    expect(formProblems({ ...bundle(), defaultBuy: '', defaultGet: '' }, NOW)).toEqual([])
+    // Not a bundle: the boxes are not read.
+    expect(formProblems({ ...bundle(), type: 'STRIKETHROUGH', defaultBuy: 'x' }, NOW)).toEqual([])
+  })
+
+  it('a saved bundle reads back with its type, default buy / get and each row’s buy / get', () => {
+    const d = {
+      chainKey: 'OlaCare', name: 'Eid', displayNameEn: 'e', displayNameAr: 'ع', type: 'SAME_ITEM_BUNDLE', hsReason: 'COMPETITIVENESS',
+      startAt: '2026-11-01T00:00:00', endAt: '2026-11-30T23:59:00', orderLimit: null, globalLimit: null,
+      defaultSubtype: 'PERCENTAGE', defaultValue: 50, defaultBuyQuantity: 2, defaultGetQuantity: 1, allStores: true, stores: [],
+      items: [{ itemId: 'i', materialNumber: '201009', sku: null, subtype: 'PERCENTAGE', value: 100, maxQuantity: null, buyQuantity: 1, getQuantity: 1, partId: null, active: true }],
+    } as unknown as HungerStationPromotionDetail
+    const f = formFromDetail(d)
+    expect([f.type, f.defaultBuy, f.defaultGet]).toEqual(['SAME_ITEM_BUNDLE', '2', '1'])
+    expect(f.items).toEqual([{ materialNumber: '201009', subtype: 'PERCENTAGE', value: 100, maxQuantity: null, buyQuantity: 1, getQuantity: 1 }])
   })
 })

@@ -106,3 +106,39 @@ describe('checkOfRefusal', () => {
     expect(checkOfRefusal(new Error('x'))).toBeNull()
   })
 })
+
+// Ticket 668 — the part preview: the parts the server will send, as it split them. The page
+// never computes them; the summary hands them on as the answer lists them.
+const parts = [
+  { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, name: 'Eid · B2G1 50%', skuCount: 600 },
+  { buyQuantity: 1, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 100, name: 'Eid · B1G1 100%', skuCount: 300 },
+  { buyQuantity: 2, getQuantity: 1, subtype: 'FINAL_PRICE' as const, value: 9.95, name: 'Eid · B2G1 9.95final', skuCount: 100 },
+]
+
+describe('checkSummary — the part preview (668)', () => {
+  it('carries the parts in the order the server listed them, with the SKU total', () => {
+    const s = checkSummary({ ...clean, parts, skuCount: 1000 })
+    expect(s.parts.map((p) => [p.name, p.skuCount])).toEqual([
+      ['Eid · B2G1 50%', 600],
+      ['Eid · B1G1 100%', 300],
+      ['Eid · B2G1 9.95final', 100],
+    ])
+    expect(s.skuCount).toBe(1000)
+  })
+
+  it('a buy/get refusal on a row blocks Send like any row refusal', () => {
+    const s = checkSummary({ ...clean, sendable: false, rows: [{ materialNumber: '201004', refusals: [{ code: 'BUY_GET_RANGE', message: 'b' }], priceWarning: null }] })
+    expect([s.blocksSend, s.refusedRows]).toEqual([true, 1])
+  })
+})
+
+describe('checkOfRefusal — the part preview (668)', () => {
+  it('reads the parts a DHS-00018 carries', () => {
+    expect(checkOfRefusal(refusal({ ...clean, sendable: false, parts }))?.parts).toEqual(parts)
+  })
+
+  it('drops a part it cannot read (no name, no SKU count); a blank combination field is null', () => {
+    const got = checkOfRefusal(refusal({ parts: [{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: '1', subtype: 'HALF' }, { name: 5, skuCount: 1 }, { name: 'B' }, 'x'] }))
+    expect(got?.parts).toEqual([{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: null, subtype: null, value: null }])
+  })
+})

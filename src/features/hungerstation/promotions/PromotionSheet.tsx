@@ -200,6 +200,16 @@ function Header({ p }: { p: HungerStationPromotionDetail }) {
         </span>,
         'defaultDiscount',
       )}
+      {/* 668: the buy / get a bundle row with a blank cell takes. */}
+      {p.type === 'SAME_ITEM_BUNDLE' &&
+        field(
+          t('detail.defaultBuyGet'),
+          (() => {
+            const buyGet = buyGetText({ buyQuantity: p.defaultBuyQuantity ?? null, getQuantity: p.defaultGetQuantity ?? null })
+            return buyGet ? <Ltr>{buyGet}</Ltr> : t('detail.noLimit')
+          })(),
+          'defaultBuyGet',
+        )}
       {field(t('detail.stores'), p.allStores ? t('detail.allStores') : <Ltr>{figure(p.stores?.length ?? 0)}</Ltr>, 'storesScope')}
       {p.replacesId && field(t('detail.replaces'), code(p.replacesId), 'replaces')}
       {p.replacedById && field(t('detail.replacedBy'), code(p.replacedById), 'replacedBy')}

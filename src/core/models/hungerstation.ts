@@ -696,6 +696,11 @@ export interface HungerStationPromotionDetail {
   /** The discount a row with a blank subtype / value takes. */
   defaultSubtype: HungerStationDiscountSubtype
   defaultValue: number | null
+  /** 668: the buy / get quantity a bundle row with a blank cell takes; `null` for none (and
+   *  always on a strikethrough). 🚩 Not in spec 3201's record (which names only a default subtype
+   *  and value): ticket 668 asks for header defaults of buy and get too — a BackOffice 3213 ask. */
+  defaultBuyQuantity: number | null
+  defaultGetQuantity: number | null
   status: HungerStationPromotionStatus
   /** A draft targeting every store of the chain; frozen into `stores` at send. */
   allStores: boolean
@@ -760,6 +765,9 @@ export interface HungerStationPromotionSaveBody {
   globalLimit: number | null
   defaultSubtype: HungerStationDiscountSubtype
   defaultValue: number | null
+  /** 668: a bundle's default buy / get (whole, ≥ 1); `null` for none, and on a strikethrough. */
+  defaultBuyQuantity: number | null
+  defaultGetQuantity: number | null
   /** Every store of the chain (frozen at send); `storeCodes` is then ignored. */
   allStores: boolean
   storeCodes: string[]
@@ -793,7 +801,8 @@ export interface HungerStationPromotionRowCheck {
   priceWarning: HungerStationPromotionPriceWarning | null
 }
 
-/** A part as it WILL be sent. */
+/** A part as it WILL be sent (668, BackOffice 3213): the server's split — one per distinct
+ *  (buy, get, subtype, value) of a bundle, one for a strikethrough — with the name it will carry. */
 export interface HungerStationPromotionPartPreview extends HungerStationPromotionCombination {
   name: string
   skuCount: number
@@ -834,6 +843,9 @@ export const HUNGERSTATION_PROMOTION_CHECK_CODES = {
   valueNotPositive: 'VALUE_NOT_POSITIVE',
   /** More than 3 decimals. */
   valueDecimals: 'VALUE_DECIMALS',
+  /** 668: a bundle row's buy or get (its own, or the default it takes) is under 1 or missing
+   *  (BackOffice 3213's bundle check). */
+  buyGetRange: 'BUY_GET_RANGE',
   // Header.
   /** `startAt` / `endAt`: the start is not before the end. */
   windowOrder: 'WINDOW_ORDER',

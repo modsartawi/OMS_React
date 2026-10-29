@@ -31,7 +31,7 @@ import Select from '@/core/ui/Select'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { formatCount, fsi, stripIsolates } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi, promotionStoresKey } from './api'
 import { PromotionStatusBadge } from './columns'
@@ -40,10 +40,13 @@ import { discountText } from './promotion-display'
 import { DISCOUNT_SUBTYPES, HS_REASONS, emptyForm, formFromDetail, formProblems, saveBody, toggleStore, type FormField, type PromotionForm } from './promotion-form'
 import CheckPanel from './CheckPanel'
 import { checkOfRefusal, checkSummary, fieldWords, problemWords, type CheckedRow } from './check-summary'
-import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type StrikethroughColumn } from './strikethrough-columns'
+import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type ItemSheetRead, type StrikethroughColumn } from './strikethrough-columns'
+import { BUNDLE_COLUMNS, bundleItemOf, readBundle, rowCombination, type BundleColumn } from './bundle-columns'
+import { partLabel } from './part-label'
+import { PROMOTION_TYPES } from './promotions-query'
 
 /**
- * The **strikethrough promotion editor** (ticket 666, BackOffice spec 3201 / 3211), on `?edit=new`
+ * The **promotion editor** (ticket 666 strikethrough, 668 same-item bundle; BackOffice spec 3201 / 3211 / 3213), on `?edit=new`
  * or `?edit=<promotionId>`. The chain comes first; the stores and materials that follow are that
  * chain's. Then the header (name, EN + AR display names, HungerStation reason, limits, the Saudi
  * local window, the default discount), the stores picker (every HungerStation store of the chain
@@ -55,7 +58,12 @@ import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type StrikethroughCol
  * the editor hands over to the detail. A promotion that is not a draft is shown, never edited here
  * (a live one's edits are 670's). Every write carries a reason (DHS-00008, inline).
  *
- * 🚩 The doors are not built (BackOffice 3211): proven against stubs only.
+ * **Same-item bundle** (668): each row carries its own buy, get, subtype and value (a blank cell the
+ * header default). The SERVER splits it into one HungerStation promotion part per combination
+ * (3213); the Check panel shows the parts it answered, and Send then reads "Send N promotions to M
+ * stores". The page never groups the rows itself.
+ *
+ * 🚩 The doors are not built (BackOffice 3211 / 3213): proven against stubs only.
  */
 export default function PromotionEditor({
   promotionId,
@@ -261,6 +269,23 @@ function EditorBody({
   }, [showRefusedOnly, form.items, rowCheck])
   const headerWords = (...fields: string[]) => fieldWords(t, summary, ...fields)
 
+  const bundle = form.type === 'SAME_ITEM_BUNDLE'
+  // 668: the columns differ by type, so a type change drops the pasted items (and the check of them).
+  const changeType = (type: PromotionForm['type']) => {
+    setForm((f) => (f.type === type ? f : { ...f, type, items: [] }))
+    setChecked(null)
+    setRefusedOnly(false)
+  }
+  const defaults = useMemo(
+    () => ({
+      buyQuantity: /^\d+$/.test(form.defaultBuy.trim()) ? Number(form.defaultBuy) : null,
+      getQuantity: /^\d+$/.test(form.defaultGet.trim()) ? Number(form.defaultGet) : null,
+      subtype: form.defaultSubtype,
+      value: form.defaultValue.trim() === '' || Number.isNaN(Number(form.defaultValue)) ? null : Number(form.defaultValue),
+    }),
+    [form.defaultBuy, form.defaultGet, form.defaultSubtype, form.defaultValue],
+  )
+
   const changeChain = (chainKey: string) => {
     setForm((f) => (f.chainKey === chainKey ? f : { ...f, chainKey, stores: 'all' }))
     save.reset()
@@ -269,6 +294,7 @@ function EditorBody({
   const itemColumns = useMemo(
     (): ColDef<ItemRow>[] => [
       { colId: 'material', headerName: t('editor.items.material'), field: 'materialNumber', width: 160 },
+      ...(bundle ? [quantityColumn('buyQuantity', t('editor.items.buy'), defaults), quantityColumn('getQuantity', t('editor.items.get'), defaults)] : []),
       {
         colId: 'subtype',
         headerName: t('editor.items.subtype'),
@@ -289,6 +315,12 @@ function EditorBody({
         cellClassRules: { 'text-muted-foreground italic': ({ data }) => data?.value === null },
       },
       { colId: 'maxQuantity', headerName: t('editor.items.maxQuantity'), width: 120, type: 'rightAligned', valueGetter: ({ data }) => (data?.maxQuantity == null ? '' : figure(data.maxQuantity)) },
+      // 668: the row's combination in words, as it will read once saved — the row's, never a part.
+      // `partLabel` isolates for a sentence sink; a grid cell takes no isolates (they reach Ctrl+C),
+      // the grid base isolates the cell (.claude/rules/bidi.md).
+      ...(bundle
+        ? [{ colId: 'combination', headerName: t('editor.items.combination'), width: 240, valueGetter: ({ data }) => (data ? stripIsolates(partLabel(t, rowCombination(data, defaults))) : '') } satisfies ColDef<ItemRow>]
+        : []),
       {
         colId: 'refusal',
         headerName: t('editor.items.refusal'),
@@ -307,7 +339,7 @@ function EditorBody({
         },
       },
     ],
-    [t, form.defaultSubtype, form.defaultValue],
+    [t, form.defaultSubtype, form.defaultValue, bundle, defaults],
   )
 
   const shownStores = useMemo(() => {
@@ -317,6 +349,9 @@ function EditorBody({
   const ticked = (code: string) => form.stores === 'all' || form.stores.includes(code)
   const tickedCount = form.stores === 'all' ? storeChoices.length : form.stores.length
 
+
+  // 668: how many HungerStation promotions the latest Check said this goes out as (the server's split).
+  const parts = summary?.parts.length ?? 0
 
   const windowIssue = windowProblem(form.window, new Date())
   const lockedNote =
@@ -337,6 +372,15 @@ function EditorBody({
           <section className="flex flex-col gap-2" data-editor-chain="">
             <h3 className="text-xs font-semibold tracking-tight">{t('editor.chainTitle')}</h3>
             <div className="flex flex-wrap items-end gap-3">
+              <Field label={t('editor.type')} hint={form.items.length > 0 ? t('editor.typeClears') : undefined}>
+                <Select value={form.type} onChange={(e) => changeType(e.target.value as PromotionForm['type'])} data-editor-type="">
+                  {PROMOTION_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {t(`types.${type}`)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label={t('editor.chain')} hint={chainsKnown ? undefined : t('editor.chainTyped')} invalid={chainRefusal !== null}>
                 {chainsKnown ? (
                   <Select value={form.chainKey} onChange={(e) => changeChain(e.target.value)} data-editor-chain-select="">
@@ -437,6 +481,16 @@ function EditorBody({
             <Field label={t('editor.defaultValue')} error={bad('defaultValue') ? t('editor.valueInvalid') : undefined}>
               <Input inputMode="decimal" dir="ltr" value={form.defaultValue} onChange={(e) => set('defaultValue', e.target.value)} data-editor-default-value="" />
             </Field>
+            {bundle && (
+              <>
+                <Field label={t('editor.defaultBuy')} hint={t('editor.quantityHint')} error={bad('defaultBuy') ? t('editor.quantityInvalid') : undefined}>
+                  <Input inputMode="numeric" dir="ltr" value={form.defaultBuy} onChange={(e) => set('defaultBuy', e.target.value)} data-editor-default-buy="" />
+                </Field>
+                <Field label={t('editor.defaultGet')} hint={t('editor.quantityHint')} error={bad('defaultGet') ? t('editor.quantityInvalid') : undefined}>
+                  <Input inputMode="numeric" dir="ltr" value={form.defaultGet} onChange={(e) => set('defaultGet', e.target.value)} data-editor-default-get="" />
+                </Field>
+              </>
+            )}
           </section>
 
           {/* ── Stores ── */}
@@ -507,6 +561,11 @@ function EditorBody({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">{t('editor.itemsHint')}</p>
+            {bundle && (
+              <p className="text-xs text-muted-foreground" data-editor-split-note="">
+                {t('import.bundleSplit')}
+              </p>
+            )}
             {bad('items') && (
               <p role="alert" className="text-xs text-danger-800" data-editor-items-problem="">
                 {t('editor.itemsOverCap', { max: fsi(figure(HUNGERSTATION_PROMOTION_MAX_SKUS)) })}
@@ -552,6 +611,7 @@ function EditorBody({
             canCheck={!!promotion && !dirty}
             onCheck={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: false })}
             storeName={(code) => storeNames.get(code) || null}
+            showParts={bundle}
           />
         )}
       </div>
@@ -576,16 +636,38 @@ function EditorBody({
               // Send runs the checks first; only a clean answer opens the reason dialog.
               onClick={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: true })}
               data-send-blocked={String(summary?.blocksSend === true)}
+              data-editor-send-parts={parts}
               data-editor-send=""
             >
               <Send className="h-3.5 w-3.5" aria-hidden />
-              {t('editor.send')}
+              {parts > 1 ? t('editor.sendParts', { count: parts, n: fsi(figure(parts)), stores: fsi(figure(tickedCount)) }) : t('editor.send')}
             </Button>
           </>
         )}
       </footer>
 
-      {dialog === 'items' && (
+      {dialog === 'items' && bundle && (
+        <ImportDialog<BundleColumn>
+          ns="hungerstation-promotions"
+          kind="promotion-items"
+          title={t('import.bundleTitle')}
+          // Ends "Rows with different buy/get or discount are sent as separate HungerStation
+          // promotions." — said on the paste step (668).
+          format={t('import.bundleFormat')}
+          columns={BUNDLE_COLUMNS}
+          header={(key) => t(`import.columns.${key}`)}
+          read={(text) => itemsReading(readBundle(text))}
+          apply={(lines) => {
+            set('items', lines.map((l) => bundleItemOf(l.fields)))
+            send.reset()
+            setChecked(null)
+            setDialog(null)
+          }}
+          applyLabel={(count) => t('import.apply', { count, n: fsi(figure(count)) })}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === 'items' && !bundle && (
         <ImportDialog<StrikethroughColumn>
           ns="hungerstation-promotions"
           kind="promotion-items"
@@ -593,7 +675,7 @@ function EditorBody({
           format={t('import.format')}
           columns={STRIKETHROUGH_COLUMNS}
           header={(key) => t(`import.columns.${key}`)}
-          read={itemsReading}
+          read={(text) => itemsReading(readStrikethrough(text))}
           apply={(lines) => {
             set('items', lines.map((l) => itemOf(l.fields)))
             send.reset()
@@ -666,9 +748,23 @@ function SendNote({ stores, items }: { stores: number; items: number }): ReactNo
   )
 }
 
+/** A bundle's buy or get column: the row's own, else the header default (greyed). */
+function quantityColumn(key: 'buyQuantity' | 'getQuantity', header: string, defaults: { buyQuantity: number | null; getQuantity: number | null }): ColDef<ItemRow> {
+  return {
+    colId: key,
+    headerName: header,
+    width: 90,
+    type: 'rightAligned',
+    valueGetter: ({ data }) => {
+      const n = data ? (data[key] ?? defaults[key]) : null
+      return n === null ? '' : figure(n)
+    },
+    cellClassRules: { 'text-muted-foreground italic': ({ data }) => data?.[key] === null },
+  }
+}
+
 /** The paste read for the import dialog: its lines, and what it says above them. */
-function itemsReading(text: string): ImportReading<StrikethroughColumn> {
-  const read = readStrikethrough(text)
+function itemsReading<K extends string>(read: ItemSheetRead<K>): ImportReading<K> {
   const notes: ReactNode[] = []
   if (read.header !== null)
     notes.push(

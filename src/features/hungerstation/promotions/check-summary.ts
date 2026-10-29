@@ -5,7 +5,9 @@ import {
   HUNGERSTATION_PROMOTION_ERRORS,
   HUNGERSTATION_PROMOTION_MAX_SKUS,
   type HungerStationPromotionCheckResult,
+  type HungerStationDiscountSubtype,
   type HungerStationPromotionFieldProblem,
+  type HungerStationPromotionPartPreview,
   type HungerStationPromotionProblem,
 } from '@/core/models/hungerstation'
 import { fsi } from '@/core/util/bidi'
@@ -37,6 +39,11 @@ export interface CheckSummary {
   header: Map<string, HungerStationPromotionProblem[]>
   /** Rows with a refusal or a warning, by our material number. */
   rows: Map<string, CheckedRow>
+  /** 668: the HungerStation promotion parts it will be sent as — the SERVER's split, in its order
+   *  (a strikethrough is one part). The page never computes them. */
+  parts: HungerStationPromotionPartPreview[]
+  /** Every SKU it will send, over its parts. */
+  skuCount: number
 }
 
 export function checkSummary(result: HungerStationPromotionCheckResult): CheckSummary {
@@ -59,6 +66,8 @@ export function checkSummary(result: HungerStationPromotionCheckResult): CheckSu
     blocksSend: refusals > 0 || !result.sendable,
     header,
     rows,
+    parts: result.parts ?? [],
+    skuCount: result.skuCount,
   }
 }
 
@@ -68,6 +77,26 @@ const problem = (p: unknown): HungerStationPromotionProblem => ({
   code: str((p as { code?: unknown })?.code),
   message: str((p as { message?: unknown })?.message),
 })
+
+const SUBTYPES: readonly HungerStationDiscountSubtype[] = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE']
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** A part of the preview, read defensively: one with no name or SKU count is dropped; a
+ *  combination field it cannot read is `null`. */
+const partPreview = (p: unknown): HungerStationPromotionPartPreview[] => {
+  const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>
+  if (typeof o.name !== 'string' || typeof o.skuCount !== 'number') return []
+  return [
+    {
+      name: o.name,
+      skuCount: o.skuCount,
+      buyQuantity: num(o.buyQuantity),
+      getQuantity: num(o.getQuantity),
+      subtype: SUBTYPES.find((s) => s === o.subtype) ?? null,
+      value: num(o.value),
+    },
+  ]
+}
 
 /** The Check answer a Send refused for its checks (DHS-00018) carries, or `null` for any other
  *  failure or a body that is not an object. Read defensively: what it cannot read is nothing. */
@@ -89,7 +118,7 @@ export function checkOfRefusal(err: unknown): HungerStationPromotionCheckResult 
         const stores = list(row.priceWarning?.storeCodes).filter((c): c is string => typeof c === 'string')
         return { materialNumber: row.materialNumber, refusals: list(row.refusals).map(problem), priceWarning: row.priceWarning ? { storeCodes: stores } : null }
       }),
-    parts: list(o.parts) as HungerStationPromotionCheckResult['parts'],
+    parts: list(o.parts).flatMap(partPreview),
     skuCount: typeof o.skuCount === 'number' ? o.skuCount : 0,
   }
 }

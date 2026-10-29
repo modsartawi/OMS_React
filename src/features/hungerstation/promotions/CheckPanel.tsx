@@ -7,6 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { knownField, problemWords, type CheckSummary } from './check-summary'
+import { partLabel } from './part-label'
 
 /** How many refused rows the panel lists by name; the rest are counted (the grid marks every one). */
 const ROWS_LISTED = 20
@@ -16,6 +17,10 @@ const ROWS_LISTED = 20
  * the SAVED promotion. Refusals per header field and per row, in words; they hold Send back. Price
  * warnings, in the attention colour, name the stores where HungerStation will refuse the material;
  * they never hold Send back.
+ *
+ * A same-item bundle (668) also shows its **part preview**: one row per HungerStation promotion
+ * part the SERVER will send (BackOffice 3213's split), its combination in words, its SKU count and
+ * the name it will carry on HungerStation. The page never computes the parts.
  */
 export default function CheckPanel({
   summary,
@@ -24,6 +29,7 @@ export default function CheckPanel({
   canCheck,
   onCheck,
   storeName,
+  showParts = false,
 }: {
   summary: CheckSummary | null
   checking: boolean
@@ -32,6 +38,8 @@ export default function CheckPanel({
   canCheck: boolean
   onCheck: () => void
   storeName: (storeCode: string) => string | null
+  /** 668: a same-item bundle — show the parts Check answered. */
+  showParts?: boolean
 }) {
   const { t } = useTranslation('hungerstation-promotions')
   const refused = summary ? [...summary.rows].filter(([, r]) => r.refusals.length > 0) : []
@@ -74,6 +82,40 @@ export default function CheckPanel({
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
               <Trans t={t} i18nKey="check.warnings" count={summary.warnings} values={{ n: figure(summary.warnings) }} components={{ n: <Ltr /> }} />
             </p>
+          )}
+
+          {showParts && summary.parts.length > 0 && (
+            <div className="flex flex-col gap-1" data-check-parts={summary.parts.length}>
+              <h4 className="text-xs font-medium text-muted-foreground">{t('check.partsTitle')}</h4>
+              <p className="text-xs" data-check-parts-count="">
+                <Trans t={t} i18nKey="check.partsCount" count={summary.parts.length} values={{ n: figure(summary.parts.length) }} components={{ n: <Ltr /> }} />
+              </p>
+              <p className="text-xs text-muted-foreground">{t('check.partsHint')}</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/60 text-muted-foreground">
+                    <th className="px-2 py-1 text-start font-medium">{t('check.partColumns.combination')}</th>
+                    <th className="px-2 py-1 text-end font-medium">{t('check.partColumns.skus')}</th>
+                    <th className="px-2 py-1 text-start font-medium">{t('check.partColumns.name')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.parts.map((part, i) => (
+                    <tr key={`${part.name}-${i}`} className="border-b border-border/40" data-check-part={i}>
+                      <td className="px-2 py-1" data-check-part-combination="">
+                        {partLabel(t, part)}
+                      </td>
+                      <td className="px-2 py-1 text-end tabular-nums" data-check-part-skus={part.skuCount}>
+                        <Ltr>{figure(part.skuCount)}</Ltr>
+                      </td>
+                      <td className="px-2 py-1" data-check-part-name="">
+                        <bdi>{part.name}</bdi>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {summary.header.size > 0 && (

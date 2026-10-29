@@ -30,7 +30,15 @@
 // stands and enabled after a fix; Send runs Check first and opens only on a clean answer; the grid
 // marks refused rows and a chip shows refused rows only.
 //
-// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667.
+// Ticket 668 (§ 12) asserts, LTR and RTL: the Type picker makes a same-item bundle; the paste step
+// says rows with different buy/get or discount go out as separate HungerStation promotions; the
+// bundle columns read (a buy of 0 flagged on its line, blanks greyed as the header default buy / get,
+// a BOGO row "Buy 1 get 1 free"); the save body carries the type, the default buy / get and each row
+// as pasted (blank = null); a mixed 1,000-row sheet previews from Check as the 3 parts the STUB split
+// it into (combination in words, SKU count, name on HungerStation); Send reads "Send 3 promotions to
+// 3 stores"; after Send the detail shows each part's own status, and one failed part reads Failed.
+//
+// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667 · 12 ticket 668.
 //
 // Ticket 665 asserts, with the browser in Asia/Riyadh at 2026-10-29 11:00 local:
 //   0. every fixture's keys are EXACTLY the fields of its model interface (none invented, none missing);
@@ -172,6 +180,8 @@ const detail = (r, over = {}) => ({
   globalLimit: null,
   defaultSubtype: 'PERCENTAGE',
   defaultValue: 20,
+  defaultBuyQuantity: r.type === 'SAME_ITEM_BUNDLE' ? 2 : null,
+  defaultGetQuantity: r.type === 'SAME_ITEM_BUNDLE' ? 1 : null,
   status: r.status,
   allStores: false,
   replacesId: null,
@@ -687,6 +697,8 @@ function draftOf(ctx, promotionId, body, prev = null) {
     globalLimit: body.globalLimit,
     defaultSubtype: body.defaultSubtype,
     defaultValue: body.defaultValue,
+    defaultBuyQuantity: body.defaultBuyQuantity,
+    defaultGetQuantity: body.defaultGetQuantity,
     status: 'draft',
     allStores: body.allStores,
     replacesId: null,
@@ -703,7 +715,16 @@ function draftOf(ctx, promotionId, body, prev = null) {
     parts: [],
     stores: body.allStores ? [] : body.storeCodes.map((c) => choices[c] ?? store(c)),
     items: body.items.map((i) =>
-      item(i.materialNumber, { sku: null, partId: null, subtype: i.subtype ?? body.defaultSubtype, value: i.value ?? body.defaultValue, maxQuantity: i.maxQuantity }),
+      item(i.materialNumber, {
+        sku: null,
+        partId: null,
+        subtype: i.subtype ?? body.defaultSubtype,
+        value: i.value ?? body.defaultValue,
+        maxQuantity: i.maxQuantity,
+        // 668: a bundle row's blank buy / get resolved to the default, as the server would.
+        buyQuantity: body.type === 'SAME_ITEM_BUNDLE' ? (i.buyQuantity ?? body.defaultBuyQuantity) : null,
+        getQuantity: body.type === 'SAME_ITEM_BUNDLE' ? (i.getQuantity ?? body.defaultGetQuantity) : null,
+      }),
     ),
     sends: [],
   }
@@ -879,6 +900,8 @@ function sameKeysCheck(name, obj) {
     globalLimit: null,
     defaultSubtype: 'PERCENTAGE',
     defaultValue: 20,
+    defaultBuyQuantity: null,
+    defaultGetQuantity: null,
     allStores: false,
     storeCodes: ['1001', '1002'],
     items: [
@@ -1447,6 +1470,200 @@ async function checkScenario(dir) {
 }
 await checkScenario('ltr')
 await checkScenario('rtl')
+
+// ── 12: the same-item bundle — columns, part preview, Send N promotions, per-part status (668) ───
+// The split is the SERVER's (BackOffice 3213): here the STUB groups the saved draft's resolved rows
+// by (buy, get, subtype, value), as 3213 will. The page only shows what Check answers.
+
+const unitOf = (subtype) => (subtype === 'PERCENTAGE' ? '%' : subtype === 'ABSOLUTE' ? 'SAR' : 'final')
+/** The stub's split: one part per distinct (buy, get, subtype, value), first seen first. */
+function splitOf(d) {
+  const parts = new Map()
+  for (const i of d.items.filter((x) => x.active)) {
+    const key = [i.buyQuantity, i.getQuantity, i.subtype, i.value].join('|')
+    const prev = parts.get(key)
+    if (prev) prev.skuCount++
+    else
+      parts.set(key, {
+        buyQuantity: i.buyQuantity,
+        getQuantity: i.getQuantity,
+        subtype: i.subtype,
+        value: i.value,
+        name: `${d.name} · B${i.buyQuantity}G${i.getQuantity} ${i.value}${unitOf(i.subtype)}`,
+        skuCount: 1,
+      })
+  }
+  return [...parts.values()]
+}
+const bundleCheck = (ctx, m) => {
+  const d = ctx.saved[decodeURIComponent(m[1])]
+  return envelope({ sendable: true, header: [], rows: [], parts: splitOf(d), skuCount: d.items.length })
+}
+const bundleSend = (ctx, m) => {
+  const id = decodeURIComponent(m[1])
+  const d = ctx.saved[id]
+  const split = splitOf(d)
+  const partIdOf = (i) => `pt-b${split.findIndex((x) => x.buyQuantity === i.buyQuantity && x.getQuantity === i.getQuantity && x.subtype === i.subtype && x.value === i.value) + 1}`
+  ctx.saved[id] = {
+    ...d,
+    status: 'sending',
+    sentAt: '2026-10-29T11:00:00',
+    sentBy: 'msartawi',
+    stores: [store('1001'), store('1002'), store('2001')],
+    items: d.items.map((i) => ({ ...i, sku: `SKU-${i.materialNumber}`, partId: partIdOf(i) })),
+    parts: split.map((x, n) => {
+      const { skuCount, name, ...combo } = x
+      return part(`pt-b${n + 1}`, { ...combo, name, skuCount, latestJobStatus: 'QUEUED', refusals: null })
+    }),
+    sends: split.map((_, n) => send(`s-b${n + 1}`, { partId: `pt-b${n + 1}`, sentAt: '2026-10-29T11:00:00', reason: 'Eid go', jobStatus: 'QUEUED', hsUpdatedAt: null })),
+  }
+  return envelope(ctx.saved[id])
+}
+/** HungerStation answers: part 2 FAILED, the others COMPLETED — the promotion rolls up to Failed. */
+const bundleRefresh = (ctx, m) => {
+  const id = decodeURIComponent(m[1])
+  const d = ctx.saved[id]
+  const job = (pid) => (pid === 'pt-b2' ? 'FAILED' : 'COMPLETED')
+  ctx.saved[id] = {
+    ...d,
+    status: 'failed',
+    parts: d.parts.map((x) => ({ ...x, latestJobStatus: job(x.partId), refusals: { invalidVendors: [], missingSkus: [], invalidDiscountedSkus: [] } })),
+    sends: d.sends.map((x) => ({ ...x, jobStatus: job(x.partId) })),
+  }
+  return envelope(ctx.saved[id])
+}
+
+// A mixed 1,000-row sheet: 600 blank rows (→ the default B2G1 50%), 300 BOGO, 100 at a final price.
+// The first three lines are one of each, so the grid's first rows show each kind.
+const PASTE668 = [
+  ['Material', 'Buy', 'Get', 'Subtype', 'Value', 'MaxQty'],
+  ...Array.from({ length: 1000 }, (_, n) => {
+    const material = String(400001 + n)
+    const kind = n < 3 ? ['blank', 'bogo', 'final'][n] : n < 602 ? 'blank' : n < 901 ? 'bogo' : 'final'
+    return kind === 'blank' ? [material, '', '', '', '', ''] : kind === 'bogo' ? [material, '1', '1', 'PERCENTAGE', '100', '2'] : [material, '2', '1', 'FINAL_PRICE', '9.95', '']
+  }),
+]
+  .map((r) => r.join('\t'))
+  .join('\r\n')
+const PASTE668_BAD = [['400001', '0', '1', '', '', ''], ['400002', '2', '1', '', '', '']].map((r) => r.join('\t')).join('\r\n')
+const PART_WORDS = ['Buy 2 get 1 at 50% off', 'Buy 1 get 1 free', 'Buy 2 get 1 for 9.950 SAR']
+const PART_NAMES = ['Eid 668 · B2G1 50%', 'Eid 668 · B1G1 100%', 'Eid 668 · B2G1 9.95final']
+const strip = (t) => t.replace(/[⁦-⁩]/g, '').trim()
+
+async function bundleScenario(dir) {
+  const L = '12 ' + dir.toUpperCase() + ': '
+  const { context, page, errors, ctx } = await open(dir, { doors: { ...doors666(), check: bundleCheck, send: bundleSend, refresh: bundleRefresh } })
+  const ed = await startNew(page)
+  check(L + 'a new promotion is a strikethrough until the type is picked', (await ed.locator('[data-editor-type]').inputValue()) === 'STRIKETHROUGH' && (await ed.locator('[data-editor-default-buy]').count()) === 0)
+  await ed.locator('[data-editor-type]').selectOption('SAME_ITEM_BUNDLE')
+  await fillHeader(ed)
+  await ed.locator('[data-editor-name]').fill('Eid 668')
+  await ed.locator('[data-editor-end-date]').fill('2026-11-30')
+  await ed.locator('[data-editor-default-value]').fill('50')
+  await ed.locator('[data-editor-default-buy]').fill('0')
+  check(L + 'a default buy under 1 is refused at its field, and Save waits', (await ed.locator('[data-editor-default-buy]').getAttribute('aria-invalid')) === 'true' && (await ed.locator('[data-editor-save]').isDisabled()))
+  await ed.locator('[data-editor-default-buy]').fill('2')
+  await ed.locator('[data-editor-default-get]').fill('1')
+  check(L + 'the items section says the sheet is never split by hand', (await ed.locator('[data-editor-split-note]').innerText()).includes('Rows with different buy/get or discount are sent as separate HungerStation promotions.'))
+
+  // The paste step: the bundle columns.
+  const dlg = await paste(page, ed, PASTE668_BAD)
+  check(L + 'the paste step names the bundle columns and says rows are split by the server', /material, buy, get, subtype .*value, max quantity/.test(await dlg.locator('[data-import-format]').innerText()) && (await dlg.locator('[data-import-format]').innerText()).includes('Rows with different buy/get or discount are sent as separate HungerStation promotions.'))
+  await dlg.locator('[data-import-preview] .ag-row[row-index]').first().waitFor({ timeout: 5000 })
+  const previewText = await dlg.locator('[data-import-preview]').innerText()
+  check(L + 'a buy of 0 is flagged on its line, and holds the paste back', previewText.includes('The buy quantity is not a whole number of at least 1.') && (await page.locator('dialog[open] [data-import-send]').isDisabled()), previewText.slice(0, 300))
+  await dlg.locator('[data-import-text]').fill(PASTE668)
+  await page.waitForFunction(() => document.querySelector('dialog[open] [data-import-send]')?.textContent?.replace(/[⁦-⁩]/g, '').includes('1,000'), null, { timeout: 15000 })
+  check(L + 'the mixed sheet reads as 1,000 materials, the header skipped', (await dlg.locator('[data-import-header-skipped]').count()) === 1 && strip(await page.locator('dialog[open] [data-import-send]').innerText()) === 'Use 1,000 materials')
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="400003"]').waitFor({ timeout: 15000 })
+  check(L + '1,000 items in the editor', (await ed.locator('[data-editor-items-count]').getAttribute('data-editor-items-count')) === '1000')
+  check(L + 'a blank row shows the default buy / get, greyed', (await itemCell(ed, '400001', 'buyQuantity')) === '2' && (await itemCell(ed, '400001', 'getQuantity')) === '1' && (await ed.locator('[data-editor-items-grid] .ag-row[row-id="400001"] [col-id="buyQuantity"].italic').count()) === 1)
+  check(L + 'a blank row reads as the default combination', (await itemCell(ed, '400001', 'combination')) === 'Buy 2 get 1 at 50% off', await itemCell(ed, '400001', 'combination'))
+  check(L + 'the BOGO row reads "Buy 1 get 1 free"', (await itemCell(ed, '400002', 'combination')) === 'Buy 1 get 1 free', await itemCell(ed, '400002', 'combination'))
+  check(L + 'a final-price row reads in SAR', (await itemCell(ed, '400003', 'combination')) === 'Buy 2 get 1 for 9.950 SAR', await itemCell(ed, '400003', 'combination'))
+  check(L + 'a grid cell carries no isolate characters', !/[⁦-⁩]/.test(await itemCell(ed, '400003', 'combination')))
+  check(L + 'before Check, Send says just Send', strip(await ed.locator('[data-editor-send]').innerText()) === 'Send')
+
+  // Save: the body.
+  await ed.locator('[data-editor-save]').click()
+  await reason(page, 'Eid draft')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('edit') === 'p-new1', null, { timeout: 20000 })
+  const body = callsOf(ctx, 'create')[0]?.body
+  check(
+    L + 'the save body names the type and the default buy / get',
+    body?.type === 'SAME_ITEM_BUNDLE' && body.defaultBuyQuantity === 2 && body.defaultGetQuantity === 1 && body.defaultSubtype === 'PERCENTAGE' && body.defaultValue === 50,
+    JSON.stringify({ ...body, items: undefined }),
+  )
+  check(
+    L + 'each row as pasted: blank = null, BOGO 1/1/PERCENTAGE/100, the page never groups them',
+    body?.items.length === 1000 &&
+      JSON.stringify(body.items.slice(0, 3)) ===
+        JSON.stringify([
+          { materialNumber: '400001', buyQuantity: null, getQuantity: null, subtype: null, value: null, maxQuantity: null },
+          { materialNumber: '400002', buyQuantity: 1, getQuantity: 1, subtype: 'PERCENTAGE', value: 100, maxQuantity: 2 },
+          { materialNumber: '400003', buyQuantity: 2, getQuantity: 1, subtype: 'FINAL_PRICE', value: 9.95, maxQuantity: null },
+        ]),
+    JSON.stringify(body?.items.slice(0, 3)),
+  )
+  if (dir === 'ltr') sameKeysCheck('HungerStationPromotionSaveBody', body)
+
+  // Check: the part preview, as the server split it.
+  const ed2 = page.locator(EDITOR('p-new1'))
+  await ed2.locator('[data-check-parts]').waitFor({ timeout: 20000 })
+  check(L + 'Check previews the sheet as 3 parts', (await ed2.locator('[data-check-parts]').getAttribute('data-check-parts')) === '3')
+  check(L + 'the parts are counted in words', strip(await ed2.locator('[data-check-parts-count]').innerText()).startsWith('3 separate HungerStation promotions'), await ed2.locator('[data-check-parts-count]').innerText())
+  const rows = []
+  for (let n = 0; n < 3; n++) {
+    const r = ed2.locator(`[data-check-part="${n}"]`)
+    rows.push([strip(await r.locator('[data-check-part-combination]').innerText()), await r.locator('[data-check-part-skus]').getAttribute('data-check-part-skus'), strip(await r.locator('[data-check-part-name]').innerText())])
+  }
+  check(
+    L + 'each part: the combination in words, its SKU count and its name on HungerStation',
+    JSON.stringify(rows) === JSON.stringify([[PART_WORDS[0], '600', PART_NAMES[0]], [PART_WORDS[1], '300', PART_NAMES[1]], [PART_WORDS[2], '100', PART_NAMES[2]]]),
+    JSON.stringify(rows),
+  )
+  check(L + 'the SKU counts are figures (1,000 grouped)', strip(await ed2.locator('[data-check-part="0"] [data-check-part-skus]').innerText()) === '600')
+  check(L + 'Send says "Send 3 promotions to 3 stores"', strip(await ed2.locator('[data-editor-send]').innerText()) === 'Send 3 promotions to 3 stores' && (await ed2.locator('[data-editor-send]').getAttribute('data-editor-send-parts')) === '3', await ed2.locator('[data-editor-send]').innerText())
+  if (dir === 'rtl') {
+    const raw = await ed2.locator('[data-check-part="0"] [data-check-part-combination]').innerText()
+    check(L + 'each value in the part words is isolated whole (FSI…PDI)', raw.includes('\u206850%\u2069') && raw.includes('\u20682\u2069'), JSON.stringify(raw))
+    check(L + 'the part name is free text in a <bdi>', (await ed2.locator('[data-check-part="0"] [data-check-part-name] bdi:not([dir])').count()) === 1)
+    check(L + 'the SKU count is a machine value', (await ed2.locator('[data-check-part="0"] [data-check-part-skus] bdi[dir="ltr"]').count()) === 1)
+    check(L + 'dir is rtl', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  }
+  await page.screenshot({ path: `${SHOTS}/${dir}-bundle-parts.png` })
+
+  // Send: three parts go out; the detail shows each one's status.
+  await ed2.locator('[data-editor-send]').click()
+  await reason(page, 'Eid go')
+  const sheet = page.locator('dialog[open][data-promotion-sheet="p-new1"]')
+  await sheet.locator('[data-promotion-part="pt-b3"]').waitFor({ timeout: 20000 })
+  check(L + 'Send posts { reason } once — the server sends the parts', callsOf(ctx, 'send').length === 1 && JSON.stringify(callsOf(ctx, 'send')[0].body) === JSON.stringify({ reason: 'Eid go' }))
+  const statuses = async () => Promise.all(['pt-b1', 'pt-b2', 'pt-b3'].map(async (id) => (await sheet.locator(`[data-promotion-part="${id}"] [data-promotion-part-status]`).innerText()).trim()))
+  check(L + 'the detail lists the 3 parts, each Sending (queued)', (await sheet.locator('[data-promotion-part]').count()) === 3 && (await statuses()).every((x) => x.startsWith('Queued')), JSON.stringify(await statuses()))
+  check(L + 'the detail names the default buy / get', (await sheet.locator('[data-promotion-field="defaultBuyGet"] dd').innerText()).trim() === 'B2G1')
+  await sheet.locator('[data-promotion-refresh]').click()
+  await page.waitForFunction(() => document.querySelector('dialog[open] [data-promotion-field="status"] dd')?.textContent?.trim() === 'Failed', null, { timeout: 15000 })
+  check(L + 'each part shows its own status: one failed, two completed', JSON.stringify(await statuses()) === JSON.stringify(['Completed', 'Failed', 'Completed']), JSON.stringify(await statuses()))
+  check(L + 'one failed part makes the promotion Failed', (await sheet.locator('[data-promotion-field="status"] dd').innerText()).trim() === 'Failed')
+  check(L + 'each item names its part', (await sheet.locator('[data-promotion-item-part="pt-b2"]').first().innerText()).trim() === PART_NAMES[1])
+  await page.screenshot({ path: `${SHOTS}/${dir}-bundle-detail.png` })
+  check(L + 'no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// § 0's check for the part preview the stub answers.
+{
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const d = { name: 'Eid 668', items: [item('1', { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE', value: 50 })] }
+  const answer = JSON.parse(bundleCheck({ saved: { p: d } }, ['', 'p']).body).data
+  const want = modelFields(source, 'HungerStationPromotionPartPreview').sort()
+  check('12: the HungerStationPromotionPartPreview the stub answers has exactly the model\'s fields', JSON.stringify(want) === JSON.stringify(Object.keys(answer.parts[0]).sort()), Object.keys(answer.parts[0]).join(','))
+  check('12: the stub names a part as 3213 does ("<name> · B2G1 50%")', answer.parts[0].name === 'Eid 668 · B2G1 50%')
+}
+await bundleScenario('ltr')
+await bundleScenario('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

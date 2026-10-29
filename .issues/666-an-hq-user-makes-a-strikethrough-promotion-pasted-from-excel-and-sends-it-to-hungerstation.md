@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3201-hungerstation-promotions-are-made-on-oms-react-and-sent-to-hungerstation-spec.md
 blocked-by: 665 (contract + live: BackOffice 3211)
 ---
@@ -47,10 +47,10 @@ UI → app (BackOffice doors, stubbed)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `strikethroughColumns` parse: header skipped, blank cells → default, repeats last-wins counted, 20,001 refused, non-numeric material kept for the server to answer (vitest)
-- [ ] `localWindow`: start defaults to now, end to 23:59 of the chosen day, end ≤ start flagged, and the value sent is the wall time typed (vitest)
-- [ ] drive (LTR + RTL), against stubs: paste → preview grid → save → body field for field; Send body with reason; Sending disables edit; Refresh re-reads; refusals inline
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `strikethroughColumns` parse: header skipped, blank cells → default, repeats last-wins counted, 20,001 refused, non-numeric material kept for the server to answer (vitest)
+- [x] `localWindow`: start defaults to now, end to 23:59 of the chosen day, end ≤ start flagged, and the value sent is the wall time typed (vitest)
+- [x] drive (LTR + RTL), against stubs: paste → preview grid → save → body field for field; Send body with reason; Sending disables edit; Refresh re-reads; refusals inline
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -70,3 +70,44 @@ contract.
 - 555's material import already reads `.xlsx`. Spec 3201 left `.xlsx` upload out of scope because it
   assumed a new library. If 555's reader feeds `ImportDialog`'s multi-column path with **no new
   dependency**, should the editor accept `.xlsx` too? Owner's call. The default is paste + `.tsv` only.
+
+## Comments
+
+- 2026-10-29 (built, `impl/666`): **done against stubs only — no BackOffice door exists and the
+  contract asset (BackOffice 3211) has not been written**, so "done" is vitest + typecheck + lint +
+  the drive against stubbed envelopes (real `errors[]` shape), never a live call.
+  - **Built:** `PromotionEditor` (side sheet on `?edit=new` / `?edit=<id>`, "New strikethrough" on the
+    list): chain first → header (internal name, EN + AR display names, HS reason default
+    Competitiveness, optional per-order / total-uses limits, Saudi-local start/end, default
+    subtype + value) → stores picker (`GET Promotions/Stores?chain=`; all ticked by default, search,
+    untick, paused stores badged, the frozen-at-send note) → items via `core/import/ImportDialog`.
+    Save draft (POST, then PUT) and Send each take a reason through the HungerStation `ReasonDialog`;
+    a sent promotion hands over to the detail (Sending), and the editor is locked unless the status is
+    `draft`. The detail gains **Edit draft** (drafts) and **Refresh** (anything sent; no body; its answer
+    replaces the cached detail).
+  - **Pure modules (vitest):** `strikethrough-columns` (`readStrikethrough`: header skip, blank →
+    `null` = takes the default, last-row-wins counted, cap 20,000 reported never truncated,
+    non-numeric material kept, an unreadable subtype/value/maxQty flagged on its line),
+    `local-window` (Saudi now as a fixed +03:00 shift, end = 23:59 of the picked day, wall time sent
+    as `yyyy-MM-ddTHH:mm:00`, end ≤ start / past / incomplete flagged), `promotion-form` (form ⇄ save
+    body, store toggling with "all"), `row-refusals`.
+  - **Core change:** `ImportDialog` gained two optional props — `read` (a feature's own reading: lines +
+    note + refused) and `apply` / `applyLabel` (hand the lines back instead of posting) — and
+    `ImportLineError` became a union with a `CELL` code (`import.problem.cell.<column>`). The two
+    existing imports are untouched in behaviour (their tests pass; one test narrowed for the union).
+  - **Drive** `tools/hungerstation-promotions-drive.mjs` § 666 (blocks 6–9, its own section; the write
+    doors filled as `open(…, { doors: doors666() })` overrides, the DOORS table untouched for 669's
+    merge). Body field for field, model-key check on the save body, Send `{ reason }`, Refresh no body,
+    DHS-00019 / 00008 / 00018 inline, 20,001 refused, typed chain, RTL. **133/133** (82 of 665 + 51 new). Vitest 7726 green; typecheck + lint green.
+  - 🚩 **Assumptions for the contract (BackOffice 3211):** (1) **chain source** — spec 3201 names no
+    chain read for the promotions grant; `Chains` rides `canManageStores`. The editor offers `Chains`
+    when that grant is held, otherwise the chains seen on the list as suggestions over a free-typed
+    key, and the stores door answers an unknown chain with DHS-00006 (inline). **BO ask:** carry the
+    chain keys on `Promotions/Stores` without `chain=`, or a `Promotions/Chains` read. (2) a Send
+    refused for its checks (DHS-00018) carries the Check answer (`HungerStationPromotionCheckResult`)
+    as the envelope `data`; rows with refusals are marked on their row (`NO_SKU` etc. are the server's
+    words). (3) the save body carries `null` for a blank subtype / value and the server resolves the
+    default, the read answering resolved values. (4) `allStores: true` sends `storeCodes: []`.
+    (5) Save draft carries a reason, as every write does (DHS-00008) — one reason per save may prove
+    heavy for a draft built over many sittings; owner's call.
+  - **Open (unchanged):** `.xlsx` via 555's reader — default kept to paste + `.tsv` / `.txt`.

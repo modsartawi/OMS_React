@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ChevronLeft, ChevronRight, RotateCcw, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -27,9 +27,10 @@ import { keyChoices, toggled } from '@/core/util/filter-choices'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionsApi } from './api'
 import { promotionColumns } from './columns'
+import PromotionEditor from './PromotionEditor'
 import PromotionSheet from './PromotionSheet'
 import { PROMOTION_STATUSES } from './promotion-status'
-import { PROMOTION_TYPES, promotionsDoorParams, promotionsFromParams, promotionsToParams, type PromotionsPageQuery } from './promotions-query'
+import { NEW_PROMOTION, PROMOTION_TYPES, promotionsDoorParams, promotionsFromParams, promotionsToParams, type PromotionsPageQuery } from './promotions-query'
 
 /**
  * HungerStation promotions (ticket 665, BackOffice spec 3201) — slice 0: the list and the
@@ -74,7 +75,7 @@ function Promotions() {
 
   const door = promotionsDoorParams(query)
   const promotions = useQuery({
-    queryKey: [...PROMOTIONS_KEY, 'list', promotionsToParams({ ...query, promotion: null }).toString()],
+    queryKey: [...PROMOTIONS_KEY, 'list', promotionsToParams({ ...query, promotion: null, edit: null }).toString()],
     queryFn: () => promotionsApi.list(door),
     placeholderData: keepPreviousData,
     retry: false,
@@ -92,6 +93,10 @@ function Promotions() {
   const chains = useQuery({ ...hungerStationChainsQuery(), enabled: manageStores })
   const seen = useSeenChains(rows)
   const chainKeys = keyChoices(manageStores && chains.isSuccess ? chains.data : undefined, seen, [query.chain])
+  // 🚩 666: the editor's chain. Spec 3201 names no chain door for the promotions grant, so a
+  // promotions-only user picks from the chains seen on the list, or types one (the stores picker
+  // answers an unknown chain with DHS-00006).
+  const editorChains = keyChoices(manageStores && chains.isSuccess ? chains.data : undefined, seen)
 
   const columns = useMemo(
     () => promotionColumns(t, { onDetails: (row) => change((prev) => ({ ...prev, promotion: row.promotionId })) }),
@@ -154,6 +159,10 @@ function Promotions() {
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             {t('filters.clear')}
+          </Button>
+          <Button variant="primary" className="ms-auto" onClick={() => change((prev) => ({ ...prev, edit: NEW_PROMOTION, promotion: null }))} data-promotions-new="">
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            {t('editor.new')}
           </Button>
         </div>
 
@@ -240,7 +249,27 @@ function Promotions() {
         </div>
       </div>
 
-      {query.promotion && <PromotionSheet key={query.promotion} promotionId={query.promotion} onClose={() => open(null)} />}
+      {query.edit ? (
+        <PromotionEditor
+          key={query.edit === NEW_PROMOTION ? NEW_PROMOTION : query.edit}
+          promotionId={query.edit === NEW_PROMOTION ? null : query.edit}
+          chains={editorChains}
+          chainsKnown={manageStores && chains.isSuccess}
+          onClose={() => change((prev) => ({ ...prev, edit: null }))}
+          // `replace`-free on purpose: the new id lands in the URL, so a reload reopens the draft.
+          onSaved={(id) => change((prev) => ({ ...prev, edit: id }))}
+          onSent={(id) => change((prev) => ({ ...prev, edit: null, promotion: id }))}
+        />
+      ) : (
+        query.promotion && (
+          <PromotionSheet
+            key={query.promotion}
+            promotionId={query.promotion}
+            onClose={() => open(null)}
+            onEdit={() => change((prev) => ({ ...prev, edit: prev.promotion, promotion: null }))}
+          />
+        )
+      )}
     </div>
   )
 }

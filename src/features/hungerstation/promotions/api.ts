@@ -1,6 +1,9 @@
 import { api } from '@/core/api'
 import type {
   HungerStationPromotionDetail,
+  HungerStationPromotionReasonBody,
+  HungerStationPromotionSaveBody,
+  HungerStationPromotionStoreChoice,
   HungerStationPromotionsPage,
   HungerStationPromotionsQuery,
 } from '@/core/models/hungerstation'
@@ -17,6 +20,9 @@ import type {
 export const PROMOTIONS_KEY = ['hungerstation', 'promotions'] as const
 
 export const promotionKey = (promotionId: string) => [...PROMOTIONS_KEY, 'detail', promotionId] as const
+
+/** The stores picker of one chain. */
+export const promotionStoresKey = (chain: string) => [...PROMOTIONS_KEY, 'stores', chain] as const
 
 export const promotionPath = (promotionId: string) => `HungerStationWeb/Promotions/${encodeURIComponent(promotionId)}`
 
@@ -38,5 +44,34 @@ export const promotionsApi = {
   /** GET HungerStationWeb/Promotions/{promotionId} — header, parts, stores, items, sends. DHS-00016. */
   detail(promotionId: string): Promise<HungerStationPromotionDetail> {
     return api.get<HungerStationPromotionDetail>(promotionPath(promotionId))
+  },
+
+  // ── 666: the strikethrough editor, Send and Refresh ───────────────────────────────────────────
+
+  /** GET HungerStationWeb/Promotions/Stores?chain= — the chain's onboarded stores: removed ones left
+   *  out, paused ones kept. Rides the PROMOTIONS grant, unlike `Chains`. DHS-00006 for an unknown chain. */
+  async stores(chain: string): Promise<HungerStationPromotionStoreChoice[]> {
+    return (await api.get<HungerStationPromotionStoreChoice[] | null>('HungerStationWeb/Promotions/Stores', { chain })) ?? []
+  },
+
+  /** POST HungerStationWeb/Promotions — save a new draft. Nothing reaches HungerStation.
+   *  DHS-00008 / 00019. */
+  create(body: HungerStationPromotionSaveBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>('HungerStationWeb/Promotions', body)
+  },
+
+  /** PUT HungerStationWeb/Promotions/{promotionId} — save the draft again. DHS-00008 / 00016 / 00017 / 00019. */
+  save(promotionId: string, body: HungerStationPromotionSaveBody): Promise<HungerStationPromotionDetail> {
+    return api.put<HungerStationPromotionDetail>(promotionPath(promotionId), body)
+  },
+
+  /** POST …/{promotionId}/Send — the promotion then reads Sending. DHS-00008 / 00016 / 00017 / 00018. */
+  send(promotionId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Send`, body)
+  },
+
+  /** POST …/{promotionId}/Refresh — NO body: asks HungerStation for each part's job now. */
+  refresh(promotionId: string): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Refresh`, undefined)
   },
 }

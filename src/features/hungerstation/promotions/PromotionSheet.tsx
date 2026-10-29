@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Loader2, X } from 'lucide-react'
+import { Loader2, Pencil, RefreshCw, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import {
   HUNGERSTATION_PROMOTION_ERRORS,
@@ -10,6 +10,7 @@ import {
   type HungerStationPromotionPart,
   type HungerStationPromotionSend,
 } from '@/core/models/hungerstation'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
@@ -18,7 +19,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
-import { promotionKey, promotionsApi } from './api'
+import { PROMOTIONS_KEY, promotionKey, promotionsApi } from './api'
 import { PromotionStatusBadge, typeText } from './columns'
 import { buyGetText, discountText, windowText } from './promotion-display'
 import { jobStatusLabel } from './promotion-status'
@@ -30,11 +31,12 @@ import { jobStatusLabel } from './promotion-status'
  * (material, SKU, subtype, value, max quantity, part) and every send (when, who, reason, HTTP
  * status, job status). Opened from `?promotion=<id>`. The frame is the house side sheet.
  */
-export default function PromotionSheet({ promotionId, onClose }: { promotionId: string; onClose: () => void }) {
+export default function PromotionSheet({ promotionId, onClose, onEdit }: { promotionId: string; onClose: () => void; onEdit: () => void }) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
   const detail = useQuery({ queryKey: promotionKey(promotionId), queryFn: () => promotionsApi.detail(promotionId), retry: false })
   const p = detail.data
+  const refresh = useRefresh(promotionId)
 
   return (
     <SideSheet onClose={onClose} width="w-[72rem]" aria-labelledby={titleId} data-promotion-sheet={promotionId}>
@@ -47,12 +49,36 @@ export default function PromotionSheet({ promotionId, onClose }: { promotionId: 
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {p && <PromotionStatusBadge t={t} status={p.status} />}
+          {/* 666: a draft opens in the editor; a sent one asks HungerStation now. */}
+          {p?.status === 'draft' && (
+            <Button variant="outlined" onClick={onEdit} data-promotion-edit="">
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t('detail.edit')}
+            </Button>
+          )}
+          {p && p.status !== 'draft' && (
+            <Button variant="outlined" disabled={refresh.isPending} onClick={() => refresh.mutate()} data-promotion-refresh="">
+              <RefreshCw className={'h-3.5 w-3.5' + (refresh.isPending ? ' animate-spin' : '')} aria-hidden />
+              {t('detail.refresh')}
+            </Button>
+          )}
           <IconButton label={t('detail.close')} onClick={onClose} data-promotion-close="">
             <X className="h-4 w-4" aria-hidden />
           </IconButton>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
+        {refresh.isError && (
+          <div data-promotion-refresh-error={apiErrorCode(refresh.error) ?? ''}>
+            <ErrorBanner className="p-2.5" title={t('detail.refreshFailed')} message={apiErrorMessage(refresh.error, t('results.failed'))}>
+              {apiErrorCode(refresh.error) && (
+                <span className="font-mono text-xs">
+                  <Ltr>{apiErrorCode(refresh.error)}</Ltr>
+                </span>
+              )}
+            </ErrorBanner>
+          </div>
+        )}
         {detail.isPending ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" data-promotion-loading="">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -88,6 +114,18 @@ export default function PromotionSheet({ promotionId, onClose }: { promotionId: 
       </div>
     </SideSheet>
   )
+}
+
+/** 666: Refresh — asks HungerStation for each part's job now; its answer IS the detail. */
+function useRefresh(promotionId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => promotionsApi.refresh(promotionId),
+    onSuccess: (answer) => {
+      qc.setQueryData(promotionKey(promotionId), answer)
+      void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY, predicate: (q) => q.queryKey[2] !== 'detail' })
+    },
+  })
 }
 
 const code = (v: string | null) =>

@@ -30,7 +30,7 @@ describe('sourceUserLines — what the import sends (ticket 438, spec 430 D7)', 
 describe("SOURCE_USER_IMPORT_COLUMNS — WPF's file", () => {
   it('reads user ID then document source, and errors a line with neither two columns nor two plus X', () => {
     const lines = parseImport('12345\n12345\tWEB\tY\n12345\tWEB\tX', SOURCE_USER_IMPORT_COLUMNS)
-    expect(lines.map((l) => (l.error ? `error:${l.error.found}` : l.action))).toEqual(['error:1', 'error:3', 'delete'])
+    expect(lines.map((l) => (l.error?.code === 'COLUMN_COUNT' ? `error:${l.error.found}` : l.action))).toEqual(['error:1', 'error:3', 'delete'])
     expect(read('12345\nAB\tWEB')).toBeNull()
   })
 })

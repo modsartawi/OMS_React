@@ -15,10 +15,16 @@ const query = (over: Partial<PromotionsPageQuery> = {}): PromotionsPageQuery => 
   skip: 0,
   take: 100,
   promotion: null,
+  edit: null,
   ...over,
 })
 
 describe('promotionsFromParams ⇄ promotionsToParams', () => {
+  it('666: the editor rides the URL too — `new`, or a draft id', () => {
+    expect(promotionsFromParams(new URLSearchParams('edit=new')).edit).toBe('new')
+    expect(promotionsToParams({ ...query(), edit: '01JBX7' }).toString()).toBe('edit=01JBX7')
+  })
+
   it('an empty URL is no filter, the first page, nothing open; the page size is the contract default', () => {
     expect(promotionsFromParams(new URLSearchParams())).toEqual(query())
     expect(PROMOTIONS_PAGE_SIZE).toBe(100)

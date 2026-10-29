@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -20,7 +20,42 @@ import { decodeImportFile, importTally, parseImport, sendableLines, type ImportL
 import { importResult, type ImportResultView } from './import-result'
 import { importPreviewColumns } from './preview-columns'
 
-interface Props<K extends string> {
+/**
+ * A feature's own reading of the text (ticket 666), when the core rule — exactly the spec's
+ * columns, no header skip, an `X` for a delete — is not its rule: the lines it previews, a note said
+ * above them (a header skipped, repeats collapsed), and whether the reading may not be used (a cap
+ * passed — the note says why).
+ */
+export interface ImportReading<K extends string> {
+  lines: ImportLine<K>[]
+  note?: ReactNode
+  refused?: boolean
+}
+
+/**
+ * What the primary button does. **Send** posts the lines to the feature's door and shows the
+ * server's result (the imports of spec 430). **Apply** hands them back to the feature, which keeps
+ * them — the promotion editor's items (ticket 666), which only reach the server when it saves.
+ */
+type Action<K extends string> =
+  | {
+      /** Posts the lines — every line of the file, in order, none in error — to the feature's door. */
+      send: (lines: readonly ImportOkLine<K>[]) => Promise<ImportResultModel>
+      /** The import reached the server (or may have): the page reloads its lists. */
+      onImported: () => void
+      apply?: undefined
+      applyLabel?: undefined
+    }
+  | {
+      /** Takes the lines (none in error); the caller closes the dialog. */
+      apply: (lines: readonly ImportOkLine<K>[]) => void
+      /** The primary button's words, for that many lines. */
+      applyLabel: (count: number) => string
+      send?: undefined
+      onImported?: undefined
+    }
+
+type Props<K extends string> = Action<K> & {
   /**
    * The importing feature's i18n namespace. It carries the dialog's `import.*` block (file, paste,
    * summary, send, result, reasons…), so the copy — and its Arabic — stays the feature's.
@@ -35,11 +70,9 @@ interface Props<K extends string> {
   columns: readonly K[]
   /** Each column's preview header, worded by the feature. */
   header: (key: K) => string
-  /** Posts the lines — every line of the file, in order, none in error — to the feature's door. */
-  send: (lines: readonly ImportOkLine<K>[]) => Promise<ImportResultModel>
+  /** The feature's own reading of the text; the core `parseImport` when absent. */
+  read?: (text: string) => ImportReading<K>
   onClose: () => void
-  /** The import reached the server (or may have): the page reloads its lists. */
-  onImported: () => void
 }
 
 const lineRowId: GetRowIdFunc<ImportLine<string>> = ({ data }) => String(data.line)
@@ -65,6 +98,10 @@ const figure = (n: number) => n.toLocaleString('en-US')
  *
  * The text box is the one source: a picked file fills it, and an edit re-reads the preview.
  *
+ * Ticket 666 (the HungerStation promotion editor's items) added two optional turns: `read`, a
+ * feature's own reading of the text (a header skipped, repeats collapsed, a cap), and `apply`, a
+ * primary button that hands the lines back to the feature instead of posting them.
+ *
  * It is open while it is mounted: a caller mounts it per import (`{kind && <ImportDialog … />}`), so
  * nothing of one import is drawn in the next.
  */
@@ -78,6 +115,9 @@ export default function ImportDialog<K extends string>({
   send,
   onClose,
   onImported,
+  apply,
+  applyLabel,
+  read,
 }: Props<K>) {
   const { t } = useTranslation(ns)
   const [text, setText] = useState('')
@@ -86,9 +126,10 @@ export default function ImportDialog<K extends string>({
   const [result, setResult] = useState<ImportResultView | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const lines = useMemo(() => parseImport(text, columns), [text, columns])
+  const reading = useMemo<ImportReading<K>>(() => (read ? read(text) : { lines: parseImport(text, columns) }), [read, text, columns])
+  const lines = reading.lines
   // What Send posts, and whether it is offered: one reading of the rule.
-  const ok = useMemo(() => sendableLines(lines), [lines])
+  const ok = useMemo(() => (reading.refused ? null : sendableLines(lines)), [lines, reading.refused])
   const tally = importTally(lines)
   const previewCols = useMemo(() => importPreviewColumns(t, columns, header), [t, columns, header])
   const defaultColDef = useMemo<ColDef<ImportLine<string>>>(
@@ -97,10 +138,10 @@ export default function ImportDialog<K extends string>({
   )
 
   const sending = useMutation({
-    mutationFn: send,
+    mutationFn: (lines: readonly ImportOkLine<K>[]) => (send ? send(lines) : Promise.reject(new Error('no send'))),
     onSuccess: (answer) => setResult(importResult(answer)),
     // Even a failed or unanswered send may have committed: the lists are read again either way.
-    onSettled: () => onImported(),
+    onSettled: () => onImported?.(),
   })
 
   function reset() {
@@ -135,7 +176,8 @@ export default function ImportDialog<K extends string>({
 
   function submit() {
     if (!ok || sending.isPending) return
-    sending.mutate(ok)
+    if (apply) apply(ok)
+    else sending.mutate(ok)
   }
 
   const sendable = ok !== null && !sending.isPending
@@ -156,7 +198,7 @@ export default function ImportDialog<K extends string>({
       </Button>
       <Button variant="primary" onClick={submit} disabled={!sendable} data-import-send="">
         {sending.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-        {sending.isPending ? t('import.sending') : t('import.send', { count: tally.lines })}
+        {sending.isPending ? t('import.sending') : applyLabel ? applyLabel(tally.lines) : t('import.send', { count: tally.lines })}
       </Button>
     </>
   )
@@ -208,6 +250,12 @@ export default function ImportDialog<K extends string>({
             </div>
 
             {readError && <ErrorBanner className="p-2.5" message={t('import.readFailed')} />}
+
+            {reading.note && (
+              <div className="flex flex-col gap-1 text-xs" data-import-note="">
+                {reading.note}
+              </div>
+            )}
 
             {lines.length > 0 && (
               <>

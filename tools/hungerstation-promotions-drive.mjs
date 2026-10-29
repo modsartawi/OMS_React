@@ -635,6 +635,392 @@ const chip = async (page, s) => {
   await context.close()
 }
 
+// ══ 666: the strikethrough editor, Save draft, Send, Refresh ══════════════════════════════════════
+// Its own section (669 builds beside it): the write doors are filled HERE, as `open(…, { doors })`
+// overrides over a per-run `ctx.saved`, never by editing the DOORS table above. Asserts:
+//   6. New → chain first → its stores (all ticked, paused kept, the frozen note) → header (start
+//      now, end 23:59 of the day picked) → paste (header skipped and said, blank cells → default,
+//      a repeat last-wins and counted) → Save draft with a reason: the create body FIELD FOR FIELD;
+//      Send with a reason: { reason }; the promotion reads Sending, the editor is locked; Refresh
+//      sends NO body and re-reads (Live);
+//   7. refusals inline: DHS-00019 at the name, DHS-00008 at the reason, DHS-00018 marks the
+//      material with no SKU on its row; a paste of 20,001 is refused before anything is sent;
+//   8. a promotions-only user (no Chains read) types the chain, offered the chains seen;
+//   9. RTL: the editor isolates its machine values.
+{
+  REFUSALS['DHS-00006'] = [404, 'No such HungerStation chain. / لا توجد سلسلة هنقرستيشن بهذا الاسم.']
+  REFUSALS['DHS-00018'] = [400, 'A check still refuses: nothing was sent. / ما زال فحص يرفض: لم يُرسل شيء.']
+  REFUSALS['DHS-00019'] = [409, 'The name is used by another promotion of the chain. / الاسم مستخدم لعرض آخر في السلسلة.']
+}
+const baseRead = DOORS.find((d) => d.door === 'read').handle
+
+/** A saved draft as the server would answer it: blank cells resolved to the default. */
+function draftOf(ctx, promotionId, body, prev = null) {
+  const choices = { 1001: store('1001'), 1002: store('1002'), 2001: store('2001') }
+  return {
+    promotionId,
+    chainKey: body.chainKey,
+    name: body.name,
+    displayNameEn: body.displayNameEn,
+    displayNameAr: body.displayNameAr,
+    type: body.type,
+    hsReason: body.hsReason,
+    startAt: body.startAt,
+    endAt: body.endAt,
+    orderLimit: body.orderLimit,
+    globalLimit: body.globalLimit,
+    defaultSubtype: body.defaultSubtype,
+    defaultValue: body.defaultValue,
+    status: 'draft',
+    allStores: body.allStores,
+    replacesId: null,
+    replacedById: null,
+    createdAt: prev?.createdAt ?? '2026-10-29T11:00:00',
+    createdBy: 'msartawi',
+    updatedAt: '2026-10-29T11:00:00',
+    updatedBy: 'msartawi',
+    sentAt: null,
+    sentBy: null,
+    switchedOffAt: null,
+    switchedOffBy: null,
+    switchedOffReason: null,
+    parts: [],
+    stores: body.allStores ? [] : body.storeCodes.map((c) => choices[c] ?? store(c)),
+    items: body.items.map((i) =>
+      item(i.materialNumber, { sku: null, partId: null, subtype: i.subtype ?? body.defaultSubtype, value: i.value ?? body.defaultValue, maxQuantity: i.maxQuantity }),
+    ),
+    sends: [],
+  }
+}
+
+/** The 666 write doors over `ctx.saved`; `bend` swaps one door's answer for a scenario. */
+const doors666 = (bend = {}) => ({
+  read: (ctx, m, req, url) => {
+    const id = decodeURIComponent(m[1])
+    return ctx.saved?.[id] ? envelope(ctx.saved[id]) : baseRead(ctx, m, req, url)
+  },
+  create: (ctx, m, req) => {
+    if (bend.create) {
+      const bent = bend.create(ctx)
+      if (bent) return bent
+    }
+    ctx.saved ??= {}
+    const id = `p-new${Object.keys(ctx.saved).length + 1}`
+    ctx.saved[id] = draftOf(ctx, id, req.postDataJSON())
+    return envelope(ctx.saved[id])
+  },
+  save: (ctx, m, req) => {
+    const id = decodeURIComponent(m[1])
+    ctx.saved[id] = draftOf(ctx, id, req.postDataJSON(), ctx.saved[id])
+    return envelope(ctx.saved[id])
+  },
+  send: (ctx, m) => {
+    if (bend.send) {
+      const bent = bend.send(ctx)
+      if (bent) return bent
+    }
+    const id = decodeURIComponent(m[1])
+    const p = ctx.saved[id]
+    ctx.saved[id] = {
+      ...p,
+      status: 'sending',
+      sentAt: '2026-10-29T11:00:00',
+      sentBy: 'msartawi',
+      stores: p.stores.length ? p.stores : [store('1001'), store('1002'), store('2001')],
+      items: p.items.map((i) => ({ ...i, sku: `SKU-${i.materialNumber}`, partId: 'pt-n1' })),
+      parts: [part('pt-n1', { name: p.name, skuCount: p.items.length, latestJobStatus: 'QUEUED', refusals: null })],
+      sends: [send('s-n1', { partId: 'pt-n1', sentAt: '2026-10-29T11:00:00', reason: 'Go live', jobStatus: 'QUEUED', hsUpdatedAt: null })],
+    }
+    return envelope(ctx.saved[id])
+  },
+  refresh: (ctx, m) => {
+    const id = decodeURIComponent(m[1])
+    const p = ctx.saved[id]
+    ctx.saved[id] = {
+      ...p,
+      status: 'live',
+      parts: p.parts.map((x) => ({ ...x, latestJobStatus: 'COMPLETED', refusals: { invalidVendors: [], missingSkus: [], invalidDiscountedSkus: [] } })),
+      sends: p.sends.map((s) => ({ ...s, jobStatus: 'COMPLETED' })),
+    }
+    return envelope(ctx.saved[id])
+  },
+})
+
+const EDITOR = (id = 'new') => `dialog[open][data-promotion-editor="${id}"]`
+const REASON = 'dialog[open] [data-reason-dialog]'
+const PASTE = [
+  ['Material', 'Subtype', 'Value', 'MaxQty'],
+  ['101001', 'PERCENTAGE', '25', '3'],
+  ['101002', '', '', ''],
+  ['101003', 'FINAL_PRICE', '9.5', ''],
+  ['101001', 'PERCENTAGE', '30', ''],
+]
+  .map((r) => r.join('\t'))
+  .join('\r\n')
+const callsOf = (ctx, door) => ctx.calls.filter((c) => c.door === door)
+
+/** New → chain → header. */
+async function startNew(page, { chain = 'OlaCare' } = {}) {
+  await page.goto(`${BASE}/hungerstation/promotions`)
+  await waitRows(page, N)
+  await page.locator('[data-promotions-new]').click()
+  const ed = page.locator(EDITOR())
+  await ed.waitFor({ timeout: 15000 })
+  if (chain) {
+    await ed.locator('[data-editor-chain-select]').selectOption(chain)
+    await ed.locator('[data-editor-store-list]').waitFor({ timeout: 15000 })
+  }
+  return ed
+}
+async function fillHeader(ed) {
+  await ed.locator('[data-editor-name]').fill('Ramadan 666')
+  await ed.locator('[data-editor-display-en]').fill('Up to 25% off')
+  await ed.locator('[data-editor-display-ar]').fill('خصم حتى ٢٥٪')
+  await ed.locator('[data-editor-default-value]').fill('20')
+}
+async function paste(page, ed, text) {
+  await ed.locator('[data-editor-paste]').click()
+  const dlg = page.locator('dialog[open] [data-import-dialog="promotion-items"]')
+  await dlg.waitFor({ timeout: 10000 })
+  await dlg.locator('[data-import-text]').fill(text)
+  return dlg
+}
+async function reason(page, text) {
+  const dlg = page.locator(REASON)
+  await dlg.waitFor({ timeout: 10000 })
+  await dlg.locator('[data-reason-input]').fill(text)
+  await page.locator('dialog[open] [data-reason-confirm]').click()
+}
+const itemCell = async (ed, material, col) => (await ed.locator(`[data-editor-items-grid] .ag-row[row-id="${material}"] [col-id="${col}"]`).innerText()).trim()
+
+/** § 0's check, for a body the browser sent. */
+function sameKeysCheck(name, obj) {
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const want = modelFields(source, name).sort()
+  const got = Object.keys(obj ?? {}).sort()
+  check(`6: the ${name} sent has exactly the model's fields`, JSON.stringify(want) === JSON.stringify(got), `model ${want.join(',')} | sent ${got.join(',')}`)
+}
+
+// ── 6: make, save, send, refresh ─────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, ctx } = await open('ltr', { doors: doors666() })
+  const ed = await startNew(page)
+  check('6: New opens the editor, ?edit=new in the URL', search(page).get('edit') === 'new')
+  check('6: the chain comes first; its stores are read for it', callsOf(ctx, 'stores').at(-1)?.query === 'chain=OlaCare', callsOf(ctx, 'stores').at(-1)?.query)
+  const ticks = await ed.locator('[data-editor-store]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-editor-store'), e.getAttribute('data-editor-store-on')]))
+  check('6: every store of the chain ticked by default', JSON.stringify(ticks) === JSON.stringify([['1001', 'true'], ['1002', 'true'], ['2001', 'true']]), JSON.stringify(ticks))
+  check('6: a paused store is offered, and says so', (await ed.locator('[data-editor-store="1002"] [data-editor-store-paused]').count()) === 1)
+  check('6: the note says the list is frozen when sent, a later store does not join', /frozen when the promotion is sent: a store onboarded later does not join/.test(await ed.locator('[data-editor-stores-note]').innerText()))
+  await ed.locator('[data-editor-stores-search]').fill('2001')
+  check('6: the stores search narrows the list', (await ed.locator('[data-editor-store]').count()) === 1)
+  await ed.locator('[data-editor-store="2001"] [data-editor-store-tick]').uncheck()
+  await ed.locator('[data-editor-stores-search]').fill('')
+  check('6: untick one: 2 / 3 ticked', (await ed.locator('[data-editor-stores-count]').innerText()).trim() === '2 / 3 ticked', await ed.locator('[data-editor-stores-count]').innerText())
+
+  const box = (k) => ed.locator(`[data-editor-${k}]`).inputValue()
+  check('6: start defaults to now (Saudi local)', (await box('start-date')) === '2026-10-29' && (await box('start-time')) === '11:00')
+  check('6: end defaults to 23:59 of that day', (await box('end-date')) === '2026-10-29' && (await box('end-time')) === '23:59')
+  await ed.locator('[data-editor-end-time]').fill('18:00')
+  await ed.locator('[data-editor-end-date]').fill('2026-11-30')
+  check('6: picking an end day takes 23:59 of it', (await box('end-date')) === '2026-11-30' && (await box('end-time')) === '23:59')
+  check('6: Competitiveness is the default HungerStation reason', (await box('hs-reason')) === 'COMPETITIVENESS')
+  await fillHeader(ed)
+  await ed.locator('[data-editor-hs-reason]').selectOption('OVERSTOCK')
+  await ed.locator('[data-editor-order-limit]').fill('2')
+  check('6: Send waits for a saved draft', await ed.locator('[data-editor-send]').isDisabled())
+
+  const dlg = await paste(page, ed, PASTE)
+  await dlg.locator('[data-import-header-skipped]').waitFor({ timeout: 5000 })
+  check('6: the header row is skipped and said', (await dlg.locator('[data-import-header-skipped]').innerText()).includes('Material'))
+  check('6: the repeat is counted', (await dlg.locator('[data-import-repeats]').getAttribute('data-import-repeats')) === '1')
+  await dlg.locator('[data-import-preview] .ag-row[row-index]').first().waitFor({ timeout: 5000 })
+  const previewRows = new Set(await dlg.locator('[data-import-preview] .ag-row[row-index]').evaluateAll((els) => els.map((e) => e.getAttribute('row-index')))).size
+  check('6: the preview grid shows the three materials', previewRows === 3, String(previewRows))
+  check('6: the paste is used through the import dialog', (await page.locator('dialog[open] [data-import-send]').innerText()).replace(/[⁦-⁩]/g, '').trim() === 'Use 3 materials')
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="101003"]').waitFor({ timeout: 10000 })
+  check('6: three items, the repeat last-wins', (await ed.locator('[data-editor-items-count]').getAttribute('data-editor-items-count')) === '3' && (await itemCell(ed, '101001', 'value')) === '30%')
+  check('6: a blank cell shows the default', (await itemCell(ed, '101002', 'subtype')) === 'Percentage off' && (await itemCell(ed, '101002', 'value')) === '20%')
+  check('6: a final price reads in SAR', (await itemCell(ed, '101003', 'value')) === '9.500 SAR')
+  await page.screenshot({ path: `${SHOTS}/ltr-editor.png` })
+
+  await ed.locator('[data-editor-save]').click()
+  await reason(page, '  Ramadan draft  ')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('edit') === 'p-new1', null, { timeout: 15000 })
+  const body = callsOf(ctx, 'create')[0]?.body
+  const want = {
+    chainKey: 'OlaCare',
+    name: 'Ramadan 666',
+    displayNameEn: 'Up to 25% off',
+    displayNameAr: 'خصم حتى ٢٥٪',
+    type: 'STRIKETHROUGH',
+    hsReason: 'OVERSTOCK',
+    startAt: '2026-10-29T11:00:00',
+    endAt: '2026-11-30T23:59:00',
+    orderLimit: 2,
+    globalLimit: null,
+    defaultSubtype: 'PERCENTAGE',
+    defaultValue: 20,
+    allStores: false,
+    storeCodes: ['1001', '1002'],
+    items: [
+      { materialNumber: '101001', subtype: 'PERCENTAGE', value: 30, maxQuantity: null, buyQuantity: null, getQuantity: null },
+      { materialNumber: '101002', subtype: null, value: null, maxQuantity: null, buyQuantity: null, getQuantity: null },
+      { materialNumber: '101003', subtype: 'FINAL_PRICE', value: 9.5, maxQuantity: null, buyQuantity: null, getQuantity: null },
+    ],
+    reason: 'Ramadan draft',
+  }
+  check('6: Save draft posts the create body field for field (wall time, no UTC, blank = null, reason trimmed)', JSON.stringify(body) === JSON.stringify(want), JSON.stringify(body))
+  sameKeysCheck('HungerStationPromotionSaveBody', body)
+  check('6: the saved id lands in the URL (?edit=p-new1)', search(page).get('edit') === 'p-new1')
+  const ed2 = page.locator(EDITOR('p-new1'))
+  await ed2.locator('[data-editor-state="saved"]').waitFor({ timeout: 10000 })
+  check('6: saved, nothing reached HungerStation', callsOf(ctx, 'send').length === 0)
+
+  // Save again: a PUT.
+  await ed2.locator('[data-editor-global-limit]').fill('5000')
+  await ed2.locator('[data-editor-state="dirty"]').waitFor({ timeout: 5000 })
+  check('6: an edit since the save holds Send back', await ed2.locator('[data-editor-send]').isDisabled())
+  await ed2.locator('[data-editor-save]').click()
+  await reason(page, 'More uses')
+  await ed2.locator('[data-editor-state="saved"]').waitFor({ timeout: 10000 })
+  const put = callsOf(ctx, 'save')[0]
+  check('6: saving again is a PUT on the draft', put?.path === 'HungerStationWeb/Promotions/p-new1' && put.body.globalLimit === 5000 && put.body.reason === 'More uses', JSON.stringify(put?.body))
+
+  // Send.
+  await ed2.locator('[data-editor-send]').click()
+  await page.locator(REASON).waitFor({ timeout: 10000 })
+  const note = await page.locator('dialog[open] [data-editor-send-note]').innerText()
+  check('6: the Send dialog says what goes out', note.includes('2 stores with 3 materials'), note)
+  await reason(page, 'Go live')
+  const sheet = page.locator('dialog[open][data-promotion-sheet="p-new1"]')
+  await sheet.waitFor({ timeout: 15000 })
+  check('6: Send posts { reason } only', JSON.stringify(callsOf(ctx, 'send')[0]?.body) === JSON.stringify({ reason: 'Go live' }) && callsOf(ctx, 'send')[0]?.path === 'HungerStationWeb/Promotions/p-new1/Send')
+  await sheet.locator('[data-promotion-field="status"]').waitFor({ timeout: 10000 })
+  check('6: the detail takes over, reading Sending', search(page).get('promotion') === 'p-new1' && search(page).get('edit') === null && (await sheet.locator('[data-promotion-field="status"] dd').innerText()).trim() === 'Sending')
+  check('6: a sent promotion offers Refresh, not Edit', (await sheet.locator('[data-promotion-refresh]').count()) === 1 && (await sheet.locator('[data-promotion-edit]').count()) === 0)
+
+  // Sending disables edit.
+  await page.goto(`${BASE}/hungerstation/promotions?edit=p-new1`)
+  const locked = page.locator(EDITOR('p-new1'))
+  await locked.waitFor({ timeout: 20000 })
+  await locked.locator('[data-editor-locked="sending"]').waitFor({ timeout: 20000 })
+  check('6: while Sending the editor is locked', (await locked.locator('[data-editor-name]').isDisabled()) && (await locked.locator('[data-editor-paste]').isDisabled()) && (await locked.locator('[data-editor-save]').count()) === 0)
+
+  // Refresh re-reads.
+  await page.goto(`${BASE}/hungerstation/promotions?promotion=p-new1`)
+  const sheet2 = page.locator('dialog[open][data-promotion-sheet="p-new1"]')
+  await sheet2.locator('[data-promotion-refresh]').waitFor({ timeout: 15000 })
+  const reads = callsOf(ctx, 'read').length
+  await sheet2.locator('[data-promotion-refresh]').click()
+  await page.waitForFunction(() => document.querySelector('dialog[open] [data-promotion-field="status"] dd')?.textContent?.trim() === 'Live', null, { timeout: 15000 })
+  const r = callsOf(ctx, 'refresh')[0]
+  check('6: Refresh posts NO body to …/Refresh', r?.path === 'HungerStationWeb/Promotions/p-new1/Refresh' && r.body === null, JSON.stringify(r))
+  check('6: Refresh re-reads: Live, the part Completed', (await sheet2.locator('[data-promotion-part="pt-n1"] [data-promotion-part-status]').innerText()).trim() === 'Completed')
+  check('6: … the answer is the detail (no extra read needed)', callsOf(ctx, 'read').length === reads)
+  check('6: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 7: refusals inline, and the cap ────────────────────────────────────────────────────────────
+{
+  let creates = 0
+  const bend = {
+    create: () => (++creates === 1 ? refuse('DHS-00019') : creates === 2 ? refuse('DHS-00008') : null),
+    send: () => {
+      const [status, message] = REFUSALS['DHS-00018']
+      return envelope(
+        {
+          sendable: false,
+          header: [],
+          rows: [{ materialNumber: '101002', refusals: [{ code: 'NO_SKU', message: 'Material 101002 has no HungerStation SKU.' }], priceWarning: null }],
+          parts: [],
+          skuCount: 3,
+        },
+        { status, success: false, message, errorCode: 'DHS-00018' },
+      )
+    },
+  }
+  const { context, page, errors, ctx } = await open('ltr', { doors: doors666(bend) })
+  const ed = await startNew(page)
+  await fillHeader(ed)
+  await ed.locator('[data-editor-end-date]').fill('2026-11-30')
+  const dlg = await paste(page, ed, PASTE)
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="101003"]').waitFor({ timeout: 10000 })
+
+  await ed.locator('[data-editor-save]').click()
+  await reason(page, 'first try')
+  await page.locator('dialog[open] [data-inline-refusal="DHS-00019"]').first().waitFor({ timeout: 10000 })
+  check('7: DHS-00019 (name in use) shows inline, at the name', (await ed.locator('[data-editor-name-refusal] [data-inline-refusal="DHS-00019"]').count()) === 1)
+  check('7: … and not as a second banner in the dialog', (await page.locator('dialog[open] [data-reason-error]').count()) === 0)
+  await page.locator('dialog[open] [data-reason-input]').fill('second try')
+  await page.locator('dialog[open] [data-reason-confirm]').click()
+  await page.locator('dialog[open] [data-inline-refusal="DHS-00008"]').waitFor({ timeout: 10000 })
+  check('7: DHS-00008 shows inline at the reason', true)
+  await page.locator('dialog[open] [data-reason-input]').fill('third try')
+  await page.locator('dialog[open] [data-reason-confirm]').click()
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('edit') === 'p-new1', null, { timeout: 15000 })
+  const ed2 = page.locator(EDITOR('p-new1'))
+  await ed2.locator('[data-editor-state="saved"]').waitFor({ timeout: 10000 })
+  await ed2.locator('[data-editor-send]').click()
+  await reason(page, 'Go live')
+  await page.locator('dialog[open] [data-reason-error="DHS-00018"]').waitFor({ timeout: 10000 })
+  await page.locator('dialog[open] [data-reason-cancel]').click()
+  await ed2.locator('[data-editor-rows-refused="1"]').waitFor({ timeout: 10000 })
+  check('7: DHS-00018 names the material with no SKU on its row', (await itemCell(ed2, '101002', 'refusal')) === 'Material 101002 has no HungerStation SKU.' && (await itemCell(ed2, '101001', 'refusal')) === '')
+  check('7: a refused Send leaves the draft a draft (no detail swap)', search(page).get('edit') === 'p-new1')
+  await page.screenshot({ path: `${SHOTS}/ltr-editor-refused.png` })
+
+  // The cap.
+  const before = ctx.calls.length
+  const big = Array.from({ length: 20001 }, (_, i) => String(500000 + i)).join('\n')
+  await ed2.locator('[data-editor-paste]').click()
+  const capDlg = page.locator('dialog[open] [data-import-dialog="promotion-items"]')
+  await capDlg.waitFor({ timeout: 10000 })
+  // 20,001 lines in one go (Playwright's fill types them too slowly): the native setter + input.
+  await capDlg.locator('[data-import-text]').evaluate((el, v) => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, v)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, big)
+  await capDlg.locator('[data-import-over-cap]').waitFor({ timeout: 20000 })
+  check('7: 20,001 materials are refused before anything is sent', (await page.locator('dialog[open] [data-import-send]').isDisabled()) && ctx.calls.length === before)
+  check('7: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 8: a promotions-only user types the chain ─────────────────────────────────────────────────
+{
+  const { context, page, errors, ctx } = await open('ltr', { access: { ...ALL, canManageStores: false }, chains: 'denied', doors: doors666() })
+  const ed = await startNew(page, { chain: null })
+  check('8: without the stores grant, no Chains read is made', ctx.calls.every((c) => c.path !== 'HungerStationWeb/Chains'))
+  const offered = await ed.locator('#hs-promotion-chains option').evaluateAll((els) => els.map((e) => e.value))
+  check('8: the chains seen on the list are offered', JSON.stringify(offered) === JSON.stringify(['AlDawaa', 'OlaCare']), offered.join())
+  await ed.locator('[data-editor-chain-input]').fill('AlDawaa')
+  await ed.locator('[data-editor-chain-input]').press('Enter')
+  await ed.locator('[data-editor-store-list]').waitFor({ timeout: 15000 })
+  check('8: a typed chain reads its stores through the promotions door', callsOf(ctx, 'stores').at(-1)?.query === 'chain=AlDawaa')
+  check('8: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 9: RTL ───────────────────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors } = await open('rtl', { doors: doors666() })
+  const ed = await startNew(page)
+  check('9: dir is rtl', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check('9: the ticked count is ONE ltr isolate', (await ed.locator('[data-editor-stores-count] bdi[dir="ltr"]').allInnerTexts()).join('|') === '3 / 3')
+  check('9: a store code is isolated', (await ed.locator('[data-editor-store="1001"] bdi[dir="ltr"]').innerText()) === '1001')
+  const dlg = await paste(page, ed, PASTE)
+  check('9: the pasted rows read left to right', (await dlg.locator('[data-import-text]').getAttribute('dir')) === 'ltr')
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="101003"]').waitFor({ timeout: 10000 })
+  check('9: a money cell is ONE isolate with its currency (the grid base)', (await ed.locator('[data-editor-items-grid] .ag-row[row-id="101003"] [col-id="value"] bdi').first().innerText()) === '9.500 SAR')
+  await page.screenshot({ path: `${SHOTS}/rtl-editor.png` })
+  check('9: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await browser.close()
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

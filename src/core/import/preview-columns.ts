@@ -42,9 +42,11 @@ export function importPreviewColumns<K extends string>(
       minWidth: 280,
       flex: 1,
       valueGetter: ({ data }) =>
-        data?.error
-          ? t('import.problem.columnCount', { count: data.error.found, expected: data.error.expected, withDelete: data.error.expected + 1 })
-          : '',
+        !data?.error
+          ? ''
+          : data.error.code === 'CELL'
+            ? t(`import.problem.cell.${data.error.column}`)
+            : t('import.problem.columnCount', { count: data.error.found, expected: data.error.expected, withDelete: data.error.expected + 1 }),
       cellClass: 'text-danger-800',
     },
   ]

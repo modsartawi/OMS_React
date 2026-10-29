@@ -16,10 +16,15 @@ export const PROMOTIONS_PAGE_SIZE = HUNGERSTATION_PROMOTIONS_TAKE.default
 /** The types, in the order the editor offers them. */
 export const PROMOTION_TYPES: readonly HungerStationPromotionType[] = ['STRIKETHROUGH', 'SAME_ITEM_BUNDLE']
 
-/** The page's whole query: the door's filters plus the promotion open in the detail. */
+/** The page's whole query: the door's filters plus the promotion open in the detail, and the one
+ *  open in the editor (666): `new` for a new strikethrough, else a promotion id. */
 export interface PromotionsPageQuery extends HungerStationPromotionsQuery {
   promotion: string | null
+  edit: string | null
 }
+
+/** `?edit=` of a promotion not saved yet. */
+export const NEW_PROMOTION = 'new'
 
 /**
  * The page's query, read from its URL. A `status` or `type` the contract does not name is
@@ -45,6 +50,7 @@ export function promotionsFromParams(params: URLSearchParams): PromotionsPageQue
     skip: Number.isInteger(skip) && skip > 0 ? skip : 0,
     take: PROMOTIONS_PAGE_SIZE,
     promotion: text('promotion'),
+    edit: text('edit'),
   }
 }
 
@@ -59,6 +65,7 @@ export function promotionsToParams(query: PromotionsPageQuery): URLSearchParams 
   if (query.store) out.set('store', query.store)
   if (query.skip > 0) out.set('skip', String(query.skip))
   if (query.promotion) out.set('promotion', query.promotion)
+  if (query.edit) out.set('edit', query.edit)
   return out
 }
 

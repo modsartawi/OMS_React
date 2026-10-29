@@ -16,14 +16,22 @@
 // before it becomes a city named "CityCode". Values are sent as written: the server trims and
 // upper-cases codes, as it does for WPF.
 
-/** Why a line cannot be sent. One kind today: the wrong number of columns. */
-export interface ImportLineError {
-  code: 'COLUMN_COUNT'
-  /** The columns the line holds. */
-  found: number
-  /** The columns the spec asks for (one more is allowed when it is the `X`). */
-  expected: number
-}
+/** Why a line cannot be sent: the wrong number of columns, or (a feature's own reader, ticket 666) a
+ *  cell it cannot read. */
+export type ImportLineError =
+  | {
+      code: 'COLUMN_COUNT'
+      /** The columns the line holds. */
+      found: number
+      /** The columns the spec asks for (one more is allowed when it is the `X`). */
+      expected: number
+    }
+  | {
+      /** A cell the feature's reader does not take (a subtype it does not name, a value that is not
+       *  a number). `column` is the spec key; the feature words it (`import.problem.cell.<column>`). */
+      code: 'CELL'
+      column: string
+    }
 
 /** A line that reads: what it asks for, by the spec's column keys. */
 export interface ImportOkLine<K extends string> {

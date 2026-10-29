@@ -247,6 +247,8 @@ const AUDIT_ACTIONS: Record<AuditAction, true> = {
   TransactionSnapshotView: true,
   // Receipt replay (spec 470): one row per push.
   ReceiptReplay: true,
+  // Object enrolment (BackOffice 2558, ticket 662): one row per enrolment.
+  EnrolObject: true,
 }
 
 /** An audit action's label key, or `null` for one this bundle does not know (show the raw code). */

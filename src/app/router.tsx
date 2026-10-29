@@ -319,6 +319,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/PendingPage')).default,
         }),
       },
+      // The push objects and their enrolment (ticket 662): a page of the console, linked from its own nav.
+      {
+        path: 'admin/sync/objects',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/ObjectsPage')).default,
+        }),
+      },
       // Receipt replay (spec 470, ticket 472): a page of the console, linked from its own nav, no menu leaf.
       {
         path: 'admin/sync/replay',

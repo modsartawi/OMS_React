@@ -28,6 +28,8 @@ import type {
   DeadLetterActionResponse,
   DismissPendingRequest,
   EditLocationRequest,
+  EnrolObjectRequest,
+  EnrolObjectResponse,
   EditStoreRequest,
   FleetLastHour,
   FleetSummary,
@@ -36,6 +38,7 @@ import type {
   Paged,
   PendingStore,
   PassDetail,
+  PushObjects,
   RecentPasses,
   RePushRequest,
   ReplayRegisters,
@@ -118,6 +121,14 @@ export const canOpenSyncConsole = (r: SyncConsoleAccess | null | undefined): boo
  */
 export const canReplayReceipts = (r: SyncConsoleAccess | null | undefined): boolean =>
   r?.canReplay === true
+
+/**
+ * The Objects page's Enrol predicate (BackOffice 2558, ticket 662). `ActionSync.EnrollObject` is
+ * independent of `canOperate`. `=== true`, so a malformed answer (or a door older than 2558, which
+ * leaves the flag out) is a denial.
+ */
+export const canEnrolObjects = (r: SyncConsoleAccess | null | undefined): boolean =>
+  r?.canEnrol === true
 
 /** The Fleet page's four reads share this prefix, so one invalidation refreshes them all. */
 export const FLEET_KEY = ['sync-console', 'fleet'] as const
@@ -385,6 +396,22 @@ export const syncConsoleApi = {
   replays(page: number): Promise<Paged<ReplayRow>> {
     return api.get<Paged<ReplayRow>>('ActionSync/Replays', replaysQuery(page))
   },
+
+  // ── Object enrolment (BackOffice 2558-2560, ticket 662) ──
+
+  /** `GET ActionSync/Objects` → every object the deployed build pushes, in the distributor's order, not paged. */
+  pushObjects(): Promise<PushObjects> {
+    return api.get<PushObjects>('ActionSync/Objects')
+  },
+
+  /**
+   * `POST ActionSync/Objects/Enrol` (`ActionSync.EnrollObject`) — `preview: true` writes nothing. A
+   * refusal throws: `REASON_REQUIRED`, `PULL_OBJECT`, `UNKNOWN_OBJECT`, `ALREADY_ENROLLED`, `NO_STORES`,
+   * `TOO_MANY_ROWS`, `BAD_KEY`, or a 409 `ENROL_BUSY`.
+   */
+  enrolObject(body: EnrolObjectRequest): Promise<EnrolObjectResponse> {
+    return api.post<EnrolObjectResponse>('ActionSync/Objects/Enrol', body)
+  },
 }
 
 /** The door's largest page (200): the connection-test read must reach the wizard's own tests. */
@@ -619,4 +646,15 @@ export const REPLAYS_KEY = ['sync-console', 'replay', 'recent'] as const
 export const replaysQueryOptions = (page: number) => ({
   queryKey: [...REPLAYS_KEY, replaysQuery(page)] as const,
   queryFn: () => syncConsoleApi.replays(page),
+})
+
+// ── Object enrolment (ticket 662) ──
+
+/** The Objects page's read; an enrolment re-reads it. */
+export const OBJECTS_KEY = ['sync-console', 'objects'] as const
+
+/** Read when opened and after an enrolment; the list changes only by someone's hand, so it does not poll. */
+export const pushObjectsQuery = () => ({
+  queryKey: OBJECTS_KEY,
+  queryFn: () => syncConsoleApi.pushObjects(),
 })

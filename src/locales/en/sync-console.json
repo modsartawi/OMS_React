@@ -317,7 +317,8 @@
     "commands": "Commands",
     "newStore": "New store",
     "pending": "Sync pending",
-    "replay": "Replay"
+    "replay": "Replay",
+    "objects": "Objects"
   },
   "controls": {
     "label": "Controls",
@@ -412,7 +413,8 @@
     "MirrorAcknowledge": "Acknowledge mirror dead letters as lost",
     "AgreementRecheck": "Recheck rail agreement",
     "TransactionSnapshotView": "Viewed receipt JSON",
-    "ReceiptReplay": "Replayed a receipt"
+    "ReceiptReplay": "Replayed a receipt",
+    "EnrolObject": "Enrolled a push object"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -1119,6 +1121,59 @@
       "seconds": "Seconds",
       "actionsCount": "Actions",
       "errorMessage": "Error"
+    }
+  },
+  "objects": {
+    "title": "Push objects",
+    "subtitle": "The tables the deployed build pushes to the stores, and whether the stores are enrolled for each.",
+    "note": "An object reaches the stores only once it is enrolled. Enrol a new table after the till build that creates it is out and the sync build that pushes it is deployed. The list is advice: the server checks everything again when you enrol.",
+    "loading": "Loading the push objects…",
+    "failed": "The push objects could not be loaded.",
+    "empty": "Every push object is enrolled.",
+    "emptyAll": "The deployed build lists no push objects.",
+    "showEnrolled": "Show enrolled objects",
+    "counts": "{{total}} push objects: {{enrolled}} enrolled, {{waiting}} not enrolled.",
+    "enrol": "Enrol…",
+    "noGrant": "You can read this list. Enrolling needs the Enrol push object permission.",
+    "states": {
+      "enrolled": "Enrolled",
+      "ready": "Not enrolled",
+      "noLine": "No line number"
+    },
+    "storesEnrolled_one": "<n>{{n}}</n> store",
+    "storesEnrolled_other": "<n>{{n}}</n> stores",
+    "noLineHint": "Needs a line number in the build before it can be enrolled here.",
+    "columns": {
+      "objectId": "Object",
+      "table": "HQ table",
+      "lineNumber": "Line",
+      "hqRows": "HQ rows",
+      "state": "State"
+    }
+  },
+  "enrol": {
+    "title": "Enrol {{objectId}}",
+    "note": "Enrolling sends every current row of this HQ table to every store on the sync, at once, and later changes follow it. It cannot be undone from the console. Each store's till must already have the table.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the enrolment to see what it sends before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "confirm": "Enrol",
+    "preview": {
+      "rows_one": "Sends {{rows}} row to {{stores}} stores at line {{line}} (action {{from}}).",
+      "rows_other": "Sends {{rows}} rows to {{stores}} stores at line {{line}} (actions {{from}} to {{to}}).",
+      "empty": "The table is empty: enrolling adds the line {{line}} counter for {{stores}} stores, and later rows follow."
+    },
+    "done_one": "{{objectId}} enrolled: {{stores}} stores, {{rows}} row sent.",
+    "done_other": "{{objectId}} enrolled: {{stores}} stores, {{rows}} rows sent.",
+    "codes": {
+      "ALREADY_ENROLLED": "Already enrolled: a counter row exists for this object.",
+      "UNKNOWN_OBJECT": "The deployed build does not push this object, or has no line number for it.",
+      "PULL_OBJECT": "This object is pulled from the stores, never pushed.",
+      "NO_STORES": "No store is on the sync yet.",
+      "TOO_MANY_ROWS": "The table is too large to enrol from the console. It needs a script run in a window.",
+      "BAD_KEY": "A row's key contains a comma or is too long for the sync's action log.",
+      "ENROL_BUSY": "Another enrolment is running. Try again in a minute."
     }
   }
 }

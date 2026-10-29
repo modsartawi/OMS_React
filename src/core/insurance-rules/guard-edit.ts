@@ -402,8 +402,40 @@ export const defaultCodes = (conditions: readonly GuardCondition[]): GuardCodes 
 const codesOf = (e: GuardEffect): GuardCodes => ({ conflict: e.codes?.conflict || null, nphies: e.codes?.nphies || null })
 export const sameCodes = (a: GuardCodes, b: GuardCodes): boolean => a.conflict === b.conflict && a.nphies === b.nphies
 
+type CodeKey = keyof GuardCodes
+const CODE_KEYS: readonly CodeKey[] = ['conflict', 'nphies']
+const hasCode = (e: GuardEffect, k: CodeKey): boolean => e.codes != null && k in e.codes
+
+/**
+ * The codes an effect answers with, as the engine reads them (661): a key the effect carries is the author's — a null
+ * one included, which means NO code — and a key it leaves out is the first block's default.
+ */
+export function effectiveCodes(rule: Pick<GuardRule, 'when'>, e: GuardEffect): GuardCodes {
+  const def = defaultCodes(rule.when)
+  const pick = (k: CodeKey) => (hasCode(e, k) ? e.codes?.[k] || null : def[k])
+  return { conflict: pick('conflict'), nphies: pick('nphies') }
+}
+
+/** The codes an effect sets to none although its first block defaults one (a cleared box saved before 661). */
+export const codesOverriddenToNone = (rule: Pick<GuardRule, 'when'>, e: GuardEffect): { key: CodeKey; fallback: string }[] => {
+  const def = defaultCodes(rule.when)
+  return CODE_KEYS.flatMap((key) => (hasCode(e, key) && !e.codes?.[key] && def[key] ? [{ key, fallback: def[key] as string }] : []))
+}
+
+/**
+ * A code box typed (661): a value sets the code; an EMPTY box leaves the key out, so the first block's default
+ * applies — never null, which the engine would read as "no code" and so drop the default (G-001 lost its 83 that way).
+ */
+export function setCode(codes: GuardEffect['codes'], key: CodeKey, text: string): GuardEffect['codes'] {
+  const out: Record<string, string | null> = { ...(codes ?? {}) }
+  const value = text.trim()
+  if (value) out[key] = value
+  else delete out[key]
+  return out as GuardEffect['codes']
+}
+
 /** Whether an effect's codes are still the ones the rule's first block defaults (not the author's). */
-export const codesAreDefault = (rule: Pick<GuardRule, 'when'>, e: GuardEffect): boolean => sameCodes(codesOf(e), defaultCodes(rule.when))
+export const codesAreDefault = (rule: Pick<GuardRule, 'when'>, e: GuardEffect): boolean => sameCodes(effectiveCodes(rule, e), defaultCodes(rule.when))
 
 /**
  * One rule edited by `fn`, its codes following the first block: an effect whose codes were the old first

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
 import { checkCodes } from '@/core/insurance-rules/rule-checks'
-import { GUARD_PLACEHOLDERS, SUGGESTIONS, codesAreDefault, defaultCodes, insertPlaceholder, refusedPlaceholders } from '@/core/insurance-rules/guard-edit'
+import { GUARD_PLACEHOLDERS, SUGGESTIONS, codesAreDefault, codesOverriddenToNone, defaultCodes, insertPlaceholder, refusedPlaceholders, setCode } from '@/core/insurance-rules/guard-edit'
 import { GUARD_SEVERITIES, type GuardEffect, type GuardRule } from '@/core/insurance-rules/model'
 import { fsi } from '@/core/util/bidi'
 import type { RuleEdit } from './ConditionEditor'
@@ -33,7 +33,9 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
     edit((r) => ({ ...r, then: r.then.map((x, j) => (j === index ? fn(x) : x)) }), field ? `then:${index}:${field}` : undefined)
   const refused = refusedPlaceholders(e.says)
   const isDefault = codesAreDefault(rule, e)
+  const fallback = defaultCodes(rule.when)
   const codeChecks = checkCodes(e.codes)
+  const noneOverrides = codesOverriddenToNone(rule, e)
   const suggestKey = Object.keys(e.suggest ?? {})[0] ?? ''
 
   return (
@@ -78,22 +80,24 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
         <Field label={t('editor.codes.conflict')}>
           <CodeInput
             value={e.codes?.conflict ?? ''}
+            placeholder={fallback.conflict ?? ''}
             className="w-20"
             invalid={fieldIssues(issues, 'codes.conflict').length > 0 || codeChecks.some((c) => c.field === 'conflict' && c.blocks)}
             data-input="conflict"
-            onValue={(s) => setEffect((x) => ({ ...x, codes: { conflict: s.trim() || null, nphies: x.codes?.nphies ?? null } }), 'codes.conflict')}
+            onValue={(s) => setEffect((x) => ({ ...x, codes: setCode(x.codes, 'conflict', s) }), 'codes.conflict')}
           />
         </Field>
         <Field label={t('editor.codes.nphies')}>
           <CodeInput
             value={e.codes?.nphies ?? ''}
+            placeholder={fallback.nphies ?? ''}
             className="w-24"
             invalid={fieldIssues(issues, 'codes.nphies').length > 0 || codeChecks.some((c) => c.field === 'nphies' && c.blocks)}
             data-input="nphies"
-            onValue={(s) => setEffect((x) => ({ ...x, codes: { conflict: x.codes?.conflict ?? null, nphies: s.trim() || null } }), 'codes.nphies')}
+            onValue={(s) => setEffect((x) => ({ ...x, codes: setCode(x.codes, 'nphies', s) }), 'codes.nphies')}
           />
         </Field>
-        <span className="text-xs text-muted-foreground" data-codes-source={isDefault ? 'default' : 'author'}>
+        <span className="text-xs text-muted-foreground" title={t('editor.codes.emptyHint')} data-codes-source={isDefault ? 'default' : 'author'}>
           {t(isDefault ? 'editor.codes.default' : 'editor.codes.edited')}
         </span>
         {!isDefault && (
@@ -107,6 +111,15 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
           </button>
         )}
       </div>
+      {/* 661 — a code saved as "none" over a default (a box cleared before 661): said, with the way back. */}
+      {noneOverrides.map((o) => (
+        <p key={o.key} className="flex flex-wrap items-center gap-2 text-xs text-attention-800" role="status" data-code-none={o.key}>
+          {t(`editor.codes.none.${o.key}`, { code: fsi(o.fallback) })}
+          <Button variant="text" data-code-use-default={o.key} onClick={() => setEffect((x) => ({ ...x, codes: setCode(x.codes, o.key, '') }))}>
+            {t('editor.codes.useDefault', { code: fsi(o.fallback) })}
+          </Button>
+        </p>
+      ))}
       {codeChecks.map((c) => (
         <p
           key={c.field}

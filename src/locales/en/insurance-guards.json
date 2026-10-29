@@ -261,7 +261,13 @@
         "conflictInNphies": "This is a DUR conflict code. Put it in the Conflict box; the NPHIES box takes a code such as AD-2-4.",
         "conflictShape": "A conflict code is usually two characters, such as 83 or ER.",
         "nphiesShape": "A NPHIES code usually looks like AD-2-4 or CV-4-8."
-      }
+      },
+      "none": {
+        "conflict": "No conflict code: this rule overrides the first condition's {{code}}.",
+        "nphies": "No NPHIES code: this rule overrides the first condition's {{code}}."
+      },
+      "useDefault": "Use {{code}}",
+      "emptyHint": "Leave a box empty to use the first condition's code."
     },
     "suggest": {
       "label": "Suggestion",

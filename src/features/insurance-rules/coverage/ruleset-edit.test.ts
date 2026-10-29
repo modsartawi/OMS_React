@@ -1,8 +1,7 @@
-/** Ticket 617 — category and coverage rulesets: order is the rule (first match wins), one effect per rule, the payer mark. */
+/** Ticket 617 — category and coverage rulesets: order is the rule (first match wins); the effect's own tests moved to core/insurance-rules/editors (676). */
 import { describe, expect, it } from 'vitest'
-import type { CategoryRuleset, CoverageEffect, CoverageRule } from '@/core/insurance-rules/coverage-model'
-import type { GuardCondition } from '@/core/insurance-rules/model'
-import { addRule, coverageRuleProblems, editRuleIn, moveRule, newCoverageEffect, newRule, nextRuleId, payerMark } from './ruleset-edit'
+import type { CategoryRuleset } from '@/core/insurance-rules/coverage-model'
+import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
 
 const cat = (...ids: string[]): CategoryRuleset => ({
   schema: 1,
@@ -10,8 +9,6 @@ const cat = (...ids: string[]): CategoryRuleset => ({
   revision: 3,
   rules: ids.map((id) => ({ id, name: { en: id, ar: id }, state: 'live', when: [], then: [{ effect: 'setCategory', group: 'G1' }] })),
 })
-
-const cov = (then: CoverageRule['then'], when: CoverageRule['when'] = []): CoverageRule => ({ id: 'C-009', name: { en: 'x', ar: 'x' }, state: 'draft', when, then })
 
 describe('category and coverage rulesets', () => {
   it('moveRule_changesWhichRuleMatchesFirst — up, down, and no step past either end', () => {
@@ -39,41 +36,5 @@ describe('category and coverage rulesets', () => {
     expect(added.rules.map((r) => r.id)).toEqual(['K-001', 'K-002'])
     expect(editRuleIn(doc, 'K-001', (r) => r)).toBe(doc)
     expect(editRuleIn(doc, 'K-001', (r) => ({ ...r, folder: 'Bupa contract' })).rules[0].folder).toBe('Bupa contract')
-  })
-
-  it('payerMark — a value applies where the payer said nothing unless it carries overridesPayer: true', () => {
-    const fills: CoverageEffect = { effect: 'deductible', percent: 0 }
-    expect(payerMark(fills)).toBe('fills')
-    expect(payerMark({ ...fills, overridesPayer: true })).toBe('overrides')
-  })
-
-  it('newCoverageEffect — the built spelling, no overridesPayer key until marked', () => {
-    expect(newCoverageEffect('deductible')).toEqual({ effect: 'deductible', percent: 0 })
-    expect(newCoverageEffect('covered')).toEqual({ effect: 'covered', value: false })
-    expect(newCoverageEffect('quantityCap')).toEqual({ effect: 'quantityCap', value: 0 })
-    expect(newCoverageEffect('segment')).toEqual({ effect: 'segment', value: 'ELITE' })
-    expect(newCoverageEffect('exceptionPrescriptions')).toEqual({ effect: 'exceptionPrescriptions', value: true })
-  })
-
-  it('coverageRuleProblems_refusesAnInvoiceRuleThatReadsTheLine — and a rule with no effect or more than one', () => {
-    const itemFact: GuardCondition = { check: 'fact', path: '$item.ItemCode', op: 'anyOf', value: ['100245'] }
-    const payerFact: GuardCondition = { check: 'fact', path: '$request.payer', op: 'anyOf', value: ['BUPA'] }
-    expect(coverageRuleProblems(cov([{ effect: 'segment', value: 'SABIC' }], [payerFact]))).toEqual([])
-    expect(coverageRuleProblems(cov([{ effect: 'segment', value: 'SABIC' }], [{ check: 'group', mode: 'any', conditions: [itemFact] }]))).toEqual(['invoiceReadsLine'])
-    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 0 }], [itemFact]))).toEqual([])
-    expect(coverageRuleProblems(cov([]))).toEqual(['noEffect'])
-  })
-
-  it('coverageRuleProblems_refusesMixedEffectKinds — two effects of one kind are not refused', () => {
-    expect(coverageRuleProblems(cov([{ effect: 'covered', value: true }, { effect: 'priceCap', value: 5 }]))).toEqual(['mixedEffects'])
-    expect(coverageRuleProblems(cov([{ effect: 'priceCap', value: 5 }, { effect: 'priceCap', value: 7, overridesPayer: true }]))).toEqual([])
-  })
-
-  it('coverageRuleProblems_refusesADeductibleOutOfRangeOrEmpty', () => {
-    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 100 }]))).toEqual([])
-    expect(coverageRuleProblems(cov([{ effect: 'deductible', max: 50 }]))).toEqual([])
-    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 101 }]))).toEqual(['deductiblePercent'])
-    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: -1, max: 5 }]))).toEqual(['deductiblePercent'])
-    expect(coverageRuleProblems(cov([{ effect: 'deductible' }]))).toEqual(['deductibleEmpty'])
   })
 })

@@ -1,3 +1,6 @@
+// core/insurance-rules/editors (oms 676): the guard, coverage and category block editors, shared by the guards and
+// coverage features and the rule playground. They still read the `insurance-guards` / `insurance-coverage` namespaces —
+// a namespace is a string, not an import, so the boundary holds; the coverage feature's and core/insurance-rules' i18n-keys tests cover them.
 import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Check, X } from 'lucide-react'

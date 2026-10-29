@@ -463,7 +463,7 @@ export interface HungerStationRetryResult {
 //   GET  Promotions/Stores?chain=           → HungerStationPromotionStoreChoice[] (666)
 //   POST Promotions                         HungerStationPromotionSaveBody → detail (666)
 //   PUT  Promotions/{id}                    HungerStationPromotionSaveBody → detail (666 draft, 670 edit)
-//   POST Promotions/{id}/Check              (no body) → HungerStationPromotionCheckResult (667, 668)
+//   POST Promotions/{id}/Check              (no body; 670: the edit) → HungerStationPromotionCheckResult (667, 668, 670)
 //   POST Promotions/{id}/Send               HungerStationPromotionReasonBody → detail (666)
 //   POST Promotions/{id}/Refresh            (no body) → detail (666)
 //   POST Promotions/{id}/Parts/{partId}/Resend  HungerStationPromotionReasonBody → detail (669)
@@ -808,6 +808,28 @@ export interface HungerStationPromotionPartPreview extends HungerStationPromotio
   skuCount: number
 }
 
+/** How an in-place edit lands on one part (670, BackOffice 3215): `new` — a combination no part
+ *  carries yet, a new HungerStation promotion (a new `PUT`); `updated` — re-upserted under its
+ *  unchanged identity; `switchedOff` — left with no item, sent `active: false`; `unchanged` — not
+ *  re-sent. */
+export type HungerStationPromotionPartChangeKind = 'new' | 'updated' | 'switchedOff' | 'unchanged'
+
+/** One part of a sent promotion as an edit WILL leave it: the server's recompute of the parts from
+ *  the edited rows (BackOffice 3215). 🚩 PROVISIONAL: the contract's edit section is not written. */
+export interface HungerStationPromotionPartChange extends HungerStationPromotionCombination {
+  /** The part's id; `null` for a part the edit makes. */
+  partId: string | null
+  /** The name it carries (or will carry) on HungerStation. */
+  name: string
+  change: HungerStationPromotionPartChangeKind
+  /** Its active SKUs after the edit (0 once switched off). */
+  skuCount: number
+  /** Our material numbers that leave this part: they go in its request with `active: false`. */
+  leaving: string[]
+  /** Our material numbers that join it. */
+  joining: string[]
+}
+
 /** `POST …/{promotionId}/Check` — every pre-check, no write. `sendable` is `true` exactly when
  *  nothing refuses (warnings never refuse). `rows` carries only rows with a refusal or a warning. */
 export interface HungerStationPromotionCheckResult {
@@ -816,7 +838,14 @@ export interface HungerStationPromotionCheckResult {
   rows: HungerStationPromotionRowCheck[]
   parts: HungerStationPromotionPartPreview[]
   skuCount: number
+  /** 670: what an in-place edit changes on HungerStation, one entry per part old and new; `null`
+   *  for a draft's Check (no body). */
+  changes: HungerStationPromotionPartChange[] | null
 }
+
+/** 670: the body of `POST …/{promotionId}/Check` on a SENT promotion — the edit as it would be
+ *  saved, without the reason (nothing is written). A draft's Check takes NO body (667). */
+export type HungerStationPromotionEditCheckBody = Omit<HungerStationPromotionSaveBody, 'reason'>
 
 /**
  * The check codes a `HungerStationPromotionProblem` carries (ticket 667, BackOffice 3212), in the

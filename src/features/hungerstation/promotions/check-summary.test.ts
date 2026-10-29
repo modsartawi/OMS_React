@@ -8,7 +8,7 @@ import { ApiError } from '@/core/api'
 import type { HungerStationPromotionCheckResult } from '@/core/models/hungerstation'
 import { checkOfRefusal, checkSummary } from './check-summary'
 
-const clean: HungerStationPromotionCheckResult = { sendable: true, header: [], rows: [], parts: [], skuCount: 3 }
+const clean: HungerStationPromotionCheckResult = { sendable: true, header: [], rows: [], parts: [], skuCount: 3, changes: null }
 
 describe('checkSummary', () => {
   it('a clean answer: nothing refuses, Send is open', () => {
@@ -96,6 +96,7 @@ describe('checkOfRefusal', () => {
       rows: [{ materialNumber: '9', refusals: [{ code: 'X', message: '' }], priceWarning: null }],
       parts: [],
       skuCount: 0,
+      changes: null,
     })
   })
 
@@ -140,5 +141,29 @@ describe('checkOfRefusal — the part preview (668)', () => {
   it('drops a part it cannot read (no name, no SKU count); a blank combination field is null', () => {
     const got = checkOfRefusal(refusal({ parts: [{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: '1', subtype: 'HALF' }, { name: 5, skuCount: 1 }, { name: 'B' }, 'x'] }))
     expect(got?.parts).toEqual([{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: null, subtype: null, value: null }])
+  })
+})
+
+// Ticket 670 — an in-place edit's Check answers what changes per part; a refused edit carries it too.
+const changes = [
+  { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, partId: 'pt-a', name: 'A', change: 'updated' as const, skuCount: 1, leaving: ['201002'], joining: [] },
+  { buyQuantity: 3, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, partId: null, name: 'C', change: 'new' as const, skuCount: 1, leaving: [], joining: ['201002'] },
+]
+
+describe('checkSummary — the edit preview (670)', () => {
+  it('carries the per-part changes; a draft check carries none', () => {
+    expect(checkSummary({ ...clean, changes }).changes?.moved).toEqual([{ materialNumber: '201002', from: 'A', to: 'C' }])
+    expect(checkSummary(clean).changes).toBeNull()
+  })
+})
+
+describe('checkOfRefusal — the edit preview (670)', () => {
+  it('reads the changes a DHS-00018 carries, dropping an entry it cannot read', () => {
+    const got = checkOfRefusal(refusal({ ...clean, sendable: false, changes: [...changes, { name: 'X' }, 'y'] }))
+    expect(got?.changes).toEqual(changes)
+  })
+
+  it('no changes array is null', () => {
+    expect(checkOfRefusal(refusal({ ...clean, changes: 'no' }))?.changes).toBeNull()
   })
 })

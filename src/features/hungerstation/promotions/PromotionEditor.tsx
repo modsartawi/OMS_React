@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ClipboardPaste, Loader2, Save, Send } from 'lucide-react'
+import { ClipboardPaste, Loader2, Repeat, Save, Send } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -43,6 +43,7 @@ import { checkOfRefusal, checkSummary, fieldWords, problemWords, type CheckedRow
 import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type ItemSheetRead, type StrikethroughColumn } from './strikethrough-columns'
 import { BUNDLE_COLUMNS, bundleItemOf, readBundle, rowCombination, type BundleColumn } from './bundle-columns'
 import { partLabel } from './part-label'
+import { editCheckBody, editMode, lockOf, type EditField } from './promotion-edit'
 import { PROMOTION_TYPES } from './promotions-query'
 
 /**
@@ -63,7 +64,16 @@ import { PROMOTION_TYPES } from './promotions-query'
  * (3213); the Check panel shows the parts it answered, and Send then reads "Send N promotions to M
  * stores". The page never groups the rows itself.
  *
- * 🚩 The doors are not built (BackOffice 3211 / 3213): proven against stubs only.
+ * **A sent promotion** (670, BackOffice 3215) is edited IN PLACE while it runs: items (paste again),
+ * values, max quantities, limits, display names, the defaults. The name, stores, start and end are
+ * its HungerStation identity and are locked; each says that changing it replaces the promotion and
+ * points to **Replace** (671's dialog, wired through `onReplace`). Before anything goes, **Check**
+ * previews the edit (it rides as the Check body) and says what changes on HungerStation: items
+ * leaving a part, a new part, a part switched off because it is left empty. **Save and re-send**
+ * runs that check first, then takes a reason; the detail then takes over (Sending). Nothing is
+ * edited while any part is Sending.
+ *
+ * 🚩 The doors are not built (BackOffice 3211 / 3213 / 3215): proven against stubs only.
  */
 export default function PromotionEditor({
   promotionId,
@@ -72,6 +82,7 @@ export default function PromotionEditor({
   onClose,
   onSaved,
   onSent,
+  onReplace,
 }: {
   /** `null` for a new promotion. */
   promotionId: string | null
@@ -84,6 +95,9 @@ export default function PromotionEditor({
   onSaved: (promotionId: string) => void
   /** Sent: the detail takes over. */
   onSent: (promotionId: string) => void
+  /** 670 → 671: open the Replace dialog for this sent promotion. Without it the locked fields still
+   *  say that changing them replaces the promotion, and offer no button. */
+  onReplace?: () => void
 }) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
@@ -128,6 +142,7 @@ export default function PromotionEditor({
           chainsKnown={chainsKnown}
           onSaved={onSaved}
           onSent={onSent}
+          onReplace={onReplace}
         />
       )}
     </SideSheet>
@@ -152,12 +167,14 @@ function EditorBody({
   chainsKnown,
   onSaved,
   onSent,
+  onReplace,
 }: {
   saved: HungerStationPromotionDetail | null
   chains: readonly string[]
   chainsKnown: boolean
   onSaved: (promotionId: string) => void
   onSent: (promotionId: string) => void
+  onReplace?: () => void
 }) {
   const { t } = useTranslation('hungerstation-promotions')
   const qc = useQueryClient()
@@ -166,20 +183,27 @@ function EditorBody({
   const [savedForm, setSavedForm] = useState(() => (saved ? JSON.stringify(formFromDetail(saved)) : null))
   const [promotion, setPromotion] = useState(saved)
   const [chainText, setChainText] = useState(form.chainKey)
-  const [dialog, setDialog] = useState<'items' | 'save' | 'send' | null>(null)
+  const [dialog, setDialog] = useState<'items' | 'save' | 'send' | 'edit' | null>(null)
   const [storeQ, setStoreQ] = useState('')
   // 667: the latest Check answer for the SAVED promotion (the Check door's, or the one a refused
   // Send carried), and the preview grid's refused-only filter.
   const [checked, setChecked] = useState<HungerStationPromotionCheckResult | null>(null)
+  // 670: the form an in-place edit's Check answered for: the answer holds only for that form.
+  const [checkedFor, setCheckedFor] = useState<string | null>(null)
   const [refusedOnly, setRefusedOnly] = useState(false)
 
   const set = <F extends keyof PromotionForm>(field: F, value: PromotionForm[F]) => setForm((f) => ({ ...f, [field]: value }))
   const setWindow = (w: LocalWindow) => set('window', w)
 
-  // 🔑 Only a draft is edited here, and nothing while a part is Sending.
+  // 🔑 A draft is edited whole; a sent promotion in place, its identity locked (670); nothing while
+  // any part is Sending; a closed one is only shown.
   const status = promotion?.status ?? 'draft'
-  const editable = status === 'draft'
-  const dirty = savedForm !== JSON.stringify(form)
+  const mode = promotion ? editMode(promotion) : 'draft'
+  const editable = mode === 'draft'
+  const inPlace = mode === 'inPlace'
+  const lock = (f: EditField) => lockOf(status, f)
+  const formJson = JSON.stringify(form)
+  const dirty = savedForm !== formJson
   const problems = formProblems(form, new Date())
   const bad = (f: FormField) => problems.includes(f)
 
@@ -217,14 +241,18 @@ function EditorBody({
       else onSaved(answer.promotionId)
     },
   })
-  // 667: Check on demand, and before Send — only a clean answer opens the Send dialog.
+  // 667: Check on demand, and before Send — only a clean answer opens the Send dialog. 670: on a
+  // sent promotion the edit rides as the body, and a clean answer before re-send opens its dialog.
   const check = useMutation({
-    mutationFn: ({ promotionId }: { promotionId: string; thenSend: boolean }) => promotionsApi.check(promotionId),
-    onSuccess: (answer, { thenSend }) => {
+    mutationFn: ({ promotionId, edit }: { promotionId: string; thenSend: boolean; edit?: { form: PromotionForm; json: string } }) =>
+      promotionsApi.check(promotionId, edit ? editCheckBody(edit.form) : undefined),
+    onSuccess: (answer, { thenSend, edit }) => {
       setChecked(answer)
-      if (thenSend && !checkSummary(answer).blocksSend) setDialog('send')
+      setCheckedFor(edit?.json ?? null)
+      if (thenSend && !checkSummary(answer).blocksSend) setDialog(edit ? 'edit' : 'send')
     },
   })
+  const checkEdit = (thenSend: boolean) => check.mutate({ promotionId: promotion!.promotionId, thenSend, edit: { form, json: formJson } })
   // A saved draft opened here is checked at once — once (the ref survives StrictMode's re-run),
   // and by a plain call: a mutation fired from a mount effect is lost to StrictMode's re-subscribe.
   const checkedOnOpen = useRef(false)
@@ -256,11 +284,34 @@ function EditorBody({
     },
   })
 
+  // 670: save and re-send the edit in place. The detail then takes over (it reads Sending).
+  const edit = useMutation({
+    mutationFn: (reason: string) => promotionsApi.save(promotion!.promotionId, saveBody(form, reason)),
+    onSuccess: (answer) => {
+      settle(answer)
+      setDialog(null)
+      onSent(answer.promotionId)
+    },
+    onError: (err) => {
+      // A part turned Sending meanwhile: re-read, so the editor locks behind the refusal.
+      if (apiErrorCode(err) === HUNGERSTATION_PROMOTION_ERRORS.sending) void promotionsApi.detail(promotion!.promotionId).then(settle, () => undefined)
+      const answer = checkOfRefusal(err)
+      if (answer) {
+        setChecked(answer)
+        setCheckedFor(formJson)
+      }
+    },
+  })
+  // The server refuses an identity change here (DHS-00021): that is a Replace.
+  const replaceRefusal = fieldRefusal(edit.error, [HUNGERSTATION_PROMOTION_ERRORS.needsReplace], t('editor.failedHint'))
+
   const nameRefusal = fieldRefusal(save.error, [HUNGERSTATION_PROMOTION_ERRORS.nameInUse], t('editor.failedHint'))
   const chainRefusal =
     fieldRefusal(save.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint')) ??
     fieldRefusal(stores.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint'))
-  const summary = useMemo(() => (checked ? checkSummary(checked) : null), [checked])
+  // An in-place edit's answer holds only for the form it was asked for.
+  const answer = inPlace && checkedFor !== formJson ? null : checked
+  const summary = useMemo(() => (answer ? checkSummary(answer) : null), [answer])
   const rowCheck = summary?.rows
   const showRefusedOnly = refusedOnly && (summary?.refusedRows ?? 0) > 0
   const shownItems = useMemo(() => {
@@ -354,26 +405,34 @@ function EditorBody({
   const parts = summary?.parts.length ?? 0
 
   const windowIssue = windowProblem(form.window, new Date())
-  const lockedNote =
-    status === 'sending' ? t('editor.lockedSending') : !editable ? t('editor.lockedSent') : null
+  const lockedNote = mode === 'sending' ? t('editor.lockedSending') : mode === 'inPlace' ? t('editor.lockedLive') : mode === 'closed' ? t('editor.lockedSent') : null
+  const busy = save.isPending || send.isPending || edit.isPending
+  /** Said under a field that only Replace changes (or that never changes once sent). */
+  const lockHint = (f: EditField) => (lock(f) === 'replace' ? <ReplacePointer field={f} onReplace={onReplace} /> : lock(f) === 'fixed' ? t('editor.fixedOnceSent') : undefined)
 
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4" data-editor-body="">
         {lockedNote && (
-          <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs" data-editor-locked={status}>
+          <p className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs" data-editor-locked={mode === 'sending' ? 'sending' : status} data-editor-mode={mode}>
             <PromotionStatusBadge t={t} status={status} />
             {lockedNote}
+            {inPlace && onReplace && (
+              <Button variant="text" onClick={onReplace} data-editor-replace="note">
+                <Repeat className="h-3.5 w-3.5" aria-hidden />
+                {t('editor.replace')}
+              </Button>
+            )}
           </p>
         )}
 
-        <fieldset disabled={!editable || save.isPending || send.isPending} className="flex min-w-0 flex-col gap-4">
+        <fieldset disabled={!(editable || inPlace) || busy} className="flex min-w-0 flex-col gap-4">
           {/* ── Chain first ── */}
           <section className="flex flex-col gap-2" data-editor-chain="">
             <h3 className="text-xs font-semibold tracking-tight">{t('editor.chainTitle')}</h3>
             <div className="flex flex-wrap items-end gap-3">
-              <Field label={t('editor.type')} hint={form.items.length > 0 ? t('editor.typeClears') : undefined}>
-                <Select value={form.type} onChange={(e) => changeType(e.target.value as PromotionForm['type'])} data-editor-type="">
+              <Field label={t('editor.type')} hint={lockHint('type') ?? (form.items.length > 0 ? t('editor.typeClears') : undefined)}>
+                <Select value={form.type} disabled={lock('type') !== null} onChange={(e) => changeType(e.target.value as PromotionForm['type'])} data-editor-type="">
                   {PROMOTION_TYPES.map((type) => (
                     <option key={type} value={type}>
                       {t(`types.${type}`)}
@@ -381,9 +440,9 @@ function EditorBody({
                   ))}
                 </Select>
               </Field>
-              <Field label={t('editor.chain')} hint={chainsKnown ? undefined : t('editor.chainTyped')} invalid={chainRefusal !== null}>
+              <Field label={t('editor.chain')} hint={lockHint('chainKey') ?? (chainsKnown ? undefined : t('editor.chainTyped'))} invalid={chainRefusal !== null}>
                 {chainsKnown ? (
-                  <Select value={form.chainKey} onChange={(e) => changeChain(e.target.value)} data-editor-chain-select="">
+                  <Select value={form.chainKey} disabled={lock('chainKey') !== null} onChange={(e) => changeChain(e.target.value)} data-editor-chain-select="">
                     <option value="">{t('editor.chainPick')}</option>
                     {chains.map((c) => (
                       <option key={c} value={c}>
@@ -394,6 +453,7 @@ function EditorBody({
                 ) : (
                   <Input
                     value={chainText}
+                    disabled={lock('chainKey') !== null}
                     list="hs-promotion-chains"
                     dir="ltr"
                     className="font-mono"
@@ -417,8 +477,8 @@ function EditorBody({
 
           {/* ── Header ── */}
           <section className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4" data-editor-header="">
-            <Field label={t('editor.name')} className="col-span-2" invalid={nameRefusal !== null} error={headerWords('name')}>
-              <Input value={form.name} onChange={(e) => {
+            <Field label={t('editor.name')} className="col-span-2" hint={lockHint('name')} invalid={nameRefusal !== null} error={headerWords('name')}>
+              <Input value={form.name} disabled={lock('name') !== null} data-editor-locked-field={lock('name') ?? undefined} onChange={(e) => {
                   set('name', e.target.value)
                   save.reset()
                 }} dir="auto" maxLength={100} data-editor-name="" />
@@ -446,17 +506,22 @@ function EditorBody({
             </Field>
 
             <Field label={t('editor.startDate')} error={headerWords('startAt')}>
-              <Input type="date" value={form.window.startDate} onChange={(e) => setWindow({ ...form.window, startDate: e.target.value })} data-editor-start-date="" />
+              <Input type="date" value={form.window.startDate} disabled={lock('window') !== null} data-editor-locked-field={lock('window') ?? undefined} onChange={(e) => setWindow({ ...form.window, startDate: e.target.value })} data-editor-start-date="" />
             </Field>
             <Field label={t('editor.startTime')} hint={t('editor.saudiTime')}>
-              <Input type="time" value={form.window.startTime} onChange={(e) => setWindow({ ...form.window, startTime: e.target.value })} data-editor-start-time="" />
+              <Input type="time" value={form.window.startTime} disabled={lock('window') !== null} onChange={(e) => setWindow({ ...form.window, startTime: e.target.value })} data-editor-start-time="" />
             </Field>
             <Field label={t('editor.endDate')} error={headerWords('endAt')}>
-              <Input type="date" value={form.window.endDate} onChange={(e) => setWindow(pickEndDay(form.window, e.target.value))} data-editor-end-date="" />
+              <Input type="date" value={form.window.endDate} disabled={lock('window') !== null} data-editor-locked-field={lock('window') ?? undefined} onChange={(e) => setWindow(pickEndDay(form.window, e.target.value))} data-editor-end-date="" />
             </Field>
             <Field label={t('editor.endTime')} hint={t('editor.saudiTime')}>
-              <Input type="time" value={form.window.endTime} onChange={(e) => setWindow({ ...form.window, endTime: e.target.value })} data-editor-end-time="" />
+              <Input type="time" value={form.window.endTime} disabled={lock('window') !== null} onChange={(e) => setWindow({ ...form.window, endTime: e.target.value })} data-editor-end-time="" />
             </Field>
+            {lock('window') === 'replace' && (
+              <p className="col-span-full text-xs text-muted-foreground" data-editor-window-locked="">
+                <ReplacePointer field="window" onReplace={onReplace} />
+              </p>
+            )}
             {windowIssue && (
               <p role="alert" className="col-span-full text-xs text-danger-800" data-editor-window-problem={windowIssue}>
                 {t(`editor.windowProblems.${windowIssue}`)}
@@ -511,6 +576,11 @@ function EditorBody({
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-editor-stores-note="">
               {t('editor.storesFrozen')}
             </p>
+            {lock('stores') === 'replace' && (
+              <p className="text-xs text-muted-foreground" data-editor-stores-locked="">
+                <ReplacePointer field="stores" onReplace={onReplace} />
+              </p>
+            )}
             {!form.chainKey ? (
               <p className="text-sm text-muted-foreground">{t('editor.storesPickChain')}</p>
             ) : stores.isPending ? (
@@ -525,7 +595,8 @@ function EditorBody({
                 {t('editor.storesNone')}
               </p>
             ) : (
-              <>
+              // 670: a sent promotion's stores are its identity: shown, never ticked here.
+              <fieldset disabled={lock('stores') !== null} className="flex min-w-0 flex-col gap-2" data-editor-stores-fieldset="">
                 <div className="flex flex-wrap items-center gap-2">
                   <Input type="search" value={storeQ} onChange={(e) => setStoreQ(e.target.value)} placeholder={t('editor.storesSearch')} wrapperClassName="w-72" data-editor-stores-search="" />
                   <Button variant="text" onClick={() => set('stores', 'all')} disabled={form.stores === 'all'} data-editor-stores-all="">
@@ -542,7 +613,7 @@ function EditorBody({
                     <StoreTick key={s.storeCode} store={s} on={ticked(s.storeCode)} onToggle={() => set('stores', toggleStore(form.stores, s.storeCode, storeCodes))} />
                   ))}
                 </ul>
-              </>
+              </fieldset>
             )}
           </section>
 
@@ -614,13 +685,39 @@ function EditorBody({
             showParts={bundle}
           />
         )}
+        {/* ── 670: Check previews the edit, what changes on HungerStation ── */}
+        {inPlace && (
+          <CheckPanel
+            summary={summary}
+            checking={checking}
+            error={check.error}
+            canCheck={dirty && problems.length === 0}
+            onCheck={() => checkEdit(false)}
+            storeName={(code) => storeNames.get(code) || null}
+            edit
+          />
+        )}
       </div>
 
       {/* ── Footer: Save draft, Send ── */}
       <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/60 px-4 py-3" data-editor-footer="">
         <span className="me-auto text-xs text-muted-foreground" data-editor-state={!promotion ? 'new' : dirty ? 'dirty' : 'saved'}>
-          {!editable ? null : !promotion ? t('editor.stateNew') : dirty ? t('editor.stateDirty') : t('editor.stateSaved')}
+          {inPlace ? (dirty ? t('editor.stateEditDirty') : t('editor.stateLive')) : !editable ? null : !promotion ? t('editor.stateNew') : dirty ? t('editor.stateDirty') : t('editor.stateSaved')}
         </span>
+        {inPlace && (
+          <Button
+            variant="primary"
+            disabled={!dirty || problems.length > 0 || form.items.length === 0 || summary?.blocksSend === true || checking || busy}
+            title={!dirty ? t('editor.editNeedsChange') : summary?.blocksSend ? t('check.editBlocked') : undefined}
+            // The edit is checked first; only a clean answer opens the reason dialog.
+            onClick={() => checkEdit(true)}
+            data-send-blocked={String(summary?.blocksSend === true)}
+            data-editor-edit-send=""
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden />
+            {t('editor.editSend')}
+          </Button>
+        )}
         {editable && (
           <>
             <Button variant="outlined" disabled={problems.length > 0 || !dirty} onClick={() => setDialog('save')} data-editor-save="">
@@ -703,6 +800,28 @@ function EditorBody({
         {chainRefusal && <InlineRefusal message={chainRefusal.message} code={chainRefusal.code} />}
       </ReasonDialog>
 
+      {/* 670: save and re-send the edit in place. */}
+      <ReasonDialog
+        open={dialog === 'edit'}
+        title={t('editor.editTitle')}
+        note={<EditNote calls={summary?.changes?.calls ?? null} />}
+        busy={edit.isPending}
+        error={edit.error}
+        confirmLabel={t('editor.editSend')}
+        handledCodes={[HUNGERSTATION_PROMOTION_ERRORS.needsReplace]}
+        onEdit={() => edit.reset()}
+        onConfirm={(reason) => edit.mutate(reason)}
+        onClose={() => setDialog(null)}
+      >
+        <span data-editor-edit-dialog="" hidden />
+        {replaceRefusal && (
+          <div className="flex flex-col gap-1" data-editor-needs-replace="">
+            <InlineRefusal message={replaceRefusal.message} code={replaceRefusal.code} />
+            <ReplacePointer field="refusal" onReplace={onReplace} />
+          </div>
+        )}
+      </ReasonDialog>
+
       <ReasonDialog
         open={dialog === 'send'}
         title={t('editor.sendTitle')}
@@ -736,6 +855,37 @@ function StoreTick({ store, on, onToggle }: { store: HungerStationPromotionStore
         )}
       </label>
     </li>
+  )
+}
+
+/** 670: under a field only Replace changes: the words, and Replace once 671 hands its dialog over. */
+function ReplacePointer({ field, onReplace }: { field: string; onReplace?: () => void }) {
+  const { t } = useTranslation('hungerstation-promotions')
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5" data-editor-replace-pointer={field}>
+      {t('editor.replaceHint')}
+      {onReplace && (
+        <Button variant="text" onClick={onReplace} data-editor-replace={field}>
+          {t('editor.replace')}
+        </Button>
+      )}
+    </span>
+  )
+}
+
+/** 670: what the re-send does, from the edit's Check: how many HungerStation calls it makes. */
+function EditNote({ calls }: { calls: number | null }): ReactNode {
+  const { t } = useTranslation('hungerstation-promotions')
+  return (
+    <span data-editor-edit-note={calls ?? ''}>
+      {calls === null ? (
+        t('editor.editNoteUnchecked')
+      ) : calls === 0 ? (
+        t('editor.editNoteNothing')
+      ) : (
+        <Trans t={t} i18nKey="editor.editNote" count={calls} values={{ n: figure(calls) }} components={{ n: <Ltr /> }} />
+      )}
+    </span>
   )
 }
 

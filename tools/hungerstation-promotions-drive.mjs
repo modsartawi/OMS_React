@@ -38,7 +38,16 @@
 // it into (combination in words, SKU count, name on HungerStation); Send reads "Send 3 promotions to
 // 3 stores"; after Send the detail shows each part's own status, and one failed part reads Failed.
 //
-// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667 · 12 ticket 668.
+// Ticket 670 (§ 13) asserts, LTR and RTL: a live promotion offers Edit; the editor locks the name,
+// stores, start and end (each says "Changing this replaces the promotion.", Replace is 671's hook),
+// fixes the chain and type, and leaves the rest editable; Check carries the edit (no reason, identity
+// as sent) and previews a moved item, an item leaving its part, a new part and a part switched off
+// because it is left empty; a change after Check drops the answer; Save and re-send checks first, a
+// DHS-00021 shows inline pointing to Replace, the PUT carries the reason; the detail then reads
+// Sending and Edit / Remove items wait; Remove items posts { materialNumbers, reason }, the item reads
+// Removed and stays listed, and a part queued under a Live status still holds every write.
+//
+// Sections: 0 fixtures · 1–5 ticket 665 · 6–9 ticket 666 · 10 ticket 669 · 11 ticket 667 · 12 ticket 668 · 13 ticket 670.
 //
 // Ticket 665 asserts, with the browser in Asia/Riyadh at 2026-10-29 11:00 local:
 //   0. every fixture's keys are EXACTLY the fields of its model interface (none invented, none missing);
@@ -592,7 +601,8 @@ const chip = async (page, s) => {
     JSON.stringify(storeRows),
   )
 
-  const itemRows = await sheet.locator('[data-promotion-item]').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('td')].map((td) => td.textContent.trim())))
+  // 670's tick column (a live promotion's items are removed from here) is not a data column.
+  const itemRows = await sheet.locator('[data-promotion-item]').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('td:not([data-promotion-item-pick-cell])')].map((td) => td.textContent.trim())))
   check(
     '4: items — material, SKU, subtype, value, max qty, buy, get, part, state',
     JSON.stringify(itemRows[0]) === JSON.stringify(['201001', 'SKU-201001', 'Percentage off', '50%', '6', '2', '1', 'Eid B2G1 · B2G1 50%', 'Active']),
@@ -771,7 +781,7 @@ const doors666 = (bend = {}) => ({
     return envelope(ctx.saved[id])
   },
   // 667: Save checks the saved draft and Send checks first — clean unless a scenario bends it.
-  check: (ctx) => (bend.check ? bend.check(ctx) : envelope({ sendable: true, header: [], rows: [], parts: [], skuCount: 0 })),
+  check: (ctx) => (bend.check ? bend.check(ctx) : envelope({ sendable: true, header: [], rows: [], parts: [], skuCount: 0, changes: null })),
   refresh: (ctx, m) => {
     const id = decodeURIComponent(m[1])
     const p = ctx.saved[id]
@@ -939,7 +949,8 @@ function sameKeysCheck(name, obj) {
   check('6: Send posts { reason } only', JSON.stringify(callsOf(ctx, 'send')[0]?.body) === JSON.stringify({ reason: 'Go live' }) && callsOf(ctx, 'send')[0]?.path === 'HungerStationWeb/Promotions/p-new1/Send')
   await sheet.locator('[data-promotion-field="status"]').waitFor({ timeout: 10000 })
   check('6: the detail takes over, reading Sending', search(page).get('promotion') === 'p-new1' && search(page).get('edit') === null && (await sheet.locator('[data-promotion-field="status"] dd').innerText()).trim() === 'Sending')
-  check('6: a sent promotion offers Refresh, not Edit', (await sheet.locator('[data-promotion-refresh]').count()) === 1 && (await sheet.locator('[data-promotion-edit]').count()) === 0)
+  // 670: a sent promotion is edited in place, but never while it is Sending.
+  check('6: a sent promotion offers Refresh, and Edit waits while it is Sending', (await sheet.locator('[data-promotion-refresh]').count()) === 1 && (await sheet.locator('[data-promotion-edit="sending"]').isDisabled()))
 
   // Sending disables edit.
   await page.goto(`${BASE}/hungerstation/promotions?edit=p-new1`)
@@ -1336,7 +1347,7 @@ const checkDoor667 = (state) => (ctx, m) => {
     .filter((r) => r.codes.length || r.warn)
     .map((r) => ({ materialNumber: r.i.materialNumber, refusals: r.codes.map((code) => ({ code, message: `${code} (server words)` })), priceWarning: r.warn }))
   const sendable = header.length === 0 && rows.every((r) => r.refusals.length === 0)
-  return envelope({ sendable, header, rows, parts: [], skuCount: p.items.length })
+  return envelope({ sendable, header, rows, parts: [], skuCount: p.items.length, changes: null })
 }
 
 async function checkScenario(dir) {
@@ -1497,7 +1508,7 @@ function splitOf(d) {
 }
 const bundleCheck = (ctx, m) => {
   const d = ctx.saved[decodeURIComponent(m[1])]
-  return envelope({ sendable: true, header: [], rows: [], parts: splitOf(d), skuCount: d.items.length })
+  return envelope({ sendable: true, header: [], rows: [], parts: splitOf(d), skuCount: d.items.length, changes: null })
 }
 const bundleSend = (ctx, m) => {
   const id = decodeURIComponent(m[1])
@@ -1664,6 +1675,302 @@ async function bundleScenario(dir) {
 }
 await bundleScenario('ltr')
 await bundleScenario('rtl')
+
+// ── 13: a live promotion edited in place, items removed with a reason (670) ──────────────────────
+// The recompute is the SERVER's (BackOffice 3215): the STUB maps the edited rows onto the parts by
+// (buy, get, subtype, value), as 3215 will: an item that left a part goes out `active: false` there,
+// a new combination is a new part, a part left empty is switched off. The page only shows Check's
+// answer. Its doors are overrides (`doors670`); the DOORS table is untouched for 671's merge.
+
+REFUSALS['DHS-00021'] = [409, 'Changing the name, stores, start or end replaces the promotion: use Replace. / تغيير الاسم أو الفروع أو البداية أو النهاية يستبدل العرض: استخدم الاستبدال.']
+const E670 = 'p-edit'
+const comboOf = (i) => ({ buyQuantity: i.buyQuantity, getQuantity: i.getQuantity, subtype: i.subtype, value: i.value })
+const comboKey = (i) => [i.buyQuantity, i.getQuantity, i.subtype, i.value].join('|')
+const partName670 = (name, c) => `${name} · B${c.buyQuantity}G${c.getQuantity} ${c.value}${unitOf(c.subtype)}`
+const COMBO_A = { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE', value: 50 }
+const COMBO_B = { buyQuantity: 3, getQuantity: 1, subtype: 'ABSOLUTE', value: 5 }
+const NAME_A = 'Eid 670 · B2G1 50%'
+const NAME_B = 'Eid 670 · B3G1 5SAR'
+const NAME_N = 'Eid 670 · B3G1 50%'
+
+/** A live bundle: part A (201001, 201002) and part B (201003), sent to 1001 and 1002. */
+function live670() {
+  const r = row(E670, { name: 'Eid 670', type: 'SAME_ITEM_BUNDLE', status: 'live', storeCount: 2, skuCount: 3 })
+  return detail(r, {
+    defaultValue: 50,
+    parts: [part('pt-a', { ...COMBO_A, name: NAME_A, skuCount: 2 }), part('pt-b', { ...COMBO_B, name: NAME_B, skuCount: 1 })],
+    items: [item('201001', { ...COMBO_A, partId: 'pt-a' }), item('201002', { ...COMBO_A, partId: 'pt-a' }), item('201003', { ...COMBO_B, partId: 'pt-b' })],
+    sends: [send('s-a1', { partId: 'pt-a' }), send('s-b1', { partId: 'pt-b' })],
+  })
+}
+/** The edit's rows, blank cells resolved to the default as the server would. */
+const resolve670 = (body) =>
+  body.items.map((i) => ({
+    materialNumber: i.materialNumber,
+    buyQuantity: i.buyQuantity ?? body.defaultBuyQuantity,
+    getQuantity: i.getQuantity ?? body.defaultGetQuantity,
+    subtype: i.subtype ?? body.defaultSubtype,
+    value: i.value ?? body.defaultValue,
+    maxQuantity: i.maxQuantity,
+  }))
+/** The stub's recompute: one `HungerStationPromotionPartChange` per part, old (by id) and new. */
+function changesOf(d, body) {
+  const rows = resolve670(body)
+  const active = d.parts.filter((p) => p.active)
+  const byCombo = new Map(active.map((p) => [comboKey(p), p.partId]))
+  const was = new Map(d.items.filter((i) => i.active).map((i) => [i.materialNumber, i.partId]))
+  const header = ['displayNameEn', 'displayNameAr', 'hsReason', 'orderLimit', 'globalLimit'].some((k) => body[k] !== d[k])
+  const out = new Map(active.map((p) => [p.partId, { ...comboOf(p), partId: p.partId, name: p.name, change: 'unchanged', skuCount: 0, leaving: [], joining: [] }]))
+  for (const i of rows) {
+    const key = byCombo.get(comboKey(i)) ?? `new:${comboKey(i)}`
+    if (!out.has(key)) out.set(key, { ...comboOf(i), partId: null, name: partName670(body.name, i), change: 'new', skuCount: 0, leaving: [], joining: [] })
+    const c = out.get(key)
+    c.skuCount++
+    if (was.get(i.materialNumber) !== c.partId) c.joining.push(i.materialNumber)
+  }
+  for (const [material, partId] of was) {
+    const now = rows.find((i) => i.materialNumber === material)
+    if ((now ? (byCombo.get(comboKey(now)) ?? null) : undefined) !== partId) out.get(partId).leaving.push(material)
+  }
+  for (const c of out.values()) if (c.change !== 'new') c.change = c.skuCount === 0 ? 'switchedOff' : c.leaving.length || c.joining.length || header ? 'updated' : 'unchanged'
+  return [...out.values()]
+}
+
+const doors670 = (state) => ({
+  read: (ctx, m, req, url) => (decodeURIComponent(m[1]) === E670 ? envelope(state.d) : baseRead(ctx, m, req, url)),
+  check: (ctx, m, req) => {
+    const body = req.postDataJSON()
+    return envelope({ sendable: true, header: [], rows: [], parts: [], skuCount: body.items.length, changes: changesOf(state.d, body) })
+  },
+  // The edit: saved, and every part it touches re-sent (Sending). The first one is refused as an
+  // identity change (DHS-00021) when the scenario asks.
+  save: (ctx, m, req) => {
+    if (state.refuseReplace) {
+      state.refuseReplace = false
+      return refuse('DHS-00021')
+    }
+    const body = req.postDataJSON()
+    const changes = changesOf(state.d, body)
+    let n = 0
+    const idOf = new Map()
+    const parts = changes.map((c) => {
+      const partId = c.partId ?? `pt-n${++n}`
+      idOf.set(comboKey(c), partId)
+      return part(partId, { ...comboOf(c), name: c.name, skuCount: c.skuCount, active: c.change !== 'switchedOff', latestJobStatus: c.change === 'unchanged' ? 'COMPLETED' : 'QUEUED', refusals: null })
+    })
+    const gone = state.d.items.filter((i) => !body.items.some((b) => b.materialNumber === i.materialNumber)).map((i) => ({ ...i, active: false }))
+    state.d = {
+      ...state.d,
+      displayNameEn: body.displayNameEn,
+      displayNameAr: body.displayNameAr,
+      orderLimit: body.orderLimit,
+      globalLimit: body.globalLimit,
+      status: 'sending',
+      updatedAt: '2026-10-29T11:00:00',
+      parts,
+      items: [...resolve670(body).map((i) => item(i.materialNumber, { ...comboOf(i), maxQuantity: i.maxQuantity, partId: idOf.get(comboKey(i)) })), ...gone],
+      sends: [
+        ...parts
+          .filter((p) => p.latestJobStatus === 'QUEUED')
+          .map((p, k) => send(`s-e${k + 1}`, { partId: p.partId, kind: p.active ? 'upsert' : 'switchOff', sentAt: '2026-10-29T11:00:00', reason: body.reason, jobStatus: 'QUEUED', hsUpdatedAt: null })),
+        ...state.d.sends,
+      ],
+    }
+    return envelope(state.d)
+  },
+  refresh: () => {
+    state.d = {
+      ...state.d,
+      status: 'live',
+      parts: state.d.parts.map((p) => ({ ...p, latestJobStatus: 'COMPLETED', refusals: { invalidVendors: [], missingSkus: [], invalidDiscountedSkus: [] } })),
+      sends: state.d.sends.map((s) => ({ ...s, jobStatus: 'COMPLETED' })),
+    }
+    return envelope(state.d)
+  },
+  // Those materials go out `active: false` in their parts and read Removed. The roll-up still says
+  // Live while their part is QUEUED: the page must lock on ANY part Sending, not on the status word.
+  removeItems: (ctx, m, req) => {
+    const body = req.postDataJSON()
+    const hit = state.d.items.filter((i) => body.materialNumbers.includes(i.materialNumber)).map((i) => i.partId)
+    state.d = {
+      ...state.d,
+      items: state.d.items.map((i) => (body.materialNumbers.includes(i.materialNumber) ? { ...i, active: false } : i)),
+      parts: state.d.parts.map((p) => (hit.includes(p.partId) ? { ...p, latestJobStatus: 'QUEUED', skuCount: p.skuCount - hit.filter((x) => x === p.partId).length } : p)),
+    }
+    return envelope(state.d)
+  },
+})
+
+// 201001 blank (stays B2G1 50% in part A), 201002 B3G1 50% (a new combination), 201003 dropped (part B empties).
+const PASTE670 = [
+  ['Material', 'Buy', 'Get', 'Subtype', 'Value', 'MaxQty'],
+  ['201001', '', '', '', '', ''],
+  ['201002', '3', '1', 'PERCENTAGE', '50', ''],
+]
+  .map((r) => r.join('\t'))
+  .join('\r\n')
+
+function keysCheck(label, name, obj, drop = []) {
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const want = modelFields(source, name).filter((f) => !drop.includes(f)).sort()
+  const got = Object.keys(obj ?? {}).sort()
+  check(label, JSON.stringify(want) === JSON.stringify(got), `model ${want.join(',')} | got ${got.join(',')}`)
+}
+
+async function editScenario(dir) {
+  const L = '13 ' + dir.toUpperCase() + ': '
+  const state = { d: live670(), refuseReplace: true }
+  const { context, page, errors, ctx } = await open(dir, { doors: { ...doors666(), ...doors670(state) } })
+  await page.goto(`${BASE}/hungerstation/promotions?promotion=${E670}`)
+  const sheet = page.locator(`dialog[open][data-promotion-sheet="${E670}"]`)
+  await sheet.locator('[data-promotion-item="201001"]').waitFor({ timeout: 20000 })
+  const editBtn = sheet.locator('[data-promotion-edit]')
+  check(L + 'a live promotion offers Edit, in place', (await editBtn.getAttribute('data-promotion-edit')) === 'inPlace' && (await editBtn.isEnabled()) && strip(await editBtn.innerText()) === 'Edit')
+  check(L + 'each active item can be ticked for removal', (await sheet.locator('[data-promotion-item-pick]').count()) === 3)
+
+  // ── The editor: the identity locked, everything else editable ──
+  await editBtn.click()
+  const ed = page.locator(EDITOR(E670))
+  await ed.locator('[data-editor-store-list]').waitFor({ timeout: 15000 })
+  check(L + '?edit= takes the promotion', search(page).get('edit') === E670)
+  check(
+    L + 'the editor says it edits in place and that the identity is Replace\'s',
+    (await ed.locator('[data-editor-mode="inPlace"]').count()) === 1 && (await ed.locator('[data-editor-locked]').innerText()).includes('changing any of them replaces the promotion'),
+  )
+  const dis = (sel) => ed.locator(sel).first().isDisabled()
+  check(L + 'the name, start and end are locked', (await dis('[data-editor-name]')) && (await dis('[data-editor-start-date]')) && (await dis('[data-editor-start-time]')) && (await dis('[data-editor-end-date]')) && (await dis('[data-editor-end-time]')))
+  check(L + 'the stores are locked', (await ed.locator('[data-editor-store-tick]').evaluateAll((els) => els.length === 3 && els.every((e) => e.matches(':disabled')))) && (await dis('[data-editor-stores-search]')))
+  const pointers = await ed.locator('[data-editor-replace-pointer]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-editor-replace-pointer'), e.textContent.trim()]))
+  check(
+    L + 'each locked field says: changing this replaces the promotion',
+    JSON.stringify(pointers.map((p) => p[0]).sort()) === JSON.stringify(['name', 'stores', 'window']) && pointers.every((p) => p[1] === 'Changing this replaces the promotion.'),
+    JSON.stringify(pointers),
+  )
+  check(L + 'the chain and the type are fixed once sent', (await dis('[data-editor-chain-select]')) && (await dis('[data-editor-type]')) && (await ed.innerText()).includes('Fixed once the promotion is sent.'))
+  check(L + 'no Replace button until 671 hands its dialog over (the onReplace hook)', (await ed.locator('[data-editor-replace]').count()) === 0)
+  check(
+    L + 'display names, limits, defaults and the paste stay editable',
+    !(await dis('[data-editor-display-en]')) && !(await dis('[data-editor-display-ar]')) && !(await dis('[data-editor-order-limit]')) && !(await dis('[data-editor-default-value]')) && !(await dis('[data-editor-paste]')),
+  )
+  check(
+    L + 'unchanged: Check and Save and re-send wait; no Save draft, no Send',
+    (await dis('[data-editor-edit-send]')) && (await dis('[data-check-run]')) && (await ed.locator('[data-editor-save]').count()) === 0 && (await ed.locator('[data-editor-send]').count()) === 0,
+  )
+
+  // ── The edit: a display name, and the sheet pasted again ──
+  await ed.locator('[data-editor-display-en]').fill('Eid: buy more, pay less')
+  await paste(page, ed, PASTE670)
+  await page.waitForFunction(() => /\b2\b/.test(document.querySelector('dialog[open] [data-import-send]')?.textContent?.replace(/[⁦-⁩]/g, '') ?? ''), null, { timeout: 15000 })
+  await page.locator('dialog[open] [data-import-send]').click()
+  await ed.locator('[data-editor-items-grid] .ag-row[row-id="201002"]').waitFor({ timeout: 15000 })
+  check(L + 'changed: the footer says check, then save and re-send', (await ed.locator('[data-editor-state]').innerText()).trim() === 'Changed: check the edit, then save and re-send it.')
+  await ed.locator('[data-check-run]').click()
+  await ed.locator('[data-check-changes]').waitFor({ timeout: 15000 })
+  const cbody = callsOf(ctx, 'check').at(-1)?.body
+  check(L + 'Check carries the edit as typed, and no reason', !!cbody && !('reason' in cbody) && cbody.displayNameEn === 'Eid: buy more, pay less' && cbody.items.length === 2, JSON.stringify(cbody)?.slice(0, 200))
+  check(
+    L + '… with the identity exactly as sent',
+    cbody?.name === 'Eid 670' && cbody.startAt === '2026-11-01T00:00:00' && cbody.endAt === '2026-11-30T23:59:00' && cbody.allStores === false && JSON.stringify(cbody.storeCodes) === '["1001","1002"]' && cbody.chainKey === 'OlaCare' && cbody.type === 'SAME_ITEM_BUNDLE',
+    JSON.stringify({ ...cbody, items: undefined }),
+  )
+  if (dir === 'ltr') {
+    keysCheck('13: the edit Check body has exactly the save body\'s fields, less the reason', 'HungerStationPromotionSaveBody', cbody, ['reason'])
+    keysCheck('13: the HungerStationPromotionPartChange the stub answers has exactly the model\'s fields', 'HungerStationPromotionPartChange', changesOf(live670(), cbody)[0])
+  }
+  const kinds = await ed.locator('[data-check-change]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-check-change'), e.getAttribute('data-check-change-part')]))
+  check(L + 'the preview: a new part, the part left empty switched off, the part re-sent', JSON.stringify(kinds) === JSON.stringify([['new', 'new'], ['switchedOff', 'pt-b'], ['updated', 'pt-a']]), JSON.stringify(kinds))
+  const nw = ed.locator('[data-check-change="new"]')
+  check(L + 'the new part: its name on HungerStation and its combination in words', strip(await nw.locator('[data-check-change-name]').innerText()) === NAME_N && strip(await nw.locator('[data-check-change-combination]').innerText()) === 'Buy 3 get 1 at 50% off', strip(await nw.innerText()))
+  const off = ed.locator('[data-check-change="switchedOff"]')
+  check(L + 'the switched-off part keeps no SKU, and one leaves it', (await off.locator('[data-check-change-skus]').getAttribute('data-check-change-skus')) === '0' && (await off.locator('[data-check-change-leaving]').getAttribute('data-check-change-leaving')) === '1' && strip(await off.locator('td').first().innerText()) === 'Switched off')
+  check(L + 'the moved item: from its old part to the new one', strip(await ed.locator('[data-check-moved="201002"]').innerText()) === `201002 moves from ${NAME_A} to ${NAME_N}.`, strip(await ed.locator('[data-check-moved="201002"]').innerText()))
+  check(L + 'the dropped item leaves its part, inactive there', strip(await ed.locator('[data-check-left="201003"]').innerText()) === `201003 leaves ${NAME_B}: it goes out inactive there.`)
+  check(L + 'the parts sent are counted', strip(await ed.locator('[data-check-changes-calls]').innerText()) === '3 parts are sent to HungerStation.')
+  check(L + 'a part left empty is said to be switched off', (await ed.locator('[data-check-changes-off-hint]').count()) === 1)
+  if (dir === 'rtl') {
+    const li = ed.locator('[data-check-moved="201002"]')
+    check(L + 'the material is a machine value, each part name free text, isolated whole', (await li.locator('bdi[dir="ltr"]').count()) === 1 && (await li.locator('bdi:not([dir])').count()) === 2)
+    check(L + 'the counts are isolated', (await off.locator('[data-check-change-skus] bdi[dir="ltr"]').count()) === 1)
+    check(L + 'dir is rtl', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  }
+  await page.screenshot({ path: `${SHOTS}/${dir}-edit-preview.png` })
+
+  // The answer holds only for the edit it was asked for.
+  await ed.locator('[data-editor-order-limit]').fill('3')
+  check(L + 'a change after Check drops its answer', (await ed.locator('[data-check-panel]').getAttribute('data-check-panel')) === 'none')
+  await ed.locator('[data-editor-order-limit]').fill('')
+  check(L + '… and the same edit again reads it', (await ed.locator('[data-check-panel]').getAttribute('data-check-panel')) === 'clean')
+
+  // ── Save and re-send: checked first, then a reason ──
+  const checks = callsOf(ctx, 'check').length
+  await ed.locator('[data-editor-edit-send]').click()
+  await page.locator(REASON).waitFor({ timeout: 10000 })
+  check(L + 'Save and re-send runs the check first', callsOf(ctx, 'check').length === checks + 1)
+  check(L + 'the dialog says how many parts go out', strip(await page.locator('dialog[open] [data-editor-edit-note]').innerText()).startsWith('Saves the edit and sends 3 parts to HungerStation.'), await page.locator('dialog[open] [data-editor-edit-note]').innerText())
+  await reason(page, 'Drop 201003, move 201002')
+  const refusal = page.locator('dialog[open] [data-editor-needs-replace]')
+  await refusal.waitFor({ timeout: 15000 })
+  const rtext = await refusal.innerText()
+  check(L + 'an identity change refused here (DHS-00021) shows inline and points to Replace', rtext.includes('replaces the promotion: use Replace') && rtext.includes('Changing this replaces the promotion.'), rtext)
+  await page.locator('dialog[open] [data-reason-confirm]').click()
+  await page.waitForFunction((id) => new URL(location.href).searchParams.get('promotion') === id && !new URL(location.href).searchParams.get('edit'), E670, { timeout: 20000 })
+  const puts = callsOf(ctx, 'save')
+  const pbody = puts.at(-1)?.body
+  check(L + 'the edit is a PUT of the promotion with its reason', puts.length === 2 && puts.at(-1).path === `${P}/${E670}` && pbody?.reason === 'Drop 201003, move 201002' && pbody.displayNameEn === 'Eid: buy more, pay less' && pbody.name === 'Eid 670', JSON.stringify({ ...pbody, items: undefined }))
+  check(
+    L + '… each row as pasted, the page never moves an item between parts itself',
+    JSON.stringify(pbody?.items) ===
+      JSON.stringify([
+        { materialNumber: '201001', buyQuantity: null, getQuantity: null, subtype: null, value: null, maxQuantity: null },
+        { materialNumber: '201002', buyQuantity: 3, getQuantity: 1, subtype: 'PERCENTAGE', value: 50, maxQuantity: null },
+      ]),
+    JSON.stringify(pbody?.items),
+  )
+  if (dir === 'ltr') keysCheck('13: the edit PUT body has exactly the model\'s fields', 'HungerStationPromotionSaveBody', pbody)
+
+  // ── The detail takes over: Sending, and every write waits ──
+  const sheet2 = page.locator(`dialog[open][data-promotion-sheet="${E670}"]`)
+  await sheet2.locator('[data-promotion-part="pt-n1"]').waitFor({ timeout: 20000 })
+  check(L + 'the detail reads Sending: the new part queued, the emptied part switched off', (await sheet2.locator('[data-promotion-field="status"] dd').innerText()).trim() === 'Sending' && (await sheet2.locator('[data-promotion-part="pt-b"] [data-promotion-part-active]').getAttribute('data-promotion-part-active')) === 'false')
+  check(L + 'while Sending, Edit waits', (await sheet2.locator('[data-promotion-edit]').getAttribute('data-promotion-edit')) === 'sending' && (await sheet2.locator('[data-promotion-edit]').isDisabled()))
+  check(L + 'while Sending, Remove items waits', (await sheet2.locator('[data-promotion-remove-items]').isDisabled()) && (await sheet2.locator('[data-promotion-item-pick]').evaluateAll((els) => els.length > 0 && els.every((e) => e.matches(':disabled')))))
+  check(L + 'the item that left reads Removed, still listed', (await sheet2.locator('[data-promotion-item="201003"]').getAttribute('data-promotion-item-active')) === 'false')
+  await page.goto(`${BASE}/hungerstation/promotions?edit=${E670}`)
+  const ed2 = page.locator(EDITOR(E670))
+  await ed2.locator('[data-editor-locked="sending"]').waitFor({ timeout: 20000 })
+  check(L + 'the editor opened while Sending writes nothing', (await ed2.locator('[data-editor-edit-send]').count()) === 0 && (await ed2.locator('[data-editor-display-en]').isDisabled()))
+  await page.screenshot({ path: `${SHOTS}/${dir}-edit-sending.png` })
+
+  // ── Remove items, once HungerStation answered ──
+  await page.goto(`${BASE}/hungerstation/promotions?promotion=${E670}`)
+  const sheet3 = page.locator(`dialog[open][data-promotion-sheet="${E670}"]`)
+  await sheet3.locator('[data-promotion-refresh]').click()
+  await page.waitForFunction(() => document.querySelector('dialog[open] [data-promotion-field="status"] dd')?.textContent?.trim() === 'Live', null, { timeout: 15000 })
+  const removeBtn = sheet3.locator('[data-promotion-remove-items]')
+  check(L + 'nothing ticked: Remove items waits', (await removeBtn.isDisabled()) && strip(await removeBtn.innerText()) === 'Remove items')
+  await sheet3.locator('[data-promotion-item-pick-all]').check()
+  check(L + 'tick every active item: the removed one is not offered', (await removeBtn.getAttribute('data-promotion-remove-items')) === '2' && strip(await removeBtn.innerText()) === 'Remove 2 items' && (await sheet3.locator('[data-promotion-item="201003"] [data-promotion-item-pick]').count()) === 0)
+  await sheet3.locator('[data-promotion-item-pick="201002"]').uncheck()
+  check(L + 'untick one: Remove 1 item', strip(await removeBtn.innerText()) === 'Remove 1 item')
+  await removeBtn.click()
+  await page.locator('dialog[open] [data-promotion-remove-dialog="1"]').waitFor({ state: 'attached', timeout: 10000 })
+  check(L + 'the dialog says it goes out inactive and stays listed', strip(await page.locator(REASON).innerText()).includes('1 material goes out inactive in its part. It stays listed here as Removed.'))
+  await reason(page, 'Delisted by the supplier')
+  await page.waitForFunction(() => document.querySelector('dialog[open] [data-promotion-item="201001"]')?.getAttribute('data-promotion-item-active') === 'false', null, { timeout: 15000 })
+  const rm = callsOf(ctx, 'removeItems')
+  check(L + 'Remove items posts the materials and the reason', rm.length === 1 && rm[0].path === `${P}/${E670}/RemoveItems` && JSON.stringify(rm[0].body) === JSON.stringify({ materialNumbers: ['201001'], reason: 'Delisted by the supplier' }), JSON.stringify(rm[0]?.body))
+  if (dir === 'ltr') keysCheck('13: the RemoveItems body has exactly the model\'s fields', 'HungerStationPromotionRemoveItemsBody', rm[0]?.body)
+  check(L + 'the removed item reads Removed and stays listed', (await sheet3.locator('[data-promotion-item="201001"]').count()) === 1 && strip(await sheet3.locator('[data-promotion-item="201001"] td').last().innerText()) === 'Removed')
+  check(
+    L + 'its part queued while the status still reads Live: ANY part Sending holds every write',
+    (await sheet3.locator('[data-promotion-field="status"] dd').innerText()).trim() === 'Live' && (await sheet3.locator('[data-promotion-edit]').isDisabled()) && (await removeBtn.isDisabled()),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-remove-items.png` })
+  check(L + 'no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+await editScenario('ltr')
+await editScenario('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

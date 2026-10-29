@@ -2,7 +2,9 @@ import { api } from '@/core/api'
 import type {
   HungerStationPromotionCheckResult,
   HungerStationPromotionDetail,
+  HungerStationPromotionEditCheckBody,
   HungerStationPromotionReasonBody,
+  HungerStationPromotionRemoveItemsBody,
   HungerStationPromotionSaveBody,
   HungerStationPromotionStoreChoice,
   HungerStationPromotionsPage,
@@ -61,16 +63,23 @@ export const promotionsApi = {
     return api.post<HungerStationPromotionDetail>('HungerStationWeb/Promotions', body)
   },
 
-  /** PUT HungerStationWeb/Promotions/{promotionId} — save the draft again. DHS-00008 / 00016 / 00017 / 00019. */
+  /** PUT HungerStationWeb/Promotions/{promotionId} — save the draft again; on a SENT promotion, the
+   *  in-place edit (670, BackOffice 3215): saved and the affected parts re-sent. DHS-00008 / 00016 /
+   *  00017 (a part is Sending) / 00019 / 00021 (the name, stores, start or end changed: a Replace). */
   save(promotionId: string, body: HungerStationPromotionSaveBody): Promise<HungerStationPromotionDetail> {
     return api.put<HungerStationPromotionDetail>(promotionPath(promotionId), body)
   },
 
   /** POST …/{promotionId}/Check — NO body: every pre-check on the SAVED promotion, nothing written
    *  (ticket 667, BackOffice 3212). Refusals per row and per header field; price warnings name the
-   *  stores. DHS-00016. */
-  check(promotionId: string): Promise<HungerStationPromotionCheckResult> {
-    return api.post<HungerStationPromotionCheckResult>(`${promotionPath(promotionId)}/Check`, undefined)
+   *  stores. DHS-00016.
+   *
+   *  670: on a SENT promotion the edit rides as the body (nothing is written), and the answer's
+   *  `changes` say what changes on HungerStation per part. 🚩 Assumed: BackOffice 3215 names no
+   *  preview door, and a live promotion's save IS its re-send, so the preview cannot read a saved
+   *  version. */
+  check(promotionId: string, edit?: HungerStationPromotionEditCheckBody): Promise<HungerStationPromotionCheckResult> {
+    return api.post<HungerStationPromotionCheckResult>(`${promotionPath(promotionId)}/Check`, edit)
   },
 
   /** POST …/{promotionId}/Send — the promotion then reads Sending. DHS-00008 / 00016 / 00017 / 00018. */
@@ -88,5 +97,13 @@ export const promotionsApi = {
    *  00016 / 00017 (that part is Sending) / 00014 (HungerStation unavailable). */
   resend(promotionId: string, partId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
     return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Parts/${encodeURIComponent(partId)}/Resend`, body)
+  },
+
+  // ── 670: edit in place, remove items ────────────────────────────────────────────────────────
+
+  /** POST …/{promotionId}/RemoveItems — those materials go out `active: false` in their parts and
+   *  read Removed; they stay listed. Returns the detail. DHS-00008 / 00016 / 00017. */
+  removeItems(promotionId: string, body: HungerStationPromotionRemoveItemsBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/RemoveItems`, body)
   },
 }

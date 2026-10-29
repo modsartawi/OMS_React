@@ -2216,6 +2216,7 @@ export function playgroundStub(method, path, body, opts = {}) {
   if (method === 'POST' && path === 'InsuranceRules/Playground/Evaluate') {
     store.evaluates.push(body)
     if (deny.includes('evaluate')) return { status: 403, body: '' }
+    if (typeof body?.raw === 'string') return rawPlayground(body)
     if (!Array.isArray(body?.data?.lines))
       return envelope(null, { status: 400, success: false, message: 'The data has no lines to evaluate.', errorCode: 'PLAYGROUND_DATA_INVALID' })
     return envelope(evaluatePlayground(body))
@@ -2287,6 +2288,49 @@ export function evaluatePlaygroundWithReads(body) {
 
 export function playgroundReadsStub(method, path, body, opts = {}) {
   const hit = playgroundStub(method, path, body, opts)
-  if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate') return hit
+  if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
   return envelope(evaluatePlaygroundWithReads(body))
+}
+
+// --- 684 --- a Raw experiment (BackOffice 3246): `raw` text instead of `data`, as the BRIEF draws it (691 reconciles).
+//   text that is not one JSON object → the refusal `PLAYGROUND_RAW_INVALID`;
+//   otherwise each line key is read, ignored (an unknown key, with its near-miss hint) or refused (a number field
+//   holding something else, `expected: "number"`), and the read keys are evaluated as `data`. `intake` carries the three.
+const PLAYGROUND_LINE_KEYS = ['line', 'item', 'quantity', 'unit', 'daysSupply', 'icd', 'price', 'eCode', 'dCode', 'sfdaCode', 'idfPriority', 'attributes']
+const PLAYGROUND_LINE_NUMBERS = ['line', 'quantity', 'daysSupply', 'price', 'idfPriority']
+const PLAYGROUND_NEAR = { qty: 'quantity', days: 'daysSupply', supply: 'daysSupply', cost: 'price', article: 'item', icds: 'icd' }
+const PLAYGROUND_TOP_KEYS = ['request', 'patient', 'lines', 'history', 'reference', 'eligibility', 'payer']
+
+function rawPlayground(body) {
+  let parsed
+  try {
+    parsed = JSON.parse(body.raw)
+  } catch {
+    parsed = undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return envelope(null, { status: 400, success: false, message: 'The raw text is not one JSON object.', errorCode: 'PLAYGROUND_RAW_INVALID' })
+  const intake = { read: [], ignored: [], refused: [] }
+  const data = {}
+  for (const [k, v] of Object.entries(parsed)) {
+    if (!PLAYGROUND_TOP_KEYS.includes(k)) intake.ignored.push({ path: k, hint: null })
+    else if (k !== 'lines') {
+      data[k] = v
+      intake.read.push(k)
+    }
+  }
+  data.lines = (Array.isArray(parsed.lines) ? parsed.lines : []).map((l, i) => {
+    const line = {}
+    for (const [k, v] of Object.entries(l ?? {})) {
+      const path = `lines[${i}].${k}`
+      if (!PLAYGROUND_LINE_KEYS.includes(k)) intake.ignored.push({ path, hint: PLAYGROUND_NEAR[k] ?? null })
+      else if (PLAYGROUND_LINE_NUMBERS.includes(k) && v !== null && typeof v !== 'number') intake.refused.push({ path, expected: 'number' })
+      else {
+        line[k] = v
+        intake.read.push(path)
+      }
+    }
+    return line
+  })
+  return envelope({ ...evaluatePlayground({ ...body, data }), intake })
 }

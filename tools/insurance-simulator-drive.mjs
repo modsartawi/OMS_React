@@ -130,6 +130,15 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. the body is the brief's, exactly`, JSON.stringify(store.simulates.at(-1)) === JSON.stringify(EXPECTED_BODY), JSON.stringify(store.simulates.at(-1)))
     check(`${dir} 3. the patient key never reaches the address`, !page.url().includes(SIM_PATIENT))
     check(`${dir} 3. no document is sent: HQ runs the saved draft`, !('document' in (store.simulates.at(-1) ?? {})))
+    // 660: the request and HQ's reply open as JSON, exactly as they went over the wire.
+    await page.locator('[data-json-open="sim-request"]').click()
+    const sentJson = JSON.parse(await page.locator('[data-json-view="sim-request"] [data-json-body]').innerText())
+    check(`${dir} 3b. Request shows the body that was POSTed`, JSON.stringify(sentJson) === JSON.stringify(store.simulates.at(-1)), JSON.stringify(sentJson))
+    await page.keyboard.press('Escape')
+    await page.locator('[data-json-open="sim-reply"]').click()
+    const replyJson = JSON.parse(await page.locator('[data-json-view="sim-reply"] [data-json-body]').innerText())
+    check(`${dir} 3b. Reply shows HQ's answer as sent, trace values as text`, Array.isArray(replyJson?.lines) && replyJson.lines.length === 2 && replyJson.lines.some((l) => (l.trace ?? []).some((s) => typeof s.value === 'string')), JSON.stringify(replyJson).slice(0, 300))
+    await page.keyboard.press('Escape')
 
     // 4. line 1
     const l1 = page.locator('[data-result-line="1"]')

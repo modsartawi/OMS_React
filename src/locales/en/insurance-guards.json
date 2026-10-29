@@ -255,7 +255,13 @@
       "nphies": "NPHIES",
       "default": "from the first condition",
       "edited": "edited",
-      "reset": "Use the first condition's codes"
+      "reset": "Use the first condition's codes",
+      "check": {
+        "nphiesInConflict": "This is a NPHIES code. Put it in the NPHIES box; the conflict box takes a two-character DUR code such as 83 or ER.",
+        "conflictInNphies": "This is a DUR conflict code. Put it in the Conflict box; the NPHIES box takes a code such as AD-2-4.",
+        "conflictShape": "A conflict code is usually two characters, such as 83 or ER.",
+        "nphiesShape": "A NPHIES code usually looks like AD-2-4 or CV-4-8."
+      }
     },
     "suggest": {
       "label": "Suggestion",
@@ -292,7 +298,9 @@
       "untilOpen": "No end"
     },
     "pending": "This draft is waiting for approval: it cannot be changed until an approver approves it or sends it back.",
-    "json": "Rule {{id}} as JSON, unsaved edits included"
+    "json": "Rule {{id}} as JSON, unsaved edits included",
+    "sameName_one": "Another rule has this name: {{ids}}. Give each rule its own name so they are not mixed up.",
+    "sameName_other": "Other rules have this name: {{ids}}. Give each rule its own name so they are not mixed up."
   },
   "access": {
     "deniedTitle": "You do not have access",

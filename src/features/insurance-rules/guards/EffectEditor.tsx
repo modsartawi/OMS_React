@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
+import { checkCodes } from '@/core/insurance-rules/rule-checks'
 import { GUARD_PLACEHOLDERS, SUGGESTIONS, codesAreDefault, defaultCodes, insertPlaceholder, refusedPlaceholders } from '@/core/insurance-rules/guard-edit'
 import { GUARD_SEVERITIES, type GuardEffect, type GuardRule } from '@/core/insurance-rules/model'
 import { fsi } from '@/core/util/bidi'
@@ -32,6 +33,7 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
     edit((r) => ({ ...r, then: r.then.map((x, j) => (j === index ? fn(x) : x)) }), field ? `then:${index}:${field}` : undefined)
   const refused = refusedPlaceholders(e.says)
   const isDefault = codesAreDefault(rule, e)
+  const codeChecks = checkCodes(e.codes)
   const suggestKey = Object.keys(e.suggest ?? {})[0] ?? ''
 
   return (
@@ -77,7 +79,7 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
           <CodeInput
             value={e.codes?.conflict ?? ''}
             className="w-20"
-            invalid={fieldIssues(issues, 'codes.conflict').length > 0}
+            invalid={fieldIssues(issues, 'codes.conflict').length > 0 || codeChecks.some((c) => c.field === 'conflict' && c.blocks)}
             data-input="conflict"
             onValue={(s) => setEffect((x) => ({ ...x, codes: { conflict: s.trim() || null, nphies: x.codes?.nphies ?? null } }), 'codes.conflict')}
           />
@@ -86,7 +88,7 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
           <CodeInput
             value={e.codes?.nphies ?? ''}
             className="w-24"
-            invalid={fieldIssues(issues, 'codes.nphies').length > 0}
+            invalid={fieldIssues(issues, 'codes.nphies').length > 0 || codeChecks.some((c) => c.field === 'nphies' && c.blocks)}
             data-input="nphies"
             onValue={(s) => setEffect((x) => ({ ...x, codes: { conflict: x.codes?.conflict ?? null, nphies: s.trim() || null } }), 'codes.nphies')}
           />
@@ -105,6 +107,16 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
           </button>
         )}
       </div>
+      {codeChecks.map((c) => (
+        <p
+          key={c.field}
+          className={'text-xs ' + (c.blocks ? 'text-danger-800' : 'text-attention-800')}
+          role={c.blocks ? 'alert' : 'status'}
+          data-code-check={c.problem}
+        >
+          {t(`editor.codes.check.${c.problem}`)}
+        </p>
+      ))}
 
       <div className="flex flex-wrap items-center gap-3" data-suggest-editor="">
         <Field label={t('editor.suggest.label')}>

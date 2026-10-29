@@ -98,7 +98,7 @@ contract.
   - **Drive** `tools/hungerstation-promotions-drive.mjs` § 666 (blocks 6–9, its own section; the write
     doors filled as `open(…, { doors: doors666() })` overrides, the DOORS table untouched for 669's
     merge). Body field for field, model-key check on the save body, Send `{ reason }`, Refresh no body,
-    DHS-00019 / 00008 / 00018 inline, 20,001 refused, typed chain, RTL. **133/133** (82 of 665 + 51 new). Vitest 7726 green; typecheck + lint green.
+    DHS-00019 / 00008 / 00018 inline, 20,001 refused, typed chain, RTL. **133/133** (82 of 665 + 51 new); **183/183** after merging 669. Vitest 7726 green; typecheck + lint green.
   - 🚩 **Assumptions for the contract (BackOffice 3211):** (1) **chain source** — spec 3201 names no
     chain read for the promotions grant; `Chains` rides `canManageStores`. The editor offers `Chains`
     when that grant is held, otherwise the chains seen on the list as suggestions over a free-typed

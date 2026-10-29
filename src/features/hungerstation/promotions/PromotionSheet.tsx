@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2, Pencil, RefreshCw, X } from 'lucide-react'
@@ -20,6 +20,9 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi } from './api'
+import PartRefusals from './PartRefusals'
+import { partSending, promotionPollInterval } from './part-refusals'
+import ResendDialog, { type ResendTarget } from './ResendDialog'
 import { PromotionStatusBadge, typeText } from './columns'
 import { buyGetText, discountText, windowText } from './promotion-display'
 import { jobStatusLabel } from './promotion-status'
@@ -34,9 +37,18 @@ import { jobStatusLabel } from './promotion-status'
 export default function PromotionSheet({ promotionId, onClose, onEdit }: { promotionId: string; onClose: () => void; onEdit: () => void }) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
-  const detail = useQuery({ queryKey: promotionKey(promotionId), queryFn: () => promotionsApi.detail(promotionId), retry: false })
+  // 🔑 The light poll (ticket 669): while any part is Sending the open detail re-reads itself every
+  // 15 s — the server polls HungerStation every minute — and stops once every part has an answer.
+  // It lives only as long as this sheet is open.
+  const detail = useQuery({
+    queryKey: promotionKey(promotionId),
+    queryFn: () => promotionsApi.detail(promotionId),
+    retry: false,
+    refetchInterval: (query) => promotionPollInterval(query.state.data),
+  })
   const p = detail.data
   const refresh = useRefresh(promotionId)
+  const [resend, setResend] = useState<ResendTarget | null>(null)
 
   return (
     <SideSheet onClose={onClose} width="w-[72rem]" aria-labelledby={titleId} data-promotion-sheet={promotionId}>
@@ -105,13 +117,24 @@ export default function PromotionSheet({ promotionId, onClose, onEdit }: { promo
         ) : (
           <>
             <Header p={detail.data} />
-            <Parts parts={detail.data.parts ?? []} />
+            {promotionPollInterval(detail.data) !== false && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground" data-promotion-polling="">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                {t('detail.polling')}
+              </p>
+            )}
+            <Parts
+              parts={detail.data.parts ?? []}
+              onResend={(part) => setResend({ promotionId: detail.data.promotionId, partId: part.partId, name: part.name })}
+            />
+            <PartRefusals parts={detail.data.parts ?? []} />
             <Stores p={detail.data} />
             <Items items={detail.data.items ?? []} parts={detail.data.parts ?? []} />
             <Sends sends={detail.data.sends ?? []} parts={detail.data.parts ?? []} />
           </>
         )}
       </div>
+      {resend && <ResendDialog target={resend} onClose={() => setResend(null)} />}
     </SideSheet>
   )
 }
@@ -216,7 +239,10 @@ function Section({ title, data, hint, children }: { title: string; data: string;
 
 const Empty = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted-foreground">{children}</p>
 
-function Parts({ parts }: { parts: HungerStationPromotionPart[] }) {
+/** A part can be resent once it has been sent, while it is active and not Sending. */
+const resendable = (part: HungerStationPromotionPart) => part.active && part.latestJobStatus !== null
+
+function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onResend: (part: HungerStationPromotionPart) => void }) {
   const { t } = useTranslation('hungerstation-promotions')
   return (
     <Section title={t('detail.parts')} hint={t('detail.partsHint')} data="data-promotion-parts">
@@ -232,6 +258,7 @@ function Parts({ parts }: { parts: HungerStationPromotionPart[] }) {
               <th className={TH + ' text-end'}>{t('detail.partColumns.skus')}</th>
               <th className={TH}>{t('detail.partColumns.jobStatus')}</th>
               <th className={TH}>{t('detail.partColumns.active')}</th>
+              <th className={TH}>{t('detail.partColumns.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -258,9 +285,27 @@ function Parts({ parts }: { parts: HungerStationPromotionPart[] }) {
                   </td>
                   <td className={TD} data-promotion-part-status="">
                     <JobBadge status={part.latestJobStatus} unanswered={part.unanswered} />
+                    {part.unanswered && (
+                      <p className="mt-1 max-w-[16rem] text-[11px] text-muted-foreground" data-promotion-part-unanswered="">
+                        {t('detail.unansweredHint')}
+                      </p>
+                    )}
                   </td>
                   <td className={TD} data-promotion-part-active={String(part.active)}>
                     {yesNo(t, part.active)}
+                  </td>
+                  <td className={TD}>
+                    {resendable(part) && (
+                      <Button
+                        variant="outlined"
+                        disabled={partSending(part)}
+                        title={partSending(part) ? t('detail.resendWhileSending') : undefined}
+                        onClick={() => onResend(part)}
+                        data-promotion-part-resend={part.partId}
+                      >
+                        {t('detail.resend')}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               )
@@ -395,6 +440,8 @@ function Sends({ sends, parts }: { sends: HungerStationPromotionSend[]; parts: H
               <th className={TH}>{t('detail.sendColumns.jobId')}</th>
               <th className={TH}>{t('detail.sendColumns.jobStatus')}</th>
               <th className={TH}>{t('detail.sendColumns.error')}</th>
+              <th className={TH}>{t('detail.sendColumns.hsCreatedAt')}</th>
+              <th className={TH}>{t('detail.sendColumns.hsUpdatedAt')}</th>
             </tr>
           </thead>
           <tbody>
@@ -425,6 +472,13 @@ function Sends({ sends, parts }: { sends: HungerStationPromotionSend[]; parts: H
                   <JobBadge status={s.jobStatus} unanswered={s.unanswered} />
                 </td>
                 <td className="px-2 py-1.5 align-top text-danger-800">{s.error ? <bdi>{s.error}</bdi> : null}</td>
+                {/* HungerStation's own times, as the server sends them: already local. */}
+                <td className={TD} data-promotion-send-hs-created="">
+                  {s.hsCreatedAt ? <Ltr>{formatDateTime(s.hsCreatedAt)}</Ltr> : null}
+                </td>
+                <td className={TD} data-promotion-send-hs-updated="">
+                  {s.hsUpdatedAt ? <Ltr>{formatDateTime(s.hsUpdatedAt)}</Ltr> : null}
+                </td>
               </tr>
             ))}
           </tbody>

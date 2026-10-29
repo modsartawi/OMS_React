@@ -74,4 +74,11 @@ export const promotionsApi = {
   refresh(promotionId: string): Promise<HungerStationPromotionDetail> {
     return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Refresh`, undefined)
   },
+
+  /** POST HungerStationWeb/Promotions/{promotionId}/Parts/{partId}/Resend — re-sends one part,
+   *  unchanged, under its identity (ticket 669, BackOffice 3214). Returns the detail. DHS-00008 /
+   *  00016 / 00017 (that part is Sending) / 00014 (HungerStation unavailable). */
+  resend(promotionId: string, partId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Parts/${encodeURIComponent(partId)}/Resend`, body)
+  },
 }

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES } from '../../../tools/insurance-rules-stubs.mjs'
-import { blankCandidates, fillTemplate, missingBlanks, templateIn, valueAt, type GuardTemplate } from './templates'
+import { blankCandidates, fillTemplate, missingBlanks, templateIn, templateOut, valueAt, type GuardTemplate } from './templates'
 
 const DUPLICATE: GuardTemplate = {
   id: 'T-DUP',
@@ -151,5 +151,25 @@ describe("the drive's phase-1 templates (3093), as GET …/Templates serves them
       expect([t.id, t.origin, t.blanks[0]?.path]).toEqual([t.id, 'phase1', 'name'])
       for (const b of t.blanks) expect([t.id, b.path, valueAt(t.rule, b.path) !== undefined]).toEqual([t.id, b.path, true])
     }
+  })
+})
+
+describe('templateOut (656: a template as HQ stores it)', () => {
+  it('reads back what GET …/Templates sent: the rule in the engine spelling, no id or state, blanks as paths', () => {
+    const reply = {
+      id: 'duplicate-dispense', origin: 'phase1', name: { en: 'Duplicate dispense', ar: 'صرف مكرر' }, conflictCode: '83',
+      rule: {
+        name: { en: 'Duplicate dispense', ar: 'صرف مكرر' }, folder: 'History', onUnknown: 'none',
+        when: [{ check: 'history', match: 'sameItem', windowDays: 3, measure: 'dispenses', atLeast: 1, includeThisLine: false }],
+        then: [{ effect: 'guard', severity: 'REFUSE', says: { en: 'Already dispensed', ar: 'صُرف' }, codes: { nphies: 'AD-2-4' } }],
+      },
+      blanks: ['when[0].windowDays', 'then[0].severity'], updatedBy: 'seed', updatedAt: null,
+    }
+    const out = templateOut(templateIn(reply))
+    expect(out.blanks).toEqual(['when[0].windowDays', 'then[0].severity'])
+    expect(out.rule).not.toHaveProperty('id')
+    expect(out.rule).not.toHaveProperty('state')
+    expect(out.rule).not.toHaveProperty('filters')
+    expect(out.rule).toEqual(reply.rule)
   })
 })

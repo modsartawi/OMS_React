@@ -7,7 +7,8 @@
     "empty": "No guard rule is in this folder.",
     "shown": "Rules shown",
     "never": "Never",
-    "new": "New guard"
+    "new": "New guard",
+    "json": "The guard draft as JSON (revision {{n}})"
   },
   "folders": {
     "label": "Folders",
@@ -54,7 +55,8 @@
     "then": "THEN",
     "thenHint": "what the pharmacist sees",
     "message": "Message",
-    "edit": "Edit"
+    "edit": "Edit",
+    "json": "Rule {{id}} as JSON"
   },
   "editor": {
     "titleNew": "New guard",
@@ -289,7 +291,8 @@
       "until": "Until",
       "untilOpen": "No end"
     },
-    "pending": "This draft is waiting for approval: it cannot be changed until an approver approves it or sends it back."
+    "pending": "This draft is waiting for approval: it cannot be changed until an approver approves it or sends it back.",
+    "json": "Rule {{id}} as JSON, unsaved edits included"
   },
   "access": {
     "deniedTitle": "You do not have access",

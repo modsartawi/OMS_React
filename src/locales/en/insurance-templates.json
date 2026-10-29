@@ -31,10 +31,12 @@
     "cancel": "Cancel",
     "create": "Create draft rule",
     "created": "Draft rule {{id}} was created.",
-    "failed": "The rule could not be created from the template."
+    "failed": "The rule could not be created from the template.",
+    "json": "The new rule {{id}} as JSON"
   },
   "access": {
     "deniedTitle": "You do not have access",
     "deniedHint": "Ask an administrator for access to the insurance rules."
-  }
+  },
+  "json": "Template {{name}} as JSON"
 }

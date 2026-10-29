@@ -272,5 +272,12 @@
       "restored": "Version {{version}} restored as draft revision {{revision}}.",
       "restoreFailed": "The version could not be restored."
     }
+  },
+  "json": {
+    "button": "JSON",
+    "lede": "Exactly as HQ stores it, in the SIS.Rules rule language. Read-only.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading the draft…"
   }
 }

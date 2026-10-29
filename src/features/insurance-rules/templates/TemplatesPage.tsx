@@ -9,7 +9,9 @@ import { GuardSeverityBadge } from '@/core/insurance-rules/badges'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { ruleSeverity, type GuardList } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
-import type { GuardTemplate, TemplateSource } from '@/core/insurance-rules/templates'
+import { templateOut, type GuardTemplate, type TemplateSource } from '@/core/insurance-rules/templates'
+import JsonButton from '@/core/insurance-rules/JsonButton'
+import { saysIn } from '@/core/rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -91,7 +93,7 @@ function Gallery() {
 }
 
 function TemplateCard({ template, lists, onUse }: { template: GuardTemplate; lists: readonly GuardList[]; onUse: () => void }) {
-  const { t } = useTranslation('insurance-templates')
+  const { t, i18n } = useTranslation('insurance-templates')
   const severity = ruleSeverity(template.rule)
   const s = useMemo(() => guardSentence(template.rule, lists), [template.rule, lists])
   const blanks = template.blanks.length
@@ -123,6 +125,7 @@ function TemplateCard({ template, lists, onUse }: { template: GuardTemplate; lis
         <span className="text-xs text-muted-foreground" data-blanks={blanks}>
           {t('blanks', { count: blanks, n: fsi(String(blanks)) })}
         </span>
+        <JsonButton title={t('json', { name: fsi(saysIn(template.name, i18n.language)) })} value={templateOut(template)} hook={`template-${template.id}`} />
         <Button variant="primary" className="ms-auto" onClick={onUse} data-use-template={template.id}>
           <Wand2 className="h-3.5 w-3.5" aria-hidden />
           {t('use')}

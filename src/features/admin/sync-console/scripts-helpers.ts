@@ -36,7 +36,12 @@ const STATE_SEVERITY: Record<ScriptState, Severity> = {
  * this bundle does not know is neutral with no key, so the raw code shows.
  */
 export function scriptStateBadge(state: string): CodeBadge {
-  return codeBadge(STATE_SEVERITY, 'scriptStates', state)
+  return codeBadge(STATE_SEVERITY, 'scriptStates', scriptStateKey(state))
+}
+
+/** A state as this bundle keys it: lowercase, in whatever case the door sends it (as `scriptTargetKey`). */
+function scriptStateKey(state: string): string {
+  return state.toLowerCase()
 }
 
 /**
@@ -47,13 +52,6 @@ export function storeScriptBadge(s: Pick<StoreScript, 'isExecuted' | 'errorMessa
   return s.state === null ? scriptBadge(s) : scriptStateBadge(s.state)
 }
 
-/** A list row's five counts, in `SCRIPT_STATES` order, each with its label key. */
-export function scriptCounts(
-  s: Pick<SentScript, ScriptState>,
-): { state: ScriptState; n: number; labelKey: string; sev: Severity }[] {
-  return SCRIPT_STATES.map((state) => ({ state, n: s[state], labelKey: `scriptStates.${state}`, sev: STATE_SEVERITY[state] }))
-}
-
 /**
  * Whether a script is legacy (no `ActionSyncScript` row): the list says so with `isLegacy`; a
  * store-tab row has no flag, and a legacy one comes with no title (a sent one cannot: the send
@@ -62,6 +60,17 @@ export function scriptCounts(
  */
 export function scriptIsLegacy(s: { title: string | null; isLegacy?: boolean }): boolean {
   return s.isLegacy === true || s.title === null || s.title.trim() === ''
+}
+
+/**
+ * A store-tab row's title (review 1). A door older than 3207 sends none of `title`, `attempts` or
+ * `state` (all filled `null` at the boundary), so a `null` title with no state is **unsent**:
+ * the cell is blank, as the tab was before 3207. On a 3207 door every row carries a state, and a
+ * `null` (or blank) title there is a **legacy** script, drawn as "untitled (legacy)".
+ */
+export function storeScriptTitle(s: Pick<StoreScript, 'title' | 'state'>): 'unsent' | 'legacy' | 'titled' {
+  if (s.state === null && s.title === null) return 'unsent'
+  return scriptIsLegacy(s) ? 'legacy' : 'titled'
 }
 
 /** The target's label key (`all` / `chosen`, any case), or `null` for a legacy script or an unknown mode. */
@@ -79,7 +88,7 @@ const STORE_ORDER: readonly ScriptState[] = ['exhausted', 'retrying', 'pending',
 
 export function orderScriptStores(rows: readonly ScriptStoreRow[]): ScriptStoreRow[] {
   const rank = (state: string) => {
-    const i = (STORE_ORDER as readonly string[]).indexOf(state)
+    const i = (STORE_ORDER as readonly string[]).indexOf(scriptStateKey(state))
     return i === -1 ? STORE_ORDER.length : i
   }
   return rows
@@ -131,9 +140,9 @@ export const retryPreviewSentence = (r: RetryScriptResponse): PreviewSentence =>
 
 type RunScriptsAccess = Pick<SyncConsoleAccess, 'canRunScripts'> | null | undefined
 
-/** A script the controls may touch: sent from the console (not legacy) and not withdrawn. */
+/** A script the controls may touch: sent from the console (not legacy) and not withdrawn (a left-out `withdrawnAt` is not). */
 const controllable = (s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>, access: RunScriptsAccess): boolean =>
-  access?.canRunScripts === true && !scriptIsLegacy(s) && s.withdrawnAt === null
+  access?.canRunScripts === true && !scriptIsLegacy(s) && s.withdrawnAt == null
 
 /**
  * The detail footer's controls. Absent, never disabled, without `canRunScripts` (`=== true`, so a
@@ -160,7 +169,7 @@ export function storeRetryOffered(
   s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>,
   access: RunScriptsAccess,
 ): boolean {
-  return controllable(s, access) && row.state === 'exhausted'
+  return controllable(s, access) && scriptStateKey(row.state) === 'exhausted'
 }
 
 /**

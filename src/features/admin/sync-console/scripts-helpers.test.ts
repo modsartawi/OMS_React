@@ -13,11 +13,11 @@ import {
   sendTargetBody,
   storeRetryOffered,
   withdrawPreviewSentence,
-  scriptCounts,
   scriptIsLegacy,
   scriptStateBadge,
   scriptTargetKey,
   storeScriptBadge,
+  storeScriptTitle,
 } from './scripts-helpers'
 import en from '@/locales/en/sync-console.json'
 
@@ -52,15 +52,8 @@ const store = (code: string, state: string): ScriptStoreRow => ({
 
 describe('the state counts', () => {
   it('reads the five derived states in the ticket order, each with its own words', () => {
-    const counts = scriptCounts(script())
-    expect(counts.map((c) => [c.state, c.n])).toEqual([
-      ['executed', 400],
-      ['pending', 6],
-      ['retrying', 3],
-      ['exhausted', 2],
-      ['withdrawn', 1],
-    ])
-    expect(counts.map((c) => label(c.labelKey))).toEqual(['Executed', 'Pending', 'Retrying', 'Exhausted', 'Withdrawn'])
+    expect(SCRIPT_STATES).toEqual(['executed', 'pending', 'retrying', 'exhausted', 'withdrawn'])
+    expect(SCRIPT_STATES.map((s) => label(`scriptStates.${s}`))).toEqual(['Executed', 'Pending', 'Retrying', 'Exhausted', 'Withdrawn'])
   })
 
   it('calls a store that used up its attempts exhausted, never failed or dead (CONTEXT.md)', () => {
@@ -274,5 +267,45 @@ describe("the script doors' refusals", () => {
     expect(refusedStoreCodes(null)).toEqual([])
     expect(refusedStoreCodes({ stores: ['P1'] })).toEqual([])
     expect(refusedStoreCodes('P999')).toEqual([])
+  })
+})
+
+describe("a store script's title on the store tab (review 1)", () => {
+  it('is blank on a door older than 3207, which sends no title (nor state) at all', () => {
+    expect(storeScriptTitle({ title: null, state: null })).toBe('unsent')
+  })
+
+  it('is untitled (legacy) on a 3207 door that sends the title as null', () => {
+    expect(storeScriptTitle({ title: null, state: 'executed' })).toBe('legacy')
+    expect(storeScriptTitle({ title: '  ', state: 'pending' })).toBe('legacy')
+  })
+
+  it('is the title when the door sends one', () => {
+    expect(storeScriptTitle({ title: 'Drop the IDF view', state: 'exhausted' })).toBe('titled')
+  })
+})
+
+describe('a state in any case the door sends (review 2)', () => {
+  it('badges it as its lowercase twin', () => {
+    expect(scriptStateBadge('Exhausted')).toEqual({ labelKey: 'scriptStates.exhausted', sev: 'bad' })
+    expect(storeScriptBadge({ isExecuted: false, errorMessage: null, state: 'RETRYING' })).toEqual({ labelKey: 'scriptStates.retrying', sev: 'warn' })
+  })
+
+  it('orders it as its lowercase twin', () => {
+    const rows = [store('P001', 'Executed'), store('P002', 'EXHAUSTED'), store('P003', 'Pending')]
+    expect(orderScriptStores(rows).map((r) => r.code)).toEqual(['P002', 'P003', 'P001'])
+  })
+
+  it('offers a row Retry on an exhausted store in any case', () => {
+    expect(storeRetryOffered(store('P002', 'Exhausted'), script(), { canRunScripts: true })).toBe(true)
+  })
+})
+
+describe('a withdrawn time the door leaves out (review 4)', () => {
+  it('reads as not withdrawn, so the controls stay', () => {
+    const { withdrawnAt: _omitted, ...rest } = script()
+    const s = rest as SentScript
+    expect(scriptControls(s, { canRunScripts: true })).toEqual({ withdraw: true, retryAll: true })
+    expect(storeRetryOffered(store('P002', 'exhausted'), s, { canRunScripts: true })).toBe(true)
   })
 })

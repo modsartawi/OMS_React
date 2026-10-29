@@ -58,6 +58,9 @@ ui · api client · test · drive (stubbed)
   dialog open; a preview's refusal in its own titled banner (`ScriptRefusal`), a confirm's under the reason.
 - Proof: `scripts-helpers.test.ts` +20, `control-helpers.test.ts` +1 (mutation-checked: dropping the withdrawn guard
   fails 2); drive **81/81 stubbed** (36 → 81, sections 7–11); objects drive 25/25; typecheck, vitest, lint 5/5, build.
+- Review fixes (2026-10-29): Withdraw / Retry wait for the detail to answer (none while pending or failed); a left-out
+  `withdrawnAt` reads as not withdrawn; a fresh preview clears a confirm's refusal (Send and Withdraw/Retry); the send
+  toast words `fsi(figure(n))`; the Send dialog stays mounted if access re-reads mid-edit. Drive **89/89**, objects 25/25.
 - 🚩 Contract guesses (doors 3205/3206 unbuilt, contract silent): Eligible answers `{ items: [...] }`; refusals that
   name stores carry them as `data.codes: string[]` (the message is always shown too, so a door without the list loses
   nothing); preview answers have `scriptId` / `auditId` `null`; the send title is trimmed, the SQL sent byte for byte.

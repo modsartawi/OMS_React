@@ -51,6 +51,9 @@ BackOffice [3207](C:/Work/DMSCO/BackOffice/.issues/3207-the-console-lists-sent-s
   with no `state` still reads Executed / Failed / Not run), Attempts. `wire.normaliseStoreScripts` fills a pre-3207 door.
 - Proof: `scripts-helpers.test.ts` 14 + `wire.test.ts` +2 (mutation-checked); drive **36/36 stubbed**;
   typecheck, vitest, lint 5/5, build green.
+- Review fixes (2026-10-29): an older door's store tab draws a blank title, not "untitled (legacy)" (`storeScriptTitle`);
+  states read case-insensitively; the per-store grid is capped at 12 rows and virtualised; the detail is subscribed
+  once; the count cells read the row's own count. +7 helper tests (red first), drive 81 → 89 (new checks red first).
 - 🚩 Contract guesses (the doors are not built and the contract does not list them yet): state values lowercase
   (`executed|pending|retrying|exhausted|withdrawn`), `targetMode` `all|chosen` (read case-insensitively), the detail
   flat (header fields + `stores[]` + `sql`), the list paged by `page`/`pageSize`. The legacy title is the bundle's

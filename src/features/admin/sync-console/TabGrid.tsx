@@ -28,6 +28,7 @@ export default function TabGrid<T>({
   rowClassRules,
   rowSelection,
   selectionProps,
+  maxRows,
 }: {
   rows: T[] | undefined
   columns: ColDef<T>[]
@@ -55,6 +56,11 @@ export default function TabGrid<T>({
   rowSelection?: RowSelectionOptions<T>
   /** `useCappedSelection`'s `gridProps`, spread on the grid beside `rowSelection`. */
   selectionProps?: Pick<AgGridReactProps<T>, 'onGridReady' | 'onGridPreDestroyed' | 'onRowDataUpdated' | 'onSelectionChanged'>
+  /**
+   * Caps the grid at this many rows' height, scrolling (and virtualising) past it, for a list
+   * that can run to hundreds of rows. Omitted, the grid is sized to all its rows.
+   */
+  maxRows?: number
 }) {
   const getRowId = useMemo(() => (rowId ? ({ data: row }: GetRowIdParams<T>) => rowId(row) : undefined), [rowId])
   if (pending) return <Loading label={loading} />
@@ -65,8 +71,10 @@ export default function TabGrid<T>({
         {empty}
       </p>
     )
+  // Sized to its rows up to the cap (+ the header, + the border's 2px), so a short list has no blank band.
+  const height = maxRows ? Math.min(rows.length, maxRows) * OMS_GRID_ROW_HEIGHT + OMS_GRID_HEADER_HEIGHT + 2 : undefined
   return (
-    <div className="overflow-hidden rounded-md border border-border/60" data-tab-grid={data}>
+    <div className="overflow-hidden rounded-md border border-border/60" style={height ? { height } : undefined} data-tab-grid={data}>
       <AgGridReact<T>
         theme={omsGridTheme}
         rowData={rows}
@@ -78,7 +86,7 @@ export default function TabGrid<T>({
         {...selectionProps}
         rowHeight={OMS_GRID_ROW_HEIGHT}
         headerHeight={OMS_GRID_HEADER_HEIGHT}
-        domLayout="autoHeight"
+        domLayout={height ? 'normal' : 'autoHeight'}
         animateRows={false}
         suppressColumnVirtualisation
       />

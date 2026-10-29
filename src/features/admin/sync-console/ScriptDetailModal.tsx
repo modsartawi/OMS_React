@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import Button from '@/core/ui/Button'
@@ -17,6 +17,9 @@ import TabGrid from './TabGrid'
 
 const storeCode = (r: { code: string }) => r.code
 
+/** The per-store grid's visible rows before it scrolls. */
+const SCRIPT_STORE_ROWS = 12
+
 /**
  * One store script (ticket 663), from `GET ActionSync/Scripts/Detail`: its header, its SQL when
  * the door sends it (a holder of `ActionSync.RunStoreScript` only — `null` otherwise, and then no
@@ -25,21 +28,25 @@ const storeCode = (r: { code: string }) => r.code
  * Ticket 664's controls, behind `canRunScripts` and never on a legacy or withdrawn script: the
  * footer's **Withdraw** and **Retry all exhausted**, and **Retry** on an exhausted store's row.
  * Each opens the preview-then-confirm reason dialog. They are read off the detail as the door
- * sends it (the list row until it answers), so a re-read after a write moves them.
+ * sends it, and only once it has answered for this script: while it is pending or failed none is
+ * offered (the list row may be stale), and a re-read after a write moves them.
  */
 export default function ScriptDetailModal({ script, onClose }: { script: SentScript | null; onClose: () => void }) {
   const { t } = useTranslation('sync-console')
   const access = useQuery(syncConsoleAccessQuery())
   const detail = useQuery({ ...scriptDetailQuery(script?.scriptId ?? ''), enabled: script !== null })
   const [action, setAction] = useState<ScriptAction | null>(null)
-  const current = script && detail.data?.scriptId === script.scriptId ? detail.data : script
-  const controls = current ? scriptControls(current, access.data) : { withdraw: false, retryAll: false }
-  const shownTitle = current ? (scriptIsLegacy(current) ? t('scriptsPage.legacyTitle') : (current.title ?? '')) : ''
-  const rowsRetry = current ? storeRetryOffered({ state: 'exhausted' }, current, access.data) : false
+  // The detail, once it has answered for this script; the controls read only this.
+  const answered = script && detail.data?.scriptId === script.scriptId ? detail.data : null
+  // The title may fall back to the list row while the detail reads: it names, it does not act.
+  const named = answered ?? script
+  const controls = answered ? scriptControls(answered, access.data) : { withdraw: false, retryAll: false }
+  const shownTitle = named ? (scriptIsLegacy(named) ? t('scriptsPage.legacyTitle') : (named.title ?? '')) : ''
+  const rowsRetry = answered ? storeRetryOffered({ state: 'exhausted' }, answered, access.data) : false
   const onRetry = useCallback((code: string) => setAction({ kind: 'retry', code }), [])
   const retryOffered = useCallback(
-    (row: ScriptStoreRow) => (current ? storeRetryOffered(row, current, access.data) : false),
-    [current, access.data],
+    (row: ScriptStoreRow) => (answered ? storeRetryOffered(row, answered, access.data) : false),
+    [answered, access.data],
   )
   return (
     <Modal
@@ -72,6 +79,7 @@ export default function ScriptDetailModal({ script, onClose }: { script: SentScr
       {script && (
         <Detail
           scriptId={script.scriptId}
+          detail={detail}
           onRetry={rowsRetry ? onRetry : undefined}
           retryOffered={retryOffered}
         />
@@ -85,16 +93,18 @@ export default function ScriptDetailModal({ script, onClose }: { script: SentScr
 
 function Detail({
   scriptId,
+  detail,
   onRetry,
   retryOffered,
 }: {
   scriptId: string
+  /** The modal's one subscription to the detail, passed down rather than read twice. */
+  detail: UseQueryResult<ScriptDetail>
   /** Given only when a row's Retry can be offered at all (a sender, a live script). */
   onRetry?: (code: string) => void
   retryOffered: (row: ScriptStoreRow) => boolean
 }) {
   const { t } = useTranslation('sync-console')
-  const detail = useQuery(scriptDetailQuery(scriptId))
   const columns = useMemo(() => buildScriptStoreColumns(t, onRetry && { onRetry, offered: retryOffered }), [t, onRetry, retryOffered])
   const rows = useMemo(() => (detail.data ? orderScriptStores(detail.data.stores) : undefined), [detail.data])
   return (
@@ -124,6 +134,8 @@ function Detail({
         empty={t('scriptDetail.empty')}
         loading={t('scriptDetail.loading')}
         data="script-stores"
+        // An all-stores script has hundreds of rows: a capped, virtualised grid, not one sized to them all.
+        maxRows={SCRIPT_STORE_ROWS}
       />
     </div>
   )

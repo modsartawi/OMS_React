@@ -114,7 +114,8 @@ function Scripts() {
       </section>
 
       <ScriptDetailModal script={opened} onClose={() => setOpened(null)} />
-      <SendScriptDialog open={canSend && sending} onClose={() => setSending(false)} />
+      {/* Only the opening button is gated: an access re-read mid-edit must not unmount the draft. */}
+      <SendScriptDialog open={sending} onClose={() => setSending(false)} />
     </div>
   )
 }

@@ -19,6 +19,9 @@
 //  10. a refusal (SCRIPT_HAS_GO on the preview, NOT_ELIGIBLE naming codes on the send) keeps the dialog open;
 //  11. Withdraw previews, then posts preview: false with the reason; Retry all posts no codes; a row's Retry posts its
 //      code; a withdrawn or legacy script offers none of them.
+//  12. (review) the detail's controls wait for the detail itself: none while it reads or after it fails; the per-store
+//      grid is capped and virtualised (normal layout); a fresh preview clears a confirm's refusal (Send and Withdraw);
+//      an older door's store tab draws a blank title, not "untitled (legacy)".
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-scripts-drive.mjs
@@ -121,7 +124,7 @@ const ELIGIBLE = {
   ],
 }
 
-async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_3207, refuse = {} } = {}) {
+async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_3207, refuse = {}, detail = 'ok' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1500, height: 1100 } })
   const page = await context.newPage()
   const errors = []
@@ -147,6 +150,9 @@ async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_
       return route.fulfill(envelope({ items: SCRIPTS.slice((pg - 1) * size, pg * size), total: SCRIPTS.length, page: pg, pageSize: size }))
     }
     if (p === 'ActionSync/Scripts/Detail') {
+      // `hang` never answers (a detail still reading); `fail` answers a 500.
+      if (detail === 'hang') return new Promise(() => {})
+      if (detail === 'fail') return route.fulfill(envelope(null, { status: 500, success: false, message: 'Boom.' }))
       // The door sends the SQL only to a holder of ActionSync.RunStoreScript.
       const d = detailOf(url.searchParams.get('scriptId'), canRunScripts)
       return route.fulfill(d ? envelope(d) : envelope(null, { status: 404, success: false, message: 'No such script.', errorCode: 'UNKNOWN_SCRIPT' }))
@@ -224,6 +230,8 @@ const cell = (page, grid, rowId, col) => page.locator(`[data-tab-grid="${grid}"]
   check('3. opening reads the detail by scriptId', calls.includes(`ActionSync/Scripts/Detail?scriptId=${first}`))
   const header = plain(await page.locator('[data-script-header]').innerText())
   check('3. the header names the sender, target and stores', /msartawi/.test(header) && /All worker stores/.test(header) && /412/.test(header), header.replace(/\n/g, ' | '))
+  check('12. the per-store grid is capped and virtualised (normal layout, not autoHeight)',
+    (await page.locator('[data-tab-grid="script-stores"] .ag-layout-normal').count()) > 0 && (await page.locator('[data-tab-grid="script-stores"] .ag-layout-auto-height').count()) === 0)
   const order = await rowIds(page, 'script-stores')
   check('3. the exhausted stores come first, then retrying, pending, withdrawn, executed', JSON.stringify(order) === JSON.stringify(['P003', 'P006', 'P004', 'P002', 'P005', 'P001']), order.join(','))
   check('3. a store row: code, description, state, attempts, last attempt, last error',
@@ -289,6 +297,8 @@ const cell = (page, grid, rowId, col) => page.locator(`[data-tab-grid="${grid}"]
   await page.locator('[data-tab-grid="scripts"] .ag-row').first().waitFor({ timeout: 20000 })
   check('6. an older door still reads Executed / Failed', (await cell(page, 'scripts', 'SCR-2026-0412', 'state')) === 'Executed' && (await cell(page, 'scripts', 'SCR-2026-0419', 'state')) === 'Failed')
   check('6. …with blank attempts', (await cell(page, 'scripts', 'SCR-2026-0419', 'attempts')) === '')
+  const oldTitles = [await cell(page, 'scripts', 'SCR-2026-0412', 'title'), await cell(page, 'scripts', 'SCR-2026-0419', 'title')]
+  check('12. an older door (no title member) draws a blank title, not "untitled (legacy)"', oldTitles.every((x) => x === '') && (await page.locator('[data-tab-grid="scripts"] [data-script-legacy]').count()) === 0, oldTitles.join(','))
   check('no page errors (older door)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -416,6 +426,10 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
   const named = plain(await page.locator('[data-script-refused-stores]').innerText())
   check('10. …names the stores it refused', named.endsWith('P009, BackOffice'), named)
   check('10. …and the dialog stays open', (await page.locator('[data-script-send-sql]').count()) === 1)
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  check('12. a fresh preview clears the send refusal', (await page.locator('[data-reason-error]').count()) === 0 && (await page.locator('[data-script-refused-stores]').count()) === 0)
   check('no page errors (refusals)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -483,6 +497,44 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
     await page.locator('[data-script-detail-close]').click()
   }
   check('no page errors (withdraw + retry)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 12. the detail's controls wait for the detail: none while it reads, none after it fails.
+  for (const mode of ['hang', 'fail']) {
+    const { context, page } = await open('/admin/sync/scripts', { canRunScripts: true, detail: mode })
+    const first = SCRIPTS[0].scriptId
+    await page.locator(`[data-script-open="${first}"]`).click()
+    await page.locator(`[data-script-detail="${first}"]`).waitFor({ timeout: 10000 })
+    if (mode === 'fail') await page.locator(`[data-script-detail="${first}"] [role="alert"], [data-script-detail="${first}"] .text-danger`).first().waitFor({ timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(800)
+    check(`12. no Withdraw or Retry all while the detail ${mode === 'hang' ? 'reads' : 'has failed'} (the list row would offer both)`,
+      (await page.locator('[data-script-withdraw], [data-script-retry-all], [data-script-retry-store]').count()) === 0)
+    await context.close()
+  }
+}
+
+{
+  // 12. a fresh withdraw preview clears the confirm's refusal.
+  const { context, page, errors } = await open('/admin/sync/scripts', {
+    canRunScripts: true,
+    refuse: { 'Withdraw:confirm': { code: 'WITHDRAWN', message: 'Already withdrawn.' } },
+  })
+  const first = SCRIPTS[0].scriptId
+  await page.locator(`[data-script-open="${first}"]`).click()
+  await page.locator('[data-script-withdraw]').click()
+  await page.locator('[data-reason-input]').fill('Wrong item code')
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="WITHDRAWN"]').waitFor({ timeout: 10000 })
+  check('12. a withdraw refusal shows and keeps the dialog open', (await page.locator('[data-script-action="withdraw"]').count()) === 1)
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  check('12. …and a fresh preview clears it', (await page.locator('[data-reason-error]').count()) === 0)
+  check('no page errors (withdraw refusal)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

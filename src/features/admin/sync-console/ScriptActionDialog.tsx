@@ -56,6 +56,8 @@ function Act({ scriptId, title, action, onClose }: { scriptId: string; title: st
 
   const ask = useMutation({
     mutationFn: (reason: string) => post(reason, true),
+    // A new preview sets the last confirm's refusal aside.
+    onMutate: () => send.reset(),
     onSuccess: setPreview,
     onError: () => setPreview(null),
   })

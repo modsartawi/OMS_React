@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import Button from '@/core/ui/Button'
 import type { ScriptStoreRow, SentScript } from '@/core/models/sync-console'
 import { MONO, formatTime } from './console-columns'
-import { scriptCounts, scriptIsLegacy, scriptStateBadge, scriptTargetKey, SCRIPT_STATES } from './scripts-helpers'
+import { scriptIsLegacy, scriptStateBadge, scriptTargetKey, SCRIPT_STATES } from './scripts-helpers'
 import { formatFigure } from './store-columns'
 import CodeBadgeView from './CodeBadgeView'
 
@@ -52,7 +52,7 @@ export function buildSentScriptColumns(t: TFunction, onOpen: (s: SentScript) => 
         colId: state,
         width: 105,
         type: 'rightAligned',
-        valueGetter: (p) => (p.data ? scriptCounts(p.data).find((c) => c.state === state)?.n : null),
+        valueGetter: (p) => p.data?.[state] ?? null,
         valueFormatter: formatFigure,
         cellClassRules:
           state === 'exhausted' ? { 'font-semibold text-danger': (p) => typeof p.value === 'number' && p.value > 0 } : undefined,

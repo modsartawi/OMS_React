@@ -13,6 +13,7 @@ import { notify } from '@/core/services/notify'
 import { formatPair, fsi } from '@/core/util/bidi'
 import type { ScriptTarget, SendScriptResponse } from '@/core/models/sync-console'
 import { AUDIT_KEY, SCRIPTS_KEY, eligibleStoresQuery, syncConsoleApi } from './api'
+import { figure } from './helpers'
 import { scriptRefusalKey, scriptSqlLength, sendPreviewSentence, sendTargetBody } from './scripts-helpers'
 import ReasonDialog from './ReasonDialog'
 import ScriptRefusal from './ScriptRefusal'
@@ -70,6 +71,8 @@ function Send({ onClose }: { onClose: () => void }) {
   // stamped as previewed by its answer.
   const ask = useMutation({
     mutationFn: (v: { reason: string; body: typeof body; draft: string }) => syncConsoleApi.sendScript({ ...v.body, reason: v.reason, preview: true }),
+    // A new preview sets the last confirm's refusal aside: it answered a draft no longer on screen.
+    onMutate: () => send.reset(),
     onSuccess: (answer, v) => setPreview({ draft: v.draft, answer }),
     onError: () => setPreview(null),
   })
@@ -78,7 +81,7 @@ function Send({ onClose }: { onClose: () => void }) {
     mutationFn: (reason: string) => syncConsoleApi.sendScript({ ...body, reason, preview: false }),
     onSuccess: (data) => {
       const n = data.stores.length
-      notify.success(t('scriptSend.done', { count: n, title: fsi(body.title), n: fsi(sendPreviewSentence(data).n) }))
+      notify.success(t('scriptSend.done', { count: n, title: fsi(body.title), n: fsi(figure(n)) }))
       void qc.invalidateQueries({ queryKey: SCRIPTS_KEY })
       void qc.invalidateQueries({ queryKey: AUDIT_KEY })
       onClose()

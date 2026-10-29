@@ -7,7 +7,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { CONSOLE_DEFAULT_COL_DEF, MONO, formatTime } from './console-columns'
 import { figure } from './helpers'
 import { passLineBadge, passOutcomeBadge } from './store-helpers'
-import { scriptIsLegacy, storeScriptBadge } from './scripts-helpers'
+import { storeScriptBadge, storeScriptTitle } from './scripts-helpers'
 import CodeBadgeView from './CodeBadgeView'
 
 /**
@@ -107,13 +107,14 @@ export function buildScriptColumns(t: TFunction): ColDef<StoreScript>[] {
     { headerName: t('scripts.columns.scriptId'), field: 'scriptId', width: 200, cellClass: MONO },
     {
       // 3207: the title, or the bundle's words for a legacy one (no title). Free text: `<bdi>`.
+      // A door older than 3207 sends no title at all: the cell is blank, not "legacy".
       headerName: t('scripts.columns.title'),
       colId: 'title',
       flex: 1,
       minWidth: 200,
       cellRenderer: (p: ICellRendererParams<StoreScript>) =>
-        p.data ? (
-          scriptIsLegacy(p.data) ? (
+        p.data && storeScriptTitle(p.data) !== 'unsent' ? (
+          storeScriptTitle(p.data) === 'legacy' ? (
             <span className="italic text-muted-foreground" data-script-legacy="">
               {t('scriptsPage.legacyTitle')}
             </span>

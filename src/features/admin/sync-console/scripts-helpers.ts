@@ -97,6 +97,20 @@ export function orderScriptStores(rows: readonly ScriptStoreRow[]): ScriptStoreR
     .map(({ row }) => row)
 }
 
+/**
+ * A script's store rows counted by state, as the list's five counts read (ticket 673). The Detail
+ * door sends each store's row and no counts (contract "Store script doors"), so the detail's
+ * controls count its own rows; a state this bundle does not know counts nowhere.
+ */
+export function scriptStateCounts(rows: readonly Pick<ScriptStoreRow, 'state'>[]): Record<ScriptState, number> {
+  const counts: Record<ScriptState, number> = { executed: 0, pending: 0, retrying: 0, exhausted: 0, withdrawn: 0 }
+  for (const r of rows) {
+    const k = scriptStateKey(r.state)
+    if ((SCRIPT_STATES as readonly string[]).includes(k)) counts[k as ScriptState]++
+  }
+  return counts
+}
+
 /** The list's page size; the door pages it, newest first. */
 export const SCRIPTS_PAGE_SIZE = 50
 
@@ -109,6 +123,20 @@ export const SCRIPT_MAX_CHARS = 8000
 export function scriptSqlLength(sql: string): { n: number; over: boolean; text: string } {
   const n = sql.length
   return { n, over: n > SCRIPT_MAX_CHARS, text: formatCount(figure(n), figure(SCRIPT_MAX_CHARS)) }
+}
+
+/**
+ * The SQL's first character above U+007F (ticket 673), by its 1-based position and code point, or
+ * `null` when it is all ASCII (CR, LF and tab are). The send door refuses such a script
+ * (`SCRIPT_NOT_ASCII`: `Script.ScriptContext` is bound ANSI); the dialog warns before the preview,
+ * and the door stays the judge.
+ */
+export function firstNonAscii(sql: string): { position: number; codePoint: string } | null {
+  for (let i = 0; i < sql.length; i++) {
+    const c = sql.charCodeAt(i)
+    if (c > 0x7f) return { position: i + 1, codePoint: `U+${(sql.codePointAt(i) ?? c).toString(16).toUpperCase().padStart(4, '0')}` }
+  }
+  return null
 }
 
 /**
@@ -140,36 +168,40 @@ export const retryPreviewSentence = (r: RetryScriptResponse): PreviewSentence =>
 
 type RunScriptsAccess = Pick<SyncConsoleAccess, 'canRunScripts'> | null | undefined
 
-/** A script the controls may touch: sent from the console (not legacy) and not withdrawn (a left-out `withdrawnAt` is not). */
-const controllable = (s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>, access: RunScriptsAccess): boolean =>
-  access?.canRunScripts === true && !scriptIsLegacy(s) && s.withdrawnAt == null
+/** A sender, on a script not withdrawn (a left-out `withdrawnAt` is not): the door's `WITHDRAWN` refuses both writes. */
+const writable = (s: Pick<SentScript, 'withdrawnAt'>, access: RunScriptsAccess): boolean =>
+  access?.canRunScripts === true && s.withdrawnAt == null
 
 /**
  * The detail footer's controls. Absent, never disabled, without `canRunScripts` (`=== true`, so a
- * door older than 3205 that leaves the flag out reads as no), on a legacy script and on a
- * withdrawn one (the door's `LEGACY_SCRIPT` / `WITHDRAWN`).
+ * door older than 3205 that leaves the flag out reads as no) and on a withdrawn script (the door's
+ * `WITHDRAWN`).
  *
  * - **Withdraw**: some store has not run it yet (pending, retrying or exhausted). With every store
- *   executed there is nothing a withdraw would mark.
- * - **Retry all exhausted**: some store is exhausted (the door's `NOT_EXHAUSTED` otherwise).
+ *   executed there is nothing a withdraw would mark. Never on a legacy script: the door refuses it
+ *   `LEGACY_SCRIPT`.
+ * - **Retry all exhausted**: some store is exhausted (the door's `NOT_EXHAUSTED` otherwise). A
+ *   legacy script's exhausted stores are retried too (spec 3202, changed after review: its rows obey
+ *   the cap, so only a retry revives them).
  *
- * The counts are the list's, read as the door sends them; the door re-checks every write.
+ * The counts are read as given (the list's, or the detail's own stores through
+ * `scriptStateCounts`); the door re-checks every write.
  */
 export function scriptControls(
   s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt' | 'pending' | 'retrying' | 'exhausted'>,
   access: RunScriptsAccess,
 ): { withdraw: boolean; retryAll: boolean } {
-  if (!controllable(s, access)) return { withdraw: false, retryAll: false }
-  return { withdraw: s.pending + s.retrying + s.exhausted > 0, retryAll: s.exhausted > 0 }
+  if (!writable(s, access)) return { withdraw: false, retryAll: false }
+  return { withdraw: !scriptIsLegacy(s) && s.pending + s.retrying + s.exhausted > 0, retryAll: s.exhausted > 0 }
 }
 
-/** A store row's own Retry: the row is exhausted, on a script the controls may touch. */
+/** A store row's own Retry: the row is exhausted, on a script not withdrawn, legacy or not, to a sender. */
 export function storeRetryOffered(
   row: Pick<ScriptStoreRow, 'state'>,
-  s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>,
+  s: Pick<SentScript, 'withdrawnAt'>,
   access: RunScriptsAccess,
 ): boolean {
-  return controllable(s, access) && scriptStateKey(row.state) === 'exhausted'
+  return writable(s, access) && scriptStateKey(row.state) === 'exhausted'
 }
 
 /**
@@ -178,9 +210,11 @@ export function storeRetryOffered(
  */
 export const SCRIPT_REFUSALS = [
   'TITLE_REQUIRED',
+  'TITLE_TOO_LONG',
   'SCRIPT_EMPTY',
   'SCRIPT_HAS_GO',
   'SCRIPT_TOO_LONG',
+  'SCRIPT_NOT_ASCII',
   'UNKNOWN_STORE',
   'NOT_ELIGIBLE',
   'NO_STORES',
@@ -195,13 +229,20 @@ export function scriptRefusalKey(code: string): string | null {
   return (SCRIPT_REFUSALS as readonly string[]).includes(code) ? `scriptCodes.${code}` : null
 }
 
+/** The `data` members the store refusals carry their codes in (contract "Store script doors"), in reading order. */
+const REFUSED_STORE_MEMBERS = ['unknown', 'notEligible', 'notExhausted'] as const
+
 /**
- * The store codes a refusal names (`UNKNOWN_STORE`, `NOT_ELIGIBLE`, `NOT_EXHAUSTED`), read off the
- * refusal's `data.codes`. 🚩 Guessed: D11 says only that the refusal names them; the door's message
- * names them too and is always shown, so a door that sends no list loses nothing.
+ * The store codes a refusal names, off its `data` (ticket 673, the doors' final shapes): a
+ * chosen-store send refusal's `{ unknown, notEligible }` (`UNKNOWN_STORE` / `NOT_ELIGIBLE`, the
+ * unknown codes first) and a retry refusal's `{ notExhausted }`, each as the sender typed it. Any
+ * other shape names none; the door's message names the codes too and is always shown.
  */
 export function refusedStoreCodes(data: unknown): string[] {
-  if (data === null || typeof data !== 'object') return []
-  const codes = (data as { codes?: unknown }).codes
-  return Array.isArray(codes) ? codes.filter((c): c is string => typeof c === 'string') : []
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) return []
+  const d = data as Partial<Record<(typeof REFUSED_STORE_MEMBERS)[number], unknown>>
+  return REFUSED_STORE_MEMBERS.flatMap((m) => {
+    const codes = d[m]
+    return Array.isArray(codes) ? codes.filter((c): c is string => typeof c === 'string') : []
+  })
 }

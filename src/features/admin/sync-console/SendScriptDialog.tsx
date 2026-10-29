@@ -14,7 +14,8 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import type { ScriptTarget, SendScriptResponse } from '@/core/models/sync-console'
 import { AUDIT_KEY, SCRIPTS_KEY, eligibleStoresQuery, syncConsoleApi } from './api'
 import { figure } from './helpers'
-import { scriptRefusalKey, scriptSqlLength, sendPreviewSentence, sendTargetBody } from './scripts-helpers'
+import { apiErrorData } from '@/core/api'
+import { firstNonAscii, refusedStoreCodes, scriptRefusalKey, scriptSqlLength, sendPreviewSentence, sendTargetBody } from './scripts-helpers'
 import ReasonDialog from './ReasonDialog'
 import ScriptRefusal from './ScriptRefusal'
 
@@ -32,7 +33,10 @@ const TARGETS: readonly ScriptTarget[] = ['all', 'chosen']
  *   the title, the SQL or the target sets the preview aside. It then posts the same body with
  *   `preview: false` and the reason.
  * - A refusal (`SCRIPT_HAS_GO`, `NOT_ELIGIBLE`, …) shows its code and its words, and the dialog
- *   stays open. Nothing is checked here that the door checks: the door is the judge (D10).
+ *   stays open; a chosen-store refusal's stores (`data.unknown` / `data.notEligible`) are marked
+ *   Refused in the picker. The door is the judge (D10): the one thing said before it answers is a
+ *   warning that the SQL has a non-ASCII character (ticket 673), which it would refuse
+ *   `SCRIPT_NOT_ASCII`, and it never disables Preview.
  */
 export default function SendScriptDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null
@@ -55,17 +59,6 @@ function Send({ onClose }: { onClose: () => void }) {
   const fresh = preview !== null && preview.draft === draft ? preview.answer : null
 
   const eligible = useQuery({ ...eligibleStoresQuery(), enabled: target === 'chosen' })
-  const options = useMemo<MultiSelectOption[]>(
-    () =>
-      (eligible.data?.items ?? []).map((s) => ({
-        value: s.code,
-        text: formatPair(s.code, s.description),
-        machine: true,
-        tone: s.isPaused ? 'muted' : 'default',
-        note: s.isPaused ? t('scriptSend.paused') : undefined,
-      })),
-    [eligible.data, t],
-  )
 
   // The draft rides in the variables: an edit made while the preview is in flight must not be
   // stamped as previewed by its answer.
@@ -88,12 +81,32 @@ function Send({ onClose }: { onClose: () => void }) {
     },
   })
 
+  // The stores the last refusal named (the confirm's, else the preview's), matched as HQ matches
+  // codes: case-insensitively. A refused code the eligible list does not hold is a flagged chip anyway.
+  const refusedData = apiErrorData(send.error ?? ask.error)
+  const refused = useMemo(() => new Set(refusedStoreCodes(refusedData).map((c) => c.toUpperCase())), [refusedData])
+  const options = useMemo<MultiSelectOption[]>(
+    () =>
+      (eligible.data?.items ?? []).map((s) => {
+        const isRefused = refused.has(s.code.toUpperCase())
+        return {
+          value: s.code,
+          text: formatPair(s.code, s.description),
+          machine: true,
+          tone: isRefused ? 'danger' : s.isPaused ? 'muted' : 'default',
+          note: isRefused ? t('scriptSend.refused') : s.isPaused ? t('scriptSend.paused') : undefined,
+        }
+      }),
+    [eligible.data, refused, t],
+  )
+
   const close = () => {
     if (send.isPending) return
     onClose()
   }
 
   const length = scriptSqlLength(sql)
+  const nonAscii = firstNonAscii(sql)
   const sentence = fresh ? sendPreviewSentence(fresh) : null
 
   return (
@@ -128,9 +141,14 @@ function Send({ onClose }: { onClose: () => void }) {
             <span className={length.over ? 'font-semibold text-danger' : ''} data-script-send-count={length.n}>
               <Ltr>{length.text}</Ltr>
             </span>
+            {nonAscii && (
+              <span className="basis-full font-semibold text-danger" data-script-send-non-ascii={nonAscii.position}>
+                {t('scriptSend.nonAscii', { position: fsi(figure(nonAscii.position)), codePoint: fsi(nonAscii.codePoint) })}
+              </span>
+            )}
           </span>
         }
-        invalid={length.over}
+        invalid={length.over || nonAscii !== null}
       >
         {/* SQL is a machine value: laid out left to right in every locale, never spell-checked. */}
         <Textarea

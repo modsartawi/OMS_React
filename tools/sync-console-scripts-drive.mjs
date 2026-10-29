@@ -1,7 +1,8 @@
-// Sync console Scripts drive (tickets 663 + 664, BackOffice spec 3202 D11/D14, doors 3205-3207) — drives the REAL Scripts page
-// and the store page's Scripts tab in Chromium against STUBBED `ActionSync/*` envelopes, shaped from the spec's D11
-// door shapes (the door contract does not list the script doors yet; BackOffice 3205-3207 are not built).
-// 🚩 NOTHING here is driven against a live SIS.Api: the live walk waits on BackOffice 3205/3206/3207.
+// Sync console Scripts drive (tickets 663 + 664 + 673, BackOffice spec 3202 D11/D14, doors 3205-3207) — drives the REAL
+// Scripts page and the store page's Scripts tab in Chromium against STUBBED `ActionSync/*` envelopes, shaped from the
+// door contract's "Store script doors" (2523 at BackOffice pricing2 5a89d2f40): the Detail door sends its stores and no
+// counts, a chosen-store send refusal's data is `{ unknown, notEligible }`, a retry refusal's `{ notExhausted }`.
+// 🚩 NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
 //   1. the nav carries Scripts after Objects; the list reads page 1 of 50, newest first in the door's order;
@@ -22,6 +23,9 @@
 //  12. (review) the detail's controls wait for the detail itself: none while it reads or after it fails; the per-store
 //      grid is capped and virtualised (normal layout); a fresh preview clears a confirm's refusal (Send and Withdraw);
 //      an older door's store tab draws a blank title, not "untitled (legacy)".
+//  13. (673) a legacy script's exhausted row offers Retry (and Retry all), never Withdraw; a SCRIPT_NOT_ASCII refusal
+//      shows its words and keeps the dialog open (the dialog warned first); a chosen-store refusal marks the refused
+//      stores in the picker; a retry's NOT_EXHAUSTED names its stores.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-scripts-drive.mjs
@@ -67,7 +71,7 @@ const SCRIPTS = [
   },
   {
     scriptId: 'SCR-2026-0412', title: 'untitled (legacy)', sentBy: null, sentAt: null,
-    targetMode: null, storeCount: 3, executed: 3, pending: 0, retrying: 0, exhausted: 0, withdrawn: 0, withdrawnAt: null, isLegacy: true,
+    targetMode: null, storeCount: 2, executed: 1, pending: 0, retrying: 0, exhausted: 1, withdrawn: 0, withdrawnAt: null, isLegacy: true,
   },
 ]
 
@@ -80,12 +84,18 @@ const STORE_ROWS = [
   { code: 'P006', description: 'Rawdah', state: 'exhausted', attempts: 5, lastAttempt: '2026-10-29T14:06:00', errorMessage: "Invalid object name 'dbo.Item'." },
 ]
 
+// GET ActionSync/Scripts/Detail, as the contract shapes it: the header and the stores, and NO state counts (the screen
+// counts the stores). A legacy script has every header field null: one executed store and one exhausted.
 const detailOf = (id, withSql) => {
   const s = SCRIPTS.find((x) => x.scriptId === id)
   if (!s) return null
+  const legacy = s.isLegacy
   return {
-    ...s,
-    stores: s.isLegacy ? STORE_ROWS.slice(0, 1).map((r) => ({ ...r, attempts: 0 })) : STORE_ROWS,
+    scriptId: s.scriptId, title: legacy ? null : s.title, reason: legacy ? null : 'Supplier recall', sentBy: s.sentBy, sentAt: s.sentAt,
+    targetMode: legacy ? null : s.targetMode === 'all' ? 'All' : 'Chosen', storeCount: s.storeCount,
+    withdrawnBy: s.withdrawnAt ? 'aali' : null, withdrawnAt: s.withdrawnAt, withdrawReason: s.withdrawnAt ? 'Wrong store' : null,
+    isLegacy: legacy,
+    stores: legacy ? [STORE_ROWS[0], STORE_ROWS[2]] : STORE_ROWS,
     sql: withSql ? SQL : null,
   }
 }
@@ -396,7 +406,7 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
     canRunScripts: true,
     refuse: {
       'Send:preview': { code: 'SCRIPT_HAS_GO', message: 'Line 2 is a GO line.' },
-      'Send:confirm': { code: 'NOT_ELIGIBLE', message: 'P009, BackOffice are not eligible.', data: { codes: ['P009', 'BackOffice'] } },
+      'Send:confirm': { code: 'NOT_ELIGIBLE', message: 'P009, BackOffice are not eligible.', data: { unknown: ['P009'], notEligible: ['BackOffice'] } },
     },
   })
   await page.locator('[data-script-send-open]').click()
@@ -414,7 +424,7 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
     posts.Send.push(body)
     return body.preview
       ? route.fulfill(envelope({ scriptId: null, stores: ['P001'], auditId: null }))
-      : route.fulfill(envelope({ codes: ['P009', 'BackOffice'] }, { status: 400, success: false, message: 'P009, BackOffice are not eligible.', errorCode: 'NOT_ELIGIBLE' }))
+      : route.fulfill(envelope({ unknown: ['P009'], notEligible: ['BackOffice'] }, { status: 400, success: false, message: 'P009 is not known; BackOffice is not eligible.', errorCode: 'NOT_ELIGIBLE' }))
   })
   const before = posts.Send.length
   await page.locator('[data-script-send-sql]').fill(SQL)
@@ -488,11 +498,12 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
   check('11. a row Retry posts its code with preview: false', JSON.stringify(posts.Retry[3]) === JSON.stringify({ scriptId: first, codes: ['P006'], reason: 'One store restored', preview: false }), JSON.stringify(posts.Retry[3]))
   await page.locator('[data-script-detail-close]').click()
 
-  // A withdrawn script and a legacy one offer nothing.
-  for (const id of [SCRIPTS[1].scriptId, 'SCR-2026-0412']) {
+  // A withdrawn script offers nothing (a legacy one: block 13).
+  {
+    const id = SCRIPTS[1].scriptId
     await page.locator(`[data-script-open="${id}"]`).click()
     await page.locator(`[data-script-detail="${id}"] [data-tab-grid="script-stores"] .ag-row`).first().waitFor({ timeout: 10000 })
-    check(`11. ${id === 'SCR-2026-0412' ? 'a legacy' : 'a withdrawn'} script offers no Withdraw or Retry`,
+    check('11. a withdrawn script offers no Withdraw or Retry',
       (await page.locator('[data-script-withdraw], [data-script-retry-all], [data-script-retry-store]').count()) === 0)
     await page.locator('[data-script-detail-close]').click()
   }
@@ -535,6 +546,99 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
   await page.waitForTimeout(300)
   check('12. …and a fresh preview clears it', (await page.locator('[data-reason-error]').count()) === 0)
   check('no page errors (withdraw refusal)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 13. (673) a legacy script's exhausted row is retried; Withdraw is never offered on it.
+  const { context, page, errors, posts } = await open('/admin/sync/scripts', {
+    canRunScripts: true,
+    refuse: { 'Retry:confirm': { code: 'NOT_EXHAUSTED', message: 'P003 is not exhausted.', data: { notExhausted: ['P003'] } } },
+  })
+  const id = 'SCR-2026-0412'
+  await page.locator(`[data-script-open="${id}"]`).click()
+  await page.locator(`[data-script-detail="${id}"] [data-tab-grid="script-stores"] .ag-row`).first().waitFor({ timeout: 10000 })
+  const rows = await page.locator('[data-script-retry-store]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-script-retry-store')))])
+  check("13. a legacy script's exhausted row shows Retry, and only it", JSON.stringify(rows) === '["P003"]', rows.join(','))
+  check('13. …the legacy detail offers Retry all exhausted', (await page.locator('[data-script-retry-all]').count()) === 1)
+  check('13. …and never Withdraw', (await page.locator('[data-script-withdraw]').count()) === 0)
+  check('13. …and its note says its exhausted stores can be retried', /can be retried/.test(await page.locator('[data-script-legacy-note]').innerText()))
+  await page.screenshot({ path: `${SHOTS}/legacy-retry.png`, fullPage: true })
+  await page.locator('[data-script-retry-store="P003"]').first().click()
+  await page.locator('[data-reason-input]').fill('Legacy item table restored')
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  check("13. a legacy row's Retry previews with its code", JSON.stringify(posts.Retry[0]) === JSON.stringify({ scriptId: id, codes: ['P003'], reason: 'Legacy item table restored', preview: true }), JSON.stringify(posts.Retry[0]))
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="NOT_EXHAUSTED"]').waitFor({ timeout: 10000 })
+  const named = plain(await page.locator('[data-script-refused-stores]').innerText())
+  check("13. a retry's NOT_EXHAUSTED names its stores (data.notExhausted) and keeps the dialog open",
+    named.endsWith('P003') && (await page.locator('[data-script-action="retry"]').count()) === 1, named)
+  check('no page errors (legacy retry)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 13. (673) SCRIPT_NOT_ASCII, and a chosen-store refusal marking the picker.
+  const ARABIC = "UPDATE dbo.Item SET Name = N'ماء' WHERE ItemCode = '100234';"
+  const { context, page, errors, posts } = await open('/admin/sync/scripts', {
+    canRunScripts: true,
+    refuse: {
+      'Send:preview': {
+        code: 'SCRIPT_NOT_ASCII',
+        message: "Character 30 (U+0645) is not ASCII. Write Arabic or other unicode as NCHAR(...) or hex (0x...) literals.",
+      },
+    },
+  })
+  await page.locator('[data-script-send-open]').click()
+  await fillSend(page, { sql: ARABIC })
+  const warned = await page.locator('[data-script-send-non-ascii]')
+  check('13. the dialog warns of the non-ASCII character before the preview, naming its position',
+    (await warned.count()) === 1 && (await warned.getAttribute('data-script-send-non-ascii')) === '30' && /NCHAR/.test(plain(await warned.innerText())),
+    (await warned.count()) ? plain(await warned.innerText()) : 'none')
+  check('13. …and Preview stays enabled: the door is the judge', !(await page.locator('[data-script-send-preview]').isDisabled()))
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-preview-error="SCRIPT_NOT_ASCII"]').waitFor({ timeout: 10000 })
+  const refusal = plain(await page.locator('[data-script-preview-error]').innerText())
+  check('13. a SCRIPT_NOT_ASCII refusal shows its words, the door message and its code',
+    /is not ASCII, which the stores would receive corrupted/.test(refusal) && /Character 30 \(U\+0645\)/.test(refusal) && /SCRIPT_NOT_ASCII/.test(refusal), refusal.replace(/\n/g, ' | '))
+  check('13. …and keeps the dialog open, the draft kept, Send waiting',
+    (await page.locator('[data-script-send-sql]').inputValue()) === ARABIC && (await page.locator('[data-reason-confirm]').isDisabled()))
+  await page.screenshot({ path: `${SHOTS}/send-not-ascii.png`, fullPage: true })
+
+  // From here the preview answers, and the confirm refuses P003 as not eligible and P777 as unknown.
+  await page.route('**/api/ActionSync/Scripts/Send', (route) => {
+    const body = route.request().postDataJSON()
+    posts.Send.push(body)
+    return body.preview
+      ? route.fulfill(envelope({ scriptId: null, stores: body.codes ?? [], auditId: null }))
+      : route.fulfill(envelope({ unknown: [], notEligible: ['p003'] }, { status: 400, success: false, message: 'p003 is not eligible.', errorCode: 'NOT_ELIGIBLE' }))
+  })
+  await page.locator('[data-script-send-sql]').fill(SQL)
+  check('13. an all-ASCII SQL clears the warning', (await page.locator('[data-script-send-non-ascii]').count()) === 0)
+  await page.locator('[data-script-send-target="chosen"]').click()
+  await page.locator('[data-testid="script-send-stores"] [data-multi-select-trigger]').click()
+  await page.locator('[data-testid="script-send-stores"] [data-option="P003"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-testid="script-send-stores"] [data-option="P001"] input').check()
+  await page.locator('[data-testid="script-send-stores"] [data-option="P003"] input').check()
+  await page.keyboard.press('Escape')
+  const tonesBefore = [await page.locator('[data-chip="P001"]').getAttribute('data-tone'), await page.locator('[data-chip="P003"]').getAttribute('data-tone')]
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="NOT_ELIGIBLE"]').waitFor({ timeout: 10000 })
+  const tones = [await page.locator('[data-chip="P001"]').getAttribute('data-tone'), await page.locator('[data-chip="P003"]').getAttribute('data-tone')]
+  check('13. a chosen-store refusal marks the refused store in the picker (as HQ matches codes, any case), and only it',
+    JSON.stringify(tonesBefore) === '["default","default"]' && JSON.stringify(tones) === '["default","danger"]', `${tonesBefore} -> ${tones}`)
+  await page.locator('[data-testid="script-send-stores"] [data-multi-select-trigger]').click()
+  const opt = plain(await page.locator('[data-testid="script-send-stores"] [data-option="P003"]').innerText())
+  check('13. …its option reads Refused', /Refused/.test(opt) && !/Refused/.test(plain(await page.locator('[data-testid="script-send-stores"] [data-option="P001"]').innerText())), opt)
+  await page.keyboard.press('Escape')
+  const named = plain(await page.locator('[data-script-refused-stores]').innerText())
+  check("13. …the refusal names the store off data.notEligible, the door's message shown", named.endsWith('p003') && /p003 is not eligible/.test(await page.locator('[data-reason-dialog]').innerText()), named)
+  check('13. …and the dialog stays open', (await page.locator('[data-script-send-sql]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/send-chosen-refused.png`, fullPage: true })
+  check('no page errors (not ascii + chosen refusal)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

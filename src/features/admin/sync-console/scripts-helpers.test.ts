@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ScriptStoreRow, SentScript } from '@/core/models/sync-console'
 import {
   SCRIPT_MAX_CHARS,
+  firstNonAscii,
   SCRIPT_STATES,
   orderScriptStores,
   refusedStoreCodes,
@@ -15,6 +16,7 @@ import {
   withdrawPreviewSentence,
   scriptIsLegacy,
   scriptStateBadge,
+  scriptStateCounts,
   scriptTargetKey,
   storeScriptBadge,
   storeScriptTitle,
@@ -208,8 +210,12 @@ describe('when Withdraw and Retry are offered', () => {
     expect(scriptControls(script(), null)).toEqual({ withdraw: false, retryAll: false })
   })
 
-  it('a legacy script offers neither', () => {
-    expect(scriptControls(script({ isLegacy: true }), can)).toEqual({ withdraw: false, retryAll: false })
+  it('a legacy script with exhausted stores offers Retry all, never Withdraw (the door: LEGACY_SCRIPT on a withdraw only)', () => {
+    expect(scriptControls(script({ isLegacy: true, title: null }), can)).toEqual({ withdraw: false, retryAll: true })
+    expect(scriptControls(script({ isLegacy: true, exhausted: 0 }), can)).toEqual({ withdraw: false, retryAll: false })
+    expect(scriptControls(script({ isLegacy: true }), { canRunScripts: false })).toEqual({ withdraw: false, retryAll: false })
+    expect(storeRetryOffered(store('P003', 'exhausted'), script({ isLegacy: true, title: null }), can)).toBe(true)
+    expect(storeRetryOffered(store('P003', 'pending'), script({ isLegacy: true }), can)).toBe(false)
   })
 
   it('a withdrawn script offers neither', () => {
@@ -234,7 +240,6 @@ describe('when Withdraw and Retry are offered', () => {
       expect(storeRetryOffered(store('P003', state), live, can)).toBe(false)
     }
     expect(storeRetryOffered(store('P003', 'exhausted'), live, { canRunScripts: false })).toBe(false)
-    expect(storeRetryOffered(store('P003', 'exhausted'), script({ isLegacy: true }), can)).toBe(false)
     expect(storeRetryOffered(store('P003', 'exhausted'), script({ withdrawnAt: '2026-10-29T11:00:00' }), can)).toBe(false)
   })
 })
@@ -257,16 +262,45 @@ describe("the script doors' refusals", () => {
     expect(label('scriptCodes.SCRIPT_HAS_GO')).toBe('The script has a GO line. Send one batch, with no GO.')
   })
 
+  it('words the two refusals added after review: a non-ASCII script and an over-long title', () => {
+    expect(scriptRefusalKey('SCRIPT_NOT_ASCII')).toBe('scriptCodes.SCRIPT_NOT_ASCII')
+    expect(label('scriptCodes.SCRIPT_NOT_ASCII')).toBe(
+      'The script has a character that is not ASCII, which the stores would receive corrupted. Write Arabic or other unicode text as NCHAR(...) or hex (0x...) literals.',
+    )
+    expect(scriptRefusalKey('TITLE_TOO_LONG')).toBe('scriptCodes.TITLE_TOO_LONG')
+    expect(label('scriptCodes.TITLE_TOO_LONG')).toBe('The title is over 200 characters.')
+    expect(label('scriptCodes.TITLE_REQUIRED')).toBe('A title is required.')
+  })
+
+  it('a legacy script is refused a withdraw only: it can be retried', () => {
+    expect(label('scriptCodes.LEGACY_SCRIPT')).toBe('A legacy store script cannot be withdrawn.')
+    expect(label('scriptDetail.legacyNote')).toBe(
+      'A legacy store script was written outside the console: it has no sender or time, and it cannot be withdrawn. Its exhausted stores can be retried.',
+    )
+  })
+
   it('leaves a code it does not know unworded (the raw code shows)', () => {
     expect(scriptRefusalKey('MELTED')).toBeNull()
   })
 
-  it("reads the codes a store refusal names off the refusal's data, and nothing else", () => {
-    expect(refusedStoreCodes({ codes: ['P999', 'BackOffice'] })).toEqual(['P999', 'BackOffice'])
-    expect(refusedStoreCodes({ codes: ['P999', 7, null] })).toEqual(['P999'])
+  it("reads a chosen-store send refusal's unknown and not-eligible codes, unknown first", () => {
+    expect(refusedStoreCodes({ unknown: ['P999'], notEligible: ['BackOffice', 'W001'] })).toEqual(['P999', 'BackOffice', 'W001'])
+    expect(refusedStoreCodes({ unknown: [], notEligible: ['BackOffice'] })).toEqual(['BackOffice'])
+    expect(refusedStoreCodes({ unknown: ['P999', 7, null] })).toEqual(['P999'])
+  })
+
+  it("reads a retry refusal's not-exhausted codes", () => {
+    expect(refusedStoreCodes({ notExhausted: ['P001', 'P004'] })).toEqual(['P001', 'P004'])
+    expect(refusedStoreCodes({ notExhausted: [] })).toEqual([])
+  })
+
+  it('reads nothing from a shape the doors do not send (the guessed data.codes included)', () => {
     expect(refusedStoreCodes(null)).toEqual([])
+    expect(refusedStoreCodes({ codes: ['P999'] })).toEqual([])
     expect(refusedStoreCodes({ stores: ['P1'] })).toEqual([])
+    expect(refusedStoreCodes({ unknown: 'P999' })).toEqual([])
     expect(refusedStoreCodes('P999')).toEqual([])
+    expect(refusedStoreCodes(['P999'])).toEqual([])
   })
 })
 
@@ -307,5 +341,36 @@ describe('a withdrawn time the door leaves out (review 4)', () => {
     const s = rest as SentScript
     expect(scriptControls(s, { canRunScripts: true })).toEqual({ withdraw: true, retryAll: true })
     expect(storeRetryOffered(store('P002', 'exhausted'), s, { canRunScripts: true })).toBe(true)
+  })
+})
+
+describe("the detail's own counts (the Detail door sends its stores, not the list's counts)", () => {
+  it('counts the store rows by state, in any case, and a state it does not know nowhere', () => {
+    const rows = [store('P1', 'exhausted'), store('P2', 'Exhausted'), store('P3', 'pending'), store('P4', 'executed'), store('P5', 'quarantined')]
+    expect(scriptStateCounts(rows)).toEqual({ executed: 1, pending: 1, retrying: 0, exhausted: 2, withdrawn: 0 })
+  })
+
+  it('a legacy detail (title null, no counts on the wire) with an exhausted store offers Retry all', () => {
+    const stores = [store('P1', 'exhausted'), store('P2', 'executed')]
+    const detail = { isLegacy: true, title: null, withdrawnAt: null, ...scriptStateCounts(stores) }
+    expect(scriptControls(detail, { canRunScripts: true })).toEqual({ withdraw: false, retryAll: true })
+  })
+})
+
+describe('a non-ASCII character in the SQL (warned before the preview; the door is the judge)', () => {
+  it('names the first one by its 1-based position and code point', () => {
+    expect(firstNonAscii("UPDATE dbo.Item SET Name = N'ماء'")).toEqual({ position: 30, codePoint: 'U+0645' })
+    expect(firstNonAscii('SELECT 1 -- café')).toEqual({ position: 16, codePoint: 'U+00E9' })
+  })
+
+  it('passes plain ASCII, CR, LF and tab included', () => {
+    expect(firstNonAscii('SELECT 1\r\n\tFROM dbo.Item\x7F')).toBeNull()
+    expect(firstNonAscii('')).toBeNull()
+  })
+
+  it('has words that tell the sender how to write Arabic', () => {
+    expect(label('scriptSend.nonAscii')).toBe(
+      'Character {{position}} ({{codePoint}}) is not ASCII, so the send will be refused. Write Arabic or other unicode text as NCHAR(...) or hex (0x...) literals.',
+    )
   })
 })

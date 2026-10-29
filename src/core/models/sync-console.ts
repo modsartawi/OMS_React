@@ -1083,14 +1083,25 @@ export interface ScriptStoreRow {
 }
 
 /**
- * `GET ActionSync/Scripts/Detail?scriptId=` — the header and the per-store rows. 🚩 `sql` is sent
- * only to a holder of `ActionSync.RunStoreScript`; for a `Health.View`-only holder it is `null`,
- * and the screen then shows no SQL at all. Shape guessed flat (header fields + `stores` + `sql`):
- * the door is not built.
+ * `GET ActionSync/Scripts/Detail?scriptId=` — the header and the per-store rows (contract "Store
+ * script doors"). `sql` is sent only to a holder of `ActionSync.RunStoreScript`; for a
+ * `Health.View`-only holder it is `null`, and the screen then shows no SQL at all. A legacy script
+ * has every header field `null`. It carries **no** state counts: count `stores` (`scriptStateCounts`).
  */
-export interface ScriptDetail extends SentScript {
-  stores: ScriptStoreRow[]
+export interface ScriptDetail {
+  scriptId: string
+  title: string | null
+  reason: string | null
+  sentBy: string | null
+  sentAt: string | null
+  targetMode: string | null
+  storeCount: number
+  withdrawnBy: string | null
+  withdrawnAt: string | null
+  withdrawReason: string | null
+  isLegacy: boolean
   sql: string | null
+  stores: ScriptStoreRow[]
 }
 
 // ── Store script controls (`ActionSync.RunStoreScript`, spec 3202 D11; doors 3205/3206; ticket 664) ──

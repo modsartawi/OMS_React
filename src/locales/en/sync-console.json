@@ -1213,6 +1213,8 @@
       "stores_other": "This store script would be sent to {{n}} stores:"
     },
     "refusedStores": "Stores named:",
+    "refused": "Refused",
+    "nonAscii": "Character {{position}} ({{codePoint}}) is not ASCII, so the send will be refused. Write Arabic or other unicode text as NCHAR(...) or hex (0x...) literals.",
     "confirm": "Send",
     "done_one": "{{title}} sent to {{n}} store.",
     "done_other": "{{title}} sent to {{n}} stores."
@@ -1245,15 +1247,17 @@
     "done_other": "{{title}}: {{n}} stores retried."
   },
   "scriptCodes": {
-    "TITLE_REQUIRED": "A title is required, and it must fit its width.",
+    "TITLE_REQUIRED": "A title is required.",
+    "TITLE_TOO_LONG": "The title is over 200 characters.",
     "SCRIPT_EMPTY": "The script is empty.",
     "SCRIPT_HAS_GO": "The script has a GO line. Send one batch, with no GO.",
     "SCRIPT_TOO_LONG": "The script is over 8,000 characters.",
+    "SCRIPT_NOT_ASCII": "The script has a character that is not ASCII, which the stores would receive corrupted. Write Arabic or other unicode text as NCHAR(...) or hex (0x...) literals.",
     "UNKNOWN_STORE": "A store code is not known.",
     "NOT_ELIGIBLE": "A store is not a worker store (or is HQ), so it cannot take a store script.",
     "NO_STORES": "The target reaches no store.",
     "UNKNOWN_SCRIPT": "There is no such store script.",
-    "LEGACY_SCRIPT": "A legacy store script cannot be withdrawn or retried.",
+    "LEGACY_SCRIPT": "A legacy store script cannot be withdrawn.",
     "WITHDRAWN": "This store script is withdrawn.",
     "NOT_EXHAUSTED": "A store is not exhausted, so it cannot be retried."
   },
@@ -1293,7 +1297,7 @@
     "target": "Target",
     "storeCount": "Stores",
     "withdrawnAt": "Withdrawn at",
-    "legacyNote": "A legacy store script was written outside the console: it has no sender or time, and it cannot be withdrawn or retried.",
+    "legacyNote": "A legacy store script was written outside the console: it has no sender or time, and it cannot be withdrawn. Its exhausted stores can be retried.",
     "sql": "SQL",
     "sqlHidden": "The SQL is shown only to holders of the Send store scripts permission.",
     "columns": {

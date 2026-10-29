@@ -10,7 +10,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { scriptDetailQuery, syncConsoleAccessQuery } from './api'
 import { figure } from './helpers'
-import { orderScriptStores, scriptControls, scriptIsLegacy, scriptTargetKey, storeRetryOffered } from './scripts-helpers'
+import { orderScriptStores, scriptControls, scriptIsLegacy, scriptStateCounts, scriptTargetKey, storeRetryOffered } from './scripts-helpers'
 import { buildScriptStoreColumns } from './scripts-columns'
 import ScriptActionDialog, { type ScriptAction } from './ScriptActionDialog'
 import TabGrid from './TabGrid'
@@ -25,8 +25,10 @@ const SCRIPT_STORE_ROWS = 12
  * the door sends it (a holder of `ActionSync.RunStoreScript` only — `null` otherwise, and then no
  * SQL is drawn at all), and each store's row, the exhausted ones first.
  *
- * Ticket 664's controls, behind `canRunScripts` and never on a legacy or withdrawn script: the
- * footer's **Withdraw** and **Retry all exhausted**, and **Retry** on an exhausted store's row.
+ * Ticket 664's controls, behind `canRunScripts` and never on a withdrawn script: the footer's
+ * **Withdraw** (never on a legacy script) and **Retry all exhausted**, and **Retry** on an
+ * exhausted store's row (a legacy script's too, ticket 673). They count the detail's own stores:
+ * the Detail door sends no counts.
  * Each opens the preview-then-confirm reason dialog. They are read off the detail as the door
  * sends it, and only once it has answered for this script: while it is pending or failed none is
  * offered (the list row may be stale), and a re-read after a write moves them.
@@ -40,7 +42,7 @@ export default function ScriptDetailModal({ script, onClose }: { script: SentScr
   const answered = script && detail.data?.scriptId === script.scriptId ? detail.data : null
   // The title may fall back to the list row while the detail reads: it names, it does not act.
   const named = answered ?? script
-  const controls = answered ? scriptControls(answered, access.data) : { withdraw: false, retryAll: false }
+  const controls = answered ? scriptControls({ ...answered, ...scriptStateCounts(answered.stores) }, access.data) : { withdraw: false, retryAll: false }
   const shownTitle = named ? (scriptIsLegacy(named) ? t('scriptsPage.legacyTitle') : (named.title ?? '')) : ''
   const rowsRetry = answered ? storeRetryOffered({ state: 'exhausted' }, answered, access.data) : false
   const onRetry = useCallback((code: string) => setAction({ kind: 'retry', code }), [])

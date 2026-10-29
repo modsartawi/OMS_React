@@ -2,8 +2,8 @@
  * The HungerStation nav group, gated (ticket 551, BackOffice spec 3028).
  *
  * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its probe or drifted off
- * the ONE shared key fails here. 551 shipped all three leaves — Stores, Materials (555) and Orders
- * (556) — each on its own flag.
+ * the ONE shared key fails here. 551 shipped three leaves — Stores, Materials (555) and Orders
+ * (556) — each on its own flag; 665 added Promotions on `canManagePromotions`.
  */
 import { describe, expect, it } from 'vitest'
 import { HUNGERSTATION_ACCESS_KEY } from '@/core/hungerstation/api'
@@ -20,7 +20,7 @@ const probed = (data: unknown): ProbeState => ({ isPending: false, isSuccess: tr
 const errored: ProbeState = { isPending: false, isSuccess: false, data: undefined }
 const pending: ProbeState = { isPending: true, isSuccess: false, data: undefined }
 
-const NONE = { canManageStores: false, canManageCatalog: false, canViewOrders: false }
+const NONE = { canManageStores: false, canManageCatalog: false, canViewOrders: false, canManagePromotions: false }
 
 /** One state per gated leaf — at runtime they share the ONE key, so every leaf reads the same answer. */
 const each = (state: ProbeState): ProbeState[] => gatedLeaves([hungerstation!]).map(() => state)
@@ -35,17 +35,18 @@ describe('the HungerStation nav group', () => {
 
   it('one probe call: every leaf rides the ONE shared key, on HungerStationWeb/Access', () => {
     const leaves = gatedLeaves([hungerstation!])
-    expect(leaves.map((l) => l.routerLink)).toEqual(['/hungerstation/stores', '/hungerstation/materials', '/hungerstation/orders'])
+    expect(leaves.map((l) => l.routerLink)).toEqual(['/hungerstation/stores', '/hungerstation/materials', '/hungerstation/orders', '/hungerstation/promotions'])
     for (const leaf of leaves) expect(leaf.access!.key).toBe(HUNGERSTATION_ACCESS_KEY)
     expect(new Set(leaves.map((l) => l.access!.key)).size).toBe(1)
   })
 
   it('every flag shows its own leaf, in order', () => {
-    expect(visible(probed({ canManageStores: true, canManageCatalog: true, canViewOrders: true }))).toEqual([
+    expect(visible(probed({ canManageStores: true, canManageCatalog: true, canViewOrders: true, canManagePromotions: true }))).toEqual([
       'hungerstation-stores:menu.hungerstation',
       'hungerstation-stores:menu.stores',
       'hungerstation-stores:menu.materials',
       'hungerstation-stores:menu.orders',
+      'hungerstation-stores:menu.promotions',
     ])
   })
 
@@ -53,6 +54,7 @@ describe('the HungerStation nav group', () => {
     ['canManageStores', 'hungerstation-stores:menu.stores'],
     ['canManageCatalog', 'hungerstation-stores:menu.materials'],
     ['canViewOrders', 'hungerstation-stores:menu.orders'],
+    ['canManagePromotions', 'hungerstation-stores:menu.promotions'],
   ])('%s alone gives a one-leaf group', (flag, leaf) => {
     expect(visible(probed({ ...NONE, [flag]: true }))).toEqual(['hungerstation-stores:menu.hungerstation', leaf])
   })
@@ -61,8 +63,21 @@ describe('the HungerStation nav group', () => {
     expect(visible(probed({ canManageStores: false, canManageCatalog: true, canViewOrders: true }))).not.toContain('hungerstation-stores:menu.stores')
   })
 
+  it('ticket 665: Promotions is hidden when canManagePromotions is false, shown when true', () => {
+    const others = { canManageStores: true, canManageCatalog: true, canViewOrders: true }
+    expect(visible(probed({ ...others, canManagePromotions: false }))).not.toContain('hungerstation-stores:menu.promotions')
+    expect(visible(probed({ ...others, canManagePromotions: true }))).toContain('hungerstation-stores:menu.promotions')
+    // A probe from before the flag existed (the three-key answer) never shows it.
+    expect(visible(probed(others))).not.toContain('hungerstation-stores:menu.promotions')
+  })
+
+  it('ticket 665: Promotions fails closed on a 403 (the probe errored), even when it would grant', () => {
+    expect(visible(errored)).not.toContain('hungerstation-stores:menu.promotions')
+    expect(visible(probed({ ...NONE, canManagePromotions: 'true' }))).toEqual([])
+  })
+
   it('🚩 fails closed — group and all — on no flags, a 403 or failed probe, a malformed answer, or while pending', () => {
-    for (const state of [probed(NONE), errored, probed({}), probed([]), probed({ canManageStores: 'true', canManageCatalog: 1, canViewOrders: 'yes' }), pending])
+    for (const state of [probed(NONE), errored, probed({}), probed([]), probed({ canManageStores: 'true', canManageCatalog: 1, canViewOrders: 'yes', canManagePromotions: 1 }), pending])
       expect(resolveMenu([hungerstation!], each(state)).items).toEqual([])
   })
 })

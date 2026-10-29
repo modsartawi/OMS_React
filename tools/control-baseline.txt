@@ -184,6 +184,8 @@ hungerstation/materials 0
 
 hungerstation/orders 0
 
+hungerstation/promotions 0
+
 hungerstation/stores 1
   src/features/hungerstation/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 

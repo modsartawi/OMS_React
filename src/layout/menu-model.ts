@@ -135,9 +135,10 @@ import {
   canManageCatalog as canManageHsCatalog,
   canManageStores as canManageHsStores,
   canViewOrders as canViewHsOrders,
+  canManagePromotions as canManageHsPromotions,
 } from '@/core/hungerstation/access'
 import type { HungerStationAccessResult } from '@/core/models/hungerstation'
-import { Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -1213,6 +1214,14 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/hungerstation/orders',
         activePrefix: '/hungerstation/orders',
         access: hungerStationProbe(canViewHsOrders),
+      },
+      {
+        // HungerStation promotions (BackOffice spec 3201, ticket 665) — made here, SENT to HungerStation.
+        labelKey: 'hungerstation-stores:menu.promotions',
+        icon: BadgePercent,
+        routerLink: '/hungerstation/promotions',
+        activePrefix: '/hungerstation/promotions',
+        access: hungerStationProbe(canManageHsPromotions),
       },
     ],
   },

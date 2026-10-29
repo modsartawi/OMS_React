@@ -3,7 +3,8 @@
     "hungerstation": "HungerStation",
     "stores": "Stores",
     "materials": "Materials",
-    "orders": "Orders"
+    "orders": "Orders",
+    "promotions": "Promotions"
   },
   "title": "HungerStation stores",
   "subtitle": "Stores onboarded on the direct HungerStation rail, their chain and vendor id, and how their stock sync is doing.",

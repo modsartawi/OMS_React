@@ -1,0 +1,167 @@
+{
+  "title": "عروض هنقرستيشن الترويجية",
+  "subtitle": "العروض الترويجية التي تُنشأ هنا وتُرسل إلى هنقرستيشن، لكل سلسلة، مع رد كل جزء منها. لا يطبّقها تسعيرنا أبدًا.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا صلاحية لعروض هنقرستيشن الترويجية",
+    "deniedHint": "حسابك لا يملك صلاحية عروض هنقرستيشن الترويجية. اطلبها من المسؤول إن احتجت إليها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "statuses": {
+    "draft": "مسودة",
+    "sending": "قيد الإرسال",
+    "live": "فعّال",
+    "livePartlyRefused": "فعّال مع رفض جزئي",
+    "failed": "فشل",
+    "switchedOff": "موقوف",
+    "replaced": "مستبدَل",
+    "scheduled": "مجدول",
+    "ended": "منتهٍ"
+  },
+  "types": {
+    "STRIKETHROUGH": "سعر مشطوب",
+    "SAME_ITEM_BUNDLE": "حزمة من الصنف نفسه"
+  },
+  "subtypes": {
+    "PERCENTAGE": "نسبة خصم",
+    "ABSOLUTE": "مبلغ خصم",
+    "FINAL_PRICE": "السعر النهائي"
+  },
+  "hsReasons": {
+    "COMPETITIVENESS": "التنافسية",
+    "OVERSTOCK": "فائض المخزون",
+    "DELISTING": "إيقاف الإدراج",
+    "EXPIRING_SOON": "قرب انتهاء الصلاحية",
+    "NMR": "NMR",
+    "TRADING": "تجاري"
+  },
+  "jobStatuses": {
+    "QUEUED": "في الانتظار",
+    "COMPLETED": "مكتمل",
+    "FAILED": "فشل",
+    "DUPLICATE": "مكرر",
+    "none": "لم يُرسل",
+    "unanswered": "بلا رد"
+  },
+  "sendKinds": {
+    "upsert": "إرسال",
+    "switchOff": "إيقاف"
+  },
+  "filters": {
+    "chain": "السلسلة",
+    "chainAll": "كل السلاسل",
+    "type": "النوع",
+    "typeAll": "كل الأنواع",
+    "q": "الاسم",
+    "qPlaceholder": "اسم العرض الترويجي",
+    "status": "الحالة",
+    "search": "بحث",
+    "clear": "مسح"
+  },
+  "columns": {
+    "name": "الاسم",
+    "chain": "السلسلة",
+    "type": "النوع",
+    "status": "الحالة",
+    "window": "الفترة",
+    "stores": "الفروع",
+    "skus": "الأصناف",
+    "lastSentAt": "آخر إرسال في",
+    "lastSentBy": "آخر إرسال بواسطة",
+    "actions": "الإجراءات"
+  },
+  "results": {
+    "loading": "جارٍ تحميل العروض الترويجية…",
+    "failedTitle": "تعذّر تحميل العروض الترويجية",
+    "failed": "حاول مرة أخرى بعد قليل.",
+    "empty": "لا يوجد عرض ترويجي لهنقرستيشن مطابق.",
+    "count_zero": "لا عروض ترويجية (<n>{{n}}</n>)",
+    "count_one": "عرض ترويجي واحد (<n>{{n}}</n>)",
+    "count_two": "عرضان ترويجيان (<n>{{n}}</n>)",
+    "count_few": "<n>{{n}}</n> عروض ترويجية",
+    "count_many": "<n>{{n}}</n> عرضًا ترويجيًا",
+    "count_other": "<n>{{n}}</n> عرض ترويجي",
+    "page": "عرض <range>{{range}}</range> من <total>{{total}}</total>",
+    "previous": "السابق",
+    "next": "التالي"
+  },
+  "actions": {
+    "details": "التفاصيل"
+  },
+  "detail": {
+    "eyebrow": "عرض ترويجي لهنقرستيشن",
+    "close": "إغلاق",
+    "loading": "جارٍ تحميل العرض الترويجي…",
+    "failed": "تعذّر تحميل العرض الترويجي",
+    "notFound": "لا يوجد عرض ترويجي لهنقرستيشن بهذا المعرّف.",
+    "chain": "السلسلة",
+    "type": "النوع",
+    "status": "الحالة",
+    "displayNameEn": "اسم العرض (بالإنجليزية)",
+    "displayNameAr": "اسم العرض (بالعربية)",
+    "hsReason": "سبب هنقرستيشن",
+    "window": "الفترة",
+    "orderLimit": "الحد لكل طلب",
+    "globalLimit": "الحد الإجمالي للاستخدام",
+    "noLimit": "لا يوجد",
+    "defaultDiscount": "الخصم الافتراضي",
+    "stores": "الفروع",
+    "allStores": "كل فروع السلسلة (تُثبَّت عند الإرسال)",
+    "replaces": "يستبدل",
+    "replacedBy": "استُبدل بـ",
+    "created": "أُنشئ",
+    "updated": "حُدّث",
+    "sent": "أُرسل",
+    "switchedOff": "أُوقف",
+    "byAt": "<at>{{at}}</at> بواسطة <by>{{by}}</by>",
+    "parts": "الأجزاء",
+    "partsHint": "كل جزء عرض ترويجي واحد لدى هنقرستيشن، بالاسم الظاهر.",
+    "noParts": "لا أجزاء بعد: تُنشأ الأجزاء عند إرسال العرض الترويجي.",
+    "allItems": "كل الأصناف",
+    "partColumns": {
+      "name": "الاسم المرسل إلى هنقرستيشن",
+      "combination": "شراء / مجانًا",
+      "discount": "الخصم",
+      "skus": "الأصناف",
+      "jobStatus": "آخر مهمة",
+      "active": "فعّال"
+    },
+    "yes": "نعم",
+    "no": "لا",
+    "noStores": "لا فروع بعد.",
+    "storeColumns": {
+      "storeCode": "الفرع",
+      "storeName": "الاسم",
+      "vendorId": "معرّف البائع كما أُرسل"
+    },
+    "items": "الأصناف",
+    "noItems": "لا أصناف بعد.",
+    "removed": "محذوف",
+    "itemColumns": {
+      "material": "المادة",
+      "sku": "رمز الصنف",
+      "subtype": "نوع الخصم",
+      "value": "القيمة",
+      "maxQuantity": "الحد الأقصى للكمية",
+      "buy": "شراء",
+      "get": "مجانًا",
+      "part": "الجزء",
+      "state": "الحالة"
+    },
+    "active": "فعّال",
+    "sends": "عمليات الإرسال",
+    "noSends": "لم يُرسل قط.",
+    "sendColumns": {
+      "sentAt": "متى",
+      "sentBy": "من",
+      "reason": "السبب",
+      "kind": "ماذا",
+      "part": "الجزء",
+      "httpStatus": "حالة HTTP",
+      "jobId": "معرّف المهمة",
+      "jobStatus": "حالة المهمة",
+      "error": "الخطأ"
+    }
+  }
+}

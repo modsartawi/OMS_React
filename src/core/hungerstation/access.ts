@@ -1,13 +1,13 @@
 import type { HungerStationAccessResult } from '@/core/models/hungerstation'
 
-// The HungerStation probe's three flags (spec 3028, ticket 551). Pure: no React, no `t`.
+// The HungerStation probe's flags (spec 3028, ticket 551; `canManagePromotions` spec 3201, ticket 665). Pure: no React, no `t`.
 //
 // Each leaf of the HungerStation menu group and each page's in-page gate read their flag through
 // the SAME predicate here, so a nav and a screen can never disagree about a grant. The shape is
 // Deliverect's (`@/core/deliverect/access`); the flags are this rail's own.
 
 /** The three flags, in the contract's order. */
-export const HUNGERSTATION_FLAGS = ['canManageStores', 'canManageCatalog', 'canViewOrders'] as const
+export const HUNGERSTATION_FLAGS = ['canManageStores', 'canManageCatalog', 'canViewOrders', 'canManagePromotions'] as const
 
 export type HungerStationFlag = (typeof HUNGERSTATION_FLAGS)[number]
 export type HungerStationGrants = Record<HungerStationFlag, boolean>
@@ -30,3 +30,6 @@ export const canManageCatalog = (r: HungerStationAccessResult | null | undefined
 
 /** The orders monitor and retry (556). */
 export const canViewOrders = (r: HungerStationAccessResult | null | undefined): boolean => hungerStationGrants(r).canViewOrders
+
+/** HungerStation promotions (665–671). */
+export const canManagePromotions = (r: HungerStationAccessResult | null | undefined): boolean => hungerStationGrants(r).canManagePromotions

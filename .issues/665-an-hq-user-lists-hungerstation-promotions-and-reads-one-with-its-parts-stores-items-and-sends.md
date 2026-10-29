@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3201-hungerstation-promotions-are-made-on-oms-react-and-sent-to-hungerstation-spec.md
 blocked-by: — (contract + live: BackOffice 3211)
 ---
@@ -44,10 +44,10 @@ UI → app (BackOffice doors, stubbed until BackOffice 3218's walk)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `promotionStatusLabel`: every status word, EN and AR, and an unknown status shown as itself, never blank (vitest)
-- [ ] `layout/menu-hungerstation.test.ts`: the Promotions entry hidden when `canManagePromotions` is false, shown when true; fail closed on a 403 (vitest)
-- [ ] `tools/hungerstation-promotions-drive.mjs`, against stubs, LTR and RTL: list, filters ⇄ URL ⇄ door, detail opens from the URL, parts/stores/items/sends render with the contract's fields exactly
-- [ ] `npm run typecheck`, `npm run lint` (boundaries), `npm test` green
+- [x] `promotionStatusLabel`: every status word, EN and AR, and an unknown status shown as itself, never blank (vitest)
+- [x] `layout/menu-hungerstation.test.ts`: the Promotions entry hidden when `canManagePromotions` is false, shown when true; fail closed on a 403 (vitest)
+- [x] `tools/hungerstation-promotions-drive.mjs`, against stubs, LTR and RTL: list, filters ⇄ URL ⇄ door, detail opens from the URL, parts/stores/items/sends render with the contract's fields exactly
+- [x] `npm run typecheck`, `npm run lint` (boundaries), `npm test` green
 
 ## Boundaries
 
@@ -63,3 +63,32 @@ asset once BackOffice 3211 has written it.
 ## Blocked by
 
 None for building against stubs. The contract asset arrives with BackOffice 3211.
+
+## Comments
+
+- 2026-10-29 (built, `impl/665`): **done against stubs only — no BackOffice door exists and the
+  contract asset (BackOffice 3211) has not been written**, so "done" here is vitest + typecheck +
+  lint + the drive against stubbed envelopes (real `errors[]` shape), never a live call.
+  - **Registration:** `features/hungerstation/promotions` at `/hungerstation/promotions`, namespace
+    `hungerstation-promotions` EN + AR (6 Arabic plural forms, mirror test), Promotions leaf in the
+    HungerStation group on the new `canManagePromotions` flag (`core/hungerstation/access`, fails
+    closed like the other three).
+  - **Core models** (`core/models/hungerstation.ts` § Promotions, marked PROVISIONAL): every door of
+    spec 3201 § Doors — list/query/page, detail (header, parts with refusals, stores, items, sends),
+    stores picker, save body (create + PUT edit), Check result (header/row problems, price warning,
+    part preview), reason body (Send/SwitchOff/Resend), RemoveItems, Replace — plus the refusal codes
+    `DHS-00016…00021` in the order the spec lists them.
+  - **List** (server-paged, 100/page) + **read-only detail** side sheet on `?promotion=`.
+  - **Drive** `tools/hungerstation-promotions-drive.mjs`: 82/82 (LTR + RTL). Its stub server is a
+    `DOORS` table, one entry per door; the write doors answer `501 NOT_STUBBED` until 666–671 fill
+    them; scenarios can override a door via `open(dir, { doors })`. § 0 parses the model file and
+    proves every fixture emits exactly its interface's fields.
+  - **Open questions for the contract (BackOffice 3211):** (1) wire spelling of the status values
+    (assumed camelCase `livePartlyRefused` etc.) and of type/subtype/reason/job status (assumed
+    HungerStation's upper-case names); (2) EN status word: the ticket says "Live with refusals",
+    BackOffice says "Live, partly refused" — built as the ticket says; (3) refusal code numbers
+    00016–00021 assumed in spec order (00021 = edit needs Replace, from BO 3215); (4) the detail
+    does not carry request/result bodies — assumed kept server-side only; (5) the chain filter uses
+    `Chains`, which rides `canManageStores` — a promotions-only user gets the chains seen on rows;
+    666's chain picker needs a door its own grant can read.
+

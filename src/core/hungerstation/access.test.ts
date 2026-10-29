@@ -5,13 +5,13 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { HungerStationAccessResult } from '@/core/models/hungerstation'
-import { HUNGERSTATION_FLAGS, canManageCatalog, canManageStores, canViewOrders, hungerStationGrants } from './access'
+import { HUNGERSTATION_FLAGS, canManageCatalog, canManagePromotions, canManageStores, canViewOrders, hungerStationGrants } from './access'
 
-const all = (value: boolean): HungerStationAccessResult => ({ canManageStores: value, canManageCatalog: value, canViewOrders: value })
+const all = (value: boolean): HungerStationAccessResult => ({ canManageStores: value, canManageCatalog: value, canViewOrders: value, canManagePromotions: value })
 
 describe('hungerStationGrants', () => {
-  it('names exactly the three contract flags', () => {
-    expect([...HUNGERSTATION_FLAGS].sort()).toEqual(['canManageCatalog', 'canManageStores', 'canViewOrders'])
+  it('names exactly the four contract flags (665 added canManagePromotions)', () => {
+    expect([...HUNGERSTATION_FLAGS].sort()).toEqual(['canManageCatalog', 'canManagePromotions', 'canManageStores', 'canViewOrders'])
   })
 
   it.each([null, undefined])('a %s answer grants nothing', (r) => {
@@ -40,6 +40,7 @@ describe('the per-leaf predicates', () => {
     ['canManageStores', canManageStores],
     ['canManageCatalog', canManageCatalog],
     ['canViewOrders', canViewOrders],
+    ['canManagePromotions', canManagePromotions],
   ] as const)('%s follows its own flag', (flag, can) => {
     expect(can({ ...all(false), [flag]: true })).toBe(true)
     expect(can({ ...all(true), [flag]: false })).toBe(false)

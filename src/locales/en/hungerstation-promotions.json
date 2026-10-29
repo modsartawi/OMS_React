@@ -1,0 +1,163 @@
+{
+  "title": "HungerStation promotions",
+  "subtitle": "Promotions made here and sent to HungerStation, per chain, with each part's answer. Our own pricing never applies them.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to HungerStation promotions",
+    "deniedHint": "Your account does not hold the HungerStation promotions grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "statuses": {
+    "draft": "Draft",
+    "sending": "Sending",
+    "live": "Live",
+    "livePartlyRefused": "Live with refusals",
+    "failed": "Failed",
+    "switchedOff": "Switched off",
+    "replaced": "Replaced",
+    "scheduled": "Scheduled",
+    "ended": "Ended"
+  },
+  "types": {
+    "STRIKETHROUGH": "Strikethrough",
+    "SAME_ITEM_BUNDLE": "Same-item bundle"
+  },
+  "subtypes": {
+    "PERCENTAGE": "Percentage off",
+    "ABSOLUTE": "Amount off",
+    "FINAL_PRICE": "Final price"
+  },
+  "hsReasons": {
+    "COMPETITIVENESS": "Competitiveness",
+    "OVERSTOCK": "Overstock",
+    "DELISTING": "Delisting",
+    "EXPIRING_SOON": "Expiring soon",
+    "NMR": "NMR",
+    "TRADING": "Trading"
+  },
+  "jobStatuses": {
+    "QUEUED": "Queued",
+    "COMPLETED": "Completed",
+    "FAILED": "Failed",
+    "DUPLICATE": "Duplicate",
+    "none": "Not sent",
+    "unanswered": "Unanswered"
+  },
+  "sendKinds": {
+    "upsert": "Send",
+    "switchOff": "Switch-off"
+  },
+  "filters": {
+    "chain": "Chain",
+    "chainAll": "All chains",
+    "type": "Type",
+    "typeAll": "All types",
+    "q": "Name",
+    "qPlaceholder": "Promotion name",
+    "status": "Status",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "columns": {
+    "name": "Name",
+    "chain": "Chain",
+    "type": "Type",
+    "status": "Status",
+    "window": "Window",
+    "stores": "Stores",
+    "skus": "SKUs",
+    "lastSentAt": "Last sent at",
+    "lastSentBy": "Last sent by",
+    "actions": "Actions"
+  },
+  "results": {
+    "loading": "Loading promotions…",
+    "failedTitle": "The promotions could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No HungerStation promotion matches.",
+    "count_one": "<n>{{n}}</n> promotion",
+    "count_other": "<n>{{n}}</n> promotions",
+    "page": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "actions": {
+    "details": "Details"
+  },
+  "detail": {
+    "eyebrow": "HungerStation promotion",
+    "close": "Close",
+    "loading": "Loading the promotion…",
+    "failed": "The promotion could not be loaded",
+    "notFound": "There is no such HungerStation promotion.",
+    "chain": "Chain",
+    "type": "Type",
+    "status": "Status",
+    "displayNameEn": "Display name (English)",
+    "displayNameAr": "Display name (Arabic)",
+    "hsReason": "HungerStation reason",
+    "window": "Window",
+    "orderLimit": "Per-order limit",
+    "globalLimit": "Total-uses limit",
+    "noLimit": "None",
+    "defaultDiscount": "Default discount",
+    "stores": "Stores",
+    "allStores": "All the chain's stores (frozen when sent)",
+    "replaces": "Replaces",
+    "replacedBy": "Replaced by",
+    "created": "Created",
+    "updated": "Updated",
+    "sent": "Sent",
+    "switchedOff": "Switched off",
+    "byAt": "<at>{{at}}</at> by <by>{{by}}</by>",
+    "parts": "Parts",
+    "partsHint": "Each part is one promotion on HungerStation's side, under the name shown.",
+    "noParts": "No part yet: parts are made when the promotion is sent.",
+    "allItems": "All items",
+    "partColumns": {
+      "name": "Name sent to HungerStation",
+      "combination": "Buy / get",
+      "discount": "Discount",
+      "skus": "SKUs",
+      "jobStatus": "Latest job",
+      "active": "Active"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "noStores": "No store yet.",
+    "storeColumns": {
+      "storeCode": "Store",
+      "storeName": "Name",
+      "vendorId": "Vendor id as sent"
+    },
+    "items": "Items",
+    "noItems": "No item yet.",
+    "removed": "Removed",
+    "itemColumns": {
+      "material": "Material",
+      "sku": "SKU",
+      "subtype": "Subtype",
+      "value": "Value",
+      "maxQuantity": "Max quantity",
+      "buy": "Buy",
+      "get": "Get",
+      "part": "Part",
+      "state": "State"
+    },
+    "active": "Active",
+    "sends": "Sends",
+    "noSends": "Never sent.",
+    "sendColumns": {
+      "sentAt": "When",
+      "sentBy": "Who",
+      "reason": "Reason",
+      "kind": "What",
+      "part": "Part",
+      "httpStatus": "HTTP status",
+      "jobId": "Job id",
+      "jobStatus": "Job status",
+      "error": "Error"
+    }
+  }
+}

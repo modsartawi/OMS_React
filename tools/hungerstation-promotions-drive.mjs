@@ -16,6 +16,12 @@
 // req) => … } })`. Every call lands in `ctx.calls` as { door, method, path, query, body }.
 // Fixture builders (`row`, `detail`, `part`, `store`, `item`, `send`) take overrides.
 //
+// Ticket 669 (§ 6) asserts, LTR and RTL: a partly refused detail lists the three refusals per store
+// (counted, filtered by store, copied as filtered); the 24-hour part reads "No answer from
+// HungerStation" with its hint; HungerStation's own times show local; Resend sends { reason } to
+// …/Parts/{partId}/Resend, then the part reads Sending, its Resend is disabled and the sheet re-reads
+// itself every 15 s until the part is answered (Sending → Live); DHS-00017 stays in the dialog.
+//
 // Ticket 665 asserts, with the browser in Asia/Riyadh at 2026-10-29 11:00 local:
 //   0. every fixture's keys are EXACTLY the fields of its model interface (none invented, none missing);
 //   1. the Promotions leaf rides canManagePromotions on the ONE probe; without it the leaf is hidden
@@ -557,7 +563,7 @@ const chip = async (page, s) => {
   check('4: parts — one row per part', (await sheet.locator('[data-promotion-part]').count()) === 2)
   check('4: parts — the name sent to HungerStation', (await partText('pt-a', 'name')) === 'Eid B2G1 · B2G1 50%' && (await partText('pt-b', 'name')) === 'Eid B2G1 · B3G1 5SAR')
   check('4: parts — buy/get and discount', (await partText('pt-a', 'combination')) === 'B2G1' && (await partText('pt-b', 'discount')) === 'Amount off 5.000 SAR', await partText('pt-b', 'discount'))
-  check('4: parts — latest job status (Completed; a 24h-queued one Unanswered)', (await partText('pt-a', 'status')) === 'Completed' && (await partText('pt-b', 'status')) === 'Unanswered')
+  check('4: parts — latest job status (Completed; a 24h-queued one "No answer from HungerStation", 669)', (await partText('pt-a', 'status')) === 'Completed' && (await partText('pt-b', 'status')).startsWith('No answer from HungerStation'), await partText('pt-b', 'status'))
 
   const storeRows = await sheet.locator('[data-promotion-store]').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('td')].map((td) => td.textContent.trim())))
   check(
@@ -581,7 +587,7 @@ const chip = async (page, s) => {
   check(
     '4: sends — when, who, reason, what, part, HTTP, job id, job status, error',
     JSON.stringify(sendCells.map((s) => s.trim())) ===
-      JSON.stringify(['2026-10-28 10:15', 'aalharbi', 'Ramadan launch', 'Send', 'Eid B2G1 · B3G1 5SAR', '503', '', 'Not sent', 'HungerStation unavailable']),
+      JSON.stringify(['2026-10-28 10:15', 'aalharbi', 'Ramadan launch', 'Send', 'Eid B2G1 · B3G1 5SAR', '503', '', 'Not sent', 'HungerStation unavailable', '2026-10-28 09:30', '2026-10-28 09:31']),
     sendCells.join(' | '),
   )
   check('4: sends — HTTP 202 and the job status of an answered send', (await sheet.locator('[data-promotion-send="s-a1"] [data-promotion-send-http]').innerText()) === '202' && (await sheet.locator('[data-promotion-send="s-a1"] [data-promotion-send-status]').innerText()) === 'Completed')
@@ -634,6 +640,208 @@ const chip = async (page, s) => {
   check('5: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
+
+// ── 6: refusals per store, Resend, the light poll (ticket 669) ─────────────────────────────────
+// Its own fixtures, through the read / resend door overrides — the DOORS table above is untouched.
+
+const REFUSED_PT_A = {
+  invalidVendors: [
+    { storeCode: '2001', vendorId: 'hs-77821' },
+    { storeCode: null, vendorId: 'hs-00009' },
+  ],
+  missingSkus: [
+    {
+      storeCode: '1001',
+      vendorId: 'v-1001',
+      skus: [
+        { sku: 'SKU-201001', materialNumber: '201001' },
+        { sku: 'HS-ORPHAN', materialNumber: null },
+      ],
+    },
+    { storeCode: '1002', vendorId: 'v-1002', skus: [{ sku: 'SKU-201002', materialNumber: '201002' }] },
+  ],
+  invalidDiscountedSkus: [{ storeCode: '1001', vendorId: 'v-1001', skus: [{ sku: 'SKU-201002', materialNumber: '201002' }] }],
+}
+{
+  const source = readFileSync('src/core/models/hungerstation.ts', 'utf8')
+  const keys = (name, obj) => JSON.stringify(modelFields(source, name).sort()) === JSON.stringify(Object.keys(obj).sort())
+  check(
+    '6: refusal fixtures are exactly the model’s (refusals, vendor ref, store SKUs, refused SKU)',
+    keys('HungerStationPromotionRefusals', REFUSED_PT_A) &&
+      keys('HungerStationPromotionVendorRef', REFUSED_PT_A.invalidVendors[0]) &&
+      keys('HungerStationPromotionStoreSkus', REFUSED_PT_A.missingSkus[0]) &&
+      keys('HungerStationPromotionRefusedSku', REFUSED_PT_A.missingSkus[0].skus[0]),
+  )
+}
+
+/** The p-refused detail as 669 reads it: pt-a refused, pt-b unanswered. A Resend of pt-a answers
+ *  Sending; the next read is still Sending; the one after it HungerStation has answered: Live. */
+function refusedDoors(state) {
+  const base = () => detailOf(freshRows().find((r) => r.promotionId === 'p-refused'))
+  const now = () => {
+    const d = base()
+    const [a, b] = d.parts
+    if (state.resent === 0) return { ...d, parts: [{ ...a, refusals: REFUSED_PT_A }, b] }
+    const answered = state.readsSinceResend >= 3
+    return {
+      ...d,
+      status: answered ? 'live' : 'sending',
+      parts: [
+        {
+          ...a,
+          latestJobStatus: answered ? 'COMPLETED' : 'QUEUED',
+          refusals: answered ? { invalidVendors: [], missingSkus: [], invalidDiscountedSkus: [] } : null,
+        },
+        b,
+      ],
+    }
+  }
+  return {
+    read: (_ctx, m) => {
+      if (decodeURIComponent(m[1]) !== 'p-refused') return refuse('DHS-00016')
+      if (state.resent) state.readsSinceResend++
+      return envelope(now())
+    },
+    resend: () => {
+      if (state.refuse) return refuse(state.refuse)
+      state.resent++
+      state.readsSinceResend = 1 // the resend's own answer is the first post-resend read
+      return envelope(now())
+    },
+  }
+}
+
+async function refusalScenario(dir) {
+  const state = { resent: 0, readsSinceResend: 0, refuse: null }
+  const { context, page, errors, ctx } = await open(dir, { doors: refusedDoors(state) })
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
+  const L = '6 ' + dir.toUpperCase() + ': '
+  const reads = () => ctx.calls.filter((c) => c.door === 'read').length
+
+  // The list's own filter for it.
+  await page.goto(BASE + '/hungerstation/promotions')
+  await waitRows(page, N)
+  await chip(page, 'livePartlyRefused')
+  await waitRows(page, 1)
+  check(L + 'the "Live with refusals" filter sends status=livePartlyRefused', lists(ctx).at(-1) === 'status=livePartlyRefused&skip=0&take=100', lists(ctx).at(-1))
+
+  await page.locator('[data-promotion-details="p-refused"]').click()
+  const sheet = page.locator('dialog[open][data-promotion-sheet="p-refused"]')
+  const box = sheet.locator('[data-promotion-refusals]')
+  await box.waitFor({ timeout: 15000 })
+  const blocks = await sheet.locator('[data-promotion-refusal-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-promotion-refusal-part')))
+  check(L + 'one refusal block — the refused part only (an unanswered part has none)', blocks.join() === 'pt-a', blocks.join())
+  const counts = await box.locator('[data-refusal-list] [data-refusal-count]').allInnerTexts()
+  check(L + 'the three lists, counted (2 stores, 3 missing, 1 over list)', JSON.stringify(counts) === JSON.stringify(['2', '3', '1']), counts.join())
+  const rowsOf = (list) =>
+    box.locator('[data-refusal-list="' + list + '"] tbody tr').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('td')].map((td) => td.textContent.trim())))
+  // Under RTL only the direction changes: `lng` stays `en` app-wide (see § 5).
+  const unresolved = 'Not one of our stores'
+  check(
+    L + 'invalid stores — our store code and the vendor id; an unresolved vendor says so',
+    JSON.stringify(await rowsOf('invalidVendors')) === JSON.stringify([['2001', 'hs-77821'], [unresolved, 'hs-00009']]),
+    JSON.stringify(await rowsOf('invalidVendors')),
+  )
+  check(
+    L + 'missing materials per store — store, vendor, material, SKU',
+    JSON.stringify(await rowsOf('missingSkus')) ===
+      JSON.stringify([
+        ['1001', 'v-1001', '201001', 'SKU-201001'],
+        ['1001', 'v-1001', '', 'HS-ORPHAN'],
+        ['1002', 'v-1002', '201002', 'SKU-201002'],
+      ]),
+    JSON.stringify(await rowsOf('missingSkus')),
+  )
+  check(L + 'promo price above list, per store', JSON.stringify(await rowsOf('invalidDiscountedSkus')) === JSON.stringify([['1001', 'v-1001', '201002', 'SKU-201002']]))
+
+  // The store filter narrows all three; Copy copies as filtered.
+  const opts = await box.locator('[data-refusal-store] option').evaluateAll((els) => els.map((e) => e.value))
+  check(L + 'the store filter offers every refused store', JSON.stringify(opts) === JSON.stringify(['', '1001', '1002', '2001', 'vendor:hs-00009']), opts.join())
+  await box.locator('[data-refusal-store]').selectOption('1001')
+  check(
+    L + 'store 1001 → no invalid store, 2 missing, 1 over list',
+    (await rowsOf('invalidVendors')).length === 0 && (await rowsOf('missingSkus')).length === 2 && (await rowsOf('invalidDiscountedSkus')).length === 1,
+  )
+  check(L + 'an emptied list disables its Copy', await box.locator('[data-refusal-copy="invalidVendors"]').isDisabled())
+  await box.locator('[data-refusal-copy="missingSkus"]').click()
+  await page.waitForTimeout(300)
+  // The OS clipboard may hand line ends back as CRLF (Windows); the page wrote LF.
+  const clip = (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')
+  check(L + 'Copy puts the filtered list on the clipboard, tab-separated, no isolates', clip === '1001\tv-1001\t201001\tSKU-201001\n1001\tv-1001\t\tHS-ORPHAN', JSON.stringify(clip))
+  await box.locator('[data-refusal-store]').selectOption('')
+
+  // The 24-hour part; HungerStation's own times.
+  check(L + 'the 24-hour part says HungerStation never answered, with its hint', (await sheet.locator('[data-promotion-part="pt-b"] [data-promotion-part-unanswered]').count()) === 1)
+  check(
+    L + 'HungerStation’s own times, local',
+    (await sheet.locator('[data-promotion-send="s-a1"] [data-promotion-send-hs-created]').innerText()) === '2026-10-28 09:30' &&
+      (await sheet.locator('[data-promotion-send="s-b1"] [data-promotion-send-hs-updated]').innerText()) === '',
+  )
+  check(L + 'nothing Sending → no poll note', (await sheet.locator('[data-promotion-polling]').count()) === 0)
+
+  if (dir === 'rtl') {
+    const iso = await box.locator('[data-refusal-list="missingSkus"] tbody tr').first().locator('bdi[dir="ltr"]').allInnerTexts()
+    check(L + 'a refused store code, vendor id, material and SKU are each ltr isolates', iso.join('|') === '1001|v-1001|201001|SKU-201001', iso.join('|'))
+    check(L + 'the part name is free text', (await sheet.locator('[data-promotion-refusal-part="pt-a"] bdi:not([dir])').first().innerText()) === 'Eid B2G1 · B2G1 50%')
+  }
+  await page.screenshot({ path: SHOTS + '/' + dir + '-refusals.png' })
+
+  // DHS-00017: the part is Sending after all — the dialog keeps it, with its code.
+  state.refuse = 'DHS-00017'
+  await sheet.locator('[data-promotion-part-resend="pt-a"]').click()
+  const dialog = page.locator('dialog[open]:has([data-resend-dialog="pt-a"]):not(:has(dialog))')
+  await dialog.waitFor({ timeout: 10000 })
+  check(
+    L + 'Resend opens the reason dialog naming the part; Confirm waits for a reason',
+    (await dialog.innerText()).includes('Eid B2G1 · B2G1 50%') && (await dialog.locator('[data-reason-confirm]').isDisabled()),
+  )
+  await dialog.locator('textarea').fill('Stock synced')
+  await dialog.locator('[data-reason-confirm]').click()
+  await dialog.getByText('DHS-00017').first().waitFor({ timeout: 10000 })
+  check(L + 'DHS-00017 stays in the dialog with its code', await dialog.isVisible())
+  state.refuse = null
+
+  // Resend for real.
+  await dialog.locator('textarea').fill('  Stock synced  ')
+  await dialog.locator('[data-reason-confirm]').click()
+  await page.locator('[data-resend-dialog]').waitFor({ state: 'detached', timeout: 10000 })
+  const resends = ctx.calls.filter((c) => c.door === 'resend')
+  check(
+    L + 'Resend posts { reason } (trimmed) to …/Parts/pt-a/Resend',
+    resends.length === 2 &&
+      resends[1].path === 'HungerStationWeb/Promotions/p-refused/Parts/pt-a/Resend' &&
+      JSON.stringify(resends[1].body) === JSON.stringify({ reason: 'Stock synced' }),
+    JSON.stringify(resends.at(-1)),
+  )
+  await sheet.locator('[data-promotion-part="pt-a"][data-promotion-part-job="QUEUED"]').waitFor({ timeout: 10000 })
+  check(L + 'the answer lands at once — the part is Queued, its Resend disabled', await sheet.locator('[data-promotion-part-resend="pt-a"]').isDisabled())
+  check(
+    L + '… the promotion reads Sending, with the poll note',
+    (await sheet.locator('[data-promotion-field="status"] [data-promotion-status]').getAttribute('data-promotion-status')) === 'sending' &&
+      (await sheet.locator('[data-promotion-polling]').count()) === 1,
+  )
+  check(L + '… and the old refusals are gone (no final answer yet)', (await sheet.locator('[data-promotion-refusals]').count()) === 0)
+  const readsAt = reads()
+  // The light poll: the sheet re-reads by itself every 15 s until HungerStation has answered.
+  await sheet.locator('[data-promotion-part="pt-a"][data-promotion-part-job="COMPLETED"]').waitFor({ timeout: 45000 })
+  check(
+    L + 'the light poll re-reads the detail on its own (Sending → Live)',
+    reads() > readsAt && (await sheet.locator('[data-promotion-field="status"] [data-promotion-status]').getAttribute('data-promotion-status')) === 'live',
+    String(reads() - readsAt),
+  )
+  check(
+    L + '… the Resend is enabled again and the poll note gone',
+    !(await sheet.locator('[data-promotion-part-resend="pt-a"]').isDisabled()) && (await sheet.locator('[data-promotion-polling]').count()) === 0,
+  )
+  const settled = reads()
+  await page.waitForTimeout(16000)
+  check(L + 'with nothing Sending the poll stops', reads() === settled, String(reads() - settled))
+  check(L + 'only list, read and resend doors were called', ctx.calls.every((c) => ['list', 'read', 'resend'].includes(c.door)), [...new Set(ctx.calls.map((c) => c.door))].join())
+  check(L + 'no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+await refusalScenario('ltr')
+await refusalScenario('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

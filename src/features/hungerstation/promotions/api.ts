@@ -1,6 +1,7 @@
 import { api } from '@/core/api'
 import type {
   HungerStationPromotionDetail,
+  HungerStationPromotionReasonBody,
   HungerStationPromotionsPage,
   HungerStationPromotionsQuery,
 } from '@/core/models/hungerstation'
@@ -38,5 +39,12 @@ export const promotionsApi = {
   /** GET HungerStationWeb/Promotions/{promotionId} — header, parts, stores, items, sends. DHS-00016. */
   detail(promotionId: string): Promise<HungerStationPromotionDetail> {
     return api.get<HungerStationPromotionDetail>(promotionPath(promotionId))
+  },
+
+  /** POST HungerStationWeb/Promotions/{promotionId}/Parts/{partId}/Resend — re-sends one part,
+   *  unchanged, under its identity (ticket 669, BackOffice 3214). Returns the detail. DHS-00008 /
+   *  00016 / 00017 (that part is Sending) / 00014 (HungerStation unavailable). */
+  resend(promotionId: string, partId: string, body: HungerStationPromotionReasonBody): Promise<HungerStationPromotionDetail> {
+    return api.post<HungerStationPromotionDetail>(`${promotionPath(promotionId)}/Parts/${encodeURIComponent(partId)}/Resend`, body)
   },
 }

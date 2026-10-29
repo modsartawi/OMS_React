@@ -42,7 +42,7 @@
     "FAILED": "Failed",
     "DUPLICATE": "Duplicate",
     "none": "Not sent",
-    "unanswered": "Unanswered"
+    "unanswered": "No answer from HungerStation"
   },
   "sendKinds": {
     "upsert": "Send",
@@ -121,7 +121,8 @@
       "discount": "Discount",
       "skus": "SKUs",
       "jobStatus": "Latest job",
-      "active": "Active"
+      "active": "Active",
+      "actions": "Actions"
     },
     "yes": "Yes",
     "no": "No",
@@ -157,7 +158,42 @@
       "httpStatus": "HTTP status",
       "jobId": "Job id",
       "jobStatus": "Job status",
-      "error": "Error"
-    }
+      "error": "Error",
+      "hsCreatedAt": "HungerStation received",
+      "hsUpdatedAt": "HungerStation updated"
+    },
+    "unansweredHint": "HungerStation has not answered this part in 24 hours. Refresh asks it again.",
+    "polling": "Waiting for HungerStation’s answer — this re-reads itself.",
+    "resend": "Resend",
+    "resendWhileSending": "Waits for HungerStation’s answer to this part."
+  },
+  "refusals": {
+    "title": "What HungerStation refused",
+    "hint": "From HungerStation’s latest answer to each part, per store. Each list copies as it is filtered.",
+    "store": "Store",
+    "storeAll": "All stores",
+    "vendorOption": "Vendor {{vendorId}}",
+    "unresolved": "Not one of our stores",
+    "invalidVendors": "Stores HungerStation called invalid",
+    "missingSkus": "Materials HungerStation could not find",
+    "invalidDiscountedSkus": "Promo price above HungerStation’s list price",
+    "none": "None.",
+    "columns": {
+      "store": "Store",
+      "vendorId": "Vendor id",
+      "material": "Material",
+      "sku": "SKU"
+    },
+    "copy": "Copy",
+    "copied": "Copied to the clipboard",
+    "copyFailed": "Could not copy",
+    "copyFailedDetail": "Select the rows and copy them by hand."
+  },
+  "resend": {
+    "title": "Resend a part",
+    "note": "Sends <part>{{part}}</part> to HungerStation again, unchanged and under the same identity — for example after the next stock sync has listed a missing material.",
+    "confirm": "Resend",
+    "done": "Part resent",
+    "doneDetail": "{{part}} is sending again; HungerStation’s answer follows on its own."
   }
 }

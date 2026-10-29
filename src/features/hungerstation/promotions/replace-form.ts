@@ -1,19 +1,19 @@
-import type { HungerStationPromotionDetail, HungerStationPromotionReplaceBody, HungerStationPromotionReplaceRefusal } from '@/core/models/hungerstation'
+import type { HungerStationPromotionDetail, HungerStationPromotionReplaceBody } from '@/core/models/hungerstation'
 import { windowFromLocal, windowProblem, windowToLocal, type LocalWindow } from './local-window'
-import { editMode } from './promotion-edit'
+import { editMode, lifecycleClosed } from './promotion-edit'
 
 /**
  * **Replace** (ticket 671, BackOffice 3216): HungerStation keys a promotion by its name, stores and
  * window, so a change to any of them is a NEW promotion — the server switches the old one off
  * first and sends the new one only if every switch-off was accepted. This is the dialog's form,
- * the body it becomes, when the change needs a replace at all, and when Replace and Switch off are
- * offered. Pure: no React, no `t`.
+ * the body it becomes (only what changed: a `null` keeps the old value), when the change needs a
+ * replace at all, and when Replace and Switch off are offered. Pure: no React, no `t`.
  */
 
 export interface ReplaceForm {
   name: string
   window: LocalWindow
-  /** The store codes ticked. Always explicit: a replace freezes its stores when it is sent. */
+  /** The store codes ticked. Always explicit: the old stores are frozen, and so are the new. */
   stores: string[]
 }
 
@@ -24,22 +24,26 @@ export function replaceFormFromDetail(d: Sent): ReplaceForm {
   return { name: d.name, window: windowFromLocal(d.startAt, d.endAt), stores: (d.stores ?? []).map((s) => s.storeCode) }
 }
 
-const minute = (at: string) => at.slice(0, 16)
+const minute = (at: string | null) => (at ?? '').slice(0, 16)
 const sameSet = (a: readonly string[], b: readonly string[]) => {
   const x = new Set(a)
   const y = new Set(b)
   return x.size === y.size && [...x].every((v) => y.has(v))
 }
 
+function changes(sent: Sent, form: ReplaceForm) {
+  const { startAt, endAt } = windowToLocal(form.window)
+  return {
+    name: form.name.trim() !== sent.name,
+    startAt: minute(startAt) !== minute(sent.startAt),
+    endAt: minute(endAt) !== minute(sent.endAt),
+    stores: !sameSet(form.stores, (sent.stores ?? []).map((s) => s.storeCode)),
+  }
+}
+
 /** True exactly when the name, the stores, the start or the end differ from what was sent. */
 export function replaceNeeded(sent: Sent, form: ReplaceForm): boolean {
-  const { startAt, endAt } = windowToLocal(form.window)
-  return (
-    form.name.trim() !== sent.name ||
-    minute(startAt) !== minute(sent.startAt) ||
-    minute(endAt) !== minute(sent.endAt) ||
-    !sameSet(form.stores, (sent.stores ?? []).map((s) => s.storeCode))
-  )
+  return Object.values(changes(sent, form)).some(Boolean)
 }
 
 export type ReplaceField = 'name' | 'window' | 'stores'
@@ -53,32 +57,33 @@ export function replaceProblems(form: ReplaceForm, now: Date): ReplaceField[] {
   return out
 }
 
-/** `POST …/Replace`: call only on a form with no problems. */
-export function replaceBody(form: ReplaceForm, reason: string): HungerStationPromotionReplaceBody {
-  return { name: form.name.trim(), ...windowToLocal(form.window), allStores: false, storeCodes: form.stores, reason: reason.trim() }
+/** `POST …/Replace`: only what changed, a `null` for the rest (the old value, the stores as
+ *  frozen). Call only on a form with no problems that `replaceNeeded`. */
+export function replaceBody(sent: Sent, form: ReplaceForm, reason: string): HungerStationPromotionReplaceBody {
+  const c = changes(sent, form)
+  const { startAt, endAt } = windowToLocal(form.window)
+  return {
+    name: c.name ? form.name.trim() : null,
+    startAt: c.startAt ? startAt : null,
+    endAt: c.endAt ? endAt : null,
+    allStores: null,
+    storeCodes: c.stores ? form.stores : null,
+    reason: reason.trim(),
+  }
 }
+
+type Acting = Parameters<typeof editMode>[0]
 
 /**
- * Replace and Switch off: `offered` on a sent promotion that still runs (never a draft, nor once
- * switched off, replaced or ended); `sending` — so disabled — while ANY part is Sending (spec 3201
- * § Doors refuses every write then; the server's DHS-00017 stays the guard). The same lock as 670's
- * in-place edit: it reads `editMode`.
+ * Replace and Switch off (contract 3216):
+ * - both on a sent promotion that still runs (never a draft, nor once ended); disabled — `sending`
+ *   — while it or any part reads Sending (DHS-00017 stays the guard);
+ * - once switched off or replaced, neither — EXCEPT Switch off on one that reads Failed: a
+ *   switch-off job failed, the part is still on HungerStation, and SwitchOff retries exactly it.
  */
-export function promotionActions(d: Pick<HungerStationPromotionDetail, 'status' | 'parts'>): { offered: boolean; sending: boolean } {
+export function promotionActions(d: Acting): { replace: boolean; switchOff: boolean; sending: boolean } {
   const mode = editMode(d)
-  return { offered: mode === 'inPlace' || mode === 'sending', sending: mode === 'sending' }
-}
-
-/** The part a DHS-00020 refusal names, read defensively from the envelope's `data`; `null` when it
- *  names none (the server's message still shows). */
-export function replaceRefusalOf(data: unknown): (Omit<HungerStationPromotionReplaceRefusal, 'name'> & { name: string | null }) | null {
-  if (typeof data !== 'object' || data === null) return null
-  const d = data as Record<string, unknown>
-  if (typeof d.partId !== 'string' || !d.partId) return null
-  return {
-    partId: d.partId,
-    name: typeof d.name === 'string' ? d.name : null,
-    httpStatus: typeof d.httpStatus === 'number' ? d.httpStatus : null,
-    error: typeof d.error === 'string' ? d.error : null,
-  }
+  const running = mode === 'inPlace' || mode === 'sending'
+  if (lifecycleClosed(d)) return { replace: false, switchOff: d.status === 'failed', sending: false }
+  return { replace: running, switchOff: running, sending: mode === 'sending' }
 }

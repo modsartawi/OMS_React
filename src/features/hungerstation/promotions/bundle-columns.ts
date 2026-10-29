@@ -1,8 +1,5 @@
-import {
-  HUNGERSTATION_PROMOTION_MAX_SKUS,
-  type HungerStationPromotionCombination,
-  type HungerStationPromotionItemInput,
-} from '@/core/models/hungerstation'
+import { HUNGERSTATION_PROMOTION_MAX_SKUS, type HungerStationPromotionItemInput } from '@/core/models/hungerstation'
+import type { PartCombination } from './part-label'
 import { numberOf, readItemSheet, subtypeOf, type ItemSheetRead } from './strikethrough-columns'
 
 /**
@@ -11,9 +8,10 @@ import { numberOf, readItemSheet, subtypeOf, type ItemSheetRead } from './strike
  * MaxQty`") — pure. Read by 666's shared rules (`readItemSheet`: tab split, header skipped, last row
  * of a material wins and is counted, the cap reported never truncated).
  *
- * - **Blank** buy / get / subtype / value: `null` in the body, so the row takes the promotion's
- *   default as it reads when SAVED (666's assumption, carried over). `rowCombination` says on screen
- *   what a blank row will read as.
+ * - **Blank** subtype / value: `null` in the body, so the row takes the promotion's default as it
+ *   reads when SAVED. A **blank** buy / get is `null` too, and stays so: the contract has NO
+ *   promotion-level buy / get default — the checks report it (`buyBelowOne` / `getBelowOne`).
+ *   `rowCombination` says on screen what a row will read as.
  * - **Buy** and **Get** are whole numbers of at least 1 (BackOffice 3213's bundle check), else the
  *   line is flagged (`CELL`). Buy-one-get-one-free is `1, 1, PERCENTAGE, 100`.
  * - The page never groups rows into parts: the split is the server's (3213), shown from Check.
@@ -58,21 +56,14 @@ export function readBundle(text: string, cap: number = HUNGERSTATION_PROMOTION_M
   return readItemSheet(text, BUNDLE_COLUMNS, badCell, bundleItemOf, cap)
 }
 
-/** The header defaults a blank cell takes. */
+/** The header defaults a blank subtype / value cell takes. */
 export interface BundleDefaults {
-  buyQuantity: number | null
-  getQuantity: number | null
-  subtype: HungerStationPromotionCombination['subtype']
+  subtype: PartCombination['subtype']
   value: number | null
 }
 
-/** One row's combination as it will read once saved: each blank cell the header default. For the
- *  preview grid only — never a part (the server makes those). */
-export function rowCombination(item: HungerStationPromotionItemInput, d: BundleDefaults): HungerStationPromotionCombination {
-  return {
-    buyQuantity: item.buyQuantity ?? d.buyQuantity,
-    getQuantity: item.getQuantity ?? d.getQuantity,
-    subtype: item.subtype ?? d.subtype,
-    value: item.value ?? d.value,
-  }
+/** One row's combination as it will read once saved: a blank subtype / value the header default,
+ *  its own buy / get. For the preview grid only — never a part (the server makes those). */
+export function rowCombination(item: HungerStationPromotionItemInput, d: BundleDefaults): PartCombination {
+  return { buyQuantity: item.buyQuantity, getQuantity: item.getQuantity, subtype: item.subtype ?? d.subtype, value: item.value ?? d.value }
 }

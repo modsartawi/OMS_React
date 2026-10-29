@@ -92,3 +92,10 @@ A live promotion edits and removes items from stubs, with the bodies matching th
   - **Open:** "edit rows" is covered by pasting the sheet again (it replaces the list, and what is left
     out leaves its part). There is no per-cell grid editing. Is that enough, or should the grid edit rows
     in place?
+
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - **Decision (overrulable): no edit preview.** The contract's Check takes NO body and has no per-part `changes`, so the "what changes on HungerStation" preview is gone. Save and re-send now opens the reason dialog directly; the PUT runs every check and refuses (DHS-00018 / 19, the message names the rows, nothing sent), then answers with `check`. The editor says so in place of the Check panel.
+  - **BackOffice ask A1:** an edit dry-run — `POST Promotions/{id}/Check` taking the edit as its body (or `PUT …?dryRun=true`) — answering the Check plus the per-part plan (re-upserted / new / switched off, materials leaving and joining). With it the preview comes back as built before.
+  - Review B5: an "all stores" promotion's edit sends `storeCodes: null` = the stores frozen at send (3215), never the chain's stores now.
+  - Remove items: ticking EVERY active item is refused before the call (the contract: that is a switch-off). DHS-00017 / `HungerStationPromotionSent` re-read the detail.
+  - Review C6: the item columns (`editor-columns.ts`), the stores picker (`EditorStores.tsx`) and the Remove items dialog (`RemoveItemsDialog.tsx`) are their own files.

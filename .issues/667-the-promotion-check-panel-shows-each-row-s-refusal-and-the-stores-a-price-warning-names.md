@@ -89,3 +89,7 @@ Every Check refusal and warning in the contract renders from stubs, and Send fol
   - **Open:** should Save itself return the Check answer (3212: "Save reports them") instead of the
     editor calling Check after each save? Built as a second call; one round trip if the door adds it.
 
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - Check answer is `{ promotionId, canSend, itemCount, duplicateCount, refusals[], warnings[], parts[] }`; an issue `{ code, field, rowNo, materialNumber, storeCodes, message }` (header = `rowNo` null). Codes are the contract's camelCase ones; every one of the 22 now has EN + AR words (newly: `nameMissing`, `startMissing`, `endMissing`, `storeNotOnboarded` — naming its stores —, `noItems`, `subtypeMissing`, `maxQuantityMixed`); an unknown code reads the server's words.
+  - Review C1 fixed: the preview grid's Check cell goes through `checkCellText`, which strips isolates (vitest + a drive check that no cell holds FSI/PDI).
+  - Review C2: no "split" anywhere in the EN copy (vitest guard); "split the sheet / the promotion" reworded.

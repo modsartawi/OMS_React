@@ -1,9 +1,11 @@
 /**
- * Ticket 666 — the strikethrough editor's form, and the save body it becomes.
+ * Ticket 666 / 668 (reconciled to the BackOffice 3201 door contract, 2026-10-29) — the editor's
+ * form, and the save body it becomes: `storeCodes: null` is ALL stores (there is no `allStores`
+ * key, and `[]` is no store); there is no promotion-level buy / get default.
  */
 import { describe, expect, it } from 'vitest'
 import { emptyForm, formFromDetail, formProblems, saveBody, toggleStore } from './promotion-form'
-import type { HungerStationPromotionDetail } from '@/core/models/hungerstation'
+import type { HungerStationPromotionDetail, HungerStationPromotionItem } from '@/core/models/hungerstation'
 
 const NOW = new Date('2026-10-29T08:00:00Z')
 const filled = () => ({
@@ -16,15 +18,49 @@ const filled = () => ({
   defaultValue: '20',
 })
 
+const row = (over: Partial<HungerStationPromotionItem>): HungerStationPromotionItem => ({
+  rowNo: 1,
+  materialNumber: '101001',
+  sku: null,
+  subtype: null,
+  value: null,
+  maxQuantity: null,
+  buyQuantity: null,
+  getQuantity: null,
+  partId: null,
+  active: true,
+  ...over,
+})
+const saved = (over: Partial<HungerStationPromotionDetail> = {}) =>
+  ({
+    chainKey: 'OlaCare',
+    name: 'Winter',
+    displayNameEn: 'en',
+    displayNameAr: 'ar',
+    type: 'STRIKETHROUGH',
+    hsReason: 'OVERSTOCK',
+    startAt: '2026-11-01T09:30:00',
+    endAt: '2026-11-30T23:59:00',
+    orderLimit: 2,
+    globalLimit: null,
+    defaultSubtype: 'ABSOLUTE',
+    defaultValue: 5.5,
+    allStores: false,
+    status: 'draft',
+    stores: [{ storeCode: '1001', storeName: '', vendorId: 'v', syncActive: true }],
+    items: [row({ materialNumber: '101001' }), row({ rowNo: 2, materialNumber: '101002', active: false })],
+    ...over,
+  }) as unknown as HungerStationPromotionDetail
+
 describe('emptyForm', () => {
   it('Competitiveness by default, Percentage off, every store, the window from now', () => {
     const f = emptyForm(NOW)
-    expect([f.hsReason, f.defaultSubtype, f.stores, f.window.startTime, f.window.endTime]).toEqual(['COMPETITIVENESS', 'PERCENTAGE', 'all', '11:00', '23:59'])
+    expect([f.type, f.hsReason, f.defaultSubtype, f.stores, f.window.startTime, f.window.endTime]).toEqual(['STRIKETHROUGH', 'COMPETITIVENESS', 'PERCENTAGE', 'all', '11:00', '23:59'])
   })
 })
 
 describe('saveBody', () => {
-  it('carries every field of the contract, the window as typed, limits as numbers, blank as null', () => {
+  it('carries exactly the contract’s fields: the window as typed, limits as numbers, blank as null, all stores as storeCodes null', () => {
     const f = {
       ...filled(),
       orderLimit: '2',
@@ -44,18 +80,19 @@ describe('saveBody', () => {
       globalLimit: null,
       defaultSubtype: 'PERCENTAGE',
       defaultValue: 20,
-      defaultBuyQuantity: null,
-      defaultGetQuantity: null,
-      allStores: true,
-      storeCodes: [],
+      storeCodes: null,
       items: [{ materialNumber: '101001', subtype: null, value: null, maxQuantity: 3, buyQuantity: null, getQuantity: null }],
       reason: 'Ramadan launch',
     })
   })
 
-  it('a narrowed store list is sent by code, not as all', () => {
-    const body = saveBody({ ...filled(), stores: ['1001', '2001'] }, 'r')
-    expect([body.allStores, body.storeCodes]).toEqual([false, ['1001', '2001']])
+  it('a narrowed store list is sent by code', () => {
+    expect(saveBody({ ...filled(), stores: ['1001', '2001'] }, 'r').storeCodes).toEqual(['1001', '2001'])
+  })
+
+  it('a strikethrough row carries no buy / get, whatever it was pasted as before a type change', () => {
+    const f = { ...filled(), items: [{ materialNumber: '1', subtype: null, value: null, maxQuantity: null, buyQuantity: 2, getQuantity: 1 }] }
+    expect(saveBody(f, 'r').items[0]).toMatchObject({ buyQuantity: null, getQuantity: null })
   })
 })
 
@@ -89,38 +126,44 @@ describe('formProblems', () => {
 
 describe('formFromDetail', () => {
   it('a saved draft reads back into the form, its active items only', () => {
-    const d = {
-      chainKey: 'OlaCare',
-      name: 'Winter',
-      displayNameEn: 'en',
-      displayNameAr: 'ar',
-      hsReason: 'OVERSTOCK',
-      startAt: '2026-11-01T09:30:00',
-      endAt: '2026-11-30T23:59:00',
-      orderLimit: 2,
-      globalLimit: null,
-      defaultSubtype: 'ABSOLUTE',
-      defaultValue: 5.5,
-      allStores: false,
-      stores: [{ storeCode: '1001', storeName: '', vendorId: 'v' }],
-      items: [
-        { itemId: 'a', materialNumber: '101001', sku: null, subtype: 'ABSOLUTE', value: 5.5, maxQuantity: null, buyQuantity: null, getQuantity: null, partId: null, active: true },
-        { itemId: 'b', materialNumber: '101002', sku: null, subtype: 'ABSOLUTE', value: 5.5, maxQuantity: null, buyQuantity: null, getQuantity: null, partId: null, active: false },
-      ],
-    } as unknown as HungerStationPromotionDetail
-    const f = formFromDetail(d)
+    const f = formFromDetail(saved())
     expect([f.name, f.hsReason, f.orderLimit, f.globalLimit, f.defaultValue, f.stores, f.window.startTime]).toEqual(['Winter', 'OVERSTOCK', '2', '', '5.5', ['1001'], '09:30'])
     expect(f.items.map((i) => i.materialNumber)).toEqual(['101001'])
   })
+
+  // Review B4: reopening a draft must not bake the resolved default into a blank row — a later
+  // change of the default would then miss it. The contract keeps a row's subtype / value as entered.
+  it('a blank row stays blank (null), so it keeps following the default', () => {
+    const f = formFromDetail(saved({ items: [row({ subtype: null, value: null }), row({ rowNo: 2, materialNumber: '2', subtype: 'PERCENTAGE', value: 30 })] }))
+    expect(f.items.map((i) => [i.subtype, i.value])).toEqual([
+      [null, null],
+      ['PERCENTAGE', 30],
+    ])
+    expect(saveBody(f, 'r').items[0]).toMatchObject({ subtype: null, value: null })
+  })
+
+  // Review B5: an in-place edit of an "all stores" promotion sends storeCodes null — the stores
+  // frozen at send (3215) — never a list of the chain's stores now.
+  it('a sent "all stores" promotion reads back as all, and saves as storeCodes null', () => {
+    const f = formFromDetail(saved({ status: 'live', allStores: true, stores: [{ storeCode: '1001', storeName: '', vendorId: 'v', syncActive: true }] }))
+    expect(f.stores).toBe('all')
+    expect(saveBody(f, 'r').storeCodes).toBeNull()
+  })
+
+  it('a draft with no window yet reads as blank boxes', () => {
+    expect(formFromDetail(saved({ startAt: null, endAt: null })).window).toEqual({ startDate: '', startTime: '', endDate: '', endTime: '' })
+  })
+
+  it('a default value of 0 (none set) reads blank', () => {
+    expect(formFromDetail(saved({ defaultValue: 0 })).defaultValue).toBe('')
+  })
 })
 
-// Ticket 668 — the same-item bundle: its type, its default buy / get, its rows' own buy / get.
+// Ticket 668 — the same-item bundle: each row carries its own buy / get (no header default).
 describe('the same-item bundle (668)', () => {
   const bundle = () => ({
     ...filled(),
     type: 'SAME_ITEM_BUNDLE' as const,
-    defaultBuy: '2',
-    defaultGet: '1',
     defaultValue: '50',
     items: [
       { materialNumber: '201001', buyQuantity: null, getQuantity: null, subtype: null, value: null, maxQuantity: null },
@@ -128,39 +171,16 @@ describe('the same-item bundle (668)', () => {
     ],
   })
 
-  it('a new form is a strikethrough with no default buy / get', () => {
-    const f = emptyForm(NOW)
-    expect([f.type, f.defaultBuy, f.defaultGet]).toEqual(['STRIKETHROUGH', '', ''])
-  })
-
-  it('the body names the type, the default buy / get, and each row as pasted (blank = null)', () => {
+  it('the body names the type and each row as pasted (blank = null): the checks report a blank buy / get', () => {
     const body = saveBody(bundle(), 'Eid')
-    expect([body.type, body.defaultBuyQuantity, body.defaultGetQuantity, body.defaultValue]).toEqual(['SAME_ITEM_BUNDLE', 2, 1, 50])
+    expect([body.type, body.defaultValue]).toEqual(['SAME_ITEM_BUNDLE', 50])
     expect(body.items).toEqual(bundle().items)
+    expect(Object.keys(body)).not.toContain('defaultBuyQuantity')
   })
 
-  it('a strikethrough sends no default buy / get, whatever the boxes hold', () => {
-    const body = saveBody({ ...bundle(), type: 'STRIKETHROUGH', items: [] }, 'r')
-    expect([body.defaultBuyQuantity, body.defaultGetQuantity]).toEqual([null, null])
-  })
-
-  it('a default buy or get must be a whole number of at least 1, or blank', () => {
-    expect(formProblems(bundle(), NOW)).toEqual([])
-    expect(formProblems({ ...bundle(), defaultBuy: '0', defaultGet: '1.5' }, NOW)).toEqual(['defaultBuy', 'defaultGet'])
-    expect(formProblems({ ...bundle(), defaultBuy: '', defaultGet: '' }, NOW)).toEqual([])
-    // Not a bundle: the boxes are not read.
-    expect(formProblems({ ...bundle(), type: 'STRIKETHROUGH', defaultBuy: 'x' }, NOW)).toEqual([])
-  })
-
-  it('a saved bundle reads back with its type, default buy / get and each row’s buy / get', () => {
-    const d = {
-      chainKey: 'OlaCare', name: 'Eid', displayNameEn: 'e', displayNameAr: 'ع', type: 'SAME_ITEM_BUNDLE', hsReason: 'COMPETITIVENESS',
-      startAt: '2026-11-01T00:00:00', endAt: '2026-11-30T23:59:00', orderLimit: null, globalLimit: null,
-      defaultSubtype: 'PERCENTAGE', defaultValue: 50, defaultBuyQuantity: 2, defaultGetQuantity: 1, allStores: true, stores: [],
-      items: [{ itemId: 'i', materialNumber: '201009', sku: null, subtype: 'PERCENTAGE', value: 100, maxQuantity: null, buyQuantity: 1, getQuantity: 1, partId: null, active: true }],
-    } as unknown as HungerStationPromotionDetail
-    const f = formFromDetail(d)
-    expect([f.type, f.defaultBuy, f.defaultGet]).toEqual(['SAME_ITEM_BUNDLE', '2', '1'])
+  it('a saved bundle reads back with its type and each row’s buy / get', () => {
+    const f = formFromDetail(saved({ type: 'SAME_ITEM_BUNDLE', items: [row({ materialNumber: '201009', subtype: 'PERCENTAGE', value: 100, buyQuantity: 1, getQuantity: 1 })] }))
+    expect(f.type).toBe('SAME_ITEM_BUNDLE')
     expect(f.items).toEqual([{ materialNumber: '201009', subtype: 'PERCENTAGE', value: 100, maxQuantity: null, buyQuantity: 1, getQuantity: 1 }])
   })
 })

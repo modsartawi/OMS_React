@@ -1,11 +1,11 @@
 import type { TFunction } from 'i18next'
-import type { HungerStationPromotionJobStatus, HungerStationPromotionStatus } from '@/core/models/hungerstation'
+import type { HungerStationPromotionStatus } from '@/core/models/hungerstation'
 import type { Severity } from '@/core/ui/severity'
 
-// The words and tones of a HungerStation promotion (BackOffice spec 3201 § Status, ticket 665): its
-// status and each part's job status. Pure apart from the `t` a caller passes — each label hands
-// back a KEY in `hungerstation-promotions`, and a value the contract does not name comes back as
-// itself, so a status is never blank.
+// The words and tones of a HungerStation promotion (BackOffice spec 3201 § Vocabulary, ticket 665):
+// its status (a part carries the same values) and each send's job status. Pure apart from the `t` a
+// caller passes — each label hands back a KEY in `hungerstation-promotions`, and a value the
+// contract does not name comes back as itself, so a status is never blank.
 
 /** The statuses, in their life order. `scheduled` and `ended` are derived from the window by the
  *  server, never stored. */
@@ -49,7 +49,7 @@ export function promotionStatusText(t: TFunction, status: string): string {
   return key ? t(key) : status || '—'
 }
 
-const JOB_SEV: Record<HungerStationPromotionJobStatus, Severity> = {
+const JOB_SEV: Record<'QUEUED' | 'COMPLETED' | 'FAILED' | 'DUPLICATE', Severity> = {
   QUEUED: 'go',
   COMPLETED: 'ok',
   FAILED: 'bad',
@@ -57,15 +57,19 @@ const JOB_SEV: Record<HungerStationPromotionJobStatus, Severity> = {
   DUPLICATE: 'mute',
 }
 
+/** A final job status: the send is closed, never read again. Anything else — `QUEUED`, or a status
+ *  HungerStation's docs do not list (`IN_PROGRESS`…) — is still open (contract 3214). */
+export const jobFinal = (status: string | null): boolean => status === 'COMPLETED' || status === 'FAILED' || status === 'DUPLICATE'
+
 /**
- * A part's (or a send's) job status. `null` = never sent. A job still QUEUED after 24 hours is
- * `unanswered` — left for a manual Refresh — and reads so, on the attention tone. A status the
- * contract does not name is shown raw, neutral.
+ * A send's job status. `null` = never reached HungerStation. A job still QUEUED after 24 hours is
+ * `unanswered` and reads so, on the attention tone. A status the contract does not list is shown
+ * raw, in motion (it is not final).
  */
 export function jobStatusLabel(status: string | null, unanswered = false): { key: string | null; sev: Severity; raw: string | null } {
   if (status === null) return { key: 'jobStatuses.none', sev: 'mute', raw: null }
   if (status === 'QUEUED' && unanswered) return { key: 'jobStatuses.unanswered', sev: 'warn', raw: null }
   return Object.hasOwn(JOB_SEV, status)
-    ? { key: `jobStatuses.${status}`, sev: JOB_SEV[status as HungerStationPromotionJobStatus], raw: null }
-    : { key: null, sev: 'mute', raw: status }
+    ? { key: `jobStatuses.${status}`, sev: JOB_SEV[status as keyof typeof JOB_SEV], raw: null }
+    : { key: null, sev: 'go', raw: status }
 }

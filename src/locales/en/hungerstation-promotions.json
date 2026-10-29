@@ -45,21 +45,20 @@
     "unanswered": "No answer from HungerStation"
   },
   "sendKinds": {
-    "upsert": "Send",
-    "switchOff": "Switch-off"
+    "UPSERT": "Send",
+    "SWITCH_OFF": "Switch-off"
   },
   "filters": {
     "chain": "Chain",
     "chainAll": "All chains",
-    "type": "Type",
-    "typeAll": "All types",
     "q": "Name",
     "qPlaceholder": "Promotion name",
     "status": "Status",
     "search": "Search",
     "clear": "Clear",
     "store": "Live on store",
-    "storePlaceholder": "Store code"
+    "storePlaceholder": "Store code",
+    "statusAny": "Any status"
   },
   "columns": {
     "name": "Name",
@@ -68,9 +67,10 @@
     "status": "Status",
     "window": "Window",
     "stores": "Stores",
-    "skus": "SKUs",
-    "lastSentAt": "Last sent at",
-    "lastSentBy": "Last sent by",
+    "items": "Items",
+    "sentAt": "Sent at",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
     "actions": "Actions"
   },
   "results": {
@@ -124,7 +124,8 @@
       "skus": "SKUs",
       "jobStatus": "Latest job",
       "active": "Active",
-      "actions": "Actions"
+      "actions": "Actions",
+      "status": "Status"
     },
     "yes": "Yes",
     "no": "No",
@@ -171,7 +172,6 @@
     "edit": "Edit draft",
     "refresh": "Refresh",
     "refreshFailed": "HungerStation could not be asked",
-    "defaultBuyGet": "Default buy / get",
     "replace": "Replace",
     "switchOff": "Switch off",
     "actionsWhileSending": "Waits until every part has HungerStation’s answer.",
@@ -189,7 +189,9 @@
     "removeTitle": "Remove items from HungerStation",
     "removeNote_one": "<n>{{n}}</n> material goes out inactive in its part. It stays listed here as Removed.",
     "removeNote_other": "<n>{{n}}</n> materials go out inactive in their parts. They stay listed here as Removed.",
-    "removeConfirm": "Remove"
+    "removeConfirm": "Remove",
+    "switchOffAgain": "Switch off again",
+    "removeAll": "Every active item ticked: removing them all is a switch-off. Use Switch off instead."
   },
   "refusals": {
     "title": "What HungerStation refused",
@@ -267,7 +269,7 @@
     "itemsCount_other": "<n>{{n}}</n> materials",
     "paste": "Paste items…",
     "itemsHint": "Our material numbers, never HungerStation's SKU. A paste replaces the items. A grey subtype or value is the default.",
-    "itemsOverCap": "More than {{max}} materials: split the sheet.",
+    "itemsOverCap": "More than {{max}} materials: HungerStation takes no more in one promotion.",
     "items": {
       "material": "Material",
       "subtype": "Subtype",
@@ -295,10 +297,6 @@
     "lockedSent": "This promotion no longer runs on HungerStation. It is shown here, not edited.",
     "type": "Type",
     "typeClears": "Changing the type clears the pasted items.",
-    "defaultBuy": "Default buy",
-    "defaultGet": "Default get",
-    "quantityHint": "A row with a blank buy or get takes it.",
-    "quantityInvalid": "A whole number of at least 1, or blank.",
     "sendParts_one": "Send {{n}} promotion to {{stores}} stores",
     "sendParts_other": "Send {{n}} promotions to {{stores}} stores",
     "lockedLive": "Live on HungerStation. Change the items, values, limits or display names and re-send them in place. The name, stores, start and end are locked: changing any of them replaces the promotion.",
@@ -306,14 +304,13 @@
     "replaceHint": "Changing this replaces the promotion.",
     "replace": "Replace…",
     "stateLive": "Live on HungerStation. Change something to re-send it.",
-    "stateEditDirty": "Changed: check the edit, then save and re-send it.",
+    "stateEditDirty": "Changed: save and re-send it.",
     "editNeedsChange": "Change an item, a value, a limit or a display name first.",
     "editSend": "Save and re-send",
     "editTitle": "Save and re-send the changes",
-    "editNote_one": "Saves the edit and sends <n>{{n}}</n> part to HungerStation. It reads Sending, and edits wait, until HungerStation answers.",
-    "editNote_other": "Saves the edit and sends <n>{{n}}</n> parts to HungerStation. It reads Sending, and edits wait, until HungerStation answers.",
-    "editNoteUnchecked": "Saves the edit and re-sends the parts it changes.",
-    "editNoteNothing": "Saves the edit. No part changes on HungerStation."
+    "editNote": "Saves the edit and re-sends the parts it changes. Every check runs first: a refusal names its rows and sends nothing. It then reads Sending, and edits wait, until HungerStation answers.",
+    "promotionSent": "This promotion changed on the server: it is no longer a draft, or it was switched off or replaced. It has been read again.",
+    "refusedRechecked": "A check refused the send. The Check below has been run again and names each row."
   },
   "check": {
     "title": "Check",
@@ -350,62 +347,39 @@
       "stores": "Stores"
     },
     "codes": {
-      "NO_SKU": "The material is not on the HungerStation material list.",
-      "MATERIAL_DISABLED": "The material is disabled on the HungerStation material list.",
-      "MATERIAL_DELETED": "The material is deleted from the HungerStation material list.",
-      "PERCENT_RANGE": "A percentage must be from 1 to 100.",
-      "VALUE_NOT_POSITIVE": "The value must be more than 0.",
-      "VALUE_DECIMALS": "The value has more than 3 decimals.",
-      "WINDOW_ORDER": "The start must be before the end.",
-      "END_PAST": "The end has already passed.",
-      "DISPLAY_NAME_MISSING": "The display name is missing.",
-      "NAME_IN_USE": "Another promotion of this chain already uses this name.",
-      "TOO_MANY_SKUS": "More than {{max}} SKUs: split the promotion.",
-      "NO_STORES": "No store is chosen.",
-      "BUY_GET_RANGE": "Buy and get must each be at least 1."
+      "nameMissing": "The internal name is missing.",
+      "nameInUse": "Another promotion of this chain already uses this name.",
+      "displayNameEnMissing": "The English display name is missing.",
+      "displayNameArMissing": "The Arabic display name is missing.",
+      "startMissing": "The start is not set.",
+      "endMissing": "The end is not set.",
+      "windowReversed": "The start must be before the end.",
+      "endPast": "The end has already passed.",
+      "noStores": "No store is chosen.",
+      "storeNotOnboarded": "These stores are no longer onboarded stores of the chain: {{stores}}.",
+      "noItems": "There is no item.",
+      "tooManySkus": "More than {{max}} SKUs: HungerStation takes no more in one promotion.",
+      "materialNotListed": "The material is not on the HungerStation material list.",
+      "materialDisabled": "The material is disabled on the HungerStation material list.",
+      "materialDeleted": "The material is deleted from the HungerStation material list.",
+      "subtypeMissing": "No subtype, and no default discount.",
+      "percentOutOfRange": "A percentage must be from 1 to 100.",
+      "valueNotPositive": "The value must be more than 0.",
+      "valueTooManyDecimals": "The value has more than 3 decimals.",
+      "buyBelowOne": "The buy quantity must be at least 1.",
+      "getBelowOne": "The get quantity must be at least 1.",
+      "maxQuantityMixed": "Its max quantity differs from the first row of its part: a part takes one max quantity."
     },
     "partsTitle": "Sent to HungerStation as",
     "partsCount_one": "One HungerStation promotion, <n>{{n}}</n> part.",
     "partsCount_other": "<n>{{n}}</n> separate HungerStation promotions, one per combination of buy, get and discount.",
-    "partsHint": "HungerStation takes one buy/get and one discount per promotion, so the server splits the sheet. You never split it by hand.",
+    "partsHint": "HungerStation takes one buy/get and one discount per promotion, so each combination is sent as a part of its own. You never group the rows by hand.",
     "partColumns": {
       "combination": "Combination",
       "skus": "SKUs",
       "name": "Name on HungerStation"
     },
-    "editIntro": "Check runs every pre-check on the edit as typed and says what changes on HungerStation. Nothing is written. Save and re-send runs it again first.",
-    "editNeedsChange": "Change something first: Check reads the edit.",
-    "editClean": "Nothing refuses. The edit can be re-sent.",
-    "editBlocked": "A check refuses: fix it and check again.",
-    "changes": {
-      "title": "What changes on HungerStation",
-      "none": "Nothing changes on HungerStation.",
-      "calls_one": "<n>{{n}}</n> part is sent to HungerStation.",
-      "calls_other": "<n>{{n}}</n> parts are sent to HungerStation.",
-      "columns": {
-        "change": "Change",
-        "name": "Name on HungerStation",
-        "combination": "Combination",
-        "skus": "SKUs after",
-        "leaving": "Leaving",
-        "joining": "Joining"
-      },
-      "kinds": {
-        "new": "New part",
-        "updated": "Re-sent",
-        "switchedOff": "Switched off",
-        "unchanged": "Unchanged"
-      },
-      "allItems": "All items",
-      "unchanged_one": "<n>{{n}}</n> part does not change and is not re-sent.",
-      "unchanged_other": "<n>{{n}}</n> parts do not change and are not re-sent.",
-      "switchedOffHint": "A part the edit leaves with no item is switched off on HungerStation.",
-      "moved": "<m>{{material}}</m> moves from <from>{{from}}</from> to <to>{{to}}</to>.",
-      "left": "<m>{{material}}</m> leaves <from>{{from}}</from>: it goes out inactive there.",
-      "joined": "<m>{{material}}</m> joins <to>{{to}}</to>.",
-      "more_one": "<n>{{n}}</n> more.",
-      "more_other": "<n>{{n}}</n> more."
-    }
+    "editChecks": "Check reads the promotion as saved. An edit is checked when it is saved and re-sent: a refusal names its rows and fields, and nothing is sent."
   },
   "import": {
     "title": "Paste the strikethrough items",
@@ -423,7 +397,7 @@
     "headerSkipped": "The first line was read as a header and skipped: <header>{{header}}</header>",
     "repeats_one": "<n>{{n}}</n> repeated material: its last row is kept.",
     "repeats_other": "<n>{{n}}</n> repeated materials: each keeps its last row.",
-    "overCap": "<n>{{n}}</n> materials is more than HungerStation takes in one promotion (<max>{{max}}</max>). Split the sheet.",
+    "overCap": "<n>{{n}}</n> materials is more than HungerStation takes in one promotion (<max>{{max}}</max>). Paste fewer.",
     "file": "Pick a .tsv or .txt file",
     "fileChosen": "Read from <name>{{name}}</name>",
     "paste": "Or paste the rows (straight from Excel)",
@@ -464,7 +438,7 @@
       }
     },
     "bundleTitle": "Paste the buy / get items",
-    "bundleFormat": "One material per line, its columns separated by tabs as Excel copies them: material, buy, get, subtype (PERCENTAGE, ABSOLUTE or FINAL_PRICE), value, max quantity. A blank cell takes the default. Buy one get one free is 1, 1, PERCENTAGE, 100. A header row is skipped. Rows with different buy/get or discount are sent as separate HungerStation promotions.",
+    "bundleFormat": "One material per line, its columns separated by tabs as Excel copies them: material, buy, get, subtype (PERCENTAGE, ABSOLUTE or FINAL_PRICE), value, max quantity. Buy and get are each row’s own; a blank subtype or value takes the default discount. Buy one get one free is 1, 1, PERCENTAGE, 100. A header row is skipped. Rows with different buy/get or discount are sent as separate HungerStation promotions.",
     "bundleSplit": "Rows with different buy/get or discount are sent as separate HungerStation promotions."
   },
   "parts": {
@@ -482,17 +456,22 @@
     "nameRequired": "Enter a name.",
     "unchanged": "Change the name, the stores, the start or the end to replace it. Items and values are edited in place.",
     "confirm": "Replace",
-    "refused": "HungerStation refused to switch off <part>{{part}}</part>.",
-    "refusedNoPart": "HungerStation refused to switch off a part.",
+    "refusedNoPart": "HungerStation refused to switch off a part of this promotion.",
     "refusedUnchanged": "Nothing new was sent, and this promotion is unchanged.",
     "done": "Promotion replaced",
     "doneDetail": "{{name}} is sending to HungerStation; the promotion it replaces reads Replaced."
   },
   "switchOff": {
     "title": "Switch off the promotion",
-    "note": "Switches off every part of <name>{{name}}</name> on HungerStation at once. Nothing is deleted: the promotion, its items and its sends stay here, and it reads Switched off.",
+    "note": "Switches off every part of <name>{{name}}</name> on HungerStation at once. Nothing is deleted: the promotion, its items and its sends stay here. It reads Sending until HungerStation has switched off every part, then Switched off.",
     "confirm": "Switch off",
     "done": "Promotion switched off",
-    "doneDetail": "{{name}} is switched off on HungerStation."
+    "doneDetail": "{{name}} is being switched off on HungerStation.",
+    "retryNote": "A switch-off of <name>{{name}}</name> did not take on HungerStation, so a part is still on it. Switching off again retries exactly the parts still on.",
+    "partly": "Not every part was switched off; the others were. Switch off again tries the parts still on HungerStation."
+  },
+  "units": {
+    "PERCENTAGE": "{{value}}%",
+    "SAR": "{{value}} SAR"
   }
 }

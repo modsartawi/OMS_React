@@ -1,7 +1,7 @@
 /**
  * Ticket 668 — a same-item bundle's items, pasted from Excel or read from a `.tsv` / `.txt`, by the
- * spec 3201 column spec `Material, Buy, Get, Subtype, Value, MaxQty`. A blank cell takes the
- * header default; buy and get are whole numbers of at least 1.
+ * spec 3201 column spec `Material, Buy, Get, Subtype, Value, MaxQty`. A blank subtype / value
+ * takes the header default (there is none for buy / get); buy and get are whole numbers of at least 1.
  */
 import { describe, expect, it } from 'vitest'
 import { BUNDLE_COLUMNS, readBundle, rowCombination } from './bundle-columns'
@@ -27,20 +27,15 @@ describe('readBundle', () => {
     ])
   })
 
-  it('a blank cell reads as the header default on screen', () => {
+  // Reconciled to the contract (2026-10-29): only the subtype and value have a promotion default;
+  // a blank buy / get stays blank (the checks report buyBelowOne / getBelowOne).
+  it('a blank subtype or value reads as the header default on screen; a blank buy / get stays blank', () => {
     const read = readBundle(tsv(['201001', '', '', '', '', ''], ['201003', '3', '', 'ABSOLUTE', '', '']))
-    const defaults = { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50 }
+    const defaults = { subtype: 'PERCENTAGE' as const, value: 50 }
     expect(read.items.map((i) => rowCombination(i, defaults))).toEqual([
-      { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE', value: 50 },
-      { buyQuantity: 3, getQuantity: 1, subtype: 'ABSOLUTE', value: 50 },
+      { buyQuantity: null, getQuantity: null, subtype: 'PERCENTAGE', value: 50 },
+      { buyQuantity: 3, getQuantity: null, subtype: 'ABSOLUTE', value: 50 },
     ])
-    // No default either: still blank.
-    expect(rowCombination(read.items[0], { buyQuantity: null, getQuantity: null, subtype: 'PERCENTAGE', value: null })).toEqual({
-      buyQuantity: null,
-      getQuantity: null,
-      subtype: 'PERCENTAGE',
-      value: null,
-    })
   })
 
   it('buy-one-get-one-free reads as 1, 1, PERCENTAGE, 100', () => {

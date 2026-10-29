@@ -1,11 +1,11 @@
 /**
- * Ticket 669 — what HungerStation refused in a part's answer (BackOffice spec 3201 / 3214), grouped
+ * Ticket 669 (reconciled to the BackOffice 3201 door contract, 2026-10-29) — what HungerStation refused in a part's answer (BackOffice spec 3201 / 3214), grouped
  * per store and counted; a part with nothing refused (or no final answer yet) has no section. And
  * when a part reads as Sending, so Resend waits and the detail re-reads itself.
  */
 import { describe, expect, it } from 'vitest'
-import type { HungerStationPromotionPart, HungerStationPromotionRefusals } from '@/core/models/hungerstation'
-import { partSending, PROMOTION_POLL_MS, promotionPollInterval, refusalsByStore, refusalsCopyText, refusalsForStore } from './part-refusals'
+import type { HungerStationPromotionPart, HungerStationPromotionRefusals, HungerStationPromotionSend } from '@/core/models/hungerstation'
+import { partSending, partUnanswered, PROMOTION_POLL_MS, promotionPollInterval, refusalsByStore, refusalsCopyText, refusalsForStore, sendUnanswered } from './part-refusals'
 
 const REFUSALS: HungerStationPromotionRefusals = {
   invalidVendors: [
@@ -13,17 +13,17 @@ const REFUSALS: HungerStationPromotionRefusals = {
     { storeCode: null, vendorId: 'hs-00009' },
   ],
   missingSkus: [
-    { storeCode: '1002', vendorId: 'v-1002', skus: [{ sku: 'SKU-201002', materialNumber: '201002' }] },
+    { storeCode: '1002', vendorId: 'v-1002', items: [{ sku: 'SKU-201002', materialNumber: '201002' }] },
     {
       storeCode: '1001',
       vendorId: 'v-1001',
-      skus: [
+      items: [
         { sku: 'SKU-201001', materialNumber: '201001' },
         { sku: 'HS-ORPHAN', materialNumber: null },
       ],
     },
   ],
-  invalidDiscountedSkus: [{ storeCode: '1001', vendorId: 'v-1001', skus: [{ sku: 'SKU-201002', materialNumber: '201002' }] }],
+  invalidDiscountedSkus: [{ storeCode: '1001', vendorId: 'v-1001', items: [{ sku: 'SKU-201002', materialNumber: '201002' }] }],
 }
 
 describe('refusalsByStore', () => {
@@ -43,7 +43,7 @@ describe('refusalsByStore', () => {
 
   it('has no section when HungerStation refused nothing, or has not answered finally yet', () => {
     expect(refusalsByStore({ invalidVendors: [], missingSkus: [], invalidDiscountedSkus: [] })).toBeNull()
-    expect(refusalsByStore({ invalidVendors: [], missingSkus: [{ storeCode: '1001', vendorId: 'v-1001', skus: [] }], invalidDiscountedSkus: [] })).toBeNull()
+    expect(refusalsByStore({ invalidVendors: [], missingSkus: [{ storeCode: '1001', vendorId: 'v-1001', items: [] }], invalidDiscountedSkus: [] })).toBeNull()
     expect(refusalsByStore(null)).toBeNull()
   })
 
@@ -51,8 +51,8 @@ describe('refusalsByStore', () => {
     const g = refusalsByStore({
       invalidVendors: [],
       missingSkus: [
-        { storeCode: '1001', vendorId: 'v-1001', skus: [{ sku: 'A', materialNumber: '1' }] },
-        { storeCode: '1001', vendorId: 'v-1001', skus: [{ sku: 'B', materialNumber: '2' }] },
+        { storeCode: '1001', vendorId: 'v-1001', items: [{ sku: 'A', materialNumber: '1' }] },
+        { storeCode: '1001', vendorId: 'v-1001', items: [{ sku: 'B', materialNumber: '2' }] },
       ],
       invalidDiscountedSkus: [],
     })
@@ -80,31 +80,68 @@ describe('refusalsForStore + refusalsCopyText', () => {
 
 const part = (over: Partial<HungerStationPromotionPart>): HungerStationPromotionPart => ({
   partId: 'pt',
+  partNo: 1,
   name: 'n',
+  combination: 'ALL',
   active: true,
-  skuCount: 1,
-  latestJobStatus: 'COMPLETED',
-  unanswered: false,
+  status: 'live',
   refusals: null,
-  buyQuantity: null,
-  getQuantity: null,
-  subtype: null,
-  value: null,
   ...over,
 })
+const send = (partId: string, jobStatus: string | null, error: string | null = null) =>
+  ({ sendId: `s-${partId}-${jobStatus}`, partId, jobStatus, error }) as HungerStationPromotionSend
 
-describe('partSending + promotionPollInterval', () => {
-  it('a part is Sending while its latest job is QUEUED and not yet past 24 hours', () => {
-    expect(partSending(part({ latestJobStatus: 'QUEUED' }))).toBe(true)
-    expect(partSending(part({ latestJobStatus: 'QUEUED', unanswered: true }))).toBe(false)
-    expect(partSending(part({ latestJobStatus: 'COMPLETED' }))).toBe(false)
-    expect(partSending(part({ latestJobStatus: null }))).toBe(false)
+describe('a SKU refusal that names no vendor (a plain SKU list) — contract 3214', () => {
+  it('is one "unresolved" store, after every store', () => {
+    const g = refusalsByStore({ invalidVendors: [], missingSkus: [{ storeCode: null, vendorId: null, items: [{ sku: 'X', materialNumber: '1' }] }, { storeCode: '1001', vendorId: 'v', items: [{ sku: 'Y', materialNumber: '2' }] }], invalidDiscountedSkus: [] })
+    expect(g?.stores.map((s) => [s.key, s.storeCode, s.vendorId])).toEqual([
+      ['1001', '1001', 'v'],
+      ['unresolved', null, null],
+    ])
+    expect(refusalsCopyText(g!.stores, 'missingSkus')).toBe('1001\tv\t2\tY\n\t\t1\tX')
+  })
+})
+
+describe('partSending + promotionPollInterval (reconciled to the contract: the part and promotion STATUS)', () => {
+  it('a part is Sending exactly when it reads sending', () => {
+    expect(partSending(part({ status: 'sending' }))).toBe(true)
+    // Unanswered for 24 hours: the server reads it Failed (so it can be resent).
+    expect(partSending(part({ status: 'failed' }))).toBe(false)
+    expect(partSending(part({ status: 'live' }))).toBe(false)
+    expect(partSending(part({ status: null }))).toBe(false)
   })
 
   it('the detail re-reads every 15 s while any part is Sending, and not otherwise', () => {
     expect(PROMOTION_POLL_MS).toBe(15000)
-    expect(promotionPollInterval({ parts: [part({}), part({ latestJobStatus: 'QUEUED' })] })).toBe(15000)
-    expect(promotionPollInterval({ parts: [part({}), part({ latestJobStatus: 'QUEUED', unanswered: true })] })).toBe(false)
+    expect(promotionPollInterval({ status: 'live', parts: [part({}), part({ status: 'sending' })] })).toBe(15000)
+    expect(promotionPollInterval({ status: 'failed', parts: [part({ status: 'failed' })] })).toBe(false)
     expect(promotionPollInterval(undefined)).toBe(false)
+  })
+
+  // Review B3: a promotion reading Sending with no part that does (a job IN_PROGRESS, a switch-off
+  // still open, a roll-up ahead of its parts) locked every write and was never re-read.
+  it('a promotion that reads Sending is re-read, whatever its parts say', () => {
+    expect(promotionPollInterval({ status: 'sending', parts: [part({ status: 'live' })] })).toBe(15000)
+    expect(promotionPollInterval({ status: 'sending', parts: [] })).toBe(15000)
+  })
+})
+
+describe('partUnanswered — the 24-hour part (contract 3214: it reads Failed, its job still QUEUED)', () => {
+  const detail = (status: HungerStationPromotionPart['status'], sends: HungerStationPromotionSend[]) => ({ parts: [part({ partId: 'a', status })], sends })
+
+  it('a failed part whose LATEST send is still QUEUED is unanswered', () => {
+    expect(partUnanswered(detail('failed', [send('a', 'COMPLETED'), send('a', 'QUEUED')]), 'a')).toBe(true)
+  })
+
+  it('a refused part (latest FAILED), a Sending one (still polled), or an older QUEUED send is not', () => {
+    expect(partUnanswered(detail('failed', [send('a', 'QUEUED'), send('a', 'FAILED')]), 'a')).toBe(false)
+    expect(partUnanswered(detail('sending', [send('a', 'QUEUED')]), 'a')).toBe(false)
+    expect(partUnanswered(detail('failed', []), 'a')).toBe(false)
+  })
+
+  it('sendUnanswered marks only that latest send', () => {
+    const sends = [send('a', 'QUEUED'), send('a', 'QUEUED', 'HungerStation has not answered this job in 24 hours')]
+    const d = detail('failed', sends)
+    expect(sends.map((s) => sendUnanswered(d, s))).toEqual([false, true])
   })
 })

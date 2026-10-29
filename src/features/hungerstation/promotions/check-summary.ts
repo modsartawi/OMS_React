@@ -1,29 +1,27 @@
 import type { TFunction } from 'i18next'
-import { apiErrorCode, apiErrorData } from '@/core/api'
+import { apiErrorCode } from '@/core/api'
 import {
   HUNGERSTATION_PROMOTION_CHECK_FIELDS,
   HUNGERSTATION_PROMOTION_ERRORS,
   HUNGERSTATION_PROMOTION_MAX_SKUS,
-  type HungerStationPromotionCheckResult,
-  type HungerStationDiscountSubtype,
-  type HungerStationPromotionFieldProblem,
-  type HungerStationPromotionPartChange,
+  HUNGERSTATION_PROMOTION_PRICE_WARNING,
+  type HungerStationPromotionCheck,
+  type HungerStationPromotionCheckIssue,
   type HungerStationPromotionPartPreview,
-  type HungerStationPromotionProblem,
 } from '@/core/models/hungerstation'
-import { fsi } from '@/core/util/bidi'
+import { fsi, stripIsolates } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
-import { editChanges, type EditChangeSummary } from './edit-changes'
 
 /**
- * The Check panel's reading of a Check answer (ticket 667, BackOffice 3212) — pure. One shape for
- * both the `Check` door and a Send refused for its checks (DHS-00018), whose `data` is that same
- * answer (666's assumption). 🚩 Provisional until the contract's Check section lands.
+ * The Check panel's reading of a Check answer (ticket 667; BackOffice 3212, reconciled to the door
+ * contract 2026-10-29) — pure. The answer of the `Check` door, and the `check` key of a Save's
+ * answer, are the same shape. A refused Send (DHS-00018 / 00019) carries only its message: the
+ * page re-runs Check for the per-row detail.
  */
 
 /** One item row, as the panel and the preview grid show it. */
 export interface CheckedRow {
-  refusals: HungerStationPromotionProblem[]
+  refusals: HungerStationPromotionCheckIssue[]
   /** The stores where HungerStation will refuse this material (a warning: never blocks Send). */
   warningStores: string[]
 }
@@ -35,128 +33,74 @@ export interface CheckSummary {
   warnings: number
   /** Rows with at least one refusal. */
   refusedRows: number
-  /** Send waits while any refusal stands — or while the server says it is not sendable. */
+  /** Send waits while any refusal stands — or while the server says it cannot send. */
   blocksSend: boolean
-  /** Header refusals by field, in the order the server named them. */
-  header: Map<string, HungerStationPromotionProblem[]>
+  /** Header refusals (`rowNo` null) by field, in the order the server named them. */
+  header: Map<string, HungerStationPromotionCheckIssue[]>
   /** Rows with a refusal or a warning, by our material number. */
   rows: Map<string, CheckedRow>
-  /** 668: the HungerStation promotion parts it will be sent as — the SERVER's split, in its order
+  /** 668: the HungerStation promotion parts it will be sent as — the SERVER's plan, in send order
    *  (a strikethrough is one part). The page never computes them. */
   parts: HungerStationPromotionPartPreview[]
-  /** Every SKU it will send, over its parts. */
-  skuCount: number
-  /** 670: what an in-place edit changes on HungerStation; `null` for a draft's check. */
-  changes: EditChangeSummary | null
+  /** The active item rows checked. */
+  itemCount: number
 }
 
-export function checkSummary(result: HungerStationPromotionCheckResult): CheckSummary {
-  const header = new Map<string, HungerStationPromotionProblem[]>()
-  for (const { field, code, message } of result.header) header.set(field, [...(header.get(field) ?? []), { code, message }])
+const isRow = (i: HungerStationPromotionCheckIssue): i is HungerStationPromotionCheckIssue & { materialNumber: string } => i.materialNumber !== null
+
+export function checkSummary(c: HungerStationPromotionCheck): CheckSummary {
+  const header = new Map<string, HungerStationPromotionCheckIssue[]>()
   const rows = new Map<string, CheckedRow>()
-  for (const r of result.rows) {
-    const prev = rows.get(r.materialNumber) ?? { refusals: [], warningStores: [] }
-    rows.set(r.materialNumber, {
-      refusals: [...prev.refusals, ...r.refusals],
-      warningStores: [...prev.warningStores, ...(r.priceWarning?.storeCodes ?? []).filter((c) => !prev.warningStores.includes(c))],
-    })
+  const rowOf = (m: string) => {
+    let r = rows.get(m)
+    if (!r) rows.set(m, (r = { refusals: [], warningStores: [] }))
+    return r
+  }
+  for (const i of c.refusals) {
+    if (isRow(i)) rowOf(i.materialNumber).refusals.push(i)
+    else header.set(i.field, [...(header.get(i.field) ?? []), i])
+  }
+  for (const w of c.warnings) {
+    if (w.code !== HUNGERSTATION_PROMOTION_PRICE_WARNING || !isRow(w)) continue
+    const r = rowOf(w.materialNumber)
+    for (const s of w.storeCodes) if (!r.warningStores.includes(s)) r.warningStores.push(s)
   }
   const all = [...rows.values()]
-  const refusals = result.header.length + all.reduce((n, r) => n + r.refusals.length, 0)
   return {
-    refusals,
+    refusals: c.refusals.length,
     warnings: all.filter((r) => r.warningStores.length > 0).length,
     refusedRows: all.filter((r) => r.refusals.length > 0).length,
-    blocksSend: refusals > 0 || !result.sendable,
+    blocksSend: c.refusals.length > 0 || !c.canSend,
     header,
     rows,
-    parts: result.parts ?? [],
-    skuCount: result.skuCount,
-    changes: Array.isArray(result.changes) ? editChanges(result.changes) : null,
+    parts: c.parts ?? [],
+    itemCount: c.itemCount,
   }
 }
 
-const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v))
-const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
-const problem = (p: unknown): HungerStationPromotionProblem => ({
-  code: str((p as { code?: unknown })?.code),
-  message: str((p as { message?: unknown })?.message),
-})
-
-const SUBTYPES: readonly HungerStationDiscountSubtype[] = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE']
-const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
-
-/** A part of the preview, read defensively: one with no name or SKU count is dropped; a
- *  combination field it cannot read is `null`. */
-const partPreview = (p: unknown): HungerStationPromotionPartPreview[] => {
-  const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>
-  if (typeof o.name !== 'string' || typeof o.skuCount !== 'number') return []
-  return [
-    {
-      name: o.name,
-      skuCount: o.skuCount,
-      buyQuantity: num(o.buyQuantity),
-      getQuantity: num(o.getQuantity),
-      subtype: SUBTYPES.find((s) => s === o.subtype) ?? null,
-      value: num(o.value),
-    },
-  ]
+/** A Send, or an in-place edit, refused for its checks (DHS-00018, or DHS-00019 for the name). */
+export const checkRefused = (err: unknown): boolean => {
+  const code = apiErrorCode(err)
+  return code === HUNGERSTATION_PROMOTION_ERRORS.checkFailed || code === HUNGERSTATION_PROMOTION_ERRORS.nameInUse
 }
 
-const CHANGE_KINDS: readonly HungerStationPromotionPartChange['change'][] = ['new', 'updated', 'switchedOff', 'unchanged']
-const strings = (v: unknown) => list(v).filter((x): x is string => typeof x === 'string')
-
-/** 670: one part's change, read defensively: one with no name, no SKU count or an unknown kind is
- *  dropped. */
-const partChange = (p: unknown): HungerStationPromotionPartChange[] => {
-  const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>
-  const change = CHANGE_KINDS.find((k) => k === o.change)
-  if (typeof o.name !== 'string' || typeof o.skuCount !== 'number' || !change) return []
-  return [
-    {
-      buyQuantity: num(o.buyQuantity),
-      getQuantity: num(o.getQuantity),
-      subtype: SUBTYPES.find((s) => s === o.subtype) ?? null,
-      value: num(o.value),
-      partId: typeof o.partId === 'string' ? o.partId : null,
-      name: o.name,
-      change,
-      skuCount: o.skuCount,
-      leaving: strings(o.leaving),
-      joining: strings(o.joining),
-    },
-  ]
+/** A check issue in our words; a code we do not know in the server's. Its machine values are
+ *  isolated with `fsi`: a sentence sink — a grid cell takes `checkCellText`. */
+export function problemWords(t: TFunction<'hungerstation-promotions'>, p: Pick<HungerStationPromotionCheckIssue, 'code' | 'message' | 'storeCodes'>): string {
+  if (!p.code) return p.message
+  return t(`check.codes.${p.code}`, {
+    defaultValue: p.message,
+    max: fsi(figure(HUNGERSTATION_PROMOTION_MAX_SKUS)),
+    stores: fsi((p.storeCodes ?? []).join(', ')),
+  })
 }
 
-/** The Check answer a Send refused for its checks (DHS-00018) carries, or `null` for any other
- *  failure or a body that is not an object. Read defensively: what it cannot read is nothing. */
-export function checkOfRefusal(err: unknown): HungerStationPromotionCheckResult | null {
-  if (apiErrorCode(err) !== HUNGERSTATION_PROMOTION_ERRORS.checkFailed) return null
-  const d = apiErrorData(err)
-  if (typeof d !== 'object' || d === null || Array.isArray(d)) return null
-  const o = d as Record<string, unknown>
-  return {
-    // A refused Send is never sendable, whatever the body says.
-    sendable: false,
-    header: list(o.header)
-      .filter((h) => typeof (h as { field?: unknown })?.field === 'string')
-      .map((h): HungerStationPromotionFieldProblem => ({ field: (h as { field: string }).field, ...problem(h) })),
-    rows: list(o.rows)
-      .filter((r) => typeof (r as { materialNumber?: unknown })?.materialNumber === 'string')
-      .map((r) => {
-        const row = r as { materialNumber: string; refusals?: unknown; priceWarning?: { storeCodes?: unknown } | null }
-        const stores = list(row.priceWarning?.storeCodes).filter((c): c is string => typeof c === 'string')
-        return { materialNumber: row.materialNumber, refusals: list(row.refusals).map(problem), priceWarning: row.priceWarning ? { storeCodes: stores } : null }
-      }),
-    parts: list(o.parts).flatMap(partPreview),
-    skuCount: typeof o.skuCount === 'number' ? o.skuCount : 0,
-    changes: Array.isArray(o.changes) ? o.changes.flatMap(partChange) : null,
-  }
-}
-
-/** A check problem in our words; a code we do not know in the server's. */
-export function problemWords(t: TFunction<'hungerstation-promotions'>, p: HungerStationPromotionProblem): string {
-  return p.code ? t(`check.codes.${p.code}`, { defaultValue: p.message, max: fsi(figure(HUNGERSTATION_PROMOTION_MAX_SKUS)) }) : p.message
+/** The preview grid's Check cell: the row's refusals in words, else its price warning counted.
+ *  NO isolate characters — they would reach Ctrl+C; the grid base isolates the cell. */
+export function checkCellText(t: TFunction<'hungerstation-promotions'>, r: CheckedRow | null): string {
+  if (!r) return ''
+  if (r.refusals.length) return stripIsolates(r.refusals.map((p) => problemWords(t, p)).join(' '))
+  return r.warningStores.length ? t('check.warningCell', { count: r.warningStores.length, n: figure(r.warningStores.length) }) : ''
 }
 
 export const knownField = (f: string): f is (typeof HUNGERSTATION_PROMOTION_CHECK_FIELDS)[number] =>

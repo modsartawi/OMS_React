@@ -92,3 +92,10 @@ None for building against stubs. The contract asset arrives with BackOffice 3211
     `Chains`, which rides `canManageStores` — a promotions-only user gets the chains seen on rows;
     666's chain picker needs a door its own grant can read.
 
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - List row: `itemCount`, `updatedAt` / `updatedBy`, `sentAt` (was `skuCount`, `lastSentAt` / `lastSentBy`); columns follow. `take` 50, at most 200 (was 100/500); paging now steps by 50.
+  - Detail: `replacesPromotionId` / `replacedByPromotionId`, `currencyKey`; a part is `partNo`, `combination` (`"ALL"` / `"B2G1|PERCENTAGE|50"`, parsed for the buy/get and discount columns), its own `status`, `refusals`; its SKU count is now counted from its active items. A send is `kind` `UPSERT` / `SWITCH_OFF`, `attempts` / `lastAttemptAt`, raw `result`; an item `rowNo`, `subtype` / `value` nullable (as entered); a draft's times may be `null`.
+  - **Decision (overrulable): no type filter.** The contract's list door takes no `type`; the Type select is gone and a `type=` URL key is ignored. If the owner wants it, it is a BackOffice ask (`GET Promotions?type=`).
+  - **Decision (overrulable): ONE status.** The door takes one `status` (`any` the default): the chips are single-select with an "Any status" chip; an older link with several `status=` keeps the first it names. EN word kept: "Live with refusals".
+  - The job status is OPEN (an unlisted one such as `IN_PROGRESS` is shown as sent, in motion). The write lock and the light poll follow the PROMOTION's status `sending` (review B3) — not "some part QUEUED".
+  - Review C4: `core/hungerstation/access.ts` says four flags.

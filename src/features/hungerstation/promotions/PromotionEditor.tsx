@@ -2,12 +2,10 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef } from 'ag-grid-community'
 import { ClipboardPaste, Loader2, Repeat, Save, Send } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
-import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { fieldRefusal } from '@/core/hungerstation/reason'
 import ReasonDialog, { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
@@ -16,10 +14,8 @@ import {
   HUNGERSTATION_ERRORS,
   HUNGERSTATION_PROMOTION_ERRORS,
   HUNGERSTATION_PROMOTION_MAX_SKUS,
-  type HungerStationPromotionCheckResult,
+  type HungerStationPromotionCheck,
   type HungerStationPromotionDetail,
-  type HungerStationPromotionItemInput,
-  type HungerStationPromotionStoreChoice,
 } from '@/core/models/hungerstation'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
@@ -30,50 +26,53 @@ import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
-import StatusBadge from '@/core/ui/StatusBadge'
-import { formatCount, fsi, stripIsolates } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi, promotionStoresKey } from './api'
 import { PromotionStatusBadge } from './columns'
 import { pickEndDay, windowProblem, type LocalWindow } from './local-window'
-import { discountText } from './promotion-display'
-import { DISCOUNT_SUBTYPES, HS_REASONS, emptyForm, formFromDetail, formProblems, saveBody, toggleStore, type FormField, type PromotionForm } from './promotion-form'
+import { emptyForm, formFromDetail, formProblems, saveBody, type FormField, type PromotionForm } from './promotion-form'
 import CheckPanel from './CheckPanel'
-import { checkOfRefusal, checkSummary, fieldWords, problemWords, type CheckedRow } from './check-summary'
+import { checkRefused, checkSummary, fieldWords } from './check-summary'
 import { itemOf, readStrikethrough, STRIKETHROUGH_COLUMNS, type ItemSheetRead, type StrikethroughColumn } from './strikethrough-columns'
-import { BUNDLE_COLUMNS, bundleItemOf, readBundle, rowCombination, type BundleColumn } from './bundle-columns'
-import { partLabel } from './part-label'
-import { editCheckBody, editMode, lockOf, type EditField } from './promotion-edit'
-import { PROMOTION_TYPES } from './promotions-query'
+import { BUNDLE_COLUMNS, bundleItemOf, readBundle, type BundleColumn } from './bundle-columns'
+import { editorItemColumns, ITEM_COL_DEF, rowKind, type ItemRow } from './editor-columns'
+import EditorStores from './EditorStores'
+import { editMode, lockOf, type EditField } from './promotion-edit'
+import { DISCOUNT_SUBTYPES, HS_REASONS, PROMOTION_TYPES } from './promotion-words'
+
+/** After these the promotion the editor holds is no longer what the server has: re-read it (the
+ *  editor then locks behind it). DHS-00017 — it or a part is Sending; HungerStationPromotionSent —
+ *  it was sent, switched off or replaced meanwhile. */
+const STALE: readonly (string | null)[] = [HUNGERSTATION_PROMOTION_ERRORS.sending, HUNGERSTATION_PROMOTION_ERRORS.promotionSent]
 
 /**
- * The **promotion editor** (ticket 666 strikethrough, 668 same-item bundle; BackOffice spec 3201 / 3211 / 3213), on `?edit=new`
- * or `?edit=<promotionId>`. The chain comes first; the stores and materials that follow are that
- * chain's. Then the header (name, EN + AR display names, HungerStation reason, limits, the Saudi
- * local window, the default discount), the stores picker (every HungerStation store of the chain
- * ticked by default — frozen when sent) and the items, pasted from Excel through the core import
- * dialog with the strikethrough column spec.
+ * The **promotion editor** (ticket 666 strikethrough, 668 same-item bundle; BackOffice spec 3201 /
+ * 3211 / 3213, reconciled to the door contract 2026-10-29), on `?edit=new` or `?edit=<promotionId>`.
+ * The chain comes first; the stores and materials that follow are that chain's. Then the header
+ * (name, EN + AR display names, HungerStation reason, limits, the Saudi local window, the default
+ * discount), the stores picker (every HungerStation store of the chain ticked by default — frozen
+ * when sent) and the items, pasted from Excel through the core import dialog.
  *
- * **Save draft** (create, then update) any number of times — nothing reaches HungerStation.
- * **Send** with a reason, once the draft is saved as it reads; the promotion then reads Sending and
- * the editor hands over to the detail. A promotion that is not a draft is shown, never edited here
- * (a live one's edits are 670's). Every write carries a reason (DHS-00008, inline).
+ * **Save draft** (create, then update) any number of times — nothing reaches HungerStation; the
+ * save's answer carries its Check. **Send** with a reason, once the draft is saved as it reads; it
+ * runs Check first and opens only on a clean answer. A Send refused by a check (DHS-00018 / 19)
+ * carries only a message, so Check runs again for the rows. Every write carries a reason
+ * (DHS-00008, inline).
  *
- * **Same-item bundle** (668): each row carries its own buy, get, subtype and value (a blank cell the
- * header default). The SERVER splits it into one HungerStation promotion part per combination
- * (3213); the Check panel shows the parts it answered, and Send then reads "Send N promotions to M
- * stores". The page never groups the rows itself.
+ * **Same-item bundle** (668): each row carries its own buy and get (there is no promotion default)
+ * and its subtype and value (a blank one the header default). The SERVER plans one HungerStation
+ * promotion part per combination (3213); the Check panel shows the parts it answered, and Send then
+ * reads "Send N promotions to M stores".
  *
  * **A sent promotion** (670, BackOffice 3215) is edited IN PLACE while it runs: items (paste again),
  * values, max quantities, limits, display names, the defaults. The name, stores, start and end are
- * its HungerStation identity and are locked; each says that changing it replaces the promotion and
- * points to **Replace** (671's dialog, wired through `onReplace`). Before anything goes, **Check**
- * previews the edit (it rides as the Check body) and says what changes on HungerStation: items
- * leaving a part, a new part, a part switched off because it is left empty. **Save and re-send**
- * runs that check first, then takes a reason; the detail then takes over (Sending). Nothing is
- * edited while any part is Sending.
+ * its HungerStation identity and are locked, each pointing to **Replace** (`onReplace`). The
+ * contract's Check reads the saved promotion only, so the edit is not previewed: **Save and
+ * re-send** takes a reason and the PUT runs every check (a refusal names its rows, nothing is sent).
+ * Nothing is edited while it reads Sending.
  *
- * 🚩 The doors are not built (BackOffice 3211 / 3213 / 3215): proven against stubs only.
+ * 🚩 Proven against stubs only: no live SIS.Api call.
  */
 export default function PromotionEditor({
   promotionId,
@@ -149,18 +148,6 @@ export default function PromotionEditor({
   )
 }
 
-/** An item row of the preview grid with its Check answer ON the row: a new answer is new row data,
- *  which AG Grid redraws (a value getter reading outside state would keep the old cell). */
-type ItemRow = HungerStationPromotionItemInput & { check: CheckedRow | null }
-
-const ITEM_COL_DEF: ColDef<ItemRow> = { ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true, suppressHeaderMenuButton: true }
-
-/** How the Check marks an item row: refused, warned (a price warning only), or not at all. */
-function rowKind(data: ItemRow | undefined): 'refused' | 'warned' | null {
-  const r = data?.check
-  return !r ? null : r.refusals.length ? 'refused' : r.warningStores.length ? 'warned' : null
-}
-
 function EditorBody({
   saved,
   chains,
@@ -184,25 +171,28 @@ function EditorBody({
   const [promotion, setPromotion] = useState(saved)
   const [chainText, setChainText] = useState(form.chainKey)
   const [dialog, setDialog] = useState<'items' | 'save' | 'send' | 'edit' | null>(null)
-  const [storeQ, setStoreQ] = useState('')
-  // 667: the latest Check answer for the SAVED promotion (the Check door's, or the one a refused
-  // Send carried), and the preview grid's refused-only filter.
-  const [checked, setChecked] = useState<HungerStationPromotionCheckResult | null>(null)
-  // 670: the form an in-place edit's Check answered for: the answer holds only for that form.
-  const [checkedFor, setCheckedFor] = useState<string | null>(null)
+  // 667: the latest Check answer for the SAVED promotion (the Check door's, or a save's `check`), and
+  // the preview grid's refused-only filter.
+  const [checked, setChecked] = useState<HungerStationPromotionCheck | null>(null)
   const [refusedOnly, setRefusedOnly] = useState(false)
+  // A Send a check refused: the Check below was run again for its rows.
+  const [rechecked, setRechecked] = useState(false)
 
   const set = <F extends keyof PromotionForm>(field: F, value: PromotionForm[F]) => setForm((f) => ({ ...f, [field]: value }))
   const setWindow = (w: LocalWindow) => set('window', w)
 
   // 🔑 A draft is edited whole; a sent promotion in place, its identity locked (670); nothing while
-  // any part is Sending; a closed one is only shown.
+  // it reads Sending; a closed one is only shown.
   const status = promotion?.status ?? 'draft'
   const mode = promotion ? editMode(promotion) : 'draft'
   const editable = mode === 'draft'
   const inPlace = mode === 'inPlace'
   const lock = (f: EditField) => lockOf(status, f)
   const formJson = JSON.stringify(form)
+  // Review B2: the form as it reads NOW, for a Check answer to compare against the form it was asked
+  // for — Send posts the SAVED version, so its dialog opens only while the form still is that version.
+  const formNow = useRef(formJson)
+  formNow.current = formJson
   const dirty = savedForm !== formJson
   const problems = formProblems(form, new Date())
   const bad = (f: FormField) => problems.includes(f)
@@ -214,14 +204,17 @@ function EditorBody({
     retry: false,
   })
   const storeChoices = useMemo(() => stores.data ?? [], [stores.data])
-  const storeCodes = useMemo(() => storeChoices.map((s) => s.storeCode), [storeChoices])
-
   const storeNames = useMemo(() => new Map(storeChoices.map((s) => [s.storeCode, s.storeName])), [storeChoices])
+  const tickedCount = form.stores === 'all' ? storeChoices.length : form.stores.length
 
   const settle = (answer: HungerStationPromotionDetail) => {
     qc.setQueryData(promotionKey(answer.promotionId), answer)
     void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY })
     setPromotion(answer)
+  }
+  /** The promotion changed on the server under this editor: read it again, and lock behind it. */
+  const reread = (err: unknown) => {
+    if (promotion && STALE.includes(apiErrorCode(err))) void promotionsApi.detail(promotion.promotionId).then(settle, () => undefined)
   }
 
   const save = useMutation({
@@ -234,25 +227,22 @@ function EditorBody({
       // The form stays as typed; it is now what the server holds.
       setSavedForm(JSON.stringify(form))
       setDialog(null)
-      // The check read the old version: check the saved one now (Save reports, never refuses). A
-      // new draft's editor re-mounts on its id and checks itself there.
-      setChecked(null)
-      if (promotion) check.mutate({ promotionId: answer.promotionId, thenSend: false })
-      else onSaved(answer.promotionId)
+      // Save never refuses on the checks: it REPORTS them as its `check`. A new draft's editor
+      // re-mounts on its id and checks itself there.
+      setChecked(answer.check ?? null)
+      setRechecked(false)
+      if (!promotion) onSaved(answer.promotionId)
     },
+    onError: reread,
   })
-  // 667: Check on demand, and before Send — only a clean answer opens the Send dialog. 670: on a
-  // sent promotion the edit rides as the body, and a clean answer before re-send opens its dialog.
+  // 667: Check on demand, and before Send — only a clean answer opens the Send dialog.
   const check = useMutation({
-    mutationFn: ({ promotionId, edit }: { promotionId: string; thenSend: boolean; edit?: { form: PromotionForm; json: string } }) =>
-      promotionsApi.check(promotionId, edit ? editCheckBody(edit.form) : undefined),
-    onSuccess: (answer, { thenSend, edit }) => {
+    mutationFn: ({ promotionId }: { promotionId: string; thenSend: boolean; form: string }) => promotionsApi.check(promotionId),
+    onSuccess: (answer, { thenSend, form: askedFor }) => {
       setChecked(answer)
-      setCheckedFor(edit?.json ?? null)
-      if (thenSend && !checkSummary(answer).blocksSend) setDialog(edit ? 'edit' : 'send')
+      if (thenSend && askedFor === formNow.current && !checkSummary(answer).blocksSend) setDialog('send')
     },
   })
-  const checkEdit = (thenSend: boolean) => check.mutate({ promotionId: promotion!.promotionId, thenSend, edit: { form, json: formJson } })
   // A saved draft opened here is checked at once — once (the ref survives StrictMode's re-run),
   // and by a plain call: a mutation fired from a mount effect is lost to StrictMode's re-subscribe.
   const checkedOnOpen = useRef(false)
@@ -277,14 +267,17 @@ function EditorBody({
       setDialog(null)
       onSent(answer.promotionId)
     },
-    // A Send refused for its checks (DHS-00018) carries the Check answer: the panel takes it.
+    // A Send refused for its checks carries only the message: run Check again for the rows.
     onError: (err) => {
-      const answer = checkOfRefusal(err)
-      if (answer) setChecked(answer)
+      if (checkRefused(err) && promotion) {
+        setRechecked(true)
+        check.mutate({ promotionId: promotion.promotionId, thenSend: false, form: formJson })
+      }
+      reread(err)
     },
   })
 
-  // 670: save and re-send the edit in place. The detail then takes over (it reads Sending).
+  // 670: save and re-send the edit in place. Every check runs in the PUT; the detail then takes over.
   const edit = useMutation({
     mutationFn: (reason: string) => promotionsApi.save(promotion!.promotionId, saveBody(form, reason)),
     onSuccess: (answer) => {
@@ -292,15 +285,7 @@ function EditorBody({
       setDialog(null)
       onSent(answer.promotionId)
     },
-    onError: (err) => {
-      // A part turned Sending meanwhile: re-read, so the editor locks behind the refusal.
-      if (apiErrorCode(err) === HUNGERSTATION_PROMOTION_ERRORS.sending) void promotionsApi.detail(promotion!.promotionId).then(settle, () => undefined)
-      const answer = checkOfRefusal(err)
-      if (answer) {
-        setChecked(answer)
-        setCheckedFor(formJson)
-      }
-    },
+    onError: reread,
   })
   // The server refuses an identity change here (DHS-00021): that is a Replace.
   const replaceRefusal = fieldRefusal(edit.error, [HUNGERSTATION_PROMOTION_ERRORS.needsReplace], t('editor.failedHint'))
@@ -309,9 +294,8 @@ function EditorBody({
   const chainRefusal =
     fieldRefusal(save.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint')) ??
     fieldRefusal(stores.error, [HUNGERSTATION_ERRORS.noSuchChain], t('editor.failedHint'))
-  // An in-place edit's answer holds only for the form it was asked for.
-  const answer = inPlace && checkedFor !== formJson ? null : checked
-  const summary = useMemo(() => (answer ? checkSummary(answer) : null), [answer])
+  // A draft's Check reads the SAVED promotion; an in-place edit has none (the PUT checks it).
+  const summary = useMemo(() => (checked && editable ? checkSummary(checked) : null), [checked, editable])
   const rowCheck = summary?.rows
   const showRefusedOnly = refusedOnly && (summary?.refusedRows ?? 0) > 0
   const shownItems = useMemo(() => {
@@ -328,87 +312,32 @@ function EditorBody({
     setRefusedOnly(false)
   }
   const defaults = useMemo(
-    () => ({
-      buyQuantity: /^\d+$/.test(form.defaultBuy.trim()) ? Number(form.defaultBuy) : null,
-      getQuantity: /^\d+$/.test(form.defaultGet.trim()) ? Number(form.defaultGet) : null,
-      subtype: form.defaultSubtype,
-      value: form.defaultValue.trim() === '' || Number.isNaN(Number(form.defaultValue)) ? null : Number(form.defaultValue),
-    }),
-    [form.defaultBuy, form.defaultGet, form.defaultSubtype, form.defaultValue],
+    () => ({ subtype: form.defaultSubtype, value: form.defaultValue.trim() === '' || Number.isNaN(Number(form.defaultValue)) ? null : Number(form.defaultValue) }),
+    [form.defaultSubtype, form.defaultValue],
   )
+  const itemColumns = useMemo(() => editorItemColumns(t, bundle, defaults), [t, bundle, defaults])
 
   const changeChain = (chainKey: string) => {
     setForm((f) => (f.chainKey === chainKey ? f : { ...f, chainKey, stores: 'all' }))
     save.reset()
   }
 
-  const itemColumns = useMemo(
-    (): ColDef<ItemRow>[] => [
-      { colId: 'material', headerName: t('editor.items.material'), field: 'materialNumber', width: 160 },
-      ...(bundle ? [quantityColumn('buyQuantity', t('editor.items.buy'), defaults), quantityColumn('getQuantity', t('editor.items.get'), defaults)] : []),
-      {
-        colId: 'subtype',
-        headerName: t('editor.items.subtype'),
-        width: 180,
-        valueGetter: ({ data }) => (data ? t(`subtypes.${data.subtype ?? form.defaultSubtype}`) : ''),
-        cellClassRules: { 'text-muted-foreground italic': ({ data }) => data?.subtype === null },
-      },
-      {
-        colId: 'value',
-        headerName: t('editor.items.value'),
-        width: 140,
-        type: 'rightAligned',
-        valueGetter: ({ data }) => {
-          if (!data) return ''
-          const value = data.value ?? (form.defaultValue.trim() === '' ? null : Number(form.defaultValue))
-          return discountText(data.subtype ?? form.defaultSubtype, value)
-        },
-        cellClassRules: { 'text-muted-foreground italic': ({ data }) => data?.value === null },
-      },
-      { colId: 'maxQuantity', headerName: t('editor.items.maxQuantity'), width: 120, type: 'rightAligned', valueGetter: ({ data }) => (data?.maxQuantity == null ? '' : figure(data.maxQuantity)) },
-      // 668: the row's combination in words, as it will read once saved — the row's, never a part.
-      // `partLabel` isolates for a sentence sink; a grid cell takes no isolates (they reach Ctrl+C),
-      // the grid base isolates the cell (.claude/rules/bidi.md).
-      ...(bundle
-        ? [{ colId: 'combination', headerName: t('editor.items.combination'), width: 240, valueGetter: ({ data }) => (data ? stripIsolates(partLabel(t, rowCombination(data, defaults))) : '') } satisfies ColDef<ItemRow>]
-        : []),
-      {
-        colId: 'refusal',
-        headerName: t('editor.items.refusal'),
-        flex: 1,
-        minWidth: 260,
-        // 667: the row's refusals in words, else its price warning.
-        valueGetter: ({ data }) => {
-          const r = data?.check
-          if (!r) return ''
-          if (r.refusals.length) return r.refusals.map((p) => problemWords(t, p)).join(' ')
-          return r.warningStores.length ? t('check.warningCell', { count: r.warningStores.length, n: figure(r.warningStores.length) }) : ''
-        },
-        cellClassRules: {
-          'text-danger-800': ({ data }) => rowKind(data) === 'refused',
-          'text-attention-800': ({ data }) => rowKind(data) === 'warned',
-        },
-      },
-    ],
-    [t, form.defaultSubtype, form.defaultValue, bundle, defaults],
-  )
-
-  const shownStores = useMemo(() => {
-    const q = storeQ.trim().toLowerCase()
-    return q ? storeChoices.filter((s) => s.storeCode.toLowerCase().includes(q) || s.storeName.toLowerCase().includes(q) || s.vendorId.toLowerCase().includes(q)) : storeChoices
-  }, [storeChoices, storeQ])
-  const ticked = (code: string) => form.stores === 'all' || form.stores.includes(code)
-  const tickedCount = form.stores === 'all' ? storeChoices.length : form.stores.length
-
-
-  // 668: how many HungerStation promotions the latest Check said this goes out as (the server's split).
+  // 668: how many HungerStation promotions the latest Check said this goes out as (the server's plan).
   const parts = summary?.parts.length ?? 0
 
   const windowIssue = windowProblem(form.window, new Date())
   const lockedNote = mode === 'sending' ? t('editor.lockedSending') : mode === 'inPlace' ? t('editor.lockedLive') : mode === 'closed' ? t('editor.lockedSent') : null
-  const busy = save.isPending || send.isPending || edit.isPending
+  // Review B1: a Check in flight holds the form too — an edit made then would be dropped (Send posts
+  // the saved version the Check answered for).
+  const busy = save.isPending || send.isPending || edit.isPending || checking
   /** Said under a field that only Replace changes (or that never changes once sent). */
   const lockHint = (f: EditField) => (lock(f) === 'replace' ? <ReplacePointer field={f} onReplace={onReplace} /> : lock(f) === 'fixed' ? t('editor.fixedOnceSent') : undefined)
+  const takeItems = (items: PromotionForm['items']) => {
+    set('items', items)
+    send.reset()
+    setChecked(null)
+    setDialog(null)
+  }
 
   return (
     <>
@@ -426,7 +355,7 @@ function EditorBody({
           </p>
         )}
 
-        <fieldset disabled={!(editable || inPlace) || busy} className="flex min-w-0 flex-col gap-4">
+        <fieldset disabled={!(editable || inPlace) || busy} className="flex min-w-0 flex-col gap-4" data-editor-fieldset="">
           {/* ── Chain first ── */}
           <section className="flex flex-col gap-2" data-editor-chain="">
             <h3 className="text-xs font-semibold tracking-tight">{t('editor.chainTitle')}</h3>
@@ -478,10 +407,18 @@ function EditorBody({
           {/* ── Header ── */}
           <section className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4" data-editor-header="">
             <Field label={t('editor.name')} className="col-span-2" hint={lockHint('name')} invalid={nameRefusal !== null} error={headerWords('name')}>
-              <Input value={form.name} disabled={lock('name') !== null} data-editor-locked-field={lock('name') ?? undefined} onChange={(e) => {
+              <Input
+                value={form.name}
+                disabled={lock('name') !== null}
+                data-editor-locked-field={lock('name') ?? undefined}
+                onChange={(e) => {
                   set('name', e.target.value)
                   save.reset()
-                }} dir="auto" maxLength={100} data-editor-name="" />
+                }}
+                dir="auto"
+                maxLength={100}
+                data-editor-name=""
+              />
             </Field>
             <Field label={t('editor.hsReason')}>
               <Select value={form.hsReason} onChange={(e) => set('hsReason', e.target.value as PromotionForm['hsReason'])} data-editor-hs-reason="">
@@ -546,76 +483,20 @@ function EditorBody({
             <Field label={t('editor.defaultValue')} error={bad('defaultValue') ? t('editor.valueInvalid') : undefined}>
               <Input inputMode="decimal" dir="ltr" value={form.defaultValue} onChange={(e) => set('defaultValue', e.target.value)} data-editor-default-value="" />
             </Field>
-            {bundle && (
-              <>
-                <Field label={t('editor.defaultBuy')} hint={t('editor.quantityHint')} error={bad('defaultBuy') ? t('editor.quantityInvalid') : undefined}>
-                  <Input inputMode="numeric" dir="ltr" value={form.defaultBuy} onChange={(e) => set('defaultBuy', e.target.value)} data-editor-default-buy="" />
-                </Field>
-                <Field label={t('editor.defaultGet')} hint={t('editor.quantityHint')} error={bad('defaultGet') ? t('editor.quantityInvalid') : undefined}>
-                  <Input inputMode="numeric" dir="ltr" value={form.defaultGet} onChange={(e) => set('defaultGet', e.target.value)} data-editor-default-get="" />
-                </Field>
-              </>
-            )}
           </section>
 
           {/* ── Stores ── */}
-          <section className="flex flex-col gap-2" data-editor-stores="">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-xs font-semibold tracking-tight">{t('editor.storesTitle')}</h3>
-              {storeChoices.length > 0 && (
-                <span className="text-xs text-muted-foreground" data-editor-stores-count="">
-                  <Trans t={t} i18nKey="editor.storesTicked" values={{ count: formatCount(figure(tickedCount), figure(storeChoices.length)) }} components={{ count: <Ltr /> }} />
-                </span>
-              )}
-            </div>
-            {headerWords('stores') && (
-              <p role="alert" className="text-xs text-danger-800" data-check-field="stores">
-                {headerWords('stores')}
-              </p>
-            )}
-            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-editor-stores-note="">
-              {t('editor.storesFrozen')}
-            </p>
-            {lock('stores') === 'replace' && (
-              <p className="text-xs text-muted-foreground" data-editor-stores-locked="">
-                <ReplacePointer field="stores" onReplace={onReplace} />
-              </p>
-            )}
-            {!form.chainKey ? (
-              <p className="text-sm text-muted-foreground">{t('editor.storesPickChain')}</p>
-            ) : stores.isPending ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                {t('editor.storesLoading')}
-              </p>
-            ) : stores.isError ? (
-              chainRefusal ? null : <ErrorBanner className="p-2.5" title={t('editor.storesFailed')} message={apiErrorMessage(stores.error, t('results.failed'))} />
-            ) : storeChoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-editor-stores-empty="">
-                {t('editor.storesNone')}
-              </p>
-            ) : (
-              // 670: a sent promotion's stores are its identity: shown, never ticked here.
-              <fieldset disabled={lock('stores') !== null} className="flex min-w-0 flex-col gap-2" data-editor-stores-fieldset="">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input type="search" value={storeQ} onChange={(e) => setStoreQ(e.target.value)} placeholder={t('editor.storesSearch')} wrapperClassName="w-72" data-editor-stores-search="" />
-                  <Button variant="text" onClick={() => set('stores', 'all')} disabled={form.stores === 'all'} data-editor-stores-all="">
-                    {t('editor.storesAll')}
-                  </Button>
-                </div>
-                {bad('stores') && (
-                  <p role="alert" className="text-xs text-danger-800" data-editor-stores-problem="">
-                    {t('editor.storesAtLeastOne')}
-                  </p>
-                )}
-                <ul className="grid max-h-56 grid-cols-1 gap-x-4 overflow-auto rounded-md border border-border/60 p-2 md:grid-cols-3" data-editor-store-list="">
-                  {shownStores.map((s) => (
-                    <StoreTick key={s.storeCode} store={s} on={ticked(s.storeCode)} onToggle={() => set('stores', toggleStore(form.stores, s.storeCode, storeCodes))} />
-                  ))}
-                </ul>
-              </fieldset>
-            )}
-          </section>
+          <EditorStores
+            chainKey={form.chainKey}
+            stores={stores}
+            value={form.stores}
+            onChange={(next) => set('stores', next)}
+            locked={lock('stores') !== null}
+            lockedNote={lock('stores') === 'replace' ? <ReplacePointer field="stores" onReplace={onReplace} /> : undefined}
+            checkWords={headerWords('stores')}
+            showProblem={bad('stores')}
+            hideError={chainRefusal !== null}
+          />
 
           {/* ── Items ── */}
           <section className="flex flex-col gap-2" data-editor-items="">
@@ -675,27 +556,28 @@ function EditorBody({
 
         {/* ── Check (667) ── */}
         {editable && (
-          <CheckPanel
-            summary={summary}
-            checking={checking}
-            error={check.error ?? (check.isIdle ? openCheck.error : null)}
-            canCheck={!!promotion && !dirty}
-            onCheck={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: false })}
-            storeName={(code) => storeNames.get(code) || null}
-            showParts={bundle}
-          />
+          <>
+            {rechecked && (
+              <p role="alert" className="text-xs text-danger-800" data-editor-rechecked="">
+                {t('editor.refusedRechecked')}
+              </p>
+            )}
+            <CheckPanel
+              summary={summary}
+              checking={checking}
+              error={check.error ?? (check.isIdle ? openCheck.error : null)}
+              canCheck={!!promotion && !dirty}
+              onCheck={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: false, form: formJson })}
+              storeName={(code) => storeNames.get(code) || null}
+              showParts={bundle}
+            />
+          </>
         )}
-        {/* ── 670: Check previews the edit, what changes on HungerStation ── */}
+        {/* ── 670: the edit is checked by its PUT; the contract's Check reads the saved promotion ── */}
         {inPlace && (
-          <CheckPanel
-            summary={summary}
-            checking={checking}
-            error={check.error}
-            canCheck={dirty && problems.length === 0}
-            onCheck={() => checkEdit(false)}
-            storeName={(code) => storeNames.get(code) || null}
-            edit
-          />
+          <p className="rounded-md border border-border/60 p-3 text-xs text-muted-foreground" data-editor-edit-checks="">
+            {t('check.editChecks')}
+          </p>
         )}
       </div>
 
@@ -707,11 +589,9 @@ function EditorBody({
         {inPlace && (
           <Button
             variant="primary"
-            disabled={!dirty || problems.length > 0 || form.items.length === 0 || summary?.blocksSend === true || checking || busy}
-            title={!dirty ? t('editor.editNeedsChange') : summary?.blocksSend ? t('check.editBlocked') : undefined}
-            // The edit is checked first; only a clean answer opens the reason dialog.
-            onClick={() => checkEdit(true)}
-            data-send-blocked={String(summary?.blocksSend === true)}
+            disabled={!dirty || problems.length > 0 || form.items.length === 0 || busy}
+            title={!dirty ? t('editor.editNeedsChange') : undefined}
+            onClick={() => setDialog('edit')}
             data-editor-edit-send=""
           >
             <Send className="h-3.5 w-3.5" aria-hidden />
@@ -731,7 +611,7 @@ function EditorBody({
                 !promotion || dirty ? t('editor.sendNeedsSave') : form.items.length === 0 ? t('editor.sendNeedsItems') : summary?.blocksSend ? t('check.sendBlocked') : undefined
               }
               // Send runs the checks first; only a clean answer opens the reason dialog.
-              onClick={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: true })}
+              onClick={() => check.mutate({ promotionId: promotion!.promotionId, thenSend: true, form: formJson })}
               data-send-blocked={String(summary?.blocksSend === true)}
               data-editor-send-parts={parts}
               data-editor-send=""
@@ -754,12 +634,7 @@ function EditorBody({
           columns={BUNDLE_COLUMNS}
           header={(key) => t(`import.columns.${key}`)}
           read={(text) => itemsReading(readBundle(text))}
-          apply={(lines) => {
-            set('items', lines.map((l) => bundleItemOf(l.fields)))
-            send.reset()
-            setChecked(null)
-            setDialog(null)
-          }}
+          apply={(lines) => takeItems(lines.map((l) => bundleItemOf(l.fields)))}
           applyLabel={(count) => t('import.apply', { count, n: fsi(figure(count)) })}
           onClose={() => setDialog(null)}
         />
@@ -773,12 +648,7 @@ function EditorBody({
           columns={STRIKETHROUGH_COLUMNS}
           header={(key) => t(`import.columns.${key}`)}
           read={(text) => itemsReading(readStrikethrough(text))}
-          apply={(lines) => {
-            set('items', lines.map((l) => itemOf(l.fields)))
-            send.reset()
-            setChecked(null)
-            setDialog(null)
-          }}
+          apply={(lines) => takeItems(lines.map((l) => itemOf(l.fields)))}
           applyLabel={(count) => t('import.apply', { count, n: fsi(figure(count)) })}
           onClose={() => setDialog(null)}
         />
@@ -804,7 +674,7 @@ function EditorBody({
       <ReasonDialog
         open={dialog === 'edit'}
         title={t('editor.editTitle')}
-        note={<EditNote calls={summary?.changes?.calls ?? null} />}
+        note={<span data-editor-edit-note="">{t('editor.editNote')}</span>}
         busy={edit.isPending}
         error={edit.error}
         confirmLabel={t('editor.editSend')}
@@ -825,7 +695,7 @@ function EditorBody({
       <ReasonDialog
         open={dialog === 'send'}
         title={t('editor.sendTitle')}
-        note={<SendNote stores={form.stores === 'all' ? storeChoices.length : form.stores.length} items={form.items.length} />}
+        note={<SendNote stores={tickedCount} items={form.items.length} />}
         busy={send.isPending}
         error={send.error}
         confirmLabel={t('editor.send')}
@@ -834,27 +704,6 @@ function EditorBody({
         onClose={() => setDialog(null)}
       />
     </>
-  )
-}
-
-/** One store of the picker: ticked, code · name, its vendor id, and Paused when its sync is. */
-function StoreTick({ store, on, onToggle }: { store: HungerStationPromotionStoreChoice; on: boolean; onToggle: () => void }) {
-  const { t } = useTranslation('hungerstation-promotions')
-  return (
-    <li data-editor-store={store.storeCode} data-editor-store-on={String(on)}>
-      <label className="flex items-center gap-2 py-1 text-xs">
-        <input type="checkbox" checked={on} onChange={onToggle} data-editor-store-tick="" />
-        <span className="font-mono">
-          <Ltr>{store.storeCode}</Ltr>
-        </span>
-        <span className="min-w-0 truncate">{store.storeName ? <bdi>{store.storeName}</bdi> : null}</span>
-        {!store.syncActive && (
-          <StatusBadge sev="warn">
-            <span data-editor-store-paused="">{t('editor.storePaused')}</span>
-          </StatusBadge>
-        )}
-      </label>
-    </li>
   )
 }
 
@@ -873,22 +722,6 @@ function ReplacePointer({ field, onReplace }: { field: string; onReplace?: () =>
   )
 }
 
-/** 670: what the re-send does, from the edit's Check: how many HungerStation calls it makes. */
-function EditNote({ calls }: { calls: number | null }): ReactNode {
-  const { t } = useTranslation('hungerstation-promotions')
-  return (
-    <span data-editor-edit-note={calls ?? ''}>
-      {calls === null ? (
-        t('editor.editNoteUnchecked')
-      ) : calls === 0 ? (
-        t('editor.editNoteNothing')
-      ) : (
-        <Trans t={t} i18nKey="editor.editNote" count={calls} values={{ n: figure(calls) }} components={{ n: <Ltr /> }} />
-      )}
-    </span>
-  )
-}
-
 function SendNote({ stores, items }: { stores: number; items: number }): ReactNode {
   const { t } = useTranslation('hungerstation-promotions')
   return (
@@ -896,21 +729,6 @@ function SendNote({ stores, items }: { stores: number; items: number }): ReactNo
       <Trans t={t} i18nKey="editor.sendNote" values={{ stores: figure(stores), items: figure(items) }} components={{ stores: <Ltr />, items: <Ltr /> }} />
     </span>
   )
-}
-
-/** A bundle's buy or get column: the row's own, else the header default (greyed). */
-function quantityColumn(key: 'buyQuantity' | 'getQuantity', header: string, defaults: { buyQuantity: number | null; getQuantity: number | null }): ColDef<ItemRow> {
-  return {
-    colId: key,
-    headerName: header,
-    width: 90,
-    type: 'rightAligned',
-    valueGetter: ({ data }) => {
-      const n = data ? (data[key] ?? defaults[key]) : null
-      return n === null ? '' : figure(n)
-    },
-    cellClassRules: { 'text-muted-foreground italic': ({ data }) => data?.[key] === null },
-  }
 }
 
 /** The paste read for the import dialog: its lines, and what it says above them. */

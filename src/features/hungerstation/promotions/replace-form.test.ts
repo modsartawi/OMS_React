@@ -1,12 +1,14 @@
 /**
- * Ticket 671 — a change to a sent promotion's name, stores, start or end is a **Replace**
- * (BackOffice 3216): `replaceNeeded` says when the form differs from what was sent, the body is
- * the contract's `HungerStationPromotionReplaceBody`, and Replace / Switch off are offered on a
- * sent promotion but disabled while any part is Sending.
+ * Ticket 671 (reconciled to the BackOffice 3201 door contract, 2026-10-29) — a change to a sent
+ * promotion's name, stores, start or end is a **Replace**: `replaceNeeded` says when the form
+ * differs from what was sent; the body carries ONLY what changed (`null` keeps the old value). Replace
+ * and Switch off are offered on a sent promotion that runs, disabled while it reads Sending; a
+ * switch-off that FAILED (switched off / replaced, reading Failed) offers Switch off again — it
+ * retries the parts still on HungerStation.
  */
 import { describe, expect, it } from 'vitest'
-import type { HungerStationPromotionDetail, HungerStationPromotionPart } from '@/core/models/hungerstation'
-import { promotionActions, replaceBody, replaceFormFromDetail, replaceNeeded, replaceProblems, replaceRefusalOf } from './replace-form'
+import type { HungerStationPromotionDetail } from '@/core/models/hungerstation'
+import { promotionActions, replaceBody, replaceFormFromDetail, replaceNeeded, replaceProblems } from './replace-form'
 
 type Sent = Pick<HungerStationPromotionDetail, 'name' | 'startAt' | 'endAt' | 'stores'>
 
@@ -15,8 +17,8 @@ const sent: Sent = {
   startAt: '2026-11-01T00:00:00',
   endAt: '2026-11-30T23:59:00',
   stores: [
-    { storeCode: '1001', storeName: 'A', vendorId: 'v-1' },
-    { storeCode: '1002', storeName: 'B', vendorId: 'v-2' },
+    { storeCode: '1001', storeName: 'A', vendorId: 'v-1', syncActive: true },
+    { storeCode: '1002', storeName: 'B', vendorId: 'v-2', syncActive: true },
   ],
 }
 
@@ -52,10 +54,6 @@ describe('replaceNeeded — true exactly when name, stores, start or end differ 
     expect(replaceNeeded(sent, { ...form(), stores: ['1001', '1002', '2001'] })).toBe(true)
     expect(replaceNeeded(sent, { ...form(), stores: ['1002', '1001'] })).toBe(false)
   })
-
-  it('a sent time with or without seconds compares as the same minute', () => {
-    expect(replaceNeeded({ ...sent, startAt: '2026-11-01T00:00' }, form())).toBe(false)
-  })
 })
 
 describe('replaceProblems', () => {
@@ -67,52 +65,60 @@ describe('replaceProblems', () => {
   })
 })
 
-describe('replaceBody — POST …/Replace', () => {
-  it('the trimmed name, the wall-time window, the ticked stores, the reason', () => {
+describe('replaceBody — POST …/Replace carries only what changed', () => {
+  it('a new name and new stores: those, the window kept (null), the reason trimmed', () => {
     const f = { ...replaceFormFromDetail(sent), name: ' Ramadan v2 ', stores: ['1002', '2001'] }
-    expect(replaceBody(f, ' moved to Dec ')).toEqual({
+    expect(replaceBody(sent, f, ' moved to Dec ')).toEqual({
       name: 'Ramadan v2',
-      startAt: '2026-11-01T00:00:00',
-      endAt: '2026-11-30T23:59:00',
-      allStores: false,
+      startAt: null,
+      endAt: null,
+      allStores: null,
       storeCodes: ['1002', '2001'],
       reason: 'moved to Dec',
     })
   })
+
+  it('only the end changed: the end, everything else null (the stores as frozen)', () => {
+    const f = replaceFormFromDetail(sent)
+    expect(replaceBody(sent, { ...f, window: { ...f.window, endDate: '2026-12-15' } }, 'r')).toEqual({
+      name: null,
+      startAt: null,
+      endAt: '2026-12-15T23:59:00',
+      allStores: null,
+      storeCodes: null,
+      reason: 'r',
+    })
+  })
+
+  it('the same stores in another order are kept (null)', () => {
+    const f = { ...replaceFormFromDetail(sent), name: 'x', stores: ['1002', '1001'] }
+    expect(replaceBody(sent, f, 'r').storeCodes).toBeNull()
+  })
 })
 
 describe('promotionActions — Replace and Switch off', () => {
-  const part = (over: Partial<HungerStationPromotionPart> = {}) =>
-    ({ partId: 'pt', active: true, latestJobStatus: 'COMPLETED', unanswered: false, ...over }) as HungerStationPromotionPart
-  const of = (status: HungerStationPromotionDetail['status'], parts = [part()]) => promotionActions({ status, parts })
+  const of = (status: HungerStationPromotionDetail['status'], over: Partial<HungerStationPromotionDetail> = {}) =>
+    promotionActions({ status, parts: [{ status: 'live' }], switchedOffAt: null, replacedByPromotionId: null, ...over } as Parameters<typeof promotionActions>[0])
 
-  it('offered on a sent promotion that still runs', () => {
-    for (const s of ['live', 'livePartlyRefused', 'failed', 'scheduled'] as const) expect(of(s)).toEqual({ offered: true, sending: false })
+  it('both offered on a sent promotion that still runs', () => {
+    for (const s of ['live', 'livePartlyRefused', 'failed', 'scheduled'] as const) expect(of(s)).toEqual({ replace: true, switchOff: true, sending: false })
   })
 
-  it('not offered on a draft, nor once switched off, replaced or ended', () => {
-    for (const s of ['draft', 'switchedOff', 'replaced', 'ended'] as const) expect(of(s).offered).toBe(false)
+  it('neither offered on a draft, nor once switched off, replaced or ended', () => {
+    for (const s of ['draft', 'switchedOff', 'replaced', 'ended'] as const) expect(of(s)).toMatchObject({ replace: false, switchOff: false })
   })
 
-  it('disabled while ANY part is Sending — an unanswered part (24 h) is not Sending', () => {
-    expect(of('live', [part(), part({ latestJobStatus: 'QUEUED' })])).toEqual({ offered: true, sending: true })
-    expect(of('sending', [part({ latestJobStatus: 'QUEUED' })])).toEqual({ offered: true, sending: true })
-    expect(of('live', [part({ latestJobStatus: 'QUEUED', unanswered: true })]).sending).toBe(false)
+  it('disabled while it reads Sending (a switch-off’s jobs included)', () => {
+    expect(of('sending')).toEqual({ replace: true, switchOff: true, sending: true })
+    expect(of('live', { parts: [{ status: 'live' }, { status: 'sending' }] as HungerStationPromotionDetail['parts'] }).sending).toBe(true)
   })
-})
 
-describe('replaceRefusalOf — the part a refused switch-off names (DHS-00020 data)', () => {
-  it('reads the part id and name', () => {
-    expect(replaceRefusalOf({ partId: 'pt-b', name: 'Eid · B2G1 50%', httpStatus: 422, error: 'vendor locked' })).toEqual({
-      partId: 'pt-b',
-      name: 'Eid · B2G1 50%',
-      httpStatus: 422,
-      error: 'vendor locked',
-    })
+  it('a switch-off still being answered offers nothing more', () => {
+    expect(of('sending', { switchedOffAt: '2026-10-29T11:00:00' })).toMatchObject({ replace: false, switchOff: false })
   })
-  it('anything else is no part (the server message still shows)', () => {
-    expect(replaceRefusalOf(null)).toBeNull()
-    expect(replaceRefusalOf({ name: 'x' })).toBeNull()
-    expect(replaceRefusalOf({ partId: 'pt-b' })).toEqual({ partId: 'pt-b', name: null, httpStatus: null, error: null })
+
+  it('a switch-off that failed (switched off or replaced, reading Failed): Switch off again retries it; no Replace', () => {
+    expect(of('failed', { switchedOffAt: '2026-10-29T11:00:00' })).toEqual({ replace: false, switchOff: true, sending: false })
+    expect(of('failed', { switchedOffAt: '2026-10-29T11:00:00', replacedByPromotionId: 'p-2' })).toEqual({ replace: false, switchOff: true, sending: false })
   })
 })

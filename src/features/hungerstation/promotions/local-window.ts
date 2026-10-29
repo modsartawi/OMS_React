@@ -45,9 +45,11 @@ export function windowToLocal(w: LocalWindow): { startAt: LocalDateTime; endAt: 
   return { startAt: `${w.startDate}T${w.startTime}:00`, endAt: `${w.endDate}T${w.endTime}:00` }
 }
 
-/** A saved window back into the boxes. */
-export function windowFromLocal(startAt: LocalDateTime, endAt: LocalDateTime): LocalWindow {
-  return { startDate: startAt.slice(0, 10), startTime: startAt.slice(11, 16), endDate: endAt.slice(0, 10), endTime: endAt.slice(11, 16) }
+/** A saved window back into the boxes; a time not set yet (a draft) is blank boxes. */
+export function windowFromLocal(startAt: LocalDateTime | null, endAt: LocalDateTime | null): LocalWindow {
+  const s = startAt ?? ''
+  const e = endAt ?? ''
+  return { startDate: s.slice(0, 10), startTime: s.slice(11, 16), endDate: e.slice(0, 10), endTime: e.slice(11, 16) }
 }
 
 export type WindowProblem = 'incomplete' | 'endNotAfterStart' | 'endPast'

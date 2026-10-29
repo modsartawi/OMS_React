@@ -5,6 +5,7 @@ import {
   type HungerStationDiscountSubtype,
   type HungerStationPromotionItemInput,
 } from '@/core/models/hungerstation'
+import { DISCOUNT_SUBTYPES } from './promotion-words'
 
 /**
  * A strikethrough's items as the user pastes them from Excel or picks them as a `.tsv` / `.txt`
@@ -31,14 +32,12 @@ import {
 export const STRIKETHROUGH_COLUMNS = ['material', 'subtype', 'value', 'maxQuantity'] as const
 export type StrikethroughColumn = (typeof STRIKETHROUGH_COLUMNS)[number]
 
-const SUBTYPES: readonly HungerStationDiscountSubtype[] = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE']
-
 /** A subtype cell: `null` when blank, `undefined` when it names no subtype. Shared with the
  *  same-item bundle's reader (668). */
 export const subtypeOf = (cell: string): HungerStationDiscountSubtype | null | undefined => {
   if (cell === '') return null
   const name = cell.toUpperCase().replace(/[\s-]+/g, '_')
-  return SUBTYPES.find((s) => s === name)
+  return DISCOUNT_SUBTYPES.find((s) => s === name)
 }
 
 /** A number cell: `null` when blank, `undefined` when it is not a number (or not a whole one). */

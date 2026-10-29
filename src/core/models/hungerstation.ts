@@ -444,51 +444,56 @@ export interface HungerStationRetryResult {
 
 // ── Promotions (BackOffice spec 3201, oms-react 665–671) ─────────────────────────────────────────
 //
-// 🚩 PROVISIONAL. The promotion door contract
-// (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, written
-// by BackOffice 3211) does NOT exist yet, and no door is built. These shapes follow spec 3201's
-// Implementation Decisions (the record, the status, the Doors list) in the area's conventions
-// (camelCase, local wall-clock times, `null` for absent, codes and ids as strings). Each later
-// ticket re-checks its section against the contract once it lands and fixes it HERE, not per
-// screen. Every door is cookie-only behind `HungerStationPromotions`: a missing grant is a BARE 403.
+// The binding description is the door contract
+// `C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md` (BackOffice
+// 3211–3216, done; reconciled here 2026-10-29). Every interface below is FIELD FOR FIELD that asset:
+// a change goes into the asset first, then here, then the drive's fixtures (its § 0 compares them).
+// Envelope, messages, local wall-clock times and the bare 403 are as the 3028 contract. Every door is
+// cookie-only behind `HungerStationPromotions`.
 //
 // Words (BackOffice CONTEXT.md): a **HungerStation promotion** is made here and SENT to
 // HungerStation; our pricing never applies it (ADR 0114). A **HungerStation promotion part** is
 // what one HungerStation promotion id carries: a strikethrough is one part, a same-item bundle one
 // part per (buy, get, subtype, value). Never "deal", "offer", "campaign" or bare "bundle".
 //
-// Doors (spec 3201 § Doors), each typed below:
-//   GET  Promotions                         → HungerStationPromotionsPage      (665)
-//   GET  Promotions/{id}                    → HungerStationPromotionDetail     (665)
-//   GET  Promotions/Stores?chain=           → HungerStationPromotionStoreChoice[] (666)
-//   POST Promotions                         HungerStationPromotionSaveBody → detail (666)
-//   PUT  Promotions/{id}                    HungerStationPromotionSaveBody → detail (666 draft, 670 edit)
-//   POST Promotions/{id}/Check              (no body; 670: the edit) → HungerStationPromotionCheckResult (667, 668, 670)
-//   POST Promotions/{id}/Send               HungerStationPromotionReasonBody → detail (666)
-//   POST Promotions/{id}/Refresh            (no body) → detail (666)
-//   POST Promotions/{id}/Parts/{partId}/Resend  HungerStationPromotionReasonBody → detail (669)
-//   POST Promotions/{id}/RemoveItems        HungerStationPromotionRemoveItemsBody → detail (670)
-//   POST Promotions/{id}/Replace            HungerStationPromotionReplaceBody → the NEW detail (671)
-//   POST Promotions/{id}/SwitchOff          HungerStationPromotionReasonBody → detail (671)
+// Doors:
+//   GET  Promotions?chain=&status=&q=&store=&skip=&take=  → HungerStationPromotionsPage
+//   GET  Promotions/{id}                    → HungerStationPromotionDetail
+//   GET  Promotions/Stores?chain=           → HungerStationPromotionStoreChoice[]
+//   POST Promotions                         HungerStationPromotionSaveBody → HungerStationPromotionSaved
+//   PUT  Promotions/{id}                    HungerStationPromotionSaveBody → HungerStationPromotionSaved
+//                                           (a draft saved again; a sent one edited in place, 3215)
+//   POST Promotions/{id}/Check              (no body) → HungerStationPromotionCheck
+//   POST Promotions/{id}/Send               HungerStationPromotionReasonBody → detail
+//   POST Promotions/{id}/Refresh            (no body) → detail
+//   POST Promotions/{id}/Parts/{partId}/Resend  HungerStationPromotionReasonBody → detail
+//   POST Promotions/{id}/RemoveItems        HungerStationPromotionRemoveItemsBody → detail
+//   POST Promotions/{id}/SwitchOff          HungerStationPromotionReasonBody → detail
+//   POST Promotions/{id}/Replace            HungerStationPromotionReplaceBody → the SUCCESSOR's detail
 
-/** The promotion refusal codes (spec 3201 § Doors: "continue the series from DHS-00016", in the
- *  order the spec lists them). 🚩 Numbers provisional until the contract asset names them. A
- *  HungerStation outage reuses `HUNGERSTATION_ERRORS.hungerStationFailed` (DHS-00014); a missing
- *  reason `HUNGERSTATION_ERRORS.reasonInvalid` (DHS-00008). */
+/** The promotion refusal codes (contract § Error codes). Every one carries only `message` (English
+ *  / Arabic): no structured `data`. A HungerStation outage reuses
+ *  `HUNGERSTATION_ERRORS.hungerStationFailed` (DHS-00014, 502); a missing reason
+ *  `HUNGERSTATION_ERRORS.reasonInvalid` (DHS-00008). */
 export const HUNGERSTATION_PROMOTION_ERRORS = {
-  /** 404 — no such promotion. */
+  /** 404 — no such promotion (or, on Resend, no such part of it). */
   noSuchPromotion: 'DHS-00016',
-  /** 409 — a part of the promotion is Sending: every write waits for HungerStation's answer. */
+  /** 409 — a part is Sending, another write holds the promotion, or it changed since this request
+   *  read it: wait, reload, retry. */
   sending: 'DHS-00017',
-  /** 400 — Send refused: a check still refuses. The per-row detail rides the Check answer. */
+  /** 400 — Send / edit refused: a check refuses. The message names every refused row / field. */
   checkFailed: 'DHS-00018',
-  /** 409 — the name is used by another promotion of the chain not switched off, replaced or ended. */
+  /** 409 — the name is in use by another live promotion of the chain (wins over DHS-00018; its
+   *  message names every other refusal too). */
   nameInUse: 'DHS-00019',
-  /** 502 — Replace stopped: HungerStation refused a part's switch-off. Nothing new was sent; the
-   *  old promotion is unchanged. */
-  replaceRefused: 'DHS-00020',
-  /** 409 — an in-place edit changed the name, stores, start or end: that is a Replace (BO 3215). */
+  /** 409 — Replace stopped: a switch-off of the old promotion was refused. The message names the
+   *  part and HungerStation's answer; nothing new was sent. */
+  replaceStopped: 'DHS-00020',
+  /** 409 — an in-place edit changed the name, type, stores, start or end: that is a Replace. */
   needsReplace: 'DHS-00021',
+  /** 409 — save / send of a promotion that is no longer a draft, or a write on one switched off or
+   *  replaced. */
+  promotionSent: 'HungerStationPromotionSent',
 } as const
 
 /** A promotion's type, as HungerStation names it. */
@@ -498,13 +503,14 @@ export type HungerStationPromotionType = 'STRIKETHROUGH' | 'SAME_ITEM_BUNDLE'
  *  SAR (`ABSOLUTE` off, `FINAL_PRICE` the price paid), positive, at most 3 decimals. */
 export type HungerStationDiscountSubtype = 'PERCENTAGE' | 'ABSOLUTE' | 'FINAL_PRICE'
 
-/** HungerStation's reporting reason. `COMPETITIVENESS` is the default. */
+/** HungerStation's reporting reason. `COMPETITIVENESS` is the default when blank. */
 export type HungerStationPromotionReason = 'COMPETITIVENESS' | 'OVERSTOCK' | 'DELISTING' | 'EXPIRING_SOON' | 'NMR' | 'TRADING'
 
 /**
- * A promotion's status (spec 3201 § Status). `scheduled` (sent, start still ahead) and `ended`
- * (past end) are DERIVED from the window by the server, in the read and in the list filter —
- * never stored, never a call. `livePartlyRefused` = every part final, some refusal in a result.
+ * A promotion's (and a part's) status, derived on read, never sent by the client (contract §
+ * Vocabulary). `scheduled` / `ended` are promotion-level only, derived from the window. A part
+ * still `QUEUED` 24 hours after it was sent ("unanswered") reads `failed`; a switch-off job still
+ * open reads `sending`.
  */
 export type HungerStationPromotionStatus =
   | 'draft'
@@ -517,31 +523,31 @@ export type HungerStationPromotionStatus =
   | 'scheduled'
   | 'ended'
 
-/** A HungerStation job's status (`getPromotionStatus`), as HungerStation sends it. */
-export type HungerStationPromotionJobStatus = 'QUEUED' | 'COMPLETED' | 'FAILED' | 'DUPLICATE'
+/** A HungerStation job's status as HungerStation sends it. OPEN: a status its docs do not list
+ *  (e.g. `IN_PROGRESS`) is passed through and counts as not final, like `QUEUED`. */
+export type HungerStationPromotionJobStatus = 'QUEUED' | 'COMPLETED' | 'FAILED' | 'DUPLICATE' | (string & {})
 
 /** What one send asked HungerStation: an upsert of the part, or its switch-off (`active: false`). */
-export type HungerStationPromotionSendKind = 'upsert' | 'switchOff'
+export type HungerStationPromotionSendKind = 'UPSERT' | 'SWITCH_OFF' | (string & {})
 
 // GET HungerStationWeb/Promotions ────────────────────────────────────────────────────────────────
 
-/** The query of `GET HungerStationWeb/Promotions?chain=&status=&type=&q=&store=&skip=&take=`.
- *  `status` is a repeated key (OR); `q` matches the name (contains); `store` (3216) answers "which
- *  promotions are live on this store". */
+/** The query of `GET HungerStationWeb/Promotions?chain=&status=&q=&store=&skip=&take=`. ONE
+ *  `status` (`null` = `any`, the default); `q` matches the name (contains, any case); `store`
+ *  (3216) the promotions that target that store. */
 export interface HungerStationPromotionsQuery {
   chain: string | null
-  status: HungerStationPromotionStatus[]
-  type: HungerStationPromotionType | null
+  status: HungerStationPromotionStatus | null
   q: string | null
   store: string | null
   skip: number
   take: number
 }
 
-/** `take` of the Promotions list: default 100, 1 to 500 (the area's paging). */
-export const HUNGERSTATION_PROMOTIONS_TAKE = { default: 100, max: 500 } as const
+/** `take` of the Promotions list: default 50, 1 to 200. */
+export const HUNGERSTATION_PROMOTIONS_TAKE = { default: 50, max: 200 } as const
 
-/** HungerStation's own `discount` ceiling: at most 20,000 SKUs a promotion, refused before send. */
+/** HungerStation's own `discount` ceiling: at most 20,000 SKUs a promotion (`tooManySkus`). */
 export const HUNGERSTATION_PROMOTION_MAX_SKUS = 20000
 
 /** One row of the list. */
@@ -552,19 +558,19 @@ export interface HungerStationPromotionRow {
   name: string
   type: HungerStationPromotionType
   status: HungerStationPromotionStatus
-  /** Saudi local wall time, as entered. */
-  startAt: LocalDateTime
-  endAt: LocalDateTime
-  /** The stores it targets (frozen at send; a draft on "all" counts the chain's stores now). */
+  /** Saudi local wall time, as entered; `null` on a draft not given one yet. */
+  startAt: LocalDateTime | null
+  endAt: LocalDateTime | null
   storeCount: number
-  /** Its active items. */
-  skuCount: number
+  /** Its active item rows. */
+  itemCount: number
+  updatedAt: LocalDateTime
+  updatedBy: string
   /** `null` until first sent. */
-  lastSentAt: LocalDateTime | null
-  lastSentBy: string | null
+  sentAt: LocalDateTime | null
 }
 
-/** `GET HungerStationWeb/Promotions` — one server page; `total` counts every match. */
+/** `GET HungerStationWeb/Promotions` — one page; `total` counts every match. */
 export interface HungerStationPromotionsPage {
   total: number
   rows: HungerStationPromotionRow[]
@@ -572,113 +578,113 @@ export interface HungerStationPromotionsPage {
 
 // GET HungerStationWeb/Promotions/{promotionId} ───────────────────────────────────────────────────
 
-/**
- * The combination a part stands for. A strikethrough's single part is "all": every field `null`.
- * A bundle part names its buy and get quantities and its one discount.
- */
-export interface HungerStationPromotionCombination {
-  buyQuantity: number | null
-  getQuantity: number | null
-  subtype: HungerStationDiscountSubtype | null
-  value: number | null
-}
-
-/** A store HungerStation called invalid in a part's result, as our store and the vendor id sent. */
+/** A vendor HungerStation named in a part's result, and our store frozen under it at send (`null`
+ *  when the vendor id is none of the promotion's). */
 export interface HungerStationPromotionVendorRef {
-  /** `null` when the vendor id no longer resolves to one of our stores. */
   storeCode: string | null
   vendorId: string
 }
 
-/** A SKU HungerStation named in a part's result, with our material number when it resolves. */
-export interface HungerStationPromotionRefusedSku {
+/** A SKU HungerStation named, and the part's item sent under it (`null` when none was). */
+export interface HungerStationPromotionSkuRef {
   sku: string
   materialNumber: string | null
 }
 
-/** One store's refused SKUs in a part's result. */
-export interface HungerStationPromotionStoreSkus extends HungerStationPromotionVendorRef {
-  skus: HungerStationPromotionRefusedSku[]
+/** The SKUs HungerStation refused at one store. HungerStation may name no vendor (a plain SKU
+ *  list): then both are `null`. */
+export interface HungerStationPromotionSkuRefusal {
+  storeCode: string | null
+  vendorId: string | null
+  items: HungerStationPromotionSkuRef[]
 }
 
-/** What did not take, from a part's latest final result (3214): HungerStation's
- *  `invalid_vendors`, `missing_skus` and `invalid_discounted_skus`, per store. */
+/** What did not take, from a part's LATEST send's job result (3214): HungerStation's
+ *  `invalid_vendors`, `missing_skus` and `invalid_discounted_skus`, read as our stores and
+ *  materials. Each list `[]` when nothing of that kind was refused. */
 export interface HungerStationPromotionRefusals {
   invalidVendors: HungerStationPromotionVendorRef[]
-  missingSkus: HungerStationPromotionStoreSkus[]
-  invalidDiscountedSkus: HungerStationPromotionStoreSkus[]
+  missingSkus: HungerStationPromotionSkuRefusal[]
+  invalidDiscountedSkus: HungerStationPromotionSkuRefusal[]
 }
 
-/** A **HungerStation promotion part**. */
-export interface HungerStationPromotionPart extends HungerStationPromotionCombination {
-  /** A ULID; also the identity HungerStation knows the part by, unchanged across resends. */
+/** A **HungerStation promotion part**. Empty list while a draft. */
+export interface HungerStationPromotionPart {
+  /** A ULID. */
   partId: string
-  /** The name sent to HungerStation (`"<name> · B2G1 50%"`; a strikethrough's is the name). */
+  /** 1-based, in send order. */
+  partNo: number
+  /** The name it carries on HungerStation (`"<name> · B2G1 50%"`; a strikethrough's is the name). */
   name: string
+  /** `"ALL"` (a strikethrough), else `"B<buy>G<get>|<subtype>|<value>"` (`"B2G1|PERCENTAGE|50"`,
+   *  the value with no trailing zeros). */
+  combination: string
   /** `false` once switched off (whole promotion, or emptied by an edit). */
   active: boolean
-  /** Its active items. */
-  skuCount: number
-  /** The latest send's job status; `null` while a draft (never sent). */
-  latestJobStatus: HungerStationPromotionJobStatus | null
-  /** The latest send's job is still QUEUED after 24 hours: left for a manual Refresh. */
-  unanswered: boolean
-  /** `null` until a final result; empty lists when HungerStation refused nothing. */
+  /** The part's own status (`sending` while its latest job is open, `failed` when refused or
+   *  unanswered for 24 hours…); `null` while the promotion is a draft. */
+  status: HungerStationPromotionStatus | null
+  /** `null` until its latest send has a job result. */
   refusals: HungerStationPromotionRefusals | null
 }
 
-/** One store of the promotion, with the vendor id AS SENT (frozen at send). */
+/** One store of the promotion. While a draft, the stores it targets NOW; once sent, as frozen at
+ *  send with the vendor id sent. */
 export interface HungerStationPromotionStore {
   storeCode: string
-  /** `""` when the store master has no `Store` row for the code. */
+  /** `""` when the store master has no row. */
   storeName: string
   vendorId: string
+  /** The store's stock sync now. */
+  syncActive: boolean
 }
 
-/** One item row. A removed item stays, `active: false` — nothing is deleted. */
+/** One item row, in the order pasted. A removed row stays, `active: false`. */
 export interface HungerStationPromotionItem {
-  itemId: string
+  rowNo: number
   materialNumber: string
-  /** The SKU resolved through the HungerStation material list at send; `null` before. */
+  /** Resolved through the HungerStation material list at send; `null` before. */
   sku: string | null
-  subtype: HungerStationDiscountSubtype
-  value: number
+  /** As entered: `null` = the promotion's `defaultSubtype` / `defaultValue`. */
+  subtype: HungerStationDiscountSubtype | null
+  value: number | null
   maxQuantity: number | null
-  /** Bundle only; `null` on a strikethrough. */
+  /** Bundle only (3213); always `null` on a strikethrough. */
   buyQuantity: number | null
   getQuantity: number | null
-  /** The part it belongs to; `null` while a draft (parts are made at send). */
+  /** The part the row was sent in; `null` while a draft. */
   partId: string | null
   active: boolean
 }
 
-/** One HungerStation call (an upsert or a switch-off) for one part. The request and result bodies
- *  are kept on the server for disputes; the read does not carry them. */
+/** One call to HungerStation (an upsert or a switch-off) for one part, oldest first. */
 export interface HungerStationPromotionSend {
   sendId: string
   partId: string
   kind: HungerStationPromotionSendKind
+  /** HungerStation's HTTP status (202 accepted). */
+  httpStatus: number
+  jobId: string | null
+  jobStatus: HungerStationPromotionJobStatus | null
+  /** HungerStation's own job stamps, converted to local at the server. */
+  hsCreatedAt: LocalDateTime | null
+  hsUpdatedAt: LocalDateTime | null
+  /** The job's result object as HungerStation answered it, or `null` (kept raw for disputes). */
+  result: unknown
+  /** The refusal or transport error of a failed call, a poll's last error, or the 24-hour
+   *  "HungerStation has not answered" note; `null` when none. */
+  error: string | null
   sentAt: LocalDateTime
   sentBy: string
   /** The reason the user gave for the write. */
   reason: string
-  /** HungerStation's HTTP status (202 accepted); `null` when it was never reached. */
-  httpStatus: number | null
-  jobId: string | null
-  jobStatus: HungerStationPromotionJobStatus | null
-  /** HungerStation's own `created_at` / `updated_at`, converted to local at the wire. */
-  hsCreatedAt: LocalDateTime | null
-  hsUpdatedAt: LocalDateTime | null
-  pollAttempts: number
-  lastPolledAt: LocalDateTime | null
-  /** Still QUEUED after 24 hours. */
-  unanswered: boolean
-  /** Why the call or its poll failed (HungerStation's answer, an outage); `null` when none. */
-  error: string | null
+  /** Job reads so far (the poller and Refresh). */
+  attempts: number
+  lastAttemptAt: LocalDateTime | null
 }
 
-/** `GET HungerStationWeb/Promotions/{promotionId}` — the header, parts, stores, items and every
- *  send (newest first). Also the answer of every write door. DHS-00016. */
+/** `GET HungerStationWeb/Promotions/{promotionId}` — the promotion row. Also the answer of every
+ *  write door. DHS-00016. */
 export interface HungerStationPromotionDetail {
   promotionId: string
   chainKey: string
@@ -687,45 +693,47 @@ export interface HungerStationPromotionDetail {
   displayNameAr: string
   type: HungerStationPromotionType
   hsReason: HungerStationPromotionReason
-  startAt: LocalDateTime
-  endAt: LocalDateTime
+  /** Saudi local wall time; `null` on a draft not given one yet. */
+  startAt: LocalDateTime | null
+  endAt: LocalDateTime | null
   /** Per-order limit; `null` for none. */
   orderLimit: number | null
   /** Total-uses limit; `null` for none. */
   globalLimit: number | null
-  /** The discount a row with a blank subtype / value takes. */
-  defaultSubtype: HungerStationDiscountSubtype
-  defaultValue: number | null
-  /** 668: the buy / get quantity a bundle row with a blank cell takes; `null` for none (and
-   *  always on a strikethrough). 🚩 Not in spec 3201's record (which names only a default subtype
-   *  and value): ticket 668 asks for header defaults of buy and get too — a BackOffice 3213 ask. */
-  defaultBuyQuantity: number | null
-  defaultGetQuantity: number | null
-  status: HungerStationPromotionStatus
-  /** A draft targeting every store of the chain; frozen into `stores` at send. */
+  /** The discount an item row with a blank subtype / value takes. There is NO promotion-level
+   *  buy / get default: a bundle row left blank is refused by the checks. */
+  defaultSubtype: HungerStationDiscountSubtype | null
+  defaultValue: number
+  /** Always `"SAR"` in v1. */
+  currencyKey: string
+  /** Targets every onboarded store of the chain (frozen into `stores` at send). */
   allStores: boolean
-  /** The promotion this one replaced, and the one that replaced it (3216). */
-  replacesId: string | null
-  replacedById: string | null
+  status: HungerStationPromotionStatus
+  /** The promotion this one replaced (3216). */
+  replacesPromotionId: string | null
   createdAt: LocalDateTime
   createdBy: string
   updatedAt: LocalDateTime
   updatedBy: string
   sentAt: LocalDateTime | null
   sentBy: string | null
+  /** The successor once `replaced` (3216). */
+  replacedByPromotionId: string | null
+  /** Set once switched off or replaced (a replace switches the old one off, with its reason). */
   switchedOffAt: LocalDateTime | null
   switchedOffBy: string | null
   switchedOffReason: string | null
-  parts: HungerStationPromotionPart[]
   stores: HungerStationPromotionStore[]
   items: HungerStationPromotionItem[]
+  parts: HungerStationPromotionPart[]
+  /** Every call to HungerStation, OLDEST first. */
   sends: HungerStationPromotionSend[]
 }
 
 // GET HungerStationWeb/Promotions/Stores?chain= ────────────────────────────────────────────────
 
 /** One store the picker offers: the chain's onboarded stores, removed ones left out, paused ones
- *  kept (and in "all"). */
+ *  kept. DHS-00006. */
 export interface HungerStationPromotionStoreChoice {
   storeCode: string
   storeName: string
@@ -736,8 +744,8 @@ export interface HungerStationPromotionStoreChoice {
 
 // POST HungerStationWeb/Promotions · PUT HungerStationWeb/Promotions/{promotionId} ──────────────
 
-/** One pasted item row. A blank subtype or value takes the promotion's default. Buy / get on a
- *  bundle only. Our material number, never HungerStation's SKU. */
+/** One pasted item row: our material number, never HungerStation's SKU. A blank subtype / value
+ *  takes the promotion's default; buy / get are a bundle row's own (no default). */
 export interface HungerStationPromotionItemInput {
   materialNumber: string
   subtype: HungerStationDiscountSubtype | null
@@ -748,9 +756,10 @@ export interface HungerStationPromotionItemInput {
 }
 
 /**
- * Save a draft (`POST`, create) or save / edit (`PUT`). On a SENT promotion the `PUT` is the
- * in-place edit (3215): it re-sends the affected parts, and a change of name, stores, start or end
- * is refused (`needsReplace`). Returns the detail. DHS-00008 / 00016 / 00017 / 00019.
+ * Save a draft (`POST`, create) or save it again (`PUT`). Save never refuses on the send checks —
+ * it REPORTS them as the answer's `check`. On a SENT promotion the `PUT` is the in-place edit
+ * (3215): every check runs and refuses (DHS-00018 / 19), the affected parts are re-sent, and a
+ * change of name, type, stores, start or end is DHS-00021 (a Replace).
  */
 export interface HungerStationPromotionSaveBody {
   chainKey: string
@@ -759,139 +768,115 @@ export interface HungerStationPromotionSaveBody {
   displayNameAr: string
   type: HungerStationPromotionType
   hsReason: HungerStationPromotionReason
-  startAt: LocalDateTime
-  endAt: LocalDateTime
+  startAt: LocalDateTime | null
+  endAt: LocalDateTime | null
   orderLimit: number | null
   globalLimit: number | null
-  defaultSubtype: HungerStationDiscountSubtype
+  defaultSubtype: HungerStationDiscountSubtype | null
   defaultValue: number | null
-  /** 668: a bundle's default buy / get (whole, ≥ 1); `null` for none, and on a strikethrough. */
-  defaultBuyQuantity: number | null
-  defaultGetQuantity: number | null
-  /** Every store of the chain (frozen at send); `storeCodes` is then ignored. */
-  allStores: boolean
-  storeCodes: string[]
+  /** `null` = ALL the chain's onboarded stores, frozen at send (on a sent "all stores" promotion:
+   *  the stores frozen at send). A list names the stores. ⚠ `[]` is NO store. */
+  storeCodes: string[] | null
   items: HungerStationPromotionItemInput[]
   reason: string
 }
 
+/** The answer of a save (`POST` / `PUT`): the promotion row plus `check`, the Check answer for the
+ *  draft as just saved (`duplicateCount` = the rows this request dropped for a repeated material). */
+export interface HungerStationPromotionSaved extends HungerStationPromotionDetail {
+  check: HungerStationPromotionCheck
+}
+
 // POST HungerStationWeb/Promotions/{promotionId}/Check ────────────────────────────────────────
 
-/** One problem a check found. `code` is a machine code; `message` the server's words. */
-export interface HungerStationPromotionProblem {
+/** One refusal or warning: on a header field (`rowNo` / `materialNumber` `null`) or on one item
+ *  row. `storeCodes` is `[]` unless the issue names stores. `message` is "English / Arabic". */
+export interface HungerStationPromotionCheckIssue {
   code: string
+  field: string
+  rowNo: number | null
+  materialNumber: string | null
+  storeCodes: string[]
   message: string
 }
 
-/** A header field's refusal (name, display names, window, limits). */
-export interface HungerStationPromotionFieldProblem extends HungerStationPromotionProblem {
-  field: string
-}
-
-/** A row where a `FINAL_PRICE` or `ABSOLUTE` value is not below our VAT-inclusive price at some
- *  chosen stores: a WARNING — HungerStation will refuse that SKU there; Send is not refused. */
-export interface HungerStationPromotionPriceWarning {
-  storeCodes: string[]
-}
-
-/** One item row's check: its refusals (they block Send) and its price warning. */
-export interface HungerStationPromotionRowCheck {
-  materialNumber: string
-  refusals: HungerStationPromotionProblem[]
-  priceWarning: HungerStationPromotionPriceWarning | null
-}
-
-/** A part as it WILL be sent (668, BackOffice 3213): the server's split — one per distinct
- *  (buy, get, subtype, value) of a bundle, one for a strikethrough — with the name it will carry. */
-export interface HungerStationPromotionPartPreview extends HungerStationPromotionCombination {
-  name: string
+/** One part Send would make (3213), in send order. A strikethrough's single part `"ALL"` carries
+ *  no buy / get and no single subtype / value (`null`). Planned even while a refusal stands. */
+export interface HungerStationPromotionPartPreview {
+  partNo: number
+  combination: string
+  buyQuantity: number | null
+  getQuantity: number | null
+  subtype: HungerStationDiscountSubtype | null
+  value: number | null
+  /** The part's active rows. */
   skuCount: number
-}
-
-/** How an in-place edit lands on one part (670, BackOffice 3215): `new` — a combination no part
- *  carries yet, a new HungerStation promotion (a new `PUT`); `updated` — re-upserted under its
- *  unchanged identity; `switchedOff` — left with no item, sent `active: false`; `unchanged` — not
- *  re-sent. */
-export type HungerStationPromotionPartChangeKind = 'new' | 'updated' | 'switchedOff' | 'unchanged'
-
-/** One part of a sent promotion as an edit WILL leave it: the server's recompute of the parts from
- *  the edited rows (BackOffice 3215). 🚩 PROVISIONAL: the contract's edit section is not written. */
-export interface HungerStationPromotionPartChange extends HungerStationPromotionCombination {
-  /** The part's id; `null` for a part the edit makes. */
-  partId: string | null
-  /** The name it carries (or will carry) on HungerStation. */
+  /** The name it will carry on HungerStation. */
   name: string
-  change: HungerStationPromotionPartChangeKind
-  /** Its active SKUs after the edit (0 once switched off). */
-  skuCount: number
-  /** Our material numbers that leave this part: they go in its request with `active: false`. */
-  leaving: string[]
-  /** Our material numbers that join it. */
-  joining: string[]
 }
 
-/** `POST …/{promotionId}/Check` — every pre-check, no write. `sendable` is `true` exactly when
- *  nothing refuses (warnings never refuse). `rows` carries only rows with a refusal or a warning. */
-export interface HungerStationPromotionCheckResult {
-  sendable: boolean
-  header: HungerStationPromotionFieldProblem[]
-  rows: HungerStationPromotionRowCheck[]
+/** `POST …/{promotionId}/Check` — NO body: every pre-check on the SAVED promotion, nothing
+ *  written. `canSend` = no refusals (warnings never refuse). A row with neither is not listed. */
+export interface HungerStationPromotionCheck {
+  promotionId: string
+  canSend: boolean
+  /** The active item rows checked. */
+  itemCount: number
+  /** Rows dropped for a repeated material: on a Save answer only; always 0 on this door. */
+  duplicateCount: number
+  refusals: HungerStationPromotionCheckIssue[]
+  warnings: HungerStationPromotionCheckIssue[]
+  /** The part preview. Empty when there are no rows. */
   parts: HungerStationPromotionPartPreview[]
-  skuCount: number
-  /** 670: what an in-place edit changes on HungerStation, one entry per part old and new; `null`
-   *  for a draft's Check (no body). */
-  changes: HungerStationPromotionPartChange[] | null
 }
 
-/** 670: the body of `POST …/{promotionId}/Check` on a SENT promotion — the edit as it would be
- *  saved, without the reason (nothing is written). A draft's Check takes NO body (667). */
-export type HungerStationPromotionEditCheckBody = Omit<HungerStationPromotionSaveBody, 'reason'>
+/** The refusal codes (`refusals[].code`), in the contract's order. A code the screen does not know
+ *  is shown in the server's words. */
+export const HUNGERSTATION_PROMOTION_CHECK_CODES = [
+  'nameMissing',
+  'nameInUse',
+  'displayNameEnMissing',
+  'displayNameArMissing',
+  'startMissing',
+  'endMissing',
+  'windowReversed',
+  'endPast',
+  'noStores',
+  'storeNotOnboarded',
+  'noItems',
+  'tooManySkus',
+  'materialNotListed',
+  'materialDisabled',
+  'materialDeleted',
+  'subtypeMissing',
+  'percentOutOfRange',
+  'valueNotPositive',
+  'valueTooManyDecimals',
+  'buyBelowOne',
+  'getBelowOne',
+  'maxQuantityMixed',
+] as const
 
-/**
- * The check codes a `HungerStationPromotionProblem` carries (ticket 667, BackOffice 3212), in the
- * order 3212 lists the refusals. 🚩 PROVISIONAL: the contract's Check section is not written; these
- * spellings are assumed (`NO_SKU` is 666's). The screen says each in its own words and shows the
- * server's `message` for a code it does not know.
- *
- * A row refusal rides `rows[].refusals`; a header refusal rides `header[]` with its `field` —
- * `name`, `displayNameEn`, `displayNameAr`, `startAt`, `endAt`, and for the promotion as a whole
- * `items` (more than 20,000 SKUs) and `stores` (none).
- */
-export const HUNGERSTATION_PROMOTION_CHECK_CODES = {
-  // Row: the material.
-  /** Not on the HungerStation material list (no SKU). */
-  noSku: 'NO_SKU',
-  /** On the list, disabled there. */
-  materialDisabled: 'MATERIAL_DISABLED',
-  /** On the list, deleted there. */
-  materialDeleted: 'MATERIAL_DELETED',
-  // Row: the value.
-  /** A `PERCENTAGE` outside 1–100. */
-  percentRange: 'PERCENT_RANGE',
-  /** A value of 0 or less. */
-  valueNotPositive: 'VALUE_NOT_POSITIVE',
-  /** More than 3 decimals. */
-  valueDecimals: 'VALUE_DECIMALS',
-  /** 668: a bundle row's buy or get (its own, or the default it takes) is under 1 or missing
-   *  (BackOffice 3213's bundle check). */
-  buyGetRange: 'BUY_GET_RANGE',
-  // Header.
-  /** `startAt` / `endAt`: the start is not before the end. */
-  windowOrder: 'WINDOW_ORDER',
-  /** `endAt`: the end has already passed. */
-  endPast: 'END_PAST',
-  /** `displayNameEn` / `displayNameAr`: missing. */
-  displayNameMissing: 'DISPLAY_NAME_MISSING',
-  /** `name`: used by another promotion of the chain not switched off, replaced or ended. */
-  nameInUse: 'NAME_IN_USE',
-  /** `items`: more than 20,000 SKUs. */
-  tooManySkus: 'TOO_MANY_SKUS',
-  /** `stores`: no store. */
-  noStores: 'NO_STORES',
-} as const
+/** The warning code (`warnings[].code`, never refuses): a `FINAL_PRICE` / `ABSOLUTE` row not below
+ *  our VAT-inclusive price at the stores it names. */
+export const HUNGERSTATION_PROMOTION_PRICE_WARNING = 'priceNotBelow'
 
-/** The header fields a check names. */
-export const HUNGERSTATION_PROMOTION_CHECK_FIELDS = ['name', 'displayNameEn', 'displayNameAr', 'startAt', 'endAt', 'items', 'stores'] as const
+/** The fields a check names: a header refusal's (`rowNo` null), or a row's. */
+export const HUNGERSTATION_PROMOTION_CHECK_FIELDS = [
+  'name',
+  'displayNameEn',
+  'displayNameAr',
+  'startAt',
+  'endAt',
+  'stores',
+  'items',
+  'materialNumber',
+  'subtype',
+  'value',
+  'buyQuantity',
+  'getQuantity',
+  'maxQuantity',
+] as const
 
 // The write doors that take only a reason ─────────────────────────────────────────────────────
 
@@ -901,32 +886,21 @@ export interface HungerStationPromotionReasonBody {
   reason: string
 }
 
-/** `POST …/{promotionId}/RemoveItems` — those materials go out `active: false` in their parts and
- *  their items turn inactive. Returns the detail. */
+/** `POST …/{promotionId}/RemoveItems` — those active rows go out `active: false` in their parts.
+ *  Returns the plain detail (no `check`). Naming EVERY active row is refused (that is a switch-off). */
 export interface HungerStationPromotionRemoveItemsBody {
   materialNumbers: string[]
   reason: string
 }
 
-/** `POST …/{promotionId}/Replace` — switch off every part of the old promotion first; only if
- *  each is accepted, a fresh promotion (linked through `replacesId`) with the same items is made
- *  and sent. Returns the NEW promotion's detail. DHS-00020 when a switch-off was refused. */
+/** `POST …/{promotionId}/Replace` — only what changes; a key left `null` keeps the old value.
+ *  `allStores: true` = every onboarded store of the chain (frozen at send); else `storeCodes` names
+ *  them; both `null` = the old stores as frozen. Nothing changed is `HungerStationInputInvalid`. */
 export interface HungerStationPromotionReplaceBody {
-  name: string
-  startAt: LocalDateTime
-  endAt: LocalDateTime
-  allStores: boolean
-  storeCodes: string[]
+  name: string | null
+  startAt: LocalDateTime | null
+  endAt: LocalDateTime | null
+  allStores: boolean | null
+  storeCodes: string[] | null
   reason: string
-}
-
-/** The envelope `data` of a DHS-00020 refusal (Replace stopped): the part whose switch-off
- *  HungerStation refused, HungerStation's HTTP status and its answer. 🚩 Not in the contract yet
- *  (BackOffice 3216 says only "the refusal names the part"): an oms-react 671 assumption. */
-export interface HungerStationPromotionReplaceRefusal {
-  partId: string
-  /** The name the part was sent under. */
-  name: string
-  httpStatus: number | null
-  error: string | null
 }

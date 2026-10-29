@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ReasonDialog, { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
 import {
   HUNGERSTATION_PROMOTION_ERRORS,
@@ -20,9 +20,9 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi, promotionStoresKey } from './api'
 import { pickEndDay, windowProblem, type LocalWindow } from './local-window'
-import { replaceBody, replaceFormFromDetail, replaceNeeded, replaceProblems, replaceRefusalOf, type ReplaceForm } from './replace-form'
+import { replaceBody, replaceFormFromDetail, replaceNeeded, replaceProblems, type ReplaceForm } from './replace-form'
 
-const { replaceRefused, nameInUse, sending } = HUNGERSTATION_PROMOTION_ERRORS
+const { replaceStopped, nameInUse, sending, promotionSent } = HUNGERSTATION_PROMOTION_ERRORS
 
 /**
  * **Replace** a sent promotion (ticket 671; `POST Promotions/{id}/Replace`, BackOffice 3216): a new
@@ -30,10 +30,13 @@ const { replaceRefused, nameInUse, sending } = HUNGERSTATION_PROMOTION_ERRORS
  * dialog says in words what happens; the ORDER (switch the old one off first, send the new one only
  * if every switch-off was accepted) is the server's.
  *
- * On success the answer is the NEW promotion: it is cached and opened (`onReplaced`), linking back
- * to this one, which now reads Replaced. A refused switch-off (DHS-00020) stays in the dialog naming
- * the part, and this promotion is re-read — unchanged. The stores picker is the chain's
- * (`Promotions/Stores`), ticked as sent; a sent store the picker no longer offers stays listed.
+ * The body carries only what changed (a `null` keeps the old value, contract 3216). On success the
+ * answer is the NEW promotion: it is cached and opened (`onReplaced`), linking back to this one,
+ * which reads Sending until its switch-off jobs complete, then Replaced. A refused switch-off
+ * (DHS-00020, 409) stays in the dialog with the server's message — it names the part and
+ * HungerStation's answer; there is no structured data — and this promotion is re-read, unchanged.
+ * The stores picker is the chain's (`Promotions/Stores`), ticked as sent; a sent store the picker no
+ * longer offers stays listed.
  */
 export default function ReplaceDialog({
   promotion,
@@ -69,7 +72,7 @@ export default function ReplaceDialog({
   }, [picker.data, promotion.stores])
 
   const replace = useMutation({
-    mutationFn: (reason: string) => promotionsApi.replace(promotion.promotionId, replaceBody(form, reason)),
+    mutationFn: (reason: string) => promotionsApi.replace(promotion.promotionId, replaceBody(promotion, form, reason)),
     onSuccess: (next) => {
       qc.setQueryData(promotionKey(next.promotionId), next)
       void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY })
@@ -77,15 +80,15 @@ export default function ReplaceDialog({
       onReplaced(next.promotionId)
     },
     onError: (err) => {
-      // A refused switch-off left the old one as it was; DHS-00017 means a part is Sending after
-      // all. Either way the sheet behind re-reads what is true now.
+      // A refused switch-off left the old one as it was (an earlier part of it may be switched off);
+      // DHS-00017 means a part is Sending after all; HungerStationPromotionSent that it closed
+      // meanwhile. Each way the sheet behind re-reads what is true now.
       const code = apiErrorCode(err)
-      if (code === replaceRefused || code === sending) void qc.invalidateQueries({ queryKey: promotionKey(promotion.promotionId) })
+      if (code === replaceStopped || code === sending || code === promotionSent) void qc.invalidateQueries({ queryKey: promotionKey(promotion.promotionId) })
     },
   })
 
   const code = replace.error ? apiErrorCode(replace.error) : null
-  const refusal = code === replaceRefused ? replaceRefusalOf(apiErrorData(replace.error)) : null
   const now = new Date()
   const problems = replaceProblems(form, now)
   const changed = replaceNeeded(promotion, form)
@@ -103,14 +106,14 @@ export default function ReplaceDialog({
       error={replace.error}
       confirmLabel={t('replace.confirm')}
       confirmDisabled={problems.length > 0 || !changed}
-      handledCodes={[replaceRefused, nameInUse]}
+      handledCodes={[replaceStopped, nameInUse]}
       onEdit={() => replace.reset()}
       onConfirm={(reason) => replace.mutate(reason)}
       onClose={onClose}
     >
       <div className="flex flex-col gap-3" data-replace-dialog={promotion.promotionId}>
         <Field label={t('editor.name')} error={problems.includes('name') ? t('replace.nameRequired') : undefined}>
-          <Input value={form.name} onChange={(e) => set('name', e.target.value)} dir="auto" maxLength={200} disabled={replace.isPending} data-replace-name="" />
+          <Input value={form.name} onChange={(e) => set('name', e.target.value)} dir="auto" maxLength={100} disabled={replace.isPending} data-replace-name="" />
         </Field>
         {code === nameInUse && replace.error != null && (
           <div data-replace-name-refusal="">
@@ -184,30 +187,15 @@ export default function ReplaceDialog({
           </p>
         )}
 
-        {code === replaceRefused && replace.error != null && (
-          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 p-2.5 text-xs text-danger-800" data-replace-refused={refusal?.partId ?? ''}>
+        {code === replaceStopped && replace.error != null && (
+          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 p-2.5 text-xs text-danger-800" data-replace-refused="">
             <p className="flex items-start gap-1.5 font-medium">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>
-                {refusal ? (
-                  <Trans t={t} i18nKey="replace.refused" values={{ part: refusal.name ?? refusal.partId }} components={{ part: <bdi data-replace-refused-part="" /> }} />
-                ) : (
-                  t('replace.refusedNoPart')
-                )}
-              </span>
+              <span>{t('replace.refusedNoPart')}</span>
             </p>
             <p>{t('replace.refusedUnchanged')}</p>
-            {(refusal?.error || refusal?.httpStatus != null) && (
-              <p data-replace-refused-answer="">
-                {refusal.httpStatus != null && (
-                  <span className="me-1.5 font-mono">
-                    <Ltr>{String(refusal.httpStatus)}</Ltr>
-                  </span>
-                )}
-                {refusal.error && <bdi>{refusal.error}</bdi>}
-              </p>
-            )}
-            <p>
+            {/* The server's words name the part and HungerStation's answer (English / Arabic). */}
+            <p data-replace-refused-answer="">
               <bdi>{apiErrorMessage(replace.error, t('editor.failedHint'))}</bdi>
               <span className="ms-1.5 font-mono">
                 <Ltr>{code}</Ltr>

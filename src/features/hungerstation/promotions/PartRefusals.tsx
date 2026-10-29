@@ -1,4 +1,5 @@
 import { useState, type MouseEvent } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { Copy } from 'lucide-react'
 import type { HungerStationPromotionPart } from '@/core/models/hungerstation'
@@ -39,8 +40,8 @@ export default function PartRefusals({ parts }: { parts: HungerStationPromotionP
   )
 }
 
-const storeLabel = (t: (k: string, o?: Record<string, unknown>) => string, s: StoreRefusals) =>
-  s.storeCode !== null ? fsi(s.storeCode) : t('refusals.vendorOption', { vendorId: fsi(s.vendorId) })
+const storeLabel = (t: TFunction<'hungerstation-promotions'>, s: StoreRefusals) =>
+  s.storeCode !== null ? fsi(s.storeCode) : s.vendorId !== null ? t('refusals.vendorOption', { vendorId: fsi(s.vendorId) }) : t('refusals.unresolved')
 
 function PartRefusal({ part, grouped }: { part: HungerStationPromotionPart; grouped: RefusalsByStore }) {
   const { t } = useTranslation('hungerstation-promotions')
@@ -114,9 +115,7 @@ function RefusalTable({ list, total, stores }: { list: RefusalList; total: numbe
             {rows.map(({ s, sku }) => (
               <tr key={`${s.key}|${sku?.sku ?? ''}`} className="border-b border-border/40" data-refusal-row={s.key}>
                 <td className={TD + ' font-mono'}>{s.storeCode !== null ? <Ltr>{s.storeCode}</Ltr> : <span className="text-muted-foreground">{t('refusals.unresolved')}</span>}</td>
-                <td className={TD + ' font-mono'}>
-                  <Ltr>{s.vendorId}</Ltr>
-                </td>
+                <td className={TD + ' font-mono'}>{s.vendorId !== null ? <Ltr>{s.vendorId}</Ltr> : null}</td>
                 {sku && <td className={TD + ' font-mono'}>{sku.materialNumber ? <Ltr>{sku.materialNumber}</Ltr> : null}</td>}
                 {sku && (
                   <td className={TD + ' font-mono'}>

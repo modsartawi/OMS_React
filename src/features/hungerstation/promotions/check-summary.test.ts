@@ -1,169 +1,140 @@
 /**
- * Ticket 667 — the Check panel's reading of a Check answer: refusals block Send, a price warning
- * never does; refusals are grouped per row (material) and per header field. A Send refused for its
- * checks (DHS-00018) carries the same answer as its `data` (666's assumption), read defensively.
+ * Ticket 667 (reconciled to the BackOffice 3201 door contract, 2026-10-29) — the Check panel's
+ * reading of a Check answer `{ canSend, itemCount, duplicateCount, refusals[], warnings[], parts[] }`:
+ * a refusal blocks Send, the `priceNotBelow` warning never does; issues are grouped per row
+ * (material) and per header field (`rowNo` null). A refused Send (DHS-00018 / 00019) carries only
+ * a message, so the page re-runs Check for the detail.
  */
+import i18next from 'i18next'
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import type { HungerStationPromotionCheckResult } from '@/core/models/hungerstation'
-import { checkOfRefusal, checkSummary } from './check-summary'
+import en from '@/locales/en/hungerstation-promotions.json'
+import ar from '@/locales/ar/hungerstation-promotions.json'
+import type { HungerStationPromotionCheck, HungerStationPromotionCheckIssue } from '@/core/models/hungerstation'
+import { HUNGERSTATION_PROMOTION_CHECK_CODES } from '@/core/models/hungerstation'
+import { checkCellText, checkRefused, checkSummary, problemWords } from './check-summary'
 
-const clean: HungerStationPromotionCheckResult = { sendable: true, header: [], rows: [], parts: [], skuCount: 3, changes: null }
+const clean: HungerStationPromotionCheck = { promotionId: 'p', canSend: true, itemCount: 3, duplicateCount: 0, refusals: [], warnings: [], parts: [] }
+const issue = (over: Partial<HungerStationPromotionCheckIssue>): HungerStationPromotionCheckIssue => ({
+  code: 'materialNotListed',
+  field: 'materialNumber',
+  rowNo: 1,
+  materialNumber: '101001',
+  storeCodes: [],
+  message: 'server words / كلمات',
+  ...over,
+})
+const header = (field: string, code: string, over: Partial<HungerStationPromotionCheckIssue> = {}) => issue({ field, code, rowNo: null, materialNumber: null, ...over })
+const warning = (materialNumber: string, storeCodes: string[]) => issue({ code: 'priceNotBelow', field: 'value', materialNumber, storeCodes })
 
 describe('checkSummary', () => {
   it('a clean answer: nothing refuses, Send is open', () => {
     const s = checkSummary(clean)
-    expect([s.refusals, s.warnings, s.blocksSend, s.rows.size, s.header.size]).toEqual([0, 0, false, 0, 0])
+    expect([s.refusals, s.warnings, s.blocksSend, s.rows.size, s.header.size, s.itemCount]).toEqual([0, 0, false, 0, 0, 3])
   })
 
   it('a price warning never blocks Send, and names its stores', () => {
-    const s = checkSummary({ ...clean, rows: [{ materialNumber: '101003', refusals: [], priceWarning: { storeCodes: ['2001', '1001'] } }] })
-    expect(s.blocksSend).toBe(false)
-    expect(s.warnings).toBe(1)
-    expect(s.refusedRows).toBe(0)
+    const s = checkSummary({ ...clean, warnings: [warning('101003', ['2001', '1001'])] })
+    expect([s.blocksSend, s.warnings, s.refusedRows]).toEqual([false, 1, 0])
     expect(s.rows.get('101003')).toEqual({ refusals: [], warningStores: ['2001', '1001'] })
   })
 
   it('a row refusal blocks Send, grouped on its material', () => {
     const s = checkSummary({
       ...clean,
-      sendable: false,
-      rows: [
-        { materialNumber: '101002', refusals: [{ code: 'NO_SKU', message: 'm1' }], priceWarning: null },
-        { materialNumber: '101001', refusals: [{ code: 'PERCENT_RANGE', message: 'm2' }, { code: 'VALUE_DECIMALS', message: 'm3' }], priceWarning: { storeCodes: ['1001'] } },
+      canSend: false,
+      refusals: [
+        issue({ materialNumber: '101002', code: 'materialNotListed' }),
+        issue({ materialNumber: '101001', code: 'percentOutOfRange', field: 'value' }),
+        issue({ materialNumber: '101001', code: 'valueTooManyDecimals', field: 'value' }),
       ],
+      warnings: [warning('101001', ['1001'])],
     })
-    expect(s.blocksSend).toBe(true)
-    expect(s.refusals).toBe(3)
-    expect(s.refusedRows).toBe(2)
-    expect(s.warnings).toBe(1)
-    expect(s.rows.get('101001')?.refusals.map((p) => p.code)).toEqual(['PERCENT_RANGE', 'VALUE_DECIMALS'])
+    expect([s.blocksSend, s.refusals, s.refusedRows, s.warnings]).toEqual([true, 3, 2, 1])
+    expect(s.rows.get('101001')?.refusals.map((p) => p.code)).toEqual(['percentOutOfRange', 'valueTooManyDecimals'])
     expect(s.rows.get('101002')?.warningStores).toEqual([])
   })
 
-  it('a material named twice is one row', () => {
-    const s = checkSummary({
-      ...clean,
-      sendable: false,
-      rows: [
-        { materialNumber: '7', refusals: [{ code: 'NO_SKU', message: 'a' }], priceWarning: null },
-        { materialNumber: '7', refusals: [{ code: 'VALUE_NOT_POSITIVE', message: 'b' }], priceWarning: { storeCodes: ['1001'] } },
-      ],
-    })
-    expect(s.refusedRows).toBe(1)
-    expect(s.rows.get('7')).toEqual({ refusals: [{ code: 'NO_SKU', message: 'a' }, { code: 'VALUE_NOT_POSITIVE', message: 'b' }], warningStores: ['1001'] })
+  it('a material warned twice keeps each store once', () => {
+    const s = checkSummary({ ...clean, warnings: [warning('7', ['1001']), warning('7', ['1001', '1002'])] })
+    expect(s.rows.get('7')?.warningStores).toEqual(['1001', '1002'])
   })
 
-  it('header refusals are grouped per field and block Send', () => {
-    const s = checkSummary({
-      ...clean,
-      sendable: false,
-      header: [
-        { field: 'endAt', code: 'END_PAST', message: 'x' },
-        { field: 'displayNameAr', code: 'DISPLAY_NAME_MISSING', message: 'y' },
-        { field: 'endAt', code: 'WINDOW_ORDER', message: 'z' },
-      ],
-    })
-    expect(s.blocksSend).toBe(true)
-    expect(s.refusals).toBe(3)
+  it('header refusals (rowNo null) are grouped per field, in the order named, and block Send', () => {
+    const s = checkSummary({ ...clean, canSend: false, refusals: [header('endAt', 'endPast'), header('displayNameAr', 'displayNameArMissing'), header('endAt', 'endMissing')] })
+    expect([s.blocksSend, s.refusals, s.refusedRows]).toEqual([true, 3, 0])
     expect([...s.header.keys()]).toEqual(['endAt', 'displayNameAr'])
-    expect(s.header.get('endAt')?.map((p) => p.code)).toEqual(['END_PAST', 'WINDOW_ORDER'])
+    expect(s.header.get('endAt')?.map((p) => p.code)).toEqual(['endPast', 'endMissing'])
   })
 
-  it('the server saying not sendable blocks Send even with no refusal listed', () => {
-    expect(checkSummary({ ...clean, sendable: false }).blocksSend).toBe(true)
+  it('the server saying it cannot send blocks Send even with no refusal listed; a listed refusal blocks it whatever canSend says', () => {
+    expect(checkSummary({ ...clean, canSend: false }).blocksSend).toBe(true)
+    expect(checkSummary({ ...clean, refusals: [header('stores', 'noStores')] }).blocksSend).toBe(true)
   })
 
-  it('a refusal listed blocks Send even when the server says sendable', () => {
-    expect(checkSummary({ ...clean, header: [{ field: 'stores', code: 'NO_STORES', message: 'n' }] }).blocksSend).toBe(true)
-  })
-})
-
-const refusal = (data: unknown, code = 'DHS-00018') =>
-  new ApiError('business', 'A check refuses.', 400, [{ errorCode: code, internalErrorCode: '', errorMessage: 'A check refuses.' }], data)
-
-describe('checkOfRefusal', () => {
-  it('reads the Check answer a DHS-00018 carries', () => {
-    const data = { ...clean, sendable: false, rows: [{ materialNumber: '101002', refusals: [{ code: 'NO_SKU', message: 'm' }], priceWarning: null }] }
-    expect(checkOfRefusal(refusal(data))).toEqual(data)
-  })
-
-  it('fills what it cannot read with nothing, and drops a row with no material', () => {
-    const got = checkOfRefusal(refusal({ rows: [{ materialNumber: 5 }, { materialNumber: '9', refusals: [{ code: 'X' }] }], header: 'no' }))
-    expect(got).toEqual({
-      sendable: false,
-      header: [],
-      rows: [{ materialNumber: '9', refusals: [{ code: 'X', message: '' }], priceWarning: null }],
-      parts: [],
-      skuCount: 0,
-      changes: null,
-    })
-  })
-
-  it('null for another refusal, a body it cannot read, or not an ApiError', () => {
-    expect(checkOfRefusal(refusal(clean, 'DHS-00017'))).toBeNull()
-    expect(checkOfRefusal(refusal(null))).toBeNull()
-    expect(checkOfRefusal(refusal('no'))).toBeNull()
-    expect(checkOfRefusal(new Error('x'))).toBeNull()
-  })
-})
-
-// Ticket 668 — the part preview: the parts the server will send, as it split them. The page
-// never computes them; the summary hands them on as the answer lists them.
-const parts = [
-  { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, name: 'Eid · B2G1 50%', skuCount: 600 },
-  { buyQuantity: 1, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 100, name: 'Eid · B1G1 100%', skuCount: 300 },
-  { buyQuantity: 2, getQuantity: 1, subtype: 'FINAL_PRICE' as const, value: 9.95, name: 'Eid · B2G1 9.95final', skuCount: 100 },
-]
-
-describe('checkSummary — the part preview (668)', () => {
-  it('carries the parts in the order the server listed them, with the SKU total', () => {
-    const s = checkSummary({ ...clean, parts, skuCount: 1000 })
-    expect(s.parts.map((p) => [p.name, p.skuCount])).toEqual([
+  it('668: carries the part preview in the server’s order', () => {
+    const parts = [
+      { partNo: 1, combination: 'B2G1|PERCENTAGE|50', buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, skuCount: 600, name: 'Eid · B2G1 50%' },
+      { partNo: 2, combination: 'B1G1|PERCENTAGE|100', buyQuantity: 1, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 100, skuCount: 300, name: 'Eid · B1G1 100%' },
+    ]
+    expect(checkSummary({ ...clean, parts, itemCount: 900 }).parts.map((p) => [p.name, p.skuCount])).toEqual([
       ['Eid · B2G1 50%', 600],
       ['Eid · B1G1 100%', 300],
-      ['Eid · B2G1 9.95final', 100],
     ])
-    expect(s.skuCount).toBe(1000)
-  })
-
-  it('a buy/get refusal on a row blocks Send like any row refusal', () => {
-    const s = checkSummary({ ...clean, sendable: false, rows: [{ materialNumber: '201004', refusals: [{ code: 'BUY_GET_RANGE', message: 'b' }], priceWarning: null }] })
-    expect([s.blocksSend, s.refusedRows]).toEqual([true, 1])
   })
 })
 
-describe('checkOfRefusal — the part preview (668)', () => {
-  it('reads the parts a DHS-00018 carries', () => {
-    expect(checkOfRefusal(refusal({ ...clean, sendable: false, parts }))?.parts).toEqual(parts)
-  })
+const refusal = (code: string) => new ApiError('business', 'The promotion cannot be sent: row 2: …', 400, [{ errorCode: code, internalErrorCode: '', errorMessage: 'x' }])
 
-  it('drops a part it cannot read (no name, no SKU count); a blank combination field is null', () => {
-    const got = checkOfRefusal(refusal({ parts: [{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: '1', subtype: 'HALF' }, { name: 5, skuCount: 1 }, { name: 'B' }, 'x'] }))
-    expect(got?.parts).toEqual([{ name: 'A', skuCount: 2, buyQuantity: 2, getQuantity: null, subtype: null, value: null }])
-  })
-})
-
-// Ticket 670 — an in-place edit's Check answers what changes per part; a refused edit carries it too.
-const changes = [
-  { buyQuantity: 2, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, partId: 'pt-a', name: 'A', change: 'updated' as const, skuCount: 1, leaving: ['201002'], joining: [] },
-  { buyQuantity: 3, getQuantity: 1, subtype: 'PERCENTAGE' as const, value: 50, partId: null, name: 'C', change: 'new' as const, skuCount: 1, leaving: [], joining: ['201002'] },
-]
-
-describe('checkSummary — the edit preview (670)', () => {
-  it('carries the per-part changes; a draft check carries none', () => {
-    expect(checkSummary({ ...clean, changes }).changes?.moved).toEqual([{ materialNumber: '201002', from: 'A', to: 'C' }])
-    expect(checkSummary(clean).changes).toBeNull()
+describe('checkRefused — a Send or edit refused by its checks', () => {
+  it('DHS-00018 and DHS-00019 are; anything else is not', () => {
+    expect(checkRefused(refusal('DHS-00018'))).toBe(true)
+    expect(checkRefused(refusal('DHS-00019'))).toBe(true)
+    expect(checkRefused(refusal('DHS-00017'))).toBe(false)
+    expect(checkRefused(new Error('x'))).toBe(false)
   })
 })
 
-describe('checkOfRefusal — the edit preview (670)', () => {
-  it('reads the changes a DHS-00018 carries, dropping an entry it cannot read', () => {
-    const got = checkOfRefusal(refusal({ ...clean, sendable: false, changes: [...changes, { name: 'X' }, 'y'] }))
-    expect(got?.changes).toEqual(changes)
+const instance = i18next.createInstance()
+instance.init({
+  lng: 'en',
+  resources: { en: { 'hungerstation-promotions': en }, ar: { 'hungerstation-promotions': ar } },
+  ns: ['hungerstation-promotions'],
+  defaultNS: 'hungerstation-promotions',
+  initAsync: false,
+  interpolation: { escapeValue: false },
+})
+const tOf = (lng: 'en' | 'ar') => instance.getFixedT(lng, 'hungerstation-promotions') as never
+
+describe('problemWords', () => {
+  it.each(['en', 'ar'] as const)('every refusal code of the contract has its own words (%s)', (lng) => {
+    for (const code of HUNGERSTATION_PROMOTION_CHECK_CODES) {
+      const words = problemWords(tOf(lng), issue({ code, message: 'SERVER' }))
+      expect([code, words === 'SERVER' || words.startsWith('check.codes')]).toEqual([code, false])
+    }
   })
 
-  it('no changes array is null', () => {
-    expect(checkOfRefusal(refusal({ ...clean, changes: 'no' }))?.changes).toBeNull()
+  it('a code it does not know reads in the server’s words', () => {
+    expect(problemWords(tOf('en'), issue({ code: 'somethingNew', message: 'row 2: new / جديد' }))).toBe('row 2: new / جديد')
+  })
+
+  it('storeNotOnboarded names the stores, isolated whole', () => {
+    expect(problemWords(tOf('en'), header('stores', 'storeNotOnboarded', { storeCodes: ['1001', '1002'] }))).toBe(
+      'These stores are no longer onboarded stores of the chain: ⁨1001, 1002⁩.',
+    )
+  })
+})
+
+describe('checkCellText — the preview grid’s Check cell (bidi rule: no isolate in a grid value)', () => {
+  it('a refusal whose words interpolate a figure carries no FSI / PDI', () => {
+    const text = checkCellText(tOf('en'), { refusals: [issue({ code: 'tooManySkus' })], warningStores: [] })
+    expect(text).toContain('20,000')
+    expect(text).not.toMatch(/[⁦-⁩]/)
+  })
+
+  it('refusals in words, else the price warning counted, else blank', () => {
+    expect(checkCellText(tOf('en'), { refusals: [issue({ code: 'materialNotListed' })], warningStores: ['1001'] })).toBe('The material is not on the HungerStation material list.')
+    expect(checkCellText(tOf('en'), { refusals: [], warningStores: ['1001', '2001'] })).toBe('HungerStation will refuse it at 2 stores')
+    expect(checkCellText(tOf('en'), null)).toBe('')
   })
 })

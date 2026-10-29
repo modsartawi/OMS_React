@@ -10,7 +10,6 @@ import {
   type HungerStationPromotionPart,
   type HungerStationPromotionSend,
 } from '@/core/models/hungerstation'
-import ReasonDialog from '@/core/hungerstation/ReasonDialog'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import IconButton from '@/core/ui/IconButton'
@@ -23,29 +22,34 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi } from './api'
 import PartRefusals from './PartRefusals'
-import { partSending, promotionPollInterval } from './part-refusals'
+import { latestSend, partSending, partUnanswered, promotionPollInterval, sendUnanswered } from './part-refusals'
+import { parseCombination } from './part-label'
+import RemoveItemsDialog from './RemoveItemsDialog'
 import ReplaceDialog from './ReplaceDialog'
 import { promotionActions } from './replace-form'
 import ResendDialog, { type ResendTarget } from './ResendDialog'
 import SwitchOffDialog from './SwitchOffDialog'
-import { PromotionStatusBadge, typeText } from './columns'
+import { PromotionStatusBadge } from './columns'
 import { buyGetText, discountText, windowText } from './promotion-display'
 import { jobStatusLabel } from './promotion-status'
-import { editMode, type EditMode } from './promotion-edit'
+import { editMode, lifecycleClosed, type EditMode } from './promotion-edit'
+import { hsReasonText, isHsReason, isSubtype, subtypeText, typeText } from './promotion-words'
 
 /**
  * **One HungerStation promotion**, read-only (ticket 665; `GET Promotions/{id}`): its header (name,
  * EN/AR display names, HungerStation reason, limits, window), its **parts** — each with the name
- * sent to HungerStation and its latest job status — its stores (vendor id as sent), its items
- * (material, SKU, subtype, value, max quantity, part) and every send (when, who, reason, HTTP
+ * sent to HungerStation, its own status and its latest job — its stores (vendor id as sent), its
+ * items (material, SKU, subtype, value, max quantity, part) and every send (when, who, reason, HTTP
  * status, job status). Opened from `?promotion=<id>`. The frame is the house side sheet.
  *
  * 670: a sent promotion still running offers **Edit** (in place, in the editor) and **Remove items**:
  * tick active items, give a reason, and they go out `active: false` in their parts; they then read
- * Removed and stay listed. Both wait while any part is Sending.
+ * Removed and stay listed. Both wait while it reads Sending.
  * 671: a sent promotion that still runs offers **Replace** (a new name, stores, start or end) and
- * **Switch off** (the whole promotion), both disabled while any part is Sending. The promotion it
- * replaced and the one that replaced it are links (`onOpen`).
+ * **Switch off** (the whole promotion), both disabled while it reads Sending. A switch-off that did
+ * not take (it reads Failed once switched off or replaced) offers **Switch off again** — it retries
+ * the parts still on HungerStation. The promotion it replaced and the one that replaced it are links
+ * (`onOpen`).
  */
 export default function PromotionSheet({
   promotionId,
@@ -53,6 +57,7 @@ export default function PromotionSheet({
   onEdit,
   onOpen,
   startReplace = false,
+  onReplaceStarted,
 }: {
   promotionId: string
   onClose: () => void
@@ -61,12 +66,15 @@ export default function PromotionSheet({
   onOpen: (promotionId: string) => void
   /** Open with the Replace dialog up (the editor's "Changing this replaces the promotion" hook). */
   startReplace?: boolean
+  /** Review B7: the Replace dialog came up from `startReplace` — the page forgets the request, so a
+   *  cancelled Replace never comes back (after a link out and back, or a reopen). */
+  onReplaceStarted?: () => void
 }) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
-  // 🔑 The light poll (ticket 669): while any part is Sending the open detail re-reads itself every
-  // 15 s — the server polls HungerStation every minute — and stops once every part has an answer.
-  // It lives only as long as this sheet is open.
+  // 🔑 The light poll (ticket 669): while it — or any part — reads Sending, the open detail
+  // re-reads itself every 15 s (the server polls HungerStation every minute), and stops once it
+  // reads anything else. It lives only as long as this sheet is open.
   const detail = useQuery({
     queryKey: promotionKey(promotionId),
     queryFn: () => promotionsApi.detail(promotionId),
@@ -82,10 +90,13 @@ export default function PromotionSheet({
   // From an effect, not the initial state: the sheet's own modal opens in its (child) effect first,
   // so the Replace modal lands ABOVE it in the top layer instead of under it.
   useEffect(() => {
-    if (startReplace) setDialog('replace')
-  }, [startReplace])
+    if (!startReplace) return
+    setDialog('replace')
+    onReplaceStarted?.()
+  }, [startReplace, onReplaceStarted])
   const actions = p ? promotionActions(p) : null
   const waitTitle = actions?.sending ? t('detail.actionsWhileSending') : undefined
+  const retryOff = !!p && lifecycleClosed(p)
 
   return (
     <SideSheet onClose={onClose} width="w-[72rem]" aria-labelledby={titleId} data-promotion-sheet={promotionId}>
@@ -99,7 +110,7 @@ export default function PromotionSheet({
         <div className="flex shrink-0 items-center gap-2">
           {p && <PromotionStatusBadge t={t} status={p.status} />}
           {/* 666: a draft opens in the editor; a sent one asks HungerStation now. 670: a sent one still
-              running is edited in place, never while a part is Sending. */}
+              running is edited in place, never while it reads Sending. */}
           {(mode === 'draft' || mode === 'inPlace' || mode === 'sending') && (
             <Button
               variant="outlined"
@@ -119,17 +130,23 @@ export default function PromotionSheet({
             </Button>
           )}
           {/* 671: what HungerStation keys a promotion by changes only through Replace. */}
-          {actions?.offered && (
-            <>
-              <Button variant="outlined" disabled={actions.sending} title={waitTitle} onClick={() => setDialog('replace')} data-promotion-replace="">
-                <Replace className="h-3.5 w-3.5" aria-hidden />
-                {t('detail.replace')}
-              </Button>
-              <Button variant="danger-outlined" disabled={actions.sending} title={waitTitle} onClick={() => setDialog('switchOff')} data-promotion-switch-off="">
-                <Power className="h-3.5 w-3.5" aria-hidden />
-                {t('detail.switchOff')}
-              </Button>
-            </>
+          {actions?.replace && (
+            <Button variant="outlined" disabled={actions.sending} title={waitTitle} onClick={() => setDialog('replace')} data-promotion-replace="">
+              <Replace className="h-3.5 w-3.5" aria-hidden />
+              {t('detail.replace')}
+            </Button>
+          )}
+          {actions?.switchOff && (
+            <Button
+              variant="danger-outlined"
+              disabled={actions.sending}
+              title={waitTitle}
+              onClick={() => setDialog('switchOff')}
+              data-promotion-switch-off={retryOff ? 'retry' : 'whole'}
+            >
+              <Power className="h-3.5 w-3.5" aria-hidden />
+              {t(retryOff ? 'detail.switchOffAgain' : 'detail.switchOff')}
+            </Button>
           )}
           <IconButton label={t('detail.close')} onClick={onClose} data-promotion-close="">
             <X className="h-4 w-4" aria-hidden />
@@ -180,25 +197,22 @@ export default function PromotionSheet({
                 {t('detail.polling')}
               </p>
             )}
-            <Parts
-              parts={detail.data.parts ?? []}
-              onResend={(part) => setResend({ promotionId: detail.data.promotionId, partId: part.partId, name: part.name })}
-            />
+            <Parts p={detail.data} onResend={(part) => setResend({ promotionId: detail.data.promotionId, partId: part.partId, name: part.name })} />
             <PartRefusals parts={detail.data.parts ?? []} />
             <Stores p={detail.data} />
-            <Items promotionId={detail.data.promotionId} mode={mode} items={detail.data.items ?? []} parts={detail.data.parts ?? []} />
-            <Sends sends={detail.data.sends ?? []} parts={detail.data.parts ?? []} />
+            <Items p={detail.data} mode={mode} />
+            <Sends p={detail.data} />
           </>
         )}
       </div>
       {resend && <ResendDialog target={resend} onClose={() => setResend(null)} />}
       {p && dialog === 'replace' && <ReplaceDialog promotion={p} onClose={() => setDialog(null)} onReplaced={onOpen} />}
-      {p && dialog === 'switchOff' && <SwitchOffDialog promotion={p} onClose={() => setDialog(null)} />}
+      {p && dialog === 'switchOff' && <SwitchOffDialog promotion={p} retry={retryOff} onClose={() => setDialog(null)} />}
     </SideSheet>
   )
 }
 
-/** 666: Refresh — asks HungerStation for each part's job now; its answer IS the detail. */
+/** 666: Refresh — asks HungerStation for each open job now; its answer IS the detail. */
 function useRefresh(promotionId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -226,6 +240,12 @@ function ByAt({ at, by }: { at: string | null; by: string | null }) {
   return <Trans t={t} i18nKey="detail.byAt" values={{ at: formatDateTime(at), by: by ?? '' }} components={{ at: <Ltr />, by: <Ltr /> }} />
 }
 
+/** A subtype in words: its own, or — one the contract does not name — as sent, isolated. */
+function Subtype({ value }: { value: string | null }) {
+  const { t } = useTranslation('hungerstation-promotions')
+  return isSubtype(value) || value === null ? <>{subtypeText(t, value)}</> : <Ltr>{value}</Ltr>
+}
+
 /** The promotion's header, label beside value. */
 function Header({ p, onOpen }: { p: HungerStationPromotionDetail; onOpen: (promotionId: string) => void }) {
   const { t } = useTranslation('hungerstation-promotions')
@@ -236,16 +256,12 @@ function Header({ p, onOpen }: { p: HungerStationPromotionDetail; onOpen: (promo
     </div>
   )
   const limit = (n: number | null) => (n === null ? t('detail.noLimit') : <Ltr>{figure(n)}</Ltr>)
-  const hsReason = ['COMPETITIVENESS', 'OVERSTOCK', 'DELISTING', 'EXPIRING_SOON', 'NMR', 'TRADING'].includes(p.hsReason)
-    ? t(`hsReasons.${p.hsReason}`)
-    : <Ltr>{p.hsReason}</Ltr>
-  const subtype = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE'].includes(p.defaultSubtype) ? t(`subtypes.${p.defaultSubtype}`) : p.defaultSubtype
   return (
     <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-border/60 p-3 md:grid-cols-4" data-promotion-header="">
       {field(t('detail.chain'), code(p.chainKey), 'chain')}
       {field(t('detail.type'), typeText(t, p.type), 'type')}
       {field(t('detail.status'), <PromotionStatusBadge t={t} status={p.status} />, 'status')}
-      {field(t('detail.hsReason'), hsReason, 'hsReason')}
+      {field(t('detail.hsReason'), isHsReason(p.hsReason) ? hsReasonText(t, p.hsReason) : <Ltr>{p.hsReason}</Ltr>, 'hsReason')}
       {field(t('detail.displayNameEn'), <bdi>{p.displayNameEn}</bdi>, 'displayNameEn', true)}
       {field(t('detail.displayNameAr'), <bdi>{p.displayNameAr}</bdi>, 'displayNameAr', true)}
       {field(t('detail.window'), <Ltr>{windowText(p.startAt, p.endAt)}</Ltr>, 'window', true)}
@@ -254,25 +270,15 @@ function Header({ p, onOpen }: { p: HungerStationPromotionDetail; onOpen: (promo
       {field(
         t('detail.defaultDiscount'),
         <span className="flex flex-wrap items-center gap-1.5">
-          {subtype}
-          {p.defaultValue !== null && <Ltr>{discountText(p.defaultSubtype, p.defaultValue)}</Ltr>}
+          <Subtype value={p.defaultSubtype} />
+          {p.defaultValue ? <Ltr>{discountText(t, p.defaultSubtype, p.defaultValue)}</Ltr> : null}
         </span>,
         'defaultDiscount',
       )}
-      {/* 668: the buy / get a bundle row with a blank cell takes. */}
-      {p.type === 'SAME_ITEM_BUNDLE' &&
-        field(
-          t('detail.defaultBuyGet'),
-          (() => {
-            const buyGet = buyGetText({ buyQuantity: p.defaultBuyQuantity ?? null, getQuantity: p.defaultGetQuantity ?? null })
-            return buyGet ? <Ltr>{buyGet}</Ltr> : t('detail.noLimit')
-          })(),
-          'defaultBuyGet',
-        )}
       {field(t('detail.stores'), p.allStores ? t('detail.allStores') : <Ltr>{figure(p.stores?.length ?? 0)}</Ltr>, 'storesScope')}
       {/* 671: the replace chain reads as one story — each end links to the other. */}
-      {p.replacesId && field(t('detail.replaces'), <PromotionLink id={p.replacesId} onOpen={onOpen} data="data-promotion-replaces-link" />, 'replaces')}
-      {p.replacedById && field(t('detail.replacedBy'), <PromotionLink id={p.replacedById} onOpen={onOpen} data="data-promotion-replaced-by-link" />, 'replacedBy')}
+      {p.replacesPromotionId && field(t('detail.replaces'), <PromotionLink id={p.replacesPromotionId} onOpen={onOpen} data="data-promotion-replaces-link" />, 'replaces')}
+      {p.replacedByPromotionId && field(t('detail.replacedBy'), <PromotionLink id={p.replacedByPromotionId} onOpen={onOpen} data="data-promotion-replaced-by-link" />, 'replacedBy')}
       {field(t('detail.created'), <ByAt at={p.createdAt} by={p.createdBy} />, 'created')}
       {field(t('detail.updated'), <ByAt at={p.updatedAt} by={p.updatedBy} />, 'updated')}
       {field(t('detail.sent'), <ByAt at={p.sentAt} by={p.sentBy} />, 'sent')}
@@ -300,7 +306,7 @@ function PromotionLink({ id, onOpen, data }: { id: string; onOpen: (promotionId:
   )
 }
 
-/** A job status's badge: its words, `Unanswered` past 24 hours queued, or the value as sent. */
+/** A job status's badge: its words, `No answer` for the 24-hour job, or the value as sent. */
 function JobBadge({ status, unanswered }: { status: string | null; unanswered: boolean }) {
   const { t } = useTranslation('hungerstation-promotions')
   const label = jobStatusLabel(status, unanswered)
@@ -319,11 +325,15 @@ function Section({ title, data, hint, children }: { title: string; data: string;
 
 const Empty = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted-foreground">{children}</p>
 
-/** A part can be resent once it has been sent, while it is active and not Sending. */
-const resendable = (part: HungerStationPromotionPart) => part.active && part.latestJobStatus !== null
+/** A part can be resent (contract 3214) once sent, while active; it waits while that part reads
+ *  Sending. Not on an Ended promotion: its window is past, HungerStation would not run it. */
+const resendable = (p: HungerStationPromotionDetail, part: HungerStationPromotionPart) => p.status !== 'ended' && part.active && part.status !== null
 
-function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onResend: (part: HungerStationPromotionPart) => void }) {
+function Parts({ p, onResend }: { p: HungerStationPromotionDetail; onResend: (part: HungerStationPromotionPart) => void }) {
   const { t } = useTranslation('hungerstation-promotions')
+  const parts = p.parts ?? []
+  // The detail's part carries no SKU count: its active items, counted.
+  const skus = (partId: string) => (p.items ?? []).filter((i) => i.active && i.partId === partId).length
   return (
     <Section title={t('detail.parts')} hint={t('detail.partsHint')} data="data-promotion-parts">
       {parts.length === 0 ? (
@@ -336,6 +346,7 @@ function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onRes
               <th className={TH}>{t('detail.partColumns.combination')}</th>
               <th className={TH}>{t('detail.partColumns.discount')}</th>
               <th className={TH + ' text-end'}>{t('detail.partColumns.skus')}</th>
+              <th className={TH}>{t('detail.partColumns.status')}</th>
               <th className={TH}>{t('detail.partColumns.jobStatus')}</th>
               <th className={TH}>{t('detail.partColumns.active')}</th>
               <th className={TH}>{t('detail.partColumns.actions')}</th>
@@ -343,9 +354,12 @@ function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onRes
           </thead>
           <tbody>
             {parts.map((part) => {
-              const buyGet = buyGetText(part)
+              const combo = parseCombination(part.combination)
+              const buyGet = buyGetText(combo)
+              const job = latestSend(p, part.partId)?.jobStatus ?? null
+              const unanswered = partUnanswered(p, part.partId)
               return (
-                <tr key={part.partId} className="border-b border-border/40" data-promotion-part={part.partId} data-promotion-part-job={part.latestJobStatus ?? 'none'}>
+                <tr key={part.partId} className="border-b border-border/40" data-promotion-part={part.partId} data-promotion-part-job={job ?? 'none'} data-promotion-part-state={part.status ?? 'none'}>
                   <td className="px-2 py-1.5 align-top" data-promotion-part-name="">
                     <bdi>{part.name}</bdi>
                   </td>
@@ -353,19 +367,22 @@ function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onRes
                     {buyGet ? <Ltr>{buyGet}</Ltr> : t('detail.allItems')}
                   </td>
                   <td className={TD} data-promotion-part-discount="">
-                    {part.subtype && (
+                    {combo.subtype && (
                       <span className="flex items-center gap-1.5">
-                        {t(`subtypes.${part.subtype}`)}
-                        <Ltr>{discountText(part.subtype, part.value)}</Ltr>
+                        {subtypeText(t, combo.subtype)}
+                        <Ltr>{discountText(t, combo.subtype, combo.value)}</Ltr>
                       </span>
                     )}
                   </td>
                   <td className={TD + ' text-end tabular-nums'} data-promotion-part-skus="">
-                    <Ltr>{figure(part.skuCount)}</Ltr>
+                    <Ltr>{figure(skus(part.partId))}</Ltr>
                   </td>
                   <td className={TD} data-promotion-part-status="">
-                    <JobBadge status={part.latestJobStatus} unanswered={part.unanswered} />
-                    {part.unanswered && (
+                    {part.status ? <PromotionStatusBadge t={t} status={part.status} /> : <StatusBadge sev="mute">{t('jobStatuses.none')}</StatusBadge>}
+                  </td>
+                  <td className={TD} data-promotion-part-latest-job="">
+                    <JobBadge status={job} unanswered={unanswered} />
+                    {unanswered && (
                       <p className="mt-1 max-w-[16rem] text-[11px] text-muted-foreground" data-promotion-part-unanswered="">
                         {t('detail.unansweredHint')}
                       </p>
@@ -375,7 +392,7 @@ function Parts({ parts, onResend }: { parts: HungerStationPromotionPart[]; onRes
                     {yesNo(t, part.active)}
                   </td>
                   <td className={TD}>
-                    {resendable(part) && (
+                    {resendable(p, part) && (
                       <Button
                         variant="outlined"
                         disabled={partSending(part)}
@@ -435,21 +452,12 @@ function Stores({ p }: { p: HungerStationPromotionDetail }) {
 /** The part an item or a send belongs to, by the name it was sent under. */
 const partNames = (parts: HungerStationPromotionPart[]) => new Map(parts.map((p) => [p.partId, p.name]))
 
-function Items({
-  promotionId,
-  mode,
-  items,
-  parts,
-}: {
-  promotionId: string
-  mode: EditMode | null
-  items: HungerStationPromotionItem[]
-  parts: HungerStationPromotionPart[]
-}) {
+function Items({ p, mode }: { p: HungerStationPromotionDetail; mode: EditMode | null }) {
   const { t } = useTranslation('hungerstation-promotions')
-  const names = partNames(parts)
+  const items: HungerStationPromotionItem[] = p.items ?? []
+  const names = partNames(p.parts ?? [])
   const num = (n: number | null) => (n === null ? null : <Ltr>{figure(n)}</Ltr>)
-  // 670: items of a sent promotion are ticked and removed; never while a part is Sending.
+  // 670: items of a sent promotion are ticked and removed; never while it reads Sending.
   const selectable = mode === 'inPlace' || mode === 'sending'
   const locked = mode === 'sending'
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
@@ -459,21 +467,23 @@ function Items({
   const chosen = active.filter((m) => picked.has(m))
   const toggle = (m: string) => setPicked((prev) => (prev.has(m) ? new Set([...prev].filter((x) => x !== m)) : new Set([...prev, m])))
   const allOn = active.length > 0 && chosen.length === active.length
+  // Removing EVERY active row is refused (contract 3215: that is a switch-off).
+  const tooMany = chosen.length > 0 && chosen.length === active.length
   return (
     <Section title={t('detail.items')} data="data-promotion-items">
       {selectable && items.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" data-promotion-remove-bar="">
           <Button
             variant="outlined"
-            disabled={locked || chosen.length === 0}
-            title={locked ? t('detail.removeWhileSending') : chosen.length === 0 ? t('detail.removePick') : undefined}
+            disabled={locked || chosen.length === 0 || tooMany}
+            title={locked ? t('detail.removeWhileSending') : chosen.length === 0 ? t('detail.removePick') : tooMany ? t('detail.removeAll') : undefined}
             onClick={() => setRemoving(true)}
             data-promotion-remove-items={chosen.length}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden />
             {chosen.length > 0 ? t('detail.removeItems', { count: chosen.length, n: fsi(figure(chosen.length)) }) : t('detail.removeNone')}
           </Button>
-          <span className="text-xs text-muted-foreground">{t('detail.removeHint')}</span>
+          <span className="text-xs text-muted-foreground">{tooMany ? t('detail.removeAll') : t('detail.removeHint')}</span>
         </div>
       )}
       {items.length === 0 ? (
@@ -506,58 +516,63 @@ function Items({
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr
-                key={item.itemId}
-                className={'border-b border-border/40' + (item.active ? '' : ' text-muted-foreground')}
-                data-promotion-item={item.materialNumber}
-                data-promotion-item-active={String(item.active)}
-              >
-                {selectable && (
-                  <td className={TD} data-promotion-item-pick-cell="">
-                    {item.active && (
-                      <input
-                        type="checkbox"
-                        aria-label={t('detail.removePickOne', { material: fsi(item.materialNumber) })}
-                        checked={picked.has(item.materialNumber)}
-                        disabled={locked}
-                        onChange={() => toggle(item.materialNumber)}
-                        data-promotion-item-pick={item.materialNumber}
-                      />
-                    )}
+            {items.map((item) => {
+              // A blank subtype / value takes the promotion's default: shown greyed, as the editor does.
+              const subtype = item.subtype ?? p.defaultSubtype
+              const value = item.value || p.defaultValue || null
+              return (
+                <tr
+                  key={item.rowNo}
+                  className={'border-b border-border/40' + (item.active ? '' : ' text-muted-foreground')}
+                  data-promotion-item={item.materialNumber}
+                  data-promotion-item-active={String(item.active)}
+                >
+                  {selectable && (
+                    <td className={TD} data-promotion-item-pick-cell="">
+                      {item.active && (
+                        <input
+                          type="checkbox"
+                          aria-label={t('detail.removePickOne', { material: fsi(item.materialNumber) })}
+                          checked={picked.has(item.materialNumber)}
+                          disabled={locked}
+                          onChange={() => toggle(item.materialNumber)}
+                          data-promotion-item-pick={item.materialNumber}
+                        />
+                      )}
+                    </td>
+                  )}
+                  <td className={TD + ' font-mono'}>
+                    <Ltr>{item.materialNumber}</Ltr>
                   </td>
-                )}
-                <td className={TD + ' font-mono'}>
-                  <Ltr>{item.materialNumber}</Ltr>
-                </td>
-                <td className={TD + ' font-mono'} data-promotion-item-sku="">
-                  {item.sku ? <Ltr>{item.sku}</Ltr> : null}
-                </td>
-                <td className={TD} data-promotion-item-subtype={item.subtype}>
-                  {['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE'].includes(item.subtype) ? t(`subtypes.${item.subtype}`) : <Ltr>{item.subtype}</Ltr>}
-                </td>
-                <td className={TD + ' text-end tabular-nums'} data-promotion-item-value="">
-                  <Ltr>{discountText(item.subtype, item.value)}</Ltr>
-                </td>
-                <td className={TD + ' text-end tabular-nums'} data-promotion-item-max="">
-                  {num(item.maxQuantity)}
-                </td>
-                <td className={TD + ' text-end tabular-nums'}>{num(item.buyQuantity)}</td>
-                <td className={TD + ' text-end tabular-nums'}>{num(item.getQuantity)}</td>
-                <td className="px-2 py-1.5 align-top" data-promotion-item-part={item.partId ?? ''}>
-                  {item.partId ? <bdi>{names.get(item.partId) ?? item.partId}</bdi> : null}
-                </td>
-                <td className={TD}>
-                  <StatusBadge sev={item.active ? 'ok' : 'mute'}>{t(item.active ? 'detail.active' : 'detail.removed')}</StatusBadge>
-                </td>
-              </tr>
-            ))}
+                  <td className={TD + ' font-mono'} data-promotion-item-sku="">
+                    {item.sku ? <Ltr>{item.sku}</Ltr> : null}
+                  </td>
+                  <td className={TD + (item.subtype === null ? ' italic text-muted-foreground' : '')} data-promotion-item-subtype={subtype ?? ''}>
+                    <Subtype value={subtype} />
+                  </td>
+                  <td className={TD + ' text-end tabular-nums' + (item.value === null ? ' italic text-muted-foreground' : '')} data-promotion-item-value="">
+                    <Ltr>{discountText(t, subtype, value)}</Ltr>
+                  </td>
+                  <td className={TD + ' text-end tabular-nums'} data-promotion-item-max="">
+                    {num(item.maxQuantity)}
+                  </td>
+                  <td className={TD + ' text-end tabular-nums'}>{num(item.buyQuantity)}</td>
+                  <td className={TD + ' text-end tabular-nums'}>{num(item.getQuantity)}</td>
+                  <td className="px-2 py-1.5 align-top" data-promotion-item-part={item.partId ?? ''}>
+                    {item.partId ? <bdi>{names.get(item.partId) ?? item.partId}</bdi> : null}
+                  </td>
+                  <td className={TD}>
+                    <StatusBadge sev={item.active ? 'ok' : 'mute'}>{t(item.active ? 'detail.active' : 'detail.removed')}</StatusBadge>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
       {removing && (
         <RemoveItemsDialog
-          promotionId={promotionId}
+          promotionId={p.promotionId}
           materialNumbers={chosen}
           onDone={() => {
             setPicked(new Set())
@@ -570,45 +585,13 @@ function Items({
   )
 }
 
-/** 670: Remove items — `POST …/RemoveItems { materialNumbers, reason }`. The answer is the detail:
- *  the items read Removed (still listed), their parts re-send. DHS-00017 stays in the dialog and
- *  re-reads the detail, so the bar locks behind it. */
-function RemoveItemsDialog({ promotionId, materialNumbers, onDone, onClose }: { promotionId: string; materialNumbers: string[]; onDone: () => void; onClose: () => void }) {
-  const { t } = useTranslation('hungerstation-promotions')
-  const qc = useQueryClient()
-  const remove = useMutation({
-    mutationFn: (reason: string) => promotionsApi.removeItems(promotionId, { materialNumbers, reason }),
-    onSuccess: (answer) => {
-      qc.setQueryData(promotionKey(promotionId), answer)
-      void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY, predicate: (q) => q.queryKey[2] !== 'detail' })
-      onDone()
-    },
-    onError: (err) => {
-      if (apiErrorCode(err) === HUNGERSTATION_PROMOTION_ERRORS.sending) void qc.invalidateQueries({ queryKey: promotionKey(promotionId) })
-    },
-  })
-  return (
-    <ReasonDialog
-      open
-      title={t('detail.removeTitle')}
-      note={<Trans t={t} i18nKey="detail.removeNote" count={materialNumbers.length} values={{ n: figure(materialNumbers.length) }} components={{ n: <Ltr /> }} />}
-      busy={remove.isPending}
-      error={remove.error}
-      confirmLabel={t('detail.removeConfirm')}
-      danger
-      onEdit={() => remove.reset()}
-      onConfirm={(reason) => remove.mutate(reason)}
-      onClose={onClose}
-    >
-      <span data-promotion-remove-dialog={materialNumbers.length} hidden />
-    </ReasonDialog>
-  )
-}
+const SEND_KINDS = ['UPSERT', 'SWITCH_OFF']
 
-function Sends({ sends, parts }: { sends: HungerStationPromotionSend[]; parts: HungerStationPromotionPart[] }) {
+function Sends({ p }: { p: HungerStationPromotionDetail }) {
   const { t } = useTranslation('hungerstation-promotions')
-  const names = partNames(parts)
-  // Newest first, whatever order arrives: local wall-clock text sorts as time does.
+  const names = partNames(p.parts ?? [])
+  const sends: HungerStationPromotionSend[] = p.sends ?? []
+  // Newest first; the contract sends them oldest first. Local wall-clock text sorts as time does.
   const ordered = [...sends].sort((a, b) => b.sentAt.localeCompare(a.sentAt))
   return (
     <Section title={t('detail.sends')} data="data-promotion-sends">
@@ -644,19 +627,20 @@ function Sends({ sends, parts }: { sends: HungerStationPromotionSend[]; parts: H
                   <bdi>{s.reason}</bdi>
                 </td>
                 <td className={TD} data-promotion-send-kind={s.kind}>
-                  {s.kind === 'upsert' || s.kind === 'switchOff' ? t(`sendKinds.${s.kind}`) : <Ltr>{s.kind}</Ltr>}
+                  {SEND_KINDS.includes(s.kind) ? t(`sendKinds.${s.kind}`) : <Ltr>{s.kind}</Ltr>}
                 </td>
                 <td className="px-2 py-1.5 align-top">
                   <bdi>{names.get(s.partId) ?? s.partId}</bdi>
                 </td>
                 <td className={TD + ' text-end tabular-nums'} data-promotion-send-http="">
-                  {s.httpStatus !== null ? <Ltr>{String(s.httpStatus)}</Ltr> : null}
+                  {/* 0: the call never got an HTTP answer (a transport error). */}
+                  {s.httpStatus ? <Ltr>{String(s.httpStatus)}</Ltr> : null}
                 </td>
                 <td className={TD + ' font-mono'} data-promotion-send-job="">
                   {s.jobId ? <Ltr>{s.jobId}</Ltr> : null}
                 </td>
                 <td className={TD} data-promotion-send-status={s.jobStatus ?? 'none'}>
-                  <JobBadge status={s.jobStatus} unanswered={s.unanswered} />
+                  <JobBadge status={s.jobStatus} unanswered={sendUnanswered(p, s)} />
                 </td>
                 <td className="px-2 py-1.5 align-top text-danger-800">{s.error ? <bdi>{s.error}</bdi> : null}</td>
                 {/* HungerStation's own times, as the server sends them: already local. */}
@@ -674,4 +658,3 @@ function Sends({ sends, parts }: { sends: HungerStationPromotionSend[]; parts: H
     </Section>
   )
 }
-

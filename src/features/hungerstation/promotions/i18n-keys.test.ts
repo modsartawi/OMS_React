@@ -67,7 +67,8 @@ describe('hungerstation-promotions — the keys the code builds exist', () => {
       ...['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE'].map((k) => `subtypes.${k}`),
       ...['COMPETITIVENESS', 'OVERSTOCK', 'DELISTING', 'EXPIRING_SOON', 'NMR', 'TRADING'].map((k) => `hsReasons.${k}`),
       ...['QUEUED', 'COMPLETED', 'FAILED', 'DUPLICATE', 'none', 'unanswered'].map((k) => `jobStatuses.${k}`),
-      ...['upsert', 'switchOff'].map((k) => `sendKinds.${k}`),
+      ...['UPSERT', 'SWITCH_OFF'].map((k) => `sendKinds.${k}`),
+      ...['PERCENTAGE', 'SAR'].map((k) => `units.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
@@ -76,5 +77,9 @@ describe('hungerstation-promotions — the keys the code builds exist', () => {
     const text = JSON.stringify(en)
     expect(text).not.toMatch(/\b(deals?|offers?|campaigns?)\b/i)
     expect(text.replace(/Same-item bundle/g, '')).not.toMatch(/\bbundles?\b/i)
+  })
+
+  it('🚩 review C2: a part is never a "split" (BackOffice CONTEXT.md) — no "split" anywhere', () => {
+    expect(JSON.stringify(en)).not.toMatch(/\bsplit/i)
   })
 })

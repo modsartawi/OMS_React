@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/hungerstation-promotions.json'
 import ar from '@/locales/ar/hungerstation-promotions.json'
-import { PROMOTION_STATUSES, promotionStatusLabel, promotionStatusText } from './promotion-status'
+import { jobFinal, jobStatusLabel, PROMOTION_STATUSES, promotionStatusLabel, promotionStatusText } from './promotion-status'
 
 const at = (locale: unknown, key: string) => key.split('.').reduce<unknown>((n, part) => (n as Record<string, unknown> | undefined)?.[part], locale)
 /** A `t` over one locale file, the way i18next resolves a `ns:key`-less key. */
@@ -51,5 +51,24 @@ describe('promotionStatusLabel', () => {
 
   it('an empty status from a broken answer still reads as something', () => {
     expect(promotionStatusText(tOf(en), '')).toBe('—')
+  })
+})
+
+// Reconciled to the contract (2026-10-29): the job status is OPEN — a status HungerStation's docs do
+// not list (IN_PROGRESS…) is not final, so it reads in motion, shown as sent.
+describe('jobStatusLabel + jobFinal', () => {
+  it('COMPLETED, FAILED and DUPLICATE are final; QUEUED and anything unlisted are not', () => {
+    expect(['COMPLETED', 'FAILED', 'DUPLICATE'].map(jobFinal)).toEqual([true, true, true])
+    expect(['QUEUED', 'IN_PROGRESS', 'whatever'].map(jobFinal)).toEqual([false, false, false])
+  })
+
+  it('an unlisted status is shown as itself, in motion', () => {
+    expect(jobStatusLabel('IN_PROGRESS')).toEqual({ key: null, sev: 'go', raw: 'IN_PROGRESS' })
+  })
+
+  it('never sent; the 24-hour unanswered job; a known one', () => {
+    expect(jobStatusLabel(null).key).toBe('jobStatuses.none')
+    expect(jobStatusLabel('QUEUED', true)).toEqual({ key: 'jobStatuses.unanswered', sev: 'warn', raw: null })
+    expect(jobStatusLabel('COMPLETED')).toEqual({ key: 'jobStatuses.COMPLETED', sev: 'ok', raw: null })
   })
 })

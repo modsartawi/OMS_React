@@ -10,12 +10,11 @@ import {
 import { defaultWindow, windowFromLocal, windowProblem, windowToLocal, type LocalWindow } from './local-window'
 
 /**
- * The promotion editor's form (ticket 666; the same-item bundle 668) and the save body it becomes — pure. Number boxes are
- * held as typed text and read on save; a blank one is `null`.
+ * The promotion editor's form (ticket 666; the same-item bundle 668) and the save body it becomes
+ * — pure. Reconciled to the BackOffice 3201 door contract (2026-10-29): `storeCodes: null` is ALL
+ * stores, and there is no promotion-level buy / get default (a bundle row carries its own). Number
+ * boxes are held as typed text and read on save; a blank one is `null`.
  */
-
-export const HS_REASONS: readonly HungerStationPromotionReason[] = ['COMPETITIVENESS', 'OVERSTOCK', 'DELISTING', 'EXPIRING_SOON', 'NMR', 'TRADING']
-export const DISCOUNT_SUBTYPES: readonly HungerStationDiscountSubtype[] = ['PERCENTAGE', 'ABSOLUTE', 'FINAL_PRICE']
 
 export interface PromotionForm {
   /** 668: a strikethrough or a same-item bundle. */
@@ -30,9 +29,6 @@ export interface PromotionForm {
   window: LocalWindow
   defaultSubtype: HungerStationDiscountSubtype
   defaultValue: string
-  /** 668: a bundle's default buy / get, as typed; blank for none. Not read on a strikethrough. */
-  defaultBuy: string
-  defaultGet: string
   /** Every store of the chain (frozen when sent), or the codes ticked. */
   stores: 'all' | string[]
   items: HungerStationPromotionItemInput[]
@@ -51,14 +47,14 @@ export function emptyForm(now: Date): PromotionForm {
     window: defaultWindow(now),
     defaultSubtype: 'PERCENTAGE',
     defaultValue: '',
-    defaultBuy: '',
-    defaultGet: '',
     stores: 'all',
     items: [],
   }
 }
 
-/** A saved draft back into the form: its active items, its stores as saved. */
+/** A saved promotion back into the form: its active items AS ENTERED (a blank subtype / value stays
+ *  `null`, so it keeps following the default), its stores as saved — "all" stays all, which a sent
+ *  promotion's save reads as the stores frozen at send. */
 export function formFromDetail(d: HungerStationPromotionDetail): PromotionForm {
   const text = (n: number | null) => (n === null ? '' : String(n))
   return {
@@ -71,10 +67,9 @@ export function formFromDetail(d: HungerStationPromotionDetail): PromotionForm {
     orderLimit: text(d.orderLimit),
     globalLimit: text(d.globalLimit),
     window: windowFromLocal(d.startAt, d.endAt),
-    defaultSubtype: d.defaultSubtype,
-    defaultValue: text(d.defaultValue),
-    defaultBuy: text(d.defaultBuyQuantity ?? null),
-    defaultGet: text(d.defaultGetQuantity ?? null),
+    defaultSubtype: d.defaultSubtype ?? 'PERCENTAGE',
+    // The row holds 0 for "none": a 0 default is refused anyway (`valueNotPositive`).
+    defaultValue: d.defaultValue ? String(d.defaultValue) : '',
     stores: d.allStores ? 'all' : (d.stores ?? []).map((s) => s.storeCode),
     items: (d.items ?? [])
       .filter((i) => i.active)
@@ -100,10 +95,10 @@ const valueOf = (text: string): number | null | undefined => {
   return /^\d+(\.\d+)?$/.test(t) ? Number(t) : undefined
 }
 
-export type FormField = 'chainKey' | 'name' | 'displayNameEn' | 'displayNameAr' | 'window' | 'orderLimit' | 'globalLimit' | 'defaultValue' | 'defaultBuy' | 'defaultGet' | 'stores' | 'items'
+export type FormField = 'chainKey' | 'name' | 'displayNameEn' | 'displayNameAr' | 'window' | 'orderLimit' | 'globalLimit' | 'defaultValue' | 'stores' | 'items'
 
 /** What keeps the form from saving, in form order. The value checks proper (ranges, decimals, the
- *  name in use) are the server's. */
+ *  name in use, a bundle row's buy / get) are the server's. */
 export function formProblems(f: PromotionForm, now: Date): FormField[] {
   const out: FormField[] = []
   if (!f.chainKey.trim()) out.push('chainKey')
@@ -114,8 +109,6 @@ export function formProblems(f: PromotionForm, now: Date): FormField[] {
   if (limitOf(f.orderLimit) === undefined) out.push('orderLimit')
   if (limitOf(f.globalLimit) === undefined) out.push('globalLimit')
   if (valueOf(f.defaultValue) === undefined) out.push('defaultValue')
-  if (f.type === 'SAME_ITEM_BUNDLE' && limitOf(f.defaultBuy) === undefined) out.push('defaultBuy')
-  if (f.type === 'SAME_ITEM_BUNDLE' && limitOf(f.defaultGet) === undefined) out.push('defaultGet')
   if (f.stores !== 'all' && f.stores.length === 0) out.push('stores')
   if (f.items.length > HUNGERSTATION_PROMOTION_MAX_SKUS) out.push('items')
   return out
@@ -136,10 +129,8 @@ export function saveBody(f: PromotionForm, reason: string): HungerStationPromoti
     globalLimit: limitOf(f.globalLimit) ?? null,
     defaultSubtype: f.defaultSubtype,
     defaultValue: valueOf(f.defaultValue) ?? null,
-    defaultBuyQuantity: bundle ? (limitOf(f.defaultBuy) ?? null) : null,
-    defaultGetQuantity: bundle ? (limitOf(f.defaultGet) ?? null) : null,
-    allStores: f.stores === 'all',
-    storeCodes: f.stores === 'all' ? [] : f.stores,
+    // ⚠ `null` = every store; `[]` would be NO store.
+    storeCodes: f.stores === 'all' ? null : f.stores,
     // A strikethrough row carries no buy / get, whatever it was pasted as before a type change.
     items: bundle ? f.items : f.items.map((i) => ({ ...i, buyQuantity: null, getQuantity: null })),
     reason: reason.trim(),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -12,7 +12,7 @@ import { apiErrorMessage } from '@/core/api'
 import { hungerStationAccessQuery, hungerStationChainsQuery } from '@/core/hungerstation/api'
 import { canManagePromotions, canManageStores } from '@/core/hungerstation/access'
 import { useSeenChains } from '@/core/hungerstation/seen-chains'
-import type { HungerStationPromotionRow, HungerStationPromotionStatus, HungerStationPromotionType } from '@/core/models/hungerstation'
+import type { HungerStationPromotionRow } from '@/core/models/hungerstation'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -23,24 +23,25 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange, fsi } from '@/core/util/bidi'
-import { keyChoices, toggled } from '@/core/util/filter-choices'
+import { keyChoices } from '@/core/util/filter-choices'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionsApi } from './api'
 import { promotionColumns } from './columns'
 import PromotionEditor from './PromotionEditor'
 import PromotionSheet from './PromotionSheet'
 import { PROMOTION_STATUSES } from './promotion-status'
-import { NEW_PROMOTION, PROMOTION_TYPES, promotionsDoorParams, promotionsFromParams, promotionsToParams, type PromotionsPageQuery } from './promotions-query'
+import { NEW_PROMOTION, promotionsDoorParams, promotionsFromParams, promotionsToParams, type PromotionsPageQuery } from './promotions-query'
 
 /**
  * HungerStation promotions (ticket 665, BackOffice spec 3201) — slice 0: the list and the
  * read-only detail. A **HungerStation promotion** is made here and SENT to HungerStation; our
- * pricing never applies it (ADR 0114). The list is server-paged and filtered by chain, status,
- * type and name, all in the URL; `?promotion=<id>` opens one promotion's detail (header, parts,
- * stores, items, every send), so a pasted link opens it.
+ * pricing never applies it (ADR 0114). The list is server-paged and filtered by chain, ONE status,
+ * name and store (the door contract has no type filter and takes one status), all in the URL;
+ * `?promotion=<id>` opens one promotion's detail (header, parts, stores, items, every send), so a
+ * pasted link opens it.
  *
  * Behind `canManagePromotions` on the ONE HungerStation probe, the same predicate the menu leaf
- * reads. 🚩 The doors are not built (BackOffice 3211): proven against stubs only.
+ * reads. 🚩 The doors are built (BackOffice 3211–3216) but this page is proven against stubs only.
  */
 export default function PromotionsPage() {
   const { t } = useTranslation('hungerstation-promotions')
@@ -78,6 +79,7 @@ function Promotions() {
   const open = (promotion: string | null) => change((prev) => ({ ...prev, promotion }))
   // 671: the promotion the editor's Replace hook opened the detail for, so it opens on Replace.
   const [replaceFor, setReplaceFor] = useState<string | null>(null)
+  const forgetReplace = useCallback(() => setReplaceFor(null), [])
 
   const door = promotionsDoorParams(query)
   const promotions = useQuery({
@@ -134,20 +136,6 @@ function Promotions() {
               ))}
             </Select>
           </Field>
-          <Field label={t('filters.type')}>
-            <Select
-              value={query.type ?? ''}
-              onChange={(e) => update({ type: (e.target.value || null) as HungerStationPromotionType | null })}
-              data-filter-type=""
-            >
-              <option value="">{t('filters.typeAll')}</option>
-              {PROMOTION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`types.${type}`)}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label={t('filters.q')} className="min-w-[18rem] flex-1">
             <Input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('filters.qPlaceholder')} data-filter-q="" />
           </Field>
@@ -186,13 +174,12 @@ function Promotions() {
 
         <div role="group" aria-label={t('filters.status')} className="flex flex-wrap items-center gap-1.5" data-filter-statuses="">
           <span className="text-xs font-medium text-muted-foreground">{t('filters.status')}</span>
+          {/* The door takes ONE status: a chip picks it, the picked one again (or Any) drops it. */}
+          <Chip on={query.status === null} onClick={() => update({ status: null })} data-filter-status="any">
+            {t('filters.statusAny')}
+          </Chip>
           {PROMOTION_STATUSES.map((s) => (
-            <Chip
-              key={s}
-              on={query.status.includes(s)}
-              onClick={() => update({ status: toggled<HungerStationPromotionStatus>(query.status, s) })}
-              data-filter-status={s}
-            >
+            <Chip key={s} on={query.status === s} onClick={() => update({ status: query.status === s ? null : s })} data-filter-status={s}>
               {t(`statuses.${s}`)}
             </Chip>
           ))}
@@ -289,6 +276,7 @@ function Promotions() {
             key={query.promotion}
             promotionId={query.promotion}
             startReplace={replaceFor === query.promotion}
+            onReplaceStarted={forgetReplace}
             onClose={() => {
               setReplaceFor(null)
               open(null)

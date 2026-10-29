@@ -80,3 +80,10 @@ A partly refused promotion reads clearly from stubs and a part resends.
     DHS-00017 covers the wider rule. (2) Should Resend be offered on an *unanswered* part, or only
     Refresh? It is offered now. (3) Wire spelling of the three refusal lists and of `unanswered` waits
     on 3214's contract section.
+
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - Refusal lists carry `items` (not `skus`); a SKU refusal may name no vendor (a plain SKU list) — it reads as one "Not one of our stores" row.
+  - There is no `unanswered` flag: a part unanswered for 24 hours reads `failed` with its latest job still `QUEUED` (derived on the page). It is no longer Sending, so its Resend is offered (open question 2 answered by the contract: Resend refuses only a part that is Sending).
+  - Review B6: Resend keeps the contract's per-part lock (DHS-00017 is "that part is sending"). **Decision (overrulable): Resend is not offered on an Ended promotion** (its window is past; the contract would accept it).
+  - Resend's DHS-00014 (the failed call recorded, the part now Failed) re-reads the detail.
+  - Review B8: the vacuous drive checks (DHS-00017 "is visible", an immediate "no poll note") now assert the code, the kept reason, and absence only after the same answer has rendered.

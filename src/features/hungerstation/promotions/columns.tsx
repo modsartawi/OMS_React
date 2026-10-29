@@ -8,11 +8,12 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { windowText } from './promotion-display'
 import { promotionStatusLabel, promotionStatusText } from './promotion-status'
+import { typeText } from './promotion-words'
 
 type Row = HungerStationPromotionRow
 
-/** A promotion status's badge: its words, or — for one the contract does not name — the value as
- *  sent, isolated. Never blank. */
+/** A promotion (or a part's) status badge: its words, or — for one the contract does not name —
+ *  the value as sent, isolated. Never blank. */
 export function PromotionStatusBadge({ t, status }: { t: TFunction; status: string }) {
   const label = promotionStatusLabel(status)
   return (
@@ -22,18 +23,13 @@ export function PromotionStatusBadge({ t, status }: { t: TFunction; status: stri
   )
 }
 
-/** A type in words; one the contract does not name, as sent. */
-export function typeText(t: TFunction, type: string): string {
-  return type === 'STRIKETHROUGH' || type === 'SAME_ITEM_BUNDLE' ? t(`types.${type}`) : type
-}
-
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)
 
 /**
- * The promotions grid (ticket 665; spec 3201 § Doors, `GET Promotions`): name, chain, type,
- * status, the window (local start and end as ONE range), store count, SKU count, last sent at and
- * by, then Details. Every plain cell is isolated by the core grid base; the status column draws
- * its own badge.
+ * The promotions grid (ticket 665; contract § `GET Promotions`): name, chain, type, status, the
+ * window (local start and end as ONE range), store count, item count, sent at, updated at and by,
+ * then Details. Every plain cell is isolated by the core grid base; the status column draws its own
+ * badge.
  */
 export function promotionColumns(t: TFunction, act: { onDetails: (row: Row) => void }): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
@@ -63,9 +59,10 @@ export function promotionColumns(t: TFunction, act: { onDetails: (row: Row) => v
       comparator: (_a, _b, na, nb) => (na.data?.startAt ?? '').localeCompare(nb.data?.startAt ?? ''),
     },
     { field: 'storeCount', headerName: t('columns.stores'), width: 90, type: 'numericColumn', cellClass: 'tabular-nums' },
-    { field: 'skuCount', headerName: t('columns.skus'), width: 90, type: 'numericColumn', cellClass: 'tabular-nums' },
-    { field: 'lastSentAt', headerName: t('columns.lastSentAt'), width: 150, valueFormatter: time },
-    { field: 'lastSentBy', headerName: t('columns.lastSentBy'), width: 130, cellClass: code },
+    { field: 'itemCount', headerName: t('columns.items'), width: 90, type: 'numericColumn', cellClass: 'tabular-nums' },
+    { field: 'sentAt', headerName: t('columns.sentAt'), width: 150, valueFormatter: time },
+    { field: 'updatedAt', headerName: t('columns.updatedAt'), width: 150, valueFormatter: time },
+    { field: 'updatedBy', headerName: t('columns.updatedBy'), width: 130, cellClass: code },
     {
       colId: 'actions',
       headerName: t('columns.actions'),

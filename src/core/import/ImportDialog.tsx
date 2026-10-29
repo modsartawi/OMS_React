@@ -137,8 +137,10 @@ export default function ImportDialog<K extends string>({
     [],
   )
 
-  const sending = useMutation({
-    mutationFn: (lines: readonly ImportOkLine<K>[]) => (send ? send(lines) : Promise.reject(new Error('no send'))),
+  // The send action's mutation. In apply mode `send` is absent and the mutation is never fired —
+  // `submit` hands the lines to `apply` instead — so there is no stand-in rejection to fall into.
+  const sending = useMutation<ImportResultModel, unknown, readonly ImportOkLine<K>[]>({
+    mutationFn: send,
     onSuccess: (answer) => setResult(importResult(answer)),
     // Even a failed or unanswered send may have committed: the lists are read again either way.
     onSettled: () => onImported?.(),

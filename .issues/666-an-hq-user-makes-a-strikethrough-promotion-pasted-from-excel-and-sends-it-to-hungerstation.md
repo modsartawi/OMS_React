@@ -111,3 +111,10 @@ contract.
     (5) Save draft carries a reason, as every write does (DHS-00008) — one reason per save may prove
     heavy for a draft built over many sittings; owner's call.
   - **Open (unchanged):** `.xlsx` via 555's reader — default kept to paste + `.tsv` / `.txt`.
+
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - Save body: `storeCodes: null` = ALL stores (no `allStores` key; `[]` would be NO store). The save answer carries `check`, which the editor now uses instead of a second Check call (667's open question, answered by the contract).
+  - A Send refused by a check (DHS-00018 / 19) carries only a message (no structured data): the editor re-runs Check for the rows and says so. `HungerStationPromotionSent` (409) and DHS-00017 re-read the promotion, so the editor locks behind them.
+  - Review B1/B2 fixed: while Send's own pre-check runs the form is held (fieldset disabled), and the Send dialog opens only for the form as checked — red-then-green drive checks in § 11.
+  - Review B4 fixed by the contract shape: items come back AS ENTERED (`null` subtype/value), so reopening a draft no longer bakes the default into blank rows; vitest + a drive check on the re-save body.
+  - Review C7: core ImportDialog's apply mode no longer carries a dead `Promise.reject` (the mutation is the send action's alone).

@@ -88,3 +88,8 @@ A mixed bundle sheet previews as its parts and sends from stubs.
     (4) money in the words uses the area's 3 decimals ("9.950 SAR"), not the ticket's "9.95 SAR".
   - **Open:** should Check's part preview also show on a strikethrough (always one part)? Shown for
     bundles only.
+
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - **Decision (overrulable): no promotion-level default buy / get.** The contract (3213) says there is none: the Default buy / Default get boxes are gone, a bundle row carries its own buy and get, and a blank one is reported by the checks (`buyBelowOne` / `getBelowOne`). If the owner wants header defaults back, that is a BackOffice ask against 3213 (it ruled them out).
+  - The previewed part is the contract's `{ partNo, combination, buyQuantity, getQuantity, subtype, value, skuCount, name }`; the part name follows the contract ("… · B2G1 9.95 final", " SAR" with a space).
+  - Review C3/C5: a discount's unit is a locale template (`units.*`, percentage through the figure formatter); the type / subtype / reason lists and their words live once in `promotion-words.ts`.

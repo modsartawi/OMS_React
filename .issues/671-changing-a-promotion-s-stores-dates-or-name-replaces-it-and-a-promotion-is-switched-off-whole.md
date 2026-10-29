@@ -82,3 +82,11 @@ Replace and switch-off work from stubs, with the bodies matching the contract.
     send anyway). (3) SwitchOff answers the detail already reading `switchedOff` (no Sending phase).
     (4) Replace / Switch off are offered on a **Failed** promotion too (its completed parts are live).
   - **Open:** should the linked promotions show their names, not only ids? The detail carries ids only.
+
+- 2026-10-29 (reconciled to the contract, `impl/3201-review`): **reconciled to the BackOffice door contract on 2026-10-29** (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`, BO 3211–3216 done). Shapes are now field for field the asset (`core/models/hungerstation.ts`; the drive's § 0 parses the asset's JSON examples and fails on any drift). **Still stubs only — no live SIS.Api call has been made.** Each "decision" below follows the contract over this ticket and is overrulable by the owner.
+  - **Decision (overrulable): the switch-off lifecycle is the contract's.** A switched-off or replaced promotion reads Sending until every switch-off job COMPLETED, then Switched off / Replaced; a switch-off job that FAILED makes it read Failed and the detail offers "Switch off again" (it retries the parts still on HungerStation) — no Replace, no Edit.
+  - A partial switch-off (DHS-00014 naming the refused part) keeps the server's words in the dialog, says the other parts WERE switched off, and re-reads the detail. `HungerStationPromotionSent` (409) re-reads it too.
+  - DHS-00020 is a 409 carrying only its message (it names the part and HungerStation's answer): the assumed `data` shape is gone; the dialog shows the server's words.
+  - Replace body: only what changed (a `null` keeps the old value; the stores `null` = as frozen; `allStores` sent `null`). Name width 100 (DHS-00001).
+  - Review B7 fixed: a cancelled Replace no longer reopens after following a link and coming back (red-then-green drive check, § 14).
+  - **BackOffice ask A2 (minor):** DHS-00020 / DHS-00014 could carry the refused `partId` as data so the dialog can mark the part; today only the message names it.

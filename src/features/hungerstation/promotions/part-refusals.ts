@@ -1,27 +1,27 @@
 import type {
   HungerStationPromotionDetail,
-  HungerStationPromotionPart,
   HungerStationPromotionRefusals,
-  HungerStationPromotionRefusedSku,
+  HungerStationPromotionSend,
+  HungerStationPromotionSkuRef,
 } from '@/core/models/hungerstation'
 
-// What HungerStation refused in a part's latest final answer (ticket 669; BackOffice spec 3201,
-// 3214): its `invalid_vendors`, `missing_skus` and `invalid_discounted_skus`, regrouped PER STORE so
-// a person reads "what did not take at this store", plus when a part reads as Sending. Pure: no
-// React, no `t`.
+// What HungerStation refused in a part's latest answer (ticket 669; BackOffice spec 3201, 3214):
+// its `invalid_vendors`, `missing_skus` and `invalid_discounted_skus`, regrouped PER STORE so a
+// person reads "what did not take at this store"; and when a part reads Sending, or has had no
+// answer for 24 hours. Pure: no React, no `t`.
 
-/** One store's refusals in one part. `key` is the store code, or `vendor:<id>` for a vendor id
- *  that no longer resolves to one of our stores. */
+/** One store's refusals in one part. `key` is the store code, `vendor:<id>` for a vendor id that
+ *  is none of our stores, or `unresolved` when HungerStation named no vendor at all. */
 export interface StoreRefusals {
   key: string
   storeCode: string | null
-  vendorId: string
+  vendorId: string | null
   /** HungerStation called the store (its vendor id) invalid. */
   invalidVendor: boolean
   /** Materials HungerStation could not find at this store. */
-  missing: HungerStationPromotionRefusedSku[]
+  missing: HungerStationPromotionSkuRef[]
   /** Materials whose promo price HungerStation found above its list price at this store. */
-  overList: HungerStationPromotionRefusedSku[]
+  overList: HungerStationPromotionSkuRef[]
 }
 
 export interface RefusalsByStore {
@@ -29,28 +29,29 @@ export interface RefusalsByStore {
   counts: { invalidVendors: number; missingSkus: number; invalidDiscountedSkus: number; stores: number }
 }
 
-const storeKey = (storeCode: string | null, vendorId: string) => storeCode ?? `vendor:${vendorId}`
+export const UNRESOLVED = 'unresolved'
+const storeKey = (storeCode: string | null, vendorId: string | null) => storeCode ?? (vendorId ? `vendor:${vendorId}` : UNRESOLVED)
 
 /**
  * A part's refusals per store, ordered by store code (an unresolved vendor after every store), and
- * counted. `null` — no section — when HungerStation refused nothing, or has given no final answer.
+ * counted. `null` — no section — when HungerStation refused nothing, or has given no answer yet.
  */
 export function refusalsByStore(refusals: HungerStationPromotionRefusals | null): RefusalsByStore | null {
   if (!refusals) return null
   const by = new Map<string, StoreRefusals>()
-  const at = (storeCode: string | null, vendorId: string) => {
+  const at = (storeCode: string | null, vendorId: string | null) => {
     const key = storeKey(storeCode, vendorId)
     let s = by.get(key)
     if (!s) by.set(key, (s = { key, storeCode, vendorId, invalidVendor: false, missing: [], overList: [] }))
     return s
   }
-  for (const v of refusals.invalidVendors) at(v.storeCode, v.vendorId).invalidVendor = true
-  for (const s of refusals.missingSkus) if (s.skus.length) at(s.storeCode, s.vendorId).missing.push(...s.skus)
-  for (const s of refusals.invalidDiscountedSkus) if (s.skus.length) at(s.storeCode, s.vendorId).overList.push(...s.skus)
+  for (const v of refusals.invalidVendors ?? []) at(v.storeCode, v.vendorId).invalidVendor = true
+  for (const s of refusals.missingSkus ?? []) if (s.items?.length) at(s.storeCode, s.vendorId).missing.push(...s.items)
+  for (const s of refusals.invalidDiscountedSkus ?? []) if (s.items?.length) at(s.storeCode, s.vendorId).overList.push(...s.items)
   if (by.size === 0) return null
   const stores = [...by.values()].sort((a, b) =>
     a.storeCode === null || b.storeCode === null
-      ? Number(a.storeCode === null) - Number(b.storeCode === null) || a.vendorId.localeCompare(b.vendorId)
+      ? Number(a.storeCode === null) - Number(b.storeCode === null) || (a.vendorId ?? '￿').localeCompare(b.vendorId ?? '￿')
       : a.storeCode.localeCompare(b.storeCode),
   )
   return {
@@ -77,7 +78,7 @@ export type RefusalList = 'invalidVendors' | 'missingSkus' | 'invalidDiscountedS
 export function refusalsCopyText(stores: StoreRefusals[], list: RefusalList): string {
   const lines: string[][] = []
   for (const s of stores) {
-    const head = [s.storeCode ?? '', s.vendorId]
+    const head = [s.storeCode ?? '', s.vendorId ?? '']
     if (list === 'invalidVendors') {
       if (s.invalidVendor) lines.push(head)
     } else {
@@ -87,16 +88,35 @@ export function refusalsCopyText(stores: StoreRefusals[], list: RefusalList): st
   return lines.map((l) => l.join('\t')).join('\n')
 }
 
-/** A part is **Sending** while its latest job is QUEUED — until 24 hours pass, when it is
- *  `unanswered`: the server stops polling it and leaves it for a manual Refresh. */
-export function partSending(part: Pick<HungerStationPromotionPart, 'latestJobStatus' | 'unanswered'>): boolean {
-  return part.latestJobStatus === 'QUEUED' && !part.unanswered
+/** A part is **Sending** exactly when it reads so (contract 3214): its latest job is still open —
+ *  an upsert's or a switch-off's. A part unanswered for 24 hours reads Failed instead. */
+export const partSending = (part: { status: string | null }): boolean => part.status === 'sending'
+
+type Sends = Pick<HungerStationPromotionDetail, 'parts' | 'sends'>
+
+/** A part's latest send (`sends` are oldest first). */
+export function latestSend(d: Pick<HungerStationPromotionDetail, 'sends'>, partId: string): HungerStationPromotionSend | null {
+  const sends = d.sends ?? []
+  for (let i = sends.length - 1; i >= 0; i--) if (sends[i].partId === partId) return sends[i]
+  return null
 }
+
+/** The 24-hour part (contract 3214): it reads Failed while its latest job is still QUEUED — the
+ *  poller stopped asking. A manual Refresh still reads it; a Resend sends it again. */
+export function partUnanswered(d: Sends, partId: string): boolean {
+  const part = (d.parts ?? []).find((p) => p.partId === partId)
+  return part?.status === 'failed' && latestSend(d, partId)?.jobStatus === 'QUEUED'
+}
+
+/** That 24-hour part's latest send — the one to read "No answer from HungerStation". */
+export const sendUnanswered = (d: Sends, s: HungerStationPromotionSend): boolean => latestSend(d, s.partId) === s && partUnanswered(d, s.partId)
 
 /** How often the open detail re-reads itself: the server polls HungerStation every minute. */
 export const PROMOTION_POLL_MS = 15000
 
-/** TanStack's `refetchInterval` for the detail: every 15 s while any part is Sending, else never. */
-export function promotionPollInterval(detail: Pick<HungerStationPromotionDetail, 'parts'> | undefined): number | false {
-  return (detail?.parts ?? []).some(partSending) ? PROMOTION_POLL_MS : false
+/** TanStack's `refetchInterval` for the detail: every 15 s while the promotion — or any part —
+ *  reads Sending, else never. */
+export function promotionPollInterval(detail: Pick<HungerStationPromotionDetail, 'status' | 'parts'> | undefined): number | false {
+  if (!detail) return false
+  return detail.status === 'sending' || (detail.parts ?? []).some(partSending) ? PROMOTION_POLL_MS : false
 }

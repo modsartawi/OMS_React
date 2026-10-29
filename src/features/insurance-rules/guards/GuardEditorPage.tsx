@@ -11,6 +11,7 @@ import { checksVerdict, indexChecks, type GuardIssue } from '@/core/insurance-ru
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorHistory, type EditorAction } from '@/core/insurance-rules/editor-history'
 import { editGuard, newGuardRule, nextGuardId } from '@/core/insurance-rules/guard-edit'
 import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import { codesHoldSave, sameNamedRules } from '@/core/insurance-rules/rule-checks'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardRulePath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
@@ -222,7 +223,7 @@ function Editor({
               {t('editor.cancel')}
             </Button>
             <ChecksPill checks={checks} stale={checksStale} pending={validate.isPending} elsewhere={index.elsewhere.length} onCheck={() => validate.mutate(h.present)} />
-            <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy || pending} data-save="">
+            <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy || pending || codesHoldSave(rule)} data-save="">
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
               {t(busy ? 'editor.saving' : 'editor.save')}
             </Button>
@@ -258,6 +259,7 @@ function Editor({
             />
           </Field>
         </div>
+        <SameNames rule={rule} rules={h.present.rules} />
         <Issues issues={index.rule} hook="rule" />
       </header>
 
@@ -370,5 +372,18 @@ function Block({ kw, hint, hook, children }: { kw: string; hint: string; hook: s
       </div>
       <div className="p-3 text-sm">{children}</div>
     </section>
+  )
+}
+
+/** 659 — another rule of the draft already carries this name: a warning, so two rules are not mixed up while editing. */
+function SameNames({ rule, rules }: { rule: GuardRule; rules: readonly GuardRule[] }) {
+  const { t } = useTranslation('insurance-guards')
+  const same = sameNamedRules(rule, rules)
+  const ids = [...new Set([...same.en, ...same.ar])]
+  if (ids.length === 0) return null
+  return (
+    <p className="text-xs text-attention-800" role="status" data-same-name={ids.join(' ')}>
+      {t('editor.sameName', { count: ids.length, ids: ids.map((id) => fsi(id)).join(', ') })}
+    </p>
   )
 }

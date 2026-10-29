@@ -9,8 +9,13 @@ import type { PlaygroundTraceValue } from '@/core/insurance-rules/playground'
 import type { IntakeView } from './intake'
 import IntakeReport from './IntakeReport'
 import type { LineView, OutcomeView } from './outcome'
+import { explain } from './explain'
+import ExplainParagraph from './ExplainParagraph'
+import ReadLog from './ReadLog'
+import type { ReadsView } from './reads'
 
 const TAB_ID = 'playground-outcome-saw'
+const NO_READS: ReadsView = { kind: 'none' }
 
 /**
  * The Outcome pane (ticket 677): Tab A, "What the engine saw" — the matched lines (or "nothing matched") and each
@@ -18,7 +23,7 @@ const TAB_ID = 'playground-outcome-saw'
  * and nothing of the raw reply. 678 adds Tab B (the verdict), 686 the read log and the explain paragraph.
  * A Raw experiment's intake report (684) follows the lines; null (a data experiment) draws nothing.
  */
-export default function OutcomePane({ view, intake = null }: { view: OutcomeView; intake?: IntakeView | null }) {
+export default function OutcomePane({ view, intake = null, reads = NO_READS }: { view: OutcomeView; intake?: IntakeView | null; reads?: ReadsView }) {
   const { t } = useTranslation('insurance-playground')
   return (
     <div className="flex flex-col gap-3" data-outcome="">
@@ -30,6 +35,9 @@ export default function OutcomePane({ view, intake = null }: { view: OutcomeView
       <div id={TAB_ID} role="tabpanel" className="flex flex-col gap-3">
         {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <Saw matched={view.matched} lines={view.lines} />}
         {view.kind === 'outcome' && intake && <IntakeReport view={intake} />}
+        {/* 686: the read log, then the paragraph that reads the outcome in words. */}
+        {view.kind === 'outcome' && <ReadLog reads={reads} />}
+        {view.kind === 'outcome' && <ExplainParagraph sentences={explain(view, reads)} />}
       </div>
     </div>
   )

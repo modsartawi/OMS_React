@@ -16,6 +16,7 @@ import { intakeView } from './intake'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
 import { outcomeView } from './outcome'
+import { readsView } from './reads'
 
 /**
  * Insurance rules ▸ Playground — `/insurance-rules/playground` (BackOffice spec 3243, door 3244; oms ticket 677).
@@ -76,7 +77,11 @@ export default function PlaygroundPage() {
           ) : run.isPending ? (
             <Loading text={t('run.running')} />
           ) : run.isSuccess ? (
-            <OutcomePane view={outcomeView(run.data)} intake={intakeView(run.data?.intake)} />
+            <OutcomePane
+              view={outcomeView(run.data)}
+              intake={intakeView(run.data?.intake)}
+              reads={readsView(run.data, (run.variables?.document as { fields?: unknown } | undefined)?.fields)}
+            />
           ) : (
             <p className="rounded-md border border-dashed border-border/60 p-4 text-sm text-muted-foreground" data-outcome-empty="">
               {t('outcome.empty')}

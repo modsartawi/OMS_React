@@ -2224,6 +2224,74 @@ export function playgroundStub(method, path, body, opts = {}) {
   return null
 }
 
+// --- 686 --- the read log (BackOffice 3251), as the BRIEF draws it (691 reconciles):
+//   lines[].reads: [{ ruleId, blockPath, path, raw, value, missing, noLiveSource }]
+// `playgroundReadsStub` answers the 677 door WITH a read log: every `line` block's field read per line — a plain line
+// fact (`daysSupply`), or a field (`line.field.K` / `request.field.K` / `patient.field.K`) whose text lives in that
+// scope's `attributes`, parsed as a number (blank or bad → value null, so the block reads unknown); request / patient
+// fields are `noLiveSource`. Plus the derived `patient.age` (birthDate at asOf) and every `eligibility` key, read on
+// every line with the same value. The 677 stub (no reads) stays the door before 3251.
+
+const FIELD_PATH = /^(line|request|patient)\.field\.(.+)$/
+
+function ageAt(birthDate, asOf) {
+  const b = /^(\d{4})-(\d\d)-(\d\d)/.exec(birthDate ?? '')
+  const a = /^(\d{4})-(\d\d)-(\d\d)/.exec(asOf ?? '')
+  if (!b || !a) return null
+  let age = Number(a[1]) - Number(b[1])
+  if (a[2] + a[3] < b[2] + b[3]) age -= 1
+  return age
+}
+
+export function evaluatePlaygroundWithReads(body) {
+  const data = body?.data ?? {}
+  const rules = Array.isArray(body?.document?.rules) ? body.document.rules : []
+  const scopeAttrs = (scope, l) => (scope === 'line' ? l?.attributes : data?.[scope]?.attributes) ?? {}
+  const parse = (raw) => (typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null)
+  // the field reads flattened onto each line, so the 677 evaluator decides on the parsed value
+  const flat = (data.lines ?? []).map((l) => {
+    const out = { ...l }
+    for (const r of rules)
+      for (const b of r?.when ?? []) {
+        const m = FIELD_PATH.exec(b?.field ?? '')
+        if (m) out[b.field] = parse(scopeAttrs(m[1], l)[m[2]]) ?? undefined
+      }
+    return out
+  })
+  const reply = evaluatePlayground({ ...body, data: { ...data, lines: flat } })
+  if (reply.errors?.length) return reply
+  const first = rules[0]?.id ?? ''
+  reply.lines.forEach((line, k) => {
+    const l = (data.lines ?? [])[k]
+    const reads = []
+    for (const r of rules)
+      (r?.when ?? []).forEach((b, j) => {
+        const blockPath = `when[${j}]`
+        const m = FIELD_PATH.exec(b?.field ?? '')
+        if (m) {
+          const raw = scopeAttrs(m[1], l)[m[2]]
+          const missing = raw === undefined || raw === null
+          reads.push({ ruleId: r.id, blockPath, path: b.field, raw: missing ? null : String(raw), value: missing ? null : parse(raw), missing, noLiveSource: m[1] !== 'line' })
+        } else {
+          const v = l?.[b?.field]
+          reads.push({ ruleId: r.id, blockPath, path: `line.${b?.field}`, raw: null, value: v ?? null, missing: v === undefined || v === null, noLiveSource: false })
+        }
+      })
+    const age = ageAt(data?.patient?.birthDate, body?.asOf)
+    if (age !== null) reads.push({ ruleId: first, blockPath: 'when[0]', path: 'patient.age', raw: null, value: age, missing: false, noLiveSource: false })
+    for (const [key, fact] of Object.entries(data?.eligibility ?? {}))
+      reads.push({ ruleId: first, blockPath: 'when[0]', path: `eligibility.${key}`, raw: null, value: fact, missing: false, noLiveSource: false })
+    line.reads = reads
+  })
+  return reply
+}
+
+export function playgroundReadsStub(method, path, body, opts = {}) {
+  const hit = playgroundStub(method, path, body, opts)
+  if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
+  return envelope(evaluatePlaygroundWithReads(body))
+}
+
 // --- 684 --- a Raw experiment (BackOffice 3246): `raw` text instead of `data`, as the BRIEF draws it (691 reconciles).
 //   text that is not one JSON object → the refusal `PLAYGROUND_RAW_INVALID`;
 //   otherwise each line key is read, ignored (an unknown key, with its near-miss hint) or refused (a number field

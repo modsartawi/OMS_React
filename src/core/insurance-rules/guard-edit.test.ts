@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { RULES } from '../../../tools/insurance-rules-stubs.mjs'
 import type { GuardCondition, GuardRule } from './model'
-import { addCondition, canAddGroup, editRule, groupDepth, newCondition } from './guard-edit'
+import { addCondition, canAddGroup, codesAreDefault, codesOverriddenToNone, editRule, effectiveCodes, setCode, groupDepth, newCondition } from './guard-edit'
 
 const g7 = RULES.find((r) => r.id === 'G-007')!
 const group = (mode: 'all' | 'any', conditions: GuardCondition[] = []): GuardCondition => ({ check: 'group', mode, conditions })
@@ -64,6 +64,35 @@ describe('default codes', () => {
     r = editRule(r, (x) => ({ ...x, then: [{ ...x.then[0], codes: { conflict: 'TD', nphies: 'CV-4-3' } }] }))
     r = editRule(r, (x) => ({ ...x, when: [newCondition('supply')] }))
     expect(codes(r)).toEqual({ conflict: 'TD', nphies: 'CV-4-3' })
+  })
+
+  describe('661 — an empty code box keeps the default', () => {
+    const dup: GuardRule = {
+      ...blank,
+      when: [{ check: 'history', match: 'sameItem', windowDays: 14, measure: 'dispenses', atLeast: 1, includeThisLine: false }],
+    }
+    const withCodes = (c: GuardRule['then'][0]['codes']) => ({ ...dup.then[0], codes: c })
+
+    it('clearing a box leaves the key out, never null; typing sets it', () => {
+      const cleared = setCode({ conflict: '83', nphies: 'AD-2-4' }, 'conflict', '  ')
+      expect(cleared).toEqual({ nphies: 'AD-2-4' })
+      expect(cleared).not.toHaveProperty('conflict')
+      expect(setCode(null, 'nphies', ' AD-2-4 ')).toEqual({ nphies: 'AD-2-4' })
+    })
+
+    it("the engine's reading: a left-out key is the default, a present null is no code", () => {
+      expect(effectiveCodes(dup, withCodes({ nphies: 'AD-2-4' }))).toEqual({ conflict: '83', nphies: 'AD-2-4' })
+      expect(effectiveCodes(dup, withCodes({ conflict: null, nphies: 'AD-2-4' }))).toEqual({ conflict: null, nphies: 'AD-2-4' })
+      expect(effectiveCodes(dup, withCodes(null))).toEqual({ conflict: '83', nphies: null })
+      expect(codesAreDefault(dup, withCodes({}))).toBe(true)
+      expect(codesAreDefault(dup, withCodes({ nphies: 'AD-2-4' }))).toBe(false)
+    })
+
+    it("the owner's G-001 (conflict saved as null) is named as overriding 83; a null that equals the default is not", () => {
+      expect(codesOverriddenToNone(dup, withCodes({ conflict: null, nphies: 'AD-2-4' }))).toEqual([{ key: 'conflict', fallback: '83' }])
+      expect(codesOverriddenToNone(dup, withCodes({ conflict: '83', nphies: null }))).toEqual([])
+      expect(codesOverriddenToNone(dup, withCodes({ nphies: 'AD-2-4' }))).toEqual([])
+    })
   })
 
   it('reference blocks default too', () => {

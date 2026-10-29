@@ -1,7 +1,7 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Loader2, Pencil, Power, RefreshCw, Replace, X } from 'lucide-react'
+import { Loader2, Pencil, Power, RefreshCw, Replace, Trash2, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import {
   HUNGERSTATION_PROMOTION_ERRORS,
@@ -10,6 +10,7 @@ import {
   type HungerStationPromotionPart,
   type HungerStationPromotionSend,
 } from '@/core/models/hungerstation'
+import ReasonDialog from '@/core/hungerstation/ReasonDialog'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import IconButton from '@/core/ui/IconButton'
@@ -17,6 +18,7 @@ import Ltr from '@/core/ui/Ltr'
 import SideSheet from '@/core/ui/SideSheet'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { TD, TH } from '@/core/ui/sheet-table'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PROMOTIONS_KEY, promotionKey, promotionsApi } from './api'
@@ -29,6 +31,7 @@ import SwitchOffDialog from './SwitchOffDialog'
 import { PromotionStatusBadge, typeText } from './columns'
 import { buyGetText, discountText, windowText } from './promotion-display'
 import { jobStatusLabel } from './promotion-status'
+import { editMode, type EditMode } from './promotion-edit'
 
 /**
  * **One HungerStation promotion**, read-only (ticket 665; `GET Promotions/{id}`): its header (name,
@@ -37,6 +40,9 @@ import { jobStatusLabel } from './promotion-status'
  * (material, SKU, subtype, value, max quantity, part) and every send (when, who, reason, HTTP
  * status, job status). Opened from `?promotion=<id>`. The frame is the house side sheet.
  *
+ * 670: a sent promotion still running offers **Edit** (in place, in the editor) and **Remove items**:
+ * tick active items, give a reason, and they go out `active: false` in their parts; they then read
+ * Removed and stay listed. Both wait while any part is Sending.
  * 671: a sent promotion that still runs offers **Replace** (a new name, stores, start or end) and
  * **Switch off** (the whole promotion), both disabled while any part is Sending. The promotion it
  * replaced and the one that replaced it are links (`onOpen`).
@@ -46,12 +52,15 @@ export default function PromotionSheet({
   onClose,
   onEdit,
   onOpen,
+  startReplace = false,
 }: {
   promotionId: string
   onClose: () => void
   onEdit: () => void
   /** Open another promotion in this sheet (the replace links). */
   onOpen: (promotionId: string) => void
+  /** Open with the Replace dialog up (the editor's "Changing this replaces the promotion" hook). */
+  startReplace?: boolean
 }) {
   const { t } = useTranslation('hungerstation-promotions')
   const titleId = useId()
@@ -67,7 +76,14 @@ export default function PromotionSheet({
   const p = detail.data
   const refresh = useRefresh(promotionId)
   const [resend, setResend] = useState<ResendTarget | null>(null)
+  const mode = p ? editMode(p) : null
   const [dialog, setDialog] = useState<'replace' | 'switchOff' | null>(null)
+  // 671: `startReplace` — opened from the editor's Replace hook (670), the dialog comes up at once.
+  // From an effect, not the initial state: the sheet's own modal opens in its (child) effect first,
+  // so the Replace modal lands ABOVE it in the top layer instead of under it.
+  useEffect(() => {
+    if (startReplace) setDialog('replace')
+  }, [startReplace])
   const actions = p ? promotionActions(p) : null
   const waitTitle = actions?.sending ? t('detail.actionsWhileSending') : undefined
 
@@ -82,11 +98,18 @@ export default function PromotionSheet({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {p && <PromotionStatusBadge t={t} status={p.status} />}
-          {/* 666: a draft opens in the editor; a sent one asks HungerStation now. */}
-          {p?.status === 'draft' && (
-            <Button variant="outlined" onClick={onEdit} data-promotion-edit="">
+          {/* 666: a draft opens in the editor; a sent one asks HungerStation now. 670: a sent one still
+              running is edited in place, never while a part is Sending. */}
+          {(mode === 'draft' || mode === 'inPlace' || mode === 'sending') && (
+            <Button
+              variant="outlined"
+              disabled={mode === 'sending'}
+              title={mode === 'sending' ? t('detail.editWhileSending') : undefined}
+              onClick={onEdit}
+              data-promotion-edit={mode}
+            >
               <Pencil className="h-3.5 w-3.5" aria-hidden />
-              {t('detail.edit')}
+              {t(mode === 'draft' ? 'detail.edit' : 'detail.editLive')}
             </Button>
           )}
           {p && p.status !== 'draft' && (
@@ -163,7 +186,7 @@ export default function PromotionSheet({
             />
             <PartRefusals parts={detail.data.parts ?? []} />
             <Stores p={detail.data} />
-            <Items items={detail.data.items ?? []} parts={detail.data.parts ?? []} />
+            <Items promotionId={detail.data.promotionId} mode={mode} items={detail.data.items ?? []} parts={detail.data.parts ?? []} />
             <Sends sends={detail.data.sends ?? []} parts={detail.data.parts ?? []} />
           </>
         )}
@@ -412,18 +435,65 @@ function Stores({ p }: { p: HungerStationPromotionDetail }) {
 /** The part an item or a send belongs to, by the name it was sent under. */
 const partNames = (parts: HungerStationPromotionPart[]) => new Map(parts.map((p) => [p.partId, p.name]))
 
-function Items({ items, parts }: { items: HungerStationPromotionItem[]; parts: HungerStationPromotionPart[] }) {
+function Items({
+  promotionId,
+  mode,
+  items,
+  parts,
+}: {
+  promotionId: string
+  mode: EditMode | null
+  items: HungerStationPromotionItem[]
+  parts: HungerStationPromotionPart[]
+}) {
   const { t } = useTranslation('hungerstation-promotions')
   const names = partNames(parts)
   const num = (n: number | null) => (n === null ? null : <Ltr>{figure(n)}</Ltr>)
+  // 670: items of a sent promotion are ticked and removed; never while a part is Sending.
+  const selectable = mode === 'inPlace' || mode === 'sending'
+  const locked = mode === 'sending'
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const [removing, setRemoving] = useState(false)
+  const active = items.filter((i) => i.active).map((i) => i.materialNumber)
+  // A material removed meanwhile (or the selection of an older read) is not picked.
+  const chosen = active.filter((m) => picked.has(m))
+  const toggle = (m: string) => setPicked((prev) => (prev.has(m) ? new Set([...prev].filter((x) => x !== m)) : new Set([...prev, m])))
+  const allOn = active.length > 0 && chosen.length === active.length
   return (
     <Section title={t('detail.items')} data="data-promotion-items">
+      {selectable && items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" data-promotion-remove-bar="">
+          <Button
+            variant="outlined"
+            disabled={locked || chosen.length === 0}
+            title={locked ? t('detail.removeWhileSending') : chosen.length === 0 ? t('detail.removePick') : undefined}
+            onClick={() => setRemoving(true)}
+            data-promotion-remove-items={chosen.length}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            {chosen.length > 0 ? t('detail.removeItems', { count: chosen.length, n: fsi(figure(chosen.length)) }) : t('detail.removeNone')}
+          </Button>
+          <span className="text-xs text-muted-foreground">{t('detail.removeHint')}</span>
+        </div>
+      )}
       {items.length === 0 ? (
         <Empty>{t('detail.noItems')}</Empty>
       ) : (
         <table className="w-full border-collapse text-xs">
           <thead className="border-b border-border/60 text-muted-foreground">
             <tr>
+              {selectable && (
+                <th className={TH}>
+                  <input
+                    type="checkbox"
+                    aria-label={t('detail.removePickAll')}
+                    checked={allOn}
+                    disabled={locked || active.length === 0}
+                    onChange={() => setPicked(allOn ? new Set() : new Set(active))}
+                    data-promotion-item-pick-all=""
+                  />
+                </th>
+              )}
               <th className={TH}>{t('detail.itemColumns.material')}</th>
               <th className={TH}>{t('detail.itemColumns.sku')}</th>
               <th className={TH}>{t('detail.itemColumns.subtype')}</th>
@@ -443,6 +513,20 @@ function Items({ items, parts }: { items: HungerStationPromotionItem[]; parts: H
                 data-promotion-item={item.materialNumber}
                 data-promotion-item-active={String(item.active)}
               >
+                {selectable && (
+                  <td className={TD} data-promotion-item-pick-cell="">
+                    {item.active && (
+                      <input
+                        type="checkbox"
+                        aria-label={t('detail.removePickOne', { material: fsi(item.materialNumber) })}
+                        checked={picked.has(item.materialNumber)}
+                        disabled={locked}
+                        onChange={() => toggle(item.materialNumber)}
+                        data-promotion-item-pick={item.materialNumber}
+                      />
+                    )}
+                  </td>
+                )}
                 <td className={TD + ' font-mono'}>
                   <Ltr>{item.materialNumber}</Ltr>
                 </td>
@@ -471,7 +555,53 @@ function Items({ items, parts }: { items: HungerStationPromotionItem[]; parts: H
           </tbody>
         </table>
       )}
+      {removing && (
+        <RemoveItemsDialog
+          promotionId={promotionId}
+          materialNumbers={chosen}
+          onDone={() => {
+            setPicked(new Set())
+            setRemoving(false)
+          }}
+          onClose={() => setRemoving(false)}
+        />
+      )}
     </Section>
+  )
+}
+
+/** 670: Remove items — `POST …/RemoveItems { materialNumbers, reason }`. The answer is the detail:
+ *  the items read Removed (still listed), their parts re-send. DHS-00017 stays in the dialog and
+ *  re-reads the detail, so the bar locks behind it. */
+function RemoveItemsDialog({ promotionId, materialNumbers, onDone, onClose }: { promotionId: string; materialNumbers: string[]; onDone: () => void; onClose: () => void }) {
+  const { t } = useTranslation('hungerstation-promotions')
+  const qc = useQueryClient()
+  const remove = useMutation({
+    mutationFn: (reason: string) => promotionsApi.removeItems(promotionId, { materialNumbers, reason }),
+    onSuccess: (answer) => {
+      qc.setQueryData(promotionKey(promotionId), answer)
+      void qc.invalidateQueries({ queryKey: PROMOTIONS_KEY, predicate: (q) => q.queryKey[2] !== 'detail' })
+      onDone()
+    },
+    onError: (err) => {
+      if (apiErrorCode(err) === HUNGERSTATION_PROMOTION_ERRORS.sending) void qc.invalidateQueries({ queryKey: promotionKey(promotionId) })
+    },
+  })
+  return (
+    <ReasonDialog
+      open
+      title={t('detail.removeTitle')}
+      note={<Trans t={t} i18nKey="detail.removeNote" count={materialNumbers.length} values={{ n: figure(materialNumbers.length) }} components={{ n: <Ltr /> }} />}
+      busy={remove.isPending}
+      error={remove.error}
+      confirmLabel={t('detail.removeConfirm')}
+      danger
+      onEdit={() => remove.reset()}
+      onConfirm={(reason) => remove.mutate(reason)}
+      onClose={onClose}
+    >
+      <span data-promotion-remove-dialog={materialNumbers.length} hidden />
+    </ReasonDialog>
   )
 }
 

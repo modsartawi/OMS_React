@@ -76,6 +76,8 @@ function Promotions() {
   const update = (patch: Partial<PromotionsPageQuery>) =>
     change((prev) => ({ ...prev, q: text.trim() || null, store: storeText.trim() || null, skip: 0, ...patch }))
   const open = (promotion: string | null) => change((prev) => ({ ...prev, promotion }))
+  // 671: the promotion the editor's Replace hook opened the detail for, so it opens on Replace.
+  const [replaceFor, setReplaceFor] = useState<string | null>(null)
 
   const door = promotionsDoorParams(query)
   const promotions = useQuery({
@@ -275,13 +277,22 @@ function Promotions() {
           // `replace`-free on purpose: the new id lands in the URL, so a reload reopens the draft.
           onSaved={(id) => change((prev) => ({ ...prev, edit: id }))}
           onSent={(id) => change((prev) => ({ ...prev, edit: null, promotion: id }))}
+          // 671: a locked name, stores, start or end points here — the detail opens on its Replace dialog.
+          onReplace={() => {
+            setReplaceFor(query.edit)
+            change((prev) => ({ ...prev, edit: null, promotion: prev.edit }))
+          }}
         />
       ) : (
         query.promotion && (
           <PromotionSheet
             key={query.promotion}
             promotionId={query.promotion}
-            onClose={() => open(null)}
+            startReplace={replaceFor === query.promotion}
+            onClose={() => {
+              setReplaceFor(null)
+              open(null)
+            }}
             onEdit={() => change((prev) => ({ ...prev, edit: prev.promotion, promotion: null }))}
             onOpen={open}
           />

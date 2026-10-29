@@ -7,11 +7,13 @@ import {
   type HungerStationPromotionCheckResult,
   type HungerStationDiscountSubtype,
   type HungerStationPromotionFieldProblem,
+  type HungerStationPromotionPartChange,
   type HungerStationPromotionPartPreview,
   type HungerStationPromotionProblem,
 } from '@/core/models/hungerstation'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
+import { editChanges, type EditChangeSummary } from './edit-changes'
 
 /**
  * The Check panel's reading of a Check answer (ticket 667, BackOffice 3212) — pure. One shape for
@@ -44,6 +46,8 @@ export interface CheckSummary {
   parts: HungerStationPromotionPartPreview[]
   /** Every SKU it will send, over its parts. */
   skuCount: number
+  /** 670: what an in-place edit changes on HungerStation; `null` for a draft's check. */
+  changes: EditChangeSummary | null
 }
 
 export function checkSummary(result: HungerStationPromotionCheckResult): CheckSummary {
@@ -68,6 +72,7 @@ export function checkSummary(result: HungerStationPromotionCheckResult): CheckSu
     rows,
     parts: result.parts ?? [],
     skuCount: result.skuCount,
+    changes: Array.isArray(result.changes) ? editChanges(result.changes) : null,
   }
 }
 
@@ -98,6 +103,31 @@ const partPreview = (p: unknown): HungerStationPromotionPartPreview[] => {
   ]
 }
 
+const CHANGE_KINDS: readonly HungerStationPromotionPartChange['change'][] = ['new', 'updated', 'switchedOff', 'unchanged']
+const strings = (v: unknown) => list(v).filter((x): x is string => typeof x === 'string')
+
+/** 670: one part's change, read defensively: one with no name, no SKU count or an unknown kind is
+ *  dropped. */
+const partChange = (p: unknown): HungerStationPromotionPartChange[] => {
+  const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>
+  const change = CHANGE_KINDS.find((k) => k === o.change)
+  if (typeof o.name !== 'string' || typeof o.skuCount !== 'number' || !change) return []
+  return [
+    {
+      buyQuantity: num(o.buyQuantity),
+      getQuantity: num(o.getQuantity),
+      subtype: SUBTYPES.find((s) => s === o.subtype) ?? null,
+      value: num(o.value),
+      partId: typeof o.partId === 'string' ? o.partId : null,
+      name: o.name,
+      change,
+      skuCount: o.skuCount,
+      leaving: strings(o.leaving),
+      joining: strings(o.joining),
+    },
+  ]
+}
+
 /** The Check answer a Send refused for its checks (DHS-00018) carries, or `null` for any other
  *  failure or a body that is not an object. Read defensively: what it cannot read is nothing. */
 export function checkOfRefusal(err: unknown): HungerStationPromotionCheckResult | null {
@@ -120,6 +150,7 @@ export function checkOfRefusal(err: unknown): HungerStationPromotionCheckResult 
       }),
     parts: list(o.parts).flatMap(partPreview),
     skuCount: typeof o.skuCount === 'number' ? o.skuCount : 0,
+    changes: Array.isArray(o.changes) ? o.changes.flatMap(partChange) : null,
   }
 }
 

@@ -1,6 +1,6 @@
 import type { HungerStationPromotionDetail, HungerStationPromotionReplaceBody, HungerStationPromotionReplaceRefusal } from '@/core/models/hungerstation'
 import { windowFromLocal, windowProblem, windowToLocal, type LocalWindow } from './local-window'
-import { partSending } from './part-refusals'
+import { editMode } from './promotion-edit'
 
 /**
  * **Replace** (ticket 671, BackOffice 3216): HungerStation keys a promotion by its name, stores and
@@ -58,16 +58,15 @@ export function replaceBody(form: ReplaceForm, reason: string): HungerStationPro
   return { name: form.name.trim(), ...windowToLocal(form.window), allStores: false, storeCodes: form.stores, reason: reason.trim() }
 }
 
-/** The statuses a promotion still runs in on HungerStation, so it can be replaced or switched off. */
-const RUNNING = new Set(['sending', 'live', 'livePartlyRefused', 'failed', 'scheduled'])
-
 /**
  * Replace and Switch off: `offered` on a sent promotion that still runs (never a draft, nor once
  * switched off, replaced or ended); `sending` — so disabled — while ANY part is Sending (spec 3201
- * § Doors refuses every write then; the server's DHS-00017 stays the guard).
+ * § Doors refuses every write then; the server's DHS-00017 stays the guard). The same lock as 670's
+ * in-place edit: it reads `editMode`.
  */
 export function promotionActions(d: Pick<HungerStationPromotionDetail, 'status' | 'parts'>): { offered: boolean; sending: boolean } {
-  return { offered: RUNNING.has(d.status), sending: d.status === 'sending' || (d.parts ?? []).some(partSending) }
+  const mode = editMode(d)
+  return { offered: mode === 'inPlace' || mode === 'sending', sending: mode === 'sending' }
 }
 
 /** The part a DHS-00020 refusal names, read defensively from the envelope's `data`; `null` when it

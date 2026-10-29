@@ -175,7 +175,21 @@
     "replace": "Replace",
     "switchOff": "Switch off",
     "actionsWhileSending": "Waits until every part has HungerStation’s answer.",
-    "openLinked": "Open this promotion"
+    "openLinked": "Open this promotion",
+    "editLive": "Edit",
+    "editWhileSending": "Waits for HungerStation’s answer to every part.",
+    "removeWhileSending": "Waits for HungerStation’s answer to every part.",
+    "removePick": "Tick the items to remove first.",
+    "removeItems_one": "Remove {{n}} item",
+    "removeItems_other": "Remove {{n}} items",
+    "removeNone": "Remove items",
+    "removeHint": "Removed items go out inactive on HungerStation and stay listed here as Removed.",
+    "removePickAll": "Tick every active item",
+    "removePickOne": "Tick {{material}}",
+    "removeTitle": "Remove items from HungerStation",
+    "removeNote_one": "<n>{{n}}</n> material goes out inactive in its part. It stays listed here as Removed.",
+    "removeNote_other": "<n>{{n}}</n> materials go out inactive in their parts. They stay listed here as Removed.",
+    "removeConfirm": "Remove"
   },
   "refusals": {
     "title": "What HungerStation refused",
@@ -278,7 +292,7 @@
     "sendNote": "Sends the promotion to <stores>{{stores}}</stores> stores with <items>{{items}}</items> materials. It reads Sending, and edits wait, until HungerStation answers.",
     "failedHint": "Try again in a moment.",
     "lockedSending": "HungerStation has not answered yet. Edits wait until it does.",
-    "lockedSent": "This promotion has been sent. Only a draft is edited here.",
+    "lockedSent": "This promotion no longer runs on HungerStation. It is shown here, not edited.",
     "type": "Type",
     "typeClears": "Changing the type clears the pasted items.",
     "defaultBuy": "Default buy",
@@ -286,7 +300,20 @@
     "quantityHint": "A row with a blank buy or get takes it.",
     "quantityInvalid": "A whole number of at least 1, or blank.",
     "sendParts_one": "Send {{n}} promotion to {{stores}} stores",
-    "sendParts_other": "Send {{n}} promotions to {{stores}} stores"
+    "sendParts_other": "Send {{n}} promotions to {{stores}} stores",
+    "lockedLive": "Live on HungerStation. Change the items, values, limits or display names and re-send them in place. The name, stores, start and end are locked: changing any of them replaces the promotion.",
+    "fixedOnceSent": "Fixed once the promotion is sent.",
+    "replaceHint": "Changing this replaces the promotion.",
+    "replace": "Replace…",
+    "stateLive": "Live on HungerStation. Change something to re-send it.",
+    "stateEditDirty": "Changed: check the edit, then save and re-send it.",
+    "editNeedsChange": "Change an item, a value, a limit or a display name first.",
+    "editSend": "Save and re-send",
+    "editTitle": "Save and re-send the changes",
+    "editNote_one": "Saves the edit and sends <n>{{n}}</n> part to HungerStation. It reads Sending, and edits wait, until HungerStation answers.",
+    "editNote_other": "Saves the edit and sends <n>{{n}}</n> parts to HungerStation. It reads Sending, and edits wait, until HungerStation answers.",
+    "editNoteUnchecked": "Saves the edit and re-sends the parts it changes.",
+    "editNoteNothing": "Saves the edit. No part changes on HungerStation."
   },
   "check": {
     "title": "Check",
@@ -345,6 +372,39 @@
       "combination": "Combination",
       "skus": "SKUs",
       "name": "Name on HungerStation"
+    },
+    "editIntro": "Check runs every pre-check on the edit as typed and says what changes on HungerStation. Nothing is written. Save and re-send runs it again first.",
+    "editNeedsChange": "Change something first: Check reads the edit.",
+    "editClean": "Nothing refuses. The edit can be re-sent.",
+    "editBlocked": "A check refuses: fix it and check again.",
+    "changes": {
+      "title": "What changes on HungerStation",
+      "none": "Nothing changes on HungerStation.",
+      "calls_one": "<n>{{n}}</n> part is sent to HungerStation.",
+      "calls_other": "<n>{{n}}</n> parts are sent to HungerStation.",
+      "columns": {
+        "change": "Change",
+        "name": "Name on HungerStation",
+        "combination": "Combination",
+        "skus": "SKUs after",
+        "leaving": "Leaving",
+        "joining": "Joining"
+      },
+      "kinds": {
+        "new": "New part",
+        "updated": "Re-sent",
+        "switchedOff": "Switched off",
+        "unchanged": "Unchanged"
+      },
+      "allItems": "All items",
+      "unchanged_one": "<n>{{n}}</n> part does not change and is not re-sent.",
+      "unchanged_other": "<n>{{n}}</n> parts do not change and are not re-sent.",
+      "switchedOffHint": "A part the edit leaves with no item is switched off on HungerStation.",
+      "moved": "<m>{{material}}</m> moves from <from>{{from}}</from> to <to>{{to}}</to>.",
+      "left": "<m>{{material}}</m> leaves <from>{{from}}</from>: it goes out inactive there.",
+      "joined": "<m>{{material}}</m> joins <to>{{to}}</to>.",
+      "more_one": "<n>{{n}}</n> more.",
+      "more_other": "<n>{{n}}</n> more."
     }
   },
   "import": {

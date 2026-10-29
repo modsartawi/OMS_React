@@ -66,8 +66,16 @@ Replace and switch-off work from stubs, with the bodies matching the contract.
     words; `{ reason }` to `…/SwitchOff`; the answer lands in the sheet (Switched off, nothing deleted).
   - **List:** Scheduled / Ended were already chips (665); new **Live on store** box (`store=`,
     applied on Search with the name, emptied by Clear). All three proven URL ⇄ door.
-  - **Drive** § 14 (LTR + RTL), door overrides only. 670 (§ 13) had not merged when this was built,
-    so its editor hook to Replace is wired only if it landed before the merge (see the merge note).
+  - **Drive** § 14 (LTR + RTL), door overrides only.
+  - **Merged with 670:** `promotionActions` now reads 670's `editMode` (one any-part Sending lock for
+    Edit, Remove items, Replace and Switch off). The editor's `onReplace` hook is wired in
+    `PromotionsPage`: it closes the editor and opens the detail with the Replace dialog up (only
+    that once — reopening the detail does not). The dialog opens from an effect so its modal lands
+    above the sheet's in the top layer (opening it in the initial state put it underneath, which
+    the drive caught). Unsaved in-place edits are dropped on that jump. § 14 proves the hook (LTR);
+    670's two § 13 checks that expected "no Replace button until 671" now expect the buttons.
+  - **Gates after merging the integration tip (670 in):** typecheck, lint, vitest 7795, drive
+    **509/509** (LTR + RTL; it was 417/417 before the merge).
   - 🚩 **Assumptions for the contract (BackOffice 3216):** (1) DHS-00020 is a 502 whose envelope
     `data` is `HungerStationPromotionReplaceRefusal` `{ partId, name, httpStatus, error }` (a new
     model). (2) Replace always sends `allStores: false` with explicit `storeCodes` (stores freeze at

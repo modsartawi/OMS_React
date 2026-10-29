@@ -279,5 +279,36 @@
     "copy": "Copy",
     "copied": "Copied",
     "loading": "Loading the draft…"
+  },
+  "tree": {
+    "drag": "Drag to move this condition",
+    "dropHere": "Drop here",
+    "dropInto": "Drop a condition here",
+    "refused": {
+      "self": "Not here: a group cannot go inside itself",
+      "tooDeep": "Not here: groups nest at most three levels",
+      "missing": "Not here"
+    },
+    "select": "Select to group",
+    "selectHint": "Tick conditions side by side in one list.",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "groupAs": {
+      "all": "Group as All of",
+      "any": "Group as Any of"
+    },
+    "tick": "Select this condition",
+    "tools": "Move…",
+    "up": "Move up",
+    "down": "Move down",
+    "out": "Move out of the group",
+    "into": "Move into group {{n}} ({{mode}})",
+    "mode": {
+      "all": "All of",
+      "any": "Any of"
+    },
+    "duplicate": "Duplicate",
+    "ungroup": "Ungroup",
+    "ungroupNegated": "Ungroup (turn NOT off first)"
   }
 }

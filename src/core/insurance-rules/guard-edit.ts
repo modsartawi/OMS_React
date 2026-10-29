@@ -140,6 +140,152 @@ export function toggleNot(conditions: GuardCondition[], path: ConditionPath): Gu
   })
 }
 
+// ── Rearranging the tree (oms 658) ─────────────────────────────────────────────────────────
+//
+// Drag and drop and the condition tools all come down to these. A refused move gives back the SAME conditions,
+// so the history pushes no step. ⚠️ A move can change which block is FIRST, and a rule's codes default from its
+// first block (K11): through `editRule` an effect whose codes were still the old first block's default takes the
+// new first block's; codes the author typed are kept. That is the same rule as for any other edit of `when`.
+
+const samePath = (a: ConditionPath, b: ConditionPath) => a.length === b.length && a.every((x, i) => x === b[i])
+/** Whether `inner` is `outer` or under it. */
+const within = (inner: ConditionPath, outer: ConditionPath) => inner.length >= outer.length && outer.every((x, i) => x === inner[i])
+
+/** The list at `parent` (`[]` = `when`), or undefined when no group is there. */
+export function listAt(conditions: readonly GuardCondition[], parent: ConditionPath): readonly GuardCondition[] | undefined {
+  if (parent.length === 0) return conditions
+  const g = conditionAt(conditions, parent)
+  return g?.check === 'group' ? g.conditions : undefined
+}
+
+/** Why a move is refused: into itself (or a group under it), past the 3rd group level, or nowhere. Null = allowed. */
+export type MoveRefusal = 'self' | 'tooDeep' | 'missing'
+
+/**
+ * Whether the condition at `from` may go into the list at `toParent` at `index` (an index into that list as it is
+ * NOW, before the condition leaves its place). Refused: no such condition or list; a group into itself or into a
+ * group under it; a group that would reach a 4th level.
+ */
+export function moveRefusal(conditions: readonly GuardCondition[], from: ConditionPath, toParent: ConditionPath, index: number): MoveRefusal | null {
+  const c = from.length ? conditionAt(conditions, from) : undefined
+  const target = listAt(conditions, toParent)
+  if (!c || !target || index < 0 || index > target.length) return 'missing'
+  if (within(toParent, from)) return 'self'
+  if ((levelOf(conditions, toParent) ?? 0) + levelsOf(c) > MAX_GROUP_LEVELS) return 'tooDeep'
+  return null
+}
+
+/**
+ * The condition at `from` moved into the list at `toParent`, at `index` (an index into that list before the
+ * move: dropping between items 1 and 2 is index 2 wherever it came from). Refused or a move to where it already
+ * is → the same conditions.
+ */
+export function moveCondition(conditions: GuardCondition[], from: ConditionPath, toParent: ConditionPath, index: number): GuardCondition[] {
+  if (moveRefusal(conditions, from, toParent, index)) return conditions
+  const fromParent = from.slice(0, -1)
+  const at = from[from.length - 1]
+  if (samePath(fromParent, toParent) && (index === at || index === at + 1)) return conditions
+  const c = conditionAt(conditions, from)!
+  const without = removeCondition(conditions, from)
+  // Removing the condition shifts what came after it in its own list: the target path and index follow.
+  const parent = toParent.slice()
+  const d = fromParent.length
+  if (parent.length > d && within(parent, fromParent) && parent[d] > at) parent[d] -= 1
+  const i = samePath(fromParent, toParent) && index > at ? index - 1 : index
+  return atList(without, parent, (list) => [...list.slice(0, i), c, ...list.slice(i)])
+}
+
+/** One place up (or down) in its own list; refused at the edge. */
+export function moveUp(conditions: GuardCondition[], path: ConditionPath): GuardCondition[] {
+  const at = path[path.length - 1]
+  return at > 0 ? moveCondition(conditions, path, path.slice(0, -1), at - 1) : conditions
+}
+export function moveDown(conditions: GuardCondition[], path: ConditionPath): GuardCondition[] {
+  const at = path[path.length - 1]
+  const list = listAt(conditions, path.slice(0, -1))
+  return list && at < list.length - 1 ? moveCondition(conditions, path, path.slice(0, -1), at + 2) : conditions
+}
+
+/** Out of its group, to just after that group in the group's own list; refused at the top. */
+export function moveOutOfGroup(conditions: GuardCondition[], path: ConditionPath): GuardCondition[] {
+  if (path.length < 2) return conditions
+  const group = path.slice(0, -1)
+  return moveCondition(conditions, path, group.slice(0, -1), group[group.length - 1] + 1)
+}
+
+/** Into the group at `group`, as its last condition. */
+export function moveIntoGroup(conditions: GuardCondition[], path: ConditionPath, group: ConditionPath): GuardCondition[] {
+  const list = listAt(conditions, group)
+  return list ? moveCondition(conditions, path, group, list.length) : conditions
+}
+
+/** The sibling groups a condition may move into (paths), each within the depth limit. */
+export function groupsToMoveInto(conditions: readonly GuardCondition[], path: ConditionPath): ConditionPath[] {
+  const parent = path.slice(0, -1)
+  const list = listAt(conditions, parent) ?? []
+  const out: ConditionPath[] = []
+  list.forEach((c, i) => {
+    const g = [...parent, i]
+    if (c.check === 'group' && i !== path[path.length - 1] && !moveRefusal(conditions, path, g, c.conditions.length)) out.push(g)
+  })
+  return out
+}
+
+/**
+ * Several SIBLING conditions wrapped in one new All of / Any of group, at the first one's place, in their order.
+ * Refused (same conditions): none, not all in one list, a missing one, or a group that would reach a 4th level.
+ */
+export function wrapInGroup(conditions: GuardCondition[], paths: readonly ConditionPath[], mode: 'all' | 'any'): GuardCondition[] {
+  if (!paths.length) return conditions
+  const parent = paths[0].slice(0, -1)
+  if (paths.some((p) => p.length !== paths[0].length || !samePath(p.slice(0, -1), parent))) return conditions
+  const list = listAt(conditions, parent)
+  const picked = [...new Set(paths.map((p) => p[p.length - 1]))].sort((a, b) => a - b)
+  if (!list || picked.some((i) => !list[i])) return conditions
+  const group: GuardCondition = { check: 'group', mode, conditions: picked.map((i) => list[i]) }
+  if ((levelOf(conditions, parent) ?? 0) + levelsOf(group) > MAX_GROUP_LEVELS) return conditions
+  return atList(conditions, parent, (l) => {
+    const out: GuardCondition[] = []
+    l.forEach((c, i) => {
+      if (i === picked[0]) out.push(group)
+      else if (!picked.includes(i)) out.push(c)
+    })
+    return out
+  })
+}
+
+/** Why a group cannot be ungrouped: it is not a group, or it is a NOT group. Null = allowed. */
+export function ungroupRefusal(conditions: readonly GuardCondition[], path: ConditionPath): 'notGroup' | 'negated' | null {
+  const g = path.length ? conditionAt(conditions, path) : undefined
+  if (g?.check !== 'group') return 'notGroup'
+  // NOT (a and b) is not (NOT a) and (NOT b): ungrouping a NOT group would silently change what the rule means.
+  // The safe rule is to refuse it; the author turns NOT off first.
+  return g.not ? 'negated' : null
+}
+
+/**
+ * A group's conditions in its place, in order. Refused for a NOT group (`ungroupRefusal`). ⚠️ An Any of group
+ * ungrouped into an All of list joins its conditions with AND: that is what the author asked for, and Reads as
+ * shows it at once.
+ */
+export function ungroup(conditions: GuardCondition[], path: ConditionPath): GuardCondition[] {
+  if (ungroupRefusal(conditions, path)) return conditions
+  const g = conditionAt(conditions, path) as Extract<GuardCondition, { check: 'group' }>
+  const at = path[path.length - 1]
+  return atList(conditions, path.slice(0, -1), (list) => [...list.slice(0, at), ...g.conditions, ...list.slice(at + 1)])
+}
+
+/** A rule (or any holder of `when`) with new conditions — the SAME object when they did not change, so a refused move is no step. */
+export const withWhen = <R extends { when: GuardCondition[] }>(r: R, when: GuardCondition[]): R => (when === r.when ? r : { ...r, when })
+
+/** A copy of the condition right after it (a group with everything in it). */
+export function duplicateCondition(conditions: GuardCondition[], path: ConditionPath): GuardCondition[] {
+  const c = path.length ? conditionAt(conditions, path) : undefined
+  if (!c) return conditions
+  const at = path[path.length - 1]
+  return atList(conditions, path.slice(0, -1), (list) => [...list.slice(0, at + 1), structuredClone(c), ...list.slice(at + 1)])
+}
+
 // ── The palette ────────────────────────────────────────────────────────────────────────────
 
 /**

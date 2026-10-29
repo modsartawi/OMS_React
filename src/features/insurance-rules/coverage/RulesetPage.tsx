@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, CircleCheck, Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, CircleCheck, Folder, Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
@@ -26,11 +26,13 @@ import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
-import { fsi } from '@/core/util/bidi'
+import Select from '@/core/ui/Select'
+import { formatRange, fsi } from '@/core/util/bidi'
 import { doorKind, rulesetDoors, rulesetDraftKey, rulesetDraftQuery } from './api'
 import { CategoryEffectEditor, CoverageEffectEditor, CoverageEffectLine, GroupName } from './Effects'
 import RuleConditions from './RuleConditions'
 import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
+import { folderOptions, folderPath, folderRuns, ruleFolder, type FolderRun } from './rule-folders'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 import { Issues } from '@/core/insurance-rules/controls'
 
@@ -38,7 +40,7 @@ import { Issues } from '@/core/insurance-rules/controls'
  * Insurance rules ▸ Categories and ▸ Coverage (oms ticket 617; BackOffice 3145 / 3146). One ORDERED ruleset per
  * page: a category is set by the FIRST rule that matches (over the item master's default), and a coverage rule
  * sees what the rules before it changed — so the order on screen is the order HQ runs, and moving a rule is an
- * edit saved with the draft. The draft is ONE document saved whole through the guards' draft doors
+ * edit saved with the draft. Folders are shown INSIDE that one ordered list (oms 675, `./rule-folders`). The draft is ONE document saved whole through the guards' draft doors
  * (`PUT InsuranceRules/{Categories|Coverage}/Draft` with its `revision`; a stale one is a 409); Undo / Redo /
  * Cancel / Save act on it, and "Check" asks HQ's Validate about the draft on screen. `?rule=` is the rule open.
  *
@@ -56,9 +58,6 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
     <section className="flex w-full max-w-7xl flex-col gap-4" data-ruleset-page={kind}>
       <header>
         <h1 className="text-lg font-semibold tracking-tight">{t(`${kind}.title`)}</h1>
-        <p className="text-sm text-muted-foreground" data-ruleset-order="">
-          {t(`${kind}.order`)}
-        </p>
       </header>
       {body}
     </section>
@@ -70,7 +69,7 @@ const NO_LISTS: readonly GuardList[] = []
 type Checks = { issues: GuardIssue[]; against: InsuranceRuleset } | null
 
 function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: RulesetDraft<InsuranceRuleset>; refetch: () => Promise<RulesetDraft<InsuranceRuleset> | undefined> }) {
-  const { t, i18n } = useTranslation('insurance-coverage')
+  const { t } = useTranslation('insurance-coverage')
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const doc = useMemo(() => draftDocument(draft), [draft])
@@ -88,6 +87,7 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
   }, [doc])
 
   const rules = h.present.rules as InsuranceRule[]
+  const folders = useMemo(() => folderOptions(rules), [rules])
   const openId = params.get('rule') ?? rules[0]?.id ?? null
   const rule = rules.find((r) => r.id === openId) ?? null
   const dirty = isDirty(h)
@@ -212,68 +212,38 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
 
       <div className="grid gap-4 lg:grid-cols-[24rem_minmax(0,1fr)]" onBlur={() => dispatch({ type: 'seal' })}>
         <div className="flex flex-col gap-2">
+          <p className="rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-sm" data-ruleset-order="">
+            {t(`${kind}.order`)}
+          </p>
           {rules.length === 0 ? (
             <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground" data-rules-empty="">
               {t('ruleset.empty')}
             </p>
           ) : (
-            <ol className="flex flex-col gap-1.5" data-rule-list="">
-              {rules.map((r, i) => (
-                <li
-                  key={r.id}
-                  className={`flex items-start gap-2 rounded-md border p-2 ${r.id === openId ? 'border-primary bg-primary-050' : 'border-border bg-card'}`}
-                  data-rule-row={r.id}
-                  data-position={i + 1}
-                >
-                  <span className="mt-0.5 w-5 shrink-0 text-end text-xs text-muted-foreground" data-rule-position="">
-                    <Ltr>{String(i + 1)}</Ltr>
-                  </span>
-                  <button type="button" onClick={() => open(r.id)} aria-current={r.id === openId || undefined} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-start" data-rule-open={r.id}>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <RuleId id={r.id} />
-                      <GuardStateBadge state={r.state} />
-                      {issuesOf(r.id).length > 0 && (
-                        <span className="text-xs text-danger-800" data-rule-issues={issuesOf(r.id).length}>
-                          {t('checks.onRule', { n: fsi(String(issuesOf(r.id).length)) })}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-medium" data-rule-name="">
-                      {r.name.en || r.name.ar ? <bdi>{saysIn(r.name, i18n.language)}</bdi> : <span className="text-muted-foreground">{t('ruleset.unnamed')}</span>}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-1.5 text-xs" data-rule-does="">
-                      <RuleDoes kind={kind} rule={r} />
-                    </span>
-                  </button>
-                  <span className="flex flex-col gap-0.5">
-                    <IconButton
-                      label={t('ruleset.moveUp')}
-                      size="compact"
-                      disabled={i === 0 || busy}
-                      onClick={() => editDoc((d) => moveRule(d, r.id, -1))}
-                      data-move-up={r.id}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-                    </IconButton>
-                    <IconButton
-                      label={t('ruleset.moveDown')}
-                      size="compact"
-                      disabled={i === rules.length - 1 || busy}
-                      onClick={() => editDoc((d) => moveRule(d, r.id, 1))}
-                      data-move-down={r.id}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                    </IconButton>
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <RuleList
+              kind={kind}
+              rules={rules}
+              folders={folders}
+              openId={openId}
+              onOpen={open}
+              onMove={(id, delta) => editDoc((d) => moveRule(d, id, delta))}
+              busy={busy}
+              issuesOf={issuesOf}
+            />
           )}
           {checks && !checksStale && checks.issues.some((i) => !i.ruleId) && <Issues issues={checks.issues.filter((i) => !i.ruleId)} hook="ruleset" />}
         </div>
 
         {rule ? (
-          <RuleEditor key={rule.id} kind={kind} rule={rule} lists={h.present.lists ?? NO_LISTS} edit={editRule} issues={checksStale ? [] : issuesOf(rule.id)} />
+          <RuleEditor
+            key={rule.id}
+            kind={kind}
+            rule={rule}
+            lists={h.present.lists ?? NO_LISTS}
+            folders={folders.folders}
+            edit={editRule}
+            issues={checksStale ? [] : issuesOf(rule.id)}
+          />
         ) : (
           <p className="text-sm text-muted-foreground" data-rule-none="">
             {t('ruleset.pick')}
@@ -281,6 +251,172 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
         )}
       </div>
     </>
+  )
+}
+
+/** The folder filter's values: every folder, the rules in none, or one folder (`in:` + its name). */
+const ALL_FOLDERS = 'all'
+const NO_FOLDER = 'none'
+const IN_FOLDER = 'in:'
+
+/** A run's key: its folder and which of the folder's runs it is, so a re-cut elsewhere keeps it (and its collapse). */
+const runKey = (run: FolderRun<unknown>) => JSON.stringify([run.folder, run.nth])
+
+/**
+ * The ruleset's rules in the order HQ runs them, cut into folder runs (oms 675): each run under a heading with its
+ * folder, positions and count; a folder the order splits shows again, marked "continued". Positions are the rule's
+ * place in the WHOLE ruleset everywhere. A heading collapses its run (kept here, never saved); the open rule's run
+ * stays open. The filter shows one folder's runs, and turns the arrows off: one step in the whole order could pass a
+ * rule it hides.
+ */
+function RuleList({
+  kind,
+  rules,
+  folders: { folders, hasNone },
+  openId,
+  onOpen,
+  onMove,
+  busy,
+  issuesOf,
+}: {
+  kind: InsuranceRuleKind
+  rules: readonly InsuranceRule[]
+  folders: ReturnType<typeof folderOptions>
+  openId: string | null
+  onOpen: (id: string) => void
+  onMove: (id: string, delta: number) => void
+  busy: boolean
+  issuesOf: (id: string) => GuardIssue[]
+}) {
+  const { t, i18n } = useTranslation('insurance-coverage')
+  const [picked, setPicked] = useState(ALL_FOLDERS)
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  const runs = useMemo(() => folderRuns(rules), [rules])
+  const filter = picked === NO_FOLDER && hasNone ? '' : picked.startsWith(IN_FOLDER) && folders.includes(picked.slice(IN_FOLDER.length)) ? picked.slice(IN_FOLDER.length) : null
+  const filtered = filter !== null
+  // A picked folder no rule is in any more (moved, renamed, undone) is dropped, so it never comes back on its own.
+  if (picked !== ALL_FOLDERS && !filtered) setPicked(ALL_FOLDERS)
+  const toggle = (key: string) =>
+    setCollapsed((c) => {
+      const next = new Set(c)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+  const issueCount = new Map(rules.map((r) => [r.id, issuesOf(r.id).length]))
+  /** One step in the whole order; while filtered the arrow only says why it is off. A rule moved into another run is
+   * drawn under that run's list, so the keyboard is put back on the arrow it pressed. */
+  const move = (id: string, delta: -1 | 1, hadFocus: boolean) => {
+    if (filtered || busy) return
+    onMove(id, delta)
+    if (hadFocus) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-move-${delta < 0 ? 'up' : 'down'}="${CSS.escape(id)}"]`)?.focus())
+  }
+  const arrowWhy = filtered ? t('folders.reorderFiltered') : undefined
+  return (
+    <div className="flex flex-col gap-2" data-rule-list="">
+      {folders.length > 0 && (
+        <Field label={t('folders.filter')}>
+          <Select value={filtered ? picked : ALL_FOLDERS} onChange={(e) => setPicked(e.target.value)} data-folder-filter="">
+            <option value={ALL_FOLDERS}>{t('folders.all')}</option>
+            {folders.map((f) => (
+              <option key={f} value={IN_FOLDER + f}>
+                {fsi(f)}
+              </option>
+            ))}
+            {hasNone && <option value={NO_FOLDER}>{t('folders.none')}</option>}
+          </Select>
+        </Field>
+      )}
+      <ul className="flex flex-col gap-2">
+        {runs
+          .filter((run) => !filtered || run.folder === filter)
+          .map((run) => {
+            const key = runKey(run)
+            const shut = collapsed.has(key) && !run.rules.some((x) => x.rule.id === openId)
+            return (
+              <li key={key} className="flex flex-col gap-1.5" data-folder-run={run.folder} data-continued={run.continued} data-positions={`${run.first}-${run.last}`}>
+                <button
+                  type="button"
+                  onClick={() => toggle(key)}
+                  aria-expanded={!shut}
+                  className="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-start text-xs font-semibold text-muted-foreground hover:bg-muted"
+                  data-folder-toggle={run.folder}
+                >
+                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${shut ? '-rotate-90 rtl:rotate-90' : ''}`} aria-hidden />
+                  <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {run.folder ? <bdi data-folder-name="">{run.folder}</bdi> : <span data-folder-name="">{t('folders.none')}</span>}
+                  {run.continued && (
+                    <span className="font-normal" data-folder-continued="">
+                      {t('folders.continued')}
+                    </span>
+                  )}
+                  <span className="ms-auto flex shrink-0 items-center gap-1 font-normal" data-folder-summary="">
+                    {t('folders.positions')} <Ltr>{run.first === run.last ? String(run.first) : formatRange(run.first, run.last)}</Ltr>
+                    <span aria-hidden>·</span>
+                    {t('folders.count', { n: fsi(String(run.rules.length)) })}
+                  </span>
+                </button>
+                {!shut && (
+                  <ol className="flex flex-col gap-1.5">
+                    {run.rules.map(({ rule: r, position }) => (
+                      <li
+                        key={r.id}
+                        className={`flex items-start gap-2 rounded-md border p-2 ${r.id === openId ? 'border-primary bg-primary-050' : 'border-border bg-card'}`}
+                        data-rule-row={r.id}
+                        data-position={position}
+                      >
+                        <span className="mt-0.5 w-5 shrink-0 text-end text-xs text-muted-foreground" data-rule-position="">
+                          <Ltr>{String(position)}</Ltr>
+                        </span>
+                        <button type="button" onClick={() => onOpen(r.id)} aria-current={r.id === openId || undefined} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-start" data-rule-open={r.id}>
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <RuleId id={r.id} />
+                            <GuardStateBadge state={r.state} />
+                            {issueCount.get(r.id)! > 0 && (
+                              <span className="text-xs text-danger-800" data-rule-issues={issueCount.get(r.id)}>
+                                {t('checks.onRule', { n: fsi(String(issueCount.get(r.id))) })}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-sm font-medium" data-rule-name="">
+                            {r.name.en || r.name.ar ? <bdi>{saysIn(r.name, i18n.language)}</bdi> : <span className="text-muted-foreground">{t('ruleset.unnamed')}</span>}
+                          </span>
+                          <span className="flex flex-wrap items-center gap-1.5 text-xs" data-rule-does="">
+                            <RuleDoes kind={kind} rule={r} />
+                          </span>
+                        </button>
+                        <span className="flex flex-col gap-0.5">
+                          <IconButton
+                            label={t('ruleset.moveUp')}
+                            title={arrowWhy}
+                            size="compact"
+                            disabled={position === 1 || busy}
+                            aria-disabled={filtered || undefined}
+                            onClick={(e) => move(r.id, -1, document.activeElement === e.currentTarget)}
+                            data-move-up={r.id}
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                          </IconButton>
+                          <IconButton
+                            label={t('ruleset.moveDown')}
+                            title={arrowWhy}
+                            size="compact"
+                            disabled={position === rules.length || busy}
+                            aria-disabled={filtered || undefined}
+                            onClick={(e) => move(r.id, 1, document.activeElement === e.currentTarget)}
+                            data-move-down={r.id}
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                          </IconButton>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+            )
+          })}
+      </ul>
+    </div>
   )
 }
 
@@ -310,6 +446,7 @@ function RuleEditor({
   kind,
   rule,
   lists,
+  folders,
   edit,
   issues,
 }: {
@@ -317,11 +454,14 @@ function RuleEditor({
   rule: InsuranceRule
   /** The document's own item lists (oms 674): the item-list rows pick from them, the reads-as names them. */
   lists: readonly GuardList[]
+  /** The document's folders (oms 675): the folder box offers them, and takes a new name. */
+  folders: readonly string[]
   edit: (fn: (r: InsuranceRule) => InsuranceRule, coalesce?: string) => void
   issues: GuardIssue[]
 }) {
   const { t } = useTranslation('insurance-coverage')
   const fields = useQuery(fieldsQuery()).data
+  const folderListId = useId()
   const reads = useMemo(() => rule.when.map((c) => conditionSentence(c, { rule: { filters: [] }, lists, fields })), [rule.when, lists, fields])
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]" data-rule-editor={rule.id}>
@@ -342,7 +482,19 @@ function RuleEditor({
             <Input dir="rtl" lang="ar" value={rule.name.ar} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }), 'name.ar')} data-input="name.ar" />
           </Field>
           <Field label={t('rule.folder')}>
-            <Input value={rule.folder ?? ''} onChange={(e) => edit((r) => withFolder(r, e.target.value), 'folder')} data-input="folder" />
+            <Input
+              list={folderListId}
+              value={rule.folder ?? ''}
+              onChange={(e) => edit((r) => withFolder(r, e.target.value), 'folder')}
+              onBlur={() => (rule.folder ?? '') !== ruleFolder(rule) && edit((r) => withFolder(r, folderPath(r.folder)), 'folder')}
+              data-input="folder"
+            />
+            {/* A datalist option's value is what lands in the box, so a folder goes in as written (no isolates). */}
+            <datalist id={folderListId} data-folder-options="">
+              {folders.filter((f) => f !== ruleFolder(rule)).map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
           </Field>
         </div>
         <Issues issues={issues} hook="rule" />

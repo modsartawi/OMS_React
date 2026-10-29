@@ -57,6 +57,15 @@
     "pick": "Pick a rule to edit it.",
     "pendingLocked": "The draft is waiting for approval: it cannot be saved until it is approved or sent back."
   },
+  "folders": {
+    "filter": "Folder",
+    "all": "All folders",
+    "none": "No folder",
+    "continued": "(continued)",
+    "positions": "Positions",
+    "count": "Rules: {{n}}",
+    "reorderFiltered": "Show all folders to change the order"
+  },
   "checks": {
     "validate": "Check the draft",
     "again": "Changed since checked — check again",

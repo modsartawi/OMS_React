@@ -65,7 +65,17 @@
     "removeField": "Remove this field",
     "noCode": "No code picked yet.",
     "searchValues": "Search the codes",
-    "noValue": "No code matches."
+    "noValue": "No code matches.",
+    "paste": {
+      "action": "Paste codes",
+      "title": "Paste codes into this field",
+      "hint": "Paste a column or row from Excel, or separate codes with commas, spaces or new lines. Preview shows any code no item has.",
+      "added_one": "{{n}} code to add",
+      "added_other": "{{n}} codes to add",
+      "skipped_one": "{{n}} skipped: already in the field or repeated",
+      "skipped_other": "{{n}} skipped: already in the field or repeated",
+      "ok": "Add the codes"
+    }
   },
   "problem": {
     "cycle": "A list cannot include itself through other lists:",

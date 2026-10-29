@@ -10,7 +10,7 @@
  * `toRequest`. A blank amount is 0, which the server's validator refuses where 0 is wrong
  * (`BBY-QUANTITY`, `BBY-VALUE-RANGE`): the client never decides that a value is acceptable.
  */
-import { type CodeListMeter, codeListMeter, normaliseCodeList } from '@/core/util/code-list'
+import { type CodeListMeter, codeListMeter, normaliseCodeList, pastedCodes } from '@/core/util/code-list'
 import { formatMoneyIn } from '@/core/money'
 import { formatRate } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
@@ -692,18 +692,7 @@ export const couponMaterialLands = (s: Pick<EditorState, 'buy'>, key: string): b
  * Each code is kept once, and a code the target already holds is skipped, so pasting the same
  * column twice adds nothing.
  */
-export function pastedMaterials(text: string, existing: readonly string[] = []): string[] {
-  const list = normaliseCodeList(text)
-  if (list === '') return []
-  const seen = new Set(existing.map((c) => c.trim()).filter((c) => c !== ''))
-  const out: string[] = []
-  for (const code of list.split(',')) {
-    if (seen.has(code)) continue
-    seen.add(code)
-    out.push(code)
-  }
-  return out
-}
+export const pastedMaterials = pastedCodes
 
 /** Whether a line is the blank row a new panel starts with: a Material with no identifier. */
 const isBlankLine = (l: BuyLine | GetLine): boolean => l.type === 'material' && l.identifier.trim() === ''

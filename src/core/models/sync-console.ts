@@ -104,6 +104,10 @@ export type AuditAction =
   | 'ReceiptReplay'
   // Object enrolment (BackOffice 2558): one row per enrolment, naming the object.
   | 'EnrolObject'
+  // Store scripts (BackOffice spec 3202 D13): one row per send, withdraw and hand retry.
+  | 'SendScript'
+  | 'WithdrawScript'
+  | 'RetryScript'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -204,6 +208,12 @@ export interface SyncConsoleAccess {
    * Independent of `canOperate`. Optional: a door older than 2558 leaves it out, which reads as no.
    */
   canEnrol?: boolean
+  /**
+   * `ActionSync.RunStoreScript` (BackOffice spec 3202 D3, ticket 664) — Send, Withdraw and Retry on
+   * the Scripts page. Independent of `canOperate`. Optional: a door older than 3205 leaves it out,
+   * which reads as no.
+   */
+  canRunScripts?: boolean
 }
 
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
@@ -429,11 +439,21 @@ export interface PassDetail {
   items: PassDetailLine[]
 }
 
-/** One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire. */
+/**
+ * One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire.
+ * Spec BackOffice 3202 D11 (door 3207) adds `title`, `attempts` and `state`; a door older than
+ * 3207 leaves them out and the client reads them as `null` (the feature's `wire.ts`).
+ */
 export interface StoreScript {
   scriptId: string
-  /** Always `null` for now: HQ records no creation time for a script (2539). */
+  /** The sent time (`ActionSyncScript.SentAt`); `null` for a legacy script, or on a door older than 3207. */
   createdAt: string | null
+  /** `null` for a legacy script (no `ActionSyncScript` row), or on a door older than 3207. */
+  title: string | null
+  /** The store's attempts so far; `null` on a door older than 3207. */
+  attempts: number | null
+  /** The derived state (`ScriptState`); `null` on a door older than 3207, which then reads `isExecuted`. */
+  state: string | null
   isExecuted: boolean
   lastAttempt: string | null
   errorMessage: string | null
@@ -1016,5 +1036,143 @@ export interface EnrolObjectResponse {
   /** Every store with an `Item` counter. */
   storesEnrolled: number
   /** The `EnrolObject` audit row; `null` in a preview. */
+  auditId: string | null
+}
+
+// ── Store scripts (BackOffice spec 3202 D11, door 3207; ticket 663) ─────────────────────────
+
+/**
+ * A store's state for one store script, derived by HQ and never stored (spec 3202 D6):
+ * `executed`; `withdrawn` (not executed); `exhausted` (used up its attempts); `retrying` (failed,
+ * will try again); `pending` (anything else). 🚩 Wire casing guessed lowercase: the door is not built.
+ */
+export type ScriptState = 'executed' | 'pending' | 'retrying' | 'exhausted' | 'withdrawn'
+
+/**
+ * One row of `GET ActionSync/Scripts` (`ActionSync.Health.View`), paged, newest first. A script
+ * with no `ActionSyncScript` row is legacy: no sender, no time, and send/withdraw/retry do not
+ * apply to it.
+ */
+export interface SentScript {
+  scriptId: string
+  title: string | null
+  sentBy: string | null
+  sentAt: string | null
+  /** `all` | `chosen` (spec 3202 D2); `null` for a legacy script. */
+  targetMode: string | null
+  storeCount: number
+  executed: number
+  pending: number
+  retrying: number
+  exhausted: number
+  withdrawn: number
+  withdrawnAt: string | null
+  isLegacy: boolean
+}
+
+export type SentScripts = Paged<SentScript>
+
+/** One store's row of a script's detail. */
+export interface ScriptStoreRow {
+  code: string
+  description: string
+  state: string
+  attempts: number
+  lastAttempt: string | null
+  errorMessage: string | null
+}
+
+/**
+ * `GET ActionSync/Scripts/Detail?scriptId=` — the header and the per-store rows (contract "Store
+ * script doors"). `sql` is sent only to a holder of `ActionSync.RunStoreScript`; for a
+ * `Health.View`-only holder it is `null`, and the screen then shows no SQL at all. A legacy script
+ * has every header field `null`. It carries **no** state counts: count `stores` (`scriptStateCounts`).
+ */
+export interface ScriptDetail {
+  scriptId: string
+  title: string | null
+  reason: string | null
+  sentBy: string | null
+  sentAt: string | null
+  targetMode: string | null
+  storeCount: number
+  withdrawnBy: string | null
+  withdrawnAt: string | null
+  withdrawReason: string | null
+  isLegacy: boolean
+  sql: string | null
+  stores: ScriptStoreRow[]
+}
+
+// ── Store script controls (`ActionSync.RunStoreScript`, spec 3202 D11; doors 3205/3206; ticket 664) ──
+//
+// 🚩 Shapes from the spec's D11 alone: the doors are not built and the contract does not list them yet.
+// Every write is `preview: true` first (writes nothing), then `preview: false` with the same body.
+
+/** One row of `GET ActionSync/Scripts/Eligible`: a worker store a script can be sent to (paused ones included). */
+export interface EligibleStore {
+  code: string
+  description: string
+  isPaused: boolean
+}
+
+/** `GET ActionSync/Scripts/Eligible` → `{ items }`, not paged (guessed from the console's other lists). */
+export interface EligibleStores {
+  items: EligibleStore[]
+}
+
+/** A send's target (spec 3202 D2): every eligible store frozen at send time, or the codes chosen. */
+export type ScriptTarget = 'all' | 'chosen'
+
+/**
+ * `POST ActionSync/Scripts/Send`'s body. `codes` is sent only for `chosen`. The SQL is sent as
+ * typed, byte for byte. Refusals: `BAD_REQUEST`, `REASON_REQUIRED`, `TITLE_REQUIRED`,
+ * `SCRIPT_EMPTY`, `SCRIPT_HAS_GO`, `SCRIPT_TOO_LONG`, `UNKNOWN_STORE` / `NOT_ELIGIBLE` (naming the
+ * codes), `NO_STORES`.
+ */
+export interface SendScriptRequest {
+  title: string
+  sql: string
+  reason: string
+  target: ScriptTarget
+  codes?: string[]
+  preview: boolean
+}
+
+/** `POST ActionSync/Scripts/Send`'s answer: the exact stores; `scriptId` and `auditId` are `null` in a preview. */
+export interface SendScriptResponse {
+  scriptId: string | null
+  stores: string[]
+  auditId: string | null
+}
+
+/** `POST ActionSync/Scripts/Withdraw`'s body. Refusals: `UNKNOWN_SCRIPT`, `LEGACY_SCRIPT`, `WITHDRAWN`. */
+export interface WithdrawScriptRequest {
+  scriptId: string
+  reason: string
+  preview: boolean
+}
+
+/** How many not-executed stores are (or in a preview would be) withdrawn. */
+export interface WithdrawScriptResponse {
+  storesWithdrawn: number
+  auditId: string | null
+}
+
+/**
+ * `POST ActionSync/Scripts/Retry`'s body: `codes` names the exhausted stores, or is left out for
+ * every exhausted store of the script. Refusals: `NOT_EXHAUSTED` (naming the codes), `WITHDRAWN`,
+ * `UNKNOWN_SCRIPT`, `LEGACY_SCRIPT`.
+ */
+export interface RetryScriptRequest {
+  scriptId: string
+  codes?: string[]
+  reason: string
+  preview: boolean
+}
+
+/** How many exhausted stores are (or would be) given five fresh attempts. */
+export interface RetryScriptResponse {
+  storesRetried: number
   auditId: string | null
 }

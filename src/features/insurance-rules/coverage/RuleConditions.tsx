@@ -1,42 +1,67 @@
+import { createContext, useContext } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { addCondition, canAddGroup, removeCondition, toggleNot, updateCondition, type ConditionPath } from '@/core/insurance-rules/guard-edit'
-import { requestListField, type GuardCondition } from '@/core/insurance-rules/model'
+import {
+  ELIGIBILITY_BOUNDS,
+  eligibilityTests,
+  REQUEST_FIELDS,
+  requestListField,
+  type EligibilityCondition,
+  type EligibilityTest,
+  type GuardCondition,
+  type GuardList,
+  type LineCondition,
+  type RequestCondition,
+} from '@/core/insurance-rules/model'
 import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
+import { conditionSentence } from '@/core/insurance-rules/sentence'
+import GuardSentenceView from '@/core/insurance-rules/GuardSentenceView'
 import { saysIn } from '@/core/rules/sentence'
 import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
+import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { CodeInput, CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { listSummary, renameTest, testChoices } from './conditions'
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
 
 // The conditions of a category or coverage rule (oms 617): the guard language's All of / Any of groups (three
 // levels at most), NOT on any condition, and the facts a coverage decision reads — item fields, the request's
 // payer / policy / class, the patient, the insurer's eligibility answer — all out of the Fields registry (610),
 // plus patient, policy and class lists by id. The pure edits are the guard editor's (`@/core/insurance-rules/guard-edit`).
+// oms 674: the item lists of the document itself (`{ check: "line", inList }`), the eligibility blocks the codec keeps as
+// written, and the request's codes are edited too; any other block reads as its sentence, kept as written.
 
 type Edit = (fn: (when: GuardCondition[]) => GuardCondition[], coalesce?: string) => void
 
-const PALETTE = ['fact', 'policy', 'class', 'patient', 'group'] as const
+/** The document's own item lists, for the item-list rows and the palette. */
+const DocLists = createContext<readonly GuardList[]>([])
+
+const PALETTE = ['fact', 'item', 'policy', 'class', 'patient', 'group'] as const
 const pathKey = (p: ConditionPath) => p.join('.')
 
 /** A palette block with its defaults: a fact starts on the payer, the commonest test of a contract rule. */
 function newBlock(kind: (typeof PALETTE)[number], fields: readonly RegistryField[]): GuardCondition {
   if (kind === 'group') return { check: 'group', mode: 'all', conditions: [] }
   if (kind === 'patient') return { check: 'patient', inList: '' }
+  if (kind === 'item') return { check: 'line', inList: '' }
   if (kind === 'policy' || kind === 'class') return { check: 'request', field: kind, inList: '' }
   const first = fieldOfPath(fields, '$request.payer') ?? factFields(fields)[0]
   if (!first) return { check: 'fact', path: '$request.payer', op: 'anyOf', value: [] }
   return factKind(first) === 'number' ? { check: 'fact', path: factPath(first), op: 'atLeast', value: 0 } : { check: 'fact', path: factPath(first), op: 'anyOf', value: [] }
 }
 
-export default function RuleConditions({ when, edit }: { when: GuardCondition[]; edit: Edit }) {
+const NO_LISTS: readonly GuardList[] = []
+
+export default function RuleConditions({ when, edit, lists = NO_LISTS }: { when: GuardCondition[]; edit: Edit; lists?: readonly GuardList[] }) {
   const { t } = useTranslation('insurance-coverage')
   return (
     // oms 658: drag and drop and the condition tools, each move one edit of the rule.
+    <DocLists.Provider value={lists}>
     <TreeToolsProvider when={when} apply={(fn) => edit(fn)}>
     <div className="flex flex-col gap-2" data-conditions-editor="">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -51,6 +76,7 @@ export default function RuleConditions({ when, edit }: { when: GuardCondition[];
       <List when={when} list={when} parent={[]} edit={edit} />
     </div>
     </TreeToolsProvider>
+    </DocLists.Provider>
   )
 }
 
@@ -76,6 +102,7 @@ function List({ when, list, parent, edit }: { when: GuardCondition[]; list: read
 function Add({ when, parent, edit }: { when: GuardCondition[]; parent: ConditionPath; edit: Edit }) {
   const { t } = useTranslation('insurance-coverage')
   const fields = useQuery(fieldsQuery()).data ?? []
+  const lists = useContext(DocLists)
   const groupOk = canAddGroup(when, parent)
   return (
     <Select
@@ -89,7 +116,7 @@ function Add({ when, parent, edit }: { when: GuardCondition[]; parent: Condition
       }}
     >
       <option value="">{t('conditions.add')}</option>
-      {PALETTE.map((k) => (
+      {PALETTE.filter((k) => k !== 'item' || lists.length > 0).map((k) => (
         <option key={k} value={k} disabled={k === 'group' && !groupOk}>
           {k === 'group' && !groupOk ? t('conditions.tooDeep') : t(`conditions.block.${k}`)}
         </option>
@@ -184,15 +211,15 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
           <ListPick kind={listField} value={c.inList ?? ''} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
         </Field>
       )
-    return (
-      <span className="text-xs" data-request-field={c.field}>
-        {t('conditions.requestReads', { field: fsi(c.field), codes: fsi((c.anyOf ?? (c.inList !== undefined ? [c.inList] : [])).join(', ')) })}
-      </span>
-    )
+    // oms 674: a request field read by codes (the payer, …) edits its codes; `inList` on another field reads as written.
+    if (isCodesOnly(c)) return <RequestCodes c={c} fields={fields} set={set} />
+    return <KeptAsWritten c={c} fields={fields} />
   }
+  if (c.check === 'line' && typeof c.inList === 'string' && c.field === undefined) return <ItemList c={c as LineCondition & { inList: string }} fields={fields} set={set} />
+  if (c.check === 'eligibility') return <Eligibility c={c} fields={fields} set={set} />
   if (c.check !== 'fact')
-    // A block the guard palette has (history, line, …) but a coverage rule does not offer: shown, kept, not edited.
-    return <code className="font-mono text-xs text-muted-foreground">{c.check}</code>
+    // A block the guard palette has (history, a line field, …) but a coverage rule does not offer: its sentence, kept.
+    return <KeptAsWritten c={c} fields={fields} />
 
   const offered = factFields(fields)
   const def = fieldOfPath(fields, c.path)
@@ -262,4 +289,155 @@ function ListPick({ kind, value, onPick }: { kind: KeyedListKind; value: string;
       ))}
     </Select>
   )
+}
+
+type Set = (fn: (x: GuardCondition) => GuardCondition, coalesce?: string) => void
+
+/** A request block that tests only codes (`{ field, anyOf }`, NOT aside): any other test (a number bound, …) is kept as written. */
+const isCodesOnly = (c: RequestCondition): boolean => Object.keys(c).every((k) => k === 'check' || k === 'field' || k === 'anyOf' || k === 'not') && Array.isArray(c.anyOf)
+
+/** A block this editor does not draw: the sentence the "Reads as" pane gives it (NOT is the toggle beside it), kept as written. */
+function KeptAsWritten({ c, fields }: { c: Exclude<GuardCondition, { check: 'group' }>; fields: readonly RegistryField[] }) {
+  const { t } = useTranslation('insurance-coverage')
+  const lists = useContext(DocLists)
+  const read = conditionSentence({ ...c, not: false }, { rule: { filters: [] }, lists, fields })
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-2 text-xs" data-kept-as-written={c.check}>
+      <span data-sentence="">
+        <GuardSentenceView s={read.sentence} />
+        {read.clauses.map((x, i) => (
+          <span key={i} data-clause="">
+            {t('conditions.clauseJoin')}
+            <GuardSentenceView s={x} />
+          </span>
+        ))}
+      </span>
+      <span className="text-muted-foreground">{t('conditions.notEditable')}</span>
+    </span>
+  )
+}
+
+/** The request's field (payer, …) by its registry name, and its codes. */
+function RequestCodes({ c, fields, set }: { c: RequestCondition; fields: readonly RegistryField[]; set: Set }) {
+  const { t, i18n } = useTranslation('insurance-coverage')
+  const def = fieldOfPath(fields, `$request.${c.field}`)
+  const label = def
+    ? saysIn(def.label, i18n.language)
+    : (REQUEST_FIELDS as readonly string[]).includes(c.field)
+      ? t(`insurance-rules:sentence.request.field.${c.field}`)
+      : fsi(c.field)
+  return (
+    <Field label={label}>
+      <CodesInput
+        value={c.anyOf ?? []}
+        invalid={(c.anyOf ?? []).length === 0}
+        title={t('conditions.codesHint')}
+        data-input="codes"
+        data-request-field={c.field}
+        onCodes={(codes) => set((x) => ({ ...x, anyOf: codes }) as GuardCondition, 'anyOf')}
+      />
+    </Field>
+  )
+}
+
+/** The item is in one of the document's own lists: picked by name, with what the list filters on beside it. */
+function ItemList({ c, fields, set }: { c: LineCondition & { inList: string }; fields: readonly RegistryField[]; set: Set }) {
+  const { t, i18n } = useTranslation('insurance-coverage')
+  const lists = useContext(DocLists)
+  const list = lists.find((l) => l.id === c.inList)
+  return (
+    <>
+      <Field label={t('conditions.block.item')}>
+        <Select value={c.inList} invalid={!list} data-input="itemList" onChange={(e) => set((x) => ({ ...x, inList: e.target.value }) as GuardCondition)}>
+          {!list && <option value={c.inList}>{c.inList ? fsi(c.inList) : t('conditions.pickList')}</option>}
+          {lists.map((l) => (
+            <option key={l.id} value={l.id}>
+              {t('conditions.listOption', { name: fsi(saysIn(l.name, i18n.language)), id: fsi(l.id) })}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <span className="text-xs text-muted-foreground" data-list-filters={c.inList}>
+        {list ? <ListFilters list={list} fields={fields} /> : c.inList ? t('conditions.listFilter.missing') : null}
+      </span>
+    </>
+  )
+}
+
+function ListFilters({ list, fields }: { list: GuardList; fields: readonly RegistryField[] }) {
+  const { t, i18n } = useTranslation('insurance-coverage')
+  const s = listSummary(list, fields)
+  const parts = s.filters.map((f) =>
+    [
+      ...f.attributes.map((a) => t(`conditions.listFilter.${a.op}`, { field: fsi(a.label ? saysIn(a.label, i18n.language) : a.field), codes: fsi(a.codes.join(', ')) })),
+      ...(f.articles ? [t('conditions.listFilter.articles', { n: f.articles })] : []),
+      ...(f.categories ? [t('conditions.listFilter.categories', { n: f.categories })] : []),
+    ].join(t('conditions.listFilter.and')),
+  )
+  const extra = [
+    ...(s.include.length ? [t('conditions.listFilter.include', { lists: fsi(s.include.join(', ')) })] : []),
+    ...(s.exclude.length ? [t('conditions.listFilter.exclude', { lists: fsi(s.exclude.join(', ')) })] : []),
+  ]
+  const text = [parts.filter(Boolean).join(t('conditions.listFilter.or')), ...extra].filter(Boolean).join(t('conditions.listFilter.and'))
+  return <>{text || t('conditions.listFilter.none')}</>
+}
+
+/** A fact of the insurer's eligibility answer the codec kept as written: its field, then each test's operator and value. */
+function Eligibility({ c, fields, set }: { c: EligibilityCondition; fields: readonly RegistryField[]; set: Set }) {
+  const { t, i18n } = useTranslation('insurance-coverage')
+  const def = fieldOfPath(fields, `$eligibility.${c.field}`)
+  return (
+    <>
+      <Field label={t('conditions.eligibility')}>
+        <span className="font-mono text-xs" data-eligibility-field={c.field}>
+          {def ? <bdi>{saysIn(def.label, i18n.language)}</bdi> : <Ltr>{c.field}</Ltr>}
+        </span>
+      </Field>
+      {eligibilityTests(c).map((k) => (
+        <span key={k} className="inline-flex flex-wrap items-center gap-2" data-eligibility-test={k}>
+          <Select
+            value={k}
+            aria-label={t('conditions.op')}
+            data-input="eligibilityOp"
+            onChange={(e) => set((x) => renameTest(x as EligibilityCondition, k, e.target.value as EligibilityTest))}
+          >
+            {testChoices(c, k).map((o) => (
+              <option key={o} value={o}>
+                {t(`conditions.eligibilityOp.${o}`)}
+              </option>
+            ))}
+          </Select>
+          <TestValue c={c} k={k} set={set} />
+        </span>
+      ))}
+      {c.unit !== undefined && (
+        <Field label={t('conditions.unitLabel')}>
+          <span className="font-mono text-xs">
+            <Ltr>{c.unit}</Ltr>
+          </span>
+        </Field>
+      )}
+    </>
+  )
+}
+
+/** One test's value: a number for a bound, codes for `anyOf`, yes / no for a flag, a day (or a `$`-path) as written. */
+function TestValue({ c, k, set }: { c: EligibilityCondition; k: EligibilityTest; set: Set }) {
+  const { t } = useTranslation('insurance-coverage')
+  const put = (v: unknown) => set((x) => ({ ...x, [k]: v }) as GuardCondition, `test:${k}`)
+  if ((ELIGIBILITY_BOUNDS as readonly string[]).includes(k))
+    // A cleared box writes nothing (0 would silently change what the rule matches): the bound keeps its value.
+    return <NumberInput nullable value={Number(c[k])} data-input="value" onValue={(n) => n !== null && put(n)} />
+  if (k === 'anyOf') return <CodesInput value={c.anyOf ?? []} title={t('conditions.codesHint')} data-input="codes" onCodes={put} />
+  if (k === 'is')
+    return (
+      <Select value={c.is ? 'yes' : 'no'} aria-label={t('conditions.value')} data-input="flag" onChange={(e) => put(e.target.value === 'yes')}>
+        {(['yes', 'no'] as const).map((v) => (
+          <option key={v} value={v}>
+            {t(`conditions.flag.${v}`)}
+          </option>
+        ))}
+      </Select>
+    )
+  return <CodeInput value={String(c[k] ?? '')} className="w-32" data-input="day" onValue={put} />
 }

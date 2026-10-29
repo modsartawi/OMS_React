@@ -6,6 +6,7 @@ import {
   normaliseLastHour,
   normaliseStoreHours,
   normaliseWorkers,
+  normaliseStoreScripts,
   notOnMirrorLane,
   withMirrorLane,
 } from './wire'
@@ -168,5 +169,18 @@ describe('normaliseLastHour', () => {
   it('keeps the mirror totals the door sent', () => {
     const sent = { ...totals, mirrorSweeps: 9, mirrorConnectFailures: 1, mirrorPulled: 800, mirrorApplied: 790, mirrorDeferred: 4, mirrorDeadLettered: 2 }
     expect(normaliseLastHour({ current: sent, previous: totals }).current).toEqual(sent)
+  })
+})
+
+describe('the store Scripts door before BackOffice 3207', () => {
+  const old = { scriptId: 'SCR-1', createdAt: null, isExecuted: false, lastAttempt: null, errorMessage: 'Invalid column' }
+
+  it('reads a missing title, attempts and state as null', () => {
+    expect(normaliseStoreScripts({ items: [old] }).items[0]).toEqual({ ...old, title: null, attempts: null, state: null })
+  })
+
+  it('passes the members a 3207 door sent through as they are', () => {
+    const sent = { ...old, createdAt: '2026-10-29T10:00:00', title: 'Drop the IDF view', attempts: 5, state: 'exhausted' }
+    expect(normaliseStoreScripts({ items: [sent] }).items[0]).toEqual(sent)
   })
 })

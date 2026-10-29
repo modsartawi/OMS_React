@@ -6,7 +6,8 @@ import type { PassDetailLine, StoreCounter, StorePass, StoreScript } from '@/cor
 import { formatDateTime } from '@/core/util/date-format'
 import { CONSOLE_DEFAULT_COL_DEF, MONO, formatTime } from './console-columns'
 import { figure } from './helpers'
-import { passLineBadge, passOutcomeBadge, scriptBadge } from './store-helpers'
+import { passLineBadge, passOutcomeBadge } from './store-helpers'
+import { storeScriptBadge, storeScriptTitle } from './scripts-helpers'
 import CodeBadgeView from './CodeBadgeView'
 
 /**
@@ -104,14 +105,35 @@ export function buildScriptColumns(t: TFunction): ColDef<StoreScript>[] {
   return [
     // The script's id and never its SQL: the door does not send the text, and no column asks for it.
     { headerName: t('scripts.columns.scriptId'), field: 'scriptId', width: 200, cellClass: MONO },
+    {
+      // 3207: the title, or the bundle's words for a legacy one (no title). Free text: `<bdi>`.
+      // A door older than 3207 sends no title at all: the cell is blank, not "legacy".
+      headerName: t('scripts.columns.title'),
+      colId: 'title',
+      flex: 1,
+      minWidth: 200,
+      cellRenderer: (p: ICellRendererParams<StoreScript>) =>
+        p.data && storeScriptTitle(p.data) !== 'unsent' ? (
+          storeScriptTitle(p.data) === 'legacy' ? (
+            <span className="italic text-muted-foreground" data-script-legacy="">
+              {t('scriptsPage.legacyTitle')}
+            </span>
+          ) : (
+            <bdi>{p.data.title}</bdi>
+          )
+        ) : null,
+    },
     { headerName: t('scripts.columns.createdAt'), field: 'createdAt', width: 170, valueFormatter: formatTime },
     {
       headerName: t('scripts.columns.isExecuted'),
-      field: 'isExecuted',
+      colId: 'state',
       width: 140,
       cellRenderer: (p: ICellRendererParams<StoreScript>) =>
-        p.data ? <CodeBadgeView badge={scriptBadge(p.data)} code={String(p.data.isExecuted)} /> : null,
+        p.data ? (
+          <CodeBadgeView badge={storeScriptBadge(p.data)} code={p.data.state ?? String(p.data.isExecuted)} />
+        ) : null,
     },
+    { headerName: t('scripts.columns.attempts'), field: 'attempts', width: 95, type: 'rightAligned', valueFormatter: formatFigure },
     { headerName: t('scripts.columns.lastAttempt'), field: 'lastAttempt', width: 170, valueFormatter: formatTime },
     { headerName: t('scripts.columns.errorMessage'), field: 'errorMessage', flex: 1, minWidth: 260 },
   ]

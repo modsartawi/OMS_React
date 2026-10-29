@@ -1,7 +1,8 @@
 /** oms 618 — the guard document as SIS.Rules reads it, and the editor's model of it (608's guesses reconciled). */
 import { describe, expect, it } from 'vitest'
 import { guardRuleIn, guardRuleOut, guardRulesetIn, guardRulesetOut, rulesetIn, rulesetOut } from './guard-wire'
-import type { GuardRule } from './model'
+import { eligibilityTests, type GuardCondition, type GuardRule } from './model'
+import SEEDED from '../../../tools/insurance-coverage-seeded.json'
 
 /** The phase-1 `quantity-cap` template's rule body, as HQ seeds it (SQL 035). */
 const QUANTITY_CAP = {
@@ -97,5 +98,26 @@ describe('guard-wire', () => {
     const doc = rulesetIn<{ rules: { when: unknown[] }[] }>({ kind: 'coverage', rules: [{ id: 'C-1', when: [{ check: 'patient', field: 'age', atLeast: 60 }], then: [] }] })
     expect(doc.rules[0].when[0]).toEqual({ check: 'fact', path: '$patient.age', op: 'atLeast', value: 60 })
     expect(rulesetOut(doc)).toEqual({ kind: 'coverage', rules: [{ id: 'C-1', when: [{ check: 'patient', field: 'age', atLeast: 60 }], then: [] }] })
+  })
+
+  // oms 674: the coverage line as BackOffice SQL 059 + 060 publish it (`tools/insurance-coverage-seeded.json`).
+  it('the seeded coverage document writes every rule back byte for byte', () => {
+    const doc = rulesetIn<{ rules: { id: string; when: unknown[] }[] }>(SEEDED)
+    expect(JSON.stringify(rulesetOut(doc).rules)).toBe(JSON.stringify(SEEDED.rules))
+    // C-ELITE's eligibility test is the editor's fact on `$eligibility.<field>`, its item lists `line` blocks as written.
+    expect(doc.rules.find((r) => r.id === 'C-ELITE')!.when[1]).toEqual({ check: 'fact', path: '$eligibility.benefit[13/day].benefit', op: 'atLeast', value: 10000 })
+    expect(doc.rules.find((r) => r.id === 'A01-NO-CONTRACT')!.when).toEqual([{ check: 'line', inList: 'a01-no-contract' }])
+  })
+
+  it('an eligibility block with another test stays an eligibility block, typed, and goes back unchanged', () => {
+    const when: GuardCondition[] = [
+      { check: 'eligibility', field: 'benefit[13/day].benefit', atMost: 500 },
+      { check: 'eligibility', field: 'benefit[13/day].benefit', atLeast: 100, unit: 'SAR', not: true },
+      { check: 'eligibility', field: 'coverage.active', is: true },
+    ]
+    const doc = rulesetIn<{ rules: { when: GuardCondition[] }[] }>({ kind: 'coverage', rules: [{ id: 'C-1', when, then: [] }] })
+    expect(doc.rules[0].when).toEqual(when)
+    expect(doc.rules[0].when.map((c) => (c.check === 'eligibility' ? eligibilityTests(c) : []))).toEqual([['atMost'], ['atLeast'], ['is']])
+    expect(JSON.stringify((rulesetOut(doc).rules as unknown[])[0])).toBe(JSON.stringify({ id: 'C-1', when, then: [] }))
   })
 })

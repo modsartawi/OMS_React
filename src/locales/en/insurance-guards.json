@@ -142,6 +142,7 @@
       "class": "Policy class in list",
       "request": "Request field",
       "fact": "Patient or request fact",
+      "eligibility": "Eligibility fact",
       "formula": "Formula",
       "group": "Group (All of / Any of)"
     },

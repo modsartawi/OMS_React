@@ -175,6 +175,21 @@
     },
     "not": "ليس صحيحاً أن <inner>{{inner}}</inner>",
     "unknownBlock": "شرط لا تستطيع هذه الشاشة قراءته بعد: <check>{{check}}</check>",
+    "eligibility": {
+      "fact": "جواب شركة التأمين: <fact>{{fact}}</fact> <tests>{{tests}}</tests>",
+      "anyOf": "أيٌّ من <codes>{{codes}}</codes>",
+      "above": "أكبر من <value>{{value}}</value>",
+      "atLeast": "لا يقل عن <value>{{value}}</value>",
+      "under": "أقل من <value>{{value}}</value>",
+      "atMost": "لا يزيد عن <value>{{value}}</value>",
+      "isTrue": "نعم",
+      "isFalse": "لا",
+      "before": "قبل <value>{{value}}</value>",
+      "onOrBefore": "في <value>{{value}}</value> أو قبله",
+      "after": "بعد <value>{{value}}</value>",
+      "onOrAfter": "في <value>{{value}}</value> أو بعده",
+      "unit": "بوحدة <unit>{{unit}}</unit>"
+    },
     "channel": {
       "nphies": "نفيس",
       "waseel": "وصيل",

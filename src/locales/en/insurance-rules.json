@@ -151,6 +151,21 @@
     },
     "not": "it is not true that <inner>{{inner}}</inner>",
     "unknownBlock": "a block this screen cannot read yet: <check>{{check}}</check>",
+    "eligibility": {
+      "fact": "the insurer's answer: <fact>{{fact}}</fact> <tests>{{tests}}</tests>",
+      "anyOf": "is any of <codes>{{codes}}</codes>",
+      "above": "is above <value>{{value}}</value>",
+      "atLeast": "is at least <value>{{value}}</value>",
+      "under": "is under <value>{{value}}</value>",
+      "atMost": "is at most <value>{{value}}</value>",
+      "isTrue": "is yes",
+      "isFalse": "is no",
+      "before": "is before <value>{{value}}</value>",
+      "onOrBefore": "is on or before <value>{{value}}</value>",
+      "after": "is after <value>{{value}}</value>",
+      "onOrAfter": "is on or after <value>{{value}}</value>",
+      "unit": "in <unit>{{unit}}</unit>"
+    },
     "channel": {
       "nphies": "NPHIES",
       "waseel": "Waseel",

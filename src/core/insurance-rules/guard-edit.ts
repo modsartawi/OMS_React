@@ -292,10 +292,13 @@ export function duplicateCondition(conditions: GuardCondition[], path: Condition
  * What the palette offers: every block kind, the `request` block split by the team list it matches on —
  * `policy` (`{ check: "request", field: "policy", inList }`) and `class` (`field: "class"`).
  */
-export type PaletteBlock = Exclude<GuardCheck, 'request'> | RequestListField
+export type PaletteBlock = Exclude<GuardCheck, 'request' | 'eligibility'> | RequestListField
 
-/** The palette entry a block is, for its label: a request list block by its field; any other request block reads `request`. */
-export const paletteBlockOf = (c: GuardCondition): PaletteBlock | 'request' => requestListField(c) ?? c.check
+/**
+ * The palette entry a block is, for its label: a request list block by its field; any other request block reads
+ * `request`; an eligibility block the codec kept as written (oms 674: not a palette entry, a `fact` makes a new one) `eligibility`.
+ */
+export const paletteBlockOf = (c: GuardCondition): PaletteBlock | 'request' | 'eligibility' => requestListField(c) ?? c.check
 
 /** The palette's groups, in order; each names the blocks it offers (ticket 608). */
 export const PALETTE: readonly { group: string; checks: readonly PaletteBlock[] }[] = [

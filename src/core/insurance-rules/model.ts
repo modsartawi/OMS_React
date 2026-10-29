@@ -219,6 +219,38 @@ export interface FactCondition extends ConditionBase {
   value: number | string[]
 }
 
+/** The tests an `eligibility` block takes (SIS.Rules `RulesetReader.ReadEligibility`, BackOffice 3144), by the fact's type. */
+export const ELIGIBILITY_BOUNDS = ['above', 'atLeast', 'under', 'atMost'] as const
+export const ELIGIBILITY_DATE_TESTS = ['before', 'onOrBefore', 'after', 'onOrAfter'] as const
+export const ELIGIBILITY_TESTS = ['anyOf', ...ELIGIBILITY_BOUNDS, 'is', ...ELIGIBILITY_DATE_TESTS] as const
+export type EligibilityTest = (typeof ELIGIBILITY_TESTS)[number]
+
+/**
+ * A fact of the insurer's eligibility answer as the engine spells it (oms 674): `{ check: "eligibility", field, … }` — a
+ * text `anyOf`, a number one or more of `above` / `atLeast` / `under` / `atMost` (and an optional `unit`), a flag `is`,
+ * a day one or more of `before` / `onOrBefore` / `after` / `onOrAfter`. The wire codec (`./guard-wire`) reads a block
+ * with ONE `atLeast` / `under` / `anyOf` test as a `fact` on `$eligibility.<field>`; every other one stays this block.
+ */
+export interface EligibilityCondition extends ConditionBase {
+  check: 'eligibility'
+  field: string
+  anyOf?: string[]
+  above?: number
+  atLeast?: number
+  under?: number
+  atMost?: number
+  unit?: string
+  is?: boolean
+  before?: string
+  onOrBefore?: string
+  after?: string
+  onOrAfter?: string
+}
+
+/** The tests an eligibility block carries, in the order it was written. */
+export const eligibilityTests = (c: EligibilityCondition): EligibilityTest[] =>
+  Object.keys(c).filter((k): k is EligibilityTest => (ELIGIBILITY_TESTS as readonly string[]).includes(k))
+
 /**
  * An operator-first decimal expression over `$`-paths, the 2737 language (`@/core/rules/expr`), true when it
  * holds. ⚠️ PROVISIONAL spelling (oms 608): `formula` holds the expression text; 3131 owns it.
@@ -245,6 +277,7 @@ export type GuardCondition =
   | PatientCondition
   | RequestCondition
   | FactCondition
+  | EligibilityCondition
   | FormulaCondition
   | GroupCondition
 

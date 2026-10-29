@@ -79,7 +79,8 @@
     "if": "IF",
     "then": "THEN",
     "readsAs": "Reads as",
-    "everyLine": "Every line (no condition yet)."
+    "everyLine": "Every line (no condition yet).",
+    "json": "Rule {{id}} as JSON, unsaved edits included"
   },
   "conditions": {
     "top": "All of these must hold:",
@@ -88,6 +89,7 @@
     "tooDeep": "Group (three levels at most)",
     "block": {
       "fact": "A field or fact",
+      "item": "Item list",
       "policy": "Policy on a list",
       "class": "Policy class on a list",
       "patient": "Patient on a list",
@@ -95,7 +97,7 @@
     },
     "not": "NOT",
     "notHint": "Turn the condition around: it holds when this does not.",
-    "requestReads": "The request's {{field}} is any of {{codes}} (kept as written; this screen does not edit it)",
+    "notEditable": "Kept as written: this screen cannot edit this condition.",
     "remove": "Remove the condition",
     "mode": "Group mode",
     "all": "All of",
@@ -118,7 +120,39 @@
     "value": "Value",
     "codes": "Codes",
     "codesHint": "Codes separated by commas; end one with * to match a prefix (E11*).",
-    "pickList": "Pick a list"
+    "pickList": "Pick a list",
+    "listFilter": {
+      "anyOf": "{{field}} = {{codes}}",
+      "noneOf": "{{field}} ≠ {{codes}}",
+      "articles": "articles: {{n}}",
+      "categories": "categories: {{n}}",
+      "include": "plus {{lists}}",
+      "exclude": "minus {{lists}}",
+      "or": " or ",
+      "and": " · ",
+      "none": "no filter yet",
+      "missing": "This list is not in the document."
+    },
+    "eligibility": "Eligibility fact",
+    "eligibilityOp": {
+      "anyOf": "is any of",
+      "above": "is above",
+      "atLeast": "is at least",
+      "under": "is under",
+      "atMost": "is at most",
+      "is": "is",
+      "before": "is before",
+      "onOrBefore": "is on or before",
+      "after": "is after",
+      "onOrAfter": "is on or after"
+    },
+    "flag": {
+      "yes": "yes",
+      "no": "no"
+    },
+    "unitLabel": "Unit",
+    "listOption": "{{name}} ({{id}})",
+    "clauseJoin": "; "
   },
   "effect": {
     "setCategory": "Category",

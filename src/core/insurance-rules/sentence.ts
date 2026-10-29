@@ -1,5 +1,6 @@
 import type { KeySentence, SentenceValue } from '@/core/rules/sentence'
 import {
+  eligibilityTests,
   REQUEST_FIELDS,
   requestListField,
   severityRank,
@@ -175,6 +176,19 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
         }
       const codes = Array.isArray(c.value) ? c.value : [String(c.value)]
       return { sentence: S(`fact.${c.op}`, { fact, codes: { kind: 'list', join: 'or', items: codes.map(code) } }), clauses }
+    }
+    case 'eligibility': {
+      // oms 674: a test the codec could not make a `fact` (atMost, two bounds, a unit, a flag, a day) — each test in words.
+      const field = fieldOfPath(ctx.fields ?? [], `$eligibility.${c.field}`)
+      const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.field)
+      const tests = eligibilityTests(c).map((k): SentenceValue => {
+        if (k === 'anyOf') return phrase('eligibility.anyOf', { codes: { kind: 'list', join: 'or', items: (c.anyOf ?? []).map(code) } })
+        if (k === 'is') return phrase(c.is ? 'eligibility.isTrue' : 'eligibility.isFalse')
+        const v = c[k]
+        return phrase(`eligibility.${k}`, { value: typeof v === 'number' ? num(v) : afterValue(String(v ?? '')) })
+      })
+      if (c.unit !== undefined) clauses.push(S('eligibility.unit', { unit: code(c.unit) }))
+      return { sentence: S('eligibility.fact', { fact, tests: { kind: 'list', join: 'and', items: tests } }), clauses }
     }
     case 'formula':
       return { sentence: S('formula', { formula: { kind: 'formula', formula: c.formula } }), clauses }

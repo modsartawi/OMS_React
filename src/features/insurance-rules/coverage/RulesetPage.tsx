@@ -8,10 +8,13 @@ import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/ap
 import { GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict, type GuardIssue } from '@/core/insurance-rules/checks'
 import type { CategoryRule, CoverageRule, InsuranceRule, InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
+import type { GuardList } from '@/core/insurance-rules/model'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorAction, type EditorHistory } from '@/core/insurance-rules/editor-history'
 import RulesetApproval from '@/core/insurance-rules/RulesetApproval'
 import { DRAFT_PENDING, DRAFT_STALE, draftDocument, type RulesetDraft } from '@/core/insurance-rules/ruleset-draft'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
+import { otherRuleOut } from '@/core/insurance-rules/guard-wire'
+import JsonButton from '@/core/insurance-rules/JsonButton'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
 import { saysIn } from '@/core/rules/sentence'
@@ -61,6 +64,8 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
     </section>
   )
 }
+
+const NO_LISTS: readonly GuardList[] = []
 
 type Checks = { issues: GuardIssue[]; against: InsuranceRuleset } | null
 
@@ -268,7 +273,7 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
         </div>
 
         {rule ? (
-          <RuleEditor key={rule.id} kind={kind} rule={rule} edit={editRule} issues={checksStale ? [] : issuesOf(rule.id)} />
+          <RuleEditor key={rule.id} kind={kind} rule={rule} lists={h.present.lists ?? NO_LISTS} edit={editRule} issues={checksStale ? [] : issuesOf(rule.id)} />
         ) : (
           <p className="text-sm text-muted-foreground" data-rule-none="">
             {t('ruleset.pick')}
@@ -304,23 +309,30 @@ function RuleDoes({ kind, rule }: { kind: InsuranceRuleKind; rule: InsuranceRule
 function RuleEditor({
   kind,
   rule,
+  lists,
   edit,
   issues,
 }: {
   kind: InsuranceRuleKind
   rule: InsuranceRule
+  /** The document's own item lists (oms 674): the item-list rows pick from them, the reads-as names them. */
+  lists: readonly GuardList[]
   edit: (fn: (r: InsuranceRule) => InsuranceRule, coalesce?: string) => void
   issues: GuardIssue[]
 }) {
   const { t } = useTranslation('insurance-coverage')
   const fields = useQuery(fieldsQuery()).data
-  const reads = useMemo(() => rule.when.map((c) => conditionSentence(c, { rule: { filters: [] }, lists: [], fields })), [rule.when, fields])
+  const reads = useMemo(() => rule.when.map((c) => conditionSentence(c, { rule: { filters: [] }, lists, fields })), [rule.when, lists, fields])
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]" data-rule-editor={rule.id}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <RuleId id={rule.id} />
           <GuardStateBadge state={rule.state} />
+          {/* oms 674: the rule exactly as the engine reads it, unsaved edits included. */}
+          <span className="ms-auto">
+            <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={otherRuleOut(rule)} hook="rule" />
+          </span>
         </div>
         <div className="grid gap-2 md:grid-cols-3">
           <Field label={t('rule.nameEn')}>
@@ -335,7 +347,7 @@ function RuleEditor({
         </div>
         <Issues issues={issues} hook="rule" />
         <Block kw={t('rule.if')} hint={t(`${kind}.ifHint`)} hook="if">
-          <RuleConditions when={rule.when} edit={(fn, coalesce) => edit((r) => {
+          <RuleConditions when={rule.when} lists={lists} edit={(fn, coalesce) => edit((r) => {
             const when = fn(r.when)
             return when === r.when ? r : { ...r, when }
           }, coalesce)} />

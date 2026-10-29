@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/insurance-rules.json'
 import { plainSentence, type Sentence } from '@/core/rules/sentence'
 import { LISTS, RULES } from '../../../tools/insurance-rules-stubs.mjs'
-import type { GuardRule } from './model'
+import type { GuardCondition, GuardRule } from './model'
+import type { RegistryField } from './registry'
 import { conditionSentence, guardSentence, type ConditionNode } from './sentence'
 
 const instance = i18next.createInstance()
@@ -98,8 +99,9 @@ describe('guardSentence_rendersEachBlockKind', () => {
   })
 
   it('a block this screen does not know reads as its check, never blank', () => {
-    const c = { check: 'eligibility' } as unknown as GuardRule['when'][number]
-    expect(node(conditionSentence(c, { rule: rule('G-001'), lists: LISTS }))).toBe('a block this screen cannot read yet: eligibility')
+    // (674 made `eligibility` a block it reads; a newer schema's block stands in.)
+    const c = { check: 'dosage' } as unknown as GuardRule['when'][number]
+    expect(node(conditionSentence(c, { rule: rule('G-001'), lists: LISTS }))).toBe('a block this screen cannot read yet: dosage')
   })
 })
 
@@ -134,5 +136,20 @@ describe('guardSentence — WHEN and THEN', () => {
   it('a severity decides the line: the heaviest effect first', () => {
     const r = { ...rule('G-001'), then: [{ ...rule('G-001').then[0], severity: 'WARN' as const }, rule('G-001').then[0]] }
     expect(guardSentence(r, LISTS).then.map((e) => e.severity)).toEqual(['REFUSE', 'WARN'])
+  })
+})
+
+describe('eligibilitySentence (oms 674)', () => {
+  const read = (c: GuardCondition, fields?: RegistryField[]) => node(conditionSentence(c, { rule: { filters: [] }, lists: [], fields }))
+  it('an eligibility block the codec keeps as written reads its field and every test, never the bare check', () => {
+    expect(read({ check: 'eligibility', field: 'benefit[13/day].benefit', atLeast: 100, atMost: 500, unit: 'SAR' })).toBe(
+      "the insurer's answer: benefit[13/day].benefit is at least 100 and is at most 500; in SAR",
+    )
+    expect(read({ check: 'eligibility', field: 'coverage.active', is: false })).toBe("the insurer's answer: coverage.active is no")
+    expect(read({ check: 'eligibility', field: 'coverage.periodEnd', onOrBefore: '2026-12-31' })).toBe("the insurer's answer: coverage.periodEnd is on or before 2026-12-31")
+  })
+  it('names the field by the registry when it holds it', () => {
+    const fields = [{ key: 'benefit.dayBenefit', label: { en: 'Day benefit', ar: 'منفعة اليوم' }, scope: 'eligibility', type: 'number', unit: 'SAR', source: '', retired: false }] as RegistryField[]
+    expect(read({ check: 'eligibility', field: 'benefit.dayBenefit', above: 10 }, fields)).toBe("the insurer's answer: Day benefit is above 10")
   })
 })

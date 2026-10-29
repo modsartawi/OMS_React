@@ -16,7 +16,7 @@
 // test) is passed through as the engine wrote it, never rewritten.
 import { parseExpr, printExpr } from '@/core/rules/expr'
 import type { RuleExpr } from '@/core/models/rule-campaign'
-import type { GuardList, GuardListFilter, GuardRule, GuardRuleFilter, GuardRuleset } from './model'
+import { ELIGIBILITY_TESTS, type GuardList, type GuardListFilter, type GuardRule, type GuardRuleFilter, type GuardRuleset } from './model'
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -25,7 +25,7 @@ const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 /** The fact scopes the engine reads as a block of their own (`$<scope>.<field>` in the editor). */
 const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line'] as const
 /** The bounds an engine fact block takes; the editor draws one of `atLeast` / `under` (its `below`) / `anyOf`. */
-const FACT_TESTS = ['anyOf', 'above', 'atLeast', 'under', 'atMost', 'is', 'before', 'onOrBefore', 'after', 'onOrAfter', 'unit'] as const
+const FACT_TESTS = [...ELIGIBILITY_TESTS, 'unit'] as const
 
 const LIST_MATCH = /^list:(.+)$/
 
@@ -176,7 +176,8 @@ function otherRuleIn(raw: unknown): unknown {
   if ('audience' in raw) out.audience = audienceIn(raw.audience)
   return out
 }
-function otherRuleOut(raw: unknown): unknown {
+/** One category / coverage rule as the engine reads it (oms 674: the editors' JSON button shows it). */
+export function otherRuleOut(raw: unknown): unknown {
   if (!isObj(raw)) return raw
   const out: Obj = { ...raw, when: arr(raw.when).map((c) => conditionOut(c, new Map())) }
   if (isObj(out.audience)) out.audience = audienceOut(out.audience)

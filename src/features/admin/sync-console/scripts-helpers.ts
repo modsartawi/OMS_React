@@ -1,6 +1,17 @@
 import type { Severity } from '@/core/ui/severity'
-import type { ScriptState, ScriptStoreRow, SentScript, StoreScript } from '@/core/models/sync-console'
-import { codeBadge, type CodeBadge } from './helpers'
+import type {
+  RetryScriptResponse,
+  ScriptState,
+  ScriptStoreRow,
+  ScriptTarget,
+  SendScriptResponse,
+  SentScript,
+  StoreScript,
+  SyncConsoleAccess,
+  WithdrawScriptResponse,
+} from '@/core/models/sync-console'
+import { formatCount } from '@/core/util/bidi'
+import { codeBadge, figure, type CodeBadge } from './helpers'
 import { scriptBadge } from './store-helpers'
 
 /**
@@ -79,3 +90,109 @@ export function orderScriptStores(rows: readonly ScriptStoreRow[]): ScriptStoreR
 
 /** The list's page size; the door pages it, newest first. */
 export const SCRIPTS_PAGE_SIZE = 50
+
+// ── Ticket 664: Send, Withdraw and Retry (spec 3202 D2, D7, D9, D10, D11; doors 3205/3206) ──
+
+/** The send door's cap on the SQL (`SCRIPT_TOO_LONG`, the `StringType` width of `ScriptContext`). */
+export const SCRIPT_MAX_CHARS = 8000
+
+/** The SQL's length against the cap, as the dialog counts it (`n / 8,000`, one isolated count). */
+export function scriptSqlLength(sql: string): { n: number; over: boolean; text: string } {
+  const n = sql.length
+  return { n, over: n > SCRIPT_MAX_CHARS, text: formatCount(figure(n), figure(SCRIPT_MAX_CHARS)) }
+}
+
+/**
+ * The target's part of a send body. `all` sends no codes (the door freezes the eligible set at
+ * send time); `chosen` sends the codes picked, in order, each once — an empty pick is still sent,
+ * so the door answers it (`NO_STORES`) rather than the screen guessing.
+ */
+export function sendTargetBody(target: ScriptTarget, codes: readonly string[]): { target: ScriptTarget; codes?: string[] } {
+  return target === 'all' ? { target } : { target, codes: [...new Set(codes)] }
+}
+
+/** A preview's one counted sentence: the key (pluralised on `count`) and the grouped figure. */
+export interface PreviewSentence {
+  key: string
+  count: number
+  n: string
+}
+
+const counted = (key: string, count: number): PreviewSentence => ({ key, count, n: figure(count) })
+
+/** The send preview: how many stores, exactly, the script would reach (the dialog lists them after it). */
+export const sendPreviewSentence = (r: SendScriptResponse): PreviewSentence => counted('scriptSend.preview.stores', r.stores.length)
+
+/** The withdraw preview: how many stores have not run it, and would be withdrawn. */
+export const withdrawPreviewSentence = (r: WithdrawScriptResponse): PreviewSentence => counted('scriptWithdraw.preview', r.storesWithdrawn)
+
+/** The retry preview: how many exhausted stores would get five fresh attempts. */
+export const retryPreviewSentence = (r: RetryScriptResponse): PreviewSentence => counted('scriptRetry.preview', r.storesRetried)
+
+type RunScriptsAccess = Pick<SyncConsoleAccess, 'canRunScripts'> | null | undefined
+
+/** A script the controls may touch: sent from the console (not legacy) and not withdrawn. */
+const controllable = (s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>, access: RunScriptsAccess): boolean =>
+  access?.canRunScripts === true && !scriptIsLegacy(s) && s.withdrawnAt === null
+
+/**
+ * The detail footer's controls. Absent, never disabled, without `canRunScripts` (`=== true`, so a
+ * door older than 3205 that leaves the flag out reads as no), on a legacy script and on a
+ * withdrawn one (the door's `LEGACY_SCRIPT` / `WITHDRAWN`).
+ *
+ * - **Withdraw**: some store has not run it yet (pending, retrying or exhausted). With every store
+ *   executed there is nothing a withdraw would mark.
+ * - **Retry all exhausted**: some store is exhausted (the door's `NOT_EXHAUSTED` otherwise).
+ *
+ * The counts are the list's, read as the door sends them; the door re-checks every write.
+ */
+export function scriptControls(
+  s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt' | 'pending' | 'retrying' | 'exhausted'>,
+  access: RunScriptsAccess,
+): { withdraw: boolean; retryAll: boolean } {
+  if (!controllable(s, access)) return { withdraw: false, retryAll: false }
+  return { withdraw: s.pending + s.retrying + s.exhausted > 0, retryAll: s.exhausted > 0 }
+}
+
+/** A store row's own Retry: the row is exhausted, on a script the controls may touch. */
+export function storeRetryOffered(
+  row: Pick<ScriptStoreRow, 'state'>,
+  s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt'>,
+  access: RunScriptsAccess,
+): boolean {
+  return controllable(s, access) && row.state === 'exhausted'
+}
+
+/**
+ * The script doors' refusals the bundle words (`scriptCodes.*`). `BAD_REQUEST` and
+ * `REASON_REQUIRED` are not here: the dialogs never send a request without a reason.
+ */
+export const SCRIPT_REFUSALS = [
+  'TITLE_REQUIRED',
+  'SCRIPT_EMPTY',
+  'SCRIPT_HAS_GO',
+  'SCRIPT_TOO_LONG',
+  'UNKNOWN_STORE',
+  'NOT_ELIGIBLE',
+  'NO_STORES',
+  'UNKNOWN_SCRIPT',
+  'LEGACY_SCRIPT',
+  'WITHDRAWN',
+  'NOT_EXHAUSTED',
+] as const
+
+/** A refusal code's words as a `sync-console` key, or `null` for one the bundle does not know (the code shows alone). */
+export function scriptRefusalKey(code: string): string | null {
+  return (SCRIPT_REFUSALS as readonly string[]).includes(code) ? `scriptCodes.${code}` : null
+}
+
+/**
+ * The store codes a refusal names (`UNKNOWN_STORE`, `NOT_ELIGIBLE`, `NOT_EXHAUSTED`), read off the
+ * refusal's `data.codes`. 🚩 Guessed: D11 says only that the refusal names them; the door's message
+ * names them too and is always shown, so a door that sends no list loses nothing.
+ */
+export function refusedStoreCodes(data: unknown): string[] {
+  if (data === null || typeof data !== 'object') return []
+  const codes = (data as { codes?: unknown }).codes
+  return Array.isArray(codes) ? codes.filter((c): c is string => typeof c === 'string') : []
+}

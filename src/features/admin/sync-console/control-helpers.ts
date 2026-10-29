@@ -249,6 +249,10 @@ const AUDIT_ACTIONS: Record<AuditAction, true> = {
   ReceiptReplay: true,
   // Object enrolment (BackOffice 2558, ticket 662): one row per enrolment.
   EnrolObject: true,
+  // Store scripts (BackOffice spec 3202 D13, ticket 664): one row per send, withdraw and hand retry.
+  SendScript: true,
+  WithdrawScript: true,
+  RetryScript: true,
 }
 
 /** An audit action's label key, or `null` for one this bundle does not know (show the raw code). */

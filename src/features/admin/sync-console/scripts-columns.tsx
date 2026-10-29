@@ -62,10 +62,29 @@ export function buildSentScriptColumns(t: TFunction, onOpen: (s: SentScript) => 
 }
 
 /**
- * A script's per-store rows. Ticket 664 adds its Retry column here (a row that is exhausted,
- * behind `canRunScripts`); without it the grid is read only.
+ * A script's per-store rows. With `retry` (ticket 664: a `canRunScripts` holder, on a live
+ * script) a last column offers Retry on each row `offered` says is exhausted; without it the grid
+ * is read only and has no such column.
  */
-export function buildScriptStoreColumns(t: TFunction): ColDef<ScriptStoreRow>[] {
+export function buildScriptStoreColumns(
+  t: TFunction,
+  retry?: { onRetry: (code: string) => void; offered: (row: ScriptStoreRow) => boolean },
+): ColDef<ScriptStoreRow>[] {
+  const retryColumn: ColDef<ScriptStoreRow>[] = retry
+    ? [
+        {
+          headerName: t('scriptDetail.columns.retry'),
+          colId: 'retry',
+          width: 100,
+          cellRenderer: (p: ICellRendererParams<ScriptStoreRow>) =>
+            p.data && retry.offered(p.data) ? (
+              <Button variant="link" onClick={() => p.data && retry.onRetry(p.data.code)} data-script-retry-store={p.data.code}>
+                {t('scriptDetail.retryStore')}
+              </Button>
+            ) : null,
+        },
+      ]
+    : []
   return [
     { headerName: t('scriptDetail.columns.code'), field: 'code', width: 90, cellClass: MONO },
     { headerName: t('scriptDetail.columns.description'), field: 'description', width: 200 },
@@ -83,5 +102,6 @@ export function buildScriptStoreColumns(t: TFunction): ColDef<ScriptStoreRow>[] 
     { headerName: t('scriptDetail.columns.attempts'), field: 'attempts', width: 95, type: 'rightAligned', valueFormatter: formatFigure },
     { headerName: t('scriptDetail.columns.lastAttempt'), field: 'lastAttempt', width: 160, valueFormatter: formatTime },
     { headerName: t('scriptDetail.columns.errorMessage'), field: 'errorMessage', flex: 1, minWidth: 260 },
+    ...retryColumn,
   ]
 }

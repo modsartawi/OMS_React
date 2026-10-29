@@ -1,17 +1,18 @@
-import { useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import type { ScriptDetail, SentScript } from '@/core/models/sync-console'
+import type { ScriptDetail, ScriptStoreRow, SentScript } from '@/core/models/sync-console'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { scriptDetailQuery } from './api'
+import { scriptDetailQuery, syncConsoleAccessQuery } from './api'
 import { figure } from './helpers'
-import { orderScriptStores, scriptIsLegacy, scriptTargetKey } from './scripts-helpers'
+import { orderScriptStores, scriptControls, scriptIsLegacy, scriptTargetKey, storeRetryOffered } from './scripts-helpers'
 import { buildScriptStoreColumns } from './scripts-columns'
+import ScriptActionDialog, { type ScriptAction } from './ScriptActionDialog'
 import TabGrid from './TabGrid'
 
 const storeCode = (r: { code: string }) => r.code
@@ -21,33 +22,80 @@ const storeCode = (r: { code: string }) => r.code
  * the door sends it (a holder of `ActionSync.RunStoreScript` only — `null` otherwise, and then no
  * SQL is drawn at all), and each store's row, the exhausted ones first.
  *
- * Read only here. Ticket 664 puts Withdraw and Retry all in the footer and Retry on an exhausted
- * row, behind `canRunScripts`; nothing here needs to move for them.
+ * Ticket 664's controls, behind `canRunScripts` and never on a legacy or withdrawn script: the
+ * footer's **Withdraw** and **Retry all exhausted**, and **Retry** on an exhausted store's row.
+ * Each opens the preview-then-confirm reason dialog. They are read off the detail as the door
+ * sends it (the list row until it answers), so a re-read after a write moves them.
  */
 export default function ScriptDetailModal({ script, onClose }: { script: SentScript | null; onClose: () => void }) {
   const { t } = useTranslation('sync-console')
+  const access = useQuery(syncConsoleAccessQuery())
+  const detail = useQuery({ ...scriptDetailQuery(script?.scriptId ?? ''), enabled: script !== null })
+  const [action, setAction] = useState<ScriptAction | null>(null)
+  const current = script && detail.data?.scriptId === script.scriptId ? detail.data : script
+  const controls = current ? scriptControls(current, access.data) : { withdraw: false, retryAll: false }
+  const shownTitle = current ? (scriptIsLegacy(current) ? t('scriptsPage.legacyTitle') : (current.title ?? '')) : ''
+  const rowsRetry = current ? storeRetryOffered({ state: 'exhausted' }, current, access.data) : false
+  const onRetry = useCallback((code: string) => setAction({ kind: 'retry', code }), [])
+  const retryOffered = useCallback(
+    (row: ScriptStoreRow) => (current ? storeRetryOffered(row, current, access.data) : false),
+    [current, access.data],
+  )
   return (
     <Modal
       open={script !== null}
-      onClose={onClose}
+      onClose={() => {
+        setAction(null)
+        onClose()
+      }}
       // A modal title is a string-only sink: the title (free text) is isolated as one value.
-      title={script ? t('scriptDetail.title', { title: fsi(scriptIsLegacy(script) ? t('scriptsPage.legacyTitle') : (script.title ?? '')) }) : ''}
+      title={script ? t('scriptDetail.title', { title: fsi(shownTitle) }) : ''}
       width="72rem"
       footer={
-        <Button variant="outlined" onClick={onClose} data-script-detail-close="">
-          {t('scriptDetail.close')}
-        </Button>
+        <>
+          {controls.withdraw && (
+            <Button variant="outlined" onClick={() => setAction({ kind: 'withdraw' })} data-script-withdraw="">
+              {t('scriptDetail.withdraw')}
+            </Button>
+          )}
+          {controls.retryAll && (
+            <Button variant="outlined" onClick={() => setAction({ kind: 'retry' })} data-script-retry-all="">
+              {t('scriptDetail.retryAll')}
+            </Button>
+          )}
+          <Button variant="outlined" onClick={onClose} data-script-detail-close="">
+            {t('scriptDetail.close')}
+          </Button>
+        </>
       }
     >
-      {script && <Detail scriptId={script.scriptId} />}
+      {script && (
+        <Detail
+          scriptId={script.scriptId}
+          onRetry={rowsRetry ? onRetry : undefined}
+          retryOffered={retryOffered}
+        />
+      )}
+      {script && (
+        <ScriptActionDialog scriptId={script.scriptId} title={shownTitle} action={action} onClose={() => setAction(null)} />
+      )}
     </Modal>
   )
 }
 
-function Detail({ scriptId }: { scriptId: string }) {
+function Detail({
+  scriptId,
+  onRetry,
+  retryOffered,
+}: {
+  scriptId: string
+  /** Given only when a row's Retry can be offered at all (a sender, a live script). */
+  onRetry?: (code: string) => void
+  retryOffered: (row: ScriptStoreRow) => boolean
+}) {
   const { t } = useTranslation('sync-console')
   const detail = useQuery(scriptDetailQuery(scriptId))
-  const columns = useMemo(() => buildScriptStoreColumns(t), [t])
+  const columns = useMemo(() => buildScriptStoreColumns(t, onRetry && { onRetry, offered: retryOffered }), [t, onRetry, retryOffered])
   const rows = useMemo(() => (detail.data ? orderScriptStores(detail.data.stores) : undefined), [detail.data])
   return (
     <div className="flex flex-col gap-3" data-script-detail={scriptId}>

@@ -218,6 +218,12 @@ describe('auditActionKey', () => {
   it('labels an enrolment "Enrolled a push object" (ticket 662)', () => {
     expect(lookup(auditActionKey('EnrolObject') as string)).toBe('Enrolled a push object')
   })
+
+  it('labels the three store script writes (ticket 664, spec 3202 D13)', () => {
+    expect(lookup(auditActionKey('SendScript') as string)).toBe('Sent a store script')
+    expect(lookup(auditActionKey('WithdrawScript') as string)).toBe('Withdrew a store script')
+    expect(lookup(auditActionKey('RetryScript') as string)).toBe('Retried a store script')
+  })
 })
 
 describe('deadLetterActions', () => {

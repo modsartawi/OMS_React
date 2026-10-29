@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 
+import Button from '@/core/ui/Button'
+
 import GridPager from '@/core/ui/GridPager'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import type { SentScript } from '@/core/models/sync-console'
-import { canOpenSyncConsole, scriptsQuery, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole, canRunStoreScripts, scriptsQuery, syncConsoleAccessQuery } from './api'
 import { figure } from './helpers'
 import { SCRIPTS_PAGE_SIZE } from './scripts-helpers'
 import { buildSentScriptColumns } from './scripts-columns'
 import ConsoleNav from './ConsoleNav'
 import ScriptDetailModal from './ScriptDetailModal'
+import SendScriptDialog from './SendScriptDialog'
 import TabGrid from './TabGrid'
 
 const scriptId = (s: SentScript) => s.scriptId
@@ -23,8 +26,9 @@ const scriptId = (s: SentScript) => s.scriptId
  * with how many stores have executed it and how many are pending, retrying, exhausted or
  * withdrawn. A title opens the script's detail.
  *
- * Read only here. Ticket 664 adds Send (above the list) and the detail's Withdraw and Retry,
- * behind `canRunScripts`.
+ * Ticket 664: behind `canRunScripts` (`ActionSync.RunStoreScript`), **Send a store script** above
+ * the list opens the send dialog; the detail carries Withdraw and Retry. Without it the page is
+ * read only — the controls are absent, not disabled.
  */
 export default function ScriptsPage() {
   const { t } = useTranslation('sync-console')
@@ -45,6 +49,9 @@ function Scripts() {
   const { t } = useTranslation('sync-console')
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState<SentScript | null>(null)
+  const [sending, setSending] = useState(false)
+  const access = useQuery(syncConsoleAccessQuery())
+  const canSend = canRunStoreScripts(access.data)
   const scripts = useQuery({ ...scriptsQuery(page), placeholderData: keepPreviousData })
   const columns = useMemo(() => buildSentScriptColumns(t, setOpened), [t])
   const shown = scripts.isError ? undefined : scripts.data
@@ -66,7 +73,14 @@ function Scripts() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <ConsoleNav />
-      <p className="text-xs text-muted-foreground">{t('scriptsPage.note')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{t('scriptsPage.note')}</p>
+        {canSend && (
+          <Button variant="primary" onClick={() => setSending(true)} data-script-send-open="">
+            {t('scriptsPage.send')}
+          </Button>
+        )}
+      </div>
 
       <section className="flex min-w-0 flex-col gap-2" data-scripts-list="">
         {shown && (
@@ -100,6 +114,7 @@ function Scripts() {
       </section>
 
       <ScriptDetailModal script={opened} onClose={() => setOpened(null)} />
+      <SendScriptDialog open={canSend && sending} onClose={() => setSending(false)} />
     </div>
   )
 }

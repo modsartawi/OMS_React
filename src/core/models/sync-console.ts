@@ -104,6 +104,10 @@ export type AuditAction =
   | 'ReceiptReplay'
   // Object enrolment (BackOffice 2558): one row per enrolment, naming the object.
   | 'EnrolObject'
+  // Store scripts (BackOffice spec 3202 D13): one row per send, withdraw and hand retry.
+  | 'SendScript'
+  | 'WithdrawScript'
+  | 'RetryScript'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -204,6 +208,12 @@ export interface SyncConsoleAccess {
    * Independent of `canOperate`. Optional: a door older than 2558 leaves it out, which reads as no.
    */
   canEnrol?: boolean
+  /**
+   * `ActionSync.RunStoreScript` (BackOffice spec 3202 D3, ticket 664) — Send, Withdraw and Retry on
+   * the Scripts page. Independent of `canOperate`. Optional: a door older than 3205 leaves it out,
+   * which reads as no.
+   */
+  canRunScripts?: boolean
 }
 
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
@@ -1081,4 +1091,77 @@ export interface ScriptStoreRow {
 export interface ScriptDetail extends SentScript {
   stores: ScriptStoreRow[]
   sql: string | null
+}
+
+// ── Store script controls (`ActionSync.RunStoreScript`, spec 3202 D11; doors 3205/3206; ticket 664) ──
+//
+// 🚩 Shapes from the spec's D11 alone: the doors are not built and the contract does not list them yet.
+// Every write is `preview: true` first (writes nothing), then `preview: false` with the same body.
+
+/** One row of `GET ActionSync/Scripts/Eligible`: a worker store a script can be sent to (paused ones included). */
+export interface EligibleStore {
+  code: string
+  description: string
+  isPaused: boolean
+}
+
+/** `GET ActionSync/Scripts/Eligible` → `{ items }`, not paged (guessed from the console's other lists). */
+export interface EligibleStores {
+  items: EligibleStore[]
+}
+
+/** A send's target (spec 3202 D2): every eligible store frozen at send time, or the codes chosen. */
+export type ScriptTarget = 'all' | 'chosen'
+
+/**
+ * `POST ActionSync/Scripts/Send`'s body. `codes` is sent only for `chosen`. The SQL is sent as
+ * typed, byte for byte. Refusals: `BAD_REQUEST`, `REASON_REQUIRED`, `TITLE_REQUIRED`,
+ * `SCRIPT_EMPTY`, `SCRIPT_HAS_GO`, `SCRIPT_TOO_LONG`, `UNKNOWN_STORE` / `NOT_ELIGIBLE` (naming the
+ * codes), `NO_STORES`.
+ */
+export interface SendScriptRequest {
+  title: string
+  sql: string
+  reason: string
+  target: ScriptTarget
+  codes?: string[]
+  preview: boolean
+}
+
+/** `POST ActionSync/Scripts/Send`'s answer: the exact stores; `scriptId` and `auditId` are `null` in a preview. */
+export interface SendScriptResponse {
+  scriptId: string | null
+  stores: string[]
+  auditId: string | null
+}
+
+/** `POST ActionSync/Scripts/Withdraw`'s body. Refusals: `UNKNOWN_SCRIPT`, `LEGACY_SCRIPT`, `WITHDRAWN`. */
+export interface WithdrawScriptRequest {
+  scriptId: string
+  reason: string
+  preview: boolean
+}
+
+/** How many not-executed stores are (or in a preview would be) withdrawn. */
+export interface WithdrawScriptResponse {
+  storesWithdrawn: number
+  auditId: string | null
+}
+
+/**
+ * `POST ActionSync/Scripts/Retry`'s body: `codes` names the exhausted stores, or is left out for
+ * every exhausted store of the script. Refusals: `NOT_EXHAUSTED` (naming the codes), `WITHDRAWN`,
+ * `UNKNOWN_SCRIPT`, `LEGACY_SCRIPT`.
+ */
+export interface RetryScriptRequest {
+  scriptId: string
+  codes?: string[]
+  reason: string
+  preview: boolean
+}
+
+/** How many exhausted stores are (or would be) given five fresh attempts. */
+export interface RetryScriptResponse {
+  storesRetried: number
+  auditId: string | null
 }

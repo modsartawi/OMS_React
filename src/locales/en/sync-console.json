@@ -417,7 +417,10 @@
     "AgreementRecheck": "Recheck rail agreement",
     "TransactionSnapshotView": "Viewed receipt JSON",
     "ReceiptReplay": "Replayed a receipt",
-    "EnrolObject": "Enrolled a push object"
+    "EnrolObject": "Enrolled a push object",
+    "SendScript": "Sent a store script",
+    "WithdrawScript": "Withdrew a store script",
+    "RetryScript": "Retried a store script"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -1186,6 +1189,74 @@
     "exhausted": "Exhausted",
     "withdrawn": "Withdrawn"
   },
+  "scriptSend": {
+    "title": "Send a store script",
+    "note": "The script runs on each target store’s own database the next time the worker visits it. A store that fails it tries again, up to five times, an hour apart.",
+    "titleLabel": "Title",
+    "sqlLabel": "SQL",
+    "sqlHint": "One batch, with no GO line. It is sent exactly as typed.",
+    "targetLabel": "Target",
+    "targets": {
+      "all": "All eligible stores",
+      "chosen": "Chosen stores"
+    },
+    "storesLabel": "Stores",
+    "eligibleFailed": "The eligible stores could not be loaded.",
+    "paused": "Paused",
+    "rerunWarning": "A store may run this script more than once (a store that fails it tries again, and a hand retry runs it anew). It must be safe to re-run.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the send to see the exact stores before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "preview": {
+      "stores_one": "This store script would be sent to {{n}} store:",
+      "stores_other": "This store script would be sent to {{n}} stores:"
+    },
+    "refusedStores": "Stores named:",
+    "confirm": "Send",
+    "done_one": "{{title}} sent to {{n}} store.",
+    "done_other": "{{title}} sent to {{n}} stores."
+  },
+  "scriptWithdraw": {
+    "title": "Withdraw {{title}}",
+    "note": "Stores that already ran this script stay executed. A withdrawn script cannot be sent again: to run it again, send a new one.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the withdraw to see how many stores it stops before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "preview_one": "{{n}} store has not run this script and would be withdrawn.",
+    "preview_other": "{{n}} stores have not run this script and would be withdrawn.",
+    "confirm": "Withdraw",
+    "done_one": "{{title}} withdrawn from {{n}} store.",
+    "done_other": "{{title}} withdrawn from {{n}} stores."
+  },
+  "scriptRetry": {
+    "titleAll": "Retry every exhausted store of {{title}}",
+    "titleStore": "Retry {{title}} on store {{code}}",
+    "note": "A retried store gets five fresh attempts, and the worker runs it on its next visit.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the retry to see how many stores it reaches before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "preview_one": "{{n}} exhausted store would get five fresh attempts.",
+    "preview_other": "{{n}} exhausted stores would get five fresh attempts.",
+    "confirm": "Retry",
+    "done_one": "{{title}}: {{n}} store retried.",
+    "done_other": "{{title}}: {{n}} stores retried."
+  },
+  "scriptCodes": {
+    "TITLE_REQUIRED": "A title is required, and it must fit its width.",
+    "SCRIPT_EMPTY": "The script is empty.",
+    "SCRIPT_HAS_GO": "The script has a GO line. Send one batch, with no GO.",
+    "SCRIPT_TOO_LONG": "The script is over 8,000 characters.",
+    "UNKNOWN_STORE": "A store code is not known.",
+    "NOT_ELIGIBLE": "A store is not a worker store (or is HQ), so it cannot take a store script.",
+    "NO_STORES": "The target reaches no store.",
+    "UNKNOWN_SCRIPT": "There is no such store script.",
+    "LEGACY_SCRIPT": "A legacy store script cannot be withdrawn or retried.",
+    "WITHDRAWN": "This store script is withdrawn.",
+    "NOT_EXHAUSTED": "A store is not exhausted, so it cannot be retried."
+  },
   "scriptsPage": {
     "title": "Store scripts",
     "subtitle": "The store scripts sent to the worker stores, newest first, and how far each one has run.",
@@ -1207,7 +1278,8 @@
       "sentAt": "Sent at",
       "target": "Target",
       "storeCount": "Stores"
-    }
+    },
+    "send": "Send a store script"
   },
   "scriptDetail": {
     "title": "Store script {{title}}",
@@ -1230,7 +1302,11 @@
       "state": "State",
       "attempts": "Attempts",
       "lastAttempt": "Last attempt",
-      "errorMessage": "Last error"
-    }
+      "errorMessage": "Last error",
+      "retry": "Retry"
+    },
+    "withdraw": "Withdraw",
+    "retryAll": "Retry all exhausted",
+    "retryStore": "Retry"
   }
 }

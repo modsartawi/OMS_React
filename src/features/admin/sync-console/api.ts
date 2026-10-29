@@ -46,8 +46,15 @@ import type {
   ReplayResult,
   ReplayRow,
   RePushResponse,
+  EligibleStores,
+  RetryScriptRequest,
+  RetryScriptResponse,
   ScriptDetail,
+  SendScriptRequest,
+  SendScriptResponse,
   SentScripts,
+  WithdrawScriptRequest,
+  WithdrawScriptResponse,
   StoreAgreement,
   StoreCounters,
   StoreDetail,
@@ -134,6 +141,13 @@ export const canReplayReceipts = (r: SyncConsoleAccess | null | undefined): bool
  */
 export const canEnrolObjects = (r: SyncConsoleAccess | null | undefined): boolean =>
   r?.canEnrol === true
+
+/**
+ * The Scripts page's Send predicate (spec 3202 D3, ticket 664). `ActionSync.RunStoreScript` is
+ * independent of `canOperate`; absent (a door older than 3205) is a no.
+ */
+export const canRunStoreScripts = (r: SyncConsoleAccess | null | undefined): boolean =>
+  r?.canRunScripts === true
 
 /** The Fleet page's four reads share this prefix, so one invalidation refreshes them all. */
 export const FLEET_KEY = ['sync-console', 'fleet'] as const
@@ -432,6 +446,28 @@ export const syncConsoleApi = {
   scriptDetail(scriptId: string): Promise<ScriptDetail> {
     return api.get<ScriptDetail>('ActionSync/Scripts/Detail', { scriptId })
   },
+
+  // ── Store script controls (ticket 664, `ActionSync.RunStoreScript`, doors 3205/3206 — not built) ──
+
+  /** `GET ActionSync/Scripts/Eligible` → the worker stores a script can be sent to, paused included. */
+  eligibleStores(): Promise<EligibleStores> {
+    return api.get<EligibleStores>('ActionSync/Scripts/Eligible')
+  },
+
+  /** `POST ActionSync/Scripts/Send`. `preview: true` writes nothing and answers the exact stores. */
+  sendScript(body: SendScriptRequest): Promise<SendScriptResponse> {
+    return api.post<SendScriptResponse>('ActionSync/Scripts/Send', body)
+  },
+
+  /** `POST ActionSync/Scripts/Withdraw`: flags every not-executed store row; executed rows are untouched. */
+  withdrawScript(body: WithdrawScriptRequest): Promise<WithdrawScriptResponse> {
+    return api.post<WithdrawScriptResponse>('ActionSync/Scripts/Withdraw', body)
+  },
+
+  /** `POST ActionSync/Scripts/Retry`: five fresh attempts for the exhausted stores named (`codes` omitted = all). */
+  retryScript(body: RetryScriptRequest): Promise<RetryScriptResponse> {
+    return api.post<RetryScriptResponse>('ActionSync/Scripts/Retry', body)
+  },
 }
 
 /** The door's largest page (200): the connection-test read must reach the wizard's own tests. */
@@ -696,4 +732,11 @@ export const scriptDetailQuery = (scriptId: string) => ({
   queryKey: [...SCRIPTS_KEY, 'detail', scriptId] as const,
   queryFn: () => syncConsoleApi.scriptDetail(scriptId),
   ...refresh,
+})
+
+/** The send dialog's store picker (ticket 664): read once per opening, behind `canRunScripts`. */
+export const eligibleStoresQuery = () => ({
+  queryKey: [...SCRIPTS_KEY, 'eligible'] as const,
+  queryFn: () => syncConsoleApi.eligibleStores(),
+  staleTime: 60_000,
 })

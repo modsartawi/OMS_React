@@ -1,7 +1,7 @@
-// Sync console Scripts drive (ticket 663, BackOffice spec 3202 D11/D14, door 3207) — drives the REAL Scripts page
+// Sync console Scripts drive (tickets 663 + 664, BackOffice spec 3202 D11/D14, doors 3205-3207) — drives the REAL Scripts page
 // and the store page's Scripts tab in Chromium against STUBBED `ActionSync/*` envelopes, shaped from the spec's D11
-// door shapes (the door contract does not list the script doors yet; BackOffice 3207 is not built).
-// 🚩 NOTHING here is driven against a live SIS.Api: the live walk waits on BackOffice 3207.
+// door shapes (the door contract does not list the script doors yet; BackOffice 3205-3207 are not built).
+// 🚩 NOTHING here is driven against a live SIS.Api: the live walk waits on BackOffice 3205/3206/3207.
 //
 // It verifies:
 //   1. the nav carries Scripts after Objects; the list reads page 1 of 50, newest first in the door's order;
@@ -11,6 +11,14 @@
 //   5. a legacy script's detail says it has no sender and cannot be withdrawn or retried;
 //   6. the store page's Scripts tab shows the title, sent at, attempts and state (blank time + legacy title for a
 //      legacy one), still with no SQL and no control; an older door (no state) still reads Executed / Failed.
+//   7. (664) without canRunScripts there is no Send, no Withdraw, no Retry all and no Retry column;
+//   8. Send: Confirm waits for a preview (preview: true, target all, no codes); the preview lists the exact stores and
+//      the re-run warning shows; an edit sets the preview aside; Send posts preview: false with the reason, toasts, and
+//      the list is re-read;
+//   9. a chosen target picks from the eligible stores (paused ones marked) and posts their codes;
+//  10. a refusal (SCRIPT_HAS_GO on the preview, NOT_ELIGIBLE naming codes on the send) keeps the dialog open;
+//  11. Withdraw previews, then posts preview: false with the reason; Retry all posts no codes; a row's Retry posts its
+//      code; a withdrawn or legacy script offers none of them.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-scripts-drive.mjs
@@ -104,11 +112,22 @@ const STORE = {
 
 const browser = await chromium.launch()
 
-async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_3207 } = {}) {
+// GET ActionSync/Scripts/Eligible: worker stores, one paused.
+const ELIGIBLE = {
+  items: [
+    { code: 'P001', description: 'Olaya Main', isPaused: false },
+    { code: 'P002', description: 'Tahlia', isPaused: true },
+    { code: 'P003', description: 'Malaz', isPaused: false },
+  ],
+}
+
+async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_3207, refuse = {} } = {}) {
   const context = await browser.newContext({ viewport: { width: 1500, height: 1100 } })
   const page = await context.newPage()
   const errors = []
   const calls = []
+  /** Every POST body, by door. */
+  const posts = { Send: [], Withdraw: [], Retry: [] }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript(() => {
@@ -132,6 +151,21 @@ async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_
       const d = detailOf(url.searchParams.get('scriptId'), canRunScripts)
       return route.fulfill(d ? envelope(d) : envelope(null, { status: 404, success: false, message: 'No such script.', errorCode: 'UNKNOWN_SCRIPT' }))
     }
+    const write = /^ActionSync\/Scripts\/(Send|Withdraw|Retry)$/.exec(p)
+    if (write && route.request().method() === 'POST') {
+      const body = route.request().postDataJSON()
+      posts[write[1]].push(body)
+      // A refusal, keyed `<Door>:<preview|confirm>`, answers a 400 envelope that may carry the codes it names.
+      const r = refuse[`${write[1]}:${body.preview ? 'preview' : 'confirm'}`]
+      if (r) return route.fulfill(envelope(r.data ?? null, { status: 400, success: false, message: r.message, errorCode: r.code }))
+      if (write[1] === 'Send') {
+        const stores = body.target === 'all' ? ELIGIBLE.items.map((s) => s.code) : body.codes
+        return route.fulfill(envelope({ scriptId: body.preview ? null : '01JBZNEW0000000000000000ZZ', stores, auditId: body.preview ? null : 'A-1' }))
+      }
+      if (write[1] === 'Withdraw') return route.fulfill(envelope({ storesWithdrawn: 11, auditId: body.preview ? null : 'A-2' }))
+      return route.fulfill(envelope({ storesRetried: body.codes ? body.codes.length : 2, auditId: body.preview ? null : 'A-3' }))
+    }
+    if (p === 'ActionSync/Scripts/Eligible') return route.fulfill(envelope(ELIGIBLE))
     if (p === 'ActionSync/Store') return route.fulfill(envelope(STORE))
     if (p === 'ActionSync/Store/Hours') return route.fulfill(envelope({ items: [] }))
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope({ items: [] }))
@@ -141,7 +175,7 @@ async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_
     return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
   })
   await page.goto(`${BASE}${path}`)
-  return { context, page, errors, calls }
+  return { context, page, errors, calls, posts }
 }
 
 // One id per row, by row index (a row can render once per column container).
@@ -256,6 +290,199 @@ const cell = (page, grid, rowId, col) => page.locator(`[data-tab-grid="${grid}"]
   check('6. an older door still reads Executed / Failed', (await cell(page, 'scripts', 'SCR-2026-0412', 'state')) === 'Executed' && (await cell(page, 'scripts', 'SCR-2026-0419', 'state')) === 'Failed')
   check('6. …with blank attempts', (await cell(page, 'scripts', 'SCR-2026-0419', 'attempts')) === '')
   check('no page errors (older door)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 7. without canRunScripts: no control anywhere.
+  const { context, page, errors } = await open('/admin/sync/scripts')
+  const first = SCRIPTS[0].scriptId
+  await page.locator('[data-tab-grid="scripts-list"] .ag-row').first().waitFor({ timeout: 20000 })
+  check('7. no Send without canRunScripts', (await page.locator('[data-script-send-open]').count()) === 0)
+  await page.locator(`[data-script-open="${first}"]`).click()
+  await page.locator(`[data-script-detail="${first}"] [data-tab-grid="script-stores"] .ag-row`).first().waitFor({ timeout: 10000 })
+  check('7. no Withdraw or Retry all on the detail', (await page.locator('[data-script-withdraw], [data-script-retry-all]').count()) === 0)
+  check('7. no Retry column on the store rows', (await page.locator('[data-tab-grid="script-stores"] [col-id="retry"]').count()) === 0 && (await page.locator('[data-script-retry-store]').count()) === 0)
+  check('no page errors (no grant)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, reason = 'Item recalled by the supplier' } = {}) => {
+  await page.locator('[data-script-send-title]').fill(title)
+  await page.locator('[data-script-send-sql]').fill(sql)
+  await page.locator('[data-reason-input]').fill(reason)
+}
+
+{
+  // 8. Send to all eligible stores.
+  const { context, page, errors, calls, posts } = await open('/admin/sync/scripts', { canRunScripts: true })
+  await page.locator('[data-tab-grid="scripts-list"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.locator('[data-script-send-open]').click()
+  await page.locator('[data-script-send-sql]').waitFor({ timeout: 10000 })
+  check('8. the target defaults to all eligible stores', (await page.locator('[data-script-send-target="all"]').getAttribute('aria-pressed')) === 'true')
+  check('8. the dialog warns the script may run more than once and must be safe to re-run', /more than once.*safe to re-run/.test(await page.locator('[data-script-send-rerun]').innerText()))
+  await fillSend(page)
+  const count = plain(await page.locator('[data-script-send-count]').innerText())
+  check('8. the SQL is counted against 8,000', count === `${SQL.length} / 8,000`, count)
+  check('8. Send waits for a preview', await page.locator('[data-reason-confirm]').isDisabled())
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  const pv = posts.Send[0]
+  check('8. the preview posts preview: true, target all and no codes',
+    pv && pv.preview === true && pv.target === 'all' && !('codes' in pv) && pv.title === 'Deactivate item 100235' && pv.sql === SQL && pv.reason === 'Item recalled by the supplier',
+    JSON.stringify(pv))
+  const listed = plain(await page.locator('[data-script-send-stores]').innerText())
+  check('8. the preview lists the exact stores', /sent to 3 stores/.test(plain(await page.locator('[data-script-send-sentence]').innerText())) && listed === 'P001, P002, P003', listed)
+  check('8. Send is enabled once the preview answers', !(await page.locator('[data-reason-confirm]').isDisabled()))
+  await page.locator('[data-script-send-sql]').fill(SQL + '\n-- edited')
+  check('8. an edit sets the preview aside and Send waits again', (await page.locator('[data-script-send-preview-box="none"]').count()) === 1 && (await page.locator('[data-reason-confirm]').isDisabled()))
+  await page.locator('[data-script-send-sql]').fill(SQL)
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.screenshot({ path: `${SHOTS}/send-preview.png`, fullPage: true })
+  const listReads = calls.filter((c) => c.startsWith('ActionSync/Scripts?page=1')).length
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-script-send-sql]').waitFor({ state: 'detached', timeout: 10000 })
+  const sent = posts.Send.at(-1)
+  check('8. Send posts preview: false with the reason and the same body',
+    sent.preview === false && sent.target === 'all' && !('codes' in sent) && sent.reason === 'Item recalled by the supplier' && sent.sql === SQL, JSON.stringify(sent))
+  const toast = plain(await page.getByText(/sent to .*3.* stores\./).first().innerText())
+  check('8. the toast names the script and its stores', toast === 'Deactivate item 100235 sent to 3 stores.', toast)
+  await page.waitForTimeout(500)
+  check('8. the list is re-read', calls.filter((c) => c.startsWith('ActionSync/Scripts?page=1')).length > listReads)
+  check('no page errors (send all)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 9. Send to chosen stores.
+  const { context, page, errors, calls, posts } = await open('/admin/sync/scripts', { canRunScripts: true })
+  await page.locator('[data-script-send-open]').click()
+  await fillSend(page)
+  await page.locator('[data-script-send-target="chosen"]').click()
+  await page.locator('[data-testid="script-send-stores"] [data-multi-select-trigger]').click()
+  await page.locator('[data-testid="script-send-stores"] [data-option="P003"]').waitFor({ timeout: 10000 })
+  check('9. the picker reads the eligible stores', calls.includes('ActionSync/Scripts/Eligible'))
+  const paused = await page.locator('[data-testid="script-send-stores"] [data-option="P002"]').innerText()
+  check('9. a paused store is marked', /Paused/.test(paused), paused)
+  await page.locator('[data-testid="script-send-stores"] [data-option="P003"] input').check()
+  await page.locator('[data-testid="script-send-stores"] [data-option="P002"] input').check()
+  await page.keyboard.press('Escape')
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  const pv = posts.Send[0]
+  check('9. the preview posts target chosen with the codes picked', pv.target === 'chosen' && JSON.stringify(pv.codes) === '["P003","P002"]', JSON.stringify(pv))
+  check('9. …and lists exactly those stores', plain(await page.locator('[data-script-send-stores]').innerText()) === 'P003, P002')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-script-send-sql]').waitFor({ state: 'detached', timeout: 10000 })
+  check('9. Send posts the same codes with preview: false', posts.Send.at(-1).preview === false && JSON.stringify(posts.Send.at(-1).codes) === '["P003","P002"]')
+  check('no page errors (send chosen)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 10. refusals keep the dialog open.
+  const { context, page, errors, posts } = await open('/admin/sync/scripts', {
+    canRunScripts: true,
+    refuse: {
+      'Send:preview': { code: 'SCRIPT_HAS_GO', message: 'Line 2 is a GO line.' },
+      'Send:confirm': { code: 'NOT_ELIGIBLE', message: 'P009, BackOffice are not eligible.', data: { codes: ['P009', 'BackOffice'] } },
+    },
+  })
+  await page.locator('[data-script-send-open]').click()
+  await fillSend(page, { sql: 'SELECT 1\nGO\nSELECT 2' })
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-preview-error="SCRIPT_HAS_GO"]').waitFor({ timeout: 10000 })
+  const refusal = plain(await page.locator('[data-script-preview-error]').innerText())
+  check('10. a preview refusal shows its code and words', /SCRIPT_HAS_GO/.test(refusal) && /GO line/.test(refusal), refusal.replace(/\n/g, ' | '))
+  check('10. …the dialog stays open, its draft kept, Send still waiting',
+    (await page.locator('[data-script-send-sql]').inputValue()) === 'SELECT 1\nGO\nSELECT 2' && (await page.locator('[data-reason-confirm]').isDisabled()))
+  await page.screenshot({ path: `${SHOTS}/send-refused.png`, fullPage: true })
+  // From here the preview answers, and the confirm is refused naming two codes.
+  await page.route('**/api/ActionSync/Scripts/Send', (route) => {
+    const body = route.request().postDataJSON()
+    posts.Send.push(body)
+    return body.preview
+      ? route.fulfill(envelope({ scriptId: null, stores: ['P001'], auditId: null }))
+      : route.fulfill(envelope({ codes: ['P009', 'BackOffice'] }, { status: 400, success: false, message: 'P009, BackOffice are not eligible.', errorCode: 'NOT_ELIGIBLE' }))
+  })
+  const before = posts.Send.length
+  await page.locator('[data-script-send-sql]').fill(SQL)
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="NOT_ELIGIBLE"]').waitFor({ timeout: 10000 })
+  check('10. a send refusal shows its code under the reason', posts.Send.length === before + 2 && posts.Send.at(-1).preview === false)
+  const named = plain(await page.locator('[data-script-refused-stores]').innerText())
+  check('10. …names the stores it refused', named.endsWith('P009, BackOffice'), named)
+  check('10. …and the dialog stays open', (await page.locator('[data-script-send-sql]').count()) === 1)
+  check('no page errors (refusals)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  // 11. Withdraw and Retry on a live script's detail.
+  const { context, page, errors, calls, posts } = await open('/admin/sync/scripts', { canRunScripts: true })
+  const first = SCRIPTS[0].scriptId
+  await page.locator(`[data-script-open="${first}"]`).click()
+  await page.locator(`[data-script-detail="${first}"] [data-tab-grid="script-stores"] .ag-row`).first().waitFor({ timeout: 10000 })
+  check('11. the detail offers Withdraw and Retry all exhausted', (await page.locator('[data-script-withdraw]').count()) === 1 && (await page.locator('[data-script-retry-all]').count()) === 1)
+  const retryRows = await page.locator('[data-script-retry-store]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-script-retry-store')))])
+  check('11. Retry is on the exhausted rows only', JSON.stringify(retryRows.sort()) === '["P003","P006"]', retryRows.join(','))
+
+  // Withdraw.
+  await page.locator('[data-script-withdraw]').click()
+  await page.locator('[data-script-action="withdraw"]').waitFor({ timeout: 10000 })
+  const note = await page.locator('[data-reason-dialog]').innerText()
+  check('11. the withdraw dialog says executed stores stay executed and a withdrawn script cannot be sent again', /stay executed/.test(note) && /cannot be sent again/.test(note))
+  await page.locator('[data-reason-input]').fill('Wrong item code')
+  check('11. Withdraw waits for a preview', await page.locator('[data-reason-confirm]').isDisabled())
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  check('11. the withdraw preview posts preview: true', JSON.stringify(posts.Withdraw[0]) === JSON.stringify({ scriptId: first, reason: 'Wrong item code', preview: true }), JSON.stringify(posts.Withdraw[0]))
+  check('11. …and says how many stores have not run it', /11 stores have not run this script/.test(plain(await page.locator('[data-script-action-sentence]').innerText())))
+  await page.screenshot({ path: `${SHOTS}/withdraw-preview.png`, fullPage: true })
+  const detailReads = calls.filter((c) => c.startsWith('ActionSync/Scripts/Detail')).length
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-script-action]').waitFor({ state: 'detached', timeout: 10000 })
+  check('11. Withdraw posts preview: false with the reason', JSON.stringify(posts.Withdraw[1]) === JSON.stringify({ scriptId: first, reason: 'Wrong item code', preview: false }), JSON.stringify(posts.Withdraw[1]))
+  await page.waitForTimeout(500)
+  check('11. the detail is re-read after the write', calls.filter((c) => c.startsWith('ActionSync/Scripts/Detail')).length > detailReads)
+
+  // Retry all exhausted.
+  await page.locator('[data-script-retry-all]').click()
+  await page.locator('[data-script-action="retry"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-reason-input]').fill('Item table restored')
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  check('11. Retry all previews with no codes', JSON.stringify(posts.Retry[0]) === JSON.stringify({ scriptId: first, reason: 'Item table restored', preview: true }), JSON.stringify(posts.Retry[0]))
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-script-action]').waitFor({ state: 'detached', timeout: 10000 })
+  check('11. Retry all posts preview: false, still no codes', JSON.stringify(posts.Retry[1]) === JSON.stringify({ scriptId: first, reason: 'Item table restored', preview: false }), JSON.stringify(posts.Retry[1]))
+
+  // A row's Retry.
+  await page.locator('[data-script-retry-store="P006"]').first().click()
+  await page.locator('[data-script-action="retry"]').waitFor({ timeout: 10000 })
+  check('11. a row Retry names its store', plain(await page.locator('[data-reason-codes]').innerText()) === 'P006')
+  await page.locator('[data-reason-input]').fill('One store restored')
+  await page.locator('[data-script-action-preview]').click()
+  await page.locator('[data-script-action-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  check('11. …and previews with its code', JSON.stringify(posts.Retry[2]) === JSON.stringify({ scriptId: first, codes: ['P006'], reason: 'One store restored', preview: true }), JSON.stringify(posts.Retry[2]))
+  check('11. …saying one store gets five fresh attempts', /1 exhausted store would get five fresh attempts/.test(plain(await page.locator('[data-script-action-sentence]').innerText())))
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-script-action]').waitFor({ state: 'detached', timeout: 10000 })
+  check('11. a row Retry posts its code with preview: false', JSON.stringify(posts.Retry[3]) === JSON.stringify({ scriptId: first, codes: ['P006'], reason: 'One store restored', preview: false }), JSON.stringify(posts.Retry[3]))
+  await page.locator('[data-script-detail-close]').click()
+
+  // A withdrawn script and a legacy one offer nothing.
+  for (const id of [SCRIPTS[1].scriptId, 'SCR-2026-0412']) {
+    await page.locator(`[data-script-open="${id}"]`).click()
+    await page.locator(`[data-script-detail="${id}"] [data-tab-grid="script-stores"] .ag-row`).first().waitFor({ timeout: 10000 })
+    check(`11. ${id === 'SCR-2026-0412' ? 'a legacy' : 'a withdrawn'} script offers no Withdraw or Retry`,
+      (await page.locator('[data-script-withdraw], [data-script-retry-all], [data-script-retry-store]').count()) === 0)
+    await page.locator('[data-script-detail-close]').click()
+  }
+  check('no page errors (withdraw + retry)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

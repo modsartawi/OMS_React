@@ -16,7 +16,7 @@ import { playgroundApi } from './api'
 import ComparePanel, { type CompareSeed } from './ComparePanel'
 import { sideOf } from './compare-diff'
 import { DataPane } from './DataPane'
-import { evaluateBody, kindSeed, type DataTab } from './boxes'
+import { dataForKind, evaluateBody, kindSeed, type DataTab } from './boxes'
 import ExperimentBar from './ExperimentBar'
 import { intakeView } from './intake'
 import type { LessonAnswer } from './lesson-check'
@@ -104,11 +104,14 @@ export default function PlaygroundPage() {
     setLessonId(null)
     setCopiedFrom(null)
     const seed = kindSeed(k)
+    // 3243 review: the document is the new kind's seed; the data is replaced only while it is the old kind's unedited
+    // seed — edited data is kept, with only what the new kind needs (coverage's payer) added or dropped
+    const nextData = dataForKind(kind, k, dataText)
     setKind(k)
-    setDataText(seed.dataText)
+    setDataText(nextData)
     setDocumentText(seed.documentText)
-    // 690: comparing, B is copied afresh from the new kind's seed (the panel is keyed by kind)
-    if (compareSeed) setCompareSeed({ dataTab, dataText: seed.dataText, rawText, documentText: seed.documentText })
+    // 690: comparing, B is copied afresh from the new boxes (the panel is keyed by kind)
+    if (compareSeed) setCompareSeed({ dataTab, dataText: nextData, rawText, documentText: seed.documentText })
   }
 
   // 687: an opened or imported experiment replaces the whole experiment (kind, as of, rule and data) at once.

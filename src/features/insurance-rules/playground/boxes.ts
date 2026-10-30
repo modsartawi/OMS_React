@@ -86,6 +86,29 @@ const SEEDS: Record<PlaygroundKind, { dataText: string; documentText: string }> 
 /** The kind's starter boxes: its document and the example data. */
 export const kindSeed = (kind: PlaygroundKind) => SEEDS[kind]
 
+/**
+ * The Data box after a kind switch (3243 review): the previous kind's UNEDITED seed becomes the new kind's seed; any
+ * other data is the user's and is kept, with only what the new kind needs changed — coverage reads the payer's
+ * deductibles (`payer`), so switching to coverage adds the seed payer when the data has none, and leaving coverage drops
+ * a `payer` that is still exactly the seed's. Data that does not parse is left as typed (the box says so).
+ */
+export function dataForKind(from: PlaygroundKind, to: PlaygroundKind, dataText: string): string {
+  if (dataText === SEEDS[from].dataText) return SEEDS[to].dataText
+  let v: unknown
+  try {
+    v = JSON.parse(dataText)
+  } catch {
+    return dataText
+  }
+  if (!isPlainObject(v)) return dataText
+  if (to === 'coverage' && v.payer === undefined) return pretty({ ...v, payer: SEED_COVERAGE_PAYER })
+  if (from === 'coverage' && to !== 'coverage' && JSON.stringify(v.payer) === JSON.stringify(SEED_COVERAGE_PAYER)) {
+    const { payer: _payer, ...rest } = v
+    return pretty(rest)
+  }
+  return dataText
+}
+
 const parseObject = (text: string): { ok: true; value: unknown } | { ok: false } => {
   try {
     const v: unknown = JSON.parse(text)

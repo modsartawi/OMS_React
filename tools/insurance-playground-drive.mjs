@@ -18,7 +18,7 @@
 //       10. a stubbed slow older reply arriving after a newer one is dropped; "running…" shows over the last outcome;
 //       11. "as of" is sent as typed, local with no Z, and shown isolated;
 //       12. Tab B per kind: guard outcome + fired rules; switch to category → each line's category, group, who set
-//           it; switch to coverage → the data carries the payer, each value with its source, money as 0.00.
+//           it (edited data is kept, 3243 review); switch to coverage → the data carries the payer, each value with its source, money as 0.00.
 //
 //   680: 20. category: two rules in either order change Tab B's category (first match), the group picked in the
 //            editor; 21. coverage: an in-list rule picks from the document's lists, edits and runs; 22. its reader
@@ -225,10 +225,12 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 12. guard: the severity`, (await gLine.locator('[data-fired="G-1"] [data-severity="WARN"]').count()) === 1)
 
     // 12. switch to category: the kind's rule and data, Tab B's categories
+    const typedData = await box(page, 'data').inputValue()
     await editAndWait(page, store, () => page.locator('[data-kind="category"]').click(), '[data-verdict="category"]')
     const cSent = store.evaluates.at(-1)
     check(`${dir} 12. category: kind picked`, (await page.locator('[data-kind="category"][aria-pressed="true"]').count()) === 1)
     check(`${dir} 12. category: the body and the seeded document are category`, cSent?.kind === 'category' && cSent?.document?.kind === 'category' && (await docText(page)).kind === 'category')
+    check(`${dir} 12. category: the edited data is kept as typed (3243 review), only the document is the kind's seed`, (await box(page, 'data').inputValue()) === typedData)
     check(`${dir} 12. category: still Tab B`, (await page.locator('[data-tab="live"][aria-selected="true"]').count()) === 1)
     const cRow = page.locator('[data-category-line="1"]')
     check(
@@ -244,6 +246,8 @@ for (const dir of ['ltr', 'rtl']) {
     await editAndWait(page, store, () => page.locator('[data-kind="coverage"]').click(), '[data-verdict="coverage"]')
     const vSent = store.evaluates.at(-1)
     check(`${dir} 12. coverage: the data carries the payer`, vSent?.kind === 'coverage' && typeof vSent?.data?.payer === 'object' && vSent.data.payer !== null)
+    const { payer: _payer, ...vRest } = vSent?.data ?? {}
+    check(`${dir} 12. coverage: the edited data is kept, the payer it needs added`, JSON.stringify(vRest) === JSON.stringify(JSON.parse(typedData)))
     const qty = page.locator('[data-coverage="line-1"] [data-coverage-value="quantityCap"]')
     check(
       `${dir} 12. coverage: the quantity cap 1, filled by rule C-1`,

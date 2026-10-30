@@ -301,6 +301,16 @@ for (const dir of ['ltr', 'rtl']) {
     doc = await docText(page)
     check(`${dir} 15. the editor's 60 is in the JSON`, doc.rules[1].when[0].above === 60, JSON.stringify(doc.rules[1].when))
 
+    // 15b (3243 review). the rule's name and "if a fact is unknown" are edited in the editors, and follow the JSON
+    await editAndWait(page, store, () => slot(1).locator('[data-input="name.en"]').fill('Renamed'), null)
+    await editAndWait(page, store, () => slot(1).locator('select[data-on-unknown-select]').selectOption('warn'), null)
+    doc = await docText(page)
+    check(`${dir} 15b. the editor's name is in the JSON`, doc.rules[1].name?.en === 'Renamed', JSON.stringify(doc.rules[1].name))
+    check(`${dir} 15b. the editor's onUnknown is in the JSON`, doc.rules[1].onUnknown === 'warn', String(doc.rules[1].onUnknown))
+    await editAndWait(page, store, () => setDoc(page, { ...doc, rules: doc.rules.map((r, i) => (i === 1 ? { ...r, name: { ...r.name, ar: 'اسم' }, onUnknown: 'none' } : r)) }), null)
+    check(`${dir} 15b. the JSON's name moves the editor`, (await slot(1).locator('[data-input="name.ar"]').inputValue()) === 'اسم')
+    check(`${dir} 15b. the JSON's onUnknown moves the editor`, (await slot(1).locator('select[data-on-unknown-select]').inputValue()) === 'none')
+
     // 16. a JSON edit moves the editors
     await editAndWait(page, store, () => setDoc(page, { ...seed, rules: [{ ...seed.rules[0], when: [{ check: 'line', field: 'daysSupply', above: 150 }] }] }), null)
     check(`${dir} 16. the editors follow the JSON: one rule`, JSON.stringify(await ids()) === '["G-1"]', JSON.stringify(await ids()))

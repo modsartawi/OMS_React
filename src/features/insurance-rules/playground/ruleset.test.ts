@@ -69,6 +69,35 @@ describe('rulesetRoundTrip', () => {
     expect(printed.rules[0]).toEqual({ ...DOC.rules[0], when: [{ check: 'line', field: 'daysSupply', under: 30 }] })
   })
 
+  it('a name and onUnknown edited in the editors are printed, and read back from the JSON into the editors', () => {
+    const read = readRuleset('guard', JSON.stringify(DOC))
+    if (!read.ok) throw new Error('should read')
+    const [a, b] = read.slots
+    if (!a.editable || !b.editable) throw new Error('editable')
+    const named = { ...b, rule: { ...b.rule, name: { en: 'Insulin any', ar: 'أي إنسولين' }, onUnknown: 'warn' as const } }
+    const renamed = { ...a, rule: { ...a.rule, name: { ...a.rule.name, en: 'Very long supply' } } }
+    const text = printRuleset({ ...read, slots: [renamed, named] })
+    const printed = JSON.parse(text)
+    expect(printed.rules[0]).toEqual({ ...DOC.rules[0], name: { en: 'Very long supply', ar: 'صرف طويل' } })
+    expect(printed.rules[1]).toEqual({ ...DOC.rules[1], name: { en: 'Insulin any', ar: 'أي إنسولين' }, onUnknown: 'warn' })
+    // …and the JSON read back draws them in the editors.
+    const back = readRuleset('guard', text)
+    if (!back.ok) throw new Error('should read')
+    const rules = back.slots.map((s) => (s.editable ? s.rule : null))
+    expect(rules.map((r) => r?.name.en)).toEqual(['Very long supply', 'Insulin any'])
+    expect(rules.map((r) => r?.onUnknown)).toEqual(['none', 'warn'])
+  })
+
+  it('onUnknown set back to none on a rule that had none drops it again (no default added)', () => {
+    const read = readRuleset('guard', JSON.stringify(DOC))
+    if (!read.ok) throw new Error('should read')
+    const b = read.slots[1]
+    if (!b.editable) throw new Error('editable')
+    const warned = { ...b, rule: { ...b.rule, onUnknown: 'warn' as const } }
+    const again = { ...warned, rule: { ...warned.rule, onUnknown: 'none' as const } }
+    expect(JSON.parse(printRuleset({ ...read, slots: [read.slots[0], again] })).rules[1]).toEqual(DOC.rules[1])
+  })
+
   it('a document that is not a JSON object, or has a rules value that is not an array, does not read', () => {
     expect(readRuleset('guard', '{').ok).toBe(false)
     expect(readRuleset('guard', '[]').ok).toBe(false)

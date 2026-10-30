@@ -23,7 +23,10 @@ import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rul
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence, guardSentence } from '@/core/insurance-rules/sentence'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { docFields, pickableRegistry, registryDeclaration, withFields } from './fields-block'
 import FieldsDrawer from './FieldsDrawer'
@@ -47,6 +50,7 @@ type Slot = RuleSlot<AnyRule>
  * the kind's effect editor), the document's `lists[]` offered to their item-list blocks. The order is the point there
  * (a category is set by the FIRST rule that matches), so the pane says so above the rules. A kind without editors
  * shows the JSON box alone.
+ * 3243 review: a guard rule's name (EN / AR) and "if a fact is unknown" are edited here too, as on the guard screen.
  */
 export default function RulePane({
   kind,
@@ -249,11 +253,35 @@ function GuardRuleEditors({ rule, lists, language, issues, edit }: { rule: Guard
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <Issues issues={index.rule} hook="rule" />
+      <div className="grid gap-2 md:grid-cols-2">
+        <Field label={t('editor.nameEn')}>
+          <Input dir="ltr" lang="en" value={rule.name.en} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, en: e.target.value } }))} data-input="name.en" />
+        </Field>
+        <Field label={t('editor.nameAr')}>
+          <Input dir="rtl" lang="ar" value={rule.name.ar} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }))} data-input="name.ar" />
+        </Field>
+      </div>
       <Part kw={t('rule.when')} hook="when">
         <AudienceEditor rule={rule} edit={edit} />
       </Part>
       <Part kw={t('rule.if')} hook="if">
         <ConditionEditor rule={rule} lists={lists} edit={edit} checks={index} language={language} />
+        <Field label={t('editor.onUnknown.label')} className="w-fit">
+          <Select
+            value={rule.onUnknown}
+            onChange={(e) => {
+              const v = e.target.value === 'warn' ? 'warn' : 'none'
+              edit((r) => (r.onUnknown === v ? r : { ...r, onUnknown: v }))
+            }}
+            data-on-unknown-select=""
+          >
+            {(['none', 'warn'] as const).map((v) => (
+              <option key={v} value={v}>
+                {t(`editor.onUnknown.${v}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </Part>
       <Part kw={t('rule.then')} hook="then">
         <EffectEditor rule={rule} edit={edit} checks={index} />

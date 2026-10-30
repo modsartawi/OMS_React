@@ -309,6 +309,73 @@
       "fileFailed": "The file could not be read."
     }
   },
+  "lessons": {
+    "label": "Lessons",
+    "hint": "A lesson loads a ready experiment that teaches one idea. It replaces the current experiment. Edit it freely: Check says whether the outcome still meets the lesson.",
+    "pick": "Lesson",
+    "none": "Pick a lesson",
+    "load": "Load lesson",
+    "pickFirst": "Pick a lesson first.",
+    "check": "Check",
+    "checkHint": "Compares the latest answer with what the lesson expects.",
+    "checkWait": "Wait for the answer first.",
+    "met": "Met: the outcome is what the lesson expects.",
+    "notMet": "Not met. What differs:",
+    "word": {
+      "nothing": "nothing matched",
+      "absent": "nothing (not in the answer)",
+      "blank": "blank",
+      "yes": "yes",
+      "no": "no",
+      "none": "none"
+    },
+    "diff": {
+      "matched": "Matched lines: expected {{want}}, the answer has {{got}}.",
+      "trace": "Line {{line}}, rule {{ruleId}}, block {{blockPath}}: expected {{want}}, the answer has {{got}}.",
+      "verdict": "Line {{line}}, {{field}}: expected {{want}}, the answer has {{got}}.",
+      "verdictRule": "Line {{line}}, {{field}}: expected it set by rule {{want}}, the answer has rule {{got}}.",
+      "ignoredMissing": "Raw key {{path}}: expected it ignored, but the answer does not list it.",
+      "ignoredHint": "Raw key {{path}}: expected the near-miss {{want}}, the answer has {{got}}."
+    },
+    "items": {
+      "unknownVsFalse": {
+        "title": "1. Unknown is not false",
+        "explain": "Line 1 has no days of supply, so the block <c>daysSupply above 90</c> reads unknown: the engine cannot say. Line 2 has 30 days, so the same block reads false. Neither line matches, but for different reasons, and a rule's <c>onUnknown</c> decides what an unknown does at the till. Try giving line 1 a days supply of 120."
+      },
+      "groups": {
+        "title": "2. Groups: any, all and not",
+        "explain": "The first block is an \"any\" group: it holds because the days supply is above 90, even though the quantity is not 5 or more (its second condition reads false). The second block is a \"not\": the price is not above 1,000, so it holds. The third is an \"all\" group: every condition in it must hold. Change the quantity to 12 and watch the \"all\" group fail."
+      },
+      "quantityCap": {
+        "title": "3. A quantity cap",
+        "explain": "A coverage rule caps the quantity at one pack when the supply is longer than 90 days. On the live-check tab, line 1 (120 days) shows the cap 1, set by rule C-1. Line 2 (30 days) has no cap: the rule does not hold there and the payer states none."
+      },
+      "categoryOrder": {
+        "title": "4. Category order: who wins",
+        "explain": "Category rules run in order, and the first that holds sets the category. On line 1 only K-2 holds (a price of 50 is not above 100), so it is G2. On line 2 both hold and K-1 comes first, so it is G1. Swap the two rules to see the winner change."
+      },
+      "historyWindow": {
+        "title": "5. A history window",
+        "explain": "The history holds one dispense of the same item on <c>2026-10-20</c>. As of <c>2026-10-30</c> that is 10 days back, inside the 30-day window, so the block holds. Move \"as of\" to <c>2026-11-25</c>: the dispense falls outside the window and the block reads false."
+      },
+      "benefit66": {
+        "title": "6. Benefit category 66, field by field",
+        "explain": "The payer's answer for benefit category 66 carries four numbers: <c>benefit</c> 50,000, <c>approvalLimit</c> 10,000, <c>copayPct</c> 20 and <c>copayMax</c> 75. One rule per field asks whether it holds exactly 10,000, and only <c>approvalLimit</c> does. So a \"limit of 10,000\" is the approval limit, the amount above which the payer wants prior approval: not the benefit, and not the copay cap."
+      },
+      "otherPayer": {
+        "title": "7. The same benefit code at another payer",
+        "explain": "Benefit codes belong to the payer. This experiment reads <c>benefit[66].approvalLimit</c> again, but the request is at payer <c>0001100099</c>, whose category 66 has an approval limit of 100. The price of 120.5 is above it, so the guard warns, where at the first payer's 10,000 it would not. What each payer's code means is kept in insurer settings, never assumed."
+      },
+      "crossLine": {
+        "title": "8. A check across lines",
+        "explain": "A formula can read every line of the request through <c>$request.lines</c>. Here <c>lines(filter($request.lines, $line.item == '200021'))</c> counts the lines of SKU 200021. There are two, so the formula holds on every line, and the first block keeps the warning to the 200021 lines: lines 1 and 3 match, line 2 does not. Remove line 3 and nothing matches."
+      },
+      "rawNearMiss": {
+        "title": "9. A Raw near-miss",
+        "explain": "Raw text is sent as it is, and the engine reads only the keys it knows. This line says <c>qty</c>, not <c>quantity</c>, so the intake report lists it as ignored with its near-miss, and the rule's quantity block reads unknown. Rename the key and the line matches."
+      }
+    }
+  },
   "compare": {
     "start": "Compare A/B",
     "leave": "Leave Compare",

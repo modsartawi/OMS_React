@@ -4,13 +4,55 @@
 // Reconciled with 3135 / 3141 as built in oms 618: the wire rows (`ReviewReply`, `ExceptionReply`, `ExceptionLogReply`)
 // are read by `reviewIn` / `exceptionIn` / `logIn` into the screen's model. Times are local wall-clock, no `Z`.
 
+import type { Says } from '@/core/models/rule-campaign'
 import type { LocalDate } from '@/core/util/date-window'
 import type { ExceptionScope } from './exception'
 
 /** What a review row records: a pharmacist's override, an HQ exception used, or a request sent UNCHECKED. */
 /** `refused` (review 3126, story 51): a Bupa order whose check carries a live REFUSE no exception passed. */
-export const REVIEW_KINDS = ['override', 'exception', 'unchecked', 'refused'] as const
+export const DECISION_KINDS = ['override', 'exception', 'unchecked', 'refused'] as const
+
+/**
+ * The kinds that are not a counter decision (spec 3271): nobody at a store did anything, so they carry no pharmacist
+ * and no mark. They are read into a `ReviewDetail` and cleared with a note. A new kind (703, 708) adds its name
+ * here, a `ReviewDetail` case in `detailOf`, and a case in `ReviewItems`' `ItemDetail`.
+ */
+export const ITEM_KINDS = ['monitor', 'notEvaluated'] as const
+
+/** Every kind this screen can offer as a filter. A row's own `kind` may be one the screen has never heard of. */
+export const REVIEW_KINDS = [...DECISION_KINDS, ...ITEM_KINDS] as const
 export type ReviewKind = (typeof REVIEW_KINDS)[number]
+
+/** A kept payer message: `(source, id)`. A reference, never a fragment of the bundle. */
+export interface MessageRef {
+  source: string
+  id: string
+}
+
+export const MONITOR_SEVERITIES = ['info', 'action'] as const
+export type MonitorSeverity = (typeof MONITOR_SEVERITIES)[number]
+
+/** What failed and so left an answer unread (A13). */
+export const EVALUATION_FAILURES = ['watcher', 'monitor'] as const
+export type EvaluationFailure = (typeof EVALUATION_FAILURES)[number]
+
+/** What a row says beyond the columns every row has, by the kind it was read from. */
+export type ReviewDetail =
+  /** A counter decision: the store, pharmacist, patient and mark columns are its detail. */
+  | { shape: 'decision' }
+  /** A monitor fire (A2). Null severity: the server sent one this screen does not know, so no badge claims it. */
+  | { shape: 'monitor'; severity: MonitorSeverity | null; text: Says; message: MessageRef | null }
+  /** A failure, not a fire (A13): the answer that was left unread, and what failed if the server said. */
+  | { shape: 'notEvaluated'; failure: EvaluationFailure | null; message: MessageRef | null }
+  /** A kind the screen does not know: whatever text and message it carried, and never a throw. */
+  | { shape: 'generic'; text: Says; message: MessageRef | null }
+
+/** Who cleared an item, and why. */
+export interface ReviewCleared {
+  note: string
+  by: string
+  at: string
+}
 
 export const REVIEW_MARKS = ['ok', 'questioned'] as const
 export type ReviewMark = (typeof REVIEW_MARKS)[number]
@@ -19,7 +61,11 @@ export type ReviewMark = (typeof REVIEW_MARKS)[number]
 export interface ReviewRow {
   /** The decision row's id — `POST InsuranceRules/Review/{id}` marks it. */
   id: string
-  kind: ReviewKind
+  /** As sent. Read `detail.shape` to branch: this may be a kind the screen has never heard of. */
+  kind: string
+  detail: ReviewDetail
+  /** Item kinds only: who cleared it. Null on a decision, which is marked instead. */
+  cleared: ReviewCleared | null
   /** Local moment of the decision. */
   at: string
   store: string
@@ -43,10 +89,16 @@ export interface ReviewRow {
 /** One row of `GET InsuranceRules/Review` as built (3141): `item` a comma list, `patient` masked, `mark` an object. */
 export interface ReviewReply {
   id: string
-  kind: ReviewKind
+  /** A string, not `ReviewKind`: the door may add a kind before this screen knows it. */
+  kind: string
   at: string
   store: string
   pharmacist: string
+  /** 🚩 Item kinds' fields are guessed (door 3290; 711 reconciles): `text`, `message`, `failure`, `cleared`. */
+  text?: Partial<Says> | null
+  message?: MessageRef | null
+  failure?: string | null
+  cleared?: ReviewCleared | null
   channel?: string | null
   sourceRef?: string | null
   ruleId: string | null
@@ -62,9 +114,24 @@ export interface ReviewReply {
   mark: { mark: ReviewMark; note: string | null; by: string; at: string } | null
 }
 
+const oneOf = <T extends string>(known: readonly T[], value: string | null | undefined): T | null =>
+  known.find((k) => k === value?.toLowerCase()) ?? null
+
+const textOf = (r: ReviewReply): Says => ({ en: r.text?.en ?? '', ar: r.text?.ar ?? '' })
+
+function detailOf(r: ReviewReply): ReviewDetail {
+  if ((DECISION_KINDS as readonly string[]).includes(r.kind)) return { shape: 'decision' }
+  const message = r.message ?? null
+  if (r.kind === 'monitor') return { shape: 'monitor', severity: oneOf(MONITOR_SEVERITIES, r.severity), text: textOf(r), message }
+  if (r.kind === 'notEvaluated') return { shape: 'notEvaluated', failure: oneOf(EVALUATION_FAILURES, r.failure), message }
+  return { shape: 'generic', text: textOf(r), message }
+}
+
 export const reviewIn = (r: ReviewReply): ReviewRow => ({
   id: r.id,
   kind: r.kind,
+  detail: detailOf(r),
+  cleared: r.cleared ?? null,
   at: r.at,
   store: r.store ?? '',
   pharmacist: r.pharmacist ?? '',

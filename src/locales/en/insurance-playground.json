@@ -122,6 +122,34 @@
       "deductibleMax": "{{group}} deductible maximum"
     }
   },
+  "flatten": {
+    "title": "Flatten a payer's answer",
+    "hint": "Paste a payer's raw eligibility answer to see the facts HQ reads from it. Nothing is sent to the payer.",
+    "source": "Payer",
+    "sources": {
+      "nphies": "nphies",
+      "bupa": "Bupa"
+    },
+    "memberId": "Member ID (optional)",
+    "policy": "Policy (optional)",
+    "response": "The payer's answer",
+    "responseHint": "One JSON object, as the payer sent it.",
+    "run": "Flatten",
+    "running": "Flattening…",
+    "invalid": "The payer's answer is not valid JSON, so nothing was sent. It must be one JSON object.",
+    "failed": "The playground could not flatten this answer.",
+    "refused": "The playground refused this answer",
+    "denied": "You have no access to the playground.",
+    "facts": "Facts in the answer",
+    "none": "The answer holds no eligibility fact.",
+    "key": "Fact key",
+    "type": "Type",
+    "value": "Value",
+    "use": "Use these facts",
+    "useHint": "Replaces every eligibility fact of the experiment with these. An edit you make afterwards is kept.",
+    "used": "These are now the experiment's eligibility facts.",
+    "dataInvalid": "The data is not valid JSON, so the facts cannot be put in it."
+  },
   "rule": {
     "title": "Rule",
     "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling.",

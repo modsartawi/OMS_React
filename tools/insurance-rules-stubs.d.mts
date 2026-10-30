@@ -244,7 +244,7 @@ export declare function simulatorStub(
 ): FulfillArg | null
 
 // --- 677 ---
-export declare function newPlaygroundStore(): { evaluates: unknown[] }
+export declare function newPlaygroundStore(): { evaluates: unknown[]; flattens: unknown[] }
 export declare function evaluatePlayground(body: unknown): unknown
 export declare function playgroundStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null
 
@@ -255,3 +255,5 @@ export declare function playgroundReadsStub(method: string, path: string, body: 
 export declare function playgroundVerdict(body: unknown, reply: unknown): unknown
 // --- 690 ---
 export declare function playgroundCompareStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null
+// --- 685 ---
+export declare const NPHIES_ANSWER: Record<string, unknown>

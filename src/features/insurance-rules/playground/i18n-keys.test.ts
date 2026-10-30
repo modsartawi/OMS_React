@@ -17,6 +17,7 @@ import { SAID_KEYS } from './experiment-store'
 import { DATA_TABS, type ExperimentBox } from './experiment'
 import { FACT_TYPES, HISTORY_FIELDS, LINE_FIELDS, PATIENT_FIELDS, REFERENCE_TABLES, REQUEST_FIELDS } from './data-form'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
+import { FLATTEN_SOURCES } from './flatten'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -129,6 +130,15 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...['data', 'raw', 'rule', 'refused'].map((k) => `b.${k}`),
       ...['differs', 'onlyA', 'onlyB'].map((k) => `mark.${k}`),
     ].map((k) => `compare.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('685: the Flatten panel, every source, and its words', (locale) => {
+    const keys = [
+      ...['title', 'hint', 'source', 'memberId', 'policy', 'response', 'responseHint', 'run', 'running', 'invalid', 'failed', 'refused', 'denied'],
+      ...['facts', 'none', 'key', 'type', 'value', 'use', 'useHint', 'used', 'dataInvalid'],
+      ...FLATTEN_SOURCES.map((s) => `sources.${s}`),
+    ].map((k) => `flatten.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

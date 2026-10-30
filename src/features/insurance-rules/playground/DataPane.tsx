@@ -6,6 +6,7 @@ import type { PlaygroundKind } from '@/core/insurance-rules/playground'
 import { formFromText, formText, type DataForm } from './data-form'
 import { DataFormView } from './DataFormView'
 import { DATA_TABS, type DataTab } from './experiment'
+import { FlattenPanel } from './FlattenPanel'
 import { JsonPane } from './JsonPane'
 
 /**
@@ -16,6 +17,9 @@ import { JsonPane } from './JsonPane'
  * The data box's text is the one source of truth. A form edit writes the whole data back to it at once; the form the
  * user is typing in is kept beside the text it wrote (so a half-typed attribute row or "E11, " survives), and any
  * other change to the text — the JSON tab, a kind switch — re-reads the form from it.
+ *
+ * Under Form and JSON sits 685's Flatten panel: "Use these facts" writes the data box like any other change, so the
+ * form re-reads it. It is hidden (not unmounted) on Raw, which sends its own text, so its answer survives the switch.
  */
 export function DataPane({
   kind,
@@ -57,7 +61,7 @@ export function DataPane({
   )
   const hint = tab === 'raw' ? t('data.rawHint') : tab === 'form' ? t('data.formHint') : t('data.hint')
   return (
-    <JsonPane box="data" title={t('data.title')} hint={hint} value={dataText} onChange={onDataText} invalid={invalid} tabs={tabs}>
+    <JsonPane box="data" title={t('data.title')} hint={hint} value={dataText} onChange={onDataText} invalid={invalid} tabs={tabs} after={<div hidden={tab === 'raw'}><FlattenPanel dataText={dataText} onDataText={onDataText} /></div>}>
       {tab === 'raw' ? (
         <Textarea
           id="playground-data"

@@ -18,6 +18,7 @@ export function JsonPane({
   invalid,
   tabs,
   before,
+  after,
   children,
 }: {
   box: ExperimentBox
@@ -29,6 +30,8 @@ export function JsonPane({
   tabs?: ReactNode
   /** Drawn above the box (679's ruleset editors, which stay in step with it). */
   before?: ReactNode
+  /** Drawn under the box (685's Flatten panel). */
+  after?: ReactNode
   children?: ReactNode
 }) {
   const { t } = useTranslation('insurance-playground')
@@ -60,6 +63,7 @@ export function JsonPane({
           )}
         </>
       )}
+      {after}
     </section>
   )
 }

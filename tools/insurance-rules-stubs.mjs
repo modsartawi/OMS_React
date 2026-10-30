@@ -2173,7 +2173,7 @@ export function simulatorStub(method, path, body, opts = {}) {
 // unknown. Any other `check` is a reader error at `rules[i].when[j].check`. Data with no `lines` array is the refusal
 // `PLAYGROUND_DATA_INVALID`. `opts.deny` with 'evaluate' answers a bare 403.
 
-export const newPlaygroundStore = () => ({ evaluates: [] })
+export const newPlaygroundStore = () => ({ evaluates: [], flattens: [] })
 
 const PLAYGROUND_TESTS = { above: (v, n) => v > n, atLeast: (v, n) => v >= n, under: (v, n) => v < n }
 const PLAYGROUND_SIGN = { above: '>', atLeast: '≥', under: '<' }
@@ -2213,6 +2213,7 @@ export function evaluatePlayground(body) {
 
 export function playgroundStub(method, path, body, opts = {}) {
   const { store = newPlaygroundStore(), deny = [] } = opts
+  if (method === 'POST' && path === 'InsuranceRules/Playground/Flatten') return flattenStub(body, store, deny)
   if (method === 'POST' && path === 'InsuranceRules/Playground/Evaluate') {
     store.evaluates.push(body)
     if (deny.includes('evaluate')) return { status: 403, body: '' }
@@ -2410,4 +2411,35 @@ export function playgroundCompareStub(method, path, body, opts = {}) {
   const hit = playgroundStub(method, path, body, opts)
   if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
   return envelope(playgroundVerdict(body, evaluatePlaygroundWithReads(body)))
+}
+
+// --- 685 --- Flatten (BackOffice 3247), as the brief's CONTRACT draws it (691 reconciles — the brief's spec body names
+// only `{ response }`):
+//   POST InsuranceRules/Playground/Flatten { source: nphies|bupa, response, memberId, policy }
+//     → { facts: [{ key, type, value, unit }] }
+// nphies: the answer must be a FHIR Bundle (`resourceType: "Bundle"`), else PLAYGROUND_FLATTEN_UNREADABLE; its facts
+// are fixed (approval limit 10000 SAR on benefit 66, member active, coverage end, plan name). The member id, when
+// given, is echoed as a `member.id` text fact. bupa: one fact. `deny` with 'flatten' answers a bare 403.
+export const NPHIES_ANSWER = {
+  resourceType: 'Bundle',
+  type: 'message',
+  entry: [{ resource: { resourceType: 'CoverageEligibilityResponse', outcome: 'complete', insurance: [{ inforce: true, item: [{ category: { coding: [{ code: '66' }] } }] }] } }],
+}
+
+function flattenStub(body, store, deny) {
+  ;(store.flattens ??= []).push(body)
+  if (deny.includes('flatten')) return { status: 403, body: '' }
+  if (body?.source === 'nphies' && body?.response?.resourceType !== 'Bundle')
+    return envelope(null, { status: 400, success: false, message: 'The nphies answer is not a FHIR bundle.', errorCode: 'PLAYGROUND_FLATTEN_UNREADABLE' })
+  const facts =
+    body?.source === 'bupa'
+      ? [{ key: 'member.active', type: 'flag', value: true, unit: null }]
+      : [
+          { key: 'benefit[66].approvalLimit', type: 'number', value: 10000, unit: 'SAR' },
+          { key: 'member.active', type: 'flag', value: true, unit: null },
+          { key: 'coverage.end', type: 'date', value: '2026-12-31', unit: null },
+          { key: 'plan.name', type: 'text', value: 'Gold', unit: null },
+        ]
+  if (body?.memberId) facts.push({ key: 'member.id', type: 'text', value: body.memberId, unit: null })
+  return envelope({ facts })
 }

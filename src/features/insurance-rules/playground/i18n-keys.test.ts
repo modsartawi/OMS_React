@@ -15,7 +15,7 @@ import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
 import { EXPERIMENT_REFUSALS } from '@/core/insurance-rules/experiment'
 import { SAID_KEYS } from './experiment-store'
 import { DATA_TABS, type ExperimentBox } from './experiment'
-import { LINE_FIELDS, PATIENT_FIELDS, REQUEST_FIELDS } from './data-form'
+import { FACT_TYPES, HISTORY_FIELDS, LINE_FIELDS, PATIENT_FIELDS, REFERENCE_TABLES, REQUEST_FIELDS } from './data-form'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
@@ -106,6 +106,20 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...['invalid', 'unshaped'].map((k) => `form.problem.${k}`),
       ...[...REQUEST_FIELDS, ...PATIENT_FIELDS, ...LINE_FIELDS].map((f) => `form.fields.${f}`),
     ].map((k) => `data.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('683: history, reference rows, eligibility facts, the payer, and "none"', (locale) => {
+    const keys = [
+      ...['history', 'historyHint', 'historyNone', 'event', 'eventRemove', 'addEvent'],
+      ...['reference', 'referenceHint', 'referenceNone', 'refTable', 'refCode', 'refRow', 'refRemove', 'addRef', 'refFields', 'refFieldsHint'],
+      ...['fieldKey', 'fieldValue', 'fieldRemove', 'addField'],
+      ...['eligibility', 'eligibilityHint', 'eligibilityNone', 'factKey', 'factType', 'factValue', 'factUnit', 'factFlagHint', 'factRemove', 'addFact'],
+      ...['payer', 'payerHint', 'deductiblePercent', 'deductibleMax'],
+      ...REFERENCE_TABLES.map((x) => `tables.${x}`),
+      ...FACT_TYPES.map((x) => `types.${x}`),
+      ...HISTORY_FIELDS.map((f) => `fields.${f}`),
+    ].map((k) => `data.form.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

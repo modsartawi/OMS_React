@@ -3,7 +3,7 @@
  * reader error's path placed on the block it names.
  */
 import { describe, expect, it } from 'vitest'
-import { errorAtBlock, moveSlot, printRuleset, readRuleset, rulesetIssues } from './ruleset'
+import { addSlot, errorAtBlock, moveSlot, printRuleset, readRuleset, rulesetIssues, rulesetLists } from './ruleset'
 
 const DOC = {
   schema: 1,
@@ -122,5 +122,107 @@ describe('rulesetIssues', () => {
       { ruleId: 'G-1', blockPath: 'when[0]', field: 'below', severity: 'error', en: 'bad bound', ar: 'bad bound' },
       { ruleId: 'G-1', blockPath: 'when[1]', field: 'value', severity: 'error', en: 'bad age', ar: 'bad age' },
     ])
+  })
+})
+
+// ── 680: coverage and category ──────────────────────────────────────────────────────────────
+
+const LISTS = [{ id: 'L-INS', name: { en: 'Insulin', ar: 'إنسولين' }, filters: [{ articles: ['200021'], categories: [], attributes: [] }], include: [], exclude: [] }]
+
+const COVERAGE = {
+  schema: 1,
+  kind: 'coverage',
+  revision: 0,
+  fields: [],
+  lists: LISTS,
+  rules: [
+    { id: 'C-1', name: { en: 'Insulin cap', ar: 'سقف' }, when: [{ check: 'line', inList: 'L-INS' }], then: [{ effect: 'quantityCap', value: 1 }] },
+    { id: 'C-2', when: [{ check: 'line', field: 'daysSupply', under: 30 }], then: [{ effect: 'deductible', percent: 10, overridesPayer: true }] },
+  ],
+}
+
+const CATEGORY = {
+  schema: 1,
+  kind: 'category',
+  revision: 0,
+  rules: [
+    { id: 'K-1', name: { en: 'Long', ar: 'طويل' }, when: [{ check: 'line', field: 'daysSupply', above: 90 }], then: [{ effect: 'setCategory', group: 'G2' }] },
+    { id: 'K-2', state: 'live', when: [], then: [{ effect: 'setCategory', group: 'G3' }] },
+  ],
+}
+
+describe('rulesetRoundTrip — coverage and category', () => {
+  it('a coverage document is read into the editors and printed back unchanged, its lists kept', () => {
+    const read = readRuleset('coverage', JSON.stringify(COVERAGE))
+    if (!read.ok) throw new Error('should read')
+    expect(read.slots.map((s) => s.editable)).toEqual([true, true])
+    expect(JSON.stringify(JSON.parse(printRuleset(read)))).toBe(JSON.stringify(COVERAGE))
+  })
+
+  it('a category document is read into the editors and printed back unchanged', () => {
+    const read = readRuleset('category', JSON.stringify(CATEGORY))
+    if (!read.ok) throw new Error('should read')
+    expect(read.slots.map((s) => s.editable)).toEqual([true, true])
+    expect(JSON.stringify(JSON.parse(printRuleset(read)))).toBe(JSON.stringify(CATEGORY))
+  })
+
+  it('moving a category rule first is the only change printed', () => {
+    const read = readRuleset('category', JSON.stringify(CATEGORY))
+    if (!read.ok) throw new Error('should read')
+    const printed = JSON.parse(printRuleset({ ...read, slots: moveSlot(read.slots, 1, 0) }))
+    expect(printed).toEqual({ ...CATEGORY, rules: [CATEGORY.rules[1], CATEGORY.rules[0]] })
+  })
+
+  it('an editor edit of a coverage rule prints in the engine spelling and keeps its lists', () => {
+    const read = readRuleset<{ id: string; when: unknown[]; then: unknown[] }>('coverage', JSON.stringify(COVERAGE))
+    if (!read.ok) throw new Error('should read')
+    const s = read.slots[1]
+    if (!s.editable) throw new Error('editable')
+    const edited = { ...s, rule: { ...s.rule, when: [{ check: 'line', field: 'daysSupply', below: 14 }] } }
+    const printed = JSON.parse(printRuleset({ ...read, slots: [read.slots[0], edited] }))
+    expect(printed.lists).toEqual(LISTS)
+    expect(printed.rules[1]).toEqual({ ...COVERAGE.rules[1], when: [{ check: 'line', field: 'daysSupply', under: 14 }] })
+  })
+
+  it('an unknown block, an unknown effect or an effect the editors do not draw keeps the rule JSON-only, byte-for-byte', () => {
+    const odd = [
+      { id: 'C-7', when: [{ check: 'mystery', zeta: 1 }], then: [{ effect: 'covered', value: true }] },
+      { id: 'C-8', when: [], then: [{ effect: 'refund', value: 3 }] },
+      { id: 'C-9', when: [], then: [{ effect: 'quantityCap', value: 'one' }] },
+      { id: 'C-10', when: [], then: [{ effect: 'covered', value: true }, { effect: 'covered', value: false }] },
+    ]
+    const doc = { ...COVERAGE, rules: [...odd, COVERAGE.rules[0]] }
+    const read = readRuleset('coverage', JSON.stringify(doc))
+    if (!read.ok) throw new Error('should read')
+    expect(read.slots.map((s) => s.editable)).toEqual([false, false, false, false, true])
+    expect(JSON.stringify(JSON.parse(printRuleset(read)))).toBe(JSON.stringify(doc))
+    const cat = readRuleset('category', JSON.stringify({ ...CATEGORY, rules: [{ id: 'K-9', when: [], then: [{ effect: 'setCategory', group: 'G7' }] }, { id: 'K-8', when: [], then: [] }] }))
+    expect(cat.ok && cat.slots.map((s) => s.editable)).toEqual([false, false])
+  })
+
+  it('a new rule of the kind is appended with a fresh id and its blank effect', () => {
+    const cat = readRuleset('category', JSON.stringify(CATEGORY))
+    const cov = readRuleset('coverage', JSON.stringify(COVERAGE))
+    if (!cat.ok || !cov.ok) throw new Error('should read')
+    const k = JSON.parse(printRuleset({ ...cat, slots: addSlot('category', cat.slots) })).rules[2]
+    expect(k).toMatchObject({ id: 'K-003', when: [], then: [{ effect: 'setCategory', group: 'G2' }] })
+    const c = JSON.parse(printRuleset({ ...cov, slots: addSlot('coverage', cov.slots) })).rules[2]
+    expect(c).toMatchObject({ id: 'C-003', when: [], then: [] })
+  })
+
+  it('the lists the conditions name are the document\'s own, per kind', () => {
+    const cov = readRuleset('coverage', JSON.stringify(COVERAGE))
+    const cat = readRuleset('category', JSON.stringify(CATEGORY))
+    expect(cov.ok && rulesetLists(cov).map((l) => l.id)).toEqual(['L-INS'])
+    expect(cat.ok && rulesetLists(cat)).toEqual([])
+  })
+
+  it('a reader error on a coverage block is placed on it', () => {
+    const read = readRuleset('coverage', JSON.stringify(COVERAGE))
+    if (!read.ok) throw new Error('should read')
+    const { perRule, rest } = rulesetIssues([{ path: 'rules[0].when[0].inList', message: 'no list' }, { path: 'rules[1].then[0].percent', message: 'bad' }], read.slots)
+    expect(rest).toEqual([])
+    expect(perRule[0]).toEqual([{ ruleId: 'C-1', blockPath: 'when[0]', field: 'inList', severity: 'error', en: 'no list', ar: 'no list' }])
+    expect(perRule[1]).toEqual([{ ruleId: 'C-2', blockPath: 'then[0]', field: 'percent', severity: 'error', en: 'bad', ar: 'bad' }])
   })
 })

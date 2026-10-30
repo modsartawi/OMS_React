@@ -170,7 +170,7 @@ export function guardRuleOut(rule: GuardRule): Obj {
 }
 
 /** A category / coverage rule: the guard rule's blocks, no filters, no `onUnknown`. */
-function otherRuleIn(raw: unknown): unknown {
+export function otherRuleIn(raw: unknown): unknown {
   if (!isObj(raw)) return raw
   const out: Obj = { ...raw, when: arr(raw.when).map(conditionIn), then: arr(raw.then) }
   if ('audience' in raw) out.audience = audienceIn(raw.audience)

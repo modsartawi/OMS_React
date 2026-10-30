@@ -5,6 +5,8 @@ import { createContext, useContext } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
+import { blockKey, type ChecksIndex } from '@/core/insurance-rules/checks'
+import { Issues } from '@/core/insurance-rules/controls'
 import { addCondition, canAddGroup, removeCondition, toggleNot, updateCondition, type ConditionPath } from '@/core/insurance-rules/guard-edit'
 import {
   ELIGIBILITY_BOUNDS,
@@ -43,6 +45,8 @@ type Edit = (fn: (when: GuardCondition[]) => GuardCondition[], coalesce?: string
 
 /** The document's own item lists, for the item-list rows and the palette. */
 const DocLists = createContext<readonly GuardList[]>([])
+/** Issues placed on the blocks (oms 680: the rule playground's reader errors); none on the rule screens. */
+const BlockChecks = createContext<ChecksIndex | null>(null)
 
 const PALETTE = ['fact', 'item', 'policy', 'class', 'patient', 'group'] as const
 const pathKey = (p: ConditionPath) => p.join('.')
@@ -60,11 +64,23 @@ function newBlock(kind: (typeof PALETTE)[number], fields: readonly RegistryField
 
 const NO_LISTS: readonly GuardList[] = []
 
-export default function RuleConditions({ when, edit, lists = NO_LISTS }: { when: GuardCondition[]; edit: Edit; lists?: readonly GuardList[] }) {
+export default function RuleConditions({
+  when,
+  edit,
+  lists = NO_LISTS,
+  checks = null,
+}: {
+  when: GuardCondition[]
+  edit: Edit
+  lists?: readonly GuardList[]
+  /** oms 680: issues to show on their block (`blockKey('when', path)`), as the guard condition editor marks them. */
+  checks?: ChecksIndex | null
+}) {
   const { t } = useTranslation('insurance-coverage')
   return (
     // oms 658: drag and drop and the condition tools, each move one edit of the rule.
     <DocLists.Provider value={lists}>
+    <BlockChecks.Provider value={checks}>
     <TreeToolsProvider when={when} apply={(fn) => edit(fn)}>
     <div className="flex flex-col gap-2" data-conditions-editor="">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,6 +95,7 @@ export default function RuleConditions({ when, edit, lists = NO_LISTS }: { when:
       <List when={when} list={when} parent={[]} edit={edit} />
     </div>
     </TreeToolsProvider>
+    </BlockChecks.Provider>
     </DocLists.Provider>
   )
 }
@@ -130,6 +147,8 @@ function Add({ when, parent, edit }: { when: GuardCondition[]; parent: Condition
 
 function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardCondition; path: ConditionPath; edit: Edit }) {
   const { t } = useTranslation('insurance-coverage')
+  const issues = useContext(BlockChecks)?.blocks.get(blockKey('when', path)) ?? []
+  const marked = issues.length > 0
   const head = (
     <>
       <SelectTick path={path} />
@@ -155,7 +174,7 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
   )
   if (c.check === 'group')
     return (
-      <div className="flex flex-col gap-2 rounded-e-md border-s-[3px] border-primary bg-muted/40 p-2" data-group={pathKey(path)} data-mode={c.mode} data-not={c.not ? 'true' : 'false'}>
+      <div className={`flex flex-col gap-2 rounded-e-md border-s-[3px] bg-muted/40 p-2 ${marked ? 'border-danger-border' : 'border-primary'}`} data-group={pathKey(path)} data-mode={c.mode} data-not={c.not ? 'true' : 'false'}>
         <div className="flex flex-wrap items-center gap-2">
           {head}
           <div className="inline-flex gap-1" role="group" aria-label={t('conditions.mode')}>
@@ -175,19 +194,25 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
             {remove}
           </span>
         </div>
+        <Issues issues={issues} hook={pathKey(path)} />
         <div className="ps-2">
           <List when={when} list={c.conditions} parent={path} edit={edit} />
         </div>
       </div>
     )
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2" data-block={pathKey(path)} data-check={requestListField(c) ?? c.check} data-not={c.not ? 'true' : 'false'}>
+    <div className={`flex flex-wrap items-center gap-2 rounded-md border bg-card p-2 ${marked ? 'border-danger-border' : 'border-border'}`} data-block={pathKey(path)} data-check={requestListField(c) ?? c.check} data-not={c.not ? 'true' : 'false'}>
       {head}
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <Leaf c={c} path={path} edit={edit} />
       </div>
       <ConditionTools path={path} />
       {remove}
+      {marked && (
+        <div className="basis-full">
+          <Issues issues={issues} hook={pathKey(path)} />
+        </div>
+      )}
     </div>
   )
 }

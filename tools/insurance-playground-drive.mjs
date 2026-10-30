@@ -1,4 +1,4 @@
-// Insurance rules ▸ Playground drive (BackOffice spec 3243, doors 3244 + 3245; oms tickets 677, 678).
+// Insurance rules ▸ Playground drive (BackOffice spec 3243, doors 3244 + 3245; oms tickets 677, 678, 679, 680).
 //
 // Drives the REAL app in Chromium against STUBS on the REAL envelope (`tools/insurance-rules-stubs.mjs`, section 677):
 //   POST InsuranceRules/Playground/Evaluate { kind, data, document, asOf } → evaluatePlayground(body)
@@ -20,7 +20,11 @@
 //       12. Tab B per kind: guard outcome + fired rules; switch to category → each line's category, group, who set
 //           it; switch to coverage → the data carries the payer, each value with its source, money as 0.00.
 //
-// Stub section 678 (`playgroundVerdict`) answers the verdict; the slow reply is this drive's own route delay.
+//   680: 20. category: two rules in either order change Tab B's category (first match), the group picked in the
+//            editor; 21. coverage: an in-list rule picks from the document's lists, edits and runs; 22. its reader
+//            error on its block; 23. an effect the editors cannot show is JSON-only.
+//
+// Stub section 678 (`playgroundVerdict`) answers the verdict; 680 evaluates an in-list block; the slow reply is this drive's own route delay.
 //
 //   1. run the app:  npx vite --port 5377 --strictPort
 //   2. node tools/insurance-playground-drive.mjs        (DRIVE_PORT overrides 5377)
@@ -330,9 +334,83 @@ for (const dir of ['ltr', 'rtl']) {
     await sleep(300)
     check(`${dir} 19. fixed: enabled again`, (await page.locator('fieldset[data-ruleset][disabled]').count()) === 0 && (await page.locator('[data-rule-slot]').count()) === 1)
 
-    // 20. coverage has no editors yet (680): the JSON box alone
-    await editAndWait(page, store, () => page.locator('[data-kind="coverage"]').click(), null)
-    check(`${dir} 20. coverage: no ruleset editors yet`, (await page.locator('[data-ruleset]').count()) === 0 && (await box(page, 'document').count()) === 1)
+    // ── 680 ── coverage and category mini rulesets, built with their real editors, the JSON in step
+    // 20. category: two rules, the first match sets the category, so the order is what Tab B shows
+    await page.locator('[data-tab="live"]').click()
+    await editAndWait(page, store, () => page.locator('[data-kind="category"]').click(), '[data-verdict="category"]')
+    const cat0 = await docText(page)
+    const K1 = { id: 'K-1', name: { en: 'Long supply', ar: 'صرف طويل' }, when: [{ check: 'line', field: 'daysSupply', above: 90 }], then: [{ effect: 'setCategory', group: 'G2' }] }
+    const K2 = { id: 'K-2', when: [{ check: 'line', field: 'daysSupply', above: 30 }], then: [{ effect: 'setCategory', group: 'G3' }] }
+    const catLine = page.locator('[data-category-line="1"]')
+    const catBy = async () => ({
+      group: await catLine.locator('[data-group]').first().getAttribute('data-group').catch(() => null),
+      rule: strip(await catLine.locator('[data-rule-id]').innerText().catch(() => '')),
+    })
+    await editAndWait(page, store, () => setDoc(page, { ...cat0, rules: [K1, K2] }), null)
+    check(`${dir} 20. category: two rules, both drawn with the category editors`, (await page.locator('[data-rule-slot]').count()) === 2 && (await page.locator('[data-rule-slot][data-editable="true"] [data-rule-kind="category"]').count()) === 2)
+    check(`${dir} 20. category: the first-match order is said above the rules`, (await page.locator('[data-ruleset-order="category"]').count()) === 1)
+    check(`${dir} 20. category: each rule's group is picked in its editor`, (await slot(0).locator('[data-group-pick="G2"][aria-checked="true"]').count()) === 1 && (await slot(1).locator('[data-group-pick="G3"][aria-checked="true"]').count()) === 1)
+    check(`${dir} 20. category: the rule reads as words`, strip(await slot(0).locator('[data-reads-then]').innerText()).includes('G2'))
+    let by = await catBy()
+    check(`${dir} 20. category: K-1 first → Brand G2 by K-1`, by.group === 'G2' && by.rule.includes('K-1'), JSON.stringify(by))
+    await editAndWait(page, store, () => page.locator('[data-move-up="1"]').click(), null)
+    doc = await docText(page)
+    check(`${dir} 20. category: move K-2 up, the JSON order follows`, JSON.stringify(doc.rules.map((r) => r.id)) === '["K-2","K-1"]', JSON.stringify(doc.rules.map((r) => r.id)))
+    check(`${dir} 20. category: both rules kept as written`, JSON.stringify(doc.rules) === JSON.stringify([K2, K1]))
+    by = await catBy()
+    check(`${dir} 20. category: K-2 first → NonMed G3 by K-2`, by.group === 'G3' && by.rule.includes('K-2'), JSON.stringify(by))
+    await editAndWait(page, store, () => slot(0).locator('[data-group-pick="G1"]').click(), null)
+    doc = await docText(page)
+    check(`${dir} 20. category: picking Generic writes G1 in the JSON`, doc.rules[0].then[0].group === 'G1' && JSON.stringify(doc.rules[1]) === JSON.stringify(K1), JSON.stringify(doc.rules[0].then))
+    by = await catBy()
+    check(`${dir} 20. category: and Tab B follows: G1 by K-2`, by.group === 'G1' && by.rule.includes('K-2'), JSON.stringify(by))
+    await editAndWait(page, store, () => page.locator('[data-add-rule]').click(), '[data-rule-slot="2"]')
+    doc = await docText(page)
+    check(`${dir} 20. category: a new rule is K-003, last, setting Brand`, doc.rules.length === 3 && doc.rules[2].id === 'K-003' && doc.rules[2].then[0].group === 'G2', JSON.stringify(doc.rules[2]))
+    await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-category-ruleset.png`, fullPage: true }).catch(() => {})
+
+    // 21. coverage: a rule on an in-list condition, the document's lists offered to it; it edits and runs
+    await editAndWait(page, store, () => page.locator('[data-kind="coverage"]').click(), '[data-verdict="coverage"]')
+    const cov0 = await docText(page)
+    const LISTS = [
+      { id: 'L-INS', name: { en: 'Insulin', ar: 'إنسولين' }, filters: [{ articles: ['200021'], categories: [], attributes: [] }], include: [], exclude: [] },
+      { id: 'L-OTHER', name: { en: 'Other', ar: 'أخرى' }, filters: [{ articles: ['999999'], categories: [], attributes: [] }], include: [], exclude: [] },
+    ]
+    const C1 = { id: 'C-1', name: { en: 'Insulin cap', ar: 'سقف الإنسولين' }, when: [{ check: 'line', inList: 'L-INS' }], then: [{ effect: 'quantityCap', value: 2 }] }
+    const qtyOf = page.locator('[data-coverage="line-1"] [data-coverage-value="quantityCap"]')
+    const qty = async () => ({ source: await qtyOf.getAttribute('data-source').catch(() => null), value: strip(await qtyOf.locator('[data-value]').innerText().catch(() => '')) })
+    const itemList = () => slot(0).locator('[data-block="0"] select[data-input="itemList"]')
+    await editAndWait(page, store, () => setDoc(page, { ...cov0, lists: LISTS, rules: [C1] }), null)
+    check(`${dir} 21. coverage: the rule is drawn with the coverage editors`, (await slot(0).getAttribute('data-editable')) === 'true' && (await slot(0).locator('[data-rule-kind="coverage"] [data-coverage-effect]').count()) === 1)
+    check(`${dir} 21. coverage: the order rule is said above the rules`, (await page.locator('[data-ruleset-order="coverage"]').count()) === 1)
+    check(`${dir} 21. coverage: the in-list block picks from the document's lists`, (await itemList().inputValue()) === 'L-INS' && (await itemList().locator('option').count()) === 2)
+    check(`${dir} 21. coverage: the sentence view reads the rule`, (await slot(0).locator('[data-rule-words] [data-sentence]').count()) >= 1)
+    let q = await qty()
+    check(`${dir} 21. coverage: it runs: quantity cap 2 from C-1`, q.source === 'rule' && q.value === '2', JSON.stringify(q))
+    await editAndWait(page, store, () => slot(0).locator('[data-coverage-effect] [data-input="value"]').fill('3'), null)
+    doc = await docText(page)
+    check(`${dir} 21. coverage: the editor's 3 is in the JSON, the lists kept`, doc.rules[0].then[0].value === 3 && JSON.stringify(doc.lists) === JSON.stringify(LISTS), JSON.stringify(doc.rules[0].then))
+    q = await qty()
+    check(`${dir} 21. coverage: and Tab B follows: 3`, q.source === 'rule' && q.value === '3', JSON.stringify(q))
+    await editAndWait(page, store, () => itemList().selectOption('L-OTHER'), null)
+    doc = await docText(page)
+    check(`${dir} 21. coverage: picking the other list writes it`, doc.rules[0].when[0].inList === 'L-OTHER', JSON.stringify(doc.rules[0].when))
+    q = await qty()
+    check(`${dir} 21. coverage: the item is not in it: no cap`, q.source === 'none', JSON.stringify(q))
+
+    // 22. coverage: a reader error lands on its block (the stub refuses a patient block)
+    await editAndWait(page, store, () => slot(0).locator('select[data-add-condition=""]').selectOption('patient'), '[data-rule-slot="0"] [data-issues="1"]')
+    const covErr = slot(0).locator('[data-block="1"] [data-issues="1"] [data-issue="error"]')
+    check(`${dir} 22. coverage: the error is on block 1`, (await covErr.count()) === 1 && strip(await covErr.innerText()) === 'Unknown check "patient".')
+    check(`${dir} 22. coverage: the block is marked`, /border-danger/.test((await slot(0).locator('[data-block="1"]').getAttribute('class')) ?? ''))
+    check(`${dir} 22. coverage: shown on its block, not in the list`, (await page.locator('[data-errors-on-blocks="1"]').count()) === 1 && (await page.locator('[data-reader-error]').count()) === 0)
+
+    // 23. coverage: an effect the editors cannot show keeps the rule JSON-only, sent as written
+    const oddC = { id: 'C-9', when: [], then: [{ effect: 'refund', value: 3 }] }
+    await editAndWait(page, store, () => setDoc(page, { ...cov0, lists: LISTS, rules: [C1, oddC] }), null)
+    check(`${dir} 23. coverage: the odd rule is JSON-only, with a note`, (await slot(1).getAttribute('data-editable')) === 'false' && (await slot(1).locator('[data-json-only]').count()) === 1)
+    check(`${dir} 23. coverage: it was sent as written`, JSON.stringify(store.evaluates.at(-1)?.document?.rules?.[1]) === JSON.stringify(oddC))
+    await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-coverage-ruleset.png`, fullPage: true }).catch(() => {})
 
     check(`${dir} 13. no raw keys`, await noRawKeys(page))
     check(`${dir} 13. no page errors`, errors.length === 0, errors.join(' | '))

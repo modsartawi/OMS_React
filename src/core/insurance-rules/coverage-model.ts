@@ -154,3 +154,31 @@ export interface CategorySimulateResult {
   version: number | null
   lines: CategoryLine[]
 }
+
+// ── New rules (oms 617; moved to core in oms 680 for the rule playground) ─────────────────────────
+
+const PREFIX: Record<InsuranceRuleKind, string> = { category: 'K', coverage: 'C' }
+
+/**
+ * The next free id: `K-` (category) or `C-` (coverage) and one past the highest, three digits.
+ * ⚠️ Still a guess (617, as 608's guard ids): no door mints one; HQ's seeded coverage ids are words (C-ELITE),
+ * which this skips.
+ */
+export function nextRuleId(rules: readonly { id: string }[], kind: InsuranceRuleKind): string {
+  const re = new RegExp(`^${PREFIX[kind]}-(\\d+)$`)
+  let high = 0
+  for (const r of rules) {
+    const m = re.exec(r.id)
+    if (m) high = Math.max(high, Number(m[1]))
+  }
+  return `${PREFIX[kind]}-${String(high + 1).padStart(3, '0')}`
+}
+
+/** A blank draft rule: no condition (it would match every line), no folder; a category rule sets Brand (G2), the commonest case. */
+export function newRule(id: string, kind: 'category'): CategoryRule
+export function newRule(id: string, kind: 'coverage'): CoverageRule
+export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule
+export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule {
+  const base = { id, name: { en: '', ar: '' }, state: 'draft' as const, when: [] }
+  return kind === 'category' ? { ...base, then: [{ effect: 'setCategory', group: 'G2' }] } : { ...base, then: [] }
+}

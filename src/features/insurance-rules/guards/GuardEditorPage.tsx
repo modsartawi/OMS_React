@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ArrowLeft, CircleCheck, Loader2, Redo2, Undo2 } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
@@ -11,6 +11,7 @@ import { checksVerdict, indexChecks, type GuardIssue } from '@/core/insurance-ru
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorHistory, type EditorAction } from '@/core/insurance-rules/editor-history'
 import { editGuard, newGuardRule, nextGuardId } from '@/core/insurance-rules/guard-edit'
 import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import { readRejectionSeed, seededGuardDraft } from '@/core/insurance-rules/rejection-draft'
 import { codesHoldSave, sameNamedRules } from '@/core/insurance-rules/rule-checks'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
@@ -99,10 +100,12 @@ function Editor({
   const queryClient = useQueryClient()
   const isNew = ruleId === null
   const [id] = useState(() => ruleId ?? nextGuardId(doc.rules))
+  // 709: a coded rejection row opens this editor seeded; unsaved like any new rule until the author saves it.
+  const seed = readRejectionSeed(useLocation().state)
   const [h, dispatch] = useReducer(
     editorHistory as (h: EditorHistory<GuardRuleset>, a: EditorAction<GuardRuleset>) => EditorHistory<GuardRuleset>,
     null,
-    () => initialEditorHistory(doc, isNew ? { ...doc, rules: [...doc.rules, newGuardRule(id)] } : doc),
+    () => initialEditorHistory(doc, !isNew ? doc : seed ? seededGuardDraft(doc, id, seed) : { ...doc, rules: [...doc.rules, newGuardRule(id)] }),
   )
   const [checks, setChecks] = useState<Checks>(null)
   const [stale, setStale] = useState<string | null>(null)
@@ -164,7 +167,8 @@ function Editor({
 
   const cancel = () => {
     dispatch({ type: 'cancel' })
-    if (isNew) navigate(guardsPath())
+    // 709: once the state is clean, not here: a direct navigate is held by the leave guard, which the next render unmounts.
+    if (isNew) setMoveTo(guardsPath())
   }
 
   const index = useMemo(() => (rule ? indexChecks(checks?.issues ?? [], rule) : null), [checks, rule])
@@ -194,6 +198,11 @@ function Editor({
       {pending && (
         <p className="rounded-md border border-border bg-attention-050 p-2 text-sm text-attention-800" role="status" data-draft-pending="">
           {t('editor.pending')}
+        </p>
+      )}
+      {isNew && seed && (
+        <p className="rounded-md border border-border bg-attention-050 p-2 text-sm text-attention-800" role="status" data-from-rejection="">
+          {t('editor.fromRejection')}
         </p>
       )}
       <header className="flex flex-col gap-2" data-editor-header="">

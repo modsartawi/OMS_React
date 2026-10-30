@@ -665,7 +665,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               })}
             </Select>
           </Field>
-          <FhirFactPicker value={c.path} onPick={(row) => set((x) => ({ ...x, ...pickedFact(row) }) as GuardCondition)} />
+          <FhirFactPicker value={c.path} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
           <FactTestFields
             c={c}
             shape={factShapeOf(c, catalog, fields)}

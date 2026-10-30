@@ -6,13 +6,15 @@ import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { loadsQuery } from './api'
+import LabelCuration from './LabelCuration'
 import type { WorkbookLoad } from './labels'
 import WorkbookUpload, { WorkbookName } from './WorkbookUpload'
 
 /**
  * Insurance rules ▸ Code labels — `/insurance-rules/code-labels` (BackOffice spec 3271 L3–L5, oms ticket 706).
  * A grant holder uploads a Nphies workbook, reads the labels it changed and its new change-log rows, and sees
- * every past load: who, when, the file hash and the version. There is no second approver for an upload.
+ * every past load: who, when, the file hash and the version. There is no second approver for an upload. A curated
+ * label does have one: the worklist ranks what lacks Arabic and its rows open the override editor (L12, L13; ticket 707).
  *
  * 🚩 UNGATED: no access probe; a bare 403 on the read is "You do not have access".
  */
@@ -31,6 +33,7 @@ export default function CodeLabelsPage() {
       ) : (
         <>
           <WorkbookUpload />
+          <LabelCuration />
           <section className="flex flex-col gap-2" data-load-log="">
             <h2 className="text-sm font-semibold">{t('log.title')}</h2>
             {loads.isError ? (

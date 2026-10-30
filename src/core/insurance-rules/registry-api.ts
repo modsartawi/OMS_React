@@ -10,7 +10,7 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { Says } from './model'
 import { ESTATE_DEFAULT, type InsurerSettings } from './insurer-settings'
-import type { FhirCatalogRow } from './fhir-catalog'
+import type { FhirCatalogRow, FhirParameterCode } from './fhir-catalog'
 import type { FieldValue, KeyedList, KeyedListKind, RegistryField } from './registry'
 
 const KEYED_LIST_DOOR: Record<KeyedListKind, string> = { patient: 'PatientLists', policy: 'PolicyLists', class: 'ClassLists' }
@@ -46,6 +46,10 @@ export const registryApi = {
   async codeSystemCodes(system: string): Promise<CodeSystemCode[]> {
     return (await api.get<CodeSystemCode[] | null>(`${INSURANCE_RULES_BASE}/CodeSystems/Codes`, { system })) ?? []
   },
+  /** ⚠️ PROVISIONAL (oms 694; 711 reconciles): door 3296's list for a parameter (`category`), from the workbook. */
+  async fhirParameter(parameter: string): Promise<FhirParameterCode[]> {
+    return (await api.get<FhirParameterCode[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog/Parameters/${encodeURIComponent(parameter)}`)) ?? []
+  },
   /** `GET InsuranceRules/Fields/{key}/Values?q=` — code + description, for the picker. */
   async fieldValues(key: string, q: string): Promise<FieldValue[]> {
     return (await api.get<FieldValue[] | null>(`${INSURANCE_RULES_BASE}/Fields/${encodeURIComponent(key)}/Values`, { q })) ?? []
@@ -76,6 +80,10 @@ export function fhirCatalogQuery() {
 
 export function codeSystemCodesQuery(system: string) {
   return { queryKey: [...FIELDS_KEY, 'codeSystem', system] as const, queryFn: () => registryApi.codeSystemCodes(system), retry: false, staleTime: 60_000 } as const
+}
+
+export function fhirParameterQuery(parameter: string) {
+  return { queryKey: [...FIELDS_KEY, 'catalog', 'parameter', parameter] as const, queryFn: () => registryApi.fhirParameter(parameter), retry: false } as const
 }
 
 export function fieldValuesQuery(key: string, q: string) {

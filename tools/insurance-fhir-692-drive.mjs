@@ -122,8 +122,9 @@ for (const dir of ['ltr', 'rtl']) {
 
     // ── 4: a parameterised field ─────────────────────────────────────────────────────────────
     const param = catalogRow(dialog, '$eligibility.benefit[*].copayPct').locator('[data-catalog-pick]')
-    await param.click({ force: true })
-    check(`${dir} 4. a field needing a category stores nothing`, (await param.getAttribute('aria-disabled')) === 'true' && (await dialog.count()) === 1)
+    // 694 lifted the block: Pick now opens the category list (its own drive), and still stores nothing by itself.
+    await param.click()
+    check(`${dir} 4. a field needing a category stores nothing`, (await param.getAttribute('aria-expanded')) === 'true' && (await dialog.count()) === 1)
     await page.keyboard.press('Escape')
     await dialog.waitFor({ state: 'detached', timeout: 5000 })
 

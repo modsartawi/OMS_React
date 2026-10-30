@@ -33,7 +33,26 @@
     "hidePath": "Hide FHIRPath",
     "list": "List",
     "retired": "Retired",
-    "needsParameter": "This field needs a category, which cannot be chosen here yet.",
+    "legacy": {
+      "badge": "Legacy",
+      "note": "Removed on {{date}}. Replaced by {{replacement}}."
+    },
+    "parameter": {
+      "label": "Category",
+      "choose": "Choose a category",
+      "use": "Use this category",
+      "payers": "Payers that sent it:",
+      "never": "No payer has sent this yet",
+      "unlisted": "No longer on the workbook's list",
+      "denied": "You do not have access to the category list.",
+      "failed": "The category list could not be loaded.",
+      "loading": "Loading the categories…",
+      "option": {
+        "seen": "{{name}} (payers: {{payers}})",
+        "never": "{{name}} (never seen)",
+        "unlisted": "{{name}} (not on the list)"
+      }
+    },
     "denied": "You do not have access to the FHIR fact catalog.",
     "failed": "The catalog could not be loaded.",
     "loading": "Loading the catalog…",

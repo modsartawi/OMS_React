@@ -1192,7 +1192,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [692](692-the-fhir-catalog-opens-from-a-condition-and-picking-a-field-writes-its-rule-key.md) — The FHIR catalog opens from a condition, and picking a field writes its rule key · *(ticket · BO spec 3271; doors 3282, 3284)* · **done** · blocked by: — · tracer; picker in core
 - [693](693-a-condition-s-operators-follow-the-fact-s-type-and-cardinality.md) — A condition's operators follow the fact's type and cardinality · *(ticket · BO spec 3271)* · **open** · blocked by: 692
-- [694](694-a-category-field-offers-the-whole-workbook-list-and-a-retired-field-reads-as-legacy.md) — A category field offers the whole workbook list, and a retired field reads as legacy · *(ticket · BO spec 3271; door 3296)* · **open** · blocked by: 692
+- [694](694-a-category-field-offers-the-whole-workbook-list-and-a-retired-field-reads-as-legacy.md) — A category field offers the whole workbook list, and a retired field reads as legacy · *(ticket · BO spec 3271; door 3296)* · **done** · blocked by: 692
 - [695](695-raw-fhirpath-mode-checks-as-you-type-probes-per-payer-and-proposes-a-field.md) — Raw FHIRPath mode checks as you type, probes per payer and proposes a field · *(ticket · BO spec 3271; doors 3282, 3296)* · **open** · blocked by: 692
 - [696](696-the-field-proposals-inbox-approves-or-rejects-by-someone-other-than-the-author.md) — The field proposals inbox approves or rejects, by someone other than the author · *(ticket · BO spec 3271; door 3282)* · **open** · blocked by: 695
 - [697](697-clicking-a-value-in-a-kept-bundle-s-tree-proposes-a-field.md) — Clicking a value in a kept bundle's tree proposes a field · *(ticket · BO spec 3271; door 3283)* · **open** · blocked by: 695

@@ -10,7 +10,7 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { Says } from './model'
 import { ESTATE_DEFAULT, type InsurerSettings } from './insurer-settings'
-import type { FhirCatalogRow } from './fhir-catalog'
+import type { FhirCatalogRow, FhirParameterCode } from './fhir-catalog'
 import { driftBadgesIn, type DriftBadge, type DriftBadgeReply } from './drift'
 import type { FieldValue, KeyedList, KeyedListKind, RegistryField } from './registry'
 
@@ -40,6 +40,10 @@ export const registryApi = {
   /** ⚠️ PROVISIONAL (oms 703; 711 reconciles): `GET InsuranceRules/Drift/Badges`, the open drift items and what each affects. */
   async driftBadges(): Promise<DriftBadge[]> {
     return driftBadgesIn(await api.get<DriftBadgeReply[] | null>(`${INSURANCE_RULES_BASE}/Drift/Badges`))
+  },
+  /** ⚠️ PROVISIONAL (oms 694; 711 reconciles): door 3296's list for a parameter (`category`), from the workbook. */
+  async fhirParameter(parameter: string): Promise<FhirParameterCode[]> {
+    return (await api.get<FhirParameterCode[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog/Parameters/${encodeURIComponent(parameter)}`)) ?? []
   },
   /** `GET InsuranceRules/Fields/{key}/Values?q=` — code + description, for the picker. */
   async fieldValues(key: string, q: string): Promise<FieldValue[]> {
@@ -73,6 +77,10 @@ export const DRIFT_BADGES_KEY = [...INSURANCE_RULES_KEY, 'drift-badges'] as cons
 
 export function driftBadgesQuery() {
   return { queryKey: DRIFT_BADGES_KEY, queryFn: () => registryApi.driftBadges(), retry: false } as const
+}
+
+export function fhirParameterQuery(parameter: string) {
+  return { queryKey: [...FIELDS_KEY, 'catalog', 'parameter', parameter] as const, queryFn: () => registryApi.fhirParameter(parameter), retry: false } as const
 }
 
 export function fieldValuesQuery(key: string, q: string) {

@@ -60,6 +60,41 @@ export interface FhirCatalogRow {
 /** The rule key a pick stores (story 17): `$claim.total`, `$line.claimResponse.copay`. */
 export const factKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key'>): string => `$${r.level === 'line' ? 'line.' : ''}${r.moment}.${r.key}`
 
+/** The key a parameterised field stores once a code is chosen (story 4): `$eligibility.benefit[66].copayPct`. */
+export const codedFactKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key'>, code: string): string => factKey(r).replace('[*]', `[${code}]`)
+
+/** Whether a `$`-path sits on a FHIR message, so the catalog could hold it. A patient or request fact never can. */
+export const mayBeCatalogKey = (path: string): boolean => /^\$(line\.)?(claim|claimResponse)\.|^\$(eligibility|communication|payment)\./.test(path)
+
+/** The catalog's field for a stored key, with the code the key names (`null` when it names none). */
+export function catalogEntryOf(rows: readonly FhirCatalogRow[], path: string): { row: FhirCatalogRow; code: string | null } | null {
+  const code = /\[([^\]*]+)\]/.exec(path)?.[1] ?? null
+  const wild = code === null ? path : path.replace(`[${code}]`, '[*]')
+  const row = rows.find((r) => factKey(r) === wild)
+  return row ? { row, code } : null
+}
+
+/**
+ * ⚠️ PROVISIONAL (oms 694; 711 reconciles): one code of a parameter's list, from the workbook's CodeSystem (V2).
+ * `census` is how many payers the census saw send it; 0 is a code nobody has sent, which a rule may still name.
+ */
+export interface FhirParameterCode {
+  code: string
+  label: Says
+  census: number
+}
+
+export interface ParameterOption extends FhirParameterCode {
+  seen: 'seen' | 'never' | 'unlisted'
+}
+
+/** The list as the door gives it, none hidden. A code the rule already names and the list lost stays, marked. */
+export function parameterOptions(list: readonly FhirParameterCode[], current: string | null): ParameterOption[] {
+  const options = list.map((c): ParameterOption => ({ ...c, seen: c.census > 0 ? 'seen' : 'never' }))
+  if (current === null || list.some((c) => c.code === current)) return options
+  return [{ code: current, label: { en: '', ar: '' }, census: 0, seen: 'unlisted' }, ...options]
+}
+
 export interface CatalogLevelGroup {
   level: FhirLevel
   rows: FhirCatalogRow[]
@@ -78,7 +113,7 @@ export function groupCatalog(rows: readonly FhirCatalogRow[]): CatalogGroup[] {
 }
 
 /** The `fact` block's fields after a pick. Every type starts as a number bound or codes until 693 gives it its own. */
-export function pickedFact(r: FhirCatalogRow): { path: string; op: 'atLeast'; value: number } | { path: string; op: 'anyOf'; value: string[] } {
-  const path = factKey(r)
+export function pickedFact(r: FhirCatalogRow, code?: string): { path: string; op: 'atLeast'; value: number } | { path: string; op: 'anyOf'; value: string[] } {
+  const path = code === undefined ? factKey(r) : codedFactKey(r, code)
   return r.type === 'number' || r.type === 'money' || r.type === 'quantity' ? { path, op: 'atLeast', value: 0 } : { path, op: 'anyOf', value: [] }
 }

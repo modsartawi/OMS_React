@@ -10,9 +10,12 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { saysIn } from '@/core/rules/sentence'
+import { formatPair, fsi } from '@/core/util/bidi'
+import { Select } from './controls'
 import { FieldDriftBadges } from './DriftBadges'
-import { CHANNEL_ANSWERS, factKey, groupCatalog, type ChannelAnswer, type ChannelRate, type FhirCatalogRow } from './fhir-catalog'
-import { fhirCatalogQuery } from './registry-api'
+import { CHANNEL_ANSWERS, catalogEntryOf, factKey, groupCatalog, mayBeCatalogKey, parameterOptions, type ChannelAnswer, type ChannelRate, type FhirCatalogRow, type FhirLegacy, type ParameterOption } from './fhir-catalog'
+import { fhirCatalogQuery, fhirParameterQuery } from './registry-api'
 
 const DOT: Record<ChannelAnswer, string> = {
   answers: 'bg-success-800',
@@ -39,9 +42,69 @@ function ChannelDots({ channels }: { channels: ChannelRate[] }) {
   )
 }
 
-function CatalogRow({ row, onPick }: { row: FhirCatalogRow; onPick?: (row: FhirCatalogRow) => void }) {
+/** A field on a retired CodeSystem (V5): it can still be picked, and the author sees that before picking. */
+function LegacyNote({ legacy }: { legacy: FhirLegacy }) {
+  const { t } = useTranslation('insurance-rules')
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2 text-xs" data-legacy={legacy.removedOn}>
+      <StatusBadge sev="warn">{t('catalog.legacy.badge')}</StatusBadge>
+      <span className="text-muted-foreground" data-legacy-note="">
+        {t('catalog.legacy.note', { date: fsi(legacy.removedOn), replacement: fsi(legacy.replacement) })}
+      </span>
+    </span>
+  )
+}
+
+/** The parameter's whole list from the door (V2); nothing is stored until a code is chosen and used. */
+function ParameterPicker({ row, current, onUse }: { row: FhirCatalogRow; current: string | null; onUse: (code: string) => void }) {
+  const { t, i18n } = useTranslation('insurance-rules')
+  const list = useQuery(fhirParameterQuery(row.parameter ?? ''))
+  const [code, setCode] = useState(current ?? '')
+
+  if (list.isError) return <ErrorBanner className="p-2" message={isBareDenial(list.error) ? t('catalog.parameter.denied') : apiErrorMessage(list.error, t('catalog.parameter.failed'))} />
+  if (!list.data) return <p className="text-xs text-muted-foreground" role="status">{t('catalog.parameter.loading')}</p>
+
+  const options = parameterOptions(list.data, current)
+  const chosen = options.find((o) => o.code === code)
+  // A native option takes only a string, so the code and its label go in as one isolate, and the count as another.
+  const optionText = (o: ParameterOption) => {
+    const label = saysIn(o.label, i18n.language)
+    const name = fsi(label ? formatPair(o.code, label) : o.code)
+    return o.seen === 'seen' ? t('catalog.parameter.option.seen', { name, payers: fsi(o.census) }) : t(`catalog.parameter.option.${o.seen}`, { name })
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted p-2 text-xs" data-parameter-picker={row.parameter ?? ''}>
+      <Select value={code} aria-label={t('catalog.parameter.label')} data-parameter-select="" className="w-96 max-w-full" onChange={(e) => setCode(e.target.value)}>
+        <option value="">{t('catalog.parameter.choose')}</option>
+        {options.map((o) => (
+          <option key={o.code} value={o.code} data-seen={o.seen}>
+            {optionText(o)}
+          </option>
+        ))}
+      </Select>
+      {chosen && (
+        <span data-parameter-census={chosen.seen}>
+          {chosen.seen === 'seen' ? (
+            <>
+              {t('catalog.parameter.payers')} <Ltr>{chosen.census}</Ltr>
+            </>
+          ) : (
+            t(`catalog.parameter.${chosen.seen}`)
+          )}
+        </span>
+      )}
+      <Button variant="secondary" disabled={!code} onClick={() => onUse(code)} data-parameter-use="">
+        {t('catalog.parameter.use')}
+      </Button>
+    </div>
+  )
+}
+
+function CatalogRow({ row, current, onPick }: { row: FhirCatalogRow; current: string | null; onPick?: (row: FhirCatalogRow, code?: string) => void }) {
   const { t } = useTranslation('insurance-rules')
   const [showPath, setShowPath] = useState(false)
+  // A condition already on this field opens with its code in the picker.
+  const [choosing, setChoosing] = useState(current !== null)
   const key = factKey(row)
   return (
     <li className="flex flex-col gap-1 border-t border-border/60 px-3 py-2 first:border-t-0" data-catalog-row={key}>
@@ -65,8 +128,8 @@ function CatalogRow({ row, onPick }: { row: FhirCatalogRow; onPick?: (row: FhirC
           </Button>
           {onPick &&
             (row.parameter ? (
-              // 694 offers the parameter's list; until then a pick would store a key with no code in it.
-              <Button variant="secondary" aria-disabled title={t('catalog.needsParameter')} data-catalog-pick="" data-needs-parameter="">
+              // A pick opens the parameter's list: the key is stored only with a code in it.
+              <Button variant="secondary" aria-expanded={choosing} onClick={() => setChoosing((s) => !s)} data-catalog-pick="">
                 {t('catalog.pick')}
               </Button>
             ) : (
@@ -79,6 +142,8 @@ function CatalogRow({ row, onPick }: { row: FhirCatalogRow; onPick?: (row: FhirC
       <code className="text-xs text-muted-foreground" data-catalog-key="">
         <Ltr>{key}</Ltr>
       </code>
+      {row.legacy && <LegacyNote legacy={row.legacy} />}
+      {onPick && row.parameter && choosing && <ParameterPicker row={row} current={current} onUse={(code) => onPick(row, code)} />}
       {showPath && (
         <div className="flex flex-col gap-0.5 rounded-md bg-muted p-2 text-xs" data-catalog-path="">
           <code className="break-all">
@@ -96,7 +161,7 @@ function CatalogRow({ row, onPick }: { row: FhirCatalogRow; onPick?: (row: FhirC
 }
 
 /** The catalog, by message then level. With `onPick` a field can be picked; the Fields page only reads it. */
-export function FhirCatalogPanel({ onPick }: { onPick?: (row: FhirCatalogRow) => void }) {
+export function FhirCatalogPanel({ value, onPick }: { value?: string; onPick?: (row: FhirCatalogRow, code?: string) => void }) {
   const { t } = useTranslation('insurance-rules')
   const catalog = useQuery(fhirCatalogQuery())
 
@@ -111,6 +176,7 @@ export function FhirCatalogPanel({ onPick }: { onPick?: (row: FhirCatalogRow) =>
     )
   // A retired field stays readable on the Fields page, but a new condition may not pick it.
   const groups = groupCatalog(onPick ? catalog.data.filter((r) => !r.retired) : catalog.data)
+  const entry = value ? catalogEntryOf(catalog.data, value) : null
   if (groups.length === 0) return <p className="text-sm text-muted-foreground" data-catalog-empty="">{t('catalog.empty')}</p>
 
   return (
@@ -131,7 +197,7 @@ export function FhirCatalogPanel({ onPick }: { onPick?: (row: FhirCatalogRow) =>
               <h4 className="text-xs font-medium text-muted-foreground">{t(`catalog.level.${l.level}`)}</h4>
               <ul className="rounded-md border border-border/60">
                 {l.rows.map((r) => (
-                  <CatalogRow key={factKey(r)} row={r} onPick={onPick} />
+                  <CatalogRow key={factKey(r)} row={r} current={entry?.row === r ? entry.code : null} onPick={onPick} />
                 ))}
               </ul>
             </div>
@@ -143,9 +209,12 @@ export function FhirCatalogPanel({ onPick }: { onPick?: (row: FhirCatalogRow) =>
 }
 
 /** A condition's way into the catalog: the button, the dialog, and the key the condition stores. */
-export function FhirFactPicker({ value, onPick }: { value: string; onPick: (row: FhirCatalogRow) => void }) {
+export function FhirFactPicker({ value, onPick }: { value: string; onPick: (row: FhirCatalogRow, code?: string) => void }) {
   const { t } = useTranslation('insurance-rules')
   const [open, setOpen] = useState(false)
+  // Read only for a key on a FHIR message. Failing here is silent: the condition stands, and the opened catalog says why.
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: mayBeCatalogKey(value) })
+  const legacy = catalog.data ? catalogEntryOf(catalog.data, value)?.row.legacy : null
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)} data-catalog-open="">
@@ -154,12 +223,14 @@ export function FhirFactPicker({ value, onPick }: { value: string; onPick: (row:
       <code className="text-xs text-muted-foreground" data-fact-key={value}>
         <Ltr>{value}</Ltr>
       </code>
+      {legacy && <LegacyNote legacy={legacy} />}
       <Modal open={open} onClose={() => setOpen(false)} title={t('catalog.title')} width="56rem">
         {open && (
           <FhirCatalogPanel
-            onPick={(row) => {
+            value={value}
+            onPick={(row, code) => {
               setOpen(false)
-              onPick(row)
+              onPick(row, code)
             }}
           />
         )}

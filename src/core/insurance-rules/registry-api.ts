@@ -28,6 +28,12 @@ export interface Insurer {
   name?: Says | null
 }
 
+/** One code of a code system (F12); a code the list does not hold shows raw and still matches. */
+export interface CodeSystemCode {
+  code: string
+  label: Says
+}
+
 export const registryApi = {
   /** `GET InsuranceRules/Fields` — every field, retired ones included (flagged). */
   async fields(): Promise<RegistryField[]> {
@@ -40,6 +46,10 @@ export const registryApi = {
   /** ⚠️ PROVISIONAL (oms 703; 711 reconciles): `GET InsuranceRules/Drift/Badges`, the open drift items and what each affects. */
   async driftBadges(): Promise<DriftBadge[]> {
     return driftBadgesIn(await api.get<DriftBadgeReply[] | null>(`${INSURANCE_RULES_BASE}/Drift/Badges`))
+  },
+  /** ⚠️ PROVISIONAL (oms 693; 711 reconciles): `GET InsuranceRules/CodeSystems/Codes?system=`, a code system's codes with their EN + AR labels. */
+  async codeSystemCodes(system: string): Promise<CodeSystemCode[]> {
+    return (await api.get<CodeSystemCode[] | null>(`${INSURANCE_RULES_BASE}/CodeSystems/Codes`, { system })) ?? []
   },
   /** ⚠️ PROVISIONAL (oms 694; 711 reconciles): door 3296's list for a parameter (`category`), from the workbook. */
   async fhirParameter(parameter: string): Promise<FhirParameterCode[]> {
@@ -77,6 +87,10 @@ export const DRIFT_BADGES_KEY = [...INSURANCE_RULES_KEY, 'drift-badges'] as cons
 
 export function driftBadgesQuery() {
   return { queryKey: DRIFT_BADGES_KEY, queryFn: () => registryApi.driftBadges(), retry: false } as const
+}
+
+export function codeSystemCodesQuery(system: string) {
+  return { queryKey: [...FIELDS_KEY, 'codeSystem', system] as const, queryFn: () => registryApi.codeSystemCodes(system), retry: false, staleTime: 60_000 } as const
 }
 
 export function fhirParameterQuery(parameter: string) {

@@ -17,7 +17,8 @@ import JsonButton from '@/core/insurance-rules/JsonButton'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardRulePath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
-import { fieldsQuery } from '@/core/insurance-rules/registry-api'
+import { usesFhirFacts } from '@/core/insurance-rules/fact-tests'
+import { fhirCatalogQuery, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -314,7 +315,8 @@ function ReadsAs({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
   const { t } = useTranslation('insurance-guards')
   // 617: a fact reads by its registry label (610's Fields).
   const fields = useQuery(fieldsQuery()).data
-  const s = guardSentence(rule, doc.lists, fields)
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: usesFhirFacts(rule.when) }).data
+  const s = guardSentence(rule, doc.lists, fields, catalog)
   return (
     <section className="rounded-lg border border-border/60 bg-card p-3 text-sm" data-reads-as="">
       <h2 className="mb-2 text-xs font-semibold text-muted-foreground">{t('editor.readsAs')}</h2>

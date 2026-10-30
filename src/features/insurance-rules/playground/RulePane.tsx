@@ -20,7 +20,8 @@ import RuleConditions from '@/core/insurance-rules/editors/RuleConditions'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import type { GuardList, GuardRule } from '@/core/insurance-rules/model'
 import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rules/playground'
-import { fieldsQuery } from '@/core/insurance-rules/registry-api'
+import { usesFhirFacts } from '@/core/insurance-rules/fact-tests'
+import { fhirCatalogQuery, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence, guardSentence } from '@/core/insurance-rules/sentence'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
@@ -304,7 +305,8 @@ function Part({ kw, hook, children }: { kw: string; hook: string; children: Reac
 function RuleWords({ rule, lists }: { rule: GuardRule; lists: GuardList[] }) {
   const { t } = useTranslation('insurance-playground')
   const fields = useQuery(fieldsQuery()).data
-  const s = guardSentence(rule, lists, fields)
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: usesFhirFacts(rule.when) }).data
+  const s = guardSentence(rule, lists, fields, catalog)
   return (
     <section className="rounded-md border border-border/60 bg-muted/40 p-2 text-sm" data-rule-words="">
       <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{t('ruleset.readsAs')}</h3>

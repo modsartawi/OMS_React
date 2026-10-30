@@ -34,11 +34,14 @@ export default function OutcomePane({
   verdict,
   intake = null,
   reads = NO_READS,
+  onBlocks = 0,
 }: {
   view: OutcomeView
   verdict: VerdictView
   intake?: IntakeView | null
   reads?: ReadsView
+  /** How many reader errors the Rule pane shows on their block (679); the list here holds the rest. */
+  onBlocks?: number
 }) {
   const { t } = useTranslation('insurance-playground')
   const [tab, setTab] = useState<OutcomeTab>('saw')
@@ -54,7 +57,7 @@ export default function OutcomePane({
       </div>
       {tab === 'saw' ? (
         <div id={TAB_ID} role="tabpanel" aria-labelledby={`${TAB_ID}-tab`} className="flex flex-col gap-3">
-          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <Saw matched={view.matched} lines={view.lines} />}
+          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} onBlocks={onBlocks} /> : <Saw matched={view.matched} lines={view.lines} />}
           {view.kind === 'outcome' && intake && <IntakeReport view={intake} />}
           {/* 686: the read log, then the paragraph that reads the outcome in words. */}
           {view.kind === 'outcome' && <ReadLog reads={reads} />}
@@ -62,18 +65,23 @@ export default function OutcomePane({
         </div>
       ) : (
         <div id={LIVE_TAB_ID} role="tabpanel" aria-labelledby={`${LIVE_TAB_ID}-tab`} className="flex flex-col gap-3">
-          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <VerdictPane view={verdict} />}
+          {view.kind === 'errors' ? <ReaderErrors errors={view.errors} onBlocks={onBlocks} /> : <VerdictPane view={verdict} />}
         </div>
       )}
     </div>
   )
 }
 
-function ReaderErrors({ errors }: { errors: { path: string; message: string }[] }) {
+function ReaderErrors({ errors, onBlocks }: { errors: { path: string; message: string }[]; onBlocks: number }) {
   const { t } = useTranslation('insurance-playground')
   return (
     <div className="flex flex-col gap-2 rounded-md border border-danger-border bg-danger-050 p-3 text-sm text-danger-800" role="alert" data-reader-errors="">
       <p className="font-medium">{t('outcome.errors.title')}</p>
+      {onBlocks > 0 && (
+        <p className="text-xs" data-errors-on-blocks={onBlocks}>
+          {t('outcome.errors.onBlocks', { n: fsi(String(onBlocks)) })}
+        </p>
+      )}
       <ul className="flex flex-col gap-1">
         {errors.map((e, i) => (
           <li key={i} className="flex flex-wrap gap-2" data-reader-error={e.path}>
@@ -161,7 +169,7 @@ function LineTrace({ line }: { line: LineView }) {
 
 const TRACE_SEV: Record<string, Severity> = { true: 'go', false: 'mute', unknown: 'warn' }
 
-function TraceValueBadge({ value }: { value: PlaygroundTraceValue }) {
+export function TraceValueBadge({ value }: { value: PlaygroundTraceValue }) {
   const { t } = useTranslation('insurance-playground')
   const key = String(value)
   return (

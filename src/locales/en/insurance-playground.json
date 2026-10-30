@@ -1,6 +1,6 @@
 {
   "title": "Playground",
-  "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is saved or published.",
+  "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is published or saved to HQ; an experiment you save stays in this browser.",
   "kind": {
     "label": "Kind",
     "guard": "Guard",
@@ -124,7 +124,8 @@
   },
   "rule": {
     "title": "Rule",
-    "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling."
+    "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling.",
+    "hintEditors": "A scratch ruleset of one or more guard rules, built with the guard editors. The engine JSON under them follows every edit, and an edit to the JSON moves the editors once it parses."
   },
   "json": {
     "problem": {
@@ -148,7 +149,8 @@
     "matched": "Matched",
     "notMatched": "Not matched",
     "errors": {
-      "title": "The engine could not read the rule"
+      "title": "The engine could not read the rule",
+      "onBlocks": "Shown on their block in the Rule pane: {{n}}"
     }
   },
   "intake": {
@@ -270,5 +272,80 @@
         "none": "Nothing"
       }
     }
+  },
+  "experiments": {
+    "name": "Experiment name",
+    "save": "Save",
+    "saved": "Saved experiments",
+    "none": "No saved experiments",
+    "nonePicked": "Pick a saved experiment first.",
+    "open": "Open",
+    "rename": "Rename",
+    "renameHint": "Renames the picked experiment to the name in the box.",
+    "delete": "Delete",
+    "export": "Export .json",
+    "import": "Import .json",
+    "said": {
+      "saved": "Saved as {{name}}.",
+      "opened": "Opened {{name}}.",
+      "renamed": "Renamed to {{name}}.",
+      "deleted": "Deleted {{name}}.",
+      "exported": "Exported as {{name}}.",
+      "imported": "Imported {{name}}. It is not kept in this browser until you save it.",
+      "off": "Storage is off in this browser, so experiments cannot be kept here. Export and import still work.",
+      "noName": "Name the experiment first.",
+      "notReady": "Fix the JSON first: an experiment that does not parse cannot be saved or exported.",
+      "taken": "Another saved experiment is already called {{name}}.",
+      "missing": "That saved experiment is no longer here."
+    },
+    "refused": {
+      "title": "The file was not imported",
+      "malformed": "The file is not valid JSON. Nothing was loaded.",
+      "notExperiment": "The file is not a playground experiment. Nothing was loaded.",
+      "noVersion": "The file does not say which version it is. Nothing was loaded.",
+      "unknownVersion": "The file's version is not one this playground knows. Nothing was loaded.",
+      "newerVersion": "The file was made by a newer playground. Nothing was loaded.",
+      "invalid": "The file's experiment is incomplete or has a wrong value. Nothing was loaded.",
+      "fileFailed": "The file could not be read."
+    }
+  },
+  "compare": {
+    "start": "Compare A/B",
+    "leave": "Leave Compare",
+    "title": "Compare A/B",
+    "hint": "B started as a copy of this experiment (A). Edit B's data or rule here; the kind and \"as of\" are A's. Both run, and what differs is highlighted. Leaving Compare keeps A.",
+    "b": {
+      "data": "Data (B)",
+      "raw": "Data (B, raw text)",
+      "rule": "Rule (B)",
+      "refused": "The playground refused B"
+    },
+    "waiting": "The comparison appears once A and B both have an outcome.",
+    "same": "A and B give the same outcome.",
+    "differs": "A and B differ. What differs is highlighted.",
+    "side": {
+      "a": "A",
+      "b": "B"
+    },
+    "verdict": "What the live check would say",
+    "markLabel": "Difference",
+    "mark": {
+      "differs": "Differs",
+      "onlyA": "Only in A",
+      "onlyB": "Only in B"
+    },
+    "absent": "Not on this side"
+  },
+  "ruleset": {
+    "label": "The rules, in the order the engine runs them",
+    "rule": "Rule {{n}}",
+    "add": "Add a rule",
+    "up": "Move rule {{n}} up",
+    "down": "Move rule {{n}} down",
+    "remove": "Remove rule {{n}}",
+    "jsonOnly": "The editors cannot show this rule, so edit it in the JSON below. It still runs.",
+    "broken": "The JSON does not parse, so the editors show the last rules that did. Fix the JSON to edit them again.",
+    "empty": "No rules yet. Add one, or write them in the JSON.",
+    "readsAs": "Reads as"
   }
 }

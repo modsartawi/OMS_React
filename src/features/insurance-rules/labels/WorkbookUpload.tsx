@@ -171,7 +171,7 @@ function DiffGroup({ change, rows }: { change: LabelChange; rows: LabelDiffRow[]
 }
 
 /** A code's English and Arabic labels, as sent, each its own line. */
-function Label({ text }: { text?: LabelText | null }) {
+export function Label({ text }: { text?: LabelText | null }) {
   const { t } = useTranslation('insurance-labels')
   if (!text?.en && !text?.ar) return <span className="text-muted-foreground">{t('diff.noLabel')}</span>
   return (

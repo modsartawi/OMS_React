@@ -42,6 +42,58 @@
     "code": "Code",
     "change": "Change"
   },
+  "worklist": {
+    "title": "Labels to write",
+    "hint": "The codes a ruleset can show that lack Arabic, then the codes seen but unlabelled, most-used first within each.",
+    "writeAny": "Write a label",
+    "loading": "Loading the worklist…",
+    "failed": "The worklist could not be loaded.",
+    "empty": "No code is waiting for a label.",
+    "code": "Code",
+    "system": "Code system",
+    "current": "Label today",
+    "reason": "Why it is here",
+    "frequency": "Times seen",
+    "waiting": "Awaiting approval",
+    "write": "Write",
+    "review": "Review",
+    "reasons": {
+      "lacksArabic": "Lacks Arabic",
+      "unlabelled": "Unlabelled"
+    }
+  },
+  "proposals": {
+    "title": "Labels awaiting approval",
+    "loading": "Loading the proposed labels…",
+    "failed": "The proposed labels could not be loaded.",
+    "empty": "No label is awaiting approval.",
+    "proposed": "Proposed label",
+    "by": "Proposed by"
+  },
+  "override": {
+    "writeTitle": "Write a label",
+    "reviewTitle": "Review a proposed label",
+    "current": "Label today",
+    "hint": "Write the Arabic, a corrected English label, or both. A language left empty keeps the label it has. Someone else approves it before it is used.",
+    "ar": "Arabic label",
+    "en": "English label",
+    "cancel": "Close",
+    "submit": "Propose",
+    "proposeFailed": "The label could not be proposed.",
+    "proposed": "Label proposed",
+    "proposedDetail": "The label for code {{code}} now awaits another person's approval.",
+    "approve": "Approve",
+    "approveHint": "Approving makes this label a new label version.",
+    "approveFailed": "The label could not be approved.",
+    "approved": "Label approved",
+    "approvedDetail": "The label for code {{code}} is approved.",
+    "own": "You proposed this label, so someone else must approve it."
+  },
+  "problem": {
+    "systemMissing": "Enter the code system.",
+    "codeMissing": "Enter the code.",
+    "labelMissing": "Write an English or an Arabic label."
+  },
   "log": {
     "title": "Past loads",
     "loading": "Loading the past loads…",

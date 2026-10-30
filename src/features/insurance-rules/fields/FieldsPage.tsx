@@ -24,6 +24,7 @@ import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { DeniedCard } from '@/core/insurance-rules/parts'
 import { FhirCatalogPanel } from '@/core/insurance-rules/FhirCatalog'
+import BundleTree from './BundleTree'
 import RawPathDialog from './RawPathDialog'
 
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'text', unit: '' }
@@ -68,6 +69,7 @@ export default function FieldsPage() {
           </Button>
           <RawPathDialog open={rawOpen} onClose={() => setRawOpen(false)} />
         </section>
+        <BundleTree />
         <AddField existing={fields.data} />
       </>
     )

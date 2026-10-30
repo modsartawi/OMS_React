@@ -82,7 +82,8 @@ function Warnings({ warnings }: { warnings: PathWarning[] }) {
   )
 }
 
-function ProbeTable({ reply }: { reply: ProbeReply }) {
+/** Who answers a path, per payer; 696's inbox shows the same table to the approver. */
+export function ProbeTable({ reply }: { reply: ProbeReply }) {
   const { t } = useTranslation('insurance-fields')
   return (
     <div className="flex flex-col gap-2" data-raw-probe="">
@@ -217,6 +218,11 @@ function DialogBody({ initial, onClose }: { initial?: Partial<RawPathValues>; on
     >
       <div className="flex flex-col gap-3" data-raw-path-form="">
         <p className="text-xs text-muted-foreground">{t('rawPath.lede')}</p>
+        {form.patientWarning && (
+          <p className="rounded-md border border-border/60 bg-attention-050 p-2 text-xs text-attention-800" role="alert" data-raw-patient-warning="">
+            {t('rawPath.patientWarning')}
+          </p>
+        )}
         <Field label={t('rawPath.path')} hint={t('rawPath.pathHint')}>
           <Textarea dir="ltr" rows={3} spellCheck={false} className="w-full font-mono text-xs" value={form.path} onChange={(e) => set({ path: e.target.value })} data-raw-path="" />
         </Field>

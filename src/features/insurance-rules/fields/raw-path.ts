@@ -25,6 +25,8 @@ export interface RawPathValues {
   key: string
   labelEn: string
   labelAr: string
+  /** The tree's door called this a Patient field (697): warned, never refused. Shown here only and never sent: the flag on the proposal row is the door's own. */
+  patientWarning?: boolean
 }
 
 export function rawPathForm(initial: Partial<RawPathValues> = {}): RawPathValues {

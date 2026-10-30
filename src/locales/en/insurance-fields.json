@@ -42,6 +42,7 @@
       "unlistedExtension": "Names an extension the Nphies profiles do not list."
     },
     "caseOnlyCode": "{{literal}} exists only as {{known}}.",
+    "patientWarning": "This is a Patient field. Patient data should enter a rule only on purpose. You can still propose it, and the approver sees this warning.",
     "probe": {
       "run": "Probe",
       "hint": "Runs the path over the kept bundles and samples.",
@@ -70,6 +71,64 @@
     "discard": {
       "title": "Discard this path",
       "message": "Close the form and lose what you entered?"
+    }
+  },
+  "tree": {
+    "title": "Propose a field from a kept bundle",
+    "lede": "Open a kept bundle by its reference and click a value, or a whole Money, Quantity or code. The proposed path works on every bundle, not only this one.",
+    "ref": "Bundle reference",
+    "open": "Open",
+    "loading": "Opening the bundle…",
+    "failed": "The bundle could not be opened.",
+    "clickFailed": "A path could not be proposed for this value.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "pickName": "Propose a field from {{name}}",
+    "pickWhole": "Propose",
+    "existing": "This value is already a field.",
+    "existingShow": "Show in the catalog"
+  },
+  "proposals": {
+    "title": "Field proposals",
+    "lede": "FHIR fields waiting for a second person. Someone other than the author approves or rejects each one, and an approved field joins the catalog and every picker at once.",
+    "failed": "The proposals could not be loaded.",
+    "loading": "Loading the proposals…",
+    "empty": "No field has been proposed.",
+    "open": "Open",
+    "detailTitle": "Proposed field",
+    "close": "Close",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Field approved",
+    "rejected": "Proposal rejected",
+    "actionFailed": "The proposal could not be decided.",
+    "path": "FHIRPath",
+    "probe": "Probe result per payer",
+    "noProbe": "This proposal holds no Probe result.",
+    "decidedBy": "Decided by",
+    "reason": "Reason for rejecting",
+    "reasonHint": "Needed to reject. The author reads it.",
+    "reasonMissing": "Give a reason for rejecting this proposal.",
+    "patientWarning": "This field reads the Patient resource: {{path}}. Personal data falls under the PDPL. Approve it only if a rule needs it.",
+    "state": {
+      "proposed": "Waiting",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "col": {
+      "field": "Field",
+      "key": "Key",
+      "where": "Message and focus",
+      "state": "State",
+      "proposedBy": "Proposed by"
+    },
+    "why": {
+      "ownProposal": "This is your own proposal, so someone else must approve or reject it.",
+      "reader": "Only a holder of the insurance rules permission can approve or reject a proposal."
+    },
+    "discard": {
+      "title": "Discard this reason",
+      "message": "Close the proposal and lose the reason you wrote?"
     }
   },
   "access": {

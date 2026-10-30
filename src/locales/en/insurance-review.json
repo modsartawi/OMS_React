@@ -62,9 +62,11 @@
     "reason": "Reason",
     "note": "Note",
     "mark": "Review",
-    "actions": "Action"
+    "actions": "Action",
+    "inspect": "Decision"
   },
   "mark": {
+    "inspect": "Inspect",
     "ok": "OK",
     "questioned": "Questioned",
     "none": "Not reviewed",

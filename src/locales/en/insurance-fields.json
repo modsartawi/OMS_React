@@ -7,6 +7,10 @@
     "noField": "No field in this scope.",
     "unused": "Unused"
   },
+  "catalog": {
+    "title": "FHIR fact catalog",
+    "lede": "The facts a rule can read from a payer's messages, and how often each channel answers them. A rule picks one from its condition."
+  },
   "access": {
     "deniedTitle": "You do not have access",
     "deniedHint": "Ask an administrator for the insurance rules permission.",

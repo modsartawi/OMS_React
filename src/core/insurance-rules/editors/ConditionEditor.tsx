@@ -35,6 +35,8 @@ import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
 import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
+import { pickedFact } from '@/core/insurance-rules/fhir-catalog'
+import { FhirFactPicker } from '@/core/insurance-rules/FhirCatalog'
 import GuardFormulaBox, { type FormulaLanguage } from './GuardFormulaBox'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
@@ -655,6 +657,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               })}
             </Select>
           </Field>
+          <FhirFactPicker value={c.path} onPick={(row) => set((x) => ({ ...x, ...pickedFact(row) }) as GuardCondition)} />
           <Field label={t('editor.field.op')}>
             <Select value={c.op} data-input="op" onChange={(e) => set((x) => ({ ...x, op: e.target.value as typeof c.op }))}>
               {(isNumber ? (['atLeast', 'below'] as const) : (['anyOf', 'noneOf'] as const)).map((o) => (

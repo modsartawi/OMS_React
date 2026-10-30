@@ -9,6 +9,7 @@ import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { LABEL_CHANGES, WORKBOOK_KINDS } from './labels'
+import { OVERRIDE_PROBLEMS, WORKLIST_REASONS } from './overrides'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -21,6 +22,10 @@ describe('insurance-labels', () => {
   })
   it.each([en, ar])('the workbook names and the diff groups exist', (locale) => {
     const keys = [...WORKBOOK_KINDS.map((k) => `workbook.${k}`), ...LABEL_CHANGES.map((c) => `diff.${c}`)]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the worklist reasons and the form problems exist', (locale) => {
+    const keys = [...WORKLIST_REASONS.map((r) => `worklist.reasons.${r}`), ...OVERRIDE_PROBLEMS.map((p) => `problem.${p}`)]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
   it.each([areaEn, areaAr])('the menu label', (locale) => {

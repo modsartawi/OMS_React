@@ -23,7 +23,9 @@ type Obj = Record<string, unknown>
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 /** The fact scopes the engine reads as a block of their own (`$<scope>.<field>` in the editor). */
-const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line'] as const
+const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line', 'claim', 'claimResponse'] as const
+/** ⚠️ PROVISIONAL (oms 692; 711 reconciles): a line block reading a FHIR message names it in `field` (`claim.quantity`), so `$line.claim.quantity`. */
+const FHIR_LINE_FIELD = /^(claim|claimResponse)\./
 /** The bounds an engine fact block takes; the editor draws one of `atLeast` / `under` (its `below`) / `anyOf`. */
 const FACT_TESTS = [...ELIGIBILITY_TESTS, 'unit'] as const
 
@@ -41,12 +43,13 @@ function conditionIn(raw: unknown): unknown {
     const text = expr === undefined ? '' : (printExpr(expr as RuleExpr, { filters: [] }) ?? JSON.stringify(expr))
     return { ...rest, formula: text }
   }
-  if (c.check === 'line' && typeof c.field === 'string' && c.under !== undefined && c.below === undefined) {
+  const fhirLine = c.check === 'line' && typeof c.field === 'string' && FHIR_LINE_FIELD.test(c.field)
+  if (!fhirLine && c.check === 'line' && typeof c.field === 'string' && c.under !== undefined && c.below === undefined) {
     const { under, ...rest } = c
     return { ...rest, below: under }
   }
   const scope = c.check as string
-  const factScope = scope === 'patient' || scope === 'eligibility' ? scope : null
+  const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || fhirLine ? scope : null
   if (factScope && typeof c.field === 'string' && c.inList === undefined) {
     const tests = FACT_TESTS.filter((k) => c[k] !== undefined)
     const one = tests.length === 1 ? tests[0] : null

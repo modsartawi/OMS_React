@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3271 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3271-oms-react-fhir-insurance-rules-brief.md)
 blocked-by: —
 ---
@@ -31,12 +31,13 @@ model/api (registry row gains moment, FHIRPath, cardinality, declared system) ·
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] grouping by message then level, and the key a pick writes, for a message row and for each line side — pure
-- [ ] the stubbed rows hold C1–C5: line copay reads `copay`; the not-in-force reason at the root, marked legacy; site
+- [x] grouping by message then level, and the key a pick writes, for a message row and for each line side — pure
+- [x] the stubbed rows hold C1–C5: line copay reads `copay`; the not-in-force reason at the root, marked legacy; site
       eligibility reads root and `insurance`; the selection reason names its extension; `benefit.allowed` is the
       three-way choice — pure
-- [ ] a phase-1 rule opens and saves with its keys unchanged — flow (Playwright drive)
-- [ ] pick from the catalog, see the key stored, open the FHIRPath on demand, read the channel dots; under `ar` too — flow
+- [x] a phase-1 rule opens and saves with its keys unchanged — flow (Playwright drive)
+- [x] pick from the catalog, see the key stored, open the FHIRPath on demand, read the channel dots; under `ar` too — flow
+      (RTL layout + Arabic data labels only: see the finding in Comments)
 
 ## Boundaries
 
@@ -57,3 +58,29 @@ None (can start immediately).
 - No door ticket's "What to build" names the catalog `GET`; 3282 is the closest. Guess the shape and raise it in 711.
 
 ## Comments
+
+**2026-10-30, built, all stubbed (no live SIS.Api).**
+
+Shape guesses for 711:
+- `GET InsuranceRules/Fields/Catalog` answers the rows, a door separate from `GET InsuranceRules/Fields`, so nothing that
+  reads the registry changes. Query key sits under `FIELDS_KEY`.
+- Row: `key`, `label`, `moment`, `level` (`message` | `line`), `type` (the registry's four + `code`, `money`, `quantity`),
+  `unit`, `fhirPath`, `cardinality` (`single` | `list`), `system`, `channels: [{ channel, answer }]` (`answers` |
+  `sometimes` | `never`), `parameter` (`category` or null, with `[*]` in the key), `choice` (FHIR types or null),
+  `legacy: { removedOn, replacement }` or null, `retired`.
+- Wire blocks: `{ check: claim | claimResponse, field }`, and a line fact as `{ check: line, field: claim.<key> }` (from
+  3256's "line (`claim.x`, `claimResponse.x`)"). `under` stays `under` on these line blocks in the editor's `below`.
+- The channel rates, the two `benefit.*` phase-1 paths and the `day-benefit` code in the stubbed rows are invented.
+
+Overrulable decisions:
+- The picker is added beside the existing `$` Select, which stays until 693. It sits in `ConditionEditor`, so the coverage
+  editors' and playground's fact block that use it get the button too; RuleConditions' own fact row does not.
+- A parameterised field is listed but cannot be picked yet: a pick would store `[*]` with no code. 694 lifts this.
+- A pick starts a number, money or quantity at `atLeast 0`, and anything else at `anyOf []`, including `date` and `flag`.
+  That is a stopgap: 693 owns operators per type, and money as a string.
+- A message or level with no field is left out, so communication and payment do not show until they have rows.
+- `legacy` is carried but not drawn (694). A retired row is hidden from the picker and badged on the Fields page.
+
+Finding: `core/i18n.ts` holds `lng: 'en'` and nothing calls `changeLanguage`, so `oms.locale=ar` gives the RTL layout with
+English chrome. The drive's `ar` run therefore proves RTL and the Arabic labels from data. The `ar` chrome keys are proved
+only by the mirror test, never on screen.

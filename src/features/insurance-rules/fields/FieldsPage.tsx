@@ -23,6 +23,7 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { DeniedCard } from '@/core/insurance-rules/parts'
+import { FhirCatalogPanel } from '@/core/insurance-rules/FhirCatalog'
 
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'text', unit: '' }
 
@@ -54,6 +55,13 @@ export default function FieldsPage() {
         {FIELD_SCOPES.map((scope) => (
           <ScopeTable key={scope} scope={scope} fields={fields.data.filter((f) => f.scope === scope)} draft={draft.data} />
         ))}
+        <section className="flex flex-col gap-2" data-fields-catalog="">
+          <div>
+            <h2 className="text-sm font-semibold">{t('catalog.title')}</h2>
+            <p className="text-xs text-muted-foreground">{t('catalog.lede')}</p>
+          </div>
+          <FhirCatalogPanel />
+        </section>
         <AddField existing={fields.data} />
       </>
     )

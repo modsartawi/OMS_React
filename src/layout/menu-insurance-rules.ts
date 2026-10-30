@@ -14,6 +14,8 @@ import { SearchCheck } from 'lucide-react' // 625
 import { History } from 'lucide-react' // 626
 // 652 · icons
 import { Layers } from 'lucide-react' // 652
+// 710 · icons
+import { FileSearch } from 'lucide-react' // 710
 // 677 · icons
 import { TestTubeDiagonal } from 'lucide-react' // 677
 // 704 · icons
@@ -135,6 +137,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.playground',
       icon: TestTubeDiagonal,
       routerLink: '/insurance-rules/playground',
+    },
+
+    // 710 · Decision inspector (`menu.inspector`, `/insurance-rules/decisions`)
+    {
+      // 710 — any decision by its id; a decision's page (`/insurance-rules/decisions/:decisionId`) lights it too.
+      labelKey: 'insurance-rules:menu.inspector',
+      icon: FileSearch,
+      routerLink: '/insurance-rules/decisions',
     },
 
     // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)

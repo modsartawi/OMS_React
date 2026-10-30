@@ -1,6 +1,6 @@
 {
   "title": "Playground",
-  "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is saved or published.",
+  "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is published or saved to HQ; an experiment you save stays in this browser.",
   "kind": {
     "label": "Kind",
     "guard": "Guard",
@@ -177,6 +177,42 @@
         "default": "The item default",
         "none": "Nothing"
       }
+    }
+  },
+  "experiments": {
+    "name": "Experiment name",
+    "save": "Save",
+    "saved": "Saved experiments",
+    "none": "No saved experiments",
+    "nonePicked": "Pick a saved experiment first.",
+    "open": "Open",
+    "rename": "Rename",
+    "renameHint": "Renames the picked experiment to the name in the box.",
+    "delete": "Delete",
+    "export": "Export .json",
+    "import": "Import .json",
+    "said": {
+      "saved": "Saved as {{name}}.",
+      "opened": "Opened {{name}}.",
+      "renamed": "Renamed to {{name}}.",
+      "deleted": "Deleted {{name}}.",
+      "exported": "Exported as {{name}}.",
+      "imported": "Imported {{name}}. It is not kept in this browser until you save it.",
+      "off": "Storage is off in this browser, so experiments cannot be kept here. Export and import still work.",
+      "noName": "Name the experiment first.",
+      "notReady": "Fix the JSON first: an experiment that does not parse cannot be saved or exported.",
+      "taken": "Another saved experiment is already called {{name}}.",
+      "missing": "That saved experiment is no longer here."
+    },
+    "refused": {
+      "title": "The file was not imported",
+      "malformed": "The file is not valid JSON. Nothing was loaded.",
+      "notExperiment": "The file is not a playground experiment. Nothing was loaded.",
+      "noVersion": "The file does not say which version it is. Nothing was loaded.",
+      "unknownVersion": "The file's version is not one this playground knows. Nothing was loaded.",
+      "newerVersion": "The file was made by a newer playground. Nothing was loaded.",
+      "invalid": "The file's experiment is incomplete or has a wrong value. Nothing was loaded.",
+      "fileFailed": "The file could not be read."
     }
   }
 }

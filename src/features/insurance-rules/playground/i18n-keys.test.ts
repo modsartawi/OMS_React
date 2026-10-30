@@ -12,6 +12,8 @@ import { hasLocaleKey, localeAt } from '@/core/test/locale'
 import { GUARD_LINE_OUTCOMES } from '@/core/insurance-rules/guard-check'
 import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
+import { EXPERIMENT_REFUSALS } from '@/core/insurance-rules/experiment'
+import { SAID_KEYS } from './experiment-store'
 import type { DataTab, ExperimentBox } from './experiment'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
@@ -73,6 +75,16 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...[...RESOLVED_SOURCES, 'unknown'].map((s) => `verdict.coverage.sources.${s}`),
       ...['line', 'category', 'group', 'source', 'rule', 'unknowns'].map((k) => `verdict.category.${k}`),
       ...['rule', 'default', 'none'].map((s) => `verdict.category.sources.${s}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('687: the experiment toolbar, its status words and every import refusal', (locale) => {
+    const keys = [
+      ...['name', 'save', 'saved', 'none', 'nonePicked', 'open', 'rename', 'renameHint', 'delete', 'export', 'import'].map((k) => `experiments.${k}`),
+      ...SAID_KEYS.map((k) => `experiments.said.${k}`),
+      'experiments.refused.title',
+      ...[...EXPERIMENT_REFUSALS, 'fileFailed'].map((k) => `experiments.refused.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

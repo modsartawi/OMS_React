@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
+import type { PlaygroundExperiment } from '@/core/insurance-rules/experiment'
 import { localAsOf, PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundEvaluateReply, type PlaygroundKind } from '@/core/insurance-rules/playground'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 import Chip from '@/core/ui/Chip'
@@ -11,6 +12,7 @@ import Ltr from '@/core/ui/Ltr'
 import { playgroundApi } from './api'
 import { DataPane } from './DataPane'
 import { evaluateBody, kindSeed, type DataTab } from './experiment'
+import ExperimentBar from './ExperimentBar'
 import { intakeView } from './intake'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
@@ -27,7 +29,7 @@ import { verdictView } from './verdict'
  * that kind's rule and data) and its **"as of"**. About 500 ms after the last edit to the data, the rule, the kind or
  * "as of", the experiment sends `POST InsuranceRules/Playground/Evaluate` by itself (678: no Run button); only the
  * NEWEST request's answer is shown (`latestWins`), and the last good outcome stays while one is in flight. Writes
- * nothing, never saves back.
+ * nothing to HQ, never saves back; 687's `ExperimentBar` keeps experiments by name in this browser and as `.json`.
  *
  * The page only wires the panes; each pane owns its drawing (`JsonPane`, `OutcomePane`) and the reply is read by the
  * pure `outcomeView` / `verdictView`, so 679 (editors beside the JSON) and 682 (form ⇄ JSON) each replace one pane's
@@ -86,6 +88,20 @@ export default function PlaygroundPage() {
     setDocumentText(seed.documentText)
   }
 
+  // 687: an opened or imported experiment replaces the whole experiment (kind, as of, rule and data) at once.
+  const loadExperiment = (e: PlaygroundExperiment) => {
+    setKind(e.kind)
+    setAsOfInput(e.asOf)
+    setDocumentText(JSON.stringify(e.document, null, 2))
+    if (e.raw !== undefined) {
+      setDataTab('raw')
+      setRawText(e.raw)
+    } else {
+      setDataTab('json')
+      setDataText(JSON.stringify(e.data, null, 2))
+    }
+  }
+
   const error = settled && !settled.ok ? settled.error : null
   const answer = settled?.ok ? settled.value : null
 
@@ -95,6 +111,8 @@ export default function PlaygroundPage() {
         <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
+
+      <ExperimentBar body={built.body} onLoad={loadExperiment} />
 
       <div className="flex flex-wrap items-start gap-6" data-experiment-controls="">
         <div className="flex flex-col gap-1">

@@ -222,6 +222,8 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
 /** WHEN: who is checked (channels, stores) and the window. */
 function whenSentences(rule: GuardRule): KeySentence[] {
   // Oms 699: a monitor reads a kept answer: no channel, store or window of a sale.
+  // Oms 701: only a claim response has a `use`.
+  if (isMonitor(rule) && rule.scope && rule.scope !== 'claimResponse') return [S(`when.monitorScope.${rule.scope}`)]
   if (isMonitor(rule)) return [S('when.monitor', { uses: { kind: 'list', join: 'and', items: (rule.uses ?? []).map((u) => phrase(`when.use.${u}`)) } })]
   const channels = rule.audience?.channels ?? []
   const stores = rule.audience?.stores ?? []

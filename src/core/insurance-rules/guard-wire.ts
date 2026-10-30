@@ -24,7 +24,7 @@ type Obj = Record<string, unknown>
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 /** The fact scopes the engine reads as a block of their own (`$<scope>.<field>` in the editor). */
-const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line', 'claim', 'claimResponse', 'previous'] as const
+const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line', 'claim', 'claimResponse', 'communicationRequest', 'paymentReconciliation', 'previous'] as const
 /** ⚠️ PROVISIONAL (oms 692; 711 reconciles): a line block reading a FHIR message names it in `field` (`claim.quantity`), so `$line.claim.quantity`. */
 const FHIR_LINE_FIELD = /^(claim|claimResponse)\./
 /** The bounds an engine fact block takes; the editor draws one of `atLeast` / `under` (its `below`) / `anyOf`. */
@@ -35,7 +35,7 @@ const LIST_MATCH = /^list:(.+)$/
 // ── conditions ───────────────────────────────────────────────────────────────────────────────────
 
 /** Keys that only a FHIR message reads: a none-of on them is spelled `noneOf`. */
-const FHIR_SCOPE = /^\$(claim|claimResponse|line\.claim|line\.claimResponse|previous)\./
+const FHIR_SCOPE = /^\$(claim|claimResponse|communicationRequest|paymentReconciliation|line\.claim|line\.claimResponse|previous)\./
 
 /**
  * The one test of an engine block as the fact's `op` and `value`; null to keep the block as written. ⚠️ PROVISIONAL
@@ -72,7 +72,7 @@ function conditionIn(raw: unknown): unknown {
     return { ...rest, below: under }
   }
   const scope = c.check as string
-  const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || scope === 'previous' || fhirLine ? scope : null
+  const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || scope === 'communicationRequest' || scope === 'paymentReconciliation' || scope === 'previous' || fhirLine ? scope : null
   if (factScope && typeof c.field === 'string' && c.inList === undefined) {
     const tests = [...FACT_TESTS, 'noneOf', 'count'].filter((k) => c[k] !== undefined)
     const one = tests.length === 1 ? tests[0] : null

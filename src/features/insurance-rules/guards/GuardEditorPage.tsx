@@ -292,7 +292,7 @@ function Editor({
             <ConditionEditor rule={rule} lists={h.present.lists} edit={edit} checks={index} />
             {monitor ? (
               <p className="mt-3 text-xs text-muted-foreground" data-monitor-unknown="">
-                {t('monitor.unknown')}
+                {t(!rule.scope || rule.scope === 'claimResponse' ? 'monitor.unknown' : `monitor.unknownFor.${rule.scope}`)}
               </p>
             ) : (
             <fieldset className="mt-3 flex flex-wrap items-center gap-3 text-xs" data-on-unknown-editor="">

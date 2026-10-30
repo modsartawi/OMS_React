@@ -96,6 +96,9 @@
     "whole": "Whole condition"
   },
   "backtest": {
+    "limit": "Kept copies are purged, so a back-test reaches back {{n}} days at most.",
+    "noWindow": "Kept copies are purged too soon for any back-test window, so none is offered.",
+    "limitFailed": "The longest back-test window could not be read, so none is offered.",
     "days": "Replay the last",
     "daysOption": "{{n}} days",
     "start": "Start the back-test",

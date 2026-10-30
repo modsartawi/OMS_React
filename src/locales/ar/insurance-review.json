@@ -66,9 +66,11 @@
     "reason": "السبب",
     "note": "ملاحظة",
     "mark": "المراجعة",
-    "actions": "إجراء"
+    "actions": "إجراء",
+    "inspect": "القرار"
   },
   "mark": {
+    "inspect": "افحص",
     "ok": "سليم",
     "questioned": "موضع تساؤل",
     "none": "لم يُراجع",

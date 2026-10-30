@@ -63,6 +63,7 @@
   "editor": {
     "titleNew": "New guard",
     "titleEdit": "Edit guard",
+    "fromRejection": "Filled in from a rejection report row. Name it, write its message, and save: nothing is kept until you do, and it goes through the usual back-test and approval.",
     "back": "Back to the rule",
     "unsaved": "Unsaved changes",
     "undo": "Undo",

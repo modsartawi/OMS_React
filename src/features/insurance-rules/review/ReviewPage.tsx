@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardReasonsQuery } from '@/core/insurance-rules/order-guards-api'
@@ -147,7 +148,7 @@ function Review() {
             <table className="w-full text-sm" data-review-table="">
               <thead className="border-b border-border/60 bg-muted/40">
                 <tr>
-                  {(['at', 'kind', 'store', 'pharmacist', 'patient', 'rule', 'item', 'reason', 'note', 'mark', 'actions'] as const).map((c) => (
+                  {(['at', 'kind', 'store', 'pharmacist', 'patient', 'rule', 'item', 'reason', 'note', 'mark', 'actions', 'inspect'] as const).map((c) => (
                     <th key={c} className={TH}>
                       {t(`columns.${c}`)}
                     </th>
@@ -243,6 +244,12 @@ function Review() {
                           {t('mark.questioned')}
                         </Button>
                       </div>
+                    </td>
+                    <td className={TD}>
+                      {/* 710: the row's id is the decision's, whatever its age. */}
+                      <Link to={`/insurance-rules/decisions/${encodeURIComponent(r.id)}`} className="text-primary hover:underline" data-inspect={r.id}>
+                        {t('mark.inspect')}
+                      </Link>
                     </td>
                   </tr>
                   ),

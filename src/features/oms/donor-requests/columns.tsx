@@ -2,6 +2,8 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import type { TFunction } from 'i18next'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { DonorRequestModel } from '@/core/models/sd-document'
+import { donorHost, hostCellText } from '@/core/oms/donor-host'
+import { donorReasonText } from '@/core/oms/donor-words'
 import type { Elapsed } from '@/core/oms/donor-moments'
 import { formatDateTime } from '@/core/util/date-format'
 import { DONOR_REQUEST_STATES } from './criteria'
@@ -49,7 +51,7 @@ function pickMinutes(row: DonorRequestRow | undefined): number {
  * formatted value, so a state or an outcome drawn only by a renderer would leave as a raw code.
  * Cells are isolated by the core grid base; a column with its own renderer isolates its own value.
  */
-export function donorColumns(t: TFunction): ColDef<DonorRequestRow>[] {
+export function donorColumns(t: TFunction, lang = 'en'): ColDef<DonorRequestRow>[] {
   const code = 'font-mono text-[12px]'
   const when = ({ value }: ValueFormatterParams<DonorRequestRow, string>) => formatDateTime(value)
   const stateLabel = (wire: string) => {
@@ -66,10 +68,27 @@ export function donorColumns(t: TFunction): ColDef<DonorRequestRow>[] {
     return row.outcome ?? ''
   }
   const pickTime = (row: DonorRequestRow | undefined) => (row ? pickTimeText(t, row.view) : '')
+  // Spec 3242: the request's host. A delivery is its bare number, as before; any other host the server's words.
+  const host = (row: DonorRequestRow | undefined) =>
+    row ? donorHost(row.sourceType, row.deliveryNo, row.hostLabel, row.hostLabelAr) : null
 
   return [
     { field: 'requestNo', headerName: t('columns.requestNo'), width: 130, cellClass: code },
-    { field: 'deliveryNo', headerName: t('columns.deliveryNo'), width: 130, cellClass: code },
+    {
+      // The id stays `deliveryNo` (the wire field holding the host key), so a saved column state still finds it.
+      colId: 'deliveryNo',
+      headerName: t('columns.host'),
+      width: 170,
+      valueGetter: ({ data }) => {
+        const h = host(data)
+        return h ? hostCellText(h, lang) : ''
+      },
+      cellClass: ({ data }) => (host(data)?.isDelivery === false ? '' : code),
+      tooltipValueGetter: ({ data }) => {
+        const h = host(data)
+        return h && !h.isDelivery ? h.key : undefined
+      },
+    },
     { field: 'donorStore', headerName: t('columns.donorStore'), width: 110, cellClass: code },
     { field: 'orderStore', headerName: t('columns.orderStore'), width: 110, cellClass: code },
     {
@@ -92,7 +111,14 @@ export function donorColumns(t: TFunction): ColDef<DonorRequestRow>[] {
           </span>
         ) : null,
     },
-    { field: 'outcomeReason', headerName: t('columns.outcomeReason'), width: 200, tooltipField: 'outcomeReason' },
+    {
+      // A hook reason in words (672); any other code as sent, as before. The getter is what 432's export writes.
+      colId: 'outcomeReason',
+      headerName: t('columns.outcomeReason'),
+      width: 200,
+      valueGetter: ({ data }) => donorReasonText(t, data?.outcomeReason),
+      tooltipValueGetter: ({ value }) => (typeof value === 'string' && value ? value : undefined),
+    },
     {
       field: 'required',
       headerName: t('columns.asked'),

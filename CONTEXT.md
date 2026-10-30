@@ -49,6 +49,14 @@ states, who may act on it, the DRTR transfer that moves the units) lives in Back
 `CONTEXT.md`; this app only reads it, on the Delivery timeline (ticket 429).
 _Avoid_: transfer request, borrow (the transfer is one moment of a request, not the request).
 
+**Donor host**:
+What a donor request was raised on, named by a (source type, key) pair: a delivery (`OMS`), a
+prescription session (`PSES`), a Wasfaty+ order (`WP`), later Nphies/Wasfaty approvals (BackOffice
+spec 3242). The key still travels in `deliveryNo`; the server words the host (`hostLabel` /
+`hostLabelAr`). A blank source type is a delivery. Only a delivery host opens Document Details
+(ticket 672).
+_Avoid_: calling every host "the delivery".
+
 **Donor moment**:
 A point on the Delivery timeline taken from a donor request's **own** record, not from the
 delivery's Log: raised, edited, picked, stamped, transferred, ended. Each is the request's latest

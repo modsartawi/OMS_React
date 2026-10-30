@@ -7,6 +7,7 @@
  * presentation is this feature's own: the timeline's components belong to the `document` feature.
  */
 import type { DonorRequestModel, DonorRequestState } from '@/core/models/sd-document'
+import { donorHost, type DonorHost } from '@/core/oms/donor-host'
 import { compareDonorMoments, donorMoments, type DonorMomentKind } from '@/core/oms/donor-moments'
 import { realTime } from '@/core/oms/timeline'
 import { DONOR_REQUEST_STATES } from './criteria'
@@ -30,6 +31,8 @@ export interface DonorInspectorMoment {
 export interface DonorInspectorView {
   requestNo: string
   deliveryNo: string
+  /** What the request was raised on (spec 3242): a delivery, or another host named in the server's words. */
+  host: DonorHost
   donorStore: string
   orderStore: string
   /** The state when this side knows it; `null` for any other, which `stateRaw` keeps. */
@@ -44,7 +47,7 @@ export interface DonorInspectorView {
   transfer: { stoNo: string; sapDocumentNo: string } | null
   /** Newest first. */
   moments: DonorInspectorMoment[]
-  /** Document Details' delivery route; `null` when the request names no delivery. */
+  /** Document Details' delivery route; `null` when the request names no delivery — or its host is not one (672). */
   openTo: string | null
 }
 
@@ -57,6 +60,17 @@ export function deliveryPath(deliveryNo: string | null | undefined): string | nu
   return no ? `/oms/delivery/${encodeURIComponent(no)}` : null
 }
 
+/**
+ * Where a request opens (D10): its delivery's route — only when its host IS a delivery (spec 3242, ticket 672). A
+ * request on a session, a Wasfaty+ order or any other host has no page here; its key is shown as plain text.
+ */
+export function requestOpenPath(
+  r: Pick<DonorRequestModel, 'deliveryNo' | 'sourceType'> | null | undefined,
+): string | null {
+  if (!r) return null
+  return donorHost(r.sourceType, r.deliveryNo).isDelivery ? deliveryPath(r.deliveryNo) : null
+}
+
 export function donorInspector(r: DonorRequestModel, now: number): DonorInspectorView {
   const stateRaw = text(r.state)
   const norm = stateRaw.toUpperCase()
@@ -64,6 +78,7 @@ export function donorInspector(r: DonorRequestModel, now: number): DonorInspecto
   // A request cancelled after its transfer (reversed by hand) was still transferred: its STO
   // is the one to trace. When it moved is its Transferred moment.
   const transferred = realTime(r.transferredAt) !== null || state === 'TRANSFERRED'
+  const host = donorHost(r.sourceType, r.deliveryNo, r.hostLabel, r.hostLabelAr)
   const moments = donorMoments([r])
     .sort(compareDonorMoments)
     .map(({ kind, at }) => {
@@ -73,6 +88,7 @@ export function donorInspector(r: DonorRequestModel, now: number): DonorInspecto
   return {
     requestNo: text(r.requestNo),
     deliveryNo: text(r.deliveryNo),
+    host,
     donorStore: text(r.donorStore),
     orderStore: text(r.orderStore),
     state,
@@ -85,6 +101,7 @@ export function donorInspector(r: DonorRequestModel, now: number): DonorInspecto
       ? { stoNo: text(r.transferStoNo), sapDocumentNo: text(r.transferSapDocumentNo) }
       : null,
     moments,
-    openTo: deliveryPath(r.deliveryNo),
+    // Only a delivery host has a page to open; another host's key is shown as plain text (672).
+    openTo: requestOpenPath(r),
   }
 }

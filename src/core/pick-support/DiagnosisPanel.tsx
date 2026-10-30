@@ -19,7 +19,8 @@ import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { Code, Section, Serial, SerialsRestrictedNote, Stamp, StampBy, TD, TH, Text, Val } from './bits'
 import CopyDiagnosis from './CopyDiagnosis'
 import ShapeBody from './ShapeBody'
-import { filterTimeline, timelineSources, transferView, verdictView } from './diagnosis'
+import { diagnosisHost, filterTimeline, timelineEventWord, timelineSources, transferView, verdictView } from './diagnosis'
+import { hostLabelIn } from '@/core/oms/donor-host'
 
 /**
  * **The diagnosis panel** (ticket 496, BackOffice brief 2691 "The diagnosis panel") — one component,
@@ -54,8 +55,10 @@ export default function DiagnosisPanel({
   /** No `canSeePickSupportSerial`: show "Serials are restricted for your account" over the units. */
   serialsRestricted?: boolean
 }) {
-  const { t } = useTranslation('pick-support')
+  const { t, i18n } = useTranslation('pick-support')
   const view = verdictView(diagnosis)
+  // Spec 3242: a donor host that is not a delivery is named in the server's words, its key beside it.
+  const host = diagnosisHost(diagnosis)
   const escalate = view.kind === 'escalate'
   // A blank refusal is no refusal: nothing to match against the store's screenshot.
   const refusal = (diagnosis.refusalText ?? '').trim() || null
@@ -64,9 +67,18 @@ export default function DiagnosisPanel({
     <div className="flex flex-col gap-3" data-ps-panel={diagnosis.deliveryNo} data-ps-verdict={view.kind}>
       <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/60 bg-card p-3">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-6" data-ps-facts="">
-          <Fact label={t('facts.delivery')}>
-            <Val value={diagnosis.deliveryNo} />
-          </Fact>
+          {host.isDelivery ? (
+            <Fact label={t('facts.delivery')}>
+              <Val value={diagnosis.deliveryNo} />
+            </Fact>
+          ) : (
+            <Fact label={t('facts.host')}>
+              <span className="flex flex-col" data-ps-host={host.sourceType}>
+                <bdi>{hostLabelIn(host, i18n.language)}</bdi>
+                <Val value={host.key} />
+              </span>
+            </Fact>
+          )}
           <Fact label={t('facts.order')}>
             <Val value={diagnosis.orderNo} />
           </Fact>
@@ -499,6 +511,22 @@ function DonorRequests({ requests }: { requests: PickSupportDonorRequest[] }) {
   )
 }
 
+/** A timeline step's event: its code, and — for the donor trail events 3239 adds (672) — words beside it. */
+function EventCell({ eventType }: { eventType: string }) {
+  const { t } = useTranslation('pick-support')
+  const words = timelineEventWord({ eventType })
+  return (
+    <span className="flex flex-col items-start gap-0.5">
+      <Code>{eventType}</Code>
+      {words && (
+        <span className="text-xs text-muted-foreground" data-ps-event-words="">
+          {t(words)}
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** 6. The merged timeline in the server's order, a source filter and text over `key`. */
 function Timeline({ entries }: { entries: PickSupportTimelineEntry[] }) {
   const { t } = useTranslation('pick-support')
@@ -587,7 +615,7 @@ function Timeline({ entries }: { entries: PickSupportTimelineEntry[] }) {
                     <Val value={e.seq} />
                   </td>
                   <td className={TD}>
-                    <Code>{e.eventType}</Code>
+                    <EventCell eventType={e.eventType} />
                   </td>
                   <td className={TD}>
                     <Val value={e.actor} />

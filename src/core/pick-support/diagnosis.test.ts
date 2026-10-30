@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PickSupportDiagnosis, PickSupportTimelineEntry } from '@/core/models/pick-support'
 import { stuckDiagnosis, timelineEntry, donorRequest } from './__fixtures__/brief'
-import { filterTimeline, holdView, readStamp, timelineSources, transferView, verdictView } from './diagnosis'
+import { diagnosisHost, filterTimeline, holdView, readStamp, timelineEventWord, timelineSources, transferView, verdictView } from './diagnosis'
 
 const withVerdict = (verdict: string, over: Partial<PickSupportDiagnosis> = {}): PickSupportDiagnosis => ({
   ...stuckDiagnosis(),
@@ -146,5 +146,37 @@ describe('holdView', () => {
 
   it.each(['UNKNOWN', 'SOMETHING_NEW', ''])('%s reads as escalate', (hold) => {
     expect(holdView(hold)).toBe('escalate')
+  })
+})
+
+describe('diagnosisHost (ticket 672, BackOffice spec 3242)', () => {
+  it('a diagnosis without hostSourceType is a delivery, exactly as today', () => {
+    const d = stuckDiagnosis()
+    expect('hostSourceType' in d).toBe(false)
+    expect(diagnosisHost(d)).toMatchObject({ isDelivery: true, sourceType: 'OMS', key: '8006777365' })
+  })
+
+  it('a WP host shows its label (in the screen’s language) and its key', () => {
+    const d = {
+      ...stuckDiagnosis(),
+      deliveryNo: '98765',
+      hostSourceType: 'WP',
+      hostLabel: 'Wasfaty+ order 98765',
+      hostLabelAr: 'طلب وصفتي بلس 98765',
+    }
+    expect(diagnosisHost(d)).toEqual({
+      sourceType: 'WP',
+      key: '98765',
+      isDelivery: false,
+      labelEn: 'Wasfaty+ order 98765',
+      labelAr: 'طلب وصفتي بلس 98765',
+    })
+  })
+})
+
+describe('timelineEventWord (ticket 672)', () => {
+  it('REKEY carries words beside its code; any other event is its code alone', () => {
+    expect(timelineEventWord(timelineEntry({ eventType: 'REKEY' }))).toBe('donor-words:event.REKEY')
+    expect(timelineEventWord(timelineEntry({ eventType: 'RAISE' }))).toBeNull()
   })
 })

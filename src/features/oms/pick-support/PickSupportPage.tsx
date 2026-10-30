@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
-import { PICK_SUPPORT_KEY_KINDS, type PickSupportResolvedDelivery, type PickSupportSerialHold } from '@/core/models/pick-support'
+import {
+  PICK_SUPPORT_KEY_KINDS,
+  type PickSupportResolvedDelivery,
+  type PickSupportResolvedHost,
+  type PickSupportSerialHold,
+} from '@/core/models/pick-support'
+import { donorHost, hostLabelIn } from '@/core/oms/donor-host'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenPickSupport, canSeePickSupportSerial } from '@/core/oms/access'
 import { pickSupportApi, pickSupportKeys } from '@/core/pick-support/api'
@@ -230,9 +236,18 @@ function SearchTab({ url }: { url: UrlState }) {
         <>
           <HoldsTable holds={view.holds} opened={openedNo} onOpen={open} serialsRestricted={!seesSerials} />
           {view.deliveries.length > 0 && <DeliveryList deliveries={view.deliveries} opened={openedNo} onOpen={open} />}
+          {view.hosts.length > 0 && <HostList hosts={view.hosts} opened={openedNo} onOpen={open} />}
         </>
       )}
-      {view?.kind === 'list' && <DeliveryList deliveries={view.deliveries} opened={openedNo} onOpen={open} />}
+      {view?.kind === 'list' && (
+        <>
+          {/* An answer naming only hosts (spec 3242) shows no empty delivery list above them. */}
+          {(view.deliveries.length > 0 || view.hosts.length === 0) && (
+            <DeliveryList deliveries={view.deliveries} opened={openedNo} onOpen={open} />
+          )}
+          {view.hosts.length > 0 && <HostList hosts={view.hosts} opened={openedNo} onOpen={open} />}
+        </>
+      )}
       {openedNo !== '' && <DeliveryDiagnosis key={openedNo} deliveryNo={openedNo} />}
     </div>
   )
@@ -336,6 +351,97 @@ function DeliveryList({
           </table>
         </div>
       )}
+    </Section>
+  )
+}
+
+/**
+ * The donor hosts a number names that are not deliveries (spec 3242, ticket 672): each in the server's words, with
+ * its key, where it is picked now, what the number matched it as, and its stuck shapes. A row opens its diagnosis by
+ * its key, under the list, as a delivery row does.
+ */
+function HostList({
+  hosts,
+  opened,
+  onOpen,
+}: {
+  hosts: PickSupportResolvedHost[]
+  opened: string
+  onOpen: (key: string) => void
+}) {
+  const { t, i18n } = useTranslation('pick-support')
+  return (
+    <Section name="hosts" title={t('hosts.title')}>
+      <div className="overflow-x-auto">
+        <table className="text-sm">
+          <thead>
+            <tr>
+              <th className={TH}>{t('hosts.host')}</th>
+              <th className={TH}>{t('hosts.key')}</th>
+              <th className={TH}>{t('list.currentStore')}</th>
+              <th className={TH}>{t('list.matchedBy')}</th>
+              <th className={TH}>{t('list.stuck')}</th>
+              <th className={TH} />
+            </tr>
+          </thead>
+          <tbody>
+            {hosts.map((h) => {
+              const host = donorHost(h.hostSourceType, h.hostKey, h.hostLabel, h.hostLabelAr)
+              const isOpen = host.key === opened
+              const shapes = h.shapes ?? []
+              return (
+                <tr
+                  key={`${host.sourceType}-${host.key}`}
+                  className={'border-t border-border/40' + (isOpen ? ' bg-accent' : '')}
+                  data-ps-host-row={host.key}
+                  data-ps-host-type={host.sourceType}
+                  data-ps-stuck={shapes.length > 0 ? '' : undefined}
+                >
+                  <td className={TD}>
+                    <bdi>{hostLabelIn(host, i18n.language)}</bdi>
+                  </td>
+                  <td className={TD}>
+                    <Val value={host.key} />
+                  </td>
+                  <td className={TD}>
+                    <Val value={h.currentStore} />
+                  </td>
+                  <td className={TD}>
+                    <span className="flex flex-wrap gap-1">
+                      {(h.matchedBy ?? []).map((k) => (
+                        <KeyKindChip key={k} kind={k} />
+                      ))}
+                    </span>
+                  </td>
+                  <td className={TD}>
+                    {shapes.length > 0 ? (
+                      <span className="flex flex-wrap items-center gap-1">
+                        <StatusBadge sev="warn">{t('list.stuck')}</StatusBadge>
+                        {shapes.map((s) => (
+                          <Code key={s}>{s}</Code>
+                        ))}
+                      </span>
+                    ) : (
+                      <Val value="" />
+                    )}
+                  </td>
+                  <td className={TD}>
+                    {isOpen ? (
+                      <span className="text-xs text-muted-foreground">{t('list.opened')}</span>
+                    ) : (
+                      host.key !== '' && (
+                        <Button variant="outlined" onClick={() => onOpen(host.key)} data-ps-open={host.key}>
+                          {t('list.open')}
+                        </Button>
+                      )
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </Section>
   )
 }

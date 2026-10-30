@@ -41,7 +41,7 @@ import {
 import { donorColumns, type DonorRequestRow } from './columns'
 import { donorRow } from './donor-row'
 import DonorInspector from './DonorInspector'
-import { deliveryPath } from './inspector'
+import { requestOpenPath } from './inspector'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 
@@ -97,7 +97,7 @@ function useMinuteClock(): number {
 }
 
 function DonorRequestList({ requestParam }: { requestParam: string | null }) {
-  const { t } = useTranslation('donor-requests')
+  const { t, i18n } = useTranslation('donor-requests')
   const [, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const gridApi = useRef<GridApi<DonorRequestRow> | null>(null)
@@ -119,7 +119,7 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
     retry: false,
   })
 
-  const columns = useMemo(() => donorColumns(t), [t])
+  const columns = useMemo(() => donorColumns(t, i18n.language), [t, i18n.language])
   // The clock matters only to a waiting row: without one, the rows keep their identity all day.
   const anyWaiting = useMemo(() => waitingOnDonor(list.data?.rows).length > 0, [list.data])
   const tick = anyWaiting ? now : 0
@@ -159,7 +159,7 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
       if (!(key instanceof KeyboardEvent) || key.key !== 'Enter' || key.isComposing) return
       if (key.ctrlKey || key.altKey || key.metaKey || key.shiftKey) return
       if (key.target instanceof Element && key.target.closest('button, a')) return
-      openDelivery(deliveryPath(event.data?.deliveryNo))
+      openDelivery(requestOpenPath(event.data))
     },
     [openDelivery],
   )
@@ -321,7 +321,7 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
               onSelectionChanged={({ api }) => setSelectedNo(api.getSelectedRows()[0]?.requestNo ?? null)}
               onCellFocused={onCellFocused}
               onCellKeyDown={onCellKeyDown}
-              onRowDoubleClicked={({ data }) => openDelivery(deliveryPath(data?.deliveryNo))}
+              onRowDoubleClicked={({ data }) => openDelivery(requestOpenPath(data))}
               onModelUpdated={({ api }) => setShown(api.getDisplayedRowCount())}
               rowHeight={OMS_GRID_ROW_HEIGHT}
               headerHeight={OMS_GRID_HEADER_HEIGHT}

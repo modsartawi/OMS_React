@@ -1,0 +1,13 @@
+{
+  "reason": {
+    "DELIVERY_CLOSED": "Delivery closed",
+    "DELIVERY_FORCE_CLOSED": "Delivery force-closed",
+    "DELIVERY_STORE_CHANGED": "Delivery moved to another store",
+    "HOST_CANCELLED": "Order cancelled",
+    "HOST_STORE_CHANGED": "Order moved to another store"
+  },
+  "event": {
+    "REKEY": "Donor request moved to the session",
+    "DONOR_CARRIED": "Donor request carried over from the old pick"
+  }
+}

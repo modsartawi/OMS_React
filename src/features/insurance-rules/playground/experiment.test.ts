@@ -74,3 +74,11 @@ describe('evaluateBody — the Data tab picks data or raw', () => {
     expect('raw' in (r.body ?? {})).toBe(false)
   })
 })
+
+/** Ticket 682 — the Form tab edits the same dataset as the JSON tab, so it sends `data` too. */
+describe('evaluateBody — the Form tab', () => {
+  it('sends data and no raw', () => {
+    const r = evaluateBody({ dataTab: 'form', rawText: 'x', dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT, asOf: AS_OF })
+    expect(Object.keys(r.body ?? {})).toEqual(['kind', 'data', 'document', 'asOf'])
+  })
+})

@@ -71,3 +71,7 @@ Each of the three rule screens opens its rule as a playground copy. Vitest, driv
   published"); 30-minute reload stash; the experiment's name box is left empty (the bar keeps its own name state).
 - **681 / 691:** if 681 changes the document's `fields` spelling (anything other than `{ key, … }`), `experimentFromRule`'s
   field filter must follow.
+- **Review fixes (3243-review):** the guard rule page (`GuardPage.tsx`) only ever reads the DRAFT (`guardDraftQuery`);
+  it has no published-version view, so "the saved or published version shown" is always the saved draft and "Open in
+  playground" already copies the rule shown. Left as is; if the page ever shows a published version, the copy must
+  follow the version on screen.

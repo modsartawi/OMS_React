@@ -267,7 +267,7 @@ function editorField(field: string | null, block: GuardCondition | undefined): s
   const name = first.replace(/\[\d+\]$/, '')
   let mapped = name
   if (name === 'expr') mapped = 'formula'
-  else if (block?.check === 'fact' && (name === 'atLeast' || name === 'under' || name === 'anyOf')) mapped = 'value'
+  else if (block?.check === 'fact' && (name === 'atLeast' || name === 'under' || name === 'anyOf' || name === 'noneOf' || name === 'count' || name === 'is')) mapped = 'value'
   else if (block?.check === 'fact' && name === 'field') mapped = 'path'
   else if (name === 'under') mapped = 'below'
   return [mapped, ...rest].join('.')

@@ -152,7 +152,7 @@ for (const dir of ['ltr', 'rtl']) {
     const when = JSON.stringify(saved?.when)
     check(
       `${dir} 3. the saved rule holds each key`,
-      when === JSON.stringify([{ check: 'line', field: 'claim.quantity', atLeast: 0 }, { check: 'line', field: 'claimResponse.copay', atLeast: 0 }, { check: 'claim', field: 'hasAttachment', anyOf: [] }, { check: 'eligibility', field: 'coverage.class', anyOf: [] }]),
+      when === JSON.stringify([{ check: 'line', field: 'claim.quantity', atLeast: 0 }, { check: 'line', field: 'claimResponse.copay', atLeast: { amount: '0', currency: 'SAR' } }, { check: 'claim', field: 'hasAttachment', is: true }, { check: 'eligibility', field: 'coverage.class', anyOf: [] }]),
       when,
     )
     check(`${dir} 7. no raw keys in the editor, no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))

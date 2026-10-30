@@ -16,7 +16,7 @@
 // test) is passed through as the engine wrote it, never rewritten.
 import { parseExpr, printExpr } from '@/core/rules/expr'
 import type { RuleExpr } from '@/core/models/rule-campaign'
-import { ELIGIBILITY_TESTS, type GuardList, type GuardListFilter, type GuardRule, type GuardRuleFilter, type GuardRuleset } from './model'
+import { ELIGIBILITY_DATE_TESTS, ELIGIBILITY_TESTS, type GuardList, type GuardListFilter, type GuardRule, type GuardRuleFilter, type GuardRuleset } from './model'
 import { isPlainObject as isObj } from '@/core/util/plain-object'
 
 type Obj = Record<string, unknown>
@@ -32,6 +32,28 @@ const FACT_TESTS = [...ELIGIBILITY_TESTS, 'unit'] as const
 const LIST_MATCH = /^list:(.+)$/
 
 // ── conditions ───────────────────────────────────────────────────────────────────────────────────
+
+/** Keys that only a FHIR message reads: a none-of on them is spelled `noneOf`. */
+const FHIR_SCOPE = /^\$(claim|claimResponse|line\.claim|line\.claimResponse)\./
+
+/**
+ * The one test of an engine block as the fact's `op` and `value`; null to keep the block as written. ⚠️ PROVISIONAL
+ * spelling of the new tests (oms 693; 711 reconciles): `count: { atLeast | under }`, and `is` / a day test on a FHIR message.
+ * An eligibility block's `is` and day tests stay that block (oms 674), and `./fact-tests` edits them as a fact.
+ */
+function factTestIn(test: string, value: unknown, scope: string): Obj | null {
+  if (test === 'under') return { op: 'below', value }
+  if (test === 'atLeast' || test === 'anyOf' || test === 'noneOf') return { op: test, value }
+  if (test === 'count' && isObj(value)) {
+    const keys = Object.keys(value)
+    if (keys.length !== 1) return null
+    if (keys[0] === 'atLeast') return { op: 'countAtLeast', value: value.atLeast }
+    if (keys[0] === 'under') return { op: 'countBelow', value: value.under }
+    return null
+  }
+  if (scope !== 'eligibility' && (test === 'is' || (ELIGIBILITY_DATE_TESTS as readonly string[]).includes(test))) return { op: test, value }
+  return null
+}
 
 /** One engine block → the editor's (a fact block, `below`, formula text), keeping everything it cannot draw. */
 function conditionIn(raw: unknown): unknown {
@@ -51,11 +73,12 @@ function conditionIn(raw: unknown): unknown {
   const scope = c.check as string
   const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || fhirLine ? scope : null
   if (factScope && typeof c.field === 'string' && c.inList === undefined) {
-    const tests = FACT_TESTS.filter((k) => c[k] !== undefined)
+    const tests = [...FACT_TESTS, 'noneOf', 'count'].filter((k) => c[k] !== undefined)
     const one = tests.length === 1 ? tests[0] : null
-    const op = one === 'atLeast' ? 'atLeast' : one === 'under' ? 'below' : one === 'anyOf' ? 'anyOf' : null
-    if (op) {
-      const fact: Obj = { check: 'fact', path: `$${factScope}.${c.field}`, op, value: c[one!] }
+    const read = one ? factTestIn(one, c[one], factScope) : null
+    if (read) {
+      const fact: Obj = { check: 'fact', path: `$${factScope}.${c.field}`, ...read }
+      if (typeof c.system === 'string') fact.system = c.system
       if (c.not === true) fact.not = true
       return fact
     }
@@ -94,9 +117,16 @@ function conditionOut(raw: unknown, alias: ReadonlyMap<string, string>): unknown
       else if (c.op === 'below') out.under = c.value
       else if (c.op === 'anyOf') out.anyOf = c.value
       else if (c.op === 'noneOf') {
-        out.anyOf = c.value
-        not = !not
-      }
+        // A phase-1 none-of stays any-of under NOT, byte-identical. ⚠️ PROVISIONAL (oms 693; 711 reconciles): a FHIR message or a code tests `noneOf` (3272).
+        if (c.system || FHIR_SCOPE.test(c.path)) out.noneOf = c.value
+        else {
+          out.anyOf = c.value
+          not = !not
+        }
+      } else if (c.op === 'countAtLeast') out.count = { atLeast: c.value }
+      else if (c.op === 'countBelow') out.count = { under: c.value }
+      else if (typeof c.op === 'string') out[c.op] = c.value
+      if (typeof c.system === 'string' && c.system) out.system = c.system
       if (not) out.not = true
       return out
     }

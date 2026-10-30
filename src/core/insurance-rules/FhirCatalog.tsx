@@ -13,6 +13,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { saysIn } from '@/core/rules/sentence'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { Select } from './controls'
+import { FieldDriftBadges } from './DriftBadges'
 import { CHANNEL_ANSWERS, catalogEntryOf, factKey, groupCatalog, mayBeCatalogKey, parameterOptions, type ChannelAnswer, type ChannelRate, type FhirCatalogRow, type FhirLegacy, type ParameterOption } from './fhir-catalog'
 import { fhirCatalogQuery, fhirParameterQuery } from './registry-api'
 
@@ -117,6 +118,7 @@ function CatalogRow({ row, current, onPick }: { row: FhirCatalogRow; current: st
             {row.unit && <Ltr>{row.unit}</Ltr>}
             {row.cardinality === 'list' && <StatusBadge sev="mute">{t('catalog.list')}</StatusBadge>}
             {row.retired && <StatusBadge sev="mute">{t('catalog.retired')}</StatusBadge>}
+            <FieldDriftBadges fieldKey={key} newTab={!!onPick} />
           </span>
           <ChannelDots channels={row.channels} />
         </div>

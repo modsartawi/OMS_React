@@ -237,7 +237,39 @@
       "atLeast": "at least",
       "below": "below",
       "anyOf": "any of",
-      "noneOf": "none of"
+      "noneOf": "none of",
+      "countAtLeast": "count at least",
+      "countBelow": "count below",
+      "is": "is",
+      "before": "before",
+      "onOrBefore": "on or before",
+      "after": "after",
+      "onOrAfter": "on or after"
+    },
+    "factTest": {
+      "amount": "Amount",
+      "currency": "Currency",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "system": "Code system",
+      "addCode": "Add a code…",
+      "count": "Values",
+      "day": "Day",
+      "flag": "Value",
+      "yes": "yes",
+      "no": "no",
+      "notAllowed": "This fact's type cannot answer this test. Choose another.",
+      "unknown": {
+        "none": "If this fact reads unknown or unparsed, the rule does not fire.",
+        "warn": "If this fact reads unknown or unparsed, the pharmacist is warned."
+      },
+      "problem": {
+        "empty": "Enter a value.",
+        "shape": "Enter a number, like 100.5.",
+        "decimals": "At most 3 decimals.",
+        "currency": "Three capital letters, like SAR.",
+        "unit": "Enter a unit."
+      }
     },
     "unit": {
       "days": "days",

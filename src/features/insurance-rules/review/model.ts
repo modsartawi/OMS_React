@@ -4,6 +4,7 @@
 // Reconciled with 3135 / 3141 as built in oms 618: the wire rows (`ReviewReply`, `ExceptionReply`, `ExceptionLogReply`)
 // are read by `reviewIn` / `exceptionIn` / `logIn` into the screen's model. Times are local wall-clock, no `Z`.
 
+import { driftSignalIn, type DriftSignal, type DriftSignalReply } from '@/core/insurance-rules/drift'
 import type { Says } from '@/core/models/rule-campaign'
 import type { LocalDate } from '@/core/util/date-window'
 import type { ExceptionScope } from './exception'
@@ -14,10 +15,10 @@ export const DECISION_KINDS = ['override', 'exception', 'unchecked', 'refused'] 
 
 /**
  * The kinds that are not a counter decision (spec 3271): nobody at a store did anything, so they carry no pharmacist
- * and no mark. They are read into a `ReviewDetail` and cleared with a note. A new kind (703, 708) adds its name
+ * and no mark. They are read into a `ReviewDetail` and cleared with a note. A new kind (703) adds its name
  * here, a `ReviewDetail` case in `detailOf`, and a case in `ReviewItems`' `ItemDetail`.
  */
-export const ITEM_KINDS = ['monitor', 'notEvaluated'] as const
+export const ITEM_KINDS = ['monitor', 'notEvaluated', 'drift', 'labelsChanged', 'uploadDue', 'package'] as const
 
 /** Every kind this screen can offer as a filter. A row's own `kind` may be one the screen has never heard of. */
 export const REVIEW_KINDS = [...DECISION_KINDS, ...ITEM_KINDS] as const
@@ -36,6 +37,61 @@ export type MonitorSeverity = (typeof MONITOR_SEVERITIES)[number]
 export const EVALUATION_FAILURES = ['watcher', 'monitor'] as const
 export type EvaluationFailure = (typeof EVALUATION_FAILURES)[number]
 
+/** Why a workbook upload is due (door 3296): a new package, or a seen code no loaded workbook lists. */
+export const UPLOAD_DUE_REASONS = ['newPackage', 'unlistedCode'] as const
+export type UploadDueReason = (typeof UPLOAD_DUE_REASONS)[number]
+
+/** A published ruleset as a review item names it. */
+export interface ReviewRuleset {
+  id: string
+  name: string
+  version: number
+}
+
+export interface PackageRename {
+  from: string
+  to: string
+}
+
+/** One part of an IG package's diff (door 3295): the names added, removed and renamed. */
+export interface PackageDiffPart {
+  added: string[]
+  removed: string[]
+  renamed: PackageRename[]
+}
+
+export const PACKAGE_GROUPS = ['profiles', 'extensions', 'codeSystems'] as const
+export type PackageGroup = (typeof PACKAGE_GROUPS)[number]
+export type PackageDiff = Record<PackageGroup, PackageDiffPart>
+
+export const PACKAGE_CHANGES = ['added', 'removed', 'renamed'] as const
+export type PackageChange = (typeof PACKAGE_CHANGES)[number]
+
+export interface PackageDiffLine {
+  change: PackageChange
+  name: string
+  renamedTo: string | null
+}
+
+export interface PackageDiffGroup {
+  group: PackageGroup
+  count: number
+  lines: PackageDiffLine[]
+}
+
+/** The groups of a package diff that moved, in a fixed order; a group nothing happened to is left out. */
+export function packageDiffGroups(diff: PackageDiff): PackageDiffGroup[] {
+  return PACKAGE_GROUPS.flatMap((group) => {
+    const part = diff[group]
+    const lines: PackageDiffLine[] = [
+      ...part.added.map((name) => ({ change: 'added' as const, name, renamedTo: null })),
+      ...part.removed.map((name) => ({ change: 'removed' as const, name, renamedTo: null })),
+      ...part.renamed.map((r) => ({ change: 'renamed' as const, name: r.from, renamedTo: r.to })),
+    ]
+    return lines.length ? [{ group, count: lines.length, lines }] : []
+  })
+}
+
 /** What a row says beyond the columns every row has, by the kind it was read from. */
 export type ReviewDetail =
   /** A counter decision: the store, pharmacist, patient and mark columns are its detail. */
@@ -44,6 +100,14 @@ export type ReviewDetail =
   | { shape: 'monitor'; severity: MonitorSeverity | null; text: Says; message: MessageRef | null }
   /** A failure, not a fire (A13): the answer that was left unread, and what failed if the server said. */
   | { shape: 'notEvaluated'; failure: EvaluationFailure | null; message: MessageRef | null }
+  /** A newer label version changes text this published ruleset shows (L9). Null draft: none raised yet. */
+  | { shape: 'labelsChanged'; ruleset: ReviewRuleset | null; draftId: string | null }
+  /** A workbook should be uploaded (door 3296). Null why: the server sent one this screen does not know. */
+  | { shape: 'uploadDue'; why: UploadDueReason | null; version: string | null; code: { system: string; code: string } | null }
+  /** The IG package changed (door 3295). */
+  | { shape: 'package'; version: string | null; previousVersion: string | null; diff: PackageDiff }
+  /** Payer drift (D5): who, what changed, and a sample that is a reference, never a fragment of the bundle. */
+  | { shape: 'drift'; payer: string; signal: DriftSignal; sample: MessageRef | null }
   /** A kind the screen does not know: whatever text and message it carried, and never a throw. */
   | { shape: 'generic'; text: Says; message: MessageRef | null }
 
@@ -98,7 +162,16 @@ export interface ReviewReply {
   text?: Partial<Says> | null
   message?: MessageRef | null
   failure?: string | null
+  /** 🚩 A drift item's fields are guessed (door 3293; 711 reconciles). */
+  payer?: string | null
+  signal?: DriftSignalReply | null
+  sample?: MessageRef | null
   cleared?: ReviewCleared | null
+  /** 🚩 Guessed too (doors 3295–3297; oms 708): `ruleset` + `draftId`, `due`, `package`. */
+  ruleset?: ReviewRuleset | null
+  draftId?: string | null
+  due?: { why?: string | null; version?: string | null; system?: string | null; code?: string | null } | null
+  package?: ({ version?: string | null; previousVersion?: string | null } & { [G in PackageGroup]?: Partial<PackageDiffPart> | null }) | null
   channel?: string | null
   sourceRef?: string | null
   ruleId: string | null
@@ -119,11 +192,23 @@ const oneOf = <T extends string>(known: readonly T[], value: string | null | und
 
 const textOf = (r: ReviewReply): Says => ({ en: r.text?.en ?? '', ar: r.text?.ar ?? '' })
 
+const diffPart = (p: Partial<PackageDiffPart> | null | undefined): PackageDiffPart => ({ added: p?.added ?? [], removed: p?.removed ?? [], renamed: p?.renamed ?? [] })
+
 function detailOf(r: ReviewReply): ReviewDetail {
   if ((DECISION_KINDS as readonly string[]).includes(r.kind)) return { shape: 'decision' }
   const message = r.message ?? null
   if (r.kind === 'monitor') return { shape: 'monitor', severity: oneOf(MONITOR_SEVERITIES, r.severity), text: textOf(r), message }
   if (r.kind === 'notEvaluated') return { shape: 'notEvaluated', failure: oneOf(EVALUATION_FAILURES, r.failure), message }
+  if (r.kind === 'labelsChanged') return { shape: 'labelsChanged', ruleset: r.ruleset ?? null, draftId: r.draftId || null }
+  if (r.kind === 'uploadDue') {
+    const why = UPLOAD_DUE_REASONS.find((k) => k === r.due?.why) ?? null
+    return { shape: 'uploadDue', why, version: r.due?.version || null, code: r.due?.code ? { system: r.due.system ?? '', code: r.due.code } : null }
+  }
+  if (r.kind === 'package') {
+    const p = r.package
+    return { shape: 'package', version: p?.version || null, previousVersion: p?.previousVersion || null, diff: { profiles: diffPart(p?.profiles), extensions: diffPart(p?.extensions), codeSystems: diffPart(p?.codeSystems) } }
+  }
+  if (r.kind === 'drift') return { shape: 'drift', payer: r.payer ?? '', signal: driftSignalIn(r.signal), sample: r.sample ?? null }
   return { shape: 'generic', text: textOf(r), message }
 }
 

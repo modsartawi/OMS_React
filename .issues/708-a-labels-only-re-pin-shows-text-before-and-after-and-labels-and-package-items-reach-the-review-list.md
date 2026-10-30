@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3271 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3271-oms-react-fhir-insurance-rules-brief.md)
 blocked-by: 702, 705, 706
 ---
@@ -25,8 +25,8 @@ i18n (en + ar) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] the before / after pairs, and no back-test demanded for this draft kind — pure
-- [ ] labels-changed item → draft → approve as another user; upload-due item → upload; package item → diff — flow
+- [x] the before / after pairs, and no back-test demanded for this draft kind — pure
+- [x] labels-changed item → draft → approve as another user; upload-due item → upload; package item → diff — flow (stubbed; RTL direction with English words, see Comments)
 
 ## Boundaries
 
@@ -43,3 +43,39 @@ attention.
 702, 705, 706.
 
 ## Comments
+
+**2026-10-30, built on stubs (`tools/insurance-fhir-708-drive.mjs`, `tools/fhir-rules-stubs-708.mjs`, port 5218).** Never
+against a live SIS.Api. Draft and badge on 705's list (`aliases/`, group `repin.labels`); items on 702's shape (`review/`,
+groups `item.labels`, `item.due`, `item.package`).
+
+Door shapes guessed, for 711 to reconcile (3295, 3296 and 3297 spell none):
+
+- 705's re-pin doors carry `kind: 'labels'`: `Affected` lists the ruleset; `before` / `after` are the label versions as
+  strings; `subject` is one machine string (`benefit-category · 12`).
+- The draft adds `texts: [{ ruleId, before: { en, ar }, after: { en, ar } }]`, with `backtest: null`.
+- Review rows, all on `GET InsuranceRules/Review`, cleared on 702's `Clear`:
+  - `kind: labelsChanged`: `ruleset: { id, name, version }`, `draftId` (null when none is raised).
+  - `kind: uploadDue`: `due: { why: newPackage | unlistedCode, version, system, code }`.
+  - `kind: package`: `package: { version, previousVersion, profiles, extensions, codeSystems }`, each group
+    `{ added: string[], removed: string[], renamed: [{ from, to }] }`; a missing group or list reads as empty.
+
+Overrulable decisions:
+
+- **The badge sits on the re-pin list's ruleset row and on the review row.** No other screen lists a published ruleset
+  with its version, so the editor screens carry none. If "on the published ruleset" means the guards or monitors screen,
+  that needs a read door those screens can call.
+- A draft is reached by address, `/insurance-rules/aliases?repin=<id>`; closing it takes `repin` out. An item with no
+  draft goes to the list, where any grant holder raises one. Door 3297 reads as raising it itself, so the raise may go.
+- A labels-only draft ignores a back-test if a door sends one; approval never waits on it.
+- Only text that moves gets a line, per rule and language. Both languages show whatever the reader's. Nothing moved says
+  so and can still be approved, as 705's zero-change draft can.
+- Unknown `why` reads as "A workbook upload is due." The three kinds clear with a required note, as 702 ruled. Clearing a
+  labels-changed item does not touch its draft, and approving a draft does not clear its item: 711 should check whether
+  the door clears it.
+- Package counts are label + figure, so `ar` needs no plural forms. Package names are machine values, never translated.
+
+**Defect fixed in passing:** 710's Inspect column made the table 12 columns while 702's item rows still spanned 11, which
+also failed 702's own drive check. The item's Open cell now spans Actions and Inspect, and that check reads 12.
+
+⚠ `core/i18n.ts` pins `lng` to `en`, so the flow's RTL pass flips direction with English words. The Arabic keys are proved
+only as mirroring the English: their wording awaits an Arabic sign-off.

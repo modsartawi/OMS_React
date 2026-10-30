@@ -214,10 +214,34 @@ export function requestListField(c: { check: string; field?: unknown; inList?: u
 export interface FactCondition extends ConditionBase {
   check: 'fact'
   path: string
-  op: 'atLeast' | 'below' | 'anyOf' | 'noneOf'
-  /** A number for `atLeast` / `below`; codes for `anyOf` / `noneOf`. */
-  value: number | string[]
+  op: FactOp
+  /**
+   * A number, money or a quantity for `atLeast` / `below`; codes for `anyOf` / `noneOf`; a number for a count; yes or no
+   * for `is`; a local day for a day test. Oms 693: `./fact-tests` says which a fact's type allows.
+   */
+  value: number | string[] | FactMoney | FactQuantity | boolean | string
+  /** The code system a code fact is tested in (F12); no key = the fact's declared system. */
+  system?: string
 }
+
+export const FACT_DATE_OPS = ['before', 'onOrBefore', 'after', 'onOrAfter'] as const
+export const FACT_COUNT_OPS = ['countAtLeast', 'countBelow'] as const
+export type FactOp = 'atLeast' | 'below' | 'anyOf' | 'noneOf' | 'is' | (typeof FACT_COUNT_OPS)[number] | (typeof FACT_DATE_OPS)[number]
+
+/** Oms 693 (F10): the amount stays the string typed, never a JS float; compared within its currency, by the engine. */
+export interface FactMoney {
+  amount: string
+  currency: string
+}
+
+/** Oms 693 (F11): a value and its unit. The client never converts a unit: that is the engine's. */
+export interface FactQuantity {
+  value: string
+  unit: string
+}
+
+export const isFactMoney = (v: unknown): v is FactMoney => typeof v === 'object' && v !== null && 'amount' in v
+export const isFactQuantity = (v: unknown): v is FactQuantity => typeof v === 'object' && v !== null && 'unit' in v
 
 /** The tests an `eligibility` block takes (SIS.Rules `RulesetReader.ReadEligibility`, BackOffice 3144), by the fact's type. */
 export const ELIGIBILITY_BOUNDS = ['above', 'atLeast', 'under', 'atMost'] as const

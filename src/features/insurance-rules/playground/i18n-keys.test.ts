@@ -12,7 +12,8 @@ import { hasLocaleKey, localeAt } from '@/core/test/locale'
 import { GUARD_LINE_OUTCOMES } from '@/core/insurance-rules/guard-check'
 import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
-import type { DataTab, ExperimentBox } from './experiment'
+import { DATA_TABS, type ExperimentBox } from './experiment'
+import { LINE_FIELDS, PATIENT_FIELDS, REQUEST_FIELDS } from './data-form'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
@@ -21,7 +22,6 @@ function leaves(node: unknown, prefix = ''): string[] {
 }
 
 const BOXES: readonly ExperimentBox[] = ['data', 'document']
-const DATA_TABS: readonly DataTab[] = ['json', 'raw']
 
 describe('insurance-playground — en and ar mirror each other', () => {
   it('the same keys, and no plural family', () => {
@@ -83,6 +83,17 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...['label', 'rule', 'add', 'up', 'down', 'remove', 'jsonOnly', 'broken', 'empty', 'readsAs'].map((k) => `ruleset.${k}`),
       'outcome.errors.onBlocks',
     ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('682: the form, its sections, every field and its problems', (locale) => {
+    const keys = [
+      'formHint',
+      ...['request', 'patient', 'lines', 'line', 'noLines', 'addLine', 'lineUp', 'lineDown', 'lineRemove', 'icdHint', 'more'].map((k) => `form.${k}`),
+      ...['attributes', 'attributesHint', 'attributeKey', 'attributeValue', 'attributeRemove', 'addAttribute'].map((k) => `form.${k}`),
+      ...['invalid', 'unshaped'].map((k) => `form.problem.${k}`),
+      ...[...REQUEST_FIELDS, ...PATIENT_FIELDS, ...LINE_FIELDS].map((f) => `form.fields.${f}`),
+    ].map((k) => `data.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

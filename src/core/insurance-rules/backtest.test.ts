@@ -4,7 +4,7 @@
  * key that is never shown whole.
  */
 import { describe, expect, it } from 'vitest'
-import { backtestForAsking, backtestKinds, backtestWindowLimit, cappedBacktestDays, draftHoldsMonitors, monitorBacktestReading, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest, type MonitorBacktest } from './backtest'
+import { backtestKinds, backtestWindowLimit, cappedBacktestDays, draftHoldsMonitors, monitorBacktestReading, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest, type MonitorBacktest } from './backtest'
 
 const bt = (o: Partial<GuardBacktest> = {}): GuardBacktest => ({
   id: 'BT-1',
@@ -141,25 +141,13 @@ describe('the back-test read per kind (oms 700)', () => {
     expect(monitorBacktestReading({} as MonitorBacktest)).toEqual({ rows: [['action', 0], ['info', 0]], total: 0, answers: 0, raisedOn: 0, items: [], shown: 0, itemsTotal: 0, truncated: false, rules: [] })
   })
 
-  it('a draft holding a monitor counts only a finished back-test that read the answers', () => {
+  it('a draft holds a monitor only while one still runs', () => {
     const guard = { kind: undefined, state: 'draft' as const }
     const monitor = { kind: 'monitor' as const, state: 'draft' as const }
     const off = { kind: 'monitor' as const, state: 'disabled' as const }
     expect(draftHoldsMonitors([guard])).toBe(false)
     expect(draftHoldsMonitors([guard, off])).toBe(false)
     expect(draftHoldsMonitors([guard, monitor])).toBe(true)
-
-    const noAnswers = bt()
-    expect(backtestForAsking(noAnswers, [guard], 12)).toBe(noAnswers)
-    expect(backtestForAsking(noAnswers, [monitor], 12)).toBeNull()
-    const read = bt({ monitors })
-    expect(backtestForAsking(read, [monitor], 12)).toBe(read)
-    // Running, failed or of another revision: it already reads as such.
-    const running = bt({ status: 'running' })
-    expect(backtestForAsking(running, [monitor], 12)).toBe(running)
-    const old = bt({ revision: 11 })
-    expect(backtestForAsking(old, [monitor], 12)).toBe(old)
-    expect(backtestForAsking(null, [monitor], 12)).toBeNull()
   })
 })
 

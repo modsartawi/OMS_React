@@ -59,3 +59,5 @@ Overrulable decisions:
 - A reject reason is required, on the ticket's "with its reason".
 - An unknown user or author offers no action and no explanation, rather than claiming authorship (704's `approveStanding` says `ownProposal` there).
 - Order: waiting first, oldest first; then decided, newest first.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** The second-person comparison is now `authorshipOf` in `core/insurance-rules/approval`, with its test (also 704, 705, 707). Each screen's standing is unchanged.

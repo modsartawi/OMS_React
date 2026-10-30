@@ -66,9 +66,13 @@ export function factShapeOf(c: FactCondition, catalog: readonly FhirCatalogRow[]
 
 const COMPARES: readonly FhirFactType[] = ['number', 'money', 'quantity']
 
-/** What a fact of this shape can answer. Only a list is counted; a list of amounts has no code for any of to match. */
+/**
+ * What a fact of this shape can answer (spec 3271 story 15, 3272). A list fact of any type supports any of, none of and
+ * count. A single fact has no count. A single code keeps any of / none of, because that is how a code is tested
+ * (story 16, F12), and so does single text, which has no other test and is how a phase-1 rule reads it.
+ */
 export function operatorsFor(s: FactShape): FactOp[] {
-  if (s.cardinality === 'list') return COMPARES.includes(s.type) ? [...FACT_COUNT_OPS] : ['anyOf', 'noneOf', ...FACT_COUNT_OPS]
+  if (s.cardinality === 'list') return ['anyOf', 'noneOf', ...FACT_COUNT_OPS]
   if (COMPARES.includes(s.type)) return ['atLeast', 'below']
   if (s.type === 'flag') return ['is']
   if (s.type === 'date') return [...FACT_DATE_OPS]

@@ -148,15 +148,6 @@ export function monitorBacktestReading(m: MonitorBacktest) {
 /** The draft holds a monitor that still runs. */
 export const draftHoldsMonitors = (rules: readonly Pick<GuardRule, 'kind' | 'state'>[]): boolean => rules.some((r) => r.kind === 'monitor' && r.state !== 'disabled')
 
-/**
- * The back-test Submit may lean on. A draft holding a monitor needs one that read the answers: a finished job of this
- * revision with no monitor section counts as none, because the author has not seen what the monitor would raise.
- */
-export function backtestForAsking<T extends Pick<GuardBacktest, 'status' | 'revision' | 'monitors'>>(bt: T | null | undefined, rules: readonly Pick<GuardRule, 'kind' | 'state'>[], revision: number): T | null {
-  if (!bt) return null
-  return bt.status === 'done' && bt.revision === revision && !bt.monitors && draftHoldsMonitors(rules) ? null : bt
-}
-
 export const backtestRunning = (bt: Pick<GuardBacktest, 'status'>): boolean => bt.status === 'queued' || bt.status === 'running'
 
 export function backtestProgressPct(bt: Pick<GuardBacktest, 'progress'>): number {

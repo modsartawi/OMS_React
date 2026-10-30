@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
-import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { factKey } from '@/core/insurance-rules/fhir-catalog'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
@@ -16,11 +15,8 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
 import { bundleParam, clickOutcome, treeRows, type ClickOutcome, type ExistingField, type TreeRow } from './bundle-tree'
+import { failureWords } from './failure-words'
 import RawPathDialog from './RawPathDialog'
-
-function failureWords(err: unknown, denied: string, fallback: string): string {
-  return isBareDenial(err) ? denied : apiErrorMessage(err, fallback)
-}
 
 function NodeRow({ row, busy, onToggle, onPick }: { row: TreeRow; busy: boolean; onToggle: () => void; onPick: () => void }) {
   const { t } = useTranslation('insurance-fields')

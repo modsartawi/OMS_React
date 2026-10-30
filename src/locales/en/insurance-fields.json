@@ -5,7 +5,9 @@
     "failed": "The fields could not be loaded.",
     "loading": "Loading the fields…",
     "noField": "No field in this scope.",
-    "unused": "Unused"
+    "unused": "Unused",
+    "repinNote": "A changed row reaches a published ruleset only through a re-pin draft that someone else approves.",
+    "repinLink": "See the rulesets on an old form"
   },
   "catalog": {
     "title": "FHIR fact catalog",

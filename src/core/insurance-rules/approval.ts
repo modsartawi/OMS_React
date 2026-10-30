@@ -48,6 +48,17 @@ export function approvalOf(d: Pick<RulesetDraft<unknown>, 'revision' | 'state' |
   }
 }
 
+/**
+ * Whether this user wrote what asks for a second person's approval. `unknown` when either name is missing: each screen
+ * says what that offers, and none of them offers the approval. The client only hides the action: HQ still decides.
+ */
+export type Authorship = 'unknown' | 'own' | 'other'
+
+export function authorshipOf(userId: string | null | undefined, author: string | null | undefined): Authorship {
+  if (!userId || !author) return 'unknown'
+  return userId.toLowerCase() === author.toLowerCase() ? 'own' : 'other'
+}
+
 export type SubmitWhy = 'unsaved' | 'noBacktest' | 'backtestRunning' | 'backtestFailed' | 'backtestStale' | 'checking' | 'checks'
 export type ApproveWhy = 'ownSubmission' | 'checking' | 'checks'
 

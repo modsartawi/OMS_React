@@ -79,3 +79,5 @@ also failed 702's own drive check. The item's Open cell now spans Actions and In
 
 ⚠ `core/i18n.ts` pins `lng` to `en`, so the flow's RTL pass flips direction with English words. The Arabic keys are proved
 only as mirroring the English: their wording awaits an Arabic sign-off.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** **The labels-changed badge now sits on the published rulesets themselves:** the Guards screen's title (`guards` and `monitors`, since it shows both) and the Coverage and Categories titles. It opens the draft, or the re-pin list when none is raised; an approved draft takes it away. This replaces the decision above that no screen could carry it: those screens read the same `RepinDrafts/Affected` (key shared, `REPINS_KEY` moved to core). 🚩 Guesses for 711: `rulesetId` is `guards` / `monitors` / `coverage` / `category`, and any holder of those screens may read Affected. A denied read shows no badge.

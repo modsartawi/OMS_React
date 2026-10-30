@@ -2,6 +2,7 @@
  * A payer's quirk named once (ticket 704; BackOffice spec 3271 D7, D11, door 3294): (payer, wrong URL → canonical URL).
  * HQ applies an approved alias when matching codings and UCUM units; the kept bundle itself is never rewritten. Pure.
  */
+import { authorshipOf } from '@/core/insurance-rules/approval'
 export type AliasState = 'proposed' | 'approved'
 export const ALIAS_STATES: readonly AliasState[] = ['proposed', 'approved']
 
@@ -53,6 +54,5 @@ export type ApproveStanding = 'may' | 'ownProposal' | 'none'
 
 export function approveStanding(alias: Pick<AliasRow, 'state' | 'proposedBy'>, userId: string | null): ApproveStanding {
   if (alias.state !== 'proposed') return 'none'
-  if (!userId || !alias.proposedBy) return 'ownProposal'
-  return userId.toLowerCase() === alias.proposedBy.toLowerCase() ? 'ownProposal' : 'may'
+  return authorshipOf(userId, alias.proposedBy) === 'other' ? 'may' : 'ownProposal'
 }

@@ -77,3 +77,8 @@ app's `lng` still `en`, so the Arabic bundle is proved by key parity only and no
 - **The message is held in a mutation with `gcTime: 0`**, and each Show is a new read for the door to log.
 - **The patient key goes through `maskedKey`** whatever the door sends.
 - `tools/insurance-simulator-drive.mjs` gained one stub line for the limit (126/126); review drive 108/108.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.**
+- **Entry from the rule's metrics: not built, because that screen has no decision to link.** `MetricsRow` and `RejectionRow` are aggregates by rule, store, pharmacist, day or code, with no decision id. Stands until a door lists a rule's decisions.
+- Every key `messageReading` builds (`kept.match`, `kept.differs`, `refetched.match`, `refetched.differs`, `notFound`) exists in en and ar under `message.check`.
+- The drive's "Hide takes the message off the page" raced the render. It now waits for detach.

@@ -126,6 +126,7 @@ for (const dir of ['ltr', 'rtl']) {
     const idb = await page.evaluate(async () => (indexedDB.databases ? (await indexedDB.databases()).length : 0))
     check(`${dir} 4. no IndexedDB`, idb === 0)
     await page.locator('[data-message-hide]').click()
+    await page.locator('[data-message-body]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
     check(`${dir} 4. Hide takes the message off the page`, (await page.locator('[data-message-body]').count()) === 0)
     await showMessage(page)
     check(`${dir} 4. showing it again is a new read of the door`, reads['DEC-MATCH'] === 2, JSON.stringify(reads))

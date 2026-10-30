@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftStateQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
-import { GUARD_BACKTESTS_KEY, backtestForAsking, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, monitorBacktestReading, type GuardBacktest } from '@/core/insurance-rules/backtest'
+import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, monitorBacktestReading, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
 import { isMonitor } from '@/core/insurance-rules/monitor'
@@ -85,8 +85,8 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   const userId = useSession((s) => s.userId)
   // The draft's back-tests, newest first (`GET …/Backtests`); the one that counts is this revision's.
   const backtests = useQuery(draftBacktestsQuery())
-  // A draft holding a monitor leans only on a back-test that read the kept answers (700).
-  const bt = backtestForAsking(draftBacktest(backtests.data, approval.revision), doc.rules, approval.revision)
+  // A draft holding a monitor asks as a guard's does (700): the gate is the revision's back-test, as HQ's is.
+  const bt = draftBacktest(backtests.data, approval.revision)
   // HQ's checks of THIS revision; asked once per revision.
   const checks = useQuery({
     queryKey: [...INSURANCE_RULES_KEY, 'guards', 'checks', doc.revision],

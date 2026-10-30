@@ -63,3 +63,5 @@ Overrulable decisions:
 
 ⚠ `core/i18n.ts` pins `lng` to `en`, so the flow's RTL pass flips direction with English words. The Arabic file is proved only as
 mirroring the English keys: its words await an Arabic sign-off.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** "When a registry row or alias changes": the Fields page now says how a changed row reaches a ruleset and links to the re-pin list (`/insurance-rules/aliases#repin-drafts`), which scrolls into view. This closes "No path screen links to it yet" above.

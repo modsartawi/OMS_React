@@ -205,7 +205,9 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       const tests = eligibilityTests(c).map((k): SentenceValue => {
         if (k === 'anyOf') return phrase('eligibility.anyOf', { codes: { kind: 'list', join: 'or', items: (c.anyOf ?? []).map(code) } })
         if (k === 'is') return phrase(c.is ? 'eligibility.isTrue' : 'eligibility.isFalse')
-        const v = c[k]
+        const v: unknown = c[k]
+        if (isFactMoney(v)) return phrase(`eligibility.${k}`, { value: code(`${v.currency} ${v.amount}`) })
+        if (isFactQuantity(v)) return phrase(`eligibility.${k}`, { value: code(`${v.value} ${v.unit}`) })
         return phrase(`eligibility.${k}`, { value: typeof v === 'number' ? num(v) : afterValue(String(v ?? '')) })
       })
       if (c.unit !== undefined) clauses.push(S('eligibility.unit', { unit: code(c.unit) }))

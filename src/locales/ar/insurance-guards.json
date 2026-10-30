@@ -280,6 +280,7 @@
       "onOrAfter": "في أو بعد"
     },
     "factTest": {
+      "codesPlaceholder": "E11*",
       "amount": "المبلغ",
       "currency": "العملة",
       "quantity": "الكمية",

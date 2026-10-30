@@ -11,7 +11,7 @@
 import { createRequire } from 'node:module'
 import { fhirCatalogStub } from './fhir-rules-stubs-692.mjs'
 import { OUTCOME_SYSTEM, codeSystemStub } from './fhir-rules-stubs-693.mjs'
-import { envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
+import { coverageStub, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newCoverageState, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -33,6 +33,14 @@ for (const dir of ['ltr', 'rtl']) {
   const errors = []
   const store = newGuardStore()
   const registry = newListsState()
+  const coverage = newCoverageState()
+  const NEW_TYPES = [
+    { check: 'claim', field: 'total', atLeast: { amount: '100.500', currency: 'BHD' } },
+    { check: 'claim', field: 'diagnoses', count: { atLeast: 2 } },
+    { check: 'claimResponse', field: 'outcome', anyOf: ['rejected'], system: OUTCOME_SYSTEM },
+  ]
+  const covRule = coverage.coverage.rules.find((r) => r.id === 'C-002')
+  covRule.when.push(...structuredClone(NEW_TYPES))
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -51,6 +59,7 @@ for (const dir of ['ltr', 'rtl']) {
       body = null
     }
     const hit =
+      (p.startsWith('InsuranceRules/Coverage/') ? coverageStub(req.method(), p, body, { state: coverage, query: url.searchParams, user: 'msartawi' }) : null) ??
       codeSystemStub(req.method(), p, url.searchParams) ??
       fhirCatalogStub(req.method(), p, {}) ??
       guardEditorStub(req.method(), p, body, { store, reads: {} }) ??
@@ -102,7 +111,7 @@ for (const dir of ['ltr', 'rtl']) {
 
   // ── code ─────────────────────────────────────────────────────────────────────────────────
   const code = await pick('$claimResponse.outcome')
-  check(`${dir} a single code offers no list operator`, same(await ops(code), ['anyOf', 'noneOf']), JSON.stringify(await ops(code)))
+  check(`${dir} a single code offers any of and none of, and no count`, same(await ops(code), ['anyOf', 'noneOf']), JSON.stringify(await ops(code)))
   check(`${dir} the code starts in the declared system`, (await input(code, 'system').inputValue()) === OUTCOME_SYSTEM)
   await input(code, 'addCode').waitFor({ timeout: 10000 })
   const offered = await input(code, 'addCode').locator('option').evaluateAll((els) => els.map((e) => e.value).filter(Boolean))
@@ -196,6 +205,23 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-rule-header]').waitFor({ timeout: 30000 })
   const main = await page.locator('main').innerText()
   check(`${dir} the rule page reads it too, with onUnknown`, main.includes('BHD 100.500') && main.includes('If a fact is unknown'), main.slice(0, 300))
+
+  // ── a coverage rule holding a fact of a new type ─────────────────────────────────────────
+  await page.goto(`${BASE}/insurance-rules/coverage?rule=C-002`, { waitUntil: 'domcontentloaded' })
+  await page.locator('[data-conditions-editor]').waitFor({ timeout: 30000 })
+  const kept = page.locator('[data-conditions-editor] [data-kept-as-written="fact"]')
+  await kept.first().waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${dir} coverage: each new-type fact is kept as written`, (await kept.count()) === NEW_TYPES.length, String(await kept.count()))
+  const keptWords = (await kept.allInnerTexts()).join(' | ')
+  check(`${dir} coverage: it reads in words, never [object Object]`, keptWords.includes('BHD 100.500') && keptWords.includes('the number of values of') && !(await page.locator('[data-conditions-editor]').innerText()).includes('[object') && (await page.locator('[data-conditions-editor] input').evaluateAll((els) => els.every((e) => !e.value.includes('[object')))), keptWords)
+  check(`${dir} coverage: the phase-1 facts beside them still draw as rows`, (await page.locator('[data-conditions-editor] [data-input="fact"]').count()) === 2)
+  const before = coverage.writes.length
+  await page.locator('[data-conditions-editor] [data-input="codes"]').first().fill('Z-EDITED')
+  await page.locator('[data-save]').click()
+  await page.waitForFunction(() => !document.querySelector('[data-unsaved]'), null, { timeout: 15000 }).catch(() => {})
+  const put = coverage.writes.slice(before).find((w) => w.method === 'PUT')
+  const sent = put?.body?.document?.rules?.find((r) => r.id === 'C-002')?.when ?? put?.body?.rules?.find((r) => r.id === 'C-002')?.when ?? []
+  check(`${dir} coverage: saving another edit sends them back unchanged`, same(sent.slice(-NEW_TYPES.length), NEW_TYPES), JSON.stringify(sent))
   check(`${dir} no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }

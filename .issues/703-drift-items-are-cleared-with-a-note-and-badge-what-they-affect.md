@@ -66,3 +66,5 @@ against a live SIS.Api.
 
 **Not shown yet:** as on 702, `lng` stays `en`, so the drive's RTL is direction only. The Arabic drift copy is proved by key
 and slot tests alone, and no one has read it in place.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** **Story 59: the drift badge now sits wherever a published rule is listed or opened:** rule page, rule editor (new tab), coverage and category lists (new tab, beside the row's button, since a link cannot sit in a button). This replaces the decision above that took "the rule list" as Guards. 🚩 Guess for 711: door 3293's `rules` holds coverage and category rule ids too.

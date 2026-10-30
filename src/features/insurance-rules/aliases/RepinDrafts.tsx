@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
+import { useLocation, useSearchParams } from 'react-router'
 import { Check, FileDiff, Loader2 } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
@@ -30,6 +30,13 @@ export default function RepinDrafts() {
   const affected = useQuery({ queryKey: [...REPINS_KEY, 'affected'], queryFn: () => repinApi.affected(), retry: false })
   const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(() => params.get('repin'))
+  // The Fields page links here: the list sits under the aliases, so the link brings it into view once it has loaded.
+  const { hash } = useLocation()
+  const section = useRef<HTMLElement>(null)
+  const loaded = !!affected.data
+  useEffect(() => {
+    if (hash === '#repin-drafts') section.current?.scrollIntoView()
+  }, [hash, loaded])
   const closeDraft = () => {
     setOpenId(null)
     if (params.has('repin')) {
@@ -109,7 +116,7 @@ export default function RepinDrafts() {
     )
 
   return (
-    <section className="flex flex-col gap-2" data-repin-list="">
+    <section ref={section} id="repin-drafts" className="flex flex-col gap-2" data-repin-list="">
       <div className="max-w-3xl">
         <h2 className="text-sm font-semibold">{t('repin.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('repin.hint')}</p>

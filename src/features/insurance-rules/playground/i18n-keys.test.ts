@@ -14,7 +14,8 @@ import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
 import { EXPERIMENT_REFUSALS } from '@/core/insurance-rules/experiment'
 import { SAID_KEYS } from './experiment-store'
-import type { DataTab, ExperimentBox } from './experiment'
+import { DATA_TABS, type ExperimentBox } from './experiment'
+import { LINE_FIELDS, PATIENT_FIELDS, REQUEST_FIELDS } from './data-form'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
@@ -23,7 +24,6 @@ function leaves(node: unknown, prefix = ''): string[] {
 }
 
 const BOXES: readonly ExperimentBox[] = ['data', 'document']
-const DATA_TABS: readonly DataTab[] = ['json', 'raw']
 
 describe('insurance-playground — en and ar mirror each other', () => {
   it('the same keys, and no plural family', () => {
@@ -86,6 +86,17 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'experiments.refused.title',
       ...[...EXPERIMENT_REFUSALS, 'fileFailed'].map((k) => `experiments.refused.${k}`),
     ]
+      for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    })
+
+  it.each([en, ar])('682: the form, its sections, every field and its problems', (locale) => {
+    const keys = [
+      'formHint',
+      ...['request', 'patient', 'lines', 'line', 'noLines', 'addLine', 'lineUp', 'lineDown', 'lineRemove', 'icdHint', 'more'].map((k) => `form.${k}`),
+      ...['attributes', 'attributesHint', 'attributeKey', 'attributeValue', 'attributeRemove', 'addAttribute'].map((k) => `form.${k}`),
+      ...['invalid', 'unshaped'].map((k) => `form.problem.${k}`),
+      ...[...REQUEST_FIELDS, ...PATIENT_FIELDS, ...LINE_FIELDS].map((f) => `form.fields.${f}`),
+    ].map((k) => `data.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

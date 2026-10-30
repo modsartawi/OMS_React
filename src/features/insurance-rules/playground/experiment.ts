@@ -102,10 +102,13 @@ const parseObject = (text: string): { ok: true; value: unknown } | { ok: false }
 }
 
 /**
- * The Data pane's tab: **JSON** (the data box, sent as `data`) or **Raw** (free text, sent as `raw` as it is; 684).
- * 682 adds Form, which also sends `data`. Each tab keeps its own text: leaving Raw never overwrites the data box.
+ * The Data pane's tab: **Form** and **JSON** (682: two views of ONE dataset, the data box, sent as `data`) or **Raw**
+ * (free text, sent as `raw` as it is; 684). Raw keeps its own text: leaving Raw never overwrites the data box.
  */
-export type DataTab = 'json' | 'raw'
+export type DataTab = 'form' | 'json' | 'raw'
+
+/** The Data pane's tabs, in the order they are drawn. */
+export const DATA_TABS: readonly DataTab[] = ['form', 'json', 'raw']
 
 /**
  * The boxes → the door's body, or which box does not hold a JSON object (then nothing is sent). Exactly one of

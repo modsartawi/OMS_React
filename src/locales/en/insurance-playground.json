@@ -25,10 +25,56 @@
     "hint": "The request, patient and lines the engine reads, as JSON.",
     "tabs": {
       "label": "Data as",
+      "form": "Form",
       "json": "JSON",
       "raw": "Raw"
     },
-    "rawHint": "Any text, sent as it is, even when it is not valid JSON. The outcome lists what the engine read, ignored and refused."
+    "rawHint": "Any text, sent as it is, even when it is not valid JSON. The outcome lists what the engine read, ignored and refused.",
+    "formHint": "The request, patient and lines as a form. An edit shows in the JSON at once, and the other way round.",
+    "form": {
+      "request": "Request",
+      "patient": "Patient",
+      "lines": "Lines",
+      "line": "Line {{n}}",
+      "noLines": "No lines yet.",
+      "addLine": "Add a line",
+      "lineUp": "Move line {{n}} up",
+      "lineDown": "Move line {{n}} down",
+      "lineRemove": "Remove line {{n}}",
+      "icdHint": "Several codes, separated by commas.",
+      "attributes": "Attributes",
+      "attributesHint": "Registry field values, as text.",
+      "attributeKey": "Key",
+      "attributeValue": "Value",
+      "attributeRemove": "Remove this attribute",
+      "addAttribute": "Add an attribute",
+      "more": "The JSON holds more than the form shows. These keys are kept as they are; edit them on the JSON tab:",
+      "problem": {
+        "invalid": "The data is not one valid JSON object, so the form cannot show it. Fix it on the JSON tab.",
+        "unshaped": "The data has a shape the form cannot hold (a request or patient that is not an object, or lines that are not a list of objects). Edit it on the JSON tab."
+      },
+      "fields": {
+        "channel": "Channel",
+        "store": "Store",
+        "payer": "Payer",
+        "policy": "Policy",
+        "class": "Class",
+        "pharmacist": "Pharmacist",
+        "birthDate": "Birth date",
+        "gender": "Gender",
+        "idType": "ID type",
+        "item": "Item (SKU)",
+        "quantity": "Quantity",
+        "unit": "Unit",
+        "daysSupply": "Days supply",
+        "icd": "ICD",
+        "price": "Price",
+        "eCode": "eCode",
+        "dCode": "dCode",
+        "sfdaCode": "SFDA code",
+        "idfPriority": "IDF priority"
+      }
+    }
   },
   "rule": {
     "title": "Rule",

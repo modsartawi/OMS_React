@@ -85,8 +85,8 @@
       "eligibility": "Eligibility",
       "claim": "Claim",
       "claimResponse": "Claim response",
-      "communication": "Communication",
-      "payment": "Payment",
+      "communicationRequest": "Communication request",
+      "paymentReconciliation": "Payment reconciliation",
       "previous": "The answer before"
     },
     "level": {
@@ -262,6 +262,10 @@
     },
     "when": {
       "monitor": "Read on each kept payer answer to <uses>{{uses}}</uses>",
+      "monitorScope": {
+        "communicationRequest": "Read on each kept communication request from a payer",
+        "paymentReconciliation": "Read on each detail of a kept payment reconciliation"
+      },
       "use": {
         "preauthorization": "a pre-authorization",
         "claim": "a claim"

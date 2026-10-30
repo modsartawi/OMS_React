@@ -19,7 +19,7 @@ export interface FactShape {
 }
 
 /** A key reading a FHIR message: every `$eligibility` key is one (phase 1's keys are in the catalog too). */
-const FHIR_PATH = /^\$(eligibility|claim|claimResponse|line\.claim|line\.claimResponse|previous\.claimResponse|previous\.line\.claimResponse)\./
+const FHIR_PATH = /^\$(eligibility|claim|claimResponse|communicationRequest|paymentReconciliation|line\.claim|line\.claimResponse|previous\.claimResponse|previous\.line\.claimResponse)\./
 export const isFhirPath = (path: string): boolean => FHIR_PATH.test(path)
 
 /** Whether any block of these conditions reads a FHIR message, so the catalog is worth asking for. */

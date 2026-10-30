@@ -97,19 +97,19 @@ describe('groupCatalog: by message, then message-level against line-level', () =
   it('holds the messages in story order, message level first, and keeps each row in its group', () => {
     const groups = groupCatalog([
       row({ moment: 'claimResponse', level: 'line', key: 'copay' }),
-      row({ moment: 'payment', key: 'paid' }),
+      row({ moment: 'paymentReconciliation', key: 'paid' }),
       row({ moment: 'claim', level: 'line', key: 'net' }),
       row({ moment: 'claim', key: 'total' }),
       row({ moment: 'eligibility', key: 'a' }),
-      row({ moment: 'communication', key: 'sent' }),
+      row({ moment: 'communicationRequest', key: 'sent' }),
       row({ moment: 'eligibility', key: 'b' }),
     ])
     expect(groups.map((g) => [g.message, g.levels.map((l) => [l.level, l.rows.map((r) => r.key)])])).toEqual([
       ['eligibility', [['message', ['a', 'b']]]],
       ['claim', [['message', ['total']], ['line', ['net']]]],
       ['claimResponse', [['line', ['copay']]]],
-      ['communication', [['message', ['sent']]]],
-      ['payment', [['message', ['paid']]]],
+      ['communicationRequest', [['message', ['sent']]]],
+      ['paymentReconciliation', [['message', ['paid']]]],
     ])
   })
 })

@@ -86,7 +86,8 @@
       "claim": "المطالبة",
       "claimResponse": "رد المطالبة",
       "communication": "المراسلة",
-      "payment": "الدفع"
+      "payment": "الدفع",
+      "previous": "الرد السابق"
     },
     "level": {
       "message": "الرسالة كاملة",
@@ -109,7 +110,13 @@
     "live": "فعّالة",
     "disabled": "معطّلة"
   },
+  "kind": {
+    "guard": "حماية",
+    "monitor": "مراقب"
+  },
   "severity": {
+    "info": "معلومة",
+    "action": "إجراء",
     "REFUSE": "رفض",
     "OVERRIDE": "تجاوز",
     "WARN": "تنبيه"
@@ -278,6 +285,11 @@
       "bupa": "بوبا"
     },
     "when": {
+      "monitor": "يُقرأ عند حفظ كل رد من الجهة على <uses>{{uses}}</uses>",
+      "use": {
+        "preauthorization": "موافقة مسبقة",
+        "claim": "مطالبة"
+      },
       "audience": "تُفحص قبل إرسال الطلب عبر <channels>{{channels}}</channels>، <stores>{{stores}}</stores>",
       "allStores": "في كل الفروع",
       "stores": "في الفروع <stores>{{stores}}</stores>",
@@ -291,6 +303,8 @@
       "excludeClasses": "عدا فئات الوثائق في <lists>{{lists}}</lists>"
     },
     "then": {
+      "info": "إضافة بند للعلم إلى قائمة المراجعة",
+      "action": "إضافة بند يحتاج إجراءً إلى قائمة المراجعة",
       "REFUSE": "رفض السطر",
       "OVERRIDE": "السماح للصيدلي بالمتابعة مع ذكر السبب",
       "WARN": "تنبيه الصيدلي",
@@ -307,6 +321,7 @@
       "warn": "إذا كانت معلومة غير معروفة، يُنبَّه الصيدلي."
     },
     "fact": {
+      "previous": "<fact>{{fact}}</fact> في الرد السابق",
       "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> أيٌّ من <codes>{{codes}}</codes>",

@@ -4,7 +4,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
-import type { GuardFlag, GuardSeverity, GuardState } from './model'
+import type { GuardFlag, GuardState, RuleSeverity } from './model'
 import { guardSeverityTone } from './tones'
 
 // The insurance rules' state, severity and flag pills (ticket 607) — one look for the Guards list, the rule
@@ -22,7 +22,7 @@ export function GuardStateBadge({ state }: { state: GuardState }) {
   )
 }
 
-export function GuardSeverityBadge({ severity }: { severity: GuardSeverity }) {
+export function GuardSeverityBadge({ severity }: { severity: RuleSeverity }) {
   const { t } = useTranslation('insurance-rules')
   return (
     <span data-severity={severity}>

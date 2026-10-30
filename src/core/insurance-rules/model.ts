@@ -24,12 +24,29 @@ export type GuardState = (typeof GUARD_STATES)[number]
 export const GUARD_SEVERITIES = ['REFUSE', 'OVERRIDE', 'WARN'] as const
 export type GuardSeverity = (typeof GUARD_SEVERITIES)[number]
 
-/** Weight of a severity: 0 is the heaviest. Sort ascending to read REFUSE > OVERRIDE > WARN. */
-export const severityRank = (s: GuardSeverity): number => GUARD_SEVERITIES.indexOf(s)
+// ⚠️ PROVISIONAL (oms 699; 711 reconciles): a rule's kind and a monitor's shape are guesses until 3273 / 3290 land.
+/** A rule's kind: a guard checks a request before it goes, a monitor reads a payer's answer once kept. No `kind` on the wire is a guard. */
+export const RULE_KINDS = ['guard', 'monitor'] as const
+export type RuleKind = (typeof RULE_KINDS)[number]
+/** What a monitor's review item asks of the team. It never reaches a sale. */
+export const MONITOR_SEVERITIES = ['info', 'action'] as const
+export type MonitorSeverity = (typeof MONITOR_SEVERITIES)[number]
+export type RuleSeverity = GuardSeverity | MonitorSeverity
+/** The messages a monitor reads (701 adds its other scopes). */
+export const MONITOR_SCOPES = ['claimResponse'] as const
+export type MonitorScope = (typeof MONITOR_SCOPES)[number]
+/** The `use` of a `ClaimResponse` a monitor watches: FHIR's own codes. */
+export const MONITOR_USES = ['preauthorization', 'claim'] as const
+export type MonitorUse = (typeof MONITOR_USES)[number]
+
+const SEVERITY_ORDER: readonly RuleSeverity[] = ['REFUSE', 'OVERRIDE', 'WARN', 'action', 'info']
+
+/** Weight of a severity: 0 is the heaviest. Sort ascending to read REFUSE > OVERRIDE > WARN; a monitor's come after. */
+export const severityRank = (s: RuleSeverity): number => SEVERITY_ORDER.indexOf(s)
 
 /** The heaviest of some severities, or null when there are none. */
-export function mostSevere(severities: readonly GuardSeverity[]): GuardSeverity | null {
-  let best: GuardSeverity | null = null
+export function mostSevere<S extends RuleSeverity>(severities: readonly S[]): S | null {
+  let best: S | null = null
   for (const s of severities) if (best === null || severityRank(s) < severityRank(best)) best = s
   return best
 }
@@ -56,7 +73,9 @@ export interface GuardRuleRow {
   /** A `/`-separated path ("Chronic/Diabetes"); empty for a rule in no folder. */
   folder: string
   state: GuardState
-  severity: GuardSeverity
+  /** Absent on a guard (oms 699). */
+  kind?: RuleKind
+  severity: RuleSeverity
   /** Local moment of the last fire, or null when the rule never fired. */
   lastFired: string | null
   flags: GuardFlag[]
@@ -312,8 +331,9 @@ export const REFERENCE_CHECKS: readonly GuardCheck[] = ['sfda', 'formulary']
 
 /** What the guard says and does when it fires. */
 export interface GuardEffect {
-  effect: 'guard'
-  severity: GuardSeverity
+  /** `reviewItem` is a monitor's only effect: `says` and `severity`, and none of the fields below (oms 699). */
+  effect: 'guard' | 'reviewItem'
+  severity: RuleSeverity
   /** EN + AR message with `{placeholder}`s. `{lastStore}` is never offered in phase 1. */
   says: Says
   /** Default from the first firing block (K11); the author may override. */
@@ -340,6 +360,12 @@ export interface GuardAudience {
 }
 
 export interface GuardRule {
+  /** Absent on a guard (oms 699). */
+  kind?: RuleKind
+  /** A monitor's message. */
+  scope?: MonitorScope
+  /** A monitor's answers. */
+  uses?: MonitorUse[]
   id: string
   name: Says
   folder: string
@@ -367,7 +393,7 @@ export interface GuardRuleset {
 }
 
 /** The severity a rule decides with: the heaviest of its effects. */
-export const ruleSeverity = (rule: Pick<GuardRule, 'then'>): GuardSeverity | null => mostSevere(rule.then.map((e) => e.severity))
+export const ruleSeverity = (rule: Pick<GuardRule, 'then'>): RuleSeverity | null => mostSevere(rule.then.map((e) => e.severity))
 
 /** The insurance-rules area's URL prefix and its leaves (the route layout is `app/insurance-rules-routes`). */
 export const INSURANCE_RULES_PATH = '/insurance-rules'
@@ -377,3 +403,5 @@ export const guardRulePath = (id: string): string => `${INSURANCE_RULES_PATH}/gu
 /** 608 — the guard editor: one rule of the draft, and a new rule (`guards/new`). */
 export const guardEditPath = (id: string): string => `${guardRulePath(id)}/edit`
 export const GUARD_NEW_PATH = `${INSURANCE_RULES_PATH}/guards/new`
+/** The same editor, on a new monitor (oms 699). */
+export const MONITOR_NEW_PATH = `${GUARD_NEW_PATH}?kind=monitor`

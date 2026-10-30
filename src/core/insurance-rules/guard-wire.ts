@@ -18,12 +18,13 @@ import { parseExpr, printExpr } from '@/core/rules/expr'
 import type { RuleExpr } from '@/core/models/rule-campaign'
 import { ELIGIBILITY_DATE_TESTS, ELIGIBILITY_TESTS, type GuardList, type GuardListFilter, type GuardRule, type GuardRuleFilter, type GuardRuleset } from './model'
 import { isPlainObject as isObj } from '@/core/util/plain-object'
+import { isMonitor, monitorRuleIn, monitorRuleOut } from './monitor'
 
 type Obj = Record<string, unknown>
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 /** The fact scopes the engine reads as a block of their own (`$<scope>.<field>` in the editor). */
-const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line', 'claim', 'claimResponse'] as const
+const FACT_SCOPES = ['patient', 'request', 'eligibility', 'line', 'claim', 'claimResponse', 'previous'] as const
 /** ⚠️ PROVISIONAL (oms 692; 711 reconciles): a line block reading a FHIR message names it in `field` (`claim.quantity`), so `$line.claim.quantity`. */
 const FHIR_LINE_FIELD = /^(claim|claimResponse)\./
 /** The bounds an engine fact block takes; the editor draws one of `atLeast` / `under` (its `below`) / `anyOf`. */
@@ -34,7 +35,7 @@ const LIST_MATCH = /^list:(.+)$/
 // ── conditions ───────────────────────────────────────────────────────────────────────────────────
 
 /** Keys that only a FHIR message reads: a none-of on them is spelled `noneOf`. */
-const FHIR_SCOPE = /^\$(claim|claimResponse|line\.claim|line\.claimResponse)\./
+const FHIR_SCOPE = /^\$(claim|claimResponse|line\.claim|line\.claimResponse|previous)\./
 
 /**
  * The one test of an engine block as the fact's `op` and `value`; null to keep the block as written. ⚠️ PROVISIONAL
@@ -71,7 +72,7 @@ function conditionIn(raw: unknown): unknown {
     return { ...rest, below: under }
   }
   const scope = c.check as string
-  const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || fhirLine ? scope : null
+  const factScope = scope === 'patient' || scope === 'eligibility' || scope === 'claim' || scope === 'claimResponse' || scope === 'previous' || fhirLine ? scope : null
   if (factScope && typeof c.field === 'string' && c.inList === undefined) {
     const tests = [...FACT_TESTS, 'noneOf', 'count'].filter((k) => c[k] !== undefined)
     const one = tests.length === 1 ? tests[0] : null
@@ -180,7 +181,7 @@ export function guardRuleIn(raw: unknown): GuardRule {
   if ('audience' in r) r.audience = audienceIn(r.audience)
   const when = arr(r.when).map(conditionIn)
   const filters: GuardRuleFilter[] = listsNamed(arr(r.when)).map((id) => ({ id, list: id }))
-  return {
+  const rule = {
     ...r,
     id: typeof r.id === 'string' ? r.id : '',
     name: isObj(r.name) ? { en: String(r.name.en ?? ''), ar: String(r.name.ar ?? '') } : { en: '', ar: '' },
@@ -191,6 +192,7 @@ export function guardRuleIn(raw: unknown): GuardRule {
     onUnknown: r.onUnknown === 'warn' ? 'warn' : 'none',
     then: arr(r.then) as GuardRule['then'],
   } as GuardRule
+  return isMonitor(rule) ? monitorRuleIn(rule) : rule
 }
 
 /** The editor's rule → the engine's: no `filters`, every alias resolved to its list. */
@@ -199,7 +201,7 @@ export function guardRuleOut(rule: GuardRule): Obj {
   const alias = new Map((filters ?? []).map((f: GuardRuleFilter) => [f.id, f.list || f.id]))
   const out: Obj = { ...rest, when: arr(rule.when).map((c) => conditionOut(c, alias)) }
   if (isObj(out.audience)) out.audience = audienceOut(out.audience)
-  return out
+  return isMonitor(rule) ? monitorRuleOut(out) : out
 }
 
 /** A category / coverage rule: the guard rule's blocks, no filters, no `onUnknown`. */

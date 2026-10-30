@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, CircleCheck, Loader2, Redo2, Undo2 } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
@@ -11,6 +11,8 @@ import { checksVerdict, indexChecks, type GuardIssue } from '@/core/insurance-ru
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorHistory, type EditorAction } from '@/core/insurance-rules/editor-history'
 import { editGuard, newGuardRule, nextGuardId } from '@/core/insurance-rules/guard-edit'
 import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import { isMonitor, newMonitorRule, nextMonitorId } from '@/core/insurance-rules/monitor'
+import { MonitorEffectEditor, MonitorScopeEditor } from '@/core/insurance-rules/editors/MonitorEditors'
 import { readRejectionSeed, seededGuardDraft } from '@/core/insurance-rules/rejection-draft'
 import { codesHoldSave, sameNamedRules } from '@/core/insurance-rules/rule-checks'
 import JsonButton from '@/core/insurance-rules/JsonButton'
@@ -100,13 +102,15 @@ function Editor({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isNew = ruleId === null
-  const [id] = useState(() => ruleId ?? nextGuardId(doc.rules))
+  // Oms 699: the same editor makes a monitor.
+  const newMonitor = useSearchParams()[0].get('kind') === 'monitor'
+  const [id] = useState(() => ruleId ?? (newMonitor ? nextMonitorId(doc.rules) : nextGuardId(doc.rules)))
   // 709: a coded rejection row opens this editor seeded; unsaved like any new rule until the author saves it.
   const seed = readRejectionSeed(useLocation().state)
   const [h, dispatch] = useReducer(
     editorHistory as (h: EditorHistory<GuardRuleset>, a: EditorAction<GuardRuleset>) => EditorHistory<GuardRuleset>,
     null,
-    () => initialEditorHistory(doc, !isNew ? doc : seed ? seededGuardDraft(doc, id, seed) : { ...doc, rules: [...doc.rules, newGuardRule(id)] }),
+    () => initialEditorHistory(doc, !isNew ? doc : seed ? seededGuardDraft(doc, id, seed) : { ...doc, rules: [...doc.rules, newMonitor ? newMonitorRule(id) : newGuardRule(id)] }),
   )
   const [checks, setChecks] = useState<Checks>(null)
   const [stale, setStale] = useState<string | null>(null)
@@ -184,6 +188,7 @@ function Editor({
   const checksStale = checks !== null && !sameDoc(checks.against, h.present)
   const severity = ruleSeverity(rule)
   const busy = save.isPending
+  const monitor = isMonitor(rule)
 
   return (
     <>
@@ -209,7 +214,7 @@ function Editor({
       <header className="flex flex-col gap-2" data-editor-header="">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold tracking-tight" data-mode={isNew ? 'new' : 'edit'}>
-            {t(isNew ? 'editor.titleNew' : 'editor.titleEdit')}
+            {t(monitor ? (isNew ? 'editor.titleNewMonitor' : 'editor.titleEditMonitor') : isNew ? 'editor.titleNew' : 'editor.titleEdit')}
           </h1>
           <RuleId id={rule.id} />
           <GuardStateBadge state={rule.state} />
@@ -269,17 +274,27 @@ function Editor({
             />
           </Field>
         </div>
+        {monitor && (
+          <p className="rounded-md border border-border bg-muted/40 p-2 text-sm" role="note" data-monitor-never="">
+            {t('monitor.neverTouches')}
+          </p>
+        )}
         <SameNames rule={rule} rules={h.present.rules} />
         <Issues issues={index.rule} hook="rule" />
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" onBlur={() => dispatch({ type: 'seal' })}>
         <div className="flex flex-col gap-4">
-          <Block kw={t('rule.when')} hint={t('rule.whenHint')} hook="when">
-            <AudienceEditor rule={rule} edit={edit} />
+          <Block kw={t('rule.when')} hint={t(monitor ? 'monitor.whenHint' : 'rule.whenHint')} hook="when">
+            {monitor ? <MonitorScopeEditor rule={rule} edit={edit} /> : <AudienceEditor rule={rule} edit={edit} />}
           </Block>
           <Block kw={t('rule.if')} hint={t('rule.ifHint')} hook="if">
             <ConditionEditor rule={rule} lists={h.present.lists} edit={edit} checks={index} />
+            {monitor ? (
+              <p className="mt-3 text-xs text-muted-foreground" data-monitor-unknown="">
+                {t('monitor.unknown')}
+              </p>
+            ) : (
             <fieldset className="mt-3 flex flex-wrap items-center gap-3 text-xs" data-on-unknown-editor="">
               <legend className="sr-only">{t('editor.onUnknown.label')}</legend>
               <span className="text-muted-foreground">{t('editor.onUnknown.label')}</span>
@@ -297,9 +312,10 @@ function Editor({
                 </label>
               ))}
             </fieldset>
+            )}
           </Block>
-          <Block kw={t('rule.then')} hint={t('rule.thenHint')} hook="then">
-            <EffectEditor rule={rule} edit={edit} checks={index} />
+          <Block kw={t('rule.then')} hint={t(monitor ? 'monitor.thenHint' : 'rule.thenHint')} hook="then">
+            {monitor ? <MonitorEffectEditor rule={rule} edit={edit} checks={index} /> : <EffectEditor rule={rule} edit={edit} checks={index} />}
           </Block>
         </div>
         <aside className="flex flex-col gap-4">

@@ -2,6 +2,7 @@
 // coverage features and the rule playground. They still read the `insurance-guards` / `insurance-coverage` namespaces —
 // a namespace is a string, not an import, so the boundary holds; the coverage feature's and core/insurance-rules' i18n-keys tests cover them.
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Check, X } from 'lucide-react'
 import {
@@ -14,6 +15,8 @@ import {
   GUARD_FX_RECIPES,
   guardFieldChip,
 } from '@/core/insurance-rules/guard-formula-guide'
+import { MONITOR_FX_RECIPES, monitorFxFields } from '@/core/insurance-rules/monitor'
+import { fhirCatalogQuery } from '@/core/insurance-rules/registry-api'
 import { parseExpr } from '@/core/rules/expr'
 import FxHelper, { type FxEntry, type FxRecipeRow } from '@/core/rules/fx-helper/FxHelper'
 import FxToggle from '@/core/rules/fx-helper/FxToggle'
@@ -47,13 +50,17 @@ export default function GuardFormulaBox({
   invalid,
   onValue,
   language,
+  monitor = false,
 }: {
   value: string
   invalid: boolean
   onValue: (s: string, typed: boolean) => void
   language?: FormulaLanguage
+  /** Oms 699: a monitor's formula reads the kept answer and the one before it, not the till's facts. */
+  monitor?: boolean
 }) {
-  const { t } = useTranslation('insurance-guards')
+  const { t, i18n } = useTranslation('insurance-guards')
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: monitor }).data
   const [open, setOpen] = useState(false)
   const { input, remember, track, insert } = useCaretInsert(value, (next) => onValue(next, false))
   const read = value.trim() ? parseExpr(value, { filters: [] }) : null
@@ -105,10 +112,10 @@ export default function GuardFormulaBox({
       {open && (
         <FxHelper
           ns="insurance-guards"
-          fields={language ? [...language.fields, ...FIELDS, ...LIST_FIELDS] : FIELDS}
+          fields={monitor ? monitorFxFields(catalog ?? [], i18n.language) : language ? [...language.fields, ...FIELDS, ...LIST_FIELDS] : FIELDS}
           functions={language ? LIST_FUNCTIONS : GUARD_FX_FUNCTIONS}
           operators={GUARD_FX_OPERATORS}
-          recipes={language ? [...LIST_RECIPES, ...RECIPES] : RECIPES}
+          recipes={monitor ? MONITOR_FX_RECIPES : language ? [...LIST_RECIPES, ...RECIPES] : RECIPES}
           onInsert={insert}
           onUse={(formula) => insert({ text: formula }, true)}
           onDone={() => setOpen(false)}

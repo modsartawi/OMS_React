@@ -12,10 +12,11 @@ import {
   type GuardList,
   type GuardMatch,
   type GuardRule,
-  type GuardSeverity,
+  type RuleSeverity,
   type Says,
 } from './model'
 import { rowOfPath } from './fact-tests'
+import { isMonitor } from './monitor'
 import type { FhirCatalogRow } from './fhir-catalog'
 import type { RegistryField } from './registry'
 import { fieldOfPath, unitKey } from './registry-facts'
@@ -50,7 +51,7 @@ export interface ConditionNode {
 }
 
 export interface EffectSentence {
-  severity: GuardSeverity
+  severity: RuleSeverity
   /** What the severity does to the line. */
   does: KeySentence
   /** The EN + AR message, its `{placeholder}`s as written. */
@@ -175,7 +176,9 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       const field = fieldOfPath(ctx.fields ?? [], c.path)
       const row = rowOfPath(ctx.catalog ?? [], c.path)
       const label = field?.label ?? row?.label
-      const fact: SentenceValue = label ? { kind: 'says', says: label } : code(c.path)
+      const named: SentenceValue = label ? { kind: 'says', says: label } : code(c.path)
+      // Oms 699: the same field on the answer before; the words must say so, or it reads as this answer's.
+      const fact: SentenceValue = c.path.startsWith('$previous.') && label ? phrase('fact.previous', { fact: named }) : named
       const unitText = field?.unit || row?.unit
       const unit = unitKey(unitText)
       if (c.op === 'atLeast' || c.op === 'below') {
@@ -218,6 +221,8 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
 
 /** WHEN: who is checked (channels, stores) and the window. */
 function whenSentences(rule: GuardRule): KeySentence[] {
+  // Oms 699: a monitor reads a kept answer: no channel, store or window of a sale.
+  if (isMonitor(rule)) return [S('when.monitor', { uses: { kind: 'list', join: 'and', items: (rule.uses ?? []).map((u) => phrase(`when.use.${u}`)) } })]
   const channels = rule.audience?.channels ?? []
   const stores = rule.audience?.stores ?? []
   const out: KeySentence[] = [

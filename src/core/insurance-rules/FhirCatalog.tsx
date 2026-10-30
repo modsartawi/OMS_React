@@ -15,6 +15,8 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { Select } from './controls'
 import { FieldDriftBadges } from './DriftBadges'
 import { CHANNEL_ANSWERS, catalogEntryOf, factKey, groupCatalog, mayBeCatalogKey, parameterOptions, type ChannelAnswer, type ChannelRate, type FhirCatalogRow, type FhirLegacy, type ParameterOption } from './fhir-catalog'
+import { catalogFor } from './monitor'
+import type { RuleKind } from './model'
 import { fhirCatalogQuery, fhirParameterQuery } from './registry-api'
 
 const DOT: Record<ChannelAnswer, string> = {
@@ -161,7 +163,7 @@ function CatalogRow({ row, current, onPick }: { row: FhirCatalogRow; current: st
 }
 
 /** The catalog, by message then level. With `onPick` a field can be picked; the Fields page only reads it. */
-export function FhirCatalogPanel({ value, onPick }: { value?: string; onPick?: (row: FhirCatalogRow, code?: string) => void }) {
+export function FhirCatalogPanel({ value, onPick, kind = 'guard' }: { value?: string; onPick?: (row: FhirCatalogRow, code?: string) => void; kind?: RuleKind }) {
   const { t } = useTranslation('insurance-rules')
   const catalog = useQuery(fhirCatalogQuery())
 
@@ -175,7 +177,8 @@ export function FhirCatalogPanel({ value, onPick }: { value?: string; onPick?: (
       </div>
     )
   // A retired field stays readable on the Fields page, but a new condition may not pick it.
-  const groups = groupCatalog(onPick ? catalog.data.filter((r) => !r.retired) : catalog.data)
+  // Oms 699: picking, the rule's kind decides which fields it may read.
+  const groups = groupCatalog(onPick ? catalogFor(catalog.data, kind).filter((r) => !r.retired) : catalog.data)
   const entry = value ? catalogEntryOf(catalog.data, value) : null
   if (groups.length === 0) return <p className="text-sm text-muted-foreground" data-catalog-empty="">{t('catalog.empty')}</p>
 
@@ -209,7 +212,7 @@ export function FhirCatalogPanel({ value, onPick }: { value?: string; onPick?: (
 }
 
 /** A condition's way into the catalog: the button, the dialog, and the key the condition stores. */
-export function FhirFactPicker({ value, onPick }: { value: string; onPick: (row: FhirCatalogRow, code?: string) => void }) {
+export function FhirFactPicker({ value, onPick, kind = 'guard' }: { value: string; onPick: (row: FhirCatalogRow, code?: string) => void; kind?: RuleKind }) {
   const { t } = useTranslation('insurance-rules')
   const [open, setOpen] = useState(false)
   // Read only for a key on a FHIR message. Failing here is silent: the condition stands, and the opened catalog says why.
@@ -228,6 +231,7 @@ export function FhirFactPicker({ value, onPick }: { value: string; onPick: (row:
         {open && (
           <FhirCatalogPanel
             value={value}
+            kind={kind}
             onPick={(row, code) => {
               setOpen(false)
               onPick(row, code)

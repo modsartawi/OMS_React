@@ -7,6 +7,7 @@
     "empty": "No guard rule is in this folder.",
     "shown": "Rules shown",
     "never": "Never",
+    "newMonitor": "New monitor",
     "new": "New guard",
     "json": "The guard draft as JSON (revision {{n}})"
   },
@@ -31,7 +32,16 @@
       "taken": "A folder here already has this name."
     }
   },
+  "monitor": {
+    "neverTouches": "A monitor only puts an item on the insurance team's review list: it never blocks, prompts or changes a sale, an invoice, a pick or a claim.",
+    "whenHint": "The payer answers it reads",
+    "thenHint": "What the review list shows",
+    "scope": "Reads",
+    "uses": "Answers to",
+    "unknown": "If a fact is unknown the monitor does not fire, and the first answer has no answer before it, so a $previous key reads unknown on it."
+  },
   "columns": {
+    "kind": "Kind",
     "id": "Rule",
     "name": "Name",
     "state": "State",
@@ -61,6 +71,8 @@
     "playgroundHint": "Copies this rule, the lists it names and the fields it reads into a new playground experiment. Nothing done there changes this rule."
   },
   "editor": {
+    "titleNewMonitor": "New monitor",
+    "titleEditMonitor": "Edit monitor",
     "titleNew": "New guard",
     "titleEdit": "Edit guard",
     "fromRejection": "Filled in from a rejection report row. Name it, write its message, and save: nothing is kept until you do, and it goes through the usual back-test and approval.",
@@ -404,6 +416,8 @@
       "badField": "A field is written line.field.Key, request.field.Key or patient.field.Key, with one key (character <n>{{at}}</n>)."
     },
     "group": {
+      "claimResponse": "This answer",
+      "previous": "The answer before",
       "patient": "Patient",
       "request": "Request",
       "line": "The line",
@@ -618,6 +632,14 @@
       "count": "The units (quantity) on the lines of the list. (count sums units, lines counts lines.)"
     },
     "recipe": {
+      "cutQuantity": {
+        "title": "A reissue cut the approved quantity",
+        "desc": "The line's approved quantity is lower than on the answer before."
+      },
+      "reissueReason": {
+        "title": "A reissue for a given reason",
+        "desc": "Replace the code with the reason to watch."
+      },
       "childQuantity": {
         "title": "Child with a large quantity",
         "desc": "Under 12 years old, and more than 2 on the line."

@@ -2629,3 +2629,18 @@ function flattenStub(body, store, deny) {
   if (body?.memberId) facts.push({ key: 'member.id', type: 'text', value: body.memberId, unit: null })
   return envelope({ facts })
 }
+
+// --- 681 --- the playground's Fields drawer and ƒx read the registry (`GET InsuranceRules/Fields`, 3132 — the
+// playground role is granted its read) and NOTHING else of it: a scratch field is a declaration in the experiment's
+// document only. `store.fieldPosts` counts any write to the registry, so a drive can prove there is none.
+export function playgroundFieldsStub(method, path, opts = {}) {
+  const { store = {}, deny = [] } = opts
+  if (path !== 'InsuranceRules/Fields' && !path.startsWith('InsuranceRules/Fields/')) return null
+  if (method !== 'GET') {
+    store.fieldPosts = (store.fieldPosts ?? 0) + 1
+    return { status: 405, body: '' }
+  }
+  if (path !== 'InsuranceRules/Fields') return envelope([])
+  if (deny.includes('fields')) return { status: 403, body: '' }
+  return envelope(FIELDS)
+}

@@ -7,6 +7,9 @@ import { Check, X } from 'lucide-react'
 import {
   GUARD_FX_FIELDS,
   GUARD_FX_FUNCTIONS,
+  GUARD_FX_LIST_FIELDS,
+  GUARD_FX_LIST_FUNCTIONS,
+  GUARD_FX_LIST_RECIPES,
   GUARD_FX_OPERATORS,
   GUARD_FX_RECIPES,
   guardFieldChip,
@@ -20,6 +23,18 @@ import Ltr from '@/core/ui/Ltr'
 
 const FIELDS: FxEntry[] = GUARD_FX_FIELDS.map((f) => ({ key: f.path, group: f.group, type: f.type, insert: guardFieldChip(f), code: f.path, words: f.words }))
 const RECIPES: FxRecipeRow[] = GUARD_FX_RECIPES.map((r) => ({ key: r.key, formula: r.formula, blocked: null }))
+const LIST_FIELDS: FxEntry[] = GUARD_FX_LIST_FIELDS.map((f) => ({ key: f.path, group: f.group, type: f.type, insert: guardFieldChip(f), code: f.path, words: f.words }))
+const LIST_RECIPES: FxRecipeRow[] = GUARD_FX_LIST_RECIPES.map((r) => ({ key: r.key, formula: r.formula, blocked: null }))
+const LIST_FUNCTIONS = [...GUARD_FX_LIST_FUNCTIONS, ...GUARD_FX_FUNCTIONS]
+
+/**
+ * The rule playground's wider language (oms 681, ADR 0117), opted into by passing it: its declared fields — registry
+ * and scratch, each inserted as `<scope>.field.<Key>` — as the Fields tab's `declared` group, plus `request.lines`,
+ * the list functions and the cross-line recipe. Absent (every real guard screen), the ƒx is the guard's as it was.
+ */
+export interface FormulaLanguage {
+  fields: readonly FxEntry[]
+}
 
 /**
  * A guard's formula block (oms 657): the text box, the ƒx button that opens core's guided helper under it —
@@ -27,7 +42,17 @@ const RECIPES: FxRecipeRow[] = GUARD_FX_RECIPES.map((r) => ({ key: r.key, formul
  * the cursor was — and a line saying whether the text reads (`@/core/rules/expr`). The block keeps the
  * TEXT; the wire codec (`guard-wire`) turns it into the engine's `expr` and HQ's Validate type-checks it.
  */
-export default function GuardFormulaBox({ value, invalid, onValue }: { value: string; invalid: boolean; onValue: (s: string, typed: boolean) => void }) {
+export default function GuardFormulaBox({
+  value,
+  invalid,
+  onValue,
+  language,
+}: {
+  value: string
+  invalid: boolean
+  onValue: (s: string, typed: boolean) => void
+  language?: FormulaLanguage
+}) {
   const { t } = useTranslation('insurance-guards')
   const [open, setOpen] = useState(false)
   const { input, remember, track, insert } = useCaretInsert(value, (next) => onValue(next, false))
@@ -40,7 +65,7 @@ export default function GuardFormulaBox({ value, invalid, onValue }: { value: st
           dir="ltr"
           spellCheck={false}
           autoComplete="off"
-          className="w-96 font-mono"
+          className="w-96 min-w-0 max-w-full font-mono"
           value={value}
           title={t('editor.formulaHint')}
           placeholder={t('fx.placeholder')}
@@ -80,10 +105,10 @@ export default function GuardFormulaBox({ value, invalid, onValue }: { value: st
       {open && (
         <FxHelper
           ns="insurance-guards"
-          fields={FIELDS}
-          functions={GUARD_FX_FUNCTIONS}
+          fields={language ? [...language.fields, ...FIELDS, ...LIST_FIELDS] : FIELDS}
+          functions={language ? LIST_FUNCTIONS : GUARD_FX_FUNCTIONS}
           operators={GUARD_FX_OPERATORS}
-          recipes={RECIPES}
+          recipes={language ? [...LIST_RECIPES, ...RECIPES] : RECIPES}
           onInsert={insert}
           onUse={(formula) => insert({ text: formula }, true)}
           onDone={() => setOpen(false)}

@@ -21,6 +21,10 @@ import type { RuleExpr } from '@/core/models/rule-campaign'
 //   min(a, b)           any call: ["min", a, b]
 //   round(x, 0, halfUp) the mode word bare: ["round", x, 0, "halfUp"]
 //   band(x, 200:0.10)   thresholds: ["band", x, [[200, 0.1]]]
+//   line.field.HouseBrand  a registry or scratch field (oms 681, ADR 0117): `field` is a RESERVED segment — a path
+//                       holding it is exactly `line|request|patient` + `.field.` + one plain key, else `badField`
+//   filter(request.lines, line.quantity > 1), lines(request.lines)
+//                       the request's lines as a list: generic calls over a generic path, nothing special
 // A stored expression it cannot print faithfully is `null` from `printExpr`: the screen then shows
 // its raw JSON, editable as JSON.
 
@@ -31,7 +35,7 @@ export interface ExprContext {
 
 /** Why a text cannot be read; `at` is the offset into the text. Machine words — the UI translates. */
 export interface ExprProblem {
-  code: 'empty' | 'unexpected' | 'unclosed' | 'unknownFilter' | 'roundArgs' | 'bandArgs' | 'pairOutsideBand'
+  code: 'empty' | 'unexpected' | 'unclosed' | 'unknownFilter' | 'roundArgs' | 'bandArgs' | 'pairOutsideBand' | 'badField'
   at: number
   token?: string
 }
@@ -49,6 +53,19 @@ const SEGMENT = String.raw`[A-Za-z_][A-Za-z0-9_]*(?:${KEY})?`
 /** A path as it prints: dotted segments, each with at most one bracketed key. */
 const PATH = new RegExp(String.raw`^${SEGMENT}(?:\.${SEGMENT})*$`)
 const KEYWORDS = new Set(['and', 'or', 'not', 'true', 'false'])
+/** The scopes a registry field is read in (ADR 0117): `line.field.Key`, `request.field.Key`, `patient.field.Key`. */
+export const FIELD_SCOPES_IN_FORMULA = ['line', 'request', 'patient'] as const
+const PLAIN = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * Whether a path (no `$`) breaks the reserved `field` segment: it names `field` somewhere but is not exactly
+ * `<line|request|patient>.field.<one plain key>`. A path without the segment is never bad here.
+ */
+export function isBadFieldPath(path: string): boolean {
+  const segs = path.split('.')
+  if (!segs.some((s) => s.replace(/\[.*$/, '') === 'field')) return false
+  return !(segs.length === 3 && (FIELD_SCOPES_IN_FORMULA as readonly string[]).includes(segs[0]) && segs[1] === 'field' && PLAIN.test(segs[2]) && segs[2] !== 'field')
+}
 /** The words the language keeps for itself: a name spelled like one cannot be read back. */
 export const EXPR_KEYWORDS: ReadonlySet<string> = KEYWORDS
 
@@ -74,7 +91,7 @@ function printText(s: string): string {
 
 function printPath(s: string): string {
   const name = s.slice(1)
-  if (!PATH.test(name) || KEYWORDS.has(name)) fail()
+  if (!PATH.test(name) || KEYWORDS.has(name) || isBadFieldPath(name)) fail()
   return name
 }
 
@@ -270,6 +287,7 @@ export function parseExpr(text: string, ctx: ExprContext): ExprRead {
           expect(')', open)
           return call(t.v, args, t.at)
         }
+        if (isBadFieldPath(t.v)) problem('badField', t.at, t.v)
         return `$${t.v}`
       }
       return problem('unexpected', t.at, t.v)

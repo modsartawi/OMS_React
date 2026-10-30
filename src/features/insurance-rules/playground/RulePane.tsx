@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Variable, X } from 'lucide-react'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { blockKey, indexChecks, type GuardIssue } from '@/core/insurance-rules/checks'
 import { Issues } from '@/core/insurance-rules/controls'
@@ -9,6 +9,12 @@ import type { CategoryRule, CoverageRule } from '@/core/insurance-rules/coverage
 import AudienceEditor from '@/core/insurance-rules/editors/AudienceEditor'
 import ConditionEditor, { type RuleEdit } from '@/core/insurance-rules/editors/ConditionEditor'
 import EffectEditor from '@/core/insurance-rules/editors/EffectEditor'
+import type { FormulaLanguage } from '@/core/insurance-rules/editors/GuardFormulaBox'
+import { declaredFieldPath, declaredFxType, type DeclaredField } from '@/core/insurance-rules/guard-formula-guide'
+import type { RegistryField } from '@/core/insurance-rules/registry'
+import type { FxEntry } from '@/core/rules/fx-helper/FxHelper'
+import { saysIn } from '@/core/rules/sentence'
+import Ltr from '@/core/ui/Ltr'
 import { CategoryEffectEditor, CoverageEffectEditor, CoverageEffectLine, GroupName } from '@/core/insurance-rules/editors/Effects'
 import RuleConditions from '@/core/insurance-rules/editors/RuleConditions'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
@@ -19,6 +25,8 @@ import { conditionSentence, guardSentence } from '@/core/insurance-rules/sentenc
 import Button from '@/core/ui/Button'
 import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
+import { docFields, pickableRegistry, registryDeclaration, withFields } from './fields-block'
+import FieldsDrawer from './FieldsDrawer'
 import { JsonPane } from './JsonPane'
 import { addSlot, hasEditors, moveSlot, printRuleset, readRuleset, removeSlot, rulesetIssues, rulesetLists, type RuleSlot, type RulesetRead } from './ruleset'
 
@@ -79,6 +87,20 @@ export default function RulePane({
   const issues = useMemo(() => (read ? rulesetIssues(errors, read.slots).perRule : []), [errors, read])
   const lists = useMemo(() => (read ? rulesetLists(read) : []), [read])
 
+  // oms 681: the document's `fields` block, written by the Fields drawer, and what ƒx offers from it and the registry.
+  const [fieldsOpen, setFieldsOpen] = useState(false)
+  const registryQuery = useQuery(fieldsQuery())
+  const registry = useMemo(() => registryQuery.data ?? [], [registryQuery.data])
+  const declared = useMemo(() => (read ? docFields(read.doc) : []), [read])
+  const language = useFormulaLanguage(declared, registry)
+  const setDeclared = (fields: DeclaredField[]) => {
+    if (!read) return
+    const next: Read = { ...read, doc: withFields(read.doc, fields) }
+    const text = printRuleset(next)
+    setModel({ text, kind, read: next, broken: false })
+    onChange(text)
+  }
+
   return (
     <JsonPane
       box="document"
@@ -95,6 +117,25 @@ export default function RulePane({
               <p className="text-xs text-attention-800" role="status" data-ruleset-stale="">
                 {t('ruleset.broken')}
               </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2" data-fields-bar="">
+              <Button variant="secondary" className="w-fit" onClick={() => setFieldsOpen(true)} data-open-fields="">
+                <Variable className="h-3.5 w-3.5" aria-hidden />
+                {t('fields.open')}
+                <span className="text-xs text-muted-foreground" data-fields-count={declared.length}>
+                  <Ltr>{declared.length}</Ltr>
+                </span>
+              </Button>
+              <p className="text-xs text-muted-foreground">{t('fields.lede')}</p>
+            </div>
+            {fieldsOpen && (
+              <FieldsDrawer
+                fields={declared}
+                registry={registry}
+                registryState={registryQuery.status}
+                onChange={setDeclared}
+                onClose={() => setFieldsOpen(false)}
+              />
             )}
             {kind !== 'guard' && (
               <p className="rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-xs" data-ruleset-order={kind}>
@@ -115,6 +156,7 @@ export default function RulePane({
                   index={i}
                   count={read.slots.length}
                   lists={lists}
+                  language={language}
                   issues={issues[i] ?? []}
                   onSlot={(s) => setSlots(read.slots.map((x, j) => (j === i ? s : x)))}
                   onMove={(to) => setSlots(moveSlot(read.slots, i, to))}
@@ -139,6 +181,7 @@ function RuleCard({
   index,
   count,
   lists,
+  language,
   issues,
   onSlot,
   onMove,
@@ -149,6 +192,7 @@ function RuleCard({
   index: number
   count: number
   lists: GuardList[]
+  language: FormulaLanguage
   issues: GuardIssue[]
   onSlot: (s: Slot) => void
   onMove: (to: number) => void
@@ -180,7 +224,7 @@ function RuleCard({
         </span>
       </header>
       {slot.editable && kind === 'guard' ? (
-        <GuardRuleEditors rule={slot.rule as GuardRule} lists={lists} issues={issues} edit={(fn) => onSlot({ ...slot, rule: fn(slot.rule as GuardRule) })} />
+        <GuardRuleEditors rule={slot.rule as GuardRule} lists={lists} language={language} issues={issues} edit={(fn) => onSlot({ ...slot, rule: fn(slot.rule as GuardRule) })} />
       ) : slot.editable && kind !== 'guard' ? (
         <OtherRuleEditors
           kind={kind}
@@ -199,7 +243,7 @@ function RuleCard({
 }
 
 /** One rule: the guard screen's WHEN / IF / THEN editors, the reader's errors on their blocks, and the rule in words. */
-function GuardRuleEditors({ rule, lists, issues, edit }: { rule: GuardRule; lists: GuardList[]; issues: GuardIssue[]; edit: RuleEdit }) {
+function GuardRuleEditors({ rule, lists, language, issues, edit }: { rule: GuardRule; lists: GuardList[]; language: FormulaLanguage; issues: GuardIssue[]; edit: RuleEdit }) {
   const { t } = useTranslation('insurance-guards')
   const index = useMemo(() => indexChecks(issues, rule), [issues, rule])
   return (
@@ -209,7 +253,7 @@ function GuardRuleEditors({ rule, lists, issues, edit }: { rule: GuardRule; list
         <AudienceEditor rule={rule} edit={edit} />
       </Part>
       <Part kw={t('rule.if')} hook="if">
-        <ConditionEditor rule={rule} lists={lists} edit={edit} checks={index} />
+        <ConditionEditor rule={rule} lists={lists} edit={edit} checks={index} language={language} />
       </Part>
       <Part kw={t('rule.then')} hook="then">
         <EffectEditor rule={rule} edit={edit} checks={index} />
@@ -333,4 +377,30 @@ function OtherRuleWords({ kind, rule, lists }: { kind: 'category' | 'coverage'; 
       </p>
     </section>
   )
+}
+
+/**
+ * What ƒx offers a playground formula (oms 681): the registry fields a formula reads as a field — each said whether this
+ * experiment declares it yet — then the experiment's scratch fields, each inserted as `<scope>.field.<Key>` with its
+ * type. The rest of the wider language (`request.lines`, the list functions, the cross-line recipe) is the box's own.
+ */
+function useFormulaLanguage(declared: readonly DeclaredField[], registry: readonly RegistryField[]): FormulaLanguage {
+  const { t, i18n } = useTranslation('insurance-playground')
+  return useMemo(() => {
+    const open = new Set(pickableRegistry(registry, declared).map((r) => r.key))
+    const fromRegistry: FxEntry[] = registry.flatMap((r) => {
+      const d = r.retired ? null : registryDeclaration(r)
+      if (!d) return []
+      const path = declaredFieldPath(d)
+      return [{ key: path, group: 'declared', type: declaredFxType(d.type), insert: { text: path }, code: path, label: saysIn(r.label, i18n.language), desc: t(open.has(r.key) ? 'fields.fx.undeclared' : 'fields.fx.declared') }]
+    })
+    const known = new Set(registry.map((r) => r.key.toLowerCase()))
+    const scratch: FxEntry[] = declared
+      .filter((f) => !known.has(f.key.toLowerCase()))
+      .map((f) => {
+        const path = declaredFieldPath(f)
+        return { key: path, group: 'declared', type: declaredFxType(f.type), insert: { text: path }, code: path, desc: t('fields.fx.scratch') }
+      })
+    return { fields: [...fromRegistry, ...scratch] }
+  }, [declared, registry, t, i18n.language])
 }

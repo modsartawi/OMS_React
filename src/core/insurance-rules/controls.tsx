@@ -10,9 +10,9 @@ import { isError, type GuardIssue } from './checks'
 // field, a labelled field with its unit, and the issues HQ's Validate pinned on a block or a field.
 
 /** A labelled control, its unit after it. */
-export function Field({ label, unit, children, hook }: { label: string; unit?: ReactNode; children: ReactNode; hook?: string }) {
+export function Field({ label, unit, children, hook, className = '' }: { label: string; unit?: ReactNode; children: ReactNode; hook?: string; className?: string }) {
   return (
-    <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" data-field={hook}>
+    <label className={`inline-flex items-center gap-1.5 text-xs text-muted-foreground ${className}`} data-field={hook}>
       <span>{label}</span>
       {children}
       {unit && <span>{unit}</span>}

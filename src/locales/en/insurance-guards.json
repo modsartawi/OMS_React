@@ -365,19 +365,23 @@
       "unknownFilter": "A guard formula has no item filters (character <n>{{at}}</n>).",
       "roundArgs": "round() takes a value, the decimals and a mode: round(x, 0, halfUp).",
       "bandArgs": "band() takes a value and thresholds: band(x, 0:1, 12:2).",
-      "pairOutsideBand": "A threshold “a:b” only goes inside band() (character <n>{{at}}</n>)."
+      "pairOutsideBand": "A threshold “a:b” only goes inside band() (character <n>{{at}}</n>).",
+      "badField": "A field is written line.field.Key, request.field.Key or patient.field.Key, with one key (character <n>{{at}}</n>)."
     },
     "group": {
       "patient": "Patient",
       "request": "Request",
       "line": "The line",
-      "eligibility": "Eligibility (insurer's answer)"
+      "eligibility": "Eligibility (insurer's answer)",
+      "declared": "Fields (registry and scratch)"
     },
     "type": {
       "money": "SAR",
       "number": "123",
       "text": "abc",
-      "bool": "yes/no"
+      "bool": "yes/no",
+      "date": "date",
+      "items": "lines"
     },
     "field": {
       "patient": {
@@ -418,6 +422,10 @@
         "pharmacist": {
           "label": "Pharmacist",
           "desc": "The pharmacist on the request."
+        },
+        "lines": {
+          "label": "The request’s lines",
+          "desc": "Every line of the request, as a list: walk it with filter, sum, count or lines."
         }
       },
       "line": {
@@ -568,7 +576,11 @@
       "round": "Rounds x. The mode is halfUp, halfEven, down or up.",
       "floor": "Rounds down to a whole number.",
       "ceil": "Rounds up to a whole number.",
-      "band": "The rate of the highest threshold x reaches; 0 below the first one."
+      "band": "The rate of the highest threshold x reaches; 0 below the first one.",
+      "lines": "How many lines the list holds. (count sums units, lines counts lines.)",
+      "filter": "The lines of the list that pass the test; inside it, line is each line in turn.",
+      "sum": "Adds up a value over the lines of the list.",
+      "count": "The units (quantity) on the lines of the list. (count sums units, lines counts lines.)"
     },
     "recipe": {
       "childQuantity": {
@@ -602,6 +614,10 @@
       "womanOver50": {
         "title": "Women over 50",
         "desc": "Gender F and older than 50."
+      },
+      "itemOnRequest": {
+        "title": "An item anywhere on the request",
+        "desc": "Some line of the request is item 200021 — not only the line being checked."
       }
     }
   }

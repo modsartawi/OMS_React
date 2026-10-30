@@ -13,9 +13,12 @@ import {
   backtestIsCurrent,
   backtestProgressPct,
   backtestRunning,
+  backtestWindowLimitQuery,
+  cappedBacktestDays,
   draftBacktest,
   draftBacktestsQuery,
   maskedKey,
+  offeredBacktestDays,
   stoppedShown,
   type BacktestDays,
   type GuardBacktest,
@@ -53,25 +56,39 @@ export default function BacktestTab({ days, id, onDays, onStarted }: { days: Bac
       await queryClient.invalidateQueries({ queryKey: draftBacktestsQuery().queryKey })
     },
   })
+  // 710: only windows inside the door's limit are offered, and nothing is until the limit is known.
+  const limit = useQuery(backtestWindowLimitQuery())
+  const offered = limit.data === undefined ? [] : offeredBacktestDays(limit.data)
+  const picked = limit.data === undefined ? null : cappedBacktestDays(days, limit.data)
+  const capped = limit.data !== undefined && offered.length < BACKTEST_DAYS.length
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card p-4" data-backtest-start="">
         <fieldset className="flex flex-wrap items-center gap-2">
           <legend className="mb-1 text-xs text-muted-foreground">{t('backtest.days')}</legend>
-          {BACKTEST_DAYS.map((d) => (
-            <Chip key={d} on={days === d} onClick={() => onDays(d)} data-days={d}>
+          {offered.map((d) => (
+            <Chip key={d} on={picked === d} onClick={() => onDays(d)} data-days={d}>
               {t('backtest.daysOption', { n: fsi(d) })}
             </Chip>
           ))}
         </fieldset>
-        <Button type="button" variant="primary" className="ms-auto" disabled={start.isPending} onClick={() => start.mutate(days)} data-start-backtest="">
+        <Button type="button" variant="primary" className="ms-auto" disabled={start.isPending || picked === null} onClick={() => picked !== null && start.mutate(picked)} data-start-backtest="">
           <Play className="h-4 w-4" aria-hidden />
           {start.isPending ? t('backtest.starting') : t('backtest.start')}
         </Button>
+        {capped && (
+          <p className="w-full text-xs text-muted-foreground" data-backtest-capped={limit.data}>
+            {offered.length === 0 ? t('backtest.noWindow') : t('backtest.limit', { n: fsi(limit.data ?? 0) })}
+          </p>
+        )}
       </div>
 
-      {start.isError && isBareDenial(start.error) ? (
+      {limit.isError && isBareDenial(limit.error) ? (
+        <DeniedCard ns="insurance-simulator" hook="backtest-denied" />
+      ) : limit.isError ? (
+        <ErrorBanner className="p-3" message={apiErrorMessage(limit.error, t('backtest.limitFailed'))} />
+      ) : start.isError && isBareDenial(start.error) ? (
         <DeniedCard ns="insurance-simulator" hook="backtest-denied" />
       ) : start.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(start.error, t('backtest.startFailed'))} />

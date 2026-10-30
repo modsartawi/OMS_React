@@ -61,6 +61,10 @@ import insuranceIdfAr from '@/locales/ar/insurance-idf.json'
 import insurancePlaygroundEn from '@/locales/en/insurance-playground.json'
 import insurancePlaygroundAr from '@/locales/ar/insurance-playground.json'
 
+// 710 · imports — the decision inspector (`features/insurance-rules/inspector`, spec 3271).
+import insuranceInspectorEn from '@/locales/en/insurance-inspector.json'
+import insuranceInspectorAr from '@/locales/ar/insurance-inspector.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -98,6 +102,9 @@ export const INSURANCE_RULES_NS = [
 
   // 677 · ns
   'insurance-playground',
+
+  // 710 · ns
+  'insurance-inspector',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -137,6 +144,9 @@ export const INSURANCE_RULES_EN = {
 
   // 677 · en
   'insurance-playground': insurancePlaygroundEn,
+
+  // 710 · en
+  'insurance-inspector': insuranceInspectorEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -176,4 +186,7 @@ export const INSURANCE_RULES_AR = {
 
   // 677 · ar
   'insurance-playground': insurancePlaygroundAr,
+
+  // 710 · ar
+  'insurance-inspector': insuranceInspectorAr,
 }

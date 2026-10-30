@@ -20,7 +20,8 @@
     "idfLookup": "استعلام IDF",
     "idfEvents": "أحداث IDF",
     "idfGroups": "مجموعات IDF",
-    "playground": "ساحة التجربة"
+    "playground": "ساحة التجربة",
+    "inspector": "فاحص القرارات"
   },
   "state": {
     "draft": "مسودة",

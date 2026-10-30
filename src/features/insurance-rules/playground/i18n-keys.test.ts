@@ -12,7 +12,7 @@ import { hasLocaleKey, localeAt } from '@/core/test/locale'
 import { GUARD_LINE_OUTCOMES } from '@/core/insurance-rules/guard-check'
 import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
-import type { ExperimentBox } from './experiment'
+import type { DataTab, ExperimentBox } from './experiment'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
@@ -21,6 +21,7 @@ function leaves(node: unknown, prefix = ''): string[] {
 }
 
 const BOXES: readonly ExperimentBox[] = ['data', 'document']
+const DATA_TABS: readonly DataTab[] = ['json', 'raw']
 
 describe('insurance-playground — en and ar mirror each other', () => {
   it('the same keys, and no plural family', () => {
@@ -43,6 +44,9 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'access.deniedHint',
       'run.running',
       ...BOXES.map((b) => `json.problem.${b}`),
+      // 684: the Data pane's tabs and the Raw experiment's intake report
+      ...['tabs.label', 'rawHint', ...DATA_TABS.map((k) => `tabs.${k}`)].map((k) => `data.${k}`),
+      ...['title', 'hint', 'ignored', 'didYouMean', 'refused', 'expected', 'read'].map((k) => `intake.${k}`),
       ...['true', 'false', 'unknown'].map((v) => `trace.value.${v}`),
       ...['title', 'empty', 'failed', 'refused', 'tabs.label', 'tabs.saw', 'nothingMatched', 'matchedLines', 'line', 'matched', 'notMatched', 'errors.title'].map((k) => `outcome.${k}`),
     ]

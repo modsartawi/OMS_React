@@ -19,11 +19,12 @@ export interface PlaygroundDocument {
   rules: unknown[]
 }
 
-/** `POST InsuranceRules/Playground/Evaluate` — exactly one of `data` | `raw` (raw is 684's). */
+/** `POST InsuranceRules/Playground/Evaluate` — exactly one of `data` | `raw` (3246; oms 684). */
 export interface PlaygroundEvaluateBody {
   kind: PlaygroundKind
   /** The engine shape (`request`, `patient`, `lines`, `history`, `reference`, `eligibility`, `payer`). */
   data?: unknown
+  /** The Raw tab's text, sent as it is even when it is not JSON (the door says so). */
   raw?: string
   document: unknown
   /** Local wall-clock, `yyyy-MM-ddTHH:mm:ss`, no `Z`. */
@@ -62,8 +63,17 @@ export interface PlaygroundEvaluateReply {
   lines?: PlaygroundLine[] | null
   /** The live check's answer (678's Tab B). */
   verdict?: unknown
-  /** Raw data only (684). */
-  intake?: unknown
+  /** Raw data only (684); empty for `data`. */
+  intake?: PlaygroundIntake | null
+}
+
+/** What the engine made of a Raw text (3246): the paths it read, the ones it ignored and the values it refused. */
+export interface PlaygroundIntake {
+  read?: string[] | null
+  /** A key the engine does not know, with its near-miss (`lines[0].qty` → `quantity`); `hint` null when none. */
+  ignored?: { path: string; hint?: string | null }[] | null
+  /** A value of the wrong type (`lines[0].price`, expected `number`). */
+  refused?: { path: string; expected: string }[] | null
 }
 
 /** HQ's trace value (`"true" | "false" | "unknown"`, a string) → the screen's; a boolean is taken as it is. */

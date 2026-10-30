@@ -179,16 +179,10 @@ for (const dir of ['ltr', 'rtl']) {
 
     // ── 678 ──
     // 9. typing many keys inside the window: one request, and the outcome refreshes with no Run
-    const typed = await editAndWait(
-      page,
-      store,
-      async () => {
-        await box(page, 'data').fill(JSON.stringify(sent.data))
-        await box(page, 'data').press('End')
-        await box(page, 'data').pressSequentially('   ', { delay: 60 })
-      },
-      '[data-outcome-line="1"]',
-    )
+    await editAndWait(page, store, () => box(page, 'data').fill(JSON.stringify(sent.data)), '[data-outcome-line="1"]')
+    await box(page, 'data').focus()
+    await box(page, 'data').press('Control+End')
+    const typed = await editAndWait(page, store, () => box(page, 'data').pressSequentially('    ', { delay: 80 }), '[data-outcome-line="1"]')
     check(`${dir} 9. typing makes one request`, typed === 1, String(typed))
     check(`${dir} 9. the outcome refreshed by itself`, (await page.locator('[data-matched-lines="1"]').count()) === 1 && (await page.locator('[data-refusal-code]').count()) === 0)
 

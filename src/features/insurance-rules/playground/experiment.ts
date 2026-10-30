@@ -101,16 +101,28 @@ const parseObject = (text: string): { ok: true; value: unknown } | { ok: false }
   }
 }
 
-/** The two boxes → the door's body, or which box does not hold a JSON object (then nothing is sent). */
-export function evaluateBody(x: { dataText: string; documentText: string; asOf: string; kind?: PlaygroundKind }): {
+/**
+ * The Data pane's tab: **JSON** (the data box, sent as `data`) or **Raw** (free text, sent as `raw` as it is; 684).
+ * 682 adds Form, which also sends `data`. Each tab keeps its own text: leaving Raw never overwrites the data box.
+ */
+export type DataTab = 'json' | 'raw'
+
+/**
+ * The boxes → the door's body, or which box does not hold a JSON object (then nothing is sent). Exactly one of
+ * `data` | `raw`: the Raw tab sends its text even when it is not JSON (the door says so) and does not read the data box.
+ */
+export function evaluateBody(x: { dataText: string; documentText: string; asOf: string; kind?: PlaygroundKind; dataTab?: DataTab; rawText?: string }): {
   body: PlaygroundEvaluateBody | null
   problems: ExperimentBox[]
 } {
-  const data = parseObject(x.dataText)
+  const raw = x.dataTab === 'raw'
+  const data = raw ? null : parseObject(x.dataText)
   const document = parseObject(x.documentText)
   const problems: ExperimentBox[] = []
-  if (!data.ok) problems.push('data')
+  if (data && !data.ok) problems.push('data')
   if (!document.ok) problems.push('document')
-  if (!data.ok || !document.ok) return { body: null, problems }
-  return { body: { kind: x.kind ?? 'guard', data: data.value, document: document.value, asOf: x.asOf }, problems }
+  if (problems.length || !document.ok) return { body: null, problems }
+  const kind = x.kind ?? 'guard'
+  if (raw) return { body: { kind, raw: x.rawText ?? '', document: document.value, asOf: x.asOf }, problems }
+  return { body: { kind, data: data?.ok ? data.value : undefined, document: document.value, asOf: x.asOf }, problems }
 }

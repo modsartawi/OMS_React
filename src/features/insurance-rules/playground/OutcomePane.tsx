@@ -7,6 +7,8 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { TD, TH } from '@/core/insurance-rules/parts'
 import type { PlaygroundTraceValue } from '@/core/insurance-rules/playground'
+import type { IntakeView } from './intake'
+import IntakeReport from './IntakeReport'
 import type { LineView, OutcomeView } from './outcome'
 import type { VerdictView } from './verdict'
 import VerdictPane from './VerdictPane'
@@ -20,8 +22,9 @@ export type OutcomeTab = 'saw' | 'live'
  * line's trace; or, when the reader refused the document, only its errors. Tab B (678), "What the live check would
  * say" — the reply's verdict, drawn by `VerdictPane`. It draws view models (`./outcome`, `./verdict`) and nothing of
  * the raw reply. 686 adds the read log and the explain paragraph to Tab A.
+ * A Raw experiment's intake report (684) follows the lines on Tab A; null (a data experiment) draws nothing.
  */
-export default function OutcomePane({ view, verdict }: { view: OutcomeView; verdict: VerdictView }) {
+export default function OutcomePane({ view, verdict, intake = null }: { view: OutcomeView; verdict: VerdictView; intake?: IntakeView | null }) {
   const { t } = useTranslation('insurance-playground')
   const [tab, setTab] = useState<OutcomeTab>('saw')
   return (
@@ -37,6 +40,7 @@ export default function OutcomePane({ view, verdict }: { view: OutcomeView; verd
       {tab === 'saw' ? (
         <div id={TAB_ID} role="tabpanel" aria-labelledby={`${TAB_ID}-tab`} className="flex flex-col gap-3">
           {view.kind === 'errors' ? <ReaderErrors errors={view.errors} /> : <Saw matched={view.matched} lines={view.lines} />}
+          {view.kind === 'outcome' && intake && <IntakeReport view={intake} />}
         </div>
       ) : (
         <div id={LIVE_TAB_ID} role="tabpanel" aria-labelledby={`${LIVE_TAB_ID}-tab`} className="flex flex-col gap-3">

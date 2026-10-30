@@ -9,7 +9,9 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { playgroundApi } from './api'
-import { evaluateBody, kindSeed } from './experiment'
+import { DataPane } from './DataPane'
+import { evaluateBody, kindSeed, type DataTab } from './experiment'
+import { intakeView } from './intake'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
 import { outcomeView } from './outcome'
@@ -19,11 +21,12 @@ import { verdictView } from './verdict'
 /**
  * Insurance rules ▸ Playground — `/insurance-rules/playground` (BackOffice spec 3243, door 3244; oms tickets 677, 678).
  * Three panes: **Data** (the door's `data`, engine shape, as JSON) | **Rule** (a scratch mini-ruleset `document`, as
- * JSON) | **Outcome** (Tab A what the engine saw: matched lines or "nothing matched", and the trace; Tab B what the
- * live check would say). Above them the experiment's **kind** (switching seeds that kind's rule and data) and its
- * **"as of"**. About 500 ms after the last edit to the data, the rule, the kind or "as of", the experiment sends
- * `POST InsuranceRules/Playground/Evaluate` by itself (678: no Run button); only the NEWEST request's answer is shown
- * (`latestWins`), and the last good outcome stays while one is in flight. Writes nothing, never saves back.
+ * JSON, or a Raw text sent as it is — 684) | **Outcome** (Tab A what the engine saw: matched lines or "nothing
+ * matched", and the trace; Tab B what the live check would say). Above them the experiment's **kind** (switching seeds
+ * that kind's rule and data) and its **"as of"**. About 500 ms after the last edit to the data, the rule, the kind or
+ * "as of", the experiment sends `POST InsuranceRules/Playground/Evaluate` by itself (678: no Run button); only the
+ * NEWEST request's answer is shown (`latestWins`), and the last good outcome stays while one is in flight. Writes
+ * nothing, never saves back.
  *
  * The page only wires the panes; each pane owns its drawing (`JsonPane`, `OutcomePane`) and the reply is read by the
  * pure `outcomeView` / `verdictView`, so 679 (editors beside the JSON) and 682 (form ⇄ JSON) each replace one pane's
@@ -35,13 +38,18 @@ export default function PlaygroundPage() {
   const { t } = useTranslation('insurance-playground')
   const [kind, setKind] = useState<PlaygroundKind>('guard')
   const [dataText, setDataText] = useState(() => kindSeed('guard').dataText)
+  const [dataTab, setDataTab] = useState<DataTab>('json')
+  const [rawText, setRawText] = useState('')
   const [documentText, setDocumentText] = useState(() => kindSeed('guard').documentText)
   // "As of": local now when the page opened; a cleared input falls back to that moment, never to a moving now.
   const [openedAt] = useState(() => new Date())
   const [asOfInput, setAsOfInput] = useState(() => localAsOf(openedAt))
   const asOf = asOfText(asOfInput, openedAt)
 
-  const built = useMemo(() => evaluateBody({ dataText, documentText, asOf, kind }), [dataText, documentText, asOf, kind])
+  const built = useMemo(
+    () => evaluateBody({ dataText, documentText, asOf, kind, dataTab, rawText }),
+    [dataText, documentText, asOf, kind, dataTab, rawText],
+  )
   const [pending, setPending] = useState(false)
   const [settled, setSettled] = useState<RunSettle<Answer> | null>(null)
   const runner = useRef<LatestWins<PlaygroundEvaluateBody> | null>(null)
@@ -125,7 +133,7 @@ export default function PlaygroundPage() {
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <JsonPane box="data" title={t('data.title')} hint={t('data.hint')} value={dataText} onChange={setDataText} invalid={built.problems.includes('data')} />
+        <DataPane tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={built.problems.includes('data')} />
         <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={built.problems.includes('document')} />
 
         <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome" aria-busy={pending || undefined}>
@@ -148,7 +156,7 @@ export default function PlaygroundPage() {
               )}
             </ErrorBanner>
           ) : answer ? (
-            <OutcomePane view={outcomeView(answer.reply)} verdict={verdictView(answer.kind, answer.reply?.verdict)} />
+            <OutcomePane view={outcomeView(answer.reply)} verdict={verdictView(answer.kind, answer.reply?.verdict)} intake={intakeView(answer.reply?.intake)} />
           ) : pending ? (
             <Loading text={t('run.running')} />
           ) : (

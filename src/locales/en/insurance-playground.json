@@ -22,7 +22,13 @@
   },
   "data": {
     "title": "Data",
-    "hint": "The request, patient and lines the engine reads, as JSON."
+    "hint": "The request, patient and lines the engine reads, as JSON.",
+    "tabs": {
+      "label": "Data as",
+      "json": "JSON",
+      "raw": "Raw"
+    },
+    "rawHint": "Any text, sent as it is, even when it is not valid JSON. The outcome lists what the engine read, ignored and refused."
   },
   "rule": {
     "title": "Rule",
@@ -52,6 +58,15 @@
     "errors": {
       "title": "The engine could not read the rule"
     }
+  },
+  "intake": {
+    "title": "What the engine took from the raw text",
+    "hint": "A key the engine does not know is ignored; a value of the wrong type is refused.",
+    "ignored": "Ignored",
+    "didYouMean": "did you mean {{hint}}?",
+    "refused": "Refused for the wrong type",
+    "expected": "expected {{type}}",
+    "read": "Read"
   },
   "trace": {
     "rule": "Rule",

@@ -47,3 +47,30 @@ describe('the kind seeds (678)', () => {
     expect(kindSeed('guard')).toEqual({ dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT })
   })
 })
+
+/** Ticket 684 — exactly one of `data` | `raw`: the Raw tab sends its text as it is, the JSON tab sends `data`. */
+describe('evaluateBody — the Data tab picks data or raw', () => {
+  it('the Raw tab sends raw and no data, even when the text is not JSON', () => {
+    const r = evaluateBody({ dataTab: 'raw', rawText: '{"lines":[{"qty":2}', dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT, asOf: AS_OF })
+    expect(r.problems).toEqual([])
+    expect(Object.keys(r.body ?? {})).toEqual(['kind', 'raw', 'document', 'asOf'])
+    expect(r.body?.raw).toBe('{"lines":[{"qty":2}')
+    expect('data' in (r.body ?? {})).toBe(false)
+  })
+
+  it('the Raw tab does not read the data box: a broken data box is not a problem there', () => {
+    const r = evaluateBody({ dataTab: 'raw', rawText: 'not json', dataText: '{ "lines": [', documentText: SEED_DOCUMENT_TEXT, asOf: AS_OF })
+    expect(r.problems).toEqual([])
+    expect(r.body?.raw).toBe('not json')
+  })
+
+  it('the rule box is still checked on the Raw tab', () => {
+    expect(evaluateBody({ dataTab: 'raw', rawText: '{}', dataText: SEED_DATA_TEXT, documentText: '{', asOf: AS_OF })).toEqual({ body: null, problems: ['document'] })
+  })
+
+  it('the JSON tab sends data and no raw, whatever the Raw tab holds', () => {
+    const r = evaluateBody({ dataTab: 'json', rawText: '{"lines":[{"qty":2}]}', dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT, asOf: AS_OF })
+    expect(Object.keys(r.body ?? {})).toEqual(['kind', 'data', 'document', 'asOf'])
+    expect('raw' in (r.body ?? {})).toBe(false)
+  })
+})

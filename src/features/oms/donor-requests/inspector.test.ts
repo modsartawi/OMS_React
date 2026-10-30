@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { DonorRequestModel } from '@/core/models/sd-document'
-import { donorInspector } from './inspector'
+import { donorInspector, requestOpenPath } from './inspector'
 
 const UNSET = '0001-01-01T00:00:00'
 const T = '2026-10-07T'
@@ -196,5 +196,48 @@ describe('open delivery', () => {
 
   it('a delivery number is encoded into the path', () => {
     expect(donorInspector(request({ deliveryNo: 'A/1' }), NOW).openTo).toBe('/oms/delivery/A%2F1')
+  })
+})
+
+describe('the host (ticket 672, BackOffice spec 3242)', () => {
+  const wp = () =>
+    request({
+      deliveryNo: '98765',
+      sourceType: 'WP',
+      hostLabel: 'Wasfaty+ order 98765',
+      hostLabelAr: 'طلب وصفتي بلس 98765',
+    })
+
+  it('a WP-hosted row shows its host label and no "open delivery" link', () => {
+    const view = donorInspector(wp(), NOW)
+    expect(view.host).toEqual({
+      sourceType: 'WP',
+      key: '98765',
+      isDelivery: false,
+      labelEn: 'Wasfaty+ order 98765',
+      labelAr: 'طلب وصفتي بلس 98765',
+    })
+    expect(view.openTo).toBeNull()
+    // Enter and a double-click on the grid row go nowhere either.
+    expect(requestOpenPath(wp())).toBeNull()
+  })
+
+  it('a row without a source type renders as a delivery, exactly as today', () => {
+    const view = donorInspector(request(), NOW)
+    expect(view.host.isDelivery).toBe(true)
+    expect(view.host.sourceType).toBe('OMS')
+    expect(view.openTo).toBe('/oms/delivery/8000000500')
+    expect(requestOpenPath(request())).toBe('/oms/delivery/8000000500')
+  })
+
+  it('a blank source type, or OMS in any case, is a delivery too', () => {
+    expect(donorInspector(request({ sourceType: '  ' }), NOW).openTo).toBe('/oms/delivery/8000000500')
+    expect(donorInspector(request({ sourceType: 'oms' }), NOW).host.isDelivery).toBe(true)
+  })
+
+  it('a session host is not a delivery, whatever its key looks like', () => {
+    const view = donorInspector(request({ deliveryNo: '01K8ZQ', sourceType: 'PSES' }), NOW)
+    expect(view.host.isDelivery).toBe(false)
+    expect(view.openTo).toBeNull()
   })
 })

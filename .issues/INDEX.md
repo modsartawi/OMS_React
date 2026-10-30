@@ -1167,7 +1167,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Donors on any host (BackOffice spec 3242, filed 2026-10-29)
 
-- [672](672-donor-requests-and-pick-support-name-any-host-not-only-a-delivery.md) — Donor requests and Pick support name any host, not only a delivery · *(ticket · BO spec 3242)* · **open** · blocked by: — (live: BackOffice 3234) · hostLabel/EN-AR on donor rows + inquiry + diagnosis; DONOR_HOST lookup → resolution.hosts[]; key ≤64; blank type = delivery; HOST_CANCELLED/HOST_STORE_CHANGED (+ existing hook codes) in words
+- [672](672-donor-requests-and-pick-support-name-any-host-not-only-a-delivery.md) — Donor requests and Pick support name any host, not only a delivery · *(ticket · BO spec 3242)* · **done 2026-10-30** · blocked by: — · hostLabel/EN-AR on donor rows + inquiry + diagnosis; DONOR_HOST lookup → resolution.hosts[]; key ≤64; blank type = delivery; HOST_CANCELLED/HOST_STORE_CHANGED (+ existing hook codes) in words
 
 ## Insurance rule playground (BackOffice spec 3243, brief assets/3243-oms-react-rule-playground-brief.md, filed 2026-10-30)
 

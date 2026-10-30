@@ -1,0 +1,13 @@
+{
+  "reason": {
+    "DELIVERY_CLOSED": "تم إغلاق التوصيل",
+    "DELIVERY_FORCE_CLOSED": "تم إغلاق التوصيل قسرًا",
+    "DELIVERY_STORE_CHANGED": "نُقل التوصيل إلى فرع آخر",
+    "HOST_CANCELLED": "تم إلغاء الطلب",
+    "HOST_STORE_CHANGED": "نُقل الطلب إلى فرع آخر"
+  },
+  "event": {
+    "REKEY": "نُقل طلب المتجر المانح إلى الجلسة",
+    "DONOR_CARRIED": "نُقل طلب المتجر المانح من التحضير السابق"
+  }
+}

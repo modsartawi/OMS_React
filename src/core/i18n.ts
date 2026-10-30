@@ -138,6 +138,10 @@ import dispatchScorecardAr from '@/locales/ar/dispatch-scorecard.json'
 // it too, the `central-invoice` precedent. 497–499 add their keys here rather than minting another.
 import pickSupport from '@/locales/en/pick-support.json'
 import pickSupportAr from '@/locales/ar/pick-support.json'
+// A donor request's codes in words (ticket 672, BackOffice spec 3242): `core/oms/donor-words` owns this namespace,
+// so the donor request grid, the Delivery activity spine and the Pick support timeline say a hook reason alike.
+import donorWords from '@/locales/en/donor-words.json'
+import donorWordsAr from '@/locales/ar/donor-words.json'
 // Serial refusals (BackOffice spec 3049 / ticket 3065, ticket 573). Namespace == feature name, English and Arabic together.
 import serialRefusals from '@/locales/en/serial-refusals.json'
 import serialRefusalsAr from '@/locales/ar/serial-refusals.json'
@@ -197,7 +201,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -247,6 +251,7 @@ i18n.use(initReactI18next).init({
       'delivery-statistics': deliveryStatistics,
       'dispatch-scorecard': dispatchScorecard,
       'pick-support': pickSupport,
+      'donor-words': donorWords,
       campaigns,
       'campaign-workspace': campaignWorkspace,
       'campaign-priority': campaignPriority,
@@ -289,6 +294,7 @@ i18n.use(initReactI18next).init({
       'delivery-statistics': deliveryStatisticsAr,
       'dispatch-scorecard': dispatchScorecardAr,
       'pick-support': pickSupportAr,
+      'donor-words': donorWordsAr,
       'dispatch-board': dispatchBoardAr,
       'prescription-session': prescriptionSessionAr,
       'prescription-sessions': prescriptionSessionsAr,

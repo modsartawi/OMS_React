@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3242-any-picking-source-may-host-a-donor-request-spec.md
 blocked-by: — (live: BackOffice spec 3242, merged into pricing2 68c0870fd)
 ---
@@ -56,10 +56,10 @@ UI (donor screens, Pick support console), core models
 
 ## Proof
 
-- [ ] A WP-hosted donor row shows its host label and no "open delivery" link · vitest
-- [ ] A `DONOR_HOST` lookup lists its host rows with their shapes · vitest
-- [ ] A row without `hostSourceType` renders as a delivery, exactly as today · vitest
-- [ ] `HOST_CANCELLED` and `HOST_STORE_CHANGED` render in words, in English and Arabic, in the grid and on the spine; an unknown code renders raw · vitest
+- [x] A WP-hosted donor row shows its host label and no "open delivery" link · vitest
+- [x] A `DONOR_HOST` lookup lists its host rows with their shapes · vitest
+- [x] A row without `hostSourceType` renders as a delivery, exactly as today · vitest
+- [x] `HOST_CANCELLED` and `HOST_STORE_CHANGED` render in words, in English and Arabic, in the grid and on the spine; an unknown code renders raw · vitest
 
 ## Boundaries
 
@@ -70,3 +70,44 @@ host.
 ## Done when
 
 The proofs are green and the screens name the host against a spec3242 server.
+
+## Comments
+
+**Built (2026-10-30).** Proofs: `src/features/oms/donor-requests/inspector.test.ts` + `columns.test.ts` (WP row,
+row without a source type, reason column EN/AR), `src/features/oms/pick-support/resolve-view.test.ts` (DONOR_HOST
+→ host rows with shapes; an older server's answer unchanged), `src/core/pick-support/diagnosis.test.ts`
+(`diagnosisHost`, `timelineEventWord`), `src/core/oms/donor-words.test.ts` (every hook reason and both events in EN
+and AR; unknown → raw). New pure modules: `core/oms/donor-host.ts`, `core/oms/donor-words.ts` (its own
+`donor-words` namespace, EN + AR, registered in `core/i18n.ts`).
+
+**Where the server differs from this ticket** (checked against BackOffice `pricing2` at 68c0870fd / e4dc6b379):
+
+- `DonorRequestModel` (the donor request list and Document Details' rows) carries the host type as **`sourceType`**,
+  not `hostSourceType`. `hostSourceType` is on `DonorRequestInquiryRow` (the WPF/Mispick inquiry pane, which
+  oms-react does not read), `PickSupportDiagnosis` and `PickSupportResolvedHost`. The list reads `sourceType`.
+- `GET DonorRequest?delivery=&sourceType=` is the till's x-api-key door (`DonorRequestEndpoints.ForDelivery`);
+  oms-react never calls it. Document Details reads `SdDocumentWeb/Delivery/{no}/DonorRequests`, which takes no
+  `sourceType` and only ever serves a delivery page. So there was nothing to pass; no change.
+- `DONOR_CARRIED` is a **prescription session** event (`PrescriptionSessionDonorEvents.CarriedOver`), not a donor
+  request event; no oms-react screen shows a session's event trail today. Its words are in `donor-words` (so the map
+  is whole), but only `REKEY` has a surface: the Pick support timeline, where the code stays and the words sit
+  beside it. The English for both is the till's (`PrescriptionSessionWords.Event`).
+- The search box had no client-side length cap, so "keys up to 64" needed no change (the server's `MaxLookupKey` is 64).
+- A resolution may also carry `approvalDocuments[]` (ticket 2806); still not modelled here — out of scope.
+
+**Judgement calls.**
+- Grid: the `deliveryNo` column (id kept, so saved column state still finds it) is headed "Raised for"; a delivery
+  row shows its bare number exactly as before, any other host the server's label in the screen's language. The
+  inspector shows "Raised for" + "Number" for a non-delivery host and no Open button; Enter / double-click on such a
+  row go nowhere (`requestOpenPath`).
+- Pick support: a lookup naming any non-delivery host is a list (hosts are never opened straight away — one delivery
+  alone still opens its diagnosis). The host rows open the diagnosis by host key under `?delivery=`, as delivery rows do.
+- Only the hook reasons get words, as the ticket says. The person-chosen cancel/refuse codes (`PICKED_HERE`,
+  `OUT_OF_STOCK`, …) still render raw; the till has words for them (`DonorRequestWords`) if a follow-up wants them.
+
+**Arabic — drafts for the owner to check** (`src/locales/ar/donor-words.json` unless noted):
+- `HOST_CANCELLED` تم إلغاء الطلب · `HOST_STORE_CHANGED` نُقل الطلب إلى فرع آخر (the ticket's drafts)
+- `DELIVERY_CLOSED` تم إغلاق التوصيل · `DELIVERY_FORCE_CLOSED` تم إغلاق التوصيل قسرًا · `DELIVERY_STORE_CHANGED` نُقل التوصيل إلى فرع آخر
+- `REKEY` نُقل طلب المتجر المانح إلى الجلسة · `DONOR_CARRIED` نُقل طلب المتجر المانح من التحضير السابق
+- `donor-requests.json`: "Raised for" مطلوب لصالح · "Number" الرقم; `pick-support.json`: "Picked for" مُجهَّز لصالح,
+  hosts title عمليات تجهيز أخرى يدل عليها هذا الرقم, `DONOR_HOST` جهة طلب المتبرع

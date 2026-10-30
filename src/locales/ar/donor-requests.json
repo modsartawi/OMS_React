@@ -41,7 +41,7 @@
   },
   "columns": {
     "requestNo": "الطلب",
-    "deliveryNo": "التوصيل",
+    "host": "مطلوب لصالح",
     "donorStore": "المتجر المانح",
     "orderStore": "متجر الطلب",
     "state": "الحالة",
@@ -91,6 +91,8 @@
     "request": "طلب المتجر المانح",
     "facts": "الطلب",
     "delivery": "التوصيل",
+    "host": "مطلوب لصالح",
+    "hostKey": "الرقم",
     "donorStore": "المتجر المانح",
     "orderStore": "متجر الطلب",
     "asked": "الوحدات المطلوبة",

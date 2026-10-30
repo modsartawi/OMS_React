@@ -41,7 +41,7 @@
   },
   "columns": {
     "requestNo": "Request",
-    "deliveryNo": "Delivery",
+    "host": "Raised for",
     "donorStore": "Donor store",
     "orderStore": "Order store",
     "state": "State",
@@ -83,6 +83,8 @@
     "request": "Donor request",
     "facts": "Request",
     "delivery": "Delivery",
+    "host": "Raised for",
+    "hostKey": "Number",
     "donorStore": "Donor store",
     "orderStore": "Order store",
     "asked": "Units asked",

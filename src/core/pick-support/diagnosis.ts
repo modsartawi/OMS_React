@@ -12,6 +12,8 @@ import {
   type PickSupportShapeMatch,
   type PickSupportTimelineEntry,
 } from '@/core/models/pick-support'
+import { donorHost, type DonorHost } from '@/core/oms/donor-host'
+import { donorEventWord } from '@/core/oms/donor-words'
 
 /**
  * The verdict card's state (the brief's panel §1, rule 5):
@@ -105,4 +107,20 @@ const HOLD_VIEW: Record<(typeof PICK_SUPPORT_HOLDS)[number], HoldView> = {
 
 export function holdView(hold: string): HoldView {
   return (PICK_SUPPORT_HOLDS as readonly string[]).includes(hold) ? HOLD_VIEW[hold as keyof typeof HOLD_VIEW] : 'escalate'
+}
+
+/**
+ * What the diagnosis is of (spec 3242, ticket 672): a delivery, or another donor host named in the server's words.
+ * An older server sends no `hostSourceType`, which reads as a delivery — the panel then reads exactly as before.
+ */
+export function diagnosisHost(d: Pick<PickSupportDiagnosis, 'deliveryNo' | 'hostSourceType' | 'hostLabel' | 'hostLabelAr'>): DonorHost {
+  return donorHost(d.hostSourceType, d.deliveryNo, d.hostLabel, d.hostLabelAr)
+}
+
+/**
+ * The words a timeline step carries beside its code, as an i18n key — only for the donor trail events 3239 adds
+ * (`REKEY`, `DONOR_CARRIED`). Every other event stays its code alone, the server's (rule 1); `null` for those.
+ */
+export function timelineEventWord(e: Pick<PickSupportTimelineEntry, 'eventType'>): string | null {
+  return donorEventWord(e.eventType)?.key ?? null
 }

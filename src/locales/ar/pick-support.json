@@ -54,12 +54,18 @@
     "open": "فتح التشخيص",
     "opened": "معروض أدناه"
   },
+  "hosts": {
+    "title": "عمليات تجهيز أخرى يدل عليها هذا الرقم",
+    "host": "مُجهَّز لصالح",
+    "key": "الرقم"
+  },
   "keyKind": {
     "ORDER": "طلب",
     "DELIVERY": "توصيل",
     "TILL_TRANSACTION": "حركة صندوق",
     "PICKING_DOCUMENT": "مستند تجهيز",
     "DONOR_REQUEST": "طلب متبرع",
+    "DONOR_HOST": "جهة طلب المتبرع",
     "SERIAL": "رقم تسلسلي"
   },
   "serial": {
@@ -94,6 +100,7 @@
   },
   "facts": {
     "delivery": "التوصيل",
+    "host": "مُجهَّز لصالح",
     "order": "الطلب",
     "currentStore": "الفرع الحالي",
     "readyStatus": "حالة الجاهزية",

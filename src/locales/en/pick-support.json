@@ -54,12 +54,18 @@
     "open": "Open diagnosis",
     "opened": "Shown below"
   },
+  "hosts": {
+    "title": "Other picks this number names",
+    "host": "Picked for",
+    "key": "Number"
+  },
   "keyKind": {
     "ORDER": "Order",
     "DELIVERY": "Delivery",
     "TILL_TRANSACTION": "Till transaction",
     "PICKING_DOCUMENT": "Picking document",
     "DONOR_REQUEST": "Donor request",
+    "DONOR_HOST": "Donor host",
     "SERIAL": "Serial"
   },
   "serial": {
@@ -94,6 +100,7 @@
   },
   "facts": {
     "delivery": "Delivery",
+    "host": "Picked for",
     "order": "Order",
     "currentStore": "Current store",
     "readyStatus": "Ready status",

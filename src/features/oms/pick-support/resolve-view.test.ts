@@ -1,6 +1,6 @@
 /** The Search tab's reading of a Resolve answer, and its URL state (ticket 496, brief 2691). */
 import { describe, expect, it } from 'vitest'
-import type { PickSupportResolution, PickSupportSerialHold } from '@/core/models/pick-support'
+import type { PickSupportResolution, PickSupportResolvedHost, PickSupportSerialHold } from '@/core/models/pick-support'
 import { oneDeliveryResolution } from '@/core/pick-support/__fixtures__/brief'
 import { openable, resolveView, searchFromParams, searchToParams } from './resolve-view'
 
@@ -45,7 +45,7 @@ describe('resolveView', () => {
     const one = oneDeliveryResolution()
     const holds = [hold(), hold({ documentNo: 'PD0000999', hold: 'STUCK', shapes: ['DONOR_AT_OLD_ORDER_STORE'] })]
     const view = resolveView({ ...one, key: 'SN12345', serials: holds })
-    expect(view).toEqual({ kind: 'holds', holds, deliveries: one.deliveries })
+    expect(view).toEqual({ kind: 'holds', holds, deliveries: one.deliveries, hosts: [] })
   })
 
   it('matched:false gives the server sentence, EN and AR', () => {
@@ -61,15 +61,57 @@ describe('resolveView', () => {
   })
 
   it('a match that names nothing is an empty list, not a diagnosis', () => {
-    expect(resolveView({ ...oneDeliveryResolution(), deliveries: [] })).toEqual({ kind: 'list', deliveries: [] })
+    expect(resolveView({ ...oneDeliveryResolution(), deliveries: [] })).toEqual({ kind: 'list', deliveries: [], hosts: [] })
+  })
+})
+
+const wpHost = (over: Partial<PickSupportResolvedHost> = {}): PickSupportResolvedHost => ({
+  hostSourceType: 'WP',
+  hostKey: '98765',
+  hostLabel: 'Wasfaty+ order 98765',
+  hostLabelAr: 'طلب وصفتي بلس 98765',
+  currentStore: '1139',
+  matchedBy: ['DONOR_HOST'],
+  shapes: ['DONOR_AT_OLD_ORDER_STORE'],
+  ...over,
+})
+
+describe('donor hosts (ticket 672, BackOffice spec 3242)', () => {
+  it('a DONOR_HOST lookup lists its host rows, with their shapes, in the server order', () => {
+    const hosts = [wpHost(), wpHost({ hostSourceType: 'PSES', hostKey: '01K8ZQ', hostLabel: 'Prescription session PS-01K8ZQ', shapes: [] })]
+    const view = resolveView({ ...oneDeliveryResolution(), key: '98765', deliveries: [], hosts })
+    expect(view).toEqual({ kind: 'list', deliveries: [], hosts })
+    if (view.kind === 'list') expect(view.hosts[0].shapes).toEqual(['DONOR_AT_OLD_ORDER_STORE'])
+  })
+
+  it('one host alone is still a list row, never a delivery diagnosis', () => {
+    const view = resolveView({ ...oneDeliveryResolution(), key: '98765', deliveries: [], hosts: [wpHost()] })
+    expect(view.kind).toBe('list')
+  })
+
+  it('one delivery beside a host lists both', () => {
+    const one = oneDeliveryResolution()
+    const view = resolveView({ ...one, key: 'DR1', hosts: [wpHost()] })
+    expect(view).toEqual({ kind: 'list', deliveries: one.deliveries, hosts: [wpHost()] })
+  })
+
+  it('a host row opens its diagnosis by its key', () => {
+    expect(openable({ kind: 'list', deliveries: [], hosts: [wpHost()] })).toEqual(['98765'])
+    expect(openable({ kind: 'holds', deliveries: [], holds: [], hosts: [wpHost({ hostKey: ' 4242 ' })] })).toEqual(['4242'])
+  })
+
+  it('an older server sends no hosts: one delivery opens its diagnosis, exactly as today', () => {
+    const older = oneDeliveryResolution()
+    expect('hosts' in older).toBe(false)
+    expect(resolveView(older)).toEqual({ kind: 'diagnosis', deliveryNo: '8006777365' })
   })
 })
 
 describe('openable', () => {
   it("a list opens its own deliveries, holds theirs and their holds' deliveries, the rest nothing", () => {
     const d = oneDeliveryResolution().deliveries[0]
-    expect(openable({ kind: 'list', deliveries: [d, { ...d, deliveryNo: '8006777366' }] })).toEqual(['8006777365', '8006777366'])
-    expect(openable({ kind: 'holds', deliveries: [], holds: [hold({ deliveryNo: '8006777399' }), hold({ deliveryNo: '' })] })).toEqual(['8006777399'])
+    expect(openable({ kind: 'list', deliveries: [d, { ...d, deliveryNo: '8006777366' }], hosts: [] })).toEqual(['8006777365', '8006777366'])
+    expect(openable({ kind: 'holds', deliveries: [], hosts: [], holds: [hold({ deliveryNo: '8006777399' }), hold({ deliveryNo: '' })] })).toEqual(['8006777399'])
     expect(openable({ kind: 'diagnosis', deliveryNo: '8006777365' })).toEqual([])
     expect(openable({ kind: 'noMatch', messageEn: '', messageAr: '' })).toEqual([])
   })

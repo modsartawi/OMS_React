@@ -38,6 +38,7 @@ import type {
 } from '@/core/models/sd-document'
 import { hasScheduledWindow } from '@/core/oms/delivery-window'
 import { donorOutcome, elapsedSince, type DonorOutcome } from '@/core/oms/donor-moments'
+import { donorReasonText } from '@/core/oms/donor-words'
 import { timeline, timelineInputFromHeader, type TimelineStep, type TimelineStepState } from '@/core/oms/timeline'
 import { spine, type JobState, type SpineEntry } from '@/core/oms/timeline-feed'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -555,7 +556,8 @@ function PastEntry({ entry }: { entry: SpineEntry }) {
           </div>
           {entry.moment === 'ended' && entry.request.outcomeReason && (
             <div className="text-xs text-muted-foreground" data-detail="">
-              <bdi>{entry.request.outcomeReason}</bdi>
+              {/* A hook reason in words (672); any other code as sent. */}
+              <bdi>{donorReasonText(t, entry.request.outcomeReason)}</bdi>
             </div>
           )}
         </Row>

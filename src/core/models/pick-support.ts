@@ -33,6 +33,8 @@ export const PICK_SUPPORT_KEY_KINDS = [
   'TILL_TRANSACTION',
   'PICKING_DOCUMENT',
   'DONOR_REQUEST',
+  /** Spec 3242 (BackOffice 3234): the key is a donor host's own key — one that is not a delivery. */
+  'DONOR_HOST',
   'SERIAL',
 ] as const
 export type PickSupportKeyKind = Open<(typeof PICK_SUPPORT_KEY_KINDS)[number]>
@@ -67,6 +69,26 @@ export interface PickSupportResolvedDelivery {
   closeStatus: string
   matchedBy: PickSupportKeyKind[]
   /** The stuck shapes it is in now; empty when in none. Non-empty is the row's stuck marker. */
+  shapes: PickSupportShape[]
+}
+
+/**
+ * Spec 3242 (BackOffice 3234) — one donor host that is NOT a delivery (a Wasfaty+ order, a prescription session, an
+ * approval…) a lookup key named, through a donor request, its DNR document or the host key itself. Diagnosed by its
+ * key on the diagnosis door, as a delivery is. A delivery host is in `deliveries`, never here.
+ */
+export interface PickSupportResolvedHost {
+  /** `PSES`, `WP`, `NPHS`, `WSFT`, `POS`. */
+  hostSourceType: string
+  /** The host's key, as its donor requests carry it in `deliveryNo` (up to 64 characters). */
+  hostKey: string
+  /** The host in the server's words ("Wasfaty+ order 98765"). */
+  hostLabel: string
+  hostLabelAr: string
+  /** The store the host is picked at now. */
+  currentStore: string
+  matchedBy: PickSupportKeyKind[]
+  /** The stuck shapes it is in now; empty when in none. */
   shapes: PickSupportShape[]
 }
 
@@ -108,6 +130,8 @@ export interface PickSupportResolution {
   deliveries: PickSupportResolvedDelivery[]
   /** Only when the key was a serial: one entry per picking document and GTIN holding a unit. */
   serials: PickSupportSerialHold[]
+  /** Spec 3242: the non-delivery donor hosts the key names, by source type then key. Absent from an older server. */
+  hosts?: PickSupportResolvedHost[]
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +341,16 @@ export interface PickSupportCopyBundle {
 }
 
 export interface PickSupportDiagnosis {
+  /** The key diagnosed: a delivery number, or (spec 3242) another donor host's key. */
   deliveryNo: string
+  /**
+   * Spec 3242 (BackOffice 3234): the host the key names — `OMS` for a delivery, another channel (`PSES`, `WP`…) for a
+   * donor host with no delivery. Absent from an older server, which reads as a delivery.
+   */
+  hostSourceType?: string
+  /** The host in the server's words, English and Arabic; absent from an older server. */
+  hostLabel?: string
+  hostLabelAr?: string
   orderNo: string
   currentStore: string
   /** The delivery's Sd status letters, raw. Empty = not set. */

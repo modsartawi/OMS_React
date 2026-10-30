@@ -8,6 +8,8 @@ import PaneSeparator, { useViewportWidth } from '@/core/ui/PaneSeparator'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { clampInspectorWidth } from '@/core/ui/inspector-pane'
 import { formatDateTime } from '@/core/util/date-format'
+import { hostLabelIn } from '@/core/oms/donor-host'
+import { donorReasonText } from '@/core/oms/donor-words'
 import { pickTimeText } from './columns'
 import { donorInspector, type DonorInspectorMoment, type DonorInspectorView } from './inspector'
 import Button from '@/core/ui/Button'
@@ -98,7 +100,7 @@ function Moment({ moment, view }: { moment: DonorInspectorMoment; view: DonorIns
 }
 
 function Body({ view, onOpen }: { view: DonorInspectorView; onOpen: (to: string) => void }) {
-  const { t } = useTranslation('donor-requests')
+  const { t, i18n } = useTranslation('donor-requests')
   const { openTo, transfer } = view
   const pickText = pickTimeText(t, view.row)
   return (
@@ -122,16 +124,30 @@ function Body({ view, onOpen }: { view: DonorInspectorView; onOpen: (to: string)
         </div>
         {view.reason && (
           <p className="whitespace-pre-wrap border-s-2 border-border-strong ps-2 text-xs leading-5" data-field="reason">
-            <bdi>{view.reason}</bdi>
+            <bdi>{donorReasonText(t, view.reason)}</bdi>
           </p>
         )}
       </div>
 
       <Section name="request" title={t('inspector.facts')}>
         <dl className="flex flex-col">
-          <Field name="deliveryNo" label={t('inspector.delivery')}>
-            {view.deliveryNo && <Code value={view.deliveryNo} />}
-          </Field>
+          {view.host.isDelivery ? (
+            <Field name="deliveryNo" label={t('inspector.delivery')}>
+              {view.deliveryNo && <Code value={view.deliveryNo} />}
+            </Field>
+          ) : (
+            <>
+              {/* Spec 3242: another host, in the server's words, and its key as plain text — no page to open. */}
+              <Field name="host" label={t('inspector.host')}>
+                <span data-donor-host={view.host.sourceType}>
+                  <bdi>{hostLabelIn(view.host, i18n.language)}</bdi>
+                </span>
+              </Field>
+              <Field name="hostKey" label={t('inspector.hostKey')}>
+                {view.host.key && <Code value={view.host.key} />}
+              </Field>
+            </>
+          )}
           <Field name="donorStore" label={t('inspector.donorStore')}>
             {view.donorStore && <Code value={view.donorStore} />}
           </Field>
@@ -180,19 +196,21 @@ function Body({ view, onOpen }: { view: DonorInspectorView; onOpen: (to: string)
         )}
       </Section>
 
-      {/* Read-only (D9): the request's delivery is where anything is done. */}
-      <Button
-        variant="primary"
-        data-donor-open=""
-        disabled={!openTo}
-        title={openTo ? undefined : t('inspector.noDelivery')}
-        onClick={() => openTo && onOpen(openTo)}
-        className="w-full"
-      >
-        <ExternalLink className="size-3.5" aria-hidden />
-        {t('inspector.open')}
-        <Kbd>{t('common:keys.enter')}</Kbd>
-      </Button>
+      {/* Read-only (D9): the request's delivery is where anything is done. Only a delivery host has one (672). */}
+      {view.host.isDelivery && (
+        <Button
+          variant="primary"
+          data-donor-open=""
+          disabled={!openTo}
+          title={openTo ? undefined : t('inspector.noDelivery')}
+          onClick={() => openTo && onOpen(openTo)}
+          className="w-full"
+        >
+          <ExternalLink className="size-3.5" aria-hidden />
+          {t('inspector.open')}
+          <Kbd>{t('common:keys.enter')}</Kbd>
+        </Button>
+      )}
     </div>
   )
 }

@@ -463,7 +463,16 @@ export type DonorRequestOutcome = '' | 'CANCELLED' | 'REFUSED' | 'EXPIRED'
  */
 export interface DonorRequestModel {
   requestNo: string
+  /** The request's HOST key: a delivery number, or (spec 3242) a session id, a Wasfaty+ order… — up to 64 characters. */
   deliveryNo: string
+  /**
+   * The host's source type (BackOffice 3009/3230): `OMS` for a delivery, `PSES`, `WP`, `NPHS`, `WSFT`, `POS` for the
+   * others. Blank or absent from an older server — read as a delivery (`@/core/oms/donor-host`).
+   */
+  sourceType?: string
+  /** BackOffice 3234 — the host in a person's words ("Wasfaty+ order 98765"); absent from an older server. */
+  hostLabel?: string
+  hostLabelAr?: string
   orderStore: string
   donorStore: string
   state: DonorRequestState

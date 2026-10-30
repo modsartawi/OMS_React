@@ -304,6 +304,18 @@
       "eligibleDaysBeforeDueFor": "Days before due, per list"
     }
   },
+  "publishChecks": {
+    "warningsTitle": "Warnings: none of these stops the publish",
+    "refusalsTitle": "Refused: this does not publish until it is fixed",
+    "refused": "Refused",
+    "failed": "HQ's checks could not be read, so this draft cannot be asked about or approved yet.",
+    "kind": {
+      "channelNever": "A channel never answers",
+      "fieldFlagged": "Flagged field",
+      "arabicMissing": "Missing Arabic",
+      "other": "Warning"
+    }
+  },
   "approval": {
     "title": "Approval",
     "failed": "Where the draft stands could not be read.",

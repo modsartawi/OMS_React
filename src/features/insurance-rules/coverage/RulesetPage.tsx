@@ -183,7 +183,7 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
             onClick={() => validate.mutate(h.present)}
             disabled={validate.isPending}
             className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium ${
-              verdict?.errors ? 'border-danger-border bg-danger-050 text-danger-800' : verdict && !checksStale ? 'border-border bg-success-050' : 'border-border'
+              verdict?.errors ? 'border-danger-border bg-danger-050 text-danger-800' : verdict?.warnings && !checksStale ? 'border-border bg-attention-050 text-attention-800' : verdict && !checksStale ? 'border-border bg-success-050' : 'border-border'
             }`}
             data-checks-pill={validate.isPending ? 'pending' : !verdict ? 'none' : checksStale ? 'stale' : verdict.errors ? 'errors' : verdict.warnings ? 'warnings' : 'pass'}
           >

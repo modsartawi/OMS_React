@@ -24,6 +24,45 @@
     "playground": "Playground",
     "codeLabels": "Code labels"
   },
+  "catalog": {
+    "title": "FHIR fact catalog",
+    "open": "From the catalog",
+    "pick": "Pick",
+    "showPath": "Show FHIRPath",
+    "hidePath": "Hide FHIRPath",
+    "list": "List",
+    "retired": "Retired",
+    "needsParameter": "This field needs a category, which cannot be chosen here yet.",
+    "denied": "You do not have access to the FHIR fact catalog.",
+    "failed": "The catalog could not be loaded.",
+    "loading": "Loading the catalog…",
+    "empty": "The catalog has no field yet.",
+    "answer": {
+      "answers": "Answers",
+      "sometimes": "Sometimes answers",
+      "never": "Never answers"
+    },
+    "message": {
+      "eligibility": "Eligibility",
+      "claim": "Claim",
+      "claimResponse": "Claim response",
+      "communication": "Communication",
+      "payment": "Payment"
+    },
+    "level": {
+      "message": "Whole message",
+      "line": "Each line"
+    },
+    "type": {
+      "text": "Text",
+      "number": "Number",
+      "date": "Date",
+      "flag": "Yes / no",
+      "code": "Code",
+      "money": "Money",
+      "quantity": "Quantity"
+    }
+  },
   "state": {
     "draft": "Draft",
     "waiting": "Waiting for approval",

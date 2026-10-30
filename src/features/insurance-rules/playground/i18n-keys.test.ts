@@ -86,8 +86,17 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'experiments.refused.title',
       ...[...EXPERIMENT_REFUSALS, 'fileFailed'].map((k) => `experiments.refused.${k}`),
     ]
-      for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
-    })
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('679: the Rule pane ruleset and the errors shown on their block', (locale) => {
+    const keys = [
+      'rule.hintEditors',
+      ...['label', 'rule', 'add', 'up', 'down', 'remove', 'jsonOnly', 'broken', 'empty', 'readsAs'].map((k) => `ruleset.${k}`),
+      'outcome.errors.onBlocks',
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
 
   it.each([en, ar])('682: the form, its sections, every field and its problems', (locale) => {
     const keys = [

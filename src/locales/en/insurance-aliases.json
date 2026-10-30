@@ -34,10 +34,10 @@
   },
   "repin": {
     "title": "Re-pin drafts",
-    "hint": "These published rulesets still run on an old path or alias. Each moves only through a draft that someone other than its author approves after reading the back-test.",
+    "hint": "These published rulesets still run on an old path, alias or label version. Each moves only through a draft that someone other than its author approves after reading the difference.",
     "failed": "The affected rulesets could not be loaded.",
     "loading": "Loading the affected rulesets…",
-    "empty": "Every published ruleset is on the current paths and aliases.",
+    "empty": "Every published ruleset is on the current paths, aliases and labels.",
     "grant": "Only a user with the insurance rules permission can raise or approve a re-pin draft.",
     "version": "Version",
     "raise": "Raise a re-pin draft",
@@ -63,6 +63,19 @@
     "noChangeBadge": "No change",
     "noChange": "No decision over the kept bundles would change.",
     "truncated": "HQ sent only the first changed bundles, so the breakdown below is partial. The counts above are complete.",
+    "labels": {
+      "badge": "Labels changed",
+      "title": "The rule's text, before and after",
+      "versionBefore": "Label version before",
+      "versionAfter": "Label version after",
+      "language": "Language",
+      "noText": "No text",
+      "noChange": "No rule's text would change.",
+      "lang": {
+        "en": "English",
+        "ar": "Arabic"
+      }
+    },
     "stat": {
       "bundles": "Bundles replayed",
       "changed": "Decisions that change",
@@ -71,7 +84,7 @@
     "col": {
       "ruleset": "Published ruleset",
       "kind": "What changed",
-      "subject": "Field or alias",
+      "subject": "Field, alias or label",
       "bundles": "Bundles",
       "on": "Day",
       "bundle": "Bundle",
@@ -81,7 +94,8 @@
     },
     "kind": {
       "path": "Field path",
-      "alias": "Alias"
+      "alias": "Alias",
+      "labels": "Labels only"
     },
     "decision": {
       "PASS": "Passes",

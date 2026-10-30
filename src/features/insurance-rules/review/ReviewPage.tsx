@@ -172,7 +172,8 @@ function Review() {
                       <td className={TD} data-col="mark" data-cleared={r.cleared ? 'true' : 'false'}>
                         <ItemClearing cleared={r.cleared} />
                       </td>
-                      <td className={TD}>
+                      {/* Actions and Inspect: an item has no decision to inspect. */}
+                      <td className={TD} colSpan={2}>
                         <Button variant="outlined" onClick={() => setOpening(r)} data-item-open="">
                           {t('item.open')}
                         </Button>

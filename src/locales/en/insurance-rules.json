@@ -20,6 +20,7 @@
     "idfLookup": "IDF lookup",
     "idfEvents": "IDF events",
     "idfGroups": "IDF groups",
+    "aliases": "Aliases",
     "playground": "Playground"
   },
   "state": {

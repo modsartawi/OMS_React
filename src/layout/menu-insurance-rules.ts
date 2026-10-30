@@ -16,6 +16,8 @@ import { History } from 'lucide-react' // 626
 import { Layers } from 'lucide-react' // 652
 // 677 · icons
 import { TestTubeDiagonal } from 'lucide-react' // 677
+// 704 · icons
+import { Replace } from 'lucide-react' // 704
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -131,6 +133,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.playground',
       icon: TestTubeDiagonal,
       routerLink: '/insurance-rules/playground',
+    },
+
+    // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)
+    {
+      // 704 — (payer, wrong URL → canonical URL), proposed and approved by a second person.
+      labelKey: 'insurance-rules:menu.aliases',
+      icon: Replace,
+      routerLink: '/insurance-rules/aliases',
     },
 
     // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).

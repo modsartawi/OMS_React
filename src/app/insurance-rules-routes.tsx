@@ -111,6 +111,12 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/playground/PlaygroundPage')).default }),
     },
 
+    // 704 · aliases (BackOffice spec 3271; 705's re-pin drafts build on its page)
+    {
+      path: 'aliases',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/aliases/AliasesPage')).default }),
+    },
+
     // ── IDF priority (BackOffice spec 3157; oms 619–627) — every IDF leaf lives under `idf/*`, because
     // `/insurance-rules/exceptions` is 614's guard exceptions. One feature folder: `features/insurance-rules/idf/`.
 

@@ -61,6 +61,10 @@ import insuranceIdfAr from '@/locales/ar/insurance-idf.json'
 import insurancePlaygroundEn from '@/locales/en/insurance-playground.json'
 import insurancePlaygroundAr from '@/locales/ar/insurance-playground.json'
 
+// 704 · imports — Aliases (`features/insurance-rules/aliases`, spec 3271; 705 builds on its page)
+import insuranceAliasesEn from '@/locales/en/insurance-aliases.json'
+import insuranceAliasesAr from '@/locales/ar/insurance-aliases.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -98,6 +102,9 @@ export const INSURANCE_RULES_NS = [
 
   // 677 · ns
   'insurance-playground',
+
+  // 704 · ns
+  'insurance-aliases',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -137,6 +144,9 @@ export const INSURANCE_RULES_EN = {
 
   // 677 · en
   'insurance-playground': insurancePlaygroundEn,
+
+  // 704 · en
+  'insurance-aliases': insuranceAliasesEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -176,4 +186,7 @@ export const INSURANCE_RULES_AR = {
 
   // 677 · ar
   'insurance-playground': insurancePlaygroundAr,
+
+  // 704 · ar
+  'insurance-aliases': insuranceAliasesAr,
 }

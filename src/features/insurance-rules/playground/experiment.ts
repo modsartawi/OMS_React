@@ -1,3 +1,4 @@
+import { EXAMPLE_COVERAGE_PAYER, EXAMPLE_DATA } from '@/core/insurance-rules/example-data'
 import type { PlaygroundDocument, PlaygroundEvaluateBody, PlaygroundKind } from '@/core/insurance-rules/playground'
 
 // One experiment as the 677 page holds it: the Data box (the door's `data`, engine shape) and the Rule box (the scratch
@@ -7,17 +8,10 @@ import type { PlaygroundDocument, PlaygroundEvaluateBody, PlaygroundKind } from 
 export type ExperimentBox = 'data' | 'document'
 
 /**
- * The seeded data: one nphies request with one line of 120 days' supply. The values are an EXAMPLE dataset the user
- * edits (data, not copy), so they are not translated.
+ * The seeded data: one nphies request with one line of 120 days' supply — core's example dataset (688 graduated it, so
+ * "Open in playground" on the rule screens seeds the same data).
  */
-export const SEED_DATA = {
-  request: { channel: 'nphies', store: 'P001', payer: '0001100041', policy: null, class: null, pharmacist: null, attributes: {} },
-  patient: { birthDate: '1990-04-01', gender: 'male', idType: 'nationalId', attributes: {} },
-  lines: [{ line: 1, item: '200021', quantity: 2, unit: 'PC', daysSupply: 120, icd: ['E11'], price: 120.5, eCode: null, dCode: null, sfdaCode: null, idfPriority: null, attributes: {} }],
-  history: [],
-  reference: {},
-  eligibility: {},
-}
+export const SEED_DATA = EXAMPLE_DATA
 
 /** The seeded mini-ruleset: one guard rule, "days supply above 90", in the engine's spelling. Its name is example data. */
 export const SEED_DOCUMENT: PlaygroundDocument = {
@@ -46,10 +40,8 @@ export const SEED_DOCUMENT_TEXT = pretty(SEED_DOCUMENT)
 // copy), and the example data. A coverage experiment's data carries the engine's `payer` block (CoveragePayer:
 // the deductible the payer stated per group); its spelling is the brief's guess until 3245 / 691.
 
-/** GUESS (691): the engine's CoveragePayer — per deductible group the payer's own percent and maximum. */
-export const SEED_COVERAGE_PAYER = {
-  deductibles: { G1: { percent: 20, max: 50 }, G2: { percent: 30, max: 100 }, G3: { percent: null, max: null } },
-}
+/** GUESS (691): the engine's CoveragePayer (now in core, 688). */
+export const SEED_COVERAGE_PAYER = EXAMPLE_COVERAGE_PAYER
 
 export const SEED_COVERAGE_DOCUMENT: PlaygroundDocument = {
   schema: 1,

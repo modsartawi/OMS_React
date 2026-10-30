@@ -13,7 +13,9 @@ import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc
 import RulesetApproval from '@/core/insurance-rules/RulesetApproval'
 import { DRAFT_PENDING, DRAFT_STALE, draftDocument, type RulesetDraft } from '@/core/insurance-rules/ruleset-draft'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
-import { otherRuleOut } from '@/core/insurance-rules/guard-wire'
+import { otherRuleOut, rulesetOut } from '@/core/insurance-rules/guard-wire'
+import OpenInPlayground from '@/core/insurance-rules/OpenInPlayground'
+import type { RuleSource } from '@/core/insurance-rules/experiment'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
@@ -241,6 +243,7 @@ function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: Rule
             rule={rule}
             lists={h.present.lists ?? NO_LISTS}
             folders={folders.folders}
+            playground={playgroundSource(kind, h.saved, rule.id)}
             edit={editRule}
             issues={checksStale ? [] : issuesOf(rule.id)}
           />
@@ -447,6 +450,7 @@ function RuleEditor({
   rule,
   lists,
   folders,
+  playground,
   edit,
   issues,
 }: {
@@ -456,6 +460,8 @@ function RuleEditor({
   lists: readonly GuardList[]
   /** The document's folders (oms 675): the folder box offers them, and takes a new name. */
   folders: readonly string[]
+  /** 688: the SAVED rule and its document, for "Open in playground"; null while the rule is not saved yet. */
+  playground: RuleSource | null
   edit: (fn: (r: InsuranceRule) => InsuranceRule, coalesce?: string) => void
   issues: GuardIssue[]
 }) {
@@ -473,6 +479,7 @@ function RuleEditor({
           <span className="ms-auto">
             <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={otherRuleOut(rule)} hook="rule" />
           </span>
+          <OpenInPlayground source={playground} label={t('rule.playground')} title={playground ? t('rule.playgroundHint') : t('rule.playgroundUnsaved')} />
         </div>
         <div className="grid gap-2 md:grid-cols-3">
           <Field label={t('rule.nameEn')}>
@@ -536,6 +543,15 @@ function Block({ kw, hint, hook, children }: { kw: string; hint: string; hook: s
       <div className="p-3 text-sm">{children}</div>
     </section>
   )
+}
+
+/**
+ * 688: what "Open in playground" copies — the rule as last SAVED (unsaved edits are not copied; a rule never saved
+ * has nothing to copy) and the saved document's lists and fields, all in the engine's spelling.
+ */
+function playgroundSource(kind: InsuranceRuleKind, saved: InsuranceRuleset, id: string): RuleSource | null {
+  const rule = (saved.rules as InsuranceRule[]).find((r) => r.id === id)
+  return rule ? { kind, rule: otherRuleOut(rule), document: rulesetOut(saved) } : null
 }
 
 /** The rule moved to a folder; a blank folder drops the key (`folder` is optional in the document). */

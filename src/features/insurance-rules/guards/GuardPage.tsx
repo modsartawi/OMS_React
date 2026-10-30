@@ -6,11 +6,12 @@ import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
-import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
+import { guardRuleOut, guardRulesetOut } from '@/core/insurance-rules/guard-wire'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
-import { guardEditPath, guardsPath, ruleSeverity, type GuardList, type GuardRule } from '@/core/insurance-rules/model'
+import { guardEditPath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
+import OpenInPlayground from '@/core/insurance-rules/OpenInPlayground'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -52,7 +53,7 @@ export default function GuardPage() {
   else
     body = (
       <>
-        <RuleRead rule={rule} lists={draft.data.lists} />
+        <RuleRead rule={rule} doc={draft.data} />
         {/* 609 — move to a folder, save as a team template */}
         <OrganizeCard key={rule.id} rule={rule} rules={draft.data.rules} />
       </>
@@ -69,9 +70,9 @@ export default function GuardPage() {
   )
 }
 
-function RuleRead({ rule, lists }: { rule: GuardRule; lists: GuardList[] }) {
+function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
   const { t } = useTranslation('insurance-guards')
-  const s = guardSentence(rule, lists)
+  const s = guardSentence(rule, doc.lists)
   const severity = ruleSeverity(rule)
   return (
     <>
@@ -83,6 +84,8 @@ function RuleRead({ rule, lists }: { rule: GuardRule; lists: GuardList[] }) {
           <span className="ms-auto">
             <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={guardRuleOut(rule)} hook="rule" />
           </span>
+          {/* 688: a copy of the rule shown (the saved draft), its lists and fields, as a new playground experiment */}
+          <OpenInPlayground source={{ kind: 'guard', rule: guardRuleOut(rule), document: guardRulesetOut(doc) }} label={t('rule.playground')} title={t('rule.playgroundHint')} />
           <Link to={guardEditPath(rule.id)} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-edit-rule="">
             <Pencil className="h-3.5 w-3.5" aria-hidden />
             {t('rule.edit')}

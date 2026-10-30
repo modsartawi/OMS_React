@@ -66,6 +66,7 @@ async function open(dir, { deny = [] } = {}) {
     }
     const hit = categorySimulateStub(req.method(), p, body, { store, deny }) ?? simulatorStub(req.method(), p, body, { store, deny }) ?? insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
+    if (p === 'InsuranceRules/Backtests/WindowLimit') return route.fulfill(envelope({ maxDays: 180 })) // 710
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

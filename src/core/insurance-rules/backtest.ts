@@ -12,6 +12,25 @@ import type { GuardSeverity } from './model'
 export const BACKTEST_DAYS = [30, 90, 180] as const
 export type BacktestDays = (typeof BACKTEST_DAYS)[number]
 
+// ── 710 · the window is capped by retention (door 3298) ─────────────────────────────────────────
+// Kept copies are purged (210 days by default), so the door answers the longest window a back-test may replay: the
+// shortest retention setting it reads, minus 30 days. The monitor back-test reads the same limit, so it lives in core.
+
+/** The door's limit in whole days. An unreadable reply is 0: nothing is offered, never everything. */
+export function backtestWindowLimit(reply: unknown): number {
+  const days = (reply as { maxDays?: unknown } | null | undefined)?.maxDays
+  return typeof days === 'number' && Number.isFinite(days) && days > 0 ? Math.floor(days) : 0
+}
+
+/** The windows a back-test may offer under the limit. */
+export const offeredBacktestDays = (limit: number): BacktestDays[] => BACKTEST_DAYS.filter((d) => d <= limit)
+
+/** The window to use: the one asked for if it fits, else the longest that does, else none. */
+export function cappedBacktestDays(days: BacktestDays, limit: number): BacktestDays | null {
+  if (days <= limit) return days
+  return offeredBacktestDays(limit).at(-1) ?? null
+}
+
 /** An unknown value reads as finished (no endless poll). */
 export const BACKTEST_STATUSES = ['queued', 'running', 'done', 'failed'] as const
 export type BacktestStatus = (typeof BACKTEST_STATUSES)[number]
@@ -136,6 +155,15 @@ export function backtestStanding(bt: Pick<GuardBacktest, 'status' | 'revision'> 
 export const GUARD_BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
 /** How often a running back-test is read again. */
 export const BACKTEST_POLL_MS = 1000
+
+/** `GET InsuranceRules/Backtests/WindowLimit` → `{ maxDays }` (door 3298; 🚩 path and shape guessed, 711 reconciles). */
+export function backtestWindowLimitQuery() {
+  return {
+    queryKey: [...INSURANCE_RULES_KEY, 'backtests', 'window-limit'],
+    queryFn: async () => backtestWindowLimit(await api.get<unknown>(`${INSURANCE_RULES_BASE}/Backtests/WindowLimit`)),
+    retry: false,
+  } as const
+}
 
 /** `GET InsuranceRules/Guards/Backtests` — the current draft's back-tests, newest first; polled while one runs. */
 export function draftBacktestsQuery() {

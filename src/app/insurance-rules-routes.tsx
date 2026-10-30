@@ -111,6 +111,16 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/playground/PlaygroundPage')).default }),
     },
 
+    // 710 · the decision inspector (BackOffice spec 3271, door 3298): open by id, or a decision itself.
+    {
+      path: 'decisions',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/inspector/InspectorPage')).default }),
+    },
+    {
+      path: 'decisions/:decisionId',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/inspector/InspectorPage')).default }),
+    },
+
     // 704 · aliases (BackOffice spec 3271; 705's re-pin drafts build on its page)
     {
       path: 'aliases',

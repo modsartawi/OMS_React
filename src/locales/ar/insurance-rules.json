@@ -22,7 +22,8 @@
     "idfGroups": "مجموعات IDF",
     "aliases": "الأسماء البديلة",
     "playground": "ساحة التجربة",
-    "codeLabels": "تسميات الرموز"
+    "codeLabels": "تسميات الرموز",
+    "inspector": "فاحص القرارات"
   },
   "catalog": {
     "title": "دليل حقائق FHIR",

@@ -22,7 +22,8 @@
     "idfGroups": "IDF groups",
     "aliases": "Aliases",
     "playground": "Playground",
-    "codeLabels": "Code labels"
+    "codeLabels": "Code labels",
+    "inspector": "Decision inspector"
   },
   "catalog": {
     "title": "FHIR fact catalog",

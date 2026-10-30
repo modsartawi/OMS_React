@@ -4,7 +4,7 @@
  * key that is never shown whole.
  */
 import { describe, expect, it } from 'vitest'
-import { backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest } from './backtest'
+import { backtestWindowLimit, cappedBacktestDays, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest } from './backtest'
 
 const bt = (o: Partial<GuardBacktest> = {}): GuardBacktest => ({
   id: 'BT-1',
@@ -92,5 +92,28 @@ describe('maskedKey', () => {
   it('never shows an empty or short key as data', () => {
     expect(maskedKey('')).toBe('')
     expect(maskedKey('123')).toBe('***')
+  })
+})
+
+describe('the back-test window, capped by retention (door 3298: the shortest setting it reads, minus 30 days)', () => {
+  it('offers only the windows inside the limit', () => {
+    expect(offeredBacktestDays(180)).toEqual([30, 90, 180])
+    expect(offeredBacktestDays(179)).toEqual([30, 90])
+    expect(offeredBacktestDays(90)).toEqual([30, 90])
+    expect(offeredBacktestDays(30)).toEqual([30])
+    expect(offeredBacktestDays(29)).toEqual([])
+  })
+
+  it('a window from the address past the limit falls to the longest offered, and to none when none fits', () => {
+    expect(cappedBacktestDays(180, 180)).toBe(180)
+    expect(cappedBacktestDays(180, 120)).toBe(90)
+    expect(cappedBacktestDays(30, 120)).toBe(30)
+    expect(cappedBacktestDays(30, 15)).toBeNull()
+  })
+
+  it('an unreadable limit offers nothing, never everything', () => {
+    expect(backtestWindowLimit({ maxDays: 180 })).toBe(180)
+    expect(backtestWindowLimit({ maxDays: 90.5 })).toBe(90)
+    for (const bad of [null, undefined, [], {}, { maxDays: 'x' }, { maxDays: -5 }, { maxDays: Number.NaN }]) expect(backtestWindowLimit(bad)).toBe(0)
   })
 })

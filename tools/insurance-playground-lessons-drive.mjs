@@ -120,6 +120,16 @@ for (const dir of ['ltr', 'rtl']) {
   }
   await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-lesson-met.png`, fullPage: true }).catch(() => {})
 
+  // 2b (3243 review). lesson 7 contrasts two payers: it opens Compare on its B side, where the same code passes
+  await loadLesson(page, store, 'otherPayer')
+  await page.locator('[data-compare-line="1"]').waitFor({ timeout: 5000 }).catch(() => {})
+  const bData = JSON.parse((await page.locator('#playground-b-data').inputValue().catch(() => '{}')) || '{}')
+  check(`${dir} 2b. otherPayer: Compare is on`, (await page.locator('[data-compare-toggle="on"]').count()) === 1 && (await page.locator('[data-compare]').count()) === 1)
+  check(`${dir} 2b. otherPayer: B is the same request at payer 0001100041, limit 10,000`, bData.request?.payer === '0001100041' && bData.eligibility?.['benefit[66].approvalLimit']?.number === 10000, JSON.stringify(bData.request))
+  check(`${dir} 2b. otherPayer: A warns and B does not, so line 1 differs`, (await page.locator('[data-compare-diff="differs"]').count()) === 1 && (await page.locator('[data-compare-line="1"][data-diff="differs"]').count()) === 1)
+  await loadLesson(page, store, 'crossLine')
+  check(`${dir} 2b. a lesson with no B side closes Compare`, (await page.locator('[data-compare]').count()) === 0)
+
   // 3. lesson 1 met, then changed so it fails
   await loadLesson(page, store, 'unknownVsFalse')
   await checkBtn(page).click()

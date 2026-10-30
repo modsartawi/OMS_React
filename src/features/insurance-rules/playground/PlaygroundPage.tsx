@@ -21,7 +21,7 @@ import ExperimentBar from './ExperimentBar'
 import { intakeView } from './intake'
 import type { LessonAnswer } from './lesson-check'
 import LessonPanel from './LessonPanel'
-import { lessonExperiment, type Lesson } from './lessons'
+import { lessonCompareSeed, lessonExperiment, type Lesson } from './lessons'
 import OutcomePane from './OutcomePane'
 import { outcomeErrors, outcomeView, outcomeWithout } from './outcome'
 import { readsView } from './reads'
@@ -58,6 +58,8 @@ export default function PlaygroundPage() {
   const [asOfInput, setAsOfInput] = useState(() => localAsOf(openedAt))
   // 690: Compare (A/B). B is a copy of the boxes taken when Compare is turned on; leaving Compare keeps A.
   const [compareSeed, setCompareSeed] = useState<CompareSeed | null>(null)
+  // Bumped when B is seeded afresh while Compare may already be on (a lesson's B side): the panel re-mounts on it.
+  const [compareRound, setCompareRound] = useState(0)
   const asOf = asOfText(asOfInput, openedAt)
 
   const built = useMemo(
@@ -146,6 +148,10 @@ export default function PlaygroundPage() {
     setCopiedFrom(null)
     loadExperiment(lessonExperiment(l))
     setLessonId(l.id)
+    // 3243 review: a lesson that contrasts two answers (lesson 7) opens Compare on its own B side; any other lesson
+    // closes Compare (a B copied from the experiment the lesson just replaced would compare against nothing it shows)
+    setCompareSeed(lessonCompareSeed(l))
+    setCompareRound((n) => n + 1)
   }
 
   const error = settled && !settled.ok ? settled.error : null
@@ -266,8 +272,8 @@ export default function PlaygroundPage() {
       </div>
 
       {compareSeed && (
-        // keyed by kind: a kind switch seeds new boxes, so B is copied afresh
-        <ComparePanel key={kind} seed={compareSeed} kind={kind} asOf={asOf} a={answer ? sideOf(answer.kind, answer.reply, answer.fields) : null} />
+        // keyed by kind (a kind switch seeds new boxes, so B is copied afresh) and by a lesson's fresh B side
+        <ComparePanel key={`${kind}:${compareRound}`} seed={compareSeed} kind={kind} asOf={asOf} a={answer ? sideOf(answer.kind, answer.reply, answer.fields) : null} />
       )}
     </section>
   )

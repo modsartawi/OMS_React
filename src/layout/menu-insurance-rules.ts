@@ -18,6 +18,8 @@ import { Layers } from 'lucide-react' // 652
 import { TestTubeDiagonal } from 'lucide-react' // 677
 // 704 · icons
 import { Replace } from 'lucide-react' // 704
+// 706 · icons
+import { Languages } from 'lucide-react' // 706
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -141,6 +143,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.aliases',
       icon: Replace,
       routerLink: '/insurance-rules/aliases',
+    },
+
+    // 706 · Code labels (`menu.codeLabels`, `/insurance-rules/code-labels`)
+    {
+      // 706 — upload a Nphies workbook, read its label diff and change log; 707 adds overrides and the worklist.
+      labelKey: 'insurance-rules:menu.codeLabels',
+      icon: Languages,
+      routerLink: '/insurance-rules/code-labels',
     },
 
     // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).

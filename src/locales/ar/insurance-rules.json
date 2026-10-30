@@ -21,7 +21,8 @@
     "idfEvents": "أحداث IDF",
     "idfGroups": "مجموعات IDF",
     "aliases": "الأسماء البديلة",
-    "playground": "ساحة التجربة"
+    "playground": "ساحة التجربة",
+    "codeLabels": "تسميات الرموز"
   },
   "state": {
     "draft": "مسودة",

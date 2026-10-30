@@ -21,7 +21,8 @@
     "idfEvents": "IDF events",
     "idfGroups": "IDF groups",
     "aliases": "Aliases",
-    "playground": "Playground"
+    "playground": "Playground",
+    "codeLabels": "Code labels"
   },
   "state": {
     "draft": "Draft",

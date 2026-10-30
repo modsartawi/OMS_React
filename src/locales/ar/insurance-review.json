@@ -30,9 +30,12 @@
     "unchecked": "دون فحص",
     "refused": "طلب مرفوض",
     "monitor": "مراقبة",
-    "notEvaluated": "لم يُقيَّم"
+    "notEvaluated": "لم يُقيَّم",
+    "drift": "انحراف"
   },
   "item": {
+    "sample": "عيّنة",
+    "stillRunning": "القواعد التي تقرؤه تستمر في العمل.",
     "otherKind": "أخرى",
     "open": "فتح",
     "message": "الرسالة",

@@ -118,7 +118,11 @@ function Guards() {
               animateRows={false}
               suppressColumnVirtualisation
               rowClass="cursor-pointer"
-              onRowClicked={(e) => e.data && navigate(guardRulePath(e.data.id), { state: { folder } })}
+              onRowClicked={(e) => {
+                // A drift badge is a link of its own (703): the grid's row click must not race it to the rule.
+                if ((e.event?.target as Element | null)?.closest?.('a')) return
+                if (e.data) navigate(guardRulePath(e.data.id), { state: { folder } })
+              }}
             />
           </div>
         )}

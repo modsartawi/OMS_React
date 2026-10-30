@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardReasonsQuery } from '@/core/insurance-rules/order-guards-api'
@@ -65,6 +65,13 @@ function Review() {
   const draftDoc = useQuery(guardDraftQuery())
   const [marking, setMarking] = useState<{ row: ReviewRow; mark: ReviewMark } | null>(null)
   const [opening, setOpening] = useState<ReviewRow | null>(null)
+  // A drift badge links here with `?item=` (703). It is no filter of the door, so any filter change drops it from the URL.
+  const [params] = useSearchParams()
+  const linkedItem = params.get('item')
+  const loaded = !!rows.data
+  useEffect(() => {
+    if (linkedItem && loaded) document.querySelector(`[data-review-row="${CSS.escape(linkedItem)}"]`)?.scrollIntoView({ block: 'center' })
+  }, [linkedItem, loaded])
 
   const apply = (next: ReviewQuery) => {
     setDraft(next)
@@ -158,7 +165,14 @@ function Review() {
               <tbody>
                 {rows.data.map((r) =>
                   r.detail.shape !== 'decision' ? (
-                    <tr key={r.id} className="border-b border-border/40 last:border-b-0" data-review-row={r.id} data-kind={r.kind} data-shape={r.detail.shape}>
+                    <tr
+                      key={r.id}
+                      className={`border-b border-border/40 last:border-b-0 ${r.id === linkedItem ? 'bg-primary-050' : ''}`}
+                      aria-current={r.id === linkedItem ? 'true' : undefined}
+                      data-review-row={r.id}
+                      data-kind={r.kind}
+                      data-shape={r.detail.shape}
+                    >
                       <td className={TD}>
                         <Ltr>{formatDateTime(r.at)}</Ltr>
                       </td>
@@ -172,7 +186,8 @@ function Review() {
                       <td className={TD} data-col="mark" data-cleared={r.cleared ? 'true' : 'false'}>
                         <ItemClearing cleared={r.cleared} />
                       </td>
-                      <td className={TD}>
+                      {/* No decision to inspect: Open takes that column too. */}
+                      <td className={TD} colSpan={2}>
                         <Button variant="outlined" onClick={() => setOpening(r)} data-item-open="">
                           {t('item.open')}
                         </Button>

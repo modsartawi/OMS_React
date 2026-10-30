@@ -26,12 +26,15 @@
     "unchecked": "Unchecked",
     "refused": "Refused order",
     "monitor": "Monitor",
-    "notEvaluated": "Not evaluated"
+    "notEvaluated": "Not evaluated",
+    "drift": "Drift"
   },
   "item": {
     "otherKind": "Other",
     "open": "Open",
     "message": "Message",
+    "sample": "Sample",
+    "stillRunning": "Rules that read it keep running.",
     "failed": "Failed",
     "severity": {
       "info": "Info",

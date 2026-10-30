@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { RuleId } from '@/core/insurance-rules/badges'
+import { DriftSignalWords } from '@/core/insurance-rules/DriftBadges'
+import { DRIFT_BADGES_KEY } from '@/core/insurance-rules/registry-api'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
@@ -38,12 +40,12 @@ export function KindWord({ kind }: { kind: string }) {
 }
 
 /** The message's `(source, id)`, one isolate: a pair led by a machine value. */
-function Message({ message }: { message: MessageRef | null }) {
+function Message({ message, label = 'item.message' }: { message: MessageRef | null; label?: 'item.message' | 'item.sample' }) {
   const { t } = useTranslation('insurance-review')
   if (!message) return null
   return (
     <span className="text-xs text-muted-foreground" data-item-message="">
-      {t('item.message')}{' '}
+      {t(label)}{' '}
       <span className="font-mono text-[12px]">
         <Ltr>{formatPair(message.source, message.id)}</Ltr>
       </span>
@@ -64,6 +66,24 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
         {rule}
         <span data-item-failure={d.failure ?? 'unstated'}>{t(`item.failure.${d.failure ?? 'unstated'}`)}</span>
         <Message message={d.message} />
+      </div>
+    )
+  }
+  if (d.shape === 'drift') {
+    return (
+      <div className="flex flex-wrap items-center gap-2" data-item-detail="" data-reads="drift">
+        {d.payer && (
+          <span className="font-mono text-[12px]" data-item-payer="">
+            <Ltr>{d.payer}</Ltr>
+          </span>
+        )}
+        <span data-item-signal={d.signal.type}>
+          <DriftSignalWords signal={d.signal} />
+        </span>
+        <Message message={d.sample} label="item.sample" />
+        <span className="text-xs text-muted-foreground" data-item-still-running="">
+          {t('item.stillRunning')}
+        </span>
       </div>
     )
   }
@@ -113,6 +133,7 @@ export function ItemDialog({ row, onClose }: { row: ReviewRow; onClose: () => vo
     onSuccess: () => {
       notify.success(t('item.clearedToast'))
       void qc.invalidateQueries({ queryKey: REVIEW_KEY })
+      void qc.invalidateQueries({ queryKey: DRIFT_BADGES_KEY })
       onClose()
     },
     onError: (err) => notify.apiError(t('item.clearFailed'), err, t('item.clearFailed')),

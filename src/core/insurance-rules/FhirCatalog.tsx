@@ -10,6 +10,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { FieldDriftBadges } from './DriftBadges'
 import { CHANNEL_ANSWERS, factKey, groupCatalog, type ChannelAnswer, type ChannelRate, type FhirCatalogRow } from './fhir-catalog'
 import { fhirCatalogQuery } from './registry-api'
 
@@ -54,6 +55,7 @@ function CatalogRow({ row, onPick }: { row: FhirCatalogRow; onPick?: (row: FhirC
             {row.unit && <Ltr>{row.unit}</Ltr>}
             {row.cardinality === 'list' && <StatusBadge sev="mute">{t('catalog.list')}</StatusBadge>}
             {row.retired && <StatusBadge sev="mute">{t('catalog.retired')}</StatusBadge>}
+            <FieldDriftBadges fieldKey={key} newTab={!!onPick} />
           </span>
           <ChannelDots channels={row.channels} />
         </div>

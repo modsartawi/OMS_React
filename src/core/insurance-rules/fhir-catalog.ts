@@ -7,7 +7,7 @@ import { factTestFor, shapeOfRow } from './fact-tests'
 import type { FactCondition, Says } from './model'
 
 /** The messages a fact reads, in the order the catalog shows them (story 1). */
-export const FHIR_MESSAGES = ['eligibility', 'claim', 'claimResponse', 'communication', 'payment'] as const
+export const FHIR_MESSAGES = ['eligibility', 'claim', 'claimResponse', 'communication', 'payment', 'previous'] as const
 export type FhirMessage = (typeof FHIR_MESSAGES)[number]
 
 export const FHIR_LEVELS = ['message', 'line'] as const
@@ -56,16 +56,18 @@ export interface FhirCatalogRow {
   choice: string[] | null
   legacy: FhirLegacy | null
   retired: boolean
+  /** Oms 699: the same field on the answer before this one. The client derives these for a monitor; no door serves one. */
+  previous?: boolean
 }
 
 /** The rule key a pick stores (story 17): `$claim.total`, `$line.claimResponse.copay`. */
-export const factKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key'>): string => `$${r.level === 'line' ? 'line.' : ''}${r.moment}.${r.key}`
+export const factKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key' | 'previous'>): string => `$${r.previous ? 'previous.' : ''}${r.level === 'line' ? 'line.' : ''}${r.moment}.${r.key}`
 
 /** The key a parameterised field stores once a code is chosen (story 4): `$eligibility.benefit[66].copayPct`. */
 export const codedFactKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key'>, code: string): string => factKey(r).replace('[*]', `[${code}]`)
 
 /** Whether a `$`-path sits on a FHIR message, so the catalog could hold it. A patient or request fact never can. */
-export const mayBeCatalogKey = (path: string): boolean => /^\$(line\.)?(claim|claimResponse)\.|^\$(eligibility|communication|payment)\./.test(path)
+export const mayBeCatalogKey = (path: string): boolean => /^\$(previous\.)?(line\.)?(claim|claimResponse)\.|^\$(eligibility|communication|payment)\./.test(path)
 
 /** The catalog's field for a stored key, with the code the key names (`null` when it names none). */
 export function catalogEntryOf(rows: readonly FhirCatalogRow[], path: string): { row: FhirCatalogRow; code: string | null } | null {
@@ -109,7 +111,7 @@ export interface CatalogGroup {
 export function groupCatalog(rows: readonly FhirCatalogRow[]): CatalogGroup[] {
   return FHIR_MESSAGES.map((message) => ({
     message,
-    levels: FHIR_LEVELS.map((level) => ({ level, rows: rows.filter((r) => r.moment === message && r.level === level) })).filter((g) => g.rows.length > 0),
+    levels: FHIR_LEVELS.map((level) => ({ level, rows: rows.filter((r) => (r.previous ? 'previous' : r.moment) === message && r.level === level) })).filter((g) => g.rows.length > 0),
   })).filter((g) => g.levels.length > 0)
 }
 

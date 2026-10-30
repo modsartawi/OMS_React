@@ -48,6 +48,7 @@ const FlagsCell = (p: ICellRendererParams<GuardRuleRow>) =>
 export function buildGuardColumns(t: TFunction): ColDef<GuardRuleRow>[] {
   return [
     { headerName: t('columns.id'), field: 'id', width: 110, cellClass: 'font-mono text-[12px]' },
+    { headerName: t('columns.kind'), colId: 'kind', width: 110, valueGetter: (p) => p.data?.kind ?? 'guard', valueFormatter: (p) => t(`insurance-rules:kind.${p.value as string}`) },
     { headerName: t('columns.name'), colId: 'name', flex: 1, minWidth: 240, autoHeight: true, valueGetter: (p) => p.data?.name.en ?? '', cellRenderer: NameCell },
     { headerName: t('columns.state'), colId: 'state', width: 190, valueGetter: (p) => (p.data ? GUARD_STATES.indexOf(p.data.state) : 0), cellRenderer: StateCell },
     { headerName: t('columns.severity'), colId: 'severity', width: 130, valueGetter: (p) => (p.data ? severityRank(p.data.severity) : 0), cellRenderer: SeverityCell },

@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
 import {
-  PALETTE,
   addCondition,
   addDaysFor,
   canAddGroup,
@@ -37,6 +36,7 @@ import { fsi } from '@/core/util/bidi'
 import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
 import { pickedFact } from '@/core/insurance-rules/fhir-catalog'
+import { isMonitor, newMonitorCondition, paletteFor } from '@/core/insurance-rules/monitor'
 import { FhirFactPicker } from '@/core/insurance-rules/FhirCatalog'
 import { FactTestFields } from './FactTestFields'
 import GuardFormulaBox, { type FormulaLanguage } from './GuardFormulaBox'
@@ -105,6 +105,7 @@ function ConditionList({ ctx, list, parent }: { ctx: Ctx; list: readonly GuardCo
 function AddCondition({ ctx, parent }: { ctx: Ctx; parent: ConditionPath }) {
   const { t } = useTranslation('insurance-guards')
   const groupOk = canAddGroup(ctx.rule.when, parent)
+  const monitor = isMonitor(ctx.rule)
   return (
     <div className="flex items-center gap-2">
       <Select
@@ -115,11 +116,11 @@ function AddCondition({ ctx, parent }: { ctx: Ctx; parent: ConditionPath }) {
         onChange={(e) => {
           const check = e.target.value as PaletteBlock
           if (!check) return
-          ctx.edit((r) => ({ ...r, when: addCondition(r.when, parent, newCondition(check)) }))
+          ctx.edit((r) => ({ ...r, when: addCondition(r.when, parent, monitor ? newMonitorCondition(check) : newCondition(check)) }))
         }}
       >
         <option value="">{t('editor.group.add')}</option>
-        {PALETTE.map((g) => (
+        {paletteFor(monitor ? 'monitor' : 'guard').map((g) => (
           <optgroup key={g.group} label={t(`editor.palette.${g.group}`)}>
             {g.checks.map((check) => (
               <option key={check} value={check} disabled={check === 'group' && !groupOk}>
@@ -637,9 +638,11 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     case 'fact': {
       const def = fieldOfPath(fields, c.path)
       const offered = factFields(fields)
+      const monitor = isMonitor(ctx.rule)
       return (
         <>
-          <Field label={t('editor.field.fact')}>
+          {/* Oms 699: a monitor reads the kept answer, so the till's facts are not offered. */}
+          {!monitor && <Field label={t('editor.field.fact')}>
             <Select
               value={c.path}
               data-input="fact"
@@ -664,8 +667,8 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
                 ) : null
               })}
             </Select>
-          </Field>
-          <FhirFactPicker value={c.path} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
+          </Field>}
+          <FhirFactPicker value={c.path} kind={monitor ? 'monitor' : 'guard'} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
           <FactTestFields
             c={c}
             shape={factShapeOf(c, catalog, fields)}
@@ -682,7 +685,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
         // oms 681: the formula field may shrink with a narrow pane (the playground's Rule pane), so ƒx stays in reach.
         <Field label={t('editor.field.formula')} className="w-full min-w-0">
           {/* oms 657: the guided ƒx helper; typing coalesces into one step, an insert is a step of its own. */}
-          <GuardFormulaBox value={c.formula} invalid={bad('formula')} language={ctx.language} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
+          <GuardFormulaBox value={c.formula} invalid={bad('formula')} language={ctx.language} monitor={isMonitor(ctx.rule)} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
         </Field>
       )
     default:

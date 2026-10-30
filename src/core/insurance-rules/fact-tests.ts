@@ -19,7 +19,7 @@ export interface FactShape {
 }
 
 /** A key reading a FHIR message: every `$eligibility` key is one (phase 1's keys are in the catalog too). */
-const FHIR_PATH = /^\$(eligibility|claim|claimResponse|line\.claim|line\.claimResponse)\./
+const FHIR_PATH = /^\$(eligibility|claim|claimResponse|line\.claim|line\.claimResponse|previous\.claimResponse|previous\.line\.claimResponse)\./
 export const isFhirPath = (path: string): boolean => FHIR_PATH.test(path)
 
 /** Whether any block of these conditions reads a FHIR message, so the catalog is worth asking for. */
@@ -28,8 +28,10 @@ export const usesFhirFacts = (conditions: readonly GuardCondition[]): boolean =>
 
 /** The catalog row a key reads; `benefit[OPD].x` is the row `benefit[*].x`. */
 export const rowOfPath = (rows: readonly FhirCatalogRow[], path: string): FhirCatalogRow | undefined => {
-  const general = path.replace(/\[[^\]]*\]/g, '[*]')
-  return rows.find((r) => factKey(r) === path || factKey(r) === general)
+  // Oms 699: `$previous.<key>` is the same field on the answer before, so it reads as that field.
+  const current = path.startsWith('$previous.') ? `$${path.slice('$previous.'.length)}` : path
+  const general = current.replace(/\[[^\]]*\]/g, '[*]')
+  return rows.find((r) => factKey(r) === current || factKey(r) === general)
 }
 
 export const shapeOfRow = (r: FhirCatalogRow): FactShape => ({ type: r.type, cardinality: r.cardinality, system: r.system, unit: r.unit, known: true })

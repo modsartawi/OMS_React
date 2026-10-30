@@ -85,7 +85,8 @@
       "claim": "Claim",
       "claimResponse": "Claim response",
       "communication": "Communication",
-      "payment": "Payment"
+      "payment": "Payment",
+      "previous": "The answer before"
     },
     "level": {
       "message": "Whole message",
@@ -108,7 +109,13 @@
     "live": "Live",
     "disabled": "Disabled"
   },
+  "kind": {
+    "guard": "Guard",
+    "monitor": "Monitor"
+  },
   "severity": {
+    "info": "Info",
+    "action": "Action",
     "REFUSE": "Refuse",
     "OVERRIDE": "Override",
     "WARN": "Warn"
@@ -253,6 +260,11 @@
       "bupa": "Bupa"
     },
     "when": {
+      "monitor": "Read on each kept payer answer to <uses>{{uses}}</uses>",
+      "use": {
+        "preauthorization": "a pre-authorization",
+        "claim": "a claim"
+      },
       "audience": "Checked before a request is sent on <channels>{{channels}}</channels>, <stores>{{stores}}</stores>",
       "allStores": "at every store",
       "stores": "at stores <stores>{{stores}}</stores>",
@@ -266,6 +278,8 @@
       "excludeClasses": "except policy classes on <lists>{{lists}}</lists>"
     },
     "then": {
+      "info": "put an information item on the review list",
+      "action": "put an item needing action on the review list",
       "REFUSE": "refuse the line",
       "OVERRIDE": "let the pharmacist go on with a reason",
       "WARN": "warn the pharmacist",
@@ -282,6 +296,7 @@
       "warn": "If a fact is unknown, the pharmacist is warned."
     },
     "fact": {
+      "previous": "<fact>{{fact}}</fact> on the answer before",
       "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> is any of <codes>{{codes}}</codes>",

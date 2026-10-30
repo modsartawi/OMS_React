@@ -170,7 +170,7 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
 }
 
 /** One language of the message, with the placeholder chips that type `{name}` at the caret. */
-function MessageBox({ lang, value, invalid, onValue }: { lang: 'en' | 'ar'; value: string; invalid: boolean; onValue: (v: string) => void }) {
+export function MessageBox({ lang, value, invalid, onValue, placeholders = true }: { lang: 'en' | 'ar'; value: string; invalid: boolean; onValue: (v: string) => void; placeholders?: boolean }) {
   const { t } = useTranslation('insurance-guards')
   const ref = useRef<HTMLTextAreaElement>(null)
   const insert = (name: string) => {
@@ -196,6 +196,7 @@ function MessageBox({ lang, value, invalid, onValue }: { lang: 'en' | 'ar'; valu
           data-input={`says.${lang}`}
         />
       </UiField>
+      {placeholders && (
       <div className="flex flex-wrap items-center gap-1" data-placeholders={lang} title={t('editor.message.placeholdersHint')}>
         <span className="text-xs text-muted-foreground">{t('editor.message.placeholders')}</span>
         {GUARD_PLACEHOLDERS.map((p) => (
@@ -204,6 +205,7 @@ function MessageBox({ lang, value, invalid, onValue }: { lang: 'en' | 'ar'; valu
           </Button>
         ))}
       </div>
+      )}
     </div>
   )
 }

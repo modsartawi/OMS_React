@@ -2197,7 +2197,8 @@ export function evaluatePlayground(body) {
         const v = l?.[b.field]
         let value = 'unknown'
         let why = `${b.field} is not on the line`
-        if (typeof v === 'number' && test) {
+        if (typeof b.inList === 'string' && b.field === undefined) ({ value, why } = playgroundInList(body, b.inList, l))
+        else if (typeof v === 'number' && test) {
           value = String(PLAYGROUND_TESTS[test](v, b[test]))
           why = `${b.field} ${v} ${value === 'true' ? '' : 'not '}${PLAYGROUND_SIGN[test]} ${b[test]}`
         }
@@ -2359,6 +2360,17 @@ export function playgroundVerdict(body, reply) {
     })
   }
   return { ...reply, verdict }
+}
+
+// --- 680 --- an item-list block `{ check: "line", inList }` (oms 674's coverage / category condition): true when the
+// line's item is one of the list's `filters[].articles` in the document's own `lists[]`; a list the document does not
+// hold reads unknown. Enough to run a coverage rule on an in-list condition; the engine's list filters are 691's.
+
+function playgroundInList(body, listId, line) {
+  const list = (Array.isArray(body?.document?.lists) ? body.document.lists : []).find((x) => x?.id === listId)
+  if (!list) return { value: 'unknown', why: `list ${listId} is not in the document` }
+  const has = (list.filters ?? []).some((f) => (f?.articles ?? []).map(String).includes(String(line?.item)))
+  return { value: String(has), why: `item ${line?.item} ${has ? 'is' : 'is not'} in ${listId}` }
 }
 
 // --- 684 --- a Raw experiment (BackOffice 3246): `raw` text instead of `data`, as the BRIEF draws it (691 reconciles).

@@ -1,4 +1,4 @@
-import { type CategoryRule, type CoverageRule, type InsuranceRule, type InsuranceRuleKind, type InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
+import { type InsuranceRule, type InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
 
 // The category and coverage editors' pure edits (oms 617). A ruleset's ORDER is part of its meaning: a category
 // is set by the first rule that matches, and a coverage value by the first holding rule that may set it — so moving
@@ -31,28 +31,6 @@ export function editRuleIn<D extends InsuranceRuleset>(doc: D, id: string, fn: (
 /** A new rule goes LAST: it matches only after every rule already there. Move it up to let it win. */
 export const addRule = <D extends InsuranceRuleset>(doc: D, rule: D['rules'][number]): D => ({ ...doc, rules: [...doc.rules, rule] }) as D
 
-const PREFIX: Record<InsuranceRuleKind, string> = { category: 'K', coverage: 'C' }
-
-/**
- * The next free id: `K-` (category) or `C-` (coverage) and one past the highest, three digits.
- * ⚠️ Still a guess (617, as 608's guard ids): no door mints one; HQ's seeded coverage ids are words (C-ELITE),
- * which this skips.
- */
-export function nextRuleId(rules: readonly { id: string }[], kind: InsuranceRuleKind): string {
-  const re = new RegExp(`^${PREFIX[kind]}-(\\d+)$`)
-  let high = 0
-  for (const r of rules) {
-    const m = re.exec(r.id)
-    if (m) high = Math.max(high, Number(m[1]))
-  }
-  return `${PREFIX[kind]}-${String(high + 1).padStart(3, '0')}`
-}
-
-/** A blank draft rule: no condition (it would match every line), no folder; a category rule sets Brand (G2), the commonest case. */
-export function newRule(id: string, kind: 'category'): CategoryRule
-export function newRule(id: string, kind: 'coverage'): CoverageRule
-export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule
-export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule {
-  const base = { id, name: { en: '', ar: '' }, state: 'draft' as const, when: [] }
-  return kind === 'category' ? { ...base, then: [{ effect: 'setCategory', group: 'G2' }] } : { ...base, then: [] }
-}
+// oms 680: the new-rule id and blank rule live in core (`@/core/insurance-rules/coverage-model`), so the rule
+// playground mints the same ones; re-exported here so this page's callers are unchanged.
+export { newRule, nextRuleId } from '@/core/insurance-rules/coverage-model'

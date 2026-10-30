@@ -79,7 +79,7 @@
   "rule": {
     "title": "Rule",
     "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling.",
-    "hintEditors": "A scratch ruleset of one or more guard rules, built with the guard editors. The engine JSON under them follows every edit, and an edit to the JSON moves the editors once it parses."
+    "hintEditors": "A scratch ruleset of one or more rules, built with the editors of the kind's own rule screen. The engine JSON under them follows every edit, and an edit to the JSON moves the editors once it parses."
   },
   "json": {
     "problem": {

@@ -1,7 +1,17 @@
 import type { GuardIssue } from '@/core/insurance-rules/checks'
 import { conditionAt, newGuardRule, nextGuardId } from '@/core/insurance-rules/guard-edit'
-import { guardRuleIn, guardRuleOut } from '@/core/insurance-rules/guard-wire'
-import type { GuardCondition, GuardRule } from '@/core/insurance-rules/model'
+import {
+  CATEGORY_GROUPS,
+  COVERAGE_EFFECTS,
+  COVERAGE_SEGMENTS,
+  newRule,
+  nextRuleId,
+  type CategoryRule,
+  type CoverageRule,
+  type InsuranceRuleKind,
+} from '@/core/insurance-rules/coverage-model'
+import { guardRuleIn, guardRuleOut, guardRulesetIn, otherRuleIn, otherRuleOut, rulesetIn } from '@/core/insurance-rules/guard-wire'
+import type { GuardCondition, GuardList, GuardRule } from '@/core/insurance-rules/model'
 import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rules/playground'
 
 // The Rule pane's mini ruleset (oms 679): the scratch document's rules read into the editors' model through the SAME
@@ -13,7 +23,8 @@ import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rul
 // an edited one is printed in the engine's spelling without the defaults the reader filled in (an absent `name`,
 // `folder`, `state` … stays absent unless the editor changed it).
 //
-// Kind-agnostic by design: a kind is one `RuleCodec`. 679 registers the guard's; 680 adds coverage and category.
+// Kind-agnostic by design: a kind is one `RuleCodec`. 679 registers the guard's; 680 the coverage and category ones,
+// over the codec the Categories / Coverage pages save through (`guard-wire`'s `rulesetIn` / `rulesetOut` rule halves).
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -26,6 +37,8 @@ export interface RuleCodec<R> {
   blank: (ids: readonly string[]) => Obj
   /** Whether the editors can draw the read rule at all (every block a kind they know); else it is JSON-only. */
   drawable: (rule: R) => boolean
+  /** The document's own item lists, as the editors read them (the conditions name them by id). */
+  lists: (doc: Obj) => GuardList[]
 }
 
 /** The blocks the guard condition editor draws (its `editor.block.*` palette; `policy` / `class` are request blocks). */
@@ -42,10 +55,67 @@ const guardCodec: RuleCodec<GuardRule> = {
     return { id, name: { en: '', ar: '' }, onUnknown: 'none', when: [], then: newGuardRule(id).then }
   },
   drawable: (r) => blocksDrawable(r.when) && r.then.every((e) => isObj(e) && e.effect === 'guard'),
+  lists: (doc) => guardRulesetIn(doc).lists,
 }
 
-/** The kinds whose rules the editors draw (680 adds coverage and category). */
-const CODECS: Partial<Record<PlaygroundKind, RuleCodec<unknown>>> = { guard: guardCodec as RuleCodec<unknown> }
+// ── coverage and category (680) ──────────────────────────────────────────────────────────────
+
+const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+const optNum = (v: unknown) => v === undefined || isNum(v)
+
+/** An effect `CoverageEffectEditor` draws faithfully: a known kind, its value of that kind's type. */
+function coverageEffectDrawable(e: unknown): boolean {
+  if (!isObj(e) || !(COVERAGE_EFFECTS as readonly unknown[]).includes(e.effect)) return false
+  if (e.overridesPayer !== undefined && e.overridesPayer !== true) return false
+  switch (e.effect) {
+    case 'covered':
+    case 'priorApproval':
+    case 'exceptionPrescriptions':
+      return typeof e.value === 'boolean'
+    case 'priceCap':
+    case 'quantityCap':
+    case 'daysSupplyCap':
+      return isNum(e.value)
+    case 'deductible':
+      return optNum(e.percent) && optNum(e.max)
+    default:
+      return (COVERAGE_SEGMENTS as readonly unknown[]).includes(e.value)
+  }
+}
+
+/** A category or coverage rule's codec: `guard-wire`'s rule halves, the kind's own blank rule and effect check. */
+function otherCodec<R extends CategoryRule | CoverageRule>(kind: InsuranceRuleKind, thenDrawable: (then: readonly unknown[]) => boolean): RuleCodec<R> {
+  return {
+    in: (raw) => otherRuleIn(raw) as R,
+    out: (rule) => otherRuleOut(rule),
+    blank: (ids) => {
+      const { state: _state, ...rule } = newRule(nextRuleId(ids.map((id) => ({ id })), kind), kind)
+      return rule as unknown as Obj
+    },
+    drawable: (r) => blocksDrawable(r.when) && thenDrawable(r.then),
+    lists: (doc) => rulesetIn<{ lists?: GuardList[] }>(doc).lists ?? [],
+  }
+}
+
+/** A category rule sets exactly one group (the editor draws one `setCategory`). */
+const categoryCodec = otherCodec<CategoryRule>(
+  'category',
+  (then) => then.length === 1 && isObj(then[0]) && then[0].effect === 'setCategory' && (CATEGORY_GROUPS as readonly unknown[]).includes(then[0].group),
+)
+/** A coverage rule sets one value (the editor draws `then[0]`; a second effect it would not show). */
+const coverageCodec = otherCodec<CoverageRule>('coverage', (then) => then.length <= 1 && then.every(coverageEffectDrawable))
+
+/** The kinds whose rules the editors draw — every kind since 680. */
+const CODECS: Partial<Record<PlaygroundKind, RuleCodec<unknown>>> = {
+  guard: guardCodec as RuleCodec<unknown>,
+  category: categoryCodec as RuleCodec<unknown>,
+  coverage: coverageCodec as RuleCodec<unknown>,
+}
+
+/** The read document's own item lists, as the kind's editors read them; none for a kind without editors. */
+export function rulesetLists(read: Extract<RulesetRead<unknown>, { ok: true }>): GuardList[] {
+  return CODECS[read.kind]?.lists(read.doc) ?? []
+}
 
 export const hasEditors = (kind: PlaygroundKind): boolean => CODECS[kind] !== undefined
 

@@ -6,7 +6,11 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import { uploadForm, type WorkbookLoad, type WorkbookUploadReply } from './labels'
 
+import type { LabelOverride, OverrideBody, WorklistRow } from './overrides'
+
 const WORKBOOKS = `${INSURANCE_RULES_BASE}/Labels/Workbooks`
+const WORKLIST = `${INSURANCE_RULES_BASE}/Labels/Worklist`
+const OVERRIDES = `${INSURANCE_RULES_BASE}/Labels/Overrides`
 
 export const labelsApi = {
   /** `GET InsuranceRules/Labels/Workbooks` — the past loads, newest first. */
@@ -17,10 +21,34 @@ export const labelsApi = {
   upload(file: File): Promise<WorkbookUploadReply> {
     return api.upload<WorkbookUploadReply>(WORKBOOKS, uploadForm(file))
   },
+  /** `GET InsuranceRules/Labels/Worklist` (3297) — ranked by the door; the client never re-sorts it. */
+  async worklist(): Promise<WorklistRow[]> {
+    return (await api.get<WorklistRow[] | null>(WORKLIST)) ?? []
+  },
+  /** `GET InsuranceRules/Labels/Overrides?state=proposed` (3297) — what waits for a second person. */
+  async proposed(): Promise<LabelOverride[]> {
+    return (await api.get<LabelOverride[] | null>(OVERRIDES, { state: 'proposed' })) ?? []
+  },
+  /** `POST InsuranceRules/Labels/Overrides` (3297). */
+  propose(body: OverrideBody): Promise<LabelOverride> {
+    return api.post<LabelOverride>(OVERRIDES, body)
+  },
+  /** `POST InsuranceRules/Labels/Overrides/{id}/Approve` (3297); HQ refuses the author. */
+  approve(id: string): Promise<LabelOverride> {
+    return api.post<LabelOverride>(`${OVERRIDES}/${encodeURIComponent(id)}/Approve`, {})
+  },
 }
 
 export const LABELS_KEY = [...INSURANCE_RULES_KEY, 'labels'] as const
 
 export function loadsQuery() {
   return { queryKey: [...LABELS_KEY, 'loads'], queryFn: () => labelsApi.loads(), retry: false } as const
+}
+
+export function worklistQuery() {
+  return { queryKey: [...LABELS_KEY, 'worklist'], queryFn: () => labelsApi.worklist(), retry: false } as const
+}
+
+export function proposedQuery() {
+  return { queryKey: [...LABELS_KEY, 'proposed'], queryFn: () => labelsApi.proposed(), retry: false } as const
 }

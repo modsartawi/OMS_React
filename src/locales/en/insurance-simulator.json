@@ -122,6 +122,19 @@
     "windowNoSince": "Replays {{days}} days.",
     "requestedBy": "Requested by"
   },
+  "monitors": {
+    "note": "This draft holds monitors. They are replayed over kept payer answers, and they never touch a sale.",
+    "running": "Replaying the requests and the kept answers",
+    "title": "What the monitors would have raised",
+    "hint": "Replayed over kept payer answers. A monitor only raises a review item.",
+    "answers": "Kept answers replayed",
+    "raisedOn": "Answers raised on",
+    "raised": "Review items",
+    "itemsTitle": "The answers it would have raised on",
+    "answer": "Answer",
+    "none": "It would have raised no review item.",
+    "firstOf": "The first {{shown}} of {{total}}."
+  },
   "tiles": {
     "fires": "Would fire",
     "sar": "SAR on stopped requests",

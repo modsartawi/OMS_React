@@ -1,6 +1,6 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
-import type { GuardSeverity } from './model'
+import type { GuardRule, GuardSeverity, MonitorSeverity, RuleKind } from './model'
 
 // A back-test of the guard draft (BackOffice spec 3126, door 3140; oms ticket 612). HQ replays the last 30 / 90 /
 // 180 days of real requests through the saved DRAFT at its current revision and answers what it would have done.
@@ -86,6 +86,75 @@ export interface GuardBacktest {
   /** Fired lines where a LIVE guard fired too. */
   overlap: number
   rules: BacktestRule[]
+  /** What the draft's monitors would have raised (oms 700); absent when it read no kept answers. 🚩 Guessed, 711 reconciles. */
+  monitors?: MonitorBacktest | null
+}
+
+// ── 700 · a monitor's reading (door 3290) ───────────────────────────────────────────────────────
+// Monitors live in the guard draft and share its revision, so one job of that revision replays the requests through the
+// guards and the kept answers through the monitors. A monitor reads as review items on answers, never as refusals on sales.
+
+/** A kept answer a monitor would have raised a review item on. */
+export interface MonitorBacktestItem {
+  /** Local day, `yyyy-MM-dd`. */
+  on: string
+  /** The kept answer, as a review item names it (source, id). */
+  message: { source: string; id: string }
+  /** As `BacktestStopped.maskedKey`: masked again on arrival. */
+  maskedKey: string
+  /** The monitors that would have raised on it. */
+  rules: string[]
+}
+
+export interface MonitorBacktest {
+  /** Kept answers replayed. */
+  answers: number
+  /** Of those, how many would have raised a review item. */
+  raisedOn: number
+  raised: { action: number; info: number }
+  /** The first answers raised on; `itemsTotal` counts them all. */
+  items: MonitorBacktestItem[]
+  itemsTotal: number
+  rules: { ruleId: string; raised: number }[]
+}
+
+/** Which kinds this back-test reads as. A job with no monitor section is the guard report, always. */
+export function backtestKinds(bt: Pick<GuardBacktest, 'monitors' | 'requests'>): RuleKind[] {
+  if (!bt.monitors) return ['guard']
+  return bt.requests > 0 ? ['guard', 'monitor'] : ['monitor']
+}
+
+/** The monitor section as the screen reads it: heaviest first, totals, and no patient key shown whole. */
+export function monitorBacktestReading(m: MonitorBacktest) {
+  const rows: [MonitorSeverity, number][] = [
+    ['action', m.raised?.action ?? 0],
+    ['info', m.raised?.info ?? 0],
+  ]
+  const items = (m.items ?? []).map((i) => ({ ...i, maskedKey: maskedKey(i.maskedKey) }))
+  const itemsTotal = Math.max(items.length, m.itemsTotal ?? 0)
+  return {
+    rows,
+    total: rows.reduce((n, [, v]) => n + v, 0),
+    answers: m.answers ?? 0,
+    raisedOn: m.raisedOn ?? 0,
+    items,
+    shown: items.length,
+    itemsTotal,
+    truncated: itemsTotal > items.length,
+    rules: m.rules ?? [],
+  }
+}
+
+/** The draft holds a monitor that still runs. */
+export const draftHoldsMonitors = (rules: readonly Pick<GuardRule, 'kind' | 'state'>[]): boolean => rules.some((r) => r.kind === 'monitor' && r.state !== 'disabled')
+
+/**
+ * The back-test Submit may lean on. A draft holding a monitor needs one that read the answers: a finished job of this
+ * revision with no monitor section counts as none, because the author has not seen what the monitor would raise.
+ */
+export function backtestForAsking<T extends Pick<GuardBacktest, 'status' | 'revision' | 'monitors'>>(bt: T | null | undefined, rules: readonly Pick<GuardRule, 'kind' | 'state'>[], revision: number): T | null {
+  if (!bt) return null
+  return bt.status === 'done' && bt.revision === revision && !bt.monitors && draftHoldsMonitors(rules) ? null : bt
 }
 
 export const backtestRunning = (bt: Pick<GuardBacktest, 'status'>): boolean => bt.status === 'queued' || bt.status === 'running'

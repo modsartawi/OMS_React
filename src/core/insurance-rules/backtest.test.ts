@@ -4,7 +4,7 @@
  * key that is never shown whole.
  */
 import { describe, expect, it } from 'vitest'
-import { backtestWindowLimit, cappedBacktestDays, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest } from './backtest'
+import { backtestForAsking, backtestKinds, backtestWindowLimit, cappedBacktestDays, draftHoldsMonitors, monitorBacktestReading, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest, type MonitorBacktest } from './backtest'
 
 const bt = (o: Partial<GuardBacktest> = {}): GuardBacktest => ({
   id: 'BT-1',
@@ -92,6 +92,74 @@ describe('maskedKey', () => {
   it('never shows an empty or short key as data', () => {
     expect(maskedKey('')).toBe('')
     expect(maskedKey('123')).toBe('***')
+  })
+})
+
+describe('the back-test read per kind (oms 700)', () => {
+  const monitors: MonitorBacktest = {
+    answers: 800,
+    raisedOn: 2,
+    raised: { action: 3, info: 1 },
+    items: [
+      { on: '2026-10-26', message: { source: 'nphies', id: 'ANS-1' }, maskedKey: '1*******83', rules: ['M-001'] },
+      { on: '2026-10-25', message: { source: 'nphies', id: 'ANS-2' }, maskedKey: '1198765408', rules: ['M-001', 'M-002'] },
+    ],
+    itemsTotal: 40,
+    rules: [{ ruleId: 'M-001', raised: 3 }],
+  }
+
+  it('a guard’s reading is unchanged: no monitor section is the guard report alone', () => {
+    expect(backtestKinds(bt())).toEqual(['guard'])
+    expect(backtestKinds(bt({ monitors: null }))).toEqual(['guard'])
+    expect(backtestKinds(bt({ requests: 0, lines: 0 }))).toEqual(['guard'])
+    expect(backtestFires(bt())).toEqual({ rows: [['REFUSE', 4], ['OVERRIDE', 30], ['WARN', 6]], total: 40 })
+  })
+
+  it('a draft with guards and monitors reads as both, and monitors alone never as refusals on sales', () => {
+    expect(backtestKinds(bt({ monitors }))).toEqual(['guard', 'monitor'])
+    expect(backtestKinds(bt({ monitors, requests: 0, lines: 0 }))).toEqual(['monitor'])
+  })
+
+  it('a monitor reads as review items raised, heaviest first, on which answers, keys masked', () => {
+    expect(monitorBacktestReading(monitors)).toEqual({
+      rows: [['action', 3], ['info', 1]],
+      total: 4,
+      answers: 800,
+      raisedOn: 2,
+      items: [
+        { on: '2026-10-26', message: { source: 'nphies', id: 'ANS-1' }, maskedKey: '1*******83', rules: ['M-001'] },
+        { on: '2026-10-25', message: { source: 'nphies', id: 'ANS-2' }, maskedKey: '1*******08', rules: ['M-001', 'M-002'] },
+      ],
+      shown: 2,
+      itemsTotal: 40,
+      truncated: true,
+      rules: [{ ruleId: 'M-001', raised: 3 }],
+    })
+  })
+
+  it('a thin reply reads as nothing raised', () => {
+    expect(monitorBacktestReading({} as MonitorBacktest)).toEqual({ rows: [['action', 0], ['info', 0]], total: 0, answers: 0, raisedOn: 0, items: [], shown: 0, itemsTotal: 0, truncated: false, rules: [] })
+  })
+
+  it('a draft holding a monitor counts only a finished back-test that read the answers', () => {
+    const guard = { kind: undefined, state: 'draft' as const }
+    const monitor = { kind: 'monitor' as const, state: 'draft' as const }
+    const off = { kind: 'monitor' as const, state: 'disabled' as const }
+    expect(draftHoldsMonitors([guard])).toBe(false)
+    expect(draftHoldsMonitors([guard, off])).toBe(false)
+    expect(draftHoldsMonitors([guard, monitor])).toBe(true)
+
+    const noAnswers = bt()
+    expect(backtestForAsking(noAnswers, [guard], 12)).toBe(noAnswers)
+    expect(backtestForAsking(noAnswers, [monitor], 12)).toBeNull()
+    const read = bt({ monitors })
+    expect(backtestForAsking(read, [monitor], 12)).toBe(read)
+    // Running, failed or of another revision: it already reads as such.
+    const running = bt({ status: 'running' })
+    expect(backtestForAsking(running, [monitor], 12)).toBe(running)
+    const old = bt({ revision: 11 })
+    expect(backtestForAsking(old, [monitor], 12)).toBe(old)
+    expect(backtestForAsking(null, [monitor], 12)).toBeNull()
   })
 })
 

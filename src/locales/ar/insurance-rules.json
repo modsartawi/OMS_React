@@ -273,6 +273,19 @@
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> أيٌّ من <codes>{{codes}}</codes>",
       "noneOf": "<fact>{{fact}}</fact> ليس أيًّا من <codes>{{codes}}</codes>",
+      "compare": {
+        "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+        "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value>"
+      },
+      "countAtLeast": "عدد قيم <fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+      "countBelow": "عدد قيم <fact>{{fact}}</fact> أقل من <value>{{value}}</value>",
+      "isYes": "<fact>{{fact}}</fact>: نعم",
+      "isNo": "<fact>{{fact}}</fact>: لا",
+      "before": "<fact>{{fact}}</fact> قبل <value>{{value}}</value>",
+      "onOrBefore": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو قبله",
+      "after": "<fact>{{fact}}</fact> بعد <value>{{value}}</value>",
+      "onOrAfter": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو بعده",
+      "inSystem": "ضمن نظام الرموز <system>{{system}}</system>",
       "unit": {
         "years": "سنة",
         "days": "يوم",

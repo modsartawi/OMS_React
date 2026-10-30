@@ -25,9 +25,10 @@ import {
   type PaletteBlock,
 } from '@/core/insurance-rules/guard-edit'
 import Ltr from '@/core/ui/Ltr'
-import { HISTORY_NARROWS, requestListField, type RequestCondition, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
+import { HISTORY_NARROWS, requestListField, type RequestCondition, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type FactCondition, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
 import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
-import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
+import { factOfEligibility, factShapeOf, factTestFor, isFhirPath, rowOfPath, shapeOfRow } from '@/core/insurance-rules/fact-tests'
+import { fhirCatalogQuery, fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
 import Chip from '@/core/ui/Chip'
@@ -37,6 +38,7 @@ import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
 import { pickedFact } from '@/core/insurance-rules/fhir-catalog'
 import { FhirFactPicker } from '@/core/insurance-rules/FhirCatalog'
+import { FactTestFields } from './FactTestFields'
 import GuardFormulaBox, { type FormulaLanguage } from './GuardFormulaBox'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
@@ -228,7 +230,7 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
         </span>
         {/* oms 681: in the playground's narrow Rule pane the fields take their own line and shrink to it, so ƒx stays in reach. */}
         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 ${ctx.language ? 'min-w-0 grow basis-auto' : 'flex-1'}`}>
-          <BlockFields ctx={ctx} c={c} path={path} />
+          <BlockFields ctx={ctx} c={editedAs(c) as typeof c} path={path} />
         </div>
         <ConditionTools path={path} />
         <RemoveButton ctx={ctx} path={path} label={t('editor.group.remove')} />
@@ -238,6 +240,9 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
   )
 }
 
+/** Oms 693: an eligibility flag or written day is drawn as the fact it was picked as; the wire keeps it its block (`fact-tests`). */
+const editedAs = (c: GuardCondition): GuardCondition => (c.check === 'eligibility' ? (factOfEligibility(c) ?? c) : c)
+
 /** The typed fields of one block, each with its unit. */
 function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { check: 'group' }>; path: ConditionPath }) {
   const { t, i18n } = useTranslation('insurance-guards')
@@ -246,12 +251,14 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
   const key = (field: string) => `${pathKey(path)}:${field}`
   /** The block replaced by `fn(it)`; typing into one field coalesces into one step. */
   const set = <C extends GuardCondition = typeof c>(fn: (x: C) => GuardCondition, field?: string) =>
-    ctx.edit((r) => ({ ...r, when: updateCondition(r.when, path, (x) => fn(x as C)) }), field ? key(field) : undefined)
+    ctx.edit((r) => ({ ...r, when: updateCondition(r.when, path, (x) => fn(editedAs(x) as C)) }), field ? key(field) : undefined)
   const listName = (l: GuardList) => fsi(saysIn(l.name, i18n.language))
   const unit = (u: string) => t(`editor.unit.${u}`)
   // 617: the facts, the line's numbers and the days to compare with are the Fields registry's (610), so an
   // eligibility fact the registry holds appears here at once.
   const fields = useQuery(fieldsQuery()).data ?? []
+  // Oms 693: a FHIR fact's type is the catalog's. A denied catalog leaves the value to say what it is.
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: c.check === 'fact' && isFhirPath(c.path) }).data ?? []
   const fieldName = (f: RegistryField) => fsi(saysIn(f.label, i18n.language))
   const unitOf = (f: RegistryField | undefined) => {
     const k = unitKey(f?.unit)
@@ -629,7 +636,6 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     }
     case 'fact': {
       const def = fieldOfPath(fields, c.path)
-      const isNumber = def ? factKind(def) === 'number' : typeof c.value === 'number'
       const offered = factFields(fields)
       return (
         <>
@@ -639,7 +645,9 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               data-input="fact"
               onChange={(e) => {
                 const next = fieldOfPath(fields, e.target.value)
-                set((x) => ({ ...x, path: e.target.value, ...(next && factKind(next) === 'codes' ? { op: 'anyOf', value: [] } : { op: 'atLeast', value: 0 }) }))
+                const row = rowOfPath(catalog, e.target.value)
+                const test = row ? factTestFor(shapeOfRow(row)) : next && factKind(next) === 'codes' ? { op: 'anyOf' as const, value: [] } : { op: 'atLeast' as const, value: 0 }
+                set((x) => ({ ...x, path: e.target.value, system: undefined, ...test }))
               }}
             >
               {!offered.some((f) => factPath(f) === c.path) && <option value={c.path}>{fsi(c.path)}</option>}
@@ -658,31 +666,14 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             </Select>
           </Field>
           <FhirFactPicker value={c.path} onPick={(row) => set((x) => ({ ...x, ...pickedFact(row) }) as GuardCondition)} />
-          <Field label={t('editor.field.op')}>
-            <Select value={c.op} data-input="op" onChange={(e) => set((x) => ({ ...x, op: e.target.value as typeof c.op }))}>
-              {(isNumber ? (['atLeast', 'below'] as const) : (['anyOf', 'noneOf'] as const)).map((o) => (
-                <option key={o} value={o}>
-                  {t(`editor.factOp.${o}`)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {isNumber ? (
-            <Field label={t('editor.field.value')} unit={unitOf(def)}>
-              <NumberInput value={Number(c.value)} invalid={bad('value')} data-input="value" onValue={(n) => set((x) => ({ ...x, value: n }), 'value')} />
-            </Field>
-          ) : (
-            <Field label={t('editor.field.codes')}>
-              <CodesInput
-                value={Array.isArray(c.value) ? c.value : [String(c.value)]}
-                invalid={bad('value')}
-                title={t('editor.codesHint')}
-                placeholder="E11*"
-                data-input="codes"
-                onCodes={(codes) => set((x) => ({ ...x, value: codes }), 'value')}
-              />
-            </Field>
-          )}
+          <FactTestFields
+            c={c}
+            shape={factShapeOf(c, catalog, fields)}
+            bad={bad('value')}
+            numberUnit={unitOf(def)}
+            unknownOn={isFhirPath(c.path) ? ctx.rule.onUnknown : undefined}
+            set={(fn, field) => set<FactCondition>(fn, field)}
+          />
         </>
       )
     }

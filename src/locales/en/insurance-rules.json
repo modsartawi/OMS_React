@@ -249,6 +249,19 @@
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> is any of <codes>{{codes}}</codes>",
       "noneOf": "<fact>{{fact}}</fact> is none of <codes>{{codes}}</codes>",
+      "compare": {
+        "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value>",
+        "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value>"
+      },
+      "countAtLeast": "the number of values of <fact>{{fact}}</fact> is at least <value>{{value}}</value>",
+      "countBelow": "the number of values of <fact>{{fact}}</fact> is below <value>{{value}}</value>",
+      "isYes": "<fact>{{fact}}</fact> is yes",
+      "isNo": "<fact>{{fact}}</fact> is no",
+      "before": "<fact>{{fact}}</fact> is before <value>{{value}}</value>",
+      "onOrBefore": "<fact>{{fact}}</fact> is on or before <value>{{value}}</value>",
+      "after": "<fact>{{fact}}</fact> is after <value>{{value}}</value>",
+      "onOrAfter": "<fact>{{fact}}</fact> is on or after <value>{{value}}</value>",
+      "inSystem": "in the code system <system>{{system}}</system>",
       "unit": {
         "years": "years",
         "days": "days",

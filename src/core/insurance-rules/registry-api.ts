@@ -27,6 +27,12 @@ export interface Insurer {
   name?: Says | null
 }
 
+/** One code of a code system (F12); a code the list does not hold shows raw and still matches. */
+export interface CodeSystemCode {
+  code: string
+  label: Says
+}
+
 export const registryApi = {
   /** `GET InsuranceRules/Fields` — every field, retired ones included (flagged). */
   async fields(): Promise<RegistryField[]> {
@@ -35,6 +41,10 @@ export const registryApi = {
   /** ⚠️ PROVISIONAL (oms 692; 711 reconciles): `GET InsuranceRules/Fields/Catalog`, the FHIR facts with their channel rates. */
   async fhirCatalog(): Promise<FhirCatalogRow[]> {
     return (await api.get<FhirCatalogRow[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog`)) ?? []
+  },
+  /** ⚠️ PROVISIONAL (oms 693; 711 reconciles): `GET InsuranceRules/CodeSystems/Codes?system=`, a code system's codes with their EN + AR labels. */
+  async codeSystemCodes(system: string): Promise<CodeSystemCode[]> {
+    return (await api.get<CodeSystemCode[] | null>(`${INSURANCE_RULES_BASE}/CodeSystems/Codes`, { system })) ?? []
   },
   /** `GET InsuranceRules/Fields/{key}/Values?q=` — code + description, for the picker. */
   async fieldValues(key: string, q: string): Promise<FieldValue[]> {
@@ -62,6 +72,10 @@ export function fieldsQuery() {
 
 export function fhirCatalogQuery() {
   return { queryKey: [...FIELDS_KEY, 'catalog'] as const, queryFn: () => registryApi.fhirCatalog(), retry: false } as const
+}
+
+export function codeSystemCodesQuery(system: string) {
+  return { queryKey: [...FIELDS_KEY, 'codeSystem', system] as const, queryFn: () => registryApi.codeSystemCodes(system), retry: false, staleTime: 60_000 } as const
 }
 
 export function fieldValuesQuery(key: string, q: string) {

@@ -82,7 +82,8 @@ function Warnings({ warnings }: { warnings: PathWarning[] }) {
   )
 }
 
-function ProbeTable({ reply }: { reply: ProbeReply }) {
+/** Who answers a path, per payer; 696's inbox shows the same table to the approver. */
+export function ProbeTable({ reply }: { reply: ProbeReply }) {
   const { t } = useTranslation('insurance-fields')
   return (
     <div className="flex flex-col gap-2" data-raw-probe="">

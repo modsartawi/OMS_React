@@ -18,6 +18,8 @@ import { Layers } from 'lucide-react' // 652
 import { FileSearch } from 'lucide-react' // 710
 // 677 · icons
 import { TestTubeDiagonal } from 'lucide-react' // 677
+// 696 · icons
+import { Inbox } from 'lucide-react' // 696
 // 704 · icons
 import { Replace } from 'lucide-react' // 704
 // 706 · icons
@@ -145,6 +147,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.inspector',
       icon: FileSearch,
       routerLink: '/insurance-rules/decisions',
+    },
+
+    // 696 · Field proposals (`menu.fieldProposals`, `/insurance-rules/field-proposals`)
+    {
+      // 696 — proposed FHIR fields, approved or rejected by someone other than the author.
+      labelKey: 'insurance-rules:menu.fieldProposals',
+      icon: Inbox,
+      routerLink: '/insurance-rules/field-proposals',
     },
 
     // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)

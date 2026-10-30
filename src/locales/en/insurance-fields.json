@@ -88,6 +88,49 @@
     "existing": "This value is already a field.",
     "existingShow": "Show in the catalog"
   },
+  "proposals": {
+    "title": "Field proposals",
+    "lede": "FHIR fields waiting for a second person. Someone other than the author approves or rejects each one, and an approved field joins the catalog and every picker at once.",
+    "failed": "The proposals could not be loaded.",
+    "loading": "Loading the proposals…",
+    "empty": "No field has been proposed.",
+    "open": "Open",
+    "detailTitle": "Proposed field",
+    "close": "Close",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Field approved",
+    "rejected": "Proposal rejected",
+    "actionFailed": "The proposal could not be decided.",
+    "path": "FHIRPath",
+    "probe": "Probe result per payer",
+    "noProbe": "This proposal holds no Probe result.",
+    "decidedBy": "Decided by",
+    "reason": "Reason for rejecting",
+    "reasonHint": "Needed to reject. The author reads it.",
+    "reasonMissing": "Give a reason for rejecting this proposal.",
+    "patientWarning": "This field reads the Patient resource: {{path}}. Personal data falls under the PDPL. Approve it only if a rule needs it.",
+    "state": {
+      "proposed": "Waiting",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "col": {
+      "field": "Field",
+      "key": "Key",
+      "where": "Message and focus",
+      "state": "State",
+      "proposedBy": "Proposed by"
+    },
+    "why": {
+      "ownProposal": "This is your own proposal, so someone else must approve or reject it.",
+      "reader": "Only a holder of the insurance rules permission can approve or reject a proposal."
+    },
+    "discard": {
+      "title": "Discard this reason",
+      "message": "Close the proposal and lose the reason you wrote?"
+    }
+  },
   "access": {
     "deniedTitle": "You do not have access",
     "deniedHint": "Ask an administrator for the insurance rules permission.",

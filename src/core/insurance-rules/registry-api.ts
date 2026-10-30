@@ -10,6 +10,7 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { Says } from './model'
 import { ESTATE_DEFAULT, type InsurerSettings } from './insurer-settings'
+import type { FhirCatalogRow } from './fhir-catalog'
 import type { FieldValue, KeyedList, KeyedListKind, RegistryField } from './registry'
 
 const KEYED_LIST_DOOR: Record<KeyedListKind, string> = { patient: 'PatientLists', policy: 'PolicyLists', class: 'ClassLists' }
@@ -30,6 +31,10 @@ export const registryApi = {
   /** `GET InsuranceRules/Fields` — every field, retired ones included (flagged). */
   async fields(): Promise<RegistryField[]> {
     return (await api.get<RegistryField[] | null>(`${INSURANCE_RULES_BASE}/Fields`)) ?? []
+  },
+  /** ⚠️ PROVISIONAL (oms 692; 711 reconciles): `GET InsuranceRules/Fields/Catalog`, the FHIR facts with their channel rates. */
+  async fhirCatalog(): Promise<FhirCatalogRow[]> {
+    return (await api.get<FhirCatalogRow[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog`)) ?? []
   },
   /** `GET InsuranceRules/Fields/{key}/Values?q=` — code + description, for the picker. */
   async fieldValues(key: string, q: string): Promise<FieldValue[]> {
@@ -53,6 +58,10 @@ export const insurersKey = [...INSURANCE_RULES_KEY, 'insurers'] as const
 
 export function fieldsQuery() {
   return { queryKey: FIELDS_KEY, queryFn: () => registryApi.fields(), retry: false } as const
+}
+
+export function fhirCatalogQuery() {
+  return { queryKey: [...FIELDS_KEY, 'catalog'] as const, queryFn: () => registryApi.fhirCatalog(), retry: false } as const
 }
 
 export function fieldValuesQuery(key: string, q: string) {

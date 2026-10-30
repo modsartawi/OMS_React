@@ -22,6 +22,45 @@
     "idfGroups": "مجموعات IDF",
     "playground": "ساحة التجربة"
   },
+  "catalog": {
+    "title": "دليل حقائق FHIR",
+    "open": "من الدليل",
+    "pick": "اختيار",
+    "showPath": "إظهار FHIRPath",
+    "hidePath": "إخفاء FHIRPath",
+    "list": "قائمة",
+    "retired": "موقوف",
+    "needsParameter": "يحتاج هذا الحقل إلى فئة، ولا يمكن اختيارها هنا بعد.",
+    "denied": "ليس لديك صلاحية الوصول إلى دليل حقائق FHIR.",
+    "failed": "تعذر تحميل الدليل.",
+    "loading": "جارٍ تحميل الدليل…",
+    "empty": "لا يحتوي الدليل على أي حقل بعد.",
+    "answer": {
+      "answers": "يجيب",
+      "sometimes": "يجيب أحيانًا",
+      "never": "لا يجيب أبدًا"
+    },
+    "message": {
+      "eligibility": "الأهلية",
+      "claim": "المطالبة",
+      "claimResponse": "رد المطالبة",
+      "communication": "المراسلة",
+      "payment": "الدفع"
+    },
+    "level": {
+      "message": "الرسالة كاملة",
+      "line": "كل بند"
+    },
+    "type": {
+      "text": "نص",
+      "number": "رقم",
+      "date": "تاريخ",
+      "flag": "نعم / لا",
+      "code": "رمز",
+      "money": "مبلغ",
+      "quantity": "كمية"
+    }
+  },
   "state": {
     "draft": "مسودة",
     "waiting": "بانتظار الموافقة",

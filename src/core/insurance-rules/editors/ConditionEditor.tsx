@@ -35,7 +35,7 @@ import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
 import { CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
-import GuardFormulaBox from './GuardFormulaBox'
+import GuardFormulaBox, { type FormulaLanguage } from './GuardFormulaBox'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
 // to three levels, NOT on any condition — and a palette at the foot of every list to add a block. The pure
@@ -48,6 +48,8 @@ interface Ctx {
   lists: readonly GuardList[]
   edit: RuleEdit
   checks: ChecksIndex
+  /** The playground's wider formula language (oms 681); absent on the real guard screens. */
+  language?: FormulaLanguage
 }
 
 const pathKey = (p: ConditionPath) => p.join('.')
@@ -222,7 +224,8 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
         <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium" data-block-label="">
           {t(`editor.block.${paletteBlockOf(c)}`)}
         </span>
-        <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+        {/* oms 681: in the playground's narrow Rule pane the fields take their own line and shrink to it, so ƒx stays in reach. */}
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 ${ctx.language ? 'min-w-0 grow basis-auto' : 'flex-1'}`}>
           <BlockFields ctx={ctx} c={c} path={path} />
         </div>
         <ConditionTools path={path} />
@@ -682,9 +685,10 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     }
     case 'formula':
       return (
-        <Field label={t('editor.field.formula')}>
+        // oms 681: the formula field may shrink with a narrow pane (the playground's Rule pane), so ƒx stays in reach.
+        <Field label={t('editor.field.formula')} className="w-full min-w-0">
           {/* oms 657: the guided ƒx helper; typing coalesces into one step, an insert is a step of its own. */}
-          <GuardFormulaBox value={c.formula} invalid={bad('formula')} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
+          <GuardFormulaBox value={c.formula} invalid={bad('formula')} language={ctx.language} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
         </Field>
       )
     default:

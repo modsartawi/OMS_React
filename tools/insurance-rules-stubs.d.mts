@@ -257,3 +257,6 @@ export declare function playgroundVerdict(body: unknown, reply: unknown): unknow
 export declare function playgroundCompareStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null
 // --- 685 ---
 export declare const NPHIES_ANSWER: Record<string, unknown>
+
+/** 681: `GET InsuranceRules/Fields` for the playground; any other method counts into `store.fieldPosts`. */
+export declare function playgroundFieldsStub(method: string, path: string, opts?: { store?: { fieldPosts?: number }; deny?: string[] }): FulfillArg | null

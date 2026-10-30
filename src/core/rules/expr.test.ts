@@ -126,3 +126,58 @@ describe('a bracketed key in a path (oms 657: the guard formula reads eligibilit
     expect(printExpr('$eligibility.tob[a b]', none)).toBeNull()
   })
 })
+
+describe('registry fields and the request’s lines (oms 681, ADR 0117)', () => {
+  const none = { filters: [] }
+  it('`<scope>.field.Key` reads and prints round-trip for line, request and patient', () => {
+    for (const [text, path] of [
+      ['line.field.HouseBrand', '$line.field.HouseBrand'],
+      ['request.field.X', '$request.field.X'],
+      ['patient.field.Y', '$patient.field.Y'],
+      ['line.field.eCode', '$line.field.eCode'],
+    ]) {
+      expect(parseExpr(text, none)).toEqual({ ok: true, expr: path })
+      expect(printExpr(path, none)).toBe(text)
+    }
+    const expr = ['==', '$line.field.HouseBrand', 'Y']
+    expect(parseExpr("line.field.HouseBrand == 'Y'", none)).toEqual({ ok: true, expr })
+    expect(printExpr(expr, none)).toBe("line.field.HouseBrand == 'Y'")
+  })
+
+  it('`field` is reserved: a path holding it must be exactly <line|request|patient>.field.<one key>', () => {
+    const problem = (t: string) => {
+      const r = parseExpr(t, none)
+      return r.ok ? null : r.problem
+    }
+    expect(problem('line.field')).toEqual({ code: 'badField', at: 0, token: 'line.field' })
+    expect(problem('line.field.A.B')).toEqual({ code: 'badField', at: 0, token: 'line.field.A.B' })
+    expect(problem('eligibility.field.X')).toEqual({ code: 'badField', at: 0, token: 'eligibility.field.X' })
+    expect(problem('patient.age > 1 and field')).toEqual({ code: 'badField', at: 20, token: 'field' })
+    expect(problem('line.field.field')?.code).toBe('badField')
+    expect(problem('line.field[A]')?.code).toBe('badField')
+    expect(problem('line.field.A[b]')?.code).toBe('badField')
+    expect(problem('x.line.field.A')?.code).toBe('badField')
+    // and a stored path the text would refuse stays JSON
+    expect(printExpr('$line.field', none)).toBeNull()
+    expect(printExpr('$eligibility.field.X', none)).toBeNull()
+    expect(printExpr(['>', '$line.field.A.B', 1], none)).toBeNull()
+    // a segment merely starting with "field" is not the reserved one
+    expect(parseExpr('line.fieldCount', none)).toEqual({ ok: true, expr: '$line.fieldCount' })
+  })
+
+  it('`request.lines` reads and prints round-trip inside filter, sum, count and lines', () => {
+    const cases: [string, RuleExpr][] = [
+      ['request.lines', '$request.lines'],
+      ['lines(request.lines)', ['lines', '$request.lines']],
+      ["filter(request.lines, line.item == '200021')", ['filter', '$request.lines', ['==', '$line.item', '200021']]],
+      ['filter(request.lines, line.quantity > 1)', ['filter', '$request.lines', ['>', '$line.quantity', 1]]],
+      ['sum(filter(request.lines, line.quantity > 1), line.price)', ['sum', ['filter', '$request.lines', ['>', '$line.quantity', 1]], '$line.price']],
+      ["count(filter(request.lines, line.item == '200021')) > 0", ['>', ['count', ['filter', '$request.lines', ['==', '$line.item', '200021']]], 0]],
+      ["lines(filter(request.lines, line.field.HouseBrand == 'Y')) >= 2", ['>=', ['lines', ['filter', '$request.lines', ['==', '$line.field.HouseBrand', 'Y']]], 2]],
+    ]
+    for (const [text, expr] of cases) {
+      expect(parseExpr(text, none)).toEqual({ ok: true, expr })
+      expect(printExpr(expr, none)).toBe(text)
+    }
+  })
+})

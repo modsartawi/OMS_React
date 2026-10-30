@@ -851,7 +851,8 @@
       "roundArgs": "round() takes a value, the decimals and a mode: round(x, 2, halfUp).",
       "bandArgs": "band() takes a value and thresholds: band(x, 200:0.10, 400:0.12).",
       "pairOutsideBand": "A threshold “a:b” only goes inside band() (character <n>{{at}}</n>).",
-      "json": "This is not valid JSON yet."
+      "json": "This is not valid JSON yet.",
+      "badField": "A field is written line.field.Key, request.field.Key or patient.field.Key, with one key (character <n>{{at}}</n>)."
     },
     "issue": {
       "error": "HQ, at the last save: <msg>{{message}}</msg>",

@@ -128,3 +128,43 @@ export const GUARD_FX_RECIPES: readonly GuardFxRecipe[] = [
   { key: 'notFirstChoice', formula: 'line.idfPriority > 1' },
   { key: 'womanOver50', formula: "patient.gender == 'F' and patient.age > 50" },
 ]
+
+// ── the rule playground's language (oms 681, ADR 0117) ──────────────────────────────────────────
+// A playground formula also reads registry and scratch FIELDS (`line.field.Key`, `request.field.Key`,
+// `patient.field.Key`, declared in the document's `fields` block) and the request's lines as a list
+// (`request.lines`, with `lines` / `filter` / `sum` / `count`). The real guard screens do not offer them yet: their
+// rulesets carry no `fields` declaration until HQ validates one (BackOffice stories 51-62).
+
+/** The scopes a declared field is read at in a formula. */
+export const DECLARED_FIELD_SCOPES = ['line', 'request', 'patient'] as const
+export type DeclaredFieldScope = (typeof DECLARED_FIELD_SCOPES)[number]
+/** The registry's types (3132), which a declaration repeats. */
+export const DECLARED_FIELD_TYPES = ['text', 'number', 'date', 'flag'] as const
+export type DeclaredFieldType = (typeof DECLARED_FIELD_TYPES)[number]
+
+/** One entry of a ruleset document's `fields` block. */
+export interface DeclaredField {
+  key: string
+  scope: DeclaredFieldScope
+  type: DeclaredFieldType
+}
+
+/** How a declared field is written in a formula. */
+export const declaredFieldPath = (f: Pick<DeclaredField, 'key' | 'scope'>): string => `${f.scope}.field.${f.key}`
+
+/** A declared type → the ƒx helper's type badge. */
+export const declaredFxType = (type: DeclaredFieldType): RuleFormulaType => (type === 'flag' ? 'bool' : type)
+
+/** The request's lines as a list: what `filter` / `sum` / `count` / `lines` walk. */
+export const GUARD_FX_LIST_FIELDS: readonly GuardFxField[] = [{ path: 'request.lines', type: 'items', group: 'request', words: 'request.lines' }]
+
+/** The list functions a playground formula may call (`count` sums units, `lines` counts lines). */
+export const GUARD_FX_LIST_FUNCTIONS: readonly RuleFormulaFunction[] = [
+  { name: 'lines', signature: 'lines(list)', example: 'lines(request.lines) > 3', snippet: 'lines(request.lines)', caret: 6 },
+  { name: 'filter', signature: 'filter(list, test)', example: 'filter(request.lines, line.quantity > 1)', snippet: 'filter(request.lines, )', caret: 22 },
+  { name: 'sum', signature: 'sum(list, value)', example: 'sum(request.lines, line.price) > 1000', snippet: 'sum(request.lines, )', caret: 19 },
+  { name: 'count', signature: 'count(list)', example: "count(filter(request.lines, line.item == '200021')) > 0", snippet: 'count()', caret: 6 },
+]
+
+/** The cross-line check: is a given item anywhere on the request. */
+export const GUARD_FX_LIST_RECIPES: readonly GuardFxRecipe[] = [{ key: 'itemOnRequest', formula: "count(filter(request.lines, line.item == '200021')) > 0" }]

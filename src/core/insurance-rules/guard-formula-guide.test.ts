@@ -12,7 +12,21 @@ import type { RuleFormulaType } from '@/core/rules/formula-guide'
 import { insertAtCursor } from '@/core/rules/fx-helper/insert'
 import en from '@/locales/en/insurance-guards.json'
 import ar from '@/locales/ar/insurance-guards.json'
-import { CODE_PLACEHOLDER, GUARD_FX_FIELDS, GUARD_FX_FUNCTIONS, GUARD_FX_GROUPS, GUARD_FX_OPERATORS, GUARD_FX_RECIPES, guardFieldChip } from './guard-formula-guide'
+import {
+  CODE_PLACEHOLDER,
+  DECLARED_FIELD_TYPES,
+  GUARD_FX_FIELDS,
+  GUARD_FX_FUNCTIONS,
+  GUARD_FX_GROUPS,
+  GUARD_FX_LIST_FIELDS,
+  GUARD_FX_LIST_FUNCTIONS,
+  GUARD_FX_LIST_RECIPES,
+  GUARD_FX_OPERATORS,
+  GUARD_FX_RECIPES,
+  declaredFieldPath,
+  declaredFxType,
+  guardFieldChip,
+} from './guard-formula-guide'
 
 const read = (text: string) => parseExpr(text, { filters: [] })
 
@@ -194,9 +208,32 @@ describe('the guard formula guide', () => {
       ...GUARD_FX_FUNCTIONS.map((f) => `fx.function.${f.name}`),
       ...GUARD_FX_RECIPES.flatMap((r) => [`fx.recipe.${r.key}.title`, `fx.recipe.${r.key}.desc`]),
       ...['fields', 'functions', 'recipes'].map((k) => `fx.tab.${k}`),
-      ...['empty', 'unexpected', 'unclosed', 'unknownFilter', 'roundArgs', 'bandArgs', 'pairOutsideBand'].map((k) => `fx.problem.${k}`),
+      ...['empty', 'unexpected', 'unclosed', 'unknownFilter', 'roundArgs', 'bandArgs', 'pairOutsideBand', 'badField'].map((k) => `fx.problem.${k}`),
+      // oms 681: the playground's wider language
+      ...GUARD_FX_LIST_FIELDS.flatMap((f) => [`fx.field.${f.words}.label`, `fx.field.${f.words}.desc`, `fx.type.${f.type}`]),
+      ...GUARD_FX_LIST_FUNCTIONS.map((f) => `fx.function.${f.name}`),
+      ...GUARD_FX_LIST_RECIPES.flatMap((r) => [`fx.recipe.${r.key}.title`, `fx.recipe.${r.key}.desc`]),
+      ...DECLARED_FIELD_TYPES.map((ty) => `fx.type.${declaredFxType(ty)}`),
+      'fx.group.declared',
       ...['toggle', 'symbol', 'tabs', 'done', 'placeholder', 'empty', 'reads', 'operators', 'insertOperator', 'insertText', 'textChip', 'hint', 'search', 'noMatch', 'insert', 'use', 'example'].map((k) => `fx.${k}`),
     ]
     for (const k of keys) expect(typeof at(k), k).toBe('string')
+  })
+})
+
+describe('the playground formula language (oms 681, ADR 0117)', () => {
+  const none = { filters: [] }
+  it('a declared field is inserted as <scope>.field.<Key>, which reads', () => {
+    expect(declaredFieldPath({ key: 'HouseBrand', scope: 'line' })).toBe('line.field.HouseBrand')
+    expect(parseExpr(declaredFieldPath({ key: 'X', scope: 'patient' }), none)).toEqual({ ok: true, expr: '$patient.field.X' })
+    expect(declaredFxType('flag')).toBe('bool')
+  })
+
+  it('request.lines, every list-function example and the cross-line recipe read', () => {
+    expect(GUARD_FX_LIST_FIELDS.map((f) => f.path)).toEqual(['request.lines'])
+    expect(GUARD_FX_LIST_FUNCTIONS.map((f) => f.name)).toEqual(['lines', 'filter', 'sum', 'count'])
+    for (const f of GUARD_FX_LIST_FUNCTIONS) expect(parseExpr(f.example, none).ok, f.name).toBe(true)
+    expect(GUARD_FX_LIST_RECIPES).toEqual([{ key: 'itemOnRequest', formula: "count(filter(request.lines, line.item == '200021')) > 0" }])
+    expect(parseExpr(GUARD_FX_LIST_RECIPES[0].formula, none).ok).toBe(true)
   })
 })

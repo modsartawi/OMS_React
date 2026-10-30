@@ -443,5 +443,51 @@
     "broken": "The JSON does not parse, so the editors show the last rules that did. Fix the JSON to edit them again.",
     "empty": "No rules yet. Add one, or write them in the JSON.",
     "readsAs": "Reads as"
+  },
+  "fields": {
+    "open": "Fields",
+    "lede": "The registry and scratch fields this experiment’s formulas read.",
+    "eyebrow": "Experiment",
+    "title": "Fields the formulas read",
+    "hint": "Written into the document’s fields block. A scratch field stays in this experiment: it is never added to the registry.",
+    "close": "Close the fields",
+    "declared": "Declared in this experiment",
+    "none": "No fields declared yet.",
+    "remove": "Remove {{key}}",
+    "pick": "Declare {{key}}",
+    "add": "Add",
+    "source": {
+      "registry": "Registry",
+      "scratch": "Scratch"
+    },
+    "registry": "From the registry",
+    "registryLoading": "Reading the registry…",
+    "registryFailed": "The registry could not be read.",
+    "registryNone": "Every registry field a formula can read is declared.",
+    "scratch": "A scratch field",
+    "scratchHint": "A field the registry does not have yet, to try a rule before its source exists.",
+    "key": "Key",
+    "scope": "Read on",
+    "type": "Type",
+    "scopeName": {
+      "line": "The line",
+      "request": "The request",
+      "patient": "The patient"
+    },
+    "typeName": {
+      "text": "Text",
+      "number": "Number",
+      "date": "Date",
+      "flag": "Yes / no"
+    },
+    "problem": {
+      "key": "A key is one word of letters, digits and _, not starting with a digit, and not “field”.",
+      "duplicate": "This experiment already declares a field with this key."
+    },
+    "fx": {
+      "declared": "Declared in this experiment.",
+      "undeclared": "Not declared yet: add it under Fields before a formula reads it.",
+      "scratch": "A scratch field of this experiment."
+    }
   }
 }

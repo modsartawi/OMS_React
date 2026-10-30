@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3243 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3243-oms-react-rule-playground-brief.md; ADR C:\Work\DMSCO\BackOffice\docs\adr\0117-insurance-rule-formulas-read-registry-fields-and-the-whole-request.md; stories 28, 32, 33)
 blocked-by: 679, 680
 ---
@@ -41,12 +41,12 @@ i18n (`insurance-playground` + the `fx.problem.badField` words) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `expr.test.ts` (extend) — `line.field.HouseBrand`, `request.field.X` and `patient.field.Y` read and print
+- [x] `expr.test.ts` (extend) — `line.field.HouseBrand`, `request.field.X` and `patient.field.Y` read and print
       round-trip; `line.field`, `line.field.A.B` and `eligibility.field.X` are `badField`; `lines(request.lines)` and
       `filter(request.lines, line.item == '200021')` round-trip — pure
-- [ ] `fieldsBlock` — picking a registry field and declaring a scratch one write `{ key, scope, type }` once each; a
+- [x] `fieldsBlock` — picking a registry field and declaring a scratch one write `{ key, scope, type }` once each; a
       duplicate is refused; removing one drops it — pure
-- [ ] drive: open ƒx in a playground formula block, insert a registry field and a scratch field, and see them in the
+- [x] drive: open ƒx in a playground formula block, insert a registry field and a scratch field, and see them in the
       JSON's `fields`; the real guard editor's ƒx is unchanged (guard-editor drive green) — flow
 
 ## Boundaries
@@ -63,3 +63,30 @@ written. `expr` vitest and drives are green.
 
 [679](679-a-guard-mini-ruleset-is-built-with-the-real-editors-and-the-engine-json-is-live-beside-them-both-ways.md),
 [680](680-coverage-and-category-mini-rulesets-are-built-with-their-real-editors.md)
+
+## Comments
+
+**2026-10-30 — built (impl/3243-681).**
+- `core/rules/expr`: `field` is a reserved segment (`isBadFieldPath`); a path holding it must be exactly
+  `line|request|patient` + `.field.` + one plain key, else `badField` (at the path's offset, token = the path). It is
+  global to the codec, so a campaign formula naming a `field` segment is refused too (none exists today). A stored
+  bad-field path prints as `null` (JSON shown). `request.lines` + `filter/sum/count/lines` needed no parser change.
+  `badField` words: `insurance-guards` fx (en + ar) and `campaign-workspace` fx (en — that namespace has no ar).
+- ƒx: `GuardFormulaBox` takes an optional `language` (`FormulaLanguage { fields: FxEntry[] }`), threaded through
+  `ConditionEditor`'s optional `language`. Absent → the guard screens' ƒx is exactly as before (guard-editor drive 158/158).
+  Present → a `declared` group (every live registry field a formula reads — item → `line.field.*`, request, patient;
+  never eligibility / computed `line` scope / retired — each said "declared" or "not declared yet", then the document's
+  scratch fields), plus `request.lines` (type `items`), `lines/filter/sum/count` and the `itemOnRequest` recipe. The
+  "count sums units, lines counts lines" note lives in the two functions' words.
+- Fields drawer (`playground/FieldsDrawer.tsx`, pure `fields-block.ts`): writes `fields: [{ key, scope, type }]`;
+  a duplicate key is refused case-insensitively across scopes (the registry compares keys without case); a key a
+  formula cannot read (not one identifier, or `field`) is refused. Rewriting the block drops entries it cannot read.
+  Nothing ever posts to the registry (the drive counts writes: 0).
+- Layout: the playground Rule pane is too narrow for the w-96 formula box, so its ƒx toggle sat under the Outcome pane.
+  In `language` mode only, the block's field row takes its own line and shrinks (`min-w-0 grow basis-auto`); the
+  formula input gained `min-w-0 max-w-full` and its label `w-full min-w-0` (no visible change with room to spare).
+- Not done (overrulable): inserting an undeclared registry field from ƒx does NOT auto-declare it — the ƒx row says to
+  add it under Fields, and the engine's reader error says so too. 691: confirm the engine's `fields` spelling
+  (`{ key, scope, type }` per this ticket; the ADR draws `{ key, type }`).
+- Drive: `tools/insurance-playground-fields-drive.mjs` 76/76 (LTR + RTL), stub section `// --- 681 ---`
+  (`playgroundFieldsStub`). insurance-playground-drive 216/216 still green.

@@ -1,14 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Textarea from '@/core/ui/Textarea'
+import RefusalBanner from './RefusalBanner'
 import { playgroundApi } from './api'
 import { FACT_TYPES } from './data-form'
 import { applyFacts, FLATTEN_SOURCES, flattenBody, flattenFactsIn, type FlattenFact, type FlattenSource } from './flatten'
@@ -104,16 +103,8 @@ export function FlattenPanel({ dataText, onDataText }: { dataText: string; onDat
         {flatten.isPending ? t('flatten.running') : t('flatten.run')}
       </Button>
 
-      {error && isBareDenial(error) ? (
-        <ErrorBanner className="p-3" message={t('flatten.denied')} />
-      ) : error ? (
-        <ErrorBanner className="p-3" title={t('flatten.refused')} message={apiErrorMessage(error, t('flatten.failed'))}>
-          {apiErrorCode(error) && (
-            <span className="text-xs" data-flatten-refusal={apiErrorCode(error)}>
-              <Ltr>{apiErrorCode(error)}</Ltr>
-            </span>
-          )}
-        </ErrorBanner>
+      {error ? (
+        <RefusalBanner error={error} title={t('flatten.refused')} fallback={t('flatten.failed')} codeHook="flatten-refusal" deniedWords={t('flatten.denied')} />
       ) : facts && !flatten.isPending ? (
         <div className="flex flex-col gap-2" data-flatten-facts={facts.length}>
           <h4 className="text-xs font-medium text-muted-foreground">{t('flatten.facts')}</h4>

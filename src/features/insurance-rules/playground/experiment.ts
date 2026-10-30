@@ -1,5 +1,6 @@
 import { EXAMPLE_COVERAGE_PAYER, EXAMPLE_DATA } from '@/core/insurance-rules/example-data'
 import type { PlaygroundDocument, PlaygroundEvaluateBody, PlaygroundKind } from '@/core/insurance-rules/playground'
+import { isPlainObject } from '@/core/util/plain-object'
 
 // One experiment as the 677 page holds it: the Data box (the door's `data`, engine shape) and the Rule box (the scratch
 // `document`), both JSON text. Pure. 678 adds the kind seeds (`kindSeed`); 682 the form ⇄ JSON; 687 the codec.
@@ -87,7 +88,7 @@ export const kindSeed = (kind: PlaygroundKind) => SEEDS[kind]
 const parseObject = (text: string): { ok: true; value: unknown } | { ok: false } => {
   try {
     const v: unknown = JSON.parse(text)
-    return typeof v === 'object' && v !== null && !Array.isArray(v) ? { ok: true, value: v } : { ok: false }
+    return isPlainObject(v) ? { ok: true, value: v } : { ok: false }
   } catch {
     return { ok: false }
   }

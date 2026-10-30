@@ -2,17 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
 
-import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { PlaygroundExperiment } from '@/core/insurance-rules/experiment'
 import { localAsOf, PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundEvaluateReply, type PlaygroundKind } from '@/core/insurance-rules/playground'
-import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { Loading } from '@/core/insurance-rules/parts'
 import { readHandoff, type PlaygroundHandoff } from '@/core/insurance-rules/playground-handoff'
 import { fsi } from '@/core/util/bidi'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import RefusalBanner from './RefusalBanner'
 import { playgroundApi } from './api'
 import ComparePanel, { type CompareSeed } from './ComparePanel'
 import { sideOf } from './compare-diff'
@@ -246,16 +245,8 @@ export default function PlaygroundPage() {
               </span>
             )}
           </header>
-          {error && isBareDenial(error) ? (
-            <DeniedCard ns="insurance-playground" hook="playground-denied" />
-          ) : error ? (
-            <ErrorBanner className="p-3" title={t('outcome.refused')} message={apiErrorMessage(error, t('outcome.failed'))}>
-              {apiErrorCode(error) && (
-                <span className="text-xs" data-refusal-code={apiErrorCode(error)}>
-                  <Ltr>{apiErrorCode(error)}</Ltr>
-                </span>
-              )}
-            </ErrorBanner>
+          {error ? (
+            <RefusalBanner error={error} title={t('outcome.refused')} fallback={t('outcome.failed')} />
           ) : answer ? (
             <OutcomePane
               view={outcomeWithout(outcomeView(answer.reply), placed.rest)}

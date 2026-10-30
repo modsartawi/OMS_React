@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { PlaygroundExperiment } from '@/core/insurance-rules/experiment'
-import { EXPERIMENTS_KEY, experimentStore, type StorageLike } from './experiment-store'
+import type { StorageLike } from '@/core/util/storage-like'
+import { EXPERIMENTS_KEY, experimentStore } from './experiment-store'
 
 const AS_OF = '2026-10-30T14:05:00'
 const exp = (name: string, over: Partial<PlaygroundExperiment> = {}): PlaygroundExperiment => ({

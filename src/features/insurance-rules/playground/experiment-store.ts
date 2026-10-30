@@ -1,4 +1,5 @@
 import { EXPERIMENT_VERSION, experimentFile, readExperiment, type PlaygroundExperiment } from '@/core/insurance-rules/experiment'
+import type { StorageLike } from '@/core/util/storage-like'
 
 // The playground's named experiments in browser storage (BackOffice spec 3243 story 50; oms ticket 687). Each entry is
 // the 687 file shape (`experimentFile`), so what is kept is what is exported. Pure: the storage is a parameter, so
@@ -7,12 +8,6 @@ import { EXPERIMENT_VERSION, experimentFile, readExperiment, type PlaygroundExpe
 // 🚩 Every access is wrapped: a private window, blocked site data or a full quota make the store **off** (said by the
 // save controls) and never throw into the page. Anything unreadable is an empty store; an entry that does not decode
 // is skipped. Names match trimmed and case-insensitive; saving under a taken name replaces that experiment.
-
-export interface StorageLike {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-  removeItem(key: string): void
-}
 
 export const EXPERIMENTS_KEY = 'oms.insurance-playground.experiments.v1'
 const PROBE_KEY = 'oms.insurance-playground.probe'

@@ -4,6 +4,7 @@ import type { CategorySource, ResolvedSource } from '@/core/insurance-rules/cove
 import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
 import { GUARD_SEVERITIES, type GuardSeverity } from '@/core/insurance-rules/model'
 import type { PlaygroundKind } from '@/core/insurance-rules/playground'
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
 // The Evaluate reply's `verdict` → Tab B, "What the live check would say" (oms ticket 678). Pure. Shapes as the
 // brief's HQ contract draws them (3244 guard, 3245 coverage/category), with the field names of the doors they mirror
@@ -58,7 +59,6 @@ export type VerdictView =
 const NONE: VerdictView = { kind: 'none' }
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : typeof v === 'number' ? String(v) : null)
 const lineNo = (l: Obj, i: number) => (typeof l.line === 'number' ? l.line : i + 1)
 

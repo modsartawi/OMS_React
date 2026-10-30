@@ -1,6 +1,8 @@
 import { experimentFile, readExperiment, type PlaygroundExperiment } from './experiment'
 import { INSURANCE_RULES_PATH } from './model'
 import { PLAYGROUND_KINDS, type PlaygroundKind } from './playground'
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
+import type { StorageLike } from '@/core/util/storage-like'
 
 // "Open in playground" (BackOffice spec 3243 stories 30, 31; oms ticket 688): how a rule screen hands a COPY of its rule
 // to the playground without importing it. The experiment travels in router state; a short-lived per-tab storage
@@ -20,10 +22,6 @@ export interface PlaygroundHandoff {
   from: { kind: PlaygroundKind; ruleId: string }
 }
 
-type KeyStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
-
 /** The router state a rule screen navigates with. */
 export const handoffState = (h: PlaygroundHandoff) => ({ playgroundCopy: { file: experimentFile(h.experiment), from: h.from } })
 
@@ -37,7 +35,7 @@ function handoffIn(v: unknown): PlaygroundHandoff | null {
 }
 
 /** Keep the copy for a reload (per tab). Storage off: the copy still travels in router state. */
-export function stashHandoff(h: PlaygroundHandoff, now: number, store: KeyStore | null = sessionStore()): void {
+export function stashHandoff(h: PlaygroundHandoff, now: number, store: StorageLike | null = sessionStore()): void {
   try {
     store?.setItem(KEY, JSON.stringify({ at: now, ...handoffState(h).playgroundCopy }))
   } catch {
@@ -46,7 +44,7 @@ export function stashHandoff(h: PlaygroundHandoff, now: number, store: KeyStore 
 }
 
 /** The copy, from router state, else (on a copy link) from a fresh stash; else null. */
-export function readHandoff(state: unknown, search: string, now: number, store: KeyStore | null = sessionStore()): PlaygroundHandoff | null {
+export function readHandoff(state: unknown, search: string, now: number, store: StorageLike | null = sessionStore()): PlaygroundHandoff | null {
   const fromState = isRecord(state) ? handoffIn(state.playgroundCopy) : null
   if (fromState) return fromState
   if (!new URLSearchParams(search).has('open', 'copy')) return null
@@ -61,7 +59,7 @@ export function readHandoff(state: unknown, search: string, now: number, store: 
   }
 }
 
-function sessionStore(): KeyStore | null {
+function sessionStore(): StorageLike | null {
   try {
     return typeof sessionStorage === 'undefined' ? null : sessionStorage
   } catch {

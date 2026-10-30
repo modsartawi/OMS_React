@@ -1,5 +1,6 @@
 import { PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundKind } from './playground'
 import { exampleData } from './example-data'
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 
 // The rule playground's experiment and its versioned codec (BackOffice spec 3243 stories 49, 50; oms ticket 687).
 // One shape for every place an experiment travels: an exported `.json` file, the playground's browser storage,
@@ -37,7 +38,6 @@ export type ExperimentDecode = { ok: true; experiment: PlaygroundExperiment } | 
 /** A name is trimmed and capped (the name box's cap). */
 export const EXPERIMENT_NAME_MAX = 80
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const AS_OF = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
 
 /** The experiment as the v1 file holds it (also what browser storage keeps per entry). */

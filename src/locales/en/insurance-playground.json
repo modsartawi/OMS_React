@@ -78,7 +78,8 @@
   },
   "rule": {
     "title": "Rule",
-    "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling."
+    "hint": "A scratch ruleset of one or more rules, as JSON in the engine's spelling.",
+    "hintEditors": "A scratch ruleset of one or more guard rules, built with the guard editors. The engine JSON under them follows every edit, and an edit to the JSON moves the editors once it parses."
   },
   "json": {
     "problem": {
@@ -102,7 +103,8 @@
     "matched": "Matched",
     "notMatched": "Not matched",
     "errors": {
-      "title": "The engine could not read the rule"
+      "title": "The engine could not read the rule",
+      "onBlocks": "Shown on their block in the Rule pane: {{n}}"
     }
   },
   "intake": {
@@ -287,5 +289,17 @@
       "onlyB": "Only in B"
     },
     "absent": "Not on this side"
+  },
+  "ruleset": {
+    "label": "The rules, in the order the engine runs them",
+    "rule": "Rule {{n}}",
+    "add": "Add a rule",
+    "up": "Move rule {{n}} up",
+    "down": "Move rule {{n}} down",
+    "remove": "Remove rule {{n}}",
+    "jsonOnly": "The editors cannot show this rule, so edit it in the JSON below. It still runs.",
+    "broken": "The JSON does not parse, so the editors show the last rules that did. Fix the JSON to edit them again.",
+    "empty": "No rules yet. Add one, or write them in the JSON.",
+    "readsAs": "Reads as"
   }
 }

@@ -10,6 +10,7 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
 import type { NewRegistryField, RegistryField } from '@/core/insurance-rules/registry'
 import { FIELDS_KEY } from '@/core/insurance-rules/registry-api'
+import type { BundleTree, TreeClickReply } from './bundle-tree'
 import type { CompileInput, CompileVerdict, FieldProposalBody, ProbeReply } from './raw-path'
 
 /** Under `FIELDS_KEY`, so a proposal's arrival refreshes whatever reads the fields; 696's inbox reads it. */
@@ -29,6 +30,14 @@ export const fieldsApi = {
   /** ⚠️ PROVISIONAL (oms 695): `POST InsuranceRules/Fields/Proposals` — the row joins the inbox; the catalog only once someone else approves it. */
   propose(body: FieldProposalBody): Promise<unknown> {
     return api.post<unknown>(`${INSURANCE_RULES_BASE}/Fields/Proposals`, body)
+  },
+  /** ⚠️ PROVISIONAL (oms 697; 711 reconciles): `GET InsuranceRules/Fields/Tree?ref=` — a kept bundle as a tree, under the read grant; the door logs the read. */
+  tree(ref: string): Promise<BundleTree> {
+    return api.get<BundleTree>(`${INSURANCE_RULES_BASE}/Fields/Tree`, { ref })
+  },
+  /** ⚠️ PROVISIONAL (oms 697): `POST InsuranceRules/Fields/Tree/Click` — a clicked node to its proposed path, the field already on it, and the Patient warning. */
+  treeClick(ref: string, nodeRef: string): Promise<TreeClickReply> {
+    return api.post<TreeClickReply>(`${INSURANCE_RULES_BASE}/Fields/Tree/Click`, { ref, nodeRef })
   },
   /** `POST InsuranceRules/Fields` → the field added. A key in use is refused. */
   add(body: NewRegistryField): Promise<RegistryField> {

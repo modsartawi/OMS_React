@@ -42,6 +42,7 @@
       "unlistedExtension": "Names an extension the Nphies profiles do not list."
     },
     "caseOnlyCode": "{{literal}} exists only as {{known}}.",
+    "patientWarning": "This is a Patient field. Patient data should enter a rule only on purpose. You can still propose it, and the approver sees this warning.",
     "probe": {
       "run": "Probe",
       "hint": "Runs the path over the kept bundles and samples.",
@@ -71,6 +72,21 @@
       "title": "Discard this path",
       "message": "Close the form and lose what you entered?"
     }
+  },
+  "tree": {
+    "title": "Propose a field from a kept bundle",
+    "lede": "Open a kept bundle by its reference and click a value, or a whole Money, Quantity or code. The proposed path works on every bundle, not only this one.",
+    "ref": "Bundle reference",
+    "open": "Open",
+    "loading": "Opening the bundle…",
+    "failed": "The bundle could not be opened.",
+    "clickFailed": "A path could not be proposed for this value.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "pickName": "Propose a field from {{name}}",
+    "pickWhole": "Propose",
+    "existing": "This value is already a field.",
+    "existingShow": "Show in the catalog"
   },
   "access": {
     "deniedTitle": "You do not have access",

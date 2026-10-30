@@ -22,12 +22,12 @@ import {
 
 const DATA = {
   request: { channel: 'nphies', store: 'P001', payer: '0001100041', policy: null, class: 'A', pharmacist: null, attributes: { region: 'R1', tier: '2' }, channelNote: 'kept' },
-  patient: { birthDate: '1990-04-01', gender: 'male', idType: 'nationalId', attributes: { weightKg: '71.5' } },
+  patient: { birthDate: '1990-04-01', gender: 'M', attributes: { weightKg: '71.5' } },
   lines: [
     { line: 1, item: '200021', quantity: 2, unit: 'PC', daysSupply: 120, icd: ['E11', 'I10'], price: 120.5, eCode: null, dCode: null, sfdaCode: null, idfPriority: null, attributes: { strength: '500' }, mystery: { a: 1 } },
     { line: 2, item: '300100', quantity: 1, unit: 'BX', daysSupply: null, icd: [], price: 9, eCode: 'E-1', dCode: null, sfdaCode: '123', idfPriority: 2, attributes: {} },
   ],
-  history: [{ item: '200021', on: '2026-09-01' }],
+  history: [{ item: '200021', eventType: 'DISPENSED', at: '2026-09-01T10:00:00' }],
   reference: {},
   eligibility: {},
   payer: { deductibles: {} },
@@ -137,8 +137,8 @@ const FULL = {
   request: { channel: 'nphies', store: 'P001', attributes: {} },
   lines: [{ line: 1, item: '200021', quantity: 2, sfdaCode: '1234-56', attributes: {} }],
   history: [
-    { on: '2026-10-20', item: '200021', quantity: 1, daysSupply: 30, store: 'P001', payer: '0001100041', attributes: { channel: 'pos' } },
-    { on: '2026-09-01', item: '300100', quantity: '2', daysSupply: null, store: 'P002', payer: null, attributes: {}, note: 'kept' },
+    { at: '2026-10-20T10:00:00', eventType: 'DISPENSED', item: '200021', quantity: 1, daysSupply: 30, store: 'P001', payer: '0001100041', attributes: { channel: 'pos' } },
+    { at: '2026-09-01T10:00:00', eventType: 'APPROVED', item: '300100', quantity: '2', daysSupply: null, store: 'P002', payer: null, attributes: {}, note: 'kept' },
   ],
   reference: {
     sfda: { '1234-56': { registerNumber: '1234-56', tradeName: 'Glucophage', publicPrice: 12.5, gtin: '628' } },
@@ -205,10 +205,10 @@ describe('dataRoundTrip — 683 sections', () => {
 describe('683 — a form edit lands in the data', () => {
   it('a history event is added in the event shape, and its fields are typed like a line', () => {
     let f = addHistory(okC({ history: [] }))
-    f.history![0].fields.on = '2026-10-01'
+    f.history![0].fields.at = '2026-10-01T09:00:00'
     f.history![0].fields.quantity = '3'
     f.history![0].attributes = [{ key: 'channel', value: 'pos' }]
-    expect(dataFromForm(f)).toEqual({ history: [{ on: '2026-10-01', item: null, quantity: 3, daysSupply: null, store: null, payer: null, attributes: { channel: 'pos' } }] })
+    expect(dataFromForm(f)).toEqual({ history: [{ at: '2026-10-01T09:00:00', eventType: 'DISPENSED', item: null, quantity: 3, daysSupply: null, store: null, payer: null, attributes: { channel: 'pos' } }] })
     f = removeHistory(f, 0)
     expect(dataFromForm(f)).toEqual({ history: [] })
   })

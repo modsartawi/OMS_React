@@ -8,7 +8,7 @@ import type { PlaygroundKind } from './playground'
 /** One nphies request with one line of 120 days' supply. */
 export const EXAMPLE_DATA = {
   request: { channel: 'nphies', store: 'P001', payer: '0001100041', policy: null, class: null, pharmacist: null, attributes: {} },
-  patient: { birthDate: '1990-04-01', gender: 'male', idType: 'nationalId', attributes: {} },
+  patient: { birthDate: '1990-04-01', gender: 'M', attributes: {} },
   lines: [{ line: 1, item: '200021', quantity: 2, unit: 'PC', daysSupply: 120, icd: ['E11'], price: 120.5, eCode: null, dCode: null, sfdaCode: null, idfPriority: null, attributes: {} }],
   history: [],
   reference: {},

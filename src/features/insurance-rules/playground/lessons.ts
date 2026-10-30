@@ -30,7 +30,7 @@ export interface Lesson {
 const head = (id: string, kind: string, asOf = '2026-10-30T10:00:00') => ({ format: EXPERIMENT_FORMAT, version: 1, name: `lesson-${id}`, kind, asOf })
 
 const REQUEST = { channel: 'nphies', store: 'P001', payer: '0001100041', policy: null, class: null, pharmacist: null, attributes: {} }
-const PATIENT = { birthDate: '1990-04-01', gender: 'male', idType: 'nationalId', attributes: {} }
+const PATIENT = { birthDate: '1990-04-01', gender: 'M', attributes: {} }
 const line = (n: number, over: Record<string, unknown> = {}) => ({
   line: n,
   item: '200021',
@@ -181,7 +181,7 @@ export const LESSONS: readonly Lesson[] = [
     file: {
       ...head('historyWindow', 'guard'),
       data: data([line(1)], {
-        history: [{ on: '2026-10-20', item: '200021', quantity: 1, daysSupply: 30, store: 'P001', payer: '0001100041', attributes: {} }],
+        history: [{ eventType: 'DISPENSED', at: '2026-10-20T10:00:00', item: '200021', quantity: 1, daysSupply: 30, store: 'P001', payer: '0001100041', attributes: {} }],
       }),
       document: doc('guard', [
         {
@@ -247,7 +247,7 @@ export const LESSONS: readonly Lesson[] = [
           name: { en: 'SKU 200021 on more than one line', ar: 'الصنف 200021 في أكثر من سطر' },
           onUnknown: 'none',
           when: [
-            { check: 'line', field: 'item', anyOf: ['200021'] },
+            { check: 'formula', expr: ['==', '$line.item', '200021'] },
             { check: 'formula', expr: ['>=', ['lines', ['filter', '$request.lines', ['==', '$line.item', '200021']]], 2] },
           ],
           then: warn('SKU 200021 is on more than one line of the request', 'الصنف 200021 في أكثر من سطر من الطلب'),

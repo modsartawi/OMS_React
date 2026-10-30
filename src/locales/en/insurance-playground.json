@@ -63,7 +63,6 @@
         "pharmacist": "Pharmacist",
         "birthDate": "Birth date",
         "gender": "Gender",
-        "idType": "ID type",
         "item": "Item (SKU)",
         "quantity": "Quantity",
         "unit": "Unit",
@@ -74,7 +73,8 @@
         "dCode": "dCode",
         "sfdaCode": "SFDA code",
         "idfPriority": "IDF priority",
-        "on": "On (date)"
+        "at": "At (date and time)",
+        "eventType": "Event (DISPENSED, APPROVED…)"
       },
       "history": "History",
       "historyHint": "The patient's earlier dispenses.",
@@ -98,7 +98,6 @@
       "addField": "Add a field",
       "tables": {
         "sfda": "SFDA product",
-        "mapped": "Formulary mapping",
         "formulary": "Formulary indication"
       },
       "eligibility": "Eligibility facts",

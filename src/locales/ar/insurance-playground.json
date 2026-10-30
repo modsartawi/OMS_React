@@ -63,7 +63,6 @@
         "pharmacist": "الصيدلي",
         "birthDate": "تاريخ الميلاد",
         "gender": "الجنس",
-        "idType": "نوع الهوية",
         "item": "الصنف (SKU)",
         "quantity": "الكمية",
         "unit": "الوحدة",
@@ -74,7 +73,8 @@
         "dCode": "dCode",
         "sfdaCode": "رمز الهيئة",
         "idfPriority": "أولوية IDF",
-        "on": "في (تاريخ)"
+        "at": "في (التاريخ والوقت)",
+        "eventType": "الحدث (DISPENSED، APPROVED…)"
       },
       "history": "السجل",
       "historyHint": "عمليات الصرف السابقة للمريض.",
@@ -98,7 +98,6 @@
       "addField": "إضافة حقل",
       "tables": {
         "sfda": "منتج هيئة الغذاء والدواء",
-        "mapped": "ربط قائمة الأدوية",
         "formulary": "دواعي استعمال قائمة الأدوية"
       },
       "eligibility": "حقائق الأهلية",

@@ -6,9 +6,10 @@ import { Loader2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftStateQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
-import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
+import { GUARD_BACKTESTS_KEY, backtestForAsking, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, monitorBacktestReading, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
+import { isMonitor } from '@/core/insurance-rules/monitor'
 import PublishChecks from '@/core/insurance-rules/PublishChecks'
 import { INSURANCE_RULES_PATH, guardRulePath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
@@ -23,6 +24,7 @@ import Ltr from '@/core/ui/Ltr'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { formatDay, toIsoDate } from '@/core/util/date-format'
+import { formatNumber } from '@/core/util/number-format'
 import { actionsFor, approvalOf, type ApprovalAction, type DraftApproval } from '@/core/insurance-rules/approval'
 import { promoteGate } from './approval'
 import { approvalsApi, shadowFiguresQuery, versionsQuery, type RulesetVersion } from './api'
@@ -83,7 +85,8 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   const userId = useSession((s) => s.userId)
   // The draft's back-tests, newest first (`GET …/Backtests`); the one that counts is this revision's.
   const backtests = useQuery(draftBacktestsQuery())
-  const bt = draftBacktest(backtests.data, approval.revision)
+  // A draft holding a monitor leans only on a back-test that read the kept answers (700).
+  const bt = backtestForAsking(draftBacktest(backtests.data, approval.revision), doc.rules, approval.revision)
   // HQ's checks of THIS revision; asked once per revision.
   const checks = useQuery({
     queryKey: [...INSURANCE_RULES_KEY, 'guards', 'checks', doc.revision],
@@ -156,6 +159,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
         <dd data-backtest-standing={standing}>
           <BacktestLine standing={standing} bt={bt} loading={backtests.isPending} />
         </dd>
+        {bt?.monitors && standing === 'current' && <MonitorRaised bt={bt} />}
         <dt className="text-muted-foreground">{t('checks.label')}</dt>
         <dd data-checks={checks.isPending ? 'checking' : checks.isError ? 'failed' : verdict?.blocked ? 'errors' : 'pass'}>
           {checks.isPending ? (
@@ -253,6 +257,23 @@ function BacktestLine({ standing, bt, loading }: { standing: ReturnType<typeof b
   )
 }
 
+/** What the draft's monitors would have raised, for the author who asks and the approver who decides (700). */
+function MonitorRaised({ bt }: { bt: GuardBacktest }) {
+  const { t } = useTranslation(NS)
+  const r = monitorBacktestReading(bt.monitors!)
+  return (
+    <>
+      <dt className="text-muted-foreground">{t('backtest.raisedLabel')}</dt>
+      <dd className="flex flex-wrap items-baseline gap-1" data-backtest-raised={r.total} data-backtest-raised-on={r.raisedOn}>
+        <span>{t('backtest.raised', { items: fsi(formatNumber(r.total)), answers: fsi(formatNumber(r.raisedOn)) })}</span>
+        <Link to={`${SIMULATOR_PATH}?tab=backtest&id=${encodeURIComponent(bt.id)}`} className="text-primary hover:underline" data-backtest-raised-open="">
+          {t('backtest.raisedOpen')}
+        </Link>
+      </dd>
+    </>
+  )
+}
+
 // ── Shadow rules: figures, days, promote ───────────────────────────────────────────────────────
 
 function ShadowSection({ doc, approver }: { doc: GuardRuleset; approver: boolean }) {
@@ -263,6 +284,11 @@ function ShadowSection({ doc, approver }: { doc: GuardRuleset; approver: boolean
       <div>
         <h2 className="text-base font-semibold tracking-tight">{t('shadow.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('shadow.hint')}</p>
+        {shadow.some(isMonitor) && (
+          <p className="text-xs text-muted-foreground" data-shadow-monitor-hint="">
+            {t('shadow.monitorHint')}
+          </p>
+        )}
       </div>
       {shadow.length === 0 ? (
         <p className="rounded-md border border-border/60 py-4 text-center text-sm text-muted-foreground" data-shadow-empty="">
@@ -327,7 +353,7 @@ function ShadowRow({ rule, approver }: { rule: GuardRule; approver: boolean }) {
           </dd>
         </div>
         <div className="flex gap-1">
-          <dt>{t('shadow.fires')}</dt>
+          <dt>{t(isMonitor(rule) ? 'shadow.raises' : 'shadow.fires')}</dt>
           <dd data-shadow-fires={figures.data ? figures.data.shadowFires : figures.isPending ? 'loading' : 0}>
             {figures.isPending ? t('shadow.loadingFigures') : figures.isError ? t('shadow.noFigures') : <Ltr>{figures.data?.shadowFires ?? 0}</Ltr>}
           </dd>

@@ -28,7 +28,10 @@
     "failed": "Failed, run it again",
     "stale": "Out of date: the draft changed since",
     "ofRevision": "of revision",
-    "open": "Run a back-test"
+    "open": "Run a back-test",
+    "raisedLabel": "Monitors",
+    "raised": "Review items they would have raised: {{items}}. Kept answers raised on: {{answers}}.",
+    "raisedOpen": "Read the answers"
   },
   "checks": {
     "label": "HQ's checks",
@@ -69,6 +72,8 @@
     "since": "In shadow since",
     "days": "Days in shadow:",
     "fires": "Would have fired:",
+    "raises": "Would have raised:",
+    "monitorHint": "A monitor in shadow raises no review item until it is promoted, on the same 14 days.",
     "loadingFigures": "Loading…",
     "noFigures": "Not available",
     "unknown": "Unknown",

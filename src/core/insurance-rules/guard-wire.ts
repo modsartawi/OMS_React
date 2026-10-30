@@ -17,9 +17,9 @@
 import { parseExpr, printExpr } from '@/core/rules/expr'
 import type { RuleExpr } from '@/core/models/rule-campaign'
 import { ELIGIBILITY_TESTS, type GuardList, type GuardListFilter, type GuardRule, type GuardRuleFilter, type GuardRuleset } from './model'
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 /** The fact scopes the engine reads as a block of their own (`$<scope>.<field>` in the editor). */

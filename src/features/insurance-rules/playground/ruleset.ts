@@ -13,6 +13,7 @@ import {
 import { guardRuleIn, guardRuleOut, guardRulesetIn, otherRuleIn, otherRuleOut, rulesetIn } from '@/core/insurance-rules/guard-wire'
 import type { GuardCondition, GuardList, GuardRule } from '@/core/insurance-rules/model'
 import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rules/playground'
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
 // The Rule pane's mini ruleset (oms 679): the scratch document's rules read into the editors' model through the SAME
 // wire codec the rule screens save through (`core/insurance-rules/guard-wire`), and printed back. Pure.
@@ -27,7 +28,6 @@ import type { PlaygroundKind, PlaygroundReaderError } from '@/core/insurance-rul
 // over the codec the Categories / Coverage pages save through (`guard-wire`'s `rulesetIn` / `rulesetOut` rule halves).
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 /** One kind's rule codec: the engine's rule → the editors' rule, and back. */
 export interface RuleCodec<R> {

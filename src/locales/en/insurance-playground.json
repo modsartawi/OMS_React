@@ -393,7 +393,7 @@
       },
       "otherPayer": {
         "title": "7. The same benefit code at another payer",
-        "explain": "Benefit codes belong to the payer. This experiment reads <c>benefit[66].approvalLimit</c> again, but the request is at payer <c>0001100099</c>, whose category 66 has an approval limit of 100. The price of 120.5 is above it, so the guard warns, where at the first payer's 10,000 it would not. What each payer's code means is kept in insurer settings, never assumed."
+        "explain": "Benefit codes belong to the payer. This lesson opens Compare: A is the request at payer <c>0001100099</c>, whose category 66 has an approval limit of 100; B is the same request and the same rule at payer <c>0001100041</c>, whose category 66 limit is 10,000. Both read <c>benefit[66].approvalLimit</c>, yet the price of 120.5 is above A's limit and not B's: A warns, B does not, and line 1 is highlighted. What each payer's code means is kept in insurer settings, never assumed."
       },
       "crossLine": {
         "title": "8. A check across lines",

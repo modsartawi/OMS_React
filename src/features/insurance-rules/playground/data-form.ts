@@ -12,9 +12,9 @@
 // cannot show is NOT a refusal of the whole form: it is kept as JSON and named in `more`. The shapes of reference and
 // payer are the brief's names (engine GuardReference / CoveragePayer), reconciled in 691.
 
-type Obj = Record<string, unknown>
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
+type Obj = Record<string, unknown>
 
 /** The request's fields the form shows (besides `attributes`). */
 export const REQUEST_FIELDS = ['channel', 'store', 'payer', 'policy', 'class', 'pharmacist'] as const

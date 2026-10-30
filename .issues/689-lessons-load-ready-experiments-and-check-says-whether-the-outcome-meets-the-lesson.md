@@ -84,3 +84,8 @@ All nine lessons load, and Check judges them against the stub. Vitest and drive 
   example fact; the owner must confirm against a real payer answer (pairs with 685's paste). Load is an explicit button
   (picking alone never overwrites the experiment). A Check result shows only for the answer it judged. The lesson
   experiment's name is the machine `lesson-<id>`. Lesson titles are numbered in the copy ("1. …").
+- **Review fixes (3243-review):** lesson 7 (`otherPayer`) now contrasts two payers. A lesson may ship a B side
+  (`compare.data`); loading it opens Compare with that data and the lesson's rule (`lessonCompareSeed`): A is payer
+  0001100099 (approval limit 100, warns), B the same request at 0001100041 (limit 10,000, passes), line 1 highlighted.
+  Check still judges A only. Loading any lesson without a B side closes Compare (its B was a copy of the experiment the
+  lesson replaced). Explanation rewritten en + ar to say so; lessons drive step 2b covers it.

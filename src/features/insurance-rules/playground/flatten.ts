@@ -10,9 +10,9 @@
 // 🚩 DRIFT for 691: the brief's spec body names only `{ response }`; its contract names `source`, `memberId` and
 // `policy` too. Built to the contract.
 
-type Obj = Record<string, unknown>
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
+type Obj = Record<string, unknown>
 
 /** The payers whose answers the door flattens. */
 export const FLATTEN_SOURCES = ['nphies', 'bupa'] as const

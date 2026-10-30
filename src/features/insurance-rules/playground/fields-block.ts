@@ -5,13 +5,13 @@ import {
   type DeclaredFieldScope,
 } from '@/core/insurance-rules/guard-formula-guide'
 import type { FieldScope, RegistryField } from '@/core/insurance-rules/registry'
+import { isPlainObject as isObj } from '@/core/util/plain-object'
 
 // The experiment document's `fields` block (oms 681, ADR 0117): the fields its formulas read, `[{ key, scope, type }]`.
 // A registry field is picked into it at its formula scope; a scratch field is only a declaration here — it is never
 // posted to the registry. Pure.
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 /** The registry scope a formula reads at: an item field is the line's (`line.field.Key`). Eligibility facts and the
  * computed `line` facts (`idfPriority`) are read by their own paths, not as fields. */

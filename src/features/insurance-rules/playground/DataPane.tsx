@@ -5,7 +5,7 @@ import Textarea from '@/core/ui/Textarea'
 import type { PlaygroundKind } from '@/core/insurance-rules/playground'
 import { formFromText, formText, type DataForm } from './data-form'
 import { DataFormView } from './DataFormView'
-import { DATA_TABS, type DataTab } from './experiment'
+import { DATA_TABS, type DataTab } from './boxes'
 import { FlattenPanel } from './FlattenPanel'
 import { JsonPane } from './JsonPane'
 
@@ -42,11 +42,13 @@ export function DataPane({
   invalid: boolean
 }) {
   const { t } = useTranslation('insurance-playground')
-  const [own, setOwn] = useState<{ text: string; form: DataForm } | null>(null)
-  const read = useMemo(() => (tab !== 'form' ? null : own && own.text === dataText ? { form: own.form } : formFromText(dataText, { payer: kind === 'coverage' })), [tab, own, dataText, kind])
+  // The form as last edited here, for the text it printed AND the kind it was read for (a kind switch that keeps the
+  // data re-reads it: the payer is a form section for coverage only)
+  const [own, setOwn] = useState<{ text: string; kind: string; form: DataForm } | null>(null)
+  const read = useMemo(() => (tab !== 'form' ? null : own && own.text === dataText && own.kind === kind ? { form: own.form } : formFromText(dataText, { payer: kind === 'coverage' })), [tab, own, dataText, kind])
   const editForm = (form: DataForm) => {
     const text = formText(form)
-    setOwn({ text, form })
+    setOwn({ text, kind, form })
     onDataText(text)
   }
 

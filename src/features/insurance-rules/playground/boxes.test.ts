@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
-import { evaluateBody, kindSeed, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT } from './experiment'
+import { dataForKind, evaluateBody, kindSeed, SEED_COVERAGE_PAYER, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT } from './boxes'
 
 const AS_OF = '2026-10-30T14:05:00'
 
@@ -80,5 +80,35 @@ describe('evaluateBody — the Form tab', () => {
   it('sends data and no raw', () => {
     const r = evaluateBody({ dataTab: 'form', rawText: 'x', dataText: SEED_DATA_TEXT, documentText: SEED_DOCUMENT_TEXT, asOf: AS_OF })
     expect(Object.keys(r.body ?? {})).toEqual(['kind', 'data', 'document', 'asOf'])
+  })
+})
+
+describe('dataForKind', () => {
+  it("the previous kind's unedited seed becomes the new kind's seed", () => {
+    expect(dataForKind('guard', 'coverage', kindSeed('guard').dataText)).toBe(kindSeed('coverage').dataText)
+    expect(dataForKind('coverage', 'category', kindSeed('coverage').dataText)).toBe(kindSeed('category').dataText)
+  })
+
+  it('edited data is kept; switching to coverage adds the seed payer it needs', () => {
+    const edited = { request: { payer: 'X' }, lines: [{ line: 1, item: '999' }] }
+    const out = JSON.parse(dataForKind('guard', 'coverage', JSON.stringify(edited)))
+    expect(out).toEqual({ ...edited, payer: SEED_COVERAGE_PAYER })
+  })
+
+  it('edited coverage data keeps its own payer into coverage, and its edited payer out of it', () => {
+    const own = { lines: [{ line: 1 }], payer: { deductibles: { G1: { percent: 5, max: 1 } } } }
+    expect(JSON.parse(dataForKind('category', 'coverage', JSON.stringify(own)))).toEqual(own)
+    expect(JSON.parse(dataForKind('coverage', 'guard', JSON.stringify(own)))).toEqual(own)
+  })
+
+  it("leaving coverage drops the payer only while it is still the seed's", () => {
+    const edited = { lines: [{ line: 1, item: '999' }], payer: SEED_COVERAGE_PAYER }
+    expect(JSON.parse(dataForKind('coverage', 'guard', JSON.stringify(edited)))).toEqual({ lines: [{ line: 1, item: '999' }] })
+  })
+
+  it('data that does not parse, or a kind that needs nothing more, is left exactly as typed', () => {
+    expect(dataForKind('guard', 'coverage', '{ "lines": [')).toBe('{ "lines": [')
+    const text = '{"lines":[{"line":1,"item":"999"}]}'
+    expect(dataForKind('guard', 'category', text)).toBe(text)
   })
 })

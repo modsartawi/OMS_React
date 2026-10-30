@@ -1,4 +1,5 @@
 import { EXPERIMENT_FORMAT, readExperiment, type PlaygroundExperiment } from '@/core/insurance-rules/experiment'
+import type { CompareSeed } from './ComparePanel'
 import type { LessonExpect } from './lesson-check'
 
 // The playground's lessons (BackOffice spec 3243 stories 45-47; oms ticket 689): static experiments shipped with the
@@ -19,6 +20,11 @@ export interface Lesson {
   file: Record<string, unknown>
   /** The expected result, every expectation of which must hold. */
   expects: LessonExpect[]
+  /**
+   * A lesson that contrasts two answers ships its B side (3243 review): Compare opens with this data and the lesson's
+   * own rule. Check still judges A; B is there to be seen beside it.
+   */
+  compare?: { data: Record<string, unknown> }
 }
 
 const head = (id: string, kind: string, asOf = '2026-10-30T10:00:00') => ({ format: EXPERIMENT_FORMAT, version: 1, name: `lesson-${id}`, kind, asOf })
@@ -227,6 +233,8 @@ export const LESSONS: readonly Lesson[] = [
       { expect: 'matched', lines: [1] },
       { expect: 'verdict', line: 1, field: 'outcome', value: 'warn' },
     ],
+    // B: the same request and rule at the first payer, whose category 66 approval limit is 10,000 — line 1 passes.
+    compare: { data: data([line(1)], { eligibility: { 'benefit[66].approvalLimit': num(10000) } }) },
   },
   {
     id: 'crossLine',
@@ -280,6 +288,12 @@ export function lessonExperiment(lesson: Lesson): PlaygroundExperiment {
   const r = readExperiment(lesson.file)
   if (!r.ok) throw new Error(`lesson ${lesson.id} does not decode: ${r.code}`)
   return r.experiment
+}
+
+/** The lesson's B side as Compare's seed (its data, the lesson's own rule); null for a lesson with none. */
+export function lessonCompareSeed(lesson: Lesson): CompareSeed | null {
+  if (!lesson.compare) return null
+  return { dataTab: 'json', dataText: JSON.stringify(lesson.compare.data, null, 2), rawText: '', documentText: JSON.stringify(lessonExperiment(lesson).document, null, 2) }
 }
 
 export const lessonById = (id: string): Lesson | undefined => LESSONS.find((l) => l.id === id)

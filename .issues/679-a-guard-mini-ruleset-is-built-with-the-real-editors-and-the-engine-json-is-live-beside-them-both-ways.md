@@ -74,3 +74,9 @@ lands on its block. Drive and vitest are green.
   placed only when the answer was asked for the current kind, against the current text.
 - **Shape guess for 691:** reader error paths read as `rules[i].when[j](.conditions[k])*.<field>` /
   `rules[i].then[j].<field>` / `rules[i](.<field>)` — the 3139 `blockPath` grammar under a `rules[i]` prefix.
+- **Review fixes (3243-review):** a guard rule's `name` (EN / AR, core `Field` + `Input`) and `onUnknown` (core `Select`,
+  the guard screen's own `insurance-guards:editor.onUnknown.*` words) are edited in the Rule pane; no control-ratchet
+  line. The JSON follows both ways (round-trip tests + drive step 15b); `onUnknown` set back to `none` on a rule that
+  had none adds no default. The playground's plain-object guard, storage type and refusal banner are now one each
+  (`core/util/plain-object`, `core/util/storage-like`, `playground/RefusalBanner`); `playground/experiment.ts` is now
+  `playground/boxes.ts`.

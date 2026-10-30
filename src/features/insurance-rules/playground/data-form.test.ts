@@ -3,7 +3,7 @@
  * empty ICD, null codes, keys the form does not know); an edit in the form lands in the data and nowhere else.
  */
 import { describe, expect, it } from 'vitest'
-import { kindSeed, SEED_DATA } from './experiment'
+import { kindSeed, SEED_DATA } from './boxes'
 import {
   addFact,
   addHistory,

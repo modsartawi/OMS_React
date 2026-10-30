@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { PlaygroundEvaluateBody, PlaygroundKind } from '@/core/insurance-rules/playground'
 import { TD, TH } from '@/core/insurance-rules/parts'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
+import RefusalBanner from './RefusalBanner'
 import { playgroundApi } from './api'
 import { compareDiff, sideOf, type CompareLine, type CompareSide, type Mark, type Paired } from './compare-diff'
-import { evaluateBody, type DataTab } from './experiment'
+import { evaluateBody, type DataTab } from './boxes'
 import { TraceValueBadge } from './OutcomePane'
 import { Shown } from './ReadLog'
 import type { ReadRow } from './reads'
@@ -83,13 +82,7 @@ export default function ComparePanel({ seed, kind, asOf, a }: { seed: CompareSee
       </div>
 
       {error ? (
-        <ErrorBanner className="p-3" title={t('compare.b.refused')} message={apiErrorMessage(error, t('outcome.failed'))}>
-          {apiErrorCode(error) && (
-            <span className="text-xs" data-refusal-code={apiErrorCode(error)}>
-              <Ltr>{apiErrorCode(error)}</Ltr>
-            </span>
-          )}
-        </ErrorBanner>
+        <RefusalBanner error={error} title={t('compare.b.refused')} fallback={t('outcome.failed')} />
       ) : a && b ? (
         <SideBySide a={a} b={b} />
       ) : (

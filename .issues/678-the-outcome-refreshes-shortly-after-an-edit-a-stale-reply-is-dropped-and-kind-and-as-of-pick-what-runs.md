@@ -81,3 +81,9 @@ tab B. Drive green; vitest green.
   defaults to the moment the page opened; a cleared input falls back to that moment (never a moving now, which would
   re-run forever). A failure replaces the outcome until the next good answer; "running…" shows only once there is
   something to keep. `run.run` ("Run") removed from both locales.
+- **Review fixes (3243-review):** a kind switch no longer overwrites edited data. `dataForKind` (`playground/boxes.ts`)
+  replaces the Data box with the new kind's seed only while it is still the old kind's UNEDITED seed; otherwise the
+  user's data is kept, with coverage's `payer` (the seed payer) added on the way in when absent and dropped on the way
+  out only while it is still exactly the seed's. The document is always the new kind's seed. The Data form re-reads
+  kept data for the new kind (its cache is keyed by kind too), so the payer section stays coverage-only. The drive's
+  step 12 now asserts the edited data is kept (and the payer added for coverage).

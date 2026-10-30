@@ -19,12 +19,12 @@ type Obj = Record<string, unknown>
 /** The request's fields the form shows (besides `attributes`). */
 export const REQUEST_FIELDS = ['channel', 'store', 'payer', 'policy', 'class', 'pharmacist'] as const
 /** The patient's fields the form shows (besides `attributes`). */
-export const PATIENT_FIELDS = ['birthDate', 'gender', 'idType'] as const
+export const PATIENT_FIELDS = ['birthDate', 'gender'] as const
 /** A line's fields the form shows (besides `line`, its number, and `attributes`). */
 export const LINE_FIELDS = ['item', 'quantity', 'unit', 'daysSupply', 'icd', 'price', 'eCode', 'dCode', 'sfdaCode', 'idfPriority'] as const
 
 /** A history event's fields the form shows (besides `attributes`). */
-export const HISTORY_FIELDS = ['on', 'item', 'quantity', 'daysSupply', 'store', 'payer'] as const
+export const HISTORY_FIELDS = ['at', 'eventType', 'item', 'quantity', 'daysSupply', 'store', 'payer'] as const
 
 export type RequestField = (typeof REQUEST_FIELDS)[number]
 export type PatientField = (typeof PATIENT_FIELDS)[number]
@@ -42,7 +42,7 @@ export const FACT_TYPES = ['number', 'text', 'flag', 'date'] as const
 
 /** GUESS (691): the engine's GuardReference tables — SFDA product rows (one per code), formulary mapping and
  * indication rows (a list per code). A table the data names that is not one of these is still shown. */
-export const REFERENCE_TABLES = ['sfda', 'mapped', 'formulary'] as const
+export const REFERENCE_TABLES = ['sfda', 'formulary'] as const
 
 /** The deductible groups a payer states (the engine's CoveragePayer.Deductibles). */
 export const DEDUCTIBLE_GROUPS = ['G1', 'G2', 'G3'] as const
@@ -431,7 +431,7 @@ export function dataFromForm(form: DataForm): Obj {
 /** A new history event: an earlier dispense of one of an item nobody named yet. */
 export function addHistory(form: DataForm): DataForm {
   if (!form.history) return form
-  const base: Obj = { on: null, item: null, quantity: 1, daysSupply: null, store: null, payer: null, attributes: {} }
+  const base: Obj = { at: null, eventType: 'DISPENSED', item: null, quantity: 1, daysSupply: null, store: null, payer: null, attributes: {} }
   return { ...form, history: [...form.history, { ...readSection(base, HISTORY_FIELDS, `history[${form.history.length}]`, []), uid: nextUid() }] }
 }
 

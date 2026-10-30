@@ -53,3 +53,18 @@ All of 676-690; BackOffice 3244-3252 deployed.
 
 - Which door answers the playground grant for the menu leaf (a new `Playground/Access` probe, or a flag on the
   insurance probe of 618)? If nothing is built, file it as a BackOffice ask.
+
+## Comments
+
+- 2026-10-30 — **first live walk** (BackOffice `pricing2` + `walk3243`, SIS.Rules 1.0.28, local SIS.Api, ADMIN wildcard), driven in Chrome:
+  - BackOffice fixed on its side (brief Changes, 2026-10-30 live walk): a rule with no `state` reads as a draft (every
+    experiment answered `rules[0].state` is required); a line with no `quantity` reads it unknown (lesson 9).
+  - Reconciled here: patient = `{ birthDate, gender: 'M'|'F' }` (no `idType`: the engine derives it from
+    `request.patientKey`); a history event is `{ eventType, at: 'yyyy-MM-ddTHH:mm:ss', … }` (not `on`); the reference
+    tables are `sfda` and `formulary` (no `mapped`); lesson 8's first block is a formula on `$line.item` (a line check
+    has no `item` field).
+  - Live: guard / coverage / category, raw intake, Flatten (object and pasted text, `PLAYGROUND_SOURCE`), the read log,
+    a declared line field, `count` over `request.lines`, and **all nine lessons' Check met**. Lesson 6 answers the
+    owner's question: 10,000 is the approval limit.
+  - Still open: the grant gate for the menu leaf (open question), the remaining `GUESS (691)` shapes (coverage payer),
+    a drive script against the live door, and the owner walk on the deployed host.

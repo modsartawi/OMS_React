@@ -19,7 +19,8 @@ import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { aliasBody, aliasProblems, approveStanding, type AliasForm, type AliasRow } from './alias-form'
-import { ALIASES_KEY, aliasesApi } from './api'
+import { ALIASES_KEY, REPINS_KEY, aliasesApi } from './api'
+import RepinDrafts from './RepinDrafts'
 
 const BLANK: AliasForm = { payer: '', wrongUrl: '', canonicalUrl: '' }
 
@@ -41,6 +42,7 @@ export default function AliasesPage() {
       <>
         <AliasTable rows={aliases.data} />
         <ProposeAlias />
+        <RepinDrafts />
       </>
     )
 
@@ -100,7 +102,8 @@ function AliasLine({ alias }: { alias: AliasRow }) {
     mutationFn: () => aliasesApi.approve(alias.id),
     onSuccess: () => notify.success(t('approve.done'), fsi(alias.wrongUrl)),
     onError: (err) => (isBareDenial(err) ? notify.error(t('approve.failed'), t('access.grant')) : notify.apiError(t('approve.failed'), err, t('approve.failed'))),
-    onSettled: () => qc.invalidateQueries({ queryKey: ALIASES_KEY }),
+    // An approved alias is what puts a published ruleset on the re-pin list.
+    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ALIASES_KEY }), qc.invalidateQueries({ queryKey: REPINS_KEY })]),
   })
   const ask = async () => {
     const message = t('approve.confirm', { payer: fsi(alias.payer), wrong: fsi(alias.wrongUrl), canonical: fsi(alias.canonicalUrl) })

@@ -7,7 +7,7 @@ import { factTestFor, shapeOfRow } from './fact-tests'
 import type { FactCondition, Says } from './model'
 
 /** The messages a fact reads, in the order the catalog shows them (story 1). */
-export const FHIR_MESSAGES = ['eligibility', 'claim', 'claimResponse', 'communication', 'payment', 'previous'] as const
+export const FHIR_MESSAGES = ['eligibility', 'claim', 'claimResponse', 'communicationRequest', 'paymentReconciliation', 'previous'] as const
 export type FhirMessage = (typeof FHIR_MESSAGES)[number]
 
 export const FHIR_LEVELS = ['message', 'line'] as const
@@ -67,7 +67,7 @@ export const factKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key' | 'pr
 export const codedFactKey = (r: Pick<FhirCatalogRow, 'moment' | 'level' | 'key'>, code: string): string => factKey(r).replace('[*]', `[${code}]`)
 
 /** Whether a `$`-path sits on a FHIR message, so the catalog could hold it. A patient or request fact never can. */
-export const mayBeCatalogKey = (path: string): boolean => /^\$(previous\.)?(line\.)?(claim|claimResponse)\.|^\$(eligibility|communication|payment)\./.test(path)
+export const mayBeCatalogKey = (path: string): boolean => /^\$(previous\.)?(line\.)?(claim|claimResponse)\.|^\$(eligibility|communicationRequest|paymentReconciliation)\./.test(path)
 
 /** The catalog's field for a stored key, with the code the key names (`null` when it names none). */
 export function catalogEntryOf(rows: readonly FhirCatalogRow[], path: string): { row: FhirCatalogRow; code: string | null } | null {

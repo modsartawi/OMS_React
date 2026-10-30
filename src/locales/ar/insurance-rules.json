@@ -85,8 +85,8 @@
       "eligibility": "الأهلية",
       "claim": "المطالبة",
       "claimResponse": "رد المطالبة",
-      "communication": "المراسلة",
-      "payment": "الدفع",
+      "communicationRequest": "طلب المراسلة",
+      "paymentReconciliation": "تسوية الدفع",
       "previous": "الرد السابق"
     },
     "level": {
@@ -286,6 +286,10 @@
     },
     "when": {
       "monitor": "يُقرأ عند حفظ كل رد من الجهة على <uses>{{uses}}</uses>",
+      "monitorScope": {
+        "communicationRequest": "يُقرأ عند حفظ كل طلب مراسلة من الجهة",
+        "paymentReconciliation": "يُقرأ على كل بند من تسوية دفع محفوظة"
+      },
       "use": {
         "preauthorization": "موافقة مسبقة",
         "claim": "مطالبة"

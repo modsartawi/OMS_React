@@ -1,33 +1,63 @@
 // A monitor's WHEN and THEN on the guard builder (oms 699). A monitor has none of the guard's till effects, so these draw only
 // what it has: the answers it reads, and a review item's severity and text.
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
 import { Issues } from '@/core/insurance-rules/controls'
-import { effectSeveritiesFor, toggleUse } from '@/core/insurance-rules/monitor'
-import { MONITOR_USES, type GuardEffect, type GuardRule } from '@/core/insurance-rules/model'
+import { effectSeveritiesFor, setMonitorScope, toggleUse } from '@/core/insurance-rules/monitor'
+import { MONITOR_SCOPES, MONITOR_USES, type GuardEffect, type GuardRule, type MonitorScope } from '@/core/insurance-rules/model'
 import Chip from '@/core/ui/Chip'
 import type { RuleEdit } from './ConditionEditor'
 import { MessageBox } from './EffectEditor'
 
-/** The message it reads (701 lets this be chosen), and which answers of it. The last use cannot be turned off. */
+/**
+ * The message it reads (oms 701), and on a claim response which answers of it. The last use cannot be turned off. A change
+ * of scope drops the blocks the new message cannot read, and says so: Undo brings them back.
+ */
 export function MonitorScopeEditor({ rule, edit }: { rule: GuardRule; edit: RuleEdit }) {
   const { t } = useTranslation('insurance-guards')
+  const [droppedOn, setDroppedOn] = useState<MonitorScope | null>(null)
+  const scope = rule.scope ?? 'claimResponse'
   const uses = rule.uses ?? []
+  const pick = (s: MonitorScope) => {
+    if (s === scope) return
+    const next = setMonitorScope(rule, s)
+    setDroppedOn(JSON.stringify(next.when) !== JSON.stringify(rule.when) ? s : null)
+    edit((r) => setMonitorScope(r, s))
+  }
   return (
-    <div className="flex flex-col gap-2 text-xs" data-monitor-scope={rule.scope ?? ''}>
-      <p>
-        <span className="text-muted-foreground">{t('monitor.scope')}</span> <span className="font-medium">{t(`insurance-rules:catalog.message.${rule.scope ?? 'claimResponse'}`)}</span>
-      </p>
+    <div className="flex flex-col gap-2 text-xs" data-monitor-scope={scope}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground">{t('monitor.uses')}</span>
-        <div className="inline-flex gap-1" role="group" aria-label={t('monitor.uses')}>
-          {MONITOR_USES.map((u) => (
-            <Chip key={u} on={uses.includes(u)} data-monitor-use={u} onClick={() => edit((r) => toggleUse(r, u))}>
-              {t(`insurance-rules:sentence.when.use.${u}`)}
+        <span className="text-muted-foreground">{t('monitor.scope')}</span>
+        <div className="inline-flex flex-wrap gap-1" role="group" aria-label={t('monitor.scope')}>
+          {MONITOR_SCOPES.map((s) => (
+            <Chip key={s} on={s === scope} data-monitor-scope-pick={s} onClick={() => pick(s)}>
+              {t(`insurance-rules:catalog.message.${s}`)}
             </Chip>
           ))}
         </div>
       </div>
+      {scope === 'claimResponse' ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground">{t('monitor.uses')}</span>
+          <div className="inline-flex gap-1" role="group" aria-label={t('monitor.uses')}>
+            {MONITOR_USES.map((u) => (
+              <Chip key={u} on={uses.includes(u)} data-monitor-use={u} onClick={() => edit((r) => toggleUse(r, u))}>
+                {t(`insurance-rules:sentence.when.use.${u}`)}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-muted-foreground" data-monitor-scope-note={scope}>
+          {t(`monitor.scopeNote.${scope}`)}
+        </p>
+      )}
+      {droppedOn === scope && (
+        <p role="status" data-monitor-scope-dropped="">
+          {t('monitor.scopeDropped')}
+        </p>
+      )}
     </div>
   )
 }

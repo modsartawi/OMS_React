@@ -32,8 +32,8 @@ export type RuleKind = (typeof RULE_KINDS)[number]
 export const MONITOR_SEVERITIES = ['info', 'action'] as const
 export type MonitorSeverity = (typeof MONITOR_SEVERITIES)[number]
 export type RuleSeverity = GuardSeverity | MonitorSeverity
-/** The messages a monitor reads (701 adds its other scopes). */
-export const MONITOR_SCOPES = ['claimResponse'] as const
+/** The messages a monitor reads (oms 701, A11: the last two read their own facts, with no `use` and no `$previous`). */
+export const MONITOR_SCOPES = ['claimResponse', 'communicationRequest', 'paymentReconciliation'] as const
 export type MonitorScope = (typeof MONITOR_SCOPES)[number]
 /** The `use` of a `ClaimResponse` a monitor watches: FHIR's own codes. */
 export const MONITOR_USES = ['preauthorization', 'claim'] as const

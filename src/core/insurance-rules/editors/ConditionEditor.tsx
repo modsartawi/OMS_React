@@ -116,11 +116,11 @@ function AddCondition({ ctx, parent }: { ctx: Ctx; parent: ConditionPath }) {
         onChange={(e) => {
           const check = e.target.value as PaletteBlock
           if (!check) return
-          ctx.edit((r) => ({ ...r, when: addCondition(r.when, parent, monitor ? newMonitorCondition(check) : newCondition(check)) }))
+          ctx.edit((r) => ({ ...r, when: addCondition(r.when, parent, monitor ? newMonitorCondition(check, r.scope) : newCondition(check)) }))
         }}
       >
         <option value="">{t('editor.group.add')}</option>
-        {paletteFor(monitor ? 'monitor' : 'guard').map((g) => (
+        {paletteFor(monitor ? 'monitor' : 'guard', ctx.rule.scope).map((g) => (
           <optgroup key={g.group} label={t(`editor.palette.${g.group}`)}>
             {g.checks.map((check) => (
               <option key={check} value={check} disabled={check === 'group' && !groupOk}>
@@ -668,7 +668,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               })}
             </Select>
           </Field>}
-          <FhirFactPicker value={c.path} kind={monitor ? 'monitor' : 'guard'} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
+          <FhirFactPicker value={c.path} kind={monitor ? 'monitor' : 'guard'} scope={ctx.rule.scope} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
           <FactTestFields
             c={c}
             shape={factShapeOf(c, catalog, fields)}
@@ -685,7 +685,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
         // oms 681: the formula field may shrink with a narrow pane (the playground's Rule pane), so ƒx stays in reach.
         <Field label={t('editor.field.formula')} className="w-full min-w-0">
           {/* oms 657: the guided ƒx helper; typing coalesces into one step, an insert is a step of its own. */}
-          <GuardFormulaBox value={c.formula} invalid={bad('formula')} language={ctx.language} monitor={isMonitor(ctx.rule)} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
+          <GuardFormulaBox value={c.formula} invalid={bad('formula')} language={ctx.language} monitor={isMonitor(ctx.rule) ? (ctx.rule.scope ?? 'claimResponse') : undefined} onValue={(s, typed) => set((x) => ({ ...x, formula: s }), typed ? 'formula' : undefined)} />
         </Field>
       )
     default:

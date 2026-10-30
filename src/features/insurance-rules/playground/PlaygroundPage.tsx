@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { PlaygroundExperiment } from '@/core/insurance-rules/experiment'
 import { localAsOf, PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundEvaluateReply, type PlaygroundKind } from '@/core/insurance-rules/playground'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { readHandoff, type PlaygroundHandoff } from '@/core/insurance-rules/playground-handoff'
+import { fsi } from '@/core/util/bidi'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -92,10 +95,13 @@ export default function PlaygroundPage() {
 
   // 689: the loaded lesson, until the experiment is replaced (another lesson, an opened experiment, a kind switch).
   const [lessonId, setLessonId] = useState<string | null>(null)
+  // 688: the rule a hand-off copied, said above the experiment until the experiment is replaced.
+  const [copiedFrom, setCopiedFrom] = useState<PlaygroundHandoff['from'] | null>(null)
 
   const pickKind = (k: PlaygroundKind) => {
     if (k === kind) return
     setLessonId(null)
+    setCopiedFrom(null)
     const seed = kindSeed(k)
     setKind(k)
     setDataText(seed.dataText)
@@ -120,9 +126,25 @@ export default function PlaygroundPage() {
 
   const openExperiment = (e: PlaygroundExperiment) => {
     setLessonId(null)
+    setCopiedFrom(null)
     loadExperiment(e)
   }
+  // 688: "Open in playground" on a rule screen hands a COPY over (router state, else a reload's short-lived stash).
+  // Read once, on arrival; the copy then is an ordinary experiment — nothing here ever writes back to the rule.
+  const location = useLocation()
+  const handedOff = useRef(false)
+  useEffect(() => {
+    if (handedOff.current) return
+    handedOff.current = true
+    const h = readHandoff(location.state, location.search, Date.now())
+    if (!h) return
+    loadExperiment(h.experiment)
+    setCopiedFrom(h.from)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const loadLesson = (l: Lesson) => {
+    setCopiedFrom(null)
     loadExperiment(lessonExperiment(l))
     setLessonId(l.id)
   }
@@ -153,6 +175,11 @@ export default function PlaygroundPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
 
+      {copiedFrom && (
+        <p className="max-w-3xl rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-sm" role="status" data-copied-from={copiedFrom.ruleId} data-copied-kind={copiedFrom.kind}>
+          {t('copied', { id: fsi(copiedFrom.ruleId) })}
+        </p>
+      )}
       <ExperimentBar body={built.body} onLoad={openExperiment} />
       <LessonPanel lessonId={lessonId} answer={lessonAnswer} pending={pending} onLoad={loadLesson} />
 

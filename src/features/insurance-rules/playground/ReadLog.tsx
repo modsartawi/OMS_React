@@ -126,7 +126,7 @@ function ReadRowView({ row }: { row: ReadRow }) {
   );
 }
 
-function Shown({ shown }: { shown: ReadShown }) {
+export function Shown({ shown }: { shown: ReadShown }) {
   const { t } = useTranslation("insurance-playground");
   if (shown.state === "value")
     return (

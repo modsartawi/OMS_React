@@ -27,6 +27,7 @@
     "refused": "Refused order",
     "monitor": "Monitor",
     "notEvaluated": "Not evaluated",
+    "drift": "Drift",
     "labelsChanged": "Labels changed",
     "uploadDue": "Upload due",
     "package": "IG package"
@@ -62,6 +63,8 @@
     "otherKind": "Other",
     "open": "Open",
     "message": "Message",
+    "sample": "Sample",
+    "stillRunning": "Rules that read it keep running.",
     "failed": "Failed",
     "severity": {
       "info": "Info",

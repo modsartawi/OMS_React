@@ -32,6 +32,65 @@
     "failed": "The alias could not be approved",
     "own": "You proposed this alias, so someone else approves it."
   },
+  "repin": {
+    "title": "Re-pin drafts",
+    "hint": "These published rulesets still run on an old path or alias. Each moves only through a draft that someone other than its author approves after reading the back-test.",
+    "failed": "The affected rulesets could not be loaded.",
+    "loading": "Loading the affected rulesets…",
+    "empty": "Every published ruleset is on the current paths and aliases.",
+    "grant": "Only a user with the insurance rules permission can raise or approve a re-pin draft.",
+    "version": "Version",
+    "raise": "Raise a re-pin draft",
+    "raiseFailed": "The re-pin draft could not be raised",
+    "open": "Open the draft",
+    "close": "Close",
+    "draftTitle": "Re-pin draft",
+    "draftFailed": "The re-pin draft could not be loaded.",
+    "draftLoading": "Loading the draft…",
+    "before": "Before",
+    "after": "After",
+    "nothingPinned": "Nothing pinned",
+    "raisedBy": "Raised by",
+    "pinned": "Until this draft is approved, the published ruleset runs as pinned.",
+    "approve": "Approve this draft",
+    "approveFailed": "The re-pin draft could not be approved",
+    "done": "Re-pin draft approved",
+    "own": "You raised this draft, so someone else approves it.",
+    "waiting": "It can be approved once the back-test has finished.",
+    "backtestTitle": "Back-test of old against new, over the kept bundles",
+    "backtestRunning": "Replaying the kept bundles…",
+    "backtestFailed": "The back-test failed.",
+    "noChangeBadge": "No change",
+    "noChange": "No decision over the kept bundles would change.",
+    "truncated": "HQ sent only the first changed bundles, so the breakdown below is partial. The counts above are complete.",
+    "stat": {
+      "bundles": "Bundles replayed",
+      "changed": "Decisions that change",
+      "unchanged": "Decisions that stay"
+    },
+    "col": {
+      "ruleset": "Published ruleset",
+      "kind": "What changed",
+      "subject": "Field or alias",
+      "bundles": "Bundles",
+      "on": "Day",
+      "bundle": "Bundle",
+      "payer": "Payer",
+      "patient": "Patient key",
+      "rule": "Rule"
+    },
+    "kind": {
+      "path": "Field path",
+      "alias": "Alias"
+    },
+    "decision": {
+      "PASS": "Passes",
+      "WARN": "Warns",
+      "OVERRIDE": "Needs an override",
+      "REFUSE": "Refuses",
+      "NOT_EVALUATED": "Not evaluated"
+    }
+  },
   "form": {
     "title": "Propose an alias",
     "hint": "Someone other than you approves it before it applies.",

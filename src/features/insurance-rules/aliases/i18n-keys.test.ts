@@ -9,6 +9,7 @@ import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { ALIAS_PROBLEMS, ALIAS_STATES } from './alias-form'
+import { REPIN_DECISIONS, REPIN_KINDS } from './repin'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -21,6 +22,11 @@ describe('insurance-aliases locales', () => {
   })
   it.each([en, ar])('every state and problem has words', (locale) => {
     for (const key of [...ALIAS_STATES.map((s) => `state.${s}`), ...ALIAS_PROBLEMS.map((p) => `problem.${p}`)]) {
+      expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    }
+  })
+  it.each([en, ar])('every re-pin kind and decision has words', (locale) => {
+    for (const key of [...REPIN_KINDS.map((k) => `repin.kind.${k}`), ...REPIN_DECISIONS.map((d) => `repin.decision.${d}`)]) {
       expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
     }
   })

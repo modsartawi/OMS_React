@@ -150,3 +150,5 @@ tools/.sim-loy-groups-shots/
 tools/.loy-groups-shots/
 # Rule playground drive screenshots (tools/insurance-playground-drive.mjs, spec 3243 / tickets 677-690)
 tools/.insurance-playground-shots/
+# Insurance coverage drive screenshots (tools/insurance-coverage-drive.mjs)
+tools/.insurance-coverage-shots/

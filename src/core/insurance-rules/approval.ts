@@ -49,7 +49,7 @@ export function approvalOf(d: Pick<RulesetDraft<unknown>, 'revision' | 'state' |
 }
 
 export type SubmitWhy = 'unsaved' | 'noBacktest' | 'backtestRunning' | 'backtestFailed' | 'backtestStale' | 'checking' | 'checks'
-export type ApproveWhy = 'ownSubmission'
+export type ApproveWhy = 'ownSubmission' | 'checking' | 'checks'
 
 export type ApprovalAction =
   | { kind: 'submit'; enabled: boolean; why: SubmitWhy | null }
@@ -87,9 +87,11 @@ export function actionsFor({ approval, userId, backtest, checks, needsBacktest =
   if (!approval.viewer.approver) return []
   const same = (who: string | null | undefined) => !!who && userId!.toLowerCase() === who.toLowerCase()
   const own = !userId || !approval.submittedBy || same(approval.submittedBy) || same(approval.lastEditedBy)
-  const why: ApproveWhy | null = own ? 'ownSubmission' : null
+  const ownWhy: ApproveWhy | null = own ? 'ownSubmission' : null
+  // Publishing waits to have shown HQ's answer, and stops on a refusal (698). Sending back never waits.
+  const why = ownWhy ?? (!checks ? 'checking' : checks.blocked ? 'checks' : null)
   return [
-    { kind: 'approve', enabled: !own, why },
-    { kind: 'sendBack', enabled: !own, why },
+    { kind: 'approve', enabled: why === null, why },
+    { kind: 'sendBack', enabled: !own, why: ownWhy },
   ]
 }

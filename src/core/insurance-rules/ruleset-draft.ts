@@ -100,7 +100,7 @@ export function rulesetDoors<T extends { revision: number }>(kind: RulesetDoorKi
 export type RulesetSubmitWhy = 'unsaved' | 'checking' | 'checks'
 export type RulesetAction =
   | { kind: 'submit'; enabled: boolean; why: RulesetSubmitWhy | null }
-  | { kind: 'approve' | 'sendBack'; enabled: boolean; why: 'ownSubmission' | null }
+  | { kind: 'approve' | 'sendBack'; enabled: boolean; why: 'ownSubmission' | 'checking' | 'checks' | null }
 
 const same = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.toLowerCase() === b.toLowerCase()
 
@@ -120,10 +120,12 @@ export function rulesetActions({
   if (draft.state === 'none') return []
   if (draft.state === 'pending') {
     const own = !userId || same(userId, draft.requestedBy) || same(userId, draft.updatedBy)
-    const why = own ? ('ownSubmission' as const) : null
+    const ownWhy = own ? ('ownSubmission' as const) : null
+    // Publishing waits to have shown HQ's answer, and stops on a refusal (698). Sending back never waits.
+    const why = ownWhy ?? (!checks ? ('checking' as const) : checks.blocked ? ('checks' as const) : null)
     return [
-      { kind: 'approve', enabled: !own, why },
-      { kind: 'sendBack', enabled: !own, why },
+      { kind: 'approve', enabled: why === null, why },
+      { kind: 'sendBack', enabled: !own, why: ownWhy },
     ]
   }
   const why: RulesetSubmitWhy | null = dirty ? 'unsaved' : !checks ? 'checking' : checks.blocked ? 'checks' : null

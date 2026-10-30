@@ -9,6 +9,7 @@ import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftStateQuery, insuranceRu
 import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
+import PublishChecks from '@/core/insurance-rules/PublishChecks'
 import { INSURANCE_RULES_PATH, guardRulePath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
 import { confirmAction } from '@/core/services/confirm'
@@ -174,6 +175,8 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
           )}
         </dd>
       </dl>
+
+      <PublishChecks issues={checks.data} rules={doc.rules} />
 
       {approval.state === 'waiting' && !actions.length && (
         <p className="text-sm text-muted-foreground" data-waiting-note="">

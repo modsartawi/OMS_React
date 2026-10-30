@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { Check, FileDiff, Loader2 } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
@@ -15,17 +16,32 @@ import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { REPINS_KEY, repinApi } from './api'
-import { knownDecision, repinStanding, repinSummary, type AffectedRuleset, type RepinBacktest, type RepinDraft } from './repin'
+import { knownDecision, labelPairs, repinNeedsBacktest, repinStanding, repinSummary, type AffectedRuleset, type RepinBacktest, type RepinDraft } from './repin'
 
 /**
  * The published rulesets still on an old form (oms 705; door 3294). Each offers a re-pin draft: the form before and
- * after and the back-test of old against new, approved by someone else. Until then the ruleset runs as pinned.
+ * after and the back-test of old against new, approved by someone else. Until then the ruleset runs as pinned. A
+ * labels-only draft (oms 708; door 3297) shows the text before and after instead, with no back-test. `?repin=<id>`
+ * opens a draft, which is how a labels-changed review item reaches it.
  */
 export default function RepinDrafts() {
   const { t } = useTranslation('insurance-aliases')
   const qc = useQueryClient()
   const affected = useQuery({ queryKey: [...REPINS_KEY, 'affected'], queryFn: () => repinApi.affected(), retry: false })
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
+  const [openId, setOpenId] = useState<string | null>(() => params.get('repin'))
+  const closeDraft = () => {
+    setOpenId(null)
+    if (params.has('repin')) {
+      setParams(
+        (p) => {
+          p.delete('repin')
+          return p
+        },
+        { replace: true },
+      )
+    }
+  }
   const raise = useMutation({
     mutationFn: (row: AffectedRuleset) => repinApi.raise(row),
     onSuccess: (draft) => {
@@ -62,6 +78,11 @@ export default function RepinDrafts() {
               <tr key={`${row.rulesetId}/${row.changeId}`} className="border-t border-border/60" data-repin-row={row.rulesetId} data-repin-kind={row.kind}>
                 <td className={TD}>
                   <RulesetName name={row.rulesetName} version={row.rulesetVersion} />
+                  {row.kind === 'labels' && (
+                    <span className="ms-2" data-repin-labels-badge="">
+                      <StatusBadge sev="warn">{t('repin.labels.badge')}</StatusBadge>
+                    </span>
+                  )}
                 </td>
                 <td className={TD}>{t(`repin.kind.${row.kind}`)}</td>
                 <td className={`${TD} font-mono text-xs break-all`} data-repin-subject="">
@@ -94,7 +115,7 @@ export default function RepinDrafts() {
         <p className="text-xs text-muted-foreground">{t('repin.hint')}</p>
       </div>
       {body}
-      {openId && <RepinDraftDialog id={openId} onClose={() => setOpenId(null)} />}
+      {openId && <RepinDraftDialog id={openId} onClose={closeDraft} />}
     </section>
   )
 }
@@ -173,6 +194,7 @@ function RepinDraftDialog({ id, onClose }: { id: string; onClose: () => void }) 
 function DraftBody({ draft }: { draft: RepinDraft }) {
   const { t } = useTranslation('insurance-aliases')
   const form = (value: string | null) => (value === null ? <span className="text-muted-foreground">{t('repin.nothingPinned')}</span> : <Ltr>{value}</Ltr>)
+  const labels = draft.kind === 'labels'
   return (
     <div className="flex flex-col gap-4 text-sm" data-repin-draft={draft.id} data-repin-draft-state={draft.state}>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
@@ -186,11 +208,11 @@ function DraftBody({ draft }: { draft: RepinDraft }) {
         <dd className="font-mono text-xs break-all">
           <Ltr>{draft.subject}</Ltr>
         </dd>
-        <dt className="text-xs text-muted-foreground">{t('repin.before')}</dt>
+        <dt className="text-xs text-muted-foreground">{t(labels ? 'repin.labels.versionBefore' : 'repin.before')}</dt>
         <dd className="font-mono text-xs break-all" data-repin-before="">
           {form(draft.before)}
         </dd>
-        <dt className="text-xs text-muted-foreground">{t('repin.after')}</dt>
+        <dt className="text-xs text-muted-foreground">{t(labels ? 'repin.labels.versionAfter' : 'repin.after')}</dt>
         <dd className="font-mono text-xs break-all" data-repin-after="">
           {form(draft.after)}
         </dd>
@@ -202,7 +224,54 @@ function DraftBody({ draft }: { draft: RepinDraft }) {
       <p className="text-xs text-muted-foreground" data-repin-pinned="">
         {t('repin.pinned')}
       </p>
-      <BacktestView backtest={draft.backtest} />
+      {repinNeedsBacktest(draft.kind) ? <BacktestView backtest={draft.backtest} /> : <LabelTexts draft={draft} />}
+    </div>
+  )
+}
+
+/** A labels-only draft: each rule's text before and after, in both languages, whatever the reader's. Each side its own isolate. */
+function LabelTexts({ draft }: { draft: RepinDraft }) {
+  const { t } = useTranslation('insurance-aliases')
+  const pairs = labelPairs(draft.texts)
+  const text = (value: string) => (value ? <bdi>{value}</bdi> : <span className="text-muted-foreground">{t('repin.labels.noText')}</span>)
+  return (
+    <div className="flex flex-col gap-3" data-repin-texts="">
+      <h3 className="text-sm font-semibold">{t('repin.labels.title')}</h3>
+      {pairs.length === 0 ? (
+        <p className="flex items-center gap-2" data-repin-no-text-change="">
+          <StatusBadge sev="ok">{t('repin.noChangeBadge')}</StatusBadge>
+          {t('repin.labels.noChange')}
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-border/60">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted">
+                <th className={TH}>{t('repin.col.rule')}</th>
+                <th className={TH}>{t('repin.labels.language')}</th>
+                <th className={TH}>{t('repin.before')}</th>
+                <th className={TH}>{t('repin.after')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pairs.map((p) => (
+                <tr key={`${p.ruleId}/${p.lang}`} className="border-t border-border/60" data-repin-text={`${p.ruleId}/${p.lang}`}>
+                  <td className={`${TD} font-mono text-xs`}>
+                    <Ltr>{p.ruleId}</Ltr>
+                  </td>
+                  <td className={`${TD} text-xs`}>{t(`repin.labels.lang.${p.lang}`)}</td>
+                  <td className={TD} data-repin-text-before="">
+                    {text(p.before)}
+                  </td>
+                  <td className={TD} data-repin-text-after="">
+                    {text(p.after)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

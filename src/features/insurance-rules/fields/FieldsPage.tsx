@@ -24,6 +24,7 @@ import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { DeniedCard } from '@/core/insurance-rules/parts'
 import { FhirCatalogPanel } from '@/core/insurance-rules/FhirCatalog'
+import RawPathDialog from './RawPathDialog'
 
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'text', unit: '' }
 
@@ -38,6 +39,7 @@ export default function FieldsPage() {
   const { t } = useTranslation('insurance-fields')
   const fields = useQuery(fieldsQuery())
   const draft = useQuery(guardDraftQuery())
+  const [rawOpen, setRawOpen] = useState(false)
 
   let body
   if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard ns="insurance-fields" hook="fields-denied" />
@@ -61,6 +63,10 @@ export default function FieldsPage() {
             <p className="text-xs text-muted-foreground">{t('catalog.lede')}</p>
           </div>
           <FhirCatalogPanel />
+          <Button variant="secondary" className="w-fit" onClick={() => setRawOpen(true)} data-raw-path-open="">
+            {t('rawPath.open')}
+          </Button>
+          <RawPathDialog open={rawOpen} onClose={() => setRawOpen(false)} />
         </section>
         <AddField existing={fields.data} />
       </>

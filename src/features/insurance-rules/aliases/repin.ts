@@ -4,10 +4,36 @@
  * old against new over the kept bundles and approved by someone else. Until then it runs as pinned. Pure.
  */
 import type { BacktestStatus } from '@/core/insurance-rules/backtest'
+import type { Says } from '@/core/models/rule-campaign'
 
-/** 708 adds the labels-only kind, which carries no back-test. */
-export type RepinKind = 'path' | 'alias'
-export const REPIN_KINDS: readonly RepinKind[] = ['path', 'alias']
+/** `labels` (708; L9, door 3297): only the label version moves, so the draft shows text and carries no back-test. */
+export type RepinKind = 'path' | 'alias' | 'labels'
+export const REPIN_KINDS: readonly RepinKind[] = ['path', 'alias', 'labels']
+
+/** A labels-only draft can change no decision, so the back-test is not asked of it. */
+export const repinNeedsBacktest = (kind: RepinKind): boolean => kind !== 'labels'
+
+/** One rule's text as the pinned label version renders it, and as the new one would. */
+export interface RepinLabelText {
+  ruleId: string
+  before: Says
+  after: Says
+}
+
+/** One language of one rule whose text moves. An empty side means that language had, or will have, no text. */
+export interface RepinTextPair {
+  ruleId: string
+  lang: 'en' | 'ar'
+  before: string
+  after: string
+}
+
+/** The before / after pairs of a labels-only draft: only what moves, in the door's rule order, English first. */
+export function labelPairs(texts: readonly RepinLabelText[] | null | undefined): RepinTextPair[] {
+  return (texts ?? []).flatMap((t) =>
+    (['en', 'ar'] as const).filter((lang) => t.before[lang] !== t.after[lang]).map((lang) => ({ ruleId: t.ruleId, lang, before: t.before[lang], after: t.after[lang] })),
+  )
+}
 
 /** The decisions the words exist for. Another value from the door is shown as sent. */
 export const REPIN_DECISIONS = ['PASS', 'WARN', 'OVERRIDE', 'REFUSE', 'NOT_EVALUATED'] as const
@@ -68,6 +94,8 @@ export interface RepinDraft extends RepinChange {
   /** Local moment. */
   approvedAt: string | null
   backtest: RepinBacktest | null
+  /** A labels-only draft: each rule's text before and after. `before` / `after` above are then its label versions. */
+  texts?: RepinLabelText[] | null
 }
 
 export interface RepinMove {
@@ -107,9 +135,9 @@ export type RepinStanding = 'may' | 'ownDraft' | 'noBacktest' | 'none'
  * What this user is offered on a draft. No one approves before the difference can be seen, so an unfinished back-test
  * comes first. The client only hides the action: HQ still decides.
  */
-export function repinStanding(draft: Pick<RepinDraft, 'state' | 'createdBy' | 'backtest'>, userId: string | null): RepinStanding {
+export function repinStanding(draft: Pick<RepinDraft, 'kind' | 'state' | 'createdBy' | 'backtest'>, userId: string | null): RepinStanding {
   if (draft.state !== 'open') return 'none'
-  if (draft.backtest?.status !== 'done') return 'noBacktest'
+  if (repinNeedsBacktest(draft.kind) && draft.backtest?.status !== 'done') return 'noBacktest'
   if (!userId || !draft.createdBy) return 'ownDraft'
   return userId.toLowerCase() === draft.createdBy.toLowerCase() ? 'ownDraft' : 'may'
 }

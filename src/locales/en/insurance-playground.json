@@ -260,5 +260,32 @@
       "invalid": "The file's experiment is incomplete or has a wrong value. Nothing was loaded.",
       "fileFailed": "The file could not be read."
     }
+  },
+  "compare": {
+    "start": "Compare A/B",
+    "leave": "Leave Compare",
+    "title": "Compare A/B",
+    "hint": "B started as a copy of this experiment (A). Edit B's data or rule here; the kind and \"as of\" are A's. Both run, and what differs is highlighted. Leaving Compare keeps A.",
+    "b": {
+      "data": "Data (B)",
+      "raw": "Data (B, raw text)",
+      "rule": "Rule (B)",
+      "refused": "The playground refused B"
+    },
+    "waiting": "The comparison appears once A and B both have an outcome.",
+    "same": "A and B give the same outcome.",
+    "differs": "A and B differ. What differs is highlighted.",
+    "side": {
+      "a": "A",
+      "b": "B"
+    },
+    "verdict": "What the live check would say",
+    "markLabel": "Difference",
+    "mark": {
+      "differs": "Differs",
+      "onlyA": "Only in A",
+      "onlyB": "Only in B"
+    },
+    "absent": "Not on this side"
   }
 }

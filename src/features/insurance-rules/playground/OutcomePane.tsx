@@ -161,7 +161,7 @@ function LineTrace({ line }: { line: LineView }) {
 
 const TRACE_SEV: Record<string, Severity> = { true: 'go', false: 'mute', unknown: 'warn' }
 
-function TraceValueBadge({ value }: { value: PlaygroundTraceValue }) {
+export function TraceValueBadge({ value }: { value: PlaygroundTraceValue }) {
   const { t } = useTranslation('insurance-playground')
   const key = String(value)
   return (

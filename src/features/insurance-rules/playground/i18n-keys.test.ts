@@ -100,6 +100,15 @@ describe('insurance-playground — the keys the code builds exist', () => {
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 
+  it.each([en, ar])('690: Compare A/B, both sides and every mark', (locale) => {
+    const keys = [
+      ...['start', 'leave', 'title', 'hint', 'waiting', 'same', 'differs', 'verdict', 'markLabel', 'absent', 'side.a', 'side.b'],
+      ...['data', 'raw', 'rule', 'refused'].map((k) => `b.${k}`),
+      ...['differs', 'onlyA', 'onlyB'].map((k) => `mark.${k}`),
+    ].map((k) => `compare.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
   it.each([areaEn, areaAr])('the menu leaf', (locale) => {
     expect(hasLocaleKey(locale, 'menu.playground')).toBe(true)
   })

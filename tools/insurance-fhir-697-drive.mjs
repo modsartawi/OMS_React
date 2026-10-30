@@ -4,7 +4,7 @@
 //   2. a click sends the door's node reference and nothing of the bundle, and the raw-path form opens filled with the
 //      door's path; the same checks and Probe apply, and it can be proposed;
 //   3. a click on an existing field points at it and offers no form;
-//   4. a click on a Patient field warns, does not refuse, and the warning goes with the proposal;
+//   4. a click on a Patient field warns and does not refuse; the proposal row's flag is the door's, so none is sent;
 //   5. nothing from the bundle reaches a URL (beyond its ref), storage, the console or a request;
 //   6. an unknown ref and a bare denial are said in words.
 //
@@ -194,7 +194,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. the form holds the path`, (await page.locator('[data-raw-path]').inputValue()) === PATIENT_PATH)
     await fillAndPropose(page, 'patientBirthDate')
     const sent = state.proposals[0]
-    check(`${dir} 4. it is not refused, and the warning goes with the proposal`, sent?.fhirPath === PATIENT_PATH && sent?.patientWarning === true, JSON.stringify(sent))
+    check(`${dir} 4. it is not refused, and the client sends no flag: the row's warning is the door's`, sent?.fhirPath === PATIENT_PATH && !('patientWarning' in sent), JSON.stringify(sent))
     check(`${dir} 7. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }

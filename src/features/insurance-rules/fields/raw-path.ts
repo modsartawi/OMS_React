@@ -25,7 +25,7 @@ export interface RawPathValues {
   key: string
   labelEn: string
   labelAr: string
-  /** The tree's door called this a Patient field (697): warned, never refused, and it goes with the proposal to the approver. */
+  /** The tree's door called this a Patient field (697): warned, never refused. Shown here only and never sent: the flag on the proposal row is the door's own. */
   patientWarning?: boolean
 }
 
@@ -155,12 +155,10 @@ export interface FieldProposalBody {
   cardinality: 'single' | 'list'
   system: string | null
   fhirPath: string
-  patientWarning?: true
 }
 
 export function proposalBody(form: RawPathValues): FieldProposalBody {
   return {
-    ...(form.patientWarning ? { patientWarning: true as const } : {}),
     key: form.key.trim(),
     label: { en: form.labelEn.trim(), ar: form.labelAr.trim() },
     moment: form.moment,

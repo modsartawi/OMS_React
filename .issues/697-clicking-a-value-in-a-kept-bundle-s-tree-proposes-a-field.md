@@ -51,7 +51,7 @@ words are proved by key parity only.
 **Door shapes guessed (711 reconciles; 3283 spells none):**
 - `GET InsuranceRules/Fields/Tree?ref=` → `{ ref, root }`; node `{ nodeRef, name, index?, choice?, fhirType, value?, pickable?, children? }`. `nodeRef` is opaque, and the door decides `pickable`.
 - `POST InsuranceRules/Fields/Tree/Click { ref, nodeRef }` → `{ proposal: { path, moment, level, type, cardinality, system?, key? }, existing: { key, moment, level, label } | null, patient }`.
-- `POST InsuranceRules/Fields/Proposals` gains `patientWarning: true`, sent only on a tree click the door called Patient. 3282 has the door derive this from the path, so the door should not trust the client's flag. The inbox (696) needs the row to carry the warning under a spelling 711 settles.
+- The client sends nothing for the Patient warning. `patientWarning` is the door's flag on the proposal row (696; 3282 derives it from the path), so the approver's warning is not proved here: it rests on that door, and 711 checks it live.
 
 **Overrulable decisions:**
 - A bundle is opened by typing its ref, with `?bundle=<ref>` in the URL. No door lists kept bundles, so there is no picker.

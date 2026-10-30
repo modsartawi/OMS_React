@@ -1200,7 +1200,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [699](699-monitor-rules-have-a-list-and-an-editor-on-the-same-builder.md) — Monitor rules have a list and an editor on the same builder · *(ticket · BO spec 3271; doors 3290, 3292)* · **open** · blocked by: 693 · a kind in the guards feature
 - [700](700-a-monitor-is-back-tested-over-kept-answers-and-goes-through-approval-and-shadow.md) — A monitor is back-tested over kept answers and goes through approval and shadow · *(ticket · BO spec 3271; door 3290)* · **open** · blocked by: 699
 - [701](701-monitors-take-the-communication-and-payment-scopes.md) — Monitors take the communication and payment scopes · *(ticket · BO spec 3271; doors 3299, 3300)* · **open** · blocked by: 699
-- [702](702-the-review-list-shows-monitor-and-not-evaluated-items.md) — The review list shows monitor and not-evaluated items · *(ticket · BO spec 3271; door 3290)* · **open** · blocked by: —
+- [702](702-the-review-list-shows-monitor-and-not-evaluated-items.md) — The review list shows monitor and not-evaluated items · *(ticket · BO spec 3271; door 3290)* · **done** · blocked by: —
 - [703](703-drift-items-are-cleared-with-a-note-and-badge-what-they-affect.md) — Drift items are cleared with a note and badge what they affect · *(ticket · BO spec 3271; door 3293)* · **open** · blocked by: 692, 702
 - [704](704-aliases-are-proposed-and-approved.md) — Aliases are proposed and approved · *(ticket · BO spec 3271; door 3294)* · **done** · blocked by: —
 - [705](705-a-path-or-alias-re-pin-draft-shows-the-back-test-of-old-against-new.md) — A path or alias re-pin draft shows the back-test of old against new · *(ticket · BO spec 3271; door 3294)* · **open** · blocked by: 704

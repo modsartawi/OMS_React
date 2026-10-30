@@ -25,13 +25,15 @@ import { formatDateTime } from '@/core/util/date-format'
 import { REVIEW_KEY, reviewApi } from './api'
 import { REVIEW_KINDS, type ReviewMark, type ReviewRow } from './model'
 import { EMPTY_REVIEW_QUERY, reviewFromParams, reviewToParams, type ReviewQuery } from './review-query'
+import { ItemClearing, ItemDetail, ItemDialog, KindWord } from './ReviewItems'
 import { Code, ReasonText } from './shared'
 import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Review — `/insurance-rules/review` (BackOffice 3141, oms ticket 614). Overrides, HQ
  * exceptions used and UNCHECKED requests, filtered by kind, pharmacist, store, rule and reason (all in the
- * address); a reviewer marks each row OK or Questioned with a note.
+ * address); a reviewer marks each row OK or Questioned with a note. Monitor and not-evaluated items (702) share
+ * the list and are cleared with a note instead (`./ReviewItems`).
  *
  * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
  */
@@ -61,6 +63,7 @@ function Review() {
   const reasons = useQuery(guardReasonsQuery())
   const draftDoc = useQuery(guardDraftQuery())
   const [marking, setMarking] = useState<{ row: ReviewRow; mark: ReviewMark } | null>(null)
+  const [opening, setOpening] = useState<ReviewRow | null>(null)
 
   const apply = (next: ReviewQuery) => {
     setDraft(next)
@@ -80,7 +83,7 @@ function Review() {
       >
         <div className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">{t('filter.kind')}</span>
-          <div className="inline-flex gap-1" role="group" aria-label={t('filter.kind')}>
+          <div className="inline-flex flex-wrap gap-1" role="group" aria-label={t('filter.kind')}>
             {(['', ...REVIEW_KINDS] as const).map((k) => (
               <Chip key={k || 'all'} data-kind-filter={k} on={query.kind === k} onClick={() => apply({ ...draft, kind: k })}>
                 {k ? t(`kind.${k}`) : t('filter.allKinds')}
@@ -152,13 +155,35 @@ function Review() {
                 </tr>
               </thead>
               <tbody>
-                {rows.data.map((r) => (
+                {rows.data.map((r) =>
+                  r.detail.shape !== 'decision' ? (
+                    <tr key={r.id} className="border-b border-border/40 last:border-b-0" data-review-row={r.id} data-kind={r.kind} data-shape={r.detail.shape}>
+                      <td className={TD}>
+                        <Ltr>{formatDateTime(r.at)}</Ltr>
+                      </td>
+                      <td className={TD} data-col="kind">
+                        <KindWord kind={r.kind} />
+                      </td>
+                      {/* An item has no store, pharmacist, patient or line: its detail takes those seven columns. */}
+                      <td className={TD} colSpan={7} data-col="detail">
+                        <ItemDetail row={r} />
+                      </td>
+                      <td className={TD} data-col="mark" data-cleared={r.cleared ? 'true' : 'false'}>
+                        <ItemClearing cleared={r.cleared} />
+                      </td>
+                      <td className={TD}>
+                        <Button variant="outlined" onClick={() => setOpening(r)} data-item-open="">
+                          {t('item.open')}
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : (
                   <tr key={r.id} className="border-b border-border/40 last:border-b-0" data-review-row={r.id} data-kind={r.kind}>
                     <td className={TD}>
                       <Ltr>{formatDateTime(r.at)}</Ltr>
                     </td>
                     <td className={TD} data-col="kind">
-                      {t(`kind.${r.kind}`)}
+                      <KindWord kind={r.kind} />
                       {r.exceptionId && (
                         <span className="ms-1 text-xs text-muted-foreground" data-exception-id={r.exceptionId}>
                           <Ltr>{`#${r.exceptionId}`}</Ltr>
@@ -220,13 +245,15 @@ function Review() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ),
+                )}
               </tbody>
             </table>
           </div>
         </>
       )}
       {marking && <MarkDialog row={marking.row} mark={marking.mark} onClose={() => setMarking(null)} />}
+      {opening && <ItemDialog row={opening} onClose={() => setOpening(null)} />}
     </div>
   )
 }
@@ -273,7 +300,7 @@ function MarkDialog({ row, mark, onClose }: { row: ReviewRow; mark: ReviewMark; 
     >
       <div className="flex flex-col gap-2" data-mark-dialog={mark}>
         <p className="text-xs text-muted-foreground">
-          {t(`kind.${row.kind}`)} <Ltr>{formatPair(row.ruleId ?? '', formatDateTime(row.at))}</Ltr>
+          <KindWord kind={row.kind} /> <Ltr>{formatPair(row.ruleId ?? '', formatDateTime(row.at))}</Ltr>
         </p>
         <Field
           label={t('mark.note')}

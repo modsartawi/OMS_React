@@ -657,7 +657,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               })}
             </Select>
           </Field>
-          <FhirFactPicker value={c.path} onPick={(row) => set((x) => ({ ...x, ...pickedFact(row) }) as GuardCondition)} />
+          <FhirFactPicker value={c.path} onPick={(row, code) => set((x) => ({ ...x, ...pickedFact(row, code) }) as GuardCondition)} />
           <Field label={t('editor.field.op')}>
             <Select value={c.op} data-input="op" onChange={(e) => set((x) => ({ ...x, op: e.target.value as typeof c.op }))}>
               {(isNumber ? (['atLeast', 'below'] as const) : (['anyOf', 'noneOf'] as const)).map((o) => (

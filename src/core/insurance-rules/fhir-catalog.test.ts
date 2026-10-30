@@ -6,7 +6,7 @@ import rulesEn from '@/locales/en/insurance-rules.json'
 import rulesAr from '@/locales/ar/insurance-rules.json'
 import fieldsEn from '@/locales/en/insurance-fields.json'
 import fieldsAr from '@/locales/ar/insurance-fields.json'
-import { CHANNEL_ANSWERS, FHIR_LEVELS, FHIR_MESSAGES, factKey, groupCatalog, pickedFact, type FhirCatalogRow } from './fhir-catalog'
+import { CHANNEL_ANSWERS, FHIR_LEVELS, FHIR_MESSAGES, catalogEntryOf, codedFactKey, factKey, groupCatalog, mayBeCatalogKey, parameterOptions, pickedFact, type FhirCatalogRow } from './fhir-catalog'
 import { guardRuleIn, guardRuleOut } from './guard-wire'
 
 const row = (over: Partial<FhirCatalogRow>): FhirCatalogRow => ({
@@ -41,6 +41,55 @@ describe('factKey: the rule key a pick stores', () => {
     ['claimResponse', 'line', 'copay', '$line.claimResponse.copay'],
   ] as const)('%s %s %s', (moment, level, key, expected) => {
     expect(factKey(row({ moment, level, key }))).toBe(expected)
+  })
+})
+
+describe('a parameterised key: built from a field and a code, and read back (oms 694)', () => {
+  const copayPct = row({ moment: 'eligibility', key: 'benefit[*].copayPct', parameter: 'category', type: 'number' })
+
+  it('the chosen code goes into the stored key', () => {
+    expect(codedFactKey(copayPct, '66')).toBe('$eligibility.benefit[66].copayPct')
+    expect(codedFactKey(row({ moment: 'claimResponse', level: 'line', key: 'benefit[*].x', parameter: 'category' }), '7')).toBe('$line.claimResponse.benefit[7].x')
+  })
+  it('a pick with a code stores that code, and its type still sets the block', () => {
+    expect(pickedFact(copayPct, '66')).toEqual({ path: '$eligibility.benefit[66].copayPct', op: 'atLeast', value: 0 })
+  })
+  it('a stored key reads back to its field and its code', () => {
+    const other = row({ moment: 'claim', key: 'total' })
+    expect(catalogEntryOf([other, copayPct], '$eligibility.benefit[66].copayPct')).toEqual({ row: copayPct, code: '66' })
+    expect(catalogEntryOf([other, copayPct], '$claim.total')).toEqual({ row: other, code: null })
+  })
+  it('a key the catalog does not hold reads as nothing', () => {
+    expect(catalogEntryOf([copayPct], '$eligibility.benefit[13/day].benefit')).toBeNull()
+    expect(catalogEntryOf([copayPct], '$patient.age')).toBeNull()
+  })
+  it('only a key on a FHIR message can be in the catalog, so a patient fact never reads it', () => {
+    for (const k of ['$eligibility.benefit[66].copayPct', '$claim.total', '$claimResponse.outcome', '$line.claim.net', '$line.claimResponse.copay']) expect(mayBeCatalogKey(k)).toBe(true)
+    for (const k of ['$patient.age', '$request.total', '$line.daysSupply']) expect(mayBeCatalogKey(k)).toBe(false)
+  })
+})
+
+describe('parameterOptions: the whole workbook list, each code with what the census saw (oms 694)', () => {
+  const says = { en: 'Pharmacy', ar: 'صيدلية' }
+  const list = [
+    { code: '1', label: says, census: 0 },
+    { code: '66', label: says, census: 28 },
+    { code: '80', label: says, census: 0 },
+  ]
+  it('a never-seen code is offered, in the door order, and reads as never seen', () => {
+    expect(parameterOptions(list, null).map((o) => [o.code, o.seen])).toEqual([
+      ['1', 'never'],
+      ['66', 'seen'],
+      ['80', 'never'],
+    ])
+  })
+  it('a rule naming a code the list no longer holds keeps it, and says so', () => {
+    const options = parameterOptions(list, '99')
+    expect(options.map((o) => o.code)).toEqual(['99', '1', '66', '80'])
+    expect(options[0].seen).toBe('unlisted')
+  })
+  it('a listed current code is not repeated', () => {
+    expect(parameterOptions(list, '66').map((o) => o.code)).toEqual(['1', '66', '80'])
   })
 })
 

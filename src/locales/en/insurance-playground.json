@@ -1,6 +1,7 @@
 {
   "title": "Playground",
   "lede": "Try a rule on made-up data and see what the engine saw. Nothing here is published or saved to HQ; an experiment you save stays in this browser.",
+  "copied": "A copy of rule {{id}}, with example data. Nothing you do here changes the rule.",
   "kind": {
     "label": "Kind",
     "guard": "Guard",

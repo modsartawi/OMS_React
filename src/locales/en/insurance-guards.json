@@ -56,7 +56,9 @@
     "thenHint": "what the pharmacist sees",
     "message": "Message",
     "edit": "Edit",
-    "json": "Rule {{id}} as JSON"
+    "json": "Rule {{id}} as JSON",
+    "playground": "Open in playground",
+    "playgroundHint": "Copies this rule, the lists it names and the fields it reads into a new playground experiment. Nothing done there changes this rule."
   },
   "editor": {
     "titleNew": "New guard",

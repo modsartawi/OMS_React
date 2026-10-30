@@ -1,4 +1,5 @@
 import { PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundKind } from './playground'
+import { exampleData } from './example-data'
 
 // The rule playground's experiment and its versioned codec (BackOffice spec 3243 stories 49, 50; oms ticket 687).
 // One shape for every place an experiment travels: an exported `.json` file, the playground's browser storage,
@@ -102,4 +103,92 @@ export function experimentFileName(name: string): string {
 export function experimentFromBody(name: string, body: PlaygroundEvaluateBody): PlaygroundExperiment {
   const head = { name: name.trim(), kind: body.kind, asOf: body.asOf }
   return body.raw !== undefined ? { ...head, raw: body.raw, document: body.document } : { ...head, data: body.data, document: body.document }
+}
+
+// ── "Open in playground" (688) ───────────────────────────────────────────────────────────────────
+
+/** A real rule as its screen holds it, in the ENGINE's spelling (`guardRuleOut` / `otherRuleOut`), and its document. */
+export interface RuleSource {
+  kind: PlaygroundKind
+  rule: unknown
+  /** The source document (engine spelling): only its `lists` and `fields` are read. */
+  document: unknown
+}
+
+const LIST_MATCH = /^list:(.+)$/
+const AUDIENCE_LISTS = ['excludePatientLists', 'excludePolicyLists', 'excludeClassLists'] as const
+
+/** Every list id a rule's blocks and audience name: `match: list:<id>`, any `inList`, a supply's per-list days. */
+function listIdsNamed(rule: Record<string, unknown>): string[] {
+  const out: string[] = []
+  const add = (id: unknown) => typeof id === 'string' && id && !out.includes(id) && out.push(id)
+  const walk = (blocks: unknown) => {
+    if (!Array.isArray(blocks)) return
+    for (const c of blocks) {
+      if (!isRecord(c)) continue
+      if (typeof c.match === 'string') add(LIST_MATCH.exec(c.match)?.[1])
+      add(c.inList)
+      if (Array.isArray(c.eligibleDaysBeforeDueFor)) for (const x of c.eligibleDaysBeforeDueFor) if (isRecord(x)) add(x.list)
+      walk(c.conditions)
+    }
+  }
+  walk(rule.when)
+  if (isRecord(rule.audience)) for (const k of AUDIENCE_LISTS) if (Array.isArray(rule.audience[k])) (rule.audience[k] as unknown[]).forEach(add)
+  return out
+}
+
+/** Every string anywhere in a value (a formula's operator-first JSON, a block's `field`). */
+function stringsIn(v: unknown, out: Set<string> = new Set()): Set<string> {
+  if (typeof v === 'string') out.add(v)
+  else if (Array.isArray(v)) v.forEach((x) => stringsIn(x, out))
+  else if (isRecord(v)) Object.values(v).forEach((x) => stringsIn(x, out))
+  return out
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * A real rule → a NEW experiment of its kind: a one-rule document (`revision: 0`) carrying exactly the document lists
+ * the rule names — and the lists those pull in through `include` / `exclude`, which the engine needs to resolve them —
+ * in the document's order, the declared `fields` the rule reads (a block's `field: Key`, or `field.Key` in a formula,
+ * ADR 0117), the kind's example data and `asOf`. Its name is the rule's id. Pure, and a COPY: nothing is shared with
+ * the source, so editing the experiment can never change the rule. A list or team list the document does not hold
+ * (a patient / policy / class list lives in its own door) is simply not carried.
+ */
+export function experimentFromRule(src: RuleSource, asOf: string): PlaygroundExperiment {
+  const rule: Record<string, unknown> = isRecord(src.rule) ? structuredClone(src.rule) : {}
+  const doc = isRecord(src.document) ? src.document : {}
+  const docLists = (Array.isArray(doc.lists) ? doc.lists : []).filter(isRecord)
+  const byId = new Map(docLists.map((l) => [String(l.id), l]))
+
+  const wanted = new Set<string>()
+  const pull = (id: string) => {
+    const l = byId.get(id)
+    if (!l || wanted.has(id)) return
+    wanted.add(id)
+    for (const k of ['include', 'exclude'] as const) if (Array.isArray(l[k])) for (const x of l[k] as unknown[]) if (typeof x === 'string') pull(x)
+  }
+  listIdsNamed(rule).forEach(pull)
+  const lists = docLists.filter((l) => wanted.has(String(l.id))).map((l) => structuredClone(l))
+
+  const read = stringsIn(rule)
+  const said = [...read]
+  const fields = (Array.isArray(doc.fields) ? doc.fields : [])
+    .filter(isRecord)
+    .filter((f) => {
+      if (typeof f.key !== 'string' || !f.key) return false
+      if (read.has(f.key)) return true
+      const re = new RegExp(`(^|[.$])field\\.${escapeRe(f.key)}($|[^A-Za-z0-9_])`)
+      return said.some((s) => re.test(s))
+    })
+    .map((f) => structuredClone(f))
+
+  const name = (typeof rule.id === 'string' && rule.id.trim() ? rule.id.trim() : src.kind).slice(0, EXPERIMENT_NAME_MAX)
+  return {
+    name,
+    kind: src.kind,
+    asOf,
+    document: { schema: 1, kind: src.kind, revision: 0, fields, lists, rules: [rule] },
+    data: exampleData(src.kind),
+  }
 }

@@ -89,7 +89,10 @@
     "then": "THEN",
     "readsAs": "Reads as",
     "everyLine": "Every line (no condition yet).",
-    "json": "Rule {{id}} as JSON, unsaved edits included"
+    "json": "Rule {{id}} as JSON, unsaved edits included",
+    "playground": "Open in playground",
+    "playgroundHint": "Copies the saved rule, the lists it names and the fields it reads into a new playground experiment. Unsaved edits are not copied, and nothing done there changes this rule.",
+    "playgroundUnsaved": "Save the rule first: only a saved rule opens in the playground."
   },
   "conditions": {
     "top": "All of these must hold:",

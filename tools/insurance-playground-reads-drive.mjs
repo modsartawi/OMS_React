@@ -63,9 +63,13 @@ const FSI = '\u2068'
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
 const noRawKeys = async (page) => !/insurance-(rules|playground):|\b(run|data|rule|json|outcome|trace|access|reads|explain)\.\w/.test(await page.locator('main').innerText())
 const box = (page, b) => page.locator(`textarea[data-json-box="${b}"]`)
-const run = async (page, sel) => {
-  await page.locator('[data-run]').click()
+// 678: no Run button — the experiment runs by itself about 500 ms after the last edit. Wait for the request that
+// carries the experiment just typed (`sent`, or any request when omitted), then for its answer to be drawn.
+const run = async (page, store, sel, sent = () => true) => {
+  for (let i = 0; i < 50 && !store.evaluates.some(sent); i++) await new Promise((r) => setTimeout(r, 100))
+  await new Promise((r) => setTimeout(r, 300))
   await page.locator(sel).first().waitFor({ timeout: 10000 }).catch(() => {})
+  await new Promise((r) => setTimeout(r, 300))
 }
 
 const ELIG = 'benefit[66].approvalLimit'
@@ -97,13 +101,13 @@ const AGE = now.getFullYear() - 1990 - (now.getMonth() + 1 < 4 ? 1 : 0)
 
 for (const dir of ['ltr', 'rtl']) {
   {
-    const { context, page, errors } = await open(dir, { withReads: true })
+    const { context, page, errors, store } = await open(dir, { withReads: true })
     await page.goto(`${BASE}/insurance-rules/playground`)
     await page.locator('[data-playground-page]').waitFor({ timeout: 60000 })
     check(`${dir} 0. dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
     await box(page, 'data').fill(JSON.stringify(DATA, null, 2))
     await box(page, 'document').fill(JSON.stringify(DOC, null, 2))
-    await run(page, '[data-read-line="2"]')
+    await run(page, store, '[data-read-line="2"]', (b) => b?.document?.rules?.[0]?.id === 'G-1' && b?.data?.lines?.[0]?.attributes?.MaxDays === 'abc')
 
     // 1. the read log
     const log = page.locator('[data-read-log]')
@@ -152,10 +156,10 @@ for (const dir of ['ltr', 'rtl']) {
   }
   {
     // 3. the door before 3251: no reads
-    const { context, page, errors } = await open(dir, { withReads: false })
+    const { context, page, errors, store } = await open(dir, { withReads: false })
     await page.goto(`${BASE}/insurance-rules/playground`)
     await page.locator('[data-playground-page]').waitFor({ timeout: 60000 })
-    await run(page, '[data-read-log]')
+    await run(page, store, '[data-read-log]')
     check(`${dir} 3. no reads: the log says the door gave none`, (await page.locator('[data-reads-none]').count()) === 1 && (await page.locator('[data-read-line]').count()) === 0)
     const keys = await page.locator('[data-explain-sentence]').evaluateAll((els) => els.map((e) => e.getAttribute('data-explain-sentence')))
     check(`${dir} 3. Explain works from the trace alone`, JSON.stringify(keys) === JSON.stringify(['explain.matched', 'explain.noReads']), JSON.stringify(keys))

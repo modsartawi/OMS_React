@@ -66,10 +66,12 @@ const noRawKeys = async (page) => !/insurance-(rules|playground):|\b(run|data|ru
 const rawBox = (page) => page.locator('textarea[data-raw-box]')
 const dataBox = (page) => page.locator('textarea[data-json-box="data"]')
 const tab = (page, k) => page.locator(`[data-pane="data"] [data-data-tab="${k}"]`)
+// 678: no Run button — the experiment runs by itself about 500 ms after the edit just made; wait for that request.
 const runAndWait = async (page, store, sel) => {
   const before = store.evaluates.length
-  await page.locator('[data-run]').click()
+  for (let i = 0; i < 30 && store.evaluates.length === before; i++) await new Promise((r) => setTimeout(r, 100))
   await page.locator(sel).first().waitFor({ timeout: 10000 }).catch(() => {})
+  await new Promise((r) => setTimeout(r, 700))
   return store.evaluates.length - before
 }
 

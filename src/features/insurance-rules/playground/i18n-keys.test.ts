@@ -9,7 +9,11 @@ import ar from '@/locales/ar/insurance-playground.json'
 import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey, localeAt } from '@/core/test/locale'
+import { GUARD_LINE_OUTCOMES } from '@/core/insurance-rules/guard-check'
+import { RESOLVED_SOURCES } from '@/core/insurance-rules/coverage-model'
+import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
 import type { DataTab, ExperimentBox } from './experiment'
+import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -38,7 +42,6 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'lede',
       'access.deniedTitle',
       'access.deniedHint',
-      'run.run',
       'run.running',
       ...BOXES.map((b) => `json.problem.${b}`),
       // 684: the Data pane's tabs and the Raw experiment's intake report
@@ -46,6 +49,30 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...['title', 'hint', 'ignored', 'didYouMean', 'refused', 'expected', 'read'].map((k) => `intake.${k}`),
       ...['true', 'false', 'unknown'].map((v) => `trace.value.${v}`),
       ...['title', 'empty', 'failed', 'refused', 'tabs.label', 'tabs.saw', 'nothingMatched', 'matchedLines', 'line', 'matched', 'notMatched', 'errors.title'].map((k) => `outcome.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('678: kind, as of, Tab B and every verdict word', (locale) => {
+    const keys = [
+      'kind.label',
+      'kind.hint',
+      ...PLAYGROUND_KINDS.map((k) => `kind.${k}`),
+      'asOf.label',
+      'asOf.hint',
+      'asOf.sent',
+      'outcome.tabs.live',
+      'verdict.none',
+      'verdict.percent',
+      'verdict.outcome.label',
+      ...[...GUARD_LINE_OUTCOMES, 'unknown'].map((o) => `verdict.outcome.${o}`),
+      'verdict.fired.label',
+      'verdict.fired.none',
+      ...['field', 'invoice', 'value', 'source', 'yes', 'no', 'blank'].map((k) => `verdict.coverage.${k}`),
+      ...[...COVERAGE_LINE_KEYS, ...COVERAGE_INVOICE_KEYS].map((k) => `verdict.coverage.values.${k}`),
+      ...[...RESOLVED_SOURCES, 'unknown'].map((s) => `verdict.coverage.sources.${s}`),
+      ...['line', 'category', 'group', 'source', 'rule', 'unknowns'].map((k) => `verdict.category.${k}`),
+      ...['rule', 'default', 'none'].map((s) => `verdict.category.sources.${s}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

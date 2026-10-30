@@ -2219,7 +2219,7 @@ export function playgroundStub(method, path, body, opts = {}) {
     if (typeof body?.raw === 'string') return rawPlayground(body)
     if (!Array.isArray(body?.data?.lines))
       return envelope(null, { status: 400, success: false, message: 'The data has no lines to evaluate.', errorCode: 'PLAYGROUND_DATA_INVALID' })
-    return envelope(evaluatePlayground(body))
+    return envelope(playgroundVerdict(body, evaluatePlayground(body)))
   }
   return null
 }
@@ -2292,6 +2292,75 @@ export function playgroundReadsStub(method, path, body, opts = {}) {
   return envelope(evaluatePlaygroundWithReads(body))
 }
 
+// --- 678 --- the reply's `verdict`, per kind, as the BRIEF draws it (691 reconciles with 3244 / 3245 as built):
+//   guard:    [{ line, outcome, fired: [{ ruleId, version, severity, en, ar, codes }] }]
+//   coverage: { lines: [{ line, covered, priorApproval, deductiblePercent, deductibleMax, priceCap, quantityCap,
+//               daysSupplyCap }], invoice: { segment, exceptionPrescriptions } }, each value { value, source, ruleId, version }
+//   category: [{ line, category, group, source, ruleId, unknowns }]
+// Read from 677's trace: a rule holds on a line when every block it read there is "true". Coverage starts from the
+// data's `payer.deductibles.G1`; a holding rule's `quantityCap` / `priceCap` / `daysSupplyCap` fills the payer's gap.
+
+const PLAYGROUND_GROUP_WORD = { G1: 'Generic', G2: 'Brand', G3: 'NonMed' }
+const NOTHING = { value: null, source: 'none', ruleId: null, version: null }
+
+function playgroundHolds(line, rule) {
+  const rows = line.trace.filter((s) => s.ruleId === rule.id)
+  return rows.length > 0 && rows.every((s) => s.value === 'true')
+}
+
+export function playgroundVerdict(body, reply) {
+  if (reply.errors?.length) return reply
+  const rules = Array.isArray(body?.document?.rules) ? body.document.rules : []
+  const lines = reply.lines ?? []
+  let verdict = null
+  if (body.kind === 'guard') {
+    verdict = lines.map((l) => {
+      const fired = rules
+        .filter((r) => playgroundHolds(l, r))
+        .map((r) => {
+          const e = (r.then ?? [])[0] ?? {}
+          return { ruleId: r.id, version: 0, severity: e.severity ?? 'WARN', en: e.says?.en ?? '', ar: e.says?.ar ?? '', codes: { conflict: null, nphies: null } }
+        })
+      const order = ['REFUSE', 'OVERRIDE', 'WARN']
+      const worst = order.find((s) => fired.some((f) => f.severity === s))
+      return { line: l.line, outcome: worst ? worst.toLowerCase() : 'pass', fired }
+    })
+  } else if (body.kind === 'coverage') {
+    const payer = body.data?.payer?.deductibles?.G1 ?? {}
+    const fromPayer = (v) => (typeof v === 'number' ? { value: v, source: 'payer', ruleId: null, version: null } : NOTHING)
+    verdict = {
+      lines: lines.map((l) => {
+        const out = {
+          line: l.line,
+          covered: { value: true, source: 'payer', ruleId: null, version: null },
+          priorApproval: NOTHING,
+          deductiblePercent: fromPayer(payer.percent),
+          deductibleMax: fromPayer(payer.max),
+          priceCap: NOTHING,
+          quantityCap: NOTHING,
+          daysSupplyCap: NOTHING,
+        }
+        for (const r of rules)
+          for (const e of r.then ?? [])
+            if (['priceCap', 'quantityCap', 'daysSupplyCap'].includes(e.effect) && out[e.effect].source === 'none' && playgroundHolds(l, r))
+              out[e.effect] = { value: e.value, source: 'rule', ruleId: r.id, version: 0 }
+        return out
+      }),
+      invoice: { segment: NOTHING, exceptionPrescriptions: NOTHING },
+    }
+  } else if (body.kind === 'category') {
+    verdict = lines.map((l) => {
+      const by = rules.find((r) => playgroundHolds(l, r))
+      const unknowns = rules.filter((r) => l.trace.some((s) => s.ruleId === r.id && s.value === 'unknown')).map((r) => r.id)
+      const group = by ? ((by.then ?? [])[0]?.group ?? null) : null
+      return by
+        ? { line: l.line, category: PLAYGROUND_GROUP_WORD[group] ?? null, group, source: 'rule', ruleId: by.id, unknowns }
+        : { line: l.line, category: null, group: null, source: 'none', ruleId: null, unknowns }
+    })
+  }
+  return { ...reply, verdict }
+}
+
 // --- 684 --- a Raw experiment (BackOffice 3246): `raw` text instead of `data`, as the BRIEF draws it (691 reconciles).
 //   text that is not one JSON object → the refusal `PLAYGROUND_RAW_INVALID`;
 //   otherwise each line key is read, ignored (an unknown key, with its near-miss hint) or refused (a number field
@@ -2332,5 +2401,5 @@ function rawPlayground(body) {
     }
     return line
   })
-  return envelope({ ...evaluatePlayground({ ...body, data }), intake })
+  return envelope(playgroundVerdict({ ...body, data }, { ...evaluatePlayground({ ...body, data }), intake }))
 }

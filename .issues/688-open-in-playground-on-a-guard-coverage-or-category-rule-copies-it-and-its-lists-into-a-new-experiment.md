@@ -49,7 +49,7 @@ Each of the three rule screens opens its rule as a playground copy. Vitest, driv
 
 - 2026-10-30 (688 built, branch `impl/3243-688`). vitest `core/insurance-rules/experiment-from-rule.test.ts` (5) +
   `playground-handoff.test.ts` (3). Drive `tools/insurance-playground-open-drive.mjs` 52/52 (LTR + RTL). Re-ran
-  guard-editor 158/158, coverage 172/172, playground 216/216, playground-experiments, playground-lessons; rules 84/86
+  guard-editor 158/158, coverage 172/172, playground 216/216, playground-experiments 62/62, playground-lessons 102/102; rules 84/86
   with the same PRE-EXISTING "one read of the ruleset" pair recorded in 675/676. typecheck, lint (boundaries green),
   test, build green.
 - **Core:** `experiment.ts` gained `experimentFromRule({ kind, rule, document }, asOf)` (rule + document in the ENGINE

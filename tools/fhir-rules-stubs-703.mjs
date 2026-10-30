@@ -20,9 +20,9 @@ export const DRIFT_ITEMS = [
   wireItem({ id: 'D-5', at: '2026-10-27T09:01:00', payer: 'nphies', signal: { type: 'somethingNew' }, sample: null }),
 ]
 
-/** D-3 affects a line field and a guard from the stub rows; the rest affect nothing the drive looks at. */
+/** D-3 affects a line field, a guard, a coverage rule and a category rule from the stub rows; the rest affect nothing the drive looks at. */
 export const DRIFT_BADGES = [
-  { itemId: 'D-3', payer: 'waseel', signal: 'rateFell', fields: ['$line.claimResponse.copay'], rules: ['G-001'] },
+  { itemId: 'D-3', payer: 'waseel', signal: 'rateFell', fields: ['$line.claimResponse.copay'], rules: ['G-001', 'C-002', 'K-002'] },
   { itemId: 'D-1', payer: 'bupa', signal: 'newProfile', fields: ['$claim.total'], rules: [] },
 ]
 

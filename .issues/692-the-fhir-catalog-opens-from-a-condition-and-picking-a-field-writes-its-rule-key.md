@@ -84,3 +84,5 @@ Overrulable decisions:
 Finding: `core/i18n.ts` holds `lng: 'en'` and nothing calls `changeLanguage`, so `oms.locale=ar` gives the RTL layout with
 English chrome. The drive's `ar` run therefore proves RTL and the Arabic labels from data. The `ar` chrome keys are proved
 only by the mirror test, never on screen.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** `failureWords` is now one file, `fields/failure-words.ts` (the raw-path and tree screens, 695 and 697, shared two copies).

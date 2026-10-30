@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { guardRuleOut, guardRulesetOut } from '@/core/insurance-rules/guard-wire'
+import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
@@ -87,6 +88,7 @@ function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
           {monitor && <span className="text-xs text-muted-foreground" data-rule-kind="monitor">{t('insurance-rules:kind.monitor')}</span>}
           <GuardStateBadge state={rule.state} />
           {severity && <GuardSeverityBadge severity={severity} />}
+          <RuleDriftBadges ruleId={rule.id} />
           <span className="ms-auto">
             <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={guardRuleOut(rule)} hook="rule" />
           </span>

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
-import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { failureWords } from './failure-words'
 import { FHIR_LEVELS, FHIR_MESSAGES, type FhirFactType } from '@/core/insurance-rules/fhir-catalog'
 import { TD, TH, NUM } from '@/core/insurance-rules/parts'
 import { fhirCatalogQuery } from '@/core/insurance-rules/registry-api'
@@ -41,10 +41,6 @@ import {
 
 const FACT_TYPES: FhirFactType[] = ['text', 'number', 'date', 'flag', 'code', 'money', 'quantity']
 const KNOWN_REFUSALS: readonly string[] = RAW_PATH_REFUSALS
-
-function failureWords(err: unknown, denied: string, fallback: string): string {
-  return isBareDenial(err) ? denied : apiErrorMessage(err, fallback)
-}
 
 function Refusals({ refusals }: { refusals: PathRefusal[] }) {
   const { t } = useTranslation('insurance-fields')

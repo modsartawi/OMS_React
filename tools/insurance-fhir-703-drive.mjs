@@ -9,7 +9,7 @@
 //   1. npx vite --port 5213 --strictPort
 //   2. DRIVE_PORT=5213 node tools/insurance-fhir-703-drive.mjs
 import { createRequire } from 'node:module'
-import { envelope, guardEditorStub, insuranceRulesStub, newGuardStore } from './insurance-rules-stubs.mjs'
+import { coverageStub, envelope, guardEditorStub, insuranceRulesStub, newCoverageState, newGuardStore } from './insurance-rules-stubs.mjs'
 import { fhirCatalogStub } from './fhir-rules-stubs-692.mjs'
 import { createDriftStubs, SAMPLE_URL } from './fhir-rules-stubs-703.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -32,6 +32,7 @@ async function open(dir, opts = {}) {
   const writes = []
   const stub = createDriftStubs({ writes, ...opts })
   const store = newGuardStore()
+  const coverage = newCoverageState()
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -48,6 +49,8 @@ async function open(dir, opts = {}) {
     if (catalog) return route.fulfill(catalog)
     const mine = stub(req.method(), p, body, url.searchParams)
     if (mine) return route.fulfill(mine)
+    const covered = /^InsuranceRules\/(Categories|Coverage)\//.test(p) ? coverageStub(req.method(), p, body, { state: coverage, query: url.searchParams, user: 'msartawi' }) : null
+    if (covered) return route.fulfill(covered)
     const hit = guardEditorStub(req.method(), p, body, { store, reads: {} }) ?? insuranceRulesStub(req.method(), p, body, {})
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
@@ -146,6 +149,38 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-catalog-row="$claim.total"] [data-drift-badge="D-1"]').waitFor({ timeout: 8000 }).catch(() => {})
     check(`${dir} the cleared item's field has no badge, another item's keeps its own`, (await page.locator(`${FIELD} [data-drift-badge]`).count()) === 0 && (await page.locator('[data-catalog-row="$claim.total"] [data-drift-badge="D-1"]').count()) === 1)
     check(`${dir} no page errors on the walk`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // ── wherever a published rule is opened or listed ─────────────────────────────────────────────
+  {
+    const { context, page, errors } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/guards/G-001`)
+    await page.locator('[data-rule-header]').waitFor({ timeout: 30000 })
+    const onRule = page.locator('[data-rule-header] [data-drift-badge="D-3"]')
+    await onRule.waitFor({ timeout: 8000 }).catch(() => {})
+    check(`${dir} the rule page carries the badge, in this tab, still running`, strip(await onRule.innerText()) === 'Drift, still running' && (await onRule.getAttribute('target')) === null)
+    await page.goto(`${BASE}/insurance-rules/guards/G-002`)
+    await page.locator('[data-rule-header]').waitFor({ timeout: 30000 })
+    check(`${dir} a rule page no item affects has none`, (await page.locator('[data-rule-header] [data-drift-badge]').count()) === 0)
+
+    await page.goto(`${BASE}/insurance-rules/guards/G-001/edit`)
+    const onEditor = page.locator('[data-editor-header] [data-drift-badge="D-3"]')
+    await onEditor.waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} the rule's editor carries it, in a new tab so the draft survives`, (await onEditor.count()) === 1 && (await onEditor.getAttribute('target')) === '_blank')
+
+    for (const [path, id] of [['coverage', 'C-002'], ['categories', 'K-002']]) {
+      await page.goto(`${BASE}/insurance-rules/${path}`)
+      const row = page.locator(`[data-rule-row="${id}"]`)
+      await row.waitFor({ timeout: 30000 })
+      const badge = row.locator('[data-drift-badge="D-3"]')
+      await badge.waitFor({ timeout: 8000 }).catch(() => {})
+      check(`${dir} the ${path} list carries it on the rule, in a new tab`, strip(await badge.innerText()) === 'Drift, still running' && (await badge.getAttribute('target')) === '_blank')
+      check(`${dir} the ${path} badge is not inside the row's button`, (await row.locator('button [data-drift-badge]').count()) === 0)
+      check(`${dir} the ${path} badge links back to its item`, (await badge.getAttribute('href')) === '/insurance-rules/review?kind=drift&item=D-3')
+    }
+    const other = page.locator('[data-rule-row]:not([data-rule-row="K-002"]) [data-drift-badge]')
+    check(`${dir} no other category rule has one`, (await other.count()) === 0)
+    check(`${dir} no page errors on the rule screens`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
   // ── the picker, and a denied badge read ───────────────────────────────────────────────────────

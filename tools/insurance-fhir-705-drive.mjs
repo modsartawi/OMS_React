@@ -171,6 +171,24 @@ for (const dir of ['ltr', 'rtl']) {
   await d.page.locator('[data-repin-denied]').waitFor({ timeout: 30000 })
   check(tag('a bare 403 on the list is said in words'), (await d.page.locator('[data-repin-denied]').innerText()).length > 10 && (await noRawKeys(d.page)))
   await d.context.close()
+
+  // 8 — the Fields page links to this list
+  const f = await open(dir, newAliasStore(), newRepinStore(), APPROVER)
+  await f.page.goto(`${BASE}/insurance-rules/fields`)
+  const link = f.page.locator('[data-repin-link]')
+  await link.waitFor({ timeout: 30000 })
+  check(tag('the Fields page says how a changed row reaches a ruleset'), (await f.page.locator('[data-repin-note]').innerText()).includes('re-pin draft'))
+  await link.click()
+  await f.page.locator('[data-repin-list]').waitFor({ timeout: 30000 })
+  const u = new URL(f.page.url())
+  check(tag('the link goes to the re-pin list'), u.pathname === '/insurance-rules/aliases' && u.hash === '#repin-drafts', f.page.url())
+  await f.page.locator('[data-repin-row]').first().waitFor({ timeout: 15000 })
+  await f.page.waitForFunction(() => {
+    const r = document.querySelector('[data-repin-list]').getBoundingClientRect()
+    return r.top >= 0 && r.top < innerHeight
+  }, null, { timeout: 5000 }).catch(() => {})
+  check(tag('and brings it into view'), await f.page.locator('[data-repin-list]').evaluate((e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight }))
+  await f.context.close()
 }
 
 await browser.close()

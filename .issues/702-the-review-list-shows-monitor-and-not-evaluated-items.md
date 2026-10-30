@@ -75,3 +75,5 @@ against a live SIS.Api.
 **Not shown yet:** the app's `lng` stays `en`, and the drive's RTL is direction only, so a monitor's Arabic text and the
 new Arabic copy never appear on screen. The EN/AR choice is `saysIn`'s, and the Arabic keys are proved only by the
 key-mirror test, so no one has read them in place.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** `ReviewItems`' `Message` is now `MessageRef`, and the wire type is imported as `MessageSource` beside it (also 708's `labelsDraftPath`).

@@ -185,8 +185,10 @@ for (const dir of ['ltr', 'rtl']) {
     await d.page.locator('[data-backtest-report]').waitFor({ timeout: 15000 })
     await d.go(APPROVALS)
     await d.page.locator('[data-backtest-standing]').waitFor({ timeout: 30000 })
-    await d.page.locator('[data-why="noBacktest"]').waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 9. a job that read no answers does not open Ask`, (await disabled(d.page.locator('[data-action="submit"]'))) && (await d.page.locator('[data-why="noBacktest"]').count()) === 1)
+    await d.page.locator('[data-backtest-standing="current"]').waitFor({ timeout: 30000 }).catch(() => {})
+    await d.page.locator('[data-checks="pass"], [data-checks="errors"]').first().waitFor({ timeout: 30000 }).catch(() => {})
+    // "Reuses the approval and shadow rules as they are": the gate is the revision's finished back-test, as a guard's and as HQ's.
+    check(`${dir} 9. a job of this revision opens Ask, as a guard's does`, !(await disabled(d.page.locator('[data-action="submit"]'))) && (await d.page.locator('[data-why="noBacktest"]').count()) === 0)
     await d.context.close()
 
     // ── a guard-only draft: unchanged ───────────────────────────────────────────────────────────

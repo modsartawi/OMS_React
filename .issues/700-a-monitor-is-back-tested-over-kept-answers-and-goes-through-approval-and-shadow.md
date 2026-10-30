@@ -55,3 +55,5 @@ Decisions, overrulable:
 - **Shadow copy is a guess.** "A monitor in shadow raises no review item until it is promoted, on the same 14 days" is my reading of A1's "same shadow". 3290 does not say what a shadow monitor does; 711 should confirm. Promote rules are unchanged (14 days, or sooner with a reason).
 - **The answer is shown as `source · id`, unlinked.** Payer and `use` are left out: 701's scopes have no `use`, and door 3290 names only (source, id).
 - **"The guard draft" stays the panel's title:** it is the document's name, and it does hold the monitors.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** **The client gate beyond HQ's is removed** (the "Client gate beyond HQ's" decision above no longer stands), because the ticket says the approval rules are reused as they are. `backtestForAsking` is gone, and Submit uses the guards' gate: a finished back-test of this revision. A job with no `monitors` section now opens Ask, so an author can ask without having seen what a monitor would raise if the door sends none. 711 should confirm 3290 always sends it for a draft holding a monitor. Drive check 9 now says so.

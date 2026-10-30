@@ -83,6 +83,27 @@ export function fhirCatalogQuery() {
   return { queryKey: [...FIELDS_KEY, 'catalog'] as const, queryFn: () => registryApi.fhirCatalog(), retry: false } as const
 }
 
+/** The key root of the re-pin doors: a raise or an approval invalidates it, so a badge goes with its draft. */
+export const REPINS_KEY = [...INSURANCE_RULES_KEY, 'repins'] as const
+
+/** What a screen outside the re-pin list reads of a ruleset still on an old form (oms 705, 708; door 3294). */
+export interface RepinAffectedRow {
+  kind: string
+  rulesetId: string
+  rulesetName: string
+  rulesetVersion: number
+  draftId: string | null
+}
+
+/** `GET InsuranceRules/RepinDrafts/Affected`. ⚠️ PROVISIONAL (711 reconciles). The re-pin list reads the same key. */
+export function repinAffectedQuery() {
+  return {
+    queryKey: [...REPINS_KEY, 'affected'] as const,
+    queryFn: async () => (await api.get<RepinAffectedRow[] | null>(`${INSURANCE_RULES_BASE}/RepinDrafts/Affected`)) ?? [],
+    retry: false,
+  } as const
+}
+
 export const DRIFT_BADGES_KEY = [...INSURANCE_RULES_KEY, 'drift-badges'] as const
 
 export function driftBadgesQuery() {

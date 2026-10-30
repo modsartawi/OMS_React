@@ -5,13 +5,14 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { AliasForm, AliasRow } from './alias-form'
+import { REPINS_KEY } from '@/core/insurance-rules/registry-api'
 import type { AffectedRuleset, RepinDraft } from './repin'
 
 const ALIASES = `${INSURANCE_RULES_BASE}/Aliases`
 const REPINS = `${INSURANCE_RULES_BASE}/RepinDrafts`
 
 export const ALIASES_KEY = [...INSURANCE_RULES_KEY, 'aliases'] as const
-export const REPINS_KEY = [...INSURANCE_RULES_KEY, 'repins'] as const
+export { REPINS_KEY }
 
 /** 705's re-pin drafts (door 3294, unbuilt: guessed as above). */
 export const repinApi = {

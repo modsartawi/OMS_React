@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { TD } from '@/core/insurance-rules/parts'
 import { DriftSignalWords } from '@/core/insurance-rules/DriftBadges'
+import { labelsDraftPath } from '@/core/insurance-rules/LabelsChangedBadge'
 import { DRIFT_BADGES_KEY } from '@/core/insurance-rules/registry-api'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -18,7 +19,7 @@ import type { Severity } from '@/core/ui/severity'
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { REVIEW_KEY, reviewApi } from './api'
-import { REVIEW_KINDS, packageDiffGroups, type MessageRef, type MonitorSeverity, type PackageDiff, type ReviewCleared, type ReviewRow } from './model'
+import { REVIEW_KINDS, packageDiffGroups, type MessageRef as MessageSource, type MonitorSeverity, type PackageDiff, type ReviewCleared, type ReviewRow } from './model'
 
 // The Review list's non-decision rows (spec 3271; oms tickets 702, 708): what each kind says, its clearing and its dialog.
 // A new kind (703) adds a case to `ItemDetail`; the row, the dialog and the clearing are the same for all.
@@ -42,7 +43,7 @@ export function KindWord({ kind }: { kind: string }) {
 }
 
 /** The message's `(source, id)`, one isolate: a pair led by a machine value. */
-function Message({ message, label = 'item.message' }: { message: MessageRef | null; label?: 'item.message' | 'item.sample' }) {
+function MessageRef({ message, label = 'item.message' }: { message: MessageSource | null; label?: 'item.message' | 'item.sample' }) {
   const { t } = useTranslation('insurance-review')
   if (!message) return null
   return (
@@ -67,7 +68,7 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
         <StatusBadge sev="bad">{t('item.failed')}</StatusBadge>
         {rule}
         <span data-item-failure={d.failure ?? 'unstated'}>{t(`item.failure.${d.failure ?? 'unstated'}`)}</span>
-        <Message message={d.message} />
+        <MessageRef message={d.message} />
       </div>
     )
   }
@@ -85,7 +86,7 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
             </span>
           </span>
         )}
-        <Link to={d.draftId ? `/insurance-rules/aliases?repin=${encodeURIComponent(d.draftId)}` : '/insurance-rules/aliases'} className="text-primary hover:underline" data-item-draft-link={d.draftId ?? ''}>
+        <Link to={labelsDraftPath(d.draftId)} className="text-primary hover:underline" data-item-draft-link={d.draftId ?? ''}>
           {t(d.draftId ? 'item.labels.openDraft' : 'item.labels.toDrafts')}
         </Link>
       </div>
@@ -140,7 +141,7 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
         <span data-item-signal={d.signal.type}>
           <DriftSignalWords signal={d.signal} />
         </span>
-        <Message message={d.sample} label="item.sample" />
+        <MessageRef message={d.sample} label="item.sample" />
         <span className="text-xs text-muted-foreground" data-item-still-running="">
           {t('item.stillRunning')}
         </span>
@@ -157,7 +158,7 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
       )}
       {rule}
       {text && <bdi data-item-text="">{text}</bdi>}
-      <Message message={d.message} />
+      <MessageRef message={d.message} />
     </div>
   )
 }

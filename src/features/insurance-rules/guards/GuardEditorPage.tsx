@@ -15,6 +15,7 @@ import { isMonitor, newMonitorRule, nextMonitorId } from '@/core/insurance-rules
 import { MonitorEffectEditor, MonitorScopeEditor } from '@/core/insurance-rules/editors/MonitorEditors'
 import { readRejectionSeed, seededGuardDraft } from '@/core/insurance-rules/rejection-draft'
 import { codesHoldSave, sameNamedRules } from '@/core/insurance-rules/rule-checks'
+import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardRulePath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
@@ -219,6 +220,7 @@ function Editor({
           <RuleId id={rule.id} />
           <GuardStateBadge state={rule.state} />
           {severity && <GuardSeverityBadge severity={severity} />}
+          {!isNew && <RuleDriftBadges ruleId={rule.id} newTab />}
           {dirty && (
             <span className="text-xs text-attention-800" data-unsaved="">
               {t('editor.unsaved')}

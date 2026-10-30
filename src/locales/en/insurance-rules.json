@@ -26,6 +26,10 @@
     "codeLabels": "Code labels",
     "inspector": "Decision inspector"
   },
+  "labelsChanged": {
+    "badge": "Labels changed",
+    "hint": "{{name}}, version {{version}}, still runs on older label wording. This opens its re-pin draft."
+  },
   "drift": {
     "badge": "Drift",
     "ruleBadge": "Drift, still running",

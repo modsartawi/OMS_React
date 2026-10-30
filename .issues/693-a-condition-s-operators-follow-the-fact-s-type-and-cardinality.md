@@ -91,3 +91,11 @@ Overrulable decisions:
 - `onUnknown` stays where it was, and a guard's FHIR fact also says beside it what unknown or unparsed does. Coverage rules
   have no `onUnknown`, so they do not show this.
 - 692's drive now expects the new starting tests (money object, flag `is: true`).
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.**
+- **Operators, read against the spec (story 15, story 16, 3272).** A list fact of any type now offers any of, none of and count, so lists of numbers, money and quantities gain any of / none of. This overrules my earlier "count only".
+- **Single facts are unchanged, deliberately.** The review asked to take any of / none of off a single code or text fact. The spec says otherwise: story 16 and 3272 test a code by any of / none of, and text has no other test, so it would be left with no operator. "No list operator" therefore means no count. Phase-1 rules open as before.
+- 🚩 **Guess for 711:** any of on a list of amounts or quantities takes plain text values through the codes box, so it has no 3-decimal or currency check. The wire spelling of such a value needs the built engine.
+- **`RuleConditions` (coverage, category, playground).** A fact it cannot draw (money, quantity, count, flag, day, a code with a system) now reads as its sentence, kept as written, and NOT and Remove still work. An eligibility bound holding money does the same, and its sentence no longer prints `[object Object]`. Before this, money drew as `[object Object]` in the codes box, and a keystroke overwrote it. Proved by the drive: a coverage rule holding three new-type facts saves another edit and sends them back unchanged. The Asks entry above on this block is closed; it still cannot edit them.
+- `placeholder="E11*"` is now `t()` (en + ar), and it and the system placeholder go through `fsi`.
+- List of money with any of is proved by the pure test only: the drive's catalog holds no such row.

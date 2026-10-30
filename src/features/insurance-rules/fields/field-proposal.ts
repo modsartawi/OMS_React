@@ -6,6 +6,7 @@
 // ⚠️ PROVISIONAL: 3282 spells no shape; 711 reconciles. As in `@/core/insurance-rules/approval`, `viewer` is what the
 // session may do; it comes with the list because this area has no grant probe.
 
+import { authorshipOf } from '@/core/insurance-rules/approval'
 import type { FieldProposalBody, ProbeReply } from './raw-path'
 
 export type FieldProposalState = 'proposed' | 'approved' | 'rejected'
@@ -48,8 +49,8 @@ export type ProposalStanding = 'may' | 'ownProposal' | 'reader' | 'none'
 export function proposalStanding(p: Pick<FieldProposal, 'state' | 'proposedBy'>, userId: string | null, viewer: ProposalViewer): ProposalStanding {
   if (p.state !== 'proposed') return 'none'
   if (!viewer.approver) return 'reader'
-  if (!userId || !p.proposedBy) return 'none'
-  return userId.toLowerCase() === p.proposedBy.toLowerCase() ? 'ownProposal' : 'may'
+  const who = authorshipOf(userId, p.proposedBy)
+  return who === 'unknown' ? 'none' : who === 'own' ? 'ownProposal' : 'may'
 }
 
 /** A rejection is sent with its reason, or not at all. */

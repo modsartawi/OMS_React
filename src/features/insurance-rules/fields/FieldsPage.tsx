@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import { Loader2, Plus } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
-import type { GuardCondition, GuardRuleset } from '@/core/insurance-rules/model'
+import { INSURANCE_RULES_PATH, type GuardCondition, type GuardRuleset } from '@/core/insurance-rules/model'
 import { FIELD_SCOPES, FIELD_TYPES, type FieldScope, type RegistryField } from '@/core/insurance-rules/registry'
 import { FIELDS_KEY, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import SaysBoth from '@/core/rules/SaysBoth'
@@ -79,6 +80,12 @@ export default function FieldsPage() {
       <header className="max-w-3xl">
         <h1 className="text-lg font-semibold tracking-tight">{t('page.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('page.lede')}</p>
+        <p className="mt-1 text-sm text-muted-foreground" data-repin-note="">
+          {t('page.repinNote')}{' '}
+          <Link to={`${INSURANCE_RULES_PATH}/aliases#repin-drafts`} className="text-primary hover:underline" data-repin-link="">
+            {t('page.repinLink')}
+          </Link>
+        </p>
       </header>
       {body}
     </section>

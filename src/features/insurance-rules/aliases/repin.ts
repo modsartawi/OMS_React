@@ -3,6 +3,7 @@
  * paths and aliases copied in at publish; a changed registry row or alias reaches it only through a draft, back-tested
  * old against new over the kept bundles and approved by someone else. Until then it runs as pinned. Pure.
  */
+import { authorshipOf } from '@/core/insurance-rules/approval'
 import type { BacktestStatus } from '@/core/insurance-rules/backtest'
 import type { Says } from '@/core/models/rule-campaign'
 
@@ -138,6 +139,5 @@ export type RepinStanding = 'may' | 'ownDraft' | 'noBacktest' | 'none'
 export function repinStanding(draft: Pick<RepinDraft, 'kind' | 'state' | 'createdBy' | 'backtest'>, userId: string | null): RepinStanding {
   if (draft.state !== 'open') return 'none'
   if (repinNeedsBacktest(draft.kind) && draft.backtest?.status !== 'done') return 'noBacktest'
-  if (!userId || !draft.createdBy) return 'ownDraft'
-  return userId.toLowerCase() === draft.createdBy.toLowerCase() ? 'ownDraft' : 'may'
+  return authorshipOf(userId, draft.createdBy) === 'other' ? 'may' : 'ownDraft'
 }

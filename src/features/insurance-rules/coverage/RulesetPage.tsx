@@ -16,7 +16,9 @@ import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { otherRuleOut, rulesetOut } from '@/core/insurance-rules/guard-wire'
 import OpenInPlayground from '@/core/insurance-rules/OpenInPlayground'
 import type { RuleSource } from '@/core/insurance-rules/experiment'
+import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import JsonButton from '@/core/insurance-rules/JsonButton'
+import { LabelsChangedBadge } from '@/core/insurance-rules/LabelsChangedBadge'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
 import { saysIn } from '@/core/rules/sentence'
@@ -58,8 +60,9 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
   else body = <Editor kind={kind} draft={draft.data} refetch={async () => (await draft.refetch()).data} />
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-ruleset-page={kind}>
-      <header>
+      <header className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold tracking-tight">{t(`${kind}.title`)}</h1>
+        <LabelsChangedBadge rulesets={[kind]} newTab />
       </header>
       {body}
     </section>
@@ -387,6 +390,8 @@ function RuleList({
                             <RuleDoes kind={kind} rule={r} />
                           </span>
                         </button>
+                        {/* 703: beside the row's button, not in it (a link in a button). A new tab, so an unsaved draft survives. */}
+                        <RuleDriftBadges ruleId={r.id} newTab />
                         <span className="flex flex-col gap-0.5">
                           <IconButton
                             label={t('ruleset.moveUp')}

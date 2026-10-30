@@ -47,14 +47,17 @@ export function FieldDriftBadges({ fieldKey, newTab }: { fieldKey: string; newTa
   )
 }
 
-/** A published rule's drift, saying the rule is still running: drift stops nothing (D5). */
-export function RuleDriftBadges({ ruleId }: { ruleId: string }) {
+/**
+ * A published rule's drift, saying the rule is still running: drift stops nothing (D5). `newTab` is for a screen holding
+ * an unsaved draft, as the picker's is.
+ */
+export function RuleDriftBadges({ ruleId, newTab }: { ruleId: string; newTab?: boolean }) {
   const { t } = useTranslation('insurance-rules')
   const { data } = useQuery(driftBadgesQuery())
   return (
     <>
       {badgesOnRule(data ?? [], ruleId).map((b) => (
-        <DriftLink key={b.itemId} badge={b} word={t('drift.ruleBadge')} />
+        <DriftLink key={b.itemId} badge={b} word={t('drift.ruleBadge')} newTab={newTab} />
       ))}
     </>
   )

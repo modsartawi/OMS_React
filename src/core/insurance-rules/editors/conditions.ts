@@ -4,6 +4,7 @@ import {
   eligibilityTests,
   type EligibilityCondition,
   type EligibilityTest,
+  type FactCondition,
   type GuardList,
   type Says,
 } from '@/core/insurance-rules/model'
@@ -43,6 +44,20 @@ export function listSummary(list: GuardList, fields: readonly RegistryField[]): 
     exclude: list.exclude ?? [],
   }
 }
+
+/**
+ * Whether the coverage editor's fact row can draw this block: a number or codes on a phase-1 operator, with no code
+ * system. Anything else (money, a quantity, a count, a flag, a day) reads as its sentence, kept as written: drawn as codes
+ * it would show `[object Object]`, and a keystroke would overwrite it (oms 693; 711 may widen this).
+ */
+export function drawsAsFactRow(c: FactCondition): boolean {
+  if (c.system !== undefined) return false
+  if (c.op === 'atLeast' || c.op === 'below') return typeof c.value !== 'object'
+  return c.op === 'anyOf' || c.op === 'noneOf' ? Array.isArray(c.value) || typeof c.value === 'string' : false
+}
+
+/** The same for an eligibility block: a bound holding money or a quantity is kept as written. `anyOf` is the one list. */
+export const drawsAsEligibilityRow = (c: EligibilityCondition): boolean => eligibilityTests(c).every((k) => k === 'anyOf' || typeof (c[k] as unknown) !== 'object')
 
 /** The family a test switches within: a bound to another bound, a day test to another day test; `anyOf` and `is` alone. */
 function family(test: EligibilityTest): readonly EligibilityTest[] {

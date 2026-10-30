@@ -52,14 +52,22 @@ describe('operators follow the type and the cardinality', () => {
     ['text', ['anyOf', 'noneOf']],
     ['flag', ['is']],
     ['date', ['before', 'onOrBefore', 'after', 'onOrAfter']],
-  ] as const)('a single %s fact offers no list operator', (type, ops) => {
+  ] as const)('a single %s fact offers no count', (type, ops) => {
     expect(operatorsFor(shape(type))).toEqual(ops)
   })
   it('a list of codes is tested any of, none of, or by its count', () => {
     expect(operatorsFor(shape('code', 'list'))).toEqual(['anyOf', 'noneOf', 'countAtLeast', 'countBelow'])
   })
-  it('a list of amounts can only be counted: any of has nothing to match by', () => {
-    expect(operatorsFor(shape('money', 'list'))).toEqual(['countAtLeast', 'countBelow'])
+  it.each(['number', 'money', 'quantity', 'text', 'date', 'flag'] as const)('a list of %s takes any of, none of and count, as every list fact does', (type) => {
+    expect(operatorsFor(shape(type, 'list'))).toEqual(['anyOf', 'noneOf', 'countAtLeast', 'countBelow'])
+  })
+  it('a phase-1 rule still opens on its own operator', () => {
+    const single = (type: FactShape['type']) => operatorsFor(shape(type))
+    expect(single('text')).toEqual(expect.arrayContaining(['anyOf', 'noneOf']))
+    expect(single('number')).toEqual(expect.arrayContaining(['atLeast', 'below']))
+  })
+  it('a count on a list of amounts, saved before, still fits', () => {
+    expect(operatorsFor(shape('money', 'list'))).toContain('countAtLeast')
   })
 })
 

@@ -5,6 +5,7 @@
  *
  * 🚩 Every shape is a guess until 711 reconciles it with the door as built.
  */
+import { authorshipOf } from '@/core/insurance-rules/approval'
 import type { LabelText } from './labels'
 
 /** Why a code is on the worklist. A reason this list does not know is shown as sent. */
@@ -76,8 +77,7 @@ export type ApproveStanding = 'may' | 'ownProposal' | 'none'
 
 export function approveStanding(override: Pick<LabelOverride, 'state' | 'proposedBy'>, userId: string | null): ApproveStanding {
   if (override.state !== 'proposed') return 'none'
-  if (!userId || !override.proposedBy) return 'ownProposal'
-  return userId.toLowerCase() === override.proposedBy.toLowerCase() ? 'ownProposal' : 'may'
+  return authorshipOf(userId, override.proposedBy) === 'other' ? 'may' : 'ownProposal'
 }
 
 /** The proposal waiting on this code, if one is. A code is named by its system and its code together. */

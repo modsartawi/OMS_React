@@ -13,6 +13,7 @@ import { GUARD_NEW_PATH, MONITOR_NEW_PATH, guardRulePath, type GuardRuleRow } fr
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { guardRulesetOut } from '@/core/insurance-rules/guard-wire'
 import JsonButton from '@/core/insurance-rules/JsonButton'
+import { LabelsChangedBadge } from '@/core/insurance-rules/LabelsChangedBadge'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -24,6 +25,9 @@ import FolderActions from './FolderActions' // 609
 import FolderTree from './FolderTree'
 import { folderFromParams, folderToParams } from './folder-query'
 import { DeniedCard } from '@/core/insurance-rules/parts'
+
+/** This one list shows both published rulesets. */
+const GUARD_RULESETS = ['guards', 'monitors'] as const
 
 /**
  * Insurance rules ▸ Guards — `/insurance-rules/guards` (BackOffice spec 3126, oms ticket 607). Every guard
@@ -38,7 +42,10 @@ export default function GuardsPage() {
     <section className="flex h-full w-full flex-col gap-4" data-guards-page="">
       <header className="flex flex-wrap items-start gap-4">
         <div className="max-w-3xl">
-          <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
+          <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
+            {t('list.title')}
+            <LabelsChangedBadge rulesets={GUARD_RULESETS} />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
           <p className="mt-1 text-sm text-muted-foreground" data-monitor-never="">{t('monitor.neverTouches')}</p>
         </div>

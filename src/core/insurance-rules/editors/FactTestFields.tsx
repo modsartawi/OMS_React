@@ -87,7 +87,7 @@ function CodeFields({ c, shape, bad, set }: { c: FactCondition; shape: FactShape
       <Field label={t('editor.factTest.system')}>
         <CodeInput
           value={c.system ?? ''}
-          placeholder={shape.system ?? undefined}
+          placeholder={shape.system ? fsi(shape.system) : undefined}
           className="w-72"
           data-input="system"
           onValue={(s) =>
@@ -179,7 +179,7 @@ function ValueFields({ c, shape, bad, set, numberUnit }: { c: FactCondition; sha
           value={Array.isArray(v) ? v : [String(v)]}
           invalid={bad}
           title={t('editor.codesHint')}
-          placeholder="E11*"
+          placeholder={fsi(t('editor.factTest.codesPlaceholder'))}
           data-input="codes"
           onCodes={(codes) => set((x) => ({ ...x, value: codes }), 'value')}
         />

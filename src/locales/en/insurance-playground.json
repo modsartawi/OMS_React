@@ -30,7 +30,7 @@
       "raw": "Raw"
     },
     "rawHint": "Any text, sent as it is, even when it is not valid JSON. The outcome lists what the engine read, ignored and refused.",
-    "formHint": "The request, patient and lines as a form. An edit shows in the JSON at once, and the other way round.",
+    "formHint": "The whole dataset as a form: request, patient, lines, history, reference rows and eligibility facts (and the payer, for coverage). An edit shows in the JSON at once, and the other way round.",
     "form": {
       "request": "Request",
       "patient": "Patient",
@@ -72,8 +72,54 @@
         "eCode": "eCode",
         "dCode": "dCode",
         "sfdaCode": "SFDA code",
-        "idfPriority": "IDF priority"
-      }
+        "idfPriority": "IDF priority",
+        "on": "On (date)"
+      },
+      "history": "History",
+      "historyHint": "The patient's earlier dispenses.",
+      "historyNone": "None — a first-time patient.",
+      "event": "Event {{n}}",
+      "eventRemove": "Remove event {{n}}",
+      "addEvent": "Add a history event",
+      "reference": "Reference rows",
+      "referenceHint": "SFDA and CHI rows the reference conditions read, instead of the live editions.",
+      "referenceNone": "None — the reference conditions find no row.",
+      "refTable": "Table",
+      "refCode": "Code",
+      "refRow": "Reference row {{n}}",
+      "refRemove": "Remove reference row {{n}}",
+      "addRef": "Add a reference row",
+      "refFields": "Fields",
+      "refFieldsHint": "An edited value keeps the type it had (a number, a list of codes); a new one is text.",
+      "fieldKey": "Field",
+      "fieldValue": "Value",
+      "fieldRemove": "Remove this field",
+      "addField": "Add a field",
+      "tables": {
+        "sfda": "SFDA product",
+        "mapped": "Formulary mapping",
+        "formulary": "Formulary indication"
+      },
+      "eligibility": "Eligibility facts",
+      "eligibilityHint": "Facts of the payer's eligibility answer; they belong to the whole request.",
+      "eligibilityNone": "None — every eligibility fact is unknown.",
+      "factKey": "Fact key",
+      "factType": "Type",
+      "factValue": "Value",
+      "factUnit": "Unit",
+      "factFlagHint": "true or false",
+      "factRemove": "Remove fact {{n}}",
+      "addFact": "Add a fact",
+      "types": {
+        "number": "Number",
+        "text": "Text",
+        "flag": "Flag",
+        "date": "Date"
+      },
+      "payer": "Payer",
+      "payerHint": "What the payer stated, per deductible group (coverage experiments only).",
+      "deductiblePercent": "{{group}} deductible %",
+      "deductibleMax": "{{group}} deductible maximum"
     }
   },
   "rule": {

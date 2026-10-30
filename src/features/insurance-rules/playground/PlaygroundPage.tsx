@@ -138,7 +138,7 @@ export default function PlaygroundPage() {
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <DataPane tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={built.problems.includes('data')} />
+        <DataPane kind={kind} tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={built.problems.includes('data')} />
         <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={built.problems.includes('document')} />
 
         <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome" aria-busy={pending || undefined}>

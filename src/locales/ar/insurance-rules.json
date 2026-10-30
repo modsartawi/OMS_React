@@ -20,7 +20,9 @@
     "idfLookup": "استعلام IDF",
     "idfEvents": "أحداث IDF",
     "idfGroups": "مجموعات IDF",
-    "playground": "ساحة التجربة"
+    "aliases": "الأسماء البديلة",
+    "playground": "ساحة التجربة",
+    "codeLabels": "تسميات الرموز"
   },
   "catalog": {
     "title": "دليل حقائق FHIR",

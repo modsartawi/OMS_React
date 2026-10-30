@@ -61,6 +61,14 @@ import insuranceIdfAr from '@/locales/ar/insurance-idf.json'
 import insurancePlaygroundEn from '@/locales/en/insurance-playground.json'
 import insurancePlaygroundAr from '@/locales/ar/insurance-playground.json'
 
+// 704 · imports — Aliases (`features/insurance-rules/aliases`, spec 3271; 705 builds on its page)
+import insuranceAliasesEn from '@/locales/en/insurance-aliases.json'
+import insuranceAliasesAr from '@/locales/ar/insurance-aliases.json'
+
+// 706 · imports — the Code labels screen (`features/insurance-rules/labels`, spec 3271). ONE namespace for 706–707.
+import insuranceLabelsEn from '@/locales/en/insurance-labels.json'
+import insuranceLabelsAr from '@/locales/ar/insurance-labels.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -98,6 +106,12 @@ export const INSURANCE_RULES_NS = [
 
   // 677 · ns
   'insurance-playground',
+
+  // 704 · ns
+  'insurance-aliases',
+
+  // 706 · ns
+  'insurance-labels',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -137,6 +151,12 @@ export const INSURANCE_RULES_EN = {
 
   // 677 · en
   'insurance-playground': insurancePlaygroundEn,
+
+  // 704 · en
+  'insurance-aliases': insuranceAliasesEn,
+
+  // 706 · en
+  'insurance-labels': insuranceLabelsEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -176,4 +196,10 @@ export const INSURANCE_RULES_AR = {
 
   // 677 · ar
   'insurance-playground': insurancePlaygroundAr,
+
+  // 704 · ar
+  'insurance-aliases': insuranceAliasesAr,
+
+  // 706 · ar
+  'insurance-labels': insuranceLabelsAr,
 }

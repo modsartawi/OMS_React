@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "Aliases",
+    "lede": "A payer that spells a system URL wrongly is named here once: the payer, the wrong URL and the canonical one. HQ applies an approved alias when it matches codings and UCUM units.",
+    "neverRewritten": "The kept bundle itself is never rewritten. An approved alias reaches a published rule only through a re-pin draft.",
+    "failed": "The aliases could not be loaded.",
+    "loading": "Loading the aliases…",
+    "empty": "No alias yet."
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission.",
+    "grant": "Only a user with the insurance rules permission can propose or approve an alias."
+  },
+  "col": {
+    "payer": "Payer",
+    "wrongUrl": "Wrong URL",
+    "canonicalUrl": "Canonical URL",
+    "state": "State",
+    "proposedBy": "Proposed by",
+    "approvedBy": "Approved by"
+  },
+  "state": {
+    "proposed": "Proposed",
+    "approved": "Approved"
+  },
+  "approve": {
+    "action": "Approve",
+    "title": "Approve this alias?",
+    "confirm": "For {{payer}}, HQ will read {{wrong}} as {{canonical}}.",
+    "done": "Alias approved",
+    "failed": "The alias could not be approved",
+    "own": "You proposed this alias, so someone else approves it."
+  },
+  "form": {
+    "title": "Propose an alias",
+    "hint": "Someone other than you approves it before it applies.",
+    "payer": "Payer",
+    "payerChoose": "Choose a payer",
+    "payersFailed": "The payers could not be loaded.",
+    "wrongUrl": "Wrong URL",
+    "wrongPlaceholder": "http://unitsofmeasure.org/ucum",
+    "canonicalUrl": "Canonical URL",
+    "canonicalPlaceholder": "http://unitsofmeasure.org",
+    "submit": "Propose",
+    "done": "Alias proposed",
+    "failed": "The alias could not be proposed"
+  },
+  "problem": {
+    "payerMissing": "Choose a payer.",
+    "wrongMissing": "Enter the wrong URL.",
+    "canonicalMissing": "Enter the canonical URL.",
+    "sameUrl": "The wrong URL and the canonical URL are the same."
+  }
+}

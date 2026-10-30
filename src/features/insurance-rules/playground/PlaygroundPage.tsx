@@ -14,6 +14,9 @@ import { DataPane } from './DataPane'
 import { evaluateBody, kindSeed, type DataTab } from './experiment'
 import ExperimentBar from './ExperimentBar'
 import { intakeView } from './intake'
+import type { LessonAnswer } from './lesson-check'
+import LessonPanel from './LessonPanel'
+import { lessonExperiment, type Lesson } from './lessons'
 import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
 import { outcomeView } from './outcome'
@@ -61,6 +64,7 @@ export default function PlaygroundPage() {
     const r = latestWins<PlaygroundEvaluateBody, Answer>({
       delayMs: RUN_DELAY_MS,
       run: async (body) => ({
+        body,
         kind: body.kind,
         fields: (body.document as { fields?: unknown } | undefined)?.fields,
         reply: await playgroundApi.evaluate(body),
@@ -80,8 +84,12 @@ export default function PlaygroundPage() {
   // Every edit restarts the window; JSON that does not parse sends nothing.
   useEffect(() => runner.current?.edit(built.body), [built])
 
+  // 689: the loaded lesson, until the experiment is replaced (another lesson, an opened experiment, a kind switch).
+  const [lessonId, setLessonId] = useState<string | null>(null)
+
   const pickKind = (k: PlaygroundKind) => {
     if (k === kind) return
+    setLessonId(null)
     const seed = kindSeed(k)
     setKind(k)
     setDataText(seed.dataText)
@@ -102,8 +110,26 @@ export default function PlaygroundPage() {
     }
   }
 
+  const openExperiment = (e: PlaygroundExperiment) => {
+    setLessonId(null)
+    loadExperiment(e)
+  }
+  const loadLesson = (l: Lesson) => {
+    loadExperiment(lessonExperiment(l))
+    setLessonId(l.id)
+  }
+
   const error = settled && !settled.ok ? settled.error : null
   const answer = settled?.ok ? settled.value : null
+  // 689: Check reads the answer through the same view models the Outcome pane draws. Only an answer to the experiment
+  // as it stands now is judged: a refusal, or the previous experiment's answer still showing, is no answer yet.
+  const lessonAnswer = useMemo<LessonAnswer | null>(
+    () =>
+      answer && built.body && JSON.stringify(answer.body) === JSON.stringify(built.body)
+        ? { outcome: outcomeView(answer.reply), verdict: verdictView(answer.kind, answer.reply?.verdict), intake: intakeView(answer.reply?.intake) }
+        : null,
+    [answer, built],
+  )
 
   return (
     <section className="flex w-full flex-col gap-4" data-playground-page="">
@@ -112,7 +138,8 @@ export default function PlaygroundPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
 
-      <ExperimentBar body={built.body} onLoad={loadExperiment} />
+      <ExperimentBar body={built.body} onLoad={openExperiment} />
+      <LessonPanel lessonId={lessonId} answer={lessonAnswer} pending={pending} onLoad={loadLesson} />
 
       <div className="flex flex-wrap items-start gap-6" data-experiment-controls="">
         <div className="flex flex-col gap-1">
@@ -200,6 +227,8 @@ export default function PlaygroundPage() {
 
 /** One answer and the kind it was asked for (Tab B reads the verdict as that kind, not the picker's current one). */
 interface Answer {
+  /** The body it answers (689: Check judges only an answer to the experiment as it stands). */
+  body: PlaygroundEvaluateBody
   kind: PlaygroundKind
   /** The sent document's `fields` (686's read log reads their types). */
   fields: unknown

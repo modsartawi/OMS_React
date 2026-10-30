@@ -2304,7 +2304,8 @@ const PLAYGROUND_GROUP_WORD = { G1: 'Generic', G2: 'Brand', G3: 'NonMed' }
 const NOTHING = { value: null, source: 'none', ruleId: null, version: null }
 
 function playgroundHolds(line, rule) {
-  const rows = line.trace.filter((s) => s.ruleId === rule.id)
+  // 689: a group's nested rows (`when[0].conditions[1]`) do not decide; the rule's top-level blocks do.
+  const rows = line.trace.filter((s) => s.ruleId === rule.id && /^when\[\d+\]$/.test(s.blockPath))
   return rows.length > 0 && rows.every((s) => s.value === 'true')
 }
 
@@ -2402,4 +2403,177 @@ function rawPlayground(body) {
     return line
   })
   return envelope(playgroundVerdict({ ...body, data }, { ...evaluatePlayground({ ...body, data }), intake }))
+}
+
+// --- 689 --- the lessons' door: the 677 evaluator grown to every block a lesson reads, as the BRIEF draws it (691
+// re-runs every lesson's Check on the live door). A block reads true | false | unknown (Kleene): `line` (`field` +
+// above / atLeast / under / atMost / anyOf), `group` (`mode: any | all`, `conditions`), `not: true` on any block,
+// `request` (`field` + anyOf), `eligibility` (`field` = the fact key, `{ type, number | text }`, bounds / anyOf),
+// `history` (`match: sameItem`, `windowDays` back from asOf, `measure: dispenses | quantity`, `atLeast`,
+// `includeThisLine`) and `formula` (`expr`, operator-first: compare, and/or/not, + - * /, `filter`, `lines`, `count`,
+// `sum`, over `$request.lines`, `$line.*`, `$request.*`, `$patient.*`, `$eligibility.<key>`). A group's conditions are
+// traced as `when[i].conditions[j]` (GUESS: 3244 owns the path); a rule holds on its TOP-LEVEL rows only (678's
+// `playgroundHolds`). Raw text goes to 684's `rawPlayground` as before.
+
+const kBool = (b) => (b === null || b === undefined ? null : !!b)
+const kAnd = (vs) => (vs.some((v) => v === false) ? false : vs.some((v) => v === null) ? null : true)
+const kOr = (vs) => (vs.some((v) => v === true) ? true : vs.some((v) => v === null) ? null : false)
+const kNot = (v) => (v === null ? null : !v)
+const LESSON_BOUNDS = { above: (v, n) => v > n, atLeast: (v, n) => v >= n, under: (v, n) => v < n, atMost: (v, n) => v <= n }
+
+function factValue(f) {
+  if (f === undefined || f === null) return null
+  if (typeof f !== 'object') return f
+  return f.number ?? f.text ?? f.date ?? f.flag ?? null
+}
+
+function lessonPath(path, ctx) {
+  const [scope, ...rest] = path.slice(1).split('.')
+  const key = rest.join('.')
+  if (scope === 'request' && key === 'lines') return ctx.data.lines ?? []
+  if (scope === 'line') return ctx.line?.[key] ?? null
+  if (scope === 'request' || scope === 'patient') return ctx.data[scope]?.[key] ?? null
+  if (scope === 'eligibility') return factValue(ctx.data.eligibility?.[key])
+  return null
+}
+
+function lessonExpr(x, ctx) {
+  if (typeof x === 'string') return x.startsWith('$') ? lessonPath(x, ctx) : x
+  if (!Array.isArray(x)) return x ?? null
+  const [op, ...args] = x
+  const ev = (a, c = ctx) => lessonExpr(a, c)
+  switch (op) {
+    case 'filter': {
+      const list = ev(args[0])
+      return Array.isArray(list) ? list.filter((el) => ev(args[1], { ...ctx, line: el }) === true) : null
+    }
+    case 'lines': {
+      const list = ev(args[0])
+      return Array.isArray(list) ? list.length : null
+    }
+    case 'count': {
+      const list = ev(args[0])
+      return Array.isArray(list) ? list.reduce((n, l) => n + (Number(l?.quantity) || 0), 0) : null
+    }
+    case 'sum': {
+      const list = ev(args[0])
+      if (!Array.isArray(list)) return null
+      const vs = list.map((el) => ev(args[1], { ...ctx, line: el }))
+      return vs.some((v) => typeof v !== 'number') ? null : vs.reduce((a, b) => a + b, 0)
+    }
+    case 'and':
+      return kAnd(args.map((a) => kBool(ev(a))))
+    case 'or':
+      return kOr(args.map((a) => kBool(ev(a))))
+    case 'not':
+      return kNot(kBool(ev(args[0])))
+  }
+  const [a, b] = args.map((v) => ev(v))
+  if (a === null || b === null || a === undefined || b === undefined) return null
+  switch (op) {
+    case '>':
+      return a > b
+    case '>=':
+      return a >= b
+    case '<':
+      return a < b
+    case '<=':
+      return a <= b
+    case '==':
+      return a === b
+    case '!=':
+      return a !== b
+    case '+':
+      return a + b
+    case '-':
+      return a - b
+    case '*':
+      return a * b
+    case '/':
+      return b === 0 ? null : a / b
+  }
+  return null
+}
+
+const dayOf = (s) => (typeof s === 'string' && /^\d{4}-\d\d-\d\d/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) : null)
+
+function lessonBounds(v, b) {
+  const tests = Object.keys(LESSON_BOUNDS).filter((t) => b[t] !== undefined)
+  const anyOf = Array.isArray(b.anyOf) ? b.anyOf.map(String) : null
+  if (!tests.length && !anyOf) return { value: null, why: 'no test on the block' }
+  if (v === null || v === undefined) return { value: null, why: `${b.field} is not there` }
+  if (anyOf) {
+    const value = anyOf.includes(String(v))
+    return { value, why: `${b.field} ${v} ${value ? '' : 'not '}any of ${anyOf.join(', ')}` }
+  }
+  if (typeof v !== 'number') return { value: null, why: `${b.field} is not a number` }
+  const value = tests.every((t) => LESSON_BOUNDS[t](v, b[t]))
+  return { value, why: `${b.field} ${v} ${value ? 'holds' : 'fails'} ${tests.map((t) => `${t} ${b[t]}`).join(', ')}` }
+}
+
+function lessonBlock(b, ctx) {
+  let r
+  switch (b?.check) {
+    case 'line':
+      r = lessonBounds(ctx.line?.[b.field], b)
+      break
+    case 'request':
+      r = lessonBounds(ctx.data.request?.[b.field], b)
+      break
+    case 'eligibility':
+      r = lessonBounds(factValue(ctx.data.eligibility?.[b.field]), b)
+      break
+    case 'history': {
+      const now = dayOf(ctx.asOf)
+      const rows = (ctx.data.history ?? []).filter((h) => {
+        const on = dayOf(h?.on)
+        return (b.match !== 'sameItem' || h?.item === ctx.line?.item) && on !== null && now !== null && on <= now && now - on < b.windowDays * 86400000
+      })
+      let n = b.measure === 'quantity' ? rows.reduce((s, h) => s + (Number(h?.quantity) || 0), 0) : rows.length
+      if (b.includeThisLine) n += b.measure === 'quantity' ? Number(ctx.line?.quantity) || 0 : 1
+      r = { value: n >= b.atLeast, why: `${n} in the last ${b.windowDays} days, ${n >= b.atLeast ? '' : 'not '}at least ${b.atLeast}` }
+      break
+    }
+    case 'formula': {
+      const v = lessonExpr(b.expr, ctx)
+      r = { value: kBool(v), why: v === null ? 'the formula read something unknown' : `the formula is ${!!v}` }
+      break
+    }
+    case 'group': {
+      const subs = (b.conditions ?? []).map((c, j) => ({ j, ...lessonBlock(c, ctx) }))
+      r = { value: (b.mode === 'any' ? kOr : kAnd)(subs.map((s) => s.value)), why: `${b.mode} of ${subs.length}`, subs }
+      break
+    }
+    default:
+      r = { value: null, why: `unknown check ${b?.check}` }
+  }
+  return b?.not === true ? { ...r, value: kNot(r.value), why: `not (${r.why})` } : r
+}
+
+const traceText = (v) => (v === null ? 'unknown' : String(v))
+
+export function evaluatePlaygroundLessons(body) {
+  const rules = Array.isArray(body?.document?.rules) ? body.document.rules : []
+  const data = body?.data ?? {}
+  const lines = (data.lines ?? []).map((l, k) => {
+    const trace = []
+    let matched = false
+    for (const r of rules) {
+      const tops = (r.when ?? []).map((b, j) => {
+        const res = lessonBlock(b, { data, line: l, asOf: body.asOf })
+        trace.push({ ruleId: r.id, blockPath: `when[${j}]`, value: traceText(res.value), why: res.why })
+        for (const s of res.subs ?? []) trace.push({ ruleId: r.id, blockPath: `when[${j}].conditions[${s.j}]`, value: traceText(s.value), why: s.why })
+        return res.value
+      })
+      if (tops.length && tops.every((v) => v === true)) matched = true
+    }
+    return { line: l?.line ?? k + 1, matched, trace, reads: [] }
+  })
+  return { errors: [], lines, verdict: null, intake: null }
+}
+
+export function playgroundLessonsStub(method, path, body, opts = {}) {
+  const hit = playgroundStub(method, path, body, opts)
+  if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
+  return envelope(playgroundVerdict(body, evaluatePlaygroundLessons(body)))
 }

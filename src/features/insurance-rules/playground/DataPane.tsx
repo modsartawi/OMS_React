@@ -5,7 +5,7 @@ import Textarea from '@/core/ui/Textarea'
 import type { PlaygroundKind } from '@/core/insurance-rules/playground'
 import { formFromText, formText, type DataForm } from './data-form'
 import { DataFormView } from './DataFormView'
-import { DATA_TABS, type DataTab } from './experiment'
+import { DATA_TABS, type DataTab } from './boxes'
 import { FlattenPanel } from './FlattenPanel'
 import { JsonPane } from './JsonPane'
 

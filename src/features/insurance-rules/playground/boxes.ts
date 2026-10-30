@@ -2,7 +2,8 @@ import { EXAMPLE_COVERAGE_PAYER, EXAMPLE_DATA } from '@/core/insurance-rules/exa
 import type { PlaygroundDocument, PlaygroundEvaluateBody, PlaygroundKind } from '@/core/insurance-rules/playground'
 import { isPlainObject } from '@/core/util/plain-object'
 
-// One experiment as the 677 page holds it: the Data box (the door's `data`, engine shape) and the Rule box (the scratch
+// The page's two boxes (renamed from experiment.ts in the 3243 review; core/insurance-rules/experiment.ts is the file
+// codec). One experiment as the 677 page holds it: the Data box (the door's `data`, engine shape) and the Rule box (the scratch
 // `document`), both JSON text. Pure. 678 adds the kind seeds (`kindSeed`); 682 the form ⇄ JSON; 687 the codec.
 
 /** The box a problem is in. */

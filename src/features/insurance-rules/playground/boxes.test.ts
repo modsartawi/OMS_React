@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
-import { evaluateBody, kindSeed, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT } from './experiment'
+import { evaluateBody, kindSeed, SEED_DATA_TEXT, SEED_DOCUMENT_TEXT } from './boxes'
 
 const AS_OF = '2026-10-30T14:05:00'
 

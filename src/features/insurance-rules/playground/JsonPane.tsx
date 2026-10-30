@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import Textarea from '@/core/ui/Textarea'
-import type { ExperimentBox } from './experiment'
+import type { ExperimentBox } from './boxes'
 
 /**
  * One JSON box of the experiment (ticket 677): the Data pane's `data`, or the Rule pane's `document`. JSON is a

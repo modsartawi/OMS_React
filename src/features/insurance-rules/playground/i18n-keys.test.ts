@@ -15,7 +15,7 @@ import { PLAYGROUND_KINDS } from '@/core/insurance-rules/playground'
 import { EXPERIMENT_REFUSALS } from '@/core/insurance-rules/experiment'
 import { SAID_KEYS } from './experiment-store'
 import { DATA_TABS, type ExperimentBox } from './experiment'
-import { LINE_FIELDS, PATIENT_FIELDS, REQUEST_FIELDS } from './data-form'
+import { FACT_TYPES, HISTORY_FIELDS, LINE_FIELDS, PATIENT_FIELDS, REFERENCE_TABLES, REQUEST_FIELDS } from './data-form'
 import { COVERAGE_INVOICE_KEYS, COVERAGE_LINE_KEYS } from './verdict'
 
 function leaves(node: unknown, prefix = ''): string[] {
@@ -86,8 +86,17 @@ describe('insurance-playground — the keys the code builds exist', () => {
       'experiments.refused.title',
       ...[...EXPERIMENT_REFUSALS, 'fileFailed'].map((k) => `experiments.refused.${k}`),
     ]
-      for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
-    })
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('679: the Rule pane ruleset and the errors shown on their block', (locale) => {
+    const keys = [
+      'rule.hintEditors',
+      ...['label', 'rule', 'add', 'up', 'down', 'remove', 'jsonOnly', 'broken', 'empty', 'readsAs'].map((k) => `ruleset.${k}`),
+      'outcome.errors.onBlocks',
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
 
   it.each([en, ar])('682: the form, its sections, every field and its problems', (locale) => {
     const keys = [
@@ -97,6 +106,29 @@ describe('insurance-playground — the keys the code builds exist', () => {
       ...['invalid', 'unshaped'].map((k) => `form.problem.${k}`),
       ...[...REQUEST_FIELDS, ...PATIENT_FIELDS, ...LINE_FIELDS].map((f) => `form.fields.${f}`),
     ].map((k) => `data.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('683: history, reference rows, eligibility facts, the payer, and "none"', (locale) => {
+    const keys = [
+      ...['history', 'historyHint', 'historyNone', 'event', 'eventRemove', 'addEvent'],
+      ...['reference', 'referenceHint', 'referenceNone', 'refTable', 'refCode', 'refRow', 'refRemove', 'addRef', 'refFields', 'refFieldsHint'],
+      ...['fieldKey', 'fieldValue', 'fieldRemove', 'addField'],
+      ...['eligibility', 'eligibilityHint', 'eligibilityNone', 'factKey', 'factType', 'factValue', 'factUnit', 'factFlagHint', 'factRemove', 'addFact'],
+      ...['payer', 'payerHint', 'deductiblePercent', 'deductibleMax'],
+      ...REFERENCE_TABLES.map((x) => `tables.${x}`),
+      ...FACT_TYPES.map((x) => `types.${x}`),
+      ...HISTORY_FIELDS.map((f) => `fields.${f}`),
+    ].map((k) => `data.form.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('690: Compare A/B, both sides and every mark', (locale) => {
+    const keys = [
+      ...['start', 'leave', 'title', 'hint', 'waiting', 'same', 'differs', 'verdict', 'markLabel', 'absent', 'side.a', 'side.b'],
+      ...['data', 'raw', 'rule', 'refused'].map((k) => `b.${k}`),
+      ...['differs', 'onlyA', 'onlyB'].map((k) => `mark.${k}`),
+    ].map((k) => `compare.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

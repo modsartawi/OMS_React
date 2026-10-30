@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Chip from '@/core/ui/Chip'
 import Textarea from '@/core/ui/Textarea'
+import type { PlaygroundKind } from '@/core/insurance-rules/playground'
 import { formFromText, formText, type DataForm } from './data-form'
 import { DataFormView } from './DataFormView'
 import { DATA_TABS, type DataTab } from './experiment'
@@ -17,6 +18,7 @@ import { JsonPane } from './JsonPane'
  * other change to the text — the JSON tab, a kind switch — re-reads the form from it.
  */
 export function DataPane({
+  kind,
   tab,
   onTab,
   dataText,
@@ -25,6 +27,8 @@ export function DataPane({
   onRawText,
   invalid,
 }: {
+  /** The payer is a form section only for a coverage experiment (683). */
+  kind: PlaygroundKind
   tab: DataTab
   onTab: (tab: DataTab) => void
   dataText: string
@@ -35,7 +39,7 @@ export function DataPane({
 }) {
   const { t } = useTranslation('insurance-playground')
   const [own, setOwn] = useState<{ text: string; form: DataForm } | null>(null)
-  const read = useMemo(() => (tab !== 'form' ? null : own && own.text === dataText ? { form: own.form } : formFromText(dataText)), [tab, own, dataText])
+  const read = useMemo(() => (tab !== 'form' ? null : own && own.text === dataText ? { form: own.form } : formFromText(dataText, { payer: kind === 'coverage' })), [tab, own, dataText, kind])
   const editForm = (form: DataForm) => {
     const text = formText(form)
     setOwn({ text, form })

@@ -37,3 +37,13 @@ export function outcomeView(reply: PlaygroundEvaluateReply | null | undefined): 
   const matched = lines.filter((l) => l.matched)
   return { kind: 'outcome', matched: matched.length ? matched : null, lines }
 }
+
+/** The reply's reader errors (`errors[]`), read as `outcomeView` reads them; [] when none. */
+export function outcomeErrors(reply: PlaygroundEvaluateReply | null | undefined): PlaygroundReaderError[] {
+  const v = outcomeView(reply)
+  return v.kind === 'errors' ? v.errors : []
+}
+
+/** An errors view keeping only `rest` (679: the others are shown on their block in the Rule pane). */
+export const outcomeWithout = (view: OutcomeView, rest: readonly PlaygroundReaderError[]): OutcomeView =>
+  view.kind === 'errors' ? { kind: 'errors', errors: [...rest] } : view

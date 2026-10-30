@@ -2577,3 +2577,11 @@ export function playgroundLessonsStub(method, path, body, opts = {}) {
   if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
   return envelope(playgroundVerdict(body, evaluatePlaygroundLessons(body)))
 }
+
+// --- 690 --- Compare (A/B): no new door — two calls to Evaluate. `playgroundCompareStub` answers the 677 door with
+// 686's read log AND 678's verdict, so a compare drive sees lines, trace, reads and verdict differ together.
+export function playgroundCompareStub(method, path, body, opts = {}) {
+  const hit = playgroundStub(method, path, body, opts)
+  if (!hit || hit.status !== 200 || method !== 'POST' || path !== 'InsuranceRules/Playground/Evaluate' || typeof body?.raw === 'string') return hit
+  return envelope(playgroundVerdict(body, evaluatePlaygroundWithReads(body)))
+}

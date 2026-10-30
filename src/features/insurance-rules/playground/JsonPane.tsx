@@ -17,6 +17,7 @@ export function JsonPane({
   onChange,
   invalid,
   tabs,
+  before,
   children,
 }: {
   box: ExperimentBox
@@ -26,6 +27,8 @@ export function JsonPane({
   onChange: (text: string) => void
   invalid: boolean
   tabs?: ReactNode
+  /** Drawn above the box (679's ruleset editors, which stay in step with it). */
+  before?: ReactNode
   children?: ReactNode
 }) {
   const { t } = useTranslation('insurance-playground')
@@ -37,6 +40,7 @@ export function JsonPane({
       </h2>
       {tabs}
       <p className="text-xs text-muted-foreground">{hint}</p>
+      {before}
       {children ?? (
         <>
           <Textarea

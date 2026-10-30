@@ -258,6 +258,87 @@ for (const dir of ['ltr', 'rtl']) {
     await context.close()
   }
 
+  // ── 679 ── the guard mini ruleset, built with the real editors, the JSON in step both ways, errors on their block
+  {
+    const { context, page, errors, store } = await open(dir)
+    await editAndWait(
+      page,
+      store,
+      async () => {
+        await page.goto(`${BASE}/insurance-rules/playground`)
+        await page.locator('[data-playground-page]').waitFor({ timeout: 60000 })
+      },
+      '[data-outcome-line="1"]',
+    )
+    const seed = await docText(page)
+    const slot = (i) => page.locator(`[data-rule-slot="${i}"]`)
+    const ids = async () => page.locator('[data-rule-slot]').evaluateAll((els) => els.map((e) => e.getAttribute('data-slot-rule-id')))
+
+    // 13. the seeded rule is drawn with the guard editors and read as words
+    check(`${dir} 13. one rule, editable`, (await page.locator('[data-rule-slot]').count()) === 1 && (await slot(0).getAttribute('data-editable')) === 'true')
+    check(`${dir} 13. WHEN / IF / THEN editors`, (await slot(0).locator('[data-part="when"], [data-part="if"] [data-condition-root], [data-part="then"]').count()) === 3)
+    check(`${dir} 13. its line block shows 90`, (await slot(0).locator('[data-block="0"] [data-input="lineValue"]').inputValue()) === '90')
+    check(`${dir} 13. the sentence view under the rule`, (await slot(0).locator('[data-rule-words] [data-sentence]').count()) >= 1)
+
+    // 14. add a second rule, move it first: the JSON follows; the first rule's JSON is unchanged
+    const added = await editAndWait(page, store, () => page.locator('[data-add-rule]').click(), '[data-rule-slot="1"]')
+    let doc = await docText(page)
+    check(`${dir} 14. add: the JSON has two rules, the new one G-002`, doc.rules.length === 2 && doc.rules[1].id === 'G-002', JSON.stringify(doc.rules.map((r) => r.id)))
+    check(`${dir} 14. add ran the experiment`, added === 1, String(added))
+    await editAndWait(page, store, () => page.locator('[data-move-up="1"]').click(), null)
+    doc = await docText(page)
+    check(`${dir} 14. move up: the JSON order follows`, JSON.stringify(doc.rules.map((r) => r.id)) === '["G-002","G-1"]', JSON.stringify(doc.rules.map((r) => r.id)))
+    check(`${dir} 14. move up: the editors' order follows`, JSON.stringify(await ids()) === '["G-002","G-1"]', JSON.stringify(await ids()))
+    check(`${dir} 14. the moved seed rule's JSON is untouched`, JSON.stringify(doc.rules[1]) === JSON.stringify(seed.rules[0]))
+    check(`${dir} 14. the first rule cannot move up, the last cannot move down`, (await page.locator('[data-move-up="0"]').isDisabled()) && (await page.locator('[data-move-down="1"]').isDisabled()))
+
+    // 15. an editor edit rewrites the JSON in the engine's spelling
+    await editAndWait(page, store, () => slot(1).locator('[data-block="0"] [data-input="lineValue"]').fill('60'), null)
+    doc = await docText(page)
+    check(`${dir} 15. the editor's 60 is in the JSON`, doc.rules[1].when[0].above === 60, JSON.stringify(doc.rules[1].when))
+
+    // 16. a JSON edit moves the editors
+    await editAndWait(page, store, () => setDoc(page, { ...seed, rules: [{ ...seed.rules[0], when: [{ check: 'line', field: 'daysSupply', above: 150 }] }] }), null)
+    check(`${dir} 16. the editors follow the JSON: one rule`, JSON.stringify(await ids()) === '["G-1"]', JSON.stringify(await ids()))
+    check(`${dir} 16. and its value 150`, (await slot(0).locator('[data-block="0"] [data-input="lineValue"]').inputValue()) === '150')
+
+    // 17. a reader error lands on its block: add a patient block in the editor, the stub refuses it at rules[0].when[1].check
+    await editAndWait(page, store, () => slot(0).locator('select[data-add-condition=""]').selectOption('patient'), '[data-rule-slot="0"] [data-issues="1"]')
+    doc = await docText(page)
+    check(`${dir} 17. the editor's new block is in the JSON`, doc.rules[0].when[1]?.check === 'patient', JSON.stringify(doc.rules[0].when))
+    const onBlock = slot(0).locator('[data-block="1"] [data-issues="1"] [data-issue="error"]')
+    check(`${dir} 17. the error is on block 1`, (await onBlock.count()) === 1 && strip(await onBlock.innerText()) === 'Unknown check "patient".')
+    check(`${dir} 17. the block is marked`, /border-danger/.test((await slot(0).locator('[data-block="1"]').getAttribute('class')) ?? ''))
+    check(`${dir} 17. the outcome says it is shown on its block, not in its list`, (await page.locator('[data-errors-on-blocks="1"]').count()) === 1 && (await page.locator('[data-reader-error]').count()) === 0)
+
+    // 18. a rule the editors cannot show is JSON-only and still runs; its error stays in the outcome's list
+    const odd = { id: 'G-9', when: [{ check: 'bogus' }], then: [] }
+    await editAndWait(page, store, () => setDoc(page, { ...seed, rules: [seed.rules[0], odd] }), '[data-reader-error]')
+    check(`${dir} 18. the odd rule is JSON-only, with a note`, (await slot(1).getAttribute('data-editable')) === 'false' && (await slot(1).locator('[data-json-only]').count()) === 1)
+    check(`${dir} 18. it was sent as written`, JSON.stringify(store.evaluates.at(-1)?.document?.rules?.[1]) === JSON.stringify(odd))
+    check(`${dir} 18. its error stays in the outcome's list`, (await page.locator('[data-reader-error="rules[1].when[0].check"]').count()) === 1 && (await page.locator('[data-errors-on-blocks]').count()) === 0)
+    await editAndWait(page, store, () => page.locator('[data-move-up="1"]').click(), null)
+    doc = await docText(page)
+    check(`${dir} 18. moved by the editors, the JSON-only rule is kept byte-for-byte`, JSON.stringify(doc.rules[0]) === JSON.stringify(odd) && doc.rules[1].id === 'G-1')
+    await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-ruleset.png`, fullPage: true }).catch(() => {})
+
+    // 19. JSON that does not parse: the editors keep the last good rules, disabled
+    await box(page, 'document').fill('{ "rules": [')
+    await sleep(300)
+    check(`${dir} 19. broken JSON: the editors stay, disabled, with a note`, (await page.locator('fieldset[data-ruleset][disabled]').count()) === 1 && (await page.locator('[data-ruleset-stale]').count()) === 1 && (await page.locator('[data-rule-slot]').count()) === 2)
+    await setDoc(page, seed)
+    await sleep(300)
+    check(`${dir} 19. fixed: enabled again`, (await page.locator('fieldset[data-ruleset][disabled]').count()) === 0 && (await page.locator('[data-rule-slot]').count()) === 1)
+
+    // 20. coverage has no editors yet (680): the JSON box alone
+    await editAndWait(page, store, () => page.locator('[data-kind="coverage"]').click(), null)
+    check(`${dir} 20. coverage: no ruleset editors yet`, (await page.locator('[data-ruleset]').count()) === 0 && (await box(page, 'document').count()) === 1)
+
+    check(`${dir} 13. no raw keys`, await noRawKeys(page))
+    check(`${dir} 13. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
   // 7. a bare 403
   {
     const { context, page, errors, store } = await open(dir, { deny: ['evaluate'] })

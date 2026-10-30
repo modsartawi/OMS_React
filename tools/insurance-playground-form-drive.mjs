@@ -1,16 +1,18 @@
-// Insurance rules ▸ Playground — the Data pane's Form | JSON over one dataset (BackOffice spec 3243; oms ticket 682).
+// Insurance rules ▸ Playground — the Data pane's Form | JSON over one dataset (BackOffice spec 3243; oms tickets 682, 683).
 //
 // Drives the REAL app in Chromium against STUBS on the REAL envelope (`tools/insurance-rules-stubs.mjs`, section 677):
 // POST InsuranceRules/Playground/Evaluate { kind, data, document, asOf }. No new door; 🚩 no live SIS.Api (ticket 691).
 //
 // It verifies, in LTR and RTL:
 //   1. the Data pane has Form | JSON | Raw tabs; the Form shows the seed's request, patient and line 1, every value ltr,
-//      and says the JSON holds more than it shows (history, reference, eligibility);
+//      and (683) history, reference and eligibility too, so the seed holds nothing the form does not show;
 //   2. add a line in the form → the JSON shows line 2 (the line shape, quantity 1), and the outcome refreshes with it;
 //   3. type a quantity, ICD codes and an attribute in the form → the JSON holds a number, a list and TEXT;
 //   4. edit line 1's quantity in the JSON → the form follows; a JSON key the form does not know survives a form edit;
 //   5. reorder and remove lines; JSON that does not parse shows the form's problem and nothing is sent;
-//   6. no raw keys and no page errors.
+//   6. no raw keys and no page errors;
+//   7. (683) an empty history / reference / eligibility reads "none"; add a history event and an eligibility fact in
+//      the form → both in the JSON, typed; the payer section shows only for coverage, and a deductible edit is a number.
 //
 //   1. run the app:  npx vite --port 5382 --strictPort
 //   2. node tools/insurance-playground-form-drive.mjs        (DRIVE_PORT overrides 5382)
@@ -90,7 +92,8 @@ for (const dir of ['ltr', 'rtl']) {
   check(`${dir} 1. tabs Form | JSON | Raw`, order === 'form,json,raw', order)
   await tab(page, 'form').click()
   check(`${dir} 1. Form is selected and replaces the box`, (await tab(page, 'form').getAttribute('aria-selected')) === 'true' && (await dataBox(page).count()) === 0 && (await page.locator('[data-data-form]').count()) === 1)
-  check(`${dir} 1. request, patient, lines`, (await keysOf(page, '[data-form-section]', 'data-form-section')) === 'request,patient,lines')
+  const sections = await keysOf(page, '[data-form-section]', 'data-form-section')
+  check(`${dir} 1. request, patient, lines, history, reference, eligibility — no payer for guard`, sections === 'request,patient,lines,history,reference,eligibility', sections)
   check(
     `${dir} 1. the seed's values`,
     (await field(page, 'request.channel').inputValue()) === 'nphies' &&
@@ -101,9 +104,7 @@ for (const dir of ['ltr', 'rtl']) {
   )
   check(`${dir} 1. values are typed left to right`, (await field(page, 'lines.0.item').getAttribute('dir')) === 'ltr' && (await field(page, 'request.store').getAttribute('dir')) === 'ltr')
   check(`${dir} 1. every line field is there`, (await page.locator('[data-form-line="0"] input[data-form-field]').count()) === 10)
-  const more = await keysOf(page, '[data-form-more-key]', 'data-form-more-key')
-  check(`${dir} 1. the JSON holds more than the form shows`, more === 'history,reference,eligibility', more)
-  check(`${dir} 1. those keys are ltr isolates`, (await page.locator('[data-form-more-key] bdi[dir="ltr"]').count()) === 3)
+  check(`${dir} 1. the form shows the whole seed: no "more" note`, (await page.locator('[data-form-more]').count()) === 0)
 
   // 2. add a line → JSON → outcome
   await page.locator('[data-form-add-line]').click()
@@ -144,6 +145,7 @@ for (const dir of ['ltr', 'rtl']) {
   check(`${dir} 4. the form follows the JSON quantity`, (await field(page, 'lines.0.quantity').inputValue()) === '7')
   const more2 = await keysOf(page, '[data-form-more-key]', 'data-form-more-key')
   check(`${dir} 4. the note names the new keys`, more2.includes('lines[0].mystery') && more2.includes('extra'), more2)
+  check(`${dir} 4. those keys are ltr isolates`, (await page.locator('[data-form-more-key] bdi[dir="ltr"]').count()) === more2.split(',').length)
   await field(page, 'request.policy').fill('POL-9')
   d = await json(page)
   check(`${dir} 4. unknown keys survive a form edit`, d.request.policy === 'POL-9' && d.extra === 'yes' && d.lines[0].mystery?.keep === true && d.lines[0].quantity === 7)
@@ -164,6 +166,58 @@ for (const dir of ['ltr', 'rtl']) {
   check(`${dir} 5. broken JSON: the form says so`, (await page.locator('[data-form-problem="invalid"]').count()) === 1 && (await page.locator('[data-data-form]').count()) === 0)
   check(`${dir} 5. and nothing is sent`, store.evaluates.length === before)
   await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-form.png`, fullPage: true }).catch(() => {})
+
+  // 7. (683) history, eligibility, "none", the payer for coverage only — from a fresh seed
+  await tab(page, 'json').click()
+  await dataBox(page).fill(JSON.stringify({ request: { channel: 'nphies', attributes: {} }, lines: [{ line: 1, item: '200021', quantity: 1, attributes: {} }], history: [], reference: {}, eligibility: {} }, null, 2))
+  await tab(page, 'form').click()
+  const nones = await keysOf(page, '[data-form-none]', 'data-form-none')
+  check(`${dir} 7. empty history, reference and eligibility read "none"`, nones === 'history,reference,eligibility', nones)
+  check(`${dir} 7. "none" is words, not a blank`, ((await page.locator('[data-form-none="history"]').innerText()) || '').trim().length > 3)
+  await page.locator('[data-form-add-event]').click()
+  check(`${dir} 7. an event card replaces "none"`, (await page.locator('[data-form-event]').count()) === 1 && (await page.locator('[data-form-none="history"]').count()) === 0)
+  await field(page, 'history.0.on').fill('2026-10-20')
+  await field(page, 'history.0.item').fill('200021')
+  await field(page, 'history.0.daysSupply').fill('30')
+  check(`${dir} 7. history values are ltr`, (await field(page, 'history.0.on').getAttribute('dir')) === 'ltr')
+  await page.locator('[data-form-add-fact]').click()
+  const fact = page.locator('[data-form-fact="0"]')
+  await fact.locator('[data-form-fact-key]').fill('benefit[66].approvalLimit')
+  await fact.locator('[data-form-fact-value]').fill('10000')
+  await fact.locator('[data-form-fact-unit]').fill('SAR')
+  await page.locator('[data-form-add-fact]').click()
+  const flag = page.locator('[data-form-fact="1"]')
+  await flag.locator('[data-form-fact-key]').fill('member.active')
+  await flag.locator('[data-form-fact-type]').selectOption('flag')
+  await flag.locator('[data-form-fact-value]').fill('true')
+  const ran7 = await waitRun(page, store, '[data-outcome-line="1"]')
+  d = await json(page)
+  check(
+    `${dir} 7. the history event is in the JSON, in the event shape`,
+    d.history.length === 1 && d.history[0].on === '2026-10-20' && d.history[0].item === '200021' && d.history[0].daysSupply === 30 && d.history[0].quantity === 1 && 'store' in d.history[0] && 'payer' in d.history[0],
+    JSON.stringify(d.history),
+  )
+  check(
+    `${dir} 7. the facts are in the JSON in the engine shape, typed`,
+    JSON.stringify(d.eligibility) === JSON.stringify({ 'benefit[66].approvalLimit': { type: 'number', number: 10000, unit: 'SAR' }, 'member.active': { type: 'flag', flag: true } }),
+    JSON.stringify(d.eligibility),
+  )
+  check(`${dir} 7. reference stays an empty object`, JSON.stringify(d.reference) === '{}')
+  check(`${dir} 7. and the run sent them`, ran7 >= 1 && store.evaluates.at(-1)?.data?.eligibility?.['member.active']?.flag === true && store.evaluates.at(-1)?.data?.history?.length === 1)
+  check(`${dir} 7. no payer section for guard`, (await page.locator('[data-form-section="payer"]').count()) === 0)
+  await page.locator('[data-kind="coverage"]').click()
+  await tab(page, 'form').click()
+  await page.locator('[data-form-section="payer"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check(`${dir} 7. coverage: the payer section shows, G1 G2 G3`, (await keysOf(page, '[data-form-deductible]', 'data-form-deductible')) === 'G1,G2,G3')
+  check(`${dir} 7. coverage: the seeded payer's values`, (await page.locator('[data-form-deductible="G1"] [data-form-deductible-percent]').inputValue()) === '20')
+  check(`${dir} 7. coverage: payer is not in the "more" note`, !(await keysOf(page, '[data-form-more-key]', 'data-form-more-key')).split(',').includes('payer'))
+  await page.locator('[data-form-deductible="G3"] [data-form-deductible-percent]').fill('15')
+  d = await json(page)
+  check(`${dir} 7. coverage: a deductible edit is a number in the payer`, d.payer?.deductibles?.G3?.percent === 15 && d.payer.deductibles.G1.percent === 20, JSON.stringify(d.payer))
+  await page.locator('[data-kind="guard"]').click()
+  await tab(page, 'form').click()
+  check(`${dir} 7. back to guard: no payer section`, (await page.locator('[data-form-section="payer"]').count()) === 0)
+  await page.screenshot({ path: `tools/.insurance-playground-shots/${dir}-form-683.png`, fullPage: true }).catch(() => {})
 
   check(`${dir} 6. no raw keys`, await noRawKeys(page))
   check(`${dir} 6. no page errors`, errors.length === 0, errors.join(' | '))

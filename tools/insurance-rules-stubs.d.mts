@@ -253,3 +253,5 @@ export declare function evaluatePlaygroundWithReads(body: unknown): unknown
 export declare function playgroundReadsStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null
 // --- 678 ---
 export declare function playgroundVerdict(body: unknown, reply: unknown): unknown
+// --- 690 ---
+export declare function playgroundCompareStub(method: string, path: string, body: unknown, opts?: { store?: { evaluates: unknown[] }; deny?: string[] }): FulfillArg | null

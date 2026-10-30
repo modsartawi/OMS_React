@@ -5,11 +5,14 @@ import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { PlaygroundExperiment } from '@/core/insurance-rules/experiment'
 import { localAsOf, PLAYGROUND_KINDS, type PlaygroundEvaluateBody, type PlaygroundEvaluateReply, type PlaygroundKind } from '@/core/insurance-rules/playground'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { playgroundApi } from './api'
+import ComparePanel, { type CompareSeed } from './ComparePanel'
+import { sideOf } from './compare-diff'
 import { DataPane } from './DataPane'
 import { evaluateBody, kindSeed, type DataTab } from './experiment'
 import ExperimentBar from './ExperimentBar'
@@ -17,10 +20,11 @@ import { intakeView } from './intake'
 import type { LessonAnswer } from './lesson-check'
 import LessonPanel from './LessonPanel'
 import { lessonExperiment, type Lesson } from './lessons'
-import { JsonPane } from './JsonPane'
 import OutcomePane from './OutcomePane'
-import { outcomeView } from './outcome'
+import { outcomeErrors, outcomeView, outcomeWithout } from './outcome'
 import { readsView } from './reads'
+import RulePane from './RulePane'
+import { readRuleset, rulesetIssues } from './ruleset'
 import { asOfText, latestWins, RUN_DELAY_MS, type LatestWins, type RunSettle } from './run'
 import { verdictView } from './verdict'
 
@@ -50,6 +54,8 @@ export default function PlaygroundPage() {
   // "As of": local now when the page opened; a cleared input falls back to that moment, never to a moving now.
   const [openedAt] = useState(() => new Date())
   const [asOfInput, setAsOfInput] = useState(() => localAsOf(openedAt))
+  // 690: Compare (A/B). B is a copy of the boxes taken when Compare is turned on; leaving Compare keeps A.
+  const [compareSeed, setCompareSeed] = useState<CompareSeed | null>(null)
   const asOf = asOfText(asOfInput, openedAt)
 
   const built = useMemo(
@@ -94,6 +100,8 @@ export default function PlaygroundPage() {
     setKind(k)
     setDataText(seed.dataText)
     setDocumentText(seed.documentText)
+    // 690: comparing, B is copied afresh from the new kind's seed (the panel is keyed by kind)
+    if (compareSeed) setCompareSeed({ dataTab, dataText: seed.dataText, rawText, documentText: seed.documentText })
   }
 
   // 687: an opened or imported experiment replaces the whole experiment (kind, as of, rule and data) at once.
@@ -130,6 +138,13 @@ export default function PlaygroundPage() {
         : null,
     [answer, built],
   )
+  // 679: the reader's errors, asked for this kind, go on their block in the Rule pane; the rest stay in the outcome.
+  const readerErrors = useMemo(() => (answer && answer.kind === kind ? outcomeErrors(answer.reply) : []), [answer, kind])
+  const placed = useMemo(() => {
+    const read = readRuleset(kind, documentText)
+    return read.ok ? rulesetIssues(readerErrors, read.slots) : { perRule: [], rest: readerErrors }
+  }, [kind, documentText, readerErrors])
+  const onBlocks = readerErrors.length - placed.rest.length
 
   return (
     <section className="flex w-full flex-col gap-4" data-playground-page="">
@@ -180,11 +195,20 @@ export default function PlaygroundPage() {
             </span>
           </span>
         </div>
+        <Button
+          variant="secondary"
+          className="self-center"
+          aria-pressed={compareSeed !== null}
+          onClick={() => setCompareSeed(compareSeed ? null : { dataTab, dataText, rawText, documentText })}
+          data-compare-toggle={compareSeed ? 'on' : 'off'}
+        >
+          {compareSeed ? t('compare.leave') : t('compare.start')}
+        </Button>
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <DataPane tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={built.problems.includes('data')} />
-        <JsonPane box="document" title={t('rule.title')} hint={t('rule.hint')} value={documentText} onChange={setDocumentText} invalid={built.problems.includes('document')} />
+        <DataPane kind={kind} tab={dataTab} onTab={setDataTab} dataText={dataText} onDataText={setDataText} rawText={rawText} onRawText={setRawText} invalid={built.problems.includes('data')} />
+        <RulePane kind={kind} value={documentText} onChange={setDocumentText} invalid={built.problems.includes('document')} errors={readerErrors} />
 
         <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-pane="outcome" aria-busy={pending || undefined}>
           <header className="flex flex-wrap items-center gap-2">
@@ -207,7 +231,8 @@ export default function PlaygroundPage() {
             </ErrorBanner>
           ) : answer ? (
             <OutcomePane
-              view={outcomeView(answer.reply)}
+              view={outcomeWithout(outcomeView(answer.reply), placed.rest)}
+              onBlocks={onBlocks}
               verdict={verdictView(answer.kind, answer.reply?.verdict)}
               intake={intakeView(answer.reply?.intake)}
               reads={readsView(answer.reply, answer.fields)}
@@ -221,6 +246,11 @@ export default function PlaygroundPage() {
           )}
         </section>
       </div>
+
+      {compareSeed && (
+        // keyed by kind: a kind switch seeds new boxes, so B is copied afresh
+        <ComparePanel key={kind} seed={compareSeed} kind={kind} asOf={asOf} a={answer ? sideOf(answer.kind, answer.reply, answer.fields) : null} />
+      )}
     </section>
   )
 }

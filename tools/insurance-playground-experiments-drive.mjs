@@ -3,7 +3,8 @@
 // No door: experiments are kept in browser storage and travel as a versioned `.json` file. Evaluate is stubbed as in
 // the 677 drive (`tools/insurance-rules-stubs.mjs`, section 677) so the page runs. It verifies, in LTR and RTL:
 //   1. save: no name → said in words; name + save → "saved", the name is in the saved list;
-//   2. reload → the page opens seeded; Open restores the saved rule and name, and the auto-run sends it;
+//   2. reload → the page opens seeded; Open restores the saved rule and name, the Rule pane's editors (679) follow it,
+//      and the auto-run sends it;
 //   3. rename and delete by name;
 //   4. a Raw experiment exports as `<name>.json` (format + version 1, the raw text as it is); after a reload,
 //      importing the downloaded file brings back the Raw tab, its text and the name, and sends `raw`;
@@ -132,6 +133,8 @@ for (const dir of ['ltr', 'rtl']) {
     const sentOpen = await nextSent(store, before)
     check(`${dir} 2. open restores the rule and the name`, JSON.parse(await docBox(page).inputValue()).rules[0].when[0].above === 200 && (await nameBox(page).inputValue()) === 'Long supply')
     check(`${dir} 2. and the opened experiment runs`, sentOpen?.document?.rules?.[0]?.when?.[0]?.above === 200 && 'data' in (sentOpen ?? {}), JSON.stringify(sentOpen?.document))
+    const slotValues = async () => page.locator('[data-rule-slot="0"] input').evaluateAll((els) => els.map((e) => e.value))
+    check(`${dir} 2. the Rule pane's editors follow the opened rule`, (await slotValues()).includes('200') && !(await slotValues()).includes('90'), JSON.stringify(await slotValues()))
     check(`${dir} 2. said opened`, (await said(page)) === 'opened')
 
     // 3. rename, delete

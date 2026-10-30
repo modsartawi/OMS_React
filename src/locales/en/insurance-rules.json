@@ -20,7 +20,8 @@
     "idfLookup": "IDF lookup",
     "idfEvents": "IDF events",
     "idfGroups": "IDF groups",
-    "playground": "Playground"
+    "playground": "Playground",
+    "codeLabels": "Code labels"
   },
   "state": {
     "draft": "Draft",

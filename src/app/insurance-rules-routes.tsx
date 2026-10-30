@@ -121,6 +121,12 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/inspector/InspectorPage')).default }),
     },
 
+    // 696 · field proposals (BackOffice spec 3271, door 3282): the inbox a second user approves from.
+    {
+      path: 'field-proposals',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/fields/FieldProposalsPage')).default }),
+    },
+
     // 704 · aliases (BackOffice spec 3271; 705's re-pin drafts build on its page)
     {
       path: 'aliases',

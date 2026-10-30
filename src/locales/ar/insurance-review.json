@@ -31,6 +31,7 @@
     "refused": "طلب مرفوض",
     "monitor": "مراقبة",
     "notEvaluated": "لم يُقيَّم",
+    "drift": "انحراف",
     "labelsChanged": "تغيّرت التسميات",
     "uploadDue": "رفع مستحق",
     "package": "حزمة دليل التنفيذ"
@@ -63,6 +64,8 @@
         "renamed": "أُعيدت تسميته"
       }
     },
+    "sample": "عيّنة",
+    "stillRunning": "القواعد التي تقرؤه تستمر في العمل.",
     "otherKind": "أخرى",
     "open": "فتح",
     "message": "الرسالة",

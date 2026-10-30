@@ -25,6 +25,24 @@
     "codeLabels": "تسميات الرموز",
     "inspector": "فاحص القرارات"
   },
+  "drift": {
+    "badge": "انحراف",
+    "ruleBadge": "انحراف، وما زالت تعمل",
+    "hint": "{{payer}}: {{signal}}. القواعد التي تقرؤه تستمر في العمل.",
+    "type": {
+      "newProfile": "إصدار ملف تعريف جديد",
+      "newUrl": "رابط لم يُرَ من هذه الجهة الدافعة",
+      "rateFell": "معدل تراجع",
+      "unknown": "تغيّر فيما ترسله الجهة الدافعة"
+    },
+    "signal": {
+      "newProfile": "أرسلت إصدار ملف تعريف جديدًا: <v>{{profile}}</v>",
+      "newUrl": "أرسلت رابطًا لم يُرَ منها من قبل: <v>{{url}}</v>",
+      "answerRateFell": "انخفض معدل إجابة <v>{{field}}</v> إلى <v>{{rate}}</v>، من خط أساس قدره <v>{{baseline}}</v>",
+      "unparsedRateRose": "ارتفع معدل عدم قراءة <v>{{field}}</v> إلى <v>{{rate}}</v>، من خط أساس قدره <v>{{baseline}}</v>",
+      "unknown": "إشارة لا تعرفها هذه الشاشة: <v>{{code}}</v>"
+    }
+  },
   "catalog": {
     "title": "دليل حقائق FHIR",
     "open": "من الدليل",
@@ -292,6 +310,19 @@
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> أيٌّ من <codes>{{codes}}</codes>",
       "noneOf": "<fact>{{fact}}</fact> ليس أيًّا من <codes>{{codes}}</codes>",
+      "compare": {
+        "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+        "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value>"
+      },
+      "countAtLeast": "عدد قيم <fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+      "countBelow": "عدد قيم <fact>{{fact}}</fact> أقل من <value>{{value}}</value>",
+      "isYes": "<fact>{{fact}}</fact>: نعم",
+      "isNo": "<fact>{{fact}}</fact>: لا",
+      "before": "<fact>{{fact}}</fact> قبل <value>{{value}}</value>",
+      "onOrBefore": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو قبله",
+      "after": "<fact>{{fact}}</fact> بعد <value>{{value}}</value>",
+      "onOrAfter": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو بعده",
+      "inSystem": "ضمن نظام الرموز <system>{{system}}</system>",
       "unit": {
         "years": "سنة",
         "days": "يوم",

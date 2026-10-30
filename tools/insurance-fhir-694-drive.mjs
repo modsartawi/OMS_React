@@ -163,7 +163,7 @@ for (const dir of ['ltr', 'rtl']) {
     const saved = JSON.stringify(store.puts.at(-1)?.rules.find((r) => r.name?.en === 'Category rule')?.when)
     check(
       `${dir} 2. the saved rule holds the code`,
-      saved === JSON.stringify([{ check: 'eligibility', field: 'benefit[66].copayPct', atLeast: 0 }, { check: 'eligibility', field: 'response.notInForceReason', anyOf: [] }]),
+      saved === JSON.stringify([{ check: 'eligibility', field: 'benefit[66].copayPct', atLeast: 0 }, { check: 'eligibility', field: 'response.notInForceReason', anyOf: [], system: 'http://nphies.sa/terminology/CodeSystem/not-in-force-reason' }]),
       saved,
     )
     check(`${dir} no raw keys, no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))

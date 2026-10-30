@@ -3,7 +3,8 @@
 //
 // ⚠️ PROVISIONAL: no door ticket spells the catalog's row, so this shape is a guess that 711 reconciles.
 
-import type { Says } from './model'
+import { factTestFor, shapeOfRow } from './fact-tests'
+import type { FactCondition, Says } from './model'
 
 /** The messages a fact reads, in the order the catalog shows them (story 1). */
 export const FHIR_MESSAGES = ['eligibility', 'claim', 'claimResponse', 'communication', 'payment'] as const
@@ -112,8 +113,7 @@ export function groupCatalog(rows: readonly FhirCatalogRow[]): CatalogGroup[] {
   })).filter((g) => g.levels.length > 0)
 }
 
-/** The `fact` block's fields after a pick. Every type starts as a number bound or codes until 693 gives it its own. */
-export function pickedFact(r: FhirCatalogRow, code?: string): { path: string; op: 'atLeast'; value: number } | { path: string; op: 'anyOf'; value: string[] } {
-  const path = code === undefined ? factKey(r) : codedFactKey(r, code)
-  return r.type === 'number' || r.type === 'money' || r.type === 'quantity' ? { path, op: 'atLeast', value: 0 } : { path, op: 'anyOf', value: [] }
+/** The `fact` block's fields after a pick: its key (694: with a parameter's code), and the first test its type allows (693). `system` is always set, so a pick clears the last one's. */
+export function pickedFact(r: FhirCatalogRow, code?: string): Pick<FactCondition, 'path' | 'op' | 'value' | 'system'> {
+  return { path: code === undefined ? factKey(r) : codedFactKey(r, code), system: undefined, ...factTestFor(shapeOfRow(r)) }
 }

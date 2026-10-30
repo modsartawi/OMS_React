@@ -2,6 +2,7 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { GuardFlags, GuardSeverityBadge, GuardStateBadge } from '@/core/insurance-rules/badges'
+import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import { GUARD_STATES, severityRank, type GuardRuleRow } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
@@ -35,7 +36,14 @@ function NameCell(p: ICellRendererParams<GuardRuleRow>) {
 
 const StateCell = (p: ICellRendererParams<GuardRuleRow>) => (p.data ? <GuardStateBadge state={p.data.state} /> : null)
 const SeverityCell = (p: ICellRendererParams<GuardRuleRow>) => (p.data ? <GuardSeverityBadge severity={p.data.severity} /> : null)
-const FlagsCell = (p: ICellRendererParams<GuardRuleRow>) => (p.data ? <GuardFlags flags={p.data.flags} /> : null)
+/** The metrics' flags, and any drift badge (703) on the rule. */
+const FlagsCell = (p: ICellRendererParams<GuardRuleRow>) =>
+  p.data ? (
+    <span className="inline-flex flex-wrap items-center gap-1 py-1">
+      <GuardFlags flags={p.data.flags} />
+      <RuleDriftBadges ruleId={p.data.id} />
+    </span>
+  ) : null
 
 export function buildGuardColumns(t: TFunction): ColDef<GuardRuleRow>[] {
   return [
@@ -54,7 +62,8 @@ export function buildGuardColumns(t: TFunction): ColDef<GuardRuleRow>[] {
     {
       headerName: t('columns.flags'),
       colId: 'flags',
-      width: 190,
+      width: 230,
+      autoHeight: true,
       sortable: false,
       valueGetter: (p) => (p.data?.flags ?? []).map((f) => f.kind).join(','),
       cellRenderer: FlagsCell,

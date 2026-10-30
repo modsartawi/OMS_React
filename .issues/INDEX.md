@@ -1191,7 +1191,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## FHIR insurance rules screens (BackOffice spec 3271, brief assets/3271-oms-react-fhir-insurance-rules-brief.md, filed 2026-10-30)
 
 - [692](692-the-fhir-catalog-opens-from-a-condition-and-picking-a-field-writes-its-rule-key.md) — The FHIR catalog opens from a condition, and picking a field writes its rule key · *(ticket · BO spec 3271; doors 3282, 3284)* · **done** · blocked by: — · tracer; picker in core
-- [693](693-a-condition-s-operators-follow-the-fact-s-type-and-cardinality.md) — A condition's operators follow the fact's type and cardinality · *(ticket · BO spec 3271)* · **open** · blocked by: 692
+- [693](693-a-condition-s-operators-follow-the-fact-s-type-and-cardinality.md) — A condition's operators follow the fact's type and cardinality · *(ticket · BO spec 3271)* · **done** · blocked by: 692
 - [694](694-a-category-field-offers-the-whole-workbook-list-and-a-retired-field-reads-as-legacy.md) — A category field offers the whole workbook list, and a retired field reads as legacy · *(ticket · BO spec 3271; door 3296)* · **done** · blocked by: 692
 - [695](695-raw-fhirpath-mode-checks-as-you-type-probes-per-payer-and-proposes-a-field.md) — Raw FHIRPath mode checks as you type, probes per payer and proposes a field · *(ticket · BO spec 3271; doors 3282, 3296)* · **done** · blocked by: 692
 - [696](696-the-field-proposals-inbox-approves-or-rejects-by-someone-other-than-the-author.md) — The field proposals inbox approves or rejects, by someone other than the author · *(ticket · BO spec 3271; door 3282)* · **open** · blocked by: 695
@@ -1201,7 +1201,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [700](700-a-monitor-is-back-tested-over-kept-answers-and-goes-through-approval-and-shadow.md) — A monitor is back-tested over kept answers and goes through approval and shadow · *(ticket · BO spec 3271; door 3290)* · **open** · blocked by: 699
 - [701](701-monitors-take-the-communication-and-payment-scopes.md) — Monitors take the communication and payment scopes · *(ticket · BO spec 3271; doors 3299, 3300)* · **open** · blocked by: 699
 - [702](702-the-review-list-shows-monitor-and-not-evaluated-items.md) — The review list shows monitor and not-evaluated items · *(ticket · BO spec 3271; door 3290)* · **done** · blocked by: —
-- [703](703-drift-items-are-cleared-with-a-note-and-badge-what-they-affect.md) — Drift items are cleared with a note and badge what they affect · *(ticket · BO spec 3271; door 3293)* · **open** · blocked by: 692, 702
+- [703](703-drift-items-are-cleared-with-a-note-and-badge-what-they-affect.md) — Drift items are cleared with a note and badge what they affect · *(ticket · BO spec 3271; door 3293)* · **done** · blocked by: 692, 702
 - [704](704-aliases-are-proposed-and-approved.md) — Aliases are proposed and approved · *(ticket · BO spec 3271; door 3294)* · **done** · blocked by: —
 - [705](705-a-path-or-alias-re-pin-draft-shows-the-back-test-of-old-against-new.md) — A path or alias re-pin draft shows the back-test of old against new · *(ticket · BO spec 3271; door 3294)* · **done** · blocked by: 704
 - [706](706-a-workbook-upload-shows-the-label-diff-and-the-new-change-log-rows.md) — A workbook upload shows the label diff and the new change-log rows · *(ticket · BO spec 3271; doors 3295, 3296)* · **done** · blocked by: —

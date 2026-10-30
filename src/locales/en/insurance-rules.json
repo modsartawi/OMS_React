@@ -25,6 +25,24 @@
     "codeLabels": "Code labels",
     "inspector": "Decision inspector"
   },
+  "drift": {
+    "badge": "Drift",
+    "ruleBadge": "Drift, still running",
+    "hint": "{{payer}}: {{signal}}. Rules that read it keep running.",
+    "type": {
+      "newProfile": "a new profile version",
+      "newUrl": "a URL never seen from this payer",
+      "rateFell": "a rate got worse",
+      "unknown": "a change in what the payer sends"
+    },
+    "signal": {
+      "newProfile": "Sent a new profile version: <v>{{profile}}</v>",
+      "newUrl": "Sent a URL never seen from this payer: <v>{{url}}</v>",
+      "answerRateFell": "The answer rate of <v>{{field}}</v> fell to <v>{{rate}}</v>, from a baseline of <v>{{baseline}}</v>",
+      "unparsedRateRose": "The unparsed rate of <v>{{field}}</v> rose to <v>{{rate}}</v>, from a baseline of <v>{{baseline}}</v>",
+      "unknown": "A signal this screen does not know: <v>{{code}}</v>"
+    }
+  },
   "catalog": {
     "title": "FHIR fact catalog",
     "open": "From the catalog",
@@ -268,6 +286,19 @@
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> is any of <codes>{{codes}}</codes>",
       "noneOf": "<fact>{{fact}}</fact> is none of <codes>{{codes}}</codes>",
+      "compare": {
+        "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value>",
+        "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value>"
+      },
+      "countAtLeast": "the number of values of <fact>{{fact}}</fact> is at least <value>{{value}}</value>",
+      "countBelow": "the number of values of <fact>{{fact}}</fact> is below <value>{{value}}</value>",
+      "isYes": "<fact>{{fact}}</fact> is yes",
+      "isNo": "<fact>{{fact}}</fact> is no",
+      "before": "<fact>{{fact}}</fact> is before <value>{{value}}</value>",
+      "onOrBefore": "<fact>{{fact}}</fact> is on or before <value>{{value}}</value>",
+      "after": "<fact>{{fact}}</fact> is after <value>{{value}}</value>",
+      "onOrAfter": "<fact>{{fact}}</fact> is on or after <value>{{value}}</value>",
+      "inSystem": "in the code system <system>{{system}}</system>",
       "unit": {
         "years": "years",
         "days": "days",

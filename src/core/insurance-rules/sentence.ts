@@ -1,6 +1,8 @@
 import type { KeySentence, SentenceValue } from '@/core/rules/sentence'
 import {
   eligibilityTests,
+  isFactMoney,
+  isFactQuantity,
   REQUEST_FIELDS,
   requestListField,
   severityRank,
@@ -13,6 +15,8 @@ import {
   type GuardSeverity,
   type Says,
 } from './model'
+import { rowOfPath } from './fact-tests'
+import type { FhirCatalogRow } from './fhir-catalog'
 import type { RegistryField } from './registry'
 import { fieldOfPath, unitKey } from './registry-facts'
 
@@ -30,6 +34,8 @@ export interface GuardSentenceContext {
   lists: readonly GuardList[]
   /** The Fields registry (610), so a fact reads by its label; without it a fact reads as its `$`-path (617). */
   fields?: readonly RegistryField[]
+  /** The FHIR catalog (oms 693), so a FHIR fact reads by its label too. */
+  catalog?: readonly FhirCatalogRow[]
 }
 
 /** One node of the IF tree: the sentence (NOT already folded in), its clauses, and a group's children. */
@@ -167,20 +173,32 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
     }
     case 'fact': {
       const field = fieldOfPath(ctx.fields ?? [], c.path)
-      const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.path)
-      const unit = unitKey(field?.unit)
-      if (c.op === 'atLeast' || c.op === 'below')
+      const row = rowOfPath(ctx.catalog ?? [], c.path)
+      const label = field?.label ?? row?.label
+      const fact: SentenceValue = label ? { kind: 'says', says: label } : code(c.path)
+      const unitText = field?.unit || row?.unit
+      const unit = unitKey(unitText)
+      if (c.op === 'atLeast' || c.op === 'below') {
+        // Money and a quantity read as written (a string, never a float), the currency or unit part of the value.
+        if (isFactMoney(c.value)) return { sentence: S(`fact.compare.${c.op}`, { fact, value: code(`${c.value.currency} ${c.value.amount}`) }), clauses }
+        if (isFactQuantity(c.value)) return { sentence: S(`fact.compare.${c.op}`, { fact, value: code(`${c.value.value} ${c.value.unit}`) }), clauses }
         return {
-          sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)), unit: unit ? phrase(`fact.unit.${unit}`) : field?.unit ? code(field.unit) : phrase('fact.unit.units') }),
+          sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)), unit: unit ? phrase(`fact.unit.${unit}`) : unitText ? code(unitText) : phrase('fact.unit.units') }),
           clauses,
         }
+      }
+      if (c.op === 'countAtLeast' || c.op === 'countBelow') return { sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)) }), clauses }
+      if (c.op === 'is') return { sentence: S(c.value === false ? 'fact.isNo' : 'fact.isYes', { fact }), clauses }
+      if (c.op !== 'anyOf' && c.op !== 'noneOf') return { sentence: S(`fact.${c.op}`, { fact, value: afterValue(String(c.value)) }), clauses }
+      if (c.system) clauses.push(S('fact.inSystem', { system: code(c.system) }))
       const codes = Array.isArray(c.value) ? c.value : [String(c.value)]
       return { sentence: S(`fact.${c.op}`, { fact, codes: { kind: 'list', join: 'or', items: codes.map(code) } }), clauses }
     }
     case 'eligibility': {
       // oms 674: a test the codec could not make a `fact` (atMost, two bounds, a unit, a flag, a day) — each test in words.
-      const field = fieldOfPath(ctx.fields ?? [], `$eligibility.${c.field}`)
-      const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.field)
+      const path = `$eligibility.${c.field}`
+      const label = fieldOfPath(ctx.fields ?? [], path)?.label ?? rowOfPath(ctx.catalog ?? [], path)?.label
+      const fact: SentenceValue = label ? { kind: 'says', says: label } : code(c.field)
       const tests = eligibilityTests(c).map((k): SentenceValue => {
         if (k === 'anyOf') return phrase('eligibility.anyOf', { codes: { kind: 'list', join: 'or', items: (c.anyOf ?? []).map(code) } })
         if (k === 'is') return phrase(c.is ? 'eligibility.isTrue' : 'eligibility.isFalse')
@@ -239,8 +257,8 @@ function effectSentence(e: GuardEffect): EffectSentence {
 }
 
 /** A whole guard rule read as sentences; its effects heaviest first (the most severe decides the line). */
-export function guardSentence(rule: GuardRule, lists: readonly GuardList[], fields?: readonly RegistryField[]): GuardSentences {
-  const ctx: GuardSentenceContext = { rule, lists, fields }
+export function guardSentence(rule: GuardRule, lists: readonly GuardList[], fields?: readonly RegistryField[], catalog?: readonly FhirCatalogRow[]): GuardSentences {
+  const ctx: GuardSentenceContext = { rule, lists, fields, catalog }
   const then = rule.then
     .map((e, i) => ({ e, i }))
     .sort((a, b) => severityRank(a.e.severity) - severityRank(b.e.severity) || a.i - b.i)

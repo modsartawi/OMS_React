@@ -16,6 +16,8 @@ import { History } from 'lucide-react' // 626
 import { Layers } from 'lucide-react' // 652
 // 677 · icons
 import { TestTubeDiagonal } from 'lucide-react' // 677
+// 704 · icons
+import { Replace } from 'lucide-react' // 704
 // 706 · icons
 import { Languages } from 'lucide-react' // 706
 import type { ShellMenuItem } from './menu-model'
@@ -133,6 +135,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.playground',
       icon: TestTubeDiagonal,
       routerLink: '/insurance-rules/playground',
+    },
+
+    // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)
+    {
+      // 704 — (payer, wrong URL → canonical URL), proposed and approved by a second person.
+      labelKey: 'insurance-rules:menu.aliases',
+      icon: Replace,
+      routerLink: '/insurance-rules/aliases',
     },
 
     // 706 · Code labels (`menu.codeLabels`, `/insurance-rules/code-labels`)

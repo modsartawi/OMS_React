@@ -26,9 +26,39 @@
     "unchecked": "Unchecked",
     "refused": "Refused order",
     "monitor": "Monitor",
-    "notEvaluated": "Not evaluated"
+    "notEvaluated": "Not evaluated",
+    "labelsChanged": "Labels changed",
+    "uploadDue": "Upload due",
+    "package": "IG package"
   },
   "item": {
+    "labels": {
+      "version": "Version",
+      "openDraft": "Open the labels-only draft",
+      "toDrafts": "Go to the re-pin drafts"
+    },
+    "due": {
+      "newPackage": "A new Nphies package is out, so its workbooks should be uploaded.",
+      "unlistedCode": "A code was seen that no loaded workbook lists.",
+      "unstated": "A workbook upload is due.",
+      "version": "Version",
+      "upload": "Go to the upload"
+    },
+    "package": {
+      "says": "The Nphies IG package changed.",
+      "version": "Version",
+      "empty": "The package changed, but no profile, extension or CodeSystem was added, removed or renamed.",
+      "group": {
+        "profiles": "Profiles",
+        "extensions": "Extensions",
+        "codeSystems": "CodeSystems"
+      },
+      "change": {
+        "added": "Added",
+        "removed": "Removed",
+        "renamed": "Renamed"
+      }
+    },
     "otherKind": "Other",
     "open": "Open",
     "message": "Message",

@@ -95,7 +95,7 @@ for (const dir of ['ltr', 'rtl']) {
     const d1 = page.locator('[data-review-row="D-9001"]')
     check(`${dir} a decision keeps its marks and has no Open`, (await d1.locator('[data-mark-action]').count()) === 2 && (await d1.locator('[data-item-open]').count()) === 0)
     check(`${dir} an item has no marks`, (await m1.locator('[data-mark-action]').count()) === 0)
-    check(`${dir} every row spans the same columns`, await page.locator('[data-review-table] tbody tr').evaluateAll((trs) => trs.every((tr) => [...tr.children].reduce((n, td) => n + td.colSpan, 0) === 11)))
+    check(`${dir} every row spans the same columns`, await page.locator('[data-review-table] tbody tr').evaluateAll((trs) => trs.every((tr) => [...tr.children].reduce((n, td) => n + td.colSpan, 0) === 12)))
     check(`${dir} no raw keys`, await noRawKeys(page))
 
     // filter, open, clear

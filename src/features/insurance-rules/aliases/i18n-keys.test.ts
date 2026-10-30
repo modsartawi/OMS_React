@@ -26,7 +26,7 @@ describe('insurance-aliases locales', () => {
     }
   })
   it.each([en, ar])('every re-pin kind and decision has words', (locale) => {
-    for (const key of [...REPIN_KINDS.map((k) => `repin.kind.${k}`), ...REPIN_DECISIONS.map((d) => `repin.decision.${d}`)]) {
+    for (const key of [...REPIN_KINDS.map((k) => `repin.kind.${k}`), ...REPIN_DECISIONS.map((d) => `repin.decision.${d}`), 'repin.labels.lang.en', 'repin.labels.lang.ar']) {
       expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
     }
   })

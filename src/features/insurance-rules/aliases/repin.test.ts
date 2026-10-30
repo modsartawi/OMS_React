@@ -3,7 +3,7 @@
  * difference. The summary says which decisions would change and how, including none at all.
  */
 import { describe, expect, it } from 'vitest'
-import { repinStanding, repinSummary, type RepinBacktest, type RepinBacktestChange, type RepinDraft } from './repin'
+import { labelPairs, repinStanding, repinSummary, type RepinBacktest, type RepinBacktestChange, type RepinDraft } from './repin'
 
 const change = (over: Partial<RepinBacktestChange> = {}): RepinBacktestChange => ({
   bundleId: 'B-1',
@@ -71,7 +71,37 @@ describe('repinSummary', () => {
   })
 })
 
+describe('labelPairs', () => {
+  const says = (en: string, ar: string) => ({ en, ar })
+  it('one pair per language that moved, in rule order, English first', () => {
+    expect(
+      labelPairs([
+        { ruleId: 'G-1', before: says('Dental (12)', 'الأسنان (12)'), after: says('Dental care (12)', 'عناية الأسنان (12)') },
+        { ruleId: 'G-2', before: says('Optical (44)', ''), after: says('Optical (44)', 'البصريات (44)') },
+      ]),
+    ).toEqual([
+      { ruleId: 'G-1', lang: 'en', before: 'Dental (12)', after: 'Dental care (12)' },
+      { ruleId: 'G-1', lang: 'ar', before: 'الأسنان (12)', after: 'عناية الأسنان (12)' },
+      { ruleId: 'G-2', lang: 'ar', before: '', after: 'البصريات (44)' },
+    ])
+  })
+  it('text that did not move is no pair, and nothing moved is no pairs', () => {
+    expect(labelPairs([{ ruleId: 'G-1', before: says('Same', 'نفسه'), after: says('Same', 'نفسه') }])).toEqual([])
+    expect(labelPairs(null)).toEqual([])
+    expect(labelPairs(undefined)).toEqual([])
+  })
+})
+
 describe('repinStanding', () => {
+  it('a labels-only draft demands no back-test: another user may approve it without one', () => {
+    expect(repinStanding(draft({ kind: 'labels', backtest: null }), 'falotaibi')).toBe('may')
+  })
+  it('a labels-only draft is still not its author to approve', () => {
+    expect(repinStanding(draft({ kind: 'labels', backtest: null }), 'NALHARBI')).toBe('ownDraft')
+  })
+  it('a path or alias draft still demands one', () => {
+    expect(repinStanding(draft({ kind: 'path', backtest: null }), 'falotaibi')).toBe('noBacktest')
+  })
   it('another user may approve once the back-test is done, zero changes included', () => {
     expect(repinStanding(draft(), 'falotaibi')).toBe('may')
   })

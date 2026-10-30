@@ -3,7 +3,7 @@
  * has never heard of still reads, as a generic row: the server may add a kind before the client knows it.
  */
 import { describe, expect, it } from 'vitest'
-import { reviewIn, type ReviewReply } from './model'
+import { packageDiffGroups, reviewIn, type ReviewReply } from './model'
 import { reviewFromParams } from './review-query'
 
 const wire = (o: Partial<ReviewReply>): ReviewReply => ({
@@ -48,7 +48,57 @@ describe('reviewIn', () => {
   })
 })
 
+describe('reviewIn — the label and package items (708)', () => {
+  it('reviewIn_labelsChanged_readsTheRulesetAndItsDraft', () => {
+    expect(reviewIn(wire({ kind: 'labelsChanged', ruleset: { id: 'guards', name: 'Guards', version: 7 }, draftId: 'D-9' })).detail).toEqual({ shape: 'labelsChanged', ruleset: { id: 'guards', name: 'Guards', version: 7 }, draftId: 'D-9' })
+    expect(reviewIn(wire({ kind: 'labelsChanged' })).detail).toEqual({ shape: 'labelsChanged', ruleset: null, draftId: null })
+  })
+
+  it('reviewIn_uploadDue_readsWhy_andAnUnheardWhyIsUnstated', () => {
+    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'newPackage', version: '5.1.0', system: null, code: null } })).detail).toEqual({ shape: 'uploadDue', why: 'newPackage', version: '5.1.0', code: null })
+    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'unlistedCode', version: null, system: 'benefit-category', code: '99' } })).detail).toEqual({ shape: 'uploadDue', why: 'unlistedCode', version: null, code: { system: 'benefit-category', code: '99' } })
+    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'gremlin' } })).detail).toMatchObject({ why: null })
+    expect(reviewIn(wire({ kind: 'uploadDue' })).detail).toEqual({ shape: 'uploadDue', why: null, version: null, code: null })
+  })
+
+  it('reviewIn_package_readsTheVersionsAndTheDiff_aMissingListBeingEmpty', () => {
+    const row = reviewIn(wire({ kind: 'package', package: { version: '5.1.0', previousVersion: '5.0.0', profiles: { added: ['P-new'] }, extensions: { renamed: [{ from: 'E-old', to: 'E-new' }] } } }))
+    expect(row.detail).toEqual({
+      shape: 'package',
+      version: '5.1.0',
+      previousVersion: '5.0.0',
+      diff: {
+        profiles: { added: ['P-new'], removed: [], renamed: [] },
+        extensions: { added: [], removed: [], renamed: [{ from: 'E-old', to: 'E-new' }] },
+        codeSystems: { added: [], removed: [], renamed: [] },
+      },
+    })
+  })
+})
+
+describe('packageDiffGroups', () => {
+  const none = { added: [], removed: [], renamed: [] }
+  it('only the groups that moved, profiles then extensions then CodeSystems, each with its count', () => {
+    expect(
+      packageDiffGroups({
+        profiles: { added: ['P-1'], removed: ['P-2'], renamed: [] },
+        extensions: none,
+        codeSystems: { added: [], removed: [], renamed: [{ from: 'CS-a', to: 'CS-b' }] },
+      }),
+    ).toEqual([
+      { group: 'profiles', count: 2, lines: [{ change: 'added', name: 'P-1', renamedTo: null }, { change: 'removed', name: 'P-2', renamedTo: null }] },
+      { group: 'codeSystems', count: 1, lines: [{ change: 'renamed', name: 'CS-a', renamedTo: 'CS-b' }] },
+    ])
+  })
+  it('an empty diff has no groups', () => {
+    expect(packageDiffGroups({ profiles: none, extensions: none, codeSystems: none })).toEqual([])
+  })
+})
+
 describe('reviewFromParams', () => {
+  it('reviewFromParams_keepsTheLabelAndPackageKinds', () => {
+    for (const kind of ['labelsChanged', 'uploadDue', 'package']) expect(reviewFromParams(new URLSearchParams(`kind=${kind}`)).kind).toBe(kind)
+  })
   it('reviewFromParams_keepsTheNewKinds_andDropsOneItCannotOffer', () => {
     expect(reviewFromParams(new URLSearchParams('kind=monitor')).kind).toBe('monitor')
     expect(reviewFromParams(new URLSearchParams('kind=notEvaluated')).kind).toBe('notEvaluated')

@@ -77,6 +77,15 @@ describe('insurance-playground — the keys the code builds exist', () => {
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 
+  it.each([en, ar])('679: the Rule pane ruleset and the errors shown on their block', (locale) => {
+    const keys = [
+      'rule.hintEditors',
+      ...['label', 'rule', 'add', 'up', 'down', 'remove', 'jsonOnly', 'broken', 'empty', 'readsAs'].map((k) => `ruleset.${k}`),
+      'outcome.errors.onBlocks',
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
   it.each([areaEn, areaAr])('the menu leaf', (locale) => {
     expect(hasLocaleKey(locale, 'menu.playground')).toBe(true)
   })

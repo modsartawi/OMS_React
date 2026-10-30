@@ -4,6 +4,7 @@
  * As BUILT (oms 618 reconciled 3135 / 3141; the replies read by `./model`'s `reviewIn` / `exceptionIn` / `logIn`):
  *   GET  InsuranceRules/Review?kind&pharmacist&store&rule&reason   → ReviewReply[] (at most 500, newest first)
  *   POST InsuranceRules/Review/{id}               { mark: ok|questioned, note } → { mark, note, by, at }
+ *   POST InsuranceRules/Review/{id}/Clear         { note } → 🚩 guessed (oms 702), an item kind's row
  *   GET  InsuranceRules/Exceptions?patientKey=    → ONE patient's exceptions (a 10-digit key is required: 400 otherwise)
  *   POST InsuranceRules/Exceptions                { patientKey, ruleId|null, scope, validUntil, reason, note } → the exception
  *   POST InsuranceRules/Exceptions/{id}/Revoke    { note } (required) → the exception, revoked
@@ -31,6 +32,10 @@ export const reviewApi = {
   },
   mark(id: string, body: { mark: ReviewMark; note: string }): Promise<unknown> {
     return api.post<unknown>(`${INSURANCE_RULES_BASE}/Review/${encodeURIComponent(id)}`, body)
+  },
+  /** 🚩 Guessed door (3290 spells no clear; 711 reconciles). Every item kind clears with a required note. */
+  clear(id: string, note: string): Promise<unknown> {
+    return api.post<unknown>(`${INSURANCE_RULES_BASE}/Review/${encodeURIComponent(id)}/Clear`, { note })
   },
   /** One patient's exceptions, newest first, revoked / expired ones included. */
   async exceptions(patientKey: string): Promise<GuardException[]> {

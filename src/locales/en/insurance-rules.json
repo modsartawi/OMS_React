@@ -20,7 +20,9 @@
     "idfLookup": "IDF lookup",
     "idfEvents": "IDF events",
     "idfGroups": "IDF groups",
+    "aliases": "Aliases",
     "playground": "Playground",
+    "codeLabels": "Code labels",
     "inspector": "Decision inspector"
   },
   "state": {

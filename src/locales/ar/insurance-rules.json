@@ -20,7 +20,9 @@
     "idfLookup": "استعلام IDF",
     "idfEvents": "أحداث IDF",
     "idfGroups": "مجموعات IDF",
+    "aliases": "الأسماء البديلة",
     "playground": "ساحة التجربة",
+    "codeLabels": "تسميات الرموز",
     "inspector": "فاحص القرارات"
   },
   "state": {

@@ -10,7 +10,7 @@ import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { EXCEPTION_SCOPE_KINDS } from './exception'
-import { EXCEPTION_LOG_KINDS, REVIEW_KINDS, REVIEW_MARKS } from './model'
+import { EVALUATION_FAILURES, EXCEPTION_LOG_KINDS, MONITOR_SEVERITIES, REVIEW_KINDS, REVIEW_MARKS } from './model'
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -56,6 +56,8 @@ describe('insurance-review — the keys the code builds exist', () => {
       ...['active', 'expired', 'revoked'].map((s) => `status.${s}`),
       ...['missing', 'invalid', 'past', 'tooLong'].map((p) => `problem.${p}`),
       ...EXCEPTION_LOG_KINDS.map((k) => `log.${k}`),
+      ...MONITOR_SEVERITIES.map((s) => `item.severity.${s}`),
+      ...[...EVALUATION_FAILURES, 'unstated'].map((f) => `item.failure.${f}`),
       'review.rows_other',
       'exceptions.uses_other',
     ]

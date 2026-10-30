@@ -1,7 +1,7 @@
 {
   "review": {
     "title": "Review",
-    "lede": "Overrides, HQ exceptions used and requests sent unchecked. Mark each one OK or Questioned, with a note.",
+    "lede": "Overrides, HQ exceptions used and requests sent unchecked: mark each one OK or Questioned, with a note. Payer outcomes and failed evaluations: clear each one with a note.",
     "loading": "Loading the review list…",
     "failed": "The review list could not be loaded.",
     "empty": "Nothing to review for these filters.",
@@ -24,7 +24,32 @@
     "override": "Override",
     "exception": "Exception used",
     "unchecked": "Unchecked",
-    "refused": "Refused order"
+    "refused": "Refused order",
+    "monitor": "Monitor",
+    "notEvaluated": "Not evaluated"
+  },
+  "item": {
+    "otherKind": "Other",
+    "open": "Open",
+    "message": "Message",
+    "failed": "Failed",
+    "severity": {
+      "info": "Info",
+      "action": "Action"
+    },
+    "failure": {
+      "watcher": "The answers watcher failed, so this answer was left unread.",
+      "monitor": "A monitor failed on this answer, so it was left unread.",
+      "unstated": "An evaluation failed, so this answer was left unread."
+    },
+    "notCleared": "Not cleared",
+    "cleared": "Cleared",
+    "dialogTitle": "Review item",
+    "clear": "Clear",
+    "clearNote": "Note",
+    "clearNoteRequired": "Say why it is cleared.",
+    "clearedToast": "The item is cleared.",
+    "clearFailed": "The item could not be cleared."
   },
   "columns": {
     "at": "When",
@@ -37,7 +62,7 @@
     "reason": "Reason",
     "note": "Note",
     "mark": "Review",
-    "actions": "Mark",
+    "actions": "Action",
     "inspect": "Decision"
   },
   "mark": {

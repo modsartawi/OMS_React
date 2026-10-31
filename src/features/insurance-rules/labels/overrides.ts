@@ -42,6 +42,62 @@ export interface LabelOverride {
   approvedAt: string | null
 }
 
+/** One item of the door's `Labels/Worklist` (3297). */
+export interface WorklistDoorItem {
+  tier: string
+  system: string
+  code: string
+  en?: string | null
+  ar?: string | null
+  censusCount?: number | null
+}
+
+const WORKLIST_TIER_REASONS: Record<string, string> = { rulesetCanShow: 'lacksArabic', seenUnlabelled: 'unlabelled' }
+
+/** The worklist in the door's order. The door answers `{ censusAvailable, total, items }`, of which this list needs the items. */
+export function worklistRows(reply: { items?: readonly WorklistDoorItem[] | null } | null | undefined): WorklistRow[] {
+  return (reply?.items ?? []).map((i) => ({
+    system: i.system,
+    code: i.code,
+    reason: WORKLIST_TIER_REASONS[i.tier] ?? i.tier,
+    frequency: i.censusCount ?? 0,
+    current: { en: i.en ?? null, ar: i.ar ?? null },
+  }))
+}
+
+/** One override as the door sends it (3297). */
+export interface OverrideDoorRow {
+  id: string
+  system: string
+  code: string
+  en?: string | null
+  ar?: string | null
+  sourceEn?: string | null
+  sourceAr?: string | null
+  status: string
+  author?: string | null
+  proposedAt?: string | null
+  decidedBy?: string | null
+  decidedAt?: string | null
+}
+
+/** A moment the door has not stamped comes as year 1. */
+const stamped = (at: string | null | undefined): string | null => (at && !at.startsWith('0001-') ? at : null)
+
+export const overrideOf = (r: OverrideDoorRow): LabelOverride => ({
+  id: r.id,
+  system: r.system,
+  code: r.code,
+  en: r.en ?? null,
+  ar: r.ar ?? null,
+  state: r.status === 'approved' ? 'approved' : 'proposed',
+  current: { en: r.sourceEn ?? null, ar: r.sourceAr ?? null },
+  proposedBy: r.author ?? null,
+  proposedAt: stamped(r.proposedAt),
+  approvedBy: r.decidedBy || null,
+  approvedAt: stamped(r.decidedAt),
+})
+
 export interface OverrideForm {
   system: string
   code: string

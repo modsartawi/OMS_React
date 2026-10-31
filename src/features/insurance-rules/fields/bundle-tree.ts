@@ -103,5 +103,65 @@ export function clickOutcome(reply: TreeClickReply): ClickOutcome {
   }
 }
 
+// ── The doors as built (3283). A kept copy is named by its kind and id; the screen holds them as one ref.
+
+export interface TreeSample {
+  kind: string
+  keptId: string
+  source?: string | null
+  payer?: string | null
+  eventType?: string | null
+  keptAt?: string | null
+}
+
+export const sampleRef = (s: Pick<TreeSample, 'kind' | 'keptId'>): string => `${s.kind}/${s.keptId}`
+
+/** The kind and id a ref holds; null when it is not a ref at all, which the screen says rather than sends. */
+export function refParts(ref: string): { kind: string; keptId: string } | null {
+  const at = ref.indexOf('/')
+  return at > 0 && at < ref.length - 1 ? { kind: ref.slice(0, at), keptId: ref.slice(at + 1) } : null
+}
+
+export interface TreeDoorNode {
+  id: string
+  name: string
+  index?: number | null
+  type?: string | null
+  value?: string | null
+  clickable?: boolean
+  children?: TreeDoorNode[] | null
+}
+
+export const treeNodeOf = (n: TreeDoorNode): TreeNode => ({
+  nodeRef: n.id,
+  name: n.name,
+  index: n.index ?? null,
+  fhirType: n.type ?? '',
+  value: n.value ?? null,
+  pickable: !!n.clickable,
+  children: (n.children ?? []).map(treeNodeOf),
+})
+
+export interface TreeClickDoorReply {
+  scope: string
+  type: FhirFactType
+  cardinality: 'single' | 'list'
+  system?: string | null
+  fhirPath: string
+  existing?: { key: string; labelEn?: string | null; labelAr?: string | null }[] | null
+  notices?: { code: string }[] | null
+}
+
+export function treeClickOf(r: TreeClickDoorReply): TreeClickReply {
+  const level: FhirLevel = r.scope.startsWith('line.') ? 'line' : 'message'
+  const moment = (level === 'line' ? r.scope.slice('line.'.length) : r.scope) as FhirMessage
+  const existing = r.existing?.[0]
+  return {
+    proposal: { path: r.fhirPath, moment, level, type: r.type, cardinality: r.cardinality, system: r.system || null },
+    existing: existing ? { key: existing.key, moment, level, label: { en: existing.labelEn ?? '', ar: existing.labelAr ?? '' } } : null,
+    patient: (r.notices ?? []).some((n) => n.code === 'patient'),
+  }
+}
+
 /** The one thing of a bundle the URL may hold. */
 export const bundleParam = (raw: string | null): string | null => raw?.trim() || null

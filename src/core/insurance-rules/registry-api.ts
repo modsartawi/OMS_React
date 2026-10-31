@@ -95,11 +95,14 @@ export interface RepinAffectedRow {
   draftId: string | null
 }
 
-/** `GET InsuranceRules/RepinDrafts/Affected`. ⚠️ PROVISIONAL (711 reconciles). The re-pin list reads the same key. */
+/** `GET InsuranceRules/Repin/Labels/Affected`: the rulesets whose text is pinned to an older label version. */
 export function repinAffectedQuery() {
   return {
-    queryKey: [...REPINS_KEY, 'affected'] as const,
-    queryFn: async () => (await api.get<RepinAffectedRow[] | null>(`${INSURANCE_RULES_BASE}/RepinDrafts/Affected`)) ?? [],
+    queryKey: [...REPINS_KEY, 'labels-affected'] as const,
+    queryFn: async (): Promise<RepinAffectedRow[]> => {
+      const rows = await api.get<{ kind: string; versionNo: number; pendingDraftId?: string | null }[] | null>(`${INSURANCE_RULES_BASE}/Repin/Labels/Affected`)
+      return (rows ?? []).map((r) => ({ kind: 'labels', rulesetId: r.kind, rulesetName: r.kind, rulesetVersion: r.versionNo, draftId: r.pendingDraftId || null }))
+    },
     retry: false,
   } as const
 }

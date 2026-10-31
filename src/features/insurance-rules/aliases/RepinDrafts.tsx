@@ -154,7 +154,7 @@ function RepinDraftDialog({ id, onClose }: { id: string; onClose: () => void }) 
   const approve = useMutation({
     mutationFn: () => repinApi.approve(id),
     onSuccess: (d) => {
-      notify.success(t('repin.done'), fsi(d.rulesetName))
+      notify.success(t('repin.done'), fsi(String(d.versionNo)))
       onClose()
     },
     onError: (err) => (isBareDenial(err) ? notify.error(t('repin.approveFailed'), t('repin.grant')) : notify.apiError(t('repin.approveFailed'), err, t('repin.approveFailed'))),

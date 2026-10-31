@@ -78,6 +78,8 @@
   "tree": {
     "title": "Propose a field from a kept bundle",
     "lede": "Open a kept bundle by its reference and click a value, or a whole Money, Quantity or code. The proposed path works on every bundle, not only this one.",
+    "sample": "Kept bundle",
+    "sampleChoose": "Choose a kept bundle…",
     "ref": "Bundle reference",
     "open": "Open",
     "loading": "Opening the bundle…",

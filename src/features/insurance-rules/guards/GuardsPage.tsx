@@ -27,7 +27,7 @@ import { folderFromParams, folderToParams } from './folder-query'
 import { DeniedCard } from '@/core/insurance-rules/parts'
 
 /** This one list shows both published rulesets. */
-const GUARD_RULESETS = ['guards', 'monitors'] as const
+const GUARD_RULESETS = ['guard', 'monitor'] as const
 
 /**
  * Insurance rules ▸ Guards — `/insurance-rules/guards` (BackOffice spec 3126, oms ticket 607). Every guard

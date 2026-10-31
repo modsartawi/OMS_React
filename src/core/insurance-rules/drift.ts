@@ -64,8 +64,16 @@ export function signalReading(s: DriftSignal): SignalReading {
 export const DRIFT_SIGNAL_TYPES = ['newProfile', 'newUrl', 'rateFell'] as const
 export type DriftSignalType = (typeof DRIFT_SIGNAL_TYPES)[number] | 'unknown'
 
+/** The door's spelling of each signal (`DriftSignals`, 3293). */
+const DOOR_SIGNALS: Record<string, DriftSignalType> = {
+  'new-profile-version': 'newProfile',
+  'never-seen-url': 'newUrl',
+  'answer-rate': 'rateFell',
+  'unparsed-rate': 'rateFell',
+}
+
 /** A badge's signal as its hint's word: `drift.type.<this>`. */
-export const driftSignalType = (type: string): DriftSignalType => DRIFT_SIGNAL_TYPES.find((k) => k === type) ?? 'unknown'
+export const driftSignalType = (type: string): DriftSignalType => DOOR_SIGNALS[type] ?? DRIFT_SIGNAL_TYPES.find((k) => k === type) ?? 'unknown'
 
 /** One open drift item and what it affects. Cleared items are not sent, so clearing removes the badges. */
 export interface DriftBadge {

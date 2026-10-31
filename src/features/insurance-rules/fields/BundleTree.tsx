@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
 import { factKey } from '@/core/insurance-rules/fhir-catalog'
+import Select from '@/core/ui/Select'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -14,7 +15,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
-import { bundleParam, clickOutcome, treeRows, type ClickOutcome, type ExistingField, type TreeRow } from './bundle-tree'
+import { bundleParam, clickOutcome, treeRows, type ClickOutcome, type ExistingField, type TreeRow, sampleRef } from './bundle-tree'
 import { failureWords } from './failure-words'
 import RawPathDialog from './RawPathDialog'
 
@@ -129,6 +130,8 @@ export default function BundleTree() {
   const [params, setParams] = useSearchParams()
   const bundle = bundleParam(params.get('bundle'))
   const [typed, setTyped] = useState(bundle ?? '')
+  // A denied or failed list offers none; the reference box still works.
+  const samples = useQuery({ queryKey: ['insurance-fields', 'bundle-samples'], queryFn: () => fieldsApi.treeSamples(), retry: false }).data ?? []
 
   const openBundle = () => {
     const ref = bundleParam(typed)
@@ -156,6 +159,18 @@ export default function BundleTree() {
           openBundle()
         }}
       >
+        {samples.length > 0 && (
+          <Field label={t('tree.sample')}>
+            <Select value={samples.some((s) => sampleRef(s) === typed) ? typed : ''} className="w-96 max-w-full" data-tree-sample="" onChange={(e) => setTyped(e.target.value)}>
+              <option value="">{t('tree.sampleChoose')}</option>
+              {samples.map((s) => (
+                <option key={sampleRef(s)} value={sampleRef(s)}>
+                  {[s.kind, s.payer, s.eventType, s.keptAt?.slice(0, 10)].filter(Boolean).join(' · ')}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label={t('tree.ref')}>
           <Input dir="ltr" autoComplete="off" className="w-72 max-w-full font-mono text-xs" value={typed} onChange={(e) => setTyped(e.target.value)} data-tree-ref="" />
         </Field>

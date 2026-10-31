@@ -16,10 +16,12 @@ export type BacktestDays = (typeof BACKTEST_DAYS)[number]
 // Kept copies are purged (210 days by default), so the door answers the longest window a back-test may replay: the
 // shortest retention setting it reads, minus 30 days. The monitor back-test reads the same limit, so it lives in core.
 
-/** The door's limit in whole days. An unreadable reply is 0: nothing is offered, never everything. */
+/** The longest window the door offers, in whole days. An unreadable reply is 0: nothing is offered, never everything. */
 export function backtestWindowLimit(reply: unknown): number {
-  const days = (reply as { maxDays?: unknown } | null | undefined)?.maxDays
-  return typeof days === 'number' && Number.isFinite(days) && days > 0 ? Math.floor(days) : 0
+  const days = (reply as { days?: unknown } | null | undefined)?.days
+  if (!Array.isArray(days)) return 0
+  const offered = days.filter((d): d is number => typeof d === 'number' && Number.isFinite(d) && d > 0)
+  return offered.length > 0 ? Math.floor(Math.max(...offered)) : 0
 }
 
 /** The windows a back-test may offer under the limit. */
@@ -216,11 +218,11 @@ export const GUARD_BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests
 /** How often a running back-test is read again. */
 export const BACKTEST_POLL_MS = 1000
 
-/** `GET InsuranceRules/Backtests/WindowLimit` → `{ maxDays }` (door 3298; 🚩 path and shape guessed, 711 reconciles). */
+/** `GET InsuranceRules/Guards/Backtests/Windows` → `{ days }`, the windows the kept-copy settings leave to offer. */
 export function backtestWindowLimitQuery() {
   return {
     queryKey: [...INSURANCE_RULES_KEY, 'backtests', 'window-limit'],
-    queryFn: async () => backtestWindowLimit(await api.get<unknown>(`${INSURANCE_RULES_BASE}/Backtests/WindowLimit`)),
+    queryFn: async () => backtestWindowLimit(await api.get<unknown>(`${INSURANCE_RULES_BASE}/Guards/Backtests/Windows`)),
     retry: false,
   } as const
 }

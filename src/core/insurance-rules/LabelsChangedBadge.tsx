@@ -12,8 +12,8 @@ export const labelsDraftPath = (draftId: string | null): string =>
 
 /**
  * The labels-changed badge on a published ruleset itself (oms 708; door 3297): its text is pinned to an older label version
- * until a draft is approved. It opens that draft. `rulesets` are the door's `rulesetId`s this screen shows (🚩 guessed: `guards`,
- * `monitors`, `coverage`, `category`; 711 reconciles). A denied or failed read shows no badge, as a drift badge does.
+ * until a draft is approved. It opens that draft. `rulesets` are the door's kinds this screen shows (`guard`, `monitor`).
+ * A denied or failed read shows no badge, as a drift badge does.
  */
 export function LabelsChangedBadge({ rulesets, newTab }: { rulesets: readonly string[]; newTab?: boolean }) {
   const { t } = useTranslation('insurance-rules')

@@ -1,50 +1,59 @@
 /**
- * The Aliases screen's doors (ticket 704; BackOffice door 3294, unbuilt: the paths and shapes are guessed, 711 reconciles).
+ * The Aliases screen's doors (ticket 704; BackOffice door 3294).
  * Both writes need the insurance rules grant; a bare 403 is said in words, and HQ refuses an own approval itself.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
-import type { AliasForm, AliasRow } from './alias-form'
+import { aliasOf, liveAliases, type AliasDoorRow, type AliasForm, type AliasRow } from './alias-form'
 import { REPINS_KEY } from '@/core/insurance-rules/registry-api'
-import type { AffectedRuleset, RepinDraft } from './repin'
+import { affectedRows, draftOf, type AffectedRuleset, type LabelsDoorAffected, type RepinDoorAffected, type RepinDoorDraft, type RepinDraft } from './repin'
 
 const ALIASES = `${INSURANCE_RULES_BASE}/Aliases`
-const REPINS = `${INSURANCE_RULES_BASE}/RepinDrafts`
+const REPIN = `${INSURANCE_RULES_BASE}/Repin`
 
 export const ALIASES_KEY = [...INSURANCE_RULES_KEY, 'aliases'] as const
 export { REPINS_KEY }
 
-/** 705's re-pin drafts (door 3294, unbuilt: guessed as above). */
+/** 705's re-pin drafts (door 3294) and 708's labels-only ones (door 3297). */
 export const repinApi = {
-  /** `GET InsuranceRules/RepinDrafts/Affected` — each published ruleset still on an old form. */
+  /** `GET InsuranceRules/Repin/Affected` + `Repin/Labels/Affected` — each published ruleset still on an old form. */
   async affected(): Promise<AffectedRuleset[]> {
-    return (await api.get<AffectedRuleset[] | null>(`${REPINS}/Affected`)) ?? []
+    const [paths, labels] = await Promise.all([
+      api.get<RepinDoorAffected[] | null>(`${REPIN}/Affected`),
+      api.get<LabelsDoorAffected[] | null>(`${REPIN}/Labels/Affected`),
+    ])
+    return affectedRows(paths, labels)
   },
-  /** `POST InsuranceRules/RepinDrafts` → the draft, its back-test started. */
-  raise(row: Pick<AffectedRuleset, 'rulesetId' | 'changeId'>): Promise<RepinDraft> {
-    return api.post<RepinDraft>(REPINS, { rulesetId: row.rulesetId, changeId: row.changeId })
+  /** `POST InsuranceRules/Repin/Drafts { kind, keys }`, or `Repin/Labels/Drafts { kind }` → the draft, its back-test already run. */
+  raise(row: Pick<AffectedRuleset, 'kind' | 'rulesetId' | 'changeId'>): Promise<RepinDraft> {
+    const raised = row.kind === 'labels'
+      ? api.post<RepinDoorDraft>(`${REPIN}/Labels/Drafts`, { kind: row.rulesetId })
+      : api.post<RepinDoorDraft>(`${REPIN}/Drafts`, { kind: row.rulesetId, keys: [row.changeId] })
+    return raised.then(draftOf)
   },
-  /** `GET InsuranceRules/RepinDrafts/{id}` — polled while its back-test runs. */
-  draft(id: string): Promise<RepinDraft> {
-    return api.get<RepinDraft>(`${REPINS}/${encodeURIComponent(id)}`)
+  /** `GET InsuranceRules/Repin/Drafts` lists what is pending; the door has no read of one draft. */
+  async draft(id: string): Promise<RepinDraft> {
+    const found = ((await api.get<RepinDoorDraft[] | null>(`${REPIN}/Drafts`)) ?? []).find((d) => d.id === id)
+    if (!found) throw new Error('This re-pin draft is no longer pending.')
+    return draftOf(found)
   },
-  /** `POST InsuranceRules/RepinDrafts/{id}/Approve` → the draft approved; the ruleset now runs on the new form. */
-  approve(id: string): Promise<RepinDraft> {
-    return api.post<RepinDraft>(`${REPINS}/${encodeURIComponent(id)}/Approve`, {})
+  /** `POST InsuranceRules/Repin/Drafts/{id}/Approve` → the version published; the ruleset now runs on the new form. */
+  approve(id: string): Promise<{ versionNo: number }> {
+    return api.post<{ versionNo: number }>(`${REPIN}/Drafts/${encodeURIComponent(id)}/Approve`, {})
   },
 }
 
 export const aliasesApi = {
   /** `GET InsuranceRules/Aliases` — every alias, proposed and approved. */
   async list(): Promise<AliasRow[]> {
-    return (await api.get<AliasRow[] | null>(ALIASES)) ?? []
+    return liveAliases(await api.get<AliasDoorRow[] | null>(ALIASES))
   },
   /** `POST InsuranceRules/Aliases` → the alias proposed. */
   propose(body: AliasForm): Promise<AliasRow> {
-    return api.post<AliasRow>(ALIASES, body)
+    return api.post<AliasDoorRow>(ALIASES, body).then(aliasOf)
   },
   /** `POST InsuranceRules/Aliases/{id}/Approve` → the alias approved. */
   approve(id: string): Promise<AliasRow> {
-    return api.post<AliasRow>(`${ALIASES}/${encodeURIComponent(id)}/Approve`, {})
+    return api.post<AliasDoorRow>(`${ALIASES}/${encodeURIComponent(id)}/Approve`, {}).then(aliasOf)
   },
 }

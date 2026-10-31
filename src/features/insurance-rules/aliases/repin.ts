@@ -99,6 +99,106 @@ export interface RepinDraft extends RepinChange {
   texts?: RepinLabelText[] | null
 }
 
+// ── The doors as built (3294, 3297). A door row names a ruleset by its kind and groups its changes; the list shows one per change.
+
+export interface RepinDoorChange {
+  scope: string
+  key: string
+  oldPath?: string | null
+  newPath?: string | null
+  aliasesAdded?: unknown[] | null
+  aliasesRemoved?: unknown[] | null
+}
+
+export interface RepinDoorAffected {
+  kind: string
+  versionNo: number
+  pendingDraftId?: string | null
+  changes?: RepinDoorChange[] | null
+}
+
+export interface LabelsDoorAffected {
+  kind: string
+  versionNo: number
+  labelVersionNo: number
+  latestLabelVersionNo: number
+  pendingDraftId?: string | null
+}
+
+const changeKind = (c: RepinDoorChange): RepinKind => ((c.oldPath ?? '') === (c.newPath ?? '') && ((c.aliasesAdded?.length ?? 0) > 0 || (c.aliasesRemoved?.length ?? 0) > 0) ? 'alias' : 'path')
+const orNull = (s: string | null | undefined): string | null => s || null
+
+export function affectedRows(paths: readonly RepinDoorAffected[] | null | undefined, labels: readonly LabelsDoorAffected[] | null | undefined): AffectedRuleset[] {
+  return [
+    ...(paths ?? []).flatMap((r) =>
+      (r.changes ?? []).map((c): AffectedRuleset => ({
+        kind: changeKind(c),
+        subject: `${c.scope}.${c.key}`,
+        before: orNull(c.oldPath),
+        after: orNull(c.newPath),
+        changeId: c.key,
+        rulesetId: r.kind,
+        rulesetName: r.kind,
+        rulesetVersion: r.versionNo,
+        draftId: orNull(r.pendingDraftId),
+      })),
+    ),
+    ...(labels ?? []).map((r): AffectedRuleset => ({
+      kind: 'labels',
+      subject: `${r.labelVersionNo} → ${r.latestLabelVersionNo}`,
+      before: String(r.labelVersionNo),
+      after: String(r.latestLabelVersionNo),
+      changeId: 'labels',
+      rulesetId: r.kind,
+      rulesetName: r.kind,
+      rulesetVersion: r.versionNo,
+      draftId: orNull(r.pendingDraftId),
+    })),
+  ]
+}
+
+export interface RepinDoorDraft {
+  id: string
+  kind: string
+  baseVersionNo: number
+  state: string
+  requestedBy?: string | null
+  requestedAt?: string | null
+  decidedBy?: string | null
+  decidedAt?: string | null
+  labelsOnly?: boolean
+  labelVersionNo?: number
+  changes?: RepinDoorChange[] | null
+  labelChanges?: { texts?: { ruleId: string; enBefore?: string | null; enAfter?: string | null; arBefore?: string | null; arAfter?: string | null }[] | null } | null
+  /** Counts per field and payer: the door keeps no per-bundle list. */
+  backtest?: { rows?: { same?: number; gained?: number; lost?: number; changed?: number }[] | null }[] | null
+}
+
+const stamped = (at: string | null | undefined): string | null => (at && !at.startsWith('0001-') ? at : null)
+
+export function draftOf(d: RepinDoorDraft): RepinDraft {
+  const changes = d.changes ?? []
+  const rows = (d.backtest ?? []).flatMap((b) => b.rows ?? [])
+  const moved = rows.reduce((n, r) => n + (r.gained ?? 0) + (r.lost ?? 0) + (r.changed ?? 0), 0)
+  return {
+    id: d.id,
+    kind: d.labelsOnly ? 'labels' : changes.length > 0 && changes.every((c) => changeKind(c) === 'alias') ? 'alias' : 'path',
+    subject: changes.map((c) => `${c.scope}.${c.key}`).join(', '),
+    before: d.labelsOnly ? null : orNull(changes.map((c) => c.oldPath).filter(Boolean).join(', ')),
+    after: d.labelsOnly ? (d.labelVersionNo ? String(d.labelVersionNo) : null) : orNull(changes.map((c) => c.newPath).filter(Boolean).join(', ')),
+    rulesetId: d.kind,
+    rulesetName: d.kind,
+    rulesetVersion: d.baseVersionNo,
+    state: d.state === 'pending' ? 'open' : 'approved',
+    createdBy: d.requestedBy ?? null,
+    createdAt: stamped(d.requestedAt),
+    approvedBy: orNull(d.decidedBy),
+    approvedAt: stamped(d.decidedAt),
+    backtest: d.labelsOnly ? null : { status: 'done', error: null, bundles: rows.reduce((n, r) => n + (r.same ?? 0), moved), changedTotal: moved, changes: [] },
+    texts: (d.labelChanges?.texts ?? []).map((t) => ({ ruleId: t.ruleId, before: { en: t.enBefore ?? '', ar: t.arBefore ?? '' }, after: { en: t.enAfter ?? '', ar: t.arAfter ?? '' } })),
+  }
+}
+
 export interface RepinMove {
   from: string
   to: string

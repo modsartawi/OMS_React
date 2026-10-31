@@ -146,6 +146,39 @@ export function proposeBlockers(form: RawPathValues, checked: Answer<CompileVerd
   return out
 }
 
+// ── The doors as built (3282).
+
+export const scopeOf = (i: Pick<CompileInput, 'moment' | 'level'>): string => (i.level === 'line' ? `line.${i.moment}` : i.moment)
+
+export interface CompileDoorReply {
+  valid?: boolean
+  syntaxError?: string | null
+  refusedFunctions?: string[] | null
+  readsPatient?: boolean
+}
+
+export function compileVerdictOf(r: CompileDoorReply | null | undefined): CompileVerdict {
+  return {
+    refusals: [
+      ...(r?.syntaxError ? [{ code: 'syntax', message: r.syntaxError, detail: r.syntaxError }] : []),
+      ...(r?.refusedFunctions ?? []).map((f) => ({ code: 'refusedFunction', message: f, detail: f })),
+    ],
+    warnings: r?.readsPatient ? [{ code: 'patient', message: 'patient' }] : [],
+  }
+}
+
+export interface ProbeDoorReply {
+  rows?: { source?: string | null; payer?: string | null; match?: number; noMatch?: number; unknown?: number }[] | null
+  errors?: { code: string; en?: string | null }[] | null
+}
+
+export function probeReplyOf(r: ProbeDoorReply | null | undefined): ProbeReply {
+  return {
+    payers: (r?.rows ?? []).map((p) => ({ payer: p.payer || p.source || '', match: p.match ?? 0, noMatch: p.noMatch ?? 0, unknown: p.unknown ?? 0 })),
+    refusals: (r?.errors ?? []).map((e) => ({ code: e.code, message: e.en ?? e.code, detail: e.en ?? null })),
+  }
+}
+
 export interface FieldProposalBody {
   key: string
   label: Says

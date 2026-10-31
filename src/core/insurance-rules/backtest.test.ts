@@ -168,8 +168,8 @@ describe('the back-test window, capped by retention (door 3298: the shortest set
   })
 
   it('an unreadable limit offers nothing, never everything', () => {
-    expect(backtestWindowLimit({ maxDays: 180 })).toBe(180)
-    expect(backtestWindowLimit({ maxDays: 90.5 })).toBe(90)
+    expect(backtestWindowLimit({ days: [7, 30, 180] })).toBe(180)
+    expect(backtestWindowLimit({ days: [90.5] })).toBe(90)
     for (const bad of [null, undefined, [], {}, { maxDays: 'x' }, { maxDays: -5 }, { maxDays: Number.NaN }]) expect(backtestWindowLimit(bad)).toBe(0)
   })
 })

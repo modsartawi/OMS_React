@@ -6,7 +6,7 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import { uploadForm, type WorkbookLoad, type WorkbookUploadReply } from './labels'
 
-import type { LabelOverride, OverrideBody, WorklistRow } from './overrides'
+import { overrideOf, worklistRows, type LabelOverride, type OverrideBody, type OverrideDoorRow, type WorklistDoorItem, type WorklistRow } from './overrides'
 
 const WORKBOOKS = `${INSURANCE_RULES_BASE}/Labels/Workbooks`
 const WORKLIST = `${INSURANCE_RULES_BASE}/Labels/Worklist`
@@ -23,19 +23,19 @@ export const labelsApi = {
   },
   /** `GET InsuranceRules/Labels/Worklist` (3297) — ranked by the door; the client never re-sorts it. */
   async worklist(): Promise<WorklistRow[]> {
-    return (await api.get<WorklistRow[] | null>(WORKLIST)) ?? []
+    return worklistRows(await api.get<{ items?: WorklistDoorItem[] | null } | null>(WORKLIST))
   },
-  /** `GET InsuranceRules/Labels/Overrides?state=proposed` (3297) — what waits for a second person. */
+  /** `GET InsuranceRules/Labels/Overrides?waiting=true` (3297) — what waits for a second person. */
   async proposed(): Promise<LabelOverride[]> {
-    return (await api.get<LabelOverride[] | null>(OVERRIDES, { state: 'proposed' })) ?? []
+    return ((await api.get<OverrideDoorRow[] | null>(OVERRIDES, { waiting: true })) ?? []).map(overrideOf)
   },
   /** `POST InsuranceRules/Labels/Overrides` (3297). */
   propose(body: OverrideBody): Promise<LabelOverride> {
-    return api.post<LabelOverride>(OVERRIDES, body)
+    return api.post<OverrideDoorRow>(OVERRIDES, body).then(overrideOf)
   },
   /** `POST InsuranceRules/Labels/Overrides/{id}/Approve` (3297); HQ refuses the author. */
   approve(id: string): Promise<LabelOverride> {
-    return api.post<LabelOverride>(`${OVERRIDES}/${encodeURIComponent(id)}/Approve`, {})
+    return api.post<OverrideDoorRow>(`${OVERRIDES}/${encodeURIComponent(id)}/Approve`, {}).then(overrideOf)
   },
 }
 

@@ -30,6 +30,52 @@ export interface FieldProposal extends FieldProposalBody {
   rejectReason: string | null
 }
 
+/** One proposal as the door sends it (3282). */
+export interface ProposalDoorRow {
+  id: string
+  key: string
+  scope: string
+  labelEn?: string | null
+  labelAr?: string | null
+  type: FieldProposal['type']
+  cardinality: FieldProposal['cardinality']
+  system?: string | null
+  fhirPath: string
+  status: string
+  author?: string | null
+  proposedAt?: string | null
+  decidedBy?: string | null
+  decidedAt?: string | null
+  decisionNote?: string | null
+  probe?: { source?: string | null; payer?: string | null; match?: number; noMatch?: number; unknown?: number }[] | null
+  warnings?: { code: string }[] | null
+}
+
+const stamped = (at: string | null | undefined): string | null => (at && !at.startsWith('0001-') ? at : null)
+
+export function proposalOf(r: ProposalDoorRow): FieldProposal {
+  const isLine = r.scope.startsWith('line.')
+  return {
+    id: r.id,
+    key: r.key,
+    label: { en: r.labelEn ?? '', ar: r.labelAr ?? '' },
+    moment: (isLine ? r.scope.slice('line.'.length) : r.scope) as FieldProposal['moment'],
+    level: isLine ? 'line' : 'message',
+    type: r.type,
+    cardinality: r.cardinality,
+    system: r.system || null,
+    fhirPath: r.fhirPath,
+    state: r.status as FieldProposalState,
+    proposedBy: r.author ?? null,
+    proposedAt: stamped(r.proposedAt),
+    probe: r.probe?.length ? { payers: r.probe.map((p) => ({ payer: p.payer || p.source || '', match: p.match ?? 0, noMatch: p.noMatch ?? 0, unknown: p.unknown ?? 0 })), refusals: [] } : null,
+    patientWarning: (r.warnings ?? []).some((w) => w.code === 'patient'),
+    decidedBy: r.decidedBy || null,
+    decidedAt: stamped(r.decidedAt),
+    rejectReason: r.decisionNote || null,
+  }
+}
+
 export interface ProposalViewer {
   /** Holds the insurance rule grant. */
   approver: boolean

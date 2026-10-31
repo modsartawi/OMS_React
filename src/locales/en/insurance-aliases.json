@@ -1,0 +1,128 @@
+{
+  "page": {
+    "title": "Aliases",
+    "lede": "A payer that spells a system URL wrongly is named here once: the payer, the wrong URL and the canonical one. HQ applies an approved alias when it matches codings and UCUM units.",
+    "neverRewritten": "The kept bundle itself is never rewritten. An approved alias reaches a published rule only through a re-pin draft.",
+    "failed": "The aliases could not be loaded.",
+    "loading": "Loading the aliases…",
+    "empty": "No alias yet."
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission.",
+    "grant": "Only a user with the insurance rules permission can propose or approve an alias."
+  },
+  "col": {
+    "payer": "Payer",
+    "wrongUrl": "Wrong URL",
+    "canonicalUrl": "Canonical URL",
+    "state": "State",
+    "proposedBy": "Proposed by",
+    "approvedBy": "Approved by"
+  },
+  "state": {
+    "proposed": "Proposed",
+    "approved": "Approved"
+  },
+  "approve": {
+    "action": "Approve",
+    "title": "Approve this alias?",
+    "confirm": "For {{payer}}, HQ will read {{wrong}} as {{canonical}}.",
+    "done": "Alias approved",
+    "failed": "The alias could not be approved",
+    "own": "You proposed this alias, so someone else approves it."
+  },
+  "repin": {
+    "title": "Re-pin drafts",
+    "hint": "These published rulesets still run on an old path, alias or label version. Each moves only through a draft that someone other than its author approves after reading the difference.",
+    "failed": "The affected rulesets could not be loaded.",
+    "loading": "Loading the affected rulesets…",
+    "empty": "Every published ruleset is on the current paths, aliases and labels.",
+    "grant": "Only a user with the insurance rules permission can raise or approve a re-pin draft.",
+    "version": "Version",
+    "raise": "Raise a re-pin draft",
+    "raiseFailed": "The re-pin draft could not be raised",
+    "open": "Open the draft",
+    "close": "Close",
+    "draftTitle": "Re-pin draft",
+    "draftFailed": "The re-pin draft could not be loaded.",
+    "draftLoading": "Loading the draft…",
+    "before": "Before",
+    "after": "After",
+    "nothingPinned": "Nothing pinned",
+    "raisedBy": "Raised by",
+    "pinned": "Until this draft is approved, the published ruleset runs as pinned.",
+    "approve": "Approve this draft",
+    "approveFailed": "The re-pin draft could not be approved",
+    "done": "Re-pin draft approved",
+    "own": "You raised this draft, so someone else approves it.",
+    "waiting": "It can be approved once the back-test has finished.",
+    "backtestTitle": "Back-test of old against new, over the kept bundles",
+    "backtestRunning": "Replaying the kept bundles…",
+    "backtestFailed": "The back-test failed.",
+    "noChangeBadge": "No change",
+    "noChange": "No decision over the kept bundles would change.",
+    "truncated": "HQ sent only the first changed bundles, so the breakdown below is partial. The counts above are complete.",
+    "labels": {
+      "badge": "Labels changed",
+      "title": "The rule's text, before and after",
+      "versionBefore": "Label version before",
+      "versionAfter": "Label version after",
+      "language": "Language",
+      "noText": "No text",
+      "noChange": "No rule's text would change.",
+      "lang": {
+        "en": "English",
+        "ar": "Arabic"
+      }
+    },
+    "stat": {
+      "bundles": "Bundles replayed",
+      "changed": "Decisions that change",
+      "unchanged": "Decisions that stay"
+    },
+    "col": {
+      "ruleset": "Published ruleset",
+      "kind": "What changed",
+      "subject": "Field, alias or label",
+      "bundles": "Bundles",
+      "on": "Day",
+      "bundle": "Bundle",
+      "payer": "Payer",
+      "patient": "Patient key",
+      "rule": "Rule"
+    },
+    "kind": {
+      "path": "Field path",
+      "alias": "Alias",
+      "labels": "Labels only"
+    },
+    "decision": {
+      "PASS": "Passes",
+      "WARN": "Warns",
+      "OVERRIDE": "Needs an override",
+      "REFUSE": "Refuses",
+      "NOT_EVALUATED": "Not evaluated"
+    }
+  },
+  "form": {
+    "title": "Propose an alias",
+    "hint": "Someone other than you approves it before it applies.",
+    "payer": "Payer",
+    "payerChoose": "Choose a payer",
+    "payersFailed": "The payers could not be loaded.",
+    "wrongUrl": "Wrong URL",
+    "wrongPlaceholder": "http://unitsofmeasure.org/ucum",
+    "canonicalUrl": "Canonical URL",
+    "canonicalPlaceholder": "http://unitsofmeasure.org",
+    "submit": "Propose",
+    "done": "Alias proposed",
+    "failed": "The alias could not be proposed"
+  },
+  "problem": {
+    "payerMissing": "Choose a payer.",
+    "wrongMissing": "Enter the wrong URL.",
+    "canonicalMissing": "Enter the canonical URL.",
+    "sameUrl": "The wrong URL and the canonical URL are the same."
+  }
+}

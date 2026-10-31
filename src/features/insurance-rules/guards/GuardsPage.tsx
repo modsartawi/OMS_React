@@ -3,16 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2, Plus } from 'lucide-react'
+import { Eye, Loader2, Plus } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { folderTree, inFolder } from '@/core/insurance-rules/folders'
-import { GUARD_NEW_PATH, guardRulePath, type GuardRuleRow } from '@/core/insurance-rules/model'
+import { GUARD_NEW_PATH, MONITOR_NEW_PATH, guardRulePath, type GuardRuleRow } from '@/core/insurance-rules/model'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { guardRulesetOut } from '@/core/insurance-rules/guard-wire'
 import JsonButton from '@/core/insurance-rules/JsonButton'
+import { LabelsChangedBadge } from '@/core/insurance-rules/LabelsChangedBadge'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -24,6 +25,9 @@ import FolderActions from './FolderActions' // 609
 import FolderTree from './FolderTree'
 import { folderFromParams, folderToParams } from './folder-query'
 import { DeniedCard } from '@/core/insurance-rules/parts'
+
+/** This one list shows both published rulesets. */
+const GUARD_RULESETS = ['guard', 'monitor'] as const
 
 /**
  * Insurance rules ▸ Guards — `/insurance-rules/guards` (BackOffice spec 3126, oms ticket 607). Every guard
@@ -38,12 +42,20 @@ export default function GuardsPage() {
     <section className="flex h-full w-full flex-col gap-4" data-guards-page="">
       <header className="flex flex-wrap items-start gap-4">
         <div className="max-w-3xl">
-          <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
+          <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
+            {t('list.title')}
+            <LabelsChangedBadge rulesets={GUARD_RULESETS} />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
+          <p className="mt-1 text-sm text-muted-foreground" data-monitor-never="">{t('monitor.neverTouches')}</p>
         </div>
         <span className="ms-auto">
           <DraftJson />
         </span>
+        <Link to={MONITOR_NEW_PATH} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-new-monitor="">
+          <Eye className="h-3.5 w-3.5" aria-hidden />
+          {t('list.newMonitor')}
+        </Link>
         <Link to={GUARD_NEW_PATH} className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/85" data-new-guard="">
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('list.new')}
@@ -118,7 +130,11 @@ function Guards() {
               animateRows={false}
               suppressColumnVirtualisation
               rowClass="cursor-pointer"
-              onRowClicked={(e) => e.data && navigate(guardRulePath(e.data.id), { state: { folder } })}
+              onRowClicked={(e) => {
+                // A drift badge is a link of its own (703): the grid's row click must not race it to the rule.
+                if ((e.event?.target as Element | null)?.closest?.('a')) return
+                if (e.data) navigate(guardRulePath(e.data.id), { state: { folder } })
+              }}
             />
           </div>
         )}

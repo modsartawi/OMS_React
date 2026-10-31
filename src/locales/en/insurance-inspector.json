@@ -1,0 +1,73 @@
+{
+  "title": "Decision inspector",
+  "lede": "Any decision of any age: its rule and version, what each fact read, the replay, and the message checked by its hash.",
+  "loading": "Reading the decision…",
+  "failed": "The decision could not be read.",
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Reading a decision needs the decision-log read grant. Ask HQ to grant it."
+  },
+  "open": {
+    "id": "Decision id",
+    "go": "Open"
+  },
+  "summary": {
+    "rule": "Rule",
+    "noRule": "No rule",
+    "version": "Version",
+    "noVersion": "No version",
+    "outcome": "Decided",
+    "at": "When",
+    "store": "Store",
+    "pharmacist": "Pharmacist",
+    "patient": "Patient",
+    "source": "Source"
+  },
+  "outcome": {
+    "pass": "Passes",
+    "refuse": "Refused",
+    "override": "Refused unless overridden",
+    "warn": "Warns",
+    "exception": "Passed by HQ exception"
+  },
+  "fact": {
+    "title": "What each fact read",
+    "none": "This decision read no facts.",
+    "key": "Key",
+    "path": "Path",
+    "value": "Typed value",
+    "yes": "Yes",
+    "no": "No",
+    "unknown": "Unknown: the message did not say",
+    "unparsed": "Unparsed: the value could not be read as its type"
+  },
+  "replay": {
+    "title": "Replay",
+    "same": "Same as decided",
+    "different": "Differs from what was decided",
+    "none": "Could not be replayed"
+  },
+  "message": {
+    "title": "The message",
+    "show": "Show message",
+    "showing": "Looking for it…",
+    "hide": "Hide message",
+    "failed": "The message could not be read. The typed values above still stand.",
+    "held": "A kept copy is still held.",
+    "purged": "The kept copy has been purged. The typed values above still explain this decision.",
+    "ref": "Reference",
+    "hash": "Hash on record",
+    "foundHash": "Hash of this copy",
+    "check": {
+      "kept": {
+        "match": "From the kept copy. It matches the hash.",
+        "differs": "From the kept copy. It differs from the hash, so it is not the message this decision read."
+      },
+      "refetched": {
+        "match": "Re-fetched from the Nphies service, shown and not kept. It matches the hash.",
+        "differs": "Re-fetched from the Nphies service, shown and not kept. It differs from the hash, so it is not the message this decision read."
+      },
+      "notFound": "Not found in the kept copies or the Nphies service. The typed values above still stand."
+    }
+  }
+}

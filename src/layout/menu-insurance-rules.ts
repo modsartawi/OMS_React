@@ -14,8 +14,16 @@ import { SearchCheck } from 'lucide-react' // 625
 import { History } from 'lucide-react' // 626
 // 652 · icons
 import { Layers } from 'lucide-react' // 652
+// 710 · icons
+import { FileSearch } from 'lucide-react' // 710
 // 677 · icons
 import { TestTubeDiagonal } from 'lucide-react' // 677
+// 696 · icons
+import { Inbox } from 'lucide-react' // 696
+// 704 · icons
+import { Replace } from 'lucide-react' // 704
+// 706 · icons
+import { Languages } from 'lucide-react' // 706
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -131,6 +139,38 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.playground',
       icon: TestTubeDiagonal,
       routerLink: '/insurance-rules/playground',
+    },
+
+    // 710 · Decision inspector (`menu.inspector`, `/insurance-rules/decisions`)
+    {
+      // 710 — any decision by its id; a decision's page (`/insurance-rules/decisions/:decisionId`) lights it too.
+      labelKey: 'insurance-rules:menu.inspector',
+      icon: FileSearch,
+      routerLink: '/insurance-rules/decisions',
+    },
+
+    // 696 · Field proposals (`menu.fieldProposals`, `/insurance-rules/field-proposals`)
+    {
+      // 696 — proposed FHIR fields, approved or rejected by someone other than the author.
+      labelKey: 'insurance-rules:menu.fieldProposals',
+      icon: Inbox,
+      routerLink: '/insurance-rules/field-proposals',
+    },
+
+    // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)
+    {
+      // 704 — (payer, wrong URL → canonical URL), proposed and approved by a second person.
+      labelKey: 'insurance-rules:menu.aliases',
+      icon: Replace,
+      routerLink: '/insurance-rules/aliases',
+    },
+
+    // 706 · Code labels (`menu.codeLabels`, `/insurance-rules/code-labels`)
+    {
+      // 706 — upload a Nphies workbook, read its label diff and change log; 707 adds overrides and the worklist.
+      labelKey: 'insurance-rules:menu.codeLabels',
+      icon: Languages,
+      routerLink: '/insurance-rules/code-labels',
     },
 
     // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).

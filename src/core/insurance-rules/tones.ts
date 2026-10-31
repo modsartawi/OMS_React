@@ -24,10 +24,17 @@ export const GUARD_SEVERITY_TONE: Record<GuardSeverity, SeverityTone> = {
   WARN: { badge: SEVERITY_BADGE.warn, text: 'text-attention-800', fill: 'bg-attention' },
 }
 
+/** A monitor's review item (oms 699): it asks for a look, or only tells. */
+const MONITOR_TONE: Record<string, SeverityTone> = {
+  action: { badge: SEVERITY_BADGE.warn, text: 'text-attention-800', fill: 'bg-attention' },
+  info: { badge: SEVERITY_BADGE.go, text: 'text-primary', fill: 'bg-primary' },
+}
+
 const MUTE: SeverityTone = { badge: SEVERITY_BADGE.mute, text: 'text-muted-foreground', fill: 'bg-muted-foreground' }
 
 /** The tone of a severity in any casing (`REFUSE`, `refuse`); an unknown one is muted. */
 export function guardSeverityTone(severity: string): SeverityTone {
+  if (MONITOR_TONE[severity]) return MONITOR_TONE[severity]
   const s = severity.toUpperCase() as GuardSeverity
   return (GUARD_SEVERITIES as readonly string[]).includes(s) ? GUARD_SEVERITY_TONE[s] : MUTE
 }

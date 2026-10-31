@@ -7,11 +7,15 @@ import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { guardRuleOut, guardRulesetOut } from '@/core/insurance-rules/guard-wire'
+import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
+import { isMonitor } from '@/core/insurance-rules/monitor'
 import OpenInPlayground from '@/core/insurance-rules/OpenInPlayground'
+import { usesFhirFacts } from '@/core/insurance-rules/fact-tests'
+import { fhirCatalogQuery } from '@/core/insurance-rules/registry-api'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -55,7 +59,7 @@ export default function GuardPage() {
       <>
         <RuleRead rule={rule} doc={draft.data} />
         {/* 609 — move to a folder, save as a team template */}
-        <OrganizeCard key={rule.id} rule={rule} rules={draft.data.rules} />
+        <OrganizeCard key={rule.id} rule={rule} rules={draft.data.rules} canTemplate={!isMonitor(rule)} />
       </>
     )
 
@@ -72,20 +76,24 @@ export default function GuardPage() {
 
 function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
   const { t } = useTranslation('insurance-guards')
-  const s = guardSentence(rule, doc.lists)
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: usesFhirFacts(rule.when) }).data
+  const s = guardSentence(rule, doc.lists, undefined, catalog)
   const severity = ruleSeverity(rule)
+  const monitor = isMonitor(rule)
   return (
     <>
       <header className="flex flex-col gap-2" data-rule-header="">
         <div className="flex flex-wrap items-center gap-2">
           <RuleId id={rule.id} />
+          {monitor && <span className="text-xs text-muted-foreground" data-rule-kind="monitor">{t('insurance-rules:kind.monitor')}</span>}
           <GuardStateBadge state={rule.state} />
           {severity && <GuardSeverityBadge severity={severity} />}
+          <RuleDriftBadges ruleId={rule.id} />
           <span className="ms-auto">
             <JsonButton title={t('rule.json', { id: fsi(rule.id) })} value={guardRuleOut(rule)} hook="rule" />
           </span>
           {/* 688: a copy of the rule shown (the saved draft), its lists and fields, as a new playground experiment */}
-          <OpenInPlayground source={{ kind: 'guard', rule: guardRuleOut(rule), document: guardRulesetOut(doc) }} label={t('rule.playground')} title={t('rule.playgroundHint')} />
+          {!monitor && <OpenInPlayground source={{ kind: 'guard', rule: guardRuleOut(rule), document: guardRulesetOut(doc) }} label={t('rule.playground')} title={t('rule.playgroundHint')} />}
           <Link to={guardEditPath(rule.id)} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-edit-rule="">
             <Pencil className="h-3.5 w-3.5" aria-hidden />
             {t('rule.edit')}
@@ -110,9 +118,14 @@ function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
             </div>
           )}
         </dl>
+        {monitor && (
+          <p className="rounded-md border border-border bg-muted/40 p-2 text-sm" data-monitor-never="">
+            {t('monitor.neverTouches')}
+          </p>
+        )}
       </header>
 
-      <Block kw={t('rule.when')} hint={t('rule.whenHint')} hook="when">
+      <Block kw={t('rule.when')} hint={t(monitor ? 'monitor.whenHint' : 'rule.whenHint')} hook="when">
         <ul className="flex flex-col gap-1">
           {s.when.map((w, i) => (
             <li key={i} data-sentence="">
@@ -129,7 +142,7 @@ function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
         </p>
       </Block>
 
-      <Block kw={t('rule.then')} hint={t('rule.thenHint')} hook="then">
+      <Block kw={t('rule.then')} hint={t(monitor ? 'monitor.thenHint' : 'rule.thenHint')} hook="then">
         <div className="flex flex-col gap-3">
           {s.then.map((e, i) => (
             <div key={i} className="flex flex-col gap-1.5" data-effect={e.severity}>

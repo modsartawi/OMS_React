@@ -7,6 +7,7 @@
     "empty": "No guard rule is in this folder.",
     "shown": "Rules shown",
     "never": "Never",
+    "newMonitor": "New monitor",
     "new": "New guard",
     "json": "The guard draft as JSON (revision {{n}})"
   },
@@ -31,7 +32,25 @@
       "taken": "A folder here already has this name."
     }
   },
+  "monitor": {
+    "neverTouches": "A monitor only puts an item on the insurance team's review list: it never blocks, prompts or changes a sale, an invoice, a pick or a claim.",
+    "whenHint": "The payer answers it reads",
+    "thenHint": "What the review list shows",
+    "scope": "Reads",
+    "uses": "Answers to",
+    "unknown": "If a fact is unknown the monitor does not fire, and the first answer has no answer before it, so a $previous key reads unknown on it.",
+    "unknownFor": {
+      "communicationRequest": "If a fact is unknown the monitor does not fire.",
+      "paymentReconciliation": "Every payment fact reads unknown when a detail matches no authorization, or matches ambiguously (one payer through both a direct and a TPA licence). The monitor does not fire on that detail."
+    },
+    "scopeNote": {
+      "communicationRequest": "It reads the reason, the category and whether the request has payload text. It never reads that text, and no screen shows it.",
+      "paymentReconciliation": "It reads each detail on its own, linked to our authorization by the request identifier."
+    },
+    "scopeDropped": "Conditions the new message cannot read were removed. Undo brings them back."
+  },
   "columns": {
+    "kind": "Kind",
     "id": "Rule",
     "name": "Name",
     "state": "State",
@@ -61,8 +80,11 @@
     "playgroundHint": "Copies this rule, the lists it names and the fields it reads into a new playground experiment. Nothing done there changes this rule."
   },
   "editor": {
+    "titleNewMonitor": "New monitor",
+    "titleEditMonitor": "Edit monitor",
     "titleNew": "New guard",
     "titleEdit": "Edit guard",
+    "fromRejection": "Filled in from a rejection report row. Name it, write its message, and save: nothing is kept until you do, and it goes through the usual back-test and approval.",
     "back": "Back to the rule",
     "unsaved": "Unsaved changes",
     "undo": "Undo",
@@ -236,7 +258,40 @@
       "atLeast": "at least",
       "below": "below",
       "anyOf": "any of",
-      "noneOf": "none of"
+      "noneOf": "none of",
+      "countAtLeast": "count at least",
+      "countBelow": "count below",
+      "is": "is",
+      "before": "before",
+      "onOrBefore": "on or before",
+      "after": "after",
+      "onOrAfter": "on or after"
+    },
+    "factTest": {
+      "codesPlaceholder": "E11*",
+      "amount": "Amount",
+      "currency": "Currency",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "system": "Code system",
+      "addCode": "Add a code…",
+      "count": "Values",
+      "day": "Day",
+      "flag": "Value",
+      "yes": "yes",
+      "no": "no",
+      "notAllowed": "This fact's type cannot answer this test. Choose another.",
+      "unknown": {
+        "none": "If this fact reads unknown or unparsed, the rule does not fire.",
+        "warn": "If this fact reads unknown or unparsed, the pharmacist is warned."
+      },
+      "problem": {
+        "empty": "Enter a value.",
+        "shape": "Enter a number, like 100.5.",
+        "decimals": "At most 3 decimals.",
+        "currency": "Three capital letters, like SAR.",
+        "unit": "Enter a unit."
+      }
     },
     "unit": {
       "days": "days",
@@ -371,6 +426,10 @@
       "badField": "A field is written line.field.Key, request.field.Key or patient.field.Key, with one key (character <n>{{at}}</n>)."
     },
     "group": {
+      "claimResponse": "This answer",
+      "previous": "The answer before",
+      "communicationRequest": "This communication request",
+      "paymentReconciliation": "This payment detail",
       "patient": "Patient",
       "request": "Request",
       "line": "The line",
@@ -585,6 +644,22 @@
       "count": "The units (quantity) on the lines of the list. (count sums units, lines counts lines.)"
     },
     "recipe": {
+      "cutQuantity": {
+        "title": "A reissue cut the approved quantity",
+        "desc": "The line's approved quantity is lower than on the answer before."
+      },
+      "underpaid": {
+        "title": "A detail paid less than its amount",
+        "desc": "The payment on this detail is lower than the amount."
+      },
+      "hasPayloadText": {
+        "title": "A request with payload text",
+        "desc": "Only that it has text: the text itself is never read."
+      },
+      "reissueReason": {
+        "title": "A reissue for a given reason",
+        "desc": "Replace the code with the reason to watch."
+      },
       "childQuantity": {
         "title": "Child with a large quantity",
         "desc": "Under 12 years old, and more than 2 on the line."

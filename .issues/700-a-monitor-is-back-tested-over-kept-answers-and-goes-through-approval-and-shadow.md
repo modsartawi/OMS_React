@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3271 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3271-oms-react-fhir-insurance-rules-brief.md)
 blocked-by: 699
 ---
@@ -19,8 +19,8 @@ i18n (en + ar) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] the back-test result reads per kind, and a guard's reading is unchanged — pure
-- [ ] back-test, ask, approve as another user, shadow, promote a monitor — flow
+- [x] the back-test result reads per kind, and a guard's reading is unchanged — pure
+- [x] back-test, ask, approve as another user, shadow, promote a monitor — flow (stubbed)
 
 ## Boundaries
 
@@ -36,3 +36,24 @@ A monitor reaches live only as a guard does, and the author saw what it would ha
 699.
 
 ## Comments
+
+**2026-10-30, built, all stubbed (no live SIS.Api).** Pure proofs in `core/insurance-rules/backtest.test.ts`; `tools/insurance-fhir-700-drive.mjs` 82/82 in
+LTR and RTL; `insurance-approvals-drive` 126/126 unchanged. RTL is direction only (`lng` stays `en`), so the Arabic is proved by key parity and no one has read it on screen.
+
+Shape guesses for 711 (door 3290 spells none):
+- No new door: `POST Guards/Backtests { days }` is one job of the draft's revision, replaying requests through guards and kept answers through monitors.
+- The reply gains `monitors: { answers, raisedOn, raised: { action, info }, items: [{ on, message: { source, id }, maskedKey, rules }], itemsTotal, rules: [{ ruleId, raised }] } | null`. Null or absent while running, and when the draft holds no monitor.
+- `items` is cut like `stopped`, first N with a total. A key arriving whole is masked on screen.
+- The guard fields stay as they are, with `requests: 0` when the draft holds only monitors.
+- Monitors' `rules` rows stay out of the guard `rules` list, and monitors' figures out of `fires`.
+- A monitor's shadow figure is its row of `GET Metrics?by=rule` (`shadowFires`), and Promote is the guard's door.
+
+Decisions, overrulable:
+- **One job, one gate.** Monitors share the revision, so Submit needs one finished job of it. If 3290 gives monitors their own job, `backtestForAsking` and `backtestKinds` move.
+- **Client gate beyond HQ's.** A draft holding a running monitor treats a finished job with no `monitors` section as no back-test ("Run a back-test first"), so the author has always seen what it would raise. HQ's own `GUARDS_BACKTEST_MISSING` is unchanged. A disabled monitor does not count.
+- **Monitors alone read no sale figures.** `requests: 0` plus a `monitors` section hides the guard tiles, by-rule table and stopped table. A mixed draft with zero past requests also hides them: the reply cannot tell the two apart. Overlap and SAR stay guard-only.
+- **Shadow copy is a guess.** "A monitor in shadow raises no review item until it is promoted, on the same 14 days" is my reading of A1's "same shadow". 3290 does not say what a shadow monitor does; 711 should confirm. Promote rules are unchanged (14 days, or sooner with a reason).
+- **The answer is shown as `source · id`, unlinked.** Payer and `use` are left out: 701's scopes have no `use`, and door 3290 names only (source, id).
+- **"The guard draft" stays the panel's title:** it is the document's name, and it does hold the monitors.
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.** **The client gate beyond HQ's is removed** (the "Client gate beyond HQ's" decision above no longer stands), because the ticket says the approval rules are reused as they are. `backtestForAsking` is gone, and Submit uses the guards' gate: a finished back-test of this revision. A job with no `monitors` section now opens Ask, so an author can ask without having seen what a monitor would raise if the door sends none. 711 should confirm 3290 always sends it for a draft holding a monitor. Drive check 9 now says so.

@@ -4,7 +4,7 @@
  * key that is never shown whole.
  */
 import { describe, expect, it } from 'vitest'
-import { backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest } from './backtest'
+import { backtestKinds, backtestWindowLimit, cappedBacktestDays, draftHoldsMonitors, monitorBacktestReading, offeredBacktestDays, backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest, type MonitorBacktest } from './backtest'
 
 const bt = (o: Partial<GuardBacktest> = {}): GuardBacktest => ({
   id: 'BT-1',
@@ -92,5 +92,84 @@ describe('maskedKey', () => {
   it('never shows an empty or short key as data', () => {
     expect(maskedKey('')).toBe('')
     expect(maskedKey('123')).toBe('***')
+  })
+})
+
+describe('the back-test read per kind (oms 700)', () => {
+  const monitors: MonitorBacktest = {
+    answers: 800,
+    raisedOn: 2,
+    raised: { action: 3, info: 1 },
+    items: [
+      { on: '2026-10-26', message: { source: 'nphies', id: 'ANS-1' }, maskedKey: '1*******83', rules: ['M-001'] },
+      { on: '2026-10-25', message: { source: 'nphies', id: 'ANS-2' }, maskedKey: '1198765408', rules: ['M-001', 'M-002'] },
+    ],
+    itemsTotal: 40,
+    rules: [{ ruleId: 'M-001', raised: 3 }],
+  }
+
+  it('a guard’s reading is unchanged: no monitor section is the guard report alone', () => {
+    expect(backtestKinds(bt())).toEqual(['guard'])
+    expect(backtestKinds(bt({ monitors: null }))).toEqual(['guard'])
+    expect(backtestKinds(bt({ requests: 0, lines: 0 }))).toEqual(['guard'])
+    expect(backtestFires(bt())).toEqual({ rows: [['REFUSE', 4], ['OVERRIDE', 30], ['WARN', 6]], total: 40 })
+  })
+
+  it('a draft with guards and monitors reads as both, and monitors alone never as refusals on sales', () => {
+    expect(backtestKinds(bt({ monitors }))).toEqual(['guard', 'monitor'])
+    expect(backtestKinds(bt({ monitors, requests: 0, lines: 0 }))).toEqual(['monitor'])
+  })
+
+  it('a monitor reads as review items raised, heaviest first, on which answers, keys masked', () => {
+    expect(monitorBacktestReading(monitors)).toEqual({
+      rows: [['action', 3], ['info', 1]],
+      total: 4,
+      answers: 800,
+      raisedOn: 2,
+      items: [
+        { on: '2026-10-26', message: { source: 'nphies', id: 'ANS-1' }, maskedKey: '1*******83', rules: ['M-001'] },
+        { on: '2026-10-25', message: { source: 'nphies', id: 'ANS-2' }, maskedKey: '1*******08', rules: ['M-001', 'M-002'] },
+      ],
+      shown: 2,
+      itemsTotal: 40,
+      truncated: true,
+      rules: [{ ruleId: 'M-001', raised: 3 }],
+    })
+  })
+
+  it('a thin reply reads as nothing raised', () => {
+    expect(monitorBacktestReading({} as MonitorBacktest)).toEqual({ rows: [['action', 0], ['info', 0]], total: 0, answers: 0, raisedOn: 0, items: [], shown: 0, itemsTotal: 0, truncated: false, rules: [] })
+  })
+
+  it('a draft holds a monitor only while one still runs', () => {
+    const guard = { kind: undefined, state: 'draft' as const }
+    const monitor = { kind: 'monitor' as const, state: 'draft' as const }
+    const off = { kind: 'monitor' as const, state: 'disabled' as const }
+    expect(draftHoldsMonitors([guard])).toBe(false)
+    expect(draftHoldsMonitors([guard, off])).toBe(false)
+    expect(draftHoldsMonitors([guard, monitor])).toBe(true)
+  })
+})
+
+describe('the back-test window, capped by retention (door 3298: the shortest setting it reads, minus 30 days)', () => {
+  it('offers only the windows inside the limit', () => {
+    expect(offeredBacktestDays(180)).toEqual([30, 90, 180])
+    expect(offeredBacktestDays(179)).toEqual([30, 90])
+    expect(offeredBacktestDays(90)).toEqual([30, 90])
+    expect(offeredBacktestDays(30)).toEqual([30])
+    expect(offeredBacktestDays(29)).toEqual([])
+  })
+
+  it('a window from the address past the limit falls to the longest offered, and to none when none fits', () => {
+    expect(cappedBacktestDays(180, 180)).toBe(180)
+    expect(cappedBacktestDays(180, 120)).toBe(90)
+    expect(cappedBacktestDays(30, 120)).toBe(30)
+    expect(cappedBacktestDays(30, 15)).toBeNull()
+  })
+
+  it('an unreadable limit offers nothing, never everything', () => {
+    expect(backtestWindowLimit({ days: [7, 30, 180] })).toBe(180)
+    expect(backtestWindowLimit({ days: [90.5] })).toBe(90)
+    for (const bad of [null, undefined, [], {}, { maxDays: 'x' }, { maxDays: -5 }, { maxDays: Number.NaN }]) expect(backtestWindowLimit(bad)).toBe(0)
   })
 })

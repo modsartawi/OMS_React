@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3271 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3271-oms-react-fhir-insurance-rules-brief.md)
 blocked-by: 692
 ---
@@ -25,9 +25,11 @@ sentence view) · i18n (en + ar) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] operators per type and cardinality; a money value with more than 3 decimals is refused at the field — pure
-- [ ] each new condition round-trips through the guard wire shape unchanged — pure
-- [ ] build one condition of each type, save, reopen, read its sentence; under `ar` too — flow (Playwright drive)
+- [x] operators per type and cardinality; a money value with more than 3 decimals is refused at the field — pure
+- [x] each new condition round-trips through the guard wire shape unchanged — pure
+- [x] build one condition of each type, save, reopen, read its sentence; under `ar` too — flow (Playwright drive)
+      (RTL layout + Arabic data labels on screen; the `ar` sentences proved against the locale in the pure test: 692's
+      `lng: 'en'` finding still holds)
 
 ## Boundaries
 
@@ -48,3 +50,52 @@ No condition can be built that its fact's type cannot answer, and the sentence r
   the engine ticket's shape if it has landed, otherwise guess and list it for 711.
 
 ## Comments
+
+**2026-10-30, built, all stubbed (no live SIS.Api). Replaces 692's stopgap `pickedFact`.** SIS.Rules 2.0.0 (BO 3272) is still
+open, so every spelling below is a guess.
+
+Shape guesses for 711:
+- Money: `{ check, field, atLeast | under: { amount: "100.500", currency: "BHD" } }`. The amount is a string.
+- Quantity: `{ check, field, atLeast | under: { value: "20.5", unit: "%" } }`. The value is a string too.
+- Code: `{ check, field, anyOf | noneOf: [...], system: "<url>" }`.
+- `noneOf` is spelled literally on a code or a `claim` / `claimResponse` / line FHIR fact. Any other fact stays `anyOf` under
+  `not`, so phase-1 rules are byte-identical.
+- Count: `count: { atLeast: n }` or `count: { under: n }`, on the editor's ops `countAtLeast` / `countBelow`.
+- `is` and `before` / `onOrBefore` / `after` / `onOrAfter` on a FHIR message, as the eligibility block spells them.
+- `GET InsuranceRules/CodeSystems/Codes?system=` answers `[{ code, label: { en, ar } }]`. No door ticket names this read
+  (3296 loads the labels). If it fails or is empty, the code box still takes raw codes.
+
+**Asks for 711:**
+- `guardRulesetIn` still pins `schema: 1`, and 3272 says a ruleset using the new types declares a new schema version. I did
+  not guess the number or who stamps it, so it must be settled against the built engine. Until then a ruleset with new types
+  goes out as `schema: 1`.
+- The `fact` block in `RuleConditions` (coverage rules) was not touched: it has no catalog picker and draws only the phase-1
+  operators. A coverage rule holding a new-type fact would not draw properly there.
+
+Overrulable decisions:
+- "A single fact offers no list operator" is read as no `count`. A single code or text fact keeps any of / none of (F12 tests
+  a code with them).
+- A list of numbers, money or quantities offers count only, because any of has nothing to match by.
+- Beyond the ticket's list, a flag offers `is` yes / no and a date the four day tests, since 692 left both on `anyOf`.
+- A refused value (too many decimals, a bad currency) stays in the box with its reason and never reaches the condition.
+  Leaving the box puts back the last good value.
+- Picks start at amount `0`, in the row's currency if `unit` is three capitals, else `SAR`. A quantity starts in the row's unit.
+- The system box defaults to the declared system and can be edited. Emptied, it drops the key (the engine's default). Codes
+  are offered only while it holds the declared system.
+- An eligibility `is` or single written-day test stays an `eligibility` block on the wire (674's test stands), and the guard
+  editor now draws it as a fact, so it can be edited after a reopen. `today+30` and multi-test blocks stay as written.
+- A registry fact keeps its phase-1 reading (a flag is read by codes); only a catalog row gets the new types. An operator its
+  fact cannot answer, on a rule saved earlier, stays selected with a warning so the rule still opens.
+- The catalog is now read when a block or a rule's sentence reads a FHIR path, including any `$eligibility` key, not only when
+  the picker opens. `$patient` and similar paths still do not read it. Denied, the value's shape decides.
+- `onUnknown` stays where it was, and a guard's FHIR fact also says beside it what unknown or unparsed does. Coverage rules
+  have no `onUnknown`, so they do not show this.
+- 692's drive now expects the new starting tests (money object, flag `is: true`).
+
+**2026-10-30, review fixes (branch `t3271-review-fix`), all stubbed.**
+- **Operators, read against the spec (story 15, story 16, 3272).** A list fact of any type now offers any of, none of and count, so lists of numbers, money and quantities gain any of / none of. This overrules my earlier "count only".
+- **Single facts are unchanged, deliberately.** The review asked to take any of / none of off a single code or text fact. The spec says otherwise: story 16 and 3272 test a code by any of / none of, and text has no other test, so it would be left with no operator. "No list operator" therefore means no count. Phase-1 rules open as before.
+- 🚩 **Guess for 711:** any of on a list of amounts or quantities takes plain text values through the codes box, so it has no 3-decimal or currency check. The wire spelling of such a value needs the built engine.
+- **`RuleConditions` (coverage, category, playground).** A fact it cannot draw (money, quantity, count, flag, day, a code with a system) now reads as its sentence, kept as written, and NOT and Remove still work. An eligibility bound holding money does the same, and its sentence no longer prints `[object Object]`. Before this, money drew as `[object Object]` in the codes box, and a keystroke overwrote it. Proved by the drive: a coverage rule holding three new-type facts saves another edit and sends them back unchanged. The Asks entry above on this block is closed; it still cannot edit them.
+- `placeholder="E11*"` is now `t()` (en + ar), and it and the system placeholder go through `fsi`.
+- List of money with any of is proved by the pure test only: the drive's catalog holds no such row.

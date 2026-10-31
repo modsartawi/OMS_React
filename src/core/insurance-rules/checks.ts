@@ -18,6 +18,12 @@ export interface GuardIssue {
   severity: 'error' | 'warning'
   en: string
   ar: string
+  /** Oms 698, a guess for 711: which warning or refusal this is (`./publish-checks`). A kind unknown here still shows its text. */
+  kind?: string | null
+  /** Oms 698, a guess for 711: the fact it is about, as the rule writes it (`$claim.x`). */
+  fact?: string | null
+  /** Oms 698, a guess for 711: the channel that never answers it. */
+  channel?: string | null
 }
 
 export type BlockSection = 'when' | 'then'

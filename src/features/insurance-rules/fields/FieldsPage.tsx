@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import { Loader2, Plus } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
-import type { GuardCondition, GuardRuleset } from '@/core/insurance-rules/model'
+import { INSURANCE_RULES_PATH, type GuardCondition, type GuardRuleset } from '@/core/insurance-rules/model'
 import { FIELD_SCOPES, FIELD_TYPES, type FieldScope, type RegistryField } from '@/core/insurance-rules/registry'
 import { FIELDS_KEY, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import SaysBoth from '@/core/rules/SaysBoth'
@@ -23,6 +24,9 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { DeniedCard } from '@/core/insurance-rules/parts'
+import { FhirCatalogPanel } from '@/core/insurance-rules/FhirCatalog'
+import BundleTree from './BundleTree'
+import RawPathDialog from './RawPathDialog'
 
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'text', unit: '' }
 
@@ -37,6 +41,7 @@ export default function FieldsPage() {
   const { t } = useTranslation('insurance-fields')
   const fields = useQuery(fieldsQuery())
   const draft = useQuery(guardDraftQuery())
+  const [rawOpen, setRawOpen] = useState(false)
 
   let body
   if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard ns="insurance-fields" hook="fields-denied" />
@@ -54,6 +59,18 @@ export default function FieldsPage() {
         {FIELD_SCOPES.map((scope) => (
           <ScopeTable key={scope} scope={scope} fields={fields.data.filter((f) => f.scope === scope)} draft={draft.data} />
         ))}
+        <section className="flex flex-col gap-2" data-fields-catalog="">
+          <div>
+            <h2 className="text-sm font-semibold">{t('catalog.title')}</h2>
+            <p className="text-xs text-muted-foreground">{t('catalog.lede')}</p>
+          </div>
+          <FhirCatalogPanel />
+          <Button variant="secondary" className="w-fit" onClick={() => setRawOpen(true)} data-raw-path-open="">
+            {t('rawPath.open')}
+          </Button>
+          <RawPathDialog open={rawOpen} onClose={() => setRawOpen(false)} />
+        </section>
+        <BundleTree />
         <AddField existing={fields.data} />
       </>
     )
@@ -63,6 +80,12 @@ export default function FieldsPage() {
       <header className="max-w-3xl">
         <h1 className="text-lg font-semibold tracking-tight">{t('page.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('page.lede')}</p>
+        <p className="mt-1 text-sm text-muted-foreground" data-repin-note="">
+          {t('page.repinNote')}{' '}
+          <Link to={`${INSURANCE_RULES_PATH}/aliases#repin-drafts`} className="text-primary hover:underline" data-repin-link="">
+            {t('page.repinLink')}
+          </Link>
+        </p>
       </header>
       {body}
     </section>

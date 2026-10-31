@@ -1,6 +1,6 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
-import type { GuardSeverity } from './model'
+import type { GuardRule, GuardSeverity, MonitorSeverity, RuleKind } from './model'
 
 // A back-test of the guard draft (BackOffice spec 3126, door 3140; oms ticket 612). HQ replays the last 30 / 90 /
 // 180 days of real requests through the saved DRAFT at its current revision and answers what it would have done.
@@ -11,6 +11,27 @@ import type { GuardSeverity } from './model'
 /** The windows a back-test replays, in local days back from today (HQ's default is 90). */
 export const BACKTEST_DAYS = [30, 90, 180] as const
 export type BacktestDays = (typeof BACKTEST_DAYS)[number]
+
+// ── 710 · the window is capped by retention (door 3298) ─────────────────────────────────────────
+// Kept copies are purged (210 days by default), so the door answers the longest window a back-test may replay: the
+// shortest retention setting it reads, minus 30 days. The monitor back-test reads the same limit, so it lives in core.
+
+/** The longest window the door offers, in whole days. An unreadable reply is 0: nothing is offered, never everything. */
+export function backtestWindowLimit(reply: unknown): number {
+  const days = (reply as { days?: unknown } | null | undefined)?.days
+  if (!Array.isArray(days)) return 0
+  const offered = days.filter((d): d is number => typeof d === 'number' && Number.isFinite(d) && d > 0)
+  return offered.length > 0 ? Math.floor(Math.max(...offered)) : 0
+}
+
+/** The windows a back-test may offer under the limit. */
+export const offeredBacktestDays = (limit: number): BacktestDays[] => BACKTEST_DAYS.filter((d) => d <= limit)
+
+/** The window to use: the one asked for if it fits, else the longest that does, else none. */
+export function cappedBacktestDays(days: BacktestDays, limit: number): BacktestDays | null {
+  if (days <= limit) return days
+  return offeredBacktestDays(limit).at(-1) ?? null
+}
 
 /** An unknown value reads as finished (no endless poll). */
 export const BACKTEST_STATUSES = ['queued', 'running', 'done', 'failed'] as const
@@ -67,7 +88,67 @@ export interface GuardBacktest {
   /** Fired lines where a LIVE guard fired too. */
   overlap: number
   rules: BacktestRule[]
+  /** What the draft's monitors would have raised (oms 700); absent when it read no kept answers. 🚩 Guessed, 711 reconciles. */
+  monitors?: MonitorBacktest | null
 }
+
+// ── 700 · a monitor's reading (door 3290) ───────────────────────────────────────────────────────
+// Monitors live in the guard draft and share its revision, so one job of that revision replays the requests through the
+// guards and the kept answers through the monitors. A monitor reads as review items on answers, never as refusals on sales.
+
+/** A kept answer a monitor would have raised a review item on. */
+export interface MonitorBacktestItem {
+  /** Local day, `yyyy-MM-dd`. */
+  on: string
+  /** The kept answer, as a review item names it (source, id). */
+  message: { source: string; id: string }
+  /** As `BacktestStopped.maskedKey`: masked again on arrival. */
+  maskedKey: string
+  /** The monitors that would have raised on it. */
+  rules: string[]
+}
+
+export interface MonitorBacktest {
+  /** Kept answers replayed. */
+  answers: number
+  /** Of those, how many would have raised a review item. */
+  raisedOn: number
+  raised: { action: number; info: number }
+  /** The first answers raised on; `itemsTotal` counts them all. */
+  items: MonitorBacktestItem[]
+  itemsTotal: number
+  rules: { ruleId: string; raised: number }[]
+}
+
+/** Which kinds this back-test reads as. A job with no monitor section is the guard report, always. */
+export function backtestKinds(bt: Pick<GuardBacktest, 'monitors' | 'requests'>): RuleKind[] {
+  if (!bt.monitors) return ['guard']
+  return bt.requests > 0 ? ['guard', 'monitor'] : ['monitor']
+}
+
+/** The monitor section as the screen reads it: heaviest first, totals, and no patient key shown whole. */
+export function monitorBacktestReading(m: MonitorBacktest) {
+  const rows: [MonitorSeverity, number][] = [
+    ['action', m.raised?.action ?? 0],
+    ['info', m.raised?.info ?? 0],
+  ]
+  const items = (m.items ?? []).map((i) => ({ ...i, maskedKey: maskedKey(i.maskedKey) }))
+  const itemsTotal = Math.max(items.length, m.itemsTotal ?? 0)
+  return {
+    rows,
+    total: rows.reduce((n, [, v]) => n + v, 0),
+    answers: m.answers ?? 0,
+    raisedOn: m.raisedOn ?? 0,
+    items,
+    shown: items.length,
+    itemsTotal,
+    truncated: itemsTotal > items.length,
+    rules: m.rules ?? [],
+  }
+}
+
+/** The draft holds a monitor that still runs. */
+export const draftHoldsMonitors = (rules: readonly Pick<GuardRule, 'kind' | 'state'>[]): boolean => rules.some((r) => r.kind === 'monitor' && r.state !== 'disabled')
 
 export const backtestRunning = (bt: Pick<GuardBacktest, 'status'>): boolean => bt.status === 'queued' || bt.status === 'running'
 
@@ -136,6 +217,15 @@ export function backtestStanding(bt: Pick<GuardBacktest, 'status' | 'revision'> 
 export const GUARD_BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
 /** How often a running back-test is read again. */
 export const BACKTEST_POLL_MS = 1000
+
+/** `GET InsuranceRules/Guards/Backtests/Windows` → `{ days }`, the windows the kept-copy settings leave to offer. */
+export function backtestWindowLimitQuery() {
+  return {
+    queryKey: [...INSURANCE_RULES_KEY, 'backtests', 'window-limit'],
+    queryFn: async () => backtestWindowLimit(await api.get<unknown>(`${INSURANCE_RULES_BASE}/Guards/Backtests/Windows`)),
+    retry: false,
+  } as const
+}
 
 /** `GET InsuranceRules/Guards/Backtests` — the current draft's back-tests, newest first; polled while one runs. */
 export function draftBacktestsQuery() {

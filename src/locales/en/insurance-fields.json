@@ -5,7 +5,135 @@
     "failed": "The fields could not be loaded.",
     "loading": "Loading the fields…",
     "noField": "No field in this scope.",
-    "unused": "Unused"
+    "unused": "Unused",
+    "repinNote": "A changed row reaches a published ruleset only through a re-pin draft that someone else approves.",
+    "repinLink": "See the rulesets on an old form"
+  },
+  "catalog": {
+    "title": "FHIR fact catalog",
+    "lede": "The facts a rule can read from a payer's messages, and how often each channel answers them. A rule picks one from its condition."
+  },
+  "rawPath": {
+    "open": "Propose a field by FHIRPath",
+    "title": "Propose a field by FHIRPath",
+    "lede": "For trained authors. The path is checked as you type and goes to the proposals inbox, where someone else approves it. A path is never written into a rule.",
+    "path": "FHIRPath",
+    "pathHint": "From the message, or from the line's own Claim.item for a line field.",
+    "message": "Message",
+    "level": "Focus",
+    "type": "Type",
+    "cardinality": "Single or list",
+    "single": "Single",
+    "list": "List",
+    "system": "Code system",
+    "key": "Key",
+    "labelEn": "Label (English)",
+    "labelAr": "Label (Arabic)",
+    "checking": "Checking the path…",
+    "clean": "The path compiles and fits its type.",
+    "checkFailed": "The path could not be checked.",
+    "denied": "You do not have the insurance rules permission for this.",
+    "refusalOther": "Refused.",
+    "refusal": {
+      "syntax": "Does not compile.",
+      "clockFunction": "Uses a clock function.",
+      "terminologyFunction": "Uses a terminology function.",
+      "conformsTo": "Uses conformsTo.",
+      "trace": "Uses trace().",
+      "typeMisfit": "The result does not fit the declared type.",
+      "unlistedExtension": "Names an extension the Nphies profiles do not list."
+    },
+    "caseOnlyCode": "{{literal}} exists only as {{known}}.",
+    "patientWarning": "This is a Patient field. Patient data should enter a rule only on purpose. You can still propose it, and the approver sees this warning.",
+    "probe": {
+      "run": "Probe",
+      "hint": "Runs the path over the kept bundles and samples.",
+      "payer": "Payer",
+      "match": "Match",
+      "noMatch": "No match",
+      "unknown": "Unknown",
+      "zero": "No bundle or sample matched this path. You can still propose it.",
+      "failed": "The probe could not be run."
+    },
+    "blocker": {
+      "pathMissing": "Enter a path.",
+      "keyMissing": "Enter a key.",
+      "keyInvalid": "A key starts with a letter and uses letters, digits, _ or . only.",
+      "keyTaken": "This key is already in the catalog for this message and focus.",
+      "labelMissing": "Give the field a label in English and in Arabic.",
+      "systemMissing": "A code field needs its code system.",
+      "notChecked": "Wait for the path to be checked.",
+      "refused": "A refused path cannot be proposed.",
+      "notProbed": "Probe the path first, to see which payers answer it."
+    },
+    "propose": "Propose",
+    "cancel": "Cancel",
+    "proposed": "Field proposed",
+    "proposeFailed": "The field could not be proposed.",
+    "discard": {
+      "title": "Discard this path",
+      "message": "Close the form and lose what you entered?"
+    }
+  },
+  "tree": {
+    "title": "Propose a field from a kept bundle",
+    "lede": "Open a kept bundle by its reference and click a value, or a whole Money, Quantity or code. The proposed path works on every bundle, not only this one.",
+    "sample": "Kept bundle",
+    "sampleChoose": "Choose a kept bundle…",
+    "ref": "Bundle reference",
+    "open": "Open",
+    "loading": "Opening the bundle…",
+    "failed": "The bundle could not be opened.",
+    "clickFailed": "A path could not be proposed for this value.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "pickName": "Propose a field from {{name}}",
+    "pickWhole": "Propose",
+    "existing": "This value is already a field.",
+    "existingShow": "Show in the catalog"
+  },
+  "proposals": {
+    "title": "Field proposals",
+    "lede": "FHIR fields waiting for a second person. Someone other than the author approves or rejects each one, and an approved field joins the catalog and every picker at once.",
+    "failed": "The proposals could not be loaded.",
+    "loading": "Loading the proposals…",
+    "empty": "No field has been proposed.",
+    "open": "Open",
+    "detailTitle": "Proposed field",
+    "close": "Close",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Field approved",
+    "rejected": "Proposal rejected",
+    "actionFailed": "The proposal could not be decided.",
+    "path": "FHIRPath",
+    "probe": "Probe result per payer",
+    "noProbe": "This proposal holds no Probe result.",
+    "decidedBy": "Decided by",
+    "reason": "Reason for rejecting",
+    "reasonHint": "Needed to reject. The author reads it.",
+    "reasonMissing": "Give a reason for rejecting this proposal.",
+    "patientWarning": "This field reads the Patient resource: {{path}}. Personal data falls under the PDPL. Approve it only if a rule needs it.",
+    "state": {
+      "proposed": "Waiting",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "col": {
+      "field": "Field",
+      "key": "Key",
+      "where": "Message and focus",
+      "state": "State",
+      "proposedBy": "Proposed by"
+    },
+    "why": {
+      "ownProposal": "This is your own proposal, so someone else must approve or reject it.",
+      "reader": "Only a holder of the insurance rules permission can approve or reject a proposal."
+    },
+    "discard": {
+      "title": "Discard this reason",
+      "message": "Close the proposal and lose the reason you wrote?"
+    }
   },
   "access": {
     "deniedTitle": "You do not have access",

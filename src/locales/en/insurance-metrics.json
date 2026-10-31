@@ -124,7 +124,9 @@
     "totals": "<v>{{n}}</v> rejections worth <v>{{sar}}</v> SAR; <b><v>{{unguardedSar}}</v> SAR</b> of it on <v>{{unguardedRows}}</v> rows with no live guard.",
     "liveGuard": "Live guard",
     "noGuard": "No live guard",
+    "openDraft": "Open as guard draft",
     "columns": {
+      "actions": "Action",
       "rank": "#",
       "code": "Code or words",
       "payer": "Payer",

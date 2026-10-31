@@ -1,7 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { GUARD_NEW_PATH } from '@/core/insurance-rules/model'
+import { rejectionSeed, rejectionSeedState } from '@/core/insurance-rules/rejection-draft'
+import Button from '@/core/ui/Button'
 import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -74,6 +78,7 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
                   <th className={`${TH} text-end`}>{t('rejections.columns.count')}</th>
                   <th className={`${TH} w-[24%]`}>{t('rejections.columns.sar')}</th>
                   <th className={TH}>{t('rejections.columns.liveGuard')}</th>
+                  <th className={TH}>{t('rejections.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +114,9 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
                     <td className={TD} data-col="liveGuard">
                       <StatusBadge sev={row.liveGuard ? 'ok' : 'bad'}>{t(row.liveGuard ? 'rejections.liveGuard' : 'rejections.noGuard')}</StatusBadge>
                     </td>
+                    <td className={TD} data-col="actions">
+                      <OpenDraft row={row} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -117,6 +125,19 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
         </>
       )}
     </div>
+  )
+}
+
+/** 709: a coded row opens the guard editor filled in, unsaved; a row with only the payer's words offers nothing. */
+function OpenDraft({ row }: { row: RejectionRow }) {
+  const { t } = useTranslation('insurance-metrics')
+  const navigate = useNavigate()
+  const seed = rejectionSeed(row)
+  if (!seed) return null
+  return (
+    <Button variant="text" onClick={() => void navigate(GUARD_NEW_PATH, { state: rejectionSeedState(seed) })} data-open-guard-draft="">
+      {t('rejections.openDraft')}
+    </Button>
   )
 }
 

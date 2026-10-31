@@ -4,7 +4,7 @@
  * to wait for, and none may be asked for with unsaved changes.
  */
 import { describe, expect, it } from 'vitest'
-import { actionsFor, type DraftApproval } from './approval'
+import { actionsFor, authorshipOf, type DraftApproval } from './approval'
 
 const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
   revision: 4,
@@ -17,6 +17,24 @@ const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
   ...o,
 })
 const pass = { errors: 0, warnings: 0, blocked: false }
+
+describe('authorshipOf: the second-person comparison', () => {
+  it('the author, in any case, is the author', () => {
+    expect(authorshipOf('NAlharbi', 'nalharbi')).toBe('own')
+  })
+  it('anyone else is a second person', () => {
+    expect(authorshipOf('falotaibi', 'nalharbi')).toBe('other')
+  })
+  it.each([
+    [null, 'nalharbi'],
+    ['', 'nalharbi'],
+    ['nalharbi', null],
+    ['nalharbi', undefined],
+    ['nalharbi', ''],
+  ])('a missing name (%j, %j) proves nothing', (user, author) => {
+    expect(authorshipOf(user, author)).toBe('unknown')
+  })
+})
 
 describe('actionsFor without a back-test (category / coverage)', () => {
   it('actionsFor_noBacktestNeeded_submitsOnPassingChecks', () => {

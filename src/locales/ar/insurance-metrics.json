@@ -124,7 +124,9 @@
     "totals": "<v>{{n}}</v> حالة رفض بقيمة <v>{{sar}}</v> ريال؛ منها <b><v>{{unguardedSar}}</v> ريال</b> على <v>{{unguardedRows}}</v> صفاً بلا ضابط فعّال.",
     "liveGuard": "ضابط فعّال",
     "noGuard": "بلا ضابط فعّال",
+    "openDraft": "فتح كمسودة ضابط",
     "columns": {
+      "actions": "إجراء",
       "rank": "#",
       "code": "الرمز أو النص",
       "payer": "شركة التأمين",

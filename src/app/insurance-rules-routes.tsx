@@ -111,6 +111,34 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/playground/PlaygroundPage')).default }),
     },
 
+    // 710 · the decision inspector (BackOffice spec 3271, door 3298): open by id, or a decision itself.
+    {
+      path: 'decisions',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/inspector/InspectorPage')).default }),
+    },
+    {
+      path: 'decisions/:decisionId',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/inspector/InspectorPage')).default }),
+    },
+
+    // 696 · field proposals (BackOffice spec 3271, door 3282): the inbox a second user approves from.
+    {
+      path: 'field-proposals',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/fields/FieldProposalsPage')).default }),
+    },
+
+    // 704 · aliases (BackOffice spec 3271; 705's re-pin drafts build on its page)
+    {
+      path: 'aliases',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/aliases/AliasesPage')).default }),
+    },
+
+    // 706 · code labels (BackOffice spec 3271; 707 builds on its page, never a new route).
+    {
+      path: 'code-labels',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/labels/CodeLabelsPage')).default }),
+    },
+
     // ── IDF priority (BackOffice spec 3157; oms 619–627) — every IDF leaf lives under `idf/*`, because
     // `/insurance-rules/exceptions` is 614's guard exceptions. One feature folder: `features/insurance-rules/idf/`.
 

@@ -96,6 +96,9 @@
     "whole": "Whole condition"
   },
   "backtest": {
+    "limit": "Kept copies are purged, so a back-test reaches back {{n}} days at most.",
+    "noWindow": "Kept copies are purged too soon for any back-test window, so none is offered.",
+    "limitFailed": "The longest back-test window could not be read, so none is offered.",
     "days": "Replay the last",
     "daysOption": "{{n}} days",
     "start": "Start the back-test",
@@ -118,6 +121,19 @@
     "window": "Replayed {{days}} days from {{since}}.",
     "windowNoSince": "Replays {{days}} days.",
     "requestedBy": "Requested by"
+  },
+  "monitors": {
+    "note": "This draft holds monitors. They are replayed over kept payer answers, and they never touch a sale.",
+    "running": "Replaying the requests and the kept answers",
+    "title": "What the monitors would have raised",
+    "hint": "Replayed over kept payer answers. A monitor only raises a review item.",
+    "answers": "Kept answers replayed",
+    "raisedOn": "Answers raised on",
+    "raised": "Review items",
+    "itemsTitle": "The answers it would have raised on",
+    "answer": "Answer",
+    "none": "It would have raised no review item.",
+    "firstOf": "The first {{shown}} of {{total}}."
   },
   "tiles": {
     "fires": "Would fire",

@@ -10,6 +10,8 @@ import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { Says } from './model'
 import { ESTATE_DEFAULT, type InsurerSettings } from './insurer-settings'
+import type { FhirCatalogRow, FhirParameterCode } from './fhir-catalog'
+import { driftBadgesIn, type DriftBadge, type DriftBadgeReply } from './drift'
 import type { FieldValue, KeyedList, KeyedListKind, RegistryField } from './registry'
 
 const KEYED_LIST_DOOR: Record<KeyedListKind, string> = { patient: 'PatientLists', policy: 'PolicyLists', class: 'ClassLists' }
@@ -26,10 +28,32 @@ export interface Insurer {
   name?: Says | null
 }
 
+/** One code of a code system (F12); a code the list does not hold shows raw and still matches. */
+export interface CodeSystemCode {
+  code: string
+  label: Says
+}
+
 export const registryApi = {
   /** `GET InsuranceRules/Fields` — every field, retired ones included (flagged). */
   async fields(): Promise<RegistryField[]> {
     return (await api.get<RegistryField[] | null>(`${INSURANCE_RULES_BASE}/Fields`)) ?? []
+  },
+  /** ⚠️ PROVISIONAL (oms 692; 711 reconciles): `GET InsuranceRules/Fields/Catalog`, the FHIR facts with their channel rates. */
+  async fhirCatalog(): Promise<FhirCatalogRow[]> {
+    return (await api.get<FhirCatalogRow[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog`)) ?? []
+  },
+  /** ⚠️ PROVISIONAL (oms 703; 711 reconciles): `GET InsuranceRules/Drift/Badges`, the open drift items and what each affects. */
+  async driftBadges(): Promise<DriftBadge[]> {
+    return driftBadgesIn(await api.get<DriftBadgeReply[] | null>(`${INSURANCE_RULES_BASE}/Drift/Badges`))
+  },
+  /** ⚠️ PROVISIONAL (oms 693; 711 reconciles): `GET InsuranceRules/CodeSystems/Codes?system=`, a code system's codes with their EN + AR labels. */
+  async codeSystemCodes(system: string): Promise<CodeSystemCode[]> {
+    return (await api.get<CodeSystemCode[] | null>(`${INSURANCE_RULES_BASE}/CodeSystems/Codes`, { system })) ?? []
+  },
+  /** ⚠️ PROVISIONAL (oms 694; 711 reconciles): door 3296's list for a parameter (`category`), from the workbook. */
+  async fhirParameter(parameter: string): Promise<FhirParameterCode[]> {
+    return (await api.get<FhirParameterCode[] | null>(`${INSURANCE_RULES_BASE}/Fields/Catalog/Parameters/${encodeURIComponent(parameter)}`)) ?? []
   },
   /** `GET InsuranceRules/Fields/{key}/Values?q=` — code + description, for the picker. */
   async fieldValues(key: string, q: string): Promise<FieldValue[]> {
@@ -53,6 +77,48 @@ export const insurersKey = [...INSURANCE_RULES_KEY, 'insurers'] as const
 
 export function fieldsQuery() {
   return { queryKey: FIELDS_KEY, queryFn: () => registryApi.fields(), retry: false } as const
+}
+
+export function fhirCatalogQuery() {
+  return { queryKey: [...FIELDS_KEY, 'catalog'] as const, queryFn: () => registryApi.fhirCatalog(), retry: false } as const
+}
+
+/** The key root of the re-pin doors: a raise or an approval invalidates it, so a badge goes with its draft. */
+export const REPINS_KEY = [...INSURANCE_RULES_KEY, 'repins'] as const
+
+/** What a screen outside the re-pin list reads of a ruleset still on an old form (oms 705, 708; door 3294). */
+export interface RepinAffectedRow {
+  kind: string
+  rulesetId: string
+  rulesetName: string
+  rulesetVersion: number
+  draftId: string | null
+}
+
+/** `GET InsuranceRules/Repin/Labels/Affected`: the rulesets whose text is pinned to an older label version. */
+export function repinAffectedQuery() {
+  return {
+    queryKey: [...REPINS_KEY, 'labels-affected'] as const,
+    queryFn: async (): Promise<RepinAffectedRow[]> => {
+      const rows = await api.get<{ kind: string; versionNo: number; pendingDraftId?: string | null }[] | null>(`${INSURANCE_RULES_BASE}/Repin/Labels/Affected`)
+      return (rows ?? []).map((r) => ({ kind: 'labels', rulesetId: r.kind, rulesetName: r.kind, rulesetVersion: r.versionNo, draftId: r.pendingDraftId || null }))
+    },
+    retry: false,
+  } as const
+}
+
+export const DRIFT_BADGES_KEY = [...INSURANCE_RULES_KEY, 'drift-badges'] as const
+
+export function driftBadgesQuery() {
+  return { queryKey: DRIFT_BADGES_KEY, queryFn: () => registryApi.driftBadges(), retry: false } as const
+}
+
+export function codeSystemCodesQuery(system: string) {
+  return { queryKey: [...FIELDS_KEY, 'codeSystem', system] as const, queryFn: () => registryApi.codeSystemCodes(system), retry: false, staleTime: 60_000 } as const
+}
+
+export function fhirParameterQuery(parameter: string) {
+  return { queryKey: [...FIELDS_KEY, 'catalog', 'parameter', parameter] as const, queryFn: () => registryApi.fhirParameter(parameter), retry: false } as const
 }
 
 export function fieldValuesQuery(key: string, q: string) {

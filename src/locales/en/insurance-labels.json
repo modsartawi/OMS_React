@@ -1,0 +1,112 @@
+{
+  "page": {
+    "title": "Code labels",
+    "lede": "The words Nphies gives its codes. Upload a workbook from a new release to read which labels it changes and what its change log adds."
+  },
+  "workbook": {
+    "codeableConcept": "Codeable Concept workbook",
+    "validationRule": "Validation rule workbook",
+    "profiles": "Profiles workbook"
+  },
+  "upload": {
+    "title": "Upload a Nphies workbook",
+    "hint": "The Codeable Concept, validation rule or profiles workbook, as an Excel file. An unknown layout or an older version is refused. An upload takes effect at once, with no second approver, and is logged.",
+    "file": "Workbook file",
+    "submit": "Upload",
+    "failed": "The workbook could not be uploaded.",
+    "done": "Workbook loaded",
+    "doneDetail": "Version {{version}} is loaded."
+  },
+  "result": {
+    "version": "Version"
+  },
+  "diff": {
+    "title": "Labels that changed",
+    "empty": "This workbook changes no label.",
+    "added": "Added",
+    "changed": "Changed",
+    "removed": "Removed",
+    "removedHint": "A removed code keeps its label and is marked legacy.",
+    "system": "Code system",
+    "code": "Code",
+    "before": "Before",
+    "after": "After",
+    "noLabel": "No label"
+  },
+  "changeLog": {
+    "title": "New change-log rows",
+    "empty": "This workbook adds no change-log row.",
+    "version": "Version",
+    "date": "Date",
+    "system": "Code system",
+    "code": "Code",
+    "change": "Change"
+  },
+  "worklist": {
+    "title": "Labels to write",
+    "hint": "The codes a ruleset can show that lack Arabic, then the codes seen but unlabelled, most-used first within each.",
+    "writeAny": "Write a label",
+    "loading": "Loading the worklist…",
+    "failed": "The worklist could not be loaded.",
+    "empty": "No code is waiting for a label.",
+    "code": "Code",
+    "system": "Code system",
+    "current": "Label today",
+    "reason": "Why it is here",
+    "frequency": "Times seen",
+    "waiting": "Awaiting approval",
+    "write": "Write",
+    "review": "Review",
+    "reasons": {
+      "lacksArabic": "Lacks Arabic",
+      "unlabelled": "Unlabelled"
+    }
+  },
+  "proposals": {
+    "title": "Labels awaiting approval",
+    "loading": "Loading the proposed labels…",
+    "failed": "The proposed labels could not be loaded.",
+    "empty": "No label is awaiting approval.",
+    "proposed": "Proposed label",
+    "by": "Proposed by"
+  },
+  "override": {
+    "writeTitle": "Write a label",
+    "reviewTitle": "Review a proposed label",
+    "current": "Label today",
+    "hint": "Write the Arabic, a corrected English label, or both. A language left empty keeps the label it has. Someone else approves it before it is used.",
+    "ar": "Arabic label",
+    "en": "English label",
+    "cancel": "Close",
+    "submit": "Propose",
+    "proposeFailed": "The label could not be proposed.",
+    "proposed": "Label proposed",
+    "proposedDetail": "The label for code {{code}} now awaits another person's approval.",
+    "approve": "Approve",
+    "approveHint": "Approving makes this label a new label version.",
+    "approveFailed": "The label could not be approved.",
+    "approved": "Label approved",
+    "approvedDetail": "The label for code {{code}} is approved.",
+    "own": "You proposed this label, so someone else must approve it."
+  },
+  "problem": {
+    "systemMissing": "Enter the code system.",
+    "codeMissing": "Enter the code.",
+    "labelMissing": "Write an English or an Arabic label."
+  },
+  "log": {
+    "title": "Past loads",
+    "loading": "Loading the past loads…",
+    "failed": "The past loads could not be loaded.",
+    "empty": "No workbook has been loaded yet.",
+    "workbook": "Workbook",
+    "version": "Version",
+    "file": "File",
+    "uploaded": "Uploaded",
+    "hash": "File hash"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission."
+  }
+}

@@ -20,7 +20,92 @@
     "idfLookup": "استعلام IDF",
     "idfEvents": "أحداث IDF",
     "idfGroups": "مجموعات IDF",
-    "playground": "ساحة التجربة"
+    "fieldProposals": "مقترحات الحقول",
+    "aliases": "الأسماء البديلة",
+    "playground": "ساحة التجربة",
+    "codeLabels": "تسميات الرموز",
+    "inspector": "فاحص القرارات"
+  },
+  "labelsChanged": {
+    "badge": "تغيّرت التسميات",
+    "hint": "ما زال {{name}}، الإصدار {{version}}، يعمل بصياغة تسميات أقدم. يفتح هذا مسودة إعادة التثبيت."
+  },
+  "drift": {
+    "badge": "انحراف",
+    "ruleBadge": "انحراف، وما زالت تعمل",
+    "hint": "{{payer}}: {{signal}}. القواعد التي تقرؤه تستمر في العمل.",
+    "type": {
+      "newProfile": "إصدار ملف تعريف جديد",
+      "newUrl": "رابط لم يُرَ من هذه الجهة الدافعة",
+      "rateFell": "معدل تراجع",
+      "unknown": "تغيّر فيما ترسله الجهة الدافعة"
+    },
+    "signal": {
+      "newProfile": "أرسلت إصدار ملف تعريف جديدًا: <v>{{profile}}</v>",
+      "newUrl": "أرسلت رابطًا لم يُرَ منها من قبل: <v>{{url}}</v>",
+      "answerRateFell": "انخفض معدل إجابة <v>{{field}}</v> إلى <v>{{rate}}</v>، من خط أساس قدره <v>{{baseline}}</v>",
+      "unparsedRateRose": "ارتفع معدل عدم قراءة <v>{{field}}</v> إلى <v>{{rate}}</v>، من خط أساس قدره <v>{{baseline}}</v>",
+      "unknown": "إشارة لا تعرفها هذه الشاشة: <v>{{code}}</v>"
+    }
+  },
+  "catalog": {
+    "title": "دليل حقائق FHIR",
+    "open": "من الدليل",
+    "pick": "اختيار",
+    "showPath": "إظهار FHIRPath",
+    "hidePath": "إخفاء FHIRPath",
+    "list": "قائمة",
+    "retired": "موقوف",
+    "legacy": {
+      "badge": "قديم",
+      "note": "أُزيل في {{date}}. البديل: {{replacement}}."
+    },
+    "parameter": {
+      "label": "الفئة",
+      "choose": "اختر فئة",
+      "use": "استخدام هذه الفئة",
+      "payers": "الجهات التي أرسلتها:",
+      "never": "لم ترسلها أي جهة بعد",
+      "unlisted": "لم تعد في قائمة المصنف",
+      "denied": "ليس لديك صلاحية الوصول إلى قائمة الفئات.",
+      "failed": "تعذر تحميل قائمة الفئات.",
+      "loading": "جارٍ تحميل الفئات…",
+      "option": {
+        "seen": "{{name}} (الجهات: {{payers}})",
+        "never": "{{name}} (لم تُرصد)",
+        "unlisted": "{{name}} (ليست في القائمة)"
+      }
+    },
+    "denied": "ليس لديك صلاحية الوصول إلى دليل حقائق FHIR.",
+    "failed": "تعذر تحميل الدليل.",
+    "loading": "جارٍ تحميل الدليل…",
+    "empty": "لا يحتوي الدليل على أي حقل بعد.",
+    "answer": {
+      "answers": "يجيب",
+      "sometimes": "يجيب أحيانًا",
+      "never": "لا يجيب أبدًا"
+    },
+    "message": {
+      "eligibility": "الأهلية",
+      "claim": "المطالبة",
+      "claimResponse": "رد المطالبة",
+      "communicationRequest": "طلب المراسلة",
+      "paymentReconciliation": "تسوية الدفع",
+      "previous": "الرد السابق"
+    },
+    "level": {
+      "message": "الرسالة كاملة",
+      "line": "كل بند"
+    },
+    "type": {
+      "text": "نص",
+      "number": "رقم",
+      "date": "تاريخ",
+      "flag": "نعم / لا",
+      "code": "رمز",
+      "money": "مبلغ",
+      "quantity": "كمية"
+    }
   },
   "state": {
     "draft": "مسودة",
@@ -29,7 +114,13 @@
     "live": "فعّالة",
     "disabled": "معطّلة"
   },
+  "kind": {
+    "guard": "حماية",
+    "monitor": "مراقب"
+  },
   "severity": {
+    "info": "معلومة",
+    "action": "إجراء",
     "REFUSE": "رفض",
     "OVERRIDE": "تجاوز",
     "WARN": "تنبيه"
@@ -198,6 +289,15 @@
       "bupa": "بوبا"
     },
     "when": {
+      "monitor": "يُقرأ عند حفظ كل رد من الجهة على <uses>{{uses}}</uses>",
+      "monitorScope": {
+        "communicationRequest": "يُقرأ عند حفظ كل طلب مراسلة من الجهة",
+        "paymentReconciliation": "يُقرأ على كل بند من تسوية دفع محفوظة"
+      },
+      "use": {
+        "preauthorization": "موافقة مسبقة",
+        "claim": "مطالبة"
+      },
       "audience": "تُفحص قبل إرسال الطلب عبر <channels>{{channels}}</channels>، <stores>{{stores}}</stores>",
       "allStores": "في كل الفروع",
       "stores": "في الفروع <stores>{{stores}}</stores>",
@@ -211,6 +311,8 @@
       "excludeClasses": "عدا فئات الوثائق في <lists>{{lists}}</lists>"
     },
     "then": {
+      "info": "إضافة بند للعلم إلى قائمة المراجعة",
+      "action": "إضافة بند يحتاج إجراءً إلى قائمة المراجعة",
       "REFUSE": "رفض السطر",
       "OVERRIDE": "السماح للصيدلي بالمتابعة مع ذكر السبب",
       "WARN": "تنبيه الصيدلي",
@@ -227,10 +329,24 @@
       "warn": "إذا كانت معلومة غير معروفة، يُنبَّه الصيدلي."
     },
     "fact": {
+      "previous": "<fact>{{fact}}</fact> في الرد السابق",
       "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> أيٌّ من <codes>{{codes}}</codes>",
       "noneOf": "<fact>{{fact}}</fact> ليس أيًّا من <codes>{{codes}}</codes>",
+      "compare": {
+        "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+        "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value>"
+      },
+      "countAtLeast": "عدد قيم <fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value>",
+      "countBelow": "عدد قيم <fact>{{fact}}</fact> أقل من <value>{{value}}</value>",
+      "isYes": "<fact>{{fact}}</fact>: نعم",
+      "isNo": "<fact>{{fact}}</fact>: لا",
+      "before": "<fact>{{fact}}</fact> قبل <value>{{value}}</value>",
+      "onOrBefore": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو قبله",
+      "after": "<fact>{{fact}}</fact> بعد <value>{{value}}</value>",
+      "onOrAfter": "<fact>{{fact}}</fact> في <value>{{value}}</value> أو بعده",
+      "inSystem": "ضمن نظام الرموز <system>{{system}}</system>",
       "unit": {
         "years": "سنة",
         "days": "يوم",
@@ -265,6 +381,18 @@
       "match": "ما يُحتسب",
       "by": "يُحتسب لكل",
       "eligibleDaysBeforeDueFor": "الأيام قبل الاستحقاق لكل قائمة"
+    }
+  },
+  "publishChecks": {
+    "warningsTitle": "تحذيرات: لا شيء منها يوقف النشر",
+    "refusalsTitle": "مرفوض: لا يُنشر هذا حتى يُصلح",
+    "refused": "مرفوض",
+    "failed": "تعذّرت قراءة فحوص الإدارة العامة، فلا يمكن طلب اعتماد هذه المسودة أو اعتمادها بعد.",
+    "kind": {
+      "channelNever": "قناة لا تجيب أبداً",
+      "fieldFlagged": "حقل عليه تنبيه",
+      "arabicMissing": "نص عربي ناقص",
+      "other": "تحذير"
     }
   },
   "approval": {

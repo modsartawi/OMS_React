@@ -125,7 +125,8 @@ for (const dir of ['ltr', 'rtl']) {
     await rowOf(page, 'G-007').locator('[col-id="folder"]').click()
     await page.locator('[data-block-then]').waitFor({ timeout: 20000 }).catch(() => {})
     check(`${dir} 4. the row opens /insurance-rules/guards/G-007`, new URL(page.url()).pathname === '/insurance-rules/guards/G-007', page.url())
-    check(`${dir} 4. one read of the ruleset`, reads.draft === 1, JSON.stringify(reads))
+    // The Guards list reads the draft too since 656 (its JSON button), and the rule page's mount reads it again: one each, no more.
+    check(`${dir} 4. one read of the ruleset per screen`, reads.draft === 2, JSON.stringify(reads))
     const header = page.locator('[data-rule-header]')
     check(`${dir} 4. the id is an ltr isolate; live; Override`, (await header.locator('[data-rule-id] bdi[dir="ltr"]').innerText()) === 'G-007' && (await header.locator('[data-state]').getAttribute('data-state')) === 'live' && (await header.locator('[data-severity]').getAttribute('data-severity')) === 'OVERRIDE')
     check(`${dir} 4. both names; the Arabic one right to left`, strip(await header.locator('[data-says-en]').innerText()) === 'GLP-1 without a diabetes diagnosis' && (await header.locator('bdi[data-says-ar][dir="rtl"]').innerText()) === 'GLP-1 بدون تشخيص سكري')

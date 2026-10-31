@@ -21,7 +21,8 @@ import {
   type RequestCondition,
 } from '@/core/insurance-rules/model'
 import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
-import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
+import { usesFhirFacts } from '@/core/insurance-rules/fact-tests'
+import { fhirCatalogQuery, fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
 import GuardSentenceView from '@/core/insurance-rules/GuardSentenceView'
@@ -31,7 +32,7 @@ import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { CodeInput, CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
-import { listSummary, renameTest, testChoices } from './conditions'
+import { drawsAsEligibilityRow, drawsAsFactRow, listSummary, renameTest, testChoices } from './conditions'
 import { ConditionTools, DragHandle, DropZone, SelectTick, TreeToolbar, TreeToolsProvider } from '@/core/insurance-rules/ConditionTreeTools'
 
 // The conditions of a category or coverage rule (oms 617): the guard language's All of / Any of groups (three
@@ -244,10 +245,12 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
     return <KeptAsWritten c={c} fields={fields} />
   }
   if (c.check === 'line' && typeof c.inList === 'string' && c.field === undefined) return <ItemList c={c as LineCondition & { inList: string }} fields={fields} set={set} />
-  if (c.check === 'eligibility') return <Eligibility c={c} fields={fields} set={set} />
+  if (c.check === 'eligibility') return drawsAsEligibilityRow(c) ? <Eligibility c={c} fields={fields} set={set} /> : <KeptAsWritten c={c} fields={fields} />
   if (c.check !== 'fact')
     // A block the guard palette has (history, a line field, …) but a coverage rule does not offer: its sentence, kept.
     return <KeptAsWritten c={c} fields={fields} />
+  // Oms 693: a fact of a new type, which this row cannot draw. It keeps its value, and NOT and Remove still work.
+  if (!drawsAsFactRow(c)) return <KeptAsWritten c={c} fields={fields} />
 
   const offered = factFields(fields)
   const def = fieldOfPath(fields, c.path)
@@ -328,7 +331,8 @@ const isCodesOnly = (c: RequestCondition): boolean => Object.keys(c).every((k) =
 function KeptAsWritten({ c, fields }: { c: Exclude<GuardCondition, { check: 'group' }>; fields: readonly RegistryField[] }) {
   const { t } = useTranslation('insurance-coverage')
   const lists = useContext(DocLists)
-  const read = conditionSentence({ ...c, not: false }, { rule: { filters: [] }, lists, fields })
+  const catalog = useQuery({ ...fhirCatalogQuery(), enabled: usesFhirFacts([c]) }).data
+  const read = conditionSentence({ ...c, not: false }, { rule: { filters: [] }, lists, fields, catalog })
   return (
     <span className="flex flex-wrap items-baseline gap-x-2 text-xs" data-kept-as-written={c.check}>
       <span data-sentence="">

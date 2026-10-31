@@ -23,7 +23,7 @@ import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi, guardFoldersQuery } fro
  * only, no approval) and save it as a team template, choosing which of its values become blanks
  * (`POST …/Templates { id: team-<rule id>, ruleId, name, blanks }`).
  */
-export default function OrganizeCard({ rule, rules }: { rule: GuardRule; rules: readonly GuardRule[] }) {
+export default function OrganizeCard({ rule, rules, canTemplate = true }: { rule: GuardRule; rules: readonly GuardRule[]; /** Oms 699: a template makes a guard, so a monitor offers none. */ canTemplate?: boolean }) {
   const { t } = useTranslation('insurance-guards')
   const queryClient = useQueryClient()
   const kept = useQuery(guardFoldersQuery()).data
@@ -57,10 +57,12 @@ export default function OrganizeCard({ rule, rules }: { rule: GuardRule; rules: 
         <FolderInput className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
         {t('organize.move')}
       </Button>
-      <Button variant="secondary" className="ms-auto" onClick={() => setSaving(true)} data-save-template="">
-        <BookmarkPlus className="h-3.5 w-3.5" aria-hidden />
-        {t('organize.saveTemplate')}
-      </Button>
+      {canTemplate && (
+        <Button variant="secondary" className="ms-auto" onClick={() => setSaving(true)} data-save-template="">
+          <BookmarkPlus className="h-3.5 w-3.5" aria-hidden />
+          {t('organize.saveTemplate')}
+        </Button>
+      )}
       {saving && (
         <SaveTemplateDialog
           rule={rule}

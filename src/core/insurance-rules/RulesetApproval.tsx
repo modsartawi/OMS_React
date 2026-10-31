@@ -15,6 +15,7 @@ import { fsi } from '@/core/util/bidi'
 import { INSURANCE_RULES_KEY } from './api'
 import { checksVerdict } from './checks'
 import { ByAt, TD, TH } from './parts'
+import PublishChecks from './PublishChecks'
 import { draftDocument, rulesetActions, rulesetDoors, type RulesetAction, type RulesetDoorKind, type RulesetDraft } from './ruleset-draft'
 
 /**
@@ -23,7 +24,7 @@ import { draftDocument, rulesetActions, rulesetDoors, type RulesetAction, type R
  * error — no back-test; a different user approves it or sends it back. An approved document publishes LIVE (no
  * shadow, no promote). Restore makes a version the new draft. Speaks in the area namespace (`insurance-rules:approval.*`).
  */
-export default function RulesetApproval<T extends { revision: number }>({
+export default function RulesetApproval<T extends { revision: number; rules: readonly { id: string; name: { en: string; ar: string } }[] }>({
   kind,
   draft,
   dirty,
@@ -98,6 +99,12 @@ export default function RulesetApproval<T extends { revision: number }>({
           {t('approval.sentBackBy')} <Ltr>{draft.reviewedBy}</Ltr> {draft.reviewNote && <bdi>{draft.reviewNote}</bdi>}
         </p>
       )}
+      {checks.isError && (
+        <div data-checks-failed="">
+          <ErrorBanner message={apiErrorMessage(checks.error, t('publishChecks.failed'))} />
+        </div>
+      )}
+      <PublishChecks issues={checks.data} rules={doc.rules} />
       {actions.length > 0 && (
         <div className="flex flex-col gap-2" data-approval-actions="">
           <Field label={t(draft.state === 'pending' ? 'approval.noteToAuthor' : 'approval.noteToApprover')}>

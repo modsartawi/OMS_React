@@ -37,6 +37,7 @@ const NO_REQUESTS = { requests: 0, lines: 0, fires: { refuse: 0, override: 0, wa
  */
 export function monitorBacktestStub(method, path, body, store, { section = MONITOR_SECTION, guards = true } = {}) {
   const G = 'InsuranceRules/Guards/Backtests'
+  if (method === 'GET' && path === `${G}/Windows`) return envelope({ days: [7, 30, 90, 180] })
   if (method === 'POST' && path === G) {
     const id = `BT-M${Object.keys(store.backtests).length + 1}`
     const done = { ...backtestReport(body?.days ?? 90, store.draft.revision, id), ...(guards ? {} : NO_REQUESTS), monitors: section }

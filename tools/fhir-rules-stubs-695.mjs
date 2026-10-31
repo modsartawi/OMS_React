@@ -1,6 +1,6 @@
-// Stubs for oms 695 (BackOffice spec 3271, doors 3282 + 3296), on the real envelope. 🚩 Paths and shapes guessed; 711 reconciles.
-//   POST InsuranceRules/Fields/Compile    { path, moment, level, type, cardinality, system } → { refusals, warnings }
-//   POST InsuranceRules/Fields/Probe      the same body                                      → { payers, refusals }
+// Stubs for oms 695 (BackOffice spec 3271, doors 3282 + 3296), on the real envelope, as built (oms 711).
+//   POST InsuranceRules/Fields/Compile    { fhirPath } → { valid, syntaxError, refusedFunctions, readsPatient }
+//   POST InsuranceRules/Fields/Probe      { scope, type, cardinality, system, fhirPath } → { refused, rows, errors, warnings }
 //   POST InsuranceRules/Fields/Proposals  the row                                            → the proposal
 // The verdict is the stub's, by the same marks the drive types: the client never parses a path. Synthetic counts only.
 import { envelope } from './insurance-rules-stubs.mjs'
@@ -18,39 +18,24 @@ export const PATHS = {
   zero: "adjudication.where(category.coding.code = 'copay').nothing",
 }
 
-const refusal = (code, message, detail = null) => ({ code, message, detail })
-
 export function compileVerdict(body) {
-  const p = body?.path ?? ''
-  const refusals = []
-  if (p === PATHS.syntax) refusals.push(refusal('syntax', 'Unexpected end of expression at position 12.'))
-  if (/\b(today|now|timeOfDay)\(/.test(p)) refusals.push(refusal('clockFunction', 'The clock is an input to a rule.', 'today'))
-  if (/\b(memberOf|subsumes|subsumedBy)\(/.test(p)) refusals.push(refusal('terminologyFunction', 'There is no terminology server.', 'memberOf'))
-  if (/\bconformsTo\(/.test(p)) refusals.push(refusal('conformsTo', 'conformsTo is not offered.', 'conformsTo'))
-  if (/\btrace\(/.test(p)) refusals.push(refusal('trace', 'trace would log patient data.', 'trace'))
-  if (p.endsWith('.exists()') && body?.type !== 'flag') refusals.push(refusal('typeMisfit', 'The path returns a boolean, and the field declares another type.'))
-  if (p.includes('not-listed')) refusals.push(refusal('unlistedExtension', 'Not in the Structure Definition-profile sheet.', 'http://example.org/not-listed'))
-  const warnings = p.includes("'coPay'") ? [{ code: 'caseOnlyCode', message: 'FHIRPath compares codes with their case.', literal: 'coPay', known: 'copay' }] : []
-  return { refusals, warnings }
+  const p = body?.fhirPath ?? ''
+  const refusedFunctions = ['today', 'now', 'timeOfDay', 'memberOf', 'subsumes', 'subsumedBy', 'conformsTo', 'trace'].filter((f) => p.includes(`${f}(`))
+  const syntaxError = p === PATHS.syntax ? 'Unexpected end of expression at position 12.' : null
+  return { valid: !syntaxError && refusedFunctions.length === 0, syntaxError, refusedFunctions, readsPatient: /Patient/.test(p) }
 }
 
+const counts = (rows) => rows.map(([payer, match, noMatch, unknown]) => ({ source: 'nphies', payer, match, noMatch, unknown, unparsed: 0, misfit: 0 }))
+
+/** The type, the extension URLs and the case-only code are the Probe's to judge: it alone knows the scope and the type. */
 export function probeReply(body) {
-  if ((body?.path ?? '').endsWith('.nothing'))
-    return {
-      refusals: [],
-      payers: [
-        { payer: 'BUPA', match: 0, noMatch: 6, unknown: 0 },
-        { payer: 'GIG', match: 0, noMatch: 2, unknown: 1 },
-      ],
-    }
-  return {
-    refusals: [],
-    payers: [
-      { payer: 'BUPA', match: 14, noMatch: 2, unknown: 0 },
-      { payer: 'GIG', match: 3, noMatch: 0, unknown: 1 },
-      { payer: 'Globemed', match: 0, noMatch: 5, unknown: 0 },
-    ],
-  }
+  const p = body?.fhirPath ?? ''
+  const errors = []
+  if (p.endsWith('.exists()') && body?.type !== 'flag') errors.push({ code: 'typeMisfit', en: 'The path returns a boolean, and the field declares another type.', ar: '' })
+  if (p.includes('not-listed')) errors.push({ code: 'unlistedExtension', en: 'Not in the Structure Definition-profile sheet.', ar: '' })
+  const warnings = p.includes("'coPay'") ? [{ code: 'caseOnlyCode', en: "'coPay' exists only as 'copay': FHIRPath compares codes with their case.", ar: '' }] : []
+  const rows = errors.length ? [] : p.endsWith('.nothing') ? counts([['BUPA', 0, 6, 0], ['GIG', 0, 2, 1]]) : counts([['BUPA', 14, 2, 0], ['GIG', 3, 0, 1], ['Globemed', 0, 5, 0]])
+  return { refused: errors.length > 0, rows, errors, warnings }
 }
 
 /** The three doors, or null to fall through. `state.proposals` collects what was sent; `state.refusePropose` answers a business refusal. */

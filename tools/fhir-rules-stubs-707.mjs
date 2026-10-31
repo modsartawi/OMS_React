@@ -1,7 +1,7 @@
 // Stubs for oms ticket 707: the curation worklist and label overrides (BackOffice 3297, unbuilt, shapes guessed; 711
 // reconciles). On the real envelope:
-//   GET  InsuranceRules/Labels/Worklist                → the ranked rows; the stub serves them in the door's order
-//   GET  InsuranceRules/Labels/Overrides?state=…       → the overrides in that state
+//   GET  InsuranceRules/Labels/Worklist                → { censusAvailable, total, items }, in the door's order
+//   GET  InsuranceRules/Labels/Overrides?waiting=true  → what waits for a second person
 //   POST InsuranceRules/Labels/Overrides               → the proposal, or a refusal
 //   POST InsuranceRules/Labels/Overrides/{id}/Approve  → the approved row; a code with Arabic now leaves the worklist
 import { envelope } from './insurance-rules-stubs.mjs'
@@ -26,13 +26,24 @@ const REFUSE = (status, message, errorCode) => envelope(null, { status, success:
 export function curationStub(method, path, body, opts = {}) {
   const { state, query = new URLSearchParams(), user = 'nalharbi', now = '2026-10-30T10:30:00', deny = [] } = opts
   const bare = { status: 403, body: '' }
+  const TIERS = { lacksArabic: 'rulesetCanShow', unlabelled: 'seenUnlabelled' }
+  const wireItem = (r) => ({ tier: TIERS[r.reason] ?? r.reason, system: r.system, code: r.code, en: r.current?.en ?? null, ar: r.current?.ar ?? null, censusCount: r.frequency })
+  const wireOverride = ({ state: status, current, proposedBy, approvedBy, approvedAt, ...o }) => ({
+    ...o,
+    status,
+    sourceEn: current?.en ?? null,
+    sourceAr: current?.ar ?? null,
+    author: proposedBy,
+    decidedBy: approvedBy ?? '',
+    decidedAt: approvedAt ?? '0001-01-01T00:00:00',
+  })
 
-  if (path === 'InsuranceRules/Labels/Worklist' && method === 'GET') return deny.includes('worklist') ? bare : envelope(state.worklist)
+  if (path === 'InsuranceRules/Labels/Worklist' && method === 'GET') return deny.includes('worklist') ? bare : envelope({ censusAvailable: true, total: state.worklist.length, items: state.worklist.map(wireItem) })
 
   if (path === 'InsuranceRules/Labels/Overrides' && method === 'GET') {
     if (deny.includes('proposed')) return bare
-    const wanted = query.get('state')
-    return envelope(state.overrides.filter((o) => !wanted || o.state === wanted))
+    const waiting = query.get('waiting') === 'true'
+    return envelope(state.overrides.filter((o) => !waiting || o.state === 'proposed').map(wireOverride))
   }
 
   if (path === 'InsuranceRules/Labels/Overrides' && method === 'POST') {
@@ -45,7 +56,7 @@ export function curationStub(method, path, body, opts = {}) {
     const current = state.worklist.find((r) => r.system === body.system && r.code === body.code)?.current ?? null
     const row = { id: `O-${state.next++}`, ...body, state: 'proposed', current, proposedBy: user, proposedAt: now, approvedBy: null, approvedAt: null }
     state.overrides.push(row)
-    return envelope(row)
+    return envelope(wireOverride(row))
   }
 
   const approve = /^InsuranceRules\/Labels\/Overrides\/([^/]+)\/Approve$/.exec(path)
@@ -58,7 +69,7 @@ export function curationStub(method, path, body, opts = {}) {
     const line = state.worklist.find((r) => r.system === row.system && r.code === row.code)
     if (line) line.current = { en: row.en ?? line.current?.en ?? null, ar: row.ar ?? line.current?.ar ?? null }
     state.worklist = state.worklist.filter((r) => !r.current?.ar)
-    return envelope(row)
+    return envelope(wireOverride(row))
   }
   return null
 }

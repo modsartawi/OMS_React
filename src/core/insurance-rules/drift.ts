@@ -1,21 +1,16 @@
 // Payer drift (BackOffice spec 3271 D3-D6, D10; door 3293; oms 703). Pure: no React, no http. In core because the
 // Review list reads the signal while the catalog and the rule lists draw the badges.
-//
-// 🚩 PROVISIONAL: door 3293 names the content and spells no wire, so `DriftSignalReply` and `DriftBadge` are guesses that
-// 711 reconciles.
 
-/** What the door sends for a drift item's `signal`. Every field but `type` belongs to one signal only. */
+/** A drift item's fields on the Review list, as door 3293 sends them. */
 export interface DriftSignalReply {
-  type?: string | null
-  profile?: string | null
-  url?: string | null
-  /** `answer`: the field's answer rate fell. `unparsed`: its unparsed rate rose. */
-  measure?: string | null
-  field?: string | null
-  /** The trailing 7 days, a fraction 0-1. */
-  rate?: number | null
-  /** The 28 days before, a fraction 0-1. */
-  baseline?: number | null
+  /** `DriftSignals`: `new-profile-version`, `never-seen-url`, `answer-rate`, `unparsed-rate`. */
+  signal?: string | null
+  /** The URL; a profile as `url|version`; a rate's field as `scope.key`. */
+  subject?: string | null
+  /** The trailing window, a fraction 0-1; null unless the signal is a rate. */
+  trailingRate?: number | null
+  /** The window before it, a fraction 0-1; null unless the signal is a rate. */
+  baselineRate?: number | null
 }
 
 export type DriftSignal =
@@ -28,11 +23,12 @@ export type DriftSignal =
 const isRate = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n)
 
 export function driftSignalIn(s: DriftSignalReply | null | undefined): DriftSignal {
-  const code = s?.type ?? ''
-  if (code === 'newProfile' && s?.profile) return { type: code, profile: s.profile }
-  if (code === 'newUrl' && s?.url) return { type: code, url: s.url }
-  if (code === 'rateFell' && s?.field && isRate(s.rate) && isRate(s.baseline) && (s.measure === 'answer' || s.measure === 'unparsed'))
-    return { type: code, measure: s.measure, field: s.field, rate: s.rate, baseline: s.baseline }
+  const code = s?.signal ?? ''
+  const subject = s?.subject ?? ''
+  if (code === 'new-profile-version' && subject) return { type: 'newProfile', profile: subject }
+  if (code === 'never-seen-url' && subject) return { type: 'newUrl', url: subject }
+  if ((code === 'answer-rate' || code === 'unparsed-rate') && subject && isRate(s?.trailingRate) && isRate(s?.baselineRate))
+    return { type: 'rateFell', measure: code === 'answer-rate' ? 'answer' : 'unparsed', field: `$${subject}`, rate: s.trailingRate, baseline: s.baselineRate }
   return { type: 'unknown', code }
 }
 
@@ -64,7 +60,7 @@ export function signalReading(s: DriftSignal): SignalReading {
 export const DRIFT_SIGNAL_TYPES = ['newProfile', 'newUrl', 'rateFell'] as const
 export type DriftSignalType = (typeof DRIFT_SIGNAL_TYPES)[number] | 'unknown'
 
-/** The door's spelling of each signal (`DriftSignals`, 3293). */
+/** The door's spelling of each signal (`DriftSignals`, 3293), for a badge's hint. */
 const DOOR_SIGNALS: Record<string, DriftSignalType> = {
   'new-profile-version': 'newProfile',
   'never-seen-url': 'newUrl',

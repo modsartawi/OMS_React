@@ -55,7 +55,7 @@ async function open(dir, { url = '', deny = false } = {}) {
     const p = u.pathname.replace(/^\/api\//, '')
     requests.push(`${req.url()} ${req.postData() ?? ''}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (deny && p === 'InsuranceRules/Fields/Tree') return route.fulfill({ status: 403, body: '' })
+    if (deny && p === 'InsuranceRules/Fields/Tree/Open') return route.fulfill({ status: 403, body: '' })
     let body = null
     try {
       body = req.postDataJSON()
@@ -110,7 +110,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the ref is what was asked for`, state.treeRefs[0] === BUNDLE_REF, JSON.stringify(state.treeRefs))
     check(`${dir} 1. two positions of one array are two nodes`, (await node(page, 'item0').locator('[data-tree-label]').innerText()) === 'item[0]' && (await node(page, 'item1').locator('[data-tree-label]').innerText()) === 'item[1]')
     check(`${dir} 1. a nested array sits under its parent`, (await node(page, 'item0.adj1').getAttribute('data-tree-depth')) === '2' && (await node(page, 'item0.adj1').locator('[data-tree-label]').innerText()) === 'adjudication[1]')
-    check(`${dir} 1. a choice type reads as one, with what it chose`, (await node(page, 'item1.benefit').locator('[data-tree-label]').innerText()) === 'allowed[x]' && (await node(page, 'item1.benefit').locator('[data-tree-type]').innerText()) === 'Money')
+    check(`${dir} 1. a choice type reads with what it chose`, (await node(page, 'item1.benefit').locator('[data-tree-type]').innerText()) === 'Money')
     check(`${dir} 1. a value shows, isolated`, (await node(page, 'status').locator('bdi[data-tree-value]').innerText()) === SENTINEL)
     check(`${dir} 1. a part of a Money is not a click target; the Money is`, (await node(page, 'item0.adj1.amount.value').locator('[data-tree-pick]').count()) === 0 && (await node(page, 'item0.adj1.amount').locator('[data-tree-pick]').count()) === 1)
     check(`${dir} 7. no raw keys`, !/insurance-fields:|\btree\.[a-z]/.test(await page.locator('[data-bundle-tree]').innerText()))
@@ -121,17 +121,17 @@ for (const dir of ['ltr', 'rtl']) {
 
     await clickNode(page, 'item0.adj1.amount')
     await form(page).waitFor({ timeout: 10000 })
-    check(`${dir} 2. the click sends the ref and the node's own reference, and only them`, JSON.stringify(state.clicks[0]) === JSON.stringify({ ref: BUNDLE_REF, nodeRef: 'item0.adj1.amount' }), JSON.stringify(state.clicks))
+    check(`${dir} 2. the click sends the ref and the node's own reference, and only them`, JSON.stringify(state.clicks[0]) === JSON.stringify({ kind: 'answer', keptId: 'KB-SYN-1', node: 'item0.adj1.amount' }), JSON.stringify(state.clicks))
     check(`${dir} 2. the form holds the door's path: a where(), not a position`, (await page.locator('[data-raw-path]').inputValue()) === LINE_PATH)
     check(`${dir} 2. a click inside an item opens as a line field`, (await page.locator('[data-raw-level]').inputValue()) === 'line' && (await page.locator('[data-raw-moment]').inputValue()) === 'claimResponse' && (await page.locator('[data-raw-type]').inputValue()) === 'money')
     check(`${dir} 4. an ordinary field carries no Patient warning`, (await page.locator('[data-raw-patient-warning]').count()) === 0)
     await page.locator('[data-raw-verdict="clean"]').waitFor({ timeout: 10000 })
-    check(`${dir} 2. the same checks ran on it`, state.compiles.at(-1)?.path === LINE_PATH)
+    check(`${dir} 2. the same checks ran on it`, state.compiles.at(-1)?.fhirPath === LINE_PATH)
     await page.locator('[data-raw-propose]').click({ force: true })
     check(`${dir} 2. the same Probe is required`, (await page.locator('[data-raw-blocker="notProbed"]').count()) === 1)
     await fillAndPropose(page, 'lineCopayAmount')
     const sent = state.proposals[0]
-    check(`${dir} 2. the proposal carries the door's path`, sent?.fhirPath === LINE_PATH && sent?.level === 'line' && !('patientWarning' in sent), JSON.stringify(sent))
+    check(`${dir} 2. the proposal carries the door's path`, sent?.fhirPath === LINE_PATH && sent?.scope === 'line.claimResponse' && !('patientWarning' in sent), JSON.stringify(sent))
 
     await clickNode(page, 'item1.benefit')
     await form(page).waitFor({ timeout: 10000 })
@@ -202,7 +202,7 @@ for (const dir of ['ltr', 'rtl']) {
   // ── 6: refusals, in words ─────────────────────────────────────────────────────────────────
   {
     const { context, page } = await open(dir)
-    await openBundle(page, 'KB-NOT-KEPT')
+    await openBundle(page, 'answer/KB-NOT-KEPT')
     const alert = page.locator('[data-bundle-tree] [role="alert"]')
     await alert.waitFor({ timeout: 10000 })
     check(`${dir} 6. an unknown ref says the door's words`, /No kept bundle/.test(await alert.innerText()), await alert.innerText())

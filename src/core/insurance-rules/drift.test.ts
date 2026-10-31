@@ -11,7 +11,7 @@ const at = (locale: unknown, key: string): unknown => key.split('.').reduce<unkn
 
 describe('signalReading', () => {
   it('signalReading_newProfile_namesTheVersionAsAMachineValue', () => {
-    expect(signalReading(driftSignalIn({ type: 'newProfile', profile: 'ksa-claim|2.1.0' }))).toEqual({
+    expect(signalReading(driftSignalIn({ signal: 'new-profile-version', subject: 'ksa-claim|2.1.0' }))).toEqual({
       words: 'drift.signal.newProfile',
       values: { profile: 'ksa-claim|2.1.0' },
     })
@@ -19,44 +19,44 @@ describe('signalReading', () => {
 
   it('signalReading_newUrl_keepsTheUrlWhole', () => {
     const url = 'http://payer.example/fhir/ext?a=1&b=2'
-    expect(signalReading(driftSignalIn({ type: 'newUrl', url }))).toEqual({ words: 'drift.signal.newUrl', values: { url } })
+    expect(signalReading(driftSignalIn({ signal: 'never-seen-url', subject: url }))).toEqual({ words: 'drift.signal.newUrl', values: { url } })
   })
 
   it('signalReading_answerRateFell_saysFellAndGivesPercents', () => {
-    expect(signalReading(driftSignalIn({ type: 'rateFell', measure: 'answer', field: '$line.claimResponse.copay', rate: 0.125, baseline: 0.48 }))).toEqual({
+    expect(signalReading(driftSignalIn({ signal: 'answer-rate', subject: 'line.claimResponse.copay', trailingRate: 0.125, baselineRate: 0.48 }))).toEqual({
       words: 'drift.signal.answerRateFell',
       values: { field: '$line.claimResponse.copay', rate: '12.5%', baseline: '48%' },
     })
   })
 
   it('signalReading_unparsedRate_saysRoseNotFell', () => {
-    expect(signalReading(driftSignalIn({ type: 'rateFell', measure: 'unparsed', field: '$claim.total', rate: 0.2, baseline: 0.05 }))).toEqual({
+    expect(signalReading(driftSignalIn({ signal: 'unparsed-rate', subject: 'claim.total', trailingRate: 0.2, baselineRate: 0.05 }))).toEqual({
       words: 'drift.signal.unparsedRateRose',
       values: { field: '$claim.total', rate: '20%', baseline: '5%' },
     })
   })
 
   it('signalReading_valuesCarryNoIsolates_theScreenIsolatesThem', () => {
-    const { values } = signalReading(driftSignalIn({ type: 'rateFell', measure: 'answer', field: 'x', rate: 0, baseline: 1 }))
+    const { values } = signalReading(driftSignalIn({ signal: 'answer-rate', subject: 'x', trailingRate: 0, baselineRate: 1 }))
     expect(values.rate).toBe('0%')
     expect(values.baseline).toBe('100%')
     expect(Object.values(values).join('')).not.toMatch(/[⁦-⁩]/)
   })
 
   it('signalReading_anUnheardOrHalfSentSignal_saysSoAndNeverThrows', () => {
-    expect(signalReading(driftSignalIn({ type: 'somethingNew' }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'somethingNew' } })
+    expect(signalReading(driftSignalIn({ signal: 'somethingNew' }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'somethingNew' } })
     expect(signalReading(driftSignalIn(null))).toEqual({ words: 'drift.signal.unknown', values: { code: '' } })
-    expect(signalReading(driftSignalIn({ type: 'newUrl' }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'newUrl' } })
-    expect(signalReading(driftSignalIn({ type: 'rateFell', measure: 'answer', field: 'x', rate: null, baseline: 0.5 }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'rateFell' } })
+    expect(signalReading(driftSignalIn({ signal: 'never-seen-url' }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'never-seen-url' } })
+    expect(signalReading(driftSignalIn({ signal: 'answer-rate', subject: 'x', trailingRate: null, baselineRate: 0.5 }))).toEqual({ words: 'drift.signal.unknown', values: { code: 'answer-rate' } })
   })
 
   it('every reading has words in both languages, with a slot for each of its values', () => {
     const signals = [
-      { type: 'newProfile', profile: 'p' },
-      { type: 'newUrl', url: 'u' },
-      { type: 'rateFell', measure: 'answer', field: 'f', rate: 0.1, baseline: 0.4 },
-      { type: 'rateFell', measure: 'unparsed', field: 'f', rate: 0.4, baseline: 0.1 },
-      { type: 'other' },
+      { signal: 'new-profile-version', subject: 'p' },
+      { signal: 'never-seen-url', subject: 'u' },
+      { signal: 'answer-rate', subject: 'f', trailingRate: 0.1, baselineRate: 0.4 },
+      { signal: 'unparsed-rate', subject: 'f', trailingRate: 0.4, baselineRate: 0.1 },
+      { signal: 'other' },
     ]
     for (const s of signals) {
       const { words, values } = signalReading(driftSignalIn(s))

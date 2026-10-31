@@ -118,7 +118,7 @@ for (const dir of ['ltr', 'rtl']) {
 
     // ── 3: a never-seen code reads as such ───────────────────────────────────────────────────
     await select.selectOption('79')
-    check(`${dir} 3. a never-seen code reads as such`, (await row.locator('[data-parameter-census="never"]').innerText()) === 'No payer has sent this yet')
+    check(`${dir} 3. a never-seen code reads as such`, (await row.locator('[data-parameter-census="never"]').innerText()) === 'The census has not seen this yet')
 
     // ── 2: category 66 in the key ────────────────────────────────────────────────────────────
     await select.selectOption('66')

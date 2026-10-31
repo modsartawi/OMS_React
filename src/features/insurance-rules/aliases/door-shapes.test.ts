@@ -7,6 +7,12 @@ import { refParts, sampleRef, treeClickOf, treeNodeOf } from '../fields/bundle-t
 import { overrideOf, worklistRows } from '../labels/overrides'
 
 describe('the doors as built', () => {
+  it('keeps a probe warning in the words the door sent', () => {
+    expect(probeReplyOf({ warnings: [{ code: 'caseOnlyCode', en: 'Case only', ar: 'حالة' }] }).warnings).toEqual([
+      { code: 'caseOnlyCode', message: 'Case only', says: { en: 'Case only', ar: 'حالة' } },
+    ])
+  })
+
   it('reads the worklist out of its envelope, and an empty reply as no rows', () => {
     expect(worklistRows({ items: [{ tier: 'rulesetCanShow', system: 's', code: 'c', en: 'E', ar: '', censusCount: 3 }] })).toEqual([
       { system: 's', code: 'c', reason: 'lacksArabic', frequency: 3, current: { en: 'E', ar: '' } },
@@ -69,6 +75,7 @@ describe('the doors as built', () => {
     expect(probeReplyOf({ rows: [{ source: 'golden', payer: '', match: 2 }], errors: [{ code: 'badPath', en: 'no' }] })).toEqual({
       payers: [{ payer: 'golden', match: 2, noMatch: 0, unknown: 0 }],
       refusals: [{ code: 'badPath', message: 'no', detail: 'no' }],
+      warnings: [],
     })
   })
 

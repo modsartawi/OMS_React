@@ -3,8 +3,9 @@
 //
 // Reconciled with 3135 / 3141 as built in oms 618: the wire rows (`ReviewReply`, `ExceptionReply`, `ExceptionLogReply`)
 // are read by `reviewIn` / `exceptionIn` / `logIn` into the screen's model. Times are local wall-clock, no `Z`.
+// Reconciled with 3290, 3293, 3295 and 3296 as built in oms 711: `GuardReviewItem`'s item fields, and the door's kind spellings.
 
-import { driftSignalIn, type DriftSignal, type DriftSignalReply } from '@/core/insurance-rules/drift'
+import { driftSignalIn, type DriftSignal } from '@/core/insurance-rules/drift'
 import type { Says } from '@/core/models/rule-campaign'
 import type { LocalDate } from '@/core/util/date-window'
 import type { ExceptionScope } from './exception'
@@ -14,11 +15,11 @@ import type { ExceptionScope } from './exception'
 export const DECISION_KINDS = ['override', 'exception', 'unchecked', 'refused'] as const
 
 /**
- * The kinds that are not a counter decision (spec 3271): nobody at a store did anything, so they carry no pharmacist
- * and no mark. They are read into a `ReviewDetail` and cleared with a note. A new kind (703) adds its name
- * here, a `ReviewDetail` case in `detailOf`, and a case in `ReviewItems`' `ItemDetail`.
+ * The kinds that are not a counter decision (spec 3271), spelled as the door's `kind` filter takes them: nobody at a store
+ * did anything, so they are read into a `ReviewDetail`. Drift is cleared with a note; the others are marked like a decision.
+ * A new kind adds its name here, a `ReviewDetail` case in `detailOf`, and a case in `ReviewItems`' `ItemDetail`.
  */
-export const ITEM_KINDS = ['monitor', 'notEvaluated', 'drift', 'labelsChanged', 'uploadDue', 'package'] as const
+export const ITEM_KINDS = ['monitor', 'not-evaluated', 'drift', 'upload-due', 'ig-package'] as const
 
 /** Every kind this screen can offer as a filter. A row's own `kind` may be one the screen has never heard of. */
 export const REVIEW_KINDS = [...DECISION_KINDS, ...ITEM_KINDS] as const
@@ -33,20 +34,9 @@ export interface MessageRef {
 export const MONITOR_SEVERITIES = ['info', 'action'] as const
 export type MonitorSeverity = (typeof MONITOR_SEVERITIES)[number]
 
-/** What failed and so left an answer unread (A13). */
-export const EVALUATION_FAILURES = ['watcher', 'monitor'] as const
-export type EvaluationFailure = (typeof EVALUATION_FAILURES)[number]
-
-/** Why a workbook upload is due (door 3296): a new package, or a seen code no loaded workbook lists. */
+/** Why a workbook upload is due (door 3296): a new package, or seen codes no loaded workbook lists. */
 export const UPLOAD_DUE_REASONS = ['newPackage', 'unlistedCode'] as const
 export type UploadDueReason = (typeof UPLOAD_DUE_REASONS)[number]
-
-/** A published ruleset as a review item names it. */
-export interface ReviewRuleset {
-  id: string
-  name: string
-  version: number
-}
 
 export interface PackageRename {
   from: string
@@ -79,6 +69,16 @@ export interface PackageDiffGroup {
   lines: PackageDiffLine[]
 }
 
+/** A catalog field a new package no longer reads cleanly (door 3295). `ok` is left out. */
+export const REVALIDATION_PROBLEMS = ['noMatches', 'misfit', 'badPath', 'notProbed'] as const
+export type RevalidationProblem = (typeof REVALIDATION_PROBLEMS)[number]
+
+export interface RevalidatedField {
+  key: string
+  status: RevalidationProblem
+  why: string | null
+}
+
 /** The groups of a package diff that moved, in a fixed order; a group nothing happened to is left out. */
 export function packageDiffGroups(diff: PackageDiff): PackageDiffGroup[] {
   return PACKAGE_GROUPS.flatMap((group) => {
@@ -98,14 +98,12 @@ export type ReviewDetail =
   | { shape: 'decision' }
   /** A monitor fire (A2). Null severity: the server sent one this screen does not know, so no badge claims it. */
   | { shape: 'monitor'; severity: MonitorSeverity | null; text: Says; message: MessageRef | null }
-  /** A failure, not a fire (A13): the answer that was left unread, and what failed if the server said. */
-  | { shape: 'notEvaluated'; failure: EvaluationFailure | null; message: MessageRef | null }
-  /** A newer label version changes text this published ruleset shows (L9). Null draft: none raised yet. */
-  | { shape: 'labelsChanged'; ruleset: ReviewRuleset | null; draftId: string | null }
-  /** A workbook should be uploaded (door 3296). Null why: the server sent one this screen does not know. */
-  | { shape: 'uploadDue'; why: UploadDueReason | null; version: string | null; code: { system: string; code: string } | null }
-  /** The IG package changed (door 3295). */
-  | { shape: 'package'; version: string | null; previousVersion: string | null; diff: PackageDiff }
+  /** A failure, not a fire (A13): the answer that was left unread, and the server's error if it gave one. */
+  | { shape: 'notEvaluated'; error: string | null; message: MessageRef | null }
+  /** A workbook should be uploaded (door 3296). `codes` is a sample of `codeCount`. Null closedBy: still open. */
+  | { shape: 'uploadDue'; why: UploadDueReason; version: string | null; codeCount: number; codes: { system: string; code: string }[]; closedBy: number | null }
+  /** The IG package changed (door 3295); the door keeps the previous package's hash, not its version. */
+  | { shape: 'package'; version: string | null; diff: PackageDiff; revalidation: RevalidatedField[] }
   /** Payer drift (D5): who, what changed, and a sample that is a reference, never a fragment of the bundle. */
   | { shape: 'drift'; payer: string; signal: DriftSignal; sample: MessageRef | null }
   /** A kind the screen does not know: whatever text and message it carried, and never a throw. */
@@ -128,7 +126,7 @@ export interface ReviewRow {
   /** As sent. Read `detail.shape` to branch: this may be a kind the screen has never heard of. */
   kind: string
   detail: ReviewDetail
-  /** Item kinds only: who cleared it. Null on a decision, which is marked instead. */
+  /** A drift item only: who cleared it. Every other row is marked instead. */
   cleared: ReviewCleared | null
   /** Local moment of the decision. */
   at: string
@@ -158,20 +156,31 @@ export interface ReviewReply {
   at: string
   store: string
   pharmacist: string
-  /** 🚩 Item kinds' fields are guessed (door 3290; 711 reconciles): `text`, `message`, `failure`, `cleared`. */
-  text?: Partial<Says> | null
-  message?: MessageRef | null
-  failure?: string | null
-  /** 🚩 A drift item's fields are guessed (door 3293; 711 reconciles). */
+  /** A monitor item's words, placeholders filled. */
+  en?: string | null
+  ar?: string | null
+  /** A monitor or not-evaluated item's kept answer. */
+  messageSource?: string | null
+  messageId?: string | null
+  answerVersion?: string | null
+  lines?: string | null
+  error?: string | null
+  /** A drift item (door 3293): `signal`, `subject` and the two rates read by `driftSignalIn`. */
   payer?: string | null
-  signal?: DriftSignalReply | null
-  sample?: MessageRef | null
-  cleared?: ReviewCleared | null
-  /** 🚩 Guessed too (doors 3295–3297; oms 708): `ruleset` + `draftId`, `due`, `package`. */
-  ruleset?: ReviewRuleset | null
-  draftId?: string | null
-  due?: { why?: string | null; version?: string | null; system?: string | null; code?: string | null } | null
-  package?: ({ version?: string | null; previousVersion?: string | null } & { [G in PackageGroup]?: Partial<PackageDiffPart> | null }) | null
+  sampleSource?: string | null
+  sampleId?: string | null
+  sampleVersion?: string | null
+  signal?: string | null
+  subject?: string | null
+  trailingRate?: number | null
+  baselineRate?: number | null
+  igPackage?: {
+    name?: string | null
+    version?: string | null
+    diff?: { [G in PackageGroup]?: Partial<PackageDiffPart> | null } | null
+    revalidation?: { key: string; status: string; why?: string | null }[] | null
+  } | null
+  uploadDue?: { packageVersion?: string | null; codeCount?: number | null; codes?: { system: string; code: string }[] | null; isOpen?: boolean | null; closedByVersion?: number | null } | null
   channel?: string | null
   sourceRef?: string | null
   ruleId: string | null
@@ -184,31 +193,49 @@ export interface ReviewReply {
   reason: string | null
   note: string | null
   exceptionId: string | null
-  mark: { mark: ReviewMark; note: string | null; by: string; at: string } | null
+  /** `mark: 'cleared'` is a drift item's clearing, not a reviewer's mark. */
+  mark: { mark: string; note: string | null; by: string; at: string } | null
 }
 
 const oneOf = <T extends string>(known: readonly T[], value: string | null | undefined): T | null =>
   known.find((k) => k === value?.toLowerCase()) ?? null
 
-const textOf = (r: ReviewReply): Says => ({ en: r.text?.en ?? '', ar: r.text?.ar ?? '' })
+const textOf = (r: ReviewReply): Says => ({ en: r.en ?? '', ar: r.ar ?? '' })
+
+const refOf = (source: string | null | undefined, id: string | null | undefined): MessageRef | null => (id ? { source: source ?? '', id } : null)
 
 const diffPart = (p: Partial<PackageDiffPart> | null | undefined): PackageDiffPart => ({ added: p?.added ?? [], removed: p?.removed ?? [], renamed: p?.renamed ?? [] })
 
 function detailOf(r: ReviewReply): ReviewDetail {
   if ((DECISION_KINDS as readonly string[]).includes(r.kind)) return { shape: 'decision' }
-  const message = r.message ?? null
+  const message = refOf(r.messageSource, r.messageId)
   if (r.kind === 'monitor') return { shape: 'monitor', severity: oneOf(MONITOR_SEVERITIES, r.severity), text: textOf(r), message }
-  if (r.kind === 'notEvaluated') return { shape: 'notEvaluated', failure: oneOf(EVALUATION_FAILURES, r.failure), message }
-  if (r.kind === 'labelsChanged') return { shape: 'labelsChanged', ruleset: r.ruleset ?? null, draftId: r.draftId || null }
-  if (r.kind === 'uploadDue') {
-    const why = UPLOAD_DUE_REASONS.find((k) => k === r.due?.why) ?? null
-    return { shape: 'uploadDue', why, version: r.due?.version || null, code: r.due?.code ? { system: r.due.system ?? '', code: r.due.code } : null }
+  if (r.kind === 'not-evaluated') return { shape: 'notEvaluated', error: r.error || null, message }
+  if (r.kind === 'upload-due') {
+    const due = r.uploadDue
+    const codes = due?.codes ?? []
+    return {
+      shape: 'uploadDue',
+      why: (due?.codeCount ?? 0) > 0 ? 'unlistedCode' : 'newPackage',
+      version: due?.packageVersion || null,
+      codeCount: due?.codeCount ?? 0,
+      codes,
+      closedBy: due?.isOpen === false ? (due.closedByVersion ?? 0) : null,
+    }
   }
-  if (r.kind === 'package') {
-    const p = r.package
-    return { shape: 'package', version: p?.version || null, previousVersion: p?.previousVersion || null, diff: { profiles: diffPart(p?.profiles), extensions: diffPart(p?.extensions), codeSystems: diffPart(p?.codeSystems) } }
+  if (r.kind === 'ig-package') {
+    const p = r.igPackage
+    return {
+      shape: 'package',
+      version: p?.version || null,
+      diff: { profiles: diffPart(p?.diff?.profiles), extensions: diffPart(p?.diff?.extensions), codeSystems: diffPart(p?.diff?.codeSystems) },
+      revalidation: (p?.revalidation ?? []).flatMap((f) => {
+        const status = REVALIDATION_PROBLEMS.find((k) => k === f.status)
+        return status ? [{ key: f.key, status, why: f.why || null }] : []
+      }),
+    }
   }
-  if (r.kind === 'drift') return { shape: 'drift', payer: r.payer ?? '', signal: driftSignalIn(r.signal), sample: r.sample ?? null }
+  if (r.kind === 'drift') return { shape: 'drift', payer: r.payer ?? '', signal: driftSignalIn(r), sample: refOf(r.sampleSource, r.sampleId) }
   return { shape: 'generic', text: textOf(r), message }
 }
 
@@ -216,7 +243,7 @@ export const reviewIn = (r: ReviewReply): ReviewRow => ({
   id: r.id,
   kind: r.kind,
   detail: detailOf(r),
-  cleared: r.cleared ?? null,
+  cleared: r.mark?.mark === 'cleared' ? { note: r.mark.note ?? '', by: r.mark.by, at: r.mark.at } : null,
   at: r.at,
   store: r.store ?? '',
   pharmacist: r.pharmacist ?? '',
@@ -226,7 +253,7 @@ export const reviewIn = (r: ReviewReply): ReviewRow => ({
   reason: r.reason || null,
   note: r.note || null,
   exceptionId: r.exceptionId || null,
-  mark: r.mark?.mark ?? null,
+  mark: oneOf(REVIEW_MARKS, r.mark?.mark),
   markNote: r.mark?.note || null,
   markedBy: r.mark?.by || null,
   markedAt: r.mark?.at || null,

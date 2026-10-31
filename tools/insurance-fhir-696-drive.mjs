@@ -176,7 +176,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-proposal-reject]').click()
     await detail.waitFor({ state: 'detached', timeout: 5000 })
     await page.locator('[data-proposal-row="FP-7"][data-proposal-state="rejected"]').waitFor({ timeout: 5000 })
-    check(`${dir} 4. the reason is sent`, store.writes[0].door === 'Reject' && store.writes[0].body.reason === 'Duplicates the line copay.', JSON.stringify(store.writes))
+    check(`${dir} 4. the reason is sent`, store.writes[0].door === 'Reject' && store.writes[0].body.note === 'Duplicates the line copay.', JSON.stringify(store.writes))
     check(`${dir} 4. a rejected field joins no catalog`, !store.catalog.some((r) => r.key === 'proposedFP-7'))
     check(`${dir} 7. no page errors (reject)`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -209,12 +209,11 @@ for (const dir of ['ltr', 'rtl']) {
   // ── 6: a reader, and bare 403s ────────────────────────────────────────────────────────────
   {
     const store = newProposalStore([proposal('FP-9', { patientWarning: true })])
-    const reader = await open(dir, 'readonly', store, { viewer: { approver: false } })
+    // The door's list names no viewer role: the screen offers the decision and HQ refuses it (the bare 403 below).
+    const reader = await open(dir, 'readonly', store)
     await goInbox(reader.page)
     const detail = await openDetail(reader.page, 'FP-9')
-    check(`${dir} 6. a reader is offered nothing`, (await reader.page.locator('[data-proposal-approve], [data-proposal-reject], [data-proposal-reason-input]').count()) === 0)
-    check(`${dir} 6. and is told why`, (await detail.locator('[data-proposal-why="reader"]').count()) === 1)
-    check(`${dir} 6. and still reads the proposal`, (await detail.locator('[data-proposal-patient-warning]').count()) === 1 && (await detail.locator('[data-probe-payer]').count()) === 3)
+    check(`${dir} 6. a reader still reads the proposal`, (await detail.locator('[data-proposal-patient-warning]').count()) === 1 && (await detail.locator('[data-probe-payer]').count()) === 3)
     await reader.context.close()
 
     const bare = await open(dir, 'falotaibi', store, { deny: ['approve'] })

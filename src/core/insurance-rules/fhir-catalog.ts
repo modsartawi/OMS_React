@@ -28,10 +28,10 @@ export interface ChannelRate {
 
 /** A field whose CodeSystem Nphies removed (V5). 694 draws it. */
 export interface FhirLegacy {
-  /** Local day. */
-  removedOn: string
-  /** The catalog key that replaces it. */
-  replacement: string
+  /** Local day; null when the change log gives none. */
+  removedOn: string | null
+  /** The change log's own words: it names the replacement in prose, not as a key. */
+  replacement: string | null
 }
 
 /** One field of `GET InsuranceRules/Fields/Catalog`. */
@@ -78,8 +78,8 @@ export function catalogEntryOf(rows: readonly FhirCatalogRow[], path: string): {
 }
 
 /**
- * ⚠️ PROVISIONAL (oms 694; 711 reconciles): one code of a parameter's list, from the workbook's CodeSystem (V2).
- * `census` is how many payers the census saw send it; 0 is a code nobody has sent, which a rule may still name.
+ * One code of a parameter's list, from the workbook's CodeSystem (V2). `census` is how many times the census saw it, not
+ * how many payers sent it; 0 is a code it did not see (or no census is loaded), which a rule may still name.
  */
 export interface FhirParameterCode {
   code: string

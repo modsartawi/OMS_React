@@ -26,24 +26,19 @@
     "unchecked": "Unchecked",
     "refused": "Refused order",
     "monitor": "Monitor",
-    "notEvaluated": "Not evaluated",
     "drift": "Drift",
-    "labelsChanged": "Labels changed",
-    "uploadDue": "Upload due",
-    "package": "IG package"
+    "not-evaluated": "Not evaluated",
+    "upload-due": "Upload due",
+    "ig-package": "IG package"
   },
   "item": {
-    "labels": {
-      "version": "Version",
-      "openDraft": "Open the labels-only draft",
-      "toDrafts": "Go to the re-pin drafts"
-    },
     "due": {
       "newPackage": "A new Nphies package is out, so its workbooks should be uploaded.",
-      "unlistedCode": "A code was seen that no loaded workbook lists.",
-      "unstated": "A workbook upload is due.",
+      "unlistedCode": "Codes were seen that no loaded workbook lists.",
       "version": "Version",
-      "upload": "Go to the upload"
+      "upload": "Go to the upload",
+      "codes": "Codes seen:",
+      "closedBy": "Closed by workbook version"
     },
     "package": {
       "says": "The Nphies IG package changed.",
@@ -58,6 +53,13 @@
         "added": "Added",
         "removed": "Removed",
         "renamed": "Renamed"
+      },
+      "revalidation": {
+        "title": "Catalog fields to check against this package",
+        "noMatches": "No sample matches",
+        "misfit": "Values do not fit the type",
+        "badPath": "The path does not compile",
+        "notProbed": "Not checked"
       }
     },
     "otherKind": "Other",
@@ -71,9 +73,7 @@
       "action": "Action"
     },
     "failure": {
-      "watcher": "The answers watcher failed, so this answer was left unread.",
-      "monitor": "A monitor failed on this answer, so it was left unread.",
-      "unstated": "An evaluation failed, so this answer was left unread."
+      "unread": "An evaluation failed, so this answer was left unread."
     },
     "notCleared": "Not cleared",
     "cleared": "Cleared",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { saysIn } from '@/core/rules/sentence'
 import { Loader2 } from 'lucide-react'
 
 import { failureWords } from './failure-words'
@@ -62,7 +63,7 @@ function Refusals({ refusals }: { refusals: PathRefusal[] }) {
 }
 
 function Warnings({ warnings }: { warnings: PathWarning[] }) {
-  const { t } = useTranslation('insurance-fields')
+  const { t, i18n } = useTranslation('insurance-fields')
   if (warnings.length === 0) return null
   return (
     <ul className="flex flex-col gap-1 rounded-md border border-border/60 bg-attention-050 p-2 text-xs text-attention-800" data-raw-warnings="">
@@ -71,7 +72,7 @@ function Warnings({ warnings }: { warnings: PathWarning[] }) {
           {w.code === 'caseOnlyCode' && w.literal && w.known ? (
             <span className="font-semibold">{t('rawPath.caseOnlyCode', { literal: fsi(w.literal), known: fsi(w.known) })}</span>
           ) : null}{' '}
-          <bdi>{w.message}</bdi>
+          <bdi>{(w.says && saysIn(w.says, i18n.language)) || w.message}</bdi>
         </li>
       ))}
     </ul>
@@ -84,6 +85,7 @@ export function ProbeTable({ reply }: { reply: ProbeReply }) {
   return (
     <div className="flex flex-col gap-2" data-raw-probe="">
       {reply.refusals.length > 0 && <Refusals refusals={reply.refusals} />}
+      <Warnings warnings={reply.warnings ?? []} />
       {isZeroMatches(reply) && reply.refusals.length === 0 && (
         <p className="rounded-md border border-border/60 bg-attention-050 p-2 text-xs text-attention-800" data-raw-probe-zero="">
           {t('rawPath.probe.zero')}

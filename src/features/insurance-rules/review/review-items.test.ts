@@ -12,7 +12,7 @@ const wire = (o: Partial<ReviewReply>): ReviewReply => ({
 
 describe('reviewIn', () => {
   it('reviewIn_monitor_readsRuleSeverityTextAndMessage', () => {
-    const row = reviewIn(wire({ ruleId: 'M-004', severity: 'action', text: { en: 'Pre-auth denied', ar: 'رُفض الإذن' }, message: { source: 'nphies', id: 'CR-778' } }))
+    const row = reviewIn(wire({ ruleId: 'M-004', severity: 'action', en: 'Pre-auth denied', ar: 'رُفض الإذن', messageSource: 'nphies', messageId: 'CR-778' }))
     expect(row.ruleId).toBe('M-004')
     expect(row.detail).toEqual({ shape: 'monitor', severity: 'action', text: { en: 'Pre-auth denied', ar: 'رُفض الإذن' }, message: { source: 'nphies', id: 'CR-778' } })
     expect(row.cleared).toBeNull()
@@ -23,14 +23,14 @@ describe('reviewIn', () => {
     expect(reviewIn(wire({ severity: 'INFO' })).detail).toMatchObject({ shape: 'monitor', severity: 'info' })
   })
 
-  it('reviewIn_notEvaluated_namesTheAnswerAndTheFailure', () => {
-    const row = reviewIn(wire({ kind: 'notEvaluated', failure: 'watcher', message: { source: 'nphies', id: 'CR-901' } }))
-    expect(row.detail).toEqual({ shape: 'notEvaluated', failure: 'watcher', message: { source: 'nphies', id: 'CR-901' } })
-    expect(reviewIn(wire({ kind: 'notEvaluated', failure: 'gremlin' })).detail).toMatchObject({ failure: null, message: null })
+  it('reviewIn_notEvaluated_namesTheAnswerAndTheError', () => {
+    const row = reviewIn(wire({ kind: 'not-evaluated', error: 'gave up', messageSource: 'nphies', messageId: 'CR-901' }))
+    expect(row.detail).toEqual({ shape: 'notEvaluated', error: 'gave up', message: { source: 'nphies', id: 'CR-901' } })
+    expect(reviewIn(wire({ kind: 'not-evaluated', messageId: '' })).detail).toEqual({ shape: 'notEvaluated', error: null, message: null })
   })
 
   it('reviewIn_unknownKind_readsAsAGenericRow', () => {
-    const row = reviewIn(wire({ kind: 'somethingNew', text: { en: 'Look at this', ar: '' }, message: { source: 'nphies', id: 'X-1' } }))
+    const row = reviewIn(wire({ kind: 'somethingNew', en: 'Look at this', messageSource: 'nphies', messageId: 'X-1' }))
     expect(row.kind).toBe('somethingNew')
     expect(row.detail).toEqual({ shape: 'generic', text: { en: 'Look at this', ar: '' }, message: { source: 'nphies', id: 'X-1' } })
     expect(reviewIn(wire({ kind: 'bare' })).detail).toEqual({ shape: 'generic', text: { en: '', ar: '' }, message: null })
@@ -40,38 +40,52 @@ describe('reviewIn', () => {
     const row = reviewIn(wire({ kind: 'override', ruleId: 'G-002', severity: 'OVERRIDE', item: '100234', mark: { mark: 'ok', note: 'fine', by: 'rev', at: '2026-10-27T10:00:00' } }))
     expect(row.detail).toEqual({ shape: 'decision' })
     expect(row.mark).toBe('ok')
+    expect(row.cleared).toBeNull()
     expect(row.item).toEqual({ code: '100234', name: '' })
   })
 
-  it('reviewIn_cleared_readsTheNoteAndWho', () => {
-    expect(reviewIn(wire({ cleared: { note: 'Called the payer', by: 'ins.huda', at: '2026-10-27T11:00:00' } })).cleared).toEqual({ note: 'Called the payer', by: 'ins.huda', at: '2026-10-27T11:00:00' })
+  it('reviewIn_clearedDrift_readsTheClearingNotAMark', () => {
+    const row = reviewIn(wire({ kind: 'drift', mark: { mark: 'cleared', note: 'Called the payer', by: 'ins.huda', at: '2026-10-27T11:00:00' } }))
+    expect(row.cleared).toEqual({ note: 'Called the payer', by: 'ins.huda', at: '2026-10-27T11:00:00' })
+    expect(row.mark).toBeNull()
+  })
+
+  it('reviewIn_drift_readsTheDoorsFields', () => {
+    const row = reviewIn(wire({ kind: 'drift', payer: 'waseel', signal: 'answer-rate', subject: 'line.claimResponse.copay', trailingRate: 0.125, baselineRate: 0.5, sampleSource: 'nphies', sampleId: 'A-1' }))
+    expect(row.detail).toEqual({
+      shape: 'drift',
+      payer: 'waseel',
+      signal: { type: 'rateFell', measure: 'answer', field: '$line.claimResponse.copay', rate: 0.125, baseline: 0.5 },
+      sample: { source: 'nphies', id: 'A-1' },
+    })
   })
 })
 
-describe('reviewIn — the label and package items (708)', () => {
-  it('reviewIn_labelsChanged_readsTheRulesetAndItsDraft', () => {
-    expect(reviewIn(wire({ kind: 'labelsChanged', ruleset: { id: 'guards', name: 'Guards', version: 7 }, draftId: 'D-9' })).detail).toEqual({ shape: 'labelsChanged', ruleset: { id: 'guards', name: 'Guards', version: 7 }, draftId: 'D-9' })
-    expect(reviewIn(wire({ kind: 'labelsChanged' })).detail).toEqual({ shape: 'labelsChanged', ruleset: null, draftId: null })
+describe('reviewIn — the upload and package items (708)', () => {
+  it('reviewIn_uploadDue_codesMeanAnUnlistedCode_noneMeanANewPackage', () => {
+    expect(reviewIn(wire({ kind: 'upload-due', uploadDue: { packageVersion: '5.1.0', codeCount: 0, codes: [], isOpen: true, closedByVersion: 0 } })).detail).toEqual({ shape: 'uploadDue', why: 'newPackage', version: '5.1.0', codeCount: 0, codes: [], closedBy: null })
+    expect(reviewIn(wire({ kind: 'upload-due', uploadDue: { packageVersion: '', codeCount: 7, codes: [{ system: 'benefit-category', code: '99' }], isOpen: false, closedByVersion: 4 } })).detail).toEqual({ shape: 'uploadDue', why: 'unlistedCode', version: null, codeCount: 7, codes: [{ system: 'benefit-category', code: '99' }], closedBy: 4 })
+    expect(reviewIn(wire({ kind: 'upload-due' })).detail).toEqual({ shape: 'uploadDue', why: 'newPackage', version: null, codeCount: 0, codes: [], closedBy: null })
   })
 
-  it('reviewIn_uploadDue_readsWhy_andAnUnheardWhyIsUnstated', () => {
-    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'newPackage', version: '5.1.0', system: null, code: null } })).detail).toEqual({ shape: 'uploadDue', why: 'newPackage', version: '5.1.0', code: null })
-    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'unlistedCode', version: null, system: 'benefit-category', code: '99' } })).detail).toEqual({ shape: 'uploadDue', why: 'unlistedCode', version: null, code: { system: 'benefit-category', code: '99' } })
-    expect(reviewIn(wire({ kind: 'uploadDue', due: { why: 'gremlin' } })).detail).toMatchObject({ why: null })
-    expect(reviewIn(wire({ kind: 'uploadDue' })).detail).toEqual({ shape: 'uploadDue', why: null, version: null, code: null })
-  })
-
-  it('reviewIn_package_readsTheVersionsAndTheDiff_aMissingListBeingEmpty', () => {
-    const row = reviewIn(wire({ kind: 'package', package: { version: '5.1.0', previousVersion: '5.0.0', profiles: { added: ['P-new'] }, extensions: { renamed: [{ from: 'E-old', to: 'E-new' }] } } }))
+  it('reviewIn_package_readsTheVersionAndDiff_aMissingListBeingEmpty_andOnlyTheFieldsToCheck', () => {
+    const row = reviewIn(wire({
+      kind: 'ig-package',
+      igPackage: {
+        version: '5.1.0',
+        diff: { profiles: { added: ['P-new'] }, extensions: { renamed: [{ from: 'E-old', to: 'E-new' }] } },
+        revalidation: [{ key: 'ok.field', status: 'ok' }, { key: 'bad.field', status: 'badPath', why: 'No compile' }, { key: 'new.status', status: 'gremlin' }],
+      },
+    }))
     expect(row.detail).toEqual({
       shape: 'package',
       version: '5.1.0',
-      previousVersion: '5.0.0',
       diff: {
         profiles: { added: ['P-new'], removed: [], renamed: [] },
         extensions: { added: [], removed: [], renamed: [{ from: 'E-old', to: 'E-new' }] },
         codeSystems: { added: [], removed: [], renamed: [] },
       },
+      revalidation: [{ key: 'bad.field', status: 'badPath', why: 'No compile' }],
     })
   })
 })
@@ -96,12 +110,10 @@ describe('packageDiffGroups', () => {
 })
 
 describe('reviewFromParams', () => {
-  it('reviewFromParams_keepsTheLabelAndPackageKinds', () => {
-    for (const kind of ['labelsChanged', 'uploadDue', 'package']) expect(reviewFromParams(new URLSearchParams(`kind=${kind}`)).kind).toBe(kind)
+  it('reviewFromParams_keepsTheDoorsSpellings', () => {
+    for (const kind of ['monitor', 'not-evaluated', 'drift', 'upload-due', 'ig-package']) expect(reviewFromParams(new URLSearchParams(`kind=${kind}`)).kind).toBe(kind)
   })
-  it('reviewFromParams_keepsTheNewKinds_andDropsOneItCannotOffer', () => {
-    expect(reviewFromParams(new URLSearchParams('kind=monitor')).kind).toBe('monitor')
-    expect(reviewFromParams(new URLSearchParams('kind=notEvaluated')).kind).toBe('notEvaluated')
-    expect(reviewFromParams(new URLSearchParams('kind=somethingNew')).kind).toBe('')
+  it('reviewFromParams_dropsOneTheDoorWouldRefuse', () => {
+    for (const kind of ['notEvaluated', 'labelsChanged', 'somethingNew']) expect(reviewFromParams(new URLSearchParams(`kind=${kind}`)).kind).toBe('')
   })
 })

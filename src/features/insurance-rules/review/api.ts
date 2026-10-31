@@ -4,7 +4,7 @@
  * As BUILT (oms 618 reconciled 3135 / 3141; the replies read by `./model`'s `reviewIn` / `exceptionIn` / `logIn`):
  *   GET  InsuranceRules/Review?kind&pharmacist&store&rule&reason   → ReviewReply[] (at most 500, newest first)
  *   POST InsuranceRules/Review/{id}               { mark: ok|questioned, note } → { mark, note, by, at }
- *   POST InsuranceRules/Review/{id}/Clear         { note } → 🚩 guessed (oms 702), an item kind's row
+ *   POST InsuranceRules/Review/{id}/Clear         { note } → a drift item's row (only drift is cleared; 3293)
  *   GET  InsuranceRules/Exceptions?patientKey=    → ONE patient's exceptions (a 10-digit key is required: 400 otherwise)
  *   POST InsuranceRules/Exceptions                { patientKey, ruleId|null, scope, validUntil, reason, note } → the exception
  *   POST InsuranceRules/Exceptions/{id}/Revoke    { note } (required) → the exception, revoked
@@ -33,7 +33,7 @@ export const reviewApi = {
   mark(id: string, body: { mark: ReviewMark; note: string }): Promise<unknown> {
     return api.post<unknown>(`${INSURANCE_RULES_BASE}/Review/${encodeURIComponent(id)}`, body)
   },
-  /** 🚩 Guessed door (3290 spells no clear; 711 reconciles). Every item kind clears with a required note. */
+  /** A drift item only, with a required note. The other item kinds are marked through `mark`. */
   clear(id: string, note: string): Promise<unknown> {
     return api.post<unknown>(`${INSURANCE_RULES_BASE}/Review/${encodeURIComponent(id)}/Clear`, { note })
   },

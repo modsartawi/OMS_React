@@ -1,7 +1,7 @@
 // Stubs for oms 710 (BackOffice spec 3271, door 3298), on the real envelope. 🚩 Paths and shapes guessed; 711 reconciles.
 //   GET InsuranceRules/Decisions/{id}          → the decision, its facts, the replay, the message's ref and hash
 //   GET InsuranceRules/Decisions/{id}/Message  → the kept copy, else a re-fetch, checked against the hash
-//   GET InsuranceRules/Backtests/WindowLimit   → { maxDays }
+//   GET InsuranceRules/Guards/Backtests/Windows → { days }
 // Synthetic bundles only.
 import { envelope } from './insurance-rules-stubs.mjs'
 
@@ -64,8 +64,8 @@ export function inspectorStub(method, path, opts = {}) {
 
 /** The door's limit: a number of days; `'deny'` a bare 403; `'fail'` a refusal. */
 export function windowLimitStub(method, path, limit) {
-  if (method !== 'GET' || path !== 'InsuranceRules/Backtests/WindowLimit') return null
+  if (method !== 'GET' || path !== 'InsuranceRules/Guards/Backtests/Windows') return null
   if (limit === 'deny') return { status: 403, body: '' }
   if (limit === 'fail') return envelope(null, { status: 400, success: false, message: 'Settings are unreadable.' })
-  return envelope({ maxDays: limit })
+  return envelope({ days: [limit] })
 }

@@ -58,23 +58,25 @@
     "retired": "Retired",
     "legacy": {
       "badge": "Legacy",
-      "note": "Removed on {{date}}. Replaced by {{replacement}}."
+      "note": "Removed on {{date}}.",
+      "noDay": "Removed by Nphies.",
+      "changeLog": "Change log: {{replacement}}"
     },
     "parameter": {
       "label": "Category",
       "choose": "Choose a category",
       "use": "Use this category",
-      "payers": "Payers that sent it:",
-      "never": "No payer has sent this yet",
+      "never": "The census has not seen this yet",
       "unlisted": "No longer on the workbook's list",
       "denied": "You do not have access to the category list.",
       "failed": "The category list could not be loaded.",
       "loading": "Loading the categories…",
       "option": {
-        "seen": "{{name}} (payers: {{payers}})",
-        "never": "{{name}} (never seen)",
+        "seen": "{{name}} (seen {{times}})",
+        "never": "{{name}} (not seen)",
         "unlisted": "{{name}} (not on the list)"
-      }
+      },
+      "census": "Times the census saw it:"
     },
     "denied": "You do not have access to the FHIR fact catalog.",
     "failed": "The catalog could not be loaded.",

@@ -183,11 +183,21 @@ function Review() {
                       <td className={TD} colSpan={7} data-col="detail">
                         <ItemDetail row={r} />
                       </td>
-                      <td className={TD} data-col="mark" data-cleared={r.cleared ? 'true' : 'false'}>
-                        <ItemClearing cleared={r.cleared} />
+                      {r.detail.shape === 'drift' ? (
+                        <td className={TD} data-col="mark" data-cleared={r.cleared ? 'true' : 'false'}>
+                          <ItemClearing cleared={r.cleared} />
+                        </td>
+                      ) : r.detail.shape === 'generic' ? (
+                        <td className={TD} data-col="mark" />
+                      ) : (
+                        <MarkCell row={r} />
+                      )}
+                      <td className={TD}>
+                        {/* The door marks every kind it lists but drift, which it clears. A kind this screen does not know gets neither. */}
+                        {r.detail.shape !== 'drift' && r.detail.shape !== 'generic' && <MarkActions row={r} onMark={setMarking} />}
                       </td>
-                      {/* Actions and Inspect: an item has no decision to inspect. */}
-                      <td className={TD} colSpan={2}>
+                      {/* Inspect: an item has no decision to inspect. */}
+                      <td className={TD}>
                         <Button variant="outlined" onClick={() => setOpening(r)} data-item-open="">
                           {t('item.open')}
                         </Button>
@@ -227,38 +237,9 @@ function Review() {
                     <td className={TD} data-col="note">
                       {r.note && <bdi>{r.note}</bdi>}
                     </td>
-                    <td className={TD} data-col="mark" data-mark={r.mark ?? ''}>
-                      <StatusBadge sev={r.mark ? MARK_SEV[r.mark] : 'mute'}>{t(r.mark ? `mark.${r.mark}` : 'mark.none')}</StatusBadge>
-                      {r.mark && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {r.markNote && (
-                            <bdi className="block" data-mark-note="">
-                              {r.markNote}
-                            </bdi>
-                          )}
-                          {r.markedBy && (
-                            <span data-marked-by="">
-                              {t('mark.by')} <Ltr>{r.markedBy}</Ltr>
-                              {r.markedAt && (
-                                <>
-                                  {' '}
-                                  <Ltr>{formatDateTime(r.markedAt)}</Ltr>
-                                </>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
+                    <MarkCell row={r} />
                     <td className={TD}>
-                      <div className="flex gap-1">
-                        <Button variant="outlined" onClick={() => setMarking({ row: r, mark: 'ok' })} data-mark-action="ok">
-                          {t('mark.ok')}
-                        </Button>
-                        <Button variant="outlined" onClick={() => setMarking({ row: r, mark: 'questioned' })} data-mark-action="questioned">
-                          {t('mark.questioned')}
-                        </Button>
-                      </div>
+                      <MarkActions row={r} onMark={setMarking} />
                     </td>
                     <td className={TD}>
                       {/* 710: the row's id is the decision's, whatever its age. */}
@@ -276,6 +257,50 @@ function Review() {
       )}
       {marking && <MarkDialog row={marking.row} mark={marking.mark} onClose={() => setMarking(null)} />}
       {opening && <ItemDialog row={opening} onClose={() => setOpening(null)} />}
+    </div>
+  )
+}
+
+/** A row's mark: OK or Questioned with its note and who, or none. */
+function MarkCell({ row: r }: { row: ReviewRow }) {
+  const { t } = useTranslation('insurance-review')
+  return (
+    <td className={TD} data-col="mark" data-mark={r.mark ?? ''}>
+      <StatusBadge sev={r.mark ? MARK_SEV[r.mark] : 'mute'}>{t(r.mark ? `mark.${r.mark}` : 'mark.none')}</StatusBadge>
+      {r.mark && (
+        <div className="mt-1 text-xs text-muted-foreground">
+          {r.markNote && (
+            <bdi className="block" data-mark-note="">
+              {r.markNote}
+            </bdi>
+          )}
+          {r.markedBy && (
+            <span data-marked-by="">
+              {t('mark.by')} <Ltr>{r.markedBy}</Ltr>
+              {r.markedAt && (
+                <>
+                  {' '}
+                  <Ltr>{formatDateTime(r.markedAt)}</Ltr>
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+    </td>
+  )
+}
+
+function MarkActions({ row, onMark }: { row: ReviewRow; onMark: (m: { row: ReviewRow; mark: ReviewMark }) => void }) {
+  const { t } = useTranslation('insurance-review')
+  return (
+    <div className="flex gap-1">
+      <Button variant="outlined" onClick={() => onMark({ row, mark: 'ok' })} data-mark-action="ok">
+        {t('mark.ok')}
+      </Button>
+      <Button variant="outlined" onClick={() => onMark({ row, mark: 'questioned' })} data-mark-action="questioned">
+        {t('mark.questioned')}
+      </Button>
     </div>
   )
 }

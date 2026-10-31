@@ -4,9 +4,8 @@
 // SIS.Api. RTL here is direction only: `lng` stays `en` in the app, so English copy and text show in both, and the
 // choice of EN or AR is `saysIn`'s, tested pure. In LTR and RTL it verifies: the new kinds sit in the list beside the
 // decisions; a monitor item shows its rule, severity, text (a <bdi>) and (source, id) (an ltr isolate); a not-evaluated item reads as
-// a failure, not a fire; an unknown kind renders; the kind filter reaches the door and the URL; opening an item and
-// clearing it refuses an empty note, then posts it and the row reads cleared; a refused clear toasts and stays open;
-// a decision row keeps its mark actions and none of the item's.
+// a failure, not a fire; an unknown kind renders with no action; the kind filter reaches the door and the URL; an item
+// opens to read, with no clearing (only drift clears, 703); it is marked as a decision is; a refused mark toasts and stays open.
 //
 //   1. npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/insurance-fhir-702-drive.mjs
@@ -83,18 +82,18 @@ for (const dir of ['ltr', 'rtl']) {
 
     const n1 = page.locator('[data-review-row="N-1"]')
     check(`${dir} not evaluated: reads as a failure, with no severity`, (await n1.locator('[data-item-detail]').getAttribute('data-reads')) === 'failure' && (await n1.locator('[data-item-severity]').count()) === 0)
-    check(`${dir} not evaluated: says the watcher failed`, strip(await n1.locator('[data-item-failure="watcher"]').innerText()) === 'The answers watcher failed, so this answer was left unread.')
+    check(`${dir} not evaluated: says it was left unread, with the server's error`, strip(await n1.locator('[data-item-detail]').innerText()).includes('An evaluation failed, so this answer was left unread.') && (await n1.locator('bdi[data-item-error]').innerText()) === 'The watcher gave up after 3 attempts.')
     check(`${dir} not evaluated: names the unread answer`, (await n1.locator('[data-item-message] bdi[dir="ltr"]').innerText()) === 'nphies · CR-901')
-    const n2 = page.locator('[data-review-row="N-2"]')
-    check(`${dir} not evaluated: a monitor failure names its rule`, (await n2.locator('[data-item-failure="monitor"]').count()) === 1 && (await n2.locator('[data-rule-id]').count()) === 1)
+    check(`${dir} not evaluated: a row with no error says only that`, (await page.locator('[data-review-row="N-2"] [data-item-error]').count()) === 0)
 
     const u1 = page.locator('[data-review-row="U-1"]')
     check(`${dir} an unknown kind renders, with its code and no raw key`, (await u1.locator('[data-unknown-kind="somethingNew"] bdi[dir="ltr"]').innerText()) === 'somethingNew' && (await u1.locator('bdi[data-item-text]').innerText()) === 'A kind from a newer server' && (await u1.locator('[data-item-open]').count()) === 1)
+    check(`${dir} an unknown kind gets no action but Open`, (await u1.locator('[data-mark-action]').count()) === 0 && (await u1.locator('[data-item-open]').count()) === 1)
     check(`${dir} an unknown kind is not a filter`, (await page.locator('[data-kind-filter="somethingNew"]').count()) === 0)
 
     const d1 = page.locator('[data-review-row="D-9001"]')
     check(`${dir} a decision keeps its marks and has no Open`, (await d1.locator('[data-mark-action]').count()) === 2 && (await d1.locator('[data-item-open]').count()) === 0)
-    check(`${dir} an item has no marks`, (await m1.locator('[data-mark-action]').count()) === 0)
+    check(`${dir} a monitor takes the marks and opens`, (await m1.locator('[data-mark-action]').count()) === 2 && (await m1.locator('[data-item-open]').count()) === 1)
     check(`${dir} every row spans the same columns`, await page.locator('[data-review-table] tbody tr').evaluateAll((trs) => trs.every((tr) => [...tr.children].reduce((n, td) => n + td.colSpan, 0) === 12)))
     check(`${dir} no raw keys`, await noRawKeys(page))
 
@@ -105,45 +104,37 @@ for (const dir of ['ltr', 'rtl']) {
     await m1.locator('[data-item-open]').click()
     await page.locator('[data-item-dialog="M-1"]').waitFor({ timeout: 5000 })
     check(`${dir} open: the dialog says what the row says`, (await page.locator('[data-item-dialog="M-1"] [data-item-message] bdi[dir="ltr"]').innerText()) === 'nphies · CR-778' && (await page.locator('[data-item-dialog="M-1"] bdi[data-item-text]').count()) === 1)
-    const n = writes.length
-    await page.locator('[data-item-clear]').click()
-    check(`${dir} clear: an empty note is refused, nothing posted`, (await page.locator('[data-clear-problem]').count()) === 1 && writes.length === n)
-    await page.locator('[data-clear-note-input]').fill('اتصلنا بالجهة الدافعة')
-    await page.locator('[data-item-clear]').click()
-    await page.locator('[data-review-row="M-1"] [data-col="mark"][data-cleared="true"]').waitFor({ timeout: 8000 }).catch(() => {})
-    check(`${dir} clear: posts the note to the item's door`, JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: 'InsuranceRules/Review/M-1/Clear', body: { note: 'اتصلنا بالجهة الدافعة' } }), JSON.stringify(writes.at(-1)))
-    check(`${dir} clear: the row reads cleared, the note in a <bdi>, and who`, (await m1.locator('bdi[data-clear-note]').innerText()) === 'اتصلنا بالجهة الدافعة' && strip(await m1.locator('[data-cleared-by]').innerText()).includes('msartawi'))
-    check(`${dir} clear: the dialog closed`, (await page.locator('[data-item-dialog]').count()) === 0)
-    await m1.locator('[data-item-open]').click()
-    await page.locator('[data-item-dialog="M-1"]').waitFor({ timeout: 5000 })
-    check(`${dir} a cleared item opens to read, and clears no further`, (await page.locator('[data-item-clear]').count()) === 0 && (await page.locator('[data-item-dialog-cleared]').count()) === 1)
+    check(`${dir} open: only drift clears, so this one opens to read`, (await page.locator('[data-item-clear]').count()) === 0 && (await page.locator('[data-clear-note-input]').count()) === 0)
     await page.keyboard.press('Escape')
+    await page.locator('[data-item-dialog="M-1"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
 
-    await page.locator('[data-kind-filter="notEvaluated"]').click()
-    await page.locator('[data-review-row="N-1"]').waitFor({ timeout: 8000 }).catch(() => {})
+    const n = writes.length
+    await m1.locator('[data-mark-action="questioned"]').click()
+    await page.locator('[data-mark-save]').click()
+    check(`${dir} mark: Questioned needs a note, nothing posted`, (await page.locator('[data-mark-problem]').count()) === 1 && writes.length === n)
+    await page.locator('[data-mark-note-input]').fill('اتصلنا بالجهة الدافعة')
+    await page.locator('[data-mark-save]').click()
+    await page.locator('[data-review-row="M-1"] [data-col="mark"][data-mark="questioned"]').waitFor({ timeout: 8000 }).catch(() => {})
+    check(`${dir} mark: posts to the item's own door`, JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: 'InsuranceRules/Review/M-1', body: { mark: 'questioned', note: 'اتصلنا بالجهة الدافعة' } }), JSON.stringify(writes.at(-1)))
+    check(`${dir} mark: the row reads Questioned, the note in a <bdi>`, (await m1.locator('bdi[data-mark-note]').innerText()) === 'اتصلنا بالجهة الدافعة')
+
+    await page.locator('[data-kind-filter="not-evaluated"]').click()
     await page.locator('[data-review-row="M-1"]').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {})
-    check(`${dir} filter: not-evaluated items only`, JSON.stringify(await ids(page)) === JSON.stringify(['N-1', 'N-2']) && queries.at(-1) === 'kind=notEvaluated', queries.at(-1))
-    await n1.locator('[data-item-open]').click()
-    await page.locator('[data-item-dialog="N-1"]').waitFor({ timeout: 5000 })
-    await page.locator('[data-clear-note-input]').fill('Answer re-read by hand')
-    await page.locator('[data-item-clear]').click()
-    await page.locator('[data-review-row="N-1"] [data-col="mark"][data-cleared="true"]').waitFor({ timeout: 8000 }).catch(() => {})
-    check(`${dir} a not-evaluated item clears with a note too`, JSON.stringify(writes.at(-1)?.body) === JSON.stringify({ note: 'Answer re-read by hand' }) && (await n1.locator('bdi[data-clear-note]').innerText()) === 'Answer re-read by hand')
-    check(`${dir} no raw keys after clearing`, await noRawKeys(page))
+    check(`${dir} filter: not-evaluated items only, by the door's spelling`, JSON.stringify(await ids(page)) === JSON.stringify(['N-1', 'N-2']) && queries.at(-1) === 'kind=not-evaluated', queries.at(-1))
+    check(`${dir} no raw keys after marking`, await noRawKeys(page))
     check(`${dir} no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
-  // ── a refused clear ───────────────────────────────────────────────────────────────────────────
+  // ── a refused mark ─────────────────────────────────────────────────────────────────
   {
-    const { context, page } = await open(dir, { refuse: { clear: { status: 409, message: 'Someone else cleared this item.', errorCode: 'STALE' } } })
+    const { context, page } = await open(dir, { refuse: { mark: { status: 409, message: 'Someone else marked this item.', errorCode: 'STALE' } } })
     await page.goto(`${BASE}/insurance-rules/review?kind=monitor`)
     await page.locator('[data-review-row="M-1"]').waitFor({ timeout: 30000 })
-    await page.locator('[data-review-row="M-1"] [data-item-open]').click()
-    await page.locator('[data-clear-note-input]').fill('done')
-    await page.locator('[data-item-clear]').click()
+    await page.locator('[data-review-row="M-1"] [data-mark-action="ok"]').click()
+    await page.locator('[data-mark-save]').click()
     const toast = page.locator('[data-sonner-toast]').last()
     await toast.waitFor({ timeout: 8000 }).catch(() => {})
-    check(`${dir} a refused clear toasts the server's message; the dialog stays`, strip(await toast.innerText()).includes('Someone else cleared this item.') && (await page.locator('[data-item-dialog]').count()) === 1)
+    check(`${dir} a refused mark toasts the server's message; the dialog stays`, strip(await toast.innerText()).includes('Someone else marked this item.') && (await page.locator('[data-mark-dialog]').count()) === 1)
     await context.close()
   }
 }

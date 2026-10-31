@@ -87,7 +87,7 @@ for (const dir of ['ltr', 'rtl']) {
     // 1
     check(tag('1. dir'), (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
     check(tag("1. the worklist is the door's order on load"), JSON.stringify(await rowCodes(page)) === JSON.stringify(doorOrder), JSON.stringify(await rowCodes(page)))
-    check(tag('1. the proposals read asks for proposed ones'), reads.includes('InsuranceRules/Labels/Overrides?state=proposed'), reads.join(' '))
+    check(tag('1. the proposals read asks for proposed ones'), reads.includes('InsuranceRules/Labels/Overrides?waiting=true'), reads.join(' '))
     const first = page.locator('[data-worklist-row="12"]')
     check(tag('1. code and system are ltr isolates'), (await ltrText(first.locator('[data-col="code"]'))) === '12' && (await ltrText(first.locator('[data-col="system"]'))) === SYSTEM)
     check(tag('1. the label is a bdi, frequency an ltr isolate'), strip(await first.locator('[data-col="current"] [data-label="en"] bdi').innerText()) === 'Dental care' && (await ltrText(first.locator('[data-col="frequency"]'))) === '900')

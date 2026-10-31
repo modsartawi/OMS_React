@@ -5,7 +5,6 @@ import { Link } from 'react-router'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { TD } from '@/core/insurance-rules/parts'
 import { DriftSignalWords } from '@/core/insurance-rules/DriftBadges'
-import { labelsDraftPath } from '@/core/insurance-rules/LabelsChangedBadge'
 import { DRIFT_BADGES_KEY } from '@/core/insurance-rules/registry-api'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -16,10 +15,10 @@ import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
 import type { Severity } from '@/core/ui/severity'
-import { formatPair, formatRange } from '@/core/util/bidi'
+import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { REVIEW_KEY, reviewApi } from './api'
-import { REVIEW_KINDS, packageDiffGroups, type MessageRef as MessageSource, type MonitorSeverity, type PackageDiff, type ReviewCleared, type ReviewRow } from './model'
+import { REVIEW_KINDS, packageDiffGroups, type MessageRef as MessageSource, type MonitorSeverity, type PackageDiff, type RevalidatedField, type ReviewCleared, type ReviewRow } from './model'
 
 // The Review list's non-decision rows (spec 3271; oms tickets 702, 708): what each kind says, its clearing and its dialog.
 // A new kind (703) adds a case to `ItemDetail`; the row, the dialog and the clearing are the same for all.
@@ -67,48 +66,44 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
       <div className="flex flex-wrap items-center gap-2" data-item-detail="" data-reads="failure">
         <StatusBadge sev="bad">{t('item.failed')}</StatusBadge>
         {rule}
-        <span data-item-failure={d.failure ?? 'unstated'}>{t(`item.failure.${d.failure ?? 'unstated'}`)}</span>
-        <MessageRef message={d.message} />
-      </div>
-    )
-  }
-  if (d.shape === 'labelsChanged') {
-    return (
-      <div className="flex flex-wrap items-center gap-2" data-item-detail="" data-reads="labels">
-        <span data-item-labels-badge="">
-          <StatusBadge sev="warn">{t('kind.labelsChanged')}</StatusBadge>
-        </span>
-        {d.ruleset && (
-          <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
-            <bdi data-item-ruleset="">{d.ruleset.name}</bdi>
-            <span className="text-xs text-muted-foreground">
-              {t('item.labels.version')} <Ltr>{d.ruleset.version}</Ltr>
-            </span>
-          </span>
+        <span>{t('item.failure.unread')}</span>
+        {d.error && (
+          <bdi className="text-xs text-muted-foreground" data-item-error="">
+            {d.error}
+          </bdi>
         )}
-        <Link to={labelsDraftPath(d.draftId)} className="text-primary hover:underline" data-item-draft-link={d.draftId ?? ''}>
-          {t(d.draftId ? 'item.labels.openDraft' : 'item.labels.toDrafts')}
-        </Link>
+        <MessageRef message={d.message} />
       </div>
     )
   }
   if (d.shape === 'uploadDue') {
     return (
       <div className="flex flex-wrap items-center gap-2" data-item-detail="" data-reads="upload">
-        <span data-item-due={d.why ?? 'unstated'}>{t(`item.due.${d.why ?? 'unstated'}`)}</span>
+        <span data-item-due={d.why}>{t(`item.due.${d.why}`)}</span>
         {d.version && (
           <span className="text-xs text-muted-foreground" data-item-due-version="">
             {t('item.due.version')} <Ltr>{d.version}</Ltr>
           </span>
         )}
-        {d.code && (
-          <span className="font-mono text-[12px]" data-item-due-code="">
-            <Ltr>{formatPair(d.code.system, d.code.code)}</Ltr>
+        {d.codeCount > 0 && (
+          <span className="text-xs text-muted-foreground" data-item-due-count="">
+            {t('item.due.codes')} <Ltr>{d.codeCount}</Ltr>
           </span>
         )}
-        <Link to="/insurance-rules/code-labels" className="text-primary hover:underline" data-item-upload-link="">
-          {t('item.due.upload')}
-        </Link>
+        {d.codes.map((c) => (
+          <span key={`${c.system}/${c.code}`} className="font-mono text-[12px]" data-item-due-code="">
+            <Ltr>{formatPair(c.system, c.code)}</Ltr>
+          </span>
+        ))}
+        {d.closedBy !== null ? (
+          <span className="text-xs text-muted-foreground" data-item-due-closed="">
+            {t('item.due.closedBy')} <Ltr>{d.closedBy}</Ltr>
+          </span>
+        ) : (
+          <Link to="/insurance-rules/code-labels" className="text-primary hover:underline" data-item-upload-link="">
+            {t('item.due.upload')}
+          </Link>
+        )}
       </div>
     )
   }
@@ -119,7 +114,7 @@ export function ItemDetail({ row }: { row: ReviewRow }) {
         <span>{t('item.package.says')}</span>
         {d.version && (
           <span className="text-xs text-muted-foreground" data-item-package-version="">
-            {t('item.package.version')} <Ltr>{d.previousVersion ? formatRange(d.previousVersion, d.version) : d.version}</Ltr>
+            {t('item.package.version')} <Ltr>{d.version}</Ltr>
           </span>
         )}
         {groups.map((g) => (
@@ -200,7 +195,31 @@ function PackageDiffView({ diff }: { diff: PackageDiff }) {
   )
 }
 
-/** The Review column of an item: cleared with its note and who, or still open. */
+/** The catalog fields a new package no longer reads cleanly. Keys are machine values; `why` is the door's own words. */
+function RevalidationView({ fields }: { fields: RevalidatedField[] }) {
+  const { t } = useTranslation('insurance-review')
+  if (fields.length === 0) return null
+  return (
+    <section className="overflow-x-auto rounded-md border border-border/60" data-package-revalidation="">
+      <h3 className="px-2 py-1.5 text-xs font-semibold">{t('item.package.revalidation.title')}</h3>
+      <table className="w-full text-sm">
+        <tbody>
+          {fields.map((f) => (
+            <tr key={f.key} className="border-t border-border/60" data-revalidated={f.status}>
+              <td className={`${TD} font-mono text-xs break-all`}>
+                <Ltr>{f.key}</Ltr>
+              </td>
+              <td className={`${TD} text-xs whitespace-nowrap`}>{t(`item.package.revalidation.${f.status}`)}</td>
+              <td className={`${TD} text-xs`}>{f.why && <bdi>{f.why}</bdi>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+/** The Review column of a drift item: cleared with its note and who, or still open. */
 export function ItemClearing({ cleared }: { cleared: ReviewCleared | null }) {
   const { t } = useTranslation('insurance-review')
   if (!cleared) return <StatusBadge sev="mute">{t('item.notCleared')}</StatusBadge>
@@ -219,13 +238,14 @@ export function ItemClearing({ cleared }: { cleared: ReviewCleared | null }) {
   )
 }
 
-/** Open one item: what it says, and clear it with a note. A cleared item opens to read, and clears no further. */
+/** Open one item: what it says. Only an open drift item clears, with a note; every other item opens to read. */
 export function ItemDialog({ row, onClose }: { row: ReviewRow; onClose: () => void }) {
   const { t } = useTranslation('insurance-review')
   const qc = useQueryClient()
   const [note, setNote] = useState('')
   const [tried, setTried] = useState(false)
   const needsNote = !note.trim()
+  const clearable = row.detail.shape === 'drift' && !row.cleared
   const clear = useMutation({
     mutationFn: () => reviewApi.clear(row.id, note.trim()),
     onSuccess: () => {
@@ -247,7 +267,7 @@ export function ItemDialog({ row, onClose }: { row: ReviewRow; onClose: () => vo
           <Button variant="text" onClick={onClose}>
             {t('mark.cancel')}
           </Button>
-          {!row.cleared && (
+          {clearable && (
             <Button
               variant="primary"
               disabled={clear.isPending}
@@ -268,12 +288,18 @@ export function ItemDialog({ row, onClose }: { row: ReviewRow; onClose: () => vo
           <KindWord kind={row.kind} /> <Ltr>{formatDateTime(row.at)}</Ltr>
         </p>
         <ItemDetail row={row} />
-        {row.detail.shape === 'package' && <PackageDiffView diff={row.detail.diff} />}
-        {row.cleared ? (
+        {row.detail.shape === 'package' && (
+          <>
+            <PackageDiffView diff={row.detail.diff} />
+            <RevalidationView fields={row.detail.revalidation} />
+          </>
+        )}
+        {row.cleared && (
           <div data-item-dialog-cleared="">
             <ItemClearing cleared={row.cleared} />
           </div>
-        ) : (
+        )}
+        {clearable && (
           <Field
             label={t('item.clearNote')}
             error={

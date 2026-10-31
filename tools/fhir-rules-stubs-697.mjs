@@ -1,10 +1,12 @@
-// Stubs for oms 697 (BackOffice spec 3271, door 3283), on the real envelope. 🚩 Paths and shapes guessed; 711 reconciles.
-//   GET  InsuranceRules/Fields/Tree?ref=           → { ref, root }  (node: nodeRef, name, index, choice, fhirType, value, pickable, children)
-//   POST InsuranceRules/Fields/Tree/Click { ref, nodeRef } → { proposal, existing, patient }
+// Stubs for oms 697 (BackOffice spec 3271, door 3283), on the real envelope. As built (oms 711).
+//   GET  InsuranceRules/Fields/Tree/Samples                → [{ kind, keptId, source, payer, eventType, keptAt }]
+//   POST InsuranceRules/Fields/Tree/Open { kind, keptId }  → the root node { id, name, index, type, value, clickable, children }
+//   POST InsuranceRules/Fields/Tree/Click { kind, keptId, node } → { scope, type, cardinality, system, fhirPath, existing, notices }
 // The path is the stub's, as it will be the door's: the client never builds one. Every value is synthetic.
 import { envelope } from './insurance-rules-stubs.mjs'
 
-export const BUNDLE_REF = 'KB-SYN-1'
+export const KEPT = { kind: 'answer', keptId: 'KB-SYN-1' }
+export const BUNDLE_REF = `${KEPT.kind}/${KEPT.keptId}`
 /** Found on screen, and nowhere else: not in a URL, in storage, in the console or in a request. */
 export const SENTINEL = 'SYNTHETIC-VALUE-697'
 
@@ -67,20 +69,43 @@ export const CLICKS = {
   'patient.birthDate': { proposal: proposal(PATIENT_PATH, 'eligibility', 'message', 'date'), existing: null, patient: true },
 }
 
+const wireNode = (n) => ({
+  id: n.nodeRef,
+  name: n.name,
+  index: n.index ?? null,
+  type: n.fhirType ?? '',
+  value: n.value === undefined || n.value === null ? null : String(n.value),
+  clickable: !!n.pickable,
+  children: (n.children ?? []).map(wireNode),
+})
+
+const wireClick = ({ proposal: p, existing, patient }) => ({
+  scope: p.level === 'line' ? `line.${p.moment}` : p.moment,
+  type: p.type,
+  cardinality: p.cardinality,
+  system: p.system ?? null,
+  fhirPath: p.path,
+  existing: existing ? [{ key: existing.key, labelEn: existing.label?.en ?? '', labelAr: existing.label?.ar ?? '' }] : [],
+  notices: patient ? [{ code: 'patient', en: 'Reads Patient data.', ar: '' }] : [],
+})
+
 /** The doors, or null to fall through. `state.existing` is the catalog row door 3283 points at; `state.clicks` collects the bodies. */
 export function bundleTreeStub(method, path, body, state = {}) {
-  if (method === 'GET' && path === 'InsuranceRules/Fields/Tree') {
-    if (state.treeRefs) state.treeRefs.push(state.query?.get('ref') ?? null)
-    if (state.query?.get('ref') !== BUNDLE_REF) return envelope(null, { status: 404, success: false, message: 'No kept bundle has this reference.', errorCode: 'INSFIELDS_BUNDLE_NOT_FOUND' })
-    return envelope(TREE)
+  if (method === 'GET' && path === 'InsuranceRules/Fields/Tree/Samples')
+    return envelope([{ ...KEPT, source: 'nphies', payer: 'BUPA', eventType: 'priorauth-response', keptAt: '2026-10-20T09:00:00' }])
+  if (method === 'POST' && path === 'InsuranceRules/Fields/Tree/Open') {
+    const ref = `${body?.kind}/${body?.keptId}`
+    state.treeRefs?.push(ref)
+    if (ref !== BUNDLE_REF) return envelope(null, { status: 404, success: false, message: 'No kept bundle has this reference.', errorCode: 'INSFIELDS_NOT_FOUND' })
+    return envelope(wireNode(TREE.root))
   }
   if (method === 'POST' && path === 'InsuranceRules/Fields/Tree/Click') {
     state.clicks?.push(body)
-    if (body?.nodeRef === 'existing') {
+    if (body?.node === 'existing') {
       const e = state.existing
-      return envelope({ proposal: proposal(e.fhirPath, e.moment, e.level, e.type), existing: { key: e.key, moment: e.moment, level: e.level, label: e.label }, patient: false })
+      return envelope(wireClick({ proposal: proposal(e.fhirPath, e.moment, e.level, e.type), existing: { key: e.key, label: e.label }, patient: false }))
     }
-    return envelope(CLICKS[body?.nodeRef] ?? null)
+    return CLICKS[body?.node] ? envelope(wireClick(CLICKS[body.node])) : envelope(null)
   }
   return null
 }

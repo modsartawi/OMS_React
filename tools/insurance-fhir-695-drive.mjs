@@ -50,7 +50,7 @@ async function open(dir, stubState = {}) {
     } catch {
       body = null
     }
-    if (p.endsWith('Fields/Compile') && body?.path?.includes('slow')) await sleep(1800)
+    if (p.endsWith('Fields/Compile') && body?.fhirPath?.includes('slow')) await sleep(1800)
     const hit =
       rawPathStub(req.method(), p, body, state) ??
       fhirCatalogStub(req.method(), p, {}) ??
@@ -96,20 +96,30 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 6. the path field is LTR`, (await page.locator('[data-raw-path]').getAttribute('dir')) === 'ltr')
     check(`${dir} 7. no raw keys in the form`, !/insurance-(rules|fields):|\b(rawPath|catalog)\.[a-z]/.test((await page.locator('[data-raw-path-form]').innerText()) + (await page.locator('[data-raw-moment]').innerText())))
 
-    for (const code of ['syntax', 'clockFunction', 'terminologyFunction', 'conformsTo', 'trace', 'typeMisfit', 'unlistedExtension']) {
-      await typePath(page, PATHS[code])
-      check(`${dir} 1. ${code} is refused`, (await verdictState(page)) === 'refused' && (await page.locator(`[data-raw-refusal="${code}"]`).count()) === 1)
+    // Compile answers the syntax and the refused functions; a function has one refusal code, naming the function.
+    for (const [mark, code] of [['syntax', 'syntax'], ['clockFunction', 'refusedFunction'], ['terminologyFunction', 'refusedFunction'], ['conformsTo', 'refusedFunction'], ['trace', 'refusedFunction']]) {
+      await typePath(page, PATHS[mark])
+      check(`${dir} 1. ${mark} is refused`, (await verdictState(page)) === 'refused' && (await page.locator(`[data-raw-refusal="${code}"]`).count()) === 1)
       const blockedProbe = await page.locator('[data-raw-probe-run]').getAttribute('aria-disabled')
       await page.locator('[data-raw-propose]').click({ force: true })
-      check(`${dir} 1. ${code} cannot be probed or proposed`, blockedProbe === 'true' && (await blockers(page)).includes('refused') && state.proposals.length === 0, JSON.stringify(await blockers(page)))
+      check(`${dir} 1. ${mark} cannot be probed or proposed`, blockedProbe === 'true' && (await blockers(page)).includes('refused') && state.proposals.length === 0, JSON.stringify(await blockers(page)))
+    }
+
+    // The Probe answers the type and the extension URLs: it alone knows the scope and the type.
+    for (const code of ['typeMisfit', 'unlistedExtension']) {
+      await typePath(page, PATHS[code])
+      await page.locator('[data-raw-probe-run]').click()
+      await page.locator(`[data-raw-refusal="${code}"]`).waitFor({ timeout: 10000 }).catch(() => {})
+      await page.locator('[data-raw-propose]').click({ force: true })
+      check(`${dir} 1. ${code} is refused by the Probe and cannot be proposed`, (await page.locator(`[data-raw-refusal="${code}"]`).count()) >= 1 && (await blockers(page)).includes('refused') && state.proposals.length === 0, JSON.stringify(await blockers(page)))
     }
 
     await typePath(page, PATHS.caseOnly)
-    const warn = page.locator('[data-raw-warning="caseOnlyCode"]')
-    check(`${dir} 2. the case-only code warns`, (await verdictState(page)) === 'clean' && (await warn.count()) === 1)
-    check(`${dir} 2. it names both spellings`, /coPay/.test(await warn.innerText()) && /copay/.test(await warn.innerText()))
     await page.locator('[data-raw-propose]').click({ force: true })
-    check(`${dir} 2. it does not stop the proposal, only the unrun Probe does`, JSON.stringify(await blockers(page)) === '["notProbed"]', JSON.stringify(await blockers(page)))
+    check(`${dir} 2. a case-only code does not stop the proposal, only the unrun Probe does`, JSON.stringify(await blockers(page)) === '["notProbed"]', JSON.stringify(await blockers(page)))
+    await probe(page)
+    const warn = page.locator('[data-raw-warning="caseOnlyCode"]')
+    check(`${dir} 2. the Probe's case-only warning shows, naming both spellings`, (await warn.count()) === 1 && /coPay/.test(await warn.innerText()) && /copay/.test(await warn.innerText()))
 
     await typePath(page, PATHS.zero)
     await probe(page)
@@ -148,7 +158,7 @@ for (const dir of ['ltr', 'rtl']) {
     const sent = state.proposals[0]
     check(
       `${dir} 5. the proposal carries the whole row`,
-      JSON.stringify(sent) === JSON.stringify({ key: 'lineDeductible', label: { en: 'Line deductible', ar: 'خصم البند' }, moment: 'claimResponse', level: 'line', type: 'money', cardinality: 'single', system: null, fhirPath: PATHS.good }),
+      JSON.stringify(sent) === JSON.stringify({ key: 'lineDeductible', label: { en: 'Line deductible', ar: 'خصم البند' }, type: 'money', cardinality: 'single', system: null, fhirPath: PATHS.good, scope: 'line.claimResponse' }),
       JSON.stringify(sent),
     )
     check(`${dir} 5. a raw path joins no catalog on its own`, (await page.locator('[data-fields-catalog] [data-catalog-row]').count()) === FHIR_CATALOG.length)

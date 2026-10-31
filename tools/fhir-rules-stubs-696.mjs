@@ -24,7 +24,7 @@ export const proposal = (id, o = {}) => ({
   state: 'proposed',
   proposedBy: 'nalharbi',
   proposedAt: '2026-10-20T09:00:00',
-  probe: probeReply({}),
+  probe: probeReply({}).rows,
   patientWarning: false,
   decidedBy: null,
   decidedAt: null,
@@ -32,22 +32,35 @@ export const proposal = (id, o = {}) => ({
   ...o,
 })
 
+const wire = ({ label, moment, level, state, proposedBy, rejectReason, patientWarning, authorIs: _author, ...r }) => ({
+  ...r,
+  scope: level === 'line' ? `line.${moment}` : moment,
+  labelEn: label.en,
+  labelAr: label.ar,
+  status: state,
+  author: proposedBy,
+  decisionNote: rejectReason,
+  warnings: patientWarning ? [{ code: 'patient', en: 'Reads Patient data.', ar: '' }] : [],
+})
+
 /** One store two sessions share, so the second user sees what the first proposed. */
 export function newProposalStore(rows = []) {
   return { next: 1, rows, catalog: [...FHIR_CATALOG], writes: [] }
 }
 
-/** `viewer.approver` false answers as a reader; `deny` lists the doors that answer a bare 403 (`list`, `approve`). */
-export function fieldProposalsStub(method, path, body, { store, user, viewer = { approver: true }, deny = [], now = '2026-10-30T10:30:00' }) {
+/** `deny` lists the doors that answer a bare 403 (`list`, `approve`). */
+export function fieldProposalsStub(method, path, body, { store, user, deny = [], now = '2026-10-30T10:30:00' }) {
   if (path !== BASE && !path.startsWith(`${BASE}/`)) return null
   if (path === BASE && method === 'GET') {
     if (deny.includes('list')) return { status: 403, contentType: 'application/json', body: '' }
-    return envelope({ proposals: store.rows, viewer })
+    return envelope(store.rows.map(wire))
   }
   if (path === BASE && method === 'POST') {
-    const row = proposal(`FP-${store.next++}`, { ...body, proposedBy: user, proposedAt: now, probe: probeReply({ path: body.fhirPath }), patientWarning: /Patient/.test(body.fhirPath) })
+    const { scope, ...sent } = body
+    const isLine = scope.startsWith('line.')
+    const row = proposal(`FP-${store.next++}`, { ...sent, moment: isLine ? scope.slice(5) : scope, level: isLine ? 'line' : 'message', proposedBy: user, proposedAt: now, probe: probeReply(body).rows, patientWarning: /Patient/.test(body.fhirPath) })
     store.rows.push(row)
-    return envelope(row)
+    return envelope(wire(row))
   }
   const m = /^InsuranceRules\/Fields\/Proposals\/([^/]+)\/(Approve|Reject)$/.exec(path)
   if (!m || method !== 'POST') return null
@@ -60,11 +73,11 @@ export function fieldProposalsStub(method, path, body, { store, user, viewer = {
     return refuse(409, 'Someone other than the author must decide a proposed field.', 'INSFIELDS_SELF_APPROVAL')
   if (row.state !== 'proposed') return refuse(409, 'This proposal has already been decided.', 'INSFIELDS_PROPOSAL_DECIDED')
   if (m[2] === 'Reject') {
-    if (!body?.reason) return refuse(400, 'A rejection needs its reason.', 'INSFIELDS_REASON_REQUIRED')
-    Object.assign(row, { state: 'rejected', decidedBy: user, decidedAt: now, rejectReason: body.reason })
-    return envelope(row)
+    if (!body?.note) return refuse(400, 'A rejection needs its reason.', 'INSFIELDS_REASON_REQUIRED')
+    Object.assign(row, { state: 'rejected', decidedBy: user, decidedAt: now, rejectReason: body.note })
+    return envelope(wire(row))
   }
   Object.assign(row, { state: 'approved', decidedBy: user, decidedAt: now })
   store.catalog.push({ key: row.key, label: row.label, moment: row.moment, level: row.level, type: row.type, unit: null, fhirPath: row.fhirPath, cardinality: row.cardinality, system: row.system, channels: [{ channel: 'nphies', answer: 'answers' }], parameter: null, choice: null, legacy: null, retired: false })
-  return envelope(row)
+  return envelope(wire(row))
 }

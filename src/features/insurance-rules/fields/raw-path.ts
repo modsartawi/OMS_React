@@ -69,6 +69,8 @@ export interface PathWarning {
   /** `caseOnlyCode`: the code as the path spells it, and as the system does. */
   literal?: string | null
   known?: string | null
+  /** The door's own words (3282): a probe's notice has no `literal` or `known`. */
+  says?: { en: string; ar: string } | null
 }
 
 export interface CompileVerdict {
@@ -86,6 +88,8 @@ export interface PayerProbe {
 export interface ProbeReply {
   payers: PayerProbe[]
   refusals: PathRefusal[]
+  /** Case-only literals and the like: the door finds them over the samples, so they arrive here, not on Compile. */
+  warnings?: PathWarning[]
 }
 
 /** Zero matches anywhere is a warning (3282), and never stops a proposal. */
@@ -170,12 +174,14 @@ export function compileVerdictOf(r: CompileDoorReply | null | undefined): Compil
 export interface ProbeDoorReply {
   rows?: { source?: string | null; payer?: string | null; match?: number; noMatch?: number; unknown?: number }[] | null
   errors?: { code: string; en?: string | null }[] | null
+  warnings?: { code: string; en?: string | null; ar?: string | null }[] | null
 }
 
 export function probeReplyOf(r: ProbeDoorReply | null | undefined): ProbeReply {
   return {
     payers: (r?.rows ?? []).map((p) => ({ payer: p.payer || p.source || '', match: p.match ?? 0, noMatch: p.noMatch ?? 0, unknown: p.unknown ?? 0 })),
     refusals: (r?.errors ?? []).map((e) => ({ code: e.code, message: e.en ?? e.code, detail: e.en ?? null })),
+    warnings: (r?.warnings ?? []).map((w) => ({ code: w.code, message: w.en ?? w.code, says: { en: w.en ?? '', ar: w.ar ?? '' } })),
   }
 }
 

@@ -48,10 +48,11 @@ function ChannelDots({ channels }: { channels: ChannelRate[] }) {
 function LegacyNote({ legacy }: { legacy: FhirLegacy }) {
   const { t } = useTranslation('insurance-rules')
   return (
-    <span className="inline-flex flex-wrap items-center gap-2 text-xs" data-legacy={legacy.removedOn}>
+    <span className="inline-flex flex-wrap items-center gap-2 text-xs" data-legacy={legacy.removedOn ?? ''}>
       <StatusBadge sev="warn">{t('catalog.legacy.badge')}</StatusBadge>
       <span className="text-muted-foreground" data-legacy-note="">
-        {t('catalog.legacy.note', { date: fsi(legacy.removedOn), replacement: fsi(legacy.replacement) })}
+        {legacy.removedOn ? t('catalog.legacy.note', { date: fsi(legacy.removedOn) }) : t('catalog.legacy.noDay')}
+        {legacy.replacement && <> {t('catalog.legacy.changeLog', { replacement: fsi(legacy.replacement) })}</>}
       </span>
     </span>
   )
@@ -72,7 +73,7 @@ function ParameterPicker({ row, current, onUse }: { row: FhirCatalogRow; current
   const optionText = (o: ParameterOption) => {
     const label = saysIn(o.label, i18n.language)
     const name = fsi(label ? formatPair(o.code, label) : o.code)
-    return o.seen === 'seen' ? t('catalog.parameter.option.seen', { name, payers: fsi(o.census) }) : t(`catalog.parameter.option.${o.seen}`, { name })
+    return o.seen === 'seen' ? t('catalog.parameter.option.seen', { name, times: fsi(o.census) }) : t(`catalog.parameter.option.${o.seen}`, { name })
   }
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted p-2 text-xs" data-parameter-picker={row.parameter ?? ''}>
@@ -88,7 +89,7 @@ function ParameterPicker({ row, current, onUse }: { row: FhirCatalogRow; current
         <span data-parameter-census={chosen.seen}>
           {chosen.seen === 'seen' ? (
             <>
-              {t('catalog.parameter.payers')} <Ltr>{chosen.census}</Ltr>
+              {t('catalog.parameter.census')} <Ltr>{chosen.census}</Ltr>
             </>
           ) : (
             t(`catalog.parameter.${chosen.seen}`)

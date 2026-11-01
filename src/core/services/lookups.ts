@@ -89,11 +89,15 @@ export const lookupQueries = {
    * not an `SdDocument` endpoint, and 137 re-confirmed it off the call-center
    * door on its own terms — slot availability is store *operational* data, with
    * no document or customer data in it.
+   *
+   * `deliveryNo` caps the list at that delivery's hand-over limit (BackOffice 2909). A
+   * new order has no delivery yet, so the console's chip does not send one.
    */
-  availableSlots: (storeCode: string) =>
+  availableSlots: (storeCode: string, deliveryNo?: string) =>
     queryOptions({
-      queryKey: ['lookup', 'availableSlots', storeCode],
-      queryFn: () => api.get<TimeSlotsModel>(`Slots/AvailableSlots/${encodeURIComponent(storeCode.trim())}`),
+      queryKey: ['lookup', 'availableSlots', storeCode, deliveryNo ?? ''],
+      queryFn: () =>
+        api.get<TimeSlotsModel>(`Slots/AvailableSlots/${encodeURIComponent(storeCode.trim())}`, { deliveryNo }),
       staleTime: 0,
       gcTime: 0,
       retry: false,

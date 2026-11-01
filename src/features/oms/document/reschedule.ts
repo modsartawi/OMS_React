@@ -6,6 +6,17 @@ import type {
   TimeSlotModel,
   TimeSlotTimeModel,
 } from '@/core/models/slots'
+import { isDeliveryCategory } from './actions'
+
+/**
+ * The delivery whose hand-over limit caps the slot list (BackOffice 2909). An order
+ * sends none: its list stays uncapped and the server refuses a late slot, naming the limit.
+ */
+export function slotListDeliveryNo(
+  doc: { documentCategory: string; documentNo: string },
+): string | undefined {
+  return isDeliveryCategory(doc.documentCategory) ? doc.documentNo : undefined
+}
 
 /**
  * Order two windows by start time. `slotFrom` is a datetime string; when both

@@ -365,6 +365,14 @@ describe('filesRow', () => {
     expect(prescriptionOf(railCards(doc, t, files(0, true)))).toBeUndefined()
   })
 
+  it('shows the hand-over limit on the fulfilment card, and no row when the delivery has none', () => {
+    const fulfilmentRow = (doc: SdDocumentHeaderModel) =>
+      railCards(doc, t).find((c) => c.key === 'fulfilment')?.rows.find((r) => r.key === 'handOverLimit')
+    const doc = { ...PAYLOADS['2000000551'], handOverLimit: '2026-11-04T14:30:00' } as SdDocumentHeaderModel
+    expect(fulfilmentRow(doc)).toMatchObject({ label: 'Hand-over limit', value: '2026-11-04 14:30' })
+    expect(fulfilmentRow(PAYLOADS['2000000551'])).toBeUndefined()
+  })
+
   it('leaves the Rx document link row unchanged, and no row carries both href and action', () => {
     const doc = { ...PAYLOADS['2000000551'], prescriptionUrl: 'https://rx.example/doc/1' } as SdDocumentHeaderModel
     const link = { key: 'prescriptionUrl', label: 'Rx document', value: 'View', href: 'https://rx.example/doc/1' }

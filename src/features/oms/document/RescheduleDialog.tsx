@@ -9,7 +9,9 @@ import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
-import { buildRescheduleModel, selectableDays, selectableTimes } from './reschedule'
+import { formatDateTime } from '@/core/util/date-format'
+import { fsi } from '@/core/util/bidi'
+import { buildRescheduleModel, selectableDays, selectableTimes, slotListDeliveryNo } from './reschedule'
 import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
 
@@ -18,7 +20,8 @@ import Select from '@/core/ui/Select'
  *
  * On open it loads the store's available slots and the reschedule reasons, then
  * offers Day / Time / Reason. A non-urgent document sees only available
- * (`status === true`) windows; an urgent document sees every window.
+ * (`status === true`) windows; an urgent document sees every window. A delivery's
+ * list stops at its hand-over limit, and the dialog says where that limit is.
  *
  * The dialog opens directly from the command panel and its primary button is the
  * deliberate confirmation (D-20); the parent posts and refreshes.
@@ -45,7 +48,10 @@ export default function RescheduleDialog({
   // Slots are store- AND time-specific: a window free two minutes ago may be
   // full now. Never cached, always refetched on open — the query options carry
   // that (`core/services/lookups`), where the console's slot chip shares them.
-  const slots = useQuery({ ...lookupQueries.availableSlots(storeCode), enabled: open && storeCode !== '' })
+  const slots = useQuery({
+    ...lookupQueries.availableSlots(storeCode, slotListDeliveryNo(document)),
+    enabled: open && storeCode !== '',
+  })
   const reasons = useQuery({ ...lookupQueries.rescheduleReasons(), enabled: open })
 
   const loading = slots.isPending || reasons.isPending
@@ -55,6 +61,7 @@ export default function RescheduleDialog({
   const times = selectableTimes(selectedDay, isUrgent)
   const selectedTime = times.find((w) => w.slotId === slotId) ?? null
   const reasonList = reasons.data ?? []
+  const handOverLimit = formatDateTime(slots.data?.handOverLimit)
 
   // Seed once the data lands: first day (and its first window), first reason.
   useEffect(() => {
@@ -111,10 +118,19 @@ export default function RescheduleDialog({
         ) : days.length === 0 ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-6 text-[0.8125rem] text-muted-foreground">
             <Inbox className="h-4 w-4" aria-hidden />
-            <span>{t('reschedule.noSlots')}</span>
+            <span>
+              {handOverLimit
+                ? t('reschedule.noSlotsBeforeLimit', { limit: fsi(handOverLimit) })
+                : t('reschedule.noSlots')}
+            </span>
           </div>
         ) : (
           <>
+            {handOverLimit && (
+              <p className="text-[0.8125rem] text-muted-foreground">
+                {t('reschedule.limitNote', { limit: fsi(handOverLimit) })}
+              </p>
+            )}
             <Field id="reschedule-day" label={t('reschedule.day')}>
               <Select
                 className="w-full"

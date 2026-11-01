@@ -210,6 +210,11 @@ export interface SdDocumentHeaderModel {
    * **not returnable**: the command fails closed, never open.
    */
   canReturn?: boolean
+  /**
+   * When this delivery must have reached its customer, or it closes (BackOffice 2911).
+   * Present only on a delivery that carries a limit: the server omits it otherwise.
+   */
+  handOverLimit?: string | null
   documentType: string // coded
   documentTypeDescription: string
   documentSource: string // coded

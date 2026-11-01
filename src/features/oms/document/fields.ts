@@ -10,7 +10,7 @@ import type {
 } from '@/core/models/sd-document'
 import { deliveryWindow } from '@/core/oms/delivery-window'
 import { formatPair } from '@/core/util/bidi'
-import { formatLongDate, formatTimeOfDay } from '@/core/util/date-format'
+import { formatDateTime, formatLongDate, formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 
 /**
@@ -345,6 +345,7 @@ export function railCards(doc: SdDocumentHeaderModel, t: TFn, files?: RailFiles)
       ),
       textRow('store', t('cards.store'), text(doc.storeCode), { numeric: true }),
       textRow('window', t('cards.window'), deliveryWindow(doc), { numeric: true }),
+      textRow('handOverLimit', t('cards.handOverLimit'), formatDateTime(doc.handOverLimit), { numeric: true }),
       textRow('note', t('cards.note'), text(doc.note), { soft: true }),
     ]),
   })

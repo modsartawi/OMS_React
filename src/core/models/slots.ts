@@ -30,6 +30,11 @@ export interface TimeSlotModel {
 /** The available-slots payload — a list of days. */
 export interface TimeSlotsModel {
   slots: TimeSlotModel[]
+  /**
+   * The hand-over limit the list was capped at (BackOffice 2909). Set only when the
+   * slots were asked for a delivery that carries one; otherwise the list is uncapped.
+   */
+  handOverLimit?: string | null
 }
 
 /** A reschedule reason — the Reschedule picker's Reason dropdown. */

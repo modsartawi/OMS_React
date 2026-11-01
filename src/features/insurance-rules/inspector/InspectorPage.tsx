@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
 
-import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { maskedKey } from '@/core/insurance-rules/backtest'
 import { guardRulePath } from '@/core/insurance-rules/model'
@@ -67,6 +67,7 @@ function Decision({ id }: { id: string }) {
   const { t } = useTranslation('insurance-inspector')
   const q = useQuery(decisionQuery(id))
   if (q.isError && isBareDenial(q.error)) return <DeniedCard ns="insurance-inspector" hook="inspector-denied" />
+  if (q.isError && q.error instanceof ApiError && q.error.statusCode === 404) return <ErrorBanner className="p-3" message={t('notFound', { id })} />
   if (q.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(q.error, t('failed'))} />
   if (!q.data) return <Loading text={t('loading')} />
   const d = q.data

@@ -93,7 +93,11 @@ function matchValue(match: GuardMatch, ctx: GuardSentenceContext, otherKind = fa
 }
 
 const lineScope = (include: boolean): SentenceValue => phrase(include ? 'lineScope.include' : 'lineScope.exclude')
-const fieldValue = (field: string): SentenceValue => (KNOWN_FIELDS.has(field) ? phrase(`field.${field}`) : code(field))
+const fieldValue = (field: string, ctx: GuardSentenceContext): SentenceValue => {
+  if (KNOWN_FIELDS.has(field)) return phrase(`field.${field}`)
+  const label = ctx.fields?.find((f) => f.key === field)?.label
+  return label ? { kind: 'says', says: label } : code(field)
+}
 const afterValue = (v: string): SentenceValue =>
   KNOWN_PATHS[v] ? phrase(`path.${KNOWN_PATHS[v]}`) : isDay(v) ? { kind: 'day', day: v } : code(v)
 
@@ -136,7 +140,7 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
     }
     case 'line': {
       if (c.inList !== undefined) return { sentence: S('line.inList', { list: listValue(c.inList, ctx) }), clauses }
-      const field = fieldValue(c.field ?? '')
+      const field = fieldValue(c.field ?? '', ctx)
       if (c.above !== undefined) return { sentence: S('line.above', { field, value: num(c.above) }), clauses }
       if (c.below !== undefined) return { sentence: S('line.below', { field, value: num(c.below) }), clauses }
       if (c.after !== undefined) return { sentence: S('line.after', { field, value: afterValue(c.after) }), clauses }

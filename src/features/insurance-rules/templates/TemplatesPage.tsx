@@ -8,6 +8,7 @@ import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { GuardSeverityBadge } from '@/core/insurance-rules/badges'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { ruleSeverity, type GuardList } from '@/core/insurance-rules/model'
+import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import { templateOut, type GuardTemplate, type TemplateSource } from '@/core/insurance-rules/templates'
 import JsonButton from '@/core/insurance-rules/JsonButton'
@@ -95,7 +96,8 @@ function Gallery() {
 function TemplateCard({ template, lists, onUse }: { template: GuardTemplate; lists: readonly GuardList[]; onUse: () => void }) {
   const { t, i18n } = useTranslation('insurance-templates')
   const severity = ruleSeverity(template.rule)
-  const s = useMemo(() => guardSentence(template.rule, lists), [template.rule, lists])
+  const fields = useQuery(fieldsQuery()).data
+  const s = useMemo(() => guardSentence(template.rule, lists, fields), [template.rule, lists, fields])
   const blanks = template.blanks.length
   return (
     <article className="flex h-full flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 text-sm" data-template={template.id}>

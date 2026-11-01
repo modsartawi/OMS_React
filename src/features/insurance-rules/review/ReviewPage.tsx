@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
-import { guardReasonsQuery } from '@/core/insurance-rules/order-guards-api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { saysIn } from '@/core/rules/sentence'
 import { RuleId } from '@/core/insurance-rules/badges'
@@ -23,7 +22,7 @@ import type { Severity } from '@/core/ui/severity'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { REVIEW_KEY, reviewApi } from './api'
+import { hqGuardReasonsQuery, REVIEW_KEY, reviewApi } from './api'
 import { REVIEW_KINDS, type ReviewMark, type ReviewRow } from './model'
 import { EMPTY_REVIEW_QUERY, reviewFromParams, reviewToParams, type ReviewQuery } from './review-query'
 import { ItemClearing, ItemDetail, ItemDialog, KindWord } from './ReviewItems'
@@ -61,7 +60,7 @@ function Review() {
     if (changedFromOutside()) setDraft(query)
   }, [query, changedFromOutside])
   const rows = useQuery({ queryKey: [...REVIEW_KEY, reviewToParams(query).toString()], queryFn: () => reviewApi.review(query), retry: false })
-  const reasons = useQuery(guardReasonsQuery())
+  const reasons = useQuery(hqGuardReasonsQuery())
   const draftDoc = useQuery(guardDraftQuery())
   const [marking, setMarking] = useState<{ row: ReviewRow; mark: ReviewMark } | null>(null)
   const [opening, setOpening] = useState<ReviewRow | null>(null)

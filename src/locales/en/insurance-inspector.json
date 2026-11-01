@@ -3,6 +3,7 @@
   "lede": "Any decision of any age: its rule and version, what each fact read, the replay, and the message checked by its hash.",
   "loading": "Reading the decision…",
   "failed": "The decision could not be read.",
+  "notFound": "No decision has the id {{id}}.",
   "access": {
     "deniedTitle": "You do not have access",
     "deniedHint": "Reading a decision needs the decision-log read grant. Ask HQ to grant it."

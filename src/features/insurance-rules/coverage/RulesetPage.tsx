@@ -19,7 +19,7 @@ import type { RuleSource } from '@/core/insurance-rules/experiment'
 import { RuleDriftBadges } from '@/core/insurance-rules/DriftBadges'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { LabelsChangedBadge } from '@/core/insurance-rules/LabelsChangedBadge'
-import { fieldsQuery } from '@/core/insurance-rules/registry-api'
+import { fhirCatalogQuery, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -473,7 +473,8 @@ function RuleEditor({
   const { t } = useTranslation('insurance-coverage')
   const fields = useQuery(fieldsQuery()).data
   const folderListId = useId()
-  const reads = useMemo(() => rule.when.map((c) => conditionSentence(c, { rule: { filters: [] }, lists, fields })), [rule.when, lists, fields])
+  const catalog = useQuery(fhirCatalogQuery()).data
+  const reads = useMemo(() => rule.when.map((c) => conditionSentence(c, { rule: { filters: [] }, lists, fields, catalog })), [rule.when, lists, fields, catalog])
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]" data-rule-editor={rule.id}>
       <div className="flex flex-col gap-4">
@@ -527,7 +528,7 @@ function RuleEditor({
           )}
         </Block>
       </div>
-      <aside className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 text-sm" data-reads-as="">
+      <aside className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 text-sm [overflow-wrap:anywhere]" data-reads-as="">
         <h2 className="text-xs font-semibold text-muted-foreground">{t('rule.readsAs')}</h2>
         {reads.length ? <ConditionTree nodes={reads} /> : <p className="text-xs text-muted-foreground">{t('rule.everyLine')}</p>}
         <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2" data-reads-then="">

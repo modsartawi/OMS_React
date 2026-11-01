@@ -6,6 +6,7 @@
  *   POST InsuranceRules/Review/{id}               { mark: ok|questioned, note } → { mark, note, by, at }
  *   POST InsuranceRules/Review/{id}/Clear         { note } → a drift item's row (only drift is cleared; 3293)
  *   GET  InsuranceRules/Exceptions?patientKey=    → ONE patient's exceptions (a 10-digit key is required: 400 otherwise)
+ *   GET  InsuranceRules/Exceptions/Reasons        → the NCPDP codes, the session's read of `Guards/Reasons` (an API-key door)
  *   POST InsuranceRules/Exceptions                { patientKey, ruleId|null, scope, validUntil, reason, note } → the exception
  *   POST InsuranceRules/Exceptions/{id}/Revoke    { note } (required) → the exception, revoked
  *   GET  InsuranceRules/Exceptions/{id}/Log       → [{ at, by, action, note, checkId, channel, sourceRef, line, ruleId, severity, store }]
@@ -13,6 +14,7 @@
  *   ⚠️ That door is api-key only in BackOffice 3134: a browser session is answered a bare 403 — on 618's list.)
  */
 import { api } from '@/core/api'
+import { reasonsIn, type GuardReasonsReply } from '@/core/insurance-rules/guard-check'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IssueExceptionBody } from './exception'
 import { exceptionIn, logIn, reviewIn, type ExceptionLogEntry, type ExceptionLogReply, type ExceptionReply, type GuardException, type ReviewMark, type ReviewReply, type ReviewRow } from './model'
@@ -54,3 +56,13 @@ export const reviewApi = {
 
 export const REVIEW_KEY = [...INSURANCE_RULES_KEY, 'review'] as const
 export const EXCEPTIONS_KEY = [...INSURANCE_RULES_KEY, 'exceptions'] as const
+
+/** The NCPDP reason codes for HQ's screens. They change only with HQ's master data: read once per page life. */
+export function hqGuardReasonsQuery() {
+  return {
+    queryKey: [...INSURANCE_RULES_KEY, 'exceptions', 'reasons'],
+    queryFn: async () => reasonsIn(await api.get<GuardReasonsReply | null>(`${INSURANCE_RULES_BASE}/Exceptions/Reasons`)),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}

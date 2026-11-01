@@ -15,7 +15,7 @@ import { guardEditPath, guardsPath, ruleSeverity, type GuardRule, type GuardRule
 import { isMonitor } from '@/core/insurance-rules/monitor'
 import OpenInPlayground from '@/core/insurance-rules/OpenInPlayground'
 import { usesFhirFacts } from '@/core/insurance-rules/fact-tests'
-import { fhirCatalogQuery } from '@/core/insurance-rules/registry-api'
+import { fhirCatalogQuery, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -77,7 +77,8 @@ export default function GuardPage() {
 function RuleRead({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
   const { t } = useTranslation('insurance-guards')
   const catalog = useQuery({ ...fhirCatalogQuery(), enabled: usesFhirFacts(rule.when) }).data
-  const s = guardSentence(rule, doc.lists, undefined, catalog)
+  const fields = useQuery(fieldsQuery()).data
+  const s = guardSentence(rule, doc.lists, fields, catalog)
   const severity = ruleSeverity(rule)
   const monitor = isMonitor(rule)
   return (

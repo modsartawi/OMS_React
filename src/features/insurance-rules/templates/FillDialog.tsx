@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -10,6 +10,7 @@ import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardRuleOut } from '@/core/insurance-rules/guard-wire'
 import JsonButton from '@/core/insurance-rules/JsonButton'
 import { guardEditPath, type GuardRuleset, type Says } from '@/core/insurance-rules/model'
+import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import { nextGuardId } from '@/core/insurance-rules/guard-edit'
 import { blankKind, changedValues, fillTemplate, listBlankId, listBlankValue, missingBlanks, valueAt, type BlankValue, type GuardTemplate } from '@/core/insurance-rules/templates'
@@ -39,7 +40,8 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
   const [folder, setFolder] = useState(template.rule.folder)
   const folders = useMemo(() => folderPaths(folderTree(draft.rules)), [draft.rules])
   const missing = missingBlanks(template, values)
-  const preview = useMemo(() => guardSentence(fillTemplate(template, values, { id: '' }), draft.lists), [template, values, draft.lists])
+  const fields = useQuery(fieldsQuery()).data
+  const preview = useMemo(() => guardSentence(fillTemplate(template, values, { id: '' }), draft.lists, fields), [template, values, draft.lists, fields])
   const set = (path: string, v: BlankValue) => setValues((x) => ({ ...x, [path]: v }))
 
   // HQ adds the rule under the id the client names, to the draft at the revision on screen.

@@ -105,6 +105,18 @@ describe('guardSentence_rendersEachBlockKind', () => {
   })
 })
 
+describe('a line field the sentence has no words of its own for', () => {
+  const block = { check: 'line', field: 'idfPriority', above: 3 } as GuardCondition
+  const words = (fields?: RegistryField[]) => node(conditionSentence(block, { rule: rule('G-001'), lists: LISTS, fields }))
+
+  it('reads by its registry label, and by its key only while the registry is not there', () => {
+    const fields = [{ key: 'idfPriority', label: { en: 'IDF priority', ar: 'أولوية الصرف' } }] as RegistryField[]
+    expect(words(fields)).toContain('IDF priority')
+    expect(words(fields)).not.toContain('idfPriority')
+    expect(words()).toContain('idfPriority')
+  })
+})
+
 describe('guardSentence — WHEN and THEN', () => {
   it('WHEN names the channels, the stores and the window (G-002, G-010)', () => {
     expect(guardSentence(rule('G-002'), LISTS).when.map(text)).toEqual([

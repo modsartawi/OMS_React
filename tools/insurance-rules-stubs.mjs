@@ -707,7 +707,7 @@ export function createReviewStubs(opts = {}) {
     return r ? envelope(null, { status: r.status ?? 409, success: false, message: r.message, errorCode: r.errorCode }) : null
   }
   return function reviewStub(method, path, body, params = new URLSearchParams()) {
-    if (method === 'GET' && path === 'Guards/Reasons') return read('reasons', GUARD_REASONS)
+    if (method === 'GET' && (path === 'Guards/Reasons' || path === 'InsuranceRules/Exceptions/Reasons')) return read('reasons', GUARD_REASONS)
     if (method === 'GET' && path === 'InsuranceRules/Review') {
       const f = (k) => params.get(k) ?? ''
       const out = rows.filter(

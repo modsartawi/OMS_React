@@ -11,7 +11,7 @@ import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
 import type { NewRegistryField, RegistryField } from '@/core/insurance-rules/registry'
 import { FIELDS_KEY } from '@/core/insurance-rules/registry-api'
 import { refParts, treeClickOf, treeNodeOf, type BundleTree, type TreeClickDoorReply, type TreeClickReply, type TreeDoorNode, type TreeSample } from './bundle-tree'
-import { proposalOf, type FieldProposal, type FieldProposalsReply, type ProposalDoorRow } from './field-proposal'
+import { proposalOf, type FieldProposal, type FieldProposalsReply, type ProposalDoorRow, type ProposalViewer } from './field-proposal'
 import { compileVerdictOf, probeReplyOf, scopeOf, type CompileDoorReply, type CompileInput, type CompileVerdict, type FieldProposalBody, type ProbeDoorReply, type ProbeReply } from './raw-path'
 
 /** The kept copy a ref names; a ref that names none is said, never sent. */
@@ -52,10 +52,13 @@ export const fieldsApi = {
   async treeClick(ref: string, nodeRef: string): Promise<TreeClickReply> {
     return treeClickOf(await api.post<TreeClickDoorReply>(`${INSURANCE_RULES_BASE}/Fields/Tree/Click`, { ...keptCopy(ref), node: nodeRef }))
   },
-  /** ⚠️ PROVISIONAL (oms 696): `GET InsuranceRules/Fields/Proposals`. With no `viewer`, both roles stand and HQ refuses (the approval.ts precedent). */
+  /** `GET InsuranceRules/Fields/Proposals` and `…/Viewer`. A viewer that cannot be read offers no decision; HQ refuses one anyway. */
   async proposals(): Promise<FieldProposalsReply> {
-    const rows = await api.get<ProposalDoorRow[] | null>(`${INSURANCE_RULES_BASE}/Fields/Proposals`)
-    return { proposals: (rows ?? []).map(proposalOf), viewer: { approver: true } }
+    const [rows, viewer] = await Promise.all([
+      api.get<ProposalDoorRow[] | null>(`${INSURANCE_RULES_BASE}/Fields/Proposals`),
+      api.get<ProposalViewer | null>(`${INSURANCE_RULES_BASE}/Fields/Proposals/Viewer`).catch(() => null),
+    ])
+    return { proposals: (rows ?? []).map(proposalOf), viewer: { approver: viewer?.approver === true } }
   },
   /** ⚠️ PROVISIONAL (oms 696): `POST …/Proposals/{id}/Approve` — the row joins the catalog. HQ refuses an own approval. */
   approve(id: string): Promise<FieldProposal> {

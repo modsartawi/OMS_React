@@ -106,8 +106,14 @@ export interface RepinDoorChange {
   key: string
   oldPath?: string | null
   newPath?: string | null
-  aliasesAdded?: unknown[] | null
-  aliasesRemoved?: unknown[] | null
+  aliasesAdded?: RepinDoorAlias[] | null
+  aliasesRemoved?: RepinDoorAlias[] | null
+}
+
+export interface RepinDoorAlias {
+  payer?: string | null
+  wrongUrl?: string | null
+  canonicalUrl?: string | null
 }
 
 export interface RepinDoorAffected {
@@ -128,14 +134,20 @@ export interface LabelsDoorAffected {
 const changeKind = (c: RepinDoorChange): RepinKind => ((c.oldPath ?? '') === (c.newPath ?? '') && ((c.aliasesAdded?.length ?? 0) > 0 || (c.aliasesRemoved?.length ?? 0) > 0) ? 'alias' : 'path')
 const orNull = (s: string | null | undefined): string | null => s || null
 
+/** A path, or when only the aliases move, what each URL is read as. */
+const sideOf = (path: string | null | undefined, aliases: readonly RepinDoorAlias[] | null | undefined): string | null =>
+  orNull(path) ?? orNull((aliases ?? []).filter((a) => a.wrongUrl && a.canonicalUrl).map((a) => `${a.wrongUrl} → ${a.canonicalUrl}`).join(', '))
+const beforeOf = (c: RepinDoorChange) => (changeKind(c) === 'alias' ? sideOf(null, c.aliasesRemoved) : orNull(c.oldPath))
+const afterOf = (c: RepinDoorChange) => (changeKind(c) === 'alias' ? sideOf(null, c.aliasesAdded) : orNull(c.newPath))
+
 export function affectedRows(paths: readonly RepinDoorAffected[] | null | undefined, labels: readonly LabelsDoorAffected[] | null | undefined): AffectedRuleset[] {
   return [
     ...(paths ?? []).flatMap((r) =>
       (r.changes ?? []).map((c): AffectedRuleset => ({
         kind: changeKind(c),
         subject: `${c.scope}.${c.key}`,
-        before: orNull(c.oldPath),
-        after: orNull(c.newPath),
+        before: beforeOf(c),
+        after: afterOf(c),
         changeId: c.key,
         rulesetId: r.kind,
         rulesetName: r.kind,
@@ -184,8 +196,8 @@ export function draftOf(d: RepinDoorDraft): RepinDraft {
     id: d.id,
     kind: d.labelsOnly ? 'labels' : changes.length > 0 && changes.every((c) => changeKind(c) === 'alias') ? 'alias' : 'path',
     subject: changes.map((c) => `${c.scope}.${c.key}`).join(', '),
-    before: d.labelsOnly ? null : orNull(changes.map((c) => c.oldPath).filter(Boolean).join(', ')),
-    after: d.labelsOnly ? (d.labelVersionNo ? String(d.labelVersionNo) : null) : orNull(changes.map((c) => c.newPath).filter(Boolean).join(', ')),
+    before: d.labelsOnly ? null : orNull(changes.map(beforeOf).filter(Boolean).join(', ')),
+    after: d.labelsOnly ? (d.labelVersionNo ? String(d.labelVersionNo) : null) : orNull(changes.map(afterOf).filter(Boolean).join(', ')),
     rulesetId: d.kind,
     rulesetName: d.kind,
     rulesetVersion: d.baseVersionNo,

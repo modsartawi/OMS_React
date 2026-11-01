@@ -307,6 +307,7 @@
       "warn": "If a fact is unknown, the pharmacist is warned."
     },
     "fact": {
+      "withCode": "<fact>{{fact}}</fact> (<code>{{code}}</code>)",
       "previous": "<fact>{{fact}}</fact> on the answer before",
       "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",

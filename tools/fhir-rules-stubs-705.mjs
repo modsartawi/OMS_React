@@ -23,7 +23,7 @@ function changed(store, aliases) {
   const rows = store.pathRow && !store.done.includes(store.pathRow.changeId) ? [store.pathRow] : []
   for (const a of aliases.rows) {
     if (a.state !== 'approved' || a.id === 'A-1' || store.done.includes(a.id)) continue
-    rows.push({ changeId: a.id, rulesetId: 'guards', rulesetVersion: 7, change: { scope: 'eligibility', key: a.id, oldPath: '', newPath: '', aliasesAdded: [a.wrongUrl], aliasesRemoved: [] } })
+    rows.push({ changeId: a.id, rulesetId: 'guards', rulesetVersion: 7, change: { scope: 'eligibility', key: a.id, oldPath: '', newPath: '', aliasesAdded: [{ payer: a.payer, wrongUrl: a.wrongUrl, canonicalUrl: a.canonicalUrl }], aliasesRemoved: [] } })
   }
   return rows
 }

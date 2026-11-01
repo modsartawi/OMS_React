@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/insurance-rules.json'
 import { plainSentence, type Sentence } from '@/core/rules/sentence'
 import { LISTS, RULES } from '../../../tools/insurance-rules-stubs.mjs'
+import type { FhirCatalogRow } from './fhir-catalog'
 import type { GuardCondition, GuardRule } from './model'
 import type { RegistryField } from './registry'
 import { conditionSentence, guardSentence, type ConditionNode } from './sentence'
@@ -114,6 +115,17 @@ describe('a line field the sentence has no words of its own for', () => {
     expect(words(fields)).toContain('IDF priority')
     expect(words(fields)).not.toContain('idfPriority')
     expect(words()).toContain('idfPriority')
+  })
+})
+
+describe('a catalog fact on a code', () => {
+  const catalog = [{ moment: 'eligibility', level: 'header', key: 'benefit[*].benefit', label: { en: 'Benefit amount', ar: 'مبلغ المنفعة' }, previous: false }] as unknown as FhirCatalogRow[]
+
+  it('keeps the code beside the label, so two benefits do not read alike', () => {
+    const block = { check: 'eligibility', field: 'benefit[13/day].benefit', atLeast: 100 } as GuardCondition
+    const words = node(conditionSentence(block, { rule: rule('G-001'), lists: LISTS, catalog }))
+    expect(words).toContain('Benefit amount (13/day)')
+    expect(words).not.toContain('benefit[13/day]')
   })
 })
 

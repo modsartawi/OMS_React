@@ -707,7 +707,7 @@ export function createReviewStubs(opts = {}) {
     return r ? envelope(null, { status: r.status ?? 409, success: false, message: r.message, errorCode: r.errorCode }) : null
   }
   return function reviewStub(method, path, body, params = new URLSearchParams()) {
-    if (method === 'GET' && (path === 'Guards/Reasons' || path === 'InsuranceRules/Exceptions/Reasons')) return read('reasons', GUARD_REASONS)
+    if (method === 'GET' && (path === 'InsuranceRules/Review/Reasons' || path === 'InsuranceRules/Exceptions/Reasons')) return read('reasons', GUARD_REASONS)
     if (method === 'GET' && path === 'InsuranceRules/Review') {
       const f = (k) => params.get(k) ?? ''
       const out = rows.filter(
@@ -997,7 +997,6 @@ export function insuranceMetricsStub(method, path, query, opts = {}) {
 // --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134), AS BUILT (oms 618):
 // `GET Guards/Reasons` sends `{ intervention, outcome, reason, rules: [{ ruleId, accepts, reasonRequired, caps }],
 // capped }`; the order detail's `guards` carries its own `state`; Recheck / Release answer the order's guard row.
-// ⚠️ Live, `Guards/Reasons` and `Guards/{checkId}/Answer` are api-key doors: a browser gets a bare 403 (618's list).
 
 const reasonCode = (code, en, ar, active = true) => ({ code, en, ar, active })
 
@@ -1125,10 +1124,10 @@ export const ORDER_GUARD_LINES = [
  */
 export function orderGuardsStub(method, path, body, order, opts = {}) {
   const { writes = [] } = opts
-  if (method === 'GET' && path === 'Guards/Reasons') return envelope(ORDER_GUARD_REASONS)
-  const answer = method === 'POST' && path.match(/^Guards\/([^/]+)\/Answer$/)
+  if (method === 'GET' && /^Oms\/Orders\/[^/]+\/Guards\/Reasons$/.test(path)) return envelope(ORDER_GUARD_REASONS)
+  const answer = method === 'POST' && path.match(/^Oms\/Orders\/([^/]+)\/Guards\/Answer$/)
   if (answer) {
-    writes.push({ door: 'answer', checkId: decodeURIComponent(answer[1]), body })
+    writes.push({ door: 'answer', documentNo: decodeURIComponent(answer[1]), checkId: order.guards?.checkId, body })
     if (opts.answerRefusal) {
       const r = opts.answerRefusal
       opts.answerRefusal = null

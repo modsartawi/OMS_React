@@ -84,6 +84,7 @@
     "open": "Open",
     "loading": "Opening the bundle…",
     "failed": "The bundle could not be opened.",
+    "badRef": "That reference names no kept bundle. Choose one from the list, or type its kind, a slash, then its id.",
     "clickFailed": "A path could not be proposed for this value.",
     "expand": "Expand",
     "collapse": "Collapse",

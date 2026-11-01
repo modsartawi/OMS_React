@@ -111,6 +111,7 @@ export default function OrderGuardPanel({
       {guards && (
         <GuardDialog
           open={answerOpen}
+          documentNo={documentNo}
           guards={guards}
           lineItem={lineItem}
           canOverride={canOverride}

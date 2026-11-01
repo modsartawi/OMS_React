@@ -57,12 +57,14 @@ export const reviewApi = {
 export const REVIEW_KEY = [...INSURANCE_RULES_KEY, 'review'] as const
 export const EXCEPTIONS_KEY = [...INSURANCE_RULES_KEY, 'exceptions'] as const
 
-/** The NCPDP reason codes for HQ's screens. They change only with HQ's master data: read once per page life. */
-export function hqGuardReasonsQuery() {
-  return {
-    queryKey: [...INSURANCE_RULES_KEY, 'exceptions', 'reasons'],
-    queryFn: async () => reasonsIn(await api.get<GuardReasonsReply | null>(`${INSURANCE_RULES_BASE}/Exceptions/Reasons`)),
+const reasonsQuery = (key: readonly unknown[], door: string) =>
+  ({
+    queryKey: [...key, 'reasons'],
+    queryFn: async () => reasonsIn(await api.get<GuardReasonsReply | null>(`${INSURANCE_RULES_BASE}/${door}/Reasons`)),
     staleTime: Infinity,
     retry: false,
-  } as const
-}
+  }) as const
+
+/** The NCPDP reason codes, each screen under its own grant. They change only with HQ's master data: read once per page life. */
+export const hqGuardReasonsQuery = () => reasonsQuery(EXCEPTIONS_KEY, 'Exceptions')
+export const reviewReasonsQuery = () => reasonsQuery(REVIEW_KEY, 'Review')

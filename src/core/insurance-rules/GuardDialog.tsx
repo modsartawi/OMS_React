@@ -38,6 +38,7 @@ export interface GuardLineItem {
  */
 export default function GuardDialog({
   open,
+  documentNo,
   guards,
   lineItem,
   canOverride,
@@ -45,6 +46,7 @@ export default function GuardDialog({
   onAnswered,
 }: {
   open: boolean
+  documentNo: string
   guards: OrderGuards
   lineItem: (line: number) => GuardLineItem | null
   /** `INS_GUARD`. */
@@ -55,10 +57,10 @@ export default function GuardDialog({
   const { t } = useTranslation('insurance-order-guards')
   const user = useSession((s) => s.userId) ?? ''
   const [drafts, setDrafts] = useState<GuardDrafts>({})
-  const reasons = useQuery({ ...guardReasonsQuery(guards.checkId), enabled: open })
+  const reasons = useQuery({ ...guardReasonsQuery(documentNo, guards.checkId), enabled: open })
   const form = guardAnswer({ guards, reasons: reasons.data ?? null, drafts, user, canOverride })
   const send = useMutation({
-    mutationFn: () => orderGuardsApi.answer(guards.checkId, form.body!),
+    mutationFn: () => orderGuardsApi.answer(documentNo, form.body!),
     onSuccess: (r) => onAnswered(r),
   })
   const busy = send.isPending

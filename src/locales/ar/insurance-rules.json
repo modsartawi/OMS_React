@@ -331,6 +331,7 @@
       "warn": "إذا كانت معلومة غير معروفة، يُنبَّه الصيدلي."
     },
     "fact": {
+      "withCode": "<fact>{{fact}}</fact> (<code>{{code}}</code>)",
       "previous": "<fact>{{fact}}</fact> في الرد السابق",
       "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",

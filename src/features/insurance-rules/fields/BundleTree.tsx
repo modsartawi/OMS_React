@@ -15,7 +15,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
-import { bundleParam, clickOutcome, treeRows, type ClickOutcome, type ExistingField, type TreeRow, sampleRef } from './bundle-tree'
+import { bundleParam, clickOutcome, refParts, treeRows, type ClickOutcome, type ExistingField, type TreeRow, sampleRef } from './bundle-tree'
 import { failureWords } from './failure-words'
 import RawPathDialog from './RawPathDialog'
 
@@ -179,7 +179,8 @@ export default function BundleTree() {
         </Button>
       </form>
       {/* A new ref is a new view: its collapsed nodes, its click and its reply do not carry over. */}
-      {bundle && <TreeView key={bundle} bundle={bundle} />}
+      {bundle && refParts(bundle) && <TreeView key={bundle} bundle={bundle} />}
+      {bundle && !refParts(bundle) && <ErrorBanner className="p-2" message={t('tree.badRef')} />}
     </section>
   )
 }

@@ -46,6 +46,14 @@ describe('the doors as built', () => {
     ])
   })
 
+  it('names the URLs of an alias change, in a row and in its draft', () => {
+    const change = { scope: 'claim', key: 'b', oldPath: 'p', newPath: 'p', aliasesAdded: [{ payer: '1', wrongUrl: 'http://w', canonicalUrl: 'http://c' }] }
+    const row = affectedRows([{ kind: 'guard', versionNo: 4, changes: [change] }], [])[0]
+    expect([row.kind, row.before, row.after]).toEqual(['alias', null, 'http://w → http://c'])
+    const d = draftOf({ id: '1', kind: 'guard', baseVersionNo: 4, state: 'pending', changes: [change] })
+    expect([d.kind, d.before, d.after]).toEqual(['alias', null, 'http://w → http://c'])
+  })
+
   it('reads a draft: pending is open, the counts become the back-test', () => {
     const d = draftOf({ id: '1', kind: 'guard', baseVersionNo: 4, state: 'pending', requestedBy: 'a', changes: [{ scope: 'claim', key: 'a', oldPath: 'x', newPath: 'y' }], backtest: [{ rows: [{ same: 5, gained: 1, lost: 1, changed: 1 }] }] })
     expect(d.state).toBe('open')

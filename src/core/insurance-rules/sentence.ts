@@ -70,6 +70,13 @@ export interface GuardSentences {
 const S = (key: string, values: Record<string, SentenceValue> = {}, count?: number): KeySentence =>
   count === undefined ? { key: `sentence.${key}`, values } : { key: `sentence.${key}`, values, count }
 const phrase = (key: string, values: Record<string, SentenceValue> = {}): SentenceValue => ({ kind: 'phrase', sentence: S(key, values) })
+
+/** A catalog label is the general `[*]` row's: the code in the rule's own path (a benefit's `13/day`) still tells two rules apart. */
+function labelled(label: Says, path: string): SentenceValue {
+  const says: SentenceValue = { kind: 'says', says: label }
+  const codes = [...path.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]).filter((c) => c !== '*')
+  return codes.length > 0 ? phrase('fact.withCode', { fact: says, code: code(codes.join(', ')) }) : says
+}
 const num = (n: number): SentenceValue => ({ kind: 'number', n })
 const code = (c: string): SentenceValue => ({ kind: 'code', code: c })
 
@@ -180,7 +187,7 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       const field = fieldOfPath(ctx.fields ?? [], c.path)
       const row = rowOfPath(ctx.catalog ?? [], c.path)
       const label = field?.label ?? row?.label
-      const named: SentenceValue = label ? { kind: 'says', says: label } : code(c.path)
+      const named: SentenceValue = label ? labelled(label, c.path) : code(c.path)
       // Oms 699: the same field on the answer before; the words must say so, or it reads as this answer's.
       const fact: SentenceValue = c.path.startsWith('$previous.') && label ? phrase('fact.previous', { fact: named }) : named
       const unitText = field?.unit || row?.unit
@@ -205,7 +212,7 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       // oms 674: a test the codec could not make a `fact` (atMost, two bounds, a unit, a flag, a day) — each test in words.
       const path = `$eligibility.${c.field}`
       const label = fieldOfPath(ctx.fields ?? [], path)?.label ?? rowOfPath(ctx.catalog ?? [], path)?.label
-      const fact: SentenceValue = label ? { kind: 'says', says: label } : code(c.field)
+      const fact: SentenceValue = label ? labelled(label, path) : code(c.field)
       const tests = eligibilityTests(c).map((k): SentenceValue => {
         if (k === 'anyOf') return phrase('eligibility.anyOf', { codes: { kind: 'list', join: 'or', items: (c.anyOf ?? []).map(code) } })
         if (k === 'is') return phrase(c.is ? 'eligibility.isTrue' : 'eligibility.isFalse')

@@ -51,6 +51,7 @@ export function newProposalStore(rows = []) {
 /** `deny` lists the doors that answer a bare 403 (`list`, `approve`). */
 export function fieldProposalsStub(method, path, body, { store, user, deny = [], now = '2026-10-30T10:30:00' }) {
   if (path !== BASE && !path.startsWith(`${BASE}/`)) return null
+  if (path === `${BASE}/Viewer` && method === 'GET') return envelope({ approver: !store.reader })
   if (path === BASE && method === 'GET') {
     if (deny.includes('list')) return { status: 403, contentType: 'application/json', body: '' }
     return envelope(store.rows.map(wire))

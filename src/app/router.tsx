@@ -166,6 +166,20 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
         }),
       },
+      // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own `SourcingAdvisor/Access` probe.
+      // The entry (739 puts the 30-day simulation there) and one order's explanation, which Delivery details links to.
+      {
+        path: 'oms/sourcing-advisor',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-advisor/SourcingAdvisorPage')).default,
+        }),
+      },
+      {
+        path: 'oms/sourcing-advisor/order/:orderNo',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-advisor/SourcingExplainPage')).default,
+        }),
+      },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
       // serial check, by staff, serial, store and article, behind its own `SerialRefusal/Access` probe. Filters in the URL.
       {

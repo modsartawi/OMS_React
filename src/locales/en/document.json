@@ -204,6 +204,7 @@
       "courierChanged": "Courier changed"
     }
   },
+  "whyThisStore": "Why this store?",
   "load": {
     "loading": "Loading document…",
     "failed": "Could not load the document.",

@@ -152,3 +152,5 @@ tools/.loy-groups-shots/
 tools/.insurance-playground-shots/
 # Insurance coverage drive screenshots (tools/insurance-coverage-drive.mjs)
 tools/.insurance-coverage-shots/
+# Sourcing advisor drive screenshots (tools/sourcing-advisor-drive.mjs, ticket 738)
+tools/.sourcing-advisor-shots/

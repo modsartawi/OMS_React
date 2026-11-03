@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocation, useMatches, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useMatches, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw, Route } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
@@ -17,6 +17,8 @@ import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
 import OrderGuardPanel from '@/core/insurance-rules/OrderGuardPanel'
 import { canOverrideGuard, canReleaseGuardHold } from '@/core/insurance-rules/order-guards'
 import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { canViewSourcingAdvisor, sourcingAdvisorAccessQuery } from '@/core/sourcing-advisor/access'
+import { buttonClass } from '@/core/ui/control-classes'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutsOf, lockedCallout } from '@/core/oms/callout-moments'
 import { notify } from '@/core/services/notify'
@@ -656,6 +658,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const servingListAccess = useQuery({ ...servingListAccessQuery(), enabled: hasServingList })
   const canLinkServingList = hasServingList && canViewServingLists(servingListAccess.data)
   const showCallout = hasCallout && activityView === 'callout'
+  /**
+   * "Why this store?" (ticket 738, spec 734 D21): a delivery's link into the sourcing advisor's
+   * explanation, drawn only for an advisor holder — its probe in `@/core/`, on the key the menu leaf
+   * shares, failing closed. A delivery only: the advisor scores deliveries.
+   */
+  const isDelivery = document !== null && isDeliveryCategory(document.documentCategory)
+  const sourcingAccess = useQuery({ ...sourcingAdvisorAccessQuery(), enabled: isDelivery })
+  const canExplainSourcing = isDelivery && canViewSourcingAdvisor(sourcingAccess.data)
 
   // ----- access states ------------------------------------------------------
   // After every hook, before any render. The header is not rendered either: a
@@ -701,6 +711,16 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         failed to, the header shows the route id alone, never the last record's facts.
       */}
       <DocumentHeader document={shownDocument} routeId={routeId}>
+        {shownDocument && canExplainSourcing && (
+          <Link
+            to={`/oms/sourcing-advisor/order/${encodeURIComponent(shownDocument.documentNo)}`}
+            className={buttonClass('outlined')}
+            data-why-this-store=""
+          >
+            <Route className="h-3.5 w-3.5" aria-hidden />
+            {t('whyThisStore')}
+          </Link>
+        )}
         {shownDocument && (
           <Button variant="outlined" disabled={actionRunning || refreshing} onClick={refresh}>
             {refreshing ? (

@@ -1,4 +1,4 @@
-# The Nphies web API — frozen contract v1.0
+# The Nphies web API — frozen contract v1.0, amended to v1.1
 
 > Asset of [209](../../209-nphies-web-spec.md), map [196](../../196-nphies-to-web-map.md).
 > Frozen 2026-08-01.
@@ -72,7 +72,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 > `AuthResponse`, `LinkAuth`. Everything else in this document is new. Closing the missing grant is
 > part of the first slice, not a later hardening pass.
 
-### 1.1 The passthrough table — 16 endpoints
+### 1.1 The passthrough table — 18 endpoints (16 at 1.0)
 
 Acts and lookups pass through. **The two lists do not** — they are re-modelled in SIS.Api, because
 the upstream reads take 20 000 rows with the ordering commented out ([§3.3](#33-the-two-lists)).
@@ -94,7 +94,9 @@ the upstream reads take 20 000 rows with the ordering commented out ([§3.3](#33
 | 13 | codeSystem | `GET Nphies/CodeSystem` | `core/codeSystem` | lookup — selection reasons live here |
 | 14 | diagnoses | `GET Nphies/Diagnoses` | `core/diagnoses` | lookup |
 | 15 | morphs | `GET Nphies/Morphs` | `core/morphs` | lookup |
-| 16 | access | `GET Nphies/Access` | — | `{ canOpenNphies: boolean }` — SIS.Api only, no upstream |
+| 16 | access | `GET Nphies/Access` | — | `{ canOpenNphies: boolean, canReleaseApprovalNumber: boolean }` — SIS.Api only, no upstream. `canReleaseApprovalNumber` is 1.1: true only with BOTH the Nphies grant and the release grant |
+| 17 | releaseApprovalNumber (1.1) | `POST Nphies/ApprovalNumber/Release` | `Auth/ReleaseApprovalNumber` | `{ authId, note }` → `{ authId, before, after, release }`. Needs the Nphies grant **and** the release grant (`BackOfficeScreen[NphiesReleaseApproval,03]`). BackOffice spec 3342 |
+| 18 | approvalNumberReleases (1.1) | `GET Nphies/ApprovalNumber/Releases/{authId}` | `Auth/ApprovalReleases/{authId}` | → `{ items: release[], contractVersion }`, newest first; none is `[]`. Nphies grant only |
 
 **Reconciliation with [198](../../198-nphies-proxy-contract.md):** that ticket said fourteen, then
 fifteen after `Auth/Retry`. The enumeration here is **sixteen** because the lookups are five rather
@@ -148,6 +150,7 @@ override — law 1.
 |---|---|
 | `distributionChannel` | **Pinned to `"20"`.** Never accepted from the body. `"21"` is Bahrain, out of scope — and the WPF "inconsistency" [200](../../200-nphies-identity-and-context.md) went looking for turned out to be correct |
 | `UserId` / `StaffId` | Stamped from `GetUserAction()`; the session filter sets both claims from `session.UserId` |
+| release `userId` / `userName` / `origin` (1.1) | Stamped: both who-fields are the session's `UserId` (the session carries no display name), `origin` is `"oms"`. The release body has no who-field to send |
 | `SourceCode` | The constant **`'WEB'`**. ⚠ Confirm the column takes three characters — `NAuthMap.cs:104` maps it unlengthed and it has only ever held store codes |
 | `ClaimType` | Pinned to **`0`** (prior authorization). v1 has one claim type |
 | `ClaimRequestType` | Pinned to **`WithReferenceToEligibility`**. The enum is six-valued; every other value belongs to something deferred or dropped |
@@ -561,9 +564,12 @@ how the client branches.
 | `PRESCRIPTION_REF_TOO_LONG` | 400 | Over 40 chars — upstream `:219` |
 | `SUBMIT_BLOCKED` | 409 | A `submitBlockers` entry still holds. Carries `blockers[]` |
 | `CLINICAL_EDIT_FATAL` | 409 | An `F` finding. Not overridable |
-| `AUTH_ALREADY_DISPENSED` | 409 | Retry and cancel both refuse a dispensed authorization |
+| `AUTH_ALREADY_DISPENSED` | 409 | Retry and cancel both refuse a dispensed authorization. 1.1: so does the approval-number release, its message saying to undispense first |
 | `DUPLICATE_SUBMISSION` | 409 | Upstream holds a lock on `Auth_{ClaimType}{PatientId}` and answers a bare-string 400; SIS.Api translates it by string match. ⚠ Back-to-back submissions for the **same patient id** collide before reaching the exchange |
 | `AUTH_NOT_FOUND` | 404 | Unknown authorization id |
+| `APPROVAL_NUMBER_EMPTY` | 409 | 1.1, release only: the authorization has no approval number |
+| `APPROVAL_NUMBER_ALREADY_RELEASED` | 409 | 1.1, release only: it already ends with `_`, or another release got there first |
+| `NOTE_REQUIRED` | 400 | 1.1, release only: a blank note |
 | — | 401 | `auth` kind, handled entirely by `core/api.ts`'s `handle401`; feature code never catches it |
 
 **Kind 3 — transport.** A timeout, a socket failure, a 5xx without the envelope. `ApiError(kind:
@@ -650,6 +656,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | Version | Date | Change | Kind | Ruled by |
 |---|---|---|---|---|
 | 1.0 | 2026-08-01 | Frozen. | — | [209](../../209-nphies-web-spec.md) |
+| 1.1 | 2026-11-03 | Releasing an approval number: §1.1 rows 17–18, `canReleaseApprovalNumber` on row 16, the release stamps in §1.3, and three §6 codes. | Additive (minor) | BackOffice [3342](C:\Work\DMSCO\BackOffice\.issues\3342-support-releases-a-nphies-approval-number-from-oms-react-spec.md) / [3343](C:\Work\DMSCO\BackOffice\.issues\3343-a-support-user-with-the-release-grant-releases-an-approval-number-through-sis-api.md) |
 
 ---
 

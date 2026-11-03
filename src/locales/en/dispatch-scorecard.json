@@ -153,8 +153,20 @@
       "staff": "Answered by",
       "km": "km",
       "atp": "Stock at offer",
-      "tills": "Tills"
-    }
+      "tills": "Tills",
+      "takenBy": "Taken by",
+      "closedBy": "Closed by",
+      "closedAt": "Closed at",
+      "afterTake": "What happened",
+      "reason": "Reason (as given)",
+      "courier": "Courier",
+      "items": "Items",
+      "refusedAttempts": "Refused close attempts"
+    },
+    "noReason": "No reason given",
+    "notOnRecord": "Not on record",
+    "shortLine": "<m>{{material}}</m>: needed <n>{{needed}}</n>, on record <a>{{available}}</a>",
+    "attemptsSwept": "Attempts older than 6 months are no longer kept. The count still stands."
   },
   "class": {
     "Won": "Won",
@@ -167,7 +179,16 @@
     "Beaten": "Beaten",
     "Withdrawn": "Withdrawn",
     "Fallback": "Fallback",
-    "Released": "Released"
+    "Released": "Released",
+    "FallbackCancel": "Fallback cancelled"
+  },
+  "afterTake": {
+    "StoreClosed": "Closed by the store",
+    "CourierBlamedStore": "Courier cancelled, naming the store",
+    "FallbackStoreClosed": "Closed by the fallback store",
+    "CourierOtherReason": "Courier cancelled, other reason",
+    "CourierNoReason": "Courier cancelled, no reason given",
+    "OtherClose": "Closed by someone else"
   },
   "ignoreReason": {
     "ShownNotOpened": "shown, not opened",

@@ -179,7 +179,11 @@ export interface DispatchScorecardCardMeasure {
   better: DispatchScorecardBetter
 }
 
-/** A bid class as the door names it (`ScorecardBidClass`), plus the drill's two callout-level classes. */
+/**
+ * A bid class as the door names it (`ScorecardBidClass`), plus the drill's callout-level classes
+ * (`Fallback`, `Released`, and spec 3326's `FallbackCancel`, the class of a `fallbackCancels` row): on those
+ * `bidId` is `''`.
+ */
 export type DispatchScorecardBidClass =
   | 'Won'
   | 'LostRace'
@@ -192,6 +196,7 @@ export type DispatchScorecardBidClass =
   | 'Withdrawn'
   | 'Fallback'
   | 'Released'
+  | 'FallbackCancel'
 
 export interface DispatchScorecardClassCount {
   class: DispatchScorecardBidClass
@@ -209,7 +214,50 @@ export interface DispatchScorecardCard {
   staff: DispatchScorecardStaffRow[]
 }
 
-/** One bid behind a figure (or one callout, `bidId` `''`, for the two callout-level figures). */
+/**
+ * What became of a callout after the take (spec 3326). Only `StoreClosed` and `CourierBlamedStore` are
+ * failed takes; `''` = nothing after the take yet. Open: an outcome the screen does not know reads as sent.
+ */
+export type DispatchScorecardAfterTakeOutcome =
+  | 'StoreClosed'
+  | 'CourierBlamedStore'
+  | 'FallbackStoreClosed'
+  | 'CourierOtherReason'
+  | 'CourierNoReason'
+  | 'OtherClose'
+  | ''
+  | (string & {})
+
+/** A delivery line on a failed-take row (`DispatchScorecardDrillItem`). */
+export interface DispatchScorecardDrillItem {
+  itemNumber: string
+  quantity: number
+  uom: string
+}
+
+/**
+ * One short basket line of a bid's ATP snapshot at offer (`CalloutOfferedLine`, `DeliveryCalloutStock.cs`).
+ * Not `DispatchBid.atpShortLines`, which is a number.
+ */
+export interface CalloutOfferedLine {
+  line: number
+  material: string
+  quantity: number
+  uom: string
+  neededBase: number
+  /** `null` = no stock row was on record: "Not on record", never 0. */
+  availableBase: number | null
+}
+
+/** One close the lock refused (a `CloseRefused` event, BO 3339). */
+export interface DispatchScorecardRefusedClose {
+  at: string
+  closedBy: string
+  register: string
+  reason: string
+}
+
+/** One bid behind a figure (or one callout, `bidId` `''`, for the callout-level figures). */
 export interface DispatchScorecardDrillRow {
   calloutId: string
   bidId: string
@@ -235,6 +283,30 @@ export interface DispatchScorecardDrillRow {
   releaseReason: string
   /** For a rate, the rows are its denominator and this marks the numerator; otherwise always true. */
   counted: boolean
+
+  // Spec 3326 — optional (`?:`): a server not yet on 3326 sends none of them.
+  /** The closer (`'Outbox'` on a courier cancel). `answeredBy` stays the taker. On every row, whatever the figure. */
+  closedBy?: string
+  /** Local time, no offset. */
+  closedAt?: string | null
+  afterTakeOutcome?: DispatchScorecardAfterTakeOutcome
+  /** The pharmacist's note, or the courier's exact text — may be Arabic. Shown as sent. `''` = none given. */
+  afterTakeReason?: string
+  /** The courier as OTO names it (e.g. `alshrouqexpress`). `''` = not a courier cancel. */
+  afterTakeCourier?: string
+  /**
+   * The delivery's lines: only in the failedTakes / failedTakeRate / fallbackCancels drills, and only on a
+   * row whose outcome is a failed take or `FallbackStoreClosed`.
+   */
+  items?: DispatchScorecardDrillItem[]
+  /** The bid's own short-line count at offer: holds even when the snapshot cannot be read. Same rows as `items`. */
+  atpShortLineCount?: number
+  atpShortLines?: CalloutOfferedLine[]
+  /**
+   * BO 3339: only in the refusedCloses drill, oldest first. The events are swept after 6 months while the
+   * figure counts the callout, so an older row still counts and this list is empty.
+   */
+  refusedAttempts?: DispatchScorecardRefusedClose[]
 }
 
 /** `GET DispatchScorecard/Drill`. */

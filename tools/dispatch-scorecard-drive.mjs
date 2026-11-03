@@ -33,6 +33,13 @@
 //      each drills its own figure; the rate's drill marks Counted; the card shows six measures; the
 //      Staff tab shows the person's rate and failed takes without a rank, and a row from a server not
 //      yet on 3326 (no fields at all) reads "—", never 0.
+//  15. (ticket 714, spec 3326) each after-take drill (failedTakes, failedTakeRate, fallbackCancels,
+//      refusedCloses) reads Taken by, Closed by, Closed at, What happened, Reason, Courier, Items and Stock
+//      at offer; the courier's Arabic reason shows exactly as sent, isolated; a courier cancel with no
+//      reason reads "No reason given"; `atp: 'unknown'` reads Unknown; a short line with no stock row reads
+//      "Not on record"; a fallback cancel reads its class; a refused-close row lists its attempts, and one
+//      whose attempts are swept shows the 6-month note; no "no stock" words anywhere; an older figure's
+//      drill has none of these columns.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/dispatch-scorecard-drive.mjs
@@ -173,6 +180,61 @@ const drillRow = (i, over = {}) => ({
   counted: i === 1,
   ...over,
 })
+// Spec 3326 after-take rows (`DispatchScorecardDrillRow`), exactly as built on pricing2.
+const AR_REASON = 'الطلب غير موجود في الفرع'
+const AR_ATTEMPT = 'العميل ألغى الطلب'
+const afterTake = (over = {}) => ({
+  closedBy: '',
+  closedAt: null,
+  afterTakeOutcome: '',
+  afterTakeReason: '',
+  afterTakeCourier: '',
+  items: [],
+  atpShortLineCount: 0,
+  atpShortLines: [],
+  refusedAttempts: [],
+  ...over,
+})
+const ITEMS = [
+  { itemNumber: '100234', quantity: 2, uom: 'EA' },
+  { itemNumber: '100235', quantity: 1, uom: 'PAC' },
+]
+const AFTER_TAKE_ROWS = {
+  failedTakes: () => [
+    drillRow(2, afterTake({ closedBy: 'Outbox', closedAt: `${TODAY}T08:30:00`, afterTakeOutcome: 'CourierBlamedStore', afterTakeReason: AR_REASON, afterTakeCourier: 'alshrouqexpress', items: ITEMS, atp: 'unknown' })),
+    drillRow(3, afterTake({
+      closedBy: 'P001-ph02',
+      closedAt: `${TODAY}T08:40:00`,
+      afterTakeOutcome: 'StoreClosed',
+      items: ITEMS.slice(0, 1),
+      atp: 'short',
+      atpShortLineCount: 2,
+      atpShortLines: [
+        { line: 1, material: '100234', quantity: 2, uom: 'EA', neededBase: 20, availableBase: 4 },
+        { line: 2, material: '100235', quantity: 1, uom: 'EA', neededBase: 1, availableBase: null },
+      ],
+    })),
+    drillRow(4, afterTake({ closedBy: 'Outbox', closedAt: `${TODAY}T08:50:00`, afterTakeOutcome: 'CourierBlamedStore', afterTakeReason: 'Order Not Found in branch', afterTakeCourier: 'alshrouqexpress', items: ITEMS })),
+  ],
+  failedTakeRate: () => [
+    drillRow(2, afterTake({ counted: true, closedBy: 'P001-ph02', closedAt: `${TODAY}T08:40:00`, afterTakeOutcome: 'StoreClosed', afterTakeReason: 'Customer unreachable', items: ITEMS })),
+    drillRow(3, afterTake({ counted: false, closedBy: 'Outbox', closedAt: `${TODAY}T08:45:00`, afterTakeOutcome: 'CourierNoReason', afterTakeCourier: 'alshrouqexpress' })),
+    drillRow(4, afterTake({ counted: false })),
+  ],
+  fallbackCancels: () => [
+    drillRow(2, afterTake({ bidId: '', class: 'FallbackCancel', closedBy: 'P003-ph01', closedAt: `${TODAY}T09:00:00`, afterTakeOutcome: 'FallbackStoreClosed', afterTakeReason: 'Customer asked to cancel', items: ITEMS, atp: 'covers' })),
+  ],
+  refusedCloses: () => [
+    drillRow(2, afterTake({
+      refusedAttempts: [
+        { at: `${TODAY}T08:10:00`, closedBy: 'P001-ph01', register: '02', reason: AR_ATTEMPT },
+        { at: `${TODAY}T08:12:00`, closedBy: 'P001-ph01', register: '02', reason: '' },
+      ],
+    })),
+    // Past the 6-month sweep: still counted, its attempts gone.
+    drillRow(3, afterTake()),
+  ],
+}
 const drill = (q) => ({
   asOf: `${TODAY}T09:41:00`,
   from: `${FROM}T00:00:00`,
@@ -180,7 +242,7 @@ const drill = (q) => ({
   figure: q.get('figure'),
   store: q.get('store') ?? '',
   staff: q.get('staff') ?? '',
-  rows: [drillRow(1), drillRow(2), drillRow(3)],
+  rows: AFTER_TAKE_ROWS[q.get('figure')]?.() ?? [drillRow(1), drillRow(2), drillRow(3)],
 })
 const MEASURES = [
   { measure: 'ignoreRate', value: 0.1, rank: 3, of: 17, estateMedian: 0.115, better: 'lower' },
@@ -305,6 +367,104 @@ const params = (q) => (q ? Object.fromEntries([...q.entries()]) : null)
 // i18n stays `lng: 'en'` (the `ar` resources ride along for the retrofit); `oms.locale = 'ar'` only sets
 // dir="rtl", so the copy reads the same in both runs.
 const WORDS = { denied: 'No access to the dispatch scorecard', lower: 'lower is better', higher: 'higher is better', refusal: 'longer than 92 days', tooLong: 'at most' }
+
+const AFTER_TAKE_COLUMNS = ['answeredBy', 'closedBy', 'closedAt', 'afterTake', 'reason', 'courier', 'items', 'atp']
+const NO_STOCK = /no stock|out of stock|not in stock|لا يوجد مخزون|نفد|نفاد/i
+
+/** 15 (ticket 714): an after-take drill, read off the drawer the loop just opened. */
+async function afterTakeChecks(page, dr, fig, label) {
+  const scope = `dialog[data-sc-drawer="${fig}"]`
+  await page.waitForTimeout(250)
+  const headers = Object.fromEntries(
+    await dr.locator('.ag-header-cell[col-id]').evaluateAll((els) => els.map((h) => [h.getAttribute('col-id'), h.textContent.trim()])),
+  )
+  check(
+    `${label}: ${fig} — Taken by, Closed by, Closed at, What happened, Reason, Courier, Items, Stock at offer`,
+    AFTER_TAKE_COLUMNS.every((c) => c in headers) &&
+      headers.answeredBy === 'Taken by' &&
+      headers.reason === 'Reason (as given)' &&
+      ('refusedAttempts' in headers) === (fig === 'refusedCloses'),
+    JSON.stringify(headers),
+  )
+  const rows = await gridRows(page, scope)
+  const drawerText = await dr.innerText()
+  check(`${label}: ${fig} — no "no stock" words anywhere in the drawer`, !NO_STOCK.test(drawerText))
+  if (fig === 'failedTakes') {
+    const reason = dr.locator('.ag-row[row-index="0"] [data-sc-reason="text"]')
+    check(
+      `${label}: failedTakes — the courier's Arabic reason shows exactly as sent, in a <bdi>`,
+      (await reason.evaluate((el) => el.tagName)) === 'BDI' && (await reason.textContent()) === AR_REASON,
+      await reason.textContent(),
+    )
+    check(
+      `${label}: failedTakes — taker, closer, outcome, courier as sent`,
+      rows[0].answeredBy === 'P001-ph01' &&
+        rows[0].closedBy === 'Outbox' &&
+        rows[0].afterTake === 'Courier cancelled, naming the store' &&
+        rows[0].courier === 'alshrouqexpress' &&
+        rows[1].afterTake === 'Closed by the store' &&
+        rows[1].reason === '—' &&
+        rows[2].reason === 'Order Not Found in branch',
+      JSON.stringify(rows.map((r) => [r.answeredBy, r.closedBy, r.afterTake, r.reason, r.courier])),
+    )
+    check(`${label}: failedTakes — Closed at reads the local time`, rows[0].closedAt === `${TODAY} 08:30`, rows[0].closedAt)
+    const items = dr.locator('.ag-row[row-index="0"] [data-sc-items] li')
+    check(
+      `${label}: failedTakes — each item reads code · quantity unit, isolated left to right`,
+      (await items.count()) === 2 && (await items.first().innerText()).trim() === '100234 · 2 EA' && (await readsLtr(items.first().locator('bdi'))) === true,
+      await items.allInnerTexts().then((x) => x.join(' | ')),
+    )
+    check(`${label}: failedTakes — atp 'unknown' reads Unknown, never short`, rows[0].atp === 'Unknown', rows[0].atp)
+    const lines = await dr.locator('.ag-row[row-index="1"] [data-sc-short-line]').allInnerTexts()
+    check(
+      `${label}: failedTakes — short lines: needed and on record as sent; no stock row reads "Not on record"`,
+      rows[1].atp.startsWith('Short') &&
+        lines.length === 2 &&
+        lines[0].trim() === '100234: needed 20, on record 4' &&
+        lines[1].trim() === '100235: needed 1, on record Not on record',
+      JSON.stringify(lines),
+    )
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), dr.locator('[data-sc-drawer-export]').click()])
+    check(`${label}: failedTakes — the drawer exports its workbook`, /^dispatch-scorecard-bids-\d{8}-\d{4}\.xlsx$/.test(download.suggestedFilename()))
+    await page.screenshot({ path: `${SHOTS}/${label}-drawer-failedTakes.png` })
+  }
+  if (fig === 'failedTakeRate') {
+    check(
+      `${label}: failedTakeRate — the failed take Counted, a courier cancel with no reason reads "No reason given"`,
+      rows[0].counted === 'Counted' && rows[1].counted === '—' && rows[1].reason === 'No reason given' && rows[2].afterTake === '—',
+      JSON.stringify(rows.map((r) => [r.counted, r.afterTake, r.reason])),
+    )
+  }
+  if (fig === 'fallbackCancels') {
+    check(
+      `${label}: fallbackCancels — the row reads its class and the fallback store's close, with its note`,
+      rows[0].class === 'Fallback cancelled' &&
+        rows[0].afterTake === 'Closed by the fallback store' &&
+        rows[0].reason === 'Customer asked to cancel' &&
+        rows[0].atp === 'Covers',
+      JSON.stringify(rows[0]),
+    )
+  }
+  if (fig === 'refusedCloses') {
+    const attempts = dr.locator('.ag-row[row-index="0"] [data-sc-attempt]')
+    const first = attempts.first()
+    check(
+      `${label}: refusedCloses — the attempts under the row, oldest first: time, who, till, reason as sent`,
+      (await attempts.count()) === 2 &&
+        (await first.innerText()).includes(`${TODAY} 08:10`) &&
+        (await first.innerText()).includes('P001-ph01') &&
+        (await first.locator('bdi', { hasText: AR_ATTEMPT }).count()) === 1 &&
+        (await readsLtr(first.locator('bdi[dir="ltr"]').first())) === true,
+      await attempts.allInnerTexts().then((x) => x.join(' | ')),
+    )
+    check(
+      `${label}: refusedCloses — a row whose attempts are swept shows the 6-month note, not an error`,
+      (await dr.locator('.ag-row[row-index="1"] [data-sc-attempts-swept]').innerText()).includes('older than 6 months') &&
+        (await dr.locator('[role="alert"]').count()) === 0,
+    )
+    await page.screenshot({ path: `${SHOTS}/${label}-drawer-refusedCloses.png` })
+  }
+}
 
 async function drive(dir) {
   const label = dir
@@ -461,6 +621,7 @@ async function drive(dir) {
         asked?.figure === fig && asked?.store === 'P003' && hasCounted === (fig === 'failedTakeRate'),
         `${JSON.stringify(asked)} counted=${hasCounted}`,
       )
+      await afterTakeChecks(page, dr, fig, label)
       await dr.locator('[data-sc-close]').click()
       await dr.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
     }
@@ -487,6 +648,11 @@ async function drive(dir) {
     )
     const drillRows = await gridRows(page, 'dialog[data-sc-drawer="ignoreRate"]')
     check(`${label}: the drawer lists the bids, a rate's numerator marked Counted`, drillRows.length === 3 && drillRows[0].counted !== drillRows[1].counted, JSON.stringify(drillRows[0]))
+    check(
+      `${label}: an older figure's drill (ignoreRate) has no after-take columns, its staff column "Answered by"`,
+      (await drawer.locator('.ag-header-cell[col-id="closedBy"], .ag-header-cell[col-id="reason"], .ag-header-cell[col-id="items"]').count()) === 0 &&
+        (await drawer.locator('.ag-header-cell[col-id="answeredBy"]').innerText()).trim() === 'Answered by',
+    )
     check(`${label}: the drawer's export is offered`, await drawer.locator('[data-sc-drawer-export]').isEnabled())
     const [drawerDownload] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), drawer.locator('[data-sc-drawer-export]').click()])
     check(`${label}: the drawer exports a workbook`, /^dispatch-scorecard-bids-\d{8}-\d{4}\.xlsx$/.test(drawerDownload.suggestedFilename()), drawerDownload.suggestedFilename())

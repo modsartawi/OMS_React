@@ -1,6 +1,8 @@
 import type { TFunction } from 'i18next'
 import type { ColDef, ICellRendererParams, IHeaderParams, ValueFormatterParams } from 'ag-grid-community'
+import { Trans } from 'react-i18next'
 import type {
+  CalloutOfferedLine,
   DispatchScorecardDrillRow,
   DispatchScorecardFigure,
   DispatchScorecardStaffRow,
@@ -11,12 +13,24 @@ import Ltr from '@/core/ui/Ltr'
 import { formatCount, formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import {
+  afterTakeKey,
+  afterTakeReason,
+  attemptsSwept,
+  itemText,
+  itemsText,
+  attemptText,
+  plainText,
+  shortLineParts,
+  showsAfterTake,
+} from './after-take'
+import {
   STAFF_COLUMNS,
   STORE_COLUMNS,
   compareRanked,
   directionLabelKey,
   formatMeasure,
   formatSeconds,
+  isRate,
   type ScorecardColumn,
 } from './figures'
 
@@ -229,10 +243,22 @@ function TooFew({ t }: { t: TFunction }) {
   )
 }
 
-/** The drill drawer's columns: one row per bid (or callout), each opening its delivery. */
-export function drillColumns(t: TFunction, rate: boolean): ColDef<DispatchScorecardDrillRow>[] {
+/**
+ * The drill drawer's columns: one row per bid (or callout), each opening its delivery. A rate's drill marks
+ * Counted; a failed-take, fallback-cancel or refused-close drill (spec 3326) reads what happened after the
+ * take (taker, closer, time, outcome, the reason exactly as given, courier, items, stock at offer) and a
+ * refused-close drill its refused attempts.
+ */
+export function drillColumns(t: TFunction, figure: string): ColDef<DispatchScorecardDrillRow>[] {
   const dash = t('dash')
   const text = (value: string | null | undefined) => (value ? value : dash)
+  const rate = isRate(figure)
+  const afterTake = showsAfterTake(figure)
+  const atpLabel = (atp: string | undefined) => (atp ? t(`atp.${atp}`, { defaultValue: atp }) : dash)
+  const shortLineValues = (line: CalloutOfferedLine) => {
+    const parts = shortLineParts(line)
+    return { material: parts.material, needed: parts.needed, available: parts.available ?? t('drill.notOnRecord') }
+  }
   return [
     { colId: 'offeredAt', field: 'offeredAt', headerName: t('drill.column.offeredAt'), minWidth: 150, valueFormatter: ({ value }) => text(formatDateTime(value)) },
     { colId: 'subjectId', field: 'subjectId', headerName: t('drill.column.delivery'), minWidth: 120, cellClass: 'font-mono text-[12px]' },
@@ -251,6 +277,8 @@ export function drillColumns(t: TFunction, rate: boolean): ColDef<DispatchScorec
         return [label, why, near, release].filter(Boolean).join(' · ')
       },
     },
+    // A refused close's attempts sit right after its outcome, where they are read first.
+    ...(figure === 'refusedCloses' ? [refusedAttemptsColumn(t, dash)] : []),
     ...(rate
       ? [
           {
@@ -273,7 +301,15 @@ export function drillColumns(t: TFunction, rate: boolean): ColDef<DispatchScorec
       minWidth: 90,
       valueFormatter: ({ value }) => (typeof value === 'number' ? formatSeconds(value) : dash),
     },
-    { colId: 'answeredBy', field: 'answeredBy', headerName: t('drill.column.staff'), minWidth: 110, valueFormatter: ({ value }) => text(value) },
+    {
+      colId: 'answeredBy',
+      field: 'answeredBy',
+      // On an after-take drill the person who answered is the taker, beside the closer.
+      headerName: afterTake ? t('drill.column.takenBy') : t('drill.column.staff'),
+      minWidth: 110,
+      valueFormatter: ({ value }) => text(value),
+    },
+    ...(afterTake ? afterTakeColumns(t, dash, text) : []),
     {
       colId: 'distanceKm',
       field: 'distanceKm',
@@ -282,13 +318,41 @@ export function drillColumns(t: TFunction, rate: boolean): ColDef<DispatchScorec
       minWidth: 70,
       valueFormatter: ({ value }) => (typeof value === 'number' ? value.toFixed(1) : dash),
     },
-    {
-      colId: 'atp',
-      field: 'atp',
-      headerName: t('drill.column.atp'),
-      minWidth: 90,
-      valueFormatter: ({ value }) => (value ? t(`atp.${value}`, { defaultValue: value }) : dash),
-    },
+    afterTake
+      ? ({
+          // Stock at offer, and its short lines when the snapshot has any. "Unknown" = the check did not run.
+          colId: 'atp',
+          headerName: t('drill.column.atp'),
+          minWidth: 240,
+          autoHeight: true,
+          valueGetter: ({ data }) =>
+            data
+              ? [atpLabel(data.atp), ...(data.atpShortLines ?? []).map((line) => plainText(t('drill.shortLine', shortLineValues(line))))].join('; ')
+              : dash,
+          cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) =>
+            data ? (
+              <div className="flex flex-col py-1 leading-5" data-sc-atp={data.atp}>
+                <bdi>{atpLabel(data.atp)}</bdi>
+                {(data.atpShortLines ?? []).map((line) => (
+                  <span key={line.line} className="text-[12px] text-muted-foreground" data-sc-short-line={line.material}>
+                    <Trans
+                      t={t}
+                      i18nKey="drill.shortLine"
+                      values={shortLineValues(line)}
+                      components={{ m: <Ltr />, n: <Ltr />, a: line.availableBase == null ? <span data-sc-not-on-record="" /> : <Ltr /> }}
+                    />
+                  </span>
+                ))}
+              </div>
+            ) : null,
+        } as ColDef<DispatchScorecardDrillRow>)
+      : ({
+          colId: 'atp',
+          field: 'atp',
+          headerName: t('drill.column.atp'),
+          minWidth: 90,
+          valueFormatter: ({ value }) => atpLabel(value),
+        } as ColDef<DispatchScorecardDrillRow>),
     {
       colId: 'tills',
       headerName: t('drill.column.tills'),
@@ -297,4 +361,116 @@ export function drillColumns(t: TFunction, rate: boolean): ColDef<DispatchScorec
       valueGetter: ({ data }) => (data ? formatCount(data.onlineTills, data.signedInTills) : dash),
     },
   ]
+}
+
+/** Closed by, Closed at, What happened, Reason (as given), Courier, Items: on an after-take drill only. */
+function afterTakeColumns(
+  t: TFunction,
+  dash: string,
+  text: (value: string | null | undefined) => string,
+): ColDef<DispatchScorecardDrillRow>[] {
+  const reasonText = (row: DispatchScorecardDrillRow) => {
+    const reason = afterTakeReason(row)
+    return reason.kind === 'text' ? reason.text : reason.kind === 'noReason' ? t('drill.noReason') : dash
+  }
+  return [
+    { colId: 'closedBy', field: 'closedBy', headerName: t('drill.column.closedBy'), minWidth: 110, valueFormatter: ({ value }) => text(value) },
+    {
+      colId: 'closedAt',
+      field: 'closedAt',
+      headerName: t('drill.column.closedAt'),
+      minWidth: 140,
+      valueFormatter: ({ value }) => text(formatDateTime(value)),
+    },
+    {
+      colId: 'afterTake',
+      headerName: t('drill.column.afterTake'),
+      minWidth: 190,
+      valueGetter: ({ data }) => {
+        const key = afterTakeKey(data?.afterTakeOutcome)
+        return key ? t(key, { defaultValue: data?.afterTakeOutcome }) : dash
+      },
+    },
+    {
+      // The reason exactly as sent (the courier's own words, maybe Arabic): no translation, no mapping.
+      colId: 'reason',
+      headerName: t('drill.column.reason'),
+      minWidth: 200,
+      wrapText: true,
+      autoHeight: true,
+      valueGetter: ({ data }) => (data ? reasonText(data) : dash),
+      cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) => {
+        if (!data) return null
+        const reason = afterTakeReason(data)
+        if (reason.kind === 'text')
+          return (
+            <bdi className="leading-5" data-sc-reason="text">
+              {reason.text}
+            </bdi>
+          )
+        return (
+          <span className="text-muted-foreground" data-sc-reason={reason.kind}>
+            {reason.kind === 'noReason' ? t('drill.noReason') : dash}
+          </span>
+        )
+      },
+    },
+    { colId: 'courier', field: 'afterTakeCourier', headerName: t('drill.column.courier'), minWidth: 130, valueFormatter: ({ value }) => text(value) },
+    {
+      colId: 'items',
+      headerName: t('drill.column.items'),
+      minWidth: 160,
+      autoHeight: true,
+      valueGetter: ({ data }) => itemsText(data?.items, dash),
+      cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) =>
+        data?.items?.length ? (
+          <ul className="flex flex-col py-1 leading-5" data-sc-items={data.items.length}>
+            {data.items.map((item, i) => (
+              <li key={`${item.itemNumber}-${i}`}>
+                <Ltr>{itemText(item)}</Ltr>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span>{dash}</span>
+        ),
+    },
+  ]
+}
+
+/** A refused-close row's attempts under it, oldest first: time, who, till, reason; swept ones read the note. */
+function refusedAttemptsColumn(t: TFunction, dash: string): ColDef<DispatchScorecardDrillRow> {
+  return {
+    colId: 'refusedAttempts',
+    headerName: t('drill.column.refusedAttempts'),
+    minWidth: 340,
+    wrapText: true,
+    autoHeight: true,
+    valueGetter: ({ data }) =>
+      !data
+        ? dash
+        : attemptsSwept('refusedCloses', data)
+          ? t('drill.attemptsSwept')
+          : (data.refusedAttempts ?? []).map((a) => attemptText(a, dash)).join('; '),
+    cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) => {
+      if (!data) return null
+      if (attemptsSwept('refusedCloses', data))
+        return (
+          <span className="leading-5 text-muted-foreground" data-sc-attempts-swept="">
+            {t('drill.attemptsSwept')}
+          </span>
+        )
+      return (
+        <ol className="flex flex-col py-1 leading-5" data-sc-attempts={data.refusedAttempts?.length ?? 0}>
+          {(data.refusedAttempts ?? []).map((a, i) => (
+            <li key={`${a.at}-${i}`} data-sc-attempt="">
+              {/* Each value isolated by its kind: time and till are machine values, who and why free text. */}
+              <Ltr>{formatDateTime(a.at) || dash}</Ltr> · <bdi>{a.closedBy || dash}</bdi> · <Ltr>{a.register || dash}</Ltr> ·{' '}
+              <bdi>{a.reason || dash}</bdi>
+            </li>
+          ))}
+        </ol>
+      )
+    },
+  }
 }

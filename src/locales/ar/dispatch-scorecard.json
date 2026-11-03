@@ -157,8 +157,20 @@
       "staff": "أجاب",
       "km": "كم",
       "atp": "المخزون عند العرض",
-      "tills": "الأجهزة"
-    }
+      "tills": "الأجهزة",
+      "takenBy": "أخذه",
+      "closedBy": "أغلقه",
+      "closedAt": "وقت الإغلاق",
+      "afterTake": "ما حدث",
+      "reason": "السبب (كما ورد)",
+      "courier": "شركة التوصيل",
+      "items": "الأصناف",
+      "refusedAttempts": "محاولات إغلاق مرفوضة"
+    },
+    "noReason": "لم يُذكر سبب",
+    "notOnRecord": "غير مسجّل",
+    "shortLine": "<m>{{material}}</m>: المطلوب <n>{{needed}}</n>، المسجّل <a>{{available}}</a>",
+    "attemptsSwept": "لا تُحفظ المحاولات الأقدم من 6 أشهر. ويبقى العدد كما هو."
   },
   "class": {
     "Won": "فاز",
@@ -171,7 +183,16 @@
     "Beaten": "مسبوق",
     "Withdrawn": "مسحوب",
     "Fallback": "تحويل احتياطي",
-    "Released": "أُفرج عنه"
+    "Released": "أُفرج عنه",
+    "FallbackCancel": "تحويل احتياطي أُلغي"
+  },
+  "afterTake": {
+    "StoreClosed": "أغلقه الفرع",
+    "CourierBlamedStore": "ألغاه المندوب مع ذكر الفرع",
+    "FallbackStoreClosed": "أغلقه فرع التحويل الاحتياطي",
+    "CourierOtherReason": "ألغاه المندوب لسبب آخر",
+    "CourierNoReason": "ألغاه المندوب دون ذكر سبب",
+    "OtherClose": "أغلقه طرف آخر"
   },
   "ignoreReason": {
     "ShownNotOpened": "عُرض ولم يُفتح",

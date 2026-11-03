@@ -18,8 +18,9 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { dispatchScorecardApi } from './api'
+import { showsAfterTake } from './after-take'
 import { drillColumns } from './columns'
-import { drillPath, isRate } from './figures'
+import { drillPath } from './figures'
 import { refusalKey } from './range'
 import Sheet from './Sheet'
 
@@ -63,8 +64,7 @@ export default function DrillDrawer({
     queryFn: () => dispatchScorecardApi.drill(wire, target.figure, target.staff ?? ''),
     retry: false,
   })
-  const rate = isRate(target.figure)
-  const columns = useMemo(() => drillColumns(t, rate), [t, rate])
+  const columns = useMemo(() => drillColumns(t, target.figure), [t, target.figure])
   const rows = drill.data?.rows ?? []
   const figureLabel = t(`figure.${target.figure}`)
   const who = target.staff ?? target.store ?? ''
@@ -73,7 +73,7 @@ export default function DrillDrawer({
     const api = gridApi.current
     if (!api) return
     try {
-      const sheet = gridSheet(api, t('export.drillSheet'), { asText: (colId) => colId === 'subjectId' || colId === 'party' })
+      const sheet = gridSheet(api, t('export.drillSheet'), { asText: (colId) => colId === 'subjectId' || colId === 'party' || colId === 'courier' })
       await writeWorkbook([sheet], xlsxFileName(t('export.drillFileName')))
       notify.success(t('export.done'), t('export.doneDetail', { count: sheet.count, n: fsi(String(sheet.count)) }))
     } catch {
@@ -86,6 +86,8 @@ export default function DrillDrawer({
   return (
     <Sheet
       data-sc-drawer={target.figure}
+      // An after-take drill (spec 3326) carries eight more columns: give them the room.
+      width={showsAfterTake(target.figure) ? 'w-[96rem]' : undefined}
       eyebrow={target.staff ? t('drill.eyebrowStaff') : t('drill.eyebrow')}
       title={
         <span data-sc-drawer-title="">

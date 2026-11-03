@@ -71,3 +71,57 @@ export interface SourcingExplainReply {
 
 /** D20's refusal codes. */
 export const SOURCING_REFUSALS = ['SOURCING-401', 'SOURCING-402', 'SOURCING-403', 'SOURCING-404'] as const
+
+/** `GET SourcingAdvisor/Summary`'s query (D20): the range as local `yyyy-MM-dd` days, both ends inclusive. */
+export interface SourcingSummaryQuery {
+  from: string
+  to: string
+  city: string
+  channel: string
+  deliveryType: string
+}
+
+/**
+ * One row of `byCity[]`, `byChannel[]` or `byDeliveryType[]`.
+ *
+ * ⚠️ D20 names the lists but not their rows. Settled here until BO-2 builds the door: `key` is the
+ * city, the channel or the delivery type, and the four figures are the headline's own.
+ */
+export interface SourcingSummaryBreakdownRow {
+  key: string
+  orders: number
+  ordersWithSaving: number
+  totalSaving: number | null
+  avgSaving: number | null
+}
+
+/**
+ * One of up to 50 top-savings orders. `actualStoreName` / `bestStoreName` are D20a's optional
+ * `storeName` beside each store code, under the field's own prefix.
+ */
+export interface SourcingTopOrder {
+  orderNo: string
+  actualStore: string
+  actualStoreName?: string | null
+  bestStore: string
+  bestStoreName?: string | null
+  saving: number | null
+  reasons: string[]
+}
+
+/** `GET SourcingAdvisor/Summary?from=&to=&city=&channel=&deliveryType=`. */
+export interface SourcingSummaryReply {
+  orders: number
+  ordersWithSaving: number
+  /** SAR, as the door summed it. */
+  totalSaving: number | null
+  avgSaving: number | null
+  byCity: SourcingSummaryBreakdownRow[]
+  byChannel: SourcingSummaryBreakdownRow[]
+  byDeliveryType: SourcingSummaryBreakdownRow[]
+  top: SourcingTopOrder[]
+  rateVersion: string
+  placeholderRates: boolean
+  /** The last day the nightly job has scored, `yyyy-MM-dd` (D19). */
+  scoredThrough: string | null
+}

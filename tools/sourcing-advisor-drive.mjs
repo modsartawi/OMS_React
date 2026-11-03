@@ -23,6 +23,20 @@
 //   8. RTL: `code · name` pairs, km and SAR are `Ltr` isolates that read left to right;
 //   9. no page errors.
 //
+//
+// Scenario `thirty-day-simulation` (ticket 739, spec 734 D15/D19/D20) stubs the third door,
+//   GET SourcingAdvisor/Summary → { orders, ordersWithSaving, totalSaving, avgSaving, byCity[], byChannel[],
+//                                   byDeliveryType[], top[], rateVersion, placeholderRates, scoredThrough }
+// and asserts, in LTR and RTL:
+//   10. the leaf opens on the last 30 days ending yesterday: the headline figures as sent (the share shown),
+//       the three breakdowns, and the top-savings list;
+//   11. a filter re-queries (city, then channel), and the URL keeps it;
+//   12. a top-list row opens its explanation;
+//   13. "placeholder rates" while `placeholderRates`, none without; "Scored through <date>" when the
+//       range runs past `scoredThrough`, and from a `SOURCING-404` refusal's data;
+//   14. a 93-day range is refused before any call; `SOURCING-402` from the door reads as its sentence;
+//   15. RTL: headline SAR and the top grid's store pairs read left to right; no page errors.
+//
 //   1. run the app:  npx vite --port 5202 --strictPort
 //   2. DRIVE_PORT=5202 node tools/sourcing-advisor-drive.mjs
 import { createRequire } from 'node:module'
@@ -83,6 +97,39 @@ const explain = (orderNo, over = {}) => ({
   ...over,
 })
 
+// The Summary door (739). Dates are the drive machine's local days, as the app's.
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const dayOff = (n) => {
+  const d = new Date()
+  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n))
+}
+const YESTERDAY = dayOff(-1)
+const DEFAULT_FROM = dayOff(-30)
+const RANGE_402_FROM = dayOff(-91)
+const breakdownRow = (key, orders, ordersWithSaving, totalSaving, avgSaving) => ({ key, orders, ordersWithSaving, totalSaving, avgSaving })
+const summary = (q) => {
+  const city = q.get('city') ?? ''
+  const channel = q.get('channel') ?? ''
+  const narrowed = city === 'Jeddah'
+  return {
+    orders: narrowed ? 400 : 1240,
+    ordersWithSaving: narrowed ? 50 : 312,
+    totalSaving: narrowed ? 450.5 : 2808.456,
+    avgSaving: narrowed ? 9.01 : 9.0015,
+    byCity: narrowed ? [breakdownRow('Jeddah', 400, 50, 450.5, 9.01)] : [breakdownRow('الرياض', 840, 262, 2358, 9), breakdownRow('Jeddah', 400, 50, 450.5, 9.01)],
+    byChannel: [breakdownRow('HYBR', 1000, 300, 2700, 9), breakdownRow('CMRC', 0, 0, 0, null)],
+    // byDeliveryType absent: read as empty.
+    top: [
+      { orderNo: DELIVERY, actualStore: 'P007', actualStoreName: 'Malaz', bestStore: 'P002', bestStoreName: 'Rawdah', saving: 41.5, reasons: ['NEARER_STORE_STOCKED', 'SOMETHING_NEW'] },
+      { orderNo: REAL_RATES, actualStore: 'P011', bestStore: 'P010', bestStoreName: 'Olaya', saving: 12.25, reasons: ['ACTUAL_LATE'] },
+    ],
+    rateVersion: channel === 'CMRC' ? 'finance-2027-01' : 'placeholder-2026-11',
+    placeholderRates: channel !== 'CMRC',
+    // A range ending today runs past the last scored day (yesterday).
+    scoredThrough: YESTERDAY,
+  }
+}
+
 // ── The harness ────────────────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch()
 
@@ -123,6 +170,28 @@ async function open(dir, { access = 'granted' } = {}) {
         )
       if (orderNo === REAL_RATES) return route.fulfill(envelope(explain(orderNo, { placeholderRates: false, rateVersion: 'finance-2027-01' })))
       return route.fulfill(envelope(explain(orderNo)))
+    }
+    if (p === 'SourcingAdvisor/Summary') {
+      const q = url.searchParams
+      if (q.get('city') === 'Tabuk')
+        return route.fulfill(
+          envelope({ scoredThrough: dayOff(-3) }, {
+            status: 409,
+            success: false,
+            message: 'Scoring has not run for part of the range.',
+            errors: [{ errorCode: 'SOURCING-404', internalErrorCode: '', errorMessage: 'Scoring has not run for part of the range.' }],
+          }),
+        )
+      if (q.get('from') === RANGE_402_FROM)
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message: 'Range over 92 days.',
+            errors: [{ errorCode: 'SOURCING-402', internalErrorCode: '', errorMessage: 'Range over 92 days.' }],
+          }),
+        )
+      return route.fulfill(envelope(summary(q)))
     }
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(doc[1] === DELIVERY ? CAPTURE : null))
@@ -366,9 +435,144 @@ async function drive(dir) {
   }
 }
 
+// ── Scenario `thirty-day-simulation` (739) ─────────────────────────────────────────────────────
+async function thirtyDaySimulation(dir) {
+  const label = `${dir.toUpperCase()} 739`
+  const { context, page, errors, queries } = await open(dir)
+  const summaryQs = () => queries['SourcingAdvisor/Summary'] ?? []
+  const lastQ = () => summaryQs().at(-1)
+  const tile = (attr) => page.locator(`[data-tile="${attr}"] [data-tile-value]`)
+  const clean = (s) => s.replace(/[\u2066-\u2069]/g, '').trim()
+
+  // 10. The leaf opens on the last 30 days.
+  await page.goto(`${BASE}/oms/sourcing-advisor`)
+  await page.locator('[data-sourcing-headline]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: opens on the last 30 days, ending yesterday`,
+    lastQ()?.get('from') === DEFAULT_FROM && lastQ()?.get('to') === YESTERDAY && !lastQ()?.has('city'),
+    lastQ()?.toString(),
+  )
+  check(`${label}: the default range writes nothing to the URL`, new URL(page.url()).search === '', page.url())
+  const head = {
+    orders: clean(await tile('orders').innerText()),
+    withSaving: clean(await tile('ordersWithSaving').innerText()),
+    total: clean(await tile('totalSaving').innerText()),
+    avg: clean(await tile('avgSaving').innerText()),
+  }
+  const sarText = (v) => `SAR ${v}`
+  check(
+    `${label}: headline — orders, with a saving and their share, total and average SAR as sent`,
+    head.orders === '1240' && head.withSaving.replace(/\s+/g, '') === '31225.2%' &&
+      clean(await page.locator('[data-tile="ordersWithSaving"] [data-share]').innerText()) === '25.2%' &&
+      (await readsLtr(page.locator('[data-tile="ordersWithSaving"] [data-share] bdi'))) === true && head.total === sarText('2808.46') && head.avg === sarText('9.00'),
+    JSON.stringify(head),
+  )
+  const bRows = (attr) => page.locator(`[data-sourcing-breakdown="${attr}"] tbody tr`).evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-breakdown-row')))
+  check(`${label}: by city — two rows`, (await bRows('city')).join(',') === 'الرياض,Jeddah', (await bRows('city')).join(','))
+  check(
+    `${label}: by channel — a zero-order row has no share`,
+    (await page.locator('[data-breakdown-row="CMRC"] [data-share]').count()) === 0 && (await page.locator('[data-breakdown-row="HYBR"] [data-share]').count()) === 1,
+  )
+  check(`${label}: by delivery type absent — read as empty`, (await page.locator('[data-sourcing-breakdown="deliveryType"] table').count()) === 0)
+  const topRows = await page.locator('[data-sourcing-top] .ag-row[row-id]').evaluateAll((rows) =>
+    rows.map((r) => ['orderNo', 'actualStore', 'bestStore', 'saving'].map((c) => r.querySelector(`[col-id="${c}"]`)?.textContent.trim())),
+  )
+  check(
+    `${label}: the top list — order, stores as code · name, saving to the halala`,
+    JSON.stringify(topRows.map((r) => r.map(clean))) ===
+      JSON.stringify([
+        [DELIVERY, 'P007 · Malaz', 'P002 · Rawdah', '41.50'],
+        [REAL_RATES, 'P011', 'P010 · Olaya', '12.25'],
+      ]),
+    JSON.stringify(topRows),
+  )
+  const reasons = await page.locator(`[data-sourcing-top] [row-id="${DELIVERY}"] [data-reason]`).allInnerTexts()
+  check(
+    `${label}: top reasons are sentences from the codes; an unknown one falls back`,
+    dir === 'rtl' ? reasons.length === 2 : reasons.join(' | ') === 'A nearer store had the stock and was on time. | Another reason the advisor recorded (SOMETHING_NEW).',
+    reasons.join(' | '),
+  )
+
+  // 13a. Placeholder rates on; the default range is scored through: no scored-through banner.
+  check(`${label}: placeholderRates true — the banner`, (await page.locator('[data-sourcing-placeholder]').count()) === 1)
+  check(`${label}: range fully scored — no "scored through"`, (await page.locator('[data-sourcing-scored-through]').count()) === 0)
+
+  // 15. RTL isolation.
+  const totalBdi = page.locator('[data-tile="totalSaving"] bdi')
+  const pairCell = page.locator(`[data-sourcing-top] [row-id="${DELIVERY}"] [col-id="actualStore"] bdi`)
+  check(`${label}: headline SAR and a top store pair read left to right`, (await isLtrIsolate(totalBdi)) && (await readsLtr(totalBdi)) === true && (await readsLtr(pairCell)) === true)
+  await page.screenshot({ path: `${SHOTS}/summary-${dir}.png`, fullPage: true })
+
+  // 11. A filter re-queries.
+  const before = summaryQs().length
+  await page.locator('[data-sourcing-filter="city"]').fill('Jeddah')
+  await page.locator('[data-sourcing-apply]').click()
+  await page.waitForFunction(() => document.querySelector('[data-tile="orders"] [data-tile-value]')?.textContent.includes('400'), null, { timeout: 20000 })
+  check(
+    `${label}: a city filter re-queries, keeping the range, and the URL keeps it`,
+    summaryQs().length > before && lastQ()?.get('city') === 'Jeddah' && lastQ()?.get('from') === DEFAULT_FROM && new URL(page.url()).searchParams.get('city') === 'Jeddah',
+    lastQ()?.toString(),
+  )
+  await page.locator('[data-sourcing-filter="channel"]').fill('CMRC')
+  await page.locator('[data-sourcing-filter="channel"]').press('Enter')
+  await page.waitForFunction(() => !document.querySelector('[data-sourcing-placeholder]'), null, { timeout: 20000 })
+  check(`${label}: a channel filter re-queries; real rates — no placeholder banner`, lastQ()?.get('channel') === 'CMRC' && lastQ()?.get('city') === 'Jeddah')
+
+  // 13b. A range ending today runs past the scored day.
+  await page.goto(`${BASE}/oms/sourcing-advisor?from=${DEFAULT_FROM}&to=${dayOff(0)}`)
+  const through = page.locator('[data-sourcing-scored-through]')
+  await through.waitFor({ timeout: 20000 })
+  check(
+    `${label}: a range past scoredThrough — "Scored through <date>"`,
+    (await through.getAttribute('data-sourcing-scored-through')) === YESTERDAY && clean(await through.innerText()).includes(YESTERDAY) && (dir === 'rtl' || (await through.innerText()).includes('Scored through')),
+    await through.innerText(),
+  )
+
+  // 13c. SOURCING-404 with its scoredThrough.
+  await page.goto(`${BASE}/oms/sourcing-advisor?city=Tabuk`)
+  await page.locator('[data-sourcing-scored-through]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: SOURCING-404 — "Scored through" from the refusal's data, no figures`,
+    (await page.locator('[data-sourcing-scored-through]').getAttribute('data-sourcing-scored-through')) === dayOff(-3) &&
+      (await page.locator('[data-sourcing-headline]').count()) === 0 && (await page.locator('[data-sourcing-refusal]').count()) === 0,
+  )
+
+  // 14. Refused before the call, then by the door.
+  const n = summaryQs().length
+  await page.goto(`${BASE}/oms/sourcing-advisor?from=${dayOff(-93)}&to=${YESTERDAY}`)
+  await page.locator('[data-sourcing-problem="tooLong"]').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(400)
+  check(`${label}: 93 days — refused on screen, no Summary call`, summaryQs().length === n && (await page.locator('[data-sourcing-headline]').count()) === 0)
+  await page.goto(`${BASE}/oms/sourcing-advisor?from=${RANGE_402_FROM}&to=${YESTERDAY}`)
+  const refusal = page.locator('[data-sourcing-refusal]')
+  await refusal.waitFor({ timeout: 20000 })
+  check(
+    `${label}: SOURCING-402 from the door — its own sentence`,
+    (await refusal.getAttribute('data-sourcing-refusal')) === 'refusal.badRange' && (dir === 'rtl' || (await refusal.innerText()).includes('The range is at most 92 days')),
+    await refusal.innerText(),
+  )
+
+  // 12. A top-list row opens its explanation.
+  await page.goto(`${BASE}/oms/sourcing-advisor`)
+  const link = page.locator(`[data-sourcing-top-link="${DELIVERY}"]`)
+  await link.waitFor({ timeout: 20000 })
+  await link.click()
+  await page.locator('[data-sourcing-explain]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: a top-list row opens its explanation`,
+    new URL(page.url()).pathname === `/oms/sourcing-advisor/order/${DELIVERY}` && queries['SourcingAdvisor/Explain']?.at(-1)?.get('orderNo') === DELIVERY,
+    page.url(),
+  )
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await thirtyDaySimulation('ltr')
+  await thirtyDaySimulation('rtl')
 } finally {
   await browser.close()
 }

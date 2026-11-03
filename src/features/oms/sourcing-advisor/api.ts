@@ -8,11 +8,15 @@
  * 🚩 The reply is passed through as sent; only a missing list is read as empty (`./explain-model`).
  */
 import { api } from '@/core/api'
-import type { SourcingExplainReply } from '@/core/models/sourcing-advisor'
+import type { SourcingExplainReply, SourcingSummaryQuery, SourcingSummaryReply } from '@/core/models/sourcing-advisor'
 
 export const sourcingAdvisorApi = {
   /** `GET SourcingAdvisor/Explain?orderNo=` → one scored order's explanation. */
   explain(orderNo: string): Promise<Partial<SourcingExplainReply> | null> {
     return api.get<Partial<SourcingExplainReply> | null>('SourcingAdvisor/Explain', { orderNo })
+  },
+  /** `GET SourcingAdvisor/Summary?from=&to=&city=&channel=&deliveryType=` → the period's simulation (ticket 739). */
+  summary(query: SourcingSummaryQuery): Promise<Partial<SourcingSummaryReply> | null> {
+    return api.get<Partial<SourcingSummaryReply> | null>('SourcingAdvisor/Summary', { ...query })
   },
 }

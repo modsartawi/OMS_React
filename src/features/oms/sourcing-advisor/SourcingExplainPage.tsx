@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChevronLeft, Loader2, TriangleAlert } from 'lucide-react'
+import { ChevronLeft, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { canViewSourcingAdvisor, sourcingAdvisorAccessQuery } from '@/core/sourcing-advisor/access'
 import { iconButtonClass } from '@/core/ui/control-classes'
@@ -16,6 +16,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { sourcingAdvisorApi } from './api'
 import { explainModel, type CandidateRow, type OnTimeState, type StoreSide } from './explain-model'
+import PlaceholderBanner from './PlaceholderBanner'
 import { refusalKey } from './refusal'
 
 /**
@@ -104,24 +105,7 @@ function Explain() {
   const dash = t('dash')
   return (
     <div className="flex min-w-0 flex-col gap-4" data-sourcing-explain="">
-      {m.placeholderRates && (
-        <div
-          role="note"
-          data-sourcing-placeholder=""
-          className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 px-3 py-2 text-sm text-attention-800"
-        >
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <div>
-            <div className="font-semibold">{t('placeholder.title')}</div>
-            <p>{t('placeholder.body')}</p>
-            {m.rateVersion !== '' && (
-              <p className="text-xs">
-                <Trans t={t} i18nKey="placeholder.rateVersion" values={{ version: m.rateVersion }} components={{ v: <Ltr /> }} />
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {m.placeholderRates && <PlaceholderBanner rateVersion={m.rateVersion} />}
 
       <Card title={t('order.heading')} lead={back} attr="order">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">

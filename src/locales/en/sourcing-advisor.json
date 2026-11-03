@@ -98,5 +98,59 @@
   "stock": {
     "recorded": "Recorded",
     "estimated": "Estimated"
+  },
+  "summary": {
+    "range": "Scored orders delivered <v>{{range}}</v>.",
+    "share": "<v>{{value}}%</v>",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "city": "City",
+      "channel": "Channel",
+      "deliveryType": "Delivery type",
+      "any": "Any",
+      "apply": "Apply",
+      "reset": "Reset"
+    },
+    "problem": {
+      "incomplete": "Pick both ends of the range.",
+      "reversed": "The range starts after it ends.",
+      "tooLong": "The range is at most <max>{{max}}</max> days."
+    },
+    "load": {
+      "loading": "Loading the simulation…",
+      "failedTitle": "The simulation could not be loaded",
+      "failed": "Something went wrong reading this period. Try again in a moment."
+    },
+    "scoredThrough": {
+      "title": "Scored through <v>{{date}}</v>",
+      "body": "The nightly job has not scored the rest of this range yet, so its later days are not counted."
+    },
+    "headline": {
+      "orders": "Orders scored",
+      "ordersWithSaving": "With a cheaper on-time store",
+      "totalSaving": "Total estimated saving",
+      "avgSaving": "Average saving per order"
+    },
+    "by": {
+      "city": "By city",
+      "channel": "By channel",
+      "deliveryType": "By delivery type",
+      "orders": "Orders",
+      "withSaving": "With saving",
+      "total": "Total (SAR)",
+      "avg": "Average (SAR)",
+      "empty": "Nothing in this breakdown."
+    },
+    "top": {
+      "heading": "Biggest savings",
+      "hint": "Up to 50 orders with the biggest estimated saving. Open one to see why.",
+      "orderNo": "Order",
+      "actualStore": "Filled by",
+      "bestStore": "Cheapest on time",
+      "saving": "Saving (SAR)",
+      "reasons": "Why",
+      "empty": "No order in this range had a cheaper on-time store."
+    }
   }
 }

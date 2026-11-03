@@ -77,7 +77,8 @@ export const UNKNOWN_REASON_KEY = 'reasons.unknown'
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const cents = (v: number): number => Math.round(v * 100)
-const sar = (v: number | null | undefined): string | null => (isNum(v) ? (cents(v) / 100).toFixed(2) : null)
+/** SAR to the halala, `null` when absent. Shared with `./summary-model`. */
+export const sar = (v: number | null | undefined): string | null => (isNum(v) ? (cents(v) / 100).toFixed(2) : null)
 const km = (v: number | null | undefined): string | null => (isNum(v) ? v.toFixed(1) : null)
 const mins = (v: number | null | undefined): string | null => (isNum(v) ? String(Math.round(v)) : null)
 
@@ -86,7 +87,8 @@ export function onTimeState(v: SourcingOnTimeWire | undefined): OnTimeState {
   return v === true ? 'yes' : v === false ? 'no' : 'unknown'
 }
 
-const storePair = (code: string | null | undefined, name: string | null | undefined): string =>
+/** A store as one `code · name` string (D20a: the code alone without a name). Shared with `./summary-model`. */
+export const storePair = (code: string | null | undefined, name: string | null | undefined): string =>
   formatPair((code ?? '').trim(), (name ?? '').trim())
 
 function side(e: SourcingStoreEstimate | null | undefined): StoreSide | null {

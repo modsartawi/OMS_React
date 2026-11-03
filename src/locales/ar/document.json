@@ -142,7 +142,9 @@
       "released": "رُفع القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>",
       "servingList": "قائمة الخدمة",
       "noServingList": "—",
-      "dutyRemoved": "استبعدتهم المناوبة <n>{{n}}</n>"
+      "dutyRemoved": "استبعدتهم المناوبة <n>{{n}}</n>",
+      "searchRadius": "نطاق البحث <n>{{km}}</n> كم",
+      "noRadiusSearch": "لم يجرِ بحث بالنطاق"
     },
     "ledger": {
       "title": "العروض",
@@ -176,6 +178,12 @@
       "done": "رُفع القفل",
       "doneDetail": "يمكن الآن تعديل التوصيل {{delivery}} أو نقله إلى متجر آخر.",
       "doneDetailExpress": "يمكن الآن تعديل التوصيل {{delivery}}، لكنه يبقى في متجره: لا يُنقل التوصيل السريع بعد إنشاء طلب OTO."
+    },
+    "event": {
+      "StoreClosedAfterTake": "أغلقه الفرع بعد الأخذ",
+      "CourierCancelledAfterTake": "ألغاه المندوب بعد الأخذ",
+      "OtherClosedAfterTake": "أغلقه طرف آخر بعد الأخذ",
+      "CloseRefused": "رُفض الإغلاق: التوصيل مقفل"
     }
   },
   "command": {

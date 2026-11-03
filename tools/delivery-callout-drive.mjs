@@ -20,6 +20,9 @@
 //  11. (572, spec 3042) the sub-tab shows the serving list (name; id alone when gone; "—" when none, as an
 //      older payload without the fields reads) and "removed by duty n" only above 0, a link only with 567's View
 //      (canViewServingLists); the two new not-competed reasons ServingListInactive / DutyLeftFewerThanTwo read as words;
+//  12. (715, spec 3326) the sub-tab shows the search radius ("searched n km", an ltr isolate; "no radius
+//      search" at 0; nothing for an older payload) and the four closes after a take in words, each `detail`
+//      as sent (an Arabic courier reason in its own isolate);
 //  10. (review of 2952) a Refresh keeps the Callout tab and its ledger on screen while it reads; a late
 //      callout answer for the delivery left behind never lands on the next one; an open callout the
 //      door sent no `secondsLeft` for says nothing of time (never "0:00 left").
@@ -314,6 +317,7 @@ function cases(rtl) {
           servingListNameEn: '',
           servingListNameAr: '',
           dutyRemovedCount: 0,
+          searchRadiusKm: 0,
           endedAt: `${D}10:00:00`,
           locksDelivery: false,
           events: [ev('10:00:00', 'Opened')],
@@ -336,6 +340,30 @@ function cases(rtl) {
           endedAt: `${D}10:00:00`,
           locksDelivery: false,
           events: [ev('10:00:00', 'Opened')],
+        }),
+      ],
+    },
+    // 715: taken, then closed — the four closes after a take, a courier's Arabic reason as sent.
+    '8000000610': {
+      doc: ready('8000000610'),
+      logs,
+      callouts: [
+        callout('8000000610', {
+          status: 'TAKEN',
+          outcome: 'Taken',
+          endedAt: `${D}10:02:00`,
+          searchRadiusKm: 10,
+          awardedParty: 'R047',
+          awardedAt: `${D}10:02:00`,
+          bids: [bid('B1', 'R047', { status: 'TAKEN', answeredAt: `${D}10:02:00`, answeredStaff: 'Huda', closedAt: `${D}10:02:00` })],
+          events: [
+            ev('10:00:00', 'Opened'),
+            ev('10:02:00', 'Take', { bidId: 'B1', party: 'R047', staff: 'Huda', register: '01', detail: 'Won' }),
+            ev('10:10:00', 'CloseRefused', { party: 'R047', staff: 'Huda', register: '01', detail: 'CloseRefused: customer asked' }),
+            ev('10:20:00', 'StoreClosedAfterTake', { party: 'R047', staff: 'Huda', register: '01', detail: 'StoreClosed: العميل ألغى الطلب' }),
+            ev('10:25:00', 'CourierCancelledAfterTake', { party: 'R047', staff: 'Outbox', detail: 'CourierBlamedStore: الطلب غير موجود في الفرع (alshrouqexpress)' }),
+            ev('10:30:00', 'OtherClosedAfterTake', { party: 'R047', staff: 'hq.ops', detail: 'OtherClose' }),
+          ],
         }),
       ],
     },
@@ -636,6 +664,50 @@ async function drive(dir) {
   await page.locator('[data-activity-tab="callout"]').click()
   check(`${label}: 572 with View, a callout with no list stays "—", no link`, (await page.locator('[data-serving-list-link]').count()) === 0 && strip(await page.locator('[data-callout-serving]').innerText()) === 'serving list —')
   servingAccess.canViewServingLists = false
+
+  // ── 12: the search radius and the closes after a take (715) ──────────────────────────────────
+  {
+    await open('8000000610')
+    await page.locator('[data-activity-tab="callout"]').click()
+    await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
+    const p = await page.evaluate(() => {
+      const panel = document.querySelector('[data-callout-panel]')
+      const r = panel.querySelector('[data-search-radius]')
+      return {
+        radius: r?.getAttribute('data-search-radius') ?? null,
+        radiusText: r?.textContent ?? '',
+        radiusLtr: r?.querySelector('bdi[dir="ltr"]')?.textContent ?? '',
+        rows: [...panel.querySelectorAll('[data-event-log] [data-event]')].map((x) => ({
+          kind: x.getAttribute('data-event'),
+          label: x.querySelector('[data-event-kind]')?.textContent ?? '',
+          detail: x.lastElementChild?.textContent ?? '',
+          detailBdi: !!x.lastElementChild?.querySelector('bdi:not([dir])'),
+        })),
+      }
+    })
+    check(`${label}: 715 the sub-tab reads "searched 10 km", the km an ltr isolate`, p.radius === '10' && strip(p.radiusText) === 'searched 10 km' && p.radiusLtr === '10', JSON.stringify(p.radius + '|' + p.radiusText))
+    const row = (k) => p.rows.find((x) => x.kind === k) ?? {}
+    const words = {
+      CloseRefused: ['Close refused: the delivery is locked', 'CloseRefused: customer asked'],
+      StoreClosedAfterTake: ['Store closed it after the take', 'StoreClosed: العميل ألغى الطلب'],
+      CourierCancelledAfterTake: ['Courier cancelled it after the take', 'CourierBlamedStore: الطلب غير موجود في الفرع (alshrouqexpress)'],
+      OtherClosedAfterTake: ['Closed by someone else after the take', 'OtherClose'],
+    }
+    for (const [k, [w, d]] of Object.entries(words)) {
+      check(`${label}: 715 ${k} reads in words, its detail as sent in a bdi`, row(k).label === w && row(k).detail === d && row(k).detailBdi, JSON.stringify(row(k)))
+    }
+    check(`${label}: 715 a known kind still reads as its code`, row('Take').label === 'Take', JSON.stringify(row('Take')))
+    await page.locator('[data-callout-panel]').screenshot({ path: `${SHOTS}/${dir}-715-closes.png` })
+
+    await open('8000000608')
+    await page.locator('[data-activity-tab="callout"]').click()
+    await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
+    check(`${label}: 715 "no radius search" at 0`, strip(await page.locator('[data-search-radius="0"]').innerText()) === 'no radius search')
+    await open('8000000603')
+    await page.locator('[data-activity-tab="callout"]').click()
+    await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
+    check(`${label}: 715 an older payload shows no radius`, (await page.locator('[data-search-radius]').count()) === 0)
+  }
 
   // ── 6: an open callout ──────────────────────────────────────────────────────────────────────
   await open('8000000605')

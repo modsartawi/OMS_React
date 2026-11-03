@@ -11,13 +11,17 @@
  * missing figure is `null`, never 0.
  */
 
-/** The five ranked store measures (ruling 2948 D4), as the card and the rank columns name them. */
+/**
+ * The six ranked store measures (ruling 2948 D4; spec 3326 added `failedTakeRate`, lower is better), as
+ * the card and the rank columns name them.
+ */
 export type DispatchScorecardMeasure =
   | 'ignoreRate'
   | 'medianAnswerSeconds'
   | 'slowQuarterAnswerSeconds'
   | 'winRate'
   | 'declineRate'
+  | 'failedTakeRate'
 
 /** A measure's better direction. */
 export type DispatchScorecardBetter = 'lower' | 'higher'
@@ -46,6 +50,9 @@ export type DispatchScorecardFigure =
   | 'medianKm'
   | 'fallbacksReceived'
   | 'releasedAfterAward'
+  | 'failedTakes'
+  | 'fallbackCancels'
+  | 'refusedCloses'
   | DispatchScorecardMeasure
 
 /** The scorecard's refusals (`DispatchScorecardErrorCodes`). */
@@ -71,7 +78,12 @@ export interface DispatchScorecardQuery {
   store?: string
 }
 
-/** One store's row: the five ranked measures, their ranks among stores that are not too few, and context. */
+/**
+ * One store's row: the six ranked measures, their ranks among stores that are not too few, and context.
+ *
+ * The spec 3326 fields are optional (`?:`): a server not yet on 3326 sends none of them, and the screen
+ * reads that as a missing figure, never 0.
+ */
 export interface DispatchScorecardStoreRow {
   store: string
   name: string
@@ -83,12 +95,16 @@ export interface DispatchScorecardStoreRow {
   slowQuarterAnswerSeconds: number | null
   winRate: number | null
   declineRate: number | null
+  /** Spec 3326: failed takes / `won`; `null` when the store won nothing. */
+  failedTakeRate?: number | null
 
   ignoreRateRank: number | null
   medianAnswerRank: number | null
   slowQuarterAnswerRank: number | null
   winRateRank: number | null
   declineRateRank: number | null
+  /** Named like `medianAnswerRank`: `failedTakeRank`, not `failedTakeRateRank`. */
+  failedTakeRank?: number | null
 
   /** Answered + Ignored: the bids the 20-bid minimum counts. */
   rankedBids: number
@@ -111,7 +127,12 @@ export interface DispatchScorecardStoreRow {
   answered: number
   darkOffers: number
   medianKm: number | null
+  failedTakes?: number
   fallbacksReceived: number
+  /** Spec 3326: the fallback deliveries this store then closed. Context only, not in the rate. */
+  fallbackCancels?: number
+  /** BO 3339: callouts this store won and then tried to close, refused by the lock. Once per callout. Context only. */
+  refusedCloses?: number
   releasedAfterAward: number
   releasedByReason: Record<string, number>
 }
@@ -125,6 +146,11 @@ export interface DispatchScorecardStaffRow {
   lostRaces: number
   nearMisses: number
   passedWithStock: number
+  /** Spec 3326: the takes this person made that failed, whoever closed them. Never ranked (no rank field). */
+  failedTakes?: number
+  failedTakeRate?: number | null
+  /** BO 3339: the takes this person won whose store then tried to close and was refused. Never ranked. */
+  refusedCloses?: number
   medianAnswerSeconds: number | null
   slowQuarterAnswerSeconds: number | null
   medianAnswerRank: number | null

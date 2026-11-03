@@ -33,7 +33,7 @@ const CLASS_SWATCH: Partial<Record<DispatchScorecardBidClass, string>> = {
 
 /**
  * A store's report card (2950 point 3, variant B as the drill target): `DispatchScorecard/StoreCard` for
- * the range and the other filters. The five measures with "#n of m" and the estate median exactly as
+ * the range and the other filters. The six measures with "#n of m" and the estate median exactly as
  * sent, where its bids went (a stacked bar), the context chips, and its staff. A measure opens its bids.
  */
 export default function StoreCardDrawer({
@@ -89,7 +89,7 @@ export default function StoreCardDrawer({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5" data-sc-card-measures="">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-sc-card-measures="">
             {card.data.measures.map((m) => (
               <MeasureTile key={m.measure} m={m} dash={dash} onOpen={() => openDrill(m.measure as DispatchScorecardFigure, { store })} />
             ))}

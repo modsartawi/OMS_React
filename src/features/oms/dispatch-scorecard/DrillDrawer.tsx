@@ -19,7 +19,7 @@ import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { dispatchScorecardApi } from './api'
 import { drillColumns } from './columns'
-import { drillPath } from './figures'
+import { drillPath, isRate } from './figures'
 import { refusalKey } from './range'
 import Sheet from './Sheet'
 
@@ -30,8 +30,6 @@ const DEFAULT_COL_DEF: ColDef<DispatchScorecardDrillRow> = {
   flex: 1,
   suppressHeaderMenuButton: true,
 }
-
-const RATES = new Set<string>(['ignoreRate', 'winRate', 'declineRate'])
 
 /** What the drawer is opened on: a figure, and whose — one store's, or one person's own. */
 export interface DrillTarget {
@@ -65,7 +63,7 @@ export default function DrillDrawer({
     queryFn: () => dispatchScorecardApi.drill(wire, target.figure, target.staff ?? ''),
     retry: false,
   })
-  const rate = RATES.has(target.figure)
+  const rate = isRate(target.figure)
   const columns = useMemo(() => drillColumns(t, rate), [t, rate])
   const rows = drill.data?.rows ?? []
   const figureLabel = t(`figure.${target.figure}`)

@@ -18,6 +18,9 @@ import { join, dirname, sep } from 'node:path'
 
 const SRC = 'src'
 
+// Features directly under `features/` rather than under an area (feature-structure.md).
+const TOP_LEVEL_FEATURES = new Set(['auth', 'copilot'])
+
 function walk(dir, acc = []) {
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry)
@@ -41,7 +44,7 @@ function normalizePosix(p) {
 }
 
 // Classify a src-relative posix path (e.g. "src/features/oms/deliveries/api") into a layer.
-// A feature's `id` is its area/feature (or just "auth"), so two different features never share one.
+// A feature's `id` is its area/feature (or just "auth" / "copilot"), so two different features never share one.
 function classify(srcRel) {
   const m = srcRel.replace(/^src\//, '')
   if (m.startsWith('app/')) return { layer: 'app' }
@@ -49,7 +52,9 @@ function classify(srcRel) {
   if (m.startsWith('core/')) return { layer: 'core' }
   if (m.startsWith('features/')) {
     const parts = m.split('/') // ["features","auth",...] or ["features","oms","deliveries",...]
-    if (parts[1] === 'auth') return { layer: 'feature', id: 'auth' }
+    // The top-level features (not areas) are one feature each, whatever their depth: `auth`, and the
+    // copilot (ticket 735, spec 734 D11) — cross-cutting like `auth`, opened from the app shell.
+    if (TOP_LEVEL_FEATURES.has(parts[1])) return { layer: 'feature', id: parts[1] }
     if (parts.length >= 3) return { layer: 'feature', id: `${parts[1]}/${parts[2]}` }
     return { layer: 'feature', id: parts[1] }
   }

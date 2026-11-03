@@ -13,13 +13,14 @@ import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import NotificationBell from './notifications/NotificationBell'
+import CopilotButton from './CopilotButton'
 import { deriveCrumb } from './crumb'
 import { MENU } from './menu-model'
 import { RailDrawer } from './Rail'
 
 // The top bar (spec 380 F11, ticket 386; 363 "Top bar"): 44px on `--card`, holding the
-// crumb, the centred palette field (392), then — at the inline end — the store chip and
-// the bell. Nothing else: the account lives at the rail foot (`UserMenu.tsx`), and
+// crumb, the centred palette field (392), then — at the inline end — "Ask the OMS" (735), the
+// store chip and the bell. Nothing else: the account lives at the rail foot (`UserMenu.tsx`), and
 // Broadcast stays an Administration leaf. Paper never carries it (F20).
 
 /**
@@ -246,6 +247,8 @@ export default function TopBar({ withDrawer }: { withDrawer: boolean }) {
         <PaletteField />
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        {/* "Ask the OMS" (ticket 735, spec 734 D11): drawn only on an explicit `canAsk`, failing closed. */}
+        <CopilotButton />
         <StoreChip />
         {/* Hides itself when the Notification Center is off (404 poll). Its panel is 389's. */}
         <NotificationBell />

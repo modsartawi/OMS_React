@@ -1,0 +1,34 @@
+{
+  "title": "Ask the OMS",
+  "subtitle": "Ask about orders, deliveries and sales. The answer comes only from the OMS's own read-only tools.",
+  "button": "Ask the OMS",
+  "eyebrow": "Copilot",
+  "close": "Close",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Ask the OMS",
+    "deniedHint": "Your account does not hold the copilot grant. Ask an administrator if you need it.",
+    "unreachableTitle": "Ask the OMS is unavailable",
+    "unreachableHint": "Your access could not be checked, so the copilot stays closed. Try again in a moment."
+  },
+  "examples": {
+    "heading": "Try asking",
+    "late": "Why was order X late?",
+    "lateSelect": "X",
+    "hungerstation": "HungerStation orders in Riyadh this week versus last?"
+  },
+  "box": {
+    "label": "Your question",
+    "placeholder": "Ask about an order, a channel, a city or a store",
+    "chars": "Characters",
+    "tooLong": "A question can be at most {{max}} characters. Shorten it to send.",
+    "send": "Send"
+  },
+  "working": "Working on your question…",
+  "failed": "The question could not be answered.",
+  "answer": {
+    "question": "You asked",
+    "heading": "Answer",
+    "empty": "The copilot sent no answer text."
+  }
+}

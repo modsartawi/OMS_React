@@ -104,6 +104,12 @@ export const router = createBrowserRouter([
     Component: ProtectedLayout,
     children: [
       { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
+      // The copilot as a full page (ticket 735, spec 734 D11) — the same panel the top bar's "Ask the OMS"
+      // opens, behind `canAskCopilot` on `GET Copilot/Access`, failing closed. Not a nav item.
+      {
+        path: 'copilot',
+        lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
+      },
       {
         path: 'oms/deliveries',
         handle: SINGLE_KEYS,

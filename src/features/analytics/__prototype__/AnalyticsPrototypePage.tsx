@@ -20,12 +20,13 @@ import {
   InteractiveQuestion,
   MetabaseProvider,
 } from '@metabase/embedding-sdk-react'
-import { BarChart3, Compass, LayoutDashboard, LayoutGrid, Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { BarChart3, Compass, LayoutDashboard, LayoutGrid, Layers, Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import PrototypeSwitcher from '@/core/ui/PrototypeSwitcher'
 import AskVariant from './AskVariant'
 import LinkedBoardVariant from './LinkedBoardVariant'
 import NativeVariant from './NativeVariant'
+import SupersetVariant from './SupersetVariant'
 
 const env = import.meta.env
 const authConfig = defineMetabaseAuthConfig({ metabaseInstanceUrl: env.VITE_MB_URL, apiKey: env.VITE_MB_API_KEY })
@@ -38,6 +39,7 @@ const VARIANTS = [
   { key: 'ask', name: 'Ask — a question becomes a saved view (embedded Metabase)' },
   { key: 'native', name: 'Build (native) — our own builder + charts over the free OSS engine' },
   { key: 'linked', name: 'Linked board (native) — cross-filtered panels, click a store to focus all' },
+  { key: 'superset', name: 'Superset board — embedded Apache Superset, free embedding (754)' },
 ]
 const SCENARIOS = [
   { key: 'en', label: 'English, LTR', proves: 'the DMSCO theme carries into every chart, table and menu' },
@@ -104,6 +106,7 @@ export default function AnalyticsPrototypePage() {
               ['ask', 'Ask', Sparkles],
               ['native', 'Build (native)', SlidersHorizontal],
               ['linked', 'Linked board', LayoutGrid],
+              ['superset', 'Superset', Layers],
             ].map(([k, label, Icon]) => (
               <Button key={k as string} variant={variant === k ? 'primary' : 'secondary'} onClick={() => set('variant', k as string)}>
                 <Icon className="size-3.5" aria-hidden />
@@ -119,6 +122,7 @@ export default function AnalyticsPrototypePage() {
           {variant === 'ask' && <AskVariant />}
           {variant === 'native' && <NativeVariant />}
           {variant === 'linked' && <LinkedBoardVariant />}
+          {variant === 'superset' && <SupersetVariant scenario={scenario} />}
         </main>
       </MetabaseProvider>
 

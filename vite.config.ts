@@ -38,6 +38,30 @@ const BUILD_TIME = localBuildTime()
 
 // Emits /version.json into dist/ so an operator can GET it same-origin (no login)
 // to see which build is live. Build-only — dev serves nothing here.
+// PROTOTYPE 754 — stands in for SIS.Api minting a Superset guest token for the signed-in user.
+// Server-side: logs in with a service account and calls /api/v1/security/guest_token/.
+function supersetGuestToken(): Plugin {
+  const SS = process.env.SS_URL || 'http://10.211.55.2:8088'
+  return {
+    name: 'proto-754-superset-guest-token',
+    configureServer(server) {
+      server.middlewares.use('/ssguest', async (req, res) => {
+        const id = new URL(req.url ?? '', 'http://x').searchParams.get('id') ?? ''
+        const login = await fetch(`${SS}/api/v1/security/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'Proto-754-demo!', provider: 'db' }),
+        }).then((r) => r.json())
+        const g = await fetch(`${SS}/api/v1/security/guest_token/`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${login.access_token}` },
+          body: JSON.stringify({ user: { username: 'hq.demo', first_name: 'HQ', last_name: 'Demo' }, resources: [{ type: 'dashboard', id }], rls: [] }),
+        }).then((r) => r.json())
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ token: g.token }))
+      })
+    },
+  }
+}
+
 function versionAsset(): Plugin {
   return {
     name: 'oms-version-asset',
@@ -58,7 +82,7 @@ function versionAsset(): Plugin {
 // Staging/production are same-origin under IIS — no proxy, no CORS anywhere; the
 // prod client uses base `/` (see src/core/api.ts, issue 435).
 export default defineConfig({
-  plugins: [react(), tailwindcss(), versionAsset()],
+  plugins: [react(), tailwindcss(), versionAsset(), supersetGuestToken()],
   define: {
     __APP_VERSION__: JSON.stringify(VERSION),
     __BUILD_SHA__: JSON.stringify(SHA),

@@ -69,6 +69,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // PROTOTYPE 747 — the Ask variant's create-view call to local Metabase (same-origin, no CORS).
+      '/mbapi': { target: 'http://localhost:3000', changeOrigin: true, rewrite: (p) => p.replace(/^\/mbapi/, '/api') },
       // DataSync (spec 558, ticket 559) is its own service. Listed BEFORE '/api': the first
       // matching key wins. Production is unchanged — IIS on the SIS.Api host proxies /DataSync/*.
       // DATASYNC_API points it elsewhere; only that run loosens TLS and rewrites the cookie.

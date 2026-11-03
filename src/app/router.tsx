@@ -104,6 +104,14 @@ export const router = createBrowserRouter([
     Component: ProtectedLayout,
     children: [
       { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
+      // PROTOTYPE — throwaway (wayfinder ticket 747, map 741): embedded Metabase inside the shell.
+      {
+        path: 'prototype/analytics',
+        handle: FILL_CONTENT,
+        lazy: async () => ({
+          Component: (await import('@/features/analytics/__prototype__/AnalyticsPrototypePage')).default,
+        }),
+      },
       {
         path: 'oms/deliveries',
         handle: SINGLE_KEYS,

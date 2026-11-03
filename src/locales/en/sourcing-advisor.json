@@ -1,0 +1,102 @@
+{
+  "menu": {
+    "sourcingAdvisor": "Sourcing advisor"
+  },
+  "title": "Sourcing advisor",
+  "subtitle": "Why an order went to its store, and what the cheapest on-time store would have cost. Read-only: routing is never changed from here.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the sourcing advisor",
+    "deniedHint": "Your account does not hold the sourcing advisor grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "lookup": {
+    "label": "Delivery number",
+    "open": "Explain",
+    "hint": "Enter a delivered order to see why it went to its store."
+  },
+  "load": {
+    "loading": "Loading the explanation…",
+    "failedTitle": "The explanation could not be loaded",
+    "failed": "Something went wrong reading this order. Try again in a moment."
+  },
+  "refusal": {
+    "noGrant": "Your account does not hold the sourcing advisor grant.",
+    "badRange": "The range is at most 92 days, and its start comes before its end.",
+    "notScored": "Order {{orderNo}} is not found, or has not been scored yet. Orders are scored the night after they are delivered.",
+    "notScoredRange": "Scoring has not run for part of this range yet."
+  },
+  "placeholder": {
+    "title": "Placeholder rates",
+    "body": "These SAR figures use placeholder rates until finance supplies the real ones. Do not quote them.",
+    "rateVersion": "Rate version <v>{{version}}</v>"
+  },
+  "order": {
+    "heading": "The order",
+    "orderNo": "Order",
+    "deliveryType": "Delivery type",
+    "city": "City",
+    "promisedBy": "Promised by",
+    "backToDelivery": "Back to the delivery"
+  },
+  "compare": {
+    "heading": "Actual against cheapest",
+    "actual": "Filled by",
+    "best": "Cheapest on time",
+    "none": "No candidate on record",
+    "km": "Distance",
+    "cost": "Estimated cost",
+    "ready": "Ready in",
+    "travel": "Travel",
+    "onTime": "On time"
+  },
+  "unit": {
+    "km": "<v>{{value}}</v> km",
+    "sar": "SAR <v>{{value}}</v>",
+    "mins": "<v>{{value}}</v> min"
+  },
+  "saving": {
+    "heading": "The saving",
+    "amount": "Estimated saving: SAR <v>{{amount}}</v>",
+    "none": "No cheaper on-time store: there is no saving to show."
+  },
+  "reasons": {
+    "heading": "Why they differ",
+    "nearerStoreStocked": "A nearer store had the stock and was on time.",
+    "actualLate": "The store that filled it would have been late.",
+    "avoidableSplit": "The order was split when one store had every line.",
+    "expressPremium": "The express premium made the actual store dearer.",
+    "cheaperFleet": "A cheaper courier fleet served the cheapest store.",
+    "actualWasBest": "The store that filled it was already the cheapest on time.",
+    "stockEstimated": "Some stock is estimated from current stock, not recorded at order time.",
+    "unknown": "Another reason the advisor recorded (<v>{{code}}</v>).",
+    "none": "No reasons recorded."
+  },
+  "candidates": {
+    "heading": "Candidates",
+    "count": "Up to 15 stores that could have filled it, as scored.",
+    "empty": "No candidates on record for this order.",
+    "store": "Store",
+    "km": "km",
+    "courier": "Courier",
+    "pick": "Pick",
+    "split": "Split",
+    "express": "Express",
+    "cost": "Cost (SAR)",
+    "onTime": "On time",
+    "stock": "Stock",
+    "actualTag": "Filled it",
+    "bestTag": "Cheapest"
+  },
+  "onTime": {
+    "yes": "On time",
+    "no": "Late",
+    "unknown": "Unknown"
+  },
+  "stock": {
+    "recorded": "Recorded",
+    "estimated": "Estimated"
+  }
+}

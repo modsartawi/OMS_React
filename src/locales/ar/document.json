@@ -5,6 +5,7 @@
     "holdingStore": "محفوظة في <v>{{store}}</v>",
     "afterClose": "بعد الإغلاق"
   },
+  "whyThisStore": "لماذا هذا الفرع؟",
   "callout": {
     "loadFailed": "تعذّر تحميل عرض التوصيل على المتاجر.",
     "tabs": {

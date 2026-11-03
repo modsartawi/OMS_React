@@ -396,3 +396,23 @@ describe('the Serving lists leaf (ticket 567)', () => {
     expect(leaf.access?.visible(null)).toBe(false)
   })
 })
+
+describe('the Sourcing advisor leaf (ticket 738)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-advisor:menu.sourcingAdvisor')!
+
+  it('sits in the OMS group, lit alone on its own screen and its explanations', () => {
+    expect(leaf.routerLink).toBe('/oms/sourcing-advisor')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-advisor/order/8000000253')).map((i) => i.labelKey)).toEqual([
+      'sourcing-advisor:menu.sourcingAdvisor',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (SourcingAdvisor/Access), and fails closed on anything but canView true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'sourcing-advisor', 'access'])
+    expect(leaf.access?.visible({ canView: true })).toBe(true)
+    expect(leaf.access?.visible({ canView: false })).toBe(false)
+    expect(leaf.access?.visible({ canView: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})

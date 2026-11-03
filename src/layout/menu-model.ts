@@ -45,6 +45,9 @@ import {
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
 import { ListTree, ShieldAlert, Trophy } from 'lucide-react'
+// The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
+import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
+import { Route } from 'lucide-react'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
@@ -438,6 +441,20 @@ export const MENU: ShellMenuItem[] = [
           key: SERIAL_REFUSAL_ACCESS_KEY,
           run: () => serialRefusalAccessApi.access(),
           visible: canOpenSerialRefusals,
+        }),
+      },
+      {
+        // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
+        // on its own probe in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
+        // Before Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'sourcing-advisor:menu.sourcingAdvisor',
+        icon: Route,
+        routerLink: '/oms/sourcing-advisor',
+        activePrefix: '/oms/sourcing-advisor',
+        access: accessProbe({
+          key: SOURCING_ADVISOR_ACCESS_KEY,
+          run: () => sourcingAdvisorAccessApi.access(),
+          visible: canViewSourcingAdvisor,
         }),
       },
       {

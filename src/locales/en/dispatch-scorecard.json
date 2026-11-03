@@ -62,7 +62,8 @@
     "medianAnswerSeconds": "Median answer",
     "slowQuarterAnswerSeconds": "Slow quarter",
     "winRate": "Win rate",
-    "declineRate": "Decline rate"
+    "declineRate": "Decline rate",
+    "failedTakeRate": "Failed-take rate"
   },
   "column": {
     "store": "Store",
@@ -81,12 +82,19 @@
     "releasedAfterAward": "Released after award",
     "won": "Won",
     "passedWithStock": "Passed with stock",
-    "answers": "Answers"
+    "answers": "Answers",
+    "failedTakes": "Failed takes",
+    "failedTakeRate": "Failed-take rate",
+    "fallbackCancels": "Fallback cancels",
+    "refusedCloses": "Refused closes"
   },
   "columnHint": {
     "lostRaces": "A near miss is a lost race at most 10 seconds after the award — poll luck, not slowness.",
     "unseen": "Bids never shown: nobody signed in, or a till on an old build.",
-    "releasedAfterAward": "Awarded deliveries this store won and later released; hover a figure for its reasons."
+    "releasedAfterAward": "Awarded deliveries this store won and later released; hover a figure for its reasons.",
+    "failedTakeRate": "Of the deliveries this store won, how many it then closed itself, or a courier cancelled with a reason that names the store. Lower is better. A store with no wins shows —.",
+    "fallbackCancels": "Deliveries this store got as a fallback and then closed. Not in the rate.",
+    "refusedCloses": "Deliveries this store won and then tried to close while the lock held them. Each delivery counts once. Not in the rate."
   },
   "tooFew": "too few",
   "figure": {
@@ -113,7 +121,11 @@
     "medianAnswerSeconds": "Median answer",
     "slowQuarterAnswerSeconds": "Slow quarter",
     "winRate": "Win rate",
-    "declineRate": "Decline rate"
+    "declineRate": "Decline rate",
+    "failedTakeRate": "Failed-take rate",
+    "failedTakes": "Failed takes",
+    "fallbackCancels": "Fallback cancels",
+    "refusedCloses": "Refused closes"
   },
   "drill": {
     "eyebrow": "The bids behind",

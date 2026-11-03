@@ -3,6 +3,7 @@ import type { DispatchScorecardCardMeasure, DispatchScorecardDrillRow } from '@/
 import {
   STAFF_COLUMNS,
   STORE_COLUMNS,
+  STORE_RANK_FIELD,
   cardMedianText,
   cardRank,
   compareRanked,
@@ -21,7 +22,7 @@ function gridSort<T extends { v: number | null; few: boolean }>(rows: T[], desce
 }
 
 describe('direction labels', () => {
-  it('each of the five store measures is labelled with its better direction (ruling 2948 D4)', () => {
+  it('each of the six store measures is labelled with its better direction (ruling 2948 D4, spec 3326)', () => {
     const ranked = STORE_COLUMNS.filter((c) => c.ranked).map((c) => [c.field, c.better && directionLabelKey(c.better)])
     expect(ranked).toEqual([
       ['ignoreRate', 'direction.lower'],
@@ -29,6 +30,7 @@ describe('direction labels', () => {
       ['slowQuarterAnswerSeconds', 'direction.lower'],
       ['winRate', 'direction.higher'],
       ['declineRate', 'direction.lower'],
+      ['failedTakeRate', 'direction.lower'],
     ])
   })
 
@@ -82,19 +84,21 @@ describe('tooFewLast', () => {
 })
 
 describe('context columns', () => {
-  it('🚩 a context column is never sortable as a rank — only the five measures sort', () => {
+  it('🚩 a context column is never sortable as a rank — only the six measures sort', () => {
     expect(STORE_COLUMNS.filter((c) => c.sortable).map((c) => c.field)).toEqual([
       'ignoreRate',
       'medianAnswerSeconds',
       'slowQuarterAnswerSeconds',
       'winRate',
       'declineRate',
+      'failedTakeRate',
     ])
     expect(STORE_COLUMNS.filter((c) => !c.ranked).every((c) => !c.sortable && c.better === undefined)).toBe(true)
   })
 
-  it('names the 2948 D5 context: bids, beaten, lost races, passed short/unknown, dark, unseen, km, fallbacks, released', () => {
+  it('names the 2948 D5 context, refused closes right beside the failed-take rate (BO 3339), then failed takes and fallback cancels', () => {
     expect(STORE_COLUMNS.filter((c) => !c.ranked).map((c) => c.field)).toEqual([
+      'refusedCloses',
       'bids',
       'beaten',
       'lostRaces',
@@ -104,19 +108,34 @@ describe('context columns', () => {
       'unseen',
       'medianKm',
       'fallbacksReceived',
+      'fallbackCancels',
+      'failedTakes',
       'releasedAfterAward',
     ])
   })
 
-  it('every ranked figure, and lost races, opens the drill — by its own field name', () => {
+  it('🚩 the failed-take rate sits right after the decline rate, refused closes right beside it', () => {
+    const fields = STORE_COLUMNS.map((c) => c.field)
+    expect(fields.slice(4, 7)).toEqual(['declineRate', 'failedTakeRate', 'refusedCloses'])
+  })
+
+  it('every ranked figure, lost races, and the three spec 3326 context figures open the drill — by their own field name', () => {
     expect(STORE_COLUMNS.filter((c) => c.drill).map((c) => c.drill)).toEqual([
       'ignoreRate',
       'medianAnswerSeconds',
       'slowQuarterAnswerSeconds',
       'winRate',
       'declineRate',
+      'failedTakeRate',
+      'refusedCloses',
       'lostRaces',
+      'fallbackCancels',
+      'failedTakes',
     ])
+  })
+
+  it('every ranked store measure has its rank field as the door names it — failedTakeRank, not failedTakeRateRank', () => {
+    expect(STORE_RANK_FIELD.failedTakeRate).toBe('failedTakeRank')
   })
 
   it('the Staff tab never ranks Won, lost races or Passed with stock', () => {
@@ -128,7 +147,35 @@ describe('context columns', () => {
       'medianAnswerSeconds',
       'slowQuarterAnswerSeconds',
       'answers',
+      'failedTakes',
+      'failedTakeRate',
+      'refusedCloses',
     ])
+  })
+
+  it('🚩 the staff failed-take rate never ranks: no rank, no sort, no direction — but it and its neighbours drill', () => {
+    const plan = Object.fromEntries(STAFF_COLUMNS.map((c) => [c.field, c]))
+    for (const f of ['failedTakes', 'failedTakeRate', 'refusedCloses']) {
+      expect(plan[f]).toEqual({ field: f, ranked: false, sortable: false, drill: f })
+    }
+  })
+})
+
+describe('the failed-take rate sorts', () => {
+  // A store with no wins sends a null rate (spec 3326): it must never read as the best.
+  const rows = [
+    { id: 'noWins', v: null, few: false },
+    { id: 'clean', v: 0, few: false },
+    { id: 'some', v: 0.12, few: false },
+    { id: 'bad', v: 0.4, few: false },
+  ]
+
+  it('🚩 ascending (best first): a null rate is LAST, never ranked first', () => {
+    expect(gridSort(rows, false).map((r) => r.id)).toEqual(['clean', 'some', 'bad', 'noWins'])
+  })
+
+  it('🚩 descending (worst first): a null rate is STILL last', () => {
+    expect(gridSort(rows, true).map((r) => r.id)).toEqual(['bad', 'some', 'clean', 'noWins'])
   })
 })
 
@@ -136,6 +183,7 @@ describe('formatMeasure', () => {
   it('a rate (0..1 as sent) reads as a percent with one decimal', () => {
     expect(formatMeasure('ignoreRate', 0.1234, '—')).toBe('12.3%')
     expect(formatMeasure('winRate', 0, '—')).toBe('0.0%')
+    expect(formatMeasure('failedTakeRate', 0.0625, '—')).toBe('6.3%')
   })
 
   it('an answer time reads in seconds under a minute, else m:ss', () => {
@@ -146,6 +194,9 @@ describe('formatMeasure', () => {
   it('an absent figure reads the dash, never 0', () => {
     expect(formatMeasure('declineRate', null, '—')).toBe('—')
     expect(formatMeasure('medianAnswerSeconds', null, '—')).toBe('—')
+    expect(formatMeasure('failedTakeRate', null, '—')).toBe('—')
+    // A server not yet on spec 3326 sends no field at all.
+    expect(formatMeasure('failedTakeRate', undefined, '—')).toBe('—')
   })
 })
 
@@ -172,6 +223,7 @@ describe('the store card', () => {
     expect(cardMedianText(measure({ estateMedian: 0.115 }), '—')).toBe('11.5%')
     expect(cardMedianText(measure({ measure: 'medianAnswerSeconds', estateMedian: 61 }), '—')).toBe('1:01')
     expect(cardMedianText(measure({ estateMedian: null }), '—')).toBe('—')
+    expect(cardMedianText(measure({ measure: 'failedTakeRate', estateMedian: 0.031 }), '—')).toBe('3.1%')
   })
 })
 

@@ -27,6 +27,12 @@
 //  12. no page errors;
 //  13. (review of 2952) a text filter holds an inner space ("Al Khobar"), asks nothing while typed, and
 //      is applied — trimmed — on Enter, reaching the Grid and the URL.
+//  14. (ticket 713, spec 3326) the sixth ranked measure, Failed-take rate, lower is better: a store with
+//      no wins (null rate) reads "—" and sorts last BOTH ways, never ranked first; Refused closes sits
+//      right beside it; Failed takes, Fallback cancels and Refused closes are context (never sort) and
+//      each drills its own figure; the rate's drill marks Counted; the card shows six measures; the
+//      Staff tab shows the person's rate and failed takes without a rank, and a row from a server not
+//      yet on 3326 (no fields at all) reads "—", never 0.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/dispatch-scorecard-drive.mjs
@@ -98,15 +104,22 @@ const storeRow = (store, name, over = {}) => ({
   fallbacksReceived: 2,
   releasedAfterAward: 1,
   releasedByReason: { NO_STOCK: 1 },
+  failedTakeRate: 0.1,
+  failedTakeRank: 2,
+  failedTakes: 2,
+  fallbackCancels: 1,
+  refusedCloses: 3,
   ...over,
 })
 // Ignore rate: P002 best (0.05), P001 (0.1), P003 worst (0.3), P004 no figure (null), P009 too few but LOWEST (0.01).
+// Failed-take rate (spec 3326): P002 best (0.05), P001 (0.1), P003 worst (0.2), P004 WON NOTHING (null — must
+// never read as best), P009 too few at 0.
 const STORES = [
-  storeRow('P009', 'Olaya Small', { ignoreRate: 0.01, tooFew: true, rankedBids: 6, ignoreRateRank: null }),
+  storeRow('P009', 'Olaya Small', { ignoreRate: 0.01, tooFew: true, rankedBids: 6, ignoreRateRank: null, failedTakeRate: 0, failedTakeRank: null, failedTakes: 0 }),
   storeRow('P001', 'Malaz'),
-  storeRow('P003', 'Sulay', { ignoreRate: 0.3, ignoreRateRank: 3 }),
-  storeRow('P004', 'Naseem', { ignoreRate: null, ignoreRateRank: null }),
-  storeRow('P002', 'Rawdah', { ignoreRate: 0.05, ignoreRateRank: 1 }),
+  storeRow('P003', 'Sulay', { ignoreRate: 0.3, ignoreRateRank: 3, failedTakeRate: 0.2, failedTakeRank: 3, failedTakes: 4 }),
+  storeRow('P004', 'Naseem', { ignoreRate: null, ignoreRateRank: null, won: 0, failedTakeRate: null, failedTakeRank: null, failedTakes: 0, refusedCloses: 0 }),
+  storeRow('P002', 'Rawdah', { ignoreRate: 0.05, ignoreRateRank: 1, failedTakeRate: 0.05, failedTakeRank: 1, failedTakes: 1 }),
 ]
 const staffRow = (staff, over = {}) => ({
   staff,
@@ -121,10 +134,15 @@ const staffRow = (staff, over = {}) => ({
   medianAnswerRank: 2,
   slowQuarterAnswerRank: 2,
   tooFew: false,
+  failedTakes: 1,
+  failedTakeRate: 0.125,
+  refusedCloses: 2,
   ...over,
 })
+// P001-ph03 is a row from a server not yet on spec 3326: none of its fields at all.
+const { failedTakes: _ft, failedTakeRate: _ftr, refusedCloses: _rc, ...preSpecStaff } = staffRow('P001-ph03', { medianAnswerSeconds: 5, tooFew: true, answers: 3, medianAnswerRank: null })
 const STAFF = [
-  staffRow('P001-ph03', { medianAnswerSeconds: 5, tooFew: true, answers: 3, medianAnswerRank: null }),
+  preSpecStaff,
   staffRow('P001-ph01', { medianAnswerSeconds: 22, medianAnswerRank: 1 }),
   staffRow('P002-ph01', { stores: ['P002'], medianAnswerSeconds: 61, medianAnswerRank: 3 }),
 ]
@@ -170,6 +188,7 @@ const MEASURES = [
   { measure: 'slowQuarterAnswerSeconds', value: 90, rank: 6, of: 17, estateMedian: 120, better: 'lower' },
   { measure: 'winRate', value: 0.4, rank: 2, of: 17, estateMedian: 0.33, better: 'higher' },
   { measure: 'declineRate', value: null, rank: null, of: 16, estateMedian: 0.04, better: 'lower' },
+  { measure: 'failedTakeRate', value: 0.1, rank: 2, of: 15, estateMedian: 0.08, better: 'lower' },
 ]
 const card = (store) => ({
   asOf: `${TODAY}T09:41:00`,
@@ -357,6 +376,7 @@ async function drive(dir) {
           slowQuarterAnswerSeconds: words.lower,
           winRate: words.higher,
           declineRate: words.lower,
+          failedTakeRate: words.lower,
         }),
       JSON.stringify(directions),
     )
@@ -386,6 +406,66 @@ async function drive(dir) {
     check(`${label}: a rate reads as a percent, the absent one as "—"`, JSON.stringify(rateCells) === JSON.stringify(['30.0%', '10.0%', '5.0%', '—', '1.0%']), rateCells.join(' '))
     const figureLink = page.locator('[data-sc-grid="stores"] .ag-row [data-sc-drill="ignoreRate"]').first()
     check(`${label}: a figure is isolated and reads left to right`, (await figureLink.locator('bdi[dir="ltr"]').count()) === 1 && (await readsLtr(figureLink)) === true)
+    // 14: the failed-take rate (spec 3326).
+    const headerOrder = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-sc-grid="stores"] .ag-header-row-column .ag-header-cell[col-id]')]
+        .sort((a, b) => Number(a.getAttribute('aria-colindex')) - Number(b.getAttribute('aria-colindex')))
+        .map((h) => h.getAttribute('col-id')),
+    )
+    const at = headerOrder.indexOf('failedTakeRate')
+    check(
+      `${label}: Failed-take rate follows Decline rate, Refused closes right beside it`,
+      at > 0 && headerOrder[at - 1] === 'declineRate' && headerOrder[at + 1] === 'refusedCloses',
+      headerOrder.join(' '),
+    )
+    await sortBy(page, '[data-sc-grid="stores"]', 'failedTakeRate', 'ascending')
+    const ftAsc = await storeOrder(page)
+    check(`${label}: Failed-take rate ascending (best first) — the no-wins store after the figures, never first`, JSON.stringify(ftAsc) === JSON.stringify(['P002', 'P001', 'P003', 'P004', 'P009']), ftAsc.join(' '))
+    await sortBy(page, '[data-sc-grid="stores"]', 'failedTakeRate', 'descending')
+    const ftDesc = await storeOrder(page)
+    check(`${label}: Failed-take rate descending (worst first) — the no-wins store STILL after, too-few STILL last`, JSON.stringify(ftDesc) === JSON.stringify(['P003', 'P001', 'P002', 'P004', 'P009']), ftDesc.join(' '))
+    const ftRows = await gridRows(page, '[data-sc-grid="stores"]')
+    check(
+      `${label}: the rate reads as a percent, the no-wins store's as "—" (never 0)`,
+      JSON.stringify(ftRows.map((r) => r.failedTakeRate)) === JSON.stringify(['20.0%', '10.0%', '5.0%', '—', '0.0%']),
+      ftRows.map((r) => r.failedTakeRate).join(' '),
+    )
+    check(
+      `${label}: failed takes, fallback cancels and refused closes read as sent`,
+      JSON.stringify(ftRows.map((r) => [r.failedTakes, r.fallbackCancels, r.refusedCloses])) ===
+        JSON.stringify([['4', '1', '3'], ['2', '1', '3'], ['1', '1', '3'], ['0', '1', '0'], ['0', '1', '3']]),
+      JSON.stringify(ftRows.map((r) => [r.failedTakes, r.fallbackCancels, r.refusedCloses])),
+    )
+    for (const col of ['refusedCloses', 'failedTakes', 'fallbackCancels']) {
+      const order = await storeOrder(page)
+      await page.locator(`[data-sc-grid="stores"] .ag-header-cell[col-id="${col}"] .ag-header-cell-label`).click()
+      await page.waitForTimeout(200)
+      const sort = await page.locator(`[data-sc-grid="stores"] .ag-header-cell[col-id="${col}"]`).getAttribute('aria-sort')
+      check(
+        `${label}: ${col} is context — no direction label, its header does not sort`,
+        (await page.locator(`[data-sc-grid="stores"] .ag-header-cell[col-id="${col}"] [data-sc-direction]`).count()) === 0 &&
+          (sort === null || sort === 'none') &&
+          JSON.stringify(await storeOrder(page)) === JSON.stringify(order),
+        `aria-sort=${sort}`,
+      )
+    }
+    // Each new figure opens its drill for that store (P003 is row 0, worst first).
+    for (const fig of ['failedTakeRate', 'refusedCloses', 'failedTakes', 'fallbackCancels']) {
+      await page.locator(`[data-sc-grid="stores"] .ag-row[row-index="0"] [data-sc-drill="${fig}"]`).click()
+      const dr = page.locator(`dialog[data-sc-drawer="${fig}"]`)
+      await dr.locator('[data-sc-drawer-grid] .ag-row[row-index]').first().waitFor({ timeout: 10000 })
+      const asked = params(queries['DispatchScorecard/Drill']?.at(-1))
+      const hasCounted = (await dr.locator('.ag-header-cell[col-id="counted"]').count()) === 1
+      check(
+        `${label}: ${fig} opens its drill for that store${fig === 'failedTakeRate' ? ', Counted marking the failed ones' : ''}`,
+        asked?.figure === fig && asked?.store === 'P003' && hasCounted === (fig === 'failedTakeRate'),
+        `${JSON.stringify(asked)} counted=${hasCounted}`,
+      )
+      await dr.locator('[data-sc-close]').click()
+      await dr.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    }
+    await sortBy(page, '[data-sc-grid="stores"]', 'ignoreRate', 'ascending')
+    await sortBy(page, '[data-sc-grid="stores"]', 'ignoreRate', 'descending')
     await page.screenshot({ path: `${SHOTS}/${label}-stores.png`, fullPage: true })
 
     // 9: export of the grid.
@@ -428,6 +508,31 @@ async function drive(dir) {
     await sortBy(page, '[data-sc-grid="staff"]', 'medianAnswerSeconds', 'descending')
     const sDesc = await staffOrder(page)
     check(`${label}: Staff median descending — the too-few person STILL last`, JSON.stringify(sDesc) === JSON.stringify(['P002-ph01', 'P001-ph01', 'P001-ph03']), sDesc.join(' '))
+    const sRows = await gridRows(page, '[data-sc-grid="staff"]')
+    check(
+      `${label}: Staff — the person's failed takes, rate and refused closes, the pre-3326 row "—" (never 0)`,
+      JSON.stringify(sRows.map((r) => [r.failedTakes, r.failedTakeRate, r.refusedCloses])) ===
+        JSON.stringify([['1', '12.5%', '2'], ['1', '12.5%', '2'], ['—', '—', '—']]),
+      JSON.stringify(sRows.map((r) => [r.failedTakes, r.failedTakeRate, r.refusedCloses])),
+    )
+    {
+      const order = await staffOrder(page)
+      await page.locator('[data-sc-grid="staff"] .ag-header-cell[col-id="failedTakeRate"] .ag-header-cell-label').click()
+      await page.waitForTimeout(200)
+      const sort = await page.locator('[data-sc-grid="staff"] .ag-header-cell[col-id="failedTakeRate"]').getAttribute('aria-sort')
+      check(
+        `${label}: Staff failed-take rate has no rank — no direction, no sort`,
+        (await page.locator('[data-sc-grid="staff"] .ag-header-cell[col-id="failedTakeRate"] [data-sc-direction]').count()) === 0 &&
+          (sort === null || sort === 'none') &&
+          JSON.stringify(await staffOrder(page)) === JSON.stringify(order),
+        `aria-sort=${sort}`,
+      )
+    }
+    await page.locator('[data-sc-grid="staff"] .ag-row[row-index="0"] [data-sc-drill="failedTakeRate"]').click()
+    await page.locator('dialog[data-sc-drawer="failedTakeRate"] [data-sc-drawer-grid] .ag-row[row-index]').first().waitFor({ timeout: 10000 })
+    const staffRate = params(queries['DispatchScorecard/Drill']?.at(-1))
+    check(`${label}: a person's failed-take rate drills their own takes`, staffRate?.staff === 'P002-ph01' && !staffRate?.store && staffRate?.figure === 'failedTakeRate', JSON.stringify(staffRate))
+    await page.locator('dialog[data-sc-drawer="failedTakeRate"] [data-sc-close]').click()
     await page.locator('[data-sc-grid="staff"] .ag-row[row-index="0"] [data-sc-drill="lostRaces"]').click()
     await page.locator('dialog[data-sc-drawer="lostRaces"] [data-sc-drawer-grid] .ag-row[row-index]').first().waitFor({ timeout: 10000 })
     const staffDrill = params(queries['DispatchScorecard/Drill']?.at(-1))
@@ -459,6 +564,13 @@ async function drive(dir) {
         cardRead.declineRate.rank.length === 0 &&
         cardRead.declineRate.value === '—',
       JSON.stringify(cardRead),
+    )
+    check(
+      `${label}: the card shows six measures, the sixth Failed-take rate as sent (lower is better)`,
+      Object.keys(cardRead).length === 6 &&
+        JSON.stringify(cardRead.failedTakeRate) === JSON.stringify({ value: '10.0%', rank: ['2', '15'], median: '8.0%' }) &&
+        (await cardSheet.locator('[data-sc-card-measure="failedTakeRate"]').innerText()).includes(words.lower),
+      JSON.stringify(cardRead.failedTakeRate),
     )
     const segments = await cardSheet.locator('[data-sc-card-segment]').evaluateAll((els) => els.map((e) => e.getAttribute('data-sc-card-segment')))
     check(

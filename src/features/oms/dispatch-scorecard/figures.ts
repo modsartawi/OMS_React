@@ -48,13 +48,19 @@ const context = <F extends string>(field: F, drill?: DispatchScorecardFigure): S
   ...(drill ? { drill } : {}),
 })
 
-/** The Stores tab after Store: the five ranked measures (D4), then the context, never ranked (D5). */
+/**
+ * The Stores tab after Store: the six ranked measures (D4, spec 3326), then the context, never ranked (D5).
+ * Refused closes sit right beside the failed-take rate: with the lock on, a store trying to back out
+ * mostly shows there, not in the rate (BO 3339).
+ */
 export const STORE_COLUMNS: readonly ScorecardColumn<StoreField>[] = [
   ranked('ignoreRate', 'lower'),
   ranked('medianAnswerSeconds', 'lower'),
   ranked('slowQuarterAnswerSeconds', 'lower'),
   ranked('winRate', 'higher'),
   ranked('declineRate', 'lower'),
+  ranked('failedTakeRate', 'lower'),
+  context('refusedCloses', 'refusedCloses'),
   context('bids'),
   context('beaten'),
   // Lost races is the one context figure that drills (2950 point 3); its near misses ride beside it.
@@ -65,6 +71,8 @@ export const STORE_COLUMNS: readonly ScorecardColumn<StoreField>[] = [
   context('unseen'),
   context('medianKm'),
   context('fallbacksReceived'),
+  context('fallbackCancels', 'fallbackCancels'),
+  context('failedTakes', 'failedTakes'),
   context('releasedAfterAward'),
 ]
 
@@ -79,6 +87,10 @@ export const STAFF_COLUMNS: readonly ScorecardColumn<StaffField>[] = [
   { ...ranked('medianAnswerSeconds', 'lower') },
   { ...ranked('slowQuarterAnswerSeconds', 'lower') },
   context('answers'),
+  // Spec 3326: credited to the person who took the delivery, whoever closed it. Never ranked.
+  context('failedTakes', 'failedTakes'),
+  context('failedTakeRate', 'failedTakeRate'),
+  context('refusedCloses', 'refusedCloses'),
 ]
 
 /** Each ranked store measure's rank field, as the door names it. */
@@ -88,6 +100,7 @@ export const STORE_RANK_FIELD: Record<DispatchScorecardMeasure, StoreField> = {
   slowQuarterAnswerSeconds: 'slowQuarterAnswerRank',
   winRate: 'winRateRank',
   declineRate: 'declineRateRank',
+  failedTakeRate: 'failedTakeRank',
 }
 
 /** The i18n key of a measure's better-direction label. */
@@ -115,7 +128,12 @@ export function tooFewLast<T extends { tooFew: boolean }>(rows: readonly T[]): T
   return [...rows.filter((r) => !r.tooFew), ...rows.filter((r) => r.tooFew)]
 }
 
-const RATES = new Set<string>(['ignoreRate', 'winRate', 'declineRate'])
+const RATES = new Set<string>(['ignoreRate', 'winRate', 'declineRate', 'failedTakeRate'])
+
+/** Whether a figure is a rate: its drill rows are the denominator and `counted` marks the numerator. */
+export function isRate(figure: string): boolean {
+  return RATES.has(figure)
+}
 const TIMES = new Set<string>(['medianAnswerSeconds', 'slowQuarterAnswerSeconds'])
 
 /** Seconds as `42 s` under a minute, else `m:ss`. */

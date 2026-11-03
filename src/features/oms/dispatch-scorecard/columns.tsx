@@ -66,6 +66,7 @@ function columnText<R>(field: string, row: R | undefined, dash: string): string 
     case 'ignoreRate':
     case 'winRate':
     case 'declineRate':
+    case 'failedTakeRate':
     case 'medianAnswerSeconds':
     case 'slowQuarterAnswerSeconds':
       return formatMeasure(field, value, dash)
@@ -117,7 +118,7 @@ function figureColumn<R extends { tooFew: boolean }>(
   }
 }
 
-/** The Stores tab's columns: Store (opens the card), the five ranked measures, then the context. */
+/** The Stores tab's columns: Store (opens the card), the six ranked measures, then the context. */
 export function storeColumns(
   t: TFunction,
   openCard: (store: string) => void,
@@ -170,6 +171,12 @@ function contextExtra(t: TFunction, field: string, dash: string): Partial<ColDef
         valueFormatter: ({ data }) =>
           data ? `${count(data.unseen, dash)} (${formatPair(count(data.unseenNobodySignedIn, dash), count(data.unseenOldBuild, dash))})` : dash,
       }
+    case 'failedTakeRate':
+      return { headerTooltip: t('columnHint.failedTakeRate') }
+    case 'fallbackCancels':
+      return { headerTooltip: t('columnHint.fallbackCancels') }
+    case 'refusedCloses':
+      return { headerTooltip: t('columnHint.refusedCloses') }
     case 'releasedAfterAward':
       return {
         headerTooltip: t('columnHint.releasedAfterAward'),

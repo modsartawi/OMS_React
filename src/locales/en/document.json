@@ -79,7 +79,9 @@
       "OneCandidate": "only one store in reach",
       "StockLeftFewerThanTwo": "fewer than two stores had the stock",
       "ServingListInactive": "serving list inactive or empty",
-      "DutyLeftFewerThanTwo": "fewer than two stores on duty"
+      "DutyLeftFewerThanTwo": "fewer than two stores on duty",
+      "CoverageUnavailable": "OTO coverage could not be checked",
+      "CoverageEmpty": "OTO listed no stores for this address"
     },
     "releaseReason": {
       "NoStock": "No stock",
@@ -148,7 +150,8 @@
     },
     "release": {
       "done": "Lock released",
-      "doneDetail": "Delivery {{delivery}} can now be changed or moved to another store."
+      "doneDetail": "Delivery {{delivery}} can now be changed or moved to another store.",
+      "doneDetailExpress": "Delivery {{delivery}} can now be changed, but it keeps its store: an express delivery cannot be moved once its OTO order exists."
     }
   },
   "back": "Back to Delivery Documents",

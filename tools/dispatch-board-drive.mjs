@@ -20,6 +20,10 @@
 //   5. the filters reach the door and the URL, and a URL opens on them;
 //   6. 30 s polling, paused in a hidden tab;
 //   7. no Display → the gate's denial and no board read; a bare 403 on the board → "You do not have access".
+//   9. (712, spec 3306 / door 3311) the courier quote: NoCourier / Failed flagged on the closed row and in the
+//      inspector with the check time, Quoted a quiet "Predicted: ..." line, no quote no flag; an express delivery
+//      says a release frees no store move (beside Release lock, in the dialog, after a release, with no Change
+//      store), Release lock still offered; CoverageUnavailable / CoverageEmpty read as words.
 //   8. (review of 2952) one failed poll keeps the last good board with a notice; while a new filter's
 //      read is out, the previous board's countdowns keep counting (never 0:00 from a zero receipt time).
 //
@@ -156,6 +160,17 @@ const TAKEN_LOCKED = callout('D8001', {
   awardedParty: 'P014',
   awardedAt: plus(T1, 75),
   takenByStaff: 'amal',
+  isExpressDelivery: false,
+  storeMoveAvailable: true,
+  courierQuote: {
+    outcome: 'Quoted',
+    checkedAt: plus(T1, 80),
+    storeCode: 'P014',
+    deliveryCompanyName: 'Mrsool',
+    price: 17.25,
+    currency: 'SAR',
+    estimatedDeliveryDate: 'within 45 minutes',
+  },
   servingListId: 'SL7',
   servingListNameEn: 'Riyadh north',
   servingListNameAr: 'شمال الرياض',
@@ -189,6 +204,10 @@ const FELL_BACK = callout('D8002', {
   locked: true,
   fallbackParty: 'P001',
   fallbackAt: stamp(25 * 60_000),
+  // 712: an express delivery, and OTO predicted no courier for its store.
+  isExpressDelivery: true,
+  storeMoveAvailable: false,
+  courierQuote: { outcome: 'NoCourier', checkedAt: stamp(24 * 60_000), storeCode: 'P001', deliveryCompanyName: '', price: 0, currency: '', estimatedDeliveryDate: '' },
   bids: [bid('P009', stamp(30 * 60_000), { status: 'EXPIRED', ignoreReason: 'NotReached' })],
 })
 const NOT_COMPETED = callout('D8003', {
@@ -227,7 +246,19 @@ const DUTY_FEW = callout('D8006', {
   endedAt: stamp(54 * 60_000),
   locksDelivery: false,
 })
-const WITHDRAWN = callout('D8004', { status: 'WITHDRAWN', outcome: 'Withdrawn', endReason: 'Withdrawn', openedAt: stamp(50 * 60_000), endedAt: stamp(48 * 60_000), locksDelivery: false })
+const WITHDRAWN = callout('D8004', {
+  status: 'WITHDRAWN',
+  outcome: 'Withdrawn',
+  endReason: 'Withdrawn',
+  openedAt: stamp(50 * 60_000),
+  endedAt: stamp(48 * 60_000),
+  locksDelivery: false,
+  // 712: the courier check itself failed.
+  courierQuote: { outcome: 'Failed', checkedAt: stamp(47 * 60_000), storeCode: 'P001', deliveryCompanyName: '', price: 0, currency: '', estimatedDeliveryDate: '' },
+})
+// 712: the two coverage reasons (spec 3306).
+const COVERAGE_UNAVAILABLE = callout('D8007', { status: 'NOT_OPENED', outcome: 'NotCompeted', endReason: 'CoverageUnavailable', candidateCount: 0, openedAt: stamp(56 * 60_000), endedAt: stamp(56 * 60_000), locksDelivery: false })
+const COVERAGE_EMPTY = callout('D8008', { status: 'NOT_OPENED', outcome: 'NotCompeted', endReason: 'CoverageEmpty', candidateCount: 0, openedAt: stamp(57 * 60_000), endedAt: stamp(57 * 60_000), locksDelivery: false })
 
 const TILES = {
   onCalloutNow: 2,
@@ -269,7 +300,7 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
       if (state.boardDelayMs) await new Promise((r) => setTimeout(r, state.boardDelayMs))
       if (state.boardFail) return route.fulfill(envelope(null, { status: 500, success: false, message: 'Database timeout.', errorCode: 'SD-500' }))
       const store = url.searchParams.get('store')
-      const closed = [TAKEN_LOCKED, FELL_BACK, NOT_COMPETED, WITHDRAWN, LIST_INACTIVE, DUTY_FEW].map((c) =>
+      const closed = [TAKEN_LOCKED, FELL_BACK, NOT_COMPETED, WITHDRAWN, LIST_INACTIVE, DUTY_FEW, COVERAGE_UNAVAILABLE, COVERAGE_EMPTY].map((c) =>
         state.released.has(c.deliveryNumber) ? { ...c, locked: false, releasedAt: stamp(1000), releasedBy: 'msartawi', releaseReason: 'Other', releaseNote: 'n' } : c,
       )
       const keep = (c) => !store || c.bids.some((b) => b.store === store) || c.awardedParty === store || c.fallbackParty === store
@@ -345,9 +376,9 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 2. a due countdown stops at 0, never below`, (await low.getAttribute('data-countdown')) === '0' && strip(await low.innerText()).startsWith('0:00'), await low.innerText())
     if (dir === 'rtl') check('rtl 2. the countdown is an ltr isolate', (await low.locator('bdi[dir="ltr"]').first().innerText()) === '0:00')
     const closedRows = await page.locator('[data-closed-grid] [data-delivery]').evaluateAll((els) => els.map((e) => e.getAttribute('data-delivery')))
-    check(`${dir} 2. closed grid holds the six closed callouts`, JSON.stringify(closedRows) === JSON.stringify(['D8001', 'D8002', 'D8003', 'D8004', 'D8005', 'D8006']), JSON.stringify(closedRows))
+    check(`${dir} 2. closed grid holds the eight closed callouts`, JSON.stringify(closedRows) === JSON.stringify(['D8001', 'D8002', 'D8003', 'D8004', 'D8005', 'D8006', 'D8007', 'D8008']), JSON.stringify(closedRows))
     const outcomes = await page.locator('[data-closed-grid] [data-outcome]').evaluateAll((els) => els.map((e) => e.getAttribute('data-outcome') + (e.querySelector('[data-locked]') ? '+lock' : '')))
-    check(`${dir} 2. outcomes with the lock`, JSON.stringify(outcomes) === JSON.stringify(['Taken+lock', 'FellBack+lock', 'NotCompeted', 'Withdrawn', 'NotCompeted', 'NotCompeted']), JSON.stringify(outcomes))
+    check(`${dir} 2. outcomes with the lock`, JSON.stringify(outcomes) === JSON.stringify(['Taken+lock', 'FellBack+lock', 'NotCompeted', 'Withdrawn', 'NotCompeted', 'NotCompeted', 'NotCompeted', 'NotCompeted']), JSON.stringify(outcomes))
 
     // 3. inspector — the first open callout by default
     const insp = page.locator('[data-inspector]')
@@ -410,6 +441,53 @@ for (const dir of ['ltr', 'rtl']) {
       )
     }
 
+    // 9. (712) the courier quote and the express no-move wording
+    const flags = await page.locator('[data-closed-grid] .ag-row').evaluateAll((rows) =>
+      rows
+        .map((r) => [r.querySelector('[data-delivery]')?.getAttribute('data-delivery'), r.querySelector('[data-courier-flag]')?.getAttribute('data-courier-flag')])
+        .filter(([no, f]) => no && f)
+        .map(([no, f]) => `${no}:${f}`)
+        .sort(),
+    )
+    check(`${dir} 9. 712 the board flags NoCourier and Failed rows only (Quoted and no quote unflagged)`, JSON.stringify(flags) === JSON.stringify(['D8002:NoCourier', 'D8004:Failed']), JSON.stringify(flags))
+    check(`${dir} 9. 712 the row flag names it`, strip(await rowOf(page, 'closed', 'D8002').locator('[data-courier-flag]').innerText()).startsWith('OTO predicted no courier'))
+    check(`${dir} 9. 712 no flag on an open row with no quote`, (await page.locator('[data-open-grid] [data-courier-flag]').count()) === 0)
+
+    await rowOf(page, 'closed', 'D8002').click()
+    await page.locator('[data-inspector="C-D8002"]').waitFor()
+    const flag = insp.locator('[data-courier-flag="NoCourier"]')
+    check(
+      `${dir} 9. 712 the inspector flags NoCourier with the check time, as a prediction`,
+      (await flag.count()) === 1 && /^OTO predicted no courier · checked \d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(strip(await flag.innerText())) && (await flag.innerText()).includes('the OTO order is created anyway'),
+      await flag.innerText().catch(() => ''),
+    )
+    check(
+      `${dir} 9. 712 an express delivery says a release frees no move, and still offers Release lock`,
+      (await insp.locator('[data-no-move]').innerText()).trim() ===
+        'Releasing the lock does not free a store move on this delivery: an express delivery keeps its store once its OTO order exists. To get out of it, cancel the delivery.' &&
+        (await insp.locator('[data-release-open]').count()) === 1,
+    )
+    await rowOf(page, 'closed', 'D8001').click()
+    await page.locator('[data-inspector="C-D8001"]').waitFor()
+    check(
+      `${dir} 9. 712 Quoted is a quiet prediction`,
+      /^Predicted: Mrsool, 17\.25 SAR, ETA within 45 minutes · checked /.test(strip(await insp.locator('[data-courier-quoted]').innerText())) && (await insp.locator('[data-courier-flag]').count()) === 0,
+      await insp.locator('[data-courier-quoted]').innerText().catch(() => ''),
+    )
+    if (dir === 'rtl') check('rtl 9. 712 the price and currency are one ltr isolate', (await insp.locator('[data-courier-quoted] bdi[dir="ltr"]').first().innerText()) === '17.25 SAR')
+    check(`${dir} 9. 712 a non-express delivery says nothing of a move`, (await insp.locator('[data-no-move]').count()) === 0)
+    await rowOf(page, 'closed', 'D8004').click()
+    await page.locator('[data-inspector="C-D8004"]').waitFor()
+    check(`${dir} 9. 712 the inspector flags Failed`, strip(await insp.locator('[data-courier-flag="Failed"]').innerText()).startsWith('Courier check failed · checked'))
+    for (const [no, reason, words] of [
+      ['D8007', 'CoverageUnavailable', 'OTO coverage could not be checked'],
+      ['D8008', 'CoverageEmpty', 'OTO listed no stores for this address'],
+    ]) {
+      await rowOf(page, 'closed', no).click()
+      await page.locator(`[data-inspector="C-${no}"]`).waitFor()
+      check(`${dir} 9. 712 ${reason} reads as words`, (await insp.locator(`[data-not-competed-reason="${reason}"]`).innerText()).trim() === words)
+    }
+
     // 4. Release lock
     await rowOf(page, 'closed', 'D8001').click()
     await page.locator('[data-inspector="C-D8001"] [data-release-open]').click()
@@ -445,6 +523,25 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. after release: no Release lock, no lock line`, (await insp.locator('[data-release-open]').count()) === 0 && (await insp.locator('[data-locked-line]').count()) === 0)
     await page.waitForTimeout(300)
     check(`${dir} 4. the closed grid drops the lock after the refetch`, (await rowOf(page, 'closed', 'D8001').locator('[data-locked]').count()) === 0)
+
+    // 9. (712) releasing an express delivery: the dialog never promises a move, and no Change store after
+    await rowOf(page, 'closed', 'D8002').click()
+    await page.locator('[data-inspector="C-D8002"] [data-release-open]').click()
+    const xdlg = page.locator('[data-release-dialog="D8002"]')
+    await xdlg.waitFor()
+    check(
+      `${dir} 9. 712 the dialog says a release frees no move, and promises none`,
+      (await xdlg.locator('[data-release-no-move]').count()) === 1 && !(await xdlg.locator('[data-release-note-text]').innerText()).includes('another store'),
+      await xdlg.locator('[data-release-note-text]').innerText(),
+    )
+    await xdlg.locator('[data-release-reason="NoStock"]').check()
+    await page.locator('[data-release-confirm]').click()
+    await xdlg.waitFor({ state: 'detached', timeout: 5000 })
+    await page.locator('[data-inspector="C-D8002"] [data-released]').waitFor({ timeout: 5000 })
+    check(
+      `${dir} 9. 712 after releasing an express delivery: no Change store, the no-move line instead`,
+      (await insp.locator('[data-change-store]').count()) === 0 && (await insp.locator('[data-released] [data-no-move]').count()) === 1,
+    )
 
     // 5. filters
     await page.locator('[data-filter="city"]').fill('Riyadh')

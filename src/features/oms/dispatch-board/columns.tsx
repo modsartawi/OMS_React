@@ -12,6 +12,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
 import { formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
+import { CourierFlag } from './CourierQuote'
 
 /** A board row: the callout and the client time its read arrived (the countdown's origin). */
 export type BoardRow = DispatchCallout & { fetchedAt: number }
@@ -92,7 +93,19 @@ function common(t: TFunction): ColDef<BoardRow>[] {
       valueFormatter: (p: ValueFormatterParams<BoardRow, number>) => formatMoney(p.value),
     },
     { headerName: t('columns.bids'), colId: 'bids', width: 70, type: 'rightAligned', cellClass: MONO, valueGetter: (p) => p.data?.bids.length ?? 0 },
+    // 712: the courier quote's flag, NoCourier / Failed only; the value refreshes the cell when the quote changes.
+    {
+      headerName: t('columns.courier'),
+      colId: 'courier',
+      width: 230,
+      valueGetter: (p) => `${p.data?.courierQuote?.outcome ?? ''}@${p.data?.courierQuote?.checkedAt ?? ''}`,
+      cellRenderer: CourierCell,
+    },
   ]
+}
+
+function CourierCell(p: ICellRendererParams<BoardRow>) {
+  return p.data ? <CourierFlag quote={p.data.courierQuote} /> : null
 }
 
 /** On callout now: the callout and its live countdown. */

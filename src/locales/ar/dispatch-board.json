@@ -57,7 +57,8 @@
     "bids": "العروض",
     "countdown": "العد التنازلي",
     "outcome": "النتيجة",
-    "ended": "انتهت"
+    "ended": "انتهت",
+    "courier": "المندوب"
   },
   "countdown": {
     "left": "متبقٍ"
@@ -80,7 +81,17 @@
     "OneCandidate": "متجر واحد فقط في النطاق",
     "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون",
     "ServingListInactive": "قائمة الخدمة غير مفعّلة أو فارغة",
-    "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة"
+    "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة",
+    "CoverageUnavailable": "تعذر التحقق من تغطية OTO",
+    "CoverageEmpty": "لم تُدرج OTO أي متجر لهذا العنوان"
+  },
+  "quote": {
+    "NoCourier": "توقعت OTO عدم توفر مندوب",
+    "Failed": "تعذر فحص المندوب",
+    "flagHint": "توقع فقط: يُنشأ طلب OTO على أي حال.",
+    "predicted": "المتوقع: <c>{{company}}</c>، <m>{{money}}</m>، الوصول <eta>{{eta}}</eta>",
+    "other": "توقع المندوب <o>{{outcome}}</o>",
+    "checkedAt": "فُحص <at>{{at}}</at>"
   },
   "bidStatus": {
     "OPEN": "بانتظار الرد",
@@ -168,6 +179,7 @@
     "confirm": "فك القفل",
     "sending": "جارٍ فك القفل…",
     "cancel": "إلغاء",
+    "noMove": "فك القفل لا يتيح نقل هذا التوصيل إلى متجر آخر: يبقى التوصيل السريع في متجره بعد إنشاء طلب OTO. للخروج منه، ألغِ التوصيل.",
     "failed": "لم يُفك القفل",
     "failedHint": "حدث خطأ. حاول مرة أخرى.",
     "done": "فُك القفل عن التوصيلة {{delivery}}."

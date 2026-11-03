@@ -109,7 +109,35 @@ export interface DispatchCallout {
   district: string
   value: number
   lineCount: number
+  // The courier quote and the express flag (BackOffice spec 3306, door 3311 — oms ticket 712). Optional: a
+  // callout read before 3311 deployed carries none of the three, and reads as no quote and not express.
+  /** An express delivery keeps its store once its OTO order exists: a Release lock frees no move. */
+  isExpressDelivery?: boolean
+  /** `!isExpressDelivery` on the wire: false = a Release lock frees no move, cancelling is the only way out. */
+  storeMoveAvailable?: boolean
+  /** What OTO predicted for the assigned store; `null` = no quote yet. */
+  courierQuote?: DispatchCourierQuote | null
   bids: DispatchBid[]
+}
+
+/** `DispatchCourierQuote.outcome`. `NoCourier` and `Failed` carry no company, price or ETA. */
+export const COURIER_QUOTE_OUTCOMES = ['Quoted', 'NoCourier', 'Failed'] as const
+export type CourierQuoteOutcome = (typeof COURIER_QUOTE_OUTCOMES)[number] | (string & {})
+
+/**
+ * A delivery's `DeliveryCourierQuote` row (spec 3306): a PREDICTION. Neither `NoCourier` nor `Failed` means the
+ * order failed: the OTO order is created anyway, and the courier from status polling stays the truth.
+ */
+export interface DispatchCourierQuote {
+  outcome: CourierQuoteOutcome
+  checkedAt: LocalDateTime
+  /** The store OTO was asked about. */
+  storeCode: string
+  deliveryCompanyName: string
+  price: number
+  currency: string
+  /** OTO's own text: shown as it came, never parsed. */
+  estimatedDeliveryDate: string
 }
 
 export interface DispatchBoardTiles {

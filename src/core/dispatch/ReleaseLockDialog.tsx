@@ -26,11 +26,15 @@ import { releaseForm, releaseRefusal } from './release'
  *
  * The caller is told of the release (`onReleased`) and refreshes what it shows; the move to another
  * store is the existing Change store on Delivery details, never part of this dialog.
+ *
+ * On an express delivery (spec 3306, oms ticket 712) the release frees no store move — the delivery keeps its
+ * store once its OTO order exists — so the dialog never promises one and says cancelling is the way out.
  */
 export default function ReleaseLockDialog({
   open,
   deliveryNumber,
   heldBy,
+  expressDelivery = false,
   onClose,
   onReleased,
 }: {
@@ -38,6 +42,8 @@ export default function ReleaseLockDialog({
   deliveryNumber: string
   /** The store the lock holds the delivery at (the winner, else the fallback store), for the sentence. */
   heldBy: string
+  /** An express delivery: the release frees the holding store's own cancel, never a store move. */
+  expressDelivery?: boolean
   onClose: () => void
   onReleased: (result: ReleaseLockResult) => void
 }) {
@@ -81,11 +87,16 @@ export default function ReleaseLockDialog({
         <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-release-note-text="">
           <Trans
             t={t}
-            i18nKey={heldBy ? 'release.explainHeld' : 'release.explain'}
+            i18nKey={heldBy && !expressDelivery ? 'release.explainHeld' : 'release.explain'}
             values={{ delivery: deliveryNumber, store: heldBy }}
             components={{ d: <Ltr />, s: <Ltr /> }}
           />
         </p>
+        {expressDelivery && (
+          <p className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" data-release-no-move="">
+            {t('release.noMove')}
+          </p>
+        )}
         <fieldset className="flex flex-col gap-1.5 text-sm">
           <legend className="mb-1 text-xs font-medium">{t('release.reason')}</legend>
           {RELEASE_REASONS.map((r) => (

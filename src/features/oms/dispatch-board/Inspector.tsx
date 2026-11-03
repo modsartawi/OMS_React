@@ -11,7 +11,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
+import { releaseFreesNoMove } from '@/core/dispatch/courier-quote'
 import { Countdown, type BoardRow } from './columns'
+import CourierQuote from './CourierQuote'
 
 const deliveryHref = (no: string) => `/oms/delivery/${encodeURIComponent(no)}`
 
@@ -54,6 +56,8 @@ export default function Inspector({
   const endReason = c.endReason ? (KNOWN_END_REASONS.includes(c.endReason) ? t(`endReasons.${c.endReason}`) : null) : null
   const dutyRemoved = dutyRemovedView(c)
   const radius = searchRadiusView(c)
+  // An express delivery keeps its store once its OTO order exists (712): a release frees no move.
+  const noMove = releaseFreesNoMove(c)
 
   return (
     <aside className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 text-sm" data-inspector={c.calloutId}>
@@ -118,6 +122,9 @@ export default function Inspector({
         )}
       </p>
 
+      {/* What OTO predicted for the assigned store (712): flagged on NoCourier / Failed, closed rows too. */}
+      <CourierQuote quote={c.courierQuote} />
+
       {c.outcome === 'Open' && (
         <div data-inspector-countdown="">
           <Countdown secondsLeft={c.secondsLeft} fetchedAt={c.fetchedAt} />
@@ -172,6 +179,11 @@ export default function Inspector({
           <Trans t={t} i18nKey="inspector.locked" values={{ store: heldAt }} components={{ s: <Ltr /> }} />
         </p>
       )}
+      {c.locked && !justReleased && noMove && (
+        <p className="text-xs text-muted-foreground" data-no-move="">
+          {t('release.noMove')}
+        </p>
+      )}
       {c.locked && !justReleased && canRelease && (
         <div>
           <Button variant="danger-outlined" onClick={onRelease} data-release-open="">
@@ -194,12 +206,18 @@ export default function Inspector({
               t('inspector.releasedNow')
             )}
           </span>
-          <span>
-            <Link to={deliveryHref(c.deliveryNumber)} className="font-medium text-primary underline-offset-2 hover:underline" data-change-store="">
-              {t('inspector.changeStore')}
-            </Link>{' '}
-            <span className="text-muted-foreground">{t('inspector.changeStoreHint')}</span>
-          </span>
+          {noMove ? (
+            <span className="text-muted-foreground" data-no-move="">
+              {t('release.noMove')}
+            </span>
+          ) : (
+            <span>
+              <Link to={deliveryHref(c.deliveryNumber)} className="font-medium text-primary underline-offset-2 hover:underline" data-change-store="">
+                {t('inspector.changeStore')}
+              </Link>{' '}
+              <span className="text-muted-foreground">{t('inspector.changeStoreHint')}</span>
+            </span>
+          )}
         </div>
       )}
     </aside>

@@ -99,4 +99,8 @@ export const CALLOUT_NOT_OPENED_REASONS = [
   'ServingListInactive',
   /** The duty check left fewer than two stores (spec 3042). */
   'DutyLeftFewerThanTwo',
+  /** OTO's coverage check failed: the delivery went to the request store (spec 3306). */
+  'CoverageUnavailable',
+  /** OTO listed no store for the address (spec 3306). */
+  'CoverageEmpty',
 ] as const

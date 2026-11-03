@@ -103,7 +103,9 @@
       "OneCandidate": "متجر واحد فقط في النطاق",
       "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون",
       "ServingListInactive": "قائمة الخدمة غير مفعّلة أو فارغة",
-      "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة"
+      "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة",
+      "CoverageUnavailable": "تعذر التحقق من تغطية OTO",
+      "CoverageEmpty": "لم تُدرج OTO أي متجر لهذا العنوان"
     },
     "releaseReason": {
       "NoStock": "لا مخزون",
@@ -174,7 +176,8 @@
     },
     "release": {
       "done": "رُفع القفل",
-      "doneDetail": "يمكن الآن تعديل التوصيل {{delivery}} أو نقله إلى متجر آخر."
+      "doneDetail": "يمكن الآن تعديل التوصيل {{delivery}} أو نقله إلى متجر آخر.",
+      "doneDetailExpress": "يمكن الآن تعديل التوصيل {{delivery}}، لكنه يبقى في متجره: لا يُنقل التوصيل السريع بعد إنشاء طلب OTO."
     },
     "event": {
       "StoreClosedAfterTake": "أغلقه الفرع بعد الأخذ",

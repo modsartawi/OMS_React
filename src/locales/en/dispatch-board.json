@@ -58,7 +58,8 @@
     "countdown": "Countdown",
     "outcome": "Outcome",
     "ended": "Ended",
-    "radius": "Radius"
+    "radius": "Radius",
+    "courier": "Courier"
   },
   "countdown": {
     "left": "left"
@@ -81,7 +82,17 @@
     "OneCandidate": "only one store in reach",
     "StockLeftFewerThanTwo": "fewer than two stores had the stock",
     "ServingListInactive": "serving list inactive or empty",
-    "DutyLeftFewerThanTwo": "fewer than two stores on duty"
+    "DutyLeftFewerThanTwo": "fewer than two stores on duty",
+    "CoverageUnavailable": "OTO coverage could not be checked",
+    "CoverageEmpty": "OTO listed no stores for this address"
+  },
+  "quote": {
+    "NoCourier": "OTO predicted no courier",
+    "Failed": "Courier check failed",
+    "flagHint": "A prediction only: the OTO order is created anyway.",
+    "predicted": "Predicted: <c>{{company}}</c>, <m>{{money}}</m>, ETA <eta>{{eta}}</eta>",
+    "other": "Courier quote <o>{{outcome}}</o>",
+    "checkedAt": "checked <at>{{at}}</at>"
   },
   "bidStatus": {
     "OPEN": "Awaiting",
@@ -163,6 +174,7 @@
     "confirm": "Release lock",
     "sending": "Releasing…",
     "cancel": "Cancel",
+    "noMove": "Releasing the lock does not free a store move on this delivery: an express delivery keeps its store once its OTO order exists. To get out of it, cancel the delivery.",
     "failed": "The lock was not released",
     "failedHint": "Something went wrong. Try again.",
     "done": "Lock released on delivery {{delivery}}."

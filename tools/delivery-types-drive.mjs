@@ -14,6 +14,9 @@
 //   6. the History tab reads the delivery type's own door and labels a courier row's kind;
 //   7. the document type edit dialog's default delivery type is a dropdown of the delivery types;
 //   8. no raw keys; no page errors.
+//   9. the wider callout radius (ticket 716, BackOffice spec 3326): right after the callout radius on the detail and in
+//      the dialog, with its hint; at or below the radius it warns and still saves (the PUT carries it, before and
+//      after); a negative one shows the server's SDC-00053 on the field; the copy carries it.
 //
 //   1. run the app:  npx vite --port 5274 --strictPort
 //   2. DRIVE_PORT=5274 node tools/delivery-types-drive.mjs
@@ -45,7 +48,7 @@ const refuse = (errorCode, message, data = null) => envelope(data, { status: 400
 
 const delivery = (over = {}) => ({
   documentType: 'QC', description: 'Quick Commerce', documentCategory: 'D', numberRangeNumber: '', defaultDocumentType: '',
-  isCompeted: true, calloutRadiusKm: 3, calloutStockCheck: false, calloutLocksDelivery: false, calloutLifetimeMinutes: 5,
+  isCompeted: true, calloutRadiusKm: 3, calloutExpandedRadiusKm: 0, calloutStockCheck: false, calloutLocksDelivery: false, calloutLifetimeMinutes: 5,
   calloutDutyCheck: false, servingListId: '', ...over,
 })
 const docType = {
@@ -67,7 +70,7 @@ const HISTORY = [
   {
     changeId: '01K0000000000000000000001', entityType: 'DeliveryDocumentType', entityKey: 'QC', documentType: 'QC', action: 'Update',
     copiedFrom: '', reason: 'callouts on', changedBy: 'msartawi', changedAt: '2026-10-27T09:00:00',
-    beforeJson: '{"IsCompeted":false}', afterJson: '{"IsCompeted":true}',
+    beforeJson: '{"IsCompeted":false,"CalloutExpandedRadiusKm":0}', afterJson: '{"IsCompeted":true,"CalloutExpandedRadiusKm":10}',
   },
 ]
 
@@ -216,6 +219,47 @@ for (const dir of ['ltr', 'rtl']) {
       put?.body.reason === 'wider radius' && put.body.before.calloutRadiusKm === 3 && put.body.after.calloutRadiusKm === 4.5 &&
       put.body.after.documentType === 'QC', JSON.stringify(put?.body))
 
+    // 9. the wider callout radius
+    {
+      const order = await page.locator('[data-delivery-type-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-delivery-type-field')))
+      check(`${dir} 9. the detail shows the wider radius right after the callout radius`,
+        order.indexOf('calloutExpandedRadiusKm') === order.indexOf('calloutRadiusKm') + 1, JSON.stringify(order))
+      await page.locator('[data-delivery-type-edit]').click()
+      await dlg(page, 'edit').waitFor({ timeout: 5000 })
+      const inDialog = await page.locator('dialog[open] [data-delivery-dialog] [data-edit-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-edit-field')))
+      check(`${dir} 9. the dialog has it right after the callout radius, with its hint`,
+        inDialog.indexOf('calloutExpandedRadiusKm') === inDialog.indexOf('calloutRadiusKm') + 1 &&
+          (await field(page, 'calloutExpandedRadiusKm').locator('[data-edit-hint]').count()) === 1, JSON.stringify(inDialog))
+      const wider = field(page, 'calloutExpandedRadiusKm').locator('input')
+      await wider.fill('-2')
+      await page.locator('[data-delivery-reason]').fill(' wider search ')
+      force.set('PUT SdDocTypeConfigWeb/DeliveryDocumentTypes/QC', refuse('SDC-00010', 'refused', {
+        fields: [{ field: 'CalloutExpandedRadiusKm', errorCode: 'SDC-00053', message: 'CalloutExpandedRadiusKm cannot be negative. / لا يمكن أن يكون نطاق الاستدعاء الموسّع بالكيلومتر سالباً.' }],
+      }))
+      await page.locator('[data-delivery-save]').click()
+      await page.locator('[data-edit-refusal="SDC-00053"]').waitFor({ timeout: 5000 }).catch(() => {})
+      check(`${dir} 9. a negative wider radius shows the server's SDC-00053 on its field`,
+        (await field(page, 'calloutExpandedRadiusKm').locator('[data-edit-refusal="SDC-00053"]').count()) === 1)
+      await wider.fill('4')
+      check(`${dir} 9. at or below the callout radius it warns…`,
+        (await field(page, 'calloutExpandedRadiusKm').locator('[data-edit-warning="expandedRadiusNoEffect"]').count()) === 1)
+      check(`${dir} 9. …and Save stays open`, !(await saveDisabled(page)))
+      await page.locator('[data-delivery-save]').click()
+      await dlg(page, 'edit').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+      const put9 = calls.filter((c) => c.method === 'PUT').at(-1)
+      check(`${dir} 9. the PUT carries the wider radius, before and after`,
+        put9?.body.before.calloutExpandedRadiusKm === 0 && put9.body.after.calloutExpandedRadiusKm === 4 && put9.body.after.calloutRadiusKm === 4.5,
+        JSON.stringify(put9?.body))
+      await page.locator('[data-delivery-type-edit]').click()
+      await dlg(page, 'edit').waitFor({ timeout: 5000 })
+      await field(page, 'calloutExpandedRadiusKm').locator('input').fill('10')
+      check(`${dir} 9. above the callout radius there is no warning`,
+        (await page.locator('dialog[open] [data-edit-warning]').count()) === 0)
+      await page.locator('[data-delivery-reason]').fill('qc 10 km')
+      await page.locator('[data-delivery-save]').click()
+      await dlg(page, 'edit').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    }
+
     // 5. copy
     await page.locator('[data-delivery-type-copy]').click()
     await dlg(page, 'copy').waitFor({ timeout: 5000 })
@@ -235,6 +279,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. the POST carries the code upper-case and the trimmed reason`,
       post?.p === 'SdDocTypeConfigWeb/DeliveryDocumentTypes/QC/Copy' && post.body.after.documentType === 'QN' && post.body.reason === 'new lane' &&
       post.body.after.isCompeted === true, JSON.stringify(post?.body))
+    check(`${dir} 9. the copy carries the wider radius`, post?.body.after.calloutExpandedRadiusKm === 10, JSON.stringify(post?.body))
     await page.locator('[data-delivery-type="QN"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 5. the page moves to the new type`, (await page.locator('[data-delivery-type="QN"]').count()) === 1)
 
@@ -244,6 +289,13 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 6. History reads the delivery type's own door`, calls.some((c) => c.p === 'SdDocTypeConfigWeb/DeliveryDocumentTypes/QC/History'))
     check(`${dir} 6. …and shows its rows, the courier row's kind labelled`,
       (await page.locator('[data-change]').count()) === 2 && !/CourierAssignment/.test(await page.locator('[data-history-tab]').innerText()))
+    {
+      const hist = await page.locator('[data-history-tab]').innerText()
+      check(`${dir} 9. History labels the wider radius in its own words`,
+        // RTL here sets direction only (no runtime language switch on this branch), so the label is the English one in both
+        // passes; the Arabic key is proven by delivery-types-i18n.test.ts.
+        !/CalloutExpandedRadiusKm/.test(hist) && hist.includes('Wider callout radius'), hist.slice(0, 400))
+    }
     check(`${dir} 8. no raw keys (delivery pages)`, !RAW.test(await page.locator('main').innerText()))
 
     // 7. the document type form's default delivery type

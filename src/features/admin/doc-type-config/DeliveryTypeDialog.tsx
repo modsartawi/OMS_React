@@ -21,17 +21,20 @@ import {
   DELIVERY_CATEGORIES,
   DELIVERY_CODE_MAX,
   DELIVERY_FIELD_GROUPS,
+  DELIVERY_FIELD_HINTS,
   codeChoices,
   deliveryCopyDraft,
   deliveryCopyRequest,
   deliveryCopyState,
   deliveryEditState,
   deliveryFieldRefusals,
+  deliveryFieldWarnings,
   deliverySaveRequest,
   isDeliveryLocked,
   setDeliveryField,
   type DeliveryFieldDef,
   type DeliveryFieldValue,
+  type DeliveryFieldWarning,
 } from './delivery-type-form'
 import type { DeliveryTypeSettings } from './delivery-type-types'
 import { DELIVERY_TYPES_KEY, deliveryTypesApi, deliveryTypesQuery } from './delivery-types-api'
@@ -109,6 +112,8 @@ export default function DeliveryTypeDialog({
   const reason = copying ? copy.reason : edit.reason
   const refusals = save.error ? deliveryFieldRefusals(save.error) : {}
   const refusedOnFields = Object.keys(refusals).length > 0
+  // Accepted by the server but doing nothing (a wider radius not above the callout radius): warned, never blocking.
+  const warnings = deliveryFieldWarnings(draft)
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
   const stale = !copying && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState && !reread
@@ -153,6 +158,7 @@ export default function DeliveryTypeDialog({
                     disabled={busy}
                     locked={!copying && isDeliveryLocked(def.field)}
                     refusal={refusals[def.field]}
+                    warning={warnings[def.field]}
                     docTypeChoices={docTypeChoices}
                     onChange={(v) => {
                       setDraft((d) => setDeliveryField(d, def.field, v, { copy: copying }))
@@ -262,6 +268,7 @@ function DeliveryFieldInput({
   disabled,
   locked,
   refusal,
+  warning,
   docTypeChoices,
   onChange,
 }: {
@@ -270,6 +277,7 @@ function DeliveryFieldInput({
   disabled: boolean
   locked: boolean
   refusal: FieldRefusal | undefined
+  warning?: DeliveryFieldWarning
   docTypeChoices: ReturnType<typeof codeChoices>
   onChange: (value: DeliveryFieldValue) => void
 }) {
@@ -346,7 +354,18 @@ function DeliveryFieldInput({
         <span>{label}</span>
         {input}
       </label>
+      {DELIVERY_FIELD_HINTS.includes(def.field) && (
+        <span className="block text-xs text-muted-foreground" data-edit-hint="">
+          {t(`deliveryTypes.fieldHints.${def.field}`)}
+        </span>
+      )}
       {def.notRead && <NotRead />}
+      {warning && (
+        <p className="flex items-center gap-1.5 text-xs text-warning-800" data-edit-warning={warning}>
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {t(`deliveryTypes.warnings.${warning}`)}
+        </p>
+      )}
       {refused}
     </div>
   )

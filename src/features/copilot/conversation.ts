@@ -1,0 +1,62 @@
+import { apiErrorCode } from '@/core/api'
+import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+
+/**
+ * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
+ *
+ * Each answer carries its `conversationId`; a follow-up sends it back so SIS.Api answers in context.
+ * A conversation holds at most ten questions, and the server refuses a stale or full one with
+ * `COPILOT-406`. Past either, the panel offers a new conversation instead of the question box.
+ * "New conversation" is `EMPTY_CONVERSATION`: no id, no thread.
+ */
+
+/** D5: a conversation holds at most this many questions. */
+export const COPILOT_MAX_QUESTIONS = 10
+
+/** The refusal code for a conversation that expired or is full (D7). */
+export const CONVERSATION_OVER = 'COPILOT-406'
+
+/** One question in the thread, answered (`reply`) or refused (`refusal`, the `ApiError`). */
+export interface CopilotTurn {
+  question: string
+  /** The server's number for an answered question (1–10); null for a refused one. */
+  questionNo: number | null
+  reply: CopilotAnswer | null
+  refusal: unknown
+}
+
+export interface CopilotConversation {
+  /** The id follow-ups send back; null until the first answer. */
+  id: string | null
+  turns: CopilotTurn[]
+  /** A `COPILOT-406` closed it: the server will not take another question in it. */
+  over: boolean
+}
+
+export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null, turns: [], over: false }) as CopilotConversation
+
+/** The `Copilot/Ask` body: the question, and the conversation's id once it has one. */
+export function askBody(c: CopilotConversation, question: string): CopilotAskRequest {
+  return c.id ? { question, conversationId: c.id } : { question }
+}
+
+export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer): CopilotConversation {
+  const id = typeof reply?.conversationId === 'string' && reply.conversationId ? reply.conversationId : c.id
+  const questionNo = typeof reply?.questionNo === 'number' ? reply.questionNo : null
+  return { ...c, id, turns: [...c.turns, { question, questionNo, reply, refusal: null }] }
+}
+
+export function withRefusal(c: CopilotConversation, question: string, err: unknown): CopilotConversation {
+  return {
+    ...c,
+    over: c.over || apiErrorCode(err) === CONVERSATION_OVER,
+    turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err }],
+  }
+}
+
+/** The box stays while the conversation can take another question: not refused with 406, not at ten. */
+export function canAskMore(c: CopilotConversation): boolean {
+  if (c.over) return false
+  const last = c.turns.reduce((n, t) => Math.max(n, t.questionNo ?? 0), 0)
+  return last < COPILOT_MAX_QUESTIONS
+}

@@ -1,4 +1,5 @@
-import { lazy, Suspense, useId, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useState } from 'react'
+import { useLocation } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles } from 'lucide-react'
@@ -22,6 +23,9 @@ export default function CopilotButton() {
   const access = useQuery(copilotAccessQuery())
   const [open, setOpen] = useState(false)
   const titleId = useId()
+  // An answer's order link navigates (ticket 736): the modal sheet closes so the document is seen.
+  const { pathname } = useLocation()
+  useEffect(() => setOpen(false), [pathname])
   if (!access.isSuccess || !canAskCopilot(access.data)) return null
   return (
     <>

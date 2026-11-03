@@ -12,7 +12,7 @@
  */
 import { apiErrorCode, apiErrorData } from '@/core/api'
 import type { SourcingSummaryBreakdownRow, SourcingSummaryReply, SourcingTopOrder } from '@/core/models/sourcing-advisor'
-import { reasonKey, sar, storePair, type ReasonLine } from './explain-model'
+import { money, reasonKey, storePair, type ReasonLine } from './explain-model'
 
 export interface SummaryHeadline {
   orders: number | null
@@ -34,6 +34,8 @@ export interface BreakdownRow {
 }
 
 export interface TopRow {
+  /** The grid's row id: the position plus the order number, so a blank or repeated number stays unique. */
+  rowId: string
   orderNo: string
   actualStore: string
   bestStore: string
@@ -78,9 +80,11 @@ function breakdown(rows: SourcingSummaryBreakdownRow[] | null | undefined): Brea
   })
 }
 
-function top(o: SourcingTopOrder): TopRow {
+function top(o: SourcingTopOrder, i: number): TopRow {
+  const orderNo = (o.orderNo ?? '').trim()
   return {
-    orderNo: (o.orderNo ?? '').trim(),
+    rowId: `${i}:${orderNo}`,
+    orderNo,
     actualStore: storePair(o.actualStore, o.actualStoreName),
     bestStore: storePair(o.bestStore, o.bestStoreName),
     saving: num(o.saving),
@@ -99,13 +103,13 @@ export function summaryModel(reply: Partial<SourcingSummaryReply> | null | undef
       orders,
       ordersWithSaving,
       share: share(orders, ordersWithSaving),
-      totalSaving: sar(num(r.totalSaving)),
-      avgSaving: sar(num(r.avgSaving)),
+      totalSaving: money(r.totalSaving),
+      avgSaving: money(r.avgSaving),
     },
     byCity: breakdown(r.byCity),
     byChannel: breakdown(r.byChannel),
     byDeliveryType: breakdown(r.byDeliveryType),
-    top: (r.top ?? []).slice(0, MAX_TOP).map(top),
+    top: (r.top ?? []).slice(0, MAX_TOP).map((o, i) => top(o, i)),
     rateVersion: r.rateVersion ?? '',
     placeholderRates: r.placeholderRates === true,
     // `yyyy-MM-dd` compares as text.

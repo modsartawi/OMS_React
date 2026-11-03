@@ -16,6 +16,9 @@ An **area** = a top-level nav group / URL prefix. It is a folder under `features
 - `features/admin/` — `ua-admin`, `authz-admin` (URLs `/admin/*`).
 - `features/auth/` — **top-level, NOT an area.** Login, session, `StoreSwitcher`, `ProtectedLayout`
   are cross-cutting platform, not a nav destination — they stay directly under `features/`.
+- `features/copilot/` — **top-level, NOT an area** (spec 734 D11, enforced in `tools/check-boundaries.mjs`).
+  Opened from the app shell's top bar on every screen and also routable at `/copilot`, so it belongs to no
+  nav group or URL prefix — it is cross-cutting like `auth`, not a destination inside one area.
 
 A new area folder appears **only when a new nav group / URL prefix does** (e.g. a future
 `features/reports/` behind `/reports/*`). The folder mirrors the URL prefix and the menu group.

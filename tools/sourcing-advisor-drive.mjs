@@ -16,12 +16,14 @@
 //   4. the order (delivery type, city, promised time), actual against cheapest with km, SAR, ready and
 //      travel minutes and on-time state, the saving in SAR and the reasons as sentences (an unknown code
 //      falls back);
-//   5. the candidate table: each row's cost parts add up to its cost, the on-time state (unknown read as
-//      Unknown) and the stock evidence;
+//   5. the candidate table: each row's cost as sent and its parts as sent (never re-summed, review item 3),
+//      the on-time state (unknown read as Unknown) and the stock evidence;
 //   6. the "placeholder rates" banner when `placeholderRates` is true, and none when false;
 //   7. `SOURCING-403` reads as its sentence for an order that is not scored;
 //   8. RTL: `code · name` pairs, km and SAR are `Ltr` isolates that read left to right;
-//   9. no page errors.
+//   9. no page errors;
+//  9b. an order number that trims to nothing shows its empty state with a way back, never the spinner,
+//      and asks nothing (review item 4).
 //
 //
 // Scenario `thirty-day-simulation` (ticket 739, spec 734 D15/D19/D20) stubs the third door,
@@ -35,7 +37,9 @@
 //   13. "placeholder rates" while `placeholderRates`, none without; "Scored through <date>" when the
 //       range runs past `scoredThrough`, and from a `SOURCING-404` refusal's data;
 //   14. a 93-day range is refused before any call; `SOURCING-402` from the door reads as its sentence;
-//   15. RTL: headline SAR and the top grid's store pairs read left to right; no page errors.
+//   15. RTL: headline SAR and the top grid's store pairs read left to right; no page errors;
+//   16. a blank breakdown key reads "Unspecified", and a top list with a repeated or blank order number
+//       draws every row under its own id (review item 5).
 //
 //   1. run the app:  npx vite --port 5202 --strictPort
 //   2. DRIVE_PORT=5202 node tools/sourcing-advisor-drive.mjs
@@ -85,7 +89,7 @@ const explain = (orderNo, over = {}) => ({
   best: { store: 'P002', storeName: 'Rawdah', km: 2.1, cost: 15.5, onTime: true, readyMins: 12, travelMins: 7 },
   candidates: [
     candidate('P002', 'Rawdah'),
-    // Parts that round apart from the sent cost: 3.33 + 1.33 + 0.00 + 5.33 = 9.99 on screen.
+    // Parts that do not add up to the sent cost (3.33 + 1.33 + 0.00 + 5.33 = 9.99): the cost shows 10.00, as sent.
     candidate('P010', 'Olaya', { km: 3.9, cost: 10, costParts: { courier: 3.334, pick: 1.333, split: 0, express: 5.333 }, onTime: null, stockEvidence: 'estimated' }),
     candidate('P007', 'Malaz', { km: 7.43, cost: 24.5, costParts: { courier: 21, pick: 3.5, split: 0, express: 0 } }),
     candidate('P011', 'Sulay', { km: 9.2, cost: 30.75, costParts: { courier: 24.25, pick: 3.5, split: 3 }, onTime: false }),
@@ -117,9 +121,16 @@ const summary = (q) => {
     totalSaving: narrowed ? 450.5 : 2808.456,
     avgSaving: narrowed ? 9.01 : 9.0015,
     byCity: narrowed ? [breakdownRow('Jeddah', 400, 50, 450.5, 9.01)] : [breakdownRow('الرياض', 840, 262, 2358, 9), breakdownRow('Jeddah', 400, 50, 450.5, 9.01)],
-    byChannel: [breakdownRow('HYBR', 1000, 300, 2700, 9), breakdownRow('CMRC', 0, 0, 0, null)],
+    byChannel: [breakdownRow('HYBR', 1000, 300, 2700, 9), breakdownRow('CMRC', 0, 0, 0, null), breakdownRow('', 5, 1, 3, 3)],
     // byDeliveryType absent: read as empty.
-    top: [
+    top: narrowed
+      ? [
+          // A repeated and a blank order number: every row still draws, under its own id.
+          { orderNo: DELIVERY, actualStore: 'P007', bestStore: 'P002', saving: 30, reasons: [] },
+          { orderNo: DELIVERY, actualStore: 'P007', bestStore: 'P002', saving: 20, reasons: [] },
+          { orderNo: '', actualStore: 'P007', bestStore: 'P002', saving: 10, reasons: [] },
+        ]
+      : [
       { orderNo: DELIVERY, actualStore: 'P007', actualStoreName: 'Malaz', bestStore: 'P002', bestStoreName: 'Rawdah', saving: 41.5, reasons: ['NEARER_STORE_STOCKED', 'SOMETHING_NEW'] },
       { orderNo: REAL_RATES, actualStore: 'P011', bestStore: 'P010', bestStoreName: 'Olaya', saving: 12.25, reasons: ['ACTUAL_LATE'] },
     ],
@@ -360,13 +371,9 @@ async function drive(dir) {
       }),
     )
     check(`${label}: four candidate rows, in the order sent`, rows.map((r) => r.store).join(',') === 'P002 · Rawdah,P010 · Olaya,P007 · Malaz,P011 · Sulay', rows.map((r) => r.store).join(','))
-    const adds = rows.every((r) => {
-      const sum = r.parts.reduce((s, v) => s + (v === '—' ? 0 : Math.round(Number(v) * 100)), 0)
-      return sum === Math.round(Number(r.cost) * 100)
-    })
     check(
-      `${label}: each row's cost parts add up to its cost as shown`,
-      adds && rows[1].parts.join(',') === '3.33,1.33,0.00,5.33' && rows[1].cost === '9.99' && rows[3].parts.join(',') === '24.25,3.50,3.00,—' && rows[3].cost === '30.75',
+      `${label}: each row shows the cost as sent and its parts as sent — never re-summed`,
+      rows.map((r) => r.cost).join(',') === '15.50,10.00,24.50,30.75' && rows[1].parts.join(',') === '3.33,1.33,0.00,5.33' && rows[3].parts.join(',') === '24.25,3.50,3.00,—',
       JSON.stringify(rows.map((r) => [r.parts, r.cost])),
     )
     check(
@@ -421,6 +428,20 @@ async function drive(dir) {
     )
     await page.screenshot({ path: `${SHOTS}/refusal-${dir}.png` })
 
+    // 9b. A blank order number: its empty state and a way back, never the spinner, no Explain call.
+    const asked = queries['SourcingAdvisor/Explain']?.length ?? 0
+    await page.goto(`${BASE}/oms/sourcing-advisor/order/%20`)
+    const noOrder = page.locator('[data-sourcing-no-order]')
+    await noOrder.waitFor({ timeout: 20000 })
+    await page.waitForTimeout(400)
+    check(
+      `${label}: a blank order number shows its empty state with a back link, no spinner and no call`,
+      (await page.locator('main [role="status"]').count()) === 0 &&
+        (await noOrder.locator('a[data-sourcing-back]').getAttribute('href')) === '/oms/sourcing-advisor' &&
+        (queries['SourcingAdvisor/Explain']?.length ?? 0) === asked,
+      await noOrder.innerText(),
+    )
+
     // The entry: the leaf's target opens an order by number.
     await page.goto(`${BASE}/oms/sourcing-advisor`)
     const input = page.locator('[data-sourcing-lookup] input')
@@ -473,6 +494,12 @@ async function thirtyDaySimulation(dir) {
     `${label}: by channel — a zero-order row has no share`,
     (await page.locator('[data-breakdown-row="CMRC"] [data-share]').count()) === 0 && (await page.locator('[data-breakdown-row="HYBR"] [data-share]').count()) === 1,
   )
+  const blankKey = page.locator('[data-sourcing-breakdown="channel"] [data-breakdown-row=""] [data-cell="key"]')
+  check(
+    `${label}: a blank breakdown key reads "Unspecified"`,
+    (await blankKey.count()) === 1 && ['Unspecified', 'غير محدد'].includes(clean(await blankKey.innerText())),
+    await blankKey.innerText().catch(() => 'absent'),
+  )
   check(`${label}: by delivery type absent — read as empty`, (await page.locator('[data-sourcing-breakdown="deliveryType"] table').count()) === 0)
   const topRows = await page.locator('[data-sourcing-top] .ag-row[row-id]').evaluateAll((rows) =>
     rows.map((r) => ['orderNo', 'actualStore', 'bestStore', 'saving'].map((c) => r.querySelector(`[col-id="${c}"]`)?.textContent.trim())),
@@ -486,7 +513,7 @@ async function thirtyDaySimulation(dir) {
       ]),
     JSON.stringify(topRows),
   )
-  const reasons = await page.locator(`[data-sourcing-top] [row-id="${DELIVERY}"] [data-reason]`).allInnerTexts()
+  const reasons = await page.locator(`[data-sourcing-top] [row-id="0:${DELIVERY}"] [data-reason]`).allInnerTexts()
   check(
     `${label}: top reasons are sentences from the codes; an unknown one falls back`,
     dir === 'rtl' ? reasons.length === 2 : reasons.join(' | ') === 'A nearer store had the stock and was on time. | Another reason the advisor recorded (SOMETHING_NEW).',
@@ -499,7 +526,7 @@ async function thirtyDaySimulation(dir) {
 
   // 15. RTL isolation.
   const totalBdi = page.locator('[data-tile="totalSaving"] bdi')
-  const pairCell = page.locator(`[data-sourcing-top] [row-id="${DELIVERY}"] [col-id="actualStore"] bdi`)
+  const pairCell = page.locator(`[data-sourcing-top] [row-id="0:${DELIVERY}"] [col-id="actualStore"] bdi`)
   check(`${label}: headline SAR and a top store pair read left to right`, (await isLtrIsolate(totalBdi)) && (await readsLtr(totalBdi)) === true && (await readsLtr(pairCell)) === true)
   await page.screenshot({ path: `${SHOTS}/summary-${dir}.png`, fullPage: true })
 
@@ -512,6 +539,15 @@ async function thirtyDaySimulation(dir) {
     `${label}: a city filter re-queries, keeping the range, and the URL keeps it`,
     summaryQs().length > before && lastQ()?.get('city') === 'Jeddah' && lastQ()?.get('from') === DEFAULT_FROM && new URL(page.url()).searchParams.get('city') === 'Jeddah',
     lastQ()?.toString(),
+  )
+  await page.locator('[data-sourcing-top] .ag-row[row-id="2:"]').first().waitFor({ timeout: 20000 }).catch(() => {})
+  const narrowedIds = await page
+    .locator('[data-sourcing-top] .ag-row[row-id]')
+    .evaluateAll((rows) => [...new Set(rows.map((r) => r.getAttribute('row-id')))])
+  check(
+    `${label}: a repeated and a blank order number — every top row drawn, each under its own id`,
+    JSON.stringify(narrowedIds) === JSON.stringify([`0:${DELIVERY}`, `1:${DELIVERY}`, '2:']),
+    JSON.stringify(narrowedIds),
   )
   await page.locator('[data-sourcing-filter="channel"]').fill('CMRC')
   await page.locator('[data-sourcing-filter="channel"]').press('Enter')

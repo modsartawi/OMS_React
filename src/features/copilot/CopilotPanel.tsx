@@ -1,5 +1,4 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { HelpCircle, Loader2, MessageSquarePlus, Send, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
@@ -9,13 +8,12 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import type { CopilotAskRequest } from '@/core/models/copilot'
-import { copilotApi } from './api'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits, type AnswerBlock, type CopilotAnswerModel } from './answer'
-import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotTurn } from './conversation'
+import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotTurn } from './conversation'
 import { copilotRefusal } from './refusal'
 import { AnswerProvenance, LinkedText, WorkingStep } from './AnswerParts'
 import { useCopilotConversation } from './conversation-store'
+import { DEMO_ORDER_NO, lateExample } from './demo'
 
 /**
  * The copilot panel (ticket 735, spec 734 D11) — the ONE body both the top bar's side sheet and the
@@ -28,32 +26,33 @@ import { useCopilotConversation } from './conversation-store'
  * Ticket 737 (D5, D7): the panel holds a conversation — a thread numbered by `questionNo`, whose id
  * every follow-up sends back. "New conversation" drops both. At question 10, or on `COPILOT-406`, the
  * box gives way to the offer of a new conversation. A refusal joins the thread in its own words.
+ *
+ * The question in flight is the store's, not this panel's (review item 2): every mounted panel shows
+ * it and locks its box, and its reply lands even when this panel has unmounted. "New conversation"
+ * stays open while it is in flight: it abandons the question, whose late reply is then dropped.
  */
 export default function CopilotPanel() {
   const { t } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
   // Held in the store, not here: the sheet unmounts the panel when an order link navigates (736).
-  const { conv, setConv } = useCopilotConversation()
+  const conv = useCopilotConversation((s) => s.conv)
+  const pending = useCopilotConversation((s) => s.pending)
+  const ask = useCopilotConversation((s) => s.ask)
+  const clear = useCopilotConversation((s) => s.startNew)
   const box = useRef<HTMLTextAreaElement>(null)
-  const ask = useMutation({
-    mutationFn: (body: CopilotAskRequest) => copilotApi.ask(body),
-    onSuccess: (reply, body) => setConv((c) => withAnswer(c, body.question, reply)),
-    onError: (err, body) => setConv((c) => withRefusal(c, body.question, err)),
-  })
+  const working = pending !== null
 
   const tooLong = question.length > COPILOT_MAX_QUESTION
-  const canSend = questionFits(question) && !ask.isPending
+  const canSend = questionFits(question) && !working
 
   const send = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canSend) return
-    ask.mutate(askBody(conv, question.trim()))
-    setQuestion('')
+    if (ask(question.trim()) !== null) setQuestion('')
   }
-  /** "New conversation": no id, no thread, an empty box. */
+  /** "New conversation": no id, no thread, nothing in flight, an empty box. */
   const startNew = () => {
-    setConv(EMPTY_CONVERSATION)
-    ask.reset()
+    clear()
     setQuestion('')
     requestAnimationFrame(() => box.current?.focus())
   }
@@ -65,7 +64,7 @@ export default function CopilotPanel() {
   }
 
   /** An example fills the box; the order placeholder is selected, so typing the number replaces it. */
-  const fillExample = (text: string, select?: string) => {
+  const fillExample = (text: string, select: string | null) => {
     setQuestion(text)
     requestAnimationFrame(() => {
       const el = box.current
@@ -77,15 +76,16 @@ export default function CopilotPanel() {
     })
   }
 
-  const empty = conv.turns.length === 0 && !ask.isPending
+  const empty = conv.turns.length === 0 && !working
   const open = canAskMore(conv)
+  const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-copilot-panel>
       {!empty && (
         <div className="flex shrink-0 items-center justify-between gap-2" data-copilot-thread-bar>
           <div className="text-xs font-medium text-muted-foreground">{t('thread.heading')}</div>
-          <Button variant="ghost" onClick={startNew} disabled={ask.isPending} data-copilot-new>
+          <Button variant="ghost" onClick={startNew} data-copilot-new>
             <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
             {t('thread.new')}
           </Button>
@@ -97,9 +97,11 @@ export default function CopilotPanel() {
           <div data-copilot-examples className="flex flex-col gap-2">
             <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
             <div className="flex flex-col items-start gap-1.5">
+              {/* The example IS the question the box will send, so its order number is not isolated with
+                  `fsi`: those characters would ride into the question. The label is a `<bdi>` instead. */}
               {[
-                { text: t('examples.late'), select: t('examples.lateSelect') },
-                { text: t('examples.hungerstation') },
+                { text: t('examples.late', { orderNo: late.orderNo }), select: late.select },
+                { text: t('examples.hungerstation'), select: null },
               ].map((ex) => (
                 <Button
                   key={ex.text}
@@ -109,7 +111,9 @@ export default function CopilotPanel() {
                   onClick={() => fillExample(ex.text, ex.select)}
                 >
                   <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{ex.text}</span>
+                  <span>
+                    <bdi>{ex.text}</bdi>
+                  </span>
                 </Button>
               ))}
             </div>
@@ -124,9 +128,13 @@ export default function CopilotPanel() {
           </ol>
         )}
 
-        {ask.isPending && ask.variables !== undefined && <Asked question={ask.variables.question} questionNo={null} />}
+        {working && (
+          <div data-copilot-pending>
+            <Asked question={pending} questionNo={null} />
+          </div>
+        )}
 
-        {ask.isPending && (
+        {working && (
           <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             {t('working')}
@@ -153,6 +161,7 @@ export default function CopilotPanel() {
               placeholder={t('box.placeholder')}
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={onKeyDown}
+              disabled={working}
               className="w-full resize-y"
               data-copilot-question
             />
@@ -167,7 +176,7 @@ export default function CopilotPanel() {
       ) : (
         <div className="flex shrink-0 flex-col items-start gap-2 border-t border-border/60 pt-3 text-sm" data-copilot-offer>
           <p>
-            {t(conv.over ? 'thread.over' : 'thread.full')} {t('thread.offer')}
+            {conv.over ? t('thread.over') : t('thread.full', { max: fsi(formatNumber(COPILOT_MAX_QUESTIONS)) })} {t('thread.offer')}
           </p>
           <Button onClick={startNew} data-copilot-offer-new>
             <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />

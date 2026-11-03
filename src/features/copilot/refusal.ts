@@ -1,4 +1,5 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
+import { formatDateTime } from '@/core/util/date-format'
 
 /**
  * The copilot's refusals (ticket 737, spec 734 D7) — each envelope code to its own words in the
@@ -24,12 +25,13 @@ export type CopilotRefusalView = { key: string; resetAt: string | null } | { mes
 /**
  * ⚠ D10 names no field for 402's reset time. It is read from the refusal's `data` as `resetAt`
  * (estate local `yyyy-MM-ddTHH:mm:ss`, like `askedAt`), defensively: without one, the limit is
- * named without a time.
+ * named without a time — and so is one that does not read as a time (review item 6: an unparseable
+ * or unset value would format to '' and leave "ask again at .").
  */
 function resetAtOf(err: unknown): string | null {
   const data = apiErrorData(err)
   const v = data && typeof data === 'object' ? (data as { resetAt?: unknown }).resetAt : null
-  return typeof v === 'string' && v ? v : null
+  return typeof v === 'string' && formatDateTime(v) !== '' ? v : null
 }
 
 export function copilotRefusal(err: unknown, fallback: string): CopilotRefusalView {

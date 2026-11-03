@@ -20,7 +20,9 @@
   "load": {
     "loading": "Loading the explanation…",
     "failedTitle": "The explanation could not be loaded",
-    "failed": "Something went wrong reading this order. Try again in a moment."
+    "failed": "Something went wrong reading this order. Try again in a moment.",
+    "noOrder": "No order number was given. Open an order from the sourcing advisor.",
+    "backToAdvisor": "Back to the sourcing advisor"
   },
   "refusal": {
     "noGrant": "Your account does not hold the sourcing advisor grant.",
@@ -140,7 +142,8 @@
       "withSaving": "With saving",
       "total": "Total (SAR)",
       "avg": "Average (SAR)",
-      "empty": "Nothing in this breakdown."
+      "empty": "Nothing in this breakdown.",
+      "unspecified": "Unspecified"
     },
     "top": {
       "heading": "Biggest savings",

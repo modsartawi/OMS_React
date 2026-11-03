@@ -40,10 +40,17 @@ export function askBody(c: CopilotConversation, question: string): CopilotAskReq
   return c.id ? { question, conversationId: c.id } : { question }
 }
 
+/**
+ * An answer joins the thread. A reply in ANOTHER conversation than the one held (the server started a
+ * new one) starts a fresh thread holding only that reply: the old turns are not this conversation's,
+ * and their numbers would not be the server's count.
+ */
 export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer): CopilotConversation {
   const id = typeof reply?.conversationId === 'string' && reply.conversationId ? reply.conversationId : c.id
   const questionNo = typeof reply?.questionNo === 'number' ? reply.questionNo : null
-  return { ...c, id, turns: [...c.turns, { question, questionNo, reply, refusal: null }] }
+  const turn: CopilotTurn = { question, questionNo, reply, refusal: null }
+  if (c.id !== null && id !== c.id) return { id, turns: [turn], over: false }
+  return { ...c, id, turns: [...c.turns, turn] }
 }
 
 export function withRefusal(c: CopilotConversation, question: string, err: unknown): CopilotConversation {
@@ -54,7 +61,10 @@ export function withRefusal(c: CopilotConversation, question: string, err: unkno
   }
 }
 
-/** The box stays while the conversation can take another question: not refused with 406, not at ten. */
+/**
+ * The box stays while the conversation can take another question: not refused with 406, and the server's
+ * own `questionNo` not yet at ten. The client never counts turns itself — the server is the authority.
+ */
 export function canAskMore(c: CopilotConversation): boolean {
   if (c.over) return false
   const last = c.turns.reduce((n, t) => Math.max(n, t.questionNo ?? 0), 0)

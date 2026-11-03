@@ -13,8 +13,8 @@
   },
   "examples": {
     "heading": "Try asking",
-    "late": "Why was order X late?",
-    "lateSelect": "X",
+    "late": "Why was order {{orderNo}} late?",
+    "latePlaceholder": "X",
     "hungerstation": "HungerStation orders in Riyadh this week versus last?"
   },
   "box": {
@@ -76,7 +76,7 @@
     "heading": "Conversation",
     "questionNo": "Question",
     "new": "New conversation",
-    "full": "This conversation has reached its 10 questions.",
+    "full": "This conversation has reached its {{max}} questions.",
     "over": "This conversation has expired or is full.",
     "offer": "Start a new conversation to keep asking."
   }

@@ -15,6 +15,7 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { sourcingAdvisorApi } from './api'
+import { ADVISOR_PATH } from './paths'
 import { explainModel, type CandidateRow, type OnTimeState, type StoreSide } from './explain-model'
 import PlaceholderBanner from './PlaceholderBanner'
 import { refusalKey } from './refusal'
@@ -77,6 +78,26 @@ function Explain() {
     </Link>
   )
 
+  // A number that trims to nothing never asks the door — and a disabled query stays `isPending` for
+  // ever (TanStack v5), so it is answered here, before the spinner (review item 4).
+  if (orderNo === '') {
+    return (
+      <div className="flex flex-col gap-3" data-sourcing-no-order="">
+        <div>
+          <Link
+            to={ADVISOR_PATH}
+            aria-label={t('load.backToAdvisor')}
+            title={t('load.backToAdvisor')}
+            className={iconButtonClass('outlined')}
+            data-sourcing-back=""
+          >
+            <ChevronLeft className="size-4 rtl:-scale-x-100" aria-hidden />
+          </Link>
+        </div>
+        <p className="text-sm text-muted-foreground">{t('load.noOrder')}</p>
+      </div>
+    )
+  }
   if (explain.isPending) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">

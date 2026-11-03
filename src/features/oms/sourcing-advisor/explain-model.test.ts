@@ -42,26 +42,32 @@ describe('sourcingExplainModel_buildsActualBestAndCandidates', () => {
     expect(explainModel(reply()).saving).toEqual({ shown: true, amount: '9.00' })
   })
 
-  it('cost parts sum to each candidate cost as shown, to the halala', () => {
+  it('🚩 a candidate shows the cost as sent, and its parts as sent — never re-summed', () => {
     const m = explainModel(
       reply({
         candidates: [
-          // Parts that round apart from the sent cost: 3.33 + 1.33 + 0.00 + 5.33 = 9.99 on screen.
+          // Parts that do not add up to the sent cost (3.33 + 1.33 + 0.00 + 5.33 = 9.99): the cost stays 10.00.
           candidate('P010', { cost: 10, costParts: { courier: 3.334, pick: 1.333, split: 0, express: 5.333 } }),
-          // A split penalty and no express part sent at all.
+          // A split penalty, and no express part sent at all: a dash, never 0.
           candidate('P011', { cost: 20.75, costParts: { courier: 14.25, pick: 3.5, split: 3 } }),
+          // A null part is a dash too, and the cost is still the one sent.
+          candidate('P013', { cost: 7, costParts: { courier: null, pick: 2, split: null, express: null } as never }),
         ],
       }),
     )
     expect(m.candidates.map((c) => [c.courier, c.pick, c.split, c.express, c.cost])).toEqual([
-      ['3.33', '1.33', '0.00', '5.33', '9.99'],
+      ['3.33', '1.33', '0.00', '5.33', '10.00'],
       ['14.25', '3.50', '3.00', null, '20.75'],
+      [null, '2.00', null, null, '7.00'],
     ])
   })
 
   it('a candidate with no cost parts shows the sent cost and no parts', () => {
     const m = explainModel(reply({ candidates: [candidate('P012', { cost: 11.2, costParts: null })] }))
     expect(m.candidates[0]).toMatchObject({ courier: null, pick: null, split: null, express: null, cost: '11.20' })
+    // No cost sent at all: a dash, not a total made from nothing.
+    const bare = explainModel(reply({ candidates: [candidate('P014', { cost: null as never, costParts: { courier: 4, pick: 1, split: 0, express: 0 } })] }))
+    expect(bare.candidates[0].cost).toBeNull()
   })
 
   it('marks the actual and the best rows, the stock evidence, and the on-time state', () => {

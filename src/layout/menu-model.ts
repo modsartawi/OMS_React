@@ -44,10 +44,9 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
-import { ListTree, ShieldAlert, Trophy } from 'lucide-react'
+import { ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
-import { Route } from 'lucide-react'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the

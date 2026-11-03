@@ -6,6 +6,7 @@ import '@/core/i18n'
 import '@/app/global.css'
 import { router } from '@/app/router'
 import { ConfirmHost } from '@/core/services/confirm'
+import { dropCopilotAccessOnUserChange } from '@/features/copilot/access'
 import ToasterHost from '@/layout/ToasterHost'
 
 const queryClient = new QueryClient({
@@ -13,6 +14,9 @@ const queryClient = new QueryClient({
     queries: { refetchOnWindowFocus: false, retry: 1 },
   },
 })
+
+// The copilot's grant is cached for the page's life: never past its user (spec 734 review item 1).
+dropCopilotAccessOnUserChange(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -20,8 +20,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange } from '@/core/util/bidi'
+import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { sourcingAdvisorApi } from './api'
-import { sar } from './explain-model'
 import { explainPath } from './paths'
 import PlaceholderBanner from './PlaceholderBanner'
 import { refusalKey } from './refusal'
@@ -154,7 +154,7 @@ function Summary() {
         </Button>
         {!range.ok && (
           <p role="alert" className="basis-full text-xs text-danger-800" data-sourcing-problem={range.problem}>
-            <Trans t={t} i18nKey={`summary.problem.${range.problem}`} values={{ max: String(MAX_DAYS) }} components={{ max: <Ltr /> }} />
+            <Trans t={t} i18nKey={`summary.problem.${range.problem}`} values={{ max: formatNumber(MAX_DAYS) }} components={{ max: <Ltr /> }} />
           </p>
         )}
       </form>
@@ -243,7 +243,7 @@ function Summary() {
                 columnDefs={cols}
                 defaultColDef={DEFAULT_COL_DEF}
                 context={context}
-                getRowId={({ data }) => data.orderNo}
+                getRowId={({ data }) => data.rowId}
                 rowHeight={OMS_GRID_ROW_HEIGHT}
                 headerHeight={OMS_GRID_HEADER_HEIGHT}
                 domLayout="autoHeight"
@@ -277,7 +277,7 @@ function Tile({ label, attr, children }: { label: string; attr: string; children
 
 function Count({ value }: { value: number | null }) {
   const { t } = useTranslation('sourcing-advisor')
-  return value === null ? <>{t('dash')}</> : <Ltr>{String(value)}</Ltr>
+  return value === null ? <>{t('dash')}</> : <Ltr>{formatNumber(value)}</Ltr>
 }
 
 function Share({ value }: { value: number }) {
@@ -294,7 +294,7 @@ function Sar({ value }: { value: string | null }) {
 function Breakdown({ title, keyLabel, rows, attr }: { title: string; keyLabel: string; rows: BreakdownRow[]; attr: string }) {
   const { t } = useTranslation('sourcing-advisor')
   const dash = t('dash')
-  const sarText = (v: number | null) => sar(v) ?? dash
+  const sarText = (v: number | null) => (v === null ? dash : formatMoney(v))
   return (
     <section className="min-w-0 rounded-lg border border-border bg-card p-3" data-sourcing-breakdown={attr}>
       <h2 className="mb-2 text-sm font-semibold">{title}</h2>
@@ -313,16 +313,17 @@ function Breakdown({ title, keyLabel, rows, attr }: { title: string; keyLabel: s
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.key} className="border-b border-border/50" data-breakdown-row={r.key}>
+              {rows.map((r, i) => (
+                // The position plus the key: a blank or repeated key stays a unique React key (review item 5).
+                <tr key={`${i}:${r.key}`} className="border-b border-border/50" data-breakdown-row={r.key}>
                   <td className={TD} data-cell="key">
-                    <bdi>{r.key || dash}</bdi>
+                    {r.key ? <bdi>{r.key}</bdi> : <span className="text-muted-foreground">{t('summary.by.unspecified')}</span>}
                   </td>
                   <td className={`${TD} text-end`} data-cell="orders">
-                    {r.orders === null ? dash : <Ltr>{String(r.orders)}</Ltr>}
+                    {r.orders === null ? dash : <Ltr>{formatNumber(r.orders)}</Ltr>}
                   </td>
                   <td className={`${TD} text-end`} data-cell="withSaving">
-                    {r.ordersWithSaving === null ? dash : <Ltr>{String(r.ordersWithSaving)}</Ltr>}
+                    {r.ordersWithSaving === null ? dash : <Ltr>{formatNumber(r.ordersWithSaving)}</Ltr>}
                     {r.share !== null && (
                       <span className="ms-1 text-xs text-muted-foreground" data-share="">
                         <Share value={r.share} />

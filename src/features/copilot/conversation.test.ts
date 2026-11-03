@@ -56,4 +56,22 @@ describe('the conversation (spec 734 D5)', () => {
     expect(canAskMore(expired)).toBe(false)
     expect(expired.turns).toHaveLength(3)
   })
+
+  it('copilotConversation_trustsTheServersCount', () => {
+    // The server numbers the questions, refusals it counted included: its questionNo is the count.
+    let c = withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0003', 1))
+    c = withRefusal(c, 'refused', refusal('COPILOT-403'))
+    c = withAnswer(c, 'q', reply('c-0003', 10))
+    expect(canAskMore(c)).toBe(false)
+  })
+
+  it('copilotConversation_aReplyInAnotherConversationStartsAFreshThread', () => {
+    const c = withAnswer(withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0005', 1)), 'q2', reply('c-0005', 2))
+    const moved = withAnswer(c, 'q3', reply('c-0006', 1))
+    expect(moved.id).toBe('c-0006')
+    expect(moved.over).toBe(false)
+    expect(moved.turns.map((t) => [t.question, t.questionNo])).toEqual([['q3', 1]])
+    // The first answer of a conversation is not a move.
+    expect(withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0007', 1)).turns).toHaveLength(1)
+  })
 })

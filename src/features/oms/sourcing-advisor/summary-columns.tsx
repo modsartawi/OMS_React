@@ -3,7 +3,7 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import { Link } from 'react-router'
 import { Trans } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
-import { sar } from './explain-model'
+import { money } from './explain-model'
 import { explainPath } from './paths'
 import type { TopRow } from './summary-model'
 
@@ -47,7 +47,7 @@ export function topColumns(t: TFunction): ColDef<TopRow>[] {
       headerName: t('summary.top.saving'),
       type: 'rightAligned',
       width: 130,
-      valueFormatter: ({ value }: ValueFormatterParams<TopRow, number | null>) => sar(value) ?? dash,
+      valueFormatter: ({ value }: ValueFormatterParams<TopRow, number | null>) => money(value) ?? dash,
     },
     { colId: 'reasons', headerName: t('summary.top.reasons'), cellRenderer: Reasons, flex: 1, minWidth: 280, sortable: false, autoHeight: true, wrapText: true },
   ]

@@ -16,6 +16,7 @@
 //   6. `/copilot` renders the same panel, examples and all;
 //   7. 1,001 characters cannot be sent (Send disabled, the limit named, Enter asks nothing); 1,000 can;
 //   8. no page errors.
+// Plus scenario "in-flight-and-user-change" (spec 734 review items 1 and 2), described at its function.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/copilot-drive.mjs
@@ -75,6 +76,8 @@ async function open(dir, { access = 'granted', onAsk = null } = {}) {
   const errors = []
   const calls = []
   const asks = []
+  // Who Auth/Me and Auth/UaLogin say is signed in; the in-flight scenario signs another user in.
+  const session = { userId: 'msartawi' }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -85,7 +88,14 @@ async function open(dir, { access = 'granted', onAsk = null } = {}) {
     const req = route.request()
     const p = new URL(req.url()).pathname.split('/api/')[1]
     calls.push(p)
-    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: session.userId, currentStoreCode: 'P001' }))
+    if (p === 'Auth/Logout') return route.fulfill(envelope(null))
+    if (p === 'Auth/UaLogin') {
+      session.userId = req.postDataJSON().userId
+      return route.fulfill(
+        envelope({ success: true, errorCode: null, message: null, challengeId: null, requiresTotp: false, mustChangePassword: false, displayName: session.userId, userId: session.userId }),
+      )
+    }
     if (p === 'Copilot/Access') {
       if (access === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
       return route.fulfill(envelope({ canAsk: access === 'granted', canUseMcp: false }))
@@ -93,14 +103,14 @@ async function open(dir, { access = 'granted', onAsk = null } = {}) {
     if (p === 'Copilot/Ask') {
       asks.push({ method: req.method(), body: req.postDataJSON() })
       // Ticket 737's scenario answers each question its own way (a follow-up, a refusal…).
-      if (onAsk) return route.fulfill(onAsk(req.postDataJSON(), asks.length))
+      if (onAsk) return route.fulfill(await onAsk(req.postDataJSON(), asks.length))
       await new Promise((r) => setTimeout(r, ASK_DELAY_MS))
       return route.fulfill(envelope(ANSWER))
     }
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, asks }
+  return { context, page, errors, calls, asks, session }
 }
 
 const WORDS = {
@@ -504,8 +514,128 @@ async function followUpAndRefusals(dir) {
 
   // f. question 10
   await askIt('tenth')
-  check(`${label}: the offer of a new conversation replaces the box at question 10`, (await panel.locator('[data-copilot-form]').count()) === 0 && ((await panel.locator('[data-copilot-offer]').textContent()) ?? '').includes('10 questions'))
+  check(`${label}: the offer of a new conversation replaces the box at question 10`, (await panel.locator('[data-copilot-form]').count()) === 0 && ((await panel.locator('[data-copilot-offer]').textContent()) ?? '').replace(/[\u2066-\u2069]/g, '').includes('10 questions'))
   check(`${label}: question 10 posts no stale id`, JSON.stringify(asks.at(-1).body) === JSON.stringify({ question: 'tenth' }), JSON.stringify(asks.at(-1).body))
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── Review fixes (spec 734 review items 1 and 2) — "in-flight-and-user-change" ─────────────────────
+// The question in flight is the store's, not a panel's. In LTR and RTL it asserts:
+//   h. a question still in flight when the sheet closes lands in the thread, and reopening shows it;
+//   i. with `/copilot` and the top-bar sheet open together, a question asked in one locks BOTH boxes, and
+//      only one ask is ever in flight; its answer shows in both;
+//   j. "New conversation" while a question is in flight drops that question's late reply;
+//   k. signing out and signing in as another user empties the thread, and the probe is asked afresh.
+const SLOW_MS = 1500
+const slowly = (body) =>
+  new Promise((r) => setTimeout(() => r(reply(body.question === 'late reply' ? 'c-late' : 'c-0900', 1, { answer: `Answer to ${body.question}.` })), SLOW_MS))
+
+/** A locator's text, or null when it is not on the page (no 30-second wait for an absent element). */
+const textOf = async (loc) => ((await loc.count()) > 0 ? ((await loc.first().textContent()) ?? '').trim() : null)
+
+async function inFlightAndUserChange(dir) {
+  const label = `${dir} in-flight-and-user-change`
+  const { context, page, errors, asks, calls, session } = await open(dir, { onAsk: slowly })
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  const onPage = page.locator('main [data-copilot-panel]')
+
+  // h. The sheet closes mid-question; the reply still lands.
+  await page.goto(`${BASE}/copilot`)
+  await onPage.waitFor({ timeout: 20000 })
+  await button(page).click()
+  await sheet.locator('[data-copilot-panel]').waitFor({ timeout: 20000 })
+  await sheet.locator('[data-copilot-question]').fill('asked then closed')
+  await sheet.locator('[data-copilot-send]').click()
+  await sheet.locator('[data-copilot-working]').waitFor({ timeout: 5000 })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  const closedMidQuestion = (await page.locator('dialog[data-copilot-sheet]').count()) === 0
+  // Reopened at once, the question is still in flight: shown, and the box locked — no second conversation.
+  await button(page).click()
+  await sheet.locator('[data-copilot-panel]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: reopened mid-question, the sheet shows the question in flight and locks its box`,
+    closedMidQuestion &&
+      (await textOf(sheet.locator('[data-copilot-pending] [data-copilot-asked]'))) === 'asked then closed' &&
+      (await sheet.locator('[data-copilot-question]').isDisabled()),
+  )
+  await sheet.locator('[data-copilot-question]').fill('a second ask', { timeout: 1000 }).catch(() => {})
+  await sheet.locator('[data-copilot-send]').click({ timeout: 1000 }).catch(() => {})
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(SLOW_MS + 600)
+  await button(page).click()
+  await sheet.locator('[data-copilot-panel]').waitFor({ timeout: 20000 })
+  const turns = sheet.locator('[data-copilot-turn]')
+  check(
+    `${label}: a reply that arrives after the sheet closed lands in the thread`,
+    closedMidQuestion && (await turns.count()) === 1 && ((await turns.first().locator('[data-copilot-answer]').textContent()) ?? '').includes('Answer to asked then closed.') && asks.length === 1,
+    `closed=${closedMidQuestion}, ${await turns.count()} turns, ${asks.length} asks`,
+  )
+  await sheet.locator('[data-copilot-new]').click()
+
+  // i. The page and the sheet together: one ask in flight, both boxes locked.
+  const before = asks.length
+  await sheet.locator('[data-copilot-question]').fill('asked in the sheet')
+  await sheet.locator('[data-copilot-send]').click()
+  await sheet.locator('[data-copilot-working]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: while a question is in flight, the page's panel shows it and its box is locked`,
+    (await onPage.locator('[data-copilot-working]').count()) === 1 &&
+      (await textOf(onPage.locator('[data-copilot-pending] [data-copilot-asked]'))) === 'asked in the sheet' &&
+      (await onPage.locator('[data-copilot-question]').isDisabled()) &&
+      (await onPage.locator('[data-copilot-send]').isDisabled()),
+  )
+  check(`${label}: …and so is the sheet's own box`, (await sheet.locator('[data-copilot-question]').isDisabled()) && (await sheet.locator('[data-copilot-send]').isDisabled()))
+  // Try to ask from the page's panel meanwhile: it must not send.
+  await onPage.locator('[data-copilot-question]').fill('asked on the page', { timeout: 1000 }).catch(() => {})
+  await onPage.locator('[data-copilot-send]').click({ timeout: 1000, force: true }).catch(() => {})
+  await sheet.locator('[data-copilot-turn] [data-copilot-answer]').first().waitFor({ timeout: 10000 })
+  check(`${label}: only one ask was ever in flight`, asks.length === before + 1, `${asks.length - before} asks`)
+  check(
+    `${label}: the answer shows in both panels, and both boxes open again`,
+    (await onPage.locator('[data-copilot-turn]').count()) === 1 && (await sheet.locator('[data-copilot-turn]').count()) === 1 && !(await onPage.locator('[data-copilot-question]').isDisabled()),
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+
+  // j. "New conversation" while in flight drops the late reply.
+  await onPage.locator('[data-copilot-new]').click()
+  await onPage.locator('[data-copilot-question]').fill('late reply')
+  await onPage.locator('[data-copilot-send]').click()
+  await onPage.locator('[data-copilot-working]').waitFor({ timeout: 5000 })
+  const newWhileWorking = onPage.locator('[data-copilot-new]')
+  check(`${label}: "New conversation" stays open while a question is in flight`, (await newWhileWorking.count()) === 1 && !(await newWhileWorking.isDisabled()))
+  await newWhileWorking.click()
+  await page.waitForTimeout(SLOW_MS + 600)
+  check(
+    `${label}: a reply to a conversation cleared while in flight is dropped`,
+    (await onPage.locator('[data-copilot-turn]').count()) === 0 && (await onPage.locator('[data-copilot-working]').count()) === 0 && (await onPage.locator('[data-copilot-example]').count()) === 2,
+  )
+  await onPage.locator('[data-copilot-question]').fill('after the drop')
+  await onPage.locator('[data-copilot-send]').click()
+  await onPage.locator('[data-copilot-turn] [data-copilot-answer]').first().waitFor({ timeout: 10000 })
+  check(`${label}: the next question starts its own conversation (no id posted)`, JSON.stringify(asks.at(-1).body) === JSON.stringify({ question: 'after the drop' }), JSON.stringify(asks.at(-1).body))
+
+  // k. Sign out, sign in as another user: the thread is empty and the probe is asked again.
+  await page.evaluate(() => (window.__noReload = true))
+  const probesBefore = calls.filter((c) => c === 'Copilot/Access').length
+  await page.locator('[data-user-menu-button]').click()
+  await page.locator('[data-user-menu] [role="menuitem"]').last().click()
+  await page.locator('#userId').waitFor({ timeout: 20000 })
+  await page.locator('#userId').fill('b.user')
+  await page.locator('#password').fill('pw')
+  await page.locator('#password').press('Enter')
+  await button(page).waitFor({ timeout: 20000 })
+  check(`${label}: signing in again is no reload (a reload would empty the store anyway)`, (await page.evaluate(() => window.__noReload)) === true && session.userId === 'b.user')
+  check(`${label}: the new user's grant is asked afresh`, calls.filter((c) => c === 'Copilot/Access').length > probesBefore)
+  await button(page).click()
+  await sheet.locator('[data-copilot-panel]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: after another user signs in, the thread is empty`,
+    (await sheet.locator('[data-copilot-turn]').count()) === 0 && (await sheet.locator('[data-copilot-example]').count()) === 2,
+  )
 
   check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
@@ -518,6 +648,8 @@ try {
   await answerLinksAndTrace('rtl')
   await followUpAndRefusals('ltr')
   await followUpAndRefusals('rtl')
+  await inFlightAndUserChange('ltr')
+  await inFlightAndUserChange('rtl')
 } finally {
   await browser.close()
 }

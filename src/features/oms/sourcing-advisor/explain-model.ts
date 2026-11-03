@@ -4,7 +4,8 @@
  *
  * 🚩 The door scores the order (D19); nothing here picks a store or re-ranks one. What lives here:
  * - every figure formatted once (km to one decimal, SAR to the halala), `null` when absent;
- * - a candidate's cost as shown is the sum of its parts as shown, so a row always adds up on screen;
+ * - a candidate's cost is the door's `cost` as sent, and its parts as sent beside it, a dash for an
+ *   absent part — never a total recomputed here: if the parts the door sent do not add up, the door owns it;
  * - an on-time state is `yes`, `no` or `unknown`, and only a `yes` best ever shows a saving (D18);
  * - each reason code is an i18n key, an unknown one falls back (D21: never server free text);
  * - an absent list reads as empty, so a bare reply draws an empty page, not a crash.
@@ -16,6 +17,7 @@ import type {
   SourcingStoreEstimate,
 } from '@/core/models/sourcing-advisor'
 import { formatPair } from '@/core/util/bidi'
+import { formatMoney, formatNumber } from '@/core/util/number-format'
 
 export type OnTimeState = 'yes' | 'no' | 'unknown'
 export type StockState = 'recorded' | 'estimated'
@@ -76,11 +78,10 @@ export const REASON_KEYS: Readonly<Record<string, string>> = {
 export const UNKNOWN_REASON_KEY = 'reasons.unknown'
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-const cents = (v: number): number => Math.round(v * 100)
-/** SAR to the halala, `null` when absent. Shared with `./summary-model`. */
-export const sar = (v: number | null | undefined): string | null => (isNum(v) ? (cents(v) / 100).toFixed(2) : null)
+/** SAR to the halala through core's `formatMoney`, `null` (a dash on screen) when absent. Shared with `./summary-model`. */
+export const money = (v: number | null | undefined): string | null => (isNum(v) ? formatMoney(v) : null)
 const km = (v: number | null | undefined): string | null => (isNum(v) ? v.toFixed(1) : null)
-const mins = (v: number | null | undefined): string | null => (isNum(v) ? String(Math.round(v)) : null)
+const mins = (v: number | null | undefined): string | null => (isNum(v) ? formatNumber(Math.round(v)) : null)
 
 /** Only `true` and `false` are answers; anything else (null, absent, malformed) is unknown. */
 export function onTimeState(v: SourcingOnTimeWire | undefined): OnTimeState {
@@ -96,7 +97,7 @@ function side(e: SourcingStoreEstimate | null | undefined): StoreSide | null {
   return {
     store: storePair(e.store, e.storeName),
     km: km(e.km),
-    cost: sar(e.cost),
+    cost: money(e.cost),
     readyMins: mins(e.readyMins),
     travelMins: mins(e.travelMins),
     onTime: onTimeState(e.onTime),
@@ -105,19 +106,16 @@ function side(e: SourcingStoreEstimate | null | undefined): StoreSide | null {
 
 function row(c: SourcingCandidate, actualCode: string, bestCode: string): CandidateRow {
   const parts = c.costParts ?? null
-  const values = parts ? [parts.courier, parts.pick, parts.split, parts.express] : []
-  const anyPart = values.some(isNum)
-  // The shown total is the sum of the shown parts, in halalas, so the row adds up as read.
-  const total = anyPart ? values.reduce<number>((s, v) => s + (isNum(v) ? cents(v) : 0), 0) / 100 : c.cost
   const code = (c.store ?? '').trim()
   return {
     store: storePair(c.store, c.storeName),
     km: km(c.km),
-    courier: anyPart ? sar(parts?.courier) : null,
-    pick: anyPart ? sar(parts?.pick) : null,
-    split: anyPart ? sar(parts?.split) : null,
-    express: anyPart ? sar(parts?.express) : null,
-    cost: sar(total),
+    // 🚩 As sent (review item 3): the parts are the breakdown, the cost is the door's — never re-summed.
+    courier: money(parts?.courier),
+    pick: money(parts?.pick),
+    split: money(parts?.split),
+    express: money(parts?.express),
+    cost: money(c.cost),
     onTime: onTimeState(c.onTime),
     // Only an explicit "recorded" is claimed as recorded evidence.
     stock: c.stockEvidence === 'recorded' ? 'recorded' : 'estimated',
@@ -137,8 +135,8 @@ export function explainModel(reply: Partial<SourcingExplainReply> | null | undef
   const actualCode = (r.actual?.store ?? '').trim()
   const bestCode = (r.best?.store ?? '').trim()
   const saving =
-    best && best.onTime === 'yes' && isNum(r.saving) && cents(r.saving) > 0
-      ? ({ shown: true, amount: sar(r.saving)! } as const)
+    best && best.onTime === 'yes' && isNum(r.saving) && Math.round(r.saving * 100) > 0
+      ? ({ shown: true, amount: formatMoney(r.saving) } as const)
       : ({ shown: false } as const)
   return {
     order: {

@@ -47,6 +47,7 @@ describe('sourcingSummaryModel_passesFiguresThroughAndFlagsPlaceholders', () => 
   it('a top order: code · name pairs (the code alone without a name), its saving and its reason keys', () => {
     const [row] = summaryModel(reply(), '2026-11-02').top
     expect(row).toEqual({
+      rowId: '0:8000000253',
       orderNo: '8000000253',
       actualStore: 'P007 · Malaz',
       bestStore: 'P002',
@@ -56,6 +57,16 @@ describe('sourcingSummaryModel_passesFiguresThroughAndFlagsPlaceholders', () => 
         { code: 'NEW_CODE', key: 'reasons.unknown' },
       ],
     })
+  })
+
+  it('every top row has its own id, even for a blank or repeated order number', () => {
+    const top = [
+      { orderNo: '8000000253', actualStore: 'P1', bestStore: 'P2', saving: 3, reasons: [] },
+      { orderNo: '8000000253', actualStore: 'P1', bestStore: 'P2', saving: 2, reasons: [] },
+      { orderNo: '', actualStore: 'P1', bestStore: 'P2', saving: 1, reasons: [] },
+      { orderNo: '  ', actualStore: 'P1', bestStore: 'P2', saving: 1, reasons: [] },
+    ]
+    expect(summaryModel(reply({ top }), '2026-11-02').top.map((r) => r.rowId)).toEqual(['0:8000000253', '1:8000000253', '2:', '3:'])
   })
 
   it('at most 50 top orders, in the order sent', () => {

@@ -27,6 +27,9 @@ describe('the refusals (spec 734 D7)', () => {
     })
     // …and a malformed one is not.
     expect(copilotRefusal(coded('COPILOT-402', 'Limit.', { resetAt: 42 }), 'fallback')).toEqual({ key: 'refusal.rateLimitNoTime', resetAt: null })
+    // A string that is no time at all (or the unset 0001-01-01) is not named either: never "ask again at ."
+    expect(copilotRefusal(coded('COPILOT-402', 'Limit.', { resetAt: 'soon' }), 'fallback')).toEqual({ key: 'refusal.rateLimitNoTime', resetAt: null })
+    expect(copilotRefusal(coded('COPILOT-402', 'Limit.', { resetAt: '0001-01-01T00:00:00' }), 'fallback')).toEqual({ key: 'refusal.rateLimitNoTime', resetAt: null })
 
     // An unknown code is the server's own message, through apiErrorMessage.
     expect(copilotRefusal(coded('COPILOT-499', 'Something new from the server.'), 'fallback')).toEqual({ message: 'Something new from the server.' })

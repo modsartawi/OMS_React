@@ -69,7 +69,7 @@ const ASK_DELAY_MS = 1200
 // ── The harness ────────────────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch()
 
-async function open(dir, { access = 'granted' } = {}) {
+async function open(dir, { access = 'granted', onAsk = null } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -92,6 +92,8 @@ async function open(dir, { access = 'granted' } = {}) {
     }
     if (p === 'Copilot/Ask') {
       asks.push({ method: req.method(), body: req.postDataJSON() })
+      // Ticket 737's scenario answers each question its own way (a follow-up, a refusal…).
+      if (onAsk) return route.fulfill(onAsk(req.postDataJSON(), asks.length))
       await new Promise((r) => setTimeout(r, ASK_DELAY_MS))
       return route.fulfill(envelope(ANSWER))
     }
@@ -242,9 +244,123 @@ async function drive(dir) {
   }
 }
 
+// ── Ticket 737 (spec 734 D5, D7) — "follow-up-and-refusals" ───────────────────────────────────
+// In LTR and RTL (Arabic, with the English answer the model sends) it asserts:
+//   a. a follow-up posts the first answer's `conversationId`; the thread numbers both by `questionNo`;
+//   b. an answer whose outcome is `cannot-answer` is styled as such, not as an error;
+//   c. "New conversation" clears the thread and the next question posts no id;
+//   d. each D7 code renders its own words, never the raw code — 402 with its reset time in an `Ltr`;
+//      an unknown code shows the server's message;
+//   e. `COPILOT-406` replaces the box with the offer of a new conversation, which brings it back;
+//   f. question 10 does the same;
+//   g. under RTL the page is dir="rtl" and the English answer sits in a dir-auto `<bdi>`.
+const REFUSALS = [
+  { code: 'COPILOT-401', status: 403, words: 'does not hold the copilot grant' },
+  { code: 'COPILOT-402', status: 429, words: 'limit of questions for this hour', data: { resetAt: '2026-11-03T11:00:00' }, time: '2026-11-03 11:00' },
+  { code: 'COPILOT-403', status: 400, words: 'looks like it holds personal data. Remove it and ask again' },
+  { code: 'COPILOT-404', status: 400, words: 'AI service could not be reached' },
+  { code: 'COPILOT-405', status: 400, words: 'The question is too long' },
+  { code: 'COPILOT-499', status: 400, words: 'A brand-new refusal the panel has no words for.' },
+]
+const refusalEnvelope = ({ code, status, data = null }) =>
+  envelope(data, { status, success: false, message: code === 'COPILOT-499' ? 'A brand-new refusal the panel has no words for.' : `Server text for ${code}.`, errors: [{ errorCode: code, internalErrorCode: '', errorMessage: 'x' }] })
+
+const reply = (conversationId, questionNo, extra = {}) =>
+  envelope({ ...ANSWER, conversationId, questionNo, answer: `Answer number ${questionNo}.`, ...extra })
+
+async function followUpAndRefusals(dir) {
+  const label = `${dir} follow-up-and-refusals`
+  const onAsk = (body) => {
+    const q = body.question
+    const refusal = REFUSALS.find((r) => q === `refuse ${r.code}`)
+    if (refusal) return refusalEnvelope(refusal)
+    if (q === 'refuse COPILOT-406') return refusalEnvelope({ code: 'COPILOT-406', status: 409 })
+    if (q === 'first') return reply('c-0042', 1)
+    if (q === 'follow-up') return reply('c-0042', 2, { outcome: 'cannot-answer', answer: 'The OMS holds nothing on that.' })
+    if (q === 'tenth') return reply('c-0077', 10)
+    return reply('c-0077', 1)
+  }
+  const { context, page, errors, asks } = await open(dir, { onAsk })
+  await page.goto(`${BASE}/copilot`)
+  const panel = page.locator('[data-copilot-panel]').first()
+  await panel.waitFor({ timeout: 20000 })
+  const box = panel.locator('[data-copilot-question]')
+  const turns = panel.locator('[data-copilot-turn]')
+  const askIt = async (q) => {
+    const before = await turns.count()
+    await box.fill(q)
+    await box.press('Enter')
+    await page.waitForFunction((n) => document.querySelectorAll('[data-copilot-turn]').length > n, before, { timeout: 10000 })
+  }
+
+  // g. RTL
+  if (dir === 'rtl') check(`${label}: the page is dir="rtl"`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+
+  // a. follow-up
+  await askIt('first')
+  await askIt('follow-up')
+  check(`${label}: the first question posts no id`, JSON.stringify(asks[0].body) === JSON.stringify({ question: 'first' }), JSON.stringify(asks[0]?.body))
+  check(`${label}: a follow-up posts the answer's conversationId`, JSON.stringify(asks[1].body) === JSON.stringify({ question: 'follow-up', conversationId: 'c-0042' }), JSON.stringify(asks[1]?.body))
+  const nos = await panel.locator('[data-copilot-turn-no] bdi').evaluateAll((els) => els.map((e) => `${e.textContent}/${e.getAttribute('dir')}`))
+  check(`${label}: the thread numbers its questions by questionNo, each an Ltr`, JSON.stringify(nos) === JSON.stringify(['1/ltr', '2/ltr']), JSON.stringify(nos))
+  check(`${label}: the thread keeps both questions`, (await turns.count()) === 2)
+  const firstPara = turns.nth(0).locator('[data-copilot-answer] p bdi')
+  check(`${label}: the English answer sits in a dir-auto <bdi>`, (await firstPara.textContent()) === 'Answer number 1.' && !(await firstPara.getAttribute('dir')))
+
+  // b. cannot-answer
+  const second = turns.nth(1)
+  check(
+    `${label}: cannot-answer is styled as such, not as an error`,
+    (await second.getAttribute('data-copilot-outcome')) === 'cannot-answer' &&
+      (await second.locator('[data-copilot-cannot-answer]').count()) === 1 &&
+      (await second.locator('[role="alert"]').count()) === 0 &&
+      ((await second.textContent()) ?? '').includes('The OMS could not answer this'),
+  )
+
+  // c. New conversation
+  await panel.locator('[data-copilot-new]').click()
+  await page.waitForTimeout(150)
+  check(`${label}: "New conversation" clears the thread and brings back the examples`, (await turns.count()) === 0 && (await panel.locator('[data-copilot-example]').count()) === 2)
+  await askIt('after new')
+  check(`${label}: after "New conversation" the next question posts no id`, JSON.stringify(asks[2].body) === JSON.stringify({ question: 'after new' }), JSON.stringify(asks[2]?.body))
+
+  // d. every refusal reads plainly
+  for (const r of REFUSALS) {
+    await askIt(`refuse ${r.code}`)
+    const shown = turns.last().locator('[data-copilot-refusal]')
+    const text = ((await shown.textContent()) ?? '').trim()
+    check(`${label}: ${r.code} shows its own words, no raw code`, text.includes(r.words) && !text.includes('COPILOT-') && !text.includes('Server text for'), text)
+    if (r.time) {
+      const time = shown.locator('bdi[dir="ltr"]')
+      check(`${label}: ${r.code} names its reset time in an Ltr`, (await time.count()) === 1 && (await time.textContent()) === r.time, await shown.innerHTML())
+    }
+    check(`${label}: ${r.code} keeps the box`, (await panel.locator('[data-copilot-form]').count()) === 1)
+  }
+  check(`${label}: refusals keep the conversation's id`, asks.slice(3).every((a) => a.body.conversationId === 'c-0077'), JSON.stringify(asks.slice(3).map((a) => a.body.conversationId)))
+
+  // e. 406
+  await askIt('refuse COPILOT-406')
+  const over = ((await turns.last().locator('[data-copilot-refusal]').textContent()) ?? '').trim()
+  check(`${label}: COPILOT-406 shows its own words`, over.includes('expired or is full') && !over.includes('COPILOT-'), over)
+  check(`${label}: COPILOT-406 replaces the box with the offer`, (await panel.locator('[data-copilot-form]').count()) === 0 && (await panel.locator('[data-copilot-offer]').count()) === 1)
+  await panel.locator('[data-copilot-offer-new]').click()
+  await box.waitFor({ timeout: 5000 })
+  check(`${label}: the offer starts a new conversation`, (await turns.count()) === 0)
+
+  // f. question 10
+  await askIt('tenth')
+  check(`${label}: the offer of a new conversation replaces the box at question 10`, (await panel.locator('[data-copilot-form]').count()) === 0 && ((await panel.locator('[data-copilot-offer]').textContent()) ?? '').includes('10 questions'))
+  check(`${label}: question 10 posts no stale id`, JSON.stringify(asks.at(-1).body) === JSON.stringify({ question: 'tenth' }), JSON.stringify(asks.at(-1).body))
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await followUpAndRefusals('ltr')
+  await followUpAndRefusals('rtl')
 } finally {
   await browser.close()
 }

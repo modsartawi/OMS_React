@@ -26,6 +26,11 @@ export interface DeliveryTypeSettings {
   // callouts
   isCompeted: boolean
   calloutRadiusKm: number
+  /**
+   * The wider radius (spec 3326, ticket 3333): searched once more only when no store survives at `calloutRadiusKm`.
+   * 0 = off; at or below `calloutRadiusKm` the server stores it and ignores it; negative is refused (`SDC-00053`).
+   */
+  calloutExpandedRadiusKm: number
   calloutStockCheck: boolean
   calloutLocksDelivery: boolean
   calloutLifetimeMinutes: number

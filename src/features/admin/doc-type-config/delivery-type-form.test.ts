@@ -9,6 +9,7 @@ import { copyState, normaliseCode } from './copy-form'
 import {
   DELIVERY_ALL_FIELDS,
   DELIVERY_CATEGORIES,
+  DELIVERY_FIELD_GROUPS,
   codeChoices,
   deliveryChangedFields,
   deliveryCopyDraft,
@@ -17,6 +18,7 @@ import {
   deliveryNormaliseCode,
   deliveryEditState,
   deliveryFieldRefusals,
+  deliveryFieldWarnings,
   deliverySaveRequest,
   isDeliveryLocked,
   setDeliveryField,
@@ -31,6 +33,7 @@ const dl = (over: Partial<DeliveryTypeSettings> = {}): DeliveryTypeSettings => (
   defaultDocumentType: '',
   isCompeted: false,
   calloutRadiusKm: 0,
+  calloutExpandedRadiusKm: 0,
   calloutStockCheck: false,
   calloutLocksDelivery: false,
   calloutLifetimeMinutes: 0,
@@ -139,5 +142,35 @@ describe('one copy rule for document and delivery types (review G)', () => {
 describe('the number range is not read by delivery numbering (review finding 3)', () => {
   it('only numberRangeNumber carries the not-read label', () => {
     expect(DELIVERY_ALL_FIELDS.filter((f) => f.notRead).map((f) => f.field)).toEqual(['numberRangeNumber'])
+  })
+})
+
+describe('the wider callout radius (ticket 716, BackOffice spec 3326)', () => {
+  it('sits in the callouts group right after the callout radius, as a number', () => {
+    const callouts = DELIVERY_FIELD_GROUPS.find((g) => g.group === 'callouts')!.fields
+    const at = callouts.findIndex((f) => f.field === 'calloutRadiusKm')
+    expect(callouts[at + 1]).toEqual({ field: 'calloutExpandedRadiusKm', kind: 'number' })
+  })
+  it('warns when it is set but not above the callout radius — and still saves (the server accepts it)', () => {
+    const loaded = dl({ isCompeted: true, calloutRadiusKm: 5 })
+    for (const wider of [5, 3]) {
+      const draft = setDeliveryField(loaded, 'calloutExpandedRadiusKm', wider)
+      expect(deliveryFieldWarnings(draft)).toEqual({ calloutExpandedRadiusKm: 'expandedRadiusNoEffect' })
+      expect(deliveryEditState(loaded, draft, 'qc').canSave).toBe(true)
+      expect(deliverySaveRequest(loaded, draft, 'qc').after.calloutExpandedRadiusKm).toBe(wider)
+    }
+  })
+
+  it('does not warn when off (0), when wider than the radius, or when negative (the server refuses that)', () => {
+    expect(deliveryFieldWarnings(dl({ calloutRadiusKm: 5, calloutExpandedRadiusKm: 0 }))).toEqual({})
+    expect(deliveryFieldWarnings(dl({ calloutRadiusKm: 5, calloutExpandedRadiusKm: 10 }))).toEqual({})
+    expect(deliveryFieldWarnings(dl({ calloutRadiusKm: 5, calloutExpandedRadiusKm: -1 }))).toEqual({})
+  })
+  it("shows the server's refusal of a negative value on the field (SDC-00053)", () => {
+    const message = 'CalloutExpandedRadiusKm cannot be negative. / لا يمكن أن يكون نطاق الاستدعاء الموسّع بالكيلومتر سالباً.'
+    const err = new ApiError('business', 'refused', 400, [{ errorCode: 'SDC-00010', internalErrorCode: '', errorMessage: 'refused' }], {
+      fields: [{ field: 'CalloutExpandedRadiusKm', errorCode: 'SDC-00053', message }],
+    })
+    expect(deliveryFieldRefusals(err)).toEqual({ calloutExpandedRadiusKm: { code: 'SDC-00053', message } })
   })
 })

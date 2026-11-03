@@ -98,6 +98,7 @@
     "defaultDocumentType": "Default document type",
     "isCompeted": "Competed (callouts)",
     "calloutRadiusKm": "Callout radius (km)",
+    "calloutExpandedRadiusKm": "Wider callout radius (km)",
     "calloutStockCheck": "Callout stock check",
     "calloutLocksDelivery": "Callout locks the delivery",
     "calloutLifetimeMinutes": "Callout lifetime (minutes)",
@@ -409,6 +410,12 @@
     "groups": {
       "identity": "Identity",
       "callouts": "Callouts"
+    },
+    "fieldHints": {
+      "calloutExpandedRadiusKm": "Searched once more only when no store can serve within the callout radius. 0 = off."
+    },
+    "warnings": {
+      "expandedRadiusNoEffect": "Has no effect: it must be larger than the callout radius."
     },
     "couriers": {
       "title": "Courier assignments",

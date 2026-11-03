@@ -55,6 +55,7 @@ export const DELIVERY_FIELD_GROUPS: readonly { group: DeliveryGroupId; fields: r
     fields: [
       flag('isCompeted'),
       { field: 'calloutRadiusKm', kind: 'number' },
+      { field: 'calloutExpandedRadiusKm', kind: 'number' },
       flag('calloutStockCheck'),
       flag('calloutLocksDelivery'),
       { field: 'calloutLifetimeMinutes', kind: 'number', integer: true },
@@ -63,6 +64,9 @@ export const DELIVERY_FIELD_GROUPS: readonly { group: DeliveryGroupId; fields: r
     ],
   },
 ]
+
+/** The settings whose meaning is not plain from the label: each shows a hint under its input. */
+export const DELIVERY_FIELD_HINTS: readonly DeliveryTypeField[] = ['calloutExpandedRadiusKm']
 
 export const DELIVERY_ALL_FIELDS: readonly DeliveryFieldDef[] = DELIVERY_FIELD_GROUPS.flatMap((g) => g.fields)
 
@@ -142,6 +146,20 @@ export function deliveryCopyRequest(draft: DeliveryTypeSettings, reasonText: str
 /** The refused fields of a save error (`SDC-00010` `data.fields`, the document type's shape), by settings key. */
 export function deliveryFieldRefusals(err: unknown): Partial<Record<DeliveryTypeField, FieldRefusal>> {
   return settingsRefusals(err) as Partial<Record<DeliveryTypeField, FieldRefusal>>
+}
+
+// ── warnings ────────────────────────────────────────────────────────────────────────────────────
+
+export type DeliveryFieldWarning = 'expandedRadiusNoEffect'
+
+/**
+ * Settings the server accepts but that do nothing — warned on their field, never blocking Save. A wider callout radius
+ * set (above 0) but not above the callout radius is stored and ignored (spec 3326); a negative one is the server's
+ * refusal (`SDC-00053`), not a warning.
+ */
+export function deliveryFieldWarnings(draft: DeliveryTypeSettings): Partial<Record<DeliveryTypeField, DeliveryFieldWarning>> {
+  const wider = Number(draft.calloutExpandedRadiusKm)
+  return wider > 0 && wider <= Number(draft.calloutRadiusKm) ? { calloutExpandedRadiusKm: 'expandedRadiusNoEffect' } : {}
 }
 
 // ── code dropdowns ──────────────────────────────────────────────────────────────────────────────

@@ -98,6 +98,7 @@
     "defaultDocumentType": "نوع المستند الافتراضي",
     "isCompeted": "تنافسي (الاستدعاءات)",
     "calloutRadiusKm": "نطاق الاستدعاء (كم)",
+    "calloutExpandedRadiusKm": "نطاق الاستدعاء الموسّع (كم)",
     "calloutStockCheck": "فحص المخزون عند الاستدعاء",
     "calloutLocksDelivery": "الاستدعاء يقفل التوصيل",
     "calloutLifetimeMinutes": "مدة الاستدعاء (دقائق)",
@@ -409,6 +410,12 @@
     "groups": {
       "identity": "التعريف",
       "callouts": "الاستدعاءات"
+    },
+    "fieldHints": {
+      "calloutExpandedRadiusKm": "يُبحث فيه مرة أخرى فقط إذا لم يتمكن أي فرع ضمن نطاق الاستدعاء من الخدمة. 0 = متوقف."
+    },
+    "warnings": {
+      "expandedRadiusNoEffect": "لا أثر له: يجب أن يكون أكبر من نطاق الاستدعاء."
     },
     "couriers": {
       "title": "تعيينات شركات التوصيل",

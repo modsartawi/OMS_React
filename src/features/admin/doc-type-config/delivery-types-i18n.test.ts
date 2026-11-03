@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/doc-type-config.json'
 import ar from '@/locales/ar/doc-type-config.json'
 import { hasLocaleKey as has } from '@/core/test/locale'
-import { DELIVERY_ALL_FIELDS, DELIVERY_CATEGORIES, DELIVERY_FIELD_GROUPS, type DeliveryCopyBlocker } from './delivery-type-form'
+import { DELIVERY_ALL_FIELDS, DELIVERY_CATEGORIES, DELIVERY_FIELD_GROUPS, DELIVERY_FIELD_HINTS, type DeliveryCopyBlocker } from './delivery-type-form'
 
 const BLOCKERS: Exclude<DeliveryCopyBlocker, 'reason'>[] = ['codeRequired', 'codeTooLong', 'codeExists', 'descriptionRequired']
 
@@ -19,6 +19,8 @@ describe('doc-type-config — the delivery type words', () => {
       ...DELIVERY_ALL_FIELDS.map((f) => `fields.${f.field}`),
       'fields.deliveringPlant',
       'fields.courierCode',
+      ...DELIVERY_FIELD_HINTS.map((f) => `deliveryTypes.fieldHints.${f}`),
+      'deliveryTypes.warnings.expandedRadiusNoEffect',
       ...DELIVERY_FIELD_GROUPS.map((g) => `deliveryTypes.groups.${g.group}`),
       ...DELIVERY_CATEGORIES.map((c) => `deliveryTypes.categories.${c}`),
       ...['documentType', 'description', 'documentCategory', 'isCompeted'].map((c) => `deliveryTypes.columns.${c}`),

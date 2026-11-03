@@ -1223,3 +1223,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [748](748-what-builds-the-marts-views-on-the-replica-dbt-into-a-sibling-database-or-a-copy-to-a-columnar-store.md) — What builds the marts: views on the replica, dbt into a sibling database, or a copy to a columnar store? · *(wayfinder · grilling)* · **open** · blocked by: 742, 743, 745, 750 · **HITL**
 - [749](749-it-approves-the-on-prem-hosts-and-service-logins-for-the-analytics-stack.md) — IT approves the on-prem hosts and service logins for the analytics stack · *(wayfinder · task)* · **open** · blocked by: 746, 747, 748 · **HITL** checklist
 - [750](750-the-owner-runs-the-replica-headroom-probe-and-the-dba-answers-its-checklist.md) — The owner runs the replica headroom probe and the DBA answers its checklist · *(wayfinder · task)* · **open** · blocked by: — · **HITL**, needs corporate network + DBA
+
+## Approval-number release (BackOffice spec 3342, filed 2026-11-03)
+
+- [751](751-the-release-approval-number-page-finds-an-authorization-by-bundle-id-and-releases-it-with-a-note.md) — The Release approval number page finds an authorization by bundle Id and releases it with a note · **open** · *(spec BO 3342)* · blocked by: BO 3343

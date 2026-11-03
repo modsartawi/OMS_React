@@ -42,7 +42,8 @@
     "heading": "Answer",
     "empty": "The copilot sent no answer text.",
     "servedBy": "Answered by",
-    "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete."
+    "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete.",
+    "cannotAnswer": "The OMS could not answer this"
   },
   "trace": {
     "heading_one": "How I got this ({{n}} step)",
@@ -61,5 +62,22 @@
       "sourcing_explain": "Explained why the order went to its store",
       "sourcing_savings": "Estimated what smarter sourcing could save"
     }
+  },
+  "refusal": {
+    "noGrant": "Your account does not hold the copilot grant. Ask an administrator if you need it.",
+    "rateLimit": "You have reached the limit of questions for this hour. You can ask again at <time>{{time}}</time>.",
+    "rateLimitNoTime": "You have reached the limit of questions for this hour. Try again later.",
+    "personalData": "This question looks like it holds personal data. Remove it and ask again.",
+    "unreachable": "The AI service could not be reached. Try again in a moment.",
+    "tooLong": "The question is too long. A question can be at most {{max}} characters.",
+    "conversationOver": "This conversation has expired or is full. Start a new conversation to keep asking."
+  },
+  "thread": {
+    "heading": "Conversation",
+    "questionNo": "Question",
+    "new": "New conversation",
+    "full": "This conversation has reached its 10 questions.",
+    "over": "This conversation has expired or is full.",
+    "offer": "Start a new conversation to keep asking."
   }
 }

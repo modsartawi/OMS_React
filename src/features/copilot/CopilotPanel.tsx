@@ -12,6 +12,7 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { copilotApi } from './api'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits, type AnswerBlock } from './answer'
+import { AnswerProvenance, LinkedText, WorkingStep } from './AnswerParts'
 
 /**
  * The copilot panel (ticket 735, spec 734 D11) — the ONE body both the top bar's side sheet and the
@@ -97,6 +98,7 @@ export default function CopilotPanel() {
           <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             {t('working')}
+            <WorkingStep />
           </div>
         )}
 
@@ -107,10 +109,11 @@ export default function CopilotPanel() {
             {model.blocks.length === 0 ? (
               <p className="text-muted-foreground">{t('answer.empty')}</p>
             ) : (
-              model.blocks.map((b, i) => <Block key={i} block={b} />)
+              model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
             )}
           </section>
         )}
+        {model && <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} />}
       </div>
 
       <form onSubmit={send} className="flex shrink-0 flex-col gap-2 border-t border-border/60 pt-3" data-copilot-form>
@@ -146,11 +149,13 @@ export default function CopilotPanel() {
 }
 
 /** One block of the answer's light markdown. Every piece of text is the model's: `<bdi>`. */
-function Block({ block }: { block: AnswerBlock }) {
+function Block({ block, orderRefs }: { block: AnswerBlock; orderRefs: readonly string[] }) {
   if (block.kind === 'paragraph')
     return (
       <p className="whitespace-pre-line">
-        <bdi>{block.text}</bdi>
+        <bdi>
+          <LinkedText text={block.text} orderRefs={orderRefs} />
+        </bdi>
       </p>
     )
   if (block.kind === 'list')
@@ -158,7 +163,9 @@ function Block({ block }: { block: AnswerBlock }) {
       <ul className="list-disc ps-5">
         {block.items.map((item, i) => (
           <li key={i}>
-            <bdi>{item}</bdi>
+            <bdi>
+              <LinkedText text={item} orderRefs={orderRefs} />
+            </bdi>
           </li>
         ))}
       </ul>
@@ -180,7 +187,9 @@ function Block({ block }: { block: AnswerBlock }) {
             <tr key={r}>
               {row.map((c, i) => (
                 <td key={i} className="border-b border-border/60 px-2 py-1 text-start">
-                  <bdi>{c}</bdi>
+                  <bdi>
+                    <LinkedText text={c} orderRefs={orderRefs} />
+                  </bdi>
                 </td>
               ))}
             </tr>

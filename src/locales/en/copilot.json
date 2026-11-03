@@ -25,10 +25,41 @@
     "send": "Send"
   },
   "working": "Working on your question…",
+  "steps": {
+    "order_timeline": "Looking up the order",
+    "order_delay_facts": "Working out the delay",
+    "orders_by_channel": "Counting orders",
+    "sales_summary": "Summing sales",
+    "callout_stats": "Reading the callout figures",
+    "sap_posting_backlog": "Checking SAP postings",
+    "store_lookup": "Looking up stores",
+    "sourcing_explain": "Checking the sourcing",
+    "sourcing_savings": "Estimating the savings"
+  },
   "failed": "The question could not be answered.",
   "answer": {
     "question": "You asked",
     "heading": "Answer",
-    "empty": "The copilot sent no answer text."
+    "empty": "The copilot sent no answer text.",
+    "servedBy": "Answered by",
+    "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete."
+  },
+  "trace": {
+    "heading_one": "How I got this ({{n}} step)",
+    "heading_other": "How I got this ({{n}} steps)",
+    "rows_one": "{{n}} row",
+    "rows_other": "{{n}} rows",
+    "failed": "Failed",
+    "tools": {
+      "order_timeline": "Looked up the order's timeline",
+      "order_delay_facts": "Worked out why the order was late",
+      "orders_by_channel": "Counted orders by channel",
+      "sales_summary": "Summed sales through our tills",
+      "callout_stats": "Read the courier callout figures",
+      "sap_posting_backlog": "Checked the SAP posting backlog",
+      "store_lookup": "Looked up stores",
+      "sourcing_explain": "Explained why the order went to its store",
+      "sourcing_savings": "Estimated what smarter sourcing could save"
+    }
   }
 }

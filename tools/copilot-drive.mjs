@@ -242,9 +242,145 @@ async function drive(dir) {
   }
 }
 
+// ── Scenario "answer-links-and-trace" (ticket 736, spec 734 D10/D11/D21) ────────────────────────────
+// Its own `Copilot/Ask` stub, registered after `open()`'s (Playwright tries the newest route first):
+//   9. every `orderRefs` number in the answer (paragraph, list and table) is a link, its number `Ltr`
+//      inside the answer's `<bdi>`; a number not in `orderRefs` is not linked;
+//  10. "How I got this" is collapsed, then expands to one row per stubbed call: known tools in plain
+//      words, an unknown tool by its raw name (`Ltr`), the failed call marked, inputs `Ltr`, row counts;
+//  11. "Answered by" names `servedBy` (`Ltr`); "stopped early" is shown;
+//  12. the working state names a generic step from the tool → label map;
+//  13. clicking a linked order opens its delivery document (`/oms/delivery/:no`) and closes the sheet.
+const LINKED = {
+  ...ANSWER,
+  conversationId: 'c-0736',
+  answer: [
+    'Order 7000123456 was late; 7000999999 was not part of it.',
+    '',
+    '- 8000000253 went to store P001',
+    '',
+    '| Order | Minutes late |',
+    '|---|---:|',
+    '| 7000123456 | 42 |',
+  ].join('\n'),
+  orderRefs: ['7000123456', '8000000253'],
+  trace: [
+    { tool: 'order_timeline', input: { order: '7000123456' }, rows: 9, ms: 120, ok: true },
+    { tool: 'order_delay_facts', input: { order: '7000123456' }, rows: 1, ms: 80, ok: true },
+    { tool: 'sourcing_explain', input: { orderNo: '8000000253' }, rows: 0, ms: 50, ok: false },
+    { tool: 'weather_now', input: { city: 'Riyadh' }, rows: 3, ms: 10, ok: true },
+  ],
+  stoppedEarly: true,
+  servedBy: 'google/gemini-3-pro',
+}
+const LABELS = {
+  timeline: "Looked up the order's timeline",
+  delay: 'Worked out why the order was late',
+  sourcing: 'Explained why the order went to its store',
+}
+const STEPS = ['Looking up the order', 'Working out the delay', 'Counting orders', 'Summing sales']
+
+async function answerLinksAndTrace(dir) {
+  const label = `${dir}: answer-links-and-trace`
+  const { context, page, errors } = await open(dir)
+  await page.route('**/api/Copilot/Ask', async (route) => {
+    await new Promise((r) => setTimeout(r, ASK_DELAY_MS))
+    return route.fulfill(envelope(LINKED))
+  })
+  await page.goto(`${BASE}/`)
+  await button(page).waitFor({ timeout: 20000 })
+  await button(page).click()
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  await sheet.locator('[data-copilot-question]').fill('Why was order 7000123456 late?')
+  await sheet.locator('[data-copilot-send]').click()
+  const step = sheet.locator('[data-copilot-working] [data-copilot-working-step]')
+  await step.waitFor({ timeout: 5000 })
+  const stepText = ((await step.textContent()) ?? '').trim()
+  check(`${label} — the working state names a generic step`, STEPS.includes(stepText), stepText)
+  const answer = sheet.locator('[data-copilot-answer]')
+  await answer.waitFor({ timeout: 10000 })
+
+  // 9: links
+  const links = answer.locator('a[data-copilot-order]')
+  const hrefs = await links.evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href'), a.closest('p, li, td')?.tagName]))
+  check(
+    `${label} — every orderRef in the text is a link to its delivery document`,
+    JSON.stringify(hrefs) ===
+      JSON.stringify([
+        ['7000123456', '/oms/delivery/7000123456', 'P'],
+        ['8000000253', '/oms/delivery/8000000253', 'LI'],
+        ['7000123456', '/oms/delivery/7000123456', 'TD'],
+      ]),
+    JSON.stringify(hrefs),
+  )
+  check(`${label} — a number not in orderRefs stays plain`, (await answer.locator('a', { hasText: '7000999999' }).count()) === 0)
+  const isolated = await links.evaluateAll((as) =>
+    as.every((a) => a.firstElementChild?.tagName === 'BDI' && a.firstElementChild.getAttribute('dir') === 'ltr' && a.closest('bdi:not([dir])') !== null),
+  )
+  check(`${label} — each order number is Ltr inside the answer's <bdi>`, isolated)
+  const para = (await answer.locator('p').first().textContent())?.trim()
+  check(`${label} — linking keeps the paragraph's text`, para === 'Order 7000123456 was late; 7000999999 was not part of it.', para)
+
+  // 10: the trace
+  const trace = sheet.locator('details[data-copilot-trace]')
+  check(`${label} — "How I got this" starts collapsed`, (await trace.count()) === 1 && !(await trace.evaluate((d) => d.open)))
+  const summary = ((await trace.locator('summary').textContent()) ?? '').trim()
+  check(`${label} — the trace names how many calls`, summary.startsWith('How I got this') && summary.includes('4'), summary)
+  await trace.locator('summary').click()
+  const rows = trace.locator('[data-copilot-trace-row]')
+  await rows.first().waitFor({ state: 'visible', timeout: 3000 })
+  const shown = await rows.evaluateAll((rs) =>
+    rs.map((r) => ({
+      label: r.querySelector('[data-copilot-trace-label]')?.textContent?.trim(),
+      raw: r.querySelector('[data-copilot-trace-label] bdi[dir="ltr"]') !== null,
+      failed: r.hasAttribute('data-failed'),
+      rows: r.querySelector('[data-copilot-trace-rows]')?.textContent?.replace(/[⁨⁩]/g, '').trim(),
+      inputs: [...r.querySelectorAll('[data-copilot-trace-input]')].map((i) => [i.textContent, i.querySelector('bdi')?.getAttribute('dir')]),
+    })),
+  )
+  check(
+    `${label} — the trace expands to the stubbed calls, in plain words`,
+    JSON.stringify(shown.map((r) => r.label)) === JSON.stringify([LABELS.timeline, LABELS.delay, LABELS.sourcing, 'weather_now']),
+    JSON.stringify(shown.map((r) => r.label)),
+  )
+  check(`${label} — an unknown tool keeps its raw name, Ltr`, shown[3]?.raw === true && shown.slice(0, 3).every((r) => !r.raw))
+  check(`${label} — the failed call is marked, and only it`, JSON.stringify(shown.map((r) => r.failed)) === JSON.stringify([false, false, true, false]))
+  check(
+    `${label} — each call shows its row count`,
+    JSON.stringify(shown.map((r) => r.rows)) === JSON.stringify(['9 rows', '1 row', '0 rows', '3 rows']),
+    JSON.stringify(shown.map((r) => r.rows)),
+  )
+  check(
+    `${label} — each call shows its inputs, Ltr`,
+    JSON.stringify(shown.map((r) => r.inputs)) ===
+      JSON.stringify([[['order: 7000123456', 'ltr']], [['order: 7000123456', 'ltr']], [['orderNo: 8000000253', 'ltr']], [['city: Riyadh', 'ltr']]]),
+    JSON.stringify(shown.map((r) => r.inputs)),
+  )
+
+  // 11: served by, stopped early
+  const served = sheet.locator('[data-copilot-served-by]')
+  check(
+    `${label} — "Answered by" names the provider and model, Ltr`,
+    ((await served.textContent()) ?? '').includes('Answered by') && (await served.locator('bdi[dir="ltr"]').textContent()) === 'google/gemini-3-pro',
+    await served.textContent(),
+  )
+  check(`${label} — "stopped early" is shown`, ((await sheet.locator('[data-copilot-stopped-early]').textContent()) ?? '').includes('stopped before it finished'))
+  check(`${label} — no page errors before navigating`, errors.length === 0, errors.join(' | '))
+
+  // 13: the link opens the delivery document
+  await links.nth(1).click()
+  await page.waitForURL('**/oms/delivery/8000000253', { timeout: 10000 })
+  check(`${label} — clicking a linked order opens its delivery document`, new URL(page.url()).pathname === '/oms/delivery/8000000253', page.url())
+  await page.waitForTimeout(300)
+  check(`${label} — the sheet closes on the way`, (await page.locator('dialog[data-copilot-sheet]').count()) === 0)
+  await context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await answerLinksAndTrace('ltr')
+  await answerLinksAndTrace('rtl')
 } finally {
   await browser.close()
 }

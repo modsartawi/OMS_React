@@ -27,6 +27,8 @@ export interface CopilotAnswerModel {
   orderRefs: string[]
   trace: CopilotTraceEntry[]
   stoppedEarly: boolean
+  /** The provider and model that served the answer (D4), or `null` when the reply lacks it. */
+  servedBy: string | null
 }
 
 const BULLET = /^\s*[-*•]\s+/
@@ -84,5 +86,36 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     orderRefs: Array.isArray(r.orderRefs) ? r.orderRefs.filter((x): x is string => typeof x === 'string') : [],
     trace: Array.isArray(r.trace) ? r.trace : [],
     stoppedEarly: r.stoppedEarly === true,
+    servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
   }
 }
+
+/** A piece of answer text: plain, or an order number that links to its delivery document (D11). */
+export type AnswerSegment = { kind: 'text'; text: string } | { kind: 'order'; no: string }
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Splits answer text so every `orderRefs` number in it becomes an `order` segment, wherever it
+ * appears (ticket 736). A ref matches only as a whole number — never inside a longer run of letters
+ * or digits — and the longest ref wins where two could start at the same place.
+ */
+export function orderSegments(text: string, orderRefs: readonly string[]): AnswerSegment[] {
+  if (text === '') return []
+  const refs = [...new Set(orderRefs.filter((r) => r.trim() !== ''))].sort((a, b) => b.length - a.length)
+  if (refs.length === 0) return [{ kind: 'text', text }]
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${refs.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'gu')
+  const out: AnswerSegment[] = []
+  let at = 0
+  for (const m of text.matchAll(pattern)) {
+    const start = m.index ?? 0
+    if (start > at) out.push({ kind: 'text', text: text.slice(at, start) })
+    out.push({ kind: 'order', no: m[0] })
+    at = start + m[0].length
+  }
+  if (at < text.length) out.push({ kind: 'text', text: text.slice(at) })
+  return out
+}
+
+/** The delivery document an order ref opens: the delivery route, as the dispatch screens link it. */
+export const orderHref = (no: string) => `/oms/delivery/${encodeURIComponent(no)}`

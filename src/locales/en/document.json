@@ -116,7 +116,9 @@
       "released": "Lock released <at>{{at}}</at> by <by>{{by}}</by>",
       "servingList": "serving list",
       "noServingList": "—",
-      "dutyRemoved": "removed by duty <n>{{n}}</n>"
+      "dutyRemoved": "removed by duty <n>{{n}}</n>",
+      "searchRadius": "searched <n>{{km}}</n> km",
+      "noRadiusSearch": "no radius search"
     },
     "ledger": {
       "title": "Bids",
@@ -149,6 +151,12 @@
     "release": {
       "done": "Lock released",
       "doneDetail": "Delivery {{delivery}} can now be changed or moved to another store."
+    },
+    "event": {
+      "StoreClosedAfterTake": "Store closed it after the take",
+      "CourierCancelledAfterTake": "Courier cancelled it after the take",
+      "OtherClosedAfterTake": "Closed by someone else after the take",
+      "CloseRefused": "Close refused: the delivery is locked"
     }
   },
   "back": "Back to Delivery Documents",

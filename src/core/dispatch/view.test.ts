@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { DispatchBid } from '@/core/models/dispatch-board'
-import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView } from './view'
+import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView, searchRadiusView } from './view'
 
 describe('countdownLeft', () => {
   const fetchedAt = 1_000_000
@@ -170,5 +170,23 @@ describe('bidRow', () => {
   it('keeps the store, km, ATP and the ignore reason', () => {
     const row = bidRow(bid({ status: 'EXPIRED', ignoreReason: 'ShownNotOpened', atpKnown: false }))
     expect([row.store, row.km, row.atp, row.ignoreReason]).toEqual(['P014', 2.4, { kind: 'unknown' }, 'ShownNotOpened'])
+  })
+})
+
+describe('searchRadiusView (spec 3326, oms 715)', () => {
+  it('10 km reads "Searched 10 km"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 10 })).toEqual({ kind: 'searched', km: '10' })
+  })
+
+  it('a wider fractional radius keeps its decimals', () => {
+    expect(searchRadiusView({ searchRadiusKm: 7.5 })).toEqual({ kind: 'searched', km: '7.5' })
+  })
+
+  it('0 reads "No radius search"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 0 })).toEqual({ kind: 'none' })
+  })
+
+  it('absent (a server before 3326) shows nothing', () => {
+    expect(searchRadiusView({})).toBeNull()
   })
 })

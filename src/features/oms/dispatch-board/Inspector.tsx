@@ -2,7 +2,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
 
-import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, searchRadiusView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
 import ServingListName from '@/core/serving-list/ServingListName'
 import { servingListView } from '@/core/serving-list/view'
 import Button from '@/core/ui/Button'
@@ -53,6 +53,7 @@ export default function Inspector({
   const notCompeted = c.status === 'NOT_OPENED' || c.outcome === 'NotCompeted'
   const endReason = c.endReason ? (KNOWN_END_REASONS.includes(c.endReason) ? t(`endReasons.${c.endReason}`) : null) : null
   const dutyRemoved = dutyRemovedView(c)
+  const radius = searchRadiusView(c)
 
   return (
     <aside className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 text-sm" data-inspector={c.calloutId}>
@@ -103,6 +104,16 @@ export default function Inspector({
         {dutyRemoved != null && (
           <span data-duty-removed={dutyRemoved}>
             <Trans t={t} i18nKey="inspector.dutyRemoved" values={{ n: String(dutyRemoved) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
+        {/* Spec 3326: the radius behind the result; nothing for a callout read before 3326. */}
+        {radius && (
+          <span data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
+            {radius.kind === 'searched' ? (
+              <Trans t={t} i18nKey="inspector.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
+            ) : (
+              t('inspector.noRadiusSearch')
+            )}
           </span>
         )}
       </p>

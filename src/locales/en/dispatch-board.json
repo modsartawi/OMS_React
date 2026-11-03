@@ -57,7 +57,8 @@
     "bids": "Bids",
     "countdown": "Countdown",
     "outcome": "Outcome",
-    "ended": "Ended"
+    "ended": "Ended",
+    "radius": "Radius"
   },
   "countdown": {
     "left": "left"
@@ -133,7 +134,9 @@
     "releasedAt": "Lock released <at>{{at}}</at> by <by>{{by}}</by>.",
     "releasedNow": "Lock released.",
     "changeStore": "Change store",
-    "changeStoreHint": "opens the delivery's details, where it is moved."
+    "changeStoreHint": "opens the delivery's details, where it is moved.",
+    "searchRadius": "Searched <n>{{km}}</n> km",
+    "noRadiusSearch": "No radius search"
   },
   "reasons": {
     "NoStock": "No stock",

@@ -30,6 +30,23 @@ export const CALLOUT_EVENT_KINDS = [
   'Dismissed',
   'Take',
   'Pass',
+  // Callout-level (bidId ''), spec 3326: a close after a take or fallback, scored or not, and a close the lock refused.
+  'StoreClosedAfterTake',
+  'CourierCancelledAfterTake',
+  'OtherClosedAfterTake',
+  'CloseRefused',
+] as const
+
+/**
+ * The closes after a take (spec 3326), each with its words. `detail` is shown as sent: on
+ * `StoreClosedAfterTake` `"<outcome>"` or `"<outcome>: <note>"`; on `CourierCancelledAfterTake`
+ * `"<outcome>: <reason> (<courier>)"`; on `CloseRefused` `"CloseRefused"` or `"CloseRefused: <note>"`.
+ */
+export const CALLOUT_CLOSE_EVENT_KINDS = [
+  'StoreClosedAfterTake',
+  'CourierCancelledAfterTake',
+  'OtherClosedAfterTake',
+  'CloseRefused',
 ] as const
 export type CalloutEventKind = (typeof CALLOUT_EVENT_KINDS)[number] | (string & {})
 

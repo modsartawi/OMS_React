@@ -58,6 +58,7 @@
     "countdown": "Countdown",
     "outcome": "Outcome",
     "ended": "Ended",
+    "radius": "Radius",
     "courier": "Courier"
   },
   "countdown": {
@@ -144,7 +145,9 @@
     "releasedAt": "Lock released <at>{{at}}</at> by <by>{{by}}</by>.",
     "releasedNow": "Lock released.",
     "changeStore": "Change store",
-    "changeStoreHint": "opens the delivery's details, where it is moved."
+    "changeStoreHint": "opens the delivery's details, where it is moved.",
+    "searchRadius": "Searched <n>{{km}}</n> km",
+    "noRadiusSearch": "No radius search"
   },
   "reasons": {
     "NoStock": "No stock",

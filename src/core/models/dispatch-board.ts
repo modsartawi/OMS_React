@@ -82,6 +82,12 @@ export interface DispatchCallout {
   servingListNameAr?: string
   /** How many radius candidates the duty check took out. */
   dutyRemovedCount?: number
+  /**
+   * The radius behind the callout's result (BackOffice spec 3326, ticket 3333; oms 715): the type's, or its wider
+   * one when the search widened. `0` = no radius search ran. Optional: a callout read before 3326 deployed has none.
+   * Whether it widened is not on the door (the type's normal radius is not sent): never guess it here.
+   */
+  searchRadiusKm?: number
   locksDelivery: boolean
   /** The delivery is locked now: a locking callout, taken or fell back, never released, delivery not closed. */
   locked: boolean

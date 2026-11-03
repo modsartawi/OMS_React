@@ -1,5 +1,6 @@
 import type { DispatchBid, DispatchCallout, LocalDateTime } from '@/core/models/dispatch-board'
 import type { Severity } from '@/core/ui/severity'
+import { formatNumber } from '@/core/util/number-format'
 
 // A callout's view logic (BackOffice spec 2952, oms ticket 541): the countdown, an outcome's and a bid
 // status's label, and a bid row's story. In `@/core/` because the board (541) and the delivery's
@@ -141,4 +142,14 @@ export function bidRow(bid: DispatchBid): BidRowView {
 export function dutyRemovedView(c: Partial<Pick<DispatchCallout, 'dutyRemovedCount'>>): number | null {
   const n = c.dutyRemovedCount ?? 0
   return n > 0 ? n : null
+}
+
+/** The radius behind a callout's result (spec 3326): searched n km, no radius search (`0`), or nothing to show. */
+export type SearchRadiusView = { kind: 'searched'; km: string } | { kind: 'none' }
+
+/** `null` (no label) when the callout predates spec 3326. The normal radius is not sent, so no "widened" here. */
+export function searchRadiusView(c: Partial<Pick<DispatchCallout, 'searchRadiusKm'>>): SearchRadiusView | null {
+  const km = c.searchRadiusKm
+  if (typeof km !== 'number' || !Number.isFinite(km)) return null
+  return km > 0 ? { kind: 'searched', km: formatNumber(km) } : { kind: 'none' }
 }

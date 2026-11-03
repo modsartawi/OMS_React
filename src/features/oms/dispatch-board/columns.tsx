@@ -1,9 +1,9 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { Lock } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
-import { countdownLeft, formatClock, outcomeView } from '@/core/dispatch/view'
+import { countdownLeft, formatClock, outcomeView, searchRadiusView } from '@/core/dispatch/view'
 import type { DispatchCallout } from '@/core/models/dispatch-board'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
@@ -75,6 +75,22 @@ function DeliveryCell(p: ICellRendererParams<BoardRow>) {
   ) : null
 }
 
+/** Spec 3326: the radius behind the result, quiet; empty for a callout read before 3326. */
+function RadiusCell(p: ICellRendererParams<BoardRow>) {
+  const { t } = useTranslation('dispatch-board')
+  const radius = p.data ? searchRadiusView(p.data) : null
+  if (!radius) return null
+  return (
+    <span className="text-muted-foreground" data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
+      {radius.kind === 'searched' ? (
+        <Trans t={t} i18nKey="inspector.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
+      ) : (
+        t('inspector.noRadiusSearch')
+      )}
+    </span>
+  )
+}
+
 const time = (p: ValueFormatterParams<BoardRow, string | null>) => formatTimeOfDay(p.value ?? null)
 
 function common(t: TFunction): ColDef<BoardRow>[] {
@@ -93,6 +109,7 @@ function common(t: TFunction): ColDef<BoardRow>[] {
       valueFormatter: (p: ValueFormatterParams<BoardRow, number>) => formatMoney(p.value),
     },
     { headerName: t('columns.bids'), colId: 'bids', width: 70, type: 'rightAligned', cellClass: MONO, valueGetter: (p) => p.data?.bids.length ?? 0 },
+    { headerName: t('columns.radius'), colId: 'radius', width: 140, valueGetter: (p) => p.data?.searchRadiusKm ?? null, cellRenderer: RadiusCell },
     // 712: the courier quote's flag, NoCourier / Failed only; the value refreshes the cell when the quote changes.
     {
       headerName: t('columns.courier'),

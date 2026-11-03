@@ -1,9 +1,9 @@
 import { Trans, useTranslation } from 'react-i18next'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
-import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, searchRadiusView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
 import ServingListName from '@/core/serving-list/ServingListName'
 import { servingListView } from '@/core/serving-list/view'
-import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
+import { CALLOUT_CLOSE_EVENT_KINDS, type DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutLog } from '@/core/oms/callout-moments'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -35,12 +35,16 @@ export default function CalloutPanel({
   )
 }
 
+const isCloseEvent = (kind: string): kind is (typeof CALLOUT_CLOSE_EVENT_KINDS)[number] =>
+  (CALLOUT_CLOSE_EVENT_KINDS as readonly string[]).includes(kind)
+
 const TH = 'py-1 pe-3 text-start font-medium whitespace-nowrap'
 const TD = 'py-1 pe-3 align-top'
 
 function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryCalloutRecord; canLinkServingList: boolean }) {
   const { t, i18n } = useTranslation('document')
   const dutyRemoved = dutyRemovedView(c)
+  const radius = searchRadiusView(c)
   const outcome = outcomeView(c.outcome)
   const notCompeted = c.status === 'NOT_OPENED'
   const heldAt = c.awardedParty || c.fallbackParty
@@ -83,6 +87,16 @@ function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryC
         {dutyRemoved != null && (
           <span className="text-xs text-muted-foreground" data-duty-removed={dutyRemoved}>
             <Trans t={t} i18nKey="callout.panel.dutyRemoved" values={{ n: String(dutyRemoved) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
+        {/* Spec 3326: the radius behind the result; nothing for a callout read before 3326. */}
+        {radius && (
+          <span className="text-xs text-muted-foreground" data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
+            {radius.kind === 'searched' ? (
+              <Trans t={t} i18nKey="callout.panel.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
+            ) : (
+              t('callout.panel.noRadiusSearch')
+            )}
           </span>
         )}
         {c.fallbackParty && (
@@ -214,8 +228,13 @@ function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryC
                       {seconds != null && <Ltr>{`+${formatClock(seconds)}`}</Ltr>}
                     </td>
                     <td className={`${TD} font-mono`}>{event.party && <Ltr>{event.party}</Ltr>}</td>
-                    <td className={`${TD} font-mono`}>
-                      <Ltr>{event.kind}</Ltr>
+                    <td className={`${TD} font-mono`} data-event-kind={event.kind}>
+                      {/* A close after a take (spec 3326) in words; every other kind as it came, for disputes. */}
+                      {isCloseEvent(event.kind) ? (
+                        <span className="font-sans">{t(`callout.event.${event.kind}`)}</span>
+                      ) : (
+                        <Ltr>{event.kind}</Ltr>
+                      )}
                     </td>
                     <td className={TD}>{event.staff && <bdi>{event.staff}</bdi>}</td>
                     <td className={`${TD} font-mono`}>{event.register && <Ltr>{event.register}</Ltr>}</td>

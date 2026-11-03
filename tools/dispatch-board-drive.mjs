@@ -14,6 +14,8 @@
 //      (572, spec 3042) beside the candidate count: the serving list by name (the id alone when the list is
 //      gone, "—" when none, as an older payload reads), plain text without 567's View, a link to /oms/serving-lists/:id with it; "removed by duty n"
 //      only above 0; ServingListInactive / DutyLeftFewerThanTwo read as words and count in Not competed;
+//      (715, spec 3326) the search radius, quiet, on the row and in the inspector: "Searched n km" (an ltr
+//      isolate), "No radius search" at 0, nothing for an older payload;
 //   4. Release lock only on a locked callout and only with Execute; the reason picker blocks no reason and
 //      Other-without-note; each CALLOUT-102/103/104 refusal and a non-lock failure show in the dialog; a
 //      release sends { deliveryNumber, reason, note }, refreshes the board and offers Change store;
@@ -204,6 +206,7 @@ const FELL_BACK = callout('D8002', {
   locked: true,
   fallbackParty: 'P001',
   fallbackAt: stamp(25 * 60_000),
+  searchRadiusKm: 0,
   // 712: an express delivery, and OTO predicted no courier for its store.
   isExpressDelivery: true,
   storeMoveAvailable: false,
@@ -247,6 +250,7 @@ const DUTY_FEW = callout('D8006', {
   locksDelivery: false,
 })
 const WITHDRAWN = callout('D8004', {
+  searchRadiusKm: 7.5,
   status: 'WITHDRAWN',
   outcome: 'Withdrawn',
   endReason: 'Withdrawn',
@@ -439,6 +443,31 @@ for (const dir of ['ltr', 'rtl']) {
           (no !== 'D8005' || (await insp.locator('[data-serving-list="SL9"] bdi[dir="ltr"]').innerText()) === 'SL9'),
         `${await insp.locator('[data-not-competed]').innerText()} | ${await insp.locator('[data-inspector-serving]').innerText()}`,
       )
+    }
+
+    // 715 (spec 3326): the search radius on the row and in the inspector; none for an older payload
+    {
+      const cell = (no) => rowOf(page, 'closed', no).locator('[col-id="radius"]')
+      check(
+        `${dir} 3. 715 the row reads "Searched 7.5 km", the km an ltr isolate`,
+        strip(await cell('D8004').innerText()) === 'Searched 7.5 km' && (await cell('D8004').locator('[data-search-radius="7.5"] bdi[dir="ltr"]').innerText()) === '7.5',
+        await cell('D8004').innerText(),
+      )
+      check(`${dir} 3. 715 the row reads "No radius search" at 0`, strip(await cell('D8002').innerText()) === 'No radius search', await cell('D8002').innerText())
+      check(`${dir} 3. 715 an older payload's row shows no radius`, strip(await cell('D8001').innerText()) === '' && (await cell('D8001').locator('[data-search-radius]').count()) === 0)
+      await rowOf(page, 'closed', 'D8004').click()
+      await page.locator('[data-inspector="C-D8004"]').waitFor()
+      const r = insp.locator('[data-inspector-serving] [data-search-radius="7.5"]')
+      check(
+        `${dir} 3. 715 the inspector reads "Searched 7.5 km" beside the serving list`,
+        (await r.count()) === 1 && strip(await r.innerText()) === 'Searched 7.5 km' && (await r.locator('bdi[dir="ltr"]').innerText()) === '7.5',
+      )
+      await rowOf(page, 'closed', 'D8002').click()
+      await page.locator('[data-inspector="C-D8002"]').waitFor()
+      check(`${dir} 3. 715 the inspector reads "No radius search" at 0`, strip(await insp.locator('[data-search-radius="0"]').innerText()) === 'No radius search')
+      await rowOf(page, 'closed', 'D8001').click()
+      await page.locator('[data-inspector="C-D8001"]').waitFor()
+      check(`${dir} 3. 715 an older payload's inspector shows no radius`, (await insp.locator('[data-search-radius]').count()) === 0)
     }
 
     // 9. (712) the courier quote and the express no-move wording

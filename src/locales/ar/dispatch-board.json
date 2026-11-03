@@ -58,6 +58,7 @@
     "countdown": "العد التنازلي",
     "outcome": "النتيجة",
     "ended": "انتهت",
+    "radius": "النطاق",
     "courier": "المندوب"
   },
   "countdown": {
@@ -152,7 +153,9 @@
     "releasedAt": "فُك القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>.",
     "releasedNow": "فُك القفل.",
     "changeStore": "تغيير الفرع",
-    "changeStoreHint": "يفتح تفاصيل التوصيلة، حيث يتم نقلها."
+    "changeStoreHint": "يفتح تفاصيل التوصيلة، حيث يتم نقلها.",
+    "searchRadius": "نطاق البحث <n>{{km}}</n> كم",
+    "noRadiusSearch": "لم يجرِ بحث بالنطاق"
   },
   "reasons": {
     "NoStock": "لا يوجد مخزون",

@@ -14,8 +14,8 @@ import {
 
 describe('which drills read what happened after the take', () => {
   it('the three spec 3326 figures and the failed-take rate do; the older figures do not', () => {
-    expect(['failedTakes', 'failedTakeRate', 'fallbackCancels', 'refusedCloses'].map(showsAfterTake)).toEqual([true, true, true, true])
-    expect(['won', 'ignoreRate', 'lostRaces', 'fallbacksReceived'].map(showsAfterTake)).toEqual([false, false, false, false])
+    expect((['failedTakes', 'failedTakeRate', 'fallbackCancels', 'refusedCloses'] as const).map((f) => showsAfterTake(f))).toEqual([true, true, true, true])
+    expect((['won', 'ignoreRate', 'lostRaces', 'fallbacksReceived'] as const).map((f) => showsAfterTake(f))).toEqual([false, false, false, false])
   })
 })
 
@@ -72,6 +72,11 @@ describe('a short line at offer', () => {
       needed: '20',
       available: '4',
     })
+  })
+  it('formats the quantities as the app formats a quantity (a non-number never reads "NaN")', () => {
+    const parts = shortLineParts({ line: 3, material: '100236', quantity: 1, uom: 'EA', neededBase: 2.5, availableBase: Number.NaN })
+    expect(parts.needed).toBe('2.5')
+    expect(parts.available).toBe('')
   })
   it('no stock row on record is null, never 0', () => {
     expect(shortLineParts({ line: 2, material: '100235', quantity: 1, uom: 'EA', neededBase: 1, availableBase: null }).available).toBeNull()

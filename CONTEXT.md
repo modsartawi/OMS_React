@@ -695,3 +695,41 @@ and that DataSync marks resumable — only stores the campaign itself paused. Ne
 other store stays paused for a person, including stores that were already paused by someone else
 before the campaign.
 _Avoid_: resume all, release, unpause (the hand-back resumes a chosen set, tagged with the campaign).
+
+**Failed take**:
+A delivery a store won on a callout and then did not deliver: it closed the delivery itself, or the
+courier cancelled it naming the store. It counts against the person who **took** it, whoever closed
+it, and the **failed-take rate** is failed takes over takes won. The courier's reason is shown as
+sent, never reworded, and a failed take is never called "no stock" (the courier's "order not found
+in branch" may mean not ready).
+_Avoid_: no stock, rejected order, lost delivery.
+
+**Fallback cancel**:
+A delivery handed to a callout's fallback store (no bid won it) that the fallback store then closed.
+Counted beside failed takes, never inside them: the fallback store never chose the delivery.
+_Avoid_: failed take (of a fallback store), fallback failure (that is the hand-over itself failing).
+
+**Refused close**:
+A close the callout's lock refused: the store holding a locked delivery tried to close it and could
+not. With the lock on, a store trying to back out of a take mostly shows here, not in the failed-take
+rate. Its attempts are kept 6 months; after that the count still stands with no attempts listed.
+_Avoid_: failed close, blocked cancel.
+
+**Courier quote** (predicted courier):
+What OTO **predicted** for a delivery's assigned store when it was checked: a courier company with a
+price and ETA, no courier, or a failed check. Always a prediction: neither "no courier" nor a failed
+check means the order failed, and the OTO order is created anyway.
+_Avoid_: courier assignment, courier booking.
+
+**Express delivery** (of a callout):
+A delivery (`isExpressDelivery`, "Dawaa Now") that keeps its store once its OTO order exists.
+Releasing its lock frees the holding store's own changes but **no store move**; cancelling the
+delivery is the only way out of the store.
+_Avoid_: urgent delivery; "release to move" (true of other deliveries, never of this one).
+
+**Search radius** (of a callout):
+The distance the callout searched for stores: the delivery type's callout radius, or its **wider
+callout radius** when nobody in the normal one could serve. `0` means no radius search ran (no GPS,
+no usable serving list or radius, or OTO coverage answered instead). The wider radius is set on the
+delivery type, `0` = off, and only counts when it is greater than the normal one.
+_Avoid_: expanded radius (the field's server name, not the word), range, distance (that's a bid's km).

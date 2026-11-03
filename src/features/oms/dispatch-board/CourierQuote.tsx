@@ -1,10 +1,11 @@
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 
 import { courierQuoteView } from '@/core/dispatch/courier-quote'
 import type { DispatchCourierQuote } from '@/core/models/dispatch-board'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { formatParts, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatTimeOfDay } from '@/core/util/date-format'
 
 /**
@@ -16,38 +17,31 @@ export default function CourierQuote({ quote }: { quote: DispatchCourierQuote | 
   const { t } = useTranslation('dispatch-board')
   const view = courierQuoteView(quote)
   if (view.kind === 'none') return null
-  const checked = <Trans t={t} i18nKey="quote.checkedAt" values={{ at: formatDateTime(view.checkedAt) }} components={{ at: <Ltr /> }} />
+  // Each line is built as ONE string (`formatParts`) and isolated once; a value inside a sentence is `fsi`'d whole.
+  // Led by words, so `<bdi>` (dir auto).
+  const checked = t('quote.checkedAt', { at: fsi(formatDateTime(view.checkedAt)) })
   if (view.kind === 'flag') {
     return (
       <div className="flex flex-col gap-0.5 rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" role="status" data-courier-flag={view.outcome}>
         <span className="flex items-center gap-1.5 font-medium">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          {t(view.key)}
-          <span className="font-normal">· {checked}</span>
+          <bdi>{formatParts([t(view.key), checked])}</bdi>
         </span>
         <span>{t('quote.flagHint')}</span>
       </div>
     )
   }
   if (view.kind === 'quoted') {
+    const predicted = t('quote.predicted', { company: fsi(view.company), money: fsi(view.money), eta: fsi(view.eta) })
     return (
       <p className="text-xs text-muted-foreground" data-courier-quoted="">
-        <Trans
-          t={t}
-          i18nKey="quote.predicted"
-          values={{ company: view.company, money: view.money, eta: view.eta }}
-          components={{ c: <bdi />, m: <Ltr />, eta: <bdi /> }}
-        />
-        {' · '}
-        {checked}
+        <bdi>{formatParts([predicted, checked])}</bdi>
       </p>
     )
   }
   return (
     <p className="text-xs text-muted-foreground" data-courier-other={view.raw}>
-      <Trans t={t} i18nKey="quote.other" values={{ outcome: view.raw }} components={{ o: <Ltr /> }} />
-      {' · '}
-      {checked}
+      <bdi>{formatParts([t('quote.other', { outcome: fsi(view.raw) }), checked])}</bdi>
     </p>
   )
 }

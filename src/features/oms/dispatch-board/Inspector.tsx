@@ -2,7 +2,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
 
-import { bidRow, dutyRemovedView, formatClock, outcomeView, searchRadiusView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
 import ServingListName from '@/core/serving-list/ServingListName'
 import { servingListView } from '@/core/serving-list/view'
 import Button from '@/core/ui/Button'
@@ -11,7 +11,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
-import { releaseFreesNoMove } from '@/core/dispatch/courier-quote'
+import SearchRadius from '@/core/dispatch/SearchRadius'
 import { Countdown, type BoardRow } from './columns'
 import CourierQuote from './CourierQuote'
 
@@ -55,9 +55,8 @@ export default function Inspector({
   const notCompeted = c.status === 'NOT_OPENED' || c.outcome === 'NotCompeted'
   const endReason = c.endReason ? (KNOWN_END_REASONS.includes(c.endReason) ? t(`endReasons.${c.endReason}`) : null) : null
   const dutyRemoved = dutyRemovedView(c)
-  const radius = searchRadiusView(c)
   // An express delivery keeps its store once its OTO order exists (712): a release frees no move.
-  const noMove = releaseFreesNoMove(c)
+  const noMove = c.isExpressDelivery === true
 
   return (
     <aside className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 text-sm" data-inspector={c.calloutId}>
@@ -111,15 +110,7 @@ export default function Inspector({
           </span>
         )}
         {/* Spec 3326: the radius behind the result; nothing for a callout read before 3326. */}
-        {radius && (
-          <span data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
-            {radius.kind === 'searched' ? (
-              <Trans t={t} i18nKey="inspector.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
-            ) : (
-              t('inspector.noRadiusSearch')
-            )}
-          </span>
-        )}
+        <SearchRadius callout={c} />
       </p>
 
       {/* What OTO predicted for the assigned store (712): flagged on NoCourier / Failed, closed rows too. */}

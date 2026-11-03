@@ -90,9 +90,9 @@
     "NoCourier": "توقعت OTO عدم توفر مندوب",
     "Failed": "تعذر فحص المندوب",
     "flagHint": "توقع فقط: يُنشأ طلب OTO على أي حال.",
-    "predicted": "المتوقع: <c>{{company}}</c>، <m>{{money}}</m>، الوصول <eta>{{eta}}</eta>",
-    "other": "توقع المندوب <o>{{outcome}}</o>",
-    "checkedAt": "فُحص <at>{{at}}</at>"
+    "predicted": "المتوقع: {{company}}، {{money}}، الوصول {{eta}}",
+    "other": "توقع المندوب {{outcome}}",
+    "checkedAt": "فُحص {{at}}"
   },
   "bidStatus": {
     "OPEN": "بانتظار الرد",

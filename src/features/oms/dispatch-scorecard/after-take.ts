@@ -9,15 +9,22 @@ import type {
   CalloutOfferedLine,
   DispatchScorecardDrillItem,
   DispatchScorecardDrillRow,
+  DispatchScorecardFigure,
   DispatchScorecardRefusedClose,
 } from '@/core/models/dispatch-scorecard'
 import { formatPair, formatParts } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import { formatNumber } from '@/core/util/number-format'
 
-const AFTER_TAKE_FIGURES = new Set<string>(['failedTakes', 'failedTakeRate', 'fallbackCancels', 'refusedCloses'])
+const AFTER_TAKE_FIGURES: ReadonlySet<DispatchScorecardFigure> = new Set<DispatchScorecardFigure>([
+  'failedTakes',
+  'failedTakeRate',
+  'fallbackCancels',
+  'refusedCloses',
+])
 
 /** Whether a figure's drill reads the after-take columns (taker, closer, reason, courier, items, stock). */
-export function showsAfterTake(figure: string): boolean {
+export function showsAfterTake(figure: DispatchScorecardFigure): boolean {
   return AFTER_TAKE_FIGURES.has(figure)
 }
 
@@ -43,7 +50,7 @@ export function afterTakeReason(row: Partial<ReasonFields>): AfterTakeReason {
 
 /** One item as one machine value: `100234 · 2 EA`. */
 export function itemText(item: DispatchScorecardDrillItem): string {
-  return formatPair(item.itemNumber, `${item.quantity} ${item.uom ?? ''}`.trim())
+  return formatPair(item.itemNumber, `${formatNumber(item.quantity)} ${item.uom ?? ''}`.trim())
 }
 
 /** The items in one cell (the export); none reads the dash. */
@@ -55,8 +62,8 @@ export function itemsText(items: readonly DispatchScorecardDrillItem[] | undefin
 export function shortLineParts(line: CalloutOfferedLine): { material: string; needed: string; available: string | null } {
   return {
     material: line.material,
-    needed: String(line.neededBase),
-    available: line.availableBase == null ? null : String(line.availableBase),
+    needed: formatNumber(line.neededBase),
+    available: line.availableBase == null ? null : formatNumber(line.availableBase),
   }
 }
 
@@ -70,7 +77,7 @@ export function attemptText(attempt: DispatchScorecardRefusedClose, dash: string
  * Whether a row shows the 6-month note: a refusedCloses row whose attempts are gone (the events are
  * swept after 6 months; the count still stands). Never an error.
  */
-export function attemptsSwept(figure: string, row: Pick<DispatchScorecardDrillRow, 'refusedAttempts'>): boolean {
+export function attemptsSwept(figure: DispatchScorecardFigure, row: Pick<DispatchScorecardDrillRow, 'refusedAttempts'>): boolean {
   return figure === 'refusedCloses' && !(row.refusedAttempts?.length)
 }
 

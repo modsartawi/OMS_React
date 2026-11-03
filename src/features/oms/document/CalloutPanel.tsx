@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
-import { bidRow, dutyRemovedView, formatClock, outcomeView, searchRadiusView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import SearchRadius from '@/core/dispatch/SearchRadius'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
 import ServingListName from '@/core/serving-list/ServingListName'
 import { servingListView } from '@/core/serving-list/view'
 import { CALLOUT_CLOSE_EVENT_KINDS, type DeliveryCalloutRecord } from '@/core/models/delivery-callout'
@@ -44,7 +45,6 @@ const TD = 'py-1 pe-3 align-top'
 function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryCalloutRecord; canLinkServingList: boolean }) {
   const { t, i18n } = useTranslation('document')
   const dutyRemoved = dutyRemovedView(c)
-  const radius = searchRadiusView(c)
   const outcome = outcomeView(c.outcome)
   const notCompeted = c.status === 'NOT_OPENED'
   const heldAt = c.awardedParty || c.fallbackParty
@@ -90,15 +90,7 @@ function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryC
           </span>
         )}
         {/* Spec 3326: the radius behind the result; nothing for a callout read before 3326. */}
-        {radius && (
-          <span className="text-xs text-muted-foreground" data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
-            {radius.kind === 'searched' ? (
-              <Trans t={t} i18nKey="callout.panel.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
-            ) : (
-              t('callout.panel.noRadiusSearch')
-            )}
-          </span>
-        )}
+        <SearchRadius callout={c} className="text-xs text-muted-foreground" />
         {c.fallbackParty && (
           <span className="text-xs text-muted-foreground">
             <Trans

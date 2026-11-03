@@ -503,7 +503,11 @@ for (const dir of ['ltr', 'rtl']) {
       /^Predicted: Mrsool, 17\.25 SAR, ETA within 45 minutes · checked /.test(strip(await insp.locator('[data-courier-quoted]').innerText())) && (await insp.locator('[data-courier-flag]').count()) === 0,
       await insp.locator('[data-courier-quoted]').innerText().catch(() => ''),
     )
-    if (dir === 'rtl') check('rtl 9. 712 the price and currency are one ltr isolate', (await insp.locator('[data-courier-quoted] bdi[dir="ltr"]').first().innerText()) === '17.25 SAR')
+    if (dir === 'rtl')
+      check(
+        'rtl 9. 712 the quote line is one isolate, the price and currency one whole value inside it',
+        await insp.locator('[data-courier-quoted]').evaluate((el) => el.children.length === 1 && el.firstElementChild.tagName === 'BDI' && el.textContent.includes('⁨17.25 SAR⁩')),
+      )
     check(`${dir} 9. 712 a non-express delivery says nothing of a move`, (await insp.locator('[data-no-move]').count()) === 0)
     await rowOf(page, 'closed', 'D8004').click()
     await page.locator('[data-inspector="C-D8004"]').waitFor()

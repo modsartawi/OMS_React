@@ -449,11 +449,11 @@ async function afterTakeChecks(page, dr, fig, label) {
     const attempts = dr.locator('.ag-row[row-index="0"] [data-sc-attempt]')
     const first = attempts.first()
     check(
-      `${label}: refusedCloses — the attempts under the row, oldest first: time, who, till, reason as sent`,
+      `${label}: refusedCloses — the attempts under the row, oldest first: time, who, till, reason as sent, each line ONE ltr isolate`,
       (await attempts.count()) === 2 &&
-        (await first.innerText()).includes(`${TODAY} 08:10`) &&
-        (await first.innerText()).includes('P001-ph01') &&
-        (await first.locator('bdi', { hasText: AR_ATTEMPT }).count()) === 1 &&
+        (await first.innerText()).startsWith(`${TODAY} 08:10 · P001-ph01 · `) &&
+        (await first.innerText()).endsWith(AR_ATTEMPT) &&
+        (await first.locator('bdi').count()) === 1 &&
         (await readsLtr(first.locator('bdi[dir="ltr"]').first())) === true,
       await attempts.allInnerTexts().then((x) => x.join(' | ')),
     )

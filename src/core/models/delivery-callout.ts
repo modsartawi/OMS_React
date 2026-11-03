@@ -10,6 +10,20 @@
 
 import type { DispatchCallout, LocalDateTime } from './dispatch-board'
 
+/**
+ * The closes after a take (spec 3326), each with its words: callout-level (bidId ''), a close after a take or
+ * fallback, scored or not, and a close the lock refused. `detail` is shown as sent: on `StoreClosedAfterTake`
+ * `"<outcome>"` or `"<outcome>: <note>"`; on `CourierCancelledAfterTake` `"<outcome>: <reason> (<courier>)"`;
+ * on `CloseRefused` `"CloseRefused"` or `"CloseRefused: <note>"`. Listed here once; `CALLOUT_EVENT_KINDS`
+ * spreads them.
+ */
+export const CALLOUT_CLOSE_EVENT_KINDS = [
+  'StoreClosedAfterTake',
+  'CourierCancelledAfterTake',
+  'OtherClosedAfterTake',
+  'CloseRefused',
+] as const
+
 /** `CalloutEventKinds` (BackOffice `CalloutConstants.cs`). Open: a kind the server adds later still parses. */
 export const CALLOUT_EVENT_KINDS = [
   // Callout-level (bidId ''):
@@ -30,23 +44,8 @@ export const CALLOUT_EVENT_KINDS = [
   'Dismissed',
   'Take',
   'Pass',
-  // Callout-level (bidId ''), spec 3326: a close after a take or fallback, scored or not, and a close the lock refused.
-  'StoreClosedAfterTake',
-  'CourierCancelledAfterTake',
-  'OtherClosedAfterTake',
-  'CloseRefused',
-] as const
-
-/**
- * The closes after a take (spec 3326), each with its words. `detail` is shown as sent: on
- * `StoreClosedAfterTake` `"<outcome>"` or `"<outcome>: <note>"`; on `CourierCancelledAfterTake`
- * `"<outcome>: <reason> (<courier>)"`; on `CloseRefused` `"CloseRefused"` or `"CloseRefused: <note>"`.
- */
-export const CALLOUT_CLOSE_EVENT_KINDS = [
-  'StoreClosedAfterTake',
-  'CourierCancelledAfterTake',
-  'OtherClosedAfterTake',
-  'CloseRefused',
+  // Callout-level (bidId ''), spec 3326: the closes after a take.
+  ...CALLOUT_CLOSE_EVENT_KINDS,
 ] as const
 export type CalloutEventKind = (typeof CALLOUT_EVENT_KINDS)[number] | (string & {})
 

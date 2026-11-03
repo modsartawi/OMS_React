@@ -183,6 +183,7 @@ export default function CommandPanel({
   onCentralInvoice,
   markDelivered = null,
   onReleaseLock = null,
+  expressDelivery = false,
   refused = null,
   onRefusedLeft = () => {},
   keysOf = {},
@@ -214,6 +215,11 @@ export default function CommandPanel({
    * its own cluster outside the `commands.ts` grammar.
    */
   onReleaseLock?: (() => void) | null
+  /**
+   * An express delivery (spec 3306, ticket 712): beside Release lock the bar says a release frees no store move
+   * (the delivery keeps its store once its OTO order exists), as the board's inspector does. Release lock stays.
+   */
+  expressDelivery?: boolean
   /**
    * The command the list's open intent was refused on (ticket 401, D9), or `null`. Its button
    * takes focus, wears the attention ring and shows its reason until focus leaves it, then
@@ -302,6 +308,11 @@ export default function CommandPanel({
                   {t('actions.release-lock')}
                 </Button>
               </div>
+              {expressDelivery && (
+                <p className="max-w-[28rem] text-xs text-muted-foreground" data-release-no-move-hint="">
+                  {t('callout.release.noMove')}
+                </p>
+              )}
             </div>
           )}
           {markDelivered && (

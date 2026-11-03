@@ -11,7 +11,6 @@ import '@/core/ag-grid-setup'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import { canOpenDispatchBoard, canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
-import { releaseFreesNoMove } from '@/core/dispatch/courier-quote'
 import type { DispatchBoardFilter } from '@/core/models/dispatch-board'
 import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -219,7 +218,7 @@ function Board() {
         open={releasing !== null}
         deliveryNumber={releasing?.deliveryNumber ?? ''}
         heldBy={releasing ? releasing.awardedParty || releasing.fallbackParty : ''}
-        expressDelivery={releasing ? releaseFreesNoMove(releasing) : false}
+        expressDelivery={releasing?.isExpressDelivery === true}
         onClose={() => setReleasing(null)}
         onReleased={(result) => {
           if (releasing) setReleased((s) => new Set(s).add(releasing.calloutId))

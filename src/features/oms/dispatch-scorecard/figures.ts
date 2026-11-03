@@ -128,10 +128,10 @@ export function tooFewLast<T extends { tooFew: boolean }>(rows: readonly T[]): T
   return [...rows.filter((r) => !r.tooFew), ...rows.filter((r) => r.tooFew)]
 }
 
-const RATES = new Set<string>(['ignoreRate', 'winRate', 'declineRate', 'failedTakeRate'])
+const RATES: ReadonlySet<DispatchScorecardFigure> = new Set<DispatchScorecardFigure>(['ignoreRate', 'winRate', 'declineRate', 'failedTakeRate'])
 
 /** Whether a figure is a rate: its drill rows are the denominator and `counted` marks the numerator. */
-export function isRate(figure: string): boolean {
+export function isRate(figure: DispatchScorecardFigure): boolean {
   return RATES.has(figure)
 }
 const TIMES = new Set<string>(['medianAnswerSeconds', 'slowQuarterAnswerSeconds'])
@@ -146,7 +146,7 @@ export function formatSeconds(seconds: number): string {
 /** A ranked measure as it reads: a rate (0..1 as sent) as a percent, a time as seconds; absent = the dash. */
 export function formatMeasure(measure: string, value: number | null | undefined, dash: string): string {
   if (value == null || !Number.isFinite(value)) return dash
-  if (RATES.has(measure)) return `${(value * 100).toFixed(1)}%`
+  if (RATES.has(measure as DispatchScorecardFigure)) return `${(value * 100).toFixed(1)}%`
   if (TIMES.has(measure)) return formatSeconds(value)
   return String(value)
 }

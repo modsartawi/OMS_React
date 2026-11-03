@@ -90,9 +90,9 @@
     "NoCourier": "OTO predicted no courier",
     "Failed": "Courier check failed",
     "flagHint": "A prediction only: the OTO order is created anyway.",
-    "predicted": "Predicted: <c>{{company}}</c>, <m>{{money}}</m>, ETA <eta>{{eta}}</eta>",
-    "other": "Courier quote <o>{{outcome}}</o>",
-    "checkedAt": "checked <at>{{at}}</at>"
+    "predicted": "Predicted: {{company}}, {{money}}, ETA {{eta}}",
+    "other": "Courier quote {{outcome}}",
+    "checkedAt": "checked {{at}}"
   },
   "bidStatus": {
     "OPEN": "Awaiting",

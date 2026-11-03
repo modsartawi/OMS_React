@@ -14,7 +14,6 @@ import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
-import { releaseFreesNoMove } from '@/core/dispatch/courier-quote'
 import OrderGuardPanel from '@/core/insurance-rules/OrderGuardPanel'
 import { canOverrideGuard, canReleaseGuardHold } from '@/core/insurance-rules/order-guards'
 import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
@@ -748,6 +747,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                     : null
                 }
                 onReleaseLock={mayReleaseLock ? () => setReleaseOpen(true) : null}
+                // An express delivery keeps its store once its OTO order exists (712): the bar says so beside
+                // Release lock, as the board's inspector does.
+                expressDelivery={locked?.isExpressDelivery === true}
                 markDelivered={
                   markDeliveredState && {
                     disabled: markDeliveredState.disabled,
@@ -916,13 +918,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 open={releaseOpen}
                 deliveryNumber={document.documentNo}
                 heldBy={locked.awardedParty || locked.fallbackParty}
-                expressDelivery={releaseFreesNoMove(locked)}
+                expressDelivery={locked.isExpressDelivery === true}
                 onClose={() => setReleaseOpen(false)}
                 onReleased={() => {
                   setReleaseOpen(false)
                   notify.success(
                     t('callout.release.done'),
-                    t(releaseFreesNoMove(locked) ? 'callout.release.doneDetailExpress' : 'callout.release.doneDetail', {
+                    t(locked.isExpressDelivery === true ? 'callout.release.doneDetailExpress' : 'callout.release.doneDetail', {
                       delivery: fsi(document.documentNo),
                     }),
                   )

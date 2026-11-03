@@ -1,9 +1,11 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { Lock } from 'lucide-react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 
-import { countdownLeft, formatClock, outcomeView, searchRadiusView } from '@/core/dispatch/view'
+import { courierQuoteView } from '@/core/dispatch/courier-quote'
+import SearchRadius from '@/core/dispatch/SearchRadius'
+import { countdownLeft, formatClock, outcomeView } from '@/core/dispatch/view'
 import type { DispatchCallout } from '@/core/models/dispatch-board'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
@@ -77,18 +79,7 @@ function DeliveryCell(p: ICellRendererParams<BoardRow>) {
 
 /** Spec 3326: the radius behind the result, quiet; empty for a callout read before 3326. */
 function RadiusCell(p: ICellRendererParams<BoardRow>) {
-  const { t } = useTranslation('dispatch-board')
-  const radius = p.data ? searchRadiusView(p.data) : null
-  if (!radius) return null
-  return (
-    <span className="text-muted-foreground" data-search-radius={radius.kind === 'searched' ? radius.km : '0'}>
-      {radius.kind === 'searched' ? (
-        <Trans t={t} i18nKey="inspector.searchRadius" values={{ km: radius.km }} components={{ n: <Ltr /> }} />
-      ) : (
-        t('inspector.noRadiusSearch')
-      )}
-    </span>
-  )
+  return p.data ? <SearchRadius callout={p.data} className="text-muted-foreground" /> : null
 }
 
 const time = (p: ValueFormatterParams<BoardRow, string | null>) => formatTimeOfDay(p.value ?? null)
@@ -110,12 +101,16 @@ function common(t: TFunction): ColDef<BoardRow>[] {
     },
     { headerName: t('columns.bids'), colId: 'bids', width: 70, type: 'rightAligned', cellClass: MONO, valueGetter: (p) => p.data?.bids.length ?? 0 },
     { headerName: t('columns.radius'), colId: 'radius', width: 140, valueGetter: (p) => p.data?.searchRadiusKm ?? null, cellRenderer: RadiusCell },
-    // 712: the courier quote's flag, NoCourier / Failed only; the value refreshes the cell when the quote changes.
+    // 712: the courier quote's flag, NoCourier / Failed only. The value is what the cell reads (the flag and the
+    // check's time of day, one pair; empty otherwise), so copy and filter see words, and a new check refreshes it.
     {
       headerName: t('columns.courier'),
       colId: 'courier',
       width: 230,
-      valueGetter: (p) => `${p.data?.courierQuote?.outcome ?? ''}@${p.data?.courierQuote?.checkedAt ?? ''}`,
+      valueGetter: (p) => {
+        const view = courierQuoteView(p.data?.courierQuote)
+        return view.kind === 'flag' ? formatPair(t(view.key), formatTimeOfDay(view.checkedAt)) : ''
+      },
       cellRenderer: CourierCell,
     },
   ]

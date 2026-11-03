@@ -249,7 +249,7 @@ function TooFew({ t }: { t: TFunction }) {
  * take (taker, closer, time, outcome, the reason exactly as given, courier, items, stock at offer) and a
  * refused-close drill its refused attempts.
  */
-export function drillColumns(t: TFunction, figure: string): ColDef<DispatchScorecardDrillRow>[] {
+export function drillColumns(t: TFunction, figure: DispatchScorecardFigure): ColDef<DispatchScorecardDrillRow>[] {
   const dash = t('dash')
   const text = (value: string | null | undefined) => (value ? value : dash)
   const rate = isRate(figure)
@@ -438,7 +438,10 @@ function afterTakeColumns(
   ]
 }
 
-/** A refused-close row's attempts under it, oldest first: time, who, till, reason; swept ones read the note. */
+/**
+ * A refused-close row's attempts under it, oldest first: each attempt is ONE line (time · who · till · reason,
+ * `attemptText`), isolated once — led by its time, so `Ltr`; swept ones read the note.
+ */
 function refusedAttemptsColumn(t: TFunction, dash: string): ColDef<DispatchScorecardDrillRow> {
   return {
     colId: 'refusedAttempts',
@@ -464,9 +467,8 @@ function refusedAttemptsColumn(t: TFunction, dash: string): ColDef<DispatchScore
         <ol className="flex flex-col py-1 leading-5" data-sc-attempts={data.refusedAttempts?.length ?? 0}>
           {(data.refusedAttempts ?? []).map((a, i) => (
             <li key={`${a.at}-${i}`} data-sc-attempt="">
-              {/* Each value isolated by its kind: time and till are machine values, who and why free text. */}
-              <Ltr>{formatDateTime(a.at) || dash}</Ltr> · <bdi>{a.closedBy || dash}</bdi> · <Ltr>{a.register || dash}</Ltr> ·{' '}
-              <bdi>{a.reason || dash}</bdi>
+              {/* The whole line built once and isolated once: isolating its parts reverses them under RTL. */}
+              <Ltr>{attemptText(a, dash)}</Ltr>
             </li>
           ))}
         </ol>

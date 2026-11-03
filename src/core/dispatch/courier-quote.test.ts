@@ -10,7 +10,7 @@ import arDoc from '@/locales/ar/document.json'
 import { CALLOUT_NOT_OPENED_REASONS } from '@/core/models/delivery-callout'
 import type { DispatchCourierQuote } from '@/core/models/dispatch-board'
 import { localeAt as at } from '@/core/test/locale'
-import { courierQuoteView, releaseFreesNoMove } from './courier-quote'
+import { courierQuoteView } from './courier-quote'
 
 const quote = (over: Partial<DispatchCourierQuote> = {}): DispatchCourierQuote => ({
   outcome: 'Quoted',
@@ -70,14 +70,6 @@ describe('courierQuoteView', () => {
   })
 })
 
-describe('releaseFreesNoMove', () => {
-  it('is true only on an express delivery', () => {
-    expect(releaseFreesNoMove({ isExpressDelivery: true })).toBe(true)
-    expect(releaseFreesNoMove({ isExpressDelivery: false })).toBe(false)
-    expect(releaseFreesNoMove({})).toBe(false)
-  })
-})
-
 describe('the words', () => {
   it('the flags and the prediction exist on the board, EN and AR, and always say predicted', () => {
     for (const bundle of [enBoard, arBoard]) {
@@ -107,5 +99,15 @@ describe('the words', () => {
 
   it('Delivery details does not promise a move after releasing an express delivery', () => {
     for (const bundle of [enDoc, arDoc]) expect(typeof at(bundle, 'callout.release.doneDetailExpress')).toBe('string')
+  })
+
+  it('Delivery details says the same no-move sentence beside its Release lock as the board does', () => {
+    expect(at(enDoc, 'callout.release.noMove')).toBe(at(enBoard, 'release.noMove'))
+    expect(at(arDoc, 'callout.release.noMove')).toBe(at(arBoard, 'release.noMove'))
+  })
+
+  it('the quote lines are plain sentences: each value is isolated whole (fsi) and the line once, so no slot tags', () => {
+    for (const bundle of [enBoard, arBoard])
+      for (const key of ['quote.predicted', 'quote.other', 'quote.checkedAt']) expect(at(bundle, key), key).not.toMatch(/<\/?[a-z]+>/i)
   })
 })

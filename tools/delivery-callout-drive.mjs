@@ -252,6 +252,9 @@ function cases(rtl) {
           endReason: 'Expired',
           endedAt: `${D}10:05:00`,
           locked: true,
+          // 712 review: an express delivery, so the bar says a release frees no move beside Release lock.
+          isExpressDelivery: true,
+          storeMoveAvailable: false,
           fallbackAt: `${D}10:05:00`,
           bids: [
             bid('B1', 'R047', { status: 'EXPIRED', closedAt: `${D}10:05:00`, ignoreReason: 'NotReached' }),
@@ -685,7 +688,7 @@ async function drive(dir) {
         })),
       }
     })
-    check(`${label}: 715 the sub-tab reads "searched 10 km", the km an ltr isolate`, p.radius === '10' && strip(p.radiusText) === 'searched 10 km' && p.radiusLtr === '10', JSON.stringify(p.radius + '|' + p.radiusText))
+    check(`${label}: 715 the sub-tab reads "Searched 10 km", the km an ltr isolate`, p.radius === '10' && strip(p.radiusText) === 'Searched 10 km' && p.radiusLtr === '10', JSON.stringify(p.radius + '|' + p.radiusText))
     const row = (k) => p.rows.find((x) => x.kind === k) ?? {}
     const words = {
       CloseRefused: ['Close refused: the delivery is locked', 'CloseRefused: customer asked'],
@@ -702,7 +705,7 @@ async function drive(dir) {
     await open('8000000608')
     await page.locator('[data-activity-tab="callout"]').click()
     await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
-    check(`${label}: 715 "no radius search" at 0`, strip(await page.locator('[data-search-radius="0"]').innerText()) === 'no radius search')
+    check(`${label}: 715 "No radius search" at 0`, strip(await page.locator('[data-search-radius="0"]').innerText()) === 'No radius search')
     await open('8000000603')
     await page.locator('[data-activity-tab="callout"]').click()
     await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
@@ -740,6 +743,7 @@ async function drive(dir) {
 
   // ── 8: Release lock on Delivery details ─────────────────────────────────────────────────────
   await open('8000000600')
+  check(`${label}: 712 a non-express delivery says nothing of a move beside Release lock`, (await page.locator('[data-release-no-move-hint]').count()) === 0)
   await page.locator('[data-release-lock-action]').click()
   await page.locator('[data-release-dialog="8000000600"]').waitFor({ timeout: 5000 })
   const explain = await page.locator('[data-release-note-text]').textContent()
@@ -763,6 +767,32 @@ async function drive(dir) {
     JSON.stringify(after),
   )
   await page.screenshot({ path: `${SHOTS}/${dir}-released.png` })
+
+  // 712 review: an express delivery says, beside Release lock, that a release frees no move — and still offers it.
+  await open('8000000601')
+  const express = await page.evaluate(() => {
+    const action = document.querySelector('[data-release-lock-action]')
+    const hint = document.querySelector('[data-release-no-move-hint]')
+    return {
+      action: document.querySelectorAll('[data-release-lock-action]').length,
+      hint: hint?.textContent ?? null,
+      beside: !!(action && hint && action.parentElement?.parentElement?.contains(hint)),
+    }
+  })
+  check(
+    `${label}: 712 an express delivery says a release frees no move beside Release lock, which stays`,
+    express.action === 1 &&
+      express.beside &&
+      express.hint ===
+        'Releasing the lock does not free a store move on this delivery: an express delivery keeps its store once its OTO order exists. To get out of it, cancel the delivery.',
+    JSON.stringify(express),
+  )
+  await page.locator('[data-release-lock-action]').click()
+  await page.locator('[data-release-dialog="8000000601"]').waitFor({ timeout: 5000 })
+  check(`${label}: 712 …and the dialog says it too`, (await page.locator('[data-release-no-move]').count()) === 1)
+  await page.locator('[data-release-cancel]').click()
+  await page.locator('[data-release-dialog]').waitFor({ state: 'detached', timeout: 5000 })
+  await page.locator('[data-release-lock-action]').locator('xpath=ancestor::div[2]').screenshot({ path: `${SHOTS}/${dir}-712-express-bar.png` })
 
   access.canReleaseLock = false
   await page.reload()

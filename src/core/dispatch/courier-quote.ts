@@ -1,9 +1,9 @@
-import type { DispatchCallout, DispatchCourierQuote, LocalDateTime } from '@/core/models/dispatch-board'
+import type { DispatchCourierQuote, LocalDateTime } from '@/core/models/dispatch-board'
 import { formatMoney } from '@/core/util/number-format'
 
-// A callout's courier quote and its express flag (BackOffice spec 3306, door 3311 — oms ticket 712). In `@/core/`
-// beside `view.ts` because the board's row, its inspector and the Release lock dialog (shared with Delivery
-// details) all read them. Pure: no React, no `t` — label KEYS live in the `dispatch-board` namespace.
+// A callout's courier quote (BackOffice spec 3306, door 3311 — oms ticket 712). In `@/core/` beside `view.ts`
+// because the board's row and its inspector read it; the express flag is read straight off the callout
+// (`isExpressDelivery === true`). Pure: no React, no `t` — label KEYS live in the `dispatch-board` namespace.
 
 /**
  * What the board shows of a quote: nothing (no quote yet), an attention flag (`NoCourier` / `Failed`), a quiet
@@ -31,9 +31,4 @@ export function courierQuoteView(q: DispatchCourierQuote | null | undefined): Co
     }
   }
   return { kind: 'other', raw: q.outcome, checkedAt: q.checkedAt }
-}
-
-/** An express delivery keeps its store once its OTO order exists: releasing its lock frees no store move. */
-export function releaseFreesNoMove(c: Partial<Pick<DispatchCallout, 'isExpressDelivery'>>): boolean {
-  return c.isExpressDelivery === true
 }

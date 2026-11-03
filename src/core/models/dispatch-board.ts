@@ -113,7 +113,10 @@ export interface DispatchCallout {
   // callout read before 3311 deployed carries none of the three, and reads as no quote and not express.
   /** An express delivery keeps its store once its OTO order exists: a Release lock frees no move. */
   isExpressDelivery?: boolean
-  /** `!isExpressDelivery` on the wire: false = a Release lock frees no move, cancelling is the only way out. */
+  /**
+   * On the wire since BackOffice commit 1d09a8d94 (spec 3306 branch, not yet on pricing2): `!isExpressDelivery`,
+   * false = a Release lock frees no move, cancelling is the only way out. The client reads `isExpressDelivery`.
+   */
   storeMoveAvailable?: boolean
   /** What OTO predicted for the assigned store; `null` = no quote yet. */
   courierQuote?: DispatchCourierQuote | null

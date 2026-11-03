@@ -118,9 +118,7 @@
       "released": "Lock released <at>{{at}}</at> by <by>{{by}}</by>",
       "servingList": "serving list",
       "noServingList": "—",
-      "dutyRemoved": "removed by duty <n>{{n}}</n>",
-      "searchRadius": "searched <n>{{km}}</n> km",
-      "noRadiusSearch": "no radius search"
+      "dutyRemoved": "removed by duty <n>{{n}}</n>"
     },
     "ledger": {
       "title": "Bids",
@@ -153,7 +151,8 @@
     "release": {
       "done": "Lock released",
       "doneDetail": "Delivery {{delivery}} can now be changed or moved to another store.",
-      "doneDetailExpress": "Delivery {{delivery}} can now be changed, but it keeps its store: an express delivery cannot be moved once its OTO order exists."
+      "doneDetailExpress": "Delivery {{delivery}} can now be changed, but it keeps its store: an express delivery cannot be moved once its OTO order exists.",
+      "noMove": "Releasing the lock does not free a store move on this delivery: an express delivery keeps its store once its OTO order exists. To get out of it, cancel the delivery."
     },
     "event": {
       "StoreClosedAfterTake": "Store closed it after the take",

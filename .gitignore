@@ -156,3 +156,5 @@ tools/.insurance-playground-shots/
 tools/.insurance-coverage-shots/
 # Sourcing advisor drive screenshots (tools/sourcing-advisor-drive.mjs, ticket 738)
 tools/.sourcing-advisor-shots/
+# LF return panel drive screenshots (tools/lf-return-drive.mjs, ticket 762)
+tools/.lf-return-shots/

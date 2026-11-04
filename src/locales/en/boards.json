@@ -92,7 +92,10 @@
     "unsupported": "This chart type is not drawn here yet.",
     "notFoundTitle": "Analytics view not found",
     "noAccessTitle": "No access to this analytics view",
-    "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar."
+    "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",
+    "donutRefused": "A donut takes one additive measure. {{measure}} is a rate or a percentile, so it is not drawn as a donut.",
+    "topN_one": "Showing the top {{n}} row.",
+    "topN_other": "Showing the top {{n}} rows."
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",

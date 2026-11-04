@@ -7,6 +7,7 @@ import type { AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsView
 import { fsi } from '@/core/util/bidi'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import { labelIn, toBarView } from './view-model'
+import ViewForm, { isViewForm } from './ViewForms'
 
 /**
  * ONE view's chart, wherever a view is drawn (ticket 771): the view page and every board panel use it,
@@ -17,7 +18,7 @@ import { labelIn, toBarView } from './view-model'
  * 769's forms (`ViewForm`). A refusal of the answer is the caller's (the page's, or the panel's state).
  */
 export function drawsHere(def: AnalyticsViewDefinition): boolean {
-  return drawsAsSeries(def) || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
+  return drawsAsSeries(def) || isViewForm(def.chart.type) || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
 }
 
 /** A view's title, or — empty, as an AI view's is by default — one made from the model labels (766 §B). */
@@ -79,26 +80,31 @@ const ChartBody = memo(function ChartBody({
   model: AnalyticsModel
   lang: string
 }) {
-  const { t } = useTranslation('boards')
   const { t: tc } = useTranslation('common')
-  const series = drawsAsSeries(definition)
-  const view = !series ? toBarView(result, definition, model, lang) : null
-    return series ? (
-          <SeriesPanel result={result} definition={definition} model={model} lang={lang} />
-  ) : view?.empty ? (
+  const type = definition.chart.type
+  if (drawsAsSeries(definition)) return <SeriesPanel result={result} definition={definition} model={model} lang={lang} />
+  // 769's forms: the donut, the table with cell bars, the heatmap and the combo.
+  if (isViewForm(type)) return result.rows.length === 0 ? <Empty /> : <ViewForm type={type} result={result} definition={definition} model={model} lang={lang} />
+  const view = toBarView(result, definition, model, lang)
+  return view.empty ? (
+    <Empty />
+  ) : (
+    <VerticalBarChart
+      points={view.points}
+      colourBy={view.colourBy}
+      unit={view.measure.unit}
+      measureLabel={view.measure.label}
+      locale={lang}
+      ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
+    />
+  )
+})
+
+function Empty() {
+  const { t } = useTranslation('boards')
+  return (
     <p className="flex h-72 items-center justify-center text-sm text-muted-foreground" data-analytics-empty>
       {t('view.empty')}
     </p>
-  ) : (
-    view && (
-      <VerticalBarChart
-        points={view.points}
-        colourBy={view.colourBy}
-        unit={view.measure.unit}
-        measureLabel={view.measure.label}
-        locale={lang}
-        ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
-      />
-    )
   )
-})
+}

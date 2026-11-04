@@ -59,6 +59,7 @@ export default function SeriesChart({
   format,
   locale,
   ariaLabel,
+  otherCount = 0,
   height = 320,
 }: {
   form: 'line' | 'area' | 'bar'
@@ -71,10 +72,12 @@ export default function SeriesChart({
   format: AnalyticsNumberFormat
   locale: string
   ariaLabel: string
+  /** How many members the "Other" series folds (its legend says "Other (n)"). */
+  otherCount?: number
   height?: number
 }) {
   const { t } = useTranslation('common')
-  const named = series.map((s) => ({ ...s, name: s.other ? t('charts.other') : s.label, colour: slotColour(s.slot) }))
+  const named = series.map((s) => ({ ...s, name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.label, colour: slotColour(s.slot) }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
   const data = rows.map((r) => ({ label: r.label, ...r.values, fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) }))
   const stackId = stacking === 'stacked' ? 'stack' : undefined

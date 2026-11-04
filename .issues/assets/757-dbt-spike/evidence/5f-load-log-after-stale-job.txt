@@ -1,0 +1,6 @@
+load_id|job|model_name|status|message
+-------|---|----------|------|-------
+28|intraday|NULL|stale_source|dbt source freshness failed; no model ran
+27||fct_delivery|success|NULL
+
+(2 rows affected)

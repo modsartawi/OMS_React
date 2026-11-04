@@ -1,0 +1,18 @@
+# Ticket 757 item 7 — how the analytics host (749) would schedule the jobs. NOT installed anywhere:
+# the spike ran each job by hand through ../run.sh. Host clock assumed UTC; Riyadh = UTC+3, no DST.
+#
+# The fixed --name is the overlap guard: while one intraday run is still going, the next start fails
+# with "Conflict. The container name ... is already in use" (exit 125, evidence/7d-overlap-guard.txt)
+# instead of running two swaps at once. --rm frees the name when the run ends.
+# The secret comes from an env file only root can read, never from this line.
+#
+# intraday: every 15 minutes
+*/15 * * * *  docker run --rm --name dbt-intraday --env-file /etc/analytics/dbt.env --entrypoint /dbt/run-job.sh registry.local/pos-analytics-dbt:<tag> intraday  >> /var/log/analytics/dbt-intraday.log 2>&1
+# nightly: 03:00 Riyadh = 00:00 UTC (748: in 750's off-hours window)
+0 0 * * *     docker run --rm --name dbt-nightly  --env-file /etc/analytics/dbt.env --entrypoint /dbt/run-job.sh registry.local/pos-analytics-dbt:<tag> nightly   >> /var/log/analytics/dbt-nightly.log 2>&1
+#
+# /etc/analytics/dbt.env (mode 0600):
+#   ANALYTICS_DB_HOST=DWPOSREPL03
+#   ANALYTICS_DB_USER=svc_analytics_dbt
+#   DBT_ENV_SECRET_PASSWORD=...
+#   ANALYTICS_DB_TRUST_CERT=false      # install the replica host's CA instead

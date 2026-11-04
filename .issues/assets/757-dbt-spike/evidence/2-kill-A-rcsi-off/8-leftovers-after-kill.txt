@@ -1,0 +1,22 @@
+name|type|create_date
+----|----|-----------
+channel_map|U |2026-11-04 07:15:32.360
+fct_delivery|U |2026-11-04 07:15:32.590
+mart_load_log|U |2026-11-04 07:15:02.087
+mart_till_sales_daily|U |2026-11-04 07:15:32.367
+mart_till_sales_daily__dbt_tmp|U |2026-11-04 07:19:33.487
+mart_till_sales_daily__dbt_tmp__dbt_tmp_vw|V |2026-11-04 07:19:33.473
+
+(6 rows affected)
+open_dbt_sessions
+-----------------
+0
+
+(1 rows affected)
+load_id|model_name|status|logged_at_utc
+-------|----------|------|-------------
+18|fct_delivery|error|2026-11-04 07:18:17.024
+17|mart_till_sales_daily|error|2026-11-04 07:18:17.020
+16|mart_till_sales_daily|error|2026-11-04 07:18:00.657
+
+(3 rows affected)

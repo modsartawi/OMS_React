@@ -1,0 +1,16 @@
+07:19:35
+session_id|command|wait_type|open_transaction_count|transaction_begin_time
+----------|-------|---------|----------------------|----------------------
+76|WAITFOR|WAITFOR|1|2026-11-04 07:19:33.970
+
+(1 rows affected)
+resource_type|request_mode|locks
+-------------|------------|-----
+DATABASE|S|1
+KEY|X|1
+METADATA|Sch-S|1
+OBJECT|IX|2
+PAGE|IX|3
+RID|X|17
+
+(6 rows affected)

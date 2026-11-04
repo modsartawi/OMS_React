@@ -1,0 +1,39 @@
+[0m07:14:36  Running with dbt=1.12.6
+[0m07:14:36  dbt version: 1.12.6
+[0m07:14:36  python version: 3.12.16
+[0m07:14:36  python path: /usr/local/bin/python3.12
+[0m07:14:36  os info: Linux-7.0.12-linuxkit-aarch64-with-glibc2.36
+[0m07:14:37  Using profiles dir at /dbt
+[0m07:14:37  Using profiles.yml file at /dbt/profiles.yml
+[0m07:14:37  Using dbt_project.yml file at /dbt/dbt_project.yml
+[0m07:14:37  adapter type: sqlserver
+[0m07:14:37  adapter version: 1.12.2
+[0m07:14:37  Configuration:
+[0m07:14:37    profiles.yml file [[32mOK found and valid[0m]
+[0m07:14:37    dbt_project.yml file [[32mOK found and valid[0m]
+[0m07:14:37  Required dependencies:
+[0m07:14:37   - git [[31mERROR[0m]
+
+[0m07:14:37  Connection:
+[0m07:14:37    driver: ODBC Driver 18 for SQL Server
+[0m07:14:37    server: mssql
+[0m07:14:37    port: 1433
+[0m07:14:37    database: POS_Analytics
+[0m07:14:37    schema: dbo
+[0m07:14:37    UID: svc_analytics_dbt
+[0m07:14:37    authentication: sql
+[0m07:14:37    windows_login: False
+[0m07:14:37    retries: 1
+[0m07:14:37    login_timeout: 15
+[0m07:14:37    query_timeout: 0
+[0m07:14:37    trace_flag: False
+[0m07:14:37    encrypt: True
+[0m07:14:37    trust_cert: True
+[0m07:14:37    backend: pyodbc
+[0m07:14:37    xact_abort: True
+[0m07:14:37  Registered adapter: sqlserver=1.12.2
+[0m07:14:37    Connection test: [[32mOK connection ok[0m]
+
+[0m07:14:37  [31m1 check failed:[0m
+[0m07:14:37  Error from git --help: Could not find command, ensure it is in the user's PATH: "git"
+

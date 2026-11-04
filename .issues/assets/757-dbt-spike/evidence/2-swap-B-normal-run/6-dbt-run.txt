@@ -1,0 +1,24 @@
+07:21:03  Running with dbt=1.12.6
+07:21:03  Registered adapter: sqlserver=1.12.2
+07:21:03  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:21:04  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:21:04  
+07:21:04  Concurrency: 2 threads (target='analytics')
+07:21:04  
+07:21:04  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:21:04  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:21:04  
+07:21:04  1 of 1 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:21:05  [WARNING]: Allow the SQL Server adapter to widen column types during schema expansion. This enables promotions like varchar -> nvarchar, bit -> tinyint -> smallint -> int -> bigint, and numeric(p,s) -> numeric(p2,s2) using alter column.
+You may opt into the new behavior sooner by setting `flags.dbt_sqlserver_enable_safe_type_expansion` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+07:21:05  1 of 1 OK created sql incremental model dbo.mart_till_sales_daily .............. [OK in 1.13s]
+07:21:05  
+07:21:05  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:21:05  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:21:05  
+07:21:05  Finished running 1 incremental model, 2 project hooks in 0 hours 0 minutes and 1.25 seconds (1.25s).
+07:21:05  
+07:21:05  Completed successfully
+07:21:05  
+07:21:05  Done. PASS=3 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=3

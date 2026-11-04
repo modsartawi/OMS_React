@@ -1,0 +1,3 @@
+docker: Error response from daemon: Conflict. The container name "/dbt-intraday-guard" is already in use by container "c05c134d71853295e253cd1d7f9202f57338b9289d564f8fb26b92ec7715c20a". You have to remove (or rename) that container to be able to reuse that name.
+See 'docker run --help'.
+second start rc=125

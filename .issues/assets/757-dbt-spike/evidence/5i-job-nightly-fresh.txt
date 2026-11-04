@@ -1,0 +1,60 @@
+07:32:23  Running with dbt=1.12.6
+07:32:23  Registered adapter: sqlserver=1.12.2
+07:32:23  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:32:24  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:32:24  
+07:32:24  Concurrency: 2 threads (target='analytics')
+07:32:24  
+07:32:25  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:32:25  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:32:25  
+07:32:25  1 of 3 START freshness of pos.RetailTrx ........................................ [RUN]
+07:32:25  2 of 3 START freshness of pos.SdDocumentHeader ................................. [RUN]
+07:32:25  2 of 3 PASS freshness of pos.SdDocumentHeader .................................. [PASS in 0.06s]
+07:32:25  3 of 3 START freshness of pos.SdDocumentLog .................................... [RUN]
+07:32:25  1 of 3 PASS freshness of pos.RetailTrx ......................................... [PASS in 0.06s]
+07:32:25  3 of 3 PASS freshness of pos.SdDocumentLog ..................................... [PASS in 0.03s]
+07:32:25  
+07:32:25  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:32:25  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:32:25  
+07:32:25  Finished running 2 project hooks, 3 sources in 0 hours 0 minutes and 0.16 seconds (0.16s).
+07:32:25  Done.
+07:32:26  Running with dbt=1.12.6
+07:32:26  Registered adapter: sqlserver=1.12.2
+07:32:26  Unable to do partial parsing because config vars, config profile, or config target have changed
+07:32:27  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:32:27  
+07:32:27  Concurrency: 2 threads (target='analytics')
+07:32:27  
+07:32:27  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:32:27  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:32:27  
+07:32:27  1 of 8 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:32:27  2 of 8 START seed file dbo.channel_map ......................................... [RUN]
+07:32:27  2 of 8 OK loaded seed file dbo.channel_map ..................................... [INSERT 5 in 0.11s]
+07:32:27  3 of 8 START sql incremental model dbo.fct_delivery ............................ [RUN]
+07:32:28  [WARNING]: Allow the SQL Server adapter to widen column types during schema expansion. This enables promotions like varchar -> nvarchar, bit -> tinyint -> smallint -> int -> bigint, and numeric(p,s) -> numeric(p2,s2) using alter column.
+You may opt into the new behavior sooner by setting `flags.dbt_sqlserver_enable_safe_type_expansion` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+07:32:28  1 of 8 OK created sql incremental model dbo.mart_till_sales_daily .............. [OK in 0.78s]
+07:32:28  4 of 8 START test not_null_mart_till_sales_daily_sales_date .................... [RUN]
+07:32:28  4 of 8 PASS not_null_mart_till_sales_daily_sales_date .......................... [PASS in 0.05s]
+07:32:28  5 of 8 START test till_value_reconciles_yesterday .............................. [RUN]
+07:32:28  5 of 8 PASS till_value_reconciles_yesterday .................................... [PASS in 0.06s]
+07:32:28  3 of 8 OK created sql incremental model dbo.fct_delivery ....................... [OK in 1.19s]
+07:32:28  6 of 8 START test not_null_fct_delivery_delivery_no ............................ [RUN]
+07:32:28  7 of 8 START test not_null_fct_delivery_store_code ............................. [RUN]
+07:32:28  7 of 8 PASS not_null_fct_delivery_store_code ................................... [PASS in 0.08s]
+07:32:28  8 of 8 START test unique_fct_delivery_delivery_no .............................. [RUN]
+07:32:29  6 of 8 PASS not_null_fct_delivery_delivery_no .................................. [PASS in 0.16s]
+07:32:29  8 of 8 PASS unique_fct_delivery_delivery_no .................................... [PASS in 0.08s]
+07:32:29  
+07:32:29  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:32:29  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:32:29  
+07:32:29  Finished running 2 incremental models, 2 project hooks, 1 seed, 5 data tests in 0 hours 0 minutes and 1.56 seconds (1.56s).
+07:32:29  
+07:32:29  Completed successfully
+07:32:29  
+07:32:29  Done. PASS=10 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=10

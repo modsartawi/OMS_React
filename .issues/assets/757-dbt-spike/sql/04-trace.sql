@@ -1,0 +1,12 @@
+-- Ticket 757: the XE capture. Every svc_analytics_dbt statement and every object event, by database.
+SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON;
+SELECT x.value('(event/@name)[1]','sysname') ev,
+       x.value('(event/@timestamp)[1]','datetime2') at,
+       x.value('(event/action[@name="database_name"]/value)[1]','sysname') db,
+       x.value('(event/action[@name="server_principal_name"]/value)[1]','sysname') login,
+       x.value('(event/data[@name="object_name"]/value)[1]','sysname') object_name,
+       LEFT(REPLACE(REPLACE(COALESCE(x.value('(event/data[@name="batch_text"]/value)[1]','nvarchar(max)'),
+            x.value('(event/data[@name="statement"]/value)[1]','nvarchar(max)'),
+            x.value('(event/data[@name="message"]/value)[1]','nvarchar(max)')), CHAR(10), ' '), CHAR(13), ' '), 300) txt
+FROM (SELECT CAST(event_data AS xml) x FROM sys.fn_xe_file_target_read_file('/var/opt/mssql/log/spike757*.xel', NULL, NULL, NULL)) t
+ORDER BY at;

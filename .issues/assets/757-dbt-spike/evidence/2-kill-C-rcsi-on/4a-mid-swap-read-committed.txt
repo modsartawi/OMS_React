@@ -1,0 +1,5 @@
+today_read_committed
+--------------------
+1781
+
+(1 rows affected)

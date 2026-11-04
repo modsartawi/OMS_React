@@ -1,0 +1,5 @@
+today_after_kill
+----------------
+1781
+
+(1 rows affected)

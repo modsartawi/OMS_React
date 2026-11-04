@@ -1,0 +1,37 @@
+07:32:06  Running with dbt=1.12.6
+07:32:06  Registered adapter: sqlserver=1.12.2
+07:32:06  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:32:07  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:32:07  
+07:32:07  Concurrency: 2 threads (target='analytics')
+07:32:07  
+07:32:07  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:32:07  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:32:07  
+07:32:07  1 of 7 START sql incremental model dbo.fct_delivery ............................ [RUN]
+07:32:07  2 of 7 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:32:08  [WARNING]: Allow the SQL Server adapter to widen column types during schema expansion. This enables promotions like varchar -> nvarchar, bit -> tinyint -> smallint -> int -> bigint, and numeric(p,s) -> numeric(p2,s2) using alter column.
+You may opt into the new behavior sooner by setting `flags.dbt_sqlserver_enable_safe_type_expansion` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+07:32:08  2 of 7 OK created sql incremental model dbo.mart_till_sales_daily .............. [OK in 0.96s]
+07:32:08  3 of 7 START test not_null_mart_till_sales_daily_sales_date .................... [RUN]
+07:32:08  3 of 7 PASS not_null_mart_till_sales_daily_sales_date .......................... [PASS in 0.07s]
+07:32:08  4 of 7 START test till_value_reconciles_yesterday .............................. [RUN]
+07:32:09  4 of 7 PASS till_value_reconciles_yesterday .................................... [PASS in 0.11s]
+07:32:09  1 of 7 OK created sql incremental model dbo.fct_delivery ....................... [OK in 1.62s]
+07:32:09  5 of 7 START test not_null_fct_delivery_delivery_no ............................ [RUN]
+07:32:09  6 of 7 START test not_null_fct_delivery_store_code ............................. [RUN]
+07:32:09  6 of 7 PASS not_null_fct_delivery_store_code ................................... [PASS in 0.07s]
+07:32:09  5 of 7 PASS not_null_fct_delivery_delivery_no .................................. [PASS in 0.07s]
+07:32:09  7 of 7 START test unique_fct_delivery_delivery_no .............................. [RUN]
+07:32:09  7 of 7 PASS unique_fct_delivery_delivery_no .................................... [PASS in 0.08s]
+07:32:09  
+07:32:09  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:32:09  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.01s]
+07:32:09  
+07:32:09  Finished running 2 incremental models, 2 project hooks, 5 data tests in 0 hours 0 minutes and 1.94 seconds (1.94s).
+07:32:09  
+07:32:09  Completed successfully
+07:32:09  
+07:32:09  Done. PASS=9 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=9
+today after bare build: 1033

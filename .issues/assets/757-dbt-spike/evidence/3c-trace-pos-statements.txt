@@ -1,0 +1,6 @@
+ev|db|usage|statements
+--|--|-----|----------
+sql_batch_completed|POS_Analytics|reads POS (FROM/JOIN)|107
+statements_naming_pos|write_shaped
+---------------------|------------
+107|0

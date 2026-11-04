@@ -1,0 +1,13 @@
+
+(1 rows affected)
+
+(535 rows affected)
+
+(535 rows affected)
+
+(200 rows affected)
+stashed_events|newest_left
+--------------|-----------
+535|2026-11-04 10:27:31.000
+
+(1 rows affected)

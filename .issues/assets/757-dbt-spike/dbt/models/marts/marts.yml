@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: fct_delivery
+    columns:
+      - name: delivery_no
+        data_tests: [unique, not_null]
+      - name: store_code
+        data_tests: [not_null]
+  - name: mart_till_sales_daily
+    columns:
+      - name: sales_date
+        data_tests: [not_null]
+
+seeds:
+  - name: channel_map
+    config:
+      column_types: { document_source: varchar(10), channel_group: varchar(20) }

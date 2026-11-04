@@ -1,0 +1,5 @@
+name|is_read_committed_snapshot_on
+----|-----------------------------
+POS_Analytics|0
+
+(1 rows affected)

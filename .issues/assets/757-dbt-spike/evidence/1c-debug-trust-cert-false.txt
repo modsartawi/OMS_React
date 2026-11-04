@@ -1,0 +1,49 @@
+07:14:56  Running with dbt=1.12.6
+07:14:56  dbt version: 1.12.6
+07:14:56  python version: 3.12.16
+07:14:56  python path: /usr/local/bin/python3.12
+07:14:56  os info: Linux-7.0.12-linuxkit-aarch64-with-glibc2.36
+07:14:56  Using profiles dir at /dbt
+07:14:56  Using profiles.yml file at /dbt/profiles.yml
+07:14:56  Using dbt_project.yml file at /dbt/dbt_project.yml
+07:14:56  adapter type: sqlserver
+07:14:56  adapter version: 1.12.2
+07:14:56  Configuration:
+07:14:56    profiles.yml file [OK found and valid]
+07:14:56    dbt_project.yml file [OK found and valid]
+07:14:56  Required dependencies:
+07:14:56   - git [ERROR]
+
+07:14:56  Connection:
+07:14:56    driver: ODBC Driver 18 for SQL Server
+07:14:56    server: mssql
+07:14:56    port: 1433
+07:14:56    database: POS_Analytics
+07:14:56    schema: dbo
+07:14:56    UID: svc_analytics_dbt
+07:14:56    authentication: sql
+07:14:56    windows_login: False
+07:14:56    retries: 1
+07:14:56    login_timeout: 15
+07:14:56    query_timeout: 0
+07:14:56    trace_flag: False
+07:14:56    encrypt: True
+07:14:56    trust_cert: False
+07:14:56    backend: pyodbc
+07:14:56    xact_abort: True
+07:14:56  Registered adapter: sqlserver=1.12.2
+07:14:57    Connection test: [ERROR]
+
+07:14:57  2 checks failed:
+07:14:57  Error from git --help: Could not find command, ensure it is in the user's PATH: "git"
+
+07:14:57  dbt was unable to connect to the specified database.
+The database returned the following error:
+
+  >Database Error
+  ('08001', '[08001] [Microsoft][ODBC Driver 18 for SQL Server]SSL Provider: [error:0A000086:SSL routines::certificate verify failed:self-signed certificate] (-1) (SQLDriverConnect)')
+
+Check your database credentials and try again. For more information, visit:
+https://docs.getdbt.com/docs/configure-your-profile
+
+

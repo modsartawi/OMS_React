@@ -1,0 +1,2 @@
+Msg 1222, Level 16, State 45, Server 6a2a0fd50f32, Line 1
+Lock request time out period exceeded.

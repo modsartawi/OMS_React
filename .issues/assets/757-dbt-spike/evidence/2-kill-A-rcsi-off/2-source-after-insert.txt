@@ -1,0 +1,7 @@
+
+(500 rows affected)
+today_source_sales
+------------------
+1781
+
+(1 rows affected)

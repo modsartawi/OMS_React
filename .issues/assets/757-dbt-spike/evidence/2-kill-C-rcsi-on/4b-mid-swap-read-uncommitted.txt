@@ -1,0 +1,5 @@
+today_nolock|rows_today
+------------|----------
+2081|9
+
+(1 rows affected)

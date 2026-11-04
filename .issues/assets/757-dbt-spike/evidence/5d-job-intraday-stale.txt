@@ -1,0 +1,28 @@
+07:31:22  Running with dbt=1.12.6
+07:31:22  Registered adapter: sqlserver=1.12.2
+07:31:22  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:31:24  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:31:24  
+07:31:24  Concurrency: 2 threads (target='analytics')
+07:31:24  
+07:31:24  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:31:24  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:31:24  
+07:31:24  1 of 3 START freshness of pos.RetailTrx ........................................ [RUN]
+07:31:24  2 of 3 START freshness of pos.SdDocumentHeader ................................. [RUN]
+07:31:24  2 of 3 PASS freshness of pos.SdDocumentHeader .................................. [PASS in 0.07s]
+07:31:24  1 of 3 PASS freshness of pos.RetailTrx ......................................... [PASS in 0.07s]
+07:31:24  3 of 3 START freshness of pos.SdDocumentLog .................................... [RUN]
+07:31:24  3 of 3 ERROR STALE freshness of pos.SdDocumentLog .............................. [ERROR STALE in 0.04s]
+07:31:24  
+07:31:24  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:31:24  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:31:24  
+07:31:24  Finished running 2 project hooks, 3 sources in 0 hours 0 minutes and 0.22 seconds (0.22s).
+07:31:24  
+07:31:24  [ERROR]: in source SdDocumentLog (models/sources.yml)
+07:31:24    Status: error
+07:31:24  Done.
+07:31:25  Running with dbt=1.12.6
+07:31:25  Registered adapter: sqlserver=1.12.2
+07:31:26  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros

@@ -1,0 +1,21 @@
+# Ticket 757 — the profile that works against SQL Server 2022 with ODBC Driver 18 (item 1).
+# No secrets in this file: the password comes from DBT_ENV_SECRET_PASSWORD, which dbt scrubs from logs.
+pos_analytics:
+  target: analytics
+  outputs:
+    analytics:
+      type: sqlserver
+      backend: pyodbc                       # the default; needs the dbt-sqlserver[pyodbc] extra
+      driver: "ODBC Driver 18 for SQL Server"
+      server: "{{ env_var('ANALYTICS_DB_HOST') }}"
+      port: "{{ env_var('ANALYTICS_DB_PORT', '1433') | as_number }}"
+      database: POS_Analytics               # the target; sources name POS in three-part names
+      schema: dbo
+      user: "{{ env_var('ANALYTICS_DB_USER', 'svc_analytics_dbt') }}"
+      password: "{{ env_var('DBT_ENV_SECRET_PASSWORD') }}"
+      encrypt: true                          # Driver 18 default; keep it
+      trust_cert: "{{ (env_var('ANALYTICS_DB_TRUST_CERT', 'false') | lower == 'true') | as_bool }}"   # true only for the self-signed spike box
+      login_timeout: 15
+      query_timeout: 0
+      retries: 1
+      threads: 2                             # 748: one or two threads

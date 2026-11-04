@@ -1,0 +1,58 @@
+07:35:03  Running with dbt=1.12.6
+07:35:04  Registered adapter: sqlserver=1.12.2
+07:35:04  Unable to do partial parsing because profile has changed
+07:35:05  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:35:05  
+07:35:05  Concurrency: 2 threads (target='analytics')
+07:35:05  
+07:35:05  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:35:05  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:35:05  
+07:35:05  1 of 3 START freshness of pos.RetailTrx ........................................ [RUN]
+07:35:05  2 of 3 START freshness of pos.SdDocumentHeader ................................. [RUN]
+07:35:05  2 of 3 PASS freshness of pos.SdDocumentHeader .................................. [PASS in 0.06s]
+07:35:05  3 of 3 START freshness of pos.SdDocumentLog .................................... [RUN]
+07:35:05  1 of 3 PASS freshness of pos.RetailTrx ......................................... [PASS in 0.07s]
+07:35:05  3 of 3 PASS freshness of pos.SdDocumentLog ..................................... [PASS in 0.03s]
+07:35:05  
+07:35:05  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:35:05  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:35:05  
+07:35:05  Finished running 2 project hooks, 3 sources in 0 hours 0 minutes and 0.20 seconds (0.20s).
+07:35:05  Done.
+07:35:06  Running with dbt=1.12.6
+07:35:06  Registered adapter: sqlserver=1.12.2
+07:35:06  Unable to do partial parsing because config vars, config profile, or config target have changed
+07:35:08  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:35:08  
+07:35:08  Concurrency: 2 threads (target='analytics')
+07:35:08  
+07:35:08  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:35:08  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:35:08  
+07:35:08  1 of 7 START sql incremental model dbo.fct_delivery ............................ [RUN]
+07:35:08  2 of 7 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:35:08  [WARNING]: Allow the SQL Server adapter to widen column types during schema expansion. This enables promotions like varchar -> nvarchar, bit -> tinyint -> smallint -> int -> bigint, and numeric(p,s) -> numeric(p2,s2) using alter column.
+You may opt into the new behavior sooner by setting `flags.dbt_sqlserver_enable_safe_type_expansion` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+07:35:08  2 of 7 OK created sql incremental model dbo.mart_till_sales_daily .............. [OK in 0.76s]
+07:35:08  3 of 7 START test not_null_mart_till_sales_daily_sales_date .................... [RUN]
+07:35:08  3 of 7 PASS not_null_mart_till_sales_daily_sales_date .......................... [PASS in 0.05s]
+07:35:08  4 of 7 START test till_value_reconciles_yesterday .............................. [RUN]
+07:35:09  4 of 7 PASS till_value_reconciles_yesterday .................................... [PASS in 0.06s]
+07:35:09  1 of 7 OK created sql incremental model dbo.fct_delivery ....................... [OK in 1.16s]
+07:35:09  5 of 7 START test not_null_fct_delivery_delivery_no ............................ [RUN]
+07:35:09  6 of 7 START test not_null_fct_delivery_store_code ............................. [RUN]
+07:35:09  5 of 7 PASS not_null_fct_delivery_delivery_no .................................. [PASS in 0.07s]
+07:35:09  7 of 7 START test unique_fct_delivery_delivery_no .............................. [RUN]
+07:35:09  6 of 7 PASS not_null_fct_delivery_store_code ................................... [PASS in 0.07s]
+07:35:09  7 of 7 PASS unique_fct_delivery_delivery_no .................................... [PASS in 0.06s]
+07:35:09  
+07:35:09  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:35:09  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:35:09  
+07:35:09  Finished running 2 incremental models, 2 project hooks, 5 data tests in 0 hours 0 minutes and 1.39 seconds (1.39s).
+07:35:09  
+07:35:09  Completed successfully
+07:35:09  
+07:35:09  Done. PASS=9 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=9

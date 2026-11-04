@@ -1,0 +1,28 @@
+2026-11-04 07:35:19.3460000 /* {"app": "dbt", "dbt_version": "1.12.6", "profile_name": "pos_analytics", "target_name": "analytics", "node_id": "model.pos_analytics.mart_till_sales_daily"} */
+
+        
+
+    
+        
+            SET NOCOUNT ON;
+            delete DBT_INTERNAL_DEST from "POS_Analytics"."dbo"."mart_till_sales_daily" as DBT_INTERNAL_DEST
+            where (
+                sales_date) in (
+                select (sales_date)
+                from "POS_Analytics"."dbo"."mart_till_sales_daily__dbt_tmp"
+            )
+    OPTION (LABEL = 'dbt-sqlserver');
+
+            SET NOCOUNT OFF;
+        
+    
+
+    insert into "POS_Analytics"."dbo"."mart_till_sales_daily" ("sales_date", "store_code", "country", "nphies_linked", "till_sales", "till_returns", "gross_till_value_sar", "returns_value_sar", "loyalty_identified_sales", "order_linked_sales", "_source_newest_at", "_loaded_at")
+    (
+        select "sales_date", "store_code", "country", "nphies_linked", "till_sales", "till_returns", "gross_till_value_sar", "returns_value_sar", "loyalty_identified_sales", "order_linked_sales", "_source_newest_at", "_loaded_at"
+        from "POS_Analytics"."dbo"."mart_till_sales_daily__dbt_tmp"
+    )
+    OPTION (LABEL = 'dbt-sqlserver');
+
+
+    

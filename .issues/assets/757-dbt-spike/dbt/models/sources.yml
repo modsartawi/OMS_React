@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: pos
+    description: The replica subscription DB (here, the local synthetic stand-in). Read-only to dbt.
+    database: POS          # three-part names: POS.dbo.<table>, built into POS_Analytics
+    schema: dbo
+    # POS times are Riyadh local (UTC+3, no DST). collect_freshness is overridden in
+    # macros/freshness.sql to compare in UTC, so the server clock's time zone does not matter.
+    freshness:
+      warn_after: { count: 30, period: minute }
+      error_after: { count: 60, period: minute }
+    tables:
+      - name: SdDocumentLog
+        loaded_at_field: "DATEADD(hour, -3, EntryTime)"
+      - name: SdDocumentHeader
+        loaded_at_field: "DATEADD(hour, -3, EntryTime)"
+      - name: RetailTrx
+        loaded_at_field: "DATEADD(hour, -3, TrxDate)"
+        # bad till clocks write 2028/2029 (745): ignore the future, or the source is never stale
+        freshness:
+          warn_after: { count: 30, period: minute }
+          error_after: { count: 60, period: minute }
+          filter: "TrxDate <= DATEADD(hour, 3, SYSUTCDATETIME())"
+      - name: Store
+        freshness: null

@@ -1,0 +1,39 @@
+# Ticket 757 — the 748 mart pipeline, cut down to two marts. Local spike; never the replica.
+name: pos_analytics
+version: "0.1.0"
+config-version: 2
+profile: pos_analytics
+
+model-paths: [models]
+macro-paths: [macros]
+seed-paths: [seeds]
+test-paths: [tests]
+clean-targets: [target, logs]
+
+flags:
+  send_anonymous_usage_stats: false   # also DBT_SEND_ANONYMOUS_USAGE_STATS=false in the image
+
+vars:
+  # Days to rebuild, counting today. null = the intraday rule: today, plus yesterday before 02:00 Riyadh.
+  # nightly passes 3; the post-reinit runbook passes N (748). Never --full-refresh for that.
+  lookback_days: null
+  # First build only: how far back the history goes.
+  history_days: 400
+  # Spike only: seconds to hold the swap transaction open (the kill test, item 2). 0 = off.
+  spike_pause_s: 0
+
+on-run-start:
+  - "{{ ensure_load_log() }}"
+on-run-end:
+  - "{{ log_failed_models(results) }}"
+
+models:
+  pos_analytics:
+    +materialized: incremental
+    +incremental_strategy: delete+insert
+    +on_schema_change: fail
+    +as_columnstore: false
+
+seeds:
+  pos_analytics:
+    +tags: [nightly]   # the channel map changes by code review, not every 15 minutes

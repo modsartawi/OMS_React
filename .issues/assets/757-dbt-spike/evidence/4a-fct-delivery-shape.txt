@@ -1,0 +1,5 @@
+stores|deliveries|delivered|avg_min|channels
+------|----------|---------|-------|--------
+100|233902|210391|177.130571|4
+
+(1 rows affected)

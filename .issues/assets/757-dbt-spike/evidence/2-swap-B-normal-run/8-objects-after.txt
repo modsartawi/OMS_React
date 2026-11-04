@@ -1,0 +1,8 @@
+name|type
+----|----
+channel_map|U 
+fct_delivery|U 
+mart_load_log|U 
+mart_till_sales_daily|U 
+
+(4 rows affected)

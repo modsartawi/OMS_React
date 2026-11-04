@@ -1,0 +1,7 @@
+no-baked-parse run 1 rc=0 wall=11.4s full_parses=2 dbt_first_log=07:34:17 dbt_last_log=07:34:23
+no-baked-parse run 2 rc=0 wall=8.9s full_parses=2 dbt_first_log=07:34:30 dbt_last_log=07:34:35
+no-baked-parse run 3 rc=0 wall=7.6s full_parses=2 dbt_first_log=07:34:39 dbt_last_log=07:34:44
+baked-parse run 1 rc=0 wall=8.3s full_parses=2 dbt_first_log=07:34:53 dbt_last_log=07:34:59
+baked-parse run 2 rc=0 wall=9.3s full_parses=2 dbt_first_log=07:35:03 dbt_last_log=07:35:09
+baked-parse run 3 rc=0 wall=8.5s full_parses=2 dbt_first_log=07:35:14 dbt_last_log=07:35:19
+container start + dbt --version + exit: 4.2s

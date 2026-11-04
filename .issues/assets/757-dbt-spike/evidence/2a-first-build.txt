@@ -1,0 +1,35 @@
+07:27:49  Running with dbt=1.12.6
+07:27:49  Registered adapter: sqlserver=1.12.2
+07:27:49  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:27:50  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:27:50  
+07:27:50  Concurrency: 2 threads (target='analytics')
+07:27:50  
+07:27:50  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:27:50  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:27:50  
+07:27:50  1 of 8 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:27:50  2 of 8 START seed file dbo.channel_map ......................................... [RUN]
+07:27:51  2 of 8 OK loaded seed file dbo.channel_map ..................................... [CREATE 5 in 0.14s]
+07:27:51  3 of 8 START sql incremental model dbo.fct_delivery ............................ [RUN]
+07:27:52  1 of 8 OK created sql incremental model dbo.mart_till_sales_daily .............. [OK in 1.27s]
+07:27:52  4 of 8 START test not_null_mart_till_sales_daily_sales_date .................... [RUN]
+07:27:52  4 of 8 PASS not_null_mart_till_sales_daily_sales_date .......................... [PASS in 0.05s]
+07:27:52  5 of 8 START test till_value_reconciles_yesterday .............................. [RUN]
+07:27:52  5 of 8 PASS till_value_reconciles_yesterday .................................... [PASS in 0.10s]
+07:27:53  3 of 8 OK created sql incremental model dbo.fct_delivery ....................... [OK in 2.32s]
+07:27:53  6 of 8 START test not_null_fct_delivery_delivery_no ............................ [RUN]
+07:27:53  7 of 8 START test not_null_fct_delivery_store_code ............................. [RUN]
+07:27:53  7 of 8 PASS not_null_fct_delivery_store_code ................................... [PASS in 0.07s]
+07:27:53  8 of 8 START test unique_fct_delivery_delivery_no .............................. [RUN]
+07:27:53  6 of 8 PASS not_null_fct_delivery_delivery_no .................................. [PASS in 0.15s]
+07:27:54  8 of 8 PASS unique_fct_delivery_delivery_no .................................... [PASS in 1.47s]
+07:27:54  
+07:27:54  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:27:54  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.00s]
+07:27:54  
+07:27:54  Finished running 2 incremental models, 2 project hooks, 1 seed, 5 data tests in 0 hours 0 minutes and 4.11 seconds (4.11s).
+07:27:54  
+07:27:54  Completed successfully
+07:27:54  
+07:27:54  Done. PASS=10 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=10

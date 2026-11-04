@@ -1,0 +1,5 @@
+# Ticket 757: scripts run inside Linux containers; a CRLF checkout (core.autocrlf=true) breaks their shebang.
+*.sh text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf

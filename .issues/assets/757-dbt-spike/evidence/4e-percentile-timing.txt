@@ -1,0 +1,25 @@
+== fct_delivery (heap, synthetic scale)
+179080|161063    CPU time = 4602 ms,  elapsed time = 710 ms. 100|770 
+179080|161063    CPU time = 4006 ms,  elapsed time = 611 ms. 100|670 
+179080|161063    CPU time = 4678 ms,  elapsed time = 796 ms. 100|845 
+== fct_delivery_x8 (heap, 8x)
+1432640|1288504    CPU time = 20200 ms,  elapsed time = 2443 ms. 100|2557 
+1432640|1288504    CPU time = 18226 ms,  elapsed time = 1992 ms. 100|2111 
+1432640|1288504    CPU time = 15417 ms,  elapsed time = 1631 ms. 100|1686 
+== fct_delivery_x8 (rowstore clustered on created_date, store_code)
+1432640|1288504    CPU time = 19 ms, elapsed time = 19 ms.    CPU time = 19080 ms,  elapsed time = 1971 ms. 100|2209 
+1432640|1288504    CPU time = 14363 ms,  elapsed time = 1553 ms. 100|1738 
+1432640|1288504    CPU time = 15222 ms,  elapsed time = 1584 ms. 100|1768 
+== fct_delivery_x8 (clustered columnstore)
+1432640|1288504    CPU time = 20 ms, elapsed time = 20 ms.    CPU time = 15041 ms,  elapsed time = 1649 ms. 100|1715 
+1432640|1288504    CPU time = 15117 ms,  elapsed time = 1625 ms. 100|1628 
+1432640|1288504    CPU time = 14975 ms,  elapsed time = 1612 ms. 100|1619 
+cpu_count|scheduler_count|maxdop
+---------|---------------|------
+16|16|0
+
+(1 rows affected)
+MAXDOP 1, 8x columnstore: 1432640|1288504    CPU time = 4638 ms,  elapsed time = 4645 ms. 100|4664 
+MAXDOP 2, 8x columnstore: 1432640|1288504    CPU time = 10239 ms,  elapsed time = 5183 ms. 100|5192 
+MAXDOP 4, 8x columnstore: 1432640|1288504    CPU time = 9688 ms,  elapsed time = 2524 ms. 100|2537 
+one store P001, 8x columnstore: 1432640|1288504    CPU time = 36 ms,  elapsed time = 35 ms. 1|38 

@@ -1,0 +1,42 @@
+07:18:15  Running with dbt=1.12.6
+07:18:15  Registered adapter: sqlserver=1.12.2
+07:18:15  Unable to do partial parsing because saved manifest not found. Starting full parse.
+07:18:16  Found 2 models, 5 data tests, 1 seed, 2 operations, 4 sources, 588 macros
+07:18:16  
+07:18:16  Concurrency: 2 threads (target='analytics')
+07:18:16  
+07:18:16  1 of 1 START hook: pos_analytics.on-run-start.0 ................................ [RUN]
+07:18:16  1 of 1 OK hook: pos_analytics.on-run-start.0 ................................... [OK in 0.01s]
+07:18:16  
+07:18:16  1 of 7 START sql incremental model dbo.fct_delivery ............................ [RUN]
+07:18:16  2 of 7 START sql incremental model dbo.mart_till_sales_daily ................... [RUN]
+07:18:16  2 of 7 ERROR creating sql incremental model dbo.mart_till_sales_daily .......... [ERROR in 0.01s]
+07:18:16  1 of 7 ERROR creating sql incremental model dbo.fct_delivery ................... [ERROR in 0.02s]
+07:18:17  3 of 7 SKIP test not_null_mart_till_sales_daily_sales_date ..................... [SKIP]
+07:18:17  4 of 7 SKIP test till_value_reconciles_yesterday ............................... [SKIP]
+07:18:17  5 of 7 SKIP test not_null_fct_delivery_delivery_no ............................. [SKIP]
+07:18:17  6 of 7 SKIP test not_null_fct_delivery_store_code .............................. [SKIP]
+07:18:17  7 of 7 SKIP test unique_fct_delivery_delivery_no ............................... [SKIP]
+07:18:17  
+07:18:17  1 of 1 START hook: pos_analytics.on-run-end.0 .................................. [RUN]
+07:18:17  1 of 1 OK hook: pos_analytics.on-run-end.0 ..................................... [OK in 0.01s]
+07:18:17  
+07:18:17  Finished running 2 incremental models, 2 project hooks, 5 data tests in 0 hours 0 minutes and 0.16 seconds (0.16s).
+07:18:17  
+07:18:17  Completed with 2 errors, 0 partial successes, and 0 warnings:
+07:18:17  
+07:18:17  [ERROR]: in model mart_till_sales_daily (models/marts/mart_till_sales_daily.sql)
+07:18:17    Compilation Error in model mart_till_sales_daily (models/marts/mart_till_sales_daily.sql)
+  lookback_days must be a whole number 1..92, got x
+  
+  > in macro lookback_start (macros/time.sql)
+  > called by model mart_till_sales_daily (models/marts/mart_till_sales_daily.sql)
+07:18:17  
+07:18:17  [ERROR]: in model fct_delivery (models/marts/fct_delivery.sql)
+07:18:17    Compilation Error in model fct_delivery (models/marts/fct_delivery.sql)
+  lookback_days must be a whole number 1..92, got x
+  
+  > in macro lookback_start (macros/time.sql)
+  > called by model fct_delivery (models/marts/fct_delivery.sql)
+07:18:17  
+07:18:17  Done. PASS=2 WARN=0 ERROR=2 SKIP=5 NO-OP=0 REUSED=0 TOTAL=9

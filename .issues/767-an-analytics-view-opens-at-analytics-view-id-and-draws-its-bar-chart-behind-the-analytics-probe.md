@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: —
 ---
@@ -41,10 +41,10 @@ model/api · store/logic (view model, colour slots) · component/route (`core/ch
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `result → view model: a channel keeps its fixed slot when other channels are filtered out` · pure (vitest)
-- [ ] `result → view model: a breakdown's saved member→slot map is honoured and a new member takes the next free slot` · pure (vitest)
-- [ ] `analytics wire: each of ANALYTICS-401/404 maps to its i18n key, an unknown code falls back to the server message, absent arrays read as empty` · pure (vitest)
-- [ ] `the view page draws the bar under en, ar (mirrored) and dark, and the probe hides the menu item when absent` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `result → view model: a channel keeps its fixed slot when other channels are filtered out` · pure (vitest)
+- [x] `result → view model: a breakdown's saved member→slot map is honoured and a new member takes the next free slot` · pure (vitest)
+- [x] `analytics wire: each of ANALYTICS-401/404 maps to its i18n key, an unknown code falls back to the server message, absent arrays read as empty` · pure (vitest)
+- [x] `the view page draws the bar under en, ar (mirrored) and dark, and the probe hides the menu item when absent` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 
@@ -57,3 +57,21 @@ The drive shows the bar view drawn from a stubbed `Analytics/Query` in en, ar an
 ## Blocked by
 
 None — can start immediately.
+
+## Outcome
+
+Built on `impl/766-767`. Pure: `view-model.test.ts` (3), `wire.test.ts` (2), `menu-analytics.test.ts` (3).
+Flow: `tools/analytics-drive.mjs` 58/58 against `tools/analytics-stubs.mjs` (en, ar, dark; probe absent and
+`canView:false`; 404 and 401 states). Recharts pinned at **3.10.1**.
+
+Rulings made while building (overrulable):
+- **The definition shape** is the web's proposal (`AnalyticsViewDefinition` in `core/models/analytics.ts`:
+  `chart`, `query` mirroring `semantic_query`, `slots`) — §C does not fix one. BackOffice 3378 owns it.
+- **Fixed slots** = a dimension served with inline `values` (channel group, country), by catalogue order.
+- **`/analytics`** gets an empty-state home now, so the menu leaf never opens a missing route; 770 replaces it.
+- **Menu position:** the Analytics group sits after Reports, not last — the Campaigns, Deliverect,
+  HungerStation and Insurance-rules tests pin the groups from Pricing on by position.
+- **Light `--chart-2`** (gold, 2.83:1 on white) is the research's documented WARN; the contrast gate holds it
+  in dark only, the other four slots in both themes.
+- An **absent probe** (404) reads as ScreenGate's "can't be reached" card; a `canView:false` as the denial.
+  Both deny and hide the group.

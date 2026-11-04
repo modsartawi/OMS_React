@@ -158,3 +158,5 @@ tools/.insurance-coverage-shots/
 tools/.sourcing-advisor-shots/
 # Local credentials, never committed
 .passwords/
+# Analytics drive screenshots (tools/analytics-drive.mjs, spec 766) — regenerated on demand
+tools/.analytics-shots/

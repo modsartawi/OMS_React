@@ -203,6 +203,12 @@ import loyGroups from '@/locales/en/loy-groups.json'
 import loyGroupsAr from '@/locales/ar/loy-groups.json'
 // The copilot (ticket 735, spec 734 D11): a top-level feature like `auth`, its own namespace. English only so far.
 import copilot from '@/locales/en/copilot.json'
+// Analytics boards (spec 766, ticket 767): the `analytics` area's first feature `boards`; namespace == feature name,
+// English and Arabic together. Every later analytics screen (the home, boards, editors, TV mode) ADDS keys here.
+import boards from '@/locales/en/boards.json'
+import boardsAr from '@/locales/ar/boards.json'
+// The chart wrapper's words (`@/core/charts`) live in `common` (spec 766 §F); a PARTIAL Arabic `common`, those words only.
+import commonAr from '@/locales/ar/common.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -210,7 +216,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -280,6 +286,7 @@ i18n.use(initReactI18next).init({
       'doc-type-config': docTypeConfig,
       'loy-groups': loyGroups,
       copilot,
+      boards,
       'serial-refusals': serialRefusals,
       ...INSURANCE_RULES_EN,
     },
@@ -317,6 +324,8 @@ i18n.use(initReactI18next).init({
       'loy-groups': loyGroupsAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
+      boards: boardsAr,
+      common: commonAr,
       ...INSURANCE_RULES_AR,
     },
   },

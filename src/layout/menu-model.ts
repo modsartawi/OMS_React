@@ -48,6 +48,8 @@ import { ClipboardX, ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
+// Analytics (spec 766, ticket 767): declared in `./menu-analytics`, where 770–780 add their leaves.
+import { ANALYTICS_MENU } from './menu-analytics'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -1003,6 +1005,9 @@ export const MENU: ShellMenuItem[] = [
       },
     ],
   },
+  // Analytics (spec 766, ticket 767): `/analytics/*` is a new URL prefix and nav group, beside Reports. Not appended
+  // last: the Campaigns, Deliverect, HungerStation and Insurance rules tests pin the groups from Pricing on by position.
+  ANALYTICS_MENU,
   {
     labelKey: 'simulation:menu.pricing',
     icon: Tags,

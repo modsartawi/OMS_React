@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "analytics": "Analytics",
+    "boards": "Boards and views"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to analytics",
+    "deniedHint": "Analytics needs its own grant. Ask an administrator for access.",
+    "unreachableTitle": "Analytics can't be reached",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
+  "home": {
+    "title": "Analytics",
+    "subtitle": "Boards and analytics views over the governed analytics model.",
+    "empty": "Boards and views will be listed here. Open an analytics view from its link for now."
+  },
+  "view": {
+    "title": "Analytics view",
+    "subtitle": "One chart over the governed analytics model.",
+    "generatedTitle": "{{measure}} by {{dimension}}",
+    "dataAsOf": "Data as of <at>{{at}}</at>",
+    "period": "Period <range>{{range}}</range>",
+    "loading": "Loading the analytics view…",
+    "loadFailed": "The analytics view could not be loaded",
+    "queryFailed": "The chart could not be drawn",
+    "empty": "No data for this period.",
+    "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
+    "unsupported": "This chart type is not drawn here yet.",
+    "notFoundTitle": "Analytics view not found",
+    "noAccessTitle": "No access to this analytics view"
+  },
+  "refusal": {
+    "noAccess": "You don't have access to analytics.",
+    "notFound": "This analytics view was not found or was deleted."
+  }
+}

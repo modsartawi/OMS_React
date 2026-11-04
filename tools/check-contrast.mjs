@@ -249,6 +249,13 @@ const darkOnly = [
   ['--primary-foreground', '--prescription', BODY],
 ]
 
+// The chart palette (spec 766 §F, ticket 767; docs/research/741-recharts-for-native-charts.md). A bar
+// is a meaningful non-text graphic on the panel's `--card`, so each slot clears 3:1 — in both themes,
+// except light `--chart-2`: the validated gold measures 2.83:1 on white, the research's documented WARN,
+// carried by the legend and the table view. It is held in DARK only, where it clears.
+positives.push(...['--chart-1', '--chart-3', '--chart-4', '--chart-5'].map((c) => [c, '--card', UI]))
+darkOnly.push(['--chart-2', '--card', UI])
+
 // The negative assertion. R2 is not a preference — white genuinely fails on
 // every lifted dark chromatic fill, and this proves it rather than asserting it.
 const negatives = [
@@ -353,6 +360,22 @@ for (const theme of ['light', 'dark']) {
     '--rail-pill': '#234670',
   })
 }
+
+// The chart palette (ticket 767): the research's validated values, byte for byte.
+Object.assign(EXPECTED.light, {
+  '--chart-1': '#0f98a3',
+  '--chart-2': '#c98f00',
+  '--chart-3': '#3567b8',
+  '--chart-4': '#d0628f',
+  '--chart-5': '#8160d6',
+})
+Object.assign(EXPECTED.dark, {
+  '--chart-1': '#169aa3',
+  '--chart-2': '#b8860e',
+  '--chart-3': '#5585d4',
+  '--chart-4': '#cf6496',
+  '--chart-5': '#8b6fe0',
+})
 
 // --- the `@theme inline` bridge is complete ----------------------------------
 //

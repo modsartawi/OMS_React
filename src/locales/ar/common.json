@@ -1,0 +1,7 @@
+{
+  "charts": {
+    "updating": "جارٍ التحديث…",
+    "loading": "جارٍ تحميل المخطط…",
+    "chartLabel": "{{measure}} حسب {{dimension}}، مخطط أعمدة"
+  }
+}

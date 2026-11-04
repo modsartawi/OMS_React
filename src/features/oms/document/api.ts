@@ -1,5 +1,6 @@
-import { api } from '@/core/api'
+import { api, ApiError } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
+import type { LfReturnDetailModel } from '@/core/models/lf-return'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
@@ -76,6 +77,24 @@ export const documentApi = {
    */
   getPrescriptionSessions(documentNo: string): Promise<PrescriptionSessionOrderStatus> {
     return api.get<PrescriptionSessionOrderStatus>(`${BASE}/Document/${encode(documentNo)}/PrescriptionSessions`)
+  },
+  /**
+   * The LF return detail — the warehouse watch — by RETURN delivery number (BackOffice 3369 §Wire,
+   * read door 3376; spec 759 F4, ticket 762). Behind `LocalFulfillmentReturn,03`; read-only.
+   *
+   * ⚠ STUBBED: 3376 is not built, and 3369 names the read but not its route. The path below is this
+   * client's guess in the shape of the other per-delivery reads (`…/DonorRequests`, `…/Callout`);
+   * the joining ticket (765) corrects it against 3376. A return delivery with no LF watch — a bonded
+   * return — reads as `null`: the server's `data: null`, or its 404 on the envelope. Any other failure
+   * is thrown for the page to say.
+   */
+  async getLfReturn(returnDeliveryNo: string): Promise<LfReturnDetailModel | null> {
+    try {
+      return (await api.get<LfReturnDetailModel | null>(`${BASE}/Delivery/${encode(returnDeliveryNo)}/LfReturn`)) ?? null
+    } catch (err) {
+      if (err instanceof ApiError && err.kind === 'business' && err.statusCode === 404) return null
+      throw err
+    }
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

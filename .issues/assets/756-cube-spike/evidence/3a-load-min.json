@@ -1,0 +1,274 @@
+{
+  "step": "3a-load-min",
+  "at": "2026-11-04T05:31:06.828Z",
+  "ms": 1016,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales",
+        "till_sales_view.net_till_value_sar",
+        "till_sales_view.return_rate"
+      ],
+      "dimensions": [
+        "till_sales_view.city"
+      ],
+      "filters": [
+        {
+          "member": "till_sales_view.country",
+          "operator": "equals",
+          "values": [
+            "KSA"
+          ]
+        }
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_view.sales_date",
+          "granularity": "week",
+          "dateRange": "last 4 weeks"
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales",
+        "till_sales_view.net_till_value_sar",
+        "till_sales_view.return_rate"
+      ],
+      "dimensions": [
+        "till_sales_view.city"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_view.sales_date",
+          "dateRange": [
+            "2026-10-05T00:00:00.000",
+            "2026-11-01T23:59:59.999"
+          ],
+          "granularity": "week"
+        }
+      ],
+      "limit": 10000,
+      "timezone": "UTC",
+      "filters": [
+        {
+          "member": "till_sales_view.country",
+          "operator": "equals",
+          "values": [
+            "KSA"
+          ]
+        }
+      ],
+      "rowLimit": 10000
+    },
+    "lastRefreshTime": "2026-11-04T05:31:05.000Z",
+    "usedPreAggregations": {
+      "prod_pre_aggregations.till_sales_daily_daily_by_store": {
+        "preAggregationId": "till_sales_daily.daily_by_store",
+        "lastUpdatedAt": 1793770265000,
+        "type": "rollup"
+      }
+    },
+    "annotation": {
+      "segments": {},
+      "dimensions": {
+        "till_sales_view.city": {
+          "title": "Till Sales View City",
+          "shortTitle": "City",
+          "type": "string"
+        }
+      },
+      "timeDimensions": {
+        "till_sales_view.sales_date.week": {
+          "title": "Till Sales View Date",
+          "shortTitle": "Date",
+          "type": "time",
+          "granularity": {
+            "name": "week",
+            "title": "week",
+            "interval": "1 week"
+          }
+        },
+        "till_sales_view.sales_date": {
+          "title": "Till Sales View Date",
+          "shortTitle": "Date",
+          "type": "time"
+        }
+      },
+      "measures": {
+        "till_sales_view.till_sales": {
+          "title": "Till Sales View Till sales",
+          "shortTitle": "Till sales",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        },
+        "till_sales_view.return_rate": {
+          "title": "Till Sales View Return rate",
+          "shortTitle": "Return rate",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        },
+        "till_sales_view.net_till_value_sar": {
+          "title": "Till Sales View Value through our tills",
+          "shortTitle": "Value through our tills",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        }
+      }
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": true,
+    "slowQuery": false,
+    "data": [
+      {
+        "till_sales_view.city": "Makkah",
+        "till_sales_view.sales_date.week": "2026-10-05T00:00:00.000",
+        "till_sales_view.till_sales": "45708",
+        "till_sales_view.net_till_value_sar": "5150764",
+        "till_sales_view.return_rate": "0.03570490942504594",
+        "till_sales_view.sales_date": "2026-10-05T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Dammam",
+        "till_sales_view.sales_date.week": "2026-10-05T00:00:00.000",
+        "till_sales_view.till_sales": "45540",
+        "till_sales_view.net_till_value_sar": "5148712",
+        "till_sales_view.return_rate": "0.03293807641633729",
+        "till_sales_view.sales_date": "2026-10-05T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Riyadh",
+        "till_sales_view.sales_date.week": "2026-10-05T00:00:00.000",
+        "till_sales_view.till_sales": "44122",
+        "till_sales_view.net_till_value_sar": "4956693",
+        "till_sales_view.return_rate": "0.03515253161688047",
+        "till_sales_view.sales_date": "2026-10-05T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Jeddah",
+        "till_sales_view.sales_date.week": "2026-10-05T00:00:00.000",
+        "till_sales_view.till_sales": "45642",
+        "till_sales_view.net_till_value_sar": "5167830",
+        "till_sales_view.return_rate": "0.032776828359844",
+        "till_sales_view.sales_date": "2026-10-05T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Makkah",
+        "till_sales_view.sales_date.week": "2026-10-12T00:00:00.000",
+        "till_sales_view.till_sales": "41932",
+        "till_sales_view.net_till_value_sar": "5277460",
+        "till_sales_view.return_rate": "0.03663073547648574",
+        "till_sales_view.sales_date": "2026-10-12T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Riyadh",
+        "till_sales_view.sales_date.week": "2026-10-12T00:00:00.000",
+        "till_sales_view.till_sales": "39626",
+        "till_sales_view.net_till_value_sar": "5051806",
+        "till_sales_view.return_rate": "0.0379548781103316",
+        "till_sales_view.sales_date": "2026-10-12T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Jeddah",
+        "till_sales_view.sales_date.week": "2026-10-12T00:00:00.000",
+        "till_sales_view.till_sales": "42026",
+        "till_sales_view.net_till_value_sar": "5268226",
+        "till_sales_view.return_rate": "0.04092704516251844",
+        "till_sales_view.sales_date": "2026-10-12T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Dammam",
+        "till_sales_view.sales_date.week": "2026-10-12T00:00:00.000",
+        "till_sales_view.till_sales": "41764",
+        "till_sales_view.net_till_value_sar": "5277640",
+        "till_sales_view.return_rate": "0.03936404558950292",
+        "till_sales_view.sales_date": "2026-10-12T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Dammam",
+        "till_sales_view.sales_date.week": "2026-10-19T00:00:00.000",
+        "till_sales_view.till_sales": "54436",
+        "till_sales_view.net_till_value_sar": "5398152",
+        "till_sales_view.return_rate": "0.030641487251083843",
+        "till_sales_view.sales_date": "2026-10-19T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Makkah",
+        "till_sales_view.sales_date.week": "2026-10-19T00:00:00.000",
+        "till_sales_view.till_sales": "54604",
+        "till_sales_view.net_till_value_sar": "5395668",
+        "till_sales_view.return_rate": "0.029448392059189803",
+        "till_sales_view.sales_date": "2026-10-19T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Jeddah",
+        "till_sales_view.sales_date.week": "2026-10-19T00:00:00.000",
+        "till_sales_view.till_sales": "54538",
+        "till_sales_view.net_till_value_sar": "5379954",
+        "till_sales_view.return_rate": "0.0291906560563277",
+        "till_sales_view.sales_date": "2026-10-19T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Riyadh",
+        "till_sales_view.sales_date.week": "2026-10-19T00:00:00.000",
+        "till_sales_view.till_sales": "52058",
+        "till_sales_view.net_till_value_sar": "5158067",
+        "till_sales_view.return_rate": "0.029524760843674364",
+        "till_sales_view.sales_date": "2026-10-19T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Riyadh",
+        "till_sales_view.sales_date.week": "2026-10-26T00:00:00.000",
+        "till_sales_view.till_sales": "62394",
+        "till_sales_view.net_till_value_sar": "5367904",
+        "till_sales_view.return_rate": "0.025162675898323557",
+        "till_sales_view.sales_date": "2026-10-26T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Jeddah",
+        "till_sales_view.sales_date.week": "2026-10-26T00:00:00.000",
+        "till_sales_view.till_sales": "65114",
+        "till_sales_view.net_till_value_sar": "5598566",
+        "till_sales_view.return_rate": "0.02463371932303345",
+        "till_sales_view.sales_date": "2026-10-26T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Makkah",
+        "till_sales_view.sales_date.week": "2026-10-26T00:00:00.000",
+        "till_sales_view.till_sales": "65020",
+        "till_sales_view.net_till_value_sar": "5592736",
+        "till_sales_view.return_rate": "0.023685019993848047",
+        "till_sales_view.sales_date": "2026-10-26T00:00:00.000"
+      },
+      {
+        "till_sales_view.city": "Dammam",
+        "till_sales_view.sales_date.week": "2026-10-26T00:00:00.000",
+        "till_sales_view.till_sales": "64852",
+        "till_sales_view.net_till_value_sar": "5589184",
+        "till_sales_view.return_rate": "0.023314624067106642",
+        "till_sales_view.sales_date": "2026-10-26T00:00:00.000"
+      }
+    ]
+  }
+}

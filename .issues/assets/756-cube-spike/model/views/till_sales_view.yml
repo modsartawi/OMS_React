@@ -1,0 +1,17 @@
+# Ticket 756 — the one view the AI would see: only these members, nothing else.
+views:
+  - name: till_sales_view
+    cubes:
+      - join_path: till_sales_daily
+        includes:
+          - till_sales
+          - till_returns
+          - net_till_value_sar
+          - return_rate
+          - sales_date
+          - store_code
+      - join_path: till_sales_daily.stores
+        includes:
+          - store_name
+          - city
+          - country

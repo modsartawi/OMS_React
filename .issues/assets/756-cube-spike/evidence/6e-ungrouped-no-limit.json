@@ -1,0 +1,70 @@
+{
+  "step": "6e-ungrouped-no-limit",
+  "at": "2026-11-04T05:32:29.577Z",
+  "ms": 140,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "dimensions": [
+        "till_sales_daily.store_code"
+      ],
+      "ungrouped": true
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "dimensions": [
+        "till_sales_daily.store_code"
+      ],
+      "timeDimensions": [],
+      "limit": 10000,
+      "timezone": "UTC",
+      "ungrouped": true,
+      "filters": [],
+      "rowLimit": 10000
+    },
+    "lastRefreshTime": "2026-11-04T05:32:29.524Z",
+    "annotation": {
+      "segments": {},
+      "dimensions": {
+        "till_sales_daily.store_code": {
+          "title": "Till Sales Daily Store code",
+          "shortTitle": "Store code",
+          "type": "string"
+        }
+      },
+      "measures": {},
+      "timeDimensions": {}
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": false,
+    "slowQuery": false,
+    "data": [
+      {
+        "till_sales_daily.store_code": "P001"
+      },
+      {
+        "till_sales_daily.store_code": "P001"
+      },
+      {
+        "till_sales_daily.store_code": "P001"
+      },
+      {
+        "till_sales_daily.store_code": "P001"
+      },
+      {
+        "till_sales_daily.store_code": "P001"
+      }
+    ],
+    "dataTrimmedForRepo": {
+      "rowsReturned": 10000,
+      "kept": 5
+    }
+  }
+}

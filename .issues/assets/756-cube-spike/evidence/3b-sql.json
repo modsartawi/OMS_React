@@ -1,0 +1,357 @@
+{
+  "step": "3b-sql",
+  "at": "2026-11-04T05:31:06.842Z",
+  "ms": 11,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/sql",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales",
+        "till_sales_view.net_till_value_sar",
+        "till_sales_view.return_rate"
+      ],
+      "dimensions": [
+        "till_sales_view.city"
+      ],
+      "filters": [
+        {
+          "member": "till_sales_view.country",
+          "operator": "equals",
+          "values": [
+            "KSA"
+          ]
+        }
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_view.sales_date",
+          "granularity": "week",
+          "dateRange": "last 4 weeks"
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "sql": {
+      "external": true,
+      "sql": [
+        "SELECT \"stores__city\" \"till_sales_view__city\", date_trunc('week', \"till_sales_daily__sales_date_day\") \"till_sales_view__sales_date_week\", sum(\"till_sales_daily__till_sales\") \"till_sales_view__till_sales\", sum(\"till_sales_daily__net_till_value_sar\") \"till_sales_view__net_till_value_sar\", 1.0 * sum(\"till_sales_daily__till_returns\") / NULLIF(sum(\"till_sales_daily__till_sales\"), 0) \"till_sales_view__return_rate\" \nFROM  prod_pre_aggregations.till_sales_daily_daily_by_store  AS \"till_sales_daily__daily_by_store\"\nWHERE (\"till_sales_daily__sales_date_day\" >= CAST(? as TIMESTAMP) AND \"till_sales_daily__sales_date_day\" <= CAST(? as TIMESTAMP)) AND (\"stores__country\" = ?)\nGROUP BY 1, 2\nORDER BY  2  ASC\nLIMIT 10000",
+        [
+          "2026-10-05T00:00:00.000",
+          "2026-11-01T23:59:59.999",
+          "KSA"
+        ]
+      ],
+      "lambdaQueries": {},
+      "timeDimensionAlias": "till_sales_view__sales_date_week",
+      "timeDimensionField": "till_sales_view.sales_date",
+      "order": {
+        "till_sales_view.sales_date": "asc"
+      },
+      "cacheKeyQueries": [],
+      "preAggregations": [
+        {
+          "preAggregationId": "till_sales_daily.daily_by_store",
+          "timezone": "UTC",
+          "timestampFormat": "YYYY-MM-DD[T]HH:mm:ss.SSS[Z]",
+          "timestampPrecision": 3,
+          "tableName": "prod_pre_aggregations.till_sales_daily_daily_by_store",
+          "invalidateKeyQueries": [
+            [
+              "SELECT FLOOR((UNIX_TIMESTAMP()) / 3600) as refresh_key",
+              [],
+              {
+                "external": true,
+                "renewalThreshold": 300
+              }
+            ]
+          ],
+          "type": "rollup",
+          "external": true,
+          "previewSql": [
+            "SELECT * FROM prod_pre_aggregations.till_sales_daily_daily_by_store LIMIT 1000",
+            []
+          ],
+          "preAggregationsSchema": "prod_pre_aggregations",
+          "loadSql": [
+            "SELECT * INTO prod_pre_aggregations.till_sales_daily_daily_by_store FROM (SELECT \"stores\".city \"stores__city\", \"stores\".country \"stores__country\", \"till_sales_daily\".store_code \"till_sales_daily__store_code\", dateadd(day, DATEDIFF(day, 0, CAST(SWITCHOFFSET(TODATETIMEOFFSET(CAST(sales_date AS datetime2), '+00:00'), '+00:00') AS DATETIME2)), 0) \"till_sales_daily__sales_date_day\", sum(gross_value_sar - returns_value_sar) \"till_sales_daily__net_till_value_sar\", sum(\"till_sales_daily\".till_returns) \"till_sales_daily__till_returns\", sum(\"till_sales_daily\".till_sales) \"till_sales_daily__till_sales\" \nFROM  dbo.mart_till_sales_daily  AS \"till_sales_daily\"\nLEFT JOIN  dbo.dim_store  AS \"stores\" ON \"till_sales_daily\".store_code = \"stores\".store_code\nWHERE (CAST(sales_date AS datetime2) >= CAST(@_1 AS DATETIMEOFFSET) AND CAST(sales_date AS datetime2) <= CAST(@_2 AS DATETIMEOFFSET))\nGROUP BY \"stores\".city, \"stores\".country, \"till_sales_daily\".store_code, dateadd(day, DATEDIFF(day, 0, CAST(SWITCHOFFSET(TODATETIMEOFFSET(CAST(sales_date AS datetime2), '+00:00'), '+00:00') AS DATETIME2)), 0)) AS PreAggregation",
+            [
+              "__FROM_PARTITION_RANGE",
+              "__TO_PARTITION_RANGE"
+            ]
+          ],
+          "sql": [
+            "SELECT \"stores\".city \"stores__city\", \"stores\".country \"stores__country\", \"till_sales_daily\".store_code \"till_sales_daily__store_code\", dateadd(day, DATEDIFF(day, 0, CAST(SWITCHOFFSET(TODATETIMEOFFSET(CAST(sales_date AS datetime2), '+00:00'), '+00:00') AS DATETIME2)), 0) \"till_sales_daily__sales_date_day\", sum(gross_value_sar - returns_value_sar) \"till_sales_daily__net_till_value_sar\", sum(\"till_sales_daily\".till_returns) \"till_sales_daily__till_returns\", sum(\"till_sales_daily\".till_sales) \"till_sales_daily__till_sales\" \nFROM  dbo.mart_till_sales_daily  AS \"till_sales_daily\"\nLEFT JOIN  dbo.dim_store  AS \"stores\" ON \"till_sales_daily\".store_code = \"stores\".store_code\nWHERE (CAST(sales_date AS datetime2) >= CAST(@_1 AS DATETIMEOFFSET) AND CAST(sales_date AS datetime2) <= CAST(@_2 AS DATETIMEOFFSET))\nGROUP BY \"stores\".city, \"stores\".country, \"till_sales_daily\".store_code, dateadd(day, DATEDIFF(day, 0, CAST(SWITCHOFFSET(TODATETIMEOFFSET(CAST(sales_date AS datetime2), '+00:00'), '+00:00') AS DATETIME2)), 0)",
+            [
+              "__FROM_PARTITION_RANGE",
+              "__TO_PARTITION_RANGE"
+            ]
+          ],
+          "outputColumnTypes": null,
+          "uniqueKeyColumns": [
+            "\"stores__city\"",
+            "\"stores__country\"",
+            "\"till_sales_daily__store_code\"",
+            "\"till_sales_daily__sales_date_day\""
+          ],
+          "aggregationsColumns": [
+            "sum(\"till_sales_daily__net_till_value_sar\")",
+            "sum(\"till_sales_daily__till_returns\")",
+            "sum(\"till_sales_daily__till_sales\")"
+          ],
+          "dataSource": "default",
+          "granularity": "day",
+          "partitionGranularity": "month",
+          "updateWindowSeconds": false,
+          "preAggregationStartEndQueries": [
+            [
+              "SELECT DATEADD(day, -200, CAST(GETDATE() AS date))",
+              []
+            ],
+            [
+              "SELECT CAST(GETDATE() AS date)",
+              []
+            ]
+          ],
+          "matchedTimeDimensionDateRange": [
+            "2026-10-05T00:00:00.000",
+            "2026-11-01T23:59:59.999"
+          ],
+          "indexesSql": [],
+          "createTableIndexes": [],
+          "readOnly": false,
+          "usageMapping": {
+            "": {
+              "dateRange": [
+                "2026-10-05T00:00:00.000",
+                "2026-11-01T23:59:59.999"
+              ]
+            }
+          }
+        }
+      ],
+      "dataSource": "default",
+      "aliasNameToMember": {
+        "till_sales_view__till_sales": "till_sales_view.till_sales",
+        "till_sales_view__net_till_value_sar": "till_sales_view.net_till_value_sar",
+        "till_sales_view__return_rate": "till_sales_view.return_rate",
+        "till_sales_view__city": "till_sales_view.city",
+        "till_sales_view__sales_date_week": "till_sales_view.sales_date.week"
+      },
+      "canUseTransformedQuery": {
+        "sortedDimensions": [
+          "till_sales_view.city",
+          "till_sales_view.country"
+        ],
+        "sortedTimeDimensions": [
+          [
+            "till_sales_view.sales_date",
+            "week"
+          ]
+        ],
+        "timeDimensions": [
+          [
+            "till_sales_view.sales_date",
+            "week"
+          ]
+        ],
+        "measures": [
+          "till_sales_view.till_sales",
+          "till_sales_view.net_till_value_sar",
+          "till_sales_view.return_rate"
+        ],
+        "leafMeasureAdditive": true,
+        "leafMeasures": [
+          "till_sales_daily.till_sales",
+          "till_sales_daily.net_till_value_sar",
+          "till_sales_daily.till_returns"
+        ],
+        "leafMeasuresFullPaths": [
+          "till_sales_daily.till_sales",
+          "till_sales_daily.net_till_value_sar",
+          "till_sales_daily.till_returns"
+        ],
+        "measureToLeafMeasures": {
+          "till_sales_view.till_sales": [
+            {
+              "measure": "till_sales_daily.till_sales",
+              "additive": true,
+              "type": "sum"
+            }
+          ],
+          "till_sales_view.net_till_value_sar": [
+            {
+              "measure": "till_sales_daily.net_till_value_sar",
+              "additive": true,
+              "type": "sum"
+            }
+          ],
+          "till_sales_view.return_rate": [
+            {
+              "measure": "till_sales_daily.till_returns",
+              "additive": true,
+              "type": "sum"
+            },
+            {
+              "measure": "till_sales_daily.till_sales",
+              "additive": true,
+              "type": "sum"
+            }
+          ]
+        },
+        "hasNoTimeDimensionsWithoutGranularity": true,
+        "allFiltersWithinSelectedDimensions": false,
+        "isAdditive": false,
+        "granularityHierarchies": {
+          "till_sales_daily.sales_date.year": [
+            "year",
+            "quarter",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.quarter": [
+            "quarter",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.month": [
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.week": [
+            "week",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.day": [
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.hour": [
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.minute": [
+            "minute",
+            "second"
+          ],
+          "till_sales_daily.sales_date.second": [
+            "second"
+          ],
+          "till_sales_view.sales_date.year": [
+            "year",
+            "quarter",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.quarter": [
+            "quarter",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.month": [
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.week": [
+            "week",
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.day": [
+            "day",
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.hour": [
+            "hour",
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.minute": [
+            "minute",
+            "second"
+          ],
+          "till_sales_view.sales_date.second": [
+            "second"
+          ]
+        },
+        "hasMultipliedMeasures": false,
+        "hasCumulativeMeasures": false,
+        "windowGranularity": null,
+        "filterDimensionsSingleValueEqual": {},
+        "ownedDimensions": [
+          "till_sales_daily.stores.city",
+          "till_sales_daily.stores.country"
+        ],
+        "ownedTimeDimensionsWithRollupGranularity": [
+          [
+            "till_sales_daily.sales_date",
+            "week"
+          ]
+        ],
+        "ownedTimeDimensionsAsIs": [
+          [
+            "till_sales_daily.sales_date",
+            "week"
+          ]
+        ],
+        "allBackAliasMembers": {
+          "till_sales_daily.till_sales": "till_sales_view.till_sales",
+          "till_sales_daily.net_till_value_sar": "till_sales_view.net_till_value_sar",
+          "till_sales_daily.return_rate": "till_sales_view.return_rate",
+          "till_sales_daily.stores.city": "till_sales_view.city",
+          "till_sales_daily.stores.country": "till_sales_view.country",
+          "till_sales_daily.sales_date": "till_sales_view.sales_date"
+        },
+        "hasMultiStage": false
+      },
+      "memberNames": [
+        "till_sales_view.till_sales",
+        "till_sales_daily.till_sales",
+        "till_sales_view.net_till_value_sar",
+        "till_sales_daily.net_till_value_sar",
+        "till_sales_view.return_rate",
+        "till_sales_daily.return_rate",
+        "till_sales_daily.till_returns",
+        "till_sales_view.city",
+        "stores.city",
+        "till_sales_view.country",
+        "stores.country",
+        "till_sales_view.sales_date",
+        "till_sales_daily.sales_date"
+      ]
+    },
+    "dataSource": "default"
+  }
+}

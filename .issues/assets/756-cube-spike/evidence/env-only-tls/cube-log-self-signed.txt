@@ -1,0 +1,9 @@
+          err = new ConnectionError(err)
+                ^
+ConnectionError: Failed to connect to mssql:1433 - self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca
+    at connectListener (/cube/node_modules/mssql/lib/tedious/connection-pool.js:85:17)
+    at Connection.onConnect (/cube/node_modules/tedious/src/connection.ts:1784:9)
+    at Connection.wrapper (node:events:639:12)
+    at Connection.emit (node:events:514:28)
+    at Connection.emit (/cube/node_modules/tedious/src/connection.ts:1927:18)
+    at Connection.socketError (/cube/node_modules/tedious/src/connection.ts:2334:12)

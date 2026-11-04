@@ -1,0 +1,15 @@
+{
+  "step": "7c-expired",
+  "at": "2026-11-04T05:31:05.791Z",
+  "ms": 4,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/meta",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…"
+  },
+  "status": 403,
+  "response": {
+    "error": "Invalid token"
+  }
+}

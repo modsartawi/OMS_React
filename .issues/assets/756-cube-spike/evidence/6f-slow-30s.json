@@ -1,0 +1,20 @@
+{
+  "step": "6f-slow-30s",
+  "at": "2026-11-04T05:35:08.008Z",
+  "ms": 30154,
+  "continueWaits": 2,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "slow_probe.n"
+      ]
+    }
+  },
+  "status": 400,
+  "response": {
+    "error": "Error: Query execution timeout after 0.5 min of waiting"
+  }
+}

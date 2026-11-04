@@ -1,0 +1,20 @@
+{
+  "step": "6f-slow-30s",
+  "at": "2026-11-04T05:32:43.286Z",
+  "ms": 2597,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "slow_probe.n"
+      ]
+    }
+  },
+  "status": 400,
+  "response": {
+    "error": "Error: Arithmetic overflow error converting expression to data type int."
+  }
+}

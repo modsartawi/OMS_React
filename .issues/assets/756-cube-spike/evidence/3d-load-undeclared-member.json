@@ -1,0 +1,24 @@
+{
+  "step": "3d-load-undeclared-member",
+  "at": "2026-11-04T05:31:06.881Z",
+  "ms": 3,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_daily.top_customer_mobile"
+      ]
+    }
+  },
+  "status": 400,
+  "response": {
+    "type": "UserError",
+    "error": "'top_customer_mobile' not found for path 'till_sales_daily.top_customer_mobile'"
+  }
+}

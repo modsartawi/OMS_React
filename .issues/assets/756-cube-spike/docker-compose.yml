@@ -1,0 +1,50 @@
+# Ticket 756 — Cube Core spike. Local only; never points at the replica.
+# Docker host is the dev Mac (arm64); SQL Server and Cube Store run amd64 under emulation.
+# Images pinned by tag AND digest (recorded 2026-11-04).
+name: cube-spike-756
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: "Spike756!Sa"
+    ports:
+      - "14330:1433"
+
+  cubestore:
+    image: cubejs/cubestore:v1.8.18@sha256:bc26e36e81c9465b46659afdf3818439c26bde2a30a321c6301c1dbf12d1d62e
+    platform: linux/amd64
+    environment:
+      CUBESTORE_REMOTE_DIR: /cube/data
+      CUBESTORE_TELEMETRY: "false"
+    # no ports published: Cube Store has no auth, it stays on the compose network
+
+  cube:
+    # Dockerfile = the pinned cubejs/cube:v1.8.18 digest + COPY model/ and cube.js
+    # (the daemon is remote, so bind mounts of this Windows folder are not visible to it)
+    build: .
+    image: cube-spike-756:local
+    depends_on: [mssql, cubestore]
+    ports:
+      - "4000:4000"
+    environment:
+      CUBEJS_TELEMETRY: "false"
+      CUBEJS_DEV_MODE: "false"          # production mode: JWT required
+      CUBEJS_API_SECRET: "spike-756-service-secret-not-for-prod-0123456789"
+      CUBEJS_DB_TYPE: mssql
+      CUBEJS_DB_HOST: mssql
+      CUBEJS_DB_PORT: "1433"
+      CUBEJS_DB_NAME: POS_Analytics
+      CUBEJS_DB_USER: cube_reader
+      CUBEJS_DB_PASS: "Spike756!Reader"
+      CUBEJS_DB_SSL: "true"             # encrypt; trust-cert is set in cube.js (no env var exists)
+      CUBEJS_DB_QUERY_TIMEOUT: "30s"    # 746 cap -> mssql requestTimeout
+      CUBEJS_DB_QUERY_LIMIT: "10000"    # 746 cap: max limit a query may ask for
+      CUBEJS_DB_QUERY_DEFAULT_LIMIT: "10000"
+      CUBEJS_CUBESTORE_HOST: cubestore
+      CUBEJS_REFRESH_WORKER: "true"     # spike only: API instance also builds rollups
+      CUBEJS_SCHEDULED_REFRESH_TIMEZONES: "Asia/Riyadh"
+      CUBEJS_LOG_LEVEL: info

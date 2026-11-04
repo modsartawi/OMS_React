@@ -1,0 +1,20 @@
+{
+  "step": "B3-hidden-cube-member",
+  "at": "2026-11-04T05:36:34.124Z",
+  "ms": 229,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales"
+      ]
+    }
+  },
+  "status": 500,
+  "response": {
+    "error": "Error: You requested hidden member: 'till_sales_daily.till_sales'. Please make it visible using `public: true`. Please note primaryKey fields are `public: false` by default: https://docs.cube.dev/reference/data-modeling/joins#setting-a-primary-key."
+  }
+}

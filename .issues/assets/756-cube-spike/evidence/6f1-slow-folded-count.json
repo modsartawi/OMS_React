@@ -1,0 +1,58 @@
+{
+  "step": "6f-slow-30s",
+  "at": "2026-11-04T05:33:38.199Z",
+  "ms": 2480,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "slow_probe.n"
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "measures": [
+        "slow_probe.n"
+      ],
+      "dimensions": [],
+      "timeDimensions": [],
+      "limit": 10000,
+      "timezone": "UTC",
+      "filters": [],
+      "rowLimit": 10000
+    },
+    "lastRefreshTime": "2026-11-04T05:33:38.183Z",
+    "annotation": {
+      "measures": {
+        "slow_probe.n": {
+          "title": "Slow Probe N",
+          "shortTitle": "N",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        }
+      },
+      "segments": {},
+      "timeDimensions": {},
+      "dimensions": {}
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": false,
+    "slowQuery": false,
+    "data": [
+      {
+        "slow_probe.n": "1421171965907"
+      }
+    ]
+  }
+}

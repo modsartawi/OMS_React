@@ -1,0 +1,139 @@
+{
+  "step": "6a-no-limit-15000-rows",
+  "at": "2026-11-04T05:32:29.121Z",
+  "ms": 1307,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_daily.store_code"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_daily.sales_date",
+          "granularity": "day",
+          "dateRange": "last 150 days"
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_daily.store_code"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_daily.sales_date",
+          "dateRange": [
+            "2026-06-07T00:00:00.000",
+            "2026-11-03T23:59:59.999"
+          ],
+          "granularity": "day"
+        }
+      ],
+      "limit": 10000,
+      "timezone": "UTC",
+      "filters": [],
+      "rowLimit": 10000
+    },
+    "lastRefreshTime": "2026-11-04T05:31:05.000Z",
+    "usedPreAggregations": {
+      "prod_pre_aggregations.till_sales_daily_daily_by_store": {
+        "preAggregationId": "till_sales_daily.daily_by_store",
+        "lastUpdatedAt": 1793770265000,
+        "type": "rollup"
+      }
+    },
+    "annotation": {
+      "timeDimensions": {
+        "till_sales_daily.sales_date.day": {
+          "title": "Till Sales Daily Date",
+          "shortTitle": "Date",
+          "type": "time",
+          "granularity": {
+            "name": "day",
+            "title": "day",
+            "interval": "1 day"
+          }
+        },
+        "till_sales_daily.sales_date": {
+          "title": "Till Sales Daily Date",
+          "shortTitle": "Date",
+          "type": "time"
+        }
+      },
+      "segments": {},
+      "dimensions": {
+        "till_sales_daily.store_code": {
+          "title": "Till Sales Daily Store code",
+          "shortTitle": "Store code",
+          "type": "string"
+        }
+      },
+      "measures": {
+        "till_sales_daily.till_sales": {
+          "title": "Till Sales Daily Till sales",
+          "shortTitle": "Till sales",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        }
+      }
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": true,
+    "slowQuery": false,
+    "data": [
+      {
+        "till_sales_daily.store_code": "P074",
+        "till_sales_daily.sales_date.day": "2026-06-08T00:00:00.000",
+        "till_sales_daily.till_sales": "188",
+        "till_sales_daily.sales_date": "2026-06-08T00:00:00.000"
+      },
+      {
+        "till_sales_daily.store_code": "P099",
+        "till_sales_daily.sales_date.day": "2026-06-08T00:00:00.000",
+        "till_sales_daily.till_sales": "497",
+        "till_sales_daily.sales_date": "2026-06-08T00:00:00.000"
+      },
+      {
+        "till_sales_daily.store_code": "P094",
+        "till_sales_daily.sales_date.day": "2026-06-08T00:00:00.000",
+        "till_sales_daily.till_sales": "492",
+        "till_sales_daily.sales_date": "2026-06-08T00:00:00.000"
+      },
+      {
+        "till_sales_daily.store_code": "P057",
+        "till_sales_daily.sales_date.day": "2026-06-08T00:00:00.000",
+        "till_sales_daily.till_sales": "159",
+        "till_sales_daily.sales_date": "2026-06-08T00:00:00.000"
+      },
+      {
+        "till_sales_daily.store_code": "P042",
+        "till_sales_daily.sales_date.day": "2026-06-08T00:00:00.000",
+        "till_sales_daily.till_sales": "170",
+        "till_sales_daily.sales_date": "2026-06-08T00:00:00.000"
+      }
+    ],
+    "dataTrimmedForRepo": {
+      "rowsReturned": 10000,
+      "kept": 5
+    }
+  }
+}

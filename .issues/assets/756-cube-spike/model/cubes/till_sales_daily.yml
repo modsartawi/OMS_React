@@ -1,0 +1,110 @@
+# Ticket 756 — cut-down from docs/research/741-v1-semantic-model.md §3 (till sales), over the
+# 748 mart shape. `top_customer_mobile` exists in the table and is deliberately NOT declared.
+cubes:
+  - name: till_sales_daily
+    sql_table: dbo.mart_till_sales_daily
+    public: false   # variant B: only the view is visible to the API
+
+    joins:
+      - name: stores
+        relationship: many_to_one
+        sql: "{CUBE}.store_code = {stores}.store_code"
+
+    measures:
+      - name: till_sales
+        title: Till sales
+        type: sum
+        sql: till_sales
+
+      - name: till_returns
+        title: Returns
+        type: sum
+        sql: till_returns
+
+      - name: net_till_value_sar
+        title: Value through our tills
+        type: sum
+        sql: "gross_value_sar - returns_value_sar"
+
+      - name: return_rate
+        title: Return rate
+        type: number
+        sql: "1.0 * {till_returns} / NULLIF({till_sales}, 0)"
+
+      # The hidden member (item 2): declared, but public: false.
+      - name: gross_till_value_sar
+        title: Sales value through our tills, before returns
+        type: sum
+        sql: gross_value_sar
+        public: false
+
+    dimensions:
+      - name: pk
+        sql: "CONCAT(CONVERT(varchar(10), sales_date, 23), '|', store_code)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: sales_date
+        title: Date
+        sql: "CAST(sales_date AS datetime2)"
+        type: time
+        granularities:
+          # 741 §2: the business week starts Sunday; Cube's built-in `week` starts Monday.
+          - name: saudi_week
+            title: Week (Sun-Sat)
+            interval: 1 week
+            origin: "2024-01-07"   # a Sunday
+
+      - name: store_code
+        title: Store code
+        sql: store_code
+        type: string
+
+    pre_aggregations:
+      # Item 5: a plain rollup, no original_sql — built into Cube Store, never into the source.
+      - name: daily_by_store
+        type: rollup
+        measures: [till_sales, till_returns, net_till_value_sar]
+        dimensions: [store_code, stores.city, stores.country]
+        time_dimension: sales_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+        build_range_start:
+          sql: "SELECT DATEADD(day, -200, CAST(GETDATE() AS date))"
+        build_range_end:
+          sql: "SELECT CAST(GETDATE() AS date)"
+
+  - name: stores
+    sql_table: dbo.dim_store
+    public: false
+    dimensions:
+      - name: store_code
+        sql: store_code
+        type: string
+        primary_key: true
+        public: true
+      - name: store_name
+        title: Store
+        sql: store_name
+        type: string
+      - name: city
+        title: City
+        sql: city
+        type: string
+      - name: country
+        title: Country
+        sql: country
+        type: string
+
+  # Item 6 only: a deliberately slow cube to test the 30 s time-out. Not in any view.
+  - name: slow_probe
+    sql: >
+      SELECT 1 AS k FROM sys.all_columns a CROSS JOIN sys.all_columns b CROSS JOIN sys.all_columns c
+      WHERE CHECKSUM(a.object_id, b.column_id, c.name) % 7 = 3
+    measures:
+      - name: n
+        type: number
+        sql: "COUNT_BIG(*)"   # type: count is COUNT(*) -> int, which overflowed in 2.6 s

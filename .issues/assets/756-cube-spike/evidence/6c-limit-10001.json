@@ -1,0 +1,31 @@
+{
+  "step": "6c-limit-10001",
+  "at": "2026-11-04T05:32:29.417Z",
+  "ms": 9,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_daily.store_code"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_daily.sales_date",
+          "granularity": "day",
+          "dateRange": "last 150 days"
+        }
+      ],
+      "limit": 10001
+    }
+  },
+  "status": 500,
+  "response": {
+    "error": "Error: The query limit has been exceeded."
+  }
+}

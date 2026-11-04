@@ -1,0 +1,15 @@
+{
+  "step": "7b-bad-signature",
+  "at": "2026-11-04T05:31:05.786Z",
+  "ms": 12,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/meta",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…"
+  },
+  "status": 403,
+  "response": {
+    "error": "Invalid token"
+  }
+}

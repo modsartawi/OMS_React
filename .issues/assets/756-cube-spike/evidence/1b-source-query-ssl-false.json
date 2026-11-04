@@ -1,0 +1,102 @@
+{
+  "step": "1b-source-query-ssl-false",
+  "at": "2026-11-04T05:38:21.703Z",
+  "ms": 218,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_view.store_name"
+      ],
+      "limit": 3,
+      "order": {
+        "till_sales_view.till_sales": "desc"
+      },
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_view.sales_date",
+          "dateRange": "last 7 days"
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "measures": [
+        "till_sales_view.till_sales"
+      ],
+      "dimensions": [
+        "till_sales_view.store_name"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_view.sales_date",
+          "dateRange": [
+            "2026-10-28T00:00:00.000",
+            "2026-11-03T23:59:59.999"
+          ]
+        }
+      ],
+      "limit": 3,
+      "timezone": "UTC",
+      "filters": [],
+      "rowLimit": 3,
+      "order": [
+        {
+          "id": "till_sales_view.till_sales",
+          "desc": true
+        }
+      ]
+    },
+    "lastRefreshTime": "2026-11-04T05:38:21.686Z",
+    "annotation": {
+      "dimensions": {
+        "till_sales_view.store_name": {
+          "title": "Till Sales View Store",
+          "shortTitle": "Store",
+          "type": "string"
+        }
+      },
+      "measures": {
+        "till_sales_view.till_sales": {
+          "title": "Till Sales View Till sales",
+          "shortTitle": "Till sales",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        }
+      },
+      "segments": {},
+      "timeDimensions": {}
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": false,
+    "slowQuery": false,
+    "data": [
+      {
+        "till_sales_view.store_name": "صيدلية الدواء 29",
+        "till_sales_view.till_sales": "2871"
+      },
+      {
+        "till_sales_view.store_name": "صيدلية الدواء 28",
+        "till_sales_view.till_sales": "2864"
+      },
+      {
+        "till_sales_view.store_name": "صيدلية الدواء 27",
+        "till_sales_view.till_sales": "2857"
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+🚀 Cube API server (1.8.18) is listening on 4000
+{"level":"error","message":"Refresh Scheduler Error","error":"Error: 'undefined' not found for path 'till_sales'\n    at CubeEvaluator.byPath (/cube/node_modules/@cubejs-backend/schema-compiler/src/compiler/CubeEvaluator.ts:1290:13)\n    at CubeEvaluator.parsePath (/cube/node_modules/@cubejs-backend/schema-compiler/src/compiler/CubeEvaluator.ts:1298:10)\n    at BaseMeasure.path (/cube/node_modules/@cubejs-backend/schema-compiler/src/adapter/BaseMeasure.ts:360:37)\n    at /cube/node_modules/@cubejs-backend/schema-compiler/src/adapter/BaseQuery.ts:3122:30\n    at _map (/cube/node_modules/ramda/src/internal/_map.js:6:19)\n    at map (/cube/node_modules/ramda/src/map.js:55:14)\n    at /cube/node_modules/ramda/src/internal/_dispatchable.js:37:15\n    at /cube/node_modules/ramda/src/internal/_curry2.js:18:18\n    at f1 (/cube/node_modules/ramda/src/internal/_curry1.js:15:17)\n    at /cube/node_modules/ramda/src/internal/_pipe.js:3:14","securityContext":{},"requestId":"scheduler-4be42802-971c-479d-8b35-b7d94ea1bb5b"}
+
+/cube/node_modules/mssql/lib/tedious/connection-pool.js:85
+          err = new ConnectionError(err)
+                ^
+ConnectionError: Failed to connect to mssql:1433 - self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca
+    at connectListener (/cube/node_modules/mssql/lib/tedious/connection-pool.js:85:17)
+    at Connection.onConnect (/cube/node_modules/tedious/src/connection.ts:1784:9)
+    at Connection.wrapper (node:events:639:12)
+    at Connection.emit (node:events:514:28)
+    at Connection.emit (/cube/node_modules/tedious/src/connection.ts:1927:18)
+    at Connection.socketError (/cube/node_modules/tedious/src/connection.ts:2334:12)
+    at /cube/node_modules/tedious/src/connection.ts:3317:25
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)

@@ -1,0 +1,257 @@
+{
+  "step": "5a-rollup-cube-query",
+  "at": "2026-11-04T05:32:27.155Z",
+  "ms": 1011,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/load",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…",
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales",
+        "till_sales_daily.net_till_value_sar"
+      ],
+      "dimensions": [
+        "stores.city"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_daily.sales_date",
+          "granularity": "month",
+          "dateRange": "last 90 days"
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "query": {
+      "measures": [
+        "till_sales_daily.till_sales",
+        "till_sales_daily.net_till_value_sar"
+      ],
+      "dimensions": [
+        "stores.city"
+      ],
+      "timeDimensions": [
+        {
+          "dimension": "till_sales_daily.sales_date",
+          "dateRange": [
+            "2026-08-06T00:00:00.000",
+            "2026-11-03T23:59:59.999"
+          ],
+          "granularity": "month"
+        }
+      ],
+      "limit": 10000,
+      "timezone": "UTC",
+      "filters": [],
+      "rowLimit": 10000
+    },
+    "lastRefreshTime": "2026-11-04T05:31:05.000Z",
+    "usedPreAggregations": {
+      "prod_pre_aggregations.till_sales_daily_daily_by_store": {
+        "preAggregationId": "till_sales_daily.daily_by_store",
+        "lastUpdatedAt": 1793770265000,
+        "type": "rollup"
+      }
+    },
+    "annotation": {
+      "segments": {},
+      "timeDimensions": {
+        "till_sales_daily.sales_date.month": {
+          "title": "Till Sales Daily Date",
+          "shortTitle": "Date",
+          "type": "time",
+          "granularity": {
+            "name": "month",
+            "title": "month",
+            "interval": "1 month"
+          }
+        },
+        "till_sales_daily.sales_date": {
+          "title": "Till Sales Daily Date",
+          "shortTitle": "Date",
+          "type": "time"
+        }
+      },
+      "dimensions": {
+        "stores.city": {
+          "title": "Stores City",
+          "shortTitle": "City",
+          "type": "string"
+        }
+      },
+      "measures": {
+        "till_sales_daily.till_sales": {
+          "title": "Till Sales Daily Till sales",
+          "shortTitle": "Till sales",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        },
+        "till_sales_daily.net_till_value_sar": {
+          "title": "Till Sales Daily Value through our tills",
+          "shortTitle": "Value through our tills",
+          "type": "number",
+          "drillMembers": [],
+          "drillMembersGrouped": {
+            "measures": [],
+            "dimensions": []
+          }
+        }
+      }
+    },
+    "dataSource": "default",
+    "dbType": "mssql",
+    "extDbType": "cubestore",
+    "external": true,
+    "slowQuery": false,
+    "data": [
+      {
+        "stores.city": "Riyadh",
+        "till_sales_daily.sales_date.month": "2026-08-01T00:00:00.000",
+        "till_sales_daily.till_sales": "176572",
+        "till_sales_daily.net_till_value_sar": "21381061",
+        "till_sales_daily.sales_date": "2026-08-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Makkah",
+        "till_sales_daily.sales_date.month": "2026-08-01T00:00:00.000",
+        "till_sales_daily.till_sales": "184856",
+        "till_sales_daily.net_till_value_sar": "22274680",
+        "till_sales_daily.sales_date": "2026-08-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Manama",
+        "till_sales_daily.sales_date.month": "2026-08-01T00:00:00.000",
+        "till_sales_daily.till_sales": "37116",
+        "till_sales_daily.net_till_value_sar": "4631227",
+        "till_sales_daily.sales_date": "2026-08-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Jeddah",
+        "till_sales_daily.sales_date.month": "2026-08-01T00:00:00.000",
+        "till_sales_daily.till_sales": "184508",
+        "till_sales_daily.net_till_value_sar": "22294864",
+        "till_sales_daily.sales_date": "2026-08-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Dammam",
+        "till_sales_daily.sales_date.month": "2026-08-01T00:00:00.000",
+        "till_sales_daily.till_sales": "184232",
+        "till_sales_daily.net_till_value_sar": "22274092",
+        "till_sales_daily.sales_date": "2026-08-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Riyadh",
+        "till_sales_daily.sales_date.month": "2026-09-01T00:00:00.000",
+        "till_sales_daily.till_sales": "227428",
+        "till_sales_daily.net_till_value_sar": "19428811",
+        "till_sales_daily.sales_date": "2026-09-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Makkah",
+        "till_sales_daily.sales_date.month": "2026-09-01T00:00:00.000",
+        "till_sales_daily.till_sales": "238216",
+        "till_sales_daily.net_till_value_sar": "20239180",
+        "till_sales_daily.sales_date": "2026-09-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Jeddah",
+        "till_sales_daily.sales_date.month": "2026-09-01T00:00:00.000",
+        "till_sales_daily.till_sales": "238276",
+        "till_sales_daily.net_till_value_sar": "20255680",
+        "till_sales_daily.sales_date": "2026-09-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Manama",
+        "till_sales_daily.sales_date.month": "2026-09-01T00:00:00.000",
+        "till_sales_daily.till_sales": "48452",
+        "till_sales_daily.net_till_value_sar": "4191105",
+        "till_sales_daily.sales_date": "2026-09-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Dammam",
+        "till_sales_daily.sales_date.month": "2026-09-01T00:00:00.000",
+        "till_sales_daily.till_sales": "237496",
+        "till_sales_daily.net_till_value_sar": "20239192",
+        "till_sales_daily.sales_date": "2026-09-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Dammam",
+        "till_sales_daily.sales_date.month": "2026-10-01T00:00:00.000",
+        "till_sales_daily.till_sales": "229316",
+        "till_sales_daily.net_till_value_sar": "23520604",
+        "till_sales_daily.sales_date": "2026-10-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Riyadh",
+        "till_sales_daily.sales_date.month": "2026-10-01T00:00:00.000",
+        "till_sales_daily.till_sales": "220586",
+        "till_sales_daily.net_till_value_sar": "22552977",
+        "till_sales_daily.sales_date": "2026-10-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Makkah",
+        "till_sales_daily.sales_date.month": "2026-10-01T00:00:00.000",
+        "till_sales_daily.till_sales": "230060",
+        "till_sales_daily.net_till_value_sar": "23524732",
+        "till_sales_daily.sales_date": "2026-10-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Jeddah",
+        "till_sales_daily.sales_date.month": "2026-10-01T00:00:00.000",
+        "till_sales_daily.till_sales": "230442",
+        "till_sales_daily.net_till_value_sar": "23519170",
+        "till_sales_daily.sales_date": "2026-10-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Manama",
+        "till_sales_daily.sales_date.month": "2026-10-01T00:00:00.000",
+        "till_sales_daily.till_sales": "47610",
+        "till_sales_daily.net_till_value_sar": "4867927",
+        "till_sales_daily.sales_date": "2026-10-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Manama",
+        "till_sales_daily.sales_date.month": "2026-11-01T00:00:00.000",
+        "till_sales_daily.till_sales": "5618",
+        "till_sales_daily.net_till_value_sar": "489416",
+        "till_sales_daily.sales_date": "2026-11-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Riyadh",
+        "till_sales_daily.sales_date.month": "2026-11-01T00:00:00.000",
+        "till_sales_daily.till_sales": "22098",
+        "till_sales_daily.net_till_value_sar": "2268700",
+        "till_sales_daily.sales_date": "2026-11-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Jeddah",
+        "till_sales_daily.sales_date.month": "2026-11-01T00:00:00.000",
+        "till_sales_daily.till_sales": "22882",
+        "till_sales_daily.net_till_value_sar": "2364894",
+        "till_sales_daily.sales_date": "2026-11-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Makkah",
+        "till_sales_daily.sales_date.month": "2026-11-01T00:00:00.000",
+        "till_sales_daily.till_sales": "22796",
+        "till_sales_daily.net_till_value_sar": "2361064",
+        "till_sales_daily.sales_date": "2026-11-01T00:00:00.000"
+      },
+      {
+        "stores.city": "Dammam",
+        "till_sales_daily.sales_date.month": "2026-11-01T00:00:00.000",
+        "till_sales_daily.till_sales": "22724",
+        "till_sales_daily.net_till_value_sar": "2362144",
+        "till_sales_daily.sales_date": "2026-11-01T00:00:00.000"
+      }
+    ]
+  }
+}

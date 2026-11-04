@@ -1,0 +1,15 @@
+{
+  "step": "7d-garbage",
+  "at": "2026-11-04T05:31:05.796Z",
+  "ms": 3,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/meta",
+    "auth": "not-a-jwt…"
+  },
+  "status": 403,
+  "response": {
+    "error": "Invalid token"
+  }
+}

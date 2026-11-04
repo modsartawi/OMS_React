@@ -1,0 +1,375 @@
+{
+  "step": "4-meta",
+  "at": "2026-11-04T05:31:05.809Z",
+  "ms": 3,
+  "continueWaits": 0,
+  "request": {
+    "method": "GET",
+    "path": "/meta",
+    "auth": "eyJhbGciOiJIUzI1NiIsInR5…"
+  },
+  "status": 200,
+  "response": {
+    "cubes": [
+      {
+        "name": "till_sales_daily",
+        "type": "cube",
+        "title": "Till Sales Daily",
+        "isVisible": true,
+        "public": true,
+        "connectedComponent": 1,
+        "measures": [
+          {
+            "name": "till_sales_daily.till_sales",
+            "title": "Till Sales Daily Till sales",
+            "shortTitle": "Till sales",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_daily.till_returns",
+            "title": "Till Sales Daily Returns",
+            "shortTitle": "Returns",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_daily.net_till_value_sar",
+            "title": "Till Sales Daily Value through our tills",
+            "shortTitle": "Value through our tills",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_daily.return_rate",
+            "title": "Till Sales Daily Return rate",
+            "shortTitle": "Return rate",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "number",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "isVisible": true,
+            "public": true
+          }
+        ],
+        "dimensions": [
+          {
+            "name": "till_sales_daily.sales_date",
+            "title": "Till Sales Daily Date",
+            "type": "time",
+            "shortTitle": "Date",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false
+          },
+          {
+            "name": "till_sales_daily.store_code",
+            "title": "Till Sales Daily Store code",
+            "type": "string",
+            "shortTitle": "Store code",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false
+          }
+        ],
+        "segments": [],
+        "hierarchies": [],
+        "folders": [],
+        "nestedFolders": []
+      },
+      {
+        "name": "stores",
+        "type": "cube",
+        "title": "Stores",
+        "isVisible": true,
+        "public": true,
+        "connectedComponent": 1,
+        "measures": [],
+        "dimensions": [
+          {
+            "name": "stores.store_code",
+            "title": "Stores Store Code",
+            "type": "string",
+            "shortTitle": "Store Code",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": true
+          },
+          {
+            "name": "stores.store_name",
+            "title": "Stores Store",
+            "type": "string",
+            "shortTitle": "Store",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false
+          },
+          {
+            "name": "stores.city",
+            "title": "Stores City",
+            "type": "string",
+            "shortTitle": "City",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false
+          },
+          {
+            "name": "stores.country",
+            "title": "Stores Country",
+            "type": "string",
+            "shortTitle": "Country",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false
+          }
+        ],
+        "segments": [],
+        "hierarchies": [],
+        "folders": [],
+        "nestedFolders": []
+      },
+      {
+        "name": "slow_probe",
+        "type": "cube",
+        "title": "Slow Probe",
+        "isVisible": true,
+        "public": true,
+        "measures": [
+          {
+            "name": "slow_probe.n",
+            "title": "Slow Probe N",
+            "shortTitle": "N",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "count",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "isVisible": true,
+            "public": true
+          }
+        ],
+        "dimensions": [],
+        "segments": [],
+        "hierarchies": [],
+        "folders": [],
+        "nestedFolders": []
+      },
+      {
+        "name": "till_sales_view",
+        "type": "view",
+        "title": "Till Sales View",
+        "isVisible": true,
+        "public": true,
+        "measures": [
+          {
+            "name": "till_sales_view.till_sales",
+            "title": "Till Sales View Till sales",
+            "shortTitle": "Till sales",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "aliasMember": "till_sales_daily.till_sales",
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_view.till_returns",
+            "title": "Till Sales View Returns",
+            "shortTitle": "Returns",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "aliasMember": "till_sales_daily.till_returns",
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_view.net_till_value_sar",
+            "title": "Till Sales View Value through our tills",
+            "shortTitle": "Value through our tills",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "sum",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "aliasMember": "till_sales_daily.net_till_value_sar",
+            "isVisible": true,
+            "public": true
+          },
+          {
+            "name": "till_sales_view.return_rate",
+            "title": "Till Sales View Return rate",
+            "shortTitle": "Return rate",
+            "formatDescription": {
+              "name": "number",
+              "specifier": ",.2~f"
+            },
+            "cumulativeTotal": false,
+            "cumulative": false,
+            "type": "number",
+            "aggType": "number",
+            "drillMembers": [],
+            "drillMembersGrouped": {
+              "measures": [],
+              "dimensions": []
+            },
+            "aliasMember": "till_sales_daily.return_rate",
+            "isVisible": true,
+            "public": true
+          }
+        ],
+        "dimensions": [
+          {
+            "name": "till_sales_view.sales_date",
+            "title": "Till Sales View Date",
+            "type": "time",
+            "shortTitle": "Date",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false,
+            "aliasMember": "till_sales_daily.sales_date"
+          },
+          {
+            "name": "till_sales_view.store_code",
+            "title": "Till Sales View Store code",
+            "type": "string",
+            "shortTitle": "Store code",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false,
+            "aliasMember": "till_sales_daily.store_code"
+          },
+          {
+            "name": "till_sales_view.store_name",
+            "title": "Till Sales View Store",
+            "type": "string",
+            "shortTitle": "Store",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false,
+            "aliasMember": "stores.store_name"
+          },
+          {
+            "name": "till_sales_view.city",
+            "title": "Till Sales View City",
+            "type": "string",
+            "shortTitle": "City",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false,
+            "aliasMember": "stores.city"
+          },
+          {
+            "name": "till_sales_view.country",
+            "title": "Till Sales View Country",
+            "type": "string",
+            "shortTitle": "Country",
+            "suggestFilterValues": true,
+            "isVisible": true,
+            "public": true,
+            "primaryKey": false,
+            "aliasMember": "stores.country"
+          }
+        ],
+        "segments": [],
+        "hierarchies": [],
+        "folders": [],
+        "nestedFolders": []
+      }
+    ]
+  }
+}

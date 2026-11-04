@@ -1,0 +1,109 @@
+Server|Edition|EngineEdition|Version|Now
+------|-------|-------------|-------|---
+DWPOSREPL03|Enterprise Edition (64-bit)|3|15.0.4470.1|2026-11-03 20:36:10.4260403
+name|compatibility_level|recovery_model_desc|is_subscribed|is_published|is_read_committed_snapshot_on|snapshot_isolation_state_desc|is_query_store_on|create_date
+----|-------------------|-------------------|-------------|------------|-----------------------------|-----------------------------|-----------------|-----------
+POS|150|SIMPLE|0|0|1|OFF|0|2025-09-27 03:23:05.393
+ZC|150|FULL|0|0|0|OFF|0|2025-09-30 11:49:12.903
+BusinessMonitor|110|FULL|0|0|0|OFF|0|2025-10-01 09:49:47.620
+TableName|Present
+---------|-------
+Callout|MISSING
+CalloutBid|MISSING
+CalloutEvent|MISSING
+DispatchBoardRelease|MISSING
+DocumentSource|MISSING
+LoyCustomerFirstPurchase|MISSING
+Material|MISSING
+StoreGroup|MISSING
+MSreplication_subscriptions|yes
+RetailTrx|yes
+RetailTrxDetail|yes
+RetailTrxPayment|yes
+SdDocumentActionType|yes
+SdDocumentDeliveryType|yes
+SdDocumentHeader|yes
+SdDocumentHeaderStatus|yes
+SdDocumentLine|yes
+SdDocumentLog|yes
+SdDocumentSource|yes
+SdDocumentType|yes
+Staff|yes
+Store|yes
+TableName|IndexName|IndexType|is_primary_key|has_filter|Rows|Partitions
+---------|---------|---------|--------------|----------|----|----------
+RetailTrx|PK_RetailTrx|CLUSTERED|1|0|465331893|1
+RetailTrx|NCCI|NONCLUSTERED COLUMNSTORE|0|0|465331893|1
+RetailTrxDetail|PK_RetailTrxDetail|CLUSTERED|1|0|1005935404|1
+RetailTrxDetail|NCCI|NONCLUSTERED COLUMNSTORE|0|0|1005935404|1
+RetailTrxPayment|PK_RetailTrxPayment|CLUSTERED|1|0|501373182|1
+RetailTrxPayment|NCCI|NONCLUSTERED COLUMNSTORE|0|0|501373182|1
+SdDocumentHeader|PK_SdDocumentHeader|CLUSTERED|1|0|16790609|1
+SdDocumentLine|PK_SdDocumentLine|CLUSTERED|1|0|36626974|1
+SdDocumentLog|PK_SdDocumentLog|CLUSTERED|1|0|87871471|1
+SdDocumentSource|PK_SdDocumentSource|CLUSTERED|1|0|43|1
+Store|PK_Store|CLUSTERED|1|0|1561|1
+TableName|IndexName|key_ordinal|ColumnName|is_included_column
+---------|---------|-----------|----------|------------------
+RetailTrx|PK_RetailTrx|1|Client|0
+RetailTrx|PK_RetailTrx|2|StoreCode|0
+RetailTrx|PK_RetailTrx|3|MachineCode|0
+RetailTrx|PK_RetailTrx|4|TrxNumber|0
+RetailTrxDetail|PK_RetailTrxDetail|1|Client|0
+RetailTrxDetail|PK_RetailTrxDetail|2|StoreCode|0
+RetailTrxDetail|PK_RetailTrxDetail|3|MachineCode|0
+RetailTrxDetail|PK_RetailTrxDetail|4|TrxNumber|0
+RetailTrxDetail|PK_RetailTrxDetail|5|LineNumber|0
+SdDocumentHeader|PK_SdDocumentHeader|1|DocumentNo|0
+SdDocumentLog|PK_SdDocumentLog|1|LogNo|0
+type_desc|Cnt|SchemaBound
+---------|---|-----------
+VIEW|34|1
+publisher|publisher_db|publication|subscription_type|LastAgentWrite|SecondsSinceAgentWrite
+---------|------------|-----------|-----------------|--------------|----------------------
+DWPOS03|POS|Loy|0|2026-11-03 20:36:00|10
+DWPOS03|POS|Loy_2|0|2026-11-03 20:36:00|10
+DWPOS03|POS|Loy_Family|0|2026-11-03 20:36:00|10
+DWPOS03|POS|Master1|0|2026-11-03 20:36:00|10
+NPDB01|Nphies|Nphies|0|2026-11-03 20:36:00|10
+DWPOS03|POS|OMS|0|2026-11-03 20:36:00|10
+DWPOS03|POS|Other1|0|2026-11-03 20:36:00|10
+NPDB01|Nphies|Others|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrx|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxConditions|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxDetail|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxDetailPromo|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxEmail|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxIndex|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxPayment|0|2026-11-03 20:36:00|10
+DWPOS03|POS|RetailTrxSerial|0|2026-11-03 20:36:00|10
+DWPOS03|POS|SapTrx|0|2026-11-03 20:36:00|10
+DWPOS03|POS|StockDiscrepancy|0|2026-11-03 20:36:00|10
+DWWASDB01|Wasfaty|Wasfaty|0|2026-11-03 20:36:00|10
+DWPOS03|POS|Wp|0|2026-11-03 20:36:00|10
+Src|Newest|LagMin
+---|------|------
+SdDocumentLog|2026-11-03 20:36:01.4539861|0
+RetailTrx|2026-11-03 00:00:00.0000000|1236
+SdDocumentHeader|2026-11-03 20:36:01.1388966|0
+ViewServerState|ViewDatabaseState|ShowPlan
+---------------|-----------------|--------
+0|0|0
+P5
+--
+VIEW SERVER STATE denied: hardware + other-traffic rows go to the DBA checklist
+Label|Ms|ResultRows
+-----|--|----------
+RetailTrx 1d by store|313|955
+RetailTrx 7d by store|375|963
+RetailTrx 92d by store|1078|972
+RetailTrx 92d by city|954|203
+RetailTrx 92d by channel x day|1157|1107
+RetailTrxDetail 7d by store|907|965
+RetailTrxDetail 92d by store|1813|974
+SdDocumentHeader 1d by store x source|735|6777
+SdDocumentHeader 7d by store x source|1532|12343
+SdDocumentHeader 92d by store x source|1719|17591
+SdDocumentHeader 92d by city x type|1517|1820
+SdDocumentLog 7d by store x action|2908|5476
+SdDocumentLog 92d by store x action|3220|9878

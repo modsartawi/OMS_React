@@ -506,6 +506,7 @@ outside the system. Read-only — no act, no Z viewer.
 _Avoid_: queue, backlog; "receipt" alone (a **collection**'s receipt is the سند قبض — say *prepared
 settlement receipt*).
 
+
 **Collector supervisor**:
 The Ua role `COLLECTOR_SUPERVISOR` (BackOffice 1995): the five collection read grants — Cash
 Collections, ACRs, Deposits, Collection Attempts, Ready for collection — and no act. The web keys
@@ -733,3 +734,27 @@ callout radius** when nobody in the normal one could serve. `0` means no radius 
 no usable serving list or radius, or OTO coverage answered instead). The wider radius is set on the
 delivery type, `0` = off, and only counts when it is greater than the normal one.
 _Avoid_: expanded radius (the field's server name, not the word), range, distance (that's a bid's km).
+
+**Analytics view**:
+One chart over the semantic model: its measures, dimensions, filters, chart type and formatting,
+kept as a definition in SIS.Api's own store. Metabase only runs it and never stores it (ticket 755).
+Every analytics view has an owner and a **tier**. A view the AI creates is a Personal analytics view.
+_Avoid_: saved view (that's the Deliveries list's browser-local bundle), card, question (Metabase's words).
+
+**Board** (in analytics):
+A grid of panels: analytics views linked by reference, plus text and section-header panels. It has
+board filters, cross-filter, and optional auto-refresh. It has an owner and a **tier**, like an
+analytics view (ticket 755).
+_Avoid_: dashboard in copy (fine in conversation), report.
+
+**Tier** (of an analytics view or board):
+**Personal** is seen and edited by its owner only. **Shared** is seen by every holder of the
+analytics grant and edited by its owner only. **Certified** is promoted by a **curator**, frozen
+as a copy, and edited by curators only. Editing an item you may not edit makes a Personal copy and
+never changes the original (ticket 755).
+_Avoid_: public, published, official.
+
+**Curator** (in analytics):
+A holder of the analytics curation grant, beside the screen grant. Only a curator certifies,
+un-certifies, or edits a Certified item. The AI is never a curator.
+_Avoid_: admin, editor, owner (an owner is the person who made an item).

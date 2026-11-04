@@ -106,7 +106,11 @@ export interface AnalyticsChart {
   sort?: { key: string; direction: 'asc' | 'desc' } | null
   /** ⚠ Table only (769): keep the first N rows after the sort. Absent → every row. */
   topN?: number | null
+  /** ⚠ The legend's place (755 item 4, ticket 775): hidden, top, bottom or end. Absent → the form's default. */
+  legend?: AnalyticsLegendPosition
 }
+
+export type AnalyticsLegendPosition = 'hidden' | 'top' | 'bottom' | 'end'
 
 /** An analytics view's definition. */
 export interface AnalyticsViewDefinition {
@@ -136,6 +140,17 @@ export interface AnalyticsItem {
   revision: number
   updatedAt: string
   updatedBy: string
+  definition: AnalyticsViewDefinition
+}
+
+/**
+ * `POST Analytics/Item` — the body of a new item (ticket 775). ⚠ §C names the door, not its body: the
+ * server makes it Personal to the caller and answers the whole item. An empty title is generated on screen.
+ */
+export interface AnalyticsItemCreate {
+  kind: 'view' | 'board'
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
   definition: AnalyticsViewDefinition
 }
 

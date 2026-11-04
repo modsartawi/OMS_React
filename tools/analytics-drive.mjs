@@ -36,7 +36,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { ITEMS, QUERY, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -603,6 +603,152 @@ async function askBox({ dir = 'ltr' } = {}) {
   await context.close()
 }
 
+// ── 775: the chart editor ────────────────────────────────────────────────────────────────────────────
+/** Tick `values` in the MultiSelect `data-testid=testId`, then close its panel. */
+async function pick(page, testId, values) {
+  const root = page.locator(`[data-testid="${testId}"]`)
+  await root.locator('[data-multi-select-trigger]').click()
+  for (const v of values) await root.locator(`[data-option="${v}"] input[type="checkbox"]`).check()
+  await page.keyboard.press('Escape')
+}
+const offeredChoices = (page) =>
+  page.locator('[data-analytics-choice][data-offered="yes"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-choice')))
+const noIsolates = (s) => s.replace(/[⁦⁧⁨⁩]/g, '')
+
+/**
+ * 775 — build Q8 (median and p90 order-to-delivered by channel, last 7 days) from the model:
+ *   1. the home's "New view" opens `/analytics/new?kind=view`; the callouts area is listed unavailable with
+ *      its reason, and its measure is not offered;
+ *   2. two percentiles by channel offer ONLY the table and the unstacked bars; the stacked bar and the donut
+ *      say why not; an unavailable chip cannot be chosen;
+ *   3. the preview asks `Analytics/Query` with the inline definition and draws the table through the view
+ *      page's own dispatch; the generated title reads from the model labels;
+ *   4. year to date → `ANALYTICS-407`, which offers the last 30 days; taking it redraws;
+ *   5. save → ONE `POST Analytics/Item` (empty title, the definition) and the new view opens.
+ */
+async function editorBuildsQ8({ dir, dark }) {
+  const tag = `775 ${dir}${dark ? '-dark' : ''}`
+  const { context, page, bodies, errors } = await open({ dir, dark })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-new-view]').click()
+  await page.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  check(`${tag}: "New view" opens the builder`, page.url().endsWith('/analytics/new?kind=view'), page.url())
+  check(`${tag}: the preview waits for a measure and a type`, (await page.locator('[data-analytics-preview-idle]').count()) === 1)
+  const area = await page.locator('[data-analytics-unavailable-area="callouts"]').innerText()
+  check(`${tag}: the unavailable area shows its reason`, area.includes('Waiting on the replica (753).'), area)
+  await page.locator('[data-testid="editor-measures"] [data-multi-select-trigger]').click()
+  check(`${tag}: a measure in an unavailable area is not offered`, (await page.locator('[data-testid="editor-measures"] [data-option="take_rate"]').count()) === 0)
+  await page.keyboard.press('Escape')
+
+  await pick(page, 'editor-measures', ['order_to_delivered_p50', 'order_to_delivered_p90'])
+  await pick(page, 'editor-dimensions', ['channel_group'])
+  const offered = await offeredChoices(page)
+  check(`${tag}: Q8 offers only the table and the unstacked bars`, JSON.stringify(offered) === JSON.stringify(['bar-vertical', 'bar-horizontal', 'bar-grouped', 'table']), offered.join(', '))
+  const whyStacked = await page.locator('[data-analytics-why="bar-stacked"]').innerText()
+  const whyDonut = await page.locator('[data-analytics-why="donut"]').innerText()
+  check(`${tag}: the stacked bar says a percentile is never stacked`, /never stacked/.test(whyStacked), whyStacked)
+  check(`${tag}: the donut says why not`, /donut/i.test(whyDonut), whyDonut)
+  await page.locator('[data-analytics-choice="donut"]').click({ force: true })
+  check(`${tag}: an unavailable type cannot be chosen`, (await page.locator('[data-analytics-choice="donut"]').getAttribute('aria-pressed')) === 'false')
+
+  await page.locator('[data-analytics-choice="table"]').click()
+  const rows = page.locator('[data-analytics-preview] [data-chart="table"] .ag-row[row-index]')
+  await rows.first().waitFor({ timeout: 10000 })
+  check(`${tag}: the preview draws the table, one row per channel`, (await rows.count()) === 5, String(await rows.count()))
+  const asked = bodies['Analytics/Query']?.at(-1)
+  check(
+    `${tag}: the preview asks Query with the inline definition`,
+    asked?.definition?.chart?.type === 'table' &&
+      JSON.stringify(asked.definition.query.measures) === JSON.stringify(['order_to_delivered_p50', 'order_to_delivered_p90']) &&
+      JSON.stringify(asked.definition.query.dimensions) === JSON.stringify(['channel_group']) &&
+      !('viewId' in asked),
+    JSON.stringify(asked),
+  )
+  const previewTitle = noIsolates(await page.locator('[data-analytics-preview-title]').innerText())
+  check(`${tag}: an empty title is generated from the model labels`, previewTitle === 'Median order to delivered and P90 order to delivered by Channel, last 30 days', previewTitle)
+  const placeholderAr = noIsolates((await page.locator('[data-editor-title="ar"]').getAttribute('placeholder')) ?? '')
+  check(`${tag}: … and in Arabic`, placeholderAr === 'الوسيط من الطلب إلى التسليم والمئين 90 من الطلب إلى التسليم حسب القناة، آخر 30 يومًا', placeholderAr)
+
+  await page.locator('[data-editor-period]').selectOption('year-to-date')
+  const refused = page.locator('[data-analytics-preview] [data-analytics-refusal="window"]')
+  await refused.waitFor({ timeout: 10000 })
+  const words = noIsolates(await refused.innerText())
+  check(`${tag}: 407 names the percentile and its 92 days`, words.includes('Median order to delivered') && words.includes('92'), words)
+  await page.screenshot({ path: `${SHOTS}/775-window-${dir}${dark ? '-dark' : ''}.png` })
+  await refused.locator('[data-analytics-shorten="last-30-days"]').click()
+  await rows.first().waitFor({ timeout: 10000 })
+  check(`${tag}: taking the offer sets the last 30 days and redraws`, (await page.locator('[data-editor-period]').inputValue()) === 'last-30-days' && (await rows.count()) === 5)
+
+  await page.locator('[data-editor-period]').selectOption('last-7-days')
+  await page.waitForTimeout(400)
+  await page.screenshot({ path: `${SHOTS}/775-editor-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/view/v-new', { timeout: 10000 })
+  const made = bodies['Analytics/Item'] ?? []
+  check(`${tag}: save sends ONE POST Analytics/Item`, made.length === 1, String(made.length))
+  const body = made[0] ?? {}
+  check(
+    `${tag}: … a view with an empty title and the Q8 definition over the last 7 days`,
+    body.kind === 'view' && body.title?.en === '' && body.title?.ar === '' && body.definition?.chart?.type === 'table' && body.definition?.query?.period === 'last-7-days',
+    JSON.stringify(body),
+  )
+  await page.locator('[data-analytics-view="v-new"] [data-chart="table"] .ag-row[row-index]').first().waitFor({ timeout: 10000 })
+  check(`${tag}: it lands on the new view, drawn`, (await page.locator('[data-analytics-view="v-new"] [data-chart="table"] .ag-row[row-index]').count()) === 5)
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/**
+ * 775 — the editor opened SEEDED (772's drill "Save as view" opens it so, via route state): a bar of orders
+ * by store draws at once; a store's colour comes from the chart tokens only, a pick swaps, and the saved
+ * member → slot map is written. Then 406 names the field and 410 shows the area's reason.
+ */
+async function editorSeededAndRefusals() {
+  const tag = '775 seeded'
+  const { context, page, bodies, errors } = await open({
+    inlineQuery: (body) =>
+      body.definition?.query?.dimensions?.includes('day')
+        ? envelope({ field: 'query.dimensions[0]' }, { status: 400, success: false, message: 'Unknown member.', errors: [{ errorCode: 'ANALYTICS-406', internalErrorCode: '', errorMessage: 'Unknown member.' }] })
+        : inlineAnswer(body.definition),
+    create: refusal('ANALYTICS-410', 'The delivery area is not available yet.', 400),
+  })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-home-header]').waitFor({ timeout: 10000 })
+  const seed = { definition: { chart: { type: 'bar', orientation: 'vertical' }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-7-days' } } }
+  await page.evaluate((seed) => {
+    window.history.pushState({ usr: { editorSeed: seed }, key: 'seed775', idx: 1 }, '', '/analytics/new?kind=view')
+    window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+  }, seed)
+  await page.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  check(`${tag}: the seeded type is chosen`, (await page.locator('[data-analytics-choice="bar-vertical"]').getAttribute('aria-pressed')) === 'true')
+  check(`${tag}: the seeded period is set`, (await page.locator('[data-editor-period]').inputValue()) === 'last-7-days')
+  await page.locator('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path').first().waitFor({ timeout: 10000 })
+  const p3 = page.locator('[data-analytics-colour-member="P003"]')
+  await p3.waitFor({ timeout: 10000 })
+  check(`${tag}: each member offers the five chart tokens only`, (await p3.locator('[data-colour-slot]').count()) === 5)
+  await p3.locator('[data-colour-slot="0"]').click()
+  const fills = await page.locator('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path').evaluateAll((els) => els.map((e) => e.getAttribute('fill')))
+  check(`${tag}: P003 takes --chart-1 and P001 its old slot`, fills[2] === 'var(--chart-1)' && fills[0] === 'var(--chart-3)', fills.join(' '))
+
+  await page.locator('[data-editor-save]').click()
+  const area = page.locator('[data-analytics-refusal="area"]')
+  await area.waitFor({ timeout: 10000 })
+  check(`${tag}: 410 shows the area's reason`, noIsolates(await area.innerText()).includes('The delivery area is not available yet.'), await area.innerText())
+  const slots = bodies['Analytics/Item']?.[0]?.definition?.slots?.store ?? {}
+  const values = Object.values(slots)
+  check(`${tag}: the save carries the member → slot map, no slot twice`, slots.P003 === 0 && slots.P001 === 2 && new Set(values).size === values.length, JSON.stringify(slots))
+
+  await pick(page, 'editor-dimensions', ['day'])
+  await page.locator('[data-analytics-choice="table"]').click()
+  const invalid = page.locator('[data-analytics-preview] [data-analytics-refusal="invalid"]')
+  await invalid.waitFor({ timeout: 10000 })
+  check(`${tag}: 406 names the offending field`, noIsolates(await invalid.innerText()).includes('query.dimensions[0]'), await invalid.innerText())
+  check(`${tag}: … and marks the breakdowns invalid`, (await page.locator('[data-testid="editor-dimensions"] [data-multi-select-trigger][aria-invalid="true"], [data-testid="editor-dimensions"] [aria-invalid="true"]').count()) > 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -620,6 +766,10 @@ const SCENARIOS = [
   ['770', homeEmpty],
   ['782', () => askBox({ dir: 'ltr' })],
   ['782', () => askBox({ dir: 'rtl' })],
+  ['775', () => editorBuildsQ8({ dir: 'ltr', dark: false })],
+  ['775', () => editorBuildsQ8({ dir: 'rtl', dark: false })],
+  ['775', () => editorBuildsQ8({ dir: 'ltr', dark: true })],
+  ['775', editorSeededAndRefusals],
 ]
 
 try {

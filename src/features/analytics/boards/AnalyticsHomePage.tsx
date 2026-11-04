@@ -2,10 +2,11 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { BadgeCheck, ChartColumn, LayoutDashboard, SearchX } from 'lucide-react'
+import { BadgeCheck, ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsTier } from '@/core/models/analytics'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
@@ -16,6 +17,7 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import AskBox from './AskBox'
 import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi } from './api'
+import { newViewLink } from './editor'
 import { homeGroups } from './home'
 import { labelIn } from './view-model'
 import { analyticsRefusal } from './wire'
@@ -125,6 +127,11 @@ function HomeBody() {
           data-analytics-home-search
         />
         <AskBox />
+        {/* 775: build a view from the model. */}
+        <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
+          <Plus className="size-4" aria-hidden />
+          {t('editor.newView')}
+        </Link>
       </div>
       {body}
     </div>

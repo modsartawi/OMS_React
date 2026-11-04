@@ -8,6 +8,7 @@
 import { api } from '@/core/api'
 import type {
   AnalyticsItem,
+  AnalyticsItemCreate,
   AnalyticsModel,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
@@ -39,5 +40,13 @@ export const analyticsApi = {
   /** `POST Analytics/Query` — one panel's answer. */
   async query(input: AnalyticsQueryInput): Promise<AnalyticsQueryResult> {
     return readResult(await api.post<Record<string, unknown>>('Analytics/Query', input))
+  },
+  /**
+   * `POST Analytics/Item` — creates the item as Personal to the caller (ticket 775). Answers the created
+   * item. ⚠ §C names the door, not its body: `AnalyticsItemCreate` is the web's proposal. 776 adds the
+   * in-place `PUT` and `…/Copy` beside it.
+   */
+  async create(body: AnalyticsItemCreate): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>('Analytics/Item', body))
   },
 }

@@ -2,9 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { SearchX, ShieldAlert } from 'lucide-react'
-import ChartFrame from '@/core/charts/ChartFrame'
 import { formatClock, formatDay } from '@/core/charts/format'
-import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -13,9 +11,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
-import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
-import { labelIn, toBarView } from './view-model'
-import ViewForm, { isViewForm } from './ViewForms'
+import { labelIn } from './view-model'
+import ViewChart from './ViewChart'
 import { analyticsRefusal } from './wire'
 
 /**
@@ -58,7 +55,6 @@ function ViewBody() {
 
 function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
-  const { t: tc } = useTranslation('common')
   const lang = i18n.language
   const input = { viewId: item.id, revision: item.revision }
   const answer = useQuery({
@@ -79,15 +75,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
   const subtitle = labelIn(item.subtitle, lang)
 
   const result = answer.data
-  // 768's forms (KPI, line, area, the other bars) draw through `SeriesPanel`; 767's vertical bar below.
-  const series = drawsAsSeries(def)
-  const view = result && !series ? toBarView(result, def, model, lang) : null
   const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
-  const verticalBar = def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical'
-  // 769's forms: the donut, the table with cell bars, the heatmap and the combo.
-  const viewForm = isViewForm(def.chart.type) ? def.chart.type : null
-  const drawable = series || verticalBar || viewForm !== null
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
@@ -116,40 +105,13 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
         </div>
       </header>
 
-      {answer.error && !result ? (
-        <Refused err={answer.error} fallbackKey="view.queryFailed" />
-      ) : !drawable ? (
-        <p className="text-sm text-muted-foreground" data-analytics-unsupported>
-          {t('view.unsupported')}
-        </p>
-      ) : series ? (
-        <ChartFrame busy={answer.isFetching} hasChart={!!result}>
-          {result && <SeriesPanel result={result} definition={def} model={model} lang={lang} />}
-        </ChartFrame>
-      ) : (
-        <ChartFrame busy={answer.isFetching} hasChart={!!view}>
-          {view?.empty ? (
-            <p className="flex h-72 items-center justify-center text-sm text-muted-foreground" data-analytics-empty>
-              {t('view.empty')}
-            </p>
-          ) : (
-            view &&
-            (viewForm && result ? (
-              <ViewForm type={viewForm} result={result} definition={def} model={model} lang={lang} />
-            ) : (
-              <VerticalBarChart
-                points={view.points}
-                colourBy={view.colourBy}
-                unit={view.measure.unit}
-                measureLabel={view.measure.label}
-                locale={lang}
-                ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
-              />
-            ))
-          )}
-        </ChartFrame>
-      )}
-      {(view?.truncated || (series && result?.truncated)) && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
+      <ViewChart
+        definition={def}
+        model={model}
+        lang={lang}
+        answer={answer}
+        refused={(err) => <Refused err={err} fallbackKey="view.queryFailed" />}
+      />
     </article>
   )
 }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 767
 ---
@@ -23,8 +23,8 @@ model/api (`Items`) · store/logic (grouping and search) · component/route · i
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `home grouping: Certified, Shared, Mine, newest first within each, search matches en or ar title` · pure (vitest)
-- [ ] `home lists the stubbed items in order and search narrows them` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `home grouping: Certified, Shared, Mine, newest first within each, search matches en or ar title` · pure (vitest)
+- [x] `home lists the stubbed items in order and search narrows them` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 
@@ -37,3 +37,13 @@ The drive shows the grouped home and search working.
 ## Blocked by
 
 [767](767-an-analytics-view-opens-at-analytics-view-id-and-draws-its-bar-chart-behind-the-analytics-probe.md)
+
+## Resolution
+
+- Pure: `src/features/analytics/boards/home.test.ts` (6 cases) + `readItems` in `wire.test.ts`.
+- Flow: `tools/analytics-drive.mjs` 770 scenarios (ltr, rtl, empty) — 89/89 with 767's.
+- Rulings: "Mine" is the Personal tier (a Personal item is seen by its owner only, CONTEXT.md *Tier*), so
+  no user id is read; search is client-side over the one `Analytics/Items` list (no `kind`/`tier`/search
+  params sent); an untitled view is shown and found by its generated title; `Items`' `data` is read as a
+  bare array or `{ items }` (⚠ §C does not fix it). `/analytics/board/:id` is a not-found placeholder
+  (`AnalyticsBoardPage.tsx`) that 771 replaces.

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import { analyticsRefusal, readItem, readModel, readResult } from './wire'
+import { analyticsRefusal, readItem, readItems, readModel, readResult } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -47,5 +47,13 @@ describe('analytics wire', () => {
     expect(item.definition.query.dimensions).toEqual([])
     expect(item.definition.query.filters).toEqual([])
     expect(item.title).toEqual({ en: '', ar: '' })
+  })
+
+  it('Items reads a bare array or an { items } page, each item defensively; anything else is empty', () => {
+    const one = { id: 'b-1', kind: 'board', tier: 'certified', updatedAt: '2026-11-01T08:00:00' }
+    expect(readItems([one]).map((i) => [i.id, i.kind, i.title.en])).toEqual([['b-1', 'board', '']])
+    expect(readItems({ items: [one] }).map((i) => i.id)).toEqual(['b-1'])
+    expect(readItems(null)).toEqual([])
+    expect(readItems({})).toEqual([])
   })
 })

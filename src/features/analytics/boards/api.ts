@@ -3,7 +3,7 @@
  * in TanStack Query at the Page. Each answer is read through `./wire`, so an absent array is empty.
  *
  * The probe lives in `./access` (the menu imports it eagerly). Later slices add their doors here:
- * `DimensionValues` (771), `Items` (770), the item writes (776, 778, 779).
+ * `DimensionValues` (771), the item writes (776, 778, 779). `Items` landed with 770.
  */
 import { api } from '@/core/api'
 import type {
@@ -12,9 +12,10 @@ import type {
   AnalyticsQueryInput,
   AnalyticsQueryResult,
 } from '@/core/models/analytics'
-import { readItem, readModel, readResult } from './wire'
+import { readItem, readItems, readModel, readResult } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
+export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
@@ -23,6 +24,13 @@ export const analyticsApi = {
   /** `GET Analytics/Model` — the catalogue: areas, measures and dimensions, labelled in en and ar. */
   async model(): Promise<AnalyticsModel> {
     return readModel(await api.get<Record<string, unknown>>('Analytics/Model'))
+  },
+  /**
+   * `GET Analytics/Items` — every item the caller may read (ticket 770). No `kind`/`tier`/search params:
+   * the home groups and searches the one list itself, so typing narrows it without a call per key.
+   */
+  async items(): Promise<AnalyticsItem[]> {
+    return readItems(await api.get<unknown>('Analytics/Items'))
   },
   /** `GET Analytics/Item/{id}` — a view or a board. `ANALYTICS-404` when it is gone. */
   async item(id: string): Promise<AnalyticsItem> {

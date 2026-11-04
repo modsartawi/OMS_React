@@ -35,6 +35,29 @@ import type {
  */
 export type { ReturnReason }
 
+/**
+ * Which return the screen is raising (spec 759 F3, ticket 761): the bonded one of spec 289, or a
+ * **local fulfillment** one (BackOffice 3369). The caller picks it off `deliveryDocumentType`
+ * (`commands.ts`'s `isLocalFulfillment`) — this module never reads the delivery's type itself.
+ */
+export type ReturnMode = 'bonded' | 'lf'
+
+/**
+ * The only reason an LF return can carry (BackOffice 3369 D3): Return-and-Refund. The door refuses
+ * Refund-Only on an LF delivery, so the screen offers no choice and the builder sends this one.
+ */
+export const LF_RETURN_REASON: ReturnReason = 'RTRF'
+
+/**
+ * The access-probe flag each mode's create door is guarded by — the one a `403` from that door
+ * revokes. An LF `403` is the LocalFulfillmentReturn 03 grant refusing; it says nothing about the
+ * bonded `canCreateReturn`, and must not take Return off a bonded delivery (760's open item).
+ */
+export const RETURN_GRANT = {
+  bonded: 'canCreateReturn',
+  lf: 'canCreateLocalFulfillmentReturn',
+} as const satisfies Record<ReturnMode, string>
+
 /** One line as the return screen offers it. */
 export interface ReturnableLine {
   lineNumber: number
@@ -201,6 +224,16 @@ export function clampReturnQuantity(value: unknown, remaining: number): number {
  */
 const DELIVERY_FEE_CATEGORY = 'F'
 
+/**
+ * The one fee an LF return can carry back (BackOffice 3369 D4: the return's fee allocation gains an
+ * `LF` arm allocating `FLFD` **and nothing else**). In LF mode the projection offers this type alone
+ * — offering a `DFEE` the server will not allocate would be a tick that refunds nothing. Matched by
+ * TYPE rather than category because 3369 names the type, and a blank category (the `8000000121`
+ * capture's shape) must not hide it. Display only, like the category above: the server re-reads the
+ * rate and owns the money.
+ */
+const LF_DELIVERY_FEE_TYPE = 'FLFD'
+
 /** One delivery fee as the return screen offers it back. */
 export interface RefundableFee {
   /**
@@ -241,15 +274,21 @@ export interface RefundableFee {
  *
  * Order is the wire's own: the conditions arrive in the order the pricing
  * procedure stepped them, and re-sorting a two-row grid would only hide that.
+ *
+ * In **LF mode** (ticket 761) the category filter gives way to the `FLFD` type — still the item-0
+ * row alone, still at its `condAmount`.
  */
 export function refundableFees(
   conditions: TransactionConditionModel[] | null | undefined,
+  mode: ReturnMode = 'bonded',
 ): RefundableFee[] {
   return (conditions ?? [])
     .filter(
       (condition) =>
         condition.condDocumentLine === 0 &&
-        textOrEmpty(condition.condCategory).trim() === DELIVERY_FEE_CATEGORY,
+        (mode === 'lf'
+          ? textOrEmpty(condition.condType).trim().toUpperCase() === LF_DELIVERY_FEE_TYPE
+          : textOrEmpty(condition.condCategory).trim() === DELIVERY_FEE_CATEGORY),
     )
     .map((condition) => ({
       condType: textOrEmpty(condition.condType).trim(),
@@ -319,6 +358,7 @@ export function submitGate(
   lines: readonly ReturnLineSelection[],
   reason: ReturnReason | null,
   feeCount = 0,
+  mode: ReturnMode = 'bonded',
 ): SubmitGateOutcome {
   const picked = lines.filter((line) => line.picked)
   if (picked.length === 0) return { ok: false, key: 'returnDocument.gate.selectLines' }
@@ -328,7 +368,9 @@ export function submitGate(
   // Nothing chosen is a missing thing, never a default: `RF` refunds now with
   // nothing coming back, and a pre-selected radio is exactly how that gets
   // clicked through (D5).
-  if (reason === null) return { ok: false, key: 'returnDocument.gate.chooseReason' }
+  // In LF mode there is no reason to choose (3369 D3: Return-and-Refund is the only one), so the
+  // step is skipped — in LF mode ONLY. The bonded gate is unchanged.
+  if (reason === null && mode !== 'lf') return { ok: false, key: 'returnDocument.gate.chooseReason' }
   return {
     ok: true,
     key: 'returnDocument.gate.summary',
@@ -507,6 +549,12 @@ export function pickupAddressSummary(address: PickupAddress): string[] {
  * behind by a line or a fee that is no longer offered cannot ride along.
  */
 export interface CreateReturnDraft {
+  /**
+   * Which return this is (ticket 761). Absent reads as `'bonded'`, so every 289 caller is
+   * unchanged. Under `'lf'` the body's reason is {@link LF_RETURN_REASON} whatever `reason` says.
+   * It shapes the body; it is never ON the body — the LF wire is 289's, unchanged (3369 §Wire).
+   */
+  mode?: ReturnMode
   /** Minted once per dialog OPENING and kept across retries (spec 289 D7). */
   requestId: string
   /** A DELIVERY number — the document the screen was opened on. */
@@ -568,16 +616,19 @@ export function buildCreateReturnRequest(draft: CreateReturnDraft): CreateReturn
     }))
 
   const note = draft.note.trim()
+  // LF has one reason and no refund that skips collection (3369 D3): the body says RTRF, and so
+  // keeps its pickup address, even were the draft to say otherwise.
+  const reason = draft.mode === 'lf' ? LF_RETURN_REASON : draft.reason
 
   return {
     requestId: draft.requestId,
     refDeliveryNo: draft.refDeliveryNo,
-    reason: draft.reason,
+    reason,
     lines,
     conditionTypes: pickedFeeTypes(draft.fees, draft.feePicks),
     // Absent, not empty: `RF` books no collection, so an address on the body
     // would describe a courier visit that is never going to happen.
-    ...(draft.reason === 'RF' ? {} : { shippingAddress: { ...draft.address } }),
+    ...(reason === 'RF' ? {} : { shippingAddress: { ...draft.address } }),
     ...(note === '' ? {} : { note }),
   }
 }

@@ -5,8 +5,9 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
-import type { CopilotTraceEntry } from '@/core/models/copilot'
-import { orderHref, orderSegments } from './answer'
+import { saysIn } from '@/core/rules/sentence'
+import type { CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import { orderHref, orderSegments, viewHref } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
 /**
@@ -32,6 +33,34 @@ export function LinkedText({ text, orderRefs }: { text: string; orderRefs: reado
         ),
       )}
     </>
+  )
+}
+
+/**
+ * The views the answer created (spec 766 D, ticket 781): one "Open view" link each to
+ * `/analytics/view/:id`, by route string. The title is free text in either script, so a `<bdi>`.
+ */
+export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] }) {
+  const { t, i18n } = useTranslation('copilot')
+  if (viewRefs.length === 0) return null
+  return (
+    <ul aria-label={t('answer.views')} className="flex flex-col gap-1 text-sm" data-copilot-views>
+      {viewRefs.map((v) => {
+        const title = saysIn(v.title, i18n.language)
+        return (
+          <li key={v.id} className="flex flex-wrap items-baseline gap-2">
+            <Link to={viewHref(v.id)} className="font-medium text-primary underline underline-offset-2" data-copilot-view={v.id}>
+              {t('answer.openView')}
+            </Link>
+            {title && (
+              <span className="text-muted-foreground" data-copilot-view-title>
+                <bdi>{title}</bdi>
+              </span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

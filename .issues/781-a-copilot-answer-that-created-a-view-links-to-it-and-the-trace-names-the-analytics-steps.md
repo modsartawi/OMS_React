@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: —
 ---
@@ -20,9 +20,9 @@ store/logic (`answer`/`trace` modules) · component · i18n (`copilot`) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `answer: viewRefs become Open-view links; absent viewRefs read as empty` · pure (vitest, extends `answer.test.ts`)
-- [ ] `trace: the three analytics tools get plain-language labels` · pure (vitest, extends `trace.test.ts`)
-- [ ] `an answer with a viewRef shows Open view and routes to the view` · flow (extends `tools/copilot-drive.mjs`)
+- [x] `answer: viewRefs become Open-view links; absent viewRefs read as empty` · pure (vitest, extends `answer.test.ts`)
+- [x] `trace: the three analytics tools get plain-language labels` · pure (vitest, extends `trace.test.ts`)
+- [x] `an answer with a viewRef shows Open view and routes to the view` · flow (extends `tools/copilot-drive.mjs`)
 
 ## Boundaries
 

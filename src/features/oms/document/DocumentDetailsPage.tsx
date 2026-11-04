@@ -7,7 +7,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi, revokeOnForbidden } from '@/core/oms/api'
-import { canChangeDetail, canCreateReturn } from '@/core/oms/access'
+import { canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn } from '@/core/oms/access'
 import { pickSupportKeys } from '@/core/pick-support/api'
 import { orderSessionsView } from '@/core/prescription-session/lines'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
@@ -155,6 +155,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   // and these decide which of its commands — and whether the note composer — are drawn.
   const mayChange = canChangeDetail(access.data)
   const mayCreateReturn = canCreateReturn(access.data)
+  // The LF return grant (ticket 760, BackOffice 3369 D14): draws Return on an `LF` delivery instead.
+  const mayCreateLfReturn = canCreateLocalFulfillmentReturn(access.data)
   // Central invoicing's own grant (ticket 332) — the SAME key and options as the menu leaf
   // and the bulk screen's gate, so it costs no extra call, and a 403 from the dialog (which
   // overwrites the entry) removes the action here too.
@@ -528,6 +530,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         busy: commandBusy,
         canChangeDetail: mayChange,
         canCreateReturn: mayCreateReturn,
+        deliveryDocumentType: document.deliveryDocumentType,
+        returnRefusal: document.returnRefusal,
+        returnWindowEndsOn: document.returnWindowEndsOn,
+        canCreateLocalFulfillmentReturn: mayCreateLfReturn,
       }
     : null
 

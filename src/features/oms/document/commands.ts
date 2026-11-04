@@ -26,10 +26,17 @@
  * `canChangeDetail` has no change command to discover, and one without `canCreateReturn` no
  * return: those commands are left off the bar, a cluster left empty goes with them, and the
  * terminal tier may be empty too. The bar is still the same on every document for one session.
+ *
+ * **The one exception, by grant (ticket 760, spec 759 F2):** Return Document has two grants, and
+ * which one draws it is picked by `deliveryDocumentType` — `LF` reads the LocalFulfillmentReturn 03
+ * grant, everything else the bonded `canCreateReturn`. So a session holding one grant sees Return on
+ * one kind of delivery and not the other. That is still a grant, not state: within one kind the bar
+ * never shifts.
  */
 import type { SdDocumentLineModel } from '@/core/models/sd-document'
 import { grantOf, isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
 import { returnableLines } from './return-order'
+import { fsi } from '@/core/util/bidi'
 
 /** The three labelled clusters, in reading order. */
 export type ClusterId = 'fulfilment' | 'cancel-request' | 'notes'
@@ -118,8 +125,21 @@ export interface CommandContext {
    * The caller reads it strictly (`@/core/oms/access`), so absent is `false`.
    */
   canChangeDetail: boolean
-  /** The probe's `canCreateReturn` (BackOffice 2763): draws Return Document. */
+  /** The probe's `canCreateReturn` (BackOffice 2763): draws Return Document on a NON-LF delivery. */
   canCreateReturn: boolean
+  // ── The LF arm (spec 759 F2, ticket 760; BackOffice 3369). Optional so a context built before it
+  // (and the bonded suite) reads as "not LF, no LF grant".
+  /**
+   * `deliveryDocumentType` — `LF` routes Return Document to the LF arm (3369 D1 forks on the
+   * reference delivery's `DeliveryDocumentType == LF`, never on the store code).
+   */
+  deliveryDocumentType?: string | null
+  /** The server's LF refusal code (3373), read only for the reason string. */
+  returnRefusal?: string | null
+  /** The last day of the LF return window, a local date (3373), for the `outsideWindow` reason. */
+  returnWindowEndsOn?: string | null
+  /** The probe's `canCreateLocalFulfillmentReturn` (03): draws Return Document on an LF delivery. */
+  canCreateLocalFulfillmentReturn?: boolean
 }
 
 /** The translator, passed in. Same contract as `rail.ts`'s `TFn`. */
@@ -195,12 +215,53 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
     : 'command.disabled.returnStarlinksOnly'
 }
 
+/** The delivery document type of a local fulfillment delivery (BackOffice 3369 D1). */
+const LOCAL_FULFILLMENT = 'LF'
+
+/** Whether this is a local fulfillment delivery — the one fact that picks the return arm. */
+export function isLocalFulfillment(deliveryDocumentType: string | null | undefined): boolean {
+  return code(deliveryDocumentType) === LOCAL_FULFILLMENT
+}
+
+/** The LF refusal codes of 3373, each to its own `document` key under `command.disabled.lfReturn`. */
+const LF_REFUSALS = ['outsideWindow', 'notDelivered', 'nothingRemaining', 'returnOpen'] as const
+
+/** A reason as a `document` key, with its interpolation when the sentence carries a value. */
+export interface ReasonKey {
+  key: string
+  params?: Record<string, string>
+}
+
+/**
+ * Why Return Document cannot be taken on an LF delivery (spec 759 F2), or `null` when it can.
+ * `canReturn` ALONE decides, strictly `true` (290's rule: absent fails closed). The refusal code only
+ * words the reason; an unknown or absent code — or a window refusal without its end date — says the
+ * generic "the server refused", never a bonded reason.
+ */
+export function lfReturnBlockedBecause(ctx: CommandContext): ReasonKey | null {
+  if (ctx.canReturn === true) return null
+  const refusal = (LF_REFUSALS as readonly string[]).includes(ctx.returnRefusal ?? '') ? ctx.returnRefusal! : null
+  const endsOn = (ctx.returnWindowEndsOn ?? '').trim()
+  if (refusal === 'outsideWindow' && endsOn)
+    // A tooltip is a string-only sink: the whole date is isolated with `fsi` (bidi rule).
+    return { key: 'command.disabled.lfReturn.outsideWindow', params: { date: fsi(endsOn) } }
+  if (refusal && refusal !== 'outsideWindow') return { key: `command.disabled.lfReturn.${refusal}` }
+  return { key: 'command.disabled.lfReturn.refused' }
+}
+
 /**
  * Whether this session's grants draw a command at all (ticket 521). Not a gate: a command it
  * refuses is not on the bar, not a key and not an intent the list can open.
+ *
+ * Return Document has two grants (ticket 760): on an `LF` delivery only the LF grant (03) draws it,
+ * on any other only the bonded `canCreateReturn` does. Neither ever stands in for the other.
  */
-export function isGranted(kind: CommandKind, ctx: Pick<CommandContext, 'canChangeDetail' | 'canCreateReturn'>): boolean {
-  return grantOf(kind) === 'return' ? ctx.canCreateReturn : ctx.canChangeDetail
+export function isGranted(
+  kind: CommandKind,
+  ctx: Pick<CommandContext, 'canChangeDetail' | 'canCreateReturn' | 'deliveryDocumentType' | 'canCreateLocalFulfillmentReturn'>,
+): boolean {
+  if (grantOf(kind) !== 'return') return ctx.canChangeDetail
+  return isLocalFulfillment(ctx.deliveryDocumentType) ? ctx.canCreateLocalFulfillmentReturn === true : ctx.canCreateReturn
 }
 
 /**
@@ -211,29 +272,45 @@ export function isGranted(kind: CommandKind, ctx: Pick<CommandContext, 'canChang
  * here, and a refused key (R / C, ticket 405) hands it to the key layer, which toasts it.
  */
 export function stateReasonKey(kind: CommandKind, ctx: CommandContext): string | null {
+  return stateReason(kind, ctx)?.key ?? null
+}
+
+/** `stateReasonKey` with the reason's interpolation — the LF window refusal carries its end date. */
+function stateReason(kind: CommandKind, ctx: CommandContext): ReasonKey | null {
   if (kind === 'request-close' && hasOpenCancellationRequest(ctx.closeStatus)) {
-    return 'command.disabled.requestOpen'
+    return { key: 'command.disabled.requestOpen' }
   }
-  if (kind === 'return-document') return returnBlockedBecause(ctx)
+  if (kind === 'return-document') {
+    if (isLocalFulfillment(ctx.deliveryDocumentType)) return lfReturnBlockedBecause(ctx)
+    const bonded = returnBlockedBecause(ctx)
+    return bonded === null ? null : { key: bonded }
+  }
   return null
 }
 
 /**
- * The gate for one command: disabled or not, and why as a `document` namespace key. The bar's
- * buttons and the keys (ticket 405) both read it, so they cannot disagree.
+ * The gate for one command: disabled or not, and why as a `document` namespace key (plus its
+ * interpolation, when the sentence carries a value). The bar's buttons and the keys (ticket 405)
+ * both read it, so they cannot disagree.
  */
-export function commandGate(kind: CommandKind, ctx: CommandContext): { disabled: boolean; reasonKey: string | null } {
+export function commandGate(
+  kind: CommandKind,
+  ctx: CommandContext,
+): { disabled: boolean; reasonKey: string | null; reasonParams?: Record<string, string> } {
   // Busy first, and it carries no reason — the two causes never stack, because
   // a transient state has nothing to explain that the spinner is not already
   // saying in place.
   if (ctx.busy) return { disabled: true, reasonKey: null }
-  const reasonKey = stateReasonKey(kind, ctx)
-  return { disabled: reasonKey !== null, reasonKey }
+  const reason = stateReason(kind, ctx)
+  if (reason === null) return { disabled: false, reasonKey: null }
+  return reason.params
+    ? { disabled: true, reasonKey: reason.key, reasonParams: reason.params }
+    : { disabled: true, reasonKey: reason.key }
 }
 
 function state<K extends CommandKind>(kind: K, ctx: CommandContext, t: TFn): CommandState<K> {
-  const { disabled, reasonKey } = commandGate(kind, ctx)
-  return { kind, disabled, reason: reasonKey === null ? null : t(reasonKey) }
+  const { disabled, reasonKey, reasonParams } = commandGate(kind, ctx)
+  return { kind, disabled, reason: reasonKey === null ? null : t(reasonKey, reasonParams) }
 }
 
 /**

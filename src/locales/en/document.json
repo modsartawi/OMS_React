@@ -290,7 +290,14 @@
       "requestOpen": "A cancellation request is already open for this document.",
       "returnNeedsDelivery": "Open the delivery to return it.",
       "returnStarlinksOnly": "Only bonded deliveries handled by Starlinks can be returned here.",
-      "returnNothingLeft": "Everything on this delivery has already been returned."
+      "returnNothingLeft": "Everything on this delivery has already been returned.",
+      "lfReturn": {
+        "outsideWindow": "The return window for this delivery closed on {{date}}.",
+        "notDelivered": "This delivery has not reached the customer yet, so it cannot be returned.",
+        "nothingRemaining": "Everything on this delivery has already been returned or is being returned.",
+        "returnOpen": "A return is already open on this delivery. Only one can be open at a time.",
+        "refused": "The server will not take a return on this delivery."
+      }
     }
   },
   "actions": {

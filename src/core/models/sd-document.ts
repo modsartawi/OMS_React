@@ -211,6 +211,18 @@ export interface SdDocumentHeaderModel {
    */
   canReturn?: boolean
   /**
+   * Why a LOCAL FULFILLMENT (`deliveryDocumentType: 'LF'`) delivery may not be returned
+   * (BackOffice 3369 D2, door 3373; client ticket 760): `'outsideWindow' | 'notDelivered' |
+   * 'nothingRemaining' | 'returnOpen'`, or `null` when it may. Typed `string` because the client
+   * must survive a code it has not learned — that reads as the generic refusal.
+   *
+   * ⚠ Additive, optional, sent for `LF` only, and not on the wire yet. It words the reason and
+   * never decides: Return Document's `disabled` still follows `canReturn` alone.
+   */
+  returnRefusal?: string | null
+  /** The last day of the LF return window, a local date (3373), for the `outsideWindow` reason. */
+  returnWindowEndsOn?: string | null
+  /**
    * When this delivery must have reached its customer, or it closes (BackOffice 2911).
    * Present only on a delivery that carries a limit: the server omits it otherwise.
    */

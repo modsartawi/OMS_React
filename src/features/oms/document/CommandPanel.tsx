@@ -232,12 +232,43 @@ export default function CommandPanel({
 }) {
   const { t } = useTranslation('document')
   const { closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn } = context
+  const { deliveryDocumentType, returnRefusal, returnWindowEndsOn, canCreateLocalFulfillmentReturn } = context
   // Memoised on the FIELDS, not on `context`: the parent builds the object
   // inline, so a reference dependency would recompute on every render.
   const bar = useMemo(
     () =>
-      commandBar({ closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn }, t),
-    [closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn, t],
+      commandBar(
+        {
+          closeStatus,
+          documentCategory,
+          openedAs,
+          canReturn,
+          lines,
+          busy,
+          canChangeDetail,
+          canCreateReturn,
+          deliveryDocumentType,
+          returnRefusal,
+          returnWindowEndsOn,
+          canCreateLocalFulfillmentReturn,
+        },
+        t,
+      ),
+    [
+      closeStatus,
+      documentCategory,
+      openedAs,
+      canReturn,
+      lines,
+      busy,
+      canChangeDetail,
+      canCreateReturn,
+      deliveryDocumentType,
+      returnRefusal,
+      returnWindowEndsOn,
+      canCreateLocalFulfillmentReturn,
+      t,
+    ],
   )
 
   // A view-only session (ticket 521: no change, no return, no billing, no Mark delivered) has no

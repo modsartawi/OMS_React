@@ -23,6 +23,9 @@
 //   9. Add Note… is always enabled; it focuses the spine's composer (ticket 405), whose
 //      Post stays disabled until text is typed, and the note typed there is the one that posts;
 //  10. the note typed in the Change Store dialog is the note that POSTS.
+//  12. (ticket 760) on a STUBBED LF delivery, Return Document is off the bar without
+//      LocalFulfillmentReturn 03 (bonded grant or 04 alone draw nothing), enabled on `canReturn`
+//      alone with 03, and each `returnRefusal` reads its own reason on hover AND focus.
 //
 // Two assertions the corpus cannot show verbatim say so at their call sites:
 // `canReturn` and `returnedQuantity` are BackOffice spec 1283 §2b additions no
@@ -212,6 +215,10 @@ async function run() {
    */
   let updateDelayMs = 0
 
+  /** The probe's answer. Section 12 (ticket 760) swaps in an LF-granted / ungranted session. */
+  const BONDED_ACCESS = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }
+  let access = BONDED_ACCESS
+
   const routeApi = async (route) => {
     const url = route.request().url()
     const p = url.split('/api/')[1].split('?')[0]
@@ -229,8 +236,7 @@ async function run() {
     // Ticket 125 put the OMS screens behind SdDocumentWeb/Access; the detail page
     // guards on canOpenDetail, so this drive must answer the probe or every
     // assertion below meets the denied card instead of the screen.
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
@@ -580,6 +586,79 @@ async function run() {
     'and stays enabled even where the DERIVED reason would have said exhausted',
     byLabel(await readBar(), 'Return Document').ariaDisabled === false,
   )
+  DOCUMENTS['8000000253'] = original
+
+  // ------------------------------- 12 · the LF arm (ticket 760, spec 759 F1 + F2)
+  // STUBBED: no capture is an LF delivery and BackOffice 3373/3376 are not deployed, so the LF
+  // delivery is a real payload re-typed `deliveryDocumentType: 'LF'` carrying 3369's transcribed
+  // fields. Read on the DELIVERY route, where an operator returns from.
+  const lfDelivery = (fields) => {
+    DOCUMENTS['8000000253'] = { ...original, deliveryDocumentType: 'LF', ...fields }
+  }
+  const shownLabels = () =>
+    bar().evaluate((s) => [...s.querySelectorAll('button')].map((b) => b.innerText.replace(/\s+/g, ' ').trim()))
+  const stripIsolates = (s) => s.replace(/[⁦-⁩]/g, '')
+
+  // (a) ungranted: the bonded grant alone does not draw Return on an LF delivery.
+  access = BONDED_ACCESS
+  lfDelivery({ canReturn: true, returnRefusal: null })
+  await openDelivery('8000000253')
+  const ungranted = await shownLabels()
+  check(
+    'an LF delivery shows no Return Document to a session without LocalFulfillmentReturn 03 — even with the bonded grant',
+    !ungranted.includes('Return Document') && ungranted.includes('Reschedule'),
+    ungranted.join(' | '),
+  )
+  // A probe answering 04 without 03 grants nothing either.
+  access = { ...BONDED_ACCESS, canCreateReturn: false, canForceLocalFulfillmentReturnRefund: true }
+  await openDelivery('8000000253')
+  check('and 04 without 03 draws nothing', !(await shownLabels()).includes('Return Document'))
+
+  // (b) granted 03 (and NOT the bonded grant): drawn, enabled on canReturn alone.
+  access = { ...BONDED_ACCESS, canCreateReturn: false, canCreateLocalFulfillmentReturn: true }
+  await openDelivery('8000000253')
+  const lfTakeable = byLabel(await readBar(), 'Return Document')
+  check(
+    'with 03, an LF delivery the server says canReturn to has Return Document enabled, no reason',
+    lfTakeable?.ariaDisabled === false && lfTakeable?.nativeDisabled === false && lfTakeable?.describedBy === null,
+    JSON.stringify(lfTakeable),
+  )
+  lfDelivery({ canReturn: undefined, returnRefusal: undefined })
+  await openDelivery('8000000253')
+  check(
+    'and an LF delivery with no canReturn fails closed, with the generic reason — never a bonded one',
+    byLabel(await readBar(), 'Return Document')?.ariaDisabled === true &&
+      (await readReturnReason('LF absent')) === 'The server will not take a return on this delivery.',
+  )
+
+  const LF_REASONS = [
+    ['outsideWindow', '2026-11-10', 'The return window for this delivery closed on 2026-11-10.'],
+    ['notDelivered', null, 'This delivery has not reached the customer yet, so it cannot be returned.'],
+    ['nothingRemaining', null, 'Everything on this delivery has already been returned or is being returned.'],
+    ['returnOpen', null, 'A return is already open on this delivery. Only one can be open at a time.'],
+    ['somethingNew', null, 'The server will not take a return on this delivery.'],
+  ]
+  for (const [returnRefusal, returnWindowEndsOn, expected] of LF_REASONS) {
+    lfDelivery({ canReturn: false, returnRefusal, returnWindowEndsOn })
+    await openDelivery('8000000253')
+    const said = await readReturnReason(`LF ${returnRefusal}`)
+    check(`the LF ${returnRefusal} refusal reads its own reason`, stripIsolates(said) === expected, said)
+    if (returnWindowEndsOn)
+      check(
+        'and the window end date is isolated whole in the tooltip',
+        said.includes(`⁨${returnWindowEndsOn}⁩`),
+        JSON.stringify(said),
+      )
+  }
+
+  // (c) the LF grant does not draw Return on a bonded (non-LF) delivery.
+  DOCUMENTS['8000000253'] = original
+  await openDelivery('8000000253')
+  check(
+    'and the LF grant alone draws no Return on a non-LF delivery',
+    !(await shownLabels()).includes('Return Document'),
+  )
+  access = BONDED_ACCESS
   DOCUMENTS['8000000253'] = original
 
   // -------------------------------------------------- 9 · Add Note… and its rule

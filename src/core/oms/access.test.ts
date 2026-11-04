@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateReturn, canFixPickSupport, canSeePickSupportSerial, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn, canForceLocalFulfillmentReturnRefund, canFixPickSupport, canSeePickSupportSerial, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -142,5 +142,40 @@ describe('Pick support serial grant (ticket 540, BackOffice 2874)', () => {
 
   it('neither Pick support grant implies the serial one', () => {
     expect(canSeePickSupportSerial({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, canFixPickSupport: true })).toBe(false)
+  })
+})
+
+describe('Local fulfillment return grants (ticket 760, BackOffice 3369 D14 / 3376)', () => {
+  const BASE = { canOpenList: true, canOpenDetail: true }
+
+  it('omsGrants reads both LF flags strictly — absent, null, "true" all deny', () => {
+    for (const value of [undefined, null, 'true', 1, false]) {
+      const r = { ...BASE, canCreateLocalFulfillmentReturn: value, canForceLocalFulfillmentReturnRefund: value } as unknown as OmsAccessResult
+      const grants = omsGrants(r)
+      expect([value, grants.canCreateLocalFulfillmentReturn]).toEqual([value, false])
+      expect([value, grants.canForceLocalFulfillmentReturnRefund]).toEqual([value, false])
+    }
+    expect(omsGrants(null).canCreateLocalFulfillmentReturn).toBe(false)
+    expect(omsGrants(undefined).canForceLocalFulfillmentReturnRefund).toBe(false)
+    expect(omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true }).canCreateLocalFulfillmentReturn).toBe(true)
+  })
+
+  it('04 without 03 grants nothing', () => {
+    const only04 = omsGrants({ ...BASE, canForceLocalFulfillmentReturnRefund: true })
+    expect(only04.canForceLocalFulfillmentReturnRefund).toBe(false)
+    expect(only04.canCreateLocalFulfillmentReturn).toBe(false)
+    const both = omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true, canForceLocalFulfillmentReturnRefund: true })
+    expect(both.canForceLocalFulfillmentReturnRefund).toBe(true)
+    expect(both.canCreateLocalFulfillmentReturn).toBe(true)
+    // 03 alone never implies 04.
+    expect(omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true }).canForceLocalFulfillmentReturnRefund).toBe(false)
+  })
+
+  it('neither bonded grant implies an LF one, and an LF grant implies no bonded one', () => {
+    expect(omsGrants({ ...BASE, canCreateReturn: true, canChangeDetail: true }).canCreateLocalFulfillmentReturn).toBe(false)
+    expect(canCreateLocalFulfillmentReturn({ ...BASE, canCreateReturn: true })).toBe(false)
+    expect(canCreateReturn({ ...BASE, canCreateLocalFulfillmentReturn: true })).toBe(false)
+    expect(canCreateLocalFulfillmentReturn({ ...BASE, canCreateLocalFulfillmentReturn: true })).toBe(true)
+    expect(canForceLocalFulfillmentReturnRefund({ ...BASE, canForceLocalFulfillmentReturnRefund: true })).toBe(false)
   })
 })

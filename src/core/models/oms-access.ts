@@ -75,4 +75,14 @@ export interface OmsAccessResult {
   canOverrideGuard?: boolean
   /** The release grant — release an order held for a guard check. */
   canReleaseGuardHold?: boolean
+  // ── Local fulfillment returns (BackOffice spec 3369 D14, probe door 3376; client spec 759, ticket
+  // 760). Spellings transcribed from 3369's wire, corrected by 765. Optional: absent reads as denied.
+  /**
+   * `BackOfficeScreen[LocalFulfillmentReturn,03]` — draws Return Document on an `LF` delivery, the LF
+   * return panel and the needing-action filter. The bonded `canCreateReturn` neither implies nor is
+   * implied by it.
+   */
+  canCreateLocalFulfillmentReturn?: boolean
+  /** `BackOfficeScreen[LocalFulfillmentReturn,04]` — force refund. Counts ONLY beside 03. */
+  canForceLocalFulfillmentReturnRefund?: boolean
 }

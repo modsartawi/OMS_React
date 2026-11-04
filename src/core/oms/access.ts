@@ -30,15 +30,33 @@ export const OMS_SCREEN_FLAGS = [
 ] as const
 
 export type OmsScreenFlag = (typeof OMS_SCREEN_FLAGS)[number]
-export type OmsGrants = Record<OmsScreenFlag, boolean>
+/**
+ * The local fulfillment return pair (BackOffice 3369 D14, ticket 760). Kept OUT of
+ * `OMS_SCREEN_FLAGS` because they are not independent: 04 counts only beside 03.
+ */
+export interface LfReturnGrants {
+  /** `LocalFulfillmentReturn,03`. */
+  canCreateLocalFulfillmentReturn: boolean
+  /** `LocalFulfillmentReturn,04` — and only when 03 is held too. */
+  canForceLocalFulfillmentReturnRefund: boolean
+}
+
+export type OmsGrants = Record<OmsScreenFlag, boolean> & LfReturnGrants
 
 /**
  * Every D2 flag as a plain boolean. 🚩 Only an explicit `true` grants: an absent flag (a server
  * that has not learned it yet), a missing answer or a malformed value all read as `false`, so the
- * probe keeps failing closed.
+ * probe keeps failing closed. The LF pair reads the same way, and a probe answering 04 without
+ * 03 grants neither (the Attachments 03/04 precedent 3369 D14 names).
  */
 export function omsGrants(r: Partial<OmsAccessResult> | null | undefined): OmsGrants {
-  return Object.fromEntries(OMS_SCREEN_FLAGS.map((flag) => [flag, r?.[flag] === true])) as OmsGrants
+  const screens = Object.fromEntries(OMS_SCREEN_FLAGS.map((flag) => [flag, r?.[flag] === true])) as Record<OmsScreenFlag, boolean>
+  const create = r?.canCreateLocalFulfillmentReturn === true
+  return {
+    ...screens,
+    canCreateLocalFulfillmentReturn: create,
+    canForceLocalFulfillmentReturnRefund: create && r?.canForceLocalFulfillmentReturnRefund === true,
+  }
 }
 
 /** Donor requests (ticket 431): the leaf's and the page gate's one predicate. */
@@ -82,6 +100,17 @@ export const canChangeDetail = (r: OmsAccessResult | null | undefined): boolean 
 
 /** Create return (ticket 521, BackOffice 2763) — `OmsCreateReturn,01`. Change does not imply it. */
 export const canCreateReturn = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canCreateReturn
+
+/**
+ * Create a local fulfillment return (ticket 760, BackOffice 3369 D14) — `LocalFulfillmentReturn,03`.
+ * Draws Return Document on an `LF` delivery. The bonded `canCreateReturn` does not imply it.
+ */
+export const canCreateLocalFulfillmentReturn = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canCreateLocalFulfillmentReturn
+
+/** Force-refund an LF return (spec 759 F5) — `LocalFulfillmentReturn,04`, only beside 03. */
+export const canForceLocalFulfillmentReturnRefund = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canForceLocalFulfillmentReturnRefund
 
 /**
  * Pick support's serial grant (ticket 540, BackOffice 2874) — `PickSupportSerial,03`. ADVISORY: it

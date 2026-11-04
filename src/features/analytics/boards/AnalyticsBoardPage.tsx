@@ -1,26 +1,113 @@
+import { useCallback, useMemo, useReducer } from 'react'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { SearchX } from 'lucide-react'
+import i18n from '@/core/i18n'
+import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
+import AskBox from './AskBox'
+import { boardDefaults, inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
+import BoardPanel from './BoardPanel'
+import type { BoardContext, ViewPanel } from './effective-query'
+import FilterStrip from './FilterStrip'
+import { readBoardFilters, writeBoardFilters } from './permalink'
+import Refused from './Refused'
+import { labelIn } from './view-model'
 
 /**
- * A board at `/analytics/board/:id` — a placeholder from ticket 770 so the home's board items open a route
- * rather than the catch-all's redirect home. Board pages arrive in 771, which replaces this body; until
- * then every board opens its not-found state, behind the same probe as the rest of the area.
+ * A board at `/analytics/board/:id` (spec 766 §F, ticket 771), read only (editing is 777).
+ *
+ * Its panels sit on a 12-column grid in logical order. The filter strip's state lives in the query string,
+ * which is the permalink (`./permalink`). Each view panel's query is its effective query (`./effective-query`):
+ * a filter change re-asks only the panels it reaches, each redraws on its own answer, and the strip counts
+ * them in — "Updating… n of N panels".
+ *
+ * 772 adds the cross-filter and drill (to `BoardContext`, and the URL); 773 the panel actions and states.
  */
 export default function AnalyticsBoardPage() {
   const { t } = useTranslation('boards')
   return (
     <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('board.title')} subtitle={t('board.subtitle')}>
-      <div
-        className="mx-auto mt-10 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
-        role="alert"
-        data-analytics-state="not-found"
-      >
-        <SearchX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('board.notFoundTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('board.notYet')}</p>
-      </div>
+      <BoardBody />
     </ScreenGate>
+  )
+}
+
+function BoardBody() {
+  const { t } = useTranslation('boards')
+  const { id = '' } = useParams()
+  const board = useQuery({ queryKey: analyticsBoardKey(id), queryFn: () => analyticsApi.board(id), retry: false })
+  const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
+
+  const failure = board.error ?? model.error
+  if (failure) return <Refused err={failure} fallbackKey="board.loadFailed" what="board" />
+  if (!board.data || !model.data) {
+    return (
+      <div className="text-sm text-muted-foreground" role="status">
+        {t('board.loading')}
+      </div>
+    )
+  }
+  return <BoardView board={board.data} model={model.data} />
+}
+
+/** Which view panels are fetching, folded into the strip's wave as each one starts and lands. */
+function streamReducer(state: { fetching: ReadonlySet<string>; wave: StreamWave }, [id, on]: [string, boolean]) {
+  if (state.fetching.has(id) === on) return state
+  const fetching = new Set(state.fetching)
+  if (on) fetching.add(id)
+  else fetching.delete(id)
+  return { fetching, wave: streamProgress(state.wave, [...fetching]) }
+}
+
+function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsModel }) {
+  const { t } = useTranslation('boards')
+  const lang = i18n.language
+  const defaults = useMemo(() => boardDefaults(board.definition), [board.definition])
+  const [params, setParams] = useSearchParams()
+  const filters = useMemo(() => readBoardFilters(params, defaults), [params, defaults])
+  const setFilters = useCallback(
+    (next: BoardFilters) => setParams((prev) => writeBoardFilters(prev, next, defaults), { replace: true }),
+    [setParams, defaults],
+  )
+
+  const panels = useMemo(() => inLogicalOrder(board.definition.panels), [board.definition.panels])
+  const viewPanels = panels.filter((p): p is ViewPanel => p.kind === 'view')
+  const items = useQueries({
+    queries: viewPanels.map((p) => ({ queryKey: analyticsItemKey(p.viewId), queryFn: () => analyticsApi.item(p.viewId), staleTime: 60_000, retry: false })),
+  })
+  const byPanel = new Map(viewPanels.map((p, i) => [p.id, items[i]]))
+
+  const context: BoardContext = useMemo(() => ({ filters }), [filters])
+  const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
+  const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
+
+  const title = labelIn(board.title, lang)
+  return (
+    <div className="flex flex-col gap-3" data-analytics-board={board.id}>
+      <div className="flex flex-wrap items-center gap-3" data-analytics-board-header>
+        {title && (
+          <h2 className="text-base font-semibold tracking-tight" data-analytics-board-title>
+            <bdi>{title}</bdi>
+          </h2>
+        )}
+        <AskBox />
+      </div>
+      <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+      {panels.length === 0 ? (
+        <p className="text-sm text-muted-foreground" data-analytics-board-empty>
+          {t('board.empty')}
+        </p>
+      ) : (
+        <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
+          {panels.map((p) => {
+            const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
+            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} />
+          })}
+        </div>
+      )}
+    </div>
   )
 }

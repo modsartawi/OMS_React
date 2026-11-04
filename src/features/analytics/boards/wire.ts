@@ -1,9 +1,12 @@
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
+  AnalyticsBoard,
+  AnalyticsBoardPanel,
   AnalyticsDimension,
   AnalyticsItem,
   AnalyticsLabel,
   AnalyticsMeasure,
+  AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryResult,
   AnalyticsRow,
@@ -92,6 +95,53 @@ export function readItem(raw: Loose): AnalyticsItem {
 export function readItems(raw: unknown): AnalyticsItem[] {
   const list = Array.isArray(raw) ? raw : arr<unknown>(obj(raw).items)
   return list.map((x) => readItem(obj(x)))
+}
+
+const layout = (v: unknown) => {
+  const l = obj(v)
+  const n = (x: unknown, d: number) => (typeof x === 'number' && Number.isFinite(x) ? x : d)
+  return { x: n(l.x, 0), y: n(l.y, 0), w: n(l.w, 6), h: n(l.h, 2) }
+}
+
+/** One board panel, or `null` for a kind the web does not draw (it is left out, never guessed at). */
+function readPanel(raw: unknown): AnalyticsBoardPanel | null {
+  const p = obj(raw)
+  const base = { id: str(p.id), layout: layout(p.layout) }
+  if (p.kind === 'view' && str(p.viewId)) return { ...base, kind: 'view', viewId: str(p.viewId), optOut: arr(p.optOut) }
+  if (p.kind === 'text') return { ...base, kind: 'text', text: said(p.text) }
+  if (p.kind === 'section') return { ...base, kind: 'section', title: said(p.title) }
+  return null
+}
+
+/**
+ * `GET Analytics/Item/{id}` read as a board (ticket 771). ⚠ §C fixes no board definition: `panels[]`
+ * (a view by reference, text, or a section header, each with its grid `layout`) and optional saved `filters`.
+ */
+export function readBoard(raw: Loose): AnalyticsBoard {
+  const i = obj(raw)
+  const d = obj(i.definition)
+  return {
+    ...(i as object),
+    kind: 'board',
+    title: said(i.title),
+    subtitle: said(i.subtitle),
+    sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
+    definition: {
+      panels: arr<unknown>(d.panels)
+        .map(readPanel)
+        .filter((p): p is AnalyticsBoardPanel => p !== null),
+      ...(d.filters && typeof d.filters === 'object' ? { filters: d.filters as AnalyticsBoard['definition']['filters'] } : {}),
+    },
+  } as AnalyticsBoard
+}
+
+/** `GET Analytics/DimensionValues` — up to 50 `{ key, label }`; a plain-string label reads as both languages. */
+export function readMembers(raw: unknown): AnalyticsMember[] {
+  const list = Array.isArray(raw) ? raw : arr<unknown>(obj(raw).values)
+  return list.map((x) => {
+    const m = obj(x)
+    return { key: str(m.key), label: typeof m.label === 'string' ? { en: m.label, ar: m.label } : said(m.label) }
+  })
 }
 
 /**

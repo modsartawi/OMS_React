@@ -1,21 +1,17 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { SearchX, ShieldAlert } from 'lucide-react'
-import ChartFrame from '@/core/charts/ChartFrame'
 import { formatClock, formatDay } from '@/core/charts/format'
-import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { formatRange, fsi } from '@/core/util/bidi'
+import { formatRange } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
-import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
-import { labelIn, toBarView } from './view-model'
-import { analyticsRefusal } from './wire'
+import Refused from './Refused'
+import { labelIn } from './view-model'
+import ViewChart, { viewTitleOf } from './ViewChart'
 
 /**
  * One analytics view at `/analytics/view/:id` (spec 766 §F, ticket 767 — Slice 0).
@@ -24,8 +20,8 @@ import { analyticsRefusal } from './wire'
  * It reads the item and the model, then asks `Analytics/Query` for the saved view by id, with
  * `placeholderData: keepPreviousData` so a re-ask keeps the previous chart, dimmed (`ChartFrame`).
  *
- * Slice 0 draws a vertical bar of one measure × one category; 768 adds KPI, line, stacked area and the
- * other bars (`SeriesPanel`), and 769 the rest, where the chart type is switched on below.
+ * The chart is `ViewChart`, the one form dispatch a board panel uses too (771): 767's vertical bar,
+ * 768's KPI, line, stacked area and other bars, and 769's forms.
  * `ANALYTICS-404` is the not-found state and `ANALYTICS-401` the no-access state, from the item or the query.
  */
 export default function AnalyticsViewPage() {
@@ -57,7 +53,6 @@ function ViewBody() {
 
 function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
-  const { t: tc } = useTranslation('common')
   const lang = i18n.language
   const input = { viewId: item.id, revision: item.revision }
   const answer = useQuery({
@@ -67,23 +62,11 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
     retry: false,
   })
 
-  const def = item.definition
-  const measure = model.measures.find((m) => m.key === def.query.measures[0])
-  const dimension = model.dimensions.find((d) => d.key === def.query.dimensions[0])
-  const measureLabel = labelIn(measure?.label, lang) || (def.query.measures[0] ?? '')
-  const dimensionLabel = labelIn(dimension?.label, lang) || (def.query.dimensions[0] ?? '')
-  // An AI view's title is empty by default: the screen generates it from the model labels (766 §B).
-  const title =
-    labelIn(item.title, lang) || t('view.generatedTitle', { measure: fsi(measureLabel), dimension: fsi(dimensionLabel) })
+  const title = viewTitleOf(item, model, lang, t)
   const subtitle = labelIn(item.subtitle, lang)
-
   const result = answer.data
-  // 768's forms (KPI, line, area, the other bars) draw through `SeriesPanel`; 767's vertical bar below.
-  const series = drawsAsSeries(def)
-  const view = result && !series ? toBarView(result, def, model, lang) : null
   const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
-  const drawable = series || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
@@ -114,58 +97,9 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
 
       {answer.error && !result ? (
         <Refused err={answer.error} fallbackKey="view.queryFailed" />
-      ) : !drawable ? (
-        <p className="text-sm text-muted-foreground" data-analytics-unsupported>
-          {t('view.unsupported')}
-        </p>
-      ) : series ? (
-        <ChartFrame busy={answer.isFetching} hasChart={!!result}>
-          {result && <SeriesPanel result={result} definition={def} model={model} lang={lang} />}
-        </ChartFrame>
       ) : (
-        <ChartFrame busy={answer.isFetching} hasChart={!!view}>
-          {view?.empty ? (
-            <p className="flex h-72 items-center justify-center text-sm text-muted-foreground" data-analytics-empty>
-              {t('view.empty')}
-            </p>
-          ) : (
-            view && (
-              <VerticalBarChart
-                points={view.points}
-                colourBy={view.colourBy}
-                unit={view.measure.unit}
-                measureLabel={view.measure.label}
-                locale={lang}
-                ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
-              />
-            )
-          )}
-        </ChartFrame>
+        <ViewChart result={result} busy={answer.isFetching} definition={item.definition} model={model} lang={lang} />
       )}
-      {(view?.truncated || (series && result?.truncated)) && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
     </article>
   )
-}
-
-/** A refusal: `ANALYTICS-404` and `-401` are their own states; any other is the server's own words. */
-function Refused({ err, fallbackKey }: { err: unknown; fallbackKey: string }) {
-  const { t } = useTranslation('boards')
-  const refusal = analyticsRefusal(err, t(fallbackKey))
-  const words = 'key' in refusal ? t(refusal.key) : refusal.message
-  if (refusal.code === 'ANALYTICS-404' || refusal.code === 'ANALYTICS-401') {
-    const notFound = refusal.code === 'ANALYTICS-404'
-    const Icon = notFound ? SearchX : ShieldAlert
-    return (
-      <div
-        className="mx-auto mt-10 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
-        role="alert"
-        data-analytics-state={notFound ? 'not-found' : 'no-access'}
-      >
-        <Icon className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t(notFound ? 'view.notFoundTitle' : 'view.noAccessTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{words}</p>
-      </div>
-    )
-  }
-  return <ErrorBanner title={t(fallbackKey)} message={words} />
 }

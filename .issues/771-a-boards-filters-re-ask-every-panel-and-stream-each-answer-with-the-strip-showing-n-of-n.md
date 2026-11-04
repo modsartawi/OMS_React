@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 768
 ---
@@ -32,9 +32,9 @@ model/api (`DimensionValues`, board definition) · store/logic (effective query,
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `effective query: same inputs give the same key; a filter change re-keys only the panels it reaches; an opted-out panel keeps its key` · pure (vitest)
-- [ ] `permalink: board filters survive encode → decode, relative periods stay relative` · pure (vitest)
-- [ ] `a region change shows the strip and every card busy within 0.5 s, then the panels resolve one by one` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `effective query: same inputs give the same key; a filter change re-keys only the panels it reaches; an opted-out panel keeps its key` · pure (vitest)
+- [x] `permalink: board filters survive encode → decode, relative periods stay relative` · pure (vitest)
+- [x] `a region change shows the strip and every card busy within 0.5 s, then the panels resolve one by one` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

@@ -140,8 +140,14 @@ export type AnalyticsQueryInput = (
   | { viewId: string; revision?: number }
   | { definition: AnalyticsViewDefinition }
 ) & {
-  /** ⚠ Board filters and the cross-filter arrive with 771/772. */
+  /** The board filters that reach this panel (771), canonical: sorted by dimension, values sorted. */
   filters?: AnalyticsFilter[]
+  /**
+   * ⚠ The board's period, overriding the view's own (771). A relative token ("last-30-days") the server
+   * resolves, or a fixed range written `from..to` (ISO days). Absent: the view's own period.
+   */
+  period?: string
+  /** ⚠ The cross-filter arrives with 772. */
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
 }
@@ -167,4 +173,66 @@ export interface AnalyticsQueryResult {
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string
+}
+
+// ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────
+// ⚠ 766 §C names the board as an item kind but fixes no definition shape: this is the web's proposal.
+
+/** The board filters a panel can opt out of (766 §F). 772 adds `crossFilter` to the same list. */
+export type BoardFilterKey = 'period' | 'city' | 'region' | 'store' | 'channel' | 'country'
+
+/** The relative period tokens (766 story 21), resolved by the server in Riyadh time with Sunday weeks. */
+export type PeriodToken =
+  | 'today'
+  | 'yesterday'
+  | 'this-week'
+  | 'last-week'
+  | 'last-7-days'
+  | 'last-28-days'
+  | 'last-30-days'
+  | 'this-month'
+  | 'last-month'
+  | 'year-to-date'
+
+/** A relative period (stays relative in the permalink and on the wire), or a fixed range of ISO days. */
+export type BoardPeriod = { kind: 'relative'; token: PeriodToken } | { kind: 'fixed'; from: string; to: string }
+
+/** The filter strip's state: the period plus the member lists of the five category filters. */
+export interface BoardFilters {
+  period: BoardPeriod
+  city: string[]
+  region: string[]
+  store: string[]
+  channel: string[]
+  country: string[]
+}
+
+/** A panel's place on the 12-column grid, in logical (writing-mode) columns and fixed row units. */
+export interface BoardLayout {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** A board panel: a view linked by reference, a text panel, or a section header. */
+export type AnalyticsBoardPanel =
+  | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[] }
+  | { id: string; kind: 'text'; text: AnalyticsLabel; layout: BoardLayout }
+  | { id: string; kind: 'section'; title: AnalyticsLabel; layout: BoardLayout }
+
+export interface AnalyticsBoardDefinition {
+  panels: AnalyticsBoardPanel[]
+  /** The board's saved filters, which the strip opens on when the URL names none. */
+  filters?: Partial<BoardFilters>
+}
+
+/** A board in the analytics store: an item whose definition is a board's. */
+export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'board'; definition: AnalyticsBoardDefinition }
+
+/** `GET Analytics/DimensionValues` — one member for the store, city and region pickers. */
+export interface AnalyticsMember {
+  key: string
+  /** ⚠ §C gives `label` without its shape: a plain string is read as both languages. */
+  label: AnalyticsLabel
 }

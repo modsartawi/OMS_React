@@ -20,6 +20,8 @@ export default function ReleaseHistory({ authId }: { authId: string }) {
   const history = useQuery({
     queryKey: releaseHistoryKey(authId),
     queryFn: () => approvalReleaseApi.history(authId),
+    // A refusal is an answer, as on the authorization read beside it.
+    retry: false,
   })
 
   return (

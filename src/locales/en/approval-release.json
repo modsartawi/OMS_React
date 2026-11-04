@@ -19,7 +19,7 @@
   "lookup": {
     "loading": "Reading the authorization…",
     "notFoundTitle": "Not found",
-    "notFoundHint": "No authorization has this bundle Id. Check the Id the pharmacist gave you — it must match exactly.",
+    "notFoundHint": "No authorization has the bundle Id {{id}}. Check the Id the pharmacist gave you — it must match exactly.",
     "errorTitle": "Could not read the authorization",
     "errorFallback": "The authorization could not be read. Try again in a moment."
   },

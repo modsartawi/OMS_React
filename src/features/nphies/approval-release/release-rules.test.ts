@@ -7,6 +7,7 @@ import { ApiError } from '@/core/api'
 import {
   RELEASE_REFUSAL_CODES,
   canConfirmRelease,
+  isStaleRowRefusal,
   lookupState,
   refusalKey,
   releaseBody,
@@ -140,5 +141,27 @@ describe('the release posts only authId and note', () => {
       authId: 'AUTH-1',
       note: 'reissue for the patient',
     })
+  })
+})
+
+describe('review fixes (code-review of abec0ecb)', () => {
+  it('🚩 an answer already on screen survives a failed background re-read', () => {
+    expect(lookupState({ id: 'X', isPending: false, error: new ApiError('network', 'down', 0), hasData: true })).toBe(
+      'found',
+    )
+  })
+
+  it.each([
+    ['AUTH_ALREADY_DISPENSED', true],
+    ['APPROVAL_NUMBER_ALREADY_RELEASED', true],
+    ['AUTH_NOT_FOUND', true],
+    ['NOTE_REQUIRED', false],
+    ['APPROVAL_NUMBER_EMPTY', false],
+  ] as const)('only a stale-row refusal re-reads the heavy detail: %s → %s', (code, stale) => {
+    expect(isStaleRowRefusal(refusal(409, code))).toBe(stale)
+  })
+
+  it('a bare 403 (no release grant) says nothing about the row', () => {
+    expect(isStaleRowRefusal(refusal(403, null))).toBe(false)
   })
 })

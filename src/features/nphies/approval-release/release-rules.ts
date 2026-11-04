@@ -108,12 +108,21 @@ export type LookupState = 'idle' | 'loading' | 'notFound' | 'error' | 'found'
  */
 export function lookupState(q: { id: string; isPending: boolean; error: unknown; hasData: boolean }): LookupState {
   if (q.id.trim() === '') return 'idle'
+  // An answer already on screen outlives a failed background re-read: the summary (and an open
+  // dialog showing a refusal) must not vanish because a refetch behind it failed.
+  if (q.hasData) return 'found'
   if (q.error) {
     const notFound =
       apiErrorCode(q.error) === 'AUTH_NOT_FOUND' ||
       (q.error instanceof ApiError && q.error.statusCode === 404 && apiErrorKind(q.error) !== 'network')
     return notFound ? 'notFound' : 'error'
   }
-  if (q.hasData) return 'found'
   return q.isPending ? 'loading' : 'idle'
+}
+
+/** A refusal that means the row on screen is out of date — someone dispensed it, released it, or
+ *  it is gone. Only these justify re-reading the (heavy) authorization behind the dialog. */
+export function isStaleRowRefusal(err: unknown): boolean {
+  const code = apiErrorCode(err)
+  return code === 'AUTH_ALREADY_DISPENSED' || code === 'APPROVAL_NUMBER_ALREADY_RELEASED' || code === 'AUTH_NOT_FOUND'
 }

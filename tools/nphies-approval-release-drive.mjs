@@ -112,7 +112,9 @@ async function run() {
       if (path === 'Nphies/Access') return route.fulfill(envelope(scenario.access))
       if (path.startsWith('Nphies/AuthResponse/')) {
         calls.detail++
-        const found = scenario.auths[path.slice('Nphies/AuthResponse/'.length)]
+        // Case-insensitive, like the SQL Server collation behind the door: `auth-1` answers AUTH-1.
+        const wanted = path.slice('Nphies/AuthResponse/'.length).toUpperCase()
+        const found = Object.entries(scenario.auths).find(([k]) => k.toUpperCase() === wanted)?.[1]
         if (!found)
           return route.fulfill(
             envelope(null, {
@@ -126,11 +128,13 @@ async function run() {
       }
       if (path.startsWith('Nphies/ApprovalNumber/Releases/')) {
         calls.history++
+        calls.historyIds = [...(calls.historyIds ?? []), path.slice('Nphies/ApprovalNumber/Releases/'.length)]
         return route.fulfill(envelope({ items: scenario.history, contractVersion: '1.1' }))
       }
       if (path === 'Nphies/ApprovalNumber/Release') {
         const body = JSON.parse(route.request().postData() || '{}')
         calls.release.push(body)
+        if (scenario.releaseDelayMs) await new Promise((r) => setTimeout(r, scenario.releaseDelayMs))
         if (scenario.releaseRefusal) {
           const [status, code] = scenario.releaseRefusal
           return route.fulfill(
@@ -258,6 +262,26 @@ async function run() {
   check('a dispensed refusal shows the page’s own sentence in the dialog', (await page.textContent('dialog')).includes('Undispense it first, then release'))
   await page.waitForTimeout(400)
   check('…and the authorization is read again', calls.detail > detailBeforeRefusal)
+  await page.close()
+
+  // 7b — review fixes: the canonical id, and no second release while one is in flight.
+  reset({ releaseDelayMs: 1500 })
+  page = await open()
+  await page.goto(PAGE_URL + '?id=auth-1')
+  await page.waitForSelector('[data-testid=release-open]')
+  await page.waitForSelector('[data-testid=release-history]')
+  check('the history is read under the server’s own id', (calls.historyIds ?? []).every((x) => x === 'AUTH-1'), JSON.stringify(calls.historyIds))
+  await page.click('[data-testid=release-open]')
+  await page.fill('[data-testid=release-note]', 'reissue')
+  await page.click('[data-testid=release-confirm]')
+  await page.waitForTimeout(200)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  check('Escape does not close the dialog while the release is in flight', await page.isVisible('[data-testid=release-note]'))
+  await page.waitForSelector('dialog', { state: 'detached' })
+  check('the release posts the server’s own id, once', calls.release.length === 1 && calls.release[0].authId === 'AUTH-1', JSON.stringify(calls.release))
+  await page.waitForFunction(() => document.querySelector('[data-testid=release-history] table'))
+  check('…and the history under that id shows it', (await page.textContent('[data-testid=release-history]')).includes('12345678_'))
   await page.close()
 
   // 8 — the nav leaf, and Arabic RTL.

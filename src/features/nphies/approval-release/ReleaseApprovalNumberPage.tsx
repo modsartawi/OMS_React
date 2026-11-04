@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -20,7 +20,7 @@ import { fsi } from '@/core/util/bidi'
 import { approvalReleaseApi, releaseAuthKey, releaseHistoryKey } from './api'
 import ReleaseDialog from './ReleaseDialog'
 import ReleaseHistory from './ReleaseHistory'
-import { lookupState, refusalKey, releaseBody, releaseOffer } from './release-rules'
+import { isStaleRowRefusal, lookupState, releaseBody, releaseOffer } from './release-rules'
 
 /**
  * **Release approval number** (ticket 751, BackOffice spec 3342) — support finds one authorization
@@ -66,7 +66,11 @@ function ReleaseBody() {
   const [params, setParams] = useSearchParams()
   const id = (params.get('id') ?? '').trim()
   const [draft, setDraft] = useState(id)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  // Back/forward changes the URL under the box: the box follows, so Search acts on what is shown.
+  useEffect(() => setDraft(id), [id])
+  /** The approval number the open dialog is about, snapshotted at open — a re-read behind the
+   *  dialog (after a refusal) must not change what the agent is confirming. `null` = closed. */
+  const [dialogValue, setDialogValue] = useState<string | null>(null)
 
   const access = useQuery(nphiesAccessQuery)
 
@@ -79,25 +83,29 @@ function ReleaseBody() {
   })
 
   const state = lookupState({ id, isPending: auth.isPending, error: auth.error, hasData: auth.data !== undefined })
+  // The server's own id once it has answered, so the post and the history key are the canonical
+  // authorization's and not however the agent typed it.
+  const authId = auth.data?.id || id
 
   const release = useMutation({
-    mutationFn: (note: string) => approvalReleaseApi.release(releaseBody(id, note)),
+    mutationFn: (note: string) => approvalReleaseApi.release(releaseBody(authId, note)),
     onSuccess: (result) => {
       // The summary shows the new value at once, from the act's own answer — the detail is the
       // door's heaviest read and re-reading it would fetch every attachment again.
       queryClient.setQueryData<AuthDetail>(releaseAuthKey(id), (old) =>
         old ? { ...old, preAuthRef: result.after } : old,
       )
-      void queryClient.invalidateQueries({ queryKey: releaseHistoryKey(id) })
-      setDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: releaseHistoryKey(authId) })
+      setDialogValue(null)
       toast.success(t('done.title'), { description: t('done.detail', { after: fsi(result.after) }) })
     },
     onError: (err) => {
-      // Someone else may have released it, or dispensed it, since this page read it: the row on
-      // screen is stale, so it is read again (and the history with it) behind the open dialog.
-      if (refusalKey(err) !== null) {
+      // Someone else may have released it, or dispensed it, since this page read it: only then is
+      // the row on screen stale, so only then is it read again (and the history with it). A blank
+      // note or a missing grant says nothing about the row and re-reads nothing.
+      if (isStaleRowRefusal(err)) {
         void queryClient.invalidateQueries({ queryKey: releaseAuthKey(id) })
-        void queryClient.invalidateQueries({ queryKey: releaseHistoryKey(id) })
+        void queryClient.invalidateQueries({ queryKey: releaseHistoryKey(authId) })
       }
     },
   })
@@ -107,8 +115,10 @@ function ReleaseBody() {
     const next = draft.trim()
     if (next === '') return
     release.reset()
-    if (next === id) void auth.refetch()
-    else setParams({ id: next })
+    if (next === id) {
+      void auth.refetch()
+      void queryClient.invalidateQueries({ queryKey: releaseHistoryKey(authId) })
+    } else setParams({ id: next })
   }
 
   const detail = auth.data
@@ -151,7 +161,7 @@ function ReleaseBody() {
           <div>
             <div className="text-sm font-semibold">{t('lookup.notFoundTitle')}</div>
             <p className="text-sm text-muted-foreground">
-              {t('lookup.notFoundHint')} <Ltr>{id}</Ltr>
+              {t('lookup.notFoundHint', { id: fsi(id) })}
             </p>
           </div>
         </div>
@@ -172,7 +182,7 @@ function ReleaseBody() {
           <section className="flex flex-col gap-2" data-testid="release-act">
             {offer.offered ? (
               <div>
-                <Button variant="danger" onClick={() => setDialogOpen(true)} data-testid="release-open">
+                <Button variant="danger" onClick={() => setDialogValue(detail.preAuthRef)} data-testid="release-open">
                   <Unlock className="h-3.5 w-3.5" aria-hidden />
                   {t('act.release')}
                 </Button>
@@ -189,14 +199,17 @@ function ReleaseBody() {
             )}
           </section>
 
-          <ReleaseHistory authId={detail.id || id} />
+          <ReleaseHistory authId={authId} />
 
           <ReleaseDialog
-            approvalNumber={dialogOpen ? detail.preAuthRef : null}
+            approvalNumber={dialogValue}
             busy={release.isPending}
             error={release.error}
             onClose={() => {
-              setDialogOpen(false)
+              // Not while the release is in flight: closing would clear `busy` without cancelling
+              // the POST, and a re-opened dialog could send a second release for the same row.
+              if (release.isPending) return
+              setDialogValue(null)
               release.reset()
             }}
             onConfirm={(note) => release.mutate(note)}

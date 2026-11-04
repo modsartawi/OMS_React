@@ -1263,4 +1263,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Approval-number release (BackOffice spec 3342, filed 2026-11-03)
 
-- [751](751-the-release-approval-number-page-finds-an-authorization-by-bundle-id-and-releases-it-with-a-note.md) — The Release approval number page finds an authorization by bundle Id and releases it with a note · **open** · *(spec BO 3342)* · blocked by: BO 3343
+- [751](751-the-release-approval-number-page-finds-an-authorization-by-bundle-id-and-releases-it-with-a-note.md) — The Release approval number page finds an authorization by bundle Id and releases it with a note · **done** · *(spec BO 3342)* · blocked by: BO 3343

@@ -62,7 +62,10 @@ function Watch({ detail }: { detail: LfReturnDetailModel }) {
   const chip = outcomeChip(detail.outcome)
   const banner = attentionKey(detail.outcome)
   const rows = lfReturnRows(detail)
-  const forced = (detail.outcome ?? '').trim() === 'forced'
+  // Every reading of the outcome goes through the chip's one normalisation; only the raw code
+  // shown beside an unknown chip is the server's own text.
+  const forced = chip.code === 'forced'
+  const rawCode = (detail.outcome ?? '').trim()
   const dates: [string, string | null | undefined][] = [
     ['booked', detail.bookedAt],
     ['collected', detail.collectedAt],
@@ -75,7 +78,7 @@ function Watch({ detail }: { detail: LfReturnDetailModel }) {
         <div
           role="alert"
           className="flex gap-2 rounded-lg border border-attention-border bg-attention-050 px-3 py-2 text-attention-800"
-          data-lf-attention={detail.outcome.trim()}
+          data-lf-attention={chip.code}
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <div className="min-w-0">
@@ -87,12 +90,12 @@ function Watch({ detail }: { detail: LfReturnDetailModel }) {
 
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5" data-lf-outcome-row="">
         <span className="text-muted-foreground">{t('lfReturn.outcomeLabel')}</span>
-        <span data-lf-chip={chip.known ? detail.outcome.trim() : 'unknown'}>
+        <span data-lf-chip={chip.code}>
           <StatusBadge sev={chip.sev}>{t(chip.labelKey)}</StatusBadge>
         </span>
-        {!chip.known && (detail.outcome ?? '').trim() && (
+        {!chip.known && rawCode && (
           <span className="font-mono text-muted-foreground" data-lf-outcome-code="">
-            <Ltr>{detail.outcome.trim()}</Ltr>
+            <Ltr>{rawCode}</Ltr>
           </span>
         )}
         <span className="text-muted-foreground" data-lf-meaning="">

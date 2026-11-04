@@ -5,6 +5,7 @@
 import type { LfReturnNeedingActionRow } from '@/core/models/lf-returns-needing-action'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 import { canCreateLocalFulfillmentReturn } from '@/core/oms/access'
+import { needsAction, normaliseLfReturnOutcome, type NeedingActionOutcome } from '@/core/oms/lf-return-outcome'
 
 /**
  * Whether the list offers the queue (spec 759 F1/F6): `LocalFulfillmentReturn,03`, read from the
@@ -14,23 +15,16 @@ export const offersLfReturnsQueue = (access: OmsAccessResult | null | undefined)
   canCreateLocalFulfillmentReturn(access)
 
 /** Why an LF return needs an operator: the three outcomes 3369's needing-action read returns. */
-export type NeedingActionReason = 'unanswered' | 'nothingReceived' | 'short'
-
-const REASONS: Record<string, NeedingActionReason> = {
-  unanswered: 'unanswered',
-  nothingReceived: 'nothingReceived',
-  // 3369's prose spells it `nothing-received`; its wire is fixed by 3376 (765 reconciles). Both read
-  // the same, so the drift costs no row.
-  'nothing-received': 'nothingReceived',
-  short: 'short',
-}
+export type NeedingActionReason = NeedingActionOutcome
 
 /**
  * The reason an outcome needs action, or `null` for one that does not (`open`, `refunded`, `forced`)
  * or one the client has not learned — such a row is not listed rather than listed with no reason.
+ * Either spelling of *nothing received* reads the same (`normaliseLfReturnOutcome`).
  */
 export function needingActionReason(outcome: string | null | undefined): NeedingActionReason | null {
-  return outcome && Object.hasOwn(REASONS, outcome) ? REASONS[outcome] : null
+  const code = normaliseLfReturnOutcome(outcome)
+  return needsAction(code) ? code : null
 }
 
 /** One row of the queue as the grid shows it. */

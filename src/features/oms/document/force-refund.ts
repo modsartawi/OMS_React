@@ -6,6 +6,8 @@
  * data — and so the one place money could creep onto the wire is a tested function.
  */
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
+import type { KeyedText } from '@/core/util/keyed-text'
+import { isForceable, isSettled, normaliseLfReturnOutcome } from '@/core/oms/lf-return-outcome'
 
 /** One line the operator states a received quantity for. */
 export interface ForceRefundRow {
@@ -52,10 +54,8 @@ export type ForceRefundGateKey =
   | 'lfReturn.force.gate.reasonRequired'
   | 'lfReturn.force.gate.ready'
 
-export interface ForceRefundGate {
+export interface ForceRefundGate extends KeyedText<ForceRefundGateKey, { count: number }> {
   ok: boolean
-  key: ForceRefundGateKey
-  params?: { count: number }
 }
 
 const stated = (received: ReceivedByItem, row: ForceRefundRow): boolean => typeof received[row.itemNumber] === 'number'
@@ -100,22 +100,48 @@ export function buildForceRefundRequest(draft: ForceRefundDraft): ForceLfReturnR
 /**
  * The idempotency key for a press. A press with an id still **held** — the last press was never
  * answered (in flight, a network drop, a 5xx) — reuses it, so a slow network forces once. Otherwise
- * a fresh one is minted. The dialog drops the held id once the server answers (success or refusal)
- * and on every opening.
+ * a fresh one is minted.
  */
 export function pressRequestId(held: string | null, mint: () => string): string {
   return held ?? mint()
 }
 
+/**
+ * The unanswered idempotency keys, one per return delivery number. Held ABOVE the dialog — closing
+ * and reopening it after a network drop or a 5xx must replay the same press, not force a second
+ * time — and dropped only when the server answers that delivery's press (success or a business
+ * refusal).
+ */
+export interface HeldRequestIds {
+  /** The id for a press on this return: the held one, or a fresh one now held. */
+  press(returnDeliveryNo: string, mint: () => string): string
+  /** The server answered: the next press on this return is a new request. */
+  answered(returnDeliveryNo: string): void
+  held(returnDeliveryNo: string): string | null
+}
+
+export function createHeldRequestIds(): HeldRequestIds {
+  const byReturn = new Map<string, string>()
+  return {
+    press(returnDeliveryNo, mint) {
+      const id = pressRequestId(byReturn.get(returnDeliveryNo) ?? null, mint)
+      byReturn.set(returnDeliveryNo, id)
+      return id
+    },
+    answered(returnDeliveryNo) {
+      byReturn.delete(returnDeliveryNo)
+    },
+    held: (returnDeliveryNo) => byReturn.get(returnDeliveryNo) ?? null,
+  }
+}
+
+/** The page life's holder: outlives every dialog and every remount of the command. */
+export const heldForceRequestIds: HeldRequestIds = createHeldRequestIds()
+
 export type ForceRefundAction =
   | { shown: false }
   | { shown: true; disabled: false }
   | { shown: true; disabled: true; reasonKey: string }
-
-/** The outcomes a force can still settle — open, or stuck (3369's needing-action set). */
-const FORCEABLE = ['open', 'unanswered', 'short', 'nothingReceived']
-/** Already settled: 3375 refuses both. */
-const SETTLED = ['refunded', 'forced']
 
 /**
  * Whether Force refund is offered (spec 759 F5). Absent without 04 (the caller passes the access
@@ -125,8 +151,8 @@ const SETTLED = ['refunded', 'forced']
  */
 export function forceRefundAction(canForce: boolean | undefined, outcome: string | null | undefined): ForceRefundAction {
   if (canForce !== true) return { shown: false }
-  const code = (outcome ?? '').trim()
-  if (FORCEABLE.includes(code)) return { shown: true, disabled: false }
-  if (SETTLED.includes(code)) return { shown: true, disabled: true, reasonKey: `lfReturn.force.disabled.${code}` }
+  const code = normaliseLfReturnOutcome(outcome)
+  if (isForceable(code)) return { shown: true, disabled: false }
+  if (isSettled(code)) return { shown: true, disabled: true, reasonKey: `lfReturn.force.disabled.${code}` }
   return { shown: true, disabled: true, reasonKey: 'lfReturn.force.disabled.unknown' }
 }

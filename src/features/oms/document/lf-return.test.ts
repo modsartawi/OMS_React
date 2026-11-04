@@ -176,3 +176,25 @@ describe('the panel is drawn only on an LF return delivery with grant 03', () =>
     expect(asksLfReturn({ ...RETURN, documentCategory: ' T ' })).toBe(true)
   })
 })
+
+describe("3369's prose spelling nothing-received reads the same as nothingReceived", () => {
+  const watchOf = (outcome: string): LfReturnDetailModel => ({
+    outcome,
+    confirmedAt: '2026-11-03T09:00:00',
+    lines: [{ itemNumber: '000010', sku: '100200', askedQuantity: 2, confirmedQuantity: 0, refundedQuantity: 0, returnedToStock: 0 }],
+  })
+
+  it('the chip, its code and its meaning', () => {
+    expect(outcomeChip('nothing-received')).toEqual(outcomeChip('nothingReceived'))
+    expect(outcomeChip(' nothing-received ')).toMatchObject({ known: true, code: 'nothingReceived', sev: 'warn' })
+    expect(outcomeChip('somethingNew').code).toBe('unknown')
+  })
+
+  it('the attention banner', () => {
+    expect(attentionKey('nothing-received')).toBe('lfReturn.attention.nothingReceived')
+  })
+
+  it('the line quantities', () => {
+    expect(lfReturnRows(watchOf('nothing-received'))).toEqual(lfReturnRows(watchOf('nothingReceived')))
+  })
+})

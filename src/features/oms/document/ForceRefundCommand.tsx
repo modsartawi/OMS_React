@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { HandCoins, Loader2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
@@ -21,7 +21,7 @@ import {
   forceRefundAction,
   forceRefundGate,
   forceRefundLines,
-  pressRequestId,
+  heldForceRequestIds,
 } from './force-refund'
 
 /**
@@ -104,12 +104,12 @@ function ForceRefundDialog({
   )
   const [reason, setReason] = useState('')
   const [refusal, setRefusal] = useState<{ message: string; code: string | null; refused: boolean } | null>(null)
-  /**
-   * The idempotency key of the last press the server never answered. Held across a retry so a slow
-   * network forces once; dropped the moment the server answers (success or refusal). The dialog is
-   * mounted per opening, so a new opening starts with none.
+  /*
+   * The idempotency key of the last press the server never answered lives in `heldForceRequestIds`,
+   * keyed by return delivery number and ABOVE this dialog: closing and reopening after a network drop
+   * or a 5xx replays the same press, so a slow network forces once. It is dropped only when the
+   * server answers (success or refusal).
    */
-  const heldRequestId = useRef<string | null>(null)
   /** Flips synchronously: two clicks before React re-renders still post once. */
   const inFlight = useRef(false)
 
@@ -118,7 +118,7 @@ function ForceRefundDialog({
   const force = useMutation({
     mutationFn: documentApi.forceLfReturnRefund,
     onSuccess: () => {
-      heldRequestId.current = null
+      heldForceRequestIds.answered(returnDeliveryNo)
       void queryClient.invalidateQueries({ queryKey: watchKey })
       notify.success(t('lfReturn.force.done.title', { returnDeliveryNo: fsi(returnDeliveryNo) }), t('lfReturn.force.done.detail'))
       onClose()
@@ -128,7 +128,9 @@ function ForceRefundDialog({
       // A guardrail refusal is an ANSWER: the next press is a new request. Anything else (network,
       // 5xx) is "I do not know" — the held id stays, so pressing again replays rather than re-forces.
       const refused = apiErrorKind(err) === 'business'
-      if (refused) heldRequestId.current = null
+      if (refused) heldForceRequestIds.answered(returnDeliveryNo)
+      // Unanswered: the force may have landed, so re-read the watch — the panel says what is true.
+      else void queryClient.invalidateQueries({ queryKey: watchKey })
       setRefusal({ message: apiErrorMessage(err, t('lfReturn.force.refused.fallback')), code: apiErrorCode(err), refused })
     },
     onSettled: () => {
@@ -139,8 +141,7 @@ function ForceRefundDialog({
   function submit() {
     if (!gate.ok || inFlight.current || force.isPending) return
     inFlight.current = true
-    const requestId = pressRequestId(heldRequestId.current, mintRequestId)
-    heldRequestId.current = requestId
+    const requestId = heldForceRequestIds.press(returnDeliveryNo, mintRequestId)
     setRefusal(null)
     force.mutate(buildForceRefundRequest({ returnDeliveryNo, rows, received, reason, requestId }))
   }
@@ -167,7 +168,8 @@ function ForceRefundDialog({
             data-lf-force-gate={gate.ok ? 'ok' : 'blocked'}
             className={'me-auto self-center text-[0.75rem] ' + (gate.ok ? 'text-muted-foreground' : 'font-semibold text-danger-800')}
           >
-            {t(gate.key, gate.params)}
+            {/* The count is a machine value: isolated through a slot, so plural selection still runs. */}
+            <Trans t={t} i18nKey={gate.key} count={gate.params?.count} components={{ n: <Ltr /> }} />
           </span>
           <Button variant="text" onClick={requestClose} disabled={force.isPending}>
             {t('dialog.cancel')}

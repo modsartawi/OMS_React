@@ -12,9 +12,11 @@
  * Where the watch stands: `open` (booked, waiting on the warehouse), `refunded` (confirmed in full
  * and refunded), `short` (confirmed less than asked), `nothingReceived` (confirmed empty),
  * `unanswered` (the warehouse never confirmed in time) or `forced` (an operator force-refunded it).
- * Typed `string` on the wire because the client must survive an outcome it has not learned.
+ * Typed `string` on the wire because the client must survive an outcome it has not learned; read it
+ * through `normaliseLfReturnOutcome` (`@/core/oms/lf-return-outcome`), never by comparing the raw code.
  */
-export type LfReturnOutcome = 'open' | 'refunded' | 'short' | 'nothingReceived' | 'unanswered' | 'forced'
+export const LF_RETURN_OUTCOMES = ['open', 'refunded', 'short', 'nothingReceived', 'unanswered', 'forced'] as const
+export type LfReturnOutcome = (typeof LF_RETURN_OUTCOMES)[number]
 
 /** One returned line as the warehouse watch sees it. */
 export interface LfReturnLineModel {

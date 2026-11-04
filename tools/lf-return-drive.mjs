@@ -5,7 +5,8 @@
 // renumbered once per outcome; the forward LF delivery is 8000000253 re-typed `LF`. In LTR and RTL
 // (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`, so the copy is English and only the
 // stub ROWS carry Arabic — the document-donor-drive precedent), it asserts:
-//   1. one fixture per outcome draws its chip and meaning; unanswered / nothingReceived / short
+//   1. one fixture per outcome draws its chip and meaning (and `nothing-received`, 3369's prose
+//      spelling, reads exactly as `nothingReceived`); unanswered / nothingReceived / short
 //      raise the attention banner with their own sentence, the other three none;
 //   2. one row per line — item · SKU · asked · confirmed · refunded · restocked · reason — and an
 //      unconfirmed quantity reads Pending, never 0; a confirmed 0 reads 0;
@@ -21,8 +22,8 @@
 //      refunded / forced; without 04 (03 alone) it is absent;
 //   9. the dialog: one row per line, received clamped 0..asked on blur, Submit gated on every line
 //      stated and a reason;
-//  10. a double Submit posts ONE request; a press the server never answered (aborted) is retried with
-//      the SAME requestId; the body carries quantities, reason, requestId and no amount;
+//  10. a double Submit posts ONE request; a press the server never answered (aborted) re-reads the
+//      watch and — even after the dialog is closed and reopened — is retried with the SAME requestId; the body carries quantities, reason, requestId and no amount;
 //  11. on success the panel re-reads and shows forced, with who and why;
 //  12. a guardrail refusal (business 400) is said in the dialog with its code, and the next press
 //      mints a fresh requestId.
@@ -89,6 +90,11 @@ function watches(rtl) {
       outcome: 'nothingReceived', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
       lines: [line('000010', '100200300', 2, 0, 0, 0, damaged)],
     },
+    // 3369's prose spelling: it must read exactly as `nothingReceived` (one normaliser in core).
+    '9000000107': {
+      outcome: 'nothing-received', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
+      lines: [line('000010', '100200300', 2, 0, 0, 0, damaged)],
+    },
     '9000000105': {
       outcome: 'unanswered', bookedAt: booked, collectedAt: collected, confirmedAt: null,
       lines: [line('000010', '100200300', 2, null, null, null, damaged)],
@@ -108,6 +114,8 @@ const EXPECT = {
   '9000000103': ['short', 'Short', 'The warehouse confirmed less than was asked. Only what arrived was refunded.',
     'Less arrived than was asked. Check the missing items with Starlinks before telling the customer.'],
   '9000000104': ['nothingReceived', 'Nothing received', 'The warehouse confirmed it received nothing. No refund was made.',
+    'The warehouse says nothing arrived. Check with the driver and Starlinks before telling the customer.'],
+  '9000000107': ['nothingReceived', 'Nothing received', 'The warehouse confirmed it received nothing. No refund was made.',
     'The warehouse says nothing arrived. Check with the driver and Starlinks before telling the customer.'],
   '9000000105': ['unanswered', 'Unanswered', 'The warehouse never confirmed this return. No refund was made.',
     'The warehouse never answered. Chase Starlinks, or force the refund by what the customer handed over.'],
@@ -220,7 +228,8 @@ async function drive(dir) {
         beforeColumns: !!(s.compareDocumentPosition(document.querySelector('[data-spine]')) & Node.DOCUMENT_POSITION_FOLLOWING),
       }
     })
-    check(`${label} ${outcome}: chip "${chipText}" with its meaning`, v.chip === outcome && v.chipText === chipText && v.meaning === meaning, `${v.chipText} | ${v.meaning}`)
+    const as = no === '9000000107' ? `${outcome} (spelt nothing-received)` : outcome
+    check(`${label} ${as}: chip "${chipText}" with its meaning`, v.chip === outcome && v.chipText === chipText && v.meaning === meaning, `${v.chipText} | ${v.meaning}`)
     check(
       `${label} ${outcome}: ${banner ? 'raises the attention banner, saying what kind' : 'raises no banner'}`,
       banner ? v.banner === banner && v.bannerTitle === 'Action needed' : v.banner === null,
@@ -313,6 +322,14 @@ async function drive(dir) {
     check(`${label} ${outcome} with 04: pressing the disabled command opens nothing`, (await dlg.count()) === 0)
   }
 
+  // The hyphenated spelling with 04: Force refund enabled, exactly as on nothingReceived.
+  await open('9000000107')
+  await panel().waitFor({ timeout: 10000 })
+  check(
+    `${label} nothing-received with 04: Force refund shown and enabled (read as nothingReceived)`,
+    (await forceBtn().count()) === 1 && (await forceBtn().getAttribute('aria-disabled')) === null,
+  )
+
   // 03 alone on the unanswered return: absent (the read-only check above already ran without 04).
   access = ACCESS
   await open('9000000105')
@@ -328,6 +345,8 @@ async function drive(dir) {
   const rowsN = await dlg.locator('[data-lf-force-row]').count()
   check(`${label} dialog: one row per line, nothing typed`, rowsN === WATCHES['9000000105'].lines.length && (await dlg.locator('[data-lf-force-qty]').first().inputValue()) === '', `rows=${rowsN}`)
   check(`${label} dialog: Submit disabled with nothing stated`, (await submitBtn.isDisabled()) && /State what was received on 1 more line\./.test(await gateText()), await gateText())
+  const gateCount = await dlg.locator('[data-lf-force-gate] bdi[dir="ltr"]').allTextContents()
+  check(`${label} dialog: the gate's count is an ltr isolate, the plural still chosen`, JSON.stringify(gateCount) === '["1"]', JSON.stringify(gateCount))
   const qty = dlg.locator('[data-lf-force-qty="000010"]')
   for (const [typed, shown, what] of [['7', '2', 'above asked clamps to asked'], ['-3', '0', 'negative clamps to 0'], ['1.8', '1', 'fractional takes its whole part']]) {
     await qty.fill(typed)
@@ -343,9 +362,21 @@ async function drive(dir) {
   // A press the server never answers, then a double-pressed retry: one more post, the same requestId.
   forcePosts.length = 0
   forceScript = ['abort', 'ok']
+  const readsBeforeAbort = lfReads.length
   await submitBtn.click()
   await dlg.locator('[data-lf-force-retry-safe]').waitFor({ timeout: 5000 })
   check(`${label} unanswered press: says the retry is safe, dialog kept`, (await dlg.count()) === 1)
+  await page.waitForTimeout(400)
+  check(`${label} unanswered press: the panel's watch is re-read`, lfReads.length > readsBeforeAbort, `${readsBeforeAbort} → ${lfReads.length}`)
+  // Close and reopen: the unanswered id is held above the dialog, so the next press replays it.
+  await page.keyboard.press('Escape')
+  await dlg.waitFor({ state: 'detached', timeout: 5000 })
+  await forceBtn().click()
+  await dlg.waitFor({ timeout: 5000 })
+  await qty.fill('1')
+  await qty.press('Tab')
+  await dlg.locator('[data-lf-force-reason]').fill(why)
+  check(`${label} reopened dialog: stated again → Submit enabled`, !(await submitBtn.isDisabled()), await gateText())
   await submitBtn.evaluate((b) => {
     b.click()
     b.click()
@@ -353,7 +384,7 @@ async function drive(dir) {
   await dlg.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
   await page.waitForTimeout(500)
   const ids = forcePosts.map((f) => f.body.requestId)
-  check(`${label} force: a double Submit posts once; the retry of the unanswered press reuses its id`, forcePosts.length === 2 && !!ids[0] && ids[0] === ids[1], JSON.stringify(ids))
+  check(`${label} force: abort, close, reopen, a double Submit — posts once more, with the unanswered press's id`, forcePosts.length === 2 && !!ids[0] && ids[0] === ids[1], JSON.stringify(ids))
   const body = forcePosts[1]?.body
   const keys = []
   const walk = (v) => {

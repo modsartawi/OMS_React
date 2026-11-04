@@ -3,7 +3,8 @@
  *
  * Free of React so the outcome → chip mapping and the pending-vs-zero rule are plain data.
  */
-import type { LfReturnDetailModel } from '@/core/models/lf-return'
+import type { LfReturnDetailModel, LfReturnOutcome } from '@/core/models/lf-return'
+import { needsAction, normaliseLfReturnOutcome, type LfReturnOutcomeReading } from '@/core/oms/lf-return-outcome'
 import type { Severity } from '@/core/ui/severity'
 import { isBlankDate } from '@/core/util/date-format'
 import type { OpenedAs } from './actions'
@@ -41,11 +42,7 @@ export function showsLfReturnPanel(ctx: LfReturnPanelContext, read: LfReturnDeta
   return asksLfReturn(ctx) && read != null
 }
 
-/** The outcomes 3369 names, in the order the watch moves through them. */
-const OUTCOMES = ['open', 'refunded', 'short', 'nothingReceived', 'unanswered', 'forced'] as const
-type KnownOutcome = (typeof OUTCOMES)[number]
-
-const SEVERITY: Record<KnownOutcome, Severity> = {
+const SEVERITY: Record<LfReturnOutcome, Severity> = {
   // Booked and in motion: nothing for a human to do yet.
   open: 'go',
   refunded: 'ok',
@@ -57,12 +54,9 @@ const SEVERITY: Record<KnownOutcome, Severity> = {
   forced: 'ok',
 }
 
-function known(outcome: string | null | undefined): KnownOutcome | null {
-  const code = (outcome ?? '').trim()
-  return (OUTCOMES as readonly string[]).includes(code) ? (code as KnownOutcome) : null
-}
-
 export interface OutcomeChip {
+  /** The outcome as read (`normaliseLfReturnOutcome`): either spelling of a known one, or `unknown`. */
+  code: LfReturnOutcomeReading
   sev: Severity
   /** `document` keys: the chip's word and its meaning in a sentence. */
   labelKey: string
@@ -73,18 +67,15 @@ export interface OutcomeChip {
 
 /** An outcome as its status chip and its meaning in words. An unlearned one is neutral, never a guess. */
 export function outcomeChip(outcome: string | null | undefined): OutcomeChip {
-  const code = known(outcome)
-  const key = code ?? 'unknown'
+  const code = normaliseLfReturnOutcome(outcome)
   return {
-    sev: code ? SEVERITY[code] : 'mute',
-    labelKey: `lfReturn.outcomes.${key}.label`,
-    meaningKey: `lfReturn.outcomes.${key}.meaning`,
-    known: code !== null,
+    code,
+    sev: code === 'unknown' ? 'mute' : SEVERITY[code],
+    labelKey: `lfReturn.outcomes.${code}.label`,
+    meaningKey: `lfReturn.outcomes.${code}.meaning`,
+    known: code !== 'unknown',
   }
 }
-
-/** The outcomes that need a human — 3369's needing-action set, and nothing else. */
-const NEEDS_ACTION: readonly KnownOutcome[] = ['unanswered', 'nothingReceived', 'short']
 
 /**
  * The attention banner's `document` key — saying action is needed and what kind — or `null` for an
@@ -92,8 +83,8 @@ const NEEDS_ACTION: readonly KnownOutcome[] = ['unanswered', 'nothingReceived', 
  * says it is unknown, and a banner would be a guess.
  */
 export function attentionKey(outcome: string | null | undefined): string | null {
-  const code = known(outcome)
-  return code && NEEDS_ACTION.includes(code) ? `lfReturn.attention.${code}` : null
+  const code = normaliseLfReturnOutcome(outcome)
+  return needsAction(code) ? `lfReturn.attention.${code}` : null
 }
 
 /** A quantity cell: a number the server stands behind, or *pending* — never a `0` it did not mean. */
@@ -132,7 +123,7 @@ function hasDate(value: string | null | undefined): boolean {
  * - any quantity the server leaves absent or non-numeric is pending.
  */
 export function lfReturnRows(detail: LfReturnDetailModel): LfReturnRow[] {
-  const code = known(detail.outcome)
+  const code = normaliseLfReturnOutcome(detail.outcome)
   const confirmedPending = !hasDate(detail.confirmedAt)
   const settledPending = code === 'open' || code === 'unanswered'
   return (detail.lines ?? []).map((l) => ({

@@ -101,17 +101,28 @@ describe('the LF arm of the command gate (ticket 760)', () => {
     }
   })
 
-  it('the window refusal carries the end date, isolated whole (a tooltip is a string sink)', () => {
+  it('the window refusal carries the end date, formatted and isolated whole (a tooltip is a string sink)', () => {
     const reason = returnOf({ ...LF, returnRefusal: 'outsideWindow', returnWindowEndsOn: '2026-11-10' })?.reason
     expect(reason).toBe(`The return window for this delivery closed on ${FSI}2026-11-10${PDI}.`)
-    // Without the date the sentence cannot be said; it falls back to the generic one, never "closed on ."
-    expect(returnOf({ ...LF, returnRefusal: 'outsideWindow', returnWindowEndsOn: null })?.reason).toBe(
-      'The server will not take a return on this delivery.',
+    // A wire datetime is formatted to the day — never the raw ISO string.
+    expect(returnOf({ ...LF, returnRefusal: 'outsideWindow', returnWindowEndsOn: ' 2026-11-10T23:59:59 ' })?.reason).toBe(
+      `The return window for this delivery closed on ${FSI}2026-11-10${PDI}.`,
     )
   })
 
+  it('a window refusal with no readable end date still says the window closed — not the generic refusal', () => {
+    const noDate = 'The return window for this delivery has closed.'
+    for (const returnWindowEndsOn of [null, undefined, '', '   ', 'not a date', '0001-01-01T00:00:00']) {
+      expect([returnWindowEndsOn, returnOf({ ...LF, returnRefusal: 'outsideWindow', returnWindowEndsOn })?.reason]).toEqual([
+        returnWindowEndsOn,
+        noDate,
+      ])
+    }
+    expect(resolve(documentAr, 'command.disabled.lfReturn.outsideWindowNoDate')).toBe('انتهت مهلة الإرجاع لهذا التوصيل.')
+  })
+
   it('every LF reason is shipped in Arabic too', () => {
-    for (const key of ['outsideWindow', 'notDelivered', 'nothingRemaining', 'returnOpen', 'refused']) {
+    for (const key of ['outsideWindow', 'outsideWindowNoDate', 'notDelivered', 'nothingRemaining', 'returnOpen', 'refused']) {
       const ar = resolve(documentAr, `command.disabled.lfReturn.${key}`)
       expect([key, typeof ar]).toEqual([key, 'string'])
     }

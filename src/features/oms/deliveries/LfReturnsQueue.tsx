@@ -1,12 +1,13 @@
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
 import type { CellKeyDownEvent, ColDef, FullWidthCellKeyDownEvent, RowDoubleClickedEvent, RowSelectionOptions } from 'ag-grid-community'
 
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { pinStart } from '@/core/theme/direction'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -123,17 +124,10 @@ export default function LfReturnsQueue({
   )
 
   if (error) {
+    // The server's sentence is free text: ErrorBanner isolates it (`<bdi>`, the bidi rule).
     return (
-      <div
-        role="alert"
-        data-lf-returns-error=""
-        className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm"
-      >
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
-        <div>
-          <p className="font-medium">{t('lfReturns.failed')}</p>
-          <p className="text-muted-foreground">{apiErrorMessage(error, t('lfReturns.unexpected'))}</p>
-        </div>
+      <div data-lf-returns-error="">
+        <ErrorBanner className="p-4" title={t('lfReturns.failed')} message={apiErrorMessage(error, t('lfReturns.unexpected'))} />
       </div>
     )
   }

@@ -293,6 +293,7 @@
       "returnNothingLeft": "Everything on this delivery has already been returned.",
       "lfReturn": {
         "outsideWindow": "The return window for this delivery closed on {{date}}.",
+        "outsideWindowNoDate": "The return window for this delivery has closed.",
         "notDelivered": "This delivery has not reached the customer yet, so it cannot be returned.",
         "nothingRemaining": "Everything on this delivery has already been returned or is being returned.",
         "returnOpen": "A return is already open on this delivery. Only one can be open at a time.",
@@ -737,11 +738,11 @@
       "submitting": "Forcing…",
       "gate": {
         "noLines": "The watch lists no lines, so nothing can be forced.",
-        "stateEveryLine_one": "State what was received on {{count}} more line.",
-        "stateEveryLine_other": "State what was received on {{count}} more lines.",
+        "stateEveryLine_one": "State what was received on <n>{{count}}</n> more line.",
+        "stateEveryLine_other": "State what was received on <n>{{count}}</n> more lines.",
         "reasonRequired": "Give the reason for forcing the refund.",
-        "ready_one": "{{count}} line stated. The server computes the refund.",
-        "ready_other": "{{count}} lines stated. The server computes the refund."
+        "ready_one": "<n>{{count}}</n> line stated. The server computes the refund.",
+        "ready_other": "<n>{{count}}</n> lines stated. The server computes the refund."
       },
       "disabled": {
         "refunded": "This return is already refunded.",

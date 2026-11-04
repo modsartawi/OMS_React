@@ -8,6 +8,7 @@ import documentEn from '@/locales/en/document.json'
 import documentAr from '@/locales/ar/document.json'
 import type { LfReturnDetailModel } from '@/core/models/lf-return'
 import {
+  createHeldRequestIds,
   buildForceRefundRequest,
   clampReceivedQuantity,
   forceRefundAction,
@@ -75,8 +76,8 @@ describe('the submit gate needs every line stated and a reason', () => {
     expect(gate.ok).toBe(false)
     expect(gate.key).toBe('lfReturn.force.gate.stateEveryLine')
     expect(gate.params).toEqual({ count: 2 })
-    expect(en('lfReturn.force.gate.stateEveryLine_one')).toBe('State what was received on {{count}} more line.')
-    expect(en('lfReturn.force.gate.stateEveryLine_other')).toBe('State what was received on {{count}} more lines.')
+    expect(en('lfReturn.force.gate.stateEveryLine_one')).toBe('State what was received on <n>{{count}}</n> more line.')
+    expect(en('lfReturn.force.gate.stateEveryLine_other')).toBe('State what was received on <n>{{count}}</n> more lines.')
   })
 
   it('one line left blank still blocks — a 0 is a statement, a blank is not', () => {
@@ -95,7 +96,7 @@ describe('the submit gate needs every line stated and a reason', () => {
   it('every line stated (zeros included) and a reason: ready', () => {
     const gate = forceRefundGate(rows, { '000010': 0, '000020': 0 }, 'Customer handed over nothing')
     expect(gate).toEqual({ ok: true, key: 'lfReturn.force.gate.ready', params: { count: 2 } })
-    expect(en('lfReturn.force.gate.ready_other')).toBe('{{count}} lines stated. The server computes the refund.')
+    expect(en('lfReturn.force.gate.ready_other')).toBe('<n>{{count}}</n> lines stated. The server computes the refund.')
   })
 
   it('a watch with no lines can never be submitted', () => {
@@ -179,6 +180,49 @@ describe('the requestId is minted per press; a retry of an unanswered press reus
   })
 })
 
+describe('the unanswered requestId is held per return delivery, across a dialog close', () => {
+  const minter = () => {
+    let n = 0
+    return { mint: () => `id-${++n}`, count: () => n }
+  }
+
+  it('a first press mints and holds it', () => {
+    const held = createHeldRequestIds()
+    const m = minter()
+    expect(held.press('9000000105', m.mint)).toBe('id-1')
+    expect(held.held('9000000105')).toBe('id-1')
+  })
+
+  it('a press after an unanswered one — even from a reopened dialog — reuses the held id and mints nothing', () => {
+    const held = createHeldRequestIds()
+    const m = minter()
+    const first = held.press('9000000105', m.mint)
+    // The dialog closes and reopens: nothing is dropped, because nothing answered.
+    expect(held.press('9000000105', m.mint)).toBe(first)
+    expect(m.count()).toBe(1)
+  })
+
+  it('an answer (success or business refusal) drops it: the next press is a new request', () => {
+    const held = createHeldRequestIds()
+    const m = minter()
+    const first = held.press('9000000105', m.mint)
+    held.answered('9000000105')
+    expect(held.held('9000000105')).toBeNull()
+    const second = held.press('9000000105', m.mint)
+    expect(second).not.toBe(first)
+  })
+
+  it('each return delivery holds its own id', () => {
+    const held = createHeldRequestIds()
+    const m = minter()
+    const a = held.press('9000000105', m.mint)
+    const b = held.press('9000000103', m.mint)
+    expect(a).not.toBe(b)
+    held.answered('9000000103')
+    expect(held.held('9000000105')).toBe(a)
+  })
+})
+
 describe('Force refund is absent without 04 and disabled on refunded/forced', () => {
   it('absent without 04, whatever the outcome', () => {
     for (const outcome of ['open', 'unanswered', 'short', 'nothingReceived', 'refunded', 'forced']) {
@@ -199,6 +243,11 @@ describe('Force refund is absent without 04 and disabled on refunded/forced', ()
     expect(action).toEqual({ shown: true, disabled: true, reasonKey: `lfReturn.force.disabled.${outcome}` })
     expect(en(`lfReturn.force.disabled.${outcome}`)).toBe(sentence)
     expect(typeof ar(`lfReturn.force.disabled.${outcome}`)).toBe('string')
+  })
+
+  it("with 04 on 3369's prose spelling nothing-received: shown and enabled, as nothingReceived", () => {
+    expect(forceRefundAction(true, 'nothing-received')).toEqual({ shown: true, disabled: false })
+    expect(forceRefundAction(true, ' nothing-received ')).toEqual(forceRefundAction(true, 'nothingReceived'))
   })
 
   it('with 04 on an outcome the client has not learned: disabled, never a guess with money', () => {

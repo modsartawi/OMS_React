@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/core/api'
 import type { OmsAccessResult } from '@/core/models/oms-access'
+import type { OmsGrants } from './access'
 
 // The OMS screen-access probe (ticket 125, backend BackOffice 750). It lives in `@/core/`
 // rather than with the deliveries feature because it has THREE consumers — the menu's OMS
@@ -72,12 +73,13 @@ export function revokeMarkDelivered(queryClient: QueryClient): void {
  * Drop one of Document Details' write grants after its door answers 403 (ticket 521, BackOffice
  * 2763) — the same reasoning as `revokeMarkDelivered`: the server's answer outranks the probe's
  * earlier one, and with `staleTime: Infinity` nothing else would re-ask. Anything but a 403 leaves
- * the grant alone. Only that flag is cleared; the screen stays open.
+ * the grant alone. Only that flag is cleared; the screen stays open. `flag` is any of the probe's
+ * grant flags (`OmsGrants`), so a grant the probe learns is revocable without widening a list here.
  */
 export function revokeOnForbidden(
   queryClient: QueryClient,
   err: unknown,
-  flag: 'canChangeDetail' | 'canCreateReturn' | 'canCreateLocalFulfillmentReturn' | 'canForceLocalFulfillmentReturnRefund',
+  flag: keyof OmsGrants,
 ): void {
   if (!(err instanceof ApiError) || err.statusCode !== 403) return
   queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) => (prev ? { ...prev, [flag]: false } : prev))

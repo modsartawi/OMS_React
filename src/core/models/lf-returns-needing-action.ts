@@ -4,7 +4,6 @@
 //
 // In `core/` beside the LF return detail (`./lf-return`, ticket 762), whose outcome vocabulary it
 // shares: the deliveries and document features may never import each other.
-import type { LfReturnOutcome } from './lf-return'
 
 /** One row of the needing-action read: newest first, as the server sorts it. */
 export interface LfReturnNeedingActionRow {
@@ -13,10 +12,11 @@ export interface LfReturnNeedingActionRow {
   /** The forward LF delivery the return was raised from. */
   forwardDeliveryNo: string
   /**
-   * `unanswered`, `nothingReceived` or `short` on this read. Typed `string` too, because the client
-   * must survive an outcome it has not learned: such a row is simply not listed.
+   * `unanswered`, `nothingReceived` or `short` on this read (an `LfReturnOutcome`). Typed `string`,
+   * because the client must survive an outcome it has not learned: read it through
+   * `normaliseLfReturnOutcome`, and a row it reads as `unknown` is simply not listed.
    */
-  outcome: LfReturnOutcome | string
+  outcome: string
   /** When the pickup was booked, local wall-clock (no offset). */
   bookedAt: string | null
 }

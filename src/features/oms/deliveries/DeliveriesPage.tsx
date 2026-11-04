@@ -131,7 +131,7 @@ export default function DeliveriesPage() {
   const lens = useDeliverySearch((s) => s.lens)
   const setLens = useDeliverySearch((s) => s.setLens)
   const activeViewId = useDeliverySearch((s) => s.activeViewId)
-  const lfReturnsOn = useDeliverySearch((s) => s.lfReturns)
+  const lfReturnsOn = useDeliverySearch((s) => s.lfReturnsQueueOpen)
 
   // The signed-in user's saved views: read (and the old layouts imported) per user.
   const userId = useSession((s) => s.userId)
@@ -211,8 +211,8 @@ export default function DeliveriesPage() {
   const queueRows = useMemo(() => (queue.data ? needingActionRows(queue.data, new Date()) : undefined), [queue.data])
   const refetchQueue = queue.refetch
   const openQueue = useCallback(() => {
-    const wasOn = useDeliverySearch.getState().lfReturns
-    useDeliverySearch.getState().setLfReturns(true)
+    const wasOn = useDeliverySearch.getState().lfReturnsQueueOpen
+    useDeliverySearch.getState().setLfReturnsQueueOpen(true)
     // Turning it on fetches through `enabled`; pressing it again while on re-reads.
     if (wasOn) void refetchQueue()
   }, [refetchQueue])
@@ -377,7 +377,7 @@ export default function DeliveriesPage() {
     if (search.isPending && !supersede) return
     const query = useDeliverySearch.getState().draft
     // A search shows its results: it leaves the LF returns queue.
-    useDeliverySearch.getState().setLfReturns(false)
+    useDeliverySearch.getState().setLfReturnsQueueOpen(false)
     search.mutate({ seq: ++latestSearch.current, query, criteria: toFilterCriteria(query, new Date()) })
   }
   const hasRows = (rows?.length ?? 0) > 0
@@ -418,7 +418,7 @@ export default function DeliveriesPage() {
     const store = useDeliverySearch.getState()
     store.setActiveView(view.id)
     // A view is a view of the results grid: applying one, even layout-only, leaves the queue.
-    store.setLfReturns(false)
+    store.setLfReturnsQueueOpen(false)
     applyLayout(view)
     if (view.query === null) return
     store.setDraft(view.query)
@@ -505,7 +505,7 @@ export default function DeliveriesPage() {
     const view = defaultView(viewStore)
     // A fresh mount with the LF returns queue left on keeps the queue (764), not the starred default.
     const state = useDeliverySearch.getState()
-    if (view && !state.lfReturns && opensOnDefault(state)) applyView(view)
+    if (view && !state.lfReturnsQueueOpen && opensOnDefault(state)) applyView(view)
   }, [canOpenList, userId, viewsLoadedFor, viewStore])
 
   // J/K are hidden navigation commands (they repeat while held); `I` is a palette row too.

@@ -37,6 +37,8 @@ import type { SdDocumentLineModel } from '@/core/models/sd-document'
 import { grantOf, isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
 import { returnableLines } from './return-order'
 import { fsi } from '@/core/util/bidi'
+import { formatDay } from '@/core/util/date-format'
+import type { KeyedText } from '@/core/util/keyed-text'
 
 /** The three labelled clusters, in reading order. */
 export type ClusterId = 'fulfilment' | 'cancel-request' | 'notes'
@@ -227,25 +229,27 @@ export function isLocalFulfillment(deliveryDocumentType: string | null | undefin
 const LF_REFUSALS = ['outsideWindow', 'notDelivered', 'nothingRemaining', 'returnOpen'] as const
 
 /** A reason as a `document` key, with its interpolation when the sentence carries a value. */
-export interface ReasonKey {
-  key: string
-  params?: Record<string, string>
-}
+export type ReasonKey = KeyedText
 
 /**
  * Why Return Document cannot be taken on an LF delivery (spec 759 F2), or `null` when it can.
  * `canReturn` ALONE decides, strictly `true` (290's rule: absent fails closed). The refusal code only
- * words the reason; an unknown or absent code — or a window refusal without its end date — says the
- * generic "the server refused", never a bonded reason.
+ * words the reason; an unknown or absent code says the generic "the server refused", never a bonded
+ * reason. A window refusal says its end date when the server sent a readable one, and that the window
+ * has closed — with no date — when it did not.
  */
 export function lfReturnBlockedBecause(ctx: CommandContext): ReasonKey | null {
   if (ctx.canReturn === true) return null
   const refusal = (LF_REFUSALS as readonly string[]).includes(ctx.returnRefusal ?? '') ? ctx.returnRefusal! : null
-  const endsOn = (ctx.returnWindowEndsOn ?? '').trim()
-  if (refusal === 'outsideWindow' && endsOn)
-    // A tooltip is a string-only sink: the whole date is isolated with `fsi` (bidi rule).
-    return { key: 'command.disabled.lfReturn.outsideWindow', params: { date: fsi(endsOn) } }
-  if (refusal && refusal !== 'outsideWindow') return { key: `command.disabled.lfReturn.${refusal}` }
+  if (refusal === 'outsideWindow') {
+    // `yyyy-MM-dd`, blank for an absent, unreadable or `0001-01-01` date.
+    const endsOn = formatDay((ctx.returnWindowEndsOn ?? '').trim())
+    return endsOn
+      ? // A tooltip is a string-only sink: the whole formatted date is isolated with `fsi` (bidi rule).
+        { key: 'command.disabled.lfReturn.outsideWindow', params: { date: fsi(endsOn) } }
+      : { key: 'command.disabled.lfReturn.outsideWindowNoDate' }
+  }
+  if (refusal) return { key: `command.disabled.lfReturn.${refusal}` }
   return { key: 'command.disabled.lfReturn.refused' }
 }
 

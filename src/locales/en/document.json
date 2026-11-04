@@ -655,5 +655,69 @@
       "CUST": "Customer confirmed receipt",
       "OTHR": "Other (note required)"
     }
+  },
+  "lfReturn": {
+    "heading": "LF return",
+    "subheading": "Warehouse watch",
+    "loadFailed": "The warehouse watch for this return could not be read.",
+    "outcomeLabel": "Outcome",
+    "outcomes": {
+      "open": {
+        "label": "Open",
+        "meaning": "The pickup is booked. The refund waits for the warehouse to confirm what arrived."
+      },
+      "refunded": {
+        "label": "Refunded",
+        "meaning": "The warehouse confirmed everything asked, and the customer was refunded."
+      },
+      "short": {
+        "label": "Short",
+        "meaning": "The warehouse confirmed less than was asked. Only what arrived was refunded."
+      },
+      "nothingReceived": {
+        "label": "Nothing received",
+        "meaning": "The warehouse confirmed it received nothing. No refund was made."
+      },
+      "unanswered": {
+        "label": "Unanswered",
+        "meaning": "The warehouse never confirmed this return. No refund was made."
+      },
+      "forced": {
+        "label": "Forced",
+        "meaning": "An operator forced the refund by the quantity received. The automatic refund is stopped."
+      },
+      "unknown": {
+        "label": "Unknown",
+        "meaning": "The server reported an outcome this screen does not know."
+      }
+    },
+    "attention": {
+      "title": "Action needed",
+      "unanswered": "The warehouse never answered. Chase Starlinks, or force the refund by what the customer handed over.",
+      "nothingReceived": "The warehouse says nothing arrived. Check with the driver and Starlinks before telling the customer.",
+      "short": "Less arrived than was asked. Check the missing items with Starlinks before telling the customer."
+    },
+    "dates": {
+      "booked": "Booked",
+      "collected": "Collected",
+      "confirmed": "Confirmed",
+      "notYet": "Not yet"
+    },
+    "forced": {
+      "by": "Forced by",
+      "reason": "Reason"
+    },
+    "lines": {
+      "label": "Returned lines",
+      "item": "Item",
+      "sku": "SKU",
+      "asked": "Asked",
+      "confirmed": "Confirmed",
+      "refunded": "Refunded",
+      "restocked": "Restocked",
+      "reason": "Reason",
+      "pending": "Pending",
+      "empty": "The warehouse watch lists no lines."
+    }
   }
 }

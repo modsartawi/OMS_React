@@ -69,6 +69,8 @@ import ReturnDialog from './ReturnDialog'
 import MarkDeliveredDialog from './MarkDeliveredDialog'
 import { markDeliveredGate } from './mark-delivered'
 import { useOrderAttachments } from './use-order-attachments'
+import LfReturnPanel from './LfReturnPanel'
+import { asksLfReturn, showsLfReturnPanel } from './lf-return'
 import Chip from '@/core/ui/Chip'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
@@ -81,6 +83,8 @@ function numericAsc(a: string, b: string): number {
 
 /** The query key of an order's prescription-session read (ticket 544), by the loaded record's number. */
 const prescriptionSessionsKey = (documentNo: string) => ['document', 'prescription-sessions', documentNo] as const
+/** The query key of a return delivery's LF warehouse watch (ticket 762), by the loaded record's number. */
+const lfReturnKey = (returnDeliveryNo: string) => ['document', 'lf-return', returnDeliveryNo] as const
 
 const PENDING = { rows: null, loading: true, error: null } as const
 /** A read that has nothing to ask: a document that is not a delivery has no donor requests. */
@@ -619,6 +623,24 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const attachments = useOrderAttachments(document, routeId)
 
   /**
+   * The LF return panel (ticket 762, spec 759 F4): a return delivery, on the delivery route, for a 03
+   * holder asks 3376's watch read; the read alone says whether the return is an LF one. Keyed by the
+   * number, so a watch for a record left behind never lands on the next one.
+   */
+  const lfReturnPanelContext = {
+    openedAs,
+    documentCategory: document?.documentCategory,
+    canCreateLocalFulfillmentReturn: mayCreateLfReturn,
+  }
+  const lfReturnAsked = document !== null && document.documentNo !== '' && asksLfReturn(lfReturnPanelContext)
+  const lfReturnRead = useQuery({
+    queryKey: lfReturnKey(document?.documentNo ?? ''),
+    queryFn: () => documentApi.getLfReturn(document!.documentNo),
+    enabled: lfReturnAsked,
+    retry: false,
+  })
+
+  /**
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
    * files only when their disclosure has been opened on this visit. Before that it reads none:
    * every ByOwner is an audit row. Commands reload through `reload` alone, so they
@@ -631,6 +653,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     if (document && pickSupportSectionGate(openedAs, access.data))
       void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
     if (document) void queryClient.invalidateQueries({ queryKey: prescriptionSessionsKey(document.documentNo) })
+    if (document && lfReturnAsked) void queryClient.invalidateQueries({ queryKey: lfReturnKey(document.documentNo) })
   }
 
   /**
@@ -802,6 +825,18 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               canRelease={canReleaseGuardHold(access.data)}
               onChanged={() => void reload()}
             />
+
+            {/*
+              The LF return panel (ticket 762): the warehouse watch on an LF return delivery, full width
+              above the two columns so its attention banner is the first thing read. A failed read is
+              said in place: the operator holding 03 on a return must know the watch is unknown, not
+              absent. Force refund (ticket 763) hangs on its `actions` slot.
+            */}
+            {lfReturnAsked && lfReturnRead.isError ? (
+              <LfReturnPanel detail={null} error={apiErrorMessage(lfReturnRead.error, t('lfReturn.loadFailed'))} />
+            ) : (
+              showsLfReturnPanel(lfReturnPanelContext, lfReturnRead.data) && <LfReturnPanel detail={lfReturnRead.data!} />
+            )}
 
             {/*
               Two columns (spec 380 D4): the activity spine (ticket 403) on the start

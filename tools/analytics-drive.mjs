@@ -25,6 +25,12 @@
 //          isolated, the grid RTL under ar; heatmap: min at the hue's floor, max full, the gap unpainted,
 //          the first weekday at the reading start, a tooltip per cell, the table view; combo: two panes,
 //          one y-axis each, each bar exactly over its line point (one shared x-axis).
+// 770 — the home lists Items in groups, with search (en and ar dir):
+//   1. Certified, Shared, then Mine, newest first within each, from a list served in neither order;
+//   2. each item's tier badge, owner and last change (LTR-isolated); an untitled view's generated title;
+//   3. search narrows by an English or an Arabic title, without another call; no match says so;
+//   4. a view opens `/analytics/view/:id`, a board `/analytics/board/:id` (not-found until 771);
+//   5. an empty list is the how-to-start empty state.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
@@ -190,8 +196,8 @@ async function refusals() {
   {
     const { context, page } = await open()
     await page.goto(`${BASE}/analytics`)
-    await page.locator('[data-analytics-home-empty]').waitFor({ timeout: 10000 })
-    check('767 the menu leaf opens the home (empty until 770)', true)
+    await page.locator('[data-analytics-home-header]').waitFor({ timeout: 10000 })
+    check('767 the menu leaf opens the home', true)
     await context.close()
   }
 }
@@ -333,6 +339,82 @@ async function drawsForms({ dir, dark }) {
   }
 }
 
+// ── 770 ──────────────────────────────────────────────────────────────────────────────────────────────
+/** The home's groups in screen order, each with its item ids in screen order. */
+const homeGroups = (page) =>
+  page.locator('[data-analytics-group]').evaluateAll((els) =>
+    els.map((g) => [g.getAttribute('data-analytics-group'), [...g.querySelectorAll('[data-analytics-item]')].map((i) => i.getAttribute('data-analytics-item'))]),
+  )
+const clean = (s) => s.replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ').trim()
+
+async function homeLists({ dir }) {
+  const { context, page, calls, errors } = await open({ dir })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-group]').first().waitFor({ timeout: 10000 })
+  check(`770 ${dir}: the home reads Analytics/Items`, calls.includes('Analytics/Items'))
+
+  const ALL = [['certified', ['v-cert', 'b-ops']], ['shared', ['v-titled', 'b-shared']], ['personal', ['v-bar', 'v-old']]]
+  const groups = await homeGroups(page)
+  check(`770 ${dir}: Certified, then Shared, then Mine, newest first within each`, JSON.stringify(groups) === JSON.stringify(ALL), JSON.stringify(groups))
+  const headings = await page.locator('[data-analytics-group] h2').allInnerTexts()
+  check(`770 ${dir}: the group headings`, JSON.stringify(headings.map((h) => clean(h).replace(/\s*\d+$/, ''))) === JSON.stringify(['Certified', 'Shared', 'Mine']), headings.map(clean).join(' | '))
+
+  const row = (id) => page.locator(`[data-analytics-item="${id}"]`)
+  check(`770 ${dir}: an untitled view shows its generated title`, clean(await row('v-bar').locator('[data-analytics-item-title]').innerText()) === 'Orders by Channel')
+  check(`770 ${dir}: each item shows its tier badge`, (await row('b-ops').locator('[data-analytics-item-tier="certified"]').innerText()).includes('Certified') && (await row('v-old').locator('[data-analytics-item-tier]').innerText()).includes('Personal'))
+  const owner = clean(await row('b-shared').locator('[data-analytics-item-owner]').innerText())
+  check(`770 ${dir}: each item shows its owner`, owner === 'Owner aalharbi', owner)
+  const changed = clean(await row('b-shared').locator('[data-analytics-item-changed]').innerText())
+  check(`770 ${dir}: each item shows its last change, isolated LTR`, changed === 'Changed Nov 3, 2026 · 16:40' && (await row('b-shared').locator('[data-analytics-item-changed] bdi[dir="ltr"]').count()) === 1, changed)
+  if (dir === 'rtl') check('770 rtl: the page is RTL', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  await page.screenshot({ path: `${SHOTS}/770-home-${dir}.png` })
+
+  const search = page.locator('input[data-analytics-home-search]')
+  const before = calls.length
+  await search.fill('orders')
+  await page.waitForTimeout(150)
+  const byEn = await homeGroups(page)
+  check(`770 ${dir}: search "orders" narrows to English titles, the generated one included`, JSON.stringify(byEn) === JSON.stringify([['certified', ['v-cert']], ['shared', ['v-titled']], ['personal', ['v-bar']]]), JSON.stringify(byEn))
+  await search.fill('الرياض')
+  await page.waitForTimeout(150)
+  const byAr = await homeGroups(page)
+  check(`770 ${dir}: search in Arabic matches the Arabic title`, JSON.stringify(byAr) === JSON.stringify([['shared', ['b-shared']]]), JSON.stringify(byAr))
+  check(`770 ${dir}: typing asks no further door`, calls.slice(before).filter((c) => c.startsWith('Analytics/')).length === 0, calls.slice(before).join(' '))
+  if (dir === 'ltr') await page.screenshot({ path: `${SHOTS}/770-home-search-ar.png` })
+  await search.fill('refunds')
+  await page.locator('[data-analytics-home-no-match]').waitFor({ timeout: 5000 })
+  check(`770 ${dir}: a search that matches nothing says so`, (await homeGroups(page)).length === 0)
+  await search.fill('')
+  await page.waitForTimeout(150)
+  check(`770 ${dir}: clearing the search lists everything again`, JSON.stringify(await homeGroups(page)) === JSON.stringify(ALL))
+
+  if (dir === 'ltr') {
+    await row('v-titled').locator('a').click()
+    await page.waitForURL('**/analytics/view/v-titled', { timeout: 5000 })
+    await page.locator('[data-analytics-view="v-titled"]').waitFor({ timeout: 10000 })
+    check('770 a view opens /analytics/view/:id', true)
+    await page.goBack()
+    await row('b-ops').locator('a').click()
+    await page.waitForURL('**/analytics/board/b-ops', { timeout: 5000 })
+    await page.locator('[data-analytics-state="not-found"]').waitFor({ timeout: 10000 })
+    check('770 a board opens /analytics/board/:id, its not-found state until 771', true)
+  }
+  check(`770 ${dir}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function homeEmpty() {
+  const { context, page, errors } = await open({ list: [] })
+  await page.goto(`${BASE}/analytics`)
+  const empty = page.locator('[data-analytics-home-empty]')
+  await empty.waitFor({ timeout: 10000 })
+  const words = clean(await empty.innerText())
+  check('770 no items: the empty state explains how to start', words.startsWith('No boards or views yet') && words.includes('Ask the OMS'), words)
+  await page.screenshot({ path: `${SHOTS}/770-home-empty.png` })
+  check('770 empty: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -342,6 +424,9 @@ const SCENARIOS = [
   ['769', () => drawsForms({ dir: 'ltr', dark: false })],
   ['769', () => drawsForms({ dir: 'rtl', dark: false })],
   ['769', () => drawsForms({ dir: 'ltr', dark: true })],
+  ['770', () => homeLists({ dir: 'ltr' })],
+  ['770', () => homeLists({ dir: 'rtl' })],
+  ['770', homeEmpty],
 ]
 
 try {

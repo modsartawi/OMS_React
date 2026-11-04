@@ -88,10 +88,20 @@ export interface AnalyticsSemanticQuery {
   compareToPrevious?: boolean
 }
 
+/** The editor's number formats (755 item 4). `auto` follows the measure's unit. */
+export type AnalyticsNumberFormat = 'auto' | 'integer' | 'decimal' | 'percent' | 'SAR' | 'minutes'
+
 export interface AnalyticsChart {
   type: AnalyticsChartType
-  /** Bars only: vertical (the default) or horizontal; stacked and grouped arrive with 768. */
+  /** Bars only: vertical (the default) or horizontal. */
   orientation?: 'vertical' | 'horizontal'
+  /**
+   * Bars with two or more series (768): stacked or grouped (the default). ⚠ Field name not fixed by §C.
+   * A stacked area is always stacked. A rate or percentile measure is never stacked (766 §E).
+   */
+  stack?: 'stacked' | 'grouped'
+  /** ⚠ The definition's number format (766 story 43); absent means `auto`. */
+  format?: AnalyticsNumberFormat
 }
 
 /** An analytics view's definition. */

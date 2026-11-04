@@ -146,6 +146,25 @@
   "charts": {
     "updating": "Updating…",
     "loading": "Loading the chart…",
-    "chartLabel": "{{measure}} by {{dimension}}, bar chart"
+    "chartLabel": "{{measure}} by {{dimension}}, bar chart",
+    "other": "Other",
+    "formLabel": {
+      "line": "{{measure}} by {{dimension}}, line chart",
+      "area": "{{measure}} by {{dimension}}, stacked area chart",
+      "bar": {
+        "vertical": "{{measure}} by {{dimension}}, bar chart",
+        "horizontal": "{{measure}} by {{dimension}}, horizontal bar chart",
+        "stacked": "{{measure}} by {{dimension}}, stacked bar chart",
+        "grouped": "{{measure}} by {{dimension}}, grouped bar chart"
+      }
+    },
+    "kpi": {
+      "label": "{{measure}}: {{value}}",
+      "noValue": "—",
+      "up": "Up {{change}} on the previous period",
+      "down": "Down {{change}} on the previous period",
+      "flat": "No change on the previous period",
+      "previous": "versus <v>{{value}}</v> in the previous period"
+    }
   }
 }

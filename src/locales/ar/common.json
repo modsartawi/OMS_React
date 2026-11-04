@@ -2,6 +2,25 @@
   "charts": {
     "updating": "جارٍ التحديث…",
     "loading": "جارٍ تحميل المخطط…",
-    "chartLabel": "{{measure}} حسب {{dimension}}، مخطط أعمدة"
+    "chartLabel": "{{measure}} حسب {{dimension}}، مخطط أعمدة",
+    "other": "أخرى",
+    "formLabel": {
+      "line": "{{measure}} حسب {{dimension}}، مخطط خطي",
+      "area": "{{measure}} حسب {{dimension}}، مخطط مساحي متراكم",
+      "bar": {
+        "vertical": "{{measure}} حسب {{dimension}}، مخطط أعمدة",
+        "horizontal": "{{measure}} حسب {{dimension}}، مخطط أشرطة أفقية",
+        "stacked": "{{measure}} حسب {{dimension}}، مخطط أعمدة متراكمة",
+        "grouped": "{{measure}} حسب {{dimension}}، مخطط أعمدة مجمّعة"
+      }
+    },
+    "kpi": {
+      "label": "{{measure}}: {{value}}",
+      "noValue": "—",
+      "up": "ارتفاع {{change}} عن الفترة السابقة",
+      "down": "انخفاض {{change}} عن الفترة السابقة",
+      "flat": "لا تغيير عن الفترة السابقة",
+      "previous": "مقابل <v>{{value}}</v> في الفترة السابقة"
+    }
   }
 }

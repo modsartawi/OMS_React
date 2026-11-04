@@ -28,7 +28,8 @@
     "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
     "unsupported": "This chart type is not drawn here yet.",
     "notFoundTitle": "Analytics view not found",
-    "noAccessTitle": "No access to this analytics view"
+    "noAccessTitle": "No access to this analytics view",
+    "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar."
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",

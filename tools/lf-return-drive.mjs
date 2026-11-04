@@ -14,7 +14,18 @@
 //   5. SKUs and quantities are ltr isolates, reason names <bdi>;
 //   6. no panel — and no read — on the forward delivery or without grant 03; a bonded return
 //      (the read answers null) draws nothing; a failing read says so in place;
-//   7. the panel is read-only: no button inside it.
+//   7. the panel is read-only without grant 04: no control inside it.
+// Force refund (ticket 763, spec 759 F5; BackOffice door 3375, STUBBED at the guessed route
+// `SdDocumentWeb/Delivery/{no}/LfReturn/ForceRefund`):
+//   8. with 04 the panel carries Force refund — enabled on unanswered, disabled with its reason on
+//      refunded / forced; without 04 (03 alone) it is absent;
+//   9. the dialog: one row per line, received clamped 0..asked on blur, Submit gated on every line
+//      stated and a reason;
+//  10. a double Submit posts ONE request; a press the server never answered (aborted) is retried with
+//      the SAME requestId; the body carries quantities, reason, requestId and no amount;
+//  11. on success the panel re-reads and shows forced, with who and why;
+//  12. a guardrail refusal (business 400) is said in the dialog with its code, and the next press
+//      mints a fresh requestId.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/lf-return-drive.mjs   (DRIVE_PORT=<port> for another port)
@@ -112,15 +123,36 @@ async function drive(dir) {
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && !/status of (400|404)/.test(m.text()) && errors.push(m.text()))
+  page.on('console', (m) => m.type() === 'error' && !/status of (400|404)|net::ERR_FAILED/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en'), dir)
   const WATCHES = watches(rtl)
   let access = ACCESS
   const lfReads = []
+  // Force refund stub (3375): every post recorded; `forceScript` answers them in turn.
+  const forcePosts = []
+  let forceScript = []
+  const onForce = async (route, no, body) => {
+    forcePosts.push({ no, body })
+    const next = forceScript.shift() ?? 'ok'
+    if (next === 'abort') return route.abort('failed')
+    if (next === 'refuse') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The watch is already settled.' }))
+    // Slow on purpose, so a double press lands while the first is in flight.
+    await new Promise((r) => setTimeout(r, 600))
+    WATCHES[no] = {
+      ...WATCHES[no],
+      outcome: 'forced',
+      forcedBy: rtl ? 'محمد السرطاوي' : 'm.sartawi',
+      forcedReason: body.reason,
+      lines: WATCHES[no].lines.map((l) => ({ ...l, refundedQuantity: body.lines.find((b) => b.itemNumber === l.itemNumber)?.receivedQuantity ?? null })),
+    }
+    return route.fulfill(envelope(true))
+  }
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    const force = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/LfReturn\/ForceRefund$/)
+    if (force && route.request().method() === 'POST') return onForce(route, force[1], route.request().postDataJSON())
     const lf = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/LfReturn$/)
     if (lf) {
       lfReads.push(lf[1])
@@ -259,6 +291,123 @@ async function drive(dir) {
   await panel().waitFor({ timeout: 10000 })
   const failed = await panel().evaluate((s) => s.querySelector('[role="alert"]')?.textContent ?? null)
   check(`${label}: a failing watch read is said in place`, /Watch store unavailable/.test(failed ?? ''), failed ?? 'none')
+
+  // ── 8–12: Force refund (ticket 763) ─────────────────────────────────────────────────────────
+  const forceBtn = () => panel().locator('[data-lf-force]')
+  const dlg = page.locator('dialog[open]')
+  const gateText = () => dlg.locator('[data-lf-force-gate]').textContent()
+  const submitBtn = dlg.locator('[data-lf-force-submit]')
+
+  access = { ...ACCESS, canForceLocalFulfillmentReturnRefund: true }
+  for (const [no, outcome, reason] of [
+    ['9000000102', 'refunded', 'This return is already refunded.'],
+    ['9000000106', 'forced', 'This return was already force-refunded.'],
+  ]) {
+    await open(no)
+    await panel().waitFor({ timeout: 10000 })
+    const b = await forceBtn().evaluate((el) => ({ dis: el.getAttribute('aria-disabled'), title: el.getAttribute('title') })).catch(() => null)
+    check(`${label} ${outcome} with 04: Force refund shown, disabled with its reason`, b?.dis === 'true' && b?.title === reason, JSON.stringify(b))
+    // `force`: Playwright refuses an aria-disabled target; the press must still open nothing.
+    await forceBtn().click({ force: true })
+    await page.waitForTimeout(200)
+    check(`${label} ${outcome} with 04: pressing the disabled command opens nothing`, (await dlg.count()) === 0)
+  }
+
+  // 03 alone on the unanswered return: absent (the read-only check above already ran without 04).
+  access = ACCESS
+  await open('9000000105')
+  await panel().waitFor({ timeout: 10000 })
+  check(`${label} unanswered without 04: no Force refund`, (await forceBtn().count()) === 0)
+
+  access = { ...ACCESS, canForceLocalFulfillmentReturnRefund: true }
+  await open('9000000105')
+  await panel().waitFor({ timeout: 10000 })
+  check(`${label} unanswered with 04: Force refund shown and enabled`, (await forceBtn().count()) === 1 && (await forceBtn().getAttribute('aria-disabled')) === null)
+  await forceBtn().click()
+  await dlg.waitFor({ timeout: 5000 })
+  const rowsN = await dlg.locator('[data-lf-force-row]').count()
+  check(`${label} dialog: one row per line, nothing typed`, rowsN === WATCHES['9000000105'].lines.length && (await dlg.locator('[data-lf-force-qty]').first().inputValue()) === '', `rows=${rowsN}`)
+  check(`${label} dialog: Submit disabled with nothing stated`, (await submitBtn.isDisabled()) && /State what was received on 1 more line\./.test(await gateText()), await gateText())
+  const qty = dlg.locator('[data-lf-force-qty="000010"]')
+  for (const [typed, shown, what] of [['7', '2', 'above asked clamps to asked'], ['-3', '0', 'negative clamps to 0'], ['1.8', '1', 'fractional takes its whole part']]) {
+    await qty.fill(typed)
+    await qty.press('Tab')
+    check(`${label} dialog: ${what} on blur`, (await qty.inputValue()) === shown, `${typed} → ${await qty.inputValue()}`)
+  }
+  check(`${label} dialog: every line stated, no reason → still disabled, asks for the reason`, (await submitBtn.isDisabled()) && (await gateText()) === 'Give the reason for forcing the refund.', await gateText())
+  const why = rtl ? 'لم ترد ستارلينكس؛ سلّم العميل عبوة واحدة' : 'Starlinks never answered; customer handed over one pack.'
+  await dlg.locator('[data-lf-force-reason]').fill(why)
+  check(`${label} dialog: stated + reason → Submit enabled`, !(await submitBtn.isDisabled()), await gateText())
+  await dlg.screenshot({ path: `${SHOTS}/${dir}-force-dialog.png` })
+
+  // A press the server never answers, then a double-pressed retry: one more post, the same requestId.
+  forcePosts.length = 0
+  forceScript = ['abort', 'ok']
+  await submitBtn.click()
+  await dlg.locator('[data-lf-force-retry-safe]').waitFor({ timeout: 5000 })
+  check(`${label} unanswered press: says the retry is safe, dialog kept`, (await dlg.count()) === 1)
+  await submitBtn.evaluate((b) => {
+    b.click()
+    b.click()
+  })
+  await dlg.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(500)
+  const ids = forcePosts.map((f) => f.body.requestId)
+  check(`${label} force: a double Submit posts once; the retry of the unanswered press reuses its id`, forcePosts.length === 2 && !!ids[0] && ids[0] === ids[1], JSON.stringify(ids))
+  const body = forcePosts[1]?.body
+  const keys = []
+  const walk = (v) => {
+    if (Array.isArray(v)) return v.forEach(walk)
+    if (v && typeof v === 'object') for (const [k, c] of Object.entries(v)) { keys.push(k); walk(c) }
+  }
+  walk(body)
+  check(
+    `${label} force: body = quantities, reason, requestId — no amount`,
+    JSON.stringify([...new Set(keys)].sort()) === JSON.stringify(['itemNumber', 'lines', 'reason', 'receivedQuantity', 'requestId', 'returnDeliveryNo']) &&
+      body?.returnDeliveryNo === '9000000105' && body?.reason === why && JSON.stringify(body?.lines) === JSON.stringify([{ itemNumber: '000010', receivedQuantity: 1 }]),
+    JSON.stringify(body),
+  )
+  await page.locator('[data-lf-return-panel][data-lf-outcome="forced"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const after = await panel().evaluate((s) => ({
+    outcome: s.getAttribute('data-lf-outcome'),
+    by: s.querySelector('[data-lf-forced-by]')?.textContent.trim() ?? null,
+    why: s.querySelector('[data-lf-forced-reason]')?.textContent.trim() ?? null,
+    meaning: s.querySelector('[data-lf-meaning]')?.textContent.trim() ?? null,
+    forceDisabled: s.querySelector('[data-lf-force]')?.getAttribute('aria-disabled') ?? null,
+  }))
+  check(
+    `${label} force: the panel re-reads to forced, with who and why, and Force refund is now disabled`,
+    after.outcome === 'forced' && after.by === (rtl ? 'محمد السرطاوي' : 'm.sartawi') && after.why === why &&
+      /automatic refund is stopped/.test(after.meaning ?? '') && after.forceDisabled === 'true',
+    JSON.stringify(after),
+  )
+  await panel().screenshot({ path: `${SHOTS}/${dir}-forced-after.png` })
+
+  // A guardrail refusal: said in the dialog; the next press is a new request.
+  await open('9000000103')
+  await panel().waitFor({ timeout: 10000 })
+  await forceBtn().click()
+  await dlg.waitFor({ timeout: 5000 })
+  for (const item of ['000010', '000020']) {
+    await dlg.locator(`[data-lf-force-qty="${item}"]`).fill('1')
+    await dlg.locator(`[data-lf-force-qty="${item}"]`).press('Tab')
+  }
+  await dlg.locator('[data-lf-force-reason]').fill('short by one')
+  forcePosts.length = 0
+  forceScript = ['refuse', 'refuse']
+  await submitBtn.click()
+  await dlg.locator('[data-lf-force-refusal]').waitFor({ timeout: 5000 })
+  const refusal = await dlg.locator('[data-lf-force-refusal]').textContent()
+  check(
+    `${label} refusal: the server's sentence under "not forced", no retry-safe line`,
+    /The refund was not forced/.test(refusal) && /already settled/.test(refusal) && (await dlg.locator('[data-lf-force-retry-safe]').count()) === 0,
+    refusal,
+  )
+  await submitBtn.click()
+  await page.waitForTimeout(600)
+  check(`${label} refusal: the next press mints a fresh requestId`, forcePosts.length === 2 && forcePosts[0].body.requestId !== forcePosts[1].body.requestId, JSON.stringify(forcePosts.map((f) => f.body.requestId)))
+  await page.keyboard.press('Escape')
+  access = ACCESS
 
   check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()

@@ -44,3 +44,17 @@ export interface LfReturnDetailModel {
   forcedReason?: string | null
   lines: LfReturnLineModel[]
 }
+
+/**
+ * The FORCE REFUND verb's body (BackOffice 3369 D13, door 3375; client spec 759 F5, ticket 763).
+ * Received quantities, a reason and an idempotency key — **never money**: the server computes the
+ * refund with the automatic path's own amounts. ⚠ Transcribed, not on the wire yet (as above).
+ */
+export interface ForceLfReturnRefundRequest {
+  returnDeliveryNo: string
+  /** One per line: what actually arrived, `0 ≤ received ≤ asked`. */
+  lines: { itemNumber: string; receivedQuantity: number }[]
+  reason: string
+  /** Client-minted; a retry of an unanswered press carries the same one, so it forces once. */
+  requestId: string
+}

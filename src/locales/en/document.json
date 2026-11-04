@@ -713,6 +713,48 @@
       "reason": "Reason",
       "pending": "Pending",
       "empty": "The warehouse watch lists no lines."
+    },
+    "force": {
+      "action": "Force refund",
+      "title": "Force refund of return {{returnDeliveryNo}}",
+      "intro": "State what the customer actually handed over on each line, and why you are forcing the refund. The server computes the money from these quantities, and the automatic refund stops.",
+      "columns": {
+        "item": "Item",
+        "sku": "SKU",
+        "asked": "Asked",
+        "received": "Received"
+      },
+      "receivedLabel": "Received quantity for item {{itemNumber}}",
+      "ofAsked": "At most {{asked}}",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Why the refund is forced. It is kept with the return.",
+      "submit": "Force refund",
+      "submitting": "Forcing…",
+      "gate": {
+        "noLines": "The watch lists no lines, so nothing can be forced.",
+        "stateEveryLine_one": "State what was received on {{count}} more line.",
+        "stateEveryLine_other": "State what was received on {{count}} more lines.",
+        "reasonRequired": "Give the reason for forcing the refund.",
+        "ready_one": "{{count}} line stated. The server computes the refund.",
+        "ready_other": "{{count}} lines stated. The server computes the refund."
+      },
+      "disabled": {
+        "refunded": "This return is already refunded.",
+        "forced": "This return was already force-refunded.",
+        "unknown": "This return is in a state this screen does not know, so it cannot be forced here."
+      },
+      "refused": {
+        "title": "The refund was not forced",
+        "fallback": "The refund could not be forced."
+      },
+      "failed": {
+        "title": "The server did not answer",
+        "retrySafe": "Pressing Force refund again is safe: it carries the same request, so the refund is forced once."
+      },
+      "done": {
+        "title": "Refund forced on return {{returnDeliveryNo}}",
+        "detail": "The automatic refund is stopped."
+      }
     }
   }
 }

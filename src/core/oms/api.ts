@@ -77,7 +77,7 @@ export function revokeMarkDelivered(queryClient: QueryClient): void {
 export function revokeOnForbidden(
   queryClient: QueryClient,
   err: unknown,
-  flag: 'canChangeDetail' | 'canCreateReturn',
+  flag: 'canChangeDetail' | 'canCreateReturn' | 'canForceLocalFulfillmentReturnRefund',
 ): void {
   if (!(err instanceof ApiError) || err.statusCode !== 403) return
   queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) => (prev ? { ...prev, [flag]: false } : prev))

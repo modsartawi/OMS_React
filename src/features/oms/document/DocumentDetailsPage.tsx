@@ -7,7 +7,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi, revokeOnForbidden } from '@/core/oms/api'
-import { canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn } from '@/core/oms/access'
+import { canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn, canForceLocalFulfillmentReturnRefund } from '@/core/oms/access'
 import { pickSupportKeys } from '@/core/pick-support/api'
 import { orderSessionsView } from '@/core/prescription-session/lines'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
@@ -70,6 +70,7 @@ import MarkDeliveredDialog from './MarkDeliveredDialog'
 import { markDeliveredGate } from './mark-delivered'
 import { useOrderAttachments } from './use-order-attachments'
 import LfReturnPanel from './LfReturnPanel'
+import ForceRefundCommand from './ForceRefundCommand'
 import { asksLfReturn, showsLfReturnPanel } from './lf-return'
 import Chip from '@/core/ui/Chip'
 
@@ -835,7 +836,20 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             {lfReturnAsked && lfReturnRead.isError ? (
               <LfReturnPanel detail={null} error={apiErrorMessage(lfReturnRead.error, t('lfReturn.loadFailed'))} />
             ) : (
-              showsLfReturnPanel(lfReturnPanelContext, lfReturnRead.data) && <LfReturnPanel detail={lfReturnRead.data!} />
+              showsLfReturnPanel(lfReturnPanelContext, lfReturnRead.data) && (
+                <LfReturnPanel
+                  detail={lfReturnRead.data!}
+                  actions={
+                    // Force refund (ticket 763): absent without 04, disabled on refunded / forced.
+                    <ForceRefundCommand
+                      canForce={canForceLocalFulfillmentReturnRefund(access.data)}
+                      returnDeliveryNo={document!.documentNo}
+                      detail={lfReturnRead.data!}
+                      watchKey={lfReturnKey(document!.documentNo)}
+                    />
+                  }
+                />
+              )
             )}
 
             {/*

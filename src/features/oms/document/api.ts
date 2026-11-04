@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
-import type { LfReturnDetailModel } from '@/core/models/lf-return'
+import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
@@ -95,6 +95,18 @@ export const documentApi = {
       if (err instanceof ApiError && err.kind === 'business' && err.statusCode === 404) return null
       throw err
     }
+  },
+  /**
+   * FORCE REFUND an LF return by received quantity (BackOffice 3369 D13, door 3375; spec 759 F5,
+   * ticket 763). Behind `LocalFulfillmentReturn,04` beside 03. The body carries quantities, a reason
+   * and a `requestId` — never an amount; the server computes the money and is idempotent on the id.
+   *
+   * ⚠ STUBBED: 3375 is not built and 3369 names the verb but not its route. The path is this client's
+   * guess beside 762's read guess (`…/Delivery/{no}/LfReturn` + `/ForceRefund`); the joining ticket
+   * (765) corrects both against the built doors. The answer is not read: the panel re-reads the watch.
+   */
+  forceLfReturnRefund(body: ForceLfReturnRefundRequest): Promise<unknown> {
+    return api.post<unknown>(`${BASE}/Delivery/${encode(body.returnDeliveryNo)}/LfReturn/ForceRefund`, body)
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

@@ -14,7 +14,10 @@ import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import { documentApi } from './api'
 import PickupAddressPanel from './PickupAddressPanel'
 import NoteField from './NoteField'
+import { isLocalFulfillment } from './commands'
 import {
+  LF_RETURN_REASON,
+  RETURN_GRANT,
   buildCreateReturnRequest,
   clampReturnQuantity,
   pickedFeeTypes,
@@ -25,6 +28,7 @@ import {
   type PickupAddress,
   type ReturnableLine,
   type ReturnLineSelection,
+  type ReturnMode,
   type ReturnReason,
 } from './return-order'
 import IconButton from '@/core/ui/IconButton'
@@ -160,7 +164,17 @@ export default function ReturnDialog({
     refused: boolean
   } | null>(null)
 
-  const collecting = reason === 'RTRF'
+  /**
+   * **LF mode** (spec 759 F3, ticket 761): the same dialog on a local fulfillment delivery. There is
+   * no reason fork — Return-and-Refund is the only LF reason (3369 D3), so it is STATED, never
+   * chosen, and Refund-Only cannot be picked by construction. Fees offer `FLFD` alone, and a `403`
+   * revokes the LF grant rather than the bonded one.
+   */
+  const mode: ReturnMode = isLocalFulfillment(document.deliveryDocumentType) ? 'lf' : 'bonded'
+  const lf = mode === 'lf'
+  /** What the body will say: the chosen reason, or — in LF mode — the only one there is. */
+  const effectiveReason: ReturnReason | null = lf ? LF_RETURN_REASON : reason
+  const collecting = effectiveReason === 'RTRF'
 
   // Hiding is the projection's job (D3): the grid renders exactly what it is
   // handed, and the header states what was left out.
@@ -172,14 +186,14 @@ export default function ReturnDialog({
 
   // The fee projection (D3) — the header rows alone, at their `condAmount`
   // rate. The grid renders what it is handed and sums nothing.
-  const fees = useMemo(() => refundableFees(document.conditions), [document.conditions])
+  const fees = useMemo(() => refundableFees(document.conditions, mode), [document.conditions, mode])
 
   // The summary counts what the REQUEST would carry, through the same function
   // that builds it — so the bar can never say *1 fee* while the body names none.
   const pickedFeeCount = pickedFeeTypes(fees, feePicks).length
   const gate = useMemo(
-    () => submitGate(rows.map(stateOf), reason, pickedFeeCount),
-    [rows, lineState, reason, pickedFeeCount],
+    () => submitGate(rows.map(stateOf), reason, pickedFeeCount, mode),
+    [rows, lineState, reason, pickedFeeCount, mode],
   )
 
   /**
@@ -199,7 +213,7 @@ export default function ReturnDialog({
       notify.success(
         t('returnDocument.created.title', { documentNo: created.documentNo }),
         [
-          t(`returnDocument.created.next.${body.reason}`),
+          t(lf ? 'returnDocument.created.next.LF' : `returnDocument.created.next.${body.reason}`),
           created.replayed ? t('returnDocument.created.replayed') : '',
         ]
           .filter(Boolean)
@@ -214,7 +228,10 @@ export default function ReturnDialog({
       // policy that moves. 401 is not ours either: `handle401` has already
       // cleared the session and redirected.
       // A 403 is the grant refusing (ticket 521): the bar loses Return document behind this dialog.
-      revokeOnForbidden(queryClient, err, 'canCreateReturn')
+      // It is THIS mode's grant that refused — an LF 403 revokes LocalFulfillmentReturn 03, never
+      // the bonded `canCreateReturn` (ticket 761). The LF named refusals (outside window, Refund-Only,
+      // return open, grant missing) are business outcomes and land in the banner like any other.
+      revokeOnForbidden(queryClient, err, RETURN_GRANT[mode])
       const refused = apiErrorKind(err) === 'business'
       const fallback = t('returnDocument.refused.fallback')
       setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err), refused })
@@ -230,7 +247,7 @@ export default function ReturnDialog({
    * could reappear, which is why it is pure and tested rather than inline here.
    */
   function submit() {
-    if (!gate.ok || reason === null || inFlight.current || create.isPending) return
+    if (!gate.ok || effectiveReason === null || inFlight.current || create.isPending) return
     inFlight.current = true
     // The previous refusal goes when a new attempt starts: a banner about the
     // last try, left standing beside a running one, states something untrue.
@@ -241,7 +258,8 @@ export default function ReturnDialog({
         // The DELIVERY this dialog was opened on — never an order number. The
         // command is disabled on anything that is not a delivery (290).
         refDeliveryNo: document.documentNo,
-        reason,
+        mode,
+        reason: effectiveReason,
         rows,
         selections: lineState,
         fees,
@@ -699,73 +717,21 @@ export default function ReturnDialog({
       </div>
 
       {/*
-        The most consequential control on the screen. The two options are CARDS
-        carrying their consequence in the operator's language, not bare radio
-        labels: Refund Only never touches the carrier — it refunds now and the
-        customer keeps the goods — and that is a sentence, not a word.
+        LF mode (ticket 761): ONE reason, stated rather than offered. A radiogroup of one would
+        still read as a choice, and Refund-Only must not be pickable at all (3369 D3).
       */}
-      <div className="mt-3 rounded-lg border border-border p-3">
-        <h4 className="m-0 mb-2 text-[0.8125rem] font-semibold tracking-tight">
-          {t('returnDocument.reason.title')}
-        </h4>
-        <div
-          className="grid gap-2 sm:grid-cols-2"
-          role="radiogroup"
-          aria-label={t('returnDocument.reason.title')}
-          // A radiogroup is ARROWED, not tabbed through: a keyboard operator who
-          // presses → on the first card expects the second, and a `role="radio"`
-          // that ignores it is a claim the control does not honour. There are
-          // exactly two, so any arrow moves to the other one.
-          onKeyDown={(e) => {
-            if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return
-            e.preventDefault()
-            const next: ReturnReason = reason === 'RTRF' ? 'RF' : 'RTRF'
-            setReason(next)
-            // Focus follows the selection, as it does in a real radiogroup.
-            e.currentTarget
-              .querySelector<HTMLButtonElement>(`[data-return-reason="${next}"]`)
-              ?.focus()
-          }}
-        >
-          {REASONS.map((option) => {
-            const on = reason === option
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                // One tab stop for the group, as a radiogroup has: the chosen
-                // card, or — with nothing chosen yet — the first.
-                tabIndex={on || (reason === null && option === REASONS[0]) ? 0 : -1}
-                onClick={() => setReason(option)}
-                className={
-                  'flex items-start gap-2 rounded-lg border p-2.5 text-start ' +
-                  (on ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50')
-                }
-                data-return-reason={option}
-                data-on={on ? 1 : 0}
-              >
-                <span
-                  className={
-                    'mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ' +
-                    (on ? 'border-primary bg-primary' : 'border-border')
-                  }
-                  aria-hidden
-                />
-                <span>
-                  <span className="block text-[0.8125rem] font-semibold">
-                    {t(`returnDocument.reason.${option}.title`)}
-                  </span>
-                  <span className="mt-0.5 block text-[0.75rem] text-muted-foreground">
-                    {t(`returnDocument.reason.${option}.consequence`)}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+      {lf ? (
+        <div className="mt-3 rounded-lg border border-border p-3" data-return-lf-statement>
+          <h4 className="m-0 text-[0.8125rem] font-semibold tracking-tight">
+            {t('returnDocument.reason.lf.title')}
+          </h4>
+          <p className="m-0 mt-0.5 text-[0.75rem] text-muted-foreground">
+            {t('returnDocument.reason.lf.statement')}
+          </p>
         </div>
-      </div>
+      ) : (
+        <ReasonFork reason={reason} onChange={setReason} />
+      )}
 
       {/*
         ⚠ Under Refund Only this panel is ABSENT — not disabled, not greyed.
@@ -795,5 +761,91 @@ export default function ReturnDialog({
         />
       </div>
     </Modal>
+  )
+}
+
+/**
+ * The bonded reason fork (spec 289 D5, ticket 292) — extracted, unchanged, so the dialog's LF mode
+ * (ticket 761) can stand a one-line statement in its place without a second dialog.
+ */
+function ReasonFork({
+  reason,
+  onChange,
+}: {
+  reason: ReturnReason | null
+  onChange: (next: ReturnReason) => void
+}) {
+  const { t } = useTranslation('document')
+  return (
+    <>
+      {/*
+        The most consequential control on the screen. The two options are CARDS
+        carrying their consequence in the operator's language, not bare radio
+        labels: Refund Only never touches the carrier — it refunds now and the
+        customer keeps the goods — and that is a sentence, not a word.
+      */}
+      <div className="mt-3 rounded-lg border border-border p-3">
+        <h4 className="m-0 mb-2 text-[0.8125rem] font-semibold tracking-tight">
+          {t('returnDocument.reason.title')}
+        </h4>
+        <div
+          className="grid gap-2 sm:grid-cols-2"
+          role="radiogroup"
+          aria-label={t('returnDocument.reason.title')}
+          // A radiogroup is ARROWED, not tabbed through: a keyboard operator who
+          // presses → on the first card expects the second, and a `role="radio"`
+          // that ignores it is a claim the control does not honour. There are
+          // exactly two, so any arrow moves to the other one.
+          onKeyDown={(e) => {
+            if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return
+            e.preventDefault()
+            const next: ReturnReason = reason === 'RTRF' ? 'RF' : 'RTRF'
+            onChange(next)
+            // Focus follows the selection, as it does in a real radiogroup.
+            e.currentTarget
+              .querySelector<HTMLButtonElement>(`[data-return-reason="${next}"]`)
+              ?.focus()
+          }}
+        >
+          {REASONS.map((option) => {
+            const on = reason === option
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                // One tab stop for the group, as a radiogroup has: the chosen
+                // card, or — with nothing chosen yet — the first.
+                tabIndex={on || (reason === null && option === REASONS[0]) ? 0 : -1}
+                onClick={() => onChange(option)}
+                className={
+                  'flex items-start gap-2 rounded-lg border p-2.5 text-start ' +
+                  (on ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50')
+                }
+                data-return-reason={option}
+                data-on={on ? 1 : 0}
+              >
+                <span
+                  className={
+                    'mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ' +
+                    (on ? 'border-primary bg-primary' : 'border-border')
+                  }
+                  aria-hidden
+                />
+                <span>
+                  <span className="block text-[0.8125rem] font-semibold">
+                    {t(`returnDocument.reason.${option}.title`)}
+                  </span>
+                  <span className="mt-0.5 block text-[0.75rem] text-muted-foreground">
+                    {t(`returnDocument.reason.${option}.consequence`)}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </>
   )
 }

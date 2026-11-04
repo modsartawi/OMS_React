@@ -388,6 +388,10 @@
       "RF": {
         "title": "Refund only",
         "consequence": "Refunded now. No collection is booked and the customer keeps the goods."
+      },
+      "lf": {
+        "title": "Return and refund",
+        "statement": "The driver collects from the customer, and the refund follows the warehouse's check of what arrived."
       }
     },
     "address": {
@@ -420,7 +424,8 @@
       "title": "Return {{documentNo}} created",
       "next": {
         "RTRF": "The courier will be asked to collect the goods.",
-        "RF": "Refund only — no collection is booked."
+        "RF": "Refund only — no collection is booked.",
+        "LF": "The driver will collect the goods; the refund follows the warehouse's check."
       },
       "replayed": "This request had already been received, so this is the same return — not a second one."
     },

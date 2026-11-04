@@ -15,6 +15,7 @@ import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import { labelIn, toBarView } from './view-model'
+import ViewForm, { isViewForm } from './ViewForms'
 import { analyticsRefusal } from './wire'
 
 /**
@@ -83,7 +84,10 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
   const view = result && !series ? toBarView(result, def, model, lang) : null
   const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
-  const drawable = series || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
+  const verticalBar = def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical'
+  // 769's forms: the donut, the table with cell bars, the heatmap and the combo.
+  const viewForm = isViewForm(def.chart.type) ? def.chart.type : null
+  const drawable = series || verticalBar || viewForm !== null
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
@@ -129,7 +133,10 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
               {t('view.empty')}
             </p>
           ) : (
-            view && (
+            view &&
+            (viewForm && result ? (
+              <ViewForm type={viewForm} result={result} definition={def} model={model} lang={lang} />
+            ) : (
               <VerticalBarChart
                 points={view.points}
                 colourBy={view.colourBy}
@@ -138,7 +145,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
                 locale={lang}
                 ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
               />
-            )
+            ))
           )}
         </ChartFrame>
       )}

@@ -1,0 +1,313 @@
+import { assignSlots } from '@/core/charts/slots'
+import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
+import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { labelIn, measureOf, slotRuleFor, type ViewMeasure } from './view-model'
+
+/**
+ * The result → view model for the donut, the table with cell bars, the heatmap and the combo
+ * (spec 766 §E, ticket 769). Pure, beside `view-model.ts`'s bar view and reusing its `labelIn`,
+ * `measureOf` and `slotRuleFor`; proven in `view-model-forms.test.ts`.
+ *
+ * Kept in its own module so 768's top-N + "Other" fold (the time and bar forms) and this one merge
+ * cleanly; the donut's fold below is its own (the cap is 6 slices, not 768's 5 series).
+ */
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** The first measure and dimension a form reads: the definition's, else the answer's own columns. */
+const firstKey = (keys: readonly string[], result: AnalyticsQueryResult, role: 'measure' | 'dimension', at = 0): string =>
+  keys[at] ?? result.columns.filter((c) => c.role === role)[at]?.key ?? ''
+
+/** A dimension's members as the screen names them: the model's label for an inline value, else the key. */
+function memberLabeller(dimension: string, model: AnalyticsModel, lang: string) {
+  const dim = model.dimensions.find((d) => d.key === dimension)
+  const labels = new Map(dim?.values.map((v) => [v.key, labelIn(v.label, lang)]) ?? [])
+  return {
+    category: { key: dimension, label: labelIn(dim?.label, lang) || dimension, kind: dim?.kind ?? 'category' },
+    label: (member: string) => labels.get(member) || member,
+    /** The catalogue order of an inline-valued dimension, `null` for an open one. */
+    order: dim && dim.values.length > 0 ? dim.values.map((v) => v.key) : null,
+  }
+}
+
+// ── Donut ────────────────────────────────────────────────────────────────────────────────────────────
+
+/** 755's table: a donut shows at most 6 named slices, then "Other". */
+export const DONUT_MAX_SLICES = 6
+
+export interface DonutSlice {
+  member: string
+  label: string
+  value: number
+  slot: number
+}
+
+export type DonutView =
+  | {
+      kind: 'donut'
+      measure: ViewMeasure
+      category: { key: string; label: string }
+      slices: DonutSlice[]
+      /** Everything folded: the slices past the sixth, and any slice the palette has no hue left for. */
+      other: { value: number; count: number } | null
+      total: number
+      empty: boolean
+    }
+  /** A rate or percentile measure is never in a donut (766 §E): a share of a rate means nothing. */
+  | { kind: 'refused'; reason: 'shape'; measure: ViewMeasure }
+
+export function toDonutView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+): DonutView {
+  const measureKey = firstKey(definition.query.measures, result, 'measure')
+  const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')
+  // The model's shape decides when the column is silent: the refusal must not depend on the answer.
+  const declared = model.measures.find((m) => m.key === measureKey)?.shape
+  const measure = measureOf(measureKey, model, result, lang)
+  if (measure.shape !== 'additive' || (declared && declared !== 'additive')) return { kind: 'refused', reason: 'shape', measure }
+
+  const names = memberLabeller(dimensionKey, model, lang)
+  const ranked = result.rows
+    .map((r) => ({ member: String(r[dimensionKey] ?? ''), value: num(r[measureKey]) ?? 0 }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+
+  // Colour by entity: the fixed catalogue slot, or the saved map; an open breakdown with no map hands the
+  // free slots out largest first. A slice left without a hue folds into "Other" — never a sixth colour.
+  const slots = assignSlots(
+    ranked.map((r) => r.member),
+    slotRuleFor(dimensionKey, model, definition) ?? { kind: 'saved', map: {} },
+  )
+  const slices: DonutSlice[] = []
+  let otherValue = 0
+  let otherCount = 0
+  for (const r of ranked) {
+    const slot = slots.get(r.member) ?? null
+    if (slot !== null && slices.length < DONUT_MAX_SLICES) slices.push({ member: r.member, label: names.label(r.member), value: r.value, slot })
+    else {
+      otherValue += r.value
+      otherCount += 1
+    }
+  }
+  return {
+    kind: 'donut',
+    measure,
+    category: names.category,
+    slices,
+    other: otherCount ? { value: otherValue, count: otherCount } : null,
+    total: ranked.reduce((s, r) => s + r.value, 0),
+    empty: ranked.length === 0,
+  }
+}
+
+// ── Heatmap ──────────────────────────────────────────────────────────────────────────────────────────
+
+export interface HeatmapMember {
+  member: string
+  label: string
+}
+
+export interface HeatmapCell {
+  x: string
+  y: string
+  value: number | null
+  /** The cell's share of the hue in percent, `null` when it has no value. */
+  weight: number | null
+  /** Its paint (`@/core/charts/sequential`), `null` for an unpainted cell. */
+  fill: string | null
+}
+
+export interface HeatmapView {
+  kind: 'heatmap'
+  measure: ViewMeasure
+  x: { key: string; label: string }
+  y: { key: string; label: string }
+  xs: HeatmapMember[]
+  ys: HeatmapMember[]
+  /** Every x × y, x-major, the gaps included. */
+  cells: HeatmapCell[]
+  min: number | null
+  max: number | null
+  empty: boolean
+}
+
+/** A dimension's members in order: the catalogue's for an inline-valued one, else as the answer gives them. */
+function membersOf(seen: readonly string[], order: readonly string[] | null): string[] {
+  const unique = [...new Set(seen)]
+  if (!order) return unique
+  const present = new Set(unique)
+  return [...order.filter((m) => present.has(m)), ...unique.filter((m) => !order.includes(m))]
+}
+
+/** 1 measure × 2 dimensions (755's table): the first dimension across, the second down. */
+export function toHeatmapView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+): HeatmapView {
+  const measureKey = firstKey(definition.query.measures, result, 'measure')
+  const xKey = firstKey(definition.query.dimensions, result, 'dimension', 0)
+  const yKey = firstKey(definition.query.dimensions, result, 'dimension', 1)
+  const xn = memberLabeller(xKey, model, lang)
+  const yn = memberLabeller(yKey, model, lang)
+
+  const values = new Map<string, number | null>()
+  const at = (x: string, y: string) => `${x}\u0000${y}`
+  for (const r of result.rows) values.set(at(String(r[xKey] ?? ''), String(r[yKey] ?? '')), num(r[measureKey]))
+  const xs = membersOf(result.rows.map((r) => String(r[xKey] ?? '')), xn.order)
+  const ys = membersOf(result.rows.map((r) => String(r[yKey] ?? '')), yn.order)
+
+  const present = [...values.values()].filter((v): v is number => v !== null)
+  const min = present.length ? Math.min(...present) : null
+  const max = present.length ? Math.max(...present) : null
+
+  const cells: HeatmapCell[] = []
+  for (const x of xs)
+    for (const y of ys) {
+      const value = values.get(at(x, y)) ?? null
+      const weight = value === null || min === null || max === null ? null : sequentialWeight(value, min, max)
+      cells.push({ x, y, value, weight, fill: weight === null ? null : sequentialFill(weight) })
+    }
+
+  return {
+    kind: 'heatmap',
+    measure: measureOf(measureKey, model, result, lang),
+    x: xn.category,
+    y: yn.category,
+    xs: xs.map((member) => ({ member, label: xn.label(member) })),
+    ys: ys.map((member) => ({ member, label: yn.label(member) })),
+    cells,
+    min,
+    max,
+    empty: present.length === 0,
+  }
+}
+
+// ── Table with cell bars ─────────────────────────────────────────────────────────────────────────────
+
+export interface TableColumn {
+  key: string
+  role: 'dimension' | 'measure'
+  label: string
+  /** A measure's unit, for its format. */
+  unit?: ViewMeasure['unit']
+  /** A measure column's largest absolute value: the cell bars' full width. */
+  max?: number
+}
+
+export interface TableView {
+  kind: 'table'
+  columns: TableColumn[]
+  /** The rows after the sort and the top N; a dimension's member is replaced by its label. */
+  rows: Record<string, string | number | null>[]
+  sort: { key: string; direction: 'asc' | 'desc' } | null
+  /** True when the top N cut rows off. */
+  cut: boolean
+  empty: boolean
+}
+
+/** Any measures × 1–3 dimensions (755's table): sort, top N, cell bars on the numeric columns. */
+export function toTableView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+): TableView {
+  const dimKeys = definition.query.dimensions.length
+    ? definition.query.dimensions
+    : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)
+  const measureKeys = definition.query.measures.length
+    ? definition.query.measures
+    : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
+  const namers = new Map(dimKeys.map((k) => [k, memberLabeller(k, model, lang)]))
+
+  const sort = definition.chart.sort ?? (measureKeys[0] ? { key: measureKeys[0], direction: 'desc' as const } : null)
+  const sorted = [...result.rows]
+  if (sort) {
+    const sign = sort.direction === 'asc' ? 1 : -1
+    sorted.sort((a, b) => {
+      const av = a[sort.key]
+      const bv = b[sort.key]
+      if (av == null || bv == null) return av == null ? (bv == null ? 0 : 1) : -1 // gaps last, either way
+      return sign * (typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv)))
+    })
+  }
+  const topN = definition.chart.topN
+  const kept = topN && topN > 0 ? sorted.slice(0, topN) : sorted
+
+  const rows = kept.map((r) => {
+    const out: Record<string, string | number | null> = {}
+    for (const k of dimKeys) out[k] = namers.get(k)!.label(String(r[k] ?? ''))
+    for (const k of measureKeys) out[k] = num(r[k])
+    return out
+  })
+  const columns: TableColumn[] = [
+    ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.category.label })),
+    ...measureKeys.map((k) => {
+      const m = measureOf(k, model, result, lang)
+      const max = Math.max(0, ...rows.map((r) => Math.abs(num(r[k]) ?? 0)))
+      return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max }
+    }),
+  ]
+  return { kind: 'table', columns, rows, sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
+}
+
+// ── Combo ────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface ComboPoint {
+  member: string
+  label: string
+  volume: number | null
+  rate: number | null
+}
+
+export interface ComboView {
+  kind: 'combo'
+  category: { key: string; label: string; kind: 'time' | 'category' }
+  /** Drawn as bars, in the upper pane. */
+  volume: ViewMeasure
+  /** Drawn as a line, in the lower pane. */
+  rate: ViewMeasure
+  points: ComboPoint[]
+  empty: boolean
+}
+
+/**
+ * 1 volume measure + 1 rate measure × time or category (755's table). Two panes on one shared x-axis,
+ * each with its own single y-axis (766 §E amendment 1) — never one chart with two y-axes.
+ * The additive measure is the volume and the other the rate, whatever order the definition names them.
+ */
+export function toComboView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+): ComboView {
+  const keys = definition.query.measures.length
+    ? definition.query.measures
+    : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
+  const measures = keys.map((k) => measureOf(k, model, result, lang))
+  const volume = measures.find((m) => m.shape === 'additive') ?? measures[0]
+  const rate = measures.find((m) => m !== volume) ?? volume
+  const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')
+  const names = memberLabeller(dimensionKey, model, lang)
+
+  const rows = [...result.rows]
+  // A time axis reads in time order (`yyyy-MM-dd` sorts as text); a category axis as the answer ranks it.
+  if (names.category.kind === 'time') rows.sort((a, b) => String(a[dimensionKey] ?? '').localeCompare(String(b[dimensionKey] ?? '')))
+  return {
+    kind: 'combo',
+    category: names.category,
+    volume,
+    rate,
+    points: rows.map((r) => {
+      const member = String(r[dimensionKey] ?? '')
+      return { member, label: names.label(member), volume: num(r[volume?.key ?? '']), rate: num(r[rate?.key ?? '']) }
+    }),
+    empty: rows.length === 0,
+  }
+}

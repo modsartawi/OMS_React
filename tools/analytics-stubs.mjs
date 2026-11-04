@@ -50,6 +50,7 @@ export const MODEL = {
       description: label('Deliveries completed', 'التوصيلات المكتملة'),
       dimensions: ['channel_group', 'store', 'day'],
     },
+    // 769: a rate (never in a donut; the combo's lower pane).
     {
       key: 'on_time_share',
       area: 'sales',
@@ -75,6 +76,9 @@ export const MODEL = {
     },
     { key: 'store', kind: 'category', label: label('Store', 'الفرع') },
     { key: 'day', kind: 'time', label: label('Day', 'اليوم') },
+    // 769's heatmap axes.
+    { key: 'weekday', kind: 'category', label: label('Weekday', 'يوم الأسبوع'), values: [] },
+    { key: 'hour', kind: 'category', label: label('Hour', 'الساعة'), values: [] },
   ],
 }
 
@@ -119,6 +123,14 @@ export const ITEMS = {
   // Title empty, as the AI leaves it: the screen generates "Orders by Channel".
   'v-bar': view('v-bar'),
   'v-titled': view('v-titled', { title: label('Orders by channel, last 30 days', 'الطلبات حسب القناة، آخر 30 يومًا'), tier: 'shared' }),
+  // ── 769: the donut, the table with cell bars, the heatmap and the combo ──
+  'v-donut': view('v-donut', { definition: { chart: { type: 'donut' }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-30-days' } } }),
+  'v-donut-rate': view('v-donut-rate', { definition: { chart: { type: 'donut' }, query: { measures: ['on_time_share'], dimensions: ['channel_group'], filters: [] } } }),
+  'v-table': view('v-table', {
+    definition: { chart: { type: 'table', topN: 5 }, query: { measures: ['orders', 'till_value'], dimensions: ['store'], filters: [] } },
+  }),
+  'v-heatmap': view('v-heatmap', { definition: { chart: { type: 'heatmap' }, query: { measures: ['orders'], dimensions: ['weekday', 'hour'], filters: [] } } }),
+  'v-combo': view('v-combo', { definition: { chart: { type: 'combo' }, query: { measures: ['orders', 'on_time_share'], dimensions: ['day'], filters: [] } } }),
 }
 
 // ── `GET Analytics/Items` (770): the home's list, deliberately NOT in tier or date order ─────────────────
@@ -170,6 +182,16 @@ const answer = (columns, rows, previous = []) => ({
   fetchedAt: '2026-11-05T10:00:00',
   dataAsOf: '2026-11-05T09:45:00',
 })
+// 769: a many-column answer with an explicit shape: `columns` as `[key, role, shape?, unit?]`, rows as objects.
+const answerShaped = (columns, rows) => ({
+  columns: columns.map(([key, role, shape, unit]) => (role === 'measure' ? { key, role, shape, unit } : { key, role })),
+  rows,
+  total: rows.length,
+  truncated: false,
+  period: { from: '2026-10-07', to: '2026-11-05' },
+  fetchedAt: '2026-11-05T10:00:00',
+  dataAsOf: '2026-11-05T09:45:00',
+})
 export const DAYS = ['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05']
 const CHANNELS = ['app', 'web', 'callcenter', 'aggregator', 'store']
 // Seven stores: the five biggest are named and the two smallest (P006, P007) fold into "Other".
@@ -205,11 +227,37 @@ export const QUERY_768 = {
 }
 QUERY_768['v-bar-grouped'] = QUERY_768['v-bar-stacked']
 
+// Nine stores: the donut keeps the five largest (the palette's five hues) and folds four into "Other".
+const NINE_STORES = [['P001', 900], ['P002', 800], ['P003', 700], ['P004', 600], ['P005', 500], ['P006', 400], ['P007', 300], ['P008', 200], ['P009', 100]]
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu']
+const HOURS = ['08', '12', '16', '20']
+
 // Ranked by value, which is NOT the catalogue order: the colours must follow the channel, not the rank.
 export const QUERY = {
   ...QUERY_768,
   'v-bar': result('channel_group', 'orders', [['aggregator', 4200], ['app', 3100], ['store', 2600], ['web', 1800], ['callcenter', 900]]),
   'v-titled': result('channel_group', 'orders', [['web', 1800], ['aggregator', 4200]]),
+  'v-donut': result('store', 'orders', NINE_STORES),
+  'v-donut-rate': answerShaped([['channel_group', 'dimension'], ['on_time_share', 'measure', 'rate', 'share']], [{ channel_group: 'app', on_time_share: 0.91 }, { channel_group: 'web', on_time_share: 0.84 }]),
+  'v-table': answerShaped(
+    [['store', 'dimension'], ['orders', 'measure', 'additive', 'count'], ['till_value', 'measure', 'additive', 'SAR']],
+    NINE_STORES.map(([store, orders], i) => ({ store, orders: orders + i * 37, till_value: (orders + i * 37) * 61.5 })).reverse(),
+  ),
+  // Orders by weekday × hour: 10 at Sun 08 (the minimum), 200 at Thu 20 (the maximum); Wed 16 is empty.
+  'v-heatmap': answerShaped(
+    [['weekday', 'dimension'], ['hour', 'dimension'], ['orders', 'measure', 'additive', 'count']],
+    WEEKDAYS.flatMap((weekday, w) =>
+      HOURS.filter((hour) => !(weekday === 'Wed' && hour === '16')).map((hour, h) => ({
+        weekday,
+        hour,
+        orders: weekday === 'Sun' && hour === '08' ? 10 : weekday === 'Thu' && hour === '20' ? 200 : 20 + w * 25 + h * 10,
+      })),
+    ),
+  ),
+  'v-combo': answerShaped(
+    [['day', 'dimension'], ['orders', 'measure', 'additive', 'count'], ['on_time_share', 'measure', 'rate', 'share']],
+    ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'].map((day, i) => ({ day, orders: 300 + i * 40, on_time_share: 0.8 + i * 0.03 })),
+  ),
 }
 
 /**

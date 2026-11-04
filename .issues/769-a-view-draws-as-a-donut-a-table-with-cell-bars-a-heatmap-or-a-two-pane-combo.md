@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 767
 ---
@@ -22,9 +22,9 @@ component (`core/charts`: donut, heatmap, combo; the table cell renderer) · sto
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `view model: a donut refuses a rate or percentile measure and folds past 6 slices` · pure (vitest)
-- [ ] `view model: the heatmap's sequential scale maps min→lightest and max→darkest on one hue` · pure (vitest)
-- [ ] `donut, table, heatmap and combo draw in en/ar/dark` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `view model: a donut refuses a rate or percentile measure and folds past 6 slices` · pure (vitest)
+- [x] `view model: the heatmap's sequential scale maps min→lightest and max→darkest on one hue` · pure (vitest)
+- [x] `donut, table, heatmap and combo draw in en/ar/dark` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

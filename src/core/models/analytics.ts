@@ -102,6 +102,10 @@ export interface AnalyticsChart {
   stack?: 'stacked' | 'grouped'
   /** ⚠ The definition's number format (766 story 43); absent means `auto`. */
   format?: AnalyticsNumberFormat
+  /** ⚠ Table only (769): the column a table is sorted by, and how. Default: the first measure, largest first. */
+  sort?: { key: string; direction: 'asc' | 'desc' } | null
+  /** ⚠ Table only (769): keep the first N rows after the sort. Absent → every row. */
+  topN?: number | null
 }
 
 /** An analytics view's definition. */

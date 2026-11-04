@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Ban, CalendarClock, Layers, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
+import { Ban, CalendarClock, Layers, PackageX, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
 import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
 import { LENS_IDS, type CountWording, type LensId } from './lenses'
@@ -14,6 +14,9 @@ export const LENS_ICON: Record<LensId, LucideIcon> = {
   dawaaNow: Zap,
   rescheduled: CalendarClock,
 }
+
+/** The LF returns queue's icon (764): its rail row and its palette row share it. */
+export const LF_RETURNS_ICON: LucideIcon = PackageX
 
 /** The rail's section heading: small caps in secondary ink (Lenses, My views). */
 export const RAIL_HEADING =
@@ -50,17 +53,26 @@ export function lensCountText(t: TFunction<'deliveries'>, count: CountWording): 
  * `--cursor` bar on its inline-start edge, the grid's selected-row pair. Needs attention's
  * count turns danger while it is above 0. The operator's saved views (**My views**, 400) follow
  * as `children`, with + Save current view at the rail's foot.
+ *
+ * Between them, for a session holding `LocalFulfillmentReturn,03` (ticket 764), a **Queues**
+ * section with "LF returns needing action". It is NOT a lens: a lens narrows the loaded rows, and
+ * this queue is its own server read, shown in its own grid in place of the results. While it is on,
+ * no lens row is pressed; picking a lens leaves it. Its count is the queue's last answer, "—" until
+ * one has come back.
  */
 export default function ViewsRail({
   lens,
   counts,
   onLens,
+  queue = null,
   className = '',
   children,
 }: {
   lens: LensId
   counts: Record<LensId, CountWording>
   onLens: (lens: LensId) => void
+  /** The LF returns queue's row; `null` (no 03) draws no Queues section at all. */
+  queue?: { active: boolean; count: CountWording; onOpen: () => void } | null
   className?: string
   children?: ReactNode
 }) {
@@ -81,10 +93,11 @@ export default function ViewsRail({
       <ul aria-labelledby="deliveries-lenses" className="flex flex-col gap-1">
         {LENS_IDS.map((id) => (
           <li key={id}>
-            <LensRow id={id} active={lens === id} count={counts[id]} onClick={() => onLens(id)} />
+            <LensRow id={id} active={!queue?.active && lens === id} count={counts[id]} onClick={() => onLens(id)} />
           </li>
         ))}
       </ul>
+      {queue && <QueueSection {...queue} />}
       {children}
     </nav>
   )
@@ -124,5 +137,37 @@ function LensRow({
         <Ltr>{lensCountText(t, count)}</Ltr>
       </span>
     </Chip>
+  )
+}
+
+/** The Queues section (764): one row, the LF returns needing action. */
+function QueueSection({ active, count, onOpen }: { active: boolean; count: CountWording; onOpen: () => void }) {
+  const { t } = useTranslation('deliveries')
+  const Icon = LF_RETURNS_ICON
+  return (
+    <>
+      <h2 id="deliveries-queues" title={t('lfReturns.hint')} className={RAIL_HEADING + ' mt-3'}>
+        {t('lfReturns.heading')}
+      </h2>
+      <ul aria-labelledby="deliveries-queues" className="flex flex-col gap-1">
+        <li>
+          <Chip
+            on={active}
+            aria-current={active ? 'true' : undefined}
+            data-queue="lfReturns"
+            title={t('lfReturns.hint')}
+            onClick={onOpen}
+            className={'relative w-full gap-2 ps-2.5 pe-2 text-start ' + RAIL_FOCUS}
+          >
+            {active && <CursorBar edge="-start-px" />}
+            <Icon className="size-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">{t('lfReturns.name')}</span>
+            <span data-queue-count="" className="font-mono text-[11px] text-muted-foreground">
+              <Ltr>{lensCountText(t, count)}</Ltr>
+            </span>
+          </Chip>
+        </li>
+      </ul>
+    </>
   )
 }

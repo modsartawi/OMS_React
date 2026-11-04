@@ -314,5 +314,31 @@
     "deniedHint": "This screen needs the Delivery Documents permission. Ask an administrator to grant it.",
     "unavailableTitle": "Access check unavailable",
     "unavailableHint": "The permission check for Delivery Documents could not be completed, so the screen stays closed. This is a server problem, not a missing permission — try again shortly."
+  },
+  "lfReturns": {
+    "heading": "Queues",
+    "name": "LF returns needing action",
+    "show": "Show: LF returns needing action",
+    "hint": "Local fulfillment returns the warehouse left unanswered, received nothing for, or received short. Read from the server, not the loaded rows.",
+    "column": {
+      "returnDeliveryNo": "Return delivery",
+      "forwardDeliveryNo": "Forward delivery",
+      "reason": "Needs action because",
+      "bookedAt": "Booked",
+      "age": "Age"
+    },
+    "reason": {
+      "unanswered": "Unanswered",
+      "nothingReceived": "Nothing received",
+      "short": "Short"
+    },
+    "ageToday": "Today",
+    "age_one": "{{count}} day",
+    "age_other": "{{count}} days",
+    "loading": "Loading LF returns needing action…",
+    "empty": "Nothing needs action: no LF return is unanswered, empty or short.",
+    "failed": "Could not load LF returns needing action",
+    "unexpected": "The LF returns needing action could not be read. Try again shortly.",
+    "openHint": "Enter or double-click opens the return delivery."
   }
 }

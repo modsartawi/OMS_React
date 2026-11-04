@@ -31,6 +31,12 @@ interface DeliverySearchState {
   /** The active lens (398): it narrows the loaded rows and survives a drill-down too. */
   lens: LensId
   /**
+   * The "LF returns needing action" queue is on screen in place of the results grid (ticket 764).
+   * Not a lens: the queue is its own server read. Picking a lens leaves it, and so does a search.
+   * In memory like the rest, so Back from the return's Document Details lands on the queue again.
+   */
+  lfReturns: boolean
+  /**
    * The saved view last applied or saved (400), or `null`. Its modified dot is measured against
    * what the page holds now. In memory, so returning from Details keeps it, as it keeps the rest.
    */
@@ -45,6 +51,7 @@ interface DeliverySearchState {
   captureGridState: (columnState: ColumnState[] | null, filterModel: FilterModel | null) => void
   setSelectedKey: (key: string | null) => void
   setLens: (lens: LensId) => void
+  setLfReturns: (open: boolean) => void
   setActiveView: (id: string | null) => void
 }
 
@@ -55,6 +62,7 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   limit: null,
   error: null,
   lens: 'all',
+  lfReturns: false,
   activeViewId: null,
   columnState: null,
   filterModel: null,
@@ -73,7 +81,8 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   setError: (message) => set({ error: message }),
   captureGridState: (columnState, filterModel) => set({ columnState, filterModel }),
   setSelectedKey: (selectedKey) => set({ selectedKey }),
-  setLens: (lens) => set({ lens }),
+  setLens: (lens) => set({ lens, lfReturns: false }),
+  setLfReturns: (lfReturns) => set({ lfReturns }),
   setActiveView: (activeViewId) => set({ activeViewId }),
 }))
 

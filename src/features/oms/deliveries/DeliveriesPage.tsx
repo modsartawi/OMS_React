@@ -49,6 +49,8 @@ import {
   serializeInspectorPrefs,
   type InspectorPrefs,
 } from './inspector-pane'
+import { needingActionRows, offersLfReturnsQueue } from './lf-returns'
+import LfReturnsQueue, { LF_RETURNS_NEEDING_ACTION_KEY } from './LfReturnsQueue'
 import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type LoadedResult } from './lenses'
 import MyViews, { ModifiedDot, type ViewAction } from './MyViews'
 import QueryBar from './QueryBar'
@@ -74,7 +76,7 @@ import { deliveryRowKey, useDeliverySearch } from './search-store'
 import StatusBar from './StatusBar'
 import { useSavedViews } from './view-store'
 import ViewNameDialog, { type ViewNameMode } from './ViewNameDialog'
-import ViewsRail, { LENS_ICON } from './ViewsRail'
+import ViewsRail, { LENS_ICON, LF_RETURNS_ICON } from './ViewsRail'
 
 /**
  * Screen 1 — Delivery Documents Inquiry.
@@ -109,6 +111,12 @@ import ViewsRail, { LENS_ICON } from './ViewsRail'
  * unless it is layout-only, its criteria and lens, and runs its search. The starred default
  * applies and runs on open when there is no in-memory search, so returning from Delivery details
  * keeps the search that was there.
+ *
+ * "LF returns needing action" (ticket 764, spec 759 F6) sits in the rail's Queues section for a
+ * session holding `LocalFulfillmentReturn,03`. It is not a lens — its rows are its own server read,
+ * not the loaded deliveries — so it takes the results grid's place with its own small grid while it
+ * is on. The results grid stays mounted underneath (hidden), so its layout and rows are there again
+ * when a lens, a view or a search leaves the queue.
  */
 export default function DeliveriesPage() {
   const { t } = useTranslation('deliveries')
@@ -123,6 +131,7 @@ export default function DeliveriesPage() {
   const lens = useDeliverySearch((s) => s.lens)
   const setLens = useDeliverySearch((s) => s.setLens)
   const activeViewId = useDeliverySearch((s) => s.activeViewId)
+  const lfReturnsOn = useDeliverySearch((s) => s.lfReturns)
 
   // The signed-in user's saved views: read (and the old layouts imported) per user.
   const userId = useSession((s) => s.userId)
@@ -188,6 +197,30 @@ export default function DeliveriesPage() {
   // session that may open it and change it (ticket 521; 365 §5: a letter is bound only if the
   // list offers that act).
   const offersActs = actsOffered(access.data)
+  // The queue needs 03 (spec 759 F1): without it there is no rail row, no palette row, no read.
+  const offersQueue = offersLfReturnsQueue(access.data)
+  const queueOn = offersQueue && lfReturnsOn
+  // Read while the queue is on, and again each time it is opened: a queue is worked fresh.
+  const queue = useQuery({
+    queryKey: LF_RETURNS_NEEDING_ACTION_KEY,
+    queryFn: () => deliveriesApi.lfReturnsNeedingAction(),
+    enabled: queueOn,
+    retry: false,
+  })
+  // The age is against local wall-clock when the answer lands (re-projected on each answer).
+  const queueRows = useMemo(() => (queue.data ? needingActionRows(queue.data, new Date()) : undefined), [queue.data])
+  const refetchQueue = queue.refetch
+  const openQueue = useCallback(() => {
+    const wasOn = useDeliverySearch.getState().lfReturns
+    useDeliverySearch.getState().setLfReturns(true)
+    // Turning it on fetches through `enabled`; pressing it again while on re-reads.
+    if (wasOn) void refetchQueue()
+  }, [refetchQueue])
+  const openReturn = useCallback(
+    // Marked as come from the list, so Details' Esc and Back land on the queue again.
+    (returnDeliveryNo: string) => navigate(`/oms/delivery/${returnDeliveryNo}`, { state: fromListState() }),
+    [navigate],
+  )
 
   // The latest search's number. A view applied while a search runs starts its own search, and
   // the earlier one's answer, if it lands later, is dropped rather than shown under the view.
@@ -343,12 +376,14 @@ export default function DeliveriesPage() {
   const runSearch = ({ supersede = false } = {}) => {
     if (search.isPending && !supersede) return
     const query = useDeliverySearch.getState().draft
+    // A search shows its results: it leaves the LF returns queue.
+    useDeliverySearch.getState().setLfReturns(false)
     search.mutate({ seq: ++latestSearch.current, query, criteria: toFilterCriteria(query, new Date()) })
   }
   const hasRows = (rows?.length ?? 0) > 0
   // The rows the grid shows: a failed re-search keeps the old rows in the store but unmounts the
   // grid, so J/K have nothing to step through.
-  const steppable = gridApi !== null && hasRows && !error
+  const steppable = gridApi !== null && hasRows && !error && !queueOn
 
   /** The grid, if one is mounted: a failed search unmounts it and leaves its API destroyed. */
   const liveGrid = () => (gridApi && !gridApi.isDestroyed() ? gridApi : null)
@@ -382,6 +417,8 @@ export default function DeliveriesPage() {
   const applyView = (view: SavedView) => {
     const store = useDeliverySearch.getState()
     store.setActiveView(view.id)
+    // A view is a view of the results grid: applying one, even layout-only, leaves the queue.
+    store.setLfReturns(false)
     applyLayout(view)
     if (view.query === null) return
     store.setDraft(view.query)
@@ -466,7 +503,9 @@ export default function DeliveriesPage() {
     if (defaultTried.current || !canOpenList || !userId || viewsLoadedFor !== userId) return
     defaultTried.current = true
     const view = defaultView(viewStore)
-    if (view && opensOnDefault(useDeliverySearch.getState())) applyView(view)
+    // A fresh mount with the LF returns queue left on keeps the queue (764), not the starred default.
+    const state = useDeliverySearch.getState()
+    if (view && !state.lfReturns && opensOnDefault(state)) applyView(view)
   }, [canOpenList, userId, viewsLoadedFor, viewStore])
 
   // J/K are hidden navigation commands (they repeat while held); `I` is a palette row too.
@@ -524,6 +563,10 @@ export default function DeliveriesPage() {
             icon: LENS_ICON[id],
             run: () => setLens(id),
           })),
+          // "Show: LF returns needing action" — only with 03 (764). It reads the server.
+          ...(offersQueue
+            ? [{ id: 'queue.lfReturns', label: 'deliveries:lfReturns.show', icon: LF_RETURNS_ICON, run: openQueue }]
+            : []),
           // "Apply view: ‹name›" for each saved view, with no key (368 §2). It runs its search.
           ...viewStore.views.map((view) => ({
             id: `view.${view.id}`,
@@ -583,6 +626,15 @@ export default function DeliveriesPage() {
         lens={lens}
         counts={counts}
         onLens={setLens}
+        queue={
+          offersQueue
+            ? {
+                active: queueOn,
+                count: queueRows && !queue.isError ? { key: 'exact', count: queueRows.length } : { key: 'none' },
+                onOpen: openQueue,
+              }
+            : null
+        }
         // Flush with the screen's inline-start and bottom edges, under the 44px top bar. Sticky
         // makes it a stacking context, so it rises over the grid (and stays under the top bar's
         // z-30) for its ⋯ menu to open over the centre column.
@@ -609,7 +661,11 @@ export default function DeliveriesPage() {
         />
 
         <div className="flex flex-wrap items-center gap-3">
-          {activeView ? (
+          {queueOn ? (
+            <h1 className="text-base font-semibold tracking-tight" data-active-queue="lfReturns">
+              {t('lfReturns.name')}
+            </h1>
+          ) : activeView ? (
             // The active view's name and its modified dot (L9).
             <h1 className="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight" data-active-view="">
               <bdi className="truncate">{activeView.name}</bdi>
@@ -618,7 +674,7 @@ export default function DeliveriesPage() {
           ) : (
             <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
           )}
-          {pill && (
+          {pill && !queueOn && (
             <RowSummary
               pill={pill}
               cut={isCut(loaded)}
@@ -633,15 +689,19 @@ export default function DeliveriesPage() {
               {t('search.searching')}
             </span>
           )}
-          {showResults && (
+          {showResults && !queueOn && (
             <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hasRows} />
           )}
           <InspectorToggle open={inspector.open} onToggle={toggleInspector} />
         </div>
 
+        {queueOn && (
+          <LfReturnsQueue rows={queueRows} pending={queue.isFetching} error={queue.error} onOpen={openReturn} />
+        )}
         {error ? (
           <div
             role="alert"
+            hidden={queueOn}
             className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
@@ -654,7 +714,7 @@ export default function DeliveriesPage() {
           // The grid stays mounted under its empty states, which overlay it (368 §1): layout
           // restore, a saved view's columns and J/K need its API before any rows come back. Prior
           // rows stay visible while a re-search runs.
-          <div className="flex flex-col gap-1">
+          <div className={'flex flex-col gap-1' + (queueOn ? ' hidden' : '')}>
             <div className="relative h-[calc(100vh-17.75rem)] min-h-96">
               <AgGridReact<DeliveryDocumentModel>
                 theme={omsGridTheme}

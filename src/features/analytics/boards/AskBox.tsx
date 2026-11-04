@@ -14,7 +14,8 @@ import { useCopilotPanel } from '@/core/copilot-panel'
  * Gated by the copilot probe: the shell's button publishes `canAsk` as `available`, and without it
  * (denied, absent, still asking) the box draws nothing.
  *
- * Self-contained so the board page (ticket 771) mounts it as it is.
+ * Self-contained so the board page (ticket 771) mounts it as it is: it grows to fill a flex row
+ * (the home's `data-analytics-home-header`, beside the search).
  */
 export default function AskBox() {
   const { t } = useTranslation('boards')
@@ -31,7 +32,7 @@ export default function AskBox() {
   }
 
   return (
-    <form onSubmit={send} className="flex items-center gap-2" role="search" aria-label={t('ask.label')} data-analytics-ask>
+    <form onSubmit={send} className="flex min-w-72 flex-1 items-center gap-2" aria-label={t('ask.label')} data-analytics-ask>
       <Input
         value={question}
         onChange={(e) => setQuestion(e.target.value)}

@@ -85,6 +85,17 @@ export const ITEMS = {
   'v-titled': view('v-titled', { title: label('Orders by channel, last 30 days', 'الطلبات حسب القناة، آخر 30 يومًا'), tier: 'shared' }),
 }
 
+// ── `GET Analytics/Items` (770): the home's list, deliberately NOT in tier or date order ─────────────────
+const board = (id, over = {}) => ({ ...view(id, over), kind: 'board', definition: {} })
+export const LIST = [
+  ITEMS['v-bar'], // personal, untitled → "Orders by Channel", 2026-11-05 09:00
+  board('b-ops', { title: label('Operations week', 'أسبوع العمليات'), tier: 'certified', owner: 'curator1', updatedAt: '2026-10-20T08:00:00' }),
+  ITEMS['v-titled'], // shared, 2026-11-05 09:00
+  view('v-old', { title: label('Value through our tills', 'القيمة عبر صناديقنا'), updatedAt: '2026-10-01T12:30:00' }),
+  view('v-cert', { title: label('Orders, certified', 'الطلبات المعتمدة'), tier: 'certified', owner: 'curator1', updatedAt: '2026-11-02T07:15:00' }),
+  board('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedAt: '2026-11-03T16:40:00' }),
+]
+
 // ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
 export const COPILOT_ANSWER = {
   conversationId: 'c-analytics-1',
@@ -122,6 +133,7 @@ export const QUERY = {
  * Install the analytics doors on `page`. Every option overrides one door's answer:
  *   access:   an `{ canView, canCurate }` object, `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
+ *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
  *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
@@ -129,7 +141,7 @@ export const QUERY = {
  * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, query = QUERY, model = MODEL, queryDelayMs = 0, copilot = 'denied', copilotAnswer = COPILOT_ANSWER } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, copilot = 'denied', copilotAnswer = COPILOT_ANSWER } = opts
   const calls = []
   const bodies = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
@@ -153,6 +165,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Copilot/Ask') return route.fulfill(envelope(copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
+    if (p === 'Analytics/Items') return route.fulfill(isFulfil(list) ? list : envelope(list))
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
       const it = items[id]

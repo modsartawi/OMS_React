@@ -13,7 +13,36 @@
   "home": {
     "title": "Analytics",
     "subtitle": "Boards and analytics views over the governed analytics model.",
-    "empty": "Boards and views will be listed here. Open an analytics view from its link for now."
+    "searchLabel": "Search boards and views by title",
+    "searchPlaceholder": "Search by title, in English or Arabic",
+    "loading": "Loading boards and views…",
+    "loadFailed": "Boards and views could not be loaded",
+    "emptyTitle": "No boards or views yet",
+    "empty": "Ask the OMS for a chart from the top bar and it saves the answer as your own analytics view. Views shared with every analytics user and certified boards appear here too.",
+    "noMatch": "No board or view has {{search}} in its title.",
+    "untitled": "Untitled",
+    "group": {
+      "certified": "Certified",
+      "shared": "Shared",
+      "personal": "Mine"
+    },
+    "tier": {
+      "certified": "Certified",
+      "shared": "Shared",
+      "personal": "Personal"
+    },
+    "kind": {
+      "board": "Board",
+      "view": "Analytics view"
+    },
+    "owner": "Owner <owner>{{owner}}</owner>",
+    "changed": "Changed <at>{{at}}</at>"
+  },
+  "board": {
+    "title": "Board",
+    "subtitle": "Panels over the governed analytics model.",
+    "notFoundTitle": "Board not found",
+    "notYet": "Boards cannot be opened here yet."
   },
   "view": {
     "title": "Analytics view",

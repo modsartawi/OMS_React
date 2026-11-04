@@ -111,11 +111,16 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
       },
       // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
-      // closed. The home is 767's empty state until 770; `board/:id` (771), `board/:id/edit` (777) and `new` (775)
-      // join this block. The copilot links to `/analytics/view/:id` by route string only.
+      // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
+      // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route
+      // string only.
       {
         path: 'analytics',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsHomePage')).default }),
+      },
+      {
+        path: 'analytics/board/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsBoardPage')).default }),
       },
       {
         path: 'analytics/view/:id',

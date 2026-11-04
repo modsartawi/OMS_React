@@ -196,6 +196,134 @@ async function refusals() {
   }
 }
 
+// ── 768 ──────────────────────────────────────────────────────────────────────────────────────────────
+// Each form draws in en / ar / dark with its tooltip:
+//   KPI: the Σ headline, ▲ 12.0 % on the previous period, a sparkline with a tooltip; from a zero previous ▲ with no %;
+//   line × 2 measures and line × 7 stores (five named + "Other" in ink grey, a legend of six);
+//   stacked area × 5 channels; horizontal, stacked and grouped bars; a stacked rate is refused;
+//   every chart: a tooltip on hover, Recharts' accessibility layer, the LTR box, mirrored under RTL.
+
+/** Hover a point and return the tooltip's text ('' when none showed). */
+async function hoverTooltip(page, selector, at) {
+  const box = await page.locator(selector).boundingBox()
+  const { x, y } = at ?? { x: box.x + box.width * 0.5, y: box.y + box.height * 0.45 }
+  await page.mouse.move(x, y)
+  await page.waitForTimeout(150)
+  const tip = page.locator(`${selector} .recharts-tooltip-wrapper`)
+  if (!(await tip.count())) return ''
+  const visible = await tip.first().evaluate((el) => getComputedStyle(el).visibility !== 'hidden')
+  return visible ? (await tip.first().innerText()).replace(/\s+/g, ' ').trim() : ''
+}
+
+const strokes = (page, sel) =>
+  page.locator(sel).evaluateAll((els) => els.map((el) => ({ attr: el.getAttribute('stroke'), paint: getComputedStyle(el).stroke })))
+
+async function forms768({ dir, dark }) {
+  const label = `${dir}${dark ? '-dark' : ''}`
+  const { context, page, errors } = await open({ dir, dark })
+  const rtl = dir === 'rtl'
+  const goto = async (id, chart) => {
+    await page.goto(`${BASE}/analytics/view/${id}`)
+    await page.locator(`[data-chart="${chart}"]`).first().waitFor({ timeout: 10000 })
+    await page.waitForTimeout(250)
+  }
+  const shot = (name) => page.screenshot({ path: `${SHOTS}/768-${name}-${label}.png` })
+  const a11y = async (sel) => (await page.locator(`${sel} svg.recharts-surface[tabindex="0"]`).count()) > 0
+  const axisOnRight = async (sel, axis) => {
+    const box = await page.locator(sel).boundingBox()
+    const x = await page.locator(`${sel} .recharts-${axis}-tick-labels`).first().evaluate((el) => el.getBoundingClientRect().x)
+    return x > box.x + box.width / 2
+  }
+
+  // KPI
+  await goto('v-kpi', 'kpi')
+  const kpiValue = (await page.locator('[data-kpi-value]').innerText()).trim()
+  check(`768 ${label} KPI: the headline is the sum over the days`, kpiValue === '12,840', kpiValue)
+  const delta = page.locator('[data-kpi-delta]')
+  check(`768 ${label} KPI: ▲ 12.0% on the previous period`, (await delta.getAttribute('data-kpi-delta')) === 'up' && (await delta.innerText()).includes('12.0%'), (await delta.innerText()).replace(/\s+/g, ' '))
+  check(`768 ${label} KPI: the previous figure is named, isolated`, (await page.locator('[data-kpi-previous] bdi[dir="ltr"]').innerText()) === '11,464')
+  const sparkTip = await hoverTooltip(page, '[data-chart="sparkline"]')
+  check(`768 ${label} KPI: the sparkline has a tooltip`, /Orders/.test(sparkTip), sparkTip)
+  await shot('kpi')
+
+  await goto('v-kpi-zero', 'kpi')
+  const zero = (await page.locator('[data-kpi-delta]').innerText()).replace(/\s+/g, ' ')
+  check(`768 ${label} KPI from a zero previous: up, with no %`, (await page.locator('[data-kpi-delta]').getAttribute('data-kpi-delta')) === 'up' && !zero.includes('%') && zero.includes('40'), zero)
+
+  // Line × two measures
+  const sel = '[data-chart="line"]'
+  await goto('v-line-measures', 'line')
+  check(`768 ${label} line × 2 measures: two lines in slots 1 and 2`, JSON.stringify((await strokes(page, `${sel} .recharts-line-curve`)).map((s) => s.attr)) === JSON.stringify(['var(--chart-1)', 'var(--chart-2)']))
+  check(`768 ${label} line × 2 measures: a legend of two`, (await page.locator(`${sel} .recharts-legend-item`).count()) === 2)
+  const lineTip = await hoverTooltip(page, sel)
+  check(`768 ${label} line: a tooltip names both measures`, lineTip.includes('Orders') && lineTip.includes('Deliveries'), lineTip)
+  check(`768 ${label} line: the accessibility layer`, await a11y(sel))
+  const days = await page.locator(`${sel} .recharts-xAxis-tick-labels text`).evaluateAll((els) => els.map((e) => ({ t: e.textContent.trim(), x: e.getBoundingClientRect().x })))
+  const earliestLeft = days.length > 1 && days[0].x < days.at(-1).x
+  check(`768 ${label} line: the days run ${rtl ? 'right to left' : 'left to right'}`, rtl ? !earliestLeft : earliestLeft, days.map((d) => d.t).join(', '))
+  check(`768 ${label} line: the value axis on the ${rtl ? 'right' : 'left'}`, (await axisOnRight(sel, 'yAxis')) === rtl)
+  check(`768 ${label} line: the chart box is LTR`, (await page.locator(sel).getAttribute('dir')) === 'ltr')
+  await shot('line-measures')
+
+  // Line × 7 stores → five plus Other
+  await goto('v-line-stores', 'line')
+  const lines = await strokes(page, `${sel} .recharts-line-curve`)
+  check(`768 ${label} line × 7 stores: five named lines plus Other`, lines.length === 6, String(lines.length))
+  const legend = await page.locator(`${sel} .recharts-legend-item`).allInnerTexts()
+  check(`768 ${label} line × 7 stores: the legend names P001–P005 and Other`, JSON.stringify(legend.map((s) => s.trim())) === JSON.stringify(['P001', 'P002', 'P003', 'P004', 'P005', 'Other']), legend.join(', '))
+  const ink = await tokenPaint(page, '--ink-3')
+  check(`768 ${label} Other is ink grey`, lines.at(-1)?.attr === 'var(--ink-3)' && lines.at(-1)?.paint === ink, `${lines.at(-1)?.paint} vs ${ink}`)
+  const storeTip = await hoverTooltip(page, sel)
+  check(`768 ${label} line × stores: the tooltip includes Other`, storeTip.includes('Other'), storeTip)
+  await shot('line-stores')
+
+  // Stacked area: ranked aggregator, app, web, store, callcenter; painted by the channel's fixed slot.
+  const area = '[data-chart="area"]'
+  await goto('v-area', 'area')
+  check(`768 ${label} area: five stacked areas`, (await page.locator(`${area} .recharts-area`).count()) === 5 && (await page.locator(area).getAttribute('data-chart-stacking')) === 'stacked')
+  const areaFills = await page.locator(`${area} .recharts-area-area`).evaluateAll((els) => els.map((e) => e.getAttribute('fill')))
+  check(`768 ${label} area: each channel in its fixed slot`, JSON.stringify(areaFills) === JSON.stringify(['var(--chart-4)', 'var(--chart-1)', 'var(--chart-2)', 'var(--chart-5)', 'var(--chart-3)']), areaFills.join(' '))
+  const areaTip = await hoverTooltip(page, area)
+  check(`768 ${label} area: a tooltip`, /Aggregators/.test(areaTip) && /App/.test(areaTip), areaTip)
+  check(`768 ${label} area: the accessibility layer`, await a11y(area))
+  await shot('area')
+
+  // Horizontal bar, SAR format
+  const hb = '[data-chart="bar"]'
+  await goto('v-bar-horizontal', 'bar')
+  check(`768 ${label} horizontal bar: the box says horizontal`, (await page.locator(hb).getAttribute('data-chart-orientation')) === 'horizontal')
+  const hbars = await page.locator(`${hb} .recharts-bar-rectangle path`).evaluateAll((els) =>
+    els.map((e) => { const r = e.getBoundingClientRect(); return { fill: e.getAttribute('fill'), w: r.width, h: r.height, y: r.y, x: r.x } }),
+  )
+  check(`768 ${label} horizontal bar: five bars, wider than tall, in channel slots`, hbars.length === 5 && hbars.every((b) => b.w > b.h) && hbars[0].fill === 'var(--chart-4)', hbars.map((b) => b.fill).join(' '))
+  check(`768 ${label} horizontal bar: the category axis on the ${rtl ? 'right' : 'left'}`, (await axisOnRight(hb, 'yAxis')) === rtl)
+  const hTip = hbars.length ? await hoverTooltip(page, hb, { x: hbars[0].x + hbars[0].w / 2, y: hbars[0].y + hbars[0].h / 2 }) : ''
+  check(`768 ${label} horizontal bar: the tooltip in SAR`, /SAR\s182,400\.50/.test(hTip), hTip)
+  await shot('bar-horizontal')
+
+  // Stacked and grouped bars
+  for (const mode of ['stacked', 'grouped']) {
+    await goto(`v-bar-${mode}`, 'bar')
+    const rects = await page.locator(`${hb} .recharts-bar-rectangle path`).evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().x)))
+    const columns = new Set(rects).size
+    check(`768 ${label} ${mode} bar: 3 stores × 5 channels`, rects.length === 15, String(rects.length))
+    check(`768 ${label} ${mode} bar: ${mode === 'stacked' ? 'one column per store' : 'each channel side by side'}`, mode === 'stacked' ? columns === 3 : columns === 15, `${columns} columns`)
+    check(`768 ${label} ${mode} bar: a legend of five channels`, (await page.locator(`${hb} .recharts-legend-item`).count()) === 5)
+    const tip = await hoverTooltip(page, hb)
+    check(`768 ${label} ${mode} bar: a tooltip`, /App/.test(tip), tip)
+    check(`768 ${label} ${mode} bar: the accessibility layer`, await a11y(hb))
+    await shot(`bar-${mode}`)
+  }
+
+  // A rate never stacks
+  await page.goto(`${BASE}/analytics/view/v-rate-stacked`)
+  const refused = page.locator('[data-analytics-refused="rateStacked"]')
+  await refused.waitFor({ timeout: 10000 })
+  check(`768 ${label} a stacked rate is refused, in words`, (await refused.innerText()).includes('never stacked'), (await refused.innerText()).replace(/\s+/g, ' '))
+  check(`768 ${label} no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 770 ──────────────────────────────────────────────────────────────────────────────────────────────
 /** The home's groups in screen order, each with its item ids in screen order. */
 const homeGroups = (page) =>
@@ -338,6 +466,9 @@ const SCENARIOS = [
   ['767', () => drawsBar({ dir: 'rtl', dark: false })],
   ['767', () => drawsBar({ dir: 'ltr', dark: true })],
   ['767', refusals],
+  ['768', () => forms768({ dir: 'ltr', dark: false })],
+  ['768', () => forms768({ dir: 'rtl', dark: false })],
+  ['768', () => forms768({ dir: 'ltr', dark: true })],
   ['770', () => homeLists({ dir: 'ltr' })],
   ['770', () => homeLists({ dir: 'rtl' })],
   ['770', homeEmpty],

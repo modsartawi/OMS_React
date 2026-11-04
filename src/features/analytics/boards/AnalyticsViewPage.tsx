@@ -13,6 +13,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
+import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import { labelIn, toBarView } from './view-model'
 import { analyticsRefusal } from './wire'
 
@@ -23,9 +24,9 @@ import { analyticsRefusal } from './wire'
  * It reads the item and the model, then asks `Analytics/Query` for the saved view by id, with
  * `placeholderData: keepPreviousData` so a re-ask keeps the previous chart, dimmed (`ChartFrame`).
  *
- * Slice 0 draws a vertical bar of one measure × one category; 768/769 add the other forms where the
- * chart type is switched on below. `ANALYTICS-404` is the not-found state and `ANALYTICS-401` the
- * no-access state, from the item or the query.
+ * Slice 0 draws a vertical bar of one measure × one category; 768 adds KPI, line, stacked area and the
+ * other bars (`SeriesPanel`), and 769 the rest, where the chart type is switched on below.
+ * `ANALYTICS-404` is the not-found state and `ANALYTICS-401` the no-access state, from the item or the query.
  */
 export default function AnalyticsViewPage() {
   const { t } = useTranslation('boards')
@@ -77,10 +78,12 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
   const subtitle = labelIn(item.subtitle, lang)
 
   const result = answer.data
-  const view = result ? toBarView(result, def, model, lang) : null
+  // 768's forms (KPI, line, area, the other bars) draw through `SeriesPanel`; 767's vertical bar below.
+  const series = drawsAsSeries(def)
+  const view = result && !series ? toBarView(result, def, model, lang) : null
   const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
-  const drawable = def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical'
+  const drawable = series || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
@@ -115,6 +118,10 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
         <p className="text-sm text-muted-foreground" data-analytics-unsupported>
           {t('view.unsupported')}
         </p>
+      ) : series ? (
+        <ChartFrame busy={answer.isFetching} hasChart={!!result}>
+          {result && <SeriesPanel result={result} definition={def} model={model} lang={lang} />}
+        </ChartFrame>
       ) : (
         <ChartFrame busy={answer.isFetching} hasChart={!!view}>
           {view?.empty ? (
@@ -135,7 +142,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
           )}
         </ChartFrame>
       )}
-      {view?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
+      {(view?.truncated || (series && result?.truncated)) && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
     </article>
   )
 }

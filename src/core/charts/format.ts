@@ -1,4 +1,4 @@
-import type { MeasureUnit } from '@/core/models/analytics'
+import type { AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
  * Formats by unit, through `Intl` under the active locale (spec 766 §F, ticket 767).
@@ -8,7 +8,7 @@ import type { MeasureUnit } from '@/core/models/analytics'
  * beside it. The output is PLAIN text — never `fsi()` — because a tick and a tooltip reach copied text;
  * the caller isolates a value it puts in a sentence (`.claude/rules/bidi.md`).
  *
- * 768 adds the definition's own number formats (auto, integer, decimal, %, SAR, minutes) on top.
+ * The definition's own number formats (auto, integer, decimal, %, SAR, minutes) sit on top: {@link formatAs}.
  */
 
 const latn = (locale: string) => `${locale.split('-')[0] || 'en'}-u-nu-latn`
@@ -61,4 +61,40 @@ export function formatDay(value: string | null | undefined, locale: string): str
   if (!m) return ''
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   return new Intl.DateTimeFormat(latn(locale), { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
+}
+
+const FORMAT_OPTIONS: Record<Exclude<AnalyticsNumberFormat, 'auto'>, Intl.NumberFormatOptions> = {
+  integer: { maximumFractionDigits: 0 },
+  decimal: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+  percent: OPTIONS.share,
+  SAR: OPTIONS.SAR,
+  minutes: { style: 'unit', unit: 'minute', unitDisplay: 'short', maximumFractionDigits: 0 },
+}
+
+/**
+ * One value in the definition's number format (766 story 43, ticket 768); `auto` (or none) follows the
+ * measure's unit through {@link formatValue}. `''` for no value. Plain text, never `fsi()`.
+ */
+export function formatAs(
+  value: number | null | undefined,
+  format: AnalyticsNumberFormat | null | undefined,
+  unit: MeasureUnit,
+  locale: string,
+): string {
+  if (!format || format === 'auto') return formatValue(value, unit, locale)
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+  return nf(locale, FORMAT_OPTIONS[format]).format(value)
+}
+
+/** A value-axis tick in the definition's format: compact, and a percent as a whole percent. */
+export function formatTickAs(value: number, format: AnalyticsNumberFormat | null | undefined, unit: MeasureUnit, locale: string): string {
+  return formatTick(value, format === 'percent' ? 'share' : unit, locale)
+}
+
+/** A day (`yyyy-MM-dd`) as a short axis label (`1 Nov`); anything else as it came. */
+export function formatAxisDay(value: string, locale: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!m) return value
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return new Intl.DateTimeFormat(latn(locale), { day: 'numeric', month: 'short' }).format(d)
 }

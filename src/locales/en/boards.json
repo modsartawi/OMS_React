@@ -33,5 +33,10 @@
   "refusal": {
     "noAccess": "You don't have access to analytics.",
     "notFound": "This analytics view was not found or was deleted."
+  },
+  "ask": {
+    "label": "Ask the OMS about analytics",
+    "placeholder": "Ask a question, e.g. orders by channel last week",
+    "send": "Ask"
   }
 }

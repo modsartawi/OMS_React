@@ -1,10 +1,11 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { HelpCircle, Loader2, MessageSquarePlus, Send, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Textarea from '@/core/ui/Textarea'
+import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
@@ -30,6 +31,10 @@ import { DEMO_ORDER_NO, lateExample } from './demo'
  * The question in flight is the store's, not this panel's (review item 2): every mounted panel shows
  * it and locks its box, and its reply lands even when this panel has unmounted. "New conversation"
  * stays open while it is in flight: it abandons the question, whose late reply is then dropped.
+ *
+ * Ticket 782: a question handed over through the shell's opener (`@/core/copilot-panel`, the ask box
+ * on `/analytics`) is taken ONCE and sent through this same conversation. When it cannot be sent now
+ * (one in flight, the conversation closed, too long) it waits in the box instead of being lost.
  */
 export default function CopilotPanel() {
   const { t } = useTranslation('copilot')
@@ -41,6 +46,14 @@ export default function CopilotPanel() {
   const clear = useCopilotConversation((s) => s.startNew)
   const box = useRef<HTMLTextAreaElement>(null)
   const working = pending !== null
+
+  const handed = useCopilotPanel((s) => s.question)
+  useEffect(() => {
+    if (handed === null) return
+    const q = useCopilotPanel.getState().takeQuestion()
+    if (q === null) return
+    if (!questionFits(q) || ask(q) === null) setQuestion(q)
+  }, [handed, ask])
 
   const tooLong = question.length > COPILOT_MAX_QUESTION
   const canSend = questionFits(question) && !working

@@ -189,12 +189,74 @@ async function refusals() {
   }
 }
 
+// 782 — the ask box on /analytics hands its question to the ONE copilot panel:
+//   1. the copilot probe denies (or is absent): no ask box on the home;
+//   2. granted: the top-bar button opens the panel EMPTY (the examples, an empty box, no Ask call);
+//      then the ask box opens the same panel with the question sent — one `Copilot/Ask` carrying
+//      exactly `{ question }` — and its answer in the thread; the ask box is emptied;
+//   3. ar: the same, sent by Enter; no page errors.
+// It waits on the probes' answers, not on the home's markup, which 770 rewrites.
+async function askBox({ dir = 'ltr' } = {}) {
+  const tag = `782 ${dir}`
+  const probed = (page) => page.waitForResponse((r) => r.url().includes('/api/Copilot/Access'), { timeout: 10000 })
+  for (const copilot of ['denied', 'absent']) {
+    const { context, page, errors } = await open({ dir, copilot })
+    const answered = probed(page)
+    await page.goto(`${BASE}/analytics`)
+    await answered
+    await page.waitForTimeout(600)
+    check(`${tag} copilot ${copilot}: no ask box on the home`, (await page.locator('[data-analytics-ask]').count()) === 0)
+    check(`${tag} copilot ${copilot}: no top-bar button either`, (await page.locator('[data-copilot-button]').count()) === 0)
+    check(`${tag} copilot ${copilot}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  const { context, page, errors, calls, bodies } = await open({ dir, copilot: 'granted' })
+  await page.goto(`${BASE}/analytics`)
+  const box = page.locator('[data-analytics-ask-question]')
+  await box.waitFor({ timeout: 10000 })
+  check(`${tag}: the ask box shows on the home`, true)
+  await page.screenshot({ path: `${SHOTS}/782-home-${dir}.png` })
+
+  // The top-bar button: the panel opens empty and nothing is asked.
+  await page.locator('[data-copilot-button]').click()
+  await page.locator('[data-copilot-sheet] [data-copilot-panel]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: the top-bar button opens the panel with its examples`, (await page.locator('[data-copilot-sheet] [data-copilot-examples]').count()) === 1)
+  check(`${tag}: … and an empty question box`, (await page.locator('[data-copilot-sheet] [data-copilot-question]').inputValue()) === '')
+  check(`${tag}: … and no Copilot/Ask call`, !calls.includes('Copilot/Ask'))
+  await page.screenshot({ path: `${SHOTS}/782-button-${dir}.png` })
+  await page.keyboard.press('Escape')
+  await page.locator('[data-copilot-sheet]').waitFor({ state: 'detached', timeout: 5000 })
+
+  // The ask box: the same panel opens with the question sent.
+  const question = 'Which channel took the most orders last month?'
+  await box.fill(question)
+  if (dir === 'rtl') await box.press('Enter')
+  else await page.locator('[data-analytics-ask-send]').click()
+  await page.locator('[data-copilot-sheet] [data-copilot-turn]').waitFor({ timeout: 10000 })
+  const asks = bodies['Copilot/Ask'] ?? []
+  check(`${tag}: the ask box sends ONE Copilot/Ask`, asks.length === 1, JSON.stringify(asks))
+  check(`${tag}: … carrying exactly { question }`, JSON.stringify(asks[0]) === JSON.stringify({ question }), JSON.stringify(asks[0]))
+  const asked = await page.locator('[data-copilot-sheet] [data-copilot-asked]').first().innerText()
+  check(`${tag}: the panel shows the question asked`, asked.includes(question), asked)
+  const answer = await page.locator('[data-copilot-sheet] [data-copilot-answer]').first().innerText()
+  check(`${tag}: … and its answer`, answer.includes('Aggregators took the most orders'), answer)
+  check(`${tag}: the panel's own box stays empty`, (await page.locator('[data-copilot-sheet] [data-copilot-question]').inputValue()) === '')
+  check(`${tag}: the ask box is emptied`, (await box.inputValue()) === '')
+  await page.screenshot({ path: `${SHOTS}/782-asked-${dir}.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
   ['767', () => drawsBar({ dir: 'rtl', dark: false })],
   ['767', () => drawsBar({ dir: 'ltr', dark: true })],
   ['767', refusals],
+  ['782', () => askBox({ dir: 'ltr' })],
+  ['782', () => askBox({ dir: 'rtl' })],
 ]
 
 try {

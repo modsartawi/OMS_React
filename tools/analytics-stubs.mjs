@@ -85,6 +85,19 @@ export const ITEMS = {
   'v-titled': view('v-titled', { title: label('Orders by channel, last 30 days', 'الطلبات حسب القناة، آخر 30 يومًا'), tier: 'shared' }),
 }
 
+// ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
+export const COPILOT_ANSWER = {
+  conversationId: 'c-analytics-1',
+  questionNo: 1,
+  answer: 'Aggregators took the most orders in the last 30 days.',
+  orderRefs: [],
+  trace: [{ tool: 'query_analytics', input: { measure: 'orders' }, rows: 5, ms: 90, ok: true }],
+  outcome: 'answered',
+  stoppedEarly: false,
+  servedBy: 'anthropic/claude-opus-5-5',
+  askedAt: '2026-11-05T10:15:00',
+}
+
 // ── Query answers, keyed by view id ──────────────────────────────────────────────────────────────────
 const result = (dimension, measure, rows) => ({
   columns: [
@@ -110,11 +123,13 @@ export const QUERY = {
  *   access:   an `{ canView, canCurate }` object, `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
- *   queryDelayMs: hold every Query answer this long, so the loading frame is seen.
+ *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
+ *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
+ *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
  * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, query = QUERY, model = MODEL, queryDelayMs = 0 } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, query = QUERY, model = MODEL, queryDelayMs = 0, copilot = 'denied', copilotAnswer = COPILOT_ANSWER } = opts
   const calls = []
   const bodies = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
@@ -132,6 +147,11 @@ export async function installAnalyticsStubs(page, opts = {}) {
       if (access === 'bare403') return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
       return route.fulfill(envelope(access))
     }
+    if (p === 'Copilot/Access') {
+      if (copilot === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
+      return route.fulfill(envelope({ canAsk: copilot === 'granted', canUseMcp: false }))
+    }
+    if (p === 'Copilot/Ask') return route.fulfill(envelope(copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))

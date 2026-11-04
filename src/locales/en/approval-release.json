@@ -1,0 +1,107 @@
+{
+  "menu": {
+    "release": "Release approval number"
+  },
+  "title": "Release approval number",
+  "subtitle": "Find an authorization by its bundle Id and free its approval number, so the pharmacist can submit a new approval with it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Nphies",
+    "deniedHint": "Your account does not have access to the Nphies screens. Ask an administrator to grant it.",
+    "unreachableTitle": "Could not check your access",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
+  "search": {
+    "label": "Bundle Id",
+    "placeholder": "The authorization Id, exactly",
+    "submit": "Search"
+  },
+  "lookup": {
+    "loading": "Reading the authorization…",
+    "notFoundTitle": "Not found",
+    "notFoundHint": "No authorization has this bundle Id. Check the Id the pharmacist gave you — it must match exactly.",
+    "errorTitle": "Could not read the authorization",
+    "errorFallback": "The authorization could not be read. Try again in a moment."
+  },
+  "summary": {
+    "title": "Authorization",
+    "id": "Bundle Id",
+    "approvalNumber": "Approval number",
+    "payer": "Payer",
+    "patient": "Patient",
+    "claimType": "Claim type",
+    "request": "Request",
+    "verdict": "Verdict",
+    "verdictBlank": "No verdict yet",
+    "dispensed": "Dispensed",
+    "cancelled": "Cancelled",
+    "yes": "Yes",
+    "no": "No",
+    "unknown": "Not shown here",
+    "empty": "None"
+  },
+  "claimType": {
+    "0": "Prior authorization",
+    "1": "Claim",
+    "2": "Advanced prior authorization",
+    "3": "Direct dispense",
+    "4": "Direct claim",
+    "6": "Bupa Sabic",
+    "other": "Type {{code}}"
+  },
+  "request": {
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "pending": "Pending",
+    "complete": "Complete"
+  },
+  "verdict": {
+    "approved": "Approved",
+    "partlyApproved": "Partly approved",
+    "rejected": "Rejected",
+    "noApprovalNeeded": "No approval needed"
+  },
+  "act": {
+    "release": "Release approval number",
+    "withheld": {
+      "dispensed": "This authorization is dispensed, so its approval number cannot be released. Undispense it first.",
+      "alreadyReleased": "This approval number is already released.",
+      "empty": "This authorization has no approval number, so there is nothing to release.",
+      "noGrant": "You can see this authorization, but releasing an approval number needs a grant you do not hold."
+    },
+    "dispensedUnknown": "This page cannot see whether the authorization is dispensed. If it is, the release will be refused."
+  },
+  "dialog": {
+    "title": "Release approval number",
+    "body": "Release approval number {{approvalNumber}}? It becomes {{released}}, and the pharmacist can then submit a new approval with the original number. The authorization is not cancelled.",
+    "note": "Note",
+    "notePlaceholder": "Why is this approval number being released?",
+    "noteRequired": "Type a note first — every release is logged with its reason.",
+    "back": "Back",
+    "confirm": "Release",
+    "refused": "The release was refused"
+  },
+  "done": {
+    "title": "Approval number released",
+    "detail": "It is now {{after}}."
+  },
+  "refusals": {
+    "notFound": "No authorization has this bundle Id.",
+    "dispensed": "This authorization is dispensed. Undispense it first, then release its approval number.",
+    "empty": "This authorization has no approval number to release.",
+    "alreadyReleased": "This approval number is already released. Nothing was changed.",
+    "noteRequired": "A note is required to release an approval number.",
+    "noGrant": "You do not hold the grant to release approval numbers. Ask an administrator."
+  },
+  "history": {
+    "title": "Release history",
+    "empty": "This approval number has never been released.",
+    "loading": "Reading the release history…",
+    "failed": "The release history could not be read.",
+    "releasedAt": "When",
+    "user": "Who",
+    "before": "Before",
+    "after": "After",
+    "note": "Note"
+  }
+}

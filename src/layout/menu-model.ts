@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, Unlock, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -780,6 +780,20 @@ export const MENU: ShellMenuItem[] = [
         // Its own subtree, so 216's detail keeps this leaf lit and not the
         // eligibility one.
         activePrefix: '/nphies/authorizations',
+        access: accessProbe({
+          key: NPHIES_ACCESS_KEY,
+          run: () => nphiesAccessApi.access(),
+          visible: (r) => r.canOpenNphies === true,
+        }),
+      },
+      {
+        // Release approval number (ticket 751, BackOffice spec 3342). Shown on the
+        // Nphies grant alone, deliberately: an agent without the release grant can
+        // still look an authorization up and read its release history (story 12).
+        // The release grant only shows the button inside the page.
+        labelKey: 'approval-release:menu.release',
+        icon: Unlock,
+        routerLink: '/nphies/approval-release',
         access: accessProbe({
           key: NPHIES_ACCESS_KEY,
           run: () => nphiesAccessApi.access(),

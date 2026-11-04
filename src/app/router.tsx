@@ -487,6 +487,16 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Release approval number (751, BackOffice spec 3342) — support frees one
+        // authorization's approval number by bundle Id. Its own feature (EN + AR), a
+        // sibling of the authorizations list rather than a child of it.
+        path: 'nphies/approval-release',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/approval-release/ReleaseApprovalNumberPage'))
+            .default,
+        }),
+      },
+      {
         // One authorization as its own page (216) — a ROUTE, not a modal, so it
         // survives a refresh and can be linked to, and it is opened from the
         // list's own Open column. It is where the payer's per-line reasons and

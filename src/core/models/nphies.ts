@@ -16,6 +16,51 @@
 /** `GET Nphies/Access` (contract §1.1 #16) — SIS.Api's own probe, no upstream. */
 export interface NphiesAccessResult {
   canOpenNphies: boolean
+  /**
+   * Contract 1.1 (BackOffice 3342/3343): true only when the session holds BOTH the
+   * Nphies grant and the release grant (`BackOfficeScreen[NphiesReleaseApproval,03]`).
+   * It hides or shows the Release button, and that is all: the release POST's own
+   * filter is the gate. Optional because a 1.0 door does not send it, and absent
+   * reads as "no".
+   */
+  canReleaseApprovalNumber?: boolean
+}
+
+/**
+ * One row of an authorization's release log (contract 1.1, §1.1 rows 17–18) —
+ * SIS.Api's `NphiesApprovalReleaseEntry`, read field by field 2026-11-04 from
+ * `Sartawi.Retail.Data\Modules\Nphies\Services\Models\Acts\NphiesApprovalNumberRelease.cs`.
+ *
+ * `releasedAt` is the Nphies DB's local time with no offset. `userName` repeats
+ * `userId` today: the session has no display-name claim (BackOffice 3343's note).
+ */
+export interface NphiesApprovalRelease {
+  id: number
+  authId: string
+  payerCode: string
+  preAuthRefBefore: string
+  preAuthRefAfter: string
+  userId: string
+  userName: string
+  origin: string
+  note: string
+  releasedAt: string
+}
+
+/** `POST Nphies/ApprovalNumber/Release` body. Only these two: who released it is
+ *  the session's, never the browser's (spec 3342 story 16). */
+export interface NphiesReleaseApprovalNumberRequest {
+  authId: string
+  note: string
+}
+
+/** `POST Nphies/ApprovalNumber/Release` answer. */
+export interface NphiesApprovalNumberReleased {
+  contractVersion?: string
+  authId: string
+  before: string
+  after: string
+  release: NphiesApprovalRelease
 }
 
 /**
@@ -461,6 +506,14 @@ export interface AuthDetail {
   processNote: string
   statusCode: number
   claimType: number
+  /**
+   * ⚠ **Not answered by the door today** — see the 🚩 above. Declared optional for
+   * ticket 751's release page only, which reads it the day `NphiesAuthHeaderDto`
+   * carries it (an open ask in that ticket). Absent means "this page cannot tell",
+   * never "not dispensed": the release POST still refuses a dispensed row
+   * (`AUTH_ALREADY_DISPENSED`).
+   */
+  isDispensed?: boolean
   /** 🚩 §3.4: `NAuthDiagnosis` is dead code upstream, so diagnoses round-trip as
    *  this header string plus per-line `diagnosis` / `diagnosisIndex`. */
   diagnosis: string

@@ -3,7 +3,8 @@ import type { CopilotTraceEntry } from '@/core/models/copilot'
 /**
  * The "How I got this" trace's view model (ticket 736, spec 734 D11): each tool call the server made,
  * in plain words from ONE fixed tool → label map — the seven catalogue tools of D2 plus the two
- * sourcing tools of D21. The same map names the working state's generic steps.
+ * sourcing tools of D21, plus spec 766 D's three analytics tools. The same map names the working
+ * state's generic steps.
  *
  * A tool the map does not know (a newer server) keeps its raw name: `labelKey` is `null`.
  */
@@ -17,6 +18,9 @@ export const COPILOT_TOOLS = [
   'store_lookup',
   'sourcing_explain',
   'sourcing_savings',
+  'describe_model',
+  'semantic_query',
+  'create_view',
 ] as const
 export type CopilotTool = (typeof COPILOT_TOOLS)[number]
 

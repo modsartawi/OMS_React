@@ -29,6 +29,12 @@ export interface CopilotTraceEntry {
   ok: boolean
 }
 
+/** A view the answer created (spec 766 D, BackOffice 3383): its id and its bilingual title. */
+export interface CopilotViewRef {
+  id: string
+  title: { en: string; ar: string }
+}
+
 /** The audit's outcome (D6), as the answer carries it. */
 export type CopilotOutcome = 'answered' | 'cannot-answer' | 'refused' | 'blocked-pii' | 'limit' | 'error'
 
@@ -47,6 +53,11 @@ export interface CopilotAnswer {
   stoppedEarly: boolean
   /** The provider and model that served the answer (D4). */
   servedBy: string
+  /**
+   * The analytics views `create_view` saved in this answer (spec 766 D, additive in BackOffice 3383).
+   * Absent on an older server, and read as empty.
+   */
+  viewRefs?: CopilotViewRef[]
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

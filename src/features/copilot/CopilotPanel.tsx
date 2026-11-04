@@ -11,7 +11,7 @@ import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits, type AnswerBlock, type CopilotAnswerModel } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotTurn } from './conversation'
 import { copilotRefusal } from './refusal'
-import { AnswerProvenance, LinkedText, WorkingStep } from './AnswerParts'
+import { AnswerProvenance, LinkedText, ViewLinks, WorkingStep } from './AnswerParts'
 import { useCopilotConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 
@@ -238,7 +238,7 @@ function Turn({ turn }: { turn: CopilotTurn }) {
   )
 }
 
-/** One answer's body (ticket 735), then its trace, `servedBy` and stopped-early note (736). */
+/** One answer's body (ticket 735), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
 function Answer({ model }: { model: CopilotAnswerModel }) {
   const { t } = useTranslation('copilot')
   return (
@@ -250,6 +250,7 @@ function Answer({ model }: { model: CopilotAnswerModel }) {
           model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
         )}
       </section>
+      <ViewLinks viewRefs={model.viewRefs} />
       <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} />
     </>
   )

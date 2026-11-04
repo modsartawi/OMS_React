@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, copilotAnswerModel, orderSegments, questionFits } from './answer'
+import { COPILOT_MAX_QUESTION, copilotAnswerModel, orderSegments, questionFits, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -68,6 +68,38 @@ describe('the answer links its orders (spec 734 D10, D11; ticket 736)', () => {
     expect(orderSegments('No order here.', model.orderRefs)).toEqual([{ kind: 'text', text: 'No order here.' }])
     expect(orderSegments('Order 7000123456.', [])).toEqual([{ kind: 'text', text: 'Order 7000123456.' }])
     expect(orderSegments('', ['1'])).toEqual([])
+  })
+})
+
+describe('the answer links the views it created (spec 766 D; ticket 781)', () => {
+  it('answer_viewRefsBecomeOpenViewLinks_absentViewRefsReadAsEmpty', () => {
+    const model = copilotAnswerModel({
+      answer: 'I saved the chart as a view.',
+      viewRefs: [
+        { id: 'v-42', title: { en: 'Orders by channel, last 4 weeks', ar: 'الطلبات حسب القناة' } },
+        { id: 'v 7/x', title: { en: 'Late orders', ar: '' } },
+      ],
+    } as Partial<CopilotAnswer>)
+    // Each ref keeps its id and both titles, and links to its view by route string.
+    expect(model.viewRefs).toEqual([
+      { id: 'v-42', title: { en: 'Orders by channel, last 4 weeks', ar: 'الطلبات حسب القناة' } },
+      { id: 'v 7/x', title: { en: 'Late orders', ar: '' } },
+    ])
+    expect(model.viewRefs.map((v) => viewHref(v.id))).toEqual(['/analytics/view/v-42', '/analytics/view/v%207%2Fx'])
+
+    // A reply without viewRefs (every pre-3383 server) reads as none; so does one that is not a list.
+    expect(copilotAnswerModel({ answer: 'x' }).viewRefs).toEqual([])
+    expect(copilotAnswerModel(null).viewRefs).toEqual([])
+    expect(copilotAnswerModel({ viewRefs: 'v-1' } as unknown as Partial<CopilotAnswer>).viewRefs).toEqual([])
+
+    // A malformed ref is dropped (no id); a missing or partial title reads as blank text.
+    const odd = {
+      viewRefs: [null, { title: { en: 'No id' } }, { id: '' }, { id: 9 }, { id: 'v-3', title: { en: 'Only English' } }],
+    } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(odd).viewRefs).toEqual([
+      { id: '9', title: { en: '', ar: '' } },
+      { id: 'v-3', title: { en: 'Only English', ar: '' } },
+    ])
   })
 })
 

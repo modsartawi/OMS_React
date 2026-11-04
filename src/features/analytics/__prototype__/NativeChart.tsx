@@ -109,7 +109,7 @@ export default function NativeChart({ data, display, measureLabel, percent, onPi
   const axis = { stroke: t.muted, fontSize: 11 }
   const tip = {
     contentStyle: { background: t.card, border: `1px solid ${t.grid}`, borderRadius: 10, fontSize: 12, color: t.ink },
-    formatter: (val: number) => [fmt(val), measureLabel] as [string, string],
+    formatter: (val: unknown) => [fmt(val), measureLabel] as [string, string],
   }
 
   if (display === 'pie') {
@@ -132,7 +132,7 @@ export default function NativeChart({ data, display, measureLabel, percent, onPi
     // Axes and lines must be DIRECT children — recharts does not look through fragments to find them.
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={pivot ? pivot.rows : single} margin={{ top: 8, right: 16, bottom: 4, left: 8 }} onClick={pickable ? (e: { activeLabel?: string }) => e?.activeLabel && pick(e.activeLabel) : undefined}>
+        <LineChart data={pivot ? pivot.rows : single} margin={{ top: 8, right: 16, bottom: 4, left: 8 }} onClick={pickable ? (e: { activeLabel?: string | number }) => { if (e?.activeLabel != null) pick(e.activeLabel) } : undefined}>
           <CartesianGrid stroke={t.grid} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="name" {...axis} tickLine={false} />
           <YAxis {...axis} tickLine={false} width={56} tickFormatter={fmt} />

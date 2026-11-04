@@ -20,12 +20,13 @@ import {
   InteractiveQuestion,
   MetabaseProvider,
 } from '@metabase/embedding-sdk-react'
-import { BarChart3, Compass, LayoutDashboard, LayoutGrid, Layers, Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Activity, BarChart3, Compass, LayoutDashboard, LayoutGrid, Layers, Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import PrototypeSwitcher from '@/core/ui/PrototypeSwitcher'
 import AskVariant from './AskVariant'
 import LinkedBoardVariant from './LinkedBoardVariant'
 import NativeVariant from './NativeVariant'
+import RechartsBoardVariant from './RechartsBoardVariant'
 import SupersetVariant from './SupersetVariant'
 
 const env = import.meta.env
@@ -40,6 +41,7 @@ const VARIANTS = [
   { key: 'native', name: 'Build (native) — our own builder + charts over the free OSS engine' },
   { key: 'linked', name: 'Linked board (native) — cross-filtered panels, click a store to focus all' },
   { key: 'superset', name: 'Superset board — embedded Apache Superset, free embedding (754)' },
+  { key: 'recharts', name: 'Recharts board (native) — every panel a stock Recharts 3 chart, no hand-drawn components' },
 ]
 const SCENARIOS = [
   { key: 'en', label: 'English, LTR', proves: 'the DMSCO theme carries into every chart, table and menu' },
@@ -107,6 +109,7 @@ export default function AnalyticsPrototypePage() {
               ['native', 'Build (native)', SlidersHorizontal],
               ['linked', 'Linked board', LayoutGrid],
               ['superset', 'Superset', Layers],
+              ['recharts', 'Recharts board', Activity],
             ].map(([k, label, Icon]) => (
               <Button key={k as string} variant={variant === k ? 'primary' : 'secondary'} onClick={() => set('variant', k as string)}>
                 <Icon className="size-3.5" aria-hidden />
@@ -123,6 +126,7 @@ export default function AnalyticsPrototypePage() {
           {variant === 'native' && <NativeVariant />}
           {variant === 'linked' && <LinkedBoardVariant />}
           {variant === 'superset' && <SupersetVariant scenario={scenario} />}
+          {variant === 'recharts' && <RechartsBoardVariant rtl={scenario === 'ar'} />}
         </main>
       </MetabaseProvider>
 

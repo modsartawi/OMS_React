@@ -1,5 +1,6 @@
 import { api } from '@/core/api'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import type { LfReturnNeedingActionRow } from '@/core/models/lf-returns-needing-action'
 import { buildDeliveryQuery, type DeliveryFilterCriteria } from './filter'
 
 // The OMS door: `SdDocumentWeb/*`, cookie-only and grant-filtered (BackOffice 750). The
@@ -16,5 +17,14 @@ export const deliveriesApi = {
   /** The Screen 1 search; the server pre-sorts by DeliveryNo desc. */
   search(criteria: DeliveryFilterCriteria): Promise<DeliveryDocumentModel[]> {
     return api.get<DeliveryDocumentModel[]>(`${BASE}/DeliveryDocumentList`, buildDeliveryQuery(criteria))
+  },
+  /**
+   * LF returns needing action (spec 759 F6, BackOffice 3369 §Wire, door 3376) — the
+   * `unanswered` / `nothingReceived` / `short` watches, newest first. Grant
+   * `LocalFulfillmentReturn,03`. ⚠ The path is GUESSED: 3376 names the read but not its route, and
+   * the joining ticket (765) corrects it. Stubbed in `tools/lf-returns-queue-drive.mjs`.
+   */
+  lfReturnsNeedingAction(): Promise<LfReturnNeedingActionRow[]> {
+    return api.get<LfReturnNeedingActionRow[]>(`${BASE}/LocalFulfillmentReturnsNeedingAction`)
   },
 }

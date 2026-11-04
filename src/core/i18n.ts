@@ -59,6 +59,9 @@ import centralInvoice from '@/locales/en/central-invoice.json'
 // dialog, so they ship with the feature rather than in a later sweep. A PARTIAL namespace —
 // `lng` stays `en`, and once Arabic is switched on every key not in it falls back to English.
 import documentAr from '@/locales/ar/document.json'
+// Deliveries' Arabic is PARTIAL: only the LF returns queue's keys (ticket 764, spec 759 story 16). The
+// rest of the list falls back to English through `fallbackLng`, as it did before this bundle existed.
+import deliveriesAr from '@/locales/ar/deliveries.json'
 // Donor requests (spec 430, ticket 431) — the first of the wave's five OMS screens. Namespace ==
 // feature name; it ships its Arabic strings beside its English ones.
 import donorRequests from '@/locales/en/donor-requests.json'
@@ -285,6 +288,7 @@ i18n.use(initReactI18next).init({
     },
     ar: {
       'approval-release': approvalReleaseAr,
+      deliveries: deliveriesAr,
       document: documentAr,
       'donor-requests': donorRequestsAr,
       'document-payments': documentPaymentsAr,

@@ -28,7 +28,10 @@
     "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
     "unsupported": "This chart type is not drawn here yet.",
     "notFoundTitle": "Analytics view not found",
-    "noAccessTitle": "No access to this analytics view"
+    "noAccessTitle": "No access to this analytics view",
+    "donutRefused": "A donut takes one additive measure. {{measure}} is a rate or a percentile, so it is not drawn as a donut.",
+    "topN_one": "Showing the top {{n}} row.",
+    "topN_other": "Showing the top {{n}} rows."
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",

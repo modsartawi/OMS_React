@@ -146,6 +146,17 @@
   "charts": {
     "updating": "Updating…",
     "loading": "Loading the chart…",
-    "chartLabel": "{{measure}} by {{dimension}}, bar chart"
+    "chartLabel": "{{measure}} by {{dimension}}, bar chart",
+    "other_one": "Other ({{n}})",
+    "other_other": "Other ({{n}})",
+    "total": "Total",
+    "donutLabel": "{{measure}} by {{dimension}}, donut chart",
+    "tableLabel": "{{measures}} by {{dimensions}}, table",
+    "heatmapLabel": "{{measure}} by {{x}} and {{y}}, heatmap",
+    "comboLabel": "{{volume}} and {{rate}} by {{dimension}}, two panes",
+    "heatmapCell": "{{value}} for {{x}} and {{y}}",
+    "noValue": "no value",
+    "showTable": "View as table",
+    "hideTable": "Hide table"
   }
 }

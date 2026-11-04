@@ -62,9 +62,9 @@ Labels: en + ar (Arabic drafts, to be reviewed).
 
 ## Proof
 
-- [ ] Unit: the outcome → who-caused-it mapping (every known outcome + an unknown); the row filter keeps only
+- [x] Unit: the outcome → who-caused-it mapping (every known outcome + an unknown); the row filter keeps only
       closed rows; reason counting groups identical text and treats empty as "No reason given"
-- [ ] Stubbed drive, LTR and RTL: estate-wide calls send no store; default shows only failed takes; switching
+- [x] Stubbed drive, LTR and RTL: estate-wide calls send no store; default shows only failed takes; switching
       outcomes shows the others; an Arabic courier reason shows exactly as sent; refused-closes tab with the swept
       note; export carries the columns
 - [ ] Live: the report reads against production with the owner
@@ -77,3 +77,36 @@ No new grant, no backend change. The screen computes no rate, rank or median.
 
 An HQ user opens "Closes after a take", sees every close after a take for the range with who caused it and the
 reason as given, filters by outcome, and exports it, against production.
+
+## Comments
+
+**2026-11-04 — built (client), stubbed.** Page `/oms/dispatch-scorecard/closes` + OMS leaf "Closes after a take"
+right after the scorecard, on the scorecard's own probe/predicate (no new grant, no backend change).
+
+- Pure module `src/features/oms/dispatch-scorecard/closes.ts` (`closes.test.ts`, 18 tests): outcome →
+  who-caused-it key (6 known + unknown → "Unclear", refused tab its own label), failed-take yes/no,
+  `closedRows` (failedTakeRate rows with an outcome + fallbackCancels rows), outcome chip counts, outcome filter,
+  reason counting, and the URL (`tab`, the scorecard filters, `outcome=A,B`; absent = the two failed kinds,
+  `outcome=` = none). Columns in `closes-columns.tsx`; the scorecard's filter form lifted to `FilterForm.tsx`
+  (shared by both pages; scorecard drive still 150/150). `atpAtOfferColumn` / `refusedAttemptsColumn` exported
+  from `columns.tsx` for reuse. Menu test pins the leaf order and that the rail marks it on its own page.
+- Drive `tools/closes-after-take-drive.mjs`: **68/68** stubbed, LTR + RTL — estate-wide reads send no
+  `store`/`staff`; default = failed takes only; chips count and filter, land in the URL; Arabic courier reason
+  exact in a `<bdi>`; reasons ranked; export sheet 1 = the grid's 14 columns (items one cell, no isolates),
+  sheet 2 = reason counts; refused tab with attempts + 6-month note + own export; store filter; CALLOUT-301;
+  delivery link opens the delivery.
+
+**Judgement calls (overrulable):**
+1. A `FallbackStoreClosed` outcome on a *won bid* in the failedTakeRate read is dropped; the fallback close is
+   listed once, from the fallbackCancels read, against the fallback store — otherwise the same callout lists
+   twice and once against the store that let it go.
+2. Reason counting groups text identical **after trimming surrounding spaces** (`"Order Not Found in branch "`
+   = `"Order Not Found in branch"`); case and script are never folded. The grid cell still shows the text as sent.
+3. The report's Reason column reads "No reason given" on **every** empty reason (the ticket's rule), unlike the
+   714 drill, where a store close with no note shows the dash.
+4. Reason counts (and their export sheet) follow the outcome chips: they rank the rows listed.
+5. Outcome chips list all six known kinds (0 included) plus any unknown code the door sent; "All outcomes" and
+   "Failed takes only" are presets.
+
+**Remaining:** the live walk with the owner against production (third proof box).
+

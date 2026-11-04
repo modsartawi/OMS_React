@@ -255,10 +255,6 @@ export function drillColumns(t: TFunction, figure: DispatchScorecardFigure): Col
   const rate = isRate(figure)
   const afterTake = showsAfterTake(figure)
   const atpLabel = (atp: string | undefined) => (atp ? t(`atp.${atp}`, { defaultValue: atp }) : dash)
-  const shortLineValues = (line: CalloutOfferedLine) => {
-    const parts = shortLineParts(line)
-    return { material: parts.material, needed: parts.needed, available: parts.available ?? t('drill.notOnRecord') }
-  }
   return [
     { colId: 'offeredAt', field: 'offeredAt', headerName: t('drill.column.offeredAt'), minWidth: 150, valueFormatter: ({ value }) => text(formatDateTime(value)) },
     { colId: 'subjectId', field: 'subjectId', headerName: t('drill.column.delivery'), minWidth: 120, cellClass: 'font-mono text-[12px]' },
@@ -319,33 +315,7 @@ export function drillColumns(t: TFunction, figure: DispatchScorecardFigure): Col
       valueFormatter: ({ value }) => (typeof value === 'number' ? value.toFixed(1) : dash),
     },
     afterTake
-      ? ({
-          // Stock at offer, and its short lines when the snapshot has any. "Unknown" = the check did not run.
-          colId: 'atp',
-          headerName: t('drill.column.atp'),
-          minWidth: 240,
-          autoHeight: true,
-          valueGetter: ({ data }) =>
-            data
-              ? [atpLabel(data.atp), ...(data.atpShortLines ?? []).map((line) => plainText(t('drill.shortLine', shortLineValues(line))))].join('; ')
-              : dash,
-          cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) =>
-            data ? (
-              <div className="flex flex-col py-1 leading-5" data-sc-atp={data.atp}>
-                <bdi>{atpLabel(data.atp)}</bdi>
-                {(data.atpShortLines ?? []).map((line) => (
-                  <span key={line.line} className="text-[12px] text-muted-foreground" data-sc-short-line={line.material}>
-                    <Trans
-                      t={t}
-                      i18nKey="drill.shortLine"
-                      values={shortLineValues(line)}
-                      components={{ m: <Ltr />, n: <Ltr />, a: line.availableBase == null ? <span data-sc-not-on-record="" /> : <Ltr /> }}
-                    />
-                  </span>
-                ))}
-              </div>
-            ) : null,
-        } as ColDef<DispatchScorecardDrillRow>)
+      ? atpAtOfferColumn(t, dash)
       : ({
           colId: 'atp',
           field: 'atp',
@@ -361,6 +331,44 @@ export function drillColumns(t: TFunction, figure: DispatchScorecardFigure): Col
       valueGetter: ({ data }) => (data ? formatCount(data.onlineTills, data.signedInTills) : dash),
     },
   ]
+}
+
+/**
+ * Stock at offer, and its short lines when the snapshot has any (spec 3326). "Unknown" = the check did not
+ * run; a short line with no stock row reads "Not on record". Shared by the after-take drill and the closes report.
+ */
+export function atpAtOfferColumn(t: TFunction, dash: string): ColDef<DispatchScorecardDrillRow> {
+  const atpLabel = (atp: string | undefined) => (atp ? t(`atp.${atp}`, { defaultValue: atp }) : dash)
+  const shortLineValues = (line: CalloutOfferedLine) => {
+    const parts = shortLineParts(line)
+    return { material: parts.material, needed: parts.needed, available: parts.available ?? t('drill.notOnRecord') }
+  }
+  return {
+    colId: 'atp',
+    headerName: t('drill.column.atp'),
+    minWidth: 240,
+    autoHeight: true,
+    valueGetter: ({ data }) =>
+      data
+        ? [atpLabel(data.atp), ...(data.atpShortLines ?? []).map((line) => plainText(t('drill.shortLine', shortLineValues(line))))].join('; ')
+        : dash,
+    cellRenderer: ({ data }: ICellRendererParams<DispatchScorecardDrillRow>) =>
+      data ? (
+        <div className="flex flex-col py-1 leading-5" data-sc-atp={data.atp}>
+          <bdi>{atpLabel(data.atp)}</bdi>
+          {(data.atpShortLines ?? []).map((line) => (
+            <span key={line.line} className="text-[12px] text-muted-foreground" data-sc-short-line={line.material}>
+              <Trans
+                t={t}
+                i18nKey="drill.shortLine"
+                values={shortLineValues(line)}
+                components={{ m: <Ltr />, n: <Ltr />, a: line.availableBase == null ? <span data-sc-not-on-record="" /> : <Ltr /> }}
+              />
+            </span>
+          ))}
+        </div>
+      ) : null,
+  }
 }
 
 /** Closed by, Closed at, What happened, Reason (as given), Courier, Items: on an after-take drill only. */
@@ -442,7 +450,7 @@ function afterTakeColumns(
  * A refused-close row's attempts under it, oldest first: each attempt is ONE line (time · who · till · reason,
  * `attemptText`), isolated once — led by its time, so `Ltr`; swept ones read the note.
  */
-function refusedAttemptsColumn(t: TFunction, dash: string): ColDef<DispatchScorecardDrillRow> {
+export function refusedAttemptsColumn(t: TFunction, dash: string): ColDef<DispatchScorecardDrillRow> {
   return {
     colId: 'refusedAttempts',
     headerName: t('drill.column.refusedAttempts'),

@@ -166,6 +166,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
         }),
       },
+      // Closes after a take (ticket 758, spec 3326) — every close after a take, estate-wide, with who caused it
+      // and the reason as given; the scorecard's own feature, probe and Drill door. Filters in the URL.
+      {
+        path: 'oms/dispatch-scorecard/closes',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/dispatch-scorecard/ClosesPage')).default,
+        }),
+      },
       // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own `SourcingAdvisor/Access` probe.
       // The entry (739 puts the 30-day simulation there) and one order's explanation, which Delivery details links to.
       {

@@ -1,6 +1,7 @@
 {
   "menu": {
-    "dispatchScorecard": "Dispatch scorecard"
+    "dispatchScorecard": "Dispatch scorecard",
+    "closesAfterTake": "Closes after a take"
   },
   "title": "Dispatch scorecard",
   "subtitle": "How stores, and the staff who answer for them, handled competed deliveries over a range — ranked, with the bids behind every figure.",
@@ -242,5 +243,55 @@
     },
     "staff": "Staff at this store",
     "noStaff": "No Takes or Passes by anyone here."
+  },
+  "closes": {
+    "title": "Closes after a take",
+    "subtitle": "Every delivery closed or cancelled after a store took it, with who caused it and the reason exactly as given.",
+    "tabs": {
+      "label": "Report",
+      "closes": "Closes after a take",
+      "refused": "Refused closes"
+    },
+    "cause": {
+      "StoreClosed": "The store: it closed the delivery itself",
+      "CourierBlamedStore": "The store, according to the courier",
+      "FallbackStoreClosed": "The fallback store",
+      "CourierOtherReason": "The courier side: the reason does not name the store",
+      "CourierNoReason": "Unclear: the courier gave no reason",
+      "OtherClose": "Someone else (HQ, customer channel or system): see Closed by",
+      "unknown": "Unclear",
+      "refused": "The store tried to back out; the lock refused it"
+    },
+    "column": {
+      "cause": "Who caused it",
+      "failedTake": "Failed take"
+    },
+    "failedTake": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "outcomes": {
+      "label": "Outcome (counts of the rows listed; pick to filter)",
+      "all": "All outcomes",
+      "failedTakes": "Failed takes only"
+    },
+    "reasons": {
+      "title": "Reasons, by how many closes give the same text",
+      "reason": "Reason (as given)",
+      "count": "Closes",
+      "empty": "No closes to count for the outcomes picked."
+    },
+    "failedTitle": "The closes could not be loaded",
+    "failed": "Something went wrong reading the closes. Try again in a moment.",
+    "empty": "No closes after a take in this range for the outcomes picked.",
+    "emptyRefused": "No refused closes in this range.",
+    "refusedNote": "These deliveries were not cancelled: the store won each one, then tried to close it, and the lock refused it.",
+    "export": {
+      "sheet": "Closes",
+      "refusedSheet": "Refused closes",
+      "reasonsSheet": "Reasons",
+      "fileName": "closes-after-take",
+      "refusedFileName": "refused-closes"
+    }
   }
 }

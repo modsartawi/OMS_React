@@ -137,6 +137,8 @@ tools/.delivery-callout-shots/
 tsconfig.tsbuildinfo
 # Dispatch scorecard drive screenshots (tools/dispatch-scorecard-drive.mjs, ticket 543)
 tools/.dispatch-scorecard-shots/
+# Closes after a take drive screenshots (tools/closes-after-take-drive.mjs, ticket 758)
+tools/.closes-after-take-shots/
 # Prescription sessions drive screenshots (tools/prescription-sessions-drive.mjs, ticket 544)
 tools/.prescription-sessions-shots/
 # Data sync drive screenshots (tools/data-sync-*-drive.mjs, spec 558)

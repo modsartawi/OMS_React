@@ -44,7 +44,7 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
-import { ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
+import { ClipboardX, ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -422,6 +422,20 @@ export const MENU: ShellMenuItem[] = [
         icon: Trophy,
         routerLink: '/oms/dispatch-scorecard',
         activePrefix: '/oms/dispatch-scorecard',
+        access: accessProbe({
+          key: DISPATCH_SCORECARD_ACCESS_KEY,
+          run: () => dispatchScorecardAccessApi.access(),
+          visible: canOpenDispatchScorecard,
+        }),
+      },
+      {
+        // Closes after a take (ticket 758, spec 3326): the scorecard's report of every close after a take, on
+        // the SAME probe and predicate (no new grant). Its longer prefix wins the rail on its own page
+        // (`markedLeaf`). Right after the scorecard; Serial refusals follows it.
+        labelKey: 'dispatch-scorecard:menu.closesAfterTake',
+        icon: ClipboardX,
+        routerLink: '/oms/dispatch-scorecard/closes',
+        activePrefix: '/oms/dispatch-scorecard/closes',
         access: accessProbe({
           key: DISPATCH_SCORECARD_ACCESS_KEY,
           run: () => dispatchScorecardAccessApi.access(),

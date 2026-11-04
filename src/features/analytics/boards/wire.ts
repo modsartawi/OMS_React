@@ -86,6 +86,15 @@ export function readItem(raw: Loose): AnalyticsItem {
 }
 
 /**
+ * `GET Analytics/Items` (ticket 770). ⚠ §C names the door, not its envelope's `data` shape: a bare array
+ * of items is read, and so is an `{ items }` page, in case the door pages. Anything else is empty.
+ */
+export function readItems(raw: unknown): AnalyticsItem[] {
+  const list = Array.isArray(raw) ? raw : arr<unknown>(obj(raw).items)
+  return list.map((x) => readItem(obj(x)))
+}
+
+/**
  * Each refusal code the web words itself → its key in the `boards` namespace (766 §C's table). A later
  * slice adds its own codes HERE, with their words in both `boards` bundles, as it builds the state the
  * code asks for (402/403/405 with saving, 406/407/410 with the editor, 408/409 with the panel states).

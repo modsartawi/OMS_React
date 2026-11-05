@@ -342,6 +342,17 @@ async function forms768({ dir, dark }) {
   check(`768 ${label} line × stores: the tooltip includes Other`, storeTip.includes('Other'), storeTip)
   await shot('line-stores')
 
+  // Review fix 14: a rate's members past five are drawn nowhere, and the panel says how many.
+  await goto('v-rate-stores', 'line')
+  const rateLines = await strokes(page, `${sel} .recharts-line-curve`)
+  const notShown = page.locator('[data-analytics-not-shown]')
+  check(`768 ${label} rate × 7 stores: five lines, no Other`, rateLines.length === 5, String(rateLines.length))
+  check(
+    `768 ${label} rate × 7 stores: "2 more not shown" on screen`,
+    (await notShown.getAttribute('data-analytics-not-shown')) === '2' && noIsolates(await notShown.innerText()).startsWith('2 more not shown'),
+    noIsolates(await notShown.innerText().catch(() => '')),
+  )
+
   // Stacked area: ranked aggregator, app, web, store, callcenter; painted by the channel's fixed slot.
   const area = '[data-chart="area"]'
   await goto('v-area', 'area')

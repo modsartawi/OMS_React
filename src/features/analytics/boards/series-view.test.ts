@@ -152,6 +152,7 @@ describe('view model: the top 5 plus Other, and stacking', () => {
     expect(view.rows.map((r) => r.values[other])).toEqual([2, 3])
     expect(view.rows.map((r) => r.values[view.series[0].key])).toEqual([60, 40])
     expect(view.folded).toBe(1)
+    expect(view.notShown).toBe(0)
 
     // A rate never stacks: the stacked area and the stacked bar are refused; the grouped bar is fine.
     const rate = (chart: AnalyticsViewDefinition['chart']): AnalyticsViewDefinition => ({
@@ -195,6 +196,8 @@ describe('view model: the top 5 plus Other, and stacking', () => {
     expect(view.series).toHaveLength(5)
     expect(view.series.some((s) => s.other)).toBe(false)
     expect(view.folded).toBe(1)
+    // …and says so on screen: one member is not shown at all (no "Other" holds it).
+    expect(view.notShown).toBe(1)
   })
 
   it('two measures over time are two series, one per measure, in fixed measure slots', () => {

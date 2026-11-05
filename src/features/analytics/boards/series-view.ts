@@ -142,6 +142,8 @@ export interface SeriesView {
   colourBy: 'member' | 'single'
   /** Members not drawn on their own: folded into "Other", or dropped for a rate. */
   folded: number
+  /** Of those, the members drawn nowhere — a rate's rest past five, which no "Other" can hold. The screen says so. */
+  notShown: number
   empty: boolean
   truncated: boolean
 }
@@ -193,6 +195,7 @@ export function toSeriesView(
 
   let series: SeriesDef[]
   let folded = 0
+  let notShown = 0
   const values: Map<string, Record<string, number | null>> = new Map(xs.map((x) => [x, {}]))
 
   if (breakdown) {
@@ -222,6 +225,7 @@ export function toSeriesView(
     }))
     // "Other" is a sum, so only an additive measure has one; a rate's rest is dropped (see the header).
     const withOther = rest.length > 0 && m.shape === 'additive'
+    if (!withOther) notShown = rest.length
     if (withOther) series.push({ key: `s${series.length}`, member: '', label: '', slot: null, other: true, unit: m.unit })
     for (const x of xs) {
       const at = rowsAt.get(x) ?? []
@@ -267,6 +271,7 @@ export function toSeriesView(
     format: formatOf(definition),
     colourBy: xSlots ? 'member' : 'single',
     folded,
+    notShown,
     empty: result.rows.length === 0,
     truncated: result.truncated,
   }

@@ -162,6 +162,8 @@ export const VIEWS_768 = {
   'v-bar-stacked': def('bar', ['orders'], ['store', 'channel_group'], { stack: 'stacked' }),
   'v-bar-grouped': def('bar', ['orders'], ['store', 'channel_group'], { stack: 'grouped' }),
   'v-rate-stacked': def('area', ['on_time_share'], ['day', 'channel_group']),
+  // Review fix 14: a rate over seven stores draws five lines and says two are not shown.
+  'v-rate-stores': def('line', ['on_time_share'], ['day', 'store']),
 }
 
 export const ITEMS = {
@@ -362,6 +364,10 @@ export const QUERY_768 = {
   'v-line-stores': answer(
     [['day', 'dimension'], ['store', 'dimension'], ['orders', 'measure', 'count']],
     DAYS.flatMap((day, i) => Object.entries(STORES).map(([store, base]) => ({ day, store, orders: wave(i, base) }))),
+  ),
+  'v-rate-stores': answer(
+    [['day', 'dimension'], ['store', 'dimension'], ['on_time_share', 'measure', 'share']],
+    DAYS.flatMap((day, i) => Object.entries(STORES).map(([store, base]) => ({ day, store, on_time_share: wave(i, base) / 1000 }))),
   ),
   'v-area': answer(
     [['day', 'dimension'], ['channel_group', 'dimension'], ['orders', 'measure', 'count']],

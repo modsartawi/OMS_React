@@ -60,6 +60,7 @@ export default function SeriesPanel({
   if (view.empty) return <Empty />
   const form = view.form === 'bar' ? `bar.${view.stacking === 'none' ? view.orientation : view.stacking}` : view.form
   return (
+    <>
     <SeriesChart
       form={view.form}
       orientation={view.orientation}
@@ -75,6 +76,13 @@ export default function SeriesPanel({
       legend={definition.chart.legend}
       ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(view.measureLabel), dimension: fsi(view.x.label) })}
     />
+    {/* A rate's members past five are drawn nowhere (no "Other" can sum a rate): say how many (766 §E amendment 2). */}
+    {view.notShown > 0 && (
+      <p className="text-xs text-muted-foreground" data-analytics-not-shown={view.notShown}>
+        {t('view.notShown', { count: view.notShown, n: fsi(view.notShown), measure: fsi(view.measureLabel) })}
+      </p>
+    )}
+    </>
   )
 }
 

@@ -1,11 +1,13 @@
-import { memo, useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { formatClock } from '@/core/charts/format'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
 import { analyticsApi, analyticsQueryKey } from './api'
-import { effectiveQuery, panelKey, type BoardContext, type ViewPanel } from './effective-query'
+import { pointOf } from './drill'
+import { drilledDefinition, effectiveQuery, panelKey, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
+import PanelDrill from './PanelDrill'
 import Refused from './Refused'
 import { labelIn } from './view-model'
 import ViewChart, { viewTitleOf } from './ViewChart'
@@ -21,6 +23,9 @@ import ViewChart, { viewTitleOf } from './ViewChart'
  * fetching state re-renders the board, this panel's chart is not redrawn.
  *
  * 773 adds the panel actions and states to `ViewPanelCard`'s header (`data-board-panel-actions`).
+ *
+ * 772: a click on a mark reports a cross-filter point up (`onCross`, stable); the board toggles it. The
+ * panel's drill by steps are its own state (not saved, not in the URL), drawn by `PanelDrill`.
  */
 
 /** The grid placement: logical columns, so the board mirrors under RTL. */
@@ -34,6 +39,8 @@ type PanelProps = {
   model: AnalyticsModel
   lang: string
   onFetching: (id: string, fetching: boolean) => void
+  /** A mark clicked here (772): the board toggles its cross-filter. Stable. */
+  onCross: (point: CrossFilter) => void
 }
 
 export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBoardPanel } & PanelProps) {
@@ -62,11 +69,26 @@ function Card({ panel, kind, children, ...data }: { panel: AnalyticsBoardPanel; 
   )
 }
 
-function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching }: { panel: ViewPanel } & PanelProps) {
+function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross }: { panel: ViewPanel } & PanelProps) {
   const { t } = useTranslation('boards')
+  const [drill, setDrill] = useState<DrillStep[]>([])
   const input = useMemo(
-    () => (item ? effectiveQuery({ panel, view: item.definition, revision: item.revision, model }, context) : null),
-    [panel, item, model, context],
+    () => (item ? effectiveQuery({ panel, view: item.definition, revision: item.revision, model }, context, drill) : null),
+    [panel, item, model, context, drill],
+  )
+  const drawn = useMemo(() => (item ? drilledDefinition(item.definition, drill) : undefined), [item, drill])
+  const onPoint = useCallback(
+    (dimension: string, member: string) => {
+      const point = pointOf(dimension, member, model)
+      if (point) onCross({ source: panel.id, ...point })
+    },
+    [model, onCross, panel.id],
+  )
+  const cross = context.crossFilter
+  // The point the board's cross-filter was clicked on HERE, on the breakdown this panel now shows.
+  const point = useMemo(
+    () => (cross && cross.source === panel.id && cross.dimension === drawn?.query.dimensions[0] ? { dimension: cross.dimension, member: cross.member } : null),
+    [cross, panel.id, drawn],
   )
   const answer = useQuery({
     queryKey: analyticsQueryKey(input ?? { viewId: panel.viewId }),
@@ -76,6 +98,11 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     retry: false,
   })
   const busy = answer.isFetching
+  // While a drill step is asked, the previous answer stays drawn — with the definition it answered, not
+  // the drilled one it does not match. Adjusted during render, so no frame pairs one with the other.
+  const [shown, setShown] = useState(drawn)
+  if (answer.data && !answer.isPlaceholderData && shown !== drawn) setShown(drawn)
+  const chartDef = answer.isPlaceholderData ? shown : drawn
   useEffect(() => {
     onFetching(panel.id, busy)
     return () => onFetching(panel.id, false)
@@ -88,7 +115,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
       </Card>
     )
   }
-  if (!item) {
+  if (!item || !drawn) {
     return (
       <Card panel={panel} kind="view" data-board-panel-state="loading">
         <p className="text-sm text-muted-foreground" role="status">
@@ -101,7 +128,14 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   const result = answer.data
   const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   return (
-    <Card panel={panel} kind="view" data-board-panel-state={busy ? 'busy' : 'idle'} data-panel-key={input ? panelKey(input) : undefined}>
+    <Card
+      panel={panel}
+      kind="view"
+      data-board-panel-state={busy ? 'busy' : 'idle'}
+      data-panel-key={input ? panelKey(input) : undefined}
+      data-board-cross-source={point ? 'true' : undefined}
+      data-board-drill-depth={String(drill.length)}
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <h3 className="min-w-0 text-sm font-semibold tracking-tight" data-board-panel-title>
           <bdi>{viewTitleOf(item, model, lang, t)}</bdi>
@@ -114,10 +148,11 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
           )}
         </div>
       </header>
+      <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} onDrill={setDrill} />
       {answer.error && !result ? (
         <Refused err={answer.error} fallbackKey="view.queryFailed" />
       ) : (
-        <ViewChart result={result} busy={busy} definition={item.definition} model={model} lang={lang} />
+        <ViewChart result={result} busy={busy} definition={chartDef ?? drawn} model={model} lang={lang} onPoint={onPoint} selected={point} />
       )}
     </Card>
   )

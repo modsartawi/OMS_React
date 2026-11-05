@@ -5,6 +5,7 @@ import ChartFrame from '@/core/charts/ChartFrame'
 import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import type { AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
+import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import { labelIn, toBarView } from './view-model'
 import ViewForm, { isViewForm } from './ViewForms'
@@ -16,7 +17,13 @@ import ViewForm, { isViewForm } from './ViewForms'
  *
  * The dispatch: 767's single-series vertical bar (`VerticalBarChart`), 768's forms (`SeriesPanel`),
  * 769's forms (`ViewForm`). A refusal of the answer is the caller's (the page's, or the panel's state).
+ *
+ * A board panel passes `onPoint` (772): a click on a bar, a slice or a table row reports the mark's
+ * category dimension and member; `selected` is the point a cross-filter was clicked on here.
  */
+
+/** A clicked mark: the category dimension it stands for, and its member key (772). */
+export type PointHandler = (dimension: string, member: string) => void
 export function drawsHere(def: AnalyticsViewDefinition): boolean {
   return drawsAsSeries(def) || isViewForm(def.chart.type) || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
 }
@@ -37,6 +44,8 @@ export default function ViewChart({
   definition,
   model,
   lang,
+  onPoint,
+  selected,
 }: {
   /** The answer drawn, or the previous key's while the new one is asked (`keepPreviousData`). */
   result: AnalyticsQueryResult | undefined
@@ -44,6 +53,8 @@ export default function ViewChart({
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
   lang: string
+  onPoint?: PointHandler
+  selected?: MarkPoint | null
 }) {
   const { t } = useTranslation('boards')
 
@@ -58,7 +69,7 @@ export default function ViewChart({
   return (
     <>
       <ChartFrame busy={busy} hasChart={!!result}>
-        {result && <ChartBody result={result} definition={definition} model={model} lang={lang} />}
+        {result && <ChartBody result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} selected={selected} />}
       </ChartFrame>
       {result?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
     </>
@@ -74,17 +85,21 @@ const ChartBody = memo(function ChartBody({
   definition,
   model,
   lang,
+  onPoint,
+  selected,
 }: {
   result: AnalyticsQueryResult
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
   lang: string
+  onPoint?: PointHandler
+  selected?: MarkPoint | null
 }) {
   const { t: tc } = useTranslation('common')
   const type = definition.chart.type
-  if (drawsAsSeries(definition)) return <SeriesPanel result={result} definition={definition} model={model} lang={lang} />
+  if (drawsAsSeries(definition)) return <SeriesPanel result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} />
   // 769's forms: the donut, the table with cell bars, the heatmap and the combo.
-  if (isViewForm(type)) return result.rows.length === 0 ? <Empty /> : <ViewForm type={type} result={result} definition={definition} model={model} lang={lang} />
+  if (isViewForm(type)) return result.rows.length === 0 ? <Empty /> : <ViewForm type={type} result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} selected={selected} />
   const view = toBarView(result, definition, model, lang)
   return view.empty ? (
     <Empty />
@@ -95,6 +110,8 @@ const ChartBody = memo(function ChartBody({
       unit={view.measure.unit}
       measureLabel={view.measure.label}
       locale={lang}
+      onPoint={onPoint ? (member) => onPoint(view.category.key, member) : undefined}
+      selected={selected?.dimension === view.category.key ? selected.member : null}
       ariaLabel={tc('charts.chartLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
     />
   )

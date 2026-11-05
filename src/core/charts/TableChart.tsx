@@ -36,12 +36,18 @@ export default function TableChart({
   sort,
   locale,
   ariaLabel,
+  onRow,
+  selectedRow,
 }: {
   columns: readonly TableChartColumn[]
   rows: readonly Row[]
   sort: { key: string; direction: 'asc' | 'desc' } | null
   locale: string
   ariaLabel: string
+  /** A click on a row (772's cross-filter): the row's index in `rows`. Absent → rows are not clickable. */
+  onRow?: (index: number) => void
+  /** The row a cross-filter was clicked on here (`rows` index): marked `data-selected` and highlighted. */
+  selectedRow?: number | null
 }) {
   const columnDefs = useMemo<ColDef<Row>[]>(
     () =>
@@ -73,6 +79,8 @@ export default function TableChart({
         domLayout="autoHeight"
         animateRows={false}
         suppressColumnVirtualisation
+        onRowClicked={onRow ? (e) => typeof e.data === 'object' && onRow(rows.indexOf(e.data as Row)) : undefined}
+        rowClassRules={{ 'cursor-pointer': () => !!onRow, 'bg-accent': (p) => selectedRow != null && p.data === rows[selectedRow] }}
       />
     </div>
   )

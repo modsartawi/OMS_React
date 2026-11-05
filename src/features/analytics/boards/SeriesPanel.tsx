@@ -20,11 +20,14 @@ export default function SeriesPanel({
   definition,
   model,
   lang,
+  onPoint,
 }: {
   result: AnalyticsQueryResult
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
   lang: string
+  /** 772: a click on a bar reports its category dimension and member (bars only). */
+  onPoint?: (dimension: string, member: string) => void
 }) {
   const { t } = useTranslation('boards')
   const { t: tc } = useTranslation('common')
@@ -68,6 +71,7 @@ export default function SeriesPanel({
       format={view.format}
       locale={lang}
       otherCount={view.folded}
+      onPoint={onPoint && view.form === 'bar' ? (x) => onPoint(view.x.key, x) : undefined}
       ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(view.measureLabel), dimension: fsi(view.x.label) })}
     />
   )

@@ -19,7 +19,9 @@ import type {
  * be broken down by that dimension in the model (a channel filter never reaches till sales).
  * The period goes as the RELATIVE token, which the server resolves, so a saved board keeps its meaning.
  *
- * 772 adds the cross-filter to `BoardContext` (reaching every panel but its source and the opted-out).
+ * The cross-filter (772) is one member clicked on one panel. It reaches every other panel, unless the
+ * panel opted out of `crossFilter` or its measures never break down by that dimension; its source panel
+ * keeps its key, so it does not re-run. A panel drilled by (772) asks its drilled definition INLINE.
  */
 
 export type ViewPanel = Extract<AnalyticsBoardPanel, { kind: 'view' }>
@@ -32,9 +34,24 @@ export interface PanelSource {
   model: AnalyticsModel
 }
 
-/** The board-wide state every panel's query is made from. 772 adds `crossFilter` here. */
+/** The cross-filter: the member clicked on panel `source`, in the dimension that mark stands for. */
+export interface CrossFilter {
+  source: string
+  dimension: string
+  member: string
+}
+
+/** One step of drill by: from the point `dimension = member`, break the panel down by `into`. */
+export interface DrillStep {
+  dimension: string
+  member: string
+  into: string
+}
+
+/** The board-wide state every panel's query is made from. */
 export interface BoardContext {
   filters: BoardFilters
+  crossFilter?: CrossFilter | null
 }
 
 /** Each category filter of the strip → the model dimension it filters. */
@@ -44,7 +61,7 @@ export const FILTER_DIMENSIONS = {
   store: 'store',
   channel: 'channel_group',
   country: 'country',
-} as const satisfies Record<Exclude<BoardFilterKey, 'period'>, string>
+} as const satisfies Record<Exclude<BoardFilterKey, 'period' | 'crossFilter'>, string>
 
 export type CategoryFilterKey = keyof typeof FILTER_DIMENSIONS
 export const CATEGORY_FILTERS = Object.keys(FILTER_DIMENSIONS) as CategoryFilterKey[]
@@ -54,7 +71,29 @@ export const periodToken = (p: BoardPeriod): string => (p.kind === 'relative' ? 
 
 const canonical = (values: readonly string[]) => [...new Set(values)].sort()
 
-export function effectiveQuery({ panel, view, revision, model }: PanelSource, { filters }: BoardContext): AnalyticsQueryInput {
+/**
+ * The view's definition drilled by `steps` (772): each step's point becomes a filter and its `into` the
+ * breakdown, in place of the first dimension. Not saved — "Save as view" (775) is what keeps it.
+ */
+export function drilledDefinition(view: AnalyticsViewDefinition, steps: readonly DrillStep[]): AnalyticsViewDefinition {
+  if (steps.length === 0) return view
+  const [, ...rest] = view.query.dimensions
+  const last = steps[steps.length - 1]
+  return {
+    ...view,
+    query: {
+      ...view.query,
+      dimensions: [last.into, ...rest.filter((d) => d !== last.into && !steps.some((s) => s.dimension === d))],
+      filters: [...view.query.filters, ...steps.map((s) => ({ dimension: s.dimension, values: [s.member] }))],
+    },
+  }
+}
+
+export function effectiveQuery(
+  { panel, view, revision, model }: PanelSource,
+  { filters, crossFilter }: BoardContext,
+  drill: readonly DrillStep[] = [],
+): AnalyticsQueryInput {
   const opted = new Set(panel.optOut)
   const measures = view.query.measures.map((k) => model.measures.find((m) => m.key === k))
   const breaksBy = (dimension: string) => measures.some((m) => m?.dimensions.includes(dimension))
@@ -63,11 +102,16 @@ export function effectiveQuery({ panel, view, revision, model }: PanelSource, { 
     .map((f) => ({ dimension: FILTER_DIMENSIONS[f], values: canonical(filters[f]) }))
     .sort((a, b) => (a.dimension < b.dimension ? -1 : a.dimension > b.dimension ? 1 : 0))
 
+  const crossed =
+    crossFilter && crossFilter.source !== panel.id && !opted.has('crossFilter') && breaksBy(crossFilter.dimension)
+      ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
+      : {}
+
   return {
-    viewId: panel.viewId,
-    revision,
+    ...(drill.length ? { definition: drilledDefinition(view, drill) } : { viewId: panel.viewId, revision }),
     ...(opted.has('period') ? {} : { period: periodToken(filters.period) }),
     filters: reached,
+    ...crossed,
   }
 }
 

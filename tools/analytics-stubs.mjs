@@ -313,6 +313,31 @@ export const QUERY = {
   ),
 }
 
+// ── 772: a board to cross-filter and drill on ───────────────────────────────────────────────────────
+// The store table is the source; the channel bar and the KPI take the cross-filter; the area panel opts
+// out of it. Drill by asks an INLINE definition, answered here by its first dimension (`drill:<dim>`).
+export const BOARD_772 = {
+  ...view('b-stores', { title: label('Stores this month', 'الفروع هذا الشهر'), tier: 'shared' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-stores', kind: 'view', viewId: 'v-table', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 6, y: 0, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 3, w: 4, h: 3 }, optOut: [] },
+      { id: 'p-fixed', kind: 'view', viewId: 'v-area', layout: { x: 4, y: 3, w: 8, h: 3 }, optOut: ['crossFilter'] },
+    ],
+  },
+}
+ITEMS['b-stores'] = BOARD_772
+export const DELAYS_772 = { 'v-table': 600, 'v-bar': 600, 'v-kpi': 600, 'v-area': 600, 'drill:city': 600 }
+export const DRILL_772 = {
+  'drill:city': answerShaped(
+    [['city', 'dimension'], ['orders', 'measure', 'additive', 'count'], ['till_value', 'measure', 'additive', 'SAR']],
+    [{ city: 'riyadh', orders: 610, till_value: 37515 }, { city: 'jeddah', orders: 290, till_value: 17835 }],
+  ),
+}
+Object.assign(QUERY, DRILL_772)
+
 /**
  * Install the analytics doors on `page`. Every option overrides one door's answer:
  *   access:   an `{ canView, canCurate }` object, `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
@@ -366,9 +391,11 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Analytics/Query') {
       const body = req.postDataJSON() ?? {}
-      const hold = queryDelayFor[body.viewId] ?? queryDelayMs
+      // 772: an inline definition (drill by) is answered by its first dimension, `drill:<dimension>`.
+      const id = body.viewId ?? `drill:${body.definition?.query?.dimensions?.[0] ?? ''}`
+      const hold = queryDelayFor[id] ?? queryDelayMs
       if (hold) await new Promise((r) => setTimeout(r, hold))
-      const answer = query[body.viewId]
+      const answer = query[id]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }

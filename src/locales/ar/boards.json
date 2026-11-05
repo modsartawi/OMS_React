@@ -76,6 +76,19 @@
       "updating": "جارٍ التحديث… <done>{{done}}</done> من <total>{{total}}</total> لوحات فرعية",
       "settled": "كل اللوحات الفرعية محدّثة.",
       "progress": "حُدّثت {{done}} من {{total}} لوحات فرعية"
+    },
+    "cross": {
+      "active": "مصفّاة حسب <dimension>{{dimension}}</dimension>: <member>{{member}}</member>",
+      "clear": "مسح",
+      "clearLabel": "مسح التصفية المتقاطعة على {{member}}"
+    },
+    "drill": {
+      "breadcrumb": "مسار التعمّق",
+      "crumb": "<member>{{member}}</member> حسب <dimension>{{dimension}}</dimension>",
+      "menu": "التعمّق في {{member}}",
+      "by": "تعمّق في <member>{{member}}</member> حسب",
+      "saveAsView": "حفظ كعرض",
+      "saveAsViewLater": "يتوفر حفظ التعمّق كعرض مع محرر العروض."
     }
   },
   "view": {

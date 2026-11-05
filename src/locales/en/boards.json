@@ -76,6 +76,19 @@
       "updating": "Updating… <done>{{done}}</done> of <total>{{total}}</total> panels",
       "settled": "Every panel is up to date.",
       "progress": "{{done}} of {{total}} panels updated"
+    },
+    "cross": {
+      "active": "Filtered by <dimension>{{dimension}}</dimension>: <member>{{member}}</member>",
+      "clear": "Clear",
+      "clearLabel": "Clear the cross-filter on {{member}}"
+    },
+    "drill": {
+      "breadcrumb": "Drill path",
+      "crumb": "<member>{{member}}</member> by <dimension>{{dimension}}</dimension>",
+      "menu": "Drill into {{member}}",
+      "by": "Drill <member>{{member}}</member> by",
+      "saveAsView": "Save as view",
+      "saveAsViewLater": "Saving a drill as a view arrives with the view editor."
     }
   },
   "view": {

@@ -6,6 +6,7 @@ import HeatmapChart from '@/core/charts/HeatmapChart'
 import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsChartType, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
+import type { MarkPoint } from './drill'
 import { toComboView, toDonutView, toHeatmapView, toTableView } from './view-model-forms'
 
 /**
@@ -27,12 +28,17 @@ export default function ViewForm({
   definition,
   model,
   lang,
+  onPoint,
+  selected,
 }: {
   type: ViewFormType
   result: AnalyticsQueryResult
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
   lang: string
+  /** 772: a click on a slice or a table row reports its category dimension and member. */
+  onPoint?: (dimension: string, member: string) => void
+  selected?: MarkPoint | null
 }) {
   const { t } = useTranslation('boards')
   const { t: tc } = useTranslation('common')
@@ -56,6 +62,8 @@ export default function ViewForm({
         total={view.total}
         unit={view.measure.unit}
         locale={lang}
+        onPoint={onPoint ? (member) => member !== OTHER && onPoint(view.category.key, member) : undefined}
+        selected={selected?.dimension === view.category.key ? selected.member : null}
         ariaLabel={tc('charts.donutLabel', { measure: fsi(view.measure.label), dimension: fsi(view.category.label) })}
       />
     )
@@ -65,6 +73,8 @@ export default function ViewForm({
     const view = toTableView(result, definition, model, lang)
     const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
     const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
+    const first = view.columns.find((c) => c.role === 'dimension')?.key ?? ''
+    const selectedRow = selected?.dimension === first ? view.members.indexOf(selected.member) : -1
     return (
       <div className="flex flex-col gap-1.5">
         <TableChart
@@ -72,6 +82,8 @@ export default function ViewForm({
           rows={view.rows}
           sort={view.sort}
           locale={lang}
+          onRow={onPoint && first ? (i) => view.members[i] !== undefined && onPoint(first, view.members[i]) : undefined}
+          selectedRow={selectedRow >= 0 ? selectedRow : null}
           ariaLabel={tc('charts.tableLabel', { measures: fsi(measures.join(', ')), dimensions: fsi(dims.join(', ')) })}
         />
         {view.cut && (

@@ -41,11 +41,18 @@
 //   5. a store change leaves the opted-out area panel idle with its key unchanged, and re-asks the others;
 //   6. reloading the permalink restores the filters; a period preset goes to the URL and the wire as its token.
 //
+// 772 - clicking a mark cross-filters the other panels, and drill by keeps a breadcrumb (en and ar):
+//   1. a store row click: the other panels go busy, the clicked one and the opted-out one do not; only the
+//      reached panels re-ask, each with `crossFilter`; the URL carries it; the board says it in words;
+//   2. the same click again clears it; 3. drill by from the point into City: only that panel re-asks, as an
+//      inline definition, with a breadcrumb back (not in the URL); "Save as view" waits for 775;
+//   4. a bar click cross-filters on its channel, and the permalink restores it on reload.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { DELAYS_771, ITEMS, QUERY, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, ITEMS, QUERY, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -740,6 +747,133 @@ async function board771({ dir, dark = false }) {
   await context.close()
 }
 
+// ── 772 ──────────────────────────────────────────────────────────────────────────────────────────────
+const states772 = (page) =>
+  page.locator('[data-board-panel-kind="view"]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.dataset.boardPanel, e.dataset.boardPanelState])))
+const idle772 = (page) =>
+  page.waitForFunction(
+    () =>
+      [...document.querySelectorAll('[data-board-panel-kind="view"]')].every((e) => e.dataset.boardPanelState === 'idle') &&
+      document.querySelector('[data-board-stream]')?.dataset.boardStream === 'idle',
+    null,
+    { timeout: 15000 },
+  )
+/** Click the store table's row for `store`, and read every panel's state as soon as `expectBusy` goes busy. */
+const clickStoreRow = async (page, store, expectBusy = 'p-bar') => {
+  await page.locator('[data-board-panel="p-stores"] .ag-row').filter({ hasText: store }).first().locator('.ag-cell').first().click()
+  await page.waitForFunction((id) => document.querySelector(`[data-board-panel="${id}"]`)?.dataset.boardPanelState === 'busy', expectBusy, { timeout: 2000 })
+  return states772(page)
+}
+
+async function board772({ dir }) {
+  const tag = `772 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, queryDelayFor: DELAYS_772 })
+  await page.goto(`${BASE}/analytics/board/b-stores`)
+  await page.locator('[data-analytics-board="b-stores"]').waitFor({ timeout: 10000 })
+  await idle772(page)
+  const asked = () => (bodies['Analytics/Query'] ?? []).length
+  const since = (n) => (bodies['Analytics/Query'] ?? []).slice(n)
+  const keyOf = (id) => page.locator(`[data-board-panel="${id}"]`).getAttribute('data-panel-key')
+  const keys0 = { stores: await keyOf('p-stores'), fixed: await keyOf('p-fixed') }
+
+  // 1. Click the P001 row: the other panels go busy, the clicked panel and the opted-out one do not.
+  let n = asked()
+  const during = await clickStoreRow(page, 'P001')
+  check(
+    `${tag}: a store row click puts the other panels busy, not the clicked one nor the opted-out`,
+    during['p-bar'] === 'busy' && during['p-kpi'] === 'busy' && during['p-stores'] === 'idle' && during['p-fixed'] === 'idle',
+    JSON.stringify(during),
+  )
+  await idle772(page)
+  const crossed = since(n)
+  check(
+    `${tag}: only the bar and the KPI re-ask, each with the cross-filter on store P001`,
+    crossed.map((b) => b.viewId).sort().join() === 'v-bar,v-kpi' &&
+      crossed.every((b) => JSON.stringify(b.crossFilter) === JSON.stringify({ dimension: 'store', values: ['P001'] })),
+    JSON.stringify(crossed),
+  )
+  check(`${tag}: the clicked and the opted-out panels keep their keys`, (await keyOf('p-stores')) === keys0.stores && (await keyOf('p-fixed')) === keys0.fixed)
+  const url = new URL(page.url()).searchParams
+  check(`${tag}: the URL carries the cross-filter`, url.get('cross') === 'store:P001' && url.get('crossFrom') === 'p-stores', page.url())
+  check(`${tag}: the board says what it is filtered by`, ((await page.locator('[data-board-cross="store:P001"]').textContent()) ?? '').includes('P001'))
+  check(`${tag}: the clicked row is marked`, (await page.locator('[data-board-panel="p-stores"] .ag-row.bg-accent').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/772-cross-${dir}.png`, fullPage: true })
+
+  // 2. The same click again clears it: the others re-ask without it, the URL drops it.
+  n = asked()
+  const clearing = await clickStoreRow(page, 'P001')
+  await idle772(page)
+  const cleared = since(n)
+  check(
+    `${tag}: clicking the row again clears it (the others re-ask without it, the clicked panel stays)`,
+    clearing['p-stores'] === 'idle' && cleared.every((b) => !('crossFilter' in b) && b.viewId !== 'v-table'),
+    JSON.stringify(cleared),
+  )
+  check(`${tag}: … and the URL and the words drop it`, !new URL(page.url()).searchParams.has('cross') && (await page.locator('[data-board-cross]').count()) === 0, page.url())
+
+  // 3. Drill by: from P001 into City, in place, with a breadcrumb back.
+  await clickStoreRow(page, 'P001')
+  await idle772(page)
+  const menu = page.locator('[data-board-panel="p-stores"] [data-board-drill-menu]')
+  const offered = await menu.locator('[data-drill-into]').evaluateAll((els) => els.map((e) => e.dataset.drillInto))
+  check(`${tag}: the drill menu offers the other allowed category dimensions`, offered.join() === 'channel_group,city,region,country', offered.join())
+  check(`${tag}: "Save as view" is shown, disabled until the view editor (775)`, (await menu.locator('[data-drill-action="saveAsView"]').getAttribute('aria-disabled')) === 'true')
+  n = asked()
+  await menu.locator('[data-drill-into="city"]').click()
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-stores"]')?.dataset.boardPanelState === 'busy', null, { timeout: 2000 })
+  const drillDuring = await states772(page)
+  await idle772(page)
+  const drilled = since(n)
+  check(`${tag}: drill by re-asks only that panel`, drilled.length === 1 && drillDuring['p-bar'] === 'idle', JSON.stringify(drillDuring))
+  const d = drilled[0]?.definition?.query
+  check(
+    `${tag}: … as an inline definition by City, filtered to the point`,
+    !drilled[0]?.viewId && JSON.stringify(d?.dimensions) === '["city"]' && JSON.stringify(d?.filters) === JSON.stringify([{ dimension: 'store', values: ['P001'] }]),
+    JSON.stringify(drilled[0]),
+  )
+  const crumbs = page.locator('[data-board-panel="p-stores"] [data-board-drill-crumbs] [data-crumb]')
+  const crumbText = await crumbs.evaluateAll((els) => els.map((e) => e.textContent.replace(/[›⁨⁩]/g, '').trim()))
+  check(
+    `${tag}: drill by shows its breadcrumb`,
+    crumbText.length === 2 && crumbText[0] === 'Store' && crumbText[1].includes('P001') && crumbText[1].includes('City'),
+    JSON.stringify(crumbText),
+  )
+  const cities = await page.locator('[data-board-panel="p-stores"] .ag-row').evaluateAll((els) => els.map((e) => e.textContent))
+  check(`${tag}: the panel draws the drilled answer`, cities.length === 2 && cities.some((c) => c.includes('riyadh')), JSON.stringify(cities))
+  check(`${tag}: the drill is not in the URL`, [...new URL(page.url()).searchParams.keys()].every((k) => !/drill/i.test(k)), page.url())
+  await page.screenshot({ path: `${SHOTS}/772-drill-${dir}.png`, fullPage: true })
+  await crumbs.first().locator('button').click()
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-stores"]')?.dataset.boardDrillDepth === '0', null, { timeout: 2000 })
+  await idle772(page)
+  check(
+    `${tag}: the first crumb goes back to the view`,
+    (await page.locator('[data-board-panel="p-stores"] [data-board-drill-crumbs]').count()) === 0 && (await keyOf('p-stores')) === keys0.stores,
+  )
+
+  // 4. A bar click cross-filters on its channel; the permalink restores it on reload.
+  n = asked()
+  await page.locator('[data-board-panel="p-bar"] .recharts-bar-rectangle path').first().click()
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('cross')?.startsWith('channel_group:'), null, { timeout: 2000 })
+  await idle772(page)
+  const byBar = since(n)
+  check(
+    `${tag}: a bar click cross-filters the others on its channel`,
+    byBar.length > 0 && byBar.every((b) => b.viewId !== 'v-bar' && b.viewId !== 'v-area' && b.crossFilter?.dimension === 'channel_group'),
+    JSON.stringify(byBar),
+  )
+  await page.reload()
+  await page.locator('[data-analytics-board="b-stores"]').waitFor({ timeout: 10000 })
+  await idle772(page)
+  const reloaded = lastBodies(bodies, 4)
+  check(
+    `${tag}: reloading the permalink restores the cross-filter`,
+    (await page.locator('[data-board-cross^="channel_group:"]').count()) === 1 && reloaded.filter((b) => b.crossFilter).length === 2,
+    JSON.stringify(reloaded.map((b) => [b.viewId, b.crossFilter])),
+  )
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -760,6 +894,8 @@ const SCENARIOS = [
   ['771', () => board771({ dir: 'ltr' })],
   ['771', () => board771({ dir: 'rtl' })],
   ['771', () => board771({ dir: 'ltr', dark: true })],
+  ['772', () => board772({ dir: 'ltr' })],
+  ['772', () => board772({ dir: 'rtl' })],
 ]
 
 try {

@@ -65,3 +65,70 @@ describe('effective query', () => {
     expect(q.period).toBe('2026-10-01..2026-10-31')
   })
 })
+
+describe('effective query: the cross-filter (772)', () => {
+  const store = { source: 'stores', dimension: 'store', member: 'P001' }
+  const ctx = (crossFilter: typeof store | null) => ({ filters: NONE, crossFilter })
+  const askX = (p: ReturnType<typeof panel>, measures: string[], crossFilter: typeof store | null) =>
+    effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, ctx(crossFilter))
+
+  it('reaches every panel but its source and the opted-out', () => {
+    expect(askX(panel('orders'), ['orders'], store).crossFilter).toEqual({ dimension: 'store', values: ['P001'] })
+    expect(askX(panel('till'), ['till_value'], store).crossFilter).toEqual({ dimension: 'store', values: ['P001'] })
+    expect(askX(panel('stores'), ['orders'], store)).toEqual({ viewId: 'v-stores', revision: 3, period: 'last-30-days', filters: [] })
+    expect(askX(panel('fixed', ['crossFilter']), ['orders'], store)).toEqual({ viewId: 'v-fixed', revision: 3, period: 'last-30-days', filters: [] })
+  })
+
+  it('re-keys only the panels it reaches, and clearing it gives back the old keys', () => {
+    const source = panel('stores')
+    const other = panel('orders')
+    const optedOut = panel('fixed', ['crossFilter'])
+    const key = (p: ReturnType<typeof panel>, x: typeof store | null) => panelKey(askX(p, ['orders'], x))
+    expect(key(source, store)).toBe(key(source, null))
+    expect(key(optedOut, store)).toBe(key(optedOut, null))
+    expect(key(other, store)).not.toBe(key(other, null))
+    // No cross-filter is the same key as before 772 (no `crossFilter` field at all).
+    expect(key(other, null)).toBe(panelKey(ask(other, ['orders'], NONE)))
+  })
+
+  it('does not reach a panel whose measures never break down by its dimension', () => {
+    const channel = { source: 'channels', dimension: 'channel_group', member: 'app' }
+    expect(askX(panel('till'), ['till_value'], channel)).toEqual({ viewId: 'v-till', revision: 3, period: 'last-30-days', filters: [] })
+  })
+})
+
+describe('effective query: drill by (772)', () => {
+  const drillAsk = (steps: { dimension: string; member: string; into: string }[], crossFilter: { source: string; dimension: string; member: string } | null = null) =>
+    effectiveQuery({ panel: panel('stores'), view: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-30-days' } }, revision: 3, model: MODEL }, { filters: { ...NONE, region: ['central'] }, crossFilter }, steps)
+
+  it('asks the drilled definition inline: the point a filter, the breakdown the next dimension', () => {
+    expect(drillAsk([{ dimension: 'store', member: 'P001', into: 'city' }])).toEqual({
+      definition: {
+        chart: { type: 'table' },
+        query: { measures: ['orders'], dimensions: ['city'], filters: [{ dimension: 'store', values: ['P001'] }], period: 'last-30-days' },
+      },
+      period: 'last-30-days',
+      filters: [{ dimension: 'region', values: ['central'] }],
+    })
+  })
+
+  it('a second step keeps the first step’s filter', () => {
+    const q = drillAsk([
+      { dimension: 'store', member: 'P001', into: 'city' },
+      { dimension: 'city', member: 'riyadh', into: 'channel_group' },
+    ])
+    expect('definition' in q && q.definition.query).toEqual({
+      measures: ['orders'],
+      dimensions: ['channel_group'],
+      filters: [
+        { dimension: 'store', values: ['P001'] },
+        { dimension: 'city', values: ['riyadh'] },
+      ],
+      period: 'last-30-days',
+    })
+  })
+
+  it('no steps is the saved view by id (the breadcrumb’s first crumb)', () => {
+    expect(drillAsk([])).toEqual({ viewId: 'v-stores', revision: 3, period: 'last-30-days', filters: [{ dimension: 'region', values: ['central'] }] })
+  })
+})

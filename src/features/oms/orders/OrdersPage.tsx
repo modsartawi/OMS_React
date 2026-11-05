@@ -47,7 +47,7 @@ import EmptyOverlay, { type EmptyKind } from './EmptyOverlay'
 import GridToolbar, { InspectorToggle, RowSummary } from './GridToolbar'
 import { documentPathOf } from './inspector-model'
 import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type LoadedResult } from './lenses'
-import MyViews, { ModifiedDot, type ViewAction } from './MyViews'
+import MyViews, { ModifiedDot, type ViewAction } from '@/core/list/MyViews'
 import OrderInspector from './OrderInspector'
 import QueryBar from './QueryBar'
 import { hasIdentifier, QUERY_FOCUS_KEYS, searchProblem, toSearchCriteria, withinGrant, type QueryCriteria } from './query-model'
@@ -71,7 +71,7 @@ import {
 import { orderRowKey, useOrderSearch } from './search-store'
 import StatusBar from './StatusBar'
 import { useOrderViews } from './view-store'
-import ViewNameDialog, { type ViewNameMode } from './ViewNameDialog'
+import ViewNameDialog, { type ViewNameMode } from '@/core/list/ViewNameDialog'
 import ViewsRail, { LENS_ICON } from './ViewsRail'
 
 /** The remembered pane, per browser. Versioned, so a later shape never misreads this one. */
@@ -115,7 +115,7 @@ export default function OrdersPage() {
   const commitViews = useOrderViews((s) => s.commit)
   useEffect(() => useOrderViews.getState().load(userId), [userId])
   const activeView = viewStore.views.find((v) => v.id === activeViewId) ?? null
-  const [viewDialog, setViewDialog] = useState<ViewNameMode | null>(null)
+  const [viewDialog, setViewDialog] = useState<ViewNameMode<SavedView> | null>(null)
   const defaultColumns = useRef<ColumnState[] | null>(null)
   // The shared OMS probe (same key and options as the menu and both OMS pages: one call).
   const access = useQuery(omsAccessQuery())
@@ -452,6 +452,8 @@ export default function OrdersPage() {
         className="sticky top-11 z-20 -my-4 -ms-4 me-4 h-[calc(100dvh-2.75rem)] self-start"
       >
         <MyViews
+          ns="orders"
+          idPrefix="orders"
           views={viewStore.views}
           activeId={activeView?.id ?? null}
           defaultId={viewStore.defaultId}
@@ -477,7 +479,7 @@ export default function OrdersPage() {
           {activeView ? (
             <h1 className="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight" data-active-view="">
               <bdi className="truncate">{activeView.name}</bdi>
-              {modified && <ModifiedDot />}
+              {modified && <ModifiedDot ns="orders" />}
             </h1>
           ) : (
             <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
@@ -551,6 +553,8 @@ export default function OrdersPage() {
       )}
 
       <ViewNameDialog
+        ns="orders"
+        inputId="order-view-name"
         mode={viewDialog}
         isTaken={(name, exceptId) => nameTaken(viewStore, name, exceptId)}
         onClose={() => setViewDialog(null)}

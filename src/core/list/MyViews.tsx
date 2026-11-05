@@ -4,25 +4,35 @@ import { Check, MoreHorizontal, Pencil, Plus, Star, StarOff, Trash2, type Lucide
 import { takesEscape } from '@/core/commands/key-layer'
 import { POPOVER } from '@/core/ui/overlay'
 import { fsi } from '@/core/util/bidi'
-import type { SavedView } from './saved-views'
-import { CursorBar, RAIL_FOCUS, RAIL_HEADING, railRowTone } from './ViewsRail'
 import IconButton from '@/core/ui/IconButton'
+import type { SavedView } from './saved-view-store'
+import { CursorBar, RAIL_FOCUS, RAIL_HEADING, railRowTone } from './rail'
+
+/** What the rail reads of a saved view: its id, its name, and whether it carries a search. */
+export type RailView = Pick<SavedView<unknown, string>, 'id' | 'name' | 'query'>
 
 /** The ⋯ menu's five acts (366, 368 §1). */
 export type ViewAction = 'update' | 'saveAs' | 'rename' | 'toggleDefault' | 'delete'
 
 /**
  * The views rail's **My views** section (ticket 400, spec 380 L7; ruling 368 §1): the
- * operator's own saved views, under the lenses.
+ * operator's own saved views, under the lenses. Born in the Deliveries list and graduated here
+ * (spec 3389 code review) when the Order / ERX list (ticket 786) became its second reader: `ns` is
+ * the list's i18n namespace (both hold the same `views.*` keys) and `idPrefix` keeps the heading's
+ * id unique per list.
  *
- * Each row applies its view on a click. A **star** marks the default, a **`layout` tag** an
- * imported layout-only view, and the active view shows the **modified dot** once it has drifted.
+ * Each row applies its view on a click. A **star** marks the default, a **`layout` tag** (with
+ * `layoutTag`: only the Deliveries list imports layout-only views) an imported layout-only view,
+ * and the active view shows the **modified dot** once it has drifted.
  * The active row takes the lenses' `--primary-050` + `--cursor` pair. A **⋯ menu** shows on
  * hover or focus: Update (only once the active view has drifted — or, for an active layout-only
  * view, at once, because re-saving one is what makes it a full view), Save as new…, Rename…,
  * Make/Remove default, Delete. **+ Save current view** sits at the rail's foot.
  */
-export default function MyViews({
+export default function MyViews<V extends RailView>({
+  ns,
+  idPrefix,
+  layoutTag = false,
   views,
   activeId,
   defaultId,
@@ -31,19 +41,23 @@ export default function MyViews({
   onAction,
   onSave,
 }: {
-  views: readonly SavedView[]
+  ns: string
+  idPrefix: string
+  layoutTag?: boolean
+  views: readonly V[]
   activeId: string | null
   defaultId: string | null
   modified: boolean
-  onApply: (view: SavedView) => void
-  onAction: (action: ViewAction, view: SavedView) => void
+  onApply: (view: V) => void
+  onAction: (action: ViewAction, view: V) => void
   onSave: () => void
 }) {
-  const { t } = useTranslation('deliveries')
+  const { t } = useTranslation(ns)
+  const headingId = `${idPrefix}-my-views`
   return (
     <>
       <h2
-        id="deliveries-my-views"
+        id={headingId}
         className={'mt-3 ' + RAIL_HEADING}
       >
         {t('views.heading')}
@@ -53,10 +67,12 @@ export default function MyViews({
           {t('views.none')}
         </p>
       ) : (
-        <ul aria-labelledby="deliveries-my-views" className="flex flex-col gap-px" data-my-views="">
+        <ul aria-labelledby={headingId} className="flex flex-col gap-px" data-my-views="">
           {views.map((view) => (
             <li key={view.id}>
               <ViewRow
+                ns={ns}
+                layoutTag={layoutTag}
                 view={view}
                 active={view.id === activeId}
                 isDefault={view.id === defaultId}
@@ -88,8 +104,8 @@ export default function MyViews({
 }
 
 /** The modified dot: amber, as the bar's unapplied edits are (368 §3). Shared with the grid bar. */
-export function ModifiedDot() {
-  const { t } = useTranslation('deliveries')
+export function ModifiedDot({ ns }: { ns: string }) {
+  const { t } = useTranslation(ns)
   return (
     <span
       role="img"
@@ -102,6 +118,8 @@ export function ModifiedDot() {
 }
 
 function ViewRow({
+  ns,
+  layoutTag,
   view,
   active,
   isDefault,
@@ -109,14 +127,16 @@ function ViewRow({
   onApply,
   onAction,
 }: {
-  view: SavedView
+  ns: string
+  layoutTag: boolean
+  view: RailView
   active: boolean
   isDefault: boolean
   modified: boolean
   onApply: () => void
   onAction: (action: ViewAction) => void
 }) {
-  const { t } = useTranslation('deliveries')
+  const { t } = useTranslation(ns)
   const [menuOpen, setMenuOpen] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -138,7 +158,7 @@ function ViewRow({
         className={'flex h-full min-w-0 flex-1 items-center gap-2 rounded-md ps-2.5 pe-1 text-start ' + RAIL_FOCUS}
       >
         <bdi className="min-w-0 flex-1 truncate">{view.name}</bdi>
-        {layoutOnly && (
+        {layoutTag && layoutOnly && (
           <span
             title={t('views.layoutOnlyHint')}
             data-view-layout=""
@@ -155,7 +175,7 @@ function ViewRow({
             data-view-default=""
           />
         )}
-        {modified && <ModifiedDot />}
+        {modified && <ModifiedDot ns={ns} />}
       </button>
       <IconButton
         ref={triggerRef}
@@ -174,6 +194,7 @@ function ViewRow({
       </IconButton>
       {menuOpen && (
         <ViewMenu
+          ns={ns}
           rowRef={rowRef}
           canUpdate={active && (modified || layoutOnly)}
           isDefault={isDefault}
@@ -192,19 +213,21 @@ function ViewRow({
 }
 
 function ViewMenu({
+  ns,
   rowRef,
   canUpdate,
   isDefault,
   onClose,
   onAction,
 }: {
+  ns: string
   rowRef: RefObject<HTMLDivElement | null>
   canUpdate: boolean
   isDefault: boolean
   onClose: (refocus: boolean) => void
   onAction: (action: ViewAction) => void
 }) {
-  const { t } = useTranslation('deliveries')
+  const { t } = useTranslation(ns)
   const menuRef = useRef<HTMLDivElement>(null)
   // Read through a ref, so the page re-rendering under the open menu never re-runs the effect.
   const closeRef = useRef(onClose)

@@ -52,7 +52,7 @@ import {
 import { needingActionRows, offersLfReturnsQueue } from './lf-returns'
 import LfReturnsQueue, { LF_RETURNS_NEEDING_ACTION_KEY } from './LfReturnsQueue'
 import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type LoadedResult } from './lenses'
-import MyViews, { ModifiedDot, type ViewAction } from './MyViews'
+import MyViews, { ModifiedDot, type ViewAction } from '@/core/list/MyViews'
 import QueryBar from './QueryBar'
 import { QUERY_FOCUS_KEYS, toFilterCriteria, type QueryCriteria } from './query-model'
 import {
@@ -76,7 +76,7 @@ import { deliveryRowKey, useDeliverySearch } from './search-store'
 import { URL_ENTRY_PARAMS, urlEntryQuery } from './url-entry'
 import StatusBar from './StatusBar'
 import { useSavedViews } from './view-store'
-import ViewNameDialog, { type ViewNameMode } from './ViewNameDialog'
+import ViewNameDialog, { type ViewNameMode } from '@/core/list/ViewNameDialog'
 import ViewsRail, { LENS_ICON, LF_RETURNS_ICON } from './ViewsRail'
 
 /**
@@ -141,7 +141,7 @@ export default function DeliveriesPage() {
   const commitViews = useSavedViews((s) => s.commit)
   useEffect(() => useSavedViews.getState().load(userId), [userId])
   const activeView = viewStore.views.find((v) => v.id === activeViewId) ?? null
-  const [viewDialog, setViewDialog] = useState<ViewNameMode | null>(null)
+  const [viewDialog, setViewDialog] = useState<ViewNameMode<SavedView> | null>(null)
   /** The grid's own layout, read before any restore: what a view saved before any grid stands on. */
   const defaultColumns = useRef<ColumnState[] | null>(null)
   // Recomputed on every store change, but the page re-renders only when the answer flips.
@@ -666,6 +666,9 @@ export default function DeliveriesPage() {
         className="sticky top-11 z-20 -my-4 -ms-4 me-4 h-[calc(100dvh-2.75rem)] self-start"
       >
         <MyViews
+          ns="deliveries"
+          idPrefix="deliveries"
+          layoutTag
           views={viewStore.views}
           activeId={activeView?.id ?? null}
           defaultId={viewStore.defaultId}
@@ -694,7 +697,7 @@ export default function DeliveriesPage() {
             // The active view's name and its modified dot (L9).
             <h1 className="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight" data-active-view="">
               <bdi className="truncate">{activeView.name}</bdi>
-              {modified && <ModifiedDot />}
+              {modified && <ModifiedDot ns="deliveries" />}
             </h1>
           ) : (
             <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
@@ -786,6 +789,8 @@ export default function DeliveriesPage() {
       )}
 
       <ViewNameDialog
+        ns="deliveries"
+        inputId="view-name"
         mode={viewDialog}
         isTaken={(name, exceptId) => nameTaken(viewStore, name, exceptId)}
         onClose={() => setViewDialog(null)}

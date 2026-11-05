@@ -167,6 +167,11 @@ core/insurance-rules 5
   src/core/insurance-rules/editors/Effects.tsx button: tile picker, the category group pick G1/G2/G3 is role="radio" in a radiogroup; Chip would add aria-pressed to a radio, restyled in place (moved from features/insurance-rules, oms 676)
   src/core/insurance-rules/editors/RuleConditions.tsx button: one-off, the NOT toggle's on state is danger-toned (negated); Chip only lights primary, restyled in place (moved from features/insurance-rules, oms 676)
 
+core/list 3
+  src/core/list/MyViews.tsx button: Save current view, a rail row (rail row recipe): one-off (graduated from oms/deliveries + oms/orders, spec 3389 code review)
+  src/core/list/MyViews.tsx button: a saved view row applies the view: a row picker (spec 590: restyled in place; graduated from oms/deliveries + oms/orders, spec 3389 code review)
+  src/core/list/MyViews.tsx button: saved-view menu item on the overlay recipe (spec 590: menu items restyled in place; graduated from oms/deliveries + oms/orders, spec 3389 code review)
+
 core/nphies 0
 
 core/pick-support 0
@@ -233,14 +238,11 @@ nphies/eligibility 0
 oms/central-invoice 1
   src/features/oms/central-invoice/list-columns.tsx button: grid-cell action (Serials opens the packs dialog; spec 590: restyled in place)
 
-oms/deliveries 14
+oms/deliveries 11
   src/features/oms/deliveries/DeliveryInspector.tsx button: inspector act rows (Reschedule/Cancel/Add note with key caps), menu-item recipe: restyled in place
   src/features/oms/deliveries/GridToolbar.tsx button: columns chooser Show all, a non-navigating text button (594: not link)
   src/features/oms/deliveries/GridToolbar.tsx button: columns chooser Reset, a non-navigating text button (594: not link)
   src/features/oms/deliveries/GridToolbar.tsx button: grid bar Clear filters, a non-navigating text button (594: not link)
-  src/features/oms/deliveries/MyViews.tsx button: Save current view, a rail row (rail row recipe): one-off
-  src/features/oms/deliveries/MyViews.tsx button: a saved view row applies the view: a row picker (spec 590: restyled in place)
-  src/features/oms/deliveries/MyViews.tsx button: saved-view menu item on the overlay recipe (spec 590: menu items restyled in place)
   src/features/oms/deliveries/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens: one-off
   src/features/oms/deliveries/QueryBar.tsx button: query field menu entry (menu-item recipe): restyled in place
   src/features/oms/deliveries/QueryBar.tsx button: query Discard, a non-navigating text button: restyled in place
@@ -279,10 +281,7 @@ oms/failed-donor-transfers 2
 
 oms/geography 0
 
-oms/orders 8
-  src/features/oms/orders/MyViews.tsx button: Save current view, a rail row (rail row recipe): copied from oms/deliveries (ticket 786)
-  src/features/oms/orders/MyViews.tsx button: a saved view row applies the view: a row picker, copied from oms/deliveries (ticket 786)
-  src/features/oms/orders/MyViews.tsx button: saved-view menu item on the overlay recipe, copied from oms/deliveries (ticket 786)
+oms/orders 5
   src/features/oms/orders/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens, copied from oms/deliveries (ticket 786)
   src/features/oms/orders/QueryBar.tsx button: query field menu entry (menu-item recipe), copied from oms/deliveries (ticket 786)
   src/features/oms/orders/QueryToken.tsx button: query token body opens its editor: segment of the composite token, copied from oms/deliveries (ticket 786)

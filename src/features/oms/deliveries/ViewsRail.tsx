@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { Ban, CalendarClock, Layers, PackageX, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
 import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
+import { CursorBar, RAIL_FOCUS, RAIL_HEADING } from '@/core/list/rail'
 import { LENS_IDS, type CountWording, type LensId } from './lenses'
 
 /** One icon per lens: the rail's rows and the palette's "Show: ‹lens›" rows share them. */
@@ -17,26 +18,6 @@ export const LENS_ICON: Record<LensId, LucideIcon> = {
 
 /** The LF returns queue's icon (764): its rail row and its palette row share it. */
 export const LF_RETURNS_ICON: LucideIcon = PackageX
-
-/** The rail's section heading: small caps in secondary ink (Lenses, My views). */
-export const RAIL_HEADING =
-  'px-2 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
-
-/** A rail row's focus ring, drawn inside the row so the rail's edge never clips it. */
-export const RAIL_FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring'
-
-/** A rail row's tone: the active row takes the grid's selected-row ground, the rest go quiet. */
-export const railRowTone = (active: boolean) =>
-  active ? 'bg-primary-050 font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-
-/**
- * The active row's 3px `--cursor` bar on its inline-start edge — the pair `railRowTone` grounds.
- * `edge` places it: `start-0` in a borderless row, `-start-px` in a bordered one (a lens Chip),
- * so the bar sits on the row's outer edge either way.
- */
-export function CursorBar({ edge = 'start-0' }: { edge?: 'start-0' | '-start-px' }) {
-  return <span className={'absolute inset-y-1 w-[3px] rounded-full bg-cursor ' + edge} aria-hidden />
-}
 
 /** A count's wording, "—", "12" or "12+", as one string for the caller to isolate once. */
 export function lensCountText(t: TFunction<'deliveries'>, count: CountWording): string {

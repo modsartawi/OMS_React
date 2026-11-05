@@ -10,9 +10,8 @@ import InsuranceMoneyPart from './InsuranceMoneyPart'
 import InsurancePlanPart from './InsurancePlanPart'
 import InsuranceChangesPart from './InsuranceChangesPart'
 import InsuranceReceivedPart from './InsuranceReceivedPart'
-
-/** The section's anchor: `/oms/document/<no>#insurance` opens the page on it (789's strip links here). */
-export const INSURANCE_SECTION_ID = 'insurance'
+// The section's anchor: `/oms/document/<no>#insurance` opens the page on it (789's strip links here).
+import { INSURANCE_SECTION_ID } from './insurance-section'
 
 /**
  * **The Insurance section** of Document Details (ticket 787, BackOffice spec 3389, door 3390). The

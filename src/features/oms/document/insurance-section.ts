@@ -17,6 +17,9 @@ import { describeConditionType } from '@/core/constants/oms-codes'
 import { isDeliveryCategory, type OpenedAs } from './actions'
 import type { InsuranceCondition, InsuranceLine, InsuranceMoney, OrderInsuranceRead } from '@/core/models/order-insurance'
 
+/** The Insurance section's anchor on the order's page — the `id` it draws and the `#hash` a link lands on. */
+export const INSURANCE_SECTION_ID = 'insurance'
+
 /** One money cell: a figure in the order's decimals, or the reason there is none. */
 export type MoneyCell = { kind: 'amount'; text: string } | { kind: 'unpriced' } | { kind: 'none' }
 

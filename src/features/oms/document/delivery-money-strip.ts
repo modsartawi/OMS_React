@@ -17,10 +17,7 @@ import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { OrderDocumentRow } from '@/core/models/order-document'
 import { canViewInsurance } from '@/core/oms/insurance-grant'
 import type { OpenedAs } from './actions'
-import { moneyCell, moneySourceBadge, type MoneyCell } from './insurance-section'
-
-/** The Insurance section's anchor on the order's page — `INSURANCE_SECTION_ID` in `InsuranceSection.tsx`. */
-const INSURANCE_ANCHOR = 'insurance'
+import { INSURANCE_SECTION_ID, moneyCell, moneySourceBadge, type MoneyCell } from './insurance-section'
 
 const NONE: MoneyCell = { kind: 'none' }
 
@@ -86,7 +83,7 @@ export function deliveryMoneyStrip(
     insurer: moneyCell(row.insurerTotal, currency, NONE),
     amountDue: moneyCell(delivery.amountDue, currency, NONE),
     link: canViewInsurance(access)
-      ? `/oms/document/${encodeURIComponent(delivery.refDocumentNo.trim())}#${INSURANCE_ANCHOR}`
+      ? `/oms/document/${encodeURIComponent(delivery.refDocumentNo.trim())}#${INSURANCE_SECTION_ID}`
       : null,
   }
 }

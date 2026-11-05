@@ -1,14 +1,16 @@
-import { memo, useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Trans, useTranslation } from 'react-i18next'
-import { formatClock } from '@/core/charts/format'
+import { useTranslation } from 'react-i18next'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
-import Ltr from '@/core/ui/Ltr'
 import { analyticsApi, analyticsQueryKey } from './api'
 import { effectiveQuery, panelKey, type BoardContext, type ViewPanel } from './effective-query'
+import PanelActions from './PanelActions'
+import PanelBody, { bodyState } from './PanelBody'
+import { useFullscreen, useScrollToPanel } from './panel-hooks'
+import { panelPermalink } from './panel-state'
 import Refused from './Refused'
 import { labelIn } from './view-model'
-import ViewChart, { viewTitleOf } from './ViewChart'
+import { viewTitleOf } from './ViewChart'
 
 /**
  * One panel of a board (ticket 771) on the 12-column grid: a view by reference, a text panel or a
@@ -20,7 +22,9 @@ import ViewChart, { viewTitleOf } from './ViewChart'
  * Memoised, with its effective query made inside it from the board's `context`, so when another panel's
  * fetching state re-renders the board, this panel's chart is not redrawn.
  *
- * 773 adds the panel actions and states to `ViewPanelCard`'s header (`data-board-panel-actions`).
+ * 773's panel actions and freshness sit in the header (`data-board-panel-actions`, `./PanelActions`) and
+ * its states in the body (`./PanelBody`); the card is what goes full screen, and `#panel-<id>` (the
+ * panel's permalink) scrolls to it.
  */
 
 /** The grid placement: logical columns, so the board mirrors under RTL. */
@@ -54,9 +58,23 @@ export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBo
   )
 })
 
-function Card({ panel, kind, children, ...data }: { panel: AnalyticsBoardPanel; kind: string; children: ReactNode } & Record<`data-${string}`, string | undefined>) {
+function Card({
+  panel,
+  kind,
+  children,
+  ref,
+  ...data
+}: { panel: AnalyticsBoardPanel; kind: string; children: ReactNode; ref?: Ref<HTMLElement> } & Record<`data-${string}`, string | undefined>) {
   return (
-    <article className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" style={place(panel.layout)} data-board-panel={panel.id} data-board-panel-kind={kind} {...data}>
+    <article
+      ref={ref}
+      id={`panel-${panel.id}`}
+      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 [&:fullscreen]:overflow-auto [&:fullscreen]:p-6"
+      style={place(panel.layout)}
+      data-board-panel={panel.id}
+      data-board-panel-kind={kind}
+      {...data}
+    >
       {children}
     </article>
   )
@@ -76,6 +94,10 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     retry: false,
   })
   const busy = answer.isFetching
+  const frame = useRef<HTMLElement>(null)
+  const fullscreen = useFullscreen(frame)
+  const [table, setTable] = useState(false)
+  useScrollToPanel(panel.id, frame, !!answer.data || !!answer.error)
   useEffect(() => {
     onFetching(panel.id, busy)
     return () => onFetching(panel.id, false)
@@ -99,26 +121,33 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   }
 
   const result = answer.data
-  const asOf = result ? formatClock(result.dataAsOf, lang) : ''
+  const title = viewTitleOf(item, model, lang, t)
   return (
-    <Card panel={panel} kind="view" data-board-panel-state={busy ? 'busy' : 'idle'} data-panel-key={input ? panelKey(input) : undefined}>
+    <Card ref={frame} panel={panel} kind="view" data-board-panel-state={bodyState(result, answer.error, busy)} data-panel-key={input ? panelKey(input) : undefined}>
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <h3 className="min-w-0 text-sm font-semibold tracking-tight" data-board-panel-title>
-          <bdi>{viewTitleOf(item, model, lang, t)}</bdi>
+          <bdi>{title}</bdi>
         </h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground" data-board-panel-actions>
-          {asOf && (
-            <span data-analytics-as-of>
-              <Trans t={t} i18nKey="view.dataAsOf" values={{ at: asOf }} components={{ at: <Ltr /> }} />
-            </span>
-          )}
+          <PanelActions
+            viewId={panel.viewId}
+            title={title}
+            result={result}
+            updatedAt={answer.dataUpdatedAt}
+            busy={busy}
+            definition={item.definition}
+            model={model}
+            lang={lang}
+            onRefresh={answer.refetch}
+            table={table}
+            onTable={() => setTable((on) => !on)}
+            frame={frame}
+            fullscreen={fullscreen}
+            permalink={() => panelPermalink(window.location.href, panel.id)}
+          />
         </div>
       </header>
-      {answer.error && !result ? (
-        <Refused err={answer.error} fallbackKey="view.queryFailed" />
-      ) : (
-        <ViewChart result={result} busy={busy} definition={item.definition} model={model} lang={lang} />
-      )}
+      <PanelBody result={result} error={answer.error} busy={busy} definition={item.definition} model={model} lang={lang} table={table} onRetry={answer.refetch} />
     </Card>
   )
 }

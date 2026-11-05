@@ -15,11 +15,15 @@ describe('analytics wire', () => {
   it('each of ANALYTICS-401/404 maps to its i18n key, an unknown code falls back to the server message', () => {
     expect(analyticsRefusal(coded('ANALYTICS-401'), 'fallback')).toEqual({ code: 'ANALYTICS-401', key: 'refusal.noAccess' })
     expect(analyticsRefusal(coded('ANALYTICS-404'), 'fallback')).toEqual({ code: 'ANALYTICS-404', key: 'refusal.notFound' })
+    // 773: the panel's retry states word themselves; 410 keeps the server's (the area's) reason.
+    expect(analyticsRefusal(coded('ANALYTICS-408'), 'fallback')).toEqual({ code: 'ANALYTICS-408', key: 'refusal.timedOut' })
+    expect(analyticsRefusal(coded('ANALYTICS-409'), 'fallback')).toEqual({ code: 'ANALYTICS-409', key: 'refusal.engineDown' })
+    expect(analyticsRefusal(coded('ANALYTICS-410', 'Waiting on the replica.'), 'fallback')).toEqual({ code: 'ANALYTICS-410', message: 'Waiting on the replica.' })
     expect(analyticsRefusal(coded('ANALYTICS-499', 'Something new.'), 'fallback')).toEqual({ code: 'ANALYTICS-499', message: 'Something new.' })
     expect(analyticsRefusal(new Error('boom'), 'The view could not be drawn.')).toEqual({ code: null, message: 'The view could not be drawn.' })
 
     // Each key has words in both languages, and none of them is the raw code.
-    for (const key of ['refusal.noAccess', 'refusal.notFound']) {
+    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown']) {
       for (const lng of ['en', 'ar']) {
         expect(instance.exists(key, { lng }), `${lng} ${key}`).toBe(true)
         expect(instance.t(key, { lng })).not.toMatch(/ANALYTICS/)

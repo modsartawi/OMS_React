@@ -41,11 +41,21 @@
 //   5. a store change leaves the opted-out area panel idle with its key unchanged, and re-asks the others;
 //   6. reloading the permalink restores the filters; a period preset goes to the URL and the wire as its token.
 //
+// 773 — every panel's actions, freshness and states (en, ar and dark; the clock frozen at 10:10):
+//   1. a board of panels in every state: 408 and 409 show a retry while the neighbours render; 410 the area's
+//      reason; empty "no data for these filters"; truncated "cut at the row cap";
+//   2. "data as of 09:45", "fetched 10 minutes ago"; data 50 min old shows the "data is behind" chip
+//      (icon + label, the attention status), 25 min old none;
+//   3. retry draws the timed-out panel; refresh re-asks; the table view matches the chart's members, order
+//      and figures; CSV (exact rows, no isolates), xlsx (a workbook) and PNG (from the SVG) download;
+//   4. full screen in and out; the permalink carries the filters and names the panel, and opening it brings
+//      the panel into view; the view page offers the same actions (a KPI holds PNG back, with its reason).
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
-import { DELAYS_771, ITEMS, QUERY, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { DELAYS_771, ITEMS, ITEMS_773, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, SEQUENCE_773, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -740,6 +750,165 @@ async function board771({ dir, dark = false }) {
   await context.close()
 }
 
+// ── 773 ──────────────────────────────────────────────────────────────────────────────────────────────
+const stubs773 = () => ({ items: ITEMS_773, query: QUERY_773, model: MODEL_773, querySequence: { 'v-773-slow': [...SEQUENCE_773['v-773-slow']] } })
+/** Every panel has landed: none is loading or busy. */
+const settled773 = (page) =>
+  page.waitForFunction(
+    (ids) => ids.every((id) => !['loading', 'busy', undefined].includes(document.querySelector(`[data-board-panel="${id}"]`)?.dataset.boardPanelState)),
+    PANEL_IDS_773,
+    { timeout: 15000 },
+  )
+const stateOf = (page, id) => page.locator(`[data-board-panel="${id}"]`).getAttribute('data-board-panel-state')
+const download = async (page, click) => {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), click()])
+  return { name: dl.suggestedFilename(), bytes: readFileSync(await dl.path()) }
+}
+const askedFor = (bodies, viewId) => (bodies['Analytics/Query'] ?? []).filter((b) => b.viewId === viewId).length
+
+async function panels773({ dir, dark = false }) {
+  const tag = `773 ${dir}${dark ? '-dark' : ''}`
+  const { context, page, bodies, errors } = await open({ dir, dark, ...stubs773() })
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
+  // 10:10: the fixtures' 09:45 is 25 min old (fine), the stale panel's 09:20 is 50 min (behind).
+  await page.clock.setFixedTime(new Date('2026-11-05T10:10:00'))
+  await page.goto(`${BASE}/analytics/board/b-773?region=central`)
+  await page.locator('[data-analytics-board="b-773"]').waitFor({ timeout: 10000 })
+  await settled773(page)
+  const panel = (id) => page.locator(`[data-board-panel="${id}"]`)
+
+  // ── States ──
+  const states = Object.fromEntries(await Promise.all(PANEL_IDS_773.map(async (id) => [id, await stateOf(page, id)])))
+  check(
+    `${tag}: each panel shows its own state`,
+    states['p-bar'] === 'idle' && states['p-slow'] === 'failed' && states['p-down'] === 'failed' && states['p-gone'] === 'unavailable' && states['p-empty'] === 'empty' && states['p-cut'] === 'idle' && states['p-stale'] === 'idle' && states['p-line'] === 'idle',
+    JSON.stringify(states),
+  )
+  check(`${tag}: ANALYTICS-408 shows a retry`, (await panel('p-slow').locator('[data-panel-failed="ANALYTICS-408"] [data-panel-retry]').count()) === 1)
+  check(`${tag}: ANALYTICS-409 shows a retry`, (await panel('p-down').locator('[data-panel-failed="ANALYTICS-409"] [data-panel-retry]').count()) === 1)
+  const barsBeside = await panel('p-bar').locator('.recharts-bar-rectangle path').count()
+  const lineBeside = await panel('p-line').locator('.recharts-line-curve').count()
+  check(`${tag}: … while its neighbours render (the bar's 5 bars, the line's 2 lines)`, barsBeside === 5 && lineBeside === 2, `${barsBeside} bars, ${lineBeside} lines`)
+  const gone = await panel('p-gone').locator('[data-panel-unavailable]').innerText()
+  check(`${tag}: ANALYTICS-410 shows the area's reason`, gone.includes('Waiting on the replica (753).'), gone)
+  const empty = await panel('p-empty').locator('[data-panel-empty]').innerText()
+  check(`${tag}: an empty answer says "no data for these filters"`, empty.includes('No data for these filters.'), empty)
+  const cut = await panel('p-cut').locator('[data-analytics-truncated]').innerText().catch(() => '')
+  check(`${tag}: a truncated answer says it was cut at the row cap`, cut.includes('Cut at the row cap') && (await panel('p-bar').locator('[data-analytics-truncated]').count()) === 0, cut)
+
+  // ── Freshness ──
+  const behind = await panel('p-stale').locator('[data-analytics-behind]').innerText().catch(() => '')
+  const behindIcon = await panel('p-stale').locator('[data-analytics-behind] svg').count()
+  check(`${tag}: data 50 min old shows the "data is behind" chip, with an icon and a label`, behind.includes('Data is behind') && behindIcon === 1, behind)
+  const behindTone = await panel('p-stale').locator('[data-analytics-behind] > span').evaluate((e) => getComputedStyle(e).backgroundColor)
+  check(`${tag}: … in the attention status`, behindTone === (await tokenPaint(page, '--attention-050')), behindTone)
+  check(`${tag}: data 25 min old shows no chip`, (await panel('p-bar').locator('[data-analytics-behind]').count()) === 0)
+  const asOf = await panel('p-bar').locator('[data-analytics-as-of]').innerText()
+  const fetched = await panel('p-bar').locator('[data-analytics-fetched]').innerText()
+  check(`${tag}: "data as of 09:45" and "fetched 10 minutes ago"`, asOf.includes('09:45') && fetched.includes('Fetched 10 minutes ago'), `${asOf} | ${fetched}`)
+  if (!dark) await page.screenshot({ path: `${SHOTS}/773-states-${dir}.png`, fullPage: true })
+
+  // ── Retry ──
+  const downAsked = askedFor(bodies, 'v-773-down')
+  await panel('p-slow').locator('[data-panel-retry]').click()
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-slow"]')?.dataset.boardPanelState === 'idle', null, { timeout: 5000 })
+  check(`${tag}: retrying the timed-out panel draws its answer`, (await panel('p-slow').locator('.recharts-bar-rectangle path').count()) === 2)
+  await panel('p-down').locator('[data-panel-retry]').click()
+  await page.waitForTimeout(100)
+  await settled773(page)
+  check(`${tag}: retrying the engine-down panel asks again and stays in its retry state`, askedFor(bodies, 'v-773-down') === downAsked + 1 && (await stateOf(page, 'p-down')) === 'failed', `${downAsked} → ${askedFor(bodies, 'v-773-down')}`)
+
+  // ── Refresh ──
+  const barAsked = askedFor(bodies, 'v-bar')
+  await panel('p-bar').locator('[data-panel-action="refresh"]').click()
+  await page.waitForTimeout(200)
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-bar"]')?.dataset.boardPanelState === 'idle', null, { timeout: 5000 })
+  check(`${tag}: refresh re-asks the panel`, askedFor(bodies, 'v-bar') === barAsked + 1, `${barAsked} → ${askedFor(bodies, 'v-bar')}`)
+
+  // ── Table view matches the chart ──
+  const ticks = await panel('p-bar').locator('.recharts-xAxis-tick-labels text').evaluateAll((els) => els.map((e) => e.textContent.trim()))
+  await panel('p-bar').locator('[data-panel-action="table"]').click()
+  await panel('p-bar').locator('[data-panel-table] .ag-row').first().waitFor({ timeout: 5000 })
+  const tableRows = await panel('p-bar').locator('[data-panel-table] .ag-row').evaluateAll((rows) =>
+    rows
+      .sort((a, b) => Number(a.getAttribute('row-index')) - Number(b.getAttribute('row-index')))
+      .map((r) => [r.querySelector('[col-id="channel_group"]')?.textContent.trim(), r.querySelector('[col-id="orders"]')?.textContent.trim()]),
+  )
+  check(`${tag}: the table view matches the chart (same members, same order)`, JSON.stringify(tableRows.map((r) => r[0])) === JSON.stringify(ticks), `${JSON.stringify(tableRows)} vs ${ticks}`)
+  check(`${tag}: … with the chart's figures`, JSON.stringify(tableRows.map((r) => (r[1] ?? '').replace(/[^\d]/g, ''))) === JSON.stringify(['4200', '3100', '2600', '1800', '900']), JSON.stringify(tableRows))
+  check(`${tag}: PNG is held back (with its reason) while the table shows`, (await panel('p-bar').locator('[data-panel-action="png"]').getAttribute('aria-disabled')) === 'true')
+  if (!dark) await panel('p-bar').screenshot({ path: `${SHOTS}/773-table-${dir}.png` })
+  await panel('p-bar').locator('[data-panel-action="table"]').click()
+  await panel('p-bar').locator('[data-chart="bar"]').waitFor({ timeout: 5000 })
+
+  // ── Downloads ──
+  const csv = await download(page, () => panel('p-bar').locator('[data-panel-action="csv"]').click())
+  const csvText = csv.bytes.toString('utf8')
+  const wantCsv = '﻿Channel,Orders\r\nAggregators,4200\r\nApp,3100\r\nIn store,2600\r\nWeb,1800\r\nCall center,900\r\n'
+  check(`${tag}: CSV downloads the panel's rows`, /^analytics-v-bar-\d{8}-\d{4}\.csv$/.test(csv.name) && csvText === wantCsv, `${csv.name} ${JSON.stringify(csvText)}`)
+  check(`${tag}: … with no isolate in it`, !/[⁦-⁩]/.test(csvText))
+  const xlsx = await download(page, () => panel('p-bar').locator('[data-panel-action="xlsx"]').click())
+  check(`${tag}: xlsx downloads a workbook`, /^analytics-v-bar-\d{8}-\d{4}\.xlsx$/.test(xlsx.name) && xlsx.bytes.subarray(0, 2).toString() === 'PK' && xlsx.bytes.length > 1000, `${xlsx.name} ${xlsx.bytes.length} bytes`)
+  const png = await download(page, () => panel('p-line').locator('[data-panel-action="png"]').click())
+  const isPng = png.bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  const pngW = isPng ? png.bytes.readUInt32BE(16) : 0
+  const pngH = isPng ? png.bytes.readUInt32BE(20) : 0
+  check(`${tag}: PNG downloads a picture serialised from the SVG`, /\.png$/.test(png.name) && isPng && pngW > 400 && pngH > 200 && png.bytes.length > 5000, `${png.name} ${pngW}×${pngH} ${png.bytes.length} bytes`)
+  writeFileSync(`${SHOTS}/773-download-line-${dir}${dark ? '-dark' : ''}.png`, png.bytes)
+
+  // ── Full screen ──
+  await panel('p-bar').locator('[data-panel-action="fullscreen"]').click()
+  const full = await page.waitForFunction(() => document.fullscreenElement?.dataset.boardPanel === 'p-bar', null, { timeout: 3000 }).then(() => true, () => false)
+  check(`${tag}: full screen takes the panel to the whole screen`, full)
+  if (full && !dark) await page.screenshot({ path: `${SHOTS}/773-fullscreen-${dir}.png` })
+  await panel('p-bar').locator('[data-panel-action="fullscreen"]').click()
+  const left = await page.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).then(() => true, () => false)
+  check(`${tag}: … and the same button leaves it`, left)
+
+  // ── Permalink ──
+  await panel('p-line').locator('[data-panel-action="permalink"]').click()
+  await page.waitForTimeout(300)
+  const link = await page.evaluate(() => navigator.clipboard.readText())
+  const linkUrl = new URL(link)
+  check(`${tag}: the permalink carries the board's filters and names the panel`, linkUrl.pathname === '/analytics/board/b-773' && linkUrl.searchParams.get('region') === 'central' && linkUrl.hash === '#panel-p-line', link)
+  const other = await context.newPage()
+  await installAnalyticsStubs(other, stubs773())
+  await other.clock.setFixedTime(new Date('2026-11-05T10:10:00'))
+  await other.goto(link)
+  await other.locator('[data-board-panel="p-line"] [data-chart]').first().waitFor({ timeout: 10000 })
+  await other.waitForTimeout(300)
+  const top = (await other.locator('[data-board-panel="p-line"]').boundingBox()).y
+  // Without the scroll it sits at ~1250 px, below the 900 px viewport; as the last row it can rise only so far.
+  check(`${tag}: opening the permalink brings that panel into view`, top >= -1 && top < 600, `top ${Math.round(top)}`)
+  await other.close()
+
+  check(`${tag}: no page errors`, errors.filter((e) => !/status of 50\d/.test(e)).length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function viewActions773({ dir }) {
+  const tag = `773 view ${dir}`
+  const { context, page, errors } = await open({ dir, ...stubs773() })
+  await page.clock.setFixedTime(new Date('2026-11-05T10:10:00'))
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.locator('[data-analytics-view] [data-chart="bar"]').waitFor({ timeout: 10000 })
+  const actions = await page.locator('[data-analytics-view] [data-panel-action]').evaluateAll((els) => els.map((e) => e.dataset.panelAction))
+  check(`${tag}: the view page offers the panel actions`, actions.join() === 'refresh,table,fullscreen,csv,xlsx,png,permalink', actions.join())
+  const csv = await download(page, () => page.locator('[data-analytics-view] [data-panel-action="csv"]').click())
+  check(`${tag}: … and its CSV is the view's rows`, csv.bytes.toString('utf8').startsWith('﻿Channel,Orders\r\nAggregators,4200\r\n'), JSON.stringify(csv.bytes.toString('utf8')))
+  await page.locator('[data-analytics-view] [data-panel-action="fullscreen"]').click()
+  const full = await page.waitForFunction(() => !!document.fullscreenElement?.matches('[data-analytics-view]'), null, { timeout: 3000 }).then(() => true, () => false)
+  check(`${tag}: … and its full screen`, full)
+  if (full) await page.evaluate(() => document.exitFullscreen())
+
+  await page.goto(`${BASE}/analytics/view/v-kpi`)
+  await page.locator('[data-analytics-view] [data-panel-action="png"]').waitFor({ timeout: 10000 })
+  const kpiPng = page.locator('[data-analytics-view] [data-panel-action="png"]')
+  check(`${tag}: a KPI (drawn in HTML) holds PNG back and says why`, (await kpiPng.getAttribute('aria-disabled')) === 'true' && /no picture/.test((await kpiPng.getAttribute('title')) ?? ''), await kpiPng.getAttribute('title'))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -760,6 +929,10 @@ const SCENARIOS = [
   ['771', () => board771({ dir: 'ltr' })],
   ['771', () => board771({ dir: 'rtl' })],
   ['771', () => board771({ dir: 'ltr', dark: true })],
+  ['773', () => panels773({ dir: 'ltr' })],
+  ['773', () => panels773({ dir: 'rtl' })],
+  ['773', () => panels773({ dir: 'ltr', dark: true })],
+  ['773', () => viewActions773({ dir: 'ltr' })],
 ]
 
 try {

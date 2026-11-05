@@ -152,6 +152,9 @@ export function readMembers(raw: unknown): AnalyticsMember[] {
 const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-401': 'refusal.noAccess',
   'ANALYTICS-404': 'refusal.notFound',
+  // 773: the panel's retry state. 410 has no words of its own: the area's reason (the model's, else the server's) stands.
+  'ANALYTICS-408': 'refusal.timedOut',
+  'ANALYTICS-409': 'refusal.engineDown',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { CopilotPromptVersion } from '@/core/models/copilot'
-import { RULES_MAX, canSaveRules, curatorRefused, historyRows, isRulesDirty, mergeOffer, rulesTooLong } from './rules'
+import {
+  RULES_MAX,
+  canSaveRules,
+  curatorRefused,
+  fromPromptWire,
+  fromVersionWire,
+  historyRows,
+  isRulesDirty,
+  mergeOffer,
+  rulesTooLong,
+  saveRequest,
+} from './rules'
 
 const v = (version: number, over: Partial<CopilotPromptVersion> = {}): CopilotPromptVersion => ({
   version,
@@ -50,7 +61,7 @@ describe('the house-rules editor (ticket 790)', () => {
     expect(offer.theirs).toEqual({ version: 4, text: 'their rules', savedBy: 'b.curator', savedAt: '2026-11-06T09:00:00' })
     expect(offer.mine).toEqual({ text: 'my rules', note: 'markdown' })
     // "Save mine on top" re-posts mine on their version.
-    expect(offer.saveMineOnTop).toEqual({ text: 'my rules', note: 'markdown', baseVersion: 4 })
+    expect(offer.saveMineOnTop).toEqual({ houseRules: 'my rules', note: 'markdown', baseVersion: 4 })
     // A blank note is sent as none.
     expect(mergeOffer(theirs, { text: 'my rules', note: ' ' }).saveMineOnTop.note).toBeNull()
   })
@@ -72,11 +83,52 @@ describe('the house-rules editor (ticket 790)', () => {
     expect(historyRows(null, 1)).toEqual([])
   })
 
-  it('curatorRefused_onCopilot410Only', () => {
+  it('curatorRefused_onTheFiltersBare403OrCopilot410', () => {
     const refusal = (code: string) =>
-      new ApiError('business', 'no', 403, [{ errorCode: code, errorMessage: 'no' } as never])
+      new ApiError('business', 'no', 409, [{ errorCode: code, errorMessage: 'no' } as never])
     expect(curatorRefused(refusal('COPILOT-410'))).toBe(true)
+    // BackOffice 3395: the grant filter answers first, with a bare 403 (no envelope, no code).
+    expect(curatorRefused(new ApiError('auth', 'Unexpected API error (HTTP 403)', 403))).toBe(true)
     expect(curatorRefused(refusal('COPILOT-411'))).toBe(false)
+    expect(curatorRefused(new ApiError('server', 'boom', 500))).toBe(false)
     expect(curatorRefused(new Error('x'))).toBe(false)
+  })
+
+  it('fromPromptWire_readsTheFlatViewAndHouseRules_emptyIsNone (BackOffice 3395 wire)', () => {
+    const wire = {
+      core: 'The core.',
+      houseRules: '- Rule 8\n- Rule 12',
+      version: 1,
+      savedBy: 'seed',
+      savedAt: '2026-11-06T09:00:00',
+      note: '',
+      maxLength: 4000,
+    }
+    expect(fromPromptWire(wire)).toEqual({
+      core: 'The core.',
+      active: { version: 1, text: '- Rule 8\n- Rule 12', savedBy: 'seed', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: null },
+    })
+    // Version 0: nothing stored, the built-in text, no saver and no time.
+    expect(fromPromptWire({ core: 'c', houseRules: 'built-in', version: 0, savedBy: '', savedAt: '', note: '', maxLength: 4000 }).active).toEqual({
+      version: 0,
+      text: 'built-in',
+      savedBy: null,
+      savedAt: null,
+      note: null,
+      revertedFrom: null,
+    })
+    // A bare or odd reply never throws.
+    expect(fromPromptWire(null)).toEqual({ core: '', active: { version: 0, text: '', savedBy: null, savedAt: null, note: null, revertedFrom: null } })
+  })
+
+  it('fromVersionWire_readsAHistoryRow', () => {
+    expect(
+      fromVersionWire({ version: 3, houseRules: 'v1 text', note: '  ', savedBy: 'a.curator', savedAt: '2026-11-06T10:00:00', revertedFrom: 1 }),
+    ).toEqual({ version: 3, text: 'v1 text', savedBy: 'a.curator', savedAt: '2026-11-06T10:00:00', note: null, revertedFrom: 1 })
+    expect(fromVersionWire({ version: 2, houseRules: 'x', note: 'why', savedBy: 'b', savedAt: 's', revertedFrom: null }).note).toBe('why')
+  })
+
+  it('saveRequest_sendsTheTextAsHouseRules', () => {
+    expect(saveRequest({ text: 'new rules', note: ' ' }, 4)).toEqual({ houseRules: 'new rules', note: null, baseVersion: 4 })
   })
 })

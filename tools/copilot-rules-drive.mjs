@@ -1,15 +1,16 @@
 // Copilot rules drive (ticket 790, BackOffice 3395) — curators edit the house rules, try a draft and roll back.
 //
-// Drives the REAL app in Chromium against a STATEFUL STUB of the doors: BackOffice 3395 is not minted, so there
-// is no live SIS.Api to point at. The stub answers ticket 790's proposed wire, camelCase:
-//   GET  Copilot/Access          → { canAsk, canUseMcp, canCurate }
-//   GET  Copilot/Prompt          → { core, active: version }
-//   GET  Copilot/Prompt/History  → version[] (newest first)
-//   POST Copilot/Prompt          { text, note, baseVersion } → version   (COPILOT-411 when baseVersion is stale)
-//   POST Copilot/Prompt/Try      { question, text }          → answer    (no conversation)
-//   POST Copilot/Prompt/Revert   { version, baseVersion }    → version
-//   POST Copilot/Ask             → answer with `promptVersion` = the active version
-// where version = { version, text, savedBy, savedAt, note, revertedFrom }.
+// Drives the REAL app in Chromium against a STATEFUL STUB of BackOffice 3395's doors, on its real wire (camelCase,
+// `Services/SIS.Api/Copilot/Prompt/CopilotPromptService.cs`):
+//   GET  Copilot/Access               → { canAsk, canUseMcp, canCurate }
+//   GET  Copilot/Prompt               → { core, houseRules, version, savedBy, savedAt, note, maxLength }
+//   GET  Copilot/Prompt/History?take= → version[] (newest first)
+//   POST Copilot/Prompt               { houseRules, note, baseVersion } → version   (COPILOT-411 when stale)
+//   POST Copilot/Prompt/Try           { houseRules, question }          → answer, promptVersion null
+//   POST Copilot/Prompt/Revert        { version }                       → version
+//   POST Copilot/Ask                  → answer with `promptVersion` = the active version
+// where version = { version, houseRules, note, savedBy, savedAt, revertedFrom }, `""` for none. A caller without
+// the curator grant gets the grant filter's bare 403.
 //
 // The stub's Try answers as a model would: with rule 12 in the draft, one column per compared thing; without it,
 // a "Metric | Value" list. That stands in for the live proof, which needs 3395 and a real model.
@@ -45,18 +46,19 @@ const COMPARE_Q = 'Compare Riyadh and Jeddah orders this week'
 function stubState() {
   return {
     active: 1,
-    versions: [{ version: 1, text: V1_TEXT, savedBy: 'seed', savedAt: '2026-11-05T18:00:00', note: 'Rules 8 and 12', revertedFrom: null }],
+    versions: [{ version: 1, houseRules: V1_TEXT, savedBy: 'seed', savedAt: '2026-11-05T18:00:00', note: 'Rules 8 and 12', revertedFrom: null }],
     saves: [],
     tries: [],
     reverts: [],
     asks: 0,
     refuse410: false,
+    historyTakes: [],
   }
 }
 const activeOf = (s) => s.versions.find((v) => v.version === s.active)
-function addVersion(s, text, note, savedBy, revertedFrom = null) {
+function addVersion(s, houseRules, note, savedBy, revertedFrom = null) {
   const version = Math.max(...s.versions.map((v) => v.version)) + 1
-  const v = { version, text, savedBy, savedAt: `2026-11-06T10:${String(version).padStart(2, '0')}:00`, note, revertedFrom }
+  const v = { version, houseRules, savedBy, savedAt: `2026-11-06T10:${String(version).padStart(2, '0')}:00`, note: note ?? '', revertedFrom }
   s.versions.push(v)
   s.active = version
   return v
@@ -84,29 +86,33 @@ async function open(dir, { curate = true, state = stubState() } = {}) {
     const s = state
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'a.curator', currentStoreCode: 'P001' }))
     if (p === 'Copilot/Access') return route.fulfill(envelope({ canAsk: true, canUseMcp: false, canCurate: curate }))
-    if (p.startsWith('Copilot/Prompt') && s.refuse410) return route.fulfill(refusal('COPILOT-410', 403, 'Not a copilot curator.'))
-    if (p === 'Copilot/Prompt' && req.method() === 'GET') return route.fulfill(envelope({ core: CORE, active: activeOf(s) }))
+    // The grant filter's bare 403: no envelope, no code.
+    if (p.startsWith('Copilot/Prompt') && s.refuse410) return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
+    if (p === 'Copilot/Prompt' && req.method() === 'GET') {
+      const a = activeOf(s)
+      return route.fulfill(envelope({ core: CORE, houseRules: a.houseRules, version: a.version, savedBy: a.savedBy, savedAt: a.savedAt, note: a.note, maxLength: 4000 }))
+    }
+    if (p === 'Copilot/Prompt/History') s.historyTakes.push(new URL(req.url()).searchParams.get('take'))
     if (p === 'Copilot/Prompt/History') return route.fulfill(envelope([...s.versions].sort((a, b) => b.version - a.version)))
     if (p === 'Copilot/Prompt' && req.method() === 'POST') {
       const b = req.postDataJSON()
       s.saves.push(b)
       if (b.baseVersion !== s.active) return route.fulfill(refusal('COPILOT-411', 409, 'Someone saved first.'))
-      return route.fulfill(envelope(addVersion(s, b.text, b.note, 'a.curator')))
+      return route.fulfill(envelope(addVersion(s, b.houseRules, b.note, 'a.curator')))
     }
     if (p === 'Copilot/Prompt/Try') {
       const b = req.postDataJSON()
       s.tries.push(b)
       await new Promise((r) => setTimeout(r, 400))
       return route.fulfill(
-        envelope({ conversationId: 'try', questionNo: 1, answer: answerFor(b.text), orderRefs: [], trace: [], outcome: 'answered', stoppedEarly: false, servedBy: 'gemini/gemini-3-pro', askedAt: '2026-11-06T10:00:00' }),
+        envelope({ conversationId: 'try', questionNo: 1, answer: answerFor(b.houseRules), orderRefs: [], trace: [], outcome: 'answered', stoppedEarly: false, servedBy: 'gemini/gemini-3-pro', promptVersion: null, askedAt: '2026-11-06T10:00:00' }),
       )
     }
     if (p === 'Copilot/Prompt/Revert') {
       const b = req.postDataJSON()
       s.reverts.push(b)
-      if (b.baseVersion !== s.active) return route.fulfill(refusal('COPILOT-411', 409, 'Someone saved first.'))
       const from = s.versions.find((v) => v.version === b.version)
-      return route.fulfill(envelope(addVersion(s, from.text, null, 'a.curator', from.version)))
+      return route.fulfill(envelope(addVersion(s, from.houseRules, null, 'a.curator', from.version)))
     }
     if (p === 'Copilot/Ask') {
       s.asks++
@@ -154,7 +160,7 @@ async function drive(dir) {
     const { context, page } = await open(dir, { state: st })
     await page.goto(`${BASE}/copilot/rules`)
     await page.locator('[data-rules-refused]').waitFor({ timeout: 20000 })
-    check(`${L}: COPILOT-410 from Copilot/Prompt shows the same no-access state`, plain(await page.locator('[data-rules-refused]').innerText()).includes('No access to the copilot rules'))
+    check(`${L}: the filter's bare 403 from Copilot/Prompt shows the same no-access state`, plain(await page.locator('[data-rules-refused]').innerText()).includes('No access to the copilot rules'))
     await context.close()
   }
 
@@ -193,10 +199,12 @@ async function drive(dir) {
   await page.locator('[data-rules-try-run]').click()
   await page.locator('[data-rules-try-answer]').waitFor({ timeout: 10000 })
   const head1 = (await page.locator('[data-rules-try-answer] th').allInnerTexts()).map(plain)
-  check(`${L}: Try sends the unsaved draft`, state.tries.length === 1 && JSON.stringify(state.tries[0]) === JSON.stringify({ question: COMPARE_Q, text: WITHOUT_12 }), JSON.stringify(state.tries))
+  check(`${L}: Try sends the unsaved draft`, state.tries.length === 1 && JSON.stringify(state.tries[0]) === JSON.stringify({ houseRules: WITHOUT_12, question: COMPARE_Q }), JSON.stringify(state.tries))
   check(`${L}: without rule 12 the answer is a "Metric | Value" list`, JSON.stringify(head1) === JSON.stringify(['Metric', 'Value']), head1.join('|'))
   check(`${L}: the try is labelled a draft`, plain(await page.locator('[data-rules-try-answer]').innerText()).includes('Draft. Not saved, not in your conversations'))
   check(`${L}: the try draws the answer's own provenance`, (await page.locator('[data-rules-try-answer] [data-copilot-served-by]').count()) === 1)
+  check(`${L}: …with no "rules vN" (it was answered under the draft)`, (await page.locator('[data-rules-try-answer] [data-copilot-rules]').count()) === 0)
+  check(`${L}: History is asked for take=20`, state.historyTakes.length > 0 && state.historyTakes.every((t) => t === '20'), state.historyTakes.join(','))
 
   // Put it back and try again: one column per compared thing.
   await text(page).fill(`${V1_TEXT}\n13. Name the period.`)
@@ -223,7 +231,7 @@ async function drive(dir) {
   { const nv = await page.locator('[data-rules-note]').evaluate((el) => el.tagName + ' ' + JSON.stringify(el.value) + ' ' + el.outerHTML.slice(0, 300)); check(`${L}: the note takes its text`, nv.includes('"Name the period"'), nv) }
   await save(page).click()
   await page.waitForFunction(() => document.querySelector('[data-rules-version]')?.getAttribute('data-rules-version') === '2', null, { timeout: 10000 })
-  check(`${L}: Save posts the text, the note and baseVersion 1`, JSON.stringify(state.saves[0]) === JSON.stringify({ text: `${V1_TEXT}\n13. Name the period.`, note: 'Name the period', baseVersion: 1 }), JSON.stringify(state.saves))
+  check(`${L}: Save posts the text, the note and baseVersion 1`, JSON.stringify(state.saves[0]) === JSON.stringify({ houseRules: `${V1_TEXT}\n13. Name the period.`, note: 'Name the period', baseVersion: 1 }), JSON.stringify(state.saves))
   check(`${L}: the toast says version 2`, (await toasts(page)).some((x) => x.includes('Saved as version 2. The next question uses it.')), (await toasts(page)).join(' | '))
   await page.locator('[data-rules-history-row="2"][data-active]').waitFor({ timeout: 10000 })
   check(`${L}: history marks v2 active, newest first`, (await page.locator('[data-rules-history-row]').first().getAttribute('data-rules-history-row')) === '2')
@@ -254,7 +262,7 @@ async function drive(dir) {
   check(`${L}: the confirm names the version`, plain(await page.locator('dialog', { has: page.locator('[data-rules-restore-dialog]') }).innerText()).includes('Restore version 1?'))
   await page.locator('[data-rules-restore-confirm]').click()
   await page.locator('[data-rules-history-row="3"][data-active]').waitFor({ timeout: 10000 })
-  check(`${L}: Restore posts { version: 1, baseVersion: 2 }`, JSON.stringify(state.reverts[0]) === JSON.stringify({ version: 1, baseVersion: 2 }), JSON.stringify(state.reverts))
+  check(`${L}: Restore posts { version: 1 }`, JSON.stringify(state.reverts[0]) === JSON.stringify({ version: 1 }), JSON.stringify(state.reverts))
   check(`${L}: version 3, reverted from 1`, plain(await page.locator('[data-rules-history-row="3"]').innerText()).includes('reverted from v1'))
   check(`${L}: the editor holds v1's text as v3`, (await text(page).inputValue()) === V1_TEXT && (await page.locator('[data-rules-version]').getAttribute('data-rules-version')) === '3')
   check(`${L}: the active row has no Restore`, await (async () => {
@@ -275,7 +283,7 @@ async function drive(dir) {
   )
   await page.locator('[data-rules-save-mine]').click()
   await page.waitForFunction(() => document.querySelector('[data-rules-version]')?.getAttribute('data-rules-version') === '5', null, { timeout: 10000 })
-  check(`${L}: Save mine on top re-posts on version 4`, JSON.stringify(state.saves.at(-1)) === JSON.stringify({ text: 'My rules', note: null, baseVersion: 4 }), JSON.stringify(state.saves.at(-1)))
+  check(`${L}: Save mine on top re-posts on version 4`, JSON.stringify(state.saves.at(-1)) === JSON.stringify({ houseRules: 'My rules', note: null, baseVersion: 4 }), JSON.stringify(state.saves.at(-1)))
 
   // …and Keep theirs reloads theirs.
   addVersion(state, 'Theirs again', null, 'b.curator')

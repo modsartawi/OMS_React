@@ -1,5 +1,11 @@
-import { apiErrorCode } from '@/core/api'
-import type { CopilotPromptSaveRequest, CopilotPromptVersion } from '@/core/models/copilot'
+import { apiErrorCode, isBareDenial } from '@/core/api'
+import type {
+  CopilotPrompt,
+  CopilotPromptSaveRequest,
+  CopilotPromptVersion,
+  CopilotPromptVersionWire,
+  CopilotPromptWire,
+} from '@/core/models/copilot'
 
 /**
  * The house-rules editor's pure seam (ticket 790, BackOffice 3395): when the draft is dirty, when it can be
@@ -42,7 +48,7 @@ export function canSaveRules(draft: RulesDraft, base: CopilotPromptVersion | nul
 
 /** The body a save sends. */
 export function saveRequest(draft: RulesDraft, baseVersion: number): CopilotPromptSaveRequest {
-  return { text: draft.text, note: noteOf(draft.note), baseVersion }
+  return { houseRules: draft.text, note: noteOf(draft.note), baseVersion }
 }
 
 /** The `COPILOT-411` dialog: their saved version beside my draft, and the re-post "Save mine on top" sends. */
@@ -88,5 +94,31 @@ export function historyRows(history: readonly CopilotPromptVersion[] | null | un
     }))
 }
 
-/** A refusal for want of the curator grant (`COPILOT-410`), from any of the five doors. */
-export const curatorRefused = (err: unknown): boolean => apiErrorCode(err) === NOT_CURATOR
+/**
+ * A refusal for want of the curator grant, from any of the five doors: the grant filter's bare 403 first
+ * (BackOffice 3395), or the service's own `COPILOT-410` second.
+ */
+export const curatorRefused = (err: unknown): boolean => isBareDenial(err) || apiErrorCode(err) === NOT_CURATOR
+
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+const orNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
+const whole = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+
+/** One version off the wire: `houseRules` is the text, and an empty saver, time or note is none. */
+export function fromVersionWire(w: Partial<CopilotPromptVersionWire> | null | undefined): CopilotPromptVersion {
+  const v = w ?? {}
+  return {
+    version: whole(v.version),
+    text: str(v.houseRules),
+    savedBy: orNull(v.savedBy),
+    savedAt: orNull(v.savedAt),
+    note: orNull(v.note),
+    revertedFrom: typeof v.revertedFrom === 'number' ? v.revertedFrom : null,
+  }
+}
+
+/** `GET Copilot/Prompt`'s flat view as the core and the active version. */
+export function fromPromptWire(w: Partial<CopilotPromptWire> | null | undefined): CopilotPrompt {
+  const v = w ?? {}
+  return { core: str(v.core), active: fromVersionWire({ ...v, revertedFrom: null }) }
+}

@@ -163,3 +163,20 @@ lists, inline marks) in the working tree:
 - an order number in `` `code` `` is no longer linked;
 - a numbered list split by blank lines restarts at 1;
 - `## Migrating to C#` loses its `#`. The closing-hash strip needs `\s+#+`.
+
+### 2026-11-06 — moved onto 3395's real wire (owner: "it's returning error")
+
+After the owner deployed SIS.Api with BackOffice 3395 (`4f9bf5ed2`), the screen failed: the client's proposed
+contract did not match what the server built. The client now reads 3395's own wire, mapped at the edge by
+`fromPromptWire` / `fromVersionWire` in `rules.ts` (tested), so the screen logic is unchanged:
+
+- `GET Copilot/Prompt` is flat — `{ core, houseRules, version, savedBy, savedAt, note, maxLength }`, not
+  `{ core, active }` (the page read `data.active.text` and crashed).
+- The text is `houseRules` everywhere: version rows, the Save body `{ houseRules, note, baseVersion }` and the Try
+  body `{ houseRules, question }`. `""` means none for saver, time and note.
+- `GET Copilot/Prompt/History?take=20`; Revert takes `{ version }` only.
+- Without the curator grant the filter answers a **bare 403** first (`COPILOT-410` is the second line); both now
+  show the no-access state. Try's answer has `promptVersion: null`.
+
+Drive moved to the same wire: 88/88 (LTR + RTL). 667 test files and build green. Still owed: the walk on the deployed
+host (both `COPILOT_USER` and `COPILOT_CURATOR` are needed, and SQL `004_create_copilot_prompt.sql` before the build).

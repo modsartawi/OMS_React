@@ -204,6 +204,8 @@ export interface TableView {
   columns: TableColumn[]
   /** The rows after the sort and the top N; a dimension's member is replaced by its label. */
   rows: Record<string, string | number | null>[]
+  /** Each row's first-dimension member key, by row (772: a row click cross-filters on it). */
+  members: string[]
   sort: { key: string; direction: 'asc' | 'desc' } | null
   /** True when the top N cut rows off. */
   cut: boolean
@@ -253,7 +255,8 @@ export function toTableView(
       return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max }
     }),
   ]
-  return { kind: 'table', columns, rows, sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
+  const members = kept.map((r) => String(r[dimKeys[0]] ?? ''))
+  return { kind: 'table', columns, rows, members, sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
 }
 
 // ── Combo ────────────────────────────────────────────────────────────────────────────────────────────

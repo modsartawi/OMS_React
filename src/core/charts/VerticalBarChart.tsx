@@ -30,6 +30,8 @@ export default function VerticalBarChart({
   locale,
   ariaLabel,
   height = 320,
+  onPoint,
+  selected,
 }: {
   points: readonly VerticalBarPoint[]
   colourBy: 'member' | 'single'
@@ -38,6 +40,10 @@ export default function VerticalBarChart({
   locale: string
   ariaLabel: string
   height?: number
+  /** A click on a bar (772's cross-filter): the bar's member. Absent → the bars are not clickable. */
+  onPoint?: (member: string) => void
+  /** The member a cross-filter was clicked on here: the other bars dim. */
+  selected?: string | null
 }) {
   const data = points.map((p) => ({ ...p, fill: colourBy === 'member' ? slotColour(p.slot) : slotColour(0) }))
   const tick = { fill: CHART_INK.tick, fontSize: 11 }
@@ -76,9 +82,23 @@ export default function VerticalBarChart({
             itemStyle={{ color: CHART_INK.legend }}
             formatter={(v) => [formatValue(typeof v === 'number' ? v : null, unit, locale), measureLabel]}
           />
-          <Bar dataKey="value" name={measureLabel} radius={[3, 3, 0, 0]} isAnimationActive={false}>
+          <Bar
+            dataKey="value"
+            name={measureLabel}
+            radius={[3, 3, 0, 0]}
+            isAnimationActive={false}
+            cursor={onPoint ? 'pointer' : undefined}
+            onClick={onPoint ? (_d: unknown, i: number) => data[i] && onPoint(data[i].member) : undefined}
+          >
             {data.map((p) => (
-              <Cell key={p.member} fill={p.fill} data-member={p.member} data-slot={p.slot ?? ''} />
+              <Cell
+                key={p.member}
+                fill={p.fill}
+                fillOpacity={selected && selected !== p.member ? 0.35 : 1}
+                data-member={p.member}
+                data-slot={p.slot ?? ''}
+                data-selected={selected === p.member ? 'true' : undefined}
+              />
             ))}
           </Bar>
         </BarChart>

@@ -61,6 +61,7 @@ export default function SeriesChart({
   ariaLabel,
   otherCount = 0,
   height = 320,
+  onPoint,
   legend: legendAt = 'bottom',
 }: {
   form: 'line' | 'area' | 'bar'
@@ -76,6 +77,8 @@ export default function SeriesChart({
   /** How many members the "Other" series folds (its legend says "Other (n)"). */
   otherCount?: number
   height?: number
+  /** Bars only (772's cross-filter): a click on a bar gives its category member (`rows[i].x`). */
+  onPoint?: (x: string) => void
   /** Where the legend sits (755 item 4, ticket 775); `end` is the reading end, so it mirrors under RTL. */
   legend?: AnalyticsLegendPosition
 }) {
@@ -211,6 +214,8 @@ export default function SeriesChart({
             fill={s.colour}
             radius={stackId ? 0 : horizontal ? (chartMirror.rtl ? [3, 0, 0, 3] : [0, 3, 3, 0]) : [3, 3, 0, 0]}
             isAnimationActive={false}
+            cursor={onPoint ? 'pointer' : undefined}
+            onClick={onPoint ? (_d: unknown, i: number) => rows[i] && onPoint(rows[i].x) : undefined}
           >
             {single && data.map((p, i) => <Cell key={rows[i].x} fill={p.fill} data-member={rows[i].x} data-slot={rows[i].slot ?? ''} />)}
           </Bar>

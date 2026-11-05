@@ -1,5 +1,5 @@
 import type { BoardFilters, BoardPeriod, PeriodToken } from '@/core/models/analytics'
-import { CATEGORY_FILTERS, periodToken } from './effective-query'
+import { CATEGORY_FILTERS, periodToken, type CrossFilter } from './effective-query'
 
 /**
  * The board's permalink (spec 766 §F, ticket 771) — the board filters live in the query string, and
@@ -7,7 +7,7 @@ import { CATEGORY_FILTERS, periodToken } from './effective-query'
  * range is `period=2026-10-01..2026-10-31`, and each member of a category filter is its own param
  * (`store=P001&store=P002`), so no member value needs escaping.
  *
- * Only the board filters' params are touched: 772's cross-filter and 780's `tv` / `refresh` keep theirs.
+ * Only the board filters' params are touched by `writeBoardFilters`: the cross-filter (`writeCrossFilter`) and 780's `tv` / `refresh` keep theirs.
  */
 
 export const PERIOD_TOKENS: readonly PeriodToken[] = [
@@ -54,6 +54,31 @@ export function writeBoardFilters(params: URLSearchParams, filters: BoardFilters
     next.delete(f)
     for (const v of filters[f]) next.append(f, v)
     if (filters[f].length === 0 && defaults && defaults[f].length > 0) next.set(f, '')
+  }
+  return next
+}
+
+/**
+ * The cross-filter in the permalink (772): `cross=<dimension>:<member>` plus `crossFrom=<panel id>`, the
+ * panel it was clicked on (which does not re-run). Split at the FIRST colon: dimension keys hold none.
+ */
+export function readCrossFilter(params: URLSearchParams): CrossFilter | null {
+  const raw = params.get('cross')
+  const source = params.get('crossFrom')
+  if (!raw || !source) return null
+  const at = raw.indexOf(':')
+  if (at <= 0 || at === raw.length - 1) return null
+  return { source, dimension: raw.slice(0, at), member: raw.slice(at + 1) }
+}
+
+/** `params` with the cross-filter written over it, or removed when `null` (a new object; the rest kept). */
+export function writeCrossFilter(params: URLSearchParams, cross: CrossFilter | null): URLSearchParams {
+  const next = new URLSearchParams(params)
+  next.delete('cross')
+  next.delete('crossFrom')
+  if (cross) {
+    next.set('cross', `${cross.dimension}:${cross.member}`)
+    next.set('crossFrom', cross.source)
   }
   return next
 }

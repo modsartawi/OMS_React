@@ -10,9 +10,11 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey 
 import AskBox from './AskBox'
 import { boardDefaults, inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
 import BoardPanel from './BoardPanel'
-import type { BoardContext, ViewPanel } from './effective-query'
+import CrossFilterChip from './CrossFilterChip'
+import { toggleCrossFilter } from './drill'
+import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
-import { readBoardFilters, writeBoardFilters } from './permalink'
+import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
 import { labelIn } from './view-model'
 
@@ -24,7 +26,9 @@ import { labelIn } from './view-model'
  * a filter change re-asks only the panels it reaches, each redraws on its own answer, and the strip counts
  * them in — "Updating… n of N panels".
  *
- * 772 adds the cross-filter and drill (to `BoardContext`, and the URL); 773 the panel actions and states.
+ * The cross-filter (772) is in `BoardContext` and the URL (`cross`, `crossFrom`): a click on a mark sets it,
+ * the same click clears it, and it re-asks every panel it reaches but the one clicked. Drill by is each
+ * panel's own (`BoardPanel`). 773 adds the panel actions and states.
  */
 export default function AnalyticsBoardPage() {
   const { t } = useTranslation('boards')
@@ -80,7 +84,20 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   })
   const byPanel = new Map(viewPanels.map((p, i) => [p.id, items[i]]))
 
-  const context: BoardContext = useMemo(() => ({ filters }), [filters])
+  const crossKey = params.get('cross') ?? ''
+  const crossFrom = params.get('crossFrom') ?? ''
+  // Keyed on the two params, so a board filter change keeps the same cross-filter object.
+  const crossFilter = useMemo(
+    () => readCrossFilter(new URLSearchParams([['cross', crossKey], ['crossFrom', crossFrom]])),
+    [crossKey, crossFrom],
+  )
+  const onCross = useCallback(
+    (clicked: CrossFilter) => setParams((prev) => writeCrossFilter(prev, toggleCrossFilter(readCrossFilter(prev), clicked)), { replace: true }),
+    [setParams],
+  )
+  const clearCross = useCallback(() => setParams((prev) => writeCrossFilter(prev, null), { replace: true }), [setParams])
+
+  const context: BoardContext = useMemo(() => ({ filters, crossFilter }), [filters, crossFilter])
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
@@ -96,6 +113,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <AskBox />
       </div>
       <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+      {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
       {panels.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-analytics-board-empty>
           {t('board.empty')}
@@ -104,7 +122,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
           {panels.map((p) => {
             const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
-            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} />
+            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} />
           })}
         </div>
       )}

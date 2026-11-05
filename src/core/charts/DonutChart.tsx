@@ -34,6 +34,8 @@ export default function DonutChart({
   locale,
   ariaLabel,
   height = 280,
+  onPoint,
+  selected,
 }: {
   slices: readonly DonutSlicePoint[]
   total: number
@@ -41,6 +43,10 @@ export default function DonutChart({
   locale: string
   ariaLabel: string
   height?: number
+  /** A click on a slice (772's cross-filter): the slice's member. "Other" (slot `null`) is never a point. */
+  onPoint?: (member: string) => void
+  /** The member a cross-filter was clicked on here: the other slices dim. */
+  selected?: string | null
 }) {
   const { t } = useTranslation('common')
   const data = slices.map((s) => ({ ...s, fill: slotColour(s.slot) }))
@@ -63,9 +69,18 @@ export default function DonutChart({
               paddingAngle={1}
               stroke={CHART_INK.card}
               isAnimationActive={false}
+              onClick={onPoint ? (_d: unknown, i: number) => data[i] && data[i].slot !== null && onPoint(data[i].member) : undefined}
             >
               {data.map((s) => (
-                <Cell key={s.member} fill={s.fill} data-member={s.member} data-slot={s.slot ?? ''} />
+                <Cell
+                  key={s.member}
+                  fill={s.fill}
+                  fillOpacity={selected && selected !== s.member ? 0.35 : 1}
+                  cursor={onPoint && s.slot !== null ? 'pointer' : undefined}
+                  data-member={s.member}
+                  data-slot={s.slot ?? ''}
+                  data-selected={selected === s.member ? 'true' : undefined}
+                />
               ))}
             </Pie>
             <Tooltip

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 771
 ---
@@ -20,8 +20,8 @@ store/logic (cross-filter in the effective query) · component · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `effective query: a cross-filter reaches every panel except the source and the opted-out` · pure (vitest)
-- [ ] `click a store row: the other panels go busy, the clicked panel does not; click again clears it; drill by shows its breadcrumb` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `effective query: a cross-filter reaches every panel except the source and the opted-out` · pure (vitest)
+- [x] `click a store row: the other panels go busy, the clicked panel does not; click again clears it; drill by shows its breadcrumb` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

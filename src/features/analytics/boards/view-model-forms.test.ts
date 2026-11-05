@@ -162,6 +162,8 @@ describe('view model: the table and the combo', () => {
     const top = toTableView(rows, { ...d, chart: { type: 'table', sort: { key: 'on_time', direction: 'asc' }, topN: 2 } }, MODEL, 'en')
     expect(top.rows.map((r) => r.store)).toEqual(['P1', 'P3'])
     expect(top.cut).toBe(true)
+    // 772: each row's first-dimension MEMBER (not its label), so a row click cross-filters on the key.
+    expect(top.members).toEqual(['P1', 'P3'])
   })
 
   it('a combo pairs the volume measure (bars) with the rate measure (line) on one category axis', () => {

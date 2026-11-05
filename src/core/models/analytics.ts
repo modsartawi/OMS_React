@@ -195,7 +195,10 @@ export type AnalyticsQueryInput = (
    * resolves, or a fixed range written `from..to` (ISO days). Absent: the view's own period.
    */
   period?: string
-  /** ⚠ The cross-filter arrives with 772. */
+  /**
+   * ⚠ The cross-filter (772): the one member clicked on another panel, `{ dimension, values: [member] }`.
+   * Absent when it does not reach this panel (its source, opted out, or a dimension its measures lack).
+   */
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
 }
@@ -226,8 +229,8 @@ export interface AnalyticsQueryResult {
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────
 // ⚠ 766 §C names the board as an item kind but fixes no definition shape: this is the web's proposal.
 
-/** The board filters a panel can opt out of (766 §F). 772 adds `crossFilter` to the same list. */
-export type BoardFilterKey = 'period' | 'city' | 'region' | 'store' | 'channel' | 'country'
+/** The board filters a panel can opt out of (766 §F), and the cross-filter (772). */
+export type BoardFilterKey = 'period' | 'city' | 'region' | 'store' | 'channel' | 'country' | 'crossFilter'
 
 /** The relative period tokens (766 story 21), resolved by the server in Riyadh time with Sunday weeks. */
 export type PeriodToken =

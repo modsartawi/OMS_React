@@ -1,5 +1,5 @@
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
-import type { AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
 import { readDefinition } from './wire'
 
 /**
@@ -20,8 +20,8 @@ export const PERIODS = [
   'this-month',
   'last-month',
   'year-to-date',
-] as const
-export const DEFAULT_PERIOD = 'last-30-days'
+] as const satisfies readonly PeriodToken[]
+export const DEFAULT_PERIOD: PeriodToken = 'last-30-days'
 
 export const NUMBER_FORMATS = ['auto', 'integer', 'decimal', 'percent', 'SAR', 'minutes'] as const
 export const LEGEND_POSITIONS = ['bottom', 'top', 'end', 'hidden'] as const

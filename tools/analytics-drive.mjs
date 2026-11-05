@@ -29,14 +29,23 @@
 //   1. Certified, Shared, then Mine, newest first within each, from a list served in neither order;
 //   2. each item's tier badge, owner and last change (LTR-isolated); an untitled view's generated title;
 //   3. search narrows by an English or an Arabic title, without another call; no match says so;
-//   4. a view opens `/analytics/view/:id`, a board `/analytics/board/:id` (not-found until 771);
+//   4. a view opens `/analytics/view/:id`, a board `/analytics/board/:id`;
 //   5. an empty list is the how-to-start empty state.
+//
+// 771 — a board's filters re-ask every panel and stream each answer (en, ar and dark):
+//   1. the panels sit in logical order on the 12-column grid (mirrored under ar); the ask box is in the header;
+//   2. each panel asks Query for its view with the board's period as a relative token and no filters;
+//   3. picking a region: within 0.5 s the strip shows "Updating… n of N" and every view panel is busy; then
+//      the panels land one by one (KPI, bar, line, area) and the strip counts 1/4, 2/4, 3/4 on the way;
+//   4. every re-ask carries the region; the URL carries it too (the permalink);
+//   5. a store change leaves the opted-out area panel idle with its key unchanged, and re-asks the others;
+//   6. reloading the permalink restores the filters; a period preset goes to the URL and the wire as its token.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -524,8 +533,8 @@ async function homeLists({ dir }) {
     await page.goBack()
     await row('b-ops').locator('a').click()
     await page.waitForURL('**/analytics/board/b-ops', { timeout: 5000 })
-    await page.locator('[data-analytics-state="not-found"]').waitFor({ timeout: 10000 })
-    check('770 a board opens /analytics/board/:id, its not-found state until 771', true)
+    await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+    check('770 a board opens /analytics/board/:id', true)
   }
   check(`770 ${dir}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
@@ -728,6 +737,8 @@ async function editorSeededAndRefusals() {
   await p3.waitFor({ timeout: 10000 })
   check(`${tag}: each member offers the five chart tokens only`, (await p3.locator('[data-colour-slot]').count()) === 5)
   await p3.locator('[data-colour-slot="0"]').click()
+  // The preview re-asks a moment after the pick (debounced), then repaints.
+  await page.waitForFunction(() => document.querySelectorAll('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path')[2]?.getAttribute('fill') === 'var(--chart-1)' && document.querySelectorAll('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path')[0]?.getAttribute('fill') !== 'var(--chart-1)', null, { timeout: 5000 }).catch(() => {})
   const fills = await page.locator('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path').evaluateAll((els) => els.map((e) => e.getAttribute('fill')))
   check(`${tag}: P003 takes --chart-1 and P001 its old slot`, fills[2] === 'var(--chart-1)' && fills[0] === 'var(--chart-3)', fills.join(' '))
 
@@ -749,6 +760,134 @@ async function editorSeededAndRefusals() {
   await context.close()
 }
 
+// ── 771 ──────────────────────────────────────────────────────────────────────────────────────────────
+const VIEW_PANELS = ['p-kpi', 'p-bar', 'p-line', 'p-area']
+const panelStates = (page) =>
+  page.locator('[data-board-panel-kind="view"]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.dataset.boardPanel, e.dataset.boardPanelState])))
+const allIdle = (page) =>
+  page.waitForFunction(
+    (ids) =>
+      ids.every((id) => document.querySelector(`[data-board-panel="${id}"]`)?.dataset.boardPanelState === 'idle') &&
+      document.querySelector('[data-board-stream]')?.dataset.boardStream === 'idle',
+    VIEW_PANELS,
+    { timeout: 15000 },
+  )
+/** Record, from now, when every view panel is busy, when each lands (goes idle) and every count the strip shows. */
+const watchStream = (page) =>
+  page.evaluate(() => {
+    const log = { t0: performance.now(), landed: {}, counts: [], busyAt: null, clickAt: null }
+    window.__stream = log
+    // Timed from the user's click as the page receives it, not from the driver's call (its actionability waits).
+    document.addEventListener('click', () => (log.clickAt ??= performance.now() - log.t0), { capture: true, once: true })
+    const tick = () => {
+      const cards = ['p-kpi', 'p-bar', 'p-line', 'p-area'].map((id) => document.querySelector(`[data-board-panel="${id}"]`))
+      const strip = document.querySelector('[data-board-stream-count]')?.dataset.boardStreamCount
+      if (strip && log.counts.at(-1) !== strip) log.counts.push(strip)
+      if (log.busyAt === null && strip && cards.every((c) => c.dataset.boardPanelState === 'busy')) log.busyAt = performance.now() - log.t0
+      for (const c of cards) {
+        const id = c.dataset.boardPanel
+        if (c.dataset.boardPanelState === 'busy') log.landed[id] = null
+        else if (log.landed[id] === null) log.landed[id] = performance.now() - log.t0
+      }
+      if (performance.now() - log.t0 < 8000) requestAnimationFrame(tick)
+    }
+    tick()
+  })
+const pickMember = async (page, filter, member) => {
+  const box = page.locator(`[data-testid="board-filter-${filter}"]`)
+  await box.locator('[data-multi-select-trigger]').click()
+  await box.locator(`[data-option="${member}"] input`).waitFor({ timeout: 5000 })
+  return box
+}
+const lastBodies = (bodies, n) => (bodies['Analytics/Query'] ?? []).slice(-n)
+
+async function board771({ dir, dark = false }) {
+  const tag = `771 ${dir}${dark ? '-dark' : ''}`
+  const { context, page, bodies, errors } = await open({ dir, dark, queryDelayFor: DELAYS_771, copilot: 'granted' })
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  await allIdle(page)
+
+  const order = await page.locator('[data-board-grid] > [data-board-panel]').evaluateAll((els) => els.map((e) => e.dataset.boardPanel))
+  check(`${tag}: the panels read in logical order`, JSON.stringify(order) === JSON.stringify(['p-head', 'p-kpi', 'p-bar', 'p-line', 'p-area', 'p-donut', 'p-note']), order.join(' '))
+  check(`${tag}: a donut panel draws through the view page's form dispatch (769)`, await page.locator('[data-board-panel="p-donut"] [data-chart="donut"]').isVisible())
+  const donutKey = await page.locator('[data-board-panel="p-donut"]').getAttribute('data-panel-key')
+  const box = (id) => page.locator(`[data-board-panel="${id}"]`).boundingBox()
+  const kpi = await box('p-kpi')
+  const bar = await box('p-bar')
+  check(`${tag}: the grid mirrors with the direction (the KPI ${dir === 'rtl' ? 'right' : 'left'} of the bar)`, dir === 'rtl' ? kpi.x > bar.x : kpi.x < bar.x, `${kpi.x} vs ${bar.x}`)
+  check(`${tag}: the ask box sits in the board's header row`, await page.locator('[data-analytics-board-header] [data-analytics-ask]').isVisible())
+  const first = (bodies['Analytics/Query'] ?? []).filter((b) => b.viewId !== 'v-donut')
+  check(`${tag}: the panel opted out of every filter sends neither filters nor a period`, JSON.stringify((bodies['Analytics/Query'] ?? []).find((b) => b.viewId === 'v-donut')) === JSON.stringify({ viewId: 'v-donut', revision: 3, filters: [] }))
+  check(
+    `${tag}: each panel asks for its view, the period as a relative token, no filters`,
+    first.length === 4 && first.every((b) => b.period === 'last-30-days' && b.filters.length === 0 && typeof b.revision === 'number'),
+    JSON.stringify(first),
+  )
+  if (!dark) await page.screenshot({ path: `${SHOTS}/771-board-${dir}.png`, fullPage: true })
+
+  // A region change: the strip and every card busy within 0.5 s, then the panels land one by one.
+  const regionBox = await pickMember(page, 'region', 'central')
+  await watchStream(page)
+  await regionBox.locator('[data-option="central"] input').click()
+  await page.waitForTimeout(300)
+  if (!dark) await page.screenshot({ path: `${SHOTS}/771-streaming-${dir}.png`, fullPage: true })
+  await allIdle(page)
+  const log = await page.evaluate(() => window.__stream)
+  const busyIn = log.busyAt - (log.clickAt ?? 0)
+  check(`${tag}: within 0.5 s of the click the strip shows and every view panel is busy`, log.busyAt !== null && busyIn < 500, `${Math.round(busyIn)} ms after the click`)
+  const landed = VIEW_PANELS.map((id) => log.landed[id])
+  const oneByOne = landed.every((t, i) => typeof t === 'number' && (i === 0 || t - landed[i - 1] > 300))
+  check(`${tag}: the panels land one by one (KPI, bar, line, area)`, oneByOne, landed.map((t) => Math.round(t)).join(' < '))
+  check(`${tag}: the strip counts n of N on the way`, ['0/4', '1/4', '2/4', '3/4'].every((c) => log.counts.includes(c)), log.counts.join(' '))
+  const reAsked = lastBodies(bodies, 4)
+  check(
+    `${tag}: every re-ask carries the region`,
+    reAsked.length === 4 && reAsked.every((b) => JSON.stringify(b.filters) === JSON.stringify([{ dimension: 'region', values: ['central'] }])),
+    JSON.stringify(reAsked.map((b) => b.filters)),
+  )
+  check(`${tag}: the fully opted-out donut keeps its key and never re-asks`, (await page.locator('[data-board-panel="p-donut"]').getAttribute('data-panel-key')) === donutKey && bodies['Analytics/Query'].filter((b) => b.viewId === 'v-donut').length === 1)
+  check(`${tag}: the URL carries the region (the permalink)`, new URL(page.url()).searchParams.getAll('region').join() === 'central', page.url())
+  await page.keyboard.press('Escape')
+
+  // A store change: the area panel opted out of it, so it stays idle and keeps its key.
+  const keyOf = (id) => page.locator(`[data-board-panel="${id}"]`).getAttribute('data-panel-key')
+  const areaKey = await keyOf('p-area')
+  const before = (bodies['Analytics/Query'] ?? []).length
+  const storeBox = await pickMember(page, 'store', 'P001')
+  await storeBox.locator('[data-option="P001"] input').click()
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-kpi"]')?.dataset.boardPanelState === 'busy', null, { timeout: 2000 })
+  const during = await panelStates(page)
+  await allIdle(page)
+  const asked = (bodies['Analytics/Query'] ?? []).slice(before).map((b) => b.viewId)
+  check(`${tag}: a store change leaves the opted-out area panel idle`, during['p-area'] === 'idle' && during['p-bar'] === 'busy', JSON.stringify(during))
+  check(
+    `${tag}: … with its key unchanged, and re-asks only the three it reaches`,
+    (await keyOf('p-area')) === areaKey && asked.sort().join() === 'v-bar,v-kpi,v-line-measures',
+    asked.join(' '),
+  )
+  await page.keyboard.press('Escape')
+
+  // The permalink: a reload restores the filters, and a period preset goes to the URL as its token.
+  await page.reload()
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  await allIdle(page)
+  const chips = await page.locator('[data-board-filters] [data-chip]').evaluateAll((els) => els.map((e) => e.dataset.chip).sort())
+  check(`${tag}: reloading the permalink restores the filters`, chips.join() === 'P001,central', chips.join())
+  await page.locator('[data-board-filter-period]').selectOption('last-week')
+  await page.waitForFunction(() => document.querySelector('[data-board-stream]')?.dataset.boardStream === 'running', null, { timeout: 2000 })
+  await allIdle(page)
+  const periods = lastBodies(bodies, 4).map((b) => b.period)
+  check(
+    `${tag}: a period preset goes to the URL and the wire as its relative token`,
+    new URL(page.url()).searchParams.get('period') === 'last-week' && periods.every((p) => p === 'last-week'),
+    `${page.url()} ${periods}`,
+  )
+  if (dark) await page.screenshot({ path: `${SHOTS}/771-board-dark.png`, fullPage: true })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -766,6 +905,9 @@ const SCENARIOS = [
   ['770', homeEmpty],
   ['782', () => askBox({ dir: 'ltr' })],
   ['782', () => askBox({ dir: 'rtl' })],
+  ['771', () => board771({ dir: 'ltr' })],
+  ['771', () => board771({ dir: 'rtl' })],
+  ['771', () => board771({ dir: 'ltr', dark: true })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'rtl', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: true })],

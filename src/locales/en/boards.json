@@ -42,7 +42,41 @@
     "title": "Board",
     "subtitle": "Panels over the governed analytics model.",
     "notFoundTitle": "Board not found",
-    "notYet": "Boards cannot be opened here yet."
+    "noAccessTitle": "No access to this board",
+    "loading": "Loading the board…",
+    "loadFailed": "The board could not be loaded",
+    "empty": "This board has no panels yet.",
+    "panelLoading": "Loading the panel…",
+    "viewFailed": "This panel's view could not be loaded",
+    "filters": {
+      "label": "Board filters",
+      "period": "Period",
+      "city": "City",
+      "region": "Region",
+      "store": "Store",
+      "channel": "Channel",
+      "country": "Country",
+      "from": "From",
+      "to": "To"
+    },
+    "period": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this-week": "This week",
+      "last-week": "Last week",
+      "last-7-days": "Last 7 days",
+      "last-28-days": "Last 28 days",
+      "last-30-days": "Last 30 days",
+      "this-month": "This month",
+      "last-month": "Last month",
+      "year-to-date": "Year to date",
+      "fixed": "Fixed range"
+    },
+    "stream": {
+      "updating": "Updating… <done>{{done}}</done> of <total>{{total}}</total> panels",
+      "settled": "Every panel is up to date.",
+      "progress": "{{done}} of {{total}} panels updated"
+    }
   },
   "view": {
     "title": "Analytics view",

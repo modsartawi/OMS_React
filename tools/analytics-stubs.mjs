@@ -34,7 +34,7 @@ export const MODEL = {
       unit: 'count',
       label: label('Orders', 'الطلبات'),
       description: label('Orders placed', 'الطلبات المقدمة'),
-      dimensions: ['channel_group', 'store', 'day'],
+      dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'],
     },
     {
       key: 'till_value',
@@ -43,7 +43,7 @@ export const MODEL = {
       unit: 'SAR',
       label: label('Value through our tills', 'القيمة عبر صناديقنا'),
       description: label('Value through our tills', 'القيمة عبر صناديقنا'),
-      dimensions: ['channel_group', 'store', 'day'],
+      dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'],
     },
     {
       key: 'deliveries',
@@ -52,7 +52,7 @@ export const MODEL = {
       unit: 'count',
       label: label('Deliveries', 'التوصيلات'),
       description: label('Deliveries completed', 'التوصيلات المكتملة'),
-      dimensions: ['channel_group', 'store', 'day'],
+      dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'],
     },
     // 769: a rate (never in a donut; the combo's lower pane).
     {
@@ -62,7 +62,7 @@ export const MODEL = {
       unit: 'share',
       label: label('On-time share', 'نسبة الالتزام بالوقت'),
       description: label('Deliveries on time ÷ deliveries', 'التوصيلات في الوقت ÷ التوصيلات'),
-      dimensions: ['channel_group', 'store', 'day'],
+      dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'],
     },
     // 775: Q8's percentiles (capped at 92 days) and a measure in the unavailable callouts area.
     {
@@ -109,6 +109,18 @@ export const MODEL = {
       ],
     },
     { key: 'store', kind: 'category', label: label('Store', 'الفرع') },
+    // 771: the place filters. City and region are searched (`DimensionValues`); country is small and inline.
+    { key: 'city', kind: 'category', label: label('City', 'المدينة') },
+    { key: 'region', kind: 'category', label: label('Region', 'المنطقة') },
+    {
+      key: 'country',
+      kind: 'category',
+      label: label('Country', 'الدولة'),
+      values: [
+        { key: 'SA', label: label('Saudi Arabia', 'السعودية') },
+        { key: 'AE', label: label('United Arab Emirates', 'الإمارات') },
+      ],
+    },
     { key: 'day', kind: 'time', label: label('Day', 'اليوم') },
     // 769's heatmap axes.
     { key: 'weekday', kind: 'category', label: label('Weekday', 'يوم الأسبوع'), values: [] },
@@ -165,6 +177,47 @@ export const ITEMS = {
   }),
   'v-heatmap': view('v-heatmap', { definition: { chart: { type: 'heatmap' }, query: { measures: ['orders'], dimensions: ['weekday', 'hour'], filters: [] } } }),
   'v-combo': view('v-combo', { definition: { chart: { type: 'combo' }, query: { measures: ['orders', 'on_time_share'], dimensions: ['day'], filters: [] } } }),
+}
+
+// ── 771: a board of four views, a section header and a text panel ────────────────────────────────────
+// Laid out out of DOM order on purpose (the page reads them row by row, then column by column). The area
+// panel opts out of the store filter, so a store change leaves it alone; the donut opts out of them all.
+export const BOARD_771 = {
+  ...view('b-ops', { title: label('Operations week', 'أسبوع العمليات'), tier: 'certified', owner: 'curator1', updatedAt: '2026-10-20T08:00:00' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-note', kind: 'text', text: label('Figures are for HQ use only.', 'الأرقام لاستخدام الإدارة فقط.'), layout: { x: 0, y: 10, w: 12, h: 1 } },
+      // A 769 form through the same dispatch as the view page, opted out of every board filter: it never re-asks.
+      { id: 'p-donut', kind: 'view', viewId: 'v-donut', layout: { x: 0, y: 7, w: 12, h: 3 }, optOut: ['period', 'city', 'region', 'store', 'channel', 'country'] },
+      { id: 'p-area', kind: 'view', viewId: 'v-area', layout: { x: 6, y: 4, w: 6, h: 3 }, optOut: ['store'] },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 1, w: 8, h: 3 } },
+      { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 1, w: 4, h: 3 } },
+      { id: 'p-line', kind: 'view', viewId: 'v-line-measures', layout: { x: 0, y: 4, w: 6, h: 3 } },
+      { id: 'p-head', kind: 'section', title: label('Orders', 'الطلبات'), layout: { x: 0, y: 0, w: 12, h: 1 } },
+    ],
+  },
+}
+ITEMS['b-ops'] = BOARD_771
+/** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */
+export const DELAYS_771 = { 'v-kpi': 300, 'v-bar': 900, 'v-line-measures': 1500, 'v-area': 2100 }
+
+/** `GET Analytics/DimensionValues` (771): the searched members, by dimension. */
+export const MEMBERS = {
+  region: [
+    { key: 'central', label: label('Central', 'الوسطى') },
+    { key: 'western', label: label('Western', 'الغربية') },
+    { key: 'eastern', label: label('Eastern', 'الشرقية') },
+  ],
+  city: [
+    { key: 'riyadh', label: label('Riyadh', 'الرياض') },
+    { key: 'jeddah', label: label('Jeddah', 'جدة') },
+  ],
+  store: [
+    { key: 'P001', label: 'Olaya' },
+    { key: 'P002', label: 'Malaz' },
+    { key: 'P003', label: 'Corniche' },
+  ],
 }
 
 // ── `GET Analytics/Items` (770): the home's list, deliberately NOT in tier or date order ─────────────────
@@ -295,7 +348,7 @@ export const QUERY = {
 }
 
 // ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
-const MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
+const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
 /** Periods longer than a percentile's 92-day window. */
 const LONG_PERIODS = new Set(['year-to-date'])
 
@@ -311,7 +364,7 @@ export function inlineAnswer(definition, model = MODEL) {
   }
   const dims = q.dimensions ?? []
   let rows = [{}]
-  for (const d of dims) rows = rows.flatMap((r) => (MEMBERS[d] ?? ['a', 'b']).map((v) => ({ ...r, [d]: v })))
+  for (const d of dims) rows = rows.flatMap((r) => (INLINE_MEMBERS[d] ?? ['a', 'b']).map((v) => ({ ...r, [d]: v })))
   rows = rows.map((r, i) => {
     const out = { ...r }
     measures.forEach((m, j) => {
@@ -338,6 +391,8 @@ export function inlineAnswer(definition, model = MODEL) {
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
  *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
+ *   queryDelayFor: view id → ms, held instead of `queryDelayMs` for that view (771's one-by-one landing);
+ *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
  *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
@@ -346,7 +401,7 @@ export function inlineAnswer(definition, model = MODEL) {
  * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
   const made = {}
   const calls = []
   const bodies = {}
@@ -371,6 +426,12 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Copilot/Ask') return route.fulfill(envelope(copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
+    if (p === 'Analytics/DimensionValues') {
+      const search = (url.searchParams.get('search') ?? '').toLowerCase()
+      const all = members[url.searchParams.get('dimension')] ?? []
+      const text = (m) => [m.key, typeof m.label === 'string' ? m.label : `${m.label.en} ${m.label.ar}`].join(' ').toLowerCase()
+      return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
+    }
     if (p === 'Analytics/Items') return route.fulfill(isFulfil(list) ? list : envelope(list))
     if (p === 'Analytics/Item' && req.method() === 'POST') {
       if (create) return route.fulfill(create)
@@ -386,7 +447,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Analytics/Query') {
       const body = req.postDataJSON() ?? {}
-      if (queryDelayMs) await new Promise((r) => setTimeout(r, queryDelayMs))
+      const hold = queryDelayFor[body.viewId] ?? queryDelayMs
+      if (hold) await new Promise((r) => setTimeout(r, hold))
       if (body.definition) {
         const inline = inlineQuery(body)
         return route.fulfill(isFulfil(inline) ? inline : envelope(inline))

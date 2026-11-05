@@ -458,16 +458,11 @@ function ViewEditor({ model, seed }: { model: AnalyticsModel; seed: EditorSeed |
           <p className="flex h-72 items-center justify-center text-sm text-muted-foreground" data-analytics-preview-idle>
             {t('editor.previewIdle')}
           </p>
+        ) : answer.error && !answer.data ? (
+          <RefusalNote refusal={previewRefusal} err={answer.error} fallbackKey="view.queryFailed" model={model} onShorten={setPeriod} />
         ) : (
-          <ViewChart
-            definition={asked}
-            model={model}
-            lang={lang}
-            answer={answer}
-            refused={(err) => (
-              <RefusalNote refusal={previewRefusal} err={err} fallbackKey="view.queryFailed" model={model} onShorten={setPeriod} />
-            )}
-          />
+          // The view page's and the board panel's own form dispatch (771): the preview draws as the view will.
+          <ViewChart result={answer.data} busy={answer.isFetching} definition={asked} model={model} lang={lang} />
         )}
       </section>
     </div>

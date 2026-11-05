@@ -85,4 +85,13 @@ export interface OmsAccessResult {
   canCreateLocalFulfillmentReturn?: boolean
   /** `BackOfficeScreen[LocalFulfillmentReturn,04]` — force refund. Counts ONLY beside 03. */
   canForceLocalFulfillmentReturnRefund?: boolean
+  // ── The insurance-view grant (BackOffice spec 3389, door 3390; client tickets 786–789). GUESSED
+  // flag name and grant code — 3390 names "a new insurance-view grant" but neither the code nor a
+  // probe flag; the live-door ticket reconciles. Optional: absent reads as denied
+  // (`canViewInsurance`, `@/core/oms/insurance-grant`).
+  /**
+   * GUESS `BackOfficeScreen[OmsInsuranceView,03]` — health data: Document Details' Insurance section,
+   * the delivery strip's link to it, the list's patient / member ID columns and their export.
+   */
+  canViewInsurance?: boolean
 }

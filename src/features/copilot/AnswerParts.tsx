@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
@@ -6,7 +6,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
-import type { CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import { copilotViewEmbed } from '@/core/copilot-view-embed'
+import type { CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import { reportHref, reportPrintHref } from '@/core/analytics-routes'
 import { orderHref, orderSegments, viewHref } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
@@ -43,23 +45,60 @@ export function LinkedText({ text, orderRefs }: { text: string; orderRefs: reado
 export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] }) {
   const { t, i18n } = useTranslation('copilot')
   if (viewRefs.length === 0) return null
+  const Embed = copilotViewEmbed()
   return (
-    <ul aria-label={t('answer.views')} className="flex flex-col gap-1 text-sm" data-copilot-views>
+    <ul aria-label={t('answer.views')} className="flex flex-col gap-3 text-sm" data-copilot-views>
       {viewRefs.map((v) => {
         const title = saysIn(v.title, i18n.language)
         return (
-          <li key={v.id} className="flex flex-wrap items-baseline gap-2">
-            <Link to={viewHref(v.id)} className="font-medium text-primary underline underline-offset-2" data-copilot-view={v.id}>
-              {t('answer.openView')}
-            </Link>
+          <li key={v.id} className="flex flex-col gap-1">
             {title && (
-              <span className="text-muted-foreground" data-copilot-view-title>
+              <span className="font-medium" data-copilot-view-title>
                 <bdi>{title}</bdi>
               </span>
             )}
+            {Embed && (
+              <Suspense fallback={null}>
+                <Embed viewId={v.id} />
+              </Suspense>
+            )}
+            <Link to={viewHref(v.id)} className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-view={v.id}>
+              {t('answer.openView')}
+            </Link>
           </li>
         )
       })}
+    </ul>
+  )
+}
+
+/**
+ * The reports the answer built or revised (CTO demo): the title, its revision, "Open report" and "Export PDF"
+ * (the print page, in a new tab, which opens the browser's Save as PDF). The title is free text: `<bdi>`.
+ */
+export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReportRef[] }) {
+  const { t } = useTranslation('copilot')
+  if (reportRefs.length === 0) return null
+  return (
+    <ul aria-label={t('answer.reports')} className="flex flex-col gap-2 text-sm" data-copilot-reports>
+      {reportRefs.map((r) => (
+        <li key={r.id} className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3" data-copilot-report={r.id}>
+          <span className="font-medium">
+            <bdi>{r.title}</bdi>
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {t('answer.reportRevision', { n: r.revision })}
+          </span>
+          <span className="flex flex-wrap gap-3 text-xs">
+            <Link to={reportHref(r.id)} className="font-medium text-primary underline underline-offset-2">
+              {t('answer.openReport')}
+            </Link>
+            <a href={reportPrintHref(r.id)} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">
+              {t('answer.exportReport')}
+            </a>
+          </span>
+        </li>
+      ))}
     </ul>
   )
 }

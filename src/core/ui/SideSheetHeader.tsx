@@ -19,6 +19,7 @@ export default function SideSheetHeader({
   onClose,
   titleData,
   closeData,
+  actions,
 }: {
   titleId: string
   eyebrow: ReactNode
@@ -30,6 +31,8 @@ export default function SideSheetHeader({
   onClose: () => void
   titleData?: DataAttrs
   closeData?: DataAttrs
+  /** More buttons beside the close button (the copilot's full view), drawn before it. */
+  actions?: ReactNode
 }) {
   return (
     <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
@@ -40,16 +43,19 @@ export default function SideSheetHeader({
         </h2>
         {hint != null && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={closeLabel}
-        title={closeLabel}
-        className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-        {...closeData}
-      >
-        <X className="h-4 w-4" aria-hidden />
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        {actions}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={closeLabel}
+          title={closeLabel}
+          className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+          {...closeData}
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
     </header>
   )
 }

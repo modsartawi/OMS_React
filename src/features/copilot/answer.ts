@@ -1,5 +1,5 @@
 import { itemHref } from '@/core/analytics-routes'
-import type { CopilotAnswer, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -32,6 +32,8 @@ export interface CopilotAnswerModel {
   servedBy: string | null
   /** The views the answer created (spec 766 D), each an "Open view" link; absent reads as empty. */
   viewRefs: CopilotViewRef[]
+  /** The reports the answer built or revised (CTO demo). */
+  reportRefs: CopilotReportRef[]
 }
 
 const BULLET = /^\s*[-*•]\s+/
@@ -91,6 +93,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     stoppedEarly: r.stoppedEarly === true,
     servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
     viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
+    reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
   }
 }
 
@@ -104,6 +107,14 @@ function viewRef(v: unknown): CopilotViewRef[] {
   if (key.trim() === '') return []
   const t = title && typeof title === 'object' ? (title as { en?: unknown; ar?: unknown }) : {}
   return [{ id: key, title: { en: text(t.en), ar: text(t.ar) } }]
+}
+
+/** One `reportRefs` entry, or none when it carries no id. */
+function reportRef(v: unknown): CopilotReportRef[] {
+  if (!v || typeof v !== 'object') return []
+  const { id, title, revision } = v as { id?: unknown; title?: unknown; revision?: unknown }
+  if (typeof id !== 'string' || id.trim() === '') return []
+  return [{ id, title: text(title), revision: typeof revision === 'number' ? revision : 1 }]
 }
 
 /** The view a `viewRefs` entry opens — by route string only; the copilot never imports analytics. */

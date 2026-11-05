@@ -18,6 +18,7 @@ import type {
   AnalyticsModel,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
+  AnalyticsReport,
   AnalyticsRevision,
 } from '@/core/models/analytics'
 import { itemsQuery, type ItemsQuery } from './home'
@@ -56,6 +57,10 @@ export const analyticsApi = {
   /** `GET Analytics/Item/{id}` read as a board (ticket 771): its panels and saved filters. */
   async board(id: string): Promise<AnalyticsBoard> {
     return readBoard(await api.get<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`))
+  },
+  /** `GET Analytics/Report/{id}` — a copilot report (CTO demo). */
+  async report(id: string): Promise<AnalyticsReport> {
+    return api.get<AnalyticsReport>(`Analytics/Report/${encodeURIComponent(id)}`)
   },
   /** `GET Analytics/DimensionValues` — up to 50 members of `dimension` matching `search` (store, city, region). */
   async dimensionValues(dimension: string, search: string): Promise<AnalyticsMember[]> {

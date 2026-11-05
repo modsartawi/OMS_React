@@ -146,3 +146,29 @@ export function chartFor(choice: ChartChoice, chart: AnalyticsChart): AnalyticsC
       return { ...rest, type: choice }
   }
 }
+
+/**
+ * The type the builder picks for you when you have not picked one, or yours no longer fits (CTO demo builder pass):
+ * a single figure → KPI; over time → line; one category → bars (horizontal for an open list such as stores, whose
+ * names are long); two breakdowns → grouped bars, else a heat map; otherwise a table. Always one that is offered.
+ */
+export function suggestChoice(offers: readonly ChartOffer[], sel: ShapeSelection, model: AnalyticsModel): ChartChoice | null {
+  const ok = new Set(offers.filter((o) => o.offered).map((o) => o.choice))
+  if (ok.size === 0) return null
+  const dims = sel.dimensions.map((k) => dimensionOf(model, k))
+  const hasTime = dims.some((d) => d?.kind === 'time')
+  const open = dims[0] ? dims[0].kind !== 'time' && dims[0].values.length === 0 : false
+  const order: ChartChoice[] =
+    dims.length === 0
+      ? ['kpi', 'table']
+      : hasTime
+        ? ['line', 'area', 'table']
+        : dims.length === 1
+          ? open
+            ? ['bar-horizontal', 'bar-vertical', 'table']
+            : sel.measures.length === 1 && (dims[0]?.values.length ?? 0) <= 5
+              ? ['donut', 'bar-vertical', 'table']
+              : ['bar-vertical', 'combo', 'table']
+          : ['bar-grouped', 'heatmap', 'table']
+  return order.find((c) => ok.has(c)) ?? CHART_CHOICES.find((c) => ok.has(c)) ?? null
+}

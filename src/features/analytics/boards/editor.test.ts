@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel } from '@/core/models/analytics'
-import { allowedDimensions, colourDimension, colourMemberWords, comparesToPrevious, withCompare, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
+import { allowedDimensions, colourDimension, colourMemberWords, comparesToPrevious, withCompare, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot, pickerSubjects, moveDimension, dimensionRole, searchableFilterDimensions, grainFor, readRange, rangePeriod, rangeProblem } from './editor'
 
 const label = (en: string) => ({ en, ar: '' })
 const MODEL: AnalyticsModel = {
@@ -106,5 +106,54 @@ describe('compare with the previous period (766 story 23)', () => {
     expect(withCompare(q, 'kpi', true)).toEqual({ ...q, compareToPrevious: true })
     expect(withCompare({ ...q, compareToPrevious: true }, 'kpi', false)).toEqual(q)
     expect(withCompare({ ...q, compareToPrevious: true }, 'table', true)).toEqual(q)
+  })
+})
+
+describe('builder pass (CTO demo)', () => {
+  const m = (key: string, area: string, label: string, description = '') => ({
+    key, area, shape: 'additive' as const, unit: 'count' as const, label: { en: label, ar: label }, description: { en: description, ar: description }, dimensions: ['date', 'city'],
+  })
+  const model = {
+    areas: [{ key: 'ops', available: true }, { key: 'till', available: true }],
+    measures: [m('delivery_count', 'ops', 'Deliveries', 'Deliveries created'), m('failure_rate', 'ops', 'Failure rate'), m('till_sales', 'till', 'Till sales')],
+    dimensions: [
+      { key: 'date', kind: 'time' as const, label: { en: 'Date', ar: 'التاريخ' }, values: [] },
+      { key: 'city', kind: 'category' as const, label: { en: 'City', ar: 'المدينة' }, values: [] },
+      { key: 'store_name', kind: 'category' as const, label: { en: 'Store name', ar: 'اسم الفرع' }, values: [] },
+    ],
+  }
+
+  it('groups measures by subject and blocks the other subject once one is chosen', () => {
+    const groups = pickerSubjects(model, ['delivery_count'], '', 'en')
+    expect(groups.map((g) => g.area)).toEqual(['ops', 'till'])
+    expect(groups[0].measures.every((x) => x.blocked === null)).toBe(true)
+    expect(groups[1].measures[0].blocked).toBe('otherSubject')
+  })
+
+  it('searches label and description, and drops subjects with no match', () => {
+    expect(pickerSubjects(model, [], 'created', 'en').map((g) => g.measures.map((x) => x.key))).toEqual([['delivery_count']])
+  })
+
+  it('moves a breakdown and names its role', () => {
+    expect(moveDimension(['date', 'city'], 1, -1)).toEqual(['city', 'date'])
+    expect(moveDimension(['date', 'city'], 0, -1)).toEqual(['date', 'city'])
+    expect([0, 1, 2].map(dimensionRole)).toEqual(['axis', 'series', 'column'])
+  })
+
+  it('offers searchable filters on open breakdowns, not on the store name', () => {
+    expect(searchableFilterDimensions(model.dimensions).map((d) => d.key)).toEqual(['city'])
+  })
+
+  it('keeps a grain only with a date breakdown, and leaves day out', () => {
+    expect(grainFor(['date'], model, 'week')).toBe('week')
+    expect(grainFor(['date'], model, 'day')).toBeNull()
+    expect(grainFor(['city'], model, 'month')).toBeNull()
+  })
+
+  it('reads and checks a custom range', () => {
+    expect(readRange(rangePeriod('2026-10-01', '2026-10-31'))).toEqual({ from: '2026-10-01', to: '2026-10-31' })
+    expect(readRange('last-30-days')).toBeNull()
+    expect(rangeProblem('2026-10-31', '2026-10-01')).toBe('reversed')
+    expect(rangeProblem('', '2026-10-01')).toBe('incomplete')
   })
 })

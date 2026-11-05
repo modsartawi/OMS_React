@@ -48,7 +48,11 @@
     "views": "Views this answer created",
     "openView": "Open view",
     "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete.",
-    "cannotAnswer": "The OMS could not answer this"
+    "cannotAnswer": "The OMS could not answer this",
+    "reports": "Reports this answer wrote",
+    "openReport": "Open report",
+    "exportReport": "Export PDF",
+    "reportRevision": "Revision {{n}}"
   },
   "trace": {
     "heading_one": "How I got this ({{n}} step)",
@@ -87,5 +91,20 @@
     "full": "This conversation has reached its {{max}} questions.",
     "over": "This conversation has expired or is full.",
     "offer": "Start a new conversation to keep asking."
+  },
+  "sheet": {
+    "full": "Full view",
+    "exitFull": "Leave full view",
+    "resize": "Drag to resize. Double-click for the default width."
+  },
+  "history": {
+    "heading": "Past conversations",
+    "open": "History ({{n}})",
+    "back": "Back to the conversation",
+    "current": "Open now",
+    "none": "No past conversations yet. They are kept until you reload or sign out.",
+    "questions_one": "{{n}} question",
+    "questions_other": "{{n}} questions",
+    "forget": "Remove from history"
   }
 }

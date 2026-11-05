@@ -12,6 +12,10 @@ export const itemHref = (kind: AnalyticsItemKind, id: string): string => `/analy
 /** A board's editor (777): `/analytics/board/:id/edit`. */
 export const boardEditHref = (id: string): string => `${itemHref('board', id)}/edit`
 
+/** A copilot report (CTO demo): its page, and its print page that saves as PDF. */
+export const reportHref = (id: string): string => `/analytics/report/${encodeURIComponent(id)}`
+export const reportPrintHref = (id: string): string => `/analytics/print/report/${encodeURIComponent(id)}`
+
 /** The view editor, empty (775); a seed rides in route state (`newViewLink` in the boards feature). */
 export const NEW_VIEW_PATH = '/analytics/new?kind=view'
 

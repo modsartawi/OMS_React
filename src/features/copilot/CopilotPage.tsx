@@ -14,8 +14,8 @@ export default function CopilotPage() {
   const { t } = useTranslation('copilot')
   return (
     <ScreenGate query={copilotAccessQuery()} can={canAskCopilot} ns="copilot" title={t('title')} subtitle={t('subtitle')}>
-      <div className="flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-        <CopilotPanel />
+      <div className="flex min-h-0 w-full max-w-6xl flex-1 flex-col">
+        <CopilotPanel wide />
       </div>
     </ScreenGate>
   )

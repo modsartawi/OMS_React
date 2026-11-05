@@ -75,6 +75,13 @@ export const router = createBrowserRouter([
   // entire body IS the document (241), so there is no nav, no shell and nothing
   // hidden behind `@media print` to keep off the paper. `chromeless` keeps the
   // session guard — the chrome is what differs, never the auth.
+  // A copilot report's print page (CTO demo): outside the shell, so the paper is the report alone.
+  {
+    path: '/analytics/print/report/:id',
+    element: <ProtectedLayout chromeless />,
+    handle: PRINT_ROUTE,
+    children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPrintPage')).default }) }],
+  },
   {
     path: '/collection/receipt/:collectionReceiptId',
     element: <ProtectedLayout chromeless />,
@@ -129,6 +136,11 @@ export const router = createBrowserRouter([
         // The board editor (777) shares the builder's page: `?kind=board` makes a new board, this edits one.
         path: 'analytics/board/:id/edit',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
+      },
+      {
+        // A copilot report (CTO demo).
+        path: 'analytics/report/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPage')).default }),
       },
       {
         path: 'analytics/view/:id',

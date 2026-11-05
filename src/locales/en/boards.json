@@ -223,7 +223,7 @@
     "subtitleAr": "Subtitle in Arabic",
     "titleHint": "Leave it empty and the title is made from the measures and breakdowns.",
     "preview": "Preview",
-    "previewIdle": "Choose a measure and a chart type to see a preview.",
+    "previewIdle": "Choose a measure to see a preview.",
     "save": "Save view",
     "saving": "Saving…",
     "saved": "Saved as your own analytics view.",
@@ -290,7 +290,53 @@
       "last-month": "Last month",
       "year-to-date": "Year to date"
     },
-    "editTitle": "Edit analytics view"
+    "editTitle": "Edit analytics view",
+    "searchMeasures": "Search measures",
+    "noMeasureMatch": "No measure matches.",
+    "removeMeasure": "Remove {{measure}}",
+    "subjectUnavailable": "Not available yet.",
+    "otherSubject": "A view asks one subject: this one is not {{subject}}.",
+    "oneSubject": "Measures from {{subject}} only: one view asks one subject. Remove them to change subject.",
+    "shape": {
+      "rate": "rate",
+      "percentile": "percentile",
+      "additive": "count"
+    },
+    "area": {
+      "delivery_operations": "Delivery operations",
+      "delivery_speed": "Delivery speed",
+      "orders_by_channel": "Orders by channel",
+      "till_sales": "Till sales",
+      "callouts_and_donor_requests": "Callouts and donor requests"
+    },
+    "role": {
+      "axis": "Axis",
+      "series": "Series (colours)",
+      "column": "Column"
+    },
+    "moveUp": "Move {{dimension}} up",
+    "moveDown": "Move {{dimension}} down",
+    "grain": "Date grain",
+    "grainName": {
+      "day": "By day",
+      "week": "By week (Sunday)",
+      "month": "By month"
+    },
+    "searchFilterHint": "Type to search; the busiest come first.",
+    "periodLabel": "Period",
+    "customRange": "Custom range…",
+    "rangeFrom": "From",
+    "rangeTo": "To",
+    "rangeHint": "Both days included, Riyadh time. The marts hold the last 92 days.",
+    "rangeProblem": {
+      "incomplete": "Choose both days.",
+      "reversed": "The first day is after the last."
+    },
+    "suggested": "{{chart}} picked for you: choose another type any time.",
+    "filters": "Filters",
+    "addFilter": "Add a filter on…",
+    "addAnotherFilter": "Another filter",
+    "whyOff": "Why {{n}} types are off"
   },
   "save": {
     "asCopy": "Save as copy",
@@ -429,5 +475,14 @@
     "save": "Save board",
     "saved": "Board saved.",
     "saveFailed": "The board could not be saved"
+  },
+  "report": {
+    "loading": "Loading the report…",
+    "export": "Export PDF",
+    "print": "Save as PDF",
+    "meta": "Revision {{n}} · updated {{at}}",
+    "source": "Written by the OMS copilot from live analytics data. Charts are drawn from the governed marts at the time of export.",
+    "back": "Back to the report",
+    "missingChart": "This chart is no longer saved."
   }
 }

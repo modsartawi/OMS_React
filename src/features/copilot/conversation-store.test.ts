@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
-import { createCopilotConversation } from './conversation-store'
+import { COPILOT_HISTORY_MAX, createCopilotConversation, filed, type PastConversation } from './conversation-store'
 
 const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
   conversationId,
@@ -101,5 +101,66 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     await own
     useSession.getState().setCurrentStore('P002')
     expect(store.getState().conv.turns).toHaveLength(1)
+  })
+})
+
+describe('the copilot history (CTO demo)', () => {
+  const answered = async (store: ReturnType<typeof createCopilotConversation>, d: ReturnType<typeof door>, q: string, id: string) => {
+    const done = store.getState().ask(q)
+    d.calls[d.calls.length - 1].answer(reply(id, 1))
+    await done
+  }
+
+  it('copilotHistory_newConversationFilesTheOldOne_mostRecentFirst_emptyOnesNotKept', async () => {
+    const d = door()
+    let clock = 1000
+    const store = createCopilotConversation(d.ask, () => clock)
+    store.getState().startNew()
+    expect(store.getState().history).toHaveLength(0)
+    await answered(store, d, 'first', 'c-1')
+    store.getState().startNew()
+    clock = 2000
+    await answered(store, d, 'second', 'c-2')
+    store.getState().startNew()
+    expect(store.getState().history.map((p) => [p.conv.id, p.at])).toEqual([
+      ['c-2', 2000],
+      ['c-1', 1000],
+    ])
+  })
+
+  it('copilotHistory_resumeSwapsTheCurrentConversationIntoTheHistory_andKeepsItsId', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask, () => 5)
+    await answered(store, d, 'old', 'c-old')
+    store.getState().startNew()
+    await answered(store, d, 'now', 'c-now')
+    store.getState().resume(0)
+    expect(store.getState().conv.id).toBe('c-old')
+    expect(store.getState().history.map((p) => p.conv.id)).toEqual(['c-now'])
+    // A follow-up in the resumed conversation sends its id back.
+    store.getState().ask('more')
+    expect(d.calls[d.calls.length - 1].body).toEqual({ question: 'more', conversationId: 'c-old' })
+  })
+
+  it('copilotHistory_forgetDropsOne_andAChangeOfUserEmptiesIt', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    useSession.getState().setSession({ userId: 'a.user' })
+    await answered(store, d, 'one', 'c-1')
+    store.getState().startNew()
+    await answered(store, d, 'two', 'c-2')
+    store.getState().startNew()
+    store.getState().forget(1)
+    expect(store.getState().history.map((p) => p.conv.id)).toEqual(['c-2'])
+    useSession.getState().clear()
+    expect(store.getState().history).toHaveLength(0)
+  })
+
+  it('copilotHistory_keepsAtMostTheCap', () => {
+    const conv = { id: 'c', turns: [{ question: 'q', questionNo: 1, reply: null, refusal: null }], over: false }
+    let h: PastConversation[] = []
+    for (let i = 0; i < COPILOT_HISTORY_MAX + 5; i++) h = filed(h, conv, i)
+    expect(h).toHaveLength(COPILOT_HISTORY_MAX)
+    expect(h[0].at).toBe(COPILOT_HISTORY_MAX + 4)
   })
 })

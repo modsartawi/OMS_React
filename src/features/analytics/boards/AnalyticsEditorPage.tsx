@@ -21,7 +21,10 @@ import {
   colourMemberWords,
   DEFAULT_PERIOD,
   editItemLink,
+  GRAINS,
+  grainFor,
   MAX_DIMENSIONS,
+  type Grain,
   readEditorSeed,
   settledSlots,
   withCompare,
@@ -33,7 +36,7 @@ import { editorRefusal } from './editor-refusal'
 import { comparing } from './effective-query'
 import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
-import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
+import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
@@ -141,6 +144,7 @@ function ViewEditor({
   const [dimensions, setDimensions] = useState<string[]>(start?.query.dimensions ?? [])
   const [filters, setFilters] = useState<AnalyticsFilter[]>(start?.query.filters ?? [])
   const [period, setPeriod] = useState<string>(start?.query.period ?? DEFAULT_PERIOD)
+  const [grain, setGrain] = useState<Grain>(() => GRAINS.find((g) => g === start?.query.grain) ?? 'day')
   const [choice, setChoice] = useState<ChartChoice | null>(start ? choiceOf(start.chart) : null)
   const [settings, setSettings] = useState<AnalyticsChart>(start?.chart ?? { type: 'table' })
   const [compare, setCompare] = useState<boolean>(start?.query.compareToPrevious === true)
@@ -152,24 +156,30 @@ function ViewEditor({
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
   const offers = chartOffers({ measures, dimensions }, model)
   const offer = choice ? offers.find((o) => o.choice === choice) : undefined
-  // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does.
-  const chosen = offer?.offered ? choice : null
+  // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does. Until one is
+  // picked (or while the pick does not fit) the builder picks the best fitting type, so the preview always draws.
+  const suggested = suggestChoice(offers, { measures, dimensions }, model)
+  const chosen = offer?.offered ? choice : suggested
+  const keptGrain = grainFor(dimensions, model, grain)
 
   const definition: AnalyticsViewDefinition | null = useMemo(() => {
     if (!chosen) return null
+    const { grain: _old, ...startQuery } = start?.query ?? { grain: null }
+    void _old
     const query = withCompare(
       {
-        ...(start?.query ?? {}),
+        ...startQuery,
         measures,
         dimensions,
         filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
         period,
+        ...(keptGrain ? { grain: keptGrain } : {}),
       },
       chosen,
       compare,
     )
     return { ...(start ?? {}), chart: chartFor(chosen, settings), query, slots }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare])
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain])
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -274,10 +284,13 @@ function ViewEditor({
           period={period}
           onPeriod={setPeriod}
           invalid={{ measure: invalidOn('measure'), dimension: invalidOn('dimension') }}
+          grain={grain}
+          onGrain={setGrain}
         />
         <ChartFields
           offers={offers}
           chosen={chosen}
+          suggested={!!chosen && chosen !== choice}
           onChoose={setChoice}
           invalid={invalidOn('chart')}
           measures={measures}

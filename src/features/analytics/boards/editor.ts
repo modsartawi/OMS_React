@@ -162,3 +162,108 @@ function readEditingItem(v: unknown): EditingItem | undefined {
     sourceChangedSinceCopy: o.sourceChangedSinceCopy === true,
   })
 }
+
+// ── The builder's subjects, breakdown order, grain and custom range (CTO demo builder pass) ───────────────────
+
+/** A measure as the subject picker lists it: whether it may be added, and why not. */
+export interface PickerMeasure {
+  key: string
+  label: string
+  description: string
+  shape: AnalyticsModel['measures'][number]['shape']
+  chosen: boolean
+  /** `otherSubject`: the chosen measures come from another subject, and one view asks one subject. */
+  blocked: 'otherSubject' | null
+}
+
+export interface PickerSubject {
+  area: string
+  available: boolean
+  unavailableReason: string | null
+  measures: PickerMeasure[]
+}
+
+/**
+ * The model's measures grouped by subject area, in model order, narrowed by `search` (label, description or key,
+ * any case). A view asks ONE subject (the server refuses two with 406), so once a measure is chosen every measure
+ * of another subject is listed blocked, with its reason. A subject with no match is left out.
+ */
+export function pickerSubjects(model: AnalyticsModel, chosen: readonly string[], search: string, lang: string): PickerSubject[] {
+  const s = search.trim().toLowerCase()
+  const chosenArea = chosen.map((k) => measureOf(model, k)?.area).find(Boolean) ?? null
+  return model.areas
+    .map((a) => ({
+      area: a.key,
+      available: a.available,
+      unavailableReason: a.unavailableReason ?? null,
+      measures: model.measures
+        .filter((m) => m.area === a.key)
+        .map((m) => {
+          const label = saysIn(m.label, lang) || m.key
+          const description = saysIn(m.description, lang)
+          return {
+            key: m.key,
+            label,
+            description: description && description !== label ? description : '',
+            shape: m.shape,
+            chosen: chosen.includes(m.key),
+            blocked: chosenArea && m.area !== chosenArea ? ('otherSubject' as const) : null,
+          }
+        })
+        .filter((m) => !s || m.label.toLowerCase().includes(s) || m.description.toLowerCase().includes(s) || m.key.includes(s)),
+    }))
+    .filter((g) => g.measures.length > 0)
+    // The chosen subject first: the rest are greyed below it.
+    .sort((a, b) => Number(b.area === chosenArea) - Number(a.area === chosenArea))
+}
+
+/** The breakdowns a view may be filtered on (a date is the period's job; a store's name is its code's). */
+export function filterableDimensions(allowed: readonly AnalyticsModel['dimensions'][number][]) {
+  return allowed.filter((d) => d.kind !== 'time' && !d.key.endsWith('_name'))
+}
+
+/** The breakdowns moved: the one at `index` swaps with its neighbour `by` places away (−1 up, +1 down). */
+export function moveDimension(dimensions: readonly string[], index: number, by: -1 | 1): string[] {
+  const to = index + by
+  if (index < 0 || index >= dimensions.length || to < 0 || to >= dimensions.length) return [...dimensions]
+  const next = [...dimensions]
+  ;[next[index], next[to]] = [next[to], next[index]]
+  return next
+}
+
+/** What each breakdown's place does on the chart: the first is the axis, the second the series. */
+export function dimensionRole(index: number): 'axis' | 'series' | 'column' {
+  return index === 0 ? 'axis' : index === 1 ? 'series' : 'column'
+}
+
+/** Open breakdowns (no inline values) a view may be filtered on by searching their members, e.g. store, city. */
+export function searchableFilterDimensions(allowed: readonly AnalyticsModel['dimensions'][number][]) {
+  // `store_name` is the store's name beside its code: filtering by the store code covers it.
+  return allowed.filter((d) => d.kind !== 'time' && d.values.length === 0 && !d.key.endsWith('_name'))
+}
+
+export const GRAINS = ['day', 'week', 'month'] as const
+export type Grain = (typeof GRAINS)[number]
+
+/** The grain a query keeps: only with a date breakdown, and `day` (the server's default) is left out. */
+export function grainFor(dimensions: readonly string[], model: AnalyticsModel, grain: Grain): Grain | null {
+  const time = dimensions.some((k) => dimensionOf(model, k)?.kind === 'time')
+  return time && grain !== 'day' ? grain : null
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/** A custom period on the wire: `from..to`, both inclusive ISO days. */
+export const rangePeriod = (from: string, to: string): string => `${from}..${to}`
+
+/** The two days of a custom period, or `null` when `period` is a relative token (or malformed). */
+export function readRange(period: string | null | undefined): { from: string; to: string } | null {
+  const m = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period ?? '')
+  return m ? { from: m[1], to: m[2] } : null
+}
+
+/** Why a custom range cannot be asked yet, or `null` when it can. */
+export function rangeProblem(from: string, to: string): 'incomplete' | 'reversed' | null {
+  if (!ISO_DAY.test(from) || !ISO_DAY.test(to)) return 'incomplete'
+  return from > to ? 'reversed' : null
+}

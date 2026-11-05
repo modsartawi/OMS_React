@@ -1,5 +1,6 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import { fsi, formatRange } from '@/core/util/bidi'
 import { periodPhraseKey } from './periods'
 import { dimensionOf, measureOf } from './wire'
 
@@ -31,6 +32,8 @@ export function generatedTitle(
   const what = dimensionLabels.length
     ? t('title.byDimensions', { measures: list(measureLabels), dimensions: list(dimensionLabels) })
     : list(measureLabels)
-  const when = period ? t(periodPhraseKey(period), { defaultValue: '' }) : ''
+  // A custom range (`from..to`) reads as its two days, isolated whole: it is a machine value inside a sentence.
+  const range = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period ?? '')
+  const when = range ? fsi(formatRange(range[1], range[2])) : period ? t(periodPhraseKey(period), { defaultValue: '' }) : ''
   return when ? t('title.overPeriod', { title: what, period: when }) : what
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel } from '@/core/models/analytics'
-import { chartOffers, type ChartChoice } from './shape-rules'
+import { chartOffers, suggestChoice, type ChartChoice } from './shape-rules'
 
 const label = (en: string, ar: string) => ({ en, ar })
 const values = (...keys: string[]) => keys.map((k) => ({ key: k, label: label(k, k) }))
@@ -139,5 +139,26 @@ describe('shape rules: 755 table plus the amendments', () => {
     // Measures as series never fold; a table never folds.
     expect(fold(['orders', 'deliveries'], ['day'], 'line')).toBe(false)
     expect(fold(['orders'], ['store'], 'table')).toBe(false)
+  })
+})
+
+describe('suggestChoice (CTO demo builder pass)', () => {
+  const dims = [
+    { key: 'date', kind: 'time' as const, label: { en: 'Date', ar: '' }, values: [] },
+    { key: 'store', kind: 'category' as const, label: { en: 'Store', ar: '' }, values: [] },
+    { key: 'kind', kind: 'category' as const, label: { en: 'Kind', ar: '' }, values: [{ key: 'a', label: { en: 'A', ar: '' } }, { key: 'b', label: { en: 'B', ar: '' } }] },
+  ]
+  const ms = [{ key: 'n', area: 'x', shape: 'additive' as const, unit: 'count' as const, label: { en: 'N', ar: '' }, description: { en: '', ar: '' }, dimensions: ['date', 'store', 'kind'] }]
+  const model = { areas: [{ key: 'x', available: true }], measures: ms, dimensions: dims }
+  const pick = (dimensions: string[]) => suggestChoice(chartOffers({ measures: ['n'], dimensions }, model), { measures: ['n'], dimensions }, model)
+  it('picks a KPI, a line, horizontal bars for stores, a donut for a small list, grouped bars for two', () => {
+    expect(pick([])).toBe('kpi')
+    expect(pick(['date'])).toBe('line')
+    expect(pick(['store'])).toBe('bar-horizontal')
+    expect(pick(['kind'])).toBe('donut')
+    expect(pick(['store', 'kind'])).toBe('bar-grouped')
+  })
+  it('picks nothing without a measure', () => {
+    expect(suggestChoice(chartOffers({ measures: [], dimensions: [] }, model), { measures: [], dimensions: [] }, model)).toBeNull()
   })
 })

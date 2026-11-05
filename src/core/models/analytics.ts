@@ -291,6 +291,23 @@ export interface AnalyticsBoardDefinition {
 /** A board in the analytics store: an item whose definition is a board's. */
 export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'board'; definition: AnalyticsBoardDefinition }
 
+/** A copilot report (CTO demo): a document written from a conversation and revised by follow-ups. */
+export type AnalyticsReportBlock =
+  | { kind: 'heading'; text: string }
+  | { kind: 'text'; text: string }
+  | { kind: 'chart'; viewId: string; caption: string }
+  | { kind: 'table'; head: string[]; rows: string[][] }
+
+export interface AnalyticsReport {
+  id: string
+  title: string
+  subtitle: string
+  lang: 'en' | 'ar'
+  blocks: AnalyticsReportBlock[]
+  revision: number
+  updatedAt: string
+}
+
 /** `GET Analytics/DimensionValues` — one member for the store, city and region pickers. */
 export interface AnalyticsMember {
   key: string

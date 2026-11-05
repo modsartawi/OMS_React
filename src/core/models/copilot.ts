@@ -30,6 +30,13 @@ export interface CopilotTraceEntry {
 }
 
 /** A view the answer created (spec 766 D, BackOffice 3383): its id and its bilingual title. */
+/** A report the answer built or revised (CTO demo): its id, title and the revision now current. */
+export interface CopilotReportRef {
+  id: string
+  title: string
+  revision: number
+}
+
 export interface CopilotViewRef {
   id: string
   title: { en: string; ar: string }
@@ -58,6 +65,8 @@ export interface CopilotAnswer {
    * Absent on an older server, and read as empty.
    */
   viewRefs?: CopilotViewRef[]
+  /** The reports `build_report` / `update_report` wrote in this answer (CTO demo); absent reads as empty. */
+  reportRefs?: CopilotReportRef[]
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

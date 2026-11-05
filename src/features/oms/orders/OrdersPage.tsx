@@ -50,7 +50,7 @@ import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type Lo
 import MyViews, { ModifiedDot, type ViewAction } from './MyViews'
 import OrderInspector from './OrderInspector'
 import QueryBar from './QueryBar'
-import { hasIdentifier, QUERY_FOCUS_KEYS, searchProblem, toSearchCriteria, type QueryCriteria } from './query-model'
+import { hasIdentifier, QUERY_FOCUS_KEYS, searchProblem, toSearchCriteria, withinGrant, type QueryCriteria } from './query-model'
 import {
   defaultView,
   deleteView,
@@ -117,9 +117,20 @@ export default function OrdersPage() {
   const activeView = viewStore.views.find((v) => v.id === activeViewId) ?? null
   const [viewDialog, setViewDialog] = useState<ViewNameMode | null>(null)
   const defaultColumns = useRef<ColumnState[] | null>(null)
+  // The shared OMS probe (same key and options as the menu and both OMS pages: one call).
+  const access = useQuery(omsAccessQuery())
+  const canOpenList = access.data?.canOpenList === true
+  const insuranceGrant = canViewInsurance(access.data)
+  const grants = useMemo(() => ({ canViewInsurance: insuranceGrant }), [insuranceGrant])
+
+  // Drift is measured on what this session may hold: a view's hidden patient ID is not a change.
   const modified = useOrderSearch((s) =>
     activeView
-      ? isDrifted(activeView, { query: s.draft, lens: s.lens, columnState: s.columnState, filterModel: s.filterModel }, defaultColumns.current)
+      ? isDrifted(
+          { ...activeView, query: activeView.query && withinGrant(activeView.query, grants) },
+          { query: withinGrant(s.draft, grants), lens: s.lens, columnState: s.columnState, filterModel: s.filterModel },
+          defaultColumns.current,
+        )
       : false,
   )
 
@@ -139,12 +150,6 @@ export default function OrdersPage() {
 
   /** The layout + selection to restore on THIS mount, snapshotted before the grid emits events. */
   const restore = useRef(useOrderSearch.getState())
-
-  // The shared OMS probe (same key and options as the menu and both OMS pages: one call).
-  const access = useQuery(omsAccessQuery())
-  const canOpenList = access.data?.canOpenList === true
-  const insuranceGrant = canViewInsurance(access.data)
-  const grants = useMemo(() => ({ canViewInsurance: insuranceGrant }), [insuranceGrant])
 
   const columns = useMemo(() => buildOrderColumns(t, grants), [t, grants])
 
@@ -260,7 +265,7 @@ export default function OrdersPage() {
    */
   const runSearch = ({ supersede = false } = {}) => {
     if (search.isPending && !supersede) return
-    const query = useOrderSearch.getState().draft
+    const query = withinGrant(useOrderSearch.getState().draft, grants)
     const now = new Date()
     const problem = searchProblem(query, now, grants)
     if (problem) {
@@ -296,7 +301,7 @@ export default function OrdersPage() {
     store.setActiveView(view.id)
     applyLayout(view)
     if (view.query === null) return
-    store.setDraft(view.query)
+    store.setDraft(withinGrant(view.query, grants))
     store.setLens(view.lens)
     runSearch({ supersede: true })
   }
@@ -305,7 +310,7 @@ export default function OrdersPage() {
     const store = useOrderSearch.getState()
     const api = liveGrid()
     return {
-      query: store.draft,
+      query: withinGrant(store.draft, grants),
       lens: store.lens,
       columnState: api ? api.getColumnState() : store.columnState,
       filterModel: api ? api.getFilterModel() : store.filterModel,

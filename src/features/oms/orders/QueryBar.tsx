@@ -22,6 +22,7 @@ import {
   withField,
   type QueryCriteria,
   type QueryField,
+  withinGrant,
   type QueryGrants,
 } from './query-model'
 import QueryToken, { type LookupOption, type LookupOptions } from './QueryToken'
@@ -60,8 +61,8 @@ function useLookupOptions(
  * Date token reads "ignored": the search sends no date (3391).
  */
 export default function QueryBar({
-  draft,
-  lastRun,
+  draft: heldDraft,
+  lastRun: heldLastRun,
   searching,
   grants,
   dateIgnored,
@@ -81,6 +82,10 @@ export default function QueryBar({
   const { t } = useTranslation('orders')
   const [editing, setEditing] = useState<QueryField | null>(null)
   const [adding, setAdding] = useState(false)
+  // Without the grant a hidden patient or member ID is neither drawn nor counted as pending, and
+  // every edit writes the draft back without it.
+  const draft = withinGrant(heldDraft, grants)
+  const lastRun = heldLastRun && withinGrant(heldLastRun, grants)
 
   const typeQuery = useQuery(lookupQueries.documentTypes())
   const sourceQuery = useQuery(lookupQueries.documentSources())
@@ -97,7 +102,7 @@ export default function QueryBar({
 
   const offered = new Set(queryFields(grants).map((f) => f.id))
   const diff = pendingDiff(draft, lastRun)
-  // A token this session may not use (a saved view's patient ID, without the grant) is not drawn.
+  // Belt and braces: a token this session may not use is never drawn.
   const tokens = barTokens(draft, lastRun, editing).filter((token) => offered.has(token.field))
 
   function edit(field: QueryField) {

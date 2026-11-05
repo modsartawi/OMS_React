@@ -95,6 +95,17 @@ export function queryFields(grants: QueryGrants): readonly QueryFieldDef[] {
   return grants.canViewInsurance ? QUERY_FIELDS : QUERY_FIELDS.filter((f) => !f.insurance)
 }
 
+/**
+ * The query as this session may hold it: without the insurance grant, the patient and member ID are
+ * dropped. Applied wherever a query enters or leaves the page — a view opened, the draft measured,
+ * a search run, a view saved — so a hidden health ID never counts as a pending change, never runs
+ * and is never written back to a saved view.
+ */
+export function withinGrant(query: QueryCriteria, grants: QueryGrants): QueryCriteria {
+  if (grants.canViewInsurance || (query.patientId === null && query.memberId === null)) return query
+  return { ...query, patientId: null, memberId: null }
+}
+
 export function fieldDef(field: QueryField): QueryFieldDef {
   const def = QUERY_FIELDS.find((f) => f.id === field)
   if (!def) throw new Error(`Unknown query field: ${field}`)

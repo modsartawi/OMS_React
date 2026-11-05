@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildOrderQuery } from './api'
-import { BLANK_QUERY, queryFields, searchProblem, toSearchCriteria, withField, type QueryCriteria } from './query-model'
+import { BLANK_QUERY, pendingDiff, queryFields, searchProblem, toSearchCriteria, withField, withinGrant, type QueryCriteria } from './query-model'
 
 // Thursday 5 Nov 2026, mid-afternoon local time.
 const NOW = new Date(2026, 10, 5, 15, 30)
@@ -95,5 +95,22 @@ describe('order-list query model: identifiers ignore the date, other tokens need
     const params = buildOrderQuery(toSearchCriteria(q({ patientId: '2402727917' }), NOW, noGrant))
     expect(params).not.toHaveProperty('PatientId')
     expect(params).toHaveProperty('FromDate', '2026-11-03')
+  })
+
+  it('without the grant, a hidden patient or member ID is dropped from the draft: no hidden pending change, nothing kept', () => {
+    const carried = q({ patientId: '2402727917', memberId: 'M-1', orderNo: 'BUPA-1' })
+    const stripped = withinGrant(carried, noGrant)
+    expect(stripped.patientId).toBeNull()
+    expect(stripped.memberId).toBeNull()
+    expect(stripped.orderNo).toBe('BUPA-1')
+    // Searched as it stands: the last run equals the draft, so nothing is pending.
+    expect(pendingDiff(stripped, withinGrant(q({ orderNo: 'BUPA-1' }), noGrant)).count).toBe(0)
+    // A run with no hidden ID beside a stored draft that carried one: still nothing pending once stripped.
+    expect(pendingDiff(withinGrant(carried, noGrant), q({ orderNo: 'BUPA-1' })).count).toBe(0)
+  })
+
+  it('with the grant, the patient and member ID are kept as they are', () => {
+    const carried = q({ patientId: '2402727917', memberId: 'M-1' })
+    expect(withinGrant(carried, grant)).toEqual(carried)
   })
 })

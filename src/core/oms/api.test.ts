@@ -31,6 +31,13 @@ describe('revokeOnForbidden (ticket 521)', () => {
     expect(client.getQueryData(OMS_ACCESS_KEY)).toEqual(GRANTED)
   })
 
+  it("a 403 from an insurance door clears only the insurance-view grant (spec 3389)", () => {
+    const client = new QueryClient()
+    client.setQueryData(OMS_ACCESS_KEY, { ...GRANTED, canViewInsurance: true })
+    revokeOnForbidden(client, new ApiError('unknown', 'Forbidden', 403), 'canViewInsurance')
+    expect(client.getQueryData(OMS_ACCESS_KEY)).toEqual({ ...GRANTED, canViewInsurance: false })
+  })
+
   it('no probe answer yet stays no answer', () => {
     const client = new QueryClient()
     revokeOnForbidden(client, new ApiError('unknown', 'Forbidden', 403), 'canChangeDetail')

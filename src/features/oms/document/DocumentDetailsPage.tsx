@@ -76,7 +76,6 @@ import InsuranceSection from './InsuranceSection'
 import DeliveryMoneyStrip from './DeliveryMoneyStrip'
 import { stripRefreshKey } from './delivery-money-strip'
 import { asksInsurance, insuranceSectionGate } from './insurance-section'
-import { revokeInsuranceViewOnForbidden } from '@/core/oms/insurance-grant'
 import Chip from '@/core/ui/Chip'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
@@ -663,7 +662,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     retry: false,
   })
   useEffect(() => {
-    if (insuranceRead.isError) revokeInsuranceViewOnForbidden(queryClient, insuranceRead.error)
+    if (insuranceRead.isError) revokeOnForbidden(queryClient, insuranceRead.error, 'canViewInsurance')
   }, [insuranceRead.isError, insuranceRead.error, queryClient])
 
   /**

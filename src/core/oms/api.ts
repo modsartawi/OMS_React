@@ -3,6 +3,9 @@ import { api, ApiError } from '@/core/api'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { OmsGrants } from './access'
 
+/** A probe flag `revokeOnForbidden` may clear: a D2 grant, or the insurance-view grant (3390). */
+export type OmsBooleanFlag = keyof OmsGrants | 'canViewInsurance'
+
 // The OMS screen-access probe (ticket 125, backend BackOffice 750). It lives in `@/core/`
 // rather than with the deliveries feature because it has THREE consumers — the menu's OMS
 // leaf, `DeliveriesPage`'s guard and `DocumentDetailsPage`'s guard — and the two features
@@ -74,12 +77,13 @@ export function revokeMarkDelivered(queryClient: QueryClient): void {
  * 2763) — the same reasoning as `revokeMarkDelivered`: the server's answer outranks the probe's
  * earlier one, and with `staleTime: Infinity` nothing else would re-ask. Anything but a 403 leaves
  * the grant alone. Only that flag is cleared; the screen stays open. `flag` is any of the probe's
- * grant flags (`OmsGrants`), so a grant the probe learns is revocable without widening a list here.
+ * grant flags (`OmsGrants`) or the insurance-view grant (`canViewInsurance`, spec 3389), so a grant
+ * the probe learns is revocable without widening a list here.
  */
 export function revokeOnForbidden(
   queryClient: QueryClient,
   err: unknown,
-  flag: keyof OmsGrants,
+  flag: OmsBooleanFlag,
 ): void {
   if (!(err instanceof ApiError) || err.statusCode !== 403) return
   queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) => (prev ? { ...prev, [flag]: false } : prev))

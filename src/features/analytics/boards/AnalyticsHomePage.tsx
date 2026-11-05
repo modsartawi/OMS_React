@@ -132,6 +132,11 @@ function HomeBody() {
           <Plus className="size-4" aria-hidden />
           {t('editor.newView')}
         </Link>
+        {/* 777: lay out a new board. */}
+        <Link to="/analytics/new?kind=board" className={buttonClass('secondary')} data-analytics-new-board>
+          <LayoutDashboard className="size-4" aria-hidden />
+          {t('boardEditor.newBoard')}
+        </Link>
       </div>
       {body}
     </div>

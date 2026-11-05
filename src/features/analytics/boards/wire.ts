@@ -131,6 +131,7 @@ export function readBoard(raw: Loose): AnalyticsBoard {
         .map(readPanel)
         .filter((p): p is AnalyticsBoardPanel => p !== null),
       ...(d.filters && typeof d.filters === 'object' ? { filters: d.filters as AnalyticsBoard['definition']['filters'] } : {}),
+      ...(typeof d.refresh === 'number' && d.refresh > 0 ? { refresh: d.refresh } : {}),
     },
   } as AnalyticsBoard
 }

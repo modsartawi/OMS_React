@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
+import { Unlink } from 'lucide-react'
+import { apiErrorCode } from '@/core/api'
 import { formatClock } from '@/core/charts/format'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
@@ -108,6 +110,19 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     return () => onFetching(panel.id, false)
   }, [onFetching, panel.id, busy])
 
+  // 777: a view deleted from under the board is a "view removed" panel; the rest of the board keeps working.
+  if (itemError && apiErrorCode(itemError) === 'ANALYTICS-404') {
+    return (
+      <Card panel={panel} kind="view" data-board-panel-state="removed">
+        <p className="flex items-start gap-1.5 text-sm text-muted-foreground" data-board-view-removed>
+          <Unlink className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            {t('board.viewRemoved')} {t('board.viewRemovedHint')}
+          </span>
+        </p>
+      </Card>
+    )
+  }
   if (itemError) {
     return (
       <Card panel={panel} kind="view" data-board-panel-state="refused">

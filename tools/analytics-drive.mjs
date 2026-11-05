@@ -57,11 +57,22 @@
 //      inline definition, with a breadcrumb back (not in the URL); "Save as view" waits for 775;
 //   4. a bar click cross-filters on its channel, and the permalink restores it on reload.
 //
+// 777 - the board editor lays panels out on the 12-column grid, mirrored under ar (en and ar):
+//   1. the home's "New board" opens the editor; two views from the picker and a section header land below each
+//      other at the inline start, each at least its chart type's minimum;
+//   2. dragging the bar's handle to column 7 puts it at the inline END of row 0 (left of the KPI under ar);
+//   3. the keyboard moves the section up and shrinks the KPI to its minimum, and no further (arrows mirrored
+//      under ar), and the live region says where it is; resizing the bar by its corner pushes the section down;
+//   4. an opt-out, the title and a 5-minute refresh; Save posts ONE board with those layouts, and the board page
+//      draws the panels where the editor put them; Edit reopens them as saved and saves in place;
+//   5. a board whose view was deleted shows "view removed" in that panel only, on the page and in the editor,
+//      where the panel can be removed and the board saved; "Build a new view" saves a view and links it.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, ITEMS, LIST_777, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -1212,6 +1223,178 @@ async function board772({ dir }) {
   await context.close()
 }
 
+// ── 777 ──────────────────────────────────────────────────────────────────────────────────────────────
+const layoutOf = (page, id) => page.locator(`[data-editor-panel="${id}"]`).getAttribute('data-layout')
+const boxOf = (page, sel) => page.locator(sel).boundingBox()
+
+/** The centre of grid cell (col, row) on screen, columns counted from the inline start (the right under ar). */
+async function cellPoint(page, col, row, dir) {
+  const grid = page.locator('[data-board-editor-grid]')
+  const g = await grid.boundingBox()
+  const rows = Number(await grid.getAttribute('data-rows'))
+  const colW = g.width / 12
+  const pitch = (g.height + 12) / rows
+  const fromStart = (col + 0.5) * colW
+  return { x: dir === 'rtl' ? g.x + g.width - fromStart : g.x + fromStart, y: g.y + (row + 0.4) * pitch }
+}
+
+/** Press a handle and drag it so the pointer ends in cell (col, row). */
+async function dragHandle(page, handle, col, row, dir) {
+  const h = await boxOf(page, handle)
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+  await page.mouse.down()
+  const to = await cellPoint(page, col, row, dir)
+  await page.mouse.move(to.x, to.y, { steps: 10 })
+  await page.mouse.up()
+}
+
+async function boardEditorBuilds({ dir }) {
+  const tag = `777 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, list: LIST_777 })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-new-board]').click()
+  await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
+  check(`${tag}: "New board" opens the board editor`, page.url().endsWith('/analytics/new?kind=board'), page.url())
+
+  // 1. Two views from the picker (mine and Shared are both offered) and a section header.
+  const groups = await page.locator('[data-board-add-pick] optgroup').evaluateAll((els) => els.map((e) => e.getAttribute('label')))
+  check(`${tag}: the picker groups Certified, Shared and my views`, JSON.stringify(groups) === JSON.stringify(['Certified', 'Shared', 'Personal']), groups.join(', '))
+  for (const id of ['v-kpi', 'v-bar']) {
+    await page.locator('[data-board-add-pick]').selectOption(id)
+    await page.locator('[data-board-add-view]').click()
+  }
+  await page.locator('[data-board-add-section]').click()
+  const ids = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
+  check(`${tag}: three panels on the grid`, ids.length === 3, ids.join(', '))
+  const [kpi, bar, head] = ids
+  await page.waitForFunction((id) => document.querySelector(`[data-editor-panel="${id}"]`)?.dataset.editorPanelState === 'loaded', bar, { timeout: 10000 })
+  const first = [await layoutOf(page, kpi), await layoutOf(page, bar), await layoutOf(page, head)]
+  check(`${tag}: each lands below the last, at the inline start`, JSON.stringify(first) === JSON.stringify(['0,0,6,3', '0,3,6,3', '0,6,12,1']), first.join(' | '))
+  await page.locator(`[data-editor-panel="${head}"] [data-editor-section="en"]`).fill('Orders')
+  await page.locator(`[data-editor-panel="${head}"] [data-editor-section="ar"]`).fill('الطلبات')
+
+  // 2. Drag the bar beside the KPI, at the inline end.
+  await dragHandle(page, `[data-editor-move="${bar}"]`, 6, 0, dir)
+  check(`${tag}: dragging the bar to column 7, row 1 places it there`, (await layoutOf(page, bar)) === '6,0,6,3', await layoutOf(page, bar))
+  const kb = await boxOf(page, `[data-editor-panel="${kpi}"]`)
+  const bb = await boxOf(page, `[data-editor-panel="${bar}"]`)
+  check(`${tag}: the bar sits at the inline end of the row (${dir === 'rtl' ? 'left' : 'right'} of the KPI)`, dir === 'rtl' ? bb.x < kb.x : bb.x > kb.x, `kpi ${Math.round(kb.x)} bar ${Math.round(bb.x)}`)
+
+  // 3. The keyboard: the section up into the gap, the KPI down to its minimum and no further.
+  await page.locator(`[data-editor-move="${head}"]`).focus()
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp')
+  check(`${tag}: ArrowUp moves the section up a row at a time`, (await layoutOf(page, head)) === '0,3,12,1', await layoutOf(page, head))
+  const narrower = dir === 'rtl' ? 'Shift+ArrowRight' : 'Shift+ArrowLeft'
+  await page.locator(`[data-editor-move="${kpi}"]`).focus()
+  for (let i = 0; i < 6; i++) await page.keyboard.press(narrower)
+  await page.keyboard.press('Shift+ArrowUp')
+  await page.keyboard.press('Shift+ArrowUp')
+  check(`${tag}: ${narrower} (mirrored) and Shift+ArrowUp shrink the KPI to its 2 x 2 minimum, no further`, (await layoutOf(page, kpi)) === '0,0,2,2', await layoutOf(page, kpi))
+  const said = noIsolates(await page.locator('[data-board-editor-said]').innerText())
+  check(`${tag}: the live region says where the panel is`, /column 1, row 1, 2 columns wide, 2 rows high/.test(said), said)
+  const moveOn = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight'
+  await page.keyboard.press(moveOn)
+  check(`${tag}: ${moveOn} moves toward the inline end`, (await layoutOf(page, kpi)) === '1,0,2,2', await layoutOf(page, kpi))
+
+  // The bar's corner, dragged down a row: it grows to 4 rows and pushes the section down, never overlapping it.
+  await dragHandle(page, `[data-editor-resize="${bar}"]`, 11, 3, dir)
+  check(`${tag}: the corner resizes the bar to 4 rows`, (await layoutOf(page, bar)) === '6,0,6,4', await layoutOf(page, bar))
+  check(`${tag}: … and the section it grew into is pushed below it`, (await layoutOf(page, head)) === '0,4,12,1', await layoutOf(page, head))
+
+  // 4. An opt-out, the words, the refresh; then save.
+  await page.locator(`[data-editor-panel="${bar}"] [data-editor-opt-out="store"]`).click()
+  await page.locator('[data-board-title="en"]').fill('Ops desk')
+  await page.locator('[data-board-title="ar"]').fill('مكتب العمليات')
+  await page.locator('[data-board-refresh]').selectOption('300')
+  await page.screenshot({ path: `${SHOTS}/777-editor-${dir}.png`, fullPage: true })
+  check(`${tag}: a new board saves as a new item`, (await page.locator('[data-editor-save]').getAttribute('data-editor-save-how')) === 'create')
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/board/b-new', { timeout: 10000 })
+  const posted = bodies['Analytics/Item'] ?? []
+  const sent = posted.at(-1) ?? {}
+  const sentLayouts = (sent.definition?.panels ?? []).map((p) => `${p.kind}:${p.layout.x},${p.layout.y},${p.layout.w},${p.layout.h}`)
+  check(`${tag}: ONE board posted, with the layouts as laid out`, posted.length === 1 && sent.kind === 'board' && JSON.stringify(sentLayouts) === JSON.stringify(['view:1,0,2,2', 'view:6,0,6,4', 'section:0,4,12,1']), JSON.stringify(sentLayouts))
+  const sentBar = sent.definition?.panels?.find((p) => p.id === bar)
+  check(
+    `${tag}: … with the views by reference, the opt-out, the section words, the title and the refresh`,
+    sentBar?.viewId === 'v-bar' && JSON.stringify(sentBar.optOut) === '["store"]' && sent.definition.panels[2].title.ar === 'الطلبات' && sent.title.en === 'Ops desk' && sent.definition.refresh === 300,
+    JSON.stringify(sent).slice(0, 300),
+  )
+
+  // The board page draws them where the editor put them.
+  await page.locator(`[data-board-panel="${bar}"]`).waitFor({ timeout: 10000 })
+  const pk = await boxOf(page, `[data-board-panel="${kpi}"]`)
+  const pb = await boxOf(page, `[data-board-panel="${bar}"]`)
+  const ph = await boxOf(page, `[data-board-panel="${head}"]`)
+  check(`${tag}: the board page draws the bar at the inline end and the section below`, (dir === 'rtl' ? pb.x < pk.x : pb.x > pk.x) && ph.y > pb.y, `kpi ${Math.round(pk.x)} bar ${Math.round(pb.x)} head ${Math.round(ph.y)}`)
+  await page.screenshot({ path: `${SHOTS}/777-board-${dir}.png`, fullPage: true })
+
+  // Reopen: the editor holds what was saved, and my own board saves in place.
+  await page.locator('[data-analytics-board-edit]').click()
+  await page.locator('[data-board-editor="b-new"]').waitFor({ timeout: 10000 })
+  const again = [await layoutOf(page, kpi), await layoutOf(page, bar), await layoutOf(page, head)]
+  check(`${tag}: Edit reopens the board as saved`, JSON.stringify(again) === JSON.stringify(['1,0,2,2', '6,0,6,4', '0,4,12,1']) && (await page.locator('[data-board-refresh]').inputValue()) === '300', again.join(' | '))
+  check(`${tag}: … and my own board saves in place`, (await page.locator('[data-editor-save]').getAttribute('data-editor-save-how')) === 'in-place')
+  await page.locator(`[data-editor-move="${head}"]`).focus()
+  await page.keyboard.press('ArrowDown')
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/board/b-new', { timeout: 10000 })
+  const put = bodies['PUT Analytics/Item/b-new']?.at(-1)
+  check(`${tag}: the in-place save PUTs with the opened revision and the moved section`, put?.baseRevision === 1 && put.definition.panels.find((p) => p.id === head)?.layout.y === 5, JSON.stringify(put?.definition?.panels?.map((p) => p.layout)))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function removedView({ dir }) {
+  const tag = `777 ${dir} removed`
+  const { context, page, bodies, errors } = await open({ dir, list: LIST_777 })
+  await page.goto(`${BASE}/analytics/board/b-777`)
+  await page.locator('[data-board-panel="p-gone"]').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-bar"]')?.dataset.boardPanelState === 'idle', null, { timeout: 10000 })
+  const gone = page.locator('[data-board-panel="p-gone"]')
+  check(`${tag}: the deleted view's panel says "view removed"`, (await gone.getAttribute('data-board-panel-state')) === 'removed' && /removed/.test(await gone.innerText()), await gone.innerText())
+  check(`${tag}: … and the rest of the board still draws`, (await page.locator('[data-board-panel="p-bar"] [data-chart]').count()) === 1 && (await page.locator('[data-board-panel="p-head"]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/777-removed-${dir}.png`, fullPage: true })
+  await page.locator('[data-analytics-board-edit]').click()
+  await page.locator('[data-board-editor="b-777"]').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-editor-panel="p-gone"]')?.dataset.editorPanelState === 'removed', null, { timeout: 10000 })
+  check(`${tag}: the editor shows it removed too`, (await page.locator('[data-editor-panel="p-gone"] [data-editor-view-removed]').count()) === 1)
+  check(`${tag}: the editor opens on the board's saved refresh`, (await page.locator('[data-board-refresh]').inputValue()) === '60')
+  await page.locator('[data-editor-remove="p-gone"]').click()
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/board/b-777', { timeout: 10000 })
+  const put = bodies['PUT Analytics/Item/b-777']?.at(-1)
+  check(`${tag}: removing the panel and saving keeps the others`, JSON.stringify(put?.definition?.panels?.map((p) => p.id)) === '["p-head","p-bar"]' && put.baseRevision === 4 && put.definition.refresh === 60, JSON.stringify(put?.definition))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function buildsNewView() {
+  const tag = '777 build a view'
+  const { context, page, bodies, errors } = await open({ list: LIST_777 })
+  await page.goto(`${BASE}/analytics/new?kind=board`)
+  await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-board-build-view]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  check(`${tag}: "Build a new view" opens 775's editor in a dialog`, true)
+  await pick(page, 'editor-measures', ['orders'])
+  await pick(page, 'editor-dimensions', ['channel_group'])
+  await dialog.locator('[data-analytics-choice="bar-vertical"]').click()
+  await dialog.locator('[data-analytics-preview] [data-chart]').first().waitFor({ timeout: 10000 })
+  await dialog.locator('[data-editor-save]').click()
+  await page.locator('[data-editor-panel]').first().waitFor({ timeout: 10000 })
+  const made = bodies['Analytics/Item']?.at(-1)
+  const panel = page.locator('[data-editor-panel]').first()
+  check(`${tag}: the view is saved as a view`, made?.kind === 'view', JSON.stringify(made)?.slice(0, 120))
+  check(`${tag}: … the dialog closes and the board links it as a panel, still in the board editor`, (await page.locator('dialog[open]').count()) === 0 && page.url().endsWith('/analytics/new?kind=board') && (await panel.getAttribute('data-editor-panel-kind')) === 'view', page.url())
+  await page.waitForFunction(() => document.querySelector('[data-editor-panel]')?.dataset.editorPanelState === 'loaded', null, { timeout: 10000 })
+  const name = noIsolates(await panel.locator('[data-editor-panel-name]').innerText())
+  check(`${tag}: the panel shows the new view (a bar: half the width, 3 rows)`, /Orders/.test(name) && (await panel.getAttribute('data-layout')) === '0,0,6,3', `${name} ${await panel.getAttribute('data-layout')}`)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1245,6 +1428,11 @@ const SCENARIOS = [
   ['776', () => staleSaveConflicts({ dir: 'rtl' })],
   ['776', notYoursOffersCopy],
   ['776', tiersAndCopies],
+  ['777', () => boardEditorBuilds({ dir: 'ltr' })],
+  ['777', () => boardEditorBuilds({ dir: 'rtl' })],
+  ['777', () => removedView({ dir: 'ltr' })],
+  ['777', () => removedView({ dir: 'rtl' })],
+  ['777', buildsNewView],
 ]
 
 try {

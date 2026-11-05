@@ -212,6 +212,21 @@ ITEMS['b-ops'] = BOARD_771
 /** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */
 export const DELAYS_771 = { 'v-kpi': 300, 'v-bar': 900, 'v-line-measures': 1500, 'v-area': 2100 }
 
+// ── 777: my own board, one of whose views was deleted (`v-gone` is in no fixture: Item answers 404) ───────
+export const BOARD_777 = {
+  ...view('b-777', { title: label('My desk', 'مكتبي'), tier: 'personal', revision: 4 }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-head', kind: 'section', title: label('Today', 'اليوم'), layout: { x: 0, y: 0, w: 12, h: 1 } },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 0, y: 1, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-gone', kind: 'view', viewId: 'v-gone', layout: { x: 6, y: 1, w: 6, h: 3 }, optOut: ['store'] },
+    ],
+    refresh: 60,
+  },
+}
+ITEMS['b-777'] = BOARD_777
+
 /** `GET Analytics/DimensionValues` (771): the searched members, by dimension. */
 export const MEMBERS = {
   region: [
@@ -240,6 +255,9 @@ export const LIST = [
   view('v-cert', { title: label('Orders, certified', 'الطلبات المعتمدة'), tier: 'certified', owner: 'curator1', updatedAt: '2026-11-02T07:15:00' }),
   board('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedAt: '2026-11-03T16:40:00' }),
 ]
+
+/** The views the board editor's picker lists (777): mine, a Shared one and a Certified one, all readable. */
+export const LIST_777 = [ITEMS['v-kpi'], ITEMS['v-bar'], ITEMS['v-titled'], ITEMS['v-cert-776'], board('b-777', { title: label('My desk', 'مكتبي') })]
 
 // ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
 export const COPILOT_ANSWER = {
@@ -432,7 +450,7 @@ export function inlineAnswer(definition, model = MODEL) {
  *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
- *             (id `v-new`), which `Analytics/Item/v-new` and its Query then serve.
+ *             (id `v-new`, or `b-new` for a board), which `Analytics/Item/<id>` (and a view's Query) then serve.
  *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
  *             `baseRevision + 1` with the body's words and definition, served from then on.
  *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
@@ -476,8 +494,10 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (p === 'Analytics/Item' && req.method() === 'POST') {
       if (create) return route.fulfill(create)
       const body = req.postDataJSON() ?? {}
-      made['v-new'] = view('v-new', { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' })
-      return route.fulfill(envelope(made['v-new']))
+      // 777: a board is made as `b-new`, a view as `v-new`.
+      const id = body.kind === 'board' ? 'b-new' : 'v-new'
+      made[id] = { ...view(id, { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' }), kind: body.kind ?? 'view' }
+      return route.fulfill(envelope(made[id]))
     }
     if (p.startsWith('Analytics/Item/') && p.endsWith('/Copy') && req.method() === 'POST') {
       if (copy) return route.fulfill(copy)

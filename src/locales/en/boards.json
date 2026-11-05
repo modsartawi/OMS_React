@@ -88,7 +88,9 @@
       "menu": "Drill into {{member}}",
       "by": "Drill <member>{{member}}</member> by",
       "saveAsView": "Save as view"
-    }
+    },
+    "viewRemoved": "The view this panel showed was removed.",
+    "viewRemovedHint": "Edit the board to remove the panel or link another view."
   },
   "view": {
     "title": "Analytics view",
@@ -129,7 +131,6 @@
   "editor": {
     "title": "New analytics view",
     "subtitle": "Build a chart from the governed analytics model.",
-    "boardNotYet": "Boards are built in the board editor, which is not here yet.",
     "newView": "New view",
     "loading": "Loading the analytics model…",
     "loadFailed": "The analytics model could not be loaded",
@@ -263,5 +264,58 @@
       }
     },
     "savedInPlace": "Saved. This is now the latest revision."
+  },
+  "boardEditor": {
+    "title": "New board",
+    "editTitle": "Edit board",
+    "subtitle": "Lay panels out on a 12-column grid, link views, and set the board’s filters and refresh.",
+    "newBoard": "New board",
+    "edit": "Edit board",
+    "refresh": "Auto-refresh",
+    "refreshHint": "The default. Viewers can change it for their own session.",
+    "refreshEvery": {
+      "0": "Off",
+      "30": "Every 30 seconds",
+      "60": "Every minute",
+      "300": "Every 5 minutes",
+      "900": "Every 15 minutes"
+    },
+    "filters": "The filters the board opens on",
+    "add": "Add a panel",
+    "addView": "Add a view",
+    "pickView": "Choose a view…",
+    "viewsLoading": "Loading views…",
+    "addThisView": "Add view",
+    "buildView": "Build a new view",
+    "addText": "Add text",
+    "addSection": "Add section header",
+    "empty": "No panels yet. Add a view, some text or a section header.",
+    "gridHint": "Drag a panel by its handle, or focus the handle and use the arrow keys to move it and Shift with an arrow to resize it. Drag the corner to resize.",
+    "kind": {
+      "view": "View",
+      "text": "Text",
+      "section": "Section header"
+    },
+    "move": "Move {{panel}}",
+    "resize": "Resize {{panel}}",
+    "remove": "Remove {{panel}}",
+    "placed": "{{panel}}: column {{x}}, row {{y}}, {{w}} columns wide, {{h}} rows high.",
+    "optOut": {
+      "label": "Ignores",
+      "period": "Period",
+      "city": "City",
+      "region": "Region",
+      "store": "Store",
+      "channel": "Channel",
+      "country": "Country",
+      "crossFilter": "Cross-filter"
+    },
+    "words": {
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "save": "Save board",
+    "saved": "Board saved.",
+    "saveFailed": "The board could not be saved"
   }
 }

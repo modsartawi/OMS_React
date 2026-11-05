@@ -1,7 +1,7 @@
-import type { AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
-import { toIsoDate } from '@/core/util/date-format'
+import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import type { MarkPoint } from './drill'
 import { readPeriod } from './permalink'
+import { resolvePeriod } from './periods'
 
 /**
  * Drill to detail (spec 766 §F, ticket 774) — pure. A point hands off to an existing OMS screen BY ROUTE
@@ -25,37 +25,6 @@ const DELIVERIES_AREAS = new Set(['sales', 'delivery'])
 /** A till measure: its key names the till (`till_value`). ⚠ the model carries no "has detail" flag. */
 const isTillMeasure = (key: string) => key.startsWith('till_')
 
-/** Local midnight `days` after (negative: before) `now`'s own day. */
-const dayFrom = (now: Date, days: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days)
-
-/** The relative token as two local days, Sunday weeks (as the server resolves it, 766 story 21). */
-function tokenDays(token: PeriodToken, now: Date): { from: Date; to: Date } {
-  const today = dayFrom(now, 0)
-  const sunday = dayFrom(now, -now.getDay())
-  switch (token) {
-    case 'today':
-      return { from: today, to: today }
-    case 'yesterday':
-      return { from: dayFrom(now, -1), to: dayFrom(now, -1) }
-    case 'this-week':
-      return { from: sunday, to: today }
-    case 'last-week':
-      return { from: dayFrom(sunday, -7), to: dayFrom(sunday, -1) }
-    case 'last-7-days':
-      return { from: dayFrom(now, -6), to: today }
-    case 'last-28-days':
-      return { from: dayFrom(now, -27), to: today }
-    case 'last-30-days':
-      return { from: dayFrom(now, -29), to: today }
-    case 'this-month':
-      return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: today }
-    case 'last-month':
-      return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1), to: new Date(now.getFullYear(), now.getMonth(), 0) }
-    case 'year-to-date':
-      return { from: new Date(now.getFullYear(), 0, 1), to: today }
-  }
-}
-
 /**
  * The panel's period (the wire's string: a relative token or `from..to`) as the two ISO days the
  * Deliveries list searches by, against `now`. A relative period resolves the way the list resolves its
@@ -65,8 +34,7 @@ export function periodDays(period: string | null | undefined, now: Date): { from
   const read = readPeriod(period)
   if (!read) return null
   if (read.kind === 'fixed') return { from: read.from, to: read.to }
-  const { from, to } = tokenDays(read.token, now)
-  return { from: toIsoDate(from), to: toIsoDate(to) }
+  return resolvePeriod(read.token, now)
 }
 
 /** "See deliveries" for `point` on a panel showing `view`, or `null` when this point offers no such drill. */

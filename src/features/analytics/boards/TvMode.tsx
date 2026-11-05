@@ -10,6 +10,7 @@ import { formatPair, formatRange } from '@/core/util/bidi'
 import { analyticsApi, analyticsMembersKey } from './api'
 import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
 import { useFullscreen } from './panel-hooks'
+import { periodNameKey } from './periods'
 import { labelIn } from './view-model'
 
 /**
@@ -82,7 +83,7 @@ export function FilterChips({ filters, model, lang }: { filters: BoardFilters; m
   return (
     <ul className="flex flex-wrap items-center gap-2 text-sm" aria-label={t('board.tv.chips')} data-board-filter-chips>
       <Chip name={t('board.filters.period')} filter="period">
-        {period.kind === 'fixed' ? <Ltr>{formatRange(period.from, period.to)}</Ltr> : <span>{t(`board.period.${period.token}`)}</span>}
+        {period.kind === 'fixed' ? <Ltr>{formatRange(period.from, period.to)}</Ltr> : <span>{t(periodNameKey(period.token))}</span>}
       </Chip>
       {(['city', 'region', 'store'] as const).map((f) => filters[f].length > 0 && <SearchedChip key={f} filter={f} values={filters[f]} lang={lang} />)}
       {(['channel', 'country'] as const).map((f) => {

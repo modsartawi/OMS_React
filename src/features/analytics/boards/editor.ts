@@ -1,7 +1,8 @@
 import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
-import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { editingItemOf, type EditingItem } from './item-save'
+export { DEFAULT_PERIOD, PERIODS } from './periods'
 import { readDefinition } from './wire'
 
 /**
@@ -9,21 +10,6 @@ import { readDefinition } from './wire'
  * title (`./title`): what may be picked from the model, which breakdown is coloured, how a colour pick
  * moves the saved member → slot map, and how a caller opens the editor seeded with a definition.
  */
-
-/** The relative periods the server resolves (766 §F / story 21), in the picker's order. */
-export const PERIODS = [
-  'today',
-  'yesterday',
-  'this-week',
-  'last-week',
-  'last-7-days',
-  'last-28-days',
-  'last-30-days',
-  'this-month',
-  'last-month',
-  'year-to-date',
-] as const satisfies readonly PeriodToken[]
-export const DEFAULT_PERIOD: PeriodToken = 'last-30-days'
 
 export const NUMBER_FORMATS = ['auto', 'integer', 'decimal', 'percent', 'SAR', 'minutes'] as const
 export const LEGEND_POSITIONS = ['bottom', 'top', 'end', 'hidden'] as const

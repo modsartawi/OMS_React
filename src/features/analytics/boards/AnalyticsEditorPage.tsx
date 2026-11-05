@@ -46,6 +46,7 @@ import {
   type EditorSeed,
 } from './editor'
 import { editorRefusal, type EditorRefusal } from './editor-refusal'
+import { periodNameKey, periodPhraseKey } from './periods'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
@@ -318,7 +319,7 @@ function ViewEditor({
           <Select value={period} onChange={(e) => setPeriod(e.target.value)} data-editor-period>
             {PERIODS.map((p) => (
               <option key={p} value={p}>
-                {t(`editor.periodName.${p}`)}
+                {t(periodNameKey(p))}
               </option>
             ))}
           </Select>
@@ -561,7 +562,7 @@ function RefusalNote({
         <span className="min-w-0 flex-1">{t('editor.refused.window', { measure: fsi(measure), days: fsi(refusal.days) })}</span>
         {refusal.shorter && (
           <Button variant="secondary" onClick={() => onShorten(refusal.shorter!)} data-analytics-shorten={refusal.shorter}>
-            {t('editor.refused.shorten', { period: t(`editor.period.${refusal.shorter}`) })}
+            {t('editor.refused.shorten', { period: t(periodPhraseKey(refusal.shorter)) })}
           </Button>
         )}
       </div>

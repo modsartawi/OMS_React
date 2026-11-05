@@ -12,7 +12,7 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsMembersKey } from './api'
 import type { StreamWave } from './board'
 import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
-import { PERIOD_TOKENS } from './permalink'
+import { periodNameKey, PERIODS } from './periods'
 import { labelIn } from './view-model'
 
 /**
@@ -74,9 +74,9 @@ function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p:
     <div className="flex items-end gap-2">
       <Field label={t('board.filters.period')} className="w-44">
         <Select value={period.kind === 'fixed' ? 'fixed' : period.token} onChange={(e) => pick(e.target.value)} data-board-filter-period>
-          {PERIOD_TOKENS.map((token) => (
+          {PERIODS.map((token) => (
             <option key={token} value={token}>
-              {t(`board.period.${token}`)}
+              {t(periodNameKey(token))}
             </option>
           ))}
           <option value="fixed">{t('board.period.fixed')}</option>

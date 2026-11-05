@@ -1,4 +1,5 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { periodPhraseKey } from './periods'
 import { labelIn } from './view-model'
 
 /**
@@ -28,6 +29,6 @@ export function generatedTitle(
   const what = dimensionLabels.length
     ? t('title.byDimensions', { measures: list(measureLabels), dimensions: list(dimensionLabels) })
     : list(measureLabels)
-  const when = period ? t(`editor.period.${period}`, { defaultValue: '' }) : ''
+  const when = period ? t(periodPhraseKey(period), { defaultValue: '' }) : ''
   return when ? t('title.overPeriod', { title: what, period: when }) : what
 }

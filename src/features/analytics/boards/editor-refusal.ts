@@ -1,5 +1,6 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { ROLLING_PERIODS } from './periods'
 
 /**
  * The three refusals the chart editor words in its own terms (spec 766 §C's table, ticket 775):
@@ -18,13 +19,6 @@ export type EditorRefusal =
 /** The percentile cap when neither the refusal nor the model states one (766 §B). */
 const PERCENTILE_DAYS = 92
 
-/** The rolling periods, longest first, with their length in days. */
-const ROLLING: readonly [string, number][] = [
-  ['last-30-days', 30],
-  ['last-28-days', 28],
-  ['last-7-days', 7],
-]
-
 export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition, model: AnalyticsModel): EditorRefusal | null {
   const code = apiErrorCode(err)
   const data = apiErrorData(err)
@@ -38,7 +32,7 @@ export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition,
   if (code === 'ANALYTICS-407') {
     const capped = chosen.find((m) => m.shape === 'percentile')
     const days = capped?.maxWindowDays ?? PERCENTILE_DAYS
-    const shorter = ROLLING.find(([token, n]) => n <= days && token !== definition.query.period)?.[0] ?? null
+    const shorter = ROLLING_PERIODS.find((p) => p.days <= days && p.token !== definition.query.period)?.token ?? null
     return { kind: 'window', measure: capped?.key ?? '', days, shorter }
   }
   if (code === 'ANALYTICS-410') {

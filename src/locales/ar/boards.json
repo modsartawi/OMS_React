@@ -60,16 +60,6 @@
       "to": "إلى"
     },
     "period": {
-      "today": "اليوم",
-      "yesterday": "أمس",
-      "this-week": "هذا الأسبوع",
-      "last-week": "الأسبوع الماضي",
-      "last-7-days": "آخر 7 أيام",
-      "last-28-days": "آخر 28 يومًا",
-      "last-30-days": "آخر 30 يومًا",
-      "this-month": "هذا الشهر",
-      "last-month": "الشهر الماضي",
-      "year-to-date": "منذ بداية السنة",
       "fixed": "فترة محددة"
     },
     "stream": {

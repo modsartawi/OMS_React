@@ -1,5 +1,6 @@
-import type { BoardFilters, BoardPeriod, PeriodToken } from '@/core/models/analytics'
+import type { BoardFilters, BoardPeriod } from '@/core/models/analytics'
 import { CATEGORY_FILTERS, periodToken, type CrossFilter } from './effective-query'
+import { isPeriodToken } from './periods'
 
 /**
  * The board's permalink (spec 766 §F, ticket 771) — the board filters live in the query string, and
@@ -10,24 +11,11 @@ import { CATEGORY_FILTERS, periodToken, type CrossFilter } from './effective-que
  * Only the board filters' params are touched by `writeBoardFilters`: the cross-filter (`writeCrossFilter`) and 780's `tv` / `refresh` keep theirs.
  */
 
-export const PERIOD_TOKENS: readonly PeriodToken[] = [
-  'today',
-  'yesterday',
-  'this-week',
-  'last-week',
-  'last-7-days',
-  'last-28-days',
-  'last-30-days',
-  'this-month',
-  'last-month',
-  'year-to-date',
-]
-
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
 export function readPeriod(raw: string | null | undefined): BoardPeriod | null {
   if (!raw) return null
-  if ((PERIOD_TOKENS as readonly string[]).includes(raw)) return { kind: 'relative', token: raw as PeriodToken }
+  if (isPeriodToken(raw)) return { kind: 'relative', token: raw }
   const [from, to, extra] = raw.split('..')
   if (extra === undefined && DAY.test(from ?? '') && DAY.test(to ?? '') && from <= to) return { kind: 'fixed', from, to }
   return null

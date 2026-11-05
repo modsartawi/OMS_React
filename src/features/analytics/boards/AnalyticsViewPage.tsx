@@ -1,7 +1,8 @@
+import { useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { formatClock, formatDay } from '@/core/charts/format'
+import { formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
@@ -9,9 +10,13 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
+import PanelActions from './PanelActions'
+import PanelBody, { bodyState } from './PanelBody'
+import { useFullscreen } from './panel-hooks'
+import { panelPermalink } from './panel-state'
 import Refused from './Refused'
 import { labelIn } from './view-model'
-import ViewChart, { viewTitleOf } from './ViewChart'
+import { viewTitleOf } from './ViewChart'
 
 /**
  * One analytics view at `/analytics/view/:id` (spec 766 §F, ticket 767 — Slice 0).
@@ -23,6 +28,7 @@ import ViewChart, { viewTitleOf } from './ViewChart'
  * The chart is `ViewChart`, the one form dispatch a board panel uses too (771): 767's vertical bar,
  * 768's KPI, line, stacked area and other bars, and 769's forms.
  * `ANALYTICS-404` is the not-found state and `ANALYTICS-401` the no-access state, from the item or the query.
+ * 773: the same panel actions, freshness and states as a board panel (`PanelActions`, `PanelBody`).
  */
 export default function AnalyticsViewPage() {
   const { t } = useTranslation('boards')
@@ -62,14 +68,22 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
     retry: false,
   })
 
+  const frame = useRef<HTMLElement>(null)
+  const fullscreen = useFullscreen(frame)
+  const [table, setTable] = useState(false)
+
   const title = viewTitleOf(item, model, lang, t)
   const subtitle = labelIn(item.subtitle, lang)
   const result = answer.data
-  const asOf = result ? formatClock(result.dataAsOf, lang) : ''
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
 
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
+    <article
+      ref={frame}
+      className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 [&:fullscreen]:overflow-auto [&:fullscreen]:p-6"
+      data-analytics-view={item.id}
+      data-board-panel-state={bodyState(result, answer.error, answer.isFetching)}
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
@@ -82,11 +96,21 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
           )}
         </div>
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
-          {asOf && (
-            <span data-analytics-as-of>
-              <Trans t={t} i18nKey="view.dataAsOf" values={{ at: asOf }} components={{ at: <Ltr /> }} />
-            </span>
-          )}
+          <PanelActions
+            viewId={item.id}
+            title={title}
+            result={result}
+            updatedAt={answer.dataUpdatedAt}
+            definition={item.definition}
+            model={model}
+            lang={lang}
+            onRefresh={answer.refetch}
+            table={table}
+            onTable={() => setTable((on) => !on)}
+            frame={frame}
+            fullscreen={fullscreen}
+            permalink={() => panelPermalink(window.location.href)}
+          />
           {period && (
             <span data-analytics-period>
               <Trans t={t} i18nKey="view.period" values={{ range: period }} components={{ range: <Ltr /> }} />
@@ -95,11 +119,16 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
         </div>
       </header>
 
-      {answer.error && !result ? (
-        <Refused err={answer.error} fallbackKey="view.queryFailed" />
-      ) : (
-        <ViewChart result={result} busy={answer.isFetching} definition={item.definition} model={model} lang={lang} />
-      )}
+      <PanelBody
+        result={result}
+        error={answer.error}
+        busy={answer.isFetching}
+        definition={item.definition}
+        model={model}
+        lang={lang}
+        table={table}
+        onRetry={answer.refetch}
+      />
     </article>
   )
 }

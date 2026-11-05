@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 771
 ---
@@ -30,8 +30,8 @@ store/logic (freshness, states) · component · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `freshness: 44 min is fine, 46 min is behind; fetched-ago wording` · pure (vitest)
-- [ ] `a failed panel shows retry while its neighbours render; downloads produce files; the table view matches the chart` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `freshness: 44 min is fine, 46 min is behind; fetched-ago wording` · pure (vitest)
+- [x] `a failed panel shows retry while its neighbours render; downloads produce files; the table view matches the chart` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

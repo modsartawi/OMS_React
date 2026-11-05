@@ -395,6 +395,61 @@ export const DRILL_772 = {
 }
 Object.assign(QUERY, DRILL_772)
 
+// ── 773: a board of panels in every state, plus the panel actions ────────────────────────────────────
+// A slow panel (408 once, then answered on retry), an engine-down panel (409 every time), a panel over the
+// unavailable `callouts` area (410), an empty one, one cut at the row cap, and one whose data is behind.
+// The drive freezes the clock at 10:10, so 09:45 is fine (25 min) and 09:20 is behind (50 min).
+export const CALLOUTS_MEASURE = {
+  key: 'callouts',
+  area: 'callouts',
+  shape: 'additive',
+  unit: 'count',
+  label: label('Callouts', 'الاستدعاءات'),
+  description: label('Dispatch callouts', 'استدعاءات التوزيع'),
+  dimensions: ['store'],
+}
+export const MODEL_773 = { ...MODEL, measures: [...MODEL.measures, CALLOUTS_MEASURE] }
+const bar = (measure, dimension) => ({ chart: { type: 'bar', orientation: 'vertical' }, query: { measures: [measure], dimensions: [dimension], filters: [], period: 'last-30-days' } })
+export const ITEMS_773 = {
+  ...ITEMS,
+  'v-773-slow': view('v-773-slow', { title: label('Slow panel', 'لوحة بطيئة'), definition: bar('orders', 'channel_group') }),
+  'v-773-down': view('v-773-down', { title: label('Engine down', 'المحرك متوقف'), definition: bar('orders', 'channel_group') }),
+  'v-773-gone': view('v-773-gone', { title: label('Callouts by store', 'الاستدعاءات حسب الفرع'), definition: bar('callouts', 'store') }),
+  'v-773-empty': view('v-773-empty', { title: label('Nothing here', 'لا شيء هنا'), definition: bar('orders', 'store') }),
+  'v-773-cut': view('v-773-cut', { title: label('Cut at the cap', 'مقطوع عند الحد'), definition: bar('orders', 'store') }),
+  'v-773-stale': view('v-773-stale', { title: label('Stale figures', 'أرقام قديمة'), definition: bar('orders', 'channel_group') }),
+}
+const vp = (id, viewId, x, y) => ({ id, kind: 'view', viewId, layout: { x, y, w: 4, h: 3 }, optOut: [] })
+export const BOARD_773 = {
+  ...view('b-773', { title: label('Panel states', 'حالات اللوحات') }),
+  kind: 'board',
+  definition: {
+    panels: [
+      vp('p-bar', 'v-bar', 0, 0),
+      vp('p-slow', 'v-773-slow', 4, 0),
+      vp('p-down', 'v-773-down', 8, 0),
+      vp('p-gone', 'v-773-gone', 0, 3),
+      vp('p-empty', 'v-773-empty', 4, 3),
+      vp('p-cut', 'v-773-cut', 8, 3),
+      vp('p-stale', 'v-773-stale', 0, 6),
+      { ...vp('p-line', 'v-line-measures', 4, 6), layout: { x: 4, y: 6, w: 8, h: 3 } },
+    ],
+  },
+}
+ITEMS_773['b-773'] = BOARD_773
+export const PANEL_IDS_773 = BOARD_773.definition.panels.map((p) => p.id)
+export const QUERY_773 = {
+  ...QUERY,
+  'v-773-slow': result('channel_group', 'orders', [['app', 300], ['web', 200]]),
+  'v-773-empty': result('store', 'orders', []),
+  'v-773-cut': { ...result('store', 'orders', [['P001', 900], ['P002', 700]]), truncated: true },
+  'v-773-stale': { ...result('channel_group', 'orders', [['app', 120]]), dataAsOf: '2026-11-05T09:20:00' },
+  'v-773-down': refusal('ANALYTICS-409', 'The analytics engine is unreachable.', 503),
+  'v-773-gone': refusal('ANALYTICS-410', 'The area is not available yet.', 503),
+}
+/** Answers taken in order, the last one standing: the slow panel times out once, then answers. */
+export const SEQUENCE_773 = { 'v-773-slow': [refusal('ANALYTICS-408', 'The query passed 30 s.', 504), QUERY_773['v-773-slow']] }
+
 // ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
 const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
 /** Periods longer than a percentile's 92-day window. */
@@ -439,6 +494,7 @@ export function inlineAnswer(definition, model = MODEL) {
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
  *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
+ *   querySequence: view id → answers taken in order, the last one standing (773's time-out then retry);
  *   queryDelayFor: view id → ms, held instead of `queryDelayMs` for that view (771's one-by-one landing);
  *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
@@ -457,7 +513,7 @@ export function inlineAnswer(definition, model = MODEL) {
  * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, share, unshare, certify, uncertify, remove } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, share, unshare, certify, uncertify, remove } = opts
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
   const listedNow = new Map()
@@ -571,7 +627,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
       }
       if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
       if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
-            const answer = query[id]
+      const seq = querySequence[id]
+      const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[id]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }

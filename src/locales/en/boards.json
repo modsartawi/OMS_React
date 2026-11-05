@@ -113,6 +113,8 @@
   "refusal": {
     "noAccess": "You don't have access to analytics.",
     "notFound": "This analytics view was not found or was deleted.",
+    "timedOut": "This panel took longer than 30 seconds to answer.",
+    "engineDown": "The analytics engine can't be reached right now.",
     "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
     "areaUnavailable": "This subject area is not available yet."
@@ -121,6 +123,41 @@
     "label": "Ask the OMS about analytics",
     "placeholder": "Ask a question, e.g. orders by channel last week",
     "send": "Ask"
+  },
+  "panel": {
+    "actions": "Panel actions",
+    "refresh": "Refresh",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "showTable": "View as table",
+    "hideTable": "Back to the chart",
+    "csv": "Download CSV",
+    "xlsx": "Download xlsx",
+    "png": "Download PNG",
+    "pngUnavailable": "This chart form has no picture to download. Download the CSV or xlsx instead.",
+    "pngTableView": "Go back to the chart to download its picture.",
+    "pngFailed": "The picture could not be made",
+    "permalink": "Copy the permalink",
+    "permalinkCopied": "Permalink copied",
+    "permalinkFailed": "The permalink could not be copied",
+    "fetched": {
+      "justNow": "Fetched just now",
+      "minutes_one": "Fetched <n>{{count}}</n> minute ago",
+      "minutes_other": "Fetched <n>{{count}}</n> minutes ago",
+      "hours_one": "Fetched <n>{{count}}</n> hour ago",
+      "hours_other": "Fetched <n>{{count}}</n> hours ago",
+      "days_one": "Fetched <n>{{count}}</n> day ago",
+      "days_other": "Fetched <n>{{count}}</n> days ago"
+    },
+    "behind": "Data is behind",
+    "behindHint": "The analytics data has not refreshed for more than 45 minutes. The figures may be out of date.",
+    "empty": "No data for these filters.",
+    "truncated": "Cut at the row cap",
+    "truncatedHint": "Only the first rows are shown: the answer was cut at the row cap.",
+    "retry": "Retry",
+    "failedTitle": "This panel could not be answered",
+    "unavailableTitle": "Not available yet",
+    "refreshFailed": "The refresh failed. The figures shown are from the last answer."
   },
   "title": {
     "byDimensions": "{{measures}} by {{dimensions}}",

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 776
 ---
@@ -23,8 +23,8 @@ model/api (`Share`, `Unshare`, `Certify`, `Uncertify`, `DELETE`) · store/logic 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tier and actions: share, certify, uncertify and delete availability per owner and curator` · pure (vitest)
-- [ ] `a curator certifies a Shared board and it moves to Certified on the home; a viewer sees no Certify` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `tier and actions: share, certify, uncertify and delete availability per owner and curator` · pure (vitest)
+- [x] `a curator certifies a Shared board and it moves to Certified on the home; a viewer sees no Certify` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

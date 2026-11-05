@@ -11,6 +11,7 @@ import type {
   AnalyticsItem,
   AnalyticsItemCopy,
   AnalyticsItemCreate,
+  AnalyticsItemRevision,
   AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
@@ -74,5 +75,32 @@ export const analyticsApi = {
   /** `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item recording its source. */
   async copy(id: string, body: AnalyticsItemCopy): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Copy`, body))
+  },
+  /**
+   * 778: `POST Analytics/Item/{id}/Share` / `…/Unshare` with `{ revision }` — the owner shows their item to every
+   * analytics user, or takes it back (Personal ↔ Shared). Answers the item. ⚠ §C's `{ revision }` is read as
+   * the body of Copy, Share, Unshare and Certify alike: the revision the screen showed.
+   */
+  async share(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Share`, body))
+  },
+  async unshare(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Unshare`, body))
+  },
+  /**
+   * 778: `POST Analytics/Item/{id}/Certify` with `{ revision }`, on the SOURCE item — a curator freezes that
+   * revision as a Certified copy (`certifiedFrom: id`) or, when the copy exists, writes it into the copy as one new
+   * revision. ⚠ Answers the Certified copy. `ANALYTICS-402` without the curator grant.
+   */
+  async certify(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Certify`, body))
+  },
+  /** 778: `POST Analytics/Item/{id}/Uncertify` (no body) on the Certified item. ⚠ Answers the item, no longer Certified. */
+  async uncertify(id: string): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Uncertify`, {}))
+  },
+  /** 778: `DELETE Analytics/Item/{id}`. A board that shows a deleted view keeps a "view removed" panel (404). */
+  async remove(id: string): Promise<void> {
+    await api.del<unknown>(`Analytics/Item/${encodeURIComponent(id)}`)
   },
 }

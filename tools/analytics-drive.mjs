@@ -1212,6 +1212,135 @@ async function board772({ dir }) {
   await context.close()
 }
 
+// ── 778 ──────────────────────────────────────────────────────────────────────────────────────────────
+const CURATOR = { canView: true, canCurate: true }
+const tierActionsOn = (page) => page.locator('[data-analytics-action]').evaluateAll((els) => els.map((e) => e.dataset.analyticsAction))
+const homeRow = (page, group, id) => page.locator(`[data-analytics-group="${group}"] [data-analytics-item="${id}"]`)
+
+/** A curator certifies a Shared board: a frozen Certified copy leads the home; then delete it, and un-certify another. */
+async function certifiesSharedBoard({ dir }) {
+  const tag = `778 ${dir} curator`
+  const { context, page, errors, bodies } = await open({ dir, access: CURATOR })
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-board="b-shared"] [data-analytics-board-header] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="certify"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a Shared board of someone else's offers Certify only (no share, no delete)`, JSON.stringify(await tierActionsOn(page)) === '["certify"]', JSON.stringify(await tierActionsOn(page)))
+
+  await page.locator('[data-analytics-action="certify"]').click()
+  await page.locator('[data-analytics-certified-copy="b-shared-cert"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="certifyRevision"]').waitFor({ timeout: 10000 })
+  const sent = bodies['Analytics/Item/b-shared/Certify']?.[0]
+  check(`${tag}: Certify posts the revision on screen`, sent?.revision === 7, JSON.stringify(sent))
+  check(`${tag}: once certified, Certify becomes "Certify this revision" into the copy`, JSON.stringify(await tierActionsOn(page)) === '["certifyRevision"]')
+  check(`${tag}: the board itself stays Shared (its author's)`, (await page.locator('[data-analytics-board-header] [data-analytics-tier-badge]').getAttribute('data-analytics-tier-badge')) === 'shared')
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-source.png` })
+
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'certified', 'b-shared-cert').waitFor({ timeout: 10000 })
+  check(`${tag}: on the home the certified copy is in Certified, with the Certified badge`, (await homeRow(page, 'certified', 'b-shared-cert').locator('[data-analytics-tier-badge="certified"]').count()) === 1)
+  check(`${tag}: … and the Shared original stays in Shared`, (await homeRow(page, 'shared', 'b-shared').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-home.png` })
+
+  await homeRow(page, 'certified', 'b-shared-cert').locator('a').click()
+  await page.locator('[data-analytics-board="b-shared-cert"] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="delete"]').waitFor({ timeout: 10000 })
+  check(`${tag}: the certified board shows the Certified badge, and offers Un-certify and Delete`, JSON.stringify(await tierActionsOn(page)) === '["uncertify","delete"]', JSON.stringify(await tierActionsOn(page)))
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-board.png` })
+
+  await page.locator('[data-analytics-action="delete"]').click()
+  await page.locator('[data-analytics-confirm="delete"]').click()
+  await page.waitForURL(/\/analytics$/, { timeout: 10000 })
+  await homeRow(page, 'shared', 'b-shared').waitFor({ timeout: 10000 })
+  check(`${tag}: deleting the certified copy goes home, where it is gone`, (await page.locator('[data-analytics-item="b-shared-cert"]').count()) === 0 && (await page.locator('[data-analytics-group="certified"] [data-analytics-item="b-ops"]').count()) === 1)
+
+  // Un-certify a Certified board: it leaves the Certified group.
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-action="uncertify"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="uncertify"]').click()
+  await page.locator('[data-analytics-confirm="uncertify"]').click()
+  await page.locator('[data-analytics-board="b-ops"] [data-analytics-board-header] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 10000 })
+  check(`${tag}: un-certify makes the board no longer Certified`, true)
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'b-ops').waitFor({ timeout: 10000 })
+  check(`${tag}: … and the home lists it under Shared`, (await page.locator('[data-analytics-group="certified"] [data-analytics-item="b-ops"]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A viewer (no curator grant) sees the badges but no Certify, Un-certify or Delete on what is not theirs. */
+async function viewerSeesNoCertify() {
+  const tag = '778 viewer'
+  const { context, page, errors } = await open({})
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-board="b-shared"] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-board-panel="p-kpi"]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: a Shared board of someone else's offers no tier actions (no Certify)`, (await page.locator('[data-analytics-tier-actions]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"] [data-analytics-board-header] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: a Certified board shows its badge, and no Un-certify or Delete`, (await page.locator('[data-analytics-action]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/view/v-cert-776`)
+  await page.locator('[data-analytics-view="v-cert-776"] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a Certified view shows the Certified badge`, (await page.locator('[data-analytics-view="v-cert-776"] [data-analytics-tier-badge="certified"]').innerText()).includes('Certified'))
+  check(`${tag}: … and offers no tier actions`, (await page.locator('[data-analytics-action]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** An owner shares their Personal view in one click, takes it back, and deletes it. */
+async function ownerSharesAndDeletes({ dir }) {
+  const tag = `778 ${dir} owner`
+  const { context, page, errors } = await open({ dir })
+  const badge = (tier) => page.locator(`[data-analytics-view="v-bar"] [data-analytics-tier-badge="${tier}"]`)
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await badge('personal').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 10000 })
+  check(`${tag}: my Personal view offers Share and Delete, and no Certify`, JSON.stringify(await tierActionsOn(page)) === '["share","delete"]', JSON.stringify(await tierActionsOn(page)))
+
+  await page.locator('[data-analytics-action="share"]').click()
+  await badge('shared').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="unshare"]').waitFor({ timeout: 10000 })
+  check(`${tag}: Share is one click: the view is Shared and offers Unshare`, JSON.stringify(await tierActionsOn(page)) === '["unshare","delete"]')
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-shared-view.png` })
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'v-bar').waitFor({ timeout: 10000 })
+  check(`${tag}: … and the home lists it under Shared`, (await homeRow(page, 'personal', 'v-bar').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.locator('[data-analytics-action="unshare"]').click()
+  await badge('personal').waitFor({ timeout: 10000 })
+  check(`${tag}: Unshare takes it back to Personal`, (await page.locator('[data-analytics-action="share"]').count()) === 1)
+
+  await page.locator('[data-analytics-action="delete"]').click()
+  await page.locator('[data-analytics-confirm="delete"]').waitFor({ timeout: 5000 })
+  check(`${tag}: Delete asks first`, !page.url().endsWith('/analytics'))
+  await page.locator('[data-analytics-confirm="delete"]').click()
+  await page.waitForURL(/\/analytics$/, { timeout: 10000 })
+  await page.locator('[data-analytics-item="v-titled"]').waitFor({ timeout: 10000 })
+  check(`${tag}: Delete goes home, where the view is gone`, (await page.locator('[data-analytics-item="v-bar"]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A stale probe offered Certify; the server's `ANALYTICS-402` shows its reason and hides the action. */
+async function staleProbeCertify402() {
+  const tag = '778 402'
+  const { context, page, errors } = await open({ access: CURATOR, certify: refusal('ANALYTICS-402', 'Needs the curator grant.', 403) })
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-action="certify"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="certify"]').click()
+  const note = page.locator('[data-analytics-tier-refusal="needs-curator"]')
+  await note.waitFor({ timeout: 10000 })
+  check(`${tag}: the reason is shown`, (await note.innerText()).includes('curator grant'), await note.innerText())
+  check(`${tag}: … and Certify is hidden from then on`, (await page.locator('[data-analytics-action="certify"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/778-402.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1245,6 +1374,12 @@ const SCENARIOS = [
   ['776', () => staleSaveConflicts({ dir: 'rtl' })],
   ['776', notYoursOffersCopy],
   ['776', tiersAndCopies],
+  ['778', () => certifiesSharedBoard({ dir: 'ltr' })],
+  ['778', () => certifiesSharedBoard({ dir: 'rtl' })],
+  ['778', viewerSeesNoCertify],
+  ['778', () => ownerSharesAndDeletes({ dir: 'ltr' })],
+  ['778', () => ownerSharesAndDeletes({ dir: 'rtl' })],
+  ['778', staleProbeCertify402],
 ]
 
 try {

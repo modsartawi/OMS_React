@@ -13,8 +13,10 @@ import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
 import { itemActions } from './item-actions'
+import ItemTierActions from './ItemTierActions'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
+import TierBadge from './TierBadge'
 import { useItemActor } from './use-item-save'
 import { labelIn } from './view-model'
 import ViewChart, { viewTitleOf } from './ViewChart'
@@ -82,9 +84,13 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={item.id}>
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
-            <bdi>{title}</bdi>
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
+              <bdi>{title}</bdi>
+            </h2>
+            {/* 778: the tier badge, the Certified one with its check. */}
+            <TierBadge tier={item.tier} />
+          </div>
           {subtitle && (
             <p className="text-sm text-muted-foreground">
               <bdi>{subtitle}</bdi>
@@ -98,6 +104,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             {t('view.edit')}
           </Link>
         )}
+        {/* 778: share, certify, un-certify and delete, as the tier allows. */}
+        <ItemTierActions item={item} />
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
           {asOf && (
             <span data-analytics-as-of>

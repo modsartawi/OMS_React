@@ -127,6 +127,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },
       {
+        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777).
+        path: 'analytics/new',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
+      },
+      {
         path: 'oms/deliveries',
         handle: SINGLE_KEYS,
         lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),

@@ -72,6 +72,7 @@ export default function SeriesPanel({
       locale={lang}
       otherCount={view.folded}
       onPoint={onPoint && view.form === 'bar' ? (x) => onPoint(view.x.key, x) : undefined}
+      legend={definition.chart.legend}
       ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(view.measureLabel), dimension: fsi(view.x.label) })}
     />
   )

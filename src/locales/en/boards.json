@@ -87,8 +87,7 @@
       "crumb": "<member>{{member}}</member> by <dimension>{{dimension}}</dimension>",
       "menu": "Drill into {{member}}",
       "by": "Drill <member>{{member}}</member> by",
-      "saveAsView": "Save as view",
-      "saveAsViewLater": "Saving a drill as a view arrives with the view editor."
+      "saveAsView": "Save as view"
     }
   },
   "view": {
@@ -112,11 +111,131 @@
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
-    "notFound": "This analytics view was not found or was deleted."
+    "notFound": "This analytics view was not found or was deleted.",
+    "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
+    "window": "A percentile is answered over at most 92 days. Shorten the period.",
+    "areaUnavailable": "This subject area is not available yet."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
     "placeholder": "Ask a question, e.g. orders by channel last week",
     "send": "Ask"
+  },
+  "title": {
+    "byDimensions": "{{measures}} by {{dimensions}}",
+    "overPeriod": "{{title}}, {{period}}"
+  },
+  "editor": {
+    "title": "New analytics view",
+    "subtitle": "Build a chart from the governed analytics model.",
+    "boardNotYet": "Boards are built in the board editor, which is not here yet.",
+    "newView": "New view",
+    "loading": "Loading the analytics model…",
+    "loadFailed": "The analytics model could not be loaded",
+    "measures": "Measures",
+    "dimensions": "Breakdowns",
+    "dimensionsHint": "Only the breakdowns every chosen measure allows.",
+    "filterOn": "Only these: {{dimension}}",
+    "period": {
+      "today": "today",
+      "yesterday": "yesterday",
+      "this-week": "this week",
+      "last-week": "last week",
+      "last-7-days": "last 7 days",
+      "last-28-days": "last 28 days",
+      "last-30-days": "last 30 days",
+      "this-month": "this month",
+      "last-month": "last month",
+      "year-to-date": "year to date"
+    },
+    "chart": "Chart type",
+    "chartHint": "Only the types that fit your measures and breakdowns are offered.",
+    "folds": "Past five members, the rest is drawn as “Other”.",
+    "format": "Number format",
+    "legend": "Legend",
+    "colours": "Series colours",
+    "coloursFixed": "{{dimension}} keeps its fixed colours on every chart.",
+    "coloursNone": "Colours follow each member. Choose a breakdown to pick them.",
+    "colourFor": "Colour for {{member}}",
+    "colourSlot": "Chart colour {{n}}",
+    "sort": "Sort",
+    "sortDefault": "Default order",
+    "sortDesc": "{{column}}, largest first",
+    "sortAsc": "{{column}}, smallest first",
+    "topN": "Top N",
+    "topNPlaceholder": "All rows",
+    "titleEn": "Title in English",
+    "titleAr": "Title in Arabic",
+    "subtitleEn": "Subtitle in English",
+    "subtitleAr": "Subtitle in Arabic",
+    "titleHint": "Leave it empty and the title is made from the measures and breakdowns.",
+    "preview": "Preview",
+    "previewIdle": "Choose a measure and a chart type to see a preview.",
+    "save": "Save view",
+    "saving": "Saving…",
+    "saved": "Saved as your own analytics view.",
+    "saveFailed": "The view could not be saved",
+    "unavailableAreas": "Not available yet",
+    "areaReason": "<area>{{area}}</area>: {{reason}}",
+    "refused": {
+      "invalidField": "The model does not accept {{field}}. Change it and try again.",
+      "window": "{{measure}} is a percentile, so its period is at most {{days}} days.",
+      "shorten": "Use {{period}} instead",
+      "area": "This subject area is not available yet: {{reason}}"
+    },
+    "choice": {
+      "kpi": "KPI",
+      "line": "Line",
+      "area": "Stacked area",
+      "bar-vertical": "Vertical bar",
+      "bar-horizontal": "Horizontal bar",
+      "bar-stacked": "Stacked bar",
+      "bar-grouped": "Grouped bar",
+      "donut": "Donut",
+      "table": "Table",
+      "heatmap": "Heatmap",
+      "combo": "Combo"
+    },
+    "why": {
+      "noMeasure": "Choose a measure first.",
+      "kpiShape": "A KPI is one measure with no category breakdown.",
+      "needsTime": "A line needs a time breakdown.",
+      "lineShape": "A line is 1 to 4 measures over time, or one measure over time by one category.",
+      "areaShape": "A stacked area is one measure over time by one category.",
+      "rateStacked": "A rate or percentile is never stacked.",
+      "barShape": "A bar is 1 to 3 measures by one breakdown, or one measure by two.",
+      "needsSeries": "Stacked and grouped bars need two series: a second measure or a second breakdown.",
+      "donutShape": "A donut is one measure by one category.",
+      "donutAdditive": "A rate or percentile is never put in a donut.",
+      "tableShape": "A table needs 1 to 3 breakdowns.",
+      "heatmapShape": "A heatmap is one measure by two breakdowns.",
+      "comboShape": "A combo is one volume measure and one rate, by one breakdown."
+    },
+    "formatName": {
+      "auto": "Automatic",
+      "integer": "Whole number",
+      "decimal": "Decimal",
+      "percent": "Percent",
+      "SAR": "SAR",
+      "minutes": "Minutes"
+    },
+    "legendName": {
+      "hidden": "Hidden",
+      "top": "Top",
+      "bottom": "Bottom",
+      "end": "At the end"
+    },
+    "periodName": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this-week": "This week",
+      "last-week": "Last week",
+      "last-7-days": "Last 7 days",
+      "last-28-days": "Last 28 days",
+      "last-30-days": "Last 30 days",
+      "this-month": "This month",
+      "last-month": "Last month",
+      "year-to-date": "Year to date"
+    }
   }
 }

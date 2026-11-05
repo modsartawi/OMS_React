@@ -12,14 +12,17 @@ const instance = i18next.createInstance()
 await instance.init({ lng: 'en', resources: { en: { boards: en }, ar: { boards: ar } }, defaultNS: 'boards', interpolation: { escapeValue: false } })
 
 describe('analytics wire', () => {
-  it('each of ANALYTICS-401/404 maps to its i18n key, an unknown code falls back to the server message', () => {
+  it('each of ANALYTICS-401/404/406/407/410 maps to its i18n key, an unknown code falls back to the server message', () => {
     expect(analyticsRefusal(coded('ANALYTICS-401'), 'fallback')).toEqual({ code: 'ANALYTICS-401', key: 'refusal.noAccess' })
     expect(analyticsRefusal(coded('ANALYTICS-404'), 'fallback')).toEqual({ code: 'ANALYTICS-404', key: 'refusal.notFound' })
+    expect(analyticsRefusal(coded('ANALYTICS-406'), 'fallback')).toEqual({ code: 'ANALYTICS-406', key: 'refusal.invalid' })
+    expect(analyticsRefusal(coded('ANALYTICS-407'), 'fallback')).toEqual({ code: 'ANALYTICS-407', key: 'refusal.window' })
+    expect(analyticsRefusal(coded('ANALYTICS-410'), 'fallback')).toEqual({ code: 'ANALYTICS-410', key: 'refusal.areaUnavailable' })
     expect(analyticsRefusal(coded('ANALYTICS-499', 'Something new.'), 'fallback')).toEqual({ code: 'ANALYTICS-499', message: 'Something new.' })
     expect(analyticsRefusal(new Error('boom'), 'The view could not be drawn.')).toEqual({ code: null, message: 'The view could not be drawn.' })
 
     // Each key has words in both languages, and none of them is the raw code.
-    for (const key of ['refusal.noAccess', 'refusal.notFound']) {
+    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable']) {
       for (const lng of ['en', 'ar']) {
         expect(instance.exists(key, { lng }), `${lng} ${key}`).toBe(true)
         expect(instance.t(key, { lng })).not.toMatch(/ANALYTICS/)

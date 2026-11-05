@@ -1,9 +1,11 @@
 import { Trans, useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { crumbsOf, drillTargets, type MarkPoint } from './drill'
+import { newViewLink } from './editor'
 import type { DrillStep } from './effective-query'
 import { labelIn } from './view-model'
 
@@ -12,11 +14,11 @@ import { labelIn } from './view-model'
  *
  * - **The breadcrumb**, once the panel is drilled: the view's own breakdown, then each step ("P001 by City").
  *   An earlier crumb goes back to it; the last is where the panel is.
- * - **The drill menu**, while the panel holds the board's cross-filter point: one action per entry of
- *   `drillActions`. Drill by re-asks THIS panel in place, from the point into another allowed dimension.
+ * - **The drill menu**: one action per entry of `drillActions`. While the panel holds the board's
+ *   cross-filter point, drill by re-asks THIS panel in place, from the point into another allowed dimension.
+ *   Once drilled, "Save as view" opens 775's editor seeded with the drilled definition; nothing is saved before.
  *
- * The menu is a list so later tickets add to it: 774 appends drill to detail ("See deliveries") in
- * `drillActions`; 775 enables "Save as view" (the `saveAsView` entry below).
+ * The menu is a list so later tickets add to it: 774 appends drill to detail ("See deliveries") in `drillActions`.
  */
 
 export interface DrillAction {
@@ -37,7 +39,7 @@ export const memberLabel = (point: MarkPoint, model: AnalyticsModel, lang: strin
   return labelIn(dim?.values?.find((v) => v.key === point.member)?.label, lang) || point.member
 }
 
-/** The drill menu's actions for `point` on a panel showing `view` (already drilled by `steps`). */
+/** The drill menu's actions on a panel drilled by `steps`: drill by from `point` (if any), and save the drill. */
 export function drillActions({
   drilled,
   steps,
@@ -45,26 +47,30 @@ export function drillActions({
   model,
   lang,
   onDrill,
+  onSaveAsView,
   t,
 }: {
   drilled: AnalyticsViewDefinition
   steps: readonly DrillStep[]
-  point: MarkPoint
+  point: MarkPoint | null
   model: AnalyticsModel
   lang: string
   onDrill: (steps: DrillStep[]) => void
+  /** Opens the view editor seeded with `drilled` (775): the only way a drill is kept. */
+  onSaveAsView: (drilled: AnalyticsViewDefinition) => void
   t: TFunction<'boards'>
 }): DrillAction[] {
-  const by: DrillAction[] = drillTargets(drilled, model, steps).map((into) => ({
-    key: `by:${into}`,
-    into,
-    label: dimLabel(into, model, lang),
-    run: () => onDrill([...steps, { dimension: point.dimension, member: point.member, into }]),
-  }))
+  const by: DrillAction[] = point
+    ? drillTargets(drilled, model, steps).map((into) => ({
+        key: `by:${into}`,
+        into,
+        label: dimLabel(into, model, lang),
+        run: () => onDrill([...steps, { dimension: point.dimension, member: point.member, into }]),
+      }))
+    : []
   // HOOK(774): drill to detail ("See deliveries" for a store or city, Dispatch for a callout) goes here.
-  // HOOK(775): "Save as view" saves `drilled` as a new Personal view; enable it when the view editor lands.
-  const saveAsView: DrillAction = { key: 'saveAsView', label: t('board.drill.saveAsView'), disabledReason: t('board.drill.saveAsViewLater') }
-  return [...by, saveAsView]
+  const save: DrillAction[] = steps.length > 0 ? [{ key: 'saveAsView', label: t('board.drill.saveAsView'), run: () => onSaveAsView(drilled) }] : []
+  return [...by, ...save]
 }
 
 export default function PanelDrill({
@@ -87,9 +93,14 @@ export default function PanelDrill({
   onDrill: (steps: DrillStep[]) => void
 }) {
   const { t } = useTranslation('boards')
+  const navigate = useNavigate()
   if (steps.length === 0 && !point) return null
   const crumbs = crumbsOf(view, steps)
-  const actions = point ? drillActions({ drilled, steps, point, model, lang, onDrill, t }) : []
+  const onSaveAsView = (definition: AnalyticsViewDefinition) => {
+    const link = newViewLink({ definition })
+    navigate(link.to, { state: link.state })
+  }
+  const actions = drillActions({ drilled, steps, point, model, lang, onDrill, onSaveAsView, t })
 
   return (
     <div className="flex flex-col gap-1.5 text-xs" data-board-drill>
@@ -126,16 +137,18 @@ export default function PanelDrill({
           </ol>
         </nav>
       )}
-      {point && (
+      {actions.length > 0 && (
         <div
           role="group"
           className="flex flex-wrap items-center gap-1.5"
-          aria-label={t('board.drill.menu', { member: fsi(memberLabel(point, model, lang)) })}
+          aria-label={point ? t('board.drill.menu', { member: fsi(memberLabel(point, model, lang)) }) : t('board.drill.breadcrumb')}
           data-board-drill-menu
         >
-          <span className="text-muted-foreground">
-            <Trans t={t} i18nKey="board.drill.by" values={{ member: memberLabel(point, model, lang) }} components={{ member: <bdi /> }} />
-          </span>
+          {point && (
+            <span className="text-muted-foreground">
+              <Trans t={t} i18nKey="board.drill.by" values={{ member: memberLabel(point, model, lang) }} components={{ member: <bdi /> }} />
+            </span>
+          )}
           {actions.map((a) =>
             a.run ? (
               <Button key={a.key} variant="outlined" onClick={a.run} data-drill-action={a.key} data-drill-into={a.into}>

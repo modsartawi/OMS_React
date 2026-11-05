@@ -18,7 +18,7 @@ import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
 import { formatAs, formatTickAs } from './format'
 import { CHART_INK, slotColour } from './slots'
-import type { AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
+import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
  * The time and category forms (ticket 768): line, stacked area, and the bars — vertical, horizontal,
@@ -62,6 +62,7 @@ export default function SeriesChart({
   otherCount = 0,
   height = 320,
   onPoint,
+  legend: legendAt = 'bottom',
 }: {
   form: 'line' | 'area' | 'bar'
   orientation?: 'vertical' | 'horizontal'
@@ -78,6 +79,8 @@ export default function SeriesChart({
   height?: number
   /** Bars only (772's cross-filter): a click on a bar gives its category member (`rows[i].x`). */
   onPoint?: (x: string) => void
+  /** Where the legend sits (755 item 4, ticket 775); `end` is the reading end, so it mirrors under RTL. */
+  legend?: AnalyticsLegendPosition
 }) {
   const { t } = useTranslation('common')
   const named = series.map((s) => ({ ...s, name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.label, colour: slotColour(s.slot) }))
@@ -99,9 +102,12 @@ export default function SeriesChart({
     />
   )
   const legend =
-    named.length > 1 ? (
+    named.length > 1 && legendAt !== 'hidden' ? (
       <Legend
-        verticalAlign="bottom"
+        {...(legendAt === 'end'
+          ? // The reading end: opposite the value axis, which sits at the reading start.
+            { layout: 'vertical' as const, verticalAlign: 'middle' as const, align: chartMirror.valueAxisSide === 'left' ? ('right' as const) : ('left' as const) }
+          : { verticalAlign: legendAt })}
         // The series' own order (rank, "Other" last), not Recharts' default sort by name.
         itemSorter={null}
         wrapperStyle={CHART_LEGEND_STYLE}

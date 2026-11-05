@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -6,7 +6,6 @@ import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2, TriangleAlert }
 import type { GridApi } from 'ag-grid-community'
 import type { OrderDocumentRow } from '@/core/models/order-document'
 import { useKeyHint } from '@/core/commands/key-hint'
-import { takesEscape } from '@/core/commands/key-layer'
 import { INSPECTOR_KEYS } from '@/core/list/list-keys'
 import { fromListState } from '@/core/oms/open-intent'
 import { pinStart } from '@/core/theme/direction'
@@ -15,6 +14,7 @@ import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
+import { usePopoverDismiss } from '@/core/ui/use-popover-dismiss'
 import { exportOrdersToExcel } from './export'
 import { deliveryPathOf, documentPathOf } from './inspector-model'
 import type { RowPill } from './lenses'
@@ -57,23 +57,7 @@ export default function GridToolbar({
   const deliveryTo = selectedRow ? deliveryPathOf(selectedRow) : null
   const noRowReason = selectedRow ? undefined : t('inspector.empty')
 
-  useEffect(() => {
-    if (!columnsOpen) return
-    const onDown = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setColumnsOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (!takesEscape(e, popoverRef.current)) return
-      e.preventDefault()
-      setColumnsOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [columnsOpen])
+  usePopoverDismiss(columnsOpen, popoverRef, () => setColumnsOpen(false))
 
   function refreshColumnList() {
     setColumnList(

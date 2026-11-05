@@ -111,3 +111,15 @@ describe('the question limit (spec 734 D7)', () => {
     expect(questionFits('   ')).toBe(false)
   })
 })
+
+describe('the answer names its house rules (ticket 790)', () => {
+  it('promptVersion_aNumberIsRulesN_zeroIsBuiltIn_absentIsNothing', () => {
+    expect(copilotAnswerModel({ answer: 'x', promptVersion: 3 }).rules).toEqual({ kind: 'version', n: 3 })
+    expect(copilotAnswerModel({ answer: 'x', promptVersion: 0 }).rules).toEqual({ kind: 'builtIn' })
+    expect(copilotAnswerModel({ answer: 'x' }).rules).toBeNull()
+    expect(copilotAnswerModel(null).rules).toBeNull()
+    // Not a whole, non-negative number: nothing, never "rules vNaN".
+    for (const odd of ['3', -1, 1.5, Number.NaN, null])
+      expect(copilotAnswerModel({ promptVersion: odd } as unknown as Partial<CopilotAnswer>).rules).toBeNull()
+  })
+})

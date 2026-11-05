@@ -119,6 +119,12 @@ export const router = createBrowserRouter([
         path: 'copilot',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
       },
+      // The copilot's house rules (ticket 790, BackOffice 3395) — curators only, behind `canCurateCopilot` on the same
+      // `GET Copilot/Access`, failing closed. Its nav item is under Administration.
+      {
+        path: 'copilot/rules',
+        lazy: async () => ({ Component: (await import('@/features/copilot/CopilotRulesPage')).default }),
+      },
       // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
       // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
       // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route

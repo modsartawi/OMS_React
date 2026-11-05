@@ -121,6 +121,9 @@ import {
 import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/admin/data-sync/api'
 // The document-type configuration's probe stays with its feature (BackOffice ticket 3149): its only consumer.
 import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
+// The copilot's house rules (ticket 790): the SAME probe key, call and options the top-bar button reads, so one call.
+import { COPILOT_ACCESS_KEY, canCurateCopilot, copilotAccessApi } from '@/features/copilot/access'
+import { ScrollText } from 'lucide-react'
 import { FileCog } from 'lucide-react'
 import { Workflow } from 'lucide-react'
 import { Radio } from 'lucide-react'
@@ -591,6 +594,20 @@ export const MENU: ShellMenuItem[] = [
           key: SYNC_CONSOLE_ACCESS_KEY,
           run: () => syncConsoleApi.access(),
           visible: canOpenSyncConsole,
+        }),
+      },
+      {
+        // Copilot rules (ticket 790, BackOffice 3395) — the copilot's house rules, for curators: `canCurate` off
+        // `GET Copilot/Access`, the SAME key and call as the top-bar button and the page's gate. 🚩 Fails closed:
+        // absent (a pre-3395 server), false or failed hides the leaf.
+        labelKey: 'copilot:menu.rules',
+        icon: ScrollText,
+        routerLink: '/copilot/rules',
+        activePrefix: '/copilot/rules',
+        access: accessProbe({
+          key: COPILOT_ACCESS_KEY,
+          run: () => copilotAccessApi.access(),
+          visible: canCurateCopilot,
         }),
       },
       {

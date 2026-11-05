@@ -29,6 +29,12 @@ export function copilotAccessQuery() {
 export const canAskCopilot = (r: CopilotAccess | null | undefined): boolean => r?.canAsk === true
 
 /**
+ * May edit the house rules (ticket 790, BackOffice 3395): read by the Administration leaf and the
+ * `/copilot/rules` gate. Absent (a pre-3395 server), false or failed is a denial, as `canAsk` is.
+ */
+export const canCurateCopilot = (r: CopilotAccess | null | undefined): boolean => r?.canCurate === true
+
+/**
  * 🚩 Privacy (review item 1): the probe is `staleTime: Infinity`, so without this a grant would outlive
  * its user — B, signing in on A's tab, would see A's button. Whenever the session's user changes or
  * signs out, the answer is reset (no data: fails closed) and asked afresh. Returns the unsubscribe.
@@ -41,7 +47,7 @@ export function dropCopilotAccessOnUserChange(client: QueryClient): () => void {
 
 export const copilotAccessApi = {
   /**
-   * `GET Copilot/Access` → `{ canAsk, canUseMcp }`.
+   * `GET Copilot/Access` → `{ canAsk, canUseMcp, canCurate }`.
    *
    * 🚩 **Fails closed** — no 404-tolerant catch (the OMS-viewer pattern, D7): the panel sends the
    * question to an external AI service, so an absent or unreachable door hides the button and the

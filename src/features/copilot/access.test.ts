@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import { useSession } from '@/core/session'
-import { COPILOT_ACCESS_KEY, canAskCopilot, dropCopilotAccessOnUserChange } from './access'
+import { COPILOT_ACCESS_KEY, canAskCopilot, canCurateCopilot, dropCopilotAccessOnUserChange } from './access'
 
 afterEach(() => useSession.getState().clear())
 
@@ -33,5 +33,15 @@ describe('the copilot probe (spec 734 D7)', () => {
     useSession.getState().clear()
     expect(client.getQueryData(COPILOT_ACCESS_KEY)).toBeUndefined()
     stop()
+  })
+
+  it('canCurateCopilot_onlyWhenTheReplySaysTrue (ticket 790)', () => {
+    // Failed (no data), malformed, absent (a pre-3395 server), or false: denied.
+    expect(canCurateCopilot(undefined)).toBe(false)
+    expect(canCurateCopilot(null)).toBe(false)
+    expect(canCurateCopilot({ canAsk: true, canUseMcp: false })).toBe(false)
+    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: false })).toBe(false)
+    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: 'true' } as never)).toBe(false)
+    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: true })).toBe(true)
   })
 })

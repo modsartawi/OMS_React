@@ -1245,6 +1245,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [738](738-the-sourcing-advisor-explains-why-an-order-went-to-its-store.md) — The sourcing advisor explains why an order went to its store · *(spec 734)* · **done 2026-11-03** · blocked by: — · sourcing tracer: explain page, core probe, "Why this store?" on delivery details, new ns `sourcing-advisor`; stubbed BO-2; placeholder rates (S2)
 - [739](739-the-sourcing-advisor-shows-what-cheaper-sourcing-would-have-saved.md) — The sourcing advisor shows what cheaper sourcing would have saved · *(spec 734)* · **done 2026-11-03** · blocked by: 738 · 30-day simulation, breakdowns, top-50 savings, scored-through banner
 - [740](740-ask-the-oms-and-the-sourcing-advisor-work-live-on-staging.md) — Ask the OMS and the sourcing advisor work live on staging · *(spec 734)* · **open** · blocked by: 736, 737, 739 (+ BackOffice 3346–3353, IT approval) · live drives, both connectors' eval, MCP check, fallback recordings
+- [790](790-copilot-curators-edit-the-house-rules-try-a-draft-and-roll-back.md) — Copilot curators edit the house rules, try a draft and roll back · *(ticket · spec 734)* · **open** (client half built, stubbed, drive 84/84; live waits on BO 3395) · blocked by: BackOffice 3395 · /copilot/rules: read-only core, house-rules editor (4,000), Try with a draft, save with baseVersion (411 dialog), history + restore; canCurate probe; "rules vN" in the answer's provenance
 
 ## Self-service analytics with AI (wayfinder map 741, charted 2026-11-03)
 

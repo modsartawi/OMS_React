@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { History, HelpCircle, Loader2, MessageSquarePlus, Send, Sparkles, X } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
@@ -10,10 +10,9 @@ import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits, type AnswerBlock, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
-import { copilotRefusal } from './refusal'
-import { AnswerProvenance, LinkedText, ReportLinks, ViewLinks, WorkingStep } from './AnswerParts'
+import { Answer, Refusal, WorkingStep } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 
@@ -449,100 +448,5 @@ function Turn({ turn }: { turn: CopilotTurn }) {
         </AnswerRow>
       )}
     </li>
-  )
-}
-
-/** One answer's body (ticket 735), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-function Answer({ model }: { model: CopilotAnswerModel }) {
-  const { t } = useTranslation('copilot')
-  return (
-    <>
-      <section data-copilot-answer aria-label={t('answer.heading')} className="flex flex-col gap-2 text-sm">
-        {model.blocks.length === 0 ? (
-          <p className="text-muted-foreground">{t('answer.empty')}</p>
-        ) : (
-          model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
-        )}
-      </section>
-      <ViewLinks viewRefs={model.viewRefs} />
-      <ReportLinks reportRefs={model.reportRefs} />
-      <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} />
-    </>
-  )
-}
-
-/**
- * A refusal in its own words (D7), never its raw code. A code without words here is the server's own
- * message — free text, so a `<bdi>`. 402's reset time is a machine value: `Ltr`, through a `<Trans>` slot.
- */
-function Refusal({ err }: { err: unknown }) {
-  const { t } = useTranslation('copilot')
-  const view = copilotRefusal(err, t('failed'))
-  return (
-    <div
-      role="alert"
-      data-copilot-refusal
-      className="rounded-2xl rounded-ss-sm border border-danger-border bg-danger-050 px-3.5 py-2.5 text-[0.8125rem] text-danger-800"
-    >
-      {'message' in view ? (
-        <bdi>{view.message}</bdi>
-      ) : view.resetAt ? (
-        <Trans t={t} i18nKey={view.key} values={{ time: formatDateTime(view.resetAt) }} components={{ time: <Ltr /> }} />
-      ) : (
-        t(view.key, { max: fsi(formatNumber(COPILOT_MAX_QUESTION)) })
-      )}
-    </div>
-  )
-}
-
-/** One block of the answer's light markdown. Every piece of text is the model's: `<bdi>`. */
-function Block({ block, orderRefs }: { block: AnswerBlock; orderRefs: readonly string[] }) {
-  if (block.kind === 'paragraph')
-    return (
-      <p className="whitespace-pre-line">
-        <bdi>
-          <LinkedText text={block.text} orderRefs={orderRefs} />
-        </bdi>
-      </p>
-    )
-  if (block.kind === 'list')
-    return (
-      <ul className="list-disc ps-5">
-        {block.items.map((item, i) => (
-          <li key={i}>
-            <bdi>
-              <LinkedText text={item} orderRefs={orderRefs} />
-            </bdi>
-          </li>
-        ))}
-      </ul>
-    )
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            {block.head.map((h, i) => (
-              <th key={i} className="border-b border-border px-2 py-1 text-start font-semibold">
-                <bdi>{h}</bdi>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {block.rows.map((row, r) => (
-            <tr key={r}>
-              {row.map((c, i) => (
-                <td key={i} className="border-b border-border/60 px-2 py-1 text-start">
-                  <bdi>
-                    <LinkedText text={c} orderRefs={orderRefs} />
-                  </bdi>
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   )
 }

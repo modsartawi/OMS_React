@@ -52,7 +52,9 @@
     "reports": "Reports this answer wrote",
     "openReport": "Open report",
     "exportReport": "Export PDF",
-    "reportRevision": "Revision {{n}}"
+    "reportRevision": "Revision {{n}}",
+    "rulesVersion": "rules <v>v{{n}}</v>",
+    "rulesBuiltIn": "built-in rules"
   },
   "trace": {
     "heading_one": "How I got this ({{n}} step)",
@@ -106,5 +108,87 @@
     "questions_one": "{{n}} question",
     "questions_other": "{{n}} questions",
     "forget": "Remove from history"
+  },
+  "menu": {
+    "rules": "Copilot rules"
+  },
+  "rules": {
+    "title": "Copilot rules",
+    "subtitle": "The house rules shape how the copilot writes its answers. A saved change applies to the next question, with no deploy.",
+    "versionTag": "v{{n}}",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to the copilot rules",
+      "deniedHint": "Your account does not hold the copilot curator grant. Ask an administrator if you need it.",
+      "unreachableTitle": "The copilot rules are unavailable",
+      "unreachableHint": "Your access could not be checked, so the rules stay closed. Try again in a moment."
+    },
+    "loading": "Loading the house rules…",
+    "loadFailed": "The house rules could not be loaded.",
+    "core": {
+      "heading": "What the copilot always follows",
+      "hint": "Built into the copilot. You add to it below; you cannot change it."
+    },
+    "editor": {
+      "heading": "House rules",
+      "label": "House rules",
+      "version": "Version",
+      "builtIn": "Built-in rules, never saved",
+      "savedBy": "saved by",
+      "savedAt": "on",
+      "chars": "Characters",
+      "tooLong": "The house rules can be at most {{max}} characters. Shorten them to save.",
+      "blank": "The house rules cannot be blank.",
+      "note": "Why the change",
+      "notePlaceholder": "Optional. Shown in the history.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved as version {{n}}. The next question uses it.",
+      "saveFailed": "The house rules could not be saved.",
+      "invalid": "The server refused these house rules."
+    },
+    "try": {
+      "heading": "Try it",
+      "hint": "Ask a question and see how the copilot answers with the text above, saved or not.",
+      "label": "Question",
+      "placeholder": "Ask a question to try the draft",
+      "run": "Try with this draft",
+      "working": "Trying the draft…",
+      "draft": "Draft. Not saved, not in your conversations",
+      "limit": "A try counts toward your copilot limit.",
+      "failed": "The draft could not be tried."
+    },
+    "conflict": {
+      "title": "Someone saved first",
+      "body": "Version {{n}} was saved while you were editing. Nothing is lost: choose which to keep.",
+      "theirs": "Theirs",
+      "mine": "Yours, not saved",
+      "keepTheirs": "Keep theirs",
+      "saveMine": "Save mine on top"
+    },
+    "history": {
+      "heading": "History",
+      "hint": "The last 20 versions, newest first. Open one to read it beside the current text.",
+      "none": "No saved versions yet.",
+      "active": "Active",
+      "revertedFrom": "reverted from <v>v{{n}}</v>",
+      "noNote": "No note",
+      "close": "Close",
+      "current": "Current",
+      "restore": "Restore this version",
+      "confirmTitle": "Restore version {{n}}?",
+      "confirmBody": "Version {{n}} is saved again as a new version, and the next question uses it.",
+      "confirmDirty": "Your unsaved changes in the editor are replaced.",
+      "confirm": "Restore",
+      "cancel": "Cancel",
+      "restored": "Version {{from}} restored as version {{n}}. The next question uses it.",
+      "restoreFailed": "The version could not be restored."
+    },
+    "leave": {
+      "title": "Leave without saving?",
+      "body": "Your changes to the house rules are not saved. If you leave, they are lost.",
+      "stay": "Stay",
+      "go": "Leave"
+    }
   }
 }

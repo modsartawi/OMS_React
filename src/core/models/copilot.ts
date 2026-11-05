@@ -12,6 +12,55 @@ export interface CopilotAccess {
   canAsk: boolean
   /** May reach the same tools over `/mcp` (D8) — not read by the web. */
   canUseMcp: boolean
+  /**
+   * May edit the house rules at `/copilot/rules` (ticket 790, BackOffice 3395). Absent on a pre-3395
+   * server, and read as denied.
+   */
+  canCurate?: boolean
+}
+
+/**
+ * One saved version of the copilot's house rules (ticket 790, BackOffice 3395, `dbo.CopilotPromptVersion`).
+ *
+ * ⚠ 3395 is not minted yet: this shape is the client's proposal, written into ticket 790's comments for the
+ * server ticket to adopt. Version 0 is the built-in fallback when no row exists; it has no saver.
+ */
+export interface CopilotPromptVersion {
+  version: number
+  /** The house rules, at most 4,000 characters. */
+  text: string
+  savedBy: string | null
+  /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`; null on version 0. */
+  savedAt: string | null
+  /** "Why the change", optional. */
+  note: string | null
+  /** Set on a version a restore made: the version it copied. */
+  revertedFrom: number | null
+}
+
+/** `GET Copilot/Prompt` → the locked core (read-only, never sent back) and the active house rules. */
+export interface CopilotPrompt {
+  core: string
+  active: CopilotPromptVersion
+}
+
+/** `POST Copilot/Prompt` body. `baseVersion` is the version the draft was edited from (`COPILOT-411` when stale). */
+export interface CopilotPromptSaveRequest {
+  text: string
+  note: string | null
+  baseVersion: number
+}
+
+/** `POST Copilot/Prompt/Try` body: a question answered with the draft house rules, saved or not. */
+export interface CopilotPromptTryRequest {
+  question: string
+  text: string
+}
+
+/** `POST Copilot/Prompt/Revert` body: the version to restore, as a new version on top of `baseVersion`. */
+export interface CopilotPromptRevertRequest {
+  version: number
+  baseVersion: number
 }
 
 /** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5). */
@@ -67,6 +116,11 @@ export interface CopilotAnswer {
   viewRefs?: CopilotViewRef[]
   /** The reports `build_report` / `update_report` wrote in this answer (CTO demo); absent reads as empty. */
   reportRefs?: CopilotReportRef[]
+  /**
+   * The house-rules version the answer was given under (ticket 790, BackOffice 3395); 0 is the built-in
+   * fallback. Absent on a pre-3395 server, and then not shown.
+   */
+  promptVersion?: number
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

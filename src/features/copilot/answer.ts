@@ -34,6 +34,16 @@ export interface CopilotAnswerModel {
   viewRefs: CopilotViewRef[]
   /** The reports the answer built or revised (CTO demo). */
   reportRefs: CopilotReportRef[]
+  /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
+  rules: AnswerRules | null
+}
+
+/** `promptVersion` read: a saved version, or 0, the built-in fallback. */
+export type AnswerRules = { kind: 'version'; n: number } | { kind: 'builtIn' }
+
+function rulesOf(v: unknown): AnswerRules | null {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) return null
+  return v === 0 ? { kind: 'builtIn' } : { kind: 'version', n: v }
 }
 
 const BULLET = /^\s*[-*•]\s+/
@@ -94,6 +104,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
     viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
+    rules: rulesOf(r.promptVersion),
   }
 }
 

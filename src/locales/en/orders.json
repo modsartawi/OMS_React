@@ -1,0 +1,278 @@
+{
+  "menu": {
+    "orders": "Orders & ERX"
+  },
+  "title": "Orders & ERX",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "You don't have access to Orders & ERX",
+    "deniedHint": "This screen needs the Delivery Documents permission. Ask an administrator to grant it.",
+    "unavailableTitle": "Access check unavailable",
+    "unavailableHint": "The permission check for Orders & ERX could not be completed, so the screen stays closed. This is a server problem, not a missing permission — try again shortly."
+  },
+  "search": {
+    "searching": "Searching…",
+    "unexpected": "Unexpected error running the search.",
+    "failed": {
+      "title": "Search failed"
+    },
+    "refused": {
+      "title": "Search not run",
+      "needsDate": "Add a Date, or find one order by an identifier (order, document, approval, mobile…).",
+      "rangeTooLong": "A date range can be at most 31 days. Shorten it, or find one order by an identifier.",
+      "rangeInvalid": "The date range is not valid. Its start must not be after its end."
+    }
+  },
+  "query": {
+    "region": "Search criteria",
+    "focus": "Focus the search bar",
+    "token": "{{field}}:",
+    "add": "Filter",
+    "addMenu": "Search criteria",
+    "inSearch": "in search",
+    "identifierHint": "An identifier searches every date.",
+    "group": {
+      "when": "When",
+      "find": "Find one",
+      "narrow": "Narrow",
+      "rows": "Rows"
+    },
+    "field": {
+      "date": "Date",
+      "orderNo": "Order no.",
+      "documentNo": "Document no.",
+      "approval": "Approval",
+      "mobile": "Mobile",
+      "patientId": "Patient ID",
+      "memberId": "Member ID",
+      "documentSource": "Channel",
+      "storeCode": "Store",
+      "documentType": "Document type",
+      "status": "Status",
+      "hasDelivery": "Has delivery",
+      "moneySource": "Money source",
+      "limit": "Limit"
+    },
+    "date": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last3": "Last 3 days",
+      "last7": "Last 7 days",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To",
+      "ignored": "ignored"
+    },
+    "dateIgnored": "An identifier is in the search, so the date is not sent.",
+    "any": "Any",
+    "remove": "Remove {{field}}",
+    "restore": "Restore {{field}}",
+    "removed": "(removed, not searched yet)",
+    "pending_one": "<n>{{n}}</n> change not searched",
+    "pending_other": "<n>{{n}}</n> changes not searched",
+    "discard": "Discard",
+    "search": "Search",
+    "done": "Done",
+    "enterSearches": "<keys/> searches",
+    "limitHint": "The newest <n>{{n}}</n> rows load. Narrow the search or raise the limit to see more."
+  },
+  "moneySource": {
+    "CHANNEL": "Channel money",
+    "ENGINE": "Engine money"
+  },
+  "category": {
+    "O": "Order",
+    "X": "ERX"
+  },
+  "lens": {
+    "heading": "Lenses",
+    "region": "Lenses and saved views",
+    "hint": "Narrow the loaded rows. No new search.",
+    "name": {
+      "all": "All",
+      "bupaCareConnect": "Bupa Care Connect",
+      "noDelivery": "No delivery yet",
+      "channel": "Channel money",
+      "engine": "Engine money"
+    },
+    "show": {
+      "all": "Show: All",
+      "bupaCareConnect": "Show: Bupa Care Connect",
+      "noDelivery": "Show: No delivery yet",
+      "channel": "Show: Channel money",
+      "engine": "Show: Engine money"
+    },
+    "count": {
+      "none": "—",
+      "exact": "{{count}}",
+      "atLeast": "{{count}}+"
+    },
+    "empty": "No loaded rows match this lens"
+  },
+  "views": {
+    "heading": "My views",
+    "none": "No saved views yet.",
+    "saveCurrent": "Save current view",
+    "default": "Default — runs on open",
+    "modified": "Changed since saved",
+    "applyRow": "Apply view:",
+    "menu": {
+      "label": "Actions for {{name}}",
+      "title": "View actions",
+      "update": "Update",
+      "saveAs": "Save as new view…",
+      "rename": "Rename…",
+      "makeDefault": "Make default",
+      "removeDefault": "Remove default",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "saveTitle": "Save view",
+      "renameTitle": "Rename view",
+      "save": "Save view",
+      "rename": "Rename",
+      "cancel": "Cancel",
+      "nameLabel": "View name",
+      "namePlaceholder": "e.g. Bupa ERX this week",
+      "captures": "Saves the search (dates stay relative), the lens, the columns and the grid filters.",
+      "refused": {
+        "blank": "Give the view a name.",
+        "taken": "You already have a view with that name.",
+        "gone": "This view no longer exists."
+      }
+    },
+    "saved": {
+      "title": "View saved",
+      "detail": "\"{{name}}\" was saved."
+    },
+    "updated": {
+      "title": "View updated",
+      "detail": "\"{{name}}\" was updated."
+    },
+    "deleted": {
+      "title": "View deleted",
+      "detail": "\"{{name}}\" was deleted.",
+      "undo": "Undo"
+    }
+  },
+  "gridBar": {
+    "rows_one": "<n>{{n}}</n> order",
+    "rows_other": "<n>{{n}}</n> orders",
+    "rowsAtLeast": "<n>{{n}}</n> orders",
+    "shown": "<shown>{{shown}}</shown> of <total>{{total}}</total> shown",
+    "clearFilters": "Clear grid filters",
+    "cut": "Showing the newest <limit>{{limit}}</limit>, there may be more. Narrow the search or raise the limit."
+  },
+  "statusBar": {
+    "rows_one": "<n>{{n}}</n> order",
+    "rows_other": "<n>{{n}}</n> orders",
+    "rowsAtLeast": "<n>{{n}}</n> orders",
+    "rowsSelected_one": "<n>{{n}}</n> order · <selected>{{selected}}</selected> selected",
+    "rowsSelected_other": "<n>{{n}}</n> orders · <selected>{{selected}}</selected> selected",
+    "rowsAtLeastSelected": "<n>{{n}}</n> orders · <selected>{{selected}}</selected> selected",
+    "move": "move",
+    "open": "open",
+    "search": "search",
+    "help": "keys",
+    "inspector": "inspector",
+    "copy": "Drag over text, <keys/> copies"
+  },
+  "empty": {
+    "before": {
+      "title": "No search yet",
+      "hint": "Find one order by an identifier, or Search the last 3 days."
+    },
+    "none": "No orders match this search"
+  },
+  "toolbar": {
+    "ariaLabel": "Results grid actions",
+    "openDocument": "Open Document",
+    "openDelivery": "Open Delivery",
+    "export": "Export",
+    "columns": "Columns"
+  },
+  "columnsChooser": {
+    "title": "Show columns",
+    "showAll": "Show all",
+    "reset": "Reset",
+    "pin": "Pin {{column}}",
+    "unpin": "Unpin {{column}}"
+  },
+  "export": {
+    "done": {
+      "title": "Export complete",
+      "detail": "Exported {{count}} row(s) to Excel."
+    },
+    "empty": {
+      "title": "Nothing to export",
+      "detail": "No rows match the current filters."
+    },
+    "failed": {
+      "title": "Export failed",
+      "detail": "Could not generate the Excel file."
+    }
+  },
+  "lookupUnavailable": {
+    "title": "Lookup unavailable",
+    "detail": "Could not load {{name}}. You can still search by the text fields."
+  },
+  "lookups": {
+    "documentTypes": "document types",
+    "documentSources": "channels"
+  },
+  "columns": {
+    "documentNo": "Document no.",
+    "orderNo": "Order no.",
+    "category": "Category",
+    "documentType": "Document type",
+    "documentSource": "Channel",
+    "storeCode": "Store",
+    "customerName": "Customer",
+    "customerPhone": "Mobile",
+    "entryTime": "Entry time",
+    "status": "Status",
+    "closeStatus": "Close status",
+    "netTotal": "Net total",
+    "amountDue": "Amount due",
+    "deliveryNo": "Delivery no.",
+    "moneySource": "Money source",
+    "patientTotal": "Patient total",
+    "insurerTotal": "Insurer total",
+    "patientId": "Patient ID",
+    "memberId": "Member ID"
+  },
+  "inspector": {
+    "region": "Order inspector",
+    "toggle": "Inspector",
+    "hide": "Hide the Order inspector",
+    "show": "Show the Order inspector",
+    "resize": "Resize the Order inspector",
+    "nextRow": "Next row",
+    "previousRow": "Previous row",
+    "noRows": "There are no rows to step through yet. Search first.",
+    "empty": "Select an order to inspect it.",
+    "emptyKeys": "<keys/> step through the rows.",
+    "collapse": "Hide the inspector",
+    "order": "Order",
+    "customer": "Customer",
+    "name": "Name",
+    "mobile": "Mobile",
+    "fulfilment": "Fulfilment",
+    "store": "Store",
+    "entryTime": "Entry time",
+    "source": "Channel",
+    "delivery": "Delivery",
+    "noDelivery": "No delivery yet",
+    "money": "Money",
+    "net": "Net total",
+    "amountDue": "Amount due",
+    "insurance": "Insurance",
+    "moneySource": "Money source",
+    "patientTotal": "Patient total",
+    "insurerTotal": "Insurer total",
+    "patientId": "Patient ID",
+    "memberId": "Member ID",
+    "open": "Open Document details",
+    "openDelivery": "Open the delivery"
+  }
+}

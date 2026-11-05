@@ -1,0 +1,294 @@
+{
+  "menu": {
+    "orders": "الطلبات والوصفات الإلكترونية"
+  },
+  "title": "الطلبات والوصفات الإلكترونية",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحيتك…",
+    "deniedTitle": "لا صلاحية للوصول إلى الطلبات والوصفات الإلكترونية",
+    "deniedHint": "تحتاج هذه الشاشة إلى صلاحية مستندات التوصيل. اطلب منحها من المسؤول.",
+    "unavailableTitle": "تعذّر التحقق من الصلاحية",
+    "unavailableHint": "تعذّر إكمال التحقق من صلاحية الطلبات والوصفات الإلكترونية، لذا تبقى الشاشة مغلقة. هذه مشكلة في الخادم وليست صلاحية ناقصة — حاول مجددًا بعد قليل."
+  },
+  "search": {
+    "searching": "جارٍ البحث…",
+    "unexpected": "حدث خطأ غير متوقع أثناء البحث.",
+    "failed": {
+      "title": "فشل البحث"
+    },
+    "refused": {
+      "title": "لم يُنفَّذ البحث",
+      "needsDate": "أضف تاريخًا، أو ابحث عن طلب واحد بمعرّف (الطلب، المستند، الموافقة، الجوال…).",
+      "rangeTooLong": "لا يتجاوز نطاق التاريخ 31 يومًا. قصّره، أو ابحث عن طلب واحد بمعرّف.",
+      "rangeInvalid": "نطاق التاريخ غير صالح. يجب ألا تكون بدايته بعد نهايته."
+    }
+  },
+  "query": {
+    "region": "معايير البحث",
+    "focus": "التركيز على شريط البحث",
+    "token": "{{field}}:",
+    "add": "تصفية",
+    "addMenu": "معايير البحث",
+    "inSearch": "في البحث",
+    "identifierHint": "المعرّف يبحث في كل التواريخ.",
+    "group": {
+      "when": "متى",
+      "find": "ابحث عن واحد",
+      "narrow": "تضييق",
+      "rows": "الصفوف"
+    },
+    "field": {
+      "date": "التاريخ",
+      "orderNo": "رقم الطلب",
+      "documentNo": "رقم المستند",
+      "approval": "الموافقة",
+      "mobile": "الجوال",
+      "patientId": "هوية المريض",
+      "memberId": "رقم العضوية",
+      "documentSource": "القناة",
+      "storeCode": "الفرع",
+      "documentType": "نوع المستند",
+      "status": "الحالة",
+      "hasDelivery": "له توصيل",
+      "moneySource": "مصدر المبالغ",
+      "limit": "الحد"
+    },
+    "date": {
+      "today": "اليوم",
+      "yesterday": "أمس",
+      "last3": "آخر 3 أيام",
+      "last7": "آخر 7 أيام",
+      "custom": "مخصص",
+      "from": "من",
+      "to": "إلى",
+      "ignored": "متجاهَل"
+    },
+    "dateIgnored": "في البحث معرّف، لذا لا يُرسل التاريخ.",
+    "any": "الكل",
+    "remove": "إزالة {{field}}",
+    "restore": "استعادة {{field}}",
+    "removed": "(أُزيل، لم يُبحث بعد)",
+    "pending_zero": "لا تغييرات لم يُبحث بها",
+    "pending_one": "تغيير واحد لم يُبحث به (<n>{{n}}</n>)",
+    "pending_two": "تغييران لم يُبحث بهما (<n>{{n}}</n>)",
+    "pending_few": "<n>{{n}}</n> تغييرات لم يُبحث بها",
+    "pending_many": "<n>{{n}}</n> تغييرًا لم يُبحث به",
+    "pending_other": "<n>{{n}}</n> تغيير لم يُبحث به",
+    "discard": "تجاهل",
+    "search": "بحث",
+    "done": "تم",
+    "enterSearches": "<keys/> يبحث",
+    "limitHint": "تُحمَّل أحدث <n>{{n}}</n> صفًا. ضيّق البحث أو ارفع الحد لرؤية المزيد."
+  },
+  "moneySource": {
+    "CHANNEL": "مبالغ القناة",
+    "ENGINE": "مبالغ المحرّك"
+  },
+  "category": {
+    "O": "طلب",
+    "X": "وصفة إلكترونية"
+  },
+  "lens": {
+    "heading": "العدسات",
+    "region": "العدسات والعروض المحفوظة",
+    "hint": "تضيّق الصفوف المحمّلة. دون بحث جديد.",
+    "name": {
+      "all": "الكل",
+      "bupaCareConnect": "بوبا كير كونكت",
+      "noDelivery": "بلا توصيل بعد",
+      "channel": "مبالغ القناة",
+      "engine": "مبالغ المحرّك"
+    },
+    "show": {
+      "all": "عرض: الكل",
+      "bupaCareConnect": "عرض: بوبا كير كونكت",
+      "noDelivery": "عرض: بلا توصيل بعد",
+      "channel": "عرض: مبالغ القناة",
+      "engine": "عرض: مبالغ المحرّك"
+    },
+    "count": {
+      "none": "—",
+      "exact": "{{count}}",
+      "atLeast": "{{count}}+"
+    },
+    "empty": "لا صفوف محمّلة تطابق هذه العدسة"
+  },
+  "views": {
+    "heading": "عروضي",
+    "none": "لا عروض محفوظة بعد.",
+    "saveCurrent": "حفظ العرض الحالي",
+    "default": "افتراضي — يعمل عند الفتح",
+    "modified": "تغيّر منذ الحفظ",
+    "applyRow": "تطبيق العرض:",
+    "menu": {
+      "label": "إجراءات {{name}}",
+      "title": "إجراءات العرض",
+      "update": "تحديث",
+      "saveAs": "حفظ كعرض جديد…",
+      "rename": "إعادة تسمية…",
+      "makeDefault": "جعله افتراضيًا",
+      "removeDefault": "إلغاء الافتراضي",
+      "delete": "حذف"
+    },
+    "dialog": {
+      "saveTitle": "حفظ العرض",
+      "renameTitle": "إعادة تسمية العرض",
+      "save": "حفظ العرض",
+      "rename": "إعادة تسمية",
+      "cancel": "إلغاء",
+      "nameLabel": "اسم العرض",
+      "namePlaceholder": "مثال: وصفات بوبا هذا الأسبوع",
+      "captures": "يحفظ البحث (تبقى التواريخ نسبية) والعدسة والأعمدة وتصفيات الجدول.",
+      "refused": {
+        "blank": "أعطِ العرض اسمًا.",
+        "taken": "لديك عرض بهذا الاسم.",
+        "gone": "هذا العرض لم يعد موجودًا."
+      }
+    },
+    "saved": {
+      "title": "حُفظ العرض",
+      "detail": "حُفظ \"{{name}}\"."
+    },
+    "updated": {
+      "title": "حُدّث العرض",
+      "detail": "حُدّث \"{{name}}\"."
+    },
+    "deleted": {
+      "title": "حُذف العرض",
+      "detail": "حُذف \"{{name}}\".",
+      "undo": "تراجع"
+    }
+  },
+  "gridBar": {
+    "rows_zero": "<n>{{n}}</n> طلب",
+    "rows_one": "طلب واحد (<n>{{n}}</n>)",
+    "rows_two": "طلبان (<n>{{n}}</n>)",
+    "rows_few": "<n>{{n}}</n> طلبات",
+    "rows_many": "<n>{{n}}</n> طلبًا",
+    "rows_other": "<n>{{n}}</n> طلب",
+    "rowsAtLeast": "<n>{{n}}</n> طلب",
+    "shown": "يُعرض <shown>{{shown}}</shown> من <total>{{total}}</total>",
+    "clearFilters": "مسح تصفيات الجدول",
+    "cut": "تُعرض أحدث <limit>{{limit}}</limit>، وقد يكون هناك المزيد. ضيّق البحث أو ارفع الحد."
+  },
+  "statusBar": {
+    "rows_zero": "<n>{{n}}</n> طلب",
+    "rows_one": "طلب واحد (<n>{{n}}</n>)",
+    "rows_two": "طلبان (<n>{{n}}</n>)",
+    "rows_few": "<n>{{n}}</n> طلبات",
+    "rows_many": "<n>{{n}}</n> طلبًا",
+    "rows_other": "<n>{{n}}</n> طلب",
+    "rowsAtLeast": "<n>{{n}}</n> طلب",
+    "rowsSelected_zero": "<n>{{n}}</n> طلب · <selected>{{selected}}</selected> محدد",
+    "rowsSelected_one": "طلب واحد (<n>{{n}}</n>) · <selected>{{selected}}</selected> محدد",
+    "rowsSelected_two": "طلبان (<n>{{n}}</n>) · <selected>{{selected}}</selected> محدد",
+    "rowsSelected_few": "<n>{{n}}</n> طلبات · <selected>{{selected}}</selected> محدد",
+    "rowsSelected_many": "<n>{{n}}</n> طلبًا · <selected>{{selected}}</selected> محدد",
+    "rowsSelected_other": "<n>{{n}}</n> طلب · <selected>{{selected}}</selected> محدد",
+    "rowsAtLeastSelected": "<n>{{n}}</n> طلب · <selected>{{selected}}</selected> محدد",
+    "move": "تنقّل",
+    "open": "فتح",
+    "search": "بحث",
+    "help": "المفاتيح",
+    "inspector": "المعاين",
+    "copy": "اسحب فوق النص، <keys/> ينسخ"
+  },
+  "empty": {
+    "before": {
+      "title": "لا بحث بعد",
+      "hint": "ابحث عن طلب واحد بمعرّف، أو ابحث في آخر 3 أيام."
+    },
+    "none": "لا طلبات تطابق هذا البحث"
+  },
+  "toolbar": {
+    "ariaLabel": "إجراءات جدول النتائج",
+    "openDocument": "فتح المستند",
+    "openDelivery": "فتح التوصيل",
+    "export": "تصدير",
+    "columns": "الأعمدة"
+  },
+  "columnsChooser": {
+    "title": "إظهار الأعمدة",
+    "showAll": "إظهار الكل",
+    "reset": "إعادة تعيين",
+    "pin": "تثبيت {{column}}",
+    "unpin": "إلغاء تثبيت {{column}}"
+  },
+  "export": {
+    "done": {
+      "title": "اكتمل التصدير",
+      "detail": "صُدّر {{count}} صف إلى Excel."
+    },
+    "empty": {
+      "title": "لا شيء للتصدير",
+      "detail": "لا صفوف تطابق التصفيات الحالية."
+    },
+    "failed": {
+      "title": "فشل التصدير",
+      "detail": "تعذّر إنشاء ملف Excel."
+    }
+  },
+  "lookupUnavailable": {
+    "title": "القائمة غير متاحة",
+    "detail": "تعذّر تحميل {{name}}. لا يزال بإمكانك البحث بالحقول النصية."
+  },
+  "lookups": {
+    "documentTypes": "أنواع المستندات",
+    "documentSources": "القنوات"
+  },
+  "columns": {
+    "documentNo": "رقم المستند",
+    "orderNo": "رقم الطلب",
+    "category": "الفئة",
+    "documentType": "نوع المستند",
+    "documentSource": "القناة",
+    "storeCode": "الفرع",
+    "customerName": "العميل",
+    "customerPhone": "الجوال",
+    "entryTime": "وقت الإدخال",
+    "status": "الحالة",
+    "closeStatus": "حالة الإغلاق",
+    "netTotal": "الصافي",
+    "amountDue": "المبلغ المستحق",
+    "deliveryNo": "رقم التوصيل",
+    "moneySource": "مصدر المبالغ",
+    "patientTotal": "حصة المريض",
+    "insurerTotal": "حصة شركة التأمين",
+    "patientId": "هوية المريض",
+    "memberId": "رقم العضوية"
+  },
+  "inspector": {
+    "region": "معاين الطلب",
+    "toggle": "المعاين",
+    "hide": "إخفاء معاين الطلب",
+    "show": "إظهار معاين الطلب",
+    "resize": "تغيير حجم معاين الطلب",
+    "nextRow": "الصف التالي",
+    "previousRow": "الصف السابق",
+    "noRows": "لا صفوف للتنقل بينها بعد. ابحث أولًا.",
+    "empty": "اختر طلبًا لمعاينته.",
+    "emptyKeys": "<keys/> للتنقل بين الصفوف.",
+    "collapse": "إخفاء المعاين",
+    "order": "الطلب",
+    "customer": "العميل",
+    "name": "الاسم",
+    "mobile": "الجوال",
+    "fulfilment": "التنفيذ",
+    "store": "الفرع",
+    "entryTime": "وقت الإدخال",
+    "source": "القناة",
+    "delivery": "التوصيل",
+    "noDelivery": "بلا توصيل بعد",
+    "money": "المبالغ",
+    "net": "الصافي",
+    "amountDue": "المبلغ المستحق",
+    "insurance": "التأمين",
+    "moneySource": "مصدر المبالغ",
+    "patientTotal": "حصة المريض",
+    "insurerTotal": "حصة شركة التأمين",
+    "patientId": "هوية المريض",
+    "memberId": "رقم العضوية",
+    "open": "فتح تفاصيل المستند",
+    "openDelivery": "فتح التوصيل"
+  }
+}

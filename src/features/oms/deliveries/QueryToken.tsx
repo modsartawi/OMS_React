@@ -1,13 +1,13 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
+import { useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { RotateCcw, X } from 'lucide-react'
-import { takesEscape } from '@/core/commands/key-layer'
 import KeyChord from '@/core/commands/KeyChord'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { POPOVER } from '@/core/ui/overlay'
+import { usePopoverDismiss } from '@/core/ui/use-popover-dismiss'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
 import {
@@ -35,37 +35,8 @@ const STATE_CHIP: Record<TokenState, string> = {
 /** The lookup options each coded dropdown offers, by lookup. */
 export type LookupOptions = Record<LookupName, readonly string[]>
 
-/**
- * Closes a popover on a press outside it, and on an Esc that is its to take — the layers above
- * it (a dialog) keep theirs, and the screen's own Esc never sees one it took.
- */
-export function usePopoverDismiss(
-  open: boolean,
-  ref: RefObject<HTMLElement | null>,
-  onClose: (by: 'escape' | 'outside') => void,
-) {
-  const close = useRef(onClose)
-  useEffect(() => {
-    close.current = onClose
-  })
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) close.current('outside')
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (!takesEscape(e, ref.current)) return
-      e.preventDefault()
-      close.current('escape')
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open, ref])
-}
+/** Graduated to `@/core/ui` at ticket 786; re-exported for the bar's own import. */
+export { usePopoverDismiss }
 
 /** A token's value as it reads (`.claude/rules/bidi.md`): IDs mono and LTR, free text in a `<bdi>`. */
 function TokenValue({ field, value }: { field: QueryField; value: QueryCriteria[QueryField] }) {

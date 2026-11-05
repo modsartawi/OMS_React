@@ -24,10 +24,10 @@ UI (oms-react)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `order-list query model: identifiers ignore the date, other tokens need a range ≤ 31 days` · vitest
-- [ ] `order-list lenses: Bupa Care Connect / No delivery yet / CHANNEL / ENGINE match their rows` · vitest
-- [ ] `order-list saved view keeps a relative date` · vitest
-- [ ] `order-list export leaves patient and member ID out without the insurance grant` · vitest
+- [x] `order-list query model: identifiers ignore the date, other tokens need a range ≤ 31 days` · vitest
+- [x] `order-list lenses: Bupa Care Connect / No delivery yet / CHANNEL / ENGINE match their rows` · vitest
+- [x] `order-list saved view keeps a relative date` · vitest
+- [x] `order-list export leaves patient and member ID out without the insurance grant` · vitest
 
 ## Boundaries
 
@@ -40,3 +40,29 @@ Proof tests green; the list finds 1006358459 by approval against the real door o
 ## Blocked by
 
 Server: BackOffice [3391](C:\Work\DMSCO\BackOffice\.issues\3391-the-order-search-finds-orders-and-erx-by-any-identifier-before-they-have-a-delivery.md)
+
+## Comments
+
+**2026-11-05 — implementer (branch `impl/786`).** Built against a STUB of 3391; the door is not built yet.
+
+- **Prefactor (pure move, deliveries suites unedited):** `src/core/list/relative-date.ts` (presets,
+  `resolveDate`, `dateEntryOf`), `lens-count.ts` (`lensKit`, `isCut`, exact vs "at least" wording),
+  `saved-view-store.ts` (the generic half of saved views, bound per list by `savedViewStore({...})`),
+  `list-keys.ts` (J/K/I/`/`, Limit bounds, inspector prefs, `nextRowIndex`), and
+  `src/core/ui/use-popover-dismiss.ts`. `features/oms/deliveries/*` re-export every old name.
+- **The list:** `features/oms/orders/` (namespace `orders`, EN + full AR), route `/oms/orders`
+  (single keys on), menu leaf under OMS on the shared `canOpenList` probe. Query bar with 3391's
+  criteria (identifier group = `ORDER_IDENTIFIER_FIELDS`; an identifier sends no date and the Date
+  token reads "ignored"; otherwise a range ≤ 31 days, default last 3, refused client-side with a
+  reason before any call); lenses All / Bupa Care Connect / No delivery yet / Channel / Engine;
+  saved views (relative Date) under `oms.orders.views.v1:<user>`; inspector; status bar; export.
+  Patient / member ID — token, column, inspector line, export — only with `canViewInsurance`.
+- **Proof:** the four vitest proofs are green (`query-model`, `lenses`, `saved-views`, `export`
+  tests) plus an en/ar mirror test. `tools/order-list-drive.mjs` (stubbed door, LTR + RTL, with and
+  without the grant): 56/56.
+- **Still open:** "finds 1006358459 against the real door on dev" waits on BackOffice 3391.
+- **Guesses to confirm with BackOffice (3391):** the coded criteria (`DocumentType`,
+  `DocumentSource`) send the CODE (`BUPA`, `ERX`), not the lookup description the delivery list
+  sends (R-3); `Status` is a free-text code until the value set is named; `HasDelivery` as
+  `true`/`false`; `Limit` always sent (default 500). A row opened from this list lights the
+  Deliveries menu leaf (it owns `/oms/document`), deliberately left as is.

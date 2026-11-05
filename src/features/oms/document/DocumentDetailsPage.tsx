@@ -73,6 +73,7 @@ import LfReturnPanel from './LfReturnPanel'
 import ForceRefundCommand from './ForceRefundCommand'
 import { asksLfReturn, showsLfReturnPanel } from './lf-return'
 import InsuranceSection from './InsuranceSection'
+import DeliveryMoneyStrip from './DeliveryMoneyStrip'
 import { asksInsurance, insuranceSectionGate } from './insurance-section'
 import { revokeInsuranceViewOnForbidden } from '@/core/oms/insurance-grant'
 import Chip from '@/core/ui/Chip'
@@ -875,6 +876,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 />
               )
             )}
+
+            {/* The delivery money strip (ticket 789): a delivery of an insurance order; asks its own read. */}
+            <DeliveryMoneyStrip openedAs={openedAs} document={document!} access={access.data} />
 
             {/*
               The Insurance section (ticket 787): full width above the two columns — Money's three

@@ -851,5 +851,15 @@
         "value": "Value"
       }
     }
+  },
+  "moneyStrip": {
+    "heading": "Insurance money",
+    "loadFailed": "The order's insurance money could not be read.",
+    "figures": {
+      "patient": "Patient total",
+      "insurer": "Insurer total",
+      "amountDue": "This delivery's amount due"
+    },
+    "link": "Open the order's insurance"
   }
 }

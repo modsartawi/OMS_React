@@ -2,6 +2,7 @@ import { api, apiErrorCode } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
 import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { OrderDocumentRow } from '@/core/models/order-document'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
@@ -120,6 +121,21 @@ export const documentApi = {
       if (apiErrorCode(err) === NOT_AN_INSURANCE_ORDER_CODE) return null
       throw err
     }
+  },
+  /**
+   * An order's search rows by its document number (BackOffice spec 3389, door 3391
+   * `GET SdDocumentWeb/OrderDocumentList?DocumentNo=…`; ticket 789): the delivery money strip reads
+   * its order's money source / patient / insurer totals here, because this door runs under the OMS
+   * LIST grant while the insurance read needs the insurance-view grant — and the strip shows money
+   * without that grant. An identifier search, so the server ignores the date. Read-only. The caller
+   * picks the row (`orderRowOf`). Called from here, not from the Order list feature (786): a feature
+   * never imports a feature, and the row type is shared through `@/core/models/order-document`.
+   *
+   * ⚠ Not built yet: STUBBED in `tools/insurance-section-drive.mjs` until 3391 is on staging; the
+   * live-door walk reconciles the route and the `DocumentNo` parameter name.
+   */
+  getOrderRows(documentNo: string): Promise<OrderDocumentRow[]> {
+    return api.get<OrderDocumentRow[]>(`${BASE}/OrderDocumentList`, { DocumentNo: (documentNo ?? '').trim() })
   },
   /**
    * FORCE REFUND an LF return by received quantity (BackOffice 3369 D13, door 3375

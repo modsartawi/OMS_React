@@ -38,6 +38,22 @@ describe('insurance-section model: flags a gap between current and engine money'
     expect(table.rows.map((r) => r.figure)).toEqual(['patient', 'deductible', 'deductibleVat', 'uncovered', 'insurer', 'amountDue'])
   })
 
+  it('a difference below the shown decimals is no gap: 13.261 beside 13.264 both read 13.26', () => {
+    const read = structuredClone(READ)
+    read.money.current.patient = 13.261
+    read.money.engine = { ...read.money.engine, patient: 13.264 } as typeof read.money.engine
+    const patient = moneyTable(read).rows.find((r) => r.figure === 'patient')!
+    expect([patient.current, patient.engine]).toEqual([{ kind: 'amount', text: '13.26' }, { kind: 'amount', text: '13.26' }])
+    expect(patient.gap).toBe(false)
+  })
+
+  it('a BHD order compares at three decimals: 13.261 beside 13.264 is a gap', () => {
+    const read = { ...structuredClone(READ), currency: 'BHD' }
+    read.money.current.patient = 13.261
+    read.money.engine = { ...read.money.engine, patient: 13.264 } as typeof read.money.engine
+    expect(moneyTable(read).rows.find((r) => r.figure === 'patient')!.gap).toBe(true)
+  })
+
   it('a BHD order draws three decimals', () => {
     const read = { ...structuredClone(READ), currency: 'BHD' }
     expect(moneyTable(read).rows[0].current).toEqual({ kind: 'amount', text: '63.650' })
@@ -95,6 +111,12 @@ describe('insurance-section model: an unpriced line reads unpriced, not zero', (
     expect(view.engineDeductible).toEqual({ kind: 'amount', text: '13.26' })
     expect(view.deductibleGap).toBe(true)
     expect(view.engine.insurer).toEqual({ kind: 'amount', text: '53.05' })
+  })
+
+  it("a line's deductible gap is decided at the shown decimals: 13.261 applied beside 13.264 engine is none", () => {
+    const line = { ...structuredClone(READ.lines[0]), appliedDeductible: 13.261, engineDeductible: 13.264 }
+    expect(lineView(line, 'SAR').deductibleGap).toBe(false)
+    expect(lineView(line, 'BHD').deductibleGap).toBe(true)
   })
 
   it("a line the channel sent no split for reads none, not zero", () => {

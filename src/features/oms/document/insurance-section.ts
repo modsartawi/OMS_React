@@ -9,7 +9,7 @@
  * - `unpriced`: the engine could not price it (3390: "unpriced, never 0");
  * - `none`: the channel sent no money at all.
  */
-import { formatMoneyIn, roundMoney } from '@/core/money'
+import { formatMoneyIn } from '@/core/money'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { Severity } from '@/core/ui/severity'
 import { canViewInsurance } from '@/core/oms/insurance-grant'
@@ -29,7 +29,7 @@ export interface MoneyRow {
   channel: MoneyCell
   current: MoneyCell
   engine: MoneyCell
-  /** The current figure and the engine's differ (both priced, compared at the held scale). */
+  /** The current figure and the engine's differ (both priced, compared at the currency's shown decimals). */
   gap: boolean
 }
 
@@ -44,10 +44,15 @@ export function moneyCell(value: number | null | undefined, currency: string | n
   return typeof value === 'number' && Number.isFinite(value) ? { kind: 'amount', text: formatMoneyIn(value, currency) } : missing
 }
 
-/** Two figures differ once both are known and they disagree at the scale money is held at. */
-function differs(current: number | null, engine: number | null): boolean {
+/**
+ * Two figures differ once both are known and they disagree **as drawn** — at the order currency's
+ * decimals, the same `formatMoneyIn` the cells use. Deciding at the held scale (3 dp) instead would
+ * put a ⚠ beside two SAR figures that both read `13.26`. Comparing the drawn text also absorbs a
+ * float tail (`0.1 + 0.2` reads `0.30`).
+ */
+function differs(current: number | null, engine: number | null, currency: string | null): boolean {
   if (current === null || engine === null) return false
-  return roundMoney(current) !== roundMoney(engine)
+  return formatMoneyIn(current, currency) !== formatMoneyIn(engine, currency)
 }
 
 /**
@@ -63,7 +68,7 @@ export function moneyTable(read: Pick<OrderInsuranceRead, 'money' | 'currency'>)
       channel: channel ? moneyCell(channel[figure as keyof InsuranceMoney], read.currency, { kind: 'none' }) : { kind: 'none' },
       current: moneyCell(current[figure], read.currency, { kind: 'none' }),
       engine: moneyCell(engineValue, read.currency, engine.priced ? { kind: 'none' } : { kind: 'unpriced' }),
-      gap: engine.priced && differs(current[figure], engineValue),
+      gap: engine.priced && differs(current[figure], engineValue, read.currency),
     }
   })
   return { rows, hasGap: rows.some((r) => r.gap) }
@@ -98,7 +103,7 @@ export function lineView(line: InsuranceLine, currency: string | null): LineView
   return {
     engineDeductible: amount(engineDeductible, UNPRICED),
     appliedDeductible: amount(line.appliedDeductible),
-    deductibleGap: differs(line.appliedDeductible, engineDeductible),
+    deductibleGap: differs(line.appliedDeductible, engineDeductible, currency),
     vat: amount(line.vat),
     patient: amount(line.patientAmount),
     insurer: amount(line.insurerAmount),

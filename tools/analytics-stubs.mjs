@@ -179,6 +179,16 @@ export const ITEMS = {
   'v-combo': view('v-combo', { definition: { chart: { type: 'combo' }, query: { measures: ['orders', 'on_time_share'], dimensions: ['day'], filters: [] } } }),
 }
 
+// ── 776: items by standing (the session user is `msartawi`). Their Query is answered inline. ─────────────
+export const ITEMS_776 = {
+  'v-theirs-shared': view('v-theirs-shared', { title: label('Orders by channel (Riyadh)', 'الطلبات حسب القناة (الرياض)'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi' }),
+  'v-mine-shared': view('v-mine-shared', { title: label('My orders by channel', 'طلباتي حسب القناة'), tier: 'shared' }),
+  'v-cert-776': view('v-cert-776', { title: label('Orders, certified', 'الطلبات المعتمدة'), tier: 'certified', owner: 'curator1', updatedBy: 'curator1' }),
+  'v-theirs-personal': view('v-theirs-personal', { tier: 'personal', owner: 'aalharbi' }),
+  'v-copy-old': view('v-copy-old', { title: label('My copy of orders', 'نسختي من الطلبات'), copiedFrom: 'v-theirs-shared', sourceChangedSinceCopy: true }),
+}
+Object.assign(ITEMS, ITEMS_776)
+
 // ── 771: a board of four views, a section header and a text panel ────────────────────────────────────
 // Laid out out of DOM order on purpose (the page reads them row by row, then column by column). The area
 // panel opts out of the store filter, so a store change leaves it alone; the donut opts out of them all.
@@ -398,10 +408,14 @@ export function inlineAnswer(definition, model = MODEL) {
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
  *             (id `v-new`), which `Analytics/Item/v-new` and its Query then serve.
- * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
+ *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
+ *             `baseRevision + 1` with the body's words and definition, served from then on.
+ *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
+ *             item `v-copy` of msartawi's recording `copiedFrom: id`, served from then on.
+ * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy } = opts
   const made = {}
   const calls = []
   const bodies = {}
@@ -413,6 +427,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (req.method() === 'POST') (bodies[p] ??= []).push(req.postDataJSON())
+    if (req.method() === 'PUT') (bodies[`PUT ${p}`] ??= []).push(req.postDataJSON())
 
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'Analytics/Access') {
@@ -439,6 +454,30 @@ export async function installAnalyticsStubs(page, opts = {}) {
       made['v-new'] = view('v-new', { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' })
       return route.fulfill(envelope(made['v-new']))
     }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Copy') && req.method() === 'POST') {
+      if (copy) return route.fulfill(copy)
+      const from = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Copy'.length))
+      const body = req.postDataJSON() ?? {}
+      const source = made[from] ?? items[from] ?? {}
+      made['v-copy'] = view('v-copy', {
+        title: body.title ?? source.title,
+        subtitle: body.subtitle ?? source.subtitle,
+        definition: body.definition ?? source.definition,
+        copiedFrom: from,
+        revision: 1,
+        updatedAt: '2026-11-05T10:06:00',
+      })
+      return route.fulfill(envelope(made['v-copy']))
+    }
+    if (p.startsWith('Analytics/Item/') && req.method() === 'PUT') {
+      if (update) return route.fulfill(update)
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
+      const body = req.postDataJSON() ?? {}
+      const before = made[id] ?? items[id]
+      if (!before) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      made[id] = { ...before, title: body.title, subtitle: body.subtitle, definition: body.definition, revision: (body.baseRevision ?? before.revision) + 1, updatedAt: '2026-11-05T10:07:00', updatedBy: 'msartawi' }
+      return route.fulfill(envelope(made[id]))
+    }
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
       const it = made[id] ?? items[id]
@@ -454,6 +493,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
         return route.fulfill(isFulfil(inline) ? inline : envelope(inline))
       }
       if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
+      if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
       const answer = query[body.viewId]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))

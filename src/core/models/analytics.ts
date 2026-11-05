@@ -151,7 +151,36 @@ export interface AnalyticsItemCreate {
   kind: 'view' | 'board'
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
-  definition: AnalyticsViewDefinition
+  definition: AnalyticsItemDefinition
+}
+
+/** A view's or a board's definition: what the store's writes carry, whichever the kind (776, 777). */
+export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition
+
+/**
+ * `PUT Analytics/Item/{id}` — save in place (ticket 776). §C names `{ definition, baseRevision }`;
+ * ⚠ `title` and `subtitle` ride too, or an edited title could not be saved. `baseRevision` is the revision
+ * the editor opened: a newer one on the server refuses with `ANALYTICS-405`; not the caller's to edit,
+ * `ANALYTICS-403`. Answers the saved item at its new revision.
+ */
+export interface AnalyticsItemUpdate {
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
+  definition: AnalyticsItemDefinition
+  baseRevision: number
+}
+
+/**
+ * `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item of the caller's that records
+ * its source (`copiedFrom`). ⚠ §C gives Copy no body: here `revision` is the source revision copied FROM (the
+ * one the editor opened) and the edited `title`/`subtitle`/`definition` are the copy's, so editing someone
+ * else's item is one call. Omitted, the server copies that revision as is. Answers the new copy.
+ */
+export interface AnalyticsItemCopy {
+  revision: number
+  title?: AnalyticsLabel
+  subtitle?: AnalyticsLabel
+  definition?: AnalyticsItemDefinition
 }
 
 /** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */

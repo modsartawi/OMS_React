@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel } from '@/core/models/analytics'
-import { allowedDimensions, colourDimension, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
+import { allowedDimensions, colourDimension, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
 
 const label = (en: string) => ({ en, ar: '' })
 const MODEL: AnalyticsModel = {
@@ -50,5 +50,30 @@ describe('opening the editor seeded', () => {
     expect(newViewLink().state).toBeNull()
     expect(readEditorSeed(null)).toBeNull()
     expect(readEditorSeed({ editorSeed: { definition: 'x' } })).toBeNull()
+  })
+
+  it('editing an existing item seeds its definition, words and standing (776)', () => {
+    const definition = { chart: { type: 'bar' as const }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-7-days' } }
+    const item = {
+      id: 'v-titled',
+      kind: 'view' as const,
+      title: { en: 'Orders', ar: 'الطلبات' },
+      subtitle: { en: '', ar: '' },
+      owner: 'aalharbi',
+      tier: 'shared' as const,
+      copiedFrom: null,
+      sourceChangedSinceCopy: false,
+      revision: 4,
+      updatedAt: '2026-11-05T09:00:00',
+      updatedBy: 'aalharbi',
+      definition,
+    }
+    const seed = readEditorSeed(editItemLink(item).state)
+    expect(editItemLink(item).to).toBe('/analytics/new?kind=view')
+    expect(seed?.title).toEqual({ en: 'Orders', ar: 'الطلبات' })
+    expect(seed?.item).toEqual({ id: 'v-titled', kind: 'view', owner: 'aalharbi', tier: 'shared', revision: 4, copiedFrom: null, sourceChangedSinceCopy: false })
+    expect(readEditorSeed(newViewLink({ definition }).state)?.item).toBeUndefined()
+    // A malformed standing is no standing: the editor then saves a new item, never PUTs blind.
+    expect(readEditorSeed({ editorSeed: { definition, item: { id: 'v-1' } } })?.item).toBeUndefined()
   })
 })

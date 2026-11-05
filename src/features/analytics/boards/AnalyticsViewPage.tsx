@@ -1,15 +1,21 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
+import { Pencil } from 'lucide-react'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
+import { buttonClass } from '@/core/ui/control-classes'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
+import { editItemLink } from './editor'
+import { itemActions } from './item-actions'
 import Refused from './Refused'
+import { SourceMovedOn } from './SaveNotes'
+import { useItemActor } from './use-item-save'
 import { labelIn } from './view-model'
 import ViewChart, { viewTitleOf } from './ViewChart'
 
@@ -22,6 +28,8 @@ import ViewChart, { viewTitleOf } from './ViewChart'
  *
  * The chart is `ViewChart`, the one form dispatch a board panel uses too (771): 767's vertical bar,
  * 768's KPI, line, stacked area and other bars, and 769's forms.
+ * 776: "Edit" opens the editor on this view (it saves by the tier: in place, or as my copy), and a copy whose
+ * source has moved on says so.
  * `ANALYTICS-404` is the not-found state and `ANALYTICS-401` the no-access state, from the item or the query.
  */
 export default function AnalyticsViewPage() {
@@ -62,6 +70,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
     retry: false,
   })
 
+  const actions = itemActions(item, useItemActor())
+  const edit = editItemLink(item)
   const title = viewTitleOf(item, model, lang, t)
   const subtitle = labelIn(item.subtitle, lang)
   const result = answer.data
@@ -80,7 +90,14 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
               <bdi>{subtitle}</bdi>
             </p>
           )}
+          {item.copiedFrom && item.sourceChangedSinceCopy && <SourceMovedOn />}
         </div>
+        {actions.save !== 'read-only' && (
+          <Link to={edit.to} state={edit.state} className={buttonClass('secondary')} data-analytics-edit={actions.save}>
+            <Pencil className="size-3.5" aria-hidden />
+            {t('view.edit')}
+          </Link>
+        )}
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
           {asOf && (
             <span data-analytics-as-of>

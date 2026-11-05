@@ -847,12 +847,19 @@ async function board771({ dir, dark = false }) {
   const regionBox = await pickMember(page, 'region', 'central')
   await watchStream(page)
   await regionBox.locator('[data-option="central"] input').click()
-  await page.waitForTimeout(300)
+  // Wait for the wave to START before waiting for it to end: until React commits the click the panels
+  // still read idle, so `allIdle` alone can pass on the pre-click page and every check after it reads a
+  // board the region has not reached yet (a slow commit made this look like "busy before the click").
+  await page.waitForFunction(() => window.__stream.busyAt !== null, null, { timeout: 5000 }).catch(() => {})
   if (!dark) await page.screenshot({ path: `${SHOTS}/771-streaming-${dir}.png`, fullPage: true })
   await allIdle(page)
   const log = await page.evaluate(() => window.__stream)
-  const busyIn = log.busyAt - (log.clickAt ?? 0)
-  check(`${tag}: within 0.5 s of the click the strip shows and every view panel is busy`, log.busyAt !== null && busyIn < 500, `${Math.round(busyIn)} ms after the click`)
+  const busyIn = log.busyAt === null ? null : log.busyAt - (log.clickAt ?? 0)
+  check(
+    `${tag}: within 0.5 s of the click the strip shows and every view panel is busy`,
+    busyIn !== null && busyIn < 500,
+    busyIn === null ? 'never all busy within 5 s of the click' : `${Math.round(busyIn)} ms after the click`,
+  )
   const landed = VIEW_PANELS.map((id) => log.landed[id])
   const oneByOne = landed.every((t, i) => typeof t === 'number' && (i === 0 || t - landed[i - 1] > 300))
   check(`${tag}: the panels land one by one (KPI, bar, line, area)`, oneByOne, landed.map((t) => Math.round(t)).join(' < '))

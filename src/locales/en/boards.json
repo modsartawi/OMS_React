@@ -223,7 +223,7 @@
     "subtitleAr": "Subtitle in Arabic",
     "titleHint": "Leave it empty and the title is made from the measures and breakdowns.",
     "preview": "Preview",
-    "previewIdle": "Choose a measure and a chart type to see a preview.",
+    "previewIdle": "Choose a measure to see a preview.",
     "save": "Save view",
     "saving": "Saving…",
     "saved": "Saved as your own analytics view.",

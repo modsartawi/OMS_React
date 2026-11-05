@@ -151,7 +151,41 @@ export interface AnalyticsItemCreate {
   kind: 'view' | 'board'
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
-  definition: AnalyticsViewDefinition
+  definition: AnalyticsItemDefinition
+}
+
+/** A view's or a board's definition: what the store's writes carry, whichever the kind (776, 777). */
+export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition
+
+/**
+ * `PUT Analytics/Item/{id}` — save in place (ticket 776). §C names `{ definition, baseRevision }`;
+ * ⚠ `title` and `subtitle` ride too, or an edited title could not be saved. `baseRevision` is the revision
+ * the editor opened: a newer one on the server refuses with `ANALYTICS-405`; not the caller's to edit,
+ * `ANALYTICS-403`. Answers the saved item at its new revision.
+ */
+export interface AnalyticsItemUpdate {
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
+  definition: AnalyticsItemDefinition
+  baseRevision: number
+}
+
+/**
+ * `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item of the caller's that records
+ * its source (`copiedFrom`). ⚠ §C gives Copy no body: here `revision` is the source revision copied FROM (the
+ * one the editor opened) and the edited `title`/`subtitle`/`definition` are the copy's, so editing someone
+ * else's item is one call. Omitted, the server copies that revision as is. Answers the new copy.
+ */
+export interface AnalyticsItemCopy {
+  revision: number
+  title?: AnalyticsLabel
+  subtitle?: AnalyticsLabel
+  definition?: AnalyticsItemDefinition
+}
+
+/** 778: the body of `…/Share`, `…/Unshare` and `…/Certify` — the revision the screen showed (⚠ §C `{ revision }`). */
+export interface AnalyticsItemRevision {
+  revision: number
 }
 
 /** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */
@@ -257,4 +291,22 @@ export interface AnalyticsMember {
   key: string
   /** ⚠ §C gives `label` without its shape: a plain string is read as both languages. */
   label: AnalyticsLabel
+}
+
+/**
+ * `GET Analytics/Item/{id}/Revisions` — one of an item's last 20 revisions (ticket 779): who saved it and
+ * when. §C keeps the full definition snapshots server side; the web lists who and when only.
+ * ⚠ `revertedFrom` is the web's proposal (BackOffice 3378): the revision a revert copied, so the list can
+ * say "reverted to revision N". Absent, the row reads as an ordinary save.
+ */
+export interface AnalyticsRevision {
+  revision: number
+  updatedAt: string
+  updatedBy: string
+  revertedFrom?: number | null
+}
+
+/** `POST Analytics/Item/{id}/Revert` — writes `revision`'s snapshot as a NEW revision. Answers the item at it. */
+export interface AnalyticsItemRevert {
+  revision: number
 }

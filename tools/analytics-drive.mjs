@@ -41,6 +41,15 @@
 //   5. a store change leaves the opted-out area panel idle with its key unchanged, and re-asks the others;
 //   6. reloading the permalink restores the filters; a period preset goes to the URL and the wire as its token.
 //
+// 776 — saving follows the tiers (the session user is msartawi):
+//   1. a Shared view of someone else's: "Edit" opens the editor, which says saving makes my copy; Save as my copy
+//      posts `…/Copy` from the opened revision with my edits (no PUT) and lands on the Personal copy;
+//   2. my own Shared view saves in place (`PUT` with `baseRevision`) and also offers "Save as copy";
+//   3. a stale in-place save (405) names who saved last and when, and offers a copy or a reload: reload
+//      starts the editor over from the server's item; the copy saves as my copy;
+//   4. a 403 on an in-place save offers Save as my copy;
+//   5. a Certified view: a curator saves in place, a non-curator as a copy; someone else's Personal view
+//      offers no Edit; a copy whose source moved on says "the original changed since you copied it".
 // 772 - clicking a mark cross-filters the other panels, and drill by keeps a breadcrumb (en and ar):
 //   1. a store row click: the other panels go busy, the clicked one and the opted-out one do not; only the
 //      reached panels re-ask, each with `crossFilter`; the URL carries it; the board says it in words;
@@ -58,11 +67,16 @@
 //   4. full screen in and out; the permalink carries the filters and names the panel, and opening it brings
 //      the panel into view; the view page offers the same actions (a KPI holds PNG back, with its reason).
 //
+// 774 - drilling to detail from a store opens the Deliveries list already filtered (en and ar):
+//   1. a store point on an orders panel offers "See deliveries"; a store point on a till-value panel does not;
+//   2. it routes to /oms/deliveries, which searches that store over the board's period (last 30 days,
+//      resolved against a frozen clock), shows the Store token, and clears its URL entry.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, ITEMS, ITEMS_773, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -912,6 +926,172 @@ async function board771({ dir, dark = false }) {
   await context.close()
 }
 
+// ── 776 ──────────────────────────────────────────────────────────────────────────────────────────────
+/** Open `/analytics/view/:id`, follow its "Edit" (a real `<Link>` with route state) into the editor. */
+async function editFromView(page, id) {
+  await page.goto(`${BASE}/analytics/view/${id}`)
+  const edit = page.locator('[data-analytics-edit]')
+  await edit.waitFor({ timeout: 10000 })
+  const how = await edit.getAttribute('data-analytics-edit')
+  await edit.click()
+  await page.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  return how
+}
+const putBodies = (bodies) => Object.entries(bodies).filter(([k]) => k.startsWith('PUT '))
+const conflict405 = envelope(
+  { updatedBy: 'aalharbi', updatedAt: '2026-11-05T09:40:00', revision: 5 },
+  { status: 409, success: false, message: 'Someone saved a newer revision.', errors: [{ errorCode: 'ANALYTICS-405', internalErrorCode: '', errorMessage: 'Someone saved a newer revision.' }] },
+)
+
+/** 776.1 — someone else's Shared view: Edit → Save as my copy posts `…/Copy`, never a PUT, and lands on the copy. */
+async function savesTheirsAsMyCopy({ dir }) {
+  const tag = `776 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir })
+  const how = await editFromView(page, 'v-theirs-shared')
+  check(`${tag}: someone else's Shared view offers Edit, as a copy`, how === 'copy', how)
+  check(`${tag}: the editor is titled for editing`, (await page.getByRole('heading', { name: 'Edit analytics view' }).count()) === 1)
+  check(
+    `${tag}: it opens on the view's own definition and title`,
+    (await page.locator('[data-editor-period]').inputValue()) === 'last-30-days' &&
+      (await page.locator('[data-editor-title="en"]').inputValue()) === 'Orders by channel (Riyadh)' &&
+      (await page.locator('[data-analytics-choice="bar-vertical"]').getAttribute('aria-pressed')) === 'true',
+  )
+  const standing = await page.locator('[data-analytics-save-standing="copy"]').innerText()
+  check(`${tag}: it says saving makes my own Personal copy`, /Shared item is its owner's to change/.test(standing) && /Personal copy/.test(standing), standing)
+  const save = page.locator('[data-editor-save]')
+  check(
+    `${tag}: the one save is "Save as my copy"`,
+    (await save.getAttribute('data-editor-save-how')) === 'copy' && (await save.innerText()).trim() === 'Save as my copy' && (await page.locator('[data-editor-save-copy]').count()) === 0,
+    await save.innerText(),
+  )
+  await page.locator('[data-editor-period]').selectOption('last-7-days')
+  await page.locator('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path').first().waitFor({ timeout: 10000 })
+  await page.waitForTimeout(400)
+  await page.screenshot({ path: `${SHOTS}/776-copy-${dir}.png`, fullPage: true })
+  await save.click()
+  await page.waitForURL('**/analytics/view/v-copy', { timeout: 10000 })
+  const copies = bodies['Analytics/Item/v-theirs-shared/Copy'] ?? []
+  const body = copies[0] ?? {}
+  check(
+    `${tag}: ONE POST …/Copy from the opened revision, carrying my edits`,
+    copies.length === 1 && body.revision === 3 && body.definition?.query?.period === 'last-7-days' && body.title?.en === 'Orders by channel (Riyadh)',
+    JSON.stringify(body),
+  )
+  check(`${tag}: … and no PUT, no new item`, putBodies(bodies).length === 0 && !bodies['Analytics/Item'], Object.keys(bodies).join(', '))
+  await page.locator('[data-analytics-view="v-copy"] [data-chart="bar"] .recharts-bar-rectangle path').first().waitFor({ timeout: 10000 })
+  check(`${tag}: it lands on my Personal copy, drawn, which I edit in place`, (await page.locator('[data-analytics-edit]').getAttribute('data-analytics-edit')) === 'in-place')
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 776.2 — my own Shared view saves in place with `baseRevision`, and also offers "Save as copy". */
+async function savesMineInPlace() {
+  const tag = '776 in place'
+  const { context, page, bodies, errors } = await open({})
+  const how = await editFromView(page, 'v-mine-shared')
+  check(`${tag}: my Shared view offers Edit, in place`, how === 'in-place', how)
+  check(`${tag}: … with an explicit "Save as copy" beside Save`, (await page.locator('[data-editor-save-copy]').count()) === 1 && (await page.locator('[data-editor-save]').innerText()).trim() === 'Save view')
+  check(`${tag}: no copy warning on my own item`, (await page.locator('[data-analytics-save-standing]').count()) === 0)
+  await page.locator('[data-editor-period]').selectOption('last-7-days')
+  await page.waitForTimeout(400)
+  const askedBefore = (bodies['Analytics/Query'] ?? []).length
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/view/v-mine-shared', { timeout: 10000 })
+  const puts = bodies['PUT Analytics/Item/v-mine-shared'] ?? []
+  check(
+    `${tag}: ONE PUT with baseRevision 3 and the edit`,
+    puts.length === 1 && puts[0].baseRevision === 3 && puts[0].definition?.query?.period === 'last-7-days' && !bodies['Analytics/Item/v-mine-shared/Copy'],
+    JSON.stringify(puts),
+  )
+  const askedAt4 = () => (bodies['Analytics/Query'] ?? []).find((b) => b.viewId === 'v-mine-shared' && b.revision === 4)
+  for (let i = 0; i < 50 && !askedAt4(); i++) await page.waitForTimeout(100)
+  const asked = askedAt4() ?? (bodies['Analytics/Query'] ?? []).at(-1)
+  check(`${tag}: the view re-reads at the new revision`, asked?.revision === 4, JSON.stringify(asked))
+  const stale = (bodies['Analytics/Query'] ?? []).slice(askedBefore).filter((b) => b.viewId === 'v-mine-shared' && b.revision === 3).length
+  check(`${tag}: … and never re-asks the old one after the save`, stale === 0, String(stale))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 776.3 — a stale in-place save: 405 names who and when, offers a copy or a reload; both work. */
+async function staleSaveConflicts({ dir }) {
+  const tag = `776 405 ${dir}`
+  const { context, page, bodies, calls, errors } = await open({ dir, update: conflict405 })
+  await editFromView(page, 'v-mine-shared')
+  await page.locator('[data-editor-period]').selectOption('last-7-days')
+  await page.waitForTimeout(400)
+  await page.locator('[data-editor-save]').click()
+  const note = page.locator('[data-analytics-refusal="conflict"]')
+  await note.waitFor({ timeout: 10000 })
+  const words = noIsolates(await page.locator('[data-analytics-conflict-words]').innerText())
+  check(`${tag}: 405 names who saved last and when`, words.includes('aalharbi saved a newer revision') && words.includes('Nov 5, 2026 · 09:40'), words)
+  check(`${tag}: … and offers a copy or a reload`, (await note.locator('[data-analytics-refusal-copy]').count()) === 1 && (await note.locator('[data-analytics-refusal-reload]').count()) === 1)
+  check(`${tag}: the PUT carried the opened revision`, bodies['PUT Analytics/Item/v-mine-shared']?.[0]?.baseRevision === 3)
+  await page.screenshot({ path: `${SHOTS}/776-conflict-${dir}.png`, fullPage: true })
+
+  const reads = () => calls.filter((c) => c === 'Analytics/Item/v-mine-shared').length
+  const before = reads()
+  await note.locator('[data-analytics-refusal-reload]').click()
+  await page.waitForFunction(() => document.querySelector('[data-editor-period]')?.value === 'last-30-days' && !document.querySelector('[data-analytics-refusal]'), null, { timeout: 10000 })
+  check(`${tag}: reload re-reads the item and starts the editor over from it`, reads() > before && (await page.locator('[data-editor-period]').inputValue()) === 'last-30-days', `${before} → ${reads()}`)
+
+  await page.locator('[data-editor-period]').selectOption('last-7-days')
+  await page.waitForTimeout(400)
+  await page.locator('[data-editor-save]').click()
+  await note.waitFor({ timeout: 10000 })
+  await note.locator('[data-analytics-refusal-copy]').click()
+  await page.waitForURL('**/analytics/view/v-copy', { timeout: 10000 })
+  const copy = bodies['Analytics/Item/v-mine-shared/Copy']?.[0] ?? {}
+  check(`${tag}: the copy saves my edit as my copy`, copy.revision === 3 && copy.definition?.query?.period === 'last-7-days', JSON.stringify(copy))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 776.4 — the server's 403 on an in-place save still offers Save as my copy. */
+async function notYoursOffersCopy() {
+  const tag = '776 403'
+  const { context, page, bodies, errors } = await open({ update: refusal('ANALYTICS-403', 'Not yours to edit in place.', 403) })
+  await editFromView(page, 'v-mine-shared')
+  await page.locator('[data-editor-save]').click()
+  const note = page.locator('[data-analytics-refusal="not-yours"]')
+  await note.waitFor({ timeout: 10000 })
+  check(`${tag}: 403 says it is not mine to change in place`, /isn't yours to change in place/.test(await note.innerText()), await note.innerText())
+  await note.locator('[data-analytics-refusal-copy]').click()
+  await page.waitForURL('**/analytics/view/v-copy', { timeout: 10000 })
+  check(`${tag}: Save as my copy posts …/Copy`, (bodies['Analytics/Item/v-mine-shared/Copy'] ?? []).length === 1)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 776.5 — Certified by grant, someone else's Personal offers nothing, a copy whose source moved on says so. */
+async function tiersAndCopies() {
+  const tag = '776 tiers'
+  {
+    const { context, page } = await open({ access: { canView: true, canCurate: true } })
+    const how = await editFromView(page, 'v-cert-776')
+    check(`${tag}: a curator edits a Certified view in place, and may copy it`, how === 'in-place' && (await page.locator('[data-editor-save-copy]').count()) === 1, how)
+    await context.close()
+  }
+  const { context, page, errors } = await open({})
+  const how = await editFromView(page, 'v-cert-776')
+  const standing = await page.locator('[data-analytics-save-standing="copy"]').innerText()
+  check(`${tag}: a non-curator saves a Certified view as a copy`, how === 'copy' && /Only curators change a Certified item/.test(standing), `${how} | ${standing}`)
+
+  await page.goto(`${BASE}/analytics/view/v-theirs-personal`)
+  await page.locator('[data-analytics-view="v-theirs-personal"] [data-analytics-view-title]').waitFor({ timeout: 10000 })
+  check(`${tag}: someone else's Personal view offers no Edit`, (await page.locator('[data-analytics-edit]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/view/v-copy-old`)
+  const moved = page.locator('[data-analytics-view="v-copy-old"] [data-analytics-source-moved-on]')
+  await moved.waitFor({ timeout: 10000 })
+  check(`${tag}: a copy whose source moved on says so`, (await moved.innerText()).includes('The original changed since you copied it.'), await moved.innerText())
+  await editFromView(page, 'v-copy-old')
+  check(`${tag}: … and so does its editor`, (await page.locator('[data-analytics-editor] [data-analytics-source-moved-on]').count()) === 1)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 772 ──────────────────────────────────────────────────────────────────────────────────────────────
 const states772 = (page) =>
   page.locator('[data-board-panel-kind="view"]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.dataset.boardPanel, e.dataset.boardPanelState])))
@@ -1051,6 +1231,135 @@ async function board772({ dir }) {
   // The title field is empty (a seeded drill has none); its placeholder is the title generated from the drill.
   const editorTitle = (await page.locator('[data-editor-title="en"]').getAttribute('placeholder')) ?? ''
   check(`${tag}: "Save as view" opens the editor seeded with the drill (by City)`, new URL(page.url()).pathname === '/analytics/new' && editorTitle.includes('City'), `${page.url()} ${editorTitle}`)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 778 ──────────────────────────────────────────────────────────────────────────────────────────────
+const CURATOR = { canView: true, canCurate: true }
+const tierActionsOn = (page) => page.locator('[data-analytics-action]').evaluateAll((els) => els.map((e) => e.dataset.analyticsAction))
+const homeRow = (page, group, id) => page.locator(`[data-analytics-group="${group}"] [data-analytics-item="${id}"]`)
+
+/** A curator certifies a Shared board: a frozen Certified copy leads the home; then delete it, and un-certify another. */
+async function certifiesSharedBoard({ dir }) {
+  const tag = `778 ${dir} curator`
+  const { context, page, errors, bodies } = await open({ dir, access: CURATOR })
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-board="b-shared"] [data-analytics-board-header] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="certify"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a Shared board of someone else's offers Certify only (no share, no delete)`, JSON.stringify(await tierActionsOn(page)) === '["certify"]', JSON.stringify(await tierActionsOn(page)))
+
+  await page.locator('[data-analytics-action="certify"]').click()
+  await page.locator('[data-analytics-certified-copy="b-shared-cert"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="certifyRevision"]').waitFor({ timeout: 10000 })
+  const sent = bodies['Analytics/Item/b-shared/Certify']?.[0]
+  check(`${tag}: Certify posts the revision on screen`, sent?.revision === 7, JSON.stringify(sent))
+  check(`${tag}: once certified, Certify becomes "Certify this revision" into the copy`, JSON.stringify(await tierActionsOn(page)) === '["certifyRevision"]')
+  check(`${tag}: the board itself stays Shared (its author's)`, (await page.locator('[data-analytics-board-header] [data-analytics-tier-badge]').getAttribute('data-analytics-tier-badge')) === 'shared')
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-source.png` })
+
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'certified', 'b-shared-cert').waitFor({ timeout: 10000 })
+  check(`${tag}: on the home the certified copy is in Certified, with the Certified badge`, (await homeRow(page, 'certified', 'b-shared-cert').locator('[data-analytics-tier-badge="certified"]').count()) === 1)
+  check(`${tag}: … and the Shared original stays in Shared`, (await homeRow(page, 'shared', 'b-shared').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-home.png` })
+
+  await homeRow(page, 'certified', 'b-shared-cert').locator('a').click()
+  await page.locator('[data-analytics-board="b-shared-cert"] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="delete"]').waitFor({ timeout: 10000 })
+  check(`${tag}: the certified board shows the Certified badge, and offers Un-certify and Delete`, JSON.stringify(await tierActionsOn(page)) === '["uncertify","delete"]', JSON.stringify(await tierActionsOn(page)))
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-board.png` })
+
+  await page.locator('[data-analytics-action="delete"]').click()
+  await page.locator('[data-analytics-confirm="delete"]').click()
+  await page.waitForURL(/\/analytics$/, { timeout: 10000 })
+  await homeRow(page, 'shared', 'b-shared').waitFor({ timeout: 10000 })
+  check(`${tag}: deleting the certified copy goes home, where it is gone`, (await page.locator('[data-analytics-item="b-shared-cert"]').count()) === 0 && (await page.locator('[data-analytics-group="certified"] [data-analytics-item="b-ops"]').count()) === 1)
+
+  // Un-certify a Certified board: it leaves the Certified group.
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-action="uncertify"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="uncertify"]').click()
+  await page.locator('[data-analytics-confirm="uncertify"]').click()
+  await page.locator('[data-analytics-board="b-ops"] [data-analytics-board-header] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 10000 })
+  check(`${tag}: un-certify makes the board no longer Certified`, true)
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'b-ops').waitFor({ timeout: 10000 })
+  check(`${tag}: … and the home lists it under Shared`, (await page.locator('[data-analytics-group="certified"] [data-analytics-item="b-ops"]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A viewer (no curator grant) sees the badges but no Certify, Un-certify or Delete on what is not theirs. */
+async function viewerSeesNoCertify() {
+  const tag = '778 viewer'
+  const { context, page, errors } = await open({})
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-board="b-shared"] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-board-panel="p-kpi"]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: a Shared board of someone else's offers no tier actions (no Certify)`, (await page.locator('[data-analytics-tier-actions]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"] [data-analytics-board-header] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: a Certified board shows its badge, and no Un-certify or Delete`, (await page.locator('[data-analytics-action]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/view/v-cert-776`)
+  await page.locator('[data-analytics-view="v-cert-776"] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a Certified view shows the Certified badge`, (await page.locator('[data-analytics-view="v-cert-776"] [data-analytics-tier-badge="certified"]').innerText()).includes('Certified'))
+  check(`${tag}: … and offers no tier actions`, (await page.locator('[data-analytics-action]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** An owner shares their Personal view in one click, takes it back, and deletes it. */
+async function ownerSharesAndDeletes({ dir }) {
+  const tag = `778 ${dir} owner`
+  const { context, page, errors } = await open({ dir })
+  const badge = (tier) => page.locator(`[data-analytics-view="v-bar"] [data-analytics-tier-badge="${tier}"]`)
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await badge('personal').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 10000 })
+  check(`${tag}: my Personal view offers Share and Delete, and no Certify`, JSON.stringify(await tierActionsOn(page)) === '["share","delete"]', JSON.stringify(await tierActionsOn(page)))
+
+  await page.locator('[data-analytics-action="share"]').click()
+  await badge('shared').waitFor({ timeout: 10000 })
+  await page.locator('[data-analytics-action="unshare"]').waitFor({ timeout: 10000 })
+  check(`${tag}: Share is one click: the view is Shared and offers Unshare`, JSON.stringify(await tierActionsOn(page)) === '["unshare","delete"]')
+  await page.screenshot({ path: `${SHOTS}/778-${dir}-shared-view.png` })
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'v-bar').waitFor({ timeout: 10000 })
+  check(`${tag}: … and the home lists it under Shared`, (await homeRow(page, 'personal', 'v-bar').count()) === 0)
+
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.locator('[data-analytics-action="unshare"]').click()
+  await badge('personal').waitFor({ timeout: 10000 })
+  check(`${tag}: Unshare takes it back to Personal`, (await page.locator('[data-analytics-action="share"]').count()) === 1)
+
+  await page.locator('[data-analytics-action="delete"]').click()
+  await page.locator('[data-analytics-confirm="delete"]').waitFor({ timeout: 5000 })
+  check(`${tag}: Delete asks first`, !page.url().endsWith('/analytics'))
+  await page.locator('[data-analytics-confirm="delete"]').click()
+  await page.waitForURL(/\/analytics$/, { timeout: 10000 })
+  await page.locator('[data-analytics-item="v-titled"]').waitFor({ timeout: 10000 })
+  check(`${tag}: Delete goes home, where the view is gone`, (await page.locator('[data-analytics-item="v-bar"]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A stale probe offered Certify; the server's `ANALYTICS-402` shows its reason and hides the action. */
+async function staleProbeCertify402() {
+  const tag = '778 402'
+  const { context, page, errors } = await open({ access: CURATOR, certify: refusal('ANALYTICS-402', 'Needs the curator grant.', 403) })
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-analytics-action="certify"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="certify"]').click()
+  const note = page.locator('[data-analytics-tier-refusal="needs-curator"]')
+  await note.waitFor({ timeout: 10000 })
+  check(`${tag}: the reason is shown`, (await note.innerText()).includes('curator grant'), await note.innerText())
+  check(`${tag}: … and Certify is hidden from then on`, (await page.locator('[data-analytics-action="certify"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/778-402.png` })
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -1214,6 +1523,144 @@ async function viewActions773({ dir }) {
   await context.close()
 }
 
+// ── 779: history and revert ──────────────────────────────────────────────────────────────────────────
+const revisionRows = (page) =>
+  page.$$eval('[data-analytics-history] [data-analytics-revision]', (els) =>
+    els.map((e) => ({ n: Number(e.getAttribute('data-analytics-revision')), viewing: e.getAttribute('data-viewing') === 'true', revert: !!e.querySelector('[data-analytics-revert]'), from: e.querySelector('[data-analytics-revision-reverted-from]')?.getAttribute('data-analytics-revision-reverted-from') ?? null })),
+  )
+const boardPanelIds = (page) => page.$$eval('[data-board-panel]', (els) => els.map((e) => e.getAttribute('data-board-panel')))
+const waitFor = async (pred, ms = 10000) => {
+  for (let i = 0; i < ms / 100; i++) {
+    if (await pred()) return true
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  return false
+}
+
+/** 779.1 — my Shared board: the last revisions newest first, the viewed one marked; revert to 2, see the board change, undo it. */
+async function revertsAndUndoes({ dir }) {
+  const tag = `779 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir })
+  await page.goto(`${BASE}/analytics/board/b-779`)
+  await page.locator('[data-board-panel="p-line"]').waitFor({ timeout: 15000 })
+  check(`${tag}: the board opens at revision 3 with three panels`, (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar,p-line', (await boardPanelIds(page)).join(','))
+  await page.locator('[data-analytics-history-open]').click()
+  await page.locator('[data-analytics-history] [data-analytics-revision]').first().waitFor({ timeout: 10000 })
+  const first = await revisionRows(page)
+  check(
+    `${tag}: history lists newest first, revision 3 marked as viewed, revert offered on the others`,
+    JSON.stringify(first.map((r) => [r.n, r.viewing, r.revert])) === JSON.stringify([[3, true, false], [2, false, true], [1, false, true]]),
+    JSON.stringify(first),
+  )
+  const who = clean(await page.locator('[data-analytics-revision="2"] [data-analytics-revision-who]').innerText())
+  check(`${tag}: each revision says who and when`, /msartawi/.test(who) && /2026/.test(who), who)
+  await page.screenshot({ path: `${SHOTS}/779-history-${dir}.png` })
+
+  await page.locator('[data-analytics-revert="2"]').click()
+  const changed = await waitFor(async () => (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar')
+  check(`${tag}: revert POSTs { revision: 2 }`, JSON.stringify(bodies['Analytics/Item/b-779/Revert']?.[0]) === '{"revision":2}', JSON.stringify(bodies['Analytics/Item/b-779/Revert']))
+  check(`${tag}: … and the board changes back to revision 2's two panels`, changed, (await boardPanelIds(page)).join(','))
+  await page.locator('[data-analytics-revert-done="4"]').waitFor({ timeout: 10000 })
+  await waitFor(async () => (await revisionRows(page))[0]?.n === 4)
+  const after = await revisionRows(page)
+  check(
+    `${tag}: the revert is a NEW revision 4, now viewed, recording it reverted to 2; 3 is still there`,
+    after[0]?.n === 4 && after[0].viewing && after[0].from === '2' && after.some((r) => r.n === 3 && r.revert && !r.viewing) && after.length === 4,
+    JSON.stringify(after),
+  )
+  await page.screenshot({ path: `${SHOTS}/779-reverted-${dir}.png` })
+
+  await page.locator('[data-analytics-revert-undo="3"]').click()
+  const undone = await waitFor(async () => (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar,p-line')
+  check(`${tag}: Undo reverts to revision 3`, JSON.stringify(bodies['Analytics/Item/b-779/Revert']?.[1]) === '{"revision":3}', JSON.stringify(bodies['Analytics/Item/b-779/Revert']))
+  check(`${tag}: … and the board has its three panels again`, undone, (await boardPanelIds(page)).join(','))
+  await waitFor(async () => (await revisionRows(page))[0]?.n === 5)
+  const last = await revisionRows(page)
+  check(`${tag}: the undo is itself revision 5 (reverted to 3), now viewed`, last[0]?.n === 5 && last[0].viewing && last[0].from === '3' && last.length === 5, JSON.stringify(last))
+  check(`${tag}: no PUT or copy on the way`, putBodies(bodies).length === 0 && !Object.keys(bodies).some((k) => k.endsWith('/Copy')))
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 774 ──────────────────────────────────────────────────────────────────────────────────────────────
+async function detail774({ dir }) {
+  const tag = `774 ${dir}`
+  const { context, page, gets, errors } = await open({ dir, deliveries: DELIVERIES_774 })
+  await page.clock.setFixedTime(new Date('2026-11-05T10:10:00'))
+  await page.goto(`${BASE}/analytics/board/b-detail`)
+  await page.locator('[data-analytics-board="b-detail"]').waitFor({ timeout: 10000 })
+  await idle772(page)
+
+  // 1. A till-value panel's store point offers drill by, but no detail drill.
+  await page.locator('[data-board-panel="p-till"] .ag-row').filter({ hasText: 'P002' }).first().locator('.ag-cell').first().click()
+  const tillMenu = page.locator('[data-board-panel="p-till"] [data-board-drill-menu]')
+  await tillMenu.waitFor({ timeout: 5000 })
+  await idle772(page)
+  check(
+    `${tag}: a till value offers no detail drill`,
+    (await tillMenu.locator('[data-drill-into]').count()) > 0 && (await tillMenu.locator('[data-drill-action^="detail:"]').count()) === 0,
+  )
+
+  // 2. An orders panel's store point offers "See deliveries".
+  await page.locator('[data-board-panel="p-stores"] .ag-row').filter({ hasText: 'P001' }).first().locator('.ag-cell').first().click()
+  const see = page.locator('[data-board-panel="p-stores"] [data-drill-action="detail:deliveries"]')
+  await see.waitFor({ timeout: 5000 })
+  await idle772(page)
+  check(`${tag}: a store point on an orders panel offers "See deliveries"`, ((await see.textContent()) ?? '').includes('See deliveries'), await see.textContent())
+  await page.screenshot({ path: `${SHOTS}/774-menu-${dir}.png`, fullPage: true })
+
+  // 3. It lands on the Deliveries list, searched for that store over the board's period.
+  const listed = page.waitForResponse((r) => r.url().includes('/api/SdDocumentWeb/DeliveryDocumentList'), { timeout: 15000 })
+  await see.click()
+  await page.waitForFunction(() => location.pathname === '/oms/deliveries', null, { timeout: 10000 })
+  await listed
+  await page.locator('.ag-row', { hasText: '8000002' }).first().waitFor({ timeout: 10000 })
+  const searched = gets['SdDocumentWeb/DeliveryDocumentList'] ?? []
+  check(
+    `${tag}: the Deliveries list searches store P001 over the last 30 days (2026-10-07 to 2026-11-05)`,
+    searched.length === 1 && searched[0].StoreCode === 'P001' && searched[0].FromDate === '2026-10-07' && searched[0].ToDate === '2026-11-05',
+    JSON.stringify(searched),
+  )
+  const bar = noIsolates(await page.locator('[role="search"]').first().innerText())
+  check(
+    `${tag}: the query bar shows the store and the range it searched, nothing left unsearched`,
+    bar.includes('P001') && bar.includes('2026-10-07') && !/not searched/.test(bar),
+    bar.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(`${tag}: the URL entry is read once and cleared`, new URL(page.url()).search === '', page.url())
+  await page.screenshot({ path: `${SHOTS}/774-deliveries-${dir}.png`, fullPage: true })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 779.2 — only someone who may edit the item sees its history. */
+async function historyOnlyForEditors() {
+  const tag = '779 who'
+  const cases = [
+    ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: false }, false, "a Certified board, not a curator"],
+    ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: true }, true, 'a Certified board, as a curator'],
+    ['view/v-theirs-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, false, "someone else's Shared view"],
+    ['view/v-mine-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, true, 'my own Shared view'],
+  ]
+  for (const [path, ready, access, shown, what] of cases) {
+    const { context, page, errors } = await open({ access })
+    await page.goto(`${BASE}/analytics/${path}`)
+    await page.locator(ready).first().waitFor({ timeout: 15000 })
+    await page.waitForTimeout(300)
+    const count = await page.locator('[data-analytics-history-open]').count()
+    check(`${tag}: ${what} ${shown ? 'shows' : 'hides'} History`, count === (shown ? 1 : 0), String(count))
+    if (shown && path.startsWith('view/')) {
+      await page.locator('[data-analytics-history-open]').click()
+      await page.locator('[data-analytics-history] [data-analytics-revision]').first().waitFor({ timeout: 10000 })
+      const rows = await revisionRows(page)
+      check(`${tag}: ${what}: the view's history marks the revision viewed`, rows.length === 1 && rows[0].n === 3 && rows[0].viewing && !rows[0].revert, JSON.stringify(rows))
+    }
+    check(`${tag}: ${what}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1240,10 +1687,28 @@ const SCENARIOS = [
   ['773', () => panels773({ dir: 'rtl' })],
   ['773', () => panels773({ dir: 'ltr', dark: true })],
   ['773', () => viewActions773({ dir: 'ltr' })],
+  ['774', () => detail774({ dir: 'ltr' })],
+  ['774', () => detail774({ dir: 'rtl' })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'rtl', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: true })],
   ['775', editorSeededAndRefusals],
+  ['776', () => savesTheirsAsMyCopy({ dir: 'ltr' })],
+  ['776', () => savesTheirsAsMyCopy({ dir: 'rtl' })],
+  ['776', savesMineInPlace],
+  ['776', () => staleSaveConflicts({ dir: 'ltr' })],
+  ['776', () => staleSaveConflicts({ dir: 'rtl' })],
+  ['776', notYoursOffersCopy],
+  ['776', tiersAndCopies],
+  ['779', () => revertsAndUndoes({ dir: 'ltr' })],
+  ['779', () => revertsAndUndoes({ dir: 'rtl' })],
+  ['779', historyOnlyForEditors],
+  ['778', () => certifiesSharedBoard({ dir: 'ltr' })],
+  ['778', () => certifiesSharedBoard({ dir: 'rtl' })],
+  ['778', viewerSeesNoCertify],
+  ['778', () => ownerSharesAndDeletes({ dir: 'ltr' })],
+  ['778', () => ownerSharesAndDeletes({ dir: 'rtl' })],
+  ['778', staleProbeCertify402],
 ]
 
 try {

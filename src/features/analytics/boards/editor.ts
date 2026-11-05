@@ -1,5 +1,6 @@
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
-import type { AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
+import { editingItemOf, type EditingItem } from './item-save'
 import { readDefinition } from './wire'
 
 /**
@@ -82,11 +83,15 @@ export function settledSlots(saved: Readonly<Record<string, number>>, members: r
 
 export const NEW_VIEW_PATH = '/analytics/new?kind=view'
 
-/** What a caller may hand the editor: a definition, and optionally a title it already has. */
+/**
+ * What a caller may hand the editor: a definition, and optionally a title it already has. `item` (776) is the
+ * existing item being edited: its id, revision and standing, so the save is in place or a copy, not a new item.
+ */
 export interface EditorSeed {
   definition: AnalyticsViewDefinition
   title?: AnalyticsLabel
   subtitle?: AnalyticsLabel
+  item?: EditingItem
 }
 
 /**
@@ -108,5 +113,32 @@ export function readEditorSeed(state: unknown): EditorSeed | null {
     const o = v as Record<string, unknown>
     return { en: typeof o.en === 'string' ? o.en : '', ar: typeof o.ar === 'string' ? o.ar : '' }
   }
-  return { definition: readDefinition(s.definition), title: said(s.title), subtitle: said(s.subtitle) }
+  const item = readEditingItem(s.item)
+  return { definition: readDefinition(s.definition), title: said(s.title), subtitle: said(s.subtitle), ...(item ? { item } : {}) }
+}
+
+/** Opens the editor on an existing view (776): its definition and words, and its standing for the save. */
+export function editItemLink(item: AnalyticsItem): { to: string; state: { editorSeed: EditorSeed } } {
+  return {
+    to: NEW_VIEW_PATH,
+    state: { editorSeed: { definition: item.definition, title: item.title, subtitle: item.subtitle, item: editingItemOf(item) } },
+  }
+}
+
+/** A seeded standing, or `undefined` when any field the save needs is missing (never PUT blind). */
+function readEditingItem(v: unknown): EditingItem | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const o = v as Record<string, unknown>
+  const tiers = ['personal', 'shared', 'certified']
+  if (typeof o.id !== 'string' || !o.id || typeof o.owner !== 'string' || typeof o.revision !== 'number') return undefined
+  if (typeof o.tier !== 'string' || !tiers.includes(o.tier) || (o.kind !== 'view' && o.kind !== 'board')) return undefined
+  return editingItemOf({
+    id: o.id,
+    kind: o.kind,
+    owner: o.owner,
+    tier: o.tier as EditingItem['tier'],
+    revision: o.revision,
+    copiedFrom: typeof o.copiedFrom === 'string' ? o.copiedFrom : null,
+    sourceChangedSinceCopy: o.sourceChangedSinceCopy === true,
+  })
 }

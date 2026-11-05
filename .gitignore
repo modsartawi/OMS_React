@@ -164,3 +164,4 @@ tools/.lf-return-shots/
 .passwords/
 # Analytics drive screenshots (tools/analytics-drive.mjs, spec 766) — regenerated on demand
 tools/.analytics-shots/
+tools/.insurance-section-shots/

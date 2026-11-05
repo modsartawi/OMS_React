@@ -1,6 +1,7 @@
 import { api, apiErrorCode } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
+import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead } from '@/core/models/order-insurance'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
@@ -96,6 +97,27 @@ export const documentApi = {
       return (await api.get<LfReturnDetailModel | null>(`${LF_BASE}/Detail/${encode(returnDeliveryNo)}`)) ?? null
     } catch (err) {
       if (apiErrorCode(err) === LF_RETURN_NOT_FOUND) return null
+      throw err
+    }
+  },
+  /**
+   * An insurance order's insurance read (BackOffice spec 3389, door 3390
+   * `GET SdDocumentWeb/Document/{no}/Insurance`; ticket 787): its plan, its channel / current /
+   * engine money, its lines and how each was priced. Behind the insurance-view grant
+   * (`@/core/oms/insurance-grant`); read-only — the engine money is priced on demand, nothing saved.
+   *
+   * ⚠ Not built yet: STUBBED in `tools/insurance-section-drive.mjs` until 3390 is on staging; the
+   * live-door walk reconciles the route and the refusal code.
+   *
+   * A document that is not an insurance order is refused by name — GUESSED code
+   * {@link NOT_AN_INSURANCE_ORDER_CODE}: that reads as `null` ("no section"). Any other failure,
+   * a 403 included, is thrown for the page to say or to revoke the grant on.
+   */
+  async getInsurance(documentNo: string): Promise<OrderInsuranceRead | null> {
+    try {
+      return (await api.get<OrderInsuranceRead | null>(`${BASE}/Document/${encode(documentNo)}/Insurance`)) ?? null
+    } catch (err) {
+      if (apiErrorCode(err) === NOT_AN_INSURANCE_ORDER_CODE) return null
       throw err
     }
   },

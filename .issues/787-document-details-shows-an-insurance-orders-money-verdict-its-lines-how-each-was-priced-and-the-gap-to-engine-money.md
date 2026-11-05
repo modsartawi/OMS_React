@@ -38,10 +38,10 @@ UI (oms-react)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `insurance-section model: flags a gap between current and engine money` · vitest
-- [ ] `insurance-section model: an unpriced line reads unpriced, not zero` · vitest
-- [ ] `insurance-section model: an item-0 condition's money is its rate` · vitest
-- [ ] `insurance-section is absent without the grant or on a non-insurance order` · vitest
+- [x] `insurance-section model: flags a gap between current and engine money` · vitest
+- [x] `insurance-section model: an unpriced line reads unpriced, not zero` · vitest
+- [x] `insurance-section model: an item-0 condition's money is its rate` · vitest
+- [x] `insurance-section is absent without the grant or on a non-insurance order` · vitest
 
 ## Boundaries
 
@@ -54,3 +54,38 @@ Proof tests green; 1006358459 on dev shows engine 13.26 beside current 63.65 wit
 ## Blocked by
 
 Server: BackOffice [3390](C:\Work\DMSCO\BackOffice\.issues\3390-an-insurance-orders-insurance-read-answers-its-plan-money-lines-and-pricing-and-the-engine-money-without-changing-it.md)
+
+## Comments
+
+**2026-11-05 — built on `impl/787`, stubbed (implementer).**
+
+- **What was built.** A full-width **Insurance section** (`id="insurance"`, linkable as
+  `/oms/document/<no>#insurance`; it scrolls itself into view once the read has landed) between the LF return panel
+  and the two columns of Document Details. Drawn only on the document route, for a record that is not a delivery,
+  with `canViewInsurance`, and only when the read answers an insurance order.
+  - `InsuranceSection.tsx` (container) → `InsuranceMoneyPart.tsx` (badge + its line, Received / Current / Engine per
+    figure, ⚠ on each gap + a gap note, amount due / on account / paid) → `InsuranceLinesPart.tsx` (sent → dispensed,
+    original item + pharmacist reason, group / category / ceiling, engine vs applied deductible with ⚠, VAT,
+    patient, insurer, channel per-line split, unresolved / unpriced reason / guard decision, voided struck; a native
+    `<details>` "How it was priced" per line and one for the header conditions). `InsuranceCell.tsx` draws a money
+    cell or the word for its absence.
+  - Pure model `insurance-section.ts` (`moneyTable`, `lineView`, `pricingSteps`, `asksInsurance`,
+    `insuranceSectionGate`, `moneySourceBadge`); money via `formatMoneyIn` in the read's `currency`, gaps compared at
+    `roundMoney`; unpriced is its own cell kind, never `0.00`; item-0 money is `rate`.
+  - `documentApi.getInsurance` reads the business refusal `NOT_INSURANCE_ORDER` as `null` (no section); a 403 runs
+    `revokeInsuranceViewOnForbidden`; any other failure is said in place. Refresh re-reads it.
+  - `document:insurance.*` in **en and ar** (`insurance-i18n-keys.test.ts` proves they mirror).
+- **Proof.** The four vitest proofs above are green (20 tests in `insurance-section.test.ts`). The UI was driven
+  with `tools/insurance-section-drive.mjs` (LTR + RTL, 38/38): gap flagged on 1006358459, unpriced and voided
+  variant, step order, DFEE read by rate, absent on a non-insurance order / without the grant / on the delivery
+  route, a failing read said in place. Gates: typecheck, `npm test` (9010), lint with only the 4 inherited boundary
+  hits.
+- **Stubbed.** The door `GET SdDocumentWeb/Document/{no}/Insurance` is not built: the drive stubs it with
+  `__fixtures__/insurance-1006358459.json` (hand-built in 3390's proof shape: current 63.65 / 2.66, engine
+  13.26 / 53.05). Guesses carried from the contract commit: the grant flag `canViewInsurance`, the refusal code
+  `NOT_INSURANCE_ORDER`, `currency` on the read, all-`null` engine header money when any line is unpriced.
+- **Still open.** "Done when"'s live check — 1006358459 on dev showing engine 13.26 beside current 63.65 — waits on
+  BackOffice **3390** reaching dev/staging.
+- **Seams.** 788 adds Plan / Changes / Received as parts in `InsuranceSection` (marked slot) with their own pure
+  modules beside `insurance-section.ts`. 789's strip can reuse `moneySourceBadge` and `MoneyCell`/`InsuranceCell`
+  (same feature) and link to `#insurance` (`INSURANCE_SECTION_ID`).

@@ -1,0 +1,77 @@
+{
+  "_fixture": "Hand-built in the shape BackOffice 3390 proves (InsuranceRead_ChannelOrder_EngineMoneyIsOurOwn): order 1006358459, net 66.31, G1 20 % cap 30, channel deductible 63.65. Current stays 63.65 / 2.66; engine says 13.26 / 53.05. Not a capture: the door is not built yet (ticket 787 stub). Read by the vitest proofs and by tools/insurance-section-drive.mjs.",
+  "documentNo": "1006358459",
+  "orderNo": "BUPA-20261105125734-451",
+  "currency": "SAR",
+  "moneySource": "CHANNEL",
+  "money": {
+    "channel": { "patient": 63.65, "deductible": 63.65, "deductibleVat": 0, "uncovered": 0, "insurer": 2.66, "amountDue": 63.65 },
+    "current": { "patient": 63.65, "deductible": 63.65, "deductibleVat": 0, "uncovered": 0, "insurer": 2.66, "amountDue": 63.65 },
+    "engine": {
+      "priced": true,
+      "unpricedLines": [],
+      "patient": 13.26,
+      "deductible": 13.26,
+      "deductibleVat": 0,
+      "uncovered": 0,
+      "insurer": 53.05,
+      "amountDue": 13.26
+    }
+  },
+  "amountDue": 63.65,
+  "onAccountAmount": 2.66,
+  "paidAmount": 0,
+  "plan": {
+    "policyNumber": "",
+    "policyHolder": "",
+    "contractNumber": "",
+    "className": "",
+    "memberId": "",
+    "identityNumber": "",
+    "eligibilityReference": "",
+    "authorizationId": "",
+    "approvalNumber": "",
+    "diagnosis": "",
+    "visitReason": "",
+    "chiefComplaint": "",
+    "daysSupply": null,
+    "insurerCustomer": null,
+    "payer": null,
+    "deductibleGroups": [{ "group": "G1", "percentage": 20, "cap": 30 }]
+  },
+  "lines": [
+    {
+      "lineNumber": 10,
+      "voided": false,
+      "sent": { "sfdaCode": "0507230119", "text": "Augmentin 1g tablets", "itemNumber": "", "quantity": 1, "unit": "BOX" },
+      "dispensedItemNumber": "100245",
+      "dispensedItemDescription": "AUGMENTIN 1G 14 TAB",
+      "dispensedQuantity": 1,
+      "dispensedUnit": "BOX",
+      "originalItemNumber": null,
+      "pharmacistReason": null,
+      "insuranceCategory": "MED",
+      "deductibleGroup": "G1",
+      "coverageCeiling": 0,
+      "engineDeductible": 13.26,
+      "appliedDeductible": 63.65,
+      "vat": 0,
+      "patientAmount": 63.65,
+      "insurerAmount": 2.66,
+      "received": { "deductible": 63.65, "deductibleVat": 0, "patient": 63.65, "insurer": 2.66 },
+      "engine": { "priced": true, "unpricedReason": null, "deductible": 13.26, "deductibleVat": 0, "patient": 13.26, "insurer": 53.05 },
+      "unresolvedReason": null,
+      "guardDecision": null,
+      "conditions": [
+        { "lineNumber": 10, "stepNumber": 30, "counter": 1, "condType": "ZDED", "description": "Deductible %", "calculationType": "A", "base": 66.31, "rate": 20, "value": 63.65 },
+        { "lineNumber": 10, "stepNumber": 10, "counter": 1, "condType": "PR00", "description": "Base price", "calculationType": "C", "base": 1, "rate": 66.31, "value": 66.31 },
+        { "lineNumber": 10, "stepNumber": 40, "counter": 1, "condType": "MWST", "description": "VAT", "calculationType": "A", "base": 66.31, "rate": 0, "value": 0 }
+      ]
+    }
+  ],
+  "headerConditions": [
+    { "lineNumber": 0, "stepNumber": 900, "counter": 1, "condType": "DFEE", "description": "Delivery Fees", "calculationType": "B", "base": 0, "rate": 15, "value": 0 }
+  ],
+  "timeline": [],
+  "intake": { "kept": false, "keptSince": null }
+}

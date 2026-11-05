@@ -764,5 +764,92 @@
         "detail": "The automatic refund is stopped."
       }
     }
+  },
+  "insurance": {
+    "heading": "Insurance",
+    "loadFailed": "The order's insurance could not be read.",
+    "source": {
+      "CHANNEL": "Channel",
+      "ENGINE": "Engine",
+      "unknown": "Unknown"
+    },
+    "meaning": {
+      "CHANNEL": "The patient pays what the insurer sent.",
+      "ENGINE": "The patient pays what our rules charge.",
+      "unknown": "An unrecognised money source."
+    },
+    "money": {
+      "heading": "Money",
+      "label": "Received, current and engine money",
+      "columns": {
+        "figure": "Figure",
+        "channel": "Received",
+        "current": "Current",
+        "engine": "Engine"
+      },
+      "figures": {
+        "patient": "Patient",
+        "deductible": "Deductible",
+        "deductibleVat": "Deductible VAT",
+        "uncovered": "Uncovered",
+        "insurer": "Insurer",
+        "amountDue": "Amount due"
+      },
+      "order": {
+        "amountDue": "Amount due",
+        "onAccount": "On account",
+        "paid": "Paid"
+      },
+      "gap": "Differs from current money",
+      "gapNote": "Current money differs from what our engine charges.",
+      "unpriced": "Unpriced",
+      "unpricedLines": "Our engine cannot price every line, so it has no total. Unpriced lines:",
+      "none": "None",
+      "notSent": "Not sent"
+    },
+    "lines": {
+      "heading": "Lines",
+      "label": "Insurance lines",
+      "empty": "No lines.",
+      "columns": {
+        "line": "#",
+        "sent": "Sent",
+        "dispensed": "Dispensed",
+        "group": "Coverage",
+        "deductible": "Deductible",
+        "vat": "VAT",
+        "patient": "Patient",
+        "insurer": "Insurer",
+        "received": "Channel sent",
+        "status": "Status"
+      },
+      "voided": "Voided",
+      "notSent": "Not sent by the channel",
+      "original": "Was",
+      "reason": "Reason:",
+      "group": "Group",
+      "category": "Category",
+      "ceiling": "Ceiling",
+      "noCeiling": "No ceiling",
+      "engine": "Engine",
+      "applied": "Applied",
+      "deductibleShort": "Deductible",
+      "patientShort": "Patient",
+      "insurerShort": "Insurer",
+      "unresolved": "Unresolved:",
+      "guard": "Guard"
+    },
+    "priced": {
+      "summary": "How it was priced",
+      "header": "Header conditions",
+      "empty": "No conditions.",
+      "columns": {
+        "step": "Step",
+        "condition": "Condition",
+        "base": "Base",
+        "rate": "Rate",
+        "value": "Value"
+      }
+    }
   }
 }

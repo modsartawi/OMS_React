@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import { analyticsRefusal, readBoard, readItem, readItems, readModel, readResult } from './wire'
+import { analyticsRefusal, readItem, readItems, readModel, readResult } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -61,13 +61,5 @@ describe('analytics wire', () => {
     expect(readItems({ items: [one] }).map((i) => i.id)).toEqual(['b-1'])
     expect(readItems(null)).toEqual([])
     expect(readItems({})).toEqual([])
-  })
-})
-
-describe('readBoard: the saved auto-refresh default (780)', () => {
-  it('keeps an interval the picker offers and drops anything else', () => {
-    expect(readBoard({ id: 'b', definition: { panels: [], refresh: '5m' } }).definition.refresh).toBe('5m')
-    expect(readBoard({ id: 'b', definition: { panels: [], refresh: 'often' } }).definition.refresh).toBeUndefined()
-    expect(readBoard({ id: 'b', definition: { panels: [] } }).definition.refresh).toBeUndefined()
   })
 })

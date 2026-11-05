@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useReducer, useRef } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
+import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/core/i18n'
 import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
@@ -15,12 +17,15 @@ import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
+import { itemActions } from './item-actions'
+import { editingItemOf } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
 import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
+import { useItemActor } from './use-item-save'
 import { labelIn } from './view-model'
 
 /**
@@ -118,6 +123,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   useRefreshLoop(viewPanels.map((p) => p.id), refresh, refreshPanel)
 
   const title = labelIn(board.title, lang)
+  // 777: anyone who may save it (in place or as a copy) may open the board editor.
+  const canEdit = itemActions(editingItemOf({ ...board, kind: 'board' }), useItemActor()).save !== 'read-only'
   return (
     <div
       ref={root}
@@ -133,10 +140,16 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         )}
         {/* 778: the tier badge on the board too, and the tier's actions. */}
         <TierBadge tier={board.tier} />
-        {/* 780: a wall screen shows the board, not the ask box, the history or the tier's actions. */}
+        {/* 780: a wall screen shows the board, not the ask box, the editor link, the history or the tier's actions. */}
         {!tv.on && (
           <>
             <AskBox />
+            {canEdit && (
+              <Link to={`/analytics/board/${encodeURIComponent(board.id)}/edit`} className={buttonClass('secondary')} data-analytics-board-edit>
+                <Pencil className="size-4" aria-hidden />
+                {t('boardEditor.edit')}
+              </Link>
+            )}
             <ItemHistory item={board} kind="board" />
             <ItemTierActions item={board} />
           </>

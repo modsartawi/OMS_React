@@ -126,6 +126,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsBoardPage')).default }),
       },
       {
+        // The board editor (777) shares the builder's page: `?kind=board` makes a new board, this edits one.
+        path: 'analytics/board/:id/edit',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },

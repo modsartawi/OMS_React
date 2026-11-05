@@ -22,6 +22,13 @@ describe('board', () => {
     expect(readBoard({ id: 'b-2' }).definition.panels).toEqual([])
   })
 
+  it('reads the saved auto-refresh interval (777); absent, zero or not a number is Off', () => {
+    expect(readBoard({ id: 'b', definition: { panels: [], refresh: 300 } }).definition.refresh).toBe(300)
+    expect(readBoard({ id: 'b', definition: { panels: [], refresh: 0 } }).definition.refresh).toBeUndefined()
+    expect(readBoard({ id: 'b', definition: { panels: [], refresh: '60' } }).definition.refresh).toBeUndefined()
+    expect(readBoard({ id: 'b', definition: { panels: [] } }).definition.refresh).toBeUndefined()
+  })
+
   it('reads DimensionValues members with a plain or a bilingual label', () => {
     expect(readMembers([{ key: 'P001', label: 'Olaya' }, { key: 'riyadh', label: { en: 'Riyadh', ar: 'الرياض' } }])).toEqual([
       { key: 'P001', label: { en: 'Olaya', ar: 'Olaya' } },

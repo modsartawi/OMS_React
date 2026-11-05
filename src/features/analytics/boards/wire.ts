@@ -12,7 +12,6 @@ import type {
   AnalyticsRow,
   AnalyticsViewDefinition,
 } from '@/core/models/analytics'
-import { REFRESH_INTERVALS } from './refresh-schedule'
 
 /**
  * Reading the analytics wire (spec 766 §C, ticket 767) — defensively, because the doors are proposed
@@ -132,8 +131,7 @@ export function readBoard(raw: Loose): AnalyticsBoard {
         .map(readPanel)
         .filter((p): p is AnalyticsBoardPanel => p !== null),
       ...(d.filters && typeof d.filters === 'object' ? { filters: d.filters as AnalyticsBoard['definition']['filters'] } : {}),
-      // 780: the saved auto-refresh default, only as one of the picker's intervals.
-      ...((REFRESH_INTERVALS as readonly unknown[]).includes(d.refresh) ? { refresh: d.refresh as AnalyticsBoard['definition']['refresh'] } : {}),
+      ...(typeof d.refresh === 'number' && d.refresh > 0 ? { refresh: d.refresh } : {}),
     },
   } as AnalyticsBoard
 }

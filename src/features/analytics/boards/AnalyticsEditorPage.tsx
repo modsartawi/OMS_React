@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Ban, Info, LayoutDashboard } from 'lucide-react'
+import { Ban, Info } from 'lucide-react'
 import { slotColour } from '@/core/charts/slots'
 import i18n from '@/core/i18n'
 import type {
@@ -28,6 +28,7 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
+import { BoardEditorBody, type BuildView } from './BoardEditor'
 import {
   allowedDimensions,
   colourDimension,
@@ -67,33 +68,35 @@ import { analyticsRefusal } from './wire'
  * my copy; 403 offers the copy, 405 names who saved last and offers a copy or a reload.
  *
  * Seeded by route state (`newViewLink(seed)` in `./editor`) — 772's drill "Save as view" opens it so.
- * `kind=board` is the board editor's (777); until then it says so.
+ * `kind=board`, and `/analytics/board/:id/edit`, are the board editor (777, `./BoardEditor`); its "build a new
+ * view" opens this view editor in a dialog, which links the saved view as a panel instead of navigating.
  */
 export default function AnalyticsEditorPage() {
   const { t } = useTranslation('boards')
   const [params] = useSearchParams()
   const location = useLocation()
-  const board = params.get('kind') === 'board'
-  const editing = !board && !!readEditorSeed(location.state)?.item
+  const { id: boardId } = useParams()
+  const board = !!boardId || params.get('kind') === 'board'
+  const editing = board ? !!boardId : !!readEditorSeed(location.state)?.item
   return (
     <ScreenGate
       query={analyticsAccessQuery()}
       can={canViewAnalytics}
       ns="boards"
-      title={t(editing ? 'editor.editTitle' : 'editor.title')}
-      subtitle={t('editor.subtitle')}
+      title={t(board ? (editing ? 'boardEditor.editTitle' : 'boardEditor.title') : editing ? 'editor.editTitle' : 'editor.title')}
+      subtitle={t(board ? 'boardEditor.subtitle' : 'editor.subtitle')}
     >
       {board ? (
-        <div className="mx-auto mt-10 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" data-analytics-state="board-editor-not-yet">
-          <LayoutDashboard className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-          <p className="text-sm text-muted-foreground">{t('editor.boardNotYet')}</p>
-        </div>
+        <BoardEditorBody boardId={boardId ?? null} buildView={buildView} />
       ) : (
         <EditorBody />
       )}
     </ScreenGate>
   )
 }
+
+/** The board editor's "build a new view": this editor, empty, saving a Personal view and handing it back. */
+const buildView: BuildView = (model, onSaved) => <ViewEditor model={model} seed={null} onReseed={() => {}} onSavedView={onSaved} />
 
 function EditorBody() {
   const { t } = useTranslation('boards')
@@ -131,7 +134,18 @@ function EditorBody() {
 const EMPTY_LABEL: AnalyticsLabel = { en: '', ar: '' }
 const PREVIEW_DEBOUNCE_MS = 250
 
-function ViewEditor({ model, seed, onReseed }: { model: AnalyticsModel; seed: EditorSeed | null; onReseed: (item: AnalyticsItem) => void }) {
+function ViewEditor({
+  model,
+  seed,
+  onReseed,
+  onSavedView,
+}: {
+  model: AnalyticsModel
+  seed: EditorSeed | null
+  onReseed: (item: AnalyticsItem) => void
+  /** Given (777's board editor), the saved view is handed back here instead of opening its page. */
+  onSavedView?: (item: AnalyticsItem) => void
+}) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const navigate = useNavigate()
@@ -198,7 +212,8 @@ function ViewEditor({ model, seed, onReseed }: { model: AnalyticsModel; seed: Ed
     editing,
     onSaved: (item, how) => {
       toast.success(t(how === 'copy' ? 'save.copied' : how === 'in-place' ? 'save.savedInPlace' : 'editor.saved'))
-      navigate(`/analytics/view/${encodeURIComponent(item.id)}`)
+      if (onSavedView) onSavedView(item)
+      else navigate(`/analytics/view/${encodeURIComponent(item.id)}`)
     },
   })
   const { actions } = save

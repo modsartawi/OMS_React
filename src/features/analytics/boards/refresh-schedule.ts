@@ -2,7 +2,9 @@
  * A board's auto-refresh schedule (spec 766 §F, ticket 780). Pure: the board page's one loop asks it
  * which panels are due, and when to ask again.
  */
-import type { RefreshInterval } from '@/core/models/analytics'
+
+/** A board's auto-refresh interval (spec 766 §F): the picker's choices and the permalink's `refresh=`. */
+export type RefreshInterval = 'off' | '30s' | '1m' | '5m' | '15m'
 
 /** Each panel's offset into the interval: spread evenly in board order, so the panels never re-ask at once. */
 export function panelOffsets(ids: readonly string[], everyMs: number): Record<string, number> {
@@ -75,10 +77,20 @@ export function refreshChoices(floorMs: number): RefreshInterval[] {
   return REFRESH_INTERVALS.filter((c) => (intervalMs(c) ?? Infinity) >= floorMs)
 }
 
-/** A `refresh=` value, or `null` when it names no interval. One under the floor runs at the floor's choice. */
-export function readRefresh(raw: string | null | undefined, floorMs: number): RefreshInterval | null {
-  if (!raw || !(REFRESH_INTERVALS as readonly string[]).includes(raw)) return null
-  const choice = raw as RefreshInterval
+/** The choice for a number of seconds (the board's saved default is stored in seconds, 777); 0 is Off. */
+function choiceOfSeconds(seconds: number): RefreshInterval | null {
+  if (seconds === 0) return 'off'
+  return REFRESH_INTERVALS.find((c) => intervalMs(c) === seconds * 1000) ?? null
+}
+
+/**
+ * A `refresh=` value (`30s`, `1m`… or bare seconds, `60`) or the saved seconds, or `null` when it names no
+ * interval. One under the floor runs at the floor's choice.
+ */
+export function readRefresh(raw: string | number | null | undefined, floorMs: number): RefreshInterval | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const choice = (REFRESH_INTERVALS as readonly unknown[]).includes(raw) ? (raw as RefreshInterval) : /^\d+$/.test(String(raw)) ? choiceOfSeconds(Number(raw)) : null
+  if (!choice) return null
   const allowed = refreshChoices(floorMs)
   return allowed.includes(choice) ? choice : (allowed[1] ?? 'off')
 }
@@ -87,6 +99,6 @@ export function readRefresh(raw: string | null | undefined, floorMs: number): Re
  * The interval a board runs at: the permalink's `refresh=`, else the viewer's choice this session, else
  * the board's saved default, else Off.
  */
-export function boardRefresh(from: { url: string | null; session: string | null; saved: string | undefined }, floorMs: number): RefreshInterval {
+export function boardRefresh(from: { url: string | null; session: string | null; saved: number | null | undefined }, floorMs: number): RefreshInterval {
   return readRefresh(from.url, floorMs) ?? readRefresh(from.session, floorMs) ?? readRefresh(from.saved, floorMs) ?? 'off'
 }

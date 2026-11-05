@@ -63,14 +63,19 @@ describe('refresh schedule', () => {
     expect(readRefresh('30s', 60_000)).toBe('1m')
     expect(readRefresh('2m', 30_000)).toBeNull()
     expect(readRefresh(null, 30_000)).toBeNull()
+    // Bare seconds, the way the board saves its default (777): 60 is 1 min, 0 is Off, 45 is no choice.
+    expect(readRefresh('60', 30_000)).toBe('1m')
+    expect(readRefresh(900, 30_000)).toBe('15m')
+    expect(readRefresh(0, 30_000)).toBe('off')
+    expect(readRefresh('45', 30_000)).toBeNull()
   })
 
   it("takes the permalink's interval, else the viewer's session choice, else the board's saved default, else Off", () => {
-    expect(boardRefresh({ url: '30s', session: '5m', saved: '15m' }, 30_000)).toBe('30s')
-    expect(boardRefresh({ url: null, session: '5m', saved: '15m' }, 30_000)).toBe('5m')
-    expect(boardRefresh({ url: 'nonsense', session: null, saved: '15m' }, 30_000)).toBe('15m')
+    expect(boardRefresh({ url: '30s', session: '5m', saved: 900 }, 30_000)).toBe('30s')
+    expect(boardRefresh({ url: null, session: '5m', saved: 900 }, 30_000)).toBe('5m')
+    expect(boardRefresh({ url: 'nonsense', session: null, saved: 900 }, 30_000)).toBe('15m')
     expect(boardRefresh({ url: null, session: null, saved: undefined }, 30_000)).toBe('off')
     // A saved 30 s board under a 1 min floor runs at 1 min.
-    expect(boardRefresh({ url: null, session: null, saved: '30s' }, 60_000)).toBe('1m')
+    expect(boardRefresh({ url: null, session: null, saved: 30 }, 60_000)).toBe('1m')
   })
 })

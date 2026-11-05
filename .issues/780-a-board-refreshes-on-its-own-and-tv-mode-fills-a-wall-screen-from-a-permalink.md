@@ -46,7 +46,8 @@ The drive proves the refresh loop and TV mode.
   server's 30 s cache; nothing while hidden; one catch-up per panel on return), `refreshFloorMs` (config
   `VITE_ANALYTICS_REFRESH_FLOOR_S`, 30 unless set), `refreshChoices`, `readRefresh` (one under the floor runs at
   the floor), `boardRefresh` (permalink → this session's choice → the board's saved default → Off).
-- ⚠ Wire proposal: `AnalyticsBoardDefinition.refresh` (the saved default), read by `readBoard` only as a picker value.
+- The saved default is 777's `AnalyticsBoardDefinition.refresh` (seconds: 30/60/300/900, absent = Off);
+  `readRefresh` reads bare seconds as well as `30s`/`1m`/`5m`/`15m`, so `refresh=60` in a URL works too.
 - `boards/BoardRefresh.tsx` — the picker, the session choice (`sessionStorage`, per board; written to `refresh=`
   too, never to the board), and the board's ONE loop (one timer armed for the next panel due). Each view panel
   hands its `refetch` to the board (`BoardPanel` `registerRefresh`); an answer on its way is not asked again.

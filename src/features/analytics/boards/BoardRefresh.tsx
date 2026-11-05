@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SetURLSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import type { RefreshInterval } from '@/core/models/analytics'
 import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
-import { boardRefresh, intervalMs, nextDueAt, refreshChoices, refreshFloorMs, startSchedule, tick } from './refresh-schedule'
+import { boardRefresh, intervalMs, type RefreshInterval, nextDueAt, refreshChoices, refreshFloorMs, startSchedule, tick } from './refresh-schedule'
 
 /**
  * A board's auto-refresh (spec 766 §F, ticket 780): the picker, the viewer's choice, and the one loop.
@@ -29,7 +28,7 @@ function sessionChoice(boardId: string): string | null {
  * The interval the board runs at — the permalink's `refresh=`, else this session's choice, else the
  * board's saved default — and the picker's setter, which writes the permalink and the session, never the board.
  */
-export function useRefreshChoice(boardId: string, saved: RefreshInterval | undefined, params: URLSearchParams, setParams: SetURLSearchParams) {
+export function useRefreshChoice(boardId: string, saved: number | null | undefined, params: URLSearchParams, setParams: SetURLSearchParams) {
   const choice = boardRefresh({ url: params.get('refresh'), session: sessionChoice(boardId), saved }, REFRESH_FLOOR_MS)
   const setChoice = useCallback(
     (next: RefreshInterval) => {

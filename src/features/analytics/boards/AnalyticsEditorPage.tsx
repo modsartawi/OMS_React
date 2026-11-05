@@ -12,12 +12,13 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
-import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import ColourPicker from './ColourPicker'
 import {
   allowedDimensions,
   colourDimension,
+  colourMemberWords,
   DEFAULT_PERIOD,
   editItemLink,
   MAX_DIMENSIONS,
@@ -186,6 +187,15 @@ function ViewEditor({
     if (!colourDim || fixedColours || !answer.data) return []
     return [...new Set(answer.data.rows.map((r) => String(r[colourDim] ?? '')))].filter(Boolean)
   }, [answer.data, colourDim, fixedColours])
+  // An open breakdown's members read by name (`code · name`), looked up once from DimensionValues.
+  const lookup = useQuery({
+    queryKey: analyticsMembersKey(colourDim ?? '', ''),
+    queryFn: () => analyticsApi.dimensionValues(colourDim!, ''),
+    enabled: !!colourDim && !fixedColours && members.length > 0,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const names = useMemo(() => new Map((lookup.data ?? []).map((m) => [m.key, m.label])), [lookup.data])
   const savedFor = (colourDim && slots[colourDim]) || {}
   const onScreen = settledSlots(savedFor, members)
 
@@ -271,6 +281,7 @@ function ViewEditor({
           fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}
           members={members}
           onScreen={onScreen}
+          wordsOf={(m) => colourMemberWords(colourDim ?? '', m, model, names, lang)}
           onPick={(m, s) => colourDim && setSlots((all) => ({ ...all, [colourDim]: withMemberSlot(all[colourDim] ?? {}, members, m, s) }))}
         />
         <TitleFields title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} generated={generated} />

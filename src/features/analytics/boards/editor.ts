@@ -1,5 +1,7 @@
 import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
+import { saysIn } from '@/core/rules/sentence'
+import { formatPair } from '@/core/util/bidi'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { editingItemOf, type EditingItem } from './item-save'
 export { DEFAULT_PERIOD, PERIODS } from './periods'
@@ -57,6 +59,24 @@ export function withMemberSlot(
   }
   next[member] = slot
   return next
+}
+
+/**
+ * A colour-picker member as the editor shows it (ticket 775's picker, review fix): the model's inline label
+ * (free text, `<bdi>`); else the name `Analytics/DimensionValues` gives it, as one `code · name` pair (a machine
+ * value led pair, `Ltr` once); else its code alone. Never the bare key when a name is known.
+ */
+export function colourMemberWords(
+  dimension: string,
+  member: string,
+  model: AnalyticsModel,
+  names: ReadonlyMap<string, AnalyticsLabel>,
+  lang: string,
+): { text: string; kind: 'text' | 'machine' } {
+  const inline = saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === member)?.label, lang)
+  if (inline) return { text: inline, kind: 'text' }
+  const name = saysIn(names.get(member), lang)
+  return { text: name && name !== member ? formatPair(member, name) : member, kind: 'machine' }
 }
 
 /** The saved map plus a slot for every member on screen that finds one free (written when saved). */

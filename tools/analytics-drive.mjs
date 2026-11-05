@@ -786,6 +786,10 @@ async function editorSeededAndRefusals() {
   const p3 = page.locator('[data-analytics-colour-member="P003"]')
   await p3.waitFor({ timeout: 10000 })
   check(`${tag}: each member offers the five chart tokens only`, (await p3.locator('[data-colour-slot]').count()) === 5)
+  // Review fix 17: a member reads by its name as one `code · name` pair (DimensionValues), never its bare key.
+  await page.waitForFunction(() => document.querySelector('[data-analytics-colour-member="P003"] [data-analytics-colour-label]')?.textContent?.includes('Corniche'), null, { timeout: 5000 }).catch(() => {})
+  const p3Label = noIsolates(await p3.locator('[data-analytics-colour-label]').innerText())
+  check(`${tag}: the colour picker names P003 by its code · name pair`, p3Label === 'P003 · Corniche', p3Label)
   await p3.locator('[data-colour-slot="0"]').click()
   // The preview re-asks a moment after the pick (debounced), then repaints.
   await page.waitForFunction(() => document.querySelectorAll('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path')[2]?.getAttribute('fill') === 'var(--chart-1)' && document.querySelectorAll('[data-analytics-preview] [data-chart="bar"] .recharts-bar-rectangle path')[0]?.getAttribute('fill') !== 'var(--chart-1)', null, { timeout: 5000 }).catch(() => {})

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel } from '@/core/models/analytics'
-import { allowedDimensions, colourDimension, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
+import { allowedDimensions, colourDimension, colourMemberWords, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
 
 const label = (en: string) => ({ en, ar: '' })
 const MODEL: AnalyticsModel = {
@@ -30,6 +30,23 @@ describe('the editor picks from the model only', () => {
     expect(colourDimension(d(['day', 'store']), MODEL)).toBe('store')
     expect(colourDimension(d(['store', 'channel_group']), MODEL)).toBe('channel_group')
     expect(colourDimension(d(['day']), MODEL)).toBeNull()
+  })
+})
+
+describe('series colours: each member reads by its label, never its bare key', () => {
+  const withChannels: AnalyticsModel = {
+    ...MODEL,
+    dimensions: [{ key: 'channel_group', kind: 'category', label: label('Channel'), values: [{ key: 'app', label: { en: 'App', ar: 'التطبيق' } }] }, ...MODEL.dimensions.slice(1)],
+  }
+  const names = new Map([['P003', { en: 'Corniche', ar: 'الكورنيش' }]])
+  it("an inline member reads by the model's label, as free text", () => {
+    expect(colourMemberWords('channel_group', 'app', withChannels, names, 'ar')).toEqual({ text: 'التطبيق', kind: 'text' })
+  })
+  it('a looked-up member reads as its code · name pair, one machine value', () => {
+    expect(colourMemberWords('store', 'P003', MODEL, names, 'en')).toEqual({ text: 'P003 · Corniche', kind: 'machine' })
+  })
+  it('a member nothing names reads as its code', () => {
+    expect(colourMemberWords('store', 'P009', MODEL, names, 'en')).toEqual({ text: 'P009', kind: 'machine' })
   })
 })
 

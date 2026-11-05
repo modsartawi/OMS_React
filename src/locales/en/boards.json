@@ -457,6 +457,19 @@
       "unreachable": "Unreadable",
       "unknown": "Unknown"
     },
+    "firstLoadLabel": "First load",
+    "firstLoad": {
+      "done": "Done",
+      "running": "In progress",
+      "failed": "Failed: retried at the next start",
+      "not_started": "Not started yet",
+      "unreachable": "Unreadable",
+      "rebuild": "Rebuilding every mart; the previous marts keep serving",
+      "backfill": "Loading 2026 history, month <n>{{count}}</n>",
+      "backfillMonth": "Loading 2026 history, month <n>{{count}}</n> (<m>{{month}}</m>)",
+      "startedAt": "started <at>{{at}}</at>",
+      "finishedAt": "finished <at>{{at}}</at>"
+    },
     "lastGood": "Last good run",
     "ago": "<n>{{minutes}}</n> min ago",
     "allowed": "(allowed <n>{{minutes}}</n> min)",
@@ -465,7 +478,9 @@
       "intraday": "Intraday",
       "nightly": "Nightly",
       "rebuild": "Full rebuild",
-      "byHand": "By hand"
+      "byHand": "By hand",
+      "catchup": "Sunday 14-day catch-up",
+      "backfill": "History backfill"
     },
     "run": {
       "success": "Succeeded",

@@ -7,9 +7,20 @@ import i18n from '@/core/i18n'
 import type { AnalyticsHealth } from '@/core/models/analytics'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Ltr from '@/core/ui/Ltr'
-import { formatPair } from '@/core/util/bidi'
+import { formatCount, formatPair } from '@/core/util/bidi'
 import { ANALYTICS_HEALTH_KEY, analyticsApi } from './api'
-import { HEALTH_REFRESH_MS, KNOWN_JOBS, KNOWN_RUN_STATUSES, headlineKey, healthTone, parseLastRun, runTone, storedTime } from './health'
+import {
+  HEALTH_REFRESH_MS,
+  KNOWN_JOBS,
+  KNOWN_RUN_STATUSES,
+  firstLoadTone,
+  headlineKey,
+  healthTone,
+  monthLabel,
+  parseLastRun,
+  runTone,
+  storedTime,
+} from './health'
 import { analyticsRefusal, refusalWords } from './wire'
 
 /**
@@ -98,6 +109,8 @@ function StatusBody({ h }: { h: AnalyticsHealth }) {
             </StatusBadge>
           </dd>
 
+          {h.firstLoad.status && <FirstLoadRow h={h} lang={lang} />}
+
           <dt className="text-muted-foreground">{t('status.lastGood')}</dt>
           <dd data-analytics-status-last-good>
             {lastGood ? (
@@ -145,6 +158,49 @@ function StatusBody({ h }: { h: AnalyticsHealth }) {
         </dl>
       )}
     </div>
+  )
+}
+
+/**
+ * Image 1.2.0: the first load after a deploy (a full rebuild, then the 2026 backfill one month at a
+ * time). Shown only when the container reports it; an older image sends nothing.
+ */
+function FirstLoadRow({ h, lang }: { h: AnalyticsHealth; lang: string }) {
+  const { t } = useTranslation('boards')
+  const f = h.firstLoad
+  const month = monthLabel(f.currentMonth, lang)
+  let detail: ReactNode = null
+  if (f.status === 'running' && f.phase === 'backfill' && f.monthsDone !== null && f.monthsTotal !== null) {
+    detail = (
+      <Trans
+        t={t}
+        i18nKey={month ? 'status.firstLoad.backfillMonth' : 'status.firstLoad.backfill'}
+        values={{ count: formatCount(f.monthsDone + 1, f.monthsTotal), month }}
+        components={{ n: <Ltr />, m: <bdi /> }}
+      />
+    )
+  } else if (f.status === 'running' && f.phase === 'rebuild') {
+    detail = t('status.firstLoad.rebuild')
+  }
+  const since = f.status === 'done' ? f.finishedAtRiyadh : f.startedAtRiyadh
+  return (
+    <>
+      <dt className="text-muted-foreground">{t('status.firstLoadLabel')}</dt>
+      <dd className="flex flex-wrap items-center gap-2" data-analytics-status-first-load={f.status}>
+        <StatusBadge sev={firstLoadTone(f.status)}>{t(`status.firstLoad.${f.status}`)}</StatusBadge>
+        {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
+        {since && (
+          <span className="text-xs text-muted-foreground">
+            <Trans
+              t={t}
+              i18nKey={f.status === 'done' ? 'status.firstLoad.finishedAt' : 'status.firstLoad.startedAt'}
+              values={{ at: when(since, lang) }}
+              components={{ at: <Ltr /> }}
+            />
+          </span>
+        )}
+      </dd>
+    </>
   )
 }
 

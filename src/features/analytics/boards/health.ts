@@ -1,4 +1,11 @@
-import type { AnalyticsCubeState, AnalyticsHealth, AnalyticsHealthStatus, AnalyticsMartsState } from '@/core/models/analytics'
+import type {
+  AnalyticsCubeState,
+  AnalyticsFirstLoadPhase,
+  AnalyticsFirstLoadState,
+  AnalyticsHealth,
+  AnalyticsHealthStatus,
+  AnalyticsMartsState,
+} from '@/core/models/analytics'
 import type { Severity } from '@/core/ui/severity'
 
 /**
@@ -14,6 +21,8 @@ type Loose = Record<string, unknown> | null | undefined
 const STATUSES: readonly AnalyticsHealthStatus[] = ['ok', 'fail', 'unreachable', 'not_configured']
 const CUBE: readonly AnalyticsCubeState[] = ['ready', 'not_ready']
 const MARTS: readonly AnalyticsMartsState[] = ['fresh', 'stale', 'never_built', 'unreachable']
+const FIRST_LOAD: readonly AnalyticsFirstLoadState[] = ['done', 'running', 'failed', 'not_started', 'unreachable']
+const PHASES: readonly AnalyticsFirstLoadPhase[] = ['rebuild', 'backfill']
 
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
@@ -23,6 +32,7 @@ const whole = (value: unknown): number | null => (typeof value === 'number' && N
 /** The door's answer, defensively: an unknown overall status reads as unreachable, never as ok. */
 export function readHealth(raw: Loose): AnalyticsHealth {
   const marts = (raw?.marts ?? null) as Loose
+  const first = (raw?.firstLoad ?? null) as Loose
   return {
     status: oneOf(raw?.status, STATUSES, 'unreachable'),
     version: text(raw?.version),
@@ -33,6 +43,15 @@ export function readHealth(raw: Loose): AnalyticsHealth {
       minutesSince: whole(marts?.minutesSince),
       maxMinutes: whole(marts?.maxMinutes),
       lastRun: text(marts?.lastRun),
+    },
+    firstLoad: {
+      status: oneOf(first?.status, FIRST_LOAD, ''),
+      phase: oneOf(first?.phase, PHASES, ''),
+      monthsDone: whole(first?.monthsDone),
+      monthsTotal: whole(first?.monthsTotal),
+      currentMonth: text(first?.currentMonth),
+      startedAtRiyadh: text(first?.startedAtRiyadh),
+      finishedAtRiyadh: text(first?.finishedAtRiyadh),
     },
     checkedAt: text(raw?.checkedAt),
   }
@@ -61,8 +80,26 @@ export function headlineKey(h: AnalyticsHealth): 'ok' | 'behind' | 'cubeDown' | 
   return 'martsDown'
 }
 
+/**
+ * The first load's tone: done is ok, running is in motion (the old marts keep serving), failed is bad
+ * (retried at the next container start), not started or unreadable is neutral.
+ */
+export function firstLoadTone(status: AnalyticsFirstLoadState): Severity {
+  if (status === 'done') return 'ok'
+  if (status === 'running') return 'go'
+  if (status === 'failed') return 'bad'
+  return 'mute'
+}
+
+/** `2026-07-01` → "July 2026" in the active locale; '' for anything else. */
+export function monthLabel(value: string, locale: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(value)
+  if (!m) return ''
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(Number(m[1]), Number(m[2]) - 1, 1))
+}
+
 /** The jobs and run outcomes `mart_load_log` writes (3379's `load_log.sql`); anything else is shown as sent. */
-export const KNOWN_JOBS = ['intraday', 'nightly', 'rebuild'] as const
+export const KNOWN_JOBS = ['intraday', 'nightly', 'catchup', 'rebuild', 'backfill'] as const
 export const KNOWN_RUN_STATUSES = ['success', 'error', 'skipped', 'test_fail', 'stale_source'] as const
 
 export interface LastRun {

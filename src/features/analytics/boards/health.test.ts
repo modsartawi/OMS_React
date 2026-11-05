@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { headlineKey, healthTone, parseLastRun, readHealth, runTone, storedTime } from './health'
+import { firstLoadTone, headlineKey, healthTone, monthLabel, parseLastRun, readHealth, runTone, storedTime } from './health'
 
 const fresh = {
   status: 'ok',
@@ -30,6 +30,48 @@ describe('readHealth', () => {
     expect(h.marts.status).toBe('')
     expect(h.marts.minutesSince).toBeNull()
     expect(h.marts.maxMinutes).toBeNull()
+  })
+})
+
+describe('firstLoad (image 1.2.0)', () => {
+  it('reads a backfill in progress as sent', () => {
+    const firstLoad = {
+      status: 'running', phase: 'backfill', monthsDone: 6, monthsTotal: 10, currentMonth: '2026-07-01',
+      startedAtRiyadh: '2026-11-05 20:47:01', finishedAtRiyadh: '',
+    }
+    expect(readHealth({ ...fresh, firstLoad }).firstLoad).toEqual(firstLoad)
+  })
+
+  it('an older image sends none: blank, so the card shows no row', () => {
+    expect(readHealth(fresh).firstLoad).toEqual({
+      status: '', phase: '', monthsDone: null, monthsTotal: null, currentMonth: '', startedAtRiyadh: '', finishedAtRiyadh: '',
+    })
+  })
+
+  it('unknown states, phases and non-integer months are blanked', () => {
+    const h = readHealth({ ...fresh, firstLoad: { status: 'exploded', phase: 'drop', monthsDone: '6', monthsTotal: 2.5 } })
+    expect(h.firstLoad.status).toBe('')
+    expect(h.firstLoad.phase).toBe('')
+    expect(h.firstLoad.monthsDone).toBeNull()
+    expect(h.firstLoad.monthsTotal).toBeNull()
+  })
+
+  it('does not change the overall tone: the old marts keep serving', () => {
+    expect(healthTone(readHealth({ ...fresh, firstLoad: { status: 'running', phase: 'rebuild' } }))).toBe('ok')
+  })
+
+  it('tones: done ok, running in motion, failed bad, the rest neutral', () => {
+    expect(firstLoadTone('done')).toBe('ok')
+    expect(firstLoadTone('running')).toBe('go')
+    expect(firstLoadTone('failed')).toBe('bad')
+    expect(firstLoadTone('not_started')).toBe('mute')
+    expect(firstLoadTone('')).toBe('mute')
+  })
+
+  it('names the month being read, in the locale', () => {
+    expect(monthLabel('2026-07-01', 'en')).toBe('July 2026')
+    expect(monthLabel('', 'en')).toBe('')
+    expect(monthLabel('July', 'en')).toBe('')
   })
 })
 

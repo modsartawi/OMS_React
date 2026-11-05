@@ -477,6 +477,19 @@
       "unreachable": "تتعذّر قراءتها",
       "unknown": "غير معروف"
     },
+    "firstLoadLabel": "التحميل الأول",
+    "firstLoad": {
+      "done": "اكتمل",
+      "running": "قيد التنفيذ",
+      "failed": "فشل: يُعاد عند التشغيل التالي",
+      "not_started": "لم يبدأ بعد",
+      "unreachable": "تعذّرت القراءة",
+      "rebuild": "إعادة بناء كل الجداول؛ الجداول السابقة تواصل الخدمة",
+      "backfill": "تحميل سجل 2026، الشهر <n>{{count}}</n>",
+      "backfillMonth": "تحميل سجل 2026، الشهر <n>{{count}}</n> (<m>{{month}}</m>)",
+      "startedAt": "بدأ <at>{{at}}</at>",
+      "finishedAt": "انتهى <at>{{at}}</at>"
+    },
     "lastGood": "آخر تشغيل ناجح",
     "ago": "منذ <n>{{minutes}}</n> دقيقة",
     "allowed": "(المسموح <n>{{minutes}}</n> دقيقة)",
@@ -485,7 +498,9 @@
       "intraday": "خلال اليوم",
       "nightly": "ليلي",
       "rebuild": "إعادة بناء كاملة",
-      "byHand": "يدوي"
+      "byHand": "يدوي",
+      "catchup": "مراجعة الأحد لـ 14 يوماً",
+      "backfill": "تحميل السجل السابق"
     },
     "run": {
       "success": "نجح",

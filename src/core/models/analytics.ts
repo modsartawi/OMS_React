@@ -323,6 +323,9 @@ export interface AnalyticsItemRevert {
 export type AnalyticsHealthStatus = 'ok' | 'fail' | 'unreachable' | 'not_configured'
 export type AnalyticsCubeState = 'ready' | 'not_ready' | ''
 export type AnalyticsMartsState = 'fresh' | 'stale' | 'never_built' | 'unreachable' | ''
+/** Image 1.2.0: the first load of a newly deployed dbt project; '' from an older image. */
+export type AnalyticsFirstLoadState = 'done' | 'running' | 'failed' | 'not_started' | 'unreachable' | ''
+export type AnalyticsFirstLoadPhase = 'rebuild' | 'backfill' | ''
 
 export interface AnalyticsHealth {
   status: AnalyticsHealthStatus
@@ -338,6 +341,24 @@ export interface AnalyticsHealth {
     maxMinutes: number | null
     /** The newest run whatever its outcome: `"<job> <status> at <time>"`. */
     lastRun: string
+  }
+  /**
+   * Image 1.2.0: whether this image's dbt project is built into POS_Analytics yet — a full rebuild,
+   * then the 2026 backfill one month at a time. It never changes `status`: the boards answer from
+   * the previous marts meanwhile.
+   */
+  firstLoad: {
+    status: AnalyticsFirstLoadState
+    /** While running: `rebuild` or `backfill`. */
+    phase: AnalyticsFirstLoadPhase
+    /** During the backfill: months finished, of `monthsTotal`. */
+    monthsDone: number | null
+    monthsTotal: number | null
+    /** During the backfill: the first day of the month being read (`yyyy-MM-dd`). */
+    currentMonth: string
+    /** Riyadh time as stored (`yyyy-MM-dd HH:mm:ss`). */
+    startedAtRiyadh: string
+    finishedAtRiyadh: string
   }
   /** When SIS.Api asked, its local clock. */
   checkedAt: string

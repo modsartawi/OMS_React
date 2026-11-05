@@ -41,6 +41,17 @@ export function asksDeliveryMoneyStrip(ctx: DeliveryMoneyStripContext): boolean 
   return ctx.openedAs === 'delivery' && (ctx.refDocumentNo ?? '').trim() !== '' && ctx.access?.canOpenList === true
 }
 
+/** The query key of a delivery's order search row (ticket 789), by the order's document number. */
+export const orderRowKey = (documentNo: string) => ['document', 'order-row', documentNo] as const
+
+/**
+ * The key the page's Refresh invalidates for the strip, or `null` when no strip is asked (an
+ * unasked read has nothing to re-read). Same trimmed number the strip reads with.
+ */
+export function stripRefreshKey(ctx: DeliveryMoneyStripContext): ReturnType<typeof orderRowKey> | null {
+  return asksDeliveryMoneyStrip(ctx) ? orderRowKey((ctx.refDocumentNo ?? '').trim()) : null
+}
+
 /** The strip, drawn. */
 export interface DeliveryMoneyStripView {
   source: ReturnType<typeof moneySourceBadge>

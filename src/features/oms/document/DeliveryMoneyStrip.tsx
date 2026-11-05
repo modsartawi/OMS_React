@@ -10,12 +10,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { buttonClass } from '@/core/ui/control-classes'
 import { documentApi } from './api'
 import type { OpenedAs } from './actions'
-import { asksDeliveryMoneyStrip, deliveryMoneyStrip, orderRowOf } from './delivery-money-strip'
+import { asksDeliveryMoneyStrip, deliveryMoneyStrip, orderRowKey, orderRowOf } from './delivery-money-strip'
 import { HEADING } from './facts-heading'
 import InsuranceCell from './InsuranceCell'
-
-/** The query key of a delivery's order search row (ticket 789), by the order's document number. */
-export const orderRowKey = (documentNo: string) => ['document', 'order-row', documentNo] as const
 
 /**
  * **The delivery money strip** (ticket 789, BackOffice spec 3389 user stories 67–70): on Delivery

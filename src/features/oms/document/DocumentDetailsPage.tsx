@@ -74,6 +74,7 @@ import ForceRefundCommand from './ForceRefundCommand'
 import { asksLfReturn, showsLfReturnPanel } from './lf-return'
 import InsuranceSection from './InsuranceSection'
 import DeliveryMoneyStrip from './DeliveryMoneyStrip'
+import { stripRefreshKey } from './delivery-money-strip'
 import { asksInsurance, insuranceSectionGate } from './insurance-section'
 import { revokeInsuranceViewOnForbidden } from '@/core/oms/insurance-grant'
 import Chip from '@/core/ui/Chip'
@@ -680,6 +681,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     if (document) void queryClient.invalidateQueries({ queryKey: prescriptionSessionsKey(document.documentNo) })
     if (document && lfReturnAsked) void queryClient.invalidateQueries({ queryKey: lfReturnKey(document.documentNo) })
     if (document && insuranceAsked) void queryClient.invalidateQueries({ queryKey: insuranceKey(document.documentNo) })
+    // The delivery money strip's order row (789): it asks its own read, so Refresh re-reads it too.
+    const stripKey = document ? stripRefreshKey({ openedAs, refDocumentNo: document.refDocumentNo, access: access.data }) : null
+    if (stripKey) void queryClient.invalidateQueries({ queryKey: stripKey })
   }
 
   /**

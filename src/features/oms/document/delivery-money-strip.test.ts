@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OrderDocumentRow } from '@/core/models/order-document'
-import { asksDeliveryMoneyStrip, deliveryMoneyStrip, orderRowOf } from './delivery-money-strip'
+import { asksDeliveryMoneyStrip, deliveryMoneyStrip, orderRowKey, orderRowOf, stripRefreshKey } from './delivery-money-strip'
 
 /** The order 1006358459's search row, as 3391 would answer an identifier search for it. */
 const ROW: OrderDocumentRow = {
@@ -100,5 +100,19 @@ describe('delivery money strip: no link without the insurance grant', () => {
   it('an order number that needs encoding is encoded in the link', () => {
     const strip = deliveryMoneyStrip({ ...ROW, documentNo: 'A/1' }, { ...DELIVERY, refDocumentNo: 'A/1' }, GRANTED)!
     expect(strip.link).toBe('/oms/document/A%2F1#insurance')
+  })
+})
+
+describe("delivery money strip: the page's Refresh re-reads it", () => {
+  it("a delivery whose strip is asked hands Refresh its order row's key", () => {
+    const key = stripRefreshKey({ openedAs: 'delivery', refDocumentNo: ' 1006358459 ', access: { canOpenList: true } })
+    expect(key).toEqual(['document', 'order-row', '1006358459'])
+    expect(key).toEqual(orderRowKey('1006358459'))
+  })
+
+  it('no strip asked, nothing to refresh: a document, a delivery without its order, or without the list grant', () => {
+    expect(stripRefreshKey({ openedAs: 'document', refDocumentNo: '1006358459', access: { canOpenList: true } })).toBeNull()
+    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '', access: { canOpenList: true } })).toBeNull()
+    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '1006358459', access: {} })).toBeNull()
   })
 })

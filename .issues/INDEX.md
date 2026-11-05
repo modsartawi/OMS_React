@@ -1288,3 +1288,10 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Approval-number release (BackOffice spec 3342, filed 2026-11-03)
 
 - [751](751-the-release-approval-number-page-finds-an-authorization-by-bundle-id-and-releases-it-with-a-note.md) — The Release approval number page finds an authorization by bundle Id and releases it with a note · **done** · *(spec BO 3342)* · blocked by: BO 3343
+
+## Order / ERX list and insurance visibility (BackOffice spec 3389, filed 2026-11-05)
+
+- [786](786-the-order-erx-list-finds-an-order-by-any-identifier-with-bupa-care-connect-and-no-delivery-yet-lenses.md) — The Order / ERX list finds an order by any identifier, with Bupa Care Connect and No-delivery-yet lenses · *(ticket · BackOffice spec 3389; door BO 3391)* · **open** · blocked by: — (server BO 3391)
+- [787](787-document-details-shows-an-insurance-orders-money-verdict-its-lines-how-each-was-priced-and-the-gap-to-engine-money.md) — Document Details shows an insurance order's money verdict, its lines, how each was priced, and the gap to engine money · *(ticket · BackOffice spec 3389; door BO 3390)* · **open** · blocked by: — (server BO 3390)
+- [788](788-the-insurance-section-shows-the-plan-the-change-timeline-with-money-before-and-after-and-the-intake-body.md) — The Insurance section shows the plan, the change timeline with money before and after, and the intake body · *(ticket · BackOffice spec 3389; BO 3392, 3393)* · **open** · blocked by: 787 (server BO 3392, 3393)
+- [789](789-a-delivery-of-an-insurance-order-shows-its-money-strip-and-links-to-its-orders-insurance.md) — A delivery of an insurance order shows its money strip and links to its order's insurance · *(ticket · BackOffice spec 3389)* · **open** · blocked by: 787

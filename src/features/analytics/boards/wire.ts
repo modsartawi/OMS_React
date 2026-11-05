@@ -153,6 +153,9 @@ export function readMembers(raw: unknown): AnalyticsMember[] {
 const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-401': 'refusal.noAccess',
   'ANALYTICS-404': 'refusal.notFound',
+  // 773: the panel's retry state (`./PanelBody`); 410's panel state shows the area's own reason first.
+  'ANALYTICS-408': 'refusal.timedOut',
+  'ANALYTICS-409': 'refusal.engineDown',
   // 775: the editor words these in its own terms (`./editor-refusal`); elsewhere these are the words.
   'ANALYTICS-406': 'refusal.invalid',
   'ANALYTICS-407': 'refusal.window',

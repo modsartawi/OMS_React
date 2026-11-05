@@ -18,6 +18,7 @@ import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
 import { editingItemOf } from './item-save'
+import ItemHistory from './ItemHistory'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
 import { useItemActor } from './use-item-save'
@@ -124,6 +125,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
             {t('boardEditor.edit')}
           </Link>
         )}
+        <ItemHistory item={board} kind="board" />
       </div>
       <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}

@@ -15,6 +15,9 @@ describe('analytics wire', () => {
   it('each of ANALYTICS-401/404/406/407/410 maps to its i18n key, an unknown code falls back to the server message', () => {
     expect(analyticsRefusal(coded('ANALYTICS-401'), 'fallback')).toEqual({ code: 'ANALYTICS-401', key: 'refusal.noAccess' })
     expect(analyticsRefusal(coded('ANALYTICS-404'), 'fallback')).toEqual({ code: 'ANALYTICS-404', key: 'refusal.notFound' })
+    // 773: the panel's retry states word themselves.
+    expect(analyticsRefusal(coded('ANALYTICS-408'), 'fallback')).toEqual({ code: 'ANALYTICS-408', key: 'refusal.timedOut' })
+    expect(analyticsRefusal(coded('ANALYTICS-409'), 'fallback')).toEqual({ code: 'ANALYTICS-409', key: 'refusal.engineDown' })
     expect(analyticsRefusal(coded('ANALYTICS-406'), 'fallback')).toEqual({ code: 'ANALYTICS-406', key: 'refusal.invalid' })
     expect(analyticsRefusal(coded('ANALYTICS-407'), 'fallback')).toEqual({ code: 'ANALYTICS-407', key: 'refusal.window' })
     expect(analyticsRefusal(coded('ANALYTICS-410'), 'fallback')).toEqual({ code: 'ANALYTICS-410', key: 'refusal.areaUnavailable' })
@@ -22,7 +25,7 @@ describe('analytics wire', () => {
     expect(analyticsRefusal(new Error('boom'), 'The view could not be drawn.')).toEqual({ code: null, message: 'The view could not be drawn.' })
 
     // Each key has words in both languages, and none of them is the raw code.
-    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable']) {
+    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable']) {
       for (const lng of ['en', 'ar']) {
         expect(instance.exists(key, { lng }), `${lng} ${key}`).toBe(true)
         expect(instance.t(key, { lng })).not.toMatch(/ANALYTICS/)

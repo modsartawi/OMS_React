@@ -209,6 +209,30 @@ export const BOARD_771 = {
   },
 }
 ITEMS['b-ops'] = BOARD_771
+// ── 779: an item's history. My Shared board at revision 3, with each revision's full snapshot (§C keeps them
+// server side; the Revisions door answers who and when only). Revert writes the snapshot as a NEW revision. ──
+const board779 = (panels) => ({
+  panels: [
+    { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 } },
+    { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 } },
+    { id: 'p-line', kind: 'view', viewId: 'v-line-measures', layout: { x: 0, y: 3, w: 12, h: 3 } },
+  ].slice(0, panels),
+})
+export const REVISIONS_779 = {
+  'b-779': [
+    { revision: 1, updatedAt: '2026-11-01T08:15:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance (draft)', 'الأسبوع في لمحة (مسودة)'), definition: board779(1) } },
+    { revision: 2, updatedAt: '2026-11-03T11:30:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(2) } },
+    { revision: 3, updatedAt: '2026-11-05T09:20:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(3) } },
+  ],
+}
+export const BOARD_779 = {
+  ...view('b-779', { title: label('Week at a glance', 'الأسبوع في لمحة'), tier: 'shared', updatedAt: '2026-11-05T09:20:00' }),
+  kind: 'board',
+  definition: board779(3),
+}
+ITEMS['b-779'] = BOARD_779
+// The certified board 771 drew is curator1's: a non-curator may not edit it, so it shows no history.
+
 /** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */
 export const DELAYS_771 = { 'v-kpi': 300, 'v-bar': 900, 'v-line-measures': 1500, 'v-area': 2100 }
 
@@ -400,6 +424,83 @@ export const DRILL_772 = {
 }
 Object.assign(QUERY, DRILL_772)
 
+// ── 773: a board of panels in every state, plus the panel actions ────────────────────────────────────
+// A slow panel (408 once, then answered on retry), an engine-down panel (409 every time), a panel over the
+// unavailable `callouts` area (410), an empty one, one cut at the row cap, and one whose data is behind.
+// The drive freezes the clock at 10:10, so 09:45 is fine (25 min) and 09:20 is behind (50 min).
+export const CALLOUTS_MEASURE = {
+  key: 'callouts',
+  area: 'callouts',
+  shape: 'additive',
+  unit: 'count',
+  label: label('Callouts', 'الاستدعاءات'),
+  description: label('Dispatch callouts', 'استدعاءات التوزيع'),
+  dimensions: ['store'],
+}
+export const MODEL_773 = { ...MODEL, measures: [...MODEL.measures, CALLOUTS_MEASURE] }
+const bar = (measure, dimension) => ({ chart: { type: 'bar', orientation: 'vertical' }, query: { measures: [measure], dimensions: [dimension], filters: [], period: 'last-30-days' } })
+export const ITEMS_773 = {
+  ...ITEMS,
+  'v-773-slow': view('v-773-slow', { title: label('Slow panel', 'لوحة بطيئة'), definition: bar('orders', 'channel_group') }),
+  'v-773-down': view('v-773-down', { title: label('Engine down', 'المحرك متوقف'), definition: bar('orders', 'channel_group') }),
+  'v-773-gone': view('v-773-gone', { title: label('Callouts by store', 'الاستدعاءات حسب الفرع'), definition: bar('callouts', 'store') }),
+  'v-773-empty': view('v-773-empty', { title: label('Nothing here', 'لا شيء هنا'), definition: bar('orders', 'store') }),
+  'v-773-cut': view('v-773-cut', { title: label('Cut at the cap', 'مقطوع عند الحد'), definition: bar('orders', 'store') }),
+  'v-773-stale': view('v-773-stale', { title: label('Stale figures', 'أرقام قديمة'), definition: bar('orders', 'channel_group') }),
+}
+const vp = (id, viewId, x, y) => ({ id, kind: 'view', viewId, layout: { x, y, w: 4, h: 3 }, optOut: [] })
+export const BOARD_773 = {
+  ...view('b-773', { title: label('Panel states', 'حالات اللوحات') }),
+  kind: 'board',
+  definition: {
+    panels: [
+      vp('p-bar', 'v-bar', 0, 0),
+      vp('p-slow', 'v-773-slow', 4, 0),
+      vp('p-down', 'v-773-down', 8, 0),
+      vp('p-gone', 'v-773-gone', 0, 3),
+      vp('p-empty', 'v-773-empty', 4, 3),
+      vp('p-cut', 'v-773-cut', 8, 3),
+      vp('p-stale', 'v-773-stale', 0, 6),
+      { ...vp('p-line', 'v-line-measures', 4, 6), layout: { x: 4, y: 6, w: 8, h: 3 } },
+    ],
+  },
+}
+ITEMS_773['b-773'] = BOARD_773
+export const PANEL_IDS_773 = BOARD_773.definition.panels.map((p) => p.id)
+export const QUERY_773 = {
+  ...QUERY,
+  'v-773-slow': result('channel_group', 'orders', [['app', 300], ['web', 200]]),
+  'v-773-empty': result('store', 'orders', []),
+  'v-773-cut': { ...result('store', 'orders', [['P001', 900], ['P002', 700]]), truncated: true },
+  'v-773-stale': { ...result('channel_group', 'orders', [['app', 120]]), dataAsOf: '2026-11-05T09:20:00' },
+  'v-773-down': refusal('ANALYTICS-409', 'The analytics engine is unreachable.', 503),
+  'v-773-gone': refusal('ANALYTICS-410', 'The area is not available yet.', 503),
+}
+/** Answers taken in order, the last one standing: the slow panel times out once, then answers. */
+export const SEQUENCE_773 = { 'v-773-slow': [refusal('ANALYTICS-408', 'The query passed 30 s.', 504), QUERY_773['v-773-slow']] }
+
+// ── 774: drill to detail — a store panel of orders (offers "See deliveries") beside one with till value ─
+ITEMS['v-store-orders'] = view('v-store-orders', {
+  definition: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [] } },
+})
+QUERY['v-store-orders'] = answerShaped([['store', 'dimension'], ['orders', 'measure', 'additive', 'count']], NINE_STORES.map(([store, orders]) => ({ store, orders })))
+export const BOARD_774 = {
+  ...view('b-detail', { title: label('Stores, last 30 days', 'الفروع، آخر 30 يومًا'), tier: 'shared' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-stores', kind: 'view', viewId: 'v-store-orders', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-till', kind: 'view', viewId: 'v-table', layout: { x: 6, y: 0, w: 6, h: 3 }, optOut: [] },
+    ],
+  },
+}
+ITEMS['b-detail'] = BOARD_774
+/** Two delivery documents of store P001, as `SdDocumentWeb/DeliveryDocumentList` answers. */
+export const DELIVERIES_774 = [
+  { deliveryNo: '8000001', documentNo: '5000001', storeCode: 'P001', orderNo: 'O-1', documentDate: '2026-11-04T09:00:00', customerName: 'Test One', cityName: 'Riyadh', netTotal: 120, deliveryStatus: '' },
+  { deliveryNo: '8000002', documentNo: '5000002', storeCode: 'P001', orderNo: 'O-2', documentDate: '2026-11-03T09:00:00', customerName: 'Test Two', cityName: 'Riyadh', netTotal: 80, deliveryStatus: '' },
+]
+
 // ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
 const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
 /** Periods longer than a percentile's 92-day window. */
@@ -444,6 +545,7 @@ export function inlineAnswer(definition, model = MODEL) {
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
  *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
+ *   querySequence: view id → answers taken in order, the last one standing (773's time-out then retry);
  *   queryDelayFor: view id → ms, held instead of `queryDelayMs` for that view (771's one-by-one landing);
  *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
@@ -455,13 +557,22 @@ export function inlineAnswer(definition, model = MODEL) {
  *             `baseRevision + 1` with the body's words and definition, served from then on.
  *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
  *             item `v-copy` of msartawi's recording `copiedFrom: id`, served from then on.
+ *   revisions: id → the `…/Revisions` answer (a list or a `refusal(...)`); default `REVISIONS_779`, else the item's
+ *             own revision alone. Each entry's `snapshot` (title, definition) is what a revert restores.
+ *   revert:   the `POST …/Revert` answer (779) — a `refusal(...)` fulfil object, or omitted: the snapshot written as
+ *             revision max + 1 (`revertedFrom` recorded), served from then on, with the history grown.
  * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
+const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
+
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert } = opts
+  const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   const calls = []
   const bodies = {}
+  /** 774: GET query strings by path (the Deliveries list's search). */
+  const gets = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
   await page.route('**/api/**', async (route) => {
@@ -514,6 +625,29 @@ export async function installAnalyticsStubs(page, opts = {}) {
       })
       return route.fulfill(envelope(made['v-copy']))
     }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revisions')) {
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revisions'.length))
+      const list = history[id]
+      if (isFulfil(list)) return route.fulfill(list)
+      const it = made[id] ?? items[id]
+      if (!list && !it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const rows = list ?? [{ revision: it.revision, updatedAt: it.updatedAt, updatedBy: it.updatedBy }]
+      return route.fulfill(envelope(rows.map(({ snapshot, ...r }) => r)))
+    }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revert') && req.method() === 'POST') {
+      if (revert) return route.fulfill(revert)
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revert'.length))
+      const body = req.postDataJSON() ?? {}
+      const list = history[id]
+      const from = Array.isArray(list) ? list.find((r) => r.revision === body.revision) : null
+      const before = made[id] ?? items[id]
+      if (!from || !before) return route.fulfill(refusal('ANALYTICS-404', 'That revision is not found.', 404))
+      const revision = Math.max(...list.map((r) => r.revision)) + 1
+      const updatedAt = `2026-11-05T10:${String(10 + revision).padStart(2, '0')}:00`
+      made[id] = { ...before, ...from.snapshot, revision, updatedAt, updatedBy: 'msartawi' }
+      list.push({ revision, updatedAt, updatedBy: 'msartawi', revertedFrom: from.revision, snapshot: from.snapshot })
+      return route.fulfill(envelope(made[id]))
+    }
     if (p.startsWith('Analytics/Item/') && req.method() === 'PUT') {
       if (update) return route.fulfill(update)
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
@@ -542,13 +676,20 @@ export async function installAnalyticsStubs(page, opts = {}) {
       }
       if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
       if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
-            const answer = query[id]
+      const seq = querySequence[id]
+      const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[id]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
+    }
+    // 774: the Deliveries list, granted only when a scenario hands it rows.
+    if (deliveries && p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (deliveries && p === 'SdDocumentWeb/DeliveryDocumentList') {
+      ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
+      return route.fulfill(envelope(deliveries))
     }
     // Every other screen's probe denies, so the nav holds only what a scenario grants.
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false }))
     return route.fulfill(envelope([]))
   })
-  return { calls, bodies }
+  return { calls, bodies, gets }
 }

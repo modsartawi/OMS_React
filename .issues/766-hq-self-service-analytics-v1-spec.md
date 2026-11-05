@@ -239,8 +239,9 @@ A new **Analytics** area in oms-react, at `/analytics`, open to holders of a new
   - `CUBEJS_DB_QUERY_LIMIT` and `CUBEJS_DB_QUERY_DEFAULT_LIMIT` are both 10000, and every query
     sends `total`;
   - `CUBEJS_DB_QUERY_TIMEOUT` is 30 s;
-  - TLS through a `driverFactory` pinned to the replica's certificate (D8 (a), 749 amendment;
-    re-copied at its renewal), and **never** `trustServerCertificate`.
+  - TLS: encrypted, server certificate trusted (`ANALYTICS_DB_TRUST_CERT=true`, owner ruling
+    2026-11-05, 749 D8 (c)): the replica has only SQL Server's self-generated certificate. Pinned
+    mode stays in the `driverFactory` for when a real certificate is installed.
 - **Rates are computed from their parts.** `return_rate`, the shares and `take_rate` are always
   Σ numerator ÷ Σ denominator over the filtered set, never an average of per-store ratios.
 - **Percentiles** are computed exactly per query (`PERCENTILE_CONT`, the twin of

@@ -15,7 +15,7 @@ import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { BOARD_REFRESH_SECONDS, boardDefaults, NO_WAVE } from './board'
 import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
 import FilterStrip from './FilterStrip'
@@ -80,7 +80,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   const [building, setBuilding] = useState(false)
 
   // The views I can link: every view the store lists for me, Certified first, then Shared, then mine.
-  const list = useQuery({ queryKey: ANALYTICS_ITEMS_KEY, queryFn: () => analyticsApi.items(), retry: false })
+  const list = useQuery({ queryKey: analyticsItemsKey({ kind: 'view' }), queryFn: () => analyticsApi.items({ kind: 'view' }), retry: false })
   const pickable = useMemo(() => {
     const views = (list.data ?? []).filter((i) => i.kind === 'view')
     return HOME_TIER_ORDER.map((tier) => ({ tier, views: views.filter((v) => v.tier === tier) })).filter((g) => g.views.length > 0)

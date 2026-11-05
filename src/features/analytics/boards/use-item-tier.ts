@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { AnalyticsAccess, AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
 import { ANALYTICS_ACCESS_KEY } from './access'
-import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
+import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { itemActions } from './item-actions'
 import { certifiedCopyOf, needsCurator, tierActionsOf, type TierActionKey } from './item-tier'
 import { useItemActor } from './use-item-save'
@@ -21,7 +21,9 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const actor = useItemActor()
-  const list = useQuery({ queryKey: ANALYTICS_ITEMS_KEY, queryFn: () => analyticsApi.items(), retry: false })
+  // Its Certified copy, if any, is a Certified item of its kind (the store's list, narrowed by §C's kind and tier).
+  const certified = { kind: item.kind, tier: 'certified' } as const
+  const list = useQuery({ queryKey: analyticsItemsKey(certified), queryFn: () => analyticsApi.items(certified), retry: false })
   const copy = certifiedCopyOf(list.data, item.id)
   const actions = tierActionsOf(itemActions({ owner: item.owner, tier: item.tier, certifiedCopy: !!copy }, actor).actions)
 

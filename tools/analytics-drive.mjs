@@ -28,7 +28,8 @@
 // 770 — the home lists Items in groups, with search (en and ar dir):
 //   1. Certified, Shared, then Mine, newest first within each, from a list served in neither order;
 //   2. each item's tier badge, owner and last change (LTR-isolated); an untitled view's generated title;
-//   3. search narrows by an English or an Arabic title, without another call; no match says so;
+//   3. search narrows by an English or an Arabic title at once (client-side), and the settled term goes to Items
+//      as its `search` param (debounced); no match says so;
 //   4. a view opens `/analytics/view/:id`, a board `/analytics/board/:id`;
 //   5. an empty list is the how-to-start empty state.
 //
@@ -546,10 +547,11 @@ const homeGroups = (page) =>
 const clean = (s) => s.replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ').trim()
 
 async function homeLists({ dir }) {
-  const { context, page, calls, errors } = await open({ dir })
+  const { context, page, calls, errors, gets } = await open({ dir })
   await page.goto(`${BASE}/analytics`)
   await page.locator('[data-analytics-group]').first().waitFor({ timeout: 10000 })
   check(`770 ${dir}: the home reads Analytics/Items`, calls.includes('Analytics/Items'))
+  check(`770 ${dir}: … the whole list first: no search param`, JSON.stringify(gets['Analytics/Items']?.[0]) === '{}', JSON.stringify(gets['Analytics/Items']))
 
   const ALL = [['certified', ['v-cert', 'b-ops']], ['shared', ['v-titled', 'b-shared']], ['personal', ['v-bar', 'v-old']]]
   const groups = await homeGroups(page)
@@ -577,7 +579,12 @@ async function homeLists({ dir }) {
   await page.waitForTimeout(150)
   const byAr = await homeGroups(page)
   check(`770 ${dir}: search in Arabic matches the Arabic title`, JSON.stringify(byAr) === JSON.stringify([['shared', ['b-shared']]]), JSON.stringify(byAr))
-  check(`770 ${dir}: typing asks no further door`, calls.slice(before).filter((c) => c.startsWith('Analytics/')).length === 0, calls.slice(before).join(' '))
+  // Review fix 15 (766 §C "GET Analytics/Items with kind and tier, plus search"): once typing stops the server
+  // is asked with the search, once per settled term (debounced); the list narrowed at once, client-side.
+  await page.waitForTimeout(500)
+  const asked = (gets['Analytics/Items'] ?? []).map((q) => q.search ?? '')
+  check(`770 ${dir}: the settled search goes to Items as its search param`, asked.at(-1) === 'الرياض', JSON.stringify(asked))
+  check(`770 ${dir}: typing asks only Items, never per key`, calls.slice(before).every((c) => c === 'Analytics/Items') && asked.length <= 3, calls.slice(before).join(' '))
   if (dir === 'ltr') await page.screenshot({ path: `${SHOTS}/770-home-search-ar.png` })
   await search.fill('refunds')
   await page.locator('[data-analytics-home-no-match]').waitFor({ timeout: 5000 })

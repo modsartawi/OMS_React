@@ -630,6 +630,9 @@ export async function installAnalyticsStubs(page, opts = {}) {
       return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
     }
     if (p === 'Analytics/Items') {
+      // Review fix 15: the `kind` / `tier` / `search` params are recorded, and ignored — the screens narrow
+      // what comes back themselves, so a server that ignores them still works.
+      ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
       if (isFulfil(list)) return route.fulfill(list)
       const now = list.map((it) => listedNow.get(it.id) ?? it).concat([...listedNow.values()].filter((it) => !list.some((x) => x.id === it.id)))
       return route.fulfill(envelope(now.filter((it) => !removed.has(it.id))))

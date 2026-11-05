@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsItem, AnalyticsTier } from '@/core/models/analytics'
-import { homeGroups } from './home'
+import { homeGroups, itemsQuery } from './home'
 
 const label = (en: string, ar: string) => ({ en, ar })
 
@@ -68,5 +68,17 @@ describe('home grouping', () => {
 
   it('a search that matches nothing leaves no groups', () => {
     expect(homeGroups(ITEMS, 'refunds')).toEqual([])
+  })
+})
+
+describe('GET Analytics/Items asks the server to narrow (766 §C: kind and tier, plus search)', () => {
+  it('sends the search trimmed, and kind / tier where the caller has them', () => {
+    expect(itemsQuery({ search: '  orders ' })).toEqual({ search: 'orders' })
+    expect(itemsQuery({ kind: 'view' })).toEqual({ kind: 'view' })
+    expect(itemsQuery({ kind: 'board', tier: 'certified', search: 'ops' })).toEqual({ kind: 'board', tier: 'certified', search: 'ops' })
+  })
+  it('leaves out what is blank, so an empty search is the whole list', () => {
+    expect(itemsQuery({ search: '   ' })).toEqual({})
+    expect(itemsQuery({})).toEqual({})
   })
 })

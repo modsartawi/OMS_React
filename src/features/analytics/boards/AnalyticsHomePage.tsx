@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
@@ -13,12 +13,13 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { useDebounced } from '@/core/util/use-debounced'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import AskBox from './AskBox'
-import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
-import { homeGroups } from './home'
+import { homeGroups, itemsQuery } from './home'
 import TierBadge from './TierBadge'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
@@ -54,10 +55,15 @@ function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined):
   return { en: say('en'), ar: say('ar') }
 }
 
+const SEARCH_DEBOUNCE_MS = 300
+
 function HomeBody() {
   const { t } = useTranslation('boards')
   const [search, setSearch] = useState('')
-  const items = useQuery({ queryKey: ANALYTICS_ITEMS_KEY, queryFn: () => analyticsApi.items(), retry: false })
+  // The server is asked to narrow by the search once typing stops; the list on screen narrows at once,
+  // client-side, over what came back (and the same if the server ignores the param).
+  const asked = itemsQuery({ search: useDebounced(search, SEARCH_DEBOUNCE_MS) })
+  const items = useQuery({ queryKey: analyticsItemsKey(asked), queryFn: () => analyticsApi.items(asked), placeholderData: keepPreviousData, retry: false })
   // Only to name untitled views; the list never waits on it.
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
 
@@ -77,7 +83,7 @@ function HomeBody() {
         {t('home.loading')}
       </div>
     )
-  } else if (items.data.length === 0) {
+  } else if (items.data.length === 0 && !search.trim() && !asked.search) {
     body = (
       <div className="rounded-lg border border-border/60 bg-card p-6 text-sm" data-analytics-home-empty>
         <p className="font-medium">{t('home.emptyTitle')}</p>

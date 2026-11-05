@@ -20,11 +20,14 @@ import type {
   AnalyticsQueryResult,
   AnalyticsRevision,
 } from '@/core/models/analytics'
+import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
 import { readBoard, readItem, readItems, readMembers, readModel, readResult } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
 export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
+/** The Items list as narrowed (`./home` `itemsQuery`); every list entry sits under `ANALYTICS_ITEMS_KEY`. */
+export const analyticsItemsKey = (q: ItemsQuery) => [...ANALYTICS_ITEMS_KEY, q] as const
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A board, read as a board: apart from `analyticsItemKey`, whose entries are read as views. */
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
@@ -40,11 +43,11 @@ export const analyticsApi = {
     return readModel(await api.get<Record<string, unknown>>('Analytics/Model'))
   },
   /**
-   * `GET Analytics/Items` — every item the caller may read (ticket 770). No `kind`/`tier`/search params:
-   * the home groups and searches the one list itself, so typing narrows it without a call per key.
+   * `GET Analytics/Items` — the items the caller may read (ticket 770), narrowed by §C's `kind`, `tier` and
+   * `search` where the caller has them (`itemsQuery`). The screens still group and filter what comes back.
    */
-  async items(): Promise<AnalyticsItem[]> {
-    return readItems(await api.get<unknown>('Analytics/Items'))
+  async items(q: ItemsQuery = {}): Promise<AnalyticsItem[]> {
+    return readItems(await api.get<unknown>('Analytics/Items', { ...itemsQuery(q) }))
   },
   /** `GET Analytics/Item/{id}` — a view or a board. `ANALYTICS-404` when it is gone. */
   async item(id: string): Promise<AnalyticsItem> {

@@ -13,6 +13,23 @@ import type { AnalyticsItem, AnalyticsLabel, AnalyticsTier } from '@/core/models
  * passed in as `fallbackTitle`, so the words a user reads are the words they can find.
  */
 
+/** What `GET Analytics/Items` may be narrowed by (766 §C: "with `kind` and `tier`, plus search"). */
+export interface ItemsQuery {
+  kind?: AnalyticsItem['kind']
+  tier?: AnalyticsTier
+  search?: string
+}
+
+/**
+ * The Items door's params: the search trimmed, and only what the caller has — blank is left out, so the
+ * door answers the whole list. The server may narrow by them; the screens still group and search what comes
+ * back themselves (`homeGroups`), so a server that ignores them shows the same.
+ */
+export function itemsQuery(q: ItemsQuery): ItemsQuery {
+  const search = q.search?.trim()
+  return { ...(q.kind ? { kind: q.kind } : {}), ...(q.tier ? { tier: q.tier } : {}), ...(search ? { search } : {}) }
+}
+
 export const HOME_TIER_ORDER: readonly AnalyticsTier[] = ['certified', 'shared', 'personal']
 
 export interface HomeGroup {

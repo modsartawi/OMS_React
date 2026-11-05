@@ -90,6 +90,9 @@ export function attentionKey(outcome: string | null | undefined): string | null 
 /** A quantity cell: a number the server stands behind, or *pending* — never a `0` it did not mean. */
 export type Quantity = { pending: true } | { pending: false; value: number }
 
+/** The restocked cell: a flag the server stands behind (`false` is *not restocked*), or *pending*. */
+export type Restocked = { pending: true } | { pending: false; value: boolean }
+
 /** One line of the panel, its quantities already decided pending or real. */
 export interface LfReturnRow {
   itemNumber: string
@@ -97,14 +100,18 @@ export interface LfReturnRow {
   asked: Quantity
   confirmed: Quantity
   refunded: Quantity
-  restocked: Quantity
+  restocked: Restocked
   reasonName: string
 }
 
-const PENDING: Quantity = { pending: true }
+const PENDING = { pending: true } as const
 
 function quantity(value: number | null | undefined, pending: boolean): Quantity {
   return pending || typeof value !== 'number' || !Number.isFinite(value) ? PENDING : { pending: false, value }
+}
+
+function restockedFlag(value: boolean | null | undefined, pending: boolean): Restocked {
+  return pending || typeof value !== 'boolean' ? PENDING : { pending: false, value }
 }
 
 /** Whether a wire date carries an instant (absent, blank, invalid and .NET's `0001-01-01` do not). */
@@ -119,8 +126,9 @@ function hasDate(value: string | null | undefined): boolean {
  *   warehouse answered is a placeholder, not a count (and a `forced` return the warehouse never
  *   confirmed keeps it pending);
  * - *refunded* and *restocked* are pending while the watch still waits — `open` (the warehouse has
- *   not answered) and `unanswered` (the refund waits on an operator);
- * - any quantity the server leaves absent or non-numeric is pending.
+ *   not answered) and `unanswered` (the refund waits on an operator): 3376 sends `0` and `false`
+ *   there, which are not answers yet;
+ * - any quantity the server leaves absent or non-numeric (a flag left absent) is pending.
  */
 export function lfReturnRows(detail: LfReturnDetailModel): LfReturnRow[] {
   const code = normaliseLfReturnOutcome(detail.outcome)
@@ -129,10 +137,10 @@ export function lfReturnRows(detail: LfReturnDetailModel): LfReturnRow[] {
   return (detail.lines ?? []).map((l) => ({
     itemNumber: (l.itemNumber ?? '').trim(),
     sku: (l.sku ?? '').trim(),
-    asked: quantity(l.askedQuantity, false),
-    confirmed: quantity(l.confirmedQuantity, confirmedPending),
-    refunded: quantity(l.refundedQuantity, settledPending),
-    restocked: quantity(l.returnedToStock, settledPending),
+    asked: quantity(l.quantityAsked, false),
+    confirmed: quantity(l.quantityConfirmed, confirmedPending),
+    refunded: quantity(l.quantityRefunded, settledPending),
+    restocked: restockedFlag(l.returnedToStock, settledPending),
     reasonName: (l.reasonName ?? '').trim(),
   }))
 }

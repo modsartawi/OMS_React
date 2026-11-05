@@ -44,7 +44,7 @@ export function forceRefundLines(detail: LfReturnDetailModel): ForceRefundRow[] 
   return (detail.lines ?? []).map((l) => ({
     itemNumber: (l.itemNumber ?? '').trim(),
     sku: (l.sku ?? '').trim(),
-    asked: finiteCap(l.askedQuantity),
+    asked: finiteCap(l.quantityAsked),
   }))
 }
 

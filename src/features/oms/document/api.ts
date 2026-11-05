@@ -1,4 +1,4 @@
-import { api, ApiError } from '@/core/api'
+import { api, apiErrorCode } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
@@ -23,6 +23,10 @@ import type { RescheduleDocumentModel } from '@/core/models/slots'
 // (750 OQ2) and it is now asked by two features, so it lives in `core/services/lookups`
 // with the other shared reads — a feature may never import a feature.
 const BASE = 'SdDocumentWeb'
+/** The LF return doors live on their own route table (BackOffice 3375/3376), not under `SdDocumentWeb`. */
+const LF_BASE = 'LocalFulfillmentReturnWeb'
+/** 3376's answer for a return delivery that is not an LF return (`SdDocumentErrorCodes.LocalFulfillmentReturnReadNotFound`). */
+const LF_RETURN_NOT_FOUND = 'SDD-02205'
 
 /** Encode a value for safe use as a URL path segment. */
 function encode(value: string): string {
@@ -80,33 +84,30 @@ export const documentApi = {
   },
   /**
    * The LF return detail — the warehouse watch — by RETURN delivery number (BackOffice 3369 §Wire,
-   * read door 3376; spec 759 F4, ticket 762). Behind `LocalFulfillmentReturn,03`; read-only.
+   * read door 3376 `GET LocalFulfillmentReturnWeb/Detail/{returnDeliveryNo}`; spec 759 F4, ticket 762,
+   * route reconciled by 765). Behind `LocalFulfillmentReturn,03`; read-only.
    *
-   * ⚠ STUBBED: 3376 is not built, and 3369 names the read but not its route. The path below is this
-   * client's guess in the shape of the other per-delivery reads (`…/DonorRequests`, `…/Callout`);
-   * the joining ticket (765) corrects it against 3376. A return delivery with no LF watch — a bonded
-   * return — reads as `null`: the server's `data: null`, or its 404 on the envelope. Any other failure
-   * is thrown for the page to say.
+   * A return delivery with no LF watch — a bonded return — is answered `400` with code
+   * {@link LF_RETURN_NOT_FOUND}: that reads as `null` ("not an LF return", no panel). Any other
+   * failure is thrown for the page to say.
    */
   async getLfReturn(returnDeliveryNo: string): Promise<LfReturnDetailModel | null> {
     try {
-      return (await api.get<LfReturnDetailModel | null>(`${BASE}/Delivery/${encode(returnDeliveryNo)}/LfReturn`)) ?? null
+      return (await api.get<LfReturnDetailModel | null>(`${LF_BASE}/Detail/${encode(returnDeliveryNo)}`)) ?? null
     } catch (err) {
-      if (err instanceof ApiError && err.kind === 'business' && err.statusCode === 404) return null
+      if (apiErrorCode(err) === LF_RETURN_NOT_FOUND) return null
       throw err
     }
   },
   /**
-   * FORCE REFUND an LF return by received quantity (BackOffice 3369 D13, door 3375; spec 759 F5,
-   * ticket 763). Behind `LocalFulfillmentReturn,04` beside 03. The body carries quantities, a reason
-   * and a `requestId` — never an amount; the server computes the money and is idempotent on the id.
-   *
-   * ⚠ STUBBED: 3375 is not built and 3369 names the verb but not its route. The path is this client's
-   * guess beside 762's read guess (`…/Delivery/{no}/LfReturn` + `/ForceRefund`); the joining ticket
-   * (765) corrects both against the built doors. The answer is not read: the panel re-reads the watch.
+   * FORCE REFUND an LF return by received quantity (BackOffice 3369 D13, door 3375
+   * `POST LocalFulfillmentReturnWeb/ForceRefund`; spec 759 F5, ticket 763, route reconciled by 765).
+   * Behind `LocalFulfillmentReturn,04` beside 03. The body carries quantities, a reason and a
+   * `requestId` — never an amount; the server computes the money and is idempotent on the id. The
+   * answer is not read: the panel re-reads the watch.
    */
   forceLfReturnRefund(body: ForceLfReturnRefundRequest): Promise<unknown> {
-    return api.post<unknown>(`${BASE}/Delivery/${encode(body.returnDeliveryNo)}/LfReturn/ForceRefund`, body)
+    return api.post<unknown>(`${LF_BASE}/ForceRefund`, body)
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

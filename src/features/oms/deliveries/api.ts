@@ -21,10 +21,10 @@ export const deliveriesApi = {
   /**
    * LF returns needing action (spec 759 F6, BackOffice 3369 §Wire, door 3376) — the
    * `unanswered` / `nothingReceived` / `short` watches, newest first. Grant
-   * `LocalFulfillmentReturn,03`. ⚠ The path is GUESSED: 3376 names the read but not its route, and
-   * the joining ticket (765) corrects it. Stubbed in `tools/lf-returns-queue-drive.mjs`.
+   * `LocalFulfillmentReturn,03`. 3376's own route table, `GET LocalFulfillmentReturnWeb/NeedingAction`
+   * (reconciled by ticket 765). Stubbed in `tools/lf-returns-queue-drive.mjs`.
    */
   lfReturnsNeedingAction(): Promise<LfReturnNeedingActionRow[]> {
-    return api.get<LfReturnNeedingActionRow[]>(`${BASE}/LocalFulfillmentReturnsNeedingAction`)
+    return api.get<LfReturnNeedingActionRow[]>('LocalFulfillmentReturnWeb/NeedingAction')
   },
 }

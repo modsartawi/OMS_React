@@ -63,9 +63,9 @@ describe('an unconfirmed quantity is pending, not zero', () => {
   const line = (over: Partial<LfReturnLineModel> = {}): LfReturnLineModel => ({
     itemNumber: '10',
     sku: '100200300',
-    askedQuantity: 2,
-    confirmedQuantity: null,
-    refundedQuantity: null,
+    quantityAsked: 2,
+    quantityConfirmed: null,
+    quantityRefunded: null,
     returnedToStock: null,
     reasonName: 'Damaged',
     ...over,
@@ -80,9 +80,10 @@ describe('an unconfirmed quantity is pending, not zero', () => {
   })
   const PENDING = { pending: true }
   const qty = (value: number) => ({ pending: false, value })
+  const flag = (value: boolean) => ({ pending: false, value })
 
-  it('an open return: confirmed, refunded and restocked are all pending — even when the server sends 0', () => {
-    for (const zeros of [line(), line({ confirmedQuantity: 0, refundedQuantity: 0, returnedToStock: 0 })]) {
+  it('an open return: confirmed, refunded and restocked are all pending — even when the server sends 0 and false', () => {
+    for (const zeros of [line(), line({ quantityConfirmed: 0, quantityRefunded: 0, returnedToStock: false })]) {
       const [row] = lfReturnRows(detail({ lines: [zeros] }))
       expect(row.asked).toEqual(qty(2))
       expect(row.confirmed).toEqual(PENDING)
@@ -92,7 +93,7 @@ describe('an unconfirmed quantity is pending, not zero', () => {
   })
 
   it('an unanswered return: the warehouse never confirmed, so confirmed stays pending', () => {
-    const [row] = lfReturnRows(detail({ outcome: 'unanswered', lines: [line({ confirmedQuantity: 0, refundedQuantity: 0 })] }))
+    const [row] = lfReturnRows(detail({ outcome: 'unanswered', lines: [line({ quantityConfirmed: 0, quantityRefunded: 0 })] }))
     expect(row.confirmed).toEqual(PENDING)
     expect(row.refunded).toEqual(PENDING)
   })
@@ -102,12 +103,12 @@ describe('an unconfirmed quantity is pending, not zero', () => {
       detail({
         outcome: 'nothingReceived',
         confirmedAt: '2026-11-05T09:00:00',
-        lines: [line({ confirmedQuantity: 0, refundedQuantity: 0, returnedToStock: 0 })],
+        lines: [line({ quantityConfirmed: 0, quantityRefunded: 0, returnedToStock: false })],
       }),
     )
     expect(row.confirmed).toEqual(qty(0))
     expect(row.refunded).toEqual(qty(0))
-    expect(row.restocked).toEqual(qty(0))
+    expect(row.restocked).toEqual(flag(false))
   })
 
   it('a short return reads what was confirmed; an absent field is still pending, never 0', () => {
@@ -115,7 +116,7 @@ describe('an unconfirmed quantity is pending, not zero', () => {
       detail({
         outcome: 'short',
         confirmedAt: '2026-11-05T09:00:00',
-        lines: [line({ askedQuantity: 3, confirmedQuantity: 1, refundedQuantity: 1, returnedToStock: undefined })],
+        lines: [line({ quantityAsked: 3, quantityConfirmed: 1, quantityRefunded: 1, returnedToStock: undefined })],
       }),
     )
     expect(row.asked).toEqual(qty(3))
@@ -126,11 +127,30 @@ describe('an unconfirmed quantity is pending, not zero', () => {
 
   it('a forced return with no warehouse confirmation: refunded is real, confirmed is pending', () => {
     const [row] = lfReturnRows(
-      detail({ outcome: 'forced', confirmedAt: '0001-01-01T00:00:00', lines: [line({ confirmedQuantity: 0, refundedQuantity: 2, returnedToStock: 0 })] }),
+      detail({ outcome: 'forced', confirmedAt: '0001-01-01T00:00:00', lines: [line({ quantityConfirmed: 0, quantityRefunded: 2, returnedToStock: false })] }),
     )
     expect(row.confirmed).toEqual(PENDING)
     expect(row.refunded).toEqual(qty(2))
-    expect(row.restocked).toEqual(qty(0))
+    expect(row.restocked).toEqual(flag(false))
+  })
+
+  it('restocked is the server flag once settled — a line back in stock reads yes, a non-boolean is pending', () => {
+    const settled = (returnedToStock: unknown) =>
+      lfReturnRows(
+        detail({
+          outcome: 'refunded',
+          confirmedAt: '2026-11-05T09:00:00',
+          lines: [line({ quantityConfirmed: 2, quantityRefunded: 2, returnedToStock: returnedToStock as boolean })],
+        }),
+      )[0].restocked
+    expect(settled(true)).toEqual(flag(true))
+    expect(settled(false)).toEqual(flag(false))
+    // The pre-765 transcription's count is not a flag: never read as yes or no.
+    expect(settled(2)).toEqual(PENDING)
+    expect(en('lfReturn.lines.restockedYes')).toBe('Yes')
+    expect(en('lfReturn.lines.restockedNo')).toBe('Not restocked')
+    expect(typeof ar('lfReturn.lines.restockedYes')).toBe('string')
+    expect(typeof ar('lfReturn.lines.restockedNo')).toBe('string')
   })
 
   it('carries item, SKU and reason through, and survives absent lines', () => {
@@ -181,7 +201,7 @@ describe("3369's prose spelling nothing-received reads the same as nothingReceiv
   const watchOf = (outcome: string): LfReturnDetailModel => ({
     outcome,
     confirmedAt: '2026-11-03T09:00:00',
-    lines: [{ itemNumber: '000010', sku: '100200', askedQuantity: 2, confirmedQuantity: 0, refundedQuantity: 0, returnedToStock: 0 }],
+    lines: [{ itemNumber: '000010', sku: '100200', quantityAsked: 2, quantityConfirmed: 0, quantityRefunded: 0, returnedToStock: false }],
   })
 
   it('the chip, its code and its meaning', () => {

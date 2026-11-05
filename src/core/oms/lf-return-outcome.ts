@@ -5,8 +5,8 @@
  * watch's `outcome` here, so a spelling the server sends cannot read one way on the list and another
  * on the details. Pure: no React, no i18n.
  *
- * ⚠ 3369's prose spells `nothing-received`; 759's transcription spells `nothingReceived`. Its wire is
- * fixed by 3376 (765 reconciles), and until then both read the same.
+ * The wire (3376, confirmed by 765) spells `nothing-received`; the client's code — which keys the
+ * locale — is `nothingReceived`. Both read the same.
  */
 import { LF_RETURN_OUTCOMES, type LfReturnOutcome } from '@/core/models/lf-return'
 

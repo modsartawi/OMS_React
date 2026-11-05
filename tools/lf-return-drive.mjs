@@ -1,12 +1,12 @@
 // LF return panel drive (ticket 762, spec 759 F4; BackOffice 3369 §Wire, read door 3376).
 //
 // Drives the REAL app in Chromium against a STUB of 3376's LF return detail read (no live SIS.Api:
-// 3376 is not built). The return delivery is the ticket-078 capture 9000000003 (category T),
+// stubbed in the shapes of 3376 as built, reconciled by 765). The return delivery is the ticket-078 capture 9000000003 (category T),
 // renumbered once per outcome; the forward LF delivery is 8000000253 re-typed `LF`. In LTR and RTL
 // (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`, so the copy is English and only the
 // stub ROWS carry Arabic — the document-donor-drive precedent), it asserts:
-//   1. one fixture per outcome draws its chip and meaning (and `nothing-received`, 3369's prose
-//      spelling, reads exactly as `nothingReceived`); unanswered / nothingReceived / short
+//   1. one fixture per outcome draws its chip and meaning (the wire's `nothing-received` and the
+//      client's own `nothingReceived` read exactly the same); unanswered / nothingReceived / short
 //      raise the attention banner with their own sentence, the other three none;
 //   2. one row per line — item · SKU · asked · confirmed · refunded · restocked · reason — and an
 //      unconfirmed quantity reads Pending, never 0; a confirmed 0 reads 0;
@@ -50,19 +50,32 @@ const envelope = (data, { status = 200, success = true, message = '' } = {}) => 
   contentType: 'application/json',
   body: JSON.stringify({ statusCode: status, success, message, errors: [], data }),
 })
+/** 3376's answer for a return delivery with no LF watch (a bonded return). */
+const notLfReturn = (no) => ({
+  status: 400,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: 400,
+    success: false,
+    message: `Return delivery ${no} is not a local fulfillment return.`,
+    errors: [{ errorCode: 'SDD-02205', errorMessage: `Return delivery ${no} is not a local fulfillment return.` }],
+    data: null,
+  }),
+})
 
 const returnDoc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/9000000003-delivery-return.json', 'utf8')).data
 const forwardDoc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/8000000253-delivery.json', 'utf8')).data
 
 const ACCESS = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canCreateLocalFulfillmentReturn: true }
 
-const line = (itemNumber, sku, askedQuantity, confirmedQuantity, refundedQuantity, returnedToStock, reasonName) => ({
+// 3376's wire (reconciled by 765): quantities always numbers (0 until answered), restocked a flag.
+const line = (itemNumber, sku, quantityAsked, quantityConfirmed, quantityRefunded, returnedToStock, reasonName) => ({
   itemNumber,
   sku,
-  askedQuantity,
-  confirmedQuantity,
-  refundedQuantity,
-  returnedToStock,
+  quantityAsked: quantityAsked ?? 0,
+  quantityConfirmed: quantityConfirmed ?? 0,
+  quantityRefunded: quantityRefunded ?? 0,
+  returnedToStock: returnedToStock ?? false,
   reasonName,
 })
 
@@ -76,24 +89,24 @@ function watches(rtl) {
     // number → [outcome, watch]
     '9000000101': {
       outcome: 'open', bookedAt: booked, collectedAt: null, confirmedAt: null,
-      lines: [line('000010', '100200300', 2, null, null, null, damaged), line('000020', '100200400', 1, 0, 0, 0, changed)],
+      lines: [line('000010', '100200300', 2, null, null, null, damaged), line('000020', '100200400', 1, 0, 0, false, changed)],
     },
     '9000000102': {
       outcome: 'refunded', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
-      lines: [line('000010', '100200300', 2, 2, 2, 2, damaged)],
+      lines: [line('000010', '100200300', 2, 2, 2, true, damaged)],
     },
     '9000000103': {
       outcome: 'short', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
-      lines: [line('000010', '100200300', 3, 1, 1, 0, damaged), line('000020', '100200400', 1, 1, 1, 1, changed)],
+      lines: [line('000010', '100200300', 3, 1, 1, false, damaged), line('000020', '100200400', 1, 1, 1, true, changed)],
     },
     '9000000104': {
-      outcome: 'nothingReceived', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
-      lines: [line('000010', '100200300', 2, 0, 0, 0, damaged)],
-    },
-    // 3369's prose spelling: it must read exactly as `nothingReceived` (one normaliser in core).
-    '9000000107': {
       outcome: 'nothing-received', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
-      lines: [line('000010', '100200300', 2, 0, 0, 0, damaged)],
+      lines: [line('000010', '100200300', 2, 0, 0, false, damaged)],
+    },
+    // The client's own code spelling: it must read exactly as the wire's `nothing-received`.
+    '9000000107': {
+      outcome: 'nothingReceived', bookedAt: booked, collectedAt: collected, confirmedAt: confirmed,
+      lines: [line('000010', '100200300', 2, 0, 0, false, damaged)],
     },
     '9000000105': {
       outcome: 'unanswered', bookedAt: booked, collectedAt: collected, confirmedAt: null,
@@ -103,7 +116,7 @@ function watches(rtl) {
       outcome: 'forced', bookedAt: booked, collectedAt: collected, confirmedAt: null,
       forcedBy: rtl ? 'محمد السرطاوي' : 'm.sartawi',
       forcedReason: rtl ? 'لم ترد ستارلينكس خلال ١٤ يومًا' : 'Starlinks never answered; customer handed over both packs.',
-      lines: [line('000010', '100200300', 2, null, 2, 0, damaged)],
+      lines: [line('000010', '100200300', 2, null, 2, false, damaged)],
     },
   }
 }
@@ -151,7 +164,7 @@ async function drive(dir) {
       outcome: 'forced',
       forcedBy: rtl ? 'محمد السرطاوي' : 'm.sartawi',
       forcedReason: body.reason,
-      lines: WATCHES[no].lines.map((l) => ({ ...l, refundedQuantity: body.lines.find((b) => b.itemNumber === l.itemNumber)?.receivedQuantity ?? null })),
+      lines: WATCHES[no].lines.map((l) => ({ ...l, quantityRefunded: body.lines.find((b) => b.itemNumber === l.itemNumber)?.receivedQuantity ?? 0 })),
     }
     return route.fulfill(envelope(true))
   }
@@ -159,14 +172,17 @@ async function drive(dir) {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
-    const force = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/LfReturn\/ForceRefund$/)
-    if (force && route.request().method() === 'POST') return onForce(route, force[1], route.request().postDataJSON())
-    const lf = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/LfReturn$/)
+    if (p === 'LocalFulfillmentReturnWeb/ForceRefund' && route.request().method() === 'POST') {
+      const body = route.request().postDataJSON()
+      return onForce(route, body.returnDeliveryNo, body)
+    }
+    const lf = p.match(/^LocalFulfillmentReturnWeb\/Detail\/(\d+)$/)
     if (lf) {
       lfReads.push(lf[1])
       if (lf[1] === '9000000199') return route.fulfill(envelope(null, { status: 400, success: false, message: 'Watch store unavailable' }))
-      if (lf[1] === '9000000003') return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not an LF return' }))
-      return route.fulfill(envelope(WATCHES[lf[1]] ?? null))
+      // 3376's answer for a return with no LF watch (a bonded return): a 400 coded SDD-02205.
+      if (lf[1] === '9000000003' || !WATCHES[lf[1]]) return route.fulfill(notLfReturn(lf[1]))
+      return route.fulfill(envelope(WATCHES[lf[1]]))
     }
     if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
@@ -228,7 +244,7 @@ async function drive(dir) {
         beforeColumns: !!(s.compareDocumentPosition(document.querySelector('[data-spine]')) & Node.DOCUMENT_POSITION_FOLLOWING),
       }
     })
-    const as = no === '9000000107' ? `${outcome} (spelt nothing-received)` : outcome
+    const as = no === '9000000107' ? `${outcome} (spelt nothingReceived)` : outcome
     check(`${label} ${as}: chip "${chipText}" with its meaning`, v.chip === outcome && v.chipText === chipText && v.meaning === meaning, `${v.chipText} | ${v.meaning}`)
     check(
       `${label} ${outcome}: ${banner ? 'raises the attention banner, saying what kind' : 'raises no banner'}`,
@@ -251,10 +267,10 @@ async function drive(dir) {
       return (
         item.ltr && item.text === l.itemNumber &&
         sku.ltr && sku.text === l.sku &&
-        expectQ(asked, l.askedQuantity, false) &&
-        expectQ(conf, l.confirmedQuantity, !wl.confirmedAt) &&
-        expectQ(ref, l.refundedQuantity, awaiting) &&
-        expectQ(rest, l.returnedToStock, awaiting) &&
+        expectQ(asked, l.quantityAsked, false) &&
+        expectQ(conf, l.quantityConfirmed, !wl.confirmedAt) &&
+        expectQ(ref, l.quantityRefunded, awaiting) &&
+        (awaiting ? rest.pending && rest.text === 'Pending' : !rest.pending && rest.text === (l.returnedToStock ? 'Yes' : 'Not restocked')) &&
         reason.bdi && !reason.ltr && reason.text === l.reasonName
       )
     })
@@ -280,7 +296,7 @@ async function drive(dir) {
   await open('8000000253')
   check(`${label}: the forward LF delivery asks no watch and draws no panel`, lfReads.length === before && (await panel().count()) === 0, lfReads.slice(before).join(','))
 
-  // A bonded return: asked, the read answers 404 → nothing drawn, no error.
+  // A bonded return: asked, the read answers 400 SDD-02205 → nothing drawn, no error.
   before = lfReads.length
   await open('9000000003')
   check(
@@ -322,11 +338,11 @@ async function drive(dir) {
     check(`${label} ${outcome} with 04: pressing the disabled command opens nothing`, (await dlg.count()) === 0)
   }
 
-  // The hyphenated spelling with 04: Force refund enabled, exactly as on nothingReceived.
+  // The camel spelling with 04: Force refund enabled, exactly as on the wire's nothing-received.
   await open('9000000107')
   await panel().waitFor({ timeout: 10000 })
   check(
-    `${label} nothing-received with 04: Force refund shown and enabled (read as nothingReceived)`,
+    `${label} nothingReceived with 04: Force refund shown and enabled (read as nothing-received)`,
     (await forceBtn().count()) === 1 && (await forceBtn().getAttribute('aria-disabled')) === null,
   )
 

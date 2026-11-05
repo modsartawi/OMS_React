@@ -55,7 +55,7 @@ const daysAgo = (days, hh = '10:30') => {
 // Newest first, as 3376 sorts. 7004 is `refunded`: a drifted server row the queue must drop.
 const NEEDING = [
   { returnDeliveryNo: '7000000101', forwardDeliveryNo: '8000000501', outcome: 'short', bookedAt: daysAgo(0, '08:05') },
-  { returnDeliveryNo: '7000000102', forwardDeliveryNo: '8000000502', outcome: 'nothingReceived', bookedAt: daysAgo(1, '23:50') },
+  { returnDeliveryNo: '7000000102', forwardDeliveryNo: '8000000502', outcome: 'nothing-received', bookedAt: daysAgo(1, '23:50') },
   { returnDeliveryNo: '7000000104', forwardDeliveryNo: '8000000504', outcome: 'refunded', bookedAt: daysAgo(2) },
   { returnDeliveryNo: '7000000103', forwardDeliveryNo: '8000000503', outcome: 'unanswered', bookedAt: daysAgo(15) },
 ]
@@ -67,7 +67,7 @@ const EXPECT = {
   ],
 }
 
-const NEEDING_PATH = 'SdDocumentWeb/LocalFulfillmentReturnsNeedingAction'
+const NEEDING_PATH = 'LocalFulfillmentReturnWeb/NeedingAction'
 
 function routeApi(state) {
   return async (route) => {

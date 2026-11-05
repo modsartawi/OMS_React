@@ -15,7 +15,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canCurateAnalytics, canViewAnalytics } from './access'
+import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
@@ -33,7 +34,7 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * `/analytics/view/:id` by its kind.
  *
  * The toolbar row above the groups (`data-analytics-home-header`) is the page's header slot: 782's ask box
- * joins the search there.
+ * joins the search there. Below it, curators see the analytics status card (785, `./AnalyticsStatus`).
  */
 export default function AnalyticsHomePage() {
   const { t } = useTranslation('boards')
@@ -66,6 +67,9 @@ function HomeBody() {
   const items = useQuery({ queryKey: analyticsItemsKey(asked), queryFn: () => analyticsApi.items(asked), placeholderData: keepPreviousData, retry: false })
   // Only to name untitled views; the list never waits on it.
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
+  // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
+  const access = useQuery(analyticsAccessQuery())
+  const curator = canCurateAnalytics(access.data)
 
   const fallback = useMemo(() => {
     const m = model.data
@@ -139,6 +143,7 @@ function HomeBody() {
           {t('boardEditor.newBoard')}
         </Link>
       </div>
+      {curator && <AnalyticsStatus />}
       {body}
     </div>
   )

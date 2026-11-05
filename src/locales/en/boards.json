@@ -429,5 +429,52 @@
     "save": "Save board",
     "saved": "Board saved.",
     "saveFailed": "The board could not be saved"
+  },
+  "status": {
+    "title": "Analytics status",
+    "loading": "Checking the analytics status…",
+    "loadFailed": "The analytics status could not be read",
+    "checked": "Checked <at>{{at}}</at>",
+    "headline": {
+      "ok": "Cube is up and the marts are fresh",
+      "behind": "The marts are behind: panels show older data",
+      "cubeDown": "Cube is down: panels cannot answer",
+      "martsDown": "The marts cannot be read, or were never built",
+      "unreachable": "The analytics container did not answer",
+      "notConfigured": "SIS.Api has no analytics address configured"
+    },
+    "cubeLabel": "Cube",
+    "cube": {
+      "ready": "Ready",
+      "not_ready": "Not ready",
+      "unknown": "Unknown"
+    },
+    "martsLabel": "Marts",
+    "marts": {
+      "fresh": "Fresh",
+      "stale": "Behind",
+      "never_built": "Never built",
+      "unreachable": "Unreadable",
+      "unknown": "Unknown"
+    },
+    "lastGood": "Last good run",
+    "ago": "<n>{{minutes}}</n> min ago",
+    "allowed": "(allowed <n>{{minutes}}</n> min)",
+    "lastRun": "Last run",
+    "job": {
+      "intraday": "Intraday",
+      "nightly": "Nightly",
+      "rebuild": "Full rebuild",
+      "byHand": "By hand"
+    },
+    "run": {
+      "success": "Succeeded",
+      "error": "Failed",
+      "skipped": "Skipped",
+      "test_fail": "Tests failed",
+      "stale_source": "Refused: the POS replica was behind"
+    },
+    "versionLabel": "Image version",
+    "none": "None yet"
   }
 }

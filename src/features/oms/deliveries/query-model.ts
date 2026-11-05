@@ -11,20 +11,14 @@
  * - The **draft** on screen is measured against the **last search that ran**: an edit, a
  *   removal and an addition each flag their token until Search runs ({@link pendingDiff}).
  */
-import { fromIsoDate } from '@/core/util/date-format'
+import { dateIsComplete, resolveDate, type DateEntry } from '@/core/list/relative-date'
 import { BLANK_CRITERIA, effectiveLimit, type DeliveryFilterCriteria } from './filter'
 
-/** `/` focuses the query bar (365 §5): a single key on the list, behind the switch. */
-export const QUERY_FOCUS_KEYS = 'Slash'
-
-/** The Date entry's relative presets, and Custom: two days of the operator's own. */
-export const DATE_PRESETS = ['today', 'yesterday', 'last3', 'last7', 'custom'] as const
-export type DatePreset = (typeof DATE_PRESETS)[number]
-
-/** One relative range. Custom holds its two days as `yyyy-MM-dd`; a blank end is `null`. */
-export type DateEntry =
-  | { preset: Exclude<DatePreset, 'custom'> }
-  | { preset: 'custom'; from: string | null; to: string | null }
+// The relative Date, the `/` key and the Limit's bounds are `@/core/list` (graduated at ticket
+// 786, when the Order / ERX list became their second reader); re-exported so this list's callers
+// and suite read them where they always did.
+export { DATE_PRESETS, resolveDate, type DateEntry, type DatePreset } from '@/core/list/relative-date'
+export { LIMIT_MAX, limitIsInvalid, QUERY_FOCUS_KEYS } from '@/core/list/list-keys'
 
 /** The search as the bar holds it: the 14 criteria, with From/To as one relative Date. */
 export type QueryCriteria = Omit<DeliveryFilterCriteria, 'fromDate' | 'toDate'> & { date: DateEntry | null }
@@ -109,25 +103,9 @@ const blankText = (value: unknown) => typeof value === 'string' && value.trim() 
  */
 export function inSearch(query: QueryCriteria, field: QueryField): boolean {
   if (field === 'limit') return true
-  if (field === 'date') {
-    const date = query.date
-    if (date === null) return false
-    return date.preset !== 'custom' || (fromIsoDate(date.from) !== null && fromIsoDate(date.to) !== null)
-  }
+  if (field === 'date') return dateIsComplete(query.date)
   const value = query[field]
   return value !== null && value !== undefined && !blankText(value)
-}
-
-/** The largest Limit the Limit field accepts. */
-export const LIMIT_MAX = 20000
-
-/**
- * Whether a typed Limit is one the search would not take as typed (ticket 595): not a whole
- * number from 1 to {@link LIMIT_MAX}. A cleared Limit is not invalid — it is the default.
- */
-export function limitIsInvalid(limit: number | null): boolean {
-  if (limit === null) return false
-  return !Number.isInteger(limit) || limit < 1 || limit > LIMIT_MAX
 }
 
 /** One token: the entry and its value as the model holds it. */
@@ -144,35 +122,6 @@ export function tokensOf(query: QueryCriteria): CriterionToken[] {
 /** The tokens back into the search. An entry with no token is no filter. */
 export function queryOfTokens(tokens: readonly CriterionToken[]): QueryCriteria {
   return tokens.reduce<QueryCriteria>((query, token) => ({ ...query, [token.field]: token.value }), BLANK_QUERY)
-}
-
-/** Local midnight, `days` before `now`'s own day. */
-function dayBefore(now: Date, days: number): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - days)
-}
-
-/**
- * The Date entry as a concrete From/To against `now`, both at local midnight (the estate is
- * single-timezone local time, so no UTC round trip). `null` when there is no range to send:
- * no Date, or a Custom range missing an end — the search then sends neither, as the panel did.
- */
-export function resolveDate(entry: DateEntry | null, now: Date): { from: Date; to: Date } | null {
-  if (!entry) return null
-  switch (entry.preset) {
-    case 'today':
-      return { from: dayBefore(now, 0), to: dayBefore(now, 0) }
-    case 'yesterday':
-      return { from: dayBefore(now, 1), to: dayBefore(now, 1) }
-    case 'last3':
-      return { from: dayBefore(now, 2), to: dayBefore(now, 0) }
-    case 'last7':
-      return { from: dayBefore(now, 6), to: dayBefore(now, 0) }
-    case 'custom': {
-      const from = fromIsoDate(entry.from)
-      const to = fromIsoDate(entry.to)
-      return from && to ? { from, to } : null
-    }
-  }
 }
 
 /**

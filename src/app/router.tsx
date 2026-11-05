@@ -156,6 +156,13 @@ export const router = createBrowserRouter([
         handle: SINGLE_KEYS,
         lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
       },
+      // The Order / ERX list (ticket 786, BackOffice spec 3389): orders and ERX by any identifier,
+      // before they have a delivery. Read-only; J/K/I and `/` as on the delivery list.
+      {
+        path: 'oms/orders',
+        handle: SINGLE_KEYS,
+        lazy: async () => ({ Component: (await import('@/features/oms/orders/OrdersPage')).default }),
+      },
       // Screen 2 — two routes, one component. `openedAs` is fixed by the ROUTE
       // and picks the load/refresh endpoint; it is NOT interchangeable with the
       // payload's `documentCategory`, which picks the mutation endpoint (D-17 /

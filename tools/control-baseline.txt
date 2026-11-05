@@ -279,6 +279,16 @@ oms/failed-donor-transfers 2
 
 oms/geography 0
 
+oms/orders 8
+  src/features/oms/orders/MyViews.tsx button: Save current view, a rail row (rail row recipe): copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/MyViews.tsx button: a saved view row applies the view: a row picker, copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/MyViews.tsx button: saved-view menu item on the overlay recipe, copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens, copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/QueryBar.tsx button: query field menu entry (menu-item recipe), copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/QueryToken.tsx button: query token body opens its editor: segment of the composite token, copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/QueryToken.tsx button: query token Restore segment (inside the composite token, rounded-e), copied from oms/deliveries (ticket 786)
+  src/features/oms/orders/QueryToken.tsx button: query token Remove segment (inside the composite token, rounded-e), copied from oms/deliveries (ticket 786)
+
 oms/pick-support 0
 
 oms/prescription-sessions 1

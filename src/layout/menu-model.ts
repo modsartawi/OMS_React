@@ -279,6 +279,20 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // The Order / ERX list (ticket 786, BackOffice 3391): behind the same OMS LIST grant as the
+        // delivery list, on the same shared probe (one call). A row opens Document details, which
+        // lights the Deliveries leaf (its `activePrefix` owns `/oms/document`).
+        labelKey: 'orders:menu.orders',
+        icon: ListChecks,
+        routerLink: '/oms/orders',
+        activePrefix: ['/oms/orders'],
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: (r) => r.canOpenList === true,
+        }),
+      },
+      {
         // Central invoicing's bulk screen (ticket 332, BackOffice spec 2094). Its OWN grant
         // (`BackOfficeScreen[CentralInvoice,03]`), not the OMS one: opening deliveries is no
         // claim on bypassing the pick gate, so an OMS user without it sees a one-leaf group.

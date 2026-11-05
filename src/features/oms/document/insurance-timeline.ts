@@ -86,10 +86,25 @@ const sides = (before: string | null, after: string | null): BeforeAfter | null 
 const qty = (n: number | null, unit: string | null): string | null =>
   n == null ? null : [String(n), unit ?? ''].filter((p) => p.trim() !== '').join(' ')
 
-/** A time to sort by; an unreadable time sorts as if it were not there (stable, in arrival order). */
+/** A readable time, else `null`. */
 const timeOf = (at: string) => {
   const ms = new Date(at).getTime()
   return Number.isNaN(ms) ? null : ms
+}
+
+/**
+ * Each entry's sort time: its own when readable, else the last readable time before it in arrival
+ * order (or the start of time when none). Sorting by (that time, arrival index) is a total order, so
+ * an unreadable time stays beside the entry it arrived after instead of making the comparator
+ * disagree with itself.
+ */
+function sortTimes(entries: readonly InsuranceTimelineEntry[]): number[] {
+  let last = Number.NEGATIVE_INFINITY
+  return entries.map((e) => {
+    const t = timeOf(e.at)
+    if (t != null) last = t
+    return t ?? last
+  })
 }
 
 /** The timeline's rows, oldest first: the read's entries, plus the document log when the read has none. */
@@ -120,16 +135,20 @@ export function timelineRows(
       reason: blank(e.reason) ? null : e.reason,
       before,
       after,
+      // Every CHANNEL → ENGINE act, here; only the first one in time keeps the mark, below.
       channelToEngine: before.kind === 'recorded' && after.kind === 'recorded' && before.source === 'CHANNEL' && after.source === 'ENGINE',
     }
   })
 
-  const times = new Map(rows.map((r, i) => [r, timeOf(merged[i].at)]))
-  return rows
-    .sort((a, b) => {
-      const ta = times.get(a)
-      const tb = times.get(b)
-      return ta == null || tb == null || ta === tb ? a.order - b.order : ta - tb
-    })
-    .map(({ order: _order, ...row }) => row as TimelineRow)
+  const times = sortTimes(merged)
+  const sorted = rows.sort((a, b) => times[a.order] - times[b.order] || a.order - b.order)
+  // The moment the order left the channel's money is the FIRST such act (user story 61), not every one.
+  let marked = false
+  return sorted.map(({ order: _order, ...row }) => {
+    if (row.kind === 'change' && row.channelToEngine) {
+      if (marked) return { ...row, channelToEngine: false } as TimelineRow
+      marked = true
+    }
+    return row as TimelineRow
+  })
 }

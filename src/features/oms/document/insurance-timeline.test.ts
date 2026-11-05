@@ -87,4 +87,22 @@ describe('insurance timeline', () => {
     expect(row.actKey).toBeNull()
     expect(row.act).toBe('REPRICE')
   })
+  it('an unreadable time does not break the order: A 10:00, B unreadable, C 09:00 reads C, A, B', () => {
+    const swap = CHANGED.timeline[1] as InsuranceChangeEntry
+    const at = (act: string, when: string): InsuranceChangeEntry => ({ ...swap, act, at: when })
+    const rows = changes(timelineRows([at('PICK', '2026-11-05T10:00:00'), at('VOID', 'not a time'), at('RESTORE', '2026-11-05T09:00:00')], null, null))
+    expect(rows.map((r) => r.act)).toEqual(['RESTORE', 'PICK', 'VOID'])
+  })
+
+  it('only the first CHANNEL → ENGINE act is marked: CHANNEL → ENGINE → CHANNEL → ENGINE marks one', () => {
+    const swap = CHANGED.timeline[1] as InsuranceChangeEntry
+    const toEngine = swap
+    const toChannel: InsuranceChangeEntry = { ...swap, moneyBefore: swap.moneyAfter, moneyAfter: swap.moneyBefore }
+    const at = (e: InsuranceChangeEntry, when: string): InsuranceChangeEntry => ({ ...e, at: when })
+    const rows = changes(
+      timelineRows([at(toEngine, '2026-11-05T12:00:00'), at(toChannel, '2026-11-05T11:00:00'), at(toEngine, '2026-11-05T10:00:00')], null, null),
+    )
+    expect(rows.map((r) => r.channelToEngine)).toEqual([true, false, false])
+    expect(rows[0].at).toContain('10:00')
+  })
 })

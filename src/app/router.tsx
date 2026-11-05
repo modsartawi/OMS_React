@@ -12,6 +12,8 @@ const PRINT_ROUTE: PaletteRouteHandle = { print: true }
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
 const FILL_CONTENT: ShellRouteHandle = { fill: true }
+// A board's TV mode (ticket 780): `?tv=1` hides the shell for a wall screen.
+const TV_MODE: ShellRouteHandle = { chromeless: 'tv' }
 
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
@@ -109,6 +111,33 @@ export const router = createBrowserRouter([
       {
         path: 'copilot',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
+      },
+      // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
+      // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
+      // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route
+      // string only.
+      {
+        path: 'analytics',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsHomePage')).default }),
+      },
+      {
+        path: 'analytics/board/:id',
+        handle: TV_MODE,
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsBoardPage')).default }),
+      },
+      {
+        // The board editor (777) shares the builder's page: `?kind=board` makes a new board, this edits one.
+        path: 'analytics/board/:id/edit',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
+      },
+      {
+        path: 'analytics/view/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
+      },
+      {
+        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777).
+        path: 'analytics/new',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
       },
       {
         path: 'oms/deliveries',

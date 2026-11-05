@@ -100,3 +100,14 @@ refocuses all of them. Screenshots in `.issues/assets/747-shots/` (`native-*`, `
 *query-spec + themed-renderer + shared-filter-state*, which is exactly what a later configurable,
 multi-source dashboard needs — reusability, multiple Metabase-connected datasources (per-panel
 `database` id), and theme-following are all natural, not rework.
+
+> **Amended 2026-11-03 by
+> [Does embedded Superset beat native over Metabase OSS for HQ exploring?](754-does-embedded-superset-beat-native-over-metabase-oss-for-hq-exploring.md):**
+> native stays, and it now includes **full authoring** inside the semantic model: edit chart, edit
+> dashboard layout, per-panel actions and customization. SQL and arbitrary joins remain out.
+
+> **Amended 2026-11-04 by
+> [What can an HQ user author natively, and who may edit which board?](755-what-can-an-hq-user-author-natively-and-who-may-edit-which-board.md):**
+> views and boards live in **our own SIS.Api store** in semantic-model terms. Metabase OSS only runs
+> them through `/api/dataset`, and `/api/card` is not used. `create_view` writes to our store and
+> routes to `/analytics/view/:ourId`, not to a Metabase card id.

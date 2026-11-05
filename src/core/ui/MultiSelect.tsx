@@ -41,6 +41,11 @@ export interface MultiSelectProps {
   disabled?: boolean
   loading?: boolean
   failed?: boolean
+  /**
+   * Hand what is typed to the caller, who narrows the options itself (a server search, e.g.
+   * `Analytics/DimensionValues`): with it the list is drawn as given, not narrowed here.
+   */
+  onQueryChange?: (query: string) => void
   'data-testid'?: string
 }
 
@@ -59,6 +64,7 @@ export default function MultiSelect({
   disabled = false,
   loading = false,
   failed = false,
+  onQueryChange,
   'data-testid': testId,
 }: MultiSelectProps) {
   const { t } = useTranslation('common')
@@ -91,7 +97,7 @@ export default function MultiSelect({
     options.find((o) => o.value === v) ?? optionOf?.(v) ?? { value: v, text: v, machine: true, tone: 'danger' }
   const chosen = new Set(value)
   const needle = query.trim().toLowerCase()
-  const listed = needle ? options.filter((o) => o.text.toLowerCase().includes(needle)) : options
+  const listed = needle && !onQueryChange ? options.filter((o) => o.text.toLowerCase().includes(needle)) : options
   const toggle = (v: string) => onChange(chosen.has(v) ? value.filter((x) => x !== v) : [...value, v])
 
   let status: ReactNode = null
@@ -166,7 +172,10 @@ export default function MultiSelect({
               type="text"
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                onQueryChange?.(e.target.value)
+              }}
               onKeyDown={(e) => {
                 // Narrowing a list is never its form's submit.
                 if (e.key === 'Enter') e.preventDefault()

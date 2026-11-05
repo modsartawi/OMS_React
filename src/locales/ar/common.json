@@ -1,0 +1,41 @@
+{
+  "charts": {
+    "updating": "جارٍ التحديث…",
+    "loading": "جارٍ تحميل المخطط…",
+    "chartLabel": "{{measure}} حسب {{dimension}}، مخطط أعمدة",
+    "formLabel": {
+      "line": "{{measure}} حسب {{dimension}}، مخطط خطي",
+      "area": "{{measure}} حسب {{dimension}}، مخطط مساحي متراكم",
+      "bar": {
+        "vertical": "{{measure}} حسب {{dimension}}، مخطط أعمدة",
+        "horizontal": "{{measure}} حسب {{dimension}}، مخطط أشرطة أفقية",
+        "stacked": "{{measure}} حسب {{dimension}}، مخطط أعمدة متراكمة",
+        "grouped": "{{measure}} حسب {{dimension}}، مخطط أعمدة مجمّعة"
+      }
+    },
+    "kpi": {
+      "label": "{{measure}}: {{value}}",
+      "noValue": "—",
+      "up": "ارتفاع {{change}} عن الفترة السابقة",
+      "down": "انخفاض {{change}} عن الفترة السابقة",
+      "flat": "لا تغيير عن الفترة السابقة",
+      "previous": "مقابل <v>{{value}}</v> في الفترة السابقة"
+    },
+    "previousPeriod": "الفترة السابقة",
+    "other_zero": "أخرى ({{n}})",
+    "other_one": "أخرى ({{n}})",
+    "other_two": "أخرى ({{n}})",
+    "other_few": "أخرى ({{n}})",
+    "other_many": "أخرى ({{n}})",
+    "other_other": "أخرى ({{n}})",
+    "total": "الإجمالي",
+    "donutLabel": "{{measure}} حسب {{dimension}}، مخطط دائري مجوف",
+    "tableLabel": "{{measures}} حسب {{dimensions}}، جدول",
+    "heatmapLabel": "{{measure}} حسب {{x}} و{{y}}، خريطة حرارية",
+    "comboLabel": "{{volume}} و{{rate}} حسب {{dimension}}، لوحان",
+    "heatmapCell": "{{value}} لـ {{x}} و{{y}}",
+    "noValue": "لا قيمة",
+    "showTable": "عرض كجدول",
+    "hideTable": "إخفاء الجدول"
+  }
+}

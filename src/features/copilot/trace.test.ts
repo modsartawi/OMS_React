@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { traceRows } from './trace'
+import en from '@/locales/en/copilot.json'
+import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
 describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () => {
   it('copilotTrace_labelsKnownToolsAndKeepsUnknownNames', () => {
@@ -49,5 +50,35 @@ describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () =>
   it('copilotTrace_readsAMalformedEntryWithoutThrowing', () => {
     const odd = [{ tool: 7, input: null, rows: 'x', ok: 'yes' }] as unknown as Parameters<typeof traceRows>[0]
     expect(traceRows(odd)).toEqual([{ tool: '', labelKey: null, inputs: [], rows: null, failed: true }])
+  })
+
+  it('trace_theThreeAnalyticsToolsGetPlainLanguageLabels', () => {
+    // Spec 766 D: describe_model, semantic_query and create_view join the one tool → label map.
+    const rows = traceRows([
+      { tool: 'describe_model', input: { area: 'orders' }, rows: 12, ms: 30, ok: true },
+      { tool: 'semantic_query', input: { measures: ['orders.count'] }, rows: 4, ms: 210, ok: true },
+      { tool: 'create_view', input: { chart: 'bar' }, rows: 1, ms: 40, ok: true },
+    ])
+    expect(rows.map((r) => r.labelKey)).toEqual([
+      'trace.tools.describe_model',
+      'trace.tools.semantic_query',
+      'trace.tools.create_view',
+    ])
+    // …and the working state walks their steps too.
+    expect(COPILOT_TOOLS).toEqual(expect.arrayContaining(['describe_model', 'semantic_query', 'create_view']))
+    expect(toolStepKey('semantic_query')).toBe('steps.semantic_query')
+  })
+
+  it('a finished analytics step reads in the past tense, like its siblings; the working state stays present', () => {
+    expect([en.trace.tools.describe_model, en.trace.tools.semantic_query, en.trace.tools.create_view]).toEqual([
+      'Read the analytics model',
+      'Ran the analytics query',
+      'Saved a view',
+    ])
+    expect([en.steps.describe_model, en.steps.semantic_query, en.steps.create_view]).toEqual([
+      'Reading the analytics model',
+      'Running the analytics query',
+      'Saving a view',
+    ])
   })
 })

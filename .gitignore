@@ -160,3 +160,7 @@ tools/.sourcing-advisor-shots/
 tools/.lf-returns-queue-shots/
 # LF return panel drive screenshots (tools/lf-return-drive.mjs, ticket 762)
 tools/.lf-return-shots/
+# Local credentials, never committed
+.passwords/
+# Analytics drive screenshots (tools/analytics-drive.mjs, spec 766) — regenerated on demand
+tools/.analytics-shots/

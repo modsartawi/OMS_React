@@ -1,8 +1,8 @@
-import { Outlet, useMatches } from 'react-router'
+import { Outlet, useLocation, useMatches } from 'react-router'
 import Rail from './Rail'
 import TopBar from './TopBar'
 import { useRailMode } from './rail-mode'
-import { fillsContent } from './shell-route'
+import { fillsContent, hidesShell } from './shell-route'
 
 // The Ops Console shell (spec 380 F10–F13): the navy rail on the inline-start side
 // (ticket 385), and beside it the 44px top bar over the screen (ticket 386). The account
@@ -13,9 +13,21 @@ import { fillsContent } from './shell-route'
 // A route flagged `fill` (the call center console, ticket 407) takes the content area whole:
 // the shell is held to the viewport, the area loses its padding, and the screen's own
 // columns scroll inside it rather than the page.
+//
+// A route flagged `chromeless` hides the shell when the URL sets that param (a board's `?tv=1`, ticket
+// 780): the screen alone, still behind the session (the shell sits inside ProtectedLayout).
 export default function AppShell() {
   const mode = useRailMode()
-  const fill = fillsContent(useMatches().map((m) => m.handle))
+  const handles = useMatches().map((m) => m.handle)
+  const fill = fillsContent(handles)
+  const bare = hidesShell(handles, useLocation().search)
+  if (bare) {
+    return (
+      <main className="min-h-screen min-w-0" data-shell="hidden">
+        <Outlet />
+      </main>
+    )
+  }
   return (
     <div className={'flex ' + (fill ? 'h-screen' : 'min-h-screen')}>
       {mode !== 'drawer' && <Rail mode={mode} />}

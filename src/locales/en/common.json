@@ -142,5 +142,40 @@
     "loading": "Checking your session…",
     "failedTitle": "Cannot reach the OMS API",
     "failedHint": "The session check failed. Verify SIS.Api is running, then retry."
+  },
+  "charts": {
+    "updating": "Updating…",
+    "loading": "Loading the chart…",
+    "chartLabel": "{{measure}} by {{dimension}}, bar chart",
+    "formLabel": {
+      "line": "{{measure}} by {{dimension}}, line chart",
+      "area": "{{measure}} by {{dimension}}, stacked area chart",
+      "bar": {
+        "vertical": "{{measure}} by {{dimension}}, bar chart",
+        "horizontal": "{{measure}} by {{dimension}}, horizontal bar chart",
+        "stacked": "{{measure}} by {{dimension}}, stacked bar chart",
+        "grouped": "{{measure}} by {{dimension}}, grouped bar chart"
+      }
+    },
+    "kpi": {
+      "label": "{{measure}}: {{value}}",
+      "noValue": "—",
+      "up": "Up {{change}} on the previous period",
+      "down": "Down {{change}} on the previous period",
+      "flat": "No change on the previous period",
+      "previous": "versus <v>{{value}}</v> in the previous period"
+    },
+    "previousPeriod": "Previous period",
+    "other_one": "Other ({{n}})",
+    "other_other": "Other ({{n}})",
+    "total": "Total",
+    "donutLabel": "{{measure}} by {{dimension}}, donut chart",
+    "tableLabel": "{{measures}} by {{dimensions}}, table",
+    "heatmapLabel": "{{measure}} by {{x}} and {{y}}, heatmap",
+    "comboLabel": "{{volume}} and {{rate}} by {{dimension}}, two panes",
+    "heatmapCell": "{{value}} for {{x}} and {{y}}",
+    "noValue": "no value",
+    "showTable": "View as table",
+    "hideTable": "Hide table"
   }
 }

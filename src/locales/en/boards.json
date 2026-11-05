@@ -1,0 +1,433 @@
+{
+  "menu": {
+    "analytics": "Analytics",
+    "boards": "Boards and views"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to analytics",
+    "deniedHint": "Analytics needs its own grant. Ask an administrator for access.",
+    "unreachableTitle": "Analytics can't be reached",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
+  "home": {
+    "title": "Analytics",
+    "subtitle": "Boards and analytics views over the governed analytics model.",
+    "searchLabel": "Search boards and views by title",
+    "searchPlaceholder": "Search by title, in English or Arabic",
+    "loading": "Loading boards and views…",
+    "loadFailed": "Boards and views could not be loaded",
+    "emptyTitle": "No boards or views yet",
+    "empty": "Ask the OMS for a chart from the top bar and it saves the answer as your own analytics view. Views shared with every analytics user and certified boards appear here too.",
+    "noMatch": "No board or view has {{search}} in its title.",
+    "untitled": "Untitled",
+    "group": {
+      "certified": "Certified",
+      "shared": "Shared",
+      "personal": "Mine"
+    },
+    "tier": {
+      "certified": "Certified",
+      "shared": "Shared",
+      "personal": "Personal"
+    },
+    "kind": {
+      "board": "Board",
+      "view": "Analytics view"
+    },
+    "owner": "Owner <owner>{{owner}}</owner>",
+    "changed": "Changed <at>{{at}}</at>"
+  },
+  "board": {
+    "title": "Board",
+    "subtitle": "Panels over the governed analytics model.",
+    "notFoundTitle": "Board not found",
+    "noAccessTitle": "No access to this board",
+    "loading": "Loading the board…",
+    "loadFailed": "The board could not be loaded",
+    "empty": "This board has no panels yet.",
+    "panelLoading": "Loading the panel…",
+    "viewFailed": "This panel's view could not be loaded",
+    "filters": {
+      "label": "Board filters",
+      "period": "Period",
+      "city": "City",
+      "region": "Region",
+      "store": "Store",
+      "channel": "Channel",
+      "country": "Country",
+      "from": "From",
+      "to": "To"
+    },
+    "period": {
+      "fixed": "Fixed range"
+    },
+    "stream": {
+      "updating": "Updating… <done>{{done}}</done> of <total>{{total}}</total> panels",
+      "settled": "Every panel is up to date.",
+      "progress": "{{done}} of {{total}} panels updated"
+    },
+    "refresh": {
+      "label": "Auto-refresh",
+      "off": "Off",
+      "30s": "Every 30 seconds",
+      "1m": "Every minute",
+      "5m": "Every 5 minutes",
+      "15m": "Every 15 minutes"
+    },
+    "tv": {
+      "enter": "TV mode",
+      "exit": "Exit TV mode",
+      "exitHint": "Esc also leaves TV mode",
+      "chips": "Board filters (read only)"
+    },
+    "cross": {
+      "active": "Filtered by <dimension>{{dimension}}</dimension>: <member>{{member}}</member>",
+      "clear": "Clear",
+      "clearLabel": "Clear the cross-filter on {{member}}"
+    },
+    "drill": {
+      "breadcrumb": "Drill path",
+      "crumb": "<member>{{member}}</member> by <dimension>{{dimension}}</dimension>",
+      "menu": "Drill into {{member}}",
+      "by": "Drill <member>{{member}}</member> by",
+      "saveAsView": "Save as view",
+      "seeDeliveries": "See deliveries"
+    },
+    "viewRemoved": "The view this panel showed was removed.",
+    "viewRemovedHint": "Edit the board to remove the panel or link another view."
+  },
+  "view": {
+    "title": "Analytics view",
+    "subtitle": "One chart over the governed analytics model.",
+    "generatedTitle": "{{measure}} by {{dimension}}",
+    "dataAsOf": "Data as of <at>{{at}}</at>",
+    "period": "Period <range>{{range}}</range>",
+    "loading": "Loading the analytics view…",
+    "loadFailed": "The analytics view could not be loaded",
+    "queryFailed": "The chart could not be drawn",
+    "empty": "No data for this period.",
+    "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
+    "unsupported": "This chart type is not drawn here yet.",
+    "notFoundTitle": "Analytics view not found",
+    "noAccessTitle": "No access to this analytics view",
+    "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",
+    "donutRefused": "A donut takes one additive measure. {{measure}} is a rate or a percentile, so it is not drawn as a donut.",
+    "notShown_one": "{{n}} more not shown: {{measure}} is a rate, so the rest cannot be summed into Other.",
+    "notShown_other": "{{n}} more not shown: {{measure}} is a rate, so the rest cannot be summed into Other.",
+    "topN_one": "Showing the top {{n}} row.",
+    "topN_other": "Showing the top {{n}} rows.",
+    "edit": "Edit"
+  },
+  "refusal": {
+    "noAccess": "You don't have access to analytics.",
+    "notFound": "This analytics view was not found or was deleted.",
+    "timedOut": "This panel took longer than 30 seconds to answer.",
+    "engineDown": "The analytics engine can't be reached right now.",
+    "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
+    "window": "A percentile is answered over at most 92 days. Shorten the period.",
+    "areaUnavailable": "This subject area is not available yet."
+  },
+  "ask": {
+    "label": "Ask the OMS about analytics",
+    "placeholder": "Ask a question, e.g. orders by channel last week",
+    "send": "Ask"
+  },
+  "panel": {
+    "actions": "Panel actions",
+    "refresh": "Refresh",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "showTable": "View as table",
+    "hideTable": "Back to the chart",
+    "csv": "Download CSV",
+    "xlsx": "Download xlsx",
+    "png": "Download PNG",
+    "pngUnavailable": "This chart form has no picture to download. Download the CSV or xlsx instead.",
+    "pngTableView": "Go back to the chart to download its picture.",
+    "pngFailed": "The picture could not be made",
+    "permalink": "Copy the permalink",
+    "permalinkCopied": "Permalink copied",
+    "permalinkFailed": "The permalink could not be copied",
+    "fetched": {
+      "justNow": "Fetched just now",
+      "minutes_one": "Fetched <n>{{count}}</n> minute ago",
+      "minutes_other": "Fetched <n>{{count}}</n> minutes ago",
+      "hours_one": "Fetched <n>{{count}}</n> hour ago",
+      "hours_other": "Fetched <n>{{count}}</n> hours ago",
+      "days_one": "Fetched <n>{{count}}</n> day ago",
+      "days_other": "Fetched <n>{{count}}</n> days ago"
+    },
+    "behind": "Data is behind",
+    "behindHint": "The analytics data has not refreshed for more than 45 minutes. The figures may be out of date.",
+    "empty": "No data for these filters.",
+    "truncated": "Cut at the row cap",
+    "truncatedHint": "Only the first rows are shown: the answer was cut at the row cap.",
+    "retry": "Retry",
+    "failedTitle": "This panel could not be answered",
+    "unavailableTitle": "Not available yet",
+    "retiredTitle": "This measure was retired",
+    "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
+    "refreshFailed": "The refresh failed. The figures shown are from the last answer."
+  },
+  "title": {
+    "byDimensions": "{{measures}} by {{dimensions}}",
+    "overPeriod": "{{title}}, {{period}}",
+    "retiredMeasure": "Retired measure",
+    "retiredDimension": "Retired breakdown"
+  },
+  "editor": {
+    "title": "New analytics view",
+    "subtitle": "Build a chart from the governed analytics model.",
+    "newView": "New view",
+    "loading": "Loading the analytics model…",
+    "loadFailed": "The analytics model could not be loaded",
+    "measures": "Measures",
+    "dimensions": "Breakdowns",
+    "dimensionsHint": "Only the breakdowns every chosen measure allows.",
+    "filterOn": "Only these: {{dimension}}",
+    "period": {
+      "today": "today",
+      "yesterday": "yesterday",
+      "this-week": "this week",
+      "last-week": "last week",
+      "last-7-days": "last 7 days",
+      "last-28-days": "last 28 days",
+      "last-30-days": "last 30 days",
+      "this-month": "this month",
+      "last-month": "last month",
+      "year-to-date": "year to date"
+    },
+    "chart": "Chart type",
+    "chartHint": "Only the types that fit your measures and breakdowns are offered.",
+    "compare": "Compare with the previous period",
+    "compareHintKpi": "The tile shows ▲▼ against the period before.",
+    "compareHintLine": "The previous period is drawn as a dashed line.",
+    "folds": "Past five members, the rest is drawn as “Other”.",
+    "format": "Number format",
+    "legend": "Legend",
+    "colours": "Series colours",
+    "coloursFixed": "{{dimension}} keeps its fixed colours on every chart.",
+    "coloursNone": "Colours follow each member. Choose a breakdown to pick them.",
+    "colourFor": "Colour for {{member}}",
+    "colourSlot": "Chart colour {{n}}",
+    "sort": "Sort",
+    "sortDefault": "Default order",
+    "sortDesc": "{{column}}, largest first",
+    "sortAsc": "{{column}}, smallest first",
+    "topN": "Top N",
+    "topNPlaceholder": "All rows",
+    "titleEn": "Title in English",
+    "titleAr": "Title in Arabic",
+    "subtitleEn": "Subtitle in English",
+    "subtitleAr": "Subtitle in Arabic",
+    "titleHint": "Leave it empty and the title is made from the measures and breakdowns.",
+    "preview": "Preview",
+    "previewIdle": "Choose a measure and a chart type to see a preview.",
+    "save": "Save view",
+    "saving": "Saving…",
+    "saved": "Saved as your own analytics view.",
+    "saveFailed": "The view could not be saved",
+    "unavailableAreas": "Not available yet",
+    "areaReason": "<area>{{area}}</area>: {{reason}}",
+    "refused": {
+      "invalidField": "The model does not accept {{field}}. Change it and try again.",
+      "window": "{{measure}} is a percentile, so its period is at most {{days}} days.",
+      "shorten": "Use {{period}} instead",
+      "area": "This subject area is not available yet: {{reason}}"
+    },
+    "choice": {
+      "kpi": "KPI",
+      "line": "Line",
+      "area": "Stacked area",
+      "bar-vertical": "Vertical bar",
+      "bar-horizontal": "Horizontal bar",
+      "bar-stacked": "Stacked bar",
+      "bar-grouped": "Grouped bar",
+      "donut": "Donut",
+      "table": "Table",
+      "heatmap": "Heatmap",
+      "combo": "Combo"
+    },
+    "why": {
+      "noMeasure": "Choose a measure first.",
+      "kpiShape": "A KPI is one measure with no category breakdown.",
+      "needsTime": "A line needs a time breakdown.",
+      "lineShape": "A line is 1 to 4 measures over time, or one measure over time by one category.",
+      "areaShape": "A stacked area is one measure over time by one category.",
+      "rateStacked": "A rate or percentile is never stacked.",
+      "barShape": "A bar is 1 to 3 measures by one breakdown, or one measure by two.",
+      "needsSeries": "Stacked and grouped bars need two series: a second measure or a second breakdown.",
+      "donutShape": "A donut is one measure by one category.",
+      "donutAdditive": "A rate or percentile is never put in a donut.",
+      "tableShape": "A table needs 1 to 3 breakdowns.",
+      "heatmapShape": "A heatmap is one measure by two breakdowns.",
+      "comboShape": "A combo is one volume measure and one rate, by one breakdown."
+    },
+    "formatName": {
+      "auto": "Automatic",
+      "integer": "Whole number",
+      "decimal": "Decimal",
+      "percent": "Percent",
+      "SAR": "SAR",
+      "minutes": "Minutes"
+    },
+    "legendName": {
+      "hidden": "Hidden",
+      "top": "Top",
+      "bottom": "Bottom",
+      "end": "At the end"
+    },
+    "periodName": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this-week": "This week",
+      "last-week": "Last week",
+      "last-7-days": "Last 7 days",
+      "last-28-days": "Last 28 days",
+      "last-30-days": "Last 30 days",
+      "this-month": "This month",
+      "last-month": "Last month",
+      "year-to-date": "Year to date"
+    },
+    "editTitle": "Edit analytics view"
+  },
+  "save": {
+    "asCopy": "Save as copy",
+    "asMyCopy": "Save as my copy",
+    "copied": "Saved as your Personal copy.",
+    "notYours": "This isn't yours to change in place. Save it as your own Personal copy; the original stays as it is.",
+    "conflict": {
+      "byAt": "<by>{{by}}</by> saved a newer revision <at>{{at}}</at>.",
+      "by": "<by>{{by}}</by> saved a newer revision.",
+      "unknown": "Someone saved a newer revision since you opened this.",
+      "offer": "Save yours as your own copy, or reload theirs and start again."
+    },
+    "reload": "Reload",
+    "reloadFailed": "The latest revision could not be loaded.",
+    "sourceMovedOn": "The original changed since you copied it.",
+    "standing": {
+      "readOnly": "You can't save changes to this one.",
+      "copy": {
+        "personal": "This is someone else's Personal item: saving makes your own Personal copy.",
+        "shared": "This Shared item is its owner's to change: saving makes your own Personal copy and never changes the original.",
+        "certified": "Only curators change a Certified item: saving makes your own Personal copy and never changes the original."
+      }
+    },
+    "savedInPlace": "Saved. This is now the latest revision."
+  },
+  "history": {
+    "open": "History",
+    "eyebrow": "History",
+    "hint": "The last 20 revisions. Reverting writes a new revision, so it can be undone.",
+    "untitled": {
+      "view": "This view",
+      "board": "This board"
+    },
+    "close": "Close the history",
+    "loading": "Loading the history…",
+    "loadFailed": "The history could not be loaded",
+    "revision": "Revision <n>{{revision}}</n>",
+    "viewing": "Viewing",
+    "byAt": "Saved by <by>{{by}}</by>, <at>{{at}}</at>",
+    "by": "Saved by <by>{{by}}</by>",
+    "revertedFrom": "Reverted to revision <n>{{revision}}</n>",
+    "revert": "Revert to this",
+    "reverted": "Reverted to revision {{revision}}.",
+    "revertFailed": "The revert could not be saved",
+    "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
+    "undo": "Undo"
+  },
+  "tierActions": {
+    "label": "Sharing and certification",
+    "share": "Share",
+    "unshare": "Unshare",
+    "certify": "Certify",
+    "certifyRevision": "Certify this revision",
+    "uncertify": "Un-certify",
+    "delete": "Delete",
+    "openCertifiedCopy": "Open the certified copy",
+    "failed": "That could not be done. Try again in a moment.",
+    "done": {
+      "share": "Shared with every analytics user.",
+      "unshare": "Personal again: only you see it.",
+      "certify": "Certified. A frozen certified copy now leads the home; this one stays its author's.",
+      "certifyRevision": "This revision is now the certified copy's newest revision.",
+      "uncertify": "No longer certified.",
+      "delete": "Deleted."
+    },
+    "refused": {
+      "needsCurator": "This needs the curator grant, which you no longer hold. The curator's actions are hidden now."
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "uncertify": {
+        "title": "Un-certify?",
+        "body": {
+          "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
+          "board": "This board stops being Certified, and leaves the Certified group on the home."
+        }
+      },
+      "delete": {
+        "title": "Delete?",
+        "body": {
+          "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
+          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
+        }
+      }
+    }
+  },
+  "boardEditor": {
+    "title": "New board",
+    "editTitle": "Edit board",
+    "subtitle": "Lay panels out on a 12-column grid, link views, and set the board’s filters and refresh.",
+    "newBoard": "New board",
+    "edit": "Edit board",
+    "refresh": "Auto-refresh",
+    "refreshHint": "The default. Viewers can change it for their own session.",
+    "refreshEvery": {
+      "0": "Off",
+      "30": "Every 30 seconds",
+      "60": "Every minute",
+      "300": "Every 5 minutes",
+      "900": "Every 15 minutes"
+    },
+    "filters": "The filters the board opens on",
+    "add": "Add a panel",
+    "addView": "Add a view",
+    "pickView": "Choose a view…",
+    "viewsLoading": "Loading views…",
+    "addThisView": "Add view",
+    "buildView": "Build a new view",
+    "addText": "Add text",
+    "addSection": "Add section header",
+    "empty": "No panels yet. Add a view, some text or a section header.",
+    "gridHint": "Drag a panel by its handle, or focus the handle and use the arrow keys to move it and Shift with an arrow to resize it. Drag the corner to resize.",
+    "kind": {
+      "view": "View",
+      "text": "Text",
+      "section": "Section header"
+    },
+    "move": "Move {{panel}}",
+    "resize": "Resize {{panel}}",
+    "remove": "Remove {{panel}}",
+    "placed": "{{panel}}: column {{x}}, row {{y}}, {{w}} columns wide, {{h}} rows high.",
+    "optOut": {
+      "label": "Ignores",
+      "period": "Period",
+      "city": "City",
+      "region": "Region",
+      "store": "Store",
+      "channel": "Channel",
+      "country": "Country",
+      "crossFilter": "Cross-filter"
+    },
+    "words": {
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "save": "Save board",
+    "saved": "Board saved.",
+    "saveFailed": "The board could not be saved"
+  }
+}

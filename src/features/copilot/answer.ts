@@ -1,4 +1,5 @@
-import type { CopilotAnswer, CopilotTraceEntry } from '@/core/models/copilot'
+import { itemHref } from '@/core/analytics-routes'
+import type { CopilotAnswer, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -29,6 +30,8 @@ export interface CopilotAnswerModel {
   stoppedEarly: boolean
   /** The provider and model that served the answer (D4), or `null` when the reply lacks it. */
   servedBy: string | null
+  /** The views the answer created (spec 766 D), each an "Open view" link; absent reads as empty. */
+  viewRefs: CopilotViewRef[]
 }
 
 const BULLET = /^\s*[-*•]\s+/
@@ -87,8 +90,24 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     trace: Array.isArray(r.trace) ? r.trace : [],
     stoppedEarly: r.stoppedEarly === true,
     servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
+    viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
   }
 }
+
+const text = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/** One `viewRefs` entry, or none when it carries no id. A missing title half reads as blank. */
+function viewRef(v: unknown): CopilotViewRef[] {
+  if (!v || typeof v !== 'object') return []
+  const { id, title } = v as { id?: unknown; title?: unknown }
+  const key = typeof id === 'string' ? id : typeof id === 'number' && Number.isFinite(id) ? String(id) : ''
+  if (key.trim() === '') return []
+  const t = title && typeof title === 'object' ? (title as { en?: unknown; ar?: unknown }) : {}
+  return [{ id: key, title: { en: text(t.en), ar: text(t.ar) } }]
+}
+
+/** The view a `viewRefs` entry opens — by route string only; the copilot never imports analytics. */
+export const viewHref = (id: string) => itemHref('view', id)
 
 /** A piece of answer text: plain, or an order number that links to its delivery document (D11). */
 export type AnswerSegment = { kind: 'text'; text: string } | { kind: 'order'; no: string }

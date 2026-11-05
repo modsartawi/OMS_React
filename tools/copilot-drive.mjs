@@ -16,7 +16,8 @@
 //   6. `/copilot` renders the same panel, examples and all;
 //   7. 1,001 characters cannot be sent (Send disabled, the limit named, Enter asks nothing); 1,000 can;
 //   8. no page errors.
-// Plus scenario "in-flight-and-user-change" (spec 734 review items 1 and 2), described at its function.
+// Plus scenario "in-flight-and-user-change" (spec 734 review items 1 and 2), described at its function,
+// and scenario "open-view" (spec 766 D, ticket 781), described at its function.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/copilot-drive.mjs
@@ -641,7 +642,107 @@ async function inFlightAndUserChange(dir) {
   await context.close()
 }
 
+// ── Ticket 781 (spec 766 D) — "open-view" ─────────────────────────────────────────────────────
+// The D10 answer's additive `viewRefs[]` (BackOffice 3383). In LTR and RTL it asserts:
+//   a. an answer without `viewRefs` (every older server) shows no view links;
+//   b. an answer with two `viewRefs` shows one "Open view" link each, to `/analytics/view/:id` by
+//      route string (the id encoded), with the title in i18n's language inside a `<bdi>`;
+//   c. the trace names the three analytics tools in plain words;
+//   d. clicking "Open view" routes to the view, and the sheet closes on the way.
+// The `/analytics/view/:id` screen is ticket 767's; until it is on the branch the router's catch-all
+// bounces on to `/`, so (d) reads the navigation the app made, not where it settled.
+const VIEWED = {
+  ...ANSWER,
+  conversationId: ANSWER.conversationId,
+  questionNo: 2,
+  answer: 'Orders by channel over the last four weeks: HungerStation leads. I saved it as a view.',
+  orderRefs: [],
+  trace: [
+    { tool: 'describe_model', input: { area: 'orders' }, rows: 14, ms: 30, ok: true },
+    { tool: 'semantic_query', input: { measures: ['orders.count'], dimensions: ['orders.channel'], grain: 'week' }, rows: 16, ms: 210, ok: true },
+    { tool: 'create_view', input: { chartType: 'bar' }, rows: 1, ms: 40, ok: true },
+  ],
+  viewRefs: [
+    { id: 'v-0781', title: { en: 'Orders by channel, last 4 weeks', ar: 'الطلبات حسب القناة، آخر 4 أسابيع' } },
+    { id: 'v 2/b', title: { en: 'Late orders by city', ar: '' } },
+  ],
+}
+// Past tense like every finished step's label (the working-state `steps.*` words stay present tense).
+const ANALYTICS_LABELS = ['Read the analytics model', 'Ran the analytics query', 'Saved a view']
+
+async function openView(dir) {
+  const label = `${dir}: open-view`
+  const { context, page, errors } = await open(dir, {
+    onAsk: async (_body, n) => envelope(n === 1 ? ANSWER : VIEWED),
+  })
+  await page.addInitScript(() => {
+    window.__nav = []
+    for (const k of ['pushState', 'replaceState']) {
+      const orig = history[k].bind(history)
+      history[k] = (state, title, url) => {
+        if (url != null) window.__nav.push(new URL(String(url), location.href).pathname)
+        return orig(state, title, url)
+      }
+    }
+  })
+  await page.goto(`${BASE}/`)
+  await button(page).waitFor({ timeout: 20000 })
+  await button(page).click()
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  const turns = sheet.locator('[data-copilot-turn]')
+
+  // a. no viewRefs → no links
+  await sheet.locator('[data-copilot-question]').fill('Why was order 7000123456 late?')
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(0).locator('[data-copilot-answer]').waitFor({ timeout: 10000 })
+  check(`${label} — an answer without viewRefs shows no view links`, (await turns.nth(0).locator('[data-copilot-views]').count()) === 0)
+
+  // b. viewRefs → Open view links
+  await sheet.locator('[data-copilot-question]').fill('Chart orders by channel for the last four weeks')
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(1).locator('[data-copilot-answer]').waitFor({ timeout: 10000 })
+  const views = turns.nth(1).locator('[data-copilot-views] li')
+  const shown = await views.evaluateAll((lis) =>
+    lis.map((li) => {
+      const a = li.querySelector('a[data-copilot-view]')
+      const title = li.querySelector('[data-copilot-view-title] bdi')
+      return [a?.textContent?.trim(), a?.getAttribute('href'), title?.textContent, title?.hasAttribute('dir') ?? null]
+    }),
+  )
+  // The title follows i18n's language. `oms.locale = 'ar'` sets dir="rtl" only — `lng` stays `en`
+  // until Arabic is switched on (core/i18n) — so under RTL too the English title is the one shown.
+  const firstTitle = VIEWED.viewRefs[0].title.en
+  check(
+    `${label} — each viewRef is an "Open view" link to its view, titled in the reader's language in a <bdi>`,
+    JSON.stringify(shown) ===
+      JSON.stringify([
+        ['Open view', '/analytics/view/v-0781', firstTitle, false],
+        // No Arabic title: the English one stands in.
+        ['Open view', '/analytics/view/v%202%2Fb', 'Late orders by city', false],
+      ]),
+    JSON.stringify(shown),
+  )
+
+  // c. the trace names the analytics steps
+  const trace = turns.nth(1).locator('details[data-copilot-trace]')
+  await trace.locator('summary').click()
+  const labels = await trace.locator('[data-copilot-trace-label]').evaluateAll((ls) => ls.map((l) => l.textContent?.trim()))
+  check(`${label} — the trace names the three analytics tools in plain words`, JSON.stringify(labels) === JSON.stringify(ANALYTICS_LABELS), JSON.stringify(labels))
+  check(`${label} — no page errors before navigating`, errors.length === 0, errors.join(' | '))
+
+  // d. Open view routes to the view
+  await views.nth(0).locator('a[data-copilot-view]').click()
+  await page.waitForFunction(() => window.__nav.includes('/analytics/view/v-0781'), null, { timeout: 10000 }).catch(() => {})
+  const nav = await page.evaluate(() => window.__nav)
+  check(`${label} — clicking "Open view" routes to /analytics/view/:id`, nav.includes('/analytics/view/v-0781'), JSON.stringify(nav))
+  await page.waitForTimeout(300)
+  check(`${label} — the sheet closes on the way`, (await page.locator('dialog[data-copilot-sheet]').count()) === 0)
+  await context.close()
+}
+
 try {
+  await openView('ltr')
+  await openView('rtl')
   await drive('ltr')
   await drive('rtl')
   await answerLinksAndTrace('ltr')

@@ -34,7 +34,10 @@
     "sap_posting_backlog": "Checking SAP postings",
     "store_lookup": "Looking up stores",
     "sourcing_explain": "Checking the sourcing",
-    "sourcing_savings": "Estimating the savings"
+    "sourcing_savings": "Estimating the savings",
+    "describe_model": "Reading the analytics model",
+    "semantic_query": "Running the analytics query",
+    "create_view": "Saving a view"
   },
   "failed": "The question could not be answered.",
   "answer": {
@@ -42,6 +45,8 @@
     "heading": "Answer",
     "empty": "The copilot sent no answer text.",
     "servedBy": "Answered by",
+    "views": "Views this answer created",
+    "openView": "Open view",
     "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete.",
     "cannotAnswer": "The OMS could not answer this"
   },
@@ -60,7 +65,10 @@
       "sap_posting_backlog": "Checked the SAP posting backlog",
       "store_lookup": "Looked up stores",
       "sourcing_explain": "Explained why the order went to its store",
-      "sourcing_savings": "Estimated what smarter sourcing could save"
+      "sourcing_savings": "Estimated what smarter sourcing could save",
+      "describe_model": "Read the analytics model",
+      "semantic_query": "Ran the analytics query",
+      "create_view": "Saved a view"
     }
   },
   "refusal": {

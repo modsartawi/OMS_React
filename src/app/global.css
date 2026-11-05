@@ -296,6 +296,22 @@
   --prescription-050: #e3f0f2;
   --prescription-800: #085c68;
 
+  /* The chart palette (spec 766 §F, ticket 767; validated in
+     docs/research/741-recharts-for-native-charts.md with the dataviz validator).
+     Five categorical slots, ONE hue per entity: `@/core/charts/slots` gives
+     channel groups and countries a fixed slot and every other breakdown its
+     saved member -> slot map, so filtering never repaints a member. The raw
+     brand tokens fail as a chart palette and the status colours are never
+     series. `--chart-2` (gold) is a known contrast WARN on a light card
+     (2.8:1): the legend and the table view carry it, and the contrast gate
+     holds it in dark only. Ticks, gridlines and legend text use the ink
+     tokens, never these. */
+  --chart-1: #0f98a3;
+  --chart-2: #c98f00;
+  --chart-3: #3567b8;
+  --chart-4: #d0628f;
+  --chart-5: #8160d6;
+
   /* DMSCO shape (spec 590; 584, 585): 1rem makes an h-7 (28px) control a full
      pill at `rounded-md` (14px), and cards and panels take `rounded-lg` (16px).
      The grid wrapper's 8px is its own theme param (382); dialogs' 10px is
@@ -434,6 +450,13 @@
     --prescription: #40b1b7;
     --prescription-050: #083a3d;
     --prescription-800: #9ed9dc;
+
+    /* The chart palette in dark (766 §F), validated against `--card`. */
+    --chart-1: #169aa3;
+    --chart-2: #b8860e;
+    --chart-3: #5585d4;
+    --chart-4: #cf6496;
+    --chart-5: #8b6fe0;
   }
 }
 
@@ -525,6 +548,13 @@
   --color-prescription: var(--prescription);
   --color-prescription-050: var(--prescription-050);
   --color-prescription-800: var(--prescription-800);
+
+  /* The chart palette (ticket 767): bridged for a legend or picker swatch; a chart reads the token. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   --color-brand-panel: var(--brand-panel);
   --color-brand-panel-foreground: var(--brand-panel-foreground);

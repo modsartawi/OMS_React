@@ -114,8 +114,8 @@ const TYPE_FIELDS = new Set(['check', 'effect'])
 const SAYS_ROLE: Record<string, SaysRole> = { says: 'notMet', label: 'receiptLabel', prompt: 'cashierPrompt' }
 export const saysRoleOf = (field: string): SaysRole => SAYS_ROLE[field] ?? 'message'
 
-/** HQ's text in the reader's language: Arabic when the reader reads Arabic and HQ has it, else English. */
-export const saysIn = (s: Says, lang: string): string => (lang.startsWith('ar') && s.ar ? s.ar : s.en || s.ar)
+/** HQ's text in the reader's language: Arabic when the reader reads Arabic and HQ has it, else English; none is ''. */
+export const saysIn = (s: Says | null | undefined, lang: string): string => (!s ? '' : lang.startsWith('ar') && s.ar ? s.ar : s.en || s.ar)
 
 /** The fields a template names, in braces. */
 export function bracedFields(template: Says): Set<string> {

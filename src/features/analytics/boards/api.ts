@@ -3,18 +3,24 @@
  * in TanStack Query at the Page. Each answer is read through `./wire`, so an absent array is empty.
  *
  * The probe lives in `./access` (the menu imports it eagerly). Later slices add their doors here:
- * the item writes (776, 778, 779). `Items` landed with 770.
+ * the item writes (778, 779); 776's in-place `PUT` and `…/Copy` are here. `Items` landed with 770.
  */
 import { api } from '@/core/api'
 import type {
   AnalyticsBoard,
   AnalyticsItem,
+  AnalyticsItemCopy,
   AnalyticsItemCreate,
+  AnalyticsItemRevert,
+  AnalyticsItemRevision,
+  AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
+  AnalyticsRevision,
 } from '@/core/models/analytics'
+import { readRevisions } from './revisions'
 import { readBoard, readItem, readItems, readMembers, readModel, readResult } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
@@ -22,6 +28,8 @@ export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A board, read as a board: apart from `analyticsItemKey`, whose entries are read as views. */
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
+/** An item's last 20 revisions (779). */
+export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
@@ -56,10 +64,60 @@ export const analyticsApi = {
   },
   /**
    * `POST Analytics/Item` — creates the item as Personal to the caller (ticket 775). Answers the created
-   * item. ⚠ §C names the door, not its body: `AnalyticsItemCreate` is the web's proposal. 776 adds the
-   * in-place `PUT` and `…/Copy` beside it.
+   * item. ⚠ §C names the door, not its body: `AnalyticsItemCreate` is the web's proposal.
    */
   async create(body: AnalyticsItemCreate): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>('Analytics/Item', body))
+  },
+  /**
+   * `PUT Analytics/Item/{id}` with `baseRevision` — save in place (ticket 776). `ANALYTICS-403` when it is not
+   * the caller's to edit, `ANALYTICS-405` when someone saved a newer revision (`./item-save` reads both).
+   * Answers the saved item (read as a view's envelope; a board caller re-reads through `board(id)`).
+   */
+  async update(id: string, body: AnalyticsItemUpdate): Promise<AnalyticsItem> {
+    return readItem(await api.put<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`, body))
+  },
+  /** `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item recording its source. */
+  async copy(id: string, body: AnalyticsItemCopy): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Copy`, body))
+  },
+  /** `GET Analytics/Item/{id}/Revisions` — the item's last 20 revisions, who and when (ticket 779). */
+  async revisions(id: string): Promise<AnalyticsRevision[]> {
+    return readRevisions(await api.get<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Revisions`))
+  },
+  /**
+   * `POST Analytics/Item/{id}/Revert` with `{ revision }` (ticket 779) — writes that revision's snapshot as a NEW
+   * revision, so a revert is itself undone by reverting again. Answers the item at the new revision (read as a
+   * view's envelope; a board caller re-reads through `board(id)`).
+   */
+  async revert(id: string, body: AnalyticsItemRevert): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Revert`, body))
+  },
+  /**
+   * 778: `POST Analytics/Item/{id}/Share` / `…/Unshare` with `{ revision }` — the owner shows their item to every
+   * analytics user, or takes it back (Personal ↔ Shared). Answers the item. ⚠ §C's `{ revision }` is read as
+   * the body of Copy, Share, Unshare and Certify alike: the revision the screen showed.
+   */
+  async share(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Share`, body))
+  },
+  async unshare(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Unshare`, body))
+  },
+  /**
+   * 778: `POST Analytics/Item/{id}/Certify` with `{ revision }`, on the SOURCE item — a curator freezes that
+   * revision as a Certified copy (`certifiedFrom: id`) or, when the copy exists, writes it into the copy as one new
+   * revision. ⚠ Answers the Certified copy. `ANALYTICS-402` without the curator grant.
+   */
+  async certify(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Certify`, body))
+  },
+  /** 778: `POST Analytics/Item/{id}/Uncertify` (no body) on the Certified item. ⚠ Answers the item, no longer Certified. */
+  async uncertify(id: string): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Uncertify`, {}))
+  },
+  /** 778: `DELETE Analytics/Item/{id}`. A board that shows a deleted view keeps a "view removed" panel (404). */
+  async remove(id: string): Promise<void> {
+    await api.del<unknown>(`Analytics/Item/${encodeURIComponent(id)}`)
   },
 }

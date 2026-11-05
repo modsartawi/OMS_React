@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import i18n from '@/core/i18n'
 import type {
   AnalyticsChart,
   AnalyticsFilter,
+  AnalyticsItem,
   AnalyticsLabel,
   AnalyticsLegendPosition,
   AnalyticsModel,
@@ -26,11 +27,12 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
-import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
 import {
   allowedDimensions,
   colourDimension,
   DEFAULT_PERIOD,
+  editItemLink,
   LEGEND_POSITIONS,
   MAX_DIMENSIONS,
   NUMBER_FORMATS,
@@ -42,10 +44,12 @@ import {
   type EditorSeed,
 } from './editor'
 import { editorRefusal, type EditorRefusal } from './editor-refusal'
+import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
 import { labelIn } from './view-model'
 import ViewChart from './ViewChart'
+import { useItemSave, type SaveHow } from './use-item-save'
 import { analyticsRefusal } from './wire'
 
 /**
@@ -56,7 +60,11 @@ import { analyticsRefusal } from './wire'
  * legend, series colours (the chart tokens only, by slot) and a title and subtitle in English and Arabic;
  * an empty title is generated from the model labels (`./title`). The preview asks `Analytics/Query` with
  * the inline definition and draws through the view page's own form dispatch (`ViewChart`). Saving is
- * `POST Analytics/Item`, Personal, then lands on the new view. 776 extends the save path (in place, copy).
+ * `POST Analytics/Item`, Personal, then lands on the new view.
+ *
+ * Editing an existing view (776, `editItemLink(item)` from the view page) saves by its tier
+ * (`./item-actions`) through the shared save path (`./use-item-save`): in place with `baseRevision`, or as
+ * my copy; 403 offers the copy, 405 names who saved last and offers a copy or a reload.
  *
  * Seeded by route state (`newViewLink(seed)` in `./editor`) — 772's drill "Save as view" opens it so.
  * `kind=board` is the board editor's (777); until then it says so.
@@ -64,9 +72,17 @@ import { analyticsRefusal } from './wire'
 export default function AnalyticsEditorPage() {
   const { t } = useTranslation('boards')
   const [params] = useSearchParams()
+  const location = useLocation()
   const board = params.get('kind') === 'board'
+  const editing = !board && !!readEditorSeed(location.state)?.item
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('editor.title')} subtitle={t('editor.subtitle')}>
+    <ScreenGate
+      query={analyticsAccessQuery()}
+      can={canViewAnalytics}
+      ns="boards"
+      title={t(editing ? 'editor.editTitle' : 'editor.title')}
+      subtitle={t('editor.subtitle')}
+    >
       {board ? (
         <div className="mx-auto mt-10 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" data-analytics-state="board-editor-not-yet">
           <LayoutDashboard className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
@@ -83,8 +99,10 @@ function EditorBody() {
   const { t } = useTranslation('boards')
   const location = useLocation()
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
-  // Read once: the seed is where the editor STARTS, not a value it follows.
-  const [seed] = useState(() => readEditorSeed(location.state))
+  // Read once: the seed is where the editor STARTS, not a value it follows. A 405 "reload" re-seeds it
+  // from the item as it is now, and the editor starts over (its `key`).
+  const [seed, setSeed] = useState(() => readEditorSeed(location.state))
+  const [start, setStart] = useState(0)
 
   if (model.error) {
     const refusal = analyticsRefusal(model.error, t('editor.loadFailed'))
@@ -97,17 +115,26 @@ function EditorBody() {
       </div>
     )
   }
-  return <ViewEditor model={model.data} seed={seed} />
+  return (
+    <ViewEditor
+      key={start}
+      model={model.data}
+      seed={seed}
+      onReseed={(item) => {
+        setSeed(readEditorSeed(editItemLink(item).state))
+        setStart((n) => n + 1)
+      }}
+    />
+  )
 }
 
 const EMPTY_LABEL: AnalyticsLabel = { en: '', ar: '' }
 const PREVIEW_DEBOUNCE_MS = 250
 
-function ViewEditor({ model, seed }: { model: AnalyticsModel; seed: EditorSeed | null }) {
+function ViewEditor({ model, seed, onReseed }: { model: AnalyticsModel; seed: EditorSeed | null; onReseed: (item: AnalyticsItem) => void }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   const start = seed?.definition
   const [measures, setMeasures] = useState<string[]>(start?.query.measures ?? [])
@@ -165,24 +192,33 @@ function ViewEditor({ model, seed }: { model: AnalyticsModel; seed: EditorSeed |
   const savedFor = (colourDim && slots[colourDim]) || {}
   const onScreen = settledSlots(savedFor, members)
 
-  const save = useMutation({
-    mutationFn: (def: AnalyticsViewDefinition) => analyticsApi.create({ kind: 'view', title, subtitle, definition: def }),
-    onSuccess: (item) => {
-      void queryClient.invalidateQueries({ queryKey: ANALYTICS_ITEMS_KEY })
-      toast.success(t('editor.saved'))
+  const editing = seed?.item ?? null
+  const save = useItemSave({
+    kind: 'view',
+    editing,
+    onSaved: (item, how) => {
+      toast.success(t(how === 'copy' ? 'save.copied' : how === 'in-place' ? 'save.savedInPlace' : 'editor.saved'))
       navigate(`/analytics/view/${encodeURIComponent(item.id)}`)
     },
   })
-  const onSave = () => {
+  const { actions } = save
+  const onSave = (how: SaveHow) => {
     if (!definition) return
     // The member → slot map is written when the view is saved (766 §F), for the members on screen.
     const withSlots = colourDim && !fixedColours && members.length ? { ...definition, slots: { ...slots, [colourDim]: onScreen } } : definition
-    save.mutate(withSlots)
+    save.save(how, { title, subtitle, definition: withSlots })
+  }
+  const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
+  const reload = () => {
+    save
+      .reload()
+      .then((item) => onReseed(item as AnalyticsItem))
+      .catch(() => toast.error(t('save.reloadFailed')))
   }
 
   const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model) : null)
   const previewRefusal = answer.error ? refusalOf(answer.error) : null
-  const saveRefusal = save.error ? refusalOf(save.error) : null
+  const saveRefusal = save.error && !save.refusal ? refusalOf(save.error) : null
   const invalidOn = (section: 'measure' | 'dimension' | 'chart') => {
     const r = [saveRefusal, previewRefusal].find((x) => x?.kind === 'invalid')
     return r?.kind === 'invalid' && !!r.field && r.field.toLowerCase().includes(section)
@@ -423,7 +459,10 @@ function ViewEditor({ model, seed }: { model: AnalyticsModel; seed: EditorSeed |
           </Field>
         </div>
 
-        {save.error && (
+        <SaveStanding editing={editing} actions={actions} />
+        {save.refusal ? (
+          <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
+        ) : save.error ? (
           <RefusalNote
             refusal={saveRefusal}
             err={save.error}
@@ -434,10 +473,20 @@ function ViewEditor({ model, seed }: { model: AnalyticsModel; seed: EditorSeed |
               save.reset()
             }}
           />
-        )}
-        <div className="flex justify-end">
-          <Button onClick={onSave} disabled={!definition || save.isPending} data-editor-save>
-            {save.isPending ? t('editor.saving') : t('editor.save')}
+        ) : null}
+        <div className="flex flex-wrap justify-end gap-2">
+          {primary === 'in-place' && actions.actions.includes('saveAsCopy') && (
+            <Button variant="secondary" onClick={() => onSave('copy')} disabled={!definition || save.pending} data-editor-save-copy>
+              {save.pending && save.how === 'copy' ? t('editor.saving') : t('save.asCopy')}
+            </Button>
+          )}
+          <Button
+            onClick={() => primary && onSave(primary)}
+            disabled={!definition || !primary || save.pending}
+            data-editor-save
+            data-editor-save-how={primary ?? 'none'}
+          >
+            {save.pending && save.how === primary ? t('editor.saving') : t(primary === 'copy' ? 'save.asMyCopy' : 'editor.save')}
           </Button>
         </div>
       </form>

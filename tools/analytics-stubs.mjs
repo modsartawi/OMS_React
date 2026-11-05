@@ -179,6 +179,16 @@ export const ITEMS = {
   'v-combo': view('v-combo', { definition: { chart: { type: 'combo' }, query: { measures: ['orders', 'on_time_share'], dimensions: ['day'], filters: [] } } }),
 }
 
+// ── 776: items by standing (the session user is `msartawi`). Their Query is answered inline. ─────────────
+export const ITEMS_776 = {
+  'v-theirs-shared': view('v-theirs-shared', { title: label('Orders by channel (Riyadh)', 'الطلبات حسب القناة (الرياض)'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi' }),
+  'v-mine-shared': view('v-mine-shared', { title: label('My orders by channel', 'طلباتي حسب القناة'), tier: 'shared' }),
+  'v-cert-776': view('v-cert-776', { title: label('Orders, certified', 'الطلبات المعتمدة'), tier: 'certified', owner: 'curator1', updatedBy: 'curator1' }),
+  'v-theirs-personal': view('v-theirs-personal', { tier: 'personal', owner: 'aalharbi' }),
+  'v-copy-old': view('v-copy-old', { title: label('My copy of orders', 'نسختي من الطلبات'), copiedFrom: 'v-theirs-shared', sourceChangedSinceCopy: true }),
+}
+Object.assign(ITEMS, ITEMS_776)
+
 // ── 771: a board of four views, a section header and a text panel ────────────────────────────────────
 // Laid out out of DOM order on purpose (the page reads them row by row, then column by column). The area
 // panel opts out of the store filter, so a store change leaves it alone; the donut opts out of them all.
@@ -199,6 +209,30 @@ export const BOARD_771 = {
   },
 }
 ITEMS['b-ops'] = BOARD_771
+// ── 779: an item's history. My Shared board at revision 3, with each revision's full snapshot (§C keeps them
+// server side; the Revisions door answers who and when only). Revert writes the snapshot as a NEW revision. ──
+const board779 = (panels) => ({
+  panels: [
+    { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 } },
+    { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 } },
+    { id: 'p-line', kind: 'view', viewId: 'v-line-measures', layout: { x: 0, y: 3, w: 12, h: 3 } },
+  ].slice(0, panels),
+})
+export const REVISIONS_779 = {
+  'b-779': [
+    { revision: 1, updatedAt: '2026-11-01T08:15:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance (draft)', 'الأسبوع في لمحة (مسودة)'), definition: board779(1) } },
+    { revision: 2, updatedAt: '2026-11-03T11:30:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(2) } },
+    { revision: 3, updatedAt: '2026-11-05T09:20:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(3) } },
+  ],
+}
+export const BOARD_779 = {
+  ...view('b-779', { title: label('Week at a glance', 'الأسبوع في لمحة'), tier: 'shared', updatedAt: '2026-11-05T09:20:00' }),
+  kind: 'board',
+  definition: board779(3),
+}
+ITEMS['b-779'] = BOARD_779
+// The certified board 771 drew is curator1's: a non-curator may not edit it, so it shows no history.
+
 /** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */
 export const DELAYS_771 = { 'v-kpi': 300, 'v-bar': 900, 'v-line-measures': 1500, 'v-area': 2100 }
 
@@ -230,6 +264,19 @@ export const LIST = [
   view('v-cert', { title: label('Orders, certified', 'الطلبات المعتمدة'), tier: 'certified', owner: 'curator1', updatedAt: '2026-11-02T07:15:00' }),
   board('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedAt: '2026-11-03T16:40:00' }),
 ]
+
+// ── 778: a Shared board of someone else's (the home's `b-shared`), to certify; two views of the base ──────
+export const BOARD_778 = {
+  ...view('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi', updatedAt: '2026-11-03T16:40:00', revision: 7 }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 } },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 } },
+    ],
+  },
+}
+ITEMS['b-shared'] = BOARD_778
 
 // ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
 export const COPILOT_ANSWER = {
@@ -427,6 +474,28 @@ export const QUERY_773 = {
 /** Answers taken in order, the last one standing: the slow panel times out once, then answers. */
 export const SEQUENCE_773 = { 'v-773-slow': [refusal('ANALYTICS-408', 'The query passed 30 s.', 504), QUERY_773['v-773-slow']] }
 
+// ── 774: drill to detail — a store panel of orders (offers "See deliveries") beside one with till value ─
+ITEMS['v-store-orders'] = view('v-store-orders', {
+  definition: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [] } },
+})
+QUERY['v-store-orders'] = answerShaped([['store', 'dimension'], ['orders', 'measure', 'additive', 'count']], NINE_STORES.map(([store, orders]) => ({ store, orders })))
+export const BOARD_774 = {
+  ...view('b-detail', { title: label('Stores, last 30 days', 'الفروع، آخر 30 يومًا'), tier: 'shared' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-stores', kind: 'view', viewId: 'v-store-orders', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-till', kind: 'view', viewId: 'v-table', layout: { x: 6, y: 0, w: 6, h: 3 }, optOut: [] },
+    ],
+  },
+}
+ITEMS['b-detail'] = BOARD_774
+/** Two delivery documents of store P001, as `SdDocumentWeb/DeliveryDocumentList` answers. */
+export const DELIVERIES_774 = [
+  { deliveryNo: '8000001', documentNo: '5000001', storeCode: 'P001', orderNo: 'O-1', documentDate: '2026-11-04T09:00:00', customerName: 'Test One', cityName: 'Riyadh', netTotal: 120, deliveryStatus: '' },
+  { deliveryNo: '8000002', documentNo: '5000002', storeCode: 'P001', orderNo: 'O-2', documentDate: '2026-11-03T09:00:00', customerName: 'Test Two', cityName: 'Riyadh', netTotal: 80, deliveryStatus: '' },
+]
+
 // ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
 const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
 /** Periods longer than a percentile's 92-day window. */
@@ -479,13 +548,33 @@ export function inlineAnswer(definition, model = MODEL) {
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
  *             (id `v-new`), which `Analytics/Item/v-new` and its Query then serve.
- * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
+ *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
+ *             `baseRevision + 1` with the body's words and definition, served from then on.
+ *   share / unshare / certify / uncertify / remove: the 778 doors' answers — a `refusal(...)` fulfil object, or
+ *             omitted: Share/Unshare flip Personal ↔ Shared; Certify freezes `<id>-cert` (Certified, `certifiedFrom: id`)
+ *             or bumps its revision when it exists; Uncertify makes it Shared; DELETE removes it (Item → 404). Each
+ *             write is served from then on, and `Analytics/Items` lists it (a new item added, a deleted one gone).
+ *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
+ *             item `v-copy` of msartawi's recording `copiedFrom: id`, served from then on.
+ *   revisions: id → the `…/Revisions` answer (a list or a `refusal(...)`); default `REVISIONS_779`, else the item's
+ *             own revision alone. Each entry's `snapshot` (title, definition) is what a revert restores.
+ *   revert:   the `POST …/Revert` answer (779) — a `refusal(...)` fulfil object, or omitted: the snapshot written as
+ *             revision max + 1 (`revertedFrom` recorded), served from then on, with the history grown.
+ * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
+const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
+
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove } = opts
+  const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
+  // 778: the tier writes, which (unlike 775/776's) the home's list follows.
+  const listedNow = new Map()
+  const removed = new Set()
   const calls = []
   const bodies = {}
+  /** 774: GET query strings by path (the Deliveries list's search). */
+  const gets = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
   await page.route('**/api/**', async (route) => {
@@ -494,6 +583,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (req.method() === 'POST') (bodies[p] ??= []).push(req.postDataJSON())
+    if (req.method() === 'PUT') (bodies[`PUT ${p}`] ??= []).push(req.postDataJSON())
 
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'Analytics/Access') {
@@ -513,17 +603,93 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const text = (m) => [m.key, typeof m.label === 'string' ? m.label : `${m.label.en} ${m.label.ar}`].join(' ').toLowerCase()
       return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
     }
-    if (p === 'Analytics/Items') return route.fulfill(isFulfil(list) ? list : envelope(list))
+    if (p === 'Analytics/Items') {
+      if (isFulfil(list)) return route.fulfill(list)
+      const now = list.map((it) => listedNow.get(it.id) ?? it).concat([...listedNow.values()].filter((it) => !list.some((x) => x.id === it.id)))
+      return route.fulfill(envelope(now.filter((it) => !removed.has(it.id))))
+    }
+    // 778: Share / Unshare / Certify / Uncertify, and DELETE.
+    const tierDoor = /^Analytics\/Item\/([^/]+)\/(Share|Unshare|Certify|Uncertify)$/.exec(p)
+    if ((tierDoor && req.method() === 'POST') || (p.startsWith('Analytics/Item/') && req.method() === 'DELETE')) {
+      const [id, door] = tierDoor ? [decodeURIComponent(tierDoor[1]), tierDoor[2]] : [decodeURIComponent(p.slice('Analytics/Item/'.length)), 'Delete']
+      const override = { Share: share, Unshare: unshare, Certify: certify, Uncertify: uncertify, Delete: remove }[door]
+      if (override) return route.fulfill(override)
+      const before = made[id] ?? items[id]
+      if (!before || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const keep = (it) => {
+        made[it.id] = it
+        listedNow.set(it.id, it)
+        return route.fulfill(envelope(it))
+      }
+      const at = { updatedAt: '2026-11-05T10:08:00', updatedBy: 'msartawi' }
+      if (door === 'Share') return keep({ ...before, tier: 'shared', ...at })
+      if (door === 'Unshare') return keep({ ...before, tier: 'personal', ...at })
+      if (door === 'Uncertify') return keep({ ...before, tier: 'shared', ...at })
+      if (door === 'Delete') {
+        removed.add(id)
+        return route.fulfill(envelope(null))
+      }
+      const copyId = `${id}-cert`
+      const prior = made[copyId]
+      return keep({ ...before, id: copyId, tier: 'certified', certifiedFrom: id, copiedFrom: null, revision: prior ? prior.revision + 1 : 1, ...at })
+    }
     if (p === 'Analytics/Item' && req.method() === 'POST') {
       if (create) return route.fulfill(create)
       const body = req.postDataJSON() ?? {}
       made['v-new'] = view('v-new', { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' })
       return route.fulfill(envelope(made['v-new']))
     }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Copy') && req.method() === 'POST') {
+      if (copy) return route.fulfill(copy)
+      const from = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Copy'.length))
+      const body = req.postDataJSON() ?? {}
+      const source = made[from] ?? items[from] ?? {}
+      made['v-copy'] = view('v-copy', {
+        title: body.title ?? source.title,
+        subtitle: body.subtitle ?? source.subtitle,
+        definition: body.definition ?? source.definition,
+        copiedFrom: from,
+        revision: 1,
+        updatedAt: '2026-11-05T10:06:00',
+      })
+      return route.fulfill(envelope(made['v-copy']))
+    }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revisions')) {
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revisions'.length))
+      const list = history[id]
+      if (isFulfil(list)) return route.fulfill(list)
+      const it = made[id] ?? items[id]
+      if (!list && !it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const rows = list ?? [{ revision: it.revision, updatedAt: it.updatedAt, updatedBy: it.updatedBy }]
+      return route.fulfill(envelope(rows.map(({ snapshot, ...r }) => r)))
+    }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revert') && req.method() === 'POST') {
+      if (revert) return route.fulfill(revert)
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revert'.length))
+      const body = req.postDataJSON() ?? {}
+      const list = history[id]
+      const from = Array.isArray(list) ? list.find((r) => r.revision === body.revision) : null
+      const before = made[id] ?? items[id]
+      if (!from || !before) return route.fulfill(refusal('ANALYTICS-404', 'That revision is not found.', 404))
+      const revision = Math.max(...list.map((r) => r.revision)) + 1
+      const updatedAt = `2026-11-05T10:${String(10 + revision).padStart(2, '0')}:00`
+      made[id] = { ...before, ...from.snapshot, revision, updatedAt, updatedBy: 'msartawi' }
+      list.push({ revision, updatedAt, updatedBy: 'msartawi', revertedFrom: from.revision, snapshot: from.snapshot })
+      return route.fulfill(envelope(made[id]))
+    }
+    if (p.startsWith('Analytics/Item/') && req.method() === 'PUT') {
+      if (update) return route.fulfill(update)
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
+      const body = req.postDataJSON() ?? {}
+      const before = made[id] ?? items[id]
+      if (!before) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      made[id] = { ...before, title: body.title, subtitle: body.subtitle, definition: body.definition, revision: (body.baseRevision ?? before.revision) + 1, updatedAt: '2026-11-05T10:07:00', updatedBy: 'msartawi' }
+      return route.fulfill(envelope(made[id]))
+    }
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
       const it = made[id] ?? items[id]
-      if (!it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      if (!it || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
     }
     if (p === 'Analytics/Query') {
@@ -538,14 +704,21 @@ export async function installAnalyticsStubs(page, opts = {}) {
         return route.fulfill(isFulfil(inline) ? inline : envelope(inline))
       }
       if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
+      if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
       const seq = querySequence[id]
       const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[id]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
+    // 774: the Deliveries list, granted only when a scenario hands it rows.
+    if (deliveries && p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (deliveries && p === 'SdDocumentWeb/DeliveryDocumentList') {
+      ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
+      return route.fulfill(envelope(deliveries))
+    }
     // Every other screen's probe denies, so the nav holds only what a scenario grants.
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false }))
     return route.fulfill(envelope([]))
   })
-  return { calls, bodies }
+  return { calls, bodies, gets }
 }

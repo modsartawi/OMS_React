@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
+import { deliveriesDrill } from './detail-drill'
 import { crumbsOf, drillTargets, type MarkPoint } from './drill'
 import { newViewLink } from './editor'
 import type { DrillStep } from './effective-query'
@@ -18,7 +19,8 @@ import { labelIn } from './view-model'
  *   cross-filter point, drill by re-asks THIS panel in place, from the point into another allowed dimension.
  *   Once drilled, "Save as view" opens 775's editor seeded with the drilled definition; nothing is saved before.
  *
- * The menu is a list so later tickets add to it: 774 appends drill to detail ("See deliveries") in `drillActions`.
+ * The menu is a list so later tickets add to it. 774's drill to detail: a store point offers "See deliveries",
+ * which routes to the Deliveries list filtered to that store and the panel's period (`detail-drill.ts`).
  */
 
 export interface DrillAction {
@@ -48,6 +50,7 @@ export function drillActions({
   lang,
   onDrill,
   onSaveAsView,
+  onDetail,
   t,
 }: {
   drilled: AnalyticsViewDefinition
@@ -58,6 +61,8 @@ export function drillActions({
   onDrill: (steps: DrillStep[]) => void
   /** Opens the view editor seeded with `drilled` (775): the only way a drill is kept. */
   onSaveAsView: (drilled: AnalyticsViewDefinition) => void
+  /** The detail screen's route for `point` (774), or `null` when this point offers no drill to detail. */
+  onDetail?: { href: string | null; open: (href: string) => void }
   t: TFunction<'boards'>
 }): DrillAction[] {
   const by: DrillAction[] = point
@@ -68,9 +73,11 @@ export function drillActions({
         run: () => onDrill([...steps, { dimension: point.dimension, member: point.member, into }]),
       }))
     : []
-  // HOOK(774): drill to detail ("See deliveries" for a store or city, Dispatch for a callout) goes here.
+  // 774: drill to detail, by route. 783 adds Dispatch for a callout beside it.
+  const href = point ? onDetail?.href : null
+  const detail: DrillAction[] = href && onDetail ? [{ key: 'detail:deliveries', label: t('board.drill.seeDeliveries'), run: () => onDetail.open(href) }] : []
   const save: DrillAction[] = steps.length > 0 ? [{ key: 'saveAsView', label: t('board.drill.saveAsView'), run: () => onSaveAsView(drilled) }] : []
-  return [...by, ...save]
+  return [...by, ...detail, ...save]
 }
 
 export default function PanelDrill({
@@ -80,6 +87,7 @@ export default function PanelDrill({
   point,
   model,
   lang,
+  period,
   onDrill,
 }: {
   /** The panel's saved view, and the same view drilled by `steps`. */
@@ -90,6 +98,8 @@ export default function PanelDrill({
   point: MarkPoint | null
   model: AnalyticsModel
   lang: string
+  /** The period the panel is asked over (its effective query's), for drill to detail (774). */
+  period?: string | null
   onDrill: (steps: DrillStep[]) => void
 }) {
   const { t } = useTranslation('boards')
@@ -100,7 +110,8 @@ export default function PanelDrill({
     const link = newViewLink({ definition })
     navigate(link.to, { state: link.state })
   }
-  const actions = drillActions({ drilled, steps, point, model, lang, onDrill, onSaveAsView, t })
+  const onDetail = { href: point ? deliveriesDrill(point, drilled, model, period, new Date()) : null, open: (to: string) => navigate(to) }
+  const actions = drillActions({ drilled, steps, point, model, lang, onDrill, onSaveAsView, onDetail, t })
 
   return (
     <div className="flex flex-col gap-1.5 text-xs" data-board-drill>

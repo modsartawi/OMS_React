@@ -15,8 +15,11 @@ import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
+import ItemHistory from './ItemHistory'
+import ItemTierActions from './ItemTierActions'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
+import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { labelIn } from './view-model'
 
@@ -122,13 +125,22 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
       data-analytics-board={board.id}
       data-analytics-tv={tv.on ? 'on' : 'off'}
     >
-      <div className="flex flex-wrap items-end gap-3" data-analytics-board-header>
+      <div className="flex flex-wrap items-center gap-3" data-analytics-board-header>
         {title && (
-          <h2 className="self-center text-base font-semibold tracking-tight" data-analytics-board-title>
+          <h2 className="text-base font-semibold tracking-tight" data-analytics-board-title>
             <bdi>{title}</bdi>
           </h2>
         )}
-        {!tv.on && <AskBox />}
+        {/* 778: the tier badge on the board too, and the tier's actions. */}
+        <TierBadge tier={board.tier} />
+        {/* 780: a wall screen shows the board, not the ask box, the history or the tier's actions. */}
+        {!tv.on && (
+          <>
+            <AskBox />
+            <ItemHistory item={board} kind="board" />
+            <ItemTierActions item={board} />
+          </>
+        )}
         <div className="ms-auto flex items-end gap-2">
           <RefreshPicker value={refresh} onChange={setRefresh} />
           <TvButton on={tv.on} onEnter={tv.enter} onExit={tv.exit} />

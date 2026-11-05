@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -71,6 +71,7 @@ import {
   type ViewSnapshot,
 } from './saved-views'
 import { deliveryRowKey, useDeliverySearch } from './search-store'
+import { URL_ENTRY_PARAMS, urlEntryQuery } from './url-entry'
 import StatusBar from './StatusBar'
 import { useSavedViews } from './view-store'
 import ViewNameDialog, { type ViewNameMode } from './ViewNameDialog'
@@ -461,7 +462,31 @@ export default function DeliveriesPage() {
   // The starred default applies and runs on open: once per mount, and only when there is no
   // in-memory search (L5). It waits for the grant and for this user's views. `applyView` is this
   // render's; the guard runs the body once.
-  const defaultTried = useRef(false)
+  // The URL entry (ticket 774): `?store=&from=&to=` from another screen's link, read ONCE on entry. It
+  // takes the place of the in-memory search and of the starred default, runs as soon as the grant is
+  // in, and leaves the URL clean, so Back from Delivery details returns to the search it ran.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlEntry = useRef(urlEntryQuery(searchParams))
+  const entryRan = useRef(false)
+  useEffect(() => {
+    if (entryRan.current || !urlEntry.current || !canOpenList) return
+    entryRan.current = true
+    const store = useDeliverySearch.getState()
+    store.setActiveView(null)
+    store.setLens('all')
+    store.setDraft(urlEntry.current)
+    runSearch({ supersede: true })
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params)
+        for (const p of URL_ENTRY_PARAMS) next.delete(p)
+        return next
+      },
+      { replace: true },
+    )
+  }, [canOpenList])
+
+  const defaultTried = useRef(urlEntry.current !== null)
   useEffect(() => {
     if (defaultTried.current || !canOpenList || !userId || viewsLoadedFor !== userId) return
     defaultTried.current = true

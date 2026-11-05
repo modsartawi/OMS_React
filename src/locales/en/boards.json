@@ -101,7 +101,8 @@
       "crumb": "<member>{{member}}</member> by <dimension>{{dimension}}</dimension>",
       "menu": "Drill into {{member}}",
       "by": "Drill <member>{{member}}</member> by",
-      "saveAsView": "Save as view"
+      "saveAsView": "Save as view",
+      "seeDeliveries": "See deliveries"
     }
   },
   "view": {
@@ -121,7 +122,8 @@
     "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",
     "donutRefused": "A donut takes one additive measure. {{measure}} is a rate or a percentile, so it is not drawn as a donut.",
     "topN_one": "Showing the top {{n}} row.",
-    "topN_other": "Showing the top {{n}} rows."
+    "topN_other": "Showing the top {{n}} rows.",
+    "edit": "Edit"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -287,6 +289,92 @@
       "this-month": "This month",
       "last-month": "Last month",
       "year-to-date": "Year to date"
+    },
+    "editTitle": "Edit analytics view"
+  },
+  "save": {
+    "asCopy": "Save as copy",
+    "asMyCopy": "Save as my copy",
+    "copied": "Saved as your Personal copy.",
+    "notYours": "This isn't yours to change in place. Save it as your own Personal copy; the original stays as it is.",
+    "conflict": {
+      "byAt": "<by>{{by}}</by> saved a newer revision <at>{{at}}</at>.",
+      "by": "<by>{{by}}</by> saved a newer revision.",
+      "unknown": "Someone saved a newer revision since you opened this.",
+      "offer": "Save yours as your own copy, or reload theirs and start again."
+    },
+    "reload": "Reload",
+    "reloadFailed": "The latest revision could not be loaded.",
+    "sourceMovedOn": "The original changed since you copied it.",
+    "standing": {
+      "readOnly": "You can't save changes to this one.",
+      "copy": {
+        "personal": "This is someone else's Personal item: saving makes your own Personal copy.",
+        "shared": "This Shared item is its owner's to change: saving makes your own Personal copy and never changes the original.",
+        "certified": "Only curators change a Certified item: saving makes your own Personal copy and never changes the original."
+      }
+    },
+    "savedInPlace": "Saved. This is now the latest revision."
+  },
+  "history": {
+    "open": "History",
+    "eyebrow": "History",
+    "hint": "The last 20 revisions. Reverting writes a new revision, so it can be undone.",
+    "untitled": {
+      "view": "This view",
+      "board": "This board"
+    },
+    "close": "Close the history",
+    "loading": "Loading the history…",
+    "loadFailed": "The history could not be loaded",
+    "revision": "Revision <n>{{revision}}</n>",
+    "viewing": "Viewing",
+    "byAt": "Saved by <by>{{by}}</by>, <at>{{at}}</at>",
+    "by": "Saved by <by>{{by}}</by>",
+    "revertedFrom": "Reverted to revision <n>{{revision}}</n>",
+    "revert": "Revert to this",
+    "reverted": "Reverted to revision {{revision}}.",
+    "revertFailed": "The revert could not be saved",
+    "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
+    "undo": "Undo"
+  },
+  "tierActions": {
+    "label": "Sharing and certification",
+    "share": "Share",
+    "unshare": "Unshare",
+    "certify": "Certify",
+    "certifyRevision": "Certify this revision",
+    "uncertify": "Un-certify",
+    "delete": "Delete",
+    "openCertifiedCopy": "Open the certified copy",
+    "failed": "That could not be done. Try again in a moment.",
+    "done": {
+      "share": "Shared with every analytics user.",
+      "unshare": "Personal again: only you see it.",
+      "certify": "Certified. A frozen certified copy now leads the home; this one stays its author's.",
+      "certifyRevision": "This revision is now the certified copy's newest revision.",
+      "uncertify": "No longer certified.",
+      "delete": "Deleted."
+    },
+    "refused": {
+      "needsCurator": "This needs the curator grant, which you no longer hold. The curator's actions are hidden now."
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "uncertify": {
+        "title": "Un-certify?",
+        "body": {
+          "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
+          "board": "This board stops being Certified, and leaves the Certified group on the home."
+        }
+      },
+      "delete": {
+        "title": "Delete?",
+        "body": {
+          "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
+          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
+        }
+      }
     }
   }
 }

@@ -2,23 +2,22 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { BadgeCheck, ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
+import { ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
-import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsTier } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import StatusBadge from '@/core/ui/StatusBadge'
-import type { Severity } from '@/core/ui/severity'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import AskBox from './AskBox'
 import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi } from './api'
 import { newViewLink } from './editor'
 import { homeGroups } from './home'
+import TierBadge from './TierBadge'
 import { labelIn } from './view-model'
 import { analyticsRefusal } from './wire'
 
@@ -42,8 +41,6 @@ export default function AnalyticsHomePage() {
     </ScreenGate>
   )
 }
-
-const TIER_SEVERITY: Record<AnalyticsTier, Severity> = { certified: 'ok', shared: 'go', personal: 'mute' }
 
 const itemHref = (item: Pick<AnalyticsItem, 'id' | 'kind'>) =>
   `/analytics/${item.kind === 'board' ? 'board' : 'view'}/${encodeURIComponent(item.id)}`
@@ -154,10 +151,7 @@ function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
           <bdi>{title || t('home.untitled')}</bdi>
         </span>
         <span data-analytics-item-tier={item.tier}>
-          <StatusBadge sev={TIER_SEVERITY[item.tier] ?? 'mute'}>
-            {item.tier === 'certified' && <BadgeCheck className="me-1 size-3" aria-hidden />}
-            {t(`home.tier.${item.tier}`)}
-          </StatusBadge>
+          <TierBadge tier={item.tier} />
         </span>
         <span className="text-xs text-muted-foreground" data-analytics-item-owner>
           <Trans t={t} i18nKey="home.owner" values={{ owner: item.owner }} components={{ owner: <bdi /> }} />

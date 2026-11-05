@@ -5,6 +5,9 @@ import type { AnalyticsBoardDefinition, AnalyticsBoardPanel, BoardFilters } from
  * and the filter strip's "Updating… n of N panels" wave.
  */
 
+/** The auto-refresh intervals a board may save as its default, in seconds (766 §F; 0 is Off). */
+export const BOARD_REFRESH_SECONDS = [0, 30, 60, 300, 900] as const
+
 /** What a board opens on when neither it nor the URL names a filter. */
 export const BASE_FILTERS: BoardFilters = {
   period: { kind: 'relative', token: 'last-30-days' },

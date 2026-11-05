@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useReducer } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
+import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/core/i18n'
 import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
@@ -14,11 +16,14 @@ import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
+import { itemActions } from './item-actions'
+import { editingItemOf } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
 import TierBadge from './TierBadge'
+import { useItemActor } from './use-item-save'
 import { labelIn } from './view-model'
 
 /**
@@ -105,6 +110,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
   const title = labelIn(board.title, lang)
+  // 777: anyone who may save it (in place or as a copy) may open the board editor.
+  const canEdit = itemActions(editingItemOf({ ...board, kind: 'board' }), useItemActor()).save !== 'read-only'
   return (
     <div className="flex flex-col gap-3" data-analytics-board={board.id}>
       <div className="flex flex-wrap items-center gap-3" data-analytics-board-header>
@@ -116,6 +123,12 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         {/* 778: the tier badge on the board too, and the tier's actions. */}
         <TierBadge tier={board.tier} />
         <AskBox />
+        {canEdit && (
+          <Link to={`/analytics/board/${encodeURIComponent(board.id)}/edit`} className={buttonClass('secondary')} data-analytics-board-edit>
+            <Pencil className="size-4" aria-hidden />
+            {t('boardEditor.edit')}
+          </Link>
+        )}
         <ItemHistory item={board} kind="board" />
         <ItemTierActions item={board} />
       </div>

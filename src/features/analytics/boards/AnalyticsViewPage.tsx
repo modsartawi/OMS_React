@@ -15,12 +15,14 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey 
 import { editItemLink } from './editor'
 import { itemActions } from './item-actions'
 import ItemHistory from './ItemHistory'
+import ItemTierActions from './ItemTierActions'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import { useFullscreen } from './panel-hooks'
 import { panelPermalink } from './panel-state'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
+import TierBadge from './TierBadge'
 import { useItemActor } from './use-item-save'
 import { labelIn } from './view-model'
 import { viewTitleOf } from './ViewChart'
@@ -97,9 +99,13 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
-            <bdi>{title}</bdi>
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
+              <bdi>{title}</bdi>
+            </h2>
+            {/* 778: the tier badge, the Certified one with its check. */}
+            <TierBadge tier={item.tier} />
+          </div>
           {subtitle && (
             <p className="text-sm text-muted-foreground">
               <bdi>{subtitle}</bdi>
@@ -114,6 +120,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
           </Link>
         )}
         <ItemHistory item={item} kind="view" />
+        {/* 778: share, certify, un-certify and delete, as the tier allows. */}
+        <ItemTierActions item={item} />
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
           <PanelActions
             viewId={item.id}

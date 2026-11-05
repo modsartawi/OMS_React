@@ -15,8 +15,10 @@ import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
 import ItemHistory from './ItemHistory'
+import ItemTierActions from './ItemTierActions'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
+import TierBadge from './TierBadge'
 import { labelIn } from './view-model'
 
 /**
@@ -111,8 +113,11 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
             <bdi>{title}</bdi>
           </h2>
         )}
+        {/* 778: the tier badge on the board too, and the tier's actions. */}
+        <TierBadge tier={board.tier} />
         <AskBox />
         <ItemHistory item={board} kind="board" />
+        <ItemTierActions item={board} />
       </div>
       <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}

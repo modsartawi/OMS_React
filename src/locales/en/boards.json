@@ -323,5 +323,44 @@
     "revertFailed": "The revert could not be saved",
     "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
     "undo": "Undo"
+  },
+  "tierActions": {
+    "label": "Sharing and certification",
+    "share": "Share",
+    "unshare": "Unshare",
+    "certify": "Certify",
+    "certifyRevision": "Certify this revision",
+    "uncertify": "Un-certify",
+    "delete": "Delete",
+    "openCertifiedCopy": "Open the certified copy",
+    "failed": "That could not be done. Try again in a moment.",
+    "done": {
+      "share": "Shared with every analytics user.",
+      "unshare": "Personal again: only you see it.",
+      "certify": "Certified. A frozen certified copy now leads the home; this one stays its author's.",
+      "certifyRevision": "This revision is now the certified copy's newest revision.",
+      "uncertify": "No longer certified.",
+      "delete": "Deleted."
+    },
+    "refused": {
+      "needsCurator": "This needs the curator grant, which you no longer hold. The curator's actions are hidden now."
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "uncertify": {
+        "title": "Un-certify?",
+        "body": {
+          "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
+          "board": "This board stops being Certified, and leaves the Certified group on the home."
+        }
+      },
+      "delete": {
+        "title": "Delete?",
+        "body": {
+          "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
+          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
+        }
+      }
+    }
   }
 }

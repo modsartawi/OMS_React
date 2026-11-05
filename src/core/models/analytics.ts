@@ -183,6 +183,11 @@ export interface AnalyticsItemCopy {
   definition?: AnalyticsItemDefinition
 }
 
+/** 778: the body of `…/Share`, `…/Unshare` and `…/Certify` — the revision the screen showed (⚠ §C `{ revision }`). */
+export interface AnalyticsItemRevision {
+  revision: number
+}
+
 /** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */
 export type AnalyticsQueryInput = (
   | { viewId: string; revision?: number }

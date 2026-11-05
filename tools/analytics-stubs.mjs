@@ -265,6 +265,19 @@ export const LIST = [
   board('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedAt: '2026-11-03T16:40:00' }),
 ]
 
+// ── 778: a Shared board of someone else's (the home's `b-shared`), to certify; two views of the base ──────
+export const BOARD_778 = {
+  ...view('b-shared', { title: label('Riyadh stores', 'فروع الرياض'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi', updatedAt: '2026-11-03T16:40:00', revision: 7 }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 } },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 } },
+    ],
+  },
+}
+ITEMS['b-shared'] = BOARD_778
+
 // ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
 export const COPILOT_ANSWER = {
   conversationId: 'c-analytics-1',
@@ -537,6 +550,10 @@ export function inlineAnswer(definition, model = MODEL) {
  *             (id `v-new`), which `Analytics/Item/v-new` and its Query then serve.
  *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
  *             `baseRevision + 1` with the body's words and definition, served from then on.
+ *   share / unshare / certify / uncertify / remove: the 778 doors' answers — a `refusal(...)` fulfil object, or
+ *             omitted: Share/Unshare flip Personal ↔ Shared; Certify freezes `<id>-cert` (Certified, `certifiedFrom: id`)
+ *             or bumps its revision when it exists; Uncertify makes it Shared; DELETE removes it (Item → 404). Each
+ *             write is served from then on, and `Analytics/Items` lists it (a new item added, a deleted one gone).
  *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
  *             item `v-copy` of msartawi's recording `copiedFrom: id`, served from then on.
  *   revisions: id → the `…/Revisions` answer (a list or a `refusal(...)`); default `REVISIONS_779`, else the item's
@@ -548,9 +565,12 @@ export function inlineAnswer(definition, model = MODEL) {
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
+  // 778: the tier writes, which (unlike 775/776's) the home's list follows.
+  const listedNow = new Map()
+  const removed = new Set()
   const calls = []
   const bodies = {}
   /** 774: GET query strings by path (the Deliveries list's search). */
@@ -583,7 +603,36 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const text = (m) => [m.key, typeof m.label === 'string' ? m.label : `${m.label.en} ${m.label.ar}`].join(' ').toLowerCase()
       return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
     }
-    if (p === 'Analytics/Items') return route.fulfill(isFulfil(list) ? list : envelope(list))
+    if (p === 'Analytics/Items') {
+      if (isFulfil(list)) return route.fulfill(list)
+      const now = list.map((it) => listedNow.get(it.id) ?? it).concat([...listedNow.values()].filter((it) => !list.some((x) => x.id === it.id)))
+      return route.fulfill(envelope(now.filter((it) => !removed.has(it.id))))
+    }
+    // 778: Share / Unshare / Certify / Uncertify, and DELETE.
+    const tierDoor = /^Analytics\/Item\/([^/]+)\/(Share|Unshare|Certify|Uncertify)$/.exec(p)
+    if ((tierDoor && req.method() === 'POST') || (p.startsWith('Analytics/Item/') && req.method() === 'DELETE')) {
+      const [id, door] = tierDoor ? [decodeURIComponent(tierDoor[1]), tierDoor[2]] : [decodeURIComponent(p.slice('Analytics/Item/'.length)), 'Delete']
+      const override = { Share: share, Unshare: unshare, Certify: certify, Uncertify: uncertify, Delete: remove }[door]
+      if (override) return route.fulfill(override)
+      const before = made[id] ?? items[id]
+      if (!before || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const keep = (it) => {
+        made[it.id] = it
+        listedNow.set(it.id, it)
+        return route.fulfill(envelope(it))
+      }
+      const at = { updatedAt: '2026-11-05T10:08:00', updatedBy: 'msartawi' }
+      if (door === 'Share') return keep({ ...before, tier: 'shared', ...at })
+      if (door === 'Unshare') return keep({ ...before, tier: 'personal', ...at })
+      if (door === 'Uncertify') return keep({ ...before, tier: 'shared', ...at })
+      if (door === 'Delete') {
+        removed.add(id)
+        return route.fulfill(envelope(null))
+      }
+      const copyId = `${id}-cert`
+      const prior = made[copyId]
+      return keep({ ...before, id: copyId, tier: 'certified', certifiedFrom: id, copiedFrom: null, revision: prior ? prior.revision + 1 : 1, ...at })
+    }
     if (p === 'Analytics/Item' && req.method() === 'POST') {
       if (create) return route.fulfill(create)
       const body = req.postDataJSON() ?? {}
@@ -640,7 +689,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
       const it = made[id] ?? items[id]
-      if (!it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      if (!it || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
     }
     if (p === 'Analytics/Query') {

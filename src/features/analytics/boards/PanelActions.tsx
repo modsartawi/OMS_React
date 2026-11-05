@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react'
+import { memo, type ReactNode, type RefObject } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileSpreadsheet, FileText, ImageDown, Link2, Maximize2, Minimize2, RefreshCw, Table2, TriangleAlert, ChartColumn } from 'lucide-react'
@@ -22,6 +22,9 @@ import { panelCsv, panelFileBase, panelSheet, panelTable } from './panel-table'
  * PNG and the permalink. Each download writes the panel's rows (`./panel-table`) with isolates stripped.
  *
  * 780's TV mode reuses the full screen ({@link useFullscreen}) and the refresh (`onRefresh`).
+ *
+ * Memoised and deliberately blind to `isFetching` (the chart frame shows the busy state): with stable
+ * props it does not re-render when a board's re-ask turns every panel busy, which 771 keeps under 0.5 s.
  */
 export interface PanelActionsProps {
   viewId: string
@@ -31,7 +34,6 @@ export interface PanelActionsProps {
   result: AnalyticsQueryResult | undefined
   /** When the client last received an answer (`dataUpdatedAt`): "fetched N ago" when the server sends no `fetchedAt`. */
   updatedAt: number
-  busy: boolean
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
   lang: string
@@ -46,7 +48,7 @@ export interface PanelActionsProps {
 
 const stamped = (base: string, ext: string) => xlsxFileName(base).replace(/\.xlsx$/, `.${ext}`)
 
-export default function PanelActions(p: PanelActionsProps) {
+export default memo(function PanelActions(p: PanelActionsProps) {
   const { t } = useTranslation('boards')
   const now = useNow()
   const { result, lang } = p
@@ -102,8 +104,8 @@ export default function PanelActions(p: PanelActionsProps) {
         </span>
       )}
       <div className="flex items-center" role="toolbar" aria-label={t('panel.actions')} data-panel-actions>
-        <Action label={t('panel.refresh')} action="refresh" onClick={p.onRefresh} disabled={p.busy}>
-          <RefreshCw className={`size-3.5${p.busy ? ' animate-spin' : ''}`} aria-hidden />
+        <Action label={t('panel.refresh')} action="refresh" onClick={p.onRefresh}>
+          <RefreshCw className="size-3.5" aria-hidden />
         </Action>
         {p.definition.chart.type !== 'table' && (
           <Action label={t(p.table ? 'panel.hideTable' : 'panel.showTable')} action="table" onClick={p.onTable} pressed={p.table} disabled={!result}>
@@ -128,7 +130,7 @@ export default function PanelActions(p: PanelActionsProps) {
       </div>
     </div>
   )
-}
+})
 
 /** One action. Disabled with a reason stays focusable (`aria-disabled`) and says why in its title. */
 function Action({

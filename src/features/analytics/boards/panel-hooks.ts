@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 
 /**
  * The panel chrome's browser hooks (ticket 773). 780's TV mode reuses {@link useFullscreen} for the board.
@@ -21,7 +21,7 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>): { on: boolean
     if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => {})
     else void el.requestFullscreen?.().catch(() => {})
   }, [ref])
-  return { on, toggle }
+  return useMemo(() => ({ on, toggle }), [on, toggle])
 }
 
 /** `Date.now()` that moves every `everyMs` — enough for "fetched N ago" and the "data is behind" chip. */

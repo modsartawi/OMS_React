@@ -21,7 +21,11 @@ const label = (en, ar) => ({ en, ar })
 
 // ── The model: one fixed-slot dimension (channel group, values inline) and one open one (store) ──────────
 export const MODEL = {
-  areas: [{ key: 'sales', available: true }, { key: 'callouts', available: false, unavailableReason: 'Waiting on the replica (753).' }],
+  areas: [
+    { key: 'sales', available: true },
+    { key: 'delivery', available: true },
+    { key: 'callouts', available: false, unavailableReason: 'Waiting on the replica (753).' },
+  ],
   measures: [
     {
       key: 'orders',
@@ -59,6 +63,36 @@ export const MODEL = {
       label: label('On-time share', 'نسبة الالتزام بالوقت'),
       description: label('Deliveries on time ÷ deliveries', 'التوصيلات في الوقت ÷ التوصيلات'),
       dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'],
+    },
+    // 775: Q8's percentiles (capped at 92 days) and a measure in the unavailable callouts area.
+    {
+      key: 'order_to_delivered_p50',
+      area: 'delivery',
+      shape: 'percentile',
+      unit: 'minutes',
+      maxWindowDays: 92,
+      label: label('Median order to delivered', 'الوسيط من الطلب إلى التسليم'),
+      description: label('Median minutes from order to delivered', 'وسيط الدقائق من الطلب إلى التسليم'),
+      dimensions: ['channel_group', 'store', 'day'],
+    },
+    {
+      key: 'order_to_delivered_p90',
+      area: 'delivery',
+      shape: 'percentile',
+      unit: 'minutes',
+      maxWindowDays: 92,
+      label: label('P90 order to delivered', 'المئين 90 من الطلب إلى التسليم'),
+      description: label('90th percentile minutes from order to delivered', 'المئين 90 للدقائق من الطلب إلى التسليم'),
+      dimensions: ['channel_group', 'store', 'day'],
+    },
+    {
+      key: 'take_rate',
+      area: 'callouts',
+      shape: 'rate',
+      unit: 'share',
+      label: label('Take rate', 'نسبة الاستلام'),
+      description: label('Callouts taken ÷ callouts', 'النداءات المستلمة ÷ النداءات'),
+      dimensions: ['store'],
     },
   ],
   dimensions: [
@@ -368,6 +402,43 @@ export const QUERY_773 = {
 /** Answers taken in order, the last one standing: the slow panel times out once, then answers. */
 export const SEQUENCE_773 = { 'v-773-slow': [refusal('ANALYTICS-408', 'The query passed 30 s.', 504), QUERY_773['v-773-slow']] }
 
+// ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
+const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
+/** Periods longer than a percentile's 92-day window. */
+const LONG_PERIODS = new Set(['year-to-date'])
+
+/**
+ * The server's answer to an inline `definition`: every member combination of its breakdowns, each measure a
+ * deterministic figure. A percentile over a period past its window is refused `ANALYTICS-407`, as §C says.
+ */
+export function inlineAnswer(definition, model = MODEL) {
+  const q = definition?.query ?? {}
+  const measures = (q.measures ?? []).map((k) => model.measures.find((m) => m.key === k) ?? { key: k, shape: 'additive', unit: 'count' })
+  if (measures.some((m) => m.shape === 'percentile') && LONG_PERIODS.has(q.period)) {
+    return refusal('ANALYTICS-407', 'A percentile is answered over at most 92 days.', 400)
+  }
+  const dims = q.dimensions ?? []
+  let rows = [{}]
+  for (const d of dims) rows = rows.flatMap((r) => (INLINE_MEMBERS[d] ?? ['a', 'b']).map((v) => ({ ...r, [d]: v })))
+  rows = rows.map((r, i) => {
+    const out = { ...r }
+    measures.forEach((m, j) => {
+      out[m.key] = m.unit === 'share' ? 0.7 + ((i + j) % 5) * 0.05 : m.unit === 'minutes' ? 30 + ((i * 7 + j * 11) % 40) + j * 15 : 400 + ((i * 37 + j * 53) % 500)
+    })
+    return out
+  })
+  return {
+    columns: [...dims.map((key) => ({ key, role: 'dimension' })), ...measures.map((m) => ({ key: m.key, role: 'measure', shape: m.shape, unit: m.unit }))],
+    rows,
+    total: rows.length,
+    truncated: false,
+    period: { from: '2026-10-30', to: '2026-11-05' },
+    previous: [],
+    fetchedAt: '2026-11-05T10:00:00',
+    dataAsOf: '2026-11-05T09:45:00',
+  }
+}
+
 /**
  * Install the analytics doors on `page`. Every option overrides one door's answer:
  *   access:   an `{ canView, canCurate }` object, `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
@@ -380,10 +451,14 @@ export const SEQUENCE_773 = { 'v-773-slow': [refusal('ANALYTICS-408', 'The query
  *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
  *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
+ *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
+ *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
+ *             (id `v-new`), which `Analytics/Item/v-new` and its Query then serve.
  * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
+  const made = {}
   const calls = []
   const bodies = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
@@ -414,9 +489,15 @@ export async function installAnalyticsStubs(page, opts = {}) {
       return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
     }
     if (p === 'Analytics/Items') return route.fulfill(isFulfil(list) ? list : envelope(list))
+    if (p === 'Analytics/Item' && req.method() === 'POST') {
+      if (create) return route.fulfill(create)
+      const body = req.postDataJSON() ?? {}
+      made['v-new'] = view('v-new', { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' })
+      return route.fulfill(envelope(made['v-new']))
+    }
     if (p.startsWith('Analytics/Item/')) {
       const id = decodeURIComponent(p.slice('Analytics/Item/'.length))
-      const it = items[id]
+      const it = made[id] ?? items[id]
       if (!it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
     }
@@ -424,6 +505,11 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const body = req.postDataJSON() ?? {}
       const hold = queryDelayFor[body.viewId] ?? queryDelayMs
       if (hold) await new Promise((r) => setTimeout(r, hold))
+      if (body.definition) {
+        const inline = inlineQuery(body)
+        return route.fulfill(isFulfil(inline) ? inline : envelope(inline))
+      }
+      if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
       const seq = querySequence[body.viewId]
       const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[body.viewId]
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))

@@ -63,7 +63,8 @@ export default function PanelBody({
   if (error && !result && !busy) {
     if (failure === 'retry') return <Failed err={error} onRetry={onRetry} />
     if (failure === 'unavailable') {
-      const reason = unavailableReason(definition, model) ?? analyticsWords(error, t('panel.unavailableTitle'))
+      const refusal = analyticsRefusal(error, t('panel.unavailableTitle'))
+      const reason = unavailableReason(definition, model) ?? ('key' in refusal ? t(refusal.key) : refusal.message)
       return (
         <State icon={<CloudOff className="size-5" aria-hidden />} title={t('panel.unavailableTitle')} data-panel-unavailable>
           <bdi>{reason}</bdi>
@@ -117,11 +118,6 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
       />
     </div>
   )
-}
-
-function analyticsWords(error: unknown, fallback: string): string {
-  const r = analyticsRefusal(error, fallback)
-  return 'message' in r ? r.message : fallback
 }
 
 function Failed({ err, onRetry }: { err: unknown; onRetry: () => void }) {

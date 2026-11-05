@@ -101,7 +101,6 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             title={title}
             result={result}
             updatedAt={answer.dataUpdatedAt}
-            busy={answer.isFetching}
             definition={item.definition}
             model={model}
             lang={lang}

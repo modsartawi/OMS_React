@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
@@ -98,6 +98,8 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   const fullscreen = useFullscreen(frame)
   const [table, setTable] = useState(false)
   useScrollToPanel(panel.id, frame, !!answer.data || !!answer.error)
+  const onTable = useCallback(() => setTable((on) => !on), [])
+  const permalink = useCallback(() => panelPermalink(window.location.href, panel.id), [panel.id])
   useEffect(() => {
     onFetching(panel.id, busy)
     return () => onFetching(panel.id, false)
@@ -134,16 +136,15 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
             title={title}
             result={result}
             updatedAt={answer.dataUpdatedAt}
-            busy={busy}
             definition={item.definition}
             model={model}
             lang={lang}
             onRefresh={answer.refetch}
             table={table}
-            onTable={() => setTable((on) => !on)}
+            onTable={onTable}
             frame={frame}
             fullscreen={fullscreen}
-            permalink={() => panelPermalink(window.location.href, panel.id)}
+            permalink={permalink}
           />
         </div>
       </header>

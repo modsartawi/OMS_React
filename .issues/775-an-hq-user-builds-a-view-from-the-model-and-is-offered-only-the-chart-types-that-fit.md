@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 769
 ---
@@ -26,9 +26,9 @@ model/api (`Item` create) · store/logic (shape rules, title generation) · comp
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `shape rules: 755's table plus the amendments — a rate never in a donut or stacked, a combo needs one volume and one rate, more than 5 members folds` · pure (vitest)
-- [ ] `generated title: measure by dimension, over period, from model labels, in en and ar` · pure (vitest)
-- [ ] `build Q8 from the model, see only fitting types, save, land on the new view; 407 offers a shorter window` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `shape rules: 755's table plus the amendments — a rate never in a donut or stacked, a combo needs one volume and one rate, more than 5 members folds` · pure (vitest)
+- [x] `generated title: measure by dimension, over period, from model labels, in en and ar` · pure (vitest)
+- [x] `build Q8 from the model, see only fitting types, save, land on the new view; 407 offers a shorter window` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 

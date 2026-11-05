@@ -127,7 +127,7 @@ function RulesScreen() {
         // Nothing is lost silently: their version beside mine, and the curator chooses.
         try {
           const theirs = await latest()
-          setConflict({ offer: mergeOffer(theirs, { text: body.text, note: body.note ?? '' }), theirs })
+          setConflict({ offer: mergeOffer(theirs, { text: body.houseRules, note: body.note ?? '' }), theirs })
           void qc.invalidateQueries({ queryKey: COPILOT_PROMPT_HISTORY_KEY, exact: true })
         } catch (e) {
           if (!denied(e)) toast.error(apiErrorMessage(e, t('rules.editor.saveFailed')))
@@ -139,7 +139,7 @@ function RulesScreen() {
   })
 
   const revert = useMutation({
-    mutationFn: (row: HistoryRow) => copilotRulesApi.revert({ version: row.version, baseVersion: base?.version ?? 0 }),
+    mutationFn: (row: HistoryRow) => copilotRulesApi.revert({ version: row.version }),
     onSuccess: (v, row) => {
       adopt(v)
       setOpened(null)
@@ -466,7 +466,7 @@ function TryBox({ text, onRefused }: { text: string; onRefused: (err: unknown) =
   const { t } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
   const run = useMutation({
-    mutationFn: (q: string) => copilotRulesApi.tryDraft({ question: q, text }),
+    mutationFn: (q: string) => copilotRulesApi.tryDraft({ houseRules: text, question: q }),
     onError: (err) => void onRefused(err),
   })
   const tooLong = question.length > COPILOT_MAX_QUESTION

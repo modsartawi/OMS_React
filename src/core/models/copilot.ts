@@ -20,10 +20,10 @@ export interface CopilotAccess {
 }
 
 /**
- * One saved version of the copilot's house rules (ticket 790, BackOffice 3395, `dbo.CopilotPromptVersion`).
- *
- * ⚠ 3395 is not minted yet: this shape is the client's proposal, written into ticket 790's comments for the
- * server ticket to adopt. Version 0 is the built-in fallback when no row exists; it has no saver.
+ * One saved version of the copilot's house rules, as the screen holds it (ticket 790). Read off BackOffice 3395's
+ * wire by `fromPromptWire` / `fromVersionWire` (`features/copilot/rules`): the wire calls the text `houseRules`
+ * and sends `""` for an absent saver, time or note, read here as `null`. Version 0 is the built-in text, when no
+ * version is stored yet (a save then makes version 1).
  */
 export interface CopilotPromptVersion {
   version: number
@@ -38,29 +38,51 @@ export interface CopilotPromptVersion {
   revertedFrom: number | null
 }
 
-/** `GET Copilot/Prompt` → the locked core (read-only, never sent back) and the active house rules. */
+/** The locked core (read-only, never sent back) and the active house rules, as the screen holds them. */
 export interface CopilotPrompt {
   core: string
   active: CopilotPromptVersion
 }
 
+/** `GET Copilot/Prompt` → `data` (BackOffice 3395 `CopilotPromptView`): the active version, flat. */
+export interface CopilotPromptWire {
+  core: string
+  houseRules: string
+  /** 0 when none is stored yet. */
+  version: number
+  savedBy: string
+  /** `yyyy-MM-ddTHH:mm:ss`; `""` on version 0. */
+  savedAt: string
+  note: string
+  maxLength: number
+}
+
+/** One version as `GET Copilot/Prompt/History`, `POST Copilot/Prompt` and `…/Revert` return it (`CopilotPromptVersionView`). */
+export interface CopilotPromptVersionWire {
+  version: number
+  houseRules: string
+  note: string
+  savedBy: string
+  savedAt: string
+  revertedFrom: number | null
+}
+
 /** `POST Copilot/Prompt` body. `baseVersion` is the version the draft was edited from (`COPILOT-411` when stale). */
 export interface CopilotPromptSaveRequest {
-  text: string
+  houseRules: string
   note: string | null
   baseVersion: number
 }
 
 /** `POST Copilot/Prompt/Try` body: a question answered with the draft house rules, saved or not. */
 export interface CopilotPromptTryRequest {
+  houseRules: string
   question: string
-  text: string
 }
 
-/** `POST Copilot/Prompt/Revert` body: the version to restore, as a new version on top of `baseVersion`. */
+/** `POST Copilot/Prompt/Revert` body: the version to restore; the server makes it a new version. */
 export interface CopilotPromptRevertRequest {
   version: number
-  baseVersion: number
 }
 
 /** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5). */
@@ -118,9 +140,9 @@ export interface CopilotAnswer {
   reportRefs?: CopilotReportRef[]
   /**
    * The house-rules version the answer was given under (ticket 790, BackOffice 3395); 0 is the built-in
-   * fallback. Absent on a pre-3395 server, and then not shown.
+   * fallback. Absent on a pre-3395 server and `null` on a trial: either way not shown.
    */
-  promptVersion?: number
+  promptVersion?: number | null
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

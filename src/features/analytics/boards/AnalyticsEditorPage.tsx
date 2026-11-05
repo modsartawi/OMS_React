@@ -1,53 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Ban, Info } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
-import { slotColour } from '@/core/charts/slots'
 import i18n from '@/core/i18n'
-import type {
-  AnalyticsChart,
-  AnalyticsFilter,
-  AnalyticsItem,
-  AnalyticsLabel,
-  AnalyticsLegendPosition,
-  AnalyticsModel,
-  AnalyticsNumberFormat,
-  AnalyticsViewDefinition,
-} from '@/core/models/analytics'
-import Button from '@/core/ui/Button'
-import Chip from '@/core/ui/Chip'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import Field from '@/core/ui/Field'
-import Input from '@/core/ui/Input'
-import Ltr from '@/core/ui/Ltr'
-import MultiSelect from '@/core/ui/MultiSelect'
-import ScreenGate from '@/core/ui/ScreenGate'
-import Select from '@/core/ui/Select'
-import { fsi } from '@/core/util/bidi'
+import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
+import ColourPicker from './ColourPicker'
 import {
   allowedDimensions,
   colourDimension,
   DEFAULT_PERIOD,
   editItemLink,
-  LEGEND_POSITIONS,
   MAX_DIMENSIONS,
-  NUMBER_FORMATS,
-  PERIODS,
-  pickableMeasures,
   readEditorSeed,
   settledSlots,
   withMemberSlot,
   type EditorSeed,
 } from './editor'
-import { editorRefusal, type EditorRefusal } from './editor-refusal'
-import { periodNameKey, periodPhraseKey } from './periods'
+import { ChartFields, QueryFields, TitleFields } from './EditorFields'
+import { editorRefusal } from './editor-refusal'
+import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
@@ -258,229 +239,47 @@ function ViewEditor({
   }
   const shownTitle = saysIn(title, lang) || generatedTitle(draft, model, lang, i18n.getFixedT(lang, 'boards'))
   const shownSubtitle = saysIn(subtitle, lang)
-  const unavailableAreas = model.areas.filter((a) => !a.available)
-  const sortValue = settings.sort ? `${settings.sort.key}:${settings.sort.direction}` : ''
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(20rem,26rem)_1fr]" data-analytics-editor>
       <form className="flex flex-col gap-4 rounded-lg border border-border/60 bg-card p-4" onSubmit={(e) => e.preventDefault()}>
-        <Field label={t('editor.measures')} invalid={invalidOn('measure')}>
-          <MultiSelect
-            label={t('editor.measures')}
-            value={measures}
-            onChange={pickMeasures}
-            options={pickableMeasures(model).map((m) => ({ value: m.key, text: saysIn(m.label, lang) || m.key }))}
-            data-testid="editor-measures"
-          />
-        </Field>
-        {unavailableAreas.length > 0 && (
-          <div className="-mt-2 text-xs text-muted-foreground" data-analytics-unavailable-areas>
-            <span className="font-medium">{t('editor.unavailableAreas')}</span>
-            <ul className="mt-0.5 flex flex-col gap-0.5">
-              {unavailableAreas.map((a) => (
-                <li key={a.key} data-analytics-unavailable-area={a.key}>
-                  <Trans
-                    t={t}
-                    i18nKey="editor.areaReason"
-                    values={{ area: a.key, reason: fsi(a.unavailableReason ?? '') }}
-                    components={{ area: <Ltr /> }}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <Field label={t('editor.dimensions')} hint={t('editor.dimensionsHint')} invalid={invalidOn('dimension')}>
-          <MultiSelect
-            label={t('editor.dimensions')}
-            value={dimensions}
-            onChange={(next) => setDimensions(next.slice(0, MAX_DIMENSIONS))}
-            options={allowed.map((d) => ({ value: d.key, text: saysIn(d.label, lang) || d.key }))}
-            data-testid="editor-dimensions"
-          />
-        </Field>
-
-        {allowed
-          .filter((d) => d.values.length > 0)
-          .map((d) => (
-            <Field key={d.key} label={t('editor.filterOn', { dimension: fsi(saysIn(d.label, lang) || d.key) })}>
-              <MultiSelect
-                label={t('editor.filterOn', { dimension: fsi(saysIn(d.label, lang) || d.key) })}
-                value={filters.find((f) => f.dimension === d.key)?.values ?? []}
-                onChange={(values) => setFilter(d.key, values)}
-                options={d.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))}
-                data-testid={`editor-filter-${d.key}`}
-              />
-            </Field>
-          ))}
-
-        <Field label={t('editor.period')}>
-          <Select value={period} onChange={(e) => setPeriod(e.target.value)} data-editor-period>
-            {PERIODS.map((p) => (
-              <option key={p} value={p}>
-                {t(periodNameKey(p))}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <fieldset className="flex flex-col gap-2" data-analytics-chart-types aria-invalid={invalidOn('chart') || undefined}>
-          <legend className="text-xs font-medium text-muted-foreground">{t('editor.chart')}</legend>
-          <div className="flex flex-wrap gap-1.5">
-            {offers.map((o) => (
-              <Chip
-                key={o.choice}
-                on={chosen === o.choice}
-                aria-disabled={!o.offered || undefined}
-                title={o.offered ? undefined : t(`editor.why.${o.reason}`)}
-                onClick={() => o.offered && setChoice(o.choice)}
-                data-analytics-choice={o.choice}
-                data-offered={o.offered ? 'yes' : 'no'}
-              >
-                {t(`editor.choice.${o.choice}`)}
-              </Chip>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">{t('editor.chartHint')}</p>
-          {offer?.offered && offer.folds && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground" data-analytics-folds>
-              <Info className="size-3.5" aria-hidden />
-              {t('editor.folds')}
-            </p>
-          )}
-          {measures.length > 0 && (
-            <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground" data-analytics-why-not>
-              {offers.map((o) =>
-                o.offered ? null : (
-                  <li key={o.choice} className="flex gap-1" data-analytics-why={o.choice}>
-                    <Ban className="mt-0.5 size-3 shrink-0" aria-hidden />
-                    <span>
-                      <span className="font-medium text-foreground">{t(`editor.choice.${o.choice}`)}</span> {t(`editor.why.${o.reason}`)}
-                    </span>
-                  </li>
-                ),
-              )}
-            </ul>
-          )}
-        </fieldset>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('editor.format')}>
-            <Select
-              value={settings.format ?? 'auto'}
-              onChange={(e) => setSettings((s) => ({ ...s, format: e.target.value as AnalyticsNumberFormat }))}
-              data-editor-format
-            >
-              {NUMBER_FORMATS.map((f) => (
-                <option key={f} value={f}>
-                  {t(`editor.formatName.${f}`)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t('editor.legend')}>
-            <Select
-              value={settings.legend ?? 'bottom'}
-              onChange={(e) => setSettings((s) => ({ ...s, legend: e.target.value as AnalyticsLegendPosition }))}
-              data-editor-legend
-            >
-              {LEGEND_POSITIONS.map((p) => (
-                <option key={p} value={p}>
-                  {t(`editor.legendName.${p}`)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t('editor.sort')}>
-            <Select
-              value={sortValue}
-              onChange={(e) => {
-                const [key, direction] = e.target.value.split(':')
-                setSettings((s) => ({ ...s, sort: key ? { key, direction: direction === 'asc' ? 'asc' : 'desc' } : null }))
-              }}
-              data-editor-sort
-            >
-              <option value="">{t('editor.sortDefault')}</option>
-              {measures.flatMap((m) => [
-                <option key={`${m}:desc`} value={`${m}:desc`}>
-                  {t('editor.sortDesc', { column: fsi(measureName(m)) })}
-                </option>,
-                <option key={`${m}:asc`} value={`${m}:asc`}>
-                  {t('editor.sortAsc', { column: fsi(measureName(m)) })}
-                </option>,
-              ])}
-            </Select>
-          </Field>
-          <Field label={t('editor.topN')}>
-            <Input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={settings.topN ?? ''}
-              placeholder={t('editor.topNPlaceholder')}
-              onChange={(e) => {
-                const n = Number.parseInt(e.target.value, 10)
-                setSettings((s) => ({ ...s, topN: Number.isFinite(n) && n > 0 ? n : null }))
-              }}
-              data-editor-top-n
-            />
-          </Field>
-        </div>
-
-        <div className="flex flex-col gap-1.5" data-analytics-colours>
-          <span className="text-xs font-medium text-muted-foreground">{t('editor.colours')}</span>
-          {fixedColours ? (
-            <p className="text-xs text-muted-foreground">{t('editor.coloursFixed', { dimension: fsi(label(colourDimModel?.label, colourDim ?? '')) })}</p>
-          ) : members.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t('editor.coloursNone')}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {members.map((m) => (
-                <li key={m} className="flex items-center gap-2" data-analytics-colour-member={m}>
-                  <span className="min-w-16 text-xs">
-                    <bdi>{m}</bdi>
-                  </span>
-                  <div className="flex gap-1" role="group" aria-label={t('editor.colourFor', { member: fsi(m) })}>
-                    {[0, 1, 2, 3, 4].map((s) => (
-                      <Chip
-                        key={s}
-                        on={onScreen[m] === s}
-                        className="px-1.5"
-                        aria-label={t('editor.colourSlot', { n: s + 1 })}
-                        onClick={() => colourDim && setSlots((all) => ({ ...all, [colourDim]: withMemberSlot(all[colourDim] ?? {}, members, m, s) }))}
-                        data-colour-slot={s}
-                      >
-                        <span className="block size-3 rounded-full" style={{ background: slotColour(s) }} aria-hidden />
-                      </Chip>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('editor.titleEn')} hint={t('editor.titleHint')}>
-            <Input value={title.en} dir="ltr" placeholder={generated.en} onChange={(e) => setTitle((x) => ({ ...x, en: e.target.value }))} data-editor-title="en" />
-          </Field>
-          <Field label={t('editor.titleAr')}>
-            <Input value={title.ar} dir="rtl" placeholder={generated.ar} onChange={(e) => setTitle((x) => ({ ...x, ar: e.target.value }))} data-editor-title="ar" />
-          </Field>
-          <Field label={t('editor.subtitleEn')}>
-            <Input value={subtitle.en} dir="ltr" onChange={(e) => setSubtitle((x) => ({ ...x, en: e.target.value }))} data-editor-subtitle="en" />
-          </Field>
-          <Field label={t('editor.subtitleAr')}>
-            <Input value={subtitle.ar} dir="rtl" onChange={(e) => setSubtitle((x) => ({ ...x, ar: e.target.value }))} data-editor-subtitle="ar" />
-          </Field>
-        </div>
+        <QueryFields
+          model={model}
+          lang={lang}
+          measures={measures}
+          onMeasures={pickMeasures}
+          dimensions={dimensions}
+          onDimensions={(next) => setDimensions(next.slice(0, MAX_DIMENSIONS))}
+          allowed={allowed}
+          filters={filters}
+          onFilter={setFilter}
+          period={period}
+          onPeriod={setPeriod}
+          invalid={{ measure: invalidOn('measure'), dimension: invalidOn('dimension') }}
+        />
+        <ChartFields
+          offers={offers}
+          chosen={chosen}
+          onChoose={setChoice}
+          invalid={invalidOn('chart')}
+          measures={measures}
+          measureName={measureName}
+          settings={settings}
+          onSettings={setSettings}
+        />
+        <ColourPicker
+          fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}
+          members={members}
+          onScreen={onScreen}
+          onPick={(m, s) => colourDim && setSlots((all) => ({ ...all, [colourDim]: withMemberSlot(all[colourDim] ?? {}, members, m, s) }))}
+        />
+        <TitleFields title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} generated={generated} />
 
         <SaveStanding editing={editing} actions={actions} />
         {save.refusal ? (
           <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
         ) : save.error ? (
-          <RefusalNote
+          <EditorRefusalNote
             refusal={saveRefusal}
             err={save.error}
             fallbackKey="editor.saveFailed"
@@ -525,58 +324,12 @@ function ViewEditor({
             {t('editor.previewIdle')}
           </p>
         ) : answer.error && !answer.data ? (
-          <RefusalNote refusal={previewRefusal} err={answer.error} fallbackKey="view.queryFailed" model={model} onShorten={setPeriod} />
+          <EditorRefusalNote refusal={previewRefusal} err={answer.error} fallbackKey="view.queryFailed" model={model} onShorten={setPeriod} />
         ) : (
           // The view page's and the board panel's own form dispatch (771): the preview draws as the view will.
           <ViewChart result={answer.data} busy={answer.isFetching} definition={asked} model={model} lang={lang} />
         )}
       </section>
-    </div>
-  )
-}
-
-/** 406 names the field, 407 offers the shorter window, 410 shows the area's reason; else the server's words. */
-function RefusalNote({
-  refusal,
-  err,
-  fallbackKey,
-  model,
-  onShorten,
-}: {
-  refusal: EditorRefusal | null
-  err: unknown
-  fallbackKey: string
-  model: AnalyticsModel
-  onShorten: (period: string) => void
-}) {
-  const { t } = useTranslation('boards')
-  const lang = i18n.language
-  if (!refusal) {
-    const r = analyticsRefusal(err, t(fallbackKey))
-    return <ErrorBanner title={t(fallbackKey)} message={refusalWords(r, t)} />
-  }
-  if (refusal.kind === 'window') {
-    const measure = saysIn(measureOf(model, refusal.measure)?.label, lang) || refusal.measure
-    return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800" role="alert" data-analytics-refusal="window">
-        <span className="min-w-0 flex-1">{t('editor.refused.window', { measure: fsi(measure), days: fsi(refusal.days) })}</span>
-        {refusal.shorter && (
-          <Button variant="secondary" onClick={() => onShorten(refusal.shorter!)} data-analytics-shorten={refusal.shorter}>
-            {t('editor.refused.shorten', { period: t(periodPhraseKey(refusal.shorter)) })}
-          </Button>
-        )}
-      </div>
-    )
-  }
-  const words =
-    refusal.kind === 'invalid'
-      ? refusal.field
-        ? t('editor.refused.invalidField', { field: fsi(refusal.field) })
-        : refusal.message || t('refusal.invalid')
-      : t('editor.refused.area', { reason: fsi(refusal.reason) })
-  return (
-    <div className="rounded-lg border border-danger-border bg-danger-050 p-3 text-sm text-danger-800" role="alert" data-analytics-refusal={refusal.kind}>
-      <bdi>{words}</bdi>
     </div>
   )
 }

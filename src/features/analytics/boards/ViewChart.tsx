@@ -35,8 +35,9 @@ export function viewTitleOf(item: AnalyticsItem, model: AnalyticsModel, lang: st
   const def = item.definition
   const measure = measureOf(model, def.query.measures[0])
   const dimension = dimensionOf(model, def.query.dimensions[0])
-  const measureLabel = saysIn(measure?.label, lang) || (def.query.measures[0] ?? '')
-  const dimensionLabel = saysIn(dimension?.label, lang) || (def.query.dimensions[0] ?? '')
+  // A member the model no longer holds is named as retired, never by its raw key (766 §B).
+  const measureLabel = saysIn(measure?.label, lang) || (def.query.measures[0] ? t('title.retiredMeasure') : '')
+  const dimensionLabel = saysIn(dimension?.label, lang) || (def.query.dimensions[0] ? t('title.retiredDimension') : '')
   return saysIn(item.title, lang) || t('view.generatedTitle', { measure: fsi(measureLabel), dimension: fsi(dimensionLabel) })
 }
 

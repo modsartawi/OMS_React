@@ -55,8 +55,10 @@ describe('generated title: measure by dimension, over period, from model labels'
     expect(both(def(['orders'], [], 'year-to-date'))).toEqual({ en: 'Orders, year to date', ar: 'الطلبات، منذ بداية السنة' })
   })
 
-  it('a member the model does not know reads as its key; nothing chosen is empty', () => {
-    expect(generatedTitle(def(['retired_measure'], []), MODEL, 'en', tIn('en'))).toBe('retired_measure')
+  it('a member the model no longer holds never shows its raw key; nothing chosen is empty', () => {
+    expect(generatedTitle(def(['retired_measure'], []), MODEL, 'en', tIn('en'))).toBe('Retired measure')
+    expect(generatedTitle(def(['orders'], ['old_zone']), MODEL, 'en', tIn('en'))).toBe('Orders by Retired breakdown')
+    expect(generatedTitle(def(['retired_measure'], []), MODEL, 'ar', tIn('ar'))).toBe('مقياس مُلغى')
     expect(generatedTitle(def([], []), MODEL, 'en', tIn('en'))).toBe('')
   })
 

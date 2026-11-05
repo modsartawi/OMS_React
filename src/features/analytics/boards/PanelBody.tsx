@@ -1,14 +1,14 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CloudOff, RotateCcw, SearchX, TimerOff } from 'lucide-react'
+import { Archive, CloudOff, RotateCcw, SearchX, TimerOff } from 'lucide-react'
 import ChartFrame from '@/core/charts/ChartFrame'
 import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
-import { apiErrorCode } from '@/core/api'
+import { apiErrorCode, apiErrorData } from '@/core/api'
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
-import { panelFailure, unavailableReason } from './panel-state'
+import { panelFailure, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
 import ViewChart from './ViewChart'
@@ -29,17 +29,21 @@ import { analyticsRefusal, refusalWords } from './wire'
  *
  * The state is published on the panel as `data-board-panel-state` by the caller ({@link bodyState}).
  */
-export type BodyState = 'loading' | 'busy' | 'idle' | 'empty' | 'failed' | 'unavailable' | 'refused'
+export type BodyState = 'loading' | 'busy' | 'idle' | 'empty' | 'failed' | 'unavailable' | 'retired' | 'refused'
 
-export function bodyState(result: AnalyticsQueryResult | undefined, error: unknown, busy: boolean): BodyState {
+/** `retired`: the members the definition names that the model no longer holds (`retiredMembers`). */
+export function bodyState(result: AnalyticsQueryResult | undefined, error: unknown, busy: boolean, retired: readonly string[] = []): BodyState {
+  if (retired.length > 0) return 'retired'
   if (busy) return 'busy'
   if (error && !result) {
-    const f = panelFailure(apiErrorCode(error))
-    return f === 'retry' ? 'failed' : f === 'unavailable' ? 'unavailable' : 'refused'
+    const f = failureOf(error)
+    return f === 'retry' ? 'failed' : f === 'unavailable' ? 'unavailable' : f === 'retired' ? 'retired' : 'refused'
   }
   if (!result) return 'loading'
   return result.rows.length === 0 ? 'empty' : 'idle'
 }
+
+const failureOf = (error: unknown) => panelFailure(apiErrorCode(error), refusalField(apiErrorData(error)))
 
 export default function PanelBody({
   result,
@@ -52,6 +56,7 @@ export default function PanelBody({
   onRetry,
   onPoint,
   selected,
+  retired = [],
 }: {
   result: AnalyticsQueryResult | undefined
   error: unknown
@@ -65,9 +70,22 @@ export default function PanelBody({
   onPoint?: PointHandler
   /** The point a cross-filter was clicked on here (772). */
   selected?: MarkPoint | null
+  /** The members the definition names that the model no longer holds: the panel is not asked, it is retired. */
+  retired?: readonly string[]
 }) {
   const { t } = useTranslation('boards')
-  const failure = error ? panelFailure(apiErrorCode(error)) : null
+  const failure = error ? failureOf(error) : null
+
+  // 766 §B / story 86: a retired member (gone from the model, or a 406 naming the field) is its own state,
+  // never a failed board.
+  if (retired.length > 0 || (failure === 'retired' && !result && !busy)) {
+    const members = retired.length > 0 ? retired.join(' ') : (refusalField(apiErrorData(error)) ?? '')
+    return (
+      <State icon={<Archive className="size-5" aria-hidden />} title={t('panel.retiredTitle')} data-panel-retired={members}>
+        <span>{t('panel.retiredBody')}</span>
+      </State>
+    )
+  }
 
   if (error && !result && !busy) {
     if (failure === 'retry') return <Failed err={error} onRetry={onRetry} />

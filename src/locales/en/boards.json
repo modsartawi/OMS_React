@@ -166,11 +166,15 @@
     "retry": "Retry",
     "failedTitle": "This panel could not be answered",
     "unavailableTitle": "Not available yet",
+    "retiredTitle": "This measure was retired",
+    "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
     "refreshFailed": "The refresh failed. The figures shown are from the last answer."
   },
   "title": {
     "byDimensions": "{{measures}} by {{dimensions}}",
-    "overPeriod": "{{title}}, {{period}}"
+    "overPeriod": "{{title}}, {{period}}",
+    "retiredMeasure": "Retired measure",
+    "retiredDimension": "Retired breakdown"
   },
   "editor": {
     "title": "New analytics view",

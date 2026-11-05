@@ -96,7 +96,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -1856,6 +1856,34 @@ async function removedView({ dir }) {
   await context.close()
 }
 
+/**
+ * Review fix 12 (766 §B: "a definition that still names a removed member renders a 'this measure was retired'
+ * panel and never fails the board"; story 86): a panel whose view names a measure gone from the model is the
+ * retired state and is never asked; a 406 naming the field is the same state; the other panel draws; neither
+ * title shows the raw key.
+ */
+async function retiredPanels({ dir }) {
+  const tag = `review ${dir} retired`
+  const { context, page, bodies, errors } = await open({ dir, query: { ...QUERY, ...QUERY_RETIRED } })
+  await page.goto(`${BASE}/analytics/board/b-retired`)
+  await page.locator('[data-board-panel="p-retired"]').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-bar"]')?.dataset.boardPanelState === 'idle', null, { timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-board-panel="p-406"]')?.dataset.boardPanelState === 'retired', null, { timeout: 10000 }).catch(() => {})
+  const state = async (id) => page.locator(`[data-board-panel="${id}"]`).getAttribute('data-board-panel-state')
+  const words = async (id) => noIsolates(await page.locator(`[data-board-panel="${id}"]`).innerText())
+  check(`${tag}: a view naming a measure gone from the model is the retired state`, (await state('p-retired')) === 'retired' && (await words('p-retired')).includes('This measure was retired'), await words('p-retired'))
+  check(`${tag}: … and is never asked`, !(bodies['Analytics/Query'] ?? []).some((b) => b.viewId === 'v-retired'), JSON.stringify((bodies['Analytics/Query'] ?? []).map((b) => b.viewId)))
+  check(`${tag}: … its title names a retired measure, never the raw key`, !(await words('p-retired')).includes('retired_orders') && (await words('p-retired')).includes('Retired measure'), await words('p-retired'))
+  check(`${tag}: a 406 naming the field is the retired state too`, (await state('p-406')) === 'retired' && (await page.locator('[data-board-panel="p-406"] [data-panel-retired="query.measures[0]"]').count()) === 1, await words('p-406'))
+  check(`${tag}: the rest of the board still draws`, (await page.locator('[data-board-panel="p-bar"] [data-chart]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/review-retired-${dir}.png`, fullPage: true })
+  await page.goto(`${BASE}/analytics/view/v-retired`)
+  await page.locator('[data-analytics-view="v-retired"]').waitFor({ timeout: 10000 })
+  check(`${tag}: the view page shows the retired state too`, (await page.locator('[data-analytics-view="v-retired"]').getAttribute('data-board-panel-state')) === 'retired')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 async function buildsNewView() {
   const tag = '777 build a view'
   const { context, page, bodies, errors } = await open({ list: LIST_777 })
@@ -2115,6 +2143,8 @@ const SCENARIOS = [
   ['780', () => tvPermalink780({ dir: 'ltr' })],
   ['780', () => tvPermalink780({ dir: 'rtl' })],
   ['780', refreshChoice780],
+  ['review', () => retiredPanels({ dir: 'ltr' })],
+  ['review', () => retiredPanels({ dir: 'rtl' })],
 ]
 
 try {

@@ -12,7 +12,7 @@ import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import PanelDrill from './PanelDrill'
 import { useFullscreen, useScrollToPanel } from './panel-hooks'
-import { panelPermalink } from './panel-state'
+import { panelPermalink, retiredMembers } from './panel-state'
 import Refused from './Refused'
 import { viewTitleOf } from './ViewChart'
 
@@ -94,9 +94,11 @@ function Card({
 function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh }: { panel: ViewPanel } & PanelProps) {
   const { t } = useTranslation('boards')
   const [drill, setDrill] = useState<DrillStep[]>([])
+  // A view naming a member the model no longer holds is retired: not asked at all (766 §B).
+  const retired = useMemo(() => (item ? retiredMembers(item.definition, model) : []), [item, model])
   const input = useMemo(
-    () => (item ? effectiveQuery({ panel, view: item.definition, revision: item.revision, model }, context, drill) : null),
-    [panel, item, model, context, drill],
+    () => (item && retired.length === 0 ? effectiveQuery({ panel, view: item.definition, revision: item.revision, model }, context, drill) : null),
+    [panel, item, model, context, drill, retired],
   )
   const drawn = useMemo(() => (item ? drilledDefinition(item.definition, drill) : undefined), [item, drill])
   const onPoint = useCallback(
@@ -181,7 +183,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
       ref={frame}
       panel={panel}
       kind="view"
-      data-board-panel-state={bodyState(result, answer.error, busy)}
+      data-board-panel-state={bodyState(result, answer.error, busy, retired)}
       data-panel-key={input ? panelKey(input) : undefined}
       data-board-cross-source={point ? 'true' : undefined}
       data-board-drill-depth={String(drill.length)}
@@ -220,6 +222,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
         onRetry={answer.refetch}
         onPoint={onPoint}
         selected={point}
+        retired={retired}
       />
     </Card>
   )

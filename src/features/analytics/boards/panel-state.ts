@@ -1,5 +1,5 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { measureOf } from './wire'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * A panel's freshness and failure states (spec 766 §F, ticket 773). Pure: the view page and every
@@ -42,12 +42,32 @@ export function fetchedAgo(fetchedAt: string | null | undefined, now: Date): Fet
  * are the panel's retry state, while its neighbours keep going; `-410` is the area's unavailable reason;
  * anything else is a refusal in its own words (`Refused`).
  */
-export type PanelFailure = 'retry' | 'unavailable' | 'refused'
+export type PanelFailure = 'retry' | 'unavailable' | 'retired' | 'refused'
 
-export function panelFailure(code: string | null | undefined): PanelFailure {
+/** `field`: the member a refusal names (`data.field`, ⚠ as `./editor-refusal` reads it); a 406 naming one is retired. */
+export function panelFailure(code: string | null | undefined, field?: string | null): PanelFailure {
   if (code === 'ANALYTICS-408' || code === 'ANALYTICS-409') return 'retry'
   if (code === 'ANALYTICS-410') return 'unavailable'
+  if (code === 'ANALYTICS-406' && field) return 'retired'
   return 'refused'
+}
+
+/**
+ * The members a definition names that the model no longer holds (766 §B: "a definition that still names a
+ * removed member renders a 'this measure was retired' panel and never fails the board"), measures first.
+ * Such a panel is not asked at all: it shows the retired state while the rest of the board runs.
+ */
+export function retiredMembers(definition: AnalyticsViewDefinition, model: AnalyticsModel): string[] {
+  return [
+    ...definition.query.measures.filter((k) => !measureOf(model, k)),
+    ...definition.query.dimensions.filter((k) => !dimensionOf(model, k)),
+  ]
+}
+
+/** The field a refusal names, for {@link panelFailure}; `null` when it names none. */
+export function refusalField(data: unknown): string | null {
+  const field = data && typeof data === 'object' ? (data as Record<string, unknown>).field : undefined
+  return typeof field === 'string' && field ? field : null
 }
 
 /** The model's own reason the view's area is not available yet, or `null` (the server's message stands). */

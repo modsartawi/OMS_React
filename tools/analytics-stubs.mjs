@@ -233,6 +233,24 @@ export const BOARD_779 = {
   definition: board779(3),
 }
 ITEMS['b-779'] = BOARD_779
+// Review fix 12 (766 §B, story 86): a view naming a measure the model no longer holds, and one the server refuses
+// 406 naming the field; the board holding them still draws its other panel.
+ITEMS['v-retired'] = view('v-retired', { definition: def('bar', ['retired_orders'], ['channel_group']) })
+ITEMS['v-406'] = view('v-406', { definition: def('bar', ['orders'], ['channel_group']) })
+export const QUERY_RETIRED = {
+  'v-406': envelope({ field: 'query.measures[0]' }, { status: 400, success: false, message: 'Unknown member.', errors: [{ errorCode: 'ANALYTICS-406', internalErrorCode: '', errorMessage: 'Unknown member.' }] }),
+}
+ITEMS['b-retired'] = {
+  ...view('b-retired', { title: label('Retired check', 'فحص الإلغاء'), tier: 'personal', updatedAt: '2026-11-05T09:30:00' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 0, y: 0, w: 4, h: 3 }, optOut: [] },
+      { id: 'p-retired', kind: 'view', viewId: 'v-retired', layout: { x: 4, y: 0, w: 4, h: 3 }, optOut: [] },
+      { id: 'p-406', kind: 'view', viewId: 'v-406', layout: { x: 8, y: 0, w: 4, h: 3 }, optOut: [] },
+    ],
+  },
+}
 // Review fix 13: my copy of b-779, whose source has moved on since.
 ITEMS['b-copy-old'] = { ...BOARD_779, id: 'b-copy-old', title: label('My week', 'أسبوعي'), tier: 'personal', copiedFrom: 'b-779', sourceChangedSinceCopy: true }
 // The certified board 771 drew is curator1's: a non-curator may not edit it, so it shows no history.

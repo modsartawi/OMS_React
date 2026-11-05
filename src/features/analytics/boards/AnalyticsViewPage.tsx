@@ -20,7 +20,7 @@ import ItemTierActions from './ItemTierActions'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import { useFullscreen } from './panel-hooks'
-import { panelPermalink } from './panel-state'
+import { panelPermalink, retiredMembers } from './panel-state'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
 import TierBadge from './TierBadge'
@@ -72,9 +72,12 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const input = { viewId: item.id, revision: item.revision }
+  // A view naming a member the model no longer holds is retired: not asked at all (766 §B).
+  const retired = retiredMembers(item.definition, model)
   const answer = useQuery({
     queryKey: analyticsQueryKey(input),
     queryFn: () => analyticsApi.query(input),
+    enabled: retired.length === 0,
     placeholderData: keepPreviousData,
     retry: false,
   })
@@ -95,7 +98,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
       ref={frame}
       className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 [&:fullscreen]:overflow-auto [&:fullscreen]:p-6"
       data-analytics-view={item.id}
-      data-board-panel-state={bodyState(result, answer.error, answer.isFetching)}
+      data-board-panel-state={bodyState(result, answer.error, answer.isFetching, retired)}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
@@ -155,6 +158,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
         lang={lang}
         table={table}
         onRetry={answer.refetch}
+        retired={retired}
       />
     </article>
   )

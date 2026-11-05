@@ -24,8 +24,9 @@ export function generatedTitle(
   const { measures, dimensions, period } = definition.query
   if (measures.length === 0) return ''
   const list = (items: string[]) => new Intl.ListFormat(lang, { type: 'conjunction' }).format(items)
-  const measureLabels = measures.map((k) => wrap(saysIn(measureOf(model, k)?.label, lang) || k))
-  const dimensionLabels = dimensions.map((k) => wrap(saysIn(dimensionOf(model, k)?.label, lang) || k))
+  // A member the model no longer holds is named as retired, never by its raw key (766 §B).
+  const measureLabels = measures.map((k) => wrap(saysIn(measureOf(model, k)?.label, lang) || t('title.retiredMeasure')))
+  const dimensionLabels = dimensions.map((k) => wrap(saysIn(dimensionOf(model, k)?.label, lang) || t('title.retiredDimension')))
 
   const what = dimensionLabels.length
     ? t('title.byDimensions', { measures: list(measureLabels), dimensions: list(dimensionLabels) })

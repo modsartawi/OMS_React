@@ -186,11 +186,15 @@
     "retry": "إعادة المحاولة",
     "failedTitle": "تعذّرت الإجابة على هذه اللوحة",
     "unavailableTitle": "غير متاح بعد",
+    "retiredTitle": "أُلغي هذا المقياس",
+    "retiredBody": "لم يعد في نموذج التحليلات. تبقى بقية اللوحة تعمل.",
     "refreshFailed": "فشل التحديث. الأرقام المعروضة من آخر إجابة."
   },
   "title": {
     "byDimensions": "{{measures}} حسب {{dimensions}}",
-    "overPeriod": "{{title}}، {{period}}"
+    "overPeriod": "{{title}}، {{period}}",
+    "retiredMeasure": "مقياس مُلغى",
+    "retiredDimension": "تقسيم مُلغى"
   },
   "editor": {
     "title": "عرض تحليلي جديد",

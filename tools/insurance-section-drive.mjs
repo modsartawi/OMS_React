@@ -15,7 +15,14 @@
 //      is struck through;
 //   5. no section on a non-insurance order (400 NOT_INSURANCE_ORDER), without the grant (and no read
 //      asked), or on the delivery route (no read asked); a failing read is said in place;
-//   6. nothing in the section is a control: read-only.
+//   6. nothing in the section is a control but 788's Copy: read-only.
+// Ticket 788 (BackOffice 3392 / 3393) adds, from the same fixture and the changed order 1006358461
+// (`__fixtures__/insurance-1006358461-changed.json`):
+//   7. Plan: policy / member in ltr isolates, diagnosis and holder in <bdi>, group G1 20% cap 30.00;
+//   8. Changes: the server-merged log is not drawn twice; an old act reads Not recorded (never 0.00) with its
+//      quantity 2 BOX → 1 BOX; the SWAP is marked CHANNEL → ENGINE with 63.65 → 13.26; the page's log merged in;
+//   9. Received: the intake body as a folding JSON tree, values as written (1.10, Arabic), Copy puts the body
+//      byte for byte on the clipboard; the changed order says "Not kept for orders before 2026-11-04".
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/insurance-section-drive.mjs   (DRIVE_PORT=<port> for another port)
@@ -43,6 +50,13 @@ const envelope = (data, { status = 200, success = true, message = '', code } = {
 const orderDoc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/2000000551-erx.json', 'utf8')).data
 const deliveryDoc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/8000000253-delivery.json', 'utf8')).data
 const READ = JSON.parse(readFileSync('src/features/oms/document/__fixtures__/insurance-1006358459.json', 'utf8'))
+const CHANGED = JSON.parse(readFileSync('src/features/oms/document/__fixtures__/insurance-1006358461-changed.json', 'utf8'))
+const docLog = (logNo, entryTime, actionType, actionTypeDescription) => ({ logNo, documentNo: '', entryTime, entryUser: 'ph.alharbi', actionType, actionTypeDescription, actionData: '', actionOldData: '', note: '', staffId: '', storeCode: 'P001' })
+/** The page's own log: merged into 1006358461's timeline (its read has no log rows), ignored on 1006358459's (its read has). */
+const LOGS = {
+  1006358459: [docLog('1', '2026-11-05T12:57:34', 'OADD', 'Order added')],
+  1006358461: [docLog('1', '2026-11-01T09:15:12', 'OADD', 'Order added'), docLog('2', '2026-11-05T13:40:00', 'ORDY', 'Ready')],
+}
 
 /** 1006358460: its one line unresolved and a second voided line — the engine has no total. */
 const unpricedRead = () => {
@@ -66,7 +80,7 @@ const browser = await chromium.launch()
 async function drive(dir) {
   const rtl = dir === 'rtl'
   const label = dir
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] })
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -83,10 +97,13 @@ async function drive(dir) {
       reads.push(ins[1])
       if (ins[1] === '1006358459') return route.fulfill(envelope(READ))
       if (ins[1] === '1006358460') return route.fulfill(envelope(unpricedRead()))
+      if (ins[1] === '1006358461') return route.fulfill(envelope(CHANGED))
       if (ins[1] === '1006358499') return route.fulfill(envelope(null, { status: 500, success: false, message: 'Pricer unavailable' }))
       const message = `Document ${ins[1]} is not an insurance order.`
       return route.fulfill(envelope(null, { status: 400, success: false, message, code: 'NOT_INSURANCE_ORDER' }))
     }
+    const logs = p.match(/\/Document\/(\d+)\/Logs$/)
+    if (logs) return route.fulfill(envelope(LOGS[logs[1]] ?? []))
     if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     if (/\/PrescriptionSessions$/.test(p)) return route.fulfill(envelope({ sessions: [] }))
     const doc = p.match(/^SdDocumentWeb\/(Document|Delivery)\/(\d+)$/)
@@ -138,6 +155,7 @@ async function drive(dir) {
       vat: row('deductibleVat'),
       gapNote: !!s.querySelector('[data-money-gap-note]'),
       controls: s.querySelectorAll('button, input, select, textarea').length,
+      copy: !!s.querySelector('button[data-received-copy]'),
     }
   })
   check(`${label} money: the CHANNEL badge and its one line`, money.source === 'CHANNEL' && money.sourceText === 'Channel' && money.meaning === 'The patient pays what the insurer sent.', `${money.sourceText} | ${money.meaning}`)
@@ -148,7 +166,7 @@ async function drive(dir) {
     JSON.stringify(money.patient),
   )
   check(`${label} money: insurer 2.66 against engine 53.05 flagged; VAT 0.00 = 0.00 not`, money.insurer.engine === '53.05' && money.insurer.engineGap && !money.vat.engineGap, JSON.stringify([money.insurer, money.vat]))
-  check(`${label}: the section is read-only, no control in it`, money.controls === 0, String(money.controls))
+  check(`${label}: the section is read-only, its one control is Copy`, money.controls === 1 && money.copy, String(money.controls))
 
   const lines = await section().evaluate((s) => {
     const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
@@ -172,6 +190,88 @@ async function drive(dir) {
   const fee = await section().locator('[data-header-conditions] [data-priced-step="DFEE"] [data-priced-value]').textContent()
   check(`${label} header conditions: DFEE reads its rate 15.00 as its money`, fee.trim() === '15.00', fee)
   await page.screenshot({ path: `${SHOTS}/${dir}-1006358459.png`, fullPage: true })
+
+  // ── 7–9 (788): Plan, Changes, Received on 1006358459 ──────────────────────────────────────────
+  const plan = await section().evaluate((s) => {
+    const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
+    const dd = (f) => s.querySelector(`[data-plan-field="${f}"] dd`)
+    return {
+      policy: text(dd('policyNumber')),
+      policyLtr: !!dd('policyNumber')?.querySelector('bdi[dir="ltr"]'),
+      member: text(dd('memberId')),
+      diagnosisBdi: !!dd('diagnosis')?.querySelector('bdi:not([dir])'),
+      holder: text(dd('policyHolder')),
+      payer: text(dd('payer')),
+      group: text(s.querySelector('[data-plan-group="G1"] [data-plan-group-percentage]')),
+      cap: text(s.querySelector('[data-plan-group="G1"] [data-plan-group-cap]')),
+    }
+  })
+  check(
+    `${label} plan: policy and member in ltr isolates, diagnosis in <bdi>, payer as code · name`,
+    plan.policy === 'POL-55120' && plan.policyLtr && plan.member === 'BUPA-7781230' && plan.diagnosisBdi && plan.holder === 'شركة الراجحي للتجارة' && plan.payer === 'P-BUPA · BUPA Arabia for Cooperative Insurance',
+    JSON.stringify(plan),
+  )
+  check(`${label} plan: deductible group G1 reads 20% capped at 30.00`, plan.group === '20%' && plan.cap === '30.00', `${plan.group} | ${plan.cap}`)
+
+  const rowsOf = (s) => [...s.querySelectorAll('[data-timeline-change], [data-timeline-log]')].map((tr) => tr.getAttribute('data-timeline-change') ?? `log:${tr.getAttribute('data-timeline-log')}`)
+  const tl = await section().evaluate((s, f) => new Function(`return (${f})`)()(s), rowsOf.toString())
+  check(`${label} changes: the server-merged log sits on the line, not drawn twice`, JSON.stringify(tl) === JSON.stringify(['log:OADD', 'PICK', 'log:ORDY']), tl.join(','))
+
+  const rec = await section().evaluate((s) => {
+    const body = s.querySelector('[data-received-body]')
+    return {
+      kind: s.querySelector('[data-insurance-received]')?.getAttribute('data-insurance-received'),
+      text: body?.textContent ?? '',
+      dir: body?.getAttribute('dir'),
+      nodes: body?.querySelectorAll('details[data-json-node]').length ?? 0,
+    }
+  })
+  check(
+    `${label} received: the intake body as a JSON tree, values as written, one ltr island`,
+    rec.kind === 'kept' && rec.dir === 'ltr' && rec.nodes >= 3 && rec.text.includes('"rate": 1.10') && rec.text.includes('"محمد العتيبي"'),
+    `${rec.nodes} nodes`,
+  )
+  const firstNode = section().locator('[data-received-body] details[data-json-node]').nth(1)
+  await firstNode.locator(':scope > summary').click()
+  const folded = await firstNode.evaluate((d) => !d.open && !d.querySelector(':scope > div').checkVisibility())
+  check(`${label} received: a JSON object folds`, folded)
+  await section().locator('[data-received-copy]').click()
+  await page.waitForTimeout(300)
+  const clip = await page.evaluate(() => navigator.clipboard.readText().catch(() => null))
+  check(`${label} received: Copy puts the body on the clipboard byte for byte`, clip === READ.intake.body, clip ? clip.slice(0, 40) : String(clip))
+
+  // ── 8–9 (788): the changed order 1006358461 ─────────────────────────────────────────────────────
+  await open('/oms/document/1006358461')
+  await section().waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  const ch = await section().evaluate((s, f) => {
+    const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
+    const old = s.querySelector('[data-timeline-change="QUANTITY"]')
+    const swap = s.querySelector('[data-timeline-change="SWAP"]')
+    return {
+      order: new Function(`return (${f})`)()(s),
+      oldText: text(old),
+      oldNotRecorded: !!old?.querySelector('[data-not-recorded]'),
+      swapMarked: !!swap?.hasAttribute('data-channel-to-engine') && !!swap.querySelector('[data-change-channel-to-engine]'),
+      before: text(swap?.querySelector('[data-change-money="before"]')),
+      after: text(swap?.querySelector('[data-change-money="after"]')),
+      notKept: text(s.querySelector('[data-received-not-kept]')),
+      notKeptLtr: !!s.querySelector('[data-received-not-kept] bdi[dir="ltr"]'),
+    }
+  }, rowsOf.toString())
+  check(`${label} changes: the page's log is merged in, oldest first`, JSON.stringify(ch.order) === JSON.stringify(['log:OADD', 'QUANTITY', 'SWAP', 'log:ORDY']), ch.order.join(','))
+  check(
+    `${label} changes: an old act reads Not recorded, never 0.00, and keeps its quantity`,
+    ch.oldNotRecorded && /Not recorded/.test(ch.oldText) && !/0\.00/.test(ch.oldText) && /2 BOX/.test(ch.oldText) && /1 BOX/.test(ch.oldText),
+    ch.oldText,
+  )
+  check(
+    `${label} changes: the SWAP is marked CHANNEL → ENGINE, 63.65 → 13.26`,
+    ch.swapMarked && /Channel/.test(ch.before) && /63\.65/.test(ch.before) && /Engine/.test(ch.after) && /13\.26/.test(ch.after),
+    `${ch.before} → ${ch.after}`,
+  )
+  check(`${label} received: not kept for orders before 2026-11-04, the date isolated`, ch.notKept === 'Not kept for orders before 2026-11-04.' && ch.notKeptLtr, ch.notKept)
+  await page.screenshot({ path: `${SHOTS}/${dir}-1006358461.png`, fullPage: true })
 
   // ── 4: unpriced, voided ─────────────────────────────────────────────────────────────────────
   await open('/oms/document/1006358460')

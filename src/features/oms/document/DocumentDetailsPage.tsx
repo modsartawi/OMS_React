@@ -883,7 +883,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             {insuranceAsked && insuranceRead.isError ? (
               <InsuranceSection read={null} error={apiErrorMessage(insuranceRead.error, t('insurance.loadFailed'))} />
             ) : (
-              insuranceSectionGate(insuranceContext, insuranceRead.data) && <InsuranceSection read={insuranceRead.data!} />
+              insuranceSectionGate(insuranceContext, insuranceRead.data) && <InsuranceSection read={insuranceRead.data!} logs={logs.rows} />
             )}
 
             {/*

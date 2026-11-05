@@ -2,10 +2,14 @@ import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import type { OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { SdDocumentLogModel } from '@/core/models/sd-document'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { HEADING } from './facts-heading'
 import InsuranceLinesPart from './InsuranceLinesPart'
 import InsuranceMoneyPart from './InsuranceMoneyPart'
+import InsurancePlanPart from './InsurancePlanPart'
+import InsuranceChangesPart from './InsuranceChangesPart'
+import InsuranceReceivedPart from './InsuranceReceivedPart'
 
 /** The section's anchor: `/oms/document/<no>#insurance` opens the page on it (789's strip links here). */
 export const INSURANCE_SECTION_ID = 'insurance'
@@ -18,14 +22,25 @@ export const INSURANCE_SECTION_ID = 'insurance'
  *
  * - **Money** (`InsuranceMoneyPart`) — 787;
  * - **Lines** with "How it was priced" (`InsuranceLinesPart`) — 787;
- * - **Plan**, **Changes**, **Received** — ticket 788 adds each as its own part below Lines, from the
- *   same `read` (`read.plan`, `read.timeline`, `read.intake`).
+ * - **Plan** (`InsurancePlanPart`) — 788;
+ * - **Changes** (`InsuranceChangesPart`): the change timeline with money before / after, the document
+ *   log merged in (the page's `logs`, used only when the read carries no log of its own) — 788;
+ * - **Received** (`InsuranceReceivedPart`): the intake body, or why it was not kept — 788.
  *
  * Linkable: when the page was opened at `#insurance`, the section scrolls itself into view once, on
  * mount — which is after the read has landed, so the sections above have their heights.
  * Read-only: nothing here writes.
  */
-export default function InsuranceSection({ read, error }: { read: OrderInsuranceRead | null; error?: string | null }) {
+export default function InsuranceSection({
+  read,
+  error,
+  logs,
+}: {
+  read: OrderInsuranceRead | null
+  error?: string | null
+  /** The page's document log rows (`documentApi.getLogs`), for the Changes timeline. */
+  logs?: readonly SdDocumentLogModel[] | null
+}) {
   const { t } = useTranslation('document')
   const ref = useRef<HTMLElement>(null)
   const { hash } = useLocation()
@@ -55,7 +70,9 @@ export default function InsuranceSection({ read, error }: { read: OrderInsurance
           <div className="flex min-w-0 flex-col gap-4">
             <InsuranceMoneyPart read={read} />
             <InsuranceLinesPart read={read} />
-            {/* 788: <InsurancePlanPart/>, <InsuranceChangesPart/>, <InsuranceReceivedPart/> go here. */}
+            <InsurancePlanPart read={read} />
+            <InsuranceChangesPart read={read} logs={logs} />
+            <InsuranceReceivedPart read={read} />
           </div>
         )
       )}

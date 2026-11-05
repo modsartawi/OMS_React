@@ -850,6 +850,81 @@
         "rate": "Rate",
         "value": "Value"
       }
+    },
+    "plan": {
+      "heading": "Plan",
+      "notSent": "Not sent",
+      "fields": {
+        "policyNumber": "Policy",
+        "policyHolder": "Policy holder",
+        "contractNumber": "Contract",
+        "className": "Class",
+        "memberId": "Member ID",
+        "identityNumber": "Identity number",
+        "eligibilityReference": "Eligibility",
+        "authorizationId": "Authorization",
+        "approvalNumber": "Approval",
+        "diagnosis": "Diagnosis",
+        "visitReason": "Visit reason",
+        "chiefComplaint": "Chief complaint",
+        "daysSupply": "Days supply",
+        "insurerCustomer": "Insurer customer",
+        "payer": "Payer"
+      },
+      "groups": {
+        "heading": "Deductible groups",
+        "label": "Deductible groups",
+        "empty": "No deductible groups.",
+        "group": "Group",
+        "percentage": "Deductible",
+        "cap": "Cap",
+        "noCap": "No cap"
+      }
+    },
+    "changes": {
+      "heading": "Changes",
+      "label": "Changes to the order and its document log",
+      "empty": "No changes and no log yet.",
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "what": "What",
+        "change": "Change",
+        "money": "Money before and after"
+      },
+      "acts": {
+        "PICK": "Pick",
+        "SWAP": "Swap",
+        "QUANTITY": "Quantity",
+        "VOID": "Void",
+        "RESTORE": "Restore",
+        "CEILING": "Ceiling"
+      },
+      "log": "Log",
+      "line": "Line",
+      "item": "Item",
+      "quantity": "Quantity",
+      "reason": "Reason:",
+      "nothing": "None",
+      "notRecorded": "Not recorded",
+      "notRecordedNote": "Accepted before money was recorded on changes.",
+      "patient": "Patient",
+      "insurer": "Insurer",
+      "channelToEngine": "Left the channel’s money"
+    },
+    "received": {
+      "heading": "Received",
+      "intro": "The request the order arrived with, as the channel sent it.",
+      "at": "Received",
+      "by": "From",
+      "contentType": "Type",
+      "body": "Intake body",
+      "copy": "Copy",
+      "copied": "Intake body copied.",
+      "copyFailed": "The intake body could not be copied.",
+      "notJson": "Not JSON: shown as received.",
+      "notKept": "Not kept: the order landed before intake bodies were kept.",
+      "notKeptBefore": "Not kept for orders before <date>{{date}}</date>."
     }
   }
 }

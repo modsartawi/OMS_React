@@ -22,21 +22,21 @@
   "onAccountAmount": 2.66,
   "paidAmount": 0,
   "plan": {
-    "policyNumber": "",
-    "policyHolder": "",
-    "contractNumber": "",
-    "className": "",
-    "memberId": "",
-    "identityNumber": "",
-    "eligibilityReference": "",
-    "authorizationId": "",
-    "approvalNumber": "",
-    "diagnosis": "",
-    "visitReason": "",
-    "chiefComplaint": "",
-    "daysSupply": null,
-    "insurerCustomer": null,
-    "payer": null,
+    "policyNumber": "POL-55120",
+    "policyHolder": "شركة الراجحي للتجارة",
+    "contractNumber": "C-2026-0418",
+    "className": "B",
+    "memberId": "BUPA-7781230",
+    "identityNumber": "1023456789",
+    "eligibilityReference": "ELG-99812",
+    "authorizationId": "AUTH-55410",
+    "approvalNumber": "APR-120044",
+    "diagnosis": "J02.9 Acute pharyngitis, unspecified",
+    "visitReason": "Sore throat",
+    "chiefComplaint": "Fever and sore throat for three days",
+    "daysSupply": 7,
+    "insurerCustomer": { "code": "C100230", "name": "BUPA Arabia" },
+    "payer": { "code": "P-BUPA", "name": "BUPA Arabia for Cooperative Insurance" },
     "deductibleGroups": [{ "group": "G1", "percentage": 20, "cap": 30 }]
   },
   "lines": [
@@ -72,6 +72,31 @@
   "headerConditions": [
     { "lineNumber": 0, "stepNumber": 900, "counter": 1, "condType": "DFEE", "description": "Delivery Fees", "calculationType": "B", "base": 0, "rate": 15, "value": 0 }
   ],
-  "timeline": [],
-  "intake": { "kept": false, "keptSince": null }
+  "timeline": [
+    {
+      "kind": "change",
+      "at": "2026-11-05T13:02:41",
+      "by": "ph.alharbi",
+      "act": "PICK",
+      "lineNumber": 10,
+      "itemBefore": null,
+      "itemAfter": "100245",
+      "quantityBefore": null,
+      "quantityAfter": 1,
+      "unitBefore": null,
+      "unitAfter": "BOX",
+      "reason": null,
+      "moneyBefore": { "moneySource": "CHANNEL", "patientTotal": 63.65, "insurerTotal": 2.66 },
+      "moneyAfter": { "moneySource": "CHANNEL", "patientTotal": 63.65, "insurerTotal": 2.66 }
+    },
+    { "kind": "log", "at": "2026-11-05T12:57:34", "by": "BUPA", "action": "OADD", "actionDescription": "Order added", "note": "" },
+    { "kind": "log", "at": "2026-11-05T13:03:05", "by": "ph.alharbi", "action": "ORDY", "actionDescription": "Ready", "note": "" }
+  ],
+  "intake": {
+    "kept": true,
+    "body": "{\"orderNo\":\"BUPA-20261105125734-451\",\"store\":\"P001\",\"patient\":{\"name\":\"محمد العتيبي\",\"memberId\":\"BUPA-7781230\"},\"insurance\":{\"policyNumber\":\"POL-55120\",\"deductibleTotal\":63.65,\"rate\":1.10},\"lines\":[{\"sfdaCode\":\"0507230119\",\"text\":\"Augmentin 1g tablets\",\"quantity\":1,\"unit\":\"BOX\",\"deductible\":63.65}],\"notes\":[]}",
+    "contentType": "application/json",
+    "receivedAt": "2026-11-05T12:57:34",
+    "receivedBy": "BUPA"
+  }
 }

@@ -287,3 +287,21 @@ export interface AnalyticsMember {
   /** ⚠ §C gives `label` without its shape: a plain string is read as both languages. */
   label: AnalyticsLabel
 }
+
+/**
+ * `GET Analytics/Item/{id}/Revisions` — one of an item's last 20 revisions (ticket 779): who saved it and
+ * when. §C keeps the full definition snapshots server side; the web lists who and when only.
+ * ⚠ `revertedFrom` is the web's proposal (BackOffice 3378): the revision a revert copied, so the list can
+ * say "reverted to revision N". Absent, the row reads as an ordinary save.
+ */
+export interface AnalyticsRevision {
+  revision: number
+  updatedAt: string
+  updatedBy: string
+  revertedFrom?: number | null
+}
+
+/** `POST Analytics/Item/{id}/Revert` — writes `revision`'s snapshot as a NEW revision. Answers the item at it. */
+export interface AnalyticsItemRevert {
+  revision: number
+}

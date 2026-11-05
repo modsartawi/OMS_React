@@ -11,12 +11,15 @@ import type {
   AnalyticsItem,
   AnalyticsItemCopy,
   AnalyticsItemCreate,
+  AnalyticsItemRevert,
   AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
+  AnalyticsRevision,
 } from '@/core/models/analytics'
+import { readRevisions } from './revisions'
 import { readBoard, readItem, readItems, readMembers, readModel, readResult } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
@@ -24,6 +27,8 @@ export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A board, read as a board: apart from `analyticsItemKey`, whose entries are read as views. */
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
+/** An item's last 20 revisions (779). */
+export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
@@ -74,5 +79,17 @@ export const analyticsApi = {
   /** `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item recording its source. */
   async copy(id: string, body: AnalyticsItemCopy): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Copy`, body))
+  },
+  /** `GET Analytics/Item/{id}/Revisions` — the item's last 20 revisions, who and when (ticket 779). */
+  async revisions(id: string): Promise<AnalyticsRevision[]> {
+    return readRevisions(await api.get<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Revisions`))
+  },
+  /**
+   * `POST Analytics/Item/{id}/Revert` with `{ revision }` (ticket 779) — writes that revision's snapshot as a NEW
+   * revision, so a revert is itself undone by reverting again. Answers the item at the new revision (read as a
+   * view's envelope; a board caller re-reads through `board(id)`).
+   */
+  async revert(id: string, body: AnalyticsItemRevert): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Revert`, body))
   },
 }

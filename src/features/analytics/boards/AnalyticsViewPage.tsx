@@ -13,6 +13,7 @@ import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
 import { itemActions } from './item-actions'
+import ItemHistory from './ItemHistory'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
 import { useItemActor } from './use-item-save'
@@ -98,6 +99,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             {t('view.edit')}
           </Link>
         )}
+        <ItemHistory item={item} kind="view" />
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
           {asOf && (
             <span data-analytics-as-of>

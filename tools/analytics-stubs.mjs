@@ -233,6 +233,8 @@ export const BOARD_779 = {
   definition: board779(3),
 }
 ITEMS['b-779'] = BOARD_779
+// Review fix 13: my copy of b-779, whose source has moved on since.
+ITEMS['b-copy-old'] = { ...BOARD_779, id: 'b-copy-old', title: label('My week', 'أسبوعي'), tier: 'personal', copiedFrom: 'b-779', sourceChangedSinceCopy: true }
 // The certified board 771 drew is curator1's: a non-curator may not edit it, so it shows no history.
 
 /** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */

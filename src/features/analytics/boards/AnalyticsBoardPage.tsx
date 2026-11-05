@@ -20,11 +20,12 @@ import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
-import { editingItemOf } from './item-save'
+import { editingItemOf, sourceMovedOn } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
+import { SourceMovedOn } from './SaveNotes'
 import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { useItemActor } from './use-item-save'
@@ -168,6 +169,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
           <TvButton on={tv.on} onEnter={tv.enter} onExit={tv.exit} />
         </div>
       </div>
+      {/* Story 64: my copy of a board whose original has moved on since I copied it. */}
+      {!tv.on && sourceMovedOn(board) && <SourceMovedOn />}
       {tv.on ? (
         <FilterChips filters={filters} model={model} lang={lang} />
       ) : (

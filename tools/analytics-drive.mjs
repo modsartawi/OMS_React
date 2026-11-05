@@ -1122,6 +1122,14 @@ async function tiersAndCopies() {
   check(`${tag}: a copy whose source moved on says so`, (await moved.innerText()).includes('The original changed since you copied it.'), await moved.innerText())
   await editFromView(page, 'v-copy-old')
   check(`${tag}: … and so does its editor`, (await page.locator('[data-analytics-editor] [data-analytics-source-moved-on]').count()) === 1)
+  // Review fix 13 (story 64): a copied BOARD whose original moved on says so too.
+  await page.goto(`${BASE}/analytics/board/b-copy-old`)
+  const boardMoved = page.locator('[data-analytics-board="b-copy-old"] [data-analytics-source-moved-on]')
+  await boardMoved.waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${tag}: a copied board whose source moved on says so`, (await boardMoved.innerText().catch(() => '')).includes('The original changed since you copied it.'))
+  await page.goto(`${BASE}/analytics/board/b-779`)
+  await page.locator('[data-analytics-board="b-779"] [data-analytics-board-title]').waitFor({ timeout: 10000 })
+  check(`${tag}: … a board that is no copy does not`, (await page.locator('[data-analytics-source-moved-on]').count()) === 0)
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }

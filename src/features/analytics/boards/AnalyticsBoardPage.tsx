@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useReducer, useRef } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { Pencil } from 'lucide-react'
@@ -99,9 +99,17 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
     () => readCrossFilter(new URLSearchParams([['cross', crossKey], ['crossFrom', crossFrom]])),
     [crossKey, crossFrom],
   )
+  // react-router's `setParams` is a new function whenever the params change, so a filter change would hand
+  // every panel a new `onCross` (and its chart a new `onPoint`) and redraw every chart: the memo the 771
+  // "busy within 0.5 s" check depends on. The handler reads the latest `setParams` through a ref instead, and
+  // its updater reads `prev`, so it never acts on stale params.
+  const setParamsRef = useRef(setParams)
+  useLayoutEffect(() => {
+    setParamsRef.current = setParams
+  }, [setParams])
   const onCross = useCallback(
-    (clicked: CrossFilter) => setParams((prev) => writeCrossFilter(prev, toggleCrossFilter(readCrossFilter(prev), clicked)), { replace: true }),
-    [setParams],
+    (clicked: CrossFilter) => setParamsRef.current((prev) => writeCrossFilter(prev, toggleCrossFilter(readCrossFilter(prev), clicked)), { replace: true }),
+    [],
   )
   const clearCross = useCallback(() => setParams((prev) => writeCrossFilter(prev, null), { replace: true }), [setParams])
 

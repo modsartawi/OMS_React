@@ -549,7 +549,7 @@ const LONG_PERIODS = new Set(['year-to-date'])
  * The server's answer to an inline `definition`: every member combination of its breakdowns, each measure a
  * deterministic figure. A percentile over a period past its window is refused `ANALYTICS-407`, as §C says.
  */
-export function inlineAnswer(definition, model = MODEL) {
+export function inlineAnswer(definition, model = MODEL, compareToPrevious = false) {
   const q = definition?.query ?? {}
   const measures = (q.measures ?? []).map((k) => model.measures.find((m) => m.key === k) ?? { key: k, shape: 'additive', unit: 'count' })
   if (measures.some((m) => m.shape === 'percentile') && LONG_PERIODS.has(q.period)) {
@@ -571,7 +571,8 @@ export function inlineAnswer(definition, model = MODEL) {
     total: rows.length,
     truncated: false,
     period: { from: '2026-10-30', to: '2026-11-05' },
-    previous: [],
+    // Review fix 11: asked to compare, the previous period's rows (each figure 10 % lower) ride back.
+    previous: compareToPrevious ? rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v * 0.9 * 100) / 100 : v]))) : [],
     fetchedAt: '2026-11-05T10:00:00',
     dataAsOf: '2026-11-05T09:45:00',
   }
@@ -609,7 +610,7 @@ export function inlineAnswer(definition, model = MODEL) {
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
@@ -752,7 +753,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
         const inline = inlineQuery(body)
         return route.fulfill(isFulfil(inline) ? inline : envelope(inline))
       }
-      if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model)))
+      if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model, body.compareToPrevious === true)))
       if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
       const seq = querySequence[id]
       const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[id]

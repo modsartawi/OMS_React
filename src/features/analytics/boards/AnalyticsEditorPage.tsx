@@ -24,11 +24,13 @@ import {
   MAX_DIMENSIONS,
   readEditorSeed,
   settledSlots,
+  withCompare,
   withMemberSlot,
   type EditorSeed,
 } from './editor'
 import { ChartFields, QueryFields, TitleFields } from './EditorFields'
 import { editorRefusal } from './editor-refusal'
+import { comparing } from './effective-query'
 import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
@@ -141,6 +143,7 @@ function ViewEditor({
   const [period, setPeriod] = useState<string>(start?.query.period ?? DEFAULT_PERIOD)
   const [choice, setChoice] = useState<ChartChoice | null>(start ? choiceOf(start.chart) : null)
   const [settings, setSettings] = useState<AnalyticsChart>(start?.chart ?? { type: 'table' })
+  const [compare, setCompare] = useState<boolean>(start?.query.compareToPrevious === true)
   const [slots, setSlots] = useState<Record<string, Record<string, number>>>(start?.slots ?? {})
   const [title, setTitle] = useState<AnalyticsLabel>(seed?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(seed?.subtitle ?? EMPTY_LABEL)
@@ -154,15 +157,19 @@ function ViewEditor({
 
   const definition: AnalyticsViewDefinition | null = useMemo(() => {
     if (!chosen) return null
-    const query = {
-      ...(start?.query ?? {}),
-      measures,
-      dimensions,
-      filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
-      period,
-    }
+    const query = withCompare(
+      {
+        ...(start?.query ?? {}),
+        measures,
+        dimensions,
+        filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
+        period,
+      },
+      chosen,
+      compare,
+    )
     return { ...(start ?? {}), chart: chartFor(chosen, settings), query, slots }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start])
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare])
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -170,7 +177,8 @@ function ViewEditor({
     const id = setTimeout(() => setAsked(definition), PREVIEW_DEBOUNCE_MS)
     return () => clearTimeout(id)
   }, [definition])
-  const input = asked ? { definition: asked } : null
+  // 766 §C: the previous period's rows are asked for when the definition compares to it.
+  const input = asked ? { definition: asked, ...comparing(asked) } : null
   const answer = useQuery({
     queryKey: analyticsQueryKey(input ?? { definition: { chart: { type: 'table' }, query: { measures: [], dimensions: [], filters: [] } } }),
     queryFn: () => analyticsApi.query(input!),
@@ -276,6 +284,8 @@ function ViewEditor({
           measureName={measureName}
           settings={settings}
           onSettings={setSettings}
+          compare={compare}
+          onCompare={setCompare}
         />
         <ColourPicker
           fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}

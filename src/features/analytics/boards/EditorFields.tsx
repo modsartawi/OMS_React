@@ -18,7 +18,7 @@ import Ltr from '@/core/ui/Ltr'
 import MultiSelect from '@/core/ui/MultiSelect'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { LEGEND_POSITIONS, NUMBER_FORMATS, PERIODS, pickableMeasures } from './editor'
+import { comparesToPrevious, LEGEND_POSITIONS, NUMBER_FORMATS, PERIODS, pickableMeasures } from './editor'
 import { periodNameKey } from './periods'
 import type { ChartChoice, ChartOffer } from './shape-rules'
 
@@ -134,6 +134,8 @@ export function ChartFields({
   measureName,
   settings,
   onSettings,
+  compare,
+  onCompare,
 }: {
   offers: ChartOffer[]
   /** The chosen type when the selection still fits it. */
@@ -145,6 +147,9 @@ export function ChartFields({
   measureName: (key: string) => string
   settings: AnalyticsChart
   onSettings: Dispatch<SetStateAction<AnalyticsChart>>
+  /** Compare with the previous period (stored only where the chosen type offers it). */
+  compare: boolean
+  onCompare: (on: boolean) => void
 }) {
   const { t } = useTranslation('boards')
   const offer = chosen ? offers.find((o) => o.choice === chosen) : undefined
@@ -169,6 +174,15 @@ export function ChartFields({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">{t('editor.chartHint')}</p>
+            {comparesToPrevious(chosen) && (
+              // 766 story 23: compare with the previous period, where the chosen type shows it (KPI, line).
+              <div className="flex flex-wrap items-center gap-2">
+                <Chip on={compare} onClick={() => onCompare(!compare)} data-editor-compare={compare ? 'on' : 'off'}>
+                  {t('editor.compare')}
+                </Chip>
+                <span className="text-xs text-muted-foreground">{t(chosen === 'kpi' ? 'editor.compareHintKpi' : 'editor.compareHintLine')}</span>
+              </div>
+            )}
             {offer?.offered && offer.folds && (
               <p className="flex items-center gap-1 text-xs text-muted-foreground" data-analytics-folds>
                 <Info className="size-3.5" aria-hidden />

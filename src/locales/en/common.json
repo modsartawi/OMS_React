@@ -165,6 +165,7 @@
       "flat": "No change on the previous period",
       "previous": "versus <v>{{value}}</v> in the previous period"
     },
+    "previousPeriod": "Previous period",
     "other_one": "Other ({{n}})",
     "other_other": "Other ({{n}})",
     "total": "Total",

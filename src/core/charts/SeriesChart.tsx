@@ -39,6 +39,8 @@ export interface ChartSeries {
   slot: number | null
   other: boolean
   unit: MeasureUnit
+  /** The previous period (line only): ink grey and dashed, named "Previous period". */
+  previous?: boolean
 }
 
 export interface ChartSeriesRow {
@@ -83,7 +85,11 @@ export default function SeriesChart({
   legend?: AnalyticsLegendPosition
 }) {
   const { t } = useTranslation('common')
-  const named = series.map((s) => ({ ...s, name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.label, colour: slotColour(s.slot) }))
+  const named = series.map((s) => ({
+    ...s,
+    name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.previous ? t('charts.previousPeriod') : s.label,
+    colour: slotColour(s.slot),
+  }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
   const data = rows.map((r) => ({ label: r.label, ...r.values, fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) }))
   const stackId = stacking === 'stacked' ? 'stack' : undefined
@@ -150,6 +156,7 @@ export default function SeriesChart({
             name={s.name}
             stroke={s.colour}
             strokeWidth={2}
+            strokeDasharray={s.previous ? '5 4' : undefined}
             dot={false}
             activeDot={{ r: 4 }}
             connectNulls={false}

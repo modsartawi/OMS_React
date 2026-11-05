@@ -2,8 +2,9 @@ import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import { saysIn } from '@/core/rules/sentence'
 import { formatPair } from '@/core/util/bidi'
-import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSemanticQuery, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { editingItemOf, type EditingItem } from './item-save'
+import type { ChartChoice } from './shape-rules'
 export { DEFAULT_PERIOD, PERIODS } from './periods'
 import { dimensionOf, measureOf, readDefinition } from './wire'
 
@@ -77,6 +78,18 @@ export function colourMemberWords(
   if (inline) return { text: inline, kind: 'text' }
   const name = saysIn(names.get(member), lang)
   return { text: name && name !== member ? formatPair(member, name) : member, kind: 'machine' }
+}
+
+/**
+ * Compare with the previous period (766 story 23, §C `compareToPrevious`) is offered where the shape shows it:
+ * a KPI's ▲▼ against the previous figure, and a line over time drawing the previous period beside it.
+ */
+export const comparesToPrevious = (choice: ChartChoice | null): boolean => choice === 'kpi' || choice === 'line'
+
+/** The query with `compareToPrevious` stored when it is on and the chosen type offers it, and left out otherwise. */
+export function withCompare<Q extends AnalyticsSemanticQuery>(query: Q, choice: ChartChoice | null, on: boolean): Q {
+  const { compareToPrevious: _, ...rest } = query
+  return (on && comparesToPrevious(choice) ? { ...rest, compareToPrevious: true } : rest) as Q
 }
 
 /** The saved map plus a slot for every member on screen that finds one free (written when saved). */

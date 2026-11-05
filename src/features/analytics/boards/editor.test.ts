@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel } from '@/core/models/analytics'
-import { allowedDimensions, colourDimension, colourMemberWords, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
+import { allowedDimensions, colourDimension, colourMemberWords, comparesToPrevious, withCompare, editItemLink, newViewLink, pickableMeasures, readEditorSeed, withMemberSlot } from './editor'
 
 const label = (en: string) => ({ en, ar: '' })
 const MODEL: AnalyticsModel = {
@@ -92,5 +92,19 @@ describe('opening the editor seeded', () => {
     expect(readEditorSeed(newViewLink({ definition }).state)?.item).toBeUndefined()
     // A malformed standing is no standing: the editor then saves a new item, never PUTs blind.
     expect(readEditorSeed({ editorSeed: { definition, item: { id: 'v-1' } } })?.item).toBeUndefined()
+  })
+})
+
+describe('compare with the previous period (766 story 23)', () => {
+  it('is offered where the shape allows it: a KPI and a line over time', () => {
+    expect(comparesToPrevious('kpi')).toBe(true)
+    expect(comparesToPrevious('line')).toBe(true)
+    for (const c of ['area', 'bar-vertical', 'bar-grouped', 'donut', 'table', 'heatmap', 'combo'] as const) expect(comparesToPrevious(c)).toBe(false)
+  })
+  it('is stored in the definition when on and offered, and left out otherwise', () => {
+    const q = { measures: ['orders'], dimensions: [], filters: [], period: 'last-7-days' }
+    expect(withCompare(q, 'kpi', true)).toEqual({ ...q, compareToPrevious: true })
+    expect(withCompare({ ...q, compareToPrevious: true }, 'kpi', false)).toEqual(q)
+    expect(withCompare({ ...q, compareToPrevious: true }, 'table', true)).toEqual(q)
   })
 })

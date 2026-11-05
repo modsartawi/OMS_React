@@ -113,8 +113,14 @@ export function effectiveQuery(
     ...(opted.has('period') ? {} : { period: periodToken(filters.period) }),
     filters: reached,
     ...crossed,
+    // 766 §C: the previous period's rows ride back when the view compares to it (story 23).
+    ...comparing(view),
   }
 }
+
+/** `{ compareToPrevious: true }` when the view compares with the previous period; nothing otherwise. */
+export const comparing = (view: AnalyticsViewDefinition): { compareToPrevious?: true } =>
+  view.query.compareToPrevious ? { compareToPrevious: true } : {}
 
 /** The canonical key of an effective query: equal inputs give equal strings (keys written in one order). */
 export function panelKey(input: AnalyticsQueryInput): string {

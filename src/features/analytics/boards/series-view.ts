@@ -113,6 +113,8 @@ export interface SeriesDef {
   slot: number | null
   other: boolean
   unit: MeasureUnit
+  /** The previous period beside a line over time (766 story 23): ink grey, dashed, named by the chart. */
+  previous?: boolean
 }
 
 export interface SeriesRow {
@@ -243,6 +245,14 @@ export function toSeriesView(
       const row = rowsAt.get(x)?.[0]
       const v = values.get(x)!
       for (const s of series) v[s.key] = row ? num(row[s.member]) : null
+    }
+    // A line of one measure over time, compared with the previous period: its days lie beside the current
+    // ones by position (the previous period is as long, and earlier), so day i sits under day i.
+    if (form === 'line' && isTime && measures.length === 1 && result.previous.length > 0) {
+      const m = measures[0]
+      const earlier = [...result.previous].sort((a, b) => (String(a[xKey] ?? '') < String(b[xKey] ?? '') ? -1 : 1))
+      series.push({ key: 'prev', member: '', label: '', slot: null, other: false, unit: m.unit, previous: true })
+      xs.forEach((x, i) => (values.get(x)!.prev = earlier[i] ? num(earlier[i][m.key]) : null))
     }
   }
 

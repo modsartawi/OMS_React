@@ -1884,6 +1884,52 @@ async function retiredPanels({ dir }) {
   await context.close()
 }
 
+/**
+ * Review fix 11 (766 story 23: "compare a period with the one before it"; §C `compareToPrevious`): the editor
+ * offers the compare where the type shows it (KPI, line) and not elsewhere; the definition stores it and every
+ * Query asks it; a KPI built in the editor shows its ▲▼ in the preview and on its saved view page; a line draws
+ * the previous period dashed.
+ */
+async function compare766({ dir }) {
+  const tag = `review ${dir} compare`
+  const { context, page, bodies, errors } = await open({ dir })
+  await page.goto(`${BASE}/analytics/new?kind=view`)
+  await page.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  await pick(page, 'editor-measures', ['orders'])
+  await pick(page, 'editor-dimensions', ['day'])
+  await page.locator('[data-analytics-choice="table"]').click()
+  check(`${tag}: a table offers no compare`, (await page.locator('[data-editor-compare]').count()) === 0)
+  await page.locator('[data-analytics-choice="kpi"]').click()
+  const toggle = page.locator('[data-editor-compare]')
+  await toggle.waitFor({ timeout: 5000 })
+  check(`${tag}: a KPI offers the compare, off`, (await toggle.getAttribute('data-editor-compare')) === 'off')
+  await toggle.click()
+  const delta = page.locator('[data-analytics-preview] [data-kpi-delta]')
+  await delta.waitFor({ timeout: 10000 }).catch(() => {})
+  const asked = bodies['Analytics/Query']?.at(-1)
+  check(`${tag}: the preview asks Query with compareToPrevious, stored in the definition`, asked?.compareToPrevious === true && asked?.definition?.query?.compareToPrevious === true, JSON.stringify(asked))
+  check(`${tag}: the preview KPI shows its ▲▼ on the previous period`, (await delta.getAttribute('data-kpi-delta').catch(() => null)) === 'up')
+
+  await page.locator('[data-analytics-choice="line"]').click()
+  const dashed = page.locator('[data-analytics-preview] [data-chart="line"] .recharts-line-curve[stroke-dasharray]')
+  await dashed.first().waitFor({ timeout: 10000 }).catch(() => {})
+  const legend = (await page.locator('[data-analytics-preview] .recharts-legend-item').allInnerTexts()).map((s) => s.trim())
+  check(`${tag}: a line draws the previous period dashed, named in the legend`, (await dashed.count()) === 1 && legend.includes('Previous period'), legend.join(', '))
+
+  await page.locator('[data-analytics-choice="kpi"]').click()
+  await delta.waitFor({ timeout: 10000 }).catch(() => {})
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/view/v-new', { timeout: 10000 })
+  check(`${tag}: the saved definition compares to the previous period`, bodies['Analytics/Item']?.at(-1)?.definition?.query?.compareToPrevious === true)
+  const saved = page.locator('[data-analytics-view="v-new"] [data-kpi-delta]')
+  await saved.waitFor({ timeout: 10000 }).catch(() => {})
+  const viewAsk = (bodies['Analytics/Query'] ?? []).filter((b) => b.viewId === 'v-new').at(-1)
+  check(`${tag}: the view page asks its view with compareToPrevious`, viewAsk?.compareToPrevious === true, JSON.stringify(viewAsk))
+  check(`${tag}: the editor-built KPI shows ▲▼ on its own page`, (await saved.getAttribute('data-kpi-delta').catch(() => null)) === 'up')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 async function buildsNewView() {
   const tag = '777 build a view'
   const { context, page, bodies, errors } = await open({ list: LIST_777 })
@@ -2145,6 +2191,8 @@ const SCENARIOS = [
   ['780', refreshChoice780],
   ['review', () => retiredPanels({ dir: 'ltr' })],
   ['review', () => retiredPanels({ dir: 'rtl' })],
+  ['review', () => compare766({ dir: 'ltr' })],
+  ['review', () => compare766({ dir: 'rtl' })],
 ]
 
 try {

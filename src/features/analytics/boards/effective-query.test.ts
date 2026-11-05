@@ -26,6 +26,18 @@ const ask = (p: ReturnType<typeof panel>, measures: string[], filters: BoardFilt
   effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, { filters })
 
 describe('effective query', () => {
+  it('asks for the previous period when the view compares to it (766 §C compareToPrevious), and only then', () => {
+    const comparing: AnalyticsViewDefinition = { ...view(['orders']), query: { ...view(['orders']).query, compareToPrevious: true } }
+    expect(effectiveQuery({ panel: panel('k'), view: comparing, revision: 3, model: MODEL }, { filters: NONE })).toEqual({
+      viewId: 'v-k',
+      revision: 3,
+      period: 'last-30-days',
+      filters: [],
+      compareToPrevious: true,
+    })
+    expect(ask(panel('a'), ['orders'], NONE)).not.toHaveProperty('compareToPrevious')
+  })
+
   it('asks for the saved view by id and revision, with the period as a relative token', () => {
     expect(ask(panel('a'), ['orders'], NONE)).toEqual({ viewId: 'v-a', revision: 3, period: 'last-30-days', filters: [] })
   })

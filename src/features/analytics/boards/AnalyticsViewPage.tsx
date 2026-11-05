@@ -14,6 +14,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
+import { comparing } from './effective-query'
 import { itemActions } from './item-actions'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
@@ -71,7 +72,7 @@ function ViewBody() {
 function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const input = { viewId: item.id, revision: item.revision }
+  const input = { viewId: item.id, revision: item.revision, ...comparing(item.definition) }
   // A view naming a member the model no longer holds is retired: not asked at all (766 §B).
   const retired = retiredMembers(item.definition, model)
   const answer = useQuery({

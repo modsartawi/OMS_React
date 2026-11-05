@@ -236,3 +236,35 @@ describe('view model: the top 5 plus Other, and stacking', () => {
     ])
   })
 })
+
+describe('a line over time compared with the previous period (766 story 23)', () => {
+  it('adds the previous period as its own series, day by day in order, after the current one', () => {
+    const days = ['2026-11-03', '2026-11-04', '2026-11-05']
+    const prev = ['2026-10-31', '2026-11-01', '2026-11-02']
+    const view = toSeriesView(
+      answer(
+        days.map((day, i) => ({ day, orders: [10, 20, 30][i] })),
+        // Sent out of order: matched to the current days by position after sorting.
+        [{ day: prev[2], orders: 3 }, { day: prev[0], orders: 1 }, { day: prev[1], orders: 2 }],
+      ),
+      { chart: { type: 'line' }, query: { measures: ['orders'], dimensions: ['day'], filters: [], compareToPrevious: true } },
+      MODEL,
+      'en',
+    )
+    if (view.kind !== 'series') throw new Error(view.kind)
+    expect(view.series.map((s) => [s.key, s.previous ?? false])).toEqual([
+      ['s0', false],
+      ['prev', true],
+    ])
+    expect(view.rows.map((r) => [r.values.s0, r.values.prev])).toEqual([
+      [10, 1],
+      [20, 2],
+      [30, 3],
+    ])
+  })
+  it('a line with no previous rows, or a breakdown, has no previous series', () => {
+    const plain = toSeriesView(answer([{ day: '2026-11-05', orders: 1 }]), { chart: { type: 'line' }, query: { measures: ['orders'], dimensions: ['day'], filters: [], compareToPrevious: true } }, MODEL, 'en')
+    if (plain.kind !== 'series') throw new Error(plain.kind)
+    expect(plain.series.some((s) => s.previous)).toBe(false)
+  })
+})

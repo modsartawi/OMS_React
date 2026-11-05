@@ -72,6 +72,9 @@ import { useOrderAttachments } from './use-order-attachments'
 import LfReturnPanel from './LfReturnPanel'
 import ForceRefundCommand from './ForceRefundCommand'
 import { asksLfReturn, showsLfReturnPanel } from './lf-return'
+import InsuranceSection from './InsuranceSection'
+import { asksInsurance, insuranceSectionGate } from './insurance-section'
+import { revokeInsuranceViewOnForbidden } from '@/core/oms/insurance-grant'
 import Chip from '@/core/ui/Chip'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
@@ -86,6 +89,8 @@ function numericAsc(a: string, b: string): number {
 const prescriptionSessionsKey = (documentNo: string) => ['document', 'prescription-sessions', documentNo] as const
 /** The query key of a return delivery's LF warehouse watch (ticket 762), by the loaded record's number. */
 const lfReturnKey = (returnDeliveryNo: string) => ['document', 'lf-return', returnDeliveryNo] as const
+/** The query key of an order's insurance read (ticket 787), by the loaded record's number. */
+const insuranceKey = (documentNo: string) => ['document', 'insurance', documentNo] as const
 
 const PENDING = { rows: null, loading: true, error: null } as const
 /** A read that has nothing to ask: a document that is not a delivery has no donor requests. */
@@ -642,6 +647,24 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   })
 
   /**
+   * The Insurance section (ticket 787, BackOffice 3390): an order on Document Details, for an
+   * insurance-view holder, asks the insurance read; the read alone says whether it IS an insurance
+   * order (`null` = refused by name, no section). A 403 drops the grant for the page life, which
+   * hides the section; any other failure is said in place. Keyed by the number.
+   */
+  const insuranceContext = { openedAs, documentCategory: document?.documentCategory, access: access.data }
+  const insuranceAsked = document !== null && document.documentNo !== '' && asksInsurance(insuranceContext)
+  const insuranceRead = useQuery({
+    queryKey: insuranceKey(document?.documentNo ?? ''),
+    queryFn: () => documentApi.getInsurance(document!.documentNo),
+    enabled: insuranceAsked,
+    retry: false,
+  })
+  useEffect(() => {
+    if (insuranceRead.isError) revokeInsuranceViewOnForbidden(queryClient, insuranceRead.error)
+  }, [insuranceRead.isError, insuranceRead.error, queryClient])
+
+  /**
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
    * files only when their disclosure has been opened on this visit. Before that it reads none:
    * every ByOwner is an audit row. Commands reload through `reload` alone, so they
@@ -655,6 +678,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
     if (document) void queryClient.invalidateQueries({ queryKey: prescriptionSessionsKey(document.documentNo) })
     if (document && lfReturnAsked) void queryClient.invalidateQueries({ queryKey: lfReturnKey(document.documentNo) })
+    if (document && insuranceAsked) void queryClient.invalidateQueries({ queryKey: insuranceKey(document.documentNo) })
   }
 
   /**
@@ -850,6 +874,16 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                   }
                 />
               )
+            )}
+
+            {/*
+              The Insurance section (ticket 787): full width above the two columns — Money's three
+              columns and the Lines table need the width, and the verdict is read first.
+            */}
+            {insuranceAsked && insuranceRead.isError ? (
+              <InsuranceSection read={null} error={apiErrorMessage(insuranceRead.error, t('insurance.loadFailed'))} />
+            ) : (
+              insuranceSectionGate(insuranceContext, insuranceRead.data) && <InsuranceSection read={insuranceRead.data!} />
             )}
 
             {/*

@@ -605,12 +605,23 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *             own revision alone. Each entry's `snapshot` (title, definition) is what a revert restores.
  *   revert:   the `POST …/Revert` answer (779) — a `refusal(...)` fulfil object, or omitted: the snapshot written as
  *             revision max + 1 (`revertedFrom` recorded), served from then on, with the history grown.
+ *   health:   the `GET Analytics/Health` answer (785, BackOffice 3386) — a health object, or a `refusal(...)` fulfil
+ *             object; default `HEALTH_OK`.
  * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
+/** 785: `GET Analytics/Health`, the container's /health as SIS.Api passes it on (BackOffice 3386). */
+export const HEALTH_OK = {
+  status: 'ok',
+  version: '1.0.0',
+  cube: 'ready',
+  marts: { status: 'fresh', lastGoodRunAtRiyadh: '2026-11-05 09:45:12', minutesSince: 7, maxMinutes: 45, lastRun: 'intraday success at 2026-11-05 09:45:12' },
+  checkedAt: '2026-11-05T09:52:00',
+}
+
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
@@ -642,6 +653,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Copilot/Ask') return route.fulfill(envelope(copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
+    if (p === 'Analytics/Health') return route.fulfill(isFulfil(health) ? health : envelope(health))
     if (p === 'Analytics/DimensionValues') {
       const search = (url.searchParams.get('search') ?? '').toLowerCase()
       const all = members[url.searchParams.get('dimension')] ?? []

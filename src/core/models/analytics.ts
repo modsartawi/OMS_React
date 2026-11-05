@@ -332,3 +332,51 @@ export interface AnalyticsRevision {
 export interface AnalyticsItemRevert {
   revision: number
 }
+
+/**
+ * `GET Analytics/Health` (BackOffice 3386, curators only — `ANALYTICS-402` otherwise): the analytics
+ * container's own `/health`, passed on field by field by SIS.Api. Unreachable is an answer, not a refusal.
+ */
+export type AnalyticsHealthStatus = 'ok' | 'fail' | 'unreachable' | 'not_configured'
+export type AnalyticsCubeState = 'ready' | 'not_ready' | ''
+export type AnalyticsMartsState = 'fresh' | 'stale' | 'never_built' | 'unreachable' | ''
+/** Image 1.2.0: the first load of a newly deployed dbt project; '' from an older image. */
+export type AnalyticsFirstLoadState = 'done' | 'running' | 'failed' | 'not_started' | 'unreachable' | ''
+export type AnalyticsFirstLoadPhase = 'rebuild' | 'backfill' | ''
+
+export interface AnalyticsHealth {
+  status: AnalyticsHealthStatus
+  /** The image version the container runs; empty when it did not answer. */
+  version: string
+  cube: AnalyticsCubeState
+  marts: {
+    status: AnalyticsMartsState
+    /** The newest successful dbt run, Riyadh time as stored (`yyyy-MM-dd HH:mm:ss`). */
+    lastGoodRunAtRiyadh: string
+    minutesSince: number | null
+    /** The threshold in force: 45 by day, 360 at night (00:00–08:00). */
+    maxMinutes: number | null
+    /** The newest run whatever its outcome: `"<job> <status> at <time>"`. */
+    lastRun: string
+  }
+  /**
+   * Image 1.2.0: whether this image's dbt project is built into POS_Analytics yet — a full rebuild,
+   * then the 2026 backfill one month at a time. It never changes `status`: the boards answer from
+   * the previous marts meanwhile.
+   */
+  firstLoad: {
+    status: AnalyticsFirstLoadState
+    /** While running: `rebuild` or `backfill`. */
+    phase: AnalyticsFirstLoadPhase
+    /** During the backfill: months finished, of `monthsTotal`. */
+    monthsDone: number | null
+    monthsTotal: number | null
+    /** During the backfill: the first day of the month being read (`yyyy-MM-dd`). */
+    currentMonth: string
+    /** Riyadh time as stored (`yyyy-MM-dd HH:mm:ss`). */
+    startedAtRiyadh: string
+    finishedAtRiyadh: string
+  }
+  /** When SIS.Api asked, its local clock. */
+  checkedAt: string
+}

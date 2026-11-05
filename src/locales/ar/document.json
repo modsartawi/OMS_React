@@ -359,6 +359,8 @@
       "confirmed": "المؤكَّد",
       "refunded": "المُسترد",
       "restocked": "المُعاد للمخزون",
+      "restockedYes": "نعم",
+      "restockedNo": "لم يُعَد للمخزون",
       "reason": "السبب",
       "pending": "قيد الانتظار",
       "empty": "لا تسرد متابعة المستودع أي بنود."

@@ -8,6 +8,7 @@
 import { api } from '@/core/api'
 import type {
   AnalyticsBoard,
+  AnalyticsHealth,
   AnalyticsItem,
   AnalyticsItemCopy,
   AnalyticsItemCreate,
@@ -21,6 +22,7 @@ import type {
   AnalyticsReport,
   AnalyticsRevision,
 } from '@/core/models/analytics'
+import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
 import { readBoard, readItem, readItems, readMembers, readModel, readResult } from './wire'
@@ -37,8 +39,14 @@ export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', 
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
+/** The analytics status card (785). */
+export const ANALYTICS_HEALTH_KEY = ['analytics', 'health'] as const
 
 export const analyticsApi = {
+  /** `GET Analytics/Health` (BackOffice 3386, curators only): how Cube and the dbt runs are going. */
+  async health(): Promise<AnalyticsHealth> {
+    return readHealth(await api.get<Record<string, unknown>>('Analytics/Health'))
+  },
   /** `GET Analytics/Model` — the catalogue: areas, measures and dimensions, labelled in en and ar. */
   async model(): Promise<AnalyticsModel> {
     return readModel(await api.get<Record<string, unknown>>('Analytics/Model'))

@@ -7,7 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { HEADING } from './facts-heading'
-import { attentionKey, lfReturnRows, outcomeChip, type Quantity } from './lf-return'
+import { attentionKey, lfReturnRows, outcomeChip, type Quantity, type Restocked } from './lf-return'
 
 /**
  * **The LF return panel** — the warehouse watch on a local fulfillment return delivery (spec 759 F4,
@@ -158,7 +158,7 @@ function Watch({ detail }: { detail: LfReturnDetailModel }) {
                   <QuantityCell q={row.asked} cell="asked" />
                   <QuantityCell q={row.confirmed} cell="confirmed" />
                   <QuantityCell q={row.refunded} cell="refunded" />
-                  <QuantityCell q={row.restocked} cell="restocked" />
+                  <RestockedCell r={row.restocked} />
                   <td className="py-1" data-lf-cell="reason">
                     <bdi>{row.reasonName}</bdi>
                   </td>
@@ -169,6 +169,25 @@ function Watch({ detail }: { detail: LfReturnDetailModel }) {
         </div>
       )}
     </div>
+  )
+}
+
+/** Restocked is a per-line flag (3376): yes, or *not restocked* — words, not a machine value. */
+function RestockedCell({ r }: { r: Restocked }) {
+  const { t } = useTranslation('document')
+  return (
+    <td
+      className="py-1 pe-3 text-end"
+      data-lf-cell="restocked"
+      data-lf-pending={r.pending ? '' : undefined}
+      data-lf-restocked={r.pending ? undefined : String(r.value)}
+    >
+      {r.pending ? (
+        <span className="text-muted-foreground italic">{t('lfReturn.lines.pending')}</span>
+      ) : (
+        t(r.value ? 'lfReturn.lines.restockedYes' : 'lfReturn.lines.restockedNo')
+      )}
+    </td>
   )
 }
 

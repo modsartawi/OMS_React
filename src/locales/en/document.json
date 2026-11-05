@@ -716,6 +716,8 @@
       "confirmed": "Confirmed",
       "refunded": "Refunded",
       "restocked": "Restocked",
+      "restockedYes": "Yes",
+      "restockedNo": "Not restocked",
       "reason": "Reason",
       "pending": "Pending",
       "empty": "The warehouse watch lists no lines."

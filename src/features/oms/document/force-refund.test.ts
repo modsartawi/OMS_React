@@ -55,8 +55,8 @@ describe('received quantity clamps to 0..asked', () => {
 })
 
 const watch = (outcome: string, lines = [
-  { itemNumber: '000010', sku: '100200300', askedQuantity: 2 },
-  { itemNumber: '000020', sku: '100200400', askedQuantity: 1 },
+  { itemNumber: '000010', sku: '100200300', quantityAsked: 2 },
+  { itemNumber: '000020', sku: '100200400', quantityAsked: 1 },
 ]): LfReturnDetailModel => ({ outcome, lines })
 
 describe('the force-refund rows', () => {

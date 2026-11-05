@@ -223,7 +223,7 @@
     "subtitleAr": "Subtitle in Arabic",
     "titleHint": "Leave it empty and the title is made from the measures and breakdowns.",
     "preview": "Preview",
-    "previewIdle": "Choose a measure to see a preview.",
+    "previewIdle": "Choose a measure and a chart type to see a preview.",
     "save": "Save view",
     "saving": "Saving…",
     "saved": "Saved as your own analytics view.",
@@ -475,6 +475,68 @@
     "save": "Save board",
     "saved": "Board saved.",
     "saveFailed": "The board could not be saved"
+  },
+  "status": {
+    "title": "Analytics status",
+    "loading": "Checking the analytics status…",
+    "loadFailed": "The analytics status could not be read",
+    "checked": "Checked <at>{{at}}</at>",
+    "headline": {
+      "ok": "Cube is up and the marts are fresh",
+      "behind": "The marts are behind: panels show older data",
+      "cubeDown": "Cube is down: panels cannot answer",
+      "martsDown": "The marts cannot be read, or were never built",
+      "unreachable": "The analytics container did not answer",
+      "notConfigured": "SIS.Api has no analytics address configured"
+    },
+    "cubeLabel": "Cube",
+    "cube": {
+      "ready": "Ready",
+      "not_ready": "Not ready",
+      "unknown": "Unknown"
+    },
+    "martsLabel": "Marts",
+    "marts": {
+      "fresh": "Fresh",
+      "stale": "Behind",
+      "never_built": "Never built",
+      "unreachable": "Unreadable",
+      "unknown": "Unknown"
+    },
+    "firstLoadLabel": "First load",
+    "firstLoad": {
+      "done": "Done",
+      "running": "In progress",
+      "failed": "Failed: retried at the next start",
+      "not_started": "Not started yet",
+      "unreachable": "Unreadable",
+      "rebuild": "Rebuilding every mart; the previous marts keep serving",
+      "backfill": "Loading 2026 history, month <n>{{count}}</n>",
+      "backfillMonth": "Loading 2026 history, month <n>{{count}}</n> (<m>{{month}}</m>)",
+      "startedAt": "started <at>{{at}}</at>",
+      "finishedAt": "finished <at>{{at}}</at>"
+    },
+    "lastGood": "Last good run",
+    "ago": "<n>{{minutes}}</n> min ago",
+    "allowed": "(allowed <n>{{minutes}}</n> min)",
+    "lastRun": "Last run",
+    "job": {
+      "intraday": "Intraday",
+      "nightly": "Nightly",
+      "rebuild": "Full rebuild",
+      "byHand": "By hand",
+      "catchup": "Sunday 14-day catch-up",
+      "backfill": "History backfill"
+    },
+    "run": {
+      "success": "Succeeded",
+      "error": "Failed",
+      "skipped": "Skipped",
+      "test_fail": "Tests failed",
+      "stale_source": "Refused: the POS replica was behind"
+    },
+    "versionLabel": "Image version",
+    "none": "None yet"
   },
   "report": {
     "loading": "Loading the report…",

@@ -1283,6 +1283,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [782](782-the-ask-box-on-analytics-opens-the-copilot-with-the-question-filled-in.md) — The ask box on /analytics opens the copilot with the question filled in · *(ticket · spec 766)* · **done** · blocked by: 767, 781 · prefactor: copilot opener → core; /analytics ask box
 - [783](783-callout-panels-drill-to-the-dispatch-scorecard-once-the-callout-area-is-live.md) — Callout panels drill to the dispatch scorecard once the callout area is live · *(ticket · spec 766)* · **open** · blocked by: 774, 753, BackOffice 3384 · area 4 available; callout → dispatch scorecard drill; waits on 753 + BO 3384
 - [784](784-the-analytics-screens-call-the-real-doors-on-staging.md) — The analytics screens call the real doors on staging · *(ticket · spec 766)* · **open** · blocked by: 767, 768, 769, 770, 771, 772, 773, 774, 775, 776, 777, 778, 779, 780, 781, 782, BackOffice 3381, 3382, 3383 · live walk on staging; drift → 3378 first
+- [785](785-curators-see-how-cube-and-the-dbt-runs-are-going.md) — Curators see how Cube and the dbt runs are going · *(ticket · spec 766)* · **done** · blocked by: 770, BackOffice 3386 · status card on /analytics for curators (AnalyticsCurate, no new grant); GET Analytics/Health every minute; drive 31/31
 
 ## Approval-number release (BackOffice spec 3342, filed 2026-11-03)
 

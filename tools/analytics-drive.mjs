@@ -2133,7 +2133,86 @@ async function refreshChoice780() {
   await anon.context.close()
 }
 
+// ── 785 ──────────────────────────────────────────────────────────────────────────────────────────────
+// 785 — curators see how Cube and the dbt runs are going (BackOffice 3386's `GET Analytics/Health`):
+//   1. a viewer (no curator grant): no status card, and the home never asks Analytics/Health;
+//   2. a curator, everything fresh: "Cube is up and the marts are fresh", Cube Ready, Marts Fresh, the last good run
+//      with its minutes, the last run "Intraday · Succeeded", the image version;
+//   3. stale (the container's 503 body): the warning headline, Marts Behind, the last run refused by the gate;
+//   4. no answer: the unreachable headline and no detail rows; a 402 refusal is said in words.
+const STALE_785 = {
+  status: 'fail',
+  version: '1.0.0',
+  cube: 'ready',
+  marts: { status: 'stale', lastGoodRunAtRiyadh: '2026-11-05 07:15:03', minutesSince: 157, maxMinutes: 45, lastRun: 'intraday stale_source at 2026-11-05 09:30:04' },
+  checkedAt: '2026-11-05T09:52:00',
+}
+
+async function status785({ dir = 'ltr', dark = false } = {}) {
+  const tag = `785 ${dir}${dark ? ' dark' : ''}`
+  {
+    const { context, page, calls } = await open({ dir, dark })
+    await page.goto(`${BASE}/analytics`)
+    await page.locator('[data-analytics-group]').first().waitFor({ timeout: 10000 })
+    await page.waitForTimeout(300)
+    check(`${tag}: a viewer sees no status card`, (await page.locator('[data-analytics-status]').count()) === 0)
+    check(`${tag}: … and the home never asks Analytics/Health`, !calls.includes('Analytics/Health'), calls.join(','))
+    await context.close()
+  }
+  const curator = { canView: true, canCurate: true }
+  {
+    const { context, page, errors } = await open({ dir, dark, access: curator })
+    await page.goto(`${BASE}/analytics`)
+    const card = page.locator('[data-analytics-status]')
+    await card.locator('[data-analytics-status-headline]').waitFor({ timeout: 10000 })
+    const text = clean(await card.innerText())
+    check(`${tag}: fresh: the ok headline`, (await card.locator('[data-analytics-status-headline]').getAttribute('data-analytics-status-headline')) === 'ok', text)
+    check(`${tag}: … Cube ready, marts fresh`, (await card.locator('[data-analytics-status-cube="ready"]').count()) === 1 && (await card.locator('[data-analytics-status-marts="fresh"]').count()) === 1)
+    if (dir === 'ltr') check(`${tag}: … the words`, ['Cube is up and the marts are fresh', 'Ready', 'Fresh', '7 min ago', 'Intraday', 'Succeeded', '1.0.0', '09:45'].every((w) => text.includes(w)), text)
+    // The app's language is still English (i18n `lng: 'en'`); under rtl only the direction flips.
+    else check(`${tag}: … the page is RTL with the same words`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl' && ['Cube is up and the marts are fresh', 'Intraday', 'Succeeded'].every((w) => text.includes(w)), text)
+    const runTime = await card.locator('[data-analytics-status-last-run] bdi[dir="ltr"]').last().innerText()
+    check(`${tag}: … the run time is one LTR isolate (date · time)`, /09:45/.test(runTime) && /2026/.test(runTime), runTime)
+    await page.screenshot({ path: `${SHOTS}/785-fresh-${dir}${dark ? '-dark' : ''}.png` })
+    check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page } = await open({ dir, dark, access: curator, health: STALE_785 })
+    await page.goto(`${BASE}/analytics`)
+    const card = page.locator('[data-analytics-status]')
+    await card.locator('[data-analytics-status-headline]').waitFor({ timeout: 10000 })
+    const text = clean(await card.innerText())
+    check(`${tag}: stale: the behind headline, a warning`, (await card.locator('[data-analytics-status-headline="behind"]').count()) === 1 && (await card.locator('[data-analytics-status-tone="warn"]').count()) === 1, text)
+    check(`${tag}: … the last run refused by the freshness gate`, (await card.locator('[data-analytics-status-last-run="stale_source"]').count()) === 1, text)
+    if (dir === 'ltr') check(`${tag}: … the words`, ['The marts are behind', 'Behind', '157 min ago', '(allowed 45 min)', 'Refused: the POS replica was behind'].every((w) => text.includes(w)), text)
+    await page.screenshot({ path: `${SHOTS}/785-stale-${dir}${dark ? '-dark' : ''}.png` })
+    await context.close()
+  }
+  if (dir === 'ltr' && !dark) {
+    {
+      const { context, page } = await open({ access: curator, health: { status: 'unreachable', checkedAt: '2026-11-05T09:52:00' } })
+      await page.goto(`${BASE}/analytics`)
+      const card = page.locator('[data-analytics-status]')
+      await card.locator('[data-analytics-status-headline]').waitFor({ timeout: 10000 })
+      check(`${tag}: no answer: the unreachable headline, no detail rows`, (await card.locator('[data-analytics-status-headline="unreachable"]').count()) === 1 && (await card.locator('dl').count()) === 0, clean(await card.innerText()))
+      await context.close()
+    }
+    {
+      const { context, page } = await open({ access: curator, health: refusal('ANALYTICS-402', 'The analytics status needs the analytics curator grant.') })
+      await page.goto(`${BASE}/analytics`)
+      const failed = page.locator('[data-analytics-status-failed]')
+      await failed.waitFor({ timeout: 10000 })
+      check(`${tag}: a refusal is said in words`, clean(await failed.innerText()).length > 0, clean(await failed.innerText()))
+      await context.close()
+    }
+  }
+}
+
 const SCENARIOS = [
+  ['785', () => status785({ dir: 'ltr' })],
+  ['785', () => status785({ dir: 'rtl' })],
+  ['785', () => status785({ dir: 'ltr', dark: true })],
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
   ['767', () => drawsBar({ dir: 'rtl', dark: false })],

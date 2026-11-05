@@ -210,9 +210,11 @@ A new **Analytics** area in oms-react, at `/analytics`, open to holders of a new
 
 - **The path:** oms-react → SIS.Api (gate, validate, compile, cap, cache, audit) → Cube Core
   `/load` → the marts in `POS_Analytics` ← dbt (scheduled, bounded reads of `POS`).
-- **Hosting:** one Docker host VM on Nutanix AHV. Only SIS.Api reaches it, on 443, and it has no
-  internet egress. It runs four containers: the Cube API, the Cube refresh worker, Cube Store,
-  and the scheduled dbt job.
+- **Hosting** *(amended 2026-11-05, 749)*: **one container image** that infra runs on its existing
+  Nutanix platform, exactly one instance, no persistent disk. It holds the Cube API with its
+  refresh worker, Cube Store on localhost only, and dbt with its schedule inside (overlap guarded by
+  a lock file). Its name is internal-only, with a Cloudflare certificate on 443. Only SIS.Api
+  reaches it, and it has no internet egress.
 - **Metabase is not used.** The prototype ran on Metabase over synthetic SQLite only as a stand-in.
   Nobody signs in to anything but oms-react.
 
@@ -237,8 +239,9 @@ A new **Analytics** area in oms-react, at `/analytics`, open to holders of a new
   - `CUBEJS_DB_QUERY_LIMIT` and `CUBEJS_DB_QUERY_DEFAULT_LIMIT` are both 10000, and every query
     sends `total`;
   - `CUBEJS_DB_QUERY_TIMEOUT` is 30 s;
-  - TLS through a `driverFactory` pinned to the replica's certificate until the internal-CA
-    certificate is installed, and **never** `trustServerCertificate`.
+  - TLS: encrypted, server certificate trusted (`ANALYTICS_DB_TRUST_CERT=true`, owner ruling
+    2026-11-05, 749 D8 (c)): the replica has only SQL Server's self-generated certificate. Pinned
+    mode stays in the `driverFactory` for when a real certificate is installed.
 - **Rates are computed from their parts.** `return_rate`, the shares and `take_rate` are always
   Σ numerator ÷ Σ denominator over the filtered set, never an average of per-store ratios.
 - **Percentiles** are computed exactly per query (`PERCENTILE_CONT`, the twin of
@@ -342,8 +345,8 @@ All calls go through `@/core/api`. Refusals are envelope business outcomes.
     period. It also **coalesces identical in-flight queries**, so ten wall screens on one board
     make one query per interval.
   - **No Cube pre-aggregations in v1.** The marts are already daily aggregates. Add one only for a
-    measured query that misses its budget. Cube Store stays in the compose file as Cube's cache
-    and queue store.
+    measured query that misses its budget. Cube Store stays in the image, on localhost only, as
+    Cube's cache and queue store.
   - SIS.Api caps **concurrent queries to Cube** at 8. That value is provisional, and 750 item 7
     ratifies it.
 - **Audit:** every `Analytics/Query` and every store write records the acting user, the item, the
@@ -606,8 +609,8 @@ All calls go through `@/core/api`. Refusals are envelope business outcomes.
   first server ticket records them.
 - **BackOffice asks (not filed from here; BackOffice is read-only from this map).** The suggested
   split:
-  1. the `Analytics/` tree, dbt areas 1–3 with both jobs and the load log, and the host's compose
-     file;
+  1. the `Analytics/` tree, dbt areas 1–3 with both jobs and the load log, and the single image
+     (amended 2026-11-05; was "the host's compose file");
   2. the Cube model for areas 1–3, with the contract check, the Sunday week and the TLS
      `driverFactory`;
   3. the `Analytics/Access`, `Model`, `DimensionValues` and `Query` doors, with the compiler, the

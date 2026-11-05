@@ -9,6 +9,16 @@ nothing here provisions it.
 Written 2026-11-04. Every sizing figure and every "recommended" choice is the agent's call. The
 owner may overrule any of them. Facts measured on the replica that day are marked **(measured)**.
 
+> **Amended 2026-11-05 (owner ruling): §1 and §2 are superseded.** Infra already runs our apps as
+> containers on Nutanix, so there is no new VM. The stack ships as **one image** (Cube API with its
+> refresh worker, Cube Store on localhost only, and dbt with its schedule inside, overlap guarded by
+> a lock file). Infra runs it as one instance, with an **internal-only** DNS name and a Cloudflare
+> certificate on 443, SIS.Api in, `DWPOSREPL03:1433` out, no disk, no internet. **D8 is (c)**
+> (owner, same day): encrypted with `TrustServerCertificate=True`, like the estate's other apps; the
+> replica has only SQL Server's self-generated certificate (see 749). The live ask
+> is [741-nutanix-infra-request.md](741-nutanix-infra-request.md). §3 (the DBA half) stands as
+> done.
+
 ## 0. What the build needs, on one line
 
 One Linux amd64 VM with Docker runs four containers. It reaches `DWPOSREPL03:1433` and is reached

@@ -44,7 +44,8 @@ that builds it is [766](../../.issues/766-hq-self-service-analytics-v1-spec.md).
 - **Our store is the record** for ownership, tiers, revisions and the audit. A BI tool's store
   credits everything to a service account.
 - **v1 costs nothing in licences.** Every piece is open source (Apache-2.0 or MIT) and runs
-  on-prem, on one Docker host VM on Nutanix with no internet egress.
+  on-prem, as **one container image** on infra's existing Nutanix container platform, with no
+  internet egress *(amended 2026-11-05: was "one Docker host VM"; see 749's amendment)*.
 
 ## Considered and rejected
 

@@ -121,3 +121,24 @@ Infra provisions from [741-nutanix-infra-request.md](../docs/research/741-nutani
   host, its IP and the SIS.Api source IPs are **build inputs**, not decisions. They get filled in
   when infra hands the VM over, and the build tickets record them. Nothing in the spec or the ADR
   waits on them.
+
+### Amended 2026-11-05 (owner, grilled)
+
+- **No VM.** Infra already runs our apps as containers on Nutanix. We build the image; infra runs
+  it. The "host" and "Why not Kubernetes" bullets above are superseded.
+- **One image**, not four containers: Cube API with its refresh worker, Cube Store on localhost
+  only (its missing auth never reaches a network), and dbt with its 15-minute and 03:00 schedule
+  inside, overlap guarded by a lock file instead of a fixed container name. **Exactly one
+  instance**, no persistent disk (Cube Store is a cache, rebuilt on restart), 4 vCPU / 16 GB to
+  start.
+- **The name is internal-only**, with a Cloudflare certificate terminated by infra's platform on
+  443 → container port 4000. Only production and staging SIS.Api reach it. SIS.Api trusts the
+  Cloudflare chain as-is, so no CA chain is installed.
+- **Network:** SIS.Api → 443, the container → `DWPOSREPL03:1433`, nothing else. No SSH line.
+- **D8 is (a):** pin the replica's current certificate, re-copied at its renewal; never
+  `trustServerCertificate`. The internal-CA certificate (b) is no longer asked.
+- **Secrets:** three env vars set by infra at deploy time (`CUBEJS_DB_PASS`,
+  `DBT_ENV_SECRET_PASSWORD`, `CUBEJS_API_SECRET`), never in the image.
+- The live ask is the rewritten
+  [741-nutanix-infra-request.md](../docs/research/741-nutanix-infra-request.md). The URL the spec
+  relies on is now `https://<internal-name>/cubejs-api/v1`.

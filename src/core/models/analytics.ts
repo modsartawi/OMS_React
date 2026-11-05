@@ -247,7 +247,12 @@ export interface AnalyticsBoardDefinition {
   panels: AnalyticsBoardPanel[]
   /** The board's saved filters, which the strip opens on when the URL names none. */
   filters?: Partial<BoardFilters>
+  /** ⚠ (780) The board's saved auto-refresh default; a viewer's change lasts for their session only. */
+  refresh?: RefreshInterval
 }
+
+/** A board's auto-refresh interval (spec 766 §F): the picker's choices and the permalink's `refresh=`. */
+export type RefreshInterval = 'off' | '30s' | '1m' | '5m' | '15m'
 
 /** A board in the analytics store: an item whose definition is a board's. */
 export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'board'; definition: AnalyticsBoardDefinition }

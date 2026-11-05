@@ -58,6 +58,14 @@
 //   4. full screen in and out; the permalink carries the filters and names the panel, and opening it brings
 //      the panel into view; the view page offers the same actions (a KPI holds PNG back, with its reason).
 //
+// 780 — auto-refresh and TV mode (the page clock faked; `runFor` moves it):
+//   1. a `tv=1&refresh=30s` permalink opens in TV mode: no shell, the board fills the window, read-only filter
+//      chips, panel actions kept; each view panel re-asks every 30 s, staggered 6 s apart (page-clock times);
+//   2. nothing while hidden, one catch-up per panel on return; the cross-filter still works; Esc exits, keeping
+//      the interval, filters and cross-filter; the TV button enters and its exit button leaves;
+//   3. the saved default applies, Off stops the loop, the viewer's choice lasts the session (not saved), a new
+//      session opens on the default; an anonymous TV permalink goes to login and back.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
@@ -1207,6 +1215,183 @@ async function viewActions773({ dir }) {
   await context.close()
 }
 
+// ── 780 ──────────────────────────────────────────────────────────────────────────────────────────────
+// The 771 board (five view panels). The page clock is Playwright's fake one, so the 30 s loop is moved by
+// `fastForward`, not waited out; "hidden" is `document.hidden` overridden plus a `visibilitychange`.
+const PANELS_780 = ['p-kpi', 'p-bar', 'p-line', 'p-area', 'p-donut']
+const VIEWS_780 = ['v-kpi', 'v-bar', 'v-line-measures', 'v-area', 'v-donut']
+const settled780 = (page) =>
+  page.waitForFunction((ids) => ids.every((id) => !['loading', 'busy', undefined].includes(document.querySelector(`[data-board-panel="${id}"]`)?.dataset.boardPanelState)), PANELS_780, {
+    timeout: 15000,
+  })
+const asks780 = (bodies) => VIEWS_780.map((v) => askedFor(bodies, v))
+const sum = (xs) => xs.reduce((a, b) => a + b, 0)
+const since = (now, before) => now.map((n, i) => n - before[i])
+/**
+ * Move the page clock on — `runFor`, so each timer fires at its own time (a jump would fire them all at its
+ * end) — then give the re-asks a moment (real time) to reach the stubs and land.
+ */
+const forward = async (page, ms) => {
+  await page.clock.runFor(ms)
+  await page.waitForTimeout(250)
+  await settled780(page)
+}
+/** Log each Query ask with the PAGE's clock (the fake one), so the drive reads when it was asked, not when it looked. */
+const logAsks = (page) =>
+  page.addInitScript(() => {
+    window.__asks = []
+    const real = window.fetch
+    window.fetch = function (input, init) {
+      try {
+        if (String(input?.url ?? input).includes('Analytics/Query') && typeof init?.body === 'string') window.__asks.push({ t: Date.now(), viewId: JSON.parse(init.body).viewId })
+      } catch {
+        // not a JSON body: not a panel's ask
+      }
+      return real.apply(this, arguments)
+    }
+  })
+const asksAt = (page) => page.evaluate(() => window.__asks.slice())
+const setHidden = (page, hidden) =>
+  page.evaluate((hidden) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }, hidden)
+
+async function tvPermalink780({ dir }) {
+  const tag = `780 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, copilot: 'granted' })
+  await page.clock.install({ time: new Date('2026-11-05T10:10:00') })
+  await logAsks(page)
+  await page.goto(`${BASE}/analytics/board/b-ops?tv=1&refresh=30s&region=central`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  await settled780(page)
+
+  // ── TV mode from the permalink ──
+  const board = await page.locator('[data-analytics-board="b-ops"]').boundingBox()
+  const vp = page.viewportSize()
+  check(`${tag}: a tv=1 permalink opens straight into TV mode`, (await page.locator('[data-analytics-board="b-ops"]').getAttribute('data-analytics-tv')) === 'on')
+  check(`${tag}: … the shell is hidden (no rail, no top bar, no nav)`, (await page.locator('[data-shell="hidden"]').count()) === 1 && (await page.locator('nav, aside').count()) === 0, `${await page.locator('nav, aside').count()} nav/aside`)
+  check(`${tag}: … the board fills the screen`, board && board.x === 0 && board.y === 0 && Math.round(board.width) === vp.width && Math.round(board.height) === vp.height, JSON.stringify(board))
+  const chips = await page.locator('[data-board-filter-chips]').innerText().catch(() => '')
+  check(
+    `${tag}: … the filters are a read-only chip strip (period and region), not the strip's pickers`,
+    (await page.locator('[data-board-filters]').count()) === 0 && chips.includes('Last 30 days') && chips.includes('Central') && (await page.locator('[data-board-filter-chips] button, [data-board-filter-chips] input, [data-board-filter-chips] select').count()) === 0,
+    chips.replace(/\n/g, ' '),
+  )
+  check(`${tag}: … the ask box is not on the wall screen`, (await page.locator('[data-analytics-board-header] [data-analytics-ask]').count()) === 0)
+  check(`${tag}: … the picker reads the permalink's 30 s`, (await page.locator('[data-board-refresh]').inputValue()) === '30s')
+  check(`${tag}: … the panel actions are still there`, (await page.locator('[data-board-panel="p-bar"] [data-panel-action="refresh"]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/780-tv-${dir}.png` })
+
+  // ── The loop: five panels staggered 6 s apart over 30 s, each re-asked every 30 s (read on the page clock) ──
+  const opened = (await asksAt(page)).length
+  for (let i = 0; i < 12; i++) await forward(page, 6000)
+  const loop = (await asksAt(page)).slice(opened)
+  const per = VIEWS_780.map((v) => loop.filter((a) => a.viewId === v).map((a) => a.t))
+  const gaps = per.flatMap((ts) => ts.slice(1).map((t, i) => t - ts[i]))
+  check(`${tag}: refresh re-asks every view panel on the interval (the opted-out donut too)`, per.every((ts) => ts.length >= 2) && gaps.every((g) => Math.abs(g - 30_000) <= 1000), `${per.map((ts) => ts.length).join(',')} asks; gaps ${gaps.join(',')}`)
+  const turn = VIEWS_780.map((_, i) => per[i][0] % 30_000).sort((a, b) => a - b)
+  const spread = turn.slice(1).map((t, i) => t - turn[i])
+  check(`${tag}: … staggered: the panels take turns 6 s apart, never at once`, spread.length === 4 && spread.every((d) => Math.abs(d - 6000) <= 1000), spread.join(','))
+  const last = (bodies['Analytics/Query'] ?? []).filter((b) => b.viewId === 'v-bar').at(-1)
+  check(`${tag}: … a re-ask keeps the board's filters`, JSON.stringify(last?.filters ?? []).includes('central'), JSON.stringify(last?.filters))
+
+  // ── Paused while hidden, one catch-up on return ──
+  await setHidden(page, true)
+  let before = (await asksAt(page)).length
+  for (let i = 0; i < 4; i++) await forward(page, 30_000)
+  const whileHidden = (await asksAt(page)).length - before
+  check(`${tag}: nothing is asked while the tab is hidden (2 min)`, whileHidden === 0, String(whileHidden))
+  const back = await page.evaluate(() => Date.now())
+  await setHidden(page, false)
+  await page.waitForTimeout(300)
+  await settled780(page)
+  const catchUp = (await asksAt(page)).slice(before).filter((a) => a.t - back < 200)
+  const caught = VIEWS_780.map((v) => catchUp.filter((a) => a.viewId === v).length)
+  check(`${tag}: back on the tab, each panel catches up ONCE, at once`, caught.every((n) => n === 1), caught.join(','))
+  before = (await asksAt(page)).length
+  await forward(page, 30_000)
+  check(`${tag}: … then the loop carries on`, (await asksAt(page)).length - before >= 4, String((await asksAt(page)).length - before))
+
+  // ── Cross-filter still works in TV mode ──
+  await page.locator('[data-board-panel="p-bar"] .recharts-bar-rectangle path').first().click()
+  const crossed = await page.locator('[data-board-cross]').waitFor({ timeout: 5000 }).then(() => true, () => false)
+  check(`${tag}: a bar click still cross-filters in TV mode`, crossed && new URL(page.url()).searchParams.has('cross'), page.url())
+  await settled780(page)
+
+  // ── Esc exits ──
+  await page.keyboard.press('Escape')
+  await page.locator('[data-analytics-board="b-ops"][data-analytics-tv="off"]').waitFor({ timeout: 5000 })
+  const url = new URL(page.url())
+  check(`${tag}: Esc exits TV mode: the shell is back, the strip's pickers are back`, (await page.locator('nav').count()) > 0 && (await page.locator('[data-board-filters]').count()) === 1 && (await page.locator('[data-shell="hidden"]').count()) === 0)
+  check(`${tag}: … tv leaves the URL; the interval, filters and cross-filter stay`, !url.searchParams.has('tv') && url.searchParams.get('refresh') === '30s' && url.searchParams.get('region') === 'central' && url.searchParams.has('cross'), url.search)
+  before = (await asksAt(page)).length
+  await forward(page, 30_000)
+  check(`${tag}: … and the board keeps refreshing outside TV mode`, (await asksAt(page)).length - before >= 4, String((await asksAt(page)).length - before))
+
+  // ── The TV button goes back in, its exit button leaves ──
+  await page.locator('[data-board-tv-enter]').click()
+  await page.locator('[data-analytics-board="b-ops"][data-analytics-tv="on"]').waitFor({ timeout: 5000 })
+  check(`${tag}: the TV mode button enters TV mode (tv=1 in the URL)`, new URL(page.url()).searchParams.get('tv') === '1')
+  await page.locator('[data-board-tv-exit]').click()
+  await page.locator('[data-analytics-board="b-ops"][data-analytics-tv="off"]').waitFor({ timeout: 5000 })
+  check(`${tag}: … and its exit button leaves it`, !new URL(page.url()).searchParams.has('tv'))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function refreshChoice780() {
+  const tag = '780'
+  // The board's saved default: 1 min.
+  const items = { ...ITEMS, 'b-ops': { ...ITEMS['b-ops'], definition: { ...ITEMS['b-ops'].definition, refresh: '1m' } } }
+  const { context, page, bodies, errors } = await open({ items })
+  await page.clock.install({ time: new Date('2026-11-05T10:10:00') })
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  await settled780(page)
+  const options = await page.locator('[data-board-refresh] option').evaluateAll((os) => os.map((o) => o.value))
+  check(`${tag}: the picker offers Off, 30 s, 1 min, 5 min and 15 min`, JSON.stringify(options) === JSON.stringify(['off', '30s', '1m', '5m', '15m']), options.join(','))
+  check(`${tag}: the board's saved default applies (1 min)`, (await page.locator('[data-board-refresh]').inputValue()) === '1m')
+  let before = asks780(bodies)
+  await forward(page, 60_000)
+  check(`${tag}: … and re-asks every panel once a minute`, since(asks780(bodies), before).every((n) => n === 1), since(asks780(bodies), before).join(','))
+
+  // The viewer picks Off: no more re-asks; the choice goes to the permalink, never to the board.
+  await page.locator('[data-board-refresh]').selectOption('off')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('refresh') === 'off', null, { timeout: 5000 })
+  await page.waitForTimeout(300)
+  await settled780(page)
+  before = asks780(bodies)
+  await forward(page, 120_000)
+  check(`${tag}: Off stops the loop`, sum(since(asks780(bodies), before)) === 0, since(asks780(bodies), before).join(','))
+  check(`${tag}: … the choice goes to the permalink, and nothing is written to the board`, new URL(page.url()).searchParams.get('refresh') === 'off' && !Object.keys(bodies).some((k) => k.startsWith('PUT') || k === 'Analytics/Item'))
+
+  // The viewer's choice lasts for the session: the bare board URL opens on it, not on the saved default.
+  await page.locator('[data-board-refresh]').selectOption('5m')
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  check(`${tag}: the viewer's choice lasts for the session (5 min over the saved 1 min)`, (await page.locator('[data-board-refresh]').inputValue()) === '5m')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // A new session (a fresh context) opens on the saved default again.
+  const fresh = await open({ items })
+  await fresh.page.goto(`${BASE}/analytics/board/b-ops`)
+  await fresh.page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a new session opens on the board's saved default`, (await fresh.page.locator('[data-board-refresh]').inputValue()) === '1m')
+  await fresh.context.close()
+
+  // TV mode still needs a signed-in session: an anonymous wall screen lands on the login page.
+  const anon = await open({})
+  await anon.page.route('**/api/Auth/Me', (route) => route.fulfill(envelope({ authenticated: false })))
+  await anon.page.goto(`${BASE}/analytics/board/b-ops?tv=1&refresh=30s`)
+  await anon.page.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {})
+  const at = new URL(anon.page.url())
+  check(`${tag}: a TV permalink without a session goes to the login page, which returns to the permalink`, at.pathname === '/login' && decodeURIComponent(at.searchParams.get('returnUrl') ?? '').includes('tv=1'), anon.page.url())
+  await anon.context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1237,6 +1422,9 @@ const SCENARIOS = [
   ['775', () => editorBuildsQ8({ dir: 'rtl', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: true })],
   ['775', editorSeededAndRefusals],
+  ['780', () => tvPermalink780({ dir: 'ltr' })],
+  ['780', () => tvPermalink780({ dir: 'rtl' })],
+  ['780', refreshChoice780],
 ]
 
 try {

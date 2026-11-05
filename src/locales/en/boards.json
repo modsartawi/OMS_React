@@ -77,6 +77,20 @@
       "settled": "Every panel is up to date.",
       "progress": "{{done}} of {{total}} panels updated"
     },
+    "refresh": {
+      "label": "Auto-refresh",
+      "off": "Off",
+      "30s": "Every 30 seconds",
+      "1m": "Every minute",
+      "5m": "Every 5 minutes",
+      "15m": "Every 15 minutes"
+    },
+    "tv": {
+      "enter": "TV mode",
+      "exit": "Exit TV mode",
+      "exitHint": "Esc also leaves TV mode",
+      "chips": "Board filters (read only)"
+    },
     "cross": {
       "active": "Filtered by <dimension>{{dimension}}</dimension>: <member>{{member}}</member>",
       "clear": "Clear",

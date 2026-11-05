@@ -45,6 +45,8 @@ type PanelProps = {
   onFetching: (id: string, fetching: boolean) => void
   /** A mark clicked here (772): the board toggles its cross-filter. Stable. */
   onCross: (point: CrossFilter) => void
+  /** 780: hands the board's refresh loop this panel's re-ask (`null` on unmount). Stable. */
+  registerRefresh?: (id: string, refresh: (() => void) | null) => void
 }
 
 export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBoardPanel } & PanelProps) {
@@ -87,7 +89,7 @@ function Card({
   )
 }
 
-function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross }: { panel: ViewPanel } & PanelProps) {
+function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh }: { panel: ViewPanel } & PanelProps) {
   const { t } = useTranslation('boards')
   const [drill, setDrill] = useState<DrillStep[]>([])
   const input = useMemo(
@@ -127,6 +129,14 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   useScrollToPanel(panel.id, frame, !!answer.data || !!answer.error)
   const onTable = useCallback(() => setTable((on) => !on), [])
   const permalink = useCallback(() => panelPermalink(window.location.href, panel.id), [panel.id])
+  const { refetch } = answer
+  const asks = !!input
+  useEffect(() => {
+    if (!registerRefresh || !asks) return
+    // An answer still on its way is left to land, not asked again.
+    registerRefresh(panel.id, () => void refetch({ cancelRefetch: false }))
+    return () => registerRefresh(panel.id, null)
+  }, [registerRefresh, panel.id, refetch, asks])
   useEffect(() => {
     onFetching(panel.id, busy)
     return () => onFetching(panel.id, false)

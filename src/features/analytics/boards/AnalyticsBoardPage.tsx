@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useMemo, useReducer, useRef } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -10,12 +10,14 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey 
 import AskBox from './AskBox'
 import { boardDefaults, inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
 import BoardPanel from './BoardPanel'
+import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
+import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { labelIn } from './view-model'
 
 /**
@@ -29,6 +31,9 @@ import { labelIn } from './view-model'
  * The cross-filter (772) is in `BoardContext` and the URL (`cross`, `crossFrom`): a click on a mark sets it,
  * the same click clears it, and it re-asks every panel it reaches but the one clicked. Drill by is each
  * panel's own (`BoardPanel`). 773 adds the panel actions and states.
+ *
+ * 780: the board refreshes itself (`refresh=`, `./BoardRefresh`: one loop, staggered, paused while hidden)
+ * and `tv=1` is TV mode (`./TvMode`): no shell, the board alone, its filters as read-only chips, Esc leaves.
  */
 export default function AnalyticsBoardPage() {
   const { t } = useTranslation('boards')
@@ -101,18 +106,39 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
+  const root = useRef<HTMLDivElement>(null)
+  const tv = useTvMode(root, params, setParams)
+  const [refresh, setRefresh] = useRefreshChoice(board.id, board.definition.refresh, params, setParams)
+  const refreshers = useRef(new Map<string, () => void>())
+  const registerRefresh = useCallback((pid: string, fn: (() => void) | null) => (fn ? refreshers.current.set(pid, fn) : refreshers.current.delete(pid)), [])
+  const refreshPanel = useCallback((pid: string) => refreshers.current.get(pid)?.(), [])
+  useRefreshLoop(viewPanels.map((p) => p.id), refresh, refreshPanel)
+
   const title = labelIn(board.title, lang)
   return (
-    <div className="flex flex-col gap-3" data-analytics-board={board.id}>
-      <div className="flex flex-wrap items-center gap-3" data-analytics-board-header>
+    <div
+      ref={root}
+      className={'flex flex-col gap-3 ' + (tv.on ? 'fixed inset-0 z-40 overflow-auto bg-background p-4' : '')}
+      data-analytics-board={board.id}
+      data-analytics-tv={tv.on ? 'on' : 'off'}
+    >
+      <div className="flex flex-wrap items-end gap-3" data-analytics-board-header>
         {title && (
-          <h2 className="text-base font-semibold tracking-tight" data-analytics-board-title>
+          <h2 className="self-center text-base font-semibold tracking-tight" data-analytics-board-title>
             <bdi>{title}</bdi>
           </h2>
         )}
-        <AskBox />
+        {!tv.on && <AskBox />}
+        <div className="ms-auto flex items-end gap-2">
+          <RefreshPicker value={refresh} onChange={setRefresh} />
+          <TvButton on={tv.on} onEnter={tv.enter} onExit={tv.exit} />
+        </div>
       </div>
-      <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+      {tv.on ? (
+        <FilterChips filters={filters} model={model} lang={lang} />
+      ) : (
+        <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+      )}
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
       {panels.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-analytics-board-empty>
@@ -122,7 +148,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
           {panels.map((p) => {
             const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
-            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} />
+            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} />
           })}
         </div>
       )}

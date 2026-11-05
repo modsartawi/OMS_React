@@ -12,6 +12,8 @@ const PRINT_ROUTE: PaletteRouteHandle = { print: true }
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
 const FILL_CONTENT: ShellRouteHandle = { fill: true }
+// A board's TV mode (ticket 780): `?tv=1` hides the shell for a wall screen.
+const TV_MODE: ShellRouteHandle = { chromeless: 'tv' }
 
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
@@ -120,6 +122,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'analytics/board/:id',
+        handle: TV_MODE,
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsBoardPage')).default }),
       },
       {

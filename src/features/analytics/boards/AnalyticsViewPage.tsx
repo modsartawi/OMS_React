@@ -14,6 +14,7 @@ import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
 import { itemActions } from './item-actions'
+import ItemHistory from './ItemHistory'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import { useFullscreen } from './panel-hooks'
@@ -112,6 +113,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             {t('view.edit')}
           </Link>
         )}
+        <ItemHistory item={item} kind="view" />
         <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
           <PanelActions
             viewId={item.id}

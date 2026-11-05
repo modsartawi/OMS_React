@@ -301,5 +301,27 @@
       }
     },
     "savedInPlace": "Saved. This is now the latest revision."
+  },
+  "history": {
+    "open": "History",
+    "eyebrow": "History",
+    "hint": "The last 20 revisions. Reverting writes a new revision, so it can be undone.",
+    "untitled": {
+      "view": "This view",
+      "board": "This board"
+    },
+    "close": "Close the history",
+    "loading": "Loading the history…",
+    "loadFailed": "The history could not be loaded",
+    "revision": "Revision <n>{{revision}}</n>",
+    "viewing": "Viewing",
+    "byAt": "Saved by <by>{{by}}</by>, <at>{{at}}</at>",
+    "by": "Saved by <by>{{by}}</by>",
+    "revertedFrom": "Reverted to revision <n>{{revision}}</n>",
+    "revert": "Revert to this",
+    "reverted": "Reverted to revision {{revision}}.",
+    "revertFailed": "The revert could not be saved",
+    "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
+    "undo": "Undo"
   }
 }

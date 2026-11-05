@@ -14,6 +14,7 @@ import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
 import type { BoardContext, CrossFilter, ViewPanel } from './effective-query'
 import FilterStrip from './FilterStrip'
+import ItemHistory from './ItemHistory'
 import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
 import Refused from './Refused'
 import { labelIn } from './view-model'
@@ -111,6 +112,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
           </h2>
         )}
         <AskBox />
+        <ItemHistory item={board} kind="board" />
       </div>
       <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}

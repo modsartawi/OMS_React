@@ -209,6 +209,30 @@ export const BOARD_771 = {
   },
 }
 ITEMS['b-ops'] = BOARD_771
+// ── 779: an item's history. My Shared board at revision 3, with each revision's full snapshot (§C keeps them
+// server side; the Revisions door answers who and when only). Revert writes the snapshot as a NEW revision. ──
+const board779 = (panels) => ({
+  panels: [
+    { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 } },
+    { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 } },
+    { id: 'p-line', kind: 'view', viewId: 'v-line-measures', layout: { x: 0, y: 3, w: 12, h: 3 } },
+  ].slice(0, panels),
+})
+export const REVISIONS_779 = {
+  'b-779': [
+    { revision: 1, updatedAt: '2026-11-01T08:15:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance (draft)', 'الأسبوع في لمحة (مسودة)'), definition: board779(1) } },
+    { revision: 2, updatedAt: '2026-11-03T11:30:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(2) } },
+    { revision: 3, updatedAt: '2026-11-05T09:20:00', updatedBy: 'msartawi', snapshot: { title: label('Week at a glance', 'الأسبوع في لمحة'), definition: board779(3) } },
+  ],
+}
+export const BOARD_779 = {
+  ...view('b-779', { title: label('Week at a glance', 'الأسبوع في لمحة'), tier: 'shared', updatedAt: '2026-11-05T09:20:00' }),
+  kind: 'board',
+  definition: board779(3),
+}
+ITEMS['b-779'] = BOARD_779
+// The certified board 771 drew is curator1's: a non-curator may not edit it, so it shows no history.
+
 /** Each panel's answer held this long, so the panels land one by one: KPI, bar, line, then area. */
 export const DELAYS_771 = { 'v-kpi': 300, 'v-bar': 900, 'v-line-measures': 1500, 'v-area': 2100 }
 
@@ -515,10 +539,17 @@ export function inlineAnswer(definition, model = MODEL) {
  *             `baseRevision + 1` with the body's words and definition, served from then on.
  *   copy:     the `POST Analytics/Item/{id}/Copy` answer (776) — a `refusal(...)` fulfil object, or omitted: a Personal
  *             item `v-copy` of msartawi's recording `copiedFrom: id`, served from then on.
+ *   revisions: id → the `…/Revisions` answer (a list or a `refusal(...)`); default `REVISIONS_779`, else the item's
+ *             own revision alone. Each entry's `snapshot` (title, definition) is what a revert restores.
+ *   revert:   the `POST …/Revert` answer (779) — a `refusal(...)` fulfil object, or omitted: the snapshot written as
+ *             revision max + 1 (`revertedFrom` recorded), served from then on, with the history grown.
  * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
+const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
+
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create, update, copy, revisions = REVISIONS_779, revert } = opts
+  const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   const calls = []
   const bodies = {}
@@ -573,6 +604,29 @@ export async function installAnalyticsStubs(page, opts = {}) {
         updatedAt: '2026-11-05T10:06:00',
       })
       return route.fulfill(envelope(made['v-copy']))
+    }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revisions')) {
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revisions'.length))
+      const list = history[id]
+      if (isFulfil(list)) return route.fulfill(list)
+      const it = made[id] ?? items[id]
+      if (!list && !it) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const rows = list ?? [{ revision: it.revision, updatedAt: it.updatedAt, updatedBy: it.updatedBy }]
+      return route.fulfill(envelope(rows.map(({ snapshot, ...r }) => r)))
+    }
+    if (p.startsWith('Analytics/Item/') && p.endsWith('/Revert') && req.method() === 'POST') {
+      if (revert) return route.fulfill(revert)
+      const id = decodeURIComponent(p.slice('Analytics/Item/'.length, -'/Revert'.length))
+      const body = req.postDataJSON() ?? {}
+      const list = history[id]
+      const from = Array.isArray(list) ? list.find((r) => r.revision === body.revision) : null
+      const before = made[id] ?? items[id]
+      if (!from || !before) return route.fulfill(refusal('ANALYTICS-404', 'That revision is not found.', 404))
+      const revision = Math.max(...list.map((r) => r.revision)) + 1
+      const updatedAt = `2026-11-05T10:${String(10 + revision).padStart(2, '0')}:00`
+      made[id] = { ...before, ...from.snapshot, revision, updatedAt, updatedBy: 'msartawi' }
+      list.push({ revision, updatedAt, updatedBy: 'msartawi', revertedFrom: from.revision, snapshot: from.snapshot })
+      return route.fulfill(envelope(made[id]))
     }
     if (p.startsWith('Analytics/Item/') && req.method() === 'PUT') {
       if (update) return route.fulfill(update)

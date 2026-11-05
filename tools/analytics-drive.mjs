@@ -1387,6 +1387,66 @@ async function viewActions773({ dir }) {
   await context.close()
 }
 
+// ── 779: history and revert ──────────────────────────────────────────────────────────────────────────
+const revisionRows = (page) =>
+  page.$$eval('[data-analytics-history] [data-analytics-revision]', (els) =>
+    els.map((e) => ({ n: Number(e.getAttribute('data-analytics-revision')), viewing: e.getAttribute('data-viewing') === 'true', revert: !!e.querySelector('[data-analytics-revert]'), from: e.querySelector('[data-analytics-revision-reverted-from]')?.getAttribute('data-analytics-revision-reverted-from') ?? null })),
+  )
+const boardPanelIds = (page) => page.$$eval('[data-board-panel]', (els) => els.map((e) => e.getAttribute('data-board-panel')))
+const waitFor = async (pred, ms = 10000) => {
+  for (let i = 0; i < ms / 100; i++) {
+    if (await pred()) return true
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  return false
+}
+
+/** 779.1 — my Shared board: the last revisions newest first, the viewed one marked; revert to 2, see the board change, undo it. */
+async function revertsAndUndoes({ dir }) {
+  const tag = `779 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir })
+  await page.goto(`${BASE}/analytics/board/b-779`)
+  await page.locator('[data-board-panel="p-line"]').waitFor({ timeout: 15000 })
+  check(`${tag}: the board opens at revision 3 with three panels`, (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar,p-line', (await boardPanelIds(page)).join(','))
+  await page.locator('[data-analytics-history-open]').click()
+  await page.locator('[data-analytics-history] [data-analytics-revision]').first().waitFor({ timeout: 10000 })
+  const first = await revisionRows(page)
+  check(
+    `${tag}: history lists newest first, revision 3 marked as viewed, revert offered on the others`,
+    JSON.stringify(first.map((r) => [r.n, r.viewing, r.revert])) === JSON.stringify([[3, true, false], [2, false, true], [1, false, true]]),
+    JSON.stringify(first),
+  )
+  const who = clean(await page.locator('[data-analytics-revision="2"] [data-analytics-revision-who]').innerText())
+  check(`${tag}: each revision says who and when`, /msartawi/.test(who) && /2026/.test(who), who)
+  await page.screenshot({ path: `${SHOTS}/779-history-${dir}.png` })
+
+  await page.locator('[data-analytics-revert="2"]').click()
+  const changed = await waitFor(async () => (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar')
+  check(`${tag}: revert POSTs { revision: 2 }`, JSON.stringify(bodies['Analytics/Item/b-779/Revert']?.[0]) === '{"revision":2}', JSON.stringify(bodies['Analytics/Item/b-779/Revert']))
+  check(`${tag}: … and the board changes back to revision 2's two panels`, changed, (await boardPanelIds(page)).join(','))
+  await page.locator('[data-analytics-revert-done="4"]').waitFor({ timeout: 10000 })
+  await waitFor(async () => (await revisionRows(page))[0]?.n === 4)
+  const after = await revisionRows(page)
+  check(
+    `${tag}: the revert is a NEW revision 4, now viewed, recording it reverted to 2; 3 is still there`,
+    after[0]?.n === 4 && after[0].viewing && after[0].from === '2' && after.some((r) => r.n === 3 && r.revert && !r.viewing) && after.length === 4,
+    JSON.stringify(after),
+  )
+  await page.screenshot({ path: `${SHOTS}/779-reverted-${dir}.png` })
+
+  await page.locator('[data-analytics-revert-undo="3"]').click()
+  const undone = await waitFor(async () => (await boardPanelIds(page)).join(',') === 'p-kpi,p-bar,p-line')
+  check(`${tag}: Undo reverts to revision 3`, JSON.stringify(bodies['Analytics/Item/b-779/Revert']?.[1]) === '{"revision":3}', JSON.stringify(bodies['Analytics/Item/b-779/Revert']))
+  check(`${tag}: … and the board has its three panels again`, undone, (await boardPanelIds(page)).join(','))
+  await waitFor(async () => (await revisionRows(page))[0]?.n === 5)
+  const last = await revisionRows(page)
+  check(`${tag}: the undo is itself revision 5 (reverted to 3), now viewed`, last[0]?.n === 5 && last[0].viewing && last[0].from === '3' && last.length === 5, JSON.stringify(last))
+  check(`${tag}: no PUT or copy on the way`, putBodies(bodies).length === 0 && !Object.keys(bodies).some((k) => k.endsWith('/Copy')))
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 774 ──────────────────────────────────────────────────────────────────────────────────────────────
 async function detail774({ dir }) {
   const tag = `774 ${dir}`
@@ -1438,6 +1498,33 @@ async function detail774({ dir }) {
   await context.close()
 }
 
+/** 779.2 — only someone who may edit the item sees its history. */
+async function historyOnlyForEditors() {
+  const tag = '779 who'
+  const cases = [
+    ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: false }, false, "a Certified board, not a curator"],
+    ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: true }, true, 'a Certified board, as a curator'],
+    ['view/v-theirs-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, false, "someone else's Shared view"],
+    ['view/v-mine-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, true, 'my own Shared view'],
+  ]
+  for (const [path, ready, access, shown, what] of cases) {
+    const { context, page, errors } = await open({ access })
+    await page.goto(`${BASE}/analytics/${path}`)
+    await page.locator(ready).first().waitFor({ timeout: 15000 })
+    await page.waitForTimeout(300)
+    const count = await page.locator('[data-analytics-history-open]').count()
+    check(`${tag}: ${what} ${shown ? 'shows' : 'hides'} History`, count === (shown ? 1 : 0), String(count))
+    if (shown && path.startsWith('view/')) {
+      await page.locator('[data-analytics-history-open]').click()
+      await page.locator('[data-analytics-history] [data-analytics-revision]').first().waitFor({ timeout: 10000 })
+      const rows = await revisionRows(page)
+      check(`${tag}: ${what}: the view's history marks the revision viewed`, rows.length === 1 && rows[0].n === 3 && rows[0].viewing && !rows[0].revert, JSON.stringify(rows))
+    }
+    check(`${tag}: ${what}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1477,6 +1564,9 @@ const SCENARIOS = [
   ['776', () => staleSaveConflicts({ dir: 'rtl' })],
   ['776', notYoursOffersCopy],
   ['776', tiersAndCopies],
+  ['779', () => revertsAndUndoes({ dir: 'ltr' })],
+  ['779', () => revertsAndUndoes({ dir: 'rtl' })],
+  ['779', historyOnlyForEditors],
 ]
 
 try {

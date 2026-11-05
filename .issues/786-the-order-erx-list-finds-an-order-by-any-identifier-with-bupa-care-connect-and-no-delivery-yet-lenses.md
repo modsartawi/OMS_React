@@ -66,3 +66,5 @@ Server: BackOffice [3391](C:\Work\DMSCO\BackOffice\.issues\3391-the-order-search
   sends (R-3); `Status` is a free-text code until the value set is named; `HasDelivery` as
   `true`/`false`; `Limit` always sent (default 500). A row opened from this list lights the
   Deliveries menu leaf (it owns `/oms/document`), deliberately left as is.
+
+**2026-11-06 (orchestrator, /implement-spec 786-789):** built and code-reviewed on integration branch `spec/3389-order-insurance` (tip after review fixes 512e87e3); Proof green against stubbed doors. Stays **open** only for the live Done-when check, which waits on the BackOffice 3389 doors reaching dev/staging.

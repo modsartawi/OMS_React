@@ -89,3 +89,5 @@ Server: BackOffice [3390](C:\Work\DMSCO\BackOffice\.issues\3390-an-insurance-ord
 - **Seams.** 788 adds Plan / Changes / Received as parts in `InsuranceSection` (marked slot) with their own pure
   modules beside `insurance-section.ts`. 789's strip can reuse `moneySourceBadge` and `MoneyCell`/`InsuranceCell`
   (same feature) and link to `#insurance` (`INSURANCE_SECTION_ID`).
+
+**2026-11-06 (orchestrator, /implement-spec 786-789):** built and code-reviewed on integration branch `spec/3389-order-insurance` (tip after review fixes 512e87e3); Proof green against stubbed doors. Stays **open** only for the live Done-when check, which waits on the BackOffice 3389 doors reaching dev/staging.

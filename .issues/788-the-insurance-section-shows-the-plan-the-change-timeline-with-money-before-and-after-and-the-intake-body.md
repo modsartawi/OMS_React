@@ -66,3 +66,5 @@ keys under `document:insurance.{plan,changes,received}`, mirrored and checked in
 **Live check waits on BackOffice 3392 / 3393** (and 3390): a dev BUPA order landed after 3392 showing its body,
 and a changed one its money timeline. Contract guesses carried from the 3389 notes: the timeline's log merge and
 field names, the not-recorded marker, `keptSince`.
+
+**2026-11-06 (orchestrator, /implement-spec 786-789):** built and code-reviewed on integration branch `spec/3389-order-insurance` (tip after review fixes 512e87e3); Proof green against stubbed doors. Stays **open** only for the live Done-when check, which waits on the BackOffice 3389 doors reaching dev/staging.

@@ -2,8 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { deliveriesDrill, periodDays } from './detail-drill'
 
-// Thursday 5 November 2026, mid-morning local time (weeks start on Sunday: 1 November).
-const NOW = new Date(2026, 10, 5, 10, 10)
+// The browser's clock is NOT in Riyadh (766 §C: the server resolves a relative period in Riyadh time, so the
+// drill must too). Node re-reads the zone when TZ is set.
+process.env.TZ = 'America/Los_Angeles'
+
+/** An instant given in Riyadh's own time (UTC+3, no daylight saving). */
+const riyadh = (at: string) => new Date(`${at}+03:00`)
+
+// Thursday 5 November 2026, mid-morning in Riyadh (weeks start on Sunday: 1 November).
+const NOW = riyadh('2026-11-05T10:10:00')
 
 describe('period → Deliveries filter', () => {
   it('a relative period resolves to the same from–to the Deliveries list expects', () => {
@@ -28,12 +35,23 @@ describe('period → Deliveries filter', () => {
   })
 
   it('a Sunday is the first day of its own week', () => {
-    expect(periodDays('this-week', new Date(2026, 10, 1, 9))).toEqual({ from: '2026-11-01', to: '2026-11-01' })
-    expect(periodDays('last-week', new Date(2026, 10, 1, 9))).toEqual({ from: '2026-10-25', to: '2026-10-31' })
+    expect(periodDays('this-week', riyadh('2026-11-01T09:00:00'))).toEqual({ from: '2026-11-01', to: '2026-11-01' })
+    expect(periodDays('last-week', riyadh('2026-11-01T09:00:00'))).toEqual({ from: '2026-10-25', to: '2026-10-31' })
+  })
+
+  it("resolves in Riyadh time, whatever the browser's zone: just past midnight Sunday in Riyadh is still Saturday in Los Angeles", () => {
+    const sundayRiyadh = riyadh('2026-11-08T00:30:00')
+    expect(sundayRiyadh.getDay()).toBe(6) // the browser's own day: Saturday 7th
+    expect(periodDays('today', sundayRiyadh)).toEqual({ from: '2026-11-08', to: '2026-11-08' })
+    expect(periodDays('this-week', sundayRiyadh)).toEqual({ from: '2026-11-08', to: '2026-11-08' })
+    expect(periodDays('last-week', sundayRiyadh)).toEqual({ from: '2026-11-01', to: '2026-11-07' })
+    // The first of the month in Riyadh while the browser still reads the 31st.
+    expect(periodDays('this-month', riyadh('2026-11-01T01:00:00'))).toEqual({ from: '2026-11-01', to: '2026-11-01' })
+    expect(periodDays('last-month', riyadh('2026-11-01T01:00:00'))).toEqual({ from: '2026-10-01', to: '2026-10-31' })
   })
 
   it('last month from 31 March is all of February', () => {
-    expect(periodDays('last-month', new Date(2026, 2, 31, 9))).toEqual({ from: '2026-02-01', to: '2026-02-28' })
+    expect(periodDays('last-month', riyadh('2026-03-31T09:00:00'))).toEqual({ from: '2026-02-01', to: '2026-02-28' })
   })
 })
 

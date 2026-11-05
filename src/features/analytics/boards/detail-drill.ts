@@ -27,8 +27,8 @@ const isTillMeasure = (key: string) => key.startsWith('till_')
 
 /**
  * The panel's period (the wire's string: a relative token or `from..to`) as the two ISO days the
- * Deliveries list searches by, against `now`. A relative period resolves the way the list resolves its
- * own presets (today, yesterday, the last 7 days ending today, at local midnight). `null`: no range.
+ * Deliveries list searches by, against `now`. A relative period resolves in Riyadh time, Sunday weeks, as the
+ * server resolves the panel's own period (766 §C), not on the browser's clock. `null`: no range.
  */
 export function periodDays(period: string | null | undefined, now: Date): { from: string; to: string } | null {
   const read = readPeriod(period)

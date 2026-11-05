@@ -57,10 +57,18 @@ export const ROLLING_PERIODS: readonly { token: PeriodToken; days: number }[] = 
   .map((p) => ({ token: p.token, days: p.rollingDays! }))
   .sort((a, b) => b.days - a.days)
 
-/** Today's civil day at `now`, on the browser's clock. */
-const todayOf = (now: Date): Day => day(now.getFullYear(), now.getMonth(), now.getDate())
+/** The zone the server resolves a relative period in (766 §C), whatever the browser's own zone. */
+export const PERIOD_ZONE = 'Asia/Riyadh'
 
-/** A relative token as two ISO days against `now`. */
+const ZONE_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: PERIOD_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/** Today's civil day at `now` in Riyadh. */
+function todayOf(now: Date): Day {
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(ZONE_DAY.formatToParts(now).find((p) => p.type === type)?.value)
+  return day(part('year'), part('month') - 1, part('day'))
+}
+
+/** A relative token as two ISO days against `now`, in Riyadh time (as the server resolves it). */
 export function resolvePeriod(token: PeriodToken, now: Date): { from: string; to: string } {
   const def = PERIOD_TABLE.find((p) => p.token === token)!
   const [from, to] = def.range(todayOf(now))

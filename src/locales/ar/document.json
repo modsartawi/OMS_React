@@ -501,6 +501,81 @@
         "rate": "المعدّل",
         "value": "القيمة"
       }
+    },
+    "plan": {
+      "heading": "الخطة",
+      "notSent": "لم يُرسل",
+      "fields": {
+        "policyNumber": "الوثيقة",
+        "policyHolder": "حامل الوثيقة",
+        "contractNumber": "العقد",
+        "className": "الفئة",
+        "memberId": "رقم العضوية",
+        "identityNumber": "رقم الهوية",
+        "eligibilityReference": "الأهلية",
+        "authorizationId": "التفويض",
+        "approvalNumber": "الموافقة",
+        "diagnosis": "التشخيص",
+        "visitReason": "سبب الزيارة",
+        "chiefComplaint": "الشكوى الرئيسية",
+        "daysSupply": "أيام الصرف",
+        "insurerCustomer": "عميل شركة التأمين",
+        "payer": "الجهة الدافعة"
+      },
+      "groups": {
+        "heading": "مجموعات نسبة التحمل",
+        "label": "مجموعات نسبة التحمل",
+        "empty": "لا توجد مجموعات نسبة تحمل.",
+        "group": "المجموعة",
+        "percentage": "نسبة التحمل",
+        "cap": "الحد الأقصى",
+        "noCap": "بلا حد أقصى"
+      }
+    },
+    "changes": {
+      "heading": "التغييرات",
+      "label": "تغييرات الطلب وسجل المستند",
+      "empty": "لا تغييرات ولا سجل بعد.",
+      "columns": {
+        "when": "الوقت",
+        "who": "المستخدم",
+        "what": "الإجراء",
+        "change": "التغيير",
+        "money": "المبالغ قبل وبعد"
+      },
+      "acts": {
+        "PICK": "تجهيز",
+        "SWAP": "استبدال",
+        "QUANTITY": "الكمية",
+        "VOID": "إلغاء",
+        "RESTORE": "استعادة",
+        "CEILING": "سقف التغطية"
+      },
+      "log": "السجل",
+      "line": "البند",
+      "item": "الصنف",
+      "quantity": "الكمية",
+      "reason": "السبب:",
+      "nothing": "لا يوجد",
+      "notRecorded": "غير مسجّل",
+      "notRecordedNote": "قُبل قبل أن تُسجَّل المبالغ على التغييرات.",
+      "patient": "المريض",
+      "insurer": "شركة التأمين",
+      "channelToEngine": "خرج عن مبالغ القناة"
+    },
+    "received": {
+      "heading": "المستلم",
+      "intro": "الطلب كما وصل من القناة.",
+      "at": "وقت الاستلام",
+      "by": "من",
+      "contentType": "النوع",
+      "body": "نص الطلب الوارد",
+      "copy": "نسخ",
+      "copied": "نُسخ نص الطلب الوارد.",
+      "copyFailed": "تعذّر نسخ نص الطلب الوارد.",
+      "notJson": "ليس JSON: يُعرض كما وصل.",
+      "notKept": "غير محفوظ: وصل الطلب قبل بدء حفظ نصوص الطلبات الواردة.",
+      "notKeptBefore": "غير محفوظ للطلبات قبل <date>{{date}}</date>."
     }
   },
   "moneyStrip": {

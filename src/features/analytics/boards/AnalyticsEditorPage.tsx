@@ -51,7 +51,7 @@ import { generatedTitle } from './title'
 import { labelIn } from './view-model'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
-import { analyticsRefusal } from './wire'
+import { analyticsRefusal, refusalWords } from './wire'
 
 /**
  * The builder at `/analytics/new?kind=view` (spec 766 §F, stories 41–47, 755 items 4–5; ticket 775).
@@ -109,7 +109,7 @@ function EditorBody() {
 
   if (model.error) {
     const refusal = analyticsRefusal(model.error, t('editor.loadFailed'))
-    return <ErrorBanner title={t('editor.loadFailed')} message={'key' in refusal ? t(refusal.key) : refusal.message} />
+    return <ErrorBanner title={t('editor.loadFailed')} message={refusalWords(refusal, t)} />
   }
   if (!model.data) {
     return (
@@ -551,7 +551,7 @@ function RefusalNote({
   const lang = i18n.language
   if (!refusal) {
     const r = analyticsRefusal(err, t(fallbackKey))
-    return <ErrorBanner title={t(fallbackKey)} message={'key' in r ? t(r.key) : r.message} />
+    return <ErrorBanner title={t(fallbackKey)} message={refusalWords(r, t)} />
   }
   if (refusal.kind === 'window') {
     const measure = labelIn(model.measures.find((m) => m.key === refusal.measure)?.label, lang) || refusal.measure
@@ -574,7 +574,7 @@ function RefusalNote({
       : t('editor.refused.area', { reason: fsi(refusal.reason) })
   return (
     <div className="rounded-lg border border-danger-border bg-danger-050 p-3 text-sm text-danger-800" role="alert" data-analytics-refusal={refusal.kind}>
-      {words}
+      <bdi>{words}</bdi>
     </div>
   )
 }

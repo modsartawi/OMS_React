@@ -19,7 +19,7 @@ import { newViewLink } from './editor'
 import { homeGroups } from './home'
 import TierBadge from './TierBadge'
 import { labelIn } from './view-model'
-import { analyticsRefusal } from './wire'
+import { analyticsRefusal, refusalWords } from './wire'
 
 /**
  * The analytics home at `/analytics` (spec 766 §F, user stories 3–6; ticket 770) — the menu leaf's
@@ -72,7 +72,7 @@ function HomeBody() {
   let body: ReactNode
   if (items.error) {
     const refusal = analyticsRefusal(items.error, t('home.loadFailed'))
-    body = <ErrorBanner title={t('home.loadFailed')} message={'key' in refusal ? t(refusal.key) : refusal.message} />
+    body = <ErrorBanner title={t('home.loadFailed')} message={refusalWords(refusal, t)} />
   } else if (!items.data) {
     body = (
       <div className="text-sm text-muted-foreground" role="status">

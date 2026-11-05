@@ -165,6 +165,10 @@ const REFUSAL_KEYS: Record<string, string> = {
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */
 export type AnalyticsRefusal = { code: string | null; key: string } | { code: string | null; message: string }
 
+/** A refusal's words: its own key's in the `boards` namespace, or the server's message as it came. */
+export const refusalWords = (refusal: AnalyticsRefusal, t: (key: string) => string): string =>
+  'key' in refusal ? t(refusal.key) : refusal.message
+
 export function analyticsRefusal(err: unknown, fallback: string): AnalyticsRefusal {
   const code = apiErrorCode(err)
   const key = code ? REFUSAL_KEYS[code] : undefined

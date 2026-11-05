@@ -80,7 +80,7 @@ export function SaveRefusalNote({
         ) : refusal.by ? (
           <Trans t={t} i18nKey="save.conflict.by" values={{ by: refusal.by }} components={{ by: <bdi /> }} />
         ) : (
-          refusal.message || t('save.conflict.unknown')
+          <bdi>{refusal.message || t('save.conflict.unknown')}</bdi>
         )}{' '}
         {t('save.conflict.offer')}
       </span>

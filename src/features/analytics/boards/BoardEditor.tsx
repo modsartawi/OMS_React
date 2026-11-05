@@ -24,7 +24,7 @@ import { layoutReducer, minSizeOf, type LayoutState } from './layout'
 import Refused from './Refused'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
-import { analyticsRefusal } from './wire'
+import { analyticsRefusal, refusalWords } from './wire'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -49,7 +49,7 @@ export function BoardEditorBody({ boardId, buildView }: { boardId: string | null
   if (board.error) return <Refused err={board.error} fallbackKey="board.loadFailed" what="board" />
   if (model.error) {
     const r = analyticsRefusal(model.error, t('editor.loadFailed'))
-    return <ErrorBanner title={t('editor.loadFailed')} message={'key' in r ? t(r.key) : r.message} />
+    return <ErrorBanner title={t('editor.loadFailed')} message={refusalWords(r, t)} />
   }
   if (!model.data || (boardId && !board.data)) {
     return (
@@ -238,10 +238,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
         {save.refusal ? (
           <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
         ) : save.error ? (
-          <ErrorBanner title={t('boardEditor.saveFailed')} message={(() => {
-            const r = analyticsRefusal(save.error, t('boardEditor.saveFailed'))
-            return 'key' in r ? t(r.key) : r.message
-          })()} />
+          <ErrorBanner title={t('boardEditor.saveFailed')} message={refusalWords(analyticsRefusal(save.error, t('boardEditor.saveFailed')), t)} />
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           {primary === 'in-place' && actions.actions.includes('saveAsCopy') && (

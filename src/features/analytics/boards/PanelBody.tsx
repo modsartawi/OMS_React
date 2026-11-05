@@ -7,13 +7,14 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import Button from '@/core/ui/Button'
 import { apiErrorCode } from '@/core/api'
 import { fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { panelFailure, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
-import Refused from './Refused'
+import Refused, { RefusalText } from './Refused'
 import ViewChart from './ViewChart'
 import type { MarkPoint } from './drill'
 import type { PointHandler } from './ViewChart'
-import { analyticsRefusal } from './wire'
+import { analyticsRefusal, refusalWords } from './wire'
 
 /**
  * A panel's body by state (spec 766 §F, ticket 773), for a board panel and the view page alike:
@@ -72,7 +73,7 @@ export default function PanelBody({
     if (failure === 'retry') return <Failed err={error} onRetry={onRetry} />
     if (failure === 'unavailable') {
       const refusal = analyticsRefusal(error, t('panel.unavailableTitle'))
-      const reason = unavailableReason(definition, model) ?? ('key' in refusal ? t(refusal.key) : refusal.message)
+      const reason = unavailableReason(definition, model) ?? refusalWords(refusal, t)
       return (
         <State icon={<CloudOff className="size-5" aria-hidden />} title={t('panel.unavailableTitle')} data-panel-unavailable>
           <bdi>{reason}</bdi>
@@ -122,7 +123,7 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
         rows={view.rows}
         sort={null}
         locale={lang}
-        ariaLabel={tc('charts.tableLabel', { measures: fsi(measures.join(', ')), dimensions: fsi(dims.join(', ')) })}
+        ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
       />
     </div>
   )
@@ -138,7 +139,9 @@ function Failed({ err, onRetry }: { err: unknown; onRetry: () => void }) {
       title={t('panel.failedTitle')}
       data-panel-failed={code ?? ''}
     >
-      <span>{'key' in refusal ? t(refusal.key) : refusal.message}</span>
+      <span>
+        <RefusalText refusal={refusal} />
+      </span>
       <Button variant="secondary" onClick={onRetry} data-panel-retry>
         <RotateCcw className="size-3.5" aria-hidden />
         {t('panel.retry')}

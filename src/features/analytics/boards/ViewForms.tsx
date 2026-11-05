@@ -6,6 +6,7 @@ import HeatmapChart from '@/core/charts/HeatmapChart'
 import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsChartType, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import type { MarkPoint } from './drill'
 import { toComboView, toDonutView, toHeatmapView, toTableView } from './view-model-forms'
 
@@ -84,7 +85,7 @@ export default function ViewForm({
           locale={lang}
           onRow={onPoint && first ? (i) => view.members[i] !== undefined && onPoint(first, view.members[i]) : undefined}
           selectedRow={selectedRow >= 0 ? selectedRow : null}
-          ariaLabel={tc('charts.tableLabel', { measures: fsi(measures.join(', ')), dimensions: fsi(dims.join(', ')) })}
+          ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
         />
         {view.cut && (
           <p className="text-xs text-muted-foreground" data-table-top-n>

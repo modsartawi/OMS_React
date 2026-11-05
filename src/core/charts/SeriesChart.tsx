@@ -111,7 +111,11 @@ export default function SeriesChart({
         // The series' own order (rank, "Other" last), not Recharts' default sort by name.
         itemSorter={null}
         wrapperStyle={CHART_LEGEND_STYLE}
-        formatter={(value) => <span style={{ color: CHART_INK.legend }}>{value}</span>}
+        formatter={(value) => (
+          <span style={{ color: CHART_INK.legend }}>
+            <bdi>{value}</bdi>
+          </span>
+        )}
       />
     ) : null
   const grid = <CartesianGrid vertical={horizontal} horizontal={!horizontal} stroke={CHART_INK.grid} />

@@ -62,6 +62,9 @@ export default function ComboChart({
       tickFormatter={(v: number) => formatTick(v, unit, locale)}
     />
   )
+  // 🚩 LOGICAL EXCEPTION (logical-tailwind rule): the pane title sits inside the always-LTR chart box, where
+  // `text-start` would always mean left; physical `text-right`/`text-left` anchors it to the reading start by the
+  // boot direction (`./direction`).
   const paneTitle = (label: string, kind: string) => (
     <div className={`px-2 text-xs font-medium text-muted-foreground ${chartMirror.rtl ? 'text-right' : 'text-left'}`} data-combo-pane-title={kind}>
       <bdi>{label}</bdi>

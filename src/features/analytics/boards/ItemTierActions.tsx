@@ -8,7 +8,7 @@ import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 import Modal from '@/core/ui/Modal'
 import { needsCurator, type TierActionKey } from './item-tier'
 import { useItemTier } from './use-item-tier'
-import { analyticsRefusal } from './wire'
+import { analyticsRefusal, refusalWords } from './wire'
 
 const ICONS = { share: Share2, unshare: Lock, certify: BadgeCheck, certifyRevision: BadgeCheck, uncertify: BadgeX, delete: Trash2 }
 const VARIANT: Record<TierActionKey, ButtonVariant> = {
@@ -43,7 +43,7 @@ export default function ItemTierActions({ item }: { item: AnalyticsItem | Analyt
     if (needsCurator(tier.error)) refusedWords = t('tierActions.refused.needsCurator')
     else {
       const refusal = analyticsRefusal(tier.error, t('tierActions.failed'))
-      refusedWords = 'key' in refusal ? t(refusal.key) : refusal.message
+      refusedWords = refusalWords(refusal, t)
     }
   }
 
@@ -77,7 +77,9 @@ export default function ItemTierActions({ item }: { item: AnalyticsItem | Analyt
           data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : 'other'}
         >
           <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>{refusedWords}</span>
+          <span>
+            <bdi>{refusedWords}</bdi>
+          </span>
         </p>
       )}
       <Modal

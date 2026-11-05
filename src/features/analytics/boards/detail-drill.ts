@@ -2,6 +2,7 @@ import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/anal
 import type { MarkPoint } from './drill'
 import { readPeriod } from './permalink'
 import { resolvePeriod } from './periods'
+import { measureOf } from './wire'
 
 /**
  * Drill to detail (spec 766 §F, ticket 774) — pure. A point hands off to an existing OMS screen BY ROUTE
@@ -48,7 +49,7 @@ export function deliveriesDrill(
   if (point.dimension !== 'store') return null
   const measures = view.query.measures
   if (measures.length === 0 || measures.some(isTillMeasure)) return null
-  const areaOf = (key: string) => model.measures.find((m) => m.key === key)?.area
+  const areaOf = (key: string) => measureOf(model, key)?.area
   if (!measures.every((k) => DELIVERIES_AREAS.has(areaOf(k) ?? ''))) return null
   const params = new URLSearchParams({ store: point.member })
   const days = periodDays(period, now)

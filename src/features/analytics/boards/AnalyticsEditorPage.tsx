@@ -27,6 +27,7 @@ import MultiSelect from '@/core/ui/MultiSelect'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
@@ -50,10 +51,9 @@ import { periodNameKey, periodPhraseKey } from './periods'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
-import { labelIn } from './view-model'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
-import { analyticsRefusal, refusalWords } from './wire'
+import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
 /**
  * The builder at `/analytics/new?kind=view` (spec 766 §F, stories 41–47, 755 items 4–5; ticket 775).
@@ -199,7 +199,7 @@ function ViewEditor({
 
   // Series colours: the coloured breakdown's members on screen, if it is an open one.
   const colourDim = definition ? colourDimension(definition, model) : null
-  const colourDimModel = model.dimensions.find((d) => d.key === colourDim)
+  const colourDimModel = dimensionOf(model, colourDim)
   const fixedColours = !!colourDimModel && colourDimModel.values.length > 0
   const members = useMemo(() => {
     if (!colourDim || fixedColours || !answer.data) return []
@@ -248,16 +248,16 @@ function ViewEditor({
   }
   const setFilter = (dimension: string, values: string[]) =>
     setFilters((fs) => [...fs.filter((f) => f.dimension !== dimension), ...(values.length ? [{ dimension, values }] : [])])
-  const label = (l: AnalyticsLabel | undefined, key: string) => labelIn(l, lang) || key
-  const measureName = (k: string) => label(model.measures.find((m) => m.key === k)?.label, k)
+  const label = (l: AnalyticsLabel | undefined, key: string) => saysIn(l, lang) || key
+  const measureName = (k: string) => label(measureOf(model, k)?.label, k)
 
   const draft: AnalyticsViewDefinition = definition ?? { chart: settings, query: { measures, dimensions, filters, period } }
   const generated = {
     en: generatedTitle(draft, model, 'en', i18n.getFixedT('en', 'boards'), fsi),
     ar: generatedTitle(draft, model, 'ar', i18n.getFixedT('ar', 'boards'), fsi),
   }
-  const shownTitle = labelIn(title, lang) || generatedTitle(draft, model, lang, i18n.getFixedT(lang, 'boards'))
-  const shownSubtitle = labelIn(subtitle, lang)
+  const shownTitle = saysIn(title, lang) || generatedTitle(draft, model, lang, i18n.getFixedT(lang, 'boards'))
+  const shownSubtitle = saysIn(subtitle, lang)
   const unavailableAreas = model.areas.filter((a) => !a.available)
   const sortValue = settings.sort ? `${settings.sort.key}:${settings.sort.direction}` : ''
 
@@ -269,7 +269,7 @@ function ViewEditor({
             label={t('editor.measures')}
             value={measures}
             onChange={pickMeasures}
-            options={pickableMeasures(model).map((m) => ({ value: m.key, text: labelIn(m.label, lang) || m.key }))}
+            options={pickableMeasures(model).map((m) => ({ value: m.key, text: saysIn(m.label, lang) || m.key }))}
             data-testid="editor-measures"
           />
         </Field>
@@ -296,7 +296,7 @@ function ViewEditor({
             label={t('editor.dimensions')}
             value={dimensions}
             onChange={(next) => setDimensions(next.slice(0, MAX_DIMENSIONS))}
-            options={allowed.map((d) => ({ value: d.key, text: labelIn(d.label, lang) || d.key }))}
+            options={allowed.map((d) => ({ value: d.key, text: saysIn(d.label, lang) || d.key }))}
             data-testid="editor-dimensions"
           />
         </Field>
@@ -304,12 +304,12 @@ function ViewEditor({
         {allowed
           .filter((d) => d.values.length > 0)
           .map((d) => (
-            <Field key={d.key} label={t('editor.filterOn', { dimension: fsi(labelIn(d.label, lang) || d.key) })}>
+            <Field key={d.key} label={t('editor.filterOn', { dimension: fsi(saysIn(d.label, lang) || d.key) })}>
               <MultiSelect
-                label={t('editor.filterOn', { dimension: fsi(labelIn(d.label, lang) || d.key) })}
+                label={t('editor.filterOn', { dimension: fsi(saysIn(d.label, lang) || d.key) })}
                 value={filters.find((f) => f.dimension === d.key)?.values ?? []}
                 onChange={(values) => setFilter(d.key, values)}
-                options={d.values.map((v) => ({ value: v.key, text: labelIn(v.label, lang) || v.key }))}
+                options={d.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))}
                 data-testid={`editor-filter-${d.key}`}
               />
             </Field>
@@ -556,7 +556,7 @@ function RefusalNote({
     return <ErrorBanner title={t(fallbackKey)} message={refusalWords(r, t)} />
   }
   if (refusal.kind === 'window') {
-    const measure = labelIn(model.measures.find((m) => m.key === refusal.measure)?.label, lang) || refusal.measure
+    const measure = saysIn(measureOf(model, refusal.measure)?.label, lang) || refusal.measure
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800" role="alert" data-analytics-refusal="window">
         <span className="min-w-0 flex-1">{t('editor.refused.window', { measure: fsi(measure), days: fsi(refusal.days) })}</span>

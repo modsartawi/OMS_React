@@ -1,6 +1,7 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { saysIn } from '@/core/rules/sentence'
 import { periodPhraseKey } from './periods'
-import { labelIn } from './view-model'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * The title an untitled view is shown by (spec 766 §B and story 13, 755 item 5; ticket 775): its
@@ -23,8 +24,8 @@ export function generatedTitle(
   const { measures, dimensions, period } = definition.query
   if (measures.length === 0) return ''
   const list = (items: string[]) => new Intl.ListFormat(lang, { type: 'conjunction' }).format(items)
-  const measureLabels = measures.map((k) => wrap(labelIn(model.measures.find((m) => m.key === k)?.label, lang) || k))
-  const dimensionLabels = dimensions.map((k) => wrap(labelIn(model.dimensions.find((d) => d.key === k)?.label, lang) || k))
+  const measureLabels = measures.map((k) => wrap(saysIn(measureOf(model, k)?.label, lang) || k))
+  const dimensionLabels = dimensions.map((k) => wrap(saysIn(dimensionOf(model, k)?.label, lang) || k))
 
   const what = dimensionLabels.length
     ? t('title.byDimensions', { measures: list(measureLabels), dimensions: list(dimensionLabels) })

@@ -1,12 +1,13 @@
 import { assignSlots, type SlotRule } from '@/core/charts/slots'
+import { saysIn } from '@/core/rules/sentence'
 import type {
-  AnalyticsLabel,
   AnalyticsModel,
   AnalyticsQueryResult,
   AnalyticsViewDefinition,
   MeasureShape,
   MeasureUnit,
 } from '@/core/models/analytics'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * The result → view model (spec 766 §F, ticket 767): one `Analytics/Query` answer, its definition and
@@ -15,12 +16,8 @@ import type {
  *
  * Slice 0 builds the bar view (one measure × one category). 768 adds the time forms, the top 5 plus
  * "Other", compare-previous and the formats by unit beside {@link toBarView}, reusing
- * {@link labelIn}, {@link measureOf} and {@link slotRuleFor}.
+ * {@link viewMeasureOf} and {@link slotRuleFor}; a model label reads through core's `saysIn`.
  */
-
-/** A model label in the active language; English when the Arabic is missing. */
-export const labelIn = (label: AnalyticsLabel | null | undefined, lang: string): string =>
-  !label ? '' : lang.startsWith('ar') && label.ar ? label.ar : label.en || label.ar
 
 export interface ViewMeasure {
   key: string
@@ -55,12 +52,12 @@ export interface BarView {
 }
 
 /** The measure as the model describes it; the result column's own shape and unit win when sent. */
-export function measureOf(key: string, model: AnalyticsModel, result: AnalyticsQueryResult, lang: string): ViewMeasure {
-  const m = model.measures.find((x) => x.key === key)
+export function viewMeasureOf(key: string, model: AnalyticsModel, result: AnalyticsQueryResult, lang: string): ViewMeasure {
+  const m = measureOf(model, key)
   const col = result.columns.find((c) => c.key === key)
   return {
     key,
-    label: labelIn(m?.label, lang) || key,
+    label: saysIn(m?.label, lang) || key,
     unit: col?.unit ?? m?.unit ?? 'count',
     shape: col?.shape ?? m?.shape ?? 'additive',
   }
@@ -68,7 +65,7 @@ export function measureOf(key: string, model: AnalyticsModel, result: AnalyticsQ
 
 /** Which slot rule colours a breakdown: fixed for an inline-valued dimension, else the saved map. */
 export function slotRuleFor(dimension: string, model: AnalyticsModel, definition: AnalyticsViewDefinition): SlotRule | null {
-  const dim = model.dimensions.find((d) => d.key === dimension)
+  const dim = dimensionOf(model, dimension)
   if (dim && dim.values.length > 0) return { kind: 'fixed', order: dim.values.map((v) => v.key) }
   const saved = definition.slots?.[dimension]
   return saved ? { kind: 'saved', map: saved } : null
@@ -84,8 +81,8 @@ export function toBarView(
 ): BarView {
   const measureKey = definition.query.measures[0] ?? result.columns.find((c) => c.role === 'measure')?.key ?? ''
   const categoryKey = definition.query.dimensions[0] ?? result.columns.find((c) => c.role === 'dimension')?.key ?? ''
-  const dim = model.dimensions.find((d) => d.key === categoryKey)
-  const valueLabel = new Map(dim?.values.map((v) => [v.key, labelIn(v.label, lang)]) ?? [])
+  const dim = dimensionOf(model, categoryKey)
+  const valueLabel = new Map(dim?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])
 
   const members = result.rows.map((r) => String(r[categoryKey] ?? ''))
   const rule = slotRuleFor(categoryKey, model, definition)
@@ -94,8 +91,8 @@ export function toBarView(
   return {
     kind: 'bar',
     orientation: definition.chart.orientation ?? 'vertical',
-    measure: measureOf(measureKey, model, result, lang),
-    category: { key: categoryKey, label: labelIn(dim?.label, lang) || categoryKey },
+    measure: viewMeasureOf(measureKey, model, result, lang),
+    category: { key: categoryKey, label: saysIn(dim?.label, lang) || categoryKey },
     points: result.rows.map((row, i) => {
       const member = members[i]
       return {

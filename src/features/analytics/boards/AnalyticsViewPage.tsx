@@ -10,6 +10,7 @@ import { buttonClass } from '@/core/ui/control-classes'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
@@ -24,7 +25,6 @@ import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
 import TierBadge from './TierBadge'
 import { useItemActor } from './use-item-save'
-import { labelIn } from './view-model'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -86,7 +86,7 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
   const edit = editItemLink(item)
 
   const title = viewTitleOf(item, model, lang, t)
-  const subtitle = labelIn(item.subtitle, lang)
+  const subtitle = saysIn(item.subtitle, lang)
   const result = answer.data
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
 

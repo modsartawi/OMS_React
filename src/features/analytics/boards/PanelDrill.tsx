@@ -4,11 +4,12 @@ import type { TFunction } from 'i18next'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { deliveriesDrill } from './detail-drill'
 import { crumbsOf, drillTargets, type MarkPoint } from './drill'
 import { newViewLink } from './editor'
 import type { DrillStep } from './effective-query'
-import { labelIn } from './view-model'
+import { dimensionOf } from './wire'
 
 /**
  * A board panel's drill row (spec 766 §F, ticket 772), under its header:
@@ -33,12 +34,12 @@ export interface DrillAction {
   into?: string
 }
 
-const dimLabel = (key: string, model: AnalyticsModel, lang: string) => labelIn(model.dimensions.find((d) => d.key === key)?.label, lang) || key
+const dimLabel = (key: string, model: AnalyticsModel, lang: string) => saysIn(dimensionOf(model, key)?.label, lang) || key
 
 /** A member's label: the model's inline label where it has one (channel, country), else its key. */
 export const memberLabel = (point: MarkPoint, model: AnalyticsModel, lang: string) => {
-  const dim = model.dimensions.find((d) => d.key === point.dimension)
-  return labelIn(dim?.values?.find((v) => v.key === point.member)?.label, lang) || point.member
+  const dim = dimensionOf(model, point.dimension)
+  return saysIn(dim?.values?.find((v) => v.key === point.member)?.label, lang) || point.member
 }
 
 /** The drill menu's actions on a panel drilled by `steps`: drill by from `point` (if any), and save the drill. */

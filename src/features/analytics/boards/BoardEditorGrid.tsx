@@ -8,8 +8,8 @@ import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { cellAt, gridPlacement, keyAction, rowsShown, type LayoutAction, type LayoutState } from './layout'
-import { labelIn } from './view-model'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -50,7 +50,7 @@ export default function BoardEditorGrid({
   const rows = rowsShown(layout.panels)
 
   const nameOf = (p: AnalyticsBoardPanel): string => {
-    if (p.kind === 'section') return labelIn(p.title, lang) || t('boardEditor.kind.section')
+    if (p.kind === 'section') return saysIn(p.title, lang) || t('boardEditor.kind.section')
     if (p.kind === 'text') return t('boardEditor.kind.text')
     const v = views.get(p.id)
     return v?.state === 'loaded' ? viewTitleOf(v.item, model, lang, t) : t('boardEditor.kind.view')

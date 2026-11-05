@@ -12,10 +12,10 @@ import Ltr from '@/core/ui/Ltr'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsRevisionsKey } from './api'
 import { mayEditItem, revisionList, type RevisionRow } from './revisions'
 import { useItemActor } from './use-item-save'
-import { labelIn } from './view-model'
 
 /** The last revert, so it can be undone: back to the revision that was showing before it. */
 interface LastRevert {
@@ -71,7 +71,7 @@ function HistorySheet({ item, kind, onClose }: { item: AnalyticsItem | Analytics
   })
 
   const rows = revisions.data ? revisionList(revisions.data, item.revision) : []
-  const title = labelIn(item.title, lang)
+  const title = saysIn(item.title, lang)
 
   return (
     <SideSheet onClose={onClose} width="w-[28rem]" aria-labelledby={titleId} data-analytics-history>

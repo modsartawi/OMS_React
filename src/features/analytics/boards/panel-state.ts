@@ -1,4 +1,5 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { measureOf } from './wire'
 
 /**
  * A panel's freshness and failure states (spec 766 §F, ticket 773). Pure: the view page and every
@@ -52,7 +53,7 @@ export function panelFailure(code: string | null | undefined): PanelFailure {
 /** The model's own reason the view's area is not available yet, or `null` (the server's message stands). */
 export function unavailableReason(definition: AnalyticsViewDefinition, model: AnalyticsModel): string | null {
   for (const key of definition.query.measures) {
-    const area = model.areas.find((a) => a.key === model.measures.find((m) => m.key === key)?.area)
+    const area = model.areas.find((a) => a.key === measureOf(model, key)?.area)
     if (area && !area.available && area.unavailableReason) return area.unavailableReason
   }
   return null

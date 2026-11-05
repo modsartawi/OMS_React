@@ -13,14 +13,14 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import AskBox from './AskBox'
 import { ANALYTICS_ITEMS_KEY, ANALYTICS_MODEL_KEY, analyticsApi } from './api'
 import { newViewLink } from './editor'
 import { homeGroups } from './home'
 import TierBadge from './TierBadge'
-import { labelIn } from './view-model'
-import { analyticsRefusal, refusalWords } from './wire'
+import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
 /**
  * The analytics home at `/analytics` (spec 766 §F, user stories 3–6; ticket 770) — the menu leaf's
@@ -46,11 +46,11 @@ export default function AnalyticsHomePage() {
 /** The title an untitled view is shown (and found) by, in both languages: "<measure> by <dimension>". */
 function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined): AnalyticsLabel {
   const q = item.definition.query
-  const m = model?.measures.find((x) => x.key === q.measures[0])
-  const d = model?.dimensions.find((x) => x.key === q.dimensions[0])
+  const m = measureOf(model, q.measures[0])
+  const d = dimensionOf(model, q.dimensions[0])
   if (item.kind !== 'view' || !m || !d) return { en: '', ar: '' }
   const say = (lng: 'en' | 'ar') =>
-    i18n.getFixedT(lng, 'boards')('view.generatedTitle', { measure: labelIn(m.label, lng), dimension: labelIn(d.label, lng) })
+    i18n.getFixedT(lng, 'boards')('view.generatedTitle', { measure: saysIn(m.label, lng), dimension: saysIn(d.label, lng) })
   return { en: say('en'), ar: say('ar') }
 }
 
@@ -102,7 +102,7 @@ function HomeBody() {
         </h2>
         <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60 bg-card">
           {g.items.map((it) => (
-            <HomeRow key={it.id} item={it} title={labelIn(it.title, i18n.language) || labelIn(fallback(it), i18n.language)} />
+            <HomeRow key={it.id} item={it} title={saysIn(it.title, i18n.language) || saysIn(fallback(it), i18n.language)} />
           ))}
         </ul>
       </section>

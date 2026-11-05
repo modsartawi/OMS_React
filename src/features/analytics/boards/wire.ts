@@ -46,6 +46,14 @@ export function readModel(raw: Loose): AnalyticsModel {
   }
 }
 
+/** The model's measure by key, or `undefined` when the model does not hold it (a retired or unknown member). */
+export const measureOf = (model: Pick<AnalyticsModel, 'measures'> | null | undefined, key: string | null | undefined): AnalyticsMeasure | undefined =>
+  model?.measures.find((m) => m.key === key)
+
+/** The model's dimension by key, or `undefined` when the model does not hold it. */
+export const dimensionOf = (model: Pick<AnalyticsModel, 'dimensions'> | null | undefined, key: string | null | undefined): AnalyticsDimension | undefined =>
+  model?.dimensions.find((d) => d.key === key)
+
 export function readResult(raw: Loose): AnalyticsQueryResult {
   const r = obj(raw)
   const period = obj(r.period)

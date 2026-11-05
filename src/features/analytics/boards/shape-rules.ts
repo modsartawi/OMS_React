@@ -1,5 +1,6 @@
 import { CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type { AnalyticsChart, AnalyticsModel } from '@/core/models/analytics'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * The shape rules (spec 766 §E: 755 Q3's table, with amendment 1 — combo is two panes, one volume and
@@ -54,10 +55,10 @@ export interface ShapeSelection {
 }
 
 export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOffer[] {
-  const measures = sel.measures.map((k) => model.measures.find((m) => m.key === k))
+  const measures = sel.measures.map((k) => measureOf(model, k))
   const additive = measures.map((m) => (m?.shape ?? 'additive') === 'additive')
   const allAdditive = additive.every(Boolean)
-  const dims = sel.dimensions.map((k) => model.dimensions.find((d) => d.key === k))
+  const dims = sel.dimensions.map((k) => dimensionOf(model, k))
   const isTime = (i: number) => dims[i]?.kind === 'time'
   const nM = measures.length
   const nD = dims.length

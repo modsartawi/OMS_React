@@ -1,5 +1,6 @@
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import type { CrossFilter, DrillStep } from './effective-query'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * Cross-filter and drill by on a board (spec 766 §F, ticket 772) — pure.
@@ -18,7 +19,7 @@ export interface MarkPoint {
 
 /** The clicked mark as a point, or `null` when it cannot filter (a time member, an unknown dimension). */
 export function pointOf(dimension: string, member: string, model: AnalyticsModel): MarkPoint | null {
-  const dim = model.dimensions.find((d) => d.key === dimension)
+  const dim = dimensionOf(model, dimension)
   if (!dim || dim.kind !== 'category' || member === '') return null
   return { dimension, member }
 }
@@ -35,7 +36,7 @@ export function toggleCrossFilter(current: CrossFilter | null | undefined, click
  * the view may be broken down by, except the ones the (drilled) view already shows or has drilled through.
  */
 export function drillTargets(view: AnalyticsViewDefinition, model: AnalyticsModel, steps: readonly DrillStep[]): string[] {
-  const measures = view.query.measures.map((k) => model.measures.find((m) => m.key === k))
+  const measures = view.query.measures.map((k) => measureOf(model, k))
   const used = new Set([...view.query.dimensions, ...steps.flatMap((s) => [s.dimension, s.into])])
   return model.dimensions
     .filter((d) => d.kind === 'category' && !used.has(d.key))

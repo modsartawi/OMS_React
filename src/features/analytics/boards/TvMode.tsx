@@ -7,11 +7,12 @@ import type { AnalyticsModel, BoardFilters } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, formatRange } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
 import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
 import { useFullscreen } from './panel-hooks'
 import { periodNameKey } from './periods'
-import { labelIn } from './view-model'
+import { dimensionOf } from './wire'
 
 /**
  * A board's TV mode (spec 766 §F, ticket 780): `tv=1` in the permalink. The shell hides itself on the
@@ -88,11 +89,11 @@ export function FilterChips({ filters, model, lang }: { filters: BoardFilters; m
       {(['city', 'region', 'store'] as const).map((f) => filters[f].length > 0 && <SearchedChip key={f} filter={f} values={filters[f]} lang={lang} />)}
       {(['channel', 'country'] as const).map((f) => {
         if (filters[f].length === 0) return null
-        const dim = model.dimensions.find((d) => d.key === FILTER_DIMENSIONS[f])
+        const dim = dimensionOf(model, FILTER_DIMENSIONS[f])
         return (
           <Chip key={f} name={t(`board.filters.${f}`)} filter={f}>
             {filters[f].map((v) => (
-              <bdi key={v}>{labelIn(dim?.values.find((m) => m.key === v)?.label, lang) || v}</bdi>
+              <bdi key={v}>{saysIn(dim?.values.find((m) => m.key === v)?.label, lang) || v}</bdi>
             ))}
           </Chip>
         )
@@ -106,7 +107,7 @@ function SearchedChip({ filter, values, lang }: { filter: CategoryFilterKey; val
   const { t } = useTranslation('boards')
   const dimension = FILTER_DIMENSIONS[filter]
   const members = useQuery({ queryKey: analyticsMembersKey(dimension, ''), queryFn: () => analyticsApi.dimensionValues(dimension, ''), staleTime: 5 * 60_000, retry: false })
-  const nameOf = (v: string) => labelIn(members.data?.find((m) => m.key === v)?.label, lang)
+  const nameOf = (v: string) => saysIn(members.data?.find((m) => m.key === v)?.label, lang)
   return (
     <Chip name={t(`board.filters.${filter}`)} filter={filter}>
       {values.map((v) => {

@@ -8,6 +8,7 @@ import type {
   BoardFilters,
   BoardPeriod,
 } from '@/core/models/analytics'
+import { measureOf } from './wire'
 
 /**
  * A board panel's effective query (spec 766 §F, ticket 771) — pure: the panel's saved view, plus every
@@ -95,7 +96,7 @@ export function effectiveQuery(
   drill: readonly DrillStep[] = [],
 ): AnalyticsQueryInput {
   const opted = new Set(panel.optOut)
-  const measures = view.query.measures.map((k) => model.measures.find((m) => m.key === k))
+  const measures = view.query.measures.map((k) => measureOf(model, k))
   const breaksBy = (dimension: string) => measures.some((m) => m?.dimensions.includes(dimension))
 
   const reached: AnalyticsFilter[] = CATEGORY_FILTERS.filter((f) => !opted.has(f) && filters[f].length > 0 && breaksBy(FILTER_DIMENSIONS[f]))

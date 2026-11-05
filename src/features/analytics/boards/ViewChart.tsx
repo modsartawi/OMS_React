@@ -5,10 +5,12 @@ import ChartFrame from '@/core/charts/ChartFrame'
 import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import type { AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
-import { labelIn, toBarView } from './view-model'
+import { toBarView } from './view-model'
 import ViewForm, { isViewForm } from './ViewForms'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * ONE view's chart, wherever a view is drawn (ticket 771): the view page and every board panel use it,
@@ -31,11 +33,11 @@ export function drawsHere(def: AnalyticsViewDefinition): boolean {
 /** A view's title, or — empty, as an AI view's is by default — one made from the model labels (766 §B). */
 export function viewTitleOf(item: AnalyticsItem, model: AnalyticsModel, lang: string, t: TFunction<'boards'>): string {
   const def = item.definition
-  const measure = model.measures.find((m) => m.key === def.query.measures[0])
-  const dimension = model.dimensions.find((d) => d.key === def.query.dimensions[0])
-  const measureLabel = labelIn(measure?.label, lang) || (def.query.measures[0] ?? '')
-  const dimensionLabel = labelIn(dimension?.label, lang) || (def.query.dimensions[0] ?? '')
-  return labelIn(item.title, lang) || t('view.generatedTitle', { measure: fsi(measureLabel), dimension: fsi(dimensionLabel) })
+  const measure = measureOf(model, def.query.measures[0])
+  const dimension = dimensionOf(model, def.query.dimensions[0])
+  const measureLabel = saysIn(measure?.label, lang) || (def.query.measures[0] ?? '')
+  const dimensionLabel = saysIn(dimension?.label, lang) || (def.query.dimensions[0] ?? '')
+  return saysIn(item.title, lang) || t('view.generatedTitle', { measure: fsi(measureLabel), dimension: fsi(dimensionLabel) })
 }
 
 export default function ViewChart({

@@ -8,7 +8,9 @@ import type {
   AnalyticsViewDefinition,
   MeasureUnit,
 } from '@/core/models/analytics'
-import { labelIn, measureOf, slotRuleFor, type ViewMeasure } from './view-model'
+import { saysIn } from '@/core/rules/sentence'
+import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
+import { dimensionOf } from './wire'
 
 /**
  * The KPI and series view models (spec 766 §E/§F, ticket 768): one `Analytics/Query` answer turned into
@@ -34,7 +36,7 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const formatOf = (definition: AnalyticsViewDefinition): AnalyticsNumberFormat => definition.chart.format ?? 'auto'
 
 function timeKeyOf(dimensions: readonly string[], model: AnalyticsModel): string | undefined {
-  return dimensions.find((d) => model.dimensions.find((x) => x.key === d)?.kind === 'time')
+  return dimensions.find((d) => dimensionOf(model, d)?.kind === 'time')
 }
 
 // ── KPI ────────────────────────────────────────────────────────────────────────────────────────────
@@ -82,7 +84,7 @@ export function toKpiView(
   lang: string,
 ): KpiView {
   const key = definition.query.measures[0] ?? result.columns.find((c) => c.role === 'measure')?.key ?? ''
-  const measure = measureOf(key, model, result, lang)
+  const measure = viewMeasureOf(key, model, result, lang)
   const additive = measure.shape === 'additive'
   const timeKey = timeKeyOf(definition.query.dimensions, model)
   const value = figureOf(result.rows, key, additive)
@@ -163,7 +165,7 @@ export function toSeriesView(
   const measureKeys = definition.query.measures.length
     ? definition.query.measures
     : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
-  const measures = measureKeys.map((k) => measureOf(k, model, result, lang))
+  const measures = measureKeys.map((k) => viewMeasureOf(k, model, result, lang))
 
   // A rate is never stacked (766 §E): refused before anything is drawn.
   const wantsStack = form === 'area' || (form === 'bar' && definition.chart.stack === 'stacked')
@@ -174,11 +176,11 @@ export function toSeriesView(
     ? definition.query.dimensions
     : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)
   const xKey = (form === 'bar' ? dims[0] : (timeKeyOf(dims, model) ?? dims[0])) ?? ''
-  const xDim = model.dimensions.find((d) => d.key === xKey)
+  const xDim = dimensionOf(model, xKey)
   const isTime = xDim?.kind === 'time'
   const breakdown = measures.length === 1 ? dims.find((d) => d !== xKey) : undefined
   const valueLabels = (dim: string) =>
-    new Map(model.dimensions.find((d) => d.key === dim)?.values.map((v) => [v.key, labelIn(v.label, lang)]) ?? [])
+    new Map(dimensionOf(model, dim)?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])
   const xLabels = valueLabels(xKey)
 
   const xs: string[] = []
@@ -252,7 +254,7 @@ export function toSeriesView(
     form,
     orientation: form === 'bar' ? (definition.chart.orientation ?? 'vertical') : 'vertical',
     stacking,
-    x: { key: xKey, label: labelIn(xDim?.label, lang) || xKey, isTime },
+    x: { key: xKey, label: saysIn(xDim?.label, lang) || xKey, isTime },
     series,
     rows: xs.map((x) => ({
       x,

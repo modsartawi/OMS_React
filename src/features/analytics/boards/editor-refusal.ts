@@ -1,6 +1,7 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { ROLLING_PERIODS } from './periods'
+import { measureOf } from './wire'
 
 /**
  * The three refusals the chart editor words in its own terms (spec 766 §C's table, ticket 775):
@@ -23,7 +24,7 @@ export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition,
   const code = apiErrorCode(err)
   const data = apiErrorData(err)
   const said = (k: string): unknown => (data && typeof data === 'object' ? (data as Record<string, unknown>)[k] : undefined)
-  const chosen = definition.query.measures.map((k) => model.measures.find((m) => m.key === k)).filter((m) => !!m)
+  const chosen = definition.query.measures.map((k) => measureOf(model, k)).filter((m) => !!m)
 
   if (code === 'ANALYTICS-406') {
     const field = said('field')

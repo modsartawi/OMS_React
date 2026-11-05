@@ -8,6 +8,7 @@ import i18n from '@/core/i18n'
 import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
@@ -27,7 +28,6 @@ import Refused from './Refused'
 import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { useItemActor } from './use-item-save'
-import { labelIn } from './view-model'
 
 /**
  * A board at `/analytics/board/:id` (spec 766 §F, ticket 771), read only (editing is 777).
@@ -131,7 +131,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const refreshPanel = useCallback((pid: string) => refreshers.current.get(pid)?.(), [])
   useRefreshLoop(viewPanels.map((p) => p.id), refresh, refreshPanel)
 
-  const title = labelIn(board.title, lang)
+  const title = saysIn(board.title, lang)
   // 777: anyone who may save it (in place or as a copy) may open the board editor.
   const canEdit = itemActions(editingItemOf({ ...board, kind: 'board' }), useItemActor()).save !== 'read-only'
   return (

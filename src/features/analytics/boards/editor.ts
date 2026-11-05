@@ -3,7 +3,7 @@ import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { editingItemOf, type EditingItem } from './item-save'
 export { DEFAULT_PERIOD, PERIODS } from './periods'
-import { readDefinition } from './wire'
+import { dimensionOf, measureOf, readDefinition } from './wire'
 
 /**
  * The chart editor's pure pieces (ticket 775) beside the shape rules (`./shape-rules`) and the generated
@@ -25,7 +25,7 @@ export function pickableMeasures(model: AnalyticsModel) {
 
 /** The breakdowns every chosen measure allows (all of them before a measure is chosen), in model order. */
 export function allowedDimensions(measures: readonly string[], model: AnalyticsModel) {
-  const chosen = measures.map((k) => model.measures.find((m) => m.key === k)).filter((m) => !!m)
+  const chosen = measures.map((k) => measureOf(model, k)).filter((m) => !!m)
   return model.dimensions.filter((d) => chosen.every((m) => m.dimensions.includes(d.key)))
 }
 
@@ -34,7 +34,7 @@ export function allowedDimensions(measures: readonly string[], model: AnalyticsM
  * category, a line's or area's series, a two-breakdown bar's second. `null` when it has none.
  */
 export function colourDimension(definition: AnalyticsViewDefinition, model: AnalyticsModel): string | null {
-  const cats = definition.query.dimensions.filter((k) => model.dimensions.find((d) => d.key === k)?.kind !== 'time')
+  const cats = definition.query.dimensions.filter((k) => dimensionOf(model, k)?.kind !== 'time')
   return cats.at(-1) ?? null
 }
 

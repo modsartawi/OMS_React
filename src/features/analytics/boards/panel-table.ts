@@ -2,7 +2,9 @@ import type { TableChartColumn } from '@/core/charts/TableChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { stripIsolates } from '@/core/util/bidi'
 import type { XlsxSheet } from '@/core/util/grid-xlsx'
-import { labelIn, measureOf } from './view-model'
+import { saysIn } from '@/core/rules/sentence'
+import { viewMeasureOf } from './view-model'
+import { dimensionOf } from './wire'
 
 /**
  * A panel's rows as one table (spec 766 §F, ticket 773): what "view as table" shows and what the CSV and
@@ -29,9 +31,9 @@ export function panelTable(result: AnalyticsQueryResult, definition: AnalyticsVi
 
   const namers = new Map(
     dimKeys.map((k) => {
-      const dim = model.dimensions.find((d) => d.key === k)
-      const labels = new Map(dim?.values.map((v) => [v.key, labelIn(v.label, lang)]) ?? [])
-      return [k, { label: labelIn(dim?.label, lang) || k, member: (m: string) => labels.get(m) || m }]
+      const dim = dimensionOf(model, k)
+      const labels = new Map(dim?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])
+      return [k, { label: saysIn(dim?.label, lang) || k, member: (m: string) => labels.get(m) || m }]
     }),
   )
   const rows = result.rows.map((r) => {
@@ -43,7 +45,7 @@ export function panelTable(result: AnalyticsQueryResult, definition: AnalyticsVi
   const columns: TableChartColumn[] = [
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.label })),
     ...measureKeys.map((k) => {
-      const m = measureOf(k, model, result, lang)
+      const m = viewMeasureOf(k, model, result, lang)
       return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[k]) ?? 0))) }
     }),
   ]

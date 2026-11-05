@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Unlink } from 'lucide-react'
 import { apiErrorCode } from '@/core/api'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsQueryKey } from './api'
 import { pointOf } from './drill'
 import { drilledDefinition, effectiveQuery, panelKey, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
@@ -13,7 +14,6 @@ import PanelDrill from './PanelDrill'
 import { useFullscreen, useScrollToPanel } from './panel-hooks'
 import { panelPermalink } from './panel-state'
 import Refused from './Refused'
-import { labelIn } from './view-model'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -56,14 +56,14 @@ export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBo
   if (panel.kind === 'section') {
     return (
       <h2 className="self-end border-b border-border/60 pb-1 text-sm font-semibold tracking-tight" style={place(panel.layout)} data-board-panel={panel.id} data-board-panel-kind="section">
-        <bdi>{labelIn(panel.title, view.lang)}</bdi>
+        <bdi>{saysIn(panel.title, view.lang)}</bdi>
       </h2>
     )
   }
   return (
     <Card panel={panel} kind="text">
       <p className="whitespace-pre-line text-sm text-muted-foreground">
-        <bdi>{labelIn(panel.text, view.lang)}</bdi>
+        <bdi>{saysIn(panel.text, view.lang)}</bdi>
       </p>
     </Card>
   )

@@ -9,11 +9,12 @@ import MultiSelect, { type MultiSelectOption } from '@/core/ui/MultiSelect'
 import Select from '@/core/ui/Select'
 import { toIsoDate } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
 import type { StreamWave } from './board'
 import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
 import { periodNameKey, PERIODS } from './periods'
-import { labelIn } from './view-model'
+import { dimensionOf } from './wire'
 
 /**
  * The board's filter strip (spec 766 §F, ticket 771): the period (a relative preset or a fixed range),
@@ -37,7 +38,7 @@ export default function FilterStrip({
 }) {
   const { t } = useTranslation('boards')
   const set = <K extends keyof BoardFilters>(key: K, value: BoardFilters[K]) => onChange({ ...filters, [key]: value })
-  const inline = (dimension: string) => model.dimensions.find((d) => d.key === dimension)
+  const inline = (dimension: string) => dimensionOf(model, dimension)
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('board.filters.label')} data-board-filters>
@@ -49,7 +50,7 @@ export default function FilterStrip({
         {(['channel', 'country'] as const).map((f) => {
           const dim = inline(FILTER_DIMENSIONS[f])
           if (!dim) return null
-          const options: MultiSelectOption[] = dim.values.map((v) => ({ value: v.key, text: labelIn(v.label, lang) || v.key }))
+          const options: MultiSelectOption[] = dim.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))
           return (
             <Field key={f} label={t(`board.filters.${f}`)} className="w-56">
               <MultiSelect value={filters[f]} onChange={(v) => set(f, v)} options={options} label={t(`board.filters.${f}`)} data-testid={`board-filter-${f}`} />
@@ -118,7 +119,7 @@ function MemberPicker({ filter, value, onChange, lang }: { filter: CategoryFilte
   // remembered, so a chosen one keeps its words after a search that no longer lists it.
   const seen = useRef(new Map<string, MultiSelectOption>())
   const options: MultiSelectOption[] = (members.data ?? []).map((m) => {
-    const name = labelIn(m.label, lang)
+    const name = saysIn(m.label, lang)
     const o = filter === 'store' ? { value: m.key, text: name ? formatPair(m.key, name) : m.key, machine: true } : { value: m.key, text: name || m.key }
     seen.current.set(m.key, o)
     return o

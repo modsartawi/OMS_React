@@ -1,12 +1,14 @@
 import { assignSlots } from '@/core/charts/slots'
 import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { labelIn, measureOf, slotRuleFor, type ViewMeasure } from './view-model'
+import { saysIn } from '@/core/rules/sentence'
+import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * The result → view model for the donut, the table with cell bars, the heatmap and the combo
- * (spec 766 §E, ticket 769). Pure, beside `view-model.ts`'s bar view and reusing its `labelIn`,
- * `measureOf` and `slotRuleFor`; proven in `view-model-forms.test.ts`.
+ * (spec 766 §E, ticket 769). Pure, beside `view-model.ts`'s bar view and reusing its `saysIn`,
+ * `viewMeasureOf` and `slotRuleFor`; proven in `view-model-forms.test.ts`.
  *
  * Kept in its own module so 768's top-N + "Other" fold (the time and bar forms) and this one merge
  * cleanly; the donut's fold below is its own (the cap is 6 slices, not 768's 5 series).
@@ -20,10 +22,10 @@ const firstKey = (keys: readonly string[], result: AnalyticsQueryResult, role: '
 
 /** A dimension's members as the screen names them: the model's label for an inline value, else the key. */
 function memberLabeller(dimension: string, model: AnalyticsModel, lang: string) {
-  const dim = model.dimensions.find((d) => d.key === dimension)
-  const labels = new Map(dim?.values.map((v) => [v.key, labelIn(v.label, lang)]) ?? [])
+  const dim = dimensionOf(model, dimension)
+  const labels = new Map(dim?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])
   return {
-    category: { key: dimension, label: labelIn(dim?.label, lang) || dimension, kind: dim?.kind ?? 'category' },
+    category: { key: dimension, label: saysIn(dim?.label, lang) || dimension, kind: dim?.kind ?? 'category' },
     label: (member: string) => labels.get(member) || member,
     /** The catalogue order of an inline-valued dimension, `null` for an open one. */
     order: dim && dim.values.length > 0 ? dim.values.map((v) => v.key) : null,
@@ -65,8 +67,8 @@ export function toDonutView(
   const measureKey = firstKey(definition.query.measures, result, 'measure')
   const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')
   // The model's shape decides when the column is silent: the refusal must not depend on the answer.
-  const declared = model.measures.find((m) => m.key === measureKey)?.shape
-  const measure = measureOf(measureKey, model, result, lang)
+  const declared = measureOf(model, measureKey)?.shape
+  const measure = viewMeasureOf(measureKey, model, result, lang)
   if (measure.shape !== 'additive' || (declared && declared !== 'additive')) return { kind: 'refused', reason: 'shape', measure }
 
   const names = memberLabeller(dimensionKey, model, lang)
@@ -175,7 +177,7 @@ export function toHeatmapView(
 
   return {
     kind: 'heatmap',
-    measure: measureOf(measureKey, model, result, lang),
+    measure: viewMeasureOf(measureKey, model, result, lang),
     x: xn.category,
     y: yn.category,
     xs: xs.map((member) => ({ member, label: xn.label(member) })),
@@ -250,7 +252,7 @@ export function toTableView(
   const columns: TableColumn[] = [
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.category.label })),
     ...measureKeys.map((k) => {
-      const m = measureOf(k, model, result, lang)
+      const m = viewMeasureOf(k, model, result, lang)
       const max = Math.max(0, ...rows.map((r) => Math.abs(num(r[k]) ?? 0)))
       return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max }
     }),
@@ -293,7 +295,7 @@ export function toComboView(
   const keys = definition.query.measures.length
     ? definition.query.measures
     : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
-  const measures = keys.map((k) => measureOf(k, model, result, lang))
+  const measures = keys.map((k) => viewMeasureOf(k, model, result, lang))
   const volume = measures.find((m) => m.shape === 'additive') ?? measures[0]
   const rate = measures.find((m) => m !== volume) ?? volume
   const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')

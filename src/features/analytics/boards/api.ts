@@ -3,13 +3,15 @@
  * in TanStack Query at the Page. Each answer is read through `./wire`, so an absent array is empty.
  *
  * The probe lives in `./access` (the menu imports it eagerly). Later slices add their doors here:
- * the item writes (776, 778, 779). `Items` landed with 770.
+ * the item writes (778, 779); 776's in-place `PUT` and `…/Copy` are here. `Items` landed with 770.
  */
 import { api } from '@/core/api'
 import type {
   AnalyticsBoard,
   AnalyticsItem,
+  AnalyticsItemCopy,
   AnalyticsItemCreate,
+  AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryInput,
@@ -56,10 +58,21 @@ export const analyticsApi = {
   },
   /**
    * `POST Analytics/Item` — creates the item as Personal to the caller (ticket 775). Answers the created
-   * item. ⚠ §C names the door, not its body: `AnalyticsItemCreate` is the web's proposal. 776 adds the
-   * in-place `PUT` and `…/Copy` beside it.
+   * item. ⚠ §C names the door, not its body: `AnalyticsItemCreate` is the web's proposal.
    */
   async create(body: AnalyticsItemCreate): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>('Analytics/Item', body))
+  },
+  /**
+   * `PUT Analytics/Item/{id}` with `baseRevision` — save in place (ticket 776). `ANALYTICS-403` when it is not
+   * the caller's to edit, `ANALYTICS-405` when someone saved a newer revision (`./item-save` reads both).
+   * Answers the saved item (read as a view's envelope; a board caller re-reads through `board(id)`).
+   */
+  async update(id: string, body: AnalyticsItemUpdate): Promise<AnalyticsItem> {
+    return readItem(await api.put<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`, body))
+  },
+  /** `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item recording its source. */
+  async copy(id: string, body: AnalyticsItemCopy): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Copy`, body))
   },
 }

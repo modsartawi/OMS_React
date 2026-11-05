@@ -107,7 +107,8 @@
     "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",
     "donutRefused": "A donut takes one additive measure. {{measure}} is a rate or a percentile, so it is not drawn as a donut.",
     "topN_one": "Showing the top {{n}} row.",
-    "topN_other": "Showing the top {{n}} rows."
+    "topN_other": "Showing the top {{n}} rows.",
+    "edit": "Edit"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -273,6 +274,31 @@
       "this-month": "This month",
       "last-month": "Last month",
       "year-to-date": "Year to date"
-    }
+    },
+    "editTitle": "Edit analytics view"
+  },
+  "save": {
+    "asCopy": "Save as copy",
+    "asMyCopy": "Save as my copy",
+    "copied": "Saved as your Personal copy.",
+    "notYours": "This isn't yours to change in place. Save it as your own Personal copy; the original stays as it is.",
+    "conflict": {
+      "byAt": "<by>{{by}}</by> saved a newer revision <at>{{at}}</at>.",
+      "by": "<by>{{by}}</by> saved a newer revision.",
+      "unknown": "Someone saved a newer revision since you opened this.",
+      "offer": "Save yours as your own copy, or reload theirs and start again."
+    },
+    "reload": "Reload",
+    "reloadFailed": "The latest revision could not be loaded.",
+    "sourceMovedOn": "The original changed since you copied it.",
+    "standing": {
+      "readOnly": "You can't save changes to this one.",
+      "copy": {
+        "personal": "This is someone else's Personal item: saving makes your own Personal copy.",
+        "shared": "This Shared item is its owner's to change: saving makes your own Personal copy and never changes the original.",
+        "certified": "Only curators change a Certified item: saving makes your own Personal copy and never changes the original."
+      }
+    },
+    "savedInPlace": "Saved. This is now the latest revision."
   }
 }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 766
 blocked-by: 775
 ---
@@ -21,8 +21,8 @@ model/api (`PUT`, `Copy`) · store/logic (tier → actions) · component · i18n
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tier and actions: owner × tier × curator → save in place | save as copy | read only` · pure (vitest)
-- [ ] `edit a Shared view you do not own → Save as my copy; a stale save shows the 405 message and offers a copy` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
+- [x] `tier and actions: owner × tier × curator → save in place | save as copy | read only` · pure (vitest)
+- [x] `edit a Shared view you do not own → Save as my copy; a stale save shows the 405 message and offers a copy` · flow (Playwright, `tools/analytics-drive.mjs`, stubbed envelopes)
 
 ## Boundaries
 
@@ -35,3 +35,15 @@ The drive proves save, copy and conflict.
 ## Blocked by
 
 [775](775-an-hq-user-builds-a-view-from-the-model-and-is-offered-only-the-chart-types-that-fit.md)
+
+## Outcome
+
+- Pure: `boards/item-actions.ts` (`itemActions(standing, actor)` → `{ save, actions }`, vitest), `boards/item-save.ts`
+  (`saveRefusal` 403/405, `EditingItem`, `sourceMovedOn`, vitest), seed `item` + `editItemLink` in `boards/editor.ts`.
+- Kind-agnostic save path `boards/use-item-save.ts` (`useItemSave({ kind, editing, onSaved })`, `useItemActor`) and
+  `boards/SaveNotes.tsx` (`SaveStanding`, `SaveRefusalNote`, `SourceMovedOn`); doors `analyticsApi.update` / `.copy`.
+- Drive `DRIVE_ONLY=776`: 47/47 (copy en+ar, in place, 405 en+ar with reload and copy, 403, tiers, moved-on copy).
+- Rulings (⚠, BackOffice 3378 to confirm): PUT carries `title`/`subtitle` beside `{ definition, baseRevision }`;
+  Copy's body is `{ revision, title, subtitle, definition }` (one call copies with edits); 405's who/when ride in
+  refusal `data.updatedBy` / `data.updatedAt`; owner matched case-insensitively against the session `userId`;
+  someone else's Personal item is read only (no Edit, no copy).

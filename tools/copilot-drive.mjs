@@ -667,7 +667,8 @@ const VIEWED = {
     { id: 'v 2/b', title: { en: 'Late orders by city', ar: '' } },
   ],
 }
-const ANALYTICS_LABELS = ['Reading the analytics model', 'Running the analytics query', 'Saving a view']
+// Past tense like every finished step's label (the working-state `steps.*` words stay present tense).
+const ANALYTICS_LABELS = ['Read the analytics model', 'Ran the analytics query', 'Saved a view']
 
 async function openView(dir) {
   const label = `${dir}: open-view`

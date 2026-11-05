@@ -66,9 +66,9 @@
       "store_lookup": "Looked up stores",
       "sourcing_explain": "Explained why the order went to its store",
       "sourcing_savings": "Estimated what smarter sourcing could save",
-      "describe_model": "Reading the analytics model",
-      "semantic_query": "Running the analytics query",
-      "create_view": "Saving a view"
+      "describe_model": "Read the analytics model",
+      "semantic_query": "Ran the analytics query",
+      "create_view": "Saved a view"
     }
   },
   "refusal": {

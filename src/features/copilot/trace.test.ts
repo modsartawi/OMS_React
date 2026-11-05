@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import en from '@/locales/en/copilot.json'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
 describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () => {
@@ -66,5 +67,18 @@ describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () =>
     // …and the working state walks their steps too.
     expect(COPILOT_TOOLS).toEqual(expect.arrayContaining(['describe_model', 'semantic_query', 'create_view']))
     expect(toolStepKey('semantic_query')).toBe('steps.semantic_query')
+  })
+
+  it('a finished analytics step reads in the past tense, like its siblings; the working state stays present', () => {
+    expect([en.trace.tools.describe_model, en.trace.tools.semantic_query, en.trace.tools.create_view]).toEqual([
+      'Read the analytics model',
+      'Ran the analytics query',
+      'Saved a view',
+    ])
+    expect([en.steps.describe_model, en.steps.semantic_query, en.steps.create_view]).toEqual([
+      'Reading the analytics model',
+      'Running the analytics query',
+      'Saving a view',
+    ])
   })
 })

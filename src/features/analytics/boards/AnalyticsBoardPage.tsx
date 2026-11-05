@@ -3,6 +3,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { boardEditHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
@@ -153,7 +154,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
           <>
             <AskBox />
             {canEdit && (
-              <Link to={`/analytics/board/${encodeURIComponent(board.id)}/edit`} className={buttonClass('secondary')} data-analytics-board-edit>
+              <Link to={boardEditHref(board.id)} className={buttonClass('secondary')} data-analytics-board-edit>
                 <Pencil className="size-4" aria-hidden />
                 {t('boardEditor.edit')}
               </Link>

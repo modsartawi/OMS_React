@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
+import { itemHref, NEW_BOARD_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
@@ -41,9 +42,6 @@ export default function AnalyticsHomePage() {
     </ScreenGate>
   )
 }
-
-const itemHref = (item: Pick<AnalyticsItem, 'id' | 'kind'>) =>
-  `/analytics/${item.kind === 'board' ? 'board' : 'view'}/${encodeURIComponent(item.id)}`
 
 /** The title an untitled view is shown (and found) by, in both languages: "<measure> by <dimension>". */
 function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined): AnalyticsLabel {
@@ -130,7 +128,7 @@ function HomeBody() {
           {t('editor.newView')}
         </Link>
         {/* 777: lay out a new board. */}
-        <Link to="/analytics/new?kind=board" className={buttonClass('secondary')} data-analytics-new-board>
+        <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
           <LayoutDashboard className="size-4" aria-hidden />
           {t('boardEditor.newBoard')}
         </Link>
@@ -148,7 +146,7 @@ function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
   return (
     <li data-analytics-item={item.id}>
       <Link
-        to={itemHref(item)}
+        to={itemHref(item.kind, item.id)}
         className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted/50 focus-visible:bg-muted/50"
       >
         <KindIcon className="size-4 shrink-0 text-muted-foreground" aria-label={t(`home.kind.${item.kind}`)} />

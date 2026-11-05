@@ -1,3 +1,4 @@
+import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, PeriodToken } from '@/core/models/analytics'
 import { editingItemOf, type EditingItem } from './item-save'
@@ -81,7 +82,7 @@ export function settledSlots(saved: Readonly<Record<string, number>>, members: r
 
 // ── Opening the editor seeded (772's drill "Save as view", 776) ─────────────────────────────────────────
 
-export const NEW_VIEW_PATH = '/analytics/new?kind=view'
+export { NEW_VIEW_PATH }
 
 /**
  * What a caller may hand the editor: a definition, and optionally a title it already has. `item` (776) is the

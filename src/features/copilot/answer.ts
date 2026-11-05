@@ -1,3 +1,4 @@
+import { itemHref } from '@/core/analytics-routes'
 import type { CopilotAnswer, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
@@ -106,7 +107,7 @@ function viewRef(v: unknown): CopilotViewRef[] {
 }
 
 /** The view a `viewRefs` entry opens — by route string only; the copilot never imports analytics. */
-export const viewHref = (id: string) => `/analytics/view/${encodeURIComponent(id)}`
+export const viewHref = (id: string) => itemHref('view', id)
 
 /** A piece of answer text: plain, or an order number that links to its delivery document (D11). */
 export type AnswerSegment = { kind: 'text'; text: string } | { kind: 'order'; no: string }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { BadgeCheck, BadgeX, Lock, Share2, ShieldAlert, Trash2 } from 'lucide-react'
+import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
@@ -53,7 +54,7 @@ export default function ItemTierActions({ item }: { item: AnalyticsItem | Analyt
       <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label={t('tierActions.label')} data-analytics-tier-actions>
         {tier.certifiedCopy && (
           <Link
-            to={`/analytics/${item.kind === 'board' ? 'board' : 'view'}/${encodeURIComponent(tier.certifiedCopy.id)}`}
+            to={itemHref(item.kind, tier.certifiedCopy.id)}
             className={buttonClass('link')}
             data-analytics-certified-copy={tier.certifiedCopy.id}
           >

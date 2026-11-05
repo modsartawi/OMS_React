@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Heading, Plus, Sparkles, Type } from 'lucide-react'
+import { itemHref } from '@/core/analytics-routes'
 import { apiErrorCode } from '@/core/api'
 import i18n from '@/core/i18n'
 import type { AnalyticsBoard, AnalyticsBoardDefinition, AnalyticsBoardPanel, AnalyticsItem, AnalyticsLabel, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
@@ -138,7 +139,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     editing,
     onSaved: (item, how) => {
       toast.success(t(how === 'copy' ? 'save.copied' : how === 'in-place' ? 'save.savedInPlace' : 'boardEditor.saved'))
-      navigate(`/analytics/board/${encodeURIComponent(item.id)}`)
+      navigate(itemHref('board', item.id))
     },
   })
   const { actions } = save

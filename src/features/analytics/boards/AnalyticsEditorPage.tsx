@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Ban, Info } from 'lucide-react'
+import { itemHref } from '@/core/analytics-routes'
 import { slotColour } from '@/core/charts/slots'
 import i18n from '@/core/i18n'
 import type {
@@ -213,7 +214,7 @@ function ViewEditor({
     onSaved: (item, how) => {
       toast.success(t(how === 'copy' ? 'save.copied' : how === 'in-place' ? 'save.savedInPlace' : 'editor.saved'))
       if (onSavedView) onSavedView(item)
-      else navigate(`/analytics/view/${encodeURIComponent(item.id)}`)
+      else navigate(itemHref('view', item.id))
     },
   })
   const { actions } = save

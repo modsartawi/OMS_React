@@ -87,7 +87,8 @@
       "crumb": "<member>{{member}}</member> by <dimension>{{dimension}}</dimension>",
       "menu": "Drill into {{member}}",
       "by": "Drill <member>{{member}}</member> by",
-      "saveAsView": "Save as view"
+      "saveAsView": "Save as view",
+      "seeDeliveries": "See deliveries"
     }
   },
   "view": {

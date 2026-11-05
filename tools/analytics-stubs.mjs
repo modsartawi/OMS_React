@@ -372,6 +372,28 @@ export const DRILL_772 = {
 }
 Object.assign(QUERY, DRILL_772)
 
+// ── 774: drill to detail — a store panel of orders (offers "See deliveries") beside one with till value ─
+ITEMS['v-store-orders'] = view('v-store-orders', {
+  definition: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [] } },
+})
+QUERY['v-store-orders'] = answerShaped([['store', 'dimension'], ['orders', 'measure', 'additive', 'count']], NINE_STORES.map(([store, orders]) => ({ store, orders })))
+export const BOARD_774 = {
+  ...view('b-detail', { title: label('Stores, last 30 days', 'الفروع، آخر 30 يومًا'), tier: 'shared' }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-stores', kind: 'view', viewId: 'v-store-orders', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
+      { id: 'p-till', kind: 'view', viewId: 'v-table', layout: { x: 6, y: 0, w: 6, h: 3 }, optOut: [] },
+    ],
+  },
+}
+ITEMS['b-detail'] = BOARD_774
+/** Two delivery documents of store P001, as `SdDocumentWeb/DeliveryDocumentList` answers. */
+export const DELIVERIES_774 = [
+  { deliveryNo: '8000001', documentNo: '5000001', storeCode: 'P001', orderNo: 'O-1', documentDate: '2026-11-04T09:00:00', customerName: 'Test One', cityName: 'Riyadh', netTotal: 120, deliveryStatus: '' },
+  { deliveryNo: '8000002', documentNo: '5000002', storeCode: 'P001', orderNo: 'O-2', documentDate: '2026-11-03T09:00:00', customerName: 'Test Two', cityName: 'Riyadh', netTotal: 80, deliveryStatus: '' },
+]
+
 // ── 775: the editor's inline definitions ────────────────────────────────────────────────────────────
 const INLINE_MEMBERS = { channel_group: CHANNELS, store: Object.keys(STORES), day: DAYS, weekday: WEEKDAYS, hour: HOURS }
 /** Periods longer than a percentile's 92-day window. */
@@ -426,10 +448,12 @@ export function inlineAnswer(definition, model = MODEL) {
  * Returns `{ calls, bodies }`: every door path asked, and each POST body by path.
  */
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
+  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model), create } = opts
   const made = {}
   const calls = []
   const bodies = {}
+  /** 774: GET query strings by path (the Deliveries list's search). */
+  const gets = {}
   const isFulfil = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
   await page.route('**/api/**', async (route) => {
@@ -486,9 +510,15 @@ export async function installAnalyticsStubs(page, opts = {}) {
       if (!answer) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
+    // 774: the Deliveries list, granted only when a scenario hands it rows.
+    if (deliveries && p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (deliveries && p === 'SdDocumentWeb/DeliveryDocumentList') {
+      ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
+      return route.fulfill(envelope(deliveries))
+    }
     // Every other screen's probe denies, so the nav holds only what a scenario grants.
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false }))
     return route.fulfill(envelope([]))
   })
-  return { calls, bodies }
+  return { calls, bodies, gets }
 }

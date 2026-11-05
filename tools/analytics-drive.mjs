@@ -48,11 +48,16 @@
 //      inline definition, with a breadcrumb back (not in the URL); "Save as view" waits for 775;
 //   4. a bar click cross-filters on its channel, and the permalink restores it on reload.
 //
+// 774 - drilling to detail from a store opens the Deliveries list already filtered (en and ar):
+//   1. a store point on an orders panel offers "See deliveries"; a store point on a till-value panel does not;
+//   2. it routes to /oms/deliveries, which searches that store over the board's period (last 30 days,
+//      resolved against a frozen clock), shows the Store token, and clears its URL entry.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, QUERY, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -1037,6 +1042,57 @@ async function board772({ dir }) {
   await context.close()
 }
 
+// ── 774 ──────────────────────────────────────────────────────────────────────────────────────────────
+async function detail774({ dir }) {
+  const tag = `774 ${dir}`
+  const { context, page, gets, errors } = await open({ dir, deliveries: DELIVERIES_774 })
+  await page.clock.setFixedTime(new Date('2026-11-05T10:10:00'))
+  await page.goto(`${BASE}/analytics/board/b-detail`)
+  await page.locator('[data-analytics-board="b-detail"]').waitFor({ timeout: 10000 })
+  await idle772(page)
+
+  // 1. A till-value panel's store point offers drill by, but no detail drill.
+  await page.locator('[data-board-panel="p-till"] .ag-row').filter({ hasText: 'P002' }).first().locator('.ag-cell').first().click()
+  const tillMenu = page.locator('[data-board-panel="p-till"] [data-board-drill-menu]')
+  await tillMenu.waitFor({ timeout: 5000 })
+  await idle772(page)
+  check(
+    `${tag}: a till value offers no detail drill`,
+    (await tillMenu.locator('[data-drill-into]').count()) > 0 && (await tillMenu.locator('[data-drill-action^="detail:"]').count()) === 0,
+  )
+
+  // 2. An orders panel's store point offers "See deliveries".
+  await page.locator('[data-board-panel="p-stores"] .ag-row').filter({ hasText: 'P001' }).first().locator('.ag-cell').first().click()
+  const see = page.locator('[data-board-panel="p-stores"] [data-drill-action="detail:deliveries"]')
+  await see.waitFor({ timeout: 5000 })
+  await idle772(page)
+  check(`${tag}: a store point on an orders panel offers "See deliveries"`, ((await see.textContent()) ?? '').includes('See deliveries'), await see.textContent())
+  await page.screenshot({ path: `${SHOTS}/774-menu-${dir}.png`, fullPage: true })
+
+  // 3. It lands on the Deliveries list, searched for that store over the board's period.
+  const listed = page.waitForResponse((r) => r.url().includes('/api/SdDocumentWeb/DeliveryDocumentList'), { timeout: 15000 })
+  await see.click()
+  await page.waitForFunction(() => location.pathname === '/oms/deliveries', null, { timeout: 10000 })
+  await listed
+  await page.locator('.ag-row', { hasText: '8000002' }).first().waitFor({ timeout: 10000 })
+  const searched = gets['SdDocumentWeb/DeliveryDocumentList'] ?? []
+  check(
+    `${tag}: the Deliveries list searches store P001 over the last 30 days (2026-10-07 to 2026-11-05)`,
+    searched.length === 1 && searched[0].StoreCode === 'P001' && searched[0].FromDate === '2026-10-07' && searched[0].ToDate === '2026-11-05',
+    JSON.stringify(searched),
+  )
+  const bar = noIsolates(await page.locator('[role="search"]').first().innerText())
+  check(
+    `${tag}: the query bar shows the store and the range it searched, nothing left unsearched`,
+    bar.includes('P001') && bar.includes('2026-10-07') && !/not searched/.test(bar),
+    bar.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(`${tag}: the URL entry is read once and cleared`, new URL(page.url()).search === '', page.url())
+  await page.screenshot({ path: `${SHOTS}/774-deliveries-${dir}.png`, fullPage: true })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['767', probeHides],
   ['767', () => drawsBar({ dir: 'ltr', dark: false })],
@@ -1059,6 +1115,8 @@ const SCENARIOS = [
   ['771', () => board771({ dir: 'ltr', dark: true })],
   ['772', () => board772({ dir: 'ltr' })],
   ['772', () => board772({ dir: 'rtl' })],
+  ['774', () => detail774({ dir: 'ltr' })],
+  ['774', () => detail774({ dir: 'rtl' })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'rtl', dark: false })],
   ['775', () => editorBuildsQ8({ dir: 'ltr', dark: true })],

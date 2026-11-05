@@ -148,7 +148,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
           )}
         </div>
       </header>
-      <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} onDrill={setDrill} />
+      <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} period={input?.period ?? drawn.query.period} onDrill={setDrill} />
       {answer.error && !result ? (
         <Refused err={answer.error} fallbackKey="view.queryFailed" />
       ) : (

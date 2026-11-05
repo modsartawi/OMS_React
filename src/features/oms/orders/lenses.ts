@@ -18,7 +18,7 @@ const PREDICATES: Record<LensId, (row: Row) => boolean> = {
   all: () => true,
   // Bupa Care Connect: the BUPA document type arriving from the ERX channel — both, not either.
   bupaCareConnect: (row) => row.documentType?.trim() === 'BUPA' && row.documentSource?.trim() === 'ERX',
-  noDelivery: (row) => !row.deliveryNo?.trim(),
+  noDelivery: (row) => !row.latestDeliveryNo?.trim(),
   // Whose money stands. Only an insurance order has one; the row's `moneySource` is null otherwise.
   channel: (row) => row.moneySource === 'CHANNEL',
   engine: (row) => row.moneySource === 'ENGINE',

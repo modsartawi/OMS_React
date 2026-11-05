@@ -1,0 +1,36 @@
+{
+  "_fixture": "Hand-built in the REAL shape of GET SdDocumentWeb/OrderDocumentList?DocumentNo=1006358459 (BackOffice pricing2, OrderDocumentSearchPage { rows, limited }): the identifier search the delivery money strip asks. This caller has no insurance-view grant, so patientId / memberId are null. Read by insurance-doors.test.ts.",
+  "rows": [
+    {
+      "documentNo": "1006358459",
+      "orderNo": "BUPA-20261105125734-451",
+      "documentCategory": "O",
+      "documentType": "BUPA",
+      "documentTypeDescription": "Bupa Care Connect",
+      "documentSource": "ERX",
+      "documentSourceDescription": "e-Prescription",
+      "storeCode": "P001",
+      "customerName": "محمد العتيبي",
+      "customerPhone": "0551234567",
+      "entryTime": "2026-11-05T12:57:34",
+      "overallStatus": "B",
+      "lastAction": "DPIK",
+      "readyStatus": "C",
+      "deliveryStatus": "B",
+      "clearStatus": "",
+      "closeStatus": "",
+      "controlStatus": "",
+      "netTotal": 66.31,
+      "amountDue": 63.65,
+      "latestDeliveryNo": "8000123456",
+      "guardState": "none",
+      "isInsuranceOrder": true,
+      "moneySource": "CHANNEL",
+      "patientTotal": 63.65,
+      "insurerTotal": 2.66,
+      "patientId": null,
+      "memberId": null
+    }
+  ],
+  "limited": false
+}

@@ -2,10 +2,9 @@ import type { OrderGuardState } from '@/core/insurance-rules/guard-check'
 import type { LocalDate } from '@/core/util/date-window'
 
 // Wire shape for `GET SdDocumentWeb/OrderDocumentList` (BackOffice spec 3389, door 3391): the
-// Order / ERX list's search. Cookie-only, behind the OMS LIST grant (`canOpenList`). Not built
-// yet: oms-react builds against stubs, so THIS file is the client's statement of the contract,
-// camelCase as System.Text.Json's web defaults emit it. A live call that disagrees corrects
-// BackOffice 3391 first, then this file (the 765 drift pattern).
+// Order / ERX list's search. Cookie-only, behind the OMS LIST grant (`canOpenList`). Reconciled to
+// the server BackOffice built (branch pricing2, `OrderDocumentSearchPage` / `OrderDocumentSearchRow`)
+// by the 3389 hotfix, camelCase as System.Text.Json's web defaults emit it.
 //
 // It lives in `core/models` because two client tickets read it: the list (786) and the delivery
 // page's money strip (789), which finds its order's money source / patient / insurer here under
@@ -78,42 +77,41 @@ export const ORDER_SEARCH_DATE_RULE = { defaultDays: 3, maxDays: 31 } as const
 /** The server's default row limit (3391); the cap is the delivery list's. */
 export const ORDER_SEARCH_DEFAULT_LIMIT = 500
 
-/** One row of the Order / ERX list (3391 Row; spec 3389 user story 22). */
+/**
+ * One row of the Order / ERX list — BackOffice `OrderDocumentSearchRow` (pricing2; spec 3389 user
+ * story 22), camelCase, nulls written. A text the server joins from another table (customer, type,
+ * source) is `null` when that row is missing.
+ */
 export interface OrderDocumentRow {
-  orderNo: string
   documentNo: string
+  orderNo: string | null
   documentCategory: OrderDocumentCategory
-  documentType: string // coded
-  documentTypeDescription: string
-  documentSource: string // coded — the channel
-  documentSourceDescription: string
-  storeCode: string
-  customerName: string
+  documentType: string | null // coded
+  documentTypeDescription: string | null
+  documentSource: string | null // coded — the channel
+  documentSourceDescription: string | null
+  storeCode: string | null
+  customerName: string | null
   /** The customer's mobile. */
-  customerPhone: string
+  customerPhone: string | null
   /** Local time, no offset (no-utc-time rule). */
   entryTime: string
-  /** The order's status (coded) and its description. */
-  status: string
-  statusDescription: string
-  /** The close status (coded), as the delivery list carries it: `R` close requested, `C`/`X` closed. */
-  closeStatus: string
+  /** The order's overall status (coded). The server sends no description: the code is what is shown. */
+  overallStatus: string | null
+  lastAction: string | null
+  readyStatus: string | null
+  deliveryStatus: string | null
+  clearStatus: string | null
+  /** The close status (coded): `R` close requested, `C`/`X` closed. */
+  closeStatus: string | null
+  controlStatus: string | null
   netTotal: number
   amountDue: number
-  /**
-   * The order's currency (the store's), for money in its decimals (`formatMoneyIn`). Optional
-   * because 3391 does not name it yet — absent reads as the 2-decimal default. Client ask.
-   */
-  currency?: string | null
-  /** The latest delivery of the order, or `null` before it has one ("No delivery yet"). */
-  deliveryNo: string | null
-  /** Where the order's guard check stands (the existing `StampGuardStatesAsync`); absent = none. */
-  guardState?: OrderGuardState
-  /**
-   * Whether the order is an insurance order — its insurance record exists (glossary), not its
-   * document type. Client ask: 3391 implies it by filling the three fields below; an explicit flag
-   * keeps "not insurance" apart from "insurance, money unknown".
-   */
+  /** The order's latest delivery (by entry time), or `null` before it has one ("No delivery yet"). */
+  latestDeliveryNo: string | null
+  /** Where the order's guard check stands (`StampGuardStatesAsync`); the server defaults it to `none`. */
+  guardState: OrderGuardState
+  /** Whether the order carries an insurance record (it is an insurance order), not its document type. */
   isInsuranceOrder: boolean
   /** For an insurance order: whose money stands. `null` otherwise. */
   moneySource: MoneySource | null
@@ -122,10 +120,28 @@ export interface OrderDocumentRow {
   /** For an insurance order: the insurer's total on the current money. `null` otherwise. */
   insurerTotal: number | null
   /**
-   * Health identifiers, ONLY for a caller holding the insurance-view grant: the server omits them
-   * otherwise (absent, not `""`). The export leaves them out without the grant whatever the row
-   * carries (786).
+   * Health identifiers, ONLY for a caller holding the insurance-view grant: `null` otherwise (the
+   * server never reads them). The export leaves them out without the grant whatever the row carries.
    */
-  patientId?: string | null
-  memberId?: string | null
+  patientId: string | null
+  memberId: string | null
+}
+
+/**
+ * The whole answer of `GET SdDocumentWeb/OrderDocumentList` — BackOffice `OrderDocumentSearchPage`:
+ * the rows, newest first, and `limited` true exactly when more orders matched than the limit let
+ * through (the status bar's "at least").
+ */
+export interface OrderSearchPage {
+  rows: OrderDocumentRow[]
+  limited: boolean
+}
+
+/** The search's answer read defensively: a malformed answer is no rows, never a crash. */
+export function orderSearchPageOf(answer: unknown): OrderSearchPage {
+  const page = answer as Partial<OrderSearchPage> | null | undefined
+  return {
+    rows: Array.isArray(page?.rows) ? page.rows : [],
+    limited: page?.limited === true,
+  }
 }

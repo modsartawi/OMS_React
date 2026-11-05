@@ -19,16 +19,23 @@ const row = (documentNo: string, over: Partial<OrderDocumentRow> = {}): OrderDoc
   customerName: 'Sara',
   customerPhone: '0551234567',
   entryTime: '2026-11-05T10:00:00',
-  status: 'OPEN',
-  statusDescription: 'Open',
+  overallStatus: 'A',
+  lastAction: 'OADD',
+  readyStatus: '',
+  deliveryStatus: '',
+  clearStatus: '',
   closeStatus: '',
+  controlStatus: '',
   netTotal: 100,
   amountDue: 100,
-  deliveryNo: '9000001',
+  latestDeliveryNo: '9000001',
+  guardState: 'none',
   isInsuranceOrder: false,
   moneySource: null,
   patientTotal: null,
   insurerTotal: null,
+  patientId: null,
+  memberId: null,
   ...over,
 })
 
@@ -37,7 +44,7 @@ const bupa = row('1006358459', {
   documentCategory: 'X',
   documentType: 'BUPA',
   documentSource: 'ERX',
-  deliveryNo: null,
+  latestDeliveryNo: null,
   isInsuranceOrder: true,
   moneySource: 'ENGINE',
   patientTotal: 12.5,
@@ -61,7 +68,7 @@ describe('order-list lenses: Bupa Care Connect / No delivery yet / CHANNEL / ENG
 
   it('No delivery yet is an order with no latest delivery', () => {
     expect(matching('noDelivery')).toEqual(['1006358459'])
-    expect(lensMatches('noDelivery', row('1', { deliveryNo: '' }))).toBe(true)
+    expect(lensMatches('noDelivery', row('1', { latestDeliveryNo: '' }))).toBe(true)
   })
 
   it('CHANNEL and ENGINE are the insurance order’s money source; a non-insurance order is neither', () => {

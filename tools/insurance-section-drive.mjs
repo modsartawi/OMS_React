@@ -1,9 +1,9 @@
 // Insurance section drive (ticket 787, BackOffice spec 3389, door 3390).
 //
 // Drives the REAL app in Chromium against a STUB of 3390's `GET SdDocumentWeb/Document/{no}/Insurance`
-// (not built yet: the stub answers the 1006358459 shape from
-// `src/features/oms/document/__fixtures__/insurance-1006358459.json` — current 63.65 / 2.66, engine
-// 13.26 / 53.05). The order's header is the ticket-078 ERX capture 2000000551, renumbered. In LTR and
+// in the REAL shape BackOffice built (pricing2 `SdInsuranceReadModel`, 3389 hotfix): the stub serves
+// `src/features/oms/document/__fixtures__/insurance-1006358459.json` as-is — current 63.65 / 2.66,
+// engine 13.26 / 53.05. The order's header is the ticket-078 ERX capture 2000000551, renumbered. In LTR and
 // RTL (`oms.locale = 'ar'` sets dir="rtl"), it asserts:
 //   1. `/oms/document/1006358459#insurance` draws the section above the two columns and scrolls to it;
 //   2. Money: the CHANNEL badge and its line; Received / Current / Engine per figure; patient
@@ -13,12 +13,13 @@
 //      the header conditions read DFEE's rate 15.00 as its money, never 0.00;
 //   4. unpriced engine money reads Unpriced (never 0.00) with the unpriced lines named; a voided line
 //      is struck through;
-//   5. no section on a non-insurance order (400 NOT_INSURANCE_ORDER), without the grant (and no read
+//   5. no section on a non-insurance order (400 SDD-02220), without the grant (and no read
 //      asked), or on the delivery route (no read asked); a failing read is said in place;
 //   6. nothing in the section is a control but 788's Copy: read-only.
 // Ticket 788 (BackOffice 3392 / 3393) adds, from the same fixture and the changed order 1006358461
 // (`__fixtures__/insurance-1006358461-changed.json`):
-//   7. Plan: policy / member in ltr isolates, diagnosis and holder in <bdi>, group G1 20% cap 30.00;
+//   7. Plan: policy / member in ltr isolates, diagnosis and holder in <bdi>, payer as its code (the
+//      server sends no names), group G1 20% cap 30.00;
 //   8. Changes: the server-merged log is not drawn twice; an old act reads Not recorded (never 0.00) with its
 //      quantity 2 BOX → 1 BOX; the SWAP is marked CHANNEL → ENGINE with 63.65 → 13.26; the page's log merged in;
 //   9. Received: the intake body as a folding JSON tree, values as written (1.10, Arabic), Copy puts the body
@@ -58,18 +59,17 @@ const LOGS = {
   1006358461: [docLog('1', '2026-11-01T09:15:12', 'OADD', 'Order added'), docLog('2', '2026-11-05T13:40:00', 'ORDY', 'Ready')],
 }
 
-/** 1006358460: its one line unresolved and a second voided line — the engine has no total. */
+/**
+ * 1006358460: its one line unresolved (UNPRICED, no engine money) and a second voided line. The server
+ * says it priced (`isPriced`) but not every live line (`isComplete: false`), and still sends a partial
+ * total — which must NOT be drawn as the order's engine money.
+ */
 const unpricedRead = () => {
   const r = structuredClone(READ)
   r.documentNo = '1006358460'
-  r.lines[0] = {
-    ...r.lines[0],
-    engineDeductible: null,
-    unresolvedReason: 'SFDA code matches no item',
-    engine: { priced: false, unpricedReason: 'No price for the item', deductible: null, deductibleVat: null, patient: null, insurer: null },
-  }
-  r.lines.push({ ...structuredClone(READ.lines[0]), lineNumber: 20, voided: true })
-  r.money.engine = { priced: false, unpricedLines: [10], patient: null, deductible: null, deductibleVat: null, uncovered: null, insurer: null, amountDue: null }
+  r.lines[0] = { ...r.lines[0], unresolvedReason: 'SFDA code matches no item', engineState: 'UNPRICED', engine: null }
+  r.lines.push({ ...structuredClone(READ.lines[0]), lineNumber: 20, voided: true, engineState: 'VOIDED', engine: null })
+  r.engine = { ...r.engine, isPriced: true, isComplete: false, money: { ...r.engine.money, patientTotal: 1.11, insurerTotal: 2.22 }, netTotal: 3.33, amountDue: 1.11 }
   return r
 }
 
@@ -100,7 +100,7 @@ async function drive(dir) {
       if (ins[1] === '1006358461') return route.fulfill(envelope(CHANGED))
       if (ins[1] === '1006358499') return route.fulfill(envelope(null, { status: 500, success: false, message: 'Pricer unavailable' }))
       const message = `Document ${ins[1]} is not an insurance order.`
-      return route.fulfill(envelope(null, { status: 400, success: false, message, code: 'NOT_INSURANCE_ORDER' }))
+      return route.fulfill(envelope(null, { status: 400, success: false, message, code: 'SDD-02220' }))
     }
     const logs = p.match(/\/Document\/(\d+)\/Logs$/)
     if (logs) return route.fulfill(envelope(LOGS[logs[1]] ?? []))
@@ -207,15 +207,15 @@ async function drive(dir) {
     }
   })
   check(
-    `${label} plan: policy and member in ltr isolates, diagnosis in <bdi>, payer as code · name`,
-    plan.policy === 'POL-55120' && plan.policyLtr && plan.member === 'BUPA-7781230' && plan.diagnosisBdi && plan.holder === 'شركة الراجحي للتجارة' && plan.payer === 'P-BUPA · BUPA Arabia for Cooperative Insurance',
+    `${label} plan: policy and member in ltr isolates, diagnosis in <bdi>, payer as its code`,
+    plan.policy === 'POL-55120' && plan.policyLtr && plan.member === 'BUPA-7781230' && plan.diagnosisBdi && plan.holder === 'شركة الراجحي للتجارة' && plan.payer === 'P-BUPA',
     JSON.stringify(plan),
   )
   check(`${label} plan: deductible group G1 reads 20% capped at 30.00`, plan.group === '20%' && plan.cap === '30.00', `${plan.group} | ${plan.cap}`)
 
   const rowsOf = (s) => [...s.querySelectorAll('[data-timeline-change], [data-timeline-log]')].map((tr) => tr.getAttribute('data-timeline-change') ?? `log:${tr.getAttribute('data-timeline-log')}`)
   const tl = await section().evaluate((s, f) => new Function(`return (${f})`)()(s), rowsOf.toString())
-  check(`${label} changes: the server-merged log sits on the line, not drawn twice`, JSON.stringify(tl) === JSON.stringify(['log:OADD', 'PICK', 'log:ORDY']), tl.join(','))
+  check(`${label} changes: the server-merged log sits on the line, not drawn twice`, JSON.stringify(tl) === JSON.stringify(['log:OADD', 'PICK', 'log:DRDY']), tl.join(','))
 
   const rec = await section().evaluate((s) => {
     const body = s.querySelector('[data-received-body]')

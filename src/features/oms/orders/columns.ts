@@ -31,11 +31,12 @@ const text = (value: string | null | undefined) => (value ?? '').trim()
  * the column ids stay the field names, so saved views survive a language switch.
  *
  * 🚩 The patient ID and member ID columns exist only with the insurance-view grant. Money reads in
- * the row's currency's decimals (`formatMoneyIn`; an absent currency is 2 decimals).
+ * the 2-decimal default (`formatMoneyIn`): the search row carries no currency.
  */
 export function buildOrderColumns(t: TFunction, grants: QueryGrants): OrderColDef[] {
   const header = (key: string) => t(`orders:columns.${key}`)
-  const money = (p: ValueFormatterParams<OrderDocumentRow>) => formatMoneyIn(p.value as number | null, p.data?.currency)
+  // The row carries no currency (the server sends none): money reads in the 2-decimal default.
+  const money = (p: ValueFormatterParams<OrderDocumentRow>) => formatMoneyIn(p.value as number | null, null)
 
   const textCol = (field: OrderField, width: number): OrderColDef => ({ headerName: header(field), field, width })
   /** IDs and codes in mono (spec 380, 359) — never money or quantities. */
@@ -64,7 +65,8 @@ export function buildOrderColumns(t: TFunction, grants: QueryGrants): OrderColDe
     describedCol('category', 90, (row) => (row.documentCategory ? t(`orders:category.${row.documentCategory}`) : '')),
     describedCol('documentType', 140, (row) => text(row.documentTypeDescription) || text(row.documentType)),
     describedCol('documentSource', 130, (row) => text(row.documentSourceDescription) || text(row.documentSource)),
-    describedCol('status', 130, (row) => text(row.statusDescription) || text(row.status)),
+    // The server sends the overall status code only, no description. The colId stays `status` for saved views.
+    describedCol('status', 130, (row) => text(row.overallStatus)),
     {
       headerName: t('insurance-order-guards:column.header'),
       colId: 'guardState',
@@ -74,7 +76,13 @@ export function buildOrderColumns(t: TFunction, grants: QueryGrants): OrderColDe
       cellRenderer: GuardStateCell,
     },
     // Blank before the order has a delivery: the "No delivery yet" lens finds those.
-    { ...idCol('deliveryNo', 130), valueGetter: (p: ValueGetterParams<OrderDocumentRow>) => text(p.data?.deliveryNo) },
+    {
+      headerName: header('deliveryNo'),
+      colId: 'deliveryNo',
+      width: 130,
+      cellClass: 'font-mono',
+      valueGetter: (p: ValueGetterParams<OrderDocumentRow>) => text(p.data?.latestDeliveryNo),
+    },
     {
       headerName: header('entryTime'),
       field: 'entryTime',

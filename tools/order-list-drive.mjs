@@ -1,5 +1,7 @@
 // Order / ERX list drive (ticket 786, BackOffice spec 3389; door 3391 `GET SdDocumentWeb/OrderDocumentList`,
-// STUBBED — not built yet; the stub answers in the contract's shape, `src/core/models/order-document.ts`).
+// STUBBED in the REAL shape BackOffice built (pricing2, 3389 hotfix): `{ rows, limited }`
+// (`OrderDocumentSearchPage`), each row an `OrderDocumentSearchRow` with nulls written — the health
+// identifiers are `null` without the grant, never absent.)
 //
 // Drives the REAL app in Chromium, LTR and RTL (`oms.locale = 'ar'`), and asserts:
 //   1. the list opens on the last 3 days; Search sends FromDate/ToDate and Limit=500;
@@ -48,23 +50,29 @@ const row = (documentNo, over = {}) => ({
   customerName: 'Sara Ahmed',
   customerPhone: '0551234567',
   entryTime: '2026-11-04T10:15:00',
-  status: 'OPEN',
-  statusDescription: 'Open',
+  overallStatus: 'A',
+  lastAction: 'OADD',
+  readyStatus: '',
+  deliveryStatus: '',
+  clearStatus: '',
   closeStatus: '',
+  controlStatus: '',
   netTotal: 120.5,
   amountDue: 120.5,
-  currency: 'SAR',
-  deliveryNo: '9000001',
+  latestDeliveryNo: '9000001',
+  guardState: 'none',
   isInsuranceOrder: false,
   moneySource: null,
   patientTotal: null,
   insurerTotal: null,
+  patientId: null,
+  memberId: null,
   ...over,
 })
 
-/** The door's rows. The health identifiers ride only with the grant, as 3391 says the server does. */
+/** The door's rows. The health identifiers ride only with the grant; without it the server writes them null. */
 const rows = (grant, rtl) => {
-  const ids = (p, m) => (grant ? { patientId: p, memberId: m } : {})
+  const ids = (p, m) => (grant ? { patientId: p, memberId: m } : { patientId: null, memberId: null })
   return [
     row('1006358459', {
       orderNo: 'BUPA-20261104-77',
@@ -74,7 +82,7 @@ const rows = (grant, rtl) => {
       documentSource: 'ERX',
       documentSourceDescription: 'ERX',
       customerName: rtl ? 'سارة أحمد' : 'Sara Ahmed',
-      deliveryNo: null,
+      latestDeliveryNo: null,
       isInsuranceOrder: true,
       moneySource: 'ENGINE',
       patientTotal: 12.5,
@@ -115,8 +123,9 @@ async function drive(dir, grant) {
       const params = Object.fromEntries(url.searchParams)
       searches.push(params)
       const all = rows(grant, rtl)
-      if (params.Approval) return route.fulfill(envelope(all.filter((r) => r.documentNo === '1006358459')))
-      return route.fulfill(envelope(all))
+      // The real answer: { rows, limited } — never a bare array (the prod crash of 2026-11-06).
+      if (params.Approval) return route.fulfill(envelope({ rows: all.filter((r) => r.documentNo === '1006358459'), limited: false }))
+      return route.fulfill(envelope({ rows: all, limited: false }))
     }
     return route.fulfill(envelope(p.startsWith('SdDocumentWeb/Document/') ? null : []))
   })

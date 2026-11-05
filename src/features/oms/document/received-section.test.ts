@@ -3,13 +3,14 @@
  * 64–66): the intake body as formatted, collapsible JSON with copy, or why there is none.
  */
 import { describe, expect, it } from 'vitest'
-import type { OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { OrderInsuranceReadWire } from '@/core/models/order-insurance'
+import { insuranceReadOf } from './insurance-wire'
 import changedJson from './__fixtures__/insurance-1006358461-changed.json'
 import baseJson from './__fixtures__/insurance-1006358459.json'
 import { jsonTree, receivedView } from './received-section'
 
-const CHANGED = changedJson as unknown as OrderInsuranceRead
-const BASE = baseJson as unknown as OrderInsuranceRead
+const CHANGED = insuranceReadOf(changedJson as unknown as OrderInsuranceReadWire)
+const BASE = insuranceReadOf(baseJson as unknown as OrderInsuranceReadWire)
 
 describe('received section', () => {
   it('an absent intake body says not kept', () => {

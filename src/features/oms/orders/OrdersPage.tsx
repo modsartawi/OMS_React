@@ -101,6 +101,7 @@ export default function OrdersPage() {
 
   const rows = useOrderSearch((s) => s.rows)
   const limit = useOrderSearch((s) => s.limit)
+  const limited = useOrderSearch((s) => s.limited)
   const error = useOrderSearch((s) => s.error)
   const draft = useOrderSearch((s) => s.draft)
   const lastRun = useOrderSearch((s) => s.query)
@@ -163,7 +164,7 @@ export default function OrdersPage() {
     },
     onSuccess: (result, { seq, query, criteria }) => {
       if (seq !== latestSearch.current) return
-      useOrderSearch.getState().setResult(result, criteria.limit ?? 0, query)
+      useOrderSearch.getState().setResult(result.rows, criteria.limit ?? 0, result.limited, query)
     },
     onError: (err: unknown, { seq }) => {
       if (seq !== latestSearch.current) return
@@ -253,7 +254,7 @@ export default function OrdersPage() {
     setDisplayed((prev) => (prev.count === count && prev.columnFiltered === columnFiltered ? prev : { count, columnFiltered }))
   }, [])
 
-  const loaded = useMemo<LoadedResult | null>(() => (rows && limit !== null && !error ? { rows, limit } : null), [rows, limit, error])
+  const loaded = useMemo<LoadedResult | null>(() => (rows && limit !== null && !error ? { rows, limit, limited } : null), [rows, limit, limited, error])
   const counts = useMemo(() => lensCounts(loaded), [loaded])
 
   const toggleInspector = useCallback(() => setInspector((prefs) => ({ ...prefs, open: !prefs.open })), [])

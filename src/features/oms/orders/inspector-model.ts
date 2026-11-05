@@ -19,7 +19,7 @@ export function documentPathOf(row: OrderDocumentRow): string | null {
 
 /** The row's latest delivery, or `null` before it has one. */
 export function deliveryPathOf(row: OrderDocumentRow): string | null {
-  const deliveryNo = text(row.deliveryNo)
+  const deliveryNo = text(row.latestDeliveryNo)
   return deliveryNo ? `/oms/delivery/${deliveryNo}` : null
 }
 
@@ -48,14 +48,15 @@ export interface OrderInspectorView {
 }
 
 export function orderInspectorView(row: OrderDocumentRow, grants: QueryGrants): OrderInspectorView {
-  const money = (value: number | null | undefined) => formatMoneyIn(value, row.currency)
+  // The row carries no currency (the server sends none): money reads in the 2-decimal default.
+  const money = (value: number | null | undefined) => formatMoneyIn(value, null)
   return {
     header: {
       documentNo: text(row.documentNo),
       orderNo: text(row.orderNo),
       category: row.documentCategory === 'O' || row.documentCategory === 'X' ? row.documentCategory : null,
       documentType: text(row.documentTypeDescription) || text(row.documentType),
-      status: text(row.statusDescription) || text(row.status),
+      status: text(row.overallStatus),
       guardState: row.guardState && row.guardState !== 'none' ? row.guardState : null,
     },
     customer: { name: text(row.customerName), mobile: text(row.customerPhone) },
@@ -63,7 +64,7 @@ export function orderInspectorView(row: OrderDocumentRow, grants: QueryGrants): 
       storeCode: text(row.storeCode),
       source: text(row.documentSourceDescription) || text(row.documentSource),
       entryTime: formatDateTime(row.entryTime),
-      deliveryNo: text(row.deliveryNo) || null,
+      deliveryNo: text(row.latestDeliveryNo) || null,
     },
     money: { net: money(row.netTotal), due: money(row.amountDue) },
     insurance: row.isInsuranceOrder

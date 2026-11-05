@@ -1,12 +1,12 @@
 import { api } from '@/core/api'
-import type { OrderDocumentRow, OrderSearchCriteria } from '@/core/models/order-document'
+import { orderSearchPageOf, type OrderSearchCriteria, type OrderSearchPage } from '@/core/models/order-document'
 
 // The Order / ERX search (BackOffice spec 3389, door 3391): `GET SdDocumentWeb/OrderDocumentList`,
 // cookie-only, behind the OMS LIST grant (`canOpenList`). The OMS probe is `@/core/oms/api`'s.
 //
-// ⚠ Not built yet: stubbed in `tools/order-list-drive.mjs` until 3391 is on staging. The route
-// and the PascalCase parameter names are 3391's own (`@/core/models/order-document`); a live call
-// that disagrees corrects 3391 first, then the contract.
+// Built (BackOffice pricing2, `SdDocumentWebEndpoints.GetOrderDocumentList`): the PascalCase
+// parameters bind `OrderDocumentSearchOptions`; the answer is `OrderDocumentSearchPage`
+// (`{ rows, limited }`), stubbed in that real shape in `tools/order-list-drive.mjs`.
 const BASE = 'SdDocumentWeb'
 
 /** Append a text criterion, trimmed, only when it carries a value. */
@@ -43,8 +43,8 @@ export function buildOrderQuery(criteria: OrderSearchCriteria): Record<string, u
 }
 
 export const ordersApi = {
-  /** The search; the server sorts newest first. */
-  search(criteria: OrderSearchCriteria): Promise<OrderDocumentRow[]> {
-    return api.get<OrderDocumentRow[]>(`${BASE}/OrderDocumentList`, buildOrderQuery(criteria))
+  /** The search; the server sorts newest first and says whether the limit cut it (`limited`). */
+  async search(criteria: OrderSearchCriteria): Promise<OrderSearchPage> {
+    return orderSearchPageOf(await api.get<unknown>(`${BASE}/OrderDocumentList`, buildOrderQuery(criteria)))
   },
 }

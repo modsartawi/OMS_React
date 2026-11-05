@@ -5,31 +5,34 @@ import type { LocalDate, MoneySource } from './order-document'
 // grant (`canViewInsurance`, `@/core/oms/insurance-grant`). Read-only: the engine money is priced on
 // demand and nothing is written.
 //
-// Not built yet: oms-react builds against stubs, so THIS file states the contract, camelCase as
-// System.Text.Json's web defaults emit it. 3390 promises the timeline and intake fields from day
-// one ("present in the contract as empty / not kept until 3392 / 3393 fill them"), so the client
-// builds against this final shape once.
+// The types above the wire section are the CLIENT's model the section draws. BackOffice built the
+// door in its own shape (`OrderInsuranceReadWire`, below — branch pricing2), and the 3389 hotfix
+// maps that at the api boundary (`features/oms/document/insurance-wire.ts`) rather than reshaping
+// every part. Where the server sends less than this model holds, the field reads empty / `null`
+// and the part says so; nothing is invented.
 //
 // 🚩 Three absences are NOT zero, and each has its own shape here:
 // - **unpriced engine money** — `null` figures beside `priced: false` (3390: "unpriced, never 0");
 // - **money not recorded** on an old order change — `before`/`after` are `null` (3393);
 // - **an intake body not kept** — `intake.kept: false`, with the day keeping began (3392).
 //
-// A document that is not an insurance order is refused BY NAME (3390's
-// `InsuranceRead_NotAnInsuranceOrder_IsRefusedByName`): a business `ApiError` whose code is
-// `NOT_AN_INSURANCE_ORDER_CODE`. The section reads that as "no section", never as an error.
+// A document that is not an insurance order is refused BY NAME: a 400 business `ApiError` whose
+// code is `NOT_AN_INSURANCE_ORDER_CODE`. The section reads that as "no section", never as an error.
 
-/** GUESS — the refusal code 3390 names for a document with no insurance record. Confirm with BackOffice. */
-export const NOT_AN_INSURANCE_ORDER_CODE = 'NOT_INSURANCE_ORDER'
+/** `SdDocumentErrorCodes.InsuranceReadNotAnInsuranceOrder` — the document has no `SdDocumentInsurance` row. */
+export const NOT_AN_INSURANCE_ORDER_CODE = 'SDD-02220'
 
-/** The five money figures compared side by side (spec 3389 user story 37). */
+/**
+ * The five money figures compared side by side (spec 3389 user story 37). A `null` figure is "not
+ * sent" — the channel sends only patient, deductible, deductible VAT and insurer — never 0.
+ */
 export interface InsuranceMoney {
   /** The patient amount: deductible + uncovered (+ other), VAT-inclusive (glossary "Patient amount"). */
-  patient: number
-  deductible: number
-  deductibleVat: number
-  uncovered: number
-  insurer: number
+  patient: number | null
+  deductible: number | null
+  deductibleVat: number | null
+  uncovered: number | null
+  insurer: number | null
   /** What the order would ask the patient to collect on this money. `null` when it has none. */
   amountDue: number | null
 }
@@ -37,8 +40,9 @@ export interface InsuranceMoney {
 /**
  * The engine money (glossary "Engine money"): what our rules charge, priced on demand. When any
  * live line cannot be priced (unresolved, no price), `priced` is `false`, every figure is `null`
- * and `unpricedLines` names the lines — a partial total is not the order's money. Proposed rule;
- * confirm with BackOffice 3390.
+ * and `unpricedLines` names the lines — a partial total is not the order's money. The server says
+ * `isPriced` (it priced at all) and `isComplete` (every live line); the boundary reads `priced` as
+ * both, so a partial engine total is never drawn as the order's money.
  */
 export type EngineMoney =
   | ({ priced: true; unpricedLines: [] } & InsuranceMoney)
@@ -87,9 +91,9 @@ export interface InsurancePlan {
   memberId: string
   /** The patient's identity number (national ID / Iqama) on the insurance record. */
   identityNumber: string
+  /** The server's `eligibilityId`. */
   eligibilityReference: string
   authorizationId: string
-  approvalNumber: string
   diagnosis: string
   visitReason: string
   chiefComplaint: string
@@ -188,9 +192,9 @@ export type InsuranceChangeAct = 'PICK' | 'SWAP' | 'QUANTITY' | 'VOID' | 'RESTOR
 
 /** The money on one side of an accepted act (3393's `*Before` / `*After`). */
 export interface ChangeMoney {
-  moneySource: MoneySource
-  patientTotal: number
-  insurerTotal: number
+  moneySource: MoneySource | (string & {})
+  patientTotal: number | null
+  insurerTotal: number | null
 }
 
 /** One accepted act on the order (`SdDocumentInsuranceChange`). */
@@ -246,7 +250,7 @@ export type IntakeBody =
 export interface OrderInsuranceRead {
   documentNo: string
   orderNo: string
-  /** The store's currency, for money in its decimals (`formatMoneyIn`). `null` reads as 2 decimals. */
+  /** The store's currency, for money in its decimals (`formatMoneyIn`). The server sends none, so it is `null` (2 decimals). */
   currency: string | null
   moneySource: MoneySource
   money: InsuranceMoneyColumns
@@ -261,4 +265,195 @@ export interface OrderInsuranceRead {
   /** Oldest first. `[]` until 3393 ships. */
   timeline: InsuranceTimelineEntry[]
   intake: IntakeBody
+}
+
+// ─── The wire ────────────────────────────────────────────────────────────────────────────────
+// What `GET SdDocumentWeb/Document/{no}/Insurance` actually answers: BackOffice `SdInsuranceReadModel`
+// (branch pricing2, `Sd/Services/Models/InsuranceRead`), camelCase, nulls written, a DateTime as a
+// local `yyyy-MM-ddTHH:mm:ss`. `documentApi.getInsurance` maps it to `OrderInsuranceRead` at the
+// boundary (`features/oms/document/insurance-wire.ts`); nothing else reads these types.
+
+/** `SdInsuranceMoneyModel` — the engine's `InsuranceSummary` shape. A null figure is "not sent / not priced", never 0. */
+export interface InsuranceMoneyWire {
+  patientTotal: number | null
+  deductibleTotal: number | null
+  deductibleVatTotal: number | null
+  uncoveredTotal: number | null
+  uncoveredVatTotal: number | null
+  otherTotal: number | null
+  otherVatTotal: number | null
+  insurerTotal: number | null
+  insurerSubTotal: number | null
+  insurerVatTotal: number | null
+}
+
+export interface InsurancePlanWire {
+  insurerCustomerId: string
+  payerCode: string
+  policyNumber: string
+  policyName: string
+  policyHolder: string
+  policyStartDate: string
+  policyEndDate: string
+  contractNumber: string
+  className: string
+  insuranceType: string
+  oneCopayment: boolean
+  memberId: string
+  patientId: string
+  identityNumber: string
+  identifierType: string
+  beneficiaryName: string
+  beneficiaryType: string
+  gender: string
+  eligibilityId: string
+  authorizationId: string
+  authorizationDate: string
+  referenceNumber: string
+  actionType: string
+  diagnosis: string
+  visitReason: string
+  chiefComplaintCode: string
+  chiefComplaintDescription: string
+  /** An int; 0 when not sent. */
+  daysSupply: number
+  /** `maxAmount` 0 = uncapped. */
+  deductibleGroups: { groupName: string; percentage: number; maxAmount: number }[]
+}
+
+/** `SdInsuranceLineMoneyModel` — one line's own columns and its insurance split. */
+export interface InsuranceLineMoneyWire {
+  unitPrice: number
+  discount: number
+  discountPercentage: number
+  grossAmount: number
+  vatPercent: number
+  vatAmount: number
+  netAmount: number
+  /** The engine's own deductible, positive. */
+  calculatedDeductible: number
+  deductibleAmount: number
+  deductibleVat: number
+  uncoveredAmount: number
+  uncoveredVat: number
+  otherAmount: number
+  otherVat: number
+  patientAmount: number
+  insurerAmount: number
+}
+
+export interface InsuranceConditionWire {
+  stepNumber: number
+  conditionCounter: number
+  conditionType: string
+  description: string
+  calculationType: string
+  conditionCategory: string
+  conditionBaseValue: number
+  conditionRate: number
+  conditionRateUnit: string
+  conditionValue: number
+  /** The server's header-condition-money rule, applied: `conditionRate` on item 0, else `conditionValue`. */
+  money: number
+  isStatistical: boolean
+  inactiveReason: string
+}
+
+export interface InsuranceLineWire {
+  lineNumber: number
+  voided: boolean
+  itemNumber: string
+  itemDescription: string
+  salesQuantity: number
+  salesUom: string
+  /** `null` on a line with no insurance row. */
+  sent: {
+    sfdaCode: string
+    text: string
+    itemNumber: string
+    quantity: number
+    uom: string
+    numerator: number
+    denominator: number
+    approvedQuantity: number
+  } | null
+  originalMaterialNumber: string
+  pharmacistSelectionReason: string
+  lineControlStatus: string
+  comment: string
+  insuranceItemCategory: string
+  deductibleGroup: string
+  /** 0 = no ceiling. */
+  maxPayerShare: number
+  unresolvedReason: string
+  guardOutcome: string
+  current: InsuranceLineMoneyWire
+  received: { patientAmount: number; insurerAmount: number; deductibleAmount: number; deductibleVat: number } | null
+  engineState: 'PRICED' | 'UNPRICED' | 'VOIDED' | (string & {})
+  /** `null` unless `engineState` is `PRICED`. */
+  engine: InsuranceLineMoneyWire | null
+  conditions: InsuranceConditionWire[]
+}
+
+export interface InsuranceTimelineEntryWire {
+  kind: 'ACT' | 'LOG' | (string & {})
+  entryTime: string
+  entryUser: string
+  /** A LOG written under one of the order's deliveries; `null` otherwise. */
+  deliveryNo: string | null
+  action: string
+  /** A LOG's text. */
+  text: string
+  lineNumber: number | null
+  itemNumberBefore: string | null
+  itemNumberAfter: string | null
+  quantityBefore: number | null
+  quantityAfter: number | null
+  uomBefore: string | null
+  uomAfter: string | null
+  maxPayerShareBefore: number | null
+  maxPayerShareAfter: number | null
+  reason: string | null
+  moneyRecorded: boolean
+  moneySourceBefore: string | null
+  moneySourceAfter: string | null
+  patientTotalBefore: number | null
+  patientTotalAfter: number | null
+  insurerTotalBefore: number | null
+  insurerTotalAfter: number | null
+}
+
+export interface OrderInsuranceReadWire {
+  documentNo: string
+  orderNo: string
+  documentType: string
+  documentSource: string
+  storeCode: string
+  moneySource: string
+  plan: InsurancePlanWire
+  received: InsuranceMoneyWire
+  hasReceivedLineAmounts: boolean
+  current: InsuranceMoneyWire
+  amounts: { netTotal: number; onAccountAmount: number; paidAmount: number; amountDue: number }
+  engine: {
+    isPriced: boolean
+    isComplete: boolean
+    refusal: { code: string; english: string; arabic: string } | null
+    money: InsuranceMoneyWire
+    netTotal: number | null
+    amountDue: number | null
+  }
+  guardState: string
+  lines: InsuranceLineWire[]
+  headerConditions: InsuranceConditionWire[]
+  timeline: { entries: InsuranceTimelineEntryWire[] }
+  intake: {
+    isKept: boolean
+    body: string | null
+    contentType: string | null
+    receivedTime: string | null
+    receivedBy: string | null
+    /** On "not kept": the earliest kept body's `receivedTime`; `null` when none is kept anywhere yet. */
+    keptSince: string | null
+  }
 }

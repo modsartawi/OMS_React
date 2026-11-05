@@ -4,11 +4,13 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { OrderInsuranceReadWire } from '@/core/models/order-insurance'
+import { insuranceReadOf } from './insurance-wire'
 import fixture from './__fixtures__/insurance-1006358459.json'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 import { asksInsurance, insuranceSectionGate, lineView, moneyTable, pricingSteps, RECEIVED_LINE_FIGURES } from './insurance-section'
 
-const READ = fixture as unknown as OrderInsuranceRead
+const READ = insuranceReadOf(fixture as unknown as OrderInsuranceReadWire)
 
 describe('insurance-section model: flags a gap between current and engine money', () => {
   it('1006358459: patient 63.65 current beside 13.26 engine is a gap, in SAR decimals', () => {

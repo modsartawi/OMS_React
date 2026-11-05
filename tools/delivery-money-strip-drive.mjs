@@ -1,7 +1,7 @@
 // Delivery money strip drive (ticket 789, BackOffice spec 3389 user stories 67–70, door 3391).
 //
 // Drives the REAL app in Chromium against a STUB of 3391's `GET SdDocumentWeb/OrderDocumentList`
-// (not built yet). The delivery is the ticket-078 capture 8000000253, its order re-pointed to
+// in the REAL shape BackOffice built (pricing2 `OrderDocumentSearchPage`, 3389 hotfix): `{ rows, limited }`. The delivery is the ticket-078 capture 8000000253, its order re-pointed to
 // 1006358459 (refDocumentNo) and its amount due set to 40.50; the order's search row answers the
 // 1006358459 money (CHANNEL, patient 63.65, insurer 2.66). In LTR and RTL it asserts:
 //   1. the strip is drawn above the two columns: CHANNEL badge, patient 63.65, insurer 2.66 and the
@@ -55,17 +55,23 @@ const row = (documentNo, insurance) => ({
   customerName: 'Patient',
   customerPhone: '0500000000',
   entryTime: '2026-11-05T12:57:34',
-  status: 'O',
-  statusDescription: 'Open',
+  overallStatus: 'B',
+  lastAction: 'DPIK',
+  readyStatus: 'C',
+  deliveryStatus: 'B',
+  clearStatus: '',
   closeStatus: '',
+  controlStatus: '',
   netTotal: 66.31,
   amountDue: 63.65,
-  currency: 'SAR',
-  deliveryNo: '8000000253',
+  latestDeliveryNo: '8000000253',
+  guardState: 'none',
   isInsuranceOrder: insurance,
   moneySource: insurance ? 'CHANNEL' : null,
   patientTotal: insurance ? 63.65 : null,
   insurerTotal: insurance ? 2.66 : null,
+  patientId: null,
+  memberId: null,
 })
 
 const GRANTED = { canOpenList: true, canOpenDetail: true, canViewInsurance: true }
@@ -92,7 +98,8 @@ async function drive(dir) {
       const no = url.searchParams.get('DocumentNo')
       asked.push(no)
       if (no === '1006358499') return route.fulfill(envelope(null, { status: 400, success: false, message: 'Order search unavailable' }))
-      return route.fulfill(envelope([row(no, no === '1006358459')]))
+      // The real answer: { rows, limited } — never a bare array.
+      return route.fulfill(envelope({ rows: [row(no, no === '1006358459')], limited: false }))
     }
     const ins = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Insurance$/)
     if (ins) return route.fulfill(envelope(READ))

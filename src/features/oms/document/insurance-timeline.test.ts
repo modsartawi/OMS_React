@@ -4,14 +4,16 @@
  * after; an act accepted before 3393 reads "not recorded", never zero; the document log on the same line.
  */
 import { describe, expect, it } from 'vitest'
-import type { InsuranceChangeEntry, OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { InsuranceChangeEntry } from '@/core/models/order-insurance'
+import type { OrderInsuranceReadWire } from '@/core/models/order-insurance'
+import { insuranceReadOf } from './insurance-wire'
 import type { SdDocumentLogModel } from '@/core/models/sd-document'
 import changedJson from './__fixtures__/insurance-1006358461-changed.json'
 import baseJson from './__fixtures__/insurance-1006358459.json'
 import { timelineRows, type ChangeRow } from './insurance-timeline'
 
-const CHANGED = changedJson as unknown as OrderInsuranceRead
-const BASE = baseJson as unknown as OrderInsuranceRead
+const CHANGED = insuranceReadOf(changedJson as unknown as OrderInsuranceReadWire)
+const BASE = insuranceReadOf(baseJson as unknown as OrderInsuranceReadWire)
 
 const changes = (rows: ReturnType<typeof timelineRows>) => rows.filter((r): r is ChangeRow => r.kind === 'change')
 
@@ -79,7 +81,7 @@ describe('insurance timeline', () => {
 
   it('a timeline the server already merged is not merged twice', () => {
     const rows = timelineRows(BASE.timeline, [log('9', '2026-11-05T12:57:34', 'OADD', 'Order added')], BASE.currency)
-    expect(rows.map((r) => (r.kind === 'change' ? r.act : r.action))).toEqual(['OADD', 'PICK', 'ORDY'])
+    expect(rows.map((r) => (r.kind === 'change' ? r.act : r.action))).toEqual(['OADD', 'PICK', 'DRDY'])
   })
 
   it('an act it does not know keeps its own code', () => {

@@ -21,17 +21,23 @@ const ROW: OrderDocumentRow = {
   customerName: 'Patient',
   customerPhone: '0500000000',
   entryTime: '2026-11-05T12:57:34',
-  status: 'O',
-  statusDescription: 'Open',
+  overallStatus: 'B',
+  lastAction: 'ORDY',
+  readyStatus: 'C',
+  deliveryStatus: 'B',
+  clearStatus: '',
   closeStatus: '',
+  controlStatus: '',
   netTotal: 66.31,
   amountDue: 63.65,
-  currency: 'SAR',
-  deliveryNo: '8000123456',
+  latestDeliveryNo: '8000123456',
+  guardState: 'none',
   isInsuranceOrder: true,
   moneySource: 'CHANNEL',
   patientTotal: 63.65,
   insurerTotal: 2.66,
+  patientId: null,
+  memberId: null,
 }
 
 const DELIVERY = { refDocumentNo: '1006358459', amountDue: 40.5 }
@@ -48,12 +54,12 @@ describe('delivery money strip: shows source, patient, insurer and the delivery\
     expect(strip.link).toBe('/oms/document/1006358459#insurance')
   })
 
-  it('a BHD order draws every figure in three decimals, the delivery\'s too', () => {
-    const strip = deliveryMoneyStrip({ ...ROW, currency: 'BHD' }, DELIVERY, GRANTED)!
+  it('the search row carries no currency, so every figure reads in the 2-decimal default', () => {
+    const strip = deliveryMoneyStrip({ ...ROW, patientTotal: 63.6 }, { ...DELIVERY, amountDue: 40 }, GRANTED)!
     expect([strip.patient, strip.insurer, strip.amountDue]).toEqual([
-      { kind: 'amount', text: '63.650' },
-      { kind: 'amount', text: '2.660' },
-      { kind: 'amount', text: '40.500' },
+      { kind: 'amount', text: '63.60' },
+      { kind: 'amount', text: '2.66' },
+      { kind: 'amount', text: '40.00' },
     ])
   })
 

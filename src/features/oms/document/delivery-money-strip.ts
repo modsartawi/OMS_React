@@ -66,8 +66,8 @@ export interface DeliveryMoneyStripView {
 
 /**
  * The strip of a delivery, from its order's search row. `null` — no strip — when there is no row or
- * the order is not an insurance order. Every figure is in the order's currency decimals (the
- * delivery is the same store's, so the same currency); an unknown total is `none`, never `0.00`.
+ * the order is not an insurance order. The row carries no currency, so every figure is in the
+ * 2-decimal default; an unknown total is `none`, never `0.00`.
  */
 export function deliveryMoneyStrip(
   row: OrderDocumentRow | null | undefined,
@@ -75,7 +75,8 @@ export function deliveryMoneyStrip(
   access: Partial<OmsAccessResult> | null | undefined,
 ): DeliveryMoneyStripView | null {
   if (!row || row.isInsuranceOrder !== true) return null
-  const currency = row.currency ?? null
+  // The search row carries no currency (BackOffice sends none): figures read in the 2-decimal default.
+  const currency = null
   return {
     source: moneySourceBadge(row.moneySource),
     sourceCode: row.moneySource,

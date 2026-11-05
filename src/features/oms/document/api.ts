@@ -1,8 +1,8 @@
 import { api, apiErrorCode } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
-import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead } from '@/core/models/order-insurance'
-import type { OrderDocumentRow } from '@/core/models/order-document'
+import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead, type OrderInsuranceReadWire } from '@/core/models/order-insurance'
+import { orderSearchPageOf, type OrderDocumentRow } from '@/core/models/order-document'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
@@ -16,6 +16,7 @@ import type {
   UpdateSdDocumentHeader,
 } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
+import { insuranceReadOf } from './insurance-wire'
 
 // The OMS door — `SdDocumentWeb/*`, cookie-only and grant-filtered (BackOffice 750,
 // ticket 125; the rationale is written once in `@/core/oms/api`, which also holds the
@@ -107,16 +108,18 @@ export const documentApi = {
    * engine money, its lines and how each was priced. Behind the insurance-view grant
    * (`@/core/oms/insurance-grant`); read-only — the engine money is priced on demand, nothing saved.
    *
-   * ⚠ Not built yet: STUBBED in `tools/insurance-section-drive.mjs` until 3390 is on staging; the
-   * live-door walk reconciles the route and the refusal code.
+   * Built (BackOffice pricing2, `SdDocumentInsuranceWebEndpoints`): it answers `SdInsuranceReadModel`,
+   * mapped here to the section's model by `insuranceReadOf` (the 3389 hotfix). Stubbed in that real
+   * shape in `tools/insurance-section-drive.mjs`.
    *
-   * A document that is not an insurance order is refused by name — GUESSED code
-   * {@link NOT_AN_INSURANCE_ORDER_CODE}: that reads as `null` ("no section"). Any other failure,
-   * a 403 included, is thrown for the page to say or to revoke the grant on.
+   * A document that is not an insurance order is refused by name — 400 with
+   * {@link NOT_AN_INSURANCE_ORDER_CODE} (`SDD-02220`): that reads as `null` ("no section"). Any other
+   * failure, a bare 403 included, is thrown for the page to say or to revoke the grant on.
    */
   async getInsurance(documentNo: string): Promise<OrderInsuranceRead | null> {
     try {
-      return (await api.get<OrderInsuranceRead | null>(`${BASE}/Document/${encode(documentNo)}/Insurance`)) ?? null
+      const wire = await api.get<OrderInsuranceReadWire | null>(`${BASE}/Document/${encode(documentNo)}/Insurance`)
+      return wire ? insuranceReadOf(wire) : null
     } catch (err) {
       if (apiErrorCode(err) === NOT_AN_INSURANCE_ORDER_CODE) return null
       throw err
@@ -131,11 +134,12 @@ export const documentApi = {
    * picks the row (`orderRowOf`). Called from here, not from the Order list feature (786): a feature
    * never imports a feature, and the row type is shared through `@/core/models/order-document`.
    *
-   * ⚠ Not built yet: STUBBED in `tools/insurance-section-drive.mjs` until 3391 is on staging; the
-   * live-door walk reconciles the route and the `DocumentNo` parameter name.
+   * Built (BackOffice pricing2): the door answers `{ rows, limited }` (`OrderDocumentSearchPage`) —
+   * this returns its rows. Stubbed in that real shape in `tools/delivery-money-strip-drive.mjs`.
    */
-  getOrderRows(documentNo: string): Promise<OrderDocumentRow[]> {
-    return api.get<OrderDocumentRow[]>(`${BASE}/OrderDocumentList`, { DocumentNo: (documentNo ?? '').trim() })
+  async getOrderRows(documentNo: string): Promise<OrderDocumentRow[]> {
+    const answer = await api.get<unknown>(`${BASE}/OrderDocumentList`, { DocumentNo: (documentNo ?? '').trim() })
+    return orderSearchPageOf(answer).rows
   },
   /**
    * FORCE REFUND an LF return by received quantity (BackOffice 3369 D13, door 3375

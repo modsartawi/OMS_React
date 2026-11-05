@@ -3,11 +3,12 @@
  * facts, who is billed, and the deductible groups with % and cap.
  */
 import { describe, expect, it } from 'vitest'
-import type { OrderInsuranceRead } from '@/core/models/order-insurance'
+import type { OrderInsuranceReadWire } from '@/core/models/order-insurance'
+import { insuranceReadOf } from './insurance-wire'
 import baseJson from './__fixtures__/insurance-1006358459.json'
 import { planView } from './insurance-plan'
 
-const BASE = baseJson as unknown as OrderInsuranceRead
+const BASE = insuranceReadOf(baseJson as unknown as OrderInsuranceReadWire)
 
 describe('insurance plan', () => {
   it('every fact in order, each by its kind', () => {
@@ -21,13 +22,13 @@ describe('insurance plan', () => {
       ['identityNumber', 'machine', '1023456789'],
       ['eligibilityReference', 'machine', 'ELG-99812'],
       ['authorizationId', 'machine', 'AUTH-55410'],
-      ['approvalNumber', 'machine', 'APR-120044'],
       ['diagnosis', 'text', 'J02.9 Acute pharyngitis, unspecified'],
       ['visitReason', 'text', 'Sore throat'],
       ['chiefComplaint', 'text', 'Fever and sore throat for three days'],
       ['daysSupply', 'machine', '7'],
-      ['insurerCustomer', 'machine', 'C100230 · BUPA Arabia'],
-      ['payer', 'machine', 'P-BUPA · BUPA Arabia for Cooperative Insurance'],
+      // The server sends the insurer customer and payer as codes only.
+      ['insurerCustomer', 'machine', 'C100230'],
+      ['payer', 'machine', 'P-BUPA'],
     ])
   })
 

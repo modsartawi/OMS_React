@@ -6,8 +6,9 @@
  * is the loaded rows it matches, said honestly:
  *
  * - before any search there is nothing to count, so it reads "—";
- * - when the page came back full (rows = Limit) the result may have been cut, so EVERY count is
- *   a lower bound ("200+", "7+") — the status bar's exact vs "at least";
+ * - when the result may have been cut, EVERY count is a lower bound ("200+", "7+") — the status
+ *   bar's exact vs "at least". A server that says so (`limited`) is believed; otherwise a page
+ *   that came back full (rows = Limit) is taken as cut;
  * - counts cover the whole loaded result and ignore the grid's column filters. When column
  *   filters narrow the grid, the grid bar's pill says "N of M shown" instead.
  *
@@ -19,6 +20,8 @@
 export interface LoadedResult<Row> {
   rows: readonly Row[]
   limit: number
+  /** The server's own word that more rows matched than the limit let through, when it gives one. */
+  limited?: boolean
 }
 
 /** A count's wording: "—" (`none`), "12" (`exact`) or "12+" (`atLeast`). */
@@ -32,9 +35,10 @@ export type RowPill =
   | { key: 'rows'; total: CountWording }
   | { key: 'shown'; shown: number; total: CountWording }
 
-/** The page came back full, so there may be more rows than were loaded. */
+/** There are more rows than were loaded: the server said so, or (when it does not say) the page came back full. */
 export function isCut(result: LoadedResult<unknown> | null): boolean {
-  return result !== null && result.rows.length >= result.limit
+  if (result === null) return false
+  return typeof result.limited === 'boolean' ? result.limited : result.rows.length >= result.limit
 }
 
 /** One list's lenses, bound to its predicates and its rail order. */

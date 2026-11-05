@@ -1,7 +1,7 @@
 /**
  * Document Details' Insurance section, **Plan** (ticket 788, door 3390 / spec 3389 user stories
  * 55–58): the patient's cover (policy, holder, contract, class, member, identity, eligibility,
- * authorization, approval), the clinical facts (diagnosis, visit reason, chief complaint, days
+ * authorization; the server sends no approval number), the clinical facts (diagnosis, visit reason, chief complaint, days
  * supply), who is billed (insurer customer, payer), and the deductible groups with % and cap.
  *
  * Pure: no React, no network, no i18n. Each fact says its kind so the part isolates it the bidi way:
@@ -22,7 +22,6 @@ export const PLAN_FIELDS = [
   ['identityNumber', 'machine'],
   ['eligibilityReference', 'machine'],
   ['authorizationId', 'machine'],
-  ['approvalNumber', 'machine'],
   ['diagnosis', 'text'],
   ['visitReason', 'text'],
   ['chiefComplaint', 'text'],

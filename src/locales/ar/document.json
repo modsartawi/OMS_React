@@ -485,6 +485,7 @@
       "engine": "المحرّك",
       "applied": "المطبّق",
       "deductibleShort": "نسبة التحمل",
+      "deductibleVatShort": "ضريبة نسبة التحمل",
       "patientShort": "المريض",
       "insurerShort": "شركة التأمين",
       "unresolved": "غير محسوم:",

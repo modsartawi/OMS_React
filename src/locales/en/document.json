@@ -834,6 +834,7 @@
       "engine": "Engine",
       "applied": "Applied",
       "deductibleShort": "Deductible",
+      "deductibleVatShort": "Deductible VAT",
       "patientShort": "Patient",
       "insurerShort": "Insurer",
       "unresolved": "Unresolved:",

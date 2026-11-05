@@ -77,6 +77,13 @@ export function moneyTable(read: Pick<OrderInsuranceRead, 'money' | 'currency'>)
   return { rows, hasGap: rows.some((r) => r.gap) }
 }
 
+/** The channel's own per-line figures, in the order the Lines part draws them (ticket 787). */
+export const RECEIVED_LINE_FIGURES = ['deductible', 'deductibleVat', 'patient', 'insurer'] as const
+export type ReceivedLineFigure = (typeof RECEIVED_LINE_FIGURES)[number]
+
+/** A received figure's short label, under `document:`. */
+export const receivedLineKey = (figure: ReceivedLineFigure) => `insurance.lines.${figure}Short`
+
 /** One line of the Lines part, its money already formatted (spec 3389 user stories 43–53). */
 export interface LineView {
   /** Our engine's deductible; `unpriced` when the line cannot be priced, never `0.00`. */
@@ -88,8 +95,7 @@ export interface LineView {
   patient: MoneyCell
   insurer: MoneyCell
   /** The channel's own per-line split, or `null` when it sent none for this line. */
-  received: { deductible: MoneyCell; deductibleVat: MoneyCell; patient: MoneyCell; insurer: MoneyCell } | null
-  engine: { patient: MoneyCell; insurer: MoneyCell }
+  received: Record<ReceivedLineFigure, MoneyCell> | null
   /** Why the engine could not price the line, when it says. */
   unpricedReason: string | null
   /** A ceiling of 0 means no ceiling, never "not covered" (glossary "Coverage ceiling"). */
@@ -118,7 +124,6 @@ export function lineView(line: InsuranceLine, currency: string | null): LineView
           insurer: amount(line.received.insurer),
         }
       : null,
-    engine: { patient: amount(line.engine.patient, UNPRICED), insurer: amount(line.engine.insurer, UNPRICED) },
     unpricedReason: line.engine.priced ? null : line.engine.unpricedReason,
     ceiling: line.coverageCeiling > 0 ? amount(line.coverageCeiling) : NONE,
   }

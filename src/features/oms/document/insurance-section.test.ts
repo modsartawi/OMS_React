@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { OrderInsuranceRead } from '@/core/models/order-insurance'
 import fixture from './__fixtures__/insurance-1006358459.json'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { asksInsurance, insuranceSectionGate, lineView, moneyTable, pricingSteps } from './insurance-section'
+import { asksInsurance, insuranceSectionGate, lineView, moneyTable, pricingSteps, RECEIVED_LINE_FIGURES } from './insurance-section'
 
 const READ = fixture as unknown as OrderInsuranceRead
 
@@ -90,7 +90,6 @@ describe('insurance-section model: an unpriced line reads unpriced, not zero', (
   it("the line's engine deductible and engine money read unpriced, with the reason", () => {
     const view = lineView(unpriced().lines[0], 'SAR')
     expect(view.engineDeductible).toEqual({ kind: 'unpriced' })
-    expect(view.engine).toEqual({ patient: { kind: 'unpriced' }, insurer: { kind: 'unpriced' } })
     expect(view.unpricedReason).toBe('No price for the item')
   })
 
@@ -110,7 +109,6 @@ describe('insurance-section model: an unpriced line reads unpriced, not zero', (
     const view = lineView(READ.lines[0], 'SAR')
     expect(view.engineDeductible).toEqual({ kind: 'amount', text: '13.26' })
     expect(view.deductibleGap).toBe(true)
-    expect(view.engine.insurer).toEqual({ kind: 'amount', text: '53.05' })
   })
 
   it("a line's deductible gap is decided at the shown decimals: 13.261 applied beside 13.264 engine is none", () => {
@@ -123,6 +121,13 @@ describe('insurance-section model: an unpriced line reads unpriced, not zero', (
     const line = { ...structuredClone(READ.lines[0]), received: null }
     expect(lineView(line, 'SAR').received).toBeNull()
     expect(lineView(READ.lines[0], 'SAR').received?.patient).toEqual({ kind: 'amount', text: '63.65' })
+  })
+
+  it("the channel's per-line split shows all four of its figures, deductible VAT included", () => {
+    expect(RECEIVED_LINE_FIGURES).toEqual(['deductible', 'deductibleVat', 'patient', 'insurer'])
+    const line = structuredClone(READ.lines[0])
+    line.received = { ...line.received!, deductibleVat: 1.99 }
+    expect(lineView(line, 'SAR').received?.deductibleVat).toEqual({ kind: 'amount', text: '1.99' })
   })
 })
 

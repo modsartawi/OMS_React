@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
 import type { InsuranceCondition, InsuranceLine, OrderInsuranceRead } from '@/core/models/order-insurance'
@@ -5,7 +6,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { HEADING } from './facts-heading'
 import InsuranceCell from './InsuranceCell'
-import { lineView, pricingSteps } from './insurance-section'
+import { lineView, pricingSteps, RECEIVED_LINE_FIGURES, receivedLineKey } from './insurance-section'
 
 /** The Lines table's columns, start to end. */
 const COLUMNS = ['line', 'sent', 'dispensed', 'group', 'deductible', 'vat', 'patient', 'insurer', 'received', 'status'] as const
@@ -58,6 +59,7 @@ export default function InsuranceLinesPart({ read }: { read: OrderInsuranceRead 
 function LineRows({ line, currency }: { line: InsuranceLine; currency: string | null }) {
   const { t } = useTranslation('document')
   const view = lineView(line, currency)
+  const received = view.received
   const struck = line.voided ? 'line-through text-muted-foreground' : ''
   const qty = (n: number, unit: string) => [String(n), unit].filter((p) => p.trim() !== '').join(' ')
   return (
@@ -156,20 +158,16 @@ function LineRows({ line, currency }: { line: InsuranceLine; currency: string | 
           <InsuranceCell cell={view.insurer} />
         </td>
         <td className="py-1.5 pe-3" data-line-col="received">
-          {view.received ? (
+          {received ? (
             <dl className="grid grid-cols-[auto_auto] gap-x-2 text-xs">
-              <dt className="text-muted-foreground">{t('insurance.lines.deductibleShort')}</dt>
-              <dd>
-                <InsuranceCell cell={view.received.deductible} />
-              </dd>
-              <dt className="text-muted-foreground">{t('insurance.lines.patientShort')}</dt>
-              <dd>
-                <InsuranceCell cell={view.received.patient} />
-              </dd>
-              <dt className="text-muted-foreground">{t('insurance.lines.insurerShort')}</dt>
-              <dd>
-                <InsuranceCell cell={view.received.insurer} />
-              </dd>
+              {RECEIVED_LINE_FIGURES.map((figure) => (
+                <Fragment key={figure}>
+                  <dt className="text-muted-foreground">{t(receivedLineKey(figure))}</dt>
+                  <dd data-line-received={figure}>
+                    <InsuranceCell cell={received[figure]} />
+                  </dd>
+                </Fragment>
+              ))}
             </dl>
           ) : (
             <span className="text-muted-foreground italic">{t('insurance.money.notSent')}</span>

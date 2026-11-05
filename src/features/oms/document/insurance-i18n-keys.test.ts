@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/document.json'
 import ar from '@/locales/ar/document.json'
 import { hasLocaleKey } from '@/core/test/locale'
-import { MONEY_FIGURES, moneySourceBadge } from './insurance-section'
+import { MONEY_FIGURES, RECEIVED_LINE_FIGURES, receivedLineKey, moneySourceBadge } from './insurance-section'
 import { PLAN_FIELDS } from './insurance-plan'
 import { KNOWN_ACTS } from './insurance-timeline'
 import { receivedView } from './received-section'
@@ -29,6 +29,7 @@ describe('document:insurance — the keys the model builds exist', () => {
       ...['CHANNEL', 'ENGINE', 'SOMETHING_NEW'].flatMap((s) => [moneySourceBadge(s).labelKey, moneySourceBadge(s).meaningKey]),
       ...MONEY_FIGURES.map((f) => `insurance.money.figures.${f}`),
       ...['channel', 'current', 'engine'].map((c) => `insurance.money.columns.${c}`),
+      ...RECEIVED_LINE_FIGURES.map(receivedLineKey),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

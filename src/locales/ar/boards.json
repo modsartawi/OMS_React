@@ -87,7 +87,8 @@
       "crumb": "<member>{{member}}</member> حسب <dimension>{{dimension}}</dimension>",
       "menu": "التعمّق في {{member}}",
       "by": "تعمّق في <member>{{member}}</member> حسب",
-      "saveAsView": "حفظ كعرض"
+      "saveAsView": "حفظ كعرض",
+      "seeDeliveries": "عرض التوصيلات"
     }
   },
   "view": {

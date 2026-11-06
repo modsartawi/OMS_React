@@ -1,6 +1,6 @@
 ---
 type: spec
-status: ready
+status: done
 ---
 
 # Delivery statistics as the situation view: courier scope, slot keeping, trips, and charts that read
@@ -298,3 +298,5 @@ window sentence ("vs {{range}}" / "vs {{day}} to {{time}}" — each value isolat
    clamps; `bar()` carries the raw ratio (tests updated: a stage past Came in reads e.g. 444/400).
 10. **"An older server shows — for every average"** — BY DESIGN, not changed: the spec rules an absent
     figure reads "—", and the old `avgHandOverMinutes` is not reinstated on the web.
+
+- **2026-11-07: done.** 812–816 merged to main (4131741e); 817 live walk on staging green (118/118, till parity matches, spot-check 3 passes; spot-checks 1–2 owed on production — staging has no slotted deliveries). Server half = BackOffice spec 3404 (3405–3407).

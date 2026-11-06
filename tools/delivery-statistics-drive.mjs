@@ -165,12 +165,13 @@ const tracks = () => ({
 const previousToday = () => ({
   from: daysAgo(7),
   to: daysAgo(7),
-  until: '09:35',
-  cameIn: { value: 1187, change: 47, changePct: 0.0396 },
-  handedOver: { value: 1100, change: -7, changePct: -0.0064 },
+  // The real wire (BO 3404 brief): `until` a local wall-clock datetime, `changePct` in percent units.
+  until: `${daysAgo(7)}T10:00:00`,
+  cameIn: { value: 1187, change: 47, changePct: 3.96 },
+  handedOver: { value: 1100, change: -7, changePct: -0.64 },
   inSlotShare: { value: 0.8, change: 0, changePct: 0 },
   outOfSlotShare: { value: 0, change: 0.15, changePct: null },
-  deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -0.031 },
+  deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -3.1 },
 })
 /** A Range's window: the equal-length range ending the day before From. */
 const previousRange = () => ({ ...previousToday(), from: daysAgo(14), to: daysAgo(8), until: undefined })
@@ -556,7 +557,7 @@ async function drive(dir) {
     )
     check(
       `${label}: Today's compared window reads "vs <day> to <time>", each value isolated`,
-      h?.compared?.kind === 'until' && h.compared.text === `vs ${daysAgo(7)} to 09:35` && same(h.compared.values, [daysAgo(7), '09:35']),
+      h?.compared?.kind === 'until' && h.compared.text === `vs ${daysAgo(7)} to 10:00` && same(h.compared.values, [daysAgo(7), '10:00']),
       JSON.stringify(h?.compared),
     )
     check(`${label}: the six tiles read in reading order`, inReadingOrder(h?.tiles.map((x) => x.left) ?? [], dir), JSON.stringify(h?.tiles.map((x) => x.left)))

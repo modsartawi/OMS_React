@@ -114,7 +114,8 @@ function storeColumns(t: TFunction, track: TableTrack, dash: string, opening: Ta
   return [
     // Pinned to the reading start (AG Grid pins to a physical side `enableRtl` does not flip), so
     // a store stays beside its figures when a narrow window scrolls the table sideways.
-    { field: 'storeCode', headerName: t('table.store'), width: 100, pinned: pinStart, cellClass: 'font-mono text-[12px]' },
+    // A callout's Came in lands under store '' until it is awarded (BackOffice 3429): named, not a blank cell.
+    { field: 'storeCode', headerName: t('table.store'), width: 100, pinned: pinStart, cellClass: 'font-mono text-[12px]', valueFormatter: ({ value }) => (value === '' ? t('table.unassignedStore') : value) },
     ...TRACK_FIGURES[track].map(figure),
   ]
 }

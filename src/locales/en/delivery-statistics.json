@@ -154,6 +154,7 @@
       "label": "Track",
       "all": "All"
     },
-    "empty": "No store has figures for this period."
+    "empty": "No store has figures for this period.",
+    "unassignedStore": "Unassigned (callout)"
   }
 }

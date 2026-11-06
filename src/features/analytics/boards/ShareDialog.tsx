@@ -19,7 +19,7 @@ import { analyticsRefusal, refusalWords } from './wire'
  * `GET Analytics/AudienceCandidates` for what is typed (debounced, like the strip's member picker). Every role and
  * user seen is remembered (`seen`), so a chosen one keeps its words after a search that no longer lists it.
  */
-function useCandidates(seed: { roles: AnalyticsAudienceRole[]; users: AnalyticsAudienceUser[] }, enabled = true) {
+export function useCandidates(seed: { roles: AnalyticsAudienceRole[]; users: AnalyticsAudienceUser[] }, enabled = true, reportId?: string) {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
@@ -27,8 +27,9 @@ function useCandidates(seed: { roles: AnalyticsAudienceRole[]; users: AnalyticsA
     return () => clearTimeout(id)
   }, [typed])
   const query = useQuery({
-    queryKey: analyticsAudienceCandidatesKey(search),
-    queryFn: () => analyticsApi.audienceCandidates(search),
+    // 833: the schedule editor asks for one report's candidates (with their address, run grant and audience).
+    queryKey: analyticsAudienceCandidatesKey(search, reportId),
+    queryFn: () => analyticsApi.audienceCandidates(search, reportId),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     retry: false,

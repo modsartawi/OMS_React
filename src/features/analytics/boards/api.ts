@@ -5,7 +5,7 @@
  * The probe lives in `./access` (the menu imports it eagerly). Later slices add their doors here:
  * the item writes (778, 779); 776's in-place `PUT` and `…/Copy` are here. `Items` landed with 770.
  */
-import { api, ApiError } from '@/core/api'
+import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
   AnalyticsBoard,
@@ -24,14 +24,18 @@ import type {
   AnalyticsQueryInput,
   AnalyticsQueryResult,
   AnalyticsReport,
+  AnalyticsReportRun,
   AnalyticsReportWords,
   AnalyticsReportWordsRequest,
   AnalyticsRevision,
+  AnalyticsSchedule,
+  AnalyticsScheduleWrite,
 } from '@/core/models/analytics'
 import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
+import { readRun, readRuns, readSchedule, readSchedules } from './schedule'
 import { readBoard, readItem, readItems, readMembers, readModel, readReport, readResult, readWords } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
@@ -48,7 +52,10 @@ export const analyticsWordsKey = (id: string, body: AnalyticsReportWordsRequest)
 /** An item's last 20 revisions (779). */
 export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
 /** 826: the share dialog's candidates for a search (roles and analytics users). */
-export const analyticsAudienceCandidatesKey = (search: string) => ['analytics', 'audienceCandidates', search] as const
+export const analyticsAudienceCandidatesKey = (search: string, reportId?: string) => ['analytics', 'audienceCandidates', search, ...(reportId ? [reportId] : [])] as const
+/** 833: a report's schedules, and its kept runs. */
+export const analyticsSchedulesKey = (reportId: string) => ['analytics', 'schedules', reportId] as const
+export const analyticsRunsKey = (reportId: string) => ['analytics', 'runs', reportId] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
@@ -175,8 +182,10 @@ export const analyticsApi = {
    * 826: `GET Analytics/AudienceCandidates` with `search` (a name or an employee id) — up to 50 authz roles (a
    * deleted one `removed`) and analytics users. Feeds the share dialog and the reassign picker.
    */
-  async audienceCandidates(search: string): Promise<AnalyticsAudienceCandidates> {
-    return readCandidates(await api.get<unknown>('Analytics/AudienceCandidates', { search }))
+  async audienceCandidates(search: string, reportId?: string): Promise<AnalyticsAudienceCandidates> {
+    // 833: with `reportId` (⚠ proposed) each user also says their address, the run grant and whether they sit in
+    // that report's audience — the schedule editor's recipient filter (`./schedule`).
+    return readCandidates(await api.get<unknown>('Analytics/AudienceCandidates', { search, reportId }))
   },
   /**
    * 826: `POST Analytics/Item/{id}/Reassign` with `{ owner }` (curators only) — hands the item to another author;
@@ -184,6 +193,38 @@ export const analyticsApi = {
    */
   async reassign(id: string, body: AnalyticsItemReassign): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Reassign`, body))
+  },
+  // ── 833: schedules and kept runs (spec 819 §C, ⚠ proposed). The owner and curators manage schedules. ──
+  /** `GET Analytics/Report/{id}/Schedules` — the report's schedules, each with its suspension when suspended. */
+  async schedules(reportId: string): Promise<AnalyticsSchedule[]> {
+    return readSchedules(await api.get<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules`))
+  },
+  /** `POST …/Schedules` — `ANALYTICS-414` names each refused recipient (`refusedRecipients`). Answers the schedule. */
+  async createSchedule(reportId: string, body: AnalyticsScheduleWrite): Promise<AnalyticsSchedule> {
+    return readSchedule(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules`, body))
+  },
+  /** `PUT …/Schedules/{sid}` — an edit, or enable / pause. `ANALYTICS-414` as on create. Answers the schedule. */
+  async updateSchedule(reportId: string, sid: string, body: AnalyticsScheduleWrite): Promise<AnalyticsSchedule> {
+    return readSchedule(await api.put<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}`, body))
+  },
+  async deleteSchedule(reportId: string, sid: string): Promise<void> {
+    await api.del<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}`)
+  },
+  /** `POST …/Schedules/{sid}/SendNow` — sends the saved schedule at once (a test or a resend). Answers the kept run. */
+  async sendNow(reportId: string, sid: string): Promise<AnalyticsReportRun> {
+    return readRun(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}/SendNow`, {}))
+  },
+  /** `GET Analytics/Report/{id}/Runs` — the kept runs the caller may open (owner, curators, a run's own recipients). */
+  async runs(reportId: string): Promise<AnalyticsReportRun[]> {
+    return readRuns(await api.get<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Runs`))
+  },
+  /** `GET Analytics/ReportRun/{runId}` — one run's record, kept for good. */
+  async run(runId: string): Promise<AnalyticsReportRun> {
+    return readRun(await api.get<unknown>(`Analytics/ReportRun/${encodeURIComponent(runId)}`))
+  },
+  /** `GET Analytics/ReportRun/{runId}/Html` or `/Pdf` — the artefact that was sent, for 90 days; then `410`. */
+  runArtefact(runId: string, kind: 'Html' | 'Pdf'): Promise<FileResponse> {
+    return api.blob(`Analytics/ReportRun/${encodeURIComponent(runId)}/${kind}`)
   },
   /** 778: `DELETE Analytics/Item/{id}`. A board that shows a deleted view keeps a "view removed" panel (404). */
   async remove(id: string): Promise<void> {

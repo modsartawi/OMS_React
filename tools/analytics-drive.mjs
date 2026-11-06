@@ -25,6 +25,12 @@
 //   dropping only it (and a missing figure's placeholder); the caveat and "may still rise" on report and board
 //   panels; a period change re-asking panels and Words; Print carrying the values (A4, prints once idle);
 //   a demo / non-report id is not found. en, ar and dark.
+// 833 — an author schedules a report (spec 819 §E): the schedules dialog lists a suspended schedule with its reason
+//   (a saved value no longer resolves, naming the parameter); a new daily schedule for Yesterday at 06:30 offers only
+//   the candidates in the audience with the run grant and a company address (the others listed with why); a stubbed
+//   ANALYTICS-414 names the third recipient; without them it saves the exact body; Send now posts and lands in the
+//   kept runs; the runs list shows date, trigger, values, recipients and outcome, an artefact past 90 days as
+//   "no longer kept", and a 410 on open turns a kept one to "no longer kept". en and ar.
 // 769 — the donut, the table with cell bars, the heatmap and the combo, each in en, ar and dark:
 //   donut: nine stores → five slices in --chart-1…5 plus ink-grey "Other (4)", painted per theme; a donut
 //          over a rate is refused in words; table: top 5 by orders, cell bars in proportion, figures
@@ -3114,6 +3120,122 @@ async function report827({ dir, dark = false }) {
   await context.close()
 }
 
+// 833 — an author schedules the sample report to audience members; 414, Send now, suspended, and the kept runs.
+async function schedules833({ dir }) {
+  const tag = `833 ${dir}`
+  const refused414 = envelope({ recipients: [{ id: 'sqahtani', why: 'runGrant' }] }, { status: 400, success: false, message: 'Invalid recipients.', errors: [{ errorCode: 'ANALYTICS-414', internalErrorCode: '', errorMessage: 'Invalid recipients.' }] })
+  const { context, page, bodies, errors, calls } = await open({
+    dir,
+    access: AUTHOR,
+    model: MODEL_827,
+    // The first save is refused, naming Sara; the second goes through.
+    scheduleSave: (_body, n) => (n === 1 ? refused414 : undefined),
+    artefact: (runId) => (runId === 'run-410' ? { status: 410, contentType: 'text/plain', body: '' } : undefined),
+  })
+  await page.goto(`${BASE}/analytics/report/r-833`)
+  await page.locator('[data-analytics-report="r-833"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-report-schedules]').click()
+  await page.locator('[data-schedule-row="sch-old"]').waitFor({ timeout: 10000 })
+  const old = page.locator('[data-schedule-row="sch-old"]')
+  check(`${tag}: the suspended schedule says so`, (await old.locator('[data-schedule-state="suspended"]').count()) === 1)
+  const why = await old.locator('[data-schedule-suspended="value"]').innerText().catch(() => '')
+  check(`${tag}: … and why, naming the parameter`, /City|المدينة/.test(why), why)
+  const oldSummary = await old.locator('[data-schedule-summary]').innerText()
+  check(`${tag}: its cadence reads as a sentence, the days and time isolated`, oldSummary.includes('\u206808:00\u2069') && /Sunday|الأحد/.test(oldSummary) && /Wednesday|الأربعاء/.test(oldSummary), JSON.stringify(oldSummary))
+  await page.screenshot({ path: `${SHOTS}/833-${dir}-list.png` })
+
+  await page.locator('[data-schedule-new]').click()
+  const editor = page.locator('[data-schedule-editor="new"]')
+  await editor.waitFor({ timeout: 5000 })
+  check(`${tag}: a new schedule opens daily, enabled`, (await editor.locator('[data-schedule-cadence="daily"]').getAttribute('aria-pressed')) === 'true' && (await editor.locator('[data-schedule-enabled="on"]').getAttribute('aria-pressed')) === 'true')
+  await editor.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('yesterday')
+  await editor.locator('[data-schedule-time]').fill('06:30')
+  // The candidates load unsearched: the three it may not send to are listed with why.
+  await editor.locator('[data-schedule-barred="tkhan"]').waitFor({ timeout: 10000 })
+  const bars = await editor.locator('[data-schedule-barred]').evaluateAll((els) => els.map((e) => `${e.dataset.scheduleBarred}:${e.dataset.scheduleBar}`))
+  check(`${tag}: outside the audience, without the run grant and off the company domain are not offered`, bars.sort().join() === 'mnasser:runGrant,oyousef:audience,tkhan:address', bars.join())
+  const root = page.locator('[data-testid="analytics-schedule-recipients"]')
+  await root.locator('[data-multi-select-trigger]').click()
+  await root.locator('[data-option="nalharbi"]').waitFor({ timeout: 10000 })
+  const offered = await root.locator('[data-option]').evaluateAll((els) => els.map((e) => e.dataset.option))
+  check(`${tag}: … the picker offers only the three who may receive it`, offered.sort().join() === 'kalotaibi,nalharbi,sqahtani', offered.join())
+  for (const id of ['nalharbi', 'kalotaibi', 'sqahtani']) await root.locator(`[data-option="${id}"] input[type="checkbox"]`).check()
+  await page.keyboard.press('Escape')
+  await page.locator('[data-schedule-save]').click()
+  await editor.locator('[data-schedule-refused="sqahtani"]').waitFor({ timeout: 10000 })
+  const refusedText = await editor.locator('[data-schedule-refused="sqahtani"]').innerText()
+  check(`${tag}: ANALYTICS-414 names the refused recipient and why`, refusedText.includes('Sara Alqahtani') && /run grant|صلاحية التشغيل/.test(refusedText), refusedText)
+  await page.screenshot({ path: `${SHOTS}/833-${dir}-414.png` })
+  await root.locator('[data-multi-select-trigger]').click()
+  await root.locator('[data-option="sqahtani"] input[type="checkbox"]').uncheck()
+  await page.keyboard.press('Escape')
+  await page.locator('[data-schedule-save]').click()
+  const savedEditor = page.locator('[data-schedule-editor="sch-2"]')
+  await savedEditor.waitFor({ timeout: 10000 })
+  const sent = (bodies['Analytics/Report/r-833/Schedules'] ?? []).at(-1)
+  check(
+    `${tag}: the save posts the cadence, Riyadh time, values, language, recipients and state`,
+    JSON.stringify(sent?.cadence) === JSON.stringify({ kind: 'daily' }) &&
+      sent?.time === '06:30' &&
+      sent?.values?.period?.token === 'yesterday' &&
+      Object.keys(sent?.values ?? {}).sort().join() === 'city,grain,period' &&
+      ['en', 'ar'].includes(sent?.lang) &&
+      JSON.stringify(sent?.recipients) === JSON.stringify(['nalharbi', 'kalotaibi']) &&
+      sent?.enabled === true,
+    JSON.stringify(sent),
+  )
+
+  const sending = page.waitForResponse((r) => r.url().includes('/Schedules/sch-2/SendNow'), { timeout: 10000 })
+  await page.locator('[data-schedule-send-now]').click()
+  await sending
+  check(`${tag}: Send now posts the saved schedule`, calls.includes('Analytics/Report/r-833/Schedules/sch-2/SendNow'))
+  await page.locator('[data-schedule-back]').click()
+  await page.locator('[data-schedule-row="sch-2"]').waitFor({ timeout: 10000 })
+  const summary = await page.locator('[data-schedule-row="sch-2"] [data-schedule-summary]').innerText()
+  check(`${tag}: the list holds both, the new one daily at its isolated time`, (await page.locator('[data-schedule-row]').count()) === 2 && summary.includes('\u206806:30\u2069'), JSON.stringify(summary))
+  check(`${tag}: … enabled, to two recipients`, (await page.locator('[data-schedule-row="sch-2"] [data-schedule-state="enabled"]').count()) === 1 && (await page.locator('[data-schedule-row="sch-2"] [data-schedule-recipients]').getAttribute('data-schedule-recipients')) === '2')
+  await page.screenshot({ path: `${SHOTS}/833-${dir}-saved.png` })
+  await page.keyboard.press('Escape')
+
+  await page.locator('[data-report-runs]').click()
+  await page.locator('[data-analytics-runs="r-833"]').waitFor({ timeout: 10000 })
+  const rows = await page.locator('[data-run]').evaluateAll((els) => els.map((e) => e.dataset.run))
+  check(`${tag}: the runs list leads with the run just sent`, rows.join() === 'run-now-3,run-410,run-old', rows.join())
+  const now = page.locator('[data-run="run-now-3"]')
+  check(
+    `${tag}: … its trigger, recipients, outcome and values`,
+    (await now.locator('[data-run-trigger="sendNow"]').count()) === 1 &&
+      (await now.locator('[data-run-recipient]').count()) === 2 &&
+      (await now.locator('[data-run-outcome="sent"]').count()) === 1 &&
+      (await now.locator('[data-run-values] [data-board-filter-chips]').count()) === 1,
+  )
+  check(`${tag}: … with its email and PDF while kept`, (await now.locator('[data-run-html]').count()) === 1 && (await now.locator('[data-run-pdf]').count()) === 1)
+  const popup = page.waitForEvent('popup', { timeout: 10000 })
+  await now.locator('[data-run-html]').click()
+  await popup
+  check(`${tag}: opening the email asks the Html door`, calls.includes('Analytics/ReportRun/run-now-3/Html'))
+  check(`${tag}: a run past 90 days says "no longer kept", the record still listed`, (await page.locator('[data-run="run-old"] [data-run-expired]').count()) === 1 && (await page.locator('[data-run="run-old"] [data-run-trigger="late"]').count()) === 1)
+  check(`${tag}: … and names who was dropped from it`, (await page.locator('[data-run="run-old"] [data-run-dropped]').innerText()).includes('Sara Alqahtani'))
+  await page.locator('[data-run="run-410"] [data-run-html]').click()
+  await page.locator('[data-run="run-410"] [data-run-expired]').waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${tag}: a 410 on open turns a kept run to "no longer kept"`, (await page.locator('[data-run="run-410"] [data-run-expired]').count()) === 1)
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  await page.screenshot({ path: `${SHOTS}/833-${dir}-runs.png`, fullPage: true })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 833 — a runner (in the audience, no author grant) sees no Schedules button and no Kept runs link. */
+async function runnerNoSchedules833() {
+  const tag = '833 runner'
+  const { context, page, errors } = await open({ access: RUNNER, model: MODEL_827 })
+  await page.goto(`${BASE}/analytics/report/r-833`)
+  await page.locator('[data-analytics-report="r-833"]').waitFor({ timeout: 30000 })
+  check(`${tag}: no Schedules and no Kept runs for a runner`, (await page.locator('[data-report-schedules]').count()) === 0 && (await page.locator('[data-report-runs]').count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 828 ──────────────────────────────────────────────────────────────────────────────────────────────
 // The report designer: outline · page · inspector, the history, drag and drop and keyboard moves, save.
 const sections828 = (page) => page.locator('[data-designer-sections] [data-designer-section]').evaluateAll((els) => els.map((e) => e.dataset.designerSection).join(','))
@@ -3232,6 +3354,9 @@ async function designer828({ dir }) {
 const SCENARIOS = [
   ['828', () => designer828({ dir: 'ltr' })],
   ['828', () => designer828({ dir: 'rtl' })],
+  ['833', () => schedules833({ dir: 'ltr' })],
+  ['833', () => schedules833({ dir: 'rtl' })],
+  ['833', runnerNoSchedules833],
   ['827', () => report827({ dir: 'ltr' })],
   ['827', () => report827({ dir: 'rtl' })],
   ['827', () => report827({ dir: 'ltr', dark: true })],

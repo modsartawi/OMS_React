@@ -154,6 +154,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/ReportDesignerPage')).default }),
       },
       {
+        // A report's kept runs (spec 819, ticket 833): the owner's, curators' and each run's own recipients'.
+        path: 'analytics/report/:id/runs',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportRunsPage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },

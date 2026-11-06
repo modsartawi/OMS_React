@@ -165,7 +165,8 @@
     "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you.",
     "notShared": "This analytics item isn’t shared with you.",
     "invalidValue": "A parameter's value can't be used for this panel. Change it in the strip above.",
-    "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding)."
+    "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
+    "invalidRecipient": "That recipient can't receive this report."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -810,6 +811,141 @@
         "foreignDimension": "The series {{series}} filters on {{dimension}}, which isn't one of the view's own."
       }
     }
+  },
+  "schedule": {
+    "open": "Schedules",
+    "title": "Schedules — {{title}}",
+    "untitled": "Report schedules",
+    "intro": "Each schedule emails this report, run with its own values, to analytics users in its audience. Times are Riyadh time.",
+    "loading": "Loading the schedules…",
+    "loadFailed": "The schedules could not be loaded.",
+    "none": "No schedules yet.",
+    "new": "New schedule",
+    "edit": "Edit",
+    "back": "Back to schedules",
+    "close": "Close",
+    "save": "Save schedule",
+    "saved": "Schedule saved.",
+    "sendNow": "Send now",
+    "sendNowHint": "Sends the saved schedule at once — a test or a resend.",
+    "sent": "Sent. It is listed in the kept runs.",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this schedule?",
+    "deleted": "Schedule deleted.",
+    "failed": "The schedule could not be saved.",
+    "recipientCount_one": "{{count}} recipient",
+    "recipientCount_other": "{{count}} recipients",
+    "state": {
+      "enabled": "On",
+      "paused": "Paused",
+      "suspended": "Suspended"
+    },
+    "suspended": {
+      "ownerGrant": "Suspended: its owner no longer holds the run or author grant. A curator's handover resumes it.",
+      "value": "Suspended: the saved value of {{param}} no longer resolves. Change it and save to resume.",
+      "other": "Suspended: {{message}}"
+    },
+    "cadence": {
+      "label": "Repeats",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "days": "On",
+      "dayOfMonth": "Day of the month",
+      "dayOfMonthHint": "1 to 28, so every month has it.",
+      "summary": {
+        "daily": "Every day at {{time}} (Riyadh time)",
+        "weekly": "Every {{days}} at {{time}} (Riyadh time)",
+        "monthly": "On day {{day}} of every month at {{time}} (Riyadh time)",
+        "noDays": "Weekly, but no day is chosen"
+      }
+    },
+    "time": "Time",
+    "timeHint": "Riyadh time.",
+    "day": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    },
+    "dayShort": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "daysJoin": ", ",
+    "values": "Values it runs with",
+    "valuesHint": "Fixed for every send — a period like Yesterday moves with the day.",
+    "lang": {
+      "label": "Email language",
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "enabled": {
+      "label": "Sending",
+      "on": "On",
+      "paused": "Paused"
+    },
+    "recipients": "Recipients",
+    "recipientsHint": "Analytics users in the report's audience who hold the run grant, with a company address. At most {{cap}}.",
+    "full": "That is {{cap}}, the most a schedule can send to.",
+    "barredTitle": "Not offered",
+    "bar": {
+      "audience": "not in the report's audience",
+      "runGrant": "no run grant",
+      "address": "not a company address",
+      "cap": "over the {{cap}}-recipient limit",
+      "unknown": "refused"
+    },
+    "barRow": "{{name}} — {{why}}",
+    "refusedTitle": "These recipients cannot receive this report:",
+    "noRecipients": "Choose at least one recipient."
+  },
+  "runs": {
+    "open": "Kept runs",
+    "title": "Kept runs",
+    "subtitle": "Every sent run of a report, and what went out",
+    "heading": "Kept runs — {{title}}",
+    "back": "Back to the report",
+    "intro": "The record of every run is kept. Its email and PDF are kept for 90 days.",
+    "loading": "Loading the kept runs…",
+    "loadFailed": "The kept runs could not be loaded.",
+    "none": "No runs have been sent yet.",
+    "col": {
+      "date": "Sent",
+      "trigger": "Trigger",
+      "values": "Values",
+      "recipients": "Recipients",
+      "outcome": "Outcome",
+      "artefacts": "Email and PDF"
+    },
+    "trigger": {
+      "schedule": "Schedule",
+      "late": "Schedule (sent late)",
+      "sendNow": "Send now"
+    },
+    "outcome": {
+      "sent": "Sent",
+      "chartsUnavailable": "Sent, charts unavailable",
+      "stopped": "Stopped: a value no longer resolves",
+      "skipped": "Skipped (missed slot)",
+      "failed": "Failed"
+    },
+    "dropped": "Dropped (left the audience): {{names}}",
+    "html": "Email",
+    "pdf": "PDF",
+    "expired": "No longer kept",
+    "expiredToast": "That run's email and PDF are no longer kept.",
+    "openFailed": "The file could not be opened.",
+    "revision": "Revision {{revision}}",
+    "dataAsOf": "Data as of {{asOf}}"
   },
   "designer": {
     "newTitle": "New report",

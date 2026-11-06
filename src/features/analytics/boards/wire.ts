@@ -287,6 +287,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-411': 'refusal.declaration',
   // 823: an invalid parameter value at run; the strip also names the parameter (`refusedParam`).
   'ANALYTICS-412': 'refusal.invalidValue',
+  // 833: an invalid recipient; the schedule editor also names each one (`./schedule` `refusedRecipients`).
+  'ANALYTICS-414': 'refusal.invalidRecipient',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

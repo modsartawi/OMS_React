@@ -123,3 +123,14 @@ export function shareActions(item: ItemStanding | null, actor: ItemActor): Share
   if (!actor.canCurate || item.tier === 'personal') return []
   return item.tier === 'shared' ? ['narrow', 'reassign'] : ['reassign']
 }
+
+/**
+ * 833 (spec 819 §C): who manages a report's schedules (makes, edits, pauses, sends now, deletes) — its owner while
+ * they hold the author grant, and curators (a Certified report's, and a Shared one whose owner lost a grant). Someone
+ * else's Personal report is not visible, so nobody else manages it. Pure; the server stays the judge.
+ */
+export function canManageSchedules(item: ItemStanding, actor: ItemActor): boolean {
+  if (!actor.canView) return false
+  if (actor.canCurate) return item.tier !== 'personal' || isOwner(item.owner, actor.userId)
+  return actor.canAuthor && isOwner(item.owner, actor.userId)
+}

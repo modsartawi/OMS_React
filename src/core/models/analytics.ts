@@ -168,6 +168,14 @@ export interface AnalyticsAudienceUser {
   id: string
   name: string
   employeeId: string
+  /**
+   * 833 (spec 819 §C, ⚠ proposed): asked for a report (`AudienceCandidates?reportId=`), each user also carries their
+   * address, whether they hold the run grant, and whether they sit in the report's audience (a role's membership is
+   * authz's to resolve, so the server says). Absent reads as no: a schedule never offers whom it cannot vouch for.
+   */
+  email?: string
+  canRun?: boolean
+  inAudience?: boolean
 }
 
 /**
@@ -597,4 +605,75 @@ export interface AnalyticsHealth {
   }
   /** When SIS.Api asked, its local clock. */
   checkedAt: string
+}
+
+// ── Schedules and kept runs (spec 819 §C, ticket 833; research 803) ────────────────────────────────────────
+// ⚠ PROPOSED (BackOffice owns it once filed): `Analytics/Report/{id}/Schedules[/{sid}]`, `…/SendNow`,
+// `Analytics/Report/{id}/Runs`, `Analytics/ReportRun/{runId}` and its `/Html` and `/Pdf`.
+
+/** Weekdays as the server's Sunday weeks count them: 0 is Sunday … 6 is Saturday. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/** Daily, weekly on chosen days, or monthly on a day (1–28, so every month has it). */
+export type AnalyticsScheduleCadence = { kind: 'daily' } | { kind: 'weekly'; days: Weekday[] } | { kind: 'monthly'; day: number }
+
+/**
+ * Why a schedule is suspended (not deleted): its owner lost the run or author grant (`ownerGrant`, resumed by a
+ * curator's handover), or a saved value no longer resolves (`value`, `ANALYTICS-412`, naming `param`). Any other
+ * reason reads as the server's `message`.
+ */
+export interface AnalyticsScheduleSuspended {
+  reason: 'ownerGrant' | 'value' | string
+  param?: string
+  message?: string
+}
+
+/** One schedule of a report: what is sent, when (Riyadh time), in which language and to whom (analytics user ids). */
+export interface AnalyticsSchedule {
+  id: string
+  cadence: AnalyticsScheduleCadence
+  /** `HH:mm`, Asia/Riyadh. */
+  time: string
+  values: Record<string, ParamValue>
+  lang: 'en' | 'ar'
+  recipients: string[]
+  enabled: boolean
+  suspended?: AnalyticsScheduleSuspended | null
+}
+
+/** The body of a schedule's POST and PUT: the schedule without its id and its server-set suspension. */
+export type AnalyticsScheduleWrite = Omit<AnalyticsSchedule, 'id' | 'suspended'>
+
+/** What set a run going: its slot, its slot sent late (803's catch-up), or Send now. */
+export type AnalyticsRunTrigger = 'schedule' | 'late' | 'sendNow'
+
+/**
+ * How a run ended: sent; sent with the HTML alone (the PDF render failed: "charts unavailable"); stopped on
+ * `ANALYTICS-412`; a missed slot skipped (never sent twice); or failed to send.
+ */
+export type AnalyticsRunOutcome = 'sent' | 'chartsUnavailable' | 'stopped' | 'skipped' | 'failed'
+
+/**
+ * One kept run (`GET …/Runs`, `GET Analytics/ReportRun/{runId}`): the record is kept for good, the HTML and PDF for 90
+ * days (`artefactsKept`; after that the artefact doors answer `410`). Open to the owner, curators and the run's own
+ * recipients.
+ */
+export interface AnalyticsReportRun {
+  id: string
+  reportId: string
+  scheduleId: string | null
+  revision: number
+  /** When it went, ISO local Riyadh time. */
+  ranAt: string
+  dataAsOf: string | null
+  trigger: AnalyticsRunTrigger
+  values: Record<string, ParamValue>
+  recipients: AnalyticsAudienceUser[]
+  /** Recipients who had left the audience, dropped from this run and listed to the owner. */
+  dropped: AnalyticsAudienceUser[]
+  outcome: AnalyticsRunOutcome
+  /** The summary text that went, or null. */
+  summary: AnalyticsLabel | null
+  artefactsKept: boolean
+  hasPdf: boolean
 }

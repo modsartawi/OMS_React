@@ -44,15 +44,19 @@ export interface HeadlineTile {
 type HeadlineAnswer = Pick<DeliveryStatistics, 'flow'> & Partial<Pick<DeliveryStatistics, 'tracks' | 'avgDeliveryMinutes' | 'previous'>>
 
 const figure = (value: unknown): number | null => (hasFigure(value) ? value : null)
+const fraction = (percent: number | null): number | null => (percent === null ? null : percent / 100)
 
 /**
  * The server's change, or `null` when it sent none: the arrow from its sign, nothing computed. A share's
  * change carries no percentage: `changePct` of a share is a percent of a percent.
+ *
+ * The server sends `changePct` in percent units (BackOffice 3404 brief: `25` = +25%); `KpiTile` takes a
+ * 0–1 fraction, so it is rescaled here. That is a change of unit, not a derived figure.
  */
 function readDelta(previous: PreviousFigure | undefined, kind: HeadlineKind): KpiTileDelta | null {
   const abs = figure(previous?.change)
   if (abs === null) return null
-  return { abs, pct: kind === 'share' ? null : figure(previous?.changePct), direction: abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat' }
+  return { abs, pct: kind === 'share' ? null : fraction(figure(previous?.changePct)), direction: abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat' }
 }
 
 function tile(id: HeadlineId, kind: HeadlineKind, value: unknown, previous: PreviousFigure | undefined, sub?: HeadlineSub): HeadlineTile {
@@ -94,7 +98,12 @@ export type ComparedWindow = { kind: 'until'; day: string; time: string } | { ki
 
 export function comparedWindow(previous: Pick<StatisticsPrevious, 'from' | 'to' | 'until'> | null | undefined): ComparedWindow | null {
   if (!previous?.from) return null
-  const { from, to, until } = previous
+  // The wire sends local wall-clock datetimes (`2026-10-31T00:00:00`, BO 3404 brief); the window is
+  // named by its days, read as text — never through `Date`.
+  const dayOf = (value: string) => value.slice(0, 10)
+  const from = dayOf(previous.from)
+  const to = previous.to ? dayOf(previous.to) : previous.to
+  const { until } = previous
   if (until) {
     // Read as text, never through `Date`: `09:35`, or the HH:mm of a full local time.
     const time = /(\d{2}:\d{2})/.exec(until)?.[1] ?? until

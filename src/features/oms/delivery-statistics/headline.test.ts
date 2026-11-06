@@ -21,12 +21,12 @@ const FULL: Pick<DeliveryStatistics, 'flow' | 'tracks' | 'avgDeliveryMinutes' | 
     from: '2026-10-30',
     to: '2026-10-30',
     until: '09:35',
-    cameIn: { value: 1187, change: 47, changePct: 0.0396 },
-    handedOver: { value: 1100, change: -7, changePct: -0.0064 },
+    cameIn: { value: 1187, change: 47, changePct: 3.96 },
+    handedOver: { value: 1100, change: -7, changePct: -0.64 },
     inSlotShare: { value: 0.842, change: 0, changePct: 0 },
     outOfSlotShare: { value: 0, change: 0.158, changePct: null },
-    deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -0.031 },
-    avgDeliveryMinutes: { value: 44, change: -5.8, changePct: -0.1318 },
+    deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -3.1 },
+    avgDeliveryMinutes: { value: 44, change: -5.8, changePct: -13.18 },
   },
 }
 
@@ -37,15 +37,16 @@ describe('readHeadline', () => {
     expect(tiles.map((t) => t.id)).toEqual(['cameIn', 'handedOver', 'inSlot', 'outOfSlot', 'deliveredPerTrip', 'avgDeliveryMinutes'])
     expect(tiles.map((t) => t.value)).toEqual([1234, 1093, 0.842, 0.158, 1.56, 38.2])
     expect(tiles.map((t) => t.previous)).toEqual([1187, 1100, 0.842, 0, 1.61, 44])
-    // The server's own subtraction and percentage, the arrow from the sign of `change`.
+    // The server's own subtraction and percentage, the arrow from the sign of `change`. The server sends
+    // `changePct` in percent units (BO 3404 brief: 25 = +25%); the tile takes a 0–1 fraction.
     expect(tiles.map((t) => t.delta)).toEqual([
-      { abs: 47, pct: 0.0396, direction: 'up' },
-      { abs: -7, pct: -0.0064, direction: 'down' },
+      { abs: 47, pct: 3.96 / 100, direction: 'up' },
+      { abs: -7, pct: -0.64 / 100, direction: 'down' },
       // A share's change is never a percent of a percent: no `pct`, the change itself in points.
       { abs: 0, pct: null, direction: 'flat' },
       { abs: 0.158, pct: null, direction: 'up' },
-      { abs: -0.05, pct: -0.031, direction: 'down' },
-      { abs: -5.8, pct: -0.1318, direction: 'down' },
+      { abs: -0.05, pct: -3.1 / 100, direction: 'down' },
+      { abs: -5.8, pct: -13.18 / 100, direction: 'down' },
     ])
   })
 
@@ -90,7 +91,7 @@ describe('readHeadline', () => {
         flow: { cameIn: 3, handedOver: 0 },
         tracks: { delivery: { flow: { handedOver: 0 }, slot: { inSlot: 0, outOfSlot: 0, noSlot: 0 }, deliveredPerTrip: null, avgDeliveryMinutes: null }, pickUp: {} },
         avgDeliveryMinutes: null,
-        previous: { from: '2026-10-29', to: '2026-11-04', cameIn: { value: 0, changePct: null }, handedOver: { value: 2, change: null, changePct: 0.5 } },
+        previous: { from: '2026-10-29', to: '2026-11-04', cameIn: { value: 0, changePct: null }, handedOver: { value: 2, change: null, changePct: 50 } },
       },
       DASH,
     )
@@ -118,6 +119,12 @@ describe('comparedWindow', () => {
   it('names a closed window as its day, or its range as one value', () => {
     expect(comparedWindow({ from: '2026-10-29', to: '2026-10-29' })).toEqual({ kind: 'range', range: '2026-10-29' })
     expect(comparedWindow({ from: '2026-10-23', to: '2026-10-29' })).toEqual({ kind: 'range', range: '2026-10-23 – 2026-10-29' })
+  })
+
+  it('reads the real wire: from/to/until as local wall-clock datetimes (BO 3404 brief), named by their day', () => {
+    expect(comparedWindow({ from: '2026-10-31T00:00:00', to: '2026-10-31T00:00:00', until: '2026-10-31T01:00:00' })).toEqual({ kind: 'until', day: '2026-10-31', time: '01:00' })
+    expect(comparedWindow({ from: '2026-10-30T00:00:00', to: '2026-10-30T00:00:00' })).toEqual({ kind: 'range', range: '2026-10-30' })
+    expect(comparedWindow({ from: '2026-09-06T00:00:00', to: '2026-10-06T00:00:00' })).toEqual({ kind: 'range', range: '2026-09-06 – 2026-10-06' })
   })
 
   it('names nothing when the server sent no previous block', () => {

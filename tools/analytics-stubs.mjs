@@ -162,6 +162,8 @@ export const VIEWS_768 = {
   'v-bar-stacked': def('bar', ['orders'], ['store', 'channel_group'], { stack: 'stacked' }),
   'v-bar-grouped': def('bar', ['orders'], ['store', 'channel_group'], { stack: 'grouped' }),
   'v-rate-stacked': def('area', ['on_time_share'], ['day', 'channel_group']),
+  // 820: two measures over one breakdown — two bar series, each in its own slot (not every bar in slot 0).
+  'v-bar-measures': def('bar', ['orders', 'deliveries'], ['channel_group']),
   // Review fix 14: a rate over seven stores draws five lines and says two are not shown.
   'v-rate-stores': def('line', ['on_time_share'], ['day', 'store']),
 }
@@ -233,6 +235,12 @@ export const BOARD_779 = {
   definition: board779(3),
 }
 ITEMS['b-779'] = BOARD_779
+// 820: a board holding the two-measure bar (Recharts let each row's fill beat the series fill).
+ITEMS['b-820'] = {
+  ...view('b-820', { title: label('Orders and deliveries', 'الطلبات والتوصيلات') }),
+  kind: 'board',
+  definition: { panels: [{ id: 'p-bars', kind: 'view', viewId: 'v-bar-measures', layout: { x: 0, y: 0, w: 12, h: 4 } }] },
+}
 // Review fix 12 (766 §B, story 86): a view naming a measure the model no longer holds, and one the server refuses
 // 406 naming the field; the board holding them still draws its other panel.
 ITEMS['v-retired'] = view('v-retired', { definition: def('bar', ['retired_orders'], ['channel_group']) })
@@ -404,6 +412,10 @@ export const QUERY_768 = {
   'v-rate-stacked': answer([['day', 'dimension'], ['channel_group', 'dimension'], ['on_time_share', 'measure', 'share']], [{ day: DAYS[0], channel_group: 'app', on_time_share: 0.91 }]),
 }
 QUERY_768['v-bar-grouped'] = QUERY_768['v-bar-stacked']
+QUERY_768['v-bar-measures'] = answer(
+  [['channel_group', 'dimension'], ['orders', 'measure', 'count'], ['deliveries', 'measure', 'count']],
+  [['aggregator', 4200, 3900], ['app', 3100, 2800], ['store', 2600, 2500], ['web', 1800, 1500], ['callcenter', 900, 700]].map(([channel_group, orders, deliveries]) => ({ channel_group, orders, deliveries })),
+)
 
 // Nine stores: the donut keeps the five largest (the palette's five hues) and folds four into "Other".
 const NINE_STORES = [['P001', 900], ['P002', 800], ['P003', 700], ['P004', 600], ['P005', 500], ['P006', 400], ['P007', 300], ['P008', 200], ['P009', 100]]

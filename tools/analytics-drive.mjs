@@ -173,6 +173,33 @@ const xTicks = (page) =>
 // app 1, web 2, callcenter 3, aggregator 4, store 5.
 const EXPECTED_FILLS = ['var(--chart-4)', 'var(--chart-1)', 'var(--chart-5)', 'var(--chart-2)', 'var(--chart-3)']
 
+// ── 820 ──────────────────────────────────────────────────────────────────────────────────────────────
+// A board's two-measure bar: each series in its own slot (orders --chart-1, deliveries --chart-2), the
+// legend swatches matching, in en, ar and dark. Before 820 every bar carried its row's slot-0 fill.
+async function multiSeriesBars820({ dir, dark }) {
+  const tag = `820 ${dir}${dark ? '-dark' : ''}`
+  const { context, page, errors } = await open({ dir, dark })
+  await page.goto(`${BASE}/analytics/board/b-820`)
+  const sel = '[data-board-panel="p-bars"] [data-chart="bar"]'
+  await page.locator(sel).waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  const series = await page.locator(`${sel} .recharts-bar`).evaluateAll((groups) =>
+    groups.map((g) => [...g.querySelectorAll('.recharts-bar-rectangle path')].map((p) => ({ fill: p.getAttribute('fill'), paint: getComputedStyle(p).fill }))),
+  )
+  const want = ['var(--chart-1)', 'var(--chart-2)']
+  const paints = [await tokenPaint(page, '--chart-1'), await tokenPaint(page, '--chart-2')]
+  check(`${tag}: two bar series of five bars each`, series.length === 2 && series.every((s) => s.length === 5), series.map((s) => s.length).join(' + '))
+  check(`${tag}: each series draws every bar in its own slot`, series.length === 2 && series.every((s, i) => s.every((b) => b.fill === want[i])), JSON.stringify(series.map((s) => [...new Set(s.map((b) => b.fill))])))
+  check(`${tag}: the two series paint distinct ${dark ? 'dark' : 'light'} colours`, series.length === 2 && series.every((s, i) => s.every((b) => b.paint === paints[i])) && paints[0] !== paints[1], JSON.stringify(paints))
+  const legend = await page.locator(`${sel} .recharts-legend-item`).evaluateAll((items) =>
+    items.map((li) => ({ text: li.textContent.trim(), fill: li.querySelector('path, rect')?.getAttribute('fill') ?? li.querySelector('path, rect')?.getAttribute('stroke') })),
+  )
+  check(`${tag}: the legend's swatches match the series`, legend.length === 2 && legend.every((l, i) => l.fill === want[i]), JSON.stringify(legend))
+  await page.screenshot({ path: `${SHOTS}/820-board-${dir}${dark ? '-dark' : ''}.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 767 ──────────────────────────────────────────────────────────────────────────────────────────────
 async function probeHides() {
   for (const access of ['absent', { canView: false, canCurate: true }]) {
@@ -2316,6 +2343,9 @@ const SCENARIOS = [
   ['822', () => authorSeesBuilder({ dir: 'ltr' })],
   ['822', () => authorSeesBuilder({ dir: 'rtl' })],
   ['822', staleProbeShare415],
+  ['820', () => multiSeriesBars820({ dir: 'ltr', dark: false })],
+  ['820', () => multiSeriesBars820({ dir: 'rtl', dark: false })],
+  ['820', () => multiSeriesBars820({ dir: 'ltr', dark: true })],
   ['785', () => status785({ dir: 'ltr' })],
   ['785', () => status785({ dir: 'rtl' })],
   ['785', () => status785({ dir: 'ltr', dark: true })],

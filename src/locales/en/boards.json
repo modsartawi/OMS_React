@@ -10,6 +10,13 @@
     "unreachableTitle": "Analytics can't be reached",
     "unreachableHint": "The access check did not answer. Try again in a moment."
   },
+  "authorAccess": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the analytics builder",
+    "deniedHint": "Building and editing analytics needs the author grant. You can still open, run and export what is shared with you. Ask an administrator for the author grant.",
+    "unreachableTitle": "Analytics can't be reached",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
   "home": {
     "title": "Analytics",
     "subtitle": "Boards and analytics views over the governed analytics model.",
@@ -126,7 +133,8 @@
     "engineDown": "The analytics engine can't be reached right now.",
     "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
-    "areaUnavailable": "This subject area is not available yet."
+    "areaUnavailable": "This subject area is not available yet.",
+    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you."
   },
   "ask": {
     "label": "Ask the OMS about analytics",

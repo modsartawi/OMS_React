@@ -11,7 +11,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import ColourPicker from './ColourPicker'
@@ -70,8 +70,11 @@ export default function AnalyticsEditorPage() {
   return (
     <ScreenGate
       query={analyticsAccessQuery()}
-      can={canViewAnalytics}
+      // 822 (spec 819 §E): the builder and editor routes are the author grant's; a runner's direct URL shows the
+      // no-access state in the builder's own words.
+      can={canAuthorAnalytics}
       ns="boards"
+      keyPrefix="authorAccess"
       title={t(board ? (editing ? 'boardEditor.editTitle' : 'boardEditor.title') : editing ? 'editor.editTitle' : 'editor.title')}
       subtitle={t(board ? 'boardEditor.subtitle' : 'editor.subtitle')}
     >

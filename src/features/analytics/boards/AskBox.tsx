@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Input from '@/core/ui/Input'
 import { useCopilotPanel } from '@/core/copilot-panel'
+import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 
 /**
  * The ask box on `/analytics` (ticket 782, spec 766 §F) — hands the question to the app shell's ONE
@@ -12,7 +14,8 @@ import { useCopilotPanel } from '@/core/copilot-panel'
  * the copilot feature.
  *
  * Gated by the copilot probe: the shell's button publishes `canAsk` as `available`, and without it
- * (denied, absent, still asking) the box draws nothing.
+ * (denied, absent, still asking) the box draws nothing. 822 (spec 819 §E): nor for a runner — the box is the author
+ * grant's too (`canAuthorAnalytics`), wherever it is mounted.
  *
  * Self-contained so the board page (ticket 771) mounts it as it is: it grows to fill a flex row
  * (the home's `data-analytics-home-header`, beside the search).
@@ -21,8 +24,9 @@ export default function AskBox() {
   const { t } = useTranslation('boards')
   const available = useCopilotPanel((s) => s.available)
   const openPanel = useCopilotPanel((s) => s.openPanel)
+  const author = canAuthorAnalytics(useQuery(analyticsAccessQuery()).data)
   const [question, setQuestion] = useState('')
-  if (!available) return null
+  if (!available || !author) return null
 
   const send = (e: FormEvent) => {
     e.preventDefault()

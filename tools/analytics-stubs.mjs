@@ -592,7 +592,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
 
 /**
  * Install the analytics doors on `page`. Every option overrides one door's answer:
- *   access:   an `{ canView, canCurate }` object, `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
+ *   access:   an `{ canView, canAuthor, canCurate }` object (default an author, 822), `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
@@ -633,7 +633,7 @@ export const HEALTH_OK = {
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.

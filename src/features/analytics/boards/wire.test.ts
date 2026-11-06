@@ -21,11 +21,13 @@ describe('analytics wire', () => {
     expect(analyticsRefusal(coded('ANALYTICS-406'), 'fallback')).toEqual({ code: 'ANALYTICS-406', key: 'refusal.invalid' })
     expect(analyticsRefusal(coded('ANALYTICS-407'), 'fallback')).toEqual({ code: 'ANALYTICS-407', key: 'refusal.window' })
     expect(analyticsRefusal(coded('ANALYTICS-410'), 'fallback')).toEqual({ code: 'ANALYTICS-410', key: 'refusal.areaUnavailable' })
+    // 822: the author grant's refusal.
+    expect(analyticsRefusal(coded('ANALYTICS-415'), 'fallback')).toEqual({ code: 'ANALYTICS-415', key: 'refusal.needsAuthor' })
     expect(analyticsRefusal(coded('ANALYTICS-499', 'Something new.'), 'fallback')).toEqual({ code: 'ANALYTICS-499', message: 'Something new.' })
     expect(analyticsRefusal(new Error('boom'), 'The view could not be drawn.')).toEqual({ code: null, message: 'The view could not be drawn.' })
 
     // Each key has words in both languages, and none of them is the raw code.
-    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable']) {
+    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable', 'refusal.needsAuthor']) {
       for (const lng of ['en', 'ar']) {
         expect(instance.exists(key, { lng }), `${lng} ${key}`).toBe(true)
         expect(instance.t(key, { lng })).not.toMatch(/ANALYTICS/)

@@ -183,6 +183,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-406': 'refusal.invalid',
   'ANALYTICS-407': 'refusal.window',
   'ANALYTICS-410': 'refusal.areaUnavailable',
+  // 822 (spec 819 §C): needs the author grant; the screen also drops the grant from the cached probe (`./access`).
+  'ANALYTICS-415': 'refusal.needsAuthor',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

@@ -92,6 +92,14 @@
 //   3. the saved default applies, Off stops the loop, the viewer's choice lasts the session (not saved), a new
 //      session opens on the default; an anonymous TV permalink goes to login and back.
 //
+// 822 (spec 819) — a runner sees no builder; the author grant unlocks it (en and ar):
+//   1. a runner (`canView` without `canAuthor`, and a v1 answer with no `canAuthor` at all): the home has no
+//      "New view" / "New board" and no ask box (the copilot granted); a view and a board show no Edit, history or
+//      tier actions, but keep the panel's run, table, fullscreen, export and permalink, and the board its TV mode;
+//      `/analytics/new?kind=view`, `?kind=board` and `/analytics/board/:id/edit` show the builder's no-access state;
+//   2. an author sees them all, and the editor opens;
+//   3. `ANALYTICS-415` on Share is worded, and the author's actions (Share, Edit) hide from then on.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
@@ -1714,10 +1722,10 @@ async function detail774({ dir }) {
 async function historyOnlyForEditors() {
   const tag = '779 who'
   const cases = [
-    ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: false }, false, "a Certified board, not a curator"],
+    ['board/b-ops', '[data-board-panel]', { canView: true, canAuthor: true, canCurate: false }, false, "a Certified board, not a curator"],
     ['board/b-ops', '[data-board-panel]', { canView: true, canCurate: true }, true, 'a Certified board, as a curator'],
-    ['view/v-theirs-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, false, "someone else's Shared view"],
-    ['view/v-mine-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canCurate: false }, true, 'my own Shared view'],
+    ['view/v-theirs-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canAuthor: true, canCurate: false }, false, "someone else's Shared view"],
+    ['view/v-mine-shared', '[data-analytics-view] [data-analytics-view-title]', { canView: true, canAuthor: true, canCurate: false }, true, 'my own Shared view'],
   ]
   for (const [path, ready, access, shown, what] of cases) {
     const { context, page, errors } = await open({ access })
@@ -2236,7 +2244,105 @@ async function status785({ dir = 'ltr', dark = false } = {}) {
   }
 }
 
+// ── 822 ──────────────────────────────────────────────────────────────────────────────────────────────
+const RUNNER = { canView: true, canAuthor: false, canCurate: false }
+const AUTHOR = { canView: true, canAuthor: true, canCurate: false }
+const noBuilder = (page) => page.getByRole('alert').filter({ hasText: /analytics builder|منشئ التحليلات/ })
+
+async function runnerSeesNoBuilder({ dir = 'ltr', access = RUNNER, label = 'runner' } = {}) {
+  const tag = `822 ${label} ${dir}`
+  const { context, page, errors } = await open({ dir, access, copilot: 'granted' })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-item]').first().waitFor({ timeout: 15000 })
+  // The copilot is granted (its top-bar button shows), so a missing ask box is the author grant's doing.
+  await page.locator('[data-copilot-button]').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(400)
+  check(`${tag}: the home lists items`, (await page.locator('[data-analytics-item]').count()) > 0)
+  check(`${tag}: … no "New view"`, (await page.locator('[data-analytics-new-view]').count()) === 0)
+  check(`${tag}: … no "New board"`, (await page.locator('[data-analytics-new-board]').count()) === 0)
+  check(`${tag}: … no ask box (though the copilot is granted)`, (await page.locator('[data-analytics-ask]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/822-${label}-home-${dir}.png` })
+
+  await page.goto(`${BASE}/analytics/view/v-mine-shared`)
+  await page.locator('[data-analytics-view][data-board-panel-state="idle"]').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: my own Shared view shows no Edit`, (await page.locator('[data-analytics-edit]').count()) === 0)
+  check(`${tag}: … no history`, (await page.locator('[data-analytics-history-open]').count()) === 0)
+  check(`${tag}: … no tier actions (share, unshare, certify, delete)`, (await page.locator('[data-analytics-action]').count()) === 0)
+  const kept = await page.locator('[data-panel-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel-action')))
+  check(`${tag}: … but keeps run, table, fullscreen, export and permalink`, ['refresh', 'table', 'fullscreen', 'csv', 'xlsx', 'png', 'permalink'].every((a) => kept.includes(a)), kept.join(','))
+  await page.screenshot({ path: `${SHOTS}/822-${label}-view-${dir}.png` })
+
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-board-panel="p-kpi"]').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(300)
+  check(`${tag}: a board shows no Edit`, (await page.locator('[data-analytics-board-edit]').count()) === 0)
+  check(`${tag}: … no ask box`, (await page.locator('[data-analytics-ask]').count()) === 0)
+  check(`${tag}: … no tier actions`, (await page.locator('[data-analytics-action]').count()) === 0)
+  check(`${tag}: … but keeps TV mode`, (await page.locator('[data-board-tv-enter]').count()) === 1)
+
+  for (const route of ['new?kind=view', 'new?kind=board', 'board/b-shared/edit']) {
+    await page.goto(`${BASE}/analytics/${route}`)
+    await noBuilder(page).waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${tag}: /analytics/${route} shows the builder's no-access state`, (await noBuilder(page).count()) === 1)
+    check(`${tag}: … and no editor`, (await page.locator('[data-analytics-editor], [data-board-editor]').count()) === 0)
+  }
+  await page.screenshot({ path: `${SHOTS}/822-${label}-new-${dir}.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function authorSeesBuilder({ dir = 'ltr' } = {}) {
+  const tag = `822 author ${dir}`
+  const { context, page, errors } = await open({ dir, access: AUTHOR, copilot: 'granted' })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-ask]').waitFor({ timeout: 15000 }).catch(() => {})
+  check(`${tag}: the home has "New view"`, (await page.locator('[data-analytics-new-view]').count()) === 1)
+  check(`${tag}: … "New board"`, (await page.locator('[data-analytics-new-board]').count()) === 1)
+  check(`${tag}: … and the ask box`, (await page.locator('[data-analytics-ask]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/822-author-home-${dir}.png` })
+
+  await page.goto(`${BASE}/analytics/view/v-mine-shared`)
+  await page.locator('[data-analytics-edit]').waitFor({ timeout: 15000 }).catch(() => {})
+  check(`${tag}: my own Shared view shows Edit`, (await page.locator('[data-analytics-edit]').count()) === 1)
+  await page.locator('[data-analytics-action="unshare"]').waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${tag}: … and its tier actions`, (await page.locator('[data-analytics-action="unshare"]').count()) === 1)
+
+  await page.goto(`${BASE}/analytics/board/b-shared`)
+  await page.locator('[data-board-panel="p-kpi"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a board shows the ask box`, (await page.locator('[data-analytics-ask]').count()) === 1)
+
+  await page.goto(`${BASE}/analytics/new?kind=view`)
+  await page.locator('[data-analytics-editor]').waitFor({ timeout: 15000 }).catch(() => {})
+  check(`${tag}: /analytics/new opens the editor`, (await page.locator('[data-analytics-editor]').count()) === 1)
+  check(`${tag}: … with no no-access state`, (await noBuilder(page).count()) === 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+async function staleProbeShare415() {
+  const tag = '822 415'
+  const { context, page, errors } = await open({ access: AUTHOR, share: refusal('ANALYTICS-415', 'Needs the author grant.', 403) })
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-analytics-action="share"]').click()
+  const note = page.locator('[data-analytics-tier-refusal="needs-author"]')
+  await note.waitFor({ timeout: 10000 })
+  check(`${tag}: the reason is worded from the boards key`, (await note.innerText()).includes('needs the author grant'), await note.innerText())
+  check(`${tag}: … Share is hidden from then on`, (await page.locator('[data-analytics-action="share"]').count()) === 0)
+  check(`${tag}: … and so is Edit`, (await page.locator('[data-analytics-edit]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/822-415.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['822', () => runnerSeesNoBuilder({ dir: 'ltr' })],
+  ['822', () => runnerSeesNoBuilder({ dir: 'rtl' })],
+  ['822', () => runnerSeesNoBuilder({ dir: 'ltr', access: { canView: true, canCurate: false }, label: 'v1-answer' })],
+  ['822', () => authorSeesBuilder({ dir: 'ltr' })],
+  ['822', () => authorSeesBuilder({ dir: 'rtl' })],
+  ['822', staleProbeShare415],
   ['820', () => multiSeriesBars820({ dir: 'ltr', dark: false })],
   ['820', () => multiSeriesBars820({ dir: 'rtl', dark: false })],
   ['820', () => multiSeriesBars820({ dir: 'ltr', dark: true })],

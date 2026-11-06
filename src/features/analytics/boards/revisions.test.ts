@@ -40,7 +40,7 @@ describe('revisions list: newest first, the revision being viewed marked', () =>
 })
 
 describe('only someone who may edit the item sees its history', () => {
-  const me = { userId: 'msartawi', canView: true, canCurate: false }
+  const me = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: false }
   const curator = { ...me, canCurate: true }
   it('my own Personal or Shared item: yes', () => {
     expect(mayEditItem({ owner: 'msartawi', tier: 'personal' }, me)).toBe(true)

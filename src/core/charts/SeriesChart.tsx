@@ -91,7 +91,8 @@ export default function SeriesChart({
     colour: slotColour(s.slot),
   }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
-  const data = rows.map((r) => ({ label: r.label, ...r.values, fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) }))
+  // PROTOTYPE 798 fix: a row's own `fill` beats <Bar fill> in Recharts, so it is set only for a single series (else every series drew --chart-1).
+  const data = rows.map((r) => ({ label: r.label, ...r.values, ...(series.length === 1 ? { fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) } : {}) }))
   const stackId = stacking === 'stacked' ? 'stack' : undefined
   const horizontal = form === 'bar' && orientation === 'horizontal'
   const margin = { top: 12, right: 8, bottom: 4, left: 8 }

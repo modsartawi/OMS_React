@@ -546,5 +546,285 @@
     "source": "Written by the OMS copilot from live analytics data. Charts are drawn from the governed marts at the time of export.",
     "back": "Back to the report",
     "missingChart": "This chart is no longer saved."
+  },
+  "proto798": {
+    "strip": {
+      "label": "Report parameters",
+      "edit": "Edit parameter {{name}}",
+      "add": "Parameter",
+      "reset": "Reset to defaults"
+    },
+    "grain": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "op": {
+      "off": "Any",
+      "gt": "{{measure}} above",
+      "gte": "{{measure}} at least",
+      "lt": "{{measure}} below",
+      "lte": "{{measure}} at most"
+    },
+    "threshold": {
+      "number": "Threshold value"
+    },
+    "words": {
+      "en": "{{label}} (English)",
+      "ar": "{{label}} (Arabic)"
+    },
+    "param": {
+      "kind": "Kind",
+      "readyMade": "ready-made — every new report starts with it",
+      "name": "Name in the link",
+      "nameHint": "Viewers' links carry it as ?{{name}}=…",
+      "nameProblem": {
+        "reserved": "That name is reserved by the board (tv, refresh, cross, crossFrom).",
+        "slug": "Lower-case letters, digits and dashes, starting with a letter.",
+        "duplicate": "Another parameter already has this name."
+      },
+      "label": "Label",
+      "required": "Viewers can't clear it",
+      "defaultHint": "Every parameter has a default, so a scheduled run never meets an empty value. Change the control above to set it.",
+      "remove": "Remove parameter",
+      "removeReadyMade": "Ready-made parameters may be removed too; old links that carry it then fall back to the default.",
+      "dimension": "Picks from",
+      "choices": "Choices offered",
+      "openSearch": "Search every member",
+      "pinnedList": "Only my list",
+      "pinned": "My list",
+      "multi": "Several values",
+      "allowedGrains": "Grains viewers may pick",
+      "thresholdMeasure": "Compares",
+      "thresholdHint": "Viewers type the number in the measure's own unit (5 means 5%).",
+      "options": "Viewers choose from",
+      "optionsHint": "Checked at save: every option must fit every panel this binds to."
+    },
+    "kind": {
+      "period": "Period",
+      "members": "Members",
+      "grain": "Grain",
+      "threshold": "Threshold",
+      "topN": "Top N",
+      "measure": "Measure",
+      "breakdown": "Breakdown"
+    },
+    "kindHint": {
+      "period": "A relative period such as yesterday, or a fixed range.",
+      "members": "One or several values of a category: cities, stores, channels…",
+      "grain": "Day, week or month on panels drawn over time.",
+      "threshold": "Keep only rows whose figure passes a line, e.g. cancellation rate above 5%.",
+      "topN": "Show the first N rows, 1 to 100.",
+      "measure": "Swap which figure a panel shows, from a list you choose.",
+      "breakdown": "Swap what a panel is split by, from a list you choose."
+    },
+    "bind": {
+      "title": "Applies to",
+      "hint": "Pre-filled with every panel that can take it. Untick a panel to leave it out; a panel it can't reach says why.",
+      "target": "Filters which dimension",
+      "filters": "filters {{dimension}}"
+    },
+    "reason": {
+      "noTimeAxis": "not drawn over time",
+      "seriesFilters": "its series already filter on this",
+      "thresholdShape": "needs that measure and a category breakdown",
+      "topNShape": "needs one category and no time axis",
+      "measureShape": "not every option fits this panel",
+      "breakdownShape": "not every option fits this panel",
+      "notInArea": "not in this panel's area",
+      "unbound": "left off by the author"
+    },
+    "panel": {
+      "from": "Copied from the view {{view}}, revision {{revision}}. Your copy is this report's own: edits to the original never change it.",
+      "fromChanged": "The original has changed since you copied it.",
+      "fromShort": "from {{view}}",
+      "title": "Title",
+      "area": "Area",
+      "measures": "Measures",
+      "axis": "Axis",
+      "axisNone": "None (a single figure)",
+      "axisDate": "Date",
+      "chart": "Chart",
+      "params": "Parameters on this panel",
+      "empty": "No rows for these parameters.",
+      "topN": "Top {{n}}",
+      "threshold": {
+        "gt": "{{measure}} above {{value}}",
+        "gte": "{{measure}} at least {{value}}",
+        "lt": "{{measure}} below {{value}}",
+        "lte": "{{measure}} at most {{value}}"
+      },
+      "notReached": "Not filtered by:"
+    },
+    "chart": {
+      "bar": "Bar",
+      "line": "Line",
+      "kpi": "Figure",
+      "table": "Table"
+    },
+    "series": {
+      "title": "Named series",
+      "hint": "Up to 4. Each series runs as its own query with its own filters, so rates stay right. There is no total across series.",
+      "label": "Series name",
+      "remove": "Remove series",
+      "where": "Where",
+      "is": "is",
+      "addFilter": "Another condition",
+      "max": "A panel holds at most 4 series.",
+      "add": "Series ({{n}} of {{max}})"
+    },
+    "text": {
+      "words": "Words",
+      "insert": "Insert a live figure",
+      "pick": "Pick a panel's figure…",
+      "into": "Into",
+      "intoEn": "English",
+      "intoAr": "Arabic",
+      "hint": "A live figure is filled in from each run's own results, so it is never stale. A figure whose panel is removed is refused at save.",
+      "preview": "As it reads in this run",
+      "figureTitle": "Live figure {{token}}",
+      "missing": "missing figure"
+    },
+    "summary": {
+      "title": "Summary (AI)",
+      "checked": "Written for this run from its own figures; every number was checked against them.",
+      "unavailable": "Summary unavailable: a number in it did not match this run's figures, so it was left out. The rest of the report is unaffected.",
+      "design": "Rewritten on every run, from this report's figures only, under your name. Runners only see the result.",
+      "explain": "One per report. You don't write it; you decide where it sits."
+    },
+    "share": {
+      "title": "Share {{title}}",
+      "cancel": "Cancel",
+      "save": "Share",
+      "who": "Who can run it",
+      "everyone": "Everyone with analytics",
+      "chosen": "Chosen teams and people",
+      "roles": "Teams (authz roles)",
+      "rolesHint": "Membership is read from Authz every time the report opens; someone who leaves the role loses it at once.",
+      "removedRole": "removed from Authz — ignored",
+      "people": "People",
+      "canTitle": "They can",
+      "can": {
+        "run": "open and run the report",
+        "params": "change every parameter",
+        "export": "export what they see",
+        "link": "copy a link with their values"
+      },
+      "cannotTitle": "They can't",
+      "cannot": {
+        "edit": "edit, save or delete it",
+        "ai": "ask the AI to change it",
+        "copy": "save a copy (authors in the audience can)"
+      },
+      "history": "Every audience change is written to the report's history."
+    },
+    "tier": {
+      "shared": "Shared"
+    },
+    "refused": {
+      "title": "Not saved:",
+      "close": "Dismiss",
+      "name": {
+        "reserved": "The parameter {{param}} uses a reserved name.",
+        "slug": "The parameter name {{param}} isn't a valid link key.",
+        "duplicate": "Two parameters are named {{param}}."
+      },
+      "binding": "{{param}} can't apply to {{panel}}: {{reason}}.",
+      "figure": "A text block names the figure {{token}}, whose panel is no longer in the report.",
+      "series": {
+        "tooMany": "{{panel}} has more than 4 series.",
+        "duplicate": "Two series in {{panel}} share a name."
+      },
+      "kept": "Nothing was dropped: fix these and save again."
+    },
+    "notShared": {
+      "title": "This report isn't shared with you",
+      "ask": "Ask its owner, {{owner}}, to add you or your team."
+    },
+    "author": {
+      "badge": "Designing",
+      "untitled": "Untitled report",
+      "revision": "revision",
+      "preview": "Preview as a runner",
+      "share": "Share",
+      "save": "Save",
+      "saved": "Saved as revision",
+      "title": "Report title"
+    },
+    "inspector": {
+      "label": "Edit the selection",
+      "empty": "Pick a parameter, a section or a block to edit it.",
+      "newParam": "New parameter",
+      "addParam": "Add parameter",
+      "param": "Parameter: {{name}}",
+      "section": "Section",
+      "panel": "Chart or table",
+      "text": "Text",
+      "summary": "AI summary",
+      "done": "Done"
+    },
+    "section": {
+      "heading": "Heading",
+      "untitled": "Untitled section"
+    },
+    "block": {
+      "remove": "Remove block",
+      "untitledPanel": "Untitled chart",
+      "text": "Text",
+      "summary": "AI summary",
+      "panel": "Chart or table"
+    },
+    "add": {
+      "model": "Chart or table",
+      "view": "Copy a saved view…",
+      "text": "Text",
+      "summary": "AI summary",
+      "summaryOne": "A report holds one summary.",
+      "toSection": "Add to this section",
+      "section": "Section"
+    },
+    "tools": {
+      "edit": "Edit {{what}}",
+      "up": "Move {{what}} up",
+      "down": "Move {{what}} down",
+      "remove": "Remove {{what}}"
+    },
+    "outline": {
+      "label": "Report outline",
+      "params": "Parameters",
+      "sections": "Sections"
+    },
+    "steps": {
+      "label": "Design steps",
+      "params": "Parameters",
+      "content": "Content",
+      "words": "Words",
+      "share": "Share",
+      "back": "Back",
+      "next": "Next",
+      "paramsHint": "Each row is a parameter; each column a chart or table. A tick means the parameter applies there; a dash means it can't, and says why.",
+      "stripPreview": "What viewers will see",
+      "scheduleLater": "The daily email schedule is set here too, once 803's screens are drawn."
+    },
+    "matrix": {
+      "param": "Parameter",
+      "default": "Default",
+      "cell": "{{param}} on {{panel}}",
+      "cannot": "can't"
+    },
+    "default": {
+      "all": "All"
+    },
+    "runner": {
+      "back": "Back to designing",
+      "owner": "by {{owner}}",
+      "asOf": "data as of",
+      "copyLink": "Copy link",
+      "export": "Export",
+      "exportProto": "Not in the prototype",
+      "copied": "Link copied:",
+      "fallback": "The link asked for {{param}} {{value}}, which this report doesn't offer, so it shows the default.",
+      "channel": "channel"
+    }
   }
 }

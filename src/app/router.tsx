@@ -149,6 +149,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPage')).default }),
       },
       {
+        // PROTOTYPE — throwaway (wayfinder ticket 798, map 793): three report designers + the runner's page. Never merge.
+        path: 'analytics/prototype/report',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/__prototype__/ReportPrototypePage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },

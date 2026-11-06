@@ -188,8 +188,12 @@
     "tooLong": "Role names must be 50 characters or fewer.",
     "description": "Description",
     "descriptionPlaceholder": "What this role is for",
-    "compositeHint": "The composite is created empty. Add its single-role members from the role's detail pane once it exists.",
+    "compositeHint": "Pick its single-role members now, or leave them for later and add them from the role's detail pane. Composites can't nest.",
+    "membersList": "Single roles to make members",
+    "membersEmpty": "There are no single roles to pick yet.",
     "create": "Create role",
+    "createWithN_one": "Create with {{n}} member",
+    "createWithN_other": "Create with {{n}} members",
     "creating": "Creating…",
     "created": "Role created",
     "createdDetail": "{{role}} created."

@@ -1,18 +1,19 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Unlink } from 'lucide-react'
-import { apiErrorCode } from '@/core/api'
+import { apiErrorCode, apiErrorData } from '@/core/api'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsQueryKey } from './api'
 import { pointOf } from './drill'
-import { drilledDefinition, effectiveQuery, panelKey, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
+import { drilledDefinition, effectiveQuery, panelKey, panelPeriod, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import PanelDrill from './PanelDrill'
 import { useFullscreen, useScrollToPanel } from './panel-hooks'
-import { panelPermalink, retiredMembers } from './panel-state'
+import { panelPermalink, refusedParam, retiredMembers } from './panel-state'
+import { notFilteredBy, paramLabel } from './params'
 import Refused from './Refused'
 import { viewTitleOf } from './ViewChart'
 
@@ -49,6 +50,16 @@ type PanelProps = {
   onCross: (point: CrossFilter) => void
   /** 780: hands the board's refresh loop this panel's re-ask (`null` on unmount). Stable. */
   registerRefresh?: (id: string, refresh: (() => void) | null) => void
+  /** 823: who reads the "not filtered by …" line — the author sees every parameter, a runner only those moved. */
+  role?: 'author' | 'runner'
+  /** 823: the parameters this panel's answer fell back on, and the one an `ANALYTICS-412` named, for the strip. Stable. */
+  onParamNotice?: (id: string, notice: ParamNotice) => void
+}
+
+/** What one panel's answer says about the board's parameters (823). */
+export interface ParamNotice {
+  fellBack: string[]
+  invalid: string | null
 }
 
 export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBoardPanel } & PanelProps) {
@@ -91,7 +102,7 @@ function Card({
   )
 }
 
-function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh }: { panel: ViewPanel } & PanelProps) {
+function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh, role = 'runner', onParamNotice }: { panel: ViewPanel } & PanelProps) {
   const { t } = useTranslation('boards')
   const [drill, setDrill] = useState<DrillStep[]>([])
   // A view naming a member the model no longer holds is retired: not asked at all (766 §B).
@@ -145,6 +156,18 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     onFetching(panel.id, busy)
     return () => onFetching(panel.id, false)
   }, [onFetching, panel.id, busy])
+  // 823: the answer's fallbacks and a 412's parameter go up to the strip, which names them.
+  const fellBackNames = (answer.isPlaceholderData ? [] : (answer.data?.fellBack ?? [])).map((f) => f.param).join(' ')
+  const invalid = answer.error ? refusedParam(apiErrorCode(answer.error), apiErrorData(answer.error)) : null
+  useEffect(() => {
+    if (!onParamNotice) return
+    onParamNotice(panel.id, { fellBack: fellBackNames ? fellBackNames.split(' ') : [], invalid })
+  }, [onParamNotice, panel.id, fellBackNames, invalid])
+  useEffect(() => (onParamNotice ? () => onParamNotice(panel.id, { fellBack: [], invalid: null }) : undefined), [onParamNotice, panel.id])
+  const unfiltered = useMemo(
+    () => (answer.data ? notFilteredBy(context.params, context.values, answer.data.notReached ?? [], role) : []),
+    [answer.data, context.params, context.values, role],
+  )
 
   // 777: a view deleted from under the board is a "view removed" panel; the rest of the board keeps working.
   if (itemError && apiErrorCode(itemError) === 'ANALYTICS-404') {
@@ -210,7 +233,18 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
           />
         </div>
       </header>
-      <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} period={input?.period ?? drawn.query.period} onDrill={setDrill} />
+      {unfiltered.length > 0 && (
+        <p className="text-xs text-muted-foreground" data-board-not-filtered={unfiltered.map((p) => p.name).join(' ')}>
+          {t('panel.notFilteredBy')}{' '}
+          {unfiltered.map((p, i) => (
+            <Fragment key={p.name}>
+              {i > 0 && t('panel.listSeparator')}
+              <bdi className="font-medium">{paramLabel(p, lang, t)}</bdi>
+            </Fragment>
+          ))}
+        </p>
+      )}
+      <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} period={panelPeriod(panel, item.definition, context)} onDrill={setDrill} />
       <PanelBody
         result={result}
         error={answer.error}

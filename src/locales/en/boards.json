@@ -102,7 +102,30 @@
       "seeDeliveries": "See deliveries"
     },
     "viewRemoved": "The view this panel showed was removed.",
-    "viewRemovedHint": "Edit the board to remove the panel or link another view."
+    "viewRemovedHint": "Edit the board to remove the panel or link another view.",
+    "params": {
+      "reset": "Reset to defaults",
+      "grain": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month"
+      },
+      "op": {
+        "off": "Any",
+        "gt": "{{measure}} above",
+        "gte": "{{measure}} at least",
+        "lt": "{{measure}} below",
+        "lte": "{{measure}} at most"
+      },
+      "thresholdValue": "Threshold value",
+      "percent": "%",
+      "fewer": "Fewer",
+      "more": "More",
+      "fellBack": "<param>{{param}}</param>: the link's value isn't available here, so the default is shown.",
+      "invalid": "<param>{{param}}</param>: this value can't be used. Change it, or reset to defaults.",
+      "invalidField": "This value can't be used.",
+      "notices": "Parameter notices"
+    }
   },
   "view": {
     "title": "Analytics view",
@@ -134,7 +157,8 @@
     "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
     "areaUnavailable": "This subject area is not available yet.",
-    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you."
+    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you.",
+    "invalidValue": "A parameter's value can't be used for this panel. Change it in the strip above."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -176,7 +200,9 @@
     "unavailableTitle": "Not available yet",
     "retiredTitle": "This measure was retired",
     "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
-    "refreshFailed": "The refresh failed. The figures shown are from the last answer."
+    "refreshFailed": "The refresh failed. The figures shown are from the last answer.",
+    "notFilteredBy": "Not filtered by",
+    "listSeparator": ", "
   },
   "title": {
     "byDimensions": "{{measures}} by {{dimensions}}",

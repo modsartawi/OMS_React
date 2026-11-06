@@ -100,6 +100,16 @@
 //   2. an author sees them all, and the editor opens;
 //   3. `ANALYTICS-415` on Share is worded, and the author's actions (Share, Edit) hide from then on.
 //
+// 823 (spec 819) — every parameter kind's control, the permalink, Reset and the notices (en and ar), on a board
+// that carries its own parameters (`b-params`):
+//   1. each panel asks `{ itemId, revision, panelId, values }` with only its bound parameters' values; the strip
+//      draws all seven kinds; the author sees every "not filtered by …" on the line panel;
+//   2. period, an open member search, a pinned one-value list, grain chips (allowed subset), a threshold (op +
+//      number, in %), the top N stepper and typed value, a measure and a breakdown choice: each changes the URL
+//      and re-keys only the panels it is bound to; a reload restores every value; Reset gives back the defaults;
+//   3. a runner sees "not filtered by" only for what they moved; a link value outside a pinned list, and a
+//      `fellBack` answer, show the fallback notice; a 412 names the parameter in the strip and marks its control.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
@@ -2336,7 +2346,225 @@ async function staleProbeShare415() {
   await context.close()
 }
 
+// ── 823 ──────────────────────────────────────────────────────────────────────────────────────────────
+// A board that carries its own parameters (`b-params`, one of each of the seven kinds): each kind's control
+// changes the URL and re-asks only the panels it is bound to, by item and panel; Reset; the fallback notice
+// (a link value outside a declared list, and a `fellBack` answer); a 412 names its parameter in the strip;
+// "not filtered by …" for the author (all) and a runner (only moved).
+const P823 = ['p-kpi', 'p-bar', 'p-line']
+const idle823 = (page) =>
+  page.waitForFunction(
+    (ids) =>
+      ids.every((id) => ['idle', 'refused', 'failed', 'empty'].includes(document.querySelector(`[data-board-panel="${id}"]`)?.dataset.boardPanelState)) &&
+      document.querySelector('[data-board-stream]')?.dataset.boardStream === 'idle',
+    P823,
+    { timeout: 15000 },
+  )
+const keys823 = (page) =>
+  page.locator('[data-board-panel-kind="view"]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.dataset.boardPanel, e.dataset.panelKey])))
+const url823 = (page) => new URL(page.url()).searchParams
+const asks823 = (bodies, from) => (bodies['Analytics/Query'] ?? []).slice(from)
+
+/** Do `act`, wait for the bound panels to re-key and settle; returns the panels re-keyed and the new asks. */
+async function change823(page, bodies, act, expect) {
+  const before = await keys823(page)
+  const from = (bodies['Analytics/Query'] ?? []).length
+  await act()
+  await page
+    .waitForFunction(
+      ([ids, was]) => ids.every((id) => document.querySelector(`[data-board-panel="${id}"]`)?.dataset.panelKey !== was[id]),
+      [expect, before],
+      { timeout: 5000 },
+    )
+    .catch(() => {})
+  await idle823(page)
+  const after = await keys823(page)
+  const rekeyed = P823.filter((id) => after[id] !== before[id]).sort()
+  return { rekeyed, asks: asks823(bodies, from) }
+}
+
+async function params823({ dir }) {
+  const tag = `823 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir })
+  await page.goto(`${BASE}/analytics/board/b-params`)
+  await page.locator('[data-analytics-board="b-params"]').waitFor({ timeout: 10000 })
+  await idle823(page)
+
+  const first = bodies['Analytics/Query'] ?? []
+  const byPanel = Object.fromEntries(first.map((b) => [b.panelId, b]))
+  check(
+    `${tag}: each panel asks by item and panel, with the values of the parameters bound to it`,
+    first.length === 3 &&
+      first.every((b) => b.itemId === 'b-params' && b.revision === 6 && !('viewId' in b) && !('filters' in b)) &&
+      Object.keys(byPanel['p-bar']?.values ?? {}).sort().join() === 'channel-one,on-time,period,region,split,top' &&
+      Object.keys(byPanel['p-kpi']?.values ?? {}).sort().join() === 'figure,period,region' &&
+      Object.keys(byPanel['p-line']?.values ?? {}).sort().join() === 'grain,period',
+    JSON.stringify(first.map((b) => [b.panelId, Object.keys(b.values ?? {})])),
+  )
+  const kinds = await page.locator('[data-board-filters] [data-board-param-kind]').evaluateAll((els) => els.map((e) => e.dataset.boardParamKind))
+  check(`${tag}: the strip draws one control per parameter, of all seven kinds`, kinds.join() === 'period,members,members,grain,threshold,topN,measure,breakdown', kinds.join())
+  const author = await page.locator('[data-board-panel="p-line"] [data-board-not-filtered]').getAttribute('data-board-not-filtered').catch(() => null)
+  check(`${tag}: the author sees every parameter the line is not filtered by`, author === 'region channel-one on-time top figure split', String(author))
+  const bar = await page.locator('[data-board-panel="p-bar"] [data-board-not-filtered]').getAttribute('data-board-not-filtered').catch(() => null)
+  check(`${tag}: … and the bar, bound to all but two, names just those two`, bar === 'grain figure', String(bar))
+  check(`${tag}: Reset is off while every value is the author's`, await page.locator('[data-board-params-reset]').isDisabled())
+  await page.screenshot({ path: `${SHOTS}/823-strip-${dir}.png`, fullPage: true })
+
+  const expectOnly = (name, r, panels, wire) =>
+    check(
+      `${tag}: ${name} re-asks only ${panels.join(' + ')}`,
+      r.rekeyed.join() === [...panels].sort().join() &&
+        r.asks.length >= panels.length &&
+        r.asks.every((b) => panels.includes(b.panelId)) &&
+        r.asks.every((b) => JSON.stringify(b.values[wire.param]) === JSON.stringify(wire.value)),
+      `${r.rekeyed.join()} | ${JSON.stringify(r.asks.map((b) => [b.panelId, b.values?.[wire.param]]))}`,
+    )
+
+  // period
+  let r = await change823(page, bodies, () => page.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-week'), P823)
+  expectOnly('the period', r, P823, { param: 'period', value: { kind: 'period', token: 'last-week' } })
+  check(`${tag}: … and the URL carries period=last-week`, url823(page).get('period') === 'last-week', page.url())
+
+  // members, open search, several
+  r = await change823(
+    page,
+    bodies,
+    async () => {
+      const box = await pickMember(page, 'region', 'central')
+      await box.locator('[data-option="central"] input').click()
+      await page.keyboard.press('Escape')
+    },
+    ['p-bar', 'p-kpi'],
+  )
+  expectOnly('a region (open search)', r, ['p-bar', 'p-kpi'], { param: 'region', value: { kind: 'members', values: ['central'] } })
+  check(`${tag}: … region=central in the URL`, url823(page).getAll('region').join() === 'central', page.url())
+
+  // members, pinned, one value
+  r = await change823(
+    page,
+    bodies,
+    async () => {
+      const box = page.locator('[data-testid="board-filter-channel-one"]')
+      await box.locator('[data-multi-select-trigger]').click()
+      const offered = await box.locator('[data-option]').evaluateAll((els) => els.map((e) => e.dataset.option))
+      check(`${tag}: the pinned list offers only the author's members`, offered.join() === 'app,web,store', offered.join())
+      await box.locator('[data-option="web"] input').click()
+      await page.keyboard.press('Escape')
+    },
+    ['p-bar'],
+  )
+  expectOnly('one pinned channel', r, ['p-bar'], { param: 'channel-one', value: { kind: 'members', values: ['web'] } })
+  check(`${tag}: … a one-value parameter holds only the last pick`, url823(page).getAll('channel-one').join() === 'web', page.url())
+
+  // grain chips over the allowed subset
+  const grains = await page.locator('[data-board-param="grain"] [data-board-grain]').evaluateAll((els) => els.map((e) => e.dataset.boardGrain))
+  check(`${tag}: the grain offers only the allowed subset`, grains.join() === 'day,week', grains.join())
+  r = await change823(page, bodies, () => page.locator('[data-board-param="grain"] [data-board-grain="week"]').click(), ['p-line'])
+  expectOnly('the grain', r, ['p-line'], { param: 'grain', value: { kind: 'grain', grain: 'week' } })
+  check(`${tag}: … grain=week`, url823(page).get('grain') === 'week')
+
+  // threshold: an operator, then the number in the display unit
+  r = await change823(page, bodies, () => page.locator('[data-board-param="on-time"] [data-board-threshold-op]').selectOption('gt'), ['p-bar'])
+  expectOnly('the threshold operator', r, ['p-bar'], { param: 'on-time', value: { kind: 'threshold', op: 'gt', value: 5 } })
+  check(`${tag}: a share threshold reads in percent`, /[%٪]/.test(await page.locator('[data-board-param="on-time"]').innerText()))
+  r = await change823(page, bodies, () => page.locator('[data-board-param="on-time"] [data-board-threshold-value]').fill('85'), ['p-bar'])
+  expectOnly('the threshold number (typed once, asked once)', r, ['p-bar'], { param: 'on-time', value: { kind: 'threshold', op: 'gt', value: 85 } })
+  check(`${tag}: … on-time=gt:85`, url823(page).get('on-time') === 'gt:85', page.url())
+
+  // top N stepper
+  r = await change823(page, bodies, () => page.locator('[data-board-param="top"] [data-board-topn-step="1"]').click(), ['p-bar'])
+  expectOnly('top N +1', r, ['p-bar'], { param: 'top', value: { kind: 'topN', n: 11 } })
+  r = await change823(page, bodies, () => page.locator('[data-board-param="top"] [data-board-topn]').fill('25'), ['p-bar'])
+  expectOnly('top N typed', r, ['p-bar'], { param: 'top', value: { kind: 'topN', n: 25 } })
+  check(`${tag}: … top=25`, url823(page).get('top') === '25')
+
+  // measure and breakdown
+  r = await change823(page, bodies, () => page.locator('[data-board-param="figure"] select').selectOption('deliveries'), ['p-kpi'])
+  expectOnly('the measure choice', r, ['p-kpi'], { param: 'figure', value: { kind: 'measure', key: 'deliveries' } })
+  r = await change823(page, bodies, () => page.locator('[data-board-param="split"] select').selectOption('city'), ['p-bar'])
+  expectOnly('the breakdown choice', r, ['p-bar'], { param: 'split', value: { kind: 'breakdown', key: 'city' } })
+  check(`${tag}: … figure=deliveries&split=city`, url823(page).get('figure') === 'deliveries' && url823(page).get('split') === 'city')
+  await page.screenshot({ path: `${SHOTS}/823-moved-${dir}.png`, fullPage: true })
+
+  // The link carries every value: a reload restores them all, same keys.
+  const moved = await keys823(page)
+  await page.reload()
+  await page.locator('[data-analytics-board="b-params"]').waitFor({ timeout: 10000 })
+  await idle823(page)
+  check(`${tag}: reloading the link restores every value (same keys)`, JSON.stringify(await keys823(page)) === JSON.stringify(moved))
+
+  // Reset to defaults
+  r = await change823(page, bodies, () => page.locator('[data-board-params-reset]').click(), P823)
+  const qs = url823(page)
+  check(
+    `${tag}: Reset gives back the author's values`,
+    qs.get('period') === 'last-30-days' && qs.getAll('region').length === 0 && qs.getAll('channel-one').join() === 'app' && !qs.has('grain') && !qs.has('on-time') && !qs.has('top') && !qs.has('figure') && !qs.has('split'),
+    page.url(),
+  )
+  check(`${tag}: … every panel re-asks at the defaults, and Reset is off again`, r.rekeyed.length === 3 && (await page.locator('[data-board-params-reset]').isDisabled()), r.rekeyed.join())
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A 412 refusal naming its parameter in `data` (⚠ `data.param`, proposed). */
+const refusal412 = (param) => envelope({ param }, { status: 400, success: false, message: 'The value is out of range.', errors: [{ errorCode: 'ANALYTICS-412', internalErrorCode: '', errorMessage: 'The value is out of range.' }] })
+
+async function notices823({ dir }) {
+  const tag = `823 notices ${dir}`
+  // A runner: "not filtered by" names only what they moved. A link asking a channel the author did not pin falls back.
+  {
+    const { context, page, errors } = await open({ dir, access: RUNNER })
+    await page.goto(`${BASE}/analytics/board/b-params?top=5&channel-one=aggregator`)
+    await page.locator('[data-analytics-board="b-params"]').waitFor({ timeout: 10000 })
+    await idle823(page)
+    const said = await page.locator('[data-board-panel="p-line"] [data-board-not-filtered]').getAttribute('data-board-not-filtered').catch(() => null)
+    check(`${tag}: a runner sees "not filtered by" only for the parameter they moved`, said === 'top', String(said))
+    const words = await page.locator('[data-board-panel="p-line"] [data-board-not-filtered]').innerText().catch(() => '')
+    check(`${tag}: … in words, naming its label`, /Top|الأعلى/.test(words) && /Not filtered by|غير مُصفّى حسب/.test(words), words)
+    const fell = page.locator('[data-board-param-notice="fellBack"][data-param="channel-one"]')
+    check(`${tag}: a link value outside the pinned list shows the one-line fallback notice`, await fell.isVisible())
+    const chips = await page.locator('[data-testid="board-filter-channel-one"] [data-chip]').evaluateAll((els) => els.map((e) => e.dataset.chip))
+    check(`${tag}: … and the control shows the default`, chips.join() === 'app', chips.join())
+    await page.screenshot({ path: `${SHOTS}/823-runner-fallback-${dir}.png`, fullPage: true })
+    check(`${tag}: runner page has no errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // The server's own fallback (`fellBack[]`), and a 412 naming `top`.
+  {
+    const paramAnswer = (body, answer) => {
+      if (body.values?.top?.n === 77) return refusal412('top')
+      if (body.values?.split?.key === 'city') return { ...answer, fellBack: [{ param: 'split' }] }
+      return answer
+    }
+    const { context, page, errors } = await open({ dir, paramAnswer })
+    await page.goto(`${BASE}/analytics/board/b-params?split=city`)
+    await page.locator('[data-analytics-board="b-params"]').waitFor({ timeout: 10000 })
+    await idle823(page)
+    check(`${tag}: a fellBack answer shows the fallback notice for its parameter`, await page.locator('[data-board-param-notice="fellBack"][data-param="split"]').isVisible())
+    await page.goto(`${BASE}/analytics/board/b-params?top=77`)
+    await page.locator('[data-analytics-board="b-params"]').waitFor({ timeout: 10000 })
+    await idle823(page)
+    const invalid = page.locator('[data-board-param-notice="invalid"][data-param="top"]')
+    const invalidWords = await invalid.innerText().catch(() => '')
+    check(`${tag}: ANALYTICS-412 names the parameter in the strip`, /Top|الأعلى/.test(invalidWords), invalidWords)
+    check(`${tag}: … and marks its control invalid`, (await page.locator('[data-board-param="top"]').getAttribute('data-board-param-invalid')) === 'true')
+    const states = await panelStates(page)
+    check(`${tag}: … the refused panel says so, the others run`, states['p-bar'] === 'refused' && states['p-kpi'] === 'idle' && states['p-line'] === 'idle', JSON.stringify(states))
+    await page.screenshot({ path: `${SHOTS}/823-412-${dir}.png`, fullPage: true })
+    await page.locator('[data-board-params-reset]').click()
+    await page.waitForFunction(() => document.querySelector('[data-board-panel="p-bar"]')?.dataset.boardPanelState === 'idle', null, { timeout: 5000 }).catch(() => {})
+    await idle823(page)
+    check(`${tag}: Reset clears the 412`, (await page.locator('[data-board-param-notice="invalid"]').count()) === 0 && (await page.locator('[data-board-panel="p-bar"]').getAttribute('data-board-panel-state')) === 'idle')
+    check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 const SCENARIOS = [
+  ['823', () => params823({ dir: 'ltr' })],
+  ['823', () => params823({ dir: 'rtl' })],
+  ['823', () => notices823({ dir: 'ltr' })],
+  ['823', () => notices823({ dir: 'rtl' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'ltr' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'rtl' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'ltr', access: { canView: true, canCurate: false }, label: 'v1-answer' })],

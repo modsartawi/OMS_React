@@ -257,8 +257,10 @@ window sentence ("vs {{range}}" / "vs {{day}} to {{time}}" — each value isolat
 - **`DAWA` is retired** (owner, 2026-11-06): the old last mile, out of use for about two years
   (briefly an emergency fallback, now dead). The picker does not offer it; the server still accepts
   the code, so an old link reads the server's figures (zeros) rather than a refusal.
-- The BackOffice brief carrying the five asks must be filed before tickets that read the new fields
-  can go live; tickets build against the stub until then (every new field is optional).
+- The BackOffice brief carrying the five asks is **filed as BackOffice spec 3404** (draft, 2026-11-06,
+  `C:\Work\DMSCO\BackOffice\.issues\3404-the-web-statistics-door-scopes-by-courier-and-carries-slot-keeping-trips-delivery-time-and-the-previous-period-spec.md`). It flags that a courier scope likely needs a courier key on
+  `SdStoreDayStat` plus a 31-day re-summary. Tickets build against the stub until it is built and
+  deployed (every new field is optional).
 - Watch the old-build writer that broke 488's parity (BackOffice 2644): a server without these fields
   must read "—" everywhere, which the optional model guarantees.
 - Analytics' light `--chart-2` gold contrast (2.83:1) is a known open item from spec 766; the

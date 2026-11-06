@@ -8,6 +8,10 @@
 //
 // Brief 2660 adds the optional `tracks` and `unspecified`, on the totals and on every store row.
 //
+// Spec 811 (ticket 812) adds slot keeping, Delivered per trip, Avg delivery time and the previous
+// block. ⚠ A web proposal, filed as BackOffice spec 3404 (draft; BackOffice owns the final wire): every
+// field is optional, so an older server reads "—", and later slices only read them.
+//
 // Every figure is OPTIONAL on purpose: a server that does not send one (an older SIS.Api without
 // `trips`) must render "—", never 0, and an optional type makes the compiler force that choice.
 
@@ -65,6 +69,32 @@ export interface DeliveryStatisticsTrack<F> {
    * for a pick-up; `null` when there is nothing to average.
    */
   avgHandOverMinutes?: number | null
+  /**
+   * Spec 811: Avg delivery time. On the Delivery track from DUE (the later of entry and the held slot's
+   * start; entry when there is no slot) to Delivered, an early delivery counting 0; on the Pick-up track
+   * entry to Made ready, as `avgHandOverMinutes`. `null` when there is nothing to average.
+   */
+  avgDeliveryMinutes?: number | null
+}
+
+/**
+ * Spec 811: slot keeping, on the Delivery track. Counts of Delivered, judged against the slot the
+ * delivery held when it was delivered; before the slot's end is in slot (early is in slot). The shares
+ * are 0–1 out of Delivered, absent when nothing was delivered.
+ */
+export interface SlotKeeping {
+  inSlot?: number
+  outOfSlot?: number
+  noSlot?: number
+  inSlotShare?: number
+  outOfSlotShare?: number
+}
+
+/** Spec 811: what the Delivery track carries beyond the shared track figures. */
+export interface DeliveryTrackAdditions {
+  slot?: SlotKeeping
+  /** Delivered over Trips, the server's; absent (or `null`) when there were no trips. */
+  deliveredPerTrip?: number | null
 }
 
 /**
@@ -73,7 +103,7 @@ export interface DeliveryStatisticsTrack<F> {
  * figures (a stray out-for-delivery on a pick-up, an Unspecified delivery), and nothing here does.
  */
 export interface DeliveryStatisticsTracks {
-  delivery: DeliveryStatisticsTrack<DeliveryTrackFlow>
+  delivery: DeliveryStatisticsTrack<DeliveryTrackFlow> & DeliveryTrackAdditions
   pickUp: DeliveryStatisticsTrack<PickUpTrackFlow>
 }
 
@@ -95,6 +125,8 @@ export interface DeliveryStatisticsStore {
    * is NOT an average over Delivered + Picked up.
    */
   avgHandOverMinutes: number | null
+  /** Spec 811: that store's Avg delivery time, both tracks together, each from its own start. */
+  avgDeliveryMinutes?: number | null
   /** That store's split by track; absent from a server older than 2660. */
   tracks?: DeliveryStatisticsTracks
   /** That store's deliveries of neither track that came in. */
@@ -112,12 +144,47 @@ export interface DeliveryStatistics {
    * is NOT an average over Delivered + Picked up.
    */
   avgHandOverMinutes: number | null
+  /** Spec 811: Avg delivery time, both tracks together, each from its own start; `null` = nothing to average. */
+  avgDeliveryMinutes?: number | null
+  /** Spec 811: the six headline figures in the compared window; absent from an older server. */
+  previous?: StatisticsPrevious
   series: DeliveryStatisticsBucket[]
   /** The period split by track; absent from a server older than 2658. */
   tracks?: DeliveryStatisticsTracks
   /** Deliveries of neither track (a blank or unknown DeliveryType) that came in: bad data, in no lane. */
   unspecified?: number
   stores: DeliveryStatisticsStore[]
+}
+
+/**
+ * Spec 811: one headline figure in the compared window. `value` is the previous period's figure;
+ * `change` and `changePct` are the server's own subtraction and percentage (0–1, like a share),
+ * `changePct` absent when the previous value is 0. The page never computes either.
+ */
+export interface PreviousFigure {
+  value?: number | null
+  change?: number | null
+  changePct?: number | null
+}
+
+/**
+ * Spec 811: the compared window and its six figures. Today → the same weekday last week up to the
+ * same time (`until`); Yesterday → the same weekday a week before; Range → the equal-length range
+ * ending the day before `From`.
+ */
+export interface StatisticsPrevious {
+  /** Local `yyyy-MM-dd`, inclusive. */
+  from: string
+  /** Local `yyyy-MM-dd`, inclusive. */
+  to: string
+  /** Today's cut-off time of day (`HH:mm`), absent for a closed period. */
+  until?: string
+  cameIn?: PreviousFigure
+  handedOver?: PreviousFigure
+  inSlotShare?: PreviousFigure
+  outOfSlotShare?: PreviousFigure
+  deliveredPerTrip?: PreviousFigure
+  avgDeliveryMinutes?: PreviousFigure
 }
 
 /** The door's `Granularity`: by the hour for one day, by the day for a range. */

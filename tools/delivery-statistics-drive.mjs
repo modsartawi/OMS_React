@@ -73,6 +73,15 @@
 //      no `tracks` (and no `unspecified`) reads "—" in every Delivery and Pick-up cell, never 0;
 //      switching makes no call; a link keeps the view; an unknown track reads as All.
 //
+//  17. (ticket 812, spec 811) the headline strip. The stub adds the spec's optional fields (⚠ a web
+//      proposal, BackOffice brief not filed): `avgDeliveryMinutes` on the totals, the stores and both
+//      tracks; the Delivery track's `slot` and `deliveredPerTrip`; and the `previous` block (Today's
+//      window with `until`, a Range's without). It asserts the six tiles in order with the stub's
+//      figures, isolated; each change the server's (arrow from the sign, words from changePct), in
+//      ink; no change line without a previous figure; the Delivered | Picked up split and "n of N
+//      delivered" sub-lines; the compared window for Today and for a Range; the old Avg hand-over tile
+//      gone; and "—" (never 0) from the older-server and 2658 fixtures, which drop every new field.
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
@@ -115,26 +124,48 @@ const tracks = () => ({
     flow: { cameIn: 702, madeReady: 655, outForDelivery: 377, trips: 409, handedOver: 640 },
     misses: misses({ returnedBack: 20, rescheduled: 8, closeRequested: 1, closedOrCancelled: 11 }),
     avgHandOverMinutes: 96.25,
+    // 812 (spec 811): slot keeping, Delivered per trip, Avg delivery time.
+    slot: { inSlot: 512, outOfSlot: 96, noSlot: 32, inSlotShare: 0.8, outOfSlotShare: 0.15 },
+    deliveredPerTrip: 1.56,
+    avgDeliveryMinutes: 41.5,
   },
   pickUp: {
     flow: { cameIn: 529, madeReady: 444, handedOver: 455 },
     misses: misses({ returnedBack: 0, rescheduled: 0, closeRequested: 3, closedOrCancelled: 6 }),
     avgHandOverMinutes: 31.5,
+    avgDeliveryMinutes: 31.5,
   },
 })
+// 812 (spec 811): the previous block. Today's window: the same weekday last week up to the same time.
+// Avg delivery time carries NO previous figure here: its tile must draw no change line.
+const previousToday = () => ({
+  from: daysAgo(7),
+  to: daysAgo(7),
+  until: '09:35',
+  cameIn: { value: 1187, change: 47, changePct: 0.0396 },
+  handedOver: { value: 1100, change: -7, changePct: -0.0064 },
+  inSlotShare: { value: 0.8, change: 0, changePct: 0 },
+  outOfSlotShare: { value: 0, change: 0.15, changePct: null },
+  deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -0.031 },
+})
+/** A Range's window: the equal-length range ending the day before From. */
+const previousRange = () => ({ ...previousToday(), from: daysAgo(14), to: daysAgo(8), until: undefined })
 /** A 2658 server: tracks without their misses. */
 const tracksWithoutMisses = () => {
   const { delivery, pickUp } = tracks()
-  const { misses: _d, ...d } = delivery
-  const { misses: _p, ...p } = pickUp
+  // A 2658 server is older than spec 811 too: no slot keeping, Delivered per trip or Avg delivery time.
+  const { misses: _d, slot: _s, deliveredPerTrip: _dp, avgDeliveryMinutes: _da, ...d } = delivery
+  const { misses: _p, avgDeliveryMinutes: _pa, ...p } = pickUp
   return { delivery: d, pickUp: p }
 }
-const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, tracks: tracks(), unspecified: 3, ...over })
+const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, avgDeliveryMinutes: 40.1, tracks: tracks(), unspecified: 3, ...over })
 const statistics = (over = {}) => ({
   asOf: `${TODAY}T09:35:00`,
   flow: flow(),
   misses: misses(),
   avgHandOverMinutes: 87.46,
+  avgDeliveryMinutes: 38.2,
+  previous: previousToday(),
   tracks: tracks(),
   unspecified: 3,
   series: [
@@ -150,8 +181,9 @@ const statistics = (over = {}) => ({
  */
 const olderServer = () => {
   const { trips: _dropped, ...noTrips } = flow({ handedOver: 0, delivered: 0, pickedUp: 0 })
-  const { tracks: _t, unspecified: _u, ...older } = statistics({ flow: noTrips, avgHandOverMinutes: null })
-  const { tracks: _st, unspecified: _su, ...olderStore } = store('P001', { flow: noTrips, avgHandOverMinutes: null })
+  // …and, older than spec 811, no `previous` and no `avgDeliveryMinutes` (the slot fields live in `tracks`).
+  const { tracks: _t, unspecified: _u, previous: _p, avgDeliveryMinutes: _a, ...older } = statistics({ flow: noTrips, avgHandOverMinutes: null })
+  const { tracks: _st, unspecified: _su, avgDeliveryMinutes: _sa, ...olderStore } = store('P001', { flow: noTrips, avgHandOverMinutes: null })
   return { ...older, stores: [olderStore] }
 }
 
@@ -290,6 +322,43 @@ const figures = (page) =>
   )
 
 /**
+ * 812: the headline strip as drawn — each tile in DOM order with its caption, its figure (and whether it
+ * sits in a <bdi dir="ltr">), its change line (direction, the isolated change, the previous figure) and
+ * the line under it with its isolated values; and the compared-window sentence with its isolates.
+ */
+const headlineOf = (page) =>
+  page.evaluate(() => {
+    const strip = document.querySelector('[data-statistics-headline]')
+    if (!strip) return null
+    const tiles = [...strip.querySelectorAll(':scope > [data-figure-tile]:has([data-chart="kpi"])')].map((el) => {
+      const value = el.querySelector('[data-kpi-value]')
+      const delta = el.querySelector('[data-kpi-delta]')
+      const sub = el.querySelector('[data-figure$=".sub"]')
+      return {
+        id: el.getAttribute('data-figure-tile'),
+        caption: el.firstElementChild.textContent.trim(),
+        value: value?.textContent.trim() ?? null,
+        valueIsolated: !!value?.querySelector('bdi[dir="ltr"]'),
+        direction: delta?.getAttribute('data-kpi-delta') ?? null,
+        change: delta?.querySelector('span bdi[dir="ltr"]')?.textContent ?? null,
+        changeWords: delta?.querySelector('[aria-label]')?.getAttribute('aria-label') ?? null,
+        previous: el.querySelector('[data-kpi-previous] bdi[dir="ltr"]')?.textContent ?? null,
+        sub: sub?.textContent.trim() ?? null,
+        subValues: sub ? [...sub.querySelectorAll('bdi[dir="ltr"]')].map((b) => b.textContent) : [],
+        left: Math.round(el.getBoundingClientRect().left),
+      }
+    })
+    const compared = document.querySelector('[data-statistics-compared]')
+    return {
+      tiles,
+      compared: compared
+        ? { kind: compared.getAttribute('data-statistics-compared'), text: compared.textContent.trim(), values: [...compared.querySelectorAll('bdi[dir="ltr"]')].map((b) => b.textContent) }
+        : null,
+    }
+  })
+const HEADLINE_IDS = ['cameIn', 'handedOver', 'inSlot', 'outOfSlot', 'deliveredPerTrip', 'avgDeliveryMinutes']
+
+/**
  * The store table's rows in their shown order (by AG Grid's row-index, not DOM order), each cell's
  * text by column. The pinned store column draws its half of a row in a separate container, so the
  * halves are merged by row-index.
@@ -367,10 +436,56 @@ async function drive(dir) {
     const f = await figures(page)
     const order = await tilesOf(page, '[data-statistics-band="storeWide"]')
     check(
-      `${label}: the store-wide group: Came in, Handed over, its two halves, Avg hand-over, Unspecified — no store-wide Made ready / Out for delivery (decision A)`,
-      same(order, ['cameIn', 'handedOver', 'delivered', 'pickedUp', 'avgHandOver', 'unspecified']),
+      `${label}: the headline strip: the six figures in order, then Unspecified — no Avg hand-over, no store-wide Made ready / Out for delivery`,
+      same(order, [...HEADLINE_IDS, 'unspecified']),
       order.join(','),
     )
+    // 812: the six headline figures, their server change and the compared window.
+    const h = await headlineOf(page)
+    const hb = Object.fromEntries((h?.tiles ?? []).map((x) => [x.id, x]))
+    check(
+      `${label}: the headline captions read Came in, Handed over, In slot, Out of slot, Delivered per trip, Avg delivery time`,
+      same(h?.tiles.map((x) => x.caption), ['Came in', 'Handed over', 'In slot', 'Out of slot', 'Delivered per trip', 'Avg delivery time']),
+      JSON.stringify(h?.tiles.map((x) => x.caption)),
+    )
+    check(
+      `${label}: the headline figures are the stub's, each isolated whole`,
+      same(h?.tiles.map((x) => x.value), ['1,234', '1,093', '80.0%', '15.0%', '1.56', '38.2 min']) && h.tiles.every((x) => x.valueIsolated),
+      JSON.stringify(h?.tiles.map((x) => [x.value, x.valueIsolated])),
+    )
+    check(
+      `${label}: each change is the server's — the arrow from its sign, the words from changePct — isolated, with the previous figure`,
+      same(h?.tiles.map((x) => x.direction), ['up', 'down', 'flat', 'up', 'down', null]) &&
+        same(h.tiles.map((x) => x.change), ['4.0%', '0.6%', '0.0%', '15.0%', '3.1%', null]) &&
+        same(h.tiles.map((x) => x.previous), ['1,187', '1,100', '80.0%', '0.0%', '1.61', null]) &&
+        hb.cameIn.changeWords === `Up ${FSI}4.0%${PDI} on the previous period`,
+      JSON.stringify(h?.tiles.map((x) => [x.direction, x.change, x.previous, x.changeWords])),
+    )
+    check(
+      `${label}: the change is drawn in ink, never a status colour`,
+      (await page.locator('[data-statistics-headline] [data-kpi-delta] [class*="text-danger"], [data-statistics-headline] [data-kpi-delta] [class*="text-success"]').count()) === 0,
+    )
+    check(
+      `${label}: Avg delivery time with no previous figure draws no change line`,
+      (await page.locator('[data-figure-tile="avgDeliveryMinutes"] [data-kpi-delta]').count()) === 0,
+    )
+    check(
+      `${label}: Handed over keeps the till's Delivered | Picked up split under it; In slot / Out of slot say n of N delivered`,
+      hb.handedOver?.sub === 'Delivered 640 · Picked up 455' &&
+        same(hb.handedOver.subValues, ['640', '455']) &&
+        hb.inSlot?.sub === '512 of 640 delivered' &&
+        same(hb.inSlot.subValues, ['512', '640']) &&
+        hb.outOfSlot?.sub === '96 of 640 delivered' &&
+        same(hb.outOfSlot.subValues, ['96', '640']) &&
+        [hb.cameIn, hb.deliveredPerTrip, hb.avgDeliveryMinutes].every((x) => x?.sub === null),
+      JSON.stringify([hb.handedOver?.sub, hb.inSlot?.sub, hb.outOfSlot?.sub]),
+    )
+    check(
+      `${label}: Today's compared window reads "vs <day> to <time>", each value isolated`,
+      h?.compared?.kind === 'until' && h.compared.text === `vs ${daysAgo(7)} to 09:35` && same(h.compared.values, [daysAgo(7), '09:35']),
+      JSON.stringify(h?.compared),
+    )
+    check(`${label}: the six tiles read in reading order`, inReadingOrder(h?.tiles.map((x) => x.left) ?? [], dir), JSON.stringify(h?.tiles.map((x) => x.left)))
     const bandOrder = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
     check(`${label}: the store-wide group, then the Delivery lane, then the Pick-up lane, then the misses`, same(bandOrder.slice(0, 4), ['storeWide', 'delivery', 'pickUp', 'misses']), bandOrder.join(','))
 
@@ -453,14 +568,6 @@ async function drive(dir) {
     await page.setViewportSize({ width: 1600, height: 1000 })
     await page.waitForTimeout(200)
     check(`${label}: the Unspecified tile shows the server's count`, f.unspecified?.bdi === '3' && /Unspecified/.test(await page.locator('[data-figure-tile="unspecified"]').innerText()), JSON.stringify(f.unspecified))
-    const split = await page.locator('[data-statistics-split] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
-    const splitText = await page.locator('[data-statistics-split]').innerText()
-    check(
-      `${label}: Delivered (home delivery) and Picked up (pick in store) sit apart, as Handed over's halves`,
-      same(split, ['delivered', 'pickedUp']) && /Handed over, by delivery type/.test(splitText) && /Home delivery/.test(splitText) && /Pick in store/.test(splitText),
-      split.join(','),
-    )
-    check(`${label}: Handed over says what it holds`, /Delivered \+ picked up/.test(await page.locator('[data-figure-tile="handedOver"]').innerText()))
     // 490: the misses band is two rows, one per track; the old single store-wide band is gone.
     const missRows = await page.locator('[data-statistics-band="misses"] [data-statistics-misses-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-misses-row')))
     // A missing row records failed checks below rather than throwing and ending the pass.
@@ -493,19 +600,10 @@ async function drive(dir) {
       JSON.stringify(pm),
     )
     check(`${label}: each misses row reads in reading order`, inReadingOrder(dm.lefts, dir) && inReadingOrder(pm.lefts, dir), `${dm.lefts} | ${pm.lefts}`)
-    // 490: the store-wide average now times a pick-up to Made ready — nothing beside it may say "Delivered + picked up".
-    const avgTile = await page.locator('[data-figure-tile="avgHandOver"]').innerText()
-    check(
-      `${label}: Avg hand-over stands alone — its own tile, outside the pair, no "Delivered + picked up" beside it`,
-      /^Avg hand-over\n/.test(avgTile) &&
-        !/picked up/i.test(avgTile) &&
-        (await page.locator('[data-figure-tile="handedOver"] [data-figure-tile="avgHandOver"], [data-statistics-split] [data-figure-tile="avgHandOver"]').count()) === 0,
-      JSON.stringify(avgTile),
-    )
-    check(`${label}: Came in reads the server's count, grouped`, f.cameIn?.bdi === '1,234', JSON.stringify(f.cameIn))
-    check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, f.handedOver?.bdi === '1,093', JSON.stringify(f.handedOver))
+    // 812: the entry-based Avg hand-over tile has left the web.
+    check(`${label}: the old Avg hand-over tile is gone`, (await page.locator('[data-figure-tile="avgHandOver"], [data-statistics-split]').count()) === 0)
+    check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, hb.handedOver?.value === '1,093', JSON.stringify(hb.handedOver?.value))
     check(`${label}: a real 0 reads 0`, f['delivery.rejected']?.bdi === '0', JSON.stringify(f['delivery.rejected']))
-    check(`${label}: Avg hand-over reads the minutes with its unit`, f.avgHandOver?.bdi === '87.46' && f.avgHandOver.text === '87.46min', JSON.stringify(f.avgHandOver))
     check(`${label}: every number is isolated`, Object.values(f).every((x) => x.isolated), Object.keys(f).filter((k) => !f[k].isolated).join(','))
     const asOf = await page.locator('[data-statistics-as-of]').innerText()
     check(
@@ -615,8 +713,23 @@ async function drive(dir) {
     await page.goto(`${BASE}/oms/delivery-statistics`)
     await waitFigures(page)
     const f = await figures(page)
-    check(`${label}: a null average reads "—" with no unit, never 0`, f.avgHandOver?.bdi === '—' && f.avgHandOver.text === '—', JSON.stringify(f.avgHandOver))
-    check(`${label}: a sent 0 still reads 0 beside them`, f.handedOver?.bdi === '0', JSON.stringify(f.handedOver))
+    // 812: no previous, no slot, no Delivered per trip, no Avg delivery time — "—", never 0, no change line.
+    const h = await headlineOf(page)
+    const hb = Object.fromEntries((h?.tiles ?? []).map((x) => [x.id, x]))
+    check(
+      `${label}: an older server's headline reads "—" on every figure it did not send, never 0`,
+      same(h?.tiles.map((x) => x.id), HEADLINE_IDS) && same(h.tiles.map((x) => x.value), ['1,234', '0', '—', '—', '—', '—']) && h.tiles.every((x) => x.valueIsolated),
+      JSON.stringify(h?.tiles.map((x) => x.value)),
+    )
+    check(
+      `${label}: with no previous block no tile draws a change line and no compared window is named`,
+      (await page.locator('[data-statistics-headline] [data-kpi-delta]').count()) === 0 && h?.compared === null,
+    )
+    check(
+      `${label}: the older server's sub-lines read "—" where absent, and its real 0s read 0`,
+      hb.inSlot?.sub === '— of — delivered' && hb.outOfSlot?.sub === '— of — delivered' && hb.handedOver?.sub === 'Delivered 0 · Picked up 0',
+      JSON.stringify([hb.inSlot?.sub, hb.handedOver?.sub]),
+    )
     // 489: no `tracks` at all — both lanes still drawn, stage for stage, every figure "—".
     const dl = await laneOf(page, 'delivery')
     const pl = await laneOf(page, 'pickUp')
@@ -666,6 +779,13 @@ async function drive(dir) {
     await waitFigures(page)
     const f = await figures(page)
     check(`${label}: Unspecified at 0 hides its tile`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0 && f.unspecified === undefined)
+    // 812: tracks from a server older than spec 811 carry no slot keeping, trips ratio or delivery time.
+    const h = await headlineOf(page)
+    check(
+      `${label}: tracks without the spec-811 fields read "—" on In slot, Out of slot, Delivered per trip`,
+      same(h?.tiles.slice(2, 5).map((x) => x.value), ['—', '—', '—']) && h.tiles[2].sub === '— of 640 delivered',
+      JSON.stringify(h?.tiles.map((x) => [x.value, x.sub])),
+    )
     check(
       `${label}: tracks without misses still draw both lanes and their averages`,
       f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '96.25' && f['pickUp.avg']?.bdi === '31.5',
@@ -706,6 +826,22 @@ async function drive(dir) {
     )
     await page.locator('[data-statistics-band="misses"]').screenshot({ path: `${SHOTS}/${dir}-misses-bad-pick-up.png` })
     check(`${label}: no page errors (bad pick-up)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 812: a Range's compared window — the equal-length range before it, one isolated value ─────
+  {
+    const { context, page, errors } = await open(dir, { answer: () => statistics({ previous: previousRange() }) })
+    await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=7`)
+    await waitFigures(page)
+    const h = await headlineOf(page)
+    check(
+      `${label}: a Range's compared window reads "vs <from> – <to>", the range isolated whole`,
+      h?.compared?.kind === 'range' && h.compared.text === `vs ${daysAgo(14)} – ${daysAgo(8)}` && same(h.compared.values, [`${daysAgo(14)} – ${daysAgo(8)}`]),
+      JSON.stringify(h?.compared),
+    )
+    await page.locator('[data-statistics-band="storeWide"]').screenshot({ path: `${SHOTS}/${dir}-headline-range.png` })
+    check(`${label}: no page errors (headline range)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

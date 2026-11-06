@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { DeliveryStatisticsFlow } from '@/core/models/delivery-statistics'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDeliveryStatistics } from '@/core/oms/access'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -13,7 +12,9 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
-import { hasFigure, readAverage, readFigure } from './figures'
+import { readFigure } from './figures'
+import { readHeadline } from './headline'
+import HeadlineStrip from './HeadlineStrip'
 import { readLanes, showsUnspecified, type Lane } from './lanes'
 import { readMissesRows, type MissId, type MissesRow } from './misses-rows'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
@@ -34,8 +35,8 @@ import Input from '@/core/ui/Input'
  * never Delivered + Picked up; a figure the server leaves out reads "—", never 0.
  *
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
- * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the store-wide group (Came in,
- * Handed over and its Delivered | Picked up pair, Avg hand-over, Unspecified), the Delivery and Pick-up
+ * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the headline strip (812, spec
+ * 811: six server figures and their change, `headline.ts` + `HeadlineStrip`; then Unspecified), the Delivery and Pick-up
  * lanes (489, `lanes.ts`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
  * Came in / Handed over chart (486; `core/charts` since 815, `StatisticsChart`) and the per-store table (487, `StoreTable`). The
  * lanes and the misses rows are the server's `tracks`, never derived from the store-wide figures nor
@@ -68,15 +69,6 @@ function useMinuteClock(): Date {
   }, [])
   return now
 }
-
-/**
- * The store-wide group, as on the till's rail: Came in and Handed over. Delivered (DeliveryType D, home
- * delivery) and Picked up (P, pick in store) are Handed over's two halves and sit apart from it (`SPLIT`).
- * The store-wide Made ready and Out for delivery are not drawn (decision A, 2026-10-14): the lanes carry
- * the stages, and those two stay on the wire for the table's All view.
- */
-const STORE_WIDE: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'handedOver']
-const SPLIT: readonly (keyof DeliveryStatisticsFlow)[] = ['delivered', 'pickedUp']
 
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
 const MISS_ACCENT: Record<MissId, string> = {
@@ -152,45 +144,13 @@ function Statistics() {
 
       {data && (
         <>
-          <section className="flex flex-col gap-2" data-statistics-band="storeWide">
-            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.storeWide')}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
-              {STORE_WIDE.map((key) => (
-                <Tile key={key} id={key} caption={t(`flow.${key}`)} value={readFigure(data.flow[key], dash)}>
-                  {key === 'handedOver' && <span className="text-xs text-muted-foreground">{t('flow.handedOverNote')}</span>}
-                </Tile>
-              ))}
-              <div
-                role="group"
-                aria-labelledby="statistics-split-caption"
-                className="col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-dashed border-border/60 p-2"
-                data-statistics-split=""
-              >
-                <span id="statistics-split-caption" className="col-span-2 text-xs font-medium text-muted-foreground">
-                  {t('split.caption')}
-                </span>
-                {SPLIT.map((key) => (
-                  <Tile key={key} id={key} caption={t(`flow.${key}`)} value={readFigure(data.flow[key], dash)}>
-                    <span className="text-xs text-muted-foreground">{t(`split.${key}`)}</span>
-                  </Tile>
-                ))}
-              </div>
-              {/* Its own tile after the pair: the "Delivered + picked up" note is about the count, not this average. */}
-              <Tile
-                id="avgHandOver"
-                caption={t('avgHandOver.caption')}
-                value={readAverage(data.avgHandOverMinutes, dash)}
-                // A unit beside the dash would read as a value: only a number carries one.
-                unit={hasFigure(data.avgHandOverMinutes) ? t('avgHandOver.unit') : undefined}
-                accent="border-t-primary"
-              />
-              {showsUnspecified(data.unspecified) && (
-                <Tile id="unspecified" caption={t('unspecified.caption')} value={readFigure(data.unspecified, dash)} accent="border-t-attention">
-                  <span className="text-xs text-muted-foreground">{t('unspecified.note')}</span>
-                </Tile>
-              )}
-            </div>
-          </section>
+          <HeadlineStrip tiles={readHeadline(data, dash)} previous={data.previous}>
+            {showsUnspecified(data.unspecified) && (
+              <Tile id="unspecified" caption={t('unspecified.caption')} value={readFigure(data.unspecified, dash)} accent="border-t-attention">
+                <span className="text-xs text-muted-foreground">{t('unspecified.note')}</span>
+              </Tile>
+            )}
+          </HeadlineStrip>
 
           {readLanes(data.tracks, dash).map((lane) => (
             <LaneBand key={lane.track} lane={lane} />

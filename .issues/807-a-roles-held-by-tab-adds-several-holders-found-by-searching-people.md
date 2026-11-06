@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 805
 blocked-by: 806
 ---
@@ -30,8 +30,8 @@ model/api (existing search + assign) · store/logic (picker server mode, already
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `picker keeps picks across a server query change and disables already-held rows` — extends the 806 helper's tests · pure
-- [ ] `authz-batch-drive` Add holders leg — search `ahmed` tick 2, search `khalid` tick 1 → 3 chips; a current holder is disabled; Assign to 3 with one stubbed refusal → "2 assigned, 1 refused", the Held by list shows the two; the button is absent for a role outside a delegated scope · flow (Playwright)
+- [x] `picker keeps picks across a server query change and disables already-held rows` — extends the 806 helper's tests (new `markDisabled`, `rememberOptions`, `chipsFor` in `core/ui/checklist`) · pure
+- [x] `authz-batch-drive` Add holders leg — search `ahmed` tick 2, search `khalid` tick 1 → 3 chips; a current holder is disabled; Assign to 3 with one stubbed refusal → "2 assigned, 1 refused", the Held by list shows the two; the button is absent for a role outside a delegated scope · flow (Playwright); LTR + RTL, 80/80 with the 806 leg
 
 ## Boundaries
 

@@ -15,6 +15,7 @@ import { formatStamp, grantText, inScope } from './helpers'
 import EditRoleModal from './EditRoleModal'
 import BindGrantModal from './BindGrantModal'
 import AddMemberModal from './AddMemberModal'
+import AddHoldersModal from './AddHoldersModal'
 import DeleteBlockedModal from './DeleteBlockedModal'
 
 type Tab = 'grants' | 'heldby' | 'audit'
@@ -34,6 +35,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
   const [editOpen, setEditOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
   const [memberOpen, setMemberOpen] = useState(false)
+  const [holdersOpen, setHoldersOpen] = useState(false)
   const [blocked, setBlocked] = useState<{ users: number; grants: number; composites: number } | null>(null)
   const [acting, setActing] = useState(false)
 
@@ -415,6 +417,14 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                 )
               })
             )}
+            {/* Add holders: only for a role in the admin's assignable scope (the person-side assign's rule). */}
+            {inScope(roleName, access.assignableRoles) && (
+              <div>
+                <Button variant="secondary" onClick={() => setHoldersOpen(true)} disabled={acting} data-testid="add-holders-open">
+                  {t('roleDetail.addHolders')}
+                </Button>
+              </div>
+            )}
           </div>
           {inComposites.length > 0 && (
             <div className="flex flex-col gap-1.5">
@@ -495,6 +505,14 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
         catalog={catalog}
         // The dialog stays open after a batch (its summary and any refused picks); only re-read.
         onAdded={refresh}
+      />
+      <AddHoldersModal
+        open={holdersOpen}
+        onClose={() => setHoldersOpen(false)}
+        roleName={roleName}
+        holders={(holders.data ?? []).map((h) => h.userId)}
+        // The dialog stays open after a batch (its summary and any refused picks); only re-read.
+        onAssigned={refresh}
       />
       <DeleteBlockedModal
         open={blocked !== null}

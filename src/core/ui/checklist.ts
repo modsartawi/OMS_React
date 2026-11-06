@@ -77,3 +77,42 @@ export function togglePick(picks: readonly string[], value: string, options?: re
 export function clearPicks(): string[] {
   return []
 }
+
+// ── Server mode (ticket 807): each query brings a new result set ──────────────────────────────
+
+/**
+ * The options with `values` drawn disabled and saying why (`note`) — e.g. people who already hold the
+ * role: shown greyed, not left out. A new array; the input is not mutated.
+ */
+export function markDisabled(
+  options: readonly ChecklistOption[],
+  values: readonly string[],
+  note: string,
+): ChecklistOption[] {
+  const off = new Set(values)
+  return options.map((o) => (off.has(o.value) ? { ...o, disabled: true, note } : o))
+}
+
+/** Every option seen so far, by value (a later result set wins), so a pick off the current page keeps its name. */
+export function rememberOptions(
+  known: ReadonlyMap<string, ChecklistOption>,
+  options: readonly ChecklistOption[],
+): Map<string, ChecklistOption> {
+  const next = new Map(known)
+  for (const o of options) next.set(o.value, o)
+  return next
+}
+
+/**
+ * One removable chip per pick, in pick order, named from the remembered options. A pick never seen in
+ * a result set is chipped by its value, drawn as a machine value. A chip is never disabled.
+ */
+export function chipsFor(picks: readonly string[], known: ReadonlyMap<string, ChecklistOption>): ChecklistOption[] {
+  return picks.map((v) => {
+    const o = known.get(v)
+    if (!o) return { value: v, label: v, machine: true }
+    const chip: ChecklistOption = { value: o.value, label: o.label }
+    if (o.machine) chip.machine = true
+    return chip
+  })
+}

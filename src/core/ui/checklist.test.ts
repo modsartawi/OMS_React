@@ -1,7 +1,16 @@
 // The checklist picker's list logic (spec 805, ticket 806): what it shows for a query, what
 // Select all shown ticks, and how picks outlive a query.
 import { describe, expect, it } from 'vitest'
-import { clearPicks, selectAllShown, shownOptions, togglePick, type ChecklistOption } from './checklist'
+import {
+  chipsFor,
+  clearPicks,
+  markDisabled,
+  rememberOptions,
+  selectAllShown,
+  shownOptions,
+  togglePick,
+  type ChecklistOption,
+} from './checklist'
 
 const ROLES: ChecklistOption[] = [
   { value: 'PHARM_LEAD', label: 'PHARM_LEAD', description: 'Leads a branch pharmacy' },
@@ -58,5 +67,53 @@ describe('checklist picker list', () => {
 
     // Clear empties every pick, shown or not.
     expect(clearPicks()).toEqual([])
+  })
+})
+
+// Server mode (ticket 807, Add holders): each search term brings a new result set from the server.
+describe('checklist picker in server mode', () => {
+  const AHMED: ChecklistOption[] = [
+    { value: '10001', label: 'Ahmed Ali' },
+    { value: '10002', label: 'Ahmed Saleh', tag: 'Inactive' },
+    { value: '10003', label: 'Ahmed Omar' },
+  ]
+  const KHALID: ChecklistOption[] = [
+    { value: '20001', label: 'Khalid Nasser' },
+    { value: '10003', label: 'Ahmed Omar Khalid' },
+  ]
+
+  it('picker keeps picks across a server query change and disables already-held rows', () => {
+    // Current holders are shown greyed with the note, not left out.
+    const first = markDisabled(AHMED, ['10003'], 'Already holds')
+    expect(first.map((o) => [o.value, !!o.disabled, o.note ?? null])).toEqual([
+      ['10001', false, null],
+      ['10002', false, null],
+      ['10003', true, 'Already holds'],
+    ])
+    // The inactive tag survives, and the input is not mutated.
+    expect(first[1].tag).toBe('Inactive')
+    expect(AHMED[2].disabled).toBeUndefined()
+
+    // Select all shown ticks the enabled rows only (the inactive person is pickable); a held row's tick is refused.
+    let picks = selectAllShown([], shownOptions(first, 'ahmed', { narrow: false }))
+    expect(picks).toEqual(['10001', '10002'])
+    expect(togglePick(picks, '10003', first)).toEqual(['10001', '10002'])
+
+    // Each result set is remembered so a pick off the current page still has its name.
+    let known = rememberOptions(new Map(), first)
+
+    // A new term: a new result set; the picks are untouched and a tick appends.
+    const second = markDisabled(KHALID, ['10003'], 'Already holds')
+    known = rememberOptions(known, second)
+    expect(shownOptions(second, 'khalid', { narrow: false }).map((o) => o.value)).toEqual(['20001', '10003'])
+    picks = togglePick(picks, '20001', second)
+    expect(picks).toEqual(['10001', '10002', '20001'])
+
+    // The chips: one per pick, in pick order, named from whichever result set held them.
+    expect(chipsFor(picks, known).map((o) => o.label)).toEqual(['Ahmed Ali', 'Ahmed Saleh', 'Khalid Nasser'])
+    // A pick never seen in a result set is chipped by its value, drawn as a machine value.
+    expect(chipsFor(['99999'], known)).toEqual([{ value: '99999', label: '99999', machine: true }])
+    // A chip is never disabled (a removable pick), even when the row it came from was.
+    expect(chipsFor(['10003'], known)[0].disabled).toBeFalsy()
   })
 })

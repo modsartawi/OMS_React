@@ -768,6 +768,7 @@
   "insurance": {
     "heading": "Insurance",
     "loadFailed": "The order's insurance could not be read.",
+    "tabsLabel": "Insurance parts",
     "source": {
       "CHANNEL": "Channel",
       "ENGINE": "Engine",

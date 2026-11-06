@@ -15,7 +15,7 @@
 //      is struck through;
 //   5. no section on a non-insurance order (400 SDD-02220), without the grant (and no read
 //      asked), or on the delivery route (no read asked); a failing read is said in place;
-//   6. nothing in the section is a control but 788's Copy: read-only.
+//   6. the five parts are tabs, Money selected first, one part on screen at a time; Money is read-only.
 // Ticket 788 (BackOffice 3392 / 3393) adds, from the same fixture and the changed order 1006358461
 // (`__fixtures__/insurance-1006358461-changed.json`):
 //   7. Plan: policy / member in ltr isolates, diagnosis and holder in <bdi>, payer as its code (the
@@ -120,6 +120,11 @@ async function drive(dir) {
     await page.waitForTimeout(600)
   }
   const section = () => page.locator('[data-insurance-section]')
+  // The section's parts are tabs (Money first); a part is on screen only while its tab is selected.
+  const tab = async (part) => {
+    await section().locator(`[data-insurance-tab="${part}"]`).click()
+    await section().locator(`[data-insurance-panel="${part}"]`).waitFor({ timeout: 5000 })
+  }
 
   // ── 1–3: the 1006358459 shape ────────────────────────────────────────────────────────────────
   await open('/oms/document/1006358459#insurance')
@@ -154,8 +159,8 @@ async function drive(dir) {
       insurer: row('insurer'),
       vat: row('deductibleVat'),
       gapNote: !!s.querySelector('[data-money-gap-note]'),
-      controls: s.querySelectorAll('button, input, select, textarea').length,
-      copy: !!s.querySelector('button[data-received-copy]'),
+      controls: s.querySelectorAll('[data-insurance-panel] :is(button, input, select, textarea)').length,
+      tabs: [...s.querySelectorAll('[role="tab"][data-insurance-tab]')].map((b) => `${b.getAttribute('data-insurance-tab')}:${b.getAttribute('aria-selected')}`),
     }
   })
   check(`${label} money: the CHANNEL badge and its one line`, money.source === 'CHANNEL' && money.sourceText === 'Channel' && money.meaning === 'The patient pays what the insurer sent.', `${money.sourceText} | ${money.meaning}`)
@@ -166,8 +171,14 @@ async function drive(dir) {
     JSON.stringify(money.patient),
   )
   check(`${label} money: insurer 2.66 against engine 53.05 flagged; VAT 0.00 = 0.00 not`, money.insurer.engine === '53.05' && money.insurer.engineGap && !money.vat.engineGap, JSON.stringify([money.insurer, money.vat]))
-  check(`${label}: the section is read-only, its one control is Copy`, money.controls === 1 && money.copy, String(money.controls))
+  check(
+    `${label}: five part tabs, Money selected; the Money part is read-only`,
+    JSON.stringify(money.tabs) === JSON.stringify(['money:true', 'lines:false', 'plan:false', 'changes:false', 'received:false']) && money.controls === 0,
+    `${money.tabs.join(',')} | ${money.controls}`,
+  )
 
+  await tab('lines')
+  check(`${label}: one part on screen at a time`, (await section().locator('[data-money-table]').count()) === 0)
   const lines = await section().evaluate((s) => {
     const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
     const l = s.querySelector('[data-insurance-line="10"]')
@@ -192,6 +203,7 @@ async function drive(dir) {
   await page.screenshot({ path: `${SHOTS}/${dir}-1006358459.png`, fullPage: true })
 
   // ── 7–9 (788): Plan, Changes, Received on 1006358459 ──────────────────────────────────────────
+  await tab('plan')
   const plan = await section().evaluate((s) => {
     const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
     const dd = (f) => s.querySelector(`[data-plan-field="${f}"] dd`)
@@ -214,9 +226,11 @@ async function drive(dir) {
   check(`${label} plan: deductible group G1 reads 20% capped at 30.00`, plan.group === '20%' && plan.cap === '30.00', `${plan.group} | ${plan.cap}`)
 
   const rowsOf = (s) => [...s.querySelectorAll('[data-timeline-change], [data-timeline-log]')].map((tr) => tr.getAttribute('data-timeline-change') ?? `log:${tr.getAttribute('data-timeline-log')}`)
+  await tab('changes')
   const tl = await section().evaluate((s, f) => new Function(`return (${f})`)()(s), rowsOf.toString())
   check(`${label} changes: the server-merged log sits on the line, not drawn twice`, JSON.stringify(tl) === JSON.stringify(['log:OADD', 'PICK', 'log:DRDY']), tl.join(','))
 
+  await tab('received')
   const rec = await section().evaluate((s) => {
     const body = s.querySelector('[data-received-body]')
     return {
@@ -244,6 +258,7 @@ async function drive(dir) {
   await open('/oms/document/1006358461')
   await section().waitFor({ timeout: 10000 })
   await page.waitForTimeout(300)
+  await tab('changes')
   const ch = await section().evaluate((s, f) => {
     const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null)
     const old = s.querySelector('[data-timeline-change="QUANTITY"]')
@@ -255,10 +270,16 @@ async function drive(dir) {
       swapMarked: !!swap?.hasAttribute('data-channel-to-engine') && !!swap.querySelector('[data-change-channel-to-engine]'),
       before: text(swap?.querySelector('[data-change-money="before"]')),
       after: text(swap?.querySelector('[data-change-money="after"]')),
-      notKept: text(s.querySelector('[data-received-not-kept]')),
-      notKeptLtr: !!s.querySelector('[data-received-not-kept] bdi[dir="ltr"]'),
     }
   }, rowsOf.toString())
+  await tab('received')
+  Object.assign(
+    ch,
+    await section().evaluate((s) => ({
+      notKept: s.querySelector('[data-received-not-kept]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+      notKeptLtr: !!s.querySelector('[data-received-not-kept] bdi[dir="ltr"]'),
+    })),
+  )
   check(`${label} changes: the page's log is merged in, oldest first`, JSON.stringify(ch.order) === JSON.stringify(['log:OADD', 'QUANTITY', 'SWAP', 'log:ORDY']), ch.order.join(','))
   check(
     `${label} changes: an old act reads Not recorded, never 0.00, and keeps its quantity`,
@@ -282,10 +303,16 @@ async function drive(dir) {
       engine: [...s.querySelectorAll('[data-money-col="engine"]')].map(text),
       named: text(s.querySelector('[data-money-unpriced-lines]')),
       gapNote: !!s.querySelector('[data-money-gap-note]'),
-      lineEngine: text(s.querySelector('[data-insurance-line="10"] [data-line-engine-deductible]')),
-      voidedStrike: getComputedStyle(s.querySelector('[data-insurance-line="20"] tr')).textDecorationLine,
     }
   })
+  await tab('lines')
+  Object.assign(
+    unp,
+    await section().evaluate((s) => ({
+      lineEngine: s.querySelector('[data-insurance-line="10"] [data-line-engine-deductible]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+      voidedStrike: getComputedStyle(s.querySelector('[data-insurance-line="20"] tr')).textDecorationLine,
+    })),
+  )
   check(`${label} unpriced: every engine figure reads Unpriced, no gap flagged`, unp.engine.every((e) => e === 'Unpriced') && !unp.gapNote, unp.engine.join(','))
   check(`${label} unpriced: the unpriced lines are named; the line's engine deductible reads Unpriced`, /10$/.test(unp.named ?? '') && unp.lineEngine === 'Unpriced', `${unp.named} | ${unp.lineEngine}`)
   check(`${label} voided: the voided line is struck through, not hidden`, unp.voidedStrike.includes('line-through'), unp.voidedStrike)

@@ -419,6 +419,7 @@
   "insurance": {
     "heading": "التأمين",
     "loadFailed": "تعذّرت قراءة تأمين الطلب.",
+    "tabsLabel": "أقسام التأمين",
     "source": {
       "CHANNEL": "القناة",
       "ENGINE": "المحرّك",

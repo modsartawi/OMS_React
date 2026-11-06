@@ -9,11 +9,13 @@ import type { DispatchBid } from '@/core/models/dispatch-board'
 import type { DonorRequestModel, SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
 import { feed, spine, type SpineEntry } from './timeline-feed'
 import {
+  CALLOUT_MOMENTS,
   calloutLog,
   calloutMoments,
   calloutsOf,
   compareCalloutMoments,
   lockedCallout,
+  isSpineCalloutMoment,
   onCallout,
 } from './callout-moments'
 
@@ -473,21 +475,22 @@ describe('the spine merges callout moments with the Log, the jobs and the donor 
       'job@10:02:01',
       'log@10:02:00',
       'callout@10:02:00',
-      'callout@10:00:30',
-      'callout@10:00:00',
       'log@09:59:00',
     ])
   })
 
-  it('draws each callout moment in the past, and leaves the spine as it was without callouts', () => {
+  it('keeps on the spine only the moments that settle the store: taken, fell back, not competed, fallback failed, lock released, withdrawn', () => {
+    const kept = CALLOUT_MOMENTS.filter(isSpineCalloutMoment)
+    expect(kept).toEqual(['took', 'fellBack', 'withdrawn', 'lockReleased', 'fallbackFailed', 'notCompeted'])
+  })
+
+  it('draws only the callout outcome in the past (the bid chatter lives on the Callout tab), and leaves the spine as it was without callouts', () => {
     const s = spine([], logs, jobs, [donor], [record])
     expect(s.past.map(shape)).toEqual([
       'donor:raised',
       'job:9100',
       'event:DTXC',
       'callout:took',
-      'callout:shown',
-      'callout:opened',
       'event:DCRT',
     ])
     const without = spine([], logs, jobs, [donor]).past.map(shape)

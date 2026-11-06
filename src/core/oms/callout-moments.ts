@@ -49,6 +49,25 @@ export const CALLOUT_MOMENTS = [
 ] as const
 export type CalloutMomentKind = (typeof CALLOUT_MOMENTS)[number]
 
+/**
+ * The moments the Delivery details spine keeps: the ones that settle which store holds the delivery,
+ * and why — taken (awarded), fell back, sent straight to a store, the fallback failing, a released
+ * lock, a withdrawn callout. The bid chatter (delivered / shown / opened / dismissed / passed / did not
+ * answer, …) is every store's, many per callout, and drowned the spine; it stays on the Callout tab.
+ */
+const SPINE_CALLOUT_MOMENTS: ReadonlySet<CalloutMomentKind> = new Set<CalloutMomentKind>([
+  'took',
+  'fellBack',
+  'withdrawn',
+  'lockReleased',
+  'fallbackFailed',
+  'notCompeted',
+])
+
+export function isSpineCalloutMoment(kind: CalloutMomentKind): boolean {
+  return SPINE_CALLOUT_MOMENTS.has(kind)
+}
+
 export interface CalloutMoment {
   kind: CalloutMomentKind
   /** A real time, or `null` when the server sent none (it then sinks to the oldest end). */

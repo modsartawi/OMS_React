@@ -3,13 +3,11 @@
 // Drives the REAL app in Chromium against a STUB of the doors (no live SIS.Api). The header is the
 // ticket-078 capture 8000000121, patched to Ready; the Log and the callout histories are synthesized.
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`), it asserts:
-//   1. a TAKEN delivery: the callout moments interleave with the Log newest first; took, awarded
-//      elsewhere, passed, a bid that did not answer (with its ignore reason) are distinct moments;
-//      the callout's Opened and the till's BidOpened are told apart; store codes are ltr isolates;
+//   1. a TAKEN delivery: only the callout's outcome (the award) reaches the spine, between the Log rows;
+//      the bid chatter (opened, shown, passed, did not answer, …) is the Callout tab's; codes are ltr isolates;
 //   2. the Activity / Callout sub-tabs; the Callout view's ledger (one row per bid: km, ATP, tills,
 //      the four moments, answer by, outcome) and the raw event log in server order;
-//   3. a FELL-BACK delivery: fell back to the fallback store, the assigned-card moments, an unknown
-//      event kind rendered as itself;
+//   3. a FELL-BACK delivery: fell back to the fallback store, with its reason — the only callout moment on the spine;
 //   4. a RELEASED delivery: the lock-released moment with its reason and note; no Release lock;
 //   5. a NOT-COMPETED delivery: one moment with its reason; the sub-tab shows no ledger;
 //   6. an OPEN callout: the "On callout" line above Now with a countdown that moves;
@@ -471,40 +469,22 @@ async function drive(dir) {
   await open('8000000600')
   const taken = await pastOf()
   check(
-    `${label}: taken — callout moments interleave with the Log newest first`,
-    JSON.stringify(taken) ===
-      JSON.stringify([
-        'callout:awardedElsewhere:R012',
-        'milestone:ready',
-        'callout:bidExpired:R090',
-        'callout:took:R047',
-        'callout:passed:R030',
-        'callout:bidOpened:R047',
-        'callout:shown:R047',
-        'callout:delivered:R047',
-        'callout:opened',
-        'milestone:created',
-      ]),
+    `${label}: taken — only the award reaches the spine, between the Log rows; the bid chatter stays on the Callout tab`,
+    JSON.stringify(taken) === JSON.stringify(['milestone:ready', 'callout:took:R047', 'milestone:created']),
     JSON.stringify(taken),
   )
   const t1 = await page.evaluate(() => {
     const s = document.querySelector('[data-spine]')
     const row = (m) => s.querySelector(`[data-entry="callout"][data-moment="${m}"]`)
     return {
-      opened: row('opened')?.querySelector('[data-label]')?.textContent ?? '',
-      bidOpened: row('bidOpened')?.querySelector('[data-label]')?.textContent ?? '',
       took: row('took')?.querySelector('[data-label]')?.textContent ?? '',
-      lost: row('awardedElsewhere')?.querySelector('[data-label]')?.textContent ?? '',
-      expired: row('bidExpired')?.querySelector('[data-detail]')?.textContent ?? '',
       tookWho: row('took')?.querySelector('[data-who]')?.textContent ?? '',
       stores: [...s.querySelectorAll('[data-entry="callout"] [data-label] bdi[dir="ltr"]')].map((b) => b.textContent),
     }
   })
-  check(`${label}: the callout's Opened and the till's BidOpened read apart`, /Callout opened to 4 stores · fallback R001/.test(t1.opened) && /R047 opened the bid/.test(t1.bidOpened), JSON.stringify([t1.opened, t1.bidOpened]))
-  check(`${label}: took and awarded elsewhere are distinct sentences`, /R047 took it: awarded/.test(t1.took) && /R012 tried to take it: awarded elsewhere/.test(t1.lost), JSON.stringify([t1.took, t1.lost]))
-  check(`${label}: an unanswered bid shows its ignore reason`, /shown, never opened/.test(t1.expired), t1.expired)
+  check(`${label}: the award reads which store took it`, /R047 took it: awarded/.test(t1.took), t1.took)
   check(`${label}: the taker is named`, t1.tookWho === (rtl ? 'هدى' : 'Huda'), t1.tookWho)
-  check(`${label}: store codes are ltr isolates`, ['R047', 'R012', 'R030', 'R090', 'R001'].every((s) => t1.stores.includes(s)), t1.stores.join(','))
+  check(`${label}: the store code is an ltr isolate`, JSON.stringify(t1.stores) === JSON.stringify(['R047']), t1.stores.join(','))
   check(`${label}: sub-tabs shown with a callout`, (await page.locator('[data-activity-tab]').count()) === 2)
   check(`${label}: Release lock offered on a locked delivery with Execute`, (await releaseAction()) === 1)
   await page.locator('[data-spine]').screenshot({ path: `${SHOTS}/${dir}-taken-spine.png` })
@@ -572,21 +552,17 @@ async function drive(dir) {
   await open('8000000601')
   const fb = await pastOf()
   check(
-    `${label}: fell back — fell back, the assigned card, an unknown kind as itself`,
-    fb.includes('callout:fellBack:R001') && fb.includes('callout:fallbackDelivered:R001') && fb.includes('callout:fallbackShown:R001') && fb.includes('callout:other:R001') && fb.includes('callout:bidExpired:R047'),
+    `${label}: fell back — only the fall-back reaches the spine (not the assigned card, an unknown kind, or a silent bid)`,
+    JSON.stringify(fb.filter((e) => e.startsWith('callout:'))) === JSON.stringify(['callout:fellBack:R001']),
     JSON.stringify(fb),
   )
   const fbText = await page.evaluate(() => {
     const s = document.querySelector('[data-spine]')
-    return {
-      fell: s.querySelector('[data-moment="fellBack"]')?.textContent ?? '',
-      other: s.querySelector('[data-moment="other"]')?.textContent ?? '',
-      notReached: s.querySelector('[data-moment="bidExpired"] [data-detail]')?.textContent ?? '',
-    }
+    return { fell: s.querySelector('[data-moment="fellBack"]')?.textContent ?? '' }
   })
   check(
-    `${label}: fell back reads its store and reason; unknown kind keeps its name`,
-    /Nobody took it: fell back to R001/.test(fbText.fell) && /the callout lapsed/.test(fbText.fell) && /Escalated/.test(fbText.other) && /phoned the store/.test(fbText.other) && /never reached a till/.test(fbText.notReached),
+    `${label}: fell back reads its store and reason`,
+    /Nobody took it: fell back to R001/.test(fbText.fell) && /the callout lapsed/.test(fbText.fell),
     JSON.stringify(fbText),
   )
   check(`${label}: a fell-back locked delivery offers Release lock`, (await releaseAction()) === 1)

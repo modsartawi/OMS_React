@@ -1,6 +1,12 @@
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import type { DonorRequestModel, SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
-import { calloutMoments, compareCalloutMoments, onCallout, type CalloutMoment } from '@/core/oms/callout-moments'
+import {
+  calloutMoments,
+  compareCalloutMoments,
+  isSpineCalloutMoment,
+  onCallout,
+  type CalloutMoment,
+} from '@/core/oms/callout-moments'
 import {
   compareDonorMoments,
   donorMoments,
@@ -95,7 +101,10 @@ export function feed(
     ...(logs ?? []).map((log): FeedItem => ({ source: 'log', at: realTime(log.entryTime), log })),
     ...(jobs ?? []).map((job): FeedItem => ({ source: 'job', at: realTime(job.entryTime), job })),
     ...donorMoments(donors).map((moment): FeedItem => ({ source: 'donor', at: moment.at, moment })),
-    ...calloutMoments(callouts).map((moment): FeedItem => ({ source: 'callout', at: moment.at, moment })),
+    // Only the outcome of a callout (who got the store, and why); the bid chatter is the Callout tab's.
+    ...calloutMoments(callouts)
+      .filter((moment) => isSpineCalloutMoment(moment.kind))
+      .map((moment): FeedItem => ({ source: 'callout', at: moment.at, moment })),
   ]
   return items.sort(newestFirst)
 }

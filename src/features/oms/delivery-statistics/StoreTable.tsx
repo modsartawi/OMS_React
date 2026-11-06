@@ -97,10 +97,13 @@ const TRACK_CAPTION: Record<TableTrack, string> = { all: 'table.track.all', deli
 export default function StoreTable({
   stores,
   track,
+  views = TABLE_TRACKS,
   onTrack,
 }: {
   stores: readonly DeliveryStatisticsStore[]
   track: TableTrack
+  /** The views offered (813: no Pick-up under a chosen courier); every view by default. */
+  views?: readonly TableTrack[]
   onTrack: (track: TableTrack) => void
 }) {
   const { t } = useTranslation('delivery-statistics')
@@ -114,7 +117,7 @@ export default function StoreTable({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.stores')}</h2>
         <div role="group" aria-label={t('table.track.label')} className="inline-flex items-center gap-1" data-statistics-track-switch="">
-          {TABLE_TRACKS.map((view) => (
+          {views.map((view) => (
             <Chip key={view} on={track === view} onClick={() => onTrack(view)} data-statistics-track={view}>
               {t(TRACK_CAPTION[view])}
             </Chip>

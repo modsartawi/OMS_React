@@ -12,6 +12,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
+import { COURIERS, courierTableTracks, courierTracks, hidesPickUp } from './courier-scope'
 import { readFigure } from './figures'
 import { readHeadline } from './headline'
 import HeadlineStrip from './HeadlineStrip'
@@ -19,9 +20,9 @@ import Funnels from './Funnels'
 import { readLanes, showsUnspecified } from './lanes'
 import { readMissesRows, type MissId, type MissesRow } from './misses-rows'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
-import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
+import { buildStatisticsQuery, keepsPreviousAnswer, statisticsFromParams, statisticsKey, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
-import SeriesChart from './SeriesChart'
+import StatisticsChart from './StatisticsChart'
 import StoreTable from './StoreTable'
 import Tile from './Tile'
 import Chip from '@/core/ui/Chip'
@@ -40,7 +41,7 @@ import Input from '@/core/ui/Input'
  * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the headline strip (812, spec
  * 811: six server figures and their change, `headline.ts` + `HeadlineStrip`; then Unspecified), the Delivery and Pick-up
  * funnels (489 lanes, 814 funnels: `lanes.ts` + `Funnels`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
- * Came in / Handed over chart (486, `SeriesChart`) and the per-store table (487, `StoreTable`). The
+ * Came in / Handed over chart (486; `core/charts` since 815, `StatisticsChart`) and the per-store table (487, `StoreTable`). The
  * lanes and the misses rows are the server's `tracks`, never derived from the store-wide figures nor
  * added into them.
  *
@@ -72,6 +73,9 @@ function useMinuteClock(): Date {
   return now
 }
 
+/** The couriers the picker offers; a code outside them (a shared link) is captioned by its code. */
+const COURIER_CODES: ReadonlySet<string> = new Set(COURIERS)
+
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
 const MISS_ACCENT: Record<MissId, string> = {
   returnedBack: 'border-t-danger',
@@ -89,9 +93,12 @@ function Statistics() {
   const period = resolvePeriod(query, now)
   const params = period.ok ? buildStatisticsQuery(period, query) : null
 
+  const key = statisticsKey(query.tab, params)
   const stats = useQuery({
-    queryKey: ['delivery-statistics', params],
+    queryKey: key,
     queryFn: () => deliveryStatisticsApi.read(params!),
+    // 815: a refetch keeps its answer, so the chart dims rather than blanks; across keys only Today's midnight roll-over does.
+    placeholderData: (previous, previousQuery) => (keepsPreviousAnswer(previousQuery?.queryKey, key) ? previous : undefined),
     // 🚩 A refused period makes NO call.
     enabled: params !== null,
     // Today only (ruled): Yesterday and Range are closed periods and do not poll.
@@ -131,6 +138,17 @@ function Statistics() {
         )}
       </div>
 
+      {hidesPickUp(query.courier) && (
+        <p className="text-sm text-muted-foreground" data-statistics-courier-caption={query.courier}>
+          <Trans
+            t={t}
+            i18nKey="courier.caption"
+            values={{ courier: COURIER_CODES.has(query.courier) ? t(`courier.name.${query.courier}`) : query.courier }}
+            components={{ v: <bdi className="font-medium text-foreground" /> }}
+          />
+        </p>
+      )}
+
       {!period.ok && (
         <p role="alert" className="text-sm text-danger-800" data-statistics-refused={period.problem}>
           <Trans t={t} i18nKey={`period.problem.${period.problem}`} values={{ max: String(MAX_RANGE_DAYS) }} components={{ v: <Ltr /> }} />
@@ -151,21 +169,27 @@ function Statistics() {
             )}
           </HeadlineStrip>
 
-          {/* 814: the funnels draw the lanes they are given; 813 drops the Pick-up lane under a courier. */}
-          <Funnels lanes={readLanes(data.tracks, dash)} />
+          {/* 814: the funnels draw the lanes they are given; under a chosen courier the Pick-up funnel is
+              not drawn (813, `courier-scope.ts`). */}
+          <Funnels lanes={courierTracks(readLanes(data.tracks, dash), query.courier)} />
 
           {/* One row per track (490); the store-wide `misses` is not drawn — it stays for the table's All view. */}
           <section className="flex flex-col gap-3" data-statistics-band="misses">
             <h2 id="statistics-misses" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               {t('band.misses')}
             </h2>
-            {readMissesRows(data.tracks, dash).map((row) => (
+            {courierTracks(readMissesRows(data.tracks, dash), query.courier).map((row) => (
               <MissesRowBand key={row.track} row={row} />
             ))}
           </section>
 
-          {params && <SeriesChart series={data.series} granularity={params.Granularity} />}
-          <StoreTable stores={data.stores} track={query.track} onTrack={(track) => update((q) => ({ ...q, track }))} />
+          {params && <StatisticsChart series={data.series} granularity={params.Granularity} busy={stats.isFetching} />}
+          <StoreTable
+            stores={data.stores}
+            track={query.track}
+            views={courierTableTracks(query.courier)}
+            onTrack={(track) => update((q) => ({ ...q, track }))}
+          />
         </>
       )}
     </div>

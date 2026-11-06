@@ -33,11 +33,13 @@
 //      with one store chosen the table stays, showing that one row; the store column is pinned to
 //      the reading start (left in LTR, right in RTL).
 //
-//  13. (ticket 486) the chart: Today draws 24 hourly buckets, every third hour labelled; a 31-day
-//      range draws 31 daily buckets labelled by day of the month; one axis whose top is the round
-//      step over the larger series; time runs in reading order (the first bucket at the left in LTR,
-//      at the right in RTL, its label under it); hovering a column, or the arrow keys on the focused
-//      plot, writes its bucket and two values in the readout, each isolated; a real 0 reads 0.
+//  13. (ticket 486, redrawn on core/charts by 815) the chart: core/charts' SeriesChart, bar form,
+//      grouped, two series (Came in, Handed over) with a legend, in a ChartFrame; Today draws 24
+//      hourly buckets ("HH:00"), a 31-day range 31 daily buckets ("yyyy-MM-dd"), in reading order
+//      (the first bucket at the left in LTR, at the right in RTL); hovering a bar shows a tooltip with
+//      the bucket and both values, a real 0 reading 0. After the 5-minute Today refresh fires (its
+//      answer held back by the stub) the frame reads busy, the "Updating" mark shows and the chart's
+//      bars stay on screen; then it settles idle. Yesterday never goes busy.
 //
 //  14. (ticket 489, brief 2660) the two lanes. The stub adds EXACTLY the brief's optional fields, on
 //      the totals and on every store row:
@@ -52,7 +54,7 @@
 //      Delivery lane's four stages ending at Delivered with "Trips N" on Out for delivery; the
 //      Pick-up lane's three ending at Picked up with no Out stage; each lane's average after its
 //      stages with no chevron before it; the stages in READING order (left→right in LTR,
-//      right→left in RTL, the chevrons mirrored — 814 made the lanes funnels, see 18); the lane figures are the stub's tracks, not the
+//      right→left in RTL, the chevrons mirrored — 814 made the lanes funnels, see 19); the lane figures are the stub's tracks, not the
 //      totals; Unspecified hidden at 0 (on a 2658 answer: tracks without misses) and when absent;
 //      and the older server reads "—" across both lanes and both averages, never 0.
 //
@@ -80,7 +82,14 @@
 //      delivered" sub-lines; the compared window for Today and for a Range; the old Avg hand-over tile
 //      gone; and "—" (never 0) from the older-server and 2658 fixtures, which drop every new field.
 //
-//  18. (ticket 814, spec 811) the funnels. The Delivery and Pick-up lanes are funnels: their stages top
+//  18. (ticket 813, spec 811) the courier scope: the picker lists All couriers + FarEye, OTO, SMSA,
+//      Starlinks (no DAWA); all couriers sends no `Courier`; choosing FarEye sends `Courier=FREY`, shows
+//      the caption, hides the Pick-up lane, the Pick-up misses row and the table's Pick-up chip (moving
+//      the table off Pick-up to Delivery); a link keeps it beside the store, `track=pickUp` reading as
+//      Delivery; All couriers brings it all back; an unknown code is sent as written and the stub's
+//      `SDD-02132` refusal is shown in the server's words.
+//
+//  19. (ticket 814, spec 811) the funnels. The Delivery and Pick-up lanes are funnels: their stages top
 //      to bottom, each figure isolated, each with a `core/charts` stage bar as long as its share of the
 //      lane's Came in (none for an absent figure); the Delivery funnel's slot split bar of In slot |
 //      Out of slot | No slot, its segments the stub's counts and its key the stub's counts and shares;
@@ -203,7 +212,7 @@ const rankedStores = () => [
 
 const browser = await chromium.launch()
 
-async function open(dir, { grant = true, answer = () => statistics(), clock = false } = {}) {
+async function open(dir, { grant = true, answer = () => statistics(), clock = false, holdAfterFirst = 0 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
   if (clock) await page.clock.install()
@@ -226,6 +235,8 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/StoreStatistics') {
       statQueries.push(url.searchParams)
+      // 815: every answer after the first is held back (a Node timer, not the page's fake clock), so a refetch is seen in flight.
+      if (holdAfterFirst && statQueries.length > 1) await new Promise((r) => setTimeout(r, holdAfterFirst))
       const a = answer(url.searchParams)
       if (a === 'tooLong')
         return route.fulfill(
@@ -234,6 +245,16 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
             success: false,
             message: 'The statistics range cannot be longer than 31 days.',
             errors: [{ errorCode: 'SDD-02131', internalErrorCode: '', errorMessage: 'The statistics range cannot be longer than 31 days.' }],
+          }),
+        )
+      // 813: an unknown courier is the existing invalid-query refusal.
+      if (a === 'badCourier')
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message: 'The statistics query is not valid: unknown courier.',
+            errors: [{ errorCode: 'SDD-02132', internalErrorCode: '', errorMessage: 'The statistics query is not valid: unknown courier.' }],
           }),
         )
       return route.fulfill(envelope(a))
@@ -1337,6 +1358,96 @@ async function driveTrackSwitch(dir) {
   await context.close()
 }
 
+// ── 18 (813): the courier scope ───────────────────────────────────────────────────────────────
+async function driveCourier(dir) {
+  const label = `${dir} courier`
+  const { context, page, errors, statQueries } = await open(dir, {
+    // The stub's server: an unknown courier is refused; any other answers the main fixture.
+    answer: (q) => (q.get('Courier') === 'NOPE' ? 'badCourier' : statistics({ stores: trackStores() })),
+  })
+  const asked = async (pred, ms = 10000) => {
+    const end = Date.now() + ms
+    while (Date.now() < end) {
+      if (statQueries.length && pred(params(statQueries.at(-1)))) return true
+      await page.waitForTimeout(100)
+    }
+    return false
+  }
+  const search = () => new URL(page.url()).searchParams
+  const picker = page.locator('[data-statistics-courier]')
+  const caption = page.locator('[data-statistics-courier-caption]')
+  const chips = () => page.locator('[data-statistics-track]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-track')))
+  const pickUpDrawn = async () => ({
+    lane: await page.locator('[data-statistics-band="pickUp"]').count(),
+    misses: await page.locator('[data-statistics-misses-row="pickUp"]').count(),
+    chip: await page.locator('[data-statistics-track="pickUp"]').count(),
+  })
+
+  // All couriers: the default, no Courier on the wire, the page exactly as before.
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await waitFigures(page)
+  const offered = await picker.locator('option').evaluateAll((els) => els.map((e) => [e.value, e.textContent]))
+  check(
+    `${label}: the picker opens on All couriers, then the four live couriers (no DAWA)`,
+    (await picker.inputValue()) === '' &&
+      same(offered, [['', 'All couriers'], ['FREY', 'FarEye'], ['OTOX', 'OTO'], ['SMSA', 'SMSA'], ['SLNK', 'Starlinks']]),
+    JSON.stringify(offered),
+  )
+  check(`${label}: all couriers sends no Courier`, statQueries.length > 0 && !statQueries.at(-1).has('Courier'), JSON.stringify(params(statQueries.at(-1))))
+  check(`${label}: with all couriers there is no caption and every Pick-up band shows`, (await caption.count()) === 0 && same(await pickUpDrawn(), { lane: 1, misses: 1, chip: 1 }))
+
+  // FarEye on the Pick-up view: Courier=FREY, the caption, the Pick-up band, row and chip gone, the table on Delivery.
+  await page.locator('[data-statistics-track="pickUp"]').click()
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('track') === 'pickUp')
+  await picker.selectOption('FREY')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('courier') === 'FREY')
+  check(`${label}: choosing FarEye sends Courier=FREY`, await asked((q) => q?.Courier === 'FREY'), JSON.stringify(params(statQueries.at(-1))))
+  await caption.waitFor({ timeout: 10000 })
+  await page.locator('[data-statistics-stores="delivery"] .ag-row').first().waitFor({ timeout: 20000 })
+  check(
+    `${label}: the caption says the figures are FarEye's home deliveries only, the name isolated`,
+    /FarEye's home deliveries only/.test(await caption.innerText()) && (await caption.locator('bdi', { hasText: 'FarEye' }).count()) === 1,
+    await caption.innerText(),
+  )
+  check(`${label}: the Pick-up funnel, misses row and table chip are gone`, same(await pickUpDrawn(), { lane: 0, misses: 0, chip: 0 }), JSON.stringify(await pickUpDrawn()))
+  check(`${label}: the Delivery lane and misses row stay`, (await page.locator('[data-statistics-band="delivery"]').count()) === 1 && (await page.locator('[data-statistics-misses-row="delivery"]').count()) === 1)
+  check(`${label}: the table offers All and Delivery, and moved off Pick-up to Delivery`, same(await chips(), ['all', 'delivery']) && search().get('track') === 'delivery', `${await chips()} ${page.url()}`)
+  await page.screenshot({ path: `${SHOTS}/${dir}-courier.png`, fullPage: true })
+
+  // A reload keeps it, combined with a store; a link naming track=pickUp reads as Delivery.
+  await page.goto(`${BASE}/oms/delivery-statistics?store=P019&courier=FREY&track=pickUp`)
+  await waitFigures(page)
+  await caption.waitFor({ timeout: 10000 })
+  check(
+    `${label}: a link keeps the courier beside the store, and track=pickUp reads as Delivery`,
+    (await picker.inputValue()) === 'FREY' &&
+      (await asked((q) => q?.Courier === 'FREY' && q?.StoreCode === 'P019')) &&
+      (await page.locator('[data-statistics-track="delivery"][aria-pressed="true"]').count()) === 1 &&
+      (await pickUpDrawn()).lane === 0,
+    page.url(),
+  )
+
+  // Back to all couriers: the param drops off, the page is as before.
+  await picker.selectOption('')
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has('courier'))
+  await page.locator('[data-statistics-band="pickUp"]').waitFor({ timeout: 10000 })
+  check(`${label}: All couriers drops Courier and brings every Pick-up band back`, (await asked((q) => q && !('Courier' in q))) && (await caption.count()) === 0 && same(await pickUpDrawn(), { lane: 1, misses: 1, chip: 1 }))
+
+  // An unknown code from a link is sent as written, kept in the picker, and the server's refusal is shown.
+  await page.goto(`${BASE}/oms/delivery-statistics?courier=NOPE`)
+  const refusal = page.locator('[role="alert"]', { hasText: 'The statistics query is not valid: unknown courier.' })
+  await refusal.waitFor({ timeout: 20000 })
+  check(
+    `${label}: an unknown courier is sent as written and its SDD-02132 refusal is shown in the server's words`,
+    params(statQueries.at(-1))?.Courier === 'NOPE' && (await refusal.count()) === 1 && (await page.locator('[data-statistics-band]').count()) === 0,
+    JSON.stringify(params(statQueries.at(-1))),
+  )
+  check(`${label}: the unknown code stays in the picker so it can be undone`, (await picker.inputValue()) === 'NOPE')
+  await page.screenshot({ path: `${SHOTS}/${dir}-courier-sdd02132.png`, fullPage: true })
+  check(`${label}: no page errors (courier)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 13 (486): the chart ───────────────────────────────────────────────────────────────────────
 /** Every bucket from the asked From to To, by the asked granularity — as the door sends them, zeros included. */
 const seriesFor = (q) => {
@@ -1358,122 +1469,134 @@ const seriesFor = (q) => {
   return out
 }
 
-/** Each column's and each label's centre x, in bucket order, and the axes' text. */
+/** The chart as drawn: each series' bars' centre x in bucket order, the legend, the category ticks and the frame. */
 const chartGeometry = (page) =>
   page.evaluate(() => {
+    const band = document.querySelector('[data-statistics-band="chart"]')
     const centre = (el) => {
       const r = el.getBoundingClientRect()
       return r.left + r.width / 2
     }
+    const box = band?.querySelector('[data-chart]')
+    const layers = [...(band?.querySelectorAll('.recharts-bar') ?? [])]
     return {
-      columns: [...document.querySelectorAll('[data-chart-column]')].map((g) => centre(g.querySelector('rect'))),
-      labels: [...document.querySelectorAll('[data-chart-label]')].map(centre),
-      texts: [...document.querySelectorAll('[data-chart-label]')].map((e) => e.textContent.trim()),
-      isolatedLabels: [...document.querySelectorAll('[data-chart-label]')]
-        .filter((e) => e.textContent.trim())
-        .every((e) => e.querySelector('bdi[dir="ltr"]')),
-      axis: [...document.querySelectorAll('[data-chart-axis] bdi[dir="ltr"]')].map((e) => e.textContent),
+      form: box?.getAttribute('data-chart') ?? null,
+      stacking: box?.getAttribute('data-chart-stacking') ?? null,
+      seriesCount: box?.getAttribute('data-chart-series') ?? null,
+      ariaLabel: box?.getAttribute('aria-label') ?? null,
+      bars: layers.map((l) => [...l.querySelectorAll('.recharts-bar-rectangle')].map((r) => centre(r.querySelector('path') ?? r))),
+      legend: [...(band?.querySelectorAll('.recharts-legend-item-text') ?? [])].map((e) => e.textContent.trim()),
+      ticks: [...(band?.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value') ?? [])].map((e) => ({
+        text: e.textContent.trim(),
+        x: centre(e),
+      })),
+      frame: band?.querySelector('[data-chart-frame]')?.getAttribute('data-chart-frame') ?? null,
     }
   })
 
+/** Points at the bucket whose category tick reads `want` (above it, in the plot) and returns the tooltip's text once it names `want`. */
+const tooltipAt = async (page, want) => {
+  const tick = page.locator('[data-statistics-band="chart"] .recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value', { hasText: want }).first()
+  const tip = page.locator('[data-statistics-band="chart"] .recharts-tooltip-wrapper')
+  await page.locator('[data-statistics-band="chart"]').scrollIntoViewIfNeeded()
+  const end = Date.now() + 5000
+  while (Date.now() < end) {
+    const box = await tick.boundingBox()
+    if (box) await page.mouse.move(box.x + box.width / 2, box.y - 60)
+    const text = (await tip.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+    if (text.includes(want)) return text
+    await page.waitForTimeout(150)
+  }
+  return (await tip.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+}
+
 async function driveChart(dir) {
   const label = dir
-  const { context, page, errors } = await open(dir, { answer: (q) => statistics({ series: seriesFor(q) }) })
-  await page.goto(`${BASE}/oms/delivery-statistics`)
-  await page.locator('[data-statistics-band="chart"] [data-chart-column]').first().waitFor({ timeout: 20000 })
+  const forward = (xs) => xs.length > 1 && xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
+  {
+    const { context, page, errors } = await open(dir, { answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
 
-  // Today, by the hour.
-  const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
-  check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['storeWide', 'delivery', 'pickUp', 'misses', 'chart', 'stores']), bands.join(','))
-  const today = await chartGeometry(page)
-  check(
-    `${label}: Today draws 24 hourly buckets`,
-    today.columns.length === 24 && (await page.locator('[data-chart-granularity="hour"]').count()) === 1,
-    String(today.columns.length),
-  )
-  check(
-    `${label}: every third hour is labelled "HH", isolated`,
-    same(today.texts.filter(Boolean), ['00', '03', '06', '09', '12', '15', '18', '21']) && today.isolatedLabels,
-    today.texts.join('|'),
-  )
-  check(`${label}: one axis, its top the round step over the larger series (22 → 30)`, same(today.axis, ['30', '20', '10', '0']), today.axis.join(','))
-  const forward = (xs) => xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
-  check(
-    `${label}: time runs in reading order (${dir === 'rtl' ? 'right to left' : 'left to right'})`,
-    forward(today.columns),
-    today.columns.map(Math.round).join(','),
-  )
-  check(
-    `${label}: each label sits under its own column`,
-    today.labels.length === 24 && today.labels.every((x, i) => Math.abs(x - today.columns[i]) < 3),
-    today.labels.map((x, i) => Math.round(x - today.columns[i])).join(','),
-  )
-  const bars = await page
-    .locator('[data-chart-column="9"] [data-chart-bar]')
-    .evaluateAll((els) => els.map((e) => [e.getAttribute('data-chart-bar'), e.getBoundingClientRect().left]))
-  check(
-    `${label}: Came in and Handed over side by side, Came in first in reading order`,
-    bars.length === 2 && bars[0][0] === 'cameIn' && (dir === 'rtl' ? bars[0][1] > bars[1][1] : bars[0][1] < bars[1][1]),
-    JSON.stringify(bars),
-  )
-  const empty = await page.locator('[data-chart-column="0"] [data-chart-bar]').count()
-  check(`${label}: a bucket of zeros draws no column`, empty === 0, String(empty))
+    // Today, by the hour.
+    const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
+    check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['storeWide', 'delivery', 'pickUp', 'misses', 'chart', 'stores']), bands.join(','))
+    const today = await chartGeometry(page)
+    check(
+      `${label}: core/charts draws it — bar form, grouped, two series, in an idle ChartFrame`,
+      today.form === 'bar' && today.stacking === 'grouped' && today.seriesCount === '2' && today.frame === 'idle' && /by the hour/.test(today.ariaLabel ?? ''),
+      JSON.stringify({ form: today.form, stacking: today.stacking, series: today.seriesCount, frame: today.frame, aria: today.ariaLabel }),
+    )
+    check(`${label}: the legend names Came in then Handed over`, same(today.legend, ['Came in', 'Handed over']), today.legend.join(','))
+    check(
+      `${label}: Today draws 24 hourly buckets, a bar for every non-zero value (22 + 22 in the stub; a 0 draws none)`,
+      today.ticks.length === 24 && today.bars.length === 2 && same(today.bars.map((s) => s.length), [22, 22]) && (await page.locator('[data-chart-granularity="hour"]').count()) === 1,
+      `${today.ticks.length} ticks, bars ${today.bars.map((s) => s.length).join(',')}`,
+    )
+    check(`${label}: hours are labelled "HH:00", starting at 00:00`, today.ticks.length > 0 && today.ticks[0].text === '00:00' && today.ticks.every((t) => /^\d\d:00$/.test(t.text)), today.ticks.map((t) => t.text).join('|'))
+    check(`${label}: time runs in reading order (${dir === 'rtl' ? 'right to left' : 'left to right'})`, forward(today.ticks.map((t) => t.x)) && forward(today.bars[0]), today.ticks.map((t) => Math.round(t.x)).join(','))
+    const tick9 = today.ticks.find((t) => t.text === '09:00')
+    const near = (xs) => (tick9 ? Math.min(...xs.map((x) => Math.abs(x - tick9.x))) : Infinity)
+    check(`${label}: the 09:00 label sits under its two bars`, near(today.bars[0]) < 20 && near(today.bars[1]) < 20, `${Math.round(near(today.bars[0]))},${Math.round(near(today.bars[1]))}`)
 
-  // The readout on hover.
-  const readout = page.locator('[data-chart-readout]')
-  check(
-    `${label}: before any hover the readout says how to read the chart`,
-    (await readout.getAttribute('data-chart-readout')) === '' && /Point at a column/.test(await readout.innerText()),
-  )
-  await page.locator('[data-chart-column="9"] rect').first().hover()
-  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
-  check(
-    `${label}: hovering 09:00 reads its two values, each isolated`,
-    (await readout.innerText()) === '09:00 · Came in 12 · Handed over 7' &&
-      same(await readout.locator('bdi[dir="ltr"]').allTextContents(), ['09:00', '12', '7']),
-    await readout.innerText(),
-  )
-  await page.locator('[data-chart-column="0"] rect').first().hover()
-  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
-  check(`${label}: a real 0 reads 0`, (await readout.innerText()) === '00:00 · Came in 0 · Handed over 0', await readout.innerText())
-  await page.locator('[data-chart-column="9"] rect').first().hover()
-  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
-  await page.screenshot({ path: `${SHOTS}/${dir}-chart-today.png`, fullPage: true })
-  await page.mouse.move(5, 5)
-  await page.locator('[data-chart-readout=""]').waitFor({ timeout: 5000 })
-  check(`${label}: leaving the chart clears the readout`, true)
+    // The tooltip on hover.
+    const tip9 = await tooltipAt(page, '09:00')
+    check(`${label}: hovering 09:00 shows a tooltip with both values`, /09:00/.test(tip9) && /Came in\s*:?\s*12/.test(tip9) && /Handed over\s*:?\s*7/.test(tip9), tip9)
+    await page.screenshot({ path: `${SHOTS}/${dir}-chart-today.png`, fullPage: true })
+    const tip0 = await tooltipAt(page, '00:00')
+    check(`${label}: a real 0 reads 0 in the tooltip`, /Came in\s*:?\s*0\b/.test(tip0) && /Handed over\s*:?\s*0\b/.test(tip0), tip0)
 
-  // The keyboard: focus the plot, step forward with the arrow that points along the reading direction.
-  await page.locator('[data-chart-plot]').focus()
-  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
-  await page.keyboard.press(dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight')
-  await page.locator('[data-chart-readout="1"]').waitFor({ timeout: 5000 })
-  await page.keyboard.press('End')
-  await page.locator('[data-chart-readout="23"]').waitFor({ timeout: 5000 })
-  check(`${label}: the arrow keys step through the buckets in reading order`, (await readout.innerText()).startsWith('23:00 · '), await readout.innerText())
+    // A 31-day range, by the day.
+    await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=custom&from=${daysAgo(30)}&to=${TODAY}`)
+    await page.locator('[data-chart-granularity="day"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const range = await chartGeometry(page)
+    check(`${label}: a 31-day range draws 31 daily buckets (Came in 31 bars; Handed over 23, its every-fourth 0 drawing none)`, range.bars.length === 2 && range.bars[0].length === 31 && range.bars[1].length === 23, range.bars.map((s) => s.length).join(','))
+    check(`${label}: days are labelled by the whole date, the first the range's first day`, range.ticks[0]?.text === daysAgo(30) && range.ticks.every((t) => /^\d{4}-\d\d-\d\d$/.test(t.text)), range.ticks.map((t) => t.text).join('|'))
+    check(`${label}: the range runs in reading order too`, forward(range.bars[0]), range.bars[0].map(Math.round).join(','))
+    const tipLast = await tooltipAt(page, TODAY)
+    check(`${label}: hovering the last day shows its date and values`, tipLast.includes(TODAY) && /Came in\s*:?\s*70/.test(tipLast) && /Handed over\s*:?\s*60/.test(tipLast), tipLast)
+    await page.screenshot({ path: `${SHOTS}/${dir}-chart-range31.png`, fullPage: true })
+    check(`${label}: no page errors (chart)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 
-  // A 31-day range, by the day.
-  await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=custom&from=${daysAgo(30)}&to=${TODAY}`)
-  await page.locator('[data-chart-granularity="day"] [data-chart-column]').first().waitFor({ timeout: 20000 })
-  const range = await chartGeometry(page)
-  const dayOf = (n) => String(Number(daysAgo(n).slice(8)))
-  check(`${label}: a 31-day range draws 31 daily buckets`, range.columns.length === 31, String(range.columns.length))
-  check(
-    `${label}: days are labelled by day of the month, every fifth`,
-    same(range.texts.filter(Boolean), [30, 25, 20, 15, 10, 5, 0].map(dayOf)) && range.isolatedLabels,
-    range.texts.join('|'),
-  )
-  check(`${label}: the range runs in reading order too`, forward(range.columns), range.columns.map(Math.round).join(','))
-  await page.locator('[data-chart-column="30"] rect').first().hover()
-  await page.locator('[data-chart-readout="30"]').waitFor({ timeout: 5000 })
-  check(
-    `${label}: hovering the last day reads its date and values`,
-    (await readout.innerText()) === `${TODAY} · Came in 70 · Handed over 60`,
-    await readout.innerText(),
-  )
-  await page.screenshot({ path: `${SHOTS}/${dir}-chart-range31.png`, fullPage: true })
-  check(`${label}: no page errors (chart)`, errors.length === 0, errors.join(' | '))
-  await context.close()
+  // 815: the 5-minute Today refresh dims the chart rather than blanking it; Yesterday never goes busy.
+  {
+    const { context, page, errors, statQueries } = await open(dir, { clock: true, holdAfterFirst: 3000, answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const first = statQueries.length
+    await page.clock.runFor(5 * 60_000 + 1_000)
+    const frame = page.locator('[data-statistics-band="chart"] [data-chart-frame]')
+    const busy = await page
+      .locator('[data-statistics-band="chart"] [data-chart-frame="busy"]')
+      .waitFor({ timeout: 2500 })
+      .then(() => true, () => false)
+    const during = await chartGeometry(page)
+    const updating = await page.locator('[data-statistics-band="chart"] [data-chart-updating]').isVisible().catch(() => false)
+    check(
+      `${label}: during the Today refresh the frame reads busy, "Updating" shows, and the chart stays on screen`,
+      busy && statQueries.length === first + 1 && (await frame.getAttribute('aria-busy')) === 'true' && updating && same(during.bars.map((s) => s.length), [22, 22]),
+      JSON.stringify({ busy, calls: `${first} → ${statQueries.length}`, updating, bars: during.bars.map((s) => s.length) }),
+    )
+    await page.locator('[data-statistics-band="misses"]').scrollIntoViewIfNeeded()
+    await page.locator('[data-statistics-band="chart"]').screenshot({ path: `${SHOTS}/${dir}-chart-refreshing.png` })
+    await page.locator('[data-statistics-band="chart"] [data-chart-frame="idle"]').waitFor({ timeout: 10000 })
+    check(`${label}: once the answer lands the frame settles idle with the chart drawn`, same((await chartGeometry(page)).bars.map((s) => s.length), [22, 22]))
+
+    await page.goto(`${BASE}/oms/delivery-statistics?period=yesterday`)
+    await page.locator('[data-statistics-band="chart"] [data-chart-frame="idle"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const afterYesterday = statQueries.length
+    await page.clock.runFor(11 * 60_000)
+    await page.waitForTimeout(500)
+    check(
+      `${label}: Yesterday does not poll, so its chart never goes busy`,
+      statQueries.length === afterYesterday && (await frame.getAttribute('data-chart-frame')) === 'idle',
+      `${afterYesterday} → ${statQueries.length}`,
+    )
+    check(`${label}: no page errors (chart refresh)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 }
 
 await drive('ltr')
@@ -1484,6 +1607,8 @@ await driveTrackSwitch('ltr')
 await driveTrackSwitch('rtl')
 await driveChart('ltr')
 await driveChart('rtl')
+await driveCourier('ltr')
+await driveCourier('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SlotQueueEntry } from '@/core/models/release-queue'
+import type { SlotAuditRow, SlotQueueEntry } from '@/core/models/release-queue'
 import {
   convergenceShares,
   formatSeconds,
@@ -9,6 +9,11 @@ import {
   queuePositionLabel,
   releaseQueueFromParams,
   releaseQueueToParams,
+  lastPoolChange,
+  poolChangeKind,
+  poolReading,
+  poolSizeDraft,
+  showsControls,
   storesInGrantOrder,
 } from './helpers'
 
@@ -175,5 +180,85 @@ describe('storesInGrantOrder', () => {
   it('follows the positions, not the order the rows came in', () => {
     const stores = storesInGrantOrder([entry(2, 'R101', 'T1'), entry(1, 'R200', 'T1')])
     expect(stores.map((s) => s.storeCode)).toEqual(['R200', 'R101'])
+  })
+})
+
+describe('controlsHiddenWithoutManage (ticket 792)', () => {
+  it('shows the controls only to a PosRelease.Queue.Manage holder', () => {
+    expect(showsControls({ canView: true, canManage: true })).toBe(true)
+  })
+
+  it('hides them from a View-only holder, and on a missing or malformed probe answer', () => {
+    expect(showsControls({ canView: true, canManage: false })).toBe(false)
+    expect(showsControls(undefined)).toBe(false)
+    expect(showsControls(null)).toBe(false)
+    expect(showsControls({ canView: true, canManage: 'true' } as never)).toBe(false)
+  })
+})
+
+describe('poolZeroReadsAsPaused (ticket 792)', () => {
+  it('a pool of 0 reads as Paused, not as a size', () => {
+    expect(poolReading(0)).toEqual({ paused: true })
+  })
+
+  it('any other size reads as that size', () => {
+    expect(poolReading(1)).toEqual({ paused: false, size: 1 })
+    expect(poolReading(40)).toEqual({ paused: false, size: 40 })
+  })
+})
+
+describe('poolSizeDraft (ticket 792)', () => {
+  it('reads a whole number from 0 (pause) to 500, white space trimmed', () => {
+    expect(poolSizeDraft('0')).toBe(0)
+    expect(poolSizeDraft(' 25 ')).toBe(25)
+    expect(poolSizeDraft('500')).toBe(500)
+  })
+
+  it('anything else is not a size the door takes', () => {
+    for (const bad of ['', ' ', '501', '-1', '2.5', '1e2', 'ten', '0x10']) expect([bad, poolSizeDraft(bad)]).toEqual([bad, null])
+  })
+})
+
+describe('poolChangeKind (ticket 792)', () => {
+  it('names what a new size does to the pool, so the confirm can say it', () => {
+    expect(poolChangeKind(40, 0)).toBe('pause')
+    expect(poolChangeKind(0, 10)).toBe('resume')
+    expect(poolChangeKind(40, 60)).toBe('resize')
+    expect(poolChangeKind(40, 40)).toBe('same')
+    expect(poolChangeKind(0, 0)).toBe('same')
+  })
+})
+
+describe('lastPoolChange (ticket 792)', () => {
+  const row = (auditId: string, action: string, changedAt: string, extra: Partial<SlotAuditRow> = {}): SlotAuditRow => ({
+    auditId,
+    action,
+    changedBy: 'm.sartawi',
+    changedAt,
+    oldPoolSize: 0,
+    newPoolSize: 0,
+    leaseId: '',
+    storeCode: '',
+    machineCode: '',
+    ...extra,
+  })
+
+  it('is the newest resize in the audit (HQ answers newest first), skipping the frees above it', () => {
+    const rows = [
+      row('3', 'free-lease', '2026-11-06T10:00:00', { leaseId: 'L1', storeCode: 'R101', machineCode: 'R101-T1' }),
+      row('2', 'pool-size', '2026-11-06T09:30:00', { changedBy: 'a.owner', oldPoolSize: 40, newPoolSize: 0 }),
+      row('1', 'pool-size', '2026-11-05T08:00:00', { oldPoolSize: 20, newPoolSize: 40 }),
+    ]
+    expect(lastPoolChange(rows)).toEqual({ by: 'a.owner', at: '2026-11-06T09:30:00', from: 40, to: 0 })
+  })
+
+  it('is null when the audit holds no resize', () => {
+    expect(lastPoolChange([])).toBeNull()
+    expect(lastPoolChange([row('1', 'free-lease', '2026-11-06T10:00:00')])).toBeNull()
+  })
+
+  it('is null on a missing or malformed rows list, so a side read never breaks the pool strip', () => {
+    expect(lastPoolChange(undefined)).toBeNull()
+    expect(lastPoolChange({} as never)).toBeNull()
   })
 })

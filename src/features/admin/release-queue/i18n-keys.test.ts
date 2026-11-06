@@ -39,6 +39,10 @@ describe('release-queue — the keys the code builds exist', () => {
       'package.pos',
       'package.dashboard',
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((k) => `access.${k}`),
+      // Ticket 792: the keys the Manage controls build from a change kind and a refusal code.
+      ...['pause', 'resume', 'resize'].flatMap((k) => [`manage.pool.apply.${k}`, `manage.pool.confirm.${k}Title`, `manage.pool.confirm.${k}Note`, `manage.pool.done.${k}`]),
+      'manage.pool.done.same',
+      ...['outOfRange', 'noUser', 'busy'].map((k) => `manage.refusal.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

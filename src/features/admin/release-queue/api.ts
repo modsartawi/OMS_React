@@ -3,17 +3,21 @@
  *
  * Doors under `PosReleaseQueue/` (`Services/SIS.Api/Endpoints/Pos/DownloadSlotAdminEndpoints.cs`): `Access` is cookie
  * only and answers `{ canView, canManage }`; every read door needs a cookie session plus `PosRelease.Queue.View`
- * (`BackOfficeScreen[PosReleaseQueue, 03]`) and is a bare 403 without it. Read-only here — the Manage doors
- * (`PUT Pool`, `POST Slots/{leaseId}/Free`) and `Audit` are ticket 792's.
+ * (`BackOfficeScreen[PosReleaseQueue, 03]`) and is a bare 403 without it. Ticket 792 adds `Audit`
+ * (View) and the Manage doors (`PUT Pool`, `POST Slots/{leaseId}/Free`, `PosRelease.Queue.Manage`).
  */
-import { keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, type QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
 import type {
   LiveSlot,
   ReleaseQueueAccess,
+  SlotAuditPage,
   SlotConvergence,
+  SlotFreeAnswer,
   SlotHistoryPage,
   SlotPool,
+  SlotPoolSizeAnswer,
+  SlotPoolSizeRequest,
   SlotQueue,
 } from '@/core/models/release-queue'
 import { HISTORY_PAGE_SIZE, historyParams, type HistoryFilter } from './helpers'
@@ -72,6 +76,37 @@ export const releaseQueueApi = {
   convergence(): Promise<SlotConvergence[]> {
     return api.get<SlotConvergence[]>(`${BASE}/Convergence`)
   },
+
+  /** `GET PosReleaseQueue/Audit?skip=&take=` (View) — the hand changes, newest first. The page reads one page. */
+  audit(): Promise<SlotAuditPage> {
+    return api.get<SlotAuditPage>(`${BASE}/Audit`, { skip: 0, take: AUDIT_PAGE_SIZE })
+  },
+
+  /**
+   * `PUT PosReleaseQueue/Pool { poolSize }` (Manage, ticket 3402) — 0 pauses. Refusals are 400 envelopes:
+   * `POSREL-SLOT-001` out of 0..500, `POSREL-SLOT-002` no signed-in user, `POSREL-SLOT-003` the pool is busy deciding a
+   * grant (try again). The actor is the session's; nothing about who is sent.
+   */
+  setPoolSize(poolSize: number): Promise<SlotPoolSizeAnswer> {
+    const body: SlotPoolSizeRequest = { poolSize }
+    return api.put<SlotPoolSizeAnswer>(`${BASE}/Pool`, body)
+  },
+
+  /** `POST PosReleaseQueue/Slots/{leaseId}/Free` (Manage) — `{ freed: false }` when the slot had already ended. */
+  freeSlot(leaseId: string): Promise<SlotFreeAnswer> {
+    return api.post<SlotFreeAnswer>(`${BASE}/Slots/${encodeURIComponent(leaseId)}/Free`, {})
+  },
+}
+
+/** Enough of the audit to find the last resize behind a burst of frees. */
+export const AUDIT_PAGE_SIZE = 50
+
+/** Every read a Manage change can move (never the access probe, which shares the prefix). */
+export const MANAGED_READS = ['pool', 'slots', 'queue', 'history', 'convergence', 'audit'] as const
+
+/** After a resize or a free: re-read everything it can have moved, so the page shows HQ's answer, not a guess. */
+export function invalidateManagedReads(qc: QueryClient): void {
+  for (const read of MANAGED_READS) void qc.invalidateQueries({ queryKey: [...RELEASE_QUEUE_KEY, read] })
 }
 
 const live = { refetchInterval: RELEASE_QUEUE_REFRESH_MS } as const
@@ -84,7 +119,8 @@ export const convergenceQuery = () => ({
   queryFn: () => releaseQueueApi.convergence(),
   ...live,
 })
-export const historyQuery = (filter: HistoryFilter) => ({
+export const auditQuery = () => ({ queryKey: [...RELEASE_QUEUE_KEY, 'audit'] as const, queryFn: () => releaseQueueApi.audit(), ...live })
+export const historyQuery =(filter: HistoryFilter) => ({
   queryKey: [...RELEASE_QUEUE_KEY, 'history', filter] as const,
   queryFn: () => releaseQueueApi.history(filter),
   // A new filter or page keeps the last answer on screen until HQ answers.

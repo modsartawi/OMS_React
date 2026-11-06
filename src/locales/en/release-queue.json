@@ -30,7 +30,58 @@
     "inUse": "<v>{{v}}</v> slots in use",
     "paused": "Paused: no till may start a download",
     "default": "Default size, never changed",
-    "changed": "Last changed <v>{{v}}</v>"
+    "changed": "Last changed <v>{{v}}</v>",
+    "changedFromTo": "Last changed <v>{{v}}</v>, from <from>{{from}}</from> to <to>{{to}}</to>",
+    "stillDownloading": "Still downloading: <n>{{n}}</n>"
+  },
+  "manage": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "HQ refused the change",
+    "failedHint": "HQ did not answer. Nothing was changed; try again in a moment.",
+    "refusal": {
+      "outOfRange": "The size must be a whole number from 0 (pause) to 500.",
+      "noUser": "Your session has no signed-in user. Sign in again, then retry.",
+      "busy": "The pool was deciding a grant. Try again in a moment."
+    },
+    "pool": {
+      "label": "Pool size",
+      "hint": "0 pauses every download.",
+      "invalid": "A whole number from 0 (pause) to {{max}}.",
+      "reset": "Undo",
+      "pausedWord": "Paused",
+      "apply": {
+        "pause": "Pause downloads",
+        "resume": "Resume downloads",
+        "resize": "Change size"
+      },
+      "confirm": {
+        "pauseTitle": "Pause every till download?",
+        "resumeTitle": "Resume downloads with {{size}} slots?",
+        "resizeTitle": "Change the pool to {{size}} slots?",
+        "change": "The pool goes from <from>{{from}}</from> to <to>{{to}}</to>.",
+        "pauseNote": "With the pool at 0, no till in any store may start a release download until someone raises it again. Waiting tills keep their place in the queue.",
+        "resumeNote": "Waiting tills are served in the order they first asked.",
+        "resizeNote": "Tills are granted slots up to the new size. A smaller pool takes no slot away; it fills only as slots end.",
+        "active": "Tills already downloading keep their slots: <n>{{n}}</n>."
+      },
+      "done": {
+        "pause": "Downloads paused",
+        "resume": "Downloads resumed with {{size}} slots",
+        "resize": "Pool set to {{size}} slots",
+        "same": "The pool is already {{size}}. Nothing changed."
+      }
+    },
+    "free": {
+      "action": "Free",
+      "title": "Free the slot of till {{till}}?",
+      "slot": "Store · till",
+      "confirm": "Free the slot",
+      "note": "The till cancels its download at its next renewal, and the slot goes to the next waiting till. Use this for a till that is stuck.",
+      "done": "Slot of till {{till}} freed",
+      "notLive": "The slot of till {{till}} had already ended",
+      "notLiveHint": "It finished, failed or expired before the free reached HQ. Nothing was changed."
+    }
   },
   "package": {
     "pos": "POS",

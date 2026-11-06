@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
+import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
@@ -41,8 +42,12 @@ function ProgressCell({ data }: ICellRendererParams<LiveSlot>) {
   )
 }
 
-export function slotColumns(t: TFunction): ColDef<LiveSlot>[] {
-  return [
+/**
+ * The live slots. `onFree` is handed only to a `PosRelease.Queue.Manage` holder (ticket 792): it adds a Free button on
+ * each row, which opens the confirm — nothing is sent from the grid.
+ */
+export function slotColumns(t: TFunction, onFree?: (slot: LiveSlot) => void): ColDef<LiveSlot>[] {
+  const columns: ColDef<LiveSlot>[] = [
     { colId: 'store', headerName: t('columns.store'), field: 'storeCode', width: 110 },
     { colId: 'till', headerName: t('columns.till'), field: 'machineCode', width: 130 },
     { colId: 'package', headerName: t('columns.package'), valueGetter: ({ data }) => (data ? t(`package.${data.package}`, { defaultValue: data.package }) : ''), width: 120 },
@@ -51,6 +56,19 @@ export function slotColumns(t: TFunction): ColDef<LiveSlot>[] {
     { colId: 'renewed', headerName: t('columns.renewed'), valueGetter: ({ data }) => formatDateTime(data?.renewedAt), width: 150 },
     { colId: 'progress', headerName: t('columns.progress'), valueGetter: ({ data }) => data?.progressPercent ?? 0, cellRenderer: ProgressCell, width: 170 },
   ]
+  if (onFree)
+    columns.push({
+      colId: 'free',
+      headerName: '',
+      width: 110,
+      cellRenderer: (p: ICellRendererParams<LiveSlot>) =>
+        p.data ? (
+          <Button variant="danger-outlined" onClick={() => p.data && onFree(p.data)} data-slot-free={p.data.leaseId}>
+            {t('manage.free.action')}
+          </Button>
+        ) : null,
+    })
+  return columns
 }
 
 /** A queued till's wait: `h:mm:ss`, and the flag when it reaches four hours. */

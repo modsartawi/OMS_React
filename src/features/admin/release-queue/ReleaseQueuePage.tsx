@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
-import type { SlotConvergence, SlotQueueEntry } from '@/core/models/release-queue'
+import type { LiveSlot, SlotConvergence, SlotQueueEntry } from '@/core/models/release-queue'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -22,10 +22,10 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { showsPager } from '@/core/ui/pager'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
-import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { useDebounced } from '@/core/util/use-debounced'
 import {
+  auditQuery,
   canViewReleaseQueue,
   convergenceQuery,
   historyQuery,
@@ -42,20 +42,24 @@ import {
   convergenceShares,
   formatSeconds,
   fourHourFlag,
+  lastPoolChange,
+  poolReading,
   releaseQueueFromParams,
   releaseQueueToParams,
+  showsControls,
   storesInGrantOrder,
   type HistoryFilter,
   type ReleaseQueueTab,
 } from './helpers'
+import { FreeSlotDialog, LastChange, PoolEditor } from './ManageControls'
 
 /**
  * Admin ▸ Release download queue (ticket 791, BackOffice spec 3396 / 3401) — `/admin/release-queue`.
  *
  * What the till download pool is doing: the pool's size (0 = paused), the live slots with progress, the queue in grant
  * order (urgent marked, waits of four hours flagged), the finished downloads with their outcome, and how far each
- * release has spread. Read-only — resizing, pausing and freeing a slot are ticket 792's. The live panels re-read every
- * 15 s. Gated on `PosRelease.Queue.View` by the same probe the menu leaf reads.
+ * release has spread. A `PosRelease.Queue.Manage` holder also resizes or pauses the pool and frees a stuck slot, each
+ * behind a confirm (ticket 792, `./ManageControls`). The live panels re-read every 15 s. Gated on `PosRelease.Queue.View` by the same probe the menu leaf reads.
  */
 export default function ReleaseQueuePage() {
   const { t } = useTranslation('release-queue')
@@ -135,28 +139,42 @@ function Refreshing({ on }: { on: boolean }) {
 function PoolStrip() {
   const { t } = useTranslation('release-queue')
   const pool = useQuery(poolQuery())
+  const access = useQuery(releaseQueueAccessQuery())
+  const audit = useQuery(auditQuery())
+  const manage = showsControls(access.data)
   if (pool.isPending) return <p className="text-xs text-muted-foreground">{t('pool.loading')}</p>
   if (pool.isError) return <ReadError error={pool.error} what={t('pool.heading')} />
   const p = pool.data
+  // 0 reads as Paused, never "n / 0" — HQ's `paused` flag says the same of the same row.
+  const paused = poolReading(p.poolSize).paused || p.paused
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm" data-pool={p.poolSize} data-pool-paused={p.paused}>
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm" data-pool={p.poolSize} data-pool-paused={paused}>
       <span className="font-semibold">{t('pool.heading')}</span>
-      <span data-pool-in-use="">
-        <Trans t={t} i18nKey="pool.inUse" values={{ v: formatCount(formatFigure(p.activeSlots), formatFigure(p.poolSize)) }} components={{ v: <Ltr /> }} />
-      </span>
-      {p.paused && (
-        <span data-pool-paused-badge="">
-          <StatusBadge sev="bad">{t('pool.paused')}</StatusBadge>
+      {paused ? (
+        <>
+          <span data-pool-paused-badge="">
+            <StatusBadge sev="bad">{t('pool.paused')}</StatusBadge>
+          </span>
+          {p.activeSlots > 0 && (
+            <span data-pool-in-use="">
+              <Trans t={t} i18nKey="pool.stillDownloading" values={{ n: formatFigure(p.activeSlots) }} components={{ n: <Ltr /> }} />
+            </span>
+          )}
+        </>
+      ) : (
+        <span data-pool-in-use="">
+          <Trans t={t} i18nKey="pool.inUse" values={{ v: formatCount(formatFigure(p.activeSlots), formatFigure(p.poolSize)) }} components={{ v: <Ltr /> }} />
         </span>
       )}
-      <span className="text-xs text-muted-foreground" data-pool-changed="">
-        {p.isDefault ? (
-          t('pool.default')
-        ) : (
-          <Trans t={t} i18nKey="pool.changed" values={{ v: formatPair(formatDateTime(p.updatedAt), p.updatedBy) }} components={{ v: <Ltr /> }} />
-        )}
+      <span className="text-xs text-muted-foreground">
+        <LastChange pool={p} change={lastPoolChange(audit.data?.rows)} />
       </span>
       <Refreshing on={pool.isFetching} />
+      {manage && (
+        <div className="ms-auto">
+          <PoolEditor pool={p} />
+        </div>
+      )}
     </div>
   )
 }
@@ -194,9 +212,13 @@ function PanelHeader({ heading, children }: { heading: string; children?: ReactN
 function SlotsPanel() {
   const { t } = useTranslation('release-queue')
   const slots = useQuery(slotsQuery())
-  const columns = useMemo(() => slotColumns(t), [t])
+  const access = useQuery(releaseQueueAccessQuery())
+  const manage = showsControls(access.data)
+  const [freeing, setFreeing] = useState<LiveSlot | null>(null)
+  const columns = useMemo(() => slotColumns(t, manage ? setFreeing : undefined), [t, manage])
   return (
     <>
+      {freeing && <FreeSlotDialog slot={freeing} onClose={() => setFreeing(null)} />}
       <PanelHeader heading={t('slots.heading')}>
         {slots.data && (
           <span className="text-xs text-muted-foreground" data-slots-count={slots.data.length}>

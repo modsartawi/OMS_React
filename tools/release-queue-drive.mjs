@@ -1,4 +1,5 @@
-// Release download queue drive (ticket 791, BackOffice spec 3396 / 3401) — the read-only page.
+// Release download queue drive (ticket 791, BackOffice spec 3396 / 3401) — the page, read-only for a View holder;
+// `driveManage` (ticket 792, BackOffice 3402) drives the Manage controls and both confirms.
 //
 // Drives the REAL app in Chromium against a STUB of 3401's doors, on its real wire (camelCase,
 // `Sartawi.Retail.Data/Modules/PosRelease/Models/DownloadSlotAdminModels.cs`):
@@ -129,8 +130,127 @@ async function drive(dir) {
   await context.close()
 }
 
+// ----- ticket 792: the Manage controls, against stubbed 3402 doors -----
+//   PUT  PosReleaseQueue/Pool { poolSize }      → { oldPoolSize, newPoolSize, paused, changed }   (Manage)
+//   POST PosReleaseQueue/Slots/{leaseId}/Free   → { freed, state }                                 (Manage)
+//   GET  PosReleaseQueue/Audit?skip=&take=      → { total, skip, take, rows[] }                    (View)
+// A first resize to 7 is refused POSREL-SLOT-003 (pool busy), so the refusal path is seen in the dialog.
+async function driveManage(dir) {
+  const L = `${dir} manage`
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  const puts = []
+  const frees = []
+  let pool = { ...POOL, updatedAt: '2026-11-05T08:00:00', updatedBy: 'stale.stamp' }
+  let audit = [
+    { auditId: '2', action: 'free-lease', changedBy: 'm.sartawi', changedAt: '2026-11-06T09:45:00', oldPoolSize: 0, newPoolSize: 0, leaseId: '01JOLD', storeCode: 'R300', machineCode: 'R300-T1' },
+    { auditId: '1', action: 'pool-size', changedBy: 'a.owner', changedAt: '2026-11-06T09:30:00', oldPoolSize: 20, newPoolSize: 40, leaseId: '', storeCode: '', machineCode: '' },
+  ]
+  let busyOnce = true
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
+  await page.addInitScript((d) => {
+    localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    localStorage.setItem('oms.railExpanded', 'true')
+  }, dir)
+  await page.route('**/api/**', async (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+    const p = url.pathname.split('/api/')[1]
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'a.owner', currentStoreCode: 'P001' }))
+    if (p === 'PosReleaseQueue/Access') return route.fulfill(envelope({ canView: true, canManage: true }))
+    if (p === 'PosReleaseQueue/Pool' && req.method() === 'PUT') {
+      const { poolSize } = JSON.parse(req.postData() || '{}')
+      puts.push(poolSize)
+      if (poolSize === 7 && busyOnce) {
+        busyOnce = false
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ statusCode: 400, success: false, message: 'The download pool is busy deciding a grant. Try again in a moment.', errors: [{ errorCode: 'POSREL-SLOT-003', internalErrorCode: '', errorMessage: 'The download pool is busy deciding a grant. Try again in a moment.' }], data: null }),
+        })
+      }
+      const old = pool.poolSize
+      pool = { ...pool, poolSize, paused: poolSize === 0, isDefault: false, updatedAt: '2026-11-06T10:10:00', updatedBy: 'a.owner' }
+      audit = [{ auditId: String(audit.length + 1), action: 'pool-size', changedBy: 'a.owner', changedAt: '2026-11-06T10:10:00', oldPoolSize: old, newPoolSize: poolSize, leaseId: '', storeCode: '', machineCode: '' }, ...audit]
+      return route.fulfill(envelope({ oldPoolSize: old, newPoolSize: poolSize, paused: poolSize === 0, changed: old !== poolSize }))
+    }
+    const free = p.match(/^PosReleaseQueue\/Slots\/([^/]+)\/Free$/)
+    if (free && req.method() === 'POST') {
+      frees.push(decodeURIComponent(free[1]))
+      return route.fulfill(envelope({ freed: true, state: 'freed-by-hand' }))
+    }
+    if (p === 'PosReleaseQueue/Pool') return route.fulfill(envelope(pool))
+    if (p === 'PosReleaseQueue/Audit') return route.fulfill(envelope({ total: audit.length, skip: 0, take: 50, rows: audit }))
+    if (p === 'PosReleaseQueue/Slots') return route.fulfill(envelope(frees.length ? [] : SLOTS))
+    if (p === 'PosReleaseQueue/Queue') return route.fulfill(envelope(QUEUE))
+    if (p === 'PosReleaseQueue/Convergence') return route.fulfill(envelope(CONVERGENCE))
+    if (p === 'PosReleaseQueue/History') return route.fulfill(envelope({ total: 0, skip: 0, take: 50, rows: [] }))
+    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
+    return route.fulfill(envelope([]))
+  })
+
+  await page.goto(`${BASE}/admin/release-queue`)
+  await page.locator('[data-pool-editor]').waitFor({ timeout: 20000 })
+  check(`${L}: the pool editor shows for a Manage holder`, true)
+  await page.locator('[data-pool-changed-to="40"]').waitFor({ timeout: 10000 })
+  const changed = plain(await page.locator('[data-pool-changed]').innerText())
+  check(`${L}: last changed reads from the Audit (who, when, from 20 to 40)`, changed.includes('a.owner') && changed.includes('20') && changed.includes('40') && !changed.includes('stale.stamp'), changed)
+
+  // Out of range: no Apply.
+  const input = page.locator('[data-pool-size-input]')
+  await input.fill('501')
+  check(`${L}: 501 is refused before any send`, (await page.locator('[data-pool-apply="invalid"]').isDisabled()) && (await input.getAttribute('aria-invalid')) === 'true')
+
+  // Pause: explicit wording, then the strip reads Paused. (i18n boots `lng: 'en'` today, so the RTL run is
+  // direction only and may read either bundle's words.)
+  await input.fill('0')
+  await page.locator('[data-pool-apply="pause"]').click()
+  await page.locator('[data-confirm="pool-pause"]').waitFor()
+  const pauseText = plain(await page.locator('dialog').innerText())
+  check(`${L}: the pause confirm says no till may start a download`, pauseText.includes('لا يمكن لأي نقطة بيع') || /no till in any store may start/.test(pauseText), pauseText)
+  check(`${L}: the pause confirm names the slots in use and Paused`, (await page.locator('[data-confirm-active="1"]').count()) === 1 && (await page.locator('[data-confirm-note="pause"]').count()) === 1)
+  await page.screenshot({ path: `${process.env.DRIVE_SHOTS || '.'}/release-queue-pause-${dir}.png` })
+  await page.locator('[data-confirm-ok]').click()
+  await page.locator('[data-pool="0"][data-pool-paused="true"]').waitFor({ timeout: 10000 })
+  check(`${L}: PUT Pool sent 0`, puts.at(-1) === 0, JSON.stringify(puts))
+  check(`${L}: the strip reads Paused, not 1 / 0`, (await page.locator('[data-pool-paused-badge]').count()) === 1 && !plain(await page.locator('[data-pool]').innerText()).includes('/ 0'))
+  await page.locator('[data-pool-changed-to="0"]').waitFor({ timeout: 10000 })
+  check(`${L}: the audit line re-read after the change`, true)
+
+  // Resume to 7: refused once (busy), the dialog keeps the code; the retry succeeds.
+  await input.fill('7')
+  await page.locator('[data-pool-apply="resume"]').click()
+  await page.locator('[data-confirm="pool-resume"]').waitFor()
+  await page.locator('[data-confirm-ok]').click()
+  await page.locator('[data-confirm-error="POSREL-SLOT-003"]').waitFor({ timeout: 10000 })
+  check(`${L}: a busy refusal stays in the dialog with its code and hint`, (await page.locator('[data-confirm-error-hint]').count()) === 1)
+  await page.locator('[data-confirm-ok]').click()
+  await page.locator('[data-pool="7"]').waitFor({ timeout: 10000 })
+  check(`${L}: the retry resumes the pool at 7`, puts.at(-1) === 7 && (await page.locator('dialog').count()) === 0)
+
+  // Free: the confirm names the till.
+  await page.locator('[data-slot-free="01JLEASE1"]').click()
+  await page.locator('[data-confirm="free"]').waitFor()
+  const title = plain(await page.locator('#modal-title').innerText())
+  check(`${L}: the free confirm names the till`, title.includes('R101-T1') && (await page.locator('[data-confirm-till="R101-T1"]').count()) === 1, title)
+  await page.screenshot({ path: `${process.env.DRIVE_SHOTS || '.'}/release-queue-free-${dir}.png` })
+  await page.locator('[data-confirm-cancel]').click()
+  check(`${L}: Cancel sends nothing`, frees.length === 0 && (await page.locator('dialog').count()) === 0)
+  await page.locator('[data-slot-free="01JLEASE1"]').click()
+  await page.locator('[data-confirm-ok]').click()
+  await page.locator('[data-grid="slots"] [data-slot-free]').waitFor({ state: 'detached', timeout: 10000 })
+  check(`${L}: POST Free sent the lease and the slots re-read`, JSON.stringify(frees) === '["01JLEASE1"]')
+  if (dir === 'rtl') check(`${L}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  check(`${L}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await drive('ltr')
 await drive('rtl')
+await driveManage('ltr')
+await driveManage('rtl')
 await browser.close()
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

@@ -111,3 +111,52 @@ export interface SlotConvergence {
   downloading: number
   waiting: number
 }
+
+// ----- Manage (BackOffice ticket 3402; oms-react ticket 792) — `DownloadSlotManageModels.cs` -----
+
+/** `PUT PosReleaseQueue/Pool` body. 0 pauses every download; 0..500, else a 400 `POSREL-SLOT-001`. */
+export interface SlotPoolSizeRequest {
+  poolSize: number
+}
+
+/** What a resize did. `changed` is false when the pool already had that size (nothing audited). */
+export interface SlotPoolSizeAnswer {
+  oldPoolSize: number
+  newPoolSize: number
+  paused: boolean
+  changed: boolean
+}
+
+/** `POST PosReleaseQueue/Slots/{leaseId}/Free`. `freed: false` when it was not a live slot (ended, expired, unknown). */
+export interface SlotFreeAnswer {
+  freed: boolean
+  /** The lease's state after the call; '' when no such lease exists in the pool. */
+  state: string
+}
+
+/** What was done by hand: `pool-size` (a resize, 0 = pause) or `free-lease`. */
+export type SlotAuditAction = 'pool-size' | 'free-lease'
+
+/** `GET PosReleaseQueue/Audit?skip=&take=` — the hand changes, most recent first (take 1–200, default 50). */
+export interface SlotAuditPage {
+  total: number
+  skip: number
+  take: number
+  rows: SlotAuditRow[]
+}
+
+export interface SlotAuditRow {
+  auditId: string
+  action: SlotAuditAction | string
+  /** The Ua user of the session that did it. */
+  changedBy: string
+  /** HQ local wall-clock, no `Z`. */
+  changedAt: string
+  /** For `pool-size`: the size before and after. 0/0 for `free-lease`. */
+  oldPoolSize: number
+  newPoolSize: number
+  /** For `free-lease`: which lease, and whose. '' for `pool-size`. */
+  leaseId: string
+  storeCode: string
+  machineCode: string
+}

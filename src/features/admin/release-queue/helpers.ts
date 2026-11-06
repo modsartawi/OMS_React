@@ -1,4 +1,4 @@
-import type { SlotConvergence, SlotOutcomeFilter, SlotQueueEntry } from '@/core/models/release-queue'
+import type { ReleaseQueueAccess, SlotAuditRow, SlotConvergence, SlotOutcomeFilter, SlotQueueEntry } from '@/core/models/release-queue'
 import { skipForPage } from '@/core/ui/pager'
 import { formatCount } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -153,4 +153,55 @@ export function storesInGrantOrder(entries: readonly SlotQueueEntry[]): QueuedSt
     stores.set(e.storeCode, store)
   }
   return [...stores.values()]
+}
+
+/**
+ * Whether the page draws its Manage controls (ticket 792): only for `PosRelease.Queue.Manage`, read off the same
+ * `Access` probe the gate reads. `=== true`: a missing or malformed answer hides them (each door re-checks anyway).
+ */
+export function showsControls(access: ReleaseQueueAccess | null | undefined): boolean {
+  return access?.canManage === true
+}
+
+/** How a pool size reads on the page: 0 is **Paused** (no till may start a download), never "0 slots". */
+export type PoolReading = { paused: true } | { paused: false; size: number }
+
+export function poolReading(size: number): PoolReading {
+  return size === 0 ? { paused: true } : { paused: false, size }
+}
+
+/** The largest pool `PUT PosReleaseQueue/Pool` takes (`DownloadSlotAdminService.MaxPoolSize`); 0 pauses. */
+export const MAX_POOL_SIZE = 500
+
+/** The pool-size box's text as a size the door takes (a whole number 0..500), or null. */
+export function poolSizeDraft(text: string): number | null {
+  const s = text.trim()
+  if (!/^\d{1,3}$/.test(s)) return null
+  const n = Number(s)
+  return n <= MAX_POOL_SIZE ? n : null
+}
+
+/** What a new size does to the pool: the confirm words a pause and a resume apart from a plain resize. */
+export type PoolChangeKind = 'pause' | 'resume' | 'resize' | 'same'
+
+export function poolChangeKind(from: number, to: number): PoolChangeKind {
+  if (from === to) return 'same'
+  if (to === 0) return 'pause'
+  if (from === 0) return 'resume'
+  return 'resize'
+}
+
+/** Who last changed the pool, when, and from what to what. */
+export interface PoolChange {
+  by: string
+  at: string
+  from: number
+  to: number
+}
+
+/** The newest resize in an Audit page (HQ answers newest first); a free is not a pool change. Null when none. */
+export function lastPoolChange(rows: readonly SlotAuditRow[] | null | undefined): PoolChange | null {
+  if (!Array.isArray(rows)) return null
+  const r = rows.find((a) => a.action === 'pool-size')
+  return r ? { by: r.changedBy, at: r.changedAt, from: r.oldPoolSize, to: r.newPoolSize } : null
 }

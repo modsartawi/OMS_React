@@ -37,6 +37,7 @@ export default function KpiTile({
   locale,
   changeText,
   changeUnit,
+  slot = 0,
 }: {
   measureLabel: string
   value: number | null
@@ -53,6 +54,8 @@ export default function KpiTile({
   changeText?: string
   /** A word after the change, outside its isolate (`pts`), so it reads in the text's own direction. */
   changeUnit?: string
+  /** 825: a named series' tile draws its sparkline in that series' colour slot. */
+  slot?: number
 }) {
   const { t } = useTranslation('common')
   const fmt = (v: number | null) => formatAs(v, format, unit, locale)
@@ -91,7 +94,7 @@ export default function KpiTile({
               <XAxis dataKey="label" hide reversed={chartMirror.categoryReversed} />
               <YAxis hide domain={['auto', 'auto']} />
               <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [fmt(typeof v === 'number' ? v : null), measureLabel]} />
-              <Line type="monotone" dataKey="value" stroke={slotColour(0)} strokeWidth={2} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="value" stroke={slotColour(slot)} strokeWidth={2} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

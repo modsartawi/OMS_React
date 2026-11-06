@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { toKpiView, toSeriesView } from './series-view'
+import { toKpiView, toKpiViews, toSeriesView } from './series-view'
 
 const label = (en: string, ar: string) => ({ en, ar })
 
@@ -266,5 +266,76 @@ describe('a line over time compared with the previous period (766 story 23)', ()
     const plain = toSeriesView(answer([{ day: '2026-11-05', orders: 1 }]), { chart: { type: 'line' }, query: { measures: ['orders'], dimensions: ['day'], filters: [], compareToPrevious: true } }, MODEL, 'en')
     if (plain.kind !== 'series') throw new Error(plain.kind)
     expect(plain.series.some((s) => s.previous)).toBe(false)
+  })
+})
+
+describe('view model: named series (825)', () => {
+  const HS = { id: 'hs', label: label('HungerStation', 'هنقرستيشن'), filters: [{ dimension: 'channel_group', values: ['app'] }] }
+  const QC = { id: 'qc', label: label('QC', 'التوصيل السريع'), filters: [{ dimension: 'store', values: ['P001'] }] }
+  const named = (type: 'bar' | 'line' | 'area' | 'kpi', measure = 'orders', dimensions = ['day'], stack?: 'stacked'): AnalyticsViewDefinition => ({
+    chart: { type, ...(stack ? { stack } : {}) },
+    query: { measures: [measure], dimensions, filters: [] },
+    series: [HS, QC],
+  })
+  const seriesAnswer = (rows: AnalyticsRow[], previous: AnalyticsRow[] = []): AnalyticsQueryResult => ({
+    ...answer(rows, previous),
+    columns: [{ key: 'series', role: 'series' }],
+  })
+
+  it('draws one series per named series in slot order, on the shared axis, never a total', () => {
+    const view = toSeriesView(
+      seriesAnswer([
+        { series: 'qc', day: '2026-11-02', orders: 9 },
+        { series: 'hs', day: '2026-11-01', orders: 12 },
+        { series: 'qc', day: '2026-11-01', orders: 7 },
+      ]),
+      named('line'),
+      MODEL,
+      'en',
+    )
+    if (view.kind !== 'series') throw new Error('refused')
+    expect(view.series.map((s) => [s.label, s.slot, s.other])).toEqual([
+      ['HungerStation', 0, false],
+      ['QC', 1, false],
+    ])
+    expect(view.rows.map((r) => [r.x, r.values])).toEqual([
+      ['2026-11-01', { s0: 12, s1: 7 }],
+      ['2026-11-02', { s0: null, s1: 9 }],
+    ])
+    expect(view.stacking).toBe('none')
+  })
+
+  it('never stacks named series: a bar is grouped and an area overlaps, even when the definition asks to stack', () => {
+    const rows = [
+      { series: 'hs', channel_group: 'app', day: '2026-11-01', orders: 12 },
+      { series: 'qc', channel_group: 'app', day: '2026-11-01', orders: 7 },
+    ]
+    const bar = toSeriesView(seriesAnswer(rows), named('bar', 'orders', ['channel_group'], 'stacked'), MODEL, 'en')
+    const area = toSeriesView(seriesAnswer(rows), named('area', 'on_time_share'), MODEL, 'en')
+    expect(bar.kind === 'series' && [bar.stacking, bar.colourBy]).toEqual(['grouped', 'single'])
+    // A rate over named series is not refused: it is never stacked.
+    expect(area.kind === 'series' && area.stacking).toBe('none')
+  })
+
+  it('a KPI shows one figure per series, each from its own rows (a rate is never averaged across series)', () => {
+    const tiles = toKpiViews(
+      seriesAnswer(
+        [
+          { series: 'hs', on_time_share: 0.8 },
+          { series: 'qc', on_time_share: 0.6 },
+        ],
+        [
+          { series: 'hs', on_time_share: 0.5 },
+          { series: 'qc', on_time_share: 0.6 },
+        ],
+      ),
+      named('kpi', 'on_time_share', []),
+      MODEL,
+      'ar',
+    )
+    expect(tiles.map((k) => [k.series.label, k.series.slot, k.value, k.previous, k.delta?.direction])).toEqual([
+      ['هنقرستيشن', 0, 0.8, 0.5, 'up'],
+      ['التوصيل السريع', 1, 0.6, 0.6, 'flat'],
+    ])
   })
 })

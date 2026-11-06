@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import { analyticsRefusal, readItem, readItems, readModel, readResult } from './wire'
+import { analyticsRefusal, readDefinition, readItem, readItems, readModel, readResult } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -23,11 +23,13 @@ describe('analytics wire', () => {
     expect(analyticsRefusal(coded('ANALYTICS-410'), 'fallback')).toEqual({ code: 'ANALYTICS-410', key: 'refusal.areaUnavailable' })
     // 822: the author grant's refusal.
     expect(analyticsRefusal(coded('ANALYTICS-415'), 'fallback')).toEqual({ code: 'ANALYTICS-415', key: 'refusal.needsAuthor' })
+    // 825: an invalid declaration at save (a series problem, among others).
+    expect(analyticsRefusal(coded('ANALYTICS-411'), 'fallback')).toEqual({ code: 'ANALYTICS-411', key: 'refusal.declaration' })
     expect(analyticsRefusal(coded('ANALYTICS-499', 'Something new.'), 'fallback')).toEqual({ code: 'ANALYTICS-499', message: 'Something new.' })
     expect(analyticsRefusal(new Error('boom'), 'The view could not be drawn.')).toEqual({ code: null, message: 'The view could not be drawn.' })
 
     // Each key has words in both languages, and none of them is the raw code.
-    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable', 'refusal.needsAuthor']) {
+    for (const key of ['refusal.noAccess', 'refusal.notFound', 'refusal.timedOut', 'refusal.engineDown', 'refusal.invalid', 'refusal.window', 'refusal.areaUnavailable', 'refusal.needsAuthor', 'refusal.declaration']) {
       for (const lng of ['en', 'ar']) {
         expect(instance.exists(key, { lng }), `${lng} ${key}`).toBe(true)
         expect(instance.t(key, { lng })).not.toMatch(/ANALYTICS/)
@@ -63,5 +65,23 @@ describe('analytics wire', () => {
     expect(readItems({ items: [one] }).map((i) => i.id)).toEqual(['b-1'])
     expect(readItems(null)).toEqual([])
     expect(readItems({})).toEqual([])
+  })
+})
+
+describe('reading named series (825)', () => {
+  it('reads absent series as absent, so a v1 definition stays byte-identical', () => {
+    expect('series' in readDefinition({ chart: { type: 'bar' }, query: { measures: ['orders'] } })).toBe(false)
+  })
+  it('reads each series tolerantly: its id, both labels, its filters; one without an id is left out', () => {
+    expect(
+      readDefinition({
+        chart: { type: 'line' },
+        query: {},
+        series: [{ id: 'hs', label: { en: 'HungerStation' }, filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] }, { label: { en: 'nameless' } }, { id: 'qc' }],
+      }).series,
+    ).toEqual([
+      { id: 'hs', label: { en: 'HungerStation', ar: '' }, filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] },
+      { id: 'qc', label: { en: '', ar: '' }, filters: [] },
+    ])
   })
 })

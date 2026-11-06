@@ -89,3 +89,14 @@ export function seriesRowFill(seriesCount: number, colourBy: 'member' | 'single'
   if (seriesCount !== 1) return undefined
   return colourBy === 'member' ? slotColour(slot) : slotColour(0)
 }
+
+/** A dimmed series' opacity while another is highlighted (825). */
+export const DIMMED_OPACITY = 0.25
+
+/**
+ * A series' opacity under a highlight (825): full when nothing is highlighted or it is the one; dimmed
+ * otherwise. The highlight is opacity only — a series keeps its own colour.
+ */
+export function seriesOpacity(highlighted: string | null, key: string): number {
+  return highlighted === null || highlighted === key ? 1 : DIMMED_OPACITY
+}

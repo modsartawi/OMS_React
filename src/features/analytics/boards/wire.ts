@@ -3,6 +3,7 @@ import type {
   AnalyticsBoard,
   AnalyticsBoardPanel,
   AnalyticsDimension,
+  AnalyticsFilter,
   AnalyticsItem,
   AnalyticsLabel,
   AnalyticsMeasure,
@@ -10,6 +11,7 @@ import type {
   AnalyticsModel,
   AnalyticsQueryResult,
   AnalyticsRow,
+  AnalyticsSeries,
   AnalyticsViewDefinition,
   Bindings,
   Param,
@@ -71,12 +73,22 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
   }
 }
 
+/** 825: a named series read tolerantly — one without an id is left out; absent labels and filters read empty. */
+function readSeries(raw: unknown): AnalyticsSeries[] {
+  return arr<unknown>(raw)
+    .map(obj)
+    .filter((s) => !!str(s.id))
+    .map((s) => ({ id: str(s.id), label: said(s.label), filters: arr<AnalyticsFilter>(s.filters) }))
+}
+
 export function readDefinition(raw: unknown): AnalyticsViewDefinition {
   const d = obj(raw)
   const q = obj(d.query)
   const chart = obj(d.chart)
   return {
     ...(d as object),
+    // Absent stays absent, so a definition without series is the same object shape it always was.
+    ...('series' in d ? { series: readSeries(d.series) } : {}),
     chart: { ...chart, type: (str(chart.type) || 'bar') as AnalyticsViewDefinition['chart']['type'] },
     query: {
       ...q,
@@ -185,6 +197,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-410': 'refusal.areaUnavailable',
   // 822 (spec 819 §C): needs the author grant; the screen also drops the grant from the cached probe (`./access`).
   'ANALYTICS-415': 'refusal.needsAuthor',
+  // 825 (spec 819 §C): an invalid declaration at save — the view editor lists its series problems (`./editor-refusal`).
+  'ANALYTICS-411': 'refusal.declaration',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

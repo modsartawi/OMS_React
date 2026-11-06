@@ -150,3 +150,15 @@ describe('effective query: drill by (772)', () => {
     expect(drillAsk([])).toEqual({ viewId: 'v-stores', revision: 3, period: 'last-30-days', filters: [{ dimension: 'region', values: ['central'] }] })
   })
 })
+
+describe('effective query: named series (825)', () => {
+  it('a members parameter never filters a dimension that the series of the panel filter on (seriesFilters)', () => {
+    const p = panel('s')
+    const named: AnalyticsViewDefinition = {
+      ...view(['orders']),
+      series: [{ id: 'hs', label: label('HungerStation'), filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] }],
+    }
+    const input = effectiveQuery({ panel: p, view: named, revision: 3, model: MODEL }, v1(p, { ...NONE, channel: ['app'], city: ['riyadh'] }))
+    expect('filters' in input && input.filters).toEqual([{ dimension: 'city', values: ['riyadh'] }])
+  })
+})

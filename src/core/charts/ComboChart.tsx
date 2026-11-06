@@ -18,6 +18,15 @@ export interface ComboChartPoint {
   label: string
   volume: number | null
   rate: number | null
+  /** 825: each named series' volume and rate at this point, by series key. */
+  bySeries?: Record<string, { volume: number | null; rate: number | null }>
+}
+
+/** 825: a named series drawn in both panes, in its slot's colour. */
+export interface ComboChartSeries {
+  id: string
+  label: string
+  slot: number
 }
 
 interface PaneMeasure {
@@ -34,6 +43,7 @@ export default function ComboChart({
   locale,
   ariaLabel,
   paneHeight = 180,
+  series = [],
 }: {
   points: readonly ComboChartPoint[]
   volume: PaneMeasure
@@ -41,15 +51,26 @@ export default function ComboChart({
   locale: string
   ariaLabel: string
   paneHeight?: number
+  /** 825: named series — one bar and one line per series, a legend above, and no total across them. */
+  series?: readonly ComboChartSeries[]
 }) {
   const syncId = useId()
-  const data = points.map((p) => ({ ...p }))
+  const named = series.length > 0
+  const data = points.map((p) => {
+    const flat: Record<string, number | null> = {}
+    for (const s of series) {
+      flat[`v-${s.id}`] = p.bySeries?.[s.id]?.volume ?? null
+      flat[`r-${s.id}`] = p.bySeries?.[s.id]?.rate ?? null
+    }
+    return { ...p, ...flat }
+  })
   const tick = { fill: CHART_INK.tick, fontSize: 11 }
   const tooltip = (unit: MeasureUnit, label: string) => ({
     contentStyle: { background: CHART_INK.card, border: `1px solid ${CHART_INK.axis}`, borderRadius: 8, color: CHART_INK.legend, fontSize: 12 },
     labelStyle: { color: CHART_INK.legend, fontWeight: 600 },
     itemStyle: { color: CHART_INK.legend },
-    formatter: (v: unknown) => [formatValue(typeof v === 'number' ? v : null, unit, locale), label] as [string, string],
+    formatter: (v: unknown, name: unknown) =>
+      [formatValue(typeof v === 'number' ? v : null, unit, locale), named ? String(name) : label] as [string, string],
   })
   const margin = { top: 8, right: 8, bottom: 4, left: 8 }
   const valueAxis = (unit: MeasureUnit) => (
@@ -74,7 +95,17 @@ export default function ComboChart({
   return (
     // 🚩 LOGICAL EXCEPTION (logical-tailwind rule): the chart box is always LTR, and the pane titles anchor
     // to the reading start by the boot direction (`./direction`).
-    <div dir={CHART_BOX_DIR} data-chart="combo" role="figure" aria-label={ariaLabel} className="flex flex-col gap-1">
+    <div dir={CHART_BOX_DIR} data-chart="combo" data-chart-series={series.length || 1} role="figure" aria-label={ariaLabel} className="flex flex-col gap-1">
+      {named && (
+        <ul className={`flex flex-wrap gap-x-3 gap-y-1 px-2 text-xs ${chartMirror.rtl ? 'flex-row-reverse' : ''}`} data-combo-legend>
+          {series.map((s) => (
+            <li key={s.id} className="inline-flex items-center gap-1" style={{ color: CHART_INK.legend }} data-combo-series={s.id}>
+              <span className="inline-block size-2.5 rounded-sm" style={{ background: slotColour(s.slot) }} aria-hidden />
+              <bdi>{s.label}</bdi>
+            </li>
+          ))}
+        </ul>
+      )}
       {paneTitle(volume.label, 'volume')}
       <div style={{ height: paneHeight }} data-combo-pane="volume">
         <ResponsiveContainer width="100%" height="100%">
@@ -83,7 +114,13 @@ export default function ComboChart({
             <XAxis dataKey="label" reversed={chartMirror.categoryReversed} hide />
             {valueAxis(volume.unit)}
             <Tooltip cursor={{ fill: CHART_INK.cursor }} {...tooltip(volume.unit, volume.label)} />
-            <Bar dataKey="volume" name={volume.label} fill={slotColour(0)} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+            {named ? (
+              series.map((s) => (
+                <Bar key={s.id} dataKey={`v-${s.id}`} name={s.label} fill={slotColour(s.slot)} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+              ))
+            ) : (
+              <Bar dataKey="volume" name={volume.label} fill={slotColour(0)} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -105,15 +142,30 @@ export default function ComboChart({
             />
             {valueAxis(rate.unit)}
             <Tooltip cursor={{ stroke: CHART_INK.axis }} {...tooltip(rate.unit, rate.label)} />
-            <Line
-              dataKey="rate"
-              name={rate.label}
-              stroke={slotColour(2)}
-              strokeWidth={2}
-              dot={{ r: 3, fill: slotColour(2), strokeWidth: 0 }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
+            {named ? (
+              series.map((s) => (
+                <Line
+                  key={s.id}
+                  dataKey={`r-${s.id}`}
+                  name={s.label}
+                  stroke={slotColour(s.slot)}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: slotColour(s.slot), strokeWidth: 0 }}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ))
+            ) : (
+              <Line
+                dataKey="rate"
+                name={rate.label}
+                stroke={slotColour(2)}
+                strokeWidth={2}
+                dot={{ r: 3, fill: slotColour(2), strokeWidth: 0 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>

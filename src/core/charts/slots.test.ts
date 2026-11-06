@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seriesRowFill } from './slots'
+import { seriesOpacity, seriesRowFill } from './slots'
 
 describe('seriesRowFill (ticket 820): a row carries its own fill only when there is one series', () => {
   it('one series coloured by member: each row carries its member slot colour, Other in ink grey', () => {
@@ -17,5 +17,15 @@ describe('seriesRowFill (ticket 820): a row carries its own fill only when there
     expect(seriesRowFill(2, 'single', 0)).toBeUndefined()
     expect(seriesRowFill(2, 'member', 1)).toBeUndefined()
     expect(seriesRowFill(5, 'member', null)).toBeUndefined()
+  })
+})
+
+describe('seriesOpacity (ticket 825): a legend click highlights by dimming the others, never recolouring', () => {
+  it('is full for every series when nothing is highlighted, and for the highlighted one', () => {
+    expect([seriesOpacity(null, 's0'), seriesOpacity(null, 's1')]).toEqual([1, 1])
+    expect(seriesOpacity('s1', 's1')).toBe(1)
+  })
+  it('dims the series that are not highlighted', () => {
+    expect(seriesOpacity('s1', 's0')).toBe(0.25)
   })
 })

@@ -3,6 +3,8 @@ import { resolvePeriod } from './period'
 import {
   DEFAULT_STATISTICS_QUERY,
   buildStatisticsQuery,
+  keepsPreviousAnswer,
+  statisticsKey,
   statisticsFromParams,
   statisticsToParams,
   withLeaveOutType,
@@ -139,5 +141,23 @@ describe('withLeaveOutType', () => {
 
   it('ticking a type already left out changes nothing', () => {
     expect(withLeaveOutType(query({ leaveOutTypes: ['ZC'] }), 'ZC', true).leaveOutTypes).toEqual(['ZC'])
+  })
+})
+
+describe('keepsPreviousAnswer', () => {
+  const today = (From: string, over = {}) => statisticsKey('today', { From, To: From, Granularity: 'hour', LeaveOutChurned: true, ...over })
+
+  it('Today keeps its previous answer when its day rolls over, so the chart dims rather than blanks', () => {
+    expect(keepsPreviousAnswer(today('2026-10-12'), today('2026-10-13'))).toBe(true)
+  })
+
+  it('a new tab or a new scope never shows the previous answer', () => {
+    const yesterday = statisticsKey('yesterday', { From: '2026-10-12', To: '2026-10-12', Granularity: 'hour', LeaveOutChurned: true })
+    expect(keepsPreviousAnswer(yesterday, today('2026-10-13'))).toBe(false)
+    expect(keepsPreviousAnswer(today('2026-10-13'), yesterday)).toBe(false)
+    expect(keepsPreviousAnswer(today('2026-10-13'), today('2026-10-13', { StoreCode: 'P019' }))).toBe(false)
+    expect(keepsPreviousAnswer(today('2026-10-13'), today('2026-10-13', { LeaveOutChurned: false }))).toBe(false)
+    expect(keepsPreviousAnswer(today('2026-10-13'), today('2026-10-13', { LeaveOutTypes: 'ZO' }))).toBe(false)
+    expect(keepsPreviousAnswer(undefined, today('2026-10-13'))).toBe(false)
   })
 })

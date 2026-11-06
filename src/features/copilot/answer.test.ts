@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, copilotAnswerModel, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -41,6 +41,33 @@ describe('the answer view model (spec 734 D10, D11)', () => {
       { kind: 'table', head: ['Week', 'Orders'], rows: [['This', '120'], ['Last', '98']] },
       { kind: 'paragraph', text: 'That is all.' },
     ])
+  })
+})
+
+describe('the answer reads the markdown models actually send', () => {
+  it('readsHeadingsAndNumberedLists', () => {
+    const answer = ['### Returns, October', '1. In store', '2) Call centre', '', 'Done.'].join('\n')
+    expect(copilotAnswerModel({ answer }).blocks).toEqual([
+      { kind: 'heading', text: 'Returns, October' },
+      { kind: 'list', items: ['In store', 'Call centre'], ordered: true },
+      { kind: 'paragraph', text: 'Done.' },
+    ])
+  })
+
+  it('inlineMarks_readsBoldItalicAndCode_leavesALoneAsteriskAlone', () => {
+    // The screenshot's case: a bolded table cell must not show its asterisks.
+    expect(inlineMarks('**Count (Receipts)**')).toEqual([{ text: 'Count (Receipts)', mark: 'strong' }])
+    expect(inlineMarks('Sales of __2,425__ and *rising*, see `till_sales`.')).toEqual([
+      { text: 'Sales of ', mark: null },
+      { text: '2,425', mark: 'strong' },
+      { text: ' and ', mark: null },
+      { text: 'rising', mark: 'em' },
+      { text: ', see ', mark: null },
+      { text: 'till_sales', mark: 'code' },
+      { text: '.', mark: null },
+    ])
+    expect(inlineMarks('5 * 3 = 15')).toEqual([{ text: '5 * 3 = 15', mark: null }])
+    expect(inlineMarks('')).toEqual([])
   })
 })
 

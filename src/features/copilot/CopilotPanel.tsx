@@ -129,6 +129,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     e?.preventDefault()
     if (!canSend) return
     if (ask(question.trim()) !== null) setQuestion('')
+    // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
+    box.current?.focus()
   }
   /** "New conversation": no id, no thread, nothing in flight, an empty box. The one left goes to the history. */
   const startNew = () => {
@@ -280,7 +282,9 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                 placeholder={t('box.placeholder')}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={onKeyDown}
-                disabled={working}
+                // Never disabled while an answer is out: disabling the focused box drops the focus to the page.
+                // The next question can be typed meanwhile; Send (and Enter) wait for the answer.
+                aria-busy={working || undefined}
                 className="w-full resize-y"
                 data-copilot-question
               />

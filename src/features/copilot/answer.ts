@@ -15,10 +15,15 @@ export function questionFits(question: string): boolean {
   return question.trim().length > 0 && question.length <= COPILOT_MAX_QUESTION
 }
 
-/** The light markdown the answer may carry (D10): paragraphs, bullet lists and simple tables only. */
+/**
+ * The light markdown the answer may carry (D10): paragraphs, headings, bullet and numbered lists and simple
+ * tables. Inside any text, `**bold**`, `*italic*` and `` `code` `` are read by `inlineMarks`, so a model that
+ * bolds a table cell never shows its asterisks.
+ */
 export type AnswerBlock =
   | { kind: 'paragraph'; text: string }
-  | { kind: 'list'; items: string[] }
+  | { kind: 'heading'; text: string }
+  | { kind: 'list'; items: string[]; ordered?: true }
   | { kind: 'table'; head: string[]; rows: string[][] }
 
 export interface CopilotAnswerModel {
@@ -47,6 +52,8 @@ function rulesOf(v: unknown): AnswerRules | null {
 }
 
 const BULLET = /^\s*[-*•]\s+/
+const NUMBERED = /^\s*\d{1,3}[.)]\s+/
+const HEADING = /^\s*#{1,6}\s+/
 const TABLE_ROW = /^\s*\|.*\|\s*$/
 const TABLE_RULE = /^\s*\|(\s*:?-+:?\s*\|)+\s*$/
 
@@ -67,10 +74,16 @@ export function answerBlocks(text: string): AnswerBlock[] {
     const line = lines[i]
     if (line.trim() === '') {
       i++
+    } else if (HEADING.test(line)) {
+      blocks.push({ kind: 'heading', text: lines[i++].replace(HEADING, '').replace(/\s*#+\s*$/, '').trim() })
     } else if (BULLET.test(line)) {
       const items: string[] = []
       while (i < lines.length && BULLET.test(lines[i])) items.push(lines[i++].replace(BULLET, '').trim())
       blocks.push({ kind: 'list', items })
+    } else if (NUMBERED.test(line)) {
+      const items: string[] = []
+      while (i < lines.length && NUMBERED.test(lines[i])) items.push(lines[i++].replace(NUMBERED, '').trim())
+      blocks.push({ kind: 'list', items, ordered: true })
     } else if (TABLE_ROW.test(line) && i + 1 < lines.length && TABLE_RULE.test(lines[i + 1])) {
       const head = cells(line)
       i += 2
@@ -83,6 +96,8 @@ export function answerBlocks(text: string): AnswerBlock[] {
         i < lines.length &&
         lines[i].trim() !== '' &&
         !BULLET.test(lines[i]) &&
+        !NUMBERED.test(lines[i]) &&
+        !HEADING.test(lines[i]) &&
         !(TABLE_ROW.test(lines[i]) && i + 1 < lines.length && TABLE_RULE.test(lines[i + 1]))
       )
         para.push(lines[i++].trim())
@@ -90,6 +105,30 @@ export function answerBlocks(text: string): AnswerBlock[] {
     }
   }
   return blocks
+}
+
+/** A run of answer text and its inline mark. */
+export type InlineMark = { text: string; mark: 'strong' | 'em' | 'code' | null }
+
+const INLINE = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<![\p{L}\p{N}*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\p{L}\p{N}*])/gu
+
+/**
+ * Splits a piece of answer text on its inline marks: `` `code` ``, `**bold**` / `__bold__` and `*italic*`. A lone
+ * asterisk (`5 * 3`, a footnote `*`) is not a mark and stays as written.
+ */
+export function inlineMarks(text: string): InlineMark[] {
+  const out: InlineMark[] = []
+  let at = 0
+  for (const m of text.matchAll(INLINE)) {
+    const start = m.index ?? 0
+    if (start > at) out.push({ text: text.slice(at, start), mark: null })
+    if (m[1] !== undefined) out.push({ text: m[1], mark: 'code' })
+    else if (m[2] !== undefined || m[3] !== undefined) out.push({ text: (m[2] ?? m[3]) as string, mark: 'strong' })
+    else out.push({ text: m[4], mark: 'em' })
+    at = start + m[0].length
+  }
+  if (at < text.length) out.push({ text: text.slice(at), mark: null })
+  return out
 }
 
 export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefined): CopilotAnswerModel {

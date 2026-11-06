@@ -11,7 +11,7 @@ import type { CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core
 import { reportHref, reportPrintHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { COPILOT_MAX_QUESTION, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
 /**
@@ -23,8 +23,25 @@ import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
  * each whole.
  */
 
-/** A piece of answer text with every `orderRefs` number linked to its delivery document. */
+/**
+ * A piece of answer text with its inline marks drawn (`**bold**`, `*italic*`, `` `code` ``) and every `orderRefs`
+ * number linked to its delivery document.
+ */
 export function LinkedText({ text, orderRefs }: { text: string; orderRefs: readonly string[] }) {
+  return (
+    <>
+      {inlineMarks(text).map((m, j) => {
+        const body = <OrderLinks text={m.text} orderRefs={orderRefs} />
+        if (m.mark === 'strong') return <strong key={j} className="font-semibold">{body}</strong>
+        if (m.mark === 'em') return <em key={j}>{body}</em>
+        if (m.mark === 'code') return <code key={j} className="rounded bg-muted px-1 font-mono text-[0.85em]">{m.text}</code>
+        return <span key={j}>{body}</span>
+      })}
+    </>
+  )
+}
+
+function OrderLinks({ text, orderRefs }: { text: string; orderRefs: readonly string[] }) {
   return (
     <>
       {orderSegments(text, orderRefs).map((s, i) =>
@@ -202,30 +219,6 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
   )
 }
 
-/**
- * A refusal in its own words (D7), never its raw code. A code without words here is the server's own
- * message — free text, so a `<bdi>`. 402's reset time is a machine value: `Ltr`, through a `<Trans>` slot.
- */
-export function Refusal({ err }: { err: unknown }) {
-  const { t } = useTranslation('copilot')
-  const view = copilotRefusal(err, t('failed'))
-  return (
-    <div
-      role="alert"
-      data-copilot-refusal
-      className="rounded-2xl rounded-ss-sm border border-danger-border bg-danger-050 px-3.5 py-2.5 text-[0.8125rem] text-danger-800"
-    >
-      {'message' in view ? (
-        <bdi>{view.message}</bdi>
-      ) : view.resetAt ? (
-        <Trans t={t} i18nKey={view.key} values={{ time: formatDateTime(view.resetAt) }} components={{ time: <Ltr /> }} />
-      ) : (
-        t(view.key, { max: fsi(formatNumber(COPILOT_MAX_QUESTION)) })
-      )}
-    </div>
-  )
-}
-
 /** One block of the answer's light markdown. Every piece of text is the model's: `<bdi>`. */
 function Block({ block, orderRefs }: { block: AnswerBlock; orderRefs: readonly string[] }) {
   if (block.kind === 'paragraph')
@@ -236,18 +229,24 @@ function Block({ block, orderRefs }: { block: AnswerBlock; orderRefs: readonly s
         </bdi>
       </p>
     )
-  if (block.kind === 'list')
+  if (block.kind === 'heading')
     return (
-      <ul className="list-disc ps-5">
-        {block.items.map((item, i) => (
-          <li key={i}>
-            <bdi>
-              <LinkedText text={item} orderRefs={orderRefs} />
-            </bdi>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-1 font-semibold" role="heading" aria-level={4}>
+        <bdi>
+          <LinkedText text={block.text} orderRefs={orderRefs} />
+        </bdi>
+      </p>
     )
+  if (block.kind === 'list') {
+    const items = block.items.map((item, i) => (
+      <li key={i}>
+        <bdi>
+          <LinkedText text={item} orderRefs={orderRefs} />
+        </bdi>
+      </li>
+    ))
+    return block.ordered ? <ol className="list-decimal ps-5">{items}</ol> : <ul className="list-disc ps-5">{items}</ul>
+  }
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-xs">
@@ -274,6 +273,30 @@ function Block({ block, orderRefs }: { block: AnswerBlock; orderRefs: readonly s
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/**
+ * A refusal in its own words (D7), never its raw code. A code without words here is the server's own
+ * message — free text, so a `<bdi>`. 402's reset time is a machine value: `Ltr`, through a `<Trans>` slot.
+ */
+export function Refusal({ err }: { err: unknown }) {
+  const { t } = useTranslation('copilot')
+  const view = copilotRefusal(err, t('failed'))
+  return (
+    <div
+      role="alert"
+      data-copilot-refusal
+      className="rounded-2xl rounded-ss-sm border border-danger-border bg-danger-050 px-3.5 py-2.5 text-[0.8125rem] text-danger-800"
+    >
+      {'message' in view ? (
+        <bdi>{view.message}</bdi>
+      ) : view.resetAt ? (
+        <Trans t={t} i18nKey={view.key} values={{ time: formatDateTime(view.resetAt) }} components={{ time: <Ltr /> }} />
+      ) : (
+        t(view.key, { max: fsi(formatNumber(COPILOT_MAX_QUESTION)) })
+      )}
     </div>
   )
 }

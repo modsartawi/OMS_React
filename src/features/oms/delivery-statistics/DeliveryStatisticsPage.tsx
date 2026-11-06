@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDeliveryStatistics } from '@/core/oms/access'
@@ -15,13 +15,15 @@ import { deliveryStatisticsApi } from './api'
 import { readFigure } from './figures'
 import { readHeadline } from './headline'
 import HeadlineStrip from './HeadlineStrip'
-import { readLanes, showsUnspecified, type Lane } from './lanes'
+import Funnels from './Funnels'
+import { readLanes, showsUnspecified } from './lanes'
 import { readMissesRows, type MissId, type MissesRow } from './misses-rows'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
 import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
 import SeriesChart from './SeriesChart'
 import StoreTable from './StoreTable'
+import Tile from './Tile'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -37,7 +39,7 @@ import Input from '@/core/ui/Input'
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
  * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the headline strip (812, spec
  * 811: six server figures and their change, `headline.ts` + `HeadlineStrip`; then Unspecified), the Delivery and Pick-up
- * lanes (489, `lanes.ts`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
+ * funnels (489 lanes, 814 funnels: `lanes.ts` + `Funnels`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
  * Came in / Handed over chart (486, `SeriesChart`) and the per-store table (487, `StoreTable`). The
  * lanes and the misses rows are the server's `tracks`, never derived from the store-wide figures nor
  * added into them.
@@ -149,9 +151,8 @@ function Statistics() {
             )}
           </HeadlineStrip>
 
-          {readLanes(data.tracks, dash).map((lane) => (
-            <LaneBand key={lane.track} lane={lane} />
-          ))}
+          {/* 814: the funnels draw the lanes they are given; 813 drops the Pick-up lane under a courier. */}
+          <Funnels lanes={readLanes(data.tracks, dash)} />
 
           {/* One row per track (490); the store-wide `misses` is not drawn — it stays for the table's All view. */}
           <section className="flex flex-col gap-3" data-statistics-band="misses">
@@ -264,53 +265,6 @@ function PeriodBar({
 }
 
 /**
- * One track's lane (489): its stages in order with a chevron between each — logical, so it mirrors with
- * the text direction (`rtl:rotate-180`) and the lane reads in reading order — then the lane's own
- * average, set apart and with no chevron: it is not one more stage (as on the till).
- */
-function LaneBand({ lane }: { lane: Lane }) {
-  const { t } = useTranslation('delivery-statistics')
-  const { track } = lane
-  return (
-    <section className="flex flex-col gap-2" data-statistics-band={track} aria-labelledby={`statistics-lane-${track}`}>
-      <h2 id={`statistics-lane-${track}`} className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {t(`lane.${track}`)}
-      </h2>
-      {/* The stages never wrap mid-lane (a wrapped row would open on a chevron from nothing): one row
-          from `sm` up, a plain stack below it with no chevrons; the average sits after them from `lg`. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-        <ol className="grid min-w-0 flex-1 gap-3 sm:flex sm:items-stretch sm:gap-1" data-statistics-stages="">
-          {lane.stages.map((stage, i) => (
-            <li key={stage.id} className="flex min-w-0 flex-1 items-center gap-1">
-              {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block rtl:rotate-180" aria-hidden />}
-              {/* A grid, so every tile in the lane stretches to the tallest (Out for delivery's Trips line). */}
-              <div className="grid min-w-0 flex-1 self-stretch">
-                <Tile id={`${track}.${stage.id}`} caption={t(`flow.${stage.id}`)} value={stage.value}>
-                  {stage.trips !== undefined && (
-                    <span className="text-xs text-muted-foreground" data-figure={`${track}.trips`}>
-                      <Trans t={t} i18nKey="flow.trips" values={{ n: stage.trips }} components={{ v: <Ltr /> }} />
-                    </span>
-                  )}
-                </Tile>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <div className="lg:w-56 lg:shrink-0 lg:border-s lg:border-border/60 lg:ps-3" data-statistics-lane-average="">
-          <Tile
-            id={`${track}.avg`}
-            caption={t(`lane.avg.${track}`)}
-            value={lane.average.value}
-            unit={lane.average.hasUnit ? t('avgHandOver.unit') : undefined}
-            accent="border-t-primary"
-          />
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/**
  * One track's "Did not go to plan" row (490), captioned with the track. The Pick-up row may carry two
  * tiles or five (`misses-rows.ts` hides what a pick-up cannot have at zero); its tiles keep the grid's
  * columns from the reading start rather than lining up under the Delivery row's same miss. The group is
@@ -335,34 +289,6 @@ function MissesRowBand({ row }: { row: MissesRow }) {
           <Tile key={miss.id} id={`${track}.${miss.id}`} caption={t(`misses.${miss.id}`)} value={miss.value} accent={MISS_ACCENT[miss.id]} />
         ))}
       </div>
-    </div>
-  )
-}
-
-/** One figure: its caption, its value isolated whole, and an optional line under it. */
-function Tile({
-  id,
-  caption,
-  value,
-  unit,
-  accent = 'border-t-border',
-  children,
-}: {
-  id: string
-  caption: string
-  value: string
-  unit?: string
-  accent?: string
-  children?: ReactNode
-}) {
-  return (
-    <div className={`flex flex-col gap-1 rounded-lg border border-t-2 border-border/60 bg-card p-3 ${accent}`} data-figure-tile={id}>
-      <span className="text-xs font-medium text-muted-foreground">{caption}</span>
-      <span className="text-2xl font-semibold tracking-tight tabular-nums" data-figure={id}>
-        <Ltr>{value}</Ltr>
-        {unit && <span className="ms-1 text-sm font-normal text-muted-foreground">{unit}</span>}
-      </span>
-      {children}
     </div>
   )
 }

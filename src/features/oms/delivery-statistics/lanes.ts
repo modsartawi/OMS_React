@@ -12,9 +12,17 @@
  * never averaged again. The tracks are not expected to add up to the store-wide figures (a stray
  * out-for-delivery on a pick-up is in the store-wide figure only, by decision). A server older than
  * 2658 sends no `tracks`: both lanes are still drawn, every figure reading the dash, never 0.
+ *
+ * Ticket 814 (spec 811) makes the lanes funnels. Each stage carries a `bar`: its figure over the lane's
+ * own Came in. That is GEOMETRY, never a figure — it is drawn as a bar's length and never written. An
+ * absent stage, an absent Came in, or a Came in of 0 draws no bar (`null`); a stage past Came in (a
+ * hand-over counted on its first event, of a delivery that came in before the period) draws a full bar
+ * while its figure reads as sent. The Delivery lane also carries its slot split, the server's counts
+ * labelled with the server's shares; a pick-up has no slot. Each lane's average is its Avg delivery
+ * time (`avgDeliveryMinutes`): Delivery from due, Pick-up entry to Made ready.
  */
-import type { DeliveryStatisticsTracks } from '@/core/models/delivery-statistics'
-import { hasFigure, readAverage, readFigure } from './figures'
+import type { DeliveryStatisticsTracks, SlotKeeping } from '@/core/models/delivery-statistics'
+import { hasFigure, readAverage, readFigure, readShare } from './figures'
 
 /** A track, as the page draws its lane: Delivery, then Pick-up. */
 export type LaneTrack = 'delivery' | 'pickUp'
@@ -28,6 +36,26 @@ export interface LaneStage {
   value: string
   /** Out for delivery's sub-caption figure (the Delivery lane only); absent on every other stage. */
   trips?: string
+  /** The bar's length, 0–1 of the lane's Came in (geometry only); `null` draws no bar. */
+  bar: number | null
+}
+
+export type SlotSegmentId = 'inSlot' | 'outOfSlot' | 'noSlot'
+
+export interface SlotSegment {
+  id: SlotSegmentId
+  /** The server's count, the segment's weight; `null` when absent. */
+  count: number | null
+  /** The count as it reads, or the dash. */
+  value: string
+  /** The server's share as it reads; `null` when it sent none (No slot never has one). */
+  share: string | null
+}
+
+export interface SlotSplit {
+  /** Whether the bar is drawn: every count and both shares sent, and something delivered. */
+  drawn: boolean
+  segments: SlotSegment[]
 }
 
 export interface LaneAverage {
@@ -41,12 +69,47 @@ export interface Lane {
   track: LaneTrack
   stages: LaneStage[]
   average: LaneAverage
+  /** The Delivery lane's slot split; absent on the Pick-up lane, which has no slot. */
+  slot?: SlotSplit
 }
 
 const average = (minutes: number | null | undefined, dash: string): LaneAverage => ({
   value: readAverage(minutes, dash),
   hasUnit: hasFigure(minutes),
 })
+
+/** A stage's bar: its figure over the lane's Came in, at most a full bar; `null` with either absent or nothing came in. */
+const bar = (value: number | undefined, cameIn: number | undefined): number | null =>
+  hasFigure(value) && hasFigure(cameIn) && cameIn > 0 ? Math.min(1, Math.max(0, value / cameIn)) : null
+
+const stage = (id: LaneStageId, value: number | undefined, cameIn: number | undefined, dash: string): LaneStage => ({
+  id,
+  value: readFigure(value, dash),
+  bar: bar(value, cameIn),
+})
+
+const segment = (id: SlotSegmentId, count: number | undefined, share: number | undefined, dash: string): SlotSegment => ({
+  id,
+  count: hasFigure(count) ? count : null,
+  value: readFigure(count, dash),
+  share: hasFigure(share) ? readShare(share, dash) : null,
+})
+
+/** The slot split, read as sent: drawn only when every count and both shares came and something was delivered. */
+function slotSplit(slot: SlotKeeping | undefined, dash: string): SlotSplit {
+  const segments = [
+    segment('inSlot', slot?.inSlot, slot?.inSlotShare, dash),
+    segment('outOfSlot', slot?.outOfSlot, slot?.outOfSlotShare, dash),
+    segment('noSlot', slot?.noSlot, undefined, dash),
+  ]
+  const counts = segments.map((s) => s.count)
+  const drawn =
+    counts.every((c) => c !== null) &&
+    counts.some((c) => (c as number) > 0) &&
+    hasFigure(slot?.inSlotShare) &&
+    hasFigure(slot?.outOfSlotShare)
+  return { drawn, segments }
+}
 
 /** `tracks` → the two lanes, Delivery then Pick-up, each figure read or dashed. */
 export function readLanes(tracks: DeliveryStatisticsTracks | null | undefined, dash: string): Lane[] {
@@ -59,21 +122,22 @@ export function readLanes(tracks: DeliveryStatisticsTracks | null | undefined, d
     {
       track: 'delivery',
       stages: [
-        { id: 'cameIn', value: readFigure(d?.cameIn, dash) },
-        { id: 'madeReady', value: readFigure(d?.madeReady, dash) },
-        { id: 'outForDelivery', value: readFigure(d?.outForDelivery, dash), trips: readFigure(d?.trips, dash) },
-        { id: 'delivered', value: readFigure(d?.handedOver, dash) },
+        stage('cameIn', d?.cameIn, d?.cameIn, dash),
+        stage('madeReady', d?.madeReady, d?.cameIn, dash),
+        { ...stage('outForDelivery', d?.outForDelivery, d?.cameIn, dash), trips: readFigure(d?.trips, dash) },
+        stage('delivered', d?.handedOver, d?.cameIn, dash),
       ],
-      average: average(delivery?.avgHandOverMinutes, dash),
+      average: average(delivery?.avgDeliveryMinutes, dash),
+      slot: slotSplit(delivery?.slot, dash),
     },
     {
       track: 'pickUp',
       stages: [
-        { id: 'cameIn', value: readFigure(p?.cameIn, dash) },
-        { id: 'madeReady', value: readFigure(p?.madeReady, dash) },
-        { id: 'pickedUp', value: readFigure(p?.handedOver, dash) },
+        stage('cameIn', p?.cameIn, p?.cameIn, dash),
+        stage('madeReady', p?.madeReady, p?.cameIn, dash),
+        stage('pickedUp', p?.handedOver, p?.cameIn, dash),
       ],
-      average: average(pickUp?.avgHandOverMinutes, dash),
+      average: average(pickUp?.avgDeliveryMinutes, dash),
     },
   ]
 }

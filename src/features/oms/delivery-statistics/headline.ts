@@ -98,7 +98,12 @@ export type ComparedWindow = { kind: 'until'; day: string; time: string } | { ki
 
 export function comparedWindow(previous: Pick<StatisticsPrevious, 'from' | 'to' | 'until'> | null | undefined): ComparedWindow | null {
   if (!previous?.from) return null
-  const { from, to, until } = previous
+  // The wire sends local wall-clock datetimes (`2026-10-31T00:00:00`, BO 3404 brief); the window is
+  // named by its days, read as text — never through `Date`.
+  const dayOf = (value: string) => value.slice(0, 10)
+  const from = dayOf(previous.from)
+  const to = previous.to ? dayOf(previous.to) : previous.to
+  const { until } = previous
   if (until) {
     // Read as text, never through `Date`: `09:35`, or the HH:mm of a full local time.
     const time = /(\d{2}:\d{2})/.exec(until)?.[1] ?? until

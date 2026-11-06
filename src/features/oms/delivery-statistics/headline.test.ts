@@ -121,6 +121,12 @@ describe('comparedWindow', () => {
     expect(comparedWindow({ from: '2026-10-23', to: '2026-10-29' })).toEqual({ kind: 'range', range: '2026-10-23 – 2026-10-29' })
   })
 
+  it('reads the real wire: from/to/until as local wall-clock datetimes (BO 3404 brief), named by their day', () => {
+    expect(comparedWindow({ from: '2026-10-31T00:00:00', to: '2026-10-31T00:00:00', until: '2026-10-31T01:00:00' })).toEqual({ kind: 'until', day: '2026-10-31', time: '01:00' })
+    expect(comparedWindow({ from: '2026-10-30T00:00:00', to: '2026-10-30T00:00:00' })).toEqual({ kind: 'range', range: '2026-10-30' })
+    expect(comparedWindow({ from: '2026-09-06T00:00:00', to: '2026-10-06T00:00:00' })).toEqual({ kind: 'range', range: '2026-09-06 – 2026-10-06' })
+  })
+
   it('names nothing when the server sent no previous block', () => {
     expect(comparedWindow(undefined)).toBeNull()
   })

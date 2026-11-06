@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import PasteCodesDialog from '@/core/ui/PasteCodesDialog'
 import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
 import { chipsFor, markDisabled, rememberOptions } from '@/core/ui/checklist'
 import Ltr from '@/core/ui/Ltr'
@@ -12,6 +13,7 @@ import { useDebounced } from '@/core/util/use-debounced'
 import { refusedItems, runBatch, type BatchResult } from '@/core/util/batch-runner'
 import type { UaEmployeeGridRow } from '@/core/models/ua-user'
 import { authzAdminApi } from './api'
+import { resolvePastedIds, type PasteResolution } from './paste-ids'
 
 interface Props {
   open: boolean
@@ -49,6 +51,10 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
   const [known, setKnown] = useState<Map<string, ChecklistOption>>(() => new Map())
   const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null)
   const [result, setResult] = useState<BatchResult<string> | null>(null)
+  // Paste IDs (808): the paste box, the lookups' progress, and what the last paste resolved to.
+  const [pasting, setPasting] = useState(false)
+  const [resolving, setResolving] = useState<{ completed: number; total: number } | null>(null)
+  const [pasteReport, setPasteReport] = useState<PasteResolution | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -57,6 +63,9 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
       setKnown(new Map())
       setProgress(null)
       setResult(null)
+      setPasting(false)
+      setResolving(null)
+      setPasteReport(null)
     }
   }, [open])
 
@@ -98,11 +107,35 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
   }
 
   const running = progress !== null
+  const busy = running || resolving !== null
   const searching = term !== '' && search.isFetching
   const nameOf = (id: string) => known.get(id)?.label ?? id
 
+  /**
+   * Each pasted ID is looked up through the same people search, one at a time, and picked only when a
+   * row's ID equals it; current holders are reported, unknown IDs listed back.
+   */
+  async function resolvePaste(codes: string[]) {
+    setPasting(false)
+    setPasteReport(null)
+    setResolving({ completed: 0, total: 0 })
+    const resolution = await resolvePastedIds(codes.join('\n'), {
+      holders,
+      skip: picks,
+      lookup: async (id) => (await authzAdminApi.search(id)).rows,
+      onProgress: (completed, total) => setResolving({ completed, total }),
+    })
+    setResolving(null)
+    // An expired session is handle401's: it is already redirecting to the login.
+    if (resolution.stopped) return
+    const found = resolution.found.map((row) => personOption(row, t('addHolders.inactive')))
+    setKnown((k) => rememberOptions(k, found))
+    setPicks((p) => [...p, ...found.map((o) => o.value).filter((id) => !p.includes(id))])
+    setPasteReport(resolution)
+  }
+
   async function assign() {
-    if (picks.length === 0 || running) return
+    if (picks.length === 0 || busy) return
     setResult(null)
     setProgress({ completed: 0, total: picks.length })
     const outcome = await runBatch(
@@ -121,80 +154,151 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
 
   const count = picks.length
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={t('addHolders.title', { role: fsi(roleName) })}
-      width="38rem"
-      footer={
-        <>
-          <Button variant="text" onClick={onClose} disabled={running}>
-            {t('common.done')}
-          </Button>
-          <Button variant="primary" onClick={assign} disabled={count === 0 || running} data-testid="add-holders-submit">
-            {running
-              ? t('addHolders.assigning', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
-              : t('addHolders.assignN', { count, n: fsi(String(count)) })}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
-          {t('addHolders.intro')}
-        </p>
-        {result && (
-          <div
-            role="status"
-            className={
-              'rounded-lg border p-2.5 text-xs ' +
-              (result.refused > 0 ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 bg-muted/40')
-            }
-            data-testid="add-holders-summary"
-          >
-            <p className="font-semibold">
-              {t('addHolders.summary', {
-                assigned: t('addHolders.summaryAssigned', { count: result.done, n: fsi(String(result.done)) }),
-                refused: t('addHolders.summaryRefused', { count: result.refused, n: fsi(String(result.refused)) }),
-              })}
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={t('addHolders.title', { role: fsi(roleName) })}
+        width="38rem"
+        footer={
+          <>
+            <Button variant="text" onClick={onClose} disabled={busy}>
+              {t('common.done')}
+            </Button>
+            <Button variant="primary" onClick={assign} disabled={count === 0 || busy} data-testid="add-holders-submit">
+              {running
+                ? t('addHolders.assigning', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
+                : t('addHolders.assignN', { count, n: fsi(String(count)) })}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <p className="flex-1 rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
+              {t('addHolders.intro')}
             </p>
-            {result.refused > 0 && (
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {[...refusals].map(([id, err]) => (
-                  <li key={id} className="flex flex-wrap gap-x-2" data-refused={id}>
-                    <span className="font-semibold">
-                      <Ltr>{nameOf(id)}</Ltr>
-                    </span>
-                    <bdi>{apiErrorMessage(err, t('toast.failed'))}</bdi>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Button variant="secondary" onClick={() => setPasting(true)} disabled={busy} data-testid="add-holders-paste-open">
+              {resolving
+                ? t('addHolders.pasteResolving', { done: fsi(String(resolving.completed)), total: fsi(String(resolving.total)) })
+                : t('addHolders.pasteIds')}
+            </Button>
           </div>
-        )}
-        <ChecklistPicker
-          mode="server"
-          options={options}
-          picks={picks}
-          onPicksChange={setPicks}
-          query={query}
-          onQueryChange={setQuery}
-          labels={labels}
-          chips={chipsFor(picks, known)}
-          disabled={running}
-          loading={searching}
-          failed={term !== '' && search.isError}
-          capped={search.data?.isCapped ?? false}
-          rowNote={(id) =>
-            refusals.has(id) ? (
-              <span className="block text-xs text-danger-800">
-                <bdi>{apiErrorMessage(refusals.get(id), t('toast.failed'))}</bdi>
+          {pasteReport && <PasteReport report={pasteReport} />}
+          {result && (
+            <div
+              role="status"
+              className={
+                'rounded-lg border p-2.5 text-xs ' +
+                (result.refused > 0 ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 bg-muted/40')
+              }
+              data-testid="add-holders-summary"
+            >
+              <p className="font-semibold">
+                {t('addHolders.summary', {
+                  assigned: t('addHolders.summaryAssigned', { count: result.done, n: fsi(String(result.done)) }),
+                  refused: t('addHolders.summaryRefused', { count: result.refused, n: fsi(String(result.refused)) }),
+                })}
+              </p>
+              {result.refused > 0 && (
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {[...refusals].map(([id, err]) => (
+                    <li key={id} className="flex flex-wrap gap-x-2" data-refused={id}>
+                      <span className="font-semibold">
+                        <Ltr>{nameOf(id)}</Ltr>
+                      </span>
+                      <bdi>{apiErrorMessage(err, t('toast.failed'))}</bdi>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          <ChecklistPicker
+            mode="server"
+            options={options}
+            picks={picks}
+            onPicksChange={setPicks}
+            query={query}
+            onQueryChange={setQuery}
+            labels={labels}
+            chips={chipsFor(picks, known)}
+            disabled={busy}
+            loading={searching}
+            failed={term !== '' && search.isError}
+            capped={search.data?.isCapped ?? false}
+            rowNote={(id) =>
+              refusals.has(id) ? (
+                <span className="block text-xs text-danger-800">
+                  <bdi>{apiErrorMessage(refusals.get(id), t('toast.failed'))}</bdi>
+                </span>
+              ) : null
+            }
+            data-testid="add-holders-picker"
+          />
+        </div>
+      </Modal>
+      <PasteCodesDialog
+        open={pasting}
+        existing={picks}
+        testId="holders-paste"
+        labels={{
+          title: t('addHolders.paste.title'),
+          hint: t('addHolders.paste.hint'),
+          added: (n) => t('addHolders.paste.added', { count: n, n: fsi(String(n)) }),
+          skipped: (n) => t('addHolders.paste.skipped', { count: n, n: fsi(String(n)) }),
+          ok: t('addHolders.paste.ok'),
+          cancel: t('common.cancel'),
+        }}
+        onClose={() => setPasting(false)}
+        onConfirm={(codes) => void resolvePaste(codes)}
+      />
+    </>
+  )
+}
+
+/** What a paste resolved to: how many were picked, and the IDs it could not use, each isolated LTR. */
+function PasteReport({ report }: { report: PasteResolution }) {
+  const { t } = useTranslation('authz-admin')
+  const n = report.found.length
+  const ids = (list: readonly string[]) => (
+    <span className="flex flex-wrap gap-x-2">
+      {list.map((id) => (
+        <span key={id} data-paste-id={id} className="font-mono">
+          <Ltr>{id}</Ltr>
+        </span>
+      ))}
+    </span>
+  )
+  return (
+    <div role="status" className="flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs" data-testid="add-holders-paste-report">
+      <p className="font-semibold" data-paste="found">
+        {t('addHolders.pasteFound', { count: n, n: fsi(String(n)) })}
+      </p>
+      {report.alreadyHolds.length > 0 && (
+        <div className="flex flex-wrap gap-x-2" data-paste="already-holds">
+          <span>{t('addHolders.pasteAlreadyHolds')}</span>
+          {ids(report.alreadyHolds)}
+        </div>
+      )}
+      {report.notFound.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 text-danger-800" data-paste="not-found">
+          <span>{t('addHolders.pasteNotFound')}</span>
+          {ids(report.notFound)}
+        </div>
+      )}
+      {report.failed.length > 0 && (
+        <ul className="flex flex-col gap-0.5 text-danger-800" data-paste="failed">
+          {report.failed.map(({ id, error }) => (
+            <li key={id} className="flex flex-wrap gap-x-2">
+              <span data-paste-id={id} className="font-mono">
+                <Ltr>{id}</Ltr>
               </span>
-            ) : null
-          }
-          data-testid="add-holders-picker"
-        />
-      </div>
-    </Modal>
+              <bdi>{apiErrorMessage(error, t('addHolders.pasteFailed'))}</bdi>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

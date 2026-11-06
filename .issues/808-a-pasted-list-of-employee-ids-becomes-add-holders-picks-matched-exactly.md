@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 805
 blocked-by: 807
 ---
@@ -28,8 +28,8 @@ store/logic (paste resolution) · component (Paste IDs in Add holders) · i18n �
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `resolvePastedIds splits, de-duplicates and matches exactly` — `1234` against results `1234, 12345` → `1234` only; repeated IDs once; found / already-holds / not-found classified · pure
-- [ ] `authz-batch-drive` Paste IDs leg — paste 5 IDs (one repeated, one unknown, one current holder, one prefix of another) → 2 chips with names, 1 already-holds, 1 not-found listed; Assign to 2 succeeds · flow (Playwright)
+- [x] `resolvePastedIds splits, de-duplicates and matches exactly` — `1234` against results `1234, 12345` → `1234` only; repeated IDs once; found / already-holds / not-found classified · pure
+- [x] `authz-batch-drive` Paste IDs leg — paste 5 IDs (one repeated, one unknown, one current holder, one prefix of another) → 2 chips with names, 1 already-holds, 1 not-found listed; Assign to 2 succeeds · flow (Playwright)
 
 ## Boundaries
 

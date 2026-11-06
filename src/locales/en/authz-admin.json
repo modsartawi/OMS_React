@@ -276,7 +276,23 @@
     "summaryAssigned_one": "{{n}} assigned",
     "summaryAssigned_other": "{{n}} assigned",
     "summaryRefused_one": "{{n}} refused",
-    "summaryRefused_other": "{{n}} refused"
+    "summaryRefused_other": "{{n}} refused",
+    "pasteIds": "Paste IDs",
+    "pasteResolving": "Looking up {{done}} of {{total}}…",
+    "paste": {
+      "title": "Paste employee IDs",
+      "hint": "Employee IDs — a column from Excel, or IDs separated by commas, spaces or new lines. Each is matched exactly.",
+      "added_one": "{{n}} ID to look up",
+      "added_other": "{{n}} IDs to look up",
+      "skipped_one": "{{n}} repeated or already picked",
+      "skipped_other": "{{n}} repeated or already picked",
+      "ok": "Look up"
+    },
+    "pasteFound_one": "{{n}} added to the picks",
+    "pasteFound_other": "{{n}} added to the picks",
+    "pasteAlreadyHolds": "Already hold this role:",
+    "pasteNotFound": "Not found — send these back:",
+    "pasteFailed": "The lookup failed"
   },
   "deleteBlocked": {
     "title": "Role is still in use",

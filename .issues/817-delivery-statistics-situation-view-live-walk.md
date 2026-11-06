@@ -53,8 +53,22 @@ The live drive is green on staging, parity and the spot-checks are recorded unde
 ## Blocked by
 
 - [812](812-the-headline-strip-shows-the-six-server-figures-and-their-change.md), [813](813-choosing-a-courier-narrows-the-page-to-its-home-deliveries.md), [814](814-the-funnels-show-stage-drop-off-and-the-delivery-slot-split.md), [815](815-the-chart-is-drawn-by-core-charts-and-dims-while-today-refreshes.md), [816](816-the-store-tables-delivery-view-ranks-stores-by-slot-keeping.md)
-- **External:** BackOffice spec [3404](file:///C:/Work/DMSCO/BackOffice/.issues/3404-the-web-statistics-door-scopes-by-courier-and-carries-slot-keeping-trips-delivery-time-and-the-previous-period-spec.md) (the brief for spec 811, filed 2026-11-06, draft) grilled, built and deployed to staging.
+- **External:** BackOffice spec [3404](file:///C:/Work/DMSCO/BackOffice/.issues/3404-the-web-statistics-door-scopes-by-courier-and-carries-slot-keeping-trips-delivery-time-and-the-previous-period-spec.md) deployed to staging. It is ruled and built (tickets 3405–3407, merged into BackOffice `pricing2` at `de924e1af` on 2026-11-06), but **not deployed yet**. Run its deploy order on staging first: SQL `078`, then the build, then the `054` rebuild. Wait for the rebuild to finish. The hand-off brief's "What to check" section has the read-only query for that.
 
 ## Open questions
 
 - ~~The BackOffice brief is not filed yet.~~ Filed 2026-11-06 as BackOffice spec 3404 (draft). Its ⚠ items (courier key on `SdStoreDayStat`, trips shared by two couriers, Today's hourly cut-off, the 62-day look-back for a 31-day Range) are BackOffice's to rule; reconcile here when they do.
+- ~~BackOffice has not ruled the ⚠ items.~~ **Ruled and built 2026-11-06.** Reconcile against the hand-off brief
+  [3404-oms-react-situation-view-brief.md](file:///C:/Work/DMSCO/BackOffice/.issues/assets/3404-oms-react-situation-view-brief.md).
+  It has:
+  - the final wire;
+  - the absent-vs-null rules;
+  - the rulings (its "Status for 817" table answers the four ⚠ items above);
+  - a drift table against spec 811's proposal;
+  - how the dates look on the wire;
+  - what to check live: the rebuild check, the till parity table, and read-only queries to find the
+    deliveries for the three spot-checks.
+- **Known server issue, not web drift:** on days with callout deliveries, `stores[]` can carry a
+  `storeCode: ""` row (Came in only). The till door refuses that row, so the parity step must skip it. It is
+  BackOffice ticket 3429, which is open and waiting on an owner ruling. How the page labels it is this
+  side's choice.

@@ -1,0 +1,95 @@
+{
+  "about": "Spec 819 §E / 797 §5: canBind's case table — each parameter kind against each panel shape, with the area rule and the series-filter rule. The web's bindings.test.ts and the server's binding validator read this same table. A case is [param, panel, target or null, expected]: 'ok', 'ok:<dimension>' for a members binding, or the BindReason.",
+  "model": {
+    "areas": [{ "key": "delivery", "available": true }, { "key": "sales", "available": true }],
+    "measures": [
+      { "key": "orders", "area": "delivery", "shape": "additive", "unit": "count", "label": { "en": "Orders", "ar": "الطلبات" }, "description": { "en": "", "ar": "" }, "dimensions": ["channel_group", "store", "city", "delivery_type", "day"] },
+      { "key": "deliveries", "area": "delivery", "shape": "additive", "unit": "count", "label": { "en": "Deliveries", "ar": "التوصيلات" }, "description": { "en": "", "ar": "" }, "dimensions": ["channel_group", "store", "city", "day"] },
+      { "key": "cancel_rate", "area": "delivery", "shape": "rate", "unit": "share", "label": { "en": "Cancellation rate", "ar": "نسبة الإلغاء" }, "description": { "en": "", "ar": "" }, "dimensions": ["channel_group", "store", "city", "day"] },
+      { "key": "till", "area": "sales", "shape": "additive", "unit": "SAR", "label": { "en": "Till value", "ar": "قيمة الصندوق" }, "description": { "en": "", "ar": "" }, "dimensions": ["store", "city", "day"] }
+    ],
+    "dimensions": [
+      { "key": "day", "kind": "time", "label": { "en": "Day", "ar": "اليوم" }, "values": [] },
+      { "key": "channel_group", "kind": "category", "label": { "en": "Channel", "ar": "القناة" }, "values": [] },
+      { "key": "store", "kind": "category", "label": { "en": "Store", "ar": "الصيدلية" }, "values": [] },
+      { "key": "city", "kind": "category", "label": { "en": "City", "ar": "المدينة" }, "values": [] },
+      { "key": "delivery_type", "kind": "category", "label": { "en": "Delivery type", "ar": "نوع التوصيل" }, "values": [] }
+    ]
+  },
+  "panels": {
+    "kpi": { "chart": { "type": "kpi" }, "query": { "measures": ["orders"], "dimensions": [], "filters": [] } },
+    "line": { "chart": { "type": "line" }, "query": { "measures": ["orders"], "dimensions": ["day"], "filters": [] } },
+    "lineByStore": { "chart": { "type": "line" }, "query": { "measures": ["orders"], "dimensions": ["day", "store"], "filters": [] } },
+    "bar": { "chart": { "type": "bar" }, "query": { "measures": ["orders"], "dimensions": ["channel_group"], "filters": [] } },
+    "stacked": { "chart": { "type": "bar", "stack": "stacked" }, "query": { "measures": ["orders"], "dimensions": ["store", "channel_group"], "filters": [] } },
+    "two": { "chart": { "type": "bar" }, "query": { "measures": ["orders", "deliveries"], "dimensions": ["channel_group"], "filters": [] } },
+    "rate": { "chart": { "type": "bar" }, "query": { "measures": ["cancel_rate"], "dimensions": ["store"], "filters": [] } },
+    "till": { "chart": { "type": "bar" }, "query": { "measures": ["till"], "dimensions": ["store"], "filters": [] } },
+    "series": {
+      "chart": { "type": "bar", "orientation": "vertical" },
+      "query": { "measures": ["orders"], "dimensions": ["store"], "filters": [] },
+      "series": [
+        { "id": "hs", "label": { "en": "HungerStation", "ar": "هنقرستيشن" }, "filters": [{ "dimension": "channel_group", "values": ["hungerstation"] }] },
+        { "id": "qc", "label": { "en": "QC", "ar": "التوصيل السريع" }, "filters": [{ "dimension": "delivery_type", "values": ["qc"] }] }
+      ]
+    }
+  },
+  "params": {
+    "period": { "name": "period", "kind": "period", "label": { "en": "", "ar": "" }, "required": true, "default": { "kind": "period", "token": "yesterday" } },
+    "grain": { "name": "grain", "kind": "grain", "label": { "en": "", "ar": "" }, "required": true, "grains": ["day", "week", "month"], "default": { "kind": "grain", "grain": "day" } },
+    "channel": { "name": "channel", "kind": "members", "label": { "en": "", "ar": "" }, "required": false, "dimension": "channel_group", "pinned": null, "multi": true, "default": { "kind": "members", "values": [] } },
+    "cancel": { "name": "cancel", "kind": "threshold", "label": { "en": "", "ar": "" }, "required": false, "measure": "cancel_rate", "default": { "kind": "threshold", "op": "off", "value": 5 } },
+    "top": { "name": "top", "kind": "topN", "label": { "en": "", "ar": "" }, "required": true, "default": { "kind": "topN", "n": 10 } },
+    "figure": { "name": "figure", "kind": "measure", "label": { "en": "", "ar": "" }, "required": true, "options": ["orders", "deliveries"], "default": { "kind": "measure", "key": "orders" } },
+    "figureRate": { "name": "figure-rate", "kind": "measure", "label": { "en": "", "ar": "" }, "required": true, "options": ["orders", "cancel_rate"], "default": { "kind": "measure", "key": "orders" } },
+    "split": { "name": "split", "kind": "breakdown", "label": { "en": "", "ar": "" }, "required": true, "options": ["channel_group", "city"], "default": { "kind": "breakdown", "key": "channel_group" } }
+  },
+  "cases": [
+    ["period", "kpi", null, "ok"],
+    ["period", "line", null, "ok"],
+    ["period", "till", null, "ok"],
+    ["period", "series", null, "ok"],
+
+    ["grain", "line", null, "ok"],
+    ["grain", "lineByStore", null, "ok"],
+    ["grain", "kpi", null, "noTimeAxis"],
+    ["grain", "bar", null, "noTimeAxis"],
+
+    ["channel", "kpi", null, "ok:channel_group"],
+    ["channel", "bar", null, "ok:channel_group"],
+    ["channel", "line", null, "ok:channel_group"],
+    ["channel", "till", null, "notInArea"],
+    ["channel", "till", "store", "ok:store"],
+    ["channel", "till", "day", "notInArea"],
+    ["channel", "till", "unknown", "notInArea"],
+    ["channel", "series", null, "seriesFilters"],
+    ["channel", "series", "delivery_type", "seriesFilters"],
+    ["channel", "series", "city", "ok:city"],
+
+    ["cancel", "rate", null, "ok"],
+    ["cancel", "bar", null, "thresholdShape"],
+    ["cancel", "kpi", null, "thresholdShape"],
+
+    ["top", "bar", null, "ok"],
+    ["top", "rate", null, "ok"],
+    ["top", "stacked", null, "topNShape"],
+    ["top", "lineByStore", null, "topNShape"],
+    ["top", "line", null, "topNShape"],
+    ["top", "kpi", null, "topNShape"],
+
+    ["figure", "bar", null, "ok"],
+    ["figure", "kpi", null, "ok"],
+    ["figure", "rate", null, "ok"],
+    ["figure", "two", null, "measureShape"],
+    ["figure", "till", null, "measureShape"],
+    ["figureRate", "bar", null, "ok"],
+    ["figureRate", "stacked", null, "measureShape"],
+
+    ["split", "bar", null, "ok"],
+    ["split", "rate", null, "ok"],
+    ["split", "till", null, "breakdownShape"],
+    ["split", "kpi", null, "breakdownShape"],
+    ["split", "line", null, "breakdownShape"],
+    ["split", "series", null, "breakdownShape"]
+  ]
+}

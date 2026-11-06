@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { CircleAlert, Info, Minus, Plus, RotateCcw } from 'lucide-react'
+import { CircleAlert, Info, Minus, Plus, RotateCcw, Settings2 } from 'lucide-react'
 import type { AnalyticsModel, BoardPeriod, Param, ParamValue, PeriodToken, ThresholdOp } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
@@ -46,6 +46,7 @@ export default function FilterStrip({
   model,
   lang,
   wave,
+  design,
 }: {
   params: readonly Param[]
   values: ParamValues
@@ -57,6 +58,11 @@ export default function FilterStrip({
   model: AnalyticsModel
   lang: string
   wave: StreamWave
+  /**
+   * 824: design mode (the board editor, where the controls set the defaults) — a ⚙ on each parameter opens
+   * the parameter inspector, and "+ Parameter" declares a new one.
+   */
+  design?: { selected: string | null; onEdit: (name: string) => void; onAdd: () => void }
 }) {
   const { t } = useTranslation('boards')
   const set = (name: string, value: ParamValue) => onChange({ ...values, [name]: value })
@@ -70,9 +76,27 @@ export default function FilterStrip({
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('board.filters.label')} data-board-filters>
       <div className="flex flex-wrap items-end gap-3">
-        {params.map((param) => (
-          <ParamControl key={param.name} param={param} value={valueOf(param, values)} onChange={(v) => set(param.name, v)} invalid={invalid.includes(param.name)} model={model} lang={lang} />
-        ))}
+        {params.map((param) => {
+          const control = <ParamControl key={param.name} param={param} value={valueOf(param, values)} onChange={(v) => set(param.name, v)} invalid={invalid.includes(param.name)} model={model} lang={lang} />
+          if (!design) return control
+          const on = design.selected === param.name
+          return (
+            <div key={param.name} className={'flex items-end gap-0.5 rounded-md ' + (on ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : '')} data-board-param-design={param.name}>
+              {control}
+              <IconButton label={t('params.strip.edit', { name: fsi(paramLabel(param, lang, t)) })} size="compact" onClick={() => design.onEdit(param.name)} aria-pressed={on} data-board-param-edit={param.name}>
+                <Settings2 className="size-3.5" aria-hidden />
+              </IconButton>
+            </div>
+          )
+        })}
+        {design && (
+          <div className="ms-auto flex items-end">
+            <Button variant="outlined" onClick={design.onAdd} data-board-param-add>
+              <Plus className="size-3.5" aria-hidden />
+              {t('params.strip.add')}
+            </Button>
+          </div>
+        )}
         {onReset && (
           <div className="ms-auto flex items-end">
             <Button variant="text" onClick={onReset} disabled={!moved} data-board-params-reset>
@@ -106,8 +130,8 @@ export default function FilterStrip({
 
 type ControlData = Record<`data-${string}`, string | undefined>
 
-/** One parameter's control, by its kind (823). */
-function ParamControl({
+/** One parameter's control, by its kind (823); 824's inspector sets a default with it. */
+export function ParamControl({
   param,
   value,
   onChange,

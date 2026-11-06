@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -7,7 +7,7 @@ import { Heading, Plus, Sparkles, Type } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
 import { apiErrorCode } from '@/core/api'
 import i18n from '@/core/i18n'
-import type { AnalyticsBoard, AnalyticsBoardDefinition, AnalyticsBoardPanel, AnalyticsItem, AnalyticsLabel, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsBoardDefinition, AnalyticsBoardPanel, AnalyticsItem, AnalyticsLabel, AnalyticsModel, Param } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -17,12 +17,16 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { BOARD_REFRESH_SECONDS, BASE_FILTERS, NO_WAVE } from './board'
+import { addParam, bindPanel, blankParam, canBind, keptBindings, removeParam, validate, type Declarations } from './bindings'
+import DeclarationProblems from './DeclarationProblems'
+import { declarationRefusal, type DeclarationProblem } from './editor-refusal'
 import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
 import FilterStrip from './FilterStrip'
 import { HOME_TIER_ORDER } from './home'
 import { editingItemOf } from './item-save'
 import { layoutReducer, minSizeOf, type LayoutState } from './layout'
-import { defaultsOf, filtersOf, readyMadeParams, v1Of, withParams } from './params'
+import { boardParams, convertV1Board, defaultsOf, readyMadeParams, v1Of } from './params'
+import ParamInspector, { type InspectorFocus, type InspectorPanel } from './ParamInspector'
 import Refused from './Refused'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
@@ -34,7 +38,10 @@ import { viewTitleOf } from './ViewChart'
  * `/analytics/new?kind=board`: lay panels out on the 12-column grid (`./BoardEditorGrid`, `./layout`); add a
  * panel from a view I can read (mine, Shared or Certified) linked by reference, or build a new view with 775's
  * editor (saved as a view, then linked); text and section-header panels; the board's filters, each panel's
- * opt-outs and a default refresh interval. A view that was deleted shows "view removed" and blocks nothing.
+ * cross-filter opt-out and a default refresh interval. A view that was deleted shows "view removed" and blocks nothing.
+ * Since 824 the board declares parameters (the six ready-made ones to start with): the strip in design mode
+ * sets their defaults, the gear and "+ Parameter" open the parameter inspector (`./ParamInspector`), and each
+ * parameter's bindings replace v1's filter opt-outs. Saving runs `validate`; a 411 lists every problem.
  * Saving goes through 776's shared path (`useItemSave({ kind: 'board' })`): create, in place or as my copy.
  */
 
@@ -74,12 +81,21 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
   const [title, setTitle] = useState<AnalyticsLabel>(board?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(board?.subtitle ?? EMPTY_LABEL)
-  // 821: this editor edits v1's shape (the six filters, each panel's opt-outs); its seam reads a board's
-  // parameters and bindings as that shape, and saves both (`withParams`) until the designer replaces it.
-  const [opened] = useState(() => (def ? v1Of(def) : null))
-  const [layout, dispatch] = useReducer(layoutReducer, { panels: opened?.panels ?? [], mins: {} } satisfies LayoutState)
-  const [filters, setFilters] = useState<BoardFilters>(() => opened?.filters ?? BASE_FILTERS)
-  const stripParams = useMemo(() => readyMadeParams(filters), [filters])
+  const [layout, dispatch] = useReducer(layoutReducer, { panels: def?.panels ?? [], mins: {} } satisfies LayoutState)
+  // 824: the board's parameters and bindings, in the order the author declared them. A new board starts with
+  // the six ready-made parameters; a v1 board opens converted (its filters as defaults, v1's implicit rule as
+  // bindings — computed again below once its views are known, as the server converts on read).
+  const [decl, setDecl] = useState<Declarations>(() => (def ? boardParams(def) : { params: readyMadeParams(BASE_FILTERS), bindings: {} }))
+  const v1 = useRef(!!def && !(def.params && def.bindings))
+  const edit = (f: (d: Declarations) => Declarations) => {
+    v1.current = false
+    setDecl(f)
+  }
+  const [selected, setSelected] = useState<string | null>(null)
+  const [fresh, setFresh] = useState<string | null>(null)
+  const [focus, setFocus] = useState<InspectorFocus | null>(null)
+  const [problems, setProblems] = useState<DeclarationProblem[] | null>(null)
+  const [dismissed, setDismissed] = useState<unknown>(null)
   const [refresh, setRefresh] = useState<number>(def?.refresh ?? 0)
   const [pick, setPick] = useState('')
   const [building, setBuilding] = useState(false)
@@ -109,6 +125,23 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
       return [p.id, v]
     }),
   )
+  const bindPanels: InspectorPanel[] = viewPanels.map((p) => {
+    const v = views.get(p.id)
+    return v?.state === 'loaded' ? { id: p.id, title: viewTitleOf(v.item, model, lang, t), definition: v.item.definition } : { id: p.id, title: t('boardEditor.kind.view'), definition: null }
+  })
+  const settled = viewPanels.every((p) => views.get(p.id)?.state !== 'loading')
+  useEffect(() => {
+    if (!v1.current || !settled || !def) return
+    v1.current = false
+    const reaches = (p: { id: string }, dimension: string) => {
+      const v = views.get(p.id)
+      const probe: Param = { name: 'probe', kind: 'members', label: EMPTY_LABEL, required: false, dimension, default: { kind: 'members', values: [] } }
+      return v?.state !== 'loaded' || canBind(probe, v.item.definition, model).ok
+    }
+    setDecl((d) => ({ ...d, bindings: convertV1Board(def, reaches).bindings }))
+    // Once, when a v1 board's views are first all known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled])
   const chartOf = viewPanels.map((p) => `${p.id}=${views.get(p.id)?.state === 'loaded' ? (views.get(p.id) as { item: AnalyticsItem }).item.definition.chart.type : ''}`).join(',')
   useEffect(() => {
     for (const p of viewPanels) {
@@ -122,12 +155,34 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartOf])
 
-  const addView = (item: AnalyticsItem) =>
+  const addView = (item: AnalyticsItem) => {
+    const id = newPanelId()
     dispatch({
       type: 'add',
-      panel: { id: newPanelId(), kind: 'view', viewId: item.id, layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
+      panel: { id, kind: 'view', viewId: item.id, layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
       min: minSizeOf({ kind: 'view', chart: item.definition.chart.type }),
     })
+    // A new panel binds every parameter that can take it, as v1's filters reached a new panel.
+    edit((d) => bindPanel(d, { id, definition: item.definition }, model))
+  }
+  const addParamHere = () => {
+    const param = blankParam('members', decl.params.map((p) => p.name), model)
+    edit((d) => addParam(d, param, bindPanels, model))
+    setSelected(param.name)
+    setFresh(param.name)
+    setFocus(null)
+  }
+  const openParam = (name: string) => {
+    setSelected(name)
+    setFresh((f) => (f === name ? f : null))
+    setFocus(null)
+  }
+  const goTo = (p: DeclarationProblem) => {
+    if (p.what === 'series') return
+    openParam(p.param)
+    setFocus({ field: p.what === 'name' ? 'name' : p.what === 'binding' ? 'binding' : 'default', panel: p.what === 'binding' ? p.panel : undefined, at: Date.now() })
+  }
+  const panelTitle = (id: string) => bindPanels.find((p) => p.id === id)?.title ?? id
   const addWords = (kind: 'text' | 'section') =>
     dispatch({
       type: 'add',
@@ -148,8 +203,18 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     },
   })
   const { actions } = save
-  const definition: AnalyticsBoardDefinition = withParams({ panels: layout.panels, filters, ...(refresh > 0 ? { refresh } : {}) }, def ?? null)
-  const onSave = (how: SaveHow) => save.save(how, { title, subtitle, definition })
+  // The board saves its parameters and bindings (to panels still on it), and — so a v1 server still reads it —
+  // the v1 shape they mean: the ready-made defaults as `filters`, each panel's unbound ones as its `optOut`.
+  const bindings = keptBindings(decl.bindings, new Set(layout.panels.map((p) => p.id)))
+  const compat = v1Of({ panels: layout.panels, params: decl.params, bindings })
+  const definition: AnalyticsBoardDefinition = { panels: compat.panels, filters: compat.filters, params: decl.params, bindings, ...(refresh > 0 ? { refresh } : {}) }
+  const onSave = (how: SaveHow) => {
+    const found = validate(decl.params, bindings, bindPanels, model)
+    setProblems(found.length > 0 ? found : null)
+    if (found.length === 0) save.save(how, { title, subtitle, definition })
+  }
+  const server = save.error && save.error !== dismissed ? declarationRefusal(save.error) : null
+  const listed = problems ?? (server && server.problems.length > 0 ? server.problems : null)
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
   const reload = () => {
     save
@@ -159,7 +224,8 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   }
 
   return (
-    <div className="flex flex-col gap-4" data-board-editor={board?.id ?? 'new'}>
+    <div className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
+    <div className="flex min-w-0 flex-col gap-4">
       <section className="grid gap-3 rounded-lg border border-border/60 bg-card p-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_12rem]">
         <Field label={t('editor.titleEn')}>
           <Input value={title.en} dir="ltr" onChange={(e) => setTitle((x) => ({ ...x, en: e.target.value }))} data-board-title="en" />
@@ -186,7 +252,15 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
       <div className="flex flex-col gap-1">
         <p className="text-xs font-medium text-muted-foreground">{t('boardEditor.filters')}</p>
-        <FilterStrip params={stripParams} values={defaultsOf(stripParams)} onChange={(v) => setFilters(filtersOf(v))} model={model} lang={lang} wave={NO_WAVE} />
+        <FilterStrip
+          params={decl.params}
+          values={defaultsOf(decl.params)}
+          onChange={(v) => edit((d) => ({ ...d, params: d.params.map((p) => (v[p.name] ? { ...p, default: v[p.name] } : p)) }))}
+          model={model}
+          lang={lang}
+          wave={NO_WAVE}
+          design={{ selected, onEdit: openParam, onAdd: addParamHere }}
+        />
       </div>
 
       <section className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('boardEditor.add')} data-board-editor-add>
@@ -241,7 +315,19 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
       <div className="flex flex-col gap-2">
         <SaveStanding editing={editing} actions={actions} />
-        {save.refusal ? (
+        {listed ? (
+          <DeclarationProblems
+            problems={listed}
+            params={decl.params}
+            panelTitle={panelTitle}
+            lang={lang}
+            onGo={goTo}
+            onClose={() => {
+              setProblems(null)
+              setDismissed(save.error)
+            }}
+          />
+        ) : save.refusal ? (
           <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
         ) : save.error ? (
           <ErrorBanner title={t('boardEditor.saveFailed')} message={refusalWords(analyticsRefusal(save.error, t('boardEditor.saveFailed')), t)} />
@@ -257,6 +343,35 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
           </Button>
         </div>
       </div>
+
+    </div>
+      {selected && (
+        <ParamInspector
+          decl={decl}
+          name={selected}
+          fresh={fresh === selected}
+          panels={bindPanels}
+          model={model}
+          lang={lang}
+          focus={focus}
+          onChange={(next, name) => {
+            edit(() => next)
+            if (name !== selected) {
+              setSelected(name)
+              setFresh((f) => (f === selected ? name : f))
+            }
+          }}
+          onSelect={openParam}
+          onRemove={() => {
+            edit((d) => removeParam(d, selected))
+            setSelected(null)
+          }}
+          onClose={() => {
+            setSelected(null)
+            setFocus(null)
+          }}
+        />
+      )}
 
       <Modal open={building} onClose={() => setBuilding(false)} title={t('boardEditor.buildView')} width="76rem">
         {building &&

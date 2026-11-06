@@ -514,7 +514,7 @@
       "300": "Every 5 minutes",
       "900": "Every 15 minutes"
     },
-    "filters": "The filters the board opens on",
+    "filters": "Parameters — the values the board opens on",
     "add": "Add a panel",
     "addView": "Add a view",
     "pickView": "Choose a view…",
@@ -691,5 +691,104 @@
     "hint": "Its owner is {{owner}}. The new owner must hold the author grant; who sees it and its tier stay as they are.",
     "to": "New owner",
     "toHint": "Search by name or employee id."
+  },
+  "params": {
+    "kind": {
+      "period": "Period",
+      "members": "Members",
+      "grain": "Grain",
+      "threshold": "Threshold",
+      "topN": "Top N",
+      "measure": "Measure",
+      "breakdown": "Breakdown"
+    },
+    "kindHint": {
+      "period": "A relative period such as yesterday, or a fixed range.",
+      "members": "One or several values of a category: cities, stores, channels…",
+      "grain": "Day, week or month on panels drawn over time.",
+      "threshold": "Keep only rows whose figure passes a line, e.g. cancellation rate above 5%.",
+      "topN": "Show the first N rows, 1 to 100.",
+      "measure": "Swap which figure a panel shows, from a list you choose.",
+      "breakdown": "Swap what a panel is split by, from a list you choose."
+    },
+    "reason": {
+      "noTimeAxis": "not drawn over time",
+      "seriesFilters": "its series already filter on this",
+      "thresholdShape": "needs that measure and a category breakdown",
+      "topNShape": "needs one category and no time axis",
+      "measureShape": "not every option fits this panel",
+      "breakdownShape": "not every option fits this panel",
+      "notInArea": "not in this panel's area"
+    },
+    "strip": {
+      "edit": "Edit parameter {{name}}",
+      "add": "Parameter"
+    },
+    "inspector": {
+      "label": "Parameter inspector",
+      "title": "Parameter",
+      "done": "Done"
+    },
+    "field": {
+      "kind": "Kind",
+      "readyMade": "ready-made — every new board starts with it",
+      "name": "Name in the link",
+      "nameHint": "Viewers' links carry it as ?{{name}}=…",
+      "nameProblem": {
+        "reserved": "That name is reserved by the board (tv, refresh, cross, crossFrom).",
+        "slug": "Lower-case letters, digits and dashes, starting with a letter.",
+        "duplicate": "Another parameter already has this name."
+      },
+      "labelEn": "Label (English)",
+      "labelAr": "Label (Arabic)",
+      "dimension": "Picks from",
+      "choices": "Choices offered",
+      "openSearch": "Search every member",
+      "pinnedList": "Only my list",
+      "pinned": "My list",
+      "pinnedNone": "This dimension has no fixed list to pin from: viewers search it.",
+      "multi": "Several values",
+      "allowedGrains": "Grains viewers may pick",
+      "thresholdMeasure": "Compares",
+      "thresholdHint": "Viewers type the number in the measure's own unit (5 means 5%).",
+      "options": "Viewers choose from",
+      "optionsHint": "Checked at save: every option must fit every panel this binds to.",
+      "default": "Default",
+      "defaultHint": "Every parameter has a default, so a scheduled run never meets an empty value. Change the control above to set it.",
+      "required": "Viewers can't clear it",
+      "remove": "Remove parameter",
+      "removeReadyMade": "Ready-made parameters may be removed too; old links that carry it then fall back to the default."
+    },
+    "bind": {
+      "title": "Applies to",
+      "hint": "Pre-filled with every panel that can take it. Untick a panel to leave it out; a panel it can't reach says why.",
+      "target": "Filters which dimension",
+      "noPanels": "Add a view to the board to bind this parameter.",
+      "loading": "Loading the view…"
+    },
+    "overview": {
+      "title": "Every parameter on every panel",
+      "param": "Parameter",
+      "cell": "{{param}} on {{panel}}",
+      "cannot": "can't",
+      "broken": "doesn't fit"
+    },
+    "problems": {
+      "title": "Not saved:",
+      "close": "Dismiss",
+      "kept": "Nothing was dropped: fix these and save again.",
+      "name": {
+        "reserved": "The parameter {{param}} uses a reserved name.",
+        "slug": "The parameter name {{param}} isn't a valid link key.",
+        "duplicate": "Two parameters are named {{param}}."
+      },
+      "binding": "{{param}} can't apply to {{panel}}: {{reason}}.",
+      "default": "The default of {{param}} isn't one it accepts.",
+      "series": {
+        "tooMany": "A view has more than 4 series.",
+        "duplicate": "Two series share the name of {{series}}.",
+        "foreignDimension": "The series {{series}} filters on {{dimension}}, which isn't one of the view's own."
+      }
+    }
   }
 }

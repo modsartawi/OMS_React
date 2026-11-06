@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowLeft, Eye, Plus, Redo2, Save, Undo2 } from 'lucide-react'
+import { ArrowLeft, Eye, GraduationCap, Plus, Redo2, Save, Undo2 } from 'lucide-react'
 import { reportEditHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsLabel, AnalyticsModel, AnalyticsReport, AnalyticsReportDefinition, AnalyticsReportWords } from '@/core/models/analytics'
@@ -31,6 +31,8 @@ import Refused from './Refused'
 import { blankPanelDefinition, copiedPanel, panelBlock } from './panel-edit'
 import { reportPanels, validateReport } from './report'
 import ReportDocument, { ReportBlock, type ReportWordsView } from './ReportDocument'
+import ReportTutorial from './ReportTutorial'
+import { sampleReport } from './sample-report'
 import { AiStepNotice, useReportInContext } from './ReportDesignerCopilot'
 import { AddBlock, BlockInspector, DropLine, Grip, MoveTools, Outline, SectionInspector, useNames, useReportDnd, type DesignerOps, type ReportDnd } from './ReportDesignerParts'
 import * as ops from './report-ops'
@@ -153,6 +155,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   const [problems, setProblems] = useState<DeclarationProblem[] | null>(null)
   const [dismissed, setDismissed] = useState<unknown>(null)
   const [editing, setEditing] = useState(startEditing)
+  const [tutorial, setTutorial] = useState(false)
 
   const edit = useCallback(
     (f: (d: ReportDraft) => ReportDraft, key: string | null = null, label: DraftStep | null = null) => dispatch({ type: 'apply', next: f, key, label, at: Date.now() }),
@@ -309,6 +312,13 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   const runItem = useMemo(() => ({ id: editing?.id ?? 'new', revision: editing?.revision ?? 0 }), [editing?.id, editing?.revision])
   const run = { model, lang, context, onFetching: noop, onParamNotice: noop, words, item: runItem }
 
+  // 831: the tutorial at the top of the inspector; "Load the finished report" is one undoable step.
+  const lead = tutorial ? (
+    <ReportTutorial draft={draft} model={model} onLoad={() => {
+        edit((d) => ({ ...d, ...sampleReport() }))
+        setSelected(null)
+      }} onClose={() => setTutorial(false)} />
+  ) : null
   const notice = h.fresh?.kind === 'removed' && closedNotice !== h.present ? h.fresh : null
   const selectedParam = selected?.startsWith('param:') ? selected.slice('param:'.length) : null
   const selectedBlock = selected?.startsWith('block:') ? def.sections.flatMap((s) => s.blocks).find((b) => `block:${b.id}` === selected) : undefined
@@ -335,6 +345,10 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             <IconButton label={t('designer.history.redo')} title={t('designer.history.redoHint')} variant="outlined" disabled={h.future.length === 0} onClick={redo} data-designer-redo>
               <Redo2 className="size-3.5" aria-hidden />
             </IconButton>
+            <Button variant={tutorial ? 'secondary' : 'outlined'} title={t('designer.tutorial.actionHint')} aria-pressed={tutorial} onClick={() => setTutorial(!tutorial)} data-designer-tutorial-action>
+              <GraduationCap className="size-3.5" aria-hidden />
+              {t('designer.tutorial.action')}
+            </Button>
             <Button variant="outlined" onClick={() => setPreview(true)} data-designer-preview>
               <Eye className="size-3.5" aria-hidden />
               {t('designer.preview')}
@@ -486,9 +500,11 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
               setSelected(null)
               setFocus(null)
             }}
+            lead={lead}
           />
         ) : (
           <aside className="sticky top-2 max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-border/60 bg-card p-4" aria-label={t('designer.inspector.label')} data-designer-inspector>
+            {lead && <div className="mb-4">{lead}</div>}
             {selected?.startsWith('section:') ? (
               <SectionInspector
                 def={def}

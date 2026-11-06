@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Trash2, X } from 'lucide-react'
 import type { AnalyticsModel, Grain, Param, ParamKind } from '@/core/models/analytics'
@@ -53,6 +53,7 @@ export default function ParamInspector({
   onSelect,
   onRemove,
   onClose,
+  lead,
 }: {
   decl: Declarations
   name: string
@@ -67,6 +68,8 @@ export default function ParamInspector({
   onSelect: (name: string) => void
   onRemove: () => void
   onClose: () => void
+  /** What sits at the top of the inspector, above the parameter (831: the designer's tutorial). */
+  lead?: ReactNode
 }) {
   const { t } = useTranslation('boards')
   const root = useRef<HTMLElement>(null)
@@ -101,6 +104,7 @@ export default function ParamInspector({
       aria-label={t('params.inspector.label')}
       data-param-inspector={param.name}
     >
+      {lead}
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">
           {t('params.inspector.title')}{' '}

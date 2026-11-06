@@ -1083,6 +1083,56 @@
     "summary": {
       "explain": "One per report. You don’t write it; you decide where it sits.",
       "design": "Rewritten on every run, from this report’s figures only, under your name. Runners only see the result."
+    },
+    "tutorial": {
+      "action": "Tutorial",
+      "actionHint": "A checklist that builds the HungerStation against QC report, ticking each step as you do it",
+      "title": "Build the HungerStation against QC report",
+      "progress": "Steps done",
+      "hide": "Hide",
+      "show": "Show",
+      "close": "Close the tutorial",
+      "finished": "Done. This is a report your team can re-run for any period. Save it, then share and schedule it from its page.",
+      "load": "Load the finished report",
+      "loadHint": "Skip to the end and study it. Undo takes you back to where you were.",
+      "askTitle": "Or ask the copilot",
+      "askHow": "Type this sentence to the copilot and it builds the whole report, which opens here:",
+      "sentence": "How were sales for each channel yesterday? Focus on two order types, HungerStation and QC, compare them, and show their cancellation rates. The period is a parameter that defaults to yesterday and can be changed. Save it as a report template my team can re-run, schedule it every day by email to named people, and include charts.",
+      "ask": "Ask the copilot",
+      "steps": {
+        "title": {
+          "title": "Name the report",
+          "how": "Type a title above the page, e.g. \"Channel sales: HungerStation against QC\". One language is enough."
+        },
+        "section": {
+          "title": "Add a section",
+          "how": "Use \"Add a section\" and call it \"Sales by channel\". Sections are read top to bottom."
+        },
+        "chart": {
+          "title": "Chart net sales by channel",
+          "how": "In the section, use \"Add to this section\", then \"Chart or table\". Pick the value through our tills, break it down by channel, and choose bars."
+        },
+        "series": {
+          "title": "Compare HungerStation against QC",
+          "how": "Add another chart, then two named series: one where the channel is HungerStation, one where the delivery type is QC. Each series runs on its own."
+        },
+        "rate": {
+          "title": "Show their cancellation rates",
+          "how": "On a chart with those two series, pick the Orders area and its cancellation rate, by day."
+        },
+        "figure": {
+          "title": "Write a sentence with a live figure",
+          "how": "Add Text and use \"Insert a live figure\" to drop in, say, HungerStation’s rate. It is filled in on every run."
+        },
+        "summary": {
+          "title": "Add the AI summary",
+          "how": "Add \"AI summary\" to a last section. It is rewritten on every run and its numbers are checked."
+        },
+        "period": {
+          "title": "The period: yesterday, on every chart",
+          "how": "Add a Period parameter (\"Parameter\" in the outline) or open it. Its default should be Yesterday, and \"Applies to\" should tick every chart."
+        }
+      }
     }
   }
 }

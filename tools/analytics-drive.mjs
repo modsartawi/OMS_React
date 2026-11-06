@@ -167,6 +167,11 @@
 // "add the cancellation rate as a bar" sends the report in context `{ reportId, revision, draft }`, and its stubbed
 // `reportEdit` lands as ONE step labelled "AI: …", unsaved and never PUT; Undo takes all of it back, Redo again.
 //
+// 831 (spec 819 §E) — the designer's tutorial (en and ar): "Tutorial" opens a checklist at the top of the inspector;
+// a blank report ticks no step; built by hand, each step ticks itself from the draft (a KPI, one series, a rate with
+// no series and words alone never do); a period moved off yesterday unticks. "Load the finished report" ticks all
+// eight as one undo step; "Ask the copilot" sends the acceptance sentence to the copilot panel.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
@@ -3692,7 +3697,173 @@ async function saveAsReport830({ dir }) {
   await context.close()
 }
 
+// ── 831: the designer's tutorial builds the acceptance case, each step ticking itself from the draft ─────────────
+const STEPS_831 = ['title', 'section', 'chart', 'series', 'rate', 'figure', 'summary', 'period']
+const ticks831 = (page) =>
+  page.locator('[data-designer-tutorial-step][data-done]').evaluateAll((els) => els.filter((e) => e.dataset.done === 'yes').map((e) => e.dataset.designerTutorialStep).join(','))
+const progress831 = async (page) => noIsolates(await page.locator('[data-designer-tutorial-progress]').innerText()).trim()
+const rawKeys831 = async (page) => ((await page.locator('body').innerText()).match(/\bdesigner\.tutorial\.[a-zA-Z.]+/g) ?? []).join(',')
+
+async function tutorial831({ dir }) {
+  const tag = `831 ${dir}`
+  const { context, page, errors } = await open({ dir, height: 1500, access: AUTHOR, model: MODEL_827 })
+  await page.goto(`${BASE}/analytics/new?kind=report`)
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 30000 })
+  check(`${tag}: the tutorial is closed until asked for`, (await page.locator('[data-designer-tutorial]').count()) === 0)
+  await page.locator('[data-designer-tutorial-action]').click()
+  await page.locator('[data-designer-inspector] [data-designer-tutorial]').waitFor({ timeout: 5000 })
+  check(`${tag}: "Tutorial" opens the checklist at the top of the inspector`, (await page.locator('[data-designer-inspector] > :first-child [data-designer-tutorial]').count()) === 1)
+  check(`${tag}: a blank report ticks no step`, (await ticks831(page)) === '' && (await progress831(page)) === '0 / 8', `${await ticks831(page)} | ${await progress831(page)}`)
+  check(`${tag}: … the next step says how`, (await page.locator('[data-designer-tutorial="title"]').count()) === 1)
+  const sentence = noIsolates(await page.locator('[data-designer-tutorial-sentence]').innerText())
+  check(`${tag}: the last step is "Or ask the copilot", with the acceptance sentence`, (await page.locator('[data-designer-tutorial-step="ask"]').count()) === 1 && sentence.length > 100, sentence.slice(0, 40))
+  check(`${tag}: … and no ask button while the copilot is not there`, (await page.locator('[data-designer-tutorial-ask]').count()) === 0)
+  check(`${tag}: no raw tutorial key on screen`, (await rawKeys831(page)) === '', await rawKeys831(page))
+  await page.screenshot({ path: `${SHOTS}/831-blank-${dir}.png`, fullPage: false })
+  const ticked = async (upTo, what) => {
+    const want = STEPS_831.filter((s) => upTo.includes(s)).join(',')
+    const got = await ticks831(page)
+    check(`${tag}: ${what} ticks ${upTo.at(-1)}`, got === want, got)
+  }
+  const done = []
+
+  // 1. The title, 2. a section.
+  await page.locator('[data-designer-title-input="en"]').fill('Channel sales: HungerStation against QC')
+  done.push('title')
+  await ticked(done, 'typing a title')
+  await page.locator('[data-designer-add-section]').click()
+  await page.locator('[data-designer-section-inspector] [data-designer-heading="en"]').fill('Sales by channel')
+  done.push('section')
+  await ticked(done, 'adding a section')
+  check(`${tag}: the tutorial stays at the top of the inspector, over the section editor`, (await page.locator('[data-designer-inspector] [data-designer-tutorial]').count()) === 1 && (await page.locator('[data-designer-section-inspector]').count()) === 1)
+
+  // 3. Net sales by channel, as bars: a new panel starts as a KPI, which is not yet the chart.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-page] [data-designer-add-panel="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p1"]').waitFor({ timeout: 10000 })
+  await ticked(done, 'a KPI panel never')
+  await inspector829(page).locator('[data-analytics-chosen-measures] button').first().click()
+  await inspector829(page).locator('[data-analytics-measure="till_value"]').click()
+  await pick(page, 'editor-dimensions', ['channel_group'])
+  await page.locator('[data-analytics-choice="bar-vertical"]').click()
+  done.push('chart')
+  await ticked(done, 'net sales by channel as bars')
+
+  // 4. Orders, HungerStation against QC: one series is not the comparison, two are.
+  const series831 = async (rows) => {
+    for (const [i, en, dim, value] of rows) {
+      await page.locator('[data-editor-add-series]').click()
+      const row = inspector829(page).locator(`[data-editor-series-row="s${i}"]`)
+      await row.locator('[data-editor-series-label="en"]').fill(en)
+      await row.locator(`[data-editor-series-dimension="s${i}:0"]`).selectOption(dim)
+      await pick(page, `editor-series-values-s${i}-0`, [value])
+    }
+  }
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-page] [data-designer-add-panel="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p2"]').waitFor({ timeout: 10000 })
+  await inspector829(page).locator('[data-analytics-chosen-measures] button').first().click()
+  await inspector829(page).locator('[data-analytics-measure="orders"]').click()
+  await pick(page, 'editor-dimensions', ['day'])
+  await page.locator('[data-analytics-choice="bar-vertical"]').click()
+  await series831([[1, 'HungerStation', 'channel_group', 'hungerstation']])
+  await ticked(done, 'HungerStation alone never')
+  await series831([[2, 'QC', 'delivery_type', 'QC']])
+  done.push('series')
+  await ticked(done, 'HungerStation and QC')
+
+  // 5. Their cancellation rates: the orders area, by day, with the same two series.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-page] [data-designer-add-panel="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p3"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-designer-panel-area]').selectOption('orders')
+  await pick(page, 'editor-dimensions', ['day'])
+  await page.locator('[data-analytics-choice="line"]').click()
+  await ticked(done, 'a rate without the series never')
+  await series831([
+    [1, 'HungerStation', 'channel_group', 'hungerstation'],
+    [2, 'QC', 'delivery_type', 'QC'],
+  ])
+  done.push('rate')
+  await ticked(done, 'the rate of HungerStation against QC')
+
+  // 6. A sentence with a live figure.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-page] [data-designer-add-text="s1"]').click()
+  const en = page.locator('[data-designer-text-field="en"]')
+  await en.click()
+  await page.keyboard.type('HungerStation cancelled ')
+  await ticked(done, 'words alone never')
+  await page.locator('[data-designer-figure-into="en"]').click()
+  await page.locator('[data-designer-figure-panel]').selectOption('p3')
+  // A series made by hand is named s1, s2…: s1 is HungerStation.
+  await page.locator('[data-designer-figure-value]').selectOption('s1')
+  await page.locator('[data-designer-figure-insert]').click()
+  done.push('figure')
+  await ticked(done, 'a live figure')
+
+  // 7. The AI summary, in a last section.
+  await page.locator('[data-designer-add-section]').click()
+  await page.locator('[data-designer-open-add="s2"]').click()
+  await page.locator('[data-designer-page] [data-designer-add-summary="s2"]').click()
+  done.push('summary')
+  await ticked(done, 'the AI summary')
+
+  // 8. The period: declared now, it binds every chart and defaults to yesterday; moved off yesterday it unticks.
+  await page.locator('[data-designer-outline-add-param]').click()
+  await page.locator('[data-param-kind="period"]').click()
+  check(`${tag}: … and stays at the top of the parameter inspector`, (await page.locator('[data-param-inspector] [data-designer-tutorial]').count()) === 1)
+  done.push('period')
+  await ticked(done, 'a period defaulting to yesterday on every chart')
+  await page.locator('[data-param-inspector-close]').click()
+  await page.locator('[data-board-filter-period]').selectOption('last-7-days')
+  check(`${tag}: a period moved off yesterday unticks`, !(await ticks831(page)).includes('period'), await ticks831(page))
+  await page.locator('[data-board-filter-period]').selectOption('yesterday')
+  check(`${tag}: … and back on yesterday ticks again; every step done`, (await ticks831(page)) === STEPS_831.join(',') && (await progress831(page)) === '8 / 8', await progress831(page))
+  check(`${tag}: done, the tutorial says so`, (await page.locator('[data-designer-tutorial-finished]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/831-done-${dir}.png`, fullPage: false })
+  check(`${tag}: no raw tutorial key on screen`, (await rawKeys831(page)) === '', await rawKeys831(page))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 831: "Load the finished report" ticks every step as one undoable step; "Or ask the copilot" asks the sentence. */
+async function tutorialLoad831({ dir }) {
+  const tag = `831 load ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, height: 1500, access: AUTHOR, model: MODEL_827, copilot: 'granted', copilotAnswer: CREATE_ANSWER_832 })
+  await page.goto(`${BASE}/analytics/new?kind=report`)
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-designer-tutorial-action]').click()
+  await page.locator('[data-designer-tutorial-load]').click()
+  check(`${tag}: "Load the finished report" ticks every step`, (await ticks831(page)) === STEPS_831.join(',') && (await progress831(page)) === '8 / 8', await ticks831(page))
+  check(`${tag}: … the page holds its four sections`, (await sections828(page)) === 's1,s2,s3,s4', await sections828(page))
+  await page.locator('[data-designer-block="p1"] [data-chart="bar"]').waitFor({ timeout: 10000 })
+  check(`${tag}: … the page draws its panels`, (await page.locator('[data-designer-block="p1"] [data-chart="bar"]').count()) === 1)
+  const title = noIsolates(await page.locator('[data-designer-title]').innerText()).trim()
+  const arabic = (await page.evaluate(() => document.documentElement.lang)).startsWith('ar')
+  check(`${tag}: … titled in the reader's language`, title === (arabic ? 'مبيعات القنوات: هنقرستيشن مقابل QC' : 'Channel sales: HungerStation against QC'), title)
+  await page.screenshot({ path: `${SHOTS}/831-loaded-${dir}.png`, fullPage: false })
+  await page.locator('[data-designer-undo]').click()
+  check(`${tag}: one Undo takes it back to the blank report`, (await ticks831(page)) === '' && (await page.locator('[data-designer-empty]').count()) === 1 && (await page.locator('[data-designer-undo]').isDisabled()), await ticks831(page))
+
+  // Or ask the copilot: the sentence goes to the copilot's own panel.
+  const ask = page.locator('[data-designer-tutorial-ask]')
+  await ask.waitFor({ timeout: 10000 })
+  const sentence = noIsolates(await page.locator('[data-designer-tutorial-sentence]').innerText()).trim()
+  await ask.click()
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  await sheet.locator('[data-copilot-report-open="r-832"]').waitFor({ timeout: 10000 })
+  const asked = (bodies['Copilot/Ask'] ?? [])[0]
+  check(`${tag}: "Ask the copilot" asks the acceptance sentence in the copilot panel`, asked?.question === sentence, asked?.question?.slice(0, 40))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['831', () => tutorial831({ dir: 'ltr' })],
+  ['831', () => tutorial831({ dir: 'rtl' })],
+  ['831', () => tutorialLoad831({ dir: 'ltr' })],
+  ['831', () => tutorialLoad831({ dir: 'rtl' })],
   ['829', () => designer829({ dir: 'ltr' })],
   ['829', () => designer829({ dir: 'rtl' })],
   ['829', provenance829],

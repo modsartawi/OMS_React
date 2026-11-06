@@ -131,7 +131,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -1994,8 +1994,11 @@ async function boardEditorBuilds({ dir }) {
   check(`${tag}: the corner resizes the bar to 4 rows`, (await layoutOf(page, bar)) === '6,0,6,4', await layoutOf(page, bar))
   check(`${tag}: … and the section it grew into is pushed below it`, (await layoutOf(page, head)) === '0,4,12,1', await layoutOf(page, head))
 
-  // 4. An opt-out, the words, the refresh; then save.
-  await page.locator(`[data-editor-panel="${bar}"] [data-editor-opt-out="store"]`).click()
+  // 4. The store parameter left off the bar (824: in the parameter inspector — v1's opt-out is saved beside
+  // the binding), the words, the refresh; then save.
+  await page.locator('[data-board-param-edit="store"]').click()
+  await page.locator(`[data-param-inspector="store"] [data-param-binding="${bar}"] button`).first().click()
+  await page.locator('[data-param-inspector-close]').click()
   await page.locator('[data-board-title="en"]').fill('Ops desk')
   await page.locator('[data-board-title="ar"]').fill('مكتب العمليات')
   await page.locator('[data-board-refresh]').selectOption('300')
@@ -2683,6 +2686,102 @@ const url823 = (page) => new URL(page.url()).searchParams
 const asks823 = (bodies, from) => (bodies['Analytics/Query'] ?? []).slice(from)
 
 /** Do `act`, wait for the bound panels to re-key and settle; returns the panels re-keyed and the new asks. */
+// 824 — an author declares a parameter on a board:
+//   1. a new board with three views; the strip holds the six ready-made parameters, each with a gear;
+//   2. "+ Parameter" opens the inspector (a pane beside the board, not a modal) on a members parameter, with
+//      the seven kinds offered; the name is checked live (`tv` is reserved), then named `zone`, labelled in
+//      English and Arabic, and pointed at the region;
+//   3. "Applies to" is pre-filled: the KPI and the bar bound, the delivery-time panel not, saying why
+//      (`notInArea`); the bar is unbound; the overview agrees cell by cell;
+//   4. Save runs `validate` (nothing found) and posts params + bindings; the stubbed server answers 411 with two
+//      problems — the list shows both, and each one opens the inspector on its field and focuses it;
+//   5. saving again makes the board, whose page draws the zone parameter in its strip. No page errors.
+async function declares824({ dir }) {
+  const tag = `824 ${dir}`
+  const problems = (body) => {
+    const kpi = body.definition?.panels?.[0]?.id
+    const msg = 'The board declares something invalid.'
+    return envelope({ problems: [{ what: 'name', why: 'duplicate', param: 'zone' }, { what: 'binding', param: 'zone', panel: kpi, reason: 'notInArea' }] }, { status: 400, success: false, message: msg, errors: [{ errorCode: 'ANALYTICS-411', internalErrorCode: '', errorMessage: msg }] })
+  }
+  const { context, page, bodies, errors } = await open({ dir, list: LIST_824, create: (body, n) => (n === 1 ? problems(body) : null) })
+  await page.goto(`${BASE}/analytics/new?kind=board`)
+  await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
+  for (const id of ['v-kpi', 'v-bar', 'v-824-p50']) {
+    await page.locator('[data-board-add-pick]').selectOption(id)
+    await page.locator('[data-board-add-view]').click()
+  }
+  const [kpi, bar, p50] = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
+  for (const id of [kpi, bar, p50]) await page.waitForFunction((x) => document.querySelector(`[data-editor-panel="${x}"]`)?.dataset.editorPanelState === 'loaded', id, { timeout: 10000 })
+  const gears = await page.locator('[data-board-param-edit]').evaluateAll((els) => els.map((e) => e.dataset.boardParamEdit))
+  check(`${tag}: the strip holds the six ready-made parameters, each with a gear`, JSON.stringify(gears) === JSON.stringify(['period', 'city', 'region', 'store', 'channel', 'country']), gears.join(', '))
+
+  // 2. Declare.
+  await page.locator('[data-board-param-add]').click()
+  const inspector = page.locator('[data-param-inspector]')
+  await inspector.waitFor({ timeout: 5000 })
+  const kinds = await inspector.locator('[data-param-kind]').evaluateAll((els) => els.map((e) => e.dataset.paramKind))
+  check(`${tag}: "+ Parameter" opens the inspector on a new members parameter, the seven kinds offered`, (await inspector.getAttribute('data-param-inspector')) === 'members' && kinds.length === 7 && (await inspector.locator('[data-param-kind="members"]').getAttribute('aria-pressed')) === 'true', kinds.join(', '))
+  check(`${tag}: … in a pane beside the board, not a modal`, (await page.locator('[role="dialog"]').count()) === 0 && (await inspector.evaluate((el) => el.tagName)) === 'ASIDE')
+  const box = await inspector.boundingBox()
+  const grid = await page.locator('[data-board-grid], [data-editor-panel]').first().boundingBox()
+  check(`${tag}: … on the inline end side`, dir === 'rtl' ? box.x < grid.x : box.x > grid.x, `inspector ${Math.round(box.x)} panel ${Math.round(grid.x)}`)
+  await inspector.locator('[data-param-name]').fill('tv')
+  const reserved = await inspector.locator('[data-param-field="name"]').innerText()
+  check(`${tag}: the name is checked live: tv is reserved`, /reserved|محجوز/.test(reserved) && (await inspector.getAttribute('data-param-inspector')) === 'members', reserved)
+  await inspector.locator('[data-param-name]').fill('zone')
+  await page.locator('[data-param-inspector="zone"]').waitFor({ timeout: 3000 })
+  await inspector.locator('[data-param-label="en"]').fill('Zone')
+  await inspector.locator('[data-param-label="ar"]').fill('المنطقة')
+  await inspector.locator('[data-param-dimension]').selectOption('region')
+  check(`${tag}: a valid name is taken at once, and the strip shows the new parameter`, (await page.locator('[data-board-param-edit="zone"]').count()) === 1)
+
+  // 3. Applies to.
+  const bound = async () => Object.fromEntries(await inspector.locator('[data-param-binding]').evaluateAll((els) => els.map((e) => [e.dataset.paramBinding, e.dataset.paramBound])))
+  const first = await bound()
+  check(`${tag}: "Applies to" is pre-filled with every panel that can take it`, first[kpi] === 'true' && first[bar] === 'true' && first[p50] === 'false', JSON.stringify(first))
+  const why = await inspector.locator(`[data-param-binding="${p50}"] [data-param-reason]`).getAttribute('data-param-reason')
+  check(`${tag}: … and the panel it can't reach says why`, why === 'notInArea', String(why))
+  await inspector.locator(`[data-param-binding="${bar}"] button`).first().click()
+  check(`${tag}: the bar is unbound`, (await bound())[bar] === 'false')
+  const cells = Object.fromEntries(await inspector.locator('[data-param-overview-row="zone"] [data-param-overview-cell]').evaluateAll((els) => els.map((e) => [e.dataset.paramOverviewCell, e.dataset.state])))
+  check(`${tag}: the overview agrees: bound, unbound, can't`, cells[kpi] === 'bound' && cells[bar] === 'unbound' && cells[p50] === 'cannot', JSON.stringify(cells))
+  const regionRow = Object.fromEntries(await inspector.locator('[data-param-overview-row="region"] [data-param-overview-cell]').evaluateAll((els) => els.map((e) => [e.dataset.paramOverviewCell, e.dataset.state])))
+  check(`${tag}: … for every parameter (the ready-made region can't reach the delivery-time panel either)`, regionRow[p50] === 'cannot' && regionRow[kpi] === 'bound', JSON.stringify(regionRow))
+  await page.screenshot({ path: `${SHOTS}/824-inspector-${dir}.png`, fullPage: true })
+  await inspector.locator('[data-param-inspector-close]').click()
+
+  // 4. Save: the server lists two problems, each taking the author to its field.
+  await page.locator('[data-board-title="en"]').fill('Zones')
+  await page.locator('[data-editor-save]').click()
+  await page.locator('[data-declaration-problems="2"]').waitFor({ timeout: 5000 })
+  const sent = (bodies['Analytics/Item'] ?? []).at(-1) ?? {}
+  const zone = sent.definition?.params?.find((x) => x.name === 'zone')
+  check(
+    `${tag}: the save carries params and bindings: zone on region, bound to the KPI only`,
+    zone?.kind === 'members' && zone.dimension === 'region' && zone.label?.ar === 'المنطقة' && JSON.stringify(sent.definition?.bindings?.zone) === JSON.stringify({ [kpi]: 'region' }) && sent.definition.params.length === 7,
+    JSON.stringify(sent.definition?.bindings?.zone),
+  )
+  const said = noIsolates(await page.locator('[data-declaration-problems]').innerText())
+  check(`${tag}: a 411 lists every problem`, (await page.locator('[data-declaration-problem]').count()) === 2 && /ANALYTICS-411/.test(said), said.slice(0, 200))
+  await page.screenshot({ path: `${SHOTS}/824-refused-${dir}.png`, fullPage: true })
+  await page.locator('[data-declaration-problem-go="0"]').click()
+  await page.locator('[data-param-inspector="zone"]').waitFor({ timeout: 3000 })
+  await page.waitForTimeout(100)
+  check(`${tag}: the name problem opens the inspector and focuses the name`, await page.evaluate(() => document.activeElement?.hasAttribute('data-param-name')))
+  await page.locator('[data-declaration-problem-go="1"]').click()
+  await page.waitForTimeout(100)
+  const at = await page.evaluate(() => document.activeElement?.closest('[data-param-binding]')?.getAttribute('data-param-binding'))
+  check(`${tag}: the binding problem focuses that panel's binding`, at === kpi, String(at))
+
+  // 5. Saved.
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL('**/analytics/board/b-new', { timeout: 10000 })
+  await page.locator('[data-board-filters] [data-board-param="zone"]').first().waitFor({ timeout: 10000 })
+  check(`${tag}: saved again, the board page's strip holds the zone parameter`, (await page.locator('[data-board-filters] [data-board-param="zone"]').count()) > 0)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 async function change823(page, bodies, act, expect) {
   const before = await keys823(page)
   const from = (bodies['Analytics/Query'] ?? []).length
@@ -3006,6 +3105,8 @@ const SCENARIOS = [
   ['827', () => report827({ dir: 'ltr' })],
   ['827', () => report827({ dir: 'rtl' })],
   ['827', () => report827({ dir: 'ltr', dark: true })],
+  ['824', () => declares824({ dir: 'ltr' })],
+  ['824', () => declares824({ dir: 'rtl' })],
   ['826', () => sharesWithAudience826({ dir: 'ltr' })],
   ['826', () => sharesWithAudience826({ dir: 'rtl' })],
   ['826', () => outsiderNotShared826({ dir: 'ltr' })],

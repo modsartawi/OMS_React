@@ -1,5 +1,6 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
-import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsModel, AnalyticsViewDefinition, BindReason } from '@/core/models/analytics'
+import type { ParamProblem } from './bindings'
 import { ROLLING_PERIODS } from './periods'
 import type { SeriesProblem } from './series'
 import { measureOf } from './wire'
@@ -21,22 +22,55 @@ export type EditorRefusal =
   | { kind: 'declaration'; series: SeriesProblem[]; message: string }
 
 /**
- * ⚠ 411's `data.problems[]`: `{ what, why, … }` as the 798 prototype's `validate` shaped them; the series ones
- * are `{ what: 'series', why: 'tooMany' | 'duplicate' | 'foreignDimension', series?, dimension? }`. A problem of
- * a shape not known here is left out (the server's message still stands).
+ * ⚠ 411's `data.problems[]`: `{ what, why, … }` as the 798 prototype's `validate` shaped them — a series
+ * problem `{ what: 'series', why: 'tooMany' | 'duplicate' | 'foreignDimension', series?, dimension? }` (825),
+ * a name `{ what: 'name', param, why: 'slug' | 'reserved' | 'duplicate' }`, a binding `{ what: 'binding',
+ * param, panel, reason }` or a default `{ what: 'default', param }` (824). A problem of a shape not known
+ * here is left out (the server's message still stands).
  */
-function seriesProblemsOf(raw: unknown): SeriesProblem[] {
+export type DeclarationProblem = ParamProblem | ({ what: 'series' } & SeriesProblem)
+
+const NAME_WHY = ['slug', 'reserved', 'duplicate'] as const
+const BIND_REASONS: readonly BindReason[] = ['noTimeAxis', 'seriesFilters', 'thresholdShape', 'topNShape', 'measureShape', 'breakdownShape', 'notInArea']
+
+export function declarationProblemsOf(raw: unknown): DeclarationProblem[] {
   const list = Array.isArray(raw) ? raw : []
-  const out: SeriesProblem[] = []
+  const out: DeclarationProblem[] = []
+  const text = (v: unknown) => (typeof v === 'string' && v ? v : '')
   for (const x of list) {
     const p = x && typeof x === 'object' ? (x as Record<string, unknown>) : {}
-    if (p.what !== 'series') continue
-    const series = typeof p.series === 'string' ? p.series : ''
-    if (p.why === 'tooMany') out.push({ why: 'tooMany' })
-    else if (p.why === 'duplicate' && series) out.push({ why: 'duplicate', series })
-    else if (p.why === 'foreignDimension' && series && typeof p.dimension === 'string') out.push({ why: 'foreignDimension', series, dimension: p.dimension })
+    const series = text(p.series)
+    const param = text(p.param)
+    if (p.what === 'series') {
+      if (p.why === 'tooMany') out.push({ what: 'series', why: 'tooMany' })
+      else if (p.why === 'duplicate' && series) out.push({ what: 'series', why: 'duplicate', series })
+      else if (p.why === 'foreignDimension' && series && text(p.dimension)) out.push({ what: 'series', why: 'foreignDimension', series, dimension: text(p.dimension) })
+    } else if (p.what === 'name' && param && (NAME_WHY as readonly unknown[]).includes(p.why)) {
+      out.push({ what: 'name', why: p.why as (typeof NAME_WHY)[number], param })
+    } else if (p.what === 'binding' && param && text(p.panel) && BIND_REASONS.includes(p.reason as BindReason)) {
+      out.push({ what: 'binding', param, panel: text(p.panel), reason: p.reason as BindReason })
+    } else if (p.what === 'default' && param) {
+      out.push({ what: 'default', param })
+    }
   }
   return out
+}
+
+/** A view's series problems of a 411 (the rest are not a view's). */
+const seriesProblemsOf = (raw: unknown): SeriesProblem[] =>
+  declarationProblemsOf(raw).flatMap((p): SeriesProblem[] => {
+    if (p.what !== 'series') return []
+    const { what: _what, ...problem } = p
+    void _what
+    return [problem]
+  })
+
+/** `ANALYTICS-411` on a board or report save: every problem it lists, and the server's words; else `null`. */
+export function declarationRefusal(err: unknown): { problems: DeclarationProblem[]; message: string } | null {
+  if (apiErrorCode(err) !== 'ANALYTICS-411') return null
+  const data = apiErrorData(err)
+  const raw = data && typeof data === 'object' ? (data as Record<string, unknown>).problems : undefined
+  return { problems: declarationProblemsOf(raw), message: apiErrorMessage(err, '') }
 }
 
 /** The percentile cap when neither the refusal nor the model states one (766 §B). */

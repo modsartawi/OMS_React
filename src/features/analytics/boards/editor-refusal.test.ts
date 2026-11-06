@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { editorRefusal } from './editor-refusal'
+import { declarationRefusal, editorRefusal } from './editor-refusal'
 
 const coded = (code: string, message = `Server says ${code}.`, data: unknown = null) =>
   new ApiError('business', message, 400, [{ errorCode: code, internalErrorCode: '', errorMessage: message }], data)
@@ -56,5 +56,32 @@ describe('the editor reads 406, 407 and 410 in its own terms', () => {
   it('any other failure is not the editor’s to word', () => {
     expect(editorRefusal(coded('ANALYTICS-409'), def(['orders']), MODEL)).toBeNull()
     expect(editorRefusal(new Error('boom'), def(['orders']), MODEL)).toBeNull()
+  })
+})
+
+describe('411 on a board: the declaration problems it lists (824), read by the same reader', () => {
+  it('names, bindings, defaults and series, each kept; a shape not known here is left out', () => {
+    const problems = [
+      { what: 'name', why: 'reserved', param: 'tv' },
+      { what: 'binding', param: 'channel', panel: 'p-bar', reason: 'notInArea' },
+      { what: 'default', param: 'top' },
+      { what: 'series', why: 'tooMany' },
+      { what: 'binding', param: 'channel', panel: 'p-bar', reason: 'unheard-of' },
+      { what: 'name', why: 'slug' },
+      'noise',
+    ]
+    expect(declarationRefusal(coded('ANALYTICS-411', 'Not saved.', { problems }))).toEqual({
+      problems: [
+        { what: 'name', why: 'reserved', param: 'tv' },
+        { what: 'binding', param: 'channel', panel: 'p-bar', reason: 'notInArea' },
+        { what: 'default', param: 'top' },
+        { what: 'series', why: 'tooMany' },
+      ],
+      message: 'Not saved.',
+    })
+  })
+  it('is null for any other refusal', () => {
+    expect(declarationRefusal(coded('ANALYTICS-406'))).toBeNull()
+    expect(declarationRefusal(new Error('boom'))).toBeNull()
   })
 })

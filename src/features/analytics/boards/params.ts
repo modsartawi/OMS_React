@@ -102,9 +102,9 @@ export function valueOf(param: Param, values: ParamValues): ParamValue {
 }
 
 /**
- * The board editor's seam (777's editor edits v1's shape until the designer replaces it): the six
- * ready-made parameters' defaults as v1's filters, and each panel's opt-outs from the bindings (plus the
- * cross-filter's own opt-out, which stays on the panel).
+ * The v1 shape a board's parameters mean, which the board editor saves beside them so a v1 server still
+ * reads the board: the six ready-made parameters' defaults as v1's filters, and each panel's opt-outs from
+ * the bindings (plus the cross-filter's own opt-out, which stays on the panel).
  */
 export function v1Of(def: AnalyticsBoardDefinition): { filters: BoardFilters; panels: AnalyticsBoardPanel[] } {
   const { params, bindings } = boardParams(def)
@@ -133,22 +133,6 @@ export function filtersOf(values: ParamValues): BoardFilters {
 
 const KEY_ORDER: BoardFilterKey[] = [...READY_MADE, 'crossFilter']
 const byKeyOrder = (a: BoardFilterKey, b: BoardFilterKey) => KEY_ORDER.indexOf(a) - KEY_ORDER.indexOf(b)
-
-/**
- * What the board editor saves: its v1 shape (`filters`, each panel's `optOut`) — kept so a v1 server
- * still reads it — plus the parameters and bindings it means. The six ready-made parameters follow the
- * editor; any other parameter of `base` (a v2 board's) keeps its declaration, and its bindings to the
- * panels still on the board.
- */
-export function withParams(v1: AnalyticsBoardDefinition, base: AnalyticsBoardDefinition | null): AnalyticsBoardDefinition {
-  const ready = convertV1Board(v1)
-  const kept = base ? boardParams(base) : { params: [], bindings: {} }
-  const ids = new Set(v1.panels.map((p) => p.id))
-  const others = kept.params.filter((p) => !isReadyMade(p.name))
-  const bindings: Bindings = { ...ready.bindings }
-  for (const p of others) bindings[p.name] = Object.fromEntries(Object.entries(kept.bindings[p.name] ?? {}).filter(([id]) => ids.has(id)))
-  return { ...v1, params: [...ready.params, ...others], bindings }
-}
 
 /** A ready-made parameter's v1 words (`board.filters.<name>`), for one whose label is left empty; else `null`. */
 export const readyMadeLabelKey = (name: string): string | null => (isReadyMade(name) ? `board.filters.${name}` : null)

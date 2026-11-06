@@ -395,6 +395,13 @@ ITEMS['b-shared'] = BOARD_778
 /** The views the board editor's picker lists (777): mine, a Shared one and a Certified one, all readable. */
 export const LIST_777 = [ITEMS['v-kpi'], ITEMS['v-bar'], ITEMS['v-titled'], ITEMS['v-cert-776'], board('b-777', { title: label('My desk', 'مكتبي') })]
 
+// 824: a view whose measure (the p50) breaks down by channel and store only — a region parameter can't reach it.
+ITEMS['v-824-p50'] = view('v-824-p50', {
+  title: label('Delivery time by store', 'زمن التوصيل حسب الصيدلية'),
+  definition: def('bar', ['order_to_delivered_p50'], ['store'], { orientation: 'vertical' }),
+})
+export const LIST_824 = [ITEMS['v-kpi'], ITEMS['v-bar'], ITEMS['v-824-p50']]
+
 // ── The copilot's doors (ticket 782): the ask box hands its question to the ONE copilot panel ─────────
 export const COPILOT_ANSWER = {
   conversationId: 'c-analytics-1',
@@ -683,6 +690,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *             not bind to the panel; return it changed, or a `refusal(...)` fulfil object (412). Default: unchanged.
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
  *             (id `v-new`, or `b-new` for a board), which `Analytics/Item/<id>` (and a view's Query) then serve.
+ *             824: or `(body, n) => fulfil | null` for the n-th POST (from 1); `null` makes the item as above.
  *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
  *             `baseRevision + 1` with the body's words and definition, served from then on.
  *   share / unshare / certify / uncertify / remove: the 778 doors' answers — a `refusal(...)` fulfil object, or
@@ -940,7 +948,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
       return keep({ ...before, id: copyId, tier: 'certified', certifiedFrom: id, copiedFrom: null, revision: prior ? prior.revision + 1 : 1, ...at })
     }
     if (p === 'Analytics/Item' && req.method() === 'POST') {
-      if (create) return route.fulfill(create)
+      const answer = typeof create === 'function' ? create(req.postDataJSON() ?? {}, bodies[p].length) : create
+      if (answer) return route.fulfill(answer)
       const body = req.postDataJSON() ?? {}
       // 777: a board is made as `b-new`, a view as `v-new`.
       const id = body.kind === 'board' ? 'b-new' : 'v-new'

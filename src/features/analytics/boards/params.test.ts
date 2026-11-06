@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsBoardDefinition, Param } from '@/core/models/analytics'
 import { effectiveQuery, panelKey, type ViewPanel } from './effective-query'
-import { boardParams, convertV1Board, defaultsOf, v1Of, withParams } from './params'
+import { boardParams, convertV1Board, defaultsOf, v1Of } from './params'
 import { readCrossFilter, readParamValues, writeParamValues } from './permalink'
 import { V1_BOARDS, V1_MODEL, V1_PERMALINKS, V1_VIEWS } from './v1-boards.fixture'
 import V1_KEYS from './v1-permalink-keys.json'
@@ -70,15 +70,13 @@ describe('the board editor seam', () => {
     ])
   })
 
-  it('saves v1 fields and the parameters they mean, keeping a v2 parameter and its bindings to panels still there', () => {
+  it('the v1 fields a v2 board saves: a deleted ready-made parameter reaches no panel, and the order stays the author\u2019s', () => {
+    const { params, bindings } = convertV1Board(V1_BOARDS['b-777'])
     const zone = members('zone', 'region')
-    const base: AnalyticsBoardDefinition = { ...V1_BOARDS['b-777'], params: [...convertV1Board(V1_BOARDS['b-777']).params, zone], bindings: { zone: { 'p-bar': 'region', 'p-removed': 'region' } } }
-    const saved = withParams({ panels: V1_BOARDS['b-777'].panels, filters: { ...v1Of(base).filters, store: ['P001'] }, refresh: 60 }, base)
-    expect(saved.filters?.store).toEqual(['P001'])
-    expect(saved.params?.map((p) => p.name)).toEqual(['period', 'city', 'region', 'store', 'channel', 'country', 'zone'])
-    expect(saved.params?.find((p) => p.name === 'store')?.default).toEqual({ kind: 'members', values: ['P001'] })
-    expect(saved.bindings?.zone).toEqual({ 'p-bar': 'region' })
-    expect(saved.bindings?.store).toEqual({ 'p-bar': 'store' })
+    const kept = [zone, ...params.filter((p) => p.name !== 'store')]
+    const back = v1Of({ panels: V1_BOARDS['b-777'].panels, params: kept, bindings: { ...bindings, zone: { 'p-bar': 'region' } } })
+    expect(back.panels.map((p) => (p.kind === 'view' ? [p.id, p.optOut] : p.id))).toEqual(['p-head', ['p-bar', ['store']], ['p-gone', ['store']]])
+    expect(kept.map((p) => p.name)).toEqual(['zone', 'period', 'city', 'region', 'channel', 'country'])
   })
 })
 

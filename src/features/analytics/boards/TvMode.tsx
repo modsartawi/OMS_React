@@ -3,16 +3,15 @@ import { useQuery } from '@tanstack/react-query'
 import type { SetURLSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Minimize2, Tv } from 'lucide-react'
-import type { AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import type { AnalyticsModel, Param } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
-import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
 import { useFullscreen } from './panel-hooks'
+import { boardPeriodOf, paramLabel, stripControlOf, valueOf, type ParamValues } from './params'
 import { periodNameKey } from './periods'
-import { dimensionOf } from './wire'
 
 /**
  * A board's TV mode (spec 766 §F, ticket 780): `tv=1` in the permalink. The shell hides itself on the
@@ -77,23 +76,30 @@ export function TvButton({ on, onEnter, onExit }: { on: boolean; onEnter: () => 
   )
 }
 
-/** The board's filters in TV mode: read-only chips, one per filter that holds a value. */
-export function FilterChips({ filters, model, lang }: { filters: BoardFilters; model: AnalyticsModel; lang: string }) {
+/** The board's parameters in TV mode: read-only chips, one per parameter that holds a value (821: from `params`). */
+export function FilterChips({ params, values, model, lang }: { params: readonly Param[]; values: ParamValues; model: AnalyticsModel; lang: string }) {
   const { t } = useTranslation('boards')
-  const period = filters.period
   return (
     <ul className="flex flex-wrap items-center gap-2 text-sm" aria-label={t('board.tv.chips')} data-board-filter-chips>
-      <Chip name={t('board.filters.period')} filter="period">
-        {period.kind === 'fixed' ? <Ltr>{formatRange(period.from, period.to)}</Ltr> : <span>{t(periodNameKey(period.token))}</span>}
-      </Chip>
-      {(['city', 'region', 'store'] as const).map((f) => filters[f].length > 0 && <SearchedChip key={f} filter={f} values={filters[f]} lang={lang} />)}
-      {(['channel', 'country'] as const).map((f) => {
-        if (filters[f].length === 0) return null
-        const dim = dimensionOf(model, FILTER_DIMENSIONS[f])
+      {params.map((param) => {
+        const control = stripControlOf(param, model)
+        const value = valueOf(param, values)
+        const name = paramLabel(param, lang, t)
+        if (control.kind === 'period') {
+          const period = boardPeriodOf(value)
+          if (!period) return null
+          return (
+            <Chip key={param.name} name={name} filter={param.name}>
+              {period.kind === 'fixed' ? <Ltr>{formatRange(period.from, period.to)}</Ltr> : <span>{t(periodNameKey(period.token))}</span>}
+            </Chip>
+          )
+        }
+        if (control.kind === 'none' || value.kind !== 'members' || value.values.length === 0) return null
+        if (control.kind === 'searched') return <SearchedChip key={param.name} filter={param.name} name={name} dimension={control.dimension} values={value.values} lang={lang} />
         return (
-          <Chip key={f} name={t(`board.filters.${f}`)} filter={f}>
-            {filters[f].map((v) => (
-              <bdi key={v}>{saysIn(dim?.values.find((m) => m.key === v)?.label, lang) || v}</bdi>
+          <Chip key={param.name} name={name} filter={param.name}>
+            {value.values.map((v) => (
+              <bdi key={v}>{saysIn(control.values.find((m) => m.key === v)?.label, lang) || v}</bdi>
             ))}
           </Chip>
         )
@@ -102,18 +108,16 @@ export function FilterChips({ filters, model, lang }: { filters: BoardFilters; m
   )
 }
 
-/** City, region or store: labelled from the strip's cached member list (`DimensionValues`, unsearched). */
-function SearchedChip({ filter, values, lang }: { filter: CategoryFilterKey; values: string[]; lang: string }) {
-  const { t } = useTranslation('boards')
-  const dimension = FILTER_DIMENSIONS[filter]
+/** A searched parameter (city, region, store …): labelled from the strip's cached member list (`DimensionValues`, unsearched). */
+function SearchedChip({ filter, name, dimension, values, lang }: { filter: string; name: string; dimension: string; values: string[]; lang: string }) {
   const members = useQuery({ queryKey: analyticsMembersKey(dimension, ''), queryFn: () => analyticsApi.dimensionValues(dimension, ''), staleTime: 5 * 60_000, retry: false })
   const nameOf = (v: string) => saysIn(members.data?.find((m) => m.key === v)?.label, lang)
   return (
-    <Chip name={t(`board.filters.${filter}`)} filter={filter}>
+    <Chip name={name} filter={filter}>
       {values.map((v) => {
-        const name = nameOf(v)
-        if (filter === 'store') return <Ltr key={v}>{name ? formatPair(v, name) : v}</Ltr>
-        return <bdi key={v}>{name || v}</bdi>
+        const said = nameOf(v)
+        if (dimension === 'store') return <Ltr key={v}>{said ? formatPair(v, said) : v}</Ltr>
+        return <bdi key={v}>{said || v}</bdi>
       })}
     </Chip>
   )

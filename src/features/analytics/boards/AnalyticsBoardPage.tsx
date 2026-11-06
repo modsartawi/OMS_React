@@ -5,14 +5,14 @@ import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { boardEditHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsModel } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
-import { boardDefaults, inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
+import { inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
 import BoardPanel from './BoardPanel'
 import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
@@ -23,7 +23,8 @@ import { itemActions } from './item-actions'
 import { editingItemOf, sourceMovedOn } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
-import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
+import { boardParams, type ParamValues } from './params'
+import { readCrossFilter, readParamValues, writeCrossFilter, writeParamValues } from './permalink'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
 import TierBadge from './TierBadge'
@@ -84,12 +85,13 @@ function streamReducer(state: { fetching: ReadonlySet<string>; wave: StreamWave 
 function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const defaults = useMemo(() => boardDefaults(board.definition), [board.definition])
+  // 821: the board's parameters (a v1 board's six, converted) and their bindings; their values are the URL's.
+  const declared = useMemo(() => boardParams(board.definition), [board.definition])
   const [params, setParams] = useSearchParams()
-  const filters = useMemo(() => readBoardFilters(params, defaults), [params, defaults])
-  const setFilters = useCallback(
-    (next: BoardFilters) => setParams((prev) => writeBoardFilters(prev, next, defaults), { replace: true }),
-    [setParams, defaults],
+  const values = useMemo(() => readParamValues(params, declared.params), [params, declared])
+  const setValues = useCallback(
+    (next: ParamValues) => setParams((prev) => writeParamValues(prev, declared.params, next), { replace: true }),
+    [setParams, declared],
   )
 
   const panels = useMemo(() => inLogicalOrder(board.definition.panels), [board.definition.panels])
@@ -120,7 +122,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   )
   const clearCross = useCallback(() => setParams((prev) => writeCrossFilter(prev, null), { replace: true }), [setParams])
 
-  const context: BoardContext = useMemo(() => ({ filters, crossFilter }), [filters, crossFilter])
+  const context: BoardContext = useMemo(() => ({ ...declared, values, crossFilter }), [declared, values, crossFilter])
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
@@ -172,9 +174,9 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
       {/* Story 64: my copy of a board whose original has moved on since I copied it. */}
       {!tv.on && sourceMovedOn(board) && <SourceMovedOn />}
       {tv.on ? (
-        <FilterChips filters={filters} model={model} lang={lang} />
+        <FilterChips params={declared.params} values={values} model={model} lang={lang} />
       ) : (
-        <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+        <FilterStrip params={declared.params} values={values} onChange={setValues} model={model} lang={lang} wave={stream.wave} />
       )}
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
       {panels.length === 0 ? (

@@ -1,0 +1,233 @@
+{
+  "b-ops?": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?region=central&store=P001": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?period=last-week": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?period=2026-10-01..2026-10-31&city=riyadh&city=jeddah": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?channel=web&channel=app&country=SA": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?region=": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?region=&channel=": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?period=last-century&store=P009": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?tv=1&refresh=30s&region=central&cross=channel_group:app&crossFrom=p-bar": {
+    "p-donut": "{\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?cross=store:P001&crossFrom=p-stores&channel=app": {
+    "p-donut": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-ops?period=today&store=P002&store=P001&store=P002": {
+    "p-donut": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-donut\"}",
+    "p-area": "{\"filters\":[],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-area\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-line": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-line-measures\"}"
+  },
+  "b-stores?": {
+    "p-stores": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?region=central&store=P001": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?period=last-week": {
+    "p-stores": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?period=2026-10-01..2026-10-31&city=riyadh&city=jeddah": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?channel=web&channel=app&country=SA": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?region=": {
+    "p-stores": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?region=&channel=": {
+    "p-stores": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?period=last-century&store=P009": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?tv=1&refresh=30s&region=central&cross=channel_group:app&crossFrom=p-bar": {
+    "p-stores": "{\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"crossFilter\":{\"dimension\":\"channel_group\",\"values\":[\"app\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?cross=store:P001&crossFrom=p-stores&channel=app": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-stores?period=today&store=P002&store=P001&store=P002": {
+    "p-stores": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-table\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-bar\"}",
+    "p-kpi": "{\"compareToPrevious\":true,\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-kpi\"}",
+    "p-fixed": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-area\"}"
+  },
+  "b-777?": {
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?region=central&store=P001": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?period=last-week": {
+    "p-bar": "{\"filters\":[],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?period=2026-10-01..2026-10-31&city=riyadh&city=jeddah": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?channel=web&channel=app&country=SA": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?region=": {
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?region=&channel=": {
+    "p-bar": "{\"filters\":[],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?period=last-century&store=P009": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?tv=1&refresh=30s&region=central&cross=channel_group:app&crossFrom=p-bar": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?cross=store:P001&crossFrom=p-stores&channel=app": {
+    "p-bar": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-30-days\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-777?period=today&store=P002&store=P001&store=P002": {
+    "p-bar": "{\"filters\":[{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?region=central&store=P001": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P001\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?period=last-week": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"last-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?period=2026-10-01..2026-10-31&city=riyadh&city=jeddah": {
+    "p-till": "{\"filters\":[{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]},{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"city\",\"values\":[\"jeddah\",\"riyadh\"]}],\"period\":\"2026-10-01..2026-10-31\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?channel=web&channel=app&country=SA": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\",\"web\"]},{\"dimension\":\"country\",\"values\":[\"SA\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?region=": {
+    "p-till": "{\"filters\":[],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?region=&channel=": {
+    "p-till": "{\"filters\":[],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?period=last-century&store=P009": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P009\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?tv=1&refresh=30s&region=central&cross=channel_group:app&crossFrom=p-bar": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?cross=store:P001&crossFrom=p-stores&channel=app": {
+    "p-till": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"crossFilter\":{\"dimension\":\"store\",\"values\":[\"P001\"]},\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]}],\"period\":\"this-week\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  },
+  "b-saved?period=today&store=P002&store=P001&store=P002": {
+    "p-till": "{\"filters\":[{\"dimension\":\"region\",\"values\":[\"central\"]},{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-till\"}",
+    "p-deliveries": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"revision\":3,\"viewId\":\"v-deliveries\"}",
+    "p-bar": "{\"filters\":[{\"dimension\":\"channel_group\",\"values\":[\"app\"]},{\"dimension\":\"store\",\"values\":[\"P001\",\"P002\"]}],\"period\":\"today\",\"revision\":3,\"viewId\":\"v-bar\"}"
+  }
+}

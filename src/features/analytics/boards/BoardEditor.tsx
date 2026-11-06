@@ -16,12 +16,13 @@ import Modal from '@/core/ui/Modal'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
-import { BOARD_REFRESH_SECONDS, boardDefaults, NO_WAVE } from './board'
+import { BOARD_REFRESH_SECONDS, BASE_FILTERS, NO_WAVE } from './board'
 import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
 import FilterStrip from './FilterStrip'
 import { HOME_TIER_ORDER } from './home'
 import { editingItemOf } from './item-save'
 import { layoutReducer, minSizeOf, type LayoutState } from './layout'
+import { defaultsOf, filtersOf, readyMadeParams, v1Of, withParams } from './params'
 import Refused from './Refused'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
@@ -73,8 +74,12 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
   const [title, setTitle] = useState<AnalyticsLabel>(board?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(board?.subtitle ?? EMPTY_LABEL)
-  const [layout, dispatch] = useReducer(layoutReducer, { panels: def?.panels ?? [], mins: {} } satisfies LayoutState)
-  const [filters, setFilters] = useState<BoardFilters>(() => boardDefaults(def ?? { panels: [] }))
+  // 821: this editor edits v1's shape (the six filters, each panel's opt-outs); its seam reads a board's
+  // parameters and bindings as that shape, and saves both (`withParams`) until the designer replaces it.
+  const [opened] = useState(() => (def ? v1Of(def) : null))
+  const [layout, dispatch] = useReducer(layoutReducer, { panels: opened?.panels ?? [], mins: {} } satisfies LayoutState)
+  const [filters, setFilters] = useState<BoardFilters>(() => opened?.filters ?? BASE_FILTERS)
+  const stripParams = useMemo(() => readyMadeParams(filters), [filters])
   const [refresh, setRefresh] = useState<number>(def?.refresh ?? 0)
   const [pick, setPick] = useState('')
   const [building, setBuilding] = useState(false)
@@ -143,7 +148,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     },
   })
   const { actions } = save
-  const definition: AnalyticsBoardDefinition = { panels: layout.panels, filters, ...(refresh > 0 ? { refresh } : {}) }
+  const definition: AnalyticsBoardDefinition = withParams({ panels: layout.panels, filters, ...(refresh > 0 ? { refresh } : {}) }, def ?? null)
   const onSave = (how: SaveHow) => save.save(how, { title, subtitle, definition })
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
   const reload = () => {
@@ -181,7 +186,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
       <div className="flex flex-col gap-1">
         <p className="text-xs font-medium text-muted-foreground">{t('boardEditor.filters')}</p>
-        <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={NO_WAVE} />
+        <FilterStrip params={stripParams} values={defaultsOf(stripParams)} onChange={(v) => setFilters(filtersOf(v))} model={model} lang={lang} wave={NO_WAVE} />
       </div>
 
       <section className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('boardEditor.add')} data-board-editor-add>

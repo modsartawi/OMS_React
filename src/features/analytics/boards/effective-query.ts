@@ -4,10 +4,11 @@ import type {
   AnalyticsModel,
   AnalyticsQueryInput,
   AnalyticsViewDefinition,
-  BoardFilterKey,
-  BoardFilters,
   BoardPeriod,
+  Bindings,
+  Param,
 } from '@/core/models/analytics'
+import { boardPeriodOf, valueOf, type ParamValues } from './params'
 import { measureOf } from './wire'
 
 /**
@@ -16,9 +17,12 @@ import { measureOf } from './wire'
  * panel's TanStack Query key, so the same inputs are the same entry and a changed filter re-runs only
  * the panels it reaches.
  *
- * A board filter reaches a panel unless the panel opted out of it, or none of the view's measures may
- * be broken down by that dimension in the model (a channel filter never reaches till sales).
- * The period goes as the RELATIVE token, which the server resolves, so a saved board keeps its meaning.
+ * Since 819 (ticket 821) the board's state is its parameters' values: a parameter reaches a panel when the
+ * board BINDS it there. A bound `members` parameter filters the dimension its binding names, unless none
+ * of the view's measures may be broken down by it in the model (a channel filter never reaches till
+ * sales) — v1's rule, which the server applies today. A bound period goes as the RELATIVE token, which
+ * the server resolves, so a saved board keeps its meaning. The other kinds have no wire yet (no new door
+ * in 821): they reach nothing until their tickets add them.
  *
  * The cross-filter (772) is one member clicked on one panel. It reaches every other panel, unless the
  * panel opted out of `crossFilter` or its measures never break down by that dimension; its source panel
@@ -49,23 +53,13 @@ export interface DrillStep {
   into: string
 }
 
-/** The board-wide state every panel's query is made from. */
+/** The board-wide state every panel's query is made from: the parameters, their bindings and values. */
 export interface BoardContext {
-  filters: BoardFilters
+  params: readonly Param[]
+  bindings: Bindings
+  values: ParamValues
   crossFilter?: CrossFilter | null
 }
-
-/** Each category filter of the strip → the model dimension it filters. */
-export const FILTER_DIMENSIONS = {
-  city: 'city',
-  region: 'region',
-  store: 'store',
-  channel: 'channel_group',
-  country: 'country',
-} as const satisfies Record<Exclude<BoardFilterKey, 'period' | 'crossFilter'>, string>
-
-export type CategoryFilterKey = keyof typeof FILTER_DIMENSIONS
-export const CATEGORY_FILTERS = Object.keys(FILTER_DIMENSIONS) as CategoryFilterKey[]
 
 /** The period as the wire carries it: the relative token, or a fixed range `from..to` (⚠). */
 export const periodToken = (p: BoardPeriod): string => (p.kind === 'relative' ? p.token : `${p.from}..${p.to}`)
@@ -92,25 +86,36 @@ export function drilledDefinition(view: AnalyticsViewDefinition, steps: readonly
 
 export function effectiveQuery(
   { panel, view, revision, model }: PanelSource,
-  { filters, crossFilter }: BoardContext,
+  { params, bindings, values, crossFilter }: BoardContext,
   drill: readonly DrillStep[] = [],
 ): AnalyticsQueryInput {
-  const opted = new Set(panel.optOut)
   const measures = view.query.measures.map((k) => measureOf(model, k))
   const breaksBy = (dimension: string) => measures.some((m) => m?.dimensions.includes(dimension))
 
-  const reached: AnalyticsFilter[] = CATEGORY_FILTERS.filter((f) => !opted.has(f) && filters[f].length > 0 && breaksBy(FILTER_DIMENSIONS[f]))
-    .map((f) => ({ dimension: FILTER_DIMENSIONS[f], values: canonical(filters[f]) }))
-    .sort((a, b) => (a.dimension < b.dimension ? -1 : a.dimension > b.dimension ? 1 : 0))
+  let period: string | null = null
+  const reached: AnalyticsFilter[] = []
+  for (const param of params) {
+    const bound = bindings[param.name]?.[panel.id]
+    if (!bound) continue
+    const value = valueOf(param, values)
+    if (value.kind === 'period') {
+      const p = boardPeriodOf(value)
+      if (p) period = periodToken(p)
+    } else if (value.kind === 'members') {
+      const dimension = typeof bound === 'string' ? bound : param.dimension
+      if (dimension && value.values.length > 0 && breaksBy(dimension)) reached.push({ dimension, values: canonical(value.values) })
+    }
+  }
+  reached.sort((a, b) => (a.dimension < b.dimension ? -1 : a.dimension > b.dimension ? 1 : 0))
 
   const crossed =
-    crossFilter && crossFilter.source !== panel.id && !opted.has('crossFilter') && breaksBy(crossFilter.dimension)
+    crossFilter && crossFilter.source !== panel.id && !panel.optOut.includes('crossFilter') && breaksBy(crossFilter.dimension)
       ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
       : {}
 
   return {
     ...(drill.length ? { definition: drilledDefinition(view, drill) } : { viewId: panel.viewId, revision }),
-    ...(opted.has('period') ? {} : { period: periodToken(filters.period) }),
+    ...(period === null ? {} : { period }),
     filters: reached,
     ...crossed,
     // 766 §C: the previous period's rows ride back when the view compares to it (story 23).

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import type { AnalyticsModel, BoardFilters, BoardPeriod, PeriodToken } from '@/core/models/analytics'
+import type { AnalyticsModel, BoardPeriod, Param, ParamValue, PeriodToken } from '@/core/models/analytics'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
@@ -12,48 +12,56 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
 import type { StreamWave } from './board'
-import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
+import { boardPeriodOf, paramLabel, periodValue, stripControlOf, valueOf, type ParamValues } from './params'
 import { periodNameKey, PERIODS } from './periods'
-import { dimensionOf } from './wire'
 
 /**
- * The board's filter strip (spec 766 §F, ticket 771): the period (a relative preset or a fixed range),
- * city, region and store (`Analytics/DimensionValues`), channel and country (the model's inline values).
- * Every change goes to the caller, who writes it to the URL — the permalink.
+ * The board's filter strip (spec 766 §F, ticket 771), rendered from the board's parameters since 819
+ * (ticket 821): a period (a relative preset or a fixed range); a `members` parameter searched through
+ * `Analytics/DimensionValues`, or picked from the model's inline values. The six ready-made parameters
+ * draw exactly v1's six controls. Every change goes to the caller, who writes it to the URL — the
+ * permalink. The other kinds get their controls with their tickets.
  *
  * It also shows the stream: "Updating… n of N panels" with a determinate bar, in a polite live region.
  */
 export default function FilterStrip({
-  filters,
+  params,
+  values,
   onChange,
   model,
   lang,
   wave,
 }: {
-  filters: BoardFilters
-  onChange: (next: BoardFilters) => void
+  params: readonly Param[]
+  values: ParamValues
+  onChange: (next: ParamValues) => void
   model: AnalyticsModel
   lang: string
   wave: StreamWave
 }) {
   const { t } = useTranslation('boards')
-  const set = <K extends keyof BoardFilters>(key: K, value: BoardFilters[K]) => onChange({ ...filters, [key]: value })
-  const inline = (dimension: string) => dimensionOf(model, dimension)
+  const set = (name: string, value: ParamValue) => onChange({ ...values, [name]: value })
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('board.filters.label')} data-board-filters>
       <div className="flex flex-wrap items-end gap-3">
-        <PeriodPicker period={filters.period} onChange={(p) => set('period', p)} />
-        {(['city', 'region', 'store'] as const).map((f) => (
-          <MemberPicker key={f} filter={f} value={filters[f]} onChange={(v) => set(f, v)} lang={lang} />
-        ))}
-        {(['channel', 'country'] as const).map((f) => {
-          const dim = inline(FILTER_DIMENSIONS[f])
-          if (!dim) return null
-          const options: MultiSelectOption[] = dim.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))
+        {params.map((param) => {
+          const control = stripControlOf(param, model)
+          const value = valueOf(param, values)
+          const label = paramLabel(param, lang, t)
+          if (control.kind === 'period') {
+            const period = boardPeriodOf(value)
+            return period && <PeriodPicker key={param.name} label={label} period={period} onChange={(p) => set(param.name, periodValue(p))} />
+          }
+          if (control.kind === 'none' || value.kind !== 'members') return null
+          const onMembers = (v: string[]) => set(param.name, { kind: 'members', values: v })
+          if (control.kind === 'searched') {
+            return <MemberPicker key={param.name} name={param.name} label={label} dimension={control.dimension} value={value.values} onChange={onMembers} lang={lang} />
+          }
+          const options: MultiSelectOption[] = control.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))
           return (
-            <Field key={f} label={t(`board.filters.${f}`)} className="w-56">
-              <MultiSelect value={filters[f]} onChange={(v) => set(f, v)} options={options} label={t(`board.filters.${f}`)} data-testid={`board-filter-${f}`} />
+            <Field key={param.name} label={label} className="w-56">
+              <MultiSelect value={value.values} onChange={onMembers} options={options} label={label} data-testid={`board-filter-${param.name}`} />
             </Field>
           )
         })}
@@ -63,7 +71,7 @@ export default function FilterStrip({
   )
 }
 
-function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p: BoardPeriod) => void }) {
+function PeriodPicker({ label, period, onChange }: { label: string; period: BoardPeriod; onChange: (p: BoardPeriod) => void }) {
   const { t } = useTranslation('boards')
   const today = toIsoDate(new Date())
   const pick = (v: string) =>
@@ -73,7 +81,7 @@ function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p:
 
   return (
     <div className="flex items-end gap-2">
-      <Field label={t('board.filters.period')} className="w-44">
+      <Field label={label} className="w-44">
         <Select value={period.kind === 'fixed' ? 'fixed' : period.token} onChange={(e) => pick(e.target.value)} data-board-filter-period>
           {PERIODS.map((token) => (
             <option key={token} value={token}>
@@ -97,10 +105,8 @@ function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p:
   )
 }
 
-/** City, region or store: members from `Analytics/DimensionValues`, searched on the server (up to 50). */
-function MemberPicker({ filter, value, onChange, lang }: { filter: CategoryFilterKey; value: string[]; onChange: (v: string[]) => void; lang: string }) {
-  const { t } = useTranslation('boards')
-  const dimension = FILTER_DIMENSIONS[filter]
+/** Members from `Analytics/DimensionValues` (city, region, store …), searched on the server (up to 50). */
+function MemberPicker({ name, label, dimension, value, onChange, lang }: { name: string; label: string; dimension: string; value: string[]; onChange: (v: string[]) => void; lang: string }) {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
@@ -120,23 +126,23 @@ function MemberPicker({ filter, value, onChange, lang }: { filter: CategoryFilte
   const seen = useRef(new Map<string, MultiSelectOption>())
   const options: MultiSelectOption[] = (members.data ?? []).map((m) => {
     const name = saysIn(m.label, lang)
-    const o = filter === 'store' ? { value: m.key, text: name ? formatPair(m.key, name) : m.key, machine: true } : { value: m.key, text: name || m.key }
+    const o = dimension === 'store' ? { value: m.key, text: name ? formatPair(m.key, name) : m.key, machine: true } : { value: m.key, text: name || m.key }
     seen.current.set(m.key, o)
     return o
   })
 
   return (
-    <Field label={t(`board.filters.${filter}`)} className="w-56">
+    <Field label={label} className="w-56">
       <MultiSelect
         value={value}
         onChange={onChange}
         options={options}
         optionOf={(v) => seen.current.get(v) ?? { value: v, text: v, machine: true }}
-        label={t(`board.filters.${filter}`)}
+        label={label}
         loading={members.isFetching && !members.data}
         failed={!!members.error}
         onQueryChange={setTyped}
-        data-testid={`board-filter-${filter}`}
+        data-testid={`board-filter-${name}`}
       />
     </Field>
   )

@@ -11,6 +11,8 @@ import type {
   AnalyticsQueryResult,
   AnalyticsRow,
   AnalyticsViewDefinition,
+  Bindings,
+  Param,
 } from '@/core/models/analytics'
 
 /**
@@ -124,6 +126,8 @@ function readPanel(raw: unknown): AnalyticsBoardPanel | null {
 /**
  * `GET Analytics/Item/{id}` read as a board (ticket 771). ⚠ §C fixes no board definition: `panels[]`
  * (a view by reference, text, or a section header, each with its grid `layout`) and optional saved `filters`.
+ * 819 (ticket 821): a board that carries `params[]` and `bindings` keeps them; one without them is a v1
+ * board, which `boardParams` converts from its `filters` and `optOut`.
  */
 export function readBoard(raw: Loose): AnalyticsBoard {
   const i = obj(raw)
@@ -140,8 +144,19 @@ export function readBoard(raw: Loose): AnalyticsBoard {
         .filter((p): p is AnalyticsBoardPanel => p !== null),
       ...(d.filters && typeof d.filters === 'object' ? { filters: d.filters as AnalyticsBoard['definition']['filters'] } : {}),
       ...(typeof d.refresh === 'number' && d.refresh > 0 ? { refresh: d.refresh } : {}),
+      ...readParams(d),
     },
   } as AnalyticsBoard
+}
+
+/** A board's `params` (each with a name, a kind and a default) and `bindings`, both or neither. */
+function readParams(d: Record<string, unknown>): { params?: Param[]; bindings?: Bindings } {
+  if (!Array.isArray(d.params) || !d.bindings || typeof d.bindings !== 'object') return {}
+  const params = d.params.filter((p): p is Param => {
+    const x = obj(p)
+    return !!str(x.name) && !!str(x.kind) && !!x.default && typeof x.default === 'object'
+  })
+  return { params: params.map((p) => ({ ...p, label: said(p.label) })), bindings: d.bindings as Bindings }
 }
 
 /** `GET Analytics/DimensionValues` — up to 50 `{ key, label }`; a plain-string label reads as both languages. */

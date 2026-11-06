@@ -273,13 +273,68 @@ export interface BoardLayout {
 
 /** A board panel: a view linked by reference, a text panel, or a section header. */
 export type AnalyticsBoardPanel =
+  /**
+   * `optOut`: v1's opt-outs. Since 819 only `crossFilter` is read from it (the cross-filter keeps its
+   * opt-out); the six ready-made parameters reach a panel through the board's `bindings`.
+   */
   | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[] }
   | { id: string; kind: 'text'; text: AnalyticsLabel; layout: BoardLayout }
   | { id: string; kind: 'section'; title: AnalyticsLabel; layout: BoardLayout }
 
+// ── Parameters (spec 819 §C, ticket 821; the 798 prototype's shape) ─────────────────────────────────────
+
+export type ParamKind = 'period' | 'members' | 'grain' | 'threshold' | 'topN' | 'measure' | 'breakdown'
+export type Grain = 'day' | 'week' | 'month'
+export type ThresholdOp = 'off' | 'gt' | 'gte' | 'lt' | 'lte'
+
+/** A parameter's value. Only `members` takes several; `[]` is "all". A threshold is in the display unit. */
+export type ParamValue =
+  | { kind: 'period'; token: PeriodToken }
+  | { kind: 'period'; from: string; to: string }
+  | { kind: 'members'; values: string[] }
+  | { kind: 'grain'; grain: Grain }
+  | { kind: 'threshold'; op: ThresholdOp; value: number }
+  | { kind: 'topN'; n: number }
+  | { kind: 'measure'; key: string }
+  | { kind: 'breakdown'; key: string }
+
+/** A parameter declared on a board or a report (797), never on a view. */
+export interface Param {
+  /** A slug, unique within the item, not `tv|refresh|cross|crossFrom`: the URL key. */
+  name: string
+  kind: ParamKind
+  label: AnalyticsLabel
+  /** "Viewers can't clear it" — every parameter has a default (797 §2). */
+  required: boolean
+  /** members: the dimension it picks from (a binding may point it elsewhere per panel). */
+  dimension?: string
+  /** members: the author's pinned list; `null` = open search. */
+  pinned?: string[] | null
+  multi?: boolean
+  /** grain: the allowed subset. */
+  grains?: Grain[]
+  /** threshold: the one measure it compares. */
+  measure?: string
+  /** measure | breakdown: the author's options. */
+  options?: string[]
+  default: ParamValue
+}
+
+/** Parameter name → panel id → the dimension a `members` parameter filters there, or `true`. Absent = not bound. */
+export type Bindings = Record<string, Record<string, string | true>>
+
+/** Why a parameter cannot bind to a panel (797 §5, 799 §2). */
+export type BindReason = 'noTimeAxis' | 'seriesFilters' | 'thresholdShape' | 'topNShape' | 'measureShape' | 'breakdownShape' | 'notInArea'
+
 export interface AnalyticsBoardDefinition {
   panels: AnalyticsBoardPanel[]
-  /** The board's saved filters, which the strip opens on when the URL names none. */
+  /**
+   * 819: the board's parameters and their bindings. Absent on a v1 board, which `boardParams` converts
+   * from `filters` and each panel's `optOut` (797 item 6) until the server converts on read.
+   */
+  params?: Param[]
+  bindings?: Bindings
+  /** v1: the board's saved filters, which the strip opens on when the URL names none. */
   filters?: Partial<BoardFilters>
   /**
    * ⚠ The board's default auto-refresh interval in seconds (story 57, ticket 777): one of `BOARD_REFRESH_SECONDS`

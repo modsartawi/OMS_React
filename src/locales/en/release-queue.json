@@ -63,7 +63,9 @@
         "pauseNote": "With the pool at 0, no till in any store may start a release download until someone raises it again. Waiting tills keep their place in the queue.",
         "resumeNote": "Waiting tills are served in the order they first asked.",
         "resizeNote": "Tills are granted slots up to the new size. A smaller pool takes no slot away; it fills only as slots end.",
-        "active": "Tills already downloading keep their slots: <n>{{n}}</n>."
+        "active": "Tills already downloading keep their slots: <n>{{n}}</n>.",
+        "moved": "The pool changed while this was open: it is now <now>{{now}}</now>. Check this is still the change you want.",
+        "movedToSame": "The pool changed while this was open: it is already <to>{{to}}</to>, so applying changes nothing."
       },
       "done": {
         "pause": "Downloads paused",

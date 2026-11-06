@@ -42,6 +42,9 @@ describe('release-queue — the keys the code builds exist', () => {
       // Ticket 792: the keys the Manage controls build from a change kind and a refusal code.
       ...['pause', 'resume', 'resize'].flatMap((k) => [`manage.pool.apply.${k}`, `manage.pool.confirm.${k}Title`, `manage.pool.confirm.${k}Note`, `manage.pool.done.${k}`]),
       'manage.pool.done.same',
+      // Review 3396: the confirm says the polled pool moved under it, by whether it moved onto the asked size.
+      'manage.pool.confirm.moved',
+      'manage.pool.confirm.movedToSame',
       ...['outOfRange', 'noUser', 'busy'].map((k) => `manage.refusal.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])

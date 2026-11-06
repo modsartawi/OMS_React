@@ -20,7 +20,7 @@ import type {
   SlotPoolSizeRequest,
   SlotQueue,
 } from '@/core/models/release-queue'
-import { HISTORY_PAGE_SIZE, historyParams, type HistoryFilter } from './helpers'
+import { HISTORY_PAGE_SIZE, historyParams, isManagedRead, type HistoryFilter } from './helpers'
 
 const BASE = 'PosReleaseQueue'
 
@@ -101,12 +101,12 @@ export const releaseQueueApi = {
 /** Enough of the audit to find the last resize behind a burst of frees. */
 export const AUDIT_PAGE_SIZE = 50
 
-/** Every read a Manage change can move (never the access probe, which shares the prefix). */
-export const MANAGED_READS = ['pool', 'slots', 'queue', 'history', 'convergence', 'audit'] as const
-
-/** After a resize or a free: re-read everything it can have moved, so the page shows HQ's answer, not a guess. */
+/**
+ * After a resize or a free: re-read everything it can have moved, so the page shows HQ's answer, not a guess. One
+ * sweep of the prefix (never the access probe, which shares it), so a read added later is covered without a list.
+ */
 export function invalidateManagedReads(qc: QueryClient): void {
-  for (const read of MANAGED_READS) void qc.invalidateQueries({ queryKey: [...RELEASE_QUEUE_KEY, read] })
+  void qc.invalidateQueries({ queryKey: RELEASE_QUEUE_KEY, predicate: (q) => isManagedRead(q.queryKey) })
 }
 
 const live = { refetchInterval: RELEASE_QUEUE_REFRESH_MS } as const
@@ -119,7 +119,16 @@ export const convergenceQuery = () => ({
   queryFn: () => releaseQueueApi.convergence(),
   ...live,
 })
-export const auditQuery = () => ({ queryKey: [...RELEASE_QUEUE_KEY, 'audit'] as const, queryFn: () => releaseQueueApi.audit(), ...live })
+/**
+ * The audit is NOT polled: the page reads it only for the last resize, and a resize re-stamps the pool. So the pool's
+ * `updatedAt|updatedBy` stamp is part of the key — a stamp the 15 s pool poll brings back changed re-reads it (another
+ * manager's resize), and this page's own changes invalidate it. The last answer stays on screen while it re-reads.
+ */
+export const auditQuery = (poolStamp: string) => ({
+  queryKey: [...RELEASE_QUEUE_KEY, 'audit', poolStamp] as const,
+  queryFn: () => releaseQueueApi.audit(),
+  placeholderData: keepPreviousData,
+})
 export const historyQuery =(filter: HistoryFilter) => ({
   queryKey: [...RELEASE_QUEUE_KEY, 'history', filter] as const,
   queryFn: () => releaseQueueApi.history(filter),

@@ -64,6 +64,16 @@ export function formatSeconds(seconds: number): string {
   return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`
 }
 
+/** HQ's progress as the page shows it: a whole percent within 0..100; missing or non-numeric is 0. */
+export function progressPercent(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 0
+}
+
+/** The release-queue reads a Manage change can move: every one under the prefix but the access probe. */
+export function isManagedRead(queryKey: readonly unknown[]): boolean {
+  return queryKey[0] === 'release-queue' && queryKey[1] !== 'access'
+}
+
 /** A finished lease's state as the page names it (the `history.outcome.*` keys). */
 export type OutcomeKind = 'done' | 'failed' | 'expired' | 'freed' | 'unknown'
 
@@ -121,8 +131,9 @@ export function releaseQueueFromParams(params: URLSearchParams): ReleaseQueueQue
     tab: tab && RELEASE_QUEUE_TABS.includes(tab) ? tab : 'slots',
     history: {
       outcome: outcome && OUTCOME_FILTERS.includes(outcome) ? outcome : '',
-      store: params.get('store') ?? '',
-      version: params.get('version') ?? '',
+      // Trimmed as the drafts are, so a padded deep link is not read as a filter change (and a page reset).
+      store: (params.get('store') ?? '').trim(),
+      version: (params.get('version') ?? '').trim(),
       page: Number.isInteger(page) && page > 1 ? page : 1,
     },
   }

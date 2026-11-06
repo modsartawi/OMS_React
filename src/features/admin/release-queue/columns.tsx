@@ -10,7 +10,7 @@ import type { Severity } from '@/core/ui/severity'
 import type { LiveSlot, SlotHistoryRow, SlotQueueEntry } from '@/core/models/release-queue'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatSeconds, fourHourFlag, outcomeKind, queuePositionLabel, type OutcomeKind } from './helpers'
+import { formatSeconds, fourHourFlag, outcomeKind, progressPercent, queuePositionLabel, type OutcomeKind } from './helpers'
 
 /**
  * The release download queue's grids (ticket 791). Order is HQ's (oldest grant, grant order, newest end), so no
@@ -29,7 +29,7 @@ const versions = (from: string, to: string) => formatRange(from, to)
 /** The slot's progress: a bar and its percent. */
 function ProgressCell({ data }: ICellRendererParams<LiveSlot>) {
   if (!data) return null
-  const pct = Math.max(0, Math.min(100, Math.round(data.progressPercent)))
+  const pct = progressPercent(data.progressPercent)
   return (
     <span className="flex h-full items-center gap-2" data-slot-progress={pct}>
       <span className="h-1.5 w-24 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -155,7 +155,7 @@ export function historyColumns(t: TFunction): ColDef<SlotHistoryRow>[] {
     { colId: 'started', headerName: t('columns.started'), valueGetter: ({ data }) => formatDateTime(data?.grantedAt), width: 150 },
     { colId: 'ended', headerName: t('columns.ended'), valueGetter: ({ data }) => formatDateTime(data?.endedAt), width: 150 },
     { colId: 'duration', headerName: t('columns.duration'), valueGetter: ({ data }) => formatSeconds(data?.durationSeconds ?? Number.NaN), width: 110 },
-    { colId: 'progress', headerName: t('columns.lastProgress'), valueGetter: ({ data }) => (data ? `${data.progressPercent}%` : ''), width: 100 },
+    { colId: 'progress', headerName: t('columns.lastProgress'), valueGetter: ({ data }) => (data ? `${progressPercent(data.progressPercent)}%` : ''), width: 100 },
     { colId: 'outcome', headerName: t('columns.outcome'), cellRenderer: OutcomeCell, minWidth: 260, flex: 1 },
   ]
 }

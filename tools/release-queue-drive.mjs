@@ -77,7 +77,10 @@ async function drive(dir) {
       historyQueries.push(url.search)
       const outcome = url.searchParams.get('outcome')
       const rows = outcome === 'failed' ? HISTORY_ROWS.filter((r) => r.outcome === 'released-failed') : HISTORY_ROWS
-      return route.fulfill(envelope({ total: rows.length, skip: 0, take: 50, rows }))
+      const skip = Number(url.searchParams.get('skip') || 0)
+      // Store R101 stands for a long history (three pages), so a deep link to its page 2 is a real page.
+      if (url.searchParams.get('store') === 'R101') return route.fulfill(envelope({ total: 120, skip, take: 50, rows: HISTORY_ROWS }))
+      return route.fulfill(envelope({ total: rows.length, skip, take: 50, rows: rows.slice(skip, skip + 50) }))
     }
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
@@ -117,6 +120,37 @@ async function drive(dir) {
   await page.waitForFunction(() => location.search.includes('store=R301'), null, { timeout: 10000 })
   await page.waitForTimeout(300)
   check(`${L}: the store filter goes to HQ`, historyQueries.some((q) => q.includes('store=R301')), historyQueries.at(-1))
+
+  // Review 3396 #1: a store typed and an outcome picked inside one debounce both land (an updater on the latest query).
+  await page.locator('[data-history-field="store"]').fill('R300')
+  await page.locator('[data-history-field="outcome"]').selectOption('done')
+  await page.waitForTimeout(800)
+  const both = await page.evaluate(() => location.search)
+  check(`${L}: store and outcome changed together both reach the address`, both.includes('store=R300') && both.includes('outcome=done'), both)
+
+  // Review 3396 #2: a change from outside (a navigation the page did not write) re-seeds the store draft.
+  await page.evaluate(() => {
+    history.pushState(history.state, '', '/admin/release-queue?tab=history&store=R999')
+    dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
+  })
+  await page.waitForFunction(() => document.querySelector('[data-history-field="store"]')?.value === 'R999', null, { timeout: 5000 }).catch(() => {})
+  check(`${L}: an outside change re-seeds the store box`, (await page.locator('[data-history-field="store"]').inputValue()) === 'R999', await page.locator('[data-history-field="store"]').inputValue())
+  await page.waitForTimeout(600)
+  check(`${L}: and the re-seeded draft writes nothing back`, (await page.evaluate(() => location.search)) === '?tab=history&store=R999', await page.evaluate(() => location.search))
+
+  // Review 3396 #3: a padded deep link keeps its page (the draft and the address are trimmed alike).
+  await page.goto(`${BASE}/admin/release-queue?tab=history&store=%20R101%20&page=2`)
+  await page.locator('[data-history-field="store"]').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(800)
+  const padded = await page.evaluate(() => location.search)
+  check(`${L}: a padded store deep link keeps page 2`, padded.includes('page=2'), padded)
+
+  // Review 3396 #7: a page past the last (the finished leases shrank) falls back to the last page.
+  await page.goto(`${BASE}/admin/release-queue?tab=history&page=3`)
+  await page.waitForFunction(() => !location.search.includes('page=3'), null, { timeout: 10000 }).catch(() => {})
+  await page.locator('[data-grid="history"] .ag-row').first().waitFor({ timeout: 10000 }).catch(() => {})
+  const clamped = await page.evaluate(() => location.search)
+  check(`${L}: page 3 of a 1-page history clamps to the last page, rows shown`, !clamped.includes('page=') && (await page.locator('[data-history-outcome]').count()) === 2, clamped)
 
   // Convergence
   await page.locator('[data-tab="convergence"]').click()
@@ -242,6 +276,24 @@ async function driveManage(dir) {
   await page.locator('[data-confirm-ok]').click()
   await page.locator('[data-grid="slots"] [data-slot-free]').waitFor({ state: 'detached', timeout: 10000 })
   check(`${L}: POST Free sent the lease and the slots re-read`, JSON.stringify(frees) === '["01JLEASE1"]')
+
+  // Review 3396 #4/#5: the pool moves under an open confirm (another manager). The confirm keeps the change asked at
+  // Apply (7 → 9, a resize), says the pool is now 12; then, moved onto 9 itself, stays open and says it is already 9.
+  await input.fill('9')
+  await page.locator('[data-pool-apply="resize"]').click()
+  await page.locator('[data-confirm="pool-resize"]').waitFor()
+  pool = { ...pool, poolSize: 12, updatedAt: '2026-11-06T10:20:00', updatedBy: 'other.manager' }
+  await page.locator('[data-confirm-moved="12"]').waitFor({ timeout: 25000 }).catch(() => {})
+  const moved = plain(await page.locator('[data-confirm-change]').innerText())
+  check(`${L}: a pool moved to 12 is said, the asked change still reads 7 → 9`, (await page.locator('[data-confirm-moved="12"]').count()) === 1 && (await page.locator('[data-confirm="pool-resize"]').count()) === 1 && moved.includes('7') && moved.includes('9'), moved)
+  pool = { ...pool, poolSize: 9, updatedAt: '2026-11-06T10:21:00' }
+  await page.locator('[data-confirm-moved="9"]').waitFor({ timeout: 25000 }).catch(() => {})
+  check(`${L}: a pool moved onto the asked size keeps the confirm open and says so`, (await page.locator('[data-confirm-moved="9"]').count()) === 1 && (await page.locator('dialog').count()) === 1)
+  const putsBefore = puts.length
+  await page.locator('[data-confirm-cancel]').click()
+  check(`${L}: Cancel closes it, nothing sent, and it does not come back`, puts.length === putsBefore && (await page.locator('dialog').count()) === 0)
+  await page.waitForTimeout(16000)
+  check(`${L}: no confirm pops up later unasked`, (await page.locator('dialog').count()) === 0)
   if (dir === 'rtl') check(`${L}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
   check(`${L}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()

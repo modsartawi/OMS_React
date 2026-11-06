@@ -9,7 +9,9 @@ import {
   queuePositionLabel,
   releaseQueueFromParams,
   releaseQueueToParams,
+  isManagedRead,
   lastPoolChange,
+  progressPercent,
   poolChangeKind,
   poolReading,
   poolSizeDraft,
@@ -260,5 +262,42 @@ describe('lastPoolChange (ticket 792)', () => {
   it('is null on a missing or malformed rows list, so a side read never breaks the pool strip', () => {
     expect(lastPoolChange(undefined)).toBeNull()
     expect(lastPoolChange({} as never)).toBeNull()
+  })
+})
+
+describe('the page address trims its text filters (review 3396)', () => {
+  it('reads a padded store or version back trimmed, so the debounced draft matches a deep link', () => {
+    const q = releaseQueueFromParams(new URLSearchParams('tab=history&store=%20R101%20&version=3.4.1%20&page=3'))
+    expect(q.history).toEqual({ outcome: '', store: 'R101', version: '3.4.1', page: 3 })
+  })
+})
+
+describe('progressPercent (review 3396)', () => {
+  it('is a whole percent, rounded', () => {
+    expect(progressPercent(62.4)).toBe(62)
+    expect(progressPercent(62.5)).toBe(63)
+  })
+
+  it('stays within 0..100', () => {
+    expect(progressPercent(-3)).toBe(0)
+    expect(progressPercent(104.2)).toBe(100)
+  })
+
+  it('is 0 for a missing or non-numeric value', () => {
+    expect(progressPercent(Number.NaN)).toBe(0)
+    expect(progressPercent(undefined as never)).toBe(0)
+  })
+})
+
+describe('isManagedRead (review 3396)', () => {
+  it('is every release-queue read but the access probe', () => {
+    for (const read of ['pool', 'slots', 'queue', 'convergence', 'audit']) expect([read, isManagedRead(['release-queue', read])]).toEqual([read, true])
+    expect(isManagedRead(['release-queue', 'history', { outcome: '', store: '', version: '', page: 2 }])).toBe(true)
+    expect(isManagedRead(['release-queue', 'audit', '2026-11-06T10:10:00|a.owner'])).toBe(true)
+    expect(isManagedRead(['release-queue', 'access'])).toBe(false)
+  })
+
+  it("is never another screen's read", () => {
+    expect(isManagedRead(['sync-console', 'pool'])).toBe(false)
   })
 })

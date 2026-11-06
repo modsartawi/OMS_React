@@ -16,7 +16,7 @@ import { formatPair, formatRange, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { invalidateManagedReads, releaseQueueApi } from './api'
-import { MAX_POOL_SIZE, poolChangeKind, poolReading, poolSizeDraft, type PoolChange, type PoolChangeKind } from './helpers'
+import { MAX_POOL_SIZE, poolChangeKind, poolReading, poolSizeDraft, progressPercent, type PoolChange, type PoolChangeKind } from './helpers'
 
 /**
  * The release download queue's Manage controls (ticket 792, BackOffice 3402) — drawn only for `PosRelease.Queue.Manage`
@@ -118,12 +118,16 @@ export function PoolEditor({ pool }: { pool: SlotPool }) {
   const { t } = useTranslation('release-queue')
   // null = not editing: the box shows HQ's size, and follows it as it re-reads.
   const [draft, setDraft] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState<number | null>(null)
+  // The change as it stood when Apply was pressed: the confirm words THIS change, even if the polled pool moves under it.
+  const [confirming, setConfirming] = useState<PoolChangeAsked | null>(null)
   const id = useId()
   const text = draft ?? String(pool.poolSize)
   const size = poolSizeDraft(text)
   const kind = size === null ? null : poolChangeKind(pool.poolSize, size)
   const invalid = size === null
+  const ask = () => {
+    if (size !== null && kind !== null && kind !== 'same') setConfirming({ from: pool.poolSize, to: size, kind })
+  }
 
   return (
     <div className="flex flex-wrap items-end gap-2" data-pool-editor="">
@@ -139,14 +143,14 @@ export function PoolEditor({ pool }: { pool: SlotPool }) {
           inputMode="numeric"
           value={text}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && size !== null && kind !== 'same' && setConfirming(size)}
+          onKeyDown={(e) => e.key === 'Enter' && ask()}
           data-pool-size-input=""
         />
       </Field>
       <Button
         variant={kind === 'pause' ? 'danger-outlined' : 'secondary'}
         disabled={size === null || kind === 'same'}
-        onClick={() => size !== null && setConfirming(size)}
+        onClick={ask}
         data-pool-apply={kind ?? 'invalid'}
       >
         {t(`manage.pool.apply.${kind === 'pause' || kind === 'resume' ? kind : 'resize'}`)}
@@ -159,7 +163,7 @@ export function PoolEditor({ pool }: { pool: SlotPool }) {
       {confirming !== null && (
         <PoolSizeDialog
           pool={pool}
-          to={confirming}
+          asked={confirming}
           onClose={() => setConfirming(null)}
           onDone={() => {
             setConfirming(null)
@@ -171,12 +175,24 @@ export function PoolEditor({ pool }: { pool: SlotPool }) {
   )
 }
 
-/** The resize confirm: a pause says what stops, a resume what restarts, a resize from what to what. */
-function PoolSizeDialog({ pool, to, onClose, onDone }: { pool: SlotPool; to: number; onClose: () => void; onDone: () => void }) {
+/** A resize as asked at Apply: from the size the page showed then, to the box's size; never `same`. */
+interface PoolChangeAsked {
+  from: number
+  to: number
+  kind: Exclude<PoolChangeKind, 'same'>
+}
+
+/**
+ * The resize confirm: a pause says what stops, a resume what restarts, a resize from what to what. Worded from the
+ * change asked at Apply; if the polled pool has moved since (another manager), it says so instead of quietly becoming a
+ * different action or vanishing — the manager decides with the live size in front of them.
+ */
+function PoolSizeDialog({ pool, asked, onClose, onDone }: { pool: SlotPool; asked: PoolChangeAsked; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation('release-queue')
   const qc = useQueryClient()
   const sizeWord = useSizeWord()
-  const kind = poolChangeKind(pool.poolSize, to)
+  const { from, to, kind } = asked
+  const now = pool.poolSize
   const send = useMutation({
     mutationFn: () => releaseQueueApi.setPoolSize(to),
     onSuccess: (answer) => {
@@ -187,8 +203,7 @@ function PoolSizeDialog({ pool, to, onClose, onDone }: { pool: SlotPool; to: num
       onDone()
     },
   })
-  if (kind === 'same') return null
-  const v = { from: sizeWord(pool.poolSize), to: sizeWord(to), size: fsi(formatFigure(to)) }
+  const v = { from: sizeWord(from), to: sizeWord(to), size: fsi(formatFigure(to)) }
   return (
     <ConfirmDialog
       testId={`pool-${kind}`}
@@ -201,8 +216,18 @@ function PoolSizeDialog({ pool, to, onClose, onDone }: { pool: SlotPool; to: num
       onClose={onClose}
     >
       <p data-confirm-change="">
-        <Trans t={t} i18nKey="manage.pool.confirm.change" values={{ from: v.from, to: v.to }} components={{ from: sizeSlot(pool.poolSize), to: sizeSlot(to) }} />
+        <Trans t={t} i18nKey="manage.pool.confirm.change" values={{ from: v.from, to: v.to }} components={{ from: sizeSlot(from), to: sizeSlot(to) }} />
       </p>
+      {now !== from && (
+        <p className="rounded-md bg-attention-050 px-3 py-2 text-attention-800" role="alert" data-confirm-moved={now}>
+          <Trans
+            t={t}
+            i18nKey={now === to ? 'manage.pool.confirm.movedToSame' : 'manage.pool.confirm.moved'}
+            values={{ now: sizeWord(now), to: sizeWord(to) }}
+            components={{ now: sizeSlot(now), to: sizeSlot(to) }}
+          />
+        </p>
+      )}
       <p className={kind === 'pause' ? 'rounded-md bg-danger-050 px-3 py-2 text-danger-800' : 'text-muted-foreground'} data-confirm-note={kind}>
         {t(`manage.pool.confirm.${kind}Note`)}
       </p>
@@ -251,7 +276,7 @@ export function FreeSlotDialog({ slot, onClose }: { slot: LiveSlot; onClose: () 
         </dd>
         <dt className="text-muted-foreground">{t('columns.progress')}</dt>
         <dd className="font-mono">
-          <Ltr>{`${Math.round(slot.progressPercent)}%`}</Ltr>
+          <Ltr>{`${progressPercent(slot.progressPercent)}%`}</Ltr>
         </dd>
       </dl>
       <p className="rounded-md bg-muted px-3 py-2 text-muted-foreground">{t('manage.free.note')}</p>

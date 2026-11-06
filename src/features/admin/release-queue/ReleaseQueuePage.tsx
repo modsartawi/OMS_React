@@ -19,7 +19,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { showsPager } from '@/core/ui/pager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -72,8 +72,15 @@ export default function ReleaseQueuePage() {
 
 function ReleaseQueue() {
   const { t } = useTranslation('release-queue')
-  const { query, update } = useUrlQuery(releaseQueueFromParams, releaseQueueToParams)
+  const { query, update, changedFromOutside } = useUrlQuery(releaseQueueFromParams, releaseQueueToParams)
   const panelId = useId()
+  // Back or a pasted link moved the History text filters: the panel's drafts follow. Asked HERE, after the hook's own
+  // effect has settled this change (a child's effect would run first and read the previous answer); an echo of the
+  // page's own write keeps the drafts, so keys typed while it was landing are not lost (`use-url-query`'s header).
+  const [draftsReset, setDraftsReset] = useState(0)
+  useEffect(() => {
+    if (changedFromOutside()) setDraftsReset((n) => n + 1)
+  }, [query.history.store, query.history.version, changedFromOutside])
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-release-queue="">
@@ -94,20 +101,39 @@ function ReleaseQueue() {
         ))}
       </div>
       <div role="tabpanel" id={panelId} aria-labelledby={`${panelId}-${query.tab}`} data-tab-panel={query.tab} className="flex min-w-0 flex-col gap-2">
-        <Panel tab={query.tab} history={query.history} onHistory={(history) => update((q) => ({ ...q, history }))} />
+        <Panel
+          tab={query.tab}
+          history={query.history}
+          // An updater on the LATEST query written, never the rendered one: a debounced store and an outcome pick (or
+          // a page) landing together must not undo each other (`use-url-query`'s header).
+          onHistory={(change) => update((q) => ({ ...q, history: change(q.history) }))}
+          draftsReset={draftsReset}
+        />
       </div>
     </div>
   )
 }
 
-function Panel({ tab, history, onHistory }: { tab: ReleaseQueueTab; history: HistoryFilter; onHistory: (h: HistoryFilter) => void }) {
+type HistoryChange = (change: (prev: HistoryFilter) => HistoryFilter) => void
+
+function Panel({
+  tab,
+  history,
+  onHistory,
+  draftsReset,
+}: {
+  tab: ReleaseQueueTab
+  history: HistoryFilter
+  onHistory: HistoryChange
+  draftsReset: number
+}) {
   switch (tab) {
     case 'slots':
       return <SlotsPanel />
     case 'queue':
       return <QueuePanel />
     case 'history':
-      return <HistoryPanel filter={history} onChange={onHistory} />
+      return <HistoryPanel filter={history} onChange={onHistory} draftsReset={draftsReset} />
     case 'convergence':
       return <ConvergencePanel />
   }
@@ -140,7 +166,8 @@ function PoolStrip() {
   const { t } = useTranslation('release-queue')
   const pool = useQuery(poolQuery())
   const access = useQuery(releaseQueueAccessQuery())
-  const audit = useQuery(auditQuery())
+  const stamp = pool.data ? `${pool.data.updatedAt}|${pool.data.updatedBy}` : ''
+  const audit = useQuery({ ...auditQuery(stamp), enabled: pool.isSuccess })
   const manage = showsControls(access.data)
   if (pool.isPending) return <p className="text-xs text-muted-foreground">{t('pool.loading')}</p>
   if (pool.isError) return <ReadError error={pool.error} what={t('pool.heading')} />
@@ -297,7 +324,7 @@ function TillChip({ till }: { till: SlotQueueEntry }) {
 
 const NO_ENTRIES: SlotQueueEntry[] = []
 
-function HistoryPanel({ filter, onChange }: { filter: HistoryFilter; onChange: (f: HistoryFilter) => void }) {
+function HistoryPanel({ filter, onChange, draftsReset }: { filter: HistoryFilter; onChange: HistoryChange; draftsReset: number }) {
   const { t } = useTranslation('release-queue')
   // The text boxes are drafts beside the address, so typing never waits on a navigation.
   const [store, setStore] = useState(filter.store)
@@ -305,14 +332,30 @@ function HistoryPanel({ filter, onChange }: { filter: HistoryFilter; onChange: (
   const storeQ = useDebounced(store.trim(), 300)
   const versionQ = useDebounced(version.trim(), 300)
   useEffect(() => {
-    if (storeQ !== filter.store || versionQ !== filter.version) onChange({ ...filter, store: storeQ, version: versionQ, page: 1 })
-    // Only the debounced drafts drive this; the filter it writes is read fresh.
+    // Both sides trimmed (`releaseQueueFromParams` trims), so a padded deep link is not a change that resets the page.
+    onChange((h) => (storeQ !== h.store || versionQ !== h.version ? { ...h, store: storeQ, version: versionQ, page: 1 } : h))
+    // Only the debounced drafts drive this; the filter it writes is the latest one written.
   }, [storeQ, versionQ])
+  // A change from outside (counted by the parent): the drafts take the address's filters.
+  useEffect(() => {
+    setStore(filter.store)
+    setVersion(filter.version)
+    // Only the parent's count drives this; the filter it reads is this render's.
+  }, [draftsReset])
 
   const history = useQuery(historyQuery(filter))
   const columns = useMemo(() => historyColumns(t), [t])
   const ids = { outcome: useId(), store: useId(), version: useId() }
   const total = history.data?.total ?? 0
+  // The finished leases shrank under an open page (a filter elsewhere, a purge): an emptied page past 1 falls back to the
+  // new last page rather than an empty grid. Only on HQ's answer for THIS filter, never the previous one kept on screen.
+  const rowCount = history.data?.rows.length ?? 0
+  const settled = history.isSuccess && !history.isPlaceholderData
+  useEffect(() => {
+    if (!settled) return
+    const page = clampToLastPageWhenCurrentPageEmpties({ page: filter.page, rowCount, totalMatches: total, pageSize: HISTORY_PAGE_SIZE })
+    if (page !== filter.page) onChange((h) => ({ ...h, page }))
+  }, [settled, filter.page, rowCount, total])
 
   return (
     <>
@@ -326,7 +369,10 @@ function HistoryPanel({ filter, onChange }: { filter: HistoryFilter; onChange: (
       </PanelHeader>
       <div className="flex flex-wrap items-end gap-3" data-history-filter="">
         <Field id={ids.outcome} label={t('history.filter.outcome')}>
-          <Select value={filter.outcome} onChange={(e) => onChange({ ...filter, outcome: e.target.value as HistoryFilter['outcome'], page: 1 })} data-history-field="outcome">
+          <Select value={filter.outcome} onChange={(e) => {
+              const outcome = e.target.value as HistoryFilter['outcome']
+              onChange((h) => ({ ...h, outcome, page: 1 }))
+            }} data-history-field="outcome">
             <option value="">{t('history.filter.anyOutcome')}</option>
             {OUTCOME_FILTERS.map((o) => (
               <option key={o} value={o}>
@@ -352,7 +398,7 @@ function HistoryPanel({ filter, onChange }: { filter: HistoryFilter; onChange: (
         testId="history"
       />
       {!history.isError && showsPager(total, HISTORY_PAGE_SIZE) && (
-        <GridPager page={filter.page} pageSize={HISTORY_PAGE_SIZE} totalMatches={total} busy={history.isFetching} onPage={(page) => onChange({ ...filter, page })} />
+        <GridPager page={filter.page} pageSize={HISTORY_PAGE_SIZE} totalMatches={total} busy={history.isFetching} onPage={(page) => onChange((h) => ({ ...h, page }))} />
       )}
     </>
   )

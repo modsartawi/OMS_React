@@ -4,7 +4,7 @@
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).
  */
-import { api } from '@/core/api'
+import { api, apiErrorCode } from '@/core/api'
 import type { AnalyticsAccess } from '@/core/models/analytics'
 
 /** The ONE cache key the menu leaf and every analytics page's gate share, so the probe costs one call. */
@@ -29,9 +29,27 @@ export const canViewAnalytics = (r: AnalyticsAccess | null | undefined): boolean
 /** The curator grant (`AnalyticsCurate`, working name) — read by 778's certify actions. */
 export const canCurateAnalytics = (r: AnalyticsAccess | null | undefined): boolean => r?.canCurate === true
 
+/**
+ * 822 (spec 819 §C/§E): the author grant — the builder and editor routes, "New view / board", edit, copy, Save as
+ * my copy, share, certify and the ask box. On `canView`, and `=== true` like the others, so a v1 answer without
+ * `canAuthor` is a runner. Curate implies author.
+ */
+export const canAuthorAnalytics = (r: AnalyticsAccess | null | undefined): boolean =>
+  canViewAnalytics(r) && (r?.canAuthor === true || r?.canCurate === true)
+
+/** `ANALYTICS-415` "needs the author grant": a stale probe offered an author's action. */
+export const needsAuthor = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-415'
+
+/**
+ * The cached probe after an `ANALYTICS-415`: no author grant, so no curate either (curate implies author). Written
+ * back under `ANALYTICS_ACCESS_KEY`, it hides the author's actions next time (§C's "hides the action next time").
+ */
+export const withoutAuthor = (r: AnalyticsAccess | undefined): AnalyticsAccess | undefined =>
+  r ? { ...r, canAuthor: false, canCurate: false } : r
+
 export const analyticsAccessApi = {
   /**
-   * `GET Analytics/Access` → `{ canView, canCurate }`.
+   * `GET Analytics/Access` → `{ canView, canAuthor, canCurate }` (822 adds `canAuthor`, spec 819 §C).
    *
    * 🚩 **Fails closed** — no 404-tolerant catch: the door (BackOffice 3378) is not built, and a probe
    * that degraded to *shown* would advertise a screen nobody can hold the grant for.

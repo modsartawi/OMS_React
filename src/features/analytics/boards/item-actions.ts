@@ -17,6 +17,10 @@ import type { AnalyticsTier } from '@/core/models/analytics'
  */
 
 export type ItemActionKey =
+  // 822: what every viewer of a visible item may do — run it (with its parameters, the cross-filter, fullscreen,
+  // the table view, TV mode and the permalink) and export it. A runner gets these and nothing else.
+  | 'run'
+  | 'export'
   | 'create'
   | 'saveInPlace'
   | 'saveAsCopy'
@@ -37,10 +41,14 @@ export interface ItemActions {
   actions: ItemActionKey[]
 }
 
-/** Who is acting: the session's user and the `Analytics/Access` grants. */
+/**
+ * Who is acting: the session's user and the `Analytics/Access` grants. 822 (spec 819 §C): `canAuthor` is the
+ * builder's grant; without it the actor is a **runner**. Curate implies author.
+ */
 export interface ItemActor {
   userId: string | null
   canView: boolean
+  canAuthor: boolean
   canCurate: boolean
 }
 
@@ -56,20 +64,24 @@ export interface ItemStanding {
 }
 
 const READ_ONLY: ItemActions = { save: 'read-only', actions: [] }
+/** 822: a runner's item — run and export, no edit, copy, Save as my copy, share or certify. */
+const RUN_ONLY: ItemActions = { save: 'read-only', actions: ['run', 'export'] }
 
 /** ⚠ User ids are compared without regard to case (UA ids are; BackOffice 3378 to confirm `owner`'s form). */
 export const isOwner = (owner: string, userId: string | null) => !!userId && owner.toLowerCase() === userId.toLowerCase()
 
 export function itemActions(item: ItemStanding | null, actor: ItemActor): ItemActions {
   if (!actor.canView) return READ_ONLY
-  if (!item) return { save: 'create', actions: ['create'] }
+  const author = actor.canAuthor || actor.canCurate
+  if (!item) return author ? { save: 'create', actions: ['create'] } : READ_ONLY
 
   const owns = isOwner(item.owner, actor.userId)
   // Someone else's Personal item is not visible by the tier rule; if one is served anyway, nothing is offered.
   if (item.tier === 'personal' && !owns) return READ_ONLY
+  if (!author) return RUN_ONLY
 
   const inPlace = item.tier === 'certified' ? actor.canCurate : owns
-  const actions: ItemActionKey[] = []
+  const actions: ItemActionKey[] = ['run', 'export']
   if (inPlace) actions.push('saveInPlace')
   if (!inPlace || item.tier !== 'personal') actions.push('saveAsCopy')
   // 778: owners share and unshare their own (a Certified item is the curators'); curators certify a Personal or

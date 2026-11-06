@@ -7,6 +7,7 @@ import type { AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 import Modal from '@/core/ui/Modal'
+import { needsAuthor } from './access'
 import { needsCurator, type TierActionKey } from './item-tier'
 import { useItemTier } from './use-item-tier'
 import { analyticsRefusal, refusalWords } from './wire'
@@ -27,7 +28,8 @@ const CONFIRMED: ReadonlySet<TierActionKey> = new Set(['uncertify', 'delete'])
  * The tier's actions on a view's or a board's header (ticket 778): an owner's Share / Unshare and Delete, a
  * curator's Certify (or Certify this revision into the existing certified copy), Un-certify and Delete. An action
  * the actor cannot take is not shown. A refusal is worded beside them; `ANALYTICS-402` says the curator grant
- * is gone, and the curator's actions are hidden from then on.
+ * is gone, and the curator's actions are hidden from then on; `ANALYTICS-415` (822) the author grant, and every
+ * author's action hides.
  */
 export default function ItemTierActions({ item }: { item: AnalyticsItem | AnalyticsBoard }) {
   const { t } = useTranslation('boards')
@@ -75,7 +77,7 @@ export default function ItemTierActions({ item }: { item: AnalyticsItem | Analyt
         <p
           className="flex max-w-md items-start gap-1 text-xs text-attention-800"
           role="alert"
-          data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : 'other'}
+          data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : needsAuthor(tier.error) ? 'needs-author' : 'other'}
         >
           <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>

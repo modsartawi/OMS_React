@@ -15,7 +15,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canCurateAnalytics, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
@@ -70,6 +70,8 @@ function HomeBody() {
   // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
   const access = useQuery(analyticsAccessQuery())
   const curator = canCurateAnalytics(access.data)
+  // 822: a runner builds nothing — no "New view" or "New board".
+  const author = canAuthorAnalytics(access.data)
 
   const fallback = useMemo(() => {
     const m = model.data
@@ -132,16 +134,20 @@ function HomeBody() {
           data-analytics-home-search
         />
         <AskBox />
-        {/* 775: build a view from the model. */}
-        <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
-          <Plus className="size-4" aria-hidden />
-          {t('editor.newView')}
-        </Link>
-        {/* 777: lay out a new board. */}
-        <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
-          <LayoutDashboard className="size-4" aria-hidden />
-          {t('boardEditor.newBoard')}
-        </Link>
+        {author && (
+          <>
+            {/* 775: build a view from the model. */}
+            <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
+              <Plus className="size-4" aria-hidden />
+              {t('editor.newView')}
+            </Link>
+            {/* 777: lay out a new board. */}
+            <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
+              <LayoutDashboard className="size-4" aria-hidden />
+              {t('boardEditor.newBoard')}
+            </Link>
+          </>
+        )}
       </div>
       {curator && <AnalyticsStatus />}
       {body}

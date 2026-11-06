@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { AnalyticsAccess, AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
-import { ANALYTICS_ACCESS_KEY } from './access'
+import { ANALYTICS_ACCESS_KEY, needsAuthor, withoutAuthor } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { itemActions } from './item-actions'
 import { certifiedCopyOf, needsCurator, tierActionsOf, type TierActionKey } from './item-tier'
@@ -55,6 +55,8 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard) {
       if (answer && answer.id !== item.id) reread(answer.id)
     },
     onError: (err) => {
+      // 822: `ANALYTICS-415` (needs the author grant) hides every author's action next time.
+      if (needsAuthor(err)) queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, withoutAuthor)
       if (needsCurator(err)) {
         queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, (prev) => (prev ? { ...prev, canCurate: false } : prev))
       }

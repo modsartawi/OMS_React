@@ -15,9 +15,13 @@ export interface AnalyticsLabel {
   ar: string
 }
 
-/** `GET Analytics/Access`. Absent or unreachable means denied (the OMS probe pattern). */
+/**
+ * `GET Analytics/Access`. Absent or unreachable means denied (the OMS probe pattern). 822 (spec 819 §C, PROPOSED):
+ * `canAuthor` is the builder's grant — a **runner** is `canView` without it; curate implies author.
+ */
 export interface AnalyticsAccess {
   canView: boolean
+  canAuthor: boolean
   canCurate: boolean
 }
 

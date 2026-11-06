@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AnalyticsBoard, AnalyticsItem, AnalyticsItemDefinition, AnalyticsLabel } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
-import { analyticsAccessQuery, canCurateAnalytics, canViewAnalytics } from './access'
+import type { AnalyticsAccess } from '@/core/models/analytics'
+import { ANALYTICS_ACCESS_KEY, analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics, needsAuthor, withoutAuthor } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import { itemActions, type ItemActions, type ItemActor } from './item-actions'
 import { saveRefusal, type EditingItem, type SaveRefusal } from './item-save'
@@ -10,7 +11,7 @@ import { saveRefusal, type EditingItem, type SaveRefusal } from './item-save'
 export function useItemActor(): ItemActor {
   const userId = useSession((s) => s.userId)
   const access = useQuery(analyticsAccessQuery())
-  return { userId, canView: canViewAnalytics(access.data), canCurate: canCurateAnalytics(access.data) }
+  return { userId, canView: canViewAnalytics(access.data), canAuthor: canAuthorAnalytics(access.data), canCurate: canCurateAnalytics(access.data) }
 }
 
 /** How a save goes: a new Personal item (775), in place with `baseRevision`, or as my copy (776). */
@@ -71,6 +72,11 @@ export function useItemSave({
         void queryClient.invalidateQueries({ queryKey: analyticsBoardKey(id) })
       }
       onSaved(item, how)
+    },
+    // 822: `ANALYTICS-415` from a stale probe drops the author grant from the cached probe, so the builder's actions
+    // hide from then on; the refusal's words are the caller's (`./wire`).
+    onError: (err) => {
+      if (needsAuthor(err)) queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, withoutAuthor)
     },
   })
 

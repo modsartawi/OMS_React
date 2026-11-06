@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import type { AnalyticsBoard, AnalyticsItem, AnalyticsItemDefinition, AnalyticsLabel, AnalyticsReport } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
 import type { AnalyticsAccess } from '@/core/models/analytics'
@@ -6,6 +8,7 @@ import { ANALYTICS_ACCESS_KEY, analyticsAccessQuery, canAuthorAnalytics, canCura
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsReportKey } from './api'
 import { itemActions, type ItemActions, type ItemActor } from './item-actions'
 import { saveRefusal, type EditingItem, type SaveRefusal } from './item-save'
+import { analyticsErrorWords } from './wire'
 
 /** Who is acting, for `itemActions`: the session's user and the probe's grants (the gate's cached answer). */
 export function useItemActor(): ItemActor {
@@ -37,6 +40,11 @@ export interface ItemSave {
   reset: () => void
   /** 405's "reload": the item as it is now on the server, read fresh (a board or a report through its own reader). */
   reload: () => Promise<AnalyticsItem | AnalyticsBoard | AnalyticsReport>
+  /**
+   * 405's "reload", the way every editor does it: read the item fresh and hand it to `apply`; a failure is
+   * toasted in its own words (`analyticsErrorWords`), never one fixed string.
+   */
+  reloadInto: (apply: (item: AnalyticsItem | AnalyticsBoard | AnalyticsReport) => void) => void
 }
 
 /**
@@ -55,6 +63,7 @@ export function useItemSave({
   editing: EditingItem | null
   onSaved: (item: AnalyticsItem, how: SaveHow) => void
 }): ItemSave {
+  const { t } = useTranslation('boards')
   const queryClient = useQueryClient()
   const actions = itemActions(editing, useItemActor())
 
@@ -82,6 +91,15 @@ export function useItemSave({
     },
   })
 
+  const reload = (): Promise<AnalyticsItem | AnalyticsBoard | AnalyticsReport> => {
+    if (!editing) return Promise.reject(new Error('reload: no item is being edited'))
+    const id = editing.id
+    if (kind === 'report') return queryClient.fetchQuery({ queryKey: analyticsReportKey(id), queryFn: () => analyticsApi.report(id), staleTime: 0 })
+    return kind === 'board'
+      ? queryClient.fetchQuery({ queryKey: analyticsBoardKey(id), queryFn: () => analyticsApi.board(id), staleTime: 0 })
+      : queryClient.fetchQuery({ queryKey: analyticsItemKey(id), queryFn: () => analyticsApi.item(id), staleTime: 0 })
+  }
+
   return {
     actions,
     save: (how, content) => mutation.mutate({ how, content }),
@@ -90,13 +108,11 @@ export function useItemSave({
     error: mutation.error,
     refusal: mutation.error ? saveRefusal(mutation.error) : null,
     reset: mutation.reset,
-    reload: () => {
-      if (!editing) return Promise.reject(new Error('reload: no item is being edited'))
-      const id = editing.id
-      if (kind === 'report') return queryClient.fetchQuery({ queryKey: analyticsReportKey(id), queryFn: () => analyticsApi.report(id), staleTime: 0 })
-      return kind === 'board'
-        ? queryClient.fetchQuery({ queryKey: analyticsBoardKey(id), queryFn: () => analyticsApi.board(id), staleTime: 0 })
-        : queryClient.fetchQuery({ queryKey: analyticsItemKey(id), queryFn: () => analyticsApi.item(id), staleTime: 0 })
+    reload,
+    reloadInto: (apply) => {
+      reload()
+        .then(apply)
+        .catch((err: unknown) => toast.error(analyticsErrorWords(err, t('save.reloadFailed'), t)))
     },
   }
 }

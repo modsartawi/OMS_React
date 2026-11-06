@@ -17,7 +17,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
-import { NO_WAVE } from './board'
+import { BASE_FILTERS, NO_WAVE } from './board'
 import { addParam, bind, blankParam, removeParam, type Declarations } from './bindings'
 import DeclarationProblems from './DeclarationProblems'
 import { historyReducer, startHistory, unsaved, type History } from './designer-history'
@@ -26,7 +26,8 @@ import type { BoardContext } from './effective-query'
 import FilterStrip from './FilterStrip'
 import { editingItemOf, type EditingItem } from './item-save'
 import ParamInspector, { type InspectorFocus, type InspectorPanel } from './ParamInspector'
-import { defaultsOf, type ParamValues } from './params'
+import { defaultsOf, readyMadeParams, type ParamValues } from './params'
+import ItemHistory from './ItemHistory'
 import Refused from './Refused'
 import { blankPanelDefinition, copiedPanel, panelBlock } from './panel-edit'
 import { reportPanels, validateReport } from './report'
@@ -39,6 +40,7 @@ import * as ops from './report-ops'
 import { DesignerText } from './ReportTextEditor'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
+import { useReportRun } from './use-report-run'
 import { analyticsRefusal, refusalWords } from './wire'
 
 /**
@@ -58,7 +60,7 @@ import { analyticsRefusal, refusalWords } from './wire'
  * Save creates the report as Personal, or saves it by its tier (403 → copy, 405 → who and when) through 776's
  * shared path; `validate` and the server's `ANALYTICS-411` list every declaration problem. A save clears the
  * unsaved marker, not the history: a new report's history rides to its designer's route. Preview is the runner's
- * page over the draft. The draft's panels run inline (`BoardContext.inline`): it is not the saved revision.
+ * page: the saved report itself when nothing is unsaved, else the draft. The draft's panels run inline (`BoardContext.inline`): it is not the saved revision.
  */
 export default function ReportDesignerPage() {
   const { t } = useTranslation('boards')
@@ -104,7 +106,9 @@ const handOffOf = (state: unknown, id: string | null): DesignerHandOff['designer
 }
 
 const EMPTY: AnalyticsLabel = { en: '', ar: '' }
-const BLANK: ReportDraft = { title: EMPTY, subtitle: EMPTY, definition: { params: [], bindings: {}, sections: [] } }
+// Story 19: a new report starts with the six ready-made parameters (period, city, region, store, channel, country), as a
+// new board does; each panel added binds the ones that can take it (`report-ops` `addBlock`).
+const BLANK: ReportDraft = { title: EMPTY, subtitle: EMPTY, definition: { params: readyMadeParams(BASE_FILTERS), bindings: {}, sections: [] } }
 const draftOf = (r: AnalyticsReport): ReportDraft => ({ title: r.title, subtitle: r.subtitle, definition: r.definition })
 
 function DesignerBody({ reportId }: { reportId: string | null }) {
@@ -240,7 +244,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
       setAdding(null)
       setSelected(`block:${id}`)
     },
-    updateBlock: (id, f, key = null) => editDef((d) => ops.updateBlock(d, id, f), key),
+    updateBlock: (id, f, key = null) => editDef((d) => ops.updateBlock(d, id, f, model), key),
     bind: (param, panel, target) => editDef((d) => ({ ...d, ...bind({ params: d.params, bindings: d.bindings }, param, panel, target) })),
     addParam: () => {
       const param = blankParam('members', def.params.map((p) => p.name), model)
@@ -284,17 +288,22 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   }
   const server = save.error && save.error !== dismissed ? declarationRefusal(save.error) : null
   const listed = problems ?? (server && server.problems.length > 0 ? server.problems : null)
-  const reload = () => {
-    save
-      .reload()
-      .then((item) => {
-        const r = item as AnalyticsReport
-        dispatch({ type: 'load', present: draftOf(r) })
-        setEditing(editingItemOf({ ...r, kind: 'report' }))
-        save.reset()
-      })
-      .catch(() => toast.error(t('save.reloadFailed')))
-  }
+  const reload = () =>
+    save.reloadInto((item) => {
+      const r = item as AnalyticsReport
+      dispatch({ type: 'load', present: draftOf(r) })
+      setEditing(editingItemOf({ ...r, kind: 'report' }))
+      save.reset()
+    })
+  // A revert writes a new revision on the server: the designer re-reads it and lands it as ONE step (undo goes back to
+  // the draft as it was), saved at the new revision.
+  const afterRevert = () =>
+    save.reloadInto((item) => {
+      const r = item as AnalyticsReport
+      edit(() => draftOf(r))
+      dispatch({ type: 'saved' })
+      setEditing(editingItemOf({ ...r, kind: 'report' }))
+    })
   const goTo = (p: DeclarationProblem) => {
     if (p.what === 'summary') return
     if (p.what === 'figure' || p.what === 'series') {
@@ -323,7 +332,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   const selectedParam = selected?.startsWith('param:') ? selected.slice('param:'.length) : null
   const selectedBlock = selected?.startsWith('block:') ? def.sections.flatMap((s) => s.blocks).find((b) => `block:${b.id}` === selected) : undefined
 
-  if (preview) return <Preview draft={draft} editing={editing} model={model} onBack={() => setPreview(false)} />
+  if (preview) return <Preview draft={draft} editing={editing} saved={!!editing && !unsaved(h)} model={model} onBack={() => setPreview(false)} />
 
   return (
     <div className="flex flex-col gap-3" data-report-designer={editing?.id ?? 'new'} data-designer-unsaved={unsaved(h) ? 'yes' : 'no'}>
@@ -349,6 +358,8 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
               <GraduationCap className="size-3.5" aria-hidden />
               {t('designer.tutorial.action')}
             </Button>
+            {/* Stories 15 and 91: past a save, the revisions and revert (and the audience events) take over from undo. */}
+            {editing && <ItemHistory item={{ ...editing, title: draft.title }} kind="report" onReverted={afterRevert} />}
             <Button variant="outlined" onClick={() => setPreview(true)} data-designer-preview>
               <Eye className="size-3.5" aria-hidden />
               {t('designer.preview')}
@@ -565,13 +576,13 @@ function BlockFrame({
   )
 }
 
-/** The runner's page over the draft: the title, the strip with its own values, the report — no edit control. */
-function Preview({ draft, editing, model, onBack }: { draft: ReportDraft; editing: EditingItem | null; model: AnalyticsModel; onBack: () => void }) {
-  const { t } = useTranslation('boards')
-  const lang = i18n.language
-  const def = draft.definition
-  const [values, setValues] = useState<ParamValues>(() => defaultsOf(def.params))
-  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values, crossFilter: null, item: null, inline: true }), [def.params, def.bindings, values])
+/**
+ * Preview (story 95): exactly the runner's page. A saved report with no unsaved change is the runner's page itself — its
+ * panels run by item and revision and its Words (live figures and the summary) are asked as the runner's are
+ * (`useReportRun`). A draft not saved, or changed since, has no revision to ask the Words door with: its panels run
+ * inline and its figures and summary say they are written when the report runs.
+ */
+function Preview({ draft, editing, saved, model, onBack }: { draft: ReportDraft; editing: EditingItem | null; saved: boolean; model: AnalyticsModel; onBack: () => void }) {
   const report: AnalyticsReport = {
     id: editing?.id ?? 'new',
     kind: 'report',
@@ -583,26 +594,69 @@ function Preview({ draft, editing, model, onBack }: { draft: ReportDraft; editin
     revision: editing?.revision ?? 0,
     updatedAt: '',
     updatedBy: '',
-    definition: def,
+    definition: draft.definition,
   }
-  const words = useMemo(() => designWords(t('designer.summaryOnRun')), [t])
-  const title = saysIn(draft.title, lang)
+  return saved ? <SavedPreview report={report} model={model} onBack={onBack} /> : <DraftPreview report={report} model={model} onBack={onBack} />
+}
+
+function PreviewFrame({ report, model, values, onValues, note, onBack, children, strip }: { report: AnalyticsReport; model: AnalyticsModel; values: ParamValues; onValues: (v: ParamValues) => void; note: string; onBack: () => void; children: ReactNode; strip?: Partial<Parameters<typeof FilterStrip>[0]> }) {
+  const { t } = useTranslation('boards')
+  const lang = i18n.language
+  const def = report.definition
+  const title = saysIn(report.title, lang)
   return (
-    <div className="flex flex-col gap-3" data-designer-preview-page>
+    <div className="flex flex-col gap-3" data-designer-preview-page={report.revision > 0 ? 'saved' : 'draft'}>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outlined" onClick={onBack} data-designer-back>
           <ArrowLeft className="size-3.5 rtl:rotate-180" aria-hidden />
           {t('designer.backToDesigner')}
         </Button>
-        <p className="text-xs text-muted-foreground">{t('designer.previewNote')}</p>
+        <p className="text-xs text-muted-foreground">{note}</p>
       </div>
       {title && (
         <h2 className="text-base font-semibold tracking-tight">
           <bdi>{title}</bdi>
         </h2>
       )}
-      <FilterStrip params={def.params} values={values} onChange={setValues} onReset={() => setValues(defaultsOf(def.params))} model={model} lang={lang} wave={NO_WAVE} />
-      <ReportDocument report={report} model={model} lang={lang} context={context} role="runner" words={words} onFetching={noop} onParamNotice={noop} />
+      <FilterStrip params={def.params} values={values} onChange={onValues} onReset={() => onValues(defaultsOf(def.params))} model={model} lang={lang} wave={NO_WAVE} {...strip} />
+      {children}
     </div>
+  )
+}
+
+/** The saved report, as its runner opens it: by item and revision, with its Words. */
+function SavedPreview({ report, model, onBack }: { report: AnalyticsReport; model: AnalyticsModel; onBack: () => void }) {
+  const { t } = useTranslation('boards')
+  const lang = i18n.language
+  const [values, setValues] = useState<ParamValues>(() => defaultsOf(report.definition.params))
+  const run = useReportRun(report, values)
+  return (
+    <PreviewFrame report={report} model={model} values={values} onValues={setValues} note={t('designer.previewNoteSaved')} onBack={onBack} strip={{ fellBack: run.fellBack, invalid: run.invalid, wave: run.wave }}>
+      <ReportDocument
+        report={report}
+        model={model}
+        lang={lang}
+        context={run.context}
+        role="runner"
+        words={{ data: run.words.data, failed: !!run.words.error }}
+        onFetching={run.onFetching}
+        onParamNotice={run.onParamNotice}
+      />
+    </PreviewFrame>
+  )
+}
+
+/** A draft not saved (or changed since): its panels inline; its figures and summary are written when it runs. */
+function DraftPreview({ report, model, onBack }: { report: AnalyticsReport; model: AnalyticsModel; onBack: () => void }) {
+  const { t } = useTranslation('boards')
+  const lang = i18n.language
+  const def = report.definition
+  const [values, setValues] = useState<ParamValues>(() => defaultsOf(def.params))
+  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values, crossFilter: null, item: null, inline: true }), [def.params, def.bindings, values])
+  const words = useMemo(() => designWords(t('designer.summaryOnRun')), [t])
+  return (
+    <PreviewFrame report={{ ...report, revision: 0 }} model={model} values={values} onValues={setValues} note={t('designer.previewNote')} onBack={onBack}>
+      <ReportDocument report={report} model={model} lang={lang} context={context} role="runner" words={words} onFetching={noop} onParamNotice={noop} />
+    </PreviewFrame>
   )
 }

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { itemHref } from '@/core/analytics-routes'
+import { FileText } from 'lucide-react'
+import { itemHref, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
@@ -85,6 +87,15 @@ export default function AnalyticsEditorPage() {
       title={t(board ? (editing ? 'boardEditor.editTitle' : 'boardEditor.title') : editing ? 'editor.editTitle' : 'editor.title')}
       subtitle={t(board ? 'boardEditor.subtitle' : 'editor.subtitle')}
     >
+      {/* Story 70: a report can be started from the builder too, not only the home — inside the author gate above. */}
+      {!editing && (
+        <div className="mb-3 flex justify-end">
+          <Link to={NEW_REPORT_PATH} className={buttonClass('outlined')} data-analytics-builder-new-report>
+            <FileText className="size-3.5" aria-hidden />
+            {t('designer.newReportInstead')}
+          </Link>
+        </div>
+      )}
       {board ? (
         <BoardEditorBody boardId={boardId ?? null} buildView={buildView} />
       ) : (
@@ -251,12 +262,7 @@ function ViewEditor({
     save.save(how, { title, subtitle, definition: withSlots })
   }
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
-  const reload = () => {
-    save
-      .reload()
-      .then((item) => onReseed(item as AnalyticsItem))
-      .catch(() => toast.error(t('save.reloadFailed')))
-  }
+  const reload = () => save.reloadInto((item) => onReseed(item as AnalyticsItem))
 
   const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model) : null)
   const previewRefusal = answer.error ? refusalOf(answer.error) : null

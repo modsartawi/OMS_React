@@ -9,12 +9,14 @@ import type { DraftStep, ReportDraft } from './ReportDesignerPage'
 /**
  * The designer's half of the report-in-context bridge (ticket 832, spec 819 §D/§E). The copilot is another feature,
  * so the two meet only in `@/core/report-context`:
- * - while a saved report is open, its `{ reportId, revision, draft }` is published (the draft as it changes, saved
- *   or not), and cleared when the designer closes;
- * - an answer's `reportEdit` for THIS report is taken once and handed to `apply` with the question it answers —
- *   the designer applies it as one history step labelled "AI: <the request>". It never saves it.
+ * - while the designer is open, its `{ reportId, revision, draft }` is published (the draft as it changes, saved or
+ *   not), and cleared when the designer closes. A new report not saved yet is published too, as `reportId: null` and
+ *   revision 0 (story 101, ⚠ proposed), so "add the cancellation rate as a bar" edits it rather than making another;
+ * - an answer's `reportEdit` for THIS report (or for `null`, while it is new) is taken once and handed to `apply`
+ *   with the question it answers — the designer applies it as one history step labelled "AI: <the request>". It never
+ *   saves it.
  *
- * A new report (no id yet) publishes nothing: the copilot's `create_report` makes a report instead.
+ * Outside the designer nothing is in context, and the copilot's `create_report` makes a new report.
  */
 export function useReportInContext(reportId: string | null, revision: number, draft: ReportDraft, apply: (definition: AnalyticsReportDefinition, request: string) => void) {
   const publish = useReportContext((s) => s.publish)
@@ -25,16 +27,13 @@ export function useReportInContext(reportId: string | null, revision: number, dr
   applyRef.current = apply
 
   useEffect(() => {
-    if (reportId) publish({ reportId, revision, draft })
+    publish({ reportId, revision: reportId ? revision : 0, draft })
   }, [publish, reportId, revision, draft])
 
-  useEffect(() => {
-    if (!reportId) return
-    return () => clear(reportId)
-  }, [clear, reportId])
+  useEffect(() => () => clear(reportId), [clear, reportId])
 
   useEffect(() => {
-    if (!waiting || !reportId) return
+    if (!waiting) return
     const taken = take(reportId)
     if (taken) applyRef.current(taken.edit.definition, taken.request)
   }, [waiting, reportId, take])

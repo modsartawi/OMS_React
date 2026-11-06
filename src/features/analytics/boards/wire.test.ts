@@ -4,7 +4,7 @@ import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
 import { refusedParam } from './panel-state'
-import { analyticsRefusal, readDefinition, readItem, readItems, readModel, readReport, readResult, readWords } from './wire'
+import { analyticsErrorWords, analyticsRefusal, readDefinition, readItem, readItems, readModel, readReport, readResult, readWords } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -13,6 +13,13 @@ const instance = i18next.createInstance()
 await instance.init({ lng: 'en', resources: { en: { boards: en }, ar: { boards: ar } }, defaultNS: 'boards', interpolation: { escapeValue: false } })
 
 describe('analytics wire', () => {
+  it("a failure's words: a known code's own key, else the server's message, else the fallback — never one fixed string", () => {
+    const t = instance.getFixedT('en', 'boards')
+    expect(analyticsErrorWords(coded('ANALYTICS-404'), 'The latest revision could not be loaded.', t)).toBe(en.refusal.notFound)
+    expect(analyticsErrorWords(coded('ANALYTICS-499', 'The store is read-only today.'), 'fallback', t)).toBe('The store is read-only today.')
+    expect(analyticsErrorWords(new Error('boom'), 'The latest revision could not be loaded.', t)).toBe('The latest revision could not be loaded.')
+  })
+
   it('each of ANALYTICS-401/404/406/407/410 maps to its i18n key, an unknown code falls back to the server message', () => {
     expect(analyticsRefusal(coded('ANALYTICS-401'), 'fallback')).toEqual({ code: 'ANALYTICS-401', key: 'refusal.noAccess' })
     expect(analyticsRefusal(coded('ANALYTICS-404'), 'fallback')).toEqual({ code: 'ANALYTICS-404', key: 'refusal.notFound' })

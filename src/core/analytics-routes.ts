@@ -37,3 +37,12 @@ export const NEW_BOARD_PATH = '/analytics/new?kind=board'
 /** The report designer (828): a new report, and a report's own designer at `/analytics/report/:id/edit`. */
 export const NEW_REPORT_PATH = '/analytics/new?kind=report'
 export const reportEditHref = (id: string): string => `${itemHref('report', id)}/edit`
+
+/**
+ * A report's page with one of its dialogs open (story 108, spec 819 §D): the copilot's "Share…" and "Schedule…"
+ * links. The dialog rides in the hash, not the query, so it never meets a parameter's name (the query's keys).
+ */
+export type ReportDialog = 'share' | 'schedule'
+export const reportDialogHref = (id: string, dialog: ReportDialog): string => `${reportHref(id)}#${dialog}`
+/** The dialog a report page's hash asks for, or null (a panel permalink's `#panel-…`, or none). */
+export const reportDialogOf = (hash: string): ReportDialog | null => (hash === '#share' ? 'share' : hash === '#schedule' ? 'schedule' : null)

@@ -40,11 +40,12 @@ const isDialog = (key: TierActionKey): key is DialogKey => key === 'share' || ke
  * is gone, and the curator's actions are hidden from then on; `ANALYTICS-415` (822) the author grant, and every
  * author's action hides.
  */
-export default function ItemTierActions({ item }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport }) {
+export default function ItemTierActions({ item, startShare = false }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport; startShare?: boolean }) {
   const { t } = useTranslation('boards')
   const tier = useItemTier(item)
   const [asking, setAsking] = useState<Exclude<TierActionKey, DialogKey> | null>(null)
-  const [dialog, setDialog] = useState<DialogKey | null>(null)
+  // `startShare` (the copilot's "Share…", story 108) opens the share dialog at once — only for someone who may share.
+  const [dialog, setDialog] = useState<DialogKey | null>(() => (startShare && tier.actions.includes('share') ? 'share' : null))
 
   const take = (key: TierActionKey) => {
     tier.reset()

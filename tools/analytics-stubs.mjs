@@ -856,7 +856,8 @@ export const CREATE_ANSWER_832 = {
     { tool: 'describe_model', input: { area: 'sales' }, rows: 14, ms: 30, ok: true },
     { tool: 'create_report', input: { title: 'Channel sales: HungerStation against QC' }, rows: 1, ms: 140, ok: true },
   ],
-  reportRefs: [{ id: 'r-832', revision: 1, title: REPORT_832.title }],
+  // The sentence asks to share it with the team and schedule it: the AI links those steps, never takes them (story 108).
+  reportRefs: [{ id: 'r-832', revision: 1, title: REPORT_832.title, nextSteps: ['share', 'schedule'] }],
   assumptions: [
     label('Period: a parameter, default yesterday', 'الفترة: معامل، افتراضيًا أمس'),
     label('HungerStation and QC: two named series', 'هنقرستيشن وQC: سلسلتان مسماتان'),

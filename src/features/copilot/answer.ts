@@ -1,6 +1,6 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswer, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -175,16 +175,22 @@ const bilingual = (v: unknown): AnalyticsLabel => {
 /** One `reportRefs` entry, or none when it carries no id. An absent revision reads as 1 (a new report). */
 function reportRef(v: unknown): CopilotReportRef[] {
   if (!v || typeof v !== 'object') return []
-  const { id, title, revision } = v as { id?: unknown; title?: unknown; revision?: unknown }
+  const { id, title, revision, nextSteps } = v as { id?: unknown; title?: unknown; revision?: unknown; nextSteps?: unknown }
   if (typeof id !== 'string' || id.trim() === '') return []
-  return [{ id, revision: typeof revision === 'number' && Number.isInteger(revision) && revision > 0 ? revision : 1, title: bilingual(title) }]
+  const ref: CopilotReportRef = { id, revision: typeof revision === 'number' && Number.isInteger(revision) && revision > 0 ? revision : 1, title: bilingual(title) }
+  // 819 §D: only Share and Schedule are linked, each once, Share first.
+  const steps = Array.isArray(nextSteps) ? REPORT_STEPS.filter((s) => nextSteps.includes(s)) : []
+  return [steps.length ? { ...ref, nextSteps: steps } : ref]
 }
 
-/** `reportEdit`, or none when it names no report or carries no definition with sections (the designer's shape). */
+const REPORT_STEPS: readonly CopilotReportStep[] = ['share', 'schedule']
+
+/** `reportEdit`, or none when it names no report (`null` is the unsaved one in context) or carries no definition with sections (the designer's shape). */
 function reportEditOf(v: unknown): CopilotReportEdit | null {
   if (!v || typeof v !== 'object') return null
   const { reportId, definition, note } = v as { reportId?: unknown; definition?: unknown; note?: unknown }
-  if (typeof reportId !== 'string' || reportId.trim() === '') return null
+  // `null` is the unsaved new report in context (story 101, ⚠ proposed); a missing or blank id is no edit.
+  if (reportId !== null && (typeof reportId !== 'string' || reportId.trim() === '')) return null
   if (!definition || typeof definition !== 'object' || !Array.isArray((definition as { sections?: unknown }).sections)) return null
   const d = definition as CopilotReportEdit['definition']
   return { reportId, definition: { ...d, params: Array.isArray(d.params) ? d.params : [], bindings: d.bindings && typeof d.bindings === 'object' ? d.bindings : {} }, note: bilingual(note) }

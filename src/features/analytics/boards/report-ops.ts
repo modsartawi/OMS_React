@@ -1,5 +1,5 @@
-import type { AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, AnalyticsReportSection } from '@/core/models/analytics'
-import { bindPanel, keptBindings } from './bindings'
+import type { AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, AnalyticsReportSection, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { bindPanel, canBind, keptBindings } from './bindings'
 import { reportBlocks } from './report'
 
 /**
@@ -142,21 +142,49 @@ export function addBlock(def: AnalyticsReportDefinition, sectionId: string, bloc
 /**
  * One block changed in place (829's editors: a panel's definition or title, a text's words). An unchanged
  * block (the same object, or the same JSON) is no change, so no history step.
+ *
+ * With the `model`, a panel whose definition changed drops the bindings it can no longer take (`canBind`), and
+ * keeps every other: a panel is bound when added (as a blank KPI), so its first real shape — a named series
+ * filtering by channel, say — must not leave a ready-made parameter bound where the save would refuse it.
+ * Nothing is bound anew: an author's unbinding stays.
  */
-export function updateBlock(def: AnalyticsReportDefinition, blockId: string, f: (b: AnalyticsReportBlock) => AnalyticsReportBlock): AnalyticsReportDefinition {
+export function updateBlock(def: AnalyticsReportDefinition, blockId: string, f: (b: AnalyticsReportBlock) => AnalyticsReportBlock, model?: AnalyticsModel): AnalyticsReportDefinition {
   const at = locateBlock(def, blockId)
   if (!at) return def
-  let changed = false
+  // Boxed: TypeScript does not follow an assignment made inside the map's callback.
+  const changed: { block: AnalyticsReportBlock | null } = { block: null }
   const sections = def.sections.map((s) => {
     if (s.id !== at.section) return s
     const blocks = s.blocks.map((b) => {
       if (b.id !== blockId) return b
       const next = f(b)
       if (next === b || next.id !== b.id || JSON.stringify(next) === JSON.stringify(b)) return b
-      changed = true
+      changed.block = next
       return next
     })
-    return changed ? { ...s, blocks } : s
+    return changed.block ? { ...s, blocks } : s
   })
-  return changed ? withSections(def, sections) : def
+  if (!changed.block) return def
+  const placed = withSections(def, sections)
+  const edited = changed.block
+  if (!model || edited.kind !== 'panel') return placed
+  return { ...placed, bindings: bindingsTaken(placed, edited.id, edited.definition, model) }
+}
+
+/** The bindings with `panelId`'s kept only where its definition can still take them. The same object when none drop. */
+function bindingsTaken(def: AnalyticsReportDefinition, panelId: string, definition: AnalyticsViewDefinition, model: AnalyticsModel): AnalyticsReportDefinition['bindings'] {
+  let dropped = false
+  const out: AnalyticsReportDefinition['bindings'] = {}
+  for (const [name, bound] of Object.entries(def.bindings)) {
+    const target = bound[panelId]
+    const param = def.params.find((p) => p.name === name)
+    if (target === undefined || !param || canBind(param, definition, model, typeof target === 'string' ? target : undefined).ok) {
+      out[name] = bound
+      continue
+    }
+    const { [panelId]: _gone, ...rest } = bound
+    out[name] = rest
+    dropped = true
+  }
+  return dropped ? out : def.bindings
 }

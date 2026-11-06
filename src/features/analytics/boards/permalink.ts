@@ -29,7 +29,8 @@ export function readPeriod(raw: string | null | undefined): BoardPeriod | null {
  * Each parameter's value from the URL by its name (823: every kind), and the parameters whose value in
  * the link could not be used. A key the URL does not name reads the default. A key it names with a value
  * that is no value of the kind (`period=last-century`, `top=500`), or that is outside the author's
- * declared list (a pinned member, a grain, a measure or breakdown option), reads the default too, and is
+ * declared list (a pinned member, a grain, a measure or breakdown option), or that names several members for a
+ * single-value parameter, reads the default too, and is
  * reported in `fellBack` so the strip says so. A bare `name=` is "cleared": no members, a threshold off —
  * unless the parameter is required, which viewers can't clear. A reserved name is never read.
  */
@@ -61,7 +62,9 @@ function readOne(p: Param, raw: string[]): ParamValue | null {
       const given = [...new Set(raw.filter(Boolean))]
       const kept = p.pinned ? given.filter((m) => p.pinned!.includes(m)) : given
       if (kept.length < given.length) return null
-      return { kind: 'members', values: p.multi === false ? kept.slice(0, 1) : kept }
+      // A single-value parameter given several members is not silently trimmed: it falls back, and says so (story 44).
+      if (p.multi === false && kept.length > 1) return null
+      return { kind: 'members', values: kept }
     }
     case 'grain':
       return isGrain(first) && (p.grains?.length ? p.grains.includes(first) : true) ? { kind: 'grain', grain: first } : null

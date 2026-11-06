@@ -88,10 +88,16 @@ describe('permalink: every parameter kind (823)', () => {
     expect(read.fellBack).toEqual(['channel-one', 'grain', 'cancel-above', 'top', 'figure', 'split'])
   })
 
-  it('a pinned single-value parameter keeps only its declared members, and the first of several', () => {
-    const read = readParamLink(qs('channel-one=web&channel-one=store'), ALL)
+  it('a single-value parameter given one declared member keeps it', () => {
+    const read = readParamLink(qs('channel-one=web'), ALL)
     expect(read.values['channel-one']).toEqual({ kind: 'members', values: ['web'] })
     expect(read.fellBack).toEqual([])
+  })
+
+  it('a single-value parameter given several members falls back to its default, and says so (story 44)', () => {
+    const read = readParamLink(qs('channel-one=web&channel-one=store'), ALL)
+    expect(read.values['channel-one']).toEqual({ kind: 'members', values: ['app'] })
+    expect(read.fellBack).toEqual(['channel-one'])
   })
 
   it('a link naming nothing reads every default and reports no fallback', () => {

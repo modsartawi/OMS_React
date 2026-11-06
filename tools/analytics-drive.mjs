@@ -186,7 +186,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, REPORT_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -3262,13 +3262,14 @@ async function schedules833({ dir }) {
   await context.close()
 }
 
-/** 833 — a runner (in the audience, no author grant) sees no Schedules button and no Kept runs link. */
+/** 833 — a runner (in the audience, no author grant) sees no Schedules button, but the Kept runs link (a recipient's runs, story 127). */
 async function runnerNoSchedules833() {
   const tag = '833 runner'
   const { context, page, errors } = await open({ access: RUNNER, model: MODEL_827 })
   await page.goto(`${BASE}/analytics/report/r-833`)
   await page.locator('[data-analytics-report="r-833"]').waitFor({ timeout: 30000 })
-  check(`${tag}: no Schedules and no Kept runs for a runner`, (await page.locator('[data-report-schedules]').count()) === 0 && (await page.locator('[data-report-runs]').count()) === 0)
+  check(`${tag}: no Schedules for a runner`, (await page.locator('[data-report-schedules]').count()) === 0)
+  check(`${tag}: … but the Kept runs link, since a recipient may open their own runs`, (await page.locator('[data-report-runs]').count()) === 1)
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -3600,6 +3601,8 @@ async function copilotReport832({ dir }) {
   const traced = await turns.nth(0).locator('[data-copilot-trace-label]').allInnerTexts()
   check(`${tag}: the trace says "Built a report"`, traced.map(clean).includes('Built a report'), JSON.stringify(traced))
   await page.screenshot({ path: `${SHOTS}/832-built-${dir}.png` })
+  const steps = await turns.nth(0).locator('[data-copilot-report-step]').evaluateAll((els) => els.map((e) => `${e.dataset.copilotReportStep}>${e.getAttribute('href')}`).join(','))
+  check(`${tag}: the sentence asked to share and schedule, so the answer ends with "Share…" and "Schedule…" links to the report's dialogs`, steps === 'share>/analytics/report/r-832#share,schedule>/analytics/report/r-832#schedule', steps)
 
   // Open in designer: the sheet closes and the report is the designer's, nothing to undo yet.
   await openLink.click()
@@ -3637,6 +3640,149 @@ async function copilotReport832({ dir }) {
   check(`${tag}: … and the unsaved marker with it`, (await page.locator('[data-designer-unsaved-marker]').count()) === 0)
   await redoBtn.click()
   check(`${tag}: Redo puts it back`, (await blocks828(page, 's2')) === 'p2,p3,t2,p5', await blocks828(page, 's2'))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** Story 70: a report can be started from the builder (new view, new board), not only the home. */
+async function builderNewReport828() {
+  const tag = '828 builder'
+  const { context, page, errors } = await open({ access: AUTHOR })
+  for (const kind of ['view', 'board']) {
+    await page.goto(`${BASE}/analytics/new?kind=${kind}`)
+    const link = page.locator('[data-analytics-builder-new-report]')
+    await link.waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${tag}: the new ${kind} builder offers "Start a report instead"`, (await link.count()) === 1 && (await link.getAttribute('href')) === '/analytics/new?kind=report', String(await link.getAttribute('href').catch(() => null)))
+  }
+  await page.locator('[data-analytics-builder-new-report]').click()
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 15000 }).catch(() => {})
+  check(`${tag}: … which opens the report designer`, (await page.locator('[data-report-designer="new"]').count()) === 1)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** Stories 15 and 91: a report has a history — revisions, revert, and the audience event — on its page and in its designer. */
+async function reportHistory827() {
+  const tag = '827 history'
+  const old = { title: { en: 'Channel sales (draft)', ar: 'مبيعات القنوات (مسودة)' }, definition: REPORT_832.definition }
+  const revisions = {
+    'r-832': [
+      { revision: 1, updatedAt: '2026-11-01T08:15:00', updatedBy: 'msartawi', snapshot: old },
+      { revision: 1, updatedAt: '2026-11-02T09:00:00', updatedBy: 'msartawi', event: 'audience' },
+      { revision: 2, updatedAt: '2026-11-03T11:30:00', updatedBy: 'msartawi', snapshot: { title: REPORT_832.title, definition: REPORT_832.definition } },
+    ],
+  }
+  const items = { ...ITEMS, 'r-832': { ...REPORT_832, revision: 2 } }
+  {
+    const { context, page, bodies, errors } = await open({ access: AUTHOR, model: MODEL_827, items, revisions })
+    await page.goto(`${BASE}/analytics/report/r-832`)
+    await page.locator('[data-analytics-report="r-832"]').waitFor({ timeout: 30000 })
+    await page.locator('[data-analytics-history-open]').click()
+    await page.locator('[data-analytics-revisions]').waitFor({ timeout: 10000 })
+    check(`${tag}: the report page lists its revisions and the audience change`, (await page.locator('[data-analytics-revision]').count()) === 2 && (await page.locator('[data-analytics-history-event="audience"]').count()) === 1)
+    await page.locator('[data-analytics-revert="1"]').click()
+    await page.locator('[data-analytics-revert-done]').waitFor({ timeout: 10000 })
+    check(`${tag}: revert writes a new revision`, (bodies['Analytics/Item/r-832/Revert'] ?? [])[0]?.revision === 1, JSON.stringify(bodies['Analytics/Item/r-832/Revert']))
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => document.querySelector('[data-analytics-report-title]')?.textContent?.includes('(draft)'), null, { timeout: 10000 }).catch(() => {})
+    check(`${tag}: … and the page re-reads the report at it`, clean(await page.locator('[data-analytics-report-title]').innerText()).includes('(draft)'), await page.locator('[data-analytics-report-title]').innerText())
+    check(`${tag}: page: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open({ height: 1500, access: AUTHOR, model: MODEL_827, items, revisions })
+    await page.goto(`${BASE}/analytics/report/r-832/edit`)
+    await page.locator('[data-report-designer="r-832"]').waitFor({ timeout: 30000 })
+    await page.locator('[data-analytics-history-open]').click()
+    await page.locator('[data-analytics-revert="1"]').click()
+    await page.locator('[data-analytics-revert-done]').waitFor({ timeout: 10000 })
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => document.querySelector('[data-designer-title]')?.textContent?.includes('(draft)'), null, { timeout: 10000 }).catch(() => {})
+    check(`${tag}: in the designer, a revert lands the reverted report`, clean(await page.locator('[data-designer-title]').innerText()).includes('(draft)'), await page.locator('[data-designer-title]').innerText())
+    check(`${tag}: … saved (no unsaved marker), and one Undo away from the draft before`, (await page.locator('[data-designer-unsaved-marker]').count()) === 0 && !(await page.locator('[data-designer-undo]').isDisabled()))
+    check(`${tag}: designer: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+/** Story 95: Preview of a saved, unchanged report is the runner's page — its Words asked; a changed draft's are not. */
+async function previewWords827() {
+  const tag = '827 preview'
+  const { context, page, bodies, errors } = await open({ height: 1500, access: AUTHOR, model: MODEL_827 })
+  await page.goto(`${BASE}/analytics/report/r-832/edit`)
+  await page.locator('[data-report-designer="r-832"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-designer-preview]').click()
+  await page.locator('[data-designer-preview-page="saved"]').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelectorAll('[data-designer-preview-page] [data-report-figure]').length > 0, null, { timeout: 10000 }).catch(() => {})
+  const asked = (bodies['Analytics/Report/r-832/Words'] ?? [])
+  check(`${tag}: a saved report's preview asks the Words door as the runner's page does`, asked.length > 0 && asked[0].revision === 1, JSON.stringify(asked[0]))
+  await page.locator('[data-designer-back]').click()
+  await page.locator('[data-designer-title-input="en"]').fill('Changed')
+  await page.locator('[data-designer-preview]').click()
+  check(`${tag}: a changed draft previews as a draft`, (await page.locator('[data-designer-preview-page="draft"]').count()) === 1)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 832 (story 108): "Share…" and "Schedule…" open the report's page with that dialog open; the AI shared and scheduled nothing. */
+async function copilotSteps832({ dir }) {
+  const tag = `832 steps ${dir}`
+  for (const step of ['share', 'schedule']) {
+    const { context, page, bodies, errors } = await open({ dir, access: AUTHOR, model: MODEL_827, copilot: 'granted', copilotAnswer: CREATE_ANSWER_832 })
+    await page.goto(`${BASE}/analytics`)
+    const button = page.locator('#layout-topbar [data-copilot-button]')
+    const sheet = page.locator('dialog[data-copilot-sheet]')
+    await button.waitFor({ timeout: 30000 })
+    await button.click()
+    await sheet.locator('[data-copilot-question]').fill(SENTENCE_832)
+    await sheet.locator('[data-copilot-send]').click()
+    await sheet.locator(`[data-copilot-report-step="${step}"]`).click()
+    await page.locator('[data-analytics-report="r-832"]').waitFor({ timeout: 15000 })
+    const dialog = step === 'share' ? '[data-analytics-share="share"]' : '[data-schedules]'
+    await page.locator(dialog).waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${tag}: "${step === 'share' ? 'Share…' : 'Schedule…'}" opens the report with its ${step} dialog open`, (await page.locator(dialog).count()) === 1)
+    check(`${tag}: … the hash is dropped, so a copied link never carries it`, !page.url().includes('#'), page.url())
+    const wrote = Object.keys(bodies).filter((k) => /Share|Audience|Schedules/.test(k))
+    check(`${tag}: … and nothing was shared or scheduled for the author`, wrote.length === 0, wrote.join(','))
+    check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+/** 832 (story 101): a new report not saved yet is the report in context (no id); its edit lands as one undo step. */
+async function copilotUnsaved832({ dir }) {
+  const tag = `832 unsaved ${dir}`
+  const { context, page, bodies, errors } = await open({
+    dir,
+    height: 1500,
+    access: AUTHOR,
+    model: MODEL_827,
+    copilot: 'granted',
+    copilotAnswer: (body) => (body.reportContext ? editAnswer832(body) : CREATE_ANSWER_832),
+  })
+  await page.goto(`${BASE}/analytics/new?kind=report`)
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-designer-title-input="en"]').fill('Draft sales')
+  await page.locator('[data-designer-add-section]').click()
+  const button = page.locator('#layout-topbar [data-copilot-button]')
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(EDIT_832)
+  await sheet.locator('[data-copilot-send]').click()
+  await sheet.locator('[data-copilot-report-edit="new"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const asked = (bodies['Copilot/Ask'] ?? [])[0]
+  check(
+    `${tag}: the unsaved report is sent in context, with no id, revision 0 and its draft`,
+    asked?.reportContext?.reportId === null && asked.reportContext.revision === 0 && asked.reportContext.draft?.title?.en === 'Draft sales' && asked.reportContext.draft.definition?.sections?.length === 1,
+    JSON.stringify(asked?.reportContext && { r: asked.reportContext.reportId, v: asked.reportContext.revision }),
+  )
+  await page.keyboard.press('Escape')
+  await sheet.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check(`${tag}: the edit lands in the unsaved designer`, (await blocks828(page, 's1')) === 'p5', await blocks828(page, 's1'))
+  check(`${tag}: … as one step labelled with the request`, (await page.locator('[data-designer-ai-step]').count()) === 1)
+  check(`${tag}: … and nothing was created or saved`, Object.keys(bodies).every((k) => !k.startsWith('PUT ') && k !== 'Analytics/Item'), Object.keys(bodies).join(','))
+  await page.locator('[data-designer-undo]').click()
+  check(`${tag}: one Undo takes it back`, (await blocks828(page, 's1')) === '', await blocks828(page, 's1'))
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -3819,13 +3965,16 @@ async function tutorial831({ dir }) {
   done.push('summary')
   await ticked(done, 'the AI summary')
 
-  // 8. The period: declared now, it binds every chart and defaults to yesterday; moved off yesterday it unticks.
-  await page.locator('[data-designer-outline-add-param]').click()
-  await page.locator('[data-param-kind="period"]').click()
+  // 8. The period: a new report starts with the ready-made period (story 19), bound to every chart as each was added,
+  // at the board's default (last 30 days) — so not ticked until its default is yesterday; moved off yesterday it unticks.
+  check(`${tag}: a new report holds the six ready-made parameters`, (await page.locator('[data-designer-outline^="param:"]').evaluateAll((els) => els.map((e) => e.dataset.designerOutline).join(','))) === 'param:period,param:city,param:region,param:store,param:channel,param:country')
+  await ticked(done, 'the ready-made period at last 30 days never')
+  await page.locator('[data-designer-outline="param:period"]').click()
   check(`${tag}: … and stays at the top of the parameter inspector`, (await page.locator('[data-param-inspector] [data-designer-tutorial]').count()) === 1)
-  done.push('period')
-  await ticked(done, 'a period defaulting to yesterday on every chart')
   await page.locator('[data-param-inspector-close]').click()
+  await page.locator('[data-board-filter-period]').selectOption('yesterday')
+  done.push('period')
+  await ticked(done, 'the period defaulting to yesterday on every chart')
   await page.locator('[data-board-filter-period]').selectOption('last-7-days')
   check(`${tag}: a period moved off yesterday unticks`, !(await ticks831(page)).includes('period'), await ticks831(page))
   await page.locator('[data-board-filter-period]').selectOption('yesterday')
@@ -3997,8 +4146,9 @@ async function acceptance834({ dir, dark = false }) {
   await rp.goto(`${BASE}/analytics/report/r-834`)
   await rp.locator('[data-analytics-report="r-834"]').waitFor({ timeout: 30000 })
   await idle827(rp)
-  const controls = await rp.locator('[data-report-edit], [data-analytics-action], [data-report-schedules], [data-report-runs], [data-board-tv-enter], [data-analytics-ask]').count()
-  check(`${tag} 5: a runner gets no edit, share, schedule or kept-runs control`, controls === 0, String(controls))
+  const controls = await rp.locator('[data-report-edit], [data-analytics-action], [data-report-schedules], [data-board-tv-enter], [data-analytics-ask]').count()
+  check(`${tag} 5: a runner gets no edit, share or schedule control`, controls === 0, String(controls))
+  check(`${tag} 5: … and the Kept runs link, for the runs sent to them`, (await rp.locator('[data-report-runs]').count()) === 1)
   const firstAsks = runner.bodies['Analytics/Query'] ?? []
   check(`${tag} 5: every panel runs for yesterday by default`, P827.every((id) => firstAsks.some((b) => b.panelId === id && b.values?.period?.token === 'yesterday')), JSON.stringify(firstAsks.map((b) => [b.panelId, b.values?.period])))
   check(`${tag} 5: … its figures yesterday's`, (await figure827(rp, '{p1:total}')) === 'SAR 187,500', String(await figure827(rp, '{p1:total}')))
@@ -4070,6 +4220,12 @@ const SCENARIOS = [
   ['829', provenance829],
   ['832', () => copilotReport832({ dir: 'ltr' })],
   ['832', () => copilotReport832({ dir: 'rtl' })],
+  ['828', () => builderNewReport828()],
+  ['827', () => reportHistory827()],
+  ['827', () => previewWords827()],
+  ['832', () => copilotSteps832({ dir: 'ltr' })],
+  ['832', () => copilotUnsaved832({ dir: 'ltr' })],
+  ['832', () => copilotUnsaved832({ dir: 'rtl' })],
   ['830', () => saveAsReport830({ dir: 'ltr' })],
   ['830', () => saveAsReport830({ dir: 'rtl' })],
   ['828', () => designer828({ dir: 'ltr' })],

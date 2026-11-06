@@ -1,10 +1,10 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Link2, Pencil, Printer } from 'lucide-react'
-import { reportEditHref, reportPrintHref } from '@/core/analytics-routes'
+import { reportDialogOf, reportEditHref, reportPrintHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsModel, AnalyticsReport } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
@@ -17,6 +17,7 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
 import AudienceChip from './AudienceChip'
 import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
+import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
 import { editingItemOf } from './item-save'
 import { defaultsOf, type ParamValues } from './params'
@@ -80,6 +81,14 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
   const reset = useCallback(() => setValues(defaultsOf(declared)), [setValues, declared])
   const run = useReportRun(report, values, link.fellBack)
   const canEdit = itemActions(editingItemOf({ ...report, kind: 'report' }), useItemActor()).save !== 'read-only'
+  // The copilot's "Share…" / "Schedule…" (story 108) arrive as `#share` / `#schedule`: that dialog opens once, and the
+  // hash is dropped so a copied link never carries it.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [dialog] = useState(() => reportDialogOf(location.hash))
+  useEffect(() => {
+    if (dialog) navigate({ search: window.location.search, hash: '' }, { replace: true })
+  }, [dialog, navigate])
 
   const copyLink = async () => {
     const outcome = await copyText(window.location.href)
@@ -106,9 +115,11 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
             </Link>
           )}
           {/* 834: the owner's Share (with roles and users), a curator's Narrow and Certify — as on a view or a board. */}
-          <ItemTierActions item={report} />
-          {/* 833: the owner's and curators' schedules, and the kept runs. */}
-          <ReportSchedules report={report} model={model} />
+          {/* 819 stories 15 and 91: the revisions, revert, and the audience and reassign events. */}
+          <ItemHistory item={report} kind="report" />
+          <ItemTierActions item={report} startShare={dialog === 'share'} />
+          {/* 833: the owner's and curators' schedules, and the kept runs (anyone who may open the report). */}
+          <ReportSchedules report={report} model={model} startOpen={dialog === 'schedule'} />
           <Button variant="secondary" onClick={() => void copyLink()} data-report-copy-link>
             <Link2 className="size-3.5" aria-hidden />
             {t('report.copyLink')}

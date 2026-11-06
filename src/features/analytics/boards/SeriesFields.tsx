@@ -138,7 +138,7 @@ export default function SeriesFields({
           data-editor-add-series
         >
           <Plus className="size-3.5" aria-hidden />
-          {t('editor.series.add', { count: fsi(formatCount(series.length, MAX_SERIES)) })}
+          {t('editor.series.add', { n: fsi(formatCount(series.length, MAX_SERIES)) })}
         </Button>
         {full && (
           <span className="text-xs text-muted-foreground" data-editor-series-max>

@@ -197,4 +197,28 @@ describe('a block edited in place (829)', () => {
     expect(updateBlock(d, 't1', (b) => ({ ...b }))).toBe(d)
     expect(updateBlock(d, 'nope', (b) => b)).toBe(d)
   })
+
+  it('a panel edited so it can no longer take a binding drops that binding, and keeps the rest (P6: the ready-made parameters)', () => {
+    const model = {
+      areas: [{ key: 'orders', available: true }],
+      measures: [{ key: 'orders', area: 'orders', shape: 'count', unit: 'count', label: l('Orders'), description: l(''), dimensions: ['city', 'day'] }],
+      dimensions: [
+        { key: 'city', kind: 'category', label: l('City') },
+        { key: 'day', kind: 'time', label: l('Day') },
+      ],
+    } as unknown as AnalyticsModel
+    const params: Param[] = [
+      { name: 'period', kind: 'period', label: l('Period'), required: true, default: { kind: 'period', token: 'yesterday' } },
+      { name: 'city', kind: 'members', label: l('City'), required: false, dimension: 'city', pinned: null, multi: true, default: { kind: 'members', values: [] } },
+    ]
+    const d = { ...sample(), params }
+    // A named series filtering by city: the city parameter can no longer bind p1 (seriesFilters).
+    const withSeries = (b: Parameters<Parameters<typeof updateBlock>[2]>[0]) =>
+      b.kind === 'panel' ? { ...b, definition: { ...b.definition, series: [{ id: 's1', label: l('Riyadh'), filters: [{ dimension: 'city', values: ['riyadh'] }] }] } } : b
+    const next = updateBlock(d, 'p1', withSeries, model)
+    expect(next.bindings.city).toEqual({ p2: 'city' })
+    expect(next.bindings.period).toEqual({ p1: true, p2: true })
+    // A text edit, or no model, never touches the bindings.
+    expect(updateBlock(d, 'p1', withSeries).bindings).toBe(d.bindings)
+  })
 })

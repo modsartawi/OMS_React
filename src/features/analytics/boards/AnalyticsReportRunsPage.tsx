@@ -22,6 +22,7 @@ import { useReportAndModel } from './AnalyticsReportPage'
 import Refused from './Refused'
 import { isGone } from './schedule'
 import { FilterChips } from './TvMode'
+import { analyticsErrorWords } from './wire'
 
 const OUTCOME_SEV: Record<AnalyticsRunOutcome, Severity> = { sent: 'ok', chartsUnavailable: 'warn', stopped: 'bad', skipped: 'mute', failed: 'bad' }
 
@@ -77,7 +78,7 @@ function RunsList({ report, model, runs }: { report: AnalyticsReport; model: Ana
       if (isGone(err)) {
         setGone((s) => new Set(s).add(run.id))
         toast.info(t('runs.expiredToast'))
-      } else toast.error(t('runs.openFailed'))
+      } else toast.error(analyticsErrorWords(err, t('runs.openFailed'), t))
     }
   }
 

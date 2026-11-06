@@ -4,12 +4,12 @@ import { createReportContext } from './report-context'
 
 const label = (en: string, ar = '') => ({ en, ar })
 const definition = (heading: string) => ({ params: [], bindings: {}, sections: [{ id: 's1', heading: label(heading), blocks: [] }] })
-const ctx = (reportId: string, revision = 1): CopilotReportContext => ({
+const ctx = (reportId: string | null, revision = 1): CopilotReportContext => ({
   reportId,
   revision,
   draft: { title: label('Channel sales'), subtitle: label(''), definition: definition('Sales') },
 })
-const edit = (reportId: string): CopilotReportEdit => ({ reportId, definition: definition('Sales and cancellations'), note: label('Added the cancellation rate as a bar.') })
+const edit = (reportId: string | null): CopilotReportEdit => ({ reportId, definition: definition('Sales and cancellations'), note: label('Added the cancellation rate as a bar.') })
 
 describe('the report-in-context bridge (ticket 832, spec 819 §E)', () => {
   it('holds nothing until a designer publishes', () => {
@@ -62,5 +62,24 @@ describe('the report-in-context bridge (ticket 832, spec 819 §E)', () => {
     bridge.getState().clear('r-1')
     bridge.getState().publish(ctx('r-1'))
     expect(bridge.getState().takeEdit('r-1')).toBeNull()
+  })
+
+  it('story 101: an unsaved new report (no id yet) is in context too, and takes the edit made for it', () => {
+    const bridge = createReportContext()
+    bridge.getState().publish(ctx(null, 0))
+    expect(bridge.getState().context?.reportId).toBeNull()
+    bridge.getState().postEdit(edit('r-1'), 'add a bar')
+    expect(bridge.getState().takeEdit(null)).toBeNull()
+    bridge.getState().postEdit(edit(null), 'add the cancellation rate as a bar')
+    expect(bridge.getState().takeEdit('r-1')).toBeNull()
+    expect(bridge.getState().takeEdit(null)?.request).toBe('add the cancellation rate as a bar')
+    bridge.getState().clear(null)
+    expect(bridge.getState().context).toBeNull()
+  })
+
+  it('an edit for an unsaved report is dropped when no designer is open', () => {
+    const bridge = createReportContext()
+    bridge.getState().postEdit(edit(null), 'add a bar')
+    expect(bridge.getState().edit).toBeNull()
   })
 })

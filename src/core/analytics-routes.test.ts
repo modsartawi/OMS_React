@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardEditHref, itemHref, reportHref, reportPrintHref, reportRunsHref } from './analytics-routes'
+import { boardEditHref, itemHref, reportDialogHref, reportDialogOf, reportHref, reportPrintHref, reportRunsHref } from './analytics-routes'
 
 describe('analytics item routes', () => {
   it('a view and a board open their own page, the id escaped', () => {
@@ -18,5 +18,14 @@ describe('analytics item routes', () => {
   })
   it('833: a report’s kept runs are under its page', () => {
     expect(reportRunsHref('r 1/2')).toBe('/analytics/report/r%201%2F2/runs')
+  })
+  it("832 (story 108): the copilot's Share… and Schedule… open the report's page with that dialog open", () => {
+    expect(reportDialogHref('r 1', 'share')).toBe('/analytics/report/r%201#share')
+    expect(reportDialogHref('r-1', 'schedule')).toBe('/analytics/report/r-1#schedule')
+    expect(reportDialogOf('#share')).toBe('share')
+    expect(reportDialogOf('#schedule')).toBe('schedule')
+    // A panel's permalink, or nothing, opens no dialog.
+    expect(reportDialogOf('#panel-p1')).toBeNull()
+    expect(reportDialogOf('')).toBeNull()
   })
 })

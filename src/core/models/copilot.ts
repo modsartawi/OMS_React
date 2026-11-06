@@ -93,7 +93,12 @@ export interface CopilotPromptRevertRequest {
  * report; the AI then answers a `reportEdit` and never saves it.
  */
 export interface CopilotReportContext {
-  reportId: string
+  /**
+   * The report's id, or `null` for a new report not saved yet (story 101: the copilot edits what is open, saved or
+   * not; ⚠ proposed — §D's `edit_report` takes `{ reportId, baseRevision | draft }`, here with no id and the draft).
+   * `revision` is then 0.
+   */
+  reportId: string | null
   revision: number
   draft: CopilotReportDraft
 }
@@ -127,14 +132,24 @@ export interface CopilotReportRef {
   /** The revision now current: 1 for a new report. */
   revision: number
   title: AnalyticsLabel
+  /**
+   * The steps the words asked for that the AI never takes itself (spec 819 §D, story 108): the answer ends with
+   * "Share…" and "Schedule…" links to the report's dialogs. ⚠ proposed field (the D10 shape has none yet); absent
+   * reads as none.
+   */
+  nextSteps?: CopilotReportStep[]
 }
+
+/** A step the AI links instead of taking (§D: it never shares, certifies or schedules). */
+export type CopilotReportStep = 'share' | 'schedule'
 
 /**
  * `edit_report` against the report in context (spec 819 §D, ⚠ proposed): the validated FULL definition, unsaved. The
  * open designer applies it as one undo step; `note` says what changed.
  */
 export interface CopilotReportEdit {
-  reportId: string
+  /** The report it edits; `null` for the unsaved new report in context (⚠ proposed, as `CopilotReportContext.reportId`). */
+  reportId: string | null
   definition: AnalyticsReportDefinition
   note: AnalyticsLabel
 }

@@ -172,9 +172,26 @@ describe('the answer’s reports (spec 819 §D, ticket 832)', () => {
     ])
   })
 
+  it('reportRefs_carryTheShareAndScheduleStepsTheWordsAskedFor_andNothingElse (story 108)', () => {
+    const reply = {
+      reportRefs: [
+        { id: 'r-1', revision: 1, title: { en: 'Channel sales', ar: '' }, nextSteps: ['share', 'schedule', 'certify', 'share', 7] },
+        { id: 'r-2', revision: 1, title: { en: 'Plain', ar: '' }, nextSteps: 'share' },
+      ],
+    } as unknown as Partial<CopilotAnswer>
+    const [asked, plain] = copilotAnswerModel(reply).reportRefs
+    expect(asked.nextSteps).toEqual(['share', 'schedule'])
+    expect(plain.nextSteps ?? []).toEqual([])
+  })
+
   it('reportEdit_readsTheReportItsDefinitionAndItsNote', () => {
     const reply = { reportEdit: { reportId: 'r-1', definition, note: { en: 'Added the cancellation rate as a bar.', ar: 'أُضيفت نسبة الإلغاء كأعمدة.' } } } as Partial<CopilotAnswer>
     expect(copilotAnswerModel(reply).reportEdit).toEqual({ reportId: 'r-1', definition, note: { en: 'Added the cancellation rate as a bar.', ar: 'أُضيفت نسبة الإلغاء كأعمدة.' } })
+  })
+
+  it('reportEdit_forTheUnsavedNewReportInContext_namesNoReport (story 101)', () => {
+    const reply = { reportEdit: { reportId: null, definition, note: { en: 'Added a bar.', ar: '' } } } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).reportEdit).toEqual({ reportId: null, definition, note: { en: 'Added a bar.', ar: '' } })
   })
 
   it('reportEdit_withoutAReportOrSectionsIsNone', () => {

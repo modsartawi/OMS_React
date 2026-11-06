@@ -159,7 +159,7 @@
     "edit": "Edit",
     "notSharedTitle": "This view isn’t shared with you",
     "seriesColumn": "Series",
-    "seriesKpiLabel": "{{measure}}, {{series}}"
+    "seriesKpiLabel": "{{measure}} for {{series}}"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -403,7 +403,7 @@
       "addFilter": "Another condition",
       "removeFilter": "Remove this condition",
       "max": "A view holds at most 4 series.",
-      "add": "Add a series ({{count}})",
+      "add": "Add a series ({{n}})",
       "unnamed": "Series {{n}}",
       "problem": {
         "title": "Not saved:",
@@ -484,7 +484,7 @@
       "certifyRevision": "This revision is now the certified copy's newest revision.",
       "uncertify": "No longer certified.",
       "delete": "Deleted.",
-      "shareChosen": "Shared with the chosen teams and people.",
+      "shareChosen": "Shared with the chosen roles and people.",
       "audience": "The audience is saved.",
       "narrow": "The audience is narrowed.",
       "reassign": "Handed to its new owner."
@@ -692,8 +692,8 @@
     },
     "who": "Who can run it",
     "everyone": "Everyone with analytics",
-    "chosen": "Chosen teams and people",
-    "roles": "Teams (authz roles)",
+    "chosen": "Chosen roles and people",
+    "roles": "Roles (from Authz)",
     "rolesHint": "Membership is read from Authz every time it opens; someone who leaves the role loses it at once.",
     "removedRole": "removed from Authz — ignored",
     "people": "People",
@@ -851,8 +851,8 @@
     "deleteConfirm": "Delete this schedule?",
     "deleted": "Schedule deleted.",
     "failed": "The schedule could not be saved.",
-    "recipientCount_one": "{{count}} recipient",
-    "recipientCount_other": "{{count}} recipients",
+    "recipientCount_one": "{{n}} recipient",
+    "recipientCount_other": "{{n}} recipients",
     "state": {
       "enabled": "On",
       "paused": "Paused",
@@ -972,6 +972,7 @@
     "loading": "Loading the designer…",
     "loadFailed": "The designer could not be loaded",
     "newReport": "New report",
+    "newReportInstead": "Start a report instead",
     "edit": "Edit",
     "badge": "Designing",
     "untitled": "Untitled report",
@@ -981,6 +982,7 @@
     "preview": "Preview as a runner",
     "backToDesigner": "Back to the designer",
     "previewNote": "This is the page a runner opens, with this draft and the default values.",
+    "previewNoteSaved": "This is the page a runner opens: the saved report, with its live figures and summary.",
     "save": "Save",
     "saving": "Saving…",
     "created": "Report created as Personal",
@@ -1136,7 +1138,7 @@
         },
         "period": {
           "title": "The period: yesterday, on every chart",
-          "how": "Add a Period parameter (\"Parameter\" in the outline) or open it. Its default should be Yesterday, and \"Applies to\" should tick every chart."
+          "how": "Every new report has a Period parameter. Set its default to Yesterday in the strip above the page, and check that \"Applies to\" ticks every chart (open it from the outline)."
         }
       }
     }

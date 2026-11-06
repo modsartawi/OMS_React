@@ -298,6 +298,12 @@ export type AnalyticsRefusal = { code: string | null; key: string } | { code: st
 export const refusalWords = (refusal: AnalyticsRefusal, t: (key: string) => string): string =>
   'key' in refusal ? t(refusal.key) : refusal.message
 
+/**
+ * A failure's words for a toast or a note (api-envelope.md): a known `ANALYTICS-*` code's own key, else the
+ * server's message (`apiErrorMessage`), else `fallback`. Never one fixed string for every failure.
+ */
+export const analyticsErrorWords = (err: unknown, fallback: string, t: (key: string) => string): string => refusalWords(analyticsRefusal(err, fallback), t)
+
 export function analyticsRefusal(err: unknown, fallback: string): AnalyticsRefusal {
   const code = apiErrorCode(err)
   const key = code ? REFUSAL_KEYS[code] : undefined

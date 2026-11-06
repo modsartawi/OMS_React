@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,6 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import Select from '@/core/ui/Select'
-import { fsi } from '@/core/util/bidi'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { BOARD_REFRESH_SECONDS, BASE_FILTERS, NO_WAVE } from './board'
 import { addParam, bindPanel, blankParam, canBind, keptBindings, removeParam, validate, type Declarations } from './bindings'
@@ -22,7 +21,6 @@ import DeclarationProblems from './DeclarationProblems'
 import { declarationRefusal, type DeclarationProblem } from './editor-refusal'
 import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
 import FilterStrip from './FilterStrip'
-import { HOME_TIER_ORDER } from './home'
 import { editingItemOf } from './item-save'
 import { layoutReducer, minSizeOf, type LayoutState } from './layout'
 import { boardParams, convertV1Board, defaultsOf, readyMadeParams, v1Of } from './params'
@@ -32,6 +30,7 @@ import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
 import { analyticsRefusal, refusalWords } from './wire'
 import { viewTitleOf } from './ViewChart'
+import ViewPicker from './ViewPicker'
 
 /**
  * The board editor (spec 766 §F, 755 items 7–11, ticket 777) at `/analytics/board/:id/edit` and
@@ -102,10 +101,6 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
   // The views I can link: every view the store lists for me, Certified first, then Shared, then mine.
   const list = useQuery({ queryKey: analyticsItemsKey({ kind: 'view' }), queryFn: () => analyticsApi.items({ kind: 'view' }), retry: false })
-  const pickable = useMemo(() => {
-    const views = (list.data ?? []).filter((i) => i.kind === 'view')
-    return HOME_TIER_ORDER.map((tier) => ({ tier, views: views.filter((v) => v.tier === tier) })).filter((g) => g.views.length > 0)
-  }, [list.data])
 
   // Each view panel's view: its title, its chart type (so its minimum size), or "view removed".
   const viewPanels = layout.panels.filter((p): p is Extract<AnalyticsBoardPanel, { kind: 'view' }> => p.kind === 'view')
@@ -216,12 +211,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   const server = save.error && save.error !== dismissed ? declarationRefusal(save.error) : null
   const listed = problems ?? (server && server.problems.length > 0 ? server.problems : null)
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
-  const reload = () => {
-    save
-      .reload()
-      .then(onReseed)
-      .catch(() => toast.error(t('save.reloadFailed')))
-  }
+  const reload = () => save.reloadInto(onReseed)
 
   return (
     <div className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
@@ -265,18 +255,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
       <section className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('boardEditor.add')} data-board-editor-add>
         <Field label={t('boardEditor.addView')} className="min-w-64 flex-1">
-          <Select value={pick} onChange={(e) => setPick(e.target.value)} data-board-add-pick>
-            <option value="">{t(list.isLoading ? 'boardEditor.viewsLoading' : 'boardEditor.pickView')}</option>
-            {pickable.map((g) => (
-              <optgroup key={g.tier} label={t(`home.tier.${g.tier}`)}>
-                {g.views.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {fsi(viewTitleOf(v, model, lang, t))}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </Select>
+          <ViewPicker items={list.data} value={pick} onChange={setPick} placeholder={t(list.isLoading ? 'boardEditor.viewsLoading' : 'boardEditor.pickView')} model={model} lang={lang} data-board-add-pick="" />
         </Field>
         <Button
           variant="secondary"

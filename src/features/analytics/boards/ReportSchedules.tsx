@@ -47,24 +47,28 @@ const newDraft = (report: AnalyticsReport): AnalyticsScheduleWrite => ({
 const draftOf = ({ id: _id, suspended: _s, ...write }: AnalyticsSchedule): AnalyticsScheduleWrite => write
 
 /**
- * The report's schedules (spec 819 §E, ticket 833; research 803): a "Schedules" button and a "Kept runs" link in the
- * report's header, for its owner (an author) and curators (`canManageSchedules`). Nothing for anyone else.
+ * The report's schedules (spec 819 §E, ticket 833; research 803): a "Schedules" button in the report's header for its
+ * owner (an author) and curators (`canManageSchedules`), and a "Kept runs" link for anyone who may open the report —
+ * owners, curators and recipients alike (story 127); the Runs door lists only the runs the caller may open.
+ * `startOpen` opens the schedules dialog at once (the copilot's "Schedule…" link, story 108).
  */
-export default function ReportSchedules({ report, model }: { report: AnalyticsReport; model: AnalyticsModel }) {
+export default function ReportSchedules({ report, model, startOpen = false }: { report: AnalyticsReport; model: AnalyticsModel; startOpen?: boolean }) {
   const { t } = useTranslation('boards')
-  const [open, setOpen] = useState(false)
-  if (!canManageSchedules({ owner: report.owner, tier: report.tier }, useItemActor())) return null
+  const manages = canManageSchedules({ owner: report.owner, tier: report.tier }, useItemActor())
+  const [open, setOpen] = useState(startOpen)
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)} data-report-schedules>
-        <CalendarClock className="size-3.5" aria-hidden />
-        {t('schedule.open')}
-      </Button>
+      {manages && (
+        <Button variant="secondary" onClick={() => setOpen(true)} data-report-schedules>
+          <CalendarClock className="size-3.5" aria-hidden />
+          {t('schedule.open')}
+        </Button>
+      )}
       <Link to={reportRunsHref(report.id)} className={buttonClass('secondary')} data-report-runs>
         <History className="size-3.5" aria-hidden />
         {t('runs.open')}
       </Link>
-      {open && <SchedulesDialog report={report} model={model} onClose={() => setOpen(false)} />}
+      {manages && open && <SchedulesDialog report={report} model={model} onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -119,7 +123,7 @@ function SchedulesDialog({ report, model, onClose }: { report: AnalyticsReport; 
                 <ScheduleState schedule={s} />
                 <span className="text-xs text-muted-foreground">{t(`schedule.lang.${s.lang}`)}</span>
                 <span className="text-xs text-muted-foreground" data-schedule-recipients={s.recipients.length}>
-                  {t('schedule.recipientCount', { count: s.recipients.length })}
+                  {t('schedule.recipientCount', { count: s.recipients.length, n: fsi(s.recipients.length) })}
                 </span>
                 <Button variant="text" className="ms-auto" onClick={() => setEditing(s.id)} data-schedule-edit={s.id}>
                   {t('schedule.edit')}

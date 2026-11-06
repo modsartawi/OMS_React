@@ -9,7 +9,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { copilotViewEmbed } from '@/core/copilot-view-embed'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import type { CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
-import { reportEditHref } from '@/core/analytics-routes'
+import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
 import { COPILOT_MAX_QUESTION, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
@@ -115,6 +115,16 @@ export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReport
             <Link to={reportEditHref(r.id)} className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-report-open={r.id}>
               {t('answer.openInDesigner')}
             </Link>
+            {/* 819 §D (story 108): the AI never shares or schedules; when the words asked, it links those steps to the report's own dialogs. */}
+            {r.nextSteps && r.nextSteps.length > 0 && (
+              <span className="flex flex-wrap items-center gap-3 text-xs" aria-label={t('answer.nextSteps')} data-copilot-report-steps={r.id}>
+                {r.nextSteps.map((step) => (
+                  <Link key={step} to={reportDialogHref(r.id, step)} className="font-medium text-primary underline underline-offset-2" data-copilot-report-step={step}>
+                    {t(`answer.${step}`)}
+                  </Link>
+                ))}
+              </span>
+            )}
           </li>
         )
       })}
@@ -146,7 +156,7 @@ export function ReportEditNote({ reportEdit }: { reportEdit: CopilotReportEdit |
   if (!reportEdit) return null
   const note = saysIn(reportEdit.note, i18n.language)
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3 text-xs" data-copilot-report-edit={reportEdit.reportId}>
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3 text-xs" data-copilot-report-edit={reportEdit.reportId ?? 'new'}>
       <span>{t('answer.reportEdited')}</span>
       {note && (
         <span className="text-muted-foreground">

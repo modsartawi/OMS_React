@@ -53,8 +53,8 @@ The live drive is green on staging, parity and the spot-checks are recorded unde
 ## Blocked by
 
 - [812](812-the-headline-strip-shows-the-six-server-figures-and-their-change.md), [813](813-choosing-a-courier-narrows-the-page-to-its-home-deliveries.md), [814](814-the-funnels-show-stage-drop-off-and-the-delivery-slot-split.md), [815](815-the-chart-is-drawn-by-core-charts-and-dims-while-today-refreshes.md), [816](816-the-store-tables-delivery-view-ranks-stores-by-slot-keeping.md)
-- **External:** the BackOffice brief for spec 811 filed in the BackOffice tracker, built and deployed to staging.
+- **External:** BackOffice spec [3404](file:///C:/Work/DMSCO/BackOffice/.issues/3404-the-web-statistics-door-scopes-by-courier-and-carries-slot-keeping-trips-delivery-time-and-the-previous-period-spec.md) (the brief for spec 811, filed 2026-11-06, draft) grilled, built and deployed to staging.
 
 ## Open questions
 
-- The BackOffice brief is not filed yet. Its content is spec 811's "The door's additions". Filing it in the BackOffice tracker (`C:\Work\DMSCO\BackOffice\.issues\`), as the 2641 and 2660 waves did, is the first task, unless it has been filed by the time this ticket starts.
+- ~~The BackOffice brief is not filed yet.~~ Filed 2026-11-06 as BackOffice spec 3404 (draft). Its ⚠ items (courier key on `SdStoreDayStat`, trips shared by two couriers, Today's hourly cut-off, the 62-day look-back for a 31-day Range) are BackOffice's to rule; reconcile here when they do.

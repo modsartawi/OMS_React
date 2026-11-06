@@ -8,12 +8,14 @@
  * 🚩 **Everything is the server's, read as sent.** No share, ratio, average or change is computed
  * here: the change is the previous block's `change` and `changePct`, and only its DIRECTION is read,
  * from the sign of `change`. A figure the server leaves out is no value (the tile's dash), never 0; a
- * tile whose previous figure has no `change` draws no change line.
+ * tile whose previous figure has no `change` draws no change line. A share tile (In slot, Out of slot)
+ * never shows `changePct` — a relative percent of a percent misleads — but its `change` written as
+ * percentage points (`points`, spec 811 review).
  */
 import type { KpiTileDelta } from '@/core/charts/KpiTile'
 import type { DeliveryStatistics, PreviousFigure, StatisticsPrevious } from '@/core/models/delivery-statistics'
 import { formatRange } from '@/core/util/bidi'
-import { hasFigure, readFigure } from './figures'
+import { hasFigure, readFigure, readPoints } from './figures'
 
 export type HeadlineId = 'cameIn' | 'handedOver' | 'inSlot' | 'outOfSlot' | 'deliveredPerTrip' | 'avgDeliveryMinutes'
 
@@ -32,8 +34,10 @@ export interface HeadlineTile {
   value: number | null
   /** The previous period's figure as sent; `null` when absent. */
   previous: number | null
-  /** The server's change; `null` = no change line. */
+  /** The server's change; `null` = no change line. A share's has no `pct`. */
   delta: KpiTileDelta | null
+  /** A share tile's change as percentage points (`4.0`, unsigned); absent on every other tile, and with no change. */
+  points?: string
   sub?: HeadlineSub
 }
 
@@ -41,21 +45,28 @@ type HeadlineAnswer = Pick<DeliveryStatistics, 'flow'> & Partial<Pick<DeliverySt
 
 const figure = (value: unknown): number | null => (hasFigure(value) ? value : null)
 
-/** The server's change, or `null` when it sent none: the arrow from its sign, nothing computed. */
-function readDelta(previous: PreviousFigure | undefined): KpiTileDelta | null {
+/**
+ * The server's change, or `null` when it sent none: the arrow from its sign, nothing computed. A share's
+ * change carries no percentage: `changePct` of a share is a percent of a percent.
+ */
+function readDelta(previous: PreviousFigure | undefined, kind: HeadlineKind): KpiTileDelta | null {
   const abs = figure(previous?.change)
   if (abs === null) return null
-  return { abs, pct: figure(previous?.changePct), direction: abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat' }
+  return { abs, pct: kind === 'share' ? null : figure(previous?.changePct), direction: abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat' }
 }
 
-const tile = (id: HeadlineId, kind: HeadlineKind, value: unknown, previous: PreviousFigure | undefined, sub?: HeadlineSub): HeadlineTile => ({
-  id,
-  kind,
-  value: figure(value),
-  previous: figure(previous?.value),
-  delta: readDelta(previous),
-  ...(sub ? { sub } : {}),
-})
+function tile(id: HeadlineId, kind: HeadlineKind, value: unknown, previous: PreviousFigure | undefined, sub?: HeadlineSub): HeadlineTile {
+  const delta = readDelta(previous, kind)
+  return {
+    id,
+    kind,
+    value: figure(value),
+    previous: figure(previous?.value),
+    delta,
+    ...(kind === 'share' && delta ? { points: readPoints(delta.abs) } : {}),
+    ...(sub ? { sub } : {}),
+  }
+}
 
 /** The answer → the six headline tiles, in the strip's order. */
 export function readHeadline(answer: HeadlineAnswer, dash: string): HeadlineTile[] {

@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
+import type { ColDef, GridApi, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -19,6 +19,7 @@ import {
   FLOW_FIGURES,
   storeRows,
   TABLE_TRACKS,
+  type TableSort,
   TRACK_FIGURES,
   type CellBarFigure,
   type StoreFigure,
@@ -49,17 +50,27 @@ const TABLE_HEADER: Partial<Record<StoreFigure, string>> = {
   noSlot: 'table.noSlot',
   deliveredPerTrip: 'table.deliveredPerTrip',
   avgDeliveryMinutes: 'table.avgDeliveryTime',
-  avgHandOverMinutes: 'table.avgToReady',
 }
 
 /** How a figure's cell reads: a share as a percent, a ratio or minutes to two places, a count whole. */
 function readCell(key: StoreFigure, value: number | null | undefined, dash: string): string {
   if (key === 'inSlotShare' || key === 'outOfSlotShare') return readShare(value, dash)
-  if (key === 'deliveredPerTrip' || key === 'avgDeliveryMinutes' || key === 'avgHandOverMinutes') return readAverage(value, dash)
+  if (key === 'deliveredPerTrip' || key === 'avgDeliveryMinutes') return readAverage(value, dash)
   return readFigure(value, dash)
 }
 
 const isCellBar = (key: StoreFigure): key is CellBarFigure => (CELL_BAR_FIGURES as readonly string[]).includes(key)
+
+/** The grid's `context`: the bar columns' maxima, held in a ref so a refetch never rebuilds the columns. */
+interface StoreGridContext {
+  maxima: RefObject<Record<CellBarFigure, number>>
+}
+
+/** `CellBar` with its column's current maximum, read from the grid context at render. */
+function StoreCellBar(params: ICellRendererParams<StoreRow> & { context: StoreGridContext }) {
+  const key = params.colDef?.field as CellBarFigure
+  return <CellBar {...params} max={params.context.maxima.current[key] ?? 0} />
+}
 
 /** A figure's header in a view: the band's own caption, so the table and the tiles name a figure alike. */
 function header(t: TFunction, track: TableTrack, key: StoreFigure): string {
@@ -81,9 +92,10 @@ function header(t: TFunction, track: TableTrack, key: StoreFigure): string {
  * Out of slot %, Delivered per trip and Avg delivery time draw through `core/charts` `CellBar` (816): a bar
  * in proportion to the column's largest value as sent (`columnMaxima`), behind the formatted value, which
  * `CellBar` isolates whole. No `fsi` and nothing beside the value: Ctrl+C carries the cell as formatted.
+ * The maxima reach the renderer through the grid `context`, never the column definitions, so the columns
+ * depend only on the view and its opening sort and a refetch never rebuilds them (spec 811 review).
  */
-function storeColumns(t: TFunction, track: TableTrack, courier: string, dash: string, maxima: Record<CellBarFigure, number>): ColDef<StoreRow>[] {
-  const opening = defaultSort(track, courier)
+function storeColumns(t: TFunction, track: TableTrack, dash: string, opening: TableSort): ColDef<StoreRow>[] {
   const figure = (key: StoreFigure): ColDef<StoreRow> => ({
     field: key,
     headerName: header(t, track, key),
@@ -97,7 +109,7 @@ function storeColumns(t: TFunction, track: TableTrack, courier: string, dash: st
       compareFigures(a ?? null, b ?? null, isDescending),
     // `initialSort`, not `sort`: a rebuilt column set must not re-impose it over the user's pick.
     ...(key === opening.figure ? { initialSort: opening.direction } : {}),
-    ...(isCellBar(key) ? { cellRenderer: CellBar, cellRendererParams: { max: maxima[key] } } : {}),
+    ...(isCellBar(key) ? { cellRenderer: StoreCellBar } : {}),
   })
   return [
     // Pinned to the reading start (AG Grid pins to a physical side `enableRtl` does not flip), so
@@ -143,8 +155,18 @@ export default function StoreTable({
   const dash = t('dash')
   const rows = useMemo(() => storeRows(stores, track), [stores, track])
   const maxima = useMemo(() => columnMaxima(rows), [rows])
-  const columns = useMemo(() => storeColumns(t, track, courier, dash, maxima), [t, track, courier, dash, maxima])
-  const opening = defaultSort(track, courier).figure
+  const opening = useMemo(() => defaultSort(track, courier), [track, courier])
+  const columns = useMemo(() => storeColumns(t, track, dash, opening), [t, track, dash, opening])
+  // The bars' maxima live in a ref the renderer reads (the grid `context`); when a refetch moves them,
+  // the bar cells are redrawn — after the grid has taken the new rows (a child's effects run first).
+  const gridApi = useRef<GridApi<StoreRow> | null>(null)
+  const maximaRef = useRef(maxima)
+  const context = useMemo<StoreGridContext>(() => ({ maxima: maximaRef }), [])
+  useEffect(() => {
+    if (maximaRef.current === maxima) return
+    maximaRef.current = maxima
+    gridApi.current?.refreshCells({ columns: [...CELL_BAR_FIGURES], force: true })
+  }, [maxima])
   const fits = rows.length <= FIT_ROWS
 
   return (
@@ -162,10 +184,14 @@ export default function StoreTable({
       <div className={fits ? undefined : 'h-[30rem]'} data-statistics-stores={track}>
         <AgGridReact<StoreRow>
           // A view is its own column set: a fresh grid per view (and per opening sort, 816) starts on that ranking.
-          key={`${track}:${opening}`}
+          key={`${track}:${opening.figure}`}
+          onGridReady={({ api }) => {
+            gridApi.current = api
+          }}
           theme={omsGridTheme}
           rowData={rows}
           columnDefs={columns}
+          context={context}
           defaultColDef={DEFAULT_COL_DEF}
           getRowId={({ data }) => data.storeCode}
           domLayout={fits ? 'autoHeight' : 'normal'}

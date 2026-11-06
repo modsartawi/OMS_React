@@ -8,7 +8,7 @@
  * here — never 0 — so the grid shows the dash and sorts it last.
  *
  * The table shows one of three views (491): **All** reads the store's own `flow`, `misses`,
- * `avgHandOverMinutes` and `unspecified`; **Delivery** and **Pick-up** read that store's
+ * `avgDeliveryMinutes` and `unspecified`; **Delivery** and **Pick-up** read that store's
  * `tracks.delivery` / `tracks.pickUp` as sent. A store row without `tracks` (an SIS.Api older than
  * 2660) reads `null` in every cell of those two views — never 0, never the store-wide figure.
  */
@@ -40,7 +40,8 @@ const PICK_UP_MISSES = MISSES.filter((id) => !NOT_ON_A_PICK_UP.has(id))
  * - **Delivery:** the lane's stages with Trips beside Out for delivery, ending at Delivered (the lane's
  *   hand-over), the five misses, Avg time to deliver.
  * - **Pick-up:** the lane's stages ending at Picked up — no Out for delivery, no Trips — then Close
- *   requested, Closed / cancelled, Avg time to ready.
+ *   requested, Closed / cancelled, and the lane's Avg delivery time (`tracks.pickUp.avgDeliveryMinutes`,
+ *   entry to Made ready) — the field the Pick-up funnel reads, so the two never disagree (spec 811 review).
  */
 export const TRACK_FIGURES = {
   // 816: All's average is the store-wide Avg delivery time (spec 811), no longer the entry-based Avg hand-over.
@@ -60,7 +61,7 @@ export const TRACK_FIGURES = {
     ...MISSES,
     'avgDeliveryMinutes',
   ],
-  pickUp: ['cameIn', 'madeReady', 'pickedUp', ...PICK_UP_MISSES, 'avgHandOverMinutes'],
+  pickUp: ['cameIn', 'madeReady', 'pickedUp', ...PICK_UP_MISSES, 'avgDeliveryMinutes'],
 } as const
 
 /** The All view's columns: today's (487), with Unspecified as the last flow column. */
@@ -86,8 +87,7 @@ function sourceOf(s: DeliveryStatisticsStore, track: TableTrack): Partial<Record
     ...lane?.flow,
     [HAND_OVER_FIGURE[track]]: lane?.flow?.handedOver,
     ...lane?.misses,
-    avgHandOverMinutes: lane?.avgHandOverMinutes,
-    // 816 (spec 811): the Delivery track's slot keeping, Delivered per trip and Avg delivery time, as sent.
+    // 816 (spec 811): the Delivery track's slot keeping and Delivered per trip, and either lane's Avg delivery time, as sent.
     inSlotShare: lane?.slot?.inSlotShare,
     outOfSlotShare: lane?.slot?.outOfSlotShare,
     noSlot: lane?.slot?.noSlot,

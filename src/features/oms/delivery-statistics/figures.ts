@@ -34,3 +34,15 @@ export function readAverage(value: number | null | undefined, dash: string): str
 export function readShare(value: number | null | undefined, dash: string): string {
   return hasFigure(value) ? SHARE.format(value) : dash
 }
+
+// A change between two shares in percentage points, to one place: 0.04 → 4.0, written unsigned (the arrow says the sign).
+const POINTS = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+/**
+ * The server's `change` of a share (a difference of two 0–1 shares) as percentage points, unsigned:
+ * 0.04 → `4.0`. Formatting only — the ×100 is the unit's, as `readShare`'s percent is; no figure is
+ * derived. Never a percent of a percent.
+ */
+export function readPoints(change: number): string {
+  return POINTS.format(Math.abs(change) * 100)
+}

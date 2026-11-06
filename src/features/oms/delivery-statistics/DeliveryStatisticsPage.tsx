@@ -12,7 +12,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
-import { COURIERS, courierTableTracks, courierTracks, hidesPickUp } from './courier-scope'
+import { courierTableTracks, courierTracks, hidesPickUp, isOfferedCourier } from './courier-scope'
 import { readFigure } from './figures'
 import { readHeadline } from './headline'
 import HeadlineStrip from './HeadlineStrip'
@@ -73,9 +73,6 @@ function useMinuteClock(): Date {
   return now
 }
 
-/** The couriers the picker offers; a code outside them (a shared link) is captioned by its code. */
-const COURIER_CODES: ReadonlySet<string> = new Set(COURIERS)
-
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
 const MISS_ACCENT: Record<MissId, string> = {
   returnedBack: 'border-t-danger',
@@ -106,6 +103,10 @@ function Statistics() {
     retry: false,
   })
   const data = params && !stats.isError ? stats.data : undefined
+  // Today rolled past midnight: the previous day's answer is held while the new day's is asked (815). It
+  // is NOT the current answer, so every band reads as not current — dimmed and busy alike, not the chart
+  // alone (spec 811 review). A same-key Today refresh re-asks the current answer: only the chart dims.
+  const stale = data !== undefined && stats.isPlaceholderData
   const dash = t('dash')
 
   return (
@@ -143,7 +144,7 @@ function Statistics() {
           <Trans
             t={t}
             i18nKey="courier.caption"
-            values={{ courier: COURIER_CODES.has(query.courier) ? t(`courier.name.${query.courier}`) : query.courier }}
+            values={{ courier: isOfferedCourier(query.courier) ? t(`courier.name.${query.courier}`) : query.courier }}
             components={{ v: <bdi className="font-medium text-foreground" /> }}
           />
         </p>
@@ -161,38 +162,59 @@ function Statistics() {
 
       {data && (
         <>
-          <HeadlineStrip tiles={readHeadline(data, dash)} previous={data.previous}>
-            {showsUnspecified(data.unspecified) && (
-              <Tile id="unspecified" caption={t('unspecified.caption')} value={readFigure(data.unspecified, dash)} accent="border-t-attention">
-                <span className="text-xs text-muted-foreground">{t('unspecified.note')}</span>
-              </Tile>
-            )}
-          </HeadlineStrip>
+          <StaleBands stale={stale}>
+            <HeadlineStrip tiles={readHeadline(data, dash)} previous={data.previous}>
+              {showsUnspecified(data.unspecified) && (
+                <Tile id="unspecified" caption={t('unspecified.caption')} value={readFigure(data.unspecified, dash)} accent="border-t-attention">
+                  <span className="text-xs text-muted-foreground">{t('unspecified.note')}</span>
+                </Tile>
+              )}
+            </HeadlineStrip>
 
-          {/* 814: the funnels draw the lanes they are given; under a chosen courier the Pick-up funnel is
-              not drawn (813, `courier-scope.ts`). */}
-          <Funnels lanes={courierTracks(readLanes(data.tracks, dash), query.courier)} />
+            {/* 814: the funnels draw the lanes they are given; under a chosen courier the Pick-up funnel is
+                not drawn (813, `courier-scope.ts`). */}
+            <Funnels lanes={courierTracks(readLanes(data.tracks, dash), query.courier)} />
 
-          {/* One row per track (490); the store-wide `misses` is not drawn — it stays for the table's All view. */}
-          <section className="flex flex-col gap-3" data-statistics-band="misses">
-            <h2 id="statistics-misses" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              {t('band.misses')}
-            </h2>
-            {courierTracks(readMissesRows(data.tracks, dash), query.courier).map((row) => (
-              <MissesRowBand key={row.track} row={row} />
-            ))}
-          </section>
+            {/* One row per track (490); the store-wide `misses` is not drawn — it stays for the table's All view. */}
+            <section className="flex flex-col gap-3" data-statistics-band="misses">
+              <h2 id="statistics-misses" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {t('band.misses')}
+              </h2>
+              {courierTracks(readMissesRows(data.tracks, dash), query.courier).map((row) => (
+                <MissesRowBand key={row.track} row={row} />
+              ))}
+            </section>
+          </StaleBands>
 
           {params && <StatisticsChart series={data.series} granularity={params.Granularity} busy={stats.isFetching} />}
-          <StoreTable
-            stores={data.stores}
-            track={query.track}
-            courier={query.courier}
-            views={courierTableTracks(query.courier)}
-            onTrack={(track) => update((q) => ({ ...q, track }))}
-          />
+          <StaleBands stale={stale}>
+            <StoreTable
+              stores={data.stores}
+              track={query.track}
+              courier={query.courier}
+              views={courierTableTracks(query.courier)}
+              onTrack={(track) => update((q) => ({ ...q, track }))}
+            />
+          </StaleBands>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * The bands around the chart while the answer on screen is the previous day's (`stale`): dimmed as the
+ * chart's `ChartFrame` dims, `aria-busy`, and not clickable, so nothing reads it as the current answer.
+ * The chart keeps its own frame (busy, with its "Updating" mark), so it is not dimmed twice.
+ */
+function StaleBands({ stale, children }: { stale: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-col gap-4 transition-opacity duration-300 ${stale ? 'pointer-events-none opacity-35' : ''}`}
+      aria-busy={stale}
+      data-statistics-stale={stale ? 'stale' : 'current'}
+    >
+      {children}
     </div>
   )
 }

@@ -82,7 +82,8 @@
     "compared": {
       "range": "vs <v>{{range}}</v>",
       "until": "vs <v>{{day}}</v> to <v>{{time}}</v>"
-    }
+    },
+    "points": "pts"
   },
   "lane": {
     "delivery": "Delivery",
@@ -115,7 +116,6 @@
     "outForDelivery": "Out for delivery",
     "trips": "Trips <v>{{n}}</v>",
     "handedOver": "Handed over",
-    "handedOverNote": "Delivered + picked up",
     "delivered": "Delivered",
     "pickedUp": "Picked up"
   },
@@ -150,7 +150,6 @@
     "noSlot": "No slot",
     "deliveredPerTrip": "Delivered per trip",
     "avgDeliveryTime": "Avg delivery time (min)",
-    "avgToReady": "Avg time to ready (min)",
     "track": {
       "label": "Track",
       "all": "All"

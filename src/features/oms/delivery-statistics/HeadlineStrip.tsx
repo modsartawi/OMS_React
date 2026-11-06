@@ -5,6 +5,7 @@ import type { AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics
 import type { StatisticsPrevious } from '@/core/models/delivery-statistics'
 import Ltr from '@/core/ui/Ltr'
 import { comparedWindow, type HeadlineKind, type HeadlineTile } from './headline'
+import { TileFrame } from './Tile'
 
 /** How each kind of figure is written by the KPI tile: counts whole, shares as %, a ratio to two places. */
 const WRITTEN_AS: Record<HeadlineKind, { unit: MeasureUnit; format: AnalyticsNumberFormat }> = {
@@ -17,7 +18,8 @@ const WRITTEN_AS: Record<HeadlineKind, { unit: MeasureUnit; format: AnalyticsNum
 /**
  * The headline strip (ticket 812, spec 811): six `core/charts` KPI tiles, each with its caption, the
  * server's figure, its server change against the compared window (in ink, an arrow and words), and a
- * line under it where the figure has one. The compared window is named once, beside the heading.
+ * line under it where the figure has one. A share's change (In slot, Out of slot) reads in percentage
+ * points (`headline.points`), never as a percent of a percent. Each tile wears `Tile`'s frame. The compared window is named once, beside the heading.
  * `children` (the Unspecified tile) follow the six in the same grid.
  */
 export default function HeadlineStrip({
@@ -51,8 +53,7 @@ export default function HeadlineStrip({
         {tiles.map((tile) => {
           const caption = t(`headline.caption.${tile.id}`)
           return (
-            <div key={tile.id} className="flex min-w-0 flex-col rounded-lg border border-t-2 border-border/60 border-t-primary bg-card p-3" data-figure-tile={tile.id}>
-              <span className="text-xs font-medium text-muted-foreground">{caption}</span>
+            <TileFrame key={tile.id} id={tile.id} caption={caption} accent="border-t-primary">
               <KpiTile
                 measureLabel={caption}
                 value={tile.value}
@@ -62,6 +63,7 @@ export default function HeadlineStrip({
                 unit={WRITTEN_AS[tile.kind].unit}
                 format={WRITTEN_AS[tile.kind].format}
                 locale={i18n.language}
+                {...(tile.points !== undefined ? { changeText: tile.points, changeUnit: t('headline.points') } : {})}
               />
               {tile.sub && (
                 <span className="text-xs text-muted-foreground" data-figure={`${tile.id}.sub`}>
@@ -72,7 +74,7 @@ export default function HeadlineStrip({
                   )}
                 </span>
               )}
-            </div>
+            </TileFrame>
           )
         })}
         {children}

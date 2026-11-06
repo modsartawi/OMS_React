@@ -135,7 +135,7 @@ describe('readLanes', () => {
     ])
   })
 
-  it('a Came in of 0 draws no bar; a stage past Came in draws a full bar, its figure as sent', () => {
+  it('a Came in of 0 draws no bar; a stage past Came in carries its ratio unclamped (StageBar clamps), its figure as sent', () => {
     const [delivery, pickUp] = readLanes(
       {
         delivery: { flow: { cameIn: 0, madeReady: 0, outForDelivery: 0, handedOver: 0 } },
@@ -147,8 +147,8 @@ describe('readLanes', () => {
     expect(delivery.stages.map((s) => s.bar)).toEqual([null, null, null, null])
     expect(pickUp.stages.map((s) => [s.value, s.bar])).toEqual([
       ['400', 1],
-      ['444', 1],
-      ['455', 1],
+      ['444', 444 / 400],
+      ['455', 455 / 400],
     ])
   })
 

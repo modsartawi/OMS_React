@@ -265,3 +265,36 @@ window sentence ("vs {{range}}" / "vs {{day}} to {{time}}" — each value isolat
   must read "—" everywhere, which the optional model guarantees.
 - Analytics' light `--chart-2` gold contrast (2.83:1) is a known open item from spec 766; the
   grouped chart's second series inherits it.
+
+## Comments
+
+### 2026-11-06 — code-review findings across 812–816, and their outcomes (branch `impl/811-review-fixes`)
+
+1. **Midnight roll-over showed yesterday's answer as current** (only the chart dimmed under
+   `placeholderData`). FIXED: while `stats.isPlaceholderData`, the bands either side of the chart
+   (headline, funnels, misses; the store table) sit in a `StaleBands` group — dimmed like `ChartFrame`,
+   `aria-busy`, not clickable (`data-statistics-stale`); the chart keeps its own busy frame. A same-key
+   Today refresh still dims only the chart. Drive: a fake clock at 23:58 rolls into the new day.
+2. **In slot / Out of slot showed a relative percent of a percent** (`changePct` of a share). FIXED:
+   share tiles drop `changePct` and show the server's `change` as percentage points (`readPoints`,
+   formatting only: `▲ 15.0 pts`, `headline.points` en+ar). `core/charts/KpiTile` stays feature-free:
+   it takes optional `changeText` / `changeUnit` props (the unit sits outside the change's isolate;
+   spoken through `common:charts.kpi.withUnit`).
+3. **ar `chart.label` was a string while en is `{hour, day}`; dead `chart.hint` / `chart.readout`.**
+   FIXED, plus the sweep found the orphan `flow.handedOverNote` (en+ar) and, after 4, `table.avgToReady`
+   (en+ar) — removed. New `locales.test.ts` pins en/ar key parity (plurals in all six Arabic forms).
+4. **Pick-up table view read `avgHandOverMinutes` ("Avg time to ready") while the Pick-up funnel reads
+   `tracks.pickUp.avgDeliveryMinutes`** — the two could disagree. FIXED: the Pick-up view's column is
+   `avgDeliveryMinutes`, headed "Avg delivery time (min)" like the funnel's caption.
+5. **StoreTable rebuilt `columnDefs` on every refetch** (maxima inside `cellRendererParams`). FIXED:
+   maxima reach `CellBar` through the grid `context` (a ref), bar cells refresh when they move; columns
+   depend only on the view and its opening sort.
+6. **Courier "is offered" test duplicated** in ScopeControls and the page. FIXED: `isOfferedCourier`
+   exported from `courier-scope.ts`, used by both.
+7. **HeadlineStrip hand-copied the tile chrome.** FIXED: `Tile.tsx` exports `TileFrame`; `Tile` and the
+   headline tiles both wear it.
+8. **`defaultSort` computed twice in StoreTable.** FIXED: once (memoised), passed into `storeColumns`.
+9. **Stage-bar fraction clamped twice** (lanes.ts `bar()` and `StageBar`). FIXED: only `StageBar`
+   clamps; `bar()` carries the raw ratio (tests updated: a stage past Came in reads e.g. 444/400).
+10. **"An older server shows — for every average"** — BY DESIGN, not changed: the spec rules an absent
+    figure reads "—", and the old `avgHandOverMinutes` is not reinstated on the web.

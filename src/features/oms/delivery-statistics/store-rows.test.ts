@@ -34,6 +34,7 @@ const withTracks: DeliveryStatisticsStore = {
       flow: { cameIn: 48, madeReady: 44, handedOver: 45 },
       misses: { returnedBack: 0, rejected: 0, rescheduled: 0, closeRequested: 2, closedOrCancelled: 2 },
       avgHandOverMinutes: 31.5,
+      avgDeliveryMinutes: 30.25,
     },
   },
 }
@@ -70,7 +71,7 @@ describe('storeRows by track', () => {
 
   it("Pick-up maps each tracks.pickUp figure to its column; Picked up is the lane's hand-over", () => {
     expect(storeRows([withTracks], 'pickUp')).toEqual([
-      { storeCode: 'P001', cameIn: 48, madeReady: 44, pickedUp: 45, closeRequested: 2, closedOrCancelled: 2, avgHandOverMinutes: 31.5 },
+      { storeCode: 'P001', cameIn: 48, madeReady: 44, pickedUp: 45, closeRequested: 2, closedOrCancelled: 2, avgDeliveryMinutes: 30.25 },
     ])
   })
 
@@ -190,7 +191,7 @@ describe('TRACK_FIGURES', () => {
       'avgDeliveryMinutes',
     ])
     // No Out for delivery, no Trips, and no Returned back / Rejected / Rescheduled (a table cannot hide per row).
-    expect(TRACK_FIGURES.pickUp).toEqual(['cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'])
+    expect(TRACK_FIGURES.pickUp).toEqual(['cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes'])
     expect(STORE_FIGURES).toEqual(TRACK_FIGURES.all)
   })
 
@@ -270,12 +271,15 @@ describe('the Delivery view slot, trip and delivery-time figures (816)', () => {
     expect(noShares.noSlot).toBe(3)
   })
 
-  it("the All view's average is the store-wide Avg delivery time; Pick-up keeps its own average", () => {
+  it("the All view's average is the store-wide Avg delivery time; Pick-up reads its lane's, the Pick-up funnel's figure", () => {
     expect(storeRows([slotted], 'all')[0]).toMatchObject({ avgDeliveryMinutes: 41.5 })
     expect(storeRows([slotted], 'all')[0]).not.toHaveProperty('avgHandOverMinutes')
     const { avgDeliveryMinutes: _a, ...older } = withTracks
     expect(storeRows([older], 'all')[0].avgDeliveryMinutes).toBeNull()
-    expect(storeRows([slotted], 'pickUp')[0].avgHandOverMinutes).toBe(31.5)
+    // The same field the Pick-up funnel reads (`tracks.pickUp.avgDeliveryMinutes`), so the two never disagree.
+    const [pickUp] = storeRows([slotted], 'pickUp')
+    expect(pickUp.avgDeliveryMinutes).toBe(30.25)
+    expect(pickUp).not.toHaveProperty('avgHandOverMinutes')
   })
 })
 

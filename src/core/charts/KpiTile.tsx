@@ -35,6 +35,8 @@ export default function KpiTile({
   unit,
   format,
   locale,
+  changeText,
+  changeUnit,
 }: {
   measureLabel: string
   value: number | null
@@ -44,14 +46,23 @@ export default function KpiTile({
   unit: MeasureUnit
   format: AnalyticsNumberFormat
   locale: string
+  /**
+   * The caller's own writing of the change, unsigned, in place of the tile's (a share's change in
+   * percentage points, say, where a percent of a percent would mislead). A machine value, isolated.
+   */
+  changeText?: string
+  /** A word after the change, outside its isolate (`pts`), so it reads in the text's own direction. */
+  changeUnit?: string
 }) {
   const { t } = useTranslation('common')
   const fmt = (v: number | null) => formatAs(v, format, unit, locale)
   const headline = value === null ? t('charts.kpi.noValue') : fmt(value)
   const Icon = delta?.direction === 'up' ? ArrowUp : delta?.direction === 'down' ? ArrowDown : Minus
-  // The change: a percent of the previous, or — from a zero previous — the change itself, unsigned.
-  const change = delta ? (delta.pct === null ? fmt(Math.abs(delta.abs)) : formatAs(Math.abs(delta.pct), 'percent', 'share', locale)) : ''
-  const changeWords = delta ? t(`charts.kpi.${delta.direction}`, { change: fsi(change) }) : ''
+  // The change: the caller's writing of it; else a percent of the previous, or — from a zero previous —
+  // the change itself, unsigned.
+  const change = !delta ? '' : changeText ?? (delta.pct === null ? fmt(Math.abs(delta.abs)) : formatAs(Math.abs(delta.pct), 'percent', 'share', locale))
+  const spoken = changeUnit ? t('charts.kpi.withUnit', { value: fsi(change), unit: changeUnit }) : fsi(change)
+  const changeWords = delta ? t(`charts.kpi.${delta.direction}`, { change: spoken }) : ''
 
   return (
     <div className="flex flex-col gap-2 py-2" data-chart="kpi" role="figure" aria-label={t('charts.kpi.label', { measure: fsi(measureLabel), value: fsi(headline) })}>
@@ -63,6 +74,7 @@ export default function KpiTile({
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-medium text-foreground" aria-label={changeWords}>
             <Icon className="size-3.5" aria-hidden />
             <Ltr>{change}</Ltr>
+            {changeUnit && <span data-kpi-change-unit>{changeUnit}</span>}
           </span>
           {previous !== null && (
             <span className="text-muted-foreground" data-kpi-previous>

@@ -7,7 +7,7 @@ import { lookupQueries } from '@/core/services/lookups'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { fsi } from '@/core/util/bidi'
-import { COURIERS } from './courier-scope'
+import { COURIERS, isOfferedCourier } from './courier-scope'
 import { withCourier, withLeaveOutType, type StatisticsQuery } from './query'
 import { orderTypeOptions, storeOptions, type ScopeOption } from './scope-options'
 import Field from '@/core/ui/Field'
@@ -73,7 +73,7 @@ export default function ScopeControls({ query, onChange }: { query: StatisticsQu
           <option value="">{t('courier.all')}</option>
           {/* A code read from a shared link that is not offered (an unknown one, or the retired DAWA) is
               still shown, by its code, so it can be undone. */}
-          {query.courier && !(COURIERS as readonly string[]).includes(query.courier) && (
+          {query.courier && !isOfferedCourier(query.courier) && (
             <option value={query.courier}>{fsi(query.courier)}</option>
           )}
           {COURIERS.map((code) => (

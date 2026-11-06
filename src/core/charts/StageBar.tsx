@@ -6,7 +6,8 @@ import { CHART_BOX_DIR, chartMirror } from './direction'
  * plain horizontal bar under the stage's figure. Decorative — the figure beside it is the text a reader
  * (and a screen reader) reads, so the bar is `aria-hidden`.
  *
- * Plain props, no feature imports: `fraction` is the caller's geometry (0–1, clamped here); `null`
+ * Plain props, no feature imports: `fraction` is the caller's geometry (0–1; clamped HERE and only here, so a stage past
+ * its funnel's top — which a caller passes unclamped — draws a full bar); `null`
  * draws NO bar at all (an absent figure is not an empty one), while 0 draws the empty track.
  *
  * Like every chart it sits in the `dir="ltr"` box (`./direction`) and mirrors ONLY through props:

@@ -163,7 +163,8 @@
       "up": "Up {{change}} on the previous period",
       "down": "Down {{change}} on the previous period",
       "flat": "No change on the previous period",
-      "previous": "versus <v>{{value}}</v> in the previous period"
+      "previous": "versus <v>{{value}}</v> in the previous period",
+      "withUnit": "{{value}} {{unit}}"
     },
     "previousPeriod": "Previous period",
     "other_one": "Other ({{n}})",

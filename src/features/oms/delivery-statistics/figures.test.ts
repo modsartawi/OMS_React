@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasFigure, readAverage, readFigure, readShare } from './figures'
+import { hasFigure, readAverage, readFigure, readPoints, readShare } from './figures'
 
 const DASH = '—'
 
@@ -57,5 +57,14 @@ describe('readShare (816)', () => {
     expect(readShare(0, DASH)).toBe('0%')
     expect(readShare(null, DASH)).toBe(DASH)
     expect(readShare(undefined, DASH)).toBe(DASH)
+  })
+})
+
+describe('readPoints (spec 811 review)', () => {
+  it('writes a change between two 0–1 shares as percentage points, unsigned, to one place', () => {
+    expect(readPoints(0.04)).toBe('4.0')
+    expect(readPoints(-0.158)).toBe('15.8')
+    expect(readPoints(0)).toBe('0.0')
+    expect(readPoints(0.0006)).toBe('0.1')
   })
 })

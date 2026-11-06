@@ -16,8 +16,8 @@
  * Ticket 814 (spec 811) makes the lanes funnels. Each stage carries a `bar`: its figure over the lane's
  * own Came in. That is GEOMETRY, never a figure — it is drawn as a bar's length and never written. An
  * absent stage, an absent Came in, or a Came in of 0 draws no bar (`null`); a stage past Came in (a
- * hand-over counted on its first event, of a delivery that came in before the period) draws a full bar
- * while its figure reads as sent. The Delivery lane also carries its slot split, the server's counts
+ * hand-over counted on its first event, of a delivery that came in before the period) carries its ratio
+ * over 1 — `core/charts/StageBar` clamps it to a full bar, in that one place — while its figure reads as sent. The Delivery lane also carries its slot split, the server's counts
  * labelled with the server's shares; a pick-up has no slot. Each lane's average is its Avg delivery
  * time (`avgDeliveryMinutes`): Delivery from due, Pick-up entry to Made ready.
  */
@@ -36,7 +36,7 @@ export interface LaneStage {
   value: string
   /** Out for delivery's sub-caption figure (the Delivery lane only); absent on every other stage. */
   trips?: string
-  /** The bar's length, 0–1 of the lane's Came in (geometry only); `null` draws no bar. */
+  /** The bar's length, the lane's Came in being 1 (geometry only; `StageBar` clamps past 1); `null` draws no bar. */
   bar: number | null
 }
 
@@ -78,9 +78,9 @@ const average = (minutes: number | null | undefined, dash: string): LaneAverage 
   hasUnit: hasFigure(minutes),
 })
 
-/** A stage's bar: its figure over the lane's Came in, at most a full bar; `null` with either absent or nothing came in. */
+/** A stage's bar: its figure over the lane's Came in (clamped by `StageBar`, not here); `null` with either absent or nothing came in. */
 const bar = (value: number | undefined, cameIn: number | undefined): number | null =>
-  hasFigure(value) && hasFigure(cameIn) && cameIn > 0 ? Math.min(1, Math.max(0, value / cameIn)) : null
+  hasFigure(value) && hasFigure(cameIn) && cameIn > 0 ? value / cameIn : null
 
 const stage = (id: LaneStageId, value: number | undefined, cameIn: number | undefined, dash: string): LaneStage => ({
   id,

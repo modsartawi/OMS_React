@@ -41,12 +41,21 @@ describe('readHeadline', () => {
     expect(tiles.map((t) => t.delta)).toEqual([
       { abs: 47, pct: 0.0396, direction: 'up' },
       { abs: -7, pct: -0.0064, direction: 'down' },
-      { abs: 0, pct: 0, direction: 'flat' },
-      // A zero previous: no percentage, and the server's change stays as sent.
+      // A share's change is never a percent of a percent: no `pct`, the change itself in points.
+      { abs: 0, pct: null, direction: 'flat' },
       { abs: 0.158, pct: null, direction: 'up' },
       { abs: -0.05, pct: -0.031, direction: 'down' },
       { abs: -5.8, pct: -0.1318, direction: 'down' },
     ])
+  })
+
+  it("a share tile's change reads as percentage points of the server's `change`; no other tile has points", () => {
+    const byId = Object.fromEntries(readHeadline(FULL, DASH).map((t) => [t.id, t]))
+    expect(byId.inSlot.points).toBe('0.0')
+    expect(byId.outOfSlot.points).toBe('15.8')
+    for (const id of ['cameIn', 'handedOver', 'deliveredPerTrip', 'avgDeliveryMinutes']) expect(byId[id].points).toBeUndefined()
+    // No change line, no points.
+    expect(readHeadline({ flow: {} }, DASH).find((t) => t.id === 'inSlot')!.points).toBeUndefined()
   })
 
   it("Handed over carries the till's Delivered | Picked up split; In slot and Out of slot their n of N delivered", () => {

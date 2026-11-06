@@ -221,9 +221,10 @@ const rankedStores = () => [
 const browser = await chromium.launch()
 
 async function open(dir, { grant = true, answer = () => statistics(), clock = false, holdAfterFirst = 0 } = {}) {
+  // `clock`: true installs the page's fake clock now; a Date installs it at that time (811 review: midnight).
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
-  if (clock) await page.clock.install()
+  if (clock) await page.clock.install(clock instanceof Date ? { time: clock } : undefined)
   const errors = []
   const calls = []
   const statQueries = []
@@ -406,6 +407,7 @@ const headlineOf = (page) =>
         valueIsolated: !!value?.querySelector('bdi[dir="ltr"]'),
         direction: delta?.getAttribute('data-kpi-delta') ?? null,
         change: delta?.querySelector('span bdi[dir="ltr"]')?.textContent ?? null,
+        changeUnit: delta?.querySelector('[data-kpi-change-unit]')?.textContent ?? null,
         changeWords: delta?.querySelector('[aria-label]')?.getAttribute('aria-label') ?? null,
         previous: el.querySelector('[data-kpi-previous] bdi[dir="ltr"]')?.textContent ?? null,
         sub: sub?.textContent.trim() ?? null,
@@ -519,12 +521,19 @@ async function drive(dir) {
       JSON.stringify(h?.tiles.map((x) => [x.value, x.valueIsolated])),
     )
     check(
-      `${label}: each change is the server's — the arrow from its sign, the words from changePct — isolated, with the previous figure`,
+      `${label}: each change is the server's — the arrow from its sign, the words from changePct (a share's from change, in points) — isolated, with the previous figure`,
       same(h?.tiles.map((x) => x.direction), ['up', 'down', 'flat', 'up', 'down', null]) &&
-        same(h.tiles.map((x) => x.change), ['4.0%', '0.6%', '0.0%', '15.0%', '3.1%', null]) &&
+        same(h.tiles.map((x) => x.change), ['4.0%', '0.6%', '0.0', '15.0', '3.1%', null]) &&
         same(h.tiles.map((x) => x.previous), ['1,187', '1,100', '80.0%', '0.0%', '1.61', null]) &&
         hb.cameIn.changeWords === `Up ${FSI}4.0%${PDI} on the previous period`,
       JSON.stringify(h?.tiles.map((x) => [x.direction, x.change, x.previous, x.changeWords])),
+    )
+    check(
+      `${label}: In slot / Out of slot say their change in percentage points ("▲ 15.0 pts"), never a percent of a percent`,
+      same(h?.tiles.map((x) => x.changeUnit), [null, null, 'pts', 'pts', null, null]) &&
+        hb.outOfSlot?.changeWords === `Up ${FSI}15.0${PDI} pts on the previous period` &&
+        hb.inSlot?.changeWords === 'No change on the previous period',
+      JSON.stringify(h?.tiles.map((x) => [x.changeUnit, x.changeWords])),
     )
     check(
       `${label}: the change is drawn in ink, never a status colour`,
@@ -1211,6 +1220,7 @@ const tracksOf = (deliveredN, deliverAvg, pickedUpN, readyAvg) => {
   t.delivery.avgDeliveryMinutes = deliverAvg
   t.pickUp.flow.handedOver = pickedUpN
   t.pickUp.avgHandOverMinutes = readyAvg
+  t.pickUp.avgDeliveryMinutes = readyAvg
   return t
 }
 /** Two stores with tracks that rank apart from their totals, and one from a server older than 2660: no `tracks`, no `unspecified`. */
@@ -1251,7 +1261,8 @@ const DELIVERY_COLUMNS = [
   'inSlotShare', 'outOfSlotShare', 'noSlot', 'deliveredPerTrip',
   'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes',
 ]
-const PICK_UP_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes']
+// 811 review: the Pick-up view's average is the lane's Avg delivery time, the field the Pick-up funnel reads.
+const PICK_UP_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes']
 
 async function driveTrackSwitch(dir) {
   const label = `${dir} track`
@@ -1324,10 +1335,10 @@ async function driveTrackSwitch(dir) {
   await switchTo(page, 'pickUp', 'pickedUp')
   const p = await tableHeaders(page)
   check(`${label}: Pick-up is held in the URL as track=pickUp`, (await urlTrack()) === 'pickUp' && same(await pressed(page), ['pickUp']))
-  check(`${label}: Pick-up's columns: Came in, Made ready, Picked up, Close requested, Closed / cancelled, Avg time to ready`, same(p.ids, PICK_UP_COLUMNS), p.ids.join(','))
+  check(`${label}: Pick-up's columns: Came in, Made ready, Picked up, Close requested, Closed / cancelled, Avg delivery time`, same(p.ids, PICK_UP_COLUMNS), p.ids.join(','))
   check(
     `${label}: Pick-up's headers come from the locale`,
-    p.clean && p.names.pickedUp === 'Picked up' && p.names.avgHandOverMinutes === 'Avg time to ready (min)',
+    p.clean && p.names.pickedUp === 'Picked up' && p.names.avgDeliveryMinutes === 'Avg delivery time (min)',
     JSON.stringify(p.names),
   )
   check(`${label}: Pick-up ranks by Picked up, descending, by default`, same(await order(), ['P019', 'P001', 'P050']), (await order()).join(','))
@@ -1343,10 +1354,10 @@ async function driveTrackSwitch(dir) {
   )
   const pOlder = pRows.find((r) => r.storeCode === 'P050')
   check(`${label}: a store row without tracks reads "—" in every Pick-up cell, never 0`, !!pOlder && PICK_UP_COLUMNS.slice(1).every((c) => pOlder[c] === '—'), JSON.stringify(pOlder))
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  check(`${label}: Avg time to ready ascending ranks numerically, the "—" last`, same(await order('avgHandOverMinutes'), ['12', '31.5', '—']), (await order('avgHandOverMinutes')).join(','))
-  await sortBy(page, 'avgHandOverMinutes', 'descending')
-  check(`${label}: and descending, the "—" STILL last`, same(await order('avgHandOverMinutes'), ['31.5', '12', '—']), (await order('avgHandOverMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  check(`${label}: Avg delivery time ascending ranks numerically, the "—" last`, same(await order('avgDeliveryMinutes'), ['12', '31.5', '—']), (await order('avgDeliveryMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'descending')
+  check(`${label}: and descending, the "—" STILL last`, same(await order('avgDeliveryMinutes'), ['31.5', '12', '—']), (await order('avgDeliveryMinutes')).join(','))
   const cells = await page.evaluate(() => {
     const all = [...document.querySelectorAll('[data-statistics-stores] .ag-row[row-index] .ag-cell')]
     return { count: all.length, isolated: all.every((c) => c.querySelector('bdi')) }
@@ -1724,6 +1735,12 @@ async function driveChart(dir) {
       busy && statQueries.length === first + 1 && (await frame.getAttribute('aria-busy')) === 'true' && updating && same(during.bars.map((s) => s.length), [22, 22]),
       JSON.stringify({ busy, calls: `${first} → ${statQueries.length}`, updating, bars: during.bars.map((s) => s.length) }),
     )
+    const refreshBands = await staleBands(page)
+    check(
+      `${label}: a same-day refresh re-asks the current answer — the other bands stay current, only the chart dims`,
+      same(refreshBands, [['current', 'false'], ['current', 'false']]),
+      JSON.stringify(refreshBands),
+    )
     await page.locator('[data-statistics-band="misses"]').scrollIntoViewIfNeeded()
     await page.locator('[data-statistics-band="chart"]').screenshot({ path: `${SHOTS}/${dir}-chart-refreshing.png` })
     await page.locator('[data-statistics-band="chart"] [data-chart-frame="idle"]').waitFor({ timeout: 10000 })
@@ -1742,7 +1759,48 @@ async function driveChart(dir) {
     check(`${label}: no page errors (chart refresh)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+
+  // 811 review: Today rolls past midnight. The previous day's answer is held while the new day's is asked —
+  // and EVERY band reads as not current (dimmed, aria-busy), never the chart alone.
+  {
+    const lateTonight = new Date(`${TODAY}T23:58:30`)
+    const { context, page, errors, statQueries } = await open(dir, { clock: lateTonight, holdAfterFirst: 4000, answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const before = await staleBands(page)
+    const first = statQueries.length
+    await page.clock.runFor(2 * 60_000)
+    const rolled = await page
+      .locator('[data-statistics-stale="stale"]')
+      .first()
+      .waitFor({ timeout: 2500 })
+      .then(() => true, () => false)
+    const during = await staleBands(page)
+    const chartBusy = (await page.locator('[data-statistics-band="chart"] [data-chart-frame]').getAttribute('aria-busy')) === 'true'
+    const dimmed = await page.locator('[data-statistics-stale]').evaluateAll((els) => els.map((e) => Number(getComputedStyle(e).opacity) < 0.5))
+    const asked = statQueries.slice(first).map((q) => q.get('From'))
+    check(
+      `${label}: past midnight the held answer reads not current in every band — headline, funnels, misses and table dimmed and busy, the chart busy`,
+      same(before, [['current', 'false'], ['current', 'false']]) &&
+        rolled &&
+        same(during, [['stale', 'true'], ['stale', 'true']]) &&
+        dimmed.length === 2 && dimmed.every(Boolean) &&
+        chartBusy &&
+        asked.length === 1 && asked[0] !== TODAY &&
+        (await page.locator('[data-statistics-stale="stale"] [data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))).join(',') ===
+          'storeWide,delivery,pickUp,misses,stores',
+      JSON.stringify({ before, rolled, during, dimmed, chartBusy, asked }),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-midnight-stale.png`, fullPage: true })
+    await page.locator('[data-statistics-stale="stale"]').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+    check(`${label}: once the new day's answer lands every band reads current again`, same(await staleBands(page), [['current', 'false'], ['current', 'false']]), JSON.stringify(await staleBands(page)))
+    check(`${label}: no page errors (midnight)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 }
+
+/** The two groups of bands around the chart (811 review): each one's `data-statistics-stale` and `aria-busy`. */
+const staleBands = (page) => page.locator('[data-statistics-stale]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-statistics-stale'), e.getAttribute('aria-busy')]))
 
 await drive('ltr')
 await drive('rtl')

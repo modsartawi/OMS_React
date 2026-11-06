@@ -15,6 +15,12 @@ import { TABLE_TRACKS, type TableTrack } from './store-rows'
 
 /** The couriers the picker offers, in its order: FarEye, OTO, SMSA, Starlinks. The retired `DAWA` is not offered. */
 export const COURIERS = ['FREY', 'OTOX', 'SMSA', 'SLNK'] as const
+export type Courier = (typeof COURIERS)[number]
+
+const OFFERED: ReadonlySet<string> = new Set(COURIERS)
+
+/** Whether a code is one the picker offers (captioned by name); `''`, the retired DAWA or a stray code from a link is not. */
+export const isOfferedCourier = (code: string): code is Courier => OFFERED.has(code)
 
 /** Whether a courier is chosen, so whatever a pick-up owns is hidden. `''` is all couriers. */
 export const hidesPickUp = (courier: string): boolean => courier !== ''

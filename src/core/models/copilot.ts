@@ -1,3 +1,5 @@
+import type { AnalyticsLabel, AnalyticsReportDefinition } from './analytics'
+
 /**
  * The copilot's wire shapes (spec 734 D10; doors `Copilot/Access` and `Copilot/Ask`, BackOffice BO-1,
  * unbuilt). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
@@ -85,10 +87,29 @@ export interface CopilotPromptRevertRequest {
   version: number
 }
 
-/** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5). */
+/**
+ * The report open in the designer (spec 819 §D, ticket 832, ⚠ proposed): its id, the revision it was loaded or saved
+ * at, and the designer's working copy, saved or not. Sent on Ask so "add the cancellation rate as a bar" edits THAT
+ * report; the AI then answers a `reportEdit` and never saves it.
+ */
+export interface CopilotReportContext {
+  reportId: string
+  revision: number
+  draft: CopilotReportDraft
+}
+
+/** The designer's working copy: the report's words and its definition. */
+export interface CopilotReportDraft {
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
+  definition: AnalyticsReportDefinition
+}
+
+/** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5); `reportContext` while a report is open in the designer (832). */
 export interface CopilotAskRequest {
   question: string
   conversationId?: string
+  reportContext?: CopilotReportContext
 }
 
 /** One tool call the server made for the answer (D10 `trace`). */
@@ -100,14 +121,25 @@ export interface CopilotTraceEntry {
   ok: boolean
 }
 
-/** A view the answer created (spec 766 D, BackOffice 3383): its id and its bilingual title. */
-/** A report the answer built or revised (CTO demo): its id, title and the revision now current. */
+/** A report the answer built (`create_report`) or saved (`edit_report` with no designer open): spec 819 §D, ⚠ proposed. */
 export interface CopilotReportRef {
   id: string
-  title: string
+  /** The revision now current: 1 for a new report. */
   revision: number
+  title: AnalyticsLabel
 }
 
+/**
+ * `edit_report` against the report in context (spec 819 §D, ⚠ proposed): the validated FULL definition, unsaved. The
+ * open designer applies it as one undo step; `note` says what changed.
+ */
+export interface CopilotReportEdit {
+  reportId: string
+  definition: AnalyticsReportDefinition
+  note: AnalyticsLabel
+}
+
+/** A view the answer created (spec 766 D, BackOffice 3383): its id and its bilingual title. */
 export interface CopilotViewRef {
   id: string
   title: { en: string; ar: string }
@@ -136,8 +168,12 @@ export interface CopilotAnswer {
    * Absent on an older server, and read as empty.
    */
   viewRefs?: CopilotViewRef[]
-  /** The reports `build_report` / `update_report` wrote in this answer (CTO demo); absent reads as empty. */
+  /** The reports `create_report` / `edit_report` saved in this answer (spec 819 §D); absent reads as empty. */
   reportRefs?: CopilotReportRef[]
+  /** `edit_report`'s unsaved definition for the report in context (spec 819 §D); absent reads as none. */
+  reportEdit?: CopilotReportEdit | null
+  /** What a built or edited report assumed, one line each, in both languages (802 item 1; ⚠ field name proposed). */
+  assumptions?: AnalyticsLabel[]
   /**
    * The house-rules version the answer was given under (ticket 790, BackOffice 3395); 0 is the built-in
    * fallback. Absent on a pre-3395 server and `null` on a trial: either way not shown.

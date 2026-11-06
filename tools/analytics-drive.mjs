@@ -145,11 +145,17 @@
 //      history kept and the unsaved marker gone; a second save PUTs in place at `baseRevision` 1; Preview is the
 //      runner's page with no tools.
 //
+// 832 (spec 819 §D) — the copilot builds a report that opens in the designer, and edits it there as one undo step
+// (en and ar): the acceptance sentence (a stubbed `create_report`) answers "Open in designer", the assumptions as a
+// list and "Built a report" in the trace, with no `reportContext` sent from the home; in the designer the follow-up
+// "add the cancellation rate as a bar" sends the report in context `{ reportId, revision, draft }`, and its stubbed
+// `reportEdit` lands as ONE step labelled "AI: …", unsaved and never PUT; Undo takes all of it back, Redo again.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, editAnswer832, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -3351,7 +3357,86 @@ async function designer828({ dir }) {
   await context.close()
 }
 
+// ── 832: the copilot builds a report, then edits it in the designer as one undo step ─────────────────────────
+const SENTENCE_832 =
+  'How were sales for each channel yesterday? Focus on two order types, HungerStation and QC, compare them, and show their cancellation rates. The period is a parameter that defaults to yesterday and can be changed. Save it as a report template my team can re-run, schedule it every day by email to named people, and include charts.'
+const EDIT_832 = 'add the cancellation rate as a bar'
+
+async function copilotReport832({ dir }) {
+  const tag = `832 ${dir}`
+  const { context, page, bodies, errors } = await open({
+    dir,
+    height: 1500,
+    access: AUTHOR,
+    model: MODEL_827,
+    copilot: 'granted',
+    copilotAnswer: (body) => (body.reportContext ? editAnswer832(body) : CREATE_ANSWER_832),
+  })
+  await page.goto(`${BASE}/analytics`)
+  const button = page.locator('#layout-topbar [data-copilot-button]')
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  const turns = sheet.locator('[data-copilot-turn]')
+  await button.waitFor({ timeout: 30000 })
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(SENTENCE_832)
+  await sheet.locator('[data-copilot-send]').click()
+  const openLink = turns.nth(0).locator('[data-copilot-report-open="r-832"]')
+  await openLink.waitFor({ timeout: 10000 })
+  const first = (bodies['Copilot/Ask'] ?? [])[0] ?? {}
+  check(`${tag}: the acceptance sentence asks with no report in context`, first.reportContext === undefined && first.question === SENTENCE_832, JSON.stringify(Object.keys(first)))
+  check(`${tag}: the built report reads "Open in designer", to its designer`, clean(await openLink.innerText()) === 'Open in designer' && (await openLink.getAttribute('href')) === '/analytics/report/r-832/edit', await openLink.getAttribute('href'))
+  const title = clean(await turns.nth(0).locator('[data-copilot-report-title]').innerText())
+  check(`${tag}: … titled in the reader's language`, title === 'Channel sales: HungerStation against QC', title)
+  const assumed = await turns.nth(0).locator('[data-copilot-assumption]').allInnerTexts()
+  check(`${tag}: the assumptions are a list, one line each`, assumed.length === 3 && clean(assumed[0]) === 'Period: a parameter, default yesterday', JSON.stringify(assumed))
+  await turns.nth(0).locator('details[data-copilot-trace] summary').click()
+  const traced = await turns.nth(0).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${tag}: the trace says "Built a report"`, traced.map(clean).includes('Built a report'), JSON.stringify(traced))
+  await page.screenshot({ path: `${SHOTS}/832-built-${dir}.png` })
+
+  // Open in designer: the sheet closes and the report is the designer's, nothing to undo yet.
+  await openLink.click()
+  await page.locator('[data-report-designer="r-832"]').waitFor({ timeout: 10000 })
+  check(`${tag}: "Open in designer" opens its designer`, page.url().endsWith('/analytics/report/r-832/edit'), page.url())
+  const undoBtn = page.locator('[data-designer-undo]')
+  const redoBtn = page.locator('[data-designer-redo]')
+  const before = await blocks828(page, 's2')
+  check(`${tag}: … with nothing to undo`, (await undoBtn.isDisabled()) && before === 'p2,p3,t2', before)
+
+  // The follow-up edits THAT report: one step, labelled with the request, never saved.
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(EDIT_832)
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(1).locator('[data-copilot-report-edit="r-832"]').waitFor({ timeout: 10000 })
+  const asked = (bodies['Copilot/Ask'] ?? [])[1]
+  check(
+    `${tag}: the follow-up sends the report in context { reportId, revision, draft }`,
+    asked?.conversationId === 'c-832' && asked?.reportContext?.reportId === 'r-832' && asked.reportContext.revision === 1 && asked.reportContext.draft?.definition?.sections?.length === 4 && asked.reportContext.draft.title?.en === 'Channel sales: HungerStation against QC',
+    JSON.stringify(asked && { c: asked.conversationId, r: asked.reportContext?.reportId, v: asked.reportContext?.revision }),
+  )
+  await turns.nth(1).locator('details[data-copilot-trace] summary').click()
+  const traced2 = await turns.nth(1).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${tag}: the trace says "Edited the report"`, traced2.map(clean).includes('Edited the report'), JSON.stringify(traced2))
+  await page.screenshot({ path: `${SHOTS}/832-edited-panel-${dir}.png` })
+  await page.keyboard.press('Escape')
+  await sheet.waitFor({ state: 'detached', timeout: 5000 })
+  check(`${tag}: the edit lands in the designer`, (await blocks828(page, 's2')) === 'p2,p3,t2,p5', await blocks828(page, 's2'))
+  const stepLabel = clean(await page.locator('[data-designer-ai-label]').innerText().catch(() => ''))
+  check(`${tag}: … as one step labelled "AI: <the request>"`, stepLabel === `AI: ${EDIT_832}` || stepLabel === `الذكاء الاصطناعي: ${EDIT_832}`, stepLabel)
+  check(`${tag}: … unsaved, and never saved by the AI`, (await page.locator('[data-designer-unsaved-marker]').count()) === 1 && Object.keys(bodies).every((k) => !k.startsWith('PUT ')), Object.keys(bodies).join(','))
+  await page.screenshot({ path: `${SHOTS}/832-edited-designer-${dir}.png` })
+  await undoBtn.click()
+  check(`${tag}: one Undo takes the whole edit back`, (await blocks828(page, 's2')) === 'p2,p3,t2' && (await undoBtn.isDisabled()) && (await page.locator('[data-designer-ai-step]').count()) === 0, await blocks828(page, 's2'))
+  check(`${tag}: … and the unsaved marker with it`, (await page.locator('[data-designer-unsaved-marker]').count()) === 0)
+  await redoBtn.click()
+  check(`${tag}: Redo puts it back`, (await blocks828(page, 's2')) === 'p2,p3,t2,p5', await blocks828(page, 's2'))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['832', () => copilotReport832({ dir: 'ltr' })],
+  ['832', () => copilotReport832({ dir: 'rtl' })],
   ['828', () => designer828({ dir: 'ltr' })],
   ['828', () => designer828({ dir: 'rtl' })],
   ['833', () => schedules833({ dir: 'ltr' })],

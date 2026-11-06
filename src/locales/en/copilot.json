@@ -37,7 +37,9 @@
     "sourcing_savings": "Estimating the savings",
     "describe_model": "Reading the analytics model",
     "semantic_query": "Running the analytics query",
-    "create_view": "Saving a view"
+    "create_view": "Saving a view",
+    "create_report": "Building a report",
+    "edit_report": "Editing the report"
   },
   "failed": "The question could not be answered.",
   "answer": {
@@ -49,12 +51,14 @@
     "openView": "Open view",
     "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete.",
     "cannotAnswer": "The OMS could not answer this",
-    "reports": "Reports this answer wrote",
-    "openReport": "Open report",
-    "exportReport": "Export PDF",
+    "reports": "Reports this answer built",
+    "openInDesigner": "Open in designer",
     "reportRevision": "Revision {{n}}",
     "rulesVersion": "rules <v>v{{n}}</v>",
-    "rulesBuiltIn": "built-in rules"
+    "rulesBuiltIn": "built-in rules",
+    "assumptions": "What I assumed",
+    "reportEdited": "I changed the report open in the designer. Undo takes it back, and nothing is saved until you save.",
+    "reportEditNote": "What changed:"
   },
   "trace": {
     "heading_one": "How I got this ({{n}} step)",
@@ -74,7 +78,9 @@
       "sourcing_savings": "Estimated what smarter sourcing could save",
       "describe_model": "Read the analytics model",
       "semantic_query": "Ran the analytics query",
-      "create_view": "Saved a view"
+      "create_view": "Saved a view",
+      "create_report": "Built a report",
+      "edit_report": "Edited the report"
     }
   },
   "refusal": {

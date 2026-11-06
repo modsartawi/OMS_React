@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+import { createReportContext } from '@/core/report-context'
 import { COPILOT_HISTORY_MAX, createCopilotConversation, filed, type PastConversation } from './conversation-store'
 
 const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
@@ -164,3 +165,52 @@ describe('the copilot history (CTO demo)', () => {
     expect(h[0].at).toBe(COPILOT_HISTORY_MAX + 4)
   })
 })
+
+describe('the copilot and the report open in the designer (spec 819 §D, ticket 832)', () => {
+  const definition = (heading: string) => ({ params: [], bindings: {}, sections: [{ id: 's1', heading: { en: heading, ar: '' }, blocks: [] }] })
+  const context = { reportId: 'r-1', revision: 1, draft: { title: { en: 'Channel sales', ar: '' }, subtitle: { en: '', ar: '' }, definition: definition('Sales') } }
+  const edited = (reportId: string): CopilotAnswer => ({
+    ...reply('c-0001', 1),
+    reportEdit: { reportId, definition: definition('Sales and cancellations'), note: { en: 'Added a bar.', ar: '' } },
+  })
+
+  it('ask_sendsThePublishedReportAsReportContext', async () => {
+    const d = door()
+    const bridge = createReportContext()
+    const store = createCopilotConversation(d.ask, () => 0, bridge)
+    bridge.getState().publish(context)
+    const done = store.getState().ask('Add the cancellation rate as a bar')
+    expect(d.calls[0].body).toEqual({ question: 'Add the cancellation rate as a bar', reportContext: context })
+    d.calls[0].answer(reply('c-0001', 1))
+    await done
+    bridge.getState().clear('r-1')
+    void store.getState().ask('Anything else?')
+    expect(d.calls[1].body).toEqual({ question: 'Anything else?', conversationId: 'c-0001' })
+  })
+
+  it('aLandedReportEdit_isPostedToTheDesigner_labelledWithTheQuestion', async () => {
+    const d = door()
+    const bridge = createReportContext()
+    const store = createCopilotConversation(d.ask, () => 0, bridge)
+    bridge.getState().publish(context)
+    const done = store.getState().ask('add the cancellation rate as a bar')
+    d.calls[0].answer(edited('r-1'))
+    await done
+    const taken = bridge.getState().takeEdit('r-1')
+    expect(taken?.request).toBe('add the cancellation rate as a bar')
+    expect(taken?.edit.definition.sections[0].heading.en).toBe('Sales and cancellations')
+  })
+
+  it('anEditForAClearedConversation_isNeverPosted', async () => {
+    const d = door()
+    const bridge = createReportContext()
+    const store = createCopilotConversation(d.ask, () => 0, bridge)
+    bridge.getState().publish(context)
+    const done = store.getState().ask('add a bar')
+    store.getState().startNew()
+    d.calls[0].answer(edited('r-1'))
+    await done
+    expect(bridge.getState().takeEdit('r-1')).toBeNull()
+  })
+})
+

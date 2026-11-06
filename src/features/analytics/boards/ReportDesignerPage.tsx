@@ -30,6 +30,7 @@ import { defaultsOf, type ParamValues } from './params'
 import Refused from './Refused'
 import { reportPanels } from './report'
 import ReportDocument, { ReportBlock, type ReportWordsView } from './ReportDocument'
+import { AiStepNotice, useReportInContext } from './ReportDesignerCopilot'
 import { AddBlock, BlockInspector, DropLine, Grip, MoveTools, Outline, SectionInspector, useNames, useReportDnd, type DesignerOps, type ReportDnd } from './ReportDesignerParts'
 import * as ops from './report-ops'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
@@ -169,6 +170,8 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   )
   const undo = useCallback(() => dispatch({ type: 'undo' }), [])
   const redo = useCallback(() => dispatch({ type: 'redo' }), [])
+  // 832: the copilot sees this report as the report in context; its edit lands as ONE step, "AI: <the request>".
+  useReportInContext(editing?.id ?? null, editing?.revision ?? 0, draft, (definition, request) => editDef(() => definition, null, { kind: 'ai', request }))
 
   // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z). Inside a text field the browser's own text undo wins.
   useEffect(() => {
@@ -343,6 +346,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             </Button>
           </div>
         )}
+        <AiStepNotice step={h.fresh} onUndo={undo} />
         <SaveStanding editing={editing} actions={actions} />
         {listed ? (
           <DeclarationProblems

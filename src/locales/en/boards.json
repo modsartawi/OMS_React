@@ -1019,6 +1019,7 @@
       "undoHint": "Undo (Ctrl+Z)",
       "redoHint": "Redo (Ctrl+Y)",
       "dismiss": "Dismiss",
+      "ai": "AI: {{request}}",
       "removed": {
         "section": "Section {{name}} removed.",
         "param": "Parameter {{name}} removed.",

@@ -1047,6 +1047,7 @@
       "undoHint": "تراجع (Ctrl+Z)",
       "redoHint": "إعادة (Ctrl+Y)",
       "dismiss": "إخفاء",
+      "ai": "الذكاء الاصطناعي: {{request}}",
       "removed": {
         "section": "أُزيل القسم {{name}}.",
         "param": "أُزيل المعامل {{name}}.",

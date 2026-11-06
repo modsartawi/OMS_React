@@ -10,6 +10,7 @@ import type {
   Param,
 } from '@/core/models/analytics'
 import { boardPeriodOf, valueOf, type ParamValues } from './params'
+import { seriesBindReason } from './series'
 import { measureOf } from './wire'
 
 /**
@@ -128,7 +129,8 @@ export function effectiveQuery(
       if (p) period = periodToken(p)
     } else if (value.kind === 'members') {
       const dimension = typeof bound === 'string' ? bound : param.dimension
-      if (dimension && value.values.length > 0 && breaksBy(dimension)) reached.push({ dimension, values: canonical(value.values) })
+      // 825: a dimension the panel's own series filter on is theirs (`seriesFilters`): the parameter never reaches it.
+      if (dimension && value.values.length > 0 && breaksBy(dimension) && !seriesBindReason(dimension, view)) reached.push({ dimension, values: canonical(value.values) })
     }
   }
   reached.sort((a, b) => (a.dimension < b.dimension ? -1 : a.dimension > b.dimension ? 1 : 0))

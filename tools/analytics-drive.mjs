@@ -114,7 +114,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, VIEW_825, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -182,6 +182,147 @@ const xTicks = (page) =>
 // The answer is ranked aggregator, app, store, web, callcenter; the CATALOGUE order (the fixed slots) is
 // app 1, web 2, callcenter 3, aggregator 4, store 5.
 const EXPECTED_FILLS = ['var(--chart-4)', 'var(--chart-1)', 'var(--chart-5)', 'var(--chart-2)', 'var(--chart-3)']
+
+// ── 825 ──────────────────────────────────────────────────────────────────────────────────────────────
+// Named series: HungerStation (channel = hungerstation) against QC (delivery_type = QC), in en, ar and dark.
+//   1. a board's bar of the two series: each series in its own slot (--chart-1, --chart-2), distinct paints,
+//      the legend naming both in the screen's language;
+//   2. a legend click highlights that series (the other dims) and never cross-filters (no `cross=`, no chip,
+//      no re-run); a bar click highlights its own series, and a second click clears;
+//   3. the editor seeded with the view: the series fields hold both, donut and heatmap are not offered, the
+//      preview draws two distinct bar series; KPI draws one tile per series side by side, each in its slot;
+//   4. a fifth series is refused: "Add a series" stops at 4 and says so; a seeded fifth is listed and blocks the
+//      save; the server's ANALYTICS-411 list reaches its series.
+async function namedSeries825({ dir, dark }) {
+  const tag = `825 ${dir}${dark ? '-dark' : ''}`
+  const problems = [{ what: 'series', why: 'foreignDimension', series: 'qc', dimension: 'delivery_type' }]
+  const { context, page, errors, bodies } = await open({
+    dir,
+    dark,
+    model: MODEL_825,
+    create: envelope({ problems }, { status: 400, success: false, message: 'Not saved.', errors: [{ errorCode: 'ANALYTICS-411', internalErrorCode: '', errorMessage: 'Not saved.' }] }),
+  })
+  const want = ['var(--chart-1)', 'var(--chart-2)']
+  // The language stays en under RTL (`core/i18n`: `lng` is en; the direction follows `oms.locale`), so labels read in English.
+  const names = ['HungerStation', 'QC']
+
+  // 1. The board panel.
+  await page.goto(`${BASE}/analytics/board/b-825`)
+  const panelSel = '[data-board-panel="p-series"]'
+  const sel = `${panelSel} [data-chart="bar"]`
+  await page.locator(sel).waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+  const groups = () =>
+    page.locator(`${sel} .recharts-bar`).evaluateAll((gs) =>
+      gs.map((g) => [...g.querySelectorAll('.recharts-bar-rectangle path')].map((p) => ({ fill: p.getAttribute('fill'), opacity: p.getAttribute('fill-opacity'), paint: getComputedStyle(p).fill }))),
+    )
+  const series = await groups()
+  const paints = [await tokenPaint(page, '--chart-1'), await tokenPaint(page, '--chart-2')]
+  check(`${tag}: the board's bar draws two series of seven days`, series.length === 2 && series.every((g) => g.length === 7), series.map((g) => g.length).join(' + '))
+  check(`${tag}: HungerStation in slot 1, QC in slot 2`, series.length === 2 && series.every((g, i) => g.every((b) => b.fill === want[i])), JSON.stringify(series.map((g) => [...new Set(g.map((b) => b.fill))])))
+  check(`${tag}: the two series paint distinct ${dark ? 'dark' : 'light'} colours`, series.length === 2 && series.every((g, i) => g.every((b) => b.paint === paints[i])) && paints[0] !== paints[1], JSON.stringify(paints))
+  const legend = page.locator(`${sel} .recharts-legend-item`)
+  const legendText = (await legend.allInnerTexts()).map((x) => noIsolates(x).trim())
+  check(`${tag}: the legend names both series`, JSON.stringify(legendText) === JSON.stringify(names), JSON.stringify(legendText))
+  const posts = () => (bodies['Analytics/Query'] ?? []).length
+  const asked = posts()
+  const highlight = () => page.locator(`${panelSel} [data-chart-highlight]`).getAttribute('data-chart-highlight')
+
+  // 2. Highlight, never cross-filter.
+  await legend.nth(1).click()
+  await page.waitForTimeout(200)
+  const lit = await highlight()
+  const dimmed = await groups()
+  check(`${tag}: a legend click highlights QC`, lit === 's1', lit)
+  check(
+    `${tag}: … HungerStation dims, QC stays full, both keep their colours`,
+    dimmed[0]?.every((b) => b.opacity === '0.25') && dimmed[1]?.every((b) => b.opacity === '1') && dimmed.every((g, i) => g.every((b) => b.fill === want[i])),
+    JSON.stringify(dimmed.map((g) => g[0])),
+  )
+  const noCross = async () => !new URL(page.url()).searchParams.has('cross') && (await page.locator('[data-board-cross]').count()) === 0
+  check(`${tag}: … and never cross-filters (no cross= in the link, no chip, no re-run)`, (await noCross()) && posts() === asked, `${page.url()} posts ${asked}→${posts()}`)
+  await page.locator(`${sel} .recharts-bar`).first().locator('.recharts-bar-rectangle').first().click()
+  await page.waitForTimeout(200)
+  check(`${tag}: a bar click highlights its own series, still no cross-filter`, (await highlight()) === 's0' && (await noCross()), `${await highlight()} ${page.url()}`)
+  await legend.nth(0).click()
+  await page.waitForTimeout(200)
+  check(`${tag}: clicking the highlighted series again clears it`, (await highlight()) === '')
+  await page.screenshot({ path: `${SHOTS}/825-board-${dir}${dark ? '-dark' : ''}.png` })
+
+  // 3. The editor, seeded with the view.
+  const seedEditor = async (definition) => {
+    await page.goto(`${BASE}/analytics`)
+    await page.locator('[data-analytics-home-header]').waitFor({ timeout: 10000 })
+    await page.evaluate((seed) => {
+      window.history.pushState({ usr: { editorSeed: seed }, key: 'seed825', idx: 1 }, '', '/analytics/new?kind=view')
+      window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+    }, { definition })
+    await page.locator('[data-analytics-editor]').waitFor({ timeout: 10000 })
+  }
+  await seedEditor(VIEW_825)
+  check(`${tag}: the editor holds both series`, (await page.locator('[data-editor-series-row]').count()) === 2)
+  const off = await page.locator('[data-analytics-choice][data-offered="no"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-choice')))
+  check(`${tag}: donut and heatmap take no series; a stacked bar is never offered`, ['donut', 'heatmap', 'bar-stacked'].every((c) => off.includes(c)), off.join(','))
+  const pre = '[data-analytics-preview] [data-chart="bar"]'
+  await page.locator(`${pre} .recharts-bar-rectangle path`).first().waitFor({ timeout: 10000 })
+  const preFills = await page
+    .locator(`${pre} .recharts-bar`)
+    .evaluateAll((gs) => gs.map((g) => [...new Set([...g.querySelectorAll('.recharts-bar-rectangle path')].map((p) => p.getAttribute('fill')))]))
+  check(`${tag}: the preview's bar draws HungerStation and QC in distinct slots`, JSON.stringify(preFills) === JSON.stringify(want.map((w) => [w])), JSON.stringify(preFills))
+  const lastQuery = (bodies['Analytics/Query'] ?? []).at(-1)
+  check(
+    `${tag}: the preview asks with both series and their filters`,
+    JSON.stringify(lastQuery?.definition?.series?.map((x) => x.filters[0])) ===
+      JSON.stringify([{ dimension: 'channel_group', values: ['hungerstation'] }, { dimension: 'delivery_type', values: ['QC'] }]),
+    JSON.stringify(lastQuery?.definition?.series),
+  )
+
+  await page.locator('[data-analytics-choice="kpi"]').click()
+  const tiles = page.locator('[data-analytics-preview] [data-kpi-series="2"] [data-kpi-series-id]')
+  await tiles.first().waitFor({ timeout: 10000 })
+  await page.waitForTimeout(400)
+  const tileInfo = await tiles.evaluateAll((els) =>
+    els.map((el) => ({
+      slot: el.getAttribute('data-slot'),
+      swatch: getComputedStyle(el.querySelector('[data-kpi-swatch]')).backgroundColor,
+      value: el.querySelector('[data-kpi-value]')?.textContent?.trim(),
+      top: Math.round(el.getBoundingClientRect().top),
+    })),
+  )
+  check(`${tag}: the KPI shows one figure per series, side by side`, tileInfo.length === 2 && tileInfo[0].top === tileInfo[1].top && tileInfo.every((x) => !!x.value), JSON.stringify(tileInfo))
+  check(`${tag}: … each tile in its own series colour`, tileInfo[0]?.slot === '0' && tileInfo[1]?.slot === '1' && tileInfo[0].swatch !== tileInfo[1].swatch, JSON.stringify(tileInfo.map((x) => x.swatch)))
+  const figures = tileInfo.map((x) => x.value)
+  check(
+    `${tag}: … each its own figure, with no total across them`,
+    figures.length === 2 && figures[0] !== figures[1] && (await page.locator('[data-analytics-preview] [data-chart="kpi"]').count()) === 2,
+    JSON.stringify(figures),
+  )
+  await page.screenshot({ path: `${SHOTS}/825-kpi-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+
+  // 4. A fifth series is refused.
+  const add = page.locator('[data-editor-add-series]')
+  await add.click()
+  await add.click()
+  check(
+    `${tag}: four series, and "Add a series" stops there and says why`,
+    (await page.locator('[data-editor-series-row]').count()) === 4 && (await add.isDisabled()) && (await page.locator('[data-editor-series-max]').count()) === 1,
+  )
+  await page.locator('[data-editor-save]').click()
+  await page.locator('[data-editor-series-problem="foreignDimension"]').waitFor({ timeout: 10000 })
+  const said = noIsolates(await page.locator('[data-editor-series-problem="foreignDimension"]').innerText())
+  check(`${tag}: the server's ANALYTICS-411 is listed on its series`, said.includes(names[1]), said)
+  const saved = (bodies['Analytics/Item'] ?? []).at(-1)
+  check(`${tag}: the save sent the four series`, saved?.definition?.series?.length === 4, JSON.stringify(saved?.definition?.series?.map((x) => x.id)))
+  await page.screenshot({ path: `${SHOTS}/825-editor-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+
+  const five = { ...VIEW_825, series: ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, label: { en: id, ar: id }, filters: [] })) }
+  await seedEditor(five)
+  await page.locator('[data-editor-series-problem="tooMany"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a seeded fifth series is refused: listed, and the save is blocked`, await page.locator('[data-editor-save]').isDisabled())
+
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
 
 // ── 820 ──────────────────────────────────────────────────────────────────────────────────────────────
 // A board's two-measure bar: each series in its own slot (orders --chart-1, deliveries --chart-2), the
@@ -2571,6 +2712,9 @@ const SCENARIOS = [
   ['822', () => authorSeesBuilder({ dir: 'ltr' })],
   ['822', () => authorSeesBuilder({ dir: 'rtl' })],
   ['822', staleProbeShare415],
+  ['825', () => namedSeries825({ dir: 'ltr', dark: false })],
+  ['825', () => namedSeries825({ dir: 'rtl', dark: false })],
+  ['825', () => namedSeries825({ dir: 'ltr', dark: true })],
   ['820', () => multiSeriesBars820({ dir: 'ltr', dark: false })],
   ['820', () => multiSeriesBars820({ dir: 'rtl', dark: false })],
   ['820', () => multiSeriesBars820({ dir: 'ltr', dark: true })],

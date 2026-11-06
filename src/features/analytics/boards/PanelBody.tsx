@@ -131,7 +131,9 @@ export default function PanelBody({
 
 function PanelTableView({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
   const { t: tc } = useTranslation('common')
-  const view = useMemo(() => panelTable(result, definition, model, lang), [result, definition, model, lang])
+  const { t } = useTranslation('boards')
+  const seriesHeader = t('view.seriesColumn')
+  const view = useMemo(() => panelTable(result, definition, model, lang, { series: seriesHeader }), [result, definition, model, lang, seriesHeader])
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
   return (

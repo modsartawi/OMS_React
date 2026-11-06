@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { itemHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -20,6 +20,7 @@ import {
   colourDimension,
   colourMemberWords,
   DEFAULT_PERIOD,
+  filterableDimensions,
   editItemLink,
   GRAINS,
   grainFor,
@@ -32,6 +33,8 @@ import {
   type EditorSeed,
 } from './editor'
 import { ChartFields, QueryFields, TitleFields } from './EditorFields'
+import { ownCategoryDimensions, seriesProblems } from './series'
+import SeriesFields from './SeriesFields'
 import { editorRefusal } from './editor-refusal'
 import { comparing } from './effective-query'
 import EditorRefusalNote from './EditorRefusalNote'
@@ -154,14 +157,16 @@ function ViewEditor({
   const [slots, setSlots] = useState<Record<string, Record<string, number>>>(start?.slots ?? {})
   const [title, setTitle] = useState<AnalyticsLabel>(seed?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(seed?.subtitle ?? EMPTY_LABEL)
+  // 825: named series (up to 4), each with its own filters on the view's own category breakdowns.
+  const [series, setSeries] = useState<AnalyticsSeries[]>(start?.series ?? [])
 
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
-  const offers = chartOffers({ measures, dimensions }, model)
+  const offers = chartOffers({ measures, dimensions, series: series.length }, model)
   const offer = choice ? offers.find((o) => o.choice === choice) : undefined
   // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does. Until one is
   // picked (or while the pick does not fit) the builder picks the best fitting type, so the preview always draws.
-  const suggested = suggestChoice(offers, { measures, dimensions }, model)
+  const suggested = suggestChoice(offers, { measures, dimensions, series: series.length }, model)
   const chosen = offer?.offered ? choice : suggested
   const keptGrain = grainFor(dimensions, model, grain)
 
@@ -181,8 +186,12 @@ function ViewEditor({
       chosen,
       compare,
     )
-    return { ...(start ?? {}), chart: chartFor(chosen, settings), query, slots }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain])
+    // A series' filter with no value yet filters nothing; a view with no series carries no `series` at all.
+    const named = series.map((x) => ({ ...x, filters: x.filters.filter((f) => f.values.length > 0) }))
+    const { series: _oldSeries, ...rest } = start ?? {}
+    void _oldSeries
+    return { ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series])
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -248,6 +257,14 @@ function ViewEditor({
   const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model) : null)
   const previewRefusal = answer.error ? refusalOf(answer.error) : null
   const saveRefusal = save.error && !save.refusal ? refusalOf(save.error) : null
+  // 825: the series checks — the web's mirror live, or the server's 411 list after a save.
+  const seriesDims = useMemo(() => {
+    const own = ownCategoryDimensions({ chart: settings, query: { measures, dimensions, filters: [] } }, model)
+    return filterableDimensions(allowed).filter((d) => own.has(d.key))
+  }, [allowed, measures, dimensions, settings, model])
+  const liveProblems = useMemo(() => seriesProblems({ chart: settings, query: { measures, dimensions, filters: [] }, series }, model), [settings, measures, dimensions, series, model])
+  const serverProblems = saveRefusal?.kind === 'declaration' ? saveRefusal.series : []
+  const shownProblems = liveProblems.length ? liveProblems : serverProblems
   const invalidOn = (section: 'measure' | 'dimension' | 'chart') => {
     const r = [saveRefusal, previewRefusal].find((x) => x?.kind === 'invalid')
     return r?.kind === 'invalid' && !!r.field && r.field.toLowerCase().includes(section)
@@ -303,6 +320,17 @@ function ViewEditor({
           compare={compare}
           onCompare={setCompare}
         />
+        <SeriesFields
+          series={series}
+          onSeries={(next) => {
+            setSeries(next)
+            if (save.error) save.reset()
+          }}
+          dimensions={seriesDims}
+          lang={lang}
+          problems={shownProblems}
+        />
+        {series.length === 0 && (
         <ColourPicker
           fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}
           members={members}
@@ -310,12 +338,13 @@ function ViewEditor({
           wordsOf={(m) => colourMemberWords(colourDim ?? '', m, model, names, lang)}
           onPick={(m, s) => colourDim && setSlots((all) => ({ ...all, [colourDim]: withMemberSlot(all[colourDim] ?? {}, members, m, s) }))}
         />
+        )}
         <TitleFields title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} generated={generated} />
 
         <SaveStanding editing={editing} actions={actions} />
         {save.refusal ? (
           <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
-        ) : save.error ? (
+        ) : save.error && !(saveRefusal?.kind === 'declaration' && saveRefusal.series.length > 0) ? (
           <EditorRefusalNote
             refusal={saveRefusal}
             err={save.error}
@@ -335,7 +364,7 @@ function ViewEditor({
           )}
           <Button
             onClick={() => primary && onSave(primary)}
-            disabled={!definition || !primary || save.pending}
+            disabled={!definition || !primary || save.pending || liveProblems.length > 0}
             data-editor-save
             data-editor-save-how={primary ?? 'none'}
           >

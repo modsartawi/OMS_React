@@ -43,6 +43,12 @@ export type UnavailableReason =
   | 'tableShape'
   | 'heatmapShape'
   | 'comboShape'
+  /** 825: with named series — this chart takes one measure over one axis (the series are the colour role). */
+  | 'seriesShape'
+  /** 825: a stacked bar's height is a total, and series may overlap: never stacked. */
+  | 'seriesStacked'
+  /** 825: a donut or a heat map takes no named series. */
+  | 'seriesForm'
 
 export type ChartOffer =
   /** `folds` — the breakdown drawn as colours may hold more than the palette's five: the rest is "Other". */
@@ -52,6 +58,8 @@ export type ChartOffer =
 export interface ShapeSelection {
   measures: readonly string[]
   dimensions: readonly string[]
+  /** 825: how many named series the view holds; absent = none. */
+  series?: number
 }
 
 export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOffer[] {
@@ -76,6 +84,29 @@ export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOf
     const no = (reason: UnavailableReason): ChartOffer => ({ choice, offered: false, reason })
     const yes = (folds = false): ChartOffer => ({ choice, offered: true, folds })
     if (nM === 0) return no('noMeasure')
+    if ((sel.series ?? 0) > 0) {
+      const one = nM === 1 && nD === 1
+      switch (choice) {
+        case 'donut':
+        case 'heatmap':
+          return no('seriesForm')
+        case 'bar-stacked':
+          return no('seriesStacked')
+        case 'kpi':
+          return nM === 1 && (nD === 0 || (nD === 1 && isTime(0))) ? yes() : no('seriesShape')
+        case 'line':
+        case 'area':
+          if (timeAt < 0) return no('needsTime')
+          return one ? yes() : no('seriesShape')
+        case 'bar-vertical':
+        case 'bar-horizontal':
+        case 'bar-grouped':
+          return one ? yes() : no('seriesShape')
+        // The table and the combo keep their own shape, a series column or a series per pane added.
+        default:
+          break
+      }
+    }
 
     switch (choice) {
       case 'kpi':

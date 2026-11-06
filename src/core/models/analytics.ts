@@ -125,6 +125,20 @@ export interface AnalyticsViewDefinition {
    * saved). Ignored for a dimension with inline values, whose slots are fixed.
    */
   slots?: Record<string, Record<string, number>>
+  /**
+   * 825 (spec 819 §C, PROPOSED): up to 4 **named series**. Each runs as its own query with the view's
+   * query plus its own filters (on the view's own category dimensions), so a rate stays its own; the
+   * answer merges them on the shared axis under a `series` column. Slot = position. No total across them.
+   * Absent = none (a v1 view).
+   */
+  series?: AnalyticsSeries[]
+}
+
+/** One named series (825): ⚠ `{ id, label{en,ar}, filters[] }` as spec 819 §C writes it. */
+export interface AnalyticsSeries {
+  id: string
+  label: AnalyticsLabel
+  filters: AnalyticsFilter[]
 }
 
 export type AnalyticsTier = 'personal' | 'shared' | 'certified'
@@ -236,7 +250,8 @@ export type AnalyticsViewQuery = (
 
 export interface AnalyticsColumn {
   key: string
-  role: 'dimension' | 'measure'
+  /** ⚠ 825: `series` — the column holding each row's series id, when the view has named series. */
+  role: 'dimension' | 'measure' | 'series'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
 }

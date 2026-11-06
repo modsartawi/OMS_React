@@ -47,7 +47,10 @@ export default function EditorRefusalNote({
       ? refusal.field
         ? t('editor.refused.invalidField', { field: fsi(refusal.field) })
         : refusal.message || t('refusal.invalid')
-      : t('editor.refused.area', { reason: fsi(refusal.reason) })
+      : refusal.kind === 'declaration'
+        ? // 825: 411's series problems are listed on the series fields; any other problem has the server's words.
+          refusal.message || t('refusal.declaration')
+        : t('editor.refused.area', { reason: fsi(refusal.reason) })
   return (
     <div className="rounded-lg border border-danger-border bg-danger-050 p-3 text-sm text-danger-800" role="alert" data-analytics-refusal={refusal.kind}>
       <bdi>{words}</bdi>

@@ -12,6 +12,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
+import { COURIERS, courierTableTracks, courierTracks, hidesPickUp } from './courier-scope'
 import { readFigure } from './figures'
 import { readHeadline } from './headline'
 import HeadlineStrip from './HeadlineStrip'
@@ -69,6 +70,9 @@ function useMinuteClock(): Date {
   }, [])
   return now
 }
+
+/** The couriers the picker offers; a code outside them (a shared link) is captioned by its code. */
+const COURIER_CODES: ReadonlySet<string> = new Set(COURIERS)
 
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
 const MISS_ACCENT: Record<MissId, string> = {
@@ -129,6 +133,17 @@ function Statistics() {
         )}
       </div>
 
+      {hidesPickUp(query.courier) && (
+        <p className="text-sm text-muted-foreground" data-statistics-courier-caption={query.courier}>
+          <Trans
+            t={t}
+            i18nKey="courier.caption"
+            values={{ courier: COURIER_CODES.has(query.courier) ? t(`courier.name.${query.courier}`) : query.courier }}
+            components={{ v: <bdi className="font-medium text-foreground" /> }}
+          />
+        </p>
+      )}
+
       {!period.ok && (
         <p role="alert" className="text-sm text-danger-800" data-statistics-refused={period.problem}>
           <Trans t={t} i18nKey={`period.problem.${period.problem}`} values={{ max: String(MAX_RANGE_DAYS) }} components={{ v: <Ltr /> }} />
@@ -149,7 +164,8 @@ function Statistics() {
             )}
           </HeadlineStrip>
 
-          {readLanes(data.tracks, dash).map((lane) => (
+          {/* Under a chosen courier, what a pick-up owns is not drawn (813, `courier-scope.ts`). */}
+          {courierTracks(readLanes(data.tracks, dash), query.courier).map((lane) => (
             <LaneBand key={lane.track} lane={lane} />
           ))}
 
@@ -158,13 +174,18 @@ function Statistics() {
             <h2 id="statistics-misses" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               {t('band.misses')}
             </h2>
-            {readMissesRows(data.tracks, dash).map((row) => (
+            {courierTracks(readMissesRows(data.tracks, dash), query.courier).map((row) => (
               <MissesRowBand key={row.track} row={row} />
             ))}
           </section>
 
           {params && <SeriesChart series={data.series} granularity={params.Granularity} />}
-          <StoreTable stores={data.stores} track={query.track} onTrack={(track) => update((q) => ({ ...q, track }))} />
+          <StoreTable
+            stores={data.stores}
+            track={query.track}
+            views={courierTableTracks(query.courier)}
+            onTrack={(track) => update((q) => ({ ...q, track }))}
+          />
         </>
       )}
     </div>

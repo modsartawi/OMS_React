@@ -17,6 +17,17 @@
     "allStores": "All stores",
     "storesFailed": "The store list could not be loaded."
   },
+  "courier": {
+    "label": "Courier",
+    "all": "All couriers",
+    "name": {
+      "FREY": "FarEye",
+      "OTOX": "OTO",
+      "SMSA": "SMSA",
+      "SLNK": "Starlinks"
+    },
+    "caption": "These figures are <v>{{courier}}</v>'s home deliveries only — pick-ups and the other couriers' deliveries are not counted."
+  },
   "leaveOut": {
     "label": "Leave out",
     "churned": "Wasfaty churned refills",

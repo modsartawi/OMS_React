@@ -204,4 +204,6 @@ export type StoreStatisticsQuery = {
   LeaveOutChurned: boolean
   /** Comma-joined order-type codes. */
   LeaveOutTypes?: string
+  /** One courier type code (spec 811, ticket 813); absent = every courier. An unknown code is refused as SDD-02132. */
+  Courier?: string
 }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 805
 blocked-by: 806
 ---
@@ -21,7 +21,7 @@ store/logic (reuses runner + picker) · component (Assign role dialog) · i18n �
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `authz-batch-drive` Assign roles leg — search, tick 3 roles, one stubbed refusal → "2 assigned, 1 refused"; the person's chips show the two; a delegated admin sees only their assignable roles · flow (Playwright)
+- [x] `authz-batch-drive` Assign roles leg — search, tick 3 roles, one stubbed refusal → "2 assigned, 1 refused"; the person's chips show the two; a delegated admin sees only their assignable roles · flow (Playwright)
 
 ## Boundaries
 
@@ -34,3 +34,11 @@ An admin assigns several roles to one person in one batch with refusals reported
 ## Blocked by
 
 [806](806-a-composite-gets-many-member-roles-in-one-search-and-tick-batch.md)
+
+## Comments
+
+- Built: `AssignRoleModal` is the checklist picker (local mode) over the batch runner; footer **Assign N**,
+  stays open with the summary, refused roles ticked with the server message. The pane's button now reads
+  "＋ Assign roles"; its role chips carry `data-assigned-role` and are isolated with `Ltr`. Retired keys:
+  `assign.assign`, `assign.done`, `assign.doneDetail` (the per-assign success toast is gone — the summary
+  replaces it). Drive: `node tools/authz-batch-drive.mjs` 66/66 (806 + 809 legs, LTR + RTL, full + delegated).

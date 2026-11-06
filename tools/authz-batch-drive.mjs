@@ -9,6 +9,14 @@
 //   4. Add 1 retries just the refused role and it succeeds;
 //   5. role codes are isolated LTR (bidi rule) in both directions.
 //
+// Ticket 809 — a person's Assign roles dialog:
+//   1. full scope offers the whole catalog minus held roles, each tagged with its kind;
+//   2. picks survive a change of search; search + tick 3, Assign 3 writes one Users/AssignRole per
+//      pick, in pick order, past a refusal;
+//   3. the dialog stays open with "2 assigned, 1 refused", the refused role named and still ticked;
+//   4. the person's chips show the two assigned roles;
+//   5. a delegated admin is offered only their assignable roles.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/authz-batch-drive.mjs          (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
@@ -170,9 +178,120 @@ async function drive(browser, dir) {
   await page.close()
 }
 
+const PERSON = { employeeId: '40123', displayName: 'Huda Saleh', phone: '', phoneClass: 'missing', email: '',
+  deliveryChannel: 'sms', isActive: true, isSeeded: false, credentialState: 'active', isTotpEnrolled: false, lastLoginAt: null }
+const ASSIGN_REFUSAL = 'PHARM_TECH is outside your assignable scope.'
+
+async function driveAssign(browser, dir, assignableRoles) {
+  const delegated = !assignableRoles.includes('*')
+  const held = ['OMS_VIEWER']
+  let refuse = true
+  const assigns = []
+  const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
+  const pageErrors = []
+  page.on('pageerror', (e) => pageErrors.push(String(e)))
+
+  await page.route('**/api/**', async (route) => {
+    const req = route.request()
+    const path = decodeURIComponent(req.url().split('/api/')[1].split('?')[0])
+    if (path === 'Auth/Me')
+      return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
+    if (path === 'AuthzAdminWeb/Access')
+      return route.fulfill(
+        envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles, revocableRoles: assignableRoles }),
+      )
+    if (path === 'AuthzAdminWeb/Roles') return route.fulfill(envelope(CATALOG))
+    if (path === 'AuthzAdminWeb/Employees')
+      return route.fulfill(envelope({ rows: [PERSON], totalMatches: 1, rowCap: 50, isCapped: false }))
+    if (path === `AuthzAdminWeb/Users/${PERSON.employeeId}/Roles`) return route.fulfill(envelope([...held]))
+    if (path === 'AuthzAdminWeb/Users/AssignRole') {
+      const body = JSON.parse(req.postData() || '{}')
+      assigns.push(`${body.userId}+${body.roleName}`)
+      if (body.roleName === 'PHARM_TECH' && refuse) {
+        refuse = false
+        return route.fulfill(refusal(403, ASSIGN_REFUSAL))
+      }
+      if (!held.includes(body.roleName)) held.push(body.roleName)
+      return route.fulfill(envelope({ success: true }))
+    }
+    if (path.endsWith('/EffectiveAuthorizations') || path === 'AuthzAdminWeb/Audit') return route.fulfill(envelope([]))
+    return route.fulfill(envelope({}))
+  })
+
+  const tag = `[${dir}${delegated ? ' delegated' : ''}]`
+  await page.goto(BASE + '/admin/authz')
+  await page.waitForSelector('[data-authz-workspace="users"]', { timeout: 20000 })
+  await page.evaluate((d) => document.documentElement.setAttribute('dir', d), dir)
+  await page.click('[data-authz-workspace="users"]')
+  await page.locator('[data-authz-users-search]').fill(PERSON.employeeId)
+  await page.click('[data-authz-users-run]')
+  await page.locator('tr', { hasText: PERSON.displayName }).first().click()
+  await page.getByRole('button', { name: /Assign roles/ }).click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-checklist-search]').waitFor({ timeout: 10000 })
+  const rows = () => dialog.locator('[data-checklist-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-checklist-row')))
+
+  if (delegated) {
+    const offered = await rows()
+    check(`${tag} a delegated admin is offered only their assignable roles, held left out`,
+      JSON.stringify(offered) === JSON.stringify(['PHARM_LEAD', 'PHARM_TECH']), offered.join(','))
+    check(`${tag} no page errors`, pageErrors.length === 0, pageErrors.join(' | '))
+    await page.close()
+    return
+  }
+
+  const offered = await rows()
+  check(`${tag} full scope offers the whole catalog minus held roles`,
+    JSON.stringify(offered) === JSON.stringify(['TEAM_PHARM', 'PHARM_COMPOSITE', 'PHARM_LEAD', 'PHARM_TECH', 'DISPENSER', 'PHARM_OLD']), offered.join(','))
+  check(`${tag} a composite row is tagged with its kind`,
+    plain(await dialog.locator('[data-checklist-row="TEAM_PHARM"]').textContent()).includes('composite'))
+
+  // search + tick across three searches; picks survive each new term
+  const search = dialog.locator('[data-checklist-search]')
+  for (const [term, role] of [['leads', 'PHARM_LEAD'], ['technician', 'PHARM_TECH'], ['team', 'TEAM_PHARM']]) {
+    await search.fill(term)
+    await dialog.locator(`[data-checklist-row="${role}"] input[type=checkbox]`).check()
+  }
+  check(`${tag} the search narrows by description`, JSON.stringify(await rows()) === JSON.stringify(['TEAM_PHARM']))
+  check(`${tag} the picked count reads 3 across searches`, plain(await dialog.locator('[data-checklist-count]').textContent()) === '3 picked')
+  const submit = page.getByTestId('assign-role-submit')
+  check(`${tag} the footer states the count`, plain(await submit.textContent()) === 'Assign 3', plain(await submit.textContent()))
+  await search.fill('')
+  await submit.click()
+  const summary = page.getByTestId('assign-role-summary')
+  await summary.waitFor({ timeout: 10000 })
+  await page.waitForTimeout(300)
+
+  check(`${tag} one AssignRole per pick, in pick order, past the refusal`,
+    JSON.stringify(assigns) === JSON.stringify(['40123+PHARM_LEAD', '40123+PHARM_TECH', '40123+TEAM_PHARM']), assigns.join(','))
+  const firstLine = plain(await summary.locator('p').first().textContent())
+  check(`${tag} the dialog stays open with "2 assigned, 1 refused"`, firstLine === '2 assigned, 1 refused', firstLine)
+  const refusedLine = plain(await summary.locator('[data-refused="PHARM_TECH"]').textContent())
+  check(`${tag} the refused role is named with the server's message`, refusedLine.includes('PHARM_TECH') && refusedLine.includes(ASSIGN_REFUSAL), refusedLine)
+  check(`${tag} the refused role is still ticked`,
+    (await dialog.locator('[data-checklist-row="PHARM_TECH"]').getAttribute('data-picked')) === 'true')
+  const after = await rows()
+  check(`${tag} assigned roles leave the list`, !after.includes('PHARM_LEAD') && !after.includes('TEAM_PHARM') && after.includes('PHARM_TECH'), after.join(','))
+  check(`${tag} the role code is isolated LTR`,
+    (await dialog.locator('[data-checklist-row="PHARM_TECH"] bdi[dir="ltr"]', { hasText: 'PHARM_TECH' }).count()) === 1)
+  check(`${tag} the footer now reads Assign 1`, plain(await submit.textContent()) === 'Assign 1')
+
+  await page.getByRole('button', { name: 'Done' }).click()
+  await page.waitForTimeout(200)
+  const chips = await page.locator('[data-assigned-role]').evaluateAll((els) => els.map((e) => e.getAttribute('data-assigned-role')))
+  check(`${tag} the person's chips show the two assigned roles`,
+    JSON.stringify(chips) === JSON.stringify(['OMS_VIEWER', 'PHARM_LEAD', 'TEAM_PHARM']), chips.join(','))
+  check(`${tag} no page errors`, pageErrors.length === 0, pageErrors.join(' | '))
+  await page.close()
+}
+
 const browser = await chromium.launch()
 try {
-  for (const dir of ['ltr', 'rtl']) await drive(browser, dir)
+  for (const dir of ['ltr', 'rtl']) {
+    await drive(browser, dir)
+    await driveAssign(browser, dir, ['*'])
+    await driveAssign(browser, dir, ['PHARM_LEAD', 'PHARM_TECH', 'OMS_VIEWER'])
+  }
 } finally {
   await browser.close()
 }

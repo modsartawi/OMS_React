@@ -145,11 +145,22 @@
 //      history kept and the unsaved marker gone; a second save PUTs in place at `baseRevision` 1; Preview is the
 //      runner's page with no tools.
 //
+// 829 (spec 819) — the designer edits every block (en and ar), building the 798 sample report by hand:
+//   1. a chart or table is added and reshaped in the panel editor (net value by channel: only fitting types offered);
+//      a saved view is copied ("copied from … revision 3", its series with it, `from` recorded); a cancellation
+//      rate panel gets HungerStation and QC series by hand; the panel's parameter list unbinds and undoes;
+//   2. a text block's words take live figures by "Insert a live figure" (and by typing a token): chips, never a raw
+//      token, on the page, in the field and in the preview; an insert is one undo step;
+//   3. the summary is added (a second is not offered), removed and undone;
+//   4. removing a panel a figure names turns its chip red and Save lists the 411 problem, which opens the text;
+//      undone, Save posts the panels, the series, the provenance, the tokens and one summary;
+//   5. the sample report's copied panel says the original has changed since the copy.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -3351,7 +3362,202 @@ async function designer828({ dir }) {
   await context.close()
 }
 
+// ── 829 ──────────────────────────────────────────────────────────────────────────────────────────────
+// The designer's editors: the panel editor (provenance, area, measures, chart, series, parameters), the text editor
+// with live figures as chips, the summary block, and the 411 list for a figure that names a missing panel.
+const inspector829 = (page) => page.locator('[data-designer-inspector]')
+const enChips829 = (page) => page.locator('[data-designer-text-field="en"] [data-figure-token]').evaluateAll((els) => els.map((e) => e.dataset.figureToken).join(','))
+
+async function designer829({ dir }) {
+  const tag = `829 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, height: 1500, access: AUTHOR, model: MODEL_827, list: [...LIST, ITEMS['v-825']] })
+  await page.goto(`${BASE}/analytics/new?kind=report`)
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-designer-title-input="en"]').fill('Channel sales')
+  await page.locator('[data-designer-add-section]').click()
+  await page.locator('[data-designer-section-inspector] [data-designer-heading="en"]').fill('Sales by channel')
+  // The report's period: declared first, so every panel added after binds to it.
+  await page.locator('[data-designer-outline-add-param]').click()
+  await page.locator('[data-param-kind="period"]').click()
+  await page.locator('[data-param-inspector-close]').click()
+
+  // 1a. A chart or table, reshaped: net value (till value) by channel, as vertical bars.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-add-panel="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p1"]').waitFor({ timeout: 10000 })
+  check(`${tag}: "Chart or table" adds a panel, opened in the panel editor`, (await page.locator('[data-designer-block="p1"]').count()) === 1)
+  check(`${tag}: … a new panel is one figure (a KPI) to start`, (await page.locator('[data-analytics-choice="kpi"][aria-pressed="true"]').count()) === 1)
+  await inspector829(page).locator('[data-analytics-chosen-measures] button').first().click()
+  await inspector829(page).locator('[data-analytics-measure="till_value"]').click()
+  await pick(page, 'editor-dimensions', ['channel_group'])
+  const offered = await offeredChoices(page)
+  check(`${tag}: only the fitting chart types are offered (no line without a date)`, !offered.includes('line') && offered.includes('bar-vertical'), offered.join(','))
+  await page.locator('[data-analytics-choice="bar-vertical"]').click()
+  await page.locator('[data-designer-block="p1"] [data-chart="bar"]').waitFor({ timeout: 10000 })
+  check(`${tag}: the page draws the panel as edited`, (await page.locator('[data-designer-block="p1"] [data-chart="bar"]').count()) === 1)
+  await page.locator('[data-designer-panel-title="en"]').fill('Net sales by channel')
+  await page.locator('[data-designer-panel-title="ar"]').fill('صافي المبيعات حسب القناة')
+  const outlined = await page.locator('[data-designer-outline="block:p1"]').innerText()
+  check(`${tag}: the outline names the panel by its title`, outlined.includes('Net sales by channel'), outlined)
+
+  // 1b. Copy a saved view: its definition inline, its provenance shown and recorded.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-copy-pick="s1"]').selectOption('v-825')
+  await page.locator('[data-designer-copy-go="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p2"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-designer-provenance="v-825"]').waitFor({ timeout: 10000 })
+  const prov = noIsolates(await page.locator('[data-designer-provenance="v-825"]').innerText())
+  check(`${tag}: "Copy a saved view" says where it came from and which revision`, prov.includes('HungerStation against QC') && prov.includes('3'), prov)
+  check(`${tag}: … not changed since the copy`, (await page.locator('[data-designer-source-changed="no"]').count()) === 1)
+  check(`${tag}: … its two series came with it`, (await inspector829(page).locator('[data-editor-series-row]').count()) === 2)
+
+  // 1c. A cancellation rate panel with HungerStation and QC series, by hand.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-add-panel="s1"]').click()
+  await inspector829(page).locator('[data-designer-panel-editor="p3"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-designer-panel-area]').selectOption('orders')
+  check(`${tag}: picking the orders area starts on its measure`, (await inspector829(page).locator('[data-analytics-chosen-measures] button').count()) === 1)
+  await pick(page, 'editor-dimensions', ['day'])
+  await page.locator('[data-analytics-choice="line"]').click()
+  check(`${tag}: over a date, a line is offered and taken`, (await page.locator('[data-analytics-choice="line"][aria-pressed="true"]').count()) === 1)
+  for (const [i, en, ar, dim, value] of [
+    [1, 'HungerStation', 'هنقرستيشن', 'channel_group', 'hungerstation'],
+    [2, 'QC', 'التوصيل السريع', 'delivery_type', 'QC'],
+  ]) {
+    await page.locator('[data-editor-add-series]').click()
+    const row = inspector829(page).locator(`[data-editor-series-row="s${i}"]`)
+    await row.locator('[data-editor-series-label="en"]').fill(en)
+    await row.locator('[data-editor-series-label="ar"]').fill(ar)
+    await row.locator(`[data-editor-series-dimension="s${i}:0"]`).selectOption(dim)
+    await pick(page, `editor-series-values-s${i}-0`, [value])
+  }
+  check(`${tag}: two named series on the rate panel`, (await inspector829(page).locator('[data-editor-series-row]').count()) === 2)
+  const params = inspector829(page).locator('[data-designer-panel-param]')
+  check(`${tag}: the panel's parameter list holds the report's parameters`, (await params.count()) > 0, String(await params.count()))
+  const free = inspector829(page).locator('[data-designer-panel-param][data-bound="yes"]').first()
+  if ((await free.count()) === 1) {
+    const name = await free.getAttribute('data-designer-panel-param')
+    const row = inspector829(page).locator(`[data-designer-panel-param="${name}"]`)
+    await row.locator('[data-designer-panel-bind]').click()
+    check(`${tag}: … a chip unbinds the parameter from the panel`, (await row.getAttribute('data-bound')) === 'no', name)
+    await page.locator('[data-designer-undo]').click()
+    check(`${tag}: … one undo step`, (await row.getAttribute('data-bound')) === 'yes')
+  } else check(`${tag}: … a bound parameter to unbind`, false)
+
+  // 2. A text block with live figures.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-add-text="s1"]').click()
+  const en = page.locator('[data-designer-text-field="en"]')
+  await en.click()
+  await page.keyboard.type('HungerStation took ')
+  await page.locator('[data-designer-figure-into="en"]').click()
+  await page.locator('[data-designer-figure-panel]').selectOption('p2')
+  await page.locator('[data-designer-figure-value]').selectOption('hs')
+  await page.locator('[data-designer-figure-insert]').click()
+  check(`${tag}: "Insert a live figure" writes a chip`, (await enChips829(page)) === '{p2:hs}', await enChips829(page))
+  await en.click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type(' orders against QC’s ')
+  await page.locator('[data-designer-figure-value]').selectOption('qc')
+  await page.locator('[data-designer-figure-insert]').click()
+  check(`${tag}: … a second one where the caret was`, (await enChips829(page)) === '{p2:hs},{p2:qc}', await enChips829(page))
+  await page.locator('[data-designer-undo]').click()
+  check(`${tag}: an insert is one undo step`, (await enChips829(page)) === '{p2:hs}', await enChips829(page))
+  await page.locator('[data-designer-redo]').click()
+  await en.click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type('; {p1:total} in all.')
+  check(`${tag}: a token typed as words becomes a chip`, (await enChips829(page)) === '{p2:hs},{p2:qc},{p1:total}', await enChips829(page))
+  const pageText = await page.locator('[data-designer-text="t1"]').innerText()
+  const previewText = await page.locator('[data-designer-text-preview]').innerText()
+  const fieldText = await en.innerText()
+  const pageChips = await page.locator('[data-designer-text="t1"] [data-designer-figure-chip]').count()
+  check(
+    `${tag}: chips on the page, in the preview and in the field — never a raw token`,
+    ![pageText, previewText, fieldText].some((x) => /\{p\d+:/.test(x)) && pageChips === 3,
+    `${pageChips} | ${previewText}`,
+  )
+  check(`${tag}: each chip names its panel and figure`, noIsolates(await page.locator('[data-designer-text-preview-lang="en"] [data-designer-figure-chip="{p2:hs}"]').innerText()).includes('HungerStation'))
+  await page.screenshot({ path: `${SHOTS}/829-text-${dir}.png`, fullPage: false })
+
+  // 3. The summary: added once, removed, undone.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-add-summary="s1"]').click()
+  check(`${tag}: the summary block is added`, (await page.locator('[data-designer-block="sum"]').count()) === 1 && (await page.locator('[data-designer-summary-explain]').count()) === 1)
+  await page.locator('[data-designer-open-add="s1"]').click()
+  check(`${tag}: … at most one: a second is not offered`, (await page.locator('[data-designer-add-summary="s1"]').getAttribute('aria-disabled')) === 'true')
+  await page.locator('[data-designer-add-summary="s1"]').click({ force: true })
+  check(`${tag}: … and clicking it adds none`, (await page.locator('[data-designer-block^="sum"]').count()) === 1)
+  await page.locator('[data-designer-remove-block="sum"]').click()
+  check(`${tag}: the summary is removed`, (await page.locator('[data-designer-block="sum"]').count()) === 0)
+  await page.locator('[data-designer-notice-undo]').click()
+  check(`${tag}: … and Undo brings it back`, (await page.locator('[data-designer-block="sum"]').count()) === 1)
+
+  // 4. A figure naming a removed panel: a red chip, and Save lists it (411).
+  await page.locator('[data-designer-outline="block:p1"]').click()
+  await page.locator('[data-designer-remove-block="p1"]').click()
+  await page.locator('[data-designer-outline="block:t1"]').click()
+  check(`${tag}: a figure whose panel is gone is a red chip`, (await page.locator('[data-designer-text-field="en"] [data-figure-token="{p1:total}"][data-figure-ok="no"]').count()) === 1)
+  const posts = (bodies['Analytics/Item'] ?? []).length
+  await page.locator('[data-editor-save]').click()
+  await page.locator('[data-declaration-problem="figure"]').waitFor({ timeout: 5000 })
+  check(`${tag}: Save lists the figure that names a missing panel, and posts nothing`, (bodies['Analytics/Item'] ?? []).length === posts)
+  await page.locator('[data-designer-outline="block:p2"]').click()
+  await page.locator('[data-declaration-problem-go]').first().click()
+  check(`${tag}: … the problem takes the author to the text`, (await page.locator('[data-designer-text-editor="t1"]').count()) === 1)
+  await page.locator('[data-declaration-problems-close]').click()
+  await page.locator('[data-designer-undo]').click()
+  check(`${tag}: undone, the chip is whole again`, (await page.locator('[data-designer-text-field="en"] [data-figure-ok="no"]').count()) === 0)
+
+  // Save: the sample report's blocks as built.
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL(/\/analytics\/report\/r-new\/edit$/, { timeout: 10000 })
+  const made = (bodies['Analytics/Item'] ?? []).at(-1)
+  const blocks = made?.definition?.sections?.[0]?.blocks ?? []
+  const byId = Object.fromEntries(blocks.map((b) => [b.id, b]))
+  check(`${tag}: Save posts the blocks in order`, blocks.map((b) => b.id).join(',') === 'p1,p2,p3,t1,sum', blocks.map((b) => b.id).join(','))
+  check(
+    `${tag}: … the panel as edited`,
+    byId.p1?.definition?.chart?.type === 'bar' && byId.p1.definition.query.measures.join() === 'till_value' && byId.p1.definition.query.dimensions.join() === 'channel_group' && byId.p1.title?.en === 'Net sales by channel',
+    JSON.stringify(byId.p1?.definition),
+  )
+  check(`${tag}: … the copy with its provenance`, byId.p2?.from?.viewId === 'v-825' && byId.p2.from.revision === 3 && byId.p2.definition?.series?.length === 2, JSON.stringify(byId.p2?.from))
+  check(
+    `${tag}: … the rate panel with HungerStation and QC`,
+    byId.p3?.definition?.query?.measures?.join() === 'cancellation_rate' &&
+      JSON.stringify(byId.p3.definition.series?.map((x) => [x.label.en, x.filters])) ===
+        JSON.stringify([
+          ['HungerStation', [{ dimension: 'channel_group', values: ['hungerstation'] }]],
+          ['QC', [{ dimension: 'delivery_type', values: ['QC'] }]],
+        ]),
+    JSON.stringify(byId.p3?.definition?.series),
+  )
+  check(`${tag}: … the text with its tokens`, byId.t1?.text?.en === 'HungerStation took {p2:hs} orders against QC’s {p2:qc}; {p1:total} in all.', byId.t1?.text?.en)
+  check(`${tag}: … and one summary`, blocks.filter((b) => b.kind === 'summary').length === 1)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 829: the sample report's copied panel says the original has changed since the copy. */
+async function provenance829() {
+  const { context, page, errors } = await open({ height: 1500, access: AUTHOR, model: MODEL_827 })
+  await page.goto(`${BASE}/analytics/report/r-827/edit`)
+  await page.locator('[data-report-designer="r-827"]').waitFor({ timeout: 30000 })
+  await page.locator('[data-designer-outline="block:p2"]').click()
+  await page.locator('[data-designer-provenance="v-825"]').waitFor({ timeout: 10000 })
+  check('829: a copied panel says "the original has changed since you copied it"', (await page.locator('[data-designer-source-changed-note]').count()) === 1)
+  await page.locator('[data-designer-outline="block:t2"]').click()
+  const chips = await page.locator('[data-designer-text-field="en"] [data-figure-token]').evaluateAll((els) => els.map((e) => `${e.dataset.figureToken}:${e.dataset.figureOk}`).join(','))
+  check('829: the sample text’s four figures are chips, each a single value', chips === '{p2:hs}:yes,{p2:qc}:yes,{p3:hs}:yes,{p3:qc}:yes', chips)
+  check('829: the page shows the text as chips', (await page.locator('[data-designer-text="t2"] [data-designer-figure-chip]').count()) === 4)
+  check('829 provenance: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['829', () => designer829({ dir: 'ltr' })],
+  ['829', () => designer829({ dir: 'rtl' })],
+  ['829', provenance829],
   ['828', () => designer828({ dir: 'ltr' })],
   ['828', () => designer828({ dir: 'rtl' })],
   ['833', () => schedules833({ dir: 'ltr' })],

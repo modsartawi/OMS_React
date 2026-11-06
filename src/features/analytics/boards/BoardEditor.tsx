@@ -178,7 +178,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     setFocus(null)
   }
   const goTo = (p: DeclarationProblem) => {
-    if (p.what === 'series') return
+    if (p.what === 'series' || p.what === 'figure' || p.what === 'summary') return
     openParam(p.param)
     setFocus({ field: p.what === 'name' ? 'name' : p.what === 'binding' ? 'binding' : 'default', panel: p.what === 'binding' ? p.panel : undefined, at: Date.now() })
   }

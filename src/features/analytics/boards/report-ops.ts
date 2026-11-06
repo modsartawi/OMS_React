@@ -138,3 +138,25 @@ export function addBlock(def: AnalyticsReportDefinition, sectionId: string, bloc
   const decl = bindPanel({ params: placed.params, bindings: placed.bindings }, { id: block.id, definition: block.definition }, model)
   return { ...placed, bindings: decl.bindings }
 }
+
+/**
+ * One block changed in place (829's editors: a panel's definition or title, a text's words). An unchanged
+ * block (the same object, or the same JSON) is no change, so no history step.
+ */
+export function updateBlock(def: AnalyticsReportDefinition, blockId: string, f: (b: AnalyticsReportBlock) => AnalyticsReportBlock): AnalyticsReportDefinition {
+  const at = locateBlock(def, blockId)
+  if (!at) return def
+  let changed = false
+  const sections = def.sections.map((s) => {
+    if (s.id !== at.section) return s
+    const blocks = s.blocks.map((b) => {
+      if (b.id !== blockId) return b
+      const next = f(b)
+      if (next === b || next.id !== b.id || JSON.stringify(next) === JSON.stringify(b)) return b
+      changed = true
+      return next
+    })
+    return changed ? { ...s, blocks } : s
+  })
+  return changed ? withSections(def, sections) : def
+}

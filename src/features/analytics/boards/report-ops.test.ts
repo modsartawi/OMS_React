@@ -15,6 +15,7 @@ import {
   removeBlock,
   removeSection,
   renameSection,
+  updateBlock,
 } from './report-ops'
 
 const l = (en: string) => ({ en, ar: en })
@@ -184,5 +185,16 @@ describe('adding and removing (828)', () => {
     expect(d.bindings.city.p3).toBe('city')
     // No time axis on this panel: grain cannot bind.
     expect(d.bindings.grain?.p3).toBeUndefined()
+  })
+})
+
+describe('a block edited in place (829)', () => {
+  it('changes only that block; the same content is no change', () => {
+    const d = sample()
+    const next = updateBlock(d, 't1', (b) => (b.kind === 'text' ? { ...b, text: l('Now') } : b))
+    expect(next.sections[0].blocks[1]).toEqual({ id: 't1', kind: 'text', text: l('Now') })
+    expect(next.sections[1]).toBe(d.sections[1])
+    expect(updateBlock(d, 't1', (b) => ({ ...b }))).toBe(d)
+    expect(updateBlock(d, 'nope', (b) => b)).toBe(d)
   })
 })

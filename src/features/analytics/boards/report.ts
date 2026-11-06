@@ -1,6 +1,9 @@
-import type { AnalyticsReportBlock, AnalyticsReportDefinition, Param } from '@/core/models/analytics'
+import type { AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, Param } from '@/core/models/analytics'
+import { validate } from './bindings'
+import type { DeclarationProblem, FigureProblem } from './editor-refusal'
 import type { ViewPanel } from './effective-query'
-import { tokensIn } from './live-figures'
+import { figuresOf, tokensIn } from './live-figures'
+import { seriesProblems } from './series'
 import { valueOf, type ParamValues } from './params'
 
 /**
@@ -42,4 +45,41 @@ export function runValues(params: readonly Param[], values: ParamValues): ParamV
       return [p.name, v.kind === 'members' ? { kind: 'members', values: [...new Set(v.values)].sort() } : v]
     }),
   )
+}
+
+// ── The save checks (829): the server's `ANALYTICS-411` is the authority; these are its mirror ──────────────
+
+/**
+ * Each live figure that names a panel the report does not hold, or a value of one that is not single (801 §3:
+ * a KPI figure, a total, or a named series' figure — `figuresOf`). Both languages are checked; a token is
+ * listed once per block.
+ */
+export function figureProblems(def: AnalyticsReportDefinition, model: AnalyticsModel): FigureProblem[] {
+  const panels = new Map(reportPanels(def).map((p) => [p.id, p]))
+  const out: FigureProblem[] = []
+  for (const b of reportBlocks(def)) {
+    if (b.kind !== 'text') continue
+    const seen = new Set<string>()
+    for (const tok of tokensIn(`${b.text.en} ${b.text.ar}`)) {
+      if (seen.has(tok.token)) continue
+      seen.add(tok.token)
+      const panel = panels.get(tok.panel)
+      if (!panel) out.push({ what: 'figure', block: b.id, panel: tok.panel, figure: tok.figure, why: 'missingPanel' })
+      else if (!figuresOf(panel.definition, model).some((f) => f.figure === tok.figure)) out.push({ what: 'figure', block: b.id, panel: tok.panel, figure: tok.figure, why: 'notSingle' })
+    }
+  }
+  return out
+}
+
+/**
+ * Every problem a report's save would be refused for (`ANALYTICS-411`): its parameters' names, bindings and
+ * defaults (824), each panel's series (825), its live figures, and more than one summary block.
+ */
+export function validateReport(def: AnalyticsReportDefinition, model: AnalyticsModel): DeclarationProblem[] {
+  const panels = reportPanels(def)
+  const out: DeclarationProblem[] = [...validate(def.params, def.bindings, panels.map((p) => ({ id: p.id, definition: p.definition })), model)]
+  for (const p of panels) for (const s of seriesProblems(p.definition, model)) out.push({ what: 'series', panel: p.id, ...s })
+  out.push(...figureProblems(def, model))
+  if (reportBlocks(def).filter((b) => b.kind === 'summary').length > 1) out.push({ what: 'summary', why: 'tooMany' })
+  return out
 }

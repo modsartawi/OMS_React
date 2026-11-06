@@ -63,6 +63,52 @@ export interface PanelFigure {
 export function figuresOf(definition: AnalyticsViewDefinition, model: AnalyticsModel): PanelFigure[] {
   const series = seriesOf(definition)
   if (series.length > 0) return series.map((s) => ({ figure: s.id, series: s }))
+  // 829: a KPI (one figure, no breakdown) is a single value whatever its shape: the server computes it over the run.
+  if (definition.chart.type === 'kpi' && definition.query.dimensions.length === 0 && definition.query.measures.length > 0) return [{ figure: 'total', series: null }]
   const first = measureOf(model, definition.query.measures[0])
   return first?.shape === 'additive' ? [{ figure: 'total', series: null }] : []
+}
+
+// ── The designer's side (829): writing tokens, and the text ↔ chip round-trip ──────────────────────────────
+
+/** The token naming one figure of one panel: `{p2:hs}`. */
+export const figureToken = (panel: string, figure: string): string => `{${panel}:${figure}}`
+
+/** A text block's words as the designer shows them: its words, and each live figure as a chip — never a raw token. */
+export type ChipSegment = { kind: 'text'; text: string } | { kind: 'chip'; token: string; panel: string; figure: string }
+
+/** `text` split into its words and its figure chips. `chipsText` puts it back exactly. */
+export function chipSegments(text: string): ChipSegment[] {
+  const out: ChipSegment[] = []
+  let at = 0
+  for (const m of text.matchAll(FIGURE_TOKEN)) {
+    const index = m.index ?? 0
+    if (index > at) out.push({ kind: 'text', text: text.slice(at, index) })
+    out.push({ kind: 'chip', token: m[0], panel: m[1], figure: m[2] })
+    at = index + m[0].length
+  }
+  if (at < text.length) out.push({ kind: 'text', text: text.slice(at) })
+  return out
+}
+
+/** The text a run of words and chips holds: each chip is its token. */
+export const chipsText = (segments: readonly ChipSegment[]): string => segments.map((s) => (s.kind === 'text' ? s.text : s.token)).join('')
+
+/**
+ * A figure's token inserted at `at` (a character offset into `text`, clamped; the end when absent), with a
+ * space on either side where a word would touch it. Answers the new text and the offset just after the token.
+ */
+export function insertToken(text: string, token: string, at?: number): { text: string; caret: number } {
+  // Never inside another token: an offset within one moves to its end.
+  let place = Math.max(0, Math.min(at ?? text.length, text.length))
+  for (const m of text.matchAll(FIGURE_TOKEN)) {
+    const start = m.index ?? 0
+    if (place > start && place < start + m[0].length) place = start + m[0].length
+  }
+  const before = text.slice(0, place)
+  const after = text.slice(place)
+  const lead = before && !/\s$/.test(before) ? ' ' : ''
+  const trail = after && !/^[\s.,;:!?،؛]/.test(after) ? ' ' : ''
+  const next = `${before}${lead}${token}${trail}${after}`
+  return { text: next, caret: before.length + lead.length + token.length }
 }

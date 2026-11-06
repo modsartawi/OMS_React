@@ -18,7 +18,7 @@ import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
 import { NO_WAVE } from './board'
-import { addParam, blankParam, removeParam, validate, type Declarations } from './bindings'
+import { addParam, bind, blankParam, removeParam, type Declarations } from './bindings'
 import DeclarationProblems from './DeclarationProblems'
 import { historyReducer, startHistory, unsaved, type History } from './designer-history'
 import { declarationRefusal, type DeclarationProblem } from './editor-refusal'
@@ -28,10 +28,12 @@ import { editingItemOf, type EditingItem } from './item-save'
 import ParamInspector, { type InspectorFocus, type InspectorPanel } from './ParamInspector'
 import { defaultsOf, type ParamValues } from './params'
 import Refused from './Refused'
-import { reportPanels } from './report'
+import { blankPanelDefinition, copiedPanel, panelBlock } from './panel-edit'
+import { reportPanels, validateReport } from './report'
 import ReportDocument, { ReportBlock, type ReportWordsView } from './ReportDocument'
 import { AddBlock, BlockInspector, DropLine, Grip, MoveTools, Outline, SectionInspector, useNames, useReportDnd, type DesignerOps, type ReportDnd } from './ReportDesignerParts'
 import * as ops from './report-ops'
+import { DesignerText } from './ReportTextEditor'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
 import { analyticsRefusal, refusalWords } from './wire'
@@ -220,11 +222,20 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
       setSelected(`section:${id}`)
     },
     addBlock: (section, kind) => {
-      const id = kind === 'summary' ? 'sum' : ops.freshId(def, 't')
-      editDef((d) => ops.addBlock(d, section, kind === 'summary' ? { id, kind } : { id, kind, text: EMPTY }, model))
+      const id = kind === 'summary' ? 'sum' : ops.freshId(def, kind === 'panel' ? 'p' : 't')
+      const block = kind === 'summary' ? { id, kind } : kind === 'panel' ? panelBlock(id, blankPanelDefinition(model)) : { id, kind, text: EMPTY }
+      editDef((d) => ops.addBlock(d, section, block, model))
       setAdding(null)
       setSelected(`block:${id}`)
     },
+    copyView: (section, view) => {
+      const id = ops.freshId(def, 'p')
+      editDef((d) => ops.addBlock(d, section, copiedPanel(id, view), model))
+      setAdding(null)
+      setSelected(`block:${id}`)
+    },
+    updateBlock: (id, f, key = null) => editDef((d) => ops.updateBlock(d, id, f), key),
+    bind: (param, panel, target) => editDef((d) => ({ ...d, ...bind({ params: d.params, bindings: d.bindings }, param, panel, target) })),
     addParam: () => {
       const param = blankParam('members', def.params.map((p) => p.name), model)
       editDef((d) => {
@@ -261,7 +272,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   const { actions } = save
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
   const onSave = (how: SaveHow) => {
-    const found = validate(def.params, def.bindings, panels, model)
+    const found = validateReport(def, model)
     setProblems(found.length > 0 ? found : null)
     if (found.length === 0) save.save(how, { title: draft.title, subtitle: draft.subtitle, definition: def })
   }
@@ -279,7 +290,11 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
       .catch(() => toast.error(t('save.reloadFailed')))
   }
   const goTo = (p: DeclarationProblem) => {
-    if (p.what === 'series') return
+    if (p.what === 'summary') return
+    if (p.what === 'figure' || p.what === 'series') {
+      if (p.what === 'figure' || p.panel) designerOps.select(`block:${p.what === 'figure' ? p.block : p.panel}`)
+      return
+    }
     openParam(p.param)
     setFocus({ field: p.what === 'name' ? 'name' : p.what === 'binding' ? 'binding' : 'default', panel: p.what === 'binding' ? p.panel : undefined, at: Date.now() })
   }
@@ -411,12 +426,12 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
                 </div>
                 {s.blocks.map((b, bi) => (
                   <BlockFrame key={b.id} dnd={dnd} section={s.id} index={bi} selected={selected === `block:${b.id}`} name={names.block(b)} id={b.id} ops={designerOps}>
-                    <ReportBlock block={b} role="author" {...run} />
+                    {b.kind === 'text' ? <DesignerText block={b} def={def} model={model} lang={lang} /> : <ReportBlock block={b} role="author" {...run} />}
                   </BlockFrame>
                 ))}
                 <DropLine show={dnd.lineAtBlock(s.id, s.blocks.length)} />
                 {adding === s.id ? (
-                  <AddBlock def={def} section={s.id} ops={designerOps} onClose={() => setAdding(null)} />
+                  <AddBlock def={def} section={s.id} ops={designerOps} model={model} lang={lang} onClose={() => setAdding(null)} />
                 ) : (
                   <div>
                     <Button variant="text" onClick={() => setAdding(s.id)} data-designer-open-add={s.id}>
@@ -475,10 +490,12 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
                 def={def}
                 id={selected.slice('section:'.length)}
                 ops={designerOps}
+                model={model}
+                lang={lang}
                 onHeading={(heading, which) => editDef((d) => ops.renameSection(d, selected.slice('section:'.length), heading), `${selected}:${which}`)}
               />
             ) : selectedBlock ? (
-              <BlockInspector block={selectedBlock} name={names.block(selectedBlock)} ops={designerOps} />
+              <BlockInspector block={selectedBlock} name={names.block(selectedBlock)} ops={designerOps} def={def} model={model} lang={lang} />
             ) : (
               <p className="text-sm text-muted-foreground">{t('designer.inspector.empty')}</p>
             )}

@@ -809,7 +809,12 @@
         "tooMany": "A view has more than 4 series.",
         "duplicate": "Two series share the name of {{series}}.",
         "foreignDimension": "The series {{series}} filters on {{dimension}}, which isn't one of the view's own."
-      }
+      },
+      "figure": {
+        "missingPanel": "A live figure names panel {{panel}}, which is no longer on the report.",
+        "notSingle": "A live figure names a value of {{panel}} that is not a single one."
+      },
+      "summary": "A report holds one summary block at most."
     }
   },
   "schedule": {
@@ -1004,7 +1009,8 @@
       "summaryOne": "A report holds one summary.",
       "toSection": "Add to this section",
       "section": "Add a section",
-      "close": "Close"
+      "close": "Close",
+      "panel": "Chart or table"
     },
     "tools": {
       "edit": "Edit {{what}}",
@@ -1026,6 +1032,49 @@
         "text": "Text block removed.",
         "summary": "AI summary removed."
       }
+    },
+    "copyView": {
+      "label": "Copy a saved view",
+      "pick": "Pick a view…",
+      "loading": "Loading the views…",
+      "loadFailed": "The views could not be loaded",
+      "copy": "Copy",
+      "copying": "Copying…",
+      "failed": "The view could not be copied"
+    },
+    "panel": {
+      "titleEn": "Title (English)",
+      "titleAr": "Title (Arabic)",
+      "titleHint": "Empty: named from what it shows.",
+      "area": "Area",
+      "areaPick": "Pick an area…",
+      "from": "Copied from the view {{view}}, revision {{revision}}. The copy is this report’s own: edits to the original never change it.",
+      "fromChanged": "The original has changed since you copied it.",
+      "fromGone": "The original is no longer in the store.",
+      "params": "Parameters on this panel",
+      "noParams": "The report declares no parameters yet."
+    },
+    "text": {
+      "wordsEn": "Words (English)",
+      "wordsAr": "Words (Arabic)",
+      "insert": "Insert a live figure",
+      "panel": "Panel",
+      "figure": "Figure",
+      "into": "Into",
+      "intoEn": "English",
+      "intoAr": "Arabic",
+      "insertButton": "Insert",
+      "noFigures": "No panel on this report offers a single value yet: add a KPI, a total or named series.",
+      "hint": "A live figure is filled in from each run’s own results, so it is never stale. A figure whose panel is removed is refused at save.",
+      "preview": "Preview",
+      "empty": "Empty text: write it in the inspector.",
+      "total": "Total",
+      "missingPanel": "Panel {{panel}} is not on the report",
+      "notSingle": "{{panel}}: not a single value"
+    },
+    "summary": {
+      "explain": "One per report. You don’t write it; you decide where it sits.",
+      "design": "Rewritten on every run, from this report’s figures only, under your name. Runners only see the result."
     }
   }
 }

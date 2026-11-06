@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { figuresOf, fillTokens, tokensIn } from './live-figures'
+import { chipSegments, chipsText, figureToken, figuresOf, fillTokens, insertToken, tokensIn } from './live-figures'
 
 const label = (en: string) => ({ en, ar: en })
 const model: AnalyticsModel = {
@@ -81,5 +81,37 @@ describe('figuresOf', () => {
 
   it('offers no single value for a rate without series (a rate has no total)', () => {
     expect(figuresOf(def(['cancellation_rate']), model)).toEqual([])
+  })
+})
+
+describe('the designer’s tokens (829)', () => {
+  it('a KPI offers its one figure whatever its shape', () => {
+    const kpi: AnalyticsViewDefinition = { chart: { type: 'kpi' }, query: { measures: ['cancellation_rate'], dimensions: [], filters: [] } }
+    expect(figuresOf(kpi, model)).toEqual([{ figure: 'total', series: null }])
+  })
+
+  it('inserting a chip writes its token, spaced from the words around it', () => {
+    const token = figureToken('p2', 'hs')
+    expect(token).toBe('{p2:hs}')
+    expect(insertToken('HungerStation took orders', token, 18)).toEqual({ text: 'HungerStation took {p2:hs} orders', caret: 26 })
+    expect(insertToken('', token)).toEqual({ text: '{p2:hs}', caret: 7 })
+    expect(insertToken('Took ', token).text).toBe('Took {p2:hs}')
+    expect(insertToken('Took', token, 4).text).toBe('Took {p2:hs}')
+    expect(insertToken('Took.', token, 4).text).toBe('Took {p2:hs}.')
+  })
+
+  it('never inserts inside another token', () => {
+    expect(insertToken('{p1:total} sold', '{p2:hs}', 3).text).toBe('{p1:total} {p2:hs} sold')
+  })
+
+  it('the text ↔ chip round-trip is exact', () => {
+    const text = 'HungerStation took {p2:hs} against {p2:qc}.\n{p1:total} in all'
+    const segs = chipSegments(text)
+    expect(segs.map((s) => s.kind)).toEqual(['text', 'chip', 'text', 'chip', 'text', 'chip', 'text'])
+    expect(segs[1]).toEqual({ kind: 'chip', token: '{p2:hs}', panel: 'p2', figure: 'hs' })
+    expect(chipsText(segs)).toBe(text)
+    expect(chipsText(chipSegments(''))).toBe('')
+    // A brace that is no token stays words.
+    expect(chipSegments('{not a token}')).toEqual([{ kind: 'text', text: '{not a token}' }])
   })
 })

@@ -1,14 +1,18 @@
 import { useCallback, useState, type DragEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, BarChart3, GripVertical, LayoutList, Plus, Settings2, Sparkles, Trash2, Type } from 'lucide-react'
-import type { AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import { fsi } from '@/core/util/bidi'
+import type { PanelBlock } from './panel-edit'
 import { paramLabel } from './params'
+import ReportCopyView from './ReportCopyView'
+import ReportPanelEditor from './ReportPanelEditor'
+import ReportTextEditor from './ReportTextEditor'
 import { dropIndex, dropSide, hasSummary } from './report-ops'
 import { generatedTitle } from './title'
 
@@ -172,7 +176,13 @@ export interface DesignerOps {
   removeSection: (id: string) => void
   removeBlock: (id: string) => void
   addSection: () => void
-  addBlock: (section: string, kind: 'text' | 'summary') => void
+  addBlock: (section: string, kind: 'panel' | 'text' | 'summary') => void
+  /** 829: a saved view copied into a section, its provenance recorded. */
+  copyView: (section: string, view: AnalyticsItem) => void
+  /** 829: a block changed in place; `key` makes typing in one field one step. */
+  updateBlock: (id: string, f: (b: AnalyticsReportBlock) => AnalyticsReportBlock, key?: string | null) => void
+  /** 829: a parameter bound to a panel (`true` or a dimension), or unbound (`null`). */
+  bind: (param: string, panel: string, target: string | true | null) => void
   addParam: () => void
 }
 
@@ -263,33 +273,54 @@ function BlockIcon({ block }: { block: AnalyticsReportBlock }) {
 }
 
 /**
- * "Add to this section": a text block, or the AI summary (one per report). ⚠ A chart or table, and a copied saved
- * view, are the panel editor's (829).
+ * "Add to this section": a chart or table, a text block, the AI summary (one per report: a second is not
+ * offered), or a copy of a saved view (829).
  */
-export function AddBlock({ def, section, ops, onClose }: { def: AnalyticsReportDefinition; section: string; ops: DesignerOps; onClose?: () => void }) {
+export function AddBlock({
+  def,
+  section,
+  ops,
+  model,
+  lang,
+  onClose,
+}: {
+  def: AnalyticsReportDefinition
+  section: string
+  ops: DesignerOps
+  model: AnalyticsModel
+  lang: string
+  onClose?: () => void
+}) {
   const { t } = useTranslation('boards')
   const one = hasSummary(def)
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border p-2" data-designer-add-block={section}>
-      <Button variant="outlined" onClick={() => ops.addBlock(section, 'text')} data-designer-add-text={section}>
-        <Type className="size-3.5" aria-hidden />
-        {t('designer.add.text')}
-      </Button>
-      <Button
-        variant="outlined"
-        aria-disabled={one || undefined}
-        title={one ? t('designer.add.summaryOne') : undefined}
-        onClick={() => !one && ops.addBlock(section, 'summary')}
-        data-designer-add-summary={section}
-      >
-        <Sparkles className="size-3.5" aria-hidden />
-        {t('designer.add.summary')}
-      </Button>
-      {onClose && (
-        <Button variant="text" className="ms-auto" onClick={onClose}>
-          {t('designer.add.close')}
+    <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2" data-designer-add-block={section}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outlined" onClick={() => ops.addBlock(section, 'panel')} data-designer-add-panel={section}>
+          <BarChart3 className="size-3.5" aria-hidden />
+          {t('designer.add.panel')}
         </Button>
-      )}
+        <Button variant="outlined" onClick={() => ops.addBlock(section, 'text')} data-designer-add-text={section}>
+          <Type className="size-3.5" aria-hidden />
+          {t('designer.add.text')}
+        </Button>
+        <Button
+          variant="outlined"
+          aria-disabled={one || undefined}
+          title={one ? t('designer.add.summaryOne') : undefined}
+          onClick={() => !one && ops.addBlock(section, 'summary')}
+          data-designer-add-summary={section}
+        >
+          <Sparkles className="size-3.5" aria-hidden />
+          {t('designer.add.summary')}
+        </Button>
+        {onClose && (
+          <Button variant="text" className="ms-auto" onClick={onClose}>
+            {t('designer.add.close')}
+          </Button>
+        )}
+      </div>
+      <ReportCopyView model={model} lang={lang} section={section} onCopy={(view) => ops.copyView(section, view)} />
     </div>
   )
 }
@@ -299,11 +330,15 @@ export function SectionInspector({
   def,
   id,
   ops,
+  model,
+  lang,
   onHeading,
 }: {
   def: AnalyticsReportDefinition
   id: string
   ops: DesignerOps
+  model: AnalyticsModel
+  lang: string
   onHeading: (heading: AnalyticsLabel, lang: 'en' | 'ar') => void
 }) {
   const { t } = useTranslation('boards')
@@ -318,7 +353,7 @@ export function SectionInspector({
       <Field label={t('designer.section.headingAr')}>
         <Input value={s.heading.ar} dir="rtl" onChange={(e) => onHeading({ ...s.heading, ar: e.target.value }, 'ar')} data-designer-heading="ar" />
       </Field>
-      <AddBlock def={def} section={id} ops={ops} />
+      <AddBlock def={def} section={id} ops={ops} model={model} lang={lang} />
       <div>
         <Button variant="danger-outlined" onClick={() => ops.removeSection(id)} data-designer-remove-section={id}>
           <Trash2 className="size-3.5" aria-hidden />
@@ -330,16 +365,52 @@ export function SectionInspector({
   )
 }
 
-/** A block in the inspector: what it is, and removing it (no confirm: Undo). ⚠ Its editors are 829's. */
-export function BlockInspector({ block, name, ops }: { block: AnalyticsReportBlock; name: string; ops: DesignerOps }) {
+/**
+ * A block in the inspector (829): its editor — the panel editor, the text editor, or what the summary is — and
+ * removing it (no confirm: Undo).
+ */
+export function BlockInspector({
+  block,
+  name,
+  ops,
+  def,
+  model,
+  lang,
+}: {
+  block: AnalyticsReportBlock
+  name: string
+  ops: DesignerOps
+  def: AnalyticsReportDefinition
+  model: AnalyticsModel
+  lang: string
+}) {
   const { t } = useTranslation('boards')
   return (
     <div className="flex flex-col gap-3" data-designer-block-inspector={block.id}>
-      <h2 className="text-base font-semibold">{t(`designer.inspector.${block.kind}`)}</h2>
-      {block.kind === 'panel' && (
-        <p className="text-sm">
-          <bdi>{name}</bdi>
-        </p>
+      <h2 className="text-base font-semibold">
+        {t(`designer.inspector.${block.kind}`)}
+        {block.kind === 'panel' && (
+          <span className="ms-2 text-sm font-normal text-muted-foreground">
+            <bdi>{name}</bdi>
+          </span>
+        )}
+      </h2>
+      {block.kind === 'panel' ? (
+        <ReportPanelEditor
+          block={block}
+          def={def}
+          model={model}
+          lang={lang}
+          onBlock={(f, key) => ops.updateBlock(block.id, (b) => (b.kind === 'panel' ? f(b as PanelBlock) : b), key)}
+          onBind={(param, target) => ops.bind(param, block.id, target)}
+        />
+      ) : block.kind === 'text' ? (
+        <ReportTextEditor block={block} def={def} model={model} lang={lang} onText={(text, key) => ops.updateBlock(block.id, (b) => (b.kind === 'text' ? { ...b, text } : b), key)} />
+      ) : (
+        <div className="flex flex-col gap-1 text-sm" data-designer-summary-explain>
+          <p>{t('designer.summary.explain')}</p>
+          <p className="text-xs text-muted-foreground">{t('designer.summary.design')}</p>
+        </div>
       )}
       <div>
         <Button variant="danger-outlined" onClick={() => ops.removeBlock(block.id)} data-designer-remove-block={block.id}>

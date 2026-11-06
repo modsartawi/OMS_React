@@ -33,6 +33,9 @@ export default function DeclarationProblems({
     const p = paramOf(name)
     return p ? paramLabel(p, lang, t) : name
   }
+  /** A problem with a field to go to: its parameter (still on the item), or (829) its text block or the report panel of a series. */
+  const goable = (p: DeclarationProblem) =>
+    p.what === 'figure' || (p.what === 'series' ? !!p.panel : p.what !== 'summary' && !!paramOf(p.param))
   const words = (p: DeclarationProblem): string => {
     switch (p.what) {
       case 'name':
@@ -47,6 +50,12 @@ export default function DeclarationProblems({
           : p.why === 'duplicate'
             ? t('params.problems.series.duplicate', { series: fsi(p.series) })
             : t('params.problems.series.foreignDimension', { series: fsi(p.series), dimension: fsi(p.dimension) })
+      case 'figure':
+        return p.why === 'missingPanel'
+          ? t('params.problems.figure.missingPanel', { panel: fsi(p.panel) })
+          : t('params.problems.figure.notSingle', { panel: fsi(panelTitle(p.panel)) })
+      case 'summary':
+        return t('params.problems.summary')
     }
   }
   return (
@@ -62,7 +71,7 @@ export default function DeclarationProblems({
       <ul className="mt-1 flex list-disc flex-col gap-0.5 ps-5">
         {problems.map((p, i) => (
           <li key={i} data-declaration-problem={p.what}>
-            {p.what !== 'series' && paramOf(p.param) ? (
+            {goable(p) ? (
               <Button variant="link" onClick={() => onGo(p)} className="text-start" data-declaration-problem-go={i}>
                 {words(p)}
               </Button>

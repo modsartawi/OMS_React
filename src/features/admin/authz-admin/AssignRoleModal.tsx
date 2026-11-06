@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
-import Ltr from '@/core/ui/Ltr'
+import BatchSummary from '@/core/ui/BatchSummary'
+import { useBatchRun } from '@/core/ui/use-batch-run'
 import { fsi } from '@/core/util/bidi'
-import { refusedItems, runBatch, type BatchResult } from '@/core/util/batch-runner'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 import { inScope, isFullScope, roleKind } from './helpers'
@@ -46,15 +45,18 @@ export default function AssignRoleModal({
   const { t } = useTranslation('authz-admin')
   const [query, setQuery] = useState('')
   const [picks, setPicks] = useState<string[]>([])
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null)
-  const [result, setResult] = useState<BatchResult<string> | null>(null)
+  // Assigned roles leave the picks (and, after the re-read, the list); refused ones stay ticked.
+  const batch = useBatchRun<string>({
+    open,
+    write: (role) => authzAdminApi.assignRole(employeeId, role),
+    onPicks: setPicks,
+    onDone: onAssigned,
+  })
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setPicks([])
-      setProgress(null)
-      setResult(null)
     }
   }, [open])
 
@@ -62,25 +64,24 @@ export default function AssignRoleModal({
 
   // Full scope → the whole catalog; a delegated list → only those catalog rows. Held roles are
   // dropped by the picker's `exclude`, so a role assigned in this batch leaves the list on re-read.
+  // A role's kind is its tag: a protected system role in the attention colour, a composite in primary.
   const choices = useMemo<ChecklistOption[]>(() => {
     const rows = isFullScope(assignable) ? catalog : catalog.filter((r) => inScope(r.roleName, assignable))
     return rows.map((r) => {
       const kind = roleKind(r)
-      return {
+      const option: ChecklistOption = {
         value: r.roleName,
         label: r.roleName,
         description: r.description || undefined,
         machine: true,
-        tag: kind === 'single' ? undefined : t(`kind.${kind}`),
       }
+      if (kind !== 'single') {
+        option.tag = t(`kind.${kind}`)
+        option.tagTone = kind === 'system' ? 'attention' : 'primary'
+      }
+      return option
     })
   }, [catalog, assignable, t])
-
-  const refusals = useMemo(() => {
-    const m = new Map<string, unknown>()
-    for (const o of result?.outcomes ?? []) if (o.status === 'refused') m.set(o.item, o.error)
-    return m
-  }, [result])
 
   const labels: ChecklistPickerLabels = {
     list: t('assign.list'),
@@ -92,31 +93,13 @@ export default function AssignRoleModal({
     noMatch: t('assign.noMatch'),
   }
 
-  const running = progress !== null
-
-  async function assign() {
-    if (picks.length === 0 || running) return
-    setResult(null)
-    setProgress({ completed: 0, total: picks.length })
-    const outcome = await runBatch(
-      picks,
-      (role) => authzAdminApi.assignRole(employeeId, role),
-      (p) => setProgress({ completed: p.completed, total: p.total }),
-    )
-    setProgress(null)
-    // An expired session is handle401's: it is already redirecting to the login.
-    if (outcome.stopped) return
-    setResult(outcome)
-    // Assigned roles leave the picks (and, after the re-read, the list); refused ones stay ticked.
-    setPicks(refusedItems(outcome))
-    if (outcome.done > 0) await onAssigned()
-  }
-
+  const { progress, running, result } = batch
   const count = picks.length
   return (
     <Modal
       open={open}
       onClose={onClose}
+      dismissable={!running}
       title={t('assign.title')}
       width="36rem"
       footer={
@@ -124,8 +107,13 @@ export default function AssignRoleModal({
           <Button variant="text" onClick={onClose} disabled={running}>
             {t('common.done')}
           </Button>
-          <Button variant="primary" onClick={assign} disabled={count === 0 || running} data-testid="assign-role-submit">
-            {running
+          <Button
+            variant="primary"
+            onClick={() => void batch.run(picks)}
+            disabled={count === 0 || running}
+            data-testid="assign-role-submit"
+          >
+            {progress
               ? t('assign.assigning', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
               : t('assign.assignN', { count, n: fsi(String(count)) })}
           </Button>
@@ -135,33 +123,17 @@ export default function AssignRoleModal({
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">{t('assign.body')}</p>
         {result && (
-          <div
-            role="status"
-            className={
-              'rounded-lg border p-2.5 text-xs ' +
-              (result.refused > 0 ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 bg-muted/40')
+          <BatchSummary
+            result={result}
+            summary={(done, refused) =>
+              t('assign.summary', {
+                assigned: t('assign.summaryAssigned', { count: done, n: fsi(String(done)) }),
+                refused: t('assign.summaryRefused', { count: refused, n: fsi(String(refused)) }),
+              })
             }
+            refusal={{ fallback: t('toast.failed'), denied: t('common.denied') }}
             data-testid="assign-role-summary"
-          >
-            <p className="font-semibold">
-              {t('assign.summary', {
-                assigned: t('assign.summaryAssigned', { count: result.done, n: fsi(String(result.done)) }),
-                refused: t('assign.summaryRefused', { count: result.refused, n: fsi(String(result.refused)) }),
-              })}
-            </p>
-            {result.refused > 0 && (
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {[...refusals].map(([role, err]) => (
-                  <li key={role} className="flex flex-wrap gap-x-2" data-refused={role}>
-                    <span className="font-semibold">
-                      <Ltr>{role}</Ltr>
-                    </span>
-                    <bdi>{apiErrorMessage(err, t('toast.failed'))}</bdi>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          />
         )}
         <ChecklistPicker
           options={choices}

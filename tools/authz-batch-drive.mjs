@@ -29,6 +29,14 @@
 //   lookup per distinct non-holder ID; 2 chips with names (the prefix picks only its exact match), 1
 //   reported "already holds", 1 listed back as not found; Assign to 2 assigns both.
 //
+// Review fixes (spec 805 review):
+//   - Assign roles: a protected system role's kind tag is in the attention tone, a composite's in primary;
+//   - Add holders opens only once the holders are read (disabled while the read is pending);
+//   - a term the debounce has not caught up with reads "Searching…", never a "no match" flash;
+//   - Escape and a backdrop click do not close the dialog while a batch or a paste's lookups run;
+//   - a paste: `ab12`/`AB12` look up once and pick once; a capped search with no exact row is listed as
+//     "too many matches", not "not found"; the progress never reads "0 of 0".
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/authz-batch-drive.mjs          (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
@@ -325,7 +333,9 @@ async function driveAssign(browser, dir, assignableRoles) {
       return route.fulfill(
         envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles, revocableRoles: assignableRoles }),
       )
-    if (path === 'AuthzAdminWeb/Roles') return route.fulfill(envelope(CATALOG))
+    // PHARM_COMPOSITE is served protected: its kind tag reads "system" in the attention tone.
+    if (path === 'AuthzAdminWeb/Roles')
+      return route.fulfill(envelope(CATALOG.map((r) => (r.roleName === 'PHARM_COMPOSITE' ? { ...r, isProtected: true } : r))))
     if (path === 'AuthzAdminWeb/Employees')
       return route.fulfill(envelope({ rows: [PERSON], totalMatches: 1, rowCap: 50, isCapped: false }))
     if (path === `AuthzAdminWeb/Users/${PERSON.employeeId}/Roles`) return route.fulfill(envelope([...held]))
@@ -370,6 +380,10 @@ async function driveAssign(browser, dir, assignableRoles) {
     JSON.stringify(offered) === JSON.stringify(['TEAM_PHARM', 'PHARM_COMPOSITE', 'PHARM_LEAD', 'PHARM_TECH', 'DISPENSER', 'PHARM_OLD']), offered.join(','))
   check(`${tag} a composite row is tagged with its kind`,
     plain(await dialog.locator('[data-checklist-row="TEAM_PHARM"]').textContent()).includes('composite'))
+  check(`${tag} a composite's tag is in the primary tone`,
+    (await dialog.locator('[data-checklist-row="TEAM_PHARM"] [data-tag-tone="primary"]').count()) === 1)
+  check(`${tag} a protected system role's tag is in the attention tone`,
+    (await dialog.locator('[data-checklist-row="PHARM_COMPOSITE"] [data-tag-tone="attention"]').count()) === 1)
 
   // search + tick across three searches; picks survive each new term
   const search = dialog.locator('[data-checklist-search]')
@@ -423,11 +437,16 @@ const PEOPLE = {
   // Paste IDs (808): the search is a contains-match, so `4012` also brings back `40123`.
   4012: [person('40123', 'Huda Saleh'), person('4012', 'Sara Nabil')],
   40123: [person('40123', 'Huda Saleh')],
+  // The search is case-insensitive: `ab12` and `AB12` both find this one person.
+  ab12: [person('AB12', 'Lina Haddad')],
 }
+const pause = (ms) => new Promise((r) => setTimeout(r, ms))
 const CAPPED = Array.from({ length: 50 }, (_, i) => person(String(30000 + i), `Person ${i}`))
 
 async function driveHolders(browser, dir, assignableRoles) {
   let holders = [{ userId: '10003', displayName: 'Ahmed Omar', isActive: true }]
+  let holdersReads = 0
+  let slow = false // lookups and assigns take a moment, so a running batch can be poked at
   const assigns = []
   const lookups = []
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
@@ -447,6 +466,7 @@ async function driveHolders(browser, dir, assignableRoles) {
     if (path === 'AuthzAdminWeb/Employees') {
       const term = (url.searchParams.get('term') || '').toLowerCase()
       lookups.push(term)
+      if (slow) await pause(250)
       if (term === 'person') return route.fulfill(envelope({ rows: CAPPED, totalMatches: 120, rowCap: 50, isCapped: true }))
       const rows = PEOPLE[term] ?? []
       return route.fulfill(envelope({ rows, totalMatches: rows.length, rowCap: 50, isCapped: false }))
@@ -454,6 +474,7 @@ async function driveHolders(browser, dir, assignableRoles) {
     if (path === 'AuthzAdminWeb/Users/AssignRole') {
       const body = JSON.parse(req.postData() || '{}')
       assigns.push(`${body.userId}+${body.roleName}`)
+      if (slow) await pause(250)
       if (body.userId === '10002') return route.fulfill(refusal(403, HOLDER_REFUSAL))
       const p = Object.values(PEOPLE).flat().find((x) => x.employeeId === body.userId)
       if (!holders.some((h) => h.userId === body.userId))
@@ -461,7 +482,11 @@ async function driveHolders(browser, dir, assignableRoles) {
       return route.fulfill(envelope({ success: true }))
     }
     const held = /^AuthzAdminWeb\/Roles\/([^/]+)\/Holders$/.exec(path)
-    if (held) return route.fulfill(envelope(held[1] === HELD_ROLE ? holders : []))
+    if (held) {
+      // The first read of the role's holders is slow: Add holders waits for it.
+      if (held[1] === HELD_ROLE && holdersReads++ === 0) await pause(800)
+      return route.fulfill(envelope(held[1] === HELD_ROLE ? holders : []))
+    }
     const role = /^AuthzAdminWeb\/Roles\/([^/]+)$/.exec(path)
     if (role) {
       const r = CATALOG.find((x) => x.roleName === role[1])
@@ -488,7 +513,14 @@ async function driveHolders(browser, dir, assignableRoles) {
   await page.click('[data-authz-workspace="roles"]')
   await page.locator('button', { hasText: HELD_ROLE }).first().click()
   await page.getByRole('tab', { name: 'Held by' }).click()
+  if (!scoped) {
+    const open = page.getByTestId('add-holders-open')
+    await open.waitFor({ timeout: 10000 })
+    check(`${tag} Add holders is disabled while the holders are read`, await open.isDisabled())
+  }
   await page.locator('main', { hasText: 'Ahmed Omar' }).waitFor({ timeout: 10000 })
+  if (!scoped)
+    check(`${tag} Add holders is enabled once the holders are read`, !(await page.getByTestId('add-holders-open').isDisabled()))
 
   if (scoped) {
     check(`${tag} Add holders is absent for a role outside the delegated scope`, (await page.getByTestId('add-holders-open').count()) === 0)
@@ -536,6 +568,14 @@ async function driveHolders(browser, dir, assignableRoles) {
   check(`${tag} a chip off the current page keeps its name`,
     plain(await dialog.locator('[data-chip="10001"]').textContent()).includes('Ahmed Ali'))
 
+  // a term the debounce has not caught up with is searching, never "no match"
+  const status = dialog.locator('[data-checklist-status]')
+  await search.fill('zzz')
+  const early = plain(await status.textContent().catch(() => ''))
+  check(`${tag} a fresh term reads "Searching…", not a no-match flash`, early === 'Searching…', early)
+  await dialog.locator('[data-checklist-status]', { hasText: 'No person matches' }).waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${tag} once searched, a term with no people says so`, plain(await status.textContent()) === 'No person matches this search.')
+
   // the cap note
   await search.fill('person')
   await waitRows('30000')
@@ -547,9 +587,16 @@ async function driveHolders(browser, dir, assignableRoles) {
   // Assign to 3, one refused
   const submit = page.getByTestId('add-holders-submit')
   check(`${tag} the footer reads Assign to 3`, plain(await submit.textContent()) === 'Assign to 3', plain(await submit.textContent()))
+  slow = true
   await submit.click()
+  await page.waitForTimeout(100)
+  await page.keyboard.press('Escape')
+  await page.mouse.click(4, 4) // the backdrop
+  check(`${tag} Escape and a backdrop click do not close the dialog mid-batch`,
+    (await dialog.count()) === 1 && /^Assigning \d of 3/.test(plain(await submit.textContent())), plain(await submit.textContent()))
   const summary = page.getByTestId('add-holders-summary')
   await summary.waitFor({ timeout: 10000 })
+  slow = false
   await page.waitForTimeout(400) // the re-read lands
   check(`${tag} one AssignRole per person, in pick order, past the refusal`,
     JSON.stringify(assigns) === JSON.stringify([`10001+${HELD_ROLE}`, `10002+${HELD_ROLE}`, `20001+${HELD_ROLE}`]), assigns.join(','))
@@ -569,47 +616,59 @@ async function driveHolders(browser, dir, assignableRoles) {
   check(`${tag} the Held by list shows the two new holders`, held.includes('Ahmed Ali') && held.includes('Khalid Nasser') && !held.includes('Ahmed Saleh'))
   check(`${tag} the holder count reads 3`, held.includes('3 holders'))
 
-  // ── 808: Paste IDs ── 4012 is a prefix of 40123, 4012 is repeated, 10001 now holds, 55555 is nobody.
+  // ── 808: Paste IDs ── 4012 is a prefix of 40123, 4012 is repeated, 10001 now holds, 55555 is nobody,
+  //    ab12/AB12 are one person in two cases, `person` brings a capped page without an exact row.
   await page.getByTestId('add-holders-open').click()
   await search.waitFor({ timeout: 10000 })
   await page.getByTestId('add-holders-paste-open').click()
   const box = page.getByTestId('holders-paste-box')
   await box.waitFor({ timeout: 10000 })
-  await box.fill('4012\n40123, 4012\t10001 55555')
+  await box.fill('4012\n40123, 4012\t10001 55555 ab12 AB12 person')
   const meter = (await page.getByTestId('holders-paste-meter').locator('span').allTextContents()).map(plain)
   check(`${tag} paste: the meter counts 4 to look up, 1 repeat skipped`,
-    JSON.stringify(meter) === JSON.stringify(['4 IDs to look up', '1 repeated or already picked']), meter.join(' | '))
+    JSON.stringify(meter) === JSON.stringify(['7 IDs to look up', '1 repeated or already picked']), meter.join(' | '))
   lookups.length = 0
   assigns.length = 0
+  slow = true
   await page.getByTestId('holders-paste-ok').click()
+  const resolvingText = plain(await page.getByTestId('add-holders-paste-open').textContent())
+  check(`${tag} paste: the progress counts the IDs from the start, never 0 of 0`, /^Looking up \d of [1-9]/.test(resolvingText), resolvingText)
+  await page.keyboard.press('Escape')
+  await page.mouse.click(4, 4)
+  check(`${tag} paste: Escape and a backdrop click do not close the dialog mid-lookup`, (await dialog.count()) === 1)
   const report = page.getByTestId('add-holders-paste-report')
   await report.waitFor({ timeout: 10000 })
-  check(`${tag} paste: one Employees lookup per distinct ID that does not hold the role`,
-    JSON.stringify(lookups) === JSON.stringify(['4012', '40123', '55555']), lookups.join(','))
+  slow = false
+  check(`${tag} paste: one Employees lookup per distinct ID (case-insensitive) that does not hold the role`,
+    JSON.stringify(lookups) === JSON.stringify(['4012', '40123', '55555', 'ab12', 'person']), lookups.join(','))
   const pasteChips = await dialog.locator('[data-checklist-chips] [data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip')))
-  check(`${tag} paste: 2 chips, the prefix matched exactly`, JSON.stringify(pasteChips) === JSON.stringify(['4012', '40123']), pasteChips.join(','))
+  check(`${tag} paste: 3 chips, the prefix matched exactly, ab12/AB12 picked once`,
+    JSON.stringify(pasteChips) === JSON.stringify(['4012', '40123', 'AB12']), pasteChips.join(','))
   check(`${tag} paste: each chip carries the person's name`,
     plain(await dialog.locator('[data-chip="4012"]').textContent()).includes('Sara Nabil') &&
     plain(await dialog.locator('[data-chip="40123"]').textContent()).includes('Huda Saleh'))
   check(`${tag} paste: the chip's ID · name is isolated LTR`,
     (await dialog.locator('[data-chip="4012"] bdi[dir="ltr"]', { hasText: '4012 · Sara Nabil' }).count()) === 1)
   const outcomeIds = (kind) => report.locator(`[data-paste="${kind}"] [data-paste-id]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-paste-id')))
-  check(`${tag} paste: the report says 2 added to the picks`, plain(await report.locator('[data-paste="found"]').textContent()) === '2 added to the picks')
+  check(`${tag} paste: the report says 3 added to the picks`, plain(await report.locator('[data-paste="found"]').textContent()) === '3 added to the picks')
   check(`${tag} paste: the current holder is reported, not picked`, JSON.stringify(await outcomeIds('already-holds')) === JSON.stringify(['10001']))
   check(`${tag} paste: the unknown ID is listed back`, JSON.stringify(await outcomeIds('not-found')) === JSON.stringify(['55555']))
+  check(`${tag} paste: a capped search with no exact row is "too many matches", not "not found"`,
+    JSON.stringify(await outcomeIds('too-many')) === JSON.stringify(['person']) &&
+    plain(await report.locator('[data-paste="too-many"]').textContent()).startsWith('Too many matches'))
   check(`${tag} paste: a listed ID is isolated LTR`,
     (await report.locator('[data-paste="not-found"] bdi[dir="ltr"]', { hasText: '55555' }).count()) === 1)
-  check(`${tag} paste: the footer reads Assign to 2`, plain(await submit.textContent()) === 'Assign to 2', plain(await submit.textContent()))
+  check(`${tag} paste: the footer reads Assign to 3`, plain(await submit.textContent()) === 'Assign to 3', plain(await submit.textContent()))
   await submit.click()
   await page.waitForFunction(
-    () => /2 assigned, 0 refused/.test((document.querySelector('[data-testid="add-holders-summary"]')?.textContent ?? '').replace(/[⁦-⁩]/g, '')),
+    () => /3 assigned, 0 refused/.test((document.querySelector('[data-testid="add-holders-summary"]')?.textContent ?? '').replace(/[⁦-⁩]/g, '')),
     null,
     { timeout: 10000 },
   ).catch(() => {})
-  check(`${tag} paste: Assign to 2 assigns both found people`,
-    JSON.stringify(assigns) === JSON.stringify([`4012+${HELD_ROLE}`, `40123+${HELD_ROLE}`]), assigns.join(','))
-  check(`${tag} paste: the dialog says "2 assigned, 0 refused"`,
-    plain(await page.getByTestId('add-holders-summary').locator('p').first().textContent()) === '2 assigned, 0 refused')
+  check(`${tag} paste: Assign to 3 assigns every found person`,
+    JSON.stringify(assigns) === JSON.stringify([`4012+${HELD_ROLE}`, `40123+${HELD_ROLE}`, `AB12+${HELD_ROLE}`]), assigns.join(','))
+  check(`${tag} paste: the dialog says "3 assigned, 0 refused"`,
+    plain(await page.getByTestId('add-holders-summary').locator('p').first().textContent()) === '3 assigned, 0 refused')
   await page.getByRole('button', { name: 'Done' }).click()
   await page.waitForTimeout(300)
   check(`${tag} paste: the Held by list shows the pasted people`,

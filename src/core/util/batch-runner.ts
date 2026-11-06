@@ -11,7 +11,7 @@
  *
  * Pure apart from the write it is handed: no React, no DOM.
  */
-import { apiErrorKind } from '@/core/api'
+import { apiErrorKind, apiErrorMessage, isBareDenial } from '@/core/api'
 
 export type BatchOutcome<T> =
   | { item: T; status: 'done' }
@@ -66,4 +66,28 @@ export async function runBatch<T>(
 /** The items whose write was refused, in order — what a retry sends again. */
 export function refusedItems<T>(result: BatchResult<T>): T[] {
   return result.outcomes.filter((o) => o.status === 'refused').map((o) => o.item)
+}
+
+/** Each refused item's error, in the items' order; empty when there is no result yet. */
+export function refusalsOf<T>(result: BatchResult<T> | null | undefined): Map<T, unknown> {
+  const m = new Map<T, unknown>()
+  for (const o of result?.outcomes ?? []) if (o.status === 'refused') m.set(o.item, o.error)
+  return m
+}
+
+export interface RefusalWords {
+  /** Shown when the error carries no server message. */
+  fallback: string
+  /** A bare 403 (the grant filter refused, no envelope): say which permission is missing. */
+  denied: string
+}
+
+/**
+ * The sentence a refused item is shown with: the server's own message, or — for a bare 403, which
+ * has none — the caller's `denied` words (as `LookupPicks` and `FhirCatalog` do), never
+ * "Unexpected API error (HTTP 403)". A 403 that came WITH an envelope (`business`) has the server's
+ * own sentence even without a code, so that sentence is kept.
+ */
+export function refusalText(error: unknown, { fallback, denied }: RefusalWords): string {
+  return isBareDenial(error) && apiErrorKind(error) !== 'business' ? denied : apiErrorMessage(error, fallback)
 }

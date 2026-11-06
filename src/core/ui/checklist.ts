@@ -22,6 +22,8 @@ export interface ChecklistOption {
   note?: string
   /** A translated tag drawn beside the row, tickable or not ("Inactive", a role's kind). */
   tag?: string
+  /** The tag's colour: `neutral` (default), `primary` (a composite), `attention` (a protected system role). */
+  tagTone?: 'neutral' | 'primary' | 'attention'
 }
 
 export interface ShownOptionsOptions {

@@ -2,7 +2,7 @@
 // never stopping on a refusal — only on an expired session.
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import { runBatch } from './batch-runner'
+import { refusalText, refusalsOf, runBatch } from './batch-runner'
 
 describe('runBatch', () => {
   it('runBatch writes every item in order and reports each outcome', async () => {
@@ -72,5 +72,38 @@ describe('runBatch', () => {
     expect(result.refused).toBe(1)
     expect(result.notAttempted).toBe(2)
     expect(result.stopped).toBe(true)
+  })
+})
+
+describe('refusalText', () => {
+  const words = { fallback: 'The write failed.', denied: 'You lack the permission for this.' }
+
+  it('refusalText names a bare 403 with the caller words, not "Unexpected API error"', () => {
+    const bare = new ApiError('unknown', 'Unexpected API error (HTTP 403)', 403)
+    expect(refusalText(bare, words)).toBe('You lack the permission for this.')
+  })
+
+  it('refusalText keeps a server refusal message, and falls back for a non-API error', () => {
+    const coded = new ApiError('business', 'PHARM_TECH is outside your scope.', 403, [
+      { errorCode: 'SCOPE', errorMessage: 'PHARM_TECH is outside your scope.' } as never,
+    ])
+    expect(refusalText(coded, words)).toBe('PHARM_TECH is outside your scope.')
+    expect(refusalText(new Error('boom'), words)).toBe('The write failed.')
+  })
+
+  it('refusalText keeps the sentence of a 403 envelope that carries a message but no code', () => {
+    const uncoded = new ApiError('business', 'Ahmed Saleh is outside your delegated scope.', 403)
+    expect(refusalText(uncoded, words)).toBe('Ahmed Saleh is outside your delegated scope.')
+  })
+})
+
+describe('refusalsOf', () => {
+  it('refusalsOf maps each refused item to its error, in order, and is empty with no result', async () => {
+    const no = new ApiError('business', 'No.', 400)
+    const result = await runBatch(['A', 'B', 'C'], async (item) => {
+      if (item !== 'B') throw no
+    })
+    expect([...refusalsOf(result)]).toEqual([['A', no], ['C', no]])
+    expect(refusalsOf(null).size).toBe(0)
   })
 })

@@ -26,14 +26,14 @@ describe('resolvePastedIds', () => {
       holders: ['777'],
       lookup: async (id) => {
         looked.push(id)
-        return SEARCH[id] ?? []
+        return { rows: SEARCH[id] ?? [], isCapped: false }
       },
       onProgress: (completed, total) => progress.push([completed, total]),
     })
 
     // One lookup per distinct ID that is not already a holder, in pasted order.
     expect(looked).toEqual(['1234', '5678', '9999'])
-    expect(progress).toEqual([[1, 3], [2, 3], [3, 3]])
+    expect(progress).toEqual([[0, 3], [1, 3], [2, 3], [3, 3]])
     // 1234 never picks 12345; 9999 never picks 99990.
     expect(result.found.map((p) => [p.employeeId, p.displayName])).toEqual([
       ['1234', 'Ahmed Ali'],
@@ -55,7 +55,7 @@ describe('resolvePastedIds', () => {
         looked.push(id)
         if (id === '5678') throw offline
         if (id === '9999') throw expired
-        return SEARCH[id] ?? []
+        return { rows: SEARCH[id] ?? [], isCapped: false }
       },
     })
 
@@ -63,5 +63,45 @@ describe('resolvePastedIds', () => {
     expect(result.failed).toEqual([{ id: '5678', error: offline }, { id: '9999', error: expired }])
     expect(result.found.map((p) => p.employeeId)).toEqual(['1234'])
     expect(result.stopped).toBe(true)
+  })
+
+  it('resolvePastedIds de-duplicates case-insensitively: ab12 and AB12 look up once and pick once', async () => {
+    const looked: string[] = []
+    const result = await resolvePastedIds('ab12 AB12 Ab12 cd34', {
+      holders: [],
+      skip: ['CD34'],
+      lookup: async (id) => {
+        looked.push(id)
+        // The server's CI match returns the same person for any case, twice over.
+        return { rows: [person('AB12', 'Sara Omar'), person('ab12', 'Sara Omar')], isCapped: false }
+      },
+    })
+    expect(looked).toEqual(['ab12'])
+    expect(result.found.map((p) => p.employeeId)).toEqual(['AB12'])
+    expect(result.notFound).toEqual([])
+  })
+
+  it('resolvePastedIds says "too many matches" when a capped result holds no exact row, never "not found"', async () => {
+    const capped = Array.from({ length: 3 }, (_, i) => person(`12${i}9`, `Person ${i}`))
+    const result = await resolvePastedIds('12 5678', {
+      holders: [],
+      lookup: async (id) => (id === '12' ? { rows: capped, isCapped: true } : { rows: SEARCH[id] ?? [], isCapped: false }),
+    })
+    expect(result.tooMany).toEqual(['12'])
+    expect(result.notFound).toEqual([])
+    expect(result.found.map((p) => p.employeeId)).toEqual(['5678'])
+  })
+
+  it('resolvePastedIds reports its total before the first lookup settles', async () => {
+    const progress: Array<[number, number]> = []
+    await resolvePastedIds('1234 777', {
+      holders: ['777'],
+      lookup: async (id) => {
+        progress.push([-1, -1])
+        return { rows: SEARCH[id] ?? [], isCapped: false }
+      },
+      onProgress: (completed, total) => progress.push([completed, total]),
+    })
+    expect(progress).toEqual([[0, 1], [-1, -1], [1, 1]])
   })
 })

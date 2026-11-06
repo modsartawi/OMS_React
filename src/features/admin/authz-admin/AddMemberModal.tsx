@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
-import Ltr from '@/core/ui/Ltr'
+import BatchSummary from '@/core/ui/BatchSummary'
+import { useBatchRun } from '@/core/ui/use-batch-run'
 import { fsi } from '@/core/util/bidi'
-import { refusedItems, runBatch, type BatchResult } from '@/core/util/batch-runner'
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 
@@ -35,15 +34,18 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
   const { t } = useTranslation('authz-admin')
   const [query, setQuery] = useState('')
   const [picks, setPicks] = useState<string[]>([])
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null)
-  const [result, setResult] = useState<BatchResult<string> | null>(null)
+  // Added roles leave the picks (and, after the re-read, the list); refused ones stay ticked.
+  const batch = useBatchRun<string>({
+    open,
+    write: (role) => authzAdminApi.addCompositeMember(compositeName, role),
+    onPicks: setPicks,
+    onDone: onAdded,
+  })
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setPicks([])
-      setProgress(null)
-      setResult(null)
     }
   }, [open])
 
@@ -55,12 +57,6 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
     [catalog],
   )
 
-  const refusals = useMemo(() => {
-    const m = new Map<string, unknown>()
-    for (const o of result?.outcomes ?? []) if (o.status === 'refused') m.set(o.item, o.error)
-    return m
-  }, [result])
-
   const labels: ChecklistPickerLabels = {
     list: t('addMember.list'),
     search: t('addMember.search'),
@@ -71,31 +67,13 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
     noMatch: t('addMember.noMatch'),
   }
 
-  const running = progress !== null
-
-  async function add() {
-    if (picks.length === 0 || running) return
-    setResult(null)
-    setProgress({ completed: 0, total: picks.length })
-    const outcome = await runBatch(
-      picks,
-      (role) => authzAdminApi.addCompositeMember(compositeName, role),
-      (p) => setProgress({ completed: p.completed, total: p.total }),
-    )
-    setProgress(null)
-    // An expired session is handle401's: it is already redirecting to the login.
-    if (outcome.stopped) return
-    setResult(outcome)
-    // Added roles leave the picks (and, after the re-read, the list); refused ones stay ticked.
-    setPicks(refusedItems(outcome))
-    if (outcome.done > 0) await onAdded()
-  }
-
+  const { progress, running, result } = batch
   const count = picks.length
   return (
     <Modal
       open={open}
       onClose={onClose}
+      dismissable={!running}
       title={t('addMember.title', { role: fsi(compositeName) })}
       width="36rem"
       footer={
@@ -103,8 +81,13 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
           <Button variant="text" onClick={onClose} disabled={running}>
             {t('common.done')}
           </Button>
-          <Button variant="primary" onClick={add} disabled={count === 0 || running} data-testid="add-member-submit">
-            {running
+          <Button
+            variant="primary"
+            onClick={() => void batch.run(picks)}
+            disabled={count === 0 || running}
+            data-testid="add-member-submit"
+          >
+            {progress
               ? t('addMember.adding', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
               : t('addMember.addN', { count, n: fsi(String(count)) })}
           </Button>
@@ -116,33 +99,17 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
           {t('addMember.intro')}
         </p>
         {result && (
-          <div
-            role="status"
-            className={
-              'rounded-lg border p-2.5 text-xs ' +
-              (result.refused > 0 ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 bg-muted/40')
+          <BatchSummary
+            result={result}
+            summary={(done, refused) =>
+              t('addMember.summary', {
+                added: t('addMember.summaryAdded', { count: done, n: fsi(String(done)) }),
+                refused: t('addMember.summaryRefused', { count: refused, n: fsi(String(refused)) }),
+              })
             }
+            refusal={{ fallback: t('toast.failed'), denied: t('common.denied') }}
             data-testid="add-member-summary"
-          >
-            <p className="font-semibold">
-              {t('addMember.summary', {
-                added: t('addMember.summaryAdded', { count: result.done, n: fsi(String(result.done)) }),
-                refused: t('addMember.summaryRefused', { count: result.refused, n: fsi(String(result.refused)) }),
-              })}
-            </p>
-            {result.refused > 0 && (
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {[...refusals].map(([role, err]) => (
-                  <li key={role} className="flex flex-wrap gap-x-2" data-refused={role}>
-                    <span className="font-semibold">
-                      <Ltr>{role}</Ltr>
-                    </span>
-                    <bdi>{apiErrorMessage(err, t('toast.failed'))}</bdi>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          />
         )}
         <ChecklistPicker
           options={singles}

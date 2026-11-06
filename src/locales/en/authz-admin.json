@@ -291,6 +291,7 @@
     "pasteFound_one": "{{n}} added to the picks",
     "pasteFound_other": "{{n}} added to the picks",
     "pasteAlreadyHolds": "Already hold this role:",
+    "pasteTooMany": "Too many matches to tell — check these by hand:",
     "pasteNotFound": "Not found — send these back:",
     "pasteFailed": "The lookup failed"
   },
@@ -311,6 +312,7 @@
   "common": {
     "cancel": "Cancel",
     "done": "Done",
-    "ok": "OK"
+    "ok": "OK",
+    "denied": "Refused — you don't hold the Authorization Admin permission this needs."
   }
 }

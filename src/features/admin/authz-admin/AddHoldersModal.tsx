@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import PasteCodesDialog from '@/core/ui/PasteCodesDialog'
 import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
 import { chipsFor, markDisabled, rememberOptions } from '@/core/ui/checklist'
+import BatchSummary from '@/core/ui/BatchSummary'
 import Ltr from '@/core/ui/Ltr'
+import { useBatchRun } from '@/core/ui/use-batch-run'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
-import { refusedItems, runBatch, type BatchResult } from '@/core/util/batch-runner'
+import { refusalText, type RefusalWords } from '@/core/util/batch-runner'
 import type { UaEmployeeGridRow } from '@/core/models/ua-user'
 import { authzAdminApi } from './api'
 import { resolvePastedIds, type PasteResolution } from './paste-ids'
@@ -41,7 +42,8 @@ function personOption(row: UaEmployeeGridRow, inactive: string): ChecklistOption
  * runner: a refusal (delegation scope, protected role) never stops it. The dialog stays open with
  * "N assigned, M refused"; refused people stay ticked with the server's message, so pressing the
  * button again retries just those. A person with no user account yet is fine — the server creates it
- * on the first assign. An expired session ends the batch and is `handle401`'s.
+ * on the first assign. An expired session ends the batch and is `handle401`'s. While a batch or a
+ * paste's lookups run, the dialog cannot be dismissed.
  */
 export default function AddHoldersModal({ open, onClose, roleName, holders, onAssigned }: Props) {
   const { t } = useTranslation('authz-admin')
@@ -49,20 +51,23 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
   const [picks, setPicks] = useState<string[]>([])
   // Every person seen in a result set, so a pick off the current page keeps its name on its chip.
   const [known, setKnown] = useState<Map<string, ChecklistOption>>(() => new Map())
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null)
-  const [result, setResult] = useState<BatchResult<string> | null>(null)
   // Paste IDs (808): the paste box, the lookups' progress, and what the last paste resolved to.
   const [pasting, setPasting] = useState(false)
   const [resolving, setResolving] = useState<{ completed: number; total: number } | null>(null)
   const [pasteReport, setPasteReport] = useState<PasteResolution | null>(null)
+  // Assigned people leave the picks (and, after the re-read, show "Already holds"); refused ones stay ticked.
+  const batch = useBatchRun<string>({
+    open,
+    write: (employeeId) => authzAdminApi.assignRole(employeeId, roleName),
+    onPicks: setPicks,
+    onDone: onAssigned,
+  })
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setPicks([])
       setKnown(new Map())
-      setProgress(null)
-      setResult(null)
       setPasting(false)
       setResolving(null)
       setPasteReport(null)
@@ -74,6 +79,8 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
     queryKey: ['authz-admin', 'holder-search', term],
     queryFn: () => authzAdminApi.search(term),
     enabled: open && term !== '',
+    // The last result set stays drawn while the next term's is fetched (as AddStoresDialog does).
+    placeholderData: keepPreviousData,
   })
 
   const options = useMemo(() => {
@@ -85,12 +92,6 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
   useEffect(() => {
     if (options.length > 0) setKnown((k) => rememberOptions(k, options))
   }, [options])
-
-  const refusals = useMemo(() => {
-    const m = new Map<string, unknown>()
-    for (const o of result?.outcomes ?? []) if (o.status === 'refused') m.set(o.item, o.error)
-    return m
-  }, [result])
 
   const labels: ChecklistPickerLabels = {
     list: t('addHolders.list'),
@@ -105,26 +106,33 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
     capped: t('addHolders.capped', { cap: fsi(String(search.data?.rowCap ?? 50)) }),
     removeChip: (label) => t('addHolders.removeChip', { person: label }),
   }
+  const refusal: RefusalWords = { fallback: t('toast.failed'), denied: t('common.denied') }
 
-  const running = progress !== null
+  const { progress, running, result, refusals } = batch
   const busy = running || resolving !== null
   const searching = term !== '' && search.isFetching
   const nameOf = (id: string) => known.get(id)?.label ?? id
 
   /**
    * Each pasted ID is looked up through the same people search, one at a time, and picked only when a
-   * row's ID equals it; current holders are reported, unknown IDs listed back.
+   * row's ID equals it; current holders are reported, unknown IDs listed back. A paste that settles
+   * after its dialog session ended keeps nothing.
    */
   async function resolvePaste(codes: string[]) {
+    const isCurrent = batch.begin()
     setPasting(false)
     setPasteReport(null)
-    setResolving({ completed: 0, total: 0 })
+    // Seeded with the parsed count, so the progress never reads "0 of 0"; the resolver refines it.
+    setResolving({ completed: 0, total: codes.length })
     const resolution = await resolvePastedIds(codes.join('\n'), {
       holders,
       skip: picks,
-      lookup: async (id) => (await authzAdminApi.search(id)).rows,
-      onProgress: (completed, total) => setResolving({ completed, total }),
+      lookup: (id) => authzAdminApi.search(id),
+      onProgress: (completed, total) => {
+        if (isCurrent()) setResolving({ completed, total })
+      },
     })
+    if (!isCurrent()) return
     setResolving(null)
     // An expired session is handle401's: it is already redirecting to the login.
     if (resolution.stopped) return
@@ -134,30 +142,13 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
     setPasteReport(resolution)
   }
 
-  async function assign() {
-    if (picks.length === 0 || busy) return
-    setResult(null)
-    setProgress({ completed: 0, total: picks.length })
-    const outcome = await runBatch(
-      picks,
-      (employeeId) => authzAdminApi.assignRole(employeeId, roleName),
-      (p) => setProgress({ completed: p.completed, total: p.total }),
-    )
-    setProgress(null)
-    // An expired session is handle401's: it is already redirecting to the login.
-    if (outcome.stopped) return
-    setResult(outcome)
-    // Assigned people leave the picks (and, after the re-read, show "Already holds"); refused ones stay ticked.
-    setPicks(refusedItems(outcome))
-    if (outcome.done > 0) await onAssigned()
-  }
-
   const count = picks.length
   return (
     <>
       <Modal
         open={open}
         onClose={onClose}
+        dismissable={!busy}
         title={t('addHolders.title', { role: fsi(roleName) })}
         width="38rem"
         footer={
@@ -165,8 +156,13 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
             <Button variant="text" onClick={onClose} disabled={busy}>
               {t('common.done')}
             </Button>
-            <Button variant="primary" onClick={assign} disabled={count === 0 || busy} data-testid="add-holders-submit">
-              {running
+            <Button
+              variant="primary"
+              onClick={() => void batch.run(picks)}
+              disabled={count === 0 || busy}
+              data-testid="add-holders-submit"
+            >
+              {progress
                 ? t('addHolders.assigning', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
                 : t('addHolders.assignN', { count, n: fsi(String(count)) })}
             </Button>
@@ -186,33 +182,18 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
           </div>
           {pasteReport && <PasteReport report={pasteReport} />}
           {result && (
-            <div
-              role="status"
-              className={
-                'rounded-lg border p-2.5 text-xs ' +
-                (result.refused > 0 ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 bg-muted/40')
+            <BatchSummary
+              result={result}
+              summary={(done, refused) =>
+                t('addHolders.summary', {
+                  assigned: t('addHolders.summaryAssigned', { count: done, n: fsi(String(done)) }),
+                  refused: t('addHolders.summaryRefused', { count: refused, n: fsi(String(refused)) }),
+                })
               }
+              refusal={refusal}
+              nameOf={nameOf}
               data-testid="add-holders-summary"
-            >
-              <p className="font-semibold">
-                {t('addHolders.summary', {
-                  assigned: t('addHolders.summaryAssigned', { count: result.done, n: fsi(String(result.done)) }),
-                  refused: t('addHolders.summaryRefused', { count: result.refused, n: fsi(String(result.refused)) }),
-                })}
-              </p>
-              {result.refused > 0 && (
-                <ul className="mt-1 flex flex-col gap-0.5">
-                  {[...refusals].map(([id, err]) => (
-                    <li key={id} className="flex flex-wrap gap-x-2" data-refused={id}>
-                      <span className="font-semibold">
-                        <Ltr>{nameOf(id)}</Ltr>
-                      </span>
-                      <bdi>{apiErrorMessage(err, t('toast.failed'))}</bdi>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            />
           )}
           <ChecklistPicker
             mode="server"
@@ -226,11 +207,12 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
             disabled={busy}
             loading={searching}
             failed={term !== '' && search.isError}
-            capped={search.data?.isCapped ?? false}
+            capped={term !== '' && (search.data?.isCapped ?? false)}
+            optionsTerm={term}
             rowNote={(id) =>
               refusals.has(id) ? (
                 <span className="block text-xs text-danger-800">
-                  <bdi>{apiErrorMessage(refusals.get(id), t('toast.failed'))}</bdi>
+                  <bdi>{refusalText(refusals.get(id), refusal)}</bdi>
                 </span>
               ) : null
             }
@@ -257,7 +239,10 @@ export default function AddHoldersModal({ open, onClose, roleName, holders, onAs
   )
 }
 
-/** What a paste resolved to: how many were picked, and the IDs it could not use, each isolated LTR. */
+/**
+ * What a paste resolved to: how many were picked, and the IDs it could not use, each isolated LTR —
+ * current holders, IDs whose search was too wide to tell (check by hand), IDs not found, failed lookups.
+ */
 function PasteReport({ report }: { report: PasteResolution }) {
   const { t } = useTranslation('authz-admin')
   const n = report.found.length
@@ -281,6 +266,12 @@ function PasteReport({ report }: { report: PasteResolution }) {
           {ids(report.alreadyHolds)}
         </div>
       )}
+      {report.tooMany.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 text-attention-800" data-paste="too-many">
+          <span>{t('addHolders.pasteTooMany')}</span>
+          {ids(report.tooMany)}
+        </div>
+      )}
       {report.notFound.length > 0 && (
         <div className="flex flex-wrap gap-x-2 text-danger-800" data-paste="not-found">
           <span>{t('addHolders.pasteNotFound')}</span>
@@ -294,7 +285,7 @@ function PasteReport({ report }: { report: PasteResolution }) {
               <span data-paste-id={id} className="font-mono">
                 <Ltr>{id}</Ltr>
               </span>
-              <bdi>{apiErrorMessage(error, t('addHolders.pasteFailed'))}</bdi>
+              <bdi>{refusalText(error, { fallback: t('addHolders.pasteFailed'), denied: t('common.denied') })}</bdi>
             </li>
           ))}
         </ul>

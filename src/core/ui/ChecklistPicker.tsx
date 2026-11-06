@@ -56,6 +56,11 @@ export interface ChecklistPickerProps {
   loading?: boolean
   failed?: boolean
   capped?: boolean
+  /**
+   * Server mode: the (trimmed) term the current `options` were fetched for. While it trails the
+   * typed query (the debounce has not caught up) the picker reads as searching, never "no match".
+   */
+  optionsTerm?: string
   /** Extra content under a row (a refused item's server message), keyed by value. */
   rowNote?: (value: string) => ReactNode
   'data-testid'?: string
@@ -82,6 +87,7 @@ export default function ChecklistPicker({
   loading = false,
   failed = false,
   capped = false,
+  optionsTerm,
   rowNote,
   'data-testid': testId,
 }: ChecklistPickerProps) {
@@ -90,9 +96,11 @@ export default function ChecklistPicker({
   const picked = new Set(picks)
   const nothingToOffer = shownOptions(options, '', { exclude }).length === 0
   const searched = query.trim() !== ''
+  // The typed term the options do not reflect yet: searching, not a verdict on it.
+  const trailing = !narrow && optionsTerm !== undefined && searched && optionsTerm !== query.trim()
 
   let status: ReactNode = null
-  if (loading)
+  if (loading || trailing)
     status = (
       <span className="inline-flex items-center gap-1.5">
         <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
@@ -101,7 +109,7 @@ export default function ChecklistPicker({
     )
   else if (failed) status = <span className="text-danger-800">{labels.failed}</span>
   else if (shown.length === 0) status = searched && (!narrow || !nothingToOffer) ? labels.noMatch : labels.empty
-  else if (capped && labels.capped) status = labels.capped
+  else if (capped && searched && labels.capped) status = labels.capped
 
   return (
     <div className="flex min-h-0 flex-col gap-2" data-testid={testId} data-checklist-picker="">
@@ -193,7 +201,11 @@ export default function ChecklistPicker({
                       <span className="truncate text-sm font-semibold">
                         <RowLabel option={o} />
                       </span>
-                      {o.tag && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-medium">{o.tag}</span>}
+                      {o.tag && (
+                        <span className={'shrink-0 rounded-full px-1.5 text-[10px] font-medium ' + TAG_TONE[o.tagTone ?? 'neutral']} data-tag-tone={o.tagTone ?? 'neutral'}>
+                          {o.tag}
+                        </span>
+                      )}
                       {o.disabled && o.note && <span className="shrink-0 text-[10px] font-medium">{o.note}</span>}
                     </span>
                     {o.description ? (
@@ -216,6 +228,12 @@ export default function ChecklistPicker({
       )}
     </div>
   )
+}
+
+const TAG_TONE: Record<NonNullable<ChecklistOption['tagTone']>, string> = {
+  neutral: 'bg-muted',
+  primary: 'bg-primary/10 text-primary',
+  attention: 'bg-attention-050 text-attention-800',
 }
 
 function RowLabel({ option }: { option: ChecklistOption }) {

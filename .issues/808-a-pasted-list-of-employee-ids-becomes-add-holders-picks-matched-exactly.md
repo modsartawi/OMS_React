@@ -44,3 +44,14 @@ IDs, and the vitest test and drive leg pass.
 ## Blocked by
 
 [807](807-a-roles-held-by-tab-adds-several-holders-found-by-searching-people.md)
+
+## Comments
+
+- 2026-11-06 review fixes (`impl/805-review-fixes`): pasted IDs are de-duplicated case-insensitively
+  (`ab12`/`AB12` look up once, pick once); a capped lookup with no exact row is reported "too many
+  matches — check by hand", not "not found"; the progress is seeded with the ID count; the dialog
+  cannot be dismissed while the lookups run.
+- Possible BackOffice follow-up (recorded, not built — the spec ruled client-only): an exact-ID
+  lookup door that takes the whole pasted list in **one request** (e.g. `AuthzAdminWeb/Employees/ByIds`)
+  would replace the one-search-per-ID loop and remove the "too many matches" case altogether, since a
+  contains-match capped at 50 can hide a short ID's exact row.

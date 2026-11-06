@@ -417,10 +417,17 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                 )
               })
             )}
-            {/* Add holders: only for a role in the admin's assignable scope (the person-side assign's rule). */}
+            {/* Add holders: only for a role in the admin's assignable scope (the person-side assign's rule),
+                and only once the holders are known — the dialog greys "Already holds" from that list, so
+                it never opens over a pending or failed read (it would offer current holders as pickable). */}
             {inScope(roleName, access.assignableRoles) && (
               <div>
-                <Button variant="secondary" onClick={() => setHoldersOpen(true)} disabled={acting} data-testid="add-holders-open">
+                <Button
+                  variant="secondary"
+                  onClick={() => setHoldersOpen(true)}
+                  disabled={acting || !holders.isSuccess}
+                  data-testid="add-holders-open"
+                >
                   {t('roleDetail.addHolders')}
                 </Button>
               </div>

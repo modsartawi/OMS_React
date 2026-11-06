@@ -24,6 +24,7 @@ import { useFullscreen } from './panel-hooks'
 import { panelPermalink, retiredMembers } from './panel-state'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
+import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { useItemActor } from './use-item-save'
 import { viewTitleOf } from './ViewChart'
@@ -109,6 +110,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             </h2>
             {/* 778: the tier badge, the Certified one with its check. */}
             <TierBadge tier={item.tier} />
+            {/* 826: who a Shared view is shared with. */}
+            <AudienceChip item={item} />
           </div>
           {subtitle && (
             <p className="text-sm text-muted-foreground">

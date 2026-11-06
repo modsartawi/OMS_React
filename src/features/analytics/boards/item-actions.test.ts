@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { itemActions } from './item-actions'
+import { itemActions, shareActions } from './item-actions'
 
 const me = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: false }
 const curator = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: true }
@@ -12,18 +12,18 @@ describe('tier and actions: owner × tier × curator → save in place | save as
     expect(itemActions(mine('personal'), me)).toEqual({ save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'share', 'delete'] })
   })
   it('my Shared item saves in place, and also offers an explicit copy', () => {
-    expect(itemActions(mine('shared'), me)).toEqual({ save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'unshare', 'delete'] })
+    expect(itemActions(mine('shared'), me)).toEqual({ save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'share', 'unshare', 'delete'] })
   })
   it('a Shared item I do not own saves as my copy', () => {
     expect(itemActions(theirs('shared'), me)).toEqual({ save: 'copy', actions: ['run', 'export', 'saveAsCopy'] })
-    expect(itemActions(theirs('shared'), curator)).toEqual({ save: 'copy', actions: ['run', 'export', 'saveAsCopy', 'certify'] })
+    expect(itemActions(theirs('shared'), curator)).toEqual({ save: 'copy', actions: ['run', 'export', 'saveAsCopy', 'narrow', 'reassign', 'certify'] })
   })
   it('a Certified item saves as a copy for a non-curator, even its owner', () => {
     expect(itemActions(theirs('certified'), me)).toEqual({ save: 'copy', actions: ['run', 'export', 'saveAsCopy'] })
     expect(itemActions(mine('certified'), me)).toEqual({ save: 'copy', actions: ['run', 'export', 'saveAsCopy'] })
   })
   it('a curator edits a Certified item in place, and may still copy it', () => {
-    expect(itemActions(theirs('certified'), curator)).toEqual({ save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'uncertify', 'delete'] })
+    expect(itemActions(theirs('certified'), curator)).toEqual({ save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'reassign', 'uncertify', 'delete'] })
   })
   it('a curator does not edit someone else’s Personal or Shared item in place', () => {
     expect(itemActions(theirs('shared'), curator).save).toBe('copy')
@@ -56,14 +56,14 @@ describe('tier and actions: share, certify, uncertify and delete availability pe
     ['personal', true, false, false, ['share', 'delete']],
     ['personal', true, true, false, ['share', 'certify', 'delete']],
     ['personal', true, true, true, ['share', 'certifyRevision', 'delete']],
-    ['shared', true, false, false, ['unshare', 'delete']],
-    ['shared', true, true, false, ['unshare', 'certify', 'delete']],
+    ['shared', true, false, false, ['share', 'unshare', 'delete']],
+    ['shared', true, true, false, ['share', 'unshare', 'certify', 'delete']],
     ['shared', false, false, false, []],
-    ['shared', false, true, false, ['certify']],
-    ['shared', false, true, true, ['certifyRevision']],
+    ['shared', false, true, false, ['narrow', 'reassign', 'certify']],
+    ['shared', false, true, true, ['narrow', 'reassign', 'certifyRevision']],
     ['certified', true, false, false, []],
     ['certified', false, false, false, []],
-    ['certified', false, true, false, ['uncertify', 'delete']],
+    ['certified', false, true, false, ['reassign', 'uncertify', 'delete']],
     ['certified', true, true, false, ['uncertify', 'delete']],
     ['personal', false, true, false, []],
   ] as const)('%s item, mine=%s, curator=%s, certified copy=%s → %j', (tier, isMine, isCurator, copy, expected) => {
@@ -71,7 +71,7 @@ describe('tier and actions: share, certify, uncertify and delete availability pe
     const item = { ...(isMine ? mine(tier) : theirs(tier)), certifiedCopy: copy }
     expect(tierActions(item, actor)).toEqual(expected)
   })
-  it('a Certified item is never shared or unshared, even by its owner', () => {
+  it('a Certified item is never shared, narrowed or unshared, even by its owner', () => {
     expect(tierActions(mine('certified'), curator)).not.toContain('share')
     expect(tierActions(mine('certified'), curator)).not.toContain('unshare')
   })
@@ -98,8 +98,8 @@ describe('itemActions with grants: runner, author, curator × tier × owner', ()
     ['author', 'personal', true, { save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'share', 'delete'] }],
     ['author', 'shared', false, { save: 'copy', actions: ['run', 'export', 'saveAsCopy'] }],
     ['author', 'certified', false, { save: 'copy', actions: ['run', 'export', 'saveAsCopy'] }],
-    ['curator', 'certified', false, { save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'uncertify', 'delete'] }],
-    ['curator', 'shared', false, { save: 'copy', actions: ['run', 'export', 'saveAsCopy', 'certify'] }],
+    ['curator', 'certified', false, { save: 'in-place', actions: ['run', 'export', 'saveInPlace', 'saveAsCopy', 'reassign', 'uncertify', 'delete'] }],
+    ['curator', 'shared', false, { save: 'copy', actions: ['run', 'export', 'saveAsCopy', 'narrow', 'reassign', 'certify'] }],
   ] as const)('%s, %s item, mine=%s → %j', (grant, tier, isMine, expected) => {
     const actor = grant === 'runner' ? runner : grant === 'author' ? author : curator
     expect(itemActions(isMine ? mine(tier) : theirs(tier), actor)).toEqual(expected)
@@ -115,5 +115,39 @@ describe('itemActions with grants: runner, author, curator × tier × owner', ()
   it('curate implies author: a curator grant without the author flag still edits a Certified item', () => {
     expect(itemActions(theirs('certified'), { ...curator, canAuthor: false }).save).toBe('in-place')
     expect(itemActions(null, { ...curator, canAuthor: false })).toEqual({ save: 'create', actions: ['create'] })
+  })
+})
+
+// 826 (spec 819 §C): who may share with an audience, narrow it, or hand the item to another author.
+describe('share actions: owner, curator and author in the audience → share, narrow, reassign or none', () => {
+  const author = me
+  it.each([
+    // [actor, tier, mine?, expected]
+    ['owner', 'personal', true, ['share']],
+    ['owner', 'shared', true, ['share']],
+    ['owner', 'certified', true, []],
+    ['author in the audience', 'shared', false, []],
+    ['author', 'certified', false, []],
+    ['curator', 'shared', false, ['narrow', 'reassign']],
+    ['curator', 'certified', false, ['reassign']],
+    ['curator', 'personal', false, []],
+    ['curator owner', 'personal', true, ['share']],
+    ['curator owner', 'shared', true, ['share']],
+    ['curator owner', 'certified', true, []],
+    ['runner', 'shared', true, []],
+    ['runner', 'shared', false, []],
+  ] as const)('%s, %s item, mine=%s → %j', (who, tier, isMine, expected) => {
+    const actor = who === 'runner' ? runner : who.startsWith('curator') ? curator : author
+    expect(shareActions(isMine ? mine(tier) : theirs(tier), actor)).toEqual(expected)
+  })
+  it('without the screen grant, or for an item not yet saved, nothing is offered', () => {
+    expect(shareActions(mine('personal'), { ...me, canView: false })).toEqual([])
+    expect(shareActions(theirs('shared'), { ...curator, canView: false })).toEqual([])
+    expect(shareActions(null, curator)).toEqual([])
+  })
+  it('itemActions offers them in the tier actions: share before unshare, narrow and reassign before certify', () => {
+    expect(itemActions(mine('shared'), me).actions).toEqual(['run', 'export', 'saveInPlace', 'saveAsCopy', 'share', 'unshare', 'delete'])
+    expect(itemActions(theirs('shared'), curator).actions).toEqual(['run', 'export', 'saveAsCopy', 'narrow', 'reassign', 'certify'])
+    expect(itemActions(theirs('certified'), curator).actions).toEqual(['run', 'export', 'saveInPlace', 'saveAsCopy', 'reassign', 'uncertify', 'delete'])
   })
 })

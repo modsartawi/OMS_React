@@ -100,11 +100,22 @@
 //   2. an author sees them all, and the editor opens;
 //   3. `ANALYTICS-415` on Share is worded, and the author's actions (Share, Edit) hide from then on.
 //
+// 826 (spec 819) — an author shares with roles and users; an outsider gets "not shared with you"; a curator
+// narrows or reassigns (en and ar):
+//   1. Share opens the dialog on Everyone; "Chosen" picks a role and, by employee id, a user (AudienceCandidates);
+//      a deleted role is offered marked; Share posts `{ revision, audience }`; the chip names them on the view and
+//      the home; a v1 Shared item reads "shared with everyone";
+//   2. changing the audience PUTs `…/Audience` with no `baseRevision` and no item PUT; the history lists it;
+//   3. `ANALYTICS-413` on a board link: "not shared with you", naming the owner (name `<bdi>`, id `Ltr`), no title,
+//      no Query;
+//   4. a curator: the chip marks the removed role; Narrow (Everyone off, only the audience's own entries, Unshare)
+//      PUTs the narrower audience; Reassign posts `{ owner }`, the audience kept, the home lists the new owner.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -1331,14 +1342,15 @@ async function certifiesSharedBoard({ dir }) {
   await page.goto(`${BASE}/analytics/board/b-shared`)
   await page.locator('[data-analytics-board="b-shared"] [data-analytics-board-header] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 15000 })
   await page.locator('[data-analytics-action="certify"]').waitFor({ timeout: 10000 })
-  check(`${tag}: a Shared board of someone else's offers Certify only (no share, no delete)`, JSON.stringify(await tierActionsOn(page)) === '["certify"]', JSON.stringify(await tierActionsOn(page)))
+  // 826: a curator also narrows a Shared item's audience and reassigns it.
+  check(`${tag}: a Shared board of someone else's offers Narrow, Reassign and Certify (no share, no delete)`, JSON.stringify(await tierActionsOn(page)) === '["narrow","reassign","certify"]', JSON.stringify(await tierActionsOn(page)))
 
   await page.locator('[data-analytics-action="certify"]').click()
   await page.locator('[data-analytics-certified-copy="b-shared-cert"]').waitFor({ timeout: 10000 })
   await page.locator('[data-analytics-action="certifyRevision"]').waitFor({ timeout: 10000 })
   const sent = bodies['Analytics/Item/b-shared/Certify']?.[0]
   check(`${tag}: Certify posts the revision on screen`, sent?.revision === 7, JSON.stringify(sent))
-  check(`${tag}: once certified, Certify becomes "Certify this revision" into the copy`, JSON.stringify(await tierActionsOn(page)) === '["certifyRevision"]')
+  check(`${tag}: once certified, Certify becomes "Certify this revision" into the copy`, JSON.stringify(await tierActionsOn(page)) === '["narrow","reassign","certifyRevision"]')
   check(`${tag}: the board itself stays Shared (its author's)`, (await page.locator('[data-analytics-board-header] [data-analytics-tier-badge]').getAttribute('data-analytics-tier-badge')) === 'shared')
   await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-source.png` })
 
@@ -1351,7 +1363,7 @@ async function certifiesSharedBoard({ dir }) {
   await homeRow(page, 'certified', 'b-shared-cert').locator('a').click()
   await page.locator('[data-analytics-board="b-shared-cert"] [data-analytics-tier-badge="certified"]').waitFor({ timeout: 10000 })
   await page.locator('[data-analytics-action="delete"]').waitFor({ timeout: 10000 })
-  check(`${tag}: the certified board shows the Certified badge, and offers Un-certify and Delete`, JSON.stringify(await tierActionsOn(page)) === '["uncertify","delete"]', JSON.stringify(await tierActionsOn(page)))
+  check(`${tag}: the certified board shows the Certified badge, and offers Un-certify and Delete`, JSON.stringify(await tierActionsOn(page)) === '["reassign","uncertify","delete"]', JSON.stringify(await tierActionsOn(page)))
   await page.screenshot({ path: `${SHOTS}/778-${dir}-certified-board.png` })
 
   await page.locator('[data-analytics-action="delete"]').click()
@@ -1407,10 +1419,12 @@ async function ownerSharesAndDeletes({ dir }) {
   await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 10000 })
   check(`${tag}: my Personal view offers Share and Delete, and no Certify`, JSON.stringify(await tierActionsOn(page)) === '["share","delete"]', JSON.stringify(await tierActionsOn(page)))
 
+  // 826: Share opens the share dialog, on Everyone (v1's share) until the owner chooses.
   await page.locator('[data-analytics-action="share"]').click()
+  await page.locator('[data-analytics-share-save]').click()
   await badge('shared').waitFor({ timeout: 10000 })
   await page.locator('[data-analytics-action="unshare"]').waitFor({ timeout: 10000 })
-  check(`${tag}: Share is one click: the view is Shared and offers Unshare`, JSON.stringify(await tierActionsOn(page)) === '["unshare","delete"]')
+  check(`${tag}: Share with everyone: the view is Shared and offers Share (its audience), Unshare`, JSON.stringify(await tierActionsOn(page)) === '["share","unshare","delete"]', JSON.stringify(await tierActionsOn(page)))
   await page.screenshot({ path: `${SHOTS}/778-${dir}-shared-view.png` })
   await page.goto(`${BASE}/analytics`)
   await homeRow(page, 'shared', 'v-bar').waitFor({ timeout: 10000 })
@@ -2320,12 +2334,168 @@ async function authorSeesBuilder({ dir = 'ltr' } = {}) {
   await context.close()
 }
 
+// ── 826 ──────────────────────────────────────────────────────────────────────────────────────────────
+/** The chip's words, without isolates. */
+const chipText = async (scope) => noIsolates(await scope.locator('[data-analytics-audience]').first().innerText())
+/** Type into a MultiSelect's search (a server search), wait for the option, tick it, close the panel. */
+async function searchPick(page, testId, query, value) {
+  const root = page.locator(`[data-testid="${testId}"]`)
+  await root.locator('[data-multi-select-trigger]').click()
+  // The search is debounced: wait for the door to be asked for what was typed.
+  const asked = page.waitForRequest((r) => r.url().includes('Analytics/AudienceCandidates') && new URL(r.url()).searchParams.get('search') === query, { timeout: 10000 })
+  await root.locator('input').first().fill(query)
+  await asked
+  await root.locator(`[data-option="${value}"] input[type="checkbox"]`).check({ timeout: 10000 })
+  await page.keyboard.press('Escape')
+}
+
+/**
+ * 826 — an author shares with a role and a user: my Personal view's Share opens the dialog; "Chosen" picks
+ * Delivery operations and, by employee id, Khalid; Share posts `{ revision, audience }`; the chip names them on the
+ * view and the home. Changing the audience goes through `PUT …/Audience` with no `baseRevision` (never 405), and
+ * the history lists the change.
+ */
+async function sharesWithAudience826({ dir }) {
+  const tag = `826 ${dir} share`
+  const { context, page, errors, bodies, gets } = await open({ dir, access: AUTHOR })
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a Personal view carries no audience chip`, (await page.locator('[data-analytics-audience]').count()) === 0)
+  await page.locator('[data-analytics-action="share"]').click()
+  await page.locator('[data-analytics-share="share"]').waitFor({ timeout: 5000 })
+  check(`${tag}: the dialog opens on Everyone`, (await page.locator('[data-analytics-share-everyone]').getAttribute('aria-pressed')) === 'true')
+  await page.locator('[data-analytics-share-chosen]').click()
+  const roles = page.locator('[data-testid="analytics-share-roles"]')
+  await roles.locator('[data-multi-select-trigger]').click()
+  await roles.locator('[data-option="OLD_ECOM"]').waitFor({ timeout: 10000 })
+  const oldRole = await roles.locator('[data-option="OLD_ECOM"]').innerText()
+  check(`${tag}: a deleted role is offered marked "removed"`, /removed|أزيل/.test(oldRole), oldRole)
+  await roles.locator('[data-option="DELIVERY_OPS"] input[type="checkbox"]').check()
+  await page.keyboard.press('Escape')
+  await searchPick(page, 'analytics-share-users', '10551', 'kalotaibi')
+  const asked = (gets['Analytics/AudienceCandidates'] ?? []).map((g) => g.search)
+  check(`${tag}: the people picker searches AudienceCandidates by employee id`, asked.includes('10551'), JSON.stringify(asked))
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-share-dialog.png` })
+  await page.locator('[data-analytics-share-save]').click()
+  await page.locator('[data-analytics-view="v-bar"] [data-analytics-tier-badge="shared"]').waitFor({ timeout: 10000 })
+  const sent = bodies['Analytics/Item/v-bar/Share']?.[0]
+  check(`${tag}: Share posts the revision and the audience`, JSON.stringify(sent) === JSON.stringify({ revision: 3, audience: { roles: ['DELIVERY_OPS'], users: ['kalotaibi'] } }), JSON.stringify(sent))
+  const view = page.locator('[data-analytics-view="v-bar"]')
+  await view.locator('[data-analytics-audience="chosen"]').waitFor({ timeout: 10000 })
+  const chip = await chipText(view)
+  // The role reads in the page's language (the drive's rtl may keep the en bundle).
+  check(`${tag}: the view's chip names the role and the user`, /Delivery operations|عمليات التوصيل/.test(chip) && chip.includes('Khalid Alotaibi'), chip)
+  check(`${tag}: … each name isolated`, (await view.locator('[data-analytics-audience-name] bdi').count()) === 2)
+
+  // The owner changes the audience: the Audience door, not a revision.
+  await page.locator('[data-analytics-action="share"]').click()
+  await page.locator('[data-analytics-share="share"]').waitFor({ timeout: 5000 })
+  await searchPick(page, 'analytics-share-roles', 'HQ', 'HQ_SALES')
+  await page.locator('[data-analytics-share-save]').click()
+  await page.locator('[data-analytics-share]').waitFor({ state: 'detached', timeout: 10000 })
+  const put = bodies['PUT Analytics/Item/v-bar/Audience']?.[0]
+  check(`${tag}: changing a Shared item's audience PUTs …/Audience with no baseRevision`, JSON.stringify(put) === JSON.stringify({ audience: { roles: ['DELIVERY_OPS', 'HQ_SALES'], users: ['kalotaibi'] } }), JSON.stringify(put))
+  check(`${tag}: … and no item PUT (no definition revision, so no ANALYTICS-405)`, !bodies['PUT Analytics/Item/v-bar'])
+  await view.locator('[data-analytics-audience-name="HQ_SALES"]').waitFor({ timeout: 10000 })
+  check(`${tag}: … the chip follows`, (await view.locator('[data-analytics-audience-name]').count()) === 3)
+  await page.locator('[data-analytics-history-open]').click()
+  await page.locator('[data-analytics-history-event="audience"]').first().waitFor({ timeout: 10000 })
+  check(`${tag}: the history lists the audience change above revision 3`, (await page.locator('[data-analytics-revision]').first().getAttribute('data-analytics-revision')) === '3')
+  check(`${tag}: … and it cannot be reverted to`, (await page.locator('[data-analytics-history-event] [data-analytics-revert]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-history.png` })
+  await page.keyboard.press('Escape')
+
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'v-bar').waitFor({ timeout: 10000 })
+  const row = await chipText(homeRow(page, 'shared', 'v-bar'))
+  check(`${tag}: the home row carries the chip`, row.includes('Khalid Alotaibi'), row)
+  const other = await chipText(homeRow(page, 'shared', 'v-titled'))
+  check(`${tag}: a v1 Shared item (no audience) reads "shared with everyone"`, /everyone|الجميع/.test(other), other)
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-home.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** 826 — an outsider opens a link to a board outside its audience: `ANALYTICS-413`, naming the owner, no title or data. */
+async function outsiderNotShared826({ dir }) {
+  const tag = `826 ${dir} 413`
+  const { context, page, errors, calls } = await open({ dir, access: AUTHOR, items: { ...ITEMS, 'b-826': NOT_SHARED_826 } })
+  await page.goto(`${BASE}/analytics/board/b-826`)
+  const state = page.locator('[data-analytics-state="not-shared"]')
+  await state.waitFor({ timeout: 15000 })
+  const words = noIsolates(await state.innerText())
+  check(`${tag}: "not shared with you"`, /isn’t shared with you|غير مُشاركة معك/.test(words), words)
+  check(`${tag}: … naming the owner, by name and id`, words.includes('Mohamed Sartawi') && words.includes('msartawi'), words)
+  check(
+    `${tag}: … the name isolated as free text, the id as a machine value`,
+    (await state.locator('bdi:not([dir])').filter({ hasText: 'Mohamed Sartawi' }).count()) === 1 && (await state.locator('bdi[dir="ltr"]').filter({ hasText: 'msartawi' }).count()) === 1,
+  )
+  check(`${tag}: no title and no data: nothing of the board, no Query asked`, !(await page.content()).includes('Delivery desk') && !calls.includes('Analytics/Query'))
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-413.png` })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/**
+ * 826 — a curator narrows and reassigns someone else's Shared board: the chip marks the deleted role; Narrow opens
+ * the same dialog with Everyone off, the choice limited to what the audience holds, and Unshare; dropping the
+ * removed role PUTs the narrower audience. Reassign hands it to Khalid (`POST …/Reassign { owner }`).
+ */
+async function curatorNarrowsAndReassigns826({ dir }) {
+  const tag = `826 ${dir} curator`
+  const { context, page, errors, bodies } = await open({ dir, access: { canView: true, canAuthor: true, canCurate: true } })
+  await page.goto(`${BASE}/analytics/board/b-826`)
+  const header = page.locator('[data-analytics-board="b-826"] [data-analytics-board-header]')
+  await header.locator('[data-analytics-audience="chosen"]').waitFor({ timeout: 15000 })
+  check(`${tag}: the board's chip marks the deleted role removed`, (await header.locator('[data-analytics-audience-name="OLD_ECOM"][data-removed="true"]').count()) === 1)
+  await page.locator('[data-analytics-action="narrow"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a curator is offered Narrow and Reassign (no Share)`, JSON.stringify(await tierActionsOn(page)) === '["narrow","reassign","certify"]', JSON.stringify(await tierActionsOn(page)))
+
+  await page.locator('[data-analytics-action="narrow"]').click()
+  await page.locator('[data-analytics-share="narrow"]').waitFor({ timeout: 5000 })
+  check(`${tag}: narrowing cannot widen to Everyone`, await page.locator('[data-analytics-share-everyone]').isDisabled())
+  check(`${tag}: … the dialog offers Unshare`, (await page.locator('[data-analytics-share-unshare]').count()) === 1)
+  check(`${tag}: … and Narrow waits for a narrower choice`, await page.locator('[data-analytics-share-save]').isDisabled())
+  const roles = page.locator('[data-testid="analytics-share-roles"]')
+  await roles.locator('[data-multi-select-trigger]').click()
+  const offered = await roles.locator('[data-option]').evaluateAll((els) => els.map((e) => e.getAttribute('data-option')))
+  check(`${tag}: … offering only the roles the audience holds`, JSON.stringify(offered) === '["DELIVERY_OPS","OLD_ECOM"]', JSON.stringify(offered))
+  await roles.locator('[data-option="OLD_ECOM"] input[type="checkbox"]').uncheck()
+  await page.keyboard.press('Escape')
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-narrow.png` })
+  await page.locator('[data-analytics-share-save]').click()
+  await page.locator('[data-analytics-share]').waitFor({ state: 'detached', timeout: 10000 })
+  const put = bodies['PUT Analytics/Item/b-826/Audience']?.[0]
+  check(`${tag}: Narrow PUTs the narrower audience`, JSON.stringify(put) === JSON.stringify({ audience: { roles: ['DELIVERY_OPS'], users: ['nalharbi'] } }), JSON.stringify(put))
+  await header.locator('[data-analytics-audience-name="OLD_ECOM"]').waitFor({ state: 'detached', timeout: 10000 })
+  check(`${tag}: … and the chip follows`, (await header.locator('[data-analytics-audience-name]').count()) === 2)
+
+  await page.locator('[data-analytics-action="reassign"]').click()
+  await page.locator('[data-analytics-reassign]').waitFor({ timeout: 5000 })
+  await searchPick(page, 'analytics-reassign-owner', 'Khalid', 'kalotaibi')
+  await page.screenshot({ path: `${SHOTS}/826-${dir}-reassign.png` })
+  await page.locator('[data-analytics-reassign-save]').click()
+  await page.locator('[data-analytics-reassign]').waitFor({ state: 'detached', timeout: 10000 })
+  const handed = bodies['Analytics/Item/b-826/Reassign']?.[0]
+  check(`${tag}: Reassign posts { owner }`, JSON.stringify(handed) === JSON.stringify({ owner: 'kalotaibi' }), JSON.stringify(handed))
+  check(`${tag}: … and keeps the audience (the chip stays)`, (await header.locator('[data-analytics-audience-name]').count()) === 2)
+  check(`${tag}: no item PUT was made (audience and owner are not revisions)`, !bodies['PUT Analytics/Item/b-826'])
+
+  await page.goto(`${BASE}/analytics`)
+  await homeRow(page, 'shared', 'b-826').waitFor({ timeout: 10000 })
+  const owner = noIsolates(await homeRow(page, 'shared', 'b-826').locator('[data-analytics-item-owner]').innerText())
+  check(`${tag}: the home lists the new owner`, owner.includes('kalotaibi'), owner)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 async function staleProbeShare415() {
   const tag = '822 415'
   const { context, page, errors } = await open({ access: AUTHOR, share: refusal('ANALYTICS-415', 'Needs the author grant.', 403) })
   await page.goto(`${BASE}/analytics/view/v-bar`)
   await page.locator('[data-analytics-action="share"]').waitFor({ timeout: 15000 })
   await page.locator('[data-analytics-action="share"]').click()
+  await page.locator('[data-analytics-share-save]').click()
   const note = page.locator('[data-analytics-tier-refusal="needs-author"]')
   await note.waitFor({ timeout: 10000 })
   check(`${tag}: the reason is worded from the boards key`, (await note.innerText()).includes('needs the author grant'), await note.innerText())
@@ -2337,6 +2507,12 @@ async function staleProbeShare415() {
 }
 
 const SCENARIOS = [
+  ['826', () => sharesWithAudience826({ dir: 'ltr' })],
+  ['826', () => sharesWithAudience826({ dir: 'rtl' })],
+  ['826', () => outsiderNotShared826({ dir: 'ltr' })],
+  ['826', () => outsiderNotShared826({ dir: 'rtl' })],
+  ['826', () => curatorNarrowsAndReassigns826({ dir: 'ltr' })],
+  ['826', () => curatorNarrowsAndReassigns826({ dir: 'rtl' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'ltr' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'rtl' })],
   ['822', () => runnerSeesNoBuilder({ dir: 'ltr', access: { canView: true, canCurate: false }, label: 'v1-answer' })],

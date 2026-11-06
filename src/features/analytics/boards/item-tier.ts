@@ -6,9 +6,9 @@ import type { ItemActionKey } from './item-actions'
  * The tier's own actions on an item's header (ticket 778) — pure. `./item-actions` decides what is offered; the
  * editor keeps its saves (`saveInPlace`, `saveAsCopy`, `create`), the view and board headers show these.
  */
-export type TierActionKey = Extract<ItemActionKey, 'share' | 'unshare' | 'certify' | 'certifyRevision' | 'uncertify' | 'delete'>
+export type TierActionKey = Extract<ItemActionKey, 'share' | 'unshare' | 'narrow' | 'reassign' | 'certify' | 'certifyRevision' | 'uncertify' | 'delete'>
 
-const TIER_ACTION_KEYS: ReadonlySet<ItemActionKey> = new Set<TierActionKey>(['share', 'unshare', 'certify', 'certifyRevision', 'uncertify', 'delete'])
+const TIER_ACTION_KEYS: ReadonlySet<ItemActionKey> = new Set<TierActionKey>(['share', 'unshare', 'narrow', 'reassign', 'certify', 'certifyRevision', 'uncertify', 'delete'])
 
 export const tierActionsOf = (actions: readonly ItemActionKey[]): TierActionKey[] =>
   actions.filter((a): a is TierActionKey => TIER_ACTION_KEYS.has(a))

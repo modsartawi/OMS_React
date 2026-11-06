@@ -110,8 +110,8 @@ function HistorySheet({ item, kind, onClose }: { item: AnalyticsItem | Analytics
           </p>
         ) : (
           <ol className="flex flex-col divide-y divide-border/60" data-analytics-revisions>
-            {rows.map((r) => (
-              <RevisionLine key={r.revision} row={r} lang={lang} pending={revert.isPending} onRevert={() => revert.mutate(r.revision)} />
+            {rows.map((r, i) => (
+              <RevisionLine key={r.event ? `${r.event}:${i}` : r.revision} row={r} lang={lang} pending={revert.isPending} onRevert={() => revert.mutate(r.revision)} />
             ))}
           </ol>
         )}
@@ -124,10 +124,27 @@ function RevisionLine({ row, lang, pending, onRevert }: { row: RevisionRow; lang
   const { t } = useTranslation('boards')
   const at = row.at ? formatPair(formatDay(row.at, lang), formatClock(row.at, lang)) : ''
   return (
-    <li className="flex items-center gap-3 py-2" data-analytics-revision={row.revision} data-viewing={row.viewing ? 'true' : 'false'} aria-current={row.viewing ? 'true' : undefined}>
+    <li
+      className="flex items-center gap-3 py-2"
+      data-analytics-revision={row.event ? undefined : row.revision}
+      data-analytics-history-event={row.event}
+      data-viewing={row.viewing ? 'true' : 'false'}
+      aria-current={row.viewing ? 'true' : undefined}
+    >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium">
-          <Trans t={t} i18nKey="history.revision" values={{ revision: String(row.revision) }} components={{ n: <Ltr /> }} />
+          {/* 826: an audience change or a reassign is written to the history, but is not a revision. */}
+          {row.event === 'audience' ? (
+            t('history.event.audience')
+          ) : row.event === 'reassign' ? (
+            row.owner ? (
+              <Trans t={t} i18nKey="history.event.reassignTo" values={{ owner: row.owner }} components={{ owner: <Ltr /> }} />
+            ) : (
+              t('history.event.reassign')
+            )
+          ) : (
+            <Trans t={t} i18nKey="history.revision" values={{ revision: String(row.revision) }} components={{ n: <Ltr /> }} />
+          )}
           {row.viewing && (
             <span className="ms-2 rounded-full bg-accent px-2 py-0.5 text-xs font-normal" data-analytics-revision-viewing>
               {t('history.viewing')}
@@ -136,9 +153,9 @@ function RevisionLine({ row, lang, pending, onRevert }: { row: RevisionRow; lang
         </span>
         <span className="text-xs text-muted-foreground" data-analytics-revision-who>
           {row.by && at ? (
-            <Trans t={t} i18nKey="history.byAt" values={{ by: row.by, at }} components={{ by: <bdi />, at: <Ltr /> }} />
+            <Trans t={t} i18nKey={row.event ? 'history.event.byAt' : 'history.byAt'} values={{ by: row.by, at }} components={{ by: <bdi />, at: <Ltr /> }} />
           ) : row.by ? (
-            <Trans t={t} i18nKey="history.by" values={{ by: row.by }} components={{ by: <bdi /> }} />
+            <Trans t={t} i18nKey={row.event ? 'history.event.by' : 'history.by'} values={{ by: row.by }} components={{ by: <bdi /> }} />
           ) : (
             at && <Ltr>{at}</Ltr>
           )}

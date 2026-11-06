@@ -26,6 +26,9 @@ export function readRevisions(raw: unknown): AnalyticsRevision[] {
       updatedAt: text(r.updatedAt),
       updatedBy: text(r.updatedBy),
       revertedFrom: typeof r.revertedFrom === 'number' ? r.revertedFrom : null,
+      // 826: an audience change or a reassign; any other kind reads as an ordinary row.
+      ...(r.event === 'audience' || r.event === 'reassign' ? { event: r.event } : {}),
+      ...(r.event === 'reassign' && text(r.owner) ? { owner: text(r.owner) } : {}),
     }))
 }
 
@@ -39,20 +42,28 @@ export interface RevisionRow {
   canRevert: boolean
   /** A revert revision: the revision it copied. */
   revertedFrom: number | null
+  /** 826: an audience change or a reassign (the new `owner`), not a revision: never viewed, never reverted to. */
+  event?: 'audience' | 'reassign'
+  owner?: string
 }
 
 /** The history panel's rows: newest first, at most `REVISION_LIMIT`, the revision being viewed marked. */
 export function revisionList(revisions: AnalyticsRevision[], viewing: number): RevisionRow[] {
-  return [...revisions]
-    .sort((a, b) => b.revision - a.revision)
-    .slice(0, REVISION_LIMIT)
+  // Newest first; at one revision number, its events (826) above it, newest first, since they came after it.
+  const sorted = [...revisions].sort((a, b) => b.revision - a.revision || Number(!!b.event) - Number(!!a.event) || b.updatedAt.localeCompare(a.updatedAt))
+  const kept = sorted.filter((r) => !r.event).slice(0, REVISION_LIMIT)
+  const oldest = kept.length ? kept[kept.length - 1].revision : -Infinity
+  return sorted
+    .filter((r) => (r.event ? r.revision >= oldest : kept.includes(r)))
     .map((r) => ({
       revision: r.revision,
       by: r.updatedBy,
       at: r.updatedAt,
-      viewing: r.revision === viewing,
-      canRevert: r.revision !== viewing,
+      viewing: !r.event && r.revision === viewing,
+      canRevert: !r.event && r.revision !== viewing,
       revertedFrom: r.revertedFrom ?? null,
+      ...(r.event ? { event: r.event } : {}),
+      ...(r.owner ? { owner: r.owner } : {}),
     }))
 }
 

@@ -21,6 +21,7 @@ import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
 import { homeGroups, itemsQuery } from './home'
+import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
@@ -173,6 +174,8 @@ function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
         <span data-analytics-item-tier={item.tier}>
           <TierBadge tier={item.tier} />
         </span>
+        {/* 826: who a Shared item is shared with. */}
+        <AudienceChip item={item} />
         <span className="text-xs text-muted-foreground" data-analytics-item-owner>
           <Trans t={t} i18nKey="home.owner" values={{ owner: item.owner }} components={{ owner: <bdi /> }} />
         </span>

@@ -27,6 +27,7 @@ import { boardParams, type ParamValues } from './params'
 import { readCrossFilter, readParamValues, writeCrossFilter, writeParamValues } from './permalink'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
+import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { useItemActor } from './use-item-save'
@@ -152,6 +153,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         )}
         {/* 778: the tier badge on the board too, and the tier's actions. */}
         <TierBadge tier={board.tier} />
+        {/* 826: who a Shared board is shared with. */}
+        <AudienceChip item={board} />
         {/* 780: a wall screen shows the board, not the ask box, the editor link, the history or the tier's actions. */}
         {!tv.on && (
           <>

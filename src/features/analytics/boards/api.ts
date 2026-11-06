@@ -7,13 +7,17 @@
  */
 import { api } from '@/core/api'
 import type {
+  AnalyticsAudienceCandidates,
   AnalyticsBoard,
   AnalyticsHealth,
   AnalyticsItem,
   AnalyticsItemCopy,
+  AnalyticsItemAudience,
   AnalyticsItemCreate,
+  AnalyticsItemReassign,
   AnalyticsItemRevert,
   AnalyticsItemRevision,
+  AnalyticsItemShare,
   AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
@@ -22,6 +26,7 @@ import type {
   AnalyticsReport,
   AnalyticsRevision,
 } from '@/core/models/analytics'
+import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
@@ -36,6 +41,8 @@ export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as con
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
 /** An item's last 20 revisions (779). */
 export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
+/** 826: the share dialog's candidates for a search (roles and analytics users). */
+export const analyticsAudienceCandidatesKey = (search: string) => ['analytics', 'audienceCandidates', search] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
@@ -110,11 +117,12 @@ export const analyticsApi = {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Revert`, body))
   },
   /**
-   * 778: `POST Analytics/Item/{id}/Share` / `…/Unshare` with `{ revision }` — the owner shows their item to every
-   * analytics user, or takes it back (Personal ↔ Shared). Answers the item. ⚠ §C's `{ revision }` is read as
-   * the body of Copy, Share, Unshare and Certify alike: the revision the screen showed.
+   * 778: `POST Analytics/Item/{id}/Share` / `…/Unshare` with `{ revision }` — the owner shows their item, or takes it
+   * back (Personal ↔ Shared). Answers the item. ⚠ §C's `{ revision }` is read as the body of Copy, Share, Unshare and
+   * Certify alike: the revision the screen showed. 826 (spec 819 §C): Share takes an `audience` too — everyone, or
+   * roles and users. Unshare is unchanged (and a curator's unshare is the same door).
    */
-  async share(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
+  async share(id: string, body: AnalyticsItemShare): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Share`, body))
   },
   async unshare(id: string, body: AnalyticsItemRevision): Promise<AnalyticsItem> {
@@ -131,6 +139,28 @@ export const analyticsApi = {
   /** 778: `POST Analytics/Item/{id}/Uncertify` (no body) on the Certified item. ⚠ Answers the item, no longer Certified. */
   async uncertify(id: string): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Uncertify`, {}))
+  },
+  /**
+   * 826: `PUT Analytics/Item/{id}/Audience` with `{ audience }` — the owner changes a Shared item's audience, or a
+   * curator narrows it. Written to the item's history; NOT a definition revision, so no `baseRevision` and never
+   * `ANALYTICS-405`. ⚠ Answers the item (proposed), at the same revision.
+   */
+  async setAudience(id: string, body: AnalyticsItemAudience): Promise<AnalyticsItem> {
+    return readItem(await api.put<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Audience`, body))
+  },
+  /**
+   * 826: `GET Analytics/AudienceCandidates` with `search` (a name or an employee id) — up to 50 authz roles (a
+   * deleted one `removed`) and analytics users. Feeds the share dialog and the reassign picker.
+   */
+  async audienceCandidates(search: string): Promise<AnalyticsAudienceCandidates> {
+    return readCandidates(await api.get<unknown>('Analytics/AudienceCandidates', { search }))
+  },
+  /**
+   * 826: `POST Analytics/Item/{id}/Reassign` with `{ owner }` (curators only) — hands the item to another author;
+   * its audience and tier are kept. The new owner must hold author (the server judges). Answers the item.
+   */
+  async reassign(id: string, body: AnalyticsItemReassign): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Reassign`, body))
   },
   /** 778: `DELETE Analytics/Item/{id}`. A board that shows a deleted view keeps a "view removed" panel (404). */
   async remove(id: string): Promise<void> {

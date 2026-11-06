@@ -14,6 +14,7 @@ import type {
   Bindings,
   Param,
 } from '@/core/models/analytics'
+import { readAudience } from './audience'
 
 /**
  * Reading the analytics wire (spec 766 §C, ticket 767) — defensively, because the doors are proposed
@@ -95,6 +96,7 @@ export function readItem(raw: Loose): AnalyticsItem {
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
     definition: readDefinition(i.definition),
+    audience: readAudience(i.audience),
   } as AnalyticsItem
 }
 
@@ -138,6 +140,7 @@ export function readBoard(raw: Loose): AnalyticsBoard {
     title: said(i.title),
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
+    audience: readAudience(i.audience),
     definition: {
       panels: arr<unknown>(d.panels)
         .map(readPanel)
@@ -185,6 +188,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-410': 'refusal.areaUnavailable',
   // 822 (spec 819 §C): needs the author grant; the screen also drops the grant from the cached probe (`./access`).
   'ANALYTICS-415': 'refusal.needsAuthor',
+  // 826: not shared with you — the item pages show the "not shared with you" state naming the owner (`./Refused`).
+  'ANALYTICS-413': 'refusal.notShared',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

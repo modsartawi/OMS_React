@@ -1,6 +1,9 @@
-import { useTranslation } from 'react-i18next'
-import { SearchX, ShieldAlert } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
+import { Lock, SearchX, ShieldAlert } from 'lucide-react'
+import { apiErrorData } from '@/core/api'
+import type { AnalyticsNotShared } from '@/core/models/analytics'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Ltr from '@/core/ui/Ltr'
 import { analyticsRefusal, refusalWords, type AnalyticsRefusal } from './wire'
 
 /**
@@ -12,6 +15,7 @@ export default function Refused({ err, fallbackKey, what = 'view' }: { err: unkn
   const { t } = useTranslation('boards')
   const refusal = analyticsRefusal(err, t(fallbackKey))
   const words = refusalWords(refusal, t)
+  if (refusal.code === 'ANALYTICS-413') return <NotShared err={err} what={what} />
   if (refusal.code === 'ANALYTICS-404' || refusal.code === 'ANALYTICS-401') {
     const notFound = refusal.code === 'ANALYTICS-404'
     const Icon = notFound ? SearchX : ShieldAlert
@@ -39,4 +43,44 @@ export default function Refused({ err, fallbackKey, what = 'view' }: { err: unkn
 export function RefusalText({ refusal }: { refusal: AnalyticsRefusal }) {
   const { t } = useTranslation('boards')
   return <bdi>{refusalWords(refusal, t)}</bdi>
+}
+
+/**
+ * 826 (spec 819 §C): `ANALYTICS-413`, a link to an item outside the caller's audience — "not shared with you",
+ * naming the owner to ask (from the refusal's `data`, ⚠ proposed `{ owner, ownerName? }`), and nothing of the
+ * item: no title, no data. A name is free text (`<bdi>`), a user id a machine value (`Ltr`).
+ */
+function NotShared({ err, what }: { err: unknown; what: 'view' | 'board' }) {
+  const { t } = useTranslation('boards')
+  const raw = apiErrorData(err)
+  const data = (raw && typeof raw === 'object' ? raw : {}) as Partial<AnalyticsNotShared>
+  const owner = typeof data.owner === 'string' ? data.owner : ''
+  const name = typeof data.ownerName === 'string' ? data.ownerName : ''
+  return (
+    <div
+      className="mx-auto mt-10 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
+      role="alert"
+      data-analytics-state="not-shared"
+      data-analytics-owner={owner || undefined}
+    >
+      <Lock className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
+      <div className="text-base font-semibold tracking-tight">{t(`${what}.notSharedTitle`)}</div>
+      <p className="mt-2 text-sm text-muted-foreground" data-analytics-not-shared-owner>
+        {name && owner ? (
+          <Trans t={t} i18nKey="notShared.askNamed" values={{ name, owner }} components={{ name: <bdi />, owner: <Ltr /> }} />
+        ) : owner || name ? (
+          name ? (
+            <Trans t={t} i18nKey="notShared.askName" values={{ name }} components={{ name: <bdi /> }} />
+          ) : (
+            <Trans t={t} i18nKey="notShared.ask" values={{ owner }} components={{ owner: <Ltr /> }} />
+          )
+        ) : (
+          t('notShared.askNobody')
+        )}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        <Ltr>ANALYTICS-413</Ltr>
+      </p>
+    </div>
+  )
 }

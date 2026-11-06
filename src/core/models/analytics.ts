@@ -129,6 +129,58 @@ export interface AnalyticsViewDefinition {
 
 export type AnalyticsTier = 'personal' | 'shared' | 'certified'
 
+/**
+ * 826 (spec 819 §C, ⚠ PROPOSED, BackOffice 3378): an authz role in an audience or among the candidates. `removed`
+ * is a role authz no longer holds: it stays in the audience, marked, and grants nobody.
+ */
+export interface AnalyticsAudienceRole {
+  key: string
+  label: AnalyticsLabel
+  removed: boolean
+}
+
+/** 826: an analytics user in an audience or among the candidates — a free-text name and a machine employee id. */
+export interface AnalyticsAudienceUser {
+  id: string
+  name: string
+  employeeId: string
+}
+
+/**
+ * 826: a Shared item's audience as the store answers it, resolved through authz on every read — everyone, or a mix
+ * of roles and named users. ⚠ §C writes `{ roles: string[], users: string[] }`; the read is proposed to carry each
+ * entry resolved (a role's label and `removed`, a user's name and employee id), so the chip can name them.
+ */
+export type AnalyticsAudience = { everyone: true } | { everyone: false; roles: AnalyticsAudienceRole[]; users: AnalyticsAudienceUser[] }
+
+/** 826: the audience as the writes carry it (§C): everyone, or role keys and user ids. */
+export type AnalyticsAudienceWrite = { everyone: true } | { roles: string[]; users: string[] }
+
+/** 826: `GET Analytics/AudienceCandidates?search=` — up to 50 roles and analytics users matching `search`. */
+export interface AnalyticsAudienceCandidates {
+  roles: AnalyticsAudienceRole[]
+  users: AnalyticsAudienceUser[]
+}
+
+/** 826: `PUT Analytics/Item/{id}/Audience` — not a definition revision, so no `baseRevision` and never `ANALYTICS-405`. */
+export interface AnalyticsItemAudience {
+  audience: AnalyticsAudienceWrite
+}
+
+/** 826: `POST Analytics/Item/{id}/Reassign` (curators only): the author the item is handed to. */
+export interface AnalyticsItemReassign {
+  owner: string
+}
+
+/**
+ * 826: an `ANALYTICS-413` refusal's `data` (⚠ proposed): who to ask. No title, no data of the item.
+ * `ownerName` is the owner's display name when the store has one.
+ */
+export interface AnalyticsNotShared {
+  owner: string
+  ownerName?: string
+}
+
 /** `GET Analytics/Item/{id}` — a view or a board in the analytics store. */
 export interface AnalyticsItem {
   id: string
@@ -145,6 +197,8 @@ export interface AnalyticsItem {
   updatedAt: string
   updatedBy: string
   definition: AnalyticsViewDefinition
+  /** 826: a Shared item's audience. Absent on a Shared item is v1's share with everyone. */
+  audience?: AnalyticsAudience
 }
 
 /**
@@ -190,6 +244,11 @@ export interface AnalyticsItemCopy {
 /** 778: the body of `…/Share`, `…/Unshare` and `…/Certify` — the revision the screen showed (⚠ §C `{ revision }`). */
 export interface AnalyticsItemRevision {
   revision: number
+}
+
+/** 826: `…/Share` takes an audience (§C): the revision the screen showed, shared with whom. */
+export interface AnalyticsItemShare extends AnalyticsItemRevision {
+  audience: AnalyticsAudienceWrite
 }
 
 /** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */
@@ -385,6 +444,12 @@ export interface AnalyticsRevision {
   updatedAt: string
   updatedBy: string
   revertedFrom?: number | null
+  /**
+   * 826 (⚠ proposed): a history row that is not a definition revision — an audience change or a reassign. Its
+   * `revision` is the one current when it happened; it is never reverted to. A reassign names the new `owner`.
+   */
+  event?: 'audience' | 'reassign'
+  owner?: string
 }
 
 /** `POST Analytics/Item/{id}/Revert` — writes `revision`'s snapshot as a NEW revision. Answers the item at it. */

@@ -621,6 +621,38 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *             object; default `HEALTH_OK`.
  * Returns `{ calls, bodies }`: every door path asked, and each POST/PUT body by path (a PUT under `PUT <path>`).
  */
+// ── 826: audiences. Roles from authz (one deleted), analytics users, and a board shared with a chosen audience. ──
+export const ROLES_826 = [
+  { key: 'HQ_SALES', label: label('HQ Sales', 'مبيعات المركز الرئيسي') },
+  { key: 'DELIVERY_OPS', label: label('Delivery operations', 'عمليات التوصيل') },
+  { key: 'FINANCE', label: label('Finance', 'المالية') },
+  { key: 'OLD_ECOM', label: label('E-commerce (old)', 'التجارة الإلكترونية (قديم)'), removed: true },
+]
+export const USERS_826 = [
+  { id: 'nalharbi', name: 'Noura Alharbi', employeeId: '10442' },
+  { id: 'kalotaibi', name: 'Khalid Alotaibi', employeeId: '10551' },
+  { id: 'sqahtani', name: 'Sara Alqahtani', employeeId: '10663' },
+]
+/** A store-side audience resolver: write keys → the resolved read (labels, `removed`, names). */
+export const resolveAudience = (a) =>
+  !a || a.everyone
+    ? { everyone: true }
+    : {
+        everyone: false,
+        roles: (a.roles ?? []).map((k) => ROLES_826.find((r) => r.key === k) ?? { key: k, label: label(k, k), removed: true }),
+        users: (a.users ?? []).map((id) => USERS_826.find((u) => u.id === id) ?? { id, name: id, employeeId: '' }),
+      }
+/** aalharbi's Shared board, shared with Delivery operations, the deleted E-commerce role and Noura. */
+export const BOARD_826 = {
+  ...view('b-826', { title: label('Delivery desk', 'مكتب التوصيل'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi', revision: 4 }),
+  kind: 'board',
+  audience: resolveAudience({ roles: ['DELIVERY_OPS', 'OLD_ECOM'], users: ['nalharbi'] }),
+  definition: { panels: [{ id: 'p1', kind: 'text', text: label('Desk notes', 'ملاحظات'), layout: { x: 0, y: 0, w: 6, h: 2 } }] },
+}
+ITEMS['b-826'] = BOARD_826
+/** The `ANALYTICS-413` an outsider gets for a link to an item outside its audience: who to ask, nothing else. */
+export const NOT_SHARED_826 = envelope({ owner: 'msartawi', ownerName: 'Mohamed Sartawi' }, { status: 403, success: false, message: 'Not shared with you.', errors: [{ errorCode: 'ANALYTICS-413', internalErrorCode: '', errorMessage: 'Not shared with you.' }] })
+
 /** 785: `GET Analytics/Health`, the container's /health as SIS.Api passes it on (BackOffice 3386). */
 export const HEALTH_OK = {
   status: 'ok',
@@ -633,7 +665,7 @@ export const HEALTH_OK = {
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
@@ -680,6 +712,30 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const now = list.map((it) => listedNow.get(it.id) ?? it).concat([...listedNow.values()].filter((it) => !list.some((x) => x.id === it.id)))
       return route.fulfill(envelope(now.filter((it) => !removed.has(it.id))))
     }
+    // 826: the candidates (roles and users matching `search`), the Audience door and Reassign.
+    if (p === 'Analytics/AudienceCandidates') {
+      ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
+      if (candidates) return route.fulfill(candidates)
+      const q = (url.searchParams.get('search') ?? '').toLowerCase()
+      const hit = (...xs) => !q || xs.join(' ').toLowerCase().includes(q)
+      return route.fulfill(envelope({ roles: ROLES_826.filter((r) => hit(r.key, r.label.en, r.label.ar)), users: USERS_826.filter((u) => hit(u.id, u.name, u.employeeId)) }))
+    }
+    const audienceDoor = /^Analytics\/Item\/([^/]+)\/(Audience|Reassign)$/.exec(p)
+    if (audienceDoor && (req.method() === 'PUT' || req.method() === 'POST')) {
+      const [id, door] = [decodeURIComponent(audienceDoor[1]), audienceDoor[2]]
+      const override = door === 'Audience' ? audience : reassign
+      if (override) return route.fulfill(override)
+      const before = made[id] ?? items[id]
+      if (!before) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const body = req.postDataJSON() ?? {}
+      // Not a revision: the item keeps its revision (no 405 for an editor holding it); the history gains an event.
+      const after = door === 'Audience' ? { ...before, audience: resolveAudience(body.audience) } : { ...before, owner: body.owner }
+      made[id] = after
+      listedNow.set(id, after)
+      const rows = (history[id] ??= [{ revision: before.revision, updatedAt: before.updatedAt, updatedBy: before.updatedBy }])
+      if (Array.isArray(rows)) rows.push({ revision: before.revision, updatedAt: '2026-11-05T10:20:00', updatedBy: 'msartawi', event: door === 'Audience' ? 'audience' : 'reassign', ...(door === 'Reassign' ? { owner: body.owner } : {}) })
+      return route.fulfill(envelope(after))
+    }
     // 778: Share / Unshare / Certify / Uncertify, and DELETE.
     const tierDoor = /^Analytics\/Item\/([^/]+)\/(Share|Unshare|Certify|Uncertify)$/.exec(p)
     if ((tierDoor && req.method() === 'POST') || (p.startsWith('Analytics/Item/') && req.method() === 'DELETE')) {
@@ -694,8 +750,12 @@ export async function installAnalyticsStubs(page, opts = {}) {
         return route.fulfill(envelope(it))
       }
       const at = { updatedAt: '2026-11-05T10:08:00', updatedBy: 'msartawi' }
-      if (door === 'Share') return keep({ ...before, tier: 'shared', ...at })
-      if (door === 'Unshare') return keep({ ...before, tier: 'personal', ...at })
+      // 826: Share takes an audience; Unshare drops it.
+      if (door === 'Share') return keep({ ...before, tier: 'shared', audience: resolveAudience(req.postDataJSON()?.audience), ...at })
+      if (door === 'Unshare') {
+        const { audience: _dropped, ...rest } = before
+        return keep({ ...rest, tier: 'personal', ...at })
+      }
       if (door === 'Uncertify') return keep({ ...before, tier: 'shared', ...at })
       if (door === 'Delete') {
         removed.add(id)

@@ -102,7 +102,8 @@
       "seeDeliveries": "See deliveries"
     },
     "viewRemoved": "The view this panel showed was removed.",
-    "viewRemovedHint": "Edit the board to remove the panel or link another view."
+    "viewRemovedHint": "Edit the board to remove the panel or link another view.",
+    "notSharedTitle": "This board isn’t shared with you"
   },
   "view": {
     "title": "Analytics view",
@@ -124,7 +125,8 @@
     "notShown_other": "{{n}} more not shown: {{measure}} is a rate, so the rest cannot be summed into Other.",
     "topN_one": "Showing the top {{n}} row.",
     "topN_other": "Showing the top {{n}} rows.",
-    "edit": "Edit"
+    "edit": "Edit",
+    "notSharedTitle": "This view isn’t shared with you"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -134,7 +136,8 @@
     "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
     "areaUnavailable": "This subject area is not available yet.",
-    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you."
+    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you.",
+    "notShared": "This analytics item isn’t shared with you."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -390,7 +393,14 @@
     "reverted": "Reverted to revision {{revision}}.",
     "revertFailed": "The revert could not be saved",
     "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
-    "undo": "Undo"
+    "undo": "Undo",
+    "event": {
+      "audience": "Audience changed",
+      "reassign": "Handed to another author",
+      "reassignTo": "Handed to <owner>{{owner}}</owner>",
+      "byAt": "By <by>{{by}}</by>, <at>{{at}}</at>",
+      "by": "By <by>{{by}}</by>"
+    }
   },
   "tierActions": {
     "label": "Sharing and certification",
@@ -408,7 +418,11 @@
       "certify": "Certified. A frozen certified copy now leads the home; this one stays its author's.",
       "certifyRevision": "This revision is now the certified copy's newest revision.",
       "uncertify": "No longer certified.",
-      "delete": "Deleted."
+      "delete": "Deleted.",
+      "shareChosen": "Shared with the chosen teams and people.",
+      "audience": "The audience is saved.",
+      "narrow": "The audience is narrowed.",
+      "reassign": "Handed to its new owner."
     },
     "refused": {
       "needsCurator": "This needs the curator grant, which you no longer hold. The curator's actions are hidden now."
@@ -429,7 +443,9 @@
           "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
         }
       }
-    }
+    },
+    "narrow": "Narrow audience",
+    "reassign": "Reassign"
   },
   "boardEditor": {
     "title": "New board",
@@ -554,5 +570,74 @@
     "source": "Written by the OMS copilot from live analytics data. Charts are drawn from the governed marts at the time of export.",
     "back": "Back to the report",
     "missingChart": "This chart is no longer saved."
+  },
+  "notShared": {
+    "ask": "Ask its owner, <owner>{{owner}}</owner>, to add you or your team.",
+    "askName": "Ask its owner, <name>{{name}}</name>, to add you or your team.",
+    "askNamed": "Ask its owner, <name>{{name}}</name> (<owner>{{owner}}</owner>), to add you or your team.",
+    "askNobody": "Ask whoever sent you the link to add you or your team."
+  },
+  "audience": {
+    "everyone": "Shared with everyone",
+    "with": "Shared with",
+    "separator": ", ",
+    "removed": "removed",
+    "counted": "(<n>{{count}}</n>)"
+  },
+  "share": {
+    "title": {
+      "share": "Share {{title}}",
+      "narrow": "Narrow who sees {{title}}"
+    },
+    "untitled": {
+      "share": {
+        "view": "Share this view",
+        "board": "Share this board"
+      },
+      "narrow": {
+        "view": "Narrow who sees this view",
+        "board": "Narrow who sees this board"
+      }
+    },
+    "cancel": "Cancel",
+    "save": {
+      "share": "Share",
+      "audience": "Save the audience",
+      "narrow": "Narrow"
+    },
+    "who": "Who can run it",
+    "everyone": "Everyone with analytics",
+    "chosen": "Chosen teams and people",
+    "roles": "Teams (authz roles)",
+    "rolesHint": "Membership is read from Authz every time it opens; someone who leaves the role loses it at once.",
+    "removedRole": "removed from Authz — ignored",
+    "people": "People",
+    "peopleHint": "Search by name or employee id.",
+    "narrowHint": "As a curator you can narrow who sees it, or unshare it. Only its owner can widen it.",
+    "canTitle": "They can",
+    "can": {
+      "run": "open and run it",
+      "params": "change every parameter",
+      "export": "export what they see",
+      "link": "copy a link with their values"
+    },
+    "cannotTitle": "They can’t",
+    "cannot": {
+      "edit": "edit, save or delete it",
+      "ai": "ask the AI to change it",
+      "copy": "save a copy (authors in the audience can)"
+    },
+    "history": "Every audience change is written to its history."
+  },
+  "reassign": {
+    "title": "Hand {{title}} to another author",
+    "untitled": {
+      "view": "Hand this view to another author",
+      "board": "Hand this board to another author"
+    },
+    "save": "Hand it over",
+    "hint": "Its owner is {{owner}}. The new owner must hold the author grant; who sees it and its tier stay as they are.",
+    "to": "New owner",
+    "toHint": "Search by name or employee id."
   }
 }

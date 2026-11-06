@@ -89,6 +89,14 @@
 //      Delivery; All couriers brings it all back; an unknown code is sent as written and the stub's
 //      `SDD-02132` refusal is shown in the server's words.
 //
+//  19. (ticket 816, spec 811) the store table's Delivery view: In slot %, Out of slot %, No slot,
+//      Delivered per trip and Avg delivery time from each store's Delivery track as sent; the All view's
+//      average is the store-wide Avg delivery time. Choosing FarEye opens the table on Delivery ranked by
+//      Out of slot % worst first with "—" last; Out of slot %, Delivered per trip and Avg delivery time
+//      draw core/charts cell bars in proportion to the column's largest value, from the reading start,
+//      the cell's text the formatted value alone (no isolate characters); all couriers keeps All by
+//      Handed over.
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
@@ -196,9 +204,9 @@ const olderServer = () => {
 
 /** Three stores whose figures rank differently, every field sent; one handed nothing over (a null average). */
 const rankedStores = () => [
-  store('P001', { flow: flow({ trips: 150, handedOver: 300 }), avgHandOverMinutes: 92.4 }),
-  store('P019', { flow: flow({ trips: 9, handedOver: 500 }), avgHandOverMinutes: 41.5 }),
-  store('P007', { flow: flow({ trips: 60, handedOver: 0, delivered: 0, pickedUp: 0 }), avgHandOverMinutes: null }),
+  store('P001', { flow: flow({ trips: 150, handedOver: 300 }), avgDeliveryMinutes: 92.4 }),
+  store('P019', { flow: flow({ trips: 9, handedOver: 500 }), avgDeliveryMinutes: 41.5 }),
+  store('P007', { flow: flow({ trips: 60, handedOver: 0, delivered: 0, pickedUp: 0 }), avgDeliveryMinutes: null }),
 ]
 
 const browser = await chromium.launch()
@@ -781,7 +789,7 @@ async function drive(dir) {
     const older = await tableRows(page)
     check(
       `${label}: in the store table an absent trips and a null average read "—", never 0`,
-      older.length === 1 && older[0].trips === '—' && older[0].avgHandOverMinutes === '—' && older[0].handedOver === '0',
+      older.length === 1 && older[0].trips === '—' && older[0].avgDeliveryMinutes === '—' && older[0].handedOver === '0',
       JSON.stringify(older),
     )
     await page.screenshot({ path: `${SHOTS}/${dir}-older-server.png`, fullPage: true })
@@ -1020,11 +1028,11 @@ async function driveTable(dir) {
   // the order is read with it first.
   const headerIds = ['storeCode', ...headers.map(([id]) => id).filter((id) => id !== 'storeCode')]
   check(
-    `${label}: the table's All columns: store, the flow with Trips beside Out for delivery, Unspecified last of the flow (decision B), the misses, Avg hand-over`,
+    `${label}: the table's All columns: store, the flow with Trips beside Out for delivery, Unspecified last of the flow (decision B), the misses, Avg delivery time`,
     headers.length === 15 &&
     same(
       headerIds,
-      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'],
+      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes'],
     ),
     headers.map(([id]) => id).join(','),
   )
@@ -1036,7 +1044,7 @@ async function driveTable(dir) {
       headerOf('delivered') === 'Delivered (home delivery)' &&
       headerOf('pickedUp') === 'Picked up (pick in store)' &&
       headerOf('unspecified') === 'Unspecified' &&
-      headerOf('avgHandOverMinutes') === 'Avg hand-over (min)',
+      headerOf('avgDeliveryMinutes') === 'Avg delivery time (min)',
     headers.map(([, h]) => h).join(' | '),
   )
   const rows = await tableRows(page)
@@ -1050,7 +1058,7 @@ async function driveTable(dir) {
   const p001 = rows.find((r) => r.storeCode === 'P001')
   check(
     `${label}: a row reads the server's figures, grouped, a real 0 as 0`,
-    p001?.cameIn === '1,234' && p001.trips === '150' && p001.rejected === '0' && p001.avgHandOverMinutes === '92.4' &&
+    p001?.cameIn === '1,234' && p001.trips === '150' && p001.rejected === '0' && p001.avgDeliveryMinutes === '92.4' &&
       rows.find((r) => r.storeCode === 'P007')?.handedOver === '0',
     JSON.stringify(p001),
   )
@@ -1080,12 +1088,12 @@ async function driveTable(dir) {
   check(`${label}: and descending`, same(await order(), ['P001', 'P007', 'P019']), (await order()).join(','))
 
   // A null average reads "—" and sorts LAST both ways.
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  const avgAsc = await order('avgHandOverMinutes')
-  check(`${label}: Avg hand-over ascending puts the "—" last`, same(avgAsc, ['41.5', '92.4', '—']), avgAsc.join(','))
-  await sortBy(page, 'avgHandOverMinutes', 'descending')
-  const avgDesc = await order('avgHandOverMinutes')
-  check(`${label}: Avg hand-over descending STILL puts the "—" last`, same(avgDesc, ['92.4', '41.5', '—']), avgDesc.join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  const avgAsc = await order('avgDeliveryMinutes')
+  check(`${label}: Avg delivery time ascending puts the "—" last`, same(avgAsc, ['41.5', '92.4', '—']), avgAsc.join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'descending')
+  const avgDesc = await order('avgDeliveryMinutes')
+  check(`${label}: Avg delivery time descending STILL puts the "—" last`, same(avgDesc, ['92.4', '41.5', '—']), avgDesc.join(','))
 
   // One store chosen: the table stays, showing that one row.
   await page.locator('[data-statistics-store] option[value="P001"]').waitFor({ state: 'attached', timeout: 10000 })
@@ -1112,6 +1120,7 @@ const tracksOf = (deliveredN, deliverAvg, pickedUpN, readyAvg) => {
   const t = tracks()
   t.delivery.flow.handedOver = deliveredN
   t.delivery.avgHandOverMinutes = deliverAvg
+  t.delivery.avgDeliveryMinutes = deliverAvg
   t.pickUp.flow.handedOver = pickedUpN
   t.pickUp.avgHandOverMinutes = readyAvg
   return t
@@ -1149,7 +1158,11 @@ const switchTo = async (page, track, handOver) => {
 const pressed = (page) =>
   page.locator('[data-statistics-track]').evaluateAll((els) => els.filter((e) => e.getAttribute('aria-pressed') === 'true').map((e) => e.getAttribute('data-statistics-track')))
 
-const DELIVERY_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes']
+const DELIVERY_COLUMNS = [
+  'storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered',
+  'inSlotShare', 'outOfSlotShare', 'noSlot', 'deliveredPerTrip',
+  'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes',
+]
 const PICK_UP_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes']
 
 async function driveTrackSwitch(dir) {
@@ -1188,10 +1201,12 @@ async function driveTrackSwitch(dir) {
   await switchTo(page, 'delivery', 'delivered')
   const d = await tableHeaders(page)
   check(`${label}: Delivery is held in the URL as track=delivery`, (await urlTrack()) === 'delivery' && same(await pressed(page), ['delivery']))
-  check(`${label}: Delivery's columns: the lane's stages with Trips, Delivered, the five misses, Avg time to deliver`, same(d.ids, DELIVERY_COLUMNS), d.ids.join(','))
+  check(`${label}: Delivery's columns: the lane's stages with Trips, Delivered, the slot keeping, Delivered per trip, the five misses, Avg delivery time`, same(d.ids, DELIVERY_COLUMNS), d.ids.join(','))
   check(
     `${label}: Delivery's headers come from the locale, with no isolate characters`,
-    d.clean && d.names.delivered === 'Delivered' && d.names.trips === 'Trips' && d.names.avgHandOverMinutes === 'Avg time to deliver (min)',
+    d.clean && d.names.delivered === 'Delivered' && d.names.trips === 'Trips' && d.names.avgDeliveryMinutes === 'Avg delivery time (min)' &&
+      d.names.inSlotShare === 'In slot %' && d.names.outOfSlotShare === 'Out of slot %' && d.names.noSlot === 'No slot' &&
+      d.names.deliveredPerTrip === 'Delivered per trip',
     JSON.stringify(d.names),
   )
   check(`${label}: Delivery ranks by Delivered, descending, by default`, same(await order(), ['P001', 'P019', 'P050']), (await order()).join(','))
@@ -1199,7 +1214,8 @@ async function driveTrackSwitch(dir) {
   const dP001 = dRows.find((r) => r.storeCode === 'P001')
   check(
     `${label}: a Delivery row reads tracks.delivery, not the store's totals`,
-    dP001?.cameIn === '702' && dP001.trips === '409' && dP001.delivered === '300' && dP001.returnedBack === '20' && dP001.avgHandOverMinutes === '96.25',
+    dP001?.cameIn === '702' && dP001.trips === '409' && dP001.delivered === '300' && dP001.returnedBack === '20' && dP001.avgDeliveryMinutes === '96.25' &&
+      dP001.inSlotShare === '80.0%' && dP001.outOfSlotShare === '15.0%' && dP001.noSlot === '32' && dP001.deliveredPerTrip === '1.56',
     JSON.stringify(dP001),
   )
   const dOlder = dRows.find((r) => r.storeCode === 'P050')
@@ -1208,8 +1224,8 @@ async function driveTrackSwitch(dir) {
     !!dOlder && DELIVERY_COLUMNS.slice(1).every((c) => dOlder[c] === '—'),
     JSON.stringify(dOlder),
   )
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  check(`${label}: Avg time to deliver ascending puts the "—" last`, same(await order('avgHandOverMinutes'), ['96.25', '—', '—']), (await order('avgHandOverMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  check(`${label}: Avg delivery time ascending puts the "—" last`, same(await order('avgDeliveryMinutes'), ['96.25', '—', '—']), (await order('avgDeliveryMinutes')).join(','))
   await sortBy(page, 'delivered', 'ascending')
   check(`${label}: Delivered ascending ranks numerically, the "—" last`, same(await order(), ['P019', 'P001', 'P050']), (await order()).join(','))
   await sortBy(page, 'delivered', 'descending')
@@ -1323,7 +1339,7 @@ async function driveCourier(dir) {
   )
   check(`${label}: the Pick-up funnel, misses row and table chip are gone`, same(await pickUpDrawn(), { lane: 0, misses: 0, chip: 0 }), JSON.stringify(await pickUpDrawn()))
   check(`${label}: the Delivery lane and misses row stay`, (await page.locator('[data-statistics-band="delivery"]').count()) === 1 && (await page.locator('[data-statistics-misses-row="delivery"]').count()) === 1)
-  check(`${label}: the table offers All and Delivery, and moved off Pick-up to Delivery`, same(await chips(), ['all', 'delivery']) && search().get('track') === 'delivery', `${await chips()} ${page.url()}`)
+  check(`${label}: the table offers All and Delivery, and moved off Pick-up to Delivery`, same(await chips(), ['all', 'delivery']) && same(await page.locator('[data-statistics-track][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-track'))), ['delivery']) && search().get('track') === null, `${await chips()} ${page.url()}`)
   await page.screenshot({ path: `${SHOTS}/${dir}-courier.png`, fullPage: true })
 
   // A reload keeps it, combined with a store; a link naming track=pickUp reads as Delivery.
@@ -1357,6 +1373,135 @@ async function driveCourier(dir) {
   check(`${label}: the unknown code stays in the picker so it can be undone`, (await picker.inputValue()) === 'NOPE')
   await page.screenshot({ path: `${SHOTS}/${dir}-courier-sdd02132.png`, fullPage: true })
   check(`${label}: no page errors (courier)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 19 (816): the Delivery view's slot, trip and delivery-time columns, and the courier default ──
+/** A store's tracks with its own Out of slot % (undefined = not sent), Delivered per trip and Avg delivery time. */
+const slotTracks = (outOfSlotShare, deliveredPerTrip, avgDeliveryMinutes) => {
+  const t = tracks()
+  const { outOfSlotShare: _o, ...slot } = t.delivery.slot
+  t.delivery.slot = outOfSlotShare === undefined ? slot : { ...slot, outOfSlotShare }
+  t.delivery.deliveredPerTrip = deliveredPerTrip
+  t.delivery.avgDeliveryMinutes = avgDeliveryMinutes
+  return t
+}
+/** Four stores ranking apart by Handed over and by Out of slot %; P007 sends no share, trips ratio or average. */
+const slotStores = () => [
+  store('P001', { flow: flow({ handedOver: 900 }), tracks: slotTracks(0.15, 1.56, 41.5) }),
+  store('P019', { flow: flow({ handedOver: 300 }), tracks: slotTracks(0.4, 2.1, 61) }),
+  store('P007', { flow: flow({ handedOver: 600 }), tracks: slotTracks(undefined, null, null) }),
+  store('P050', { flow: flow({ handedOver: 100 }), tracks: slotTracks(0.05, 1.2, 30) }),
+]
+const BAR_COLUMNS = ['outOfSlotShare', 'deliveredPerTrip', 'avgDeliveryMinutes']
+
+/** Each bar column's cells in shown order: the bar's length (data-cell-bar), its drawn width, which edge it grows from, and the cell's text. */
+const cellBars = (page) =>
+  page.evaluate((cols) => {
+    const byIndex = new Map()
+    for (const row of document.querySelectorAll('[data-statistics-stores] .ag-row[row-index]')) {
+      const i = Number(row.getAttribute('row-index'))
+      const entry = byIndex.get(i) ?? {}
+      for (const col of cols) {
+        const cell = row.querySelector(`.ag-cell[col-id="${col}"]`)
+        if (!cell) continue
+        const holder = cell.querySelector('[data-cell-bar]')
+        const bar = holder?.firstElementChild
+        const box = holder?.getBoundingClientRect()
+        const b = bar?.getBoundingClientRect()
+        entry[col] = {
+          length: holder ? Number(holder.getAttribute('data-cell-bar')) : null,
+          width: b ? Math.round(b.width) : 0,
+          fromLeft: box && b ? Math.abs(b.left - box.left) < 2 : null,
+          fromRight: box && b ? Math.abs(b.right - box.right) < 2 : null,
+          text: cell.textContent,
+          isolated: !!cell.querySelector('bdi[dir="ltr"]'),
+          background: bar?.getAttribute('style') ?? '',
+        }
+      }
+      byIndex.set(i, entry)
+    }
+    return [...byIndex.entries()].sort(([a], [b]) => a - b).map(([, r]) => r)
+  }, BAR_COLUMNS)
+
+async function driveSlotTable(dir) {
+  const label = `${dir} slot table`
+  const { context, page, errors } = await open(dir, { answer: () => statistics({ stores: slotStores() }) })
+  const order = async (col = 'storeCode') => (await tableRows(page)).map((r) => r[col])
+  const pressedNow = () => pressed(page)
+
+  // All couriers: today's default — All, ranked by Handed over.
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await waitFigures(page)
+  await page.locator('[data-statistics-stores="all"] .ag-header-cell[col-id="handedOver"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: all couriers keeps today's default — All, by Handed over descending`,
+    same(await pressedNow(), ['all']) && same(await order(), ['P001', 'P007', 'P019', 'P050']),
+    (await order()).join(','),
+  )
+
+  // FarEye: the table opens on Delivery, ranked by Out of slot % worst first, "—" last.
+  await page.locator('[data-statistics-courier]').selectOption('FREY')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('courier') === 'FREY')
+  await page.locator('[data-statistics-stores="delivery"] .ag-header-cell[col-id="outOfSlotShare"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  await page.locator('[data-statistics-stores="delivery"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(150)
+  check(
+    `${label}: choosing FarEye opens the table on Delivery, track absent from the URL`,
+    same(await pressedNow(), ['delivery']) && !new URL(page.url()).searchParams.has('track'),
+    page.url(),
+  )
+  check(
+    `${label}: ranked by Out of slot % descending with "—" last`,
+    same(await order(), ['P019', 'P001', 'P050', 'P007']) && same(await order('outOfSlotShare'), ['40.0%', '15.0%', '5.0%', '—']),
+    `${(await order()).join(',')} | ${(await order('outOfSlotShare')).join(',')}`,
+  )
+  check(
+    `${label}: Delivered per trip and Avg delivery time read as sent, "—" for the store that sent none`,
+    same(await order('deliveredPerTrip'), ['2.1', '1.56', '1.2', '—']) && same(await order('avgDeliveryMinutes'), ['61', '41.5', '30', '—']),
+    `${(await order('deliveredPerTrip')).join(',')} | ${(await order('avgDeliveryMinutes')).join(',')}`,
+  )
+  const bars = await cellBars(page)
+  const lengths = (col) => bars.map((r) => r[col]?.length)
+  check(
+    `${label}: the three bar columns draw bars in proportion to the column's largest value; "—" draws none`,
+    // 0.15 / 0.4 is 37.4999… in floating point, so 37.
+    same(lengths('outOfSlotShare'), [100, 37, 13, 0]) && same(lengths('deliveredPerTrip'), [100, 74, 57, 0]) && same(lengths('avgDeliveryMinutes'), [100, 68, 49, 0]),
+    BAR_COLUMNS.map((c) => `${c}:${lengths(c).join('/')}`).join(' '),
+  )
+  const drawn = bars.flatMap((r) => BAR_COLUMNS.map((c) => r[c]))
+  check(
+    `${label}: a bar is drawn on screen, longest for the largest value, none for "—"`,
+    BAR_COLUMNS.every((c) => bars[0][c].width > bars[1][c].width && bars[1][c].width > 0 && bars[3][c].width === 0),
+    BAR_COLUMNS.map((c) => `${c}:${bars.map((r) => r[c].width).join('/')}`).join(' '),
+  )
+  check(
+    `${label}: each bar grows from the reading start (${dir === 'rtl' ? 'right' : 'left'})`,
+    drawn.filter((b) => b.width > 0).every((b) => (dir === 'rtl' ? b.fromRight : b.fromLeft)),
+    JSON.stringify(drawn.map((b) => [b.fromLeft, b.fromRight])),
+  )
+  check(
+    `${label}: a bar cell's text is the formatted value alone, isolated, with no isolate characters`,
+    drawn.every((b) => b.isolated && !b.text.includes(FSI) && !b.text.includes(PDI)) && bars[0].outOfSlotShare.text === '40.0%',
+    JSON.stringify(drawn.map((b) => b.text)),
+  )
+  check(`${label}: the bars are drawn in ink (the chart ink), never a status colour`, drawn.every((b) => b.background.includes('--chart-1') && !/danger|success|attention/.test(b.background)), drawn[0]?.background)
+  // From the opening descending sort, one click clears it (AG Grid's asc → desc → none cycle), the next ascends.
+  await page.locator('[data-statistics-stores] .ag-header-cell[col-id="outOfSlotShare"] .ag-header-cell-label').click()
+  await sortBy(page, 'outOfSlotShare', 'ascending')
+  check(`${label}: Out of slot % ascending STILL puts the "—" last`, same(await order('outOfSlotShare'), ['5.0%', '15.0%', '40.0%', '—']), (await order('outOfSlotShare')).join(','))
+  await page.screenshot({ path: `${SHOTS}/${dir}-stores-slot.png`, fullPage: true })
+
+  // Under the courier, the All view ranks by its own hand-over column, as today.
+  await switchTo(page, 'all', 'handedOver')
+  check(`${label}: the All view under a courier is written to the URL and ranks by Handed over`, new URL(page.url()).searchParams.get('track') === 'all' && same(await order(), ['P001', 'P007', 'P019', 'P050']), page.url())
+
+  // Back to all couriers: today's default again.
+  await page.locator('[data-statistics-courier]').selectOption('')
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has('courier'))
+  await page.locator('[data-statistics-stores="all"] .ag-header-cell[col-id="handedOver"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  check(`${label}: all couriers brings back All by Handed over, no track in the URL`, same(await pressedNow(), ['all']) && !new URL(page.url()).searchParams.has('track') && same(await order(), ['P001', 'P007', 'P019', 'P050']), page.url())
+  check(`${label}: no page errors (slot table)`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
@@ -1521,6 +1666,8 @@ await driveChart('ltr')
 await driveChart('rtl')
 await driveCourier('ltr')
 await driveCourier('rtl')
+await driveSlotTable('ltr')
+await driveSlotTable('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

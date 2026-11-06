@@ -132,8 +132,11 @@
     "trips": "Trips",
     "delivered": "Delivered (home delivery)",
     "pickedUp": "Picked up (pick in store)",
-    "avgHandOver": "Avg hand-over (min)",
-    "avgToDeliver": "Avg time to deliver (min)",
+    "inSlotShare": "In slot %",
+    "outOfSlotShare": "Out of slot %",
+    "noSlot": "No slot",
+    "deliveredPerTrip": "Delivered per trip",
+    "avgDeliveryTime": "Avg delivery time (min)",
     "avgToReady": "Avg time to ready (min)",
     "track": {
       "label": "Track",

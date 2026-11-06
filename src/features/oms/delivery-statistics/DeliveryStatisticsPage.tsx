@@ -186,6 +186,7 @@ function Statistics() {
           <StoreTable
             stores={data.stores}
             track={query.track}
+            courier={query.courier}
             views={courierTableTracks(query.courier)}
             onTrack={(track) => update((q) => ({ ...q, track }))}
           />

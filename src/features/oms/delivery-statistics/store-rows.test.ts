@@ -1,12 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { DeliveryStatisticsStore } from '@/core/models/delivery-statistics'
-import { FLOW_FIGURES, HAND_OVER_FIGURE, STORE_FIGURES, TABLE_TRACKS, TRACK_FIGURES, storeRows } from './store-rows'
+import {
+  CELL_BAR_FIGURES,
+  FLOW_FIGURES,
+  HAND_OVER_FIGURE,
+  STORE_FIGURES,
+  TABLE_TRACKS,
+  TRACK_FIGURES,
+  columnMaxima,
+  defaultSort,
+  defaultTableTrack,
+  storeRows,
+} from './store-rows'
 
 const full: DeliveryStatisticsStore = {
   storeCode: 'P001',
   flow: { cameIn: 120, madeReady: 110, outForDelivery: 40, trips: 44, delivered: 60, pickedUp: 45, handedOver: 101 },
   misses: { returnedBack: 2, rejected: 0, rescheduled: 1, closeRequested: 3, closedOrCancelled: 4 },
   avgHandOverMinutes: 92.4,
+  avgDeliveryMinutes: 40.1,
 }
 
 const withTracks: DeliveryStatisticsStore = {
@@ -41,12 +53,17 @@ describe('storeRows by track', () => {
         outForDelivery: 37,
         trips: 41,
         delivered: 60,
+        // A 2660 track without spec 811's fields: null, never 0.
+        inSlotShare: null,
+        outOfSlotShare: null,
+        noSlot: null,
+        deliveredPerTrip: null,
         returnedBack: 2,
         rejected: 0,
         rescheduled: 1,
         closeRequested: 1,
         closedOrCancelled: 2,
-        avgHandOverMinutes: 96.25,
+        avgDeliveryMinutes: null,
       },
     ])
   })
@@ -96,7 +113,7 @@ describe('storeRows', () => {
         closeRequested: 3,
         closedOrCancelled: 4,
         unspecified: null,
-        avgHandOverMinutes: 92.4,
+        avgDeliveryMinutes: 40.1,
       },
     ])
   })
@@ -108,9 +125,9 @@ describe('storeRows', () => {
 
   it('🚩 an absent figure becomes null, never 0; a real 0 stays 0', () => {
     const { trips: _dropped, ...noTrips } = full.flow
-    const [row] = storeRows([{ ...full, flow: noTrips, avgHandOverMinutes: null }])
+    const [row] = storeRows([{ ...full, flow: noTrips, avgDeliveryMinutes: null }])
     expect(row.trips).toBeNull()
-    expect(row.avgHandOverMinutes).toBeNull()
+    expect(row.avgDeliveryMinutes).toBeNull()
     expect(row.rejected).toBe(0)
   })
 
@@ -152,20 +169,25 @@ describe('TRACK_FIGURES', () => {
       'rescheduled',
       'closeRequested',
       'closedOrCancelled',
-      'avgHandOverMinutes',
+      'avgDeliveryMinutes',
     ])
+    // 816: In slot %, Out of slot %, No slot and Delivered per trip after Delivered; Avg delivery time last.
     expect(TRACK_FIGURES.delivery).toEqual([
       'cameIn',
       'madeReady',
       'outForDelivery',
       'trips',
       'delivered',
+      'inSlotShare',
+      'outOfSlotShare',
+      'noSlot',
+      'deliveredPerTrip',
       'returnedBack',
       'rejected',
       'rescheduled',
       'closeRequested',
       'closedOrCancelled',
-      'avgHandOverMinutes',
+      'avgDeliveryMinutes',
     ])
     // No Out for delivery, no Trips, and no Returned back / Rejected / Rescheduled (a table cannot hide per row).
     expect(TRACK_FIGURES.pickUp).toEqual(['cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'])
@@ -186,7 +208,7 @@ describe('TRACK_FIGURES', () => {
 })
 
 describe('STORE_FIGURES (the All view)', () => {
-  it('is the flow in order with Trips beside Out for delivery and Handed over before its two halves, then Unspecified, the misses, Avg hand-over', () => {
+  it('is the flow in order with Trips beside Out for delivery and Handed over before its two halves, then Unspecified, the misses, Avg delivery time', () => {
     expect(STORE_FIGURES).toEqual([
       'cameIn',
       'madeReady',
@@ -201,7 +223,7 @@ describe('STORE_FIGURES (the All view)', () => {
       'rescheduled',
       'closeRequested',
       'closedOrCancelled',
-      'avgHandOverMinutes',
+      'avgDeliveryMinutes',
     ])
   })
 })
@@ -211,5 +233,80 @@ describe('FLOW_FIGURES', () => {
     expect(FLOW_FIGURES).toEqual(STORE_FIGURES.filter((k) => FLOW_FIGURES.includes(k as never)))
     // As on the till: the stages end at Handed over; Delivered (D) and Picked up (P) are its halves, after it.
     expect(FLOW_FIGURES).toEqual(['cameIn', 'madeReady', 'outForDelivery', 'handedOver', 'delivered', 'pickedUp'])
+  })
+})
+
+const slotted: DeliveryStatisticsStore = {
+  ...withTracks,
+  avgDeliveryMinutes: 41.5,
+  tracks: {
+    ...withTracks.tracks!,
+    delivery: {
+      ...withTracks.tracks!.delivery,
+      slot: { inSlot: 48, outOfSlot: 9, noSlot: 3, inSlotShare: 0.8, outOfSlotShare: 0.15 },
+      deliveredPerTrip: 1.46,
+      avgDeliveryMinutes: 38.25,
+    },
+  },
+}
+
+describe('the Delivery view slot, trip and delivery-time figures (816)', () => {
+  it('the Delivery view carries the five new figures as sent', () => {
+    const [row] = storeRows([slotted], 'delivery')
+    expect(row).toMatchObject({ inSlotShare: 0.8, outOfSlotShare: 0.15, noSlot: 3, deliveredPerTrip: 1.46, avgDeliveryMinutes: 38.25 })
+    // Avg delivery time replaces the entry-based average in the Delivery view.
+    expect(row).not.toHaveProperty('avgHandOverMinutes')
+  })
+
+  it('🚩 an absent figure reads null, never 0; a store without the fields reads null in each', () => {
+    const [bare] = storeRows([withTracks], 'delivery')
+    for (const key of ['inSlotShare', 'outOfSlotShare', 'noSlot', 'deliveredPerTrip', 'avgDeliveryMinutes'] as const) expect(bare[key]).toBeNull()
+    const { inSlotShare: _i, outOfSlotShare: _o, ...countsOnly } = slotted.tracks!.delivery.slot!
+    const delivery = { ...slotted.tracks!.delivery, slot: countsOnly, deliveredPerTrip: null }
+    const [noShares] = storeRows([{ ...slotted, tracks: { ...slotted.tracks!, delivery } }], 'delivery')
+    expect(noShares.inSlotShare).toBeNull()
+    expect(noShares.outOfSlotShare).toBeNull()
+    expect(noShares.deliveredPerTrip).toBeNull()
+    expect(noShares.noSlot).toBe(3)
+  })
+
+  it("the All view's average is the store-wide Avg delivery time; Pick-up keeps its own average", () => {
+    expect(storeRows([slotted], 'all')[0]).toMatchObject({ avgDeliveryMinutes: 41.5 })
+    expect(storeRows([slotted], 'all')[0]).not.toHaveProperty('avgHandOverMinutes')
+    const { avgDeliveryMinutes: _a, ...older } = withTracks
+    expect(storeRows([older], 'all')[0].avgDeliveryMinutes).toBeNull()
+    expect(storeRows([slotted], 'pickUp')[0].avgHandOverMinutes).toBe(31.5)
+  })
+})
+
+describe('the table default per courier, and the cell-bar maxima (816)', () => {
+  it('a chosen courier opens on Delivery sorted by Out of slot % worst first', () => {
+    expect(defaultTableTrack('FREY')).toBe('delivery')
+    expect(defaultSort('delivery', 'FREY')).toEqual({ figure: 'outOfSlotShare', direction: 'desc' })
+    // A view the user switched to under a courier ranks by its own hand-over column, as today.
+    expect(defaultSort('all', 'FREY')).toEqual({ figure: 'handedOver', direction: 'desc' })
+  })
+
+  it("all couriers keeps today's default: All, and each view by its hand-over column", () => {
+    expect(defaultTableTrack('')).toBe('all')
+    expect(defaultSort('all', '')).toEqual({ figure: 'handedOver', direction: 'desc' })
+    expect(defaultSort('delivery', '')).toEqual({ figure: 'delivered', direction: 'desc' })
+    expect(defaultSort('pickUp', '')).toEqual({ figure: 'pickedUp', direction: 'desc' })
+  })
+
+  it('the bars are drawn in Out of slot %, Delivered per trip and Avg delivery time, all Delivery-view columns', () => {
+    expect(CELL_BAR_FIGURES).toEqual(['outOfSlotShare', 'deliveredPerTrip', 'avgDeliveryMinutes'])
+    for (const key of CELL_BAR_FIGURES) expect(TRACK_FIGURES.delivery).toContain(key)
+  })
+
+  it("each bar column's maximum is its largest value as sent; an absent value adds nothing, none at all is 0", () => {
+    const rows = [
+      { storeCode: 'P001', outOfSlotShare: 0.15, deliveredPerTrip: 1.46, avgDeliveryMinutes: 38.25 },
+      { storeCode: 'P019', outOfSlotShare: 0.4, deliveredPerTrip: null, avgDeliveryMinutes: 61 },
+      { storeCode: 'P007', outOfSlotShare: null, deliveredPerTrip: 2.1, avgDeliveryMinutes: null },
+    ]
+    expect(columnMaxima(rows)).toEqual({ outOfSlotShare: 0.4, deliveredPerTrip: 2.1, avgDeliveryMinutes: 61 })
+    expect(columnMaxima([{ storeCode: 'P001', outOfSlotShare: null }])).toEqual({ outOfSlotShare: 0, deliveredPerTrip: 0, avgDeliveryMinutes: 0 })
+    expect(columnMaxima([])).toEqual({ outOfSlotShare: 0, deliveredPerTrip: 0, avgDeliveryMinutes: 0 })
   })
 })

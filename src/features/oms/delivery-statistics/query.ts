@@ -11,13 +11,14 @@
  * `store`, `leaveOutChurned=false` (only when unticked; ticked is the default and absent) and
  * `leaveOutTypes` (codes, comma-joined in code order, so one choice has one URL), then `courier` (813: one
  * courier type code, absent = all couriers, sent as `Courier`; see `courier-scope.ts`). The three period
- * tabs share them, as on the till. Last comes `track` (491): the per-store table's view, `delivery` or
- * `pickUp`; All is the default and absent, and anything unknown reads as All. It is the table's alone —
+ * tabs share them, as on the till. Last comes `track` (491): the per-store table's view; the scope's
+ * default view (816: All with all couriers, Delivery under a courier) is absent, and anything unknown
+ * reads as that default. It is the table's alone —
  * never asked of the door, so switching it makes no call.
  */
 import type { StoreStatisticsQuery } from '@/core/models/delivery-statistics'
 import { courierTrack } from './courier-scope'
-import { TABLE_TRACKS, type TableTrack } from './store-rows'
+import { defaultTableTrack, TABLE_TRACKS, type TableTrack } from './store-rows'
 import { DEFAULT_PERIOD, periodFromParams, periodToParams, type PeriodQuery, type PeriodTab, type ResolvedPeriod } from './period'
 
 export interface StatisticsQuery extends PeriodQuery {
@@ -35,9 +36,9 @@ export interface StatisticsQuery extends PeriodQuery {
 
 export const DEFAULT_STATISTICS_QUERY: StatisticsQuery = { ...DEFAULT_PERIOD, store: '', leaveOutChurned: true, leaveOutTypes: [], courier: '', track: 'all' }
 
-/** The table's view a URL names, as written (`delivery`, `pickUp`); anything else is All. */
-function readTrack(value: string | null): TableTrack {
-  return (TABLE_TRACKS as readonly (string | null)[]).includes(value) ? (value as TableTrack) : 'all'
+/** The table's view a URL names, as written (`all`, `delivery`, `pickUp`); anything else is the scope's default view. */
+function readTrack(value: string | null, courier: string): TableTrack {
+  return (TABLE_TRACKS as readonly (string | null)[]).includes(value) ? (value as TableTrack) : defaultTableTrack(courier)
 }
 
 /** Codes trimmed, blanks dropped, each once, in code order. */
@@ -55,7 +56,7 @@ export function statisticsFromParams(params: URLSearchParams): StatisticsQuery {
     leaveOutTypes: canonicalTypes((params.get('leaveOutTypes') ?? '').split(',')),
     courier,
     // Under a courier a pick-up cannot count: a link naming the Pick-up view reads as Delivery (813).
-    track: courierTrack(readTrack(params.get('track')), courier),
+    track: courierTrack(readTrack(params.get('track'), courier), courier),
   }
 }
 
@@ -67,7 +68,8 @@ export function statisticsToParams(query: StatisticsQuery): URLSearchParams {
   const types = canonicalTypes(query.leaveOutTypes)
   if (types.length > 0) qs.set('leaveOutTypes', types.join(','))
   if (query.courier) qs.set('courier', query.courier)
-  if (query.track !== 'all') qs.set('track', query.track)
+  // The scope's default view is absent (816): All with all couriers, Delivery under a courier.
+  if (query.track !== defaultTableTrack(query.courier)) qs.set('track', query.track)
   return qs
 }
 
@@ -84,9 +86,14 @@ export function buildStatisticsQuery(period: Extract<ResolvedPeriod, { ok: true 
   return built
 }
 
-/** A courier chosen (`''` = all couriers); the table's Pick-up view, which a courier cannot have, moves to Delivery. */
+/**
+ * A courier chosen (`''` = all couriers). A new scope re-opens the table on that scope's default view (816):
+ * Delivery under a courier, All with all couriers. The same scope keeps the view, minus the Pick-up view a
+ * courier cannot have.
+ */
 export function withCourier(query: StatisticsQuery, courier: string): StatisticsQuery {
-  return { ...query, courier, track: courierTrack(query.track, courier) }
+  const track = courier === query.courier ? courierTrack(query.track, courier) : defaultTableTrack(courier)
+  return { ...query, courier, track }
 }
 
 /** One order type ticked in (left out) or out (counted again). */

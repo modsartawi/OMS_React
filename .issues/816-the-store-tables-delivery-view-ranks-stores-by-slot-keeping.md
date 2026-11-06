@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 811
 blocked-by: 812, 813
 ---
@@ -29,9 +29,9 @@ columns + CellBar) · i18n (headers) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `the Delivery view carries the five new figures as sent` — from the store's Delivery track; absent → null, never 0; a store without the fields reads null in each · pure
-- [ ] `a chosen courier opens on Delivery sorted by Out of slot % worst first` — the default view and sort column per courier/all; column maxima for the bars · pure
-- [ ] drive — choosing FarEye shows the Delivery view ranked by Out of slot % descending with "—" last; the three bar columns draw bars; all couriers keeps today's default; LTR and RTL · flow (Playwright)
+- [x] `the Delivery view carries the five new figures as sent` — from the store's Delivery track; absent → null, never 0; a store without the fields reads null in each · pure
+- [x] `a chosen courier opens on Delivery sorted by Out of slot % worst first` — the default view and sort column per courier/all; column maxima for the bars · pure
+- [x] drive — choosing FarEye shows the Delivery view ranked by Out of slot % descending with "—" last; the three bar columns draw bars; all couriers keeps today's default; LTR and RTL · flow (Playwright)
 
 ## Boundaries
 
@@ -47,3 +47,30 @@ The pure tests are green and the drive shows the new columns, bars and courier d
 
 - [812](812-the-headline-strip-shows-the-six-server-figures-and-their-change.md)
 - [813](813-choosing-a-courier-narrows-the-page-to-its-home-deliveries.md)
+
+## Comments
+
+2026-11-06 — built on `impl/816-store-table-slot`.
+
+- **Logic** (`store-rows.ts`): the Delivery view reads `inSlotShare`, `outOfSlotShare`, `noSlot`, `deliveredPerTrip` and
+  `avgDeliveryMinutes` from each store's `tracks.delivery` as sent (absent → null). Columns: after Delivered, In slot %, Out of
+  slot %, No slot, Delivered per trip; the misses; Avg delivery time last (replacing the lane's entry-based average). All's
+  average is the store's `avgDeliveryMinutes`; Pick-up keeps `avgHandOverMinutes` (Avg time to ready). New `defaultTableTrack`,
+  `defaultSort`, `CELL_BAR_FIGURES`, `columnMaxima`. Pinned by `store-rows.test.ts` (7 new, 5 updated for the retired column).
+  `figures.ts` gains `readShare` (en-US percent, one place, like the other cell readers: no locale marks reach Ctrl+C).
+- **Opening on Delivery** needed the URL too (`query.ts`): the scope's default view is absent from the URL (All with all
+  couriers, Delivery under a courier; `track=all` is written under a courier). `withCourier` re-opens the table on the new
+  scope's default view whenever the courier changes (so all couriers → FarEye goes to Delivery, FarEye → all couriers back to All);
+  the same scope keeps the view. ⚠ This changes two 813 expectations in `query.test.ts` (All under a newly chosen courier stayed
+  All; un-choosing kept Delivery) — the ticket's "opens on Delivery" / "all couriers = today's default" overrides them.
+- **Component** (`StoreTable.tsx`): new `courier` prop; the three bar columns render `core/charts` `CellBar` (unchanged; its own
+  `Ltr` isolate, `valueFormatted` kept) with `max` from `columnMaxima`; `initialSort` from `defaultSort`; grid keyed by view +
+  opening sort. Grid still spreads `OMS_GRID_BASE_COL_DEF`; no `fsi` in a cell.
+- **i18n**: `table.inSlotShare/outOfSlotShare/noSlot/deliveredPerTrip/avgDeliveryTime`, en + ar; the now-unused
+  `table.avgHandOver` / `table.avgToDeliver` removed. Arabic share headers are worded ("نسبة …") rather than led by a neutral `%`.
+- **Ink**: `CellBar` draws in `--chart-1` at 28% (the chart ink, no status token) — taken as the spec's "ink"; not changed here.
+- **Drive**: new section 19 `driveSlotTable` (four stores, one sending none of the new figures): all couriers = All by Handed
+  over; FarEye → Delivery (no `track` in the URL), Out of slot % desc with "—" last (and still last ascending); bar lengths per
+  column maximum, drawn widths, growth from the reading start, cell text = formatted value with no isolate characters; All under a
+  courier by Handed over; back to all couriers. Sections 12/16/18 updated for the new columns and the URL default. LTR + RTL.
+

@@ -9,14 +9,18 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { pinStart } from '@/core/theme/direction'
 import type { DeliveryStatisticsStore } from '@/core/models/delivery-statistics'
-import { readAverage, readFigure } from './figures'
+import CellBar from '@/core/charts/CellBar'
+import { readAverage, readFigure, readShare } from './figures'
 import { compareFigures } from '@/core/util/compare-figures'
 import {
+  CELL_BAR_FIGURES,
+  columnMaxima,
+  defaultSort,
   FLOW_FIGURES,
-  HAND_OVER_FIGURE,
   storeRows,
   TABLE_TRACKS,
   TRACK_FIGURES,
+  type CellBarFigure,
   type StoreFigure,
   type StoreRow,
   type TableTrack,
@@ -33,13 +37,34 @@ const DEFAULT_COL_DEF: ColDef<StoreRow> = {
   autoHeaderHeight: true,
 }
 
-/** Each view's average header: the store-wide Avg hand-over, or the lane's own average (as its tile reads). */
-const AVERAGE_HEADER: Record<TableTrack, string> = { all: 'table.avgHandOver', delivery: 'table.avgToDeliver', pickUp: 'table.avgToReady' }
+/**
+ * The headers the table names itself (`table.*`): Trips, and the 816 columns — the slot keeping, Delivered
+ * per trip, and Avg delivery time (the All view's store-wide one and the Delivery lane's). Pick-up keeps
+ * its entry-to-Made-ready average, Avg time to ready.
+ */
+const TABLE_HEADER: Partial<Record<StoreFigure, string>> = {
+  trips: 'table.trips',
+  inSlotShare: 'table.inSlotShare',
+  outOfSlotShare: 'table.outOfSlotShare',
+  noSlot: 'table.noSlot',
+  deliveredPerTrip: 'table.deliveredPerTrip',
+  avgDeliveryMinutes: 'table.avgDeliveryTime',
+  avgHandOverMinutes: 'table.avgToReady',
+}
+
+/** How a figure's cell reads: a share as a percent, a ratio or minutes to two places, a count whole. */
+function readCell(key: StoreFigure, value: number | null | undefined, dash: string): string {
+  if (key === 'inSlotShare' || key === 'outOfSlotShare') return readShare(value, dash)
+  if (key === 'deliveredPerTrip' || key === 'avgDeliveryMinutes' || key === 'avgHandOverMinutes') return readAverage(value, dash)
+  return readFigure(value, dash)
+}
+
+const isCellBar = (key: StoreFigure): key is CellBarFigure => (CELL_BAR_FIGURES as readonly string[]).includes(key)
 
 /** A figure's header in a view: the band's own caption, so the table and the tiles name a figure alike. */
 function header(t: TFunction, track: TableTrack, key: StoreFigure): string {
-  if (key === 'trips') return t('table.trips')
-  if (key === 'avgHandOverMinutes') return t(AVERAGE_HEADER[track])
+  const own = TABLE_HEADER[key]
+  if (own) return t(own)
   if (key === 'unspecified') return t('unspecified.caption')
   // In All, the halves of Handed over name their delivery type, so neither reads as a stage after Out
   // for delivery; in a track's view each is that lane's last stage, captioned as the lane captions it.
@@ -50,10 +75,15 @@ function header(t: TFunction, track: TableTrack, key: StoreFigure): string {
 /**
  * The store column, then one column per figure of the view (`TRACK_FIGURES`). Every figure sorts as a
  * number with an absent one LAST either way (`compareFigures`), and shows the dash for it through its
- * `valueFormatter` — the base cell renders that formatted value, isolated. The view's hand-over column,
- * descending, is its default ranking.
+ * `valueFormatter` — the base cell renders that formatted value, isolated. The view's opening ranking
+ * is `defaultSort` (816: Out of slot %, worst first, in Delivery under a courier; else its hand-over column).
+ *
+ * Out of slot %, Delivered per trip and Avg delivery time draw through `core/charts` `CellBar` (816): a bar
+ * in proportion to the column's largest value as sent (`columnMaxima`), behind the formatted value, which
+ * `CellBar` isolates whole. No `fsi` and nothing beside the value: Ctrl+C carries the cell as formatted.
  */
-function storeColumns(t: TFunction, track: TableTrack, dash: string): ColDef<StoreRow>[] {
+function storeColumns(t: TFunction, track: TableTrack, courier: string, dash: string, maxima: Record<CellBarFigure, number>): ColDef<StoreRow>[] {
+  const opening = defaultSort(track, courier)
   const figure = (key: StoreFigure): ColDef<StoreRow> => ({
     field: key,
     headerName: header(t, track, key),
@@ -61,13 +91,13 @@ function storeColumns(t: TFunction, track: TableTrack, dash: string): ColDef<Sto
     flex: 1,
     type: 'numericColumn',
     cellClass: 'text-end tabular-nums',
-    valueFormatter: ({ value }: ValueFormatterParams<StoreRow, number | null | undefined>) =>
-      key === 'avgHandOverMinutes' ? readAverage(value, dash) : readFigure(value, dash),
+    valueFormatter: ({ value }: ValueFormatterParams<StoreRow, number | null | undefined>) => readCell(key, value, dash),
     // `?? null`: a row is Partial by type, and an undefined cell must sort as absent, not as NaN.
     comparator: (a: number | null | undefined, b: number | null | undefined, _na, _nb, isDescending) =>
       compareFigures(a ?? null, b ?? null, isDescending),
     // `initialSort`, not `sort`: a rebuilt column set must not re-impose it over the user's pick.
-    ...(key === HAND_OVER_FIGURE[track] ? { initialSort: 'desc' as const } : {}),
+    ...(key === opening.figure ? { initialSort: opening.direction } : {}),
+    ...(isCellBar(key) ? { cellRenderer: CellBar, cellRendererParams: { max: maxima[key] } } : {}),
   })
   return [
     // Pinned to the reading start (AG Grid pins to a physical side `enableRtl` does not flip), so
@@ -97,11 +127,14 @@ const TRACK_CAPTION: Record<TableTrack, string> = { all: 'table.track.all', deli
 export default function StoreTable({
   stores,
   track,
+  courier,
   views = TABLE_TRACKS,
   onTrack,
 }: {
   stores: readonly DeliveryStatisticsStore[]
   track: TableTrack
+  /** The courier scope (813; `''` = all couriers): it picks the view's opening sort (816). */
+  courier: string
   /** The views offered (813: no Pick-up under a chosen courier); every view by default. */
   views?: readonly TableTrack[]
   onTrack: (track: TableTrack) => void
@@ -109,7 +142,9 @@ export default function StoreTable({
   const { t } = useTranslation('delivery-statistics')
   const dash = t('dash')
   const rows = useMemo(() => storeRows(stores, track), [stores, track])
-  const columns = useMemo(() => storeColumns(t, track, dash), [t, track, dash])
+  const maxima = useMemo(() => columnMaxima(rows), [rows])
+  const columns = useMemo(() => storeColumns(t, track, courier, dash, maxima), [t, track, courier, dash, maxima])
+  const opening = defaultSort(track, courier).figure
   const fits = rows.length <= FIT_ROWS
 
   return (
@@ -126,8 +161,8 @@ export default function StoreTable({
       </div>
       <div className={fits ? undefined : 'h-[30rem]'} data-statistics-stores={track}>
         <AgGridReact<StoreRow>
-          // A view is its own column set: a fresh grid per view starts on that view's hand-over ranking.
-          key={track}
+          // A view is its own column set: a fresh grid per view (and per opening sort, 816) starts on that ranking.
+          key={`${track}:${opening}`}
           theme={omsGridTheme}
           rowData={rows}
           columnDefs={columns}

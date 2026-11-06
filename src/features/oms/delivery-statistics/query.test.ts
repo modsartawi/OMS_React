@@ -152,7 +152,7 @@ describe('the courier scope', () => {
     expect(buildStatisticsQuery(TODAY, query())).not.toHaveProperty('Courier')
     // FREY → courier=FREY → Courier: 'FREY'
     expect(from('courier=FREY').courier).toBe('FREY')
-    expect(to(query({ courier: 'FREY' }))).toBe('courier=FREY')
+    expect(to(query({ courier: 'FREY', track: 'delivery' }))).toBe('courier=FREY')
     expect(buildStatisticsQuery(TODAY, from('courier=FREY'))).toEqual({
       From: '2026-10-13',
       To: '2026-10-13',
@@ -185,14 +185,27 @@ describe('the courier scope', () => {
 
   it('a URL naming track=pickUp reads as Delivery under a courier, and is kept with all couriers', () => {
     expect(from('courier=FREY&track=pickUp').track).toBe('delivery')
-    expect(to(from('courier=FREY&track=pickUp'))).toBe('courier=FREY&track=delivery')
+    // 816: Delivery is the courier's default view, so it is absent from the URL.
+    expect(to(from('courier=FREY&track=pickUp'))).toBe('courier=FREY')
     expect(from('track=pickUp').track).toBe('pickUp')
   })
 
-  it('choosing a courier on the Pick-up view moves the table to Delivery; all couriers keeps the view', () => {
+  it("816: a courier's link without a track opens on Delivery; its All view is written, and round-trips", () => {
+    expect(from('courier=FREY').track).toBe('delivery')
+    expect(to(query({ courier: 'FREY', track: 'delivery' }))).toBe('courier=FREY')
+    expect(from('courier=FREY&track=all').track).toBe('all')
+    expect(to(from('courier=FREY&track=all'))).toBe('courier=FREY&track=all')
+    // With all couriers, today's: All is absent, Delivery written.
+    expect(from('').track).toBe('all')
+    expect(to(query({ track: 'delivery' }))).toBe('track=delivery')
+  })
+
+  it("816: a new courier scope re-opens the table on that scope's default view; the same scope keeps the view", () => {
     expect(withCourier(query({ track: 'pickUp' }), 'OTOX')).toMatchObject({ courier: 'OTOX', track: 'delivery' })
-    expect(withCourier(query({ track: 'all' }), 'OTOX')).toMatchObject({ courier: 'OTOX', track: 'all' })
-    expect(withCourier(query({ courier: 'OTOX', track: 'delivery' }), '')).toMatchObject({ courier: '', track: 'delivery' })
+    expect(withCourier(query({ track: 'all' }), 'OTOX')).toMatchObject({ courier: 'OTOX', track: 'delivery' })
+    expect(withCourier(query({ courier: 'FREY', track: 'all' }), 'OTOX')).toMatchObject({ courier: 'OTOX', track: 'delivery' })
+    expect(withCourier(query({ courier: 'OTOX', track: 'delivery' }), '')).toMatchObject({ courier: '', track: 'all' })
+    expect(withCourier(query({ courier: 'OTOX', track: 'all' }), 'OTOX')).toMatchObject({ courier: 'OTOX', track: 'all' })
   })
 })
 

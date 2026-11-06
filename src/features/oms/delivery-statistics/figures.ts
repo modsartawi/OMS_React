@@ -22,6 +22,14 @@ export function readFigure(value: number | null | undefined, dash: string): stri
   return hasFigure(value) ? COUNT.format(value) : dash
 }
 
+// 816: a slot share is the server's 0–1 fraction, written as a percent to one place (as `core/charts` writes a share).
+const SHARE = new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+/** A share (0–1, the server's), as a percent, or `dash` when absent (nothing was delivered). */
+export function readShare(value: number | null | undefined, dash: string): string {
+  return hasFigure(value) ? SHARE.format(value) : dash
+}
+
 /** An average in minutes, or `dash` when it is `null` (nothing handed over) or absent. */
 export function readAverage(value: number | null | undefined, dash: string): string {
   return hasFigure(value) ? AVERAGE.format(value) : dash

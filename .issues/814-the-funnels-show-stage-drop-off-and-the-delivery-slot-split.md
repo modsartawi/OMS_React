@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 811
 blocked-by: 812
 ---
@@ -34,9 +34,9 @@ small `core/charts` forms + the funnel layout) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `funnel stages carry their figure and their share of Came in` — proportions from the server's figures; an absent stage or absent Came in draws no bar and reads "—" · pure
-- [ ] `the slot split is the server's counts and shares` — three segments as sent; absent shares/nothing delivered → no bar, "—"; a pick-up has no slot split · pure
-- [ ] drive — both funnels drawn with bars, the slot split under Delivery, lane averages are Avg delivery time, side by side when wide and stacked when narrow, bars mirror under RTL · flow (Playwright)
+- [x] `funnel stages carry their figure and their share of Came in` — proportions from the server's figures; an absent stage or absent Came in draws no bar and reads "—" · pure
+- [x] `the slot split is the server's counts and shares` — three segments as sent; absent shares/nothing delivered → no bar, "—"; a pick-up has no slot split · pure
+- [x] drive — both funnels drawn with bars, the slot split under Delivery, lane averages are Avg delivery time, side by side when wide and stacked when narrow, bars mirror under RTL · flow (Playwright)
 
 ## Boundaries
 
@@ -51,3 +51,31 @@ The pure tests are green and the drive shows both funnels and the slot split in 
 ## Blocked by
 
 - [812](812-the-headline-strip-shows-the-six-server-figures-and-their-change.md)
+
+## Comments
+
+2026-11-06 — built on `impl/814-funnels`.
+
+- **Logic** (`lanes.ts`): each stage carries `bar` — its figure over the lane's own Came in, geometry
+  only, `null` (no bar) for an absent stage, an absent Came in or a Came in of 0; a stage past Came in
+  (first-event counting) draws a full bar, its figure as sent. The Delivery lane carries `slot`
+  (`SlotSplit`: three segments with the server's count and share; No slot has no share), `drawn` only
+  when all three counts and both shares came and a count is above 0. The Pick-up lane has no `slot`.
+  Lane averages now read `avgDeliveryMinutes` (an older server's hand-over average reads "—").
+  `figures.ts` gains `readShare` (percent, one place). Pinned by `lanes.test.ts` (+6 tests).
+- **`core/charts`**: `StageBar` (fraction → bar, `null` draws nothing) and `ShareBar` (weights →
+  segments, `role="img"` with the caller's label). Both in the `dir="ltr"` box, mirrored through an
+  `rtl` prop (default `chartMirror.rtl`); colours are slot / ink tokens (`--chart-1`, `--chart-3`,
+  `--ink-3`, track `--divider`) — all already in the contrast gate, no new token.
+- **Component**: `Funnels.tsx` draws exactly the lanes it is given (one lane → full width), so 813
+  hides Pick-up under a courier by passing the Delivery lane alone. Funnels are vertical (stages top
+  to bottom, figure + bar), side by side from `lg`, stacked below; the chevrons are gone. `Tile`
+  moved to its own file (page + funnels share it).
+- **i18n** (en + ar): `slot.*`, `lane.avg.*` now "Avg delivery time" for both lanes with
+  `lane.avgNote.*` saying what each is timed from.
+- **Drive**: stub Pick-up `avgDeliveryMinutes` 30.75 (≠ its hand-over 31.5); new check group 18
+  (bars and their shares, RTL growth side, slot split segments + key + label, averages, side by side
+  at 1600 / stacked at 1000, older and 2658 servers). LTR + RTL.
+- `npm run lint`: contrast, controls, grid base, palette green; boundary gate fails only on the
+  pre-existing `insurance-rules` cross-feature imports.
+- ⚠ Open: segment colours (teal In slot, blue Out of slot, ink-grey No slot) are a choice, not a ruling.

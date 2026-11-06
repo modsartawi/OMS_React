@@ -88,9 +88,22 @@
     "delivery": "Delivery",
     "pickUp": "Pick-up",
     "avg": {
-      "delivery": "Avg time to deliver",
-      "pickUp": "Avg time to ready"
+      "delivery": "Avg delivery time",
+      "pickUp": "Avg delivery time"
+    },
+    "avgNote": {
+      "delivery": "From due to delivered",
+      "pickUp": "From entry to made ready"
     }
+  },
+  "slot": {
+    "heading": "Slot keeping",
+    "inSlot": "In slot",
+    "outOfSlot": "Out of slot",
+    "noSlot": "No slot",
+    "label": "Slot keeping of delivered: {{parts}}",
+    "part": "{{caption}} {{n}}",
+    "joiner": ", "
   },
   "unspecified": {
     "caption": "Unspecified",

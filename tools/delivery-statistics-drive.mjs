@@ -54,7 +54,7 @@
 //      Delivery lane's four stages ending at Delivered with "Trips N" on Out for delivery; the
 //      Pick-up lane's three ending at Picked up with no Out stage; each lane's average after its
 //      stages with no chevron before it; the stages in READING order (left→right in LTR,
-//      right→left in RTL, the chevrons mirrored); the lane figures are the stub's tracks, not the
+//      right→left in RTL, the chevrons mirrored — 814 made the lanes funnels, see 19); the lane figures are the stub's tracks, not the
 //      totals; Unspecified hidden at 0 (on a 2658 answer: tracks without misses) and when absent;
 //      and the older server reads "—" across both lanes and both averages, never 0.
 //
@@ -89,13 +89,21 @@
 //      Delivery; All couriers brings it all back; an unknown code is sent as written and the stub's
 //      `SDD-02132` refusal is shown in the server's words.
 //
-//  19. (ticket 816, spec 811) the store table's Delivery view: In slot %, Out of slot %, No slot,
+//  20. (ticket 816, spec 811) the store table's Delivery view: In slot %, Out of slot %, No slot,
 //      Delivered per trip and Avg delivery time from each store's Delivery track as sent; the All view's
 //      average is the store-wide Avg delivery time. Choosing FarEye opens the table on Delivery ranked by
 //      Out of slot % worst first with "—" last; Out of slot %, Delivered per trip and Avg delivery time
 //      draw core/charts cell bars in proportion to the column's largest value, from the reading start,
 //      the cell's text the formatted value alone (no isolate characters); all couriers keeps All by
 //      Handed over.
+//
+//  19. (ticket 814, spec 811) the funnels. The Delivery and Pick-up lanes are funnels: their stages top
+//      to bottom, each figure isolated, each with a `core/charts` stage bar as long as its share of the
+//      lane's Came in (none for an absent figure); the Delivery funnel's slot split bar of In slot |
+//      Out of slot | No slot, its segments the stub's counts and its key the stub's counts and shares;
+//      each lane's average is its Avg delivery time (`avgDeliveryMinutes`, not the hand-over average);
+//      side by side at 1600px, stacked at 1000px; under RTL the bars grow from the right and the slot
+//      split opens on the right; the older server draws no bar, the split reads "—".
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
@@ -148,7 +156,8 @@ const tracks = () => ({
     flow: { cameIn: 529, madeReady: 444, handedOver: 455 },
     misses: misses({ returnedBack: 0, rescheduled: 0, closeRequested: 3, closedOrCancelled: 6 }),
     avgHandOverMinutes: 31.5,
-    avgDeliveryMinutes: 31.5,
+    // 814: unlike the hand-over average, so the lane is seen to read Avg delivery time.
+    avgDeliveryMinutes: 30.75,
   },
 })
 // 812 (spec 811): the previous block. Today's window: the same weekday last week up to the same time.
@@ -289,8 +298,10 @@ const waitFigures = (page) => page.locator('[data-statistics-band="storeWide"]')
 const tilesOf = (page, selector) => page.locator(`${selector} [data-figure-tile]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
 
 /**
- * One lane as drawn: its stage tiles and their captions in DOM order, each stage's left edge, the
- * chevrons between them (count and each one's `rotate`), and where the average sits.
+ * One funnel as drawn (814): its stage tiles and captions in DOM order, each stage's top edge, each
+ * stage bar's fill (its share, as the bar's width over its track, and which edge it grows from), the
+ * slot split (its state, its segments left to right with their widths, its key's figures), the
+ * average, and the funnel's own box.
  */
 const laneOf = (page, track) =>
   page.evaluate((track) => {
@@ -298,18 +309,47 @@ const laneOf = (page, track) =>
     if (!band) return null
     const stages = [...band.querySelectorAll('[data-statistics-stages] [data-figure-tile]')]
     const avg = band.querySelector('[data-statistics-lane-average] [data-figure-tile]')
-    const chevrons = [...band.querySelectorAll('[data-statistics-stages] svg')]
+    const barOf = (stage) => {
+      const box = stage.querySelector('[data-chart="stage-bar"]')
+      if (!box) return null
+      const fill = box.firstElementChild.getBoundingClientRect()
+      const r = box.getBoundingClientRect()
+      return {
+        dir: box.getAttribute('dir'),
+        pct: Math.round((fill.width / r.width) * 100),
+        // A full bar touches both edges: it grows from either.
+        from: fill.width >= r.width - 1 ? 'both' : Math.abs(fill.left - r.left) < 1 ? 'left' : Math.abs(fill.right - r.right) < 1 ? 'right' : 'none',
+      }
+    }
+    const slot = band.querySelector('[data-statistics-slot]')
+    const share = slot?.querySelector('[data-chart="share-bar"]')
+    const box = band.getBoundingClientRect()
     return {
       heading: band.querySelector('h2')?.textContent.trim(),
       stages: stages.map((e) => e.getAttribute('data-figure-tile')),
       captions: stages.map((e) => e.firstElementChild.textContent.trim()),
-      lefts: stages.map((e) => Math.round(e.getBoundingClientRect().left)),
-      chevrons: chevrons.length,
-      rotations: chevrons.map((c) => getComputedStyle(c).rotate),
+      tops: stages.map((e) => Math.round(e.getBoundingClientRect().top)),
+      bars: stages.map(barOf),
+      slot: slot
+        ? {
+            state: slot.getAttribute('data-statistics-slot'),
+            heading: slot.querySelector('h3')?.textContent.trim(),
+            dir: share?.getAttribute('dir') ?? null,
+            label: share?.getAttribute('aria-label') ?? null,
+            dash: slot.querySelector('[data-slot-bar="none"]')?.textContent.trim() ?? null,
+            segments: share
+              ? [...share.querySelectorAll('[data-share-segment]')]
+                  .map((e) => ({ id: e.getAttribute('data-share-segment'), left: e.getBoundingClientRect().left, w: e.getBoundingClientRect().width }))
+                  .sort((a, b) => a.left - b.left)
+                  .map((x) => ({ id: x.id, pct: Math.round((x.w / share.getBoundingClientRect().width) * 100) }))
+              : [],
+            keys: [...slot.querySelectorAll('[data-slot-key]')].map((e) => e.getAttribute('data-slot-key')),
+          }
+        : null,
       avg: avg?.getAttribute('data-figure-tile') ?? null,
       avgCaption: avg?.firstElementChild.textContent.trim() ?? null,
-      avgLeft: avg ? Math.round(avg.getBoundingClientRect().left) : null,
-      avgChevrons: band.querySelectorAll('[data-statistics-lane-average] svg').length,
+      avgTop: avg ? Math.round(avg.getBoundingClientRect().top) : null,
+      box: { left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), bottom: Math.round(box.bottom) },
     }
   }, track)
 
@@ -532,26 +572,60 @@ async function drive(dir) {
         (await page.locator('[data-statistics-band="pickUp"] [data-figure-tile*="outForDelivery"], [data-statistics-band="pickUp"] [data-figure*="trips"]').count()) === 0,
       JSON.stringify(pl),
     )
+    // 814: funnels — stages top to bottom, each with a stage bar of its share of the lane's Came in.
+    const down = (xs) => xs.every((y, i) => i === 0 || y > xs[i - 1])
+    check(`${label}: each funnel's stages read top to bottom`, down(dl.tops) && down(pl.tops), `${dl.tops} | ${pl.tops}`)
+    const near = (a, b, d = 1) => typeof a === 'number' && Math.abs(a - b) <= d
+    const grows = dir === 'rtl' ? 'right' : 'left'
     check(
-      `${label}: each lane's stages read in reading order, a chevron between each, mirrored under RTL`,
-      inReadingOrder(dl.lefts, dir) &&
-        inReadingOrder(pl.lefts, dir) &&
-        dl.chevrons === 3 &&
-        pl.chevrons === 2 &&
-        [...dl.rotations, ...pl.rotations].every((r) => (dir === 'rtl' ? r === '180deg' : r === 'none' || r === '0deg')),
-      `${dl.lefts} | ${pl.lefts} | ${dl.rotations} ${pl.rotations}`,
+      `${label}: each stage bar is its share of the lane's Came in (702 / 529), in an LTR box`,
+      dl.bars.every((b) => b?.dir === 'ltr') &&
+        pl.bars.every((b) => b?.dir === 'ltr') &&
+        [100, 93, 54, 91].every((x, i) => near(dl.bars[i].pct, x)) &&
+        [100, 84, 86].every((x, i) => near(pl.bars[i].pct, x)),
+      JSON.stringify([dl.bars, pl.bars]),
     )
     check(
-      `${label}: each lane's average comes after its stages, with no chevron: Avg time to deliver, Avg time to ready`,
+      `${label}: the stage bars grow from the reading start (${grows}), mirrored through props`,
+      [...dl.bars, ...pl.bars].every((b) => b?.from === grows || b?.from === 'both') && [...dl.bars, ...pl.bars].some((b) => b?.from === grows),
+      JSON.stringify([...dl.bars, ...pl.bars].map((b) => b?.from)),
+    )
+    check(
+      `${label}: the Delivery funnel's slot split — In slot | Out of slot | No slot, the stub's 512 / 96 / 32`,
+      dl.slot?.state === 'drawn' &&
+        dl.slot.heading === 'Slot keeping' &&
+        dl.slot.dir === 'ltr' &&
+        same(dl.slot.keys, ['inSlot', 'outOfSlot', 'noSlot']) &&
+        same(dl.slot.segments.map((x) => x.id), dir === 'rtl' ? ['noSlot', 'outOfSlot', 'inSlot'] : ['inSlot', 'outOfSlot', 'noSlot']) &&
+        [['inSlot', 80], ['outOfSlot', 15], ['noSlot', 5]].every(([id, x]) => near(dl.slot.segments.find((g) => g.id === id)?.pct, x, 2)) &&
+        dl.slot.label === 'Slot keeping of delivered: In slot ⁨512⁩, Out of slot ⁨96⁩, No slot ⁨32⁩',
+      JSON.stringify(dl.slot),
+    )
+    check(
+      `${label}: the slot key reads the stub's counts and shares, each isolated; No slot carries no share`,
+      f['delivery.slot.inSlot']?.bdi === '512' &&
+        f['delivery.slot.inSlotShare']?.bdi === '80%' &&
+        f['delivery.slot.outOfSlot']?.bdi === '96' &&
+        f['delivery.slot.outOfSlotShare']?.bdi === '15%' &&
+        f['delivery.slot.noSlot']?.bdi === '32' &&
+        f['delivery.slot.noSlotShare'] === undefined,
+      JSON.stringify(Object.fromEntries(Object.entries(f).filter(([k]) => k.startsWith('delivery.slot.')))),
+    )
+    check(`${label}: the Pick-up funnel has no slot split`, pl.slot === null)
+    check(
+      `${label}: each funnel's average comes after its stages: Avg delivery time`,
       dl.avg === 'delivery.avg' &&
-        dl.avgCaption === 'Avg time to deliver' &&
+        dl.avgCaption === 'Avg delivery time' &&
         pl.avg === 'pickUp.avg' &&
-        pl.avgCaption === 'Avg time to ready' &&
-        dl.avgChevrons === 0 &&
-        pl.avgChevrons === 0 &&
-        inReadingOrder([...dl.lefts, dl.avgLeft], dir) &&
-        inReadingOrder([...pl.lefts, pl.avgLeft], dir),
-      `${dl.avg} ${dl.avgCaption} ${dl.avgLeft} · ${pl.avg} ${pl.avgCaption} ${pl.avgLeft}`,
+        pl.avgCaption === 'Avg delivery time' &&
+        dl.avgTop > dl.tops.at(-1) &&
+        pl.avgTop > pl.tops.at(-1),
+      `${dl.avg} ${dl.avgCaption} ${dl.avgTop} · ${pl.avg} ${pl.avgCaption} ${pl.avgTop}`,
+    )
+    check(
+      `${label}: wide (1600px), the funnels stand side by side, Delivery at the reading start`,
+      dl.box.top === pl.box.top && (dir === 'rtl' ? dl.box.left > pl.box.right - 1 : pl.box.left > dl.box.right - 1),
+      JSON.stringify([dl.box, pl.box]),
     )
     check(
       `${label}: the lanes read the stub's tracks as sent (not the totals, not derived)`,
@@ -573,21 +647,19 @@ async function drive(dir) {
       JSON.stringify(f['delivery.trips']),
     )
     check(
-      `${label}: each lane's average reads its minutes with the unit`,
-      f['delivery.avg']?.bdi === '96.25' && f['delivery.avg'].text === '96.25min' && f['pickUp.avg']?.bdi === '31.5' && f['pickUp.avg'].text === '31.5min',
+      `${label}: each lane's average is its Avg delivery time (avgDeliveryMinutes), with the unit`,
+      f['delivery.avg']?.bdi === '41.5' && f['delivery.avg'].text === '41.5min' && f['pickUp.avg']?.bdi === '30.75' && f['pickUp.avg'].text === '30.75min',
       `${JSON.stringify(f['delivery.avg'])} ${JSON.stringify(f['pickUp.avg'])}`,
     )
-    // A narrower window: the stages stay on one row (a wrapped row would open on a stray chevron).
+    // A narrower window: the funnels stack, Delivery above Pick-up.
     await page.setViewportSize({ width: 1000, height: 1000 })
     await page.waitForTimeout(200)
-    const rowTops = await page.evaluate(() =>
-      ['delivery', 'pickUp'].map((t) => [...document.querySelectorAll(`[data-statistics-band="${t}"] [data-statistics-stages] [data-figure-tile]`)].map((e) => Math.round(e.getBoundingClientRect().top))),
-    )
     const narrowDl = await laneOf(page, 'delivery')
+    const narrowPl = await laneOf(page, 'pickUp')
     check(
-      `${label}: at 1000px each lane's stages still share one row, in reading order`,
-      rowTops.every((tops) => tops.length > 0 && tops.every((y) => y === tops[0])) && inReadingOrder(narrowDl.lefts, dir),
-      JSON.stringify(rowTops),
+      `${label}: narrow (1000px), the funnels stack, Delivery above Pick-up, each still top to bottom`,
+      narrowPl.box.top >= narrowDl.box.bottom && down(narrowDl.tops) && down(narrowPl.tops),
+      JSON.stringify([narrowDl.box, narrowPl.box]),
     )
     await page.screenshot({ path: `${SHOTS}/${dir}-today-narrow.png`, fullPage: true })
     await page.setViewportSize({ width: 1600, height: 1000 })
@@ -766,8 +838,14 @@ async function drive(dir) {
     )
     check(
       `${label}: with no tracks every lane figure reads "—", never 0`,
-      laneFigures.length === 10 && laneFigures.filter(([k]) => !k.endsWith('.trips')).every(([, v]) => v.bdi === '—' && v.text === '—'),
+      // 10 lane figures + the slot key's three counts (814); no share is drawn where none was sent.
+      laneFigures.length === 13 && laneFigures.filter(([k]) => !k.endsWith('.trips')).every(([, v]) => v.bdi === '—' && v.text === '—'),
       JSON.stringify(Object.fromEntries(laneFigures.map(([k, v]) => [k, v.text]))),
+    )
+    check(
+      `${label}: with no tracks no stage bar is drawn and the slot split reads "—"`,
+      [...dl.bars, ...pl.bars].every((b) => b === null) && dl.slot?.state === 'none' && dl.slot.dash === '—' && dl.slot.segments.length === 0,
+      JSON.stringify([dl.bars, pl.bars, dl.slot]),
     )
     check(`${label}: with no tracks the Delivery lane's trips reads "—", never 0`, f['delivery.trips']?.bdi === '—' && f['delivery.trips'].text === 'Trips —', JSON.stringify(f['delivery.trips']))
     check(`${label}: with no unspecified the Unspecified tile is hidden`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0)
@@ -813,8 +891,18 @@ async function drive(dir) {
     )
     check(
       `${label}: tracks without misses still draw both lanes and their averages`,
-      f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '96.25' && f['pickUp.avg']?.bdi === '31.5',
+      // 814: the lane average is Avg delivery time, which a 2658 server never sends — "—", not its hand-over average.
+      f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '—' && f['pickUp.avg']?.bdi === '—',
+      JSON.stringify([f['delivery.avg'], f['pickUp.avg']]),
     )
+    {
+      const dl = await laneOf(page, 'delivery')
+      check(
+        `${label}: tracks without slot keeping draw the stage bars but no slot split ("—")`,
+        dl?.bars.every((b) => b !== null) && dl.slot?.state === 'none' && dl.slot.dash === '—',
+        JSON.stringify(dl?.slot),
+      )
+    }
     // 490: tracks without misses — every shown miss "—", the hide-when-zero three hidden.
     const dm = await missesRowOf(page, 'delivery')
     const pm = await missesRowOf(page, 'pickUp')
@@ -1215,7 +1303,7 @@ async function driveTrackSwitch(dir) {
   check(
     `${label}: a Delivery row reads tracks.delivery, not the store's totals`,
     dP001?.cameIn === '702' && dP001.trips === '409' && dP001.delivered === '300' && dP001.returnedBack === '20' && dP001.avgDeliveryMinutes === '96.25' &&
-      dP001.inSlotShare === '80.0%' && dP001.outOfSlotShare === '15.0%' && dP001.noSlot === '32' && dP001.deliveredPerTrip === '1.56',
+      dP001.inSlotShare === '80%' && dP001.outOfSlotShare === '15%' && dP001.noSlot === '32' && dP001.deliveredPerTrip === '1.56',
     JSON.stringify(dP001),
   )
   const dOlder = dRows.find((r) => r.storeCode === 'P050')
@@ -1453,7 +1541,7 @@ async function driveSlotTable(dir) {
   )
   check(
     `${label}: ranked by Out of slot % descending with "—" last`,
-    same(await order(), ['P019', 'P001', 'P050', 'P007']) && same(await order('outOfSlotShare'), ['40.0%', '15.0%', '5.0%', '—']),
+    same(await order(), ['P019', 'P001', 'P050', 'P007']) && same(await order('outOfSlotShare'), ['40%', '15%', '5%', '—']),
     `${(await order()).join(',')} | ${(await order('outOfSlotShare')).join(',')}`,
   )
   check(
@@ -1482,14 +1570,14 @@ async function driveSlotTable(dir) {
   )
   check(
     `${label}: a bar cell's text is the formatted value alone, isolated, with no isolate characters`,
-    drawn.every((b) => b.isolated && !b.text.includes(FSI) && !b.text.includes(PDI)) && bars[0].outOfSlotShare.text === '40.0%',
+    drawn.every((b) => b.isolated && !b.text.includes(FSI) && !b.text.includes(PDI)) && bars[0].outOfSlotShare.text === '40%',
     JSON.stringify(drawn.map((b) => b.text)),
   )
   check(`${label}: the bars are drawn in ink (the chart ink), never a status colour`, drawn.every((b) => b.background.includes('--chart-1') && !/danger|success|attention/.test(b.background)), drawn[0]?.background)
   // From the opening descending sort, one click clears it (AG Grid's asc → desc → none cycle), the next ascends.
   await page.locator('[data-statistics-stores] .ag-header-cell[col-id="outOfSlotShare"] .ag-header-cell-label').click()
   await sortBy(page, 'outOfSlotShare', 'ascending')
-  check(`${label}: Out of slot % ascending STILL puts the "—" last`, same(await order('outOfSlotShare'), ['5.0%', '15.0%', '40.0%', '—']), (await order('outOfSlotShare')).join(','))
+  check(`${label}: Out of slot % ascending STILL puts the "—" last`, same(await order('outOfSlotShare'), ['5%', '15%', '40%', '—']), (await order('outOfSlotShare')).join(','))
   await page.screenshot({ path: `${SHOTS}/${dir}-stores-slot.png`, fullPage: true })
 
   // Under the courier, the All view ranks by its own hand-over column, as today.

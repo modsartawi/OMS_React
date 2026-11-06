@@ -57,7 +57,7 @@ The pure tests are green and the drive shows the new columns, bars and courier d
   slot %, No slot, Delivered per trip; the misses; Avg delivery time last (replacing the lane's entry-based average). All's
   average is the store's `avgDeliveryMinutes`; Pick-up keeps `avgHandOverMinutes` (Avg time to ready). New `defaultTableTrack`,
   `defaultSort`, `CELL_BAR_FIGURES`, `columnMaxima`. Pinned by `store-rows.test.ts` (7 new, 5 updated for the retired column).
-  `figures.ts` gains `readShare` (en-US percent, one place, like the other cell readers: no locale marks reach Ctrl+C).
+  Shares read through `figures.ts` `readShare` (en-US percent, up to one place: no locale marks reach Ctrl+C); 816 and 814 each added one, and the merge keeps 814's format (`15%`, not `15.0%`).
 - **Opening on Delivery** needed the URL too (`query.ts`): the scope's default view is absent from the URL (All with all
   couriers, Delivery under a courier; `track=all` is written under a courier). `withCourier` re-opens the table on the new
   scope's default view whenever the courier changes (so all couriers → FarEye goes to Delivery, FarEye → all couriers back to All);

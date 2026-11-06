@@ -493,10 +493,8 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
         compositeName={roleName}
         members={d.memberSingleRoleNames}
         catalog={catalog}
-        onAdded={async () => {
-          setMemberOpen(false)
-          await refresh()
-        }}
+        // The dialog stays open after a batch (its summary and any refused picks); only re-read.
+        onAdded={refresh}
       />
       <DeleteBlockedModal
         open={blocked !== null}

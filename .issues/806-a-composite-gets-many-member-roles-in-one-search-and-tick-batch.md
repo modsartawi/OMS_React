@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 805
 blocked-by: —
 ---
@@ -35,10 +35,10 @@ store/logic (batch runner, picker list helper) · component (picker, Add member 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `runBatch writes every item in order and reports each outcome` — a fake write that succeeds, refuses (business) and fails (network) → all items attempted in order, outcomes + totals right · pure
-- [ ] `runBatch stops on an expired session` — an `auth` ApiError ends the batch; the remaining items are reported not attempted · pure
-- [ ] `picker narrows by name and description; select-all ticks only shown, enabled rows; picks survive a new query; clear empties` · pure
-- [ ] `tools/authz-batch-drive.mjs` (new) — stubbed `AuthzAdminWeb/*`: search `PHARM`, select all shown, Add 3 with one stubbed refusal → "2 added, 1 refused", the refused role still ticked, retry succeeds; LTR + RTL · flow (Playwright)
+- [x] `runBatch writes every item in order and reports each outcome` — a fake write that succeeds, refuses (business) and fails (network) → all items attempted in order, outcomes + totals right · pure
+- [x] `runBatch stops on an expired session` — an `auth` ApiError ends the batch; the remaining items are reported not attempted · pure
+- [x] `picker narrows by name and description; select-all ticks only shown, enabled rows; picks survive a new query; clear empties` · pure
+- [x] `tools/authz-batch-drive.mjs` (new) — stubbed `AuthzAdminWeb/*`: search `PHARM`, select all shown, Add 3 with one stubbed refusal → "2 added, 1 refused", the refused role still ticked, retry succeeds; LTR + RTL · flow (Playwright)
 
 ## Boundaries
 
@@ -55,3 +55,14 @@ is reported in the dialog and retryable, and the three vitest tests plus the dri
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-11-06 built (`impl/806-batch-runner-picker`). Batch runner `src/core/util/batch-runner.ts`
+  (+ `.test.ts`, 3 tests incl. a sequential-only proof); picker `src/core/ui/ChecklistPicker.tsx` with
+  its pure list helper `src/core/ui/checklist.ts` (+ `.test.ts`); `AddMemberModal` rewritten on them;
+  `RoleDetailPane` no longer closes the dialog after an add (it only re-reads). Drive
+  `tools/authz-batch-drive.mjs` 34/34 (17 LTR + 17 RTL). typecheck + test green; of the lint gates,
+  grid-base, contrast, palette and controls are green — `check-boundaries` fails on the pre-existing
+  `src/features/insurance-rules/aliases/door-shapes.test.ts` (from e9243c46, already on the spec
+  branch, untouched here), which short-circuits `npm run lint`.

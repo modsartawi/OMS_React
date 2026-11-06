@@ -36,9 +36,9 @@ async function open(dir, path) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     return route.fulfill(envelope(p.endsWith('/Access') ? {} : null))
   })
-  await page.goto(`${BASE}${path}`)
+  await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded", timeout: 120000 })
   // The lazy route compiles on its first visit: wait for the page, not a clock.
-  await page.waitForSelector('[data-proto-designer], [data-proto-runner], [data-proto-413]', { timeout: 30000 })
+  await page.waitForSelector('[data-proto-designer], [data-proto-runner], [data-proto-413]', { timeout: 120000 })
   await page.waitForTimeout(400)
   return { context, page, errors }
 }
@@ -137,6 +137,65 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-proto-param-name]').fill('tv')
   check('B add: reserved name refused before add', await page.locator('[data-proto-add-draft]').isDisabled())
   check('B add: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// Owner round 2: a section can be removed everywhere, and undo / redo bring it back.
+{
+  const { context, page, errors } = await open('ltr', `/analytics/prototype/report?variant=B&scenario=design`)
+  const sections = () => page.locator('article [data-proto-section]').count()
+  check('B: four sections to start', (await sections()) === 4)
+  await page.locator('[data-proto-outline-remove="s2"]').click()
+  check('B: outline removes a section', (await sections()) === 3)
+  check('B: notice offers undo', (await page.locator('[data-proto-notice]').innerText()).includes('HungerStation against QC'))
+  await page.locator('[data-proto-notice-undo]').click()
+  check('B: undo brings it back', (await sections()) === 4 && (await page.locator('[data-proto-panel="p3"]').count()) === 1)
+  await page.locator('[data-proto-outline-remove="s1"]').click()
+  await page.locator('body').click({ position: { x: 5, y: 500 } })
+  await page.keyboard.press('Control+z')
+  check('B: Ctrl+Z undoes', (await sections()) === 4)
+  await page.keyboard.press('Control+y')
+  check('B: Ctrl+Y redoes', (await sections()) === 3)
+  await page.locator('[data-proto-outline="section:s3"]').click()
+  await page.locator('[data-proto-remove-section="s3"]').click()
+  check('B: the section inspector removes too', (await sections()) === 2)
+  check('B round 2: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open('ltr', `/analytics/prototype/report?variant=A&scenario=design`)
+  await page.locator('[data-proto-section="s4"] button[aria-label^="Edit"]').first().click()
+  await page.locator('[data-proto-remove-section="s4"]').click()
+  check('A: sheet removes a section', (await page.locator('article [data-proto-section]').count()) === 3)
+  await page.locator('[data-proto-undo]').click()
+  check('A: undo button brings it back', (await page.locator('article [data-proto-section]').count()) === 4)
+  check('A round 2: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// The tutorial: steps tick themselves; loading the finished report + saving ticks all ten.
+for (const dir of ['ltr', 'rtl']) {
+  const { context, page, errors } = await open(dir, `/analytics/prototype/report?variant=A&scenario=tutorial`)
+  const doneCount = () => page.locator('[data-proto-tutorial="floating"] [data-proto-tutorial-step][data-done="yes"]').count()
+  check(`${dir} tutorial: starts at 0`, (await doneCount()) === 0)
+  await page.locator('[data-proto-designer] input[lang="en"]').first().fill('Channel sales')
+  await page.locator('[data-proto-designer] article button', { hasText: /Section|قسم/ }).last().click()
+  check(`${dir} tutorial: the guide rides inside the open sheet`, (await page.locator('[data-proto-tutorial="inline"]').count()) === 1)
+  check(`${dir} tutorial: title + section tick`, (await doneCount()) === 2)
+  await page.screenshot({ path: `${SHOTS}/A-tutorial-${dir}.png`, fullPage: false })
+  await page.keyboard.press('Escape')
+  await page.locator('[data-proto-tutorial-load]').click()
+  await page.locator('[data-proto-save]').click()
+  check(`${dir} tutorial: finished report ticks all ten`, (await doneCount()) === 10 && (await page.locator('[data-proto-tutorial="floating"] [data-proto-tutorial-done]').count()) === 1)
+  await noRaw(page, `${dir} tutorial`)
+  await page.screenshot({ path: `${SHOTS}/A-tutorial-done-${dir}.png`, fullPage: false })
+  check(`${dir} tutorial: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+for (const v of ['B', 'C']) {
+  const { context, page, errors } = await open('ltr', `/analytics/prototype/report?variant=${v}&scenario=tutorial`)
+  await page.screenshot({ path: `${SHOTS}/${v}-tutorial-ltr.png`, fullPage: false })
+  check(`${v} tutorial: mounts`, (await page.locator('[data-proto-tutorial]').count()) === 1 && errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

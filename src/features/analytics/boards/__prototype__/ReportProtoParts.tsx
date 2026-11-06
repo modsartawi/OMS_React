@@ -930,6 +930,13 @@ export function ShareDialog({ report, onClose, onShare }: { report: Report; onCl
 
 export function AudienceChip({ audience }: { audience: Audience }) {
   const { p, lang } = useProto()
+  if (!audience.everyone && audience.roles.length + audience.users.length === 0)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px]" data-proto-audience>
+        <Lock className="size-3" />
+        {p('tier.private')}
+      </span>
+    )
   const names = audience.everyone
     ? p('share.everyone')
     : [...audience.roles.map((r) => say(ROLES.find((x) => x.key === r)?.label, lang)), ...audience.users.map((u) => USERS.find((x) => x.key === u)?.name ?? u)].join(lang.startsWith('ar') ? '، ' : ', ')

@@ -15,9 +15,30 @@
  * The runner's page is one page in every variant — it is not the open question; the designer is.
  * Everything runs on stub figures in memory (report-proto-model.ts); nothing is saved.
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, BarChart3, Check, Copy, Download, Eye, LayoutList, Plus, Save, Settings2, Share2, Sparkles, Trash2, Type } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  BarChart3,
+  Check,
+  Circle,
+  CircleCheck,
+  Copy,
+  Download,
+  Eye,
+  GraduationCap,
+  LayoutList,
+  Plus,
+  Redo2,
+  Save,
+  Settings2,
+  Share2,
+  Sparkles,
+  Trash2,
+  Type,
+  Undo2,
+} from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
@@ -26,10 +47,13 @@ import Ltr from '@/core/ui/Ltr'
 import PrototypeSwitcher from '@/core/ui/PrototypeSwitcher'
 import Select from '@/core/ui/Select'
 import SideSheet from '@/core/ui/SideSheet'
-import { fsi } from '@/core/util/bidi'
+import { formatCount, fsi } from '@/core/util/bidi'
 import {
   SAVED_VIEWS,
   blankParam,
+  blankReport,
+  figureExists,
+  tokensIn,
   canBind,
   defaultsOf,
   dimensionOf,
@@ -73,6 +97,7 @@ const VARIANTS = [
 ]
 const SCENARIOS = [
   { key: 'design', label: 'Author · designing the report', proves: 'The acceptance case built: 9 parameters (all 7 kinds), 4 sections, series, live figures, summary.' },
+  { key: 'tutorial', label: 'Author · tutorial from a blank report', proves: 'A checklist builds the acceptance case step by step; each step ticks itself when the report reaches it.' },
   { key: 'declare', label: 'Author · adding a parameter', proves: 'Kind → name (the URL key) → label → default → bindings pre-filled, with the reason a panel cannot take it.' },
   { key: 'panel', label: 'Author · a panel with named series', proves: 'HungerStation against QC as two series; copied-from-view provenance; which parameters reach it.' },
   { key: 'text', label: 'Author · text with live figures', proves: 'Insert a figure token from a panel; the preview fills it from this run.' },
@@ -84,9 +109,11 @@ const SCENARIOS = [
 ]
 
 type Sel = string | null
+/** What the last removal took, for "Removed … · Undo". */
+type Notice = { kind: 'section' | 'param' | 'panel' | 'text' | 'summary'; name: Words | null }
 
 function setupFor(scenario: string) {
-  const report = sampleReport()
+  const report = scenario === 'tutorial' ? blankReport() : sampleReport()
   let selected: Sel = null
   let draft: Param | null = null
   let refusals: Refusal[] = []
@@ -129,7 +156,10 @@ export default function ReportPrototypePage() {
 
 function useReportState(scenario: string) {
   const init = useMemo(() => setupFor(scenario), [scenario])
-  const [report, setReport] = useState<Report>(init.report)
+  // Undo / redo (owner, 2026-11-06): every edit is a step; typing in one field within 1.5 s is ONE step.
+  const [hist, setHist] = useState<{ past: Report[]; present: Report; future: Report[]; key: string | null; at: number }>({ past: [], present: init.report, future: [], key: null, at: 0 })
+  const report = hist.present
+  const [notice, setNotice] = useState<Notice | null>(null)
   const [values, setValues] = useState<Values>(() => {
     const v = defaultsOf(init.report)
     if (scenario === 'run-fallback') v.channel = { kind: 'members', values: [] }
@@ -142,9 +172,27 @@ function useReportState(scenario: string) {
   const [saved, setSaved] = useState<number | null>(null)
   const [shareOpen, setShareOpen] = useState(scenario === 'share')
 
-  const edit = (f: (r: Report) => Report) => {
-    setReport((r) => f(structuredClone(r)))
+  const edit = (f: (r: Report) => Report, key: string | null = null) => {
+    setHist((h) => {
+      const now = Date.now()
+      const merge = key !== null && h.key === key && now - h.at < 1500
+      return { past: merge ? h.past : [...h.past.slice(-99), h.present], present: f(structuredClone(h.present)), future: [], key, at: now }
+    })
     setSaved(null)
+  }
+  const undo = () => {
+    setHist((h) => (h.past.length ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future], key: null, at: 0 } : h))
+    setNotice(null)
+    setSaved(null)
+  }
+  const redo = () => {
+    setHist((h) => (h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1), key: null, at: 0 } : h))
+    setNotice(null)
+    setSaved(null)
+  }
+  const blockNotice = (id: string): Notice => {
+    const b = report.sections.flatMap((s) => s.blocks).find((x) => x.id === id)
+    return b?.kind === 'panel' ? { kind: 'panel', name: b.panel.title } : { kind: b?.kind ?? 'text', name: null }
   }
   const ops = {
     setValue: (name: string, v: ParamValue) => setValues((x) => ({ ...x, [name]: v })),
@@ -163,7 +211,7 @@ function useReportState(scenario: string) {
           setSelected(`param:${next.name}`)
         }
         return r
-      }),
+      }, `param:${original}`),
     setDefault: (name: string, d: ParamValue) => setValues((v) => ({ ...v, [name]: d })),
     setBindings: (name: string, b: Record<string, string | true>) =>
       edit((r) => {
@@ -171,6 +219,8 @@ function useReportState(scenario: string) {
         return r
       }),
     deleteParam: (name: string) => {
+      const prm = report.params.find((x) => x.name === name)
+      setNotice({ kind: 'param', name: prm?.label.en ? prm.label : { en: name, ar: name } })
       edit((r) => {
         r.params = r.params.filter((x) => x.name !== name)
         delete r.bindings[name]
@@ -205,7 +255,7 @@ function useReportState(scenario: string) {
       edit((r) => {
         for (const s of r.sections) s.blocks = s.blocks.map((b) => (b.kind === 'panel' && b.panel.id === p.id ? { ...b, panel: p } : b))
         return r
-      }),
+      }, `panel:${p.id}`),
     bind: (param: string, panelId: string, on: boolean) =>
       edit((r) => {
         const prm = r.params.find((x) => x.name === param)
@@ -222,7 +272,7 @@ function useReportState(scenario: string) {
       edit((r) => {
         for (const s of r.sections) s.blocks = s.blocks.map((b) => (b.id === blockId && b.kind === 'text' ? { ...b, text } : b))
         return r
-      }),
+      }, `text:${blockId}`),
     moveBlock: (sectionId: string, blockId: string, by: -1 | 1) =>
       edit((r) => {
         const s = r.sections.find((x) => x.id === sectionId)!
@@ -233,6 +283,7 @@ function useReportState(scenario: string) {
         return r
       }),
     removeBlock: (sectionId: string, blockId: string) => {
+      setNotice(blockNotice(blockId))
       edit((r) => {
         const s = r.sections.find((x) => x.id === sectionId)!
         s.blocks = s.blocks.filter((b) => b.id !== blockId)
@@ -284,6 +335,7 @@ function useReportState(scenario: string) {
         return r
       }),
     removeSection: (id: string) => {
+      setNotice({ kind: 'section', name: report.sections.find((s) => s.id === id)?.heading ?? null })
       edit((r) => {
         const gone = r.sections.find((s) => s.id === id)?.blocks.map((b) => b.id) ?? []
         r.sections = r.sections.filter((s) => s.id !== id)
@@ -296,12 +348,18 @@ function useReportState(scenario: string) {
       edit((r) => {
         r.sections = r.sections.map((s) => (s.id === id ? { ...s, heading } : s))
         return r
-      }),
+      }, `section:${id}`),
     setTitle: (title: Words) =>
       edit((r) => {
         r.title = title
         return r
-      }),
+      }, 'title'),
+    /** The tutorial's way out: load the finished report as a template (one undoable step). */
+    load: (r: Report) => {
+      edit(() => r)
+      setValues(defaultsOf(r))
+      setSelected(null)
+    },
     share: (a: Audience) => {
       edit((r) => {
         r.audience = a
@@ -313,24 +371,43 @@ function useReportState(scenario: string) {
       const found = validate(report)
       setRefusals(found)
       if (found.length === 0) {
-        setReport((r) => ({ ...r, revision: r.revision + 1 }))
+        setHist((h) => ({ ...h, present: { ...h.present, revision: h.present.revision + 1 } }))
         setSaved(report.revision + 1)
       }
     },
   }
-  return { report, values, selected, setSelected, draft, draftBindings, setDraftBindings, refusals, setRefusals, saved, shareOpen, setShareOpen, ops }
+  return { tutorial: scenario === 'tutorial', undo, redo, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0, notice, setNotice, report, values, selected, setSelected, draft, draftBindings, setDraftBindings, refusals, setRefusals, saved, shareOpen, setShareOpen, ops }
 }
 type State = ReturnType<typeof useReportState>
 
 function Workbench({ variant, scenario }: { variant: string; scenario: string }) {
   const st = useReportState(scenario)
   const [preview, setPreview] = useState(false)
+  useEffect(() => {
+    // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z). Inside a text field the browser's own text undo wins.
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (!(e.ctrlKey || e.metaKey)) return
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        st.undo()
+      } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+        e.preventDefault()
+        st.redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [st])
   if (scenario === 'not-shared') return <NotShared owner={st.report.owner} />
   if (scenario.startsWith('run') || preview) return <RunnerPage st={st} fallback={scenario === 'run-fallback'} onBack={preview ? () => setPreview(false) : undefined} />
   const Designer = variant === 'B' ? DesignerB : variant === 'C' ? DesignerC : DesignerA
   return (
     <>
       <Designer st={st} onPreview={() => setPreview(true)} />
+      {scenario === 'tutorial' && <Tutorial st={st} />}
       {st.shareOpen && <ShareDialog report={st.report} onClose={() => st.setShareOpen(false)} onShare={st.ops.share} />}
     </>
   )
@@ -353,6 +430,12 @@ function AuthorBar({ st, onPreview, children }: { st: State; onPreview: () => vo
         </span>
         <div className="ms-auto flex items-center gap-2">
           {children}
+          <IconButton label={p('history.undo')} title={p('history.undoHint')} variant="outlined" disabled={!st.canUndo} onClick={st.undo} data-proto-undo>
+            <Undo2 className="size-3.5" />
+          </IconButton>
+          <IconButton label={p('history.redo')} title={p('history.redoHint')} variant="outlined" disabled={!st.canRedo} onClick={st.redo} data-proto-redo>
+            <Redo2 className="size-3.5" />
+          </IconButton>
           <Button variant="outlined" onClick={onPreview} data-proto-preview>
             <Eye className="size-3.5" />
             {p('author.preview')}
@@ -367,6 +450,17 @@ function AuthorBar({ st, onPreview, children }: { st: State; onPreview: () => vo
           </Button>
         </div>
       </div>
+      {st.notice && (
+        <div role="status" className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs" data-proto-notice>
+          <span>{p(`history.removed.${st.notice.kind}`, { name: fsi(say(st.notice.name ?? undefined, lang) || p('section.untitled')) })}</span>
+          <Button variant="link" onClick={st.undo} data-proto-notice-undo>
+            {p('history.undo')}
+          </Button>
+          <Button variant="text" className="ms-auto" onClick={() => st.setNotice(null)}>
+            {p('refused.close')}
+          </Button>
+        </div>
+      )}
       {st.saved !== null && (
         <p role="status" className="text-xs text-success-800">
           {p('author.saved')} <Ltr>{st.saved}</Ltr>
@@ -424,6 +518,13 @@ function Inspector({ st, compact = false }: { st: State; compact?: boolean }) {
         <h2 className="text-base font-semibold">{p('inspector.section')}</h2>
         <WordsFields label={p('section.heading')} value={s.heading} onChange={(h) => st.ops.renameSection(s.id, h)} />
         <AddBlock st={st} sectionId={s.id} />
+        <div>
+          <Button variant="danger-outlined" onClick={() => st.ops.removeSection(s.id)} data-proto-remove-section={s.id}>
+            <Trash2 className="size-3.5" />
+            {p('section.remove')}
+          </Button>
+          <p className="mt-1 text-xs text-muted-foreground">{p('section.removeHint')}</p>
+        </div>
       </div>
     )
   }
@@ -576,6 +677,7 @@ function DesignerA({ st, onPreview }: { st: State; onPreview: () => void }) {
                 {p('inspector.done')}
               </Button>
             </div>
+            {st.tutorial && <Tutorial st={st} inline />}
             <Inspector st={st} />
           </div>
         </SideSheet>
@@ -632,6 +734,9 @@ function DesignerB({ st, onPreview }: { st: State; onPreview: () => void }) {
                     </IconButton>
                     <IconButton label={p('tools.down', { what: fsi(say(s.heading, lang)) })} size="compact" onClick={() => st.ops.moveSection(s.id, 1)}>
                       <ArrowDown className="size-3" />
+                    </IconButton>
+                    <IconButton label={p('tools.remove', { what: fsi(say(s.heading, lang) || p('section.untitled')) })} size="compact" variant="danger" onClick={() => st.ops.removeSection(s.id)} data-proto-outline-remove={s.id}>
+                      <Trash2 className="size-3" />
                     </IconButton>
                   </span>,
                 )}
@@ -955,5 +1060,90 @@ function RunnerPage({ st, fallback, onBack }: { st: State; fallback: boolean; on
         <ReportBody report={st.report} values={st.values} failedSummary={fallback} />
       </article>
     </div>
+  )
+}
+
+// ── The tutorial (owner, 2026-11-06): build the acceptance case from a blank report ──────────
+
+const hasHsQc = (p: Panel) =>
+  p.series.some((x) => x.filters.some((f) => f.dimension === 'channel' && f.values.includes('hungerstation'))) &&
+  p.series.some((x) => x.filters.some((f) => f.dimension === 'delivery_type' && f.values.includes('QC')))
+
+/** Each step ticks itself from the report's own state — the tutorial never asks "did you do it?". */
+const TUTORIAL: { key: string; done: (st: State) => boolean }[] = [
+  { key: 'title', done: (st) => st.report.title.en.trim() !== '' },
+  { key: 'section', done: (st) => st.report.sections.length > 0 },
+  { key: 'chart', done: (st) => panelsOf(st.report).some((p) => p.measures.includes('net_value') && p.axis === 'channel' && p.series.length === 0) },
+  { key: 'series', done: (st) => panelsOf(st.report).some(hasHsQc) },
+  { key: 'rate', done: (st) => panelsOf(st.report).some((p) => hasHsQc(p) && p.measures.includes('cancellation_rate')) },
+  {
+    key: 'figure',
+    done: (st) =>
+      st.report.sections.some((s) => s.blocks.some((b) => b.kind === 'text' && tokensIn(b.text.en + ' ' + b.text.ar).some((t) => figureExists(st.report, t.panel, t.figure)))),
+  },
+  { key: 'summary', done: (st) => st.report.sections.some((s) => s.blocks.some((b) => b.kind === 'summary')) },
+  {
+    key: 'period',
+    done: (st) => {
+      const prm = st.report.params.find((x) => x.kind === 'period')
+      const ps = panelsOf(st.report)
+      return !!prm && prm.default.kind === 'period' && prm.default.token === 'yesterday' && ps.length > 0 && ps.every((x) => st.report.bindings[prm.name]?.[x.id] !== undefined)
+    },
+  },
+  { key: 'share', done: (st) => !st.report.audience.everyone && st.report.audience.roles.length + st.report.audience.users.length > 0 },
+  { key: 'save', done: (st) => st.saved !== null && st.refusals.length === 0 },
+]
+
+function Tutorial({ st, inline = false }: { st: State; inline?: boolean }) {
+  const { p } = useProto()
+  const [open, setOpen] = useState(true)
+  const done = TUTORIAL.map((s) => s.done(st))
+  const current = done.findIndex((d) => !d)
+  const count = done.filter(Boolean).length
+  return (
+    <aside
+      className={inline ? 'mb-4 flex max-h-72 flex-col rounded-lg border border-primary-border bg-card' : 'fixed bottom-24 end-4 z-40 flex max-h-[62vh] w-80 flex-col rounded-lg border border-border bg-card shadow-xl'}
+      aria-label={p('tutorial.title')}
+      data-proto-tutorial={inline ? 'inline' : 'floating'}
+    >
+      <header className="flex items-center gap-2 border-b border-border p-3">
+        <GraduationCap className="size-4 text-primary" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">{p('tutorial.title')}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {p('tutorial.progress')} <Ltr>{formatCount(count, TUTORIAL.length)}</Ltr>
+          </p>
+        </div>
+        <Button variant="text" onClick={() => setOpen(!open)} data-proto-tutorial-toggle>
+          {open ? p('tutorial.hide') : p('tutorial.show')}
+        </Button>
+      </header>
+      {open && (
+        <div className="flex flex-col gap-1 overflow-y-auto p-3">
+          {current === -1 && (
+            <p className="mb-2 rounded-md bg-success-050 p-2 text-xs text-success-800" data-proto-tutorial-done>
+              {p('tutorial.finished')}
+            </p>
+          )}
+          <ol className="flex flex-col gap-1">
+            {TUTORIAL.map((s, i) => (
+              <li key={s.key} className={`rounded-md p-1.5 ${i === current ? 'bg-primary-050' : ''}`} data-proto-tutorial-step={s.key} data-done={done[i] ? 'yes' : 'no'}>
+                <p className="flex items-start gap-2 text-xs font-medium">
+                  {done[i] ? <CircleCheck className="mt-px size-3.5 shrink-0 text-success-800" /> : <Circle className="mt-px size-3.5 shrink-0 text-muted-foreground" />}
+                  <span className={done[i] ? 'text-muted-foreground line-through' : ''}>{p(`tutorial.steps.${s.key}.title`)}</span>
+                </p>
+                {i === current && <p className="mt-1 ps-5 text-[11px] leading-snug text-muted-foreground">{p(`tutorial.steps.${s.key}.how`)}</p>}
+              </li>
+            ))}
+          </ol>
+          <div className="mt-2 border-t border-border pt-2">
+            <Button variant="outlined" onClick={() => st.ops.load(sampleReport())} data-proto-tutorial-load>
+              {p('tutorial.load')}
+            </Button>
+            <p className="mt-1 text-[11px] text-muted-foreground">{p('tutorial.loadHint')}</p>
+          </div>
+        </div>
+      )}
+    </aside>
   )
 }

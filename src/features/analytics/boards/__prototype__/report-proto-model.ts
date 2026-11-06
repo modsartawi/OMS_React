@@ -595,6 +595,22 @@ export function sampleReport(): Report {
   }
 }
 
+/** A new report, as the tutorial starts it: the ready-made parameters (797 §6), no sections, shared with nobody yet. */
+export function blankReport(): Report {
+  const s = sampleReport()
+  const params = s.params.filter((p) => p.readyMade)
+  return {
+    ...s,
+    id: 'r-new',
+    title: { en: '', ar: '' },
+    revision: 0,
+    params,
+    bindings: Object.fromEntries(params.map((p) => [p.name, {}])),
+    sections: [],
+    audience: { everyone: false, roles: [], users: [] },
+  }
+}
+
 /** The stub AI summary: written from this run's figures only, so the number check passes (801 §3). */
 export function stubSummary(r: Report, values: Values, lang: string, fmt: (v: number | null, measure: string) => string): string | null {
   const hs = figureValue(r, values, 'p2', 'hs')

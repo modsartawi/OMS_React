@@ -719,7 +719,8 @@
       "history": "Every audience change is written to the report's history."
     },
     "tier": {
-      "shared": "Shared"
+      "shared": "Shared",
+      "private": "Not shared yet"
     },
     "refused": {
       "title": "Not saved:",
@@ -765,7 +766,9 @@
     },
     "section": {
       "heading": "Heading",
-      "untitled": "Untitled section"
+      "untitled": "Untitled section",
+      "remove": "Remove section",
+      "removeHint": "Its blocks go with it. Undo brings everything back."
     },
     "block": {
       "remove": "Remove block",
@@ -825,6 +828,70 @@
       "copied": "Link copied:",
       "fallback": "The link asked for {{param}} {{value}}, which this report doesn't offer, so it shows the default.",
       "channel": "channel"
+    },
+    "history": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "undoHint": "Undo (Ctrl+Z)",
+      "redoHint": "Redo (Ctrl+Y)",
+      "removed": {
+        "section": "Section {{name}} removed.",
+        "param": "Parameter {{name}} removed.",
+        "panel": "Chart {{name}} removed.",
+        "text": "Text block removed.",
+        "summary": "AI summary removed."
+      }
+    },
+    "tutorial": {
+      "title": "Build the HungerStation vs QC report",
+      "progress": "Steps done",
+      "hide": "Hide",
+      "show": "Show",
+      "finished": "Done. This is the report your team can re-run with any period. Schedule it from Share once 803 is drawn.",
+      "load": "Load the finished report",
+      "loadHint": "Skip to the end and study it. Undo takes you back to where you were.",
+      "steps": {
+        "title": {
+          "title": "Name the report",
+          "how": "Type a title at the top, e.g. \"Channel sales: HungerStation against QC\". The Arabic title is optional."
+        },
+        "section": {
+          "title": "Add a section",
+          "how": "Use \"+ Section\" and call it \"Sales by channel\". Sections are read top to bottom."
+        },
+        "chart": {
+          "title": "Chart net sales by channel",
+          "how": "In the section, add a \"Chart or table\". It starts as net sales by channel, a bar chart; give it a title."
+        },
+        "series": {
+          "title": "Compare HungerStation against QC",
+          "how": "Add another chart, then two named series: one where Channel is HungerStation, one where Delivery type is QC. Each series runs on its own."
+        },
+        "rate": {
+          "title": "Show their cancellation rates",
+          "how": "Switch that chart (or a copy) to the Orders area and pick Cancellation rate. Set the axis to Date."
+        },
+        "figure": {
+          "title": "Write a sentence with a live figure",
+          "how": "Add Text and use \"Insert a live figure\" to drop in, say, HungerStation's rate. It refreshes on every run."
+        },
+        "summary": {
+          "title": "Add the AI summary",
+          "how": "Add \"AI summary\" to a last section. It is rewritten each run and its numbers are checked."
+        },
+        "period": {
+          "title": "Check the period: yesterday, on every chart",
+          "how": "Open the Period parameter. Its default should be Yesterday, and \"Applies to\" should tick every chart."
+        },
+        "share": {
+          "title": "Share it with your team",
+          "how": "Use Share, choose \"Chosen teams and people\" and pick a team. They can run it, not change it."
+        },
+        "save": {
+          "title": "Save",
+          "how": "Save. If it is refused, the list names what to fix: often a parameter that can't reach a chart with series."
+        }
+      }
     }
   }
 }

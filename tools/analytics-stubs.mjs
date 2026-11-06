@@ -241,6 +241,38 @@ ITEMS['b-820'] = {
   kind: 'board',
   definition: { panels: [{ id: 'p-bars', kind: 'view', viewId: 'v-bar-measures', layout: { x: 0, y: 0, w: 12, h: 4 } }] },
 }
+// 825: named series — HungerStation (a channel) against QC (a delivery type), the acceptance case. The model
+// gains the `delivery_type` dimension (in which QC lives) and the HungerStation channel; v1 scenarios keep MODEL.
+export const MODEL_825 = {
+  ...MODEL,
+  measures: MODEL.measures.map((m) => (['orders', 'deliveries', 'till_value'].includes(m.key) ? { ...m, dimensions: [...m.dimensions, 'delivery_type'] } : m)),
+  dimensions: [
+    ...MODEL.dimensions.map((d) =>
+      d.key === 'channel_group' ? { ...d, values: [...d.values, { key: 'hungerstation', label: label('HungerStation', 'هنقرستيشن') }] } : d,
+    ),
+    {
+      key: 'delivery_type',
+      kind: 'category',
+      label: label('Delivery type', 'نوع التوصيل'),
+      values: [
+        { key: 'QC', label: label('Quick commerce', 'التجارة السريعة') },
+        { key: 'scheduled', label: label('Scheduled', 'مجدول') },
+      ],
+    },
+  ],
+}
+export const SERIES_825 = [
+  { id: 'hs', label: label('HungerStation', 'هنقرستيشن'), filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] },
+  { id: 'qc', label: label('QC', 'التوصيل السريع'), filters: [{ dimension: 'delivery_type', values: ['QC'] }] },
+]
+export const VIEW_825 = { ...def('bar', ['orders'], ['day'], { orientation: 'vertical' }), series: SERIES_825 }
+ITEMS['v-825'] = view('v-825', { title: label('HungerStation against QC', 'هنقرستيشن مقابل التوصيل السريع'), definition: VIEW_825 })
+ITEMS['b-825'] = {
+  ...view('b-825', { title: label('Aggregators', 'المجمّعات') }),
+  kind: 'board',
+  definition: { panels: [{ id: 'p-series', kind: 'view', viewId: 'v-825', layout: { x: 0, y: 0, w: 12, h: 4 } }] },
+}
+
 // Review fix 12 (766 §B, story 86): a view naming a measure the model no longer holds, and one the server refuses
 // 406 naming the field; the board holding them still draws its other panel.
 ITEMS['v-retired'] = view('v-retired', { definition: def('bar', ['retired_orders'], ['channel_group']) })
@@ -570,15 +602,21 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
   const dims = q.dimensions ?? []
   let rows = [{}]
   for (const d of dims) rows = rows.flatMap((r) => (INLINE_MEMBERS[d] ?? ['a', 'b']).map((v) => ({ ...r, [d]: v })))
+  // 825: named series — one row set per series (each its own query on the server), merged under a `series`
+  // column; each series' figures are its own (the second a third lower, and so on), so the colours are told apart.
+  const named = definition?.series ?? []
+  if (named.length) rows = named.flatMap((s, si) => rows.map((r) => ({ series: s.id, ...r, __scale: 1 - si * 0.3 })))
   rows = rows.map((r, i) => {
-    const out = { ...r }
+    const { __scale: scale = 1, ...rest } = r
+    const out = { ...rest }
     measures.forEach((m, j) => {
       out[m.key] = m.unit === 'share' ? 0.7 + ((i + j) % 5) * 0.05 : m.unit === 'minutes' ? 30 + ((i * 7 + j * 11) % 40) + j * 15 : 400 + ((i * 37 + j * 53) % 500)
+      if (scale !== 1) out[m.key] = Math.round(out[m.key] * scale * 100) / 100
     })
     return out
   })
   return {
-    columns: [...dims.map((key) => ({ key, role: 'dimension' })), ...measures.map((m) => ({ key: m.key, role: 'measure', shape: m.shape, unit: m.unit }))],
+    columns: [...(named.length ? [{ key: 'series', role: 'series' }] : []), ...dims.map((key) => ({ key, role: 'dimension' })), ...measures.map((m) => ({ key: m.key, role: 'measure', shape: m.shape, unit: m.unit }))],
     rows,
     total: rows.length,
     truncated: false,
@@ -838,6 +876,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
         return route.fulfill(isFulfil(inline) ? inline : envelope(inline))
       }
       if (made[body.viewId]) return route.fulfill(envelope(inlineAnswer(made[body.viewId].definition, model, body.compareToPrevious === true)))
+      // 825: a saved view with named series is answered per series from its own definition.
+      if (items[body.viewId]?.definition?.series?.length && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(items[body.viewId].definition, model, body.compareToPrevious === true)))
       if (ITEMS_776[body.viewId] && !query[body.viewId]) return route.fulfill(envelope(inlineAnswer(ITEMS_776[body.viewId].definition, model)))
       const seq = querySequence[id]
       const answer = seq?.length ? (seq.length > 1 ? seq.shift() : seq[0]) : query[id]

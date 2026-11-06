@@ -56,7 +56,7 @@ export default memo(function PanelActions(p: PanelActionsProps) {
   const behind = !!result && isBehind(result.dataAsOf, now)
   const ago = result ? fetchedAgo(result.fetchedAt || (p.updatedAt ? new Date(p.updatedAt).toISOString() : ''), now) : null
   const base = panelFileBase(p.viewId)
-  const table = () => panelTable(result!, p.definition, p.model, lang)
+  const table = () => panelTable(result!, p.definition, p.model, lang, { series: t('view.seriesColumn') })
 
   const picture = drawsAsPicture(p.definition.chart.type)
   const pngReason = !picture ? t('panel.pngUnavailable') : p.table ? t('panel.pngTableView') : null

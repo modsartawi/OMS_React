@@ -9,6 +9,7 @@ import type {
   MeasureUnit,
 } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import { hasSeries, mergeSeries, seriesOf, seriesName, seriesRows, type NamedSeries } from './series'
 import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
 import { dimensionOf } from './wire'
 
@@ -100,6 +101,31 @@ export function toKpiView(
   return { kind: 'kpi', measure, format: formatOf(definition), value, previous, delta: deltaOf(value, previous), spark, empty: result.rows.length === 0 }
 }
 
+/** A KPI tile of one named series (825). */
+export type SeriesKpiView = KpiView & { series: NamedSeries }
+
+/**
+ * 825: a KPI over named series is one figure per series, side by side, in slot order — each from that
+ * series' own rows (and its own previous rows), so a rate is that series' own, never an average of them.
+ */
+export function toKpiViews(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+): SeriesKpiView[] {
+  const columns = result.columns
+  return seriesOf(definition).map((s, slot) => ({
+    ...toKpiView(
+      { ...result, rows: seriesRows(result.rows, columns, s.id), previous: seriesRows(result.previous, columns, s.id) },
+      definition,
+      model,
+      lang,
+    ),
+    series: { id: s.id, label: seriesName(s, lang), slot },
+  }))
+}
+
 // ── Line, stacked area, bars ───────────────────────────────────────────────────────────────────────
 
 export interface SeriesDef {
@@ -170,6 +196,7 @@ export function toSeriesView(
     ? definition.query.measures
     : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
   const measures = measureKeys.map((k) => viewMeasureOf(k, model, result, lang))
+  if (hasSeries(definition)) return namedSeriesView(result, definition, model, lang, form, measures)
 
   // A rate is never stacked (766 §E): refused before anything is drawn.
   const wantsStack = form === 'area' || (form === 'bar' && definition.chart.stack === 'stacked')
@@ -283,6 +310,57 @@ export function toSeriesView(
     folded,
     notShown,
     empty: result.rows.length === 0,
+    truncated: result.truncated,
+  }
+}
+
+/**
+ * 825: named series as the series source — one series per named series, in slot order (its position), no
+ * "Other" and no total. Never stacked: a stack's height IS a total, and series may overlap, so a bar is
+ * grouped and an area overlaps. One measure (the shape rules offer no more with series).
+ */
+function namedSeriesView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+  form: SeriesView['form'],
+  measures: ViewMeasure[],
+): SeriesView {
+  const m = measures[0]
+  const merged = mergeSeries(result, definition, lang)
+  const dims = definition.query.dimensions.length
+    ? definition.query.dimensions
+    : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)
+  const xKey = (form === 'bar' ? dims[0] : (timeKeyOf(dims, model) ?? dims[0])) ?? ''
+  const xDim = dimensionOf(model, xKey)
+  const isTime = xDim?.kind === 'time'
+  const xLabels = new Map(xDim?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])
+
+  const xs: string[] = []
+  for (const p of merged.points) if (!xs.includes(p.at[xKey] ?? '')) xs.push(p.at[xKey] ?? '')
+  if (isTime) xs.sort()
+  const series: SeriesDef[] = merged.series.map((s, i) => ({ key: `s${i}`, member: s.id, label: s.label, slot: s.slot, other: false, unit: m?.unit ?? 'count' }))
+  const rows: SeriesRow[] = xs.map((x) => {
+    const at = merged.points.find((p) => (p.at[xKey] ?? '') === x)
+    const values = Object.fromEntries(series.map((s) => [s.key, at?.values[s.member] ? num(at.values[s.member][m?.key ?? '']) : null]))
+    return { x, label: isTime ? formatAxisDay(x, lang) : xLabels.get(x) || x, values, slot: 0 }
+  })
+  return {
+    kind: 'series',
+    form,
+    orientation: form === 'bar' ? (definition.chart.orientation ?? 'vertical') : 'vertical',
+    stacking: form === 'bar' && series.length > 1 ? 'grouped' : 'none',
+    x: { key: xKey, label: saysIn(xDim?.label, lang) || xKey, isTime },
+    series,
+    rows,
+    measureLabel: m?.label ?? '',
+    unit: m?.unit ?? 'count',
+    format: formatOf(definition),
+    colourBy: 'single',
+    folded: 0,
+    notShown: 0,
+    empty: merged.points.length === 0,
     truncated: result.truncated,
   }
 }

@@ -37,6 +37,22 @@ describe('the editor reads 406, 407 and 410 in its own terms', () => {
     expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['orders']), MODEL)).toEqual({ kind: 'area', reason: 'Area not ready.' })
   })
 
+  it('411 lists the series problems the refusal carries (825), each to its series', () => {
+    const problems = [
+      { what: 'series', why: 'tooMany' },
+      { what: 'series', why: 'duplicate', series: 's2' },
+      { what: 'series', why: 'foreignDimension', series: 's3', dimension: 'store' },
+      { what: 'name', why: 'slug', param: 'X' },
+      { what: 'series', why: 'unheard-of' },
+    ]
+    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.', { problems }), def(['orders']), MODEL)).toEqual({
+      kind: 'declaration',
+      series: [{ why: 'tooMany' }, { why: 'duplicate', series: 's2' }, { why: 'foreignDimension', series: 's3', dimension: 'store' }],
+      message: 'Not saved.',
+    })
+    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.'), def(['orders']), MODEL)).toEqual({ kind: 'declaration', series: [], message: 'Not saved.' })
+  })
+
   it('any other failure is not the editor’s to word', () => {
     expect(editorRefusal(coded('ANALYTICS-409'), def(['orders']), MODEL)).toBeNull()
     expect(editorRefusal(new Error('boom'), def(['orders']), MODEL)).toBeNull()

@@ -126,7 +126,9 @@
     "topN_one": "Showing the top {{n}} row.",
     "topN_other": "Showing the top {{n}} rows.",
     "edit": "Edit",
-    "notSharedTitle": "This view isn’t shared with you"
+    "notSharedTitle": "This view isn’t shared with you",
+    "seriesColumn": "Series",
+    "seriesKpiLabel": "{{measure}}, {{series}}"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -137,7 +139,8 @@
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
     "areaUnavailable": "This subject area is not available yet.",
     "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you.",
-    "notShared": "This analytics item isn’t shared with you."
+    "notShared": "This analytics item isn’t shared with you.",
+    "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding)."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -273,7 +276,10 @@
       "donutAdditive": "A rate or percentile is never put in a donut.",
       "tableShape": "A table needs 1 to 3 breakdowns.",
       "heatmapShape": "A heatmap is one measure by two breakdowns.",
-      "comboShape": "A combo is one volume measure and one rate, by one breakdown."
+      "comboShape": "A combo is one volume measure and one rate, by one breakdown.",
+      "seriesShape": "With named series, this chart takes one measure over one breakdown.",
+      "seriesStacked": "Named series are never stacked: a stack adds them up, and series may overlap.",
+      "seriesForm": "A donut or a heatmap takes no named series."
     },
     "formatName": {
       "auto": "Automatic",
@@ -347,7 +353,27 @@
     "filters": "Filters",
     "addFilter": "Add a filter on…",
     "addAnotherFilter": "Another filter",
-    "whyOff": "Why {{n}} types are off"
+    "whyOff": "Why {{n}} types are off",
+    "series": {
+      "title": "Named series",
+      "hint": "Up to 4. Each series runs as its own query with its own filters, so rates stay right. There is no total across series.",
+      "labelEn": "Series name (English)",
+      "labelAr": "Series name (Arabic)",
+      "remove": "Remove series {{series}}",
+      "where": "Where",
+      "is": "is",
+      "addFilter": "Another condition",
+      "removeFilter": "Remove this condition",
+      "max": "A view holds at most 4 series.",
+      "add": "Add a series ({{count}})",
+      "unnamed": "Series {{n}}",
+      "problem": {
+        "title": "Not saved:",
+        "tooMany": "This view has more than 4 series.",
+        "duplicate": "Two series share the name {{series}}.",
+        "foreignDimension": "The series {{series}} filters on {{dimension}}, which is not one of this view's own breakdowns."
+      }
+    }
   },
   "save": {
     "asCopy": "Save as copy",

@@ -63,3 +63,48 @@ describe('the panel table (the table view and every download)', () => {
     expect(panelFileBase('a/b c')).toBe('analytics-a-b-c')
   })
 })
+
+describe('the panel table of a view with named series (825)', () => {
+  const named = {
+    chart: { type: 'bar' },
+    query: { measures: ['orders'], dimensions: ['channel_group'], filters: [] },
+    series: [
+      { id: 'hs', label: { en: `${FSI}HungerStation${PDI}`, ar: 'هنقرستيشن' }, filters: [] },
+      { id: 'qc', label: { en: 'QC', ar: 'التوصيل السريع' }, filters: [] },
+    ],
+  } as unknown as AnalyticsViewDefinition
+  const answer: AnalyticsQueryResult = {
+    ...result([]),
+    columns: [{ key: 'series', role: 'series' }, ...result([]).columns],
+    rows: [
+      { series: 'hs', channel_group: 'app', orders: 12 },
+      { series: 'qc', channel_group: 'app', orders: 7 },
+      { series: 'other', channel_group: 'app', orders: 99 },
+    ],
+  }
+
+  it('puts a series column first, naming each row by its series label, rows of an unknown series dropped', () => {
+    const table = panelTable(answer, named, model, 'ar', { series: 'السلسلة' })
+    expect(table.columns.map((c) => [c.key, c.label])).toEqual([
+      ['series', 'السلسلة'],
+      ['channel_group', 'القناة'],
+      ['orders', 'الطلبات'],
+    ])
+    expect(table.rows).toEqual([
+      { series: 'هنقرستيشن', channel_group: 'التطبيق', orders: 12 },
+      { series: 'التوصيل السريع', channel_group: 'التطبيق', orders: 7 },
+    ])
+  })
+
+  it('writes the series column to the CSV and the xlsx with isolates stripped', () => {
+    const table = panelTable(answer, named, model, 'en', { series: 'Series' })
+    expect(panelCsv(table)).toBe('\uFEFFSeries,Channel,Orders\r\nHungerStation,App,12\r\nQC,App,7\r\n')
+    const sheet = panelSheet(table, 'Named')
+    expect(sheet.data[0][0]).toMatchObject({ value: 'Series' })
+    expect(sheet.data.slice(1).map((r) => r[0])).toEqual([
+      { type: String, value: 'HungerStation' },
+      { type: String, value: 'QC' },
+    ])
+    expect(JSON.stringify(sheet)).not.toMatch(/[\u2068\u2069]/)
+  })
+})

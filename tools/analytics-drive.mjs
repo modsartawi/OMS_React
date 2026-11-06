@@ -19,6 +19,12 @@
 //   5. `ANALYTICS-404` on the item is the not-found state; `ANALYTICS-401` on the query the no-access state;
 //   6. no page errors.
 //
+// 827 — a runner opens a report (spec 819 §E): the title and audience chip, the sections and their blocks in
+//   order, each panel in v1's frame asking by report + panel with its bound values, no edit/TV/ask/cross-filter;
+//   live figures filled from the Words door and isolated, no raw token; the summary written, then a failed check
+//   dropping only it (and a missing figure's placeholder); the caveat and "may still rise" on report and board
+//   panels; a period change re-asking panels and Words; Print carrying the values (A4, prints once idle);
+//   a demo / non-report id is not found. en, ar and dark.
 // 769 — the donut, the table with cell bars, the heatmap and the combo, each in en, ar and dark:
 //   donut: nine stores → five slices in --chart-1…5 plus ink-grey "Other (4)", painted per theme; a donut
 //          over a rate is refused in words; table: top 5 by orders, cell bars in proportion, figures
@@ -125,7 +131,7 @@
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, VIEW_825, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST_777, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -2871,7 +2877,135 @@ async function notices823({ dir }) {
   }
 }
 
+// 827 — a runner opens a report: sections, panels, live figures, the summary or "unavailable", caveats, print.
+const P827 = ['p1', 'p2', 'p3', 'p4']
+const idle827 = (page) =>
+  page
+    .waitForFunction((ids) => ids.every((id) => ['idle', 'empty'].includes(document.querySelector(`[data-report-panel="${id}"] [data-board-panel]`)?.dataset.boardPanelState)), P827, { timeout: 10000 })
+    .catch(() => {})
+const figure827 = (page, token) => page.locator(`[data-report-figure="${token}"]`).first().innerText().catch(() => null)
+const lastWords827 = (bodies) => (bodies['Analytics/Report/r-827/Words'] ?? []).at(-1)
+
+async function report827({ dir, dark = false }) {
+  const tag = `827 ${dir}${dark ? ' dark' : ''}`
+  const state = { summary: 'written', drop: [] }
+  const { context, page, bodies, errors } = await open({ dir, dark, access: RUNNER, model: MODEL_827, words: (body) => wordsAnswer827(body, state) })
+  await page.goto(`${BASE}/analytics/report/r-827`)
+  await page.locator('[data-analytics-report="r-827"]').waitFor({ timeout: 30000 })
+  await idle827(page)
+  await page.locator('[data-report-summary="written"]').waitFor({ timeout: 5000 }).catch(() => {})
+
+  check(`${tag}: the title and the audience chip head the page`, (await page.locator('[data-analytics-report-title]').innerText()).length > 0 && (await page.locator('[data-analytics-report-header] [data-analytics-audience="chosen"]').count()) === 1)
+  const sections = await page.locator('[data-report-section]').evaluateAll((els) => els.map((e) => e.dataset.reportSection))
+  check(`${tag}: the sections in order`, sections.join() === 's1,s2,s3,s4', sections.join())
+  const order = await page.locator('[data-report-sections] [data-report-panel], [data-report-sections] [data-report-text], [data-report-sections] [data-report-summary]').evaluateAll((els) =>
+    els.map((e) => e.dataset.reportPanel ?? e.dataset.reportText ?? e.dataset.reportBlock),
+  )
+  check(`${tag}: each section's blocks in order (panels, text, summary)`, order.join() === 'p1,t1,p2,p3,t2,p4,sum', order.join())
+  const states = await page.locator('[data-report-panel] [data-board-panel]').evaluateAll((els) => els.map((e) => e.dataset.boardPanelState))
+  check(`${tag}: every panel draws in v1's panel frame`, states.length === 4 && states.every((x) => x === 'idle'), states.join())
+  check(`${tag}: … with its freshness and actions`, (await page.locator('[data-report-panel] [data-analytics-as-of]').count()) === 4 && (await page.locator('[data-report-panel] [data-panel-actions]').count()) === 4)
+  const first = bodies['Analytics/Query'] ?? []
+  const by = Object.fromEntries(first.map((b) => [b.panelId, b]))
+  check(
+    `${tag}: each panel asks by the report and its panel, with the values bound to it`,
+    first.length === 4 &&
+      first.every((b) => b.itemId === 'r-827' && b.revision === 3 && !('viewId' in b) && !('crossFilter' in b)) &&
+      Object.keys(by.p1?.values ?? {}).sort().join() === 'city,period' &&
+      Object.keys(by.p3?.values ?? {}).sort().join() === 'grain,period',
+    JSON.stringify(first.map((b) => [b.panelId, Object.keys(b.values ?? {})])),
+  )
+  const editing = await page.locator('[data-analytics-board-edit], a[href$="/edit"], [data-board-tv-enter], [data-analytics-ask], [data-editor-save], [data-analytics-share]').count()
+  check(`${tag}: a runner sees no edit control, no TV mode and no ask box`, editing === 0, String(editing))
+  check(`${tag}: no cross-filter is ever asked`, (bodies['Analytics/Query'] ?? []).every((b) => !b.crossFilter))
+
+  const words = lastWords827(bodies)
+  check(`${tag}: the Words door is asked once with the revision and every value`, (bodies['Analytics/Report/r-827/Words'] ?? []).length === 1 && words?.revision === 3 && Object.keys(words?.values ?? {}).sort().join() === 'city,grain,period', JSON.stringify(words))
+  const total = await figure827(page, '{p1:total}')
+  check(`${tag}: a live figure is filled from the Words answer`, total === 'SAR 1,250,000', String(total))
+  const isolated = await page.locator('[data-report-figure="{p1:total}"] bdi[dir="ltr"]').count()
+  check(`${tag}: … isolated whole as a machine value`, isolated === 1)
+  const text = await page.locator('[data-report-sections]').innerText()
+  check(`${tag}: no raw token reaches the reader`, !/\{p\d:[a-z_]+\}/.test(text))
+  check(`${tag}: the summary is written`, (await page.locator('[data-report-summary="written"] [data-report-summary-text]').count()) === 1)
+  check(`${tag}: the cancellation panel carries the model's caveat`, (await page.locator('[data-report-panel="p3"] [data-panel-caveat]').count()) === 1 && (await page.locator('[data-report-panel="p1"] [data-panel-caveat]').count()) === 0)
+  const rising = await page.locator('[data-report-panel="p3"] [data-panel-still-rising]').getAttribute('data-panel-still-rising').catch(() => null)
+  check(`${tag}: … and "may still rise" from its first young day`, rising === '2026-10-30' && (await page.locator('[data-report-panel="p1"] [data-panel-still-rising]').count()) === 0, String(rising))
+  await page.screenshot({ path: `${SHOTS}/827-runner-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+
+  // A period change: every panel bound to it, and the Words, ask again; the figures follow.
+  const from = (bodies['Analytics/Query'] ?? []).length
+  await page.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-week')
+  await page.waitForFunction(() => document.querySelector('[data-report-figure="{p1:total}"]')?.textContent?.includes('1,000,000'), null, { timeout: 5000 }).catch(() => {})
+  await idle827(page)
+  const asks = (bodies['Analytics/Query'] ?? []).slice(from)
+  check(`${tag}: a period change re-asks every panel with the new period`, P827.every((id) => asks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week')), JSON.stringify(asks.map((b) => [b.panelId, b.values?.period])))
+  check(`${tag}: … and the Words with it, and the figures follow`, lastWords827(bodies)?.values?.period?.token === 'last-week' && (await figure827(page, '{p1:total}')) === 'SAR 1,000,000', String(await figure827(page, '{p1:total}')))
+  check(`${tag}: … and the URL carries period=last-week`, new URL(page.url()).searchParams.get('period') === 'last-week', page.url())
+
+  // The number check fails: the summary alone drops; a figure the run lacks reads as a placeholder.
+  state.summary = 'unavailable'
+  state.drop = ['{p3:qc}']
+  await page.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-month')
+  await page.locator('[data-report-summary="unavailable"]').waitFor({ timeout: 5000 }).catch(() => {})
+  await idle827(page)
+  check(`${tag}: a summary that fails its check reads "summary unavailable"`, (await page.locator('[data-report-summary="unavailable"]').count()) === 1 && (await page.locator('[data-report-summary-text]').count()) === 0)
+  const kept = await page.locator('[data-report-panel] [data-board-panel]').evaluateAll((els) => els.map((e) => e.dataset.boardPanelState))
+  check(`${tag}: … and drops only the summary: every section, panel and other figure stays`, kept.length === 4 && kept.every((x) => x === 'idle') && (await page.locator('[data-report-section]').count()) === 4 && (await figure827(page, '{p1:total}')) === 'SAR 4,375,000', kept.join())
+  const missing = await page.locator('[data-report-figure-missing="{p3:qc}"]').innerText().catch(() => null)
+  check(`${tag}: a figure the run lacks is a placeholder, never the raw token`, !!missing && !missing.includes('{') && !/\{p\d:/.test(await page.locator('[data-report-sections]').innerText()), String(missing))
+  await page.screenshot({ path: `${SHOTS}/827-unavailable-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+
+  // Print carries the values on screen.
+  const href = await page.locator('[data-report-print]').getAttribute('href')
+  check(`${tag}: Print opens the print page with the values on screen`, !!href && href.startsWith('/analytics/print/report/r-827?') && new URLSearchParams(href.split('?')[1]).get('period') === 'last-month', String(href))
+  // The same page (its stubs are the page's own), with the print dialog stubbed out.
+  const print = page
+  await print.addInitScript(() => {
+    window.__printed = 0
+    window.print = () => {
+      window.__printed += 1
+    }
+  })
+  const printFrom = (bodies['Analytics/Query'] ?? []).length
+  await print.goto(`${BASE}${href}`)
+  await print.locator('[data-report-print-page="ready"]').waitFor({ timeout: 10000 }).catch(() => {})
+  await print.waitForFunction(() => window.__printed > 0, null, { timeout: 5000 }).catch(() => {})
+  const printAsks = (bodies['Analytics/Query'] ?? []).slice(printFrom)
+  check(`${tag}: the print page runs every panel with the link's values`, P827.every((id) => printAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-month')), JSON.stringify(printAsks.map((b) => [b.panelId, b.values?.period])))
+  check(`${tag}: … its figures are that run's, and its chips name the values`, (await figure827(print, '{p1:total}')) === 'SAR 4,375,000' && (await print.locator('[data-board-filter-chips]').count()) === 1)
+  check(`${tag}: … and it opens the print dialog once everything has landed`, (await print.evaluate(() => window.__printed)) === 1)
+  const width = await print.locator('[data-analytics-report="r-827"]').evaluate((el) => el.getBoundingClientRect().width)
+  check(`${tag}: … at A4 width`, Math.round(width) === 680, String(width))
+  await print.screenshot({ path: `${SHOTS}/827-print-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
+
+  if (dir === 'rtl') {
+    check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+    // The app renders English under RTL today (i18n stays `en`; `dir` is the boot fact): the figure keeps its order.
+    const iso = await page.locator('[data-report-text="t1"] [data-report-figure="{p1:total}"] bdi').getAttribute('dir').catch(() => null)
+    check(`${tag}: the figure in the text stays a left-to-right isolate under RTL`, iso === 'ltr', String(iso))
+  }
+  if (dir === 'ltr' && !dark) {
+    // A board panel shows the model's marks too.
+    await page.goto(`${BASE}/analytics/board/b-827`)
+    await page.locator('[data-board-panel="p-rate"][data-board-panel-state="idle"]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${tag}: a board panel carries the caveat and "may still rise" too`, (await page.locator('[data-board-panel="p-rate"] [data-panel-caveat]').count()) === 1 && (await page.locator('[data-board-panel="p-rate"] [data-panel-still-rising]').count()) === 1)
+    // The CTO demo's report ids are gone: not found. A board's id read as a report is not found either.
+    await page.goto(`${BASE}/analytics/report/rep-demo-1`)
+    await page.locator('[data-analytics-state]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${tag}: a demo report id falls to not-found`, (await page.locator('[data-analytics-state="not-found"]').count()) === 1)
+    await page.goto(`${BASE}/analytics/report/b-827`)
+    await page.locator('[data-analytics-state]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${tag}: an item that is not a report is not found as one`, (await page.locator('[data-analytics-state="not-found"]').count()) === 1)
+  }
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['827', () => report827({ dir: 'ltr' })],
+  ['827', () => report827({ dir: 'rtl' })],
+  ['827', () => report827({ dir: 'ltr', dark: true })],
   ['826', () => sharesWithAudience826({ dir: 'ltr' })],
   ['826', () => sharesWithAudience826({ dir: 'rtl' })],
   ['826', () => outsiderNotShared826({ dir: 'ltr' })],

@@ -45,6 +45,16 @@ export interface AnalyticsMeasure {
   description: AnalyticsLabel
   /** The dimension keys this measure may be broken down by. ⚠ Field name not fixed by §C. */
   dimensions: string[]
+  /**
+   * 827 (spec 819 §B, ⚠ PROPOSED): the model's warning every panel of this measure shows, e.g. "inside OMS only".
+   * Absent = none.
+   */
+  caveat?: AnalyticsLabel | null
+  /**
+   * 827 (spec 819 §B, ⚠ PROPOSED): days younger than this, counted back from `dataAsOf`, are marked "may still
+   * rise" (8 for the cancellation measures, 30 for claims). Absent = never marked.
+   */
+  mayStillRiseDays?: number | null
 }
 
 /** A small, fixed dimension's value, served inline (channel group, country). */
@@ -450,21 +460,60 @@ export interface AnalyticsBoardDefinition {
 /** A board in the analytics store: an item whose definition is a board's. */
 export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'board'; definition: AnalyticsBoardDefinition }
 
-/** A copilot report (CTO demo): a document written from a conversation and revised by follow-ups. */
-export type AnalyticsReportBlock =
-  | { kind: 'heading'; text: string }
-  | { kind: 'text'; text: string }
-  | { kind: 'chart'; viewId: string; caption: string }
-  | { kind: 'table'; head: string[]; rows: string[][] }
+// ── Reports (spec 819 §C, ticket 827; 801) ─────────────────────────────────────────────────────────────
+// ⚠ PROPOSED (BackOffice owns it once filed). A report is an `Analytics/Item` of `kind: 'report'`: its title is
+// the item's `title{en,ar}`; its definition carries the parameters, their bindings and ordered sections.
 
-export interface AnalyticsReport {
+/**
+ * A report block: a **panel** (an inline view definition — never a reference — with its provenance when it was
+ * copied from a saved view), a **text** block (`{en, ar}` holding live-figure tokens `{panel:figure}`), or the
+ * **summary** block (at most one per report). A panel's id is the `panelId` its query and its tokens name.
+ */
+export type AnalyticsReportBlock =
+  | {
+      id: string
+      kind: 'panel'
+      /** ⚠ The panel's own title; empty → generated from the model labels, as a view's is. */
+      title: AnalyticsLabel
+      definition: AnalyticsViewDefinition
+      /** Copied from a saved view (801 §2): which, and the revision copied. */
+      from?: { viewId: string; revision: number } | null
+      /** Computed by the server: the source view has been saved since the copy. */
+      sourceChangedSinceCopy?: boolean
+    }
+  | { id: string; kind: 'text'; text: AnalyticsLabel }
+  | { id: string; kind: 'summary' }
+
+export interface AnalyticsReportSection {
   id: string
-  title: string
-  subtitle: string
-  lang: 'en' | 'ar'
+  heading: AnalyticsLabel
   blocks: AnalyticsReportBlock[]
+}
+
+export interface AnalyticsReportDefinition {
+  params: Param[]
+  bindings: Bindings
+  sections: AnalyticsReportSection[]
+}
+
+/** A report in the analytics store: an item whose definition is a report's. */
+export type AnalyticsReport = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'report'; definition: AnalyticsReportDefinition }
+
+/** 827: `POST Analytics/Report/{id}/Words` — the run the screen shows: the revision and every parameter's value. */
+export interface AnalyticsReportWordsRequest {
   revision: number
-  updatedAt: string
+  values: Record<string, ParamValue>
+}
+
+/**
+ * 827: the Words answer (⚠ proposed). `figures`: each live-figure token (`{p1:total}`) → its value formatted to
+ * the panel's display format. `summary`: the AI summary in both languages, or `unavailable` with the reason
+ * (the number check failed, or the AI was not reached) — which drops the summary alone. `null` when the report
+ * has no summary block.
+ */
+export interface AnalyticsReportWords {
+  figures: Record<string, string>
+  summary: { text: AnalyticsLabel } | { unavailable: string } | null
 }
 
 /** `GET Analytics/DimensionValues` — one member for the store, city and region pickers. */

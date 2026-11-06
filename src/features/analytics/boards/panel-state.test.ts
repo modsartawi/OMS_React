@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fetchedAgo, isBehind, panelFailure, panelPermalink, retiredMembers, unavailableReason } from './panel-state'
-import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { fetchedAgo, isBehind, mayStillRise, panelFailure, panelMarks, panelPermalink, retiredMembers, unavailableReason } from './panel-state'
+import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 
 const now = new Date('2026-11-05T10:00:00')
 
@@ -83,5 +83,69 @@ describe('panel permalink', () => {
   })
   it("a view page's link is its URL with no fragment", () => {
     expect(panelPermalink('http://h/analytics/view/v-bar#junk')).toBe('http://h/analytics/view/v-bar')
+  })
+})
+
+describe('mayStillRise (827)', () => {
+  const asOf = '2026-11-05T09:45:00'
+  it('a day younger than mayStillRiseDays relative to dataAsOf is marked; one that old is not', () => {
+    expect(mayStillRise('2026-11-05', asOf, 8)).toBe(true)
+    expect(mayStillRise('2026-10-29', asOf, 8)).toBe(true)
+    expect(mayStillRise('2026-10-28', asOf, 8)).toBe(false)
+    expect(mayStillRise('2026-10-01', asOf, 30)).toBe(false)
+    expect(mayStillRise('2026-10-07', asOf, 30)).toBe(true)
+  })
+  it('reads a day written as a timestamp by its date', () => {
+    expect(mayStillRise('2026-10-29T00:00:00', asOf, 8)).toBe(true)
+  })
+  it('no window, no dataAsOf or an unreadable day marks nothing', () => {
+    expect(mayStillRise('2026-11-05', asOf, 0)).toBe(false)
+    expect(mayStillRise('2026-11-05', asOf, null)).toBe(false)
+    expect(mayStillRise('2026-11-05', '', 8)).toBe(false)
+    expect(mayStillRise('central', asOf, 8)).toBe(false)
+  })
+})
+
+describe('panelMarks (827): the model caveats and the "may still rise" mark of a panel', () => {
+  const l = (en: string) => ({ en, ar: `ar ${en}` })
+  const m = (key: string, extra: object) => ({ key, area: 'orders', shape: 'rate' as const, unit: 'share' as const, label: l(key), description: l(''), dimensions: ['day', 'channel_group'], ...extra })
+  const model827: AnalyticsModel = {
+    areas: [],
+    measures: [
+      m('cancellation_rate', { caveat: l('Inside OMS only'), mayStillRiseDays: 8 }),
+      m('claims', { mayStillRiseDays: 30, caveat: l('Inside OMS only') }),
+      m('orders', {}),
+    ],
+    dimensions: [
+      { key: 'day', kind: 'time', label: l('Day'), values: [] },
+      { key: 'channel_group', kind: 'category', label: l('Channel'), values: [] },
+    ],
+  }
+  const view = (measures: string[], dimensions: string[]): AnalyticsViewDefinition => ({ chart: { type: 'line' }, query: { measures, dimensions, filters: [] } })
+  const result = (rows: Record<string, string | number>[], period = { from: '2026-10-01', to: '2026-11-05' }) =>
+    ({ columns: [], rows, total: rows.length, truncated: false, period, previous: [], fetchedAt: '', dataAsOf: '2026-11-05T09:45:00' }) as AnalyticsQueryResult
+
+  it('names each distinct caveat of the panel’s measures once', () => {
+    expect(panelMarks(view(['cancellation_rate', 'claims', 'orders'], ['day']), undefined, model827).caveats).toEqual([l('Inside OMS only')])
+    expect(panelMarks(view(['orders'], ['day']), undefined, model827).caveats).toEqual([])
+  })
+
+  it('on a time axis, marks from the first young day the rows hold, using the longest window', () => {
+    const rows = ['2026-10-20', '2026-10-28', '2026-10-29', '2026-11-05'].map((day) => ({ day, cancellation_rate: 0.1 }))
+    expect(panelMarks(view(['cancellation_rate'], ['day']), result(rows), model827).stillRising).toEqual({ from: '2026-10-29', days: 8 })
+    expect(panelMarks(view(['cancellation_rate', 'claims'], ['day']), result(rows), model827).stillRising).toEqual({ from: '2026-10-20', days: 30 })
+  })
+
+  it('without a time axis, marks when the period reaches a young day, from the later of its start and the window', () => {
+    const rows = [{ channel_group: 'app', cancellation_rate: 0.1 }]
+    expect(panelMarks(view(['cancellation_rate'], ['channel_group']), result(rows), model827).stillRising).toEqual({ from: '2026-10-29', days: 8 })
+    expect(panelMarks(view(['cancellation_rate'], ['channel_group']), result(rows, { from: '2026-11-01', to: '2026-11-05' }), model827).stillRising).toEqual({ from: '2026-11-01', days: 8 })
+    expect(panelMarks(view(['cancellation_rate'], ['channel_group']), result(rows, { from: '2026-09-01', to: '2026-09-30' }), model827).stillRising).toBeNull()
+  })
+
+  it('a measure without a window, or no answer yet, is never marked', () => {
+    const rows = [{ day: '2026-11-05', orders: 4 }]
+    expect(panelMarks(view(['orders'], ['day']), result(rows), model827).stillRising).toBeNull()
+    expect(panelMarks(view(['cancellation_rate'], ['day']), undefined, model827).stillRising).toBeNull()
   })
 })

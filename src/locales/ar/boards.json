@@ -228,7 +228,14 @@
     "retiredBody": "لم يعد في نموذج التحليلات. تبقى بقية اللوحة تعمل.",
     "refreshFailed": "فشل التحديث. الأرقام المعروضة من آخر إجابة.",
     "notFilteredBy": "غير مُصفّى حسب",
-    "listSeparator": "، "
+    "listSeparator": "، ",
+    "mayStillRise": "قد ترتفع أرقام الأيام من <day>{{from}}</day>.",
+    "mayStillRiseHint_zero": "قد تتغير أرقام آخر {{n}} يوم مع وصول السجلات المتأخرة.",
+    "mayStillRiseHint_one": "قد تتغير أرقام آخر يوم مع وصول السجلات المتأخرة.",
+    "mayStillRiseHint_two": "قد تتغير أرقام آخر يومين مع وصول السجلات المتأخرة.",
+    "mayStillRiseHint_few": "قد تتغير أرقام آخر {{n}} أيام مع وصول السجلات المتأخرة.",
+    "mayStillRiseHint_many": "قد تتغير أرقام آخر {{n}} يومًا مع وصول السجلات المتأخرة.",
+    "mayStillRiseHint_other": "قد تتغير أرقام آخر {{n}} يوم مع وصول السجلات المتأخرة."
   },
   "title": {
     "byDimensions": "{{measures}} حسب {{dimensions}}",
@@ -635,13 +642,29 @@
     "none": "لا يوجد بعد"
   },
   "report": {
+    "title": "تقرير",
+    "subtitle": "تقرير يُشغَّل بقيمك",
     "loading": "جارٍ تحميل التقرير…",
-    "export": "تصدير PDF",
-    "print": "حفظ كملف PDF",
-    "meta": "المراجعة {{n}} · حُدِّث {{at}}",
-    "source": "كتبه مساعد نظام إدارة الطلبات من بيانات التحليلات المباشرة. تُرسم الرسوم البيانية من الجداول المعتمدة وقت التصدير.",
+    "loadFailed": "تعذّر تحميل التقرير",
+    "notFoundTitle": "التقرير غير موجود",
+    "noAccessTitle": "لا صلاحية لهذا التقرير",
+    "notSharedTitle": "هذا التقرير غير مُشارك معك",
+    "copyLink": "نسخ الرابط",
+    "linkCopied": "نُسخ الرابط بالقيم المعروضة",
+    "linkFailed": "تعذّر نسخ الرابط",
+    "print": "طباعة",
+    "printAgain": "حفظ كملف PDF",
     "back": "العودة إلى التقرير",
-    "missingChart": "لم يعد هذا الرسم محفوظاً."
+    "figureMissing": "الرقم غير متاح",
+    "figureMissingHint": "لا قيمة لهذا الرقم في هذا التشغيل.",
+    "figurePending": "…",
+    "figurePendingLabel": "جارٍ تحميل الرقم",
+    "summary": {
+      "title": "الملخص",
+      "checked": "تم التحقق من كل رقم مقابل هذا التشغيل.",
+      "writing": "جارٍ كتابة الملخص…",
+      "unavailable": "الملخص غير متاح."
+    }
   },
   "notShared": {
     "ask": "اطلب من مالكه، <owner>{{owner}}</owner>، إضافتك أو إضافة فريقك.",

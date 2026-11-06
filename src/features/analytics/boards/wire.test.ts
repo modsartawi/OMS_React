@@ -4,7 +4,7 @@ import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
 import { refusedParam } from './panel-state'
-import { analyticsRefusal, readDefinition, readItem, readItems, readModel, readResult } from './wire'
+import { analyticsRefusal, readDefinition, readItem, readItems, readModel, readReport, readResult, readWords } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -106,5 +106,54 @@ describe('reading named series (825)', () => {
       { id: 'hs', label: { en: 'HungerStation', ar: '' }, filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] },
       { id: 'qc', label: { en: '', ar: '' }, filters: [] },
     ])
+  })
+})
+
+describe('reading a report (827)', () => {
+  const panel = { id: 'p1', kind: 'panel', title: { en: 'Net sales' }, definition: { chart: { type: 'bar' }, query: { measures: ['net_value'], dimensions: ['channel_group'] } }, from: { viewId: 'v-9', revision: 3 }, sourceChangedSinceCopy: true }
+  const raw = {
+    id: 'r-1',
+    kind: 'report',
+    title: { en: 'Channel sales', ar: 'مبيعات القنوات' },
+    revision: 3,
+    definition: {
+      params: [{ name: 'period', kind: 'period', label: { en: 'Period' }, required: true, default: { kind: 'period', token: 'yesterday' } }, { name: 'broken' }],
+      bindings: { period: { p1: true } },
+      sections: [
+        { id: 's1', heading: { en: 'Sales' }, blocks: [panel, { id: 't1', kind: 'text', text: { en: 'Took {p1:total}.' } }, { id: 'x', kind: 'video' }, { kind: 'text' }] },
+        { id: 's2', blocks: [{ id: 'sum', kind: 'summary' }] },
+      ],
+    },
+  }
+
+  it('reads sections and blocks in order, each panel with its inline definition and provenance', () => {
+    const r = readReport(raw)
+    expect(r.kind).toBe('report')
+    expect(r.definition.sections.map((s) => [s.id, s.blocks.map((b) => `${b.kind}:${b.id}`)])).toEqual([
+      ['s1', ['panel:p1', 'text:t1']],
+      ['s2', ['summary:sum']],
+    ])
+    const p = r.definition.sections[0].blocks[0]
+    expect(p.kind === 'panel' && [p.title, p.definition.query.filters, p.from, p.sourceChangedSinceCopy]).toEqual([{ en: 'Net sales', ar: '' }, [], { viewId: 'v-9', revision: 3 }, true])
+    expect(r.definition.sections[1].heading).toEqual({ en: '', ar: '' })
+  })
+
+  it('keeps the well-formed parameters and the bindings; absent ones read empty', () => {
+    const r = readReport(raw)
+    expect(r.definition.params.map((p) => p.name)).toEqual(['period'])
+    expect(r.definition.bindings).toEqual({ period: { p1: true } })
+    expect(readReport({ id: 'r-2', kind: 'report' }).definition).toEqual({ params: [], bindings: {}, sections: [] })
+  })
+
+  it('reads the Words answer: figures as strings, the summary written or unavailable, absent → none', () => {
+    expect(readWords({ figures: { '{p1:total}': 'SAR 5', '{p1:x}': 4 }, summary: { text: { en: 'Up.' } } })).toEqual({ figures: { '{p1:total}': 'SAR 5' }, summary: { text: { en: 'Up.', ar: '' } } })
+    expect(readWords({ summary: { unavailable: 'numbers did not match' } })).toEqual({ figures: {}, summary: { unavailable: 'numbers did not match' } })
+    expect(readWords(null)).toEqual({ figures: {}, summary: null })
+  })
+
+  it('reads the model’s caveat and may-still-rise window, dropping malformed ones', () => {
+    const m = readModel({ measures: [{ key: 'a', caveat: { en: 'Inside OMS only' }, mayStillRiseDays: 8 }, { key: 'b', caveat: 'x', mayStillRiseDays: -1 }] })
+    expect([m.measures[0].caveat, m.measures[0].mayStillRiseDays]).toEqual([{ en: 'Inside OMS only', ar: '' }, 8])
+    expect([m.measures[1].caveat, m.measures[1].mayStillRiseDays]).toEqual([null, null])
   })
 })

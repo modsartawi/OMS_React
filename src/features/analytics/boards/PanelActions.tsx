@@ -103,7 +103,7 @@ export default memo(function PanelActions(p: PanelActionsProps) {
           )}
         </span>
       )}
-      <div className="flex items-center" role="toolbar" aria-label={t('panel.actions')} data-panel-actions>
+      <div className="flex items-center print:hidden" role="toolbar" aria-label={t('panel.actions')} data-panel-actions>
         <Action label={t('panel.refresh')} action="refresh" onClick={p.onRefresh}>
           <RefreshCw className="size-3.5" aria-hidden />
         </Action>

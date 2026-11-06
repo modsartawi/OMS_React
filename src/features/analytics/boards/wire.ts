@@ -10,6 +10,10 @@ import type {
   AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryResult,
+  AnalyticsReport,
+  AnalyticsReportBlock,
+  AnalyticsReportSection,
+  AnalyticsReportWords,
   AnalyticsRow,
   AnalyticsSeries,
   AnalyticsViewDefinition,
@@ -38,7 +42,16 @@ export function readModel(raw: Loose): AnalyticsModel {
   return {
     areas: arr(m.areas),
     measures: arr<Record<string, unknown>>(m.measures).map(
-      (x) => ({ ...x, label: said(x.label), description: said(x.description), dimensions: arr<string>(x.dimensions) }) as AnalyticsMeasure,
+      (x) =>
+        ({
+          ...x,
+          label: said(x.label),
+          description: said(x.description),
+          dimensions: arr<string>(x.dimensions),
+          // 827 (⚠ proposed): a caveat in both languages, and a positive window of days; anything else is none.
+          caveat: x.caveat && typeof x.caveat === 'object' ? said(x.caveat) : null,
+          mayStillRiseDays: typeof x.mayStillRiseDays === 'number' && x.mayStillRiseDays > 0 ? x.mayStillRiseDays : null,
+        }) as AnalyticsMeasure,
     ),
     dimensions: arr<Record<string, unknown>>(m.dimensions).map(
       (x) =>
@@ -170,11 +183,76 @@ export function readBoard(raw: Loose): AnalyticsBoard {
 /** A board's `params` (each with a name, a kind and a default) and `bindings`, both or neither. */
 function readParams(d: Record<string, unknown>): { params?: Param[]; bindings?: Bindings } {
   if (!Array.isArray(d.params) || !d.bindings || typeof d.bindings !== 'object') return {}
-  const params = d.params.filter((p): p is Param => {
-    const x = obj(p)
-    return !!str(x.name) && !!str(x.kind) && !!x.default && typeof x.default === 'object'
-  })
-  return { params: params.map((p) => ({ ...p, label: said(p.label) })), bindings: d.bindings as Bindings }
+  return { params: wellFormedParams(d.params), bindings: d.bindings as Bindings }
+}
+
+const wellFormedParams = (raw: unknown): Param[] =>
+  arr<unknown>(raw)
+    .filter((p): p is Param => {
+      const x = obj(p)
+      return !!str(x.name) && !!str(x.kind) && !!x.default && typeof x.default === 'object'
+    })
+    .map((p) => ({ ...p, label: said(p.label) }))
+
+/** One report block, or `null` for a kind the web does not draw or one without an id (left out, never guessed at). */
+function readReportBlock(raw: unknown): AnalyticsReportBlock | null {
+  const b = obj(raw)
+  const id = str(b.id)
+  if (!id) return null
+  if (b.kind === 'panel') {
+    const from = obj(b.from)
+    return {
+      id,
+      kind: 'panel',
+      title: said(b.title),
+      definition: readDefinition(b.definition),
+      ...(str(from.viewId) ? { from: { viewId: str(from.viewId), revision: typeof from.revision === 'number' ? from.revision : 0 } } : {}),
+      sourceChangedSinceCopy: b.sourceChangedSinceCopy === true,
+    }
+  }
+  if (b.kind === 'text') return { id, kind: 'text', text: said(b.text) }
+  if (b.kind === 'summary') return { id, kind: 'summary' }
+  return null
+}
+
+/**
+ * `GET Analytics/Item/{id}` read as a report (827, spec 819 §C ⚠ proposed): the item, and its definition's
+ * `params[]`, `bindings` and ordered `sections[]` of panel, text and summary blocks. Absent arrays read empty.
+ */
+export function readReport(raw: Loose): AnalyticsReport {
+  const i = obj(raw)
+  const d = obj(i.definition)
+  const sections: AnalyticsReportSection[] = arr<unknown>(d.sections)
+    .map(obj)
+    .map((s) => ({
+      id: str(s.id),
+      heading: said(s.heading),
+      blocks: arr<unknown>(s.blocks)
+        .map(readReportBlock)
+        .filter((b): b is AnalyticsReportBlock => b !== null),
+    }))
+  return {
+    ...(i as object),
+    kind: 'report',
+    title: said(i.title),
+    subtitle: said(i.subtitle),
+    sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
+    audience: readAudience(i.audience),
+    definition: {
+      params: wellFormedParams(d.params),
+      bindings: d.bindings && typeof d.bindings === 'object' && !Array.isArray(d.bindings) ? (d.bindings as Bindings) : {},
+      sections,
+    },
+  } as AnalyticsReport
+}
+
+/** 827: the Words answer — only string figures; the summary written (`text`), `unavailable` with its reason, or none. */
+export function readWords(raw: unknown): AnalyticsReportWords {
+  const w = obj(raw)
+  const figures = Object.fromEntries(Object.entries(obj(w.figures)).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  const s = w.summary && typeof w.summary === 'object' ? obj(w.summary) : null
+  const summary = !s ? null : s.text && typeof s.text === 'object' ? { text: said(s.text) } : { unavailable: str(s.unavailable) }
+  return { figures, summary }
 }
 
 /** `GET Analytics/DimensionValues` — up to 50 `{ key, label }`; a plain-string label reads as both languages. */

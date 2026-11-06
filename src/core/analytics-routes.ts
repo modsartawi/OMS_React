@@ -4,7 +4,7 @@
  * imports the analytics feature (`.claude/rules/feature-structure.md`).
  */
 
-export type AnalyticsItemKind = 'view' | 'board'
+export type AnalyticsItemKind = 'view' | 'board' | 'report'
 
 /** An item's page: `/analytics/view/:id` or `/analytics/board/:id`, its id escaped. */
 export const itemHref = (kind: AnalyticsItemKind, id: string): string => `/analytics/${kind}/${encodeURIComponent(id)}`
@@ -12,9 +12,18 @@ export const itemHref = (kind: AnalyticsItemKind, id: string): string => `/analy
 /** A board's editor (777): `/analytics/board/:id/edit`. */
 export const boardEditHref = (id: string): string => `${itemHref('board', id)}/edit`
 
-/** A copilot report (CTO demo): its page, and its print page that saves as PDF. */
-export const reportHref = (id: string): string => `/analytics/report/${encodeURIComponent(id)}`
-export const reportPrintHref = (id: string): string => `/analytics/print/report/${encodeURIComponent(id)}`
+/** A query string (with or without its `?`) to append; nothing when empty. */
+const withSearch = (search = ''): string => {
+  const s = search.startsWith('?') ? search.slice(1) : search
+  return s ? `?${s}` : ''
+}
+
+/**
+ * A report (827, spec 819 §E): the runner's page, and its print page (A4, saves as PDF), each taking the
+ * parameter values in its query string (the permalink's keys) — so a print carries the values on screen.
+ */
+export const reportHref = (id: string, search?: string): string => `${itemHref('report', id)}${withSearch(search)}`
+export const reportPrintHref = (id: string, search?: string): string => `/analytics/print/report/${encodeURIComponent(id)}${withSearch(search)}`
 
 /** The view editor, empty (775); a seed rides in route state (`newViewLink` in the boards feature). */
 export const NEW_VIEW_PATH = '/analytics/new?kind=view'

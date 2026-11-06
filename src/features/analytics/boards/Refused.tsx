@@ -11,7 +11,7 @@ import { analyticsRefusal, refusalWords, type AnalyticsRefusal } from './wire'
  * `ANALYTICS-404` is the not-found state and `-401` the no-access state, titled for what was asked
  * (`what`); any other code is the server's own words.
  */
-export default function Refused({ err, fallbackKey, what = 'view' }: { err: unknown; fallbackKey: string; what?: 'view' | 'board' }) {
+export default function Refused({ err, fallbackKey, what = 'view' }: { err: unknown; fallbackKey: string; what?: 'view' | 'board' | 'report' }) {
   const { t } = useTranslation('boards')
   const refusal = analyticsRefusal(err, t(fallbackKey))
   const words = refusalWords(refusal, t)
@@ -50,7 +50,7 @@ export function RefusalText({ refusal }: { refusal: AnalyticsRefusal }) {
  * naming the owner to ask (from the refusal's `data`, ⚠ proposed `{ owner, ownerName? }`), and nothing of the
  * item: no title, no data. A name is free text (`<bdi>`), a user id a machine value (`Ltr`).
  */
-function NotShared({ err, what }: { err: unknown; what: 'view' | 'board' }) {
+function NotShared({ err, what }: { err: unknown; what: 'view' | 'board' | 'report' }) {
   const { t } = useTranslation('boards')
   const raw = apiErrorData(err)
   const data = (raw && typeof raw === 'object' ? raw : {}) as Partial<AnalyticsNotShared>

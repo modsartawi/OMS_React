@@ -5,7 +5,7 @@
  * The probe lives in `./access` (the menu imports it eagerly). Later slices add their doors here:
  * the item writes (778, 779); 776's in-place `PUT` and `…/Copy` are here. `Items` landed with 770.
  */
-import { api } from '@/core/api'
+import { api, ApiError } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
   AnalyticsBoard,
@@ -24,13 +24,15 @@ import type {
   AnalyticsQueryInput,
   AnalyticsQueryResult,
   AnalyticsReport,
+  AnalyticsReportWords,
+  AnalyticsReportWordsRequest,
   AnalyticsRevision,
 } from '@/core/models/analytics'
 import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
-import { readBoard, readItem, readItems, readMembers, readModel, readResult } from './wire'
+import { readBoard, readItem, readItems, readMembers, readModel, readReport, readResult, readWords } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
 export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
@@ -39,6 +41,10 @@ export const analyticsItemsKey = (q: ItemsQuery) => [...ANALYTICS_ITEMS_KEY, q] 
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A board, read as a board: apart from `analyticsItemKey`, whose entries are read as views. */
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
+/** 827: a report, read as a report (its sections and parameters). */
+export const analyticsReportKey = (id: string) => ['analytics', 'report', id] as const
+/** 827: one run's live figures and summary — keyed by the revision and every value, so a value change asks again. */
+export const analyticsWordsKey = (id: string, body: AnalyticsReportWordsRequest) => ['analytics', 'words', id, body] as const
 /** An item's last 20 revisions (779). */
 export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
 /** 826: the share dialog's candidates for a search (roles and analytics users). */
@@ -48,6 +54,9 @@ export const analyticsMembersKey = (dimension: string, search: string) => ['anal
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
 /** The analytics status card (785). */
 export const ANALYTICS_HEALTH_KEY = ['analytics', 'health'] as const
+
+/** 827: an item read as a report that is not one (a view, a board, a CTO demo id) is the report's not-found. */
+const notAReport = () => new ApiError('business', 'Not a report.', 404, [{ errorCode: 'ANALYTICS-404', internalErrorCode: '', errorMessage: 'Not a report.' }])
 
 export const analyticsApi = {
   /** `GET Analytics/Health` (BackOffice 3386, curators only): how Cube and the dbt runs are going. */
@@ -73,9 +82,23 @@ export const analyticsApi = {
   async board(id: string): Promise<AnalyticsBoard> {
     return readBoard(await api.get<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`))
   },
-  /** `GET Analytics/Report/{id}` — a copilot report (CTO demo). */
+  /**
+   * 827: `GET Analytics/Item/{id}` read as a report (spec 819 §C, ⚠ proposed): `kind: 'report'`, its parameters,
+   * bindings and sections. The CTO demo's frozen `Analytics/Report/{id}` is gone; an id that is not a report's is
+   * not found.
+   */
   async report(id: string): Promise<AnalyticsReport> {
-    return api.get<AnalyticsReport>(`Analytics/Report/${encodeURIComponent(id)}`)
+    const raw = await api.get<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`)
+    if (raw?.kind !== 'report') throw notAReport()
+    return readReport(raw)
+  },
+  /**
+   * 827: `POST Analytics/Report/{id}/Words` with `{ revision, values }` (spec 819 §C, ⚠ proposed) — the run's live
+   * figures, filled and formatted by the server, and the summary (number-checked against the run) or why it is
+   * unavailable.
+   */
+  async words(id: string, body: AnalyticsReportWordsRequest): Promise<AnalyticsReportWords> {
+    return readWords(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(id)}/Words`, body))
   },
   /** `GET Analytics/DimensionValues` — up to 50 members of `dimension` matching `search` (store, city, region). */
   async dimensionValues(dimension: string, search: string): Promise<AnalyticsMember[]> {

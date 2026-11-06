@@ -12,7 +12,8 @@ import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canAuthorAnalytics, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
-import { inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
+import { inLogicalOrder, NO_WAVE } from './board'
+import { noticeReducer, streamReducer, stripNotices } from './panel-notices'
 import BoardPanel, { type ParamNotice } from './BoardPanel'
 import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
@@ -74,24 +75,6 @@ function BoardBody() {
   return <BoardView board={board.data} model={model.data} />
 }
 
-/** Which view panels are fetching, folded into the strip's wave as each one starts and lands. */
-function streamReducer(state: { fetching: ReadonlySet<string>; wave: StreamWave }, [id, on]: [string, boolean]) {
-  if (state.fetching.has(id) === on) return state
-  const fetching = new Set(state.fetching)
-  if (on) fetching.add(id)
-  else fetching.delete(id)
-  return { fetching, wave: streamProgress(state.wave, [...fetching]) }
-}
-
-/** Each panel's word on the parameters (823), folded into the strip's two lists. */
-function noticeReducer(state: ReadonlyMap<string, ParamNotice>, [id, notice]: [string, ParamNotice]) {
-  const was = state.get(id)
-  if (was && was.invalid === notice.invalid && was.fellBack.join(' ') === notice.fellBack.join(' ')) return state
-  const next = new Map(state)
-  next.set(id, notice)
-  return next
-}
-
 function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
@@ -111,9 +94,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const reset = useCallback(() => setValues(defaultsOf(declared.params)), [setValues, declared])
   const [notices, notice] = useReducer(noticeReducer, new Map<string, ParamNotice>())
   const onParamNotice = useCallback((id: string, n: ParamNotice) => notice([id, n]), [])
-  const answered = [...notices.values()]
-  const fellBack = [...new Set([...link.fellBack, ...answered.flatMap((n) => n.fellBack)])].filter((n) => declared.params.some((p) => p.name === n))
-  const invalid = [...new Set(answered.map((n) => n.invalid).filter((n): n is string => !!n))]
+  const { fellBack, invalid } = stripNotices(declared.params, link.fellBack, notices)
   // 823: the author reads every "not filtered by …" line; a runner only those for parameters moved off their defaults.
   const access = useQuery(analyticsAccessQuery())
   const role = canAuthorAnalytics(access.data) ? 'author' : 'runner'

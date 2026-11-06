@@ -1,10 +1,13 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
-import { Unlink } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
+import { Hourglass, TriangleAlert, Unlink } from 'lucide-react'
 import { apiErrorCode, apiErrorData } from '@/core/api'
-import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, BoardLayout } from '@/core/models/analytics'
+import { formatDay } from '@/core/charts/format'
+import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition, BoardLayout } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsQueryKey } from './api'
 import { pointOf } from './drill'
 import { drilledDefinition, effectiveQuery, panelKey, panelPeriod, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
@@ -12,7 +15,8 @@ import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import PanelDrill from './PanelDrill'
 import { useFullscreen, useScrollToPanel } from './panel-hooks'
-import { panelPermalink, refusedParam, retiredMembers } from './panel-state'
+import { panelMarks, panelPermalink, refusedParam, retiredMembers } from './panel-state'
+import { asBoardPanel, type ReportPanelBlock } from './report'
 import { notFilteredBy, paramLabel } from './params'
 import Refused from './Refused'
 import { viewTitleOf } from './ViewChart'
@@ -54,6 +58,8 @@ type PanelProps = {
   role?: 'author' | 'runner'
   /** 823: the parameters this panel's answer fell back on, and the one an `ANALYTICS-412` named, for the strip. Stable. */
   onParamNotice?: (id: string, notice: ParamNotice) => void
+  /** 827: a report's panel flows top to bottom, full width, instead of standing on the board's grid. */
+  flow?: boolean
 }
 
 /** What one panel's answer says about the board's parameters (823). */
@@ -85,14 +91,15 @@ function Card({
   kind,
   children,
   ref,
+  flow = false,
   ...data
-}: { panel: AnalyticsBoardPanel; kind: string; children: ReactNode; ref?: Ref<HTMLElement> } & Record<`data-${string}`, string | undefined>) {
+}: { panel: AnalyticsBoardPanel; kind: string; children: ReactNode; ref?: Ref<HTMLElement>; flow?: boolean } & Record<`data-${string}`, string | undefined>) {
   return (
     <article
       ref={ref}
       id={`panel-${panel.id}`}
-      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 [&:fullscreen]:overflow-auto [&:fullscreen]:p-6"
-      style={place(panel.layout)}
+      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 [break-inside:avoid] [&:fullscreen]:overflow-auto [&:fullscreen]:p-6"
+      style={flow ? undefined : place(panel.layout)}
       data-board-panel={panel.id}
       data-board-panel-kind={kind}
       {...data}
@@ -102,7 +109,7 @@ function Card({
   )
 }
 
-function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh, role = 'runner', onParamNotice }: { panel: ViewPanel } & PanelProps) {
+function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetching, onCross, registerRefresh, role = 'runner', onParamNotice, flow }: { panel: ViewPanel } & PanelProps) {
   const { t } = useTranslation('boards')
   const [drill, setDrill] = useState<DrillStep[]>([])
   // A view naming a member the model no longer holds is retired: not asked at all (766 §B).
@@ -172,7 +179,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   // 777: a view deleted from under the board is a "view removed" panel; the rest of the board keeps working.
   if (itemError && apiErrorCode(itemError) === 'ANALYTICS-404') {
     return (
-      <Card panel={panel} kind="view" data-board-panel-state="removed">
+      <Card flow={flow} panel={panel} kind="view" data-board-panel-state="removed">
         <p className="flex items-start gap-1.5 text-sm text-muted-foreground" data-board-view-removed>
           <Unlink className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
@@ -184,14 +191,14 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   }
   if (itemError) {
     return (
-      <Card panel={panel} kind="view" data-board-panel-state="refused">
+      <Card flow={flow} panel={panel} kind="view" data-board-panel-state="refused">
         <Refused err={itemError} fallbackKey="board.viewFailed" />
       </Card>
     )
   }
   if (!item || !drawn) {
     return (
-      <Card panel={panel} kind="view" data-board-panel-state="loading">
+      <Card flow={flow} panel={panel} kind="view" data-board-panel-state="loading">
         <p className="text-sm text-muted-foreground" role="status">
           {t('board.panelLoading')}
         </p>
@@ -204,6 +211,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   return (
     <Card
       ref={frame}
+      flow={flow}
       panel={panel}
       kind="view"
       data-board-panel-state={bodyState(result, answer.error, busy, retired)}
@@ -217,7 +225,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
         </h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground" data-board-panel-actions>
           <PanelActions
-            viewId={panel.viewId}
+            viewId={panel.viewId || panel.id}
             title={title}
             result={result}
             updatedAt={answer.dataUpdatedAt}
@@ -244,6 +252,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
           ))}
         </p>
       )}
+      <PanelMarks definition={chartDef ?? drawn} result={result} model={model} lang={lang} />
       <PanelDrill view={item.definition} drilled={drawn} steps={drill} point={point} model={model} lang={lang} period={panelPeriod(panel, item.definition, context)} onDrill={setDrill} />
       <PanelBody
         result={result}
@@ -261,3 +270,73 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     </Card>
   )
 }
+
+/**
+ * 827 (spec 819 §E): the model's marks under a panel's header, on board and report panels alike — each measure's
+ * caveat (free text, `<bdi>`), and "may still rise" from the first young day the answer holds (a machine value, `Ltr`).
+ */
+function PanelMarks({ definition, result, model, lang }: { definition: AnalyticsViewDefinition; result: AnalyticsQueryResult | undefined; model: AnalyticsModel; lang: string }) {
+  const { t } = useTranslation('boards')
+  const marks = useMemo(() => panelMarks(definition, result, model), [definition, result, model])
+  if (marks.caveats.length === 0 && !marks.stillRising) return null
+  return (
+    <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+      {marks.caveats.map((c) => (
+        <p key={c.en || c.ar} className="flex items-start gap-1" data-panel-caveat>
+          <TriangleAlert className="mt-0.5 size-3 shrink-0 text-attention-800" aria-hidden />
+          <bdi>{saysIn(c, lang)}</bdi>
+        </p>
+      ))}
+      {marks.stillRising && (
+        <p className="flex items-start gap-1" data-panel-still-rising={marks.stillRising.from} title={t('panel.mayStillRiseHint', { count: marks.stillRising.days, n: fsi(String(marks.stillRising.days)) })}>
+          <Hourglass className="mt-0.5 size-3 shrink-0" aria-hidden />
+          <span>
+            <Trans t={t} i18nKey="panel.mayStillRise" values={{ from: formatDay(marks.stillRising.from, lang) }} components={{ day: <Ltr /> }} />
+          </span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** A report's run: the report item its panels ask by (`{ itemId, revision, panelId, values }`). */
+export interface ReportRun {
+  id: string
+  revision: number
+}
+
+const NO_CROSS = () => {}
+
+/**
+ * 827: one report panel through v1's panel frame — the same loading, freshness, actions, drill, "not filtered
+ * by" and marks as a board panel. Its definition is inline, so it stands in as a view of that definition (titled
+ * by the block, else generated); it asks by the report and its own `panelId`, full width, with no cross-filter.
+ */
+export const ReportPanel = memo(function ReportPanel({
+  block,
+  report,
+  ...view
+}: { block: ReportPanelBlock; report: ReportRun } & Omit<PanelProps, 'item' | 'itemError' | 'onCross' | 'flow'>) {
+  const panel = useMemo(() => asBoardPanel(block), [block])
+  const item = useMemo(
+    (): AnalyticsItem => ({
+      id: block.id,
+      kind: 'view',
+      title: block.title,
+      subtitle: { en: '', ar: '' },
+      owner: '',
+      tier: 'personal',
+      sourceChangedSinceCopy: block.sourceChangedSinceCopy === true,
+      revision: report.revision,
+      updatedAt: '',
+      updatedBy: '',
+      definition: block.definition,
+    }),
+    [block, report.revision],
+  )
+  return (
+    <div data-report-panel={block.id}>
+      <ViewPanelCard panel={panel} item={item} onCross={NO_CROSS} flow {...view} />
+    </div>
+  )
+})

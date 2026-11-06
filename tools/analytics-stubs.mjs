@@ -731,6 +731,101 @@ ITEMS['b-826'] = BOARD_826
 /** The `ANALYTICS-413` an outsider gets for a link to an item outside its audience: who to ask, nothing else. */
 export const NOT_SHARED_826 = envelope({ owner: 'msartawi', ownerName: 'Mohamed Sartawi' }, { status: 403, success: false, message: 'Not shared with you.', errors: [{ errorCode: 'ANALYTICS-413', internalErrorCode: '', errorMessage: 'Not shared with you.' }] })
 
+// ── 827: a report (spec 819 §C, ⚠ proposed) — the acceptance case's shape, in real report blocks ─────────────
+// The model gains a cancellation rate with the "inside OMS only" caveat and an 8-day "may still rise" window.
+export const MODEL_827 = {
+  ...MODEL_825,
+  areas: [...MODEL_825.areas, { key: 'orders', available: true }],
+  measures: [
+    ...MODEL_825.measures,
+    {
+      key: 'cancellation_rate',
+      area: 'orders',
+      shape: 'rate',
+      unit: 'share',
+      label: label('Cancellation rate', 'نسبة الإلغاء'),
+      description: label('Orders cancelled, of orders placed', 'الطلبات الملغاة من الطلبات المقدمة'),
+      dimensions: ['channel_group', 'delivery_type', 'store', 'city', 'region', 'day'],
+      caveat: label('HungerStation cancellations are counted inside OMS only.', 'تُحتسب إلغاءات هنقرستيشن داخل نظام الطلبات فقط.'),
+      mayStillRiseDays: 8,
+    },
+  ],
+}
+const panel827 = (id, en, ar, definition) => ({ id, kind: 'panel', title: label(en, ar), definition })
+export const REPORT_827 = {
+  ...view('r-827', { title: label('Channel sales: HungerStation against QC', 'مبيعات القنوات: هنقرستيشن مقابل QC'), tier: 'shared', owner: 'aalharbi', updatedBy: 'aalharbi', revision: 3 }),
+  kind: 'report',
+  audience: resolveAudience({ roles: ['HQ_SALES', 'DELIVERY_OPS'], users: ['nalharbi'] }),
+  definition: {
+    params: [
+      p823('period', 'period', 'Period', 'الفترة', { required: true, default: { kind: 'period', token: 'last-7-days' } }),
+      p823('city', 'members', 'City', 'المدينة', { dimension: 'city', pinned: null, multi: true, default: { kind: 'members', values: [] } }),
+      p823('grain', 'grain', 'By', 'حسب', { required: true, grains: ['day', 'week'], default: { kind: 'grain', grain: 'day' } }),
+    ],
+    bindings: {
+      period: { p1: true, p2: true, p3: true, p4: true },
+      city: { p1: 'city', p2: 'city', p4: 'city' },
+      grain: { p2: true, p3: true },
+    },
+    sections: [
+      {
+        id: 's1',
+        heading: label('Sales by channel', 'المبيعات حسب القناة'),
+        blocks: [
+          panel827('p1', 'Net sales by channel', 'صافي المبيعات حسب القناة', def('bar', ['till_value'], ['channel_group'])),
+          { id: 't1', kind: 'text', text: label('Across every channel the tills took {p1:total} in the period.', 'حصّلت نقاط البيع {p1:total} عبر جميع القنوات خلال الفترة.') },
+        ],
+      },
+      {
+        id: 's2',
+        heading: label('HungerStation against QC', 'هنقرستيشن مقابل QC'),
+        blocks: [
+          { ...panel827('p2', 'Orders: HungerStation against QC', 'الطلبات: هنقرستيشن مقابل QC', { ...def('bar', ['orders'], ['day']), series: SERIES_825 }), from: { viewId: 'v-825', revision: 3 }, sourceChangedSinceCopy: true },
+          panel827('p3', 'Cancellation rate: HungerStation against QC', 'نسبة الإلغاء: هنقرستيشن مقابل QC', { ...def('line', ['cancellation_rate'], ['day']), series: SERIES_825 }),
+          {
+            id: 't2',
+            kind: 'text',
+            text: label('HungerStation took {p2:hs} orders against QC’s {p2:qc}. Their cancellation rates were {p3:hs} and {p3:qc}.', 'تلقّت هنقرستيشن {p2:hs} طلبًا مقابل {p2:qc} لـ QC. وكانت نسبتا الإلغاء {p3:hs} و{p3:qc}.'),
+          },
+        ],
+      },
+      { id: 's3', heading: label('Stores', 'الصيدليات'), blocks: [panel827('p4', '', '', def('table', ['orders', 'till_value'], ['store']))] },
+      { id: 's4', heading: label('Summary', 'الملخص'), blocks: [{ id: 'sum', kind: 'summary' }] },
+    ],
+  },
+}
+ITEMS['r-827'] = REPORT_827
+// A board panel shows the model's marks too: a board over the cancellation rate by day.
+ITEMS['v-827-rate'] = view('v-827-rate', { title: label('Cancellation rate by day', 'نسبة الإلغاء حسب اليوم'), definition: def('line', ['cancellation_rate'], ['day']) })
+ITEMS['b-827'] = {
+  ...view('b-827', { title: label('Cancellations', 'الإلغاءات') }),
+  kind: 'board',
+  definition: { panels: [{ id: 'p-rate', kind: 'view', viewId: 'v-827-rate', layout: { x: 0, y: 0, w: 12, h: 4 }, optOut: [] }] },
+}
+QUERY['v-827-rate'] = inlineAnswer(ITEMS['v-827-rate'].definition, MODEL_827)
+
+/**
+ * 827: the default `POST Analytics/Report/{id}/Words` answer — each figure the run's own (scaled by the period, so a
+ * period change changes them), formatted as the server would; the summary written from them. `opts.words(body)`
+ * overrides it (an answer, or a `refusal(...)`); `wordsAnswer827(body, { summary: 'unavailable', drop: [token] })`
+ * is the failed number check, with a figure the run lacks.
+ */
+const PERIOD_SCALE = { 'last-7-days': 1, 'last-week': 0.8, 'last-month': 3.5, yesterday: 0.15 }
+export function wordsAnswer827(body, { summary = 'written', drop = [] } = {}) {
+  const token = body?.values?.period?.token
+  const k = PERIOD_SCALE[token] ?? 2
+  const n = (x) => Math.round(x * k).toLocaleString('en-US')
+  const figures = { '{p1:total}': `SAR ${n(1250000)}`, '{p2:hs}': n(4200), '{p2:qc}': n(3100), '{p3:hs}': '6.4%', '{p3:qc}': '3.9%' }
+  for (const t of drop) delete figures[t]
+  return {
+    figures,
+    summary:
+      summary === 'written'
+        ? { text: label(`HungerStation outsold QC (${figures['{p2:hs}']} against ${figures['{p2:qc}']}) but cancelled more often.`, `تفوقت هنقرستيشن على QC في الطلبات (${figures['{p2:hs}']} مقابل ${figures['{p2:qc}']}) لكن نسبة إلغائها أعلى.`) }
+        : { unavailable: 'A number in the summary did not match this run.' },
+  }
+}
+
 /** 785: `GET Analytics/Health`, the container's /health as SIS.Api passes it on (BackOffice 3386). */
 export const HEALTH_OK = {
   status: 'ok',
@@ -744,7 +839,7 @@ const body823 = (req) => (req.method() === 'POST' ? req.postDataJSON() : null)
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body) } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
@@ -904,6 +999,23 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const it = made[id] ?? items[id]
       if (!it || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
+    }
+    // 827: a report's Words — its live figures and summary for one run.
+    if (/^Analytics\/Report\/[^/]+\/Words$/.test(p) && req.method() === 'POST') {
+      const answer = words(body823(req))
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
+    }
+    // 827: one panel of a report — its inline definition answered, and every parameter not bound to it not reached.
+    if (p === 'Analytics/Query' && body823(req)?.itemId && (made[body823(req).itemId] ?? items[body823(req).itemId])?.kind === 'report') {
+      const body = body823(req)
+      const report = made[body.itemId] ?? items[body.itemId]
+      const block = report.definition.sections.flatMap((x) => x.blocks).find((b) => b.id === body.panelId && b.kind === 'panel')
+      if (!block) return route.fulfill(refusal('ANALYTICS-404', 'The panel is not found.', 404))
+      if (queryDelayMs) await new Promise((r) => setTimeout(r, queryDelayMs))
+      const bindings = report.definition.bindings ?? {}
+      const notReached = (report.definition.params ?? []).filter((x) => !bindings[x.name]?.[block.id]).map((x) => ({ param: x.name, reason: 'notInArea' }))
+      const answer = paramAnswer(body, { ...inlineAnswer(block.definition, model), notReached, fellBack: [] })
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     if (p === 'Analytics/Query' && body823(req)?.itemId) {
       // 823: one panel of an item with parameters — the board's panel's view answers, and the server says which

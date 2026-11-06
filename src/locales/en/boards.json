@@ -208,7 +208,10 @@
     "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
     "refreshFailed": "The refresh failed. The figures shown are from the last answer.",
     "notFilteredBy": "Not filtered by",
-    "listSeparator": ", "
+    "listSeparator": ", ",
+    "mayStillRise": "Days from <day>{{from}}</day> may still rise.",
+    "mayStillRiseHint_one": "The figures of the last {{n}} day may still change as late records arrive.",
+    "mayStillRiseHint_other": "The figures of the last {{n}} days may still change as late records arrive."
   },
   "title": {
     "byDimensions": "{{measures}} by {{dimensions}}",
@@ -615,13 +618,29 @@
     "none": "None yet"
   },
   "report": {
+    "title": "Report",
+    "subtitle": "A report run with your values",
     "loading": "Loading the report…",
-    "export": "Export PDF",
-    "print": "Save as PDF",
-    "meta": "Revision {{n}} · updated {{at}}",
-    "source": "Written by the OMS copilot from live analytics data. Charts are drawn from the governed marts at the time of export.",
+    "loadFailed": "The report could not be loaded",
+    "notFoundTitle": "Report not found",
+    "noAccessTitle": "No access to this report",
+    "notSharedTitle": "This report isn’t shared with you",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied, with the values on screen",
+    "linkFailed": "The link could not be copied",
+    "print": "Print",
+    "printAgain": "Save as PDF",
     "back": "Back to the report",
-    "missingChart": "This chart is no longer saved."
+    "figureMissing": "figure unavailable",
+    "figureMissingHint": "This run has no value for this figure.",
+    "figurePending": "…",
+    "figurePendingLabel": "Figure loading",
+    "summary": {
+      "title": "Summary",
+      "checked": "Every number was checked against this run.",
+      "writing": "Writing the summary…",
+      "unavailable": "Summary unavailable."
+    }
   },
   "notShared": {
     "ask": "Ask its owner, <owner>{{owner}}</owner>, to add you or your team.",

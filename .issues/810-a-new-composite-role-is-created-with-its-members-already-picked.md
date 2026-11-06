@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 805
 blocked-by: 806
 ---
@@ -20,7 +20,10 @@ store/logic (reuses picker) · component (New role dialog) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `authz-batch-drive` New composite leg — create a composite with 4 picked singles → the stubbed `CreateComposite` body carries those 4, the new role's Members tab lists them; a stubbed refusal keeps the dialog and the picks · flow (Playwright)
+- [x] `authz-batch-drive` New composite leg — create a composite with 4 picked singles → the stubbed `CreateComposite` body carries those 4, the new role's Members tab lists them; a stubbed refusal keeps the dialog and the picks · flow (Playwright)
+  - Red: the leg timed out waiting for a picker in the dialog. Green: `driveNewComposite` 14 checks × LTR+RTL
+    (singles only, one write with the 4 in pick order, refusal kept dialog + picks, retry closes and the
+    Members tab lists the 4, a no-pick composite still creates empty); whole drive 62/62.
 
 ## Boundaries
 

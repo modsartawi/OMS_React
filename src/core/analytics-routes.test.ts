@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardEditHref, itemHref, reportHref, reportPrintHref } from './analytics-routes'
+import { boardEditHref, itemHref, reportHref, reportPrintHref, reportRunsHref } from './analytics-routes'
 
 describe('analytics item routes', () => {
   it('a view and a board open their own page, the id escaped', () => {
@@ -15,5 +15,8 @@ describe('analytics item routes', () => {
     expect(reportPrintHref('r-1042', '?period=last-week')).toBe('/analytics/print/report/r-1042?period=last-week')
     expect(reportPrintHref('r-1042')).toBe('/analytics/print/report/r-1042')
     expect(reportPrintHref('r-1042', '')).toBe('/analytics/print/report/r-1042')
+  })
+  it('833: a report’s kept runs are under its page', () => {
+    expect(reportRunsHref('r 1/2')).toBe('/analytics/report/r%201%2F2/runs')
   })
 })

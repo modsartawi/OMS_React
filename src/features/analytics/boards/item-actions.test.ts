@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { itemActions, shareActions } from './item-actions'
+import { canManageSchedules, itemActions, shareActions } from './item-actions'
 
 const me = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: false }
 const curator = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: true }
@@ -149,5 +149,24 @@ describe('share actions: owner, curator and author in the audience → share, na
     expect(itemActions(mine('shared'), me).actions).toEqual(['run', 'export', 'saveInPlace', 'saveAsCopy', 'share', 'unshare', 'delete'])
     expect(itemActions(theirs('shared'), curator).actions).toEqual(['run', 'export', 'saveAsCopy', 'narrow', 'reassign', 'certify'])
     expect(itemActions(theirs('certified'), curator).actions).toEqual(['run', 'export', 'saveInPlace', 'saveAsCopy', 'reassign', 'uncertify', 'delete'])
+  })
+})
+
+describe('833: who manages a report’s schedules — its owner (an author) and curators', () => {
+  it.each([
+    ['owner', 'personal', true, true],
+    ['owner', 'shared', true, true],
+    ['author in the audience', 'shared', false, false],
+    ['curator', 'shared', false, true],
+    ['curator', 'certified', false, true],
+    ['curator', 'personal', false, false],
+    ['runner who owns it (lost author)', 'shared', true, false],
+    ['runner', 'shared', false, false],
+  ] as const)('%s, %s report, mine=%s → %s', (who, tier, isMine, expected) => {
+    const actor = who.startsWith('runner') ? runner : who === 'curator' ? curator : me
+    expect(canManageSchedules(isMine ? mine(tier) : theirs(tier), actor)).toBe(expected)
+  })
+  it('without the screen grant nobody does', () => {
+    expect(canManageSchedules(mine('shared'), { ...me, canView: false })).toBe(false)
   })
 })

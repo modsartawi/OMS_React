@@ -25,6 +25,9 @@ const withSearch = (search = ''): string => {
 export const reportHref = (id: string, search?: string): string => `${itemHref('report', id)}${withSearch(search)}`
 export const reportPrintHref = (id: string, search?: string): string => `/analytics/print/report/${encodeURIComponent(id)}${withSearch(search)}`
 
+/** 833: a report's kept runs, `/analytics/report/:id/runs` — the owner's, curators' and each run's own recipients'. */
+export const reportRunsHref = (id: string): string => `${itemHref('report', id)}/runs`
+
 /** The view editor, empty (775); a seed rides in route state (`newViewLink` in the boards feature). */
 export const NEW_VIEW_PATH = '/analytics/new?kind=view'
 

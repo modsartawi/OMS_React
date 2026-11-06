@@ -20,6 +20,7 @@ import { defaultsOf, type ParamValues } from './params'
 import { readParamLink, writeParamValues } from './permalink'
 import Refused from './Refused'
 import ReportDocument from './ReportDocument'
+import ReportSchedules from './ReportSchedules'
 import TierBadge from './TierBadge'
 import { useReportRun } from './use-report-run'
 
@@ -92,6 +93,8 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
         {/* 826: who a Shared report is shared with. */}
         <AudienceChip item={report} />
         <div className="ms-auto flex items-center gap-2">
+          {/* 833: the owner's and curators' schedules, and the kept runs. */}
+          <ReportSchedules report={report} model={model} />
           <Button variant="secondary" onClick={() => void copyLink()} data-report-copy-link>
             <Link2 className="size-3.5" aria-hidden />
             {t('report.copyLink')}

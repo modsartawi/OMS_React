@@ -86,10 +86,18 @@ function readRole(v: unknown): AnalyticsAudienceRole {
   const r = rec(v)
   return { key: text(r.key), label: words(r.label), removed: r.removed === true }
 }
-function readUser(v: unknown): AnalyticsAudienceUser {
+/** A user (a bare id reads as itself). 833: a report's candidates also carry `email`, `canRun` and `inAudience`, kept only when sent. */
+export function readUser(v: unknown): AnalyticsAudienceUser {
   if (typeof v === 'string') return { id: v, name: '', employeeId: '' }
   const u = rec(v)
-  return { id: text(u.id), name: text(u.name), employeeId: text(u.employeeId) }
+  return {
+    id: text(u.id),
+    name: text(u.name),
+    employeeId: text(u.employeeId),
+    ...(typeof u.email === 'string' ? { email: u.email } : {}),
+    ...(typeof u.canRun === 'boolean' ? { canRun: u.canRun } : {}),
+    ...(typeof u.inAudience === 'boolean' ? { inAudience: u.inAudience } : {}),
+  }
 }
 
 /** An item's `audience`: `{ everyone: true }`, or roles and users (a bare key reads as itself); absent stays absent. */

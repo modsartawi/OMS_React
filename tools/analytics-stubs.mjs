@@ -835,6 +835,57 @@ export function wordsAnswer827(body, { summary = 'written', drop = [] } = {}) {
 }
 
 /** 785: `GET Analytics/Health`, the container's /health as SIS.Api passes it on (BackOffice 3386). */
+// ── 833: schedules and kept runs (spec 819 §C, ⚠ proposed) ─────────────────────────────────────────────────────
+/** msartawi's own copy of the 827 report, so the session user is its owner (an author) and manages its schedules. */
+export const REPORT_833 = { ...REPORT_827, id: 'r-833', owner: 'msartawi', updatedBy: 'msartawi' }
+ITEMS['r-833'] = REPORT_833
+const mail = (id) => `${id}@al-dawaa.com.sa`
+/** A report's candidates: the 826 users (in its audience, with the run grant) and three it may not send to. */
+export const USERS_833 = [
+  ...USERS_826.map((u) => ({ ...u, email: mail(u.id), canRun: true, inAudience: true })),
+  { id: 'tkhan', name: 'Tariq Khan', employeeId: '10777', email: 'tariq.khan@gmail.com', canRun: true, inAudience: true },
+  { id: 'mnasser', name: 'Maha Nasser', employeeId: '10888', email: mail('mnasser'), canRun: false, inAudience: true },
+  { id: 'oyousef', name: 'Omar Yousef', employeeId: '10999', email: mail('oyousef'), canRun: true, inAudience: false },
+]
+/** One schedule already there, suspended: its saved city no longer resolves. */
+export const SCHEDULES_833 = {
+  'r-833': [
+    {
+      id: 'sch-old',
+      cadence: { kind: 'weekly', days: [0, 3] },
+      time: '08:00',
+      values: { period: { kind: 'period', token: 'last-week' }, city: { kind: 'members', values: ['tabuk-old'] }, grain: { kind: 'grain', grain: 'day' } },
+      lang: 'ar',
+      recipients: ['nalharbi'],
+      enabled: true,
+      suspended: { reason: 'value', param: 'city' },
+    },
+  ],
+}
+const run833 = (id, more) => ({
+  id,
+  reportId: 'r-833',
+  scheduleId: 'sch-old',
+  revision: 3,
+  trigger: 'schedule',
+  values: { period: { kind: 'period', token: 'last-week' }, city: { kind: 'members', values: [] }, grain: { kind: 'grain', grain: 'day' } },
+  recipients: [USERS_826[0]],
+  dropped: [],
+  outcome: 'sent',
+  summary: null,
+  artefactsKept: true,
+  hasPdf: true,
+  dataAsOf: '2026-11-04T23:30:00',
+  ...more,
+})
+/** Kept runs, newest first: one whose artefacts the server will answer 410 for, and one past its 90 days. */
+export const RUNS_833 = {
+  'r-833': [
+    run833('run-410', { ranAt: '2026-08-09T08:00:00', outcome: 'chartsUnavailable', hasPdf: false }),
+    run833('run-old', { ranAt: '2026-07-05T08:00:00', trigger: 'late', artefactsKept: false, dropped: [USERS_826[2]] }),
+  ],
+}
+
 export const HEALTH_OK = {
   status: 'ok',
   version: '1.0.0',
@@ -847,9 +898,12 @@ const body823 = (req) => (req.method() === 'POST' ? req.postDataJSON() : null)
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body) } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
+  // 833: each report's schedules and kept runs, written by the schedule doors and Send now.
+  const scheduled = Object.fromEntries(Object.entries(schedules).map(([id, list]) => [id, list.map((x) => ({ ...x }))]))
+  const kept = Object.fromEntries(Object.entries(runs).map(([id, list]) => [id, [...list]]))
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
   const listedNow = new Map()
   const removed = new Set()
@@ -900,6 +954,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
       if (candidates) return route.fulfill(candidates)
       const q = (url.searchParams.get('search') ?? '').toLowerCase()
       const hit = (...xs) => !q || xs.join(' ').toLowerCase().includes(q)
+      // 833: asked for a report, each user carries an address, the run grant and whether they sit in its audience.
+      if (url.searchParams.get('reportId')) return route.fulfill(envelope({ roles: [], users: USERS_833.filter((u) => hit(u.id, u.name, u.employeeId)) }))
       return route.fulfill(envelope({ roles: ROLES_826.filter((r) => hit(r.key, r.label.en, r.label.ar)), users: USERS_826.filter((u) => hit(u.id, u.name, u.employeeId)) }))
     }
     const audienceDoor = /^Analytics\/Item\/([^/]+)\/(Audience|Reassign)$/.exec(p)
@@ -1008,6 +1064,46 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const it = made[id] ?? items[id]
       if (!it || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
+    }
+    // 833: a report's schedules (GET / POST / PUT / DELETE), Send now, its kept runs and their artefacts.
+    const scheduleDoor = /^Analytics\/Report\/([^/]+)\/Schedules(?:\/([^/]+))?(\/SendNow)?$/.exec(p)
+    if (scheduleDoor) {
+      const [id, sid, send] = [decodeURIComponent(scheduleDoor[1]), scheduleDoor[2] && decodeURIComponent(scheduleDoor[2]), !!scheduleDoor[3]]
+      const list = (scheduled[id] ??= [])
+      if (send) {
+        const s = list.find((x) => x.id === sid)
+        const at = `2026-11-06T09:${String(10 + (kept[id]?.length ?? 0)).padStart(2, '0')}:00`
+        const run = { id: `run-now-${(kept[id]?.length ?? 0) + 1}`, reportId: id, scheduleId: sid, revision: 3, ranAt: at, dataAsOf: '2026-11-06T08:45:00', trigger: 'sendNow', values: s?.values ?? {}, recipients: (s?.recipients ?? []).map((r) => USERS_833.find((u) => u.id === r) ?? r), dropped: [], outcome: 'sent', summary: null, artefactsKept: true, hasPdf: true }
+        ;(kept[id] ??= []).unshift(run)
+        return route.fulfill(envelope(run))
+      }
+      if (req.method() === 'GET') return route.fulfill(envelope(list))
+      if (req.method() === 'DELETE') {
+        scheduled[id] = list.filter((x) => x.id !== sid)
+        return route.fulfill(envelope(null))
+      }
+      const body = req.postDataJSON() ?? {}
+      const override = typeof scheduleSave === 'function' ? scheduleSave(body, (bodies[req.method() === 'PUT' ? `PUT ${p}` : p] ?? []).length) : scheduleSave
+      if (override) return route.fulfill(override)
+      const saved = { ...body, id: sid ?? `sch-${list.length + 1}`, suspended: null }
+      scheduled[id] = [...list.filter((x) => x.id !== saved.id), saved]
+      return route.fulfill(envelope(saved))
+    }
+    const runsDoor = /^Analytics\/Report\/([^/]+)\/Runs$/.exec(p)
+    if (runsDoor) return route.fulfill(envelope(kept[decodeURIComponent(runsDoor[1])] ?? []))
+    const artefactDoor = /^Analytics\/ReportRun\/([^/]+)\/(Html|Pdf)$/.exec(p)
+    if (artefactDoor) {
+      const [runId, kind] = [decodeURIComponent(artefactDoor[1]), artefactDoor[2]]
+      const answer = artefact?.(runId, kind)
+      if (answer) return route.fulfill(answer)
+      return kind === 'Html'
+        ? route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><title>${runId}</title><p data-run-email>${runId}</p>` })
+        : route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4\n%stub\n' })
+    }
+    const runDoor = /^Analytics\/ReportRun\/([^/]+)$/.exec(p)
+    if (runDoor) {
+      const run = Object.values(kept).flat().find((r) => r.id === decodeURIComponent(runDoor[1]))
+      return route.fulfill(run ? envelope(run) : refusal('ANALYTICS-404', 'The run is not found.', 404))
     }
     // 827: a report's Words — its live figures and summary for one run.
     if (/^Analytics\/Report\/[^/]+\/Words$/.test(p) && req.method() === 'POST') {

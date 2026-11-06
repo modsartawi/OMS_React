@@ -60,7 +60,7 @@
   "roles": {
     "none": "No roles assigned yet.",
     "loading": "Loading roles…",
-    "assign": "＋ Assign role",
+    "assign": "＋ Assign roles",
     "remove": "Remove role",
     "outOfScope": "out of scope",
     "outOfScopeHint": "This role is outside your delegated scope — you can see it but not revoke it.",
@@ -71,13 +71,24 @@
     "autoCreate": "If this person has no authorization record yet, their first role assignment creates it automatically (UserId = employee id, display name from the identity spine) — unguarded, but audited."
   },
   "assign": {
-    "title": "Assign a role",
-    "body": "Pick a role to grant. Only roles you're entitled to assign are shown; the server re-checks on assign.",
-    "assign": "Assign",
-    "assigning": "Assigning…",
+    "title": "Assign roles",
+    "body": "Tick the roles to grant. Only roles you're entitled to assign are shown; the server re-checks each assign.",
     "empty": "No assignable roles left — this person already holds every role in your scope.",
-    "done": "Role assigned",
-    "doneDetail": "{{role}} assigned."
+    "noMatch": "No assignable role matches this search.",
+    "list": "Roles to assign",
+    "search": "Search roles by name or description",
+    "selectAllShown": "Select all shown",
+    "clear": "Clear",
+    "picked_one": "{{n}} picked",
+    "picked_other": "{{n}} picked",
+    "assignN_one": "Assign {{n}}",
+    "assignN_other": "Assign {{n}}",
+    "assigning": "Assigning {{done}} of {{total}}…",
+    "summary": "{{assigned}}, {{refused}}",
+    "summaryAssigned_one": "{{n}} assigned",
+    "summaryAssigned_other": "{{n}} assigned",
+    "summaryRefused_one": "{{n}} refused",
+    "summaryRefused_other": "{{n}} refused"
   },
   "effective": {
     "intro": "The union of every grant this person resolves to — composites expanded to members, wildcards and $VAR field values shown. The \"why can/can't they do X?\" answer for a support call.",
@@ -189,8 +200,12 @@
     "tooLong": "Role names must be 50 characters or fewer.",
     "description": "Description",
     "descriptionPlaceholder": "What this role is for",
-    "compositeHint": "The composite is created empty. Add its single-role members from the role's detail pane once it exists.",
+    "compositeHint": "Pick its single-role members now, or leave them for later and add them from the role's detail pane. Composites can't nest.",
+    "membersList": "Single roles to make members",
+    "membersEmpty": "There are no single roles to pick yet.",
     "create": "Create role",
+    "createWithN_one": "Create with {{n}} member",
+    "createWithN_other": "Create with {{n}} members",
     "creating": "Creating…",
     "created": "Role created",
     "createdDetail": "{{role}} created."

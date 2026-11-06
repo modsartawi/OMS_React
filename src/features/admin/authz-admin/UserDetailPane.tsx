@@ -7,6 +7,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
+import Ltr from '@/core/ui/Ltr'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
@@ -119,9 +120,10 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                     return (
                       <span
                         key={rn}
+                        data-assigned-role={rn}
                         className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 py-1 pe-1 ps-3 text-sm font-medium"
                       >
-                        <span>{rn}</span>
+                        <Ltr>{rn}</Ltr>
                         {kind !== 'single' && (
                           <span
                             className={

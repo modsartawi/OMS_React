@@ -29,6 +29,12 @@ export interface ModalProps {
   width?: string
   children: ReactNode
   footer?: ReactNode
+  /**
+   * `false` while work the dialog owns is in flight (a batch of writes, a run of lookups): Escape and
+   * a backdrop click then do nothing, so the dialog cannot vanish under a running batch. The
+   * caller's own buttons decide for themselves. Defaults to `true`.
+   */
+  dismissable?: boolean
 }
 
 export default function Modal({
@@ -39,6 +45,7 @@ export default function Modal({
   width = '30rem',
   children,
   footer,
+  dismissable = true,
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Kept in a ref so re-rendering with a new closure never re-fires the effect —
@@ -71,13 +78,13 @@ export default function Modal({
       onCancel={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        onClose()
+        if (dismissable) onClose()
       }}
       // The backdrop is not a child element, so a backdrop click reports the
       // DIALOG as its target. A click on any content bubbles up from a child,
       // so target !== dialog. That difference is the whole dismissable-mask test.
       onClick={(e) => {
-        if (e.target === ref.current) onClose()
+        if (dismissable && e.target === ref.current) onClose()
       }}
       className={'m-auto max-h-[90vh] w-[92vw] p-0 ' + DIALOG}
       style={{ maxWidth: width }}

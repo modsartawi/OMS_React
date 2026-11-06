@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
@@ -8,6 +8,8 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
+import { fsi } from '@/core/util/bidi'
 import { notify } from '@/core/services/notify'
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
@@ -25,11 +27,13 @@ interface Props {
 /**
  * Create a single or composite role. The name is entered UPPERCASE and is permanent —
  * the immutable-name note is shown at creation (there is no rename door; renaming is
- * create-new → migrate holders → delete-old). A composite is created empty; members are
- * added from its detail pane afterwards (matching the engine's create-then-add sequence).
+ * create-new → migrate holders → delete-old). A composite's single-role members can be picked
+ * here (spec 805, ticket 810): the picks ride in `Roles/CreateComposite`'s member list, so it is
+ * ONE write — the server creates the composite with all of them or refuses the whole create.
+ * No picks creates it empty; members are then added from its detail pane.
  *
- * A refused create renders inside the dialog, which stays open with the form as typed
- * (spec 380 F18).
+ * A refused create renders inside the dialog, which stays open with the form as typed and
+ * the picks kept (spec 380 F18).
  */
 export default function NewRoleModal({ open, onClose, catalog, onCreated }: Props) {
   const { t } = useTranslation('authz-admin')
@@ -38,6 +42,8 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
   const [description, setDescription] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const [query, setQuery] = useState('')
+  const [picks, setPicks] = useState<string[]>([])
 
   // Reset the form each time the modal opens.
   useEffect(() => {
@@ -47,8 +53,32 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
       setDescription('')
       setBusy(false)
       setError(null)
+      setQuery('')
+      setPicks([])
     }
   }, [open])
+
+  // Composites never nest: only single roles can be members.
+  const singles = useMemo<ChecklistOption[]>(
+    () =>
+      catalog
+        .filter((r) => !r.isComposite)
+        .map((r) => ({ value: r.roleName, label: r.roleName, description: r.description || undefined, machine: true })),
+    [catalog],
+  )
+
+  const labels: ChecklistPickerLabels = {
+    list: t('newRole.membersList'),
+    search: t('addMember.search'),
+    selectAllShown: t('addMember.selectAllShown'),
+    clear: t('addMember.clear'),
+    picked: (count) => t('addMember.picked', { count, n: fsi(String(count)) }),
+    empty: t('newRole.membersEmpty'),
+    noMatch: t('addMember.noMatch'),
+  }
+
+  // Picks are kept when the kind flips back to single, but only a composite sends them.
+  const members = kind === 'composite' ? picks : []
 
   const trimmed = name.trim().toUpperCase()
   const duplicate = trimmed.length > 0 && catalog.some((r) => r.roleName.toUpperCase() === trimmed)
@@ -61,11 +91,11 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
     setError(null)
     try {
       if (kind === 'single') await authzAdminApi.createSingleRole(trimmed, description.trim())
-      else await authzAdminApi.createCompositeRole(trimmed, description.trim(), [])
-      notify.success(t('newRole.created'), t('newRole.createdDetail', { role: trimmed }))
+      else await authzAdminApi.createCompositeRole(trimmed, description.trim(), members)
+      notify.success(t('newRole.created'), t('newRole.createdDetail', { role: fsi(trimmed) }))
       onCreated(trimmed)
     } catch (err) {
-      // DUPLICATE_NAME (race) / validation surface verbatim.
+      // DUPLICATE_NAME (race) / nesting / unknown member / validation surface verbatim; the picks stay.
       setError(err)
     } finally {
       setBusy(false)
@@ -77,14 +107,18 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
       open={open}
       onClose={onClose}
       title={t('newRole.title')}
-      width="32rem"
+      width={kind === 'composite' ? '36rem' : '32rem'}
       footer={
         <>
           <Button variant="text" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" onClick={create} disabled={!valid || busy}>
-            {busy ? t('newRole.creating') : t('newRole.create')}
+          <Button variant="primary" onClick={create} disabled={!valid || busy} data-testid="new-role-submit">
+            {busy
+              ? t('newRole.creating')
+              : members.length > 0
+                ? t('newRole.createWithN', { count: members.length, n: fsi(String(members.length)) })
+                : t('newRole.create')}
           </Button>
         </>
       }
@@ -137,17 +171,31 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
         </Field>
 
         {kind === 'composite' && (
-          <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
-            {t('newRole.compositeHint')}
-          </p>
+          <>
+            <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
+              {t('newRole.compositeHint')}
+            </p>
+            <ChecklistPicker
+              options={singles}
+              picks={picks}
+              onPicksChange={setPicks}
+              query={query}
+              onQueryChange={setQuery}
+              labels={labels}
+              disabled={busy}
+              data-testid="new-role-picker"
+            />
+          </>
         )}
 
         {error !== null && (
-          <ErrorBanner
-            title={t('toast.failed')}
-            message={apiErrorMessage(error, t('toast.failed'))}
-            className="p-2.5"
-          />
+          <div data-testid="new-role-error">
+            <ErrorBanner
+              title={t('toast.failed')}
+              message={apiErrorMessage(error, t('toast.failed'))}
+              className="p-2.5"
+            />
+          </div>
         )}
       </div>
     </Modal>

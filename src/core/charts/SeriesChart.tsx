@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next'
 import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
 import { formatAs, formatTickAs } from './format'
-import { CHART_INK, slotColour } from './slots'
+import { CHART_INK, seriesRowFill, slotColour } from './slots'
 import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
@@ -91,7 +91,11 @@ export default function SeriesChart({
     colour: slotColour(s.slot),
   }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
-  const data = rows.map((r) => ({ label: r.label, ...r.values, fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) }))
+  // The row fill only for one series (ticket 820): Recharts lets a row's `fill` beat `<Bar fill>`.
+  const data = rows.map((r): { label: string; fill?: string } & Record<string, number | string | null | undefined> => {
+    const fill = seriesRowFill(series.length, colourBy, r.slot)
+    return fill === undefined ? { label: r.label, ...r.values } : { label: r.label, ...r.values, fill }
+  })
   const stackId = stacking === 'stacked' ? 'stack' : undefined
   const horizontal = form === 'bar' && orientation === 'horizontal'
   const margin = { top: 12, right: 8, bottom: 4, left: 8 }

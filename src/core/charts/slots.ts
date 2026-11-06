@@ -78,3 +78,14 @@ export const CHART_INK = {
   card: 'var(--card)',
   cursor: 'var(--accent)',
 } as const
+
+/**
+ * A series chart row's own fill (ticket 820). Recharts gives a data row's `fill` priority over a
+ * `<Bar fill>`, so a row fill on a multi-series bar painted every series in slot 0. The row carries
+ * a fill only when there is ONE series: its member's slot (`colourBy: 'member'`) or slot 0. With two
+ * or more series there is none, and each series' own slot colour applies.
+ */
+export function seriesRowFill(seriesCount: number, colourBy: 'member' | 'single', slot: number | null): string | undefined {
+  if (seriesCount !== 1) return undefined
+  return colourBy === 'member' ? slotColour(slot) : slotColour(0)
+}

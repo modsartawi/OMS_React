@@ -689,7 +689,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *             the one the stub made — the panel's view's answer plus `notReached` for every parameter the board does
  *             not bind to the panel; return it changed, or a `refusal(...)` fulfil object (412). Default: unchanged.
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
- *             (id `v-new`, or `b-new` for a board), which `Analytics/Item/<id>` (and a view's Query) then serve.
+ *             (id `v-new`, `b-new` for a board, `r-new` for a report), which `Analytics/Item/<id>` (and a view's Query) then serve.
  *             824: or `(body, n) => fulfil | null` for the n-th POST (from 1); `null` makes the item as above.
  *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
  *             `baseRevision + 1` with the body's words and definition, served from then on.
@@ -951,8 +951,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const answer = typeof create === 'function' ? create(req.postDataJSON() ?? {}, bodies[p].length) : create
       if (answer) return route.fulfill(answer)
       const body = req.postDataJSON() ?? {}
-      // 777: a board is made as `b-new`, a view as `v-new`.
-      const id = body.kind === 'board' ? 'b-new' : 'v-new'
+      // 777: a board is made as `b-new`, a view as `v-new`; 828: a report as `r-new`.
+      const id = body.kind === 'board' ? 'b-new' : body.kind === 'report' ? 'r-new' : 'v-new'
       made[id] = { ...view(id, { title: body.title, subtitle: body.subtitle, definition: body.definition, revision: 1, updatedAt: '2026-11-05T10:05:00' }), kind: body.kind ?? 'view' }
       return route.fulfill(envelope(made[id]))
     }

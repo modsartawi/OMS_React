@@ -40,7 +40,8 @@
     },
     "kind": {
       "board": "Board",
-      "view": "Analytics view"
+      "view": "Analytics view",
+      "report": "Report"
     },
     "owner": "Owner <owner>{{owner}}</owner>",
     "changed": "Changed <at>{{at}}</at>"
@@ -807,6 +808,87 @@
         "tooMany": "A view has more than 4 series.",
         "duplicate": "Two series share the name of {{series}}.",
         "foreignDimension": "The series {{series}} filters on {{dimension}}, which isn't one of the view's own."
+      }
+    }
+  },
+  "designer": {
+    "newTitle": "New report",
+    "editTitle": "Edit report",
+    "subtitle": "Lay out the report: sections and blocks, every change undoable",
+    "loading": "Loading the designer…",
+    "loadFailed": "The designer could not be loaded",
+    "newReport": "New report",
+    "edit": "Edit",
+    "badge": "Designing",
+    "untitled": "Untitled report",
+    "unsaved": "Unsaved changes",
+    "titleEn": "Report title (English)",
+    "titleAr": "Report title (Arabic)",
+    "preview": "Preview as a runner",
+    "backToDesigner": "Back to the designer",
+    "previewNote": "This is the page a runner opens, with this draft and the default values.",
+    "save": "Save",
+    "saving": "Saving…",
+    "created": "Report created as Personal",
+    "saveFailed": "The report could not be saved",
+    "summaryOnRun": "It is written when the report runs.",
+    "empty": "No sections yet. Add one to start.",
+    "outline": {
+      "label": "Report outline",
+      "params": "Parameters",
+      "noParams": "No parameters yet.",
+      "sections": "Sections"
+    },
+    "inspector": {
+      "label": "Edit the selection",
+      "empty": "Pick a parameter, a section or a block to edit it.",
+      "section": "Section",
+      "panel": "Chart or table",
+      "text": "Text",
+      "summary": "AI summary"
+    },
+    "section": {
+      "headingEn": "Heading (English)",
+      "headingAr": "Heading (Arabic)",
+      "untitled": "Untitled section",
+      "remove": "Remove section",
+      "removeHint": "Its blocks go with it. Undo brings everything back."
+    },
+    "block": {
+      "remove": "Remove block",
+      "removeHint": "Undo brings it back where it was.",
+      "untitledPanel": "Untitled chart",
+      "text": "Text",
+      "summary": "AI summary",
+      "panel": "Chart or table"
+    },
+    "add": {
+      "text": "Text",
+      "summary": "AI summary",
+      "summaryOne": "A report holds one summary.",
+      "toSection": "Add to this section",
+      "section": "Add a section",
+      "close": "Close"
+    },
+    "tools": {
+      "edit": "Edit {{what}}",
+      "up": "Move {{what}} up",
+      "down": "Move {{what}} down",
+      "remove": "Remove {{what}}",
+      "drag": "Drag to move {{what}}"
+    },
+    "history": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "undoHint": "Undo (Ctrl+Z)",
+      "redoHint": "Redo (Ctrl+Y)",
+      "dismiss": "Dismiss",
+      "removed": {
+        "section": "Section {{name}} removed.",
+        "param": "Parameter {{name}} removed.",
+        "panel": "Chart {{name}} removed.",
+        "text": "Text block removed.",
+        "summary": "AI summary removed."
       }
     }
   }

@@ -41,6 +41,7 @@ import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
+import ReportDesignerPage from './ReportDesignerPage'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
@@ -62,6 +63,7 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * Seeded by route state (`newViewLink(seed)` in `./editor`) — 772's drill "Save as view" opens it so.
  * `kind=board`, and `/analytics/board/:id/edit`, are the board editor (777, `./BoardEditor`); its "build a new
  * view" opens this view editor in a dialog, which links the saved view as a panel instead of navigating.
+ * `kind=report` is the report designer (828, `./ReportDesignerPage`).
  */
 export default function AnalyticsEditorPage() {
   const { t } = useTranslation('boards')
@@ -69,6 +71,8 @@ export default function AnalyticsEditorPage() {
   const location = useLocation()
   const { id: boardId } = useParams()
   const board = !!boardId || params.get('kind') === 'board'
+  // 828: `?kind=report` is the report designer, on a new report.
+  if (!boardId && params.get('kind') === 'report') return <ReportDesignerPage />
   const editing = board ? !!boardId : !!readEditorSeed(location.state)?.item
   return (
     <ScreenGate

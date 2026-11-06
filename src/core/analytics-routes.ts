@@ -6,7 +6,7 @@
 
 export type AnalyticsItemKind = 'view' | 'board' | 'report'
 
-/** An item's page: `/analytics/view/:id` or `/analytics/board/:id`, its id escaped. */
+/** An item's page: `/analytics/view/:id`, `/analytics/board/:id` or `/analytics/report/:id`, its id escaped. */
 export const itemHref = (kind: AnalyticsItemKind, id: string): string => `/analytics/${kind}/${encodeURIComponent(id)}`
 
 /** A board's editor (777): `/analytics/board/:id/edit`. */
@@ -30,3 +30,7 @@ export const NEW_VIEW_PATH = '/analytics/new?kind=view'
 
 /** The board editor on a new board (777). */
 export const NEW_BOARD_PATH = '/analytics/new?kind=board'
+
+/** The report designer (828): a new report, and a report's own designer at `/analytics/report/:id/edit`. */
+export const NEW_REPORT_PATH = '/analytics/new?kind=report'
+export const reportEditHref = (id: string): string => `${itemHref('report', id)}/edit`

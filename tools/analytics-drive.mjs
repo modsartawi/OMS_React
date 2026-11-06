@@ -127,6 +127,18 @@
 //   3. a runner sees "not filtered by" only for what they moved; a link value outside a pinned list, and a
 //      `fellBack` answer, show the fallback notice; a 412 names the parameter in the strip and marks its control.
 //
+// 828 (spec 819) — an author builds a report's structure in the designer (en and ar), in a 1440x1500 viewport so a
+// drag never scrolls:
+//   1. "New report" on the home opens `/analytics/new?kind=report`: outline, page and inspector; typing the title
+//      is ONE undo step; three sections added and headed in the inspector;
+//   2. a section dragged by its outline grip to the top (one step: Ctrl+Z puts it back, Ctrl+Y and Ctrl+Shift+Z
+//      again), one dragged on the page by its heading grip; a text block added, dragged across sections in the
+//      outline, and moved by the keyboard's up / down;
+//   3. a section removed with no dialog: "Removed … · Undo" puts it back in its place; Redo removes it again;
+//   4. Save posts `kind: 'report'` with the sections in order and opens `/analytics/report/r-new/edit` with the
+//      history kept and the unsaved marker gone; a second save PUTs in place at `baseRevision` 1; Preview is the
+//      runner's page with no tools.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
@@ -148,9 +160,10 @@ const check = (name, pass, detail = '') => {
 
 const browser = await chromium.launch()
 
-/** A fresh page: `dir` 'ltr' | 'rtl' (`oms.locale`), `dark` (`oms.darkMode`), plus the stub options. */
-async function open({ dir = 'ltr', dark = false, ...stubs } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+/** A fresh page: `dir` 'ltr' | 'rtl' (`oms.locale`), `dark` (`oms.darkMode`), `height` (the viewport's), plus the stub options. */
+async function open({ dir = 'ltr', dark = false, height = 900, ...stubs } = {}) {
+  // `height`: 828's drag and drop needs a viewport tall enough that a drag never scrolls (Chromium drops a drag that does).
+  const context = await browser.newContext({ viewport: { width: 1440, height } })
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -3101,7 +3114,124 @@ async function report827({ dir, dark = false }) {
   await context.close()
 }
 
+// ── 828 ──────────────────────────────────────────────────────────────────────────────────────────────
+// The report designer: outline · page · inspector, the history, drag and drop and keyboard moves, save.
+const sections828 = (page) => page.locator('[data-designer-sections] [data-designer-section]').evaluateAll((els) => els.map((e) => e.dataset.designerSection).join(','))
+const blocks828 = (page, sid) =>
+  page.locator(`[data-designer-section="${sid}"] [data-designer-block]`).evaluateAll((els) => els.map((e) => e.dataset.designerBlock).join(','))
+const outlineGrip828 = (page, key) => page.locator(`[data-designer-outline-nav] [data-designer-grip="${key}"]`)
+const outlineRow828 = (page, key) => page.locator(`[data-designer-outline="${key}"]`)
+
+async function designer828({ dir }) {
+  const tag = `828 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, height: 1500, access: AUTHOR, model: MODEL_827 })
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-new-report]').click()
+  await page.locator('[data-report-designer="new"]').waitFor({ timeout: 30000 })
+  check(`${tag}: "New report" opens the designer`, page.url().endsWith('/analytics/new?kind=report'), page.url())
+  check(
+    `${tag}: outline, page and inspector side by side`,
+    (await page.locator('[data-designer-outline-nav]').count()) === 1 && (await page.locator('[data-designer-page]').count()) === 1 && (await page.locator('[data-designer-inspector]').count()) === 1,
+  )
+  const undoBtn = page.locator('[data-designer-undo]')
+  const redoBtn = page.locator('[data-designer-redo]')
+  check(`${tag}: nothing to undo yet`, await undoBtn.isDisabled())
+
+  // Typing the title: one step.
+  await page.locator('[data-designer-title-input="en"]').pressSequentially('Weekly review', { delay: 15 })
+  await page.locator('[data-designer-title]').click()
+  await undoBtn.click()
+  check(`${tag}: typing the title is ONE undo step`, (await page.locator('[data-designer-title-input="en"]').inputValue()) === '' && (await undoBtn.isDisabled()))
+  await redoBtn.click()
+  check(`${tag}: … and Redo brings it back`, (await page.locator('[data-designer-title-input="en"]').inputValue()) === 'Weekly review')
+
+  // Three sections, headed in the inspector.
+  for (const name of ['One', 'Two', 'Three']) {
+    await page.locator('[data-designer-add-section]').click()
+    await page.locator('[data-designer-section-inspector] [data-designer-heading="en"]').fill(name)
+  }
+  check(`${tag}: three sections in order`, (await sections828(page)) === 's1,s2,s3', await sections828(page))
+  const outlined = await page.locator('[data-designer-outline^="section:"]').allInnerTexts()
+  check(`${tag}: the outline names them`, outlined.map((x) => x.trim()).join(',') === 'One,Two,Three', outlined.join(','))
+  check(`${tag}: the inspector is a pane, never a modal`, (await page.locator('[role="dialog"]').count()) === 0)
+
+  // Drag s3 to the top by its outline grip: one step.
+  await outlineGrip828(page, 'section:s3').dragTo(outlineRow828(page, 'section:s1'), { targetPosition: { x: 10, y: 2 } })
+  check(`${tag}: a section dragged in the outline goes to the top`, (await sections828(page)) === 's3,s1,s2', await sections828(page))
+  check(`${tag}: … and the page never scrolled for the drag`, (await page.evaluate(() => window.scrollY)) === 0)
+  await page.locator('[data-designer-title]').click()
+  await page.keyboard.press('Control+z')
+  check(`${tag}: Ctrl+Z puts it back`, (await sections828(page)) === 's1,s2,s3', await sections828(page))
+  await page.keyboard.press('Control+y')
+  check(`${tag}: Ctrl+Y moves it again`, (await sections828(page)) === 's3,s1,s2', await sections828(page))
+  await page.keyboard.press('Control+z')
+  await page.keyboard.press('Control+Shift+z')
+  check(`${tag}: Ctrl+Shift+Z redoes too`, (await sections828(page)) === 's3,s1,s2', await sections828(page))
+
+  // On the page: s2 dragged by its heading grip into the top half of s3 — before it.
+  await page.locator('[data-designer-page] [data-designer-grip="section:s2"]').dragTo(page.locator('[data-designer-section="s3"]'), { targetPosition: { x: 40, y: 8 } })
+  check(`${tag}: a section dragged on the page lands before the one it is dropped on (top half)`, (await sections828(page)) === 's2,s3,s1', await sections828(page))
+
+  // A text block in s1, dragged across sections in the outline, then moved by the keyboard's up and down.
+  await page.locator('[data-designer-open-add="s1"]').click()
+  await page.locator('[data-designer-add-text="s1"]').click()
+  check(`${tag}: "Add to this section" adds a text block`, (await blocks828(page, 's1')) === 't1', await blocks828(page, 's1'))
+  check(`${tag}: … selected in the inspector`, (await page.locator('[data-designer-block-inspector="t1"]').count()) === 1)
+  await outlineGrip828(page, 'block:t1').dragTo(outlineRow828(page, 'section:s3'), { targetPosition: { x: 10, y: 6 } })
+  check(`${tag}: a block dragged onto another section lands at its end`, (await blocks828(page, 's3')) === 't1' && (await blocks828(page, 's1')) === '', `${await blocks828(page, 's3')} | ${await blocks828(page, 's1')}`)
+  await page.locator('[data-designer-outline-nav] [data-designer-up="outline-block:t1"]').click()
+  check(`${tag}: up at a section's top crosses into the section above`, (await blocks828(page, 's2')) === 't1', await blocks828(page, 's2'))
+  await page.locator('[data-designer-outline-nav] [data-designer-down="outline-block:t1"]').click()
+  check(`${tag}: down brings it back`, (await blocks828(page, 's3')) === 't1', await blocks828(page, 's3'))
+
+  // Remove s1: no dialog, "Removed … · Undo".
+  await page.locator('[data-designer-page] [data-designer-remove="section:s1"]').click()
+  check(`${tag}: a section is removed with no dialog`, (await sections828(page)) === 's2,s3' && (await page.locator('[role="dialog"], [role="alertdialog"]').count()) === 0, await sections828(page))
+  const notice = (await page.locator('[data-designer-notice="section"]').innerText().catch(() => '')).trim()
+  check(`${tag}: "Removed … · Undo" names it`, notice.includes('One'), notice)
+  await page.locator('[data-designer-notice-undo]').click()
+  check(`${tag}: Undo puts it back where it was`, (await sections828(page)) === 's2,s3,s1' && (await page.locator('[data-designer-notice]').count()) === 0, await sections828(page))
+  await redoBtn.click()
+  check(`${tag}: Redo removes it again`, (await sections828(page)) === 's2,s3', await sections828(page))
+  await page.locator('[data-designer-title]').click()
+  await page.keyboard.press('Control+z')
+  check(`${tag}: … and Ctrl+Z restores it once more`, (await sections828(page)) === 's2,s3,s1', await sections828(page))
+  await page.screenshot({ path: `${SHOTS}/828-designer-${dir}.png`, fullPage: false })
+
+  // Save: a new Personal report, its designer opened with the history kept.
+  check(`${tag}: unsaved before the save`, (await page.locator('[data-designer-unsaved-marker]').count()) === 1)
+  await page.locator('[data-editor-save]').click()
+  await page.waitForURL(/\/analytics\/report\/r-new\/edit$/, { timeout: 10000 })
+  const created = (bodies['Analytics/Item'] ?? []).at(-1)
+  check(
+    `${tag}: Save posts a report with its sections in order`,
+    created?.kind === 'report' && created?.title?.en === 'Weekly review' && created?.definition?.sections?.map((x) => x.id).join(',') === 's2,s3,s1' && created.definition.sections[1].blocks[0]?.id === 't1',
+    JSON.stringify(created?.definition?.sections?.map((x) => x.id)),
+  )
+  await page.locator('[data-report-designer="r-new"]').waitFor({ timeout: 10000 })
+  check(`${tag}: … opens its designer, the unsaved marker gone`, (await page.locator('[data-designer-unsaved-marker]').count()) === 0)
+  check(`${tag}: … with the history kept`, !(await undoBtn.isDisabled()) && (await sections828(page)) === 's2,s3,s1')
+  await page.locator('[data-designer-outline-nav] [data-designer-up="outline-section:s1"]').click()
+  await page.locator('[data-editor-save]').click()
+  await page.locator('[data-designer-unsaved-marker]').waitFor({ state: 'detached', timeout: 10000 })
+  const put = (bodies['PUT Analytics/Item/r-new'] ?? []).at(-1)
+  check(`${tag}: the next save is in place at baseRevision 1`, put?.baseRevision === 1 && put?.definition?.sections?.map((x) => x.id).join(',') === 's2,s1,s3', JSON.stringify(put && { b: put.baseRevision, s: put.definition?.sections?.map((x) => x.id) }))
+
+  // Preview: the runner's page, no tools.
+  await page.locator('[data-designer-preview]').click()
+  await page.locator('[data-designer-preview-page]').waitFor({ timeout: 10000 })
+  const previewed = await page.locator('[data-designer-preview-page] [data-report-section]').evaluateAll((els) => els.map((e) => e.dataset.reportSection).join(','))
+  check(`${tag}: Preview shows the runner's page, sections in order`, previewed === 's2,s1,s3', previewed)
+  check(`${tag}: … with no grip, tool or undo`, (await page.locator('[data-designer-grip], [data-designer-undo], [data-designer-remove]').count()) === 0)
+  await page.locator('[data-designer-back]').click()
+  check(`${tag}: back in the designer`, (await sections828(page)) === 's2,s1,s3')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
+  ['828', () => designer828({ dir: 'ltr' })],
+  ['828', () => designer828({ dir: 'rtl' })],
   ['827', () => report827({ dir: 'ltr' })],
   ['827', () => report827({ dir: 'rtl' })],
   ['827', () => report827({ dir: 'ltr', dark: true })],

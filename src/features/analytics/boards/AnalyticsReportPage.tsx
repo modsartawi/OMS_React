@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Link2, Printer } from 'lucide-react'
-import { reportPrintHref } from '@/core/analytics-routes'
+import { Link2, Pencil, Printer } from 'lucide-react'
+import { reportEditHref, reportPrintHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsModel, AnalyticsReport } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
@@ -16,12 +16,15 @@ import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
 import AudienceChip from './AudienceChip'
 import FilterStrip from './FilterStrip'
+import { itemActions } from './item-actions'
+import { editingItemOf } from './item-save'
 import { defaultsOf, type ParamValues } from './params'
 import { readParamLink, writeParamValues } from './permalink'
 import Refused from './Refused'
 import ReportDocument from './ReportDocument'
 import TierBadge from './TierBadge'
 import { useReportRun } from './use-report-run'
+import { useItemActor } from './use-item-save'
 
 /**
  * A report at `/analytics/report/:id` — the runner's page (spec 819 §E, ticket 827; 798 item 6): the title, its
@@ -29,7 +32,8 @@ import { useReportRun } from './use-report-run'
  * then the sections — panels in v1's panel frame, text with live figures, the summary or "summary unavailable" —
  * with the model's caveats and "may still rise" marks. Copy link and Print (A4, with these values) in the header.
  *
- * No edit control, no cross-filter and no TV mode on a report. It replaces the CTO demo's frozen report page: an
+ * A runner gets no edit control (822); an author who may save it, or copy it, gets Edit — the designer (828).
+ * No cross-filter and no TV mode on a report. It replaces the CTO demo's frozen report page: an
  * id that is not a report's is not found (`analyticsApi.report`).
  */
 export default function AnalyticsReportPage() {
@@ -73,6 +77,7 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
   const setValues = useCallback((next: ParamValues) => setParams((prev) => writeParamValues(prev, declared, next), { replace: true }), [setParams, declared])
   const reset = useCallback(() => setValues(defaultsOf(declared)), [setValues, declared])
   const run = useReportRun(report, values, link.fellBack)
+  const canEdit = itemActions(editingItemOf({ ...report, kind: 'report' }), useItemActor()).save !== 'read-only'
 
   const copyLink = async () => {
     const outcome = await copyText(window.location.href)
@@ -92,6 +97,12 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
         {/* 826: who a Shared report is shared with. */}
         <AudienceChip item={report} />
         <div className="ms-auto flex items-center gap-2">
+          {canEdit && (
+            <Link to={reportEditHref(report.id)} className={buttonClass('secondary')} data-report-edit>
+              <Pencil className="size-3.5" aria-hidden />
+              {t('designer.edit')}
+            </Link>
+          )}
           <Button variant="secondary" onClick={() => void copyLink()} data-report-copy-link>
             <Link2 className="size-3.5" aria-hidden />
             {t('report.copyLink')}

@@ -149,11 +149,17 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPage')).default }),
       },
       {
+        // A report's designer (spec 819, ticket 828); a new report is `new?kind=report`.
+        path: 'analytics/report/:id/edit',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/ReportDesignerPage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },
       {
-        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777).
+        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777);
+        // `?kind=report` the report designer's (828).
         path: 'analytics/new',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
       },

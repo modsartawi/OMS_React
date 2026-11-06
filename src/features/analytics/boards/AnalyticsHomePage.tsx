@@ -2,8 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
-import { itemHref, NEW_BOARD_PATH } from '@/core/analytics-routes'
+import { ChartColumn, FileText, LayoutDashboard, Plus, SearchX } from 'lucide-react'
+import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
@@ -71,7 +71,7 @@ function HomeBody() {
   // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
   const access = useQuery(analyticsAccessQuery())
   const curator = canCurateAnalytics(access.data)
-  // 822: a runner builds nothing — no "New view" or "New board".
+  // 822: a runner builds nothing — no "New view", "New board" or (828) "New report".
   const author = canAuthorAnalytics(access.data)
 
   const fallback = useMemo(() => {
@@ -147,6 +147,11 @@ function HomeBody() {
               <LayoutDashboard className="size-4" aria-hidden />
               {t('boardEditor.newBoard')}
             </Link>
+            {/* 828: design a new report. */}
+            <Link to={NEW_REPORT_PATH} className={buttonClass('secondary')} data-analytics-new-report>
+              <FileText className="size-4" aria-hidden />
+              {t('designer.newReport')}
+            </Link>
           </>
         )}
       </div>
@@ -159,7 +164,7 @@ function HomeBody() {
 function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const KindIcon = item.kind === 'board' ? LayoutDashboard : ChartColumn
+  const KindIcon = item.kind === 'board' ? LayoutDashboard : item.kind === 'report' ? FileText : ChartColumn
   const changed = formatPair(formatDay(item.updatedAt, lang), formatClock(item.updatedAt, lang))
   return (
     <li data-analytics-item={item.id}>

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AnalyticsBoard, AnalyticsItem, AnalyticsItemDefinition, AnalyticsLabel } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsItem, AnalyticsItemDefinition, AnalyticsLabel, AnalyticsReport } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
 import type { AnalyticsAccess } from '@/core/models/analytics'
 import { ANALYTICS_ACCESS_KEY, analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics, needsAuthor, withoutAuthor } from './access'
-import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
+import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsReportKey } from './api'
 import { itemActions, type ItemActions, type ItemActor } from './item-actions'
 import { saveRefusal, type EditingItem, type SaveRefusal } from './item-save'
 
@@ -35,12 +35,13 @@ export interface ItemSave {
   /** The error read in the tiers' terms (403 → copy, 405 → who/when), else `null`. */
   refusal: SaveRefusal | null
   reset: () => void
-  /** 405's "reload": the item as it is now on the server, read fresh (a board through its own reader). */
-  reload: () => Promise<AnalyticsItem | AnalyticsBoard>
+  /** 405's "reload": the item as it is now on the server, read fresh (a board or a report through its own reader). */
+  reload: () => Promise<AnalyticsItem | AnalyticsBoard | AnalyticsReport>
 }
 
 /**
- * The save path every analytics editor shares (ticket 776; the view editor 775, the board editor 777). Kind-
+ * The save path every analytics editor shares (ticket 776; the view editor 775, the board editor 777, the report
+ * designer 828). Kind-
  * agnostic: `create` posts `Analytics/Item`, `in-place` PUTs with `baseRevision` the revision the editor
  * opened, `copy` posts `…/Copy` from that revision. On success the store's lists and the item are re-read and
  * `onSaved` gets the saved item (for a copy, the new one).
@@ -50,7 +51,7 @@ export function useItemSave({
   editing,
   onSaved,
 }: {
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   editing: EditingItem | null
   onSaved: (item: AnalyticsItem, how: SaveHow) => void
 }): ItemSave {
@@ -70,6 +71,7 @@ export function useItemSave({
       for (const id of new Set([item.id, editing?.id].filter((x): x is string => !!x && !(kind === 'view' && x === item.id)))) {
         void queryClient.invalidateQueries({ queryKey: analyticsItemKey(id) })
         void queryClient.invalidateQueries({ queryKey: analyticsBoardKey(id) })
+        void queryClient.invalidateQueries({ queryKey: analyticsReportKey(id) })
       }
       onSaved(item, how)
     },
@@ -91,6 +93,7 @@ export function useItemSave({
     reload: () => {
       if (!editing) return Promise.reject(new Error('reload: no item is being edited'))
       const id = editing.id
+      if (kind === 'report') return queryClient.fetchQuery({ queryKey: analyticsReportKey(id), queryFn: () => analyticsApi.report(id), staleTime: 0 })
       return kind === 'board'
         ? queryClient.fetchQuery({ queryKey: analyticsBoardKey(id), queryFn: () => analyticsApi.board(id), staleTime: 0 })
         : queryClient.fetchQuery({ queryKey: analyticsItemKey(id), queryFn: () => analyticsApi.item(id), staleTime: 0 })

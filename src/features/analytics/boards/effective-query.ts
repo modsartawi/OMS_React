@@ -68,6 +68,12 @@ export interface BoardContext {
    * apply bindings, so it keeps v1's resolved wire.
    */
   item?: { id: string; revision: number } | null
+  /**
+   * 828: a report's draft in the designer — not saved yet, or edited since its revision: every panel asks with
+   * its inline definition and the draft's parameters and bindings (`{ definition, params, bindings, panelId,
+   * values }`), never by item, which would run the saved revision instead.
+   */
+  inline?: boolean
 }
 
 /** The period as the wire carries it: the relative token, or a fixed range `from..to` (⚠). */
@@ -93,12 +99,12 @@ export function drilledDefinition(view: AnalyticsViewDefinition, steps: readonly
   }
 }
 
-/** A v1 board's context (no `item`) gives v1's resolved form; one with an `item` asks by item (823). */
-export function effectiveQuery(source: PanelSource, context: BoardContext & { item?: null }, drill?: readonly DrillStep[]): AnalyticsViewQuery
+/** A v1 board's context (no `item`) gives v1's resolved form; one with an `item` asks by item (823), a draft (`inline`, 828) inline. */
+export function effectiveQuery(source: PanelSource, context: BoardContext & { item?: null; inline?: false }, drill?: readonly DrillStep[]): AnalyticsViewQuery
 export function effectiveQuery(source: PanelSource, context: BoardContext, drill?: readonly DrillStep[]): AnalyticsQueryInput
 export function effectiveQuery(
   { panel, view, revision, model }: PanelSource,
-  { params, bindings, values, crossFilter, item }: BoardContext,
+  { params, bindings, values, crossFilter, item, inline }: BoardContext,
   drill: readonly DrillStep[] = [],
 ): AnalyticsQueryInput {
   const measures = view.query.measures.map((k) => measureOf(model, k))
@@ -108,9 +114,9 @@ export function effectiveQuery(
       ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
       : {}
 
-  if (item) {
+  if (item || inline) {
     return {
-      ...(drill.length ? { definition: drilledDefinition(view, drill), params: [...params], bindings } : { itemId: item.id, revision: item.revision }),
+      ...(drill.length || inline || !item ? { definition: drilledDefinition(view, drill), params: [...params], bindings } : { itemId: item.id, revision: item.revision }),
       panelId: panel.id,
       values: boundValues(params, bindings, values, panel.id),
       ...crossed,

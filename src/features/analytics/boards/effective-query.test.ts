@@ -162,3 +162,20 @@ describe('effective query: named series (825)', () => {
     expect('filters' in input && input.filters).toEqual([{ dimension: 'city', values: ['riyadh'] }])
   })
 })
+
+describe('effective query: a draft in the designer asks inline (828, spec 819 §C)', () => {
+  const p = { ...panel('p1'), viewId: '', optOut: ['crossFilter' as const] }
+  const params = [{ name: 'period', kind: 'period' as const, label: label('Period'), required: true, default: { kind: 'period' as const, token: 'yesterday' as const } }]
+  const bindings = { period: { p1: true as const } }
+
+  it('a report not saved yet (or edited since) sends its definition, parameters and bindings, never an item', () => {
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 0, model: MODEL }, { params, bindings, values: {}, inline: true })
+    expect(q).toEqual({ definition: view(['orders']), params, bindings, panelId: 'p1', values: { period: { kind: 'period', token: 'yesterday' } } })
+  })
+
+  it('inline wins over an item: the draft is not the saved revision', () => {
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 3, model: MODEL }, { params, bindings, values: {}, inline: true, item: { id: 'r-1', revision: 3 } })
+    expect(q).not.toHaveProperty('itemId')
+    expect(q).toHaveProperty('definition')
+  })
+})

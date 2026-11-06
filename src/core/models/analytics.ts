@@ -205,10 +205,14 @@ export interface AnalyticsNotShared {
   ownerName?: string
 }
 
-/** `GET Analytics/Item/{id}` — a view or a board in the analytics store. */
+/**
+ * `GET Analytics/Item/{id}` — a view, a board or (819, ticket 828) a report in the analytics store. A board and a
+ * report are read through their own readers (`AnalyticsBoard`, `AnalyticsReport`); here `definition` is typed as a
+ * view's, which only a view's is.
+ */
 export interface AnalyticsItem {
   id: string
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   /** Empty by default for an AI view: the screen then generates one from the model labels. */
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
@@ -230,14 +234,14 @@ export interface AnalyticsItem {
  * server makes it Personal to the caller and answers the whole item. An empty title is generated on screen.
  */
 export interface AnalyticsItemCreate {
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
   definition: AnalyticsItemDefinition
 }
 
-/** A view's or a board's definition: what the store's writes carry, whichever the kind (776, 777). */
-export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition
+/** A view's, a board's or a report's definition: what the store's writes carry, whichever the kind (776, 777, 828). */
+export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition | AnalyticsReportDefinition
 
 /**
  * `PUT Analytics/Item/{id}` — save in place (ticket 776). §C names `{ definition, baseRevision }`;

@@ -26,7 +26,7 @@ export interface ReportWordsView {
   failed: boolean
 }
 
-type RunProps = {
+export type RunProps = {
   model: AnalyticsModel
   lang: string
   context: BoardContext
@@ -48,7 +48,7 @@ export default function ReportDocument({ report, words, ...run }: { report: Anal
             </h2>
           )}
           {s.blocks.map((b) => (
-            <Block key={b.id} block={b} item={item} words={words} {...run} />
+            <ReportBlock key={b.id} block={b} item={item} words={words} {...run} />
           ))}
         </section>
       ))}
@@ -56,7 +56,8 @@ export default function ReportDocument({ report, words, ...run }: { report: Anal
   )
 }
 
-function Block({ block, item, words, ...run }: { block: AnalyticsReportBlock; item: { id: string; revision: number }; words: ReportWordsView } & RunProps) {
+/** One block as the report reads it; the designer (828) frames each with its own tools. */
+export function ReportBlock({ block, item, words, ...run }: { block: AnalyticsReportBlock; item: { id: string; revision: number }; words: ReportWordsView } & RunProps) {
   if (block.kind === 'panel') return <ReportPanel block={block} report={item} {...run} />
   if (block.kind === 'text') return <LiveText id={block.id} text={block.text} lang={run.lang} words={words} />
   return <SummaryBlock id={block.id} lang={run.lang} words={words} />

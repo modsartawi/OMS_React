@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
+import { refusedParam } from './panel-state'
 import { analyticsRefusal, readDefinition, readItem, readItems, readModel, readResult } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
@@ -65,6 +66,28 @@ describe('analytics wire', () => {
     expect(readItems({ items: [one] }).map((i) => i.id)).toEqual(['b-1'])
     expect(readItems(null)).toEqual([])
     expect(readItems({})).toEqual([])
+  })
+})
+
+describe('analytics wire: parameters at run (823)', () => {
+  it('ANALYTICS-412 maps to its words, in both languages', () => {
+    expect(analyticsRefusal(coded('ANALYTICS-412'), 'fallback')).toEqual({ code: 'ANALYTICS-412', key: 'refusal.invalidValue' })
+    for (const lng of ['en', 'ar']) expect(instance.exists('refusal.invalidValue', { lng })).toBe(true)
+  })
+
+  it('absent notReached and fellBack read as empty; entries without a parameter are left out', () => {
+    expect(readResult({})).toMatchObject({ notReached: [], fellBack: [] })
+    expect(readResult({ notReached: [{ param: 'stores', reason: 'notInArea' }, { reason: 'x' }], fellBack: [{ param: 'channel' }, 'junk'] })).toMatchObject({
+      notReached: [{ param: 'stores', reason: 'notInArea' }],
+      fellBack: [{ param: 'channel' }],
+    })
+  })
+
+  it('a 412 names its parameter (data.param, else data.field); any other code names none', () => {
+    expect(refusedParam('ANALYTICS-412', { param: 'top' })).toBe('top')
+    expect(refusedParam('ANALYTICS-412', { field: 'stores' })).toBe('stores')
+    expect(refusedParam('ANALYTICS-412', null)).toBeNull()
+    expect(refusedParam('ANALYTICS-406', { param: 'top' })).toBeNull()
   })
 })
 

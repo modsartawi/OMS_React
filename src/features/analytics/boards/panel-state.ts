@@ -70,6 +70,17 @@ export function refusalField(data: unknown): string | null {
   return typeof field === 'string' && field ? field : null
 }
 
+/**
+ * The parameter an `ANALYTICS-412` names (823, spec 819 §C: "names the parameter in the strip"): ⚠ read
+ * from `data.param`, else `data.field` as the other refusals name theirs. `null` for any other code.
+ */
+export function refusedParam(code: string | null | undefined, data: unknown): string | null {
+  if (code !== 'ANALYTICS-412' || !data || typeof data !== 'object') return null
+  const d = data as Record<string, unknown>
+  const name = typeof d.param === 'string' && d.param ? d.param : d.field
+  return typeof name === 'string' && name ? name : null
+}
+
 /** The model's own reason the view's area is not available yet, or `null` (the server's message stands). */
 export function unavailableReason(definition: AnalyticsViewDefinition, model: AnalyticsModel): string | null {
   for (const key of definition.query.measures) {

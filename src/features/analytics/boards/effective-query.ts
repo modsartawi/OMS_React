@@ -3,6 +3,7 @@ import type {
   AnalyticsFilter,
   AnalyticsModel,
   AnalyticsQueryInput,
+  AnalyticsViewQuery,
   AnalyticsViewDefinition,
   BoardPeriod,
   Bindings,
@@ -60,6 +61,13 @@ export interface BoardContext {
   bindings: Bindings
   values: ParamValues
   crossFilter?: CrossFilter | null
+  /**
+   * 823: the saved item whose parameters these are, when the server sent them (`params` + `bindings` on
+   * the wire): its panels ask by item (`{ itemId, revision, panelId, values }`) and the server applies the
+   * bindings. Absent for a v1 board the web converted (821): a server that has not converted it cannot
+   * apply bindings, so it keeps v1's resolved wire.
+   */
+  item?: { id: string; revision: number } | null
 }
 
 /** The period as the wire carries it: the relative token, or a fixed range `from..to` (⚠). */
@@ -85,13 +93,30 @@ export function drilledDefinition(view: AnalyticsViewDefinition, steps: readonly
   }
 }
 
+/** A v1 board's context (no `item`) gives v1's resolved form; one with an `item` asks by item (823). */
+export function effectiveQuery(source: PanelSource, context: BoardContext & { item?: null }, drill?: readonly DrillStep[]): AnalyticsViewQuery
+export function effectiveQuery(source: PanelSource, context: BoardContext, drill?: readonly DrillStep[]): AnalyticsQueryInput
 export function effectiveQuery(
   { panel, view, revision, model }: PanelSource,
-  { params, bindings, values, crossFilter }: BoardContext,
+  { params, bindings, values, crossFilter, item }: BoardContext,
   drill: readonly DrillStep[] = [],
 ): AnalyticsQueryInput {
   const measures = view.query.measures.map((k) => measureOf(model, k))
   const breaksBy = (dimension: string) => measures.some((m) => m?.dimensions.includes(dimension))
+  const crossed =
+    crossFilter && crossFilter.source !== panel.id && !panel.optOut.includes('crossFilter') && breaksBy(crossFilter.dimension)
+      ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
+      : {}
+
+  if (item) {
+    return {
+      ...(drill.length ? { definition: drilledDefinition(view, drill), params: [...params], bindings } : { itemId: item.id, revision: item.revision }),
+      panelId: panel.id,
+      values: boundValues(params, bindings, values, panel.id),
+      ...crossed,
+      ...comparing(view),
+    }
+  }
 
   let period: string | null = null
   const reached: AnalyticsFilter[] = []
@@ -110,11 +135,6 @@ export function effectiveQuery(
   }
   reached.sort((a, b) => (a.dimension < b.dimension ? -1 : a.dimension > b.dimension ? 1 : 0))
 
-  const crossed =
-    crossFilter && crossFilter.source !== panel.id && !panel.optOut.includes('crossFilter') && breaksBy(crossFilter.dimension)
-      ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
-      : {}
-
   return {
     ...(drill.length ? { definition: drilledDefinition(view, drill) } : { viewId: panel.viewId, revision }),
     ...(period === null ? {} : { period }),
@@ -123,6 +143,33 @@ export function effectiveQuery(
     // 766 §C: the previous period's rows ride back when the view compares to it (story 23).
     ...comparing(view),
   }
+}
+
+/**
+ * The values of the parameters bound to one panel (823), canonical — members sorted and de-duplicated — so
+ * equal choices give equal keys, and a parameter bound elsewhere never re-keys this panel.
+ */
+export function boundValues(params: readonly Param[], bindings: Bindings, values: ParamValues, panelId: string): ParamValues {
+  const out: ParamValues = {}
+  for (const param of params) {
+    if (!bindings[param.name]?.[panelId]) continue
+    const v = valueOf(param, values)
+    out[param.name] = v.kind === 'members' ? { kind: 'members', values: canonical(v.values) } : v
+  }
+  return out
+}
+
+/**
+ * The period a panel is asked over, for drill to detail (774): the bound period parameter's (a relative
+ * token, or `from..to`), else the view's own.
+ */
+export function panelPeriod(panel: ViewPanel, view: AnalyticsViewDefinition, { params, bindings, values }: BoardContext): string | null {
+  for (const param of params) {
+    if (param.kind !== 'period' || !bindings[param.name]?.[panel.id]) continue
+    const p = boardPeriodOf(valueOf(param, values))
+    if (p) return periodToken(p)
+  }
+  return view.query.period ?? null
 }
 
 /** `{ compareToPrevious: true }` when the view compares with the previous period; nothing otherwise. */

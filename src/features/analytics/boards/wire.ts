@@ -71,6 +71,9 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     previous: arr<AnalyticsRow>(r.previous),
     fetchedAt: str(r.fetchedAt),
     dataAsOf: str(r.dataAsOf),
+    // 823: each entry must name its parameter; anything else is left out.
+    notReached: arr<unknown>(r.notReached).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param), reason: str(n.reason) })),
+    fellBack: arr<unknown>(r.fellBack).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param) })),
   }
 }
 
@@ -204,6 +207,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-413': 'refusal.notShared',
   // 825 (spec 819 §C): an invalid declaration at save — the view editor lists its series problems (`./editor-refusal`).
   'ANALYTICS-411': 'refusal.declaration',
+  // 823: an invalid parameter value at run; the strip also names the parameter (`refusedParam`).
+  'ANALYTICS-412': 'refusal.invalidValue',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

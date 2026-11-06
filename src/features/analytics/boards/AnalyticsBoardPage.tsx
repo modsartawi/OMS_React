@@ -9,11 +9,11 @@ import type { AnalyticsBoard, AnalyticsModel } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
 import { inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
-import BoardPanel from './BoardPanel'
+import BoardPanel, { type ParamNotice } from './BoardPanel'
 import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
@@ -23,8 +23,8 @@ import { itemActions } from './item-actions'
 import { editingItemOf, sourceMovedOn } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
-import { boardParams, type ParamValues } from './params'
-import { readCrossFilter, readParamValues, writeCrossFilter, writeParamValues } from './permalink'
+import { boardParams, defaultsOf, type ParamValues } from './params'
+import { readCrossFilter, readParamLink, writeCrossFilter, writeParamValues } from './permalink'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
 import AudienceChip from './AudienceChip'
@@ -83,17 +83,40 @@ function streamReducer(state: { fetching: ReadonlySet<string>; wave: StreamWave 
   return { fetching, wave: streamProgress(state.wave, [...fetching]) }
 }
 
+/** Each panel's word on the parameters (823), folded into the strip's two lists. */
+function noticeReducer(state: ReadonlyMap<string, ParamNotice>, [id, notice]: [string, ParamNotice]) {
+  const was = state.get(id)
+  if (was && was.invalid === notice.invalid && was.fellBack.join(' ') === notice.fellBack.join(' ')) return state
+  const next = new Map(state)
+  next.set(id, notice)
+  return next
+}
+
 function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   // 821: the board's parameters (a v1 board's six, converted) and their bindings; their values are the URL's.
   const declared = useMemo(() => boardParams(board.definition), [board.definition])
+  // 823: a board the server sent WITH its parameters asks by item and panel, and the server applies the
+  // bindings; a v1 board the web converted keeps v1's resolved wire (its server cannot apply bindings).
+  const v2 = !!(board.definition.params && board.definition.bindings)
+  const item = useMemo(() => (v2 ? { id: board.id, revision: board.revision } : null), [v2, board.id, board.revision])
   const [params, setParams] = useSearchParams()
-  const values = useMemo(() => readParamValues(params, declared.params), [params, declared])
+  const link = useMemo(() => readParamLink(params, declared.params), [params, declared])
+  const values = link.values
   const setValues = useCallback(
     (next: ParamValues) => setParams((prev) => writeParamValues(prev, declared.params, next), { replace: true }),
     [setParams, declared],
   )
+  const reset = useCallback(() => setValues(defaultsOf(declared.params)), [setValues, declared])
+  const [notices, notice] = useReducer(noticeReducer, new Map<string, ParamNotice>())
+  const onParamNotice = useCallback((id: string, n: ParamNotice) => notice([id, n]), [])
+  const answered = [...notices.values()]
+  const fellBack = [...new Set([...link.fellBack, ...answered.flatMap((n) => n.fellBack)])].filter((n) => declared.params.some((p) => p.name === n))
+  const invalid = [...new Set(answered.map((n) => n.invalid).filter((n): n is string => !!n))]
+  // 823: the author reads every "not filtered by …" line; a runner only those for parameters moved off their defaults.
+  const access = useQuery(analyticsAccessQuery())
+  const role = canAuthorAnalytics(access.data) ? 'author' : 'runner'
 
   const panels = useMemo(() => inLogicalOrder(board.definition.panels), [board.definition.panels])
   const viewPanels = panels.filter((p): p is ViewPanel => p.kind === 'view')
@@ -123,7 +146,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   )
   const clearCross = useCallback(() => setParams((prev) => writeCrossFilter(prev, null), { replace: true }), [setParams])
 
-  const context: BoardContext = useMemo(() => ({ ...declared, values, crossFilter }), [declared, values, crossFilter])
+  const context: BoardContext = useMemo(() => ({ ...declared, values, crossFilter, item }), [declared, values, crossFilter, item])
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
@@ -179,7 +202,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
       {tv.on ? (
         <FilterChips params={declared.params} values={values} model={model} lang={lang} />
       ) : (
-        <FilterStrip params={declared.params} values={values} onChange={setValues} model={model} lang={lang} wave={stream.wave} />
+        <FilterStrip params={declared.params} values={values} onChange={setValues} onReset={reset} fellBack={fellBack} invalid={invalid} model={model} lang={lang} wave={stream.wave} />
       )}
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
       {panels.length === 0 ? (
@@ -190,7 +213,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
           {panels.map((p) => {
             const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
-            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} />
+            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} role={role} onParamNotice={onParamNotice} />
           })}
         </div>
       )}

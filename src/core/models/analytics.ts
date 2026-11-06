@@ -265,8 +265,30 @@ export interface AnalyticsItemShare extends AnalyticsItemRevision {
   audience: AnalyticsAudienceWrite
 }
 
-/** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */
-export type AnalyticsQueryInput = (
+/**
+ * `POST Analytics/Query` — a saved view by id, or an inline definition while editing (v1's two forms), or
+ * (spec 819 §C, ticket 823) one panel of an item that carries parameters, which the server applies the
+ * bindings of: {@link AnalyticsParamQuery}.
+ */
+export type AnalyticsQueryInput = AnalyticsViewQuery | AnalyticsParamQuery
+
+/**
+ * ⚠ 819 §C, proposed: a saved item's panel `{ itemId, revision, panelId, values }`, or, while editing or
+ * drilled, `{ definition, params, bindings, panelId, values }`. `values` holds the parameters bound to that
+ * panel, so a value change re-asks only the panels it is bound to. The cross-filter (772) is the web's own,
+ * not a parameter, and rides as before; `compareToPrevious` too.
+ */
+export type AnalyticsParamQuery = (
+  | { itemId: string; revision: number }
+  | { definition: AnalyticsViewDefinition; params: Param[]; bindings: Bindings }
+) & {
+  panelId: string
+  values: Record<string, ParamValue>
+  crossFilter?: AnalyticsFilter | null
+  compareToPrevious?: boolean
+}
+
+export type AnalyticsViewQuery = (
   | { viewId: string; revision?: number }
   | { definition: AnalyticsViewDefinition }
 ) & {
@@ -307,6 +329,10 @@ export interface AnalyticsQueryResult {
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string
+  /** ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. */
+  notReached?: { param: string; reason: string }[]
+  /** ⚠ 819 §C (823): the parameters whose value was outside a declared list, so the default ran. Absent reads as none. */
+  fellBack?: { param: string }[]
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────

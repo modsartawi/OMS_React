@@ -241,6 +241,43 @@ ITEMS['b-820'] = {
   kind: 'board',
   definition: { panels: [{ id: 'p-bars', kind: 'view', viewId: 'v-bar-measures', layout: { x: 0, y: 0, w: 12, h: 4 } }] },
 }
+// 823 (spec 819 §C): a board that carries its own parameters — one of each of the seven kinds — and their
+// bindings, so its panels ask by item and panel (`{ itemId, revision, panelId, values }`). The line is bound
+// to the period and the grain only: every other parameter does not reach it (`notReached`, as the server says).
+const p823 = (name, kind, en, ar, extra) => ({ name, kind, label: label(en, ar), required: false, ...extra })
+export const PARAMS_823 = [
+  p823('period', 'period', 'Period', 'الفترة', { required: true, default: { kind: 'period', token: 'last-30-days' } }),
+  p823('region', 'members', 'Region', 'المنطقة', { dimension: 'region', pinned: null, multi: true, default: { kind: 'members', values: [] } }),
+  p823('channel-one', 'members', 'One channel', 'قناة واحدة', { dimension: 'channel_group', pinned: ['app', 'web', 'store'], multi: false, default: { kind: 'members', values: ['app'] } }),
+  p823('grain', 'grain', 'Grain', 'الدقة', { required: true, grains: ['day', 'week'], default: { kind: 'grain', grain: 'day' } }),
+  p823('on-time', 'threshold', 'On time', 'في الوقت', { measure: 'on_time_share', default: { kind: 'threshold', op: 'off', value: 5 } }),
+  p823('top', 'topN', 'Top', 'الأعلى', { required: true, default: { kind: 'topN', n: 10 } }),
+  p823('figure', 'measure', 'Figure', 'الرقم', { required: true, options: ['orders', 'deliveries'], default: { kind: 'measure', key: 'orders' } }),
+  p823('split', 'breakdown', 'Split by', 'التقسيم حسب', { required: true, options: ['channel_group', 'city'], default: { kind: 'breakdown', key: 'channel_group' } }),
+]
+export const BINDINGS_823 = {
+  period: { 'p-bar': true, 'p-kpi': true, 'p-line': true },
+  region: { 'p-bar': 'region', 'p-kpi': 'region' },
+  'channel-one': { 'p-bar': 'channel_group' },
+  grain: { 'p-line': true },
+  'on-time': { 'p-bar': true },
+  top: { 'p-bar': true },
+  figure: { 'p-kpi': true },
+  split: { 'p-bar': true },
+}
+ITEMS['b-params'] = {
+  ...view('b-params', { title: label('Parameters at work', 'المعاملات في العمل'), tier: 'shared', revision: 6 }),
+  kind: 'board',
+  definition: {
+    panels: [
+      { id: 'p-kpi', kind: 'view', viewId: 'v-kpi', layout: { x: 0, y: 0, w: 4, h: 3 }, optOut: [] },
+      { id: 'p-bar', kind: 'view', viewId: 'v-bar', layout: { x: 4, y: 0, w: 8, h: 3 }, optOut: [] },
+      { id: 'p-line', kind: 'view', viewId: 'v-line-measures', layout: { x: 0, y: 3, w: 12, h: 3 }, optOut: [] },
+    ],
+    params: PARAMS_823,
+    bindings: BINDINGS_823,
+  },
+}
 // 825: named series — HungerStation (a channel) against QC (a delivery type), the acceptance case. The model
 // gains the `delivery_type` dimension (in which QC lives) and the HungerStation channel; v1 scenarios keep MODEL.
 export const MODEL_825 = {
@@ -641,6 +678,9 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
  *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
+ *   paramAnswer: (body, answer) → the answer to a by-item Query (823: `{ itemId, revision, panelId, values }`), given
+ *             the one the stub made — the panel's view's answer plus `notReached` for every parameter the board does
+ *             not bind to the panel; return it changed, or a `refusal(...)` fulfil object (412). Default: unchanged.
  *   create:   the `POST Analytics/Item` answer — a `refusal(...)` fulfil object, or omitted: the created Personal item
  *             (id `v-new`, or `b-new` for a board), which `Analytics/Item/<id>` (and a view's Query) then serve.
  *   update:   the `PUT Analytics/Item/{id}` answer (776) — a `refusal(...)` fulfil object, or omitted: the item at
@@ -700,10 +740,11 @@ export const HEALTH_OK = {
   checkedAt: '2026-11-05T09:52:00',
 }
 
+const body823 = (req) => (req.method() === 'POST' ? req.postDataJSON() : null)
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
@@ -863,6 +904,22 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const it = made[id] ?? items[id]
       if (!it || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
       return route.fulfill(isFulfil(it) ? it : envelope(it))
+    }
+    if (p === 'Analytics/Query' && body823(req)?.itemId) {
+      // 823: one panel of an item with parameters — the board's panel's view answers, and the server says which
+      // parameters do not reach the panel (every one the board does not bind to it).
+      const body = body823(req)
+      const board = made[body.itemId] ?? items[body.itemId]
+      const panel = board?.definition?.panels?.find((x) => x.id === body.panelId)
+      if (!panel) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const hold = queryDelayFor[panel.viewId] ?? queryDelayMs
+      if (hold) await new Promise((r) => setTimeout(r, hold))
+      const base = query[panel.viewId]
+      if (!base) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
+      const bindings = board.definition.bindings ?? {}
+      const notReached = (board.definition.params ?? []).filter((x) => !bindings[x.name]?.[panel.id]).map((x) => ({ param: x.name, reason: 'notInArea' }))
+      const answer = paramAnswer(body, { ...base, notReached, fellBack: [] })
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     if (p === 'Analytics/Query') {
       const body = req.postDataJSON() ?? {}

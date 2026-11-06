@@ -6,12 +6,13 @@ import { Minimize2, Tv } from 'lucide-react'
 import type { AnalyticsModel, Param } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import { formatPair, formatRange } from '@/core/util/bidi'
+import { formatPair, formatRange, fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
 import { useFullscreen } from './panel-hooks'
 import { boardPeriodOf, paramLabel, stripControlOf, valueOf, type ParamValues } from './params'
 import { periodNameKey } from './periods'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * A board's TV mode (spec 766 §F, ticket 780): `tv=1` in the permalink. The shell hides itself on the
@@ -94,7 +95,25 @@ export function FilterChips({ params, values, model, lang }: { params: readonly 
             </Chip>
           )
         }
-        if (control.kind === 'none' || value.kind !== 'members' || value.values.length === 0) return null
+        // 823: the other kinds read as their words; a threshold left off says nothing.
+        if (value.kind === 'grain') return <Chip key={param.name} name={name} filter={param.name}><span>{t(`board.params.grain.${value.grain}`)}</span></Chip>
+        if (value.kind === 'topN') return <Chip key={param.name} name={name} filter={param.name}><Ltr>{value.n}</Ltr></Chip>
+        if (value.kind === 'measure' || value.kind === 'breakdown') {
+          const said = saysIn((value.kind === 'measure' ? measureOf(model, value.key) : dimensionOf(model, value.key))?.label, lang)
+          return <Chip key={param.name} name={name} filter={param.name}><bdi>{said || value.key}</bdi></Chip>
+        }
+        if (value.kind === 'threshold') {
+          if (value.op === 'off') return null
+          const measure = saysIn(measureOf(model, param.measure)?.label, lang) || (param.measure ?? '')
+          return (
+            <Chip key={param.name} name={name} filter={param.name}>
+              <span>{t(`board.params.op.${value.op}`, { measure: fsi(measure) })}</span>
+              <Ltr>{measureOf(model, param.measure)?.unit === 'share' ? `${value.value}${t('board.params.percent')}` : value.value}</Ltr>
+            </Chip>
+          )
+        }
+        if (value.kind !== 'members' || value.values.length === 0) return null
+        if (control.kind !== 'searched' && control.kind !== 'inline' && control.kind !== 'pinned') return null
         if (control.kind === 'searched') return <SearchedChip key={param.name} filter={param.name} name={name} dimension={control.dimension} values={value.values} lang={lang} />
         return (
           <Chip key={param.name} name={name} filter={param.name}>

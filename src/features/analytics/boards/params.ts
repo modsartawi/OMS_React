@@ -166,17 +166,69 @@ export type StripControl =
   | { kind: 'period' }
   | { kind: 'searched'; dimension: string }
   | { kind: 'inline'; dimension: string; values: AnalyticsDimensionValue[] }
+  /** 823: the author's pinned members, named from the model's inline values where it holds them. */
+  | { kind: 'pinned'; dimension: string; values: AnalyticsDimensionValue[] }
+  | { kind: 'grain' | 'threshold' | 'topN' | 'measure' | 'breakdown' }
   | { kind: 'none' }
 
 /**
  * Which control the strip draws for a parameter: v1's rule for the six, carried to any `members`
  * parameter — a place dimension is searched; any other picks from the model's inline values, and is
- * not drawn when the model does not hold it. A kind with no control yet draws none.
+ * not drawn when the model does not hold it. A pinned list (823) offers the author's members only; every
+ * other kind has a control of its own.
  */
 export function stripControlOf(param: Param, model: AnalyticsModel): StripControl {
   if (param.kind === 'period') return { kind: 'period' }
-  if (param.kind !== 'members' || !param.dimension) return { kind: 'none' }
+  if (param.kind !== 'members') return { kind: param.kind }
+  if (!param.dimension) return { kind: 'none' }
+  if (param.pinned) {
+    const inline = dimensionOf(model, param.dimension)?.values ?? []
+    const values = param.pinned.map((key) => inline.find((v) => v.key === key) ?? { key, label: { en: '', ar: '' } })
+    return { kind: 'pinned', dimension: param.dimension, values }
+  }
   if (SEARCHED_DIMENSIONS.includes(param.dimension)) return { kind: 'searched', dimension: param.dimension }
   const d = dimensionOf(model, param.dimension)
   return d ? { kind: 'inline', dimension: d.key, values: d.values ?? [] } : { kind: 'none' }
+}
+
+// ── 823: the other kinds, the reserved names, and the "not filtered by …" set ─────────────────────────
+
+/** The query keys that are never a parameter's name (spec 819 §E): TV mode, auto-refresh and the cross-filter. */
+export const RESERVED_NAMES = ['tv', 'refresh', 'cross', 'crossFrom'] as const
+export const isReservedName = (name: string): boolean => (RESERVED_NAMES as readonly string[]).includes(name)
+
+/** A top N parameter's range (spec 819 §C). */
+export const TOP_N_MIN = 1
+export const TOP_N_MAX = 100
+
+/** Whether two values are the same: members as a set (the order they were picked in does not count). */
+export function sameValue(a: ParamValue, b: ParamValue): boolean {
+  if (a.kind === 'members' && b.kind === 'members') {
+    const x = new Set(a.values)
+    const y = new Set(b.values)
+    return x.size === y.size && [...x].every((v) => y.has(v))
+  }
+  if (a.kind === 'threshold' && b.kind === 'threshold') return a.op === b.op && (a.op === 'off' || a.value === b.value)
+  return canonicalWord(a) === canonicalWord(b)
+}
+
+const canonicalWord = (v: ParamValue) => JSON.stringify(Object.entries(v).sort(([x], [y]) => (x < y ? -1 : 1)))
+
+/** Whether the viewer moved a parameter off the author's default. */
+export const movedOff = (param: Param, values: ParamValues): boolean => !sameValue(valueOf(param, values), param.default)
+
+/** A parameter the server says does not reach a panel, and why (`Analytics/Query`'s `notReached[]`, ⚠ proposed). */
+export interface NotReached {
+  param: string
+  reason: string
+}
+
+/**
+ * The parameters a panel's "not filtered by …" line names (spec 819 §E): of those the answer says do not
+ * reach it, the author sees all, and a runner only those moved off their defaults — a parameter still at
+ * the author's value misleads no one. In the strip's order; a name the board does not declare is ignored.
+ */
+export function notFilteredBy(params: readonly Param[], values: ParamValues, notReached: readonly NotReached[], role: 'author' | 'runner'): Param[] {
+  const names = new Set(notReached.map((n) => n.param))
+  return params.filter((p) => names.has(p.name) && (role === 'author' || movedOff(p, values)))
 }

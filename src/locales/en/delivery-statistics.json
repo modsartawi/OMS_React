@@ -57,6 +57,22 @@
     "misses": "Did not go to plan",
     "stores": "By store"
   },
+  "headline": {
+    "caption": {
+      "cameIn": "Came in",
+      "handedOver": "Handed over",
+      "inSlot": "In slot",
+      "outOfSlot": "Out of slot",
+      "deliveredPerTrip": "Delivered per trip",
+      "avgDeliveryMinutes": "Avg delivery time"
+    },
+    "split": "Delivered <v>{{delivered}}</v> · Picked up <v>{{pickedUp}}</v>",
+    "ofDelivered": "<v>{{n}}</v> of <v>{{total}}</v> delivered",
+    "compared": {
+      "range": "vs <v>{{range}}</v>",
+      "until": "vs <v>{{day}}</v> to <v>{{time}}</v>"
+    }
+  },
   "lane": {
     "delivery": "Delivery",
     "pickUp": "Pick-up",
@@ -79,11 +95,6 @@
     "delivered": "Delivered",
     "pickedUp": "Picked up"
   },
-  "split": {
-    "caption": "Handed over, by delivery type",
-    "delivered": "Home delivery",
-    "pickedUp": "Pick in store"
-  },
   "misses": {
     "returnedBack": "Returned back",
     "rejected": "Rejected",
@@ -92,7 +103,6 @@
     "closedOrCancelled": "Closed / cancelled"
   },
   "avgHandOver": {
-    "caption": "Avg hand-over",
     "unit": "min"
   },
   "chart": {

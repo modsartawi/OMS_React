@@ -61,6 +61,22 @@
     "misses": "لم يسر حسب الخطة",
     "stores": "حسب الفرع"
   },
+  "headline": {
+    "caption": {
+      "cameIn": "الوارد",
+      "handedOver": "المُسلَّم",
+      "inSlot": "ضمن الموعد",
+      "outOfSlot": "خارج الموعد",
+      "deliveredPerTrip": "المُوصَّل لكل رحلة",
+      "avgDeliveryMinutes": "متوسط وقت التوصيل"
+    },
+    "split": "مُوصَّل <v>{{delivered}}</v> · مُستلَم <v>{{pickedUp}}</v>",
+    "ofDelivered": "<v>{{n}}</v> من <v>{{total}}</v> مُوصَّل",
+    "compared": {
+      "range": "مقارنةً بـ <v>{{range}}</v>",
+      "until": "مقارنةً بـ <v>{{day}}</v> حتى <v>{{time}}</v>"
+    }
+  },
   "lane": {
     "delivery": "توصيل",
     "pickUp": "استلام",
@@ -83,11 +99,6 @@
     "delivered": "تم التوصيل",
     "pickedUp": "تم الاستلام"
   },
-  "split": {
-    "caption": "تم تسليمه حسب نوع التوصيل",
-    "delivered": "توصيل للمنزل",
-    "pickedUp": "استلام من الفرع"
-  },
   "misses": {
     "returnedBack": "أعيد",
     "rejected": "مرفوض",
@@ -96,7 +107,6 @@
     "closedOrCancelled": "مغلق / ملغى"
   },
   "avgHandOver": {
-    "caption": "متوسط مدة التسليم",
     "unit": "دقيقة"
   },
   "chart": {

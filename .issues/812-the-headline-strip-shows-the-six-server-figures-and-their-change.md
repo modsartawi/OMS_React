@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 811
 blocked-by: —
 ---
@@ -49,9 +49,9 @@ strip on `KpiTile`) · i18n (`delivery-statistics` keys) · test (vitest + drive
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `headline model reads the six figures and their change as sent` — given a full wire answer, the six tiles carry the server's values, change, changePct and direction from the sign; nothing is computed · pure
-- [ ] `headline model reads dash, never 0, for an older server` — an answer with no `previous`, no `slot`, no `deliveredPerTrip`, no `avgDeliveryMinutes` gives "—" tiles with no change line; a real 0 reads 0 · pure
-- [ ] drive (`tools/delivery-statistics-drive.mjs`, stub extended with the new fields + an older-server fixture) — six tiles in order with the stub's figures; the compared-window sentence for Today and for a Range; "—" with the older fixture; every value isolated; LTR and RTL; no page errors · flow (Playwright)
+- [x] `headline model reads the six figures and their change as sent` — given a full wire answer, the six tiles carry the server's values, change, changePct and direction from the sign; nothing is computed · pure
+- [x] `headline model reads dash, never 0, for an older server` — an answer with no `previous`, no `slot`, no `deliveredPerTrip`, no `avgDeliveryMinutes` gives "—" tiles with no change line; a real 0 reads 0 · pure
+- [x] drive (`tools/delivery-statistics-drive.mjs`, stub extended with the new fields + an older-server fixture) — six tiles in order with the stub's figures; the compared-window sentence for Today and for a Range; "—" with the older fixture; every value isolated; LTR and RTL; no page errors · flow (Playwright)
 
 ## Boundaries
 
@@ -66,3 +66,26 @@ The two pure tests are green and the extended drive passes in LTR and RTL agains
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+2026-11-06 — built on `impl/812-headline-strip`.
+
+- **Model** (`core/models/delivery-statistics.ts`): every optional spec-811 field — `previous`
+  (`StatisticsPrevious` + six `PreviousFigure`), `avgDeliveryMinutes` on the totals, the store rows and
+  both tracks, the Delivery track's `slot` (`SlotKeeping`) and `deliveredPerTrip`. `api.ts` passes
+  `avgDeliveryMinutes` and `previous` through as sent (`tracks`/`stores` already were).
+- **Logic**: `headline.ts` (`readHeadline`, `comparedWindow`), pinned by `headline.test.ts` (7 tests).
+  Direction is read from the sign of the server's `change`; no `change` = no change line even with a
+  `changePct`. "n of N delivered" takes N from `tracks.delivery.flow.handedOver` (the Delivery track's
+  Delivered), not the store-wide `flow.delivered`.
+- **Component**: `HeadlineStrip.tsx` on `core/charts` `KpiTile` unchanged (it already takes a ready
+  `delta`), each wrapped with its caption and sub-line; Unspecified stays in the strip's grid above
+  zero. The Avg hand-over tile and the `split.*` / `avgHandOver.caption` keys are gone.
+- **Assumed** (⚠ BackOffice spec 3404 is a draft and does not pin these): `changePct` is a 0–1 fraction like the shares (KpiTile
+  writes it as a percent); `until` is `HH:mm` (a full local time is also read as its HH:mm);
+  `previous.*.value` is the previous period's figure (shown as "versus X in the previous period").
+- **Drive**: stub extended (all new fields; Today `previous` with `until`, a Range one without);
+  the older-server and 2658 fixtures drop every new field. LTR + RTL green.
+- `npm run lint`: the four non-boundary gates are green; the boundary gate fails on a pre-existing
+  `insurance-rules/aliases/door-shapes.test.ts` cross-feature import, untouched here.

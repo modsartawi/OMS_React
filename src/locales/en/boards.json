@@ -47,6 +47,13 @@
     "changed": "Changed <at>{{at}}</at>"
   },
   "board": {
+    "saveAsReport": {
+      "action": "Save as report",
+      "done": "Saved as a Personal report. It opens in the designer.",
+      "leftOut_one": "{{n}} panel was left out: its view could not be read.",
+      "leftOut_other": "{{n}} panels were left out: their views could not be read.",
+      "failed": "The board could not be saved as a report"
+    },
     "title": "Board",
     "subtitle": "Panels over the governed analytics model.",
     "notFoundTitle": "Board not found",
@@ -1025,6 +1032,7 @@
       "undoHint": "Undo (Ctrl+Z)",
       "redoHint": "Redo (Ctrl+Y)",
       "dismiss": "Dismiss",
+      "ai": "AI: {{request}}",
       "removed": {
         "section": "Section {{name}} removed.",
         "param": "Parameter {{name}} removed.",

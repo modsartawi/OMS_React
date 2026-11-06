@@ -156,11 +156,22 @@
 //      undone, Save posts the panels, the series, the provenance, the tokens and one summary;
 //   5. the sample report's copied panel says the original has changed since the copy.
 //
+// 830 (spec 819 §E) — Save as report: a runner is not offered it; an author on the 771 board saves it as a report
+// (one POST `kind: 'report'`: the section panel the heading, the view panels inline in reading order with
+// `from { viewId, revision }`, the text panel a text block, the parameters and bindings carried) and the designer
+// opens on `/analytics/report/r-new/edit` holding the panels in order (en and ar).
+//
+// 832 (spec 819 §D) — the copilot builds a report that opens in the designer, and edits it there as one undo step
+// (en and ar): the acceptance sentence (a stubbed `create_report`) answers "Open in designer", the assumptions as a
+// list and "Built a report" in the trace, with no `reportContext` sent from the home; in the designer the follow-up
+// "add the cancellation rate as a bar" sends the report in context `{ reportId, revision, draft }`, and its stubbed
+// `reportEdit` lands as ONE step labelled "AI: …", unsaved and never PUT; Undo takes all of it back, Redo again.
+//
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, editAnswer832, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -3538,6 +3549,83 @@ async function designer829({ dir }) {
   await context.close()
 }
 
+// ── 832: the copilot builds a report, then edits it in the designer as one undo step ─────────────────────────
+const SENTENCE_832 =
+  'How were sales for each channel yesterday? Focus on two order types, HungerStation and QC, compare them, and show their cancellation rates. The period is a parameter that defaults to yesterday and can be changed. Save it as a report template my team can re-run, schedule it every day by email to named people, and include charts.'
+const EDIT_832 = 'add the cancellation rate as a bar'
+
+async function copilotReport832({ dir }) {
+  const tag = `832 ${dir}`
+  const { context, page, bodies, errors } = await open({
+    dir,
+    height: 1500,
+    access: AUTHOR,
+    model: MODEL_827,
+    copilot: 'granted',
+    copilotAnswer: (body) => (body.reportContext ? editAnswer832(body) : CREATE_ANSWER_832),
+  })
+  await page.goto(`${BASE}/analytics`)
+  const button = page.locator('#layout-topbar [data-copilot-button]')
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  const turns = sheet.locator('[data-copilot-turn]')
+  await button.waitFor({ timeout: 30000 })
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(SENTENCE_832)
+  await sheet.locator('[data-copilot-send]').click()
+  const openLink = turns.nth(0).locator('[data-copilot-report-open="r-832"]')
+  await openLink.waitFor({ timeout: 10000 })
+  const first = (bodies['Copilot/Ask'] ?? [])[0] ?? {}
+  check(`${tag}: the acceptance sentence asks with no report in context`, first.reportContext === undefined && first.question === SENTENCE_832, JSON.stringify(Object.keys(first)))
+  check(`${tag}: the built report reads "Open in designer", to its designer`, clean(await openLink.innerText()) === 'Open in designer' && (await openLink.getAttribute('href')) === '/analytics/report/r-832/edit', await openLink.getAttribute('href'))
+  const title = clean(await turns.nth(0).locator('[data-copilot-report-title]').innerText())
+  check(`${tag}: … titled in the reader's language`, title === 'Channel sales: HungerStation against QC', title)
+  const assumed = await turns.nth(0).locator('[data-copilot-assumption]').allInnerTexts()
+  check(`${tag}: the assumptions are a list, one line each`, assumed.length === 3 && clean(assumed[0]) === 'Period: a parameter, default yesterday', JSON.stringify(assumed))
+  await turns.nth(0).locator('details[data-copilot-trace] summary').click()
+  const traced = await turns.nth(0).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${tag}: the trace says "Built a report"`, traced.map(clean).includes('Built a report'), JSON.stringify(traced))
+  await page.screenshot({ path: `${SHOTS}/832-built-${dir}.png` })
+
+  // Open in designer: the sheet closes and the report is the designer's, nothing to undo yet.
+  await openLink.click()
+  await page.locator('[data-report-designer="r-832"]').waitFor({ timeout: 10000 })
+  check(`${tag}: "Open in designer" opens its designer`, page.url().endsWith('/analytics/report/r-832/edit'), page.url())
+  const undoBtn = page.locator('[data-designer-undo]')
+  const redoBtn = page.locator('[data-designer-redo]')
+  const before = await blocks828(page, 's2')
+  check(`${tag}: … with nothing to undo`, (await undoBtn.isDisabled()) && before === 'p2,p3,t2', before)
+
+  // The follow-up edits THAT report: one step, labelled with the request, never saved.
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(EDIT_832)
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(1).locator('[data-copilot-report-edit="r-832"]').waitFor({ timeout: 10000 })
+  const asked = (bodies['Copilot/Ask'] ?? [])[1]
+  check(
+    `${tag}: the follow-up sends the report in context { reportId, revision, draft }`,
+    asked?.conversationId === 'c-832' && asked?.reportContext?.reportId === 'r-832' && asked.reportContext.revision === 1 && asked.reportContext.draft?.definition?.sections?.length === 4 && asked.reportContext.draft.title?.en === 'Channel sales: HungerStation against QC',
+    JSON.stringify(asked && { c: asked.conversationId, r: asked.reportContext?.reportId, v: asked.reportContext?.revision }),
+  )
+  await turns.nth(1).locator('details[data-copilot-trace] summary').click()
+  const traced2 = await turns.nth(1).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${tag}: the trace says "Edited the report"`, traced2.map(clean).includes('Edited the report'), JSON.stringify(traced2))
+  await page.screenshot({ path: `${SHOTS}/832-edited-panel-${dir}.png` })
+  await page.keyboard.press('Escape')
+  await sheet.waitFor({ state: 'detached', timeout: 5000 })
+  check(`${tag}: the edit lands in the designer`, (await blocks828(page, 's2')) === 'p2,p3,t2,p5', await blocks828(page, 's2'))
+  const stepLabel = clean(await page.locator('[data-designer-ai-label]').innerText().catch(() => ''))
+  check(`${tag}: … as one step labelled "AI: <the request>"`, stepLabel === `AI: ${EDIT_832}` || stepLabel === `الذكاء الاصطناعي: ${EDIT_832}`, stepLabel)
+  check(`${tag}: … unsaved, and never saved by the AI`, (await page.locator('[data-designer-unsaved-marker]').count()) === 1 && Object.keys(bodies).every((k) => !k.startsWith('PUT ')), Object.keys(bodies).join(','))
+  await page.screenshot({ path: `${SHOTS}/832-edited-designer-${dir}.png` })
+  await undoBtn.click()
+  check(`${tag}: one Undo takes the whole edit back`, (await blocks828(page, 's2')) === 'p2,p3,t2' && (await undoBtn.isDisabled()) && (await page.locator('[data-designer-ai-step]').count()) === 0, await blocks828(page, 's2'))
+  check(`${tag}: … and the unsaved marker with it`, (await page.locator('[data-designer-unsaved-marker]').count()) === 0)
+  await redoBtn.click()
+  check(`${tag}: Redo puts it back`, (await blocks828(page, 's2')) === 'p2,p3,t2,p5', await blocks828(page, 's2'))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 /** 829: the sample report's copied panel says the original has changed since the copy. */
 async function provenance829() {
   const { context, page, errors } = await open({ height: 1500, access: AUTHOR, model: MODEL_827 })
@@ -3554,10 +3642,64 @@ async function provenance829() {
   await context.close()
 }
 
+// ── 830: Save as report ───────────────────────────────────────────────────────────────────────────────
+// The 771 board (a section header first, five views, a text panel last; v1 filters and opt-outs).
+async function saveAsReport830({ dir }) {
+  const tag = `830 ${dir}`
+  {
+    const { context, page } = await open({ dir, access: RUNNER })
+    await page.goto(`${BASE}/analytics/board/b-ops`)
+    await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+    check(`${tag}: a runner is not offered "Save as report"`, (await page.locator('[data-analytics-board-save-report]').count()) === 0)
+    await context.close()
+  }
+  const { context, page, bodies, errors } = await open({ dir, height: 1500, access: AUTHOR })
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  const action = page.locator('[data-analytics-board-save-report]')
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-analytics-board-save-report]')
+    return b && !b.disabled
+  }, null, { timeout: 15000 })
+  check(`${tag}: an author who may copy the board is offered "Save as report"`, (await action.innerText()).trim() !== '' && !/saveAsReport/.test(await action.innerText()) && (dir === 'rtl' || clean(await action.innerText()) === 'Save as report'), await action.innerText())
+  await action.click()
+  await page.locator('[data-report-designer="r-new"]').waitFor({ timeout: 15000 })
+  check(`${tag}: it opens the new report in the designer`, page.url().endsWith('/analytics/report/r-new/edit'), page.url())
+  const sent = (bodies['Analytics/Item'] ?? []).at(-1) ?? {}
+  const blocks = sent.definition?.sections?.[0]?.blocks ?? []
+  check(`${tag}: one item created, kind report, titled as the board`, (bodies['Analytics/Item'] ?? []).length === 1 && sent.kind === 'report' && sent.title?.en === 'Operations week', JSON.stringify(sent.title))
+  check(
+    `${tag}: the section panel is the heading, the panels follow in reading order`,
+    sent.definition?.sections?.length === 1 && sent.definition.sections[0].heading.en === 'Orders' && blocks.map((b) => b.id).join(',') === 'p-kpi,p-bar,p-line,p-area,p-donut,p-note',
+    blocks.map((b) => b.id).join(','),
+  )
+  const kpi = blocks.find((b) => b.id === 'p-kpi') ?? {}
+  check(
+    `${tag}: a view panel is copied inline with its provenance; the text panel is a text block`,
+    kpi.kind === 'panel' && kpi.from?.viewId === 'v-kpi' && kpi.from?.revision === ITEMS['v-kpi'].revision && JSON.stringify(kpi.definition) === JSON.stringify(ITEMS['v-kpi'].definition) && blocks.at(-1)?.kind === 'text',
+    JSON.stringify(kpi.from),
+  )
+  const binds = sent.definition?.bindings ?? {}
+  check(
+    `${tag}: the board's parameters and bindings are carried (the area panel's store opt-out stays out)`,
+    (sent.definition?.params ?? []).map((p) => p.name).join(',') === 'period,city,region,store,channel,country' && binds.period?.['p-kpi'] === true && !binds.store?.['p-area'] && !binds.period?.['p-donut'],
+    JSON.stringify(binds.store),
+  )
+  const shown = await blocks828(page, sent.definition?.sections?.[0]?.id ?? '')
+  check(`${tag}: the designer holds the panels in order`, (await sections828(page)) === 'p-head' && shown === 'p-kpi,p-bar,p-line,p-area,p-donut,p-note', `${await sections828(page)} | ${shown}`)
+  await page.screenshot({ path: `${SHOTS}/830-save-as-report-${dir}.png`, fullPage: false })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['829', () => designer829({ dir: 'ltr' })],
   ['829', () => designer829({ dir: 'rtl' })],
   ['829', provenance829],
+  ['832', () => copilotReport832({ dir: 'ltr' })],
+  ['832', () => copilotReport832({ dir: 'rtl' })],
+  ['830', () => saveAsReport830({ dir: 'ltr' })],
+  ['830', () => saveAsReport830({ dir: 'rtl' })],
   ['828', () => designer828({ dir: 'ltr' })],
   ['828', () => designer828({ dir: 'rtl' })],
   ['833', () => schedules833({ dir: 'ltr' })],

@@ -683,7 +683,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *   queryDelayFor: view id → ms, held instead of `queryDelayMs` for that view (771's one-by-one landing);
  *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
  *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
- *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`).
+ *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`), or `(body, n) => answer` for the nth ask (832).
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
  *   paramAnswer: (body, answer) → the answer to a by-item Query (823: `{ itemId, revision, panelId, values }`), given
  *             the one the stub made — the panel's view's answer plus `notReached` for every parameter the board does
@@ -839,6 +839,43 @@ export function wordsAnswer827(body, { summary = 'written', drop = [] } = {}) {
 /** msartawi's own copy of the 827 report, so the session user is its owner (an author) and manages its schedules. */
 export const REPORT_833 = { ...REPORT_827, id: 'r-833', owner: 'msartawi', updatedBy: 'msartawi' }
 ITEMS['r-833'] = REPORT_833
+// ── 832 (spec 819 §D): the copilot builds a report, then edits it in the designer ─────────────────────────────
+/** The report a stubbed `create_report` wrote: the 827 sample, msartawi's own, Personal, at revision 1. */
+export const REPORT_832 = { ...REPORT_827, id: 'r-832', tier: 'personal', owner: 'msartawi', updatedBy: 'msartawi', revision: 1 }
+ITEMS['r-832'] = REPORT_832
+/** The acceptance sentence's answer: `create_report` saved r-832; the assumptions one line each. */
+export const CREATE_ANSWER_832 = {
+  ...COPILOT_ANSWER,
+  conversationId: 'c-832',
+  questionNo: 1,
+  answer: 'I built the report. Open it in the designer to check it, then share and schedule it.',
+  trace: [
+    { tool: 'describe_model', input: { area: 'sales' }, rows: 14, ms: 30, ok: true },
+    { tool: 'create_report', input: { title: 'Channel sales: HungerStation against QC' }, rows: 1, ms: 140, ok: true },
+  ],
+  reportRefs: [{ id: 'r-832', revision: 1, title: REPORT_832.title }],
+  assumptions: [
+    label('Period: a parameter, default yesterday', 'الفترة: معامل، افتراضيًا أمس'),
+    label('HungerStation and QC: two named series', 'هنقرستيشن وQC: سلسلتان مسماتان'),
+    label('Cancellation rate: cancelled ÷ all orders', 'نسبة الإلغاء: الملغاة ÷ جميع الطلبات'),
+  ],
+}
+/** `edit_report` against the report in context: its draft plus a cancellation-rate bar in s2, unsaved (`reportEdit`). */
+export function editAnswer832(body) {
+  const ctx = body.reportContext
+  const definition = structuredClone(ctx.draft.definition)
+  const s2 = definition.sections.find((x) => x.id === 's2') ?? definition.sections[0]
+  s2.blocks.push({ id: 'p5', kind: 'panel', title: label('Cancellation rate by channel', 'نسبة الإلغاء حسب القناة'), definition: def('bar', ['cancellation_rate'], ['channel_group']) })
+  return {
+    ...COPILOT_ANSWER,
+    conversationId: 'c-832',
+    questionNo: 2,
+    answer: 'I added the cancellation rate by channel as a bar to the second section.',
+    trace: [{ tool: 'edit_report', input: { reportId: ctx.reportId }, rows: 1, ms: 90, ok: true }],
+    reportEdit: { reportId: ctx.reportId, definition, note: label('Added "Cancellation rate by channel" as a bar.', 'أُضيفت "نسبة الإلغاء حسب القناة" كأعمدة.') },
+  }
+}
+
 const mail = (id) => `${id}@al-dawaa.com.sa`
 /** A report's candidates: the 826 users (in its audience, with the run grant) and three it may not send to. */
 export const USERS_833 = [
@@ -931,7 +968,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
       if (copilot === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
       return route.fulfill(envelope({ canAsk: copilot === 'granted', canUseMcp: false }))
     }
-    if (p === 'Copilot/Ask') return route.fulfill(envelope(copilotAnswer))
+    if (p === 'Copilot/Ask') return route.fulfill(envelope(typeof copilotAnswer === 'function' ? copilotAnswer(req.postDataJSON() ?? {}, bodies[p].length) : copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
     if (p === 'Analytics/Health') return route.fulfill(isFulfil(health) ? health : envelope(health))
     if (p === 'Analytics/DimensionValues') {

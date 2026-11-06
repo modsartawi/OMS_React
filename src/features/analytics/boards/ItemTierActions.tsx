@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { BadgeCheck, BadgeX, Lock, Share2, ShieldAlert, Trash2, UserRoundCog, UsersRound } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
-import type { AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 import Modal from '@/core/ui/Modal'
@@ -40,7 +40,7 @@ const isDialog = (key: TierActionKey): key is DialogKey => key === 'share' || ke
  * is gone, and the curator's actions are hidden from then on; `ANALYTICS-415` (822) the author grant, and every
  * author's action hides.
  */
-export default function ItemTierActions({ item }: { item: AnalyticsItem | AnalyticsBoard }) {
+export default function ItemTierActions({ item }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport }) {
   const { t } = useTranslation('boards')
   const tier = useItemTier(item)
   const [asking, setAsking] = useState<Exclude<TierActionKey, DialogKey> | null>(null)

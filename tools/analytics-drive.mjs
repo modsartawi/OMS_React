@@ -171,12 +171,22 @@
 // a blank report ticks no step; built by hand, each step ticks itself from the draft (a KPI, one series, a rate with
 // no series and words alone never do); a period moved off yesterday unticks. "Load the finished report" ticks all
 // eight as one undo step; "Ask the copilot" sends the acceptance sentence to the copilot panel.
+// 834 — spec 819's acceptance case end to end, in en, ar and dark (shots in `.issues/assets/834-shots/`):
+//   1. the owner's sentence in the copilot answers with the report a stubbed `create_report` built;
+//   2. "Open in designer" holds the expected report (the product's sample): the period defaulting to yesterday on
+//      every panel, net sales by channel, HungerStation against QC for net sales and for the cancellation rate (its
+//      caveat shown), the stores table, text with live figures; the tutorial ticks every step;
+//   3. its page shares it with the team's roles (Share → chosen roles; the chip names them);
+//   4. a daily schedule at 06:30 for Yesterday to two audience members, and Send now;
+//   5. a runner (no author grant) sees no edit, share or schedule control, re-runs it for last week (every panel and
+//      the Words re-asked, the URL carries it) and copies the link, which opens on last week;
+//   6. the kept-run record of the send: its trigger, recipients, outcome, values, and the email it sent.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/analytics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, editAnswer832, wordsAnswer827, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -3859,7 +3869,198 @@ async function tutorialLoad831({ dir }) {
   await context.close()
 }
 
+// ── 834: spec 819's acceptance case end to end — sentence → designer → share → schedule → runner → kept run ─────────
+const SHOTS_834 = '.issues/assets/834-shots'
+mkdirSync(SHOTS_834, { recursive: true })
+const designerIdle834 = (page) =>
+  page
+    .waitForFunction((ids) => ids.every((id) => ['idle', 'empty'].includes(document.querySelector(`[data-designer-block="${id}"] [data-board-panel]`)?.dataset.boardPanelState)), P827, { timeout: 15000 })
+    .catch(() => {})
+/** The distinct painted fills of a block's bars. */
+const paints834 = (page, scope) =>
+  page.locator(`${scope} .recharts-bar-rectangle path`).evaluateAll((els) => [...new Set(els.map((el) => getComputedStyle(el).fill))])
+/** A designer text block's live figures: chips naming each figure, `ok` when the figure exists on its panel. */
+const chips834 = (page, id) => page.locator(`[data-designer-text="${id}"] [data-designer-figure-chip]`).evaluateAll((els) => els.map((e) => e.dataset.figureOk))
+const RAW_TOKEN = /\{p\d:[a-z_]+\}/
+
+async function acceptance834({ dir, dark = false }) {
+  const mode = dark ? 'dark' : dir === 'rtl' ? 'ar' : 'en'
+  const tag = `834 ${mode}`
+  const shot = (page, step) => page.screenshot({ path: `${SHOTS_834}/834-${step}-${mode}.png`, fullPage: true })
+  const author = await open({ dir, dark, height: 1500, access: AUTHOR, model: MODEL_827, copilot: 'granted', copilotAnswer: CREATE_ANSWER_834, words: wordsAnswer834 })
+  const { page, bodies, calls, errors } = author
+  const looks = async (page, where) => {
+    const html = await page.evaluate(() => ({ dir: document.documentElement.dir, dark: document.documentElement.classList.contains('dark') }))
+    check(`${tag}: ${where} is ${dir === 'rtl' ? 'RTL' : 'LTR'}${dark ? ' and dark' : ''}`, html.dir === dir && html.dark === dark, JSON.stringify(html))
+  }
+
+  // 1. The owner's sentence in the copilot.
+  await page.goto(`${BASE}/analytics`)
+  const button = page.locator('#layout-topbar [data-copilot-button]')
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  await button.waitFor({ timeout: 30000 })
+  await button.click()
+  await sheet.locator('[data-copilot-question]').fill(SENTENCE_832)
+  await sheet.locator('[data-copilot-send]').click()
+  const openLink = sheet.locator('[data-copilot-turn]').nth(0).locator('[data-copilot-report-open="r-834"]')
+  await openLink.waitFor({ timeout: 10000 })
+  const asked = (bodies['Copilot/Ask'] ?? [])[0] ?? {}
+  check(`${tag} 1: the owner's sentence asks the copilot, with no report in context`, asked.question === SENTENCE_832 && asked.reportContext === undefined, JSON.stringify(Object.keys(asked)))
+  check(`${tag} 1: the answer carries the built report to its designer`, (await openLink.getAttribute('href')) === '/analytics/report/r-834/edit', await openLink.getAttribute('href'))
+  check(`${tag} 1: … with its assumptions, one line each`, (await sheet.locator('[data-copilot-assumption]').count()) === 3)
+  await looks(page, 'the copilot')
+  await shot(page, '1-copilot')
+
+  // 2. The designer holds the expected report.
+  await openLink.click()
+  await page.locator('[data-report-designer="r-834"]').waitFor({ timeout: 15000 })
+  await page.locator('[data-designer-block="p1"] [data-chart="bar"]').waitFor({ timeout: 15000 }).catch(() => {})
+  await designerIdle834(page)
+  check(`${tag} 2: "Open in designer" opens r-834's designer`, page.url().endsWith('/analytics/report/r-834/edit'), page.url())
+  const layout = ['s1', 's2', 's3', 's4'].map((s) => blocks828(page, s))
+  const blocks = (await Promise.all(layout)).join(' | ')
+  check(`${tag} 2: four sections — sales by channel, HungerStation against QC, the stores, the summary`, (await sections828(page)) === 's1,s2,s3,s4' && blocks === 'p1,t1 | p2,p3,t2 | p4 | sum', blocks)
+  const period = await page.locator('[data-board-param="period"] [data-board-filter-period]').first().inputValue().catch(() => null)
+  check(`${tag} 2: the period parameter defaults to yesterday`, period === 'yesterday', String(period))
+  check(`${tag} 2: net sales by channel draws as bars`, (await page.locator('[data-designer-block="p1"] [data-chart="bar"]').count()) === 1)
+  const hsQc = await paints834(page, '[data-designer-block="p2"]')
+  check(`${tag} 2: HungerStation against QC for net sales: two series, two paints`, hsQc.length === 2, hsQc.join(' / '))
+  check(`${tag} 2: … and for the cancellation rate, as lines`, (await page.locator('[data-designer-block="p3"] [data-chart="line"]').count()) === 1)
+  check(`${tag} 2: the rate carries the "inside OMS only" caveat, and only the rate`, (await page.locator('[data-designer-block="p3"] [data-panel-caveat]').count()) === 1 && (await page.locator('[data-designer-block="p1"] [data-panel-caveat], [data-designer-block="p2"] [data-panel-caveat]').count()) === 0)
+  check(`${tag} 2: the stores table`, (await page.locator('[data-designer-block="p4"] [data-chart="table"]').count()) === 1)
+  const chips = [...(await chips834(page, 't1')), '|', ...(await chips834(page, 't2'))].join('')
+  check(`${tag} 2: text with live figures as chips, each an existing figure, never a raw token`, chips === 'yes|yesyesyesyes' && !RAW_TOKEN.test(await page.locator('[data-designer-sections]').innerText()), chips)
+  check(`${tag} 2: the summary block`, (await page.locator('[data-designer-block="sum"]').count()) === 1)
+  check(`${tag} 2: nothing to undo yet, nothing unsaved`, (await page.locator('[data-designer-undo]').isDisabled()) && (await page.locator('[data-designer-unsaved-marker]').count()) === 0)
+  await page.locator('[data-designer-tutorial-action]').click()
+  check(`${tag} 2: the tutorial ticks every step of the acceptance case from it`, (await ticks831(page)) === STEPS_831.join(',') && (await progress831(page)) === '8 / 8', await ticks831(page))
+  await looks(page, 'the designer')
+  await shot(page, '2-designer')
+
+  // 3. Its page shares it with the team's roles.
+  await page.goto(`${BASE}/analytics/report/r-834`)
+  await page.locator('[data-analytics-report="r-834"]').waitFor({ timeout: 15000 })
+  await idle827(page)
+  check(`${tag} 3: a Personal report carries no audience chip, and offers Share`, (await page.locator('[data-analytics-report-header] [data-analytics-audience]').count()) === 0 && (await page.locator('[data-analytics-action="share"]').count()) === 1)
+  await page.locator('[data-analytics-action="share"]').click()
+  await page.locator('[data-analytics-share="share"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-analytics-share-chosen]').click()
+  const roles = page.locator('[data-testid="analytics-share-roles"]')
+  await roles.locator('[data-multi-select-trigger]').click()
+  await roles.locator('[data-option="HQ_SALES"]').waitFor({ timeout: 10000 })
+  for (const key of ['HQ_SALES', 'DELIVERY_OPS']) await roles.locator(`[data-option="${key}"] input[type="checkbox"]`).check()
+  await page.keyboard.press('Escape')
+  await shot(page, '3-share')
+  await page.locator('[data-analytics-share-save]').click()
+  const header = page.locator('[data-analytics-report-header]')
+  await header.locator('[data-analytics-audience="chosen"]').waitFor({ timeout: 10000 })
+  const shared = bodies['Analytics/Item/r-834/Share']?.[0]
+  check(`${tag} 3: Share posts the revision and the chosen roles`, shared?.revision === 1 && JSON.stringify(shared?.audience?.roles) === JSON.stringify(['HQ_SALES', 'DELIVERY_OPS']) && !shared?.audience?.everyone, JSON.stringify(shared))
+  const chip = await chipText(header)
+  check(`${tag} 3: the report is Shared, its chip naming both roles, each isolated`, (await header.locator('[data-analytics-tier-badge="shared"]').count()) === 1 && /HQ Sales|مبيعات المركز الرئيسي/.test(chip) && /Delivery operations|عمليات التوصيل/.test(chip) && (await header.locator('[data-analytics-audience-name] bdi').count()) === 2, chip)
+
+  // 4. A daily schedule, then Send now.
+  await page.locator('[data-report-schedules]').click()
+  await page.locator('[data-schedule-new]').click()
+  const editor = page.locator('[data-schedule-editor="new"]')
+  await editor.waitFor({ timeout: 5000 })
+  check(`${tag} 4: a new schedule opens daily and enabled, on the report's own period (yesterday)`, (await editor.locator('[data-schedule-cadence="daily"]').getAttribute('aria-pressed')) === 'true' && (await editor.locator('[data-schedule-enabled="on"]').getAttribute('aria-pressed')) === 'true' && (await editor.locator('[data-board-param="period"] [data-board-filter-period]').inputValue()) === 'yesterday')
+  await editor.locator('[data-schedule-time]').fill('06:30')
+  const people = page.locator('[data-testid="analytics-schedule-recipients"]')
+  await people.locator('[data-multi-select-trigger]').click()
+  await people.locator('[data-option="nalharbi"]').waitFor({ timeout: 10000 })
+  for (const id of ['nalharbi', 'kalotaibi']) await people.locator(`[data-option="${id}"] input[type="checkbox"]`).check()
+  await page.keyboard.press('Escape')
+  await shot(page, '4-schedule')
+  await page.locator('[data-schedule-save]').click()
+  await page.locator('[data-schedule-editor="sch-1"]').waitFor({ timeout: 10000 })
+  const schedule = (bodies['Analytics/Report/r-834/Schedules'] ?? []).at(-1)
+  check(
+    `${tag} 4: the schedule saves daily at 06:30 Riyadh, for yesterday, to the two named people`,
+    JSON.stringify(schedule?.cadence) === JSON.stringify({ kind: 'daily' }) && schedule?.time === '06:30' && schedule?.values?.period?.token === 'yesterday' && JSON.stringify(schedule?.recipients) === JSON.stringify(['nalharbi', 'kalotaibi']) && schedule?.enabled === true,
+    JSON.stringify(schedule),
+  )
+  const sending = page.waitForResponse((r) => r.url().includes('/Schedules/sch-1/SendNow'), { timeout: 10000 })
+  await page.locator('[data-schedule-send-now]').click()
+  await sending
+  await page.locator('[data-schedule-back]').click()
+  await page.locator('[data-schedule-row="sch-1"]').waitFor({ timeout: 10000 })
+  const summary = await page.locator('[data-schedule-row="sch-1"] [data-schedule-summary]').innerText()
+  check(`${tag} 4: the list reads it daily at its isolated time, to two`, summary.includes('⁨06:30⁩') && (await page.locator('[data-schedule-row="sch-1"] [data-schedule-recipients]').getAttribute('data-schedule-recipients')) === '2', JSON.stringify(summary))
+  await page.keyboard.press('Escape')
+
+  // 5. A runner on the team re-runs it for last week and copies the link.
+  const items = { ...ITEMS, 'r-834': { ...REPORT_834, tier: 'shared', audience: resolveAudience(shared?.audience) } }
+  const runner = await open({ dir, dark, access: RUNNER, model: MODEL_827, items, words: wordsAnswer834 })
+  await runner.context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
+  const rp = runner.page
+  await rp.goto(`${BASE}/analytics/report/r-834`)
+  await rp.locator('[data-analytics-report="r-834"]').waitFor({ timeout: 30000 })
+  await idle827(rp)
+  const controls = await rp.locator('[data-report-edit], [data-analytics-action], [data-report-schedules], [data-report-runs], [data-board-tv-enter], [data-analytics-ask]').count()
+  check(`${tag} 5: a runner gets no edit, share, schedule or kept-runs control`, controls === 0, String(controls))
+  const firstAsks = runner.bodies['Analytics/Query'] ?? []
+  check(`${tag} 5: every panel runs for yesterday by default`, P827.every((id) => firstAsks.some((b) => b.panelId === id && b.values?.period?.token === 'yesterday')), JSON.stringify(firstAsks.map((b) => [b.panelId, b.values?.period])))
+  check(`${tag} 5: … its figures yesterday's`, (await figure827(rp, '{p1:total}')) === 'SAR 187,500', String(await figure827(rp, '{p1:total}')))
+  const from = firstAsks.length
+  await rp.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-week')
+  await rp.waitForFunction(() => document.querySelector('[data-report-figure="{p1:total}"]')?.textContent?.includes('1,000,000'), null, { timeout: 10000 }).catch(() => {})
+  await idle827(rp)
+  const reAsks = (runner.bodies['Analytics/Query'] ?? []).slice(from)
+  check(`${tag} 5: last week re-runs every panel with it`, P827.every((id) => reAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week' && b.itemId === 'r-834')), JSON.stringify(reAsks.map((b) => [b.panelId, b.values?.period])))
+  check(
+    `${tag} 5: … the Words too, and the figures follow (isolated)`,
+    (runner.bodies['Analytics/Report/r-834/Words'] ?? []).at(-1)?.values?.period?.token === 'last-week' && (await figure827(rp, '{p1:total}')) === 'SAR 1,000,000' && (await rp.locator('[data-report-figure="{p2:hs}"] bdi[dir="ltr"]').count()) === 1,
+    String(await figure827(rp, '{p1:total}')),
+  )
+  check(`${tag} 5: the cancellation rate keeps its caveat for the runner`, (await rp.locator('[data-report-panel="p3"] [data-panel-caveat]').count()) === 1)
+  check(`${tag} 5: the URL carries period=last-week`, new URL(rp.url()).searchParams.get('period') === 'last-week', rp.url())
+  await rp.locator('[data-report-copy-link]').click()
+  const link = await rp.evaluate(() => navigator.clipboard.readText()).catch(() => '')
+  check(`${tag} 5: Copy link copies the page with its values`, link === rp.url() && new URL(link).searchParams.get('period') === 'last-week', link)
+  await looks(rp, "the runner's page")
+  await shot(rp, '5-runner')
+  // The copied link, opened afresh (a full load: nothing kept from the page that copied it).
+  const again = rp
+  await again.goto(`${BASE}/analytics`)
+  const opened = (runner.bodies['Analytics/Query'] ?? []).length
+  await again.goto(link || `${BASE}/analytics/report/r-834`)
+  await again.locator('[data-analytics-report="r-834"]').waitFor({ timeout: 15000 })
+  await idle827(again)
+  const linkAsks = (runner.bodies['Analytics/Query'] ?? []).slice(opened)
+  check(`${tag} 5: the copied link opens on last week`, (await again.locator('[data-board-param="period"] [data-board-filter-period]').inputValue()) === 'last-week' && P827.every((id) => linkAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week')))
+  if (dir === 'rtl') {
+    const iso = await rp.locator('[data-report-text="t1"] [data-report-figure="{p1:total}"] bdi').getAttribute('dir').catch(() => null)
+    check(`${tag} 5: a figure in the text stays a left-to-right isolate under RTL`, iso === 'ltr', String(iso))
+  }
+  check(`${tag} 5: no page errors for the runner`, runner.errors.length === 0, runner.errors.join(' | '))
+  await runner.context.close()
+
+  // 6. The kept-run record of the send.
+  await page.locator('[data-report-runs]').click()
+  await page.locator('[data-analytics-runs="r-834"]').waitFor({ timeout: 10000 })
+  const runs = await page.locator('[data-run]').evaluateAll((els) => els.map((e) => e.dataset.run))
+  check(`${tag} 6: the kept runs list the send`, runs.join() === 'run-now-1', runs.join())
+  const run = page.locator('[data-run="run-now-1"]')
+  check(
+    `${tag} 6: … its trigger, its two recipients, "sent", and the values it ran with`,
+    (await run.locator('[data-run-trigger="sendNow"]').count()) === 1 && (await run.locator('[data-run-recipient]').count()) === 2 && (await run.locator('[data-run-outcome="sent"]').count()) === 1 && (await run.locator('[data-run-values] [data-board-filter-chips]').count()) === 1,
+  )
+  check(`${tag} 6: … with the email and the PDF it sent, kept`, (await run.locator('[data-run-html]').count()) === 1 && (await run.locator('[data-run-pdf]').count()) === 1)
+  const popup = page.waitForEvent('popup', { timeout: 10000 })
+  await run.locator('[data-run-html]').click()
+  await (await popup).close()
+  check(`${tag} 6: opening the email asks its Html door`, calls.includes('Analytics/ReportRun/run-now-1/Html'))
+  await looks(page, 'the kept runs')
+  await shot(page, '6-kept-run')
+  check(`${tag}: no page errors for the author`, errors.length === 0, errors.join(' | '))
+  await author.context.close()
+}
+
 const SCENARIOS = [
+  ['834', () => acceptance834({ dir: 'ltr' })],
+  ['834', () => acceptance834({ dir: 'rtl' })],
+  ['834', () => acceptance834({ dir: 'ltr', dark: true })],
   ['831', () => tutorial831({ dir: 'ltr' })],
   ['831', () => tutorial831({ dir: 'rtl' })],
   ['831', () => tutorialLoad831({ dir: 'ltr' })],

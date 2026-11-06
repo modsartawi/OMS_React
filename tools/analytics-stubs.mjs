@@ -7,6 +7,9 @@
 // `if (p === 'Analytics/…')` branch in `installAnalyticsStubs`, reading its answer from `opts` so a scenario
 // can override it (an answer, a refusal from `refusal()`, or a `delayMs`). Keep the defaults a happy path.
 
+// 834: the acceptance case is the product's own sample report (type-only imports, so Node strips its types).
+import { sampleReport } from '../src/features/analytics/boards/sample-report.ts'
+
 export const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
   contentType: 'application/json',
@@ -874,6 +877,33 @@ export function editAnswer832(body) {
     trace: [{ tool: 'edit_report', input: { reportId: ctx.reportId }, rows: 1, ms: 90, ok: true }],
     reportEdit: { reportId: ctx.reportId, definition, note: label('Added "Cancellation rate by channel" as a bar.', 'أُضيفت "نسبة الإلغاء حسب القناة" كأعمدة.') },
   }
+}
+
+// ── 834 (spec 819): the acceptance case end to end ───────────────────────────────────────────────────────────────
+/**
+ * The report the owner's sentence builds: the product's own sample (`boards/sample-report.ts`, 831's "Load the
+ * finished report"), so the drive and the tutorial hold one acceptance case. msartawi's own, Personal, at revision 1,
+ * as `create_report` saves it — no audience until the author shares it.
+ */
+const SAMPLE_834 = sampleReport()
+export const REPORT_834 = {
+  ...view('r-834', { title: SAMPLE_834.title, subtitle: SAMPLE_834.subtitle, revision: 1, updatedAt: '2026-11-06T08:30:00' }),
+  kind: 'report',
+  definition: SAMPLE_834.definition,
+}
+ITEMS['r-834'] = REPORT_834
+/** The acceptance sentence's answer: `create_report` saved r-834 (832's answer, pointing at the sample). */
+export const CREATE_ANSWER_834 = { ...CREATE_ANSWER_832, conversationId: 'c-834', reportRefs: [{ id: 'r-834', revision: 1, title: REPORT_834.title }] }
+/** 834's Words: 827's figures, with p2 the two series' net sales (money, as the server formats it). */
+export function wordsAnswer834(body) {
+  const answer = wordsAnswer827(body)
+  const k = PERIOD_SCALE[body?.values?.period?.token] ?? 2
+  const sar = (x) => `SAR ${Math.round(x * k).toLocaleString('en-US')}`
+  const figures = { ...answer.figures, '{p2:hs}': sar(310000), '{p2:qc}': sar(185000) }
+  const [hs, qc] = [figures['{p2:hs}'], figures['{p2:qc}']]
+  // The summary is written from the same run's figures (net sales, not 827's orders).
+  const summary = answer.summary.text ? { text: label(`HungerStation outsold QC (${hs} against ${qc}) but cancelled more often.`, `تفوقت هنقرستيشن على QC في المبيعات (${hs} مقابل ${qc}) لكن نسبة إلغائها أعلى.`) } : answer.summary
+  return { ...answer, figures, summary }
 }
 
 const mail = (id) => `${id}@al-dawaa.com.sa`

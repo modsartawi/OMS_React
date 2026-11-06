@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import type { AnalyticsAccess, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsAccess, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import { ANALYTICS_ACCESS_KEY, needsAuthor, withoutAuthor } from './access'
-import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey, analyticsRevisionsKey } from './api'
+import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey, analyticsReportKey, analyticsRevisionsKey } from './api'
 import { itemActions } from './item-actions'
 import { certifiedCopyOf, needsCurator, tierActionsOf, type TierActionKey } from './item-tier'
 import { useItemActor } from './use-item-save'
@@ -23,13 +23,13 @@ const doneKey = (w: TierWrite, tier: AnalyticsItem['tier']): string =>
   w.key === 'share' ? (tier === 'personal' ? ('everyone' in w.audience ? 'share' : 'shareChosen') : 'audience') : w.key
 
 /**
- * The tier's actions on an open view or board (ticket 778): what this actor may do (`./item-actions`, with the
+ * The tier's actions on an open view, board or (834) report (ticket 778): what this actor may do (`./item-actions`, with the
  * certified copy found in `Analytics/Items`), and the doors behind them. On success the list and the item are
  * re-read, so the home regroups and the badge follows; a delete goes home. An `ANALYTICS-402` from a stale probe
  * marks the cached probe as not curating, so the curator's actions hide from then on (§C), and the caller shows
  * the reason from `error`.
  */
-export function useItemTier(item: AnalyticsItem | AnalyticsBoard) {
+export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsReport) {
   const { t } = useTranslation('boards')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -43,6 +43,8 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard) {
   const reread = (id: string) => {
     void queryClient.invalidateQueries({ queryKey: analyticsItemKey(id) })
     void queryClient.invalidateQueries({ queryKey: analyticsBoardKey(id) })
+    // 834: a report is read through its own key.
+    void queryClient.invalidateQueries({ queryKey: analyticsReportKey(id) })
   }
 
   const mutation = useMutation({
@@ -70,6 +72,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard) {
         navigate('/analytics')
         queryClient.removeQueries({ queryKey: analyticsItemKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsBoardKey(item.id) })
+        queryClient.removeQueries({ queryKey: analyticsReportKey(item.id) })
         return
       }
       reread(item.id)

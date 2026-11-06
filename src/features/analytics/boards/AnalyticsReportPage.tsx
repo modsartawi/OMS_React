@@ -17,6 +17,7 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
 import AudienceChip from './AudienceChip'
 import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
+import ItemTierActions from './ItemTierActions'
 import { editingItemOf } from './item-save'
 import { defaultsOf, type ParamValues } from './params'
 import { readParamLink, writeParamValues } from './permalink'
@@ -104,6 +105,8 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
               {t('designer.edit')}
             </Link>
           )}
+          {/* 834: the owner's Share (with roles and users), a curator's Narrow and Certify — as on a view or a board. */}
+          <ItemTierActions item={report} />
           {/* 833: the owner's and curators' schedules, and the kept runs. */}
           <ReportSchedules report={report} model={model} />
           <Button variant="secondary" onClick={() => void copyLink()} data-report-copy-link>

@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Lock, ShieldAlert, Users } from 'lucide-react'
 import i18n from '@/core/i18n'
-import type { AnalyticsAudienceRole, AnalyticsAudienceUser, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsAudienceRole, AnalyticsAudienceUser, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
@@ -48,7 +48,7 @@ function roleOption(r: AnalyticsAudienceRole, removedNote: string): MultiSelectO
 /** A user reads as `employee id · name`, one pair led by a machine value (`Ltr` once, `.claude/rules/bidi.md`). */
 const userOption = (u: AnalyticsAudienceUser): MultiSelectOption => ({ value: u.id, text: formatPair(u.employeeId || u.id, u.name), machine: true })
 
-const audienceSeed = (item: AnalyticsItem | AnalyticsBoard) =>
+const audienceSeed = (item: AnalyticsItem | AnalyticsBoard | AnalyticsReport) =>
   item.audience && !item.audience.everyone ? { roles: item.audience.roles, users: item.audience.users } : { roles: [], users: [] }
 
 /**
@@ -69,7 +69,7 @@ export default function ShareDialog({
   onSave,
   onUnshare,
 }: {
-  item: AnalyticsItem | AnalyticsBoard
+  item: AnalyticsItem | AnalyticsBoard | AnalyticsReport
   mode: 'share' | 'narrow'
   pending: boolean
   error: unknown
@@ -223,7 +223,7 @@ export function ReassignDialog({
   onClose,
   onSave,
 }: {
-  item: AnalyticsItem | AnalyticsBoard
+  item: AnalyticsItem | AnalyticsBoard | AnalyticsReport
   pending: boolean
   error: unknown
   onClose: () => void

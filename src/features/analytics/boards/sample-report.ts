@@ -5,8 +5,9 @@ import type { AnalyticsLabel, AnalyticsReportBlock, AnalyticsReportDefinition, A
  * the real model's keys. It is product code: "Load the finished report" puts it in the designer as one undoable step.
  *
  * Sales by channel (net sales by channel as bars, and a sentence with the total), HungerStation against QC (their
- * orders, and their cancellation rates, as two named series each, with a sentence of their four figures), the
- * stores, and the AI summary. The period is a parameter that defaults to yesterday and reaches every panel.
+ * net sales — the acceptance case's "for value" (834) — and their cancellation rates, as two named series each,
+ * with a sentence of their four figures), the stores, and the AI summary. The period is a parameter that defaults
+ * to yesterday and reaches every panel.
  *
  * Keys the tutorial's checks look for (`./tutorial`) are named here once.
  */
@@ -67,14 +68,14 @@ export function sampleReport(): SampleReport {
           id: 's2',
           heading: label('HungerStation against QC', 'هنقرستيشن مقابل QC'),
           blocks: [
-            panel('p2', label('Orders: HungerStation against QC', 'الطلبات: هنقرستيشن مقابل QC'), view('bar', ['orders'], ['day'], { series: SERIES })),
+            panel('p2', label('Net sales: HungerStation against QC', 'صافي المبيعات: هنقرستيشن مقابل QC'), view('bar', [NET_SALES], ['day'], { series: SERIES })),
             panel('p3', label('Cancellation rate: HungerStation against QC', 'نسبة الإلغاء: هنقرستيشن مقابل QC'), view('line', [CANCELLATION_RATE], ['day'], { series: SERIES })),
             {
               id: 't2',
               kind: 'text',
               text: label(
-                'HungerStation took {p2:hs} orders against QC’s {p2:qc}. Their cancellation rates were {p3:hs} and {p3:qc}.',
-                'تلقّت هنقرستيشن {p2:hs} طلبًا مقابل {p2:qc} لـ QC. وكانت نسبتا الإلغاء {p3:hs} و{p3:qc}.',
+                'HungerStation sold {p2:hs} against QC’s {p2:qc}. Their cancellation rates were {p3:hs} and {p3:qc}.',
+                'باعت هنقرستيشن بقيمة {p2:hs} مقابل {p2:qc} لـ QC. وكانت نسبتا الإلغاء {p3:hs} و{p3:qc}.',
               ),
             },
           ],

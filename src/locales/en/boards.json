@@ -443,7 +443,8 @@
     "hint": "The last 20 revisions. Reverting writes a new revision, so it can be undone.",
     "untitled": {
       "view": "This view",
-      "board": "This board"
+      "board": "This board",
+      "report": "This report"
     },
     "close": "Close the history",
     "loading": "Loading the history…",
@@ -497,14 +498,16 @@
         "title": "Un-certify?",
         "body": {
           "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
-          "board": "This board stops being Certified, and leaves the Certified group on the home."
+          "board": "This board stops being Certified, and leaves the Certified group on the home.",
+          "report": "This report stops being Certified, and leaves the Certified group on the home."
         }
       },
       "delete": {
         "title": "Delete?",
         "body": {
           "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
-          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
+          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted.",
+          "report": "This report is deleted for everyone who sees it, with its schedules. Its kept runs stay listed until they expire."
         }
       }
     },
@@ -672,11 +675,13 @@
     "untitled": {
       "share": {
         "view": "Share this view",
-        "board": "Share this board"
+        "board": "Share this board",
+        "report": "Share this report"
       },
       "narrow": {
         "view": "Narrow who sees this view",
-        "board": "Narrow who sees this board"
+        "board": "Narrow who sees this board",
+        "report": "Narrow who sees this report"
       }
     },
     "cancel": "Cancel",
@@ -713,7 +718,8 @@
     "title": "Hand {{title}} to another author",
     "untitled": {
       "view": "Hand this view to another author",
-      "board": "Hand this board to another author"
+      "board": "Hand this board to another author",
+      "report": "Hand this report to another author"
     },
     "save": "Hand it over",
     "hint": "Its owner is {{owner}}. The new owner must hold the author grant; who sees it and its tier stay as they are.",

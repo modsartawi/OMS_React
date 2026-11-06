@@ -27,6 +27,7 @@ import ItemTierActions from './ItemTierActions'
 import { boardParams, defaultsOf, type ParamValues } from './params'
 import { readCrossFilter, readParamLink, writeCrossFilter, writeParamValues } from './permalink'
 import Refused from './Refused'
+import SaveAsReport from './SaveAsReport'
 import { SourceMovedOn } from './SaveNotes'
 import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
@@ -142,6 +143,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const title = saysIn(board.title, lang)
   // 777: anyone who may save it (in place or as a copy) may open the board editor.
   const canEdit = itemActions(editingItemOf({ ...board, kind: 'board' }), useItemActor()).save !== 'read-only'
+  // 830: an author who may edit or copy the board may save it as a report, once its views are read.
+  const views = new Map(items.flatMap((q) => (q.data ? [[q.data.id, q.data] as const] : [])))
   return (
     <div
       ref={root}
@@ -169,6 +172,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
                 {t('boardEditor.edit')}
               </Link>
             )}
+            {canEdit && role === 'author' && <SaveAsReport board={board} views={views} pending={items.some((q) => q.isPending)} model={model} />}
             <ItemHistory item={board} kind="board" />
             <ItemTierActions item={board} />
           </>

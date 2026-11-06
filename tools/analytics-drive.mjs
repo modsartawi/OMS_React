@@ -145,6 +145,11 @@
 //      history kept and the unsaved marker gone; a second save PUTs in place at `baseRevision` 1; Preview is the
 //      runner's page with no tools.
 //
+// 830 (spec 819 §E) — Save as report: a runner is not offered it; an author on the 771 board saves it as a report
+// (one POST `kind: 'report'`: the section panel the heading, the view panels inline in reading order with
+// `from { viewId, revision }`, the text panel a text block, the parameters and bindings carried) and the designer
+// opens on `/analytics/report/r-new/edit` holding the panels in order (en and ar).
+//
 // 832 (spec 819 §D) — the copilot builds a report that opens in the designer, and edits it there as one undo step
 // (en and ar): the acceptance sentence (a stubbed `create_report`) answers "Open in designer", the assumptions as a
 // list and "Built a report" in the trace, with no `reportContext` sent from the home; in the designer the follow-up
@@ -3434,9 +3439,61 @@ async function copilotReport832({ dir }) {
   await context.close()
 }
 
+// ── 830: Save as report ───────────────────────────────────────────────────────────────────────────────
+// The 771 board (a section header first, five views, a text panel last; v1 filters and opt-outs).
+async function saveAsReport830({ dir }) {
+  const tag = `830 ${dir}`
+  {
+    const { context, page } = await open({ dir, access: RUNNER })
+    await page.goto(`${BASE}/analytics/board/b-ops`)
+    await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+    check(`${tag}: a runner is not offered "Save as report"`, (await page.locator('[data-analytics-board-save-report]').count()) === 0)
+    await context.close()
+  }
+  const { context, page, bodies, errors } = await open({ dir, height: 1500, access: AUTHOR })
+  await page.goto(`${BASE}/analytics/board/b-ops`)
+  await page.locator('[data-analytics-board="b-ops"]').waitFor({ timeout: 10000 })
+  const action = page.locator('[data-analytics-board-save-report]')
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-analytics-board-save-report]')
+    return b && !b.disabled
+  }, null, { timeout: 15000 })
+  check(`${tag}: an author who may copy the board is offered "Save as report"`, (await action.innerText()).trim() !== '' && !/saveAsReport/.test(await action.innerText()) && (dir === 'rtl' || clean(await action.innerText()) === 'Save as report'), await action.innerText())
+  await action.click()
+  await page.locator('[data-report-designer="r-new"]').waitFor({ timeout: 15000 })
+  check(`${tag}: it opens the new report in the designer`, page.url().endsWith('/analytics/report/r-new/edit'), page.url())
+  const sent = (bodies['Analytics/Item'] ?? []).at(-1) ?? {}
+  const blocks = sent.definition?.sections?.[0]?.blocks ?? []
+  check(`${tag}: one item created, kind report, titled as the board`, (bodies['Analytics/Item'] ?? []).length === 1 && sent.kind === 'report' && sent.title?.en === 'Operations week', JSON.stringify(sent.title))
+  check(
+    `${tag}: the section panel is the heading, the panels follow in reading order`,
+    sent.definition?.sections?.length === 1 && sent.definition.sections[0].heading.en === 'Orders' && blocks.map((b) => b.id).join(',') === 'p-kpi,p-bar,p-line,p-area,p-donut,p-note',
+    blocks.map((b) => b.id).join(','),
+  )
+  const kpi = blocks.find((b) => b.id === 'p-kpi') ?? {}
+  check(
+    `${tag}: a view panel is copied inline with its provenance; the text panel is a text block`,
+    kpi.kind === 'panel' && kpi.from?.viewId === 'v-kpi' && kpi.from?.revision === ITEMS['v-kpi'].revision && JSON.stringify(kpi.definition) === JSON.stringify(ITEMS['v-kpi'].definition) && blocks.at(-1)?.kind === 'text',
+    JSON.stringify(kpi.from),
+  )
+  const binds = sent.definition?.bindings ?? {}
+  check(
+    `${tag}: the board's parameters and bindings are carried (the area panel's store opt-out stays out)`,
+    (sent.definition?.params ?? []).map((p) => p.name).join(',') === 'period,city,region,store,channel,country' && binds.period?.['p-kpi'] === true && !binds.store?.['p-area'] && !binds.period?.['p-donut'],
+    JSON.stringify(binds.store),
+  )
+  const shown = await blocks828(page, sent.definition?.sections?.[0]?.id ?? '')
+  check(`${tag}: the designer holds the panels in order`, (await sections828(page)) === 'p-head' && shown === 'p-kpi,p-bar,p-line,p-area,p-donut,p-note', `${await sections828(page)} | ${shown}`)
+  await page.screenshot({ path: `${SHOTS}/830-save-as-report-${dir}.png`, fullPage: false })
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['832', () => copilotReport832({ dir: 'ltr' })],
   ['832', () => copilotReport832({ dir: 'rtl' })],
+  ['830', () => saveAsReport830({ dir: 'ltr' })],
+  ['830', () => saveAsReport830({ dir: 'rtl' })],
   ['828', () => designer828({ dir: 'ltr' })],
   ['828', () => designer828({ dir: 'rtl' })],
   ['833', () => schedules833({ dir: 'ltr' })],

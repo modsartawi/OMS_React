@@ -355,6 +355,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
         }),
       },
+      // The release download queue (ticket 791, BackOffice spec 3396): read-only until 792 adds the controls.
+      {
+        path: 'admin/release-queue',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/release-queue/ReleaseQueuePage')).default,
+        }),
+      },
       // The store sync console (spec 444, ticket 445): the Fleet page, and one store's page
       // (446), the fleet-wide audit (447) and commands (448), the New store wizard and Sync
       // pending (449), all under the same `/admin/sync` prefix.

@@ -1,0 +1,109 @@
+{
+  "menu": {
+    "releaseQueue": "Release download queue"
+  },
+  "title": "Release download queue",
+  "subtitle": "Tills take turns to download a POS release. See who is downloading, who is waiting, what finished and how far each release has spread.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the release download queue",
+    "deniedHint": "Your account does not hold the grant to view the release download queue. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "refreshing": "Refreshing…",
+  "tabs": {
+    "label": "Release download queue panels",
+    "slots": "Live slots",
+    "queue": "Queue",
+    "history": "History",
+    "convergence": "Convergence"
+  },
+  "read": {
+    "failedTitle": "{{what}} could not be read",
+    "failed": "HQ did not answer. The page tries again shortly.",
+    "denied": "Your account does not hold the grant to view the release download queue."
+  },
+  "pool": {
+    "heading": "Download pool",
+    "loading": "Reading the pool…",
+    "inUse": "<v>{{v}}</v> slots in use",
+    "paused": "Paused: no till may start a download",
+    "default": "Default size, never changed",
+    "changed": "Last changed <v>{{v}}</v>"
+  },
+  "package": {
+    "pos": "POS",
+    "dashboard": "Kiosk dashboard"
+  },
+  "columns": {
+    "store": "Store",
+    "till": "Till",
+    "package": "Package",
+    "versions": "From – to version",
+    "started": "Started",
+    "renewed": "Last renewed",
+    "progress": "Progress",
+    "position": "Position",
+    "toVersion": "Version",
+    "urgent": "Urgent",
+    "firstAsked": "First asked",
+    "wait": "Waiting for",
+    "ended": "Ended",
+    "duration": "Duration",
+    "lastProgress": "Reached",
+    "outcome": "Outcome"
+  },
+  "slots": {
+    "heading": "Live slots",
+    "count_one": "<n>{{n}}</n> till downloading",
+    "count_other": "<n>{{n}}</n> tills downloading",
+    "empty": "No till is downloading right now."
+  },
+  "queue": {
+    "heading": "Queue",
+    "length_one": "<n>{{n}}</n> till waiting",
+    "length_other": "<n>{{n}}</n> tills waiting",
+    "oldest": "Oldest wait <v>{{v}}</v>",
+    "storesHeading": "Stores in the order they are served",
+    "empty": "No till is waiting for a slot.",
+    "urgent": "Urgent",
+    "overFourHours": "Over 4 h"
+  },
+  "history": {
+    "heading": "History",
+    "total_one": "<n>{{n}}</n> finished download",
+    "total_other": "<n>{{n}}</n> finished downloads",
+    "empty": "No finished download matches these filters.",
+    "filter": {
+      "outcome": "Outcome",
+      "anyOutcome": "Any outcome",
+      "store": "Store",
+      "version": "Version"
+    },
+    "filterOutcome": {
+      "done": "Done",
+      "failed": "Failed",
+      "expired": "Expired",
+      "freed-by-hand": "Freed by hand"
+    },
+    "outcome": {
+      "done": "Done",
+      "failed": "Failed",
+      "expired": "Expired",
+      "freed": "Freed by hand"
+    }
+  },
+  "convergence": {
+    "heading": "Convergence",
+    "note": "Per release, from the download slots: tills that downloaded it, are downloading it, or are waiting for it.",
+    "loading": "Reading each release's spread…",
+    "empty": "No release has been asked for yet.",
+    "downloaded": "Downloaded",
+    "downloading": "Downloading",
+    "waiting": "Waiting",
+    "total_one": "<n>{{n}}</n> till",
+    "total_other": "<n>{{n}}</n> tills",
+    "barLabel": "Downloaded {{downloaded}}, downloading {{downloading}}, waiting {{waiting}}"
+  }
+}

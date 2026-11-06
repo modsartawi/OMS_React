@@ -128,6 +128,10 @@ import { FileCog } from 'lucide-react'
 import { Workflow } from 'lucide-react'
 import { Radio } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
+// The release download queue (ticket 791): its probe stays with its feature, the leaf below and the page's gate are
+// its only readers. `layout` may import a feature.
+import { CloudDownload } from 'lucide-react'
+import { RELEASE_QUEUE_ACCESS_KEY, canViewReleaseQueue, releaseQueueApi } from '@/features/admin/release-queue/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
 // The Deliverect probe lives in `@/core/` (ticket 477) for the Materials reason: four features (stores,
@@ -594,6 +598,20 @@ export const MENU: ShellMenuItem[] = [
           key: SYNC_CONSOLE_ACCESS_KEY,
           run: () => syncConsoleApi.access(),
           visible: canOpenSyncConsole,
+        }),
+      },
+      {
+        // Release download queue (ticket 791, BackOffice spec 3396) — `canView` (`PosRelease.Queue.View`) off
+        // `GET PosReleaseQueue/Access`, the SAME key, call and predicate as the page's gate. 🚩 Fails closed: a
+        // pending, errored or malformed probe (a server before 3401) hides the leaf.
+        labelKey: 'release-queue:menu.releaseQueue',
+        icon: CloudDownload,
+        routerLink: '/admin/release-queue',
+        activePrefix: '/admin/release-queue',
+        access: accessProbe({
+          key: RELEASE_QUEUE_ACCESS_KEY,
+          run: () => releaseQueueApi.access(),
+          visible: canViewReleaseQueue,
         }),
       },
       {

@@ -810,7 +810,8 @@
       "edit": "تعديل {{what}}",
       "up": "نقل {{what}} لأعلى",
       "down": "نقل {{what}} لأسفل",
-      "remove": "إزالة {{what}}"
+      "remove": "إزالة {{what}}",
+      "drag": "اسحب لنقل {{what}}"
     },
     "outline": {
       "label": "مخطط التقرير",

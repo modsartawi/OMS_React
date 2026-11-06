@@ -15,7 +15,7 @@
  * The runner's page is one page in every variant — it is not the open question; the designer is.
  * Everything runs on stub figures in memory (report-proto-model.ts); nothing is saved.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   ArrowDown,
@@ -28,6 +28,7 @@ import {
   Download,
   Eye,
   GraduationCap,
+  GripVertical,
   LayoutList,
   Plus,
   Redo2,
@@ -91,26 +92,70 @@ import {
 } from './ReportProtoParts'
 
 const VARIANTS = [
+  { key: 'D', name: 'D — A + B: outline · editable report · inspector' },
   { key: 'A', name: 'A — The document is the editor' },
   { key: 'B', name: 'B — Outline · canvas · inspector' },
   { key: 'C', name: 'C — Steps' },
 ]
 const SCENARIOS = [
-  { key: 'design', label: 'Author · designing the report', proves: 'The acceptance case built: 9 parameters (all 7 kinds), 4 sections, series, live figures, summary.' },
-  { key: 'tutorial', label: 'Author · tutorial from a blank report', proves: 'A checklist builds the acceptance case step by step; each step ticks itself when the report reaches it.' },
-  { key: 'declare', label: 'Author · adding a parameter', proves: 'Kind → name (the URL key) → label → default → bindings pre-filled, with the reason a panel cannot take it.' },
-  { key: 'panel', label: 'Author · a panel with named series', proves: 'HungerStation against QC as two series; copied-from-view provenance; which parameters reach it.' },
-  { key: 'text', label: 'Author · text with live figures', proves: 'Insert a figure token from a panel; the preview fills it from this run.' },
-  { key: 'share', label: 'Author · share with teams', proves: 'Audience = roles + people (794); a removed role is flagged; what a runner can and cannot do.' },
-  { key: 'refused', label: 'Author · save refused (411)', proves: 'Panel p2 was deleted while a text block still names its figures: refused at save, never dropped.' },
-  { key: 'run', label: 'Runner · running the shared report', proves: 'No edit control anywhere; change parameters, export, copy the link.' },
-  { key: 'run-fallback', label: 'Runner · bad link value + summary unavailable', proves: 'A link value outside the list falls back and says so; a failed number check drops the summary only.' },
-  { key: 'not-shared', label: 'Outside the audience · 413', proves: 'No title, no data; names the owner to ask.' },
+  {
+    key: 'design',
+    label: 'Author · designing the report',
+    proves: 'The acceptance case built: 9 parameters (all 7 kinds), 4 sections, series, live figures, summary.',
+  },
+  {
+    key: 'tutorial',
+    label: 'Author · tutorial from a blank report',
+    proves: 'A checklist builds the acceptance case step by step; each step ticks itself when the report reaches it.',
+  },
+  {
+    key: 'declare',
+    label: 'Author · adding a parameter',
+    proves: 'Kind → name (the URL key) → label → default → bindings pre-filled, with the reason a panel cannot take it.',
+  },
+  {
+    key: 'panel',
+    label: 'Author · a panel with named series',
+    proves: 'HungerStation against QC as two series; copied-from-view provenance; which parameters reach it.',
+  },
+  {
+    key: 'text',
+    label: 'Author · text with live figures',
+    proves: 'Insert a figure token from a panel; the preview fills it from this run.',
+  },
+  {
+    key: 'share',
+    label: 'Author · share with teams',
+    proves: 'Audience = roles + people (794); a removed role is flagged; what a runner can and cannot do.',
+  },
+  {
+    key: 'refused',
+    label: 'Author · save refused (411)',
+    proves: 'Panel p2 was deleted while a text block still names its figures: refused at save, never dropped.',
+  },
+  {
+    key: 'run',
+    label: 'Runner · running the shared report',
+    proves: 'No edit control anywhere; change parameters, export, copy the link.',
+  },
+  {
+    key: 'run-fallback',
+    label: 'Runner · bad link value + summary unavailable',
+    proves: 'A link value outside the list falls back and says so; a failed number check drops the summary only.',
+  },
+  {
+    key: 'not-shared',
+    label: 'Outside the audience · 413',
+    proves: 'No title, no data; names the owner to ask.',
+  },
 ]
 
 type Sel = string | null
 /** What the last removal took, for "Removed … · Undo". */
-type Notice = { kind: 'section' | 'param' | 'panel' | 'text' | 'summary'; name: Words | null }
+type Notice = {
+  kind: 'section' | 'param' | 'panel' | 'text' | 'summary'
+  name: Words | null
+}
 
 function setupFor(scenario: string) {
   const report = scenario === 'tutorial' ? blankReport() : sampleReport()
@@ -118,7 +163,10 @@ function setupFor(scenario: string) {
   let draft: Param | null = null
   let refusals: Refusal[] = []
   if (scenario === 'declare') {
-    draft = blankParam('members', report.params.map((x) => x.name))
+    draft = blankParam(
+      'members',
+      report.params.map((x) => x.name),
+    )
     draft.dimension = 'region'
     draft.label = { en: 'Region', ar: 'المنطقة' }
     draft.name = 'region'
@@ -127,7 +175,10 @@ function setupFor(scenario: string) {
   if (scenario === 'panel') selected = 'block:p3'
   if (scenario === 'text') selected = 'block:t2'
   if (scenario === 'refused') {
-    report.sections = report.sections.map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== 'p2') }))
+    report.sections = report.sections.map((s) => ({
+      ...s,
+      blocks: s.blocks.filter((b) => b.id !== 'p2'),
+    }))
     refusals = validate(report)
   }
   return { report, selected, draft, refusals }
@@ -135,7 +186,7 @@ function setupFor(scenario: string) {
 
 export default function ReportPrototypePage() {
   const [params, setParams] = useSearchParams()
-  const variant = params.get('variant') ?? 'A'
+  const variant = params.get('variant') ?? 'D'
   const scenario = params.get('scenario') ?? 'design'
   const setQ = (k: string, v: string) =>
     setParams((prev) => {
@@ -147,7 +198,14 @@ export default function ReportPrototypePage() {
     <>
       {/* A new scenario starts from a fresh report. */}
       <Workbench key={scenario + variant} variant={variant} scenario={scenario} />
-      <PrototypeSwitcher variants={VARIANTS} variant={variant} onVariant={(k) => setQ('variant', k)} scenarios={SCENARIOS} scenario={scenario} onScenario={(k) => setQ('scenario', k)} />
+      <PrototypeSwitcher
+        variants={VARIANTS}
+        variant={variant}
+        onVariant={(k) => setQ('variant', k)}
+        scenarios={SCENARIOS}
+        scenario={scenario}
+        onScenario={(k) => setQ('scenario', k)}
+      />
     </>
   )
 }
@@ -157,9 +215,24 @@ export default function ReportPrototypePage() {
 function useReportState(scenario: string) {
   const init = useMemo(() => setupFor(scenario), [scenario])
   // Undo / redo (owner, 2026-11-06): every edit is a step; typing in one field within 1.5 s is ONE step.
-  const [hist, setHist] = useState<{ past: Report[]; present: Report; future: Report[]; key: string | null; at: number }>({ past: [], present: init.report, future: [], key: null, at: 0 })
+  const [hist, setHist] = useState<{
+    past: Report[]
+    present: Report
+    future: Report[]
+    key: string | null
+    at: number
+  }>({ past: [], present: init.report, future: [], key: null, at: 0 })
   const report = hist.present
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [drag, setDrag] = useState<{
+    kind: 'section' | 'block'
+    id: string
+  } | null>(null)
+  const [over, setOver] = useState<{
+    kind: 'section' | 'block'
+    sectionId: string
+    index: number
+  } | null>(null)
   const [values, setValues] = useState<Values>(() => {
     const v = defaultsOf(init.report)
     if (scenario === 'run-fallback') v.channel = { kind: 'members', values: [] }
@@ -176,17 +249,43 @@ function useReportState(scenario: string) {
     setHist((h) => {
       const now = Date.now()
       const merge = key !== null && h.key === key && now - h.at < 1500
-      return { past: merge ? h.past : [...h.past.slice(-99), h.present], present: f(structuredClone(h.present)), future: [], key, at: now }
+      return {
+        past: merge ? h.past : [...h.past.slice(-99), h.present],
+        present: f(structuredClone(h.present)),
+        future: [],
+        key,
+        at: now,
+      }
     })
     setSaved(null)
   }
   const undo = () => {
-    setHist((h) => (h.past.length ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future], key: null, at: 0 } : h))
+    setHist((h) =>
+      h.past.length
+        ? {
+            past: h.past.slice(0, -1),
+            present: h.past[h.past.length - 1],
+            future: [h.present, ...h.future],
+            key: null,
+            at: 0,
+          }
+        : h,
+    )
     setNotice(null)
     setSaved(null)
   }
   const redo = () => {
-    setHist((h) => (h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1), key: null, at: 0 } : h))
+    setHist((h) =>
+      h.future.length
+        ? {
+            past: [...h.past, h.present],
+            present: h.future[0],
+            future: h.future.slice(1),
+            key: null,
+            at: 0,
+          }
+        : h,
+    )
     setNotice(null)
     setSaved(null)
   }
@@ -220,7 +319,10 @@ function useReportState(scenario: string) {
       }),
     deleteParam: (name: string) => {
       const prm = report.params.find((x) => x.name === name)
-      setNotice({ kind: 'param', name: prm?.label.en ? prm.label : { en: name, ar: name } })
+      setNotice({
+        kind: 'param',
+        name: prm?.label.en ? prm.label : { en: name, ar: name },
+      })
       edit((r) => {
         r.params = r.params.filter((x) => x.name !== name)
         delete r.bindings[name]
@@ -229,7 +331,10 @@ function useReportState(scenario: string) {
       setSelected(null)
     },
     startParam: () => {
-      const d = blankParam('period', report.params.map((x) => x.name))
+      const d = blankParam(
+        'period',
+        report.params.map((x) => x.name),
+      )
       setDraft(d)
       setDraftBindings(prefill(d, panelsOf(report)))
       setSelected('new-param')
@@ -292,6 +397,24 @@ function useReportState(scenario: string) {
       })
       setSelected(null)
     },
+    moveBlockTo: (blockId: string, toSection: string, index: number) =>
+      edit((r) => {
+        const from = r.sections.find((s) => s.blocks.some((b) => b.id === blockId))
+        const to = r.sections.find((s) => s.id === toSection)
+        if (!from || !to) return r
+        const at = from.blocks.findIndex((b) => b.id === blockId)
+        const [block] = from.blocks.splice(at, 1)
+        to.blocks.splice(from === to && at < index ? index - 1 : index, 0, block)
+        return r
+      }),
+    moveSectionTo: (id: string, index: number) =>
+      edit((r) => {
+        const at = r.sections.findIndex((s) => s.id === id)
+        if (at < 0) return r
+        const [s] = r.sections.splice(at, 1)
+        r.sections.splice(at < index ? index - 1 : index, 0, s)
+        return r
+      }),
     addBlock: (sectionId: string, kind: 'model' | 'view' | 'text' | 'summary', viewId?: string) => {
       const ids = new Set(report.sections.flatMap((s) => s.blocks.map((b) => b.id)))
       const fresh = (pre: string) => {
@@ -304,16 +427,37 @@ function useReportState(scenario: string) {
         const id = fresh('p')
         const view = SAVED_VIEWS.find((v) => v.id === viewId)
         const panel: Panel = view
-          ? { id, ...structuredClone(view.panel), from: { view: view.title, revision: view.revision, changed: false } }
-          : { id, title: { en: '', ar: '' }, area: 'till', measures: ['net_value'], axis: 'channel', chart: 'bar', series: [] }
+          ? {
+              id,
+              ...structuredClone(view.panel),
+              from: {
+                view: view.title,
+                revision: view.revision,
+                changed: false,
+              },
+            }
+          : {
+              id,
+              title: { en: '', ar: '' },
+              area: 'till',
+              measures: ['net_value'],
+              axis: 'channel',
+              chart: 'bar',
+              series: [],
+            }
         block = { id, kind: 'panel', panel }
       }
       edit((r) => {
         r.sections.find((x) => x.id === sectionId)!.blocks.push(block)
-        if (block.kind === 'panel') for (const prm of r.params) {
-          const c = canBind(prm, block.panel)
-          if (c.ok) r.bindings[prm.name] = { ...(r.bindings[prm.name] ?? {}), [block.id]: c.target ?? true }
-        }
+        if (block.kind === 'panel')
+          for (const prm of r.params) {
+            const c = canBind(prm, block.panel)
+            if (c.ok)
+              r.bindings[prm.name] = {
+                ...(r.bindings[prm.name] ?? {}),
+                [block.id]: c.target ?? true,
+              }
+          }
         return r
       })
       setSelected(`block:${block.id}`)
@@ -335,7 +479,10 @@ function useReportState(scenario: string) {
         return r
       }),
     removeSection: (id: string) => {
-      setNotice({ kind: 'section', name: report.sections.find((s) => s.id === id)?.heading ?? null })
+      setNotice({
+        kind: 'section',
+        name: report.sections.find((s) => s.id === id)?.heading ?? null,
+      })
       edit((r) => {
         const gone = r.sections.find((s) => s.id === id)?.blocks.map((b) => b.id) ?? []
         r.sections = r.sections.filter((s) => s.id !== id)
@@ -371,12 +518,40 @@ function useReportState(scenario: string) {
       const found = validate(report)
       setRefusals(found)
       if (found.length === 0) {
-        setHist((h) => ({ ...h, present: { ...h.present, revision: h.present.revision + 1 } }))
+        setHist((h) => ({
+          ...h,
+          present: { ...h.present, revision: h.present.revision + 1 },
+        }))
         setSaved(report.revision + 1)
       }
     },
   }
-  return { tutorial: scenario === 'tutorial', undo, redo, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0, notice, setNotice, report, values, selected, setSelected, draft, draftBindings, setDraftBindings, refusals, setRefusals, saved, shareOpen, setShareOpen, ops }
+  return {
+    drag,
+    setDrag,
+    over,
+    setOver,
+    tutorial: scenario === 'tutorial',
+    undo,
+    redo,
+    canUndo: hist.past.length > 0,
+    canRedo: hist.future.length > 0,
+    notice,
+    setNotice,
+    report,
+    values,
+    selected,
+    setSelected,
+    draft,
+    draftBindings,
+    setDraftBindings,
+    refusals,
+    setRefusals,
+    saved,
+    shareOpen,
+    setShareOpen,
+    ops,
+  }
 }
 type State = ReturnType<typeof useReportState>
 
@@ -403,11 +578,11 @@ function Workbench({ variant, scenario }: { variant: string; scenario: string })
   }, [st])
   if (scenario === 'not-shared') return <NotShared owner={st.report.owner} />
   if (scenario.startsWith('run') || preview) return <RunnerPage st={st} fallback={scenario === 'run-fallback'} onBack={preview ? () => setPreview(false) : undefined} />
-  const Designer = variant === 'B' ? DesignerB : variant === 'C' ? DesignerC : DesignerA
+  const Designer = variant === 'B' ? DesignerB : variant === 'C' ? DesignerC : variant === 'A' ? DesignerA : DesignerD
   return (
     <>
       <Designer st={st} onPreview={() => setPreview(true)} />
-      {scenario === 'tutorial' && <Tutorial st={st} />}
+      {scenario === 'tutorial' && variant !== 'D' && <Tutorial st={st} />}
       {st.shareOpen && <ShareDialog report={st.report} onClose={() => st.setShareOpen(false)} onShare={st.ops.share} />}
     </>
   )
@@ -452,7 +627,11 @@ function AuthorBar({ st, onPreview, children }: { st: State; onPreview: () => vo
       </div>
       {st.notice && (
         <div role="status" className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs" data-proto-notice>
-          <span>{p(`history.removed.${st.notice.kind}`, { name: fsi(say(st.notice.name ?? undefined, lang) || p('section.untitled')) })}</span>
+          <span>
+            {p(`history.removed.${st.notice.kind}`, {
+              name: fsi(say(st.notice.name ?? undefined, lang) || p('section.untitled')),
+            })}
+          </span>
           <Button variant="link" onClick={st.undo} data-proto-notice-undo>
             {p('history.undo')}
           </Button>
@@ -481,7 +660,15 @@ function Inspector({ st, compact = false }: { st: State; compact?: boolean }) {
     return (
       <div className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">{p('inspector.newParam')}</h2>
-        <ParamEditor report={st.report} param={st.draft} original={null} onParam={st.ops.draftChange} bindings={st.draftBindings} onBindings={st.setDraftBindings} compact={compact} />
+        <ParamEditor
+          report={st.report}
+          param={st.draft}
+          original={null}
+          onParam={st.ops.draftChange}
+          bindings={st.draftBindings}
+          onBindings={st.setDraftBindings}
+          compact={compact}
+        />
         <div>
           <Button onClick={st.ops.addDraft} disabled={!!problem} data-proto-add-draft>
             <Plus className="size-3.5" />
@@ -576,7 +763,12 @@ function AddBlock({ st, sectionId, inline = false }: { st: State; sectionId: str
         <Type className="size-3.5" />
         {p('add.text')}
       </Button>
-      <Button variant="outlined" aria-disabled={hasSummary} title={hasSummary ? p('add.summaryOne') : undefined} onClick={() => !hasSummary && st.ops.addBlock(sectionId, 'summary')}>
+      <Button
+        variant="outlined"
+        aria-disabled={hasSummary}
+        title={hasSummary ? p('add.summaryOne') : undefined}
+        onClick={() => !hasSummary && st.ops.addBlock(sectionId, 'summary')}
+      >
         <Sparkles className="size-3.5" />
         {p('add.summary')}
       </Button>
@@ -608,67 +800,122 @@ function MoveTools({ onUp, onDown, onRemove, onEdit, what }: { onUp: () => void;
 
 const blockName = (b: Block, lang: string, p: (k: string) => string) => (b.kind === 'panel' ? say(b.panel.title, lang) || p('block.untitledPanel') : p(`block.${b.kind}`))
 
+// ── Drag and drop (owner, 2026-11-06) ───────────────────────────────────────────────────────
+//
+// Native HTML5 drag and drop. The GRIP is what is dragged (so text fields inside a block stay
+// selectable); the whole item is the drag image and the drop target. Dropping in the top half
+// lands before the item, the bottom half after it. Every move is one undoable step. The ↑ / ↓
+// buttons stay: they are the keyboard's way to move.
+
+function DropLine({ show }: { show: boolean }) {
+  return <div className={`h-0.5 rounded-full ${show ? 'bg-primary' : 'bg-transparent'}`} aria-hidden data-proto-drop-line={show ? 'on' : 'off'} />
+}
+
+function endDrag(st: State) {
+  st.setDrag(null)
+  st.setOver(null)
+}
+
+const half = (e: DragEvent<HTMLElement>) => {
+  const r = e.currentTarget.getBoundingClientRect()
+  return e.clientY > r.top + r.height / 2 ? 1 : 0
+}
+
+function Grip({ st, kind, id, what }: { st: State; kind: 'section' | 'block'; id: string; what: string }) {
+  const { p } = useProto()
+  return (
+    <IconButton
+      label={p('tools.drag', { what: fsi(what) })}
+      size="compact"
+      className="cursor-grab active:cursor-grabbing"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', id)
+        const item = (e.currentTarget as HTMLElement).closest('[data-dnd-item]')
+        if (item) e.dataTransfer.setDragImage(item, 24, 16)
+        st.setDrag({ kind, id })
+      }}
+      onDragEnd={() => endDrag(st)}
+      data-proto-grip={`${kind}:${id}`}
+    >
+      <GripVertical className="size-3.5" />
+    </IconButton>
+  )
+}
+
+/** A block as a drop target: before or after it, in its own section. */
+function blockTarget(st: State, sectionId: string, blockId: string) {
+  const index = st.report.sections.find((s) => s.id === sectionId)?.blocks.findIndex((b) => b.id === blockId) ?? 0
+  return {
+    'data-dnd-item': '',
+    onDragOver: (e: DragEvent<HTMLElement>) => {
+      if (st.drag?.kind !== 'block') return
+      e.preventDefault()
+      e.stopPropagation()
+      const next = {
+        kind: 'block' as const,
+        sectionId,
+        index: index + half(e),
+      }
+      if (st.over?.sectionId !== next.sectionId || st.over.index !== next.index || st.over.kind !== 'block') st.setOver(next)
+    },
+    onDrop: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (st.drag?.kind === 'block' && st.over) st.ops.moveBlockTo(st.drag.id, st.over.sectionId, st.over.index)
+      endDrag(st)
+    },
+  }
+}
+
+/** A section as a drop target: a section lands before or after it; a block dropped on it (not on a block) goes to its end. */
+function sectionTarget(st: State, sectionId: string) {
+  const index = st.report.sections.findIndex((s) => s.id === sectionId)
+  const blocks = st.report.sections[index]?.blocks.length ?? 0
+  return {
+    'data-dnd-item': '',
+    onDragOver: (e: DragEvent<HTMLElement>) => {
+      if (!st.drag) return
+      e.preventDefault()
+      const next = st.drag.kind === 'section' ? { kind: 'section' as const, sectionId, index: index + half(e) } : { kind: 'block' as const, sectionId, index: blocks }
+      if (st.over?.kind !== next.kind || st.over.index !== next.index || st.over.sectionId !== next.sectionId) st.setOver(next)
+    },
+    onDrop: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault()
+      if (st.drag?.kind === 'section' && st.over?.kind === 'section') st.ops.moveSectionTo(st.drag.id, st.over.index)
+      if (st.drag?.kind === 'block' && st.over?.kind === 'block') st.ops.moveBlockTo(st.drag.id, st.over.sectionId, st.over.index)
+      endDrag(st)
+    },
+  }
+}
+
+const lineAtBlock = (st: State, sectionId: string, index: number) =>
+  st.drag?.kind === 'block' && st.over?.kind === 'block' && st.over.sectionId === sectionId && st.over.index === index
+const lineAtSection = (st: State, index: number) => st.drag?.kind === 'section' && st.over?.kind === 'section' && st.over.index === index
+const sectionIndex = (st: State, id: string) => st.report.sections.findIndex((s) => s.id === id)
+const blockIndex = (st: State, sid: string, bid: string) => st.report.sections.find((s) => s.id === sid)?.blocks.findIndex((b) => b.id === bid) ?? -1
+const blockCount = (st: State, sid: string) => st.report.sections.find((s) => s.id === sid)?.blocks.length ?? 0
+
 // ── Variant A — the document is the editor ──────────────────────────────────────────────────
 
 function DesignerA({ st, onPreview }: { st: State; onPreview: () => void }) {
-  const { p, lang } = useProto()
-  const [adding, setAdding] = useState<string | null>(null)
+  const { p } = useProto()
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 pb-28" data-proto-designer="A">
       <AuthorBar st={st} onPreview={onPreview} />
       <WordsFields label={p('author.title')} value={st.report.title} onChange={st.ops.setTitle} />
-      <ParamStrip report={st.report} values={st.values} onValue={st.ops.setValue} design={{ selected: st.selected, onEdit: (n) => st.setSelected(`param:${n}`), onAdd: st.ops.startParam }} />
-      <article className="rounded-lg bg-card p-6 shadow-sm">
-        <ReportBody
-          report={st.report}
-          values={st.values}
-          failedSummary={false}
-          design
-          sectionTools={(sid) => (
-            <span className="ms-auto">
-              <MoveTools
-                what={say(st.report.sections.find((s) => s.id === sid)?.heading, lang)}
-                onEdit={() => st.setSelected(`section:${sid}`)}
-                onUp={() => st.ops.moveSection(sid, -1)}
-                onDown={() => st.ops.moveSection(sid, 1)}
-                onRemove={() => st.ops.removeSection(sid)}
-              />
-            </span>
-          )}
-          blockFrame={(sid, b, rendered) => (
-            <div className={`group relative rounded-lg ${st.selected === `block:${b.id}` ? 'ring-2 ring-primary ring-offset-4 ring-offset-card' : 'hover:ring-1 hover:ring-border hover:ring-offset-4 hover:ring-offset-card'}`}>
-              <div className="absolute -top-3 end-2 z-10 hidden rounded-md border border-border bg-card px-1 shadow-sm group-hover:block group-focus-within:block">
-                <MoveTools
-                  what={blockName(b, lang, p)}
-                  onEdit={() => st.setSelected(`block:${b.id}`)}
-                  onUp={() => st.ops.moveBlock(sid, b.id, -1)}
-                  onDown={() => st.ops.moveBlock(sid, b.id, 1)}
-                  onRemove={() => st.ops.removeBlock(sid, b.id)}
-                />
-              </div>
-              {rendered}
-            </div>
-          )}
-          afterSection={(sid) =>
-            adding === sid ? (
-              <AddBlock st={st} sectionId={sid} inline />
-            ) : (
-              <div>
-                <Button variant="text" onClick={() => setAdding(sid)} data-proto-open-add={sid}>
-                  <Plus className="size-3.5" />
-                  {p('add.toSection')}
-                </Button>
-              </div>
-            )
-          }
-        />
-        <div className="mt-6">
-          <Button variant="outlined" onClick={st.ops.addSection}>
-            <Plus className="size-3.5" />
-            {p('add.section')}
-          </Button>
-        </div>
-      </article>
+      <ParamStrip
+        report={st.report}
+        values={st.values}
+        onValue={st.ops.setValue}
+        design={{
+          selected: st.selected,
+          onEdit: (n) => st.setSelected(`param:${n}`),
+          onAdd: st.ops.startParam,
+        }}
+      />
+      <DocCanvas st={st} />
       {st.selected && (
         <SideSheet onClose={() => st.setSelected(null)} width="w-[42rem]" aria-label={p('inspector.label')}>
           <div className="flex h-full flex-col overflow-y-auto p-5">
@@ -689,81 +936,12 @@ function DesignerA({ st, onPreview }: { st: State; onPreview: () => void }) {
 // ── Variant B — outline · canvas · inspector ────────────────────────────────────────────────
 
 function DesignerB({ st, onPreview }: { st: State; onPreview: () => void }) {
-  const { p, lang } = useProto()
-  const row = (key: string, icon: ReactNode, label: ReactNode, tools?: ReactNode, depth = 0) => (
-    <div key={key} className={`flex items-center gap-1 rounded-md ${st.selected === key ? 'bg-primary-050 text-primary-800' : 'hover:bg-muted'}`} style={{ paddingInlineStart: `${depth * 12}px` }}>
-      <Button variant="ghost" className="min-w-0 flex-1 justify-start" onClick={() => st.setSelected(key)} data-proto-outline={key}>
-        {icon}
-        <span className="truncate">{label}</span>
-      </Button>
-      {tools}
-    </div>
-  )
+  const { p } = useProto()
   return (
     <div className="flex flex-col gap-3 p-4 pb-28" data-proto-designer="B">
       <AuthorBar st={st} onPreview={onPreview} />
       <div className="grid min-h-[70vh] grid-cols-[17rem_minmax(0,1fr)_28rem] gap-3">
-        <nav className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-2" aria-label={p('outline.label')}>
-          <div>
-            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{p('outline.params')}</p>
-            {st.report.params.map((prm) =>
-              row(
-                `param:${prm.name}`,
-                <Settings2 className="size-3.5 shrink-0" />,
-                <>
-                  {paramLabel(prm, lang)} <span className="text-[10px] text-muted-foreground">{p(`kind.${prm.kind}`)}</span>
-                </>,
-              ),
-            )}
-            <Button variant="text" onClick={st.ops.startParam} data-proto-add-param>
-              <Plus className="size-3.5" />
-              {p('strip.add')}
-            </Button>
-          </div>
-          <div>
-            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{p('outline.sections')}</p>
-            {st.report.sections.map((s) => (
-              <div key={s.id}>
-                {row(
-                  `section:${s.id}`,
-                  <LayoutList className="size-3.5 shrink-0" />,
-                  <bdi>{say(s.heading, lang) || p('section.untitled')}</bdi>,
-                  <span className="flex">
-                    <IconButton label={p('tools.up', { what: fsi(say(s.heading, lang)) })} size="compact" onClick={() => st.ops.moveSection(s.id, -1)}>
-                      <ArrowUp className="size-3" />
-                    </IconButton>
-                    <IconButton label={p('tools.down', { what: fsi(say(s.heading, lang)) })} size="compact" onClick={() => st.ops.moveSection(s.id, 1)}>
-                      <ArrowDown className="size-3" />
-                    </IconButton>
-                    <IconButton label={p('tools.remove', { what: fsi(say(s.heading, lang) || p('section.untitled')) })} size="compact" variant="danger" onClick={() => st.ops.removeSection(s.id)} data-proto-outline-remove={s.id}>
-                      <Trash2 className="size-3" />
-                    </IconButton>
-                  </span>,
-                )}
-                {s.blocks.map((b) =>
-                  row(
-                    `block:${b.id}`,
-                    b.kind === 'panel' ? <BarChart3 className="size-3.5 shrink-0" /> : b.kind === 'text' ? <Type className="size-3.5 shrink-0" /> : <Sparkles className="size-3.5 shrink-0" />,
-                    <bdi>{blockName(b, lang, p)}</bdi>,
-                    <span className="flex">
-                      <IconButton label={p('tools.up', { what: fsi(blockName(b, lang, p)) })} size="compact" onClick={() => st.ops.moveBlock(s.id, b.id, -1)}>
-                        <ArrowUp className="size-3" />
-                      </IconButton>
-                      <IconButton label={p('tools.down', { what: fsi(blockName(b, lang, p)) })} size="compact" onClick={() => st.ops.moveBlock(s.id, b.id, 1)}>
-                        <ArrowDown className="size-3" />
-                      </IconButton>
-                    </span>,
-                    1,
-                  ),
-                )}
-              </div>
-            ))}
-            <Button variant="text" onClick={st.ops.addSection}>
-              <Plus className="size-3.5" />
-              {p('add.section')}
-            </Button>
-          </div>
-        </nav>
+        <Outline st={st} />
         <main className="flex min-w-0 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
           <ParamStrip report={st.report} values={st.values} onValue={st.ops.setValue} />
           <article className="rounded-lg bg-card p-5 shadow-sm">
@@ -772,11 +950,255 @@ function DesignerB({ st, onPreview }: { st: State; onPreview: () => void }) {
               values={st.values}
               failedSummary={false}
               design
-              blockFrame={(_sid, b, rendered) => <div className={`rounded-lg ${st.selected === `block:${b.id}` ? 'ring-2 ring-primary ring-offset-4 ring-offset-card' : ''}`}>{rendered}</div>}
+              blockFrame={(_sid, b, rendered) => (
+                <div className={`rounded-lg ${st.selected === `block:${b.id}` ? 'ring-2 ring-primary ring-offset-4 ring-offset-card' : ''}`}>{rendered}</div>
+              )}
             />
           </article>
         </main>
         <aside className="overflow-y-auto rounded-lg border border-border bg-card p-4" aria-label={p('inspector.label')} data-proto-inspector>
+          <Inspector st={st} compact />
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+// ── Shared by A, B and D: the editable document, and the outline ─────────────────────────────
+
+/** The report as it will read, edited in place: block toolbars, grips, "Add to this section". */
+function DocCanvas({ st }: { st: State }) {
+  const { p, lang } = useProto()
+  const [adding, setAdding] = useState<string | null>(null)
+  return (
+    <article className="rounded-lg bg-card p-6 shadow-sm">
+      <ReportBody
+        report={st.report}
+        values={st.values}
+        failedSummary={false}
+        design
+        sectionAttrs={(sid) => sectionTarget(st, sid)}
+        sectionLead={(sid) => <DropLine show={lineAtSection(st, sectionIndex(st, sid))} />}
+        sectionTools={(sid) => (
+          <span className="ms-auto flex items-center">
+            <Grip st={st} kind="section" id={sid} what={say(st.report.sections.find((s) => s.id === sid)?.heading, lang) || p('section.untitled')} />
+            <MoveTools
+              what={say(st.report.sections.find((s) => s.id === sid)?.heading, lang)}
+              onEdit={() => st.setSelected(`section:${sid}`)}
+              onUp={() => st.ops.moveSection(sid, -1)}
+              onDown={() => st.ops.moveSection(sid, 1)}
+              onRemove={() => st.ops.removeSection(sid)}
+            />
+          </span>
+        )}
+        blockFrame={(sid, b, rendered) => (
+          <div {...blockTarget(st, sid, b.id)} className="flex flex-col gap-1">
+            <DropLine show={lineAtBlock(st, sid, blockIndex(st, sid, b.id))} />
+            <div
+              className={`group relative rounded-lg ${st.drag?.kind === 'block' && st.drag.id === b.id ? 'opacity-40 ' : ''}${st.selected === `block:${b.id}` ? 'ring-2 ring-primary ring-offset-4 ring-offset-card' : 'hover:ring-1 hover:ring-border hover:ring-offset-4 hover:ring-offset-card'}`}
+            >
+              <div
+                className={`absolute -top-3 end-2 z-10 items-center rounded-md border border-border bg-card px-1 shadow-sm ${st.drag?.id === b.id ? 'flex' : 'hidden group-hover:flex group-focus-within:flex'}`}
+              >
+                <Grip st={st} kind="block" id={b.id} what={blockName(b, lang, p)} />
+                <MoveTools
+                  what={blockName(b, lang, p)}
+                  onEdit={() => st.setSelected(`block:${b.id}`)}
+                  onUp={() => st.ops.moveBlock(sid, b.id, -1)}
+                  onDown={() => st.ops.moveBlock(sid, b.id, 1)}
+                  onRemove={() => st.ops.removeBlock(sid, b.id)}
+                />
+              </div>
+              {rendered}
+            </div>
+          </div>
+        )}
+        afterSection={(sid) => (
+          <>
+            <DropLine show={lineAtBlock(st, sid, blockCount(st, sid))} />
+            {adding === sid ? (
+              <AddBlock st={st} sectionId={sid} inline />
+            ) : (
+              <div>
+                <Button variant="text" onClick={() => setAdding(sid)} data-proto-open-add={sid}>
+                  <Plus className="size-3.5" />
+                  {p('add.toSection')}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      />
+      <DropLine show={lineAtSection(st, st.report.sections.length)} />
+      <div className="mt-6">
+        <Button variant="outlined" onClick={st.ops.addSection}>
+          <Plus className="size-3.5" />
+          {p('add.section')}
+        </Button>
+      </div>
+    </article>
+  )
+}
+
+/** Parameters and the section tree, each row selectable and (sections, blocks) draggable. */
+function Outline({ st }: { st: State }) {
+  const { p, lang } = useProto()
+  const row = (key: string, icon: ReactNode, label: ReactNode, tools?: ReactNode, depth = 0, dnd?: { grip: ReactNode; attrs: object; dragging: boolean }) => (
+    <div
+      key={key}
+      {...(dnd?.attrs ?? {})}
+      className={`flex items-center gap-1 rounded-md ${dnd?.dragging ? 'opacity-40 ' : ''}${st.selected === key ? 'bg-primary-050 text-primary-800' : 'hover:bg-muted'}`}
+      style={{ paddingInlineStart: `${depth * 12}px` }}
+    >
+      {dnd?.grip}
+      <Button variant="ghost" className="min-w-0 flex-1 justify-start" onClick={() => st.setSelected(key)} data-proto-outline={key}>
+        {icon}
+        <span className="truncate">{label}</span>
+      </Button>
+      {tools}
+    </div>
+  )
+  return (
+    <nav className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-2" aria-label={p('outline.label')}>
+      <div>
+        <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{p('outline.params')}</p>
+        {st.report.params.map((prm) =>
+          row(
+            `param:${prm.name}`,
+            <Settings2 className="size-3.5 shrink-0" />,
+            <>
+              {paramLabel(prm, lang)} <span className="text-[10px] text-muted-foreground">{p(`kind.${prm.kind}`)}</span>
+            </>,
+          ),
+        )}
+        <Button variant="text" onClick={st.ops.startParam} data-proto-add-param>
+          <Plus className="size-3.5" />
+          {p('strip.add')}
+        </Button>
+      </div>
+      <div>
+        <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{p('outline.sections')}</p>
+        {st.report.sections.map((s, si) => (
+          <div key={s.id}>
+            <DropLine show={lineAtSection(st, si)} />
+            {row(
+              `section:${s.id}`,
+              <LayoutList className="size-3.5 shrink-0" />,
+              <bdi>{say(s.heading, lang) || p('section.untitled')}</bdi>,
+              <span className="flex">
+                <IconButton label={p('tools.up', { what: fsi(say(s.heading, lang)) })} size="compact" onClick={() => st.ops.moveSection(s.id, -1)}>
+                  <ArrowUp className="size-3" />
+                </IconButton>
+                <IconButton
+                  label={p('tools.down', {
+                    what: fsi(say(s.heading, lang)),
+                  })}
+                  size="compact"
+                  onClick={() => st.ops.moveSection(s.id, 1)}
+                >
+                  <ArrowDown className="size-3" />
+                </IconButton>
+                <IconButton
+                  label={p('tools.remove', {
+                    what: fsi(say(s.heading, lang) || p('section.untitled')),
+                  })}
+                  size="compact"
+                  variant="danger"
+                  onClick={() => st.ops.removeSection(s.id)}
+                  data-proto-outline-remove={s.id}
+                >
+                  <Trash2 className="size-3" />
+                </IconButton>
+              </span>,
+              0,
+              {
+                grip: <Grip st={st} kind="section" id={s.id} what={say(s.heading, lang) || p('section.untitled')} />,
+                attrs: sectionTarget(st, s.id),
+                dragging: st.drag?.kind === 'section' && st.drag.id === s.id,
+              },
+            )}
+            {s.blocks.map((b, bi) => (
+              <div key={b.id}>
+                <DropLine show={lineAtBlock(st, s.id, bi)} />
+                {row(
+                  `block:${b.id}`,
+                  b.kind === 'panel' ? (
+                    <BarChart3 className="size-3.5 shrink-0" />
+                  ) : b.kind === 'text' ? (
+                    <Type className="size-3.5 shrink-0" />
+                  ) : (
+                    <Sparkles className="size-3.5 shrink-0" />
+                  ),
+                  <bdi>{blockName(b, lang, p)}</bdi>,
+                  <span className="flex">
+                    <IconButton
+                      label={p('tools.up', {
+                        what: fsi(blockName(b, lang, p)),
+                      })}
+                      size="compact"
+                      onClick={() => st.ops.moveBlock(s.id, b.id, -1)}
+                    >
+                      <ArrowUp className="size-3" />
+                    </IconButton>
+                    <IconButton
+                      label={p('tools.down', {
+                        what: fsi(blockName(b, lang, p)),
+                      })}
+                      size="compact"
+                      onClick={() => st.ops.moveBlock(s.id, b.id, 1)}
+                    >
+                      <ArrowDown className="size-3" />
+                    </IconButton>
+                  </span>,
+                  1,
+                  {
+                    grip: <Grip st={st} kind="block" id={b.id} what={blockName(b, lang, p)} />,
+                    attrs: blockTarget(st, s.id, b.id),
+                    dragging: st.drag?.kind === 'block' && st.drag.id === b.id,
+                  },
+                )}
+              </div>
+            ))}
+            <DropLine show={lineAtBlock(st, s.id, s.blocks.length)} />
+          </div>
+        ))}
+        <DropLine show={lineAtSection(st, st.report.sections.length)} />
+        <Button variant="text" onClick={st.ops.addSection}>
+          <Plus className="size-3.5" />
+          {p('add.section')}
+        </Button>
+      </div>
+    </nav>
+  )
+}
+
+// ── Variant D — A + B (owner, 2026-11-06: "why don't combine B & A") ────────────────────────
+//
+// B's frame — the outline on the start side, the inspector fixed on the end side, both sticky —
+// around A's document, which stays editable in place (toolbars, grips, "+ Parameter" in the
+// strip). The inspector is a pane, not a modal sheet, so it never covers the report or the guide.
+
+function DesignerD({ st, onPreview }: { st: State; onPreview: () => void }) {
+  const { p } = useProto()
+  return (
+    <div className="flex flex-col gap-3 p-4 pb-28" data-proto-designer="D">
+      <AuthorBar st={st} onPreview={onPreview} />
+      <div className="grid grid-cols-[16rem_minmax(0,1fr)_26rem] items-start gap-3">
+        <div className="sticky top-2 flex max-h-[calc(100vh-1rem)] flex-col overflow-y-auto">
+          <Outline st={st} />
+        </div>
+        <main className="flex min-w-0 flex-col gap-3">
+          <WordsFields label={p('author.title')} value={st.report.title} onChange={st.ops.setTitle} />
+          <ParamStrip
+            report={st.report}
+            values={st.values}
+            onValue={st.ops.setValue}
+            design={{ selected: st.selected, onEdit: (n) => st.setSelected(`param:${n}`), onAdd: st.ops.startParam }}
+          />
+          <DocCanvas st={st} />
+        </main>
+        <aside className="sticky top-2 max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-border bg-card p-4" aria-label={p('inspector.label')} data-proto-inspector>
+          {st.tutorial && <Tutorial st={st} inline />}
           <Inspector st={st} compact />
         </aside>
       </div>
@@ -810,11 +1232,7 @@ function DesignerC({ st, onPreview }: { st: State; onPreview: () => void }) {
         <Button variant="text" disabled={step === STEPS[0]} onClick={() => setStep(STEPS[Math.max(0, STEPS.indexOf(step) - 1)])}>
           {p('steps.back')}
         </Button>
-        {step === 'share' ? (
-          <Button onClick={onPreview}>{p('author.preview')}</Button>
-        ) : (
-          <Button onClick={() => setStep(STEPS[STEPS.indexOf(step) + 1])}>{p('steps.next')}</Button>
-        )}
+        {step === 'share' ? <Button onClick={onPreview}>{p('author.preview')}</Button> : <Button onClick={() => setStep(STEPS[STEPS.indexOf(step) + 1])}>{p('steps.next')}</Button>}
       </div>
     </div>
   )
@@ -857,7 +1275,14 @@ function StepParams({ st }: { st: State }) {
                   return (
                     <td key={pn.id} className="p-2">
                       {c.ok || bound ? (
-                        <Chip on={bound} onClick={() => st.ops.bind(prm.name, pn.id, !bound)} aria-label={p('matrix.cell', { param: fsi(paramLabel(prm, lang)), panel: fsi(say(pn.title, lang)) })}>
+                        <Chip
+                          on={bound}
+                          onClick={() => st.ops.bind(prm.name, pn.id, !bound)}
+                          aria-label={p('matrix.cell', {
+                            param: fsi(paramLabel(prm, lang)),
+                            panel: fsi(say(pn.title, lang)),
+                          })}
+                        >
                           {bound ? <Check className="size-3.5" /> : <span className="size-3.5" />}
                         </Chip>
                       ) : (
@@ -913,40 +1338,66 @@ function StepContent({ st }: { st: State }) {
   const { p, lang } = useProto()
   return (
     <div className="flex flex-col gap-4">
-      {st.report.sections.map((s) => (
-        <section key={s.id} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <WordsFields label={p('section.heading')} value={s.heading} onChange={(h) => st.ops.renameSection(s.id, h)} />
-            </div>
-            <MoveTools what={say(s.heading, lang)} onUp={() => st.ops.moveSection(s.id, -1)} onDown={() => st.ops.moveSection(s.id, 1)} onRemove={() => st.ops.removeSection(s.id)} />
-          </div>
-          {s.blocks.map((b) => (
-            <div key={b.id} className="rounded-md border border-border/70">
-              <div className="flex items-center gap-2 p-2">
-                {b.kind === 'panel' ? <BarChart3 className="size-3.5" /> : b.kind === 'text' ? <Type className="size-3.5" /> : <Sparkles className="size-3.5" />}
-                <bdi className="flex-1 truncate text-sm">{blockName(b, lang, p)}</bdi>
-                <MoveTools
-                  what={blockName(b, lang, p)}
-                  onEdit={() => st.setSelected(st.selected === `block:${b.id}` ? null : `block:${b.id}`)}
-                  onUp={() => st.ops.moveBlock(s.id, b.id, -1)}
-                  onDown={() => st.ops.moveBlock(s.id, b.id, 1)}
-                  onRemove={() => st.ops.removeBlock(s.id, b.id)}
-                />
+      {st.report.sections.map((s, si) => (
+        <div key={s.id} className="flex flex-col gap-2">
+          <DropLine show={lineAtSection(st, si)} />
+          <section
+            {...sectionTarget(st, s.id)}
+            className={`flex flex-col gap-2 rounded-lg border border-border bg-card p-3 ${st.drag?.kind === 'section' && st.drag.id === s.id ? 'opacity-40' : ''}`}
+          >
+            <div className="flex items-end gap-2">
+              <Grip st={st} kind="section" id={s.id} what={say(s.heading, lang) || p('section.untitled')} />
+              <div className="flex-1">
+                <WordsFields label={p('section.heading')} value={s.heading} onChange={(h) => st.ops.renameSection(s.id, h)} />
               </div>
-              {st.selected === `block:${b.id}` && b.kind === 'panel' && (
-                <div className="grid grid-cols-2 gap-4 border-t border-border p-3">
-                  <PanelEditor report={st.report} panel={b.panel} onPanel={st.ops.updatePanel} onBind={st.ops.bind} />
-                  <div className="sticky top-2 self-start">
-                    <ReportBody report={{ ...st.report, sections: [{ ...s, blocks: [b] }] }} values={st.values} failedSummary={false} design />
-                  </div>
-                </div>
-              )}
+              <MoveTools
+                what={say(s.heading, lang)}
+                onUp={() => st.ops.moveSection(s.id, -1)}
+                onDown={() => st.ops.moveSection(s.id, 1)}
+                onRemove={() => st.ops.removeSection(s.id)}
+              />
             </div>
-          ))}
-          <AddBlock st={st} sectionId={s.id} inline />
-        </section>
+            {s.blocks.map((b, bi) => (
+              <div key={b.id} {...blockTarget(st, s.id, b.id)} className="flex flex-col gap-1">
+                <DropLine show={lineAtBlock(st, s.id, bi)} />
+                <div className={`rounded-md border border-border/70 ${st.drag?.kind === 'block' && st.drag.id === b.id ? 'opacity-40' : ''}`}>
+                  <div className="flex items-center gap-2 p-2">
+                    <Grip st={st} kind="block" id={b.id} what={blockName(b, lang, p)} />
+                    {b.kind === 'panel' ? <BarChart3 className="size-3.5" /> : b.kind === 'text' ? <Type className="size-3.5" /> : <Sparkles className="size-3.5" />}
+                    <bdi className="flex-1 truncate text-sm">{blockName(b, lang, p)}</bdi>
+                    <MoveTools
+                      what={blockName(b, lang, p)}
+                      onEdit={() => st.setSelected(st.selected === `block:${b.id}` ? null : `block:${b.id}`)}
+                      onUp={() => st.ops.moveBlock(s.id, b.id, -1)}
+                      onDown={() => st.ops.moveBlock(s.id, b.id, 1)}
+                      onRemove={() => st.ops.removeBlock(s.id, b.id)}
+                    />
+                  </div>
+                  {st.selected === `block:${b.id}` && b.kind === 'panel' && (
+                    <div className="grid grid-cols-2 gap-4 border-t border-border p-3">
+                      <PanelEditor report={st.report} panel={b.panel} onPanel={st.ops.updatePanel} onBind={st.ops.bind} />
+                      <div className="sticky top-2 self-start">
+                        <ReportBody
+                          report={{
+                            ...st.report,
+                            sections: [{ ...s, blocks: [b] }],
+                          }}
+                          values={st.values}
+                          failedSummary={false}
+                          design
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <DropLine show={lineAtBlock(st, s.id, s.blocks.length)} />
+            <AddBlock st={st} sectionId={s.id} inline />
+          </section>
+        </div>
       ))}
+      <DropLine show={lineAtSection(st, st.report.sections.length)} />
       <div>
         <Button variant="outlined" onClick={st.ops.addSection}>
           <Plus className="size-3.5" />
@@ -1052,7 +1503,10 @@ function RunnerPage({ st, fallback, onBack }: { st: State; fallback: boolean; on
       )}
       {fallback && (
         <div role="status" className="rounded-md border border-attention-border bg-attention-050 p-2 text-xs text-attention-800" data-proto-fallback>
-          {p('runner.fallback', { value: fsi('jahez'), param: fsi(p('runner.channel')) })}
+          {p('runner.fallback', {
+            value: fsi('jahez'),
+            param: fsi(p('runner.channel')),
+          })}
         </div>
       )}
       <ParamStrip report={st.report} values={st.values} onValue={st.ops.setValue} onReset={st.ops.reset} />
@@ -1073,15 +1527,24 @@ const hasHsQc = (p: Panel) =>
 const TUTORIAL: { key: string; done: (st: State) => boolean }[] = [
   { key: 'title', done: (st) => st.report.title.en.trim() !== '' },
   { key: 'section', done: (st) => st.report.sections.length > 0 },
-  { key: 'chart', done: (st) => panelsOf(st.report).some((p) => p.measures.includes('net_value') && p.axis === 'channel' && p.series.length === 0) },
+  {
+    key: 'chart',
+    done: (st) => panelsOf(st.report).some((p) => p.measures.includes('net_value') && p.axis === 'channel' && p.series.length === 0),
+  },
   { key: 'series', done: (st) => panelsOf(st.report).some(hasHsQc) },
-  { key: 'rate', done: (st) => panelsOf(st.report).some((p) => hasHsQc(p) && p.measures.includes('cancellation_rate')) },
+  {
+    key: 'rate',
+    done: (st) => panelsOf(st.report).some((p) => hasHsQc(p) && p.measures.includes('cancellation_rate')),
+  },
   {
     key: 'figure',
     done: (st) =>
       st.report.sections.some((s) => s.blocks.some((b) => b.kind === 'text' && tokensIn(b.text.en + ' ' + b.text.ar).some((t) => figureExists(st.report, t.panel, t.figure)))),
   },
-  { key: 'summary', done: (st) => st.report.sections.some((s) => s.blocks.some((b) => b.kind === 'summary')) },
+  {
+    key: 'summary',
+    done: (st) => st.report.sections.some((s) => s.blocks.some((b) => b.kind === 'summary')),
+  },
   {
     key: 'period',
     done: (st) => {
@@ -1090,7 +1553,10 @@ const TUTORIAL: { key: string; done: (st: State) => boolean }[] = [
       return !!prm && prm.default.kind === 'period' && prm.default.token === 'yesterday' && ps.length > 0 && ps.every((x) => st.report.bindings[prm.name]?.[x.id] !== undefined)
     },
   },
-  { key: 'share', done: (st) => !st.report.audience.everyone && st.report.audience.roles.length + st.report.audience.users.length > 0 },
+  {
+    key: 'share',
+    done: (st) => !st.report.audience.everyone && st.report.audience.roles.length + st.report.audience.users.length > 0,
+  },
   { key: 'save', done: (st) => st.saved !== null && st.refusals.length === 0 },
 ]
 
@@ -1102,7 +1568,11 @@ function Tutorial({ st, inline = false }: { st: State; inline?: boolean }) {
   const count = done.filter(Boolean).length
   return (
     <aside
-      className={inline ? 'mb-4 flex max-h-72 flex-col rounded-lg border border-primary-border bg-card' : 'fixed bottom-24 end-4 z-40 flex max-h-[62vh] w-80 flex-col rounded-lg border border-border bg-card shadow-xl'}
+      className={
+        inline
+          ? 'mb-4 flex max-h-72 flex-col rounded-lg border border-primary-border bg-card'
+          : 'fixed bottom-24 end-4 z-40 flex max-h-[62vh] w-80 flex-col rounded-lg border border-border bg-card shadow-xl'
+      }
       aria-label={p('tutorial.title')}
       data-proto-tutorial={inline ? 'inline' : 'floating'}
     >

@@ -790,7 +790,8 @@
       "edit": "Edit {{what}}",
       "up": "Move {{what}} up",
       "down": "Move {{what}} down",
-      "remove": "Remove {{what}}"
+      "remove": "Remove {{what}}",
+      "drag": "Drag to move {{what}}"
     },
     "outline": {
       "label": "Report outline",

@@ -5,7 +5,7 @@
  * the summary block, the share dialog, the 411 refusal and the 413 page. The variants differ
  * in WHERE these sit, which is the question.
  */
-import { useState, type ReactNode } from 'react'
+import { useState, type HTMLAttributes, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Settings2, Sparkles, Trash2, TriangleAlert, Lock, Users } from 'lucide-react'
 import KpiTile from '@/core/charts/KpiTile'
@@ -82,7 +82,11 @@ const memberText = (dim: string, key: string, lang: string): string => {
 const memberOptions = (dim: string, lang: string, only?: string[] | null): MultiSelectOption[] =>
   (dimensionOf(dim)?.members ?? [])
     .filter((mm) => !only || only.includes(mm.key))
-    .map((mm) => ({ value: mm.key, text: memberText(dim, mm.key, lang), machine: dimensionOf(dim)?.machine }))
+    .map((mm) => ({
+      value: mm.key,
+      text: memberText(dim, mm.key, lang),
+      machine: dimensionOf(dim)?.machine,
+    }))
 
 export const paramLabel = (prm: Param, lang: string) => say(prm.label, lang) || prm.name
 
@@ -95,7 +99,16 @@ export function ParamControl({ param, value, onChange }: { param: Param; value: 
     case 'period':
       return (
         <Field label={label} className="w-40">
-          <Select value={value.token} onChange={(e) => onChange({ kind: 'period', token: e.target.value as typeof value.token })} data-proto-param={param.name}>
+          <Select
+            value={value.token}
+            onChange={(e) =>
+              onChange({
+                kind: 'period',
+                token: e.target.value as typeof value.token,
+              })
+            }
+            data-proto-param={param.name}
+          >
             {PROTO_PERIODS.map((tok) => (
               <option key={tok} value={tok}>
                 {t(periodNameKey(tok))}
@@ -109,7 +122,12 @@ export function ParamControl({ param, value, onChange }: { param: Param; value: 
         <Field label={label} className="w-56">
           <MultiSelect
             value={value.values}
-            onChange={(v) => onChange({ kind: 'members', values: param.multi === false ? v.slice(-1) : v })}
+            onChange={(v) =>
+              onChange({
+                kind: 'members',
+                values: param.multi === false ? v.slice(-1) : v,
+              })
+            }
             options={memberOptions(param.dimension ?? '', lang, param.pinned)}
             label={label}
             data-testid={`proto-param-${param.name}`}
@@ -142,7 +160,14 @@ export function ParamControl({ param, value, onChange }: { param: Param; value: 
             </Select>
             {value.op !== 'off' && (
               <>
-                <Input type="number" dir="ltr" className="w-20" value={value.value} onChange={(e) => onChange({ ...value, value: Number(e.target.value) })} aria-label={p('threshold.number')} />
+                <Input
+                  type="number"
+                  dir="ltr"
+                  className="w-20"
+                  value={value.value}
+                  onChange={(e) => onChange({ ...value, value: Number(e.target.value) })}
+                  aria-label={p('threshold.number')}
+                />
                 {meas?.unit === 'share' && <span className="text-xs text-muted-foreground">%</span>}
               </>
             )}
@@ -153,7 +178,20 @@ export function ParamControl({ param, value, onChange }: { param: Param; value: 
     case 'topN':
       return (
         <Field label={label} className="w-28">
-          <Input type="number" dir="ltr" min={1} max={100} value={value.n} onChange={(e) => onChange({ kind: 'topN', n: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })} data-proto-param={param.name} />
+          <Input
+            type="number"
+            dir="ltr"
+            min={1}
+            max={100}
+            value={value.n}
+            onChange={(e) =>
+              onChange({
+                kind: 'topN',
+                n: Math.max(1, Math.min(100, Number(e.target.value) || 1)),
+              })
+            }
+            data-proto-param={param.name}
+          />
         </Field>
       )
     case 'measure':
@@ -196,7 +234,11 @@ export function ParamStrip({
   values: Values
   onValue: (name: string, v: ParamValue) => void
   onReset?: () => void
-  design?: { selected: string | null; onEdit: (name: string) => void; onAdd: () => void }
+  design?: {
+    selected: string | null
+    onEdit: (name: string) => void
+    onAdd: () => void
+  }
 }) {
   const { p } = useProto()
   return (
@@ -281,7 +323,19 @@ export function ParamEditor({
       {original === null ? (
         <div className="flex flex-wrap gap-1" data-proto-kind-picker>
           {PARAM_KINDS.map((k) => (
-            <Chip key={k} on={param.kind === k} onClick={() => onParam({ ...blankParam(k, report.params.map((x) => x.name)), label: param.label })}>
+            <Chip
+              key={k}
+              on={param.kind === k}
+              onClick={() =>
+                onParam({
+                  ...blankParam(
+                    k,
+                    report.params.map((x) => x.name),
+                  ),
+                  label: param.label,
+                })
+              }
+            >
               {p(`kind.${k}`)}
             </Chip>
           ))}
@@ -333,7 +387,17 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
       return (
         <div className="flex flex-wrap items-end gap-3">
           <Field label={p('param.dimension')} className="w-44">
-            <Select value={param.dimension} onChange={(e) => onParam({ ...param, dimension: e.target.value, pinned: null, default: { kind: 'members', values: [] } })}>
+            <Select
+              value={param.dimension}
+              onChange={(e) =>
+                onParam({
+                  ...param,
+                  dimension: e.target.value,
+                  pinned: null,
+                  default: { kind: 'members', values: [] },
+                })
+              }
+            >
               {DIMENSIONS.map((d) => (
                 <option key={d.key} value={d.key}>
                   {say(d.label, lang)}
@@ -353,7 +417,12 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
           </Field>
           {param.pinned !== null && (
             <Field label={p('param.pinned')} className="w-72">
-              <MultiSelect value={param.pinned ?? []} onChange={(v) => onParam({ ...param, pinned: v })} options={memberOptions(param.dimension ?? '', lang)} label={p('param.pinned')} />
+              <MultiSelect
+                value={param.pinned ?? []}
+                onChange={(v) => onParam({ ...param, pinned: v })}
+                options={memberOptions(param.dimension ?? '', lang)}
+                label={p('param.pinned')}
+              />
             </Field>
           )}
           <Chip on={param.multi !== false} onClick={() => onParam({ ...param, multi: param.multi === false })}>
@@ -368,7 +437,16 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
             {GRAINS.map((g) => {
               const on = (param.grains ?? []).includes(g)
               return (
-                <Chip key={g} on={on} onClick={() => onParam({ ...param, grains: on ? (param.grains ?? []).filter((x) => x !== g) : [...(param.grains ?? []), g] })}>
+                <Chip
+                  key={g}
+                  on={on}
+                  onClick={() =>
+                    onParam({
+                      ...param,
+                      grains: on ? (param.grains ?? []).filter((x) => x !== g) : [...(param.grains ?? []), g],
+                    })
+                  }
+                >
                   {p(`grain.${g}`)}
                 </Chip>
               )
@@ -393,8 +471,20 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
         <Field label={p('param.options')} hint={p('param.optionsHint')} className="w-96">
           <MultiSelect
             value={param.options ?? []}
-            onChange={(v) => onParam({ ...param, options: v, default: { kind: 'measure', key: v.includes((param.default as { key: string }).key) ? (param.default as { key: string }).key : (v[0] ?? '') } })}
-            options={MEASURES.map((mm) => ({ value: mm.key, text: say(mm.label, lang) }))}
+            onChange={(v) =>
+              onParam({
+                ...param,
+                options: v,
+                default: {
+                  kind: 'measure',
+                  key: v.includes((param.default as { key: string }).key) ? (param.default as { key: string }).key : (v[0] ?? ''),
+                },
+              })
+            }
+            options={MEASURES.map((mm) => ({
+              value: mm.key,
+              text: say(mm.label, lang),
+            }))}
             label={p('param.options')}
           />
         </Field>
@@ -404,8 +494,20 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
         <Field label={p('param.options')} hint={p('param.optionsHint')} className="w-96">
           <MultiSelect
             value={param.options ?? []}
-            onChange={(v) => onParam({ ...param, options: v, default: { kind: 'breakdown', key: v.includes((param.default as { key: string }).key) ? (param.default as { key: string }).key : (v[0] ?? '') } })}
-            options={DIMENSIONS.map((d) => ({ value: d.key, text: say(d.label, lang) }))}
+            onChange={(v) =>
+              onParam({
+                ...param,
+                options: v,
+                default: {
+                  kind: 'breakdown',
+                  key: v.includes((param.default as { key: string }).key) ? (param.default as { key: string }).key : (v[0] ?? ''),
+                },
+              })
+            }
+            options={DIMENSIONS.map((d) => ({
+              value: d.key,
+              text: say(d.label, lang),
+            }))}
             label={p('param.options')}
           />
         </Field>
@@ -416,7 +518,17 @@ function KindFields({ param, onParam }: { param: Param; onParam: (next: Param) =
 }
 
 /** Every panel in the report: bound (and, for members, to which dimension), or why it cannot be. */
-export function BindingList({ report, param, bindings, onBindings }: { report: Report; param: Param; bindings: Record<string, string | true>; onBindings: (next: Record<string, string | true>) => void }) {
+export function BindingList({
+  report,
+  param,
+  bindings,
+  onBindings,
+}: {
+  report: Report
+  param: Param
+  bindings: Record<string, string | true>
+  onBindings: (next: Record<string, string | true>) => void
+}) {
   const { p, lang } = useProto()
   return (
     <fieldset className="flex flex-col gap-1.5 rounded-md border border-border p-3" data-proto-bindings={param.name}>
@@ -446,7 +558,9 @@ export function BindingList({ report, param, bindings, onBindings }: { report: R
               >
                 {CATEGORY_DIMENSIONS.map((d) => (
                   <option key={d} value={d} disabled={!canBind(param, panel, d).ok}>
-                    {p('bind.filters', { dimension: fsi(say(dimensionOf(d)?.label, lang)) })}
+                    {p('bind.filters', {
+                      dimension: fsi(say(dimensionOf(d)?.label, lang)),
+                    })}
                   </option>
                 ))}
               </Select>
@@ -462,7 +576,17 @@ export function BindingList({ report, param, bindings, onBindings }: { report: R
 
 // ── The panel editor (one inline panel: 801 §2, named series: 799 §2) ───────────────────────
 
-export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report; panel: Panel; onPanel: (next: Panel) => void; onBind: (param: string, panelId: string, on: boolean) => void }) {
+export function PanelEditor({
+  report,
+  panel,
+  onPanel,
+  onBind,
+}: {
+  report: Report
+  panel: Panel
+  onPanel: (next: Panel) => void
+  onBind: (param: string, panelId: string, on: boolean) => void
+}) {
   const { p, lang } = useProto()
   const areaMeasures = MEASURES.filter((mm) => mm.areas.includes(panel.area))
   const setSeries = (series: Series[]) => onPanel({ ...panel, series })
@@ -473,14 +597,28 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
     <div className="flex flex-col gap-4" data-proto-panel-editor={panel.id}>
       {panel.from && (
         <div className="rounded-md border border-attention-border bg-attention-050 p-2 text-xs text-attention-800" data-proto-provenance>
-          <p>{p('panel.from', { view: fsi(say(panel.from.view, lang)), revision: fsi(panel.from.revision) })}</p>
+          <p>
+            {p('panel.from', {
+              view: fsi(say(panel.from.view, lang)),
+              revision: fsi(panel.from.revision),
+            })}
+          </p>
           {panel.from.changed && <p className="mt-1 font-medium">{p('panel.fromChanged')}</p>}
         </div>
       )}
       <WordsFields label={p('panel.title')} value={panel.title} onChange={(title) => onPanel({ ...panel, title })} />
       <div className="flex flex-wrap items-end gap-3">
         <Field label={p('panel.area')} className="w-60">
-          <Select value={panel.area} onChange={(e) => onPanel({ ...panel, area: e.target.value as Panel['area'], measures: [] })}>
+          <Select
+            value={panel.area}
+            onChange={(e) =>
+              onPanel({
+                ...panel,
+                area: e.target.value as Panel['area'],
+                measures: [],
+              })
+            }
+          >
             {AREAS.map((a) => (
               <option key={a.key} value={a.key}>
                 {say(a.label, lang)}
@@ -489,7 +627,15 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
           </Select>
         </Field>
         <Field label={p('panel.measures')} className="w-80">
-          <MultiSelect value={panel.measures} onChange={(v) => onPanel({ ...panel, measures: v })} options={areaMeasures.map((mm) => ({ value: mm.key, text: say(mm.label, lang) }))} label={p('panel.measures')} />
+          <MultiSelect
+            value={panel.measures}
+            onChange={(v) => onPanel({ ...panel, measures: v })}
+            options={areaMeasures.map((mm) => ({
+              value: mm.key,
+              text: say(mm.label, lang),
+            }))}
+            label={p('panel.measures')}
+          />
         </Field>
         <Field label={p('panel.axis')} className="w-44">
           <Select value={panel.axis ?? ''} onChange={(e) => onPanel({ ...panel, axis: e.target.value || null })}>
@@ -532,7 +678,18 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
                 <Field label={p('series.where')} className="w-40">
                   <Select
                     value={f.dimension}
-                    onChange={(e) => setSeries(panel.series.map((x) => (x.id === s.id ? { ...x, filters: x.filters.map((y, yi) => (yi === fi ? { dimension: e.target.value, values: [] } : y)) } : x)))}
+                    onChange={(e) =>
+                      setSeries(
+                        panel.series.map((x) =>
+                          x.id === s.id
+                            ? {
+                                ...x,
+                                filters: x.filters.map((y, yi) => (yi === fi ? { dimension: e.target.value, values: [] } : y)),
+                              }
+                            : x,
+                        ),
+                      )
+                    }
                   >
                     {DIMENSIONS.map((d) => (
                       <option key={d.key} value={d.key}>
@@ -544,7 +701,18 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
                 <Field label={p('series.is')} className="w-64">
                   <MultiSelect
                     value={f.values}
-                    onChange={(v) => setSeries(panel.series.map((x) => (x.id === s.id ? { ...x, filters: x.filters.map((y, yi) => (yi === fi ? { ...y, values: v } : y)) } : x)))}
+                    onChange={(v) =>
+                      setSeries(
+                        panel.series.map((x) =>
+                          x.id === s.id
+                            ? {
+                                ...x,
+                                filters: x.filters.map((y, yi) => (yi === fi ? { ...y, values: v } : y)),
+                              }
+                            : x,
+                        ),
+                      )
+                    }
                     options={memberOptions(f.dimension, lang)}
                     label={p('series.is')}
                   />
@@ -552,7 +720,21 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
               </div>
             ))}
             <div className="ps-5">
-              <Button variant="text" onClick={() => setSeries(panel.series.map((x) => (x.id === s.id ? { ...x, filters: [...x.filters, { dimension: 'city', values: [] }] } : x)))}>
+              <Button
+                variant="text"
+                onClick={() =>
+                  setSeries(
+                    panel.series.map((x) =>
+                      x.id === s.id
+                        ? {
+                            ...x,
+                            filters: [...x.filters, { dimension: 'city', values: [] }],
+                          }
+                        : x,
+                    ),
+                  )
+                }
+              >
                 <Plus className="size-3.5" />
                 {p('series.addFilter')}
               </Button>
@@ -564,7 +746,16 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
             variant="outlined"
             disabled={panel.series.length >= 4}
             title={panel.series.length >= 4 ? p('series.max') : undefined}
-            onClick={() => setSeries([...panel.series, { id: nextId(), label: { en: '', ar: '' }, filters: [{ dimension: 'channel', values: [] }] }])}
+            onClick={() =>
+              setSeries([
+                ...panel.series,
+                {
+                  id: nextId(),
+                  label: { en: '', ar: '' },
+                  filters: [{ dimension: 'channel', values: [] }],
+                },
+              ])
+            }
             data-proto-add-series
           >
             <Plus className="size-3.5" />
@@ -597,7 +788,13 @@ export function PanelEditor({ report, panel, onPanel, onBind }: { report: Report
 export function TextEditor({ report, values, text, onText }: { report: Report; values: Values; text: Words; onText: (w: Words) => void }) {
   const { p, lang } = useProto()
   const [into, setInto] = useState<'en' | 'ar'>(lang.startsWith('ar') ? 'ar' : 'en')
-  const figures = panelsOf(report).flatMap((panel) => figuresOf(panel).map((f) => ({ token: `{${panel.id}:${f.figure}}`, panel, f })))
+  const figures = panelsOf(report).flatMap((panel) =>
+    figuresOf(panel).map((f) => ({
+      token: `{${panel.id}:${f.figure}}`,
+      panel,
+      f,
+    })),
+  )
   return (
     <div className="flex flex-col gap-3" data-proto-text-editor>
       <WordsFields label={p('text.words')} value={text} onChange={onText} area />
@@ -607,7 +804,10 @@ export function TextEditor({ report, values, text, onText }: { report: Report; v
             value=""
             onChange={(e) => {
               if (!e.target.value) return
-              onText({ ...text, [into]: `${text[into]} ${e.target.value}`.trim() })
+              onText({
+                ...text,
+                [into]: `${text[into]} ${e.target.value}`.trim(),
+              })
             }}
             data-proto-insert-figure
           >
@@ -649,7 +849,12 @@ export function LiveText({ report, values, text, design = false }: { report: Rep
     const fv = figureValue(report, values, x[1], x[2])
     parts.push(
       fv ? (
-        <span key={x.index} className={design ? 'rounded bg-primary-050 px-0.5 text-primary-800' : 'font-semibold'} title={design ? p('text.figureTitle', { token: fsi(x[0]) }) : undefined} data-proto-figure={x[0]}>
+        <span
+          key={x.index}
+          className={design ? 'rounded bg-primary-050 px-0.5 text-primary-800' : 'font-semibold'}
+          title={design ? p('text.figureTitle', { token: fsi(x[0]) }) : undefined}
+          data-proto-figure={x[0]}
+        >
           <Ltr>{fmt(fv.value, fv.measure, lang)}</Ltr>
         </span>
       ) : (
@@ -708,10 +913,24 @@ export function PanelView({ report, panel, values, design = false }: { report: R
   if (res.rows.length === 0) body = <p className="py-10 text-center text-sm text-muted-foreground">{p('panel.empty')}</p>
   else if (panel.chart === 'kpi')
     body = (
-      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${res.keys.length}, minmax(0, 1fr))` }}>
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${res.keys.length}, minmax(0, 1fr))`,
+        }}
+      >
         {res.keys.map((k, i) => (
           <div key={k.key} className="border-t-4 pt-1" style={{ borderColor: slotColour(i) }}>
-            <KpiTile measureLabel={say(k.label, lang)} value={res.overall[k.key]} previous={null} delta={null} spark={[]} unit={measureOf(k.measure)?.unit ?? 'count'} format={measureOf(k.measure)?.format ?? 'auto'} locale={lang} />
+            <KpiTile
+              measureLabel={say(k.label, lang)}
+              value={res.overall[k.key]}
+              previous={null}
+              delta={null}
+              spark={[]}
+              unit={measureOf(k.measure)?.unit ?? 'count'}
+              format={measureOf(k.measure)?.format ?? 'auto'}
+              locale={lang}
+            />
           </div>
         ))}
       </div>
@@ -721,8 +940,17 @@ export function PanelView({ report, panel, values, design = false }: { report: R
       <div className="h-72">
         <TableChart
           columns={[
-            { key: 'x', role: 'dimension', label: say(dimensionOf(res.axis ?? '')?.label, lang) },
-            ...res.keys.map((k) => ({ key: k.key, role: 'measure' as const, label: say(k.label, lang), unit: measureOf(k.measure)?.unit })),
+            {
+              key: 'x',
+              role: 'dimension',
+              label: say(dimensionOf(res.axis ?? '')?.label, lang),
+            },
+            ...res.keys.map((k) => ({
+              key: k.key,
+              role: 'measure' as const,
+              label: say(k.label, lang),
+              unit: measureOf(k.measure)?.unit,
+            })),
           ]}
           rows={res.rows.map((r) => ({ x: xLabel(r.x), ...r.values }))}
           sort={null}
@@ -734,7 +962,12 @@ export function PanelView({ report, panel, values, design = false }: { report: R
   else if (panel.chart === 'bar' && panel.series.length === 0 && res.keys.length === 1 && res.axis !== 'date')
     body = (
       <VerticalBarChart
-        points={res.rows.map((r) => ({ member: r.x, label: xLabel(r.x), value: r.values[res.keys[0].key], slot: null }))}
+        points={res.rows.map((r) => ({
+          member: r.x,
+          label: xLabel(r.x),
+          value: r.values[res.keys[0].key],
+          slot: null,
+        }))}
         colourBy="single"
         unit={unit}
         measureLabel={say(res.keys[0].label, lang)}
@@ -748,8 +981,19 @@ export function PanelView({ report, panel, values, design = false }: { report: R
       <SeriesChart
         form={panel.chart === 'line' ? 'line' : 'bar'}
         stacking={panel.chart === 'bar' ? 'grouped' : 'none'}
-        series={res.keys.map((k, i) => ({ key: k.key, label: say(k.label, lang), slot: i, other: false, unit: measureOf(k.measure)?.unit ?? 'count' }))}
-        rows={res.rows.map((r) => ({ x: r.x, label: xLabel(r.x), values: r.values, slot: null }))}
+        series={res.keys.map((k, i) => ({
+          key: k.key,
+          label: say(k.label, lang),
+          slot: i,
+          other: false,
+          unit: measureOf(k.measure)?.unit ?? 'count',
+        }))}
+        rows={res.rows.map((r) => ({
+          x: r.x,
+          label: xLabel(r.x),
+          values: r.values,
+          slot: null,
+        }))}
         colourBy="single"
         unit={unit}
         format={measureOf(res.measures[0])?.format ?? 'auto'}
@@ -769,7 +1013,12 @@ export function PanelView({ report, panel, values, design = false }: { report: R
           <span>{say(AREAS.find((a) => a.key === panel.area)?.label, lang)}</span>
           {res.topN !== undefined && <span>{p('panel.topN', { n: fsi(res.topN) })}</span>}
           {res.threshold && (
-            <span>{p(`panel.threshold.${res.threshold.op}`, { measure: fsi(say(measureOf(res.threshold.measure)?.label, lang)), value: fsi(fmt(measureOf(res.threshold.measure)?.unit === 'share' ? res.threshold.value / 100 : res.threshold.value, res.threshold.measure, lang)) })}</span>
+            <span>
+              {p(`panel.threshold.${res.threshold.op}`, {
+                measure: fsi(say(measureOf(res.threshold.measure)?.label, lang)),
+                value: fsi(fmt(measureOf(res.threshold.measure)?.unit === 'share' ? res.threshold.value / 100 : res.threshold.value, res.threshold.measure, lang)),
+              })}
+            </span>
           )}
           {design && panel.from && <span>{p('panel.fromShort', { view: fsi(say(panel.from.view, lang)) })}</span>}
         </span>
@@ -812,6 +1061,8 @@ export function ReportBody({
   sectionTools,
   blockFrame,
   afterSection,
+  sectionAttrs,
+  sectionLead,
 }: {
   report: Report
   values: Values
@@ -821,24 +1072,30 @@ export function ReportBody({
   /** A variant may wrap each block (selection ring, tools). */
   blockFrame?: (sectionId: string, block: Block, rendered: ReactNode) => ReactNode
   afterSection?: (sectionId: string) => ReactNode
+  /** Drag and drop (owner, 2026-11-06): a section's drop attributes, and what sits before it (the landing line). */
+  sectionAttrs?: (sectionId: string) => HTMLAttributes<HTMLElement>
+  sectionLead?: (sectionId: string) => ReactNode
 }) {
   const { lang } = useProto()
   return (
     <div className="flex flex-col gap-6">
       {report.sections.map((s) => (
-        <section key={s.id} className="flex flex-col gap-3" data-proto-section={s.id}>
-          <div className="flex items-center gap-2 border-b border-border pb-1">
-            <h2 className="text-lg font-semibold">
-              <bdi>{say(s.heading, lang)}</bdi>
-            </h2>
-            {sectionTools?.(s.id)}
-          </div>
-          {s.blocks.map((b) => {
-            const rendered = <BlockView report={report} values={values} block={b} failedSummary={failedSummary} design={design} />
-            return <div key={b.id}>{blockFrame ? blockFrame(s.id, b, rendered) : rendered}</div>
-          })}
-          {afterSection?.(s.id)}
-        </section>
+        <div key={s.id} className="flex flex-col gap-2">
+          {sectionLead?.(s.id)}
+          <section className="flex flex-col gap-3" data-proto-section={s.id} {...sectionAttrs?.(s.id)}>
+            <div className="flex items-center gap-2 border-b border-border pb-1">
+              <h2 className="text-lg font-semibold">
+                <bdi>{say(s.heading, lang)}</bdi>
+              </h2>
+              {sectionTools?.(s.id)}
+            </div>
+            {s.blocks.map((b) => {
+              const rendered = <BlockView report={report} values={values} block={b} failedSummary={failedSummary} design={design} />
+              return <div key={b.id}>{blockFrame ? blockFrame(s.id, b, rendered) : rendered}</div>
+            })}
+            {afterSection?.(s.id)}
+          </section>
+        </div>
       ))}
     </div>
   )
@@ -883,7 +1140,12 @@ export function ShareDialog({ report, onClose, onShare }: { report: Report; onCl
               <MultiSelect
                 value={a.roles}
                 onChange={(roles) => setA({ ...a, roles })}
-                options={ROLES.map((r) => ({ value: r.key, text: say(r.label, lang), tone: r.removed ? 'danger' : 'default', note: r.removed ? p('share.removedRole') : undefined }))}
+                options={ROLES.map((r) => ({
+                  value: r.key,
+                  text: say(r.label, lang),
+                  tone: r.removed ? 'danger' : 'default',
+                  note: r.removed ? p('share.removedRole') : undefined,
+                }))}
                 label={p('share.roles')}
                 data-testid="proto-share-roles"
               />
@@ -892,7 +1154,11 @@ export function ShareDialog({ report, onClose, onShare }: { report: Report; onCl
               <MultiSelect
                 value={a.users}
                 onChange={(users) => setA({ ...a, users })}
-                options={USERS.map((u) => ({ value: u.key, text: formatPair(u.key, u.name), machine: true }))}
+                options={USERS.map((u) => ({
+                  value: u.key,
+                  text: formatPair(u.key, u.name),
+                  machine: true,
+                }))}
                 label={p('share.people')}
               />
             </Field>
@@ -939,7 +1205,9 @@ export function AudienceChip({ audience }: { audience: Audience }) {
     )
   const names = audience.everyone
     ? p('share.everyone')
-    : [...audience.roles.map((r) => say(ROLES.find((x) => x.key === r)?.label, lang)), ...audience.users.map((u) => USERS.find((x) => x.key === u)?.name ?? u)].join(lang.startsWith('ar') ? '، ' : ', ')
+    : [...audience.roles.map((r) => say(ROLES.find((x) => x.key === r)?.label, lang)), ...audience.users.map((u) => USERS.find((x) => x.key === u)?.name ?? u)].join(
+        lang.startsWith('ar') ? '، ' : ', ',
+      )
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px]" data-proto-audience>
       <Users className="size-3" />
@@ -971,7 +1239,12 @@ export function RefusalList({ report, refusals, onClose }: { report: Report; ref
         {refusals.map((r, i) => (
           <li key={i}>
             {r.what === 'name' && p(`refused.name.${r.why}`, { param: fsi(r.param) })}
-            {r.what === 'binding' && p('refused.binding', { param: fsi(paramName(r.param)), panel: fsi(panelTitle(r.panel)), reason: p(`reason.${r.reason}`) })}
+            {r.what === 'binding' &&
+              p('refused.binding', {
+                param: fsi(paramName(r.param)),
+                panel: fsi(panelTitle(r.panel)),
+                reason: p(`reason.${r.reason}`),
+              })}
             {r.what === 'figure' && p('refused.figure', { token: fsi(r.token) })}
             {r.what === 'series' && p(`refused.series.${r.why}`, { panel: fsi(panelTitle(r.panel)) })}
           </li>

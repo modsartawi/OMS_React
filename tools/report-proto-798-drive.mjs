@@ -21,8 +21,8 @@ const check = (name, pass, detail = '') => {
 const envelope = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ statusCode: 200, success: true, message: '', errors: [], data }) })
 
 const browser = await chromium.launch()
-async function open(dir, path) {
-  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+async function open(dir, path, height = 1000) {
+  const context = await browser.newContext({ viewport: { width: 1600, height } })
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -50,7 +50,7 @@ const noRaw = async (page, name) => {
 
 for (const dir of ['ltr', 'rtl']) {
   // The three designers on the acceptance case.
-  for (const v of ['A', 'B', 'C']) {
+  for (const v of ['D', 'A', 'B', 'C']) {
     const { context, page, errors } = await open(dir, `/analytics/prototype/report?variant=${v}&scenario=design`)
     check(`${dir} ${v}: designer mounts`, (await page.locator(`[data-proto-designer="${v}"]`).count()) === 1)
     if (v !== 'C') check(`${dir} ${v}: four panels drawn`, (await page.locator('[data-proto-panel]').count()) === 4)
@@ -170,6 +170,71 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-proto-undo]').click()
   check('A: undo button brings it back', (await page.locator('article [data-proto-section]').count()) === 4)
   check('A round 2: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// Owner round 3: drag and drop sections and blocks, in every designer; each drop is one undoable step.
+{
+  const order = (page) => page.locator('article [data-proto-section]').evaluateAll((es) => es.map((e) => e.getAttribute('data-proto-section')).join(','))
+  const blocksOf = (page, sid) => page.locator(`article [data-proto-section="${sid}"] [data-proto-panel], article [data-proto-section="${sid}"] [data-proto-summary]`).evaluateAll((es) => es.map((e) => e.getAttribute('data-proto-panel') ?? 'sum').join(','))
+  {
+    const { context, page, errors } = await open('ltr', `/analytics/prototype/report?variant=B&scenario=design`)
+    await page.locator('[data-proto-grip="section:s3"]').dragTo(page.locator('[data-proto-outline="section:s1"]'), { targetPosition: { x: 10, y: 2 } })
+    check('B drag: section s3 moves to the top', (await order(page)) === 's3,s1,s2,s4', await order(page))
+    await page.locator('body').click({ position: { x: 5, y: 500 } })
+    await page.keyboard.press('Control+z')
+    check('B drag: Ctrl+Z puts it back', (await order(page)) === 's1,s2,s3,s4', await order(page))
+    await page.locator('[data-proto-grip="block:p4"]').dragTo(page.locator('[data-proto-outline="block:p1"]'), { targetPosition: { x: 10, y: 2 } })
+    check('B drag: a block moves across sections', (await blocksOf(page, 's1')) === 'p4,p1' && (await blocksOf(page, 's3')) === '', `${await blocksOf(page, 's1')} | ${await blocksOf(page, 's3')}`)
+    await page.screenshot({ path: `${SHOTS}/B-drag-ltr.png`, fullPage: false })
+    check('B drag: no page errors', errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open('rtl', `/analytics/prototype/report?variant=C&scenario=design`)
+    await page.locator('[data-proto-step="content"]').click()
+    await page.locator('[data-proto-grip="block:p1"]').dragTo(page.locator('[data-proto-grip="block:p3"]'), { targetPosition: { x: 5, y: 12 } })
+    const s2 = await page.locator('[data-proto-grip^="block:"]').evaluateAll((es) => es.map((e) => e.getAttribute('data-proto-grip')).join(','))
+    check('rtl C drag: p1 lands after p3 in section 2', s2.startsWith('block:t1,block:p2,block:p3,block:p1'), s2)
+    check('rtl C drag: no page errors', errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open('ltr', `/analytics/prototype/report?variant=A&scenario=design`, 3400)
+    await page.locator('[data-proto-panel="p2"]').hover()
+    await page.locator('[data-proto-grip="block:p2"]').dragTo(page.locator('[data-proto-panel="p1"]'), { targetPosition: { x: 20, y: 10 } })
+    check('A drag: p2 dragged from its toolbar lands before p1', (await blocksOf(page, 's1')) === 'p2,p1', await blocksOf(page, 's1'))
+    await page.locator('[data-proto-section="s3"]').hover()
+    await page.locator('[data-proto-grip="section:s3"]').dragTo(page.locator('[data-proto-section="s1"] h2'), { targetPosition: { x: 5, y: 2 } })
+    check('A drag: a section dragged by its heading grip', (await order(page)) === 's3,s1,s2,s4', await order(page))
+    check('A drag: no page errors', errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+// Variant D (owner: "why don't combine B & A"): B's outline + inspector around A's editable report.
+{
+  const { context, page, errors } = await open('ltr', `/analytics/prototype/report?scenario=design`, 3400)
+  check('D: the default variant', (await page.locator('[data-proto-designer="D"]').count()) === 1)
+  await page.locator('[data-proto-panel="p3"]').hover()
+  await page.locator('[data-dnd-item]', { has: page.locator('[data-proto-panel="p3"]') }).last().locator('button[aria-label^="Edit"]').first().click()
+  check('D: editing a block fills the fixed inspector, no modal', (await page.locator('[data-proto-inspector] [data-proto-panel-editor="p3"]').count()) === 1 && (await page.locator('dialog[open]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/D-panel-ltr.png`, fullPage: false })
+  await page.locator('[data-proto-panel="p2"]').hover()
+  await page.locator('[data-proto-grip="block:p2"]').first().dragTo(page.locator('[data-proto-panel="p1"]'), { targetPosition: { x: 20, y: 10 } })
+  const s1 = await page.locator('article [data-proto-section="s1"] [data-proto-panel]').evaluateAll((es) => es.map((e) => e.getAttribute('data-proto-panel')).join(','))
+  check('D: drag a block on the report itself', s1 === 'p2,p1', s1)
+  await page.locator('nav [data-proto-grip="section:s4"]').dragTo(page.locator('[data-proto-outline="section:s1"]'), { targetPosition: { x: 10, y: 2 } })
+  const order = await page.locator('article [data-proto-section]').evaluateAll((es) => es.map((e) => e.getAttribute('data-proto-section')).join(','))
+  check('D: drag a section in the outline', order === 's4,s1,s2,s3', order)
+  check('D: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+for (const dir of ['ltr', 'rtl']) {
+  const { context, page, errors } = await open(dir, `/analytics/prototype/report?variant=D&scenario=tutorial`)
+  check(`${dir} D tutorial: the guide sits in the inspector`, (await page.locator('[data-proto-inspector] [data-proto-tutorial="inline"]').count()) === 1 && (await page.locator('[data-proto-tutorial="floating"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/D-tutorial-${dir}.png`, fullPage: false })
+  check(`${dir} D tutorial: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

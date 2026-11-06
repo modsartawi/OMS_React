@@ -69,4 +69,6 @@ The pure tests are green and the drive shows the courier scope end to end agains
 - **i18n**: `courier.label/all/name.*/caption`, en + ar.
 - **Drive**: stub answers `Courier=NOPE` with `SDD-02132`; new `driveCourier` (LTR + RTL). Whole drive
   326/326 green.
+- Merged with 815: its `keepsPreviousAnswer` now compares `Courier` too, so a courier change never
+  shows the previous scope's figures dimmed (pinned in `query.test.ts`).
 - Not in this slice (ticket 816): the courier default view/sort of the table (Delivery, Out of slot % desc).

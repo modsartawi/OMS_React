@@ -18,7 +18,7 @@
 import type { StoreStatisticsQuery } from '@/core/models/delivery-statistics'
 import { courierTrack } from './courier-scope'
 import { TABLE_TRACKS, type TableTrack } from './store-rows'
-import { DEFAULT_PERIOD, periodFromParams, periodToParams, type PeriodQuery, type ResolvedPeriod } from './period'
+import { DEFAULT_PERIOD, periodFromParams, periodToParams, type PeriodQuery, type PeriodTab, type ResolvedPeriod } from './period'
 
 export interface StatisticsQuery extends PeriodQuery {
   /** One store's code, or `''` for all stores. */
@@ -93,4 +93,23 @@ export function withCourier(query: StatisticsQuery, courier: string): Statistics
 export function withLeaveOutType(query: StatisticsQuery, code: string, leftOut: boolean): StatisticsQuery {
   const rest = query.leaveOutTypes.filter((type) => type !== code)
   return { ...query, leaveOutTypes: canonicalTypes(leftOut ? [...rest, code] : rest) }
+}
+
+/** The statistics read's TanStack key: the tab rides along, so Today's answer is never Yesterday's for the same day. */
+export type StatisticsKey = readonly ['delivery-statistics', PeriodTab, StoreStatisticsQuery | null]
+
+export const statisticsKey = (tab: PeriodTab, params: StoreStatisticsQuery | null): StatisticsKey => ['delivery-statistics', tab, params]
+
+/**
+ * Whether the page keeps the previous answer on screen (dimmed, ticket 815) while the next key loads.
+ * A refetch of the SAME key (the 5-minute Today refresh) always keeps its answer — TanStack's own
+ * behaviour. Across keys, only Today rolling over midnight keeps it: the same tab and the same scope,
+ * only the day moved on. A new tab, store or leave-out never shows the previous figures as if current.
+ */
+export function keepsPreviousAnswer(prev: readonly unknown[] | undefined, next: StatisticsKey): boolean {
+  if (!prev || prev[1] !== 'today' || next[1] !== 'today') return false
+  const a = prev[2] as StoreStatisticsQuery | null
+  const b = next[2]
+  if (!a || !b) return false
+  return a.StoreCode === b.StoreCode && a.LeaveOutChurned === b.LeaveOutChurned && a.LeaveOutTypes === b.LeaveOutTypes && a.Courier === b.Courier && a.Granularity === b.Granularity
 }

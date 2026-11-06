@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 811
 blocked-by: —
 ---
@@ -31,8 +31,8 @@ aria label / series names) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `series maps to chart rows in the server's order, nothing filled in` — hour and day labels as today's chart-model gave them; an absent value stays null · pure
-- [ ] drive — the chart renders grouped bars with a tooltip on hover; after the 5-minute Today refresh is triggered the frame reads busy and the chart stays on screen; Yesterday does not poll; LTR and RTL; no page errors · flow (Playwright)
+- [x] `series maps to chart rows in the server's order, nothing filled in` — hour and day labels as today's chart-model gave them; an absent value stays null · pure
+- [x] drive — the chart renders grouped bars with a tooltip on hover; after the 5-minute Today refresh is triggered the frame reads busy and the chart stays on screen; Yesterday does not poll; LTR and RTL; no page errors · flow (Playwright)
 
 ## Boundaries
 
@@ -47,3 +47,10 @@ The mapper test is green, the old chart and its model are gone, `typecheck` + `l
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-11-06 (impl/815-core-chart): built red-green. `series-rows.ts` (+ test) maps `series` to `core/charts` rows in the server's order, an absent value `null`; `StatisticsChart.tsx` draws core `SeriesChart` (bar, grouped, two series, one axis) in a `ChartFrame` whose `busy` is the query's `isFetching`. Old `SeriesChart.tsx` + `chart-model.ts` + its test deleted; the readout/hint keys went with them, `chart.label` is now per granularity.
+- Labels: `HH:00` by the hour, the whole `yyyy-MM-dd` by the day (one label serves the tick and the tooltip heading; Recharts' `minTickGap` thins crowded ticks), so the old every-third-hour / day-of-month thinning is gone. A 0 still draws no bar (Recharts draws no zero-height rectangle).
+- Keeping the previous answer: a same-key refetch (the 5-minute refresh) keeps its data by TanStack default. Across keys, `placeholderData` keeps it only for Today's midnight roll-over (`keepsPreviousAnswer` in `query.ts`, tested): a new tab, store or leave-out never shows the previous figures as current. The tab joined the query key for that (`statisticsKey`).
+- Drive: section 13 rewritten for core/charts (grouped bars, legend, tooltip, LTR + RTL reading order) plus the dimmed refresh (stub holds the refetch's answer 3 s: frame busy, aria-busy, Updating mark, bars stay; Yesterday never busy).

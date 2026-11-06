@@ -19,9 +19,9 @@ import HeadlineStrip from './HeadlineStrip'
 import { readLanes, showsUnspecified, type Lane } from './lanes'
 import { readMissesRows, type MissId, type MissesRow } from './misses-rows'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
-import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
+import { buildStatisticsQuery, keepsPreviousAnswer, statisticsFromParams, statisticsKey, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
-import SeriesChart from './SeriesChart'
+import StatisticsChart from './StatisticsChart'
 import StoreTable from './StoreTable'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
@@ -39,7 +39,7 @@ import Input from '@/core/ui/Input'
  * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the headline strip (812, spec
  * 811: six server figures and their change, `headline.ts` + `HeadlineStrip`; then Unspecified), the Delivery and Pick-up
  * lanes (489, `lanes.ts`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
- * Came in / Handed over chart (486, `SeriesChart`) and the per-store table (487, `StoreTable`). The
+ * Came in / Handed over chart (486; `core/charts` since 815, `StatisticsChart`) and the per-store table (487, `StoreTable`). The
  * lanes and the misses rows are the server's `tracks`, never derived from the store-wide figures nor
  * added into them.
  *
@@ -91,9 +91,12 @@ function Statistics() {
   const period = resolvePeriod(query, now)
   const params = period.ok ? buildStatisticsQuery(period, query) : null
 
+  const key = statisticsKey(query.tab, params)
   const stats = useQuery({
-    queryKey: ['delivery-statistics', params],
+    queryKey: key,
     queryFn: () => deliveryStatisticsApi.read(params!),
+    // 815: a refetch keeps its answer, so the chart dims rather than blanks; across keys only Today's midnight roll-over does.
+    placeholderData: (previous, previousQuery) => (keepsPreviousAnswer(previousQuery?.queryKey, key) ? previous : undefined),
     // 🚩 A refused period makes NO call.
     enabled: params !== null,
     // Today only (ruled): Yesterday and Range are closed periods and do not poll.
@@ -179,7 +182,7 @@ function Statistics() {
             ))}
           </section>
 
-          {params && <SeriesChart series={data.series} granularity={params.Granularity} />}
+          {params && <StatisticsChart series={data.series} granularity={params.Granularity} busy={stats.isFetching} />}
           <StoreTable
             stores={data.stores}
             track={query.track}

@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History, HelpCircle, Loader2, MessageSquarePlus, Send, Sparkles, X } from 'lucide-react'
+import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, X } from 'lucide-react'
+import { useBoardContext } from '@/core/board-context'
+import { useReportContext } from '@/core/report-context'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
@@ -46,6 +49,41 @@ const AT_END = 32
  * - Past conversations (`history`): beside the thread when the panel is `wide` (full view, `/copilot`), behind a
  *   History toggle otherwise. Opening one brings it back as the conversation.
  */
+/**
+ * 836: what the copilot will change, while a report is open in its designer or a board in its editor (the core
+ * bridges): "Editing: <title>". An answer's edit reaches only that item, unsaved, as one undo step.
+ */
+function InContext() {
+  const { t, i18n } = useTranslation('copilot')
+  const report = useReportContext((s) => s.context)
+  const reportTitle = useReportContext((s) => s.title)
+  const board = useBoardContext((s) => s.context)
+  const boardTitle = useBoardContext((s) => s.title)
+  if (!report && !board) return null
+  const kind = report ? 'report' : 'board'
+  const named = saysIn((report ? reportTitle : boardTitle) ?? { en: '', ar: '' }, i18n.language)
+  // The item's id for a power user (836): what the AI's edit names, and what the screen's breadcrumb shows.
+  const id = report ? report.reportId : board?.boardId ?? null
+  return (
+    <div className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs" role="status" data-copilot-in-context={kind}>
+      <PencilLine className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{named ? t(`context.editing.${kind}`, { title: fsi(named) }) : t(`context.editingUntitled.${kind}`)}</span>
+      {id ? (
+        <span className="flex shrink-0 items-center gap-1 text-muted-foreground" data-copilot-in-context-id={id}>
+          {t('context.id')}
+          <span className="select-all rounded bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+            <Ltr>{id}</Ltr>
+          </span>
+        </span>
+      ) : (
+        <span className="shrink-0 text-muted-foreground" data-copilot-in-context-id="">
+          {t('context.unsaved')}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const { t } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
@@ -180,6 +218,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
       )}
 
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 ${wide ? 'mx-auto max-w-4xl' : ''}`}>
+        <InContext />
         {(!empty || history.length > 0) && !wide && (
           <div className="flex shrink-0 items-center justify-between gap-2" data-copilot-thread-bar>
             <div className="text-xs font-medium text-muted-foreground">{listing ? t('history.heading') : t('thread.heading')}</div>

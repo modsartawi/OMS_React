@@ -40,7 +40,7 @@ describe('revisions list: newest first, the revision being viewed marked', () =>
 })
 
 describe('only someone who may edit the item sees its history', () => {
-  const me = { userId: 'msartawi', canView: true, canCurate: false }
+  const me = { userId: 'msartawi', canView: true, canAuthor: true, canCurate: false }
   const curator = { ...me, canCurate: true }
   it('my own Personal or Shared item: yes', () => {
     expect(mayEditItem({ owner: 'msartawi', tier: 'personal' }, me)).toBe(true)
@@ -55,5 +55,32 @@ describe('only someone who may edit the item sees its history', () => {
   })
   it('without the screen grant: no', () => {
     expect(mayEditItem({ owner: 'msartawi', tier: 'personal' }, { ...me, canView: false })).toBe(false)
+  })
+})
+
+// 826 (spec 819 §C): an audience change and a reassign are written to the history, but are not revisions.
+describe('history events: audience changes and reassigns', () => {
+  const raw = [
+    { revision: 3, updatedAt: '2026-11-05T09:00:00', updatedBy: 'msartawi' },
+    { revision: 3, updatedAt: '2026-11-05T10:00:00', updatedBy: 'msartawi', event: 'audience' },
+    { revision: 3, updatedAt: '2026-11-05T11:00:00', updatedBy: 'curator1', event: 'reassign', owner: 'kalotaibi' },
+    { revision: 2, updatedAt: '2026-11-04T09:00:00', updatedBy: 'msartawi' },
+    { revision: 3, updatedAt: '2026-11-05T12:00:00', updatedBy: 'x', event: 'unknown-kind' },
+  ]
+  it('the reader keeps the event and its new owner, and reads an unknown kind as an ordinary row', () => {
+    const read = readRevisions(raw)
+    expect(read[1]).toMatchObject({ event: 'audience' })
+    expect(read[2]).toMatchObject({ event: 'reassign', owner: 'kalotaibi' })
+    expect(read[4].event).toBeUndefined()
+  })
+  it('events list newest first above the revision they followed; they are never viewed or reverted to', () => {
+    const rows = revisionList(readRevisions(raw.slice(0, 4)), 3)
+    expect(rows.map((r) => [r.revision, r.event ?? null, r.viewing, r.canRevert])).toEqual([
+      [3, 'reassign', false, false],
+      [3, 'audience', false, false],
+      [3, null, true, false],
+      [2, null, false, true],
+    ])
+    expect(rows[0].owner).toBe('kalotaibi')
   })
 })

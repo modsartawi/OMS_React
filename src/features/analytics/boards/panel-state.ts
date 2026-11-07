@@ -1,4 +1,4 @@
-import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsLabel, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -21,6 +21,67 @@ const timeOf = (value: string | null | undefined): number | null => {
 export function isBehind(dataAsOf: string | null | undefined, now: Date): boolean {
   const t = timeOf(dataAsOf)
   return t !== null && now.getTime() - t > BEHIND_AFTER_MINUTES * MINUTE
+}
+
+// ── 827: the model's marks — "may still rise" on young days, and each measure's caveat ────────────────
+
+const DAY = 86_400_000
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})/
+
+/** An ISO day (or the date of a timestamp as written) as a UTC day number; `null` when it is not a day. */
+const dayNumber = (value: string | null | undefined): number | null => {
+  const m = value ? ISO_DAY.exec(value) : null
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY : null
+}
+const isoDay = (n: number): string => new Date(n * DAY).toISOString().slice(0, 10)
+
+/**
+ * Spec 819 §B: a day younger than the measure's `mayStillRiseDays`, counted back from the day of `dataAsOf`,
+ * may still rise (late cancels, the claims' submission lag): with 8, the day of `dataAsOf` and the 7 before it.
+ * No window, no `dataAsOf` or a value that is not a day marks nothing.
+ */
+export function mayStillRise(day: string | null | undefined, dataAsOf: string | null | undefined, days: number | null | undefined): boolean {
+  const d = dayNumber(day)
+  const asOf = dayNumber(dataAsOf)
+  if (d === null || asOf === null || !days || days <= 0) return false
+  return asOf - d < days
+}
+
+export interface PanelMarks {
+  /** The distinct caveats of the panel's measures, in measure order (e.g. "inside OMS only"). */
+  caveats: AnalyticsLabel[]
+  /** The first day that may still rise, and the window that says so; `null` when none does. */
+  stillRising: { from: string; days: number } | null
+}
+
+/**
+ * A panel's marks from the model (819 §E, on report and board panels alike). The window is the longest of
+ * its measures'. On a time axis the young days are the rows' own; without one, the answer's period counts:
+ * it may still rise when its last day is young, from the later of its first day and the window's.
+ */
+export function panelMarks(definition: AnalyticsViewDefinition, result: AnalyticsQueryResult | undefined, model: AnalyticsModel): PanelMarks {
+  const measures = definition.query.measures.map((k) => measureOf(model, k)).filter((m) => !!m)
+  const caveats: AnalyticsLabel[] = []
+  for (const m of measures) {
+    const c = m.caveat
+    if (c && (c.en || c.ar) && !caveats.some((x) => x.en === c.en && x.ar === c.ar)) caveats.push(c)
+  }
+  const days = Math.max(0, ...measures.map((m) => m.mayStillRiseDays ?? 0))
+  if (!result || days <= 0) return { caveats, stillRising: null }
+  const asOf = dayNumber(result.dataAsOf)
+  if (asOf === null) return { caveats, stillRising: null }
+  const time = definition.query.dimensions.find((d) => dimensionOf(model, d)?.kind === 'time')
+  let from: number | null = null
+  if (time) {
+    for (const row of result.rows) {
+      const v = row[time]
+      const n = typeof v === 'string' && mayStillRise(v, result.dataAsOf, days) ? dayNumber(v) : null
+      if (n !== null && (from === null || n < from)) from = n
+    }
+  } else if (result.period && mayStillRise(result.period.to, result.dataAsOf, days)) {
+    from = Math.max(dayNumber(result.period.from) ?? -Infinity, asOf - days + 1)
+  }
+  return { caveats, stillRising: from === null ? null : { from: isoDay(from), days } }
 }
 
 /** "Fetched N ago", as a `boards:panel.fetched.<key>` with its count; `null` when there is no time. */
@@ -68,6 +129,17 @@ export function retiredMembers(definition: AnalyticsViewDefinition, model: Analy
 export function refusalField(data: unknown): string | null {
   const field = data && typeof data === 'object' ? (data as Record<string, unknown>).field : undefined
   return typeof field === 'string' && field ? field : null
+}
+
+/**
+ * The parameter an `ANALYTICS-412` names (823, spec 819 §C: "names the parameter in the strip"): ⚠ read
+ * from `data.param`, else `data.field` as the other refusals name theirs. `null` for any other code.
+ */
+export function refusedParam(code: string | null | undefined, data: unknown): string | null {
+  if (code !== 'ANALYTICS-412' || !data || typeof data !== 'object') return null
+  const d = data as Record<string, unknown>
+  const name = typeof d.param === 'string' && d.param ? d.param : d.field
+  return typeof name === 'string' && name ? name : null
 }
 
 /** The model's own reason the view's area is not available yet, or `null` (the server's message stands). */

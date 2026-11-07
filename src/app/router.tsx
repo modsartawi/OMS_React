@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter, Navigate, Outlet, useSearchParams } from 'react-router'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -8,6 +8,13 @@ import { insuranceRulesRoute } from './insurance-rules-routes'
 // The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The print
 // routes are chromeless and have no palette.
 const PRINT_ROUTE: PaletteRouteHandle = { print: true }
+// A report's print page opened under a render ticket (ADR 0125, ticket 835) is headless Chromium printing a scheduled
+// run: it holds no session, and the ticket (read by the page) is its whole credential for that one run, so the session
+// guard steps aside. Opened by a person (no ticket), it is guarded like every print page.
+function ReportPrintGuard() {
+  const [search] = useSearchParams()
+  return (search.get('ticket') ?? '').trim() ? <Outlet /> : <ProtectedLayout chromeless />
+}
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
@@ -75,10 +82,10 @@ export const router = createBrowserRouter([
   // entire body IS the document (241), so there is no nav, no shell and nothing
   // hidden behind `@media print` to keep off the paper. `chromeless` keeps the
   // session guard — the chrome is what differs, never the auth.
-  // A copilot report's print page (CTO demo): outside the shell, so the paper is the report alone.
+  // A report's print page (spec 819, ticket 827): outside the shell, so the paper is the report alone; its values ride in the query string.
   {
     path: '/analytics/print/report/:id',
-    element: <ProtectedLayout chromeless />,
+    element: <ReportPrintGuard />,
     handle: PRINT_ROUTE,
     children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPrintPage')).default }) }],
   },
@@ -144,16 +151,27 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
       },
       {
-        // A copilot report (CTO demo).
+        // A report, the runner's page (spec 819, ticket 827).
         path: 'analytics/report/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPage')).default }),
+      },
+      {
+        // A report's designer (spec 819, ticket 828); a new report is `new?kind=report`.
+        path: 'analytics/report/:id/edit',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/ReportDesignerPage')).default }),
+      },
+      {
+        // A report's kept runs (spec 819, ticket 833): the owner's, curators' and each run's own recipients'.
+        path: 'analytics/report/:id/runs',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportRunsPage')).default }),
       },
       {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },
       {
-        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777).
+        // The builder (775): `?kind=view` builds an analytics view; `?kind=board` is the board editor's (777);
+        // `?kind=report` the report designer's (828).
         path: 'analytics/new',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
       },

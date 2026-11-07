@@ -444,9 +444,10 @@ export const api = {
     return requestBlob(path, { method: 'POST', body: form })
   },
   /** `params`, when a door takes a query beside its body (ticket 479's `Catalog/Push?account=`), is
-   *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. */
-  post<T>(path: string, body: unknown, params?: Record<string, unknown>): Promise<T> {
-    return request<T>(path + buildQuery(params), { method: 'POST', body: JSON.stringify(body) })
+   *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. `headers` is `get`'s optional
+   *  per-request passthrough (ticket 835: the analytics render ticket's header). */
+  post<T>(path: string, body: unknown, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'POST', body: JSON.stringify(body), headers })
   },
   /**
    * `post`, keeping the envelope — `getEnvelope`'s twin (ticket 477), for a write whose SUCCESS

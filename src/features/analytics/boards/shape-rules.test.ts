@@ -162,3 +162,32 @@ describe('suggestChoice (CTO demo builder pass)', () => {
     expect(suggestChoice(chartOffers({ measures: [], dimensions: [] }, model), { measures: [], dimensions: [] }, model)).toBeNull()
   })
 })
+
+describe('shape rules with named series (825): line, area, bar, combo, table and KPI take series; donut and heatmap do not', () => {
+  const withSeries = (measures: string[], dimensions: string[]) =>
+    chartOffers({ measures, dimensions, series: 2 }, MODEL).filter((o) => o.offered).map((o) => o.choice)
+  const why = (measures: string[], dimensions: string[], choice: ChartChoice) => {
+    const o = chartOffers({ measures, dimensions, series: 2 }, MODEL).find((x) => x.choice === choice)!
+    return o.offered ? 'offered' : o.reason
+  }
+
+  it('one measure over time: line, area, grouped bars, table; never a stack (its height would be a total)', () => {
+    expect(withSeries(['orders'], ['day'])).toEqual(['kpi', 'line', 'area', 'bar-vertical', 'bar-horizontal', 'bar-grouped', 'table'])
+    expect(why(['orders'], ['day'], 'bar-stacked')).toBe('seriesStacked')
+  })
+
+  it('one figure: a KPI per series', () => {
+    expect(withSeries(['orders'], [])).toContain('kpi')
+  })
+
+  it('donut and heatmap are refused with series', () => {
+    expect(why(['orders'], ['channel_group'], 'donut')).toBe('seriesForm')
+    expect(why(['orders'], ['channel_group', 'day'], 'heatmap')).toBe('seriesForm')
+  })
+
+  it('combo keeps its own shape: a volume and a rate over one axis', () => {
+    expect(why(['orders', 'return_rate'], ['day'], 'combo')).toBe('offered')
+    // Two measures are a combo's, not a line's: the series are the colour role.
+    expect(why(['orders', 'till_value'], ['day'], 'line')).toBe('seriesShape')
+  })
+})

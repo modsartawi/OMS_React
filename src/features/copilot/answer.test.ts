@@ -150,3 +150,94 @@ describe('the answer names its house rules (ticket 790)', () => {
       expect(copilotAnswerModel({ promptVersion: odd } as unknown as Partial<CopilotAnswer>).rules).toBeNull()
   })
 })
+
+describe('the answer’s reports (spec 819 §D, ticket 832)', () => {
+  const definition = { params: [], bindings: {}, sections: [{ id: 's1', heading: { en: 'Sales', ar: 'المبيعات' }, blocks: [] }] }
+
+  it('reportRefs_readIdRevisionAndBilingualTitle', () => {
+    const reply = {
+      reportRefs: [{ id: 'r-1', revision: 1, title: { en: 'Channel sales', ar: 'مبيعات القنوات' } }],
+    } as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).reportRefs).toEqual([{ id: 'r-1', revision: 1, title: { en: 'Channel sales', ar: 'مبيعات القنوات' } }])
+  })
+
+  it('reportRefs_withoutAnIdAreDropped_andAMissingHalfReadsBlank', () => {
+    const odd = {
+      // The demo's string title reads as no title; an absent revision as 1.
+      reportRefs: [null, { title: { en: 'No id' } }, { id: ' ' }, { id: 'r-2', title: 'Demo title' }, { id: 'r-3', revision: 4, title: { ar: 'عربي فقط' } }],
+    } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(odd).reportRefs).toEqual([
+      { id: 'r-2', revision: 1, title: { en: '', ar: '' } },
+      { id: 'r-3', revision: 4, title: { en: '', ar: 'عربي فقط' } },
+    ])
+  })
+
+  it('reportRefs_carryTheShareAndScheduleStepsTheWordsAskedFor_andNothingElse (story 108)', () => {
+    const reply = {
+      reportRefs: [
+        { id: 'r-1', revision: 1, title: { en: 'Channel sales', ar: '' }, nextSteps: ['share', 'schedule', 'certify', 'share', 7] },
+        { id: 'r-2', revision: 1, title: { en: 'Plain', ar: '' }, nextSteps: 'share' },
+      ],
+    } as unknown as Partial<CopilotAnswer>
+    const [asked, plain] = copilotAnswerModel(reply).reportRefs
+    expect(asked.nextSteps).toEqual(['share', 'schedule'])
+    expect(plain.nextSteps ?? []).toEqual([])
+  })
+
+  it('reportEdit_readsTheReportItsDefinitionAndItsNote', () => {
+    const reply = { reportEdit: { reportId: 'r-1', definition, note: { en: 'Added the cancellation rate as a bar.', ar: 'أُضيفت نسبة الإلغاء كأعمدة.' } } } as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).reportEdit).toEqual({ reportId: 'r-1', definition, note: { en: 'Added the cancellation rate as a bar.', ar: 'أُضيفت نسبة الإلغاء كأعمدة.' } })
+  })
+
+  it('reportEdit_forTheUnsavedNewReportInContext_namesNoReport (story 101)', () => {
+    const reply = { reportEdit: { reportId: null, definition, note: { en: 'Added a bar.', ar: '' } } } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).reportEdit).toEqual({ reportId: null, definition, note: { en: 'Added a bar.', ar: '' } })
+  })
+
+  it('reportEdit_withoutAReportOrSectionsIsNone', () => {
+    for (const odd of [null, 'x', {}, { reportId: 'r-1' }, { reportId: '', definition }, { reportId: 'r-1', definition: { sections: 'x' } }])
+      expect(copilotAnswerModel({ reportEdit: odd } as unknown as Partial<CopilotAnswer>).reportEdit).toBeNull()
+    // A missing note reads blank, never a crash.
+    expect(copilotAnswerModel({ reportEdit: { reportId: 'r-1', definition } } as unknown as Partial<CopilotAnswer>).reportEdit?.note).toEqual({ en: '', ar: '' })
+  })
+
+  it('assumptions_areOneLineEach_blankOnesDropped', () => {
+    const reply = {
+      assumptions: [{ en: 'Period: a parameter, default yesterday', ar: 'الفترة: معامل، افتراضيًا أمس' }, { en: '', ar: '' }, null, { en: 'HungerStation and QC: two named series' }],
+    } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).assumptions).toEqual([
+      { en: 'Period: a parameter, default yesterday', ar: 'الفترة: معامل، افتراضيًا أمس' },
+      { en: 'HungerStation and QC: two named series', ar: '' },
+    ])
+  })
+
+  it('a bare answer has no reports, no edit and no assumptions', () => {
+    expect(copilotAnswerModel({ answer: 'x' })).toMatchObject({ reportRefs: [], reportEdit: null, assumptions: [] })
+    expect(copilotAnswerModel(null)).toMatchObject({ reportRefs: [], reportEdit: null, assumptions: [] })
+    expect(copilotAnswerModel({ reportRefs: 'x', assumptions: 7 } as unknown as Partial<CopilotAnswer>)).toMatchObject({ reportRefs: [], assumptions: [] })
+  })
+})
+
+describe('the board edit (ticket 836, BackOffice 3430)', () => {
+  const definition = {
+    params: [],
+    bindings: {},
+    panels: [{ id: 'p-a', kind: 'view', viewId: 'v-1', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] }],
+  }
+
+  it('boardEdit_readsTheBoardItsDefinitionAndItsNote', () => {
+    const reply = { boardEdit: { boardId: 'b-1', definition, note: { en: 'Removed the stores chart.', ar: 'أزيل رسم الفروع.' } } } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).boardEdit).toEqual({ boardId: 'b-1', definition, note: { en: 'Removed the stores chart.', ar: 'أزيل رسم الفروع.' } })
+  })
+
+  it('boardEdit_withoutABoardOrPanelsIsNone_andAbsentIsNone', () => {
+    for (const odd of [null, 'x', { definition }, { boardId: '', definition }, { boardId: 'b-1' }, { boardId: 'b-1', definition: { sections: [] } }])
+      expect(copilotAnswerModel({ boardEdit: odd } as unknown as Partial<CopilotAnswer>).boardEdit).toBeNull()
+    expect(copilotAnswerModel({ answer: 'x' }).boardEdit).toBeNull()
+    expect(copilotAnswerModel({ boardEdit: { boardId: 'b-1', definition: { panels: [] } } } as unknown as Partial<CopilotAnswer>).boardEdit).toEqual({
+      boardId: 'b-1',
+      definition: { panels: [], params: [], bindings: {} },
+      note: { en: '', ar: '' },
+    })
+  })
+})

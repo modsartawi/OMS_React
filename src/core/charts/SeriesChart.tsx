@@ -13,11 +13,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
 import { formatAs, formatTickAs } from './format'
-import { CHART_INK, slotColour } from './slots'
+import { CHART_INK, seriesOpacity, seriesRowFill, slotColour } from './slots'
 import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
@@ -28,7 +29,10 @@ import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from
  * - sits in the `dir="ltr"` box and mirrors through props only (`./direction`);
  * - paints each series in its slot's token (`./slots`); "Other" (slot `null`) in ink grey;
  * - has a tooltip on every mark, a legend for two or more series (ink text), and `accessibilityLayer`;
- * - formats through the definition's number format (`formatAs`), plain text, never `fsi()`.
+ * - formats through the definition's number format (`formatAs`), plain text, never `fsi()`;
+ * - 825: a click on a legend entry highlights that series (the others dim); so does a click on a bar of a
+ *   chart with no `onPoint`. A highlight never cross-filters — `onPoint` is the cross-filter, and only a
+ *   bar's own click, when the caller gives it, reaches it. Highlight = opacity, never a new colour.
  *
  * Plain props, so the analytics feature's view model (`features/analytics/boards/series-view.ts`) maps
  * onto them structurally and `core` never imports a feature.
@@ -85,13 +89,22 @@ export default function SeriesChart({
   legend?: AnalyticsLegendPosition
 }) {
   const { t } = useTranslation('common')
+  const [lit, setLit] = useState<string | null>(null)
+  // A highlight of a series no longer drawn falls away by itself.
+  const shown = lit && series.some((s) => s.key === lit) ? lit : null
+  const toggle = (key: string | undefined) => key && setLit((k) => (k === key ? null : key))
+  const opacity = (key: string) => seriesOpacity(shown, key)
   const named = series.map((s) => ({
     ...s,
     name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.previous ? t('charts.previousPeriod') : s.label,
     colour: slotColour(s.slot),
   }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
-  const data = rows.map((r) => ({ label: r.label, ...r.values, fill: colourBy === 'member' ? slotColour(r.slot) : slotColour(0) }))
+  // The row fill only for one series (ticket 820): Recharts lets a row's `fill` beat `<Bar fill>`.
+  const data = rows.map((r): { label: string; fill?: string } & Record<string, number | string | null | undefined> => {
+    const fill = seriesRowFill(series.length, colourBy, r.slot)
+    return fill === undefined ? { label: r.label, ...r.values } : { label: r.label, ...r.values, fill }
+  })
   const stackId = stacking === 'stacked' ? 'stack' : undefined
   const horizontal = form === 'bar' && orientation === 'horizontal'
   const margin = { top: 12, right: 8, bottom: 4, left: 8 }
@@ -116,7 +129,8 @@ export default function SeriesChart({
           : { verticalAlign: legendAt })}
         // The series' own order (rank, "Other" last), not Recharts' default sort by name.
         itemSorter={null}
-        wrapperStyle={CHART_LEGEND_STYLE}
+        wrapperStyle={{ ...CHART_LEGEND_STYLE, cursor: 'pointer' }}
+        onClick={(entry: { dataKey?: unknown }) => toggle(typeof entry.dataKey === 'string' ? entry.dataKey : undefined)}
         formatter={(value) => (
           <span style={{ color: CHART_INK.legend }}>
             <bdi>{value}</bdi>
@@ -155,6 +169,7 @@ export default function SeriesChart({
             dataKey={s.key}
             name={s.name}
             stroke={s.colour}
+            strokeOpacity={opacity(s.key)}
             strokeWidth={2}
             strokeDasharray={s.previous ? '5 4' : undefined}
             dot={false}
@@ -179,10 +194,12 @@ export default function SeriesChart({
             type="monotone"
             dataKey={s.key}
             name={s.name}
-            stackId="stack"
+            // 825: named series are never stacked (a stack's height is a total): they overlap.
+            stackId={stacking === 'stacked' ? 'stack' : undefined}
             stroke={s.colour}
+            strokeOpacity={opacity(s.key)}
             fill={s.colour}
-            fillOpacity={0.35}
+            fillOpacity={0.35 * opacity(s.key)}
             isAnimationActive={false}
           />
         ))}
@@ -223,10 +240,11 @@ export default function SeriesChart({
             name={s.name}
             stackId={stackId}
             fill={s.colour}
+            fillOpacity={opacity(s.key)}
             radius={stackId ? 0 : horizontal ? (chartMirror.rtl ? [3, 0, 0, 3] : [0, 3, 3, 0]) : [3, 3, 0, 0]}
             isAnimationActive={false}
-            cursor={onPoint ? 'pointer' : undefined}
-            onClick={onPoint ? (_d: unknown, i: number) => rows[i] && onPoint(rows[i].x) : undefined}
+            cursor={onPoint || !single ? 'pointer' : undefined}
+            onClick={onPoint ? (_d: unknown, i: number) => rows[i] && onPoint(rows[i].x) : !single ? () => toggle(s.key) : undefined}
           >
             {single && data.map((p, i) => <Cell key={rows[i].x} fill={p.fill} data-member={rows[i].x} data-slot={rows[i].slot ?? ''} />)}
           </Bar>
@@ -244,6 +262,7 @@ export default function SeriesChart({
       data-chart-orientation={orientation}
       data-chart-stacking={stacking}
       data-chart-series={named.length}
+      data-chart-highlight={shown ?? ''}
       role="figure"
       aria-label={ariaLabel}
     >

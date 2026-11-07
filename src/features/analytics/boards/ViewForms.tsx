@@ -8,6 +8,7 @@ import type { AnalyticsChartType, AnalyticsModel, AnalyticsQueryResult, Analytic
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
 import type { MarkPoint } from './drill'
+import { hasSeries, seriesColumnOf } from './series'
 import { toComboView, toDonutView, toHeatmapView, toTableView } from './view-model-forms'
 
 /**
@@ -71,10 +72,12 @@ export default function ViewForm({
   }
 
   if (type === 'table') {
-    const view = toTableView(result, definition, model, lang)
-    const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
+    const view = toTableView(result, definition, model, lang, t('view.seriesColumn'))
+    // 825: the series column is not a dimension a row click cross-filters on.
+    const seriesKey = hasSeries(definition) ? seriesColumnOf(result.columns) : null
+    const dims = view.columns.filter((c) => c.role === 'dimension' && c.key !== seriesKey).map((c) => c.label)
     const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
-    const first = view.columns.find((c) => c.role === 'dimension')?.key ?? ''
+    const first = view.columns.find((c) => c.role === 'dimension' && c.key !== seriesKey)?.key ?? ''
     const selectedRow = selected?.dimension === first ? view.members.indexOf(selected.member) : -1
     return (
       <div className="flex flex-col gap-1.5">
@@ -123,6 +126,7 @@ export default function ViewForm({
       points={points}
       volume={view.volume}
       rate={view.rate}
+      series={view.series.map((x) => ({ id: x.id, label: x.label, slot: x.slot }))}
       locale={lang}
       ariaLabel={tc('charts.comboLabel', { volume: fsi(view.volume.label), rate: fsi(view.rate.label), dimension: fsi(view.category.label) })}
     />

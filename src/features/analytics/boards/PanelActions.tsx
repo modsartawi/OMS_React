@@ -56,7 +56,7 @@ export default memo(function PanelActions(p: PanelActionsProps) {
   const behind = !!result && isBehind(result.dataAsOf, now)
   const ago = result ? fetchedAgo(result.fetchedAt || (p.updatedAt ? new Date(p.updatedAt).toISOString() : ''), now) : null
   const base = panelFileBase(p.viewId)
-  const table = () => panelTable(result!, p.definition, p.model, lang)
+  const table = () => panelTable(result!, p.definition, p.model, lang, { series: t('view.seriesColumn') })
 
   const picture = drawsAsPicture(p.definition.chart.type)
   const pngReason = !picture ? t('panel.pngUnavailable') : p.table ? t('panel.pngTableView') : null
@@ -103,7 +103,7 @@ export default memo(function PanelActions(p: PanelActionsProps) {
           )}
         </span>
       )}
-      <div className="flex items-center" role="toolbar" aria-label={t('panel.actions')} data-panel-actions>
+      <div className="flex items-center print:hidden" role="toolbar" aria-label={t('panel.actions')} data-panel-actions>
         <Action label={t('panel.refresh')} action="refresh" onClick={p.onRefresh}>
           <RefreshCw className="size-3.5" aria-hidden />
         </Action>

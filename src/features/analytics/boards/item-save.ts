@@ -40,7 +40,7 @@ export function saveRefusal(err: unknown): SaveRefusal | null {
  */
 export interface EditingItem {
   id: string
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   owner: string
   tier: AnalyticsTier
   revision: number
@@ -48,7 +48,7 @@ export interface EditingItem {
   sourceChangedSinceCopy: boolean
 }
 
-export function editingItemOf(item: Pick<AnalyticsItem, 'id' | 'owner' | 'tier' | 'revision' | 'copiedFrom' | 'sourceChangedSinceCopy'> & { kind: 'view' | 'board' }): EditingItem {
+export function editingItemOf(item: Pick<AnalyticsItem, 'id' | 'owner' | 'tier' | 'revision' | 'copiedFrom' | 'sourceChangedSinceCopy'> & { kind: 'view' | 'board' | 'report' }): EditingItem {
   return {
     id: item.id,
     kind: item.kind,

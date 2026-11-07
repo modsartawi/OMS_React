@@ -10,6 +10,13 @@
     "unreachableTitle": "Analytics can't be reached",
     "unreachableHint": "The access check did not answer. Try again in a moment."
   },
+  "authorAccess": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the analytics builder",
+    "deniedHint": "Building and editing analytics needs the author grant. You can still open, run and export what is shared with you. Ask an administrator for the author grant.",
+    "unreachableTitle": "Analytics can't be reached",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
   "home": {
     "title": "Analytics",
     "subtitle": "Boards and analytics views over the governed analytics model.",
@@ -33,12 +40,20 @@
     },
     "kind": {
       "board": "Board",
-      "view": "Analytics view"
+      "view": "Analytics view",
+      "report": "Report"
     },
     "owner": "Owner <owner>{{owner}}</owner>",
     "changed": "Changed <at>{{at}}</at>"
   },
   "board": {
+    "saveAsReport": {
+      "action": "Save as report",
+      "done": "Saved as a Personal report. It opens in the designer.",
+      "leftOut_one": "{{n}} panel was left out: its view could not be read.",
+      "leftOut_other": "{{n}} panels were left out: their views could not be read.",
+      "failed": "The board could not be saved as a report"
+    },
     "title": "Board",
     "subtitle": "Panels over the governed analytics model.",
     "notFoundTitle": "Board not found",
@@ -79,6 +94,8 @@
       "enter": "TV mode",
       "exit": "Exit TV mode",
       "exitHint": "Esc also leaves TV mode",
+      "fullscreen": "Full screen",
+      "fullscreenHint": "Hide the browser's address and bookmarks bars",
       "chips": "Board filters (read only)"
     },
     "cross": {
@@ -95,7 +112,31 @@
       "seeDeliveries": "See deliveries"
     },
     "viewRemoved": "The view this panel showed was removed.",
-    "viewRemovedHint": "Edit the board to remove the panel or link another view."
+    "viewRemovedHint": "Edit the board to remove the panel or link another view.",
+    "notSharedTitle": "This board isn’t shared with you",
+    "params": {
+      "reset": "Reset to defaults",
+      "grain": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month"
+      },
+      "op": {
+        "off": "Any",
+        "gt": "{{measure}} above",
+        "gte": "{{measure}} at least",
+        "lt": "{{measure}} below",
+        "lte": "{{measure}} at most"
+      },
+      "thresholdValue": "Threshold value",
+      "percent": "%",
+      "fewer": "Fewer",
+      "more": "More",
+      "fellBack": "<param>{{param}}</param>: the link's value isn't available here, so the default is shown.",
+      "invalid": "<param>{{param}}</param>: this value can't be used. Change it, or reset to defaults.",
+      "invalidField": "This value can't be used.",
+      "notices": "Parameter notices"
+    }
   },
   "view": {
     "title": "Analytics view",
@@ -117,7 +158,10 @@
     "notShown_other": "{{n}} more not shown: {{measure}} is a rate, so the rest cannot be summed into Other.",
     "topN_one": "Showing the top {{n}} row.",
     "topN_other": "Showing the top {{n}} rows.",
-    "edit": "Edit"
+    "edit": "Edit",
+    "notSharedTitle": "This view isn’t shared with you",
+    "seriesColumn": "Series",
+    "seriesKpiLabel": "{{measure}} for {{series}}"
   },
   "refusal": {
     "noAccess": "You don't have access to analytics.",
@@ -126,7 +170,12 @@
     "engineDown": "The analytics engine can't be reached right now.",
     "invalid": "The model does not accept this definition: a member is unknown or retired, or the chart type does not fit.",
     "window": "A percentile is answered over at most 92 days. Shorten the period.",
-    "areaUnavailable": "This subject area is not available yet."
+    "areaUnavailable": "This subject area is not available yet.",
+    "needsAuthor": "Building and editing analytics needs the author grant. You can still run and export what is shared with you.",
+    "notShared": "This analytics item isn’t shared with you.",
+    "invalidValue": "A parameter's value can't be used for this panel. Change it in the strip above.",
+    "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
+    "invalidRecipient": "That recipient can't receive this report."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -168,7 +217,12 @@
     "unavailableTitle": "Not available yet",
     "retiredTitle": "This measure was retired",
     "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
-    "refreshFailed": "The refresh failed. The figures shown are from the last answer."
+    "refreshFailed": "The refresh failed. The figures shown are from the last answer.",
+    "notFilteredBy": "Not filtered by",
+    "listSeparator": ", ",
+    "mayStillRise": "Days from <day>{{from}}</day> may still rise.",
+    "mayStillRiseHint_one": "The figures of the last {{n}} day may still change as late records arrive.",
+    "mayStillRiseHint_other": "The figures of the last {{n}} days may still change as late records arrive."
   },
   "title": {
     "byDimensions": "{{measures}} by {{dimensions}}",
@@ -262,7 +316,10 @@
       "donutAdditive": "A rate or percentile is never put in a donut.",
       "tableShape": "A table needs 1 to 3 breakdowns.",
       "heatmapShape": "A heatmap is one measure by two breakdowns.",
-      "comboShape": "A combo is one volume measure and one rate, by one breakdown."
+      "comboShape": "A combo is one volume measure and one rate, by one breakdown.",
+      "seriesShape": "With named series, this chart takes one measure over one breakdown.",
+      "seriesStacked": "Named series are never stacked: a stack adds them up, and series may overlap.",
+      "seriesForm": "A donut or a heatmap takes no named series."
     },
     "formatName": {
       "auto": "Automatic",
@@ -336,7 +393,27 @@
     "filters": "Filters",
     "addFilter": "Add a filter on…",
     "addAnotherFilter": "Another filter",
-    "whyOff": "Why {{n}} types are off"
+    "whyOff": "Why {{n}} types are off",
+    "series": {
+      "title": "Named series",
+      "hint": "Up to 4. Each series runs as its own query with its own filters, so rates stay right. There is no total across series.",
+      "labelEn": "Series name (English)",
+      "labelAr": "Series name (Arabic)",
+      "remove": "Remove series {{series}}",
+      "where": "Where",
+      "is": "is",
+      "addFilter": "Another condition",
+      "removeFilter": "Remove this condition",
+      "max": "A view holds at most 4 series.",
+      "add": "Add a series ({{n}})",
+      "unnamed": "Series {{n}}",
+      "problem": {
+        "title": "Not saved:",
+        "tooMany": "This view has more than 4 series.",
+        "duplicate": "Two series share the name {{series}}.",
+        "foreignDimension": "The series {{series}} filters on {{dimension}}, which is not one of this view's own breakdowns."
+      }
+    }
   },
   "save": {
     "asCopy": "Save as copy",
@@ -368,7 +445,8 @@
     "hint": "The last 20 revisions. Reverting writes a new revision, so it can be undone.",
     "untitled": {
       "view": "This view",
-      "board": "This board"
+      "board": "This board",
+      "report": "This report"
     },
     "close": "Close the history",
     "loading": "Loading the history…",
@@ -382,7 +460,14 @@
     "reverted": "Reverted to revision {{revision}}.",
     "revertFailed": "The revert could not be saved",
     "revertedNote": "Reverted to revision <to>{{to}}</to>. This is now revision <now>{{now}}</now>.",
-    "undo": "Undo"
+    "undo": "Undo",
+    "event": {
+      "audience": "Audience changed",
+      "reassign": "Handed to another author",
+      "reassignTo": "Handed to <owner>{{owner}}</owner>",
+      "byAt": "By <by>{{by}}</by>, <at>{{at}}</at>",
+      "by": "By <by>{{by}}</by>"
+    }
   },
   "tierActions": {
     "label": "Sharing and certification",
@@ -400,7 +485,11 @@
       "certify": "Certified. A frozen certified copy now leads the home; this one stays its author's.",
       "certifyRevision": "This revision is now the certified copy's newest revision.",
       "uncertify": "No longer certified.",
-      "delete": "Deleted."
+      "delete": "Deleted.",
+      "shareChosen": "Shared with the chosen roles and people.",
+      "audience": "The audience is saved.",
+      "narrow": "The audience is narrowed.",
+      "reassign": "Handed to its new owner."
     },
     "refused": {
       "needsCurator": "This needs the curator grant, which you no longer hold. The curator's actions are hidden now."
@@ -411,17 +500,21 @@
         "title": "Un-certify?",
         "body": {
           "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
-          "board": "This board stops being Certified, and leaves the Certified group on the home."
+          "board": "This board stops being Certified, and leaves the Certified group on the home.",
+          "report": "This report stops being Certified, and leaves the Certified group on the home."
         }
       },
       "delete": {
         "title": "Delete?",
         "body": {
           "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
-          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted."
+          "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted.",
+          "report": "This report is deleted for everyone who sees it, with its schedules. Its kept runs stay listed until they expire."
         }
       }
-    }
+    },
+    "narrow": "Narrow audience",
+    "reassign": "Reassign"
   },
   "boardEditor": {
     "title": "New board",
@@ -438,7 +531,7 @@
       "300": "Every 5 minutes",
       "900": "Every 15 minutes"
     },
-    "filters": "The filters the board opens on",
+    "filters": "Parameters — the values the board opens on",
     "add": "Add a panel",
     "addView": "Add a view",
     "pickView": "Choose a view…",
@@ -539,12 +632,526 @@
     "none": "None yet"
   },
   "report": {
+    "title": "Report",
+    "subtitle": "A report run with your values",
     "loading": "Loading the report…",
-    "export": "Export PDF",
-    "print": "Save as PDF",
-    "meta": "Revision {{n}} · updated {{at}}",
-    "source": "Written by the OMS copilot from live analytics data. Charts are drawn from the governed marts at the time of export.",
+    "loadFailed": "The report could not be loaded",
+    "notFoundTitle": "Report not found",
+    "noAccessTitle": "No access to this report",
+    "notSharedTitle": "This report isn’t shared with you",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied, with the values on screen",
+    "linkFailed": "The link could not be copied",
+    "print": "Print",
+    "printAgain": "Save as PDF",
     "back": "Back to the report",
-    "missingChart": "This chart is no longer saved."
+    "figureMissing": "figure unavailable",
+    "figureMissingHint": "This run has no value for this figure.",
+    "figurePending": "…",
+    "figurePendingLabel": "Figure loading",
+    "summary": {
+      "title": "Summary",
+      "checked": "Every number was checked against this run.",
+      "writing": "Writing the summary…",
+      "unavailable": "Summary unavailable."
+    }
+  },
+  "notShared": {
+    "ask": "Ask its owner, <owner>{{owner}}</owner>, to add you or your team.",
+    "askName": "Ask its owner, <name>{{name}}</name>, to add you or your team.",
+    "askNamed": "Ask its owner, <name>{{name}}</name> (<owner>{{owner}}</owner>), to add you or your team.",
+    "askNobody": "Ask whoever sent you the link to add you or your team."
+  },
+  "audience": {
+    "everyone": "Shared with everyone",
+    "with": "Shared with",
+    "separator": ", ",
+    "removed": "removed",
+    "counted": "(<n>{{count}}</n>)"
+  },
+  "share": {
+    "title": {
+      "share": "Share {{title}}",
+      "narrow": "Narrow who sees {{title}}"
+    },
+    "untitled": {
+      "share": {
+        "view": "Share this view",
+        "board": "Share this board",
+        "report": "Share this report"
+      },
+      "narrow": {
+        "view": "Narrow who sees this view",
+        "board": "Narrow who sees this board",
+        "report": "Narrow who sees this report"
+      }
+    },
+    "cancel": "Cancel",
+    "save": {
+      "share": "Share",
+      "audience": "Save the audience",
+      "narrow": "Narrow"
+    },
+    "who": "Who can run it",
+    "everyone": "Everyone with analytics",
+    "chosen": "Chosen roles and people",
+    "roles": "Roles (from Authz)",
+    "rolesHint": "Membership is read from Authz every time it opens; someone who leaves the role loses it at once.",
+    "removedRole": "removed from Authz — ignored",
+    "people": "People",
+    "peopleHint": "Search by name or employee id.",
+    "narrowHint": "As a curator you can narrow who sees it, or unshare it. Only its owner can widen it.",
+    "canTitle": "They can",
+    "can": {
+      "run": "open and run it",
+      "params": "change every parameter",
+      "export": "export what they see",
+      "link": "copy a link with their values"
+    },
+    "cannotTitle": "They can’t",
+    "cannot": {
+      "edit": "edit, save or delete it",
+      "ai": "ask the AI to change it",
+      "copy": "save a copy (authors in the audience can)"
+    },
+    "history": "Every audience change is written to its history."
+  },
+  "reassign": {
+    "title": "Hand {{title}} to another author",
+    "untitled": {
+      "view": "Hand this view to another author",
+      "board": "Hand this board to another author",
+      "report": "Hand this report to another author"
+    },
+    "save": "Hand it over",
+    "hint": "Its owner is {{owner}}. The new owner must hold the author grant; who sees it and its tier stay as they are.",
+    "to": "New owner",
+    "toHint": "Search by name or employee id."
+  },
+  "params": {
+    "kind": {
+      "period": "Period",
+      "members": "Members",
+      "grain": "Grain",
+      "threshold": "Threshold",
+      "topN": "Top N",
+      "measure": "Measure",
+      "breakdown": "Breakdown"
+    },
+    "kindHint": {
+      "period": "A relative period such as yesterday, or a fixed range.",
+      "members": "One or several values of a category: cities, stores, channels…",
+      "grain": "Day, week or month on panels drawn over time.",
+      "threshold": "Keep only rows whose figure passes a line, e.g. cancellation rate above 5%.",
+      "topN": "Show the first N rows, 1 to 100.",
+      "measure": "Swap which figure a panel shows, from a list you choose.",
+      "breakdown": "Swap what a panel is split by, from a list you choose."
+    },
+    "reason": {
+      "noTimeAxis": "not drawn over time",
+      "seriesFilters": "its series already filter on this",
+      "thresholdShape": "needs that measure and a category breakdown",
+      "topNShape": "needs one category and no time axis",
+      "measureShape": "not every option fits this panel",
+      "breakdownShape": "not every option fits this panel",
+      "notInArea": "not in this panel's area"
+    },
+    "strip": {
+      "edit": "Edit parameter {{name}}",
+      "add": "Parameter"
+    },
+    "inspector": {
+      "label": "Parameter inspector",
+      "title": "Parameter",
+      "done": "Done"
+    },
+    "field": {
+      "kind": "Kind",
+      "readyMade": "ready-made — every new board starts with it",
+      "name": "Name in the link",
+      "nameHint": "Viewers' links carry it as ?{{name}}=…",
+      "nameProblem": {
+        "reserved": "That name is reserved by the board (tv, refresh, cross, crossFrom).",
+        "slug": "Lower-case letters, digits and dashes, starting with a letter.",
+        "duplicate": "Another parameter already has this name."
+      },
+      "labelEn": "Label (English)",
+      "labelAr": "Label (Arabic)",
+      "dimension": "Picks from",
+      "choices": "Choices offered",
+      "openSearch": "Search every member",
+      "pinnedList": "Only my list",
+      "pinned": "My list",
+      "pinnedNone": "This dimension has no fixed list to pin from: viewers search it.",
+      "multi": "Several values",
+      "allowedGrains": "Grains viewers may pick",
+      "thresholdMeasure": "Compares",
+      "thresholdHint": "Viewers type the number in the measure's own unit (5 means 5%).",
+      "options": "Viewers choose from",
+      "optionsHint": "Checked at save: every option must fit every panel this binds to.",
+      "default": "Default",
+      "defaultHint": "Every parameter has a default, so a scheduled run never meets an empty value. Change the control above to set it.",
+      "required": "Viewers can't clear it",
+      "remove": "Remove parameter",
+      "removeReadyMade": "Ready-made parameters may be removed too; old links that carry it then fall back to the default."
+    },
+    "bind": {
+      "title": "Applies to",
+      "hint": "Pre-filled with every panel that can take it. Untick a panel to leave it out; a panel it can't reach says why.",
+      "target": "Filters which dimension",
+      "noPanels": "Add a view to the board to bind this parameter.",
+      "loading": "Loading the view…"
+    },
+    "overview": {
+      "title": "Every parameter on every panel",
+      "param": "Parameter",
+      "cell": "{{param}} on {{panel}}",
+      "cannot": "can't",
+      "broken": "doesn't fit"
+    },
+    "problems": {
+      "title": "Not saved:",
+      "close": "Dismiss",
+      "kept": "Nothing was dropped: fix these and save again.",
+      "name": {
+        "reserved": "The parameter {{param}} uses a reserved name.",
+        "slug": "The parameter name {{param}} isn't a valid link key.",
+        "duplicate": "Two parameters are named {{param}}."
+      },
+      "binding": "{{param}} can't apply to {{panel}}: {{reason}}.",
+      "default": "The default of {{param}} isn't one it accepts.",
+      "series": {
+        "tooMany": "A view has more than 4 series.",
+        "duplicate": "Two series share the name of {{series}}.",
+        "foreignDimension": "The series {{series}} filters on {{dimension}}, which isn't one of the view's own."
+      },
+      "figure": {
+        "missingPanel": "A live figure names panel {{panel}}, which is no longer on the report.",
+        "notSingle": "A live figure names a value of {{panel}} that is not a single one."
+      },
+      "summary": "A report holds one summary block at most."
+    }
+  },
+  "schedule": {
+    "open": "Schedules",
+    "title": "Schedules — {{title}}",
+    "untitled": "Report schedules",
+    "intro": "Each schedule emails this report, run with its own values, to analytics users in its audience. Times are Riyadh time.",
+    "loading": "Loading the schedules…",
+    "loadFailed": "The schedules could not be loaded.",
+    "none": "No schedules yet.",
+    "new": "New schedule",
+    "edit": "Edit",
+    "back": "Back to schedules",
+    "close": "Close",
+    "save": "Save schedule",
+    "saved": "Schedule saved.",
+    "sendNow": "Send now",
+    "sendNowHint": "Sends the saved schedule at once — a test or a resend.",
+    "sent": "Sent. It is listed in the kept runs.",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this schedule?",
+    "deleted": "Schedule deleted.",
+    "failed": "The schedule could not be saved.",
+    "recipientCount_one": "{{n}} recipient",
+    "recipientCount_other": "{{n}} recipients",
+    "state": {
+      "enabled": "On",
+      "paused": "Paused",
+      "suspended": "Suspended"
+    },
+    "suspended": {
+      "ownerGrant": "Suspended: its owner no longer holds the run or author grant. A curator's handover resumes it.",
+      "value": "Suspended: the saved value of {{param}} no longer resolves. Change it and save to resume.",
+      "other": "Suspended: {{message}}"
+    },
+    "cadence": {
+      "label": "Repeats",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "days": "On",
+      "dayOfMonth": "Day of the month",
+      "dayOfMonthHint": "1 to 28, so every month has it, or its last day.",
+      "lastDay": "Last day",
+      "summary": {
+        "daily": "Every day at {{time}} (Riyadh time)",
+        "weekly": "Every {{days}} at {{time}} (Riyadh time)",
+        "monthly": "On day {{day}} of every month at {{time}} (Riyadh time)",
+        "monthlyLast": "On the last day of every month at {{time}} (Riyadh time)",
+        "noDays": "Weekly, but no day is chosen"
+      }
+    },
+    "time": "Time",
+    "timeHint": "Riyadh time.",
+    "day": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    },
+    "dayShort": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "daysJoin": ", ",
+    "values": "Values it runs with",
+    "valuesHint": "Fixed for every send — a period like Yesterday moves with the day.",
+    "lang": {
+      "label": "Email language",
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "enabled": {
+      "label": "Sending",
+      "on": "On",
+      "paused": "Paused"
+    },
+    "recipients": "Recipients",
+    "recipientsHint": "Analytics users in the report's audience who hold the run grant, with a company address. At most {{cap}}.",
+    "full": "That is {{cap}}, the most a schedule can send to.",
+    "barredTitle": "Not offered",
+    "bar": {
+      "audience": "not in the report's audience",
+      "runGrant": "no run grant",
+      "address": "not a company address",
+      "cap": "over the {{cap}}-recipient limit",
+      "unknown": "refused"
+    },
+    "barRow": "{{name}} — {{why}}",
+    "refusedTitle": "These recipients cannot receive this report:",
+    "noRecipients": "Choose at least one recipient."
+  },
+  "runs": {
+    "open": "Kept runs",
+    "title": "Kept runs",
+    "subtitle": "Every sent run of a report, and what went out",
+    "heading": "Kept runs — {{title}}",
+    "back": "Back to the report",
+    "intro": "The record of every run is kept. Its email and PDF are kept for 90 days.",
+    "loading": "Loading the kept runs…",
+    "loadFailed": "The kept runs could not be loaded.",
+    "none": "No runs have been sent yet.",
+    "col": {
+      "date": "Sent",
+      "trigger": "Trigger",
+      "values": "Values",
+      "recipients": "Recipients",
+      "outcome": "Outcome",
+      "artefacts": "Email and PDF"
+    },
+    "trigger": {
+      "schedule": "Schedule",
+      "late": "Schedule (sent late)",
+      "sendNow": "Send now"
+    },
+    "outcome": {
+      "sent": "Sent",
+      "chartsUnavailable": "Sent, charts unavailable",
+      "stopped": "Stopped: a value no longer resolves",
+      "skipped": "Skipped (missed slot)",
+      "failed": "Failed",
+      "open": "Sending…"
+    },
+    "dropped": "Dropped (left the audience): {{names}}",
+    "html": "Email",
+    "pdf": "PDF",
+    "expired": "No longer kept",
+    "expiredToast": "That run's email and PDF are no longer kept.",
+    "openFailed": "The file could not be opened.",
+    "revision": "Revision {{revision}}",
+    "dataAsOf": "Data as of {{asOf}}"
+  },
+  "editWithCopilot": {
+    "action": "Edit with copilot",
+    "hint": "Opens the copilot on this item: ask it to add, remove or change something. Each change is one undo step, and nothing is saved until you save.",
+    "notYours": "The copilot edits only your own items that are not Certified. Save a copy first, then edit the copy.",
+    "unsaved": "Save the item once first: the copilot edits a saved item."
+  },
+  "designer": {
+    "newTitle": "New report",
+    "editTitle": "Edit report",
+    "subtitle": "Lay out the report: sections and blocks, every change undoable",
+    "loading": "Loading the designer…",
+    "loadFailed": "The designer could not be loaded",
+    "newReport": "New report",
+    "newReportInstead": "Start a report instead",
+    "edit": "Edit",
+    "badge": "Designing",
+    "untitled": "Untitled report",
+    "unsaved": "Unsaved changes",
+    "titleEn": "Report title (English)",
+    "titleAr": "Report title (Arabic)",
+    "preview": "Preview as a runner",
+    "backToDesigner": "Back to the designer",
+    "previewNote": "This is the page a runner opens, with this draft and the default values.",
+    "previewNoteSaved": "This is the page a runner opens: the saved report, with its live figures and summary.",
+    "save": "Save",
+    "saving": "Saving…",
+    "created": "Report created as Personal",
+    "saveFailed": "The report could not be saved",
+    "summaryOnRun": "It is written when the report runs.",
+    "empty": "No sections yet. Add one to start.",
+    "outline": {
+      "label": "Report outline",
+      "params": "Parameters",
+      "noParams": "No parameters yet.",
+      "sections": "Sections"
+    },
+    "inspector": {
+      "label": "Edit the selection",
+      "empty": "Pick a parameter, a section or a block to edit it.",
+      "section": "Section",
+      "panel": "Chart or table",
+      "text": "Text",
+      "summary": "AI summary"
+    },
+    "section": {
+      "headingEn": "Heading (English)",
+      "headingAr": "Heading (Arabic)",
+      "untitled": "Untitled section",
+      "remove": "Remove section",
+      "removeHint": "Its blocks go with it. Undo brings everything back."
+    },
+    "block": {
+      "remove": "Remove block",
+      "removeHint": "Undo brings it back where it was.",
+      "untitledPanel": "Untitled chart",
+      "text": "Text",
+      "summary": "AI summary",
+      "panel": "Chart or table"
+    },
+    "add": {
+      "text": "Text",
+      "summary": "AI summary",
+      "summaryOne": "A report holds one summary.",
+      "toSection": "Add to this section",
+      "section": "Add a section",
+      "close": "Close",
+      "panel": "Chart or table"
+    },
+    "tools": {
+      "edit": "Edit {{what}}",
+      "up": "Move {{what}} up",
+      "down": "Move {{what}} down",
+      "remove": "Remove {{what}}",
+      "drag": "Drag to move {{what}}"
+    },
+    "history": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "undoHint": "Undo (Ctrl+Z)",
+      "redoHint": "Redo (Ctrl+Y)",
+      "dismiss": "Dismiss",
+      "ai": "AI: {{request}}",
+      "removed": {
+        "section": "Section {{name}} removed.",
+        "param": "Parameter {{name}} removed.",
+        "panel": "Chart {{name}} removed.",
+        "text": "Text block removed.",
+        "summary": "AI summary removed."
+      }
+    },
+    "copyView": {
+      "label": "Copy a saved view",
+      "pick": "Pick a view…",
+      "loading": "Loading the views…",
+      "loadFailed": "The views could not be loaded",
+      "copy": "Copy",
+      "copying": "Copying…",
+      "failed": "The view could not be copied"
+    },
+    "panel": {
+      "titleEn": "Title (English)",
+      "titleAr": "Title (Arabic)",
+      "titleHint": "Empty: named from what it shows.",
+      "area": "Area",
+      "areaPick": "Pick an area…",
+      "from": "Copied from the view {{view}}, revision {{revision}}. The copy is this report’s own: edits to the original never change it.",
+      "fromChanged": "The original has changed since you copied it.",
+      "fromGone": "The original is no longer in the store.",
+      "params": "Parameters on this panel",
+      "noParams": "The report declares no parameters yet."
+    },
+    "text": {
+      "wordsEn": "Words (English)",
+      "wordsAr": "Words (Arabic)",
+      "insert": "Insert a live figure",
+      "panel": "Panel",
+      "figure": "Figure",
+      "into": "Into",
+      "intoEn": "English",
+      "intoAr": "Arabic",
+      "insertButton": "Insert",
+      "noFigures": "No panel on this report offers a single value yet: add a KPI, a total or named series.",
+      "hint": "A live figure is filled in from each run’s own results, so it is never stale. A figure whose panel is removed is refused at save.",
+      "preview": "Preview",
+      "empty": "Empty text: write it in the inspector.",
+      "figureOfSeries": "{{measure}} for {{series}}",
+      "missingPanel": "Panel {{panel}} is not on the report",
+      "notSingle": "{{panel}}: not a single value"
+    },
+    "summary": {
+      "explain": "One per report. You don’t write it; you decide where it sits.",
+      "design": "Rewritten on every run, from this report’s figures only, under your name. Runners only see the result."
+    },
+    "tutorial": {
+      "action": "Tutorial",
+      "actionHint": "A checklist that builds the HungerStation against QC report, ticking each step as you do it",
+      "title": "Build the HungerStation against QC report",
+      "progress": "Steps done",
+      "hide": "Hide",
+      "show": "Show",
+      "close": "Close the tutorial",
+      "finished": "Done. This is a report your team can re-run for any period. Save it, then share and schedule it from its page.",
+      "load": "Load the finished report",
+      "loadHint": "Skip to the end and study it. Undo takes you back to where you were.",
+      "askTitle": "Or ask the copilot",
+      "askHow": "Type this sentence to the copilot and it builds the whole report, which opens here:",
+      "sentence": "How were sales for each channel yesterday? Focus on two order types, HungerStation and QC, compare them, and show their cancellation rates. The period is a parameter that defaults to yesterday and can be changed. Save it as a report template my team can re-run, schedule it every day by email to named people, and include charts.",
+      "ask": "Ask the copilot",
+      "steps": {
+        "title": {
+          "title": "Name the report",
+          "how": "Type a title above the page, e.g. \"Channel sales: HungerStation against QC\". One language is enough."
+        },
+        "section": {
+          "title": "Add a section",
+          "how": "Use \"Add a section\" and call it \"Sales by channel\". Sections are read top to bottom."
+        },
+        "chart": {
+          "title": "Chart net sales by channel",
+          "how": "In the section, use \"Add to this section\", then \"Chart or table\". Pick the value through our tills, break it down by channel, and choose bars."
+        },
+        "series": {
+          "title": "Compare HungerStation against QC",
+          "how": "Add another chart, then two named series: one where the channel is HungerStation, one where the delivery type is QC. Each series runs on its own."
+        },
+        "rate": {
+          "title": "Show their cancellation rates",
+          "how": "On a chart with those two series, pick the Orders area and its cancellation rate, by day."
+        },
+        "figure": {
+          "title": "Write a sentence with a live figure",
+          "how": "Add Text and use \"Insert a live figure\" to drop in, say, HungerStation’s rate. It is filled in on every run."
+        },
+        "summary": {
+          "title": "Add the AI summary",
+          "how": "Add \"AI summary\" to a last section. It is rewritten on every run and its numbers are checked."
+        },
+        "period": {
+          "title": "The period: yesterday, on every chart",
+          "how": "Every new report has a Period parameter. Set its default to Yesterday in the strip above the page, and check that \"Applies to\" ticks every chart (open it from the outline)."
+        }
+      }
+    }
   }
 }

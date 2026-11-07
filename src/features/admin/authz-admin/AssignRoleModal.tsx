@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import { notify } from '@/core/services/notify'
+import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
+import BatchSummary from '@/core/ui/BatchSummary'
+import { useBatchRun } from '@/core/ui/use-batch-run'
+import { fsi } from '@/core/util/bidi'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 import { inScope, isFullScope, roleKind } from './helpers'
@@ -17,17 +18,20 @@ interface Props {
   assigned: string[]
   access: AuthzAccessResult
   catalog: RoleCatalogEntry[]
-  /** Called after a successful assign so the caller re-reads roles/audit. */
-  onAssigned: () => void
+  /** After a batch that assigned at least one role: re-read the person's roles, effective grants and audit. */
+  onAssigned: () => void | Promise<void>
 }
 
 /**
- * Assign-role picker — the assignable list from the Access probe (delegation-tiered),
- * minus roles the person already holds. A delegated admin sees only the roles they may
- * assign; a full admin (`["*"]`) sees the whole catalog. The server re-checks the
- * assign entitlement regardless of what the picker showed.
+ * Assign roles to one person, many at once (spec 805, ticket 809). The picker offers the assignable
+ * list from the Access probe (delegation-tiered) minus roles the person already holds: a delegated
+ * admin sees only the roles they may assign; a full admin (`["*"]`) sees the whole catalog. The
+ * server re-checks the assign entitlement regardless of what the picker showed.
  *
- * A refused assign renders inside the dialog, which stays open (spec 380 F18).
+ * **Assign N** writes one `Users/AssignRole` per picked role, in pick order, through the batch runner:
+ * a refusal never stops it. The dialog then stays open with "N assigned, M refused"; refused roles
+ * stay ticked with the server's message, so pressing the button again retries just those. An expired
+ * session ends the batch and is `handle401`'s.
  */
 export default function AssignRoleModal({
   open,
@@ -39,101 +43,110 @@ export default function AssignRoleModal({
   onAssigned,
 }: Props) {
   const { t } = useTranslation('authz-admin')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<unknown>(null)
+  const [query, setQuery] = useState('')
+  const [picks, setPicks] = useState<string[]>([])
+  // Assigned roles leave the picks (and, after the re-read, the list); refused ones stay ticked.
+  const batch = useBatchRun<string>({
+    open,
+    write: (role) => authzAdminApi.assignRole(employeeId, role),
+    onPicks: setPicks,
+    onDone: onAssigned,
+  })
 
   useEffect(() => {
-    if (open) setError(null)
+    if (open) {
+      setQuery('')
+      setPicks([])
+    }
   }, [open])
 
   const assignable = access.assignableRoles
-  const held = useMemo(() => new Set(assigned), [assigned])
 
-  // Full scope → the whole catalog; a delegated list → only those catalog rows.
-  // Already-held roles are dropped either way.
-  const choices = useMemo(() => {
-    const rows = isFullScope(assignable)
-      ? catalog
-      : catalog.filter((r) => inScope(r.roleName, assignable))
-    return rows.filter((r) => !held.has(r.roleName))
-  }, [catalog, assignable, held])
+  // Full scope → the whole catalog; a delegated list → only those catalog rows. Held roles are
+  // dropped by the picker's `exclude`, so a role assigned in this batch leaves the list on re-read.
+  // A role's kind is its tag: a protected system role in the attention colour, a composite in primary.
+  const choices = useMemo<ChecklistOption[]>(() => {
+    const rows = isFullScope(assignable) ? catalog : catalog.filter((r) => inScope(r.roleName, assignable))
+    return rows.map((r) => {
+      const kind = roleKind(r)
+      const option: ChecklistOption = {
+        value: r.roleName,
+        label: r.roleName,
+        description: r.description || undefined,
+        machine: true,
+      }
+      if (kind !== 'single') {
+        option.tag = t(`kind.${kind}`)
+        option.tagTone = kind === 'system' ? 'attention' : 'primary'
+      }
+      return option
+    })
+  }, [catalog, assignable, t])
 
-  async function assign(roleName: string) {
-    setBusy(roleName)
-    setError(null)
-    try {
-      await authzAdminApi.assignRole(employeeId, roleName)
-      notify.success(t('assign.done'), t('assign.doneDetail', { role: roleName }))
-      onAssigned()
-      onClose()
-    } catch (err) {
-      setError(err)
-    } finally {
-      setBusy(null)
-    }
+  const labels: ChecklistPickerLabels = {
+    list: t('assign.list'),
+    search: t('assign.search'),
+    selectAllShown: t('assign.selectAllShown'),
+    clear: t('assign.clear'),
+    picked: (count) => t('assign.picked', { count, n: fsi(String(count)) }),
+    empty: t('assign.empty'),
+    noMatch: t('assign.noMatch'),
   }
 
+  const { progress, running, result } = batch
+  const count = picks.length
   return (
     <Modal
       open={open}
       onClose={onClose}
+      dismissable={!running}
       title={t('assign.title')}
-      width="30rem"
+      width="36rem"
       footer={
-        <Button variant="text" onClick={onClose}>
-          {t('common.cancel')}
-        </Button>
+        <>
+          <Button variant="text" onClick={onClose} disabled={running}>
+            {t('common.done')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void batch.run(picks)}
+            disabled={count === 0 || running}
+            data-testid="assign-role-submit"
+          >
+            {progress
+              ? t('assign.assigning', { done: fsi(String(progress.completed)), total: fsi(String(progress.total)) })
+              : t('assign.assignN', { count, n: fsi(String(count)) })}
+          </Button>
+        </>
       }
     >
-      <p className="mb-3 text-sm text-muted-foreground">{t('assign.body')}</p>
-      {error !== null && (
-        <ErrorBanner
-          title={t('toast.failed')}
-          message={apiErrorMessage(error, t('toast.failed'))}
-          className="mb-3 p-2.5"
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">{t('assign.body')}</p>
+        {result && (
+          <BatchSummary
+            result={result}
+            summary={(done, refused) =>
+              t('assign.summary', {
+                assigned: t('assign.summaryAssigned', { count: done, n: fsi(String(done)) }),
+                refused: t('assign.summaryRefused', { count: refused, n: fsi(String(refused)) }),
+              })
+            }
+            refusal={{ fallback: t('toast.failed'), denied: t('common.denied') }}
+            data-testid="assign-role-summary"
+          />
+        )}
+        <ChecklistPicker
+          options={choices}
+          exclude={assigned}
+          picks={picks}
+          onPicksChange={setPicks}
+          query={query}
+          onQueryChange={setQuery}
+          labels={labels}
+          disabled={running}
+          data-testid="assign-role-picker"
         />
-      )}
-      {choices.length === 0 ? (
-        <p className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
-          {t('assign.empty')}
-        </p>
-      ) : (
-        <div className="flex max-h-[16rem] flex-col gap-1.5 overflow-y-auto">
-          {choices.map((r) => (
-            <div
-              key={r.roleName}
-              className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 hover:bg-accent"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  <span className="truncate">{r.roleName}</span>
-                  <KindTag kind={roleKind(r)} />
-                </div>
-                {r.description ? (
-                  <div className="truncate text-xs text-muted-foreground">{r.description}</div>
-                ) : null}
-              </div>
-              <Button variant="primary" onClick={() => assign(r.roleName)} disabled={busy !== null}>
-                {busy === r.roleName ? t('assign.assigning') : t('assign.assign')}
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
     </Modal>
-  )
-}
-
-function KindTag({ kind }: { kind: 'single' | 'composite' | 'system' }) {
-  const { t } = useTranslation('authz-admin')
-  if (kind === 'single') return null
-  const cls =
-    kind === 'system'
-      ? 'bg-attention-050 text-attention-800'
-      : 'bg-primary/10 text-primary'
-  return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
-      {t(`kind.${kind}`)}
-    </span>
   )
 }

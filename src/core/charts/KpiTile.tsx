@@ -35,6 +35,9 @@ export default function KpiTile({
   unit,
   format,
   locale,
+  changeText,
+  changeUnit,
+  slot = 0,
 }: {
   measureLabel: string
   value: number | null
@@ -44,14 +47,25 @@ export default function KpiTile({
   unit: MeasureUnit
   format: AnalyticsNumberFormat
   locale: string
+  /**
+   * The caller's own writing of the change, unsigned, in place of the tile's (a share's change in
+   * percentage points, say, where a percent of a percent would mislead). A machine value, isolated.
+   */
+  changeText?: string
+  /** A word after the change, outside its isolate (`pts`), so it reads in the text's own direction. */
+  changeUnit?: string
+  /** 825: a named series' tile draws its sparkline in that series' colour slot. */
+  slot?: number
 }) {
   const { t } = useTranslation('common')
   const fmt = (v: number | null) => formatAs(v, format, unit, locale)
   const headline = value === null ? t('charts.kpi.noValue') : fmt(value)
   const Icon = delta?.direction === 'up' ? ArrowUp : delta?.direction === 'down' ? ArrowDown : Minus
-  // The change: a percent of the previous, or — from a zero previous — the change itself, unsigned.
-  const change = delta ? (delta.pct === null ? fmt(Math.abs(delta.abs)) : formatAs(Math.abs(delta.pct), 'percent', 'share', locale)) : ''
-  const changeWords = delta ? t(`charts.kpi.${delta.direction}`, { change: fsi(change) }) : ''
+  // The change: the caller's writing of it; else a percent of the previous, or — from a zero previous —
+  // the change itself, unsigned.
+  const change = !delta ? '' : changeText ?? (delta.pct === null ? fmt(Math.abs(delta.abs)) : formatAs(Math.abs(delta.pct), 'percent', 'share', locale))
+  const spoken = changeUnit ? t('charts.kpi.withUnit', { value: fsi(change), unit: changeUnit }) : fsi(change)
+  const changeWords = delta ? t(`charts.kpi.${delta.direction}`, { change: spoken }) : ''
 
   return (
     <div className="flex flex-col gap-2 py-2" data-chart="kpi" role="figure" aria-label={t('charts.kpi.label', { measure: fsi(measureLabel), value: fsi(headline) })}>
@@ -63,6 +77,7 @@ export default function KpiTile({
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-medium text-foreground" aria-label={changeWords}>
             <Icon className="size-3.5" aria-hidden />
             <Ltr>{change}</Ltr>
+            {changeUnit && <span data-kpi-change-unit>{changeUnit}</span>}
           </span>
           {previous !== null && (
             <span className="text-muted-foreground" data-kpi-previous>
@@ -79,7 +94,7 @@ export default function KpiTile({
               <XAxis dataKey="label" hide reversed={chartMirror.categoryReversed} />
               <YAxis hide domain={['auto', 'auto']} />
               <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [fmt(typeof v === 'number' ? v : null), measureLabel]} />
-              <Line type="monotone" dataKey="value" stroke={slotColour(0)} strokeWidth={2} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="value" stroke={slotColour(slot)} strokeWidth={2} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

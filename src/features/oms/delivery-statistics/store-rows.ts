@@ -8,11 +8,11 @@
  * here — never 0 — so the grid shows the dash and sorts it last.
  *
  * The table shows one of three views (491): **All** reads the store's own `flow`, `misses`,
- * `avgHandOverMinutes` and `unspecified`; **Delivery** and **Pick-up** read that store's
+ * `avgDeliveryMinutes` and `unspecified`; **Delivery** and **Pick-up** read that store's
  * `tracks.delivery` / `tracks.pickUp` as sent. A store row without `tracks` (an SIS.Api older than
  * 2660) reads `null` in every cell of those two views — never 0, never the store-wide figure.
  */
-import type { DeliveryStatisticsStore, DeliveryStatisticsTrack } from '@/core/models/delivery-statistics'
+import type { DeliveryStatisticsStore, DeliveryStatisticsTrack, DeliveryTrackAdditions } from '@/core/models/delivery-statistics'
 import { hasFigure } from './figures'
 import { MISSES, NOT_ON_A_PICK_UP } from './misses-rows'
 
@@ -40,12 +40,28 @@ const PICK_UP_MISSES = MISSES.filter((id) => !NOT_ON_A_PICK_UP.has(id))
  * - **Delivery:** the lane's stages with Trips beside Out for delivery, ending at Delivered (the lane's
  *   hand-over), the five misses, Avg time to deliver.
  * - **Pick-up:** the lane's stages ending at Picked up — no Out for delivery, no Trips — then Close
- *   requested, Closed / cancelled, Avg time to ready.
+ *   requested, Closed / cancelled, and the lane's Avg delivery time (`tracks.pickUp.avgDeliveryMinutes`,
+ *   entry to Made ready) — the field the Pick-up funnel reads, so the two never disagree (spec 811 review).
  */
 export const TRACK_FIGURES = {
-  all: ['cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', ...MISSES, 'avgHandOverMinutes'],
-  delivery: ['cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered', ...MISSES, 'avgHandOverMinutes'],
-  pickUp: ['cameIn', 'madeReady', 'pickedUp', ...PICK_UP_MISSES, 'avgHandOverMinutes'],
+  // 816: All's average is the store-wide Avg delivery time (spec 811), no longer the entry-based Avg hand-over.
+  all: ['cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', ...MISSES, 'avgDeliveryMinutes'],
+  // 816: after Delivered, the slot keeping (shares 0–1 as sent, No slot a count) and Delivered per trip; the
+  // lane's average is its Avg delivery time.
+  delivery: [
+    'cameIn',
+    'madeReady',
+    'outForDelivery',
+    'trips',
+    'delivered',
+    'inSlotShare',
+    'outOfSlotShare',
+    'noSlot',
+    'deliveredPerTrip',
+    ...MISSES,
+    'avgDeliveryMinutes',
+  ],
+  pickUp: ['cameIn', 'madeReady', 'pickedUp', ...PICK_UP_MISSES, 'avgDeliveryMinutes'],
 } as const
 
 /** The All view's columns: today's (487), with Unspecified as the last flow column. */
@@ -63,11 +79,21 @@ const figure = (value: unknown): number | null => (hasFigure(value) ? value : nu
 
 /** Where each figure of a view comes from in one store's answer, read as sent. */
 function sourceOf(s: DeliveryStatisticsStore, track: TableTrack): Partial<Record<StoreFigure, unknown>> {
-  if (track === 'all') return { ...s.flow, ...s.misses, avgHandOverMinutes: s.avgHandOverMinutes, unspecified: s.unspecified }
+  if (track === 'all') return { ...s.flow, ...s.misses, avgDeliveryMinutes: s.avgDeliveryMinutes, unspecified: s.unspecified }
   // A store without `tracks` (older than 2660), or a 2658 track without misses: read defensively, so each reads null.
-  const lane: DeliveryStatisticsTrack<{ handedOver?: number }> | undefined = s.tracks?.[track]
+  const lane: (DeliveryStatisticsTrack<{ handedOver?: number }> & DeliveryTrackAdditions) | undefined = s.tracks?.[track]
   // The lane's `handedOver` is its own hand-over point: Delivered or Picked up, the view's hand-over column.
-  return { ...lane?.flow, [HAND_OVER_FIGURE[track]]: lane?.flow?.handedOver, ...lane?.misses, avgHandOverMinutes: lane?.avgHandOverMinutes }
+  return {
+    ...lane?.flow,
+    [HAND_OVER_FIGURE[track]]: lane?.flow?.handedOver,
+    ...lane?.misses,
+    // 816 (spec 811): the Delivery track's slot keeping and Delivered per trip, and either lane's Avg delivery time, as sent.
+    inSlotShare: lane?.slot?.inSlotShare,
+    outOfSlotShare: lane?.slot?.outOfSlotShare,
+    noSlot: lane?.slot?.noSlot,
+    deliveredPerTrip: lane?.deliveredPerTrip,
+    avgDeliveryMinutes: lane?.avgDeliveryMinutes,
+  }
 }
 
 /**
@@ -82,4 +108,49 @@ export function storeRows(stores: readonly DeliveryStatisticsStore[] | undefined
     for (const key of TRACK_FIGURES[track]) row[key] = figure(source[key])
     return row
   })
+}
+
+/**
+ * The view the table opens on (816, spec 811): with a courier chosen, Delivery — a courier's figures are
+ * home deliveries only, and the slot columns are where its problem stores show; with all couriers
+ * (`''`), All, as today.
+ */
+export function defaultTableTrack(courier: string): TableTrack {
+  return courier !== '' ? 'delivery' : 'all'
+}
+
+/** A view's opening ranking. Descending, an absent figure last either way (the grid's `compareFigures`). */
+export interface TableSort {
+  figure: StoreFigure
+  direction: 'desc'
+}
+
+/**
+ * A view's opening sort (816): under a chosen courier the Delivery view ranks by Out of slot %, worst
+ * first; every other view, and every view with all couriers, by its hand-over column (today's).
+ */
+export function defaultSort(track: TableTrack, courier: string): TableSort {
+  return { figure: courier !== '' && track === 'delivery' ? 'outOfSlotShare' : HAND_OVER_FIGURE[track], direction: 'desc' }
+}
+
+/**
+ * The columns drawn as in-cell bars (816): Out of slot %, Delivered per trip and Avg delivery time. A bar
+ * makes the outliers stand out and says nothing of good or bad (low per-trip and high out-of-slot are
+ * both the bad end), so it is drawn in ink, never a status colour.
+ */
+export const CELL_BAR_FIGURES = ['outOfSlotShare', 'deliveredPerTrip', 'avgDeliveryMinutes'] as const
+export type CellBarFigure = (typeof CELL_BAR_FIGURES)[number]
+
+/**
+ * Each bar column's largest value as sent — the bar's reference, so a bar's length is geometry over a
+ * server figure, never a figure itself. An absent value adds nothing; a column with none is 0 (no bars).
+ */
+export function columnMaxima(rows: readonly StoreRow[]): Record<CellBarFigure, number> {
+  const maxima = { outOfSlotShare: 0, deliveredPerTrip: 0, avgDeliveryMinutes: 0 }
+  for (const row of rows)
+    for (const key of CELL_BAR_FIGURES) {
+      const value = row[key]
+      if (hasFigure(value)) maxima[key] = Math.max(maxima[key], Math.abs(value))
+    }
+  return maxima
 }

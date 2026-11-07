@@ -15,9 +15,13 @@ export interface AnalyticsLabel {
   ar: string
 }
 
-/** `GET Analytics/Access`. Absent or unreachable means denied (the OMS probe pattern). */
+/**
+ * `GET Analytics/Access`. Absent or unreachable means denied (the OMS probe pattern). 822 (spec 819 §C, PROPOSED):
+ * `canAuthor` is the builder's grant — a **runner** is `canView` without it; curate implies author.
+ */
 export interface AnalyticsAccess {
   canView: boolean
+  canAuthor: boolean
   canCurate: boolean
 }
 
@@ -41,6 +45,16 @@ export interface AnalyticsMeasure {
   description: AnalyticsLabel
   /** The dimension keys this measure may be broken down by. ⚠ Field name not fixed by §C. */
   dimensions: string[]
+  /**
+   * 827 (spec 819 §B, ⚠ PROPOSED): the model's warning every panel of this measure shows, e.g. "inside OMS only".
+   * Absent = none.
+   */
+  caveat?: AnalyticsLabel | null
+  /**
+   * 827 (spec 819 §B, ⚠ PROPOSED): days younger than this, counted back from `dataAsOf`, are marked "may still
+   * rise" (8 for the cancellation measures, 30 for claims). Absent = never marked.
+   */
+  mayStillRiseDays?: number | null
 }
 
 /** A small, fixed dimension's value, served inline (channel group, country). */
@@ -121,14 +135,92 @@ export interface AnalyticsViewDefinition {
    * saved). Ignored for a dimension with inline values, whose slots are fixed.
    */
   slots?: Record<string, Record<string, number>>
+  /**
+   * 825 (spec 819 §C, PROPOSED): up to 4 **named series**. Each runs as its own query with the view's
+   * query plus its own filters (on the view's own category dimensions), so a rate stays its own; the
+   * answer merges them on the shared axis under a `series` column. Slot = position. No total across them.
+   * Absent = none (a v1 view).
+   */
+  series?: AnalyticsSeries[]
+}
+
+/** One named series (825): ⚠ `{ id, label{en,ar}, filters[] }` as spec 819 §C writes it. */
+export interface AnalyticsSeries {
+  id: string
+  label: AnalyticsLabel
+  filters: AnalyticsFilter[]
 }
 
 export type AnalyticsTier = 'personal' | 'shared' | 'certified'
 
-/** `GET Analytics/Item/{id}` — a view or a board in the analytics store. */
+/**
+ * 826 (spec 819 §C, ⚠ PROPOSED, BackOffice 3378): an authz role in an audience or among the candidates. `removed`
+ * is a role authz no longer holds: it stays in the audience, marked, and grants nobody.
+ */
+export interface AnalyticsAudienceRole {
+  key: string
+  label: AnalyticsLabel
+  removed: boolean
+}
+
+/** 826: an analytics user in an audience or among the candidates — a free-text name and a machine employee id. */
+export interface AnalyticsAudienceUser {
+  id: string
+  name: string
+  employeeId: string
+  /**
+   * 833 (spec 819 §C, ⚠ proposed): asked for a report (`AudienceCandidates?reportId=`), each user also carries their
+   * address, whether they hold the run grant, and whether they sit in the report's audience (a role's membership is
+   * authz's to resolve, so the server says). Absent reads as no: a schedule never offers whom it cannot vouch for.
+   */
+  email?: string
+  canRun?: boolean
+  inAudience?: boolean
+}
+
+/**
+ * 826: a Shared item's audience as the store answers it, resolved through authz on every read — everyone, or a mix
+ * of roles and named users. ⚠ §C writes `{ roles: string[], users: string[] }`; the read is proposed to carry each
+ * entry resolved (a role's label and `removed`, a user's name and employee id), so the chip can name them.
+ */
+export type AnalyticsAudience = { everyone: true } | { everyone: false; roles: AnalyticsAudienceRole[]; users: AnalyticsAudienceUser[] }
+
+/** 826: the audience as the writes carry it (§C): everyone, or role keys and user ids. */
+export type AnalyticsAudienceWrite = { everyone: true } | { roles: string[]; users: string[] }
+
+/** 826: `GET Analytics/AudienceCandidates?search=` — up to 50 roles and analytics users matching `search`. */
+export interface AnalyticsAudienceCandidates {
+  roles: AnalyticsAudienceRole[]
+  users: AnalyticsAudienceUser[]
+}
+
+/** 826: `PUT Analytics/Item/{id}/Audience` — not a definition revision, so no `baseRevision` and never `ANALYTICS-405`. */
+export interface AnalyticsItemAudience {
+  audience: AnalyticsAudienceWrite
+}
+
+/** 826: `POST Analytics/Item/{id}/Reassign` (curators only): the author the item is handed to. */
+export interface AnalyticsItemReassign {
+  owner: string
+}
+
+/**
+ * 826: an `ANALYTICS-413` refusal's `data` (⚠ proposed): who to ask. No title, no data of the item.
+ * `ownerName` is the owner's display name when the store has one.
+ */
+export interface AnalyticsNotShared {
+  owner: string
+  ownerName?: string
+}
+
+/**
+ * `GET Analytics/Item/{id}` — a view, a board or (819, ticket 828) a report in the analytics store. A board and a
+ * report are read through their own readers (`AnalyticsBoard`, `AnalyticsReport`); here `definition` is typed as a
+ * view's, which only a view's is.
+ */
 export interface AnalyticsItem {
   id: string
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   /** Empty by default for an AI view: the screen then generates one from the model labels. */
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
@@ -141,6 +233,8 @@ export interface AnalyticsItem {
   updatedAt: string
   updatedBy: string
   definition: AnalyticsViewDefinition
+  /** 826: a Shared item's audience. Absent on a Shared item is v1's share with everyone. */
+  audience?: AnalyticsAudience
 }
 
 /**
@@ -148,14 +242,14 @@ export interface AnalyticsItem {
  * server makes it Personal to the caller and answers the whole item. An empty title is generated on screen.
  */
 export interface AnalyticsItemCreate {
-  kind: 'view' | 'board'
+  kind: 'view' | 'board' | 'report'
   title: AnalyticsLabel
   subtitle: AnalyticsLabel
   definition: AnalyticsItemDefinition
 }
 
-/** A view's or a board's definition: what the store's writes carry, whichever the kind (776, 777). */
-export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition
+/** A view's, a board's or a report's definition: what the store's writes carry, whichever the kind (776, 777, 828). */
+export type AnalyticsItemDefinition = AnalyticsViewDefinition | AnalyticsBoardDefinition | AnalyticsReportDefinition
 
 /**
  * `PUT Analytics/Item/{id}` — save in place (ticket 776). §C names `{ definition, baseRevision }`;
@@ -188,8 +282,35 @@ export interface AnalyticsItemRevision {
   revision: number
 }
 
-/** `POST Analytics/Query` — a saved view by id, or an inline definition while editing. */
-export type AnalyticsQueryInput = (
+/** 826: `…/Share` takes an audience (§C): the revision the screen showed, shared with whom. */
+export interface AnalyticsItemShare extends AnalyticsItemRevision {
+  audience: AnalyticsAudienceWrite
+}
+
+/**
+ * `POST Analytics/Query` — a saved view by id, or an inline definition while editing (v1's two forms), or
+ * (spec 819 §C, ticket 823) one panel of an item that carries parameters, which the server applies the
+ * bindings of: {@link AnalyticsParamQuery}.
+ */
+export type AnalyticsQueryInput = AnalyticsViewQuery | AnalyticsParamQuery
+
+/**
+ * ⚠ 819 §C, proposed: a saved item's panel `{ itemId, revision, panelId, values }`, or, while editing or
+ * drilled, `{ definition, params, bindings, panelId, values }`. `values` holds the parameters bound to that
+ * panel, so a value change re-asks only the panels it is bound to. The cross-filter (772) is the web's own,
+ * not a parameter, and rides as before; `compareToPrevious` too.
+ */
+export type AnalyticsParamQuery = (
+  | { itemId: string; revision: number }
+  | { definition: AnalyticsViewDefinition; params: Param[]; bindings: Bindings }
+) & {
+  panelId: string
+  values: Record<string, ParamValue>
+  crossFilter?: AnalyticsFilter | null
+  compareToPrevious?: boolean
+}
+
+export type AnalyticsViewQuery = (
   | { viewId: string; revision?: number }
   | { definition: AnalyticsViewDefinition }
 ) & {
@@ -210,7 +331,8 @@ export type AnalyticsQueryInput = (
 
 export interface AnalyticsColumn {
   key: string
-  role: 'dimension' | 'measure'
+  /** ⚠ 825: `series` — the column holding each row's series id, when the view has named series. */
+  role: 'dimension' | 'measure' | 'series'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
 }
@@ -229,6 +351,10 @@ export interface AnalyticsQueryResult {
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string
+  /** ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. */
+  notReached?: { param: string; reason: string }[]
+  /** ⚠ 819 §C (823): the parameters whose value was outside a declared list, so the default ran. Absent reads as none. */
+  fellBack?: { param: string }[]
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────
@@ -273,13 +399,68 @@ export interface BoardLayout {
 
 /** A board panel: a view linked by reference, a text panel, or a section header. */
 export type AnalyticsBoardPanel =
+  /**
+   * `optOut`: v1's opt-outs. Since 819 only `crossFilter` is read from it (the cross-filter keeps its
+   * opt-out); the six ready-made parameters reach a panel through the board's `bindings`.
+   */
   | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[] }
   | { id: string; kind: 'text'; text: AnalyticsLabel; layout: BoardLayout }
   | { id: string; kind: 'section'; title: AnalyticsLabel; layout: BoardLayout }
 
+// ── Parameters (spec 819 §C, ticket 821; the 798 prototype's shape) ─────────────────────────────────────
+
+export type ParamKind = 'period' | 'members' | 'grain' | 'threshold' | 'topN' | 'measure' | 'breakdown'
+export type Grain = 'day' | 'week' | 'month'
+export type ThresholdOp = 'off' | 'gt' | 'gte' | 'lt' | 'lte'
+
+/** A parameter's value. Only `members` takes several; `[]` is "all". A threshold is in the display unit. */
+export type ParamValue =
+  | { kind: 'period'; token: PeriodToken }
+  | { kind: 'period'; from: string; to: string }
+  | { kind: 'members'; values: string[] }
+  | { kind: 'grain'; grain: Grain }
+  | { kind: 'threshold'; op: ThresholdOp; value: number }
+  | { kind: 'topN'; n: number }
+  | { kind: 'measure'; key: string }
+  | { kind: 'breakdown'; key: string }
+
+/** A parameter declared on a board or a report (797), never on a view. */
+export interface Param {
+  /** A slug, unique within the item, not `tv|refresh|cross|crossFrom`: the URL key. */
+  name: string
+  kind: ParamKind
+  label: AnalyticsLabel
+  /** "Viewers can't clear it" — every parameter has a default (797 §2). */
+  required: boolean
+  /** members: the dimension it picks from (a binding may point it elsewhere per panel). */
+  dimension?: string
+  /** members: the author's pinned list; `null` = open search. */
+  pinned?: string[] | null
+  multi?: boolean
+  /** grain: the allowed subset. */
+  grains?: Grain[]
+  /** threshold: the one measure it compares. */
+  measure?: string
+  /** measure | breakdown: the author's options. */
+  options?: string[]
+  default: ParamValue
+}
+
+/** Parameter name → panel id → the dimension a `members` parameter filters there, or `true`. Absent = not bound. */
+export type Bindings = Record<string, Record<string, string | true>>
+
+/** Why a parameter cannot bind to a panel (797 §5, 799 §2). */
+export type BindReason = 'noTimeAxis' | 'seriesFilters' | 'thresholdShape' | 'topNShape' | 'measureShape' | 'breakdownShape' | 'notInArea'
+
 export interface AnalyticsBoardDefinition {
   panels: AnalyticsBoardPanel[]
-  /** The board's saved filters, which the strip opens on when the URL names none. */
+  /**
+   * 819: the board's parameters and their bindings. Absent on a v1 board, which `boardParams` converts
+   * from `filters` and each panel's `optOut` (797 item 6) until the server converts on read.
+   */
+  params?: Param[]
+  bindings?: Bindings
+  /** v1: the board's saved filters, which the strip opens on when the URL names none. */
   filters?: Partial<BoardFilters>
   /**
    * ⚠ The board's default auto-refresh interval in seconds (story 57, ticket 777): one of `BOARD_REFRESH_SECONDS`
@@ -291,21 +472,60 @@ export interface AnalyticsBoardDefinition {
 /** A board in the analytics store: an item whose definition is a board's. */
 export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'board'; definition: AnalyticsBoardDefinition }
 
-/** A copilot report (CTO demo): a document written from a conversation and revised by follow-ups. */
-export type AnalyticsReportBlock =
-  | { kind: 'heading'; text: string }
-  | { kind: 'text'; text: string }
-  | { kind: 'chart'; viewId: string; caption: string }
-  | { kind: 'table'; head: string[]; rows: string[][] }
+// ── Reports (spec 819 §C, ticket 827; 801) ─────────────────────────────────────────────────────────────
+// ⚠ PROPOSED (BackOffice owns it once filed). A report is an `Analytics/Item` of `kind: 'report'`: its title is
+// the item's `title{en,ar}`; its definition carries the parameters, their bindings and ordered sections.
 
-export interface AnalyticsReport {
+/**
+ * A report block: a **panel** (an inline view definition — never a reference — with its provenance when it was
+ * copied from a saved view), a **text** block (`{en, ar}` holding live-figure tokens `{{fig:<panel>:<measure>[:<series>]}}`), or the
+ * **summary** block (at most one per report). A panel's id is the `panelId` its query and its tokens name.
+ */
+export type AnalyticsReportBlock =
+  | {
+      id: string
+      kind: 'panel'
+      /** ⚠ The panel's own title; empty → generated from the model labels, as a view's is. */
+      title: AnalyticsLabel
+      definition: AnalyticsViewDefinition
+      /** Copied from a saved view (801 §2): which, and the revision copied. */
+      from?: { viewId: string; revision: number } | null
+      /** Computed by the server: the source view has been saved since the copy. */
+      sourceChangedSinceCopy?: boolean
+    }
+  | { id: string; kind: 'text'; text: AnalyticsLabel }
+  | { id: string; kind: 'summary' }
+
+export interface AnalyticsReportSection {
   id: string
-  title: string
-  subtitle: string
-  lang: 'en' | 'ar'
+  heading: AnalyticsLabel
   blocks: AnalyticsReportBlock[]
+}
+
+export interface AnalyticsReportDefinition {
+  params: Param[]
+  bindings: Bindings
+  sections: AnalyticsReportSection[]
+}
+
+/** A report in the analytics store: an item whose definition is a report's. */
+export type AnalyticsReport = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind: 'report'; definition: AnalyticsReportDefinition }
+
+/** 827: `POST Analytics/Report/{id}/Words` — the run the screen shows: the revision and every parameter's value. */
+export interface AnalyticsReportWordsRequest {
   revision: number
-  updatedAt: string
+  values: Record<string, ParamValue>
+}
+
+/**
+ * 827: the Words answer (BackOffice 3408 §F). `figures`: each live-figure token as written
+ * (`{{fig:p1:net_value}}`) → its value's words in both languages, formatted by the measure's unit. `summary`: the
+ * AI summary in both languages, or `unavailable` with the reason (the number check failed, or the AI was not
+ * reached) — which drops the summary alone. `null` when the report has no summary block.
+ */
+export interface AnalyticsReportWords {
+  figures: Record<string, AnalyticsLabel>
+  summary: { text: AnalyticsLabel } | { unavailable: string } | null
 }
 
 /** `GET Analytics/DimensionValues` — one member for the store, city and region pickers. */
@@ -326,6 +546,12 @@ export interface AnalyticsRevision {
   updatedAt: string
   updatedBy: string
   revertedFrom?: number | null
+  /**
+   * 826 (⚠ proposed): a history row that is not a definition revision — an audience change or a reassign. Its
+   * `revision` is the one current when it happened; it is never reverted to. A reassign names the new `owner`.
+   */
+  event?: 'audience' | 'reassign'
+  owner?: string
 }
 
 /** `POST Analytics/Item/{id}/Revert` — writes `revision`'s snapshot as a NEW revision. Answers the item at it. */
@@ -379,4 +605,75 @@ export interface AnalyticsHealth {
   }
   /** When SIS.Api asked, its local clock. */
   checkedAt: string
+}
+
+// ── Schedules and kept runs (spec 819 §C, ticket 833; research 803) ────────────────────────────────────────
+// ⚠ PROPOSED (BackOffice owns it once filed): `Analytics/Report/{id}/Schedules[/{sid}]`, `…/SendNow`,
+// `Analytics/Report/{id}/Runs`, `Analytics/ReportRun/{runId}` and its `/Html` and `/Pdf`.
+
+/** Weekdays as the server's Sunday weeks count them: 0 is Sunday … 6 is Saturday. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/** Daily, weekly on chosen days, or monthly on a day (1–28, so every month has it) or its last day (3408 §G). */
+export type AnalyticsScheduleCadence = { kind: 'daily' } | { kind: 'weekly'; days: Weekday[] } | { kind: 'monthly'; day: number | 'last' }
+
+/**
+ * Why a schedule is suspended (not deleted): its owner lost the run or author grant (`ownerGrant`, resumed by a
+ * curator's handover), or a saved value no longer resolves (`value`, `ANALYTICS-412`, naming `param`). Any other
+ * reason reads as the server's `message`.
+ */
+export interface AnalyticsScheduleSuspended {
+  reason: 'ownerGrant' | 'value' | string
+  param?: string
+  message?: string
+}
+
+/** One schedule of a report: what is sent, when (Riyadh time), in which language and to whom (analytics user ids). */
+export interface AnalyticsSchedule {
+  id: string
+  cadence: AnalyticsScheduleCadence
+  /** `HH:mm`, Asia/Riyadh. */
+  time: string
+  values: Record<string, ParamValue>
+  lang: 'en' | 'ar'
+  recipients: string[]
+  enabled: boolean
+  suspended?: AnalyticsScheduleSuspended | null
+}
+
+/** The body of a schedule's POST and PUT: the schedule without its id and its server-set suspension. */
+export type AnalyticsScheduleWrite = Omit<AnalyticsSchedule, 'id' | 'suspended'>
+
+/** What set a run going: its slot, its slot sent late (803's catch-up), or Send now. */
+export type AnalyticsRunTrigger = 'schedule' | 'late' | 'sendNow'
+
+/**
+ * How a run ended: sent; sent with the HTML alone (the PDF render failed: "charts unavailable"); stopped on
+ * `ANALYTICS-412`; a missed slot skipped (never sent twice); or failed to send. `open`: queued, not yet sent.
+ */
+export type AnalyticsRunOutcome = 'sent' | 'chartsUnavailable' | 'stopped' | 'skipped' | 'failed' | 'open'
+
+/**
+ * One kept run (`GET …/Runs`, `GET Analytics/ReportRun/{runId}`): the record is kept for good, the HTML and PDF for 90
+ * days (`artefactsKept`; after that the artefact doors answer `410`). Open to the owner, curators and the run's own
+ * recipients.
+ */
+export interface AnalyticsReportRun {
+  id: string
+  reportId: string
+  scheduleId: string | null
+  revision: number
+  /** When it went, ISO local Riyadh time. */
+  ranAt: string
+  dataAsOf: string | null
+  trigger: AnalyticsRunTrigger
+  values: Record<string, ParamValue>
+  recipients: AnalyticsAudienceUser[]
+  /** Recipients who had left the audience, dropped from this run and listed to the owner. */
+  dropped: AnalyticsAudienceUser[]
+  outcome: AnalyticsRunOutcome
+  /** The summary text that went, or null. */
+  summary: AnalyticsLabel | null
+  artefactsKept: boolean
+  hasPdf: boolean
 }

@@ -33,11 +33,13 @@
 //      with one store chosen the table stays, showing that one row; the store column is pinned to
 //      the reading start (left in LTR, right in RTL).
 //
-//  13. (ticket 486) the chart: Today draws 24 hourly buckets, every third hour labelled; a 31-day
-//      range draws 31 daily buckets labelled by day of the month; one axis whose top is the round
-//      step over the larger series; time runs in reading order (the first bucket at the left in LTR,
-//      at the right in RTL, its label under it); hovering a column, or the arrow keys on the focused
-//      plot, writes its bucket and two values in the readout, each isolated; a real 0 reads 0.
+//  13. (ticket 486, redrawn on core/charts by 815) the chart: core/charts' SeriesChart, bar form,
+//      grouped, two series (Came in, Handed over) with a legend, in a ChartFrame; Today draws 24
+//      hourly buckets ("HH:00"), a 31-day range 31 daily buckets ("yyyy-MM-dd"), in reading order
+//      (the first bucket at the left in LTR, at the right in RTL); hovering a bar shows a tooltip with
+//      the bucket and both values, a real 0 reading 0. After the 5-minute Today refresh fires (its
+//      answer held back by the stub) the frame reads busy, the "Updating" mark shows and the chart's
+//      bars stay on screen; then it settles idle. Yesterday never goes busy.
 //
 //  14. (ticket 489, brief 2660) the two lanes. The stub adds EXACTLY the brief's optional fields, on
 //      the totals and on every store row:
@@ -52,7 +54,7 @@
 //      Delivery lane's four stages ending at Delivered with "Trips N" on Out for delivery; the
 //      Pick-up lane's three ending at Picked up with no Out stage; each lane's average after its
 //      stages with no chevron before it; the stages in READING order (left→right in LTR,
-//      right→left in RTL, the chevrons mirrored); the lane figures are the stub's tracks, not the
+//      right→left in RTL, the chevrons mirrored — 814 made the lanes funnels, see 19); the lane figures are the stub's tracks, not the
 //      totals; Unspecified hidden at 0 (on a 2658 answer: tracks without misses) and when absent;
 //      and the older server reads "—" across both lanes and both averages, never 0.
 //
@@ -70,6 +72,38 @@
 //      view's hand-over column; every column ranks with "—" last both ways; a stub store row with
 //      no `tracks` (and no `unspecified`) reads "—" in every Delivery and Pick-up cell, never 0;
 //      switching makes no call; a link keeps the view; an unknown track reads as All.
+//
+//  17. (ticket 812, spec 811) the headline strip. The stub adds the spec's optional fields (⚠ a web
+//      proposal, BackOffice brief not filed): `avgDeliveryMinutes` on the totals, the stores and both
+//      tracks; the Delivery track's `slot` and `deliveredPerTrip`; and the `previous` block (Today's
+//      window with `until`, a Range's without). It asserts the six tiles in order with the stub's
+//      figures, isolated; each change the server's (arrow from the sign, words from changePct), in
+//      ink; no change line without a previous figure; the Delivered | Picked up split and "n of N
+//      delivered" sub-lines; the compared window for Today and for a Range; the old Avg hand-over tile
+//      gone; and "—" (never 0) from the older-server and 2658 fixtures, which drop every new field.
+//
+//  18. (ticket 813, spec 811) the courier scope: the picker lists All couriers + FarEye, OTO, SMSA,
+//      Starlinks (no DAWA); all couriers sends no `Courier`; choosing FarEye sends `Courier=FREY`, shows
+//      the caption, hides the Pick-up lane, the Pick-up misses row and the table's Pick-up chip (moving
+//      the table off Pick-up to Delivery); a link keeps it beside the store, `track=pickUp` reading as
+//      Delivery; All couriers brings it all back; an unknown code is sent as written and the stub's
+//      `SDD-02132` refusal is shown in the server's words.
+//
+//  20. (ticket 816, spec 811) the store table's Delivery view: In slot %, Out of slot %, No slot,
+//      Delivered per trip and Avg delivery time from each store's Delivery track as sent; the All view's
+//      average is the store-wide Avg delivery time. Choosing FarEye opens the table on Delivery ranked by
+//      Out of slot % worst first with "—" last; Out of slot %, Delivered per trip and Avg delivery time
+//      draw core/charts cell bars in proportion to the column's largest value, from the reading start,
+//      the cell's text the formatted value alone (no isolate characters); all couriers keeps All by
+//      Handed over.
+//
+//  19. (ticket 814, spec 811) the funnels. The Delivery and Pick-up lanes are funnels: their stages top
+//      to bottom, each figure isolated, each with a `core/charts` stage bar as long as its share of the
+//      lane's Came in (none for an absent figure); the Delivery funnel's slot split bar of In slot |
+//      Out of slot | No slot, its segments the stub's counts and its key the stub's counts and shares;
+//      each lane's average is its Avg delivery time (`avgDeliveryMinutes`, not the hand-over average);
+//      side by side at 1600px, stacked at 1000px; under RTL the bars grow from the right and the slot
+//      split opens on the right; the older server draws no bar, the split reads "—".
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
@@ -113,26 +147,50 @@ const tracks = () => ({
     flow: { cameIn: 702, madeReady: 655, outForDelivery: 377, trips: 409, handedOver: 640 },
     misses: misses({ returnedBack: 20, rescheduled: 8, closeRequested: 1, closedOrCancelled: 11 }),
     avgHandOverMinutes: 96.25,
+    // 812 (spec 811): slot keeping, Delivered per trip, Avg delivery time.
+    slot: { inSlot: 512, outOfSlot: 96, noSlot: 32, inSlotShare: 0.8, outOfSlotShare: 0.15 },
+    deliveredPerTrip: 1.56,
+    avgDeliveryMinutes: 41.5,
   },
   pickUp: {
     flow: { cameIn: 529, madeReady: 444, handedOver: 455 },
     misses: misses({ returnedBack: 0, rescheduled: 0, closeRequested: 3, closedOrCancelled: 6 }),
     avgHandOverMinutes: 31.5,
+    // 814: unlike the hand-over average, so the lane is seen to read Avg delivery time.
+    avgDeliveryMinutes: 30.75,
   },
 })
+// 812 (spec 811): the previous block. Today's window: the same weekday last week up to the same time.
+// Avg delivery time carries NO previous figure here: its tile must draw no change line.
+const previousToday = () => ({
+  from: daysAgo(7),
+  to: daysAgo(7),
+  // The real wire (BO 3404 brief): `until` a local wall-clock datetime, `changePct` in percent units.
+  until: `${daysAgo(7)}T10:00:00`,
+  cameIn: { value: 1187, change: 47, changePct: 3.96 },
+  handedOver: { value: 1100, change: -7, changePct: -0.64 },
+  inSlotShare: { value: 0.8, change: 0, changePct: 0 },
+  outOfSlotShare: { value: 0, change: 0.15, changePct: null },
+  deliveredPerTrip: { value: 1.61, change: -0.05, changePct: -3.1 },
+})
+/** A Range's window: the equal-length range ending the day before From. */
+const previousRange = () => ({ ...previousToday(), from: daysAgo(14), to: daysAgo(8), until: undefined })
 /** A 2658 server: tracks without their misses. */
 const tracksWithoutMisses = () => {
   const { delivery, pickUp } = tracks()
-  const { misses: _d, ...d } = delivery
-  const { misses: _p, ...p } = pickUp
+  // A 2658 server is older than spec 811 too: no slot keeping, Delivered per trip or Avg delivery time.
+  const { misses: _d, slot: _s, deliveredPerTrip: _dp, avgDeliveryMinutes: _da, ...d } = delivery
+  const { misses: _p, avgDeliveryMinutes: _pa, ...p } = pickUp
   return { delivery: d, pickUp: p }
 }
-const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, tracks: tracks(), unspecified: 3, ...over })
+const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, avgDeliveryMinutes: 40.1, tracks: tracks(), unspecified: 3, ...over })
 const statistics = (over = {}) => ({
   asOf: `${TODAY}T09:35:00`,
   flow: flow(),
   misses: misses(),
   avgHandOverMinutes: 87.46,
+  avgDeliveryMinutes: 38.2,
+  previous: previousToday(),
   tracks: tracks(),
   unspecified: 3,
   series: [
@@ -148,24 +206,26 @@ const statistics = (over = {}) => ({
  */
 const olderServer = () => {
   const { trips: _dropped, ...noTrips } = flow({ handedOver: 0, delivered: 0, pickedUp: 0 })
-  const { tracks: _t, unspecified: _u, ...older } = statistics({ flow: noTrips, avgHandOverMinutes: null })
-  const { tracks: _st, unspecified: _su, ...olderStore } = store('P001', { flow: noTrips, avgHandOverMinutes: null })
+  // …and, older than spec 811, no `previous` and no `avgDeliveryMinutes` (the slot fields live in `tracks`).
+  const { tracks: _t, unspecified: _u, previous: _p, avgDeliveryMinutes: _a, ...older } = statistics({ flow: noTrips, avgHandOverMinutes: null })
+  const { tracks: _st, unspecified: _su, avgDeliveryMinutes: _sa, ...olderStore } = store('P001', { flow: noTrips, avgHandOverMinutes: null })
   return { ...older, stores: [olderStore] }
 }
 
 /** Three stores whose figures rank differently, every field sent; one handed nothing over (a null average). */
 const rankedStores = () => [
-  store('P001', { flow: flow({ trips: 150, handedOver: 300 }), avgHandOverMinutes: 92.4 }),
-  store('P019', { flow: flow({ trips: 9, handedOver: 500 }), avgHandOverMinutes: 41.5 }),
-  store('P007', { flow: flow({ trips: 60, handedOver: 0, delivered: 0, pickedUp: 0 }), avgHandOverMinutes: null }),
+  store('P001', { flow: flow({ trips: 150, handedOver: 300 }), avgDeliveryMinutes: 92.4 }),
+  store('P019', { flow: flow({ trips: 9, handedOver: 500 }), avgDeliveryMinutes: 41.5 }),
+  store('P007', { flow: flow({ trips: 60, handedOver: 0, delivered: 0, pickedUp: 0 }), avgDeliveryMinutes: null }),
 ]
 
 const browser = await chromium.launch()
 
-async function open(dir, { grant = true, answer = () => statistics(), clock = false } = {}) {
+async function open(dir, { grant = true, answer = () => statistics(), clock = false, holdAfterFirst = 0 } = {}) {
+  // `clock`: true installs the page's fake clock now; a Date installs it at that time (811 review: midnight).
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
-  if (clock) await page.clock.install()
+  if (clock) await page.clock.install(clock instanceof Date ? { time: clock } : undefined)
   const errors = []
   const calls = []
   const statQueries = []
@@ -185,6 +245,8 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/StoreStatistics') {
       statQueries.push(url.searchParams)
+      // 815: every answer after the first is held back (a Node timer, not the page's fake clock), so a refetch is seen in flight.
+      if (holdAfterFirst && statQueries.length > 1) await new Promise((r) => setTimeout(r, holdAfterFirst))
       const a = answer(url.searchParams)
       if (a === 'tooLong')
         return route.fulfill(
@@ -193,6 +255,16 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
             success: false,
             message: 'The statistics range cannot be longer than 31 days.',
             errors: [{ errorCode: 'SDD-02131', internalErrorCode: '', errorMessage: 'The statistics range cannot be longer than 31 days.' }],
+          }),
+        )
+      // 813: an unknown courier is the existing invalid-query refusal.
+      if (a === 'badCourier')
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message: 'The statistics query is not valid: unknown courier.',
+            errors: [{ errorCode: 'SDD-02132', internalErrorCode: '', errorMessage: 'The statistics query is not valid: unknown courier.' }],
           }),
         )
       return route.fulfill(envelope(a))
@@ -228,8 +300,10 @@ const waitFigures = (page) => page.locator('[data-statistics-band="storeWide"]')
 const tilesOf = (page, selector) => page.locator(`${selector} [data-figure-tile]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
 
 /**
- * One lane as drawn: its stage tiles and their captions in DOM order, each stage's left edge, the
- * chevrons between them (count and each one's `rotate`), and where the average sits.
+ * One funnel as drawn (814): its stage tiles and captions in DOM order, each stage's top edge, each
+ * stage bar's fill (its share, as the bar's width over its track, and which edge it grows from), the
+ * slot split (its state, its segments left to right with their widths, its key's figures), the
+ * average, and the funnel's own box.
  */
 const laneOf = (page, track) =>
   page.evaluate((track) => {
@@ -237,18 +311,47 @@ const laneOf = (page, track) =>
     if (!band) return null
     const stages = [...band.querySelectorAll('[data-statistics-stages] [data-figure-tile]')]
     const avg = band.querySelector('[data-statistics-lane-average] [data-figure-tile]')
-    const chevrons = [...band.querySelectorAll('[data-statistics-stages] svg')]
+    const barOf = (stage) => {
+      const box = stage.querySelector('[data-chart="stage-bar"]')
+      if (!box) return null
+      const fill = box.firstElementChild.getBoundingClientRect()
+      const r = box.getBoundingClientRect()
+      return {
+        dir: box.getAttribute('dir'),
+        pct: Math.round((fill.width / r.width) * 100),
+        // A full bar touches both edges: it grows from either.
+        from: fill.width >= r.width - 1 ? 'both' : Math.abs(fill.left - r.left) < 1 ? 'left' : Math.abs(fill.right - r.right) < 1 ? 'right' : 'none',
+      }
+    }
+    const slot = band.querySelector('[data-statistics-slot]')
+    const share = slot?.querySelector('[data-chart="share-bar"]')
+    const box = band.getBoundingClientRect()
     return {
       heading: band.querySelector('h2')?.textContent.trim(),
       stages: stages.map((e) => e.getAttribute('data-figure-tile')),
       captions: stages.map((e) => e.firstElementChild.textContent.trim()),
-      lefts: stages.map((e) => Math.round(e.getBoundingClientRect().left)),
-      chevrons: chevrons.length,
-      rotations: chevrons.map((c) => getComputedStyle(c).rotate),
+      tops: stages.map((e) => Math.round(e.getBoundingClientRect().top)),
+      bars: stages.map(barOf),
+      slot: slot
+        ? {
+            state: slot.getAttribute('data-statistics-slot'),
+            heading: slot.querySelector('h3')?.textContent.trim(),
+            dir: share?.getAttribute('dir') ?? null,
+            label: share?.getAttribute('aria-label') ?? null,
+            dash: slot.querySelector('[data-slot-bar="none"]')?.textContent.trim() ?? null,
+            segments: share
+              ? [...share.querySelectorAll('[data-share-segment]')]
+                  .map((e) => ({ id: e.getAttribute('data-share-segment'), left: e.getBoundingClientRect().left, w: e.getBoundingClientRect().width }))
+                  .sort((a, b) => a.left - b.left)
+                  .map((x) => ({ id: x.id, pct: Math.round((x.w / share.getBoundingClientRect().width) * 100) }))
+              : [],
+            keys: [...slot.querySelectorAll('[data-slot-key]')].map((e) => e.getAttribute('data-slot-key')),
+          }
+        : null,
       avg: avg?.getAttribute('data-figure-tile') ?? null,
       avgCaption: avg?.firstElementChild.textContent.trim() ?? null,
-      avgLeft: avg ? Math.round(avg.getBoundingClientRect().left) : null,
-      avgChevrons: band.querySelectorAll('[data-statistics-lane-average] svg').length,
+      avgTop: avg ? Math.round(avg.getBoundingClientRect().top) : null,
+      box: { left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), bottom: Math.round(box.bottom) },
     }
   }, track)
 
@@ -284,6 +387,44 @@ const figures = (page) =>
       ]),
     ),
   )
+
+/**
+ * 812: the headline strip as drawn — each tile in DOM order with its caption, its figure (and whether it
+ * sits in a <bdi dir="ltr">), its change line (direction, the isolated change, the previous figure) and
+ * the line under it with its isolated values; and the compared-window sentence with its isolates.
+ */
+const headlineOf = (page) =>
+  page.evaluate(() => {
+    const strip = document.querySelector('[data-statistics-headline]')
+    if (!strip) return null
+    const tiles = [...strip.querySelectorAll(':scope > [data-figure-tile]:has([data-chart="kpi"])')].map((el) => {
+      const value = el.querySelector('[data-kpi-value]')
+      const delta = el.querySelector('[data-kpi-delta]')
+      const sub = el.querySelector('[data-figure$=".sub"]')
+      return {
+        id: el.getAttribute('data-figure-tile'),
+        caption: el.firstElementChild.textContent.trim(),
+        value: value?.textContent.trim() ?? null,
+        valueIsolated: !!value?.querySelector('bdi[dir="ltr"]'),
+        direction: delta?.getAttribute('data-kpi-delta') ?? null,
+        change: delta?.querySelector('span bdi[dir="ltr"]')?.textContent ?? null,
+        changeUnit: delta?.querySelector('[data-kpi-change-unit]')?.textContent ?? null,
+        changeWords: delta?.querySelector('[aria-label]')?.getAttribute('aria-label') ?? null,
+        previous: el.querySelector('[data-kpi-previous] bdi[dir="ltr"]')?.textContent ?? null,
+        sub: sub?.textContent.trim() ?? null,
+        subValues: sub ? [...sub.querySelectorAll('bdi[dir="ltr"]')].map((b) => b.textContent) : [],
+        left: Math.round(el.getBoundingClientRect().left),
+      }
+    })
+    const compared = document.querySelector('[data-statistics-compared]')
+    return {
+      tiles,
+      compared: compared
+        ? { kind: compared.getAttribute('data-statistics-compared'), text: compared.textContent.trim(), values: [...compared.querySelectorAll('bdi[dir="ltr"]')].map((b) => b.textContent) }
+        : null,
+    }
+  })
+const HEADLINE_IDS = ['cameIn', 'handedOver', 'inSlot', 'outOfSlot', 'deliveredPerTrip', 'avgDeliveryMinutes']
 
 /**
  * The store table's rows in their shown order (by AG Grid's row-index, not DOM order), each cell's
@@ -363,10 +504,63 @@ async function drive(dir) {
     const f = await figures(page)
     const order = await tilesOf(page, '[data-statistics-band="storeWide"]')
     check(
-      `${label}: the store-wide group: Came in, Handed over, its two halves, Avg hand-over, Unspecified — no store-wide Made ready / Out for delivery (decision A)`,
-      same(order, ['cameIn', 'handedOver', 'delivered', 'pickedUp', 'avgHandOver', 'unspecified']),
+      `${label}: the headline strip: the six figures in order, then Unspecified — no Avg hand-over, no store-wide Made ready / Out for delivery`,
+      same(order, [...HEADLINE_IDS, 'unspecified']),
       order.join(','),
     )
+    // 812: the six headline figures, their server change and the compared window.
+    const h = await headlineOf(page)
+    const hb = Object.fromEntries((h?.tiles ?? []).map((x) => [x.id, x]))
+    check(
+      `${label}: the headline captions read Came in, Handed over, In slot, Out of slot, Delivered per trip, Avg delivery time`,
+      same(h?.tiles.map((x) => x.caption), ['Came in', 'Handed over', 'In slot', 'Out of slot', 'Delivered per trip', 'Avg delivery time']),
+      JSON.stringify(h?.tiles.map((x) => x.caption)),
+    )
+    check(
+      `${label}: the headline figures are the stub's, each isolated whole`,
+      same(h?.tiles.map((x) => x.value), ['1,234', '1,093', '80.0%', '15.0%', '1.56', '38.2 min']) && h.tiles.every((x) => x.valueIsolated),
+      JSON.stringify(h?.tiles.map((x) => [x.value, x.valueIsolated])),
+    )
+    check(
+      `${label}: each change is the server's — the arrow from its sign, the words from changePct (a share's from change, in points) — isolated, with the previous figure`,
+      same(h?.tiles.map((x) => x.direction), ['up', 'down', 'flat', 'up', 'down', null]) &&
+        same(h.tiles.map((x) => x.change), ['4.0%', '0.6%', '0.0', '15.0', '3.1%', null]) &&
+        same(h.tiles.map((x) => x.previous), ['1,187', '1,100', '80.0%', '0.0%', '1.61', null]) &&
+        hb.cameIn.changeWords === `Up ${FSI}4.0%${PDI} on the previous period`,
+      JSON.stringify(h?.tiles.map((x) => [x.direction, x.change, x.previous, x.changeWords])),
+    )
+    check(
+      `${label}: In slot / Out of slot say their change in percentage points ("▲ 15.0 pts"), never a percent of a percent`,
+      same(h?.tiles.map((x) => x.changeUnit), [null, null, 'pts', 'pts', null, null]) &&
+        hb.outOfSlot?.changeWords === `Up ${FSI}15.0${PDI} pts on the previous period` &&
+        hb.inSlot?.changeWords === 'No change on the previous period',
+      JSON.stringify(h?.tiles.map((x) => [x.changeUnit, x.changeWords])),
+    )
+    check(
+      `${label}: the change is drawn in ink, never a status colour`,
+      (await page.locator('[data-statistics-headline] [data-kpi-delta] [class*="text-danger"], [data-statistics-headline] [data-kpi-delta] [class*="text-success"]').count()) === 0,
+    )
+    check(
+      `${label}: Avg delivery time with no previous figure draws no change line`,
+      (await page.locator('[data-figure-tile="avgDeliveryMinutes"] [data-kpi-delta]').count()) === 0,
+    )
+    check(
+      `${label}: Handed over keeps the till's Delivered | Picked up split under it; In slot / Out of slot say n of N delivered`,
+      hb.handedOver?.sub === 'Delivered 640 · Picked up 455' &&
+        same(hb.handedOver.subValues, ['640', '455']) &&
+        hb.inSlot?.sub === '512 of 640 delivered' &&
+        same(hb.inSlot.subValues, ['512', '640']) &&
+        hb.outOfSlot?.sub === '96 of 640 delivered' &&
+        same(hb.outOfSlot.subValues, ['96', '640']) &&
+        [hb.cameIn, hb.deliveredPerTrip, hb.avgDeliveryMinutes].every((x) => x?.sub === null),
+      JSON.stringify([hb.handedOver?.sub, hb.inSlot?.sub, hb.outOfSlot?.sub]),
+    )
+    check(
+      `${label}: Today's compared window reads "vs <day> to <time>", each value isolated`,
+      h?.compared?.kind === 'until' && h.compared.text === `vs ${daysAgo(7)} to 10:00` && same(h.compared.values, [daysAgo(7), '10:00']),
+      JSON.stringify(h?.compared),
+    )
+    check(`${label}: the six tiles read in reading order`, inReadingOrder(h?.tiles.map((x) => x.left) ?? [], dir), JSON.stringify(h?.tiles.map((x) => x.left)))
     const bandOrder = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
     check(`${label}: the store-wide group, then the Delivery lane, then the Pick-up lane, then the misses`, same(bandOrder.slice(0, 4), ['storeWide', 'delivery', 'pickUp', 'misses']), bandOrder.join(','))
 
@@ -388,26 +582,60 @@ async function drive(dir) {
         (await page.locator('[data-statistics-band="pickUp"] [data-figure-tile*="outForDelivery"], [data-statistics-band="pickUp"] [data-figure*="trips"]').count()) === 0,
       JSON.stringify(pl),
     )
+    // 814: funnels — stages top to bottom, each with a stage bar of its share of the lane's Came in.
+    const down = (xs) => xs.every((y, i) => i === 0 || y > xs[i - 1])
+    check(`${label}: each funnel's stages read top to bottom`, down(dl.tops) && down(pl.tops), `${dl.tops} | ${pl.tops}`)
+    const near = (a, b, d = 1) => typeof a === 'number' && Math.abs(a - b) <= d
+    const grows = dir === 'rtl' ? 'right' : 'left'
     check(
-      `${label}: each lane's stages read in reading order, a chevron between each, mirrored under RTL`,
-      inReadingOrder(dl.lefts, dir) &&
-        inReadingOrder(pl.lefts, dir) &&
-        dl.chevrons === 3 &&
-        pl.chevrons === 2 &&
-        [...dl.rotations, ...pl.rotations].every((r) => (dir === 'rtl' ? r === '180deg' : r === 'none' || r === '0deg')),
-      `${dl.lefts} | ${pl.lefts} | ${dl.rotations} ${pl.rotations}`,
+      `${label}: each stage bar is its share of the lane's Came in (702 / 529), in an LTR box`,
+      dl.bars.every((b) => b?.dir === 'ltr') &&
+        pl.bars.every((b) => b?.dir === 'ltr') &&
+        [100, 93, 54, 91].every((x, i) => near(dl.bars[i].pct, x)) &&
+        [100, 84, 86].every((x, i) => near(pl.bars[i].pct, x)),
+      JSON.stringify([dl.bars, pl.bars]),
     )
     check(
-      `${label}: each lane's average comes after its stages, with no chevron: Avg time to deliver, Avg time to ready`,
+      `${label}: the stage bars grow from the reading start (${grows}), mirrored through props`,
+      [...dl.bars, ...pl.bars].every((b) => b?.from === grows || b?.from === 'both') && [...dl.bars, ...pl.bars].some((b) => b?.from === grows),
+      JSON.stringify([...dl.bars, ...pl.bars].map((b) => b?.from)),
+    )
+    check(
+      `${label}: the Delivery funnel's slot split — In slot | Out of slot | No slot, the stub's 512 / 96 / 32`,
+      dl.slot?.state === 'drawn' &&
+        dl.slot.heading === 'Slot keeping' &&
+        dl.slot.dir === 'ltr' &&
+        same(dl.slot.keys, ['inSlot', 'outOfSlot', 'noSlot']) &&
+        same(dl.slot.segments.map((x) => x.id), dir === 'rtl' ? ['noSlot', 'outOfSlot', 'inSlot'] : ['inSlot', 'outOfSlot', 'noSlot']) &&
+        [['inSlot', 80], ['outOfSlot', 15], ['noSlot', 5]].every(([id, x]) => near(dl.slot.segments.find((g) => g.id === id)?.pct, x, 2)) &&
+        dl.slot.label === 'Slot keeping of delivered: In slot ⁨512⁩, Out of slot ⁨96⁩, No slot ⁨32⁩',
+      JSON.stringify(dl.slot),
+    )
+    check(
+      `${label}: the slot key reads the stub's counts and shares, each isolated; No slot carries no share`,
+      f['delivery.slot.inSlot']?.bdi === '512' &&
+        f['delivery.slot.inSlotShare']?.bdi === '80%' &&
+        f['delivery.slot.outOfSlot']?.bdi === '96' &&
+        f['delivery.slot.outOfSlotShare']?.bdi === '15%' &&
+        f['delivery.slot.noSlot']?.bdi === '32' &&
+        f['delivery.slot.noSlotShare'] === undefined,
+      JSON.stringify(Object.fromEntries(Object.entries(f).filter(([k]) => k.startsWith('delivery.slot.')))),
+    )
+    check(`${label}: the Pick-up funnel has no slot split`, pl.slot === null)
+    check(
+      `${label}: each funnel's average comes after its stages: Avg delivery time`,
       dl.avg === 'delivery.avg' &&
-        dl.avgCaption === 'Avg time to deliver' &&
+        dl.avgCaption === 'Avg delivery time' &&
         pl.avg === 'pickUp.avg' &&
-        pl.avgCaption === 'Avg time to ready' &&
-        dl.avgChevrons === 0 &&
-        pl.avgChevrons === 0 &&
-        inReadingOrder([...dl.lefts, dl.avgLeft], dir) &&
-        inReadingOrder([...pl.lefts, pl.avgLeft], dir),
-      `${dl.avg} ${dl.avgCaption} ${dl.avgLeft} · ${pl.avg} ${pl.avgCaption} ${pl.avgLeft}`,
+        pl.avgCaption === 'Avg delivery time' &&
+        dl.avgTop > dl.tops.at(-1) &&
+        pl.avgTop > pl.tops.at(-1),
+      `${dl.avg} ${dl.avgCaption} ${dl.avgTop} · ${pl.avg} ${pl.avgCaption} ${pl.avgTop}`,
+    )
+    check(
+      `${label}: wide (1600px), the funnels stand side by side, Delivery at the reading start`,
+      dl.box.top === pl.box.top && (dir === 'rtl' ? dl.box.left > pl.box.right - 1 : pl.box.left > dl.box.right - 1),
+      JSON.stringify([dl.box, pl.box]),
     )
     check(
       `${label}: the lanes read the stub's tracks as sent (not the totals, not derived)`,
@@ -429,34 +657,24 @@ async function drive(dir) {
       JSON.stringify(f['delivery.trips']),
     )
     check(
-      `${label}: each lane's average reads its minutes with the unit`,
-      f['delivery.avg']?.bdi === '96.25' && f['delivery.avg'].text === '96.25min' && f['pickUp.avg']?.bdi === '31.5' && f['pickUp.avg'].text === '31.5min',
+      `${label}: each lane's average is its Avg delivery time (avgDeliveryMinutes), with the unit`,
+      f['delivery.avg']?.bdi === '41.5' && f['delivery.avg'].text === '41.5min' && f['pickUp.avg']?.bdi === '30.75' && f['pickUp.avg'].text === '30.75min',
       `${JSON.stringify(f['delivery.avg'])} ${JSON.stringify(f['pickUp.avg'])}`,
     )
-    // A narrower window: the stages stay on one row (a wrapped row would open on a stray chevron).
+    // A narrower window: the funnels stack, Delivery above Pick-up.
     await page.setViewportSize({ width: 1000, height: 1000 })
     await page.waitForTimeout(200)
-    const rowTops = await page.evaluate(() =>
-      ['delivery', 'pickUp'].map((t) => [...document.querySelectorAll(`[data-statistics-band="${t}"] [data-statistics-stages] [data-figure-tile]`)].map((e) => Math.round(e.getBoundingClientRect().top))),
-    )
     const narrowDl = await laneOf(page, 'delivery')
+    const narrowPl = await laneOf(page, 'pickUp')
     check(
-      `${label}: at 1000px each lane's stages still share one row, in reading order`,
-      rowTops.every((tops) => tops.length > 0 && tops.every((y) => y === tops[0])) && inReadingOrder(narrowDl.lefts, dir),
-      JSON.stringify(rowTops),
+      `${label}: narrow (1000px), the funnels stack, Delivery above Pick-up, each still top to bottom`,
+      narrowPl.box.top >= narrowDl.box.bottom && down(narrowDl.tops) && down(narrowPl.tops),
+      JSON.stringify([narrowDl.box, narrowPl.box]),
     )
     await page.screenshot({ path: `${SHOTS}/${dir}-today-narrow.png`, fullPage: true })
     await page.setViewportSize({ width: 1600, height: 1000 })
     await page.waitForTimeout(200)
     check(`${label}: the Unspecified tile shows the server's count`, f.unspecified?.bdi === '3' && /Unspecified/.test(await page.locator('[data-figure-tile="unspecified"]').innerText()), JSON.stringify(f.unspecified))
-    const split = await page.locator('[data-statistics-split] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
-    const splitText = await page.locator('[data-statistics-split]').innerText()
-    check(
-      `${label}: Delivered (home delivery) and Picked up (pick in store) sit apart, as Handed over's halves`,
-      same(split, ['delivered', 'pickedUp']) && /Handed over, by delivery type/.test(splitText) && /Home delivery/.test(splitText) && /Pick in store/.test(splitText),
-      split.join(','),
-    )
-    check(`${label}: Handed over says what it holds`, /Delivered \+ picked up/.test(await page.locator('[data-figure-tile="handedOver"]').innerText()))
     // 490: the misses band is two rows, one per track; the old single store-wide band is gone.
     const missRows = await page.locator('[data-statistics-band="misses"] [data-statistics-misses-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-misses-row')))
     // A missing row records failed checks below rather than throwing and ending the pass.
@@ -489,19 +707,10 @@ async function drive(dir) {
       JSON.stringify(pm),
     )
     check(`${label}: each misses row reads in reading order`, inReadingOrder(dm.lefts, dir) && inReadingOrder(pm.lefts, dir), `${dm.lefts} | ${pm.lefts}`)
-    // 490: the store-wide average now times a pick-up to Made ready — nothing beside it may say "Delivered + picked up".
-    const avgTile = await page.locator('[data-figure-tile="avgHandOver"]').innerText()
-    check(
-      `${label}: Avg hand-over stands alone — its own tile, outside the pair, no "Delivered + picked up" beside it`,
-      /^Avg hand-over\n/.test(avgTile) &&
-        !/picked up/i.test(avgTile) &&
-        (await page.locator('[data-figure-tile="handedOver"] [data-figure-tile="avgHandOver"], [data-statistics-split] [data-figure-tile="avgHandOver"]').count()) === 0,
-      JSON.stringify(avgTile),
-    )
-    check(`${label}: Came in reads the server's count, grouped`, f.cameIn?.bdi === '1,234', JSON.stringify(f.cameIn))
-    check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, f.handedOver?.bdi === '1,093', JSON.stringify(f.handedOver))
+    // 812: the entry-based Avg hand-over tile has left the web.
+    check(`${label}: the old Avg hand-over tile is gone`, (await page.locator('[data-figure-tile="avgHandOver"], [data-statistics-split]').count()) === 0)
+    check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, hb.handedOver?.value === '1,093', JSON.stringify(hb.handedOver?.value))
     check(`${label}: a real 0 reads 0`, f['delivery.rejected']?.bdi === '0', JSON.stringify(f['delivery.rejected']))
-    check(`${label}: Avg hand-over reads the minutes with its unit`, f.avgHandOver?.bdi === '87.46' && f.avgHandOver.text === '87.46min', JSON.stringify(f.avgHandOver))
     check(`${label}: every number is isolated`, Object.values(f).every((x) => x.isolated), Object.keys(f).filter((k) => !f[k].isolated).join(','))
     const asOf = await page.locator('[data-statistics-as-of]').innerText()
     check(
@@ -611,8 +820,23 @@ async function drive(dir) {
     await page.goto(`${BASE}/oms/delivery-statistics`)
     await waitFigures(page)
     const f = await figures(page)
-    check(`${label}: a null average reads "—" with no unit, never 0`, f.avgHandOver?.bdi === '—' && f.avgHandOver.text === '—', JSON.stringify(f.avgHandOver))
-    check(`${label}: a sent 0 still reads 0 beside them`, f.handedOver?.bdi === '0', JSON.stringify(f.handedOver))
+    // 812: no previous, no slot, no Delivered per trip, no Avg delivery time — "—", never 0, no change line.
+    const h = await headlineOf(page)
+    const hb = Object.fromEntries((h?.tiles ?? []).map((x) => [x.id, x]))
+    check(
+      `${label}: an older server's headline reads "—" on every figure it did not send, never 0`,
+      same(h?.tiles.map((x) => x.id), HEADLINE_IDS) && same(h.tiles.map((x) => x.value), ['1,234', '0', '—', '—', '—', '—']) && h.tiles.every((x) => x.valueIsolated),
+      JSON.stringify(h?.tiles.map((x) => x.value)),
+    )
+    check(
+      `${label}: with no previous block no tile draws a change line and no compared window is named`,
+      (await page.locator('[data-statistics-headline] [data-kpi-delta]').count()) === 0 && h?.compared === null,
+    )
+    check(
+      `${label}: the older server's sub-lines read "—" where absent, and its real 0s read 0`,
+      hb.inSlot?.sub === '— of — delivered' && hb.outOfSlot?.sub === '— of — delivered' && hb.handedOver?.sub === 'Delivered 0 · Picked up 0',
+      JSON.stringify([hb.inSlot?.sub, hb.handedOver?.sub]),
+    )
     // 489: no `tracks` at all — both lanes still drawn, stage for stage, every figure "—".
     const dl = await laneOf(page, 'delivery')
     const pl = await laneOf(page, 'pickUp')
@@ -624,8 +848,14 @@ async function drive(dir) {
     )
     check(
       `${label}: with no tracks every lane figure reads "—", never 0`,
-      laneFigures.length === 10 && laneFigures.filter(([k]) => !k.endsWith('.trips')).every(([, v]) => v.bdi === '—' && v.text === '—'),
+      // 10 lane figures + the slot key's three counts (814); no share is drawn where none was sent.
+      laneFigures.length === 13 && laneFigures.filter(([k]) => !k.endsWith('.trips')).every(([, v]) => v.bdi === '—' && v.text === '—'),
       JSON.stringify(Object.fromEntries(laneFigures.map(([k, v]) => [k, v.text]))),
+    )
+    check(
+      `${label}: with no tracks no stage bar is drawn and the slot split reads "—"`,
+      [...dl.bars, ...pl.bars].every((b) => b === null) && dl.slot?.state === 'none' && dl.slot.dash === '—' && dl.slot.segments.length === 0,
+      JSON.stringify([dl.bars, pl.bars, dl.slot]),
     )
     check(`${label}: with no tracks the Delivery lane's trips reads "—", never 0`, f['delivery.trips']?.bdi === '—' && f['delivery.trips'].text === 'Trips —', JSON.stringify(f['delivery.trips']))
     check(`${label}: with no unspecified the Unspecified tile is hidden`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0)
@@ -647,7 +877,7 @@ async function drive(dir) {
     const older = await tableRows(page)
     check(
       `${label}: in the store table an absent trips and a null average read "—", never 0`,
-      older.length === 1 && older[0].trips === '—' && older[0].avgHandOverMinutes === '—' && older[0].handedOver === '0',
+      older.length === 1 && older[0].trips === '—' && older[0].avgDeliveryMinutes === '—' && older[0].handedOver === '0',
       JSON.stringify(older),
     )
     await page.screenshot({ path: `${SHOTS}/${dir}-older-server.png`, fullPage: true })
@@ -662,10 +892,27 @@ async function drive(dir) {
     await waitFigures(page)
     const f = await figures(page)
     check(`${label}: Unspecified at 0 hides its tile`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0 && f.unspecified === undefined)
+    // 812: tracks from a server older than spec 811 carry no slot keeping, trips ratio or delivery time.
+    const h = await headlineOf(page)
+    check(
+      `${label}: tracks without the spec-811 fields read "—" on In slot, Out of slot, Delivered per trip`,
+      same(h?.tiles.slice(2, 5).map((x) => x.value), ['—', '—', '—']) && h.tiles[2].sub === '— of 640 delivered',
+      JSON.stringify(h?.tiles.map((x) => [x.value, x.sub])),
+    )
     check(
       `${label}: tracks without misses still draw both lanes and their averages`,
-      f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '96.25' && f['pickUp.avg']?.bdi === '31.5',
+      // 814: the lane average is Avg delivery time, which a 2658 server never sends — "—", not its hand-over average.
+      f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '—' && f['pickUp.avg']?.bdi === '—',
+      JSON.stringify([f['delivery.avg'], f['pickUp.avg']]),
     )
+    {
+      const dl = await laneOf(page, 'delivery')
+      check(
+        `${label}: tracks without slot keeping draw the stage bars but no slot split ("—")`,
+        dl?.bars.every((b) => b !== null) && dl.slot?.state === 'none' && dl.slot.dash === '—',
+        JSON.stringify(dl?.slot),
+      )
+    }
     // 490: tracks without misses — every shown miss "—", the hide-when-zero three hidden.
     const dm = await missesRowOf(page, 'delivery')
     const pm = await missesRowOf(page, 'pickUp')
@@ -702,6 +949,22 @@ async function drive(dir) {
     )
     await page.locator('[data-statistics-band="misses"]').screenshot({ path: `${SHOTS}/${dir}-misses-bad-pick-up.png` })
     check(`${label}: no page errors (bad pick-up)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 812: a Range's compared window — the equal-length range before it, one isolated value ─────
+  {
+    const { context, page, errors } = await open(dir, { answer: () => statistics({ previous: previousRange() }) })
+    await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=7`)
+    await waitFigures(page)
+    const h = await headlineOf(page)
+    check(
+      `${label}: a Range's compared window reads "vs <from> – <to>", the range isolated whole`,
+      h?.compared?.kind === 'range' && h.compared.text === `vs ${daysAgo(14)} – ${daysAgo(8)}` && same(h.compared.values, [`${daysAgo(14)} – ${daysAgo(8)}`]),
+      JSON.stringify(h?.compared),
+    )
+    await page.locator('[data-statistics-band="storeWide"]').screenshot({ path: `${SHOTS}/${dir}-headline-range.png` })
+    check(`${label}: no page errors (headline range)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 
@@ -863,11 +1126,11 @@ async function driveTable(dir) {
   // the order is read with it first.
   const headerIds = ['storeCode', ...headers.map(([id]) => id).filter((id) => id !== 'storeCode')]
   check(
-    `${label}: the table's All columns: store, the flow with Trips beside Out for delivery, Unspecified last of the flow (decision B), the misses, Avg hand-over`,
+    `${label}: the table's All columns: store, the flow with Trips beside Out for delivery, Unspecified last of the flow (decision B), the misses, Avg delivery time`,
     headers.length === 15 &&
     same(
       headerIds,
-      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'],
+      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'unspecified', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes'],
     ),
     headers.map(([id]) => id).join(','),
   )
@@ -879,7 +1142,7 @@ async function driveTable(dir) {
       headerOf('delivered') === 'Delivered (home delivery)' &&
       headerOf('pickedUp') === 'Picked up (pick in store)' &&
       headerOf('unspecified') === 'Unspecified' &&
-      headerOf('avgHandOverMinutes') === 'Avg hand-over (min)',
+      headerOf('avgDeliveryMinutes') === 'Avg delivery time (min)',
     headers.map(([, h]) => h).join(' | '),
   )
   const rows = await tableRows(page)
@@ -893,7 +1156,7 @@ async function driveTable(dir) {
   const p001 = rows.find((r) => r.storeCode === 'P001')
   check(
     `${label}: a row reads the server's figures, grouped, a real 0 as 0`,
-    p001?.cameIn === '1,234' && p001.trips === '150' && p001.rejected === '0' && p001.avgHandOverMinutes === '92.4' &&
+    p001?.cameIn === '1,234' && p001.trips === '150' && p001.rejected === '0' && p001.avgDeliveryMinutes === '92.4' &&
       rows.find((r) => r.storeCode === 'P007')?.handedOver === '0',
     JSON.stringify(p001),
   )
@@ -923,12 +1186,12 @@ async function driveTable(dir) {
   check(`${label}: and descending`, same(await order(), ['P001', 'P007', 'P019']), (await order()).join(','))
 
   // A null average reads "—" and sorts LAST both ways.
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  const avgAsc = await order('avgHandOverMinutes')
-  check(`${label}: Avg hand-over ascending puts the "—" last`, same(avgAsc, ['41.5', '92.4', '—']), avgAsc.join(','))
-  await sortBy(page, 'avgHandOverMinutes', 'descending')
-  const avgDesc = await order('avgHandOverMinutes')
-  check(`${label}: Avg hand-over descending STILL puts the "—" last`, same(avgDesc, ['92.4', '41.5', '—']), avgDesc.join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  const avgAsc = await order('avgDeliveryMinutes')
+  check(`${label}: Avg delivery time ascending puts the "—" last`, same(avgAsc, ['41.5', '92.4', '—']), avgAsc.join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'descending')
+  const avgDesc = await order('avgDeliveryMinutes')
+  check(`${label}: Avg delivery time descending STILL puts the "—" last`, same(avgDesc, ['92.4', '41.5', '—']), avgDesc.join(','))
 
   // One store chosen: the table stays, showing that one row.
   await page.locator('[data-statistics-store] option[value="P001"]').waitFor({ state: 'attached', timeout: 10000 })
@@ -955,8 +1218,10 @@ const tracksOf = (deliveredN, deliverAvg, pickedUpN, readyAvg) => {
   const t = tracks()
   t.delivery.flow.handedOver = deliveredN
   t.delivery.avgHandOverMinutes = deliverAvg
+  t.delivery.avgDeliveryMinutes = deliverAvg
   t.pickUp.flow.handedOver = pickedUpN
   t.pickUp.avgHandOverMinutes = readyAvg
+  t.pickUp.avgDeliveryMinutes = readyAvg
   return t
 }
 /** Two stores with tracks that rank apart from their totals, and one from a server older than 2660: no `tracks`, no `unspecified`. */
@@ -992,8 +1257,13 @@ const switchTo = async (page, track, handOver) => {
 const pressed = (page) =>
   page.locator('[data-statistics-track]').evaluateAll((els) => els.filter((e) => e.getAttribute('aria-pressed') === 'true').map((e) => e.getAttribute('data-statistics-track')))
 
-const DELIVERY_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes']
-const PICK_UP_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes']
+const DELIVERY_COLUMNS = [
+  'storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered',
+  'inSlotShare', 'outOfSlotShare', 'noSlot', 'deliveredPerTrip',
+  'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes',
+]
+// 811 review: the Pick-up view's average is the lane's Avg delivery time, the field the Pick-up funnel reads.
+const PICK_UP_COLUMNS = ['storeCode', 'cameIn', 'madeReady', 'pickedUp', 'closeRequested', 'closedOrCancelled', 'avgDeliveryMinutes']
 
 async function driveTrackSwitch(dir) {
   const label = `${dir} track`
@@ -1031,10 +1301,12 @@ async function driveTrackSwitch(dir) {
   await switchTo(page, 'delivery', 'delivered')
   const d = await tableHeaders(page)
   check(`${label}: Delivery is held in the URL as track=delivery`, (await urlTrack()) === 'delivery' && same(await pressed(page), ['delivery']))
-  check(`${label}: Delivery's columns: the lane's stages with Trips, Delivered, the five misses, Avg time to deliver`, same(d.ids, DELIVERY_COLUMNS), d.ids.join(','))
+  check(`${label}: Delivery's columns: the lane's stages with Trips, Delivered, the slot keeping, Delivered per trip, the five misses, Avg delivery time`, same(d.ids, DELIVERY_COLUMNS), d.ids.join(','))
   check(
     `${label}: Delivery's headers come from the locale, with no isolate characters`,
-    d.clean && d.names.delivered === 'Delivered' && d.names.trips === 'Trips' && d.names.avgHandOverMinutes === 'Avg time to deliver (min)',
+    d.clean && d.names.delivered === 'Delivered' && d.names.trips === 'Trips' && d.names.avgDeliveryMinutes === 'Avg delivery time (min)' &&
+      d.names.inSlotShare === 'In slot %' && d.names.outOfSlotShare === 'Out of slot %' && d.names.noSlot === 'No slot' &&
+      d.names.deliveredPerTrip === 'Delivered per trip',
     JSON.stringify(d.names),
   )
   check(`${label}: Delivery ranks by Delivered, descending, by default`, same(await order(), ['P001', 'P019', 'P050']), (await order()).join(','))
@@ -1042,7 +1314,8 @@ async function driveTrackSwitch(dir) {
   const dP001 = dRows.find((r) => r.storeCode === 'P001')
   check(
     `${label}: a Delivery row reads tracks.delivery, not the store's totals`,
-    dP001?.cameIn === '702' && dP001.trips === '409' && dP001.delivered === '300' && dP001.returnedBack === '20' && dP001.avgHandOverMinutes === '96.25',
+    dP001?.cameIn === '702' && dP001.trips === '409' && dP001.delivered === '300' && dP001.returnedBack === '20' && dP001.avgDeliveryMinutes === '96.25' &&
+      dP001.inSlotShare === '80%' && dP001.outOfSlotShare === '15%' && dP001.noSlot === '32' && dP001.deliveredPerTrip === '1.56',
     JSON.stringify(dP001),
   )
   const dOlder = dRows.find((r) => r.storeCode === 'P050')
@@ -1051,8 +1324,8 @@ async function driveTrackSwitch(dir) {
     !!dOlder && DELIVERY_COLUMNS.slice(1).every((c) => dOlder[c] === '—'),
     JSON.stringify(dOlder),
   )
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  check(`${label}: Avg time to deliver ascending puts the "—" last`, same(await order('avgHandOverMinutes'), ['96.25', '—', '—']), (await order('avgHandOverMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  check(`${label}: Avg delivery time ascending puts the "—" last`, same(await order('avgDeliveryMinutes'), ['96.25', '—', '—']), (await order('avgDeliveryMinutes')).join(','))
   await sortBy(page, 'delivered', 'ascending')
   check(`${label}: Delivered ascending ranks numerically, the "—" last`, same(await order(), ['P019', 'P001', 'P050']), (await order()).join(','))
   await sortBy(page, 'delivered', 'descending')
@@ -1063,10 +1336,10 @@ async function driveTrackSwitch(dir) {
   await switchTo(page, 'pickUp', 'pickedUp')
   const p = await tableHeaders(page)
   check(`${label}: Pick-up is held in the URL as track=pickUp`, (await urlTrack()) === 'pickUp' && same(await pressed(page), ['pickUp']))
-  check(`${label}: Pick-up's columns: Came in, Made ready, Picked up, Close requested, Closed / cancelled, Avg time to ready`, same(p.ids, PICK_UP_COLUMNS), p.ids.join(','))
+  check(`${label}: Pick-up's columns: Came in, Made ready, Picked up, Close requested, Closed / cancelled, Avg delivery time`, same(p.ids, PICK_UP_COLUMNS), p.ids.join(','))
   check(
     `${label}: Pick-up's headers come from the locale`,
-    p.clean && p.names.pickedUp === 'Picked up' && p.names.avgHandOverMinutes === 'Avg time to ready (min)',
+    p.clean && p.names.pickedUp === 'Picked up' && p.names.avgDeliveryMinutes === 'Avg delivery time (min)',
     JSON.stringify(p.names),
   )
   check(`${label}: Pick-up ranks by Picked up, descending, by default`, same(await order(), ['P019', 'P001', 'P050']), (await order()).join(','))
@@ -1082,10 +1355,10 @@ async function driveTrackSwitch(dir) {
   )
   const pOlder = pRows.find((r) => r.storeCode === 'P050')
   check(`${label}: a store row without tracks reads "—" in every Pick-up cell, never 0`, !!pOlder && PICK_UP_COLUMNS.slice(1).every((c) => pOlder[c] === '—'), JSON.stringify(pOlder))
-  await sortBy(page, 'avgHandOverMinutes', 'ascending')
-  check(`${label}: Avg time to ready ascending ranks numerically, the "—" last`, same(await order('avgHandOverMinutes'), ['12', '31.5', '—']), (await order('avgHandOverMinutes')).join(','))
-  await sortBy(page, 'avgHandOverMinutes', 'descending')
-  check(`${label}: and descending, the "—" STILL last`, same(await order('avgHandOverMinutes'), ['31.5', '12', '—']), (await order('avgHandOverMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'ascending')
+  check(`${label}: Avg delivery time ascending ranks numerically, the "—" last`, same(await order('avgDeliveryMinutes'), ['12', '31.5', '—']), (await order('avgDeliveryMinutes')).join(','))
+  await sortBy(page, 'avgDeliveryMinutes', 'descending')
+  check(`${label}: and descending, the "—" STILL last`, same(await order('avgDeliveryMinutes'), ['31.5', '12', '—']), (await order('avgDeliveryMinutes')).join(','))
   const cells = await page.evaluate(() => {
     const all = [...document.querySelectorAll('[data-statistics-stores] .ag-row[row-index] .ag-cell')]
     return { count: all.length, isolated: all.every((c) => c.querySelector('bdi')) }
@@ -1113,6 +1386,225 @@ async function driveTrackSwitch(dir) {
   await context.close()
 }
 
+// ── 18 (813): the courier scope ───────────────────────────────────────────────────────────────
+async function driveCourier(dir) {
+  const label = `${dir} courier`
+  const { context, page, errors, statQueries } = await open(dir, {
+    // The stub's server: an unknown courier is refused; any other answers the main fixture.
+    answer: (q) => (q.get('Courier') === 'NOPE' ? 'badCourier' : statistics({ stores: trackStores() })),
+  })
+  const asked = async (pred, ms = 10000) => {
+    const end = Date.now() + ms
+    while (Date.now() < end) {
+      if (statQueries.length && pred(params(statQueries.at(-1)))) return true
+      await page.waitForTimeout(100)
+    }
+    return false
+  }
+  const search = () => new URL(page.url()).searchParams
+  const picker = page.locator('[data-statistics-courier]')
+  const caption = page.locator('[data-statistics-courier-caption]')
+  const chips = () => page.locator('[data-statistics-track]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-track')))
+  const pickUpDrawn = async () => ({
+    lane: await page.locator('[data-statistics-band="pickUp"]').count(),
+    misses: await page.locator('[data-statistics-misses-row="pickUp"]').count(),
+    chip: await page.locator('[data-statistics-track="pickUp"]').count(),
+  })
+
+  // All couriers: the default, no Courier on the wire, the page exactly as before.
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await waitFigures(page)
+  const offered = await picker.locator('option').evaluateAll((els) => els.map((e) => [e.value, e.textContent]))
+  check(
+    `${label}: the picker opens on All couriers, then the four live couriers (no DAWA)`,
+    (await picker.inputValue()) === '' &&
+      same(offered, [['', 'All couriers'], ['FREY', 'FarEye'], ['OTOX', 'OTO'], ['SMSA', 'SMSA'], ['SLNK', 'Starlinks']]),
+    JSON.stringify(offered),
+  )
+  check(`${label}: all couriers sends no Courier`, statQueries.length > 0 && !statQueries.at(-1).has('Courier'), JSON.stringify(params(statQueries.at(-1))))
+  check(`${label}: with all couriers there is no caption and every Pick-up band shows`, (await caption.count()) === 0 && same(await pickUpDrawn(), { lane: 1, misses: 1, chip: 1 }))
+
+  // FarEye on the Pick-up view: Courier=FREY, the caption, the Pick-up band, row and chip gone, the table on Delivery.
+  await page.locator('[data-statistics-track="pickUp"]').click()
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('track') === 'pickUp')
+  await picker.selectOption('FREY')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('courier') === 'FREY')
+  check(`${label}: choosing FarEye sends Courier=FREY`, await asked((q) => q?.Courier === 'FREY'), JSON.stringify(params(statQueries.at(-1))))
+  await caption.waitFor({ timeout: 10000 })
+  await page.locator('[data-statistics-stores="delivery"] .ag-row').first().waitFor({ timeout: 20000 })
+  check(
+    `${label}: the caption says the figures are FarEye's home deliveries only, the name isolated`,
+    /FarEye's home deliveries only/.test(await caption.innerText()) && (await caption.locator('bdi', { hasText: 'FarEye' }).count()) === 1,
+    await caption.innerText(),
+  )
+  check(`${label}: the Pick-up funnel, misses row and table chip are gone`, same(await pickUpDrawn(), { lane: 0, misses: 0, chip: 0 }), JSON.stringify(await pickUpDrawn()))
+  check(`${label}: the Delivery lane and misses row stay`, (await page.locator('[data-statistics-band="delivery"]').count()) === 1 && (await page.locator('[data-statistics-misses-row="delivery"]').count()) === 1)
+  check(`${label}: the table offers All and Delivery, and moved off Pick-up to Delivery`, same(await chips(), ['all', 'delivery']) && same(await page.locator('[data-statistics-track][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-track'))), ['delivery']) && search().get('track') === null, `${await chips()} ${page.url()}`)
+  await page.screenshot({ path: `${SHOTS}/${dir}-courier.png`, fullPage: true })
+
+  // A reload keeps it, combined with a store; a link naming track=pickUp reads as Delivery.
+  await page.goto(`${BASE}/oms/delivery-statistics?store=P019&courier=FREY&track=pickUp`)
+  await waitFigures(page)
+  await caption.waitFor({ timeout: 10000 })
+  check(
+    `${label}: a link keeps the courier beside the store, and track=pickUp reads as Delivery`,
+    (await picker.inputValue()) === 'FREY' &&
+      (await asked((q) => q?.Courier === 'FREY' && q?.StoreCode === 'P019')) &&
+      (await page.locator('[data-statistics-track="delivery"][aria-pressed="true"]').count()) === 1 &&
+      (await pickUpDrawn()).lane === 0,
+    page.url(),
+  )
+
+  // Back to all couriers: the param drops off, the page is as before.
+  await picker.selectOption('')
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has('courier'))
+  await page.locator('[data-statistics-band="pickUp"]').waitFor({ timeout: 10000 })
+  check(`${label}: All couriers drops Courier and brings every Pick-up band back`, (await asked((q) => q && !('Courier' in q))) && (await caption.count()) === 0 && same(await pickUpDrawn(), { lane: 1, misses: 1, chip: 1 }))
+
+  // An unknown code from a link is sent as written, kept in the picker, and the server's refusal is shown.
+  await page.goto(`${BASE}/oms/delivery-statistics?courier=NOPE`)
+  const refusal = page.locator('[role="alert"]', { hasText: 'The statistics query is not valid: unknown courier.' })
+  await refusal.waitFor({ timeout: 20000 })
+  check(
+    `${label}: an unknown courier is sent as written and its SDD-02132 refusal is shown in the server's words`,
+    params(statQueries.at(-1))?.Courier === 'NOPE' && (await refusal.count()) === 1 && (await page.locator('[data-statistics-band]').count()) === 0,
+    JSON.stringify(params(statQueries.at(-1))),
+  )
+  check(`${label}: the unknown code stays in the picker so it can be undone`, (await picker.inputValue()) === 'NOPE')
+  await page.screenshot({ path: `${SHOTS}/${dir}-courier-sdd02132.png`, fullPage: true })
+  check(`${label}: no page errors (courier)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 19 (816): the Delivery view's slot, trip and delivery-time columns, and the courier default ──
+/** A store's tracks with its own Out of slot % (undefined = not sent), Delivered per trip and Avg delivery time. */
+const slotTracks = (outOfSlotShare, deliveredPerTrip, avgDeliveryMinutes) => {
+  const t = tracks()
+  const { outOfSlotShare: _o, ...slot } = t.delivery.slot
+  t.delivery.slot = outOfSlotShare === undefined ? slot : { ...slot, outOfSlotShare }
+  t.delivery.deliveredPerTrip = deliveredPerTrip
+  t.delivery.avgDeliveryMinutes = avgDeliveryMinutes
+  return t
+}
+/** Four stores ranking apart by Handed over and by Out of slot %; P007 sends no share, trips ratio or average. */
+const slotStores = () => [
+  store('P001', { flow: flow({ handedOver: 900 }), tracks: slotTracks(0.15, 1.56, 41.5) }),
+  store('P019', { flow: flow({ handedOver: 300 }), tracks: slotTracks(0.4, 2.1, 61) }),
+  store('P007', { flow: flow({ handedOver: 600 }), tracks: slotTracks(undefined, null, null) }),
+  store('P050', { flow: flow({ handedOver: 100 }), tracks: slotTracks(0.05, 1.2, 30) }),
+]
+const BAR_COLUMNS = ['outOfSlotShare', 'deliveredPerTrip', 'avgDeliveryMinutes']
+
+/** Each bar column's cells in shown order: the bar's length (data-cell-bar), its drawn width, which edge it grows from, and the cell's text. */
+const cellBars = (page) =>
+  page.evaluate((cols) => {
+    const byIndex = new Map()
+    for (const row of document.querySelectorAll('[data-statistics-stores] .ag-row[row-index]')) {
+      const i = Number(row.getAttribute('row-index'))
+      const entry = byIndex.get(i) ?? {}
+      for (const col of cols) {
+        const cell = row.querySelector(`.ag-cell[col-id="${col}"]`)
+        if (!cell) continue
+        const holder = cell.querySelector('[data-cell-bar]')
+        const bar = holder?.firstElementChild
+        const box = holder?.getBoundingClientRect()
+        const b = bar?.getBoundingClientRect()
+        entry[col] = {
+          length: holder ? Number(holder.getAttribute('data-cell-bar')) : null,
+          width: b ? Math.round(b.width) : 0,
+          fromLeft: box && b ? Math.abs(b.left - box.left) < 2 : null,
+          fromRight: box && b ? Math.abs(b.right - box.right) < 2 : null,
+          text: cell.textContent,
+          isolated: !!cell.querySelector('bdi[dir="ltr"]'),
+          background: bar?.getAttribute('style') ?? '',
+        }
+      }
+      byIndex.set(i, entry)
+    }
+    return [...byIndex.entries()].sort(([a], [b]) => a - b).map(([, r]) => r)
+  }, BAR_COLUMNS)
+
+async function driveSlotTable(dir) {
+  const label = `${dir} slot table`
+  const { context, page, errors } = await open(dir, { answer: () => statistics({ stores: slotStores() }) })
+  const order = async (col = 'storeCode') => (await tableRows(page)).map((r) => r[col])
+  const pressedNow = () => pressed(page)
+
+  // All couriers: today's default — All, ranked by Handed over.
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await waitFigures(page)
+  await page.locator('[data-statistics-stores="all"] .ag-header-cell[col-id="handedOver"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  check(
+    `${label}: all couriers keeps today's default — All, by Handed over descending`,
+    same(await pressedNow(), ['all']) && same(await order(), ['P001', 'P007', 'P019', 'P050']),
+    (await order()).join(','),
+  )
+
+  // FarEye: the table opens on Delivery, ranked by Out of slot % worst first, "—" last.
+  await page.locator('[data-statistics-courier]').selectOption('FREY')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('courier') === 'FREY')
+  await page.locator('[data-statistics-stores="delivery"] .ag-header-cell[col-id="outOfSlotShare"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  await page.locator('[data-statistics-stores="delivery"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(150)
+  check(
+    `${label}: choosing FarEye opens the table on Delivery, track absent from the URL`,
+    same(await pressedNow(), ['delivery']) && !new URL(page.url()).searchParams.has('track'),
+    page.url(),
+  )
+  check(
+    `${label}: ranked by Out of slot % descending with "—" last`,
+    same(await order(), ['P019', 'P001', 'P050', 'P007']) && same(await order('outOfSlotShare'), ['40%', '15%', '5%', '—']),
+    `${(await order()).join(',')} | ${(await order('outOfSlotShare')).join(',')}`,
+  )
+  check(
+    `${label}: Delivered per trip and Avg delivery time read as sent, "—" for the store that sent none`,
+    same(await order('deliveredPerTrip'), ['2.1', '1.56', '1.2', '—']) && same(await order('avgDeliveryMinutes'), ['61', '41.5', '30', '—']),
+    `${(await order('deliveredPerTrip')).join(',')} | ${(await order('avgDeliveryMinutes')).join(',')}`,
+  )
+  const bars = await cellBars(page)
+  const lengths = (col) => bars.map((r) => r[col]?.length)
+  check(
+    `${label}: the three bar columns draw bars in proportion to the column's largest value; "—" draws none`,
+    // 0.15 / 0.4 is 37.4999… in floating point, so 37.
+    same(lengths('outOfSlotShare'), [100, 37, 13, 0]) && same(lengths('deliveredPerTrip'), [100, 74, 57, 0]) && same(lengths('avgDeliveryMinutes'), [100, 68, 49, 0]),
+    BAR_COLUMNS.map((c) => `${c}:${lengths(c).join('/')}`).join(' '),
+  )
+  const drawn = bars.flatMap((r) => BAR_COLUMNS.map((c) => r[c]))
+  check(
+    `${label}: a bar is drawn on screen, longest for the largest value, none for "—"`,
+    BAR_COLUMNS.every((c) => bars[0][c].width > bars[1][c].width && bars[1][c].width > 0 && bars[3][c].width === 0),
+    BAR_COLUMNS.map((c) => `${c}:${bars.map((r) => r[c].width).join('/')}`).join(' '),
+  )
+  check(
+    `${label}: each bar grows from the reading start (${dir === 'rtl' ? 'right' : 'left'})`,
+    drawn.filter((b) => b.width > 0).every((b) => (dir === 'rtl' ? b.fromRight : b.fromLeft)),
+    JSON.stringify(drawn.map((b) => [b.fromLeft, b.fromRight])),
+  )
+  check(
+    `${label}: a bar cell's text is the formatted value alone, isolated, with no isolate characters`,
+    drawn.every((b) => b.isolated && !b.text.includes(FSI) && !b.text.includes(PDI)) && bars[0].outOfSlotShare.text === '40%',
+    JSON.stringify(drawn.map((b) => b.text)),
+  )
+  check(`${label}: the bars are drawn in ink (the chart ink), never a status colour`, drawn.every((b) => b.background.includes('--chart-1') && !/danger|success|attention/.test(b.background)), drawn[0]?.background)
+  // From the opening descending sort, one click clears it (AG Grid's asc → desc → none cycle), the next ascends.
+  await page.locator('[data-statistics-stores] .ag-header-cell[col-id="outOfSlotShare"] .ag-header-cell-label').click()
+  await sortBy(page, 'outOfSlotShare', 'ascending')
+  check(`${label}: Out of slot % ascending STILL puts the "—" last`, same(await order('outOfSlotShare'), ['5%', '15%', '40%', '—']), (await order('outOfSlotShare')).join(','))
+  await page.screenshot({ path: `${SHOTS}/${dir}-stores-slot.png`, fullPage: true })
+
+  // Under the courier, the All view ranks by its own hand-over column, as today.
+  await switchTo(page, 'all', 'handedOver')
+  check(`${label}: the All view under a courier is written to the URL and ranks by Handed over`, new URL(page.url()).searchParams.get('track') === 'all' && same(await order(), ['P001', 'P007', 'P019', 'P050']), page.url())
+
+  // Back to all couriers: today's default again.
+  await page.locator('[data-statistics-courier]').selectOption('')
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has('courier'))
+  await page.locator('[data-statistics-stores="all"] .ag-header-cell[col-id="handedOver"][aria-sort="descending"]').waitFor({ timeout: 20000 })
+  check(`${label}: all couriers brings back All by Handed over, no track in the URL`, same(await pressedNow(), ['all']) && !new URL(page.url()).searchParams.has('track') && same(await order(), ['P001', 'P007', 'P019', 'P050']), page.url())
+  check(`${label}: no page errors (slot table)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 13 (486): the chart ───────────────────────────────────────────────────────────────────────
 /** Every bucket from the asked From to To, by the asked granularity — as the door sends them, zeros included. */
 const seriesFor = (q) => {
@@ -1134,123 +1626,182 @@ const seriesFor = (q) => {
   return out
 }
 
-/** Each column's and each label's centre x, in bucket order, and the axes' text. */
+/** The chart as drawn: each series' bars' centre x in bucket order, the legend, the category ticks and the frame. */
 const chartGeometry = (page) =>
   page.evaluate(() => {
+    const band = document.querySelector('[data-statistics-band="chart"]')
     const centre = (el) => {
       const r = el.getBoundingClientRect()
       return r.left + r.width / 2
     }
+    const box = band?.querySelector('[data-chart]')
+    const layers = [...(band?.querySelectorAll('.recharts-bar') ?? [])]
     return {
-      columns: [...document.querySelectorAll('[data-chart-column]')].map((g) => centre(g.querySelector('rect'))),
-      labels: [...document.querySelectorAll('[data-chart-label]')].map(centre),
-      texts: [...document.querySelectorAll('[data-chart-label]')].map((e) => e.textContent.trim()),
-      isolatedLabels: [...document.querySelectorAll('[data-chart-label]')]
-        .filter((e) => e.textContent.trim())
-        .every((e) => e.querySelector('bdi[dir="ltr"]')),
-      axis: [...document.querySelectorAll('[data-chart-axis] bdi[dir="ltr"]')].map((e) => e.textContent),
+      form: box?.getAttribute('data-chart') ?? null,
+      stacking: box?.getAttribute('data-chart-stacking') ?? null,
+      seriesCount: box?.getAttribute('data-chart-series') ?? null,
+      ariaLabel: box?.getAttribute('aria-label') ?? null,
+      bars: layers.map((l) => [...l.querySelectorAll('.recharts-bar-rectangle')].map((r) => centre(r.querySelector('path') ?? r))),
+      legend: [...(band?.querySelectorAll('.recharts-legend-item-text') ?? [])].map((e) => e.textContent.trim()),
+      ticks: [...(band?.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value') ?? [])].map((e) => ({
+        text: e.textContent.trim(),
+        x: centre(e),
+      })),
+      frame: band?.querySelector('[data-chart-frame]')?.getAttribute('data-chart-frame') ?? null,
     }
   })
 
+/** Points at the bucket whose category tick reads `want` (above it, in the plot) and returns the tooltip's text once it names `want`. */
+const tooltipAt = async (page, want) => {
+  const tick = page.locator('[data-statistics-band="chart"] .recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value', { hasText: want }).first()
+  const tip = page.locator('[data-statistics-band="chart"] .recharts-tooltip-wrapper')
+  await page.locator('[data-statistics-band="chart"]').scrollIntoViewIfNeeded()
+  const end = Date.now() + 5000
+  while (Date.now() < end) {
+    const box = await tick.boundingBox()
+    if (box) await page.mouse.move(box.x + box.width / 2, box.y - 60)
+    const text = (await tip.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+    if (text.includes(want)) return text
+    await page.waitForTimeout(150)
+  }
+  return (await tip.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+}
+
 async function driveChart(dir) {
   const label = dir
-  const { context, page, errors } = await open(dir, { answer: (q) => statistics({ series: seriesFor(q) }) })
-  await page.goto(`${BASE}/oms/delivery-statistics`)
-  await page.locator('[data-statistics-band="chart"] [data-chart-column]').first().waitFor({ timeout: 20000 })
+  const forward = (xs) => xs.length > 1 && xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
+  {
+    const { context, page, errors } = await open(dir, { answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
 
-  // Today, by the hour.
-  const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
-  check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['storeWide', 'delivery', 'pickUp', 'misses', 'chart', 'stores']), bands.join(','))
-  const today = await chartGeometry(page)
-  check(
-    `${label}: Today draws 24 hourly buckets`,
-    today.columns.length === 24 && (await page.locator('[data-chart-granularity="hour"]').count()) === 1,
-    String(today.columns.length),
-  )
-  check(
-    `${label}: every third hour is labelled "HH", isolated`,
-    same(today.texts.filter(Boolean), ['00', '03', '06', '09', '12', '15', '18', '21']) && today.isolatedLabels,
-    today.texts.join('|'),
-  )
-  check(`${label}: one axis, its top the round step over the larger series (22 → 30)`, same(today.axis, ['30', '20', '10', '0']), today.axis.join(','))
-  const forward = (xs) => xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
-  check(
-    `${label}: time runs in reading order (${dir === 'rtl' ? 'right to left' : 'left to right'})`,
-    forward(today.columns),
-    today.columns.map(Math.round).join(','),
-  )
-  check(
-    `${label}: each label sits under its own column`,
-    today.labels.length === 24 && today.labels.every((x, i) => Math.abs(x - today.columns[i]) < 3),
-    today.labels.map((x, i) => Math.round(x - today.columns[i])).join(','),
-  )
-  const bars = await page
-    .locator('[data-chart-column="9"] [data-chart-bar]')
-    .evaluateAll((els) => els.map((e) => [e.getAttribute('data-chart-bar'), e.getBoundingClientRect().left]))
-  check(
-    `${label}: Came in and Handed over side by side, Came in first in reading order`,
-    bars.length === 2 && bars[0][0] === 'cameIn' && (dir === 'rtl' ? bars[0][1] > bars[1][1] : bars[0][1] < bars[1][1]),
-    JSON.stringify(bars),
-  )
-  const empty = await page.locator('[data-chart-column="0"] [data-chart-bar]').count()
-  check(`${label}: a bucket of zeros draws no column`, empty === 0, String(empty))
+    // Today, by the hour.
+    const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
+    check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['storeWide', 'delivery', 'pickUp', 'misses', 'chart', 'stores']), bands.join(','))
+    const today = await chartGeometry(page)
+    check(
+      `${label}: core/charts draws it — bar form, grouped, two series, in an idle ChartFrame`,
+      today.form === 'bar' && today.stacking === 'grouped' && today.seriesCount === '2' && today.frame === 'idle' && /by the hour/.test(today.ariaLabel ?? ''),
+      JSON.stringify({ form: today.form, stacking: today.stacking, series: today.seriesCount, frame: today.frame, aria: today.ariaLabel }),
+    )
+    check(`${label}: the legend names Came in then Handed over`, same(today.legend, ['Came in', 'Handed over']), today.legend.join(','))
+    check(
+      `${label}: Today draws 24 hourly buckets, a bar for every non-zero value (22 + 22 in the stub; a 0 draws none)`,
+      today.ticks.length === 24 && today.bars.length === 2 && same(today.bars.map((s) => s.length), [22, 22]) && (await page.locator('[data-chart-granularity="hour"]').count()) === 1,
+      `${today.ticks.length} ticks, bars ${today.bars.map((s) => s.length).join(',')}`,
+    )
+    check(`${label}: hours are labelled "HH:00", starting at 00:00`, today.ticks.length > 0 && today.ticks[0].text === '00:00' && today.ticks.every((t) => /^\d\d:00$/.test(t.text)), today.ticks.map((t) => t.text).join('|'))
+    check(`${label}: time runs in reading order (${dir === 'rtl' ? 'right to left' : 'left to right'})`, forward(today.ticks.map((t) => t.x)) && forward(today.bars[0]), today.ticks.map((t) => Math.round(t.x)).join(','))
+    const tick9 = today.ticks.find((t) => t.text === '09:00')
+    const near = (xs) => (tick9 ? Math.min(...xs.map((x) => Math.abs(x - tick9.x))) : Infinity)
+    check(`${label}: the 09:00 label sits under its two bars`, near(today.bars[0]) < 20 && near(today.bars[1]) < 20, `${Math.round(near(today.bars[0]))},${Math.round(near(today.bars[1]))}`)
 
-  // The readout on hover.
-  const readout = page.locator('[data-chart-readout]')
-  check(
-    `${label}: before any hover the readout says how to read the chart`,
-    (await readout.getAttribute('data-chart-readout')) === '' && /Point at a column/.test(await readout.innerText()),
-  )
-  await page.locator('[data-chart-column="9"] rect').first().hover()
-  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
-  check(
-    `${label}: hovering 09:00 reads its two values, each isolated`,
-    (await readout.innerText()) === '09:00 · Came in 12 · Handed over 7' &&
-      same(await readout.locator('bdi[dir="ltr"]').allTextContents(), ['09:00', '12', '7']),
-    await readout.innerText(),
-  )
-  await page.locator('[data-chart-column="0"] rect').first().hover()
-  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
-  check(`${label}: a real 0 reads 0`, (await readout.innerText()) === '00:00 · Came in 0 · Handed over 0', await readout.innerText())
-  await page.locator('[data-chart-column="9"] rect').first().hover()
-  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
-  await page.screenshot({ path: `${SHOTS}/${dir}-chart-today.png`, fullPage: true })
-  await page.mouse.move(5, 5)
-  await page.locator('[data-chart-readout=""]').waitFor({ timeout: 5000 })
-  check(`${label}: leaving the chart clears the readout`, true)
+    // The tooltip on hover.
+    const tip9 = await tooltipAt(page, '09:00')
+    check(`${label}: hovering 09:00 shows a tooltip with both values`, /09:00/.test(tip9) && /Came in\s*:?\s*12/.test(tip9) && /Handed over\s*:?\s*7/.test(tip9), tip9)
+    await page.screenshot({ path: `${SHOTS}/${dir}-chart-today.png`, fullPage: true })
+    const tip0 = await tooltipAt(page, '00:00')
+    check(`${label}: a real 0 reads 0 in the tooltip`, /Came in\s*:?\s*0\b/.test(tip0) && /Handed over\s*:?\s*0\b/.test(tip0), tip0)
 
-  // The keyboard: focus the plot, step forward with the arrow that points along the reading direction.
-  await page.locator('[data-chart-plot]').focus()
-  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
-  await page.keyboard.press(dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight')
-  await page.locator('[data-chart-readout="1"]').waitFor({ timeout: 5000 })
-  await page.keyboard.press('End')
-  await page.locator('[data-chart-readout="23"]').waitFor({ timeout: 5000 })
-  check(`${label}: the arrow keys step through the buckets in reading order`, (await readout.innerText()).startsWith('23:00 · '), await readout.innerText())
+    // A 31-day range, by the day.
+    await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=custom&from=${daysAgo(30)}&to=${TODAY}`)
+    await page.locator('[data-chart-granularity="day"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const range = await chartGeometry(page)
+    check(`${label}: a 31-day range draws 31 daily buckets (Came in 31 bars; Handed over 23, its every-fourth 0 drawing none)`, range.bars.length === 2 && range.bars[0].length === 31 && range.bars[1].length === 23, range.bars.map((s) => s.length).join(','))
+    check(`${label}: days are labelled by the whole date, the first the range's first day`, range.ticks[0]?.text === daysAgo(30) && range.ticks.every((t) => /^\d{4}-\d\d-\d\d$/.test(t.text)), range.ticks.map((t) => t.text).join('|'))
+    check(`${label}: the range runs in reading order too`, forward(range.bars[0]), range.bars[0].map(Math.round).join(','))
+    const tipLast = await tooltipAt(page, TODAY)
+    check(`${label}: hovering the last day shows its date and values`, tipLast.includes(TODAY) && /Came in\s*:?\s*70/.test(tipLast) && /Handed over\s*:?\s*60/.test(tipLast), tipLast)
+    await page.screenshot({ path: `${SHOTS}/${dir}-chart-range31.png`, fullPage: true })
+    check(`${label}: no page errors (chart)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 
-  // A 31-day range, by the day.
-  await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=custom&from=${daysAgo(30)}&to=${TODAY}`)
-  await page.locator('[data-chart-granularity="day"] [data-chart-column]').first().waitFor({ timeout: 20000 })
-  const range = await chartGeometry(page)
-  const dayOf = (n) => String(Number(daysAgo(n).slice(8)))
-  check(`${label}: a 31-day range draws 31 daily buckets`, range.columns.length === 31, String(range.columns.length))
-  check(
-    `${label}: days are labelled by day of the month, every fifth`,
-    same(range.texts.filter(Boolean), [30, 25, 20, 15, 10, 5, 0].map(dayOf)) && range.isolatedLabels,
-    range.texts.join('|'),
-  )
-  check(`${label}: the range runs in reading order too`, forward(range.columns), range.columns.map(Math.round).join(','))
-  await page.locator('[data-chart-column="30"] rect').first().hover()
-  await page.locator('[data-chart-readout="30"]').waitFor({ timeout: 5000 })
-  check(
-    `${label}: hovering the last day reads its date and values`,
-    (await readout.innerText()) === `${TODAY} · Came in 70 · Handed over 60`,
-    await readout.innerText(),
-  )
-  await page.screenshot({ path: `${SHOTS}/${dir}-chart-range31.png`, fullPage: true })
-  check(`${label}: no page errors (chart)`, errors.length === 0, errors.join(' | '))
-  await context.close()
+  // 815: the 5-minute Today refresh dims the chart rather than blanking it; Yesterday never goes busy.
+  {
+    const { context, page, errors, statQueries } = await open(dir, { clock: true, holdAfterFirst: 3000, answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const first = statQueries.length
+    await page.clock.runFor(5 * 60_000 + 1_000)
+    const frame = page.locator('[data-statistics-band="chart"] [data-chart-frame]')
+    const busy = await page
+      .locator('[data-statistics-band="chart"] [data-chart-frame="busy"]')
+      .waitFor({ timeout: 2500 })
+      .then(() => true, () => false)
+    const during = await chartGeometry(page)
+    const updating = await page.locator('[data-statistics-band="chart"] [data-chart-updating]').isVisible().catch(() => false)
+    check(
+      `${label}: during the Today refresh the frame reads busy, "Updating" shows, and the chart stays on screen`,
+      busy && statQueries.length === first + 1 && (await frame.getAttribute('aria-busy')) === 'true' && updating && same(during.bars.map((s) => s.length), [22, 22]),
+      JSON.stringify({ busy, calls: `${first} → ${statQueries.length}`, updating, bars: during.bars.map((s) => s.length) }),
+    )
+    const refreshBands = await staleBands(page)
+    check(
+      `${label}: a same-day refresh re-asks the current answer — the other bands stay current, only the chart dims`,
+      same(refreshBands, [['current', 'false'], ['current', 'false']]),
+      JSON.stringify(refreshBands),
+    )
+    await page.locator('[data-statistics-band="misses"]').scrollIntoViewIfNeeded()
+    await page.locator('[data-statistics-band="chart"]').screenshot({ path: `${SHOTS}/${dir}-chart-refreshing.png` })
+    await page.locator('[data-statistics-band="chart"] [data-chart-frame="idle"]').waitFor({ timeout: 10000 })
+    check(`${label}: once the answer lands the frame settles idle with the chart drawn`, same((await chartGeometry(page)).bars.map((s) => s.length), [22, 22]))
+
+    await page.goto(`${BASE}/oms/delivery-statistics?period=yesterday`)
+    await page.locator('[data-statistics-band="chart"] [data-chart-frame="idle"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const afterYesterday = statQueries.length
+    await page.clock.runFor(11 * 60_000)
+    await page.waitForTimeout(500)
+    check(
+      `${label}: Yesterday does not poll, so its chart never goes busy`,
+      statQueries.length === afterYesterday && (await frame.getAttribute('data-chart-frame')) === 'idle',
+      `${afterYesterday} → ${statQueries.length}`,
+    )
+    check(`${label}: no page errors (chart refresh)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 811 review: Today rolls past midnight. The previous day's answer is held while the new day's is asked —
+  // and EVERY band reads as not current (dimmed, aria-busy), never the chart alone.
+  {
+    const lateTonight = new Date(`${TODAY}T23:58:30`)
+    const { context, page, errors, statQueries } = await open(dir, { clock: lateTonight, holdAfterFirst: 4000, answer: (q) => statistics({ series: seriesFor(q) }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await page.locator('[data-statistics-band="chart"] .recharts-bar-rectangle').first().waitFor({ timeout: 20000 })
+    const before = await staleBands(page)
+    const first = statQueries.length
+    await page.clock.runFor(2 * 60_000)
+    const rolled = await page
+      .locator('[data-statistics-stale="stale"]')
+      .first()
+      .waitFor({ timeout: 2500 })
+      .then(() => true, () => false)
+    const during = await staleBands(page)
+    const chartBusy = (await page.locator('[data-statistics-band="chart"] [data-chart-frame]').getAttribute('aria-busy')) === 'true'
+    const dimmed = await page.locator('[data-statistics-stale]').evaluateAll((els) => els.map((e) => Number(getComputedStyle(e).opacity) < 0.5))
+    const asked = statQueries.slice(first).map((q) => q.get('From'))
+    check(
+      `${label}: past midnight the held answer reads not current in every band — headline, funnels, misses and table dimmed and busy, the chart busy`,
+      same(before, [['current', 'false'], ['current', 'false']]) &&
+        rolled &&
+        same(during, [['stale', 'true'], ['stale', 'true']]) &&
+        dimmed.length === 2 && dimmed.every(Boolean) &&
+        chartBusy &&
+        asked.length === 1 && asked[0] !== TODAY &&
+        (await page.locator('[data-statistics-stale="stale"] [data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))).join(',') ===
+          'storeWide,delivery,pickUp,misses,stores',
+      JSON.stringify({ before, rolled, during, dimmed, chartBusy, asked }),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-midnight-stale.png`, fullPage: true })
+    await page.locator('[data-statistics-stale="stale"]').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+    check(`${label}: once the new day's answer lands every band reads current again`, same(await staleBands(page), [['current', 'false'], ['current', 'false']]), JSON.stringify(await staleBands(page)))
+    check(`${label}: no page errors (midnight)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 }
+
+/** The two groups of bands around the chart (811 review): each one's `data-statistics-stale` and `aria-busy`. */
+const staleBands = (page) => page.locator('[data-statistics-stale]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-statistics-stale'), e.getAttribute('aria-busy')]))
 
 await drive('ltr')
 await drive('rtl')
@@ -1260,6 +1811,10 @@ await driveTrackSwitch('ltr')
 await driveTrackSwitch('rtl')
 await driveChart('ltr')
 await driveChart('rtl')
+await driveCourier('ltr')
+await driveCourier('rtl')
+await driveSlotTable('ltr')
+await driveSlotTable('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

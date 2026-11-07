@@ -2,6 +2,7 @@ import { assignSlots } from '@/core/charts/slots'
 import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import { mergeSeries, seriesColumnOf, seriesName, seriesOf, type NamedSeries } from './series'
 import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
 import { dimensionOf, measureOf } from './wire'
 
@@ -220,6 +221,8 @@ export function toTableView(
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
+  /** 825: the series column's header, in the screen's language. */
+  seriesHeader = 'series',
 ): TableView {
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
@@ -228,9 +231,14 @@ export function toTableView(
     ? definition.query.measures
     : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
   const namers = new Map(dimKeys.map((k) => [k, memberLabeller(k, model, lang)]))
+  // 825: named series — a series column first, each row named by its series; a series the view lacks is dropped.
+  const named = seriesOf(definition)
+  const seriesKey = seriesColumnOf(result.columns)
+  const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
+  const source = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
 
   const sort = definition.chart.sort ?? (measureKeys[0] ? { key: measureKeys[0], direction: 'desc' as const } : null)
-  const sorted = [...result.rows]
+  const sorted = [...source]
   if (sort) {
     const sign = sort.direction === 'asc' ? 1 : -1
     sorted.sort((a, b) => {
@@ -245,11 +253,13 @@ export function toTableView(
 
   const rows = kept.map((r) => {
     const out: Record<string, string | number | null> = {}
+    if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = namers.get(k)!.label(String(r[k] ?? ''))
     for (const k of measureKeys) out[k] = num(r[k])
     return out
   })
   const columns: TableColumn[] = [
+    ...(named.length ? [{ key: seriesKey, role: 'dimension' as const, label: seriesHeader }] : []),
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.category.label })),
     ...measureKeys.map((k) => {
       const m = viewMeasureOf(k, model, result, lang)
@@ -268,6 +278,8 @@ export interface ComboPoint {
   label: string
   volume: number | null
   rate: number | null
+  /** 825: with named series, each series' volume and rate here, by series id (`volume`/`rate` stay null). */
+  bySeries?: Record<string, { volume: number | null; rate: number | null }>
 }
 
 export interface ComboView {
@@ -278,6 +290,8 @@ export interface ComboView {
   /** Drawn as a line, in the lower pane. */
   rate: ViewMeasure
   points: ComboPoint[]
+  /** 825: the named series, in slot order — each drawn in both panes in its own colour. Empty without. */
+  series: NamedSeries[]
   empty: boolean
 }
 
@@ -301,6 +315,27 @@ export function toComboView(
   const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')
   const names = memberLabeller(dimensionKey, model, lang)
 
+  if (seriesOf(definition).length) {
+    const merged = mergeSeries(result, definition, lang)
+    const points = [...merged.points]
+    if (names.category.kind === 'time') points.sort((a, b) => (a.at[dimensionKey] ?? '').localeCompare(b.at[dimensionKey] ?? ''))
+    return {
+      kind: 'combo',
+      category: names.category,
+      volume,
+      rate,
+      series: merged.series,
+      points: points.map((p) => {
+        const member = p.at[dimensionKey] ?? ''
+        const bySeries = Object.fromEntries(
+          merged.series.map((s) => [s.id, { volume: num(p.values[s.id]?.[volume?.key ?? '']), rate: num(p.values[s.id]?.[rate?.key ?? '']) }]),
+        )
+        return { member, label: names.label(member), volume: null, rate: null, bySeries }
+      }),
+      empty: points.length === 0,
+    }
+  }
+
   const rows = [...result.rows]
   // A time axis reads in time order (`yyyy-MM-dd` sorts as text); a category axis as the answer ranks it.
   if (names.category.kind === 'time') rows.sort((a, b) => String(a[dimensionKey] ?? '').localeCompare(String(b[dimensionKey] ?? '')))
@@ -309,6 +344,7 @@ export function toComboView(
     category: names.category,
     volume,
     rate,
+    series: [],
     points: rows.map((r) => {
       const member = String(r[dimensionKey] ?? '')
       return { member, label: names.label(member), volume: num(r[volume?.key ?? '']), rate: num(r[rate?.key ?? '']) }

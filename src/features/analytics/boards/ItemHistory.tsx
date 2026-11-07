@@ -6,16 +6,17 @@ import { History, RotateCcw, Undo2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
-import type { AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsTier } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
-import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsRevisionsKey } from './api'
+import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsReportKey, analyticsRevisionsKey } from './api'
 import { mayEditItem, revisionList, type RevisionRow } from './revisions'
 import { useItemActor } from './use-item-save'
+import { analyticsErrorWords } from './wire'
 
 /** The last revert, so it can be undone: back to the revision that was showing before it. */
 interface LastRevert {
@@ -24,14 +25,24 @@ interface LastRevert {
   undo: number
 }
 
+/** What the history needs of an item: which one, the revision showing, its standing (who may edit) and its title. */
+export interface HistoryItem {
+  id: string
+  revision: number
+  owner: string
+  tier: AnalyticsTier
+  title?: AnalyticsLabel
+}
+
 /**
- * An item's history (spec 766 story 63, ticket 779), kind-agnostic: the view page and the board page each put
- * `<ItemHistory>` in their header. Only someone who may edit the item (776's tier rule, `./revisions`
+ * An item's history (spec 766 story 63, ticket 779), kind-agnostic: the view page, the board page, and (spec 819
+ * stories 15 and 91) the report page and the report designer each put `<ItemHistory>` in their header. Only someone who may edit the item (776's tier rule, `./revisions`
  * `mayEditItem`) sees the "History" button. The sheet lists the last 20 revisions newest first, who and when,
  * the one being viewed marked; any other can be reverted to. A revert writes a NEW revision, so the note after it
- * offers "Undo", which is just a revert back to the revision that was showing.
+ * offers "Undo", which is just a revert back to the revision that was showing. Audience changes and reassigns are
+ * listed as events (826). `onReverted` tells the host a revert (or its undo) landed — the designer re-reads its draft.
  */
-export default function ItemHistory({ item, kind }: { item: AnalyticsItem | AnalyticsBoard; kind: 'view' | 'board' }) {
+export default function ItemHistory({ item, kind, onReverted }: { item: HistoryItem; kind: 'view' | 'board' | 'report'; onReverted?: () => void }) {
   const { t } = useTranslation('boards')
   const [open, setOpen] = useState(false)
   const may = mayEditItem(item, useItemActor())
@@ -42,12 +53,12 @@ export default function ItemHistory({ item, kind }: { item: AnalyticsItem | Anal
         <History className="size-3.5" aria-hidden />
         {t('history.open')}
       </Button>
-      {open && <HistorySheet item={item} kind={kind} onClose={() => setOpen(false)} />}
+      {open && <HistorySheet item={item} kind={kind} onReverted={onReverted} onClose={() => setOpen(false)} />}
     </>
   )
 }
 
-function HistorySheet({ item, kind, onClose }: { item: AnalyticsItem | AnalyticsBoard; kind: 'view' | 'board'; onClose: () => void }) {
+function HistorySheet({ item, kind, onReverted, onClose }: { item: HistoryItem; kind: 'view' | 'board' | 'report'; onReverted?: () => void; onClose: () => void }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const titleId = useId()
@@ -60,14 +71,15 @@ function HistorySheet({ item, kind, onClose }: { item: AnalyticsItem | Analytics
     onSuccess: (saved, revision) => {
       // The revision that was showing is what "Undo" goes back to.
       setLast({ to: revision, now: saved.revision, undo: item.revision })
-      // A view's answer is the item at its new revision; a board is re-read through its own reader.
-      if (kind === 'view') queryClient.setQueryData(analyticsItemKey(item.id), saved)
-      else void queryClient.invalidateQueries({ queryKey: analyticsBoardKey(item.id) })
+      // A view's answer is the item at its new revision; a board or a report is re-read through its own reader.
+      if (kind === 'view') queryClient.setQueryData<AnalyticsItem>(analyticsItemKey(item.id), saved)
+      else void queryClient.invalidateQueries({ queryKey: kind === 'board' ? analyticsBoardKey(item.id) : analyticsReportKey(item.id) })
+      onReverted?.()
       void queryClient.invalidateQueries({ queryKey: analyticsRevisionsKey(item.id) })
       void queryClient.invalidateQueries({ queryKey: ANALYTICS_ITEMS_KEY })
       toast.success(t('history.reverted', { revision: fsi(String(revision)) }))
     },
-    onError: (err) => toast.error(apiErrorMessage(err, t('history.revertFailed'))),
+    onError: (err) => toast.error(analyticsErrorWords(err, t('history.revertFailed'), t)),
   })
 
   const rows = revisions.data ? revisionList(revisions.data, item.revision) : []
@@ -110,8 +122,8 @@ function HistorySheet({ item, kind, onClose }: { item: AnalyticsItem | Analytics
           </p>
         ) : (
           <ol className="flex flex-col divide-y divide-border/60" data-analytics-revisions>
-            {rows.map((r) => (
-              <RevisionLine key={r.revision} row={r} lang={lang} pending={revert.isPending} onRevert={() => revert.mutate(r.revision)} />
+            {rows.map((r, i) => (
+              <RevisionLine key={r.event ? `${r.event}:${i}` : r.revision} row={r} lang={lang} pending={revert.isPending} onRevert={() => revert.mutate(r.revision)} />
             ))}
           </ol>
         )}
@@ -124,10 +136,27 @@ function RevisionLine({ row, lang, pending, onRevert }: { row: RevisionRow; lang
   const { t } = useTranslation('boards')
   const at = row.at ? formatPair(formatDay(row.at, lang), formatClock(row.at, lang)) : ''
   return (
-    <li className="flex items-center gap-3 py-2" data-analytics-revision={row.revision} data-viewing={row.viewing ? 'true' : 'false'} aria-current={row.viewing ? 'true' : undefined}>
+    <li
+      className="flex items-center gap-3 py-2"
+      data-analytics-revision={row.event ? undefined : row.revision}
+      data-analytics-history-event={row.event}
+      data-viewing={row.viewing ? 'true' : 'false'}
+      aria-current={row.viewing ? 'true' : undefined}
+    >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium">
-          <Trans t={t} i18nKey="history.revision" values={{ revision: String(row.revision) }} components={{ n: <Ltr /> }} />
+          {/* 826: an audience change or a reassign is written to the history, but is not a revision. */}
+          {row.event === 'audience' ? (
+            t('history.event.audience')
+          ) : row.event === 'reassign' ? (
+            row.owner ? (
+              <Trans t={t} i18nKey="history.event.reassignTo" values={{ owner: row.owner }} components={{ owner: <Ltr /> }} />
+            ) : (
+              t('history.event.reassign')
+            )
+          ) : (
+            <Trans t={t} i18nKey="history.revision" values={{ revision: String(row.revision) }} components={{ n: <Ltr /> }} />
+          )}
           {row.viewing && (
             <span className="ms-2 rounded-full bg-accent px-2 py-0.5 text-xs font-normal" data-analytics-revision-viewing>
               {t('history.viewing')}
@@ -136,9 +165,9 @@ function RevisionLine({ row, lang, pending, onRevert }: { row: RevisionRow; lang
         </span>
         <span className="text-xs text-muted-foreground" data-analytics-revision-who>
           {row.by && at ? (
-            <Trans t={t} i18nKey="history.byAt" values={{ by: row.by, at }} components={{ by: <bdi />, at: <Ltr /> }} />
+            <Trans t={t} i18nKey={row.event ? 'history.event.byAt' : 'history.byAt'} values={{ by: row.by, at }} components={{ by: <bdi />, at: <Ltr /> }} />
           ) : row.by ? (
-            <Trans t={t} i18nKey="history.by" values={{ by: row.by }} components={{ by: <bdi /> }} />
+            <Trans t={t} i18nKey={row.event ? 'history.event.by' : 'history.by'} values={{ by: row.by }} components={{ by: <bdi /> }} />
           ) : (
             at && <Ltr>{at}</Ltr>
           )}

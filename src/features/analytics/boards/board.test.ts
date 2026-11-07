@@ -22,6 +22,15 @@ describe('board', () => {
     expect(readBoard({ id: 'b-2' }).definition.panels).toEqual([])
   })
 
+  it('reads a board that carries params and bindings as it is (821); a v1 board carries neither', () => {
+    const params = [{ name: 'zone', kind: 'members', label: { en: 'Zone' }, required: false, dimension: 'region', default: { kind: 'members', values: [] } }]
+    const b = readBoard({ id: 'b', definition: { panels: [], params, bindings: { zone: { p1: 'region' } } } })
+    expect(b.definition.params).toEqual([{ ...params[0], label: { en: 'Zone', ar: '' } }])
+    expect(b.definition.bindings).toEqual({ zone: { p1: 'region' } })
+    const v1 = readBoard({ id: 'b', definition: { panels: [], filters: { region: ['central'] } } }).definition
+    expect('params' in v1 || 'bindings' in v1).toBe(false)
+  })
+
   it('reads the saved auto-refresh interval (777); absent, zero or not a number is Off', () => {
     expect(readBoard({ id: 'b', definition: { panels: [], refresh: 300 } }).definition.refresh).toBe(300)
     expect(readBoard({ id: 'b', definition: { panels: [], refresh: 0 } }).definition.refresh).toBeUndefined()

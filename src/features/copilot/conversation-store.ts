@@ -1,7 +1,10 @@
-import { create } from 'zustand'
+import { create, type StoreApi } from 'zustand'
+import { useBoardContext, type BoardContextState } from '@/core/board-context'
+import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
 import { copilotApi } from './api'
+import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
 
 /** A conversation filed in the history, with when it was left. */
@@ -33,6 +36,10 @@ export function filed(history: readonly PastConversation[], conv: CopilotConvers
  * 🚩 Privacy: in memory only — never storage: a reload starts a new conversation. The session's user
  * changing (sign-out, a 401, another user) empties it too, as the sync console's replay draft does.
  *
+ * The report in context (832, spec 819 §D): each ask sends the report open in the designer (`@/core/report-context`),
+ * and a landed answer's `reportEdit` is posted back there with its question — the designer applies it as one undo
+ * step. A reply to a cleared conversation posts nothing.
+ *
  * History (CTO demo): "New conversation" files the one it leaves in `history`, most recent first, and `resume`
  * brings a past one back (filing the current one in its place). History follows the same privacy rule: memory only,
  * gone on reload or when the user changes. A resumed conversation keeps its id; if the server has let it expire, its
@@ -59,6 +66,8 @@ export interface CopilotConversationState {
 export function createCopilotConversation(
   send: (body: CopilotAskRequest) => Promise<CopilotAnswer>,
   now: () => number = () => Date.now(),
+  reportBridge: StoreApi<ReportContextState> = useReportContext,
+  boardBridge: StoreApi<BoardContextState> = useBoardContext,
 ) {
   const store = create<CopilotConversationState>((set, get) => ({
     conv: EMPTY_CONVERSATION,
@@ -73,8 +82,14 @@ export function createCopilotConversation(
         if (get().epoch !== epoch) return
         set((s) => ({ conv: next(s.conv), pending: null }))
       }
-      return send(askBody(conv, question)).then(
-        (reply) => landed((c) => withAnswer(c, question, reply)),
+      return send(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context)).then(
+        (reply) => {
+          if (get().epoch !== epoch) return
+          landed((c) => withAnswer(c, question, reply))
+          const { reportEdit, boardEdit } = copilotAnswerModel(reply)
+          if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
+          if (boardEdit) boardBridge.getState().postEdit(boardEdit, question)
+        },
         (err: unknown) => landed((c) => withRefusal(c, question, err)),
       )
     },

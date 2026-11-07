@@ -17,7 +17,8 @@
 //   7. 1,001 characters cannot be sent (Send disabled, the limit named, Enter asks nothing); 1,000 can;
 //   8. no page errors.
 // Plus scenario "in-flight-and-user-change" (spec 734 review items 1 and 2), described at its function,
-// and scenario "open-view" (spec 766 D, ticket 781), described at its function.
+// and scenario "open-view" (spec 766 D, ticket 781), and "open-report" (spec 819 D, ticket 832), each described at
+// its function. `DRIVE_ONLY=open-report` (comma-separated scenario names) runs just those.
 //
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/copilot-drive.mjs
@@ -740,17 +741,83 @@ async function openView(dir) {
   await context.close()
 }
 
+// ── Ticket 832 (spec 819 D) — "open-report" ───────────────────────────────────────────────────
+// The D10 answer's `reportRefs[] { id, revision, title{en,ar} }`, `assumptions` and `reportEdit`. In LTR and RTL:
+//   a. a `reportRefs` entry reads its title, its revision and "Open in designer" to `/analytics/report/:id/edit`;
+//   b. the assumptions show as a list, one line each; the trace names "Built a report" / "Edited the report";
+//   c. a `reportEdit` with no designer open says what changed and applies nothing: no page error.
+// The designer round trip (the edit landing as one undo step) needs the analytics stubs: `analytics-drive` tag 832.
+const BUILT = {
+  ...ANSWER,
+  questionNo: 1,
+  answer: 'I built the report.',
+  orderRefs: [],
+  trace: [{ tool: 'create_report', input: { title: 'Channel sales' }, rows: 1, ms: 140, ok: true }],
+  reportRefs: [{ id: 'r-832', revision: 1, title: { en: 'Channel sales: HungerStation against QC', ar: 'مبيعات القنوات: هنقرستيشن مقابل QC' } }],
+  assumptions: [{ en: 'Period: a parameter, default yesterday', ar: 'الفترة: معامل، افتراضيًا أمس' }, { en: 'HungerStation and QC: two named series', ar: '' }],
+}
+const EDITED = {
+  ...ANSWER,
+  questionNo: 2,
+  answer: 'I added the cancellation rate as a bar.',
+  orderRefs: [],
+  trace: [{ tool: 'edit_report', input: { reportId: 'r-832' }, rows: 1, ms: 90, ok: true }],
+  reportEdit: { reportId: 'r-832', definition: { params: [], bindings: {}, sections: [] }, note: { en: 'Added the cancellation rate as a bar.', ar: '' } },
+}
+
+async function openReport(dir) {
+  const label = `${dir}: open-report`
+  const { context, page, errors } = await open(dir, { onAsk: async (_body, n) => envelope(n === 1 ? BUILT : EDITED) })
+  await page.goto(`${BASE}/`)
+  await button(page).waitFor({ timeout: 20000 })
+  await button(page).click()
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  const turns = sheet.locator('[data-copilot-turn]')
+  await sheet.locator('[data-copilot-question]').fill('Build me the channel sales report')
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(0).locator('[data-copilot-answer]').waitFor({ timeout: 10000 })
+  const link = turns.nth(0).locator('[data-copilot-report-open="r-832"]')
+  check(
+    `${label} — a reportRef reads "Open in designer" to /analytics/report/:id/edit`,
+    (await link.count()) === 1 && (await link.innerText()).trim() === 'Open in designer' && (await link.getAttribute('href')) === '/analytics/report/r-832/edit',
+  )
+  const title = await turns.nth(0).locator('[data-copilot-report-title] bdi').textContent()
+  check(`${label} — … titled in a <bdi>`, title === BUILT.reportRefs[0].title.en, title)
+  const assumed = await turns.nth(0).locator('[data-copilot-assumption]').allInnerTexts()
+  check(`${label} — the assumptions are a list, one line each`, JSON.stringify(assumed.map((a) => a.trim())) === JSON.stringify(BUILT.assumptions.map((a) => a.en)), JSON.stringify(assumed))
+  await turns.nth(0).locator('details[data-copilot-trace] summary').click()
+  const built = await turns.nth(0).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${label} — the trace says "Built a report"`, built.map((x) => x.trim()).join() === 'Built a report', JSON.stringify(built))
+
+  await sheet.locator('[data-copilot-question]').fill('add the cancellation rate as a bar')
+  await sheet.locator('[data-copilot-send]').click()
+  await turns.nth(1).locator('[data-copilot-answer]').waitFor({ timeout: 10000 })
+  const note = await turns.nth(1).locator('[data-copilot-report-edit="r-832"]').innerText().catch(() => '')
+  check(`${label} — a reportEdit says what changed`, note.includes('Added the cancellation rate as a bar.'), note)
+  await turns.nth(1).locator('details[data-copilot-trace] summary').click()
+  const edited = await turns.nth(1).locator('[data-copilot-trace-label]').allInnerTexts()
+  check(`${label} — the trace says "Edited the report"`, edited.map((x) => x.trim()).join() === 'Edited the report', JSON.stringify(edited))
+  check(`${label} — no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
+const SCENARIOS = [
+  ['open-view', () => openView('ltr')],
+  ['open-view', () => openView('rtl')],
+  ['open-report', () => openReport('ltr')],
+  ['open-report', () => openReport('rtl')],
+  ['ask-and-answer', () => drive('ltr')],
+  ['ask-and-answer', () => drive('rtl')],
+  ['answer-links', () => answerLinksAndTrace('ltr')],
+  ['answer-links', () => answerLinksAndTrace('rtl')],
+  ['follow-up', () => followUpAndRefusals('ltr')],
+  ['follow-up', () => followUpAndRefusals('rtl')],
+  ['in-flight-and-user-change', () => inFlightAndUserChange('ltr')],
+  ['in-flight-and-user-change', () => inFlightAndUserChange('rtl')],
+]
 try {
-  await openView('ltr')
-  await openView('rtl')
-  await drive('ltr')
-  await drive('rtl')
-  await answerLinksAndTrace('ltr')
-  await answerLinksAndTrace('rtl')
-  await followUpAndRefusals('ltr')
-  await followUpAndRefusals('rtl')
-  await inFlightAndUserChange('ltr')
-  await inFlightAndUserChange('rtl')
+  for (const [name, run] of SCENARIOS) if (!ONLY.length || ONLY.includes(name)) await run()
 } finally {
   await browser.close()
 }

@@ -1,46 +1,67 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { BadgeCheck, BadgeX, Lock, Share2, ShieldAlert, Trash2 } from 'lucide-react'
+import { BadgeCheck, BadgeX, Lock, Share2, ShieldAlert, Trash2, UserRoundCog, UsersRound } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
-import type { AnalyticsBoard, AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 import Modal from '@/core/ui/Modal'
+import { needsAuthor } from './access'
 import { needsCurator, type TierActionKey } from './item-tier'
+import ShareDialog, { ReassignDialog } from './ShareDialog'
 import { useItemTier } from './use-item-tier'
 import { analyticsRefusal, refusalWords } from './wire'
 
-const ICONS = { share: Share2, unshare: Lock, certify: BadgeCheck, certifyRevision: BadgeCheck, uncertify: BadgeX, delete: Trash2 }
+const ICONS = { share: Share2, unshare: Lock, narrow: UsersRound, reassign: UserRoundCog, certify: BadgeCheck, certifyRevision: BadgeCheck, uncertify: BadgeX, delete: Trash2 }
 const VARIANT: Record<TierActionKey, ButtonVariant> = {
   share: 'secondary',
   unshare: 'secondary',
+  narrow: 'secondary',
+  reassign: 'secondary',
   certify: 'secondary',
   certifyRevision: 'secondary',
   uncertify: 'secondary',
   delete: 'danger-outlined',
 }
-/** Withdrawing a figure is asked once more; sharing (reversible) and certifying are one click. */
+/** Withdrawing a figure is asked once more; unsharing (reversible) and certifying are one click. */
 const CONFIRMED: ReadonlySet<TierActionKey> = new Set(['uncertify', 'delete'])
+/** 826: sharing (with an audience), narrowing and reassigning open their dialog. */
+type DialogKey = Extract<TierActionKey, 'share' | 'narrow' | 'reassign'>
+const isDialog = (key: TierActionKey): key is DialogKey => key === 'share' || key === 'narrow' || key === 'reassign'
 
 /**
+ * 826 (spec 819 §C/§E): Share opens the share dialog (everyone, or roles and users); a curator's Narrow opens it
+ * narrowing only, with Unshare; Reassign hands the item to another author.
+ *
  * The tier's actions on a view's or a board's header (ticket 778): an owner's Share / Unshare and Delete, a
  * curator's Certify (or Certify this revision into the existing certified copy), Un-certify and Delete. An action
  * the actor cannot take is not shown. A refusal is worded beside them; `ANALYTICS-402` says the curator grant
- * is gone, and the curator's actions are hidden from then on.
+ * is gone, and the curator's actions are hidden from then on; `ANALYTICS-415` (822) the author grant, and every
+ * author's action hides.
  */
-export default function ItemTierActions({ item }: { item: AnalyticsItem | AnalyticsBoard }) {
+export default function ItemTierActions({ item, startShare = false }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport; startShare?: boolean }) {
   const { t } = useTranslation('boards')
   const tier = useItemTier(item)
-  const [asking, setAsking] = useState<TierActionKey | null>(null)
+  const [asking, setAsking] = useState<Exclude<TierActionKey, DialogKey> | null>(null)
+  // `startShare` (the copilot's "Share…", story 108) opens the share dialog at once — only for someone who may share.
+  const [dialog, setDialog] = useState<DialogKey | null>(() => (startShare && tier.actions.includes('share') ? 'share' : null))
 
   const take = (key: TierActionKey) => {
     tier.reset()
-    if (CONFIRMED.has(key)) setAsking(key)
+    if (isDialog(key)) setDialog(key)
+    else if (CONFIRMED.has(key)) setAsking(key)
     else tier.run(key)
   }
+  // A lost grant (415, 402) is worded beside the actions, which hide; the dialog closes on it.
+  const lostGrant = needsAuthor(tier.error) || needsCurator(tier.error)
+  const dialogOpen = dialog !== null && !lostGrant
+  const close = () => {
+    setDialog(null)
+    tier.reset()
+  }
   let refusedWords: string | null = null
-  if (tier.error) {
+  if (tier.error && (!dialog || lostGrant)) {
     if (needsCurator(tier.error)) refusedWords = t('tierActions.refused.needsCurator')
     else {
       const refusal = analyticsRefusal(tier.error, t('tierActions.failed'))
@@ -75,13 +96,28 @@ export default function ItemTierActions({ item }: { item: AnalyticsItem | Analyt
         <p
           className="flex max-w-md items-start gap-1 text-xs text-attention-800"
           role="alert"
-          data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : 'other'}
+          data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : needsAuthor(tier.error) ? 'needs-author' : 'other'}
         >
           <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
             <bdi>{refusedWords}</bdi>
           </span>
         </p>
+      )}
+      {dialogOpen && dialog === 'reassign' && (
+        <ReassignDialog item={item} pending={tier.pending} error={tier.error} onClose={close} onSave={(owner) => tier.write({ key: 'reassign', owner }, close)} />
+      )}
+      {dialogOpen && dialog !== 'reassign' && (
+        <ShareDialog
+          item={item}
+          mode={dialog}
+          pending={tier.pending}
+          error={tier.error}
+          onClose={close}
+          onSave={(audience) => tier.write({ key: dialog, audience }, close)}
+          // A curator's Unshare lives in the narrowing dialog (§C "narrow the audience or unshare it").
+          onUnshare={dialog === 'narrow' ? () => tier.write({ key: 'unshare' }, close) : undefined}
+        />
       )}
       <Modal
         open={asking !== null}

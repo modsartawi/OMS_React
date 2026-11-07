@@ -75,3 +75,18 @@ describe('the conversation (spec 734 D5)', () => {
     expect(withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0007', 1)).turns).toHaveLength(1)
   })
 })
+
+describe('the report in context (spec 819 §D, ticket 832)', () => {
+  const context = {
+    reportId: 'r-1',
+    revision: 2,
+    draft: { params: [], bindings: {}, sections: [] },
+  }
+  it('askBody_sendsTheReportOpenInTheDesigner_andNothingWhenNoneIs', () => {
+    expect(askBody(EMPTY_CONVERSATION, 'Add the cancellation rate as a bar', context)).toEqual({ question: 'Add the cancellation rate as a bar', reportContext: context })
+    const c = withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0001', 1))
+    expect(askBody(c, 'And a table', context)).toEqual({ question: 'And a table', conversationId: 'c-0001', reportContext: context })
+    expect(askBody(c, 'And a table', null)).toEqual({ question: 'And a table', conversationId: 'c-0001' })
+  })
+})
+

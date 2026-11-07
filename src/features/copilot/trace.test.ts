@@ -81,4 +81,18 @@ describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () =>
       'Saving a view',
     ])
   })
+
+  it('trace_theTwoReportToolsAreBuildingAReportAndEditingTheReport', () => {
+    // Spec 819 §D (ticket 832): create_report and edit_report join the one map. The spec's words are the working
+    // state's; a finished row reads in the past tense, like its siblings.
+    const rows = traceRows([
+      { tool: 'create_report', input: { title: 'Channel sales' }, rows: 1, ms: 120, ok: true },
+      { tool: 'edit_report', input: { reportId: 'r-1' }, rows: 1, ms: 80, ok: true },
+    ])
+    expect(rows.map((r) => r.labelKey)).toEqual(['trace.tools.create_report', 'trace.tools.edit_report'])
+    expect([en.steps.create_report, en.steps.edit_report]).toEqual(['Building a report', 'Editing the report'])
+    expect([en.trace.tools.create_report, en.trace.tools.edit_report]).toEqual(['Built a report', 'Edited the report'])
+    // The CTO demo's three report tools are retired: a newer server never sends them, an old one keeps its raw name.
+    expect(traceRows([{ tool: 'build_report', input: {}, rows: 1, ms: 1, ok: true }])[0].labelKey).toBeNull()
+  })
 })

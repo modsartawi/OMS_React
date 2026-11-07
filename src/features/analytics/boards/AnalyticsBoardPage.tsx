@@ -5,15 +5,16 @@ import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { boardEditHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsBoard, AnalyticsModel, BoardFilters } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsModel } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics, canViewAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
-import { boardDefaults, inLogicalOrder, NO_WAVE, streamProgress, type StreamWave } from './board'
-import BoardPanel from './BoardPanel'
+import { inLogicalOrder, NO_WAVE } from './board'
+import { noticeReducer, streamReducer, stripNotices } from './panel-notices'
+import BoardPanel, { type ParamNotice } from './BoardPanel'
 import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
@@ -23,9 +24,12 @@ import { itemActions } from './item-actions'
 import { editingItemOf, sourceMovedOn } from './item-save'
 import ItemHistory from './ItemHistory'
 import ItemTierActions from './ItemTierActions'
-import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
+import { boardParams, defaultsOf, type ParamValues } from './params'
+import { readCrossFilter, readParamLink, writeCrossFilter, writeParamValues } from './permalink'
 import Refused from './Refused'
+import SaveAsReport from './SaveAsReport'
 import { SourceMovedOn } from './SaveNotes'
+import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { FilterChips, TvButton, useTvMode } from './TvMode'
 import { useItemActor } from './use-item-save'
@@ -72,25 +76,29 @@ function BoardBody() {
   return <BoardView board={board.data} model={model.data} />
 }
 
-/** Which view panels are fetching, folded into the strip's wave as each one starts and lands. */
-function streamReducer(state: { fetching: ReadonlySet<string>; wave: StreamWave }, [id, on]: [string, boolean]) {
-  if (state.fetching.has(id) === on) return state
-  const fetching = new Set(state.fetching)
-  if (on) fetching.add(id)
-  else fetching.delete(id)
-  return { fetching, wave: streamProgress(state.wave, [...fetching]) }
-}
-
 function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsModel }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const defaults = useMemo(() => boardDefaults(board.definition), [board.definition])
+  // 821: the board's parameters (a v1 board's six, converted) and their bindings; their values are the URL's.
+  const declared = useMemo(() => boardParams(board.definition), [board.definition])
+  // 823: a board the server sent WITH its parameters asks by item and panel, and the server applies the
+  // bindings; a v1 board the web converted keeps v1's resolved wire (its server cannot apply bindings).
+  const v2 = !!(board.definition.params && board.definition.bindings)
+  const item = useMemo(() => (v2 ? { id: board.id, revision: board.revision } : null), [v2, board.id, board.revision])
   const [params, setParams] = useSearchParams()
-  const filters = useMemo(() => readBoardFilters(params, defaults), [params, defaults])
-  const setFilters = useCallback(
-    (next: BoardFilters) => setParams((prev) => writeBoardFilters(prev, next, defaults), { replace: true }),
-    [setParams, defaults],
+  const link = useMemo(() => readParamLink(params, declared.params), [params, declared])
+  const values = link.values
+  const setValues = useCallback(
+    (next: ParamValues) => setParams((prev) => writeParamValues(prev, declared.params, next), { replace: true }),
+    [setParams, declared],
   )
+  const reset = useCallback(() => setValues(defaultsOf(declared.params)), [setValues, declared])
+  const [notices, notice] = useReducer(noticeReducer, new Map<string, ParamNotice>())
+  const onParamNotice = useCallback((id: string, n: ParamNotice) => notice([id, n]), [])
+  const { fellBack, invalid } = stripNotices(declared.params, link.fellBack, notices)
+  // 823: the author reads every "not filtered by …" line; a runner only those for parameters moved off their defaults.
+  const access = useQuery(analyticsAccessQuery())
+  const role = canAuthorAnalytics(access.data) ? 'author' : 'runner'
 
   const panels = useMemo(() => inLogicalOrder(board.definition.panels), [board.definition.panels])
   const viewPanels = panels.filter((p): p is ViewPanel => p.kind === 'view')
@@ -120,12 +128,12 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   )
   const clearCross = useCallback(() => setParams((prev) => writeCrossFilter(prev, null), { replace: true }), [setParams])
 
-  const context: BoardContext = useMemo(() => ({ filters, crossFilter }), [filters, crossFilter])
+  const context: BoardContext = useMemo(() => ({ ...declared, values, crossFilter, item }), [declared, values, crossFilter, item])
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
   const root = useRef<HTMLDivElement>(null)
-  const tv = useTvMode(root, params, setParams)
+  const tv = useTvMode(params, setParams)
   const [refresh, setRefresh] = useRefreshChoice(board.id, board.definition.refresh, params, setParams)
   const refreshers = useRef(new Map<string, () => void>())
   const registerRefresh = useCallback((pid: string, fn: (() => void) | null) => (fn ? refreshers.current.set(pid, fn) : refreshers.current.delete(pid)), [])
@@ -135,6 +143,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const title = saysIn(board.title, lang)
   // 777: anyone who may save it (in place or as a copy) may open the board editor.
   const canEdit = itemActions(editingItemOf({ ...board, kind: 'board' }), useItemActor()).save !== 'read-only'
+  // 830: an author who may edit or copy the board may save it as a report, once its views are read.
+  const views = new Map(items.flatMap((q) => (q.data ? [[q.data.id, q.data] as const] : [])))
   return (
     <div
       ref={root}
@@ -150,6 +160,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         )}
         {/* 778: the tier badge on the board too, and the tier's actions. */}
         <TierBadge tier={board.tier} />
+        {/* 826: who a Shared board is shared with. */}
+        <AudienceChip item={board} />
         {/* 780: a wall screen shows the board, not the ask box, the editor link, the history or the tier's actions. */}
         {!tv.on && (
           <>
@@ -160,21 +172,22 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
                 {t('boardEditor.edit')}
               </Link>
             )}
+            {canEdit && role === 'author' && <SaveAsReport board={board} views={views} pending={items.some((q) => q.isPending)} model={model} />}
             <ItemHistory item={board} kind="board" />
             <ItemTierActions item={board} />
           </>
         )}
         <div className="ms-auto flex items-end gap-2">
           <RefreshPicker value={refresh} onChange={setRefresh} />
-          <TvButton on={tv.on} onEnter={tv.enter} onExit={tv.exit} />
+          <TvButton on={tv.on} fullscreen={tv.fullscreen} onEnter={tv.enter} onExit={tv.exit} onFullscreen={tv.goFullscreen} />
         </div>
       </div>
       {/* Story 64: my copy of a board whose original has moved on since I copied it. */}
       {!tv.on && sourceMovedOn(board) && <SourceMovedOn />}
       {tv.on ? (
-        <FilterChips filters={filters} model={model} lang={lang} />
+        <FilterChips params={declared.params} values={values} model={model} lang={lang} />
       ) : (
-        <FilterStrip filters={filters} onChange={setFilters} model={model} lang={lang} wave={stream.wave} />
+        <FilterStrip params={declared.params} values={values} onChange={setValues} onReset={reset} fellBack={fellBack} invalid={invalid} model={model} lang={lang} wave={stream.wave} />
       )}
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
       {panels.length === 0 ? (
@@ -185,7 +198,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
           {panels.map((p) => {
             const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
-            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} />
+            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} role={role} onParamNotice={onParamNotice} />
           })}
         </div>
       )}

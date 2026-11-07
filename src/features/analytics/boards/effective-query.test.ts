@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition, BoardFilterKey, BoardFilters } from '@/core/models/analytics'
-import { effectiveQuery, panelKey, type ViewPanel } from './effective-query'
+import { effectiveQuery, panelKey, type CrossFilter, type ViewPanel } from './effective-query'
+import { convertV1Board, defaultsOf } from './params'
 
 const label = (en: string) => ({ en, ar: en })
 const MODEL: AnalyticsModel = {
@@ -22,13 +23,19 @@ const panel = (id: string, optOut: BoardFilterKey[] = []) =>
 
 const NONE: BoardFilters = { period: { kind: 'relative', token: 'last-30-days' }, city: [], region: [], store: [], channel: [], country: [] }
 
+/** v1's board of one panel, saving `filters`, as 821's parameters at their defaults (797 item 6). */
+const v1 = (p: ViewPanel, filters: BoardFilters, crossFilter: CrossFilter | null = null) => {
+  const c = convertV1Board({ panels: [p], filters })
+  return { ...c, values: defaultsOf(c.params), crossFilter }
+}
+
 const ask = (p: ReturnType<typeof panel>, measures: string[], filters: BoardFilters) =>
-  effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, { filters })
+  effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, v1(p, filters))
 
 describe('effective query', () => {
   it('asks for the previous period when the view compares to it (766 §C compareToPrevious), and only then', () => {
     const comparing: AnalyticsViewDefinition = { ...view(['orders']), query: { ...view(['orders']).query, compareToPrevious: true } }
-    expect(effectiveQuery({ panel: panel('k'), view: comparing, revision: 3, model: MODEL }, { filters: NONE })).toEqual({
+    expect(effectiveQuery({ panel: panel('k'), view: comparing, revision: 3, model: MODEL }, v1(panel('k'), NONE))).toEqual({
       viewId: 'v-k',
       revision: 3,
       period: 'last-30-days',
@@ -80,9 +87,8 @@ describe('effective query', () => {
 
 describe('effective query: the cross-filter (772)', () => {
   const store = { source: 'stores', dimension: 'store', member: 'P001' }
-  const ctx = (crossFilter: typeof store | null) => ({ filters: NONE, crossFilter })
   const askX = (p: ReturnType<typeof panel>, measures: string[], crossFilter: typeof store | null) =>
-    effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, ctx(crossFilter))
+    effectiveQuery({ panel: p, view: view(measures), revision: 3, model: MODEL }, v1(p, NONE, crossFilter))
 
   it('reaches every panel but its source and the opted-out', () => {
     expect(askX(panel('orders'), ['orders'], store).crossFilter).toEqual({ dimension: 'store', values: ['P001'] })
@@ -111,7 +117,7 @@ describe('effective query: the cross-filter (772)', () => {
 
 describe('effective query: drill by (772)', () => {
   const drillAsk = (steps: { dimension: string; member: string; into: string }[], crossFilter: { source: string; dimension: string; member: string } | null = null) =>
-    effectiveQuery({ panel: panel('stores'), view: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-30-days' } }, revision: 3, model: MODEL }, { filters: { ...NONE, region: ['central'] }, crossFilter }, steps)
+    effectiveQuery({ panel: panel('stores'), view: { chart: { type: 'table' }, query: { measures: ['orders'], dimensions: ['store'], filters: [], period: 'last-30-days' } }, revision: 3, model: MODEL }, v1(panel('stores'), { ...NONE, region: ['central'] }, crossFilter), steps)
 
   it('asks the drilled definition inline: the point a filter, the breakdown the next dimension', () => {
     expect(drillAsk([{ dimension: 'store', member: 'P001', into: 'city' }])).toEqual({
@@ -142,5 +148,34 @@ describe('effective query: drill by (772)', () => {
 
   it('no steps is the saved view by id (the breadcrumb’s first crumb)', () => {
     expect(drillAsk([])).toEqual({ viewId: 'v-stores', revision: 3, period: 'last-30-days', filters: [{ dimension: 'region', values: ['central'] }] })
+  })
+})
+
+describe('effective query: named series (825)', () => {
+  it('a members parameter never filters a dimension that the series of the panel filter on (seriesFilters)', () => {
+    const p = panel('s')
+    const named: AnalyticsViewDefinition = {
+      ...view(['orders']),
+      series: [{ id: 'hs', label: label('HungerStation'), filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] }],
+    }
+    const input = effectiveQuery({ panel: p, view: named, revision: 3, model: MODEL }, v1(p, { ...NONE, channel: ['app'], city: ['riyadh'] }))
+    expect('filters' in input && input.filters).toEqual([{ dimension: 'city', values: ['riyadh'] }])
+  })
+})
+
+describe('effective query: a draft in the designer asks inline (828, spec 819 §C)', () => {
+  const p = { ...panel('p1'), viewId: '', optOut: ['crossFilter' as const] }
+  const params = [{ name: 'period', kind: 'period' as const, label: label('Period'), required: true, default: { kind: 'period' as const, token: 'yesterday' as const } }]
+  const bindings = { period: { p1: true as const } }
+
+  it('a report not saved yet (or edited since) sends its definition, parameters and bindings, never an item', () => {
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 0, model: MODEL }, { params, bindings, values: {}, inline: true })
+    expect(q).toEqual({ definition: view(['orders']), params, bindings, panelId: 'p1', values: { period: { kind: 'period', token: 'yesterday' } } })
+  })
+
+  it('inline wins over an item: the draft is not the saved revision', () => {
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 3, model: MODEL }, { params, bindings, values: {}, inline: true, item: { id: 'r-1', revision: 3 } })
+    expect(q).not.toHaveProperty('itemId')
+    expect(q).toHaveProperty('definition')
   })
 })

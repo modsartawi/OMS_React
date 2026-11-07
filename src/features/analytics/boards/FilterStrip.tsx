@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import type { AnalyticsModel, BoardFilters, BoardPeriod, PeriodToken } from '@/core/models/analytics'
-import Field from '@/core/ui/Field'
+import { CircleAlert, Info, Minus, Plus, RotateCcw, Settings2 } from 'lucide-react'
+import type { AnalyticsModel, BoardPeriod, Param, ParamValue, PeriodToken, ThresholdOp } from '@/core/models/analytics'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import MultiSelect, { type MultiSelectOption } from '@/core/ui/MultiSelect'
@@ -12,58 +16,301 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
 import type { StreamWave } from './board'
-import { FILTER_DIMENSIONS, type CategoryFilterKey } from './effective-query'
+import { GRAINS } from './editor'
+import { boardPeriodOf, movedOff, paramLabel, periodValue, stripControlOf, TOP_N_MAX, TOP_N_MIN, valueOf, type ParamValues } from './params'
 import { periodNameKey, PERIODS } from './periods'
-import { dimensionOf } from './wire'
+import { dimensionOf, measureOf } from './wire'
 
 /**
- * The board's filter strip (spec 766 §F, ticket 771): the period (a relative preset or a fixed range),
- * city, region and store (`Analytics/DimensionValues`), channel and country (the model's inline values).
- * Every change goes to the caller, who writes it to the URL — the permalink.
+ * The board's parameter strip (spec 766 §F, ticket 771; rendered from the board's parameters since 819,
+ * ticket 821, with every kind's control since 823): a period (a relative preset or a fixed range); a
+ * `members` parameter searched through `Analytics/DimensionValues`, picked from the model's inline values,
+ * or from the author's pinned list — one value or several; grain chips over the allowed subset; an
+ * operator and a number in the display unit for a threshold; a top N stepper (1–100); a measure or a
+ * breakdown choice. The six ready-made parameters draw exactly v1's six controls. Every change goes to the
+ * caller, who writes it to the URL — the permalink. "Reset to defaults" (`onReset`) gives back the
+ * author's values.
  *
- * It also shows the stream: "Updating… n of N panels" with a determinate bar, in a polite live region.
+ * Under the controls, one line per parameter whose link value fell back to its default (`fellBack`), and
+ * one per parameter the server refused the value of (`invalid`, `ANALYTICS-412`), whose control is also
+ * marked invalid. It also shows the stream: "Updating… n of N panels" with a determinate bar, in a polite
+ * live region.
  */
 export default function FilterStrip({
-  filters,
+  params,
+  values,
   onChange,
+  onReset,
+  fellBack = [],
+  invalid = [],
   model,
   lang,
   wave,
+  design,
 }: {
-  filters: BoardFilters
-  onChange: (next: BoardFilters) => void
+  params: readonly Param[]
+  values: ParamValues
+  onChange: (next: ParamValues) => void
+  /** Absent where the strip edits the defaults themselves (the board editor). */
+  onReset?: () => void
+  fellBack?: readonly string[]
+  invalid?: readonly string[]
   model: AnalyticsModel
   lang: string
   wave: StreamWave
+  /**
+   * 824: design mode (the board editor, where the controls set the defaults) — a ⚙ on each parameter opens
+   * the parameter inspector, and "+ Parameter" declares a new one.
+   */
+  design?: { selected: string | null; onEdit: (name: string) => void; onAdd: () => void }
 }) {
   const { t } = useTranslation('boards')
-  const set = <K extends keyof BoardFilters>(key: K, value: BoardFilters[K]) => onChange({ ...filters, [key]: value })
-  const inline = (dimension: string) => dimensionOf(model, dimension)
+  const set = (name: string, value: ParamValue) => onChange({ ...values, [name]: value })
+  const moved = params.some((p) => movedOff(p, values))
+  const labelOf = (name: string) => {
+    const p = params.find((x) => x.name === name)
+    return p ? paramLabel(p, lang, t) : name
+  }
+  const notices = [...fellBack.map((name) => ['fellBack', name] as const), ...invalid.map((name) => ['invalid', name] as const)]
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('board.filters.label')} data-board-filters>
       <div className="flex flex-wrap items-end gap-3">
-        <PeriodPicker period={filters.period} onChange={(p) => set('period', p)} />
-        {(['city', 'region', 'store'] as const).map((f) => (
-          <MemberPicker key={f} filter={f} value={filters[f]} onChange={(v) => set(f, v)} lang={lang} />
-        ))}
-        {(['channel', 'country'] as const).map((f) => {
-          const dim = inline(FILTER_DIMENSIONS[f])
-          if (!dim) return null
-          const options: MultiSelectOption[] = dim.values.map((v) => ({ value: v.key, text: saysIn(v.label, lang) || v.key }))
+        {params.map((param) => {
+          const control = <ParamControl key={param.name} param={param} value={valueOf(param, values)} onChange={(v) => set(param.name, v)} invalid={invalid.includes(param.name)} model={model} lang={lang} />
+          if (!design) return control
+          const on = design.selected === param.name
           return (
-            <Field key={f} label={t(`board.filters.${f}`)} className="w-56">
-              <MultiSelect value={filters[f]} onChange={(v) => set(f, v)} options={options} label={t(`board.filters.${f}`)} data-testid={`board-filter-${f}`} />
-            </Field>
+            <div key={param.name} className={'flex items-end gap-0.5 rounded-md ' + (on ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : '')} data-board-param-design={param.name}>
+              {control}
+              <IconButton label={t('params.strip.edit', { name: fsi(paramLabel(param, lang, t)) })} size="compact" onClick={() => design.onEdit(param.name)} aria-pressed={on} data-board-param-edit={param.name}>
+                <Settings2 className="size-3.5" aria-hidden />
+              </IconButton>
+            </div>
           )
         })}
+        {design && (
+          <div className="ms-auto flex items-end">
+            <Button variant="outlined" onClick={design.onAdd} data-board-param-add>
+              <Plus className="size-3.5" aria-hidden />
+              {t('params.strip.add')}
+            </Button>
+          </div>
+        )}
+        {onReset && (
+          <div className="ms-auto flex items-end">
+            <Button variant="text" onClick={onReset} disabled={!moved} data-board-params-reset>
+              <RotateCcw className="size-3.5" aria-hidden />
+              {t('board.params.reset')}
+            </Button>
+          </div>
+        )}
       </div>
+      {notices.length > 0 && (
+        <ul className="flex flex-col gap-1 text-xs" aria-label={t('board.params.notices')}>
+          {notices.map(([kind, name]) => (
+            <li
+              key={`${kind}-${name}`}
+              className={'flex items-start gap-1.5 ' + (kind === 'invalid' ? 'text-danger-800' : 'text-muted-foreground')}
+              data-board-param-notice={kind}
+              data-param={name}
+            >
+              {kind === 'invalid' ? <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden /> : <Info className="mt-px size-3.5 shrink-0" aria-hidden />}
+              <span>
+                <Trans t={t} i18nKey={`board.params.${kind}`} values={{ param: labelOf(name) }} components={{ param: <bdi className="font-medium" /> }} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       <StreamStatus wave={wave} />
     </section>
   )
 }
 
-function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p: BoardPeriod) => void }) {
+type ControlData = Record<`data-${string}`, string | undefined>
+
+/** One parameter's control, by its kind (823); 824's inspector sets a default with it. */
+export function ParamControl({
+  param,
+  value,
+  onChange,
+  invalid,
+  model,
+  lang,
+}: {
+  param: Param
+  value: ParamValue
+  onChange: (v: ParamValue) => void
+  invalid: boolean
+  model: AnalyticsModel
+  lang: string
+}) {
+  const { t } = useTranslation('boards')
+  const control = stripControlOf(param, model)
+  const label = paramLabel(param, lang, t)
+  const error = invalid ? t('board.params.invalidField') : undefined
+  const data: ControlData = { 'data-board-param': param.name, 'data-board-param-kind': param.kind, 'data-board-param-invalid': invalid ? 'true' : undefined }
+  const errorLine = error && <span className="text-xs text-danger-800">{error}</span>
+
+  if (control.kind === 'period') {
+    const period = boardPeriodOf(value)
+    return period && <PeriodPicker label={label} period={period} onChange={(p) => onChange(periodValue(p))} error={error} data={data} />
+  }
+  if (value.kind === 'members') {
+    if (control.kind !== 'searched' && control.kind !== 'inline' && control.kind !== 'pinned') return null
+    const onMembers = (v: string[]) => onChange({ kind: 'members', values: param.multi === false ? v.slice(-1) : v })
+    if (control.kind === 'searched') {
+      return <MemberPicker name={param.name} label={label} dimension={control.dimension} value={value.values} onChange={onMembers} lang={lang} error={error} data={data} />
+    }
+    const store = control.dimension === 'store'
+    const options: MultiSelectOption[] = control.values.map((v) => {
+      const said = saysIn(v.label, lang)
+      return { value: v.key, text: said || v.key, machine: store || !said }
+    })
+    return (
+      <div {...data}>
+        <Field label={label} className="w-56" error={error}>
+          <MultiSelect value={value.values} onChange={onMembers} options={options} label={label} data-testid={`board-filter-${param.name}`} />
+        </Field>
+      </div>
+    )
+  }
+  if (value.kind === 'grain') {
+    const grains = param.grains?.length ? param.grains : GRAINS
+    return (
+      <div className="flex flex-col gap-1" role="group" aria-label={label} {...data}>
+        <span className={FIELD_LABEL} aria-hidden>
+          {label}
+        </span>
+        <div className="flex gap-1">
+          {grains.map((g) => (
+            <Chip key={g} on={value.grain === g} onClick={() => onChange({ kind: 'grain', grain: g })} data-board-grain={g}>
+              {t(`board.params.grain.${g}`)}
+            </Chip>
+          ))}
+        </div>
+        {errorLine}
+      </div>
+    )
+  }
+  if (value.kind === 'threshold') {
+    const measure = measureOf(model, param.measure)
+    const measureName = saysIn(measure?.label, lang) || (param.measure ?? '')
+    const ops: ThresholdOp[] = param.required ? ['gt', 'gte', 'lt', 'lte'] : ['off', 'gt', 'gte', 'lt', 'lte']
+    return (
+      <div className="flex items-end gap-1.5" {...data}>
+        <Field label={label} className="w-48" error={error}>
+          <Select value={value.op} onChange={(e) => onChange({ ...value, op: e.target.value as ThresholdOp })} data-board-threshold-op>
+            {ops.map((op) => (
+              <option key={op} value={op}>
+                {t(`board.params.op.${op}`, { measure: fsi(measureName) })}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {value.op !== 'off' && (
+          <>
+            <NumberInput value={value.value} onCommit={(n) => onChange({ ...value, value: n })} label={t('board.params.thresholdValue')} className="w-20" invalid={invalid} data-board-threshold-value="" />
+            {measure?.unit === 'share' && <span className="pb-2 text-xs text-muted-foreground">{t('board.params.percent')}</span>}
+          </>
+        )}
+      </div>
+    )
+  }
+  if (value.kind === 'topN') {
+    const step = (d: number) => onChange({ kind: 'topN', n: Math.min(TOP_N_MAX, Math.max(TOP_N_MIN, value.n + d)) })
+    return (
+      <div className="flex flex-col gap-1" role="group" aria-label={label} {...data}>
+        <span className={FIELD_LABEL} aria-hidden>
+          {label}
+        </span>
+        <div className="flex items-center gap-1">
+          <IconButton label={t('board.params.fewer')} variant="outlined" onClick={() => step(-1)} disabled={value.n <= TOP_N_MIN} data-board-topn-step="-1">
+            <Minus className="size-3.5" aria-hidden />
+          </IconButton>
+          <NumberInput value={value.n} min={TOP_N_MIN} max={TOP_N_MAX} integer onCommit={(n) => onChange({ kind: 'topN', n })} label={label} className="w-16" invalid={invalid} data-board-topn="" />
+          <IconButton label={t('board.params.more')} variant="outlined" onClick={() => step(1)} disabled={value.n >= TOP_N_MAX} data-board-topn-step="1">
+            <Plus className="size-3.5" aria-hidden />
+          </IconButton>
+        </div>
+        {errorLine}
+      </div>
+    )
+  }
+  if (value.kind === 'measure' || value.kind === 'breakdown') {
+    const kind = value.kind
+    const nameOf = (key: string) => saysIn((kind === 'measure' ? measureOf(model, key) : dimensionOf(model, key))?.label, lang) || key
+    const options = param.options?.length ? param.options : [value.key]
+    return (
+      <div {...data}>
+        <Field label={label} className="w-44" error={error}>
+          <Select value={value.key} onChange={(e) => onChange({ kind, key: e.target.value })} data-board-choice={kind}>
+            {options.map((key) => (
+              <option key={key} value={key}>
+                {nameOf(key)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+    )
+  }
+  return null
+}
+
+/**
+ * A number typed in the display unit (5 for 5 %), committed once it reads as a number in range and the
+ * typing pauses — so "15" asks once, not for "1" and then "15". A value set from outside (the stepper,
+ * Reset, a link) replaces what is shown.
+ */
+function NumberInput({
+  value,
+  onCommit,
+  label,
+  min,
+  max,
+  integer = false,
+  invalid,
+  className,
+  ...data
+}: { value: number; onCommit: (n: number) => void; label: string; min?: number; max?: number; integer?: boolean; invalid?: boolean; className?: string } & ControlData) {
+  const [text, setText] = useState(String(value))
+  const [shown, setShown] = useState(value)
+  if (shown !== value) {
+    setShown(value)
+    setText(String(value))
+  }
+  const commit = useRef(onCommit)
+  useEffect(() => {
+    commit.current = onCommit
+  }, [onCommit])
+  useEffect(() => {
+    const n = text.trim() === '' ? NaN : Number(text)
+    const fits = Number.isFinite(n) && (!integer || Number.isInteger(n)) && (min === undefined || n >= min) && (max === undefined || n <= max)
+    if (!fits || n === value) return
+    const id = setTimeout(() => commit.current(n), 400)
+    return () => clearTimeout(id)
+  }, [text, value, min, max, integer])
+  return (
+    <Input
+      type="number"
+      dir="ltr"
+      inputMode="decimal"
+      min={min}
+      max={max}
+      step={integer ? 1 : 'any'}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      wrapperClassName={className}
+      {...data}
+    />
+  )
+}
+
+function PeriodPicker({ label, period, onChange, error, data }: { label: string; period: BoardPeriod; onChange: (p: BoardPeriod) => void; error?: string; data?: ControlData }) {
   const { t } = useTranslation('boards')
   const today = toIsoDate(new Date())
   const pick = (v: string) =>
@@ -72,8 +319,8 @@ function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p:
   const range = (from: string, to: string) => from && to && from <= to && onChange({ kind: 'fixed', from, to })
 
   return (
-    <div className="flex items-end gap-2">
-      <Field label={t('board.filters.period')} className="w-44">
+    <div className="flex items-end gap-2" {...data}>
+      <Field label={label} className="w-44" error={error}>
         <Select value={period.kind === 'fixed' ? 'fixed' : period.token} onChange={(e) => pick(e.target.value)} data-board-filter-period>
           {PERIODS.map((token) => (
             <option key={token} value={token}>
@@ -97,10 +344,26 @@ function PeriodPicker({ period, onChange }: { period: BoardPeriod; onChange: (p:
   )
 }
 
-/** City, region or store: members from `Analytics/DimensionValues`, searched on the server (up to 50). */
-function MemberPicker({ filter, value, onChange, lang }: { filter: CategoryFilterKey; value: string[]; onChange: (v: string[]) => void; lang: string }) {
-  const { t } = useTranslation('boards')
-  const dimension = FILTER_DIMENSIONS[filter]
+/** Members from `Analytics/DimensionValues` (city, region, store …), searched on the server (up to 50). */
+function MemberPicker({
+  name,
+  label,
+  dimension,
+  value,
+  onChange,
+  lang,
+  error,
+  data,
+}: {
+  name: string
+  label: string
+  dimension: string
+  value: string[]
+  onChange: (v: string[]) => void
+  lang: string
+  error?: string
+  data?: ControlData
+}) {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
@@ -120,25 +383,27 @@ function MemberPicker({ filter, value, onChange, lang }: { filter: CategoryFilte
   const seen = useRef(new Map<string, MultiSelectOption>())
   const options: MultiSelectOption[] = (members.data ?? []).map((m) => {
     const name = saysIn(m.label, lang)
-    const o = filter === 'store' ? { value: m.key, text: name ? formatPair(m.key, name) : m.key, machine: true } : { value: m.key, text: name || m.key }
+    const o = dimension === 'store' ? { value: m.key, text: name ? formatPair(m.key, name) : m.key, machine: true } : { value: m.key, text: name || m.key }
     seen.current.set(m.key, o)
     return o
   })
 
   return (
-    <Field label={t(`board.filters.${filter}`)} className="w-56">
-      <MultiSelect
-        value={value}
-        onChange={onChange}
-        options={options}
-        optionOf={(v) => seen.current.get(v) ?? { value: v, text: v, machine: true }}
-        label={t(`board.filters.${filter}`)}
-        loading={members.isFetching && !members.data}
-        failed={!!members.error}
-        onQueryChange={setTyped}
-        data-testid={`board-filter-${filter}`}
-      />
-    </Field>
+    <div {...data}>
+      <Field label={label} className="w-56" error={error}>
+        <MultiSelect
+          value={value}
+          onChange={onChange}
+          options={options}
+          optionOf={(v) => seen.current.get(v) ?? { value: v, text: v, machine: true }}
+          label={label}
+          loading={members.isFetching && !members.data}
+          failed={!!members.error}
+          onQueryChange={setTyped}
+          data-testid={`board-filter-${name}`}
+        />
+      </Field>
+    </div>
   )
 }
 

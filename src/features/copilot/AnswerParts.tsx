@@ -7,8 +7,9 @@ import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
 import { copilotViewEmbed } from '@/core/copilot-view-embed'
-import type { CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
-import { reportHref, reportPrintHref } from '@/core/analytics-routes'
+import type { AnalyticsLabel } from '@/core/models/analytics'
+import type { CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
 import { COPILOT_MAX_QUESTION, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
@@ -92,33 +93,94 @@ export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] })
 }
 
 /**
- * The reports the answer built or revised (CTO demo): the title, its revision, "Open report" and "Export PDF"
- * (the print page, in a new tab, which opens the browser's Save as PDF). The title is free text: `<bdi>`.
+ * The reports the answer built or saved (spec 819 §D, ticket 832): the title in the reader's language, its revision,
+ * and "Open in designer" (`/analytics/report/:id/edit`, by route string). The title is free text: `<bdi>`; the
+ * revision a machine value.
  */
 export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReportRef[] }) {
-  const { t } = useTranslation('copilot')
+  const { t, i18n } = useTranslation('copilot')
   if (reportRefs.length === 0) return null
   return (
     <ul aria-label={t('answer.reports')} className="flex flex-col gap-2 text-sm" data-copilot-reports>
-      {reportRefs.map((r) => (
-        <li key={r.id} className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3" data-copilot-report={r.id}>
-          <span className="font-medium">
-            <bdi>{r.title}</bdi>
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {t('answer.reportRevision', { n: r.revision })}
-          </span>
-          <span className="flex flex-wrap gap-3 text-xs">
-            <Link to={reportHref(r.id)} className="font-medium text-primary underline underline-offset-2">
-              {t('answer.openReport')}
+      {reportRefs.map((r) => {
+        const title = saysIn(r.title, i18n.language)
+        return (
+          <li key={r.id} className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3" data-copilot-report={r.id}>
+            {title && (
+              <span className="font-medium" data-copilot-report-title>
+                <bdi>{title}</bdi>
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">{t('answer.reportRevision', { n: fsi(formatNumber(r.revision)) })}</span>
+            <Link to={reportEditHref(r.id)} className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-report-open={r.id}>
+              {t('answer.openInDesigner')}
             </Link>
-            <a href={reportPrintHref(r.id)} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">
-              {t('answer.exportReport')}
-            </a>
-          </span>
-        </li>
-      ))}
+            {/* 819 §D (story 108): the AI never shares or schedules; when the words asked, it links those steps to the report's own dialogs. */}
+            {r.nextSteps && r.nextSteps.length > 0 && (
+              <span className="flex flex-wrap items-center gap-3 text-xs" aria-label={t('answer.nextSteps')} data-copilot-report-steps={r.id}>
+                {r.nextSteps.map((step) => (
+                  <Link key={step} to={reportDialogHref(r.id, step)} className="font-medium text-primary underline underline-offset-2" data-copilot-report-step={step}>
+                    {t(`answer.${step}`)}
+                  </Link>
+                ))}
+              </span>
+            )}
+          </li>
+        )
+      })}
     </ul>
+  )
+}
+
+/** What the report assumed (802 item 1), one line each, in the reader's language. Each line is the model's text: `<bdi>`. */
+export function Assumptions({ assumptions }: { assumptions: readonly AnalyticsLabel[] }) {
+  const { t, i18n } = useTranslation('copilot')
+  if (assumptions.length === 0) return null
+  return (
+    <section aria-label={t('answer.assumptions')} className="flex flex-col gap-1 text-sm" data-copilot-assumptions>
+      <p className="text-xs font-medium text-muted-foreground">{t('answer.assumptions')}</p>
+      <ul className="list-disc ps-5">
+        {assumptions.map((a, i) => (
+          <li key={i} data-copilot-assumption>
+            <bdi>{saysIn(a, i18n.language)}</bdi>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** An edit to the report open in the designer (832): handed to it as one undo step, never saved; its note says what changed. */
+export function ReportEditNote({ reportEdit }: { reportEdit: CopilotReportEdit | null }) {
+  const { t, i18n } = useTranslation('copilot')
+  if (!reportEdit) return null
+  const note = saysIn(reportEdit.note, i18n.language)
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3 text-xs" data-copilot-report-edit={reportEdit.reportId ?? 'new'}>
+      <span>{t('answer.reportEdited')}</span>
+      {note && (
+        <span className="text-muted-foreground">
+          {t('answer.reportEditNote')} <bdi>{note}</bdi>
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** An edit to the board open in its editor (836): handed to it as one undo step, never saved. */
+export function BoardEditNote({ boardEdit }: { boardEdit: CopilotBoardEdit | null }) {
+  const { t, i18n } = useTranslation('copilot')
+  if (!boardEdit) return null
+  const note = saysIn(boardEdit.note, i18n.language)
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3 text-xs" data-copilot-board-edit={boardEdit.boardId}>
+      <span>{t('answer.boardEdited')}</span>
+      {note && (
+        <span className="text-muted-foreground">
+          {t('answer.reportEditNote')} <bdi>{note}</bdi>
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -213,6 +275,9 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
         )}
       </section>
       <ViewLinks viewRefs={model.viewRefs} />
+      <Assumptions assumptions={model.assumptions} />
+      <ReportEditNote reportEdit={model.reportEdit} />
+      <BoardEditNote boardEdit={model.boardEdit} />
       <ReportLinks reportRefs={model.reportRefs} />
       <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} rules={model.rules} />
     </>

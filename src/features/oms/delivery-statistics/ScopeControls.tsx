@@ -7,7 +7,8 @@ import { lookupQueries } from '@/core/services/lookups'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { fsi } from '@/core/util/bidi'
-import { withLeaveOutType, type StatisticsQuery } from './query'
+import { COURIERS, isOfferedCourier } from './courier-scope'
+import { withCourier, withLeaveOutType, type StatisticsQuery } from './query'
 import { orderTypeOptions, storeOptions, type ScopeOption } from './scope-options'
 import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
@@ -20,6 +21,8 @@ type Change = (change: (prev: StatisticsQuery) => StatisticsQuery) => void
  *
  * - **Store:** the existing `storeDetails` lookup, each option one `code · city` pair; empty = all
  *   stores, the default.
+ * - **Courier** (813): all couriers, the default and the till's view, or one of the four live
+ *   couriers (`COURIERS`); the server scopes every figure to that courier's home deliveries.
  * - **Leave out** (ticked = left out, as on the till): Wasfaty churned refills, ticked by default,
  *   and the order types from the existing `documentTypes` lookup.
  */
@@ -52,6 +55,30 @@ export default function ScopeControls({ query, onChange }: { query: StatisticsQu
             // A native <option> takes only a string: the whole pair isolated once.
             <option key={o.value} value={o.value}>
               {fsi(o.text)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label={t('courier.label')}>
+        <Select
+          value={query.courier}
+          onChange={(e) => {
+            const courier = e.target.value
+            onChange((q) => withCourier(q, courier))
+          }}
+          className="w-40"
+          data-statistics-courier=""
+        >
+          <option value="">{t('courier.all')}</option>
+          {/* A code read from a shared link that is not offered (an unknown one, or the retired DAWA) is
+              still shown, by its code, so it can be undone. */}
+          {query.courier && !isOfferedCourier(query.courier) && (
+            <option value={query.courier}>{fsi(query.courier)}</option>
+          )}
+          {COURIERS.map((code) => (
+            <option key={code} value={code}>
+              {t(`courier.name.${code}`)}
             </option>
           ))}
         </Select>

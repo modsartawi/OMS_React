@@ -2,8 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, LayoutDashboard, Plus, SearchX } from 'lucide-react'
-import { itemHref, NEW_BOARD_PATH } from '@/core/analytics-routes'
+import { ChartColumn, FileText, LayoutDashboard, Plus, SearchX } from 'lucide-react'
+import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
@@ -15,12 +15,13 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canCurateAnalytics, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
 import { homeGroups, itemsQuery } from './home'
+import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
@@ -70,6 +71,8 @@ function HomeBody() {
   // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
   const access = useQuery(analyticsAccessQuery())
   const curator = canCurateAnalytics(access.data)
+  // 822: a runner builds nothing — no "New view", "New board" or (828) "New report".
+  const author = canAuthorAnalytics(access.data)
 
   const fallback = useMemo(() => {
     const m = model.data
@@ -132,16 +135,25 @@ function HomeBody() {
           data-analytics-home-search
         />
         <AskBox />
-        {/* 775: build a view from the model. */}
-        <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
-          <Plus className="size-4" aria-hidden />
-          {t('editor.newView')}
-        </Link>
-        {/* 777: lay out a new board. */}
-        <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
-          <LayoutDashboard className="size-4" aria-hidden />
-          {t('boardEditor.newBoard')}
-        </Link>
+        {author && (
+          <>
+            {/* 775: build a view from the model. */}
+            <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
+              <Plus className="size-4" aria-hidden />
+              {t('editor.newView')}
+            </Link>
+            {/* 777: lay out a new board. */}
+            <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
+              <LayoutDashboard className="size-4" aria-hidden />
+              {t('boardEditor.newBoard')}
+            </Link>
+            {/* 828: design a new report. */}
+            <Link to={NEW_REPORT_PATH} className={buttonClass('secondary')} data-analytics-new-report>
+              <FileText className="size-4" aria-hidden />
+              {t('designer.newReport')}
+            </Link>
+          </>
+        )}
       </div>
       {curator && <AnalyticsStatus />}
       {body}
@@ -152,7 +164,7 @@ function HomeBody() {
 function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const KindIcon = item.kind === 'board' ? LayoutDashboard : ChartColumn
+  const KindIcon = item.kind === 'board' ? LayoutDashboard : item.kind === 'report' ? FileText : ChartColumn
   const changed = formatPair(formatDay(item.updatedAt, lang), formatClock(item.updatedAt, lang))
   return (
     <li data-analytics-item={item.id}>
@@ -167,6 +179,8 @@ function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
         <span data-analytics-item-tier={item.tier}>
           <TierBadge tier={item.tier} />
         </span>
+        {/* 826: who a Shared item is shared with. */}
+        <AudienceChip item={item} />
         <span className="text-xs text-muted-foreground" data-analytics-item-owner>
           <Trans t={t} i18nKey="home.owner" values={{ owner: item.owner }} components={{ owner: <bdi /> }} />
         </span>

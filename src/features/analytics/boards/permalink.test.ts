@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardFilters } from '@/core/models/analytics'
-import { readBoardFilters, readCrossFilter, writeBoardFilters, writeCrossFilter } from './permalink'
+import { boardPeriodOf, defaultsOf, readyMadeParams, type ParamValues } from './params'
+import { readCrossFilter, readParamValues, writeCrossFilter, writeParamValues } from './permalink'
 
 const DEFAULTS: BoardFilters = { period: { kind: 'relative', token: 'last-30-days' }, city: [], region: [], store: [], channel: [], country: [] }
+
+// v1's filters through 821's six ready-made parameters, so these 771 cases keep their exact meaning.
+const members = (values: ParamValues, name: string) => { const v = values[name]; return v?.kind === 'members' ? v.values : [] }
+const filtersOf = (v: ParamValues): BoardFilters => ({
+  period: boardPeriodOf(v.period)!, city: members(v, 'city'), region: members(v, 'region'), store: members(v, 'store'), channel: members(v, 'channel'), country: members(v, 'country'),
+})
+const readBoardFilters = (qs: URLSearchParams, defaults: BoardFilters) => filtersOf(readParamValues(qs, readyMadeParams(defaults)))
+const writeBoardFilters = (qs: URLSearchParams, f: BoardFilters, defaults: BoardFilters = DEFAULTS) => writeParamValues(qs, readyMadeParams(defaults), defaultsOf(readyMadeParams(f)))
 
 const roundTrip = (f: BoardFilters) => readBoardFilters(writeBoardFilters(new URLSearchParams(), f), DEFAULTS)
 

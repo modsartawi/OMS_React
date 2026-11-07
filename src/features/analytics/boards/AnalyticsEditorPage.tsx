@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { itemHref } from '@/core/analytics-routes'
+import { FileText } from 'lucide-react'
+import { itemHref, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import ColourPicker from './ColourPicker'
@@ -20,6 +22,7 @@ import {
   colourDimension,
   colourMemberWords,
   DEFAULT_PERIOD,
+  filterableDimensions,
   editItemLink,
   GRAINS,
   grainFor,
@@ -32,12 +35,15 @@ import {
   type EditorSeed,
 } from './editor'
 import { ChartFields, QueryFields, TitleFields } from './EditorFields'
+import { ownCategoryDimensions, seriesProblems } from './series'
+import SeriesFields from './SeriesFields'
 import { editorRefusal } from './editor-refusal'
 import { comparing } from './effective-query'
 import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
+import ReportDesignerPage from './ReportDesignerPage'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
@@ -59,6 +65,7 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * Seeded by route state (`newViewLink(seed)` in `./editor`) — 772's drill "Save as view" opens it so.
  * `kind=board`, and `/analytics/board/:id/edit`, are the board editor (777, `./BoardEditor`); its "build a new
  * view" opens this view editor in a dialog, which links the saved view as a panel instead of navigating.
+ * `kind=report` is the report designer (828, `./ReportDesignerPage`).
  */
 export default function AnalyticsEditorPage() {
   const { t } = useTranslation('boards')
@@ -66,15 +73,29 @@ export default function AnalyticsEditorPage() {
   const location = useLocation()
   const { id: boardId } = useParams()
   const board = !!boardId || params.get('kind') === 'board'
+  // 828: `?kind=report` is the report designer, on a new report.
+  if (!boardId && params.get('kind') === 'report') return <ReportDesignerPage />
   const editing = board ? !!boardId : !!readEditorSeed(location.state)?.item
   return (
     <ScreenGate
       query={analyticsAccessQuery()}
-      can={canViewAnalytics}
+      // 822 (spec 819 §E): the builder and editor routes are the author grant's; a runner's direct URL shows the
+      // no-access state in the builder's own words.
+      can={canAuthorAnalytics}
       ns="boards"
+      keyPrefix="authorAccess"
       title={t(board ? (editing ? 'boardEditor.editTitle' : 'boardEditor.title') : editing ? 'editor.editTitle' : 'editor.title')}
       subtitle={t(board ? 'boardEditor.subtitle' : 'editor.subtitle')}
     >
+      {/* Story 70: a report can be started from the builder too, not only the home — inside the author gate above. */}
+      {!editing && (
+        <div className="mb-3 flex justify-end">
+          <Link to={NEW_REPORT_PATH} className={buttonClass('outlined')} data-analytics-builder-new-report>
+            <FileText className="size-3.5" aria-hidden />
+            {t('designer.newReportInstead')}
+          </Link>
+        </div>
+      )}
       {board ? (
         <BoardEditorBody boardId={boardId ?? null} buildView={buildView} />
       ) : (
@@ -151,14 +172,16 @@ function ViewEditor({
   const [slots, setSlots] = useState<Record<string, Record<string, number>>>(start?.slots ?? {})
   const [title, setTitle] = useState<AnalyticsLabel>(seed?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(seed?.subtitle ?? EMPTY_LABEL)
+  // 825: named series (up to 4), each with its own filters on the view's own category breakdowns.
+  const [series, setSeries] = useState<AnalyticsSeries[]>(start?.series ?? [])
 
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
-  const offers = chartOffers({ measures, dimensions }, model)
+  const offers = chartOffers({ measures, dimensions, series: series.length }, model)
   const offer = choice ? offers.find((o) => o.choice === choice) : undefined
   // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does. Until one is
   // picked (or while the pick does not fit) the builder picks the best fitting type, so the preview always draws.
-  const suggested = suggestChoice(offers, { measures, dimensions }, model)
+  const suggested = suggestChoice(offers, { measures, dimensions, series: series.length }, model)
   const chosen = offer?.offered ? choice : suggested
   const keptGrain = grainFor(dimensions, model, grain)
 
@@ -178,8 +201,12 @@ function ViewEditor({
       chosen,
       compare,
     )
-    return { ...(start ?? {}), chart: chartFor(chosen, settings), query, slots }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain])
+    // A series' filter with no value yet filters nothing; a view with no series carries no `series` at all.
+    const named = series.map((x) => ({ ...x, filters: x.filters.filter((f) => f.values.length > 0) }))
+    const { series: _oldSeries, ...rest } = start ?? {}
+    void _oldSeries
+    return { ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series])
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -235,16 +262,19 @@ function ViewEditor({
     save.save(how, { title, subtitle, definition: withSlots })
   }
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
-  const reload = () => {
-    save
-      .reload()
-      .then((item) => onReseed(item as AnalyticsItem))
-      .catch(() => toast.error(t('save.reloadFailed')))
-  }
+  const reload = () => save.reloadInto((item) => onReseed(item as AnalyticsItem))
 
   const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model) : null)
   const previewRefusal = answer.error ? refusalOf(answer.error) : null
   const saveRefusal = save.error && !save.refusal ? refusalOf(save.error) : null
+  // 825: the series checks — the web's mirror live, or the server's 411 list after a save.
+  const seriesDims = useMemo(() => {
+    const own = ownCategoryDimensions({ chart: settings, query: { measures, dimensions, filters: [] } }, model)
+    return filterableDimensions(allowed).filter((d) => own.has(d.key))
+  }, [allowed, measures, dimensions, settings, model])
+  const liveProblems = useMemo(() => seriesProblems({ chart: settings, query: { measures, dimensions, filters: [] }, series }, model), [settings, measures, dimensions, series, model])
+  const serverProblems = saveRefusal?.kind === 'declaration' ? saveRefusal.series : []
+  const shownProblems = liveProblems.length ? liveProblems : serverProblems
   const invalidOn = (section: 'measure' | 'dimension' | 'chart') => {
     const r = [saveRefusal, previewRefusal].find((x) => x?.kind === 'invalid')
     return r?.kind === 'invalid' && !!r.field && r.field.toLowerCase().includes(section)
@@ -300,6 +330,17 @@ function ViewEditor({
           compare={compare}
           onCompare={setCompare}
         />
+        <SeriesFields
+          series={series}
+          onSeries={(next) => {
+            setSeries(next)
+            if (save.error) save.reset()
+          }}
+          dimensions={seriesDims}
+          lang={lang}
+          problems={shownProblems}
+        />
+        {series.length === 0 && (
         <ColourPicker
           fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}
           members={members}
@@ -307,12 +348,13 @@ function ViewEditor({
           wordsOf={(m) => colourMemberWords(colourDim ?? '', m, model, names, lang)}
           onPick={(m, s) => colourDim && setSlots((all) => ({ ...all, [colourDim]: withMemberSlot(all[colourDim] ?? {}, members, m, s) }))}
         />
+        )}
         <TitleFields title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} generated={generated} />
 
         <SaveStanding editing={editing} actions={actions} />
         {save.refusal ? (
           <SaveRefusalNote refusal={save.refusal} pending={save.pending} onCopy={() => onSave('copy')} onReload={reload} />
-        ) : save.error ? (
+        ) : save.error && !(saveRefusal?.kind === 'declaration' && saveRefusal.series.length > 0) ? (
           <EditorRefusalNote
             refusal={saveRefusal}
             err={save.error}
@@ -332,7 +374,7 @@ function ViewEditor({
           )}
           <Button
             onClick={() => primary && onSave(primary)}
-            disabled={!definition || !primary || save.pending}
+            disabled={!definition || !primary || save.pending || liveProblems.length > 0}
             data-editor-save
             data-editor-save-how={primary ?? 'none'}
           >

@@ -3,15 +3,24 @@ import type {
   AnalyticsBoard,
   AnalyticsBoardPanel,
   AnalyticsDimension,
+  AnalyticsFilter,
   AnalyticsItem,
   AnalyticsLabel,
   AnalyticsMeasure,
   AnalyticsMember,
   AnalyticsModel,
   AnalyticsQueryResult,
+  AnalyticsReport,
+  AnalyticsReportBlock,
+  AnalyticsReportSection,
+  AnalyticsReportWords,
   AnalyticsRow,
+  AnalyticsSeries,
   AnalyticsViewDefinition,
+  Bindings,
+  Param,
 } from '@/core/models/analytics'
+import { readAudience } from './audience'
 
 /**
  * Reading the analytics wire (spec 766 §C, ticket 767) — defensively, because the doors are proposed
@@ -33,7 +42,16 @@ export function readModel(raw: Loose): AnalyticsModel {
   return {
     areas: arr(m.areas),
     measures: arr<Record<string, unknown>>(m.measures).map(
-      (x) => ({ ...x, label: said(x.label), description: said(x.description), dimensions: arr<string>(x.dimensions) }) as AnalyticsMeasure,
+      (x) =>
+        ({
+          ...x,
+          label: said(x.label),
+          description: said(x.description),
+          dimensions: arr<string>(x.dimensions),
+          // 827 (⚠ proposed): a caveat in both languages, and a positive window of days; anything else is none.
+          caveat: x.caveat && typeof x.caveat === 'object' ? said(x.caveat) : null,
+          mayStillRiseDays: typeof x.mayStillRiseDays === 'number' && x.mayStillRiseDays > 0 ? x.mayStillRiseDays : null,
+        }) as AnalyticsMeasure,
     ),
     dimensions: arr<Record<string, unknown>>(m.dimensions).map(
       (x) =>
@@ -66,7 +84,18 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     previous: arr<AnalyticsRow>(r.previous),
     fetchedAt: str(r.fetchedAt),
     dataAsOf: str(r.dataAsOf),
+    // 823: each entry must name its parameter; anything else is left out.
+    notReached: arr<unknown>(r.notReached).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param), reason: str(n.reason) })),
+    fellBack: arr<unknown>(r.fellBack).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param) })),
   }
+}
+
+/** 825: a named series read tolerantly — one without an id is left out; absent labels and filters read empty. */
+function readSeries(raw: unknown): AnalyticsSeries[] {
+  return arr<unknown>(raw)
+    .map(obj)
+    .filter((s) => !!str(s.id))
+    .map((s) => ({ id: str(s.id), label: said(s.label), filters: arr<AnalyticsFilter>(s.filters) }))
 }
 
 export function readDefinition(raw: unknown): AnalyticsViewDefinition {
@@ -75,6 +104,8 @@ export function readDefinition(raw: unknown): AnalyticsViewDefinition {
   const chart = obj(d.chart)
   return {
     ...(d as object),
+    // Absent stays absent, so a definition without series is the same object shape it always was.
+    ...('series' in d ? { series: readSeries(d.series) } : {}),
     chart: { ...chart, type: (str(chart.type) || 'bar') as AnalyticsViewDefinition['chart']['type'] },
     query: {
       ...q,
@@ -93,6 +124,7 @@ export function readItem(raw: Loose): AnalyticsItem {
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
     definition: readDefinition(i.definition),
+    audience: readAudience(i.audience),
   } as AnalyticsItem
 }
 
@@ -124,6 +156,8 @@ function readPanel(raw: unknown): AnalyticsBoardPanel | null {
 /**
  * `GET Analytics/Item/{id}` read as a board (ticket 771). ⚠ §C fixes no board definition: `panels[]`
  * (a view by reference, text, or a section header, each with its grid `layout`) and optional saved `filters`.
+ * 819 (ticket 821): a board that carries `params[]` and `bindings` keeps them; one without them is a v1
+ * board, which `boardParams` converts from its `filters` and `optOut`.
  */
 export function readBoard(raw: Loose): AnalyticsBoard {
   const i = obj(raw)
@@ -134,14 +168,100 @@ export function readBoard(raw: Loose): AnalyticsBoard {
     title: said(i.title),
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
+    audience: readAudience(i.audience),
     definition: {
       panels: arr<unknown>(d.panels)
         .map(readPanel)
         .filter((p): p is AnalyticsBoardPanel => p !== null),
       ...(d.filters && typeof d.filters === 'object' ? { filters: d.filters as AnalyticsBoard['definition']['filters'] } : {}),
       ...(typeof d.refresh === 'number' && d.refresh > 0 ? { refresh: d.refresh } : {}),
+      ...readParams(d),
     },
   } as AnalyticsBoard
+}
+
+/** A board's `params` (each with a name, a kind and a default) and `bindings`, both or neither. */
+function readParams(d: Record<string, unknown>): { params?: Param[]; bindings?: Bindings } {
+  if (!Array.isArray(d.params) || !d.bindings || typeof d.bindings !== 'object') return {}
+  return { params: wellFormedParams(d.params), bindings: d.bindings as Bindings }
+}
+
+const wellFormedParams = (raw: unknown): Param[] =>
+  arr<unknown>(raw)
+    .filter((p): p is Param => {
+      const x = obj(p)
+      return !!str(x.name) && !!str(x.kind) && !!x.default && typeof x.default === 'object'
+    })
+    .map((p) => ({ ...p, label: said(p.label) }))
+
+/** One report block, or `null` for a kind the web does not draw or one without an id (left out, never guessed at). */
+function readReportBlock(raw: unknown): AnalyticsReportBlock | null {
+  const b = obj(raw)
+  const id = str(b.id)
+  if (!id) return null
+  if (b.kind === 'panel') {
+    const from = obj(b.from)
+    return {
+      id,
+      kind: 'panel',
+      title: said(b.title),
+      definition: readDefinition(b.definition),
+      ...(str(from.viewId) ? { from: { viewId: str(from.viewId), revision: typeof from.revision === 'number' ? from.revision : 0 } } : {}),
+      sourceChangedSinceCopy: b.sourceChangedSinceCopy === true,
+    }
+  }
+  if (b.kind === 'text') return { id, kind: 'text', text: said(b.text) }
+  if (b.kind === 'summary') return { id, kind: 'summary' }
+  return null
+}
+
+/**
+ * `GET Analytics/Item/{id}` read as a report (827, spec 819 §C ⚠ proposed): the item, and its definition's
+ * `params[]`, `bindings` and ordered `sections[]` of panel, text and summary blocks. Absent arrays read empty.
+ */
+export function readReport(raw: Loose): AnalyticsReport {
+  const i = obj(raw)
+  const d = obj(i.definition)
+  const sections: AnalyticsReportSection[] = arr<unknown>(d.sections)
+    .map(obj)
+    .map((s) => ({
+      id: str(s.id),
+      heading: said(s.heading),
+      blocks: arr<unknown>(s.blocks)
+        .map(readReportBlock)
+        .filter((b): b is AnalyticsReportBlock => b !== null),
+    }))
+  return {
+    ...(i as object),
+    kind: 'report',
+    title: said(i.title),
+    subtitle: said(i.subtitle),
+    sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
+    audience: readAudience(i.audience),
+    definition: {
+      params: wellFormedParams(d.params),
+      bindings: d.bindings && typeof d.bindings === 'object' && !Array.isArray(d.bindings) ? (d.bindings as Bindings) : {},
+      sections,
+    },
+  } as AnalyticsReport
+}
+
+/**
+ * 827: the Words answer. Each figure is the server's `{ value, formatted { en, ar } }` (3408 §F; the 835 live walk) —
+ * its words are kept, a bare string reads as both languages, and one with no words (a selection with no data) or of
+ * another shape is dropped, so it reads "figure unavailable". The summary: written (`text`), `unavailable` with its
+ * reason, or none.
+ */
+export function readWords(raw: unknown): AnalyticsReportWords {
+  const w = obj(raw)
+  const figures: Record<string, AnalyticsLabel> = {}
+  for (const [token, v] of Object.entries(obj(w.figures))) {
+    const words = typeof v === 'string' ? { en: v, ar: v } : v && typeof v === 'object' && 'formatted' in v ? said(obj(v).formatted) : null
+    if (words && (words.en || words.ar)) figures[token] = words
+  }
+  const s = w.summary && typeof w.summary === 'object' ? obj(w.summary) : null
+  const summary = !s ? null : s.text && typeof s.text === 'object' ? { text: said(s.text) } : { unavailable: str(s.unavailable) }
+  return { figures, summary }
 }
 
 /** `GET Analytics/DimensionValues` — up to 50 `{ key, label }`; a plain-string label reads as both languages. */
@@ -168,6 +288,16 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-406': 'refusal.invalid',
   'ANALYTICS-407': 'refusal.window',
   'ANALYTICS-410': 'refusal.areaUnavailable',
+  // 822 (spec 819 §C): needs the author grant; the screen also drops the grant from the cached probe (`./access`).
+  'ANALYTICS-415': 'refusal.needsAuthor',
+  // 826: not shared with you — the item pages show the "not shared with you" state naming the owner (`./Refused`).
+  'ANALYTICS-413': 'refusal.notShared',
+  // 825 (spec 819 §C): an invalid declaration at save — the view editor lists its series problems (`./editor-refusal`).
+  'ANALYTICS-411': 'refusal.declaration',
+  // 823: an invalid parameter value at run; the strip also names the parameter (`refusedParam`).
+  'ANALYTICS-412': 'refusal.invalidValue',
+  // 833: an invalid recipient; the schedule editor also names each one (`./schedule` `refusedRecipients`).
+  'ANALYTICS-414': 'refusal.invalidRecipient',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */
@@ -176,6 +306,12 @@ export type AnalyticsRefusal = { code: string | null; key: string } | { code: st
 /** A refusal's words: its own key's in the `boards` namespace, or the server's message as it came. */
 export const refusalWords = (refusal: AnalyticsRefusal, t: (key: string) => string): string =>
   'key' in refusal ? t(refusal.key) : refusal.message
+
+/**
+ * A failure's words for a toast or a note (api-envelope.md): a known `ANALYTICS-*` code's own key, else the
+ * server's message (`apiErrorMessage`), else `fallback`. Never one fixed string for every failure.
+ */
+export const analyticsErrorWords = (err: unknown, fallback: string, t: (key: string) => string): string => refusalWords(analyticsRefusal(err, fallback), t)
 
 export function analyticsRefusal(err: unknown, fallback: string): AnalyticsRefusal {
   const code = apiErrorCode(err)

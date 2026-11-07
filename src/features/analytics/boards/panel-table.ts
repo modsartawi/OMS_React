@@ -3,6 +3,7 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import { stripIsolates } from '@/core/util/bidi'
 import type { XlsxSheet } from '@/core/util/grid-xlsx'
 import { saysIn } from '@/core/rules/sentence'
+import { seriesColumnOf, seriesName, seriesOf } from './series'
 import { viewMeasureOf } from './view-model'
 import { dimensionOf } from './wire'
 
@@ -24,7 +25,22 @@ export interface PanelTable {
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
-export function panelTable(result: AnalyticsQueryResult, definition: AnalyticsViewDefinition, model: AnalyticsModel, lang: string): PanelTable {
+/**
+ * 825: a view with named series gets a `series` column FIRST, each row named by its series' label (the
+ * comparison survives the download); rows of a series the view does not hold are dropped, as the chart
+ * drops them. `words.series` is that column's header, in the screen's language.
+ */
+export function panelTable(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+  words: { series: string } = { series: 'series' },
+): PanelTable {
+  const named = seriesOf(definition)
+  const seriesKey = seriesColumnOf(result.columns)
+  const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
+  const kept = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
   const fromColumns = (role: 'dimension' | 'measure') => result.columns.filter((c) => c.role === role).map((c) => c.key)
   const dimKeys = definition.query.dimensions.length ? definition.query.dimensions : fromColumns('dimension')
   const measureKeys = definition.query.measures.length ? definition.query.measures : fromColumns('measure')
@@ -36,13 +52,15 @@ export function panelTable(result: AnalyticsQueryResult, definition: AnalyticsVi
       return [k, { label: saysIn(dim?.label, lang) || k, member: (m: string) => labels.get(m) || m }]
     }),
   )
-  const rows = result.rows.map((r) => {
+  const rows = kept.map((r) => {
     const out: Record<string, Cell> = {}
+    if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = r[k] == null ? '' : namers.get(k)!.member(String(r[k]))
     for (const k of measureKeys) out[k] = num(r[k])
     return out
   })
   const columns: TableChartColumn[] = [
+    ...(named.length ? [{ key: seriesKey, role: 'dimension' as const, label: words.series }] : []),
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.label })),
     ...measureKeys.map((k) => {
       const m = viewMeasureOf(k, model, result, lang)

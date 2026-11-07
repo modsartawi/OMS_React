@@ -24,6 +24,9 @@ export const deliveryStatisticsApi = {
       flow: data?.flow ?? {},
       misses: data?.misses ?? {},
       avgHandOverMinutes: data?.avgHandOverMinutes ?? null,
+      // Spec 811, passed through as sent: absent stays absent and reads "—".
+      avgDeliveryMinutes: data?.avgDeliveryMinutes,
+      previous: data?.previous ?? undefined,
       series: data?.series ?? [],
       // Passed through as sent (brief 2660): an older server's absent split stays absent and reads "—".
       tracks: data?.tracks ?? undefined,

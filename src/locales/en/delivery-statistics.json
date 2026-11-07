@@ -17,6 +17,17 @@
     "allStores": "All stores",
     "storesFailed": "The store list could not be loaded."
   },
+  "courier": {
+    "label": "Courier",
+    "all": "All couriers",
+    "name": {
+      "FREY": "FarEye",
+      "OTOX": "OTO",
+      "SMSA": "SMSA",
+      "SLNK": "Starlinks"
+    },
+    "caption": "These figures are <v>{{courier}}</v>'s home deliveries only — pick-ups and the other couriers' deliveries are not counted."
+  },
   "leaveOut": {
     "label": "Leave out",
     "churned": "Wasfaty churned refills",
@@ -57,13 +68,43 @@
     "misses": "Did not go to plan",
     "stores": "By store"
   },
+  "headline": {
+    "caption": {
+      "cameIn": "Came in",
+      "handedOver": "Handed over",
+      "inSlot": "In slot",
+      "outOfSlot": "Out of slot",
+      "deliveredPerTrip": "Delivered per trip",
+      "avgDeliveryMinutes": "Avg delivery time"
+    },
+    "split": "Delivered <v>{{delivered}}</v> · Picked up <v>{{pickedUp}}</v>",
+    "ofDelivered": "<v>{{n}}</v> of <v>{{total}}</v> delivered",
+    "compared": {
+      "range": "vs <v>{{range}}</v>",
+      "until": "vs <v>{{day}}</v> to <v>{{time}}</v>"
+    },
+    "points": "pts"
+  },
   "lane": {
     "delivery": "Delivery",
     "pickUp": "Pick-up",
     "avg": {
-      "delivery": "Avg time to deliver",
-      "pickUp": "Avg time to ready"
+      "delivery": "Avg delivery time",
+      "pickUp": "Avg delivery time"
+    },
+    "avgNote": {
+      "delivery": "From due to delivered",
+      "pickUp": "From entry to made ready"
     }
+  },
+  "slot": {
+    "heading": "Slot keeping",
+    "inSlot": "In slot",
+    "outOfSlot": "Out of slot",
+    "noSlot": "No slot",
+    "label": "Slot keeping of delivered: {{parts}}",
+    "part": "{{caption}} {{n}}",
+    "joiner": ", "
   },
   "unspecified": {
     "caption": "Unspecified",
@@ -75,14 +116,8 @@
     "outForDelivery": "Out for delivery",
     "trips": "Trips <v>{{n}}</v>",
     "handedOver": "Handed over",
-    "handedOverNote": "Delivered + picked up",
     "delivered": "Delivered",
     "pickedUp": "Picked up"
-  },
-  "split": {
-    "caption": "Handed over, by delivery type",
-    "delivered": "Home delivery",
-    "pickedUp": "Pick in store"
   },
   "misses": {
     "returnedBack": "Returned back",
@@ -92,7 +127,6 @@
     "closedOrCancelled": "Closed / cancelled"
   },
   "avgHandOver": {
-    "caption": "Avg hand-over",
     "unit": "min"
   },
   "chart": {
@@ -100,23 +134,27 @@
       "hour": "Came in and handed over · by the hour",
       "day": "Came in and handed over · by the day"
     },
-    "label": "Came in and handed over, per bucket",
-    "hint": "Point at a column, or focus the chart and use the arrow keys, to read its values.",
-    "empty": "The server sent no buckets for this period.",
-    "readout": "<v>{{bucket}}</v> · Came in <v>{{cameIn}}</v> · Handed over <v>{{handedOver}}</v>"
+    "label": {
+      "hour": "Came in and handed over by the hour, grouped bar chart",
+      "day": "Came in and handed over by the day, grouped bar chart"
+    },
+    "empty": "The server sent no buckets for this period."
   },
   "table": {
     "store": "Store",
     "trips": "Trips",
     "delivered": "Delivered (home delivery)",
     "pickedUp": "Picked up (pick in store)",
-    "avgHandOver": "Avg hand-over (min)",
-    "avgToDeliver": "Avg time to deliver (min)",
-    "avgToReady": "Avg time to ready (min)",
+    "inSlotShare": "In slot %",
+    "outOfSlotShare": "Out of slot %",
+    "noSlot": "No slot",
+    "deliveredPerTrip": "Delivered per trip",
+    "avgDeliveryTime": "Avg delivery time (min)",
     "track": {
       "label": "Track",
       "all": "All"
     },
-    "empty": "No store has figures for this period."
+    "empty": "No store has figures for this period.",
+    "unassignedStore": "Unassigned (callout)"
   }
 }

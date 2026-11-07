@@ -1,5 +1,6 @@
 import { itemHref } from '@/core/analytics-routes'
-import type { CopilotAnswer, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { AnalyticsLabel } from '@/core/models/analytics'
+import type { CopilotAnswer, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -37,8 +38,14 @@ export interface CopilotAnswerModel {
   servedBy: string | null
   /** The views the answer created (spec 766 D), each an "Open view" link; absent reads as empty. */
   viewRefs: CopilotViewRef[]
-  /** The reports the answer built or revised (CTO demo). */
+  /** The reports the answer built or saved (spec 819 §D), each an "Open in designer" link; absent reads as empty. */
   reportRefs: CopilotReportRef[]
+  /** The unsaved edit for the report open in the designer (832), handed to it through the core bridge; or none. */
+  reportEdit: CopilotReportEdit | null
+  /** The unsaved edit for the board open in its editor (836), handed to it through the core bridge; or none. */
+  boardEdit: CopilotBoardEdit | null
+  /** What the report assumed, one line each (802 item 1); absent reads as empty. */
+  assumptions: AnalyticsLabel[]
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
   rules: AnswerRules | null
 }
@@ -143,6 +150,9 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
     viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
+    reportEdit: reportEditOf(r.reportEdit),
+    boardEdit: boardEditOf(r.boardEdit),
+    assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(bilingual).filter((a) => a.en.trim() !== '' || a.ar.trim() !== '') : [],
     rules: rulesOf(r.promptVersion),
   }
 }
@@ -159,12 +169,44 @@ function viewRef(v: unknown): CopilotViewRef[] {
   return [{ id: key, title: { en: text(t.en), ar: text(t.ar) } }]
 }
 
-/** One `reportRefs` entry, or none when it carries no id. */
+/** A `{ en, ar }` pair, a missing or odd half read as blank. */
+const bilingual = (v: unknown): AnalyticsLabel => {
+  const t = v && typeof v === 'object' ? (v as { en?: unknown; ar?: unknown }) : {}
+  return { en: text(t.en), ar: text(t.ar) }
+}
+
+/** One `reportRefs` entry, or none when it carries no id. An absent revision reads as 1 (a new report). */
 function reportRef(v: unknown): CopilotReportRef[] {
   if (!v || typeof v !== 'object') return []
-  const { id, title, revision } = v as { id?: unknown; title?: unknown; revision?: unknown }
+  const { id, title, revision, nextSteps } = v as { id?: unknown; title?: unknown; revision?: unknown; nextSteps?: unknown }
   if (typeof id !== 'string' || id.trim() === '') return []
-  return [{ id, title: text(title), revision: typeof revision === 'number' ? revision : 1 }]
+  const ref: CopilotReportRef = { id, revision: typeof revision === 'number' && Number.isInteger(revision) && revision > 0 ? revision : 1, title: bilingual(title) }
+  // 819 §D: only Share and Schedule are linked, each once, Share first.
+  const steps = Array.isArray(nextSteps) ? REPORT_STEPS.filter((s) => nextSteps.includes(s)) : []
+  return [steps.length ? { ...ref, nextSteps: steps } : ref]
+}
+
+const REPORT_STEPS: readonly CopilotReportStep[] = ['share', 'schedule']
+
+/** `reportEdit`, or none when it names no report (`null` is the unsaved one in context) or carries no definition with sections (the designer's shape). */
+function reportEditOf(v: unknown): CopilotReportEdit | null {
+  if (!v || typeof v !== 'object') return null
+  const { reportId, definition, note } = v as { reportId?: unknown; definition?: unknown; note?: unknown }
+  // `null` is the unsaved new report in context (story 101, ⚠ proposed); a missing or blank id is no edit.
+  if (reportId !== null && (typeof reportId !== 'string' || reportId.trim() === '')) return null
+  if (!definition || typeof definition !== 'object' || !Array.isArray((definition as { sections?: unknown }).sections)) return null
+  const d = definition as CopilotReportEdit['definition']
+  return { reportId, definition: { ...d, params: Array.isArray(d.params) ? d.params : [], bindings: d.bindings && typeof d.bindings === 'object' ? d.bindings : {} }, note: bilingual(note) }
+}
+
+/** `boardEdit` (836, BackOffice 3430), or none when it names no board or carries no definition with panels (the editor's shape). */
+function boardEditOf(v: unknown): CopilotBoardEdit | null {
+  if (!v || typeof v !== 'object') return null
+  const { boardId, definition, note } = v as { boardId?: unknown; definition?: unknown; note?: unknown }
+  if (typeof boardId !== 'string' || boardId.trim() === '') return null
+  if (!definition || typeof definition !== 'object' || !Array.isArray((definition as { panels?: unknown }).panels)) return null
+  const d = definition as CopilotBoardEdit['definition']
+  return { boardId, definition: { ...d, params: Array.isArray(d.params) ? d.params : [], bindings: d.bindings && typeof d.bindings === 'object' ? d.bindings : {} }, note: bilingual(note) }
 }
 
 /** The view a `viewRefs` entry opens — by route string only; the copilot never imports analytics. */

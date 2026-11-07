@@ -20,8 +20,11 @@ import { viewTitleOf } from './ViewChart'
  * minimum sizes and lets no panel overlap another. A polite live region says where the panel now is.
  */
 
-/** The opt-outs a view panel may take: the six board filters and the cross-filter (766 story 25). */
-export const OPT_OUTS: readonly BoardFilterKey[] = ['period', 'city', 'region', 'store', 'channel', 'country', 'crossFilter']
+/**
+ * The opt-outs a view panel may take: the cross-filter only (766 story 25). Since 824 the parameters reach a
+ * panel through the board's bindings, set in the parameter inspector, not through opt-outs.
+ */
+export const OPT_OUTS: readonly BoardFilterKey[] = ['crossFilter']
 
 /** What the editor knows of a view panel's view: loaded, still loading, or removed (`ANALYTICS-404`). */
 export type PanelView = { state: 'loaded'; item: AnalyticsItem } | { state: 'loading' } | { state: 'removed' } | { state: 'failed' }

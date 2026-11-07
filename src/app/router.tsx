@@ -90,6 +90,14 @@ export const router = createBrowserRouter([
     handle: PRINT_ROUTE,
     children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPrintPage')).default }) }],
   },
+  // The catalog's print page (BackOffice spec 3437 §G, ticket 845): the path is fixed by the server's renderer
+  // (`AnalyticsCatalogPrint`, `?lang=…&ticket=…`); guarded like the report's — a ticket steps the session guard aside.
+  {
+    path: '/analytics/print/catalog',
+    element: <ReportPrintGuard />,
+    handle: PRINT_ROUTE,
+    children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsCatalogPrintPage')).default }) }],
+  },
   {
     path: '/collection/receipt/:collectionReceiptId',
     element: <ProtectedLayout chromeless />,

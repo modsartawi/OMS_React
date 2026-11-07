@@ -11,6 +11,7 @@ import { ANALYTICS_CATALOG_KEY, analyticsApi } from './api'
 import { searchCatalog } from './catalog-search'
 import { buildCatalogTree, type CatalogNode } from './catalog-tree'
 import CatalogDetail from './CatalogDetail'
+import CatalogPrintActions from './CatalogPrintActions'
 import CatalogTree from './CatalogTree'
 import Refused from './Refused'
 
@@ -83,6 +84,7 @@ function CatalogBody() {
             <Trans t={t} i18nKey="catalog.imageVersion" components={{ v: <Ltr /> }} values={{ version: tree.imageVersion }} />
           </span>
         )}
+        <CatalogPrintActions />
       </div>
       {!tree.lineageAvailable && (
         <p className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground" role="note" data-catalog-lineage-unavailable>

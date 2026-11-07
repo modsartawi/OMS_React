@@ -123,6 +123,13 @@ export const analyticsApi = {
     return readHealth(await api.get<Record<string, unknown>>('Analytics/Health'))
   },
   /**
+   * `POST Analytics/Catalog/Render` (BackOffice 3444, ticket 845): the catalog as a PDF, in one language per render
+   * (`catalog.pdf` / `catalog-ar.pdf`). Refuses 401, 408 (past the render budget), 409 (no renderer / render failed).
+   */
+  catalogPdf(lang: 'en' | 'ar'): Promise<FileResponse> {
+    return api.postJsonBlob('Analytics/Catalog/Render', { lang })
+  },
+  /**
    * `POST Analytics/Catalog/Raw` (BackOffice 3442, ticket 844): a curator's top 200 rows of a mart / fact / dim through
    * its allow-listed columns. Refuses 402 (not a curator), 417 (not previewable), 406 (`orderBy`), 408 (10 s), 409.
    */

@@ -100,7 +100,7 @@ export default function CatalogAreaDetail({ area }: { area: AnalyticsCatalogArea
   )
 }
 
-function History({ history, lang }: { history: AreaFacts['history']; lang: string }) {
+export function History({ history, lang }: { history: AreaFacts['history']; lang: string }) {
   const { t } = useTranslation('boards')
   switch (history.kind) {
     case 'date':

@@ -298,6 +298,39 @@ describe('api.postBlob', () => {
 })
 
 /**
+ * `api.postJsonBlob` — a file door whose body is JSON (ticket 845): `Analytics/Catalog/Render` takes `{ lang }` and
+ * answers the PDF itself, or the envelope on a refusal.
+ */
+describe('api.postJsonBlob', () => {
+  it('POSTs the body as JSON and returns the bytes and the server-given name', async () => {
+    const pdf = new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    const fetchStub = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: new Headers({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename=catalog-ar.pdf' }),
+      blob: async () => pdf,
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetchStub)
+
+    const file = await api.postJsonBlob('Analytics/Catalog/Render', { lang: 'ar' })
+
+    expect(file).toEqual({ blob: pdf, filename: 'catalog-ar.pdf' })
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/Analytics\/Catalog\/Render$/)
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe('{"lang":"ar"}')
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
+  it('throws the usual ApiError off the JSON refusal', async () => {
+    vi.stubGlobal('fetch', answer(409, envelope(409, 'ANALYTICS-409', 'The renderer is not configured.')))
+    const err = (await api.postJsonBlob('Analytics/Catalog/Render', { lang: 'en' }).catch((e: unknown) => e)) as ApiError
+    expect(err).toBeInstanceOf(ApiError)
+    expect(apiErrorCode(err)).toBe('ANALYTICS-409')
+  })
+})
+
+/**
  * `api.upload` — the multipart door (ticket 273, spec 267 D8's bulk preview and
  * commit). Its subject is the one thing that cannot be asserted from a feature and
  * fails silently when it is wrong: **a `FormData` body must reach `fetch` with no

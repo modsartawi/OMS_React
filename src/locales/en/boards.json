@@ -134,6 +134,26 @@
       "empty": "The table has no rows.",
       "gridLabel": "Raw rows of {{mart}}",
       "timedOut": "The raw preview took longer than 10 seconds. Try again, or order by another column."
+    },
+    "print": {
+      "action": "Print",
+      "choose": "Print the catalog as a PDF",
+      "english": "PDF in English",
+      "arabic": "PDF in Arabic",
+      "working": "Rendering the PDF…",
+      "failed": "The catalog PDF could not be rendered. Try again in a minute.",
+      "timedOut": "The catalog PDF took too long to render. Try again in a minute.",
+      "title": "Data catalog",
+      "subtitle": "What the analytics model holds, where it comes from, and what is planned.",
+      "areas": "Areas",
+      "holds": "What it holds",
+      "sources": "Source tables",
+      "unresolved": "Not in the lineage",
+      "missingMart": "No lineage for this mart",
+      "grain": "Grain",
+      "curatorNote": "Rows, sizes and hidden columns are shown because you are an analytics curator.",
+      "back": "Back to the catalog",
+      "printAgain": "Print again"
     }
   },
   "access": {

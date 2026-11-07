@@ -443,6 +443,14 @@ export const api = {
   postBlob(path: string, form?: FormData): Promise<FileResponse> {
     return requestBlob(path, { method: 'POST', body: form })
   },
+  /**
+   * `postBlob` for a door whose body is JSON (ticket 845): `Analytics/Catalog/Render` takes `{ lang }` and answers
+   * the PDF itself. The body goes out as `post` sends one (`application/json`, set by `send`), and the answer is
+   * read as `blob` reads one — bytes + `Content-Disposition` name on a 2xx, the usual `ApiError` off a refusal.
+   */
+  postJsonBlob(path: string, body: unknown): Promise<FileResponse> {
+    return requestBlob(path, { method: 'POST', body: JSON.stringify(body) })
+  },
   /** `params`, when a door takes a query beside its body (ticket 479's `Catalog/Push?account=`), is
    *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. `headers` is `get`'s optional
    *  per-request passthrough (ticket 835: the analytics render ticket's header). `signal` lets the caller

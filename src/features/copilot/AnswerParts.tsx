@@ -8,7 +8,7 @@ import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
 import { copilotViewEmbed } from '@/core/copilot-view-embed'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
@@ -167,6 +167,23 @@ export function ReportEditNote({ reportEdit }: { reportEdit: CopilotReportEdit |
   )
 }
 
+/** An edit to the board open in its editor (836): handed to it as one undo step, never saved. */
+export function BoardEditNote({ boardEdit }: { boardEdit: CopilotBoardEdit | null }) {
+  const { t, i18n } = useTranslation('copilot')
+  if (!boardEdit) return null
+  const note = saysIn(boardEdit.note, i18n.language)
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-card p-3 text-xs" data-copilot-board-edit={boardEdit.boardId}>
+      <span>{t('answer.boardEdited')}</span>
+      {note && (
+        <span className="text-muted-foreground">
+          {t('answer.reportEditNote')} <bdi>{note}</bdi>
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Below the answer: "stopped early" when set, the collapsed trace, and who served it. */
 export function AnswerProvenance({
   trace,
@@ -260,6 +277,7 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
       <ViewLinks viewRefs={model.viewRefs} />
       <Assumptions assumptions={model.assumptions} />
       <ReportEditNote reportEdit={model.reportEdit} />
+      <BoardEditNote boardEdit={model.boardEdit} />
       <ReportLinks reportRefs={model.reportRefs} />
       <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} rules={model.rules} />
     </>

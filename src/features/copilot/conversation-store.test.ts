@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+import { createBoardContext } from '@/core/board-context'
 import { createReportContext } from '@/core/report-context'
 import { COPILOT_HISTORY_MAX, createCopilotConversation, filed, type PastConversation } from './conversation-store'
 
@@ -214,3 +215,37 @@ describe('the copilot and the report open in the designer (spec 819 §D, ticket 
   })
 })
 
+
+describe('the copilot and the board open in its editor (ticket 836, BackOffice 3430)', () => {
+  const definition = (viewId: string) => ({ params: [], bindings: {}, panels: [{ id: 'p-a', kind: 'view' as const, viewId, layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] }] })
+  const context = { boardId: 'b-1', revision: 2, draft: definition('v-1') }
+
+  it('ask_sendsThePublishedBoardAsBoardContext_andTheReportBesideIt', async () => {
+    const d = door()
+    const reports = createReportContext()
+    const boards = createBoardContext()
+    const store = createCopilotConversation(d.ask, () => 0, reports, boards)
+    boards.getState().publish(context, { en: 'Delivery', ar: 'التوصيل' })
+    const done = store.getState().ask('Remove the stores chart')
+    expect(d.calls[0].body).toEqual({ question: 'Remove the stores chart', boardContext: context })
+    d.calls[0].answer(reply('c-0001', 1))
+    await done
+    boards.getState().clear('b-1')
+    void store.getState().ask('Anything else?')
+    expect(d.calls[1].body).toEqual({ question: 'Anything else?', conversationId: 'c-0001' })
+  })
+
+  it('aLandedBoardEdit_isPostedToTheEditor_labelledWithTheQuestion', async () => {
+    const d = door()
+    const boards = createBoardContext()
+    const store = createCopilotConversation(d.ask, () => 0, createReportContext(), boards)
+    boards.getState().publish(context)
+    const done = store.getState().ask('swap the chart')
+    d.calls[0].answer({ ...reply('c-0001', 1), boardEdit: { boardId: 'b-1', definition: definition('v-2'), note: { en: 'Swapped it.', ar: '' } } })
+    await done
+    const taken = boards.getState().takeEdit('b-1')
+    expect(taken?.request).toBe('swap the chart')
+    expect(taken?.edit.definition.panels[0]).toMatchObject({ viewId: 'v-2' })
+    expect(boards.getState().takeEdit('b-1')).toBeNull()
+  })
+})

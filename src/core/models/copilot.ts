@@ -1,4 +1,4 @@
-import type { AnalyticsLabel, AnalyticsReportDefinition } from './analytics'
+import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsReportDefinition } from './analytics'
 
 /**
  * The copilot's wire shapes (spec 734 D10; doors `Copilot/Access` and `Copilot/Ask`, BackOffice BO-1,
@@ -108,11 +108,33 @@ export interface CopilotReportContext {
   draft: AnalyticsReportDefinition
 }
 
-/** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5); `reportContext` while a report is open in the designer (832). */
+/**
+ * The board open in its editor (ticket 836, BackOffice 3430): its id and revision, and the editor's working copy of its
+ * definition, bare, in the store's wire shape. Sent on Ask so "remove the stores chart" edits THAT board; the AI then
+ * answers a `boardEdit` and never saves it.
+ */
+export interface CopilotBoardContext {
+  boardId: string
+  revision: number
+  draft: AnalyticsBoardDefinition
+}
+
+/** `edit_board` against the board in context (3430): the validated FULL definition, unsaved; `note` says what changed. */
+export interface CopilotBoardEdit {
+  boardId: string
+  definition: AnalyticsBoardDefinition
+  note: AnalyticsLabel
+}
+
+/**
+ * `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5); `reportContext` while a report is open in
+ * the designer (832); `boardContext` while a board is open in its editor (836).
+ */
 export interface CopilotAskRequest {
   question: string
   conversationId?: string
   reportContext?: CopilotReportContext
+  boardContext?: CopilotBoardContext
 }
 
 /** One tool call the server made for the answer (D10 `trace`). */
@@ -185,6 +207,8 @@ export interface CopilotAnswer {
   reportRefs?: CopilotReportRef[]
   /** `edit_report`'s unsaved definition for the report in context (spec 819 §D); absent reads as none. */
   reportEdit?: CopilotReportEdit | null
+  /** `edit_board`'s unsaved definition for the board in context (836, BackOffice 3430); absent reads as none. */
+  boardEdit?: CopilotBoardEdit | null
   /** What a built or edited report assumed, one line each, in both languages (802 item 1; ⚠ field name proposed). */
   assumptions?: AnalyticsLabel[]
   /**

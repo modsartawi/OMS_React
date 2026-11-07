@@ -1,4 +1,5 @@
 import { create, type StoreApi } from 'zustand'
+import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
@@ -66,6 +67,7 @@ export function createCopilotConversation(
   send: (body: CopilotAskRequest) => Promise<CopilotAnswer>,
   now: () => number = () => Date.now(),
   reportBridge: StoreApi<ReportContextState> = useReportContext,
+  boardBridge: StoreApi<BoardContextState> = useBoardContext,
 ) {
   const store = create<CopilotConversationState>((set, get) => ({
     conv: EMPTY_CONVERSATION,
@@ -80,12 +82,13 @@ export function createCopilotConversation(
         if (get().epoch !== epoch) return
         set((s) => ({ conv: next(s.conv), pending: null }))
       }
-      return send(askBody(conv, question, reportBridge.getState().context)).then(
+      return send(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context)).then(
         (reply) => {
           if (get().epoch !== epoch) return
           landed((c) => withAnswer(c, question, reply))
-          const edit = copilotAnswerModel(reply).reportEdit
-          if (edit) reportBridge.getState().postEdit(edit, question)
+          const { reportEdit, boardEdit } = copilotAnswerModel(reply)
+          if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
+          if (boardEdit) boardBridge.getState().postEdit(boardEdit, question)
         },
         (err: unknown) => landed((c) => withRefusal(c, question, err)),
       )

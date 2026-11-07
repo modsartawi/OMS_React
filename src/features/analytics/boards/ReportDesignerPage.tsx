@@ -34,7 +34,7 @@ import { reportPanels, validateReport } from './report'
 import ReportDocument, { ReportBlock, type ReportWordsView } from './ReportDocument'
 import ReportTutorial from './ReportTutorial'
 import { sampleReport } from './sample-report'
-import { AiStepNotice, useReportInContext } from './ReportDesignerCopilot'
+import { AiStepNotice, EditWithCopilot, useReportInContext } from './ReportDesignerCopilot'
 import { AddBlock, BlockInspector, DropLine, Grip, MoveTools, Outline, SectionInspector, useNames, useReportDnd, type DesignerOps, type ReportDnd } from './ReportDesignerParts'
 import * as ops from './report-ops'
 import { DesignerText } from './ReportTextEditor'
@@ -354,6 +354,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             <IconButton label={t('designer.history.redo')} title={t('designer.history.redoHint')} variant="outlined" disabled={h.future.length === 0} onClick={redo} data-designer-redo>
               <Redo2 className="size-3.5" aria-hidden />
             </IconButton>
+            <EditWithCopilot editing={editing} />
             <Button variant={tutorial ? 'secondary' : 'outlined'} title={t('designer.tutorial.actionHint')} aria-pressed={tutorial} onClick={() => setTutorial(!tutorial)} data-designer-tutorial-action>
               <GraduationCap className="size-3.5" aria-hidden />
               {t('designer.tutorial.action')}

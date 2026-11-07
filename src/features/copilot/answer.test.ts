@@ -217,3 +217,27 @@ describe('the answer’s reports (spec 819 §D, ticket 832)', () => {
     expect(copilotAnswerModel({ reportRefs: 'x', assumptions: 7 } as unknown as Partial<CopilotAnswer>)).toMatchObject({ reportRefs: [], assumptions: [] })
   })
 })
+
+describe('the board edit (ticket 836, BackOffice 3430)', () => {
+  const definition = {
+    params: [],
+    bindings: {},
+    panels: [{ id: 'p-a', kind: 'view', viewId: 'v-1', layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] }],
+  }
+
+  it('boardEdit_readsTheBoardItsDefinitionAndItsNote', () => {
+    const reply = { boardEdit: { boardId: 'b-1', definition, note: { en: 'Removed the stores chart.', ar: 'أزيل رسم الفروع.' } } } as unknown as Partial<CopilotAnswer>
+    expect(copilotAnswerModel(reply).boardEdit).toEqual({ boardId: 'b-1', definition, note: { en: 'Removed the stores chart.', ar: 'أزيل رسم الفروع.' } })
+  })
+
+  it('boardEdit_withoutABoardOrPanelsIsNone_andAbsentIsNone', () => {
+    for (const odd of [null, 'x', { definition }, { boardId: '', definition }, { boardId: 'b-1' }, { boardId: 'b-1', definition: { sections: [] } }])
+      expect(copilotAnswerModel({ boardEdit: odd } as unknown as Partial<CopilotAnswer>).boardEdit).toBeNull()
+    expect(copilotAnswerModel({ answer: 'x' }).boardEdit).toBeNull()
+    expect(copilotAnswerModel({ boardEdit: { boardId: 'b-1', definition: { panels: [] } } } as unknown as Partial<CopilotAnswer>).boardEdit).toEqual({
+      boardId: 'b-1',
+      definition: { panels: [], params: [], bindings: {} },
+      note: { en: '', ar: '' },
+    })
+  })
+})

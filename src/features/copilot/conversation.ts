@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotReportContext } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotReportContext } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -37,11 +37,16 @@ export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null,
 
 /**
  * The `Copilot/Ask` body: the question, the conversation's id once it has one, and (832) the report open in the
- * designer when one is published.
+ * designer when one is published, and (836) the board open in its editor.
  */
-export function askBody(c: CopilotConversation, question: string, reportContext: CopilotReportContext | null = null): CopilotAskRequest {
+export function askBody(
+  c: CopilotConversation,
+  question: string,
+  reportContext: CopilotReportContext | null = null,
+  boardContext: CopilotBoardContext | null = null,
+): CopilotAskRequest {
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
-  return reportContext ? { ...body, reportContext } : body
+  return { ...body, ...(reportContext ? { reportContext } : {}), ...(boardContext ? { boardContext } : {}) }
 }
 
 /**

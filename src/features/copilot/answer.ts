@@ -1,6 +1,6 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswer, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -42,6 +42,8 @@ export interface CopilotAnswerModel {
   reportRefs: CopilotReportRef[]
   /** The unsaved edit for the report open in the designer (832), handed to it through the core bridge; or none. */
   reportEdit: CopilotReportEdit | null
+  /** The unsaved edit for the board open in its editor (836), handed to it through the core bridge; or none. */
+  boardEdit: CopilotBoardEdit | null
   /** What the report assumed, one line each (802 item 1); absent reads as empty. */
   assumptions: AnalyticsLabel[]
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
@@ -149,6 +151,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
     reportEdit: reportEditOf(r.reportEdit),
+    boardEdit: boardEditOf(r.boardEdit),
     assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(bilingual).filter((a) => a.en.trim() !== '' || a.ar.trim() !== '') : [],
     rules: rulesOf(r.promptVersion),
   }
@@ -194,6 +197,16 @@ function reportEditOf(v: unknown): CopilotReportEdit | null {
   if (!definition || typeof definition !== 'object' || !Array.isArray((definition as { sections?: unknown }).sections)) return null
   const d = definition as CopilotReportEdit['definition']
   return { reportId, definition: { ...d, params: Array.isArray(d.params) ? d.params : [], bindings: d.bindings && typeof d.bindings === 'object' ? d.bindings : {} }, note: bilingual(note) }
+}
+
+/** `boardEdit` (836, BackOffice 3430), or none when it names no board or carries no definition with panels (the editor's shape). */
+function boardEditOf(v: unknown): CopilotBoardEdit | null {
+  if (!v || typeof v !== 'object') return null
+  const { boardId, definition, note } = v as { boardId?: unknown; definition?: unknown; note?: unknown }
+  if (typeof boardId !== 'string' || boardId.trim() === '') return null
+  if (!definition || typeof definition !== 'object' || !Array.isArray((definition as { panels?: unknown }).panels)) return null
+  const d = definition as CopilotBoardEdit['definition']
+  return { boardId, definition: { ...d, params: Array.isArray(d.params) ? d.params : [], bindings: d.bindings && typeof d.bindings === 'object' ? d.bindings : {} }, note: bilingual(note) }
 }
 
 /** The view a `viewRefs` entry opens — by route string only; the copilot never imports analytics. */

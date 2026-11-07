@@ -968,6 +968,12 @@
     "revision": "Revision {{revision}}",
     "dataAsOf": "Data as of {{asOf}}"
   },
+  "editWithCopilot": {
+    "action": "Edit with copilot",
+    "hint": "Opens the copilot on this item: ask it to add, remove or change something. Each change is one undo step, and nothing is saved until you save.",
+    "notYours": "The copilot edits only your own items that are not Certified. Save a copy first, then edit the copy.",
+    "unsaved": "Save the item once first: the copilot edits a saved item."
+  },
   "designer": {
     "newTitle": "New report",
     "editTitle": "Edit report",

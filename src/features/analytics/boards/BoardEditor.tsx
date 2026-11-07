@@ -28,6 +28,7 @@ import ParamInspector, { type InspectorFocus, type InspectorPanel } from './Para
 import Refused from './Refused'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
+import { AiStepNotice, EditWithCopilot, useBoardInContext } from './ReportDesignerCopilot'
 import { analyticsRefusal, refusalWords } from './wire'
 import { viewTitleOf } from './ViewChart'
 import ViewPicker from './ViewPicker'
@@ -203,6 +204,36 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   const bindings = keptBindings(decl.bindings, new Set(layout.panels.map((p) => p.id)))
   const compat = v1Of({ panels: layout.panels, params: decl.params, bindings })
   const definition: AnalyticsBoardDefinition = { panels: compat.panels, filters: compat.filters, params: decl.params, bindings, ...(refresh > 0 ? { refresh } : {}) }
+
+  // 836: the board in context for the copilot (a saved board), and its `boardEdit` applied as ONE undo step. The editor
+  // keeps no history of its own, so the step is a snapshot of what the AI replaced; Undo puts it back. Any change of
+  // the user's after it ends the step (its Undo would take that change back too).
+  const [aiStep, setAiStep] = useState<{ request: string; before: { layout: LayoutState; decl: Declarations; refresh: number }; after: string | null } | null>(null)
+  const sent = { params: decl.params, bindings, panels: layout.panels, ...(refresh > 0 ? { refresh } : {}) }
+  const said = JSON.stringify(sent)
+  useBoardInContext(board?.id ?? null, board?.revision ?? 0, sent, title, (next, request) => {
+    setAiStep({ request, before: { layout, decl, refresh }, after: null })
+    v1.current = false
+    dispatch({ type: 'reset', state: { panels: next.panels, mins: layout.mins } })
+    setDecl({ params: next.params ?? [], bindings: next.bindings ?? {} })
+    setRefresh(next.refresh ?? 0)
+    setSelected(null)
+    setProblems(null)
+  })
+  useEffect(() => {
+    if (!aiStep) return
+    if (aiStep.after === null) setAiStep({ ...aiStep, after: said })
+    else if (aiStep.after !== said) setAiStep(null)
+    // Keyed on what the board says: the step's own render records it, the next change ends it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [said])
+  const undoAi = () => {
+    if (!aiStep) return
+    dispatch({ type: 'reset', state: aiStep.before.layout })
+    setDecl(aiStep.before.decl)
+    setRefresh(aiStep.before.refresh)
+    setAiStep(null)
+  }
   const onSave = (how: SaveHow) => {
     const found = validate(decl.params, bindings, bindPanels, model)
     setProblems(found.length > 0 ? found : null)
@@ -282,7 +313,10 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
           <Heading className="size-4" aria-hidden />
           {t('boardEditor.addSection')}
         </Button>
+        <EditWithCopilot editing={editing} />
       </section>
+
+      <AiStepNotice step={aiStep ? { kind: 'ai', request: aiStep.request } : null} onUndo={undoAi} />
 
       {layout.panels.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-board-editor-empty>

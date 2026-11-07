@@ -23,6 +23,7 @@ export const COPILOT_TOOLS = [
   'create_view',
   'create_report',
   'edit_report',
+  'edit_board',
 ] as const
 export type CopilotTool = (typeof COPILOT_TOOLS)[number]
 

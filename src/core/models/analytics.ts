@@ -853,3 +853,24 @@ export interface AnalyticsCatalog {
   planned: AnalyticsCatalogPlanned[]
   untappedSources: AnalyticsCatalogUntapped[]
 }
+
+// `POST Analytics/Catalog/Raw` (BackOffice 3442; ticket 844) — a curator's top-200 raw read of a mart / fact / dim
+// through its allow-listed columns only. No filters, no joins, no limit field.
+export interface AnalyticsRawPreviewRequest {
+  mart: string
+  /** An allow-listed column; absent = the mart's first listed column. */
+  orderBy?: string
+  /** Absent = true. */
+  descending?: boolean
+}
+
+export type AnalyticsRawValue = string | number | boolean | null
+
+export interface AnalyticsRawPreview {
+  /** The allow-listed columns, list order — the only ones selected. */
+  columns: string[]
+  /** ≤ 200, keyed by column name; values as raw JSON, no unit or shape. */
+  rows: Record<string, AnalyticsRawValue>[]
+  /** The table's columns not on the list. */
+  hiddenColumnCount: number
+}

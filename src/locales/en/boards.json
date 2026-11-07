@@ -115,6 +115,25 @@
       "plannedBy": "Planned areas that would read it",
       "plannedByNone": "No planned area names it yet.",
       "hint": "Source tables we hold that no mart reads yet."
+    },
+    "raw": {
+      "action": "Raw preview (top 200)",
+      "title": "Raw preview",
+      "rows": "Rows",
+      "size": "Size",
+      "sizeValue": "<n>{{size}}</n> MB",
+      "notStored": "Not stored (a view)",
+      "hidden": "Columns hidden from previews",
+      "orderBy": "Order by",
+      "descending": "Descending",
+      "run": "Preview",
+      "close": "Close the preview",
+      "loading": "Reading the top 200 rows…",
+      "failed": "The raw preview could not be read.",
+      "shown": "Rows shown: <n>{{count}}</n>",
+      "empty": "The table has no rows.",
+      "gridLabel": "Raw rows of {{mart}}",
+      "timedOut": "The raw preview took longer than 10 seconds. Try again, or order by another column."
     }
   },
   "access": {
@@ -377,7 +396,9 @@
     "notShared": "This analytics item isn’t shared with you.",
     "invalidValue": "A parameter's value can't be used for this panel. Change it in the strip above.",
     "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
-    "invalidRecipient": "That recipient can't receive this report."
+    "invalidRecipient": "That recipient can't receive this report.",
+    "needsCurator": "Raw previews of the data are for analytics curators only.",
+    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns."
   },
   "ask": {
     "label": "Ask the OMS about analytics",

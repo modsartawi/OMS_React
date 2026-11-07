@@ -1309,4 +1309,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Menu Access probes (BackOffice 3459), filed 2026-11-07
 
-- [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07, stubbed; staging walk left)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (🚩 24 per-leaf flag names guessed), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
+- [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18

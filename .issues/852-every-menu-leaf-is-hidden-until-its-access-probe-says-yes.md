@@ -73,3 +73,31 @@ Built against 3459's **proposed** wire; the staging walk is the only Proof line 
   idf-lookup 54. The other 14 insurance/IDF drives got the same one-line stub and were not re-run.
 - typecheck + build clean; `npm test` 9800/9800. `npm run lint` fails only on
   `features/insurance-rules/aliases/door-shapes.test.ts` (four cross-feature imports, committed 2026-11-01, untouched here).
+
+### 2026-11-07 — reviews (/code-review, /standards-review); BackOffice 3459 is DONE (`6e30f2224`, undeployed)
+
+- ✅ **The insurance names are no longer a guess.** 3459's Answer took one flag per leaf with exactly these 24 names
+  (`InsuranceRulesAccessWebEndpoints.cs`), and `Rules/Access` / `PrescriptionSessionWeb/Access` match the client.
+  The 🚩 wording is gone. The blocker is done, but the ticket stays open: **SIS.Api is not on staging**, so the walk waits.
+- 🚩 **Do not deploy this before 3459 is on the same host.** Every probe fails closed, so on a server without the
+  doors, all of Campaigns, all of Insurance rules, the engine switch, HQ prescription sessions and (with the center
+  off) Send Broadcast hide for every user.
+- **Fixed in review:**
+  - The Broadcast page takes the shell's options (`broadcastAccessQuery`: no retry, `staleTime: Infinity`), so a
+    404 is one call, not a retried one.
+  - The key is the exported `BROADCAST_ACCESS_KEY`.
+  - Comments now name each flag's real grant.
+  - The test constant is `PROBE_KEYS`.
+- ⚠ **Mapping caveats, recorded rather than changed:**
+  - The authoring screens open on `[RuleAuthoring, 03]`, which 3459 gives no flag. `canAuthor || canApprove` stands
+    in because the seeds bind 03 to both roles. So an approver sees Simulator and is refused on Simulate.
+  - Coupon finder and Customers ride `canSupport` provisionally, because their doors do not exist yet.
+- **Left for the owner:**
+  - Page route guards. The ticket contradicts itself ("route guard reads the SAME key" vs "No page behaviour
+    changes"); Broadcast is the only page that shares its key today.
+  - On an errored probe, the Broadcast page still draws the compose card: unchanged, and moot once 3459 answers
+    `false`.
+  - `canWriteOff` is unread: the write-off button still learns from its bare 403.
+  - A shared "explicit true" predicate helper, a probe dedupe in `useVisibleMenu` (duplicate query keys predate
+    this ticket: Collections, Materials and the rest share keys across leaves), and moving `accessProbe` to a leaf
+    module so `menu-insurance-rules` needs no cast.

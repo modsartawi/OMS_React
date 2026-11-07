@@ -3,7 +3,7 @@ import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, Chart
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
-import { broadcastApi } from '@/features/admin/broadcast/api'
+import { BROADCAST_ACCESS_KEY, broadcastApi } from '@/features/admin/broadcast/api'
 import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/console/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
@@ -598,7 +598,7 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/admin/broadcast',
         activePrefix: '/admin/broadcast',
         access: accessProbe({
-          key: ['broadcast', 'access'],
+          key: BROADCAST_ACCESS_KEY,
           run: () => broadcastApi.access(),
           visible: (r) => r?.allowed === true,
         }),

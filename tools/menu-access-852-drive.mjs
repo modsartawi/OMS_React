@@ -4,7 +4,7 @@
 //
 // Drives the REAL app in Chromium against STUBS of the probes (never a live SIS.Api), on the universal envelope:
 //   GET Rules/Access                    → { canAuthor, canApprove, canSupport, canSwitchEngine }
-//   GET InsuranceRules/Access           → one flag per leaf (`can` + its `menu.*` key — this repo's guess at 3459)
+//   GET InsuranceRules/Access           → one flag per leaf (`can` + its `menu.*` key, as 3459 ships them)
 //   GET PrescriptionSessionWeb/Access   → { canView, canWriteOff }
 //   GET Notifications/Access            → { canBroadcast }, or a 404 where the notification center is off
 //   GET Analytics/Access, Copilot/Access → the EXECUTIVE role's two grants

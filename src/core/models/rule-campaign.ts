@@ -967,15 +967,15 @@ export interface StoreEngineLookupItem {
 
 /**
  * `GET Rules/Access` (BackOffice 3459, oms 852) — cookie-gated, not grant-gated; one flag per screen family,
- * each from the grant that family's doors check. ⚠ Built against 3459's proposed wire before the door shipped.
+ * each from the grant that family's doors check (`RulesAccessWebEndpoints`).
  */
 export interface RulesAccess {
-  /** `BackOfficeScreen[RuleAuthoring]` as an author (RULE_AUTHOR). */
+  /** `BackOfficeScreen[RuleAuthoring, 02]` (RULE_AUTHOR). */
   canAuthor: boolean
-  /** `BackOfficeScreen[RuleAuthoring]` as an approver (RULE_APPROVER). */
+  /** `BackOfficeScreen[RuleAuthoring, 06]` (RULE_APPROVER). */
   canApprove: boolean
-  /** `BackOfficeScreen[RuleSupport]` (RULE_SUPPORT, RULE_SUPPORT_CANCEL). */
+  /** `BackOfficeScreen[RuleSupport, 03]` (RULE_SUPPORT, RULE_SUPPORT_CANCEL). */
   canSupport: boolean
-  /** `BackOfficeScreen[RuleEngineSwitch]` (RULE_ENGINE_SWITCH). */
+  /** `BackOfficeScreen[RuleEngineSwitch, 02]` (RULE_ENGINE_SWITCH), the flip. */
   canSwitchEngine: boolean
 }

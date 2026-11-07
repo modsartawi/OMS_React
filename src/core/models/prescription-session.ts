@@ -196,8 +196,8 @@ export interface PrescriptionSessionHqToOpen {
 }
 
 /**
- * `GET PrescriptionSessionWeb/Access` (BackOffice 3459, oms 852) → `{ canView, canWriteOff }`: `PrescriptionSessionHq`
- * and `PrescriptionSessionWriteOff`. ⚠ Built against 3459's proposed wire before the door shipped.
+ * `GET PrescriptionSessionWeb/Access` (BackOffice 3459, oms 852) → `{ canView, canWriteOff }`: the HQ list's Display grant
+ * and `PrescriptionSessionWriteOff` Execute. `canWriteOff` is not read yet: the write-off button still learns from its bare 403.
  */
 export interface PrescriptionSessionAccess {
   canView: boolean

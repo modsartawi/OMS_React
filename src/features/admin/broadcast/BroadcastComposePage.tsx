@@ -13,7 +13,7 @@ import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { lookupQueries } from '@/core/services/lookups'
-import { broadcastApi } from './api'
+import { broadcastAccessQuery, broadcastApi } from './api'
 import {
   EMPTY_FORM,
   TITLE_MAX,
@@ -31,10 +31,7 @@ import {
 // Create stays authoritative — a lost grant still refuses on send (NC_FORBIDDEN).
 export default function BroadcastComposePage() {
   const { t } = useTranslation('broadcast')
-  const access = useQuery({
-    queryKey: ['broadcast', 'access'],
-    queryFn: () => broadcastApi.access(),
-  })
+  const access = useQuery(broadcastAccessQuery())
 
   if (access.isPending) {
     return (

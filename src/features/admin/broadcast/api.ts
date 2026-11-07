@@ -23,6 +23,17 @@ interface BroadcastAccessWire {
   canBroadcast: boolean
 }
 
+/** The ONE key the menu leaf and the page share, and the options both pass (oms 852): a refusal is an answer. */
+export const BROADCAST_ACCESS_KEY = ['broadcast', 'access'] as const
+export function broadcastAccessQuery() {
+  return {
+    queryKey: BROADCAST_ACCESS_KEY,
+    queryFn: () => broadcastApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
 export const broadcastApi = {
   create(request: CreateNotificationRequest): Promise<CreateNotificationResult> {
     return api.post<CreateNotificationResult>('Notifications', request)

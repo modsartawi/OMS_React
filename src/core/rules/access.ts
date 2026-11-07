@@ -27,15 +27,20 @@ type Answer = Partial<RulesAccess> | null | undefined
 const flag = (r: Answer, key: keyof RulesAccess): boolean => typeof r === 'object' && r !== null && r[key] === true
 
 /**
- * The authoring family's screens (Promotions, Priority, Simulator, Campaign uploads): every door behind them reads
- * `BackOfficeScreen[RuleAuthoring]`, which the author AND the approver roles both hold.
+ * The authoring family's screens (Promotions, Priority, Simulator, Campaign uploads) open on `[RuleAuthoring, 03]`, which
+ * 3459 gives no flag of its own: author (02) OR approver (06) stands in, because the seeds bind 03 to both roles.
+ * ⚠ An approver sees Simulator and is refused on Simulate (02); a DB without the approval seed would show an author
+ * leaves whose reads refuse.
  */
 export const canReadAuthoring = (r: Answer): boolean => flag(r, 'canAuthor') || flag(r, 'canApprove')
 
 /** Campaign upload — a workbook becomes drafts: the author's act, not the approver's. */
 export const canAuthorRules = (r: Answer): boolean => flag(r, 'canAuthor')
 
-/** Support's screens (Sessions, Coupon finder, Customers): `BackOfficeScreen[RuleSupport]`. */
+/**
+ * Support's screens: Sessions reads `[RuleSupport, 03]`. ⚠ Coupon finder and Customers ride it too, provisionally:
+ * their doors (`RuleCampaign/Coupons`, `RuleCampaign/Members`) do not exist yet, so no grant can be read for them.
+ */
 export const canSupportRules = (r: Answer): boolean => flag(r, 'canSupport')
 
 /** The store engine switch: `BackOfficeScreen[RuleEngineSwitch]`. */

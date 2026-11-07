@@ -24,7 +24,7 @@ type State = { isPending: boolean; isSuccess: boolean; data: unknown }
 
 const BROADCAST_KEY = ['broadcast', 'access'] as const
 const keyOf = (k: readonly unknown[]) => JSON.stringify(k)
-const FIVE = [RULES_ACCESS_KEY, INSURANCE_RULES_ACCESS_KEY, PRESCRIPTION_SESSION_ACCESS_KEY, BROADCAST_KEY].map(keyOf)
+const PROBE_KEYS = [RULES_ACCESS_KEY, INSURANCE_RULES_ACCESS_KEY, PRESCRIPTION_SESSION_ACCESS_KEY, BROADCAST_KEY].map(keyOf)
 
 const gated = (items: Item[]): Item[] => items.flatMap((i) => [...(i.access ? [i] : []), ...gated(i.items ?? [])])
 const leaves = (items: Item[]): Item[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
@@ -55,9 +55,9 @@ describe('852 — the five areas hide until their probe says yes', () => {
   it('every leaf of the five areas carries a probe on one of their four keys', () => {
     const groups = MENU.filter((g) => g.labelKey === 'campaigns:menu.group' || g.labelKey === 'insurance-rules:menu.group')
     expect(groups).toHaveLength(2)
-    for (const leaf of leaves(groups)) expect(FIVE).toContain(keyOf(leaf.access!.key))
+    for (const leaf of leaves(groups)) expect(PROBE_KEYS).toContain(keyOf(leaf.access!.key))
     const named = ['engine-switch:menu.engineSwitch', 'prescription-sessions:menu.prescriptionSessions', 'broadcast:menu.sendBroadcast']
-    for (const label of named) expect(FIVE).toContain(keyOf(leaves(MENU).find((l) => l.labelKey === label)!.access!.key))
+    for (const label of named) expect(PROBE_KEYS).toContain(keyOf(leaves(MENU).find((l) => l.labelKey === label)!.access!.key))
   })
 
   it('one call per area: the nine rule-engine leaves share ONE key, the insurance leaves another', () => {
@@ -86,7 +86,7 @@ describe('852 — the five areas hide until their probe says yes', () => {
   it.each(INSURANCE_RULES_FLAGS.map((f) => [f]))('InsuranceRules/Access %s alone shows only its leaf', (flag) => {
     const shown = visibleLeaves({ ...ALL_FALSE, [keyOf(INSURANCE_RULES_ACCESS_KEY)]: answered({ ...INS_NONE, [flag]: true }) })
     expect(shown).toHaveLength(1)
-    // The flag is `can` + the leaf's `menu.*` key — the one naming rule the guess at 3459's wire follows.
+    // The flag is `can` + the leaf's `menu.*` key — the naming rule 3459's door follows.
     expect(`can${shown[0].replace('insurance-rules:menu.', '').replace(/^./, (c) => c.toUpperCase())}`).toBe(flag)
   })
 
@@ -105,7 +105,7 @@ describe('852 — the five areas hide until their probe says yes', () => {
   it('a pending, errored or malformed probe hides every leaf of the five (no flash-then-hide)', () => {
     const malformed = answered({ canAuthor: 'true', canSupport: 1, canView: 'yes', allowed: 'true', canGuards: 1 })
     for (const state of [pending, errored, answered({}), answered(null), malformed])
-      expect(visibleLeaves(Object.fromEntries(FIVE.map((k) => [k, state])))).toEqual([])
+      expect(visibleLeaves(Object.fromEntries(PROBE_KEYS.map((k) => [k, state])))).toEqual([])
   })
 })
 

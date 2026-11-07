@@ -20,7 +20,7 @@ export function insuranceRulesAccessQuery() {
   } as const
 }
 
-/** Every flag, in the menu's order. 🚩 The names are a guess at 3459's wire — see `InsuranceRulesAccess`. */
+/** Every flag, in the menu's order. As 3459 ships them — see `InsuranceRulesAccess`. */
 export const INSURANCE_RULES_FLAGS = [
   'canGuards',
   'canTemplates',

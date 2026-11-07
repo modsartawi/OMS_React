@@ -100,14 +100,12 @@ export interface CopilotReportContext {
    */
   reportId: string | null
   revision: number
-  draft: CopilotReportDraft
-}
-
-/** The designer's working copy: the report's words and its definition. */
-export interface CopilotReportDraft {
-  title: AnalyticsLabel
-  subtitle: AnalyticsLabel
-  definition: AnalyticsReportDefinition
+  /**
+   * The designer's working copy of the report's DEFINITION, in the store's wire shape (`{ params, bindings, sections }`),
+   * not wrapped with its title: BackOffice reads it as the definition (3408 §I, 3421). Wrapped, the model was shown an
+   * empty report and answered with one (835 walk).
+   */
+  draft: AnalyticsReportDefinition
 }
 
 /** `POST Copilot/Ask` body. `conversationId` is sent back on a follow-up (D5); `reportContext` while a report is open in the designer (832). */

@@ -3622,7 +3622,7 @@ async function copilotReport832({ dir }) {
   const asked = (bodies['Copilot/Ask'] ?? [])[1]
   check(
     `${tag}: the follow-up sends the report in context { reportId, revision, draft }`,
-    asked?.conversationId === 'c-832' && asked?.reportContext?.reportId === 'r-832' && asked.reportContext.revision === 1 && asked.reportContext.draft?.definition?.sections?.length === 4 && asked.reportContext.draft.title?.en === 'Channel sales: HungerStation against QC',
+    asked?.conversationId === 'c-832' && asked?.reportContext?.reportId === 'r-832' && asked.reportContext.revision === 1 && asked.reportContext.draft?.sections?.length === 4 && !('definition' in asked.reportContext.draft),
     JSON.stringify(asked && { c: asked.conversationId, r: asked.reportContext?.reportId, v: asked.reportContext?.revision }),
   )
   await turns.nth(1).locator('details[data-copilot-trace] summary').click()
@@ -3774,7 +3774,7 @@ async function copilotUnsaved832({ dir }) {
   const asked = (bodies['Copilot/Ask'] ?? [])[0]
   check(
     `${tag}: the unsaved report is sent in context, with no id, revision 0 and its draft`,
-    asked?.reportContext?.reportId === null && asked.reportContext.revision === 0 && asked.reportContext.draft?.title?.en === 'Draft sales' && asked.reportContext.draft.definition?.sections?.length === 1,
+    asked?.reportContext?.reportId === null && asked.reportContext.revision === 0 && asked.reportContext.draft?.sections?.length === 1 && !('definition' in asked.reportContext.draft),
     JSON.stringify(asked?.reportContext && { r: asked.reportContext.reportId, v: asked.reportContext.revision }),
   )
   await page.keyboard.press('Escape')

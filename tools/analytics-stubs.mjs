@@ -888,7 +888,7 @@ export const CREATE_ANSWER_832 = {
 /** `edit_report` against the report in context: its draft plus a cancellation-rate bar in s2, unsaved (`reportEdit`). */
 export function editAnswer832(body) {
   const ctx = body.reportContext
-  const definition = structuredClone(ctx.draft.definition)
+  const definition = structuredClone(ctx.draft)
   const s2 = definition.sections.find((x) => x.id === 's2') ?? definition.sections[0]
   s2.blocks.push({ id: 'p5', kind: 'panel', title: label('Cancellation rate by channel', 'نسبة الإلغاء حسب القناة'), definition: def('bar', ['cancellation_rate'], ['channel_group']) })
   return {

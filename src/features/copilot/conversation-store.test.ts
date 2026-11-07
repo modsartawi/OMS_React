@@ -168,7 +168,7 @@ describe('the copilot history (CTO demo)', () => {
 
 describe('the copilot and the report open in the designer (spec 819 §D, ticket 832)', () => {
   const definition = (heading: string) => ({ params: [], bindings: {}, sections: [{ id: 's1', heading: { en: heading, ar: '' }, blocks: [] }] })
-  const context = { reportId: 'r-1', revision: 1, draft: { title: { en: 'Channel sales', ar: '' }, subtitle: { en: '', ar: '' }, definition: definition('Sales') } }
+  const context = { reportId: 'r-1', revision: 1, draft: definition('Sales') }
   const edited = (reportId: string): CopilotAnswer => ({
     ...reply('c-0001', 1),
     reportEdit: { reportId, definition: definition('Sales and cancellations'), note: { en: 'Added a bar.', ar: '' } },

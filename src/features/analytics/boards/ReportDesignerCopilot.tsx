@@ -27,8 +27,8 @@ export function useReportInContext(reportId: string | null, revision: number, dr
   applyRef.current = apply
 
   useEffect(() => {
-    publish({ reportId, revision: reportId ? revision : 0, draft })
-  }, [publish, reportId, revision, draft])
+    publish({ reportId, revision: reportId ? revision : 0, draft: draft.definition })
+  }, [publish, reportId, revision, draft.definition])
 
   useEffect(() => () => clear(reportId), [clear, reportId])
 

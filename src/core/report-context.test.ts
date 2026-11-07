@@ -7,7 +7,7 @@ const definition = (heading: string) => ({ params: [], bindings: {}, sections: [
 const ctx = (reportId: string | null, revision = 1): CopilotReportContext => ({
   reportId,
   revision,
-  draft: { title: label('Channel sales'), subtitle: label(''), definition: definition('Sales') },
+  draft: definition('Sales'),
 })
 const edit = (reportId: string | null): CopilotReportEdit => ({ reportId, definition: definition('Sales and cancellations'), note: label('Added the cancellation rate as a bar.') })
 

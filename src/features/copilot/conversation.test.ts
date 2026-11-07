@@ -80,7 +80,7 @@ describe('the report in context (spec 819 §D, ticket 832)', () => {
   const context = {
     reportId: 'r-1',
     revision: 2,
-    draft: { title: { en: 'Channel sales', ar: '' }, subtitle: { en: '', ar: '' }, definition: { params: [], bindings: {}, sections: [] } },
+    draft: { params: [], bindings: {}, sections: [] },
   }
   it('askBody_sendsTheReportOpenInTheDesigner_andNothingWhenNoneIs', () => {
     expect(askBody(EMPTY_CONVERSATION, 'Add the cancellation rate as a bar', context)).toEqual({ question: 'Add the cancellation rate as a bar', reportContext: context })

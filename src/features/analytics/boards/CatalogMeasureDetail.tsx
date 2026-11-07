@@ -4,6 +4,7 @@ import type { AnalyticsCatalogArea, AnalyticsMeasure } from '@/core/models/analy
 import { saysIn } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import { cannotCutBy } from './catalog-tree'
+import { useCatalogActions } from './CatalogActions'
 import { BothOrNone, DetailShell, Fact } from './CatalogDetailParts'
 
 /**
@@ -14,8 +15,9 @@ export default function CatalogMeasureDetail({ area, measure }: { area: Analytic
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const notBy = cannotCutBy(area, measure)
+  const { actions, below } = useCatalogActions(area, measure.key)
   return (
-    <DetailShell kind={t('catalog.kind.measure')} title={measure.label} machineKey={measure.key} actions={null} data="measure">
+    <DetailShell kind={t('catalog.kind.measure')} title={measure.label} machineKey={measure.key} actions={actions} below={below} data="measure">
       <Fact label={t('catalog.fact.description')}>
         <BothOrNone says={measure.description} />
       </Fact>

@@ -6,6 +6,7 @@ import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
+import { useCatalogActions } from './CatalogActions'
 import { areaFacts, type AreaFacts } from './catalog-area'
 import { BothOrNone, DetailShell, Fact, ServerText } from './CatalogDetailParts'
 
@@ -18,10 +19,11 @@ import { BothOrNone, DetailShell, Fact, ServerText } from './CatalogDetailParts'
  */
 export default function CatalogAreaDetail({ area }: { area: AnalyticsCatalogArea }) {
   const { t } = useTranslation('boards')
+  const { actions, below } = useCatalogActions(area)
   const lang = i18n.language
   const facts = areaFacts(area)
   return (
-    <DetailShell kind={t('catalog.kind.area')} title={area.label} machineKey={area.key} actions={null} data="area">
+    <DetailShell kind={t('catalog.kind.area')} title={area.label} machineKey={area.key} actions={actions} below={below} data="area">
       <Fact label={t('catalog.fact.description')}>
         <BothOrNone says={area.description} />
       </Fact>

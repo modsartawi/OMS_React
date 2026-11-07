@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:/Work/DMSCO/BackOffice/.issues/3437-analytics-library-pages-and-the-data-catalog-spec.md
 blocked-by: 841, BackOffice 3441
 ---
@@ -24,10 +24,10 @@ UI / api / tests.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `preview request carries the defaults and re-runs on period change` · vitest
-- [ ] `dropped measures show a note` · vitest
-- [ ] `new view from a measure pre-fills the builder link` · vitest
-- [ ] `runner sees no author actions` · vitest
+- [x] `preview request carries the defaults and re-runs on period change` · vitest
+- [x] `dropped measures show a note` · vitest
+- [x] `new view from a measure pre-fills the builder link` · vitest
+- [x] `runner sees no author actions` · vitest
 
 ## Boundaries
 
@@ -40,3 +40,29 @@ Proofs green; on staging a preview of Item sales shows 200 rows by day.
 ## Blocked by
 
 [841](841-the-catalog-page-browses-areas-members-marts-and-sources-as-a-tree.md), BackOffice [3441](C:/Work/DMSCO/BackOffice/.issues/3441-any-viewer-previews-an-area-through-cube-200-rows-by-day-for-the-last-7-days.md)
+
+## Comments
+
+**2026-11-07 — built (stubbed).** Code half holds; the staging walk ("a preview of Item sales shows 200 rows by day")
+is still owed.
+
+- Proofs (vitest, pure modules): `catalog-preview.test.ts` (request defaults + period re-run under a new query key,
+  `readPreview` keeps `dropped` + `droppedNotes`, grid columns/formats, preview refusals), `catalog-actions.test.ts`
+  (`newViewFrom`, `catalogAuthorActions`), `src/core/copilot-panel.test.ts` (`prefill` / `takeDraft`).
+- Drive: scenario `843` in `tools/analytics-drive.mjs` (stub `previewAnswer843` in `tools/analytics-catalog-stubs.mjs`,
+  branch `Analytics/Catalog/Preview` in `tools/analytics-stubs.mjs`), 24/24 en + rtl.
+- Agent rulings applied (overrulable by the owner):
+  - **4** "Ask about this area" PREFILLS, never sends: new generic `prefill(text)` / `takeDraft()` on
+    `@/core/copilot-panel`; the copilot panel puts it in its box and focuses it. The question is
+    `catalog.actions.askQuestion` with `fsi(label)` per the ruling — ⚠ the FSI/PDI therefore ride into the question
+    text if sent as is (the copilot's own example chips avoid `fsi` for that reason); owner to confirm.
+  - **5** New view: a measure/area node → that measure (else the area's first), by `date` at day grain, last 7 days,
+    line chart; `newViewFrom` also takes a dimension node (that dimension, bar), not mounted on the dimension pane.
+  - **12** dedicated `readPreview` wrapping `readResult`, keeping `dropped` (an entry with no measure dropped).
+  - **13** preview-specific refusal words under `catalog.preview.refusal.*` (en + ar): 406 on `measures` →
+    `allDropped`, other 406 → `invalid`, 408 → `timedOut` (30 s), 410 → the area's reason from the refusal's data
+    (else the catalog's); anything else falls back to `refusalWords`.
+- Preview is offered to every viewer (runners too); New view + Ask need the author grant, Ask also the copilot probe.
+  The column chooser sends category dimensions only (the server owns `date`). The grid is `@/core/charts/TableChart`
+  (grid base, `fsi` headers, `formatValue`/`formatDay`), lazy-loaded when Preview opens.
+- Shared touches: `DetailShell` gained an optional `below` slot (`CatalogDetailParts.tsx`) for the preview.

@@ -69,6 +69,45 @@ export const CATALOG_NO_LINEAGE_841 = {
   sources: [],
 }
 
+// ── 843: `POST Analytics/Catalog/Preview` (BO 3441, `AnalyticsCatalogPreview.cs`) ──────────────────────────────────
+// The query door's answer plus `dropped`: date by day (newest first) + the chosen (else every cuttable) category
+// dimensions + the chosen (else every) measure, a measure a chosen dimension refuses listed under `dropped`.
+// Unavailable area → ANALYTICS-410 with `{ area, unavailableReason }`; every measure dropped → ANALYTICS-406 on `measures`.
+export function previewAnswer843(body, catalog = CATALOG_841) {
+  const a = catalog.areas.find((x) => x.key === body.area)
+  if (!a) return { refused: 'ANALYTICS-406', data: { field: 'area' } }
+  if (!a.available) return { refused: 'ANALYTICS-410', data: { area: a.key, unavailableReason: a.unavailableReason } }
+  const chosenM = body.measures?.length ? a.measures.filter((m) => body.measures.includes(m.key)) : a.measures
+  const cats = a.dimensions.filter((d) => d.key !== 'date').map((d) => d.key)
+  const chosenD = body.dimensions?.length ? body.dimensions : cats.filter((d) => chosenM.every((m) => m.dimensions.includes(d)))
+  const dropped = []
+  const kept = chosenM.filter((m) => {
+    const by = chosenD.find((d) => !m.dimensions.includes(d))
+    if (by) dropped.push({ measure: m.key, because: by })
+    return !by
+  })
+  if (kept.length === 0) return { refused: 'ANALYTICS-406', data: { field: 'measures' } }
+  const days = body.period === 'last-30-days' ? 30 : 7
+  const rows = []
+  for (let i = 0; i < days && rows.length < 200; i++) {
+    const day = new Date(Date.UTC(2026, 10, 6 - i)).toISOString().slice(0, 10)
+    const row = { date: day }
+    chosenD.forEach((d) => (row[d] = `${d.toUpperCase()}-01`))
+    kept.forEach((m, j) => (row[m.key] = 1000 + i * 10 + j))
+    rows.push(row)
+  }
+  return {
+    columns: [
+      { key: 'date', role: 'dimension', shape: null, unit: null },
+      ...chosenD.map((d) => ({ key: d, role: 'dimension', shape: null, unit: null })),
+      ...kept.map((m) => ({ key: m.key, role: 'measure', shape: m.shape, unit: m.unit })),
+    ],
+    rows, total: rows.length, truncated: false, period: { from: rows.at(-1).date, to: rows[0].date },
+    previous: null, previousPeriod: null, fetchedAt: '2026-11-07T10:00:00Z', dataAsOf: '2026-11-07T09:45:12',
+    notReached: null, fellBack: null, values: null, dropped,
+  }
+}
+
 /**
  * 842: the catalog with BackOffice 3440's roadmap and untapped list (the till area also names two boundary entries),
  * as `GET Analytics/Catalog` answers on spec3437. `loy.Ghost` names neither a lineage nor an untapped source.

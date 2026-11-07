@@ -13,6 +13,7 @@ export function DetailShell({
   title,
   machineKey,
   actions,
+  below,
   children,
   data,
 }: {
@@ -23,6 +24,8 @@ export function DetailShell({
   machineKey: string
   /** Buttons for this node (843/844). `null`/absent draws nothing. */
   actions?: ReactNode
+  /** What an action opens under the facts (843's area preview). `null`/absent draws nothing. */
+  below?: ReactNode
   children?: ReactNode
   data: string
 }) {
@@ -45,6 +48,7 @@ export function DetailShell({
         )}
       </header>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-[minmax(8rem,auto)_1fr]">{children}</dl>
+      {below}
     </article>
   )
 }

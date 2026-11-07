@@ -9,6 +9,8 @@ import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
   AnalyticsCatalog,
+  AnalyticsCatalogPreview,
+  AnalyticsCatalogPreviewRequest,
   AnalyticsRawPreview,
   AnalyticsRawPreviewRequest,
   AnalyticsBoard,
@@ -48,6 +50,7 @@ import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readCatalog } from './catalog-wire'
+import { readPreview } from './catalog-preview'
 import { readRaw } from './catalog-raw'
 import { renderTicket, ticketHeaders } from './render-ticket'
 import {
@@ -128,6 +131,13 @@ export const analyticsApi = {
    */
   catalogPdf(lang: 'en' | 'ar'): Promise<FileResponse> {
     return api.postJsonBlob('Analytics/Catalog/Render', { lang })
+  },
+  /**
+   * 843 (BackOffice 3441, spec 3437 §D): `POST Analytics/Catalog/Preview` — any viewer's 200 rows of an area by day,
+   * through the query door. Read by `readPreview`, which keeps `dropped`. Key: `./catalog-preview` `analyticsPreviewKey`.
+   */
+  async catalogPreview(body: AnalyticsCatalogPreviewRequest): Promise<AnalyticsCatalogPreview> {
+    return readPreview(await api.post<unknown>('Analytics/Catalog/Preview', body))
   },
   /**
    * `POST Analytics/Catalog/Raw` (BackOffice 3442, ticket 844): a curator's top 200 rows of a mart / fact / dim through

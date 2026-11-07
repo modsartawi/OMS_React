@@ -1002,6 +1002,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
   /** 840: my pins, last pinned first. */
   const pinnedNow = []
   const calls = []
+  /** 845: the render-ticket header each `Render/Catalog` read carried (null = none). */
+  const ticketsSeen = []
   const bodies = {}
   /** 774: GET query strings by path (the Deliveries list's search). */
   const gets = {}
@@ -1031,6 +1033,21 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (p === 'Analytics/Catalog') {
       const catalog = opts.catalog ?? CATALOG_841
       return route.fulfill(isFulfil(catalog) ? catalog : envelope(catalog))
+    }
+    // 845 (BO 3444): the print route's door — the same catalog, but only with the ticket header (else ANALYTICS-401
+    // at 400, so the drive sees the refusal state rather than handle401's redirect). Headers kept in `ticketsSeen`.
+    if (p === 'Analytics/Render/Catalog') {
+      const held = req.headers()['x-analytics-render-ticket'] ?? null
+      ticketsSeen.push(held)
+      if (!held) return route.fulfill(refusal('ANALYTICS-401', 'No render ticket.'))
+      const catalog = opts.catalog ?? CATALOG_841
+      return route.fulfill(isFulfil(catalog) ? catalog : envelope(catalog))
+    }
+    // 845: the Print button's door — `opts.catalogPdf`: a fulfil object (a refusal); default a tiny PDF named by `lang`.
+    if (p === 'Analytics/Catalog/Render') {
+      if (opts.catalogPdf) return route.fulfill(opts.catalogPdf)
+      const ar = (req.postDataJSON() ?? {}).lang === 'ar'
+      return route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'Content-Disposition': `attachment; filename=${ar ? 'catalog-ar.pdf' : 'catalog.pdf'}` }, body: Buffer.from('%PDF-1.7\n%%EOF\n') })
     }
     // 843: the catalog preview (`opts.preview`: a function of the body, or a fixed answer / fulfil; default `previewAnswer843`).
     if (p === 'Analytics/Catalog/Preview') {
@@ -1306,5 +1323,5 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false }))
     return route.fulfill(envelope([]))
   })
-  return { calls, bodies, gets }
+  return { calls, bodies, gets, ticketsSeen }
 }

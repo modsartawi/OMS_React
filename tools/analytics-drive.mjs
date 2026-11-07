@@ -326,6 +326,48 @@ async function catalog843({ dir }) {
   await runner.context.close()
 }
 
+// 845 — the catalog prints as a bilingual PDF (BackOffice spec 3437 §G, BO 3444), en and ar: the Catalog page's
+// Print control asks `POST Analytics/Catalog/Render` with the chosen language and saves the server's file; a 408
+// toasts the PDF's own words; the print route under a ticket (`?lang=…&ticket=…`) reads ONLY `Render/Catalog` with
+// the ticket header — no Access, no Model, no Catalog — lays out every area then the Planned and untapped section in
+// the ticket's language (RTL for ar), and says `data-print-ready`; no page errors.
+async function print845({ dir }) {
+  const tag = `845 ${dir}`
+  const lang = dir === 'rtl' ? 'ar' : 'en'
+  const screen = await open({ dir, catalog: CATALOG_842 })
+  await screen.page.goto(`${BASE}/analytics/catalog`)
+  await screen.page.locator('[data-catalog-print]').waitFor({ timeout: 15000 })
+  const [download] = await Promise.all([screen.page.waitForEvent('download'), screen.page.locator(`[data-catalog-print-lang="${lang}"]`).click()])
+  check(`${tag}: Print asks Catalog/Render in the chosen language`, JSON.stringify(screen.bodies['Analytics/Catalog/Render']) === JSON.stringify([{ lang }]), JSON.stringify(screen.bodies['Analytics/Catalog/Render']))
+  check(`${tag}: the PDF is saved as the server names it`, download.suggestedFilename() === (lang === 'ar' ? 'catalog-ar.pdf' : 'catalog.pdf'), download.suggestedFilename())
+  await screen.page.screenshot({ path: `${SHOTS}/845-print-control-${dir}.png` })
+  check(`${tag}: no page errors on the Catalog page`, screen.errors.length === 0, screen.errors.join(' | '))
+  await screen.context.close()
+
+  const timed = await open({ dir, catalog: CATALOG_842, catalogPdf: refusal('ANALYTICS-408', 'Render timed out.', 408) })
+  await timed.page.goto(`${BASE}/analytics/catalog`)
+  await timed.page.locator('[data-catalog-print-lang="en"]').click()
+  const toast = timed.page.locator('[data-sonner-toast]').first()
+  await toast.waitFor({ timeout: 5000 }).catch(() => {})
+  check(`${tag}: a 408 toasts the PDF's own words`, /PDF/.test((await toast.textContent().catch(() => '')) ?? ''), (await toast.textContent().catch(() => '')) ?? '')
+  await timed.context.close()
+
+  // The renderer's view: a fresh browser on the print route with a ticket, the paper in the ticket's language.
+  const paper = await open({ dir: 'ltr', catalog: CATALOG_842 })
+  await paper.page.goto(`${BASE}/analytics/print/catalog?lang=${lang}&ticket=T-845`)
+  await paper.page.locator('[data-print-ready]').waitFor({ timeout: 15000 })
+  const analytics = paper.calls.filter((c) => c.startsWith('Analytics/'))
+  check(`${tag}: the print route reads only Render/Catalog`, [...new Set(analytics)].join() === 'Analytics/Render/Catalog', JSON.stringify(analytics))
+  check(`${tag}: with the ticket header`, paper.ticketsSeen.length > 0 && paper.ticketsSeen.every((h) => h === 'T-845'), JSON.stringify(paper.ticketsSeen))
+  const areas = await paper.page.locator('[data-catalog-print-area]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-print-area')))
+  check(`${tag}: every area is on the paper`, JSON.stringify(areas) === JSON.stringify(CATALOG_842.areas.map((a) => a.key)), JSON.stringify(areas))
+  check(`${tag}: the Planned and untapped section follows`, (await paper.page.locator('[data-catalog-print-planned] [data-catalog-print-planned-area]').count()) === CATALOG_842.planned.length)
+  check(`${tag}: the paper is in the ticket's language`, (await paper.page.evaluate(() => document.documentElement.dir)) === dir)
+  await paper.page.screenshot({ path: `${SHOTS}/845-paper-${dir}.png`, fullPage: true })
+  check(`${tag}: no page errors on the paper`, paper.errors.length === 0, paper.errors.join(' | '))
+  await paper.context.close()
+}
+
 // 842 — a catalog area shows its facts, boundary, readers and used-by link, and the Planned / untapped section
 // (BackOffice spec 3437 §G, stories 22–26, 31–33), en and ar: the till area's data as of, history, refresh, two
 // boundary entries, the copilot and designer badges, used-by counts linking to All my items with `?kind=…&area=…`;
@@ -4961,6 +5003,8 @@ const SCENARIOS = [
   ['842', () => catalog842({ dir: 'rtl' })],
   ['844', () => rawPreview844({ dir: 'ltr' })],
   ['844', () => rawPreview844({ dir: 'rtl' })],
+  ['845', () => print845({ dir: 'ltr' })],
+  ['845', () => print845({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],

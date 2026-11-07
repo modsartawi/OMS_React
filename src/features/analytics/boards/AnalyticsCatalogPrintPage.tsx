@@ -36,7 +36,11 @@ export default function AnalyticsCatalogPrintPage() {
   if (ticket && renderTicket()?.ticket !== ticket) setRenderTicket({ ticket, lang: search.get('lang') === 'ar' ? 'ar' : 'en' })
   const lang = renderTicket()?.lang
   useEffect(() => {
-    if (lang && i18n.language !== lang) void i18n.changeLanguage(lang)
+    if (!lang) return
+    if (i18n.language !== lang) void i18n.changeLanguage(lang)
+    // Direction is a boot fact read from the stored locale (`@/core/theme/direction`), but the renderer is a fresh
+    // profile with none: the paper takes the ticket's direction here. Safe live — this page mounts no grid.
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
   }, [lang])
 
   const [query] = catalogPrintQueries()
@@ -153,7 +157,7 @@ function PrintView({ print }: { print: CatalogPrint }) {
           ) : (
             <ul className="flex flex-col gap-1.5">
               {print.untapped.map((u) => (
-                <li key={u.key} className="flex flex-col [break-inside:avoid]" data-catalog-print-untapped={u.key}>
+                <li key={u.key} className="flex flex-col items-start [break-inside:avoid]" data-catalog-print-untapped={u.key}>
                   <Ltr>{formatParts([u.server, u.database, u.table])}</Ltr>
                   <span className="text-xs text-muted-foreground">
                     <ServerText text={u.note} />
@@ -254,7 +258,7 @@ function AreaBlock({ a, lang }: { a: PrintArea; lang: string }) {
       ) : (
         <ul className="flex flex-col gap-1.5" data-catalog-print-marts>
           {a.marts.map((m) => (
-            <li key={m.key} className="flex flex-col">
+            <li key={m.key} className="flex flex-col items-start">
               <span className="flex flex-wrap gap-2">
                 <Ltr>{m.key}</Ltr>
                 <span className="text-muted-foreground">{t(`catalog.martKind.${m.kind}`)}</span>
@@ -295,7 +299,7 @@ function AreaBlock({ a, lang }: { a: PrintArea; lang: string }) {
       ) : (
         <ul className="flex flex-col gap-1" data-catalog-print-sources>
           {a.sources.map((s) => (
-            <li key={s.key} className="flex flex-col">
+            <li key={s.key} className="flex flex-col items-start">
               {s.source ? (
                 <>
                   <Ltr>{formatParts([s.source.server, s.source.database, s.source.table])}</Ltr>

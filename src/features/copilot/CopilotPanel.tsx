@@ -62,10 +62,24 @@ function InContext() {
   if (!report && !board) return null
   const kind = report ? 'report' : 'board'
   const named = saysIn((report ? reportTitle : boardTitle) ?? { en: '', ar: '' }, i18n.language)
+  // The item's id for a power user (836): what the AI's edit names, and what the screen's breadcrumb shows.
+  const id = report ? report.reportId : board?.boardId ?? null
   return (
     <div className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs" role="status" data-copilot-in-context={kind}>
       <PencilLine className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-      <span className="min-w-0 truncate">{named ? t(`context.editing.${kind}`, { title: fsi(named) }) : t(`context.editingUntitled.${kind}`)}</span>
+      <span className="min-w-0 flex-1 truncate">{named ? t(`context.editing.${kind}`, { title: fsi(named) }) : t(`context.editingUntitled.${kind}`)}</span>
+      {id ? (
+        <span className="flex shrink-0 items-center gap-1 text-muted-foreground" data-copilot-in-context-id={id}>
+          {t('context.id')}
+          <span className="select-all rounded bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+            <Ltr>{id}</Ltr>
+          </span>
+        </span>
+      ) : (
+        <span className="shrink-0 text-muted-foreground" data-copilot-in-context-id="">
+          {t('context.unsaved')}
+        </span>
+      )}
     </div>
   )
 }

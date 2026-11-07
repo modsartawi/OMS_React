@@ -94,6 +94,8 @@
       "enter": "TV mode",
       "exit": "Exit TV mode",
       "exitHint": "Esc also leaves TV mode",
+      "fullscreen": "Full screen",
+      "fullscreenHint": "Hide the browser's address and bookmarks bars",
       "chips": "Board filters (read only)"
     },
     "cross": {

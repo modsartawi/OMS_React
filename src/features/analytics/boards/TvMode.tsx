@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SetURLSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Minimize2, Tv } from 'lucide-react'
+import { Maximize2, Minimize2, Tv } from 'lucide-react'
 import type { AnalyticsModel, Param } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, formatRange, fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { analyticsApi, analyticsMembersKey } from './api'
-import { useFullscreen } from './panel-hooks'
 import { boardPeriodOf, paramLabel, stripControlOf, valueOf, type ParamValues } from './params'
 import { periodNameKey } from './periods'
 import { dimensionOf, measureOf } from './wire'
@@ -21,9 +20,9 @@ import { dimensionOf, measureOf } from './wire'
  * screen (a user gesture); a permalink that opens straight into TV mode fills the window, and leaving the
  * browser's full screen leaves TV mode too.
  */
-export function useTvMode(ref: RefObject<HTMLElement | null>, params: URLSearchParams, setParams: SetURLSearchParams) {
+export function useTvMode(params: URLSearchParams, setParams: SetURLSearchParams) {
   const on = params.get('tv') === '1'
-  const fullscreen = useFullscreen(ref)
+  const fullscreen = usePageFullscreen()
   const write = useCallback(
     (tv: boolean) =>
       setParams((prev) => {
@@ -34,10 +33,12 @@ export function useTvMode(ref: RefObject<HTMLElement | null>, params: URLSearchP
       }),
     [setParams],
   )
+  // The whole page goes full screen, not the board's element: `tv=1` swaps the shell for the bare layout,
+  // which remounts the board, and an element in full screen that leaves the page drops the browser out of it.
   const enter = useCallback(() => {
     write(true)
-    void ref.current?.requestFullscreen?.().catch(() => {})
-  }, [write, ref])
+    void document.documentElement.requestFullscreen?.().catch(() => {})
+  }, [write])
   const exit = useCallback(() => {
     write(false)
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
@@ -59,16 +60,38 @@ export function useTvMode(ref: RefObject<HTMLElement | null>, params: URLSearchP
     was.current = fullscreen.on
   }, [fullscreen.on, on, exit])
 
-  return { on, enter, exit }
+  // A permalink opened straight into TV mode (or reloaded) cannot take full screen without a click: offer one.
+  const goFullscreen = useCallback(() => void document.documentElement.requestFullscreen?.().catch(() => {}), [])
+
+  return { on, enter, exit, fullscreen: fullscreen.on, goFullscreen }
 }
 
-export function TvButton({ on, onEnter, onExit }: { on: boolean; onEnter: () => void; onExit: () => void }) {
+const onFullscreenChange = (cb: () => void) => {
+  document.addEventListener('fullscreenchange', cb)
+  return () => document.removeEventListener('fullscreenchange', cb)
+}
+
+/** Whether the browser is in full screen at all (TV mode's is the page's, so it outlives the board's remount). */
+function usePageFullscreen(): { on: boolean } {
+  return { on: useSyncExternalStore(onFullscreenChange, () => !!document.fullscreenElement, () => false) }
+}
+
+export function TvButton(p: { on: boolean; fullscreen: boolean; onEnter: () => void; onExit: () => void; onFullscreen: () => void }) {
+  const { on, onEnter, onExit } = p
   const { t } = useTranslation('boards')
   return on ? (
-    <Button variant="secondary" onClick={onExit} title={t('board.tv.exitHint')} data-board-tv-exit>
-      <Minimize2 className="size-3.5" aria-hidden />
-      {t('board.tv.exit')}
-    </Button>
+    <>
+      {!p.fullscreen && (
+        <Button variant="secondary" onClick={p.onFullscreen} title={t('board.tv.fullscreenHint')} data-board-tv-fullscreen>
+          <Maximize2 className="size-3.5" aria-hidden />
+          {t('board.tv.fullscreen')}
+        </Button>
+      )}
+      <Button variant="secondary" onClick={onExit} title={t('board.tv.exitHint')} data-board-tv-exit>
+        <Minimize2 className="size-3.5" aria-hidden />
+        {t('board.tv.exit')}
+      </Button>
+    </>
   ) : (
     <Button variant="secondary" onClick={onEnter} data-board-tv-enter>
       <Tv className="size-3.5" aria-hidden />

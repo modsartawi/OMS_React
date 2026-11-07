@@ -73,7 +73,9 @@
     "editingUntitled": {
       "report": "Editing the report open in the designer",
       "board": "Editing the board open in its editor"
-    }
+    },
+    "id": "ID",
+    "unsaved": "Not saved yet"
   },
   "trace": {
     "heading_one": "How I got this ({{n}} step)",

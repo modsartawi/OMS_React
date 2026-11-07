@@ -133,7 +133,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
   const root = useRef<HTMLDivElement>(null)
-  const tv = useTvMode(root, params, setParams)
+  const tv = useTvMode(params, setParams)
   const [refresh, setRefresh] = useRefreshChoice(board.id, board.definition.refresh, params, setParams)
   const refreshers = useRef(new Map<string, () => void>())
   const registerRefresh = useCallback((pid: string, fn: (() => void) | null) => (fn ? refreshers.current.set(pid, fn) : refreshers.current.delete(pid)), [])
@@ -179,7 +179,7 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         )}
         <div className="ms-auto flex items-end gap-2">
           <RefreshPicker value={refresh} onChange={setRefresh} />
-          <TvButton on={tv.on} onEnter={tv.enter} onExit={tv.exit} />
+          <TvButton on={tv.on} fullscreen={tv.fullscreen} onEnter={tv.enter} onExit={tv.exit} onFullscreen={tv.goFullscreen} />
         </div>
       </div>
       {/* Story 64: my copy of a board whose original has moved on since I copied it. */}

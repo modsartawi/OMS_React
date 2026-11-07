@@ -9,6 +9,9 @@ import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
   AnalyticsBoard,
+  AnalyticsFiling,
+  AnalyticsFolder,
+  AnalyticsFolderWrite,
   AnalyticsHealth,
   AnalyticsItem,
   AnalyticsItemCopy,
@@ -30,19 +33,41 @@ import type {
   AnalyticsRevision,
   AnalyticsSchedule,
   AnalyticsScheduleWrite,
+  AnalyticsUsedBy,
 } from '@/core/models/analytics'
 import { readCandidates } from './audience'
 import { readHealth } from './health'
-import { itemsQuery, type ItemsQuery } from './home'
+import { itemsQuery } from './home'
+import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { renderTicket, ticketHeaders } from './render-ticket'
-import { readBoard, readItem, readItems, readMembers, readModel, readReport, readResult, readWords } from './wire'
+import {
+  readBoard,
+  readFiling,
+  readFolder,
+  readFolders,
+  readItem,
+  readItems,
+  readMembers,
+  readModel,
+  readReport,
+  readResult,
+  readUsedBy,
+  readWords,
+} from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
 export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
-/** The Items list as narrowed (`./home` `itemsQuery`); every list entry sits under `ANALYTICS_ITEMS_KEY`. */
-export const analyticsItemsKey = (q: ItemsQuery) => [...ANALYTICS_ITEMS_KEY, q] as const
+/**
+ * The Items list as narrowed (`./home` `itemsQuery`, 837's `./library` `libraryItemsQuery`); every list entry sits
+ * under `ANALYTICS_ITEMS_KEY`.
+ */
+export const analyticsItemsKey = (q: LibraryItemsQuery) => [...ANALYTICS_ITEMS_KEY, q] as const
+/** 837: the caller's own folders (BackOffice 3432). */
+export const ANALYTICS_FOLDERS_KEY = ['analytics', 'folders'] as const
+/** 837: the boards that link a view, asked by the delete prompt. */
+export const analyticsUsedByKey = (id: string) => ['analytics', 'usedBy', id] as const
 export const analyticsItemKey = (id: string) => ['analytics', 'item', id] as const
 /** A board, read as a board: apart from `analyticsItemKey`, whose entries are read as views. */
 export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as const
@@ -81,8 +106,39 @@ export const analyticsApi = {
    * `GET Analytics/Items` — the items the caller may read (ticket 770), narrowed by §C's `kind`, `tier` and
    * `search` where the caller has them (`itemsQuery`). The screens still group and filter what comes back.
    */
-  async items(q: ItemsQuery = {}): Promise<AnalyticsItem[]> {
-    return readItems(await api.get<unknown>('Analytics/Items', { ...itemsQuery(q) }))
+  async items(q: LibraryItemsQuery = {}): Promise<AnalyticsItem[]> {
+    // 837 (BackOffice 3432 §1/§3): `folder` (an id or `none`), `changedFrom`/`changedTo` (yyyy-MM-dd, inclusive),
+    // `owner=me` and `deleted=true`. A server before 3432 ignores them; the screens still filter what comes back.
+    const { folder, changedFrom, changedTo, owner, deleted } = q
+    return readItems(await api.get<unknown>('Analytics/Items', { ...itemsQuery(q), folder, changedFrom, changedTo, owner, deleted }))
+  },
+  /** 837: `GET Analytics/Folders` — the caller's flat folders by `order`, each with its live `itemCount`. */
+  async folders(): Promise<AnalyticsFolder[]> {
+    return readFolders(await api.get<unknown>('Analytics/Folders'))
+  },
+  /** 837: `POST Analytics/Folders { name }`. A blank, too long or duplicate name is `ANALYTICS-406` (`field: name`). */
+  async createFolder(name: string): Promise<AnalyticsFolder> {
+    return readFolder(await api.post<unknown>('Analytics/Folders', { name }))
+  },
+  /** 837: `PUT Analytics/Folders/{id} { name?, order? }`. Someone else's or a missing folder is `ANALYTICS-404`. */
+  async updateFolder(id: string, body: AnalyticsFolderWrite): Promise<AnalyticsFolder> {
+    return readFolder(await api.put<unknown>(`Analytics/Folders/${encodeURIComponent(id)}`, body))
+  },
+  /** 837: `DELETE Analytics/Folders/{id}` — its items go back to unfiled; the items themselves are untouched. */
+  async deleteFolder(id: string): Promise<void> {
+    await api.del<unknown>(`Analytics/Folders/${encodeURIComponent(id)}`)
+  },
+  /** 837: `PUT Analytics/Item/{id}/Folder { folderId }` (`null` = unfiled). Any item I can read; never a revision. */
+  async fileItem(id: string, folderId: string | null): Promise<AnalyticsFiling> {
+    return readFiling(await api.put<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Folder`, { folderId }))
+  },
+  /** 837: `GET Analytics/Item/{id}/UsedBy` — the live boards that link a view (`hidden` counts those I cannot read). */
+  async usedBy(id: string): Promise<AnalyticsUsedBy> {
+    return readUsedBy(await api.get<unknown>(`Analytics/Item/${encodeURIComponent(id)}/UsedBy`))
+  },
+  /** 837: `POST Analytics/Item/{id}/Restore` — within 30 days of its delete (after: `ANALYTICS-404`); answers the item. */
+  async restore(id: string): Promise<AnalyticsItem> {
+    return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Restore`, {}))
   },
   /** `GET Analytics/Item/{id}` — a view or a board. `ANALYTICS-404` when it is gone. */
   async item(id: string): Promise<AnalyticsItem> {

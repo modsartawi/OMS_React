@@ -44,7 +44,87 @@
       "report": "Report"
     },
     "owner": "Owner <owner>{{owner}}</owner>",
-    "changed": "Changed <at>{{at}}</at>"
+    "changed": "Changed <at>{{at}}</at>",
+    "library": {
+      "railLabel": "Folders",
+      "all": "All items",
+      "none": "Unfiled",
+      "deleted": "Recently deleted",
+      "newFolder": "New folder",
+      "foldersUnavailable": "Folders are not available on this server yet. The choices and the search still work.",
+      "folderActions": "Actions for the folder {{name}}",
+      "rename": "Rename",
+      "deleteFolder": "Delete folder",
+      "dropHere": "Drop an item here to file it in this folder",
+      "folderDialog": {
+        "createTitle": "New folder",
+        "renameTitle": "Rename folder",
+        "name": "Name",
+        "hint": "Only you see your folders and what you file in them.",
+        "create": "Create",
+        "save": "Save",
+        "cancel": "Cancel",
+        "invalid": "Give the folder a name of 1 to 80 characters.",
+        "taken": "You already have a folder with this name.",
+        "failed": "The folder could not be saved"
+      },
+      "deleteFolderDialog": {
+        "title": "Delete this folder?",
+        "body": "The folder <name>{{name}}</name> is deleted. Its items go back to Unfiled; the items themselves are not deleted.",
+        "confirm": "Delete folder",
+        "cancel": "Cancel",
+        "failed": "The folder could not be deleted"
+      },
+      "done": {
+        "created": "Folder created.",
+        "renamed": "Folder renamed.",
+        "deleted": "Folder deleted. Its items are unfiled now.",
+        "moved": "Moved to {{folder}}.",
+        "unfiled": "Moved to Unfiled.",
+        "restored": "Restored."
+      },
+      "who": {
+        "label": "Whose",
+        "all": "All",
+        "mine": "Mine",
+        "certified": "Certified",
+        "sharedWithMe": "Shared with me"
+      },
+      "kind": {
+        "label": "Kind",
+        "all": "All kinds",
+        "view": "Views",
+        "board": "Boards",
+        "report": "Reports"
+      },
+      "changed": {
+        "label": "Changed",
+        "any": "Any time",
+        "today": "Today",
+        "days7": "Last 7 days",
+        "days30": "Last 30 days",
+        "range": "Between dates",
+        "from": "Changed on or after",
+        "to": "Changed on or before"
+      },
+      "clear": "Clear choices",
+      "move": {
+        "label": "Move to folder",
+        "itemLabel": "Move {{title}} to a folder",
+        "unfiled": "Unfiled",
+        "here": "Filed here",
+        "failed": "The item could not be moved"
+      },
+      "noMatch": "Nothing here matches these choices.",
+      "emptyFolder": "This folder is empty. Drag an item onto it, or use an item's Move to folder.",
+      "emptyUnfiled": "Everything you can see is filed in a folder.",
+      "deletedNote": "Your items deleted in the last 30 days. Restoring one puts it back as it was, in its folder too.",
+      "deletedEmpty": "Nothing was deleted in the last 30 days.",
+      "deletedAt": "Deleted <at>{{at}}</at>",
+      "restore": "Restore",
+      "restoreLabel": "Restore {{title}}",
+      "restoreFailed": "The item could not be restored"
+    }
   },
   "board": {
     "saveAsReport": {
@@ -510,6 +590,19 @@
           "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
           "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted.",
           "report": "This report is deleted for everyone who sees it, with its schedules. Its kept runs stay listed until they expire."
+        },
+        "usedBy": {
+          "checking": "Checking which boards use this view…",
+          "checkFailed": "Which boards use this view could not be checked. If a board you cannot change uses it, the delete is refused.",
+          "unused": "No board uses this view.",
+          "onMine_one": "It is on {{n}} of your own boards, which will show a \"view removed\" panel:",
+          "onMine_other": "It is on {{n}} of your own boards, which will show a \"view removed\" panel:",
+          "blockedTitle": "This view is in use",
+          "blocked": "It cannot be deleted while it is on boards that are certified or not yours:",
+          "hidden_one": "{{n}} more board you cannot open",
+          "hidden_other": "{{n}} more boards you cannot open",
+          "advice": "Copy the view and change your copy instead, or ask the board's owner to take it off their board.",
+          "close": "Close"
         }
       }
     },
@@ -567,7 +660,41 @@
     },
     "save": "Save board",
     "saved": "Board saved.",
-    "saveFailed": "The board could not be saved"
+    "saveFailed": "The board could not be saved",
+    "preview": "Preview",
+    "previewBack": "Back to design",
+    "previewNote": "This is the board a viewer opens, with your unsaved changes and the default values. Nothing is saved.",
+    "palette": {
+      "title": "Views",
+      "search": "Search views",
+      "whoLabel": "Whose views",
+      "who": {
+        "all": "All",
+        "mine": "Mine",
+        "certified": "Certified",
+        "sharedWithMe": "Shared with me"
+      },
+      "folder": "Folder",
+      "folderAll": "All folders",
+      "folderNone": "Unfiled",
+      "hint": "Drag a view onto the grid, or press + (or Enter) to add it at the end.",
+      "none": "No views match.",
+      "failed": "The views could not be listed.",
+      "row": "{{view}}, by {{owner}}. Press Enter to add it to the board.",
+      "owner": "by <owner>{{owner}}</owner>",
+      "add": "Add {{view}} to the board",
+      "addFailed": "The view could not be added",
+      "chart": {
+        "kpi": "KPI",
+        "line": "Line chart",
+        "area": "Area chart",
+        "bar": "Bar chart",
+        "donut": "Donut chart",
+        "table": "Table",
+        "heatmap": "Heatmap",
+        "combo": "Combo chart"
+      }
+    }
   },
   "status": {
     "title": "Analytics status",

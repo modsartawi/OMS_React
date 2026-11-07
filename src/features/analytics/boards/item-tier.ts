@@ -1,6 +1,7 @@
-import { apiErrorCode } from '@/core/api'
-import type { AnalyticsItem } from '@/core/models/analytics'
+import { apiErrorCode, apiErrorData } from '@/core/api'
+import type { AnalyticsItem, AnalyticsUsedBy } from '@/core/models/analytics'
 import type { ItemActionKey } from './item-actions'
+import { readUsedBy } from './wire'
 
 /**
  * The tier's own actions on an item's header (ticket 778) — pure. `./item-actions` decides what is offered; the
@@ -23,3 +24,17 @@ export function certifiedCopyOf(items: readonly Pick<AnalyticsItem, 'id' | 'tier
 
 /** `ANALYTICS-402` "needs the curator grant": a stale probe offered a curator's action. */
 export const needsCurator = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-402'
+
+/**
+ * 837 (BackOffice 3432 §2): `ANALYTICS-416` "view in use" — the view is linked by a live board that is Certified or
+ * not the caller's own. The refusal's `data` is `UsedBy`'s `{ boards, hidden }`; `null` for any other failure.
+ */
+export function viewInUse(err: unknown): AnalyticsUsedBy | null {
+  return apiErrorCode(err) === 'ANALYTICS-416' ? readUsedBy(apiErrorData(err)) : null
+}
+
+/**
+ * 837: whether the server will refuse this view's delete, by 3432's rule — any linking board Certified or not mine,
+ * and any board I cannot open (`hidden`) counts as not mine. Only what is OFFERED: the server stays the judge (416).
+ */
+export const viewDeleteBlocked = (u: AnalyticsUsedBy): boolean => u.hidden > 0 || u.boards.some((b) => b.tier === 'certified' || !b.mine)

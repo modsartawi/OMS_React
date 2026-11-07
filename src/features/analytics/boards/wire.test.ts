@@ -4,7 +4,7 @@ import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
 import { refusedParam } from './panel-state'
-import { analyticsErrorWords, analyticsRefusal, readDefinition, readItem, readItems, readModel, readReport, readResult, readWords } from './wire'
+import { analyticsErrorWords, analyticsRefusal, readDefinition, readFolders, readItem, readItems, readModel, readReport, readResult, readUsedBy, readWords } from './wire'
 
 const coded = (code: string, message = `Server says ${code}.`) =>
   new ApiError('business', message, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
@@ -172,5 +172,28 @@ describe('reading a report (827)', () => {
     const m = readModel({ measures: [{ key: 'a', caveat: { en: 'Inside OMS only' }, mayStillRiseDays: 8 }, { key: 'b', caveat: 'x', mayStillRiseDays: -1 }] })
     expect([m.measures[0].caveat, m.measures[0].mayStillRiseDays]).toEqual([{ en: 'Inside OMS only', ar: '' }, 8])
     expect([m.measures[1].caveat, m.measures[1].mayStillRiseDays]).toEqual([null, null])
+  })
+})
+
+describe('837: the library wire (BackOffice 3432)', () => {
+  it('an item without folderId / deletedAt (a server before 3432) is unfiled and live', () => {
+    const it0 = readItem({ id: 'v-1', kind: 'view' })
+    expect(it0.folderId).toBeNull()
+    expect(it0.deletedAt).toBeNull()
+    expect(readItem({ id: 'v-1', folderId: 'f1', deletedAt: '2026-11-06T10:00:00' })).toMatchObject({ folderId: 'f1', deletedAt: '2026-11-06T10:00:00' })
+  })
+  it('folders read defensively, by order; a row without an id is dropped', () => {
+    expect(readFolders([{ id: 'b', name: 'B', order: 2, itemCount: 3 }, { id: 'a', name: 'A', order: 1 }, { name: 'x' }])).toEqual([
+      { id: 'a', name: 'A', order: 1, itemCount: 0 },
+      { id: 'b', name: 'B', order: 2, itemCount: 3 },
+    ])
+    expect(readFolders(null)).toEqual([])
+  })
+  it('UsedBy reads its boards and hidden count; anything else is none', () => {
+    expect(readUsedBy({ boards: [{ id: 'b', title: { en: 'Ops' }, owner: 'x', tier: 'certified', mine: false }], hidden: 1 })).toEqual({
+      boards: [{ id: 'b', title: { en: 'Ops', ar: '' }, owner: 'x', tier: 'certified', mine: false }],
+      hidden: 1,
+    })
+    expect(readUsedBy(undefined)).toEqual({ boards: [], hidden: 0 })
   })
 })

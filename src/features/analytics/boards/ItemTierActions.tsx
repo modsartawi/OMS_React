@@ -11,6 +11,7 @@ import { needsAuthor } from './access'
 import { needsCurator, type TierActionKey } from './item-tier'
 import ShareDialog, { ReassignDialog } from './ShareDialog'
 import { useItemTier } from './use-item-tier'
+import ViewDeletePrompt, { useViewDeleteCheck } from './ViewDeletePrompt'
 import { analyticsRefusal, refusalWords } from './wire'
 
 const ICONS = { share: Share2, unshare: Lock, narrow: UsersRound, reassign: UserRoundCog, certify: BadgeCheck, certifyRevision: BadgeCheck, uncertify: BadgeX, delete: Trash2 }
@@ -53,6 +54,9 @@ export default function ItemTierActions({ item, startShare = false }: { item: An
     else if (CONFIRMED.has(key)) setAsking(key)
     else tier.run(key)
   }
+  // 837: a view's delete prompt asks UsedBy first and stays open on a refusal (416 lists the boards that block it).
+  const viewDelete = asking === 'delete' && item.kind === 'view'
+  const check = useViewDeleteCheck(item, viewDelete, tier.error)
   // A lost grant (415, 402) is worded beside the actions, which hide; the dialog closes on it.
   const lostGrant = needsAuthor(tier.error) || needsCurator(tier.error)
   const dialogOpen = dialog !== null && !lostGrant
@@ -61,7 +65,7 @@ export default function ItemTierActions({ item, startShare = false }: { item: An
     tier.reset()
   }
   let refusedWords: string | null = null
-  if (tier.error && (!dialog || lostGrant)) {
+  if (tier.error && (!dialog || lostGrant) && !viewDelete) {
     if (needsCurator(tier.error)) refusedWords = t('tierActions.refused.needsCurator')
     else {
       const refusal = analyticsRefusal(tier.error, t('tierActions.failed'))
@@ -121,27 +125,51 @@ export default function ItemTierActions({ item, startShare = false }: { item: An
       )}
       <Modal
         open={asking !== null}
-        onClose={() => setAsking(null)}
-        title={asking ? t(`tierActions.confirm.${asking}.title`) : ''}
+        onClose={() => {
+          setAsking(null)
+          if (viewDelete) tier.reset()
+        }}
+        title={check.blocked ? t('tierActions.confirm.delete.usedBy.blockedTitle') : asking ? t(`tierActions.confirm.${asking}.title`) : ''}
         footer={
           <>
-            <Button variant="text" onClick={() => setAsking(null)}>
-              {t('tierActions.confirm.cancel')}
-            </Button>
             <Button
-              variant="danger"
-              data-analytics-confirm={asking ?? ''}
+              variant="text"
               onClick={() => {
-                if (asking) tier.run(asking)
                 setAsking(null)
+                if (viewDelete) tier.reset()
               }}
             >
-              {asking ? t(`tierActions.${asking}`) : ''}
+              {check.blocked ? t('tierActions.confirm.delete.usedBy.close') : t('tierActions.confirm.cancel')}
             </Button>
+            {/* 837: a view in use on a board that is Certified or not mine offers no Delete (3432 §2). */}
+            {!check.blocked && (
+              <Button
+                variant="danger"
+                data-analytics-confirm={asking ?? ''}
+                disabled={viewDelete && (check.checking || tier.pending)}
+                onClick={() => {
+                  if (!asking) return
+                  if (viewDelete) {
+                    // The prompt stays open: a refusal is worded in it, and a delete goes home.
+                    tier.reset()
+                    tier.run('delete')
+                    return
+                  }
+                  tier.run(asking)
+                  setAsking(null)
+                }}
+              >
+                {asking ? t(`tierActions.${asking}`) : ''}
+              </Button>
+            )}
           </>
         }
       >
-        {asking && <p className="text-sm">{t(`tierActions.confirm.${asking}.body.${item.kind}`)}</p>}
+        {viewDelete ? (
+          <ViewDeletePrompt check={check} deleteError={tier.error} />
+        ) : (
+          asking && <p className="text-sm">{t(`tierActions.confirm.${asking}.body.${item.kind}`)}</p>
+        )}
       </Modal>
     </div>
   )

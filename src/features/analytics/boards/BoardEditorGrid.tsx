@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type Dispatch, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GripVertical, MoveDiagonal2, Trash2, Unlink } from 'lucide-react'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsLabel, AnalyticsModel, BoardFilterKey, BoardLayout } from '@/core/models/analytics'
@@ -9,7 +9,8 @@ import Input from '@/core/ui/Input'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
-import { cellAt, gridPlacement, keyAction, rowsShown, type LayoutAction, type LayoutState } from './layout'
+import { cellAt, dropOutline, gridPlacement, keyAction, rowsShown, type Cell, type LayoutAction, type LayoutState, type Size } from './layout'
+import { VIEW_DRAG_TYPE } from './palette'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -37,12 +38,18 @@ export default function BoardEditorGrid({
   views,
   model,
   lang,
+  dropping = null,
+  onDropView,
 }: {
   layout: LayoutState
   dispatch: Dispatch<LayoutAction>
   views: ReadonlyMap<string, PanelView>
   model: AnalyticsModel
   lang: string
+  /** 837: a palette view is being dragged — its asked size and minimum, for the drop outline; `null` when none is. */
+  dropping?: { asked: Size; min: Size } | null
+  /** 837: a palette view dropped on a cell (its id from the drag's data). */
+  onDropView?: (viewId: string, at: Cell) => void
 }) {
   const { t } = useTranslation('boards')
   const grid = useRef<HTMLDivElement>(null)
@@ -50,7 +57,10 @@ export default function BoardEditorGrid({
   const latest = useRef(layout)
   latest.current = layout
   const [said, setSaid] = useState<string | null>(null)
-  const rows = rowsShown(layout.panels)
+  const [over, setOver] = useState<Cell | null>(null)
+  if (!dropping && over) setOver(null)
+  const outline = dropping && over ? dropOutline(over, dropping.asked, dropping.min) : null
+  const rows = Math.max(rowsShown(layout.panels), outline ? outline.y + outline.h : 0)
 
   const nameOf = (p: AnalyticsBoardPanel): string => {
     if (p.kind === 'section') return saysIn(p.title, lang) || t('boardEditor.kind.section')
@@ -59,11 +69,32 @@ export default function BoardEditorGrid({
     return v?.state === 'loaded' ? viewTitleOf(v.item, model, lang, t) : t('boardEditor.kind.view')
   }
 
-  const cellOf = (e: PointerEvent) => {
+  const cellOf = (e: { clientX: number; clientY: number }) => {
     const g = grid.current!
     const rect = g.getBoundingClientRect()
     const gap = Number.parseFloat(getComputedStyle(g).rowGap) || 0
-    return cellAt({ x: e.clientX, y: e.clientY }, rect, (rect.height + gap) / rowsShown(latest.current.panels), bootDirection)
+    // The rows the grid draws right now (the drop outline may have added some below).
+    const drawn = Number(g.dataset.rows) || rowsShown(latest.current.panels)
+    return cellAt({ x: e.clientX, y: e.clientY }, rect, (rect.height + gap) / drawn, bootDirection)
+  }
+  // 837: a palette view dragged over the grid shows where it lands; dropped, it is placed there.
+  const carriesView = (e: DragEvent) => !!dropping && e.dataTransfer.types.includes(VIEW_DRAG_TYPE)
+  const dragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!carriesView(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    const c = cellOf(e)
+    if (!over || over.col !== c.col || over.row !== c.row) setOver(c)
+  }
+  const dragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
+  }
+  const drop = (e: DragEvent<HTMLDivElement>) => {
+    const id = e.dataTransfer.getData(VIEW_DRAG_TYPE)
+    setOver(null)
+    if (!id || !onDropView) return
+    e.preventDefault()
+    onDropView(id, cellOf(e))
   }
   const at = (id: string) => latest.current.panels.find((p) => p.id === id)?.layout
 
@@ -118,7 +149,18 @@ export default function BoardEditorGrid({
         style={{ gridTemplateRows: `repeat(${rows}, 5rem)` }}
         data-board-editor-grid
         data-rows={rows}
+        onDragOver={dragOver}
+        onDragLeave={dragLeave}
+        onDrop={drop}
       >
+        {outline && (
+          <div
+            className="pointer-events-none relative z-10 rounded-lg border-2 border-dashed border-primary bg-primary/5"
+            style={gridPlacement(outline)}
+            aria-hidden
+            data-board-drop-outline={`${outline.x},${outline.y},${outline.w},${outline.h}`}
+          />
+        )}
         {layout.panels.map((p) => {
           const name = nameOf(p)
           const v = p.kind === 'view' ? views.get(p.id) : undefined

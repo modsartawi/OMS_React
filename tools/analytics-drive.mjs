@@ -2005,12 +2005,12 @@ async function boardEditorBuilds({ dir }) {
   await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
   check(`${tag}: "New board" opens the board editor`, page.url().endsWith('/analytics/new?kind=board'), page.url())
 
-  // 1. Two views from the picker (mine and Shared are both offered) and a section header.
-  const groups = await page.locator('[data-board-add-pick] optgroup').evaluateAll((els) => els.map((e) => e.getAttribute('label')))
-  check(`${tag}: the picker groups Certified, Shared and my views`, JSON.stringify(groups) === JSON.stringify(['Certified', 'Shared', 'Personal']), groups.join(', '))
+  // 1. Two views from the palette (837; mine, Shared and Certified are all offered) and a section header.
+  const listed = await page.locator('[data-board-palette-view]').evaluateAll((els) => els.map((e) => e.dataset.boardPaletteView))
+  check(`${tag}: the views palette lists every view I can read, no board`, ['v-kpi', 'v-bar', 'v-titled', 'v-cert-776'].every((v) => listed.includes(v)) && !listed.includes('b-777'), listed.join(', '))
   for (const id of ['v-kpi', 'v-bar']) {
-    await page.locator('[data-board-add-pick]').selectOption(id)
-    await page.locator('[data-board-add-view]').click()
+    await page.locator(`[data-board-palette-add="${id}"]`).click()
+    await page.locator('[data-editor-panel]').nth(id === 'v-kpi' ? 0 : 1).waitFor({ timeout: 5000 })
   }
   await page.locator('[data-board-add-section]').click()
   const ids = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
@@ -2217,6 +2217,94 @@ async function buildsNewView() {
   await page.waitForFunction(() => document.querySelector('[data-editor-panel]')?.dataset.editorPanelState === 'loaded', null, { timeout: 10000 })
   const name = noIsolates(await panel.locator('[data-editor-panel-name]').innerText())
   check(`${tag}: the panel shows the new view (a bar: half the width, 3 rows)`, /Orders/.test(name) && (await panel.getAttribute('data-layout')) === '0,0,6,3', `${name} ${await panel.getAttribute('data-layout')}`)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 837 ──────────────────────────────────────────────────────────────────────────────────────────────
+// 837 items 1–2 — the views palette and Preview in the board editor (en and ar):
+//   1. the palette lists every view, its who-chips narrow it (Certified, Mine, Shared with me) and the search too;
+//   2. a row dragged onto the grid shows the drop outline at the cell under the pointer and lands there; Enter on a
+//      row adds it at the end;
+//   3. Preview shows the unsaved board as a viewer does: the draft's title, its panels on the board grid, each asking
+//      Query INLINE (definition + params + bindings, no itemId); nothing is saved;
+//   4. Back to design returns with the layout, the title and the open parameter inspector as they were.
+async function paletteAndPreview837({ dir }) {
+  const tag = `837 ${dir}`
+  const { context, page, bodies, errors } = await open({ dir, list: LIST_777, height: 1100 })
+  await page.goto(`${BASE}/analytics/new?kind=board`)
+  await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-board-palette-view]').first().waitFor({ timeout: 10000 })
+  const rows = () => page.locator('[data-board-palette-view]').evaluateAll((els) => els.map((e) => e.dataset.boardPaletteView))
+
+  // 1. Chips and search.
+  const all = await rows()
+  check(`${tag}: the palette lists the four views, no board`, all.length === 4 && !all.includes('b-777'), all.join(', '))
+  check(`${tag}: … each row with its chart icon and owner`, (await page.locator('[data-board-palette-view="v-bar"] [data-board-palette-chart="bar"]').count()) === 1 && (await page.locator('[data-board-palette-view="v-bar"] [data-board-palette-owner]').innerText()).length > 0)
+  await page.locator('[data-board-palette-who="certified"]').click()
+  const cert = await rows()
+  check(`${tag}: Certified narrows to the certified view`, JSON.stringify(cert) === JSON.stringify(['v-cert-776']), cert.join(', '))
+  await page.locator('[data-board-palette-who="sharedWithMe"]').click()
+  const shared = await rows()
+  check(`${tag}: Shared with me lists no view of mine`, !shared.includes('v-kpi') && !shared.includes('v-cert-776'), shared.join(', '))
+  await page.locator('[data-board-palette-who="all"]').click()
+  await page.locator('[data-board-palette-search]').fill(dir === 'rtl' ? 'القناة' : 'channel')
+  const found = await rows()
+  check(`${tag}: the search narrows by title`, found.includes('v-titled') && found.length < all.length, found.join(', '))
+  await page.locator('[data-board-palette-search]').fill('')
+
+  // 2. "+" adds the KPI at the end; a drag puts the bar at column 7 of row 1, with the outline on the way.
+  await page.locator('[data-board-palette-add="v-kpi"]').click()
+  await page.locator('[data-editor-panel]').first().waitFor({ timeout: 5000 })
+  const src = await boxOf(page, '[data-board-palette-view="v-bar"]')
+  await page.mouse.move(src.x + 20, src.y + src.height / 2)
+  await page.mouse.down()
+  const to = await cellPoint(page, 6, 0, dir)
+  await page.mouse.move(to.x, to.y, { steps: 12 })
+  await page.mouse.move(to.x + 1, to.y)
+  // The outline follows the pointer through the cells it passes; it settles on the cell the pointer stops in.
+  await page.waitForFunction(() => document.querySelector('[data-board-drop-outline]')?.getAttribute('data-board-drop-outline') === '6,0,6,3', null, { timeout: 3000 }).catch(() => {})
+  const outline = await page.locator('[data-board-drop-outline]').getAttribute('data-board-drop-outline', { timeout: 1000 }).catch(() => null)
+  check(`${tag}: dragging a view over the grid outlines the cell it lands on`, outline === '6,0,6,3', String(outline))
+  await page.mouse.up()
+  await page.waitForFunction(() => document.querySelectorAll('[data-editor-panel]').length === 2, null, { timeout: 5000 }).catch(() => {})
+  const ids = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
+  const layouts = await Promise.all(ids.map((id) => layoutOf(page, id)))
+  check(`${tag}: … and dropping places it there`, JSON.stringify(layouts) === JSON.stringify(['0,0,6,3', '6,0,6,3']), layouts.join(' | '))
+  check(`${tag}: … the outline goes when the drag ends`, (await page.locator('[data-board-drop-outline]').count()) === 0)
+  await page.locator('[data-board-palette-view="v-titled"]').focus()
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelectorAll('[data-editor-panel]').length === 3, null, { timeout: 5000 }).catch(() => {})
+  const third = (await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.layout)))[2]
+  check(`${tag}: Enter on a row adds it at the end`, third === '0,3,6,3', String(third))
+
+  // 3. Preview the unsaved draft, with a parameter open in the inspector.
+  await page.locator('[data-board-title="en"]').fill('Draft desk')
+  await page.locator('[data-board-title="ar"]').fill('مكتب المسودة')
+  await page.locator('[data-board-param-edit="store"]').click()
+  await page.locator('[data-param-inspector="store"]').waitFor({ timeout: 5000 })
+  const before = (bodies['Analytics/Query'] ?? []).length
+  await page.locator('[data-board-preview-open]').click()
+  await page.locator('[data-board-preview] [data-board-grid]').waitFor({ timeout: 10000 })
+  check(`${tag}: Preview swaps the editor for the board`, (await page.locator('[data-board-editor="new"]').isVisible()) === false)
+  const title = noIsolates(await page.locator('[data-board-preview-title]').innerText())
+  const arabic = (await page.evaluate(() => document.documentElement.lang)).startsWith('ar')
+  check(`${tag}: … with the draft's title`, title === (arabic ? 'مكتب المسودة' : 'Draft desk'), title)
+  const shown = await page.locator('[data-board-preview] [data-board-panel]').count()
+  check(`${tag}: … and its three panels`, shown === 3, String(shown))
+  await page.waitForTimeout(800)
+  const asked = (bodies['Analytics/Query'] ?? []).slice(before)
+  check(`${tag}: … each panel asks INLINE (definition + params + bindings, never by item)`, asked.length >= 3 && asked.every((b) => b.definition && Array.isArray(b.params) && b.bindings && b.panelId && !b.itemId), JSON.stringify(asked.map((b) => ({ panelId: b.panelId, itemId: b.itemId, inline: !!b.definition }))))
+  check(`${tag}: … and nothing is saved`, !(bodies['Analytics/Item'] ?? []).length)
+
+  // 4. Back to design: the layout, title and open inspector as they were.
+  await page.locator('[data-board-preview-back]').click()
+  await page.locator('[data-board-editor="new"]').waitFor({ state: 'visible', timeout: 5000 })
+  const back = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.layout))
+  check(`${tag}: Back to design keeps the layout`, JSON.stringify(back) === JSON.stringify(['0,0,6,3', '6,0,6,3', '0,3,6,3']), back.join(' | '))
+  check(`${tag}: … the title`, (await page.locator('[data-board-title="en"]').inputValue()) === 'Draft desk')
+  check(`${tag}: … and the selected parameter`, await page.locator('[data-param-inspector="store"]').isVisible())
+  await page.screenshot({ path: `${SHOTS}/837-editor-${dir}.png`, fullPage: true })
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -2762,9 +2850,9 @@ async function declares824({ dir }) {
   const { context, page, bodies, errors } = await open({ dir, list: LIST_824, create: (body, n) => (n === 1 ? problems(body) : null) })
   await page.goto(`${BASE}/analytics/new?kind=board`)
   await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
-  for (const id of ['v-kpi', 'v-bar', 'v-824-p50']) {
-    await page.locator('[data-board-add-pick]').selectOption(id)
-    await page.locator('[data-board-add-view]').click()
+  for (const [i, id] of ['v-kpi', 'v-bar', 'v-824-p50'].entries()) {
+    await page.locator(`[data-board-palette-add="${id}"]`).click()
+    await page.locator('[data-editor-panel]').nth(i).waitFor({ timeout: 5000 })
   }
   const [kpi, bar, p50] = await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
   for (const id of [kpi, bar, p50]) await page.waitForFunction((x) => document.querySelector(`[data-editor-panel="${x}"]`)?.dataset.editorPanelState === 'loaded', id, { timeout: 10000 })
@@ -4307,6 +4395,8 @@ const SCENARIOS = [
   ['777', () => removedView({ dir: 'ltr' })],
   ['777', () => removedView({ dir: 'rtl' })],
   ['777', buildsNewView],
+  ['837', () => paletteAndPreview837({ dir: 'ltr' })],
+  ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['779', () => revertsAndUndoes({ dir: 'ltr' })],
   ['779', () => revertsAndUndoes({ dir: 'rtl' })],
   ['779', historyOnlyForEditors],

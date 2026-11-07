@@ -54,6 +54,8 @@ export type LayoutAction =
   | { type: 'grow'; id: string; dw: number; dh: number }
   | { type: 'min'; id: string; size: Size }
   | { type: 'add'; panel: AnalyticsBoardPanel; min: Size }
+  /** 837: a new panel dropped on a grid cell — added, then moved there (its top-start corner on the cell). */
+  | { type: 'drop'; panel: AnalyticsBoardPanel; min: Size; at: Cell }
   | { type: 'remove'; id: string }
   | { type: 'patch'; id: string; patch: PanelPatch }
   /** Back to a snapshot: a pointer drag re-works every step from where it started, so a panel it passed over is not left pushed down. */
@@ -97,8 +99,35 @@ function settle(panels: readonly AnalyticsBoardPanel[], fixedId: string): Analyt
   })
 }
 
+/** A grid cell, columns counted from the inline start. */
+export interface Cell {
+  col: number
+  row: number
+}
+
+/**
+ * 837: where a panel dropped on `at` lands — the outline the grid shows while a view is dragged over it, and the
+ * place the `drop` action gives the panel (the same `fit`): its asked size, at least its minimum, its top-start
+ * corner on the cell, pulled back inside the columns when it would overhang the end.
+ */
+export function dropOutline(at: Cell, asked: Size, min: Size): BoardLayout {
+  return fit({ x: at.col, y: at.row, w: Math.max(asked.w, min.w), h: Math.max(asked.h, min.h) }, min)
+}
+
 export function layoutReducer(state: LayoutState, action: LayoutAction): LayoutState {
   if (action.type === 'reset') return action.state
+  if (action.type === 'drop') {
+    // Dropped on free cells, the panel just lands there. Dropped onto other panels, it is INSERTED: every panel
+    // from its row down moves down by its height, so the rows below keep their order (a section's panels stay
+    // under their header) instead of only the panels it covers being pushed below it.
+    const target = dropOutline(action.at, action.panel.layout, action.min)
+    const covered = state.panels.some((p) => overlaps(p.layout, target))
+    const shifted = covered
+      ? state.panels.map((p) => (p.layout.y >= target.y ? { ...p, layout: { ...p.layout, y: p.layout.y + target.h } } : p))
+      : state.panels
+    const panel = { ...action.panel, layout: target }
+    return { panels: settle([...shifted, panel], panel.id), mins: { ...state.mins, [panel.id]: action.min } }
+  }
   if (action.type === 'add') {
     const at = addedLayout(state.panels, action.min)
     const asked = action.panel.layout

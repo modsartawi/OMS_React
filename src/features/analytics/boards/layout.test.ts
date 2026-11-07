@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsBoardPanel } from '@/core/models/analytics'
-import { addedLayout, cellAt, gridPlacement, keyAction, layoutReducer, minSizeOf, overlaps, type LayoutState } from './layout'
+import { addedLayout, cellAt, dropOutline, gridPlacement, keyAction, layoutReducer, minSizeOf, overlaps, type LayoutState } from './layout'
 
 const view = (id: string, x: number, y: number, w: number, h: number): AnalyticsBoardPanel => ({ id, kind: 'view', viewId: `v-${id}`, layout: { x, y, w, h }, optOut: [] })
 const text = (id: string, x: number, y: number, w: number, h: number): AnalyticsBoardPanel => ({ id, kind: 'text', text: { en: '', ar: '' }, layout: { x, y, w, h } })
@@ -129,5 +129,59 @@ describe('logical order mirrors under RTL', () => {
     expect(cellAt({ x: 350, y: 50 + 170 }, rect, 80, 'rtl')).toEqual({ col: 9, row: 2 })
     expect(cellAt({ x: 50, y: 0 }, rect, 80, 'ltr')).toEqual({ col: 0, row: 0 })
     expect(cellAt({ x: 1400, y: 50 }, rect, 80, 'ltr')).toEqual({ col: 11, row: 0 })
+  })
+})
+
+describe('837: a view dropped from the palette', () => {
+  const panel = (id: string): AnalyticsBoardPanel => ({ id, kind: 'view', viewId: `v-${id}`, layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] })
+  const bar = minSizeOf({ kind: 'view', chart: 'bar' })
+
+  it('lands with its top-start corner on the drop cell, at its asked size', () => {
+    const s = layoutReducer(state(), { type: 'drop', panel: panel('n'), min: bar, at: { col: 3, row: 2 } })
+    expect(at(s, 'n')).toEqual({ x: 3, y: 2, w: 6, h: 3 })
+    expect(s.mins.n).toEqual(bar)
+  })
+  it('is pulled back inside the columns when the cell is near the end', () => {
+    const s = layoutReducer(state(), { type: 'drop', panel: panel('n'), min: bar, at: { col: 10, row: 0 } })
+    expect(at(s, 'n')).toEqual({ x: 6, y: 0, w: 6, h: 3 })
+  })
+  it('takes at least its chart minimum', () => {
+    const combo = minSizeOf({ kind: 'view', chart: 'combo' })
+    const s = layoutReducer(state(), { type: 'drop', panel: panel('n'), min: combo, at: { col: 0, row: 0 } })
+    expect(at(s, 'n')).toEqual({ x: 0, y: 0, w: 6, h: 4 })
+  })
+  it('dropped on another panel pushes it down; nothing overlaps; the panels keep their order', () => {
+    const s = layoutReducer(state(view('a', 0, 0, 6, 3), view('b', 6, 0, 6, 3)), { type: 'drop', panel: panel('n'), min: bar, at: { col: 2, row: 1 } })
+    expect(at(s, 'n')).toEqual({ x: 2, y: 1, w: 6, h: 3 })
+    expect(at(s, 'a')).toEqual({ x: 0, y: 4, w: 6, h: 3 })
+    expect(at(s, 'b')).toEqual({ x: 6, y: 4, w: 6, h: 3 })
+    expect(noOverlap(s)).toBe(true)
+    expect(s.panels.map((p) => p.id)).toEqual(['a', 'b', 'n'])
+  })
+  it('dropped onto a section, it is inserted: every panel from that row down moves, so a section stays under its header', () => {
+    // A header at row 0, four KPIs at row 1, a chart at row 3; the view is dropped on the header's start.
+    const header: AnalyticsBoardPanel = { id: 'h', kind: 'section', title: { en: 'Sales', ar: '' }, layout: { x: 0, y: 0, w: 12, h: 1 } }
+    const s0 = state(header, view('k1', 0, 1, 3, 2), view('k2', 3, 1, 3, 2), view('k3', 6, 1, 3, 2), view('k4', 9, 1, 3, 2), view('c', 0, 3, 12, 4))
+    const s = layoutReducer(s0, { type: 'drop', panel: panel('n'), min: bar, at: { col: 0, row: 0 } })
+    expect(at(s, 'n')).toEqual({ x: 0, y: 0, w: 6, h: 3 })
+    expect(at(s, 'h').y).toBe(3)
+    for (const k of ['k1', 'k2', 'k3', 'k4']) expect(at(s, k).y).toBe(4)
+    expect(at(s, 'c').y).toBe(6)
+    expect(noOverlap(s)).toBe(true)
+  })
+  it('dropped on free cells beside other panels, nothing moves', () => {
+    const s = layoutReducer(state(view('a', 0, 0, 6, 3), view('b', 0, 3, 12, 3)), { type: 'drop', panel: panel('n'), min: bar, at: { col: 6, row: 0 } })
+    expect(at(s, 'n')).toEqual({ x: 6, y: 0, w: 6, h: 3 })
+    expect(at(s, 'a')).toEqual({ x: 0, y: 0, w: 6, h: 3 })
+    expect(at(s, 'b')).toEqual({ x: 0, y: 3, w: 12, h: 3 })
+  })
+  it('the outline shown while dragging is where the drop puts it', () => {
+    const base = state(view('a', 0, 0, 4, 3))
+    for (const cell of [{ col: 0, row: 0 }, { col: 7, row: 5 }, { col: 11, row: 1 }]) {
+      for (const min of [bar, minSizeOf({ kind: 'view', chart: 'kpi' }), minSizeOf({ kind: 'view', chart: 'combo' })]) {
+        const s = layoutReducer(base, { type: 'drop', panel: panel('n'), min, at: cell })
+        expect(at(s, 'n')).toEqual(dropOutline(cell, { w: 6, h: 3 }, min))
+      }
+    }
   })
 })

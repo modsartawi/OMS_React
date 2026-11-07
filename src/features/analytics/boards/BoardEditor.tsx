@@ -1,9 +1,9 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Heading, Plus, Sparkles, Type } from 'lucide-react'
+import { Eye, Heading, Sparkles, Type } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
 import { apiErrorCode } from '@/core/api'
 import i18n from '@/core/i18n'
@@ -22,7 +22,7 @@ import { declarationRefusal, type DeclarationProblem } from './editor-refusal'
 import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
 import FilterStrip from './FilterStrip'
 import { editingItemOf } from './item-save'
-import { layoutReducer, minSizeOf, type LayoutState } from './layout'
+import { layoutReducer, minSizeOf, type Cell, type LayoutState, type Size } from './layout'
 import { boardParams, convertV1Board, defaultsOf, readyMadeParams, v1Of } from './params'
 import ParamInspector, { type InspectorFocus, type InspectorPanel } from './ParamInspector'
 import Refused from './Refused'
@@ -31,7 +31,9 @@ import { useItemSave, type SaveHow } from './use-item-save'
 import { AiStepNotice, EditWithCopilot, useBoardInContext } from './ReportDesignerCopilot'
 import { analyticsRefusal, refusalWords } from './wire'
 import { viewTitleOf } from './ViewChart'
-import ViewPicker from './ViewPicker'
+import ViewsPalette from './ViewsPalette'
+import BoardPreview from './BoardPreview'
+import { definitionKnown } from './palette'
 
 /**
  * The board editor (spec 766 §F, 755 items 7–11, ticket 777) at `/analytics/board/:id/edit` and
@@ -71,6 +73,8 @@ export function BoardEditorBody({ boardId, buildView }: { boardId: string | null
 }
 
 const EMPTY_LABEL: AnalyticsLabel = { en: '', ar: '' }
+/** The size a new view panel asks for (at least its chart's minimum). */
+const VIEW_ASK: Size = { w: 6, h: 3 }
 const newPanelId = () => `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
 function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsModel; board: AnalyticsBoard | null; buildView: BuildView; onReseed: () => void }) {
@@ -97,8 +101,13 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   const [problems, setProblems] = useState<DeclarationProblem[] | null>(null)
   const [dismissed, setDismissed] = useState<unknown>(null)
   const [refresh, setRefresh] = useState<number>(def?.refresh ?? 0)
-  const [pick, setPick] = useState('')
   const [building, setBuilding] = useState(false)
+  // 837: Preview shows the working copy as a viewer sees it. The editor stays mounted (hidden) behind it, so every
+  // piece of its state — layout, parameters, selection, the AI step, its children's own — is there on the way back.
+  const [previewing, setPreviewing] = useState(false)
+  // 837: the palette view being dragged, for the grid's drop outline.
+  const [dragging, setDragging] = useState<AnalyticsItem | null>(null)
+  const queryClient = useQueryClient()
 
   // The views I can link: every view the store lists for me, Certified first, then Shared, then mine.
   const list = useQuery({ queryKey: analyticsItemsKey({ kind: 'view' }), queryFn: () => analyticsApi.items({ kind: 'view' }), retry: false })
@@ -151,16 +160,33 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartOf])
 
-  const addView = (item: AnalyticsItem) => {
+  /** A view panel at the end of the board, or (837) dropped on a grid cell. */
+  const addView = (item: AnalyticsItem, at?: Cell) => {
     const id = newPanelId()
-    dispatch({
-      type: 'add',
-      panel: { id, kind: 'view', viewId: item.id, layout: { x: 0, y: 0, w: 6, h: 3 }, optOut: [] },
-      min: minSizeOf({ kind: 'view', chart: item.definition.chart.type }),
-    })
+    const panel: AnalyticsBoardPanel = { id, kind: 'view', viewId: item.id, layout: { ...VIEW_ASK, x: 0, y: 0 }, optOut: [] }
+    const min = minSizeOf({ kind: 'view', chart: item.definition.chart.type })
+    dispatch(at ? { type: 'drop', panel, min, at } : { type: 'add', panel, min })
     // A new panel binds every parameter that can take it, as v1's filters reached a new panel.
     edit((d) => bindPanel(d, { id, definition: item.definition }, model))
   }
+  // 837: a palette view may be listed without its definition; it is read first (the same cache entry its panel uses).
+  const addListed = (listed: AnalyticsItem, at?: Cell) => {
+    const full = definitionKnown(listed)
+      ? Promise.resolve(listed)
+      : queryClient.fetchQuery({ queryKey: analyticsItemKey(listed.id), queryFn: () => analyticsApi.item(listed.id), staleTime: 60_000, retry: false })
+    full.then(
+      (item) => addView(item, at),
+      (err) => toast.error(t('boardEditor.palette.addFailed'), { description: refusalWords(analyticsRefusal(err, t('boardEditor.palette.addFailed')), t) }),
+    )
+  }
+  const dropView = (viewId: string, at: Cell) => {
+    const listed = list.data?.find((i) => i.id === viewId) ?? (dragging?.id === viewId ? dragging : null)
+    setDragging(null)
+    if (listed) addListed(listed, at)
+  }
+  const dropping: { asked: Size; min: Size } | null = dragging
+    ? { asked: VIEW_ASK, min: minSizeOf({ kind: 'view', chart: definitionKnown(dragging) ? dragging.definition.chart.type : null }) }
+    : null
   const addParamHere = () => {
     const param = blankParam('members', decl.params.map((p) => p.name), model)
     edit((d) => addParam(d, param, bindPanels, model))
@@ -245,7 +271,9 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   const reload = () => save.reloadInto(onReseed)
 
   return (
-    <div className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
+    <>
+    {previewing && <BoardPreview title={title} tier={board?.tier ?? null} definition={definition} model={model} lang={lang} onBack={() => setPreviewing(false)} />}
+    <div hidden={previewing} className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
     <div className="flex min-w-0 flex-col gap-4">
       <section className="grid gap-3 rounded-lg border border-border/60 bg-card p-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_12rem]">
         <Field label={t('editor.titleEn')}>
@@ -285,22 +313,6 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
       </div>
 
       <section className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('boardEditor.add')} data-board-editor-add>
-        <Field label={t('boardEditor.addView')} className="min-w-64 flex-1">
-          <ViewPicker items={list.data} value={pick} onChange={setPick} placeholder={t(list.isLoading ? 'boardEditor.viewsLoading' : 'boardEditor.pickView')} model={model} lang={lang} data-board-add-pick="" />
-        </Field>
-        <Button
-          variant="secondary"
-          disabled={!pick}
-          onClick={() => {
-            const item = list.data?.find((i) => i.id === pick)
-            if (item) addView(item)
-            setPick('')
-          }}
-          data-board-add-view
-        >
-          <Plus className="size-4" aria-hidden />
-          {t('boardEditor.addThisView')}
-        </Button>
         <Button variant="secondary" onClick={() => setBuilding(true)} data-board-build-view>
           <Sparkles className="size-4" aria-hidden />
           {t('boardEditor.buildView')}
@@ -314,17 +326,35 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
           {t('boardEditor.addSection')}
         </Button>
         <EditWithCopilot editing={editing} />
+        <Button variant="secondary" className="ms-auto" onClick={() => setPreviewing(true)} data-board-preview-open>
+          <Eye className="size-4" aria-hidden />
+          {t('boardEditor.preview')}
+        </Button>
       </section>
 
       <AiStepNotice step={aiStep ? { kind: 'ai', request: aiStep.request } : null} onUndo={undoAi} />
 
-      {layout.panels.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-board-editor-empty>
-          {t('boardEditor.empty')}
-        </p>
-      ) : (
-        <BoardEditorGrid layout={layout} dispatch={dispatch} views={views} model={model} lang={lang} />
-      )}
+      <div className="grid items-start gap-3 md:grid-cols-[17rem_minmax(0,1fr)]">
+        <ViewsPalette
+          items={list.data}
+          loading={list.isLoading}
+          failed={!!list.error}
+          model={model}
+          lang={lang}
+          onAdd={(item) => addListed(item)}
+          onDragStart={setDragging}
+          onDragEnd={() => setDragging(null)}
+        />
+        <div className="flex min-w-0 flex-col gap-2">
+          {layout.panels.length === 0 && (
+            <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-board-editor-empty>
+              {t('boardEditor.empty')}
+            </p>
+          )}
+          {/* Always drawn, so a view can be dropped on an empty board too. */}
+          <BoardEditorGrid layout={layout} dispatch={dispatch} views={views} model={model} lang={lang} dropping={dropping} onDropView={dropView} />
+        </div>
+      </div>
 
       <div className="flex flex-col gap-2">
         <SaveStanding editing={editing} actions={actions} />
@@ -394,5 +424,6 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
           })}
       </Modal>
     </div>
+    </>
   )
 }

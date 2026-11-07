@@ -235,6 +235,52 @@ export interface AnalyticsItem {
   definition: AnalyticsViewDefinition
   /** 826: a Shared item's audience. Absent on a Shared item is v1's share with everyone. */
   audience?: AnalyticsAudience
+  /**
+   * 837 (BackOffice 3432 §1): the CALLER's folder for this item, or `null` (unfiled). Folders are personal: this is
+   * never another user's filing. A server without 3432 sends none, read as `null`.
+   */
+  folderId?: string | null
+  /** 837 (3432 §3): when the item was deleted — only on `Items?deleted=true` rows; `null` otherwise. */
+  deletedAt?: string | null
+}
+
+/** 837 (3432 §1): `GET Analytics/Folders` — one of the caller's own flat folders. */
+export interface AnalyticsFolder {
+  id: string
+  name: string
+  order: number
+  /** Items the caller can still read that are not deleted. */
+  itemCount: number
+}
+
+/** 837: `POST Analytics/Folders` / `PUT Analytics/Folders/{id}`. The name is trimmed, 1–80, unique per user (406). */
+export interface AnalyticsFolderWrite {
+  name?: string
+  order?: number
+}
+
+/** 837: `PUT Analytics/Item/{id}/Folder` answers the filing. `folderId: null` is unfiled. */
+export interface AnalyticsFiling {
+  itemId: string
+  folderId: string | null
+}
+
+/** 837 (3432 §2): a live board that links a view — the ones the caller can read. */
+export interface AnalyticsUsedByBoard {
+  id: string
+  title: AnalyticsLabel
+  owner: string
+  tier: AnalyticsTier
+  mine: boolean
+}
+
+/**
+ * 837: `GET Analytics/Item/{id}/UsedBy`, and the `data` of an `ANALYTICS-416` (view in use) refusal. `hidden` counts
+ * the boards the caller cannot read (no titles leak).
+ */
+export interface AnalyticsUsedBy {
+  boards: AnalyticsUsedByBoard[]
+  hidden: number
 }
 
 /**

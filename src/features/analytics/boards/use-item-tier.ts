@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { AnalyticsAccess, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import { ANALYTICS_ACCESS_KEY, needsAuthor, withoutAuthor } from './access'
-import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey, analyticsReportKey, analyticsRevisionsKey } from './api'
+import { ANALYTICS_FOLDERS_KEY, ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey, analyticsReportKey, analyticsRevisionsKey } from './api'
 import { itemActions } from './item-actions'
 import { certifiedCopyOf, needsCurator, tierActionsOf, type TierActionKey } from './item-tier'
 import { useItemActor } from './use-item-save'
@@ -69,6 +69,8 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
       void queryClient.invalidateQueries({ queryKey: analyticsRevisionsKey(item.id) })
       toast.success(t(`tierActions.done.${doneKey(w, item.tier)}`))
       if (key === 'delete') {
+        // 837: a deleted item drops out of my folders' counts (3432 §1).
+        void queryClient.invalidateQueries({ queryKey: ANALYTICS_FOLDERS_KEY })
         navigate('/analytics')
         queryClient.removeQueries({ queryKey: analyticsItemKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsBoardKey(item.id) })

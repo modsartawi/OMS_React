@@ -14,7 +14,8 @@ import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey 
 import AskBox from './AskBox'
 import { inLogicalOrder, NO_WAVE } from './board'
 import { noticeReducer, streamReducer, stripNotices } from './panel-notices'
-import BoardPanel, { type ParamNotice } from './BoardPanel'
+import BoardGrid from './BoardGrid'
+import type { ParamNotice } from './BoardPanel'
 import { RefreshPicker, useRefreshChoice, useRefreshLoop } from './BoardRefresh'
 import CrossFilterChip from './CrossFilterChip'
 import { toggleCrossFilter } from './drill'
@@ -190,18 +191,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
         <FilterStrip params={declared.params} values={values} onChange={setValues} onReset={reset} fellBack={fellBack} invalid={invalid} model={model} lang={lang} wave={stream.wave} />
       )}
       {crossFilter && <CrossFilterChip cross={crossFilter} model={model} lang={lang} onClear={clearCross} />}
-      {panels.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-analytics-board-empty>
-          {t('board.empty')}
-        </p>
-      ) : (
-        <div className="grid auto-rows-[minmax(3rem,auto)] grid-cols-12 gap-3" data-board-grid>
-          {panels.map((p) => {
-            const it = p.kind === 'view' ? byPanel.get(p.id) : undefined
-            return <BoardPanel key={p.id} panel={p} item={it?.data} itemError={it?.error ?? undefined} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} role={role} onParamNotice={onParamNotice} />
-          })}
-        </div>
-      )}
+      <BoardGrid panels={panels} byPanel={byPanel} context={context} model={model} lang={lang} onFetching={onFetching} onCross={onCross} registerRefresh={registerRefresh} role={role} onParamNotice={onParamNotice} />
+
     </div>
   )
 }

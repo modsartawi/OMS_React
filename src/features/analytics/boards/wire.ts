@@ -4,6 +4,8 @@ import type {
   AnalyticsBoardPanel,
   AnalyticsDimension,
   AnalyticsFilter,
+  AnalyticsFiling,
+  AnalyticsFolder,
   AnalyticsItem,
   AnalyticsLabel,
   AnalyticsMeasure,
@@ -16,6 +18,7 @@ import type {
   AnalyticsReportWords,
   AnalyticsRow,
   AnalyticsSeries,
+  AnalyticsUsedBy,
   AnalyticsViewDefinition,
   Bindings,
   Param,
@@ -125,7 +128,51 @@ export function readItem(raw: Loose): AnalyticsItem {
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
     definition: readDefinition(i.definition),
     audience: readAudience(i.audience),
+    // 837 (BackOffice 3432): absent on a server before 3432 → unfiled, not deleted.
+    folderId: str(i.folderId) || null,
+    deletedAt: str(i.deletedAt) || null,
   } as AnalyticsItem
+}
+
+/** 837: `GET Analytics/Folders` → the caller's folders by `order`. A row without an id is dropped. */
+export function readFolders(raw: unknown): AnalyticsFolder[] {
+  const list = Array.isArray(raw) ? raw : arr<unknown>(obj(raw).folders)
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+  return list
+    .map((x) => obj(x))
+    .filter((f) => !!str(f.id))
+    .map((f) => ({ id: str(f.id), name: str(f.name), order: num(f.order), itemCount: num(f.itemCount) }))
+    .sort((a, b) => a.order - b.order)
+}
+
+export function readFolder(raw: unknown): AnalyticsFolder {
+  return readFolders([raw])[0] ?? { id: '', name: '', order: 0, itemCount: 0 }
+}
+
+/** 837: `PUT Analytics/Item/{id}/Folder` → `{ itemId, folderId }`. */
+export function readFiling(raw: unknown): AnalyticsFiling {
+  const f = obj(raw)
+  return { itemId: str(f.itemId), folderId: str(f.folderId) || null }
+}
+
+/**
+ * 837: `GET Analytics/Item/{id}/UsedBy`, and an `ANALYTICS-416` refusal's `data` — `{ boards, hidden }`. A board with
+ * no id is dropped; `hidden` that is not a whole number reads as 0.
+ */
+export function readUsedBy(raw: unknown): AnalyticsUsedBy {
+  const u = obj(raw)
+  const hidden = typeof u.hidden === 'number' && Number.isInteger(u.hidden) && u.hidden > 0 ? u.hidden : 0
+  const boards = arr<unknown>(u.boards)
+    .map((x) => obj(x))
+    .filter((b) => !!str(b.id))
+    .map((b) => ({
+      id: str(b.id),
+      title: said(b.title),
+      owner: str(b.owner),
+      tier: (b.tier === 'shared' || b.tier === 'certified' ? b.tier : 'personal') as AnalyticsUsedBy['boards'][number]['tier'],
+      mine: b.mine === true,
+    }))
+  return { boards, hidden }
 }
 
 /**

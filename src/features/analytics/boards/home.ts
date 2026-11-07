@@ -38,7 +38,7 @@ export interface HomeGroup {
 }
 
 /** Lower case, NFKC, no Arabic harakat (U+064B–U+065F, U+0670) and no tatweel (U+0640). */
-const fold = (s: string): string =>
+export const fold = (s: string): string =>
   s
     .normalize('NFKC')
     .toLowerCase()
@@ -47,18 +47,28 @@ const fold = (s: string): string =>
 
 const hasTitle = (l: AnalyticsLabel) => !!(l.en || l.ar)
 
+/**
+ * The home's title search as a predicate (shared with 837's library, `./library`): by title in either language,
+ * folded; an untitled item by the title it is shown with (`fallbackTitle`). A blank search matches everything.
+ */
+export function titleMatcher(search: string, fallbackTitle?: (item: AnalyticsItem) => AnalyticsLabel): (item: AnalyticsItem) => boolean {
+  const needle = fold(search)
+  return (it) => {
+    if (!needle) return true
+    const title = hasTitle(it.title) ? it.title : fallbackTitle?.(it)
+    return !!title && (fold(title.en).includes(needle) || fold(title.ar).includes(needle))
+  }
+}
+
+/** Newest change first. */
+export const newestFirst = (a: AnalyticsItem, b: AnalyticsItem) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+
 export function homeGroups(
   items: readonly AnalyticsItem[],
   search: string,
   fallbackTitle?: (item: AnalyticsItem) => AnalyticsLabel,
 ): HomeGroup[] {
-  const needle = fold(search)
-  const matches = (it: AnalyticsItem) => {
-    if (!needle) return true
-    const title = hasTitle(it.title) ? it.title : fallbackTitle?.(it)
-    return !!title && (fold(title.en).includes(needle) || fold(title.ar).includes(needle))
-  }
-  const newestFirst = (a: AnalyticsItem, b: AnalyticsItem) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+  const matches = titleMatcher(search, fallbackTitle)
   return HOME_TIER_ORDER.map((tier) => ({
     tier,
     items: items.filter((it) => it.tier === tier && matches(it)).sort(newestFirst),

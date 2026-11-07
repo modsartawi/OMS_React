@@ -1,13 +1,17 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, FileText, LayoutDashboard, Plus, SearchX } from 'lucide-react'
+import { ChartColumn, FileText, Folder, FolderInput, Inbox, LayoutDashboard, Plus, RotateCcw, SearchX } from 'lucide-react'
 import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
-import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
+import type { AnalyticsFolder, AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
+import { useSession } from '@/core/session'
+import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
+import { useUrlQuery } from '@/core/ui/use-url-query'
+import { localToday } from '@/core/util/date-window'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
@@ -20,7 +24,20 @@ import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
-import { homeGroups, itemsQuery } from './home'
+import {
+  choiceNarrows,
+  LIBRARY_DRAG_TYPE,
+  libraryFromParams,
+  libraryItems,
+  libraryItemsQuery,
+  libraryToParams,
+  type LibraryChoice,
+  type LibraryFolder,
+} from './library'
+import LibraryChips from './LibraryChips'
+import LibraryMenu from './LibraryMenu'
+import LibraryRail from './LibraryRail'
+import { useFileItem, useLibraryFolders, useRestoreItem } from './use-library'
 import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
@@ -29,12 +46,15 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * The analytics home at `/analytics` (spec 766 §F, user stories 3–6; ticket 770) — the menu leaf's
  * destination, behind `canViewAnalytics` like every analytics page.
  *
- * Reads `GET Analytics/Items` once and lists it in three groups — Certified, Shared, then Mine, newest
- * change first (`./home`) — each item with its tier badge, owner and last change. The search narrows the
- * one list by title in either language, without a call per key. An item opens `/analytics/board/:id` or
- * `/analytics/view/:id` by its kind.
+ * 837 (BackOffice 3432): a library. A folder rail at the start side (All items · Unfiled · my folders · New folder ·
+ * Recently deleted, `./LibraryRail`), chips for who / kind / changed (`./LibraryChips`) and the title search all
+ * narrow at once, client-side (`./library`), and the Items door is asked with the same params. The choice lives in
+ * the URL. The list is ONE list, newest change first (the tier groups gave way to the who chips); each row keeps
+ * its tier badge, owner and last change, drags onto a folder to file it, and has a "Move to folder" menu. Recently
+ * deleted lists my deleted items with Restore. Before 3432 the folders door is a 404: the rail shows a note and
+ * the chips and search still work. An item opens `/analytics/board/:id` or `/analytics/view/:id` by its kind.
  *
- * The toolbar row above the groups (`data-analytics-home-header`) is the page's header slot: 782's ask box
+ * The toolbar row above the list (`data-analytics-home-header`) is the page's header slot: 782's ask box
  * joins the search there. Below it, curators see the analytics status card (785, `./AnalyticsStatus`).
  */
 export default function AnalyticsHomePage() {
@@ -61,11 +81,22 @@ const SEARCH_DEBOUNCE_MS = 300
 
 function HomeBody() {
   const { t } = useTranslation('boards')
-  const [search, setSearch] = useState('')
-  // The server is asked to narrow by the search once typing stops; the list on screen narrows at once,
-  // client-side, over what came back (and the same if the server ignores the param).
-  const asked = itemsQuery({ search: useDebounced(search, SEARCH_DEBOUNCE_MS) })
+  // 837: the library's choice (folder, chips, search) lives in the URL, so a refresh or Back keeps it.
+  const { query: choice, update } = useUrlQuery(libraryFromParams, libraryToParams)
+  const search = choice.search
+  const me = useSession((s) => s.userId) ?? ''
+  const today = localToday()
+  const library = useLibraryFolders()
+  // A folder the server does not have (or no folders at all, before 3432) reads as All items.
+  const known = (f: LibraryFolder) => f === 'all' || f === 'none' || f === 'deleted' || library.folders.some((x) => x.id === f)
+  const folder: LibraryFolder = library.available ? (known(choice.folder) ? choice.folder : 'all') : library.loading ? choice.folder : 'all'
+  const shown: LibraryChoice = useMemo(() => ({ ...choice, folder }), [choice, folder])
+  // The server is asked to narrow by the same choice once typing stops; the list on screen narrows at once,
+  // client-side, over what came back (and the same if the server ignores the params).
+  const asked = libraryItemsQuery({ ...shown, search: useDebounced(search, SEARCH_DEBOUNCE_MS) }, today)
   const items = useQuery({ queryKey: analyticsItemsKey(asked), queryFn: () => analyticsApi.items(asked), placeholderData: keepPreviousData, retry: false })
+  const fileItem = useFileItem()
+  const restore = useRestoreItem()
   // Only to name untitled views; the list never waits on it.
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
   // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
@@ -78,7 +109,14 @@ function HomeBody() {
     const m = model.data
     return (it: AnalyticsItem) => generatedTitle(it, m)
   }, [model.data])
-  const groups = useMemo(() => homeGroups(items.data ?? [], search, fallback), [items.data, search, fallback])
+  // 837: one list, newest change first — the who chips now say what the tier groups used to.
+  const list = useMemo(() => libraryItems(items.data ?? [], shown, me, today, fallback), [items.data, shown, me, today, fallback])
+  const titleOf = (it: AnalyticsItem) => saysIn(it.title, i18n.language) || saysIn(fallback(it), i18n.language)
+  const fileInto = (itemId: string, into: AnalyticsFolder | null) => {
+    const item = items.data?.find((x) => x.id === itemId)
+    if (!item || (item.folderId ?? null) === (into?.id ?? null)) return
+    fileItem.mutate({ item, folderId: into?.id ?? null, folderName: into?.name })
+  }
 
   let body: ReactNode
   if (items.error) {
@@ -90,87 +128,134 @@ function HomeBody() {
         {t('home.loading')}
       </div>
     )
-  } else if (items.data.length === 0 && !search.trim() && !asked.search) {
+  } else if (folder === 'all' && items.data.length === 0 && !choiceNarrows(choice) && !asked.search) {
     body = (
       <div className="rounded-lg border border-border/60 bg-card p-6 text-sm" data-analytics-home-empty>
         <p className="font-medium">{t('home.emptyTitle')}</p>
         <p className="mt-1 text-muted-foreground">{t('home.empty')}</p>
       </div>
     )
-  } else if (groups.length === 0) {
+  } else if (list.length === 0) {
+    const onlySearch = !!search.trim() && !choiceNarrows({ ...shown, search: '' })
+    const words =
+      folder === 'deleted' && !choiceNarrows(shown)
+        ? t('home.library.deletedEmpty')
+        : onlySearch && folder === 'all'
+          ? t('home.noMatch', { search: fsi(search.trim()) })
+          : !choiceNarrows(shown) && folder === 'none'
+            ? t('home.library.emptyUnfiled')
+            : !choiceNarrows(shown) && folder !== 'all' && folder !== 'deleted'
+              ? t('home.library.emptyFolder')
+              : t('home.library.noMatch')
     body = (
       <p className="flex items-center gap-2 rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground" data-analytics-home-no-match>
         <SearchX className="size-4" aria-hidden />
-        {t('home.noMatch', { search: fsi(search.trim()) })}
+        {words}
       </p>
     )
+  } else if (folder === 'deleted') {
+    body = (
+      <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60 bg-card" data-analytics-library-deleted>
+        {list.map((it) => (
+          <DeletedRow key={it.id} item={it} title={titleOf(it)} pending={restore.isPending && restore.variables === it.id} onRestore={() => restore.mutate(it.id)} />
+        ))}
+      </ul>
+    )
   } else {
-    body = groups.map((g) => (
-      <section key={g.tier} className="flex flex-col gap-2" data-analytics-group={g.tier}>
-        <h2 className="flex items-baseline gap-2 text-sm font-semibold tracking-tight">
-          {t(`home.group.${g.tier}`)}
-          <span className="text-xs font-normal text-muted-foreground">
-            <Ltr>{g.items.length}</Ltr>
-          </span>
-        </h2>
-        <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60 bg-card">
-          {g.items.map((it) => (
-            <HomeRow key={it.id} item={it} title={saysIn(it.title, i18n.language) || saysIn(fallback(it), i18n.language)} />
-          ))}
-        </ul>
-      </section>
-    ))
+    body = (
+      <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60 bg-card" data-analytics-library-list={folder}>
+        {list.map((it) => (
+          <HomeRow key={it.id} item={it} title={titleOf(it)} folders={library.available ? library.folders : null} onFile={(into) => fileInto(it.id, into)} />
+        ))}
+      </ul>
+    )
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3" data-analytics-home-header>
-        <Input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('home.searchPlaceholder')}
-          aria-label={t('home.searchLabel')}
-          wrapperClassName="w-80 max-w-full"
-          data-analytics-home-search
-        />
-        <AskBox />
-        {author && (
-          <>
-            {/* 775: build a view from the model. */}
-            <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
-              <Plus className="size-4" aria-hidden />
-              {t('editor.newView')}
-            </Link>
-            {/* 777: lay out a new board. */}
-            <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
-              <LayoutDashboard className="size-4" aria-hidden />
-              {t('boardEditor.newBoard')}
-            </Link>
-            {/* 828: design a new report. */}
-            <Link to={NEW_REPORT_PATH} className={buttonClass('secondary')} data-analytics-new-report>
-              <FileText className="size-4" aria-hidden />
-              {t('designer.newReport')}
-            </Link>
-          </>
-        )}
+    <div className="flex flex-col gap-4 md:flex-row md:items-start">
+      <LibraryRail folders={library.folders} available={library.available} current={folder} onPick={(f) => update((c) => ({ ...c, folder: f }))} onDropItem={fileInto} />
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3" data-analytics-home-header>
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              const next = e.target.value
+              update((c) => ({ ...c, search: next }))
+            }}
+            placeholder={t('home.searchPlaceholder')}
+            aria-label={t('home.searchLabel')}
+            wrapperClassName="w-80 max-w-full"
+            data-analytics-home-search
+          />
+          <AskBox />
+          {author && (
+            <>
+              {/* 775: build a view from the model. */}
+              <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
+                <Plus className="size-4" aria-hidden />
+                {t('editor.newView')}
+              </Link>
+              {/* 777: lay out a new board. */}
+              <Link to={NEW_BOARD_PATH} className={buttonClass('secondary')} data-analytics-new-board>
+                <LayoutDashboard className="size-4" aria-hidden />
+                {t('boardEditor.newBoard')}
+              </Link>
+              {/* 828: design a new report. */}
+              <Link to={NEW_REPORT_PATH} className={buttonClass('secondary')} data-analytics-new-report>
+                <FileText className="size-4" aria-hidden />
+                {t('designer.newReport')}
+              </Link>
+            </>
+          )}
+        </div>
+        <LibraryChips choice={choice} onChange={update} />
+        {curator && <AnalyticsStatus />}
+        {folder === 'deleted' && <p className="text-xs text-muted-foreground">{t('home.library.deletedNote')}</p>}
+        {body}
       </div>
-      {curator && <AnalyticsStatus />}
-      {body}
     </div>
   )
 }
 
-function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
+const kindIcon = (kind: AnalyticsItem['kind']) => (kind === 'board' ? LayoutDashboard : kind === 'report' ? FileText : ChartColumn)
+
+/**
+ * One library row. 837: with my folders (`folders`, null before 3432) it is draggable onto a rail folder, and its
+ * "Move to folder" menu files it without a mouse.
+ */
+function HomeRow({
+  item,
+  title,
+  folders,
+  onFile,
+}: {
+  item: AnalyticsItem
+  title: string
+  folders: readonly AnalyticsFolder[] | null
+  onFile: (into: AnalyticsFolder | null) => void
+}) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
-  const KindIcon = item.kind === 'board' ? LayoutDashboard : item.kind === 'report' ? FileText : ChartColumn
+  const KindIcon = kindIcon(item.kind)
   const changed = formatPair(formatDay(item.updatedAt, lang), formatClock(item.updatedAt, lang))
+  const at = item.folderId ?? null
   return (
-    <li data-analytics-item={item.id}>
+    <li
+      data-analytics-item={item.id}
+      data-analytics-item-folder={at ?? ''}
+      className="flex items-center gap-1 pe-2"
+      draggable={!!folders}
+      onDragStart={(e) => {
+        if (!folders) return
+        e.dataTransfer.setData(LIBRARY_DRAG_TYPE, item.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+    >
       <Link
         to={itemHref(item.kind, item.id)}
-        className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted/50 focus-visible:bg-muted/50"
+        draggable={false}
+        className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted/50 focus-visible:bg-muted/50"
       >
         <KindIcon className="size-4 shrink-0 text-muted-foreground" aria-label={t(`home.kind.${item.kind}`)} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium" data-analytics-item-title>
@@ -190,6 +275,44 @@ function HomeRow({ item, title }: { item: AnalyticsItem; title: string }) {
           </span>
         )}
       </Link>
+      {folders && (
+        <LibraryMenu
+          label={t('home.library.move.itemLabel', { title: fsi(title || t('home.untitled')) })}
+          icon={FolderInput}
+          data={`move:${item.id}`}
+          items={[
+            { key: 'none', label: t('home.library.move.unfiled'), icon: Inbox, current: at === null, onSelect: () => onFile(null) },
+            ...folders.map((f) => ({ key: f.id, label: <bdi>{f.name}</bdi>, icon: Folder, current: at === f.id, onSelect: () => onFile(f) })),
+          ]}
+        />
+      )}
+    </li>
+  )
+}
+
+/** 837: a Recently deleted row — not a link (a deleted item does not open); Restore puts it back (3432 §3). */
+function DeletedRow({ item, title, pending, onRestore }: { item: AnalyticsItem; title: string; pending: boolean; onRestore: () => void }) {
+  const { t } = useTranslation('boards')
+  const lang = i18n.language
+  const KindIcon = kindIcon(item.kind)
+  const deleted = item.deletedAt ? formatPair(formatDay(item.deletedAt, lang), formatClock(item.deletedAt, lang)) : ''
+  const name = title || t('home.untitled')
+  return (
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3" data-analytics-deleted-item={item.id}>
+      <KindIcon className="size-4 shrink-0 text-muted-foreground" aria-label={t(`home.kind.${item.kind}`)} />
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <bdi>{name}</bdi>
+      </span>
+      <TierBadge tier={item.tier} />
+      {deleted && (
+        <span className="text-xs text-muted-foreground" data-analytics-item-deleted-at>
+          <Trans t={t} i18nKey="home.library.deletedAt" values={{ at: deleted }} components={{ at: <Ltr /> }} />
+        </span>
+      )}
+      <Button variant="secondary" disabled={pending} onClick={onRestore} aria-label={t('home.library.restoreLabel', { title: fsi(name) })} data-analytics-restore={item.id}>
+        <RotateCcw className="size-3.5" aria-hidden />
+        {t('home.library.restore')}
+      </Button>
     </li>
   )
 }

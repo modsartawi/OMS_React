@@ -108,6 +108,29 @@ export function previewAnswer843(body, catalog = CATALOG_841) {
   }
 }
 
+/**
+ * 842: the catalog with BackOffice 3440's roadmap and untapped list (the till area also names two boundary entries),
+ * as `GET Analytics/Catalog` answers on spec3437. `loy.Ghost` names neither a lineage nor an untapped source.
+ */
+export const CATALOG_842 = {
+  ...CATALOG_841,
+  areas: CATALOG_841.areas.map((a) =>
+    a.key === 'till_sales' ? { ...a, boundary: [label('No personal data.', 'لا بيانات شخصية.'), ...a.boundary] } : a),
+  planned: [
+    { key: 'stock_cover', label: label('Stock cover', 'تغطية المخزون'), status: 'building',
+      questions: [label('How many days of stock does each store hold?', 'كم يومًا من المخزون لدى كل فرع؟')],
+      sources: ['pos.StockMove', 'pos.RetailTrx'], unknownSources: [] },
+    { key: 'loyalty_churn', label: label('Loyalty churn', 'تسرب أعضاء الولاء'), status: 'idea',
+      questions: [label('Which members stopped buying?', 'أي الأعضاء توقفوا عن الشراء؟')],
+      sources: ['loy.LoyMember', 'loy.Ghost'], unknownSources: ['loy.Ghost'] },
+    { key: 'supplier_fill', label: label('Supplier fill rate', 'نسبة توريد الموردين'), status: 'approved', questions: [], sources: [], unknownSources: [] },
+  ],
+  untappedSources: [
+    { key: 'pos.StockMove', server: 'POS-SQL01', database: 'POS', table: 'StockMove', note: 'Stock movements; nothing reads them yet.' },
+    { key: 'loy.LoyMember', server: 'LOY-SQL01', database: 'Loyalty', table: 'LoyMember', note: 'Loyalty members.' },
+  ],
+}
+
 // ── 844 (BackOffice 3442): a curator's catalog and the Raw door ──────────────────────────────────────────────────
 // A curator reads every mart's `columns` (table order, previewable flagged), `rows` and `sizeMb`; a view (dim_date
 // here) stores neither. `customer_id` and `mobile` are off the allow-list.

@@ -2,13 +2,14 @@ import { useMemo, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, FileText, Folder, FolderInput, Inbox, LayoutDashboard, Plus, RotateCcw, SearchX } from 'lucide-react'
+import { ChartColumn, FileText, Folder, FolderInput, Inbox, LayoutDashboard, Plus, RotateCcw, SearchX, X } from 'lucide-react'
 import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH, NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsFolder, AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import { buttonClass } from '@/core/ui/control-classes'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { localToday } from '@/core/util/date-window'
@@ -22,7 +23,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
-import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
+import { ANALYTICS_CATALOG_KEY, ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
 import { LIBRARY_DRAG_TYPE, libraryItems, libraryItemsQuery, type LibraryChoice, type LibraryFolder } from './library'
 import { libraryPagePath, pageNarrows, pageQuery, pageShows, type LibraryPage } from './library-pages'
@@ -235,10 +236,32 @@ function HomeBody({ page }: { page: LibraryPage }) {
           )}
         </div>
         <LibraryChips choice={choice} onChange={update} shows={shows} narrows={narrows} />
+        {choice.area && <AreaChip areaKey={choice.area} onRemove={() => update((c) => ({ ...c, area: '' }))} />}
         {curator && page === 'library' && <AnalyticsStatus />}
         {folder === 'deleted' && <p className="text-xs text-muted-foreground">{t('home.library.deletedNote')}</p>}
         {body}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 842 (rule 3): the catalog's used-by link narrows the library to an area (`?area=`). The Items door is asked with
+ * `area`, which BackOffice does not take yet — so the chip says the filter stands and the note says the list is not
+ * narrowed until the server takes it. The area's name comes from the catalog (asked only while the chip shows).
+ */
+function AreaChip({ areaKey, onRemove }: { areaKey: string; onRemove: () => void }) {
+  const { t } = useTranslation('boards')
+  const catalog = useQuery({ queryKey: ANALYTICS_CATALOG_KEY, queryFn: () => analyticsApi.catalog(), staleTime: 60_000, retry: false })
+  const area = catalog.data?.areas.find((a) => a.key === areaKey)
+  const name = (area && saysIn(area.label, i18n.language)) || areaKey
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-analytics-library-area={areaKey}>
+      <Chip on onClick={onRemove} aria-label={t('catalog.area.libraryChipRemove', { area: fsi(name) })} data-analytics-library-area-remove>
+        <Trans t={t} i18nKey="catalog.area.libraryChip" values={{ area: name }} components={{ a: area ? <bdi /> : <Ltr /> }} />
+        <X className="size-3.5" aria-hidden />
+      </Chip>
+      <span className="text-xs text-muted-foreground">{t('catalog.area.libraryNote')}</span>
     </div>
   )
 }

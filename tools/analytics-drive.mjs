@@ -187,7 +187,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, REPORT_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
-import { CATALOG_CURATED_844, CATALOG_NO_LINEAGE_841 } from './analytics-catalog-stubs.mjs'
+import { CATALOG_842, CATALOG_CURATED_844, CATALOG_NO_LINEAGE_841 } from './analytics-catalog-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -324,6 +324,73 @@ async function catalog843({ dir }) {
     (await runner.page.locator('[data-catalog-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-action')).join(','))) === 'preview')
   check(`${tag}: no page errors as a runner`, runner.errors.length === 0, runner.errors.join(' | '))
   await runner.context.close()
+}
+
+// 842 — a catalog area shows its facts, boundary, readers and used-by link, and the Planned / untapped section
+// (BackOffice spec 3437 §G, stories 22–26, 31–33), en and ar: the till area's data as of, history, refresh, two
+// boundary entries, the copilot and designer badges, used-by counts linking to All my items with `?kind=…&area=…`;
+// the unavailable area says not known; the Planned / untapped section groups by status, a planned area resolves its
+// sources (untapped, unknown) and an untapped table shows its note and who would read it; a search finds a planned
+// area; the library shows the removable area chip and asks Items with `area`; no page errors.
+async function catalog842({ dir }) {
+  const tag = `842 ${dir}`
+  const { context, page, errors, gets } = await open({ dir, catalog: CATALOG_842 })
+  const fact = (name) => page.locator(`[data-catalog-detail] [data-catalog-fact="${name}"]`)
+  const text = async (name) => (await fact(name).textContent()) ?? ''
+  await page.goto(`${BASE}/analytics/catalog`)
+  await page.locator('[data-catalog-detail="area"]').waitFor({ timeout: 15000 })
+  check(`${tag}: the area shows data as of, history and refresh`,
+    /2026/.test(await text('data-as-of')) && /2026/.test(await text('history')) && /Every hour|كل ساعة/.test(await text('refresh')))
+  check(`${tag}: the boundary lists both entries`, (await page.locator('[data-catalog-boundary] > li').count()) === 2)
+  check(`${tag}: copilot and designer badges`, JSON.stringify(await page.locator('[data-catalog-reader]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-reader')))) === '["copilot","designer"]')
+  const hrefs = await page.locator('[data-catalog-used-by]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-catalog-used-by'), e.getAttribute('href'), e.textContent.trim()]))
+  check(`${tag}: used-by counts link to the library narrowed to the area`,
+    hrefs.length === 3 && hrefs[0][1] === '/analytics/library?kind=view&area=till_sales' && /3/.test(hrefs[0][2]) && hrefs[2][1] === '/analytics/library?kind=report&area=till_sales', JSON.stringify(hrefs))
+  check(`${tag}: who may read names the grant`, /AnalyticsView/.test(await text('who-may-read')))
+  await page.screenshot({ path: `${SHOTS}/842-area-${dir}.png`, fullPage: true })
+
+  await page.locator('[data-catalog-pick="area:coupon_redemptions"]').click()
+  check(`${tag}: an unavailable area says not known, never 0`,
+    /Not known|غير معروف/.test(await text('used-by')) && /Not known|غير معروف/.test(await text('data-as-of')) && (await page.locator('[data-catalog-used-by]').count()) === 0)
+
+  // The Planned / untapped section, after the areas.
+  const roots = await page.locator('[data-catalog-tree] > li').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-node')))
+  check(`${tag}: the section follows the areas`, roots[roots.length - 1] === 'roadmap', JSON.stringify(roots))
+  await page.locator('[data-catalog-pick="roadmap"]').click()
+  await page.locator('[data-catalog-pick="roadmap/planned"]').click()
+  const statuses = await page.locator('[data-catalog-node="roadmap/planned"] > ul > li').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-node')))
+  check(`${tag}: planned areas group by status in roadmap order`,
+    JSON.stringify(statuses) === JSON.stringify(['roadmap/planned/status:idea', 'roadmap/planned/status:approved', 'roadmap/planned/status:building']), JSON.stringify(statuses))
+  await page.locator('[data-catalog-pick="roadmap/planned/status:idea"]').click()
+  await page.locator('[data-catalog-pick="roadmap/planned/status:idea/planned:loyalty_churn"]').click()
+  const kinds = await page.locator('[data-catalog-planned-source]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-catalog-planned-source')}:${e.getAttribute('data-catalog-source-kind')}`))
+  check(`${tag}: a planned area shows its status, questions and resolved sources`,
+    (await page.locator('[data-catalog-detail="planned"] [data-catalog-planned-status="idea"]').count()) === 1 && (await page.locator('[data-catalog-questions] > li').count()) === 1 &&
+    JSON.stringify(kinds) === '["loy.LoyMember:untapped","loy.Ghost:unknown"]', JSON.stringify(kinds))
+  await page.screenshot({ path: `${SHOTS}/842-planned-${dir}.png`, fullPage: true })
+  await page.locator('[data-catalog-pick="roadmap/untapped"]').click()
+  await page.locator('[data-catalog-pick="roadmap/untapped/source:pos.StockMove"]').click()
+  check(`${tag}: an untapped table shows its note and the planned area that would read it`,
+    /nothing reads them yet/.test(await text('note')) && (await page.locator('[data-catalog-planned-by] > li').count()) === 1)
+  await page.locator('[data-catalog-search]').fill('تغطية')
+  await page.waitForTimeout(200)
+  const found = await page.locator('[data-catalog-match]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-node')))
+  check(`${tag}: a search finds a planned area by its Arabic name`, found.join() === 'roadmap/planned/status:building/planned:stock_cover', found.join())
+  await page.locator('[data-catalog-search]').fill('')
+
+  // The used-by link: All my items with the area chip, the Items door asked with `area`.
+  await page.locator('[data-catalog-pick="area:till_sales"]').click()
+  await page.locator('[data-catalog-used-by="view"]').click()
+  await page.locator('[data-analytics-library-area="till_sales"]').waitFor({ timeout: 15000 })
+  check(`${tag}: the library shows the area chip by name`,
+    /Till sales|مبيعات الصندوق/.test((await page.locator('[data-analytics-library-area]').textContent()) ?? '') && new URL(page.url()).search === '?kind=view&area=till_sales', page.url())
+  check(`${tag}: Items is asked with area`, (gets['Analytics/Items'] ?? []).some((q) => q.area === 'till_sales' && q.kind === 'view'), JSON.stringify(gets['Analytics/Items']))
+  await page.screenshot({ path: `${SHOTS}/842-library-${dir}.png`, fullPage: true })
+  await page.locator('[data-analytics-library-area-remove]').click()
+  await page.waitForTimeout(300)
+  check(`${tag}: removing the chip drops the area`, (await page.locator('[data-analytics-library-area]').count()) === 0 && !new URL(page.url()).searchParams.has('area'), page.url())
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
 }
 
 // 844 — a curator previews a mart raw from the catalog and sees its hidden-column count and size (BackOffice spec
@@ -4890,6 +4957,8 @@ const SCENARIOS = [
   ['841', () => catalog841({ dir: 'rtl' })],
   ['843', () => catalog843({ dir: 'ltr' })],
   ['843', () => catalog843({ dir: 'rtl' })],
+  ['842', () => catalog842({ dir: 'ltr' })],
+  ['842', () => catalog842({ dir: 'rtl' })],
   ['844', () => rawPreview844({ dir: 'ltr' })],
   ['844', () => rawPreview844({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],

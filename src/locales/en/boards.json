@@ -110,6 +110,43 @@
         "timedOut": "The preview took longer than 30 seconds. Try a shorter period or fewer columns."
       }
     },
+    "area": {
+      "dataAsOf": "Data as of",
+      "history": "History from",
+      "historyDays": "The last <n>{{days}}</n> days",
+      "refresh": "Refresh",
+      "boundary": "Never contains",
+      "readBy": "Read by",
+      "readByNone": "Neither the copilot nor the designer reads it yet.",
+      "reader": { "copilot": "Copilot", "designer": "Report designer" },
+      "usedBy": "Used by saved items",
+      "usedByKind": { "view": "Views: <n>{{n}}</n>", "board": "Boards: <n>{{n}}</n>", "report": "Reports: <n>{{n}}</n>" },
+      "usedByNote": "Counts are everyone's saved items; the library shows only those you can see.",
+      "whoMayRead": "Who may read it",
+      "grant": "Everyone with the analytics grant (<g>{{grant}}</g>)",
+      "notKnown": "Not known",
+      "libraryChip": "Area: <a>{{area}}</a>",
+      "libraryChipRemove": "Remove the area filter {{area}}",
+      "libraryNote": "The list is not narrowed by area yet: the server does not take this filter."
+    },
+    "planned": {
+      "section": "Planned and untapped",
+      "kind": "Planned area",
+      "node": { "roadmap": "Planned and untapped", "plannedGroup": "Planned areas", "untappedGroup": "Source tables nothing reads yet" },
+      "status": { "idea": "Idea", "approved": "Approved", "building": "Building", "live": "Live" },
+      "statusLabel": "Status",
+      "questions": "Questions it would answer",
+      "sourceKind": { "lineage": "Already read by a mart", "untapped": "Not read yet", "unknown": "Not a known table" },
+      "hintLabel": "About",
+      "hint": "Areas on the roadmap, by status, with the questions they would answer and the tables they would read."
+    },
+    "untapped": {
+      "kind": "Untapped source table",
+      "note": "Note",
+      "plannedBy": "Planned areas that would read it",
+      "plannedByNone": "No planned area names it yet.",
+      "hint": "Source tables we hold that no mart reads yet."
+    },
     "raw": {
       "action": "Raw preview (top 200)",
       "title": "Raw preview",

@@ -32,12 +32,17 @@ export interface LibraryChoice {
   changed: LibraryChanged
   folder: LibraryFolder
   search: string
+  /**
+   * 842: a catalog area's key (`''` = any) — the Catalog's used-by link. The Items door is asked with `area`; until
+   * BackOffice takes the param it ignores it and the list is not narrowed (rows carry no definition to narrow by).
+   */
+  area: string
 }
 
 export const LIBRARY_WHO: readonly LibraryWho[] = ['all', 'mine', 'certified', 'sharedWithMe']
 export const LIBRARY_KINDS: readonly LibraryKind[] = ['all', 'view', 'board', 'report']
 
-export const DEFAULT_LIBRARY_CHOICE: LibraryChoice = { who: 'all', kind: 'all', changed: { kind: 'any' }, folder: 'all', search: '' }
+export const DEFAULT_LIBRARY_CHOICE: LibraryChoice = { who: 'all', kind: 'all', changed: { kind: 'any' }, folder: 'all', search: '', area: '' }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const isDate = (s: string | null | undefined): s is LocalDate => !!s && DATE.test(s)
@@ -127,7 +132,7 @@ export function libraryItems(
 
 /** Whether the choice narrows anything beyond the folder (the home words "nothing matches" differently). */
 export const choiceNarrows = (c: LibraryChoice): boolean =>
-  c.who !== 'all' || c.kind !== 'all' || c.changed.kind !== 'any' || !!c.search.trim()
+  c.who !== 'all' || c.kind !== 'all' || c.changed.kind !== 'any' || !!c.search.trim() || !!c.area
 
 // ── The server's narrowing (3432 §1) ──────────────────────────────────────────────────────────────
 
@@ -141,6 +146,8 @@ export interface LibraryItemsQuery {
   changedTo?: LocalDate
   owner?: 'me'
   deleted?: true
+  /** 842: a catalog area's key — a BackOffice ask; a server without it ignores the param. */
+  area?: string
 }
 
 /**
@@ -161,6 +168,7 @@ export function libraryItemsQuery(choice: Partial<LibraryChoice>, today: LocalDa
     ...(c.folder !== 'all' ? { folder: c.folder } : {}),
     ...(span?.from ? { changedFrom: span.from } : {}),
     ...(span?.to ? { changedTo: span.to } : {}),
+    ...(c.area ? { area: c.area } : {}),
   }
 }
 
@@ -189,6 +197,7 @@ export function libraryFromParams(params: URLSearchParams): LibraryChoice {
     changed,
     folder: folder ? folder : 'all',
     search: params.get('q') ?? '',
+    area: params.get('area')?.trim() ?? '',
   }
 }
 
@@ -207,6 +216,7 @@ export function libraryToParams(c: LibraryChoice): URLSearchParams {
   }
   if (c.folder !== 'all') p.set('folder', c.folder)
   if (c.search) p.set('q', c.search)
+  if (c.area) p.set('area', c.area)
   return p
 }
 

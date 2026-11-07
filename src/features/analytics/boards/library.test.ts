@@ -160,17 +160,17 @@ describe('the choice in the URL', () => {
 
   it('round-trips every choice', () => {
     const choices: LibraryChoice[] = [
-      { who: 'mine', kind: 'board', changed: { kind: 'today' }, folder: 'f1', search: 'late orders' },
-      { who: 'sharedWithMe', kind: 'all', changed: { kind: 'days', days: 7 }, folder: 'none', search: '' },
-      { who: 'certified', kind: 'report', changed: { kind: 'days', days: 30 }, folder: 'deleted', search: 'الطلبات' },
-      { who: 'all', kind: 'view', changed: { kind: 'range', from: '2026-10-01', to: '2026-10-31' }, folder: 'all', search: '' },
-      { who: 'all', kind: 'all', changed: { kind: 'range', from: '2026-10-01' }, folder: 'all', search: '' },
+      { who: 'mine', kind: 'board', changed: { kind: 'today' }, folder: 'f1', search: 'late orders', area: '' },
+      { who: 'sharedWithMe', kind: 'all', changed: { kind: 'days', days: 7 }, folder: 'none', search: '', area: 'till_sales' },
+      { who: 'certified', kind: 'report', changed: { kind: 'days', days: 30 }, folder: 'deleted', search: 'الطلبات', area: '' },
+      { who: 'all', kind: 'view', changed: { kind: 'range', from: '2026-10-01', to: '2026-10-31' }, folder: 'all', search: '', area: '' },
+      { who: 'all', kind: 'all', changed: { kind: 'range', from: '2026-10-01' }, folder: 'all', search: '', area: '' },
     ]
     for (const c of choices) expect(round(c)).toEqual(c)
   })
 
   it('writes short keys', () => {
-    const p = libraryToParams({ who: 'mine', kind: 'view', changed: { kind: 'range', from: '2026-10-01', to: '2026-10-31' }, folder: 'f1', search: 'x' })
+    const p = libraryToParams({ who: 'mine', kind: 'view', changed: { kind: 'range', from: '2026-10-01', to: '2026-10-31' }, folder: 'f1', search: 'x', area: '' })
     expect(p.toString()).toBe('who=mine&kind=view&changed=range&from=2026-10-01&to=2026-10-31&folder=f1&q=x')
   })
 

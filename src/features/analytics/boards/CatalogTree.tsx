@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Database, Folder, Info, Layers, Sigma, Table2, Tag } from 'lucide-react'
+import { ChevronRight, Database, Folder, Info, Layers, Lightbulb, Map as MapIcon, Sigma, Table2, Tag, TableProperties } from 'lucide-react'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import IconButton from '@/core/ui/IconButton'
@@ -109,7 +109,7 @@ function Row(props: CatalogTreeProps & { node: CatalogNode; level: number }) {
         >
           <span className="shrink-0 text-muted-foreground">{kindIcon(node)}</span>
           <span className="min-w-0 flex-1 truncate text-start">{name.node}</span>
-          {node.kind === 'group' && (
+          {COUNTED.has(node.kind) && (
             <span className="text-xs text-muted-foreground">
               <Ltr>{node.children.length}</Ltr>
             </span>
@@ -136,6 +136,9 @@ function Row(props: CatalogTreeProps & { node: CatalogNode; level: number }) {
   )
 }
 
+/** Nodes that show how many they hold beside their name. */
+const COUNTED = new Set<CatalogNode['kind']>(['group', 'plannedGroup', 'plannedStatus', 'untappedGroup'])
+
 function kindIcon(n: CatalogNode): ReactNode {
   const c = 'size-4'
   switch (n.kind) {
@@ -149,6 +152,16 @@ function kindIcon(n: CatalogNode): ReactNode {
       return <Tag className={c} aria-hidden />
     case 'mart':
       return <Table2 className={c} aria-hidden />
+    case 'roadmap':
+      return <MapIcon className={c} aria-hidden />
+    case 'plannedGroup':
+    case 'plannedStatus':
+    case 'untappedGroup':
+      return <Folder className={c} aria-hidden />
+    case 'planned':
+      return <Lightbulb className={c} aria-hidden />
+    case 'untapped':
+      return <TableProperties className={c} aria-hidden />
     default:
       return <Database className={c} aria-hidden />
   }
@@ -174,6 +187,21 @@ function nodeName(n: CatalogNode, lang: string, t: (k: string) => string): { nod
     case 'mart':
     case 'source':
       return { node: <Ltr>{n.key}</Ltr>, text: n.key }
+    // 842: the Planned / untapped section.
+    case 'roadmap':
+    case 'plannedGroup':
+    case 'untappedGroup': {
+      const text = t(`catalog.planned.node.${n.kind}`)
+      return { node: text, text }
+    }
+    case 'plannedStatus': {
+      const text = t(`catalog.planned.status.${n.status}`)
+      return { node: text, text }
+    }
+    case 'planned':
+      return label(n.planned.label, n.planned.key)
+    case 'untapped':
+      return { node: <Ltr>{n.untapped.key}</Ltr>, text: n.untapped.key }
     default:
       return { node: null, text: '' }
   }

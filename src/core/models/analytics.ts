@@ -853,3 +853,24 @@ export interface AnalyticsCatalog {
   planned: AnalyticsCatalogPlanned[]
   untappedSources: AnalyticsCatalogUntapped[]
 }
+
+// ── Spec 3437 (BackOffice 3441, oms-react 843): the catalog preview ─────────────────────────────────────────────
+// `POST Analytics/Catalog/Preview` (`AnalyticsCatalogPreview.cs`): the query door's answer plus `dropped`. Read through
+// `boards/catalog-preview.ts` `readPreview` (`readResult` alone would lose `dropped`).
+
+/** Every field but `area` optional: absent `period` = `last-7-days`; absent/[] dimensions or measures = all of them. */
+export interface AnalyticsCatalogPreviewRequest {
+  area: string
+  period?: string
+  /** CATEGORY dimension keys; the server always adds `date` by day (and strips it when sent). */
+  dimensions?: string[]
+  measures?: string[]
+}
+
+/** A measure the preview left out: `because` is the chosen dimension it cannot be cut by. */
+export interface AnalyticsDroppedMeasure {
+  measure: string
+  because: string
+}
+
+export type AnalyticsCatalogPreview = AnalyticsQueryResult & { dropped: AnalyticsDroppedMeasure[] }

@@ -10,7 +10,7 @@
 // 834: the acceptance case is the product's own sample report (type-only imports, so Node strips its types).
 import { sampleReport } from '../src/features/analytics/boards/sample-report.ts'
 // 841: the data catalog fixtures live beside this file.
-import { CATALOG_841 } from './analytics-catalog-stubs.mjs'
+import { CATALOG_841, previewAnswer843 } from './analytics-catalog-stubs.mjs'
 
 export const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -1031,6 +1031,15 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (p === 'Analytics/Catalog') {
       const catalog = opts.catalog ?? CATALOG_841
       return route.fulfill(isFulfil(catalog) ? catalog : envelope(catalog))
+    }
+    // 843: the catalog preview (`opts.preview`: a function of the body, or a fixed answer / fulfil; default `previewAnswer843`).
+    if (p === 'Analytics/Catalog/Preview') {
+      const body = req.postDataJSON() ?? {}
+      const answer = typeof opts.preview === 'function' ? opts.preview(body) : opts.preview ?? previewAnswer843(body, opts.catalog ?? CATALOG_841)
+      if (isFulfil(answer)) return route.fulfill(answer)
+      if (answer && answer.refused)
+        return route.fulfill(envelope(answer.data ?? null, { status: 400, success: false, message: `Refused: ${answer.refused}.`, errors: [{ errorCode: answer.refused, internalErrorCode: '', errorMessage: `Refused: ${answer.refused}.` }] }))
+      return route.fulfill(envelope(answer))
     }
     if (p === 'Analytics/Health') return route.fulfill(isFulfil(health) ? health : envelope(health))
     if (p === 'Analytics/DimensionValues') {

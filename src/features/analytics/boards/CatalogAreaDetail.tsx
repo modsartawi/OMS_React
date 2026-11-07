@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
+import { useCatalogActions } from './CatalogActions'
 import { BothOrNone, DetailShell, Fact, ServerText } from './CatalogDetailParts'
 
 /**
@@ -10,8 +11,9 @@ import { BothOrNone, DetailShell, Fact, ServerText } from './CatalogDetailParts'
  */
 export default function CatalogAreaDetail({ area }: { area: AnalyticsCatalogArea }) {
   const { t } = useTranslation('boards')
+  const { actions, below } = useCatalogActions(area)
   return (
-    <DetailShell kind={t('catalog.kind.area')} title={area.label} machineKey={area.key} actions={null} data="area">
+    <DetailShell kind={t('catalog.kind.area')} title={area.label} machineKey={area.key} actions={actions} below={below} data="area">
       <Fact label={t('catalog.fact.description')}>
         <BothOrNone says={area.description} />
       </Fact>

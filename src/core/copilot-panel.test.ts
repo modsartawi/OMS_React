@@ -49,4 +49,22 @@ describe('panel opener (ticket 782)', () => {
     expect(panel.getState().open).toBe(false)
     expect(panel.getState().takeQuestion()).toBeNull()
   })
+
+  it('prefill(text) opens with the text in the box and sends nothing (843)', () => {
+    const panel = createCopilotPanel()
+    panel.getState().prefill('  What does Item sales cover?  ')
+    expect(panel.getState().open).toBe(true)
+    // Nothing queued to send: the text waits in the box for the user.
+    expect(panel.getState().takeQuestion()).toBeNull()
+    expect(panel.getState().takeDraft()).toBe('What does Item sales cover?')
+    expect(panel.getState().takeDraft()).toBeNull()
+  })
+
+  it('without the copilot, a prefill is dropped', () => {
+    const panel = createCopilotPanel()
+    panel.getState().prefill('Anything')
+    panel.getState().setAvailable(false)
+    expect(panel.getState().open).toBe(false)
+    expect(panel.getState().takeDraft()).toBeNull()
+  })
 })

@@ -262,6 +262,70 @@ async function catalog841({ dir }) {
   await bare.context.close()
 }
 
+// 843 — preview an area in a grid; author actions (BackOffice spec 3437 §G, stories 35–38, 49–51), en and ar: Preview
+// asks `Catalog/Preview` with the defaults (area + last-7-days only) and draws 7 rows by day in AG Grid; a new period
+// asks again; choosing Item drops Return rate with a note; an unavailable area refuses with its reason (no grid);
+// "New view from this" on a measure opens the builder seeded; "Ask about this area" puts the question in the copilot
+// box unsent; a runner sees Preview only; no page errors.
+async function catalog843({ dir }) {
+  const tag = `843 ${dir}`
+  const { context, page, errors, bodies } = await open({ dir, copilot: 'granted' })
+  const sent = () => bodies['Analytics/Catalog/Preview'] ?? []
+  await page.goto(`${BASE}/analytics/catalog`)
+  await page.locator('[data-catalog-detail="area"]').waitFor({ timeout: 15000 })
+  check(`${tag}: an author sees Preview, New view and Ask on an area`,
+    (await page.locator('[data-catalog-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-action')).join(','))) === 'preview,new-view,ask')
+  check(`${tag}: nothing is previewed before asked`, sent().length === 0)
+  await page.locator('[data-catalog-action="preview"]').click()
+  await page.locator('[data-catalog-preview] [data-chart="table"] .ag-row').first().waitFor({ timeout: 15000 })
+  check(`${tag}: the preview asks with the defaults`, JSON.stringify(sent()[0]) === JSON.stringify({ area: 'till_sales', period: 'last-7-days' }), JSON.stringify(sent()))
+  const headers = await page.locator('[data-catalog-preview] .ag-header-cell-text').allTextContents()
+  check(`${tag}: the grid shows 7 days with named columns`,
+    ((await page.locator('[data-catalog-preview-count]').textContent()) ?? '').includes('7') && headers.length === 4, headers.join('|'))
+  await page.locator('[data-catalog-preview-period]').selectOption('last-30-days')
+  await page.waitForFunction(() => document.querySelector('[data-catalog-preview-count]')?.textContent?.includes('30'), null, { timeout: 15000 })
+  check(`${tag}: a new period asks again`, sent().at(-1)?.period === 'last-30-days', JSON.stringify(sent().at(-1)))
+  await page.locator('[data-testid="catalog-preview-dimensions"] [data-multi-select-trigger]').click()
+  await page.locator('[data-testid="catalog-preview-dimensions"] [data-option="item"] input').check()
+  await page.keyboard.press('Escape')
+  await page.locator('[data-catalog-preview-dropped-measure="return_rate"]').waitFor({ timeout: 15000 })
+  check(`${tag}: choosing Item drops Return rate with a note`,
+    JSON.stringify(sent().at(-1)?.dimensions) === '["item"]' && /Return rate|مُعَدَّل الإرجاع/.test((await page.locator('[data-catalog-preview-dropped]').textContent()) ?? ''))
+  await page.screenshot({ path: `${SHOTS}/843-preview-${dir}.png`, fullPage: true })
+
+  await page.locator('[data-catalog-action="ask"]').click()
+  await page.locator('[data-copilot-sheet] [data-copilot-question]').waitFor({ timeout: 15000 })
+  const drafted = await page.locator('[data-copilot-sheet] [data-copilot-question]').inputValue()
+  check(`${tag}: Ask puts a question naming the area in the copilot box, unsent`,
+    /Till sales|مبيعات الصندوق/.test(drafted) && !(bodies['Copilot/Ask'] ?? []).length, drafted)
+  await page.keyboard.press('Escape')
+
+  await page.locator('[data-catalog-toggle="area:coupon_redemptions"]').click().catch(() => {})
+  await page.locator('[data-catalog-pick="area:coupon_redemptions"]').click()
+  await page.locator('[data-catalog-action="preview"]').click()
+  await page.locator('[data-catalog-preview-state="refused"]').waitFor({ timeout: 15000 })
+  check(`${tag}: an unavailable area refuses with its reason, no grid`,
+    /Waiting on the coupon feed|بانتظار تغذية القسائم/.test((await page.locator('[data-catalog-preview-state="refused"]').textContent()) ?? '') &&
+    (await page.locator('[data-catalog-preview] [data-chart="table"]').count()) === 0)
+
+  await page.locator('[data-catalog-toggle="area:till_sales"]').click().catch(() => {})
+  await page.locator('[data-catalog-pick="area:till_sales/measures"]').click().catch(() => {})
+  await page.locator('[data-catalog-pick="area:till_sales/measure:return_rate"]').click()
+  await page.locator('[data-catalog-action="new-view"]').click()
+  await page.waitForURL(/\/analytics\/new/, { timeout: 15000 })
+  check(`${tag}: New view from a measure opens the builder`, page.url().includes('/analytics/new'), page.url())
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  const runner = await open({ dir, access: { canView: true, canAuthor: false, canCurate: false }, copilot: 'granted' })
+  await runner.page.goto(`${BASE}/analytics/catalog`)
+  await runner.page.locator('[data-catalog-detail="area"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a runner sees Preview only`,
+    (await runner.page.locator('[data-catalog-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-action')).join(','))) === 'preview')
+  check(`${tag}: no page errors as a runner`, runner.errors.length === 0, runner.errors.join(' | '))
+  await runner.context.close()
+}
+
 mkdirSync(SHOTS, { recursive: true })
 const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
 
@@ -4764,6 +4828,8 @@ const SCENARIOS = [
   ['840', () => home840({ dir: 'rtl' })],
   ['841', () => catalog841({ dir: 'ltr' })],
   ['841', () => catalog841({ dir: 'rtl' })],
+  ['843', () => catalog843({ dir: 'ltr' })],
+  ['843', () => catalog843({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],

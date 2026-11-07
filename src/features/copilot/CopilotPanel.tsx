@@ -108,6 +108,16 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (!questionFits(q) || ask(q) === null) setQuestion(q)
   }, [handed, ask])
 
+  // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.
+  const drafted = useCopilotPanel((s) => s.draft)
+  useEffect(() => {
+    if (drafted === null) return
+    const d = useCopilotPanel.getState().takeDraft()
+    if (d === null) return
+    setQuestion(d)
+    box.current?.focus()
+  }, [drafted])
+
   // ── Where the thread is scrolled ───────────────────────────────────────────────────────────────
   const scroller = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)

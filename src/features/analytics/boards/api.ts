@@ -9,6 +9,8 @@ import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
   AnalyticsCatalog,
+  AnalyticsCatalogPreview,
+  AnalyticsCatalogPreviewRequest,
   AnalyticsBoard,
   AnalyticsFiling,
   AnalyticsFolder,
@@ -46,6 +48,7 @@ import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readCatalog } from './catalog-wire'
+import { readPreview } from './catalog-preview'
 import { renderTicket, ticketHeaders } from './render-ticket'
 import {
   readBoard,
@@ -116,6 +119,13 @@ export const analyticsApi = {
   /** `GET Analytics/Health` (BackOffice 3386, curators only): how Cube and the dbt runs are going. */
   async health(): Promise<AnalyticsHealth> {
     return readHealth(await api.get<Record<string, unknown>>('Analytics/Health'))
+  },
+  /**
+   * 843 (BackOffice 3441, spec 3437 §D): `POST Analytics/Catalog/Preview` — any viewer's 200 rows of an area by day,
+   * through the query door. Read by `readPreview`, which keeps `dropped`. Key: `./catalog-preview` `analyticsPreviewKey`.
+   */
+  async catalogPreview(body: AnalyticsCatalogPreviewRequest): Promise<AnalyticsCatalogPreview> {
+    return readPreview(await api.post<unknown>('Analytics/Catalog/Preview', body))
   },
   /** `GET Analytics/Model` — the catalogue: areas, measures and dimensions, labelled in en and ar. */
   async model(): Promise<AnalyticsModel> {

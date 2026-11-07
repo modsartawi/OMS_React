@@ -9,8 +9,9 @@ import { api } from '@/core/api'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
 
 export const copilotApi = {
-  /** `POST Copilot/Ask` `{ question, conversationId? }` → the answer. */
-  ask(body: CopilotAskRequest): Promise<CopilotAnswer> {
-    return api.post<CopilotAnswer>('Copilot/Ask', body)
+  /** `POST Copilot/Ask` `{ question, conversationId? }` → the answer. Aborting `signal` (Stop) ends the
+   *  request, and the server stops the model and its tools with it (the door runs on `RequestAborted`). */
+  ask(body: CopilotAskRequest, signal?: AbortSignal): Promise<CopilotAnswer> {
+    return api.post<CopilotAnswer>('Copilot/Ask', body, undefined, undefined, signal)
   },
 }

@@ -24,6 +24,15 @@ export const COPILOT_TOOLS = [
   'create_report',
   'edit_report',
   'edit_board',
+  // BackOffice 3431: small edits of the board or report open in its editor.
+  'board_add_panel',
+  'board_remove_panels',
+  'board_arrange_panel',
+  'board_update_panel',
+  'report_add_block',
+  'report_remove_blocks',
+  'report_move_block',
+  'report_update_block',
 ] as const
 export type CopilotTool = (typeof COPILOT_TOOLS)[number]
 

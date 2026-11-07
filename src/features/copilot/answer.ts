@@ -114,6 +114,21 @@ export function answerBlocks(text: string): AnswerBlock[] {
   return blocks
 }
 
+/**
+ * The answer as clean text for Copy: no markdown marks, one blank line between blocks, lists as `- ` or `1. `, and a
+ * table as tab-separated rows, so it pastes into a message as read and into a spreadsheet as cells.
+ */
+export function answerPlainText(blocks: readonly AnswerBlock[]): string {
+  const plain = (s: string) => inlineMarks(s).map((m) => m.text).join('')
+  return blocks
+    .map((b) => {
+      if (b.kind === 'list') return b.items.map((item, i) => (b.ordered ? `${i + 1}. ` : '- ') + plain(item)).join('\n')
+      if (b.kind === 'table') return [b.head, ...b.rows].map((row) => row.map(plain).join('\t')).join('\n')
+      return plain(b.text)
+    })
+    .join('\n\n')
+}
+
 /** A run of answer text and its inline mark. */
 export type InlineMark = { text: string; mark: 'strong' | 'em' | 'code' | null }
 

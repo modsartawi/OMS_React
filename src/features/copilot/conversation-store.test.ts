@@ -20,10 +20,10 @@ const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
 
 /** A `Copilot/Ask` stand-in whose calls the test answers by hand, in any order. */
 function door() {
-  const calls: { body: CopilotAskRequest; answer: (r: CopilotAnswer) => void; refuse: (e: unknown) => void }[] = []
-  const ask = (body: CopilotAskRequest) =>
+  const calls: { body: CopilotAskRequest; signal?: AbortSignal; answer: (r: CopilotAnswer) => void; refuse: (e: unknown) => void }[] = []
+  const ask = (body: CopilotAskRequest, signal?: AbortSignal) =>
     new Promise<CopilotAnswer>((answer, refuse) => {
-      calls.push({ body, answer, refuse })
+      calls.push({ body, signal, answer, refuse })
     })
   return { ask, calls }
 }
@@ -72,6 +72,37 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     await fresh
     expect(store.getState().conv.id).toBe('c-new')
     expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['fresh question'])
+  })
+
+  it('copilotStore_stopAbortsTheQuestionInFlightAndHandsItBack', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    expect(store.getState().stop()).toBeNull()
+    const first = store.getState().ask('add a pie chart')
+    expect(d.calls[0].signal?.aborted).toBe(false)
+    expect(store.getState().stop()).toBe('add a pie chart')
+    // The request is aborted (so the server stops), nothing is in flight, and the next question can go at once.
+    expect(d.calls[0].signal?.aborted).toBe(true)
+    expect(store.getState().pending).toBeNull()
+    const second = store.getState().ask('add a donut chart')
+    expect(second).not.toBeNull()
+    // The stopped question's late reply (or its abort failure) adds nothing to the thread.
+    d.calls[0].refuse(new ApiError('network', 'aborted', 0))
+    await first
+    expect(store.getState().conv.turns).toHaveLength(0)
+    expect(store.getState().pending).toBe('add a donut chart')
+    d.calls[1].answer(reply('c-1', 1))
+    await second
+    expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['add a donut chart'])
+    expect(d.calls[1].signal?.aborted).toBe(false)
+  })
+
+  it('copilotStore_aNewConversationAbortsTheQuestionInFlight', () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    store.getState().ask('slow question')
+    store.getState().startNew()
+    expect(d.calls[0].signal?.aborted).toBe(true)
   })
 
   it('copilotStore_clearsWhenTheUserChangesOrSignsOut', async () => {

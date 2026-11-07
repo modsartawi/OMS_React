@@ -53,6 +53,12 @@ export interface CopilotConversationState {
   epoch: number
   /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
   ask: (question: string) => Promise<void> | null
+  /**
+   * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
+   * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
+   * arrives, is dropped; nothing is added to the thread. `null` when nothing is in flight.
+   */
+  stop: () => string | null
   /** "New conversation": no id, no thread, nothing in flight. The one left is filed in the history. */
   startNew: () => void
   /** Past conversations, most recent first. */
@@ -64,11 +70,17 @@ export interface CopilotConversationState {
 }
 
 export function createCopilotConversation(
-  send: (body: CopilotAskRequest) => Promise<CopilotAnswer>,
+  send: (body: CopilotAskRequest, signal?: AbortSignal) => Promise<CopilotAnswer>,
   now: () => number = () => Date.now(),
   reportBridge: StoreApi<ReportContextState> = useReportContext,
   boardBridge: StoreApi<BoardContextState> = useBoardContext,
 ) {
+  /** The question in flight's abort, so Stop (and a clear) can end its request. */
+  let inFlight: AbortController | null = null
+  const abandon = () => {
+    inFlight?.abort()
+    inFlight = null
+  }
   const store = create<CopilotConversationState>((set, get) => ({
     conv: EMPTY_CONVERSATION,
     pending: null,
@@ -78,13 +90,18 @@ export function createCopilotConversation(
       const { conv, pending, epoch } = get()
       if (pending !== null || !canAskMore(conv) || question.trim() === '') return null
       set({ pending: question })
+      const controller = new AbortController()
+      inFlight = controller
+      // A reply to a cleared conversation, or to a question stopped, is dropped.
+      const dropped = () => get().epoch !== epoch || controller.signal.aborted
       const landed = (next: (c: CopilotConversation) => CopilotConversation) => {
-        if (get().epoch !== epoch) return
+        if (dropped()) return
+        if (inFlight === controller) inFlight = null
         set((s) => ({ conv: next(s.conv), pending: null }))
       }
-      return send(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context)).then(
+      return send(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), controller.signal).then(
         (reply) => {
-          if (get().epoch !== epoch) return
+          if (dropped()) return
           landed((c) => withAnswer(c, question, reply))
           const { reportEdit, boardEdit } = copilotAnswerModel(reply)
           if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
@@ -93,21 +110,32 @@ export function createCopilotConversation(
         (err: unknown) => landed((c) => withRefusal(c, question, err)),
       )
     },
-    startNew: () =>
-      set((s) => ({ conv: EMPTY_CONVERSATION, pending: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) })),
+    stop: () => {
+      const { pending } = get()
+      if (pending === null) return null
+      abandon()
+      set({ pending: null })
+      return pending
+    },
+    startNew: () => {
+      abandon()
+      set((s) => ({ conv: EMPTY_CONVERSATION, pending: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
+    },
     resume: (index) =>
       set((s) => {
         const past = s.history[index]
         if (!past) return {}
+        abandon()
         const rest = s.history.filter((_, i) => i !== index)
         return { conv: past.conv, pending: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
       }),
     forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
   }))
   useSession.subscribe((user, before) => {
+    if (user.userId !== before.userId) abandon()
     if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, pending: null, epoch: s.epoch + 1, history: [] }))
   })
   return store
 }
 
-export const useCopilotConversation = createCopilotConversation((body) => copilotApi.ask(body))
+export const useCopilotConversation = createCopilotConversation((body, signal) => copilotApi.ask(body, signal))

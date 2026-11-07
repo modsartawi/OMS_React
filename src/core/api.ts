@@ -445,9 +445,11 @@ export const api = {
   },
   /** `params`, when a door takes a query beside its body (ticket 479's `Catalog/Push?account=`), is
    *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. `headers` is `get`'s optional
-   *  per-request passthrough (ticket 835: the analytics render ticket's header). */
-  post<T>(path: string, body: unknown, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
-    return request<T>(path + buildQuery(params), { method: 'POST', body: JSON.stringify(body), headers })
+   *  per-request passthrough (ticket 835: the analytics render ticket's header). `signal` lets the caller
+   *  abandon the call (the copilot's Stop); an aborted call rejects like a network failure, which the
+   *  caller that aborted it already expects and drops. */
+  post<T>(path: string, body: unknown, params?: Record<string, unknown>, headers?: Record<string, string>, signal?: AbortSignal): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'POST', body: JSON.stringify(body), headers, signal })
   },
   /**
    * `post`, keeping the envelope — `getEnvelope`'s twin (ticket 477), for a write whose SUCCESS

@@ -12,7 +12,11 @@ import type { CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTrac
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { COPILOT_MAX_QUESTION, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { Check, Copy } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import { notify } from '@/core/services/notify'
+import { copyText } from '@/core/util/copy-text'
+import { COPILOT_MAX_QUESTION, answerPlainText, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 
 /**
@@ -190,7 +194,10 @@ export function AnswerProvenance({
   stoppedEarly,
   servedBy,
   rules = null,
+  copy,
 }: {
+  /** The answer's text for its Copy button; no button when absent. */
+  copy?: string
   trace: readonly CopilotTraceEntry[]
   stoppedEarly: boolean
   servedBy: string | null
@@ -239,26 +246,56 @@ export function AnswerProvenance({
           </ol>
         </details>
       )}
-      {(servedBy || rules) && (
-        <p className="text-xs text-muted-foreground" data-copilot-served-by>
-          {servedBy && (
-            <>
-              {t('answer.servedBy')} <Ltr>{servedBy}</Ltr>
-            </>
-          )}
-          {servedBy && rules && ' · '}
-          {rules && (
-            <span data-copilot-rules={rules.kind === 'version' ? rules.n : 0}>
-              {rules.kind === 'version' ? (
-                <Trans t={t} i18nKey="answer.rulesVersion" values={{ n: formatNumber(rules.n) }} components={{ v: <Ltr /> }} />
-              ) : (
-                t('answer.rulesBuiltIn')
+      {(copy !== undefined || servedBy || rules) && (
+        <div className="flex flex-col items-start gap-1.5" data-copilot-answer-footer>
+          {copy !== undefined && <CopyAnswer text={copy} />}
+          {(servedBy || rules) && (
+            // A small tag under the answer: who served it, and under which house rules.
+            <p
+              className="inline-flex w-fit flex-wrap items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-0.5 text-[11px] leading-4 text-muted-foreground"
+              data-copilot-served-by
+            >
+              {servedBy && (
+                <span>
+                  {t('answer.servedBy')} <Ltr>{servedBy}</Ltr>
+                </span>
               )}
-            </span>
+              {servedBy && rules && <span aria-hidden>·</span>}
+              {rules && (
+                <span data-copilot-rules={rules.kind === 'version' ? rules.n : 0}>
+                  {rules.kind === 'version' ? (
+                    <Trans t={t} i18nKey="answer.rulesVersion" values={{ n: formatNumber(rules.n) }} components={{ v: <Ltr /> }} />
+                  ) : (
+                    t('answer.rulesBuiltIn')
+                  )}
+                </span>
+              )}
+            </p>
           )}
-        </p>
+        </div>
       )}
     </div>
+  )
+}
+
+/** Copy: the answer's text on the clipboard (clean, see `answerPlainText`); the button says Copied for a moment. */
+function CopyAnswer({ text }: { text: string }) {
+  const { t } = useTranslation('copilot')
+  const [done, setDone] = useState(false)
+  useEffect(() => {
+    if (!done) return
+    const timer = setTimeout(() => setDone(false), 2000)
+    return () => clearTimeout(timer)
+  }, [done])
+  const put = async () => {
+    if ((await copyText(text)) === 'copied') setDone(true)
+    else notify.error(t('answer.copyFailed'))
+  }
+  return (
+    <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => void put()} disabled={text === ''} data-copilot-copy={done ? 'done' : ''}>
+      {done ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+      {done ? t('answer.copied') : t('answer.copy')}
+    </Button>
   )
 }
 
@@ -279,7 +316,13 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
       <ReportEditNote reportEdit={model.reportEdit} />
       <BoardEditNote boardEdit={model.boardEdit} />
       <ReportLinks reportRefs={model.reportRefs} />
-      <AnswerProvenance trace={model.trace} stoppedEarly={model.stoppedEarly} servedBy={model.servedBy} rules={model.rules} />
+      <AnswerProvenance
+        trace={model.trace}
+        stoppedEarly={model.stoppedEarly}
+        servedBy={model.servedBy}
+        rules={model.rules}
+        copy={answerPlainText(model.blocks)}
+      />
     </>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, X } from 'lucide-react'
+import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
 import { saysIn } from '@/core/rules/sentence'
@@ -95,6 +95,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const history = useCopilotConversation((s) => s.history)
   const ask = useCopilotConversation((s) => s.ask)
   const clear = useCopilotConversation((s) => s.startNew)
+  const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
   const box = useRef<HTMLTextAreaElement>(null)
   const working = pending !== null
@@ -168,6 +169,12 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (!canSend) return
     if (ask(question.trim()) !== null) setQuestion('')
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
+    box.current?.focus()
+  }
+  /** Stop: the question in flight is abandoned and comes back to the box to change, unless something new is typed there. */
+  const stopAsk = () => {
+    const stopped = stop()
+    if (stopped !== null) setQuestion((typed) => (typed.trim() === '' ? stopped : typed))
     box.current?.focus()
   }
   /** "New conversation": no id, no thread, nothing in flight, an empty box. The one left goes to the history. */
@@ -329,10 +336,18 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               />
             </Field>
             <div className="flex justify-end">
-              <Button type="submit" disabled={!canSend} data-copilot-send>
-                <Send className="h-3.5 w-3.5" aria-hidden />
-                {t('box.send')}
-              </Button>
+              {/* While the answer is coming, Send becomes Stop: the request is aborted and the question comes back to the box. */}
+              {working ? (
+                <Button type="button" variant="secondary" onClick={stopAsk} title={t('box.stopHint')} data-copilot-stop>
+                  <Square className="h-3.5 w-3.5 fill-current" aria-hidden />
+                  {t('box.stop')}
+                </Button>
+              ) : (
+                <Button type="submit" disabled={!canSend} data-copilot-send>
+                  <Send className="h-3.5 w-3.5" aria-hidden />
+                  {t('box.send')}
+                </Button>
+              )}
             </div>
           </form>
         ) : (

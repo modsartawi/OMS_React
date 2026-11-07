@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerPlainText, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -239,5 +239,17 @@ describe('the board edit (ticket 836, BackOffice 3430)', () => {
       definition: { panels: [], params: [], bindings: {} },
       note: { en: '', ar: '' },
     })
+  })
+})
+
+describe('Copy puts the answer on the clipboard as clean text', () => {
+  it('answerPlainText_dropsTheMarkdownAndKeepsTheShape', () => {
+    const blocks = answerBlocks(
+      ['## Deliveries by channel', 'Most came through **our app**, see `QC`.', '- HungerStation: *2,197*', '- Call centre: 2,187', '1. first', '2. second', '| Channel | Deliveries |', '|---|---|', '| App | 4,385 |'].join('\n'),
+    )
+    expect(answerPlainText(blocks)).toBe(
+      ['Deliveries by channel', 'Most came through our app, see QC.', '- HungerStation: 2,197\n- Call centre: 2,187', '1. first\n2. second', 'Channel\tDeliveries\nApp\t4,385'].join('\n\n'),
+    )
+    expect(answerPlainText([])).toBe('')
   })
 })

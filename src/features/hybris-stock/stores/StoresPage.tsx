@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, RowClassRules } from 'ag-grid-community'
-import { RotateCcw, Search } from 'lucide-react'
+import { PackageCheck, RotateCcw, Search, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -13,7 +13,7 @@ import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
 import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
-import type { HybrisStockMarkedFilter, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
+import type { HybrisStockMarkedFilter, HybrisStockPushRow, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -27,6 +27,8 @@ import { storeColumns } from './columns'
 import { storeHealth } from './health'
 import HistoryDrawer from './HistoryDrawer'
 import { MarkDialog } from './StoreDialogs'
+import { PushMaterialsDialog, PushStoreDialog } from './PushDialogs'
+import { pushResult } from './push-now'
 import { MARKED_FILTERS, storesFromParams, storesToParams } from './stores-query'
 
 /**
@@ -92,6 +94,10 @@ function Stores() {
   const unhealthyCount = rows.filter((r) => storeHealth(r).reading === 'unhealthy').length
 
   const [marking, setMarking] = useState<Row | null>(null)
+  // Push now (850): the store dialog, the materials dialog, and the last push's answer above the grid.
+  const [pushing, setPushing] = useState<Row | null>(null)
+  const [pushingMaterials, setPushingMaterials] = useState(false)
+  const [pushed, setPushed] = useState<HybrisStockPushRow | null>(null)
 
   // The history drawer lives in the URL, so a link that knows only a store code opens it.
   const historyCode = params.get('history')
@@ -126,6 +132,7 @@ function Stores() {
     () =>
       storeColumns(t, {
         onMark: canManage ? (row) => setMarking(row) : null,
+        onPush: canManage ? (row) => setPushing(row) : null,
         onHistory: (row) => openHistoryRef.current(row.storeCode),
         // The push log owns the pushes and a material's history; a store links into it by code.
         onPushes: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode })}`),
@@ -175,7 +182,15 @@ function Stores() {
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('filters.clear')}
         </Button>
+        {canManage && (
+          <Button className="ms-auto" variant="secondary" onClick={() => setPushingMaterials(true)} data-push-materials="">
+            <PackageCheck className="h-3.5 w-3.5" aria-hidden />
+            {t('pushMaterials.button')}
+          </Button>
+        )}
       </form>
+
+      {pushed && <PushResult push={pushed} onDismiss={() => setPushed(null)} />}
 
       {stores.isError && <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={apiErrorMessage(stores.error, t('results.failed'))} />}
 
@@ -231,6 +246,55 @@ function Stores() {
 
       {historyCode && <HistoryDrawer key={historyCode} storeCode={historyCode} storeName={historyName} onClose={() => openHistory(null)} />}
       {marking && canManage && <MarkDialog row={marking} onClose={() => setMarking(null)} />}
+      {pushing && canManage && (
+        <PushStoreDialog
+          row={pushing}
+          onClose={() => setPushing(null)}
+          onDone={(push) => {
+            setPushed(push)
+            setPushing(null)
+          }}
+        />
+      )}
+      {pushingMaterials && canManage && (
+        <PushMaterialsDialog
+          stores={rows.filter((r) => r.marked)}
+          onClose={() => setPushingMaterials(false)}
+          onDone={(push) => {
+            setPushed(push)
+            setPushingMaterials(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** A push now's answer: its type and stores, the rows sent and its status (850). */
+function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: () => void }) {
+  const { t } = useTranslation('hybris-stock-stores')
+  const line = pushResult(push)
+  return (
+    <div
+      role="status"
+      className={'flex items-center gap-3 rounded-md border px-3 py-2 text-xs ' + (line.ok ? 'border-border bg-card-2 text-foreground' : 'border-danger-border bg-danger-050 text-danger-800')}
+      data-push-result={push.pushId}
+      data-status={push.status}
+    >
+      <span className="font-semibold">
+        <Trans
+          t={t}
+          i18nKey={push.type === 'M' ? 'pushMaterials.resultTitle' : 'pushNow.resultTitle'}
+          values={{ push: push.pushId, stores: push.storeCodes.join(', ') }}
+          components={{ push: <Ltr />, stores: <Ltr /> }}
+        />
+      </span>
+      <span data-push-result-line="">
+        <Trans t={t} i18nKey={line.key} values={{ rows: line.rows }} components={{ n: <Ltr /> }} />
+      </span>
+      <Button variant="text" className="ms-auto" onClick={onDismiss} aria-label={t('pushNow.dismiss')} data-push-result-dismiss="">
+        <X className="h-3.5 w-3.5" aria-hidden />
+      </Button>
     </div>
   )
 }

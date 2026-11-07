@@ -1,12 +1,14 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
+import { useIsMutating } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
-import { BookmarkMinus, BookmarkPlus, History, PackageSearch, ScrollText } from 'lucide-react'
+import { BookmarkMinus, BookmarkPlus, History, Loader2, PackageSearch, ScrollText, Send } from 'lucide-react'
 import type { HybrisStockStoreHealth, HybrisStockStoreRow } from '@/core/models/hybris-stock'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
 import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
+import { pushStoreKey } from './api'
 import { storeHealth } from './health'
 
 type Row = HybrisStockStoreRow
@@ -15,11 +17,34 @@ type Row = HybrisStockStoreRow
 export interface StoreActions {
   /** `null` when the user may only view: Mark / Unmark is not drawn at all. */
   onMark: ((row: Row) => void) | null
+  /** Push the store's full now (850); `null` for a view-only user. Drawn on a marked store only. */
+  onPush: ((row: Row) => void) | null
   onHistory: (row: Row) => void
   /** The store's pushes in the push log (849). */
   onPushes: (row: Row) => void
   /** A material's history at the store, in the push log (849). */
   onMaterial: (row: Row) => void
+}
+
+/**
+ * Push store now (850), on a marked store. While that store's push is in flight (its mutation, keyed by
+ * `pushStoreKey`) it shows progress and cannot be clicked again — `aria-disabled`, so it keeps focus.
+ */
+function PushButton({ row, t, onPush }: { row: Row; t: TFunction; onPush: (row: Row) => void }) {
+  const running = useIsMutating({ mutationKey: pushStoreKey(row.storeCode) }) > 0
+  return (
+    <Button
+      variant="ghost"
+      aria-disabled={running || undefined}
+      aria-busy={running || undefined}
+      onClick={() => !running && onPush(row)}
+      data-store-push={row.storeCode}
+      data-running={running ? '' : undefined}
+    >
+      {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
+      {running ? t('pushNow.running') : t('pushNow.button')}
+    </Button>
+  )
 }
 
 /** `null` renders blank — an unmarked store has no health block. */
@@ -94,12 +119,13 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 480,
+      width: 600,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
         data ? (
           <span className="flex h-full items-center gap-1.5">
+            {act.onPush && data.marked && <PushButton row={data} t={t} onPush={act.onPush} />}
             {act.onMark && (
               <Button
                 variant={data.marked ? 'danger-outlined' : 'ghost'}

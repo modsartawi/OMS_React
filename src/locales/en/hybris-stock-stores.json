@@ -117,6 +117,50 @@
     "done": "Store unmarked",
     "doneDetail": "Store {{store}} no longer sends its stock to Hybris."
   },
+  "pushNow": {
+    "button": "Push now",
+    "running": "Pushing…",
+    "title": "Push this store now",
+    "note": "Sends a FULL of every enabled material for <store>{{store}}</store> now. It counts as the store's full, so the nightly cycle does not send it again tonight.",
+    "confirm": "Push full now",
+    "done": "Push sent",
+    "doneDetail": "Store {{store}}'s full is delivered.",
+    "resultTitle": "Push <push>{{push}}</push> for <stores>{{stores}}</stores>",
+    "result": {
+      "S": "<n>{{rows}}</n> rows, delivered to hot folder.",
+      "E": "<n>{{rows}}</n> rows, failed. See the push log.",
+      "R": "<n>{{rows}}</n> rows so far, still running.",
+      "other": "<n>{{rows}}</n> rows."
+    },
+    "dismiss": "Dismiss",
+    "refusal": {
+      "busy": "A push of this store is already running; try again shortly.",
+      "busyHint": "Nothing was pushed or recorded. Try again shortly.",
+      "notMarked": "This store is not a Hybris stock store.",
+      "notMarkedHint": "Mark it first; the list is read again.",
+      "railOff": "The Hybris stock sync is off.",
+      "railOffHint": "Nothing can be pushed until it is switched on.",
+      "sinkFailed": "The file could not be delivered.",
+      "sinkFailedHint": "The push was recorded as failed and shows in the push log.",
+      "unknownMaterial": "A material is not on the Hybris stock list.",
+      "unknownMaterialHint": "Push only listed materials, or add it on the Materials page."
+    }
+  },
+  "pushMaterials": {
+    "button": "Push materials now",
+    "title": "Push chosen materials now",
+    "note": "Sends the current stock of the chosen materials for the chosen stores now. It does not count as a full and does not change when their next delta runs.",
+    "stores": "Stores",
+    "materials": "Material numbers",
+    "placeholder": "100002, 100003 …",
+    "counted_one": "<n>{{n}}</n> material",
+    "counted_other": "<n>{{n}}</n> materials",
+    "invalid": "Not material numbers: {{values}}",
+    "confirm": "Push materials",
+    "done": "Materials pushed",
+    "doneDetail": "{{rows}} rows delivered.",
+    "resultTitle": "Materials push <push>{{push}}</push> for <stores>{{stores}}</stores>"
+  },
   "pushes": {
     "button": "Pushes",
     "material": "Material history"

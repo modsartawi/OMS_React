@@ -35,7 +35,7 @@ export function targetLabel(target: string | null | undefined): { key: `target.$
   return { key: `target.${reading}`, sev: reading === 'shadow' ? 'warn' : reading === 'live' ? 'go' : 'mute' }
 }
 
-const DAY = 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * The push's lines are gone: the retention sweeper removed them (`linesSwept`), or the push is older
@@ -45,5 +45,5 @@ const DAY = 24 * 60 * 60 * 1000
 export function linesSwept(push: Pick<HybrisStockPushRow, 'linesSwept' | 'startedAt'>, retentionDays: number, now: Date): boolean {
   if (push.linesSwept === true) return true
   const started = new Date(push.startedAt).getTime()
-  return Number.isFinite(started) && now.getTime() - started > retentionDays * DAY
+  return Number.isFinite(started) && now.getTime() - started > retentionDays * DAY_MS
 }

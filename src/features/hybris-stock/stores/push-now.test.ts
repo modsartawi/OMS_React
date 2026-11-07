@@ -47,13 +47,21 @@ describe('pushNowRefusal', () => {
 
 describe('pushResult', () => {
   it('reads rows and status', () => {
-    expect(pushResult({ rows: 4300, status: 'S' })).toEqual({ key: 'pushNow.result.S', rows: '4,300', ok: true })
+    expect(pushResult({ rows: 4300, status: 'S' })).toEqual({ key: 'pushNow.result.S', rows: '4,300', ok: true, status: 'S' })
     expect(pushResult({ rows: 0, status: 'E' }).ok).toBe(false)
     expect(pushResult({ rows: 1, status: 'Z' }).key).toBe('pushNow.result.other')
   })
 
   it.each([en, ar])('every result key exists', (locale) => {
-    for (const s of ['S', 'E', 'R', 'other']) expect(typeof at(locale, `pushNow.result.${s}`)).toBe('string')
+    for (const s of ['S', 'E', 'R', 'other']) {
+      expect(typeof at(locale, `pushNow.result.${s}`)).toBe('string')
+      expect(typeof at(locale, `pushNow.toast.${s}`)).toBe('string')
+    }
+  })
+
+  it('the toast of a delivered push says delivered to hot folder; a failed one never says delivered', () => {
+    expect(String(at(en, 'pushNow.toast.S'))).toMatch(/delivered to hot folder/i)
+    expect(String(at(en, 'pushNow.toast.E'))).not.toMatch(/delivered/i)
   })
 })
 

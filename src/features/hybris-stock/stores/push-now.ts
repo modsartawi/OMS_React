@@ -1,4 +1,5 @@
-import { HYBRIS_STOCK_ERRORS as E, type HybrisStockPushRow } from '@/core/models/hybris-stock'
+import { HYBRIS_STOCK_ERRORS as E, MATERIAL_NUMBER, type HybrisStockPushRow } from '@/core/models/hybris-stock'
+import { pastedCodes } from '@/core/util/code-list'
 import { formatFigure as figure } from '@/core/util/number-format'
 
 // Push now from the stores page (spec 3447 stories 34–38; ticket 850): a store's full now, or chosen
@@ -40,18 +41,14 @@ export const isErrorState = (kind: PushNowRefusal | null): boolean => kind !== n
 export const refreshesList = (kind: PushNowRefusal | null): boolean => kind === 'notMarked' || kind === 'sinkFailed'
 
 /** The line a finished push reads: rows sent and its status (`pushNow.result.<status>`). */
-export function pushResult(push: Pick<HybrisStockPushRow, 'rows' | 'status'>): { key: string; rows: string; ok: boolean } {
+export function pushResult(push: Pick<HybrisStockPushRow, 'rows' | 'status'>): { key: string; rows: string; ok: boolean; status: 'S' | 'E' | 'R' | 'other' } {
   const status = push.status === 'S' || push.status === 'E' || push.status === 'R' ? push.status : 'other'
-  return { key: `pushNow.result.${status}`, rows: figure(push.rows), ok: push.status !== 'E' }
+  return { key: `pushNow.result.${status}`, rows: figure(push.rows), ok: push.status !== 'E', status }
 }
 
-/** Material numbers as pasted: split on space, comma, semicolon or line break; repeats collapsed, order kept. */
+/** Material numbers as pasted, read by the core paste rule (`pastedCodes`: repeats collapsed, order kept),
+ *  then split into the numbers the master can hold and the ones it cannot. */
 export function parseMaterials(text: string): { numbers: string[]; invalid: string[] } {
-  const numbers: string[] = []
-  const invalid: string[] = []
-  for (const token of text.split(/[\s,;]+/).filter(Boolean)) {
-    if (!/^\d{1,18}$/.test(token)) invalid.includes(token) || invalid.push(token)
-    else if (!numbers.includes(token)) numbers.push(token)
-  }
-  return { numbers, invalid }
+  const codes = pastedCodes(text)
+  return { numbers: codes.filter((c) => MATERIAL_NUMBER.test(c)), invalid: codes.filter((c) => !MATERIAL_NUMBER.test(c)) }
 }

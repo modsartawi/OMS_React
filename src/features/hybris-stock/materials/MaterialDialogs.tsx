@@ -89,6 +89,8 @@ export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; o
     mutationFn: (reason: string) => materialsApi.setEnabled(row.materialNumber, { enabled: !row.enabled, reason }),
     onSuccess: (next) => {
       qc.setQueriesData<HybrisStockMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => withRow(page, next))
+      // A page under the enabled filter may no longer hold the row: read those again.
+      void qc.invalidateQueries({ queryKey: MATERIALS_KEY, predicate: (q) => String(q.queryKey[2] ?? '').includes('enabled=') })
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { material: fsi(row.materialNumber) }))
       onClose()
     },

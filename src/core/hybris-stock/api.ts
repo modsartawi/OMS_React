@@ -15,6 +15,10 @@ export const HYBRIS_STOCK_ACCESS_KEY = ['hybris-stock', 'access'] as const
 
 export const HYBRIS_STOCK_STATUS_KEY = ['hybris-stock', 'status'] as const
 
+/** Every push-log page (849). Here, not in the pushes feature, because the stores page's push now (850)
+ *  refreshes it too, and a feature may not import another. */
+export const HYBRIS_STOCK_PUSHES_KEY = ['hybris-stock', 'pushes'] as const
+
 export const hybrisStockApi = {
   /**
    * GET HybrisStockWeb/Access → `{ canView, canManage }`.

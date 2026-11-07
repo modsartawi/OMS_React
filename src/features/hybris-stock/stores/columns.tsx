@@ -8,6 +8,7 @@ import Button from '@/core/ui/Button'
 import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
+import { listText } from '@/core/util/list-format'
 import { pushStoreKey } from './api'
 import { storeHealth } from './health'
 
@@ -65,7 +66,7 @@ const healthField =
  * Every plain cell is isolated by the core grid base; a column with its own renderer isolates its own
  * whole value.
  */
-export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
+export function storeColumns(t: TFunction, lang: string, act: StoreActions): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
     { field: 'storeCode', headerName: t('columns.store'), width: 100, pinned: pinStart, cellClass: code, cellRenderer: LtrCell },
@@ -102,7 +103,7 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
       colId: 'causes',
       headerName: t('columns.causes'),
       width: 200,
-      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? storeHealth(data).causes.map((c) => t(`health.causeShort.${c}`)).join(', ') : ''),
+      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? listText(storeHealth(data).causes.map((c) => t(`health.causeShort.${c}`)), lang) : ''),
     },
     { colId: 'lastDeltaAt', headerName: t('columns.lastDelta'), width: 150, valueGetter: healthField('lastDeltaAt'), valueFormatter: time, cellRenderer: LtrCell },
     { colId: 'lastFullAt', headerName: t('columns.lastFull'), width: 150, valueGetter: healthField('lastFullAt'), valueFormatter: time, cellRenderer: LtrCell },

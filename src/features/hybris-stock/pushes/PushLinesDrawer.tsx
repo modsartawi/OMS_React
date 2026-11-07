@@ -92,7 +92,7 @@ export default function PushLinesDrawer({
             </dd>
             <dt className="text-muted-foreground">{t('columns.files')}</dt>
             <dd className="flex flex-col font-mono" data-lines-files="">
-              {push.files.length === 0 ? '—' : push.files.map((f) => <Ltr key={f}>{f}</Ltr>)}
+              {push.files.length === 0 ? t('lines.noFiles') : push.files.map((f) => <Ltr key={f}>{f}</Ltr>)}
             </dd>
             {push.error && (
               <>
@@ -115,7 +115,7 @@ export default function PushLinesDrawer({
 
         {swept ? (
           <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
-            {t('lines.swept', { days: fsi(String(retentionDays)) })}
+            {t('lines.swept', { days: fsi(figure(retentionDays)) })}
           </p>
         ) : (
           <>
@@ -148,7 +148,7 @@ export default function PushLinesDrawer({
             {lines.isError &&
               (noSuchPush ? (
                 <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
-                  {t('lines.noSuchPush', { days: fsi(String(retentionDays)) })}
+                  {t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
                 </p>
               ) : (
                 <ErrorBanner className="p-2" title={t('lines.failed')} message={apiErrorMessage(lines.error, t('results.failed'))} />

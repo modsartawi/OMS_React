@@ -55,7 +55,7 @@ export default function MaterialHistoryDrawer({
         titleId={titleId}
         eyebrow={t('history.eyebrow')}
         title={<Ltr>{materialNumber ? formatPair(storeCode, materialNumber) : storeCode}</Ltr>}
-        hint={t('history.hint', { days: fsi(String(retentionDays)) })}
+        hint={t('history.hint', { days: fsi(figure(retentionDays)) })}
         closeLabel={t('history.close')}
         onClose={onClose}
         closeData={{ 'data-material-close': '' }}

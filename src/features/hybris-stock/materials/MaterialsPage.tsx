@@ -83,6 +83,8 @@ function Materials() {
   const rows = useMemo(() => (current ? (materials.data?.rows ?? []) : []), [materials.data, current])
   const total = current ? (materials.data?.total ?? 0) : 0
   const loading = materials.isFetching && (!materials.data || materials.isPlaceholderData)
+  // The pager keeps the last known total while the next page loads, so it never unmounts under the click.
+  const pagerTotal = materials.isError ? 0 : (materials.data?.total ?? 0)
 
   const download = useMutation({
     mutationFn: () => materialsApi.download(),
@@ -192,9 +194,9 @@ function Materials() {
             {!canManage && access.isSuccess && (
               <span data-view-only="">{t('results.viewOnly')}</span>
             )}
-            {total > MATERIALS_PAGE_SIZE && (
+            {pagerTotal > MATERIALS_PAGE_SIZE && (
               <span className="ms-auto" data-materials-pager="">
-                <GridPager page={query.page} pageSize={MATERIALS_PAGE_SIZE} totalMatches={total} busy={materials.isFetching} onPage={(page) => update({ q: query.q, page })} />
+                <GridPager page={query.page} pageSize={MATERIALS_PAGE_SIZE} totalMatches={pagerTotal} busy={materials.isFetching} onPage={(page) => update({ q: query.q, page })} />
               </span>
             )}
           </div>

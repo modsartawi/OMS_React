@@ -6,6 +6,7 @@ import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
 import LtrCell from '@/core/ui/LtrCell'
 import { formatDateTime } from '@/core/util/date-format'
+import { listText } from '@/core/util/list-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PushStatus, PushTarget, PushType } from './PushCells'
 import { statusLabel, targetLabel, typeLabel } from './push-labels'
@@ -19,7 +20,7 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * stores covered, rows, target (shadow / live), files, error, who asked and why (push now), and
  * Lines. A failed push's row is red (the page's row rule).
  */
-export function pushColumns(t: TFunction, onLines: (row: Row) => void): ColDef<Row>[] {
+export function pushColumns(t: TFunction, lang: string, onLines: (row: Row) => void): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
     { field: 'pushId', headerName: t('columns.push'), width: 110, pinned: pinStart, cellClass: code, cellRenderer: LtrCell },
@@ -43,8 +44,8 @@ export function pushColumns(t: TFunction, onLines: (row: Row) => void): ColDef<R
       colId: 'stores',
       headerName: t('columns.stores'),
       width: 170,
-      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? data.storeCodes.join(', ') : ''),
-      tooltipValueGetter: ({ data }) => (data ? data.storeCodes.join(', ') : null),
+      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? listText(data.storeCodes, lang) : ''),
+      tooltipValueGetter: ({ data }) => (data ? listText(data.storeCodes, lang) : null),
       cellClass: code,
     },
     {
@@ -65,7 +66,7 @@ export function pushColumns(t: TFunction, onLines: (row: Row) => void): ColDef<R
       colId: 'files',
       headerName: t('columns.files'),
       width: 300,
-      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? data.files.join(', ') : ''),
+      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? listText(data.files, lang) : ''),
       tooltipValueGetter: ({ data }) => (data ? data.files.join('\n') : null),
       cellClass: code,
     },

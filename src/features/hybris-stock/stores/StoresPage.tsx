@@ -21,6 +21,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
+import { listText } from '@/core/util/list-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
@@ -67,7 +68,7 @@ const ROW_BAD = '[--ag-data-background-color:var(--danger-050)]'
 const ROW_WARN = '[--ag-data-background-color:var(--attention-050)]'
 
 function Stores() {
-  const { t } = useTranslation('hybris-stock-stores')
+  const { t, i18n } = useTranslation('hybris-stock-stores')
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const query = useMemo(() => storesFromParams(params), [params])
@@ -130,7 +131,7 @@ function Stores() {
 
   const columns = useMemo(
     () =>
-      storeColumns(t, {
+      storeColumns(t, i18n.language, {
         onMark: canManage ? (row) => setMarking(row) : null,
         onPush: canManage ? (row) => setPushing(row) : null,
         onHistory: (row) => openHistoryRef.current(row.storeCode),
@@ -138,7 +139,7 @@ function Stores() {
         onPushes: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode })}`),
         onMaterial: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode, history: row.storeCode })}`),
       }),
-    [t, canManage, navigate],
+    [t, i18n.language, canManage, navigate],
   )
 
   return (
@@ -258,7 +259,6 @@ function Stores() {
       )}
       {pushingMaterials && canManage && (
         <PushMaterialsDialog
-          stores={rows.filter((r) => r.marked)}
           onClose={() => setPushingMaterials(false)}
           onDone={(push) => {
             setPushed(push)
@@ -272,7 +272,7 @@ function Stores() {
 
 /** A push now's answer: its type and stores, the rows sent and its status (850). */
 function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: () => void }) {
-  const { t } = useTranslation('hybris-stock-stores')
+  const { t, i18n } = useTranslation('hybris-stock-stores')
   const line = pushResult(push)
   return (
     <div
@@ -285,7 +285,7 @@ function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: 
         <Trans
           t={t}
           i18nKey={push.type === 'M' ? 'pushMaterials.resultTitle' : 'pushNow.resultTitle'}
-          values={{ push: push.pushId, stores: push.storeCodes.join(', ') }}
+          values={{ push: push.pushId, stores: listText(push.storeCodes, i18n.language) }}
           components={{ push: <Ltr />, stores: <Ltr /> }}
         />
       </span>

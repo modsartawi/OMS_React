@@ -1,5 +1,7 @@
 import { useId, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { TFunction } from 'i18next'
+import { HYBRIS_STOCK_PUSHES_KEY as PUSHES_KEY } from '@/core/hybris-stock/api'
 import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ReasonDialog, { InlineRefusal } from '@/core/hybris-stock/ReasonDialog'
@@ -10,11 +12,19 @@ import Ltr from '@/core/ui/Ltr'
 import MultiSelect from '@/core/ui/MultiSelect'
 import Textarea from '@/core/ui/Textarea'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PUSH_MATERIALS_KEY, STORES_KEY, pushStoreKey, storesApi } from './api'
-import { PUSH_NOW_CODES, isErrorState, parseMaterials, pushNowRefusal, refreshesList } from './push-now'
+import { PUSH_NOW_CODES, isErrorState, parseMaterials, pushNowRefusal, pushResult, refreshesList } from './push-now'
+import { storesToParams } from './stores-query'
 
-const PUSHES_KEY = ['hybris-stock', 'pushes'] as const
+/** The toast a push now's answer reads: its title from the push's OWN status (a 200 can carry a failed or
+ *  running push), so it never says delivered when the result box says failed. */
+function toastPush(t: TFunction, push: HybrisStockPushRow, detail: string) {
+  const { ok, status } = pushResult(push)
+  if (ok) notify.success(t(`pushNow.toast.${status}`), detail)
+  else notify.error(t(`pushNow.toast.${status}`), detail)
+}
 
 /**
  * Push-now's own refusal, in words beside the server's sentence (ticket 850). 409 busy is drawn
@@ -51,7 +61,7 @@ export function PushStoreDialog({ row, onClose, onDone }: { row: HybrisStockStor
     onSuccess: (push) => {
       void qc.invalidateQueries({ queryKey: STORES_KEY })
       void qc.invalidateQueries({ queryKey: PUSHES_KEY })
-      notify.success(t('pushNow.done'), t('pushNow.doneDetail', { store: fsi(row.storeCode) }))
+      toastPush(t, push, t('pushNow.doneDetail', { store: fsi(row.storeCode), rows: fsi(figure(push.rows)) }))
       onDone(push)
     },
     onError: (err) => {
@@ -98,34 +108,43 @@ export function PushStoreDialog({ row, onClose, onDone }: { row: HybrisStockStor
  * least one of each and no malformed number.
  */
 export function PushMaterialsDialog({
-  stores,
   onClose,
   onDone,
 }: {
-  /** The marked stores on the list. */
-  stores: HybrisStockStoreRow[]
   onClose: () => void
   onDone: (push: HybrisStockPushRow) => void
 }) {
-  const { t } = useTranslation('hybris-stock-stores')
+  const { t, i18n } = useTranslation('hybris-stock-stores')
   const qc = useQueryClient()
   const textId = useId()
   const [picked, setPicked] = useState<string[]>([])
   const [text, setText] = useState('')
   const parsed = parseMaterials(text)
+  // EVERY marked store, whatever the page's filters show: its own read of the list, on the key the
+  // page's "Marked stores" filter uses, so the two share one cache entry.
+  const markedQuery = { marked: 'marked', q: null } as const
+  const marked = useQuery({
+    queryKey: [...STORES_KEY, storesToParams(markedQuery).toString()],
+    queryFn: () => storesApi.list(markedQuery),
+    retry: false,
+  })
+  const stores: HybrisStockStoreRow[] = (marked.data ?? []).filter((s) => s.marked)
+  // A store unmarked meanwhile drops out of the list on its re-read: drop it from the picks too, so a
+  // store the user can no longer see or remove is never sent again.
+  const chosen = marked.isSuccess ? picked.filter((code) => stores.some((s) => s.storeCode === code)) : picked
   const send = useMutation({
     mutationKey: PUSH_MATERIALS_KEY,
-    mutationFn: (reason: string) => storesApi.pushMaterials({ storeCodes: picked, materialNumbers: parsed.numbers, reason }),
+    mutationFn: (reason: string) => storesApi.pushMaterials({ storeCodes: chosen, materialNumbers: parsed.numbers, reason }),
     onSuccess: (push) => {
       void qc.invalidateQueries({ queryKey: PUSHES_KEY })
-      notify.success(t('pushMaterials.done'), t('pushMaterials.doneDetail', { rows: fsi(figure(push.rows)) }))
+      toastPush(t, push, t('pushMaterials.doneDetail', { rows: fsi(figure(push.rows)) }))
       onDone(push)
     },
     onError: (err) => {
       if (refreshesList(pushNowRefusal(apiErrorCode(err)))) void qc.invalidateQueries({ queryKey: STORES_KEY })
     },
   })
-  const ready = picked.length > 0 && parsed.numbers.length > 0 && parsed.invalid.length === 0
+  const ready = chosen.length > 0 && parsed.numbers.length > 0 && parsed.invalid.length === 0
   const options = stores.map((s) => ({ value: s.storeCode, text: s.storeName ? formatPair(s.storeCode, s.storeName) : s.storeCode, machine: true }))
 
   return (
@@ -145,7 +164,7 @@ export function PushMaterialsDialog({
       <div className="flex flex-col gap-3" data-push-materials-dialog="">
         <Field label={t('pushMaterials.stores')}>
           <MultiSelect
-            value={picked}
+            value={chosen}
             onChange={(next) => {
               setPicked(next)
               send.reset()
@@ -153,6 +172,8 @@ export function PushMaterialsDialog({
             options={options}
             label={t('pushMaterials.stores')}
             disabled={send.isPending}
+            loading={marked.isPending}
+            failed={marked.isError}
             data-testid="push-materials-stores"
           />
         </Field>
@@ -162,7 +183,7 @@ export function PushMaterialsDialog({
           hint={
             <Trans t={t} i18nKey="pushMaterials.counted" count={parsed.numbers.length} values={{ n: figure(parsed.numbers.length) }} components={{ n: <Ltr /> }} />
           }
-          error={parsed.invalid.length > 0 ? t('pushMaterials.invalid', { values: fsi(parsed.invalid.slice(0, 5).join(', ')) }) : undefined}
+          error={parsed.invalid.length > 0 ? t('pushMaterials.invalid', { values: fsi(listText(parsed.invalid.slice(0, 5), i18n.language)) }) : undefined}
         >
           <Textarea
             id={textId}

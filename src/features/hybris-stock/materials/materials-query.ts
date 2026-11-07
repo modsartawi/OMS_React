@@ -41,5 +41,4 @@ export function withRow(page: HybrisStockMaterialsPage | undefined, row: HybrisS
   return { ...page, rows: page.rows.map((r) => (r.materialNumber === row.materialNumber ? row : r)) }
 }
 
-/** A material number as the master holds it: 1–18 digits, kept as typed. */
-export const MATERIAL_NUMBER = /^\d{1,18}$/
+export { MATERIAL_NUMBER } from '@/core/models/hybris-stock'

@@ -377,7 +377,7 @@ async function pushNow(dir) {
   const m = pushWrites('HybrisStockWeb/Pushes/Materials')
   check(`12 ${tag}: ONE push of exactly { storeCodes, materialNumbers (deduplicated), reason }`, m.length === 2 && JSON.stringify(m[1].body) === JSON.stringify({ storeCodes: ['1234', '2001'], materialNumbers: ['100002', '100003'], reason: 'slow' }), JSON.stringify(m.map((x) => x.body)))
   await page.locator('[data-push-result="P-0108"]').waitFor({ timeout: 5000 })
-  check(`12 ${tag}: the result names the materials push, its stores and rows`, /Materials push P-0108 for 1234, 2001/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')) && /4 rows, delivered/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')))
+  check(`12 ${tag}: the result names the materials push, its stores and rows`, /Materials push P-0108 for 1234 and 2001/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')) && /4 rows, delivered/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')))
   check(`${tag} (850): no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }

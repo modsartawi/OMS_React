@@ -73,6 +73,7 @@
     "loading": "Loading lines…",
     "failed": "The lines could not be loaded",
     "empty": "This push sent no lines.",
+    "noFiles": "No file written",
     "noMatch": "No line matches the filter.",
     "noSuchPush": "No such push. Push lines are kept {{days}} days.",
     "swept": "This push's lines were swept: lines are kept {{days}} days. The push record itself is kept.",

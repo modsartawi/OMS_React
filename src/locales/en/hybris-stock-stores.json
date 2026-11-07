@@ -123,8 +123,13 @@
     "title": "Push this store now",
     "note": "Sends a FULL of every enabled material for <store>{{store}}</store> now. It counts as the store's full, so the nightly cycle does not send it again tonight.",
     "confirm": "Push full now",
-    "done": "Push sent",
-    "doneDetail": "Store {{store}}'s full is delivered.",
+    "toast": {
+      "S": "Push delivered to hot folder",
+      "E": "Push failed",
+      "R": "Push started",
+      "other": "Push recorded"
+    },
+    "doneDetail": "Store {{store}}: {{rows}} rows. See the result above the list.",
     "resultTitle": "Push <push>{{push}}</push> for <stores>{{stores}}</stores>",
     "result": {
       "S": "<n>{{rows}}</n> rows, delivered to hot folder.",
@@ -157,8 +162,7 @@
     "counted_other": "<n>{{n}}</n> materials",
     "invalid": "Not material numbers: {{values}}",
     "confirm": "Push materials",
-    "done": "Materials pushed",
-    "doneDetail": "{{rows}} rows delivered.",
+    "doneDetail": "{{rows}} rows. See the result above the list.",
     "resultTitle": "Materials push <push>{{push}}</push> for <stores>{{stores}}</stores>"
   },
   "pushes": {

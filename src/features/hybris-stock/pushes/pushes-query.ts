@@ -6,7 +6,8 @@ import { PUSH_STATUSES, PUSH_TYPES } from './push-labels'
 export const PUSHES_PAGE_SIZE = 50
 export const LINES_PAGE_SIZE = 200
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/
+/** A `yyyy-MM-dd` date, as the date inputs and the door read it. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** `?store=&type=&status=&from=&to=&page=` — a value the door does not know is dropped. */
 export function pushesFromParams(params: URLSearchParams): HybrisStockPushesQuery {
@@ -19,8 +20,8 @@ export function pushesFromParams(params: URLSearchParams): HybrisStockPushesQuer
     store: params.get('store')?.trim() || null,
     type: PUSH_TYPES.includes(type as HybrisStockPushType) ? (type as HybrisStockPushType) : null,
     status: PUSH_STATUSES.includes(status as HybrisStockPushStatus) ? (status as HybrisStockPushStatus) : null,
-    from: from && DAY.test(from) ? from : null,
-    to: to && DAY.test(to) ? to : null,
+    from: from && ISO_DATE.test(from) ? from : null,
+    to: to && ISO_DATE.test(to) ? to : null,
     page: Number.isInteger(page) && page > 1 ? page : 1,
   }
 }

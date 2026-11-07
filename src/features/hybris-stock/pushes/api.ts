@@ -5,7 +5,7 @@ import { LINES_PAGE_SIZE, pushesDoorParams } from './pushes-query'
 // The Hybris stock push log doors (BackOffice 3455). 🚩 Guessed routes — see `@/core/models/hybris-stock`.
 // View grant. Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 
-export const PUSHES_KEY = ['hybris-stock', 'pushes'] as const
+export { HYBRIS_STOCK_PUSHES_KEY as PUSHES_KEY } from '@/core/hybris-stock/api'
 
 export interface LinesQuery {
   store: string | null

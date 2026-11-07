@@ -27,6 +27,9 @@ export function MarkDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose
     mutationFn: (reason: string) => (row.marked ? storesApi.unmark(row.storeCode, { reason }) : storesApi.mark(row.storeCode, { reason })),
     onSuccess: (next) => {
       qc.setQueriesData<HybrisStockStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
+      // A list under the marked filter may no longer hold the row: read those again (the unfiltered list
+      // keeps its in-place patch and is not re-read).
+      void qc.invalidateQueries({ queryKey: STORES_KEY, predicate: (q) => String(q.queryKey[2] ?? '').includes('marked=') })
       void qc.invalidateQueries({ queryKey: historyKey(row.storeCode) })
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
       onClose()

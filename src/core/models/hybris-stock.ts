@@ -35,6 +35,9 @@ export const HYBRIS_STOCK_ERRORS = {
   pushBusy: 'HybrisStockPushBusy',
 } as const
 
+/** A material number as the material master holds it: 1–18 digits, kept as typed (leading zeros too). */
+export const MATERIAL_NUMBER = /^\d{1,18}$/
+
 // ── Access and status ────────────────────────────────────────────────────────────────────────────
 
 /** `GET HybrisStockWeb/Access` — what the signed-in user may do. Manage implies view. */

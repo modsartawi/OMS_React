@@ -64,7 +64,7 @@ const ROW_FAILED = '[--ag-data-background-color:var(--danger-050)]'
 const DEFAULT_RETENTION_DAYS = 15
 
 function Pushes() {
-  const { t } = useTranslation('hybris-stock-pushes')
+  const { t, i18n } = useTranslation('hybris-stock-pushes')
   const [params, setParams] = useSearchParams()
   const query = useMemo(() => pushesFromParams(params), [params])
   const [store, setStore] = useState(query.store ?? '')
@@ -88,6 +88,8 @@ function Pushes() {
   const rows = useMemo(() => (current ? (pushes.data?.rows ?? []) : []), [pushes.data, current])
   const total = current ? (pushes.data?.total ?? 0) : 0
   const loading = pushes.isFetching && (!pushes.data || pushes.isPlaceholderData)
+  // The pager keeps the last known total while the next page loads, so it never unmounts under the click.
+  const pagerTotal = pushes.isError ? 0 : (pushes.data?.total ?? 0)
 
   const drawer = drawerFromParams(params)
   const openDrawer = useCallback((next: Drawer) => setParams((prev) => withDrawer(prev, next), { replace: true }), [setParams])
@@ -96,7 +98,7 @@ function Pushes() {
     openRef.current = openDrawer
   }, [openDrawer])
 
-  const columns = useMemo(() => pushColumns(t, (row) => openRef.current({ kind: 'lines', pushId: row.pushId })), [t])
+  const columns = useMemo(() => pushColumns(t, i18n.language, (row) => openRef.current({ kind: 'lines', pushId: row.pushId })), [t, i18n.language])
   const rowClassRules = useMemo<RowClassRules<Row>>(() => ({ [ROW_FAILED]: ({ data }) => data?.status === 'E' }), [])
 
   return (
@@ -195,9 +197,9 @@ function Pushes() {
                 <Trans t={t} i18nKey="results.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
               </span>
             )}
-            {total > PUSHES_PAGE_SIZE && (
+            {pagerTotal > PUSHES_PAGE_SIZE && (
               <span className="ms-auto" data-pushes-pager="">
-                <GridPager page={query.page} pageSize={PUSHES_PAGE_SIZE} totalMatches={total} busy={pushes.isFetching} onPage={(page) => update({ store: query.store, page })} />
+                <GridPager page={query.page} pageSize={PUSHES_PAGE_SIZE} totalMatches={pagerTotal} busy={pushes.isFetching} onPage={(page) => update({ store: query.store, page })} />
               </span>
             )}
           </div>

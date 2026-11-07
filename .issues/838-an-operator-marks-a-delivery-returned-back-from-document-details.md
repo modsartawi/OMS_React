@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3433-back-office-marks-an-out-for-delivery-delivery-returned-back-spec.md
 blocked-by: —
 ---
@@ -54,7 +54,7 @@ UI: probe → command cluster → dialog → API client. It runs against BackOff
 - [x] `dialog commit requires a reason, and a note on Other; the note is capped at 100` · Vitest (pure logic module)
 - [x] `every refusal code from BackOffice 3435 maps to an i18n key in en and ar` · Vitest
 - [x] Stubbed Playwright drive (the `tools/mark-delivered-drive.mjs` precedent): happy path with reload, both disabled states, hidden for no grant / older API / category T, a refusal worded inline, and a 403 that closes the dialog and revokes access.
-- [ ] Manual walk against a local SIS.Api with 3434–3436 and both seeds applied: a granted user marks an `O` delivery returned back and sees `B`, the toast, the reload and the `DRBK` log row; on an express delivery the close request follows; an ungranted user sees no command.
+- [x] Manual walk against a local SIS.Api with 3434–3436 and both seeds applied: a granted user marks an `O` delivery returned back and sees `B`, the toast, the reload and the `DRBK` log row; on an express delivery the close request follows; an ungranted user sees no command.
 
 ## Boundaries
 
@@ -74,3 +74,4 @@ BackOffice [3435](C:\Work\DMSCO\BackOffice\.issues\3435-mark-returned-back-refus
 ## Comments
 
 - 2026-11-07: built on `impl/838-mark-returned-back` and fast-forwarded into `main` at `2744310e`. Vitest 9647/9647, typecheck clean, `tools/mark-returned-back-drive.mjs` 48/48, `mark-delivered-drive.mjs` 40/40. Refusal codes mapped to BackOffice 3435 as shipped (SDD-02225..02230). BackOffice 3434-3436 done and merged into pricing2 (b1a44ea89), so the blockers are cleared. Still owed: the manual walk (needs both HQ seeds applied) and an owner read of the Arabic. Cosmetic: `MARK_RETURNED_BACK_REASONS` and its test still list CARB, DAPB, OTHB, STOR; the server now serves Other last (CARB, DAPB, STOR, OTHB) and the dialog renders the server order.
+- 2026-11-07: walked on PRODUCTION by the owner — local `main` via the vite proxy to SIS.Api `http://172.23.27.111:8095` (BackOffice 3434–3436 deployed there; `MarkReturnedBackReasons` and `MarkReturnedBack` answer 401 unsigned). Owner: "it's working fine". Closed. Still nice-to-have: the reason-order cosmetic above (client constant vs the server's Other-last order).

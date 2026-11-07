@@ -20,11 +20,16 @@
  *   Document Details (BackOffice spec 2417, ticket 2421). Reported on its own: the
  *   command is drawn only when it is `true` AND the session can open Document Details.
  *   Optional because an older SIS.Api does not send it, and absent must read as denied.
+ *
+ * - `canMarkReturnedBack` ← `BackOfficeScreen[OmsReturnBack,06]` — Mark returned back on
+ *   Document Details (BackOffice spec 3433, ticket 3436; oms-react 838). Its own grant,
+ *   independent of `canMarkDelivered` both ways. Optional for the same reason: absent is denied.
  */
 export interface OmsAccessResult {
   canOpenList: boolean
   canOpenDetail: boolean
   canMarkDelivered?: boolean
+  canMarkReturnedBack?: boolean
   // ── The OMS screens of spec 430 (D2, ticket 431) — BackOffice ask BO-1, not built yet ──
   // All optional: a server that has not learned a flag omits it, and an absent flag reads
   // as denied through `omsGrants` (`@/core/oms/access`), so the leaves stay hidden until then.

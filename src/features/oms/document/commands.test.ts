@@ -428,3 +428,22 @@ describe('the write grants draw the commands (ticket 521, BackOffice 2763)', () 
     expect(kinds(bar(true, true)).sort()).toEqual([...CHANGE_KINDS, 'return-document'].sort())
   })
 })
+
+describe('the back-office corrections stay outside the grammar (ADR 0065, ADR 0126; oms-react 838)', () => {
+  it('neither Mark delivered nor Mark returned back is a bar command, so no promoted commit slot exists for them', () => {
+    for (const documentNo of DOCUMENT_NUMBERS) {
+      const bar = barFor(documentNo)
+      const kinds: string[] = everyCommand(bar).map((c) => c.kind)
+      expect(kinds).not.toContain('mark-delivered')
+      expect(kinds).not.toContain('mark-returned-back')
+      // The bar has clusters and a terminal tier only: there is no commit slot to take.
+      expect(Object.keys(bar).sort()).toEqual(['clusters', 'terminal'])
+    }
+  })
+
+  it('both corrections are labelled in the shipped English, and neither is called "Return"', () => {
+    expect(t('actions.mark-delivered')).toBe('Mark Delivered…')
+    expect(t('actions.mark-returned-back')).toBe('Mark Returned Back…')
+    expect(t('actions.mark-returned-back')).not.toMatch(/^Return/)
+  })
+})

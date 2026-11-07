@@ -31,7 +31,7 @@ export const OMS_ACCESS_KEY = ['oms', 'access'] as const
 
 export const omsAccessApi = {
   /**
-   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail, canMarkDelivered, canChangeDetail, canCreateReturn, … }` (`OmsAccessResult`).
+   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail, canMarkDelivered, canMarkReturnedBack, canChangeDetail, canCreateReturn, … }` (`OmsAccessResult`).
    *
    * ⚠️ **Fails closed, deliberately** — no 404/network-tolerant catch, unlike the
    * `Notifications/Access` and `Bby/Access` probes which degrade to allowed because
@@ -69,6 +69,17 @@ export function omsAccessQuery() {
 export function revokeMarkDelivered(queryClient: QueryClient): void {
   queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) =>
     prev ? { ...prev, canMarkDelivered: false } : prev,
+  )
+}
+
+/**
+ * Drop Mark returned back for the rest of the page life after a 403 from its door or its reasons
+ * read (oms-react 838, BackOffice spec 3433) — `revokeMarkDelivered`'s sibling. Only this one flag
+ * is cleared: Mark delivered is a separate grant and keeps whatever the probe said.
+ */
+export function revokeMarkReturnedBack(queryClient: QueryClient): void {
+  queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) =>
+    prev ? { ...prev, canMarkReturnedBack: false } : prev,
   )
 }
 

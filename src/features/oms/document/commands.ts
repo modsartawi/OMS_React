@@ -80,10 +80,13 @@ export interface CommandCluster {
  * it read as a fourth family rather than as the edge of the bar — and is a
  * *tier, not a commit*: same button height as every cluster button, never
  * enlarged. No command on this screen is a positive outcome, so the promoted
- * commit slot is permanently empty. The one named exception, *Mark delivered*
- * (BackOffice ADR 0065, ticket 2422), is grant-gated and lives OUTSIDE this
- * grammar (`mark-delivered.ts`, its own cluster in `CommandPanel`) — it does
- * not take the commit slot either, so the slot stays empty.
+ * commit slot is permanently empty. The two named exceptions are the
+ * back-office corrections — *Mark delivered* (BackOffice ADR 0065, ticket
+ * 2422) and *Mark returned back* (BackOffice ADR 0126, oms-react 838). Each is
+ * behind its own grant and lives OUTSIDE this grammar (`mark-delivered.ts`,
+ * `mark-returned-back.ts`, the Delivery cluster in `CommandPanel`). Neither
+ * takes the commit slot, so the slot stays empty; returned back is not a
+ * positive outcome at all. Nothing else joins that list.
  */
 export interface CommandBar {
   clusters: CommandCluster[]

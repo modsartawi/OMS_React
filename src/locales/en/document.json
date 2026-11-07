@@ -312,7 +312,8 @@
     "force-close": "Force Cancel",
     "return-document": "Return Document",
     "central-invoice": "Central Invoice…",
-    "mark-delivered": "Mark Delivered…"
+    "mark-delivered": "Mark Delivered…",
+    "mark-returned-back": "Mark Returned Back…"
   },
   "note": {
     "labelOptional": "Note (optional)",
@@ -655,6 +656,61 @@
       "DAPP": "Driver app failed to record delivery",
       "CUST": "Customer confirmed receipt",
       "OTHR": "Other (note required)"
+    }
+  },
+  "markReturnedBack": {
+    "title": "Mark returned back — {{deliveryNo}}",
+    "intro": "Use this only when the goods came back to the store and the field never recorded it. It runs the field's own returned back: the order's channel is told the delivery is coming back.",
+    "reason": {
+      "label": "Reason",
+      "placeholder": "Choose a reason…",
+      "loading": "Loading reasons…",
+      "loadFailed": "The reasons could not be loaded."
+    },
+    "note": {
+      "label": "Note (optional)",
+      "labelRequired": "Note (required for Other)",
+      "placeholder": "What happened, who received the goods…",
+      "required": "Other needs a note saying what happened.",
+      "tooLong": "Keep the note to {{max}} characters."
+    },
+    "reschedule": "The order is not finished: the store must now reschedule or cancel this delivery.",
+    "expressAutoClose": "This is an express delivery. Its order will be requested closed automatically in five minutes.",
+    "commit": "Mark returned back",
+    "committing": "Marking…",
+    "cancel": "Cancel",
+    "done": {
+      "title": "Marked returned back",
+      "detail": "Delivery {{deliveryNo}} is now returned back. The store must reschedule or cancel it."
+    },
+    "failed": {
+      "title": "The delivery was not marked returned back",
+      "detail": "The request could not be sent."
+    },
+    "grantRefused": {
+      "title": "Mark returned back is not open to you",
+      "detail": "The server refused the request and nothing changed. The Mark returned back action has been removed."
+    },
+    "disabled": {
+      "notOutForDelivery": "Only a delivery that is out for delivery can be marked returned back.",
+      "cancellationPending": "A cancellation is pending on this delivery."
+    },
+    "refused": {
+      "notFound": "This delivery could not be found.",
+      "notADelivery": "Only a delivery can be marked returned back, not a return.",
+      "notOutForDelivery": "The delivery is no longer out for delivery. Refresh to see its status.",
+      "cancellationPending": "A cancellation is pending on this delivery, so it cannot be marked returned back.",
+      "sghOrder": "An SGH delivery cannot be marked returned back here.",
+      "labBooking": "A lab booking cannot be marked returned back here.",
+      "unknownReason": "That reason is not accepted. Choose one from the list.",
+      "noteRequired": "Other needs a note saying what happened.",
+      "noteTooLong": "The note is longer than 100 characters."
+    },
+    "reasons": {
+      "CARB": "Carrier did not update the status",
+      "DAPB": "Driver app failed to record the return",
+      "STOR": "Goods received back at the store",
+      "OTHB": "Other (note required)"
     }
   },
   "lfReturn": {

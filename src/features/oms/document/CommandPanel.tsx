@@ -4,6 +4,7 @@ import {
   Ban,
   CalendarClock,
   Flag,
+  PackageOpen,
   Plus,
   ReceiptText,
   Reply,
@@ -17,6 +18,7 @@ import { useKeyHint } from '@/core/commands/key-hint'
 import Button, { type ButtonVariant } from '@/core/ui/Button'
 import { POPOVER } from '@/core/ui/overlay'
 import type { CommandKind } from './actions'
+import type { DeliveryCorrectionKind } from './mark-returned-back'
 import {
   commandBar,
   type ClusterId,
@@ -40,11 +42,15 @@ import {
  * - **The promoted-commit slot is permanently empty.** The terminal pair is the
  *   same `h-7` as every cluster button and is never enlarged — no command on
  *   this screen is a positive outcome, and enlarging Cancel Order would put a
- *   destructive mutation in the Save/Submit position. **The one named
- *   exception** is *Mark delivered* (BackOffice ADR 0065, ticket 2422): a
- *   grant-gated correction for a delivery the field never reported. It is still
- *   not promoted — its own cluster, the same height, no check mark — so the
- *   slot stays empty even for it.
+ *   destructive mutation in the Save/Submit position. **The two named
+ *   exceptions** are the back-office corrections in the Delivery cluster:
+ *   *Mark delivered* (BackOffice ADR 0065, ticket 2422) and *Mark returned
+ *   back* (BackOffice ADR 0126, oms-react 838) — grant-gated corrections for a
+ *   delivery outcome the field never reported, each behind its own grant.
+ *   Neither is promoted — their own cluster, the same height, no check mark —
+ *   so the slot stays empty even for them. Returned back is not a positive
+ *   outcome at all (the store must reschedule or cancel next). Nothing else
+ *   joins that list.
  * - **The escape slot stays empty too.** Back is the header's chevron; a
  *   page is not a modal. Back top-start, Cancel Order bottom-end, as far apart
  *   as the page allows.
@@ -56,8 +62,15 @@ import {
 
 /**
  * The icon per command. No check mark anywhere: nothing here is a happy ending. Mark
- * delivered, the one positive outcome (ADR 0065), keeps that rule too — a neutral truck.
+ * delivered, the one positive outcome (ADR 0065), keeps that rule too — a neutral truck — and
+ * Mark returned back (ADR 0126) takes a neutral open package.
  */
+/** The Delivery cluster's two back-office corrections, outside the `commands.ts` grammar. */
+const CORRECTION_ICONS: Record<DeliveryCorrectionKind, typeof Plus> = {
+  'mark-delivered': Truck,
+  'mark-returned-back': PackageOpen,
+}
+
 const ICONS: Record<CommandKind, typeof Plus> = {
   reschedule: CalendarClock,
   'change-store': Store,
@@ -106,7 +119,7 @@ function CommandButton({
   onRefusedLeft,
   keys,
 }: {
-  /** A bar command, or Mark delivered, which sits outside the `commands.ts` grammar. */
+  /** A bar command, or a Delivery-cluster correction, which sits outside the `commands.ts` grammar. */
   command: { kind: string; disabled: boolean; reason: string | null }
   icon: typeof Plus
   variant: ButtonVariant
@@ -181,7 +194,7 @@ export default function CommandPanel({
   context,
   onCommand,
   onCentralInvoice,
-  markDelivered = null,
+  deliveryCorrections = [],
   onReleaseLock = null,
   expressDelivery = false,
   refused = null,
@@ -201,13 +214,14 @@ export default function CommandPanel({
    */
   onCentralInvoice: (() => void) | null
   /**
-   * *Mark delivered…* (BackOffice spec 2417, ticket 2422), or `null` when it is not drawn —
-   * no `canMarkDelivered` grant, or not a category-`D` delivery (`mark-delivered.ts`). Like
-   * Central Invoice it is hidden for a missing GRANT and sits in its own cluster outside the
-   * `commands.ts` grammar; unlike it, once drawn it is disabled WITH a reason for the
-   * delivery's state (not out for delivery, a cancellation pending), as every bar command is.
+   * The Delivery cluster: *Mark delivered…* (BackOffice spec 2417, ticket 2422) and *Mark returned
+   * back…* (spec 3433, oms-react 838), in bar order, each present only when ITS OWN grant is held
+   * on a category-`D` delivery (`deliveryCorrections` in `mark-returned-back.ts`); an empty list
+   * draws no cluster. Like Central Invoice they are hidden for a missing GRANT and sit outside the
+   * `commands.ts` grammar; unlike it, once drawn each is disabled WITH a reason for the delivery's
+   * state (not out for delivery, a cancellation pending), as every bar command is.
    */
-  markDelivered?: { disabled: boolean; reason: string | null; onTake: () => void } | null
+  deliveryCorrections?: { kind: DeliveryCorrectionKind; disabled: boolean; reason: string | null; onTake: () => void }[]
   /**
    * *Release lock…* (BackOffice 2951/2959, ticket 542), or `null` when it is not drawn: the
    * delivery is not locked by a competed callout, or the session lacks the dispatch board's
@@ -271,9 +285,15 @@ export default function CommandPanel({
     ],
   )
 
-  // A view-only session (ticket 521: no change, no return, no billing, no Mark delivered) has no
-  // command at all, so it gets no empty bar either.
-  if (bar.clusters.length === 0 && bar.terminal.length === 0 && !onCentralInvoice && !markDelivered && !onReleaseLock)
+  // A view-only session (ticket 521: no change, no return, no billing, no Delivery correction) has
+  // no command at all, so it gets no empty bar either.
+  if (
+    bar.clusters.length === 0 &&
+    bar.terminal.length === 0 &&
+    !onCentralInvoice &&
+    deliveryCorrections.length === 0 &&
+    !onReleaseLock
+  )
     return null
 
   return (
@@ -346,22 +366,25 @@ export default function CommandPanel({
               )}
             </div>
           )}
-          {markDelivered && (
+          {deliveryCorrections.length > 0 && (
             <div className="flex flex-col gap-1">
               <span className="ps-0.5 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-ink-3">
                 {t('command.clusters.delivery')}
               </span>
               <div className="flex flex-wrap gap-1.5">
-                <CommandButton
-                  command={{ kind: 'mark-delivered', disabled: markDelivered.disabled, reason: markDelivered.reason }}
-                  icon={Truck}
-                  variant="secondary"
-                  label={t('actions.mark-delivered')}
-                  onTake={markDelivered.onTake}
-                  refused={false}
-                  onRefusedLeft={onRefusedLeft}
-                  keys={null}
-                />
+                {deliveryCorrections.map((correction) => (
+                  <CommandButton
+                    key={correction.kind}
+                    command={{ kind: correction.kind, disabled: correction.disabled, reason: correction.reason }}
+                    icon={CORRECTION_ICONS[correction.kind]}
+                    variant="secondary"
+                    label={t(`actions.${correction.kind}`)}
+                    onTake={correction.onTake}
+                    refused={false}
+                    onRefusedLeft={onRefusedLeft}
+                    keys={null}
+                  />
+                ))}
               </div>
             </div>
           )}

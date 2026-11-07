@@ -465,6 +465,25 @@ export interface MarkDeliveredReasonModel {
   description: string
 }
 
+/**
+ * The body of `POST SdDocumentWeb/MarkReturnedBack` (BackOffice spec 3433, ticket 3434). There is
+ * no actor field: the server stamps the session's user on the `DRBK` log row, with the reason code
+ * in `ActionData` and the note in `Note`.
+ */
+export interface MarkReturnedBackRequest {
+  deliveryNo: string
+  /** A `DLVB` reason code (`CARB`, `DAPB`, `OTHB`, `STOR`). */
+  reasonCode: string
+  /** Required on `OTHB`; at most 100 characters once trimmed. */
+  note?: string
+}
+
+/** One active `DLVB` reason (`GET SdDocumentWeb/MarkReturnedBackReasons`, 3436). English only. */
+export interface MarkReturnedBackReasonModel {
+  code: string
+  description: string
+}
+
 // ---------------------------------------------------------------------------
 // A delivery's donor requests — `GET SdDocumentWeb/Delivery/{no}/DonorRequests` (BackOffice 2458,
 // ticket 429). Read-only: the Delivery timeline draws each one's own times as donor moments.

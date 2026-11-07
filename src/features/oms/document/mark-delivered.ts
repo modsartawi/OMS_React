@@ -1,7 +1,8 @@
 /**
  * Mark delivered (BackOffice spec 2417, ADR 0065; client ticket 2422) — the ONE positive outcome
- * Document Details offers, and the single named exception to the screen's guardrail that orders
- * complete in the field, never here (`CONTEXT.md` **Close**, `commands.ts`).
+ * Document Details offers, and one of the two named exceptions to the screen's guardrail that
+ * orders complete in the field, never here (`CONTEXT.md` **Close**, `commands.ts`). The other is
+ * Mark returned back (ADR 0126, `mark-returned-back.ts`), which is not a positive outcome.
  *
  * It sits outside the `commands.ts` grammar on purpose, the way Central Invoice does: its first
  * gate is a GRANT, and a session without the grant has no command to discover, so the cluster is

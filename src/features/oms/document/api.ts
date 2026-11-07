@@ -10,6 +10,8 @@ import type {
   DonorRequestModel,
   MarkDeliveredReasonModel,
   MarkDeliveredRequest,
+  MarkReturnedBackReasonModel,
+  MarkReturnedBackRequest,
   SdDocumentHeaderModel,
   SdDocumentLogModel,
   SdDocumentOutboxModel,
@@ -174,6 +176,24 @@ export const documentApi = {
     const body: MarkDeliveredRequest = { deliveryNo: request.deliveryNo, reasonCode: request.reasonCode }
     if (request.note) body.note = request.note
     return api.post<boolean>(`${BASE}/MarkDelivered`, body)
+  },
+  /**
+   * The active `DLVB` reasons, ordered by code (BackOffice 3436). Behind the Document Details
+   * grant plus the Mark returned back grant: a session missing either gets a bare 403.
+   */
+  markReturnedBackReasons(): Promise<MarkReturnedBackReasonModel[]> {
+    return api.get<MarkReturnedBackReasonModel[]>(`${BASE}/MarkReturnedBackReasons`)
+  },
+  /**
+   * Mark an out-for-delivery delivery returned back (BackOffice 3434, ADR 0126). The server runs
+   * the field's own `DRBK` with all its effects. A refusal is a 400 on the envelope with a
+   * machine code (3434, 3435); a session missing either grant gets a bare 403.
+   */
+  markReturnedBack(request: MarkReturnedBackRequest): Promise<boolean> {
+    // Named field by field, so a wider object handed in cannot put an extra field on the wire.
+    const body: MarkReturnedBackRequest = { deliveryNo: request.deliveryNo, reasonCode: request.reasonCode }
+    if (request.note) body.note = request.note
+    return api.post<boolean>(`${BASE}/MarkReturnedBack`, body)
   },
   rescheduleDocument(body: RescheduleDocumentModel): Promise<boolean> {
     return api.post<boolean>(`${BASE}/RescheduleDocument`, body)

@@ -67,7 +67,8 @@ import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
 import MarkDeliveredDialog from './MarkDeliveredDialog'
-import { markDeliveredGate } from './mark-delivered'
+import MarkReturnedBackDialog from './MarkReturnedBackDialog'
+import { deliveryCorrections } from './mark-returned-back'
 import { useOrderAttachments } from './use-order-attachments'
 import LfReturnPanel from './LfReturnPanel'
 import ForceRefundCommand from './ForceRefundCommand'
@@ -203,6 +204,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [returnOpen, setReturnOpen] = useState(false)
   const [centralInvoiceOpen, setCentralInvoiceOpen] = useState(false)
   const [markDeliveredOpen, setMarkDeliveredOpen] = useState(false)
+  const [markReturnedBackOpen, setMarkReturnedBackOpen] = useState(false)
 
   /**
    * The note-carrying command awaiting its dialog, or `null`: Cancel order, Force cancel and
@@ -240,6 +242,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     returnOpen ||
     centralInvoiceOpen ||
     markDeliveredOpen ||
+    markReturnedBackOpen ||
     releaseOpen ||
     noteCommand !== null
 
@@ -549,19 +552,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     : null
 
   /**
-   * Mark delivered (ticket 2422): `null` hides it — no grant, or not a category-`D` delivery;
-   * otherwise its state, disabled with a reason off the delivery's own status. A 403 from the
-   * dialog revokes the grant on the shared probe entry, which hides it here again.
+   * The Delivery cluster (tickets 2422, 838): Mark delivered and Mark returned back, each drawn
+   * only for its own grant on a category-`D` delivery, each disabled with a reason off the
+   * delivery's own status. A 403 from either dialog revokes only that grant on the shared probe
+   * entry, which hides only that command here again.
    */
-  const markDeliveredState = document
-    ? markDeliveredGate({
+  const deliveryCluster = document
+    ? deliveryCorrections({
         canMarkDelivered: access.data?.canMarkDelivered,
+        canMarkReturnedBack: access.data?.canMarkReturnedBack,
         documentCategory: document.documentCategory,
         deliveryStatus: document.status?.deliveryStatus,
         closeStatus: document.status?.closeStatus,
         busy: commandBusy,
       })
-    : null
+    : []
 
   // D9: the intent is consumed once, after the header loads, through the bar's own gate. An
   // allowed one opens its real dialog, or, for add-note, focuses the composer. A refused one
@@ -828,13 +833,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 // An express delivery keeps its store once its OTO order exists (712): the bar says so beside
                 // Release lock, as the board's inspector does.
                 expressDelivery={locked?.isExpressDelivery === true}
-                markDelivered={
-                  markDeliveredState && {
-                    disabled: markDeliveredState.disabled,
-                    reason: markDeliveredState.reasonKey === null ? null : t(markDeliveredState.reasonKey),
-                    onTake: () => setMarkDeliveredOpen(true),
-                  }
-                }
+                deliveryCorrections={deliveryCluster.map((correction) => ({
+                  kind: correction.kind,
+                  disabled: correction.disabled,
+                  reason: correction.reasonKey === null ? null : t(correction.reasonKey),
+                  onTake: () =>
+                    correction.kind === 'mark-delivered' ? setMarkDeliveredOpen(true) : setMarkReturnedBackOpen(true),
+                }))}
               />
             )}
 
@@ -1024,6 +1029,20 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               }}
               deliveryNo={document.documentNo}
               amountDue={document.amountDue}
+            />
+            {/*
+              The field's own returned back (ADR 0126): on success the delivery reloads, so its `B`
+              status and the DRBK log row with the reason are what the operator sees.
+            */}
+            <MarkReturnedBackDialog
+              open={markReturnedBackOpen}
+              onClose={() => setMarkReturnedBackOpen(false)}
+              onMarked={() => {
+                setMarkReturnedBackOpen(false)
+                void reload()
+              }}
+              deliveryNo={document.documentNo}
+              isExpressDelivery={document.isExpressDelivery}
             />
             {/*
               Release lock (ticket 542), the board's own dialog (541): on success the delivery and its

@@ -34,7 +34,8 @@ export type CommandKind = UpdateActionKind | 'reschedule' | 'return-document'
  *   and Reschedule to its own pair; all four doors check `DocumentDetails,02`.
  * - `return` — `canCreateReturn`. Return Document posts to `CreateReturn` (`OmsCreateReturn,01`).
  *
- * Neither implies the other. Mark delivered is not a `CommandKind` and keeps its own grant.
+ * Neither implies the other. Mark delivered and Mark returned back are not `CommandKind`s and each
+ * keeps its own grant (ADR 0065, ADR 0126).
  */
 export type CommandGrant = 'change' | 'return'
 

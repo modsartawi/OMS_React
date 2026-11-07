@@ -173,6 +173,18 @@ describe('reading a report (827)', () => {
     expect([m.measures[0].caveat, m.measures[0].mayStillRiseDays]).toEqual([{ en: 'Inside OMS only', ar: '' }, 8])
     expect([m.measures[1].caveat, m.measures[1].mayStillRiseDays]).toEqual([null, null])
   })
+
+  it("an area's unavailable reason reads as a label, never as a raw object for JSX (React #31, 2026-11-07)", () => {
+    const m = readModel({
+      areas: [
+        { key: 'a', available: false, unavailableReason: { en: 'Not yet', ar: 'ليس بعد' } },
+        { key: 'b', available: false, unavailableReason: 'Later' },
+        { key: 'c', available: true },
+      ],
+    })
+    expect(m.areas.map((a) => a.unavailableReason)).toEqual([{ en: 'Not yet', ar: 'ليس بعد' }, { en: 'Later', ar: 'Later' }, null])
+    expect(m.areas[0].key).toBe('a')
+  })
 })
 
 describe('837: the library wire (BackOffice 3432)', () => {

@@ -31,8 +31,8 @@ export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'shar
 export interface AnalyticsArea {
   key: string
   available: boolean
-  /** ⚠ A server sentence; §C does not say whether it is bilingual. */
-  unavailableReason?: string | null
+  /** The server's reason, in both languages (SIS.Api `AnalyticsCatalogue`); `wire.ts` reads a bare string as both. */
+  unavailableReason?: AnalyticsLabel | null
 }
 
 export interface AnalyticsMeasure {

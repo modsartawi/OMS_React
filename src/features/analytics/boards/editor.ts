@@ -195,7 +195,7 @@ export function pickerSubjects(model: AnalyticsModel, chosen: readonly string[],
     .map((a) => ({
       area: a.key,
       available: a.available,
-      unavailableReason: a.unavailableReason ?? null,
+      unavailableReason: saysIn(a.unavailableReason, lang) || null,
       measures: model.measures
         .filter((m) => m.area === a.key)
         .map((m) => {

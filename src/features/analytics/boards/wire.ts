@@ -1,6 +1,7 @@
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
   AnalyticsBoard,
+  AnalyticsArea,
   AnalyticsBoardPanel,
   AnalyticsDimension,
   AnalyticsFilter,
@@ -43,7 +44,20 @@ const said = (v: unknown): AnalyticsLabel => ({ en: str(obj(v).en), ar: str(obj(
 export function readModel(raw: Loose): AnalyticsModel {
   const m = obj(raw)
   return {
-    areas: arr(m.areas),
+    // The area's reason arrives as { en, ar }: passed through raw it reached JSX as an object (React #31, production
+    // 2026-11-07, /analytics/new?kind=view). A bare string reads as both languages; anything else is none.
+    areas: arr<Record<string, unknown>>(m.areas).map(
+      (a) =>
+        ({
+          ...a,
+          unavailableReason:
+            typeof a.unavailableReason === 'string'
+              ? { en: a.unavailableReason, ar: a.unavailableReason }
+              : a.unavailableReason && typeof a.unavailableReason === 'object'
+                ? said(a.unavailableReason)
+                : null,
+        }) as AnalyticsArea,
+    ),
     measures: arr<Record<string, unknown>>(m.measures).map(
       (x) =>
         ({

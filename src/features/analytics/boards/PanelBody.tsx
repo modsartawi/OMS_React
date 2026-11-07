@@ -91,7 +91,7 @@ export default function PanelBody({
     if (failure === 'retry') return <Failed err={error} onRetry={onRetry} />
     if (failure === 'unavailable') {
       const refusal = analyticsRefusal(error, t('panel.unavailableTitle'))
-      const reason = unavailableReason(definition, model) ?? refusalWords(refusal, t)
+      const reason = unavailableReason(definition, model, lang) ?? refusalWords(refusal, t)
       return (
         <State icon={<CloudOff className="size-5" aria-hidden />} title={t('panel.unavailableTitle')} data-panel-unavailable>
           <bdi>{reason}</bdi>

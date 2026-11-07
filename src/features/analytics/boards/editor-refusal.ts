@@ -1,4 +1,5 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
+import { saysIn } from '@/core/rules/sentence'
 import type { AnalyticsModel, AnalyticsViewDefinition, BindReason } from '@/core/models/analytics'
 import type { ParamProblem } from './bindings'
 import { ROLLING_PERIODS } from './periods'
@@ -95,7 +96,7 @@ export function declarationRefusal(err: unknown): { problems: DeclarationProblem
 /** The percentile cap when neither the refusal nor the model states one (766 §B). */
 const PERCENTILE_DAYS = 92
 
-export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition, model: AnalyticsModel): EditorRefusal | null {
+export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition, model: AnalyticsModel, lang: string): EditorRefusal | null {
   const code = apiErrorCode(err)
   const data = apiErrorData(err)
   const said = (k: string): unknown => (data && typeof data === 'object' ? (data as Record<string, unknown>)[k] : undefined)
@@ -114,7 +115,7 @@ export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition,
   }
   if (code === 'ANALYTICS-410') {
     const area = chosen.map((m) => model.areas.find((a) => a.key === m.area)).find((a) => a && !a.available)
-    return { kind: 'area', reason: area?.unavailableReason || apiErrorMessage(err, '') }
+    return { kind: 'area', reason: saysIn(area?.unavailableReason, lang) || apiErrorMessage(err, '') }
   }
   return null
 }

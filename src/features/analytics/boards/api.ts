@@ -130,8 +130,9 @@ export const analyticsApi = {
   async items(q: LibraryItemsQuery = {}): Promise<AnalyticsItem[]> {
     // 837 (BackOffice 3432 §1/§3): `folder` (an id or `none`), `changedFrom`/`changedTo` (yyyy-MM-dd, inclusive),
     // `owner=me` and `deleted=true`. A server before 3432 ignores them; the screens still filter what comes back.
-    const { folder, changedFrom, changedTo, owner, deleted } = q
-    return readItems(await api.get<unknown>('Analytics/Items', { ...itemsQuery(q), folder, changedFrom, changedTo, owner, deleted }))
+    // 842: `area` (a catalog area's key) — a BackOffice ask; a server without it ignores the param.
+    const { folder, changedFrom, changedTo, owner, deleted, area } = q
+    return readItems(await api.get<unknown>('Analytics/Items', { ...itemsQuery(q), folder, changedFrom, changedTo, owner, deleted, area }))
   },
   /** 837: `GET Analytics/Folders` — the caller's flat folders by `order`, each with its live `itemCount`. */
   async folders(): Promise<AnalyticsFolder[]> {

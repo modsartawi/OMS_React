@@ -110,7 +110,7 @@ export default function LibraryChips({
         {narrows(choice) && (
           <Button
             variant="text"
-            onClick={() => onChange((c) => ({ ...c, who: 'all', kind: 'all', changed: { kind: 'any' }, search: '' }))}
+            onClick={() => onChange((c) => ({ ...c, who: 'all', kind: 'all', changed: { kind: 'any' }, search: '', area: '' }))}
             data-analytics-library-clear
           >
             {t('home.library.clear')}

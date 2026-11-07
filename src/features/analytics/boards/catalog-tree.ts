@@ -2,10 +2,14 @@ import type {
   AnalyticsCatalog,
   AnalyticsCatalogArea,
   AnalyticsCatalogMart,
+  AnalyticsCatalogPlanned,
   AnalyticsCatalogSource,
+  AnalyticsCatalogUntapped,
   AnalyticsDimension,
   AnalyticsMeasure,
+  AnalyticsPlannedStatus,
 } from '@/core/models/analytics'
+import { groupPlanned, plannedNaming, plannedSources, type PlannedSource } from './catalog-planned'
 
 /**
  * The Catalog page's tree (BackOffice spec 3437 §G, ticket 841): areas, then their Measures / Dimensions / Marts
@@ -36,6 +40,18 @@ export type CatalogNode =
   | (NodeBase & { kind: 'source'; area: AnalyticsCatalogArea; key: string; source: AnalyticsCatalogSource | null })
   /** In place of the marts group when the image serves no lineage (`lineageAvailable: false`). */
   | (NodeBase & { kind: 'lineageNote'; area: AnalyticsCatalogArea })
+  /**
+   * 842: the Planned / untapped section after the areas (only when the image serves a roadmap or untapped list):
+   * `roadmap` → `plannedGroup` (by status, `./catalog-planned`) → `planned`; and `untappedGroup` → `untapped`.
+   */
+  | (NodeBase & { kind: 'roadmap' })
+  | (NodeBase & { kind: 'plannedGroup' })
+  | (NodeBase & { kind: 'plannedStatus'; status: AnalyticsPlannedStatus })
+  /** `sources` resolved against the lineage and the untapped list (`./catalog-planned`). */
+  | (NodeBase & { kind: 'planned'; planned: AnalyticsCatalogPlanned; sources: PlannedSource[] })
+  | (NodeBase & { kind: 'untappedGroup' })
+  /** `plannedBy`: the planned areas that would read it. */
+  | (NodeBase & { kind: 'untapped'; untapped: AnalyticsCatalogUntapped; plannedBy: AnalyticsCatalogPlanned[] })
 
 export type CatalogNodeKind = CatalogNode['kind']
 
@@ -91,6 +107,8 @@ export function buildCatalogTree(catalog: AnalyticsCatalog): CatalogTree {
       : { kind: 'lineageNote', area, id: `${at}/lineage`, children: [] }
     return { kind: 'area', area, id: at, children: [measures, dimensions, lineage] }
   })
+  const roadmap = roadmapNode(catalog)
+  if (roadmap) roots.push(roadmap)
 
   const byId = new Map<string, CatalogNode>()
   const parentOf = new Map<string, string>()
@@ -102,6 +120,30 @@ export function buildCatalogTree(catalog: AnalyticsCatalog): CatalogTree {
   for (const r of roots) index(r)
 
   return { roots, lineageAvailable: catalog.lineageAvailable, imageVersion: catalog.imageVersion, byId, parentOf }
+}
+
+/** 842: the Planned / untapped section, or null when the image serves neither (an image without the roadmap). */
+function roadmapNode(catalog: AnalyticsCatalog): CatalogNode | null {
+  if (catalog.planned.length === 0 && catalog.untappedSources.length === 0) return null
+  const children: CatalogNode[] = []
+  if (catalog.planned.length) {
+    const at = 'roadmap/planned'
+    children.push({
+      kind: 'plannedGroup',
+      id: at,
+      children: groupPlanned(catalog.planned).map(({ status, planned }) => {
+        const id = `${at}/status:${status}`
+        return { kind: 'plannedStatus', status, id, children: planned.map((p) => ({ kind: 'planned', planned: p, sources: plannedSources(p, catalog), id: `${id}/planned:${p.key}`, children: [] })) }
+      }),
+    })
+  }
+  if (catalog.untappedSources.length)
+    children.push({
+      kind: 'untappedGroup',
+      id: 'roadmap/untapped',
+      children: catalog.untappedSources.map((u) => ({ kind: 'untapped', untapped: u, plannedBy: plannedNaming(u.key, catalog.planned), id: `roadmap/untapped/source:${u.key}`, children: [] })),
+    })
+  return { kind: 'roadmap', id: 'roadmap', children }
 }
 
 /** The ids of a node's ancestors, nearest first. */

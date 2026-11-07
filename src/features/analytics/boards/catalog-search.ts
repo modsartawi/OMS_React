@@ -35,6 +35,10 @@ export function nodeTerms(n: CatalogNode): string[] {
       return [n.key]
     case 'source':
       return [n.key, n.source?.table ?? '']
+    case 'planned':
+      return [n.planned.key, ...labelled(n.planned.label)]
+    case 'untapped':
+      return [n.untapped.key, n.untapped.table]
     default:
       return []
   }

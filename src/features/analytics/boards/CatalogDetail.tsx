@@ -4,7 +4,10 @@ import CatalogAreaDetail from './CatalogAreaDetail'
 import CatalogDimensionDetail from './CatalogDimensionDetail'
 import CatalogMartDetail from './CatalogMartDetail'
 import CatalogMeasureDetail from './CatalogMeasureDetail'
+import CatalogPlannedDetail from './CatalogPlannedDetail'
+import CatalogRoadmapDetail from './CatalogRoadmapDetail'
 import CatalogSourceDetail from './CatalogSourceDetail'
+import CatalogUntappedDetail from './CatalogUntappedDetail'
 
 /**
  * The Catalog's detail pane (ticket 841): one small component per node kind, so each follower edits its own file
@@ -31,5 +34,15 @@ export default function CatalogDetail({ node }: { node: CatalogNode | null }) {
       return <CatalogMartDetail martKey={node.key} mart={node.mart} />
     case 'source':
       return <CatalogSourceDetail sourceKey={node.key} source={node.source} />
+    // 842: the Planned / untapped section.
+    case 'roadmap':
+    case 'plannedGroup':
+    case 'plannedStatus':
+    case 'untappedGroup':
+      return <CatalogRoadmapDetail node={node} />
+    case 'planned':
+      return <CatalogPlannedDetail planned={node.planned} sources={node.sources} />
+    case 'untapped':
+      return <CatalogUntappedDetail untapped={node.untapped} plannedBy={node.plannedBy} />
   }
 }

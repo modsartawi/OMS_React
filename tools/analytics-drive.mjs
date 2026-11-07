@@ -4605,6 +4605,60 @@ async function libraryLeaves839({ dir }) {
   await context.close()
 }
 
+// ── 840 ──────────────────────────────────────────────────────────────────────────────────────────────
+// 840 — Home shows recent, pinned and newest certified (BackOffice spec 3437 §G), en and ar: the three sections
+//   from `Analytics/Home` in order, Pinned's empty state; a pin on a recent row puts it under Pinned (PUT to the
+//   plural `Items/{id}/Pin`) and unpinning drops it (DELETE); a refused pin rolls back and toasts; All my items
+//   opens the whole library with a pin on each row; a runner's Home has no New buttons; no page errors.
+async function home840({ dir }) {
+  const tag = `840 ${dir}`
+  const { context, page, errors, calls } = await open({ dir })
+  const inSection = (key) => page.locator(`[data-analytics-home-section="${key}"] [data-analytics-home-item]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-home-item')))
+  await page.goto(`${BASE}/analytics`)
+  await page.locator('[data-analytics-home-section="recent"]').waitFor({ timeout: 15000 })
+  const order = await page.locator('[data-analytics-home-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-home-section')))
+  check(`${tag}: three sections in order`, JSON.stringify(order) === '["recent","pinned","newestCertified"]', JSON.stringify(order))
+  const recent = await inSection('recent')
+  check(`${tag}: Recent lists the door's recent items`, recent.length === 3, JSON.stringify(recent))
+  check(`${tag}: Pinned shows its empty state`, (await page.locator('[data-analytics-home-section-empty="pinned"]').count()) === 1)
+  check(`${tag}: an author sees the New buttons`, (await page.locator('[data-analytics-new]').count()) === 3)
+  const first = recent[0]
+  await page.locator(`[data-analytics-home-section="recent"] [data-analytics-pin="${first}"]`).click()
+  await page.locator(`[data-analytics-home-section="pinned"] [data-analytics-home-item="${first}"]`).waitFor({ timeout: 5000 }).catch(() => {})
+  check(`${tag}: pinning puts it under Pinned`, JSON.stringify(await inSection('pinned')) === JSON.stringify([first]), JSON.stringify(await inSection('pinned')))
+  check(`${tag}: the PUT went to the plural Items door`, calls.includes(`Analytics/Items/${first}/Pin`))
+  await page.locator(`[data-analytics-home-section="pinned"] [data-analytics-pin="${first}"]`).click()
+  await page.locator('[data-analytics-home-section-empty="pinned"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check(`${tag}: unpinning empties Pinned`, (await inSection('pinned')).length === 0)
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.locator('html').getAttribute('dir')) === 'rtl')
+  await page.screenshot({ path: `${SHOTS}/840-home-${dir}.png`, fullPage: true })
+
+  await page.locator('[data-analytics-home-all]').click()
+  await page.locator('[data-analytics-library-list]').waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${tag}: All my items opens the whole library`, new URL(page.url()).pathname === '/analytics/library' && (await page.locator('[data-analytics-item]').count()) > 3, page.url())
+  check(`${tag}: every library row has a pin`, (await page.locator('[data-analytics-item] [data-analytics-pin]').count()) === (await page.locator('[data-analytics-item]').count()))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // A refused pin rolls back.
+  const refused = await open({ dir, pin: refusal('ANALYTICS-404', 'Not found.', 404) })
+  await refused.page.goto(`${BASE}/analytics`)
+  await refused.page.locator('[data-analytics-home-section="recent"] [data-analytics-pin]').first().waitFor({ timeout: 15000 })
+  await refused.page.locator('[data-analytics-home-section="recent"] [data-analytics-pin]').first().click()
+  const toast = await refused.page.locator('[data-sonner-toast]').first().waitFor({ timeout: 5000 }).then(() => true, () => false)
+  await refused.page.waitForTimeout(500)
+  check(`${tag}: a refused pin toasts and Pinned stays empty`, toast && (await refused.page.locator('[data-analytics-home-section-empty="pinned"]').count()) === 1)
+  await refused.context.close()
+
+  // A runner builds nothing.
+  const runner = await open({ dir, access: { canView: true, canAuthor: false, canCurate: false } })
+  await runner.page.goto(`${BASE}/analytics`)
+  await runner.page.locator('[data-analytics-home-section="recent"]').waitFor({ timeout: 15000 })
+  check(`${tag}: a runner's Home has no New buttons`, (await runner.page.locator('[data-analytics-new]').count()) === 0)
+  check(`${tag}: a runner may still pin`, (await runner.page.locator('[data-analytics-pin]:not([disabled])').count()) > 0)
+  await runner.context.close()
+}
+
 const SCENARIOS = [
   ['834', () => acceptance834({ dir: 'ltr' })],
   ['834', () => acceptance834({ dir: 'rtl' })],
@@ -4706,6 +4760,8 @@ const SCENARIOS = [
   ['777', buildsNewView],
   ['839', () => libraryLeaves839({ dir: 'ltr' })],
   ['839', () => libraryLeaves839({ dir: 'rtl' })],
+  ['840', () => home840({ dir: 'ltr' })],
+  ['840', () => home840({ dir: 'rtl' })],
   ['841', () => catalog841({ dir: 'ltr' })],
   ['841', () => catalog841({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],

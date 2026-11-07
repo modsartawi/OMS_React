@@ -17,6 +17,7 @@ import { editItemLink } from './editor'
 import { comparing } from './effective-query'
 import { itemActions } from './item-actions'
 import ItemHistory from './ItemHistory'
+import PinToggle from './PinToggle'
 import ItemTierActions from './ItemTierActions'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
@@ -126,6 +127,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
             {t('view.edit')}
           </Link>
         )}
+        {/* 840: pin it to Home. */}
+        <PinToggle item={item} title={title} />
         <ItemHistory item={item} kind="view" />
         {/* 778: share, certify, un-certify and delete, as the tier allows. */}
         <ItemTierActions item={item} />

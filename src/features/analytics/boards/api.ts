@@ -14,6 +14,7 @@ import type {
   AnalyticsFolder,
   AnalyticsFolderWrite,
   AnalyticsHealth,
+  AnalyticsHome,
   AnalyticsItem,
   AnalyticsItemCopy,
   AnalyticsItemAudience,
@@ -25,6 +26,7 @@ import type {
   AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
+  AnalyticsPinState,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
   AnalyticsReport,
@@ -39,6 +41,7 @@ import type {
 import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery } from './home'
+import { readHome, readPinState } from './home-page'
 import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
@@ -89,6 +92,11 @@ export const analyticsRunsKey = (reportId: string) => ['analytics', 'runs', repo
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
 export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
+/**
+ * 840 (BackOffice 3443): `GET Analytics/Home` — recent, pinned, newest certified. It is also the ONLY source of "is
+ * this item pinned?" (items carry no flag), so every pin toggle reads this one entry and patches it.
+ */
+export const ANALYTICS_HOME_KEY = ['analytics', 'home'] as const
 /** The analytics status card (785). */
 export const ANALYTICS_HEALTH_KEY = ['analytics', 'health'] as const
 
@@ -309,6 +317,18 @@ export const analyticsApi = {
   /** `GET Analytics/ReportRun/{runId}/Html` or `/Pdf` — the artefact that was sent, for 90 days; then `410`. */
   runArtefact(runId: string, kind: 'Html' | 'Pdf'): Promise<FileResponse> {
     return api.blob(`Analytics/ReportRun/${encodeURIComponent(runId)}/${kind}`)
+  },
+  /** 840 (BackOffice 3443): `GET Analytics/Home`. The server records an open on `GET Analytics/Item/{id}`; nothing is posted. */
+  async home(): Promise<AnalyticsHome> {
+    return readHome(await api.get<unknown>('Analytics/Home'))
+  },
+  /** 840: `PUT Analytics/Items/{id}/Pin` — note the plural `Items`, unlike every other item door. View grant only. */
+  async pin(id: string): Promise<AnalyticsPinState> {
+    return readPinState(await api.put<unknown>(`Analytics/Items/${encodeURIComponent(id)}/Pin`, {}), id, true)
+  },
+  /** 840: `DELETE Analytics/Items/{id}/Pin` — idempotent; never refused for visibility (it touches only my row). */
+  async unpin(id: string): Promise<AnalyticsPinState> {
+    return readPinState(await api.del<unknown>(`Analytics/Items/${encodeURIComponent(id)}/Pin`), id, false)
   },
   /** 778: `DELETE Analytics/Item/{id}`. A board that shows a deleted view keeps a "view removed" panel (404). */
   async remove(id: string): Promise<void> {

@@ -18,6 +18,7 @@ import AudienceChip from './AudienceChip'
 import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
 import ItemHistory from './ItemHistory'
+import PinToggle from './PinToggle'
 import ItemTierActions from './ItemTierActions'
 import { editingItemOf } from './item-save'
 import { defaultsOf, type ParamValues } from './params'
@@ -116,6 +117,8 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
           )}
           {/* 834: the owner's Share (with roles and users), a curator's Narrow and Certify — as on a view or a board. */}
           {/* 819 stories 15 and 91: the revisions, revert, and the audience and reassign events. */}
+          {/* 840: pin it to Home. */}
+          <PinToggle item={report} title={title} />
           <ItemHistory item={report} kind="report" />
           <ItemTierActions item={report} startShare={dialog === 'share'} />
           {/* 833: the owner's and curators' schedules, and the kept runs (anyone who may open the report). */}

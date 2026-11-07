@@ -29,6 +29,7 @@ import { libraryPagePath, pageNarrows, pageQuery, pageShows, type LibraryPage } 
 import LibraryChips from './LibraryChips'
 import LibraryMenu from './LibraryMenu'
 import LibraryRail from './LibraryRail'
+import PinToggle from './PinToggle'
 import { useFileItem, useLibraryFolders, useRestoreItem } from './use-library'
 import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
@@ -40,7 +41,9 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * (`./library-pages`): the route fixes who / kind / folder, the URL query carries only what the route leaves open,
  * and the chips and folder rail the route fixes are not shown. Home is still the whole library until 840 gives it
  * recent / pinned / newest certified; an old `?who=…&kind=…` link is redirected before this renders (the router's
- * loader, `libraryRedirect`).
+ * loader, `libraryRedirect`). 840: Home is its own page (`./AnalyticsHomePage`); the whole library — the ask box,
+ * every New, the status card — is All my items at `/analytics/library` (`page="library"`), linked from Home. Every
+ * row has a pin toggle (`./PinToggle`).
  *
  * The analytics home at `/analytics` (spec 766 §F, user stories 3–6; ticket 770) — the menu leaf's
  * destination, behind `canViewAnalytics` like every analytics page.
@@ -56,10 +59,10 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * The toolbar row above the list (`data-analytics-home-header`) is the page's header slot: 782's ask box
  * joins the search there. Below it, curators see the analytics status card (785, `./AnalyticsStatus`).
  */
-export default function AnalyticsLibraryPage({ page = 'home' }: { page?: LibraryPage }) {
+export default function AnalyticsLibraryPage({ page = 'library' }: { page?: Exclude<LibraryPage, 'home' | 'catalog'> }) {
   const { t } = useTranslation('boards')
-  const title = page === 'home' ? t('home.title') : t(`pages.${page}.title`)
-  const subtitle = page === 'home' ? t('home.subtitle') : t(`pages.${page}.subtitle`)
+  const title = t(`pages.${page}.title`)
+  const subtitle = t(`pages.${page}.subtitle`)
   return (
     <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={title} subtitle={subtitle}>
       <HomeBody page={page} />
@@ -91,7 +94,7 @@ function HomeBody({ page }: { page: LibraryPage }) {
   const narrows = (c: LibraryChoice) => pageNarrows(page, c)
   // 839: Recently deleted is its own leaf — the rail's entry goes there, carrying this page's kind.
   const pickFolder = (f: LibraryFolder) =>
-    f === 'deleted' && page !== 'home' ? navigate(`${libraryPagePath('deleted')}?kind=${choice.kind}`) : update((c) => ({ ...c, folder: f }))
+    f === 'deleted' && page !== 'library' ? navigate(`${libraryPagePath('deleted')}?kind=${choice.kind}`) : update((c) => ({ ...c, folder: f }))
   const search = choice.search
   const me = useSession((s) => s.userId) ?? ''
   const today = localToday()
@@ -137,13 +140,13 @@ function HomeBody({ page }: { page: LibraryPage }) {
         {t('home.loading')}
       </div>
     )
-  } else if (page !== 'home' && page !== 'deleted' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
+  } else if (page !== 'library' && page !== 'deleted' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
     body = (
       <div className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground" data-analytics-page-empty={page}>
         {t(`pages.${page}.empty`)}
       </div>
     )
-  } else if (page === 'home' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
+  } else if (page === 'library' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
     body = (
       <div className="rounded-lg border border-border/60 bg-card p-6 text-sm" data-analytics-home-empty>
         <p className="font-medium">{t('home.emptyTitle')}</p>
@@ -203,15 +206,15 @@ function HomeBody({ page }: { page: LibraryPage }) {
             wrapperClassName="w-80 max-w-full"
             data-analytics-home-search
           />
-          {page === 'home' && <AskBox />}
+          {page === 'library' && <AskBox />}
           {/* 822: a runner builds nothing. 839: Home offers every New; a My page its own kind's. */}
-          {author && page !== 'home' && NEW_LINK[page] && (
+          {author && page !== 'library' && NEW_LINK[page] && (
             <Link to={NEW_LINK[page].to} className={buttonClass('secondary')} data-analytics-new={page}>
               <Plus className="size-4" aria-hidden />
               {t(NEW_LINK[page].labelKey)}
             </Link>
           )}
-          {author && page === 'home' && (
+          {author && page === 'library' && (
             <>
               {/* 775: build a view from the model. */}
               <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
@@ -232,7 +235,7 @@ function HomeBody({ page }: { page: LibraryPage }) {
           )}
         </div>
         <LibraryChips choice={choice} onChange={update} shows={shows} narrows={narrows} />
-        {curator && page === 'home' && <AnalyticsStatus />}
+        {curator && page === 'library' && <AnalyticsStatus />}
         {folder === 'deleted' && <p className="text-xs text-muted-foreground">{t('home.library.deletedNote')}</p>}
         {body}
       </div>
@@ -304,6 +307,8 @@ function HomeRow({
           </span>
         )}
       </Link>
+      {/* 840: outside the link, so pinning does not open the item. */}
+      <PinToggle item={item} title={title} />
       {folders && (
         <LibraryMenu
           label={t('home.library.move.itemLabel', { title: fsi(title || t('home.untitled')) })}

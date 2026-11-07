@@ -729,6 +729,25 @@ export interface AnalyticsReportRun {
   hasPdf: boolean
 }
 
+// ── Spec 3437 (BackOffice 3443, oms-react 840) ──
+
+/**
+ * `GET Analytics/Home`: my last opens (≤ 10, last first), ALL my pins I can still see (last pinned first) and the
+ * 5 newest Certified items, each re-checked against what I can see now. Items are listed as `Analytics/Items` lists
+ * them (`definition: null` on the wire) and carry NO pinned flag: `pinned` here is the only answer to "is it pinned?".
+ */
+export interface AnalyticsHome {
+  recent: AnalyticsItem[]
+  pinned: AnalyticsItem[]
+  newestCertified: AnalyticsItem[]
+}
+
+/** `PUT` / `DELETE Analytics/Items/{id}/Pin` (plural `Items`, verbatim): idempotent both ways. */
+export interface AnalyticsPinState {
+  itemId: string
+  pinned: boolean
+}
+
 // ── Spec 3437 (BackOffice 3438–3442): the data catalog ──────────────────────────────────────────────────────────
 // `GET Analytics/Catalog` (and `GET Analytics/Render/Catalog` under a catalog render ticket), as built on BackOffice
 // branch spec3437 (`AnalyticsCatalog.cs`). camelCase, nulls written as null. Read through `boards/catalog-wire.ts`.

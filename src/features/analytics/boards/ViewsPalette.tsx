@@ -42,6 +42,8 @@ export default function ViewsPalette({
   onAdd,
   onDragStart,
   onDragEnd,
+  heading = true,
+  hint,
 }: {
   items: readonly AnalyticsItem[] | undefined
   loading: boolean
@@ -51,6 +53,10 @@ export default function ViewsPalette({
   onAdd: (item: AnalyticsItem) => void
   onDragStart: (item: AnalyticsItem) => void
   onDragEnd: () => void
+  /** 846: false when the caller titles the list itself (the board editor's Views · Outline tabs). */
+  heading?: boolean
+  /** 846: the caller's own how-to line (the report designer drops into sections, not a grid); default the grid's. */
+  hint?: string
 }) {
   const { t } = useTranslation('boards')
   const me = useSession((s) => s.userId) ?? ''
@@ -67,7 +73,7 @@ export default function ViewsPalette({
 
   return (
     <aside className="flex min-h-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-label={t('boardEditor.palette.title')} data-board-palette>
-      <h3 className="text-sm font-semibold tracking-tight">{t('boardEditor.palette.title')}</h3>
+      {heading && <h3 className="text-sm font-semibold tracking-tight">{t('boardEditor.palette.title')}</h3>}
       <Input
         type="search"
         value={search}
@@ -95,7 +101,7 @@ export default function ViewsPalette({
           ))}
         </Select>
       )}
-      <p className="text-xs text-muted-foreground">{t('boardEditor.palette.hint')}</p>
+      <p className="text-xs text-muted-foreground">{hint ?? t('boardEditor.palette.hint')}</p>
       {loading ? (
         <p className="text-sm text-muted-foreground" role="status">
           {t('boardEditor.viewsLoading')}
@@ -156,6 +162,8 @@ function PaletteRow({
       onDragEnd={onDragEnd}
       onKeyDown={key}
       aria-label={t('boardEditor.palette.row', { view: fsi(title), owner: fsi(item.owner) })}
+      // 846 item 3: the full name on hover, for a name the row cuts short.
+      title={fsi(title || t('home.untitled'))}
       className="group flex cursor-grab items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:bg-muted/50 focus-visible:bg-muted/50 active:cursor-grabbing"
       data-board-palette-view={item.id}
     >
@@ -164,7 +172,8 @@ function PaletteRow({
         <Icon className="size-4" aria-hidden />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">
+        {/* 846 item 3: a long name wraps to two lines before it is cut. */}
+        <span className="line-clamp-2 break-words text-sm font-medium leading-snug" data-board-palette-name>
           <bdi>{title || t('home.untitled')}</bdi>
         </span>
         <span className="truncate text-xs text-muted-foreground" data-board-palette-owner>

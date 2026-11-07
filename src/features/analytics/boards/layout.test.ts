@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsBoardPanel } from '@/core/models/analytics'
-import { addedLayout, cellAt, dropOutline, gridPlacement, keyAction, layoutReducer, minSizeOf, overlaps, type LayoutState } from './layout'
+import { addedLayout, cellAt, closeGaps, dropOutline, freeSlotBelow, gridPlacement, keyAction, layoutReducer, minSizeOf, overlaps, sectionOf, type LayoutState } from './layout'
 
 const view = (id: string, x: number, y: number, w: number, h: number): AnalyticsBoardPanel => ({ id, kind: 'view', viewId: `v-${id}`, layout: { x, y, w, h }, optOut: [] })
 const text = (id: string, x: number, y: number, w: number, h: number): AnalyticsBoardPanel => ({ id, kind: 'text', text: { en: '', ar: '' }, layout: { x, y, w, h } })
@@ -183,5 +183,111 @@ describe('837: a view dropped from the palette', () => {
         expect(at(s, 'n')).toEqual(dropOutline(cell, { w: 6, h: 3 }, min))
       }
     }
+  })
+})
+
+const section = (id: string, x: number, y: number, w = 12, h = 1): AnalyticsBoardPanel => ({ id, kind: 'section', title: { en: id, ar: '' }, layout: { x, y, w, h } })
+
+describe('846: Close gaps', () => {
+  it('moves every panel up into the empty rows above it, keeping the reading order', () => {
+    // A deleted panel left rows 0–2 empty at the start; c sat under it.
+    const s0 = state(view('b', 6, 0, 6, 3), view('c', 0, 3, 6, 3), view('d', 0, 8, 12, 2))
+    const s = layoutReducer(s0, { type: 'closeGaps' })
+    expect(at(s, 'b')).toEqual({ x: 6, y: 0, w: 6, h: 3 })
+    expect(at(s, 'c')).toEqual({ x: 0, y: 0, w: 6, h: 3 })
+    expect(at(s, 'd')).toEqual({ x: 0, y: 3, w: 12, h: 2 })
+    expect(s.panels.map((p) => p.id)).toEqual(['b', 'c', 'd'])
+    expect(noOverlap(s)).toBe(true)
+  })
+  it('a panel never floats above its section header, even past a narrow header', () => {
+    const s0 = state(section('h1', 0, 0), view('a', 0, 1, 6, 3), section('h2', 0, 6, 4), view('b', 6, 8, 6, 3))
+    const s = layoutReducer(s0, { type: 'closeGaps' })
+    expect(at(s, 'h2').y).toBe(4)
+    // b sits beside the narrow header's column span, but stays under it.
+    expect(at(s, 'b').y).toBe(5)
+  })
+  it('one section only: its panels move up under its header; the rest of the board stays', () => {
+    const s0 = state(view('top', 0, 2, 6, 3), section('h', 0, 5), view('a', 0, 8, 6, 3), view('b', 6, 9, 6, 3), section('h2', 0, 14), view('z', 0, 17, 6, 3))
+    const s = layoutReducer(s0, { type: 'closeGaps', section: 'h' })
+    expect(at(s, 'a').y).toBe(6)
+    expect(at(s, 'b').y).toBe(6)
+    expect(at(s, 'top').y).toBe(2)
+    expect(at(s, 'h').y).toBe(5)
+    expect(at(s, 'h2').y).toBe(14)
+    expect(at(s, 'z').y).toBe(17)
+  })
+  it('no gap: the state is the same object (the editor says so)', () => {
+    const s0 = state(view('a', 0, 0, 6, 3), view('b', 6, 0, 6, 3), view('c', 0, 3, 12, 3))
+    expect(layoutReducer(s0, { type: 'closeGaps' })).toBe(s0)
+    expect(closeGaps(s0.panels)).toBe(s0.panels)
+    const s1 = state(section('h', 0, 0), view('a', 0, 1, 6, 3), view('far', 0, 9, 6, 3))
+    expect(layoutReducer(s1, { type: 'closeGaps', section: 'h' })).not.toBe(s1)
+  })
+  it('a panel belongs to the nearest header above it', () => {
+    const panels = [view('pre', 0, 0, 6, 2), section('h', 0, 2), view('a', 0, 3, 6, 3), section('h2', 0, 6), view('b', 4, 7, 6, 3)]
+    expect(sectionOf(panels, 'pre')).toBeNull()
+    expect(sectionOf(panels, 'a')).toBe('h')
+    expect(sectionOf(panels, 'b')).toBe('h2')
+  })
+})
+
+describe('846: duplicate into the first free slot below', () => {
+  it('the slot is the first place below the panel it fits, nearest its own column first', () => {
+    const panels = [view('a', 0, 0, 6, 3), view('b', 6, 0, 6, 3), view('c', 0, 3, 6, 3)]
+    // Under a (rows 3–5) is c, so the copy goes beside c, under b.
+    expect(freeSlotBelow(panels, 'a')).toEqual({ x: 6, y: 3, w: 6, h: 3 })
+    expect(freeSlotBelow(panels, 'b')).toEqual({ x: 6, y: 3, w: 6, h: 3 })
+    expect(freeSlotBelow([view('a', 2, 0, 4, 3)], 'a')).toEqual({ x: 2, y: 3, w: 4, h: 3 })
+  })
+  it('duplicate adds a copy with a new id there, its minimum and its words, nothing moves', () => {
+    const s0: LayoutState = { panels: [text('t', 0, 0, 6, 1), view('a', 0, 1, 12, 3)], mins: { t: { w: 2, h: 1 } } }
+    s0.panels[0] = { ...s0.panels[0], text: { en: 'Hi', ar: 'مرحبا' } } as AnalyticsBoardPanel
+    const s = layoutReducer(s0, { type: 'duplicate', id: 't', newId: 't2' })
+    expect(s.panels.map((p) => p.id)).toEqual(['t', 'a', 't2'])
+    // Below t is the full-width a, so the copy goes under a.
+    expect(s.panels[2]).toMatchObject({ kind: 'text', text: { en: 'Hi', ar: 'مرحبا' }, layout: { x: 0, y: 4, w: 6, h: 1 } })
+    expect(s.mins.t2).toEqual({ w: 2, h: 1 })
+    expect(at(s, 'a')).toEqual({ x: 0, y: 1, w: 12, h: 3 })
+  })
+})
+
+describe('846: several panels at once', () => {
+  it('moves a selection together with the arrows; one hitting the edge stops the group', () => {
+    const s0 = state(view('a', 0, 0, 4, 3), view('b', 4, 0, 4, 3), view('c', 0, 6, 4, 3))
+    const right = layoutReducer(s0, { type: 'nudgeMany', ids: ['a', 'b'], dx: 1, dy: 0 })
+    expect([at(right, 'a').x, at(right, 'b').x]).toEqual([1, 5])
+    const left = layoutReducer(s0, { type: 'nudgeMany', ids: ['a', 'b'], dx: -1, dy: 0 })
+    expect(left).toBe(s0)
+    const down = layoutReducer(s0, { type: 'nudgeMany', ids: ['a', 'b'], dx: 0, dy: 4 })
+    expect([at(down, 'a').y, at(down, 'b').y]).toEqual([4, 4])
+    // c, landed on, is pushed below the group.
+    expect(at(down, 'c').y).toBe(7)
+    expect(noOverlap(down)).toBe(true)
+  })
+  it('removes a selection', () => {
+    const s = layoutReducer(state(view('a', 0, 0, 4, 3), view('b', 4, 0, 4, 3), view('c', 8, 0, 4, 3)), { type: 'removeMany', ids: ['a', 'c'] })
+    expect(s.panels.map((p) => p.id)).toEqual(['b'])
+  })
+  it('aligns the start edges: stacked panels stay stacked, side-by-side ones stack in reading order', () => {
+    const s = layoutReducer(state(view('a', 2, 0, 4, 3), view('b', 5, 3, 4, 3), view('z', 9, 0, 3, 3)), { type: 'align', ids: ['a', 'b'], how: 'start' })
+    expect(at(s, 'a')).toEqual({ x: 2, y: 0, w: 4, h: 3 })
+    expect(at(s, 'b')).toEqual({ x: 2, y: 3, w: 4, h: 3 })
+    expect(at(s, 'z')).toEqual({ x: 9, y: 0, w: 3, h: 3 })
+    const side = layoutReducer(state(view('a', 0, 0, 4, 3), view('b', 6, 0, 4, 3)), { type: 'align', ids: ['b', 'a'], how: 'start' })
+    expect(at(side, 'a')).toEqual({ x: 0, y: 0, w: 4, h: 3 })
+    expect(at(side, 'b')).toEqual({ x: 0, y: 3, w: 4, h: 3 })
+    expect(noOverlap(side)).toBe(true)
+  })
+  it('aligns the tops to the highest', () => {
+    const s = layoutReducer(state(view('a', 0, 2, 4, 3), view('b', 6, 5, 4, 3)), { type: 'align', ids: ['a', 'b'], how: 'top' })
+    expect([at(s, 'a').y, at(s, 'b').y]).toEqual([2, 2])
+  })
+  it('makes the selection as wide as the first one picked, inside the columns and above each minimum', () => {
+    const s0: LayoutState = { panels: [view('a', 0, 0, 8, 3), view('b', 9, 3, 3, 3), view('c', 0, 6, 6, 3)], mins: { c: { w: 4, h: 3 } } }
+    const s = layoutReducer(s0, { type: 'align', ids: ['a', 'b'], how: 'width' })
+    expect(at(s, 'a')).toEqual({ x: 0, y: 0, w: 8, h: 3 })
+    expect(at(s, 'b')).toEqual({ x: 4, y: 3, w: 8, h: 3 })
+    const narrow = layoutReducer({ ...s0, panels: [view('k', 0, 0, 2, 2), view('c', 4, 0, 6, 3)] }, { type: 'align', ids: ['k', 'c'], how: 'width' })
+    expect(at(narrow, 'c').w).toBe(4)
   })
 })

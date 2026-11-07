@@ -664,6 +664,53 @@
     "preview": "Preview",
     "previewBack": "Back to design",
     "previewNote": "This is the board a viewer opens, with your unsaved changes and the default values. Nothing is saved.",
+    "gaps": {
+      "close": "Close gaps",
+      "closeSection": "Close gaps in {{panel}}",
+      "closed": "Gaps closed: the panels moved up.",
+      "closedSection": "Gaps closed in this section.",
+      "none": "There are no gaps to close.",
+      "noneSection": "This section has no gaps to close."
+    },
+    "side": {
+      "label": "Views and outline",
+      "open": "Show the views and outline",
+      "close": "Hide the views and outline",
+      "resize": "Resize the views list"
+    },
+    "outline": {
+      "title": "Outline",
+      "hint": "Click a panel to go to it. Ctrl or Shift-click to select several.",
+      "empty": "No panels yet."
+    },
+    "tools": {
+      "label": "Board tools",
+      "undo": "Undo (Ctrl+Z)",
+      "redo": "Redo (Ctrl+Y)",
+      "selected": "{{n}} selected",
+      "duplicate": "Duplicate (Ctrl+D)",
+      "remove": "Remove the selected panels",
+      "alignStart": "Align left edges",
+      "alignTop": "Align top edges",
+      "sameWidth": "Make the same width as the first selected"
+    },
+    "keys": {
+      "title": "Keyboard shortcuts",
+      "open": "Keyboard shortcuts (?)",
+      "undo": "Undo",
+      "redo": "Redo",
+      "move": "Move the focused panel (or the selection) one cell",
+      "resize": "Resize the focused panel",
+      "remove": "Remove the focused panel (or the selection)",
+      "duplicate": "Duplicate the focused panel below it",
+      "select": "Add a panel to the selection",
+      "escape": "Cancel a drag, or clear the selection",
+      "sheet": "Show this sheet",
+      "cap": {
+        "delete": "Delete",
+        "click": "Click"
+      }
+    },
     "palette": {
       "title": "Views",
       "search": "Search views",
@@ -1127,6 +1174,20 @@
     "saveFailed": "The report could not be saved",
     "summaryOnRun": "It is written when the report runs.",
     "empty": "No sections yet. Add one to start.",
+    "panes": {
+      "outline": "Resize the outline",
+      "inspector": "Resize the inspector"
+    },
+    "side": {
+      "label": "Outline or views",
+      "outline": "Outline",
+      "views": "Views",
+      "viewsHint": "Drag a view into a section, at the line where it should go, or press + to add it to the selected section."
+    },
+    "keys": {
+      "block": "Delete removes it, Ctrl+D duplicates it, Esc clears the selection.",
+      "summary": "Delete removes it, Esc clears the selection."
+    },
     "outline": {
       "label": "Report outline",
       "params": "Parameters",

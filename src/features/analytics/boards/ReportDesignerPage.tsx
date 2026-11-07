@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ArrowLeft, Eye, GraduationCap, Plus, Redo2, Save, Undo2 } from 'lucide-react'
 import { reportEditHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsLabel, AnalyticsModel, AnalyticsReport, AnalyticsReportDefinition, AnalyticsReportWords } from '@/core/models/analytics'
+import type { AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsReport, AnalyticsReportDefinition, AnalyticsReportWords } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
+import type { PaneBounds } from '@/core/ui/inspector-pane'
+import PaneSeparator, { useRememberedPaneWidth, useViewportWidth } from '@/core/ui/PaneSeparator'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canAuthorAnalytics } from './access'
-import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsItemsKey, analyticsReportKey } from './api'
 import { BASE_FILTERS, NO_WAVE } from './board'
 import { addParam, bind, blankParam, removeParam, type Declarations } from './bindings'
 import DeclarationProblems from './DeclarationProblems'
@@ -36,12 +38,13 @@ import ReportTutorial from './ReportTutorial'
 import { sampleReport } from './sample-report'
 import { AiStepNotice, EditWithCopilot, useReportInContext } from './ReportDesignerCopilot'
 import { AddBlock, BlockInspector, DropLine, Grip, MoveTools, Outline, SectionInspector, useNames, useReportDnd, type DesignerOps, type ReportDnd } from './ReportDesignerParts'
+import ViewsPalette from './ViewsPalette'
 import * as ops from './report-ops'
 import { DesignerText } from './ReportTextEditor'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
 import { useItemSave, type SaveHow } from './use-item-save'
 import { useReportRun } from './use-report-run'
-import { analyticsRefusal, refusalWords } from './wire'
+import { analyticsErrorWords, analyticsRefusal, refusalWords } from './wire'
 
 /**
  * The report designer (spec 819 §E, ticket 828; 798's variant D) at `/analytics/new?kind=report` and
@@ -134,6 +137,12 @@ function DesignerBody({ reportId }: { reportId: string | null }) {
 /** The designer never asks the Words door (a draft has no revision to ask it with): figures and the summary say so. */
 const designWords = (reason: string): ReportWordsView => ({ data: { figures: {}, summary: { unavailable: reason } } satisfies AnalyticsReportWords, failed: false })
 
+// 846 item 3: the side panes are resizable, their widths remembered in this browser.
+const OUTLINE_PANE: PaneBounds = { default: 256, min: 208, max: 480, step: 16, viewportShare: 0.3 }
+const INSPECTOR_PANE: PaneBounds = { default: 416, min: 320, max: 640, step: 16, viewportShare: 0.4 }
+const OUTLINE_WIDTH_KEY = 'oms.analytics.reportDesigner.outlineWidth'
+const INSPECTOR_WIDTH_KEY = 'oms.analytics.reportDesigner.inspectorWidth'
+
 const isTextField = (el: EventTarget | null) => {
   const e = el as HTMLElement | null
   return !!e && (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' || e.isContentEditable)
@@ -160,6 +169,16 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   const [dismissed, setDismissed] = useState<unknown>(null)
   const [editing, setEditing] = useState(startEditing)
   const [tutorial, setTutorial] = useState(false)
+  // 846 item 4: the outline column shows the outline or the views list; the list is read once it is first opened.
+  const [side, setSide] = useState<'outline' | 'views'>('outline')
+  const [viewsOpened, setViewsOpened] = useState(false)
+  const viewport = useViewportWidth()
+  const [outlineWidth, setOutlineWidth] = useRememberedPaneWidth(OUTLINE_WIDTH_KEY, OUTLINE_PANE)
+  const [inspectorWidth, setInspectorWidth] = useRememberedPaneWidth(INSPECTOR_WIDTH_KEY, INSPECTOR_PANE)
+  const pageRef = useRef<HTMLElement | null>(null)
+  const outlineRef = useRef<HTMLDivElement | null>(null)
+  const queryClient = useQueryClient()
+  const views = useQuery({ queryKey: analyticsItemsKey({ kind: 'view' }), queryFn: () => analyticsApi.items({ kind: 'view' }), retry: false, enabled: viewsOpened })
 
   const edit = useCallback(
     (f: (d: ReportDraft) => ReportDraft, key: string | null = null, label: DraftStep | null = null) => dispatch({ type: 'apply', next: f, key, label, at: Date.now() }),
@@ -182,11 +201,33 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
   // 832: the copilot sees this report as the report in context; its edit lands as ONE step, "AI: <the request>".
   useReportInContext(editing?.id ?? null, editing?.revision ?? 0, draft, (definition, request) => editDef(() => definition, null, { kind: 'ai', request }))
 
-  // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z). Inside a text field the browser's own text undo wins.
+  // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z). Inside a text field the browser's own text undo wins. 846 item 5: on a
+  // selected block, Delete removes it and Ctrl+D duplicates it (each one step); Esc clears the selection.
+  const keys = useRef<{ block: string | null; remove: (id: string) => void; duplicate: (id: string) => void; clear: () => void } | null>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTextField(e.target) || !(e.ctrlKey || e.metaKey)) return
+      if (isTextField(e.target) || e.defaultPrevented) return
+      const on = keys.current
+      // A dialog open over the designer owns its own keys.
+      const dialog = !!document.querySelector('[role="dialog"], [role="alertdialog"]')
+      if (on && !dialog && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'Escape') {
+          on.clear()
+          return
+        }
+        if (e.key === 'Delete' && on.block) {
+          e.preventDefault()
+          on.remove(on.block)
+          return
+        }
+      }
+      if (!(e.ctrlKey || e.metaKey)) return
       const k = e.key.toLowerCase()
+      if (k === 'd' && !e.shiftKey && !e.altKey && on?.block && !dialog) {
+        e.preventDefault()
+        on.duplicate(on.block)
+        return
+      }
       if (k === 'z' && !e.shiftKey) {
         e.preventDefault()
         undo()
@@ -226,6 +267,15 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
       editDef((d) => ops.removeBlock(d, id), null, { kind: 'removed', what: b.kind, name: b.kind === 'panel' ? b.title : null })
       if (selected === `block:${id}`) setSelected(null)
     },
+    duplicateBlock: (id) => {
+      const b = def.sections.flatMap((s) => s.blocks).find((x) => x.id === id)
+      if (!b || b.kind === 'summary') return
+      const copy = ops.freshId(def, b.kind === 'panel' ? 'p' : 't')
+      editDef((d) => ops.duplicateBlock(d, id, copy))
+      setSelected(`block:${copy}`)
+      setFresh(null)
+      setFocus(null)
+    },
     addSection: () => {
       const id = ops.freshId(def, 's')
       editDef((d) => ops.addSection(d, id))
@@ -257,10 +307,50 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
       setFocus(null)
     },
   }
+  /**
+   * 846 item 4: a view from the views list copied in as a panel (as "Copy a saved view" does: read whole, so its
+   * definition and revision are copied) — at a dropped gap, or by "+" at the end of the selected section (the
+   * selected block's, else the last; a report with no section gets one). One step.
+   */
+  const addView = (listed: AnalyticsItem, at?: { section: string; index: number }) => {
+    queryClient
+      .fetchQuery({ queryKey: analyticsItemKey(listed.id), queryFn: () => analyticsApi.item(listed.id), staleTime: 0 })
+      .then((item) => {
+        const now = latest.current.present.definition
+        const id = ops.freshId(now, 'p')
+        const pickedSection = selected?.startsWith('section:') ? selected.slice('section:'.length) : selected?.startsWith('block:') ? ops.locateBlock(now, selected.slice('block:'.length))?.section : undefined
+        editDef((d) => {
+          let into = at?.section ?? (pickedSection && d.sections.some((s) => s.id === pickedSection) ? pickedSection : d.sections.at(-1)?.id)
+          let base = d
+          if (!into) {
+            into = ops.freshId(d, 's')
+            base = ops.addSection(d, into)
+          }
+          return ops.addBlock(base, into, copiedPanel(id, item), model, at?.index)
+        })
+        setSelected(`block:${id}`)
+        setFresh(null)
+        setFocus(null)
+      })
+      .catch((err: unknown) => toast.error(analyticsErrorWords(err, t('designer.copyView.failed'), t)))
+  }
   const dnd = useReportDnd({
+    def,
     onBlock: (id, section, index) => editDef((d) => ops.moveBlockTo(d, id, section, index)),
     onSection: (id, index) => editDef((d) => ops.moveSectionTo(d, id, index)),
+    onView: (view, section, index) => addView(view, { section, index }),
+    page: pageRef,
+    outline: outlineRef,
   })
+  keys.current = {
+    block: selected?.startsWith('block:') ? selected.slice('block:'.length) : null,
+    remove: designerOps.removeBlock,
+    duplicate: designerOps.duplicateBlock,
+    clear: () => {
+      setSelected(null)
+      setFocus(null)
+    },
+  }
 
   // ── Save ──
   const save = useItemSave({
@@ -408,12 +498,52 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
         ) : null}
       </header>
 
-      <div className="grid grid-cols-[16rem_minmax(0,1fr)_26rem] items-start gap-3">
-        <div className="sticky top-2 flex max-h-[calc(100vh-1rem)] flex-col overflow-y-auto">
-          <Outline def={def} selected={selected} ops={designerOps} dnd={dnd} model={model} lang={lang} />
+      <div className="grid items-start gap-3" style={{ gridTemplateColumns: `${outlineWidth}px minmax(0,1fr) ${inspectorWidth}px` }}>
+        <div id="designer-outline-pane" className="sticky top-2 flex max-h-[calc(100vh-1rem)] min-w-0 flex-col gap-2" data-designer-outline-pane={outlineWidth}>
+          <PaneSeparator controls="designer-outline-pane" label={t('designer.panes.outline')} width={outlineWidth} viewport={viewport} onWidth={setOutlineWidth} bounds={OUTLINE_PANE} edge="end" />
+          <div className="flex gap-1 rounded-lg border border-border/60 bg-card p-1" role="tablist" aria-label={t('designer.side.label')}>
+            {(['outline', 'views'] as const).map((s) => (
+              <Button
+                key={s}
+                variant={side === s ? 'secondary' : 'ghost'}
+                className="flex-1"
+                role="tab"
+                aria-selected={side === s}
+                aria-controls="designer-side-panel"
+                onClick={() => {
+                  setSide(s)
+                  if (s === 'views') setViewsOpened(true)
+                }}
+                data-designer-side={s}
+              >
+                {t(`designer.side.${s}`)}
+              </Button>
+            ))}
+          </div>
+          <div id="designer-side-panel" role="tabpanel" className="min-h-0 overflow-y-auto">
+            <div ref={outlineRef} className="flex flex-col gap-2">
+              {side === 'outline' ? (
+                <Outline def={def} selected={selected} ops={designerOps} dnd={dnd} model={model} lang={lang} />
+              ) : (
+                <div className="flex flex-col gap-2" data-designer-views>
+                  <ViewsPalette
+                    items={views.data}
+                    loading={views.isLoading}
+                    failed={!!views.error}
+                    model={model}
+                    lang={lang}
+                    onAdd={(item) => addView(item)}
+                    onDragStart={dnd.startView}
+                    onDragEnd={dnd.end}
+                    hint={t('designer.side.viewsHint')}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <main className="flex min-w-0 flex-col gap-3" data-designer-page>
+        <main ref={pageRef} className="flex min-w-0 flex-col gap-3" data-designer-page>
           <section className="grid gap-3 rounded-lg border border-border/60 bg-card p-3 md:grid-cols-2">
             <Field label={t('designer.titleEn')}>
               <Input value={draft.title.en} dir="ltr" onChange={(e) => edit((d) => ({ ...d, title: { ...d.title, en: e.target.value } }), 'title:en')} data-designer-title-input="en" />
@@ -431,16 +561,23 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             wave={NO_WAVE}
             design={{ selected: selectedParam, onEdit: openParam, onAdd: designerOps.addParam }}
           />
-          <article className="flex flex-col gap-4 rounded-lg bg-card p-5 shadow-sm" data-designer-sections>
+          <article {...dnd.sectionList()} className="flex flex-col gap-4 rounded-lg bg-card p-5 shadow-sm" data-designer-sections>
             {def.sections.length === 0 && (
               <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-designer-empty>
                 {t('designer.empty')}
               </p>
             )}
             {def.sections.map((s, si) => (
-              <section key={s.id} {...dnd.sectionTarget(si, s.id, s.blocks.length)} className={`flex flex-col gap-3 ${dnd.dragging('section', s.id) ? 'opacity-40' : ''}`} data-designer-section={s.id}>
-                <DropLine show={dnd.lineAtSection(si)} />
-                <div className={`flex items-center gap-2 border-b border-border/60 pb-1 ${selected === `section:${s.id}` ? 'text-primary-800' : ''}`}>
+              <section
+                key={s.id}
+                {...dnd.slot('section')}
+                {...dnd.blockList(s.id)}
+                className={`relative flex flex-col gap-3 ${dnd.dragging('section', s.id) ? 'opacity-40' : ''}`}
+                data-designer-section={s.id}
+              >
+                <DropLine edge={dnd.sectionLine(si, def.sections.length)} gap="gap4" />
+                <div className={`relative flex items-center gap-2 border-b border-border/60 pb-1 ${selected === `section:${s.id}` ? 'text-primary-800' : ''}`}>
+                  <DropLine edge={dnd.emptyLine(s.id) && 'after'} gap="gap3" />
                   <h2 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
                     <bdi>{names.section(s.heading)}</bdi>
                   </h2>
@@ -455,11 +592,10 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
                   />
                 </div>
                 {s.blocks.map((b, bi) => (
-                  <BlockFrame key={b.id} dnd={dnd} section={s.id} index={bi} selected={selected === `block:${b.id}`} name={names.block(b)} id={b.id} ops={designerOps}>
+                  <BlockFrame key={b.id} dnd={dnd} line={dnd.blockLine(s.id, bi, s.blocks.length)} selected={selected === `block:${b.id}`} name={names.block(b)} id={b.id} ops={designerOps}>
                     {b.kind === 'text' ? <DesignerText block={b} def={def} model={model} lang={lang} /> : <ReportBlock block={b} role="author" {...run} />}
                   </BlockFrame>
                 ))}
-                <DropLine show={dnd.lineAtBlock(s.id, s.blocks.length)} />
                 {adding === s.id ? (
                   <AddBlock def={def} section={s.id} ops={designerOps} model={model} lang={lang} onClose={() => setAdding(null)} />
                 ) : (
@@ -472,7 +608,6 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
                 )}
               </section>
             ))}
-            <DropLine show={dnd.lineAtSection(def.sections.length)} />
             <div>
               <Button variant="outlined" onClick={designerOps.addSection} data-designer-add-section>
                 <Plus className="size-3.5" aria-hidden />
@@ -482,6 +617,8 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
           </article>
         </main>
 
+        <div id="designer-inspector-pane" className="sticky top-2 min-w-0" data-designer-inspector-pane={inspectorWidth}>
+        <PaneSeparator controls="designer-inspector-pane" label={t('designer.panes.inspector')} width={inspectorWidth} viewport={viewport} onWidth={setInspectorWidth} bounds={INSPECTOR_PANE} />
         {selectedParam && def.params.some((p) => p.name === selectedParam) ? (
           <ParamInspector
             decl={decl}
@@ -515,7 +652,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             lead={lead}
           />
         ) : (
-          <aside className="sticky top-2 max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-border/60 bg-card p-4" aria-label={t('designer.inspector.label')} data-designer-inspector>
+          <aside className="max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-border/60 bg-card p-4" aria-label={t('designer.inspector.label')} data-designer-inspector>
             {lead && <div className="mb-4">{lead}</div>}
             {selected?.startsWith('section:') ? (
               <SectionInspector
@@ -533,6 +670,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
             )}
           </aside>
         )}
+        </div>
       </div>
     </div>
   )
@@ -540,11 +678,10 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
 
 const noop = () => {}
 
-/** A block on the page: a drop target, its tools on hover or focus, ringed when selected. */
+/** A block on the page: one of its section's drop slots (846: the line on its nearest edge), its tools on hover or focus, ringed when selected. */
 function BlockFrame({
   dnd,
-  section,
-  index,
+  line,
   id,
   name,
   selected,
@@ -552,8 +689,7 @@ function BlockFrame({
   children,
 }: {
   dnd: ReportDnd
-  section: string
-  index: number
+  line: 'before' | 'after' | null
   id: string
   name: string
   selected: boolean
@@ -562,8 +698,8 @@ function BlockFrame({
 }) {
   const dragging = dnd.dragging('block', id)
   return (
-    <div {...dnd.blockTarget(section, index)} className="flex flex-col gap-1" data-designer-block={id}>
-      <DropLine show={dnd.lineAtBlock(section, index)} />
+    <div {...dnd.slot('block')} className="relative flex flex-col" data-designer-block={id}>
+      <DropLine edge={line} gap="gap3" />
       <div
         className={`group relative rounded-lg ${dragging ? 'opacity-40 ' : ''}${selected ? 'ring-2 ring-primary ring-offset-4 ring-offset-card' : 'hover:ring-1 hover:ring-border hover:ring-offset-4 hover:ring-offset-card'}`}
       >

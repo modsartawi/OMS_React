@@ -1,12 +1,13 @@
-import { useRef, useState, type Dispatch, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GripVertical, MoveDiagonal2, Trash2, Unlink } from 'lucide-react'
+import { ArrowUpToLine, GripVertical, MoveDiagonal2, Trash2, Unlink } from 'lucide-react'
 import type { AnalyticsBoardPanel, AnalyticsItem, AnalyticsLabel, AnalyticsModel, BoardFilterKey, BoardLayout } from '@/core/models/analytics'
 import { bootDirection } from '@/core/theme/direction'
 import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Textarea from '@/core/ui/Textarea'
+import { useAutoScroll } from '@/core/ui/use-auto-scroll'
 import { fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import { cellAt, dropOutline, gridPlacement, keyAction, rowsShown, type Cell, type LayoutAction, type LayoutState, type Size } from './layout'
@@ -30,7 +31,12 @@ export const OPT_OUTS: readonly BoardFilterKey[] = ['crossFilter']
 /** What the editor knows of a view panel's view: loaded, still loading, or removed (`ANALYTICS-404`). */
 export type PanelView = { state: 'loaded'; item: AnalyticsItem } | { state: 'loading' } | { state: 'removed' } | { state: 'failed' }
 
-type Drag = { id: string; mode: 'move' | 'resize'; grab: { col: number; row: number }; origin: LayoutState; last: string }
+type Pointer = { clientX: number; clientY: number }
+type Drag = { id: string; mode: 'move' | 'resize'; grab: { col: number; row: number }; origin: LayoutState; last: string; handle: HTMLButtonElement; pointerId: number }
+
+/** Whether a key went to a text field (its own Delete, Escape and undo stay the field's). */
+export const typingIn = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement && (target.isContentEditable || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || (target.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes((target as HTMLInputElement).type)))
 
 export default function BoardEditorGrid({
   layout,
@@ -40,6 +46,11 @@ export default function BoardEditorGrid({
   lang,
   dropping = null,
   onDropView,
+  picked = [],
+  onPick,
+  onGesture,
+  onDuplicate,
+  onCloseGaps,
 }: {
   layout: LayoutState
   dispatch: Dispatch<LayoutAction>
@@ -50,6 +61,16 @@ export default function BoardEditorGrid({
   dropping?: { asked: Size; min: Size } | null
   /** 837: a palette view dropped on a cell (its id from the drag's data). */
   onDropView?: (viewId: string, at: Cell) => void
+  /** 846: the selected panels (Ctrl or Shift-click adds one); the arrows on one of them move them all, Delete removes them all. */
+  picked?: readonly string[]
+  /** 846: a click picks one panel (`add`: Ctrl, Cmd or Shift held — toggle it in the selection); `null` clears. */
+  onPick?: (id: string | null, add: boolean) => void
+  /** 846: a pointer drag started (`true`) or ended (`false`): the history records one step per drag, at its end. */
+  onGesture?: (active: boolean) => void
+  /** 846: Ctrl+D on a panel. */
+  onDuplicate?: (id: string) => void
+  /** 846: a section header's "Close gaps in this section". */
+  onCloseGaps?: (section: string) => void
 }) {
   const { t } = useTranslation('boards')
   const grid = useRef<HTMLDivElement>(null)
@@ -58,6 +79,8 @@ export default function BoardEditorGrid({
   latest.current = layout
   const [said, setSaid] = useState<string | null>(null)
   const [over, setOver] = useState<Cell | null>(null)
+  // 846: the panel a pointer drag holds (drawn as the ghost of where it lands).
+  const [held, setHeld] = useState<string | null>(null)
   if (!dropping && over) setOver(null)
   const outline = dropping && over ? dropOutline(over, dropping.asked, dropping.min) : null
   const rows = Math.max(rowsShown(layout.panels), outline ? outline.y + outline.h : 0)
@@ -69,7 +92,7 @@ export default function BoardEditorGrid({
     return v?.state === 'loaded' ? viewTitleOf(v.item, model, lang, t) : t('boardEditor.kind.view')
   }
 
-  const cellOf = (e: { clientX: number; clientY: number }) => {
+  const cellOf = (e: Pointer) => {
     const g = grid.current!
     const rect = g.getBoundingClientRect()
     const gap = Number.parseFloat(getComputedStyle(g).rowGap) || 0
@@ -79,39 +102,18 @@ export default function BoardEditorGrid({
   }
   // 837: a palette view dragged over the grid shows where it lands; dropped, it is placed there.
   const carriesView = (e: DragEvent) => !!dropping && e.dataTransfer.types.includes(VIEW_DRAG_TYPE)
-  const dragOver = (e: DragEvent<HTMLDivElement>) => {
-    if (!carriesView(e)) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-    const c = cellOf(e)
-    if (!over || over.col !== c.col || over.row !== c.row) setOver(c)
-  }
-  const dragLeave = (e: DragEvent<HTMLDivElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
-  }
-  const drop = (e: DragEvent<HTMLDivElement>) => {
-    const id = e.dataTransfer.getData(VIEW_DRAG_TYPE)
-    setOver(null)
-    if (!id || !onDropView) return
-    e.preventDefault()
-    onDropView(id, cellOf(e))
+  const overCell = (p: Pointer) => {
+    const c = cellOf(p)
+    setOver((o) => (o && o.col === c.col && o.row === c.row ? o : c))
   }
   const at = (id: string) => latest.current.panels.find((p) => p.id === id)?.layout
 
-  const start = (e: PointerEvent<HTMLButtonElement>, id: string, mode: Drag['mode']) => {
-    const l = at(id)
-    if (!l || e.button !== 0) return
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const c = cellOf(e)
-    drag.current = { id, mode, grab: { col: c.col - l.x, row: c.row - l.y }, origin: latest.current, last: '' }
-  }
-  const follow = (e: PointerEvent<HTMLButtonElement>) => {
+  /** Where the held panel goes for a pointer here — worked out from the drag's start, so only where the pointer is now counts. */
+  const place = (p: Pointer) => {
     const d = drag.current
-    const l = d?.origin.panels.find((p) => p.id === d.id)?.layout
+    const l = d?.origin.panels.find((q) => q.id === d.id)?.layout
     if (!d || !l) return
-    const c = cellOf(e)
-    // Every step from the drag's start: only where the pointer is now counts, not the cells it passed over.
+    const c = cellOf(p)
     const action: LayoutAction =
       d.mode === 'move'
         ? { type: 'move', id: d.id, x: c.col - d.grab.col, y: Math.max(0, c.row - d.grab.row) }
@@ -122,19 +124,102 @@ export default function BoardEditorGrid({
     dispatch({ type: 'reset', state: d.origin })
     dispatch(action)
   }
-  const end = (e: PointerEvent<HTMLButtonElement>) => {
+  // 846 item 1: near the top or bottom of the window the page scrolls gently while a drag holds still there, and
+  // the cell under the (still) pointer is worked out again after each scroll — a pointer drag and a palette drop alike.
+  const scroll = useAutoScroll(grid, (p) => {
+    if (drag.current) place(p)
+    else if (dropping) overCell(p)
+  })
+
+  const dragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!carriesView(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    overCell(e)
+    scroll.follow(e.clientX, e.clientY)
+  }
+  const dragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    setOver(null)
+    scroll.stop()
+  }
+  const drop = (e: DragEvent<HTMLDivElement>) => {
+    const id = e.dataTransfer.getData(VIEW_DRAG_TYPE)
+    setOver(null)
+    scroll.stop()
+    if (!id || !onDropView) return
+    e.preventDefault()
+    onDropView(id, cellOf(e))
+  }
+  // The palette drag ended elsewhere (dropped outside, or Esc): nothing scrolls on.
+  useEffect(() => {
+    if (!dropping && !drag.current) scroll.stop()
+  }, [dropping, scroll])
+
+  const start = (e: PointerEvent<HTMLButtonElement>, id: string, mode: Drag['mode']) => {
+    const l = at(id)
+    if (!l || e.button !== 0) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const c = cellOf(e)
+    drag.current = { id, mode, grab: { col: c.col - l.x, row: c.row - l.y }, origin: latest.current, last: '', handle: e.currentTarget, pointerId: e.pointerId }
+    setHeld(id)
+    onGesture?.(true)
+  }
+  const follow = (e: PointerEvent<HTMLButtonElement>) => {
+    if (!drag.current) return
+    place(e)
+    scroll.follow(e.clientX, e.clientY)
+  }
+  const finish = (cancel: boolean) => {
     const d = drag.current
     if (!d) return
     drag.current = null
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    scroll.stop()
+    if (cancel) dispatch({ type: 'reset', state: d.origin })
+    if (d.handle.hasPointerCapture(d.pointerId)) d.handle.releasePointerCapture(d.pointerId)
+    setHeld(null)
     setSaid(d.id)
+    onGesture?.(false)
   }
+  const end = () => finish(false)
+  // 846 item 5: Esc during a drag puts every panel back where the drag found it.
+  useEffect(() => {
+    if (!held) return
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      finish(true)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+    // `finish` reads refs only; re-bound per drag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [held])
+
+  /** The panels a key on `id` acts on: the whole selection when `id` is in it, else just `id`. */
+  const groupOf = (id: string) => (picked.length > 1 && picked.includes(id) ? [...picked] : [id])
   const onKey = (e: KeyboardEvent, id: string, resizeOnly: boolean) => {
     const action = keyAction(id, e.key, resizeOnly || e.shiftKey, bootDirection)
     if (!action) return
     e.preventDefault()
-    dispatch(action)
+    e.stopPropagation()
+    const group = groupOf(id)
+    dispatch(action.type === 'nudge' && group.length > 1 ? { type: 'nudgeMany', ids: group, dx: action.dx, dy: action.dy } : action)
     setSaid(id)
+  }
+  // 846 item 6: on a focused panel, Delete removes it (or the selection it is in) and Ctrl+D duplicates it.
+  const panelKey = (e: KeyboardEvent<HTMLElement>, id: string) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      e.preventDefault()
+      onDuplicate?.(id)
+      return
+    }
+    if (e.key !== 'Delete' || typingIn(e.target)) return
+    e.preventDefault()
+    const group = groupOf(id)
+    dispatch(group.length > 1 ? { type: 'removeMany', ids: group } : { type: 'remove', id })
   }
 
   const saidPanel = said ? layout.panels.find((p) => p.id === said) : undefined
@@ -145,7 +230,9 @@ export default function BoardEditorGrid({
       <p className="text-xs text-muted-foreground">{t('boardEditor.gridHint')}</p>
       <div
         ref={grid}
-        className="grid grid-cols-12 gap-3 rounded-lg border border-dashed border-border p-2"
+        // 846: no scroll anchoring inside the grid — while panels reflow under a drag, the browser would otherwise
+        // shift the page to keep some panel still, a jump on top of the auto-scroll.
+        className="grid grid-cols-12 gap-3 rounded-lg border border-dashed border-border p-2 [overflow-anchor:none]"
         style={{ gridTemplateRows: `repeat(${rows}, 5rem)` }}
         data-board-editor-grid
         data-rows={rows}
@@ -165,14 +252,24 @@ export default function BoardEditorGrid({
           const name = nameOf(p)
           const v = p.kind === 'view' ? views.get(p.id) : undefined
           const l = p.layout
+          const ghost = held === p.id
+          const on = picked.includes(p.id)
           return (
             <article
               key={p.id}
-              className="relative flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-border/60 bg-card p-2"
+              className={
+                'relative flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-lg p-2 ' +
+                // 846 item 5: the held panel is drawn as a ghost where it will land; the others reflow around it.
+                (ghost ? 'border-2 border-dashed border-primary bg-primary/5 ' : 'border bg-card ' + (on ? 'border-primary ring-2 ring-primary/40 ' : 'border-border/60 '))
+              }
               style={gridPlacement(l)}
+              onClick={(e) => onPick?.(p.id, e.ctrlKey || e.metaKey || e.shiftKey)}
+              onKeyDown={(e) => panelKey(e, p.id)}
               data-editor-panel={p.id}
               data-editor-panel-kind={p.kind}
               data-editor-panel-state={v?.state}
+              data-editor-picked={on ? '' : undefined}
+              data-editor-ghost={ghost ? '' : undefined}
               data-layout={`${l.x},${l.y},${l.w},${l.h}`}
             >
               <header className="flex items-center gap-1">
@@ -191,11 +288,16 @@ export default function BoardEditorGrid({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight" data-editor-panel-name>
                   <bdi>{name}</bdi>
                 </span>
+                {p.kind === 'section' && onCloseGaps && (
+                  <IconButton label={t('boardEditor.gaps.closeSection', { panel: fsi(name) })} onClick={() => onCloseGaps(p.id)} data-editor-close-gaps={p.id}>
+                    <ArrowUpToLine className="size-4" aria-hidden />
+                  </IconButton>
+                )}
                 <IconButton label={t('boardEditor.remove', { panel: fsi(name) })} onClick={() => dispatch({ type: 'remove', id: p.id })} data-editor-remove={p.id}>
                   <Trash2 className="size-4" aria-hidden />
                 </IconButton>
               </header>
-              <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
+              <div className={'flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto' + (ghost ? ' opacity-40' : '')}>
                 {p.kind === 'view' ? (
                   v?.state === 'removed' ? (
                     <p className="flex items-start gap-1 text-xs text-muted-foreground" data-editor-view-removed>

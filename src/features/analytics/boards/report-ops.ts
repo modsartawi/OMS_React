@@ -127,16 +127,41 @@ export function removeBlock(def: AnalyticsReportDefinition, blockId: string): An
 }
 
 /**
- * Adds a block at the end of a section. A panel binds every parameter that can take it (797 §4, `bindPanel`).
- * A report holds one summary: a second is no change.
+ * Adds a block at the end of a section, or (846: a view dropped at the indicator line) at place `index`. A panel binds
+ * every parameter that can take it (797 §4, `bindPanel`). A report holds one summary: a second is no change.
  */
-export function addBlock(def: AnalyticsReportDefinition, sectionId: string, block: AnalyticsReportBlock, model: AnalyticsModel): AnalyticsReportDefinition {
+export function addBlock(def: AnalyticsReportDefinition, sectionId: string, block: AnalyticsReportBlock, model: AnalyticsModel, index?: number): AnalyticsReportDefinition {
   if (!def.sections.some((s) => s.id === sectionId)) return def
   if (block.kind === 'summary' && hasSummary(def)) return def
-  const placed = withSections(def, def.sections.map((s) => (s.id === sectionId ? { ...s, blocks: [...s.blocks, block] } : s)))
+  const into = (blocks: AnalyticsReportBlock[]) => {
+    const at = index === undefined ? blocks.length : Math.max(0, Math.min(blocks.length, index))
+    return [...blocks.slice(0, at), block, ...blocks.slice(at)]
+  }
+  const placed = withSections(def, def.sections.map((s) => (s.id === sectionId ? { ...s, blocks: into(s.blocks) } : s)))
   if (block.kind !== 'panel') return placed
   const decl = bindPanel({ params: placed.params, bindings: placed.bindings }, { id: block.id, definition: block.definition }, model)
   return { ...placed, bindings: decl.bindings }
+}
+
+/**
+ * A copy of a block just after it, under `newId` (846: Ctrl+D). A copied panel is bound as its original is. The
+ * summary (one per report), an unknown block or a taken id is no change.
+ */
+export function duplicateBlock(def: AnalyticsReportDefinition, blockId: string, newId: string): AnalyticsReportDefinition {
+  const at = locateBlock(def, blockId)
+  if (!at) return def
+  if (def.sections.some((s) => s.id === newId) || locateBlock(def, newId)) return def
+  const original = def.sections.find((s) => s.id === at.section)!.blocks[at.index]
+  if (original.kind === 'summary') return def
+  const copy: AnalyticsReportBlock = { ...structuredClone(original), id: newId }
+  const placed = withSections(
+    def,
+    def.sections.map((s) => (s.id === at.section ? { ...s, blocks: [...s.blocks.slice(0, at.index + 1), copy, ...s.blocks.slice(at.index + 1)] } : s)),
+  )
+  if (original.kind !== 'panel') return placed
+  const bindings: AnalyticsReportDefinition['bindings'] = {}
+  for (const [name, bound] of Object.entries(def.bindings)) bindings[name] = blockId in bound ? { ...bound, [newId]: bound[blockId] } : bound
+  return { ...placed, bindings }
 }
 
 /**

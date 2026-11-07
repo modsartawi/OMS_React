@@ -2309,6 +2309,196 @@ async function paletteAndPreview837({ dir }) {
   await context.close()
 }
 
+// ── 846 ──────────────────────────────────────────────────────────────────────────────────────────────
+// 846 board half — a long board in an 800 px window (en and ar):
+//   1. a move handle held still in the bottom band scrolls the page GRADUALLY (many small steps, never a jump to
+//      the end), and the held panel follows the rows coming under the still pointer; it is drawn as the ghost;
+//   2. Esc cancels the drag: every panel back where it was;
+//   3. a drag is ONE undo step (Undo puts it back at once, Redo again; Ctrl+Z / Ctrl+Y the same);
+//   4. a removed panel leaves its gap; the section's "Close gaps" closes that section only, the toolbar's the whole
+//      board, and a second press says there is none;
+//   5. the views list resizes from its separator (keys and pointer), the width is remembered, it folds to a rail;
+//      a long name has its full text on hover and wraps to two lines;
+//   6. the outline jumps to a panel; Ctrl+D duplicates it below; Delete removes it; Ctrl-click selects two and
+//      Align top lines them up; `?` opens the shortcut sheet.
+const scrollerTop = (page) =>
+  page.evaluate(() => {
+    for (let e = document.querySelector('[data-board-editor-grid]')?.parentElement; e; e = e.parentElement) {
+      const y = getComputedStyle(e).overflowY
+      if ((y === 'auto' || y === 'scroll') && e.scrollHeight > e.clientHeight) return { top: e.scrollTop, max: e.scrollHeight - e.clientHeight, doc: false }
+    }
+    const d = document.scrollingElement
+    return { top: d.scrollTop, max: d.scrollHeight - d.clientHeight, doc: true }
+  })
+const scrollerTo = (page, top) =>
+  page.evaluate((top) => {
+    for (let e = document.querySelector('[data-board-editor-grid]')?.parentElement; e; e = e.parentElement) {
+      const y = getComputedStyle(e).overflowY
+      if ((y === 'auto' || y === 'scroll') && e.scrollHeight > e.clientHeight) return void (e.scrollTop = top)
+    }
+    document.scrollingElement.scrollTop = top
+  }, top)
+/** Scroll so the editor grid's first row sits `at` px below the top of the window. */
+const gridTo = async (page, at) => {
+  const top = await page.locator('[data-board-editor-grid]').evaluate((g) => g.getBoundingClientRect().top)
+  await scrollerTo(page, (await scrollerTop(page)).top + top - at)
+}
+const panelIds = (page) => page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => e.dataset.editorPanel))
+const layouts = async (page) => Object.fromEntries(await page.locator('[data-editor-panel]').evaluateAll((els) => els.map((e) => [e.dataset.editorPanel, e.dataset.layout])))
+
+async function dragAndGaps846({ dir }) {
+  const tag = `846 ${dir}`
+  const { context, page, errors } = await open({ dir, list: LIST_777, height: 800 })
+  await page.addInitScript(() => localStorage.removeItem('oms.boardEditor.sideWidth'))
+  await page.goto(`${BASE}/analytics/new?kind=board`)
+  await page.locator('[data-board-editor="new"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-board-palette-view]').first().waitFor({ timeout: 10000 })
+
+  // A long board: two sections of four views each (each view 6 x 3, stacked at the start).
+  const add = async (what) => {
+    const n = (await panelIds(page)).length
+    await page.locator(what === 'section' ? '[data-board-add-section]' : `[data-board-palette-add="${what}"]`).click()
+    await page.waitForFunction((n) => document.querySelectorAll('[data-editor-panel]').length === n + 1, n, { timeout: 5000 })
+  }
+  for (const what of ['section', 'v-kpi', 'v-bar', 'v-titled', 'v-cert-776', 'section', 'v-kpi', 'v-bar', 'v-titled', 'v-cert-776']) await add(what)
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-editor-panel-kind="view"]')].every((e) => e.dataset.editorPanelState === 'loaded'), null, { timeout: 10000 })
+  const ids = await panelIds(page)
+  const [h1, a1, a2, , , h2] = ids
+  const start = await layouts(page)
+  check(`${tag}: a long board of ten panels`, ids.length === 10 && start[h2] === '0,13,12,1', JSON.stringify(start))
+
+  // 1. Hold the first view's handle still in the bottom band.
+  await gridTo(page, 150)
+  const h = await boxOf(page, `[data-editor-move="${a1}"]`)
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(h.x + h.width / 2, 800 - 30, { steps: 8 })
+  const firstY = Number((await layouts(page))[a1].split(',')[1])
+  const samples = []
+  for (let i = 0; i < 12; i++) {
+    samples.push({ top: (await scrollerTop(page)).top, at: await page.evaluate(() => performance.now()) })
+    await page.waitForTimeout(80)
+  }
+  // px per ms between samples (the samples' own spacing varies with the drive's round trips).
+  const rates = samples.slice(1).map((s, i) => (s.top - samples[i].top) / (s.at - samples[i].at))
+  const { max } = await scrollerTop(page)
+  check(`${tag}: holding a drag in the bottom band scrolls the page down`, samples.at(-1).top > samples[0].top + 60, samples.map((s) => s.top).join(','))
+  // The core tuning's full speed is 18 px a frame (about 1.1 px/ms at 60 fps); a jump would be far above it.
+  check(
+    `${tag}: … gradually: never faster than full speed, it ramps up, and it is not at the end within half a second`,
+    rates.every((r) => r >= 0 && r < 1.5) && rates[0] < Math.max(...rates) && samples.find((s) => s.at - samples[0].at >= 500).top < max,
+    `px/ms ${rates.map((r) => r.toFixed(2)).join(',')} max ${max}`,
+  )
+  const held = (await layouts(page))[a1]
+  check(`${tag}: … and the held panel follows the rows scrolling under the still pointer`, Number(held.split(',')[1]) > firstY, `${firstY} → ${held}`)
+  check(`${tag}: … drawn as the ghost of where it lands`, (await page.locator(`[data-editor-panel="${a1}"][data-editor-ghost]`).count()) === 1)
+
+  // 2. Esc cancels.
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+  const back = await layouts(page)
+  check(`${tag}: Esc cancels the drag — every panel back where it was`, JSON.stringify(back) === JSON.stringify(start), JSON.stringify(back))
+  check(`${tag}: … and the ghost goes`, (await page.locator('[data-editor-ghost]').count()) === 0)
+
+  // 3. A drag beside the KPI is one undo step.
+  await gridTo(page, 150)
+  await dragHandle(page, `[data-editor-move="${a2}"]`, 6, 1, dir)
+  const dragged = (await layouts(page))[a2]
+  check(`${tag}: the bar dragged beside the KPI`, dragged === '6,1,6,3', dragged)
+  await page.locator('[data-board-undo]').click()
+  check(`${tag}: one Undo puts the whole drag back`, (await layouts(page))[a2] === start[a2], (await layouts(page))[a2])
+  await page.locator('[data-board-redo]').click()
+  check(`${tag}: Redo moves it again`, (await layouts(page))[a2] === '6,1,6,3', (await layouts(page))[a2])
+  await page.evaluate(() => document.activeElement?.blur())
+  await page.keyboard.press('Control+z')
+  check(`${tag}: Ctrl+Z undoes`, (await layouts(page))[a2] === start[a2], (await layouts(page))[a2])
+  await page.keyboard.press('Control+y')
+  check(`${tag}: Ctrl+Y redoes`, (await layouts(page))[a2] === '6,1,6,3', (await layouts(page))[a2])
+  await page.keyboard.press('Control+Shift+z')
+  check(`${tag}: Ctrl+Shift+Z is redo too (nothing more to redo: unchanged)`, (await layouts(page))[a2] === '6,1,6,3')
+
+  // 4. Remove the KPI: its gap stays until asked.
+  await page.locator(`[data-editor-remove="${a1}"]`).click()
+  const gap = await layouts(page)
+  check(`${tag}: removing a panel leaves its gap (nothing moves by itself)`, gap[ids[3]] === start[ids[3]] && gap[a2] === '6,1,6,3', JSON.stringify(gap))
+  await page.locator(`[data-editor-close-gaps="${h1}"]`).click()
+  const closed1 = await layouts(page)
+  check(`${tag}: the section's Close gaps moves its panels up under its header`, closed1[ids[3]] === '0,1,6,3' && closed1[a2] === '6,1,6,3', JSON.stringify(closed1))
+  check(`${tag}: … and leaves the next section where it was`, closed1[h2] === start[h2] && closed1[ids[6]] === start[ids[6]], `${closed1[h2]} ${closed1[ids[6]]}`)
+  await page.locator('[data-board-close-gaps]').click()
+  const closedAll = await layouts(page)
+  check(`${tag}: the toolbar's Close gaps closes the whole board, order kept`, Number(closedAll[h2].split(',')[1]) < 13 && Number(closedAll[ids[6]].split(',')[1]) === Number(closedAll[h2].split(',')[1]) + 1, JSON.stringify(closedAll))
+  await page.locator('[data-board-close-gaps]').click()
+  const none = noIsolates(await page.locator('[data-board-editor-status]').innerText())
+  check(`${tag}: a second press says there is no gap`, (await page.locator('[data-board-editor-status]').innerText()).length > 0 && JSON.stringify(await layouts(page)) === JSON.stringify(closedAll), none)
+  await page.locator('[data-board-undo]').click()
+  check(`${tag}: Close gaps is one undo step`, JSON.stringify(await layouts(page)) === JSON.stringify(closed1))
+
+  // 5. The views list: keys, pointer, remembered; the rail; a long name.
+  const width = async () => Number(await page.locator('[data-board-side-width]').getAttribute('data-board-side-width'))
+  const w0 = await width()
+  await page.locator('[role="separator"][aria-controls="board-editor-side"]').focus()
+  const grow = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight'
+  for (let i = 0; i < 3; i++) await page.keyboard.press(grow)
+  const w1 = await width()
+  check(`${tag}: ${grow} on the separator widens the views list`, w0 === 272 && w1 === 272 + 48, `${w0} → ${w1}`)
+  const sep = await boxOf(page, '[role="separator"][aria-controls="board-editor-side"]')
+  await page.mouse.move(sep.x + sep.width / 2, sep.y + 40)
+  await page.mouse.down()
+  await page.mouse.move(sep.x + sep.width / 2 + (dir === 'rtl' ? -100 : 100), sep.y + 40, { steps: 5 })
+  await page.mouse.up()
+  const w2 = await width()
+  check(`${tag}: … dragging it away from the list widens it with the pointer`, Math.abs(w2 - (w1 + 100)) <= 2, `${w1} → ${w2}`)
+  check(`${tag}: … and the width is remembered`, Number(await page.evaluate(() => localStorage.getItem('oms.boardEditor.sideWidth'))) === w2)
+  const row = page.locator('[data-board-palette-view="v-titled"]')
+  check(`${tag}: a row has its full name on hover and wraps to two lines`, noIsolates((await row.getAttribute('title')) ?? '').length > 0 && (await row.locator('[data-board-palette-name]').evaluate((e) => getComputedStyle(e).webkitLineClamp)) === '2')
+  await page.locator('[data-board-side-toggle]').click()
+  check(`${tag}: the list folds to a rail`, (await page.locator('[data-board-side="collapsed"]').count()) === 1 && (await width()) === 0)
+  await page.locator('[data-board-side-toggle]').click()
+  check(`${tag}: … and opens again at its width`, (await width()) === w2)
+
+  // 6. Outline, duplicate, delete, multi-select.
+  await page.locator('[data-board-side-tab="outline"]').click()
+  const entries = await page.locator('[data-board-outline-entry]').evaluateAll((els) => els.map((e) => e.dataset.boardOutlineEntry))
+  check(`${tag}: the outline lists the panels in reading order`, entries.length === 9 && entries[0] === h1, entries.join(','))
+  const last = ids.at(-1)
+  await scrollerTo(page, 0)
+  await page.locator(`[data-board-outline-entry="${last}"]`).click()
+  await page.waitForTimeout(600)
+  const focused = await page.evaluate(() => document.activeElement?.getAttribute('data-editor-move'))
+  const inView = await page.locator(`[data-editor-panel="${last}"]`).evaluate((e) => {
+    const r = e.getBoundingClientRect()
+    return r.top >= 0 && r.bottom <= window.innerHeight
+  })
+  check(`${tag}: clicking an outline entry scrolls the panel into view and focuses it`, focused === last && inView, `${focused} ${inView}`)
+  const before = (await panelIds(page)).length
+  await page.keyboard.press('Control+d')
+  await page.waitForFunction((n) => document.querySelectorAll('[data-editor-panel]').length === n + 1, before, { timeout: 3000 }).catch(() => {})
+  const after = await layouts(page)
+  const copy = (await panelIds(page)).at(-1)
+  const [, ly, , lh] = after[last].split(',').map(Number)
+  check(`${tag}: Ctrl+D duplicates the panel into the free slot below it`, Object.keys(after).length === before + 1 && Number(after[copy].split(',')[1]) >= ly + lh, `${after[last]} → ${after[copy]}`)
+  await page.locator(`[data-editor-move="${copy}"]`).focus()
+  await page.keyboard.press('Delete')
+  check(`${tag}: Delete on a focused panel removes it`, (await panelIds(page)).length === before)
+  // The bar (inline end, row 1) and the second section's KPI (inline start, lower down).
+  await page.locator(`[data-editor-panel="${a2}"] [data-editor-panel-name]`).click()
+  await page.locator(`[data-editor-panel="${ids[6]}"] [data-editor-panel-name]`).click({ modifiers: ['Control'] })
+  check(`${tag}: Ctrl-click selects a second panel`, (await page.locator('[data-editor-picked]').count()) === 2 && (await page.locator('[data-board-selection="2"]').count()) === 1)
+  await page.locator('[data-board-align="top"]').click()
+  const aligned = await layouts(page)
+  check(`${tag}: Align top lines the two up on one row`, aligned[a2].split(',')[1] === aligned[ids[6]].split(',')[1], `${aligned[a2]} ${aligned[ids[6]]}`)
+  await page.evaluate(() => document.activeElement?.blur())
+  await page.keyboard.press('Escape')
+  check(`${tag}: Esc clears the selection`, (await page.locator('[data-editor-picked]').count()) === 0)
+  await page.keyboard.press('?')
+  check(`${tag}: ? opens the shortcut sheet`, await page.locator('[data-board-shortcuts]').isVisible())
+  await page.screenshot({ path: `${SHOTS}/846-board-editor-${dir}.png` })
+  await page.keyboard.press('Escape')
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 780 ──────────────────────────────────────────────────────────────────────────────────────────────
 // The 771 board (five view panels). The page clock is Playwright's fake one, so the 30 s loop is moved by
 // `fastForward`, not waited out; "hidden" is `document.hidden` overridden plus a `visibilitychange`.
@@ -4397,6 +4587,8 @@ const SCENARIOS = [
   ['777', buildsNewView],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
+  ['846', () => dragAndGaps846({ dir: 'ltr' })],
+  ['846', () => dragAndGaps846({ dir: 'rtl' })],
   ['779', () => revertsAndUndoes({ dir: 'ltr' })],
   ['779', () => revertsAndUndoes({ dir: 'rtl' })],
   ['779', historyOnlyForEditors],

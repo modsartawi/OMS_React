@@ -5,6 +5,7 @@ import {
   addSection,
   dropIndex,
   dropSide,
+  duplicateBlock,
   freshId,
   hasSummary,
   locateBlock,
@@ -220,5 +221,35 @@ describe('a block edited in place (829)', () => {
     expect(next.bindings.period).toEqual({ p1: true, p2: true })
     // A text edit, or no model, never touches the bindings.
     expect(updateBlock(d, 'p1', withSeries).bindings).toBe(d.bindings)
+  })
+})
+
+describe('a view dropped at a gap, and duplicating (846)', () => {
+  const model = { measures: [], dimensions: [], areas: [] } as unknown as AnalyticsModel
+
+  it('adds a block at a given place in a section; past the end is the end', () => {
+    expect(ids(addBlock(sample(), 's1', panel('p3'), model, 1))).toEqual(['s1:p1,p3,t1,t2', 's2:p2', 's3:'])
+    expect(ids(addBlock(sample(), 's1', panel('p3'), model, 0))).toEqual(['s1:p3,p1,t1,t2', 's2:p2', 's3:'])
+    expect(ids(addBlock(sample(), 's2', panel('p3'), model, 9))).toEqual(['s1:p1,t1,t2', 's2:p2,p3', 's3:'])
+  })
+
+  it('duplicates a block just after itself, under the new id', () => {
+    const d = duplicateBlock(sample(), 't1', 't3')
+    expect(ids(d)).toEqual(['s1:p1,t1,t3,t2', 's2:p2', 's3:'])
+    expect(d.sections[0].blocks[2]).toEqual({ ...text('t1'), id: 't3' })
+  })
+
+  it('a duplicated panel is bound as the original is', () => {
+    const d = duplicateBlock(sample(), 'p2', 'p3')
+    expect(ids(d)).toEqual(['s1:p1,t1,t2', 's2:p2,p3', 's3:'])
+    expect(d.bindings).toEqual({ city: { p1: 'city', p2: 'city', p3: 'city' }, period: { p1: true, p2: true, p3: true } })
+  })
+
+  it('the summary (one per report), an unknown block or a taken id is no change', () => {
+    const withSum = addBlock(sample(), 's3', { id: 'sum', kind: 'summary' }, model)
+    expect(duplicateBlock(withSum, 'sum', 'sum2')).toBe(withSum)
+    const d = sample()
+    expect(duplicateBlock(d, 'nope', 't9')).toBe(d)
+    expect(duplicateBlock(d, 't1', 'p2')).toBe(d)
   })
 })

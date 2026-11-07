@@ -53,6 +53,16 @@ describe('inspectorWidthClamps', () => {
     expect(separatorKeyWidth('End', 400, { viewport: 1280, rtl: true })).toBe(512)
   })
 
+  it('846: a start-side pane (handle on its inline-end edge) grows toward the inline end, in its own bounds', () => {
+    const LIST = { default: 272, min: 208, max: 480, step: 16, viewportShare: 0.35 } as const
+    expect(separatorKeyWidth('ArrowRight', 272, { viewport: WIDE, rtl: false, bounds: LIST, edge: 'end' })).toBe(288)
+    expect(separatorKeyWidth('ArrowLeft', 272, { viewport: WIDE, rtl: false, bounds: LIST, edge: 'end' })).toBe(256)
+    expect(separatorKeyWidth('ArrowLeft', 272, { viewport: WIDE, rtl: true, bounds: LIST, edge: 'end' })).toBe(288)
+    expect(separatorKeyWidth('Home', 300, { viewport: WIDE, rtl: false, bounds: LIST, edge: 'end' })).toBe(208)
+    expect(separatorKeyWidth('End', 300, { viewport: 1000, rtl: false, bounds: LIST, edge: 'end' })).toBe(350)
+    expect(clampInspectorWidth(100, WIDE, LIST)).toBe(208)
+  })
+
   it('any other key is not the separator’s', () => {
     for (const key of ['ArrowUp', 'ArrowDown', 'Enter', 'KeyJ', ' ']) {
       expect(separatorKeyWidth(key, 360, { viewport: WIDE, rtl: false })).toBeNull()

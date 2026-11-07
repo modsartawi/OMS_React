@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { documentDirection } from '@/core/theme/direction'
-import { INSPECTOR_WIDTH, maxInspectorWidth, separatorKeyWidth } from './inspector-pane'
+import { clampInspectorWidth, INSPECTOR_WIDTH, maxInspectorWidth, separatorKeyWidth, type PaneBounds } from './inspector-pane'
 
 /** The viewport's width, kept current: an inspector pane is never more than 40% of it. */
 export function useViewportWidth(): number {
@@ -27,6 +27,8 @@ export default function PaneSeparator({
   width,
   viewport,
   onWidth,
+  bounds = INSPECTOR_WIDTH,
+  edge = 'start',
 }: {
   /** The pane's id. */
   controls: string
@@ -34,6 +36,10 @@ export default function PaneSeparator({
   width: number
   viewport: number
   onWidth: (width: number) => void
+  /** 846: another pane's bounds (default the inspector's). */
+  bounds?: PaneBounds
+  /** 846: which inline edge of the pane the handle sits on: 'start' (a pane at the inline end, the inspector) or 'end' (a pane at the inline start). */
+  edge?: 'start' | 'end'
 }) {
   const drag = useRef<{ x: number; width: number } | null>(null)
   // Direction is a boot fact (383): a language switch reloads the page.
@@ -45,8 +51,8 @@ export default function PaneSeparator({
       aria-controls={controls}
       aria-label={label}
       aria-valuenow={width}
-      aria-valuemin={INSPECTOR_WIDTH.min}
-      aria-valuemax={maxInspectorWidth(viewport)}
+      aria-valuemin={bounds.min}
+      aria-valuemax={maxInspectorWidth(viewport, bounds)}
       tabIndex={0}
       data-inspector-separator=""
       onPointerDown={(e) => {
@@ -59,21 +65,48 @@ export default function PaneSeparator({
       onPointerMove={(e) => {
         if (!drag.current) return
         const dx = e.clientX - drag.current.x
-        // Dragging toward the inline start grows the pane.
-        onWidth(drag.current.width + (rtl ? dx : -dx))
+        // Dragging away from the pane grows it: toward the inline start for an end-side pane, the inline end for a start-side one.
+        const towardEnd = rtl ? -dx : dx
+        onWidth(drag.current.width + (edge === 'end' ? towardEnd : -towardEnd))
       }}
       onPointerUp={() => (drag.current = null)}
       onPointerCancel={() => (drag.current = null)}
-      onDoubleClick={() => onWidth(INSPECTOR_WIDTH.default)}
+      onDoubleClick={() => onWidth(bounds.default)}
       onKeyDown={(e) => {
-        const next = separatorKeyWidth(e.key, width, { viewport, rtl })
+        const next = separatorKeyWidth(e.key, width, { viewport, rtl, bounds, edge })
         if (next === null) return
         e.preventDefault()
         onWidth(next)
       }}
-      className="group absolute inset-y-0 -start-[3px] z-10 w-[6px] cursor-col-resize touch-none focus-visible:outline-none"
+      className={(edge === 'end' ? '-end-[3px] ' : '-start-[3px] ') + 'group absolute inset-y-0 z-10 w-[6px] cursor-col-resize touch-none focus-visible:outline-none'}
     >
       <div className="mx-auto h-full w-px group-hover:bg-primary group-focus-visible:w-[2px] group-focus-visible:bg-ring" />
     </div>
   )
+}
+
+/**
+ * 846: a side pane's width, remembered per browser under `key` (a convenience: storage may be
+ * blocked, and the pane then opens at its default). Clamped to the viewport on every read.
+ */
+export function useRememberedPaneWidth(key: string, bounds: PaneBounds): [number, (width: number) => void] {
+  const viewport = useViewportWidth()
+  const [width, setWidth] = useState<number>(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(key))
+      return saved > 0 ? saved : bounds.default
+    } catch {
+      return bounds.default
+    }
+  })
+  const set = (next: number) => {
+    const w = clampInspectorWidth(next, viewport, bounds)
+    setWidth(w)
+    try {
+      window.localStorage.setItem(key, String(w))
+    } catch {
+      // Storage blocked: the width lasts this visit.
+    }
+  }
+  return [clampInspectorWidth(width, viewport, bounds), set]
 }

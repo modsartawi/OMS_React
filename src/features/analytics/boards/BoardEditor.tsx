@@ -1,9 +1,9 @@
-import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Eye, Heading, Sparkles, Type } from 'lucide-react'
+import { AlignHorizontalJustifyStart, AlignVerticalJustifyStart, ArrowUpToLine, Copy, Eye, Heading, Keyboard, MoveHorizontal, Redo2, Sparkles, Trash2, Type, Undo2 } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
 import { apiErrorCode } from '@/core/api'
 import i18n from '@/core/i18n'
@@ -11,18 +11,26 @@ import type { AnalyticsBoard, AnalyticsBoardDefinition, AnalyticsBoardPanel, Ana
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
+import PaneSeparator, { useRememberedPaneWidth, useViewportWidth } from '@/core/ui/PaneSeparator'
 import Select from '@/core/ui/Select'
+import type { PaneBounds } from '@/core/ui/inspector-pane'
+import { saysIn } from '@/core/rules/sentence'
+import { fsi } from '@/core/util/bidi'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey } from './api'
 import { BOARD_REFRESH_SECONDS, BASE_FILTERS, NO_WAVE } from './board'
 import { addParam, bindPanel, blankParam, canBind, keptBindings, removeParam, validate, type Declarations } from './bindings'
 import DeclarationProblems from './DeclarationProblems'
 import { declarationRefusal, type DeclarationProblem } from './editor-refusal'
-import BoardEditorGrid, { type PanelView } from './BoardEditorGrid'
+import BoardEditorGrid, { typingIn, type PanelView } from './BoardEditorGrid'
+import BoardEditorSide, { useSideCollapsed, type OutlineEntry } from './BoardEditorSide'
+import BoardShortcuts from './BoardShortcuts'
+import { canRedo, canUndo, copyBindings, outlineOf, record, redo, startHistory, undo } from './board-history'
 import FilterStrip from './FilterStrip'
 import { editingItemOf } from './item-save'
-import { layoutReducer, minSizeOf, type Cell, type LayoutState, type Size } from './layout'
+import { layoutReducer, minSizeOf, type Cell, type LayoutAction, type LayoutState, type Size } from './layout'
 import { boardParams, convertV1Board, defaultsOf, readyMadeParams, v1Of } from './params'
 import ParamInspector, { type InspectorFocus, type InspectorPanel } from './ParamInspector'
 import Refused from './Refused'
@@ -31,7 +39,6 @@ import { useItemSave, type SaveHow } from './use-item-save'
 import { AiStepNotice, EditWithCopilot, useBoardInContext } from './ReportDesignerCopilot'
 import { analyticsRefusal, refusalWords } from './wire'
 import { viewTitleOf } from './ViewChart'
-import ViewsPalette from './ViewsPalette'
 import BoardPreview from './BoardPreview'
 import { definitionKnown } from './palette'
 
@@ -76,6 +83,20 @@ const EMPTY_LABEL: AnalyticsLabel = { en: '', ar: '' }
 /** The size a new view panel asks for (at least its chart's minimum). */
 const VIEW_ASK: Size = { w: 6, h: 3 }
 const newPanelId = () => `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+/** 846 item 3: the side list's width (px): 17rem to open, the separator between 200 and 520. */
+const SIDE_BOUNDS: PaneBounds = { default: 272, min: 200, max: 520, step: 16, viewportShare: 0.4 }
+const SIDE_ID = 'board-editor-side'
+
+/** 846 item 4: what one undo step puts back — the layout and the fields. */
+interface Snap {
+  panels: AnalyticsBoardPanel[]
+  decl: Declarations
+  refresh: number
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
+}
+const sameSnap = (a: Snap, b: Snap) =>
+  a.decl === b.decl && a.refresh === b.refresh && a.title === b.title && a.subtitle === b.subtitle && (a.panels === b.panels || JSON.stringify(a.panels) === JSON.stringify(b.panels))
 
 function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsModel; board: AnalyticsBoard | null; buildView: BuildView; onReseed: () => void }) {
   const { t } = useTranslation('boards')
@@ -108,6 +129,54 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   // 837: the palette view being dragged, for the grid's drop outline.
   const [dragging, setDragging] = useState<AnalyticsItem | null>(null)
   const queryClient = useQueryClient()
+
+  // 846 item 4: undo and redo. The live state is recorded after each change; a running pointer drag records nothing
+  // (`gesturing`), so a whole drag is one step. `hint` says what the change just made was: a typing run (`key`, one
+  // step while it runs) or something the editor learned by itself (`rebase`, no step).
+  const live: Snap = { panels: layout.panels, decl, refresh, title, subtitle }
+  const [history, setHistory] = useState(() => startHistory<Snap>(live))
+  const [gesturing, setGesturing] = useState(false)
+  const hint = useRef<{ key?: string; rebase?: boolean }>({})
+  const typed = (key: string) => (hint.current = { key })
+  useEffect(() => {
+    const h = hint.current
+    if (!gesturing) hint.current = {}
+    setHistory((past) => record(past, live, sameSnap, { time: Date.now(), gesture: gesturing, ...h }))
+    // Keyed on the parts of the live state, and on a gesture ending.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.panels, decl, refresh, title, subtitle, gesturing])
+  const restore = (s: Snap) => {
+    dispatch({ type: 'reset', state: { panels: s.panels, mins: layout.mins } })
+    setDecl(s.decl)
+    setRefresh(s.refresh)
+    setTitle(s.title)
+    setSubtitle(s.subtitle)
+  }
+  const stepBack = () => {
+    if (!canUndo(history)) return
+    const h = undo(history)
+    setHistory(h)
+    restore(h.at)
+  }
+  const stepOn = () => {
+    if (!canRedo(history)) return
+    const h = redo(history)
+    setHistory(h)
+    restore(h.at)
+  }
+
+  // 846 item 7: the selected panels (only those still on the board count).
+  const [picked, setPicked] = useState<string[]>([])
+  const onBoard = new Set(layout.panels.map((p) => p.id))
+  const chosen = picked.filter((id) => onBoard.has(id))
+  const pick = (id: string | null, add: boolean) => setPicked(id === null ? [] : add ? (chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]) : [id])
+  const [sheet, setSheet] = useState(false)
+  // What the editor last did, for the live region (and the drive): Close gaps' outcome.
+  const [status, setStatus] = useState('')
+  const [sideWidth, setSideWidth] = useRememberedPaneWidth('oms.boardEditor.sideWidth', SIDE_BOUNDS)
+  const viewport = useViewportWidth()
+  const [sideCollapsed, setSideCollapsed] = useSideCollapsed()
+  const root = useRef<HTMLDivElement>(null)
 
   // The views I can link: every view the store lists for me, Certified first, then Shared, then mine.
   const list = useQuery({ queryKey: analyticsItemsKey({ kind: 'view' }), queryFn: () => analyticsApi.items({ kind: 'view' }), retry: false })
@@ -143,6 +212,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
       const probe: Param = { name: 'probe', kind: 'members', label: EMPTY_LABEL, required: false, dimension, default: { kind: 'members', values: [] } }
       return v?.state !== 'loaded' || canBind(probe, v.item.definition, model).ok
     }
+    hint.current = { rebase: true }
     setDecl((d) => ({ ...d, bindings: convertV1Board(def, reaches).bindings }))
     // Once, when a v1 board's views are first all known.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,7 +224,11 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
       if (v?.state !== 'loaded') continue
       const min = minSizeOf({ kind: 'view', chart: v.item.definition.chart.type })
       const known = layout.mins[p.id]
-      if (!known || known.w !== min.w || known.h !== min.h) dispatch({ type: 'min', id: p.id, size: min })
+      if (!known || known.w !== min.w || known.h !== min.h) {
+        // Learned, not authored: no undo step (846).
+        if (!hint.current.key) hint.current = { rebase: true }
+        dispatch({ type: 'min', id: p.id, size: min })
+      }
     }
     // Keyed on each panel's chart type: a new view or a loaded one re-learns its minimum, nothing else does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,13 +327,84 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
     // Keyed on what the board says: the step's own render records it, the next change ends it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [said])
+  // 846: the AI's edit is one step of the editor's history, so its Undo is the history's (the step's notice goes
+  // when the board changes again, as an undo does).
   const undoAi = () => {
     if (!aiStep) return
-    dispatch({ type: 'reset', state: aiStep.before.layout })
-    setDecl(aiStep.before.decl)
-    setRefresh(aiStep.before.refresh)
+    stepBack()
     setAiStep(null)
   }
+
+  /** 846 item 6: a copy of a panel in the first free slot below it, bound as the original is; it becomes the selection. */
+  const duplicate = (id: string) => {
+    const newId = newPanelId()
+    dispatch({ type: 'duplicate', id, newId })
+    edit((d) => ({ ...d, bindings: copyBindings(d.bindings, id, newId) }))
+    setPicked([newId])
+  }
+  /** 846 item 2: Close gaps, on the whole board or one section; when there is no gap it says so. */
+  const closeGapsIn = (section?: string) => {
+    const action: LayoutAction = { type: 'closeGaps', section }
+    const none = layoutReducer(layout, action) === layout
+    const said = t(none ? (section ? 'boardEditor.gaps.noneSection' : 'boardEditor.gaps.none') : section ? 'boardEditor.gaps.closedSection' : 'boardEditor.gaps.closed')
+    if (none) toast.info(said)
+    else {
+      dispatch(action)
+      toast.success(said)
+    }
+    setStatus(said)
+  }
+  const removePicked = () => {
+    if (chosen.length === 0) return
+    dispatch({ type: 'removeMany', ids: chosen })
+    setPicked([])
+  }
+  const jump = (id: string, add: boolean) => {
+    pick(id, add)
+    const sel = (attr: string) => `[${attr}="${CSS.escape(id)}"]`
+    document.querySelector(sel('data-editor-panel'))?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    document.querySelector<HTMLElement>(sel('data-editor-move'))?.focus({ preventScroll: true })
+  }
+  // The grid's changes; a panel's words typed are one step while the typing runs.
+  const gridDispatch = (a: LayoutAction) => {
+    if (a.type === 'patch' && !a.patch.optOut) typed(`patch:${a.id}`)
+    dispatch(a)
+  }
+
+  // 846 items 4 and 6: the editor's keys, wherever the focus is in it (or nowhere), but not in a text field (its own
+  // undo stays the field's), not under a dialog, and not in Preview.
+  const keys = useRef<(e: KeyboardEvent) => void>(() => {})
+  keys.current = (e: KeyboardEvent) => {
+    const at = document.activeElement
+    if (previewing || building || sheet || !root.current || (at && at !== document.body && !root.current.contains(at))) return
+    if (typingIn(e.target) || at?.closest('dialog')) return
+    const mod = e.ctrlKey || e.metaKey
+    const k = e.key.toLowerCase()
+    if (mod && k === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      stepBack()
+    } else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) {
+      e.preventDefault()
+      stepOn()
+    } else if (e.key === '?' && !mod) {
+      e.preventDefault()
+      setSheet(true)
+    } else if (e.key === 'Escape' && chosen.length > 0) {
+      setPicked([])
+    }
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keys.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const nameOf = (p: AnalyticsBoardPanel): string => {
+    if (p.kind === 'section') return saysIn(p.title, lang) || t('boardEditor.kind.section')
+    if (p.kind === 'text') return saysIn(p.text, lang).slice(0, 60) || t('boardEditor.kind.text')
+    return bindPanels.find((b) => b.id === p.id)?.title ?? t('boardEditor.kind.view')
+  }
+  const outline: OutlineEntry[] = outlineOf(layout.panels).map((e) => ({ ...e, name: nameOf(layout.panels.find((p) => p.id === e.id)!) }))
   const onSave = (how: SaveHow) => {
     const found = validate(decl.params, bindings, bindPanels, model)
     setProblems(found.length > 0 ? found : null)
@@ -273,20 +418,20 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
   return (
     <>
     {previewing && <BoardPreview title={title} tier={board?.tier ?? null} definition={definition} model={model} lang={lang} onBack={() => setPreviewing(false)} />}
-    <div hidden={previewing} className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
+    <div ref={root} hidden={previewing} className={'grid items-start gap-4 ' + (selected ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : '')} data-board-editor={board?.id ?? 'new'}>
     <div className="flex min-w-0 flex-col gap-4">
       <section className="grid gap-3 rounded-lg border border-border/60 bg-card p-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_12rem]">
         <Field label={t('editor.titleEn')}>
-          <Input value={title.en} dir="ltr" onChange={(e) => setTitle((x) => ({ ...x, en: e.target.value }))} data-board-title="en" />
+          <Input value={title.en} dir="ltr" onChange={(e) => { typed('title.en'); setTitle((x) => ({ ...x, en: e.target.value })) }} data-board-title="en" />
         </Field>
         <Field label={t('editor.titleAr')}>
-          <Input value={title.ar} dir="rtl" onChange={(e) => setTitle((x) => ({ ...x, ar: e.target.value }))} data-board-title="ar" />
+          <Input value={title.ar} dir="rtl" onChange={(e) => { typed('title.ar'); setTitle((x) => ({ ...x, ar: e.target.value })) }} data-board-title="ar" />
         </Field>
         <Field label={t('editor.subtitleEn')}>
-          <Input value={subtitle.en} dir="ltr" onChange={(e) => setSubtitle((x) => ({ ...x, en: e.target.value }))} data-board-subtitle="en" />
+          <Input value={subtitle.en} dir="ltr" onChange={(e) => { typed('subtitle.en'); setSubtitle((x) => ({ ...x, en: e.target.value })) }} data-board-subtitle="en" />
         </Field>
         <Field label={t('editor.subtitleAr')}>
-          <Input value={subtitle.ar} dir="rtl" onChange={(e) => setSubtitle((x) => ({ ...x, ar: e.target.value }))} data-board-subtitle="ar" />
+          <Input value={subtitle.ar} dir="rtl" onChange={(e) => { typed('subtitle.ar'); setSubtitle((x) => ({ ...x, ar: e.target.value })) }} data-board-subtitle="ar" />
         </Field>
         <Field label={t('boardEditor.refresh')} hint={t('boardEditor.refreshHint')}>
           <Select value={String(refresh)} onChange={(e) => setRefresh(Number(e.target.value))} data-board-refresh>
@@ -304,7 +449,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
         <FilterStrip
           params={decl.params}
           values={defaultsOf(decl.params)}
-          onChange={(v) => edit((d) => ({ ...d, params: d.params.map((p) => (v[p.name] ? { ...p, default: v[p.name] } : p)) }))}
+          onChange={(v) => { typed('defaults'); edit((d) => ({ ...d, params: d.params.map((p) => (v[p.name] ? { ...p, default: v[p.name] } : p)) })) }}
           model={model}
           lang={lang}
           wave={NO_WAVE}
@@ -334,27 +479,102 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
 
       <AiStepNotice step={aiStep ? { kind: 'ai', request: aiStep.request } : null} onUndo={undoAi} />
 
-      <div className="grid items-start gap-3 md:grid-cols-[17rem_minmax(0,1fr)]">
-        <ViewsPalette
-          items={list.data}
-          loading={list.isLoading}
-          failed={!!list.error}
-          model={model}
-          lang={lang}
-          onAdd={(item) => addListed(item)}
-          onDragStart={setDragging}
-          onDragEnd={() => setDragging(null)}
-        />
+      {/* 846 item 3: the side list's width is the separator's (remembered); folded, it is a thin rail. */}
+      <div
+        className="grid items-start gap-3 md:grid-cols-[var(--board-side)_minmax(0,1fr)]"
+        style={{ '--board-side': sideCollapsed ? '2.75rem' : `${sideWidth}px` } as CSSProperties}
+        data-board-side-width={sideCollapsed ? 0 : sideWidth}
+      >
+        <div className="relative min-w-0 md:sticky md:top-2">
+          <BoardEditorSide
+            id={SIDE_ID}
+            collapsed={sideCollapsed}
+            onCollapse={setSideCollapsed}
+            palette={{
+              items: list.data,
+              loading: list.isLoading,
+              failed: !!list.error,
+              model,
+              lang,
+              onAdd: (item) => addListed(item),
+              onDragStart: setDragging,
+              onDragEnd: () => setDragging(null),
+            }}
+            outline={outline}
+            picked={chosen}
+            onJump={jump}
+          />
+          {!sideCollapsed && <PaneSeparator controls={SIDE_ID} label={t('boardEditor.side.resize')} width={sideWidth} viewport={viewport} onWidth={setSideWidth} bounds={SIDE_BOUNDS} edge="end" />}
+        </div>
         <div className="flex min-w-0 flex-col gap-2">
+          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-card p-1.5" role="toolbar" aria-label={t('boardEditor.tools.label')} data-board-editor-tools>
+            <IconButton label={t('boardEditor.tools.undo')} disabled={!canUndo(history)} onClick={stepBack} data-board-undo>
+              <Undo2 className="size-4 rtl:-scale-x-100" aria-hidden />
+            </IconButton>
+            <IconButton label={t('boardEditor.tools.redo')} disabled={!canRedo(history)} onClick={stepOn} data-board-redo>
+              <Redo2 className="size-4 rtl:-scale-x-100" aria-hidden />
+            </IconButton>
+            <Button variant="ghost" onClick={() => closeGapsIn()} disabled={layout.panels.length === 0} data-board-close-gaps>
+              <ArrowUpToLine className="size-4" aria-hidden />
+              {t('boardEditor.gaps.close')}
+            </Button>
+            {chosen.length > 0 && (
+              <span className="ms-2 flex flex-wrap items-center gap-1 border-s border-border ps-2" data-board-selection={chosen.length}>
+                <span className="text-xs text-muted-foreground">{t('boardEditor.tools.selected', { n: fsi(chosen.length) })}</span>
+                {chosen.length === 1 && (
+                  <IconButton label={t('boardEditor.tools.duplicate')} onClick={() => duplicate(chosen[0])} data-board-duplicate>
+                    <Copy className="size-4" aria-hidden />
+                  </IconButton>
+                )}
+                <IconButton label={t('boardEditor.tools.remove')} onClick={removePicked} data-board-remove-picked>
+                  <Trash2 className="size-4" aria-hidden />
+                </IconButton>
+                {chosen.length > 1 && (
+                  <>
+                    {/* "Start" is the inline start: the left in en, the right in ar — the glyphs mirror with it. */}
+                    <IconButton label={t('boardEditor.tools.alignStart')} onClick={() => dispatch({ type: 'align', ids: chosen, how: 'start' })} data-board-align="start">
+                      <AlignHorizontalJustifyStart className="size-4 rtl:-scale-x-100" aria-hidden />
+                    </IconButton>
+                    <IconButton label={t('boardEditor.tools.alignTop')} onClick={() => dispatch({ type: 'align', ids: chosen, how: 'top' })} data-board-align="top">
+                      <AlignVerticalJustifyStart className="size-4" aria-hidden />
+                    </IconButton>
+                    <IconButton label={t('boardEditor.tools.sameWidth')} onClick={() => dispatch({ type: 'align', ids: chosen, how: 'width' })} data-board-align="width">
+                      <MoveHorizontal className="size-4" aria-hidden />
+                    </IconButton>
+                  </>
+                )}
+              </span>
+            )}
+            <IconButton label={t('boardEditor.keys.open')} className="ms-auto" onClick={() => setSheet(true)} data-board-shortcuts-open>
+              <Keyboard className="size-4" aria-hidden />
+            </IconButton>
+          </div>
+          <p className="sr-only" aria-live="polite" data-board-editor-status>
+            {status}
+          </p>
           {layout.panels.length === 0 && (
             <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-board-editor-empty>
               {t('boardEditor.empty')}
             </p>
           )}
           {/* Always drawn, so a view can be dropped on an empty board too. */}
-          <BoardEditorGrid layout={layout} dispatch={dispatch} views={views} model={model} lang={lang} dropping={dropping} onDropView={dropView} />
+          <BoardEditorGrid
+            layout={layout}
+            dispatch={gridDispatch}
+            views={views}
+            model={model}
+            lang={lang}
+            dropping={dropping}
+            onDropView={dropView}
+            picked={chosen}
+            onPick={pick}
+            onGesture={setGesturing}
+            onDuplicate={duplicate}
+            onCloseGaps={closeGapsIn}
+          />
         </div>
       </div>
+      <BoardShortcuts open={sheet} onClose={() => setSheet(false)} />
 
       <div className="flex flex-col gap-2">
         <SaveStanding editing={editing} actions={actions} />
@@ -398,6 +618,7 @@ function BoardEditor({ model, board, buildView, onReseed }: { model: AnalyticsMo
           lang={lang}
           focus={focus}
           onChange={(next, name) => {
+            typed(`param:${selected}`)
             edit(() => next)
             if (name !== selected) {
               setSelected(name)

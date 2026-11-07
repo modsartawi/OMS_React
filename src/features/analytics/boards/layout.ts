@@ -60,6 +60,15 @@ export type LayoutAction =
   | { type: 'patch'; id: string; patch: PanelPatch }
   /** Back to a snapshot: a pointer drag re-works every step from where it started, so a panel it passed over is not left pushed down. */
   | { type: 'reset'; state: LayoutState }
+  /** 846: move panels up into the empty rows above them — the whole board, or one section's panels (its header's id). */
+  | { type: 'closeGaps'; section?: string }
+  /** 846: a copy of a panel (new id) in the first free slot below it (`freeSlotBelow`). */
+  | { type: 'duplicate'; id: string; newId: string }
+  /** 846: a selection moved together, by whole cells; nothing moves when any of it would leave the grid. */
+  | { type: 'nudgeMany'; ids: readonly string[]; dx: number; dy: number }
+  | { type: 'removeMany'; ids: readonly string[] }
+  /** 846: line a selection up: start edges, tops (to the first in reading order), or the width of the first one picked (`ids[0]`). */
+  | { type: 'align'; ids: readonly string[]; how: 'start' | 'top' | 'width' }
 
 export const overlaps = (a: BoardLayout, b: BoardLayout) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
@@ -79,24 +88,129 @@ function fit(l: BoardLayout, min: Size): BoardLayout {
   return { x, y, w, h }
 }
 
-/** `fixed` stays where it was put; every other panel, top to bottom, drops below whatever it lands on. */
-function settle(panels: readonly AnalyticsBoardPanel[], fixedId: string): AnalyticsBoardPanel[] {
-  const fixed = panels.find((p) => p.id === fixedId)
-  if (!fixed) return [...panels]
-  const placed: BoardLayout[] = [fixed.layout]
-  const moved = new Map<string, BoardLayout>([[fixedId, fixed.layout]])
-  const others = panels.filter((p) => p.id !== fixedId).sort((a, b) => a.layout.y - b.layout.y || a.layout.x - b.layout.x)
-  for (const p of others) {
+const sameLayout = (a: BoardLayout, b: BoardLayout) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+const readingOrder = (a: AnalyticsBoardPanel, b: AnalyticsBoardPanel) => a.layout.y - b.layout.y || a.layout.x - b.layout.x
+
+/** The panels in their own order (the saved definition's) with the places in `moved`; an unmoved panel is the same object. */
+function placeAll(panels: readonly AnalyticsBoardPanel[], moved: ReadonlyMap<string, BoardLayout>): AnalyticsBoardPanel[] {
+  return panels.map((p) => {
+    const l = moved.get(p.id)
+    return !l || l === p.layout || sameLayout(l, p.layout) ? p : { ...p, layout: l }
+  })
+}
+
+/**
+ * `fixed` stays where it was put; every other panel, top to bottom, drops below whatever it lands on. 846: with
+ * several fixed panels (a selection moved or aligned together), they are placed first, in reading order (ties by
+ * where they were before, `before`), each dropping below any of them it would cover.
+ */
+function settle(panels: readonly AnalyticsBoardPanel[], fixedIds: string | readonly string[], before: readonly AnalyticsBoardPanel[] = panels): AnalyticsBoardPanel[] {
+  const ids = new Set(typeof fixedIds === 'string' ? [fixedIds] : fixedIds)
+  const was = new Map(before.map((p, i) => [p.id, { p, i }]))
+  const prior = (a: AnalyticsBoardPanel, b: AnalyticsBoardPanel) => {
+    const pa = was.get(a.id)
+    const pb = was.get(b.id)
+    return pa && pb ? readingOrder(pa.p, pb.p) || pa.i - pb.i : 0
+  }
+  const fixed = panels.filter((p) => ids.has(p.id)).sort((a, b) => readingOrder(a, b) || prior(a, b))
+  if (fixed.length === 0) return [...panels]
+  const placed: BoardLayout[] = []
+  const moved = new Map<string, BoardLayout>()
+  const drop = (p: AnalyticsBoardPanel) => {
     const l = { ...p.layout }
     for (let hit = placed.find((q) => overlaps(l, q)); hit; hit = placed.find((q) => overlaps(l, q))) l.y = hit.y + hit.h
     placed.push(l)
     moved.set(p.id, l)
   }
-  // The panels keep their own order (the saved definition's); only their places change.
-  return panels.map((p) => {
-    const l = moved.get(p.id)!
-    return l === p.layout || (l.x === p.layout.x && l.y === p.layout.y && l.w === p.layout.w && l.h === p.layout.h) ? p : { ...p, layout: l }
-  })
+  for (const p of fixed) drop(p)
+  for (const p of panels.filter((q) => !ids.has(q.id)).sort(readingOrder)) drop(p)
+  return placeAll(panels, moved)
+}
+
+/**
+ * 846: the section a panel sits in — the id of the nearest section header whose row is above the panel's, or `null`
+ * for a panel above every header. A header's own section is the one before it.
+ */
+export function sectionOf(panels: readonly AnalyticsBoardPanel[], id: string): string | null {
+  const p = panels.find((q) => q.id === id)
+  if (!p) return null
+  let best: AnalyticsBoardPanel | null = null
+  for (const q of panels) {
+    if (q.kind !== 'section' || q.id === id || q.layout.y >= p.layout.y) continue
+    if (!best || readingOrder(q, best) > 0) best = q
+  }
+  return best?.id ?? null
+}
+
+/**
+ * 846 (the owner's "Close gaps" button; react-grid-layout's vertical compactor, run once on request, never by
+ * itself): top to bottom, each panel moves up row by row while nothing is in the way, never above the bottom of its
+ * own section's header, so the reading order is kept and a section's panels stay under it. `section` (a header's
+ * id) moves only that section's panels; every other panel stays. Nothing to close: the same array back.
+ */
+export function closeGaps(panels: readonly AnalyticsBoardPanel[], section?: string): readonly AnalyticsBoardPanel[] {
+  const home = new Map(panels.map((p) => [p.id, sectionOf(panels, p.id)]))
+  const movable = (p: AnalyticsBoardPanel) => section === undefined || (home.get(p.id) === section && p.kind !== 'section')
+  const placed = new Map<string, BoardLayout>()
+  for (const p of panels) if (!movable(p)) placed.set(p.id, p.layout)
+  for (const p of [...panels].sort(readingOrder)) {
+    if (!movable(p)) continue
+    const head = home.get(p.id)
+    const headAt = head ? placed.get(head) : undefined
+    const floor = headAt ? headAt.y + headAt.h : 0
+    const l = { ...p.layout }
+    const others = [...placed.values()]
+    while (l.y > floor && !others.some((q) => overlaps({ ...l, y: l.y - 1 }, q))) l.y -= 1
+    placed.set(p.id, l)
+  }
+  const next = placeAll(panels, placed)
+  return next.every((p, i) => p === panels[i]) ? panels : next
+}
+
+/** 846: the first place below a panel (from its bottom row down, its own column first) where a copy of its size fits. */
+export function freeSlotBelow(panels: readonly AnalyticsBoardPanel[], id: string): BoardLayout | null {
+  const src = panels.find((p) => p.id === id)?.layout
+  if (!src) return null
+  const columns = [src.x, ...Array.from({ length: GRID_COLUMNS - src.w + 1 }, (_, x) => x).filter((x) => x !== src.x)]
+  for (let y = src.y + src.h; ; y++) {
+    for (const x of columns) {
+      const l = { x, y, w: src.w, h: src.h }
+      if (!panels.some((p) => overlaps(l, p.layout))) return l
+    }
+  }
+}
+
+const copyOf = (p: AnalyticsBoardPanel, id: string, layout: BoardLayout): AnalyticsBoardPanel =>
+  p.kind === 'view' ? { ...p, id, layout, optOut: [...p.optOut] } : p.kind === 'text' ? { ...p, id, layout, text: { ...p.text } } : { ...p, id, layout, title: { ...p.title } }
+
+/** 846: the selection's actions (`nudgeMany`, `removeMany`, `align`). */
+function many(state: LayoutState, action: Extract<LayoutAction, { type: 'nudgeMany' | 'removeMany' | 'align' }>): LayoutState {
+  const ids = new Set(action.ids)
+  const chosen = state.panels.filter((p) => ids.has(p.id))
+  if (chosen.length === 0) return state
+  if (action.type === 'removeMany') {
+    const mins = Object.fromEntries(Object.entries(state.mins).filter(([id]) => !ids.has(id)))
+    return { panels: state.panels.filter((p) => !ids.has(p.id)), mins }
+  }
+  const minOf = (p: AnalyticsBoardPanel) => state.mins[p.id] ?? minSizeOf(p)
+  let to: Map<string, BoardLayout>
+  if (action.type === 'nudgeMany') {
+    const out = chosen.some((p) => p.layout.x + action.dx < 0 || p.layout.x + p.layout.w + action.dx > GRID_COLUMNS || p.layout.y + action.dy < 0)
+    if (out || (action.dx === 0 && action.dy === 0)) return state
+    to = new Map(chosen.map((p) => [p.id, { ...p.layout, x: p.layout.x + action.dx, y: p.layout.y + action.dy }]))
+  } else if (action.how === 'start') {
+    const x = Math.min(...chosen.map((p) => p.layout.x))
+    to = new Map(chosen.map((p) => [p.id, { ...p.layout, x }]))
+  } else if (action.how === 'top') {
+    const y = Math.min(...chosen.map((p) => p.layout.y))
+    to = new Map(chosen.map((p) => [p.id, { ...p.layout, y }]))
+  } else {
+    const first = state.panels.find((p) => p.id === action.ids[0]) ?? chosen[0]
+    to = new Map(chosen.map((p) => [p.id, fit({ ...p.layout, w: first.layout.w }, minOf(p))]))
+  }
+  const moved = placeAll(state.panels, to)
+  const panels = settle(moved, [...ids], state.panels)
+  return panels.every((p, i) => p === state.panels[i]) ? state : { ...state, panels }
 }
 
 /** A grid cell, columns counted from the inline start. */
@@ -116,6 +230,18 @@ export function dropOutline(at: Cell, asked: Size, min: Size): BoardLayout {
 
 export function layoutReducer(state: LayoutState, action: LayoutAction): LayoutState {
   if (action.type === 'reset') return action.state
+  if (action.type === 'closeGaps') {
+    const panels = closeGaps(state.panels, action.section)
+    return panels === state.panels ? state : { ...state, panels: [...panels] }
+  }
+  if (action.type === 'duplicate') {
+    const src = state.panels.find((p) => p.id === action.id)
+    const slot = freeSlotBelow(state.panels, action.id)
+    if (!src || !slot) return state
+    const min = state.mins[action.id]
+    return { panels: [...state.panels, copyOf(src, action.newId, slot)], mins: min ? { ...state.mins, [action.newId]: min } : state.mins }
+  }
+  if (action.type === 'nudgeMany' || action.type === 'removeMany' || action.type === 'align') return many(state, action)
   if (action.type === 'drop') {
     // Dropped on free cells, the panel just lands there. Dropped onto other panels, it is INSERTED: every panel
     // from its row down moves down by its height, so the rows below keep their order (a section's panels stay

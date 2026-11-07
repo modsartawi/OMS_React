@@ -3076,9 +3076,9 @@ async function report827({ dir, dark = false }) {
 
   const words = lastWords827(bodies)
   check(`${tag}: the Words door is asked once with the revision and every value`, (bodies['Analytics/Report/r-827/Words'] ?? []).length === 1 && words?.revision === 3 && Object.keys(words?.values ?? {}).sort().join() === 'city,grain,period', JSON.stringify(words))
-  const total = await figure827(page, '{p1:total}')
+  const total = await figure827(page, '{{fig:p1:till_value}}')
   check(`${tag}: a live figure is filled from the Words answer`, total === 'SAR 1,250,000', String(total))
-  const isolated = await page.locator('[data-report-figure="{p1:total}"] bdi[dir="ltr"]').count()
+  const isolated = await page.locator('[data-report-figure="{{fig:p1:till_value}}"] bdi[dir="ltr"]').count()
   check(`${tag}: … isolated whole as a machine value`, isolated === 1)
   const text = await page.locator('[data-report-sections]').innerText()
   check(`${tag}: no raw token reaches the reader`, !/\{p\d:[a-z_]+\}/.test(text))
@@ -3091,23 +3091,23 @@ async function report827({ dir, dark = false }) {
   // A period change: every panel bound to it, and the Words, ask again; the figures follow.
   const from = (bodies['Analytics/Query'] ?? []).length
   await page.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-week')
-  await page.waitForFunction(() => document.querySelector('[data-report-figure="{p1:total}"]')?.textContent?.includes('1,000,000'), null, { timeout: 5000 }).catch(() => {})
+  await page.waitForFunction(() => document.querySelector('[data-report-figure="{{fig:p1:till_value}}"]')?.textContent?.includes('1,000,000'), null, { timeout: 5000 }).catch(() => {})
   await idle827(page)
   const asks = (bodies['Analytics/Query'] ?? []).slice(from)
   check(`${tag}: a period change re-asks every panel with the new period`, P827.every((id) => asks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week')), JSON.stringify(asks.map((b) => [b.panelId, b.values?.period])))
-  check(`${tag}: … and the Words with it, and the figures follow`, lastWords827(bodies)?.values?.period?.token === 'last-week' && (await figure827(page, '{p1:total}')) === 'SAR 1,000,000', String(await figure827(page, '{p1:total}')))
+  check(`${tag}: … and the Words with it, and the figures follow`, lastWords827(bodies)?.values?.period?.token === 'last-week' && (await figure827(page, '{{fig:p1:till_value}}')) === 'SAR 1,000,000', String(await figure827(page, '{{fig:p1:till_value}}')))
   check(`${tag}: … and the URL carries period=last-week`, new URL(page.url()).searchParams.get('period') === 'last-week', page.url())
 
   // The number check fails: the summary alone drops; a figure the run lacks reads as a placeholder.
   state.summary = 'unavailable'
-  state.drop = ['{p3:qc}']
+  state.drop = ['{{fig:p3:cancellation_rate:qc}}']
   await page.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-month')
   await page.locator('[data-report-summary="unavailable"]').waitFor({ timeout: 5000 }).catch(() => {})
   await idle827(page)
   check(`${tag}: a summary that fails its check reads "summary unavailable"`, (await page.locator('[data-report-summary="unavailable"]').count()) === 1 && (await page.locator('[data-report-summary-text]').count()) === 0)
   const kept = await page.locator('[data-report-panel] [data-board-panel]').evaluateAll((els) => els.map((e) => e.dataset.boardPanelState))
-  check(`${tag}: … and drops only the summary: every section, panel and other figure stays`, kept.length === 4 && kept.every((x) => x === 'idle') && (await page.locator('[data-report-section]').count()) === 4 && (await figure827(page, '{p1:total}')) === 'SAR 4,375,000', kept.join())
-  const missing = await page.locator('[data-report-figure-missing="{p3:qc}"]').innerText().catch(() => null)
+  check(`${tag}: … and drops only the summary: every section, panel and other figure stays`, kept.length === 4 && kept.every((x) => x === 'idle') && (await page.locator('[data-report-section]').count()) === 4 && (await figure827(page, '{{fig:p1:till_value}}')) === 'SAR 4,375,000', kept.join())
+  const missing = await page.locator('[data-report-figure-missing="{{fig:p3:cancellation_rate:qc}}"]').innerText().catch(() => null)
   check(`${tag}: a figure the run lacks is a placeholder, never the raw token`, !!missing && !missing.includes('{') && !/\{p\d:/.test(await page.locator('[data-report-sections]').innerText()), String(missing))
   await page.screenshot({ path: `${SHOTS}/827-unavailable-${dir}${dark ? '-dark' : ''}.png`, fullPage: true })
 
@@ -3128,7 +3128,7 @@ async function report827({ dir, dark = false }) {
   await print.waitForFunction(() => window.__printed > 0, null, { timeout: 5000 }).catch(() => {})
   const printAsks = (bodies['Analytics/Query'] ?? []).slice(printFrom)
   check(`${tag}: the print page runs every panel with the link's values`, P827.every((id) => printAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-month')), JSON.stringify(printAsks.map((b) => [b.panelId, b.values?.period])))
-  check(`${tag}: … its figures are that run's, and its chips name the values`, (await figure827(print, '{p1:total}')) === 'SAR 4,375,000' && (await print.locator('[data-board-filter-chips]').count()) === 1)
+  check(`${tag}: … its figures are that run's, and its chips name the values`, (await figure827(print, '{{fig:p1:till_value}}')) === 'SAR 4,375,000' && (await print.locator('[data-board-filter-chips]').count()) === 1)
   check(`${tag}: … and it opens the print dialog once everything has landed`, (await print.evaluate(() => window.__printed)) === 1)
   const width = await print.locator('[data-analytics-report="r-827"]').evaluate((el) => el.getBoundingClientRect().width)
   check(`${tag}: … at A4 width`, Math.round(width) === 680, String(width))
@@ -3137,7 +3137,7 @@ async function report827({ dir, dark = false }) {
   if (dir === 'rtl') {
     check(`${tag}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
     // The app renders English under RTL today (i18n stays `en`; `dir` is the boot fact): the figure keeps its order.
-    const iso = await page.locator('[data-report-text="t1"] [data-report-figure="{p1:total}"] bdi').getAttribute('dir').catch(() => null)
+    const iso = await page.locator('[data-report-text="t1"] [data-report-figure="{{fig:p1:till_value}}"] bdi').getAttribute('dir').catch(() => null)
     check(`${tag}: the figure in the text stays a left-to-right isolate under RTL`, iso === 'ltr', String(iso))
   }
   if (dir === 'ltr' && !dark) {
@@ -3479,22 +3479,23 @@ async function designer829({ dir }) {
   await page.keyboard.type('HungerStation took ')
   await page.locator('[data-designer-figure-into="en"]').click()
   await page.locator('[data-designer-figure-panel]').selectOption('p2')
-  await page.locator('[data-designer-figure-value]').selectOption('hs')
+  await page.locator('[data-designer-figure-value]').selectOption('orders:hs')
   await page.locator('[data-designer-figure-insert]').click()
-  check(`${tag}: "Insert a live figure" writes a chip`, (await enChips829(page)) === '{p2:hs}', await enChips829(page))
+  check(`${tag}: "Insert a live figure" writes a chip`, (await enChips829(page)) === '{{fig:p2:orders:hs}}', await enChips829(page))
   await en.click()
   await page.keyboard.press('Control+End')
   await page.keyboard.type(' orders against QC’s ')
-  await page.locator('[data-designer-figure-value]').selectOption('qc')
+  await page.locator('[data-designer-figure-value]').selectOption('orders:qc')
   await page.locator('[data-designer-figure-insert]').click()
-  check(`${tag}: … a second one where the caret was`, (await enChips829(page)) === '{p2:hs},{p2:qc}', await enChips829(page))
+  check(`${tag}: … a second one where the caret was`, (await enChips829(page)) === '{{fig:p2:orders:hs}},{{fig:p2:orders:qc}}', await enChips829(page))
   await page.locator('[data-designer-undo]').click()
-  check(`${tag}: an insert is one undo step`, (await enChips829(page)) === '{p2:hs}', await enChips829(page))
+  check(`${tag}: an insert is one undo step`, (await enChips829(page)) === '{{fig:p2:orders:hs}}', await enChips829(page))
   await page.locator('[data-designer-redo]').click()
-  await en.click()
+  // Click the field's own edge: its middle may be a chip (contenteditable=false), which takes no caret.
+  await en.click({ position: { x: 3, y: 3 } })
   await page.keyboard.press('Control+End')
-  await page.keyboard.type('; {p1:total} in all.')
-  check(`${tag}: a token typed as words becomes a chip`, (await enChips829(page)) === '{p2:hs},{p2:qc},{p1:total}', await enChips829(page))
+  await page.keyboard.type('; {{fig:p1:till_value}} in all.')
+  check(`${tag}: a token typed as words becomes a chip`, (await enChips829(page)) === '{{fig:p2:orders:hs}},{{fig:p2:orders:qc}},{{fig:p1:till_value}}', `${await enChips829(page)} | ${await en.innerText()}`)
   const pageText = await page.locator('[data-designer-text="t1"]').innerText()
   const previewText = await page.locator('[data-designer-text-preview]').innerText()
   const fieldText = await en.innerText()
@@ -3504,7 +3505,7 @@ async function designer829({ dir }) {
     ![pageText, previewText, fieldText].some((x) => /\{p\d+:/.test(x)) && pageChips === 3,
     `${pageChips} | ${previewText}`,
   )
-  check(`${tag}: each chip names its panel and figure`, noIsolates(await page.locator('[data-designer-text-preview-lang="en"] [data-designer-figure-chip="{p2:hs}"]').innerText()).includes('HungerStation'))
+  check(`${tag}: each chip names its panel and figure`, noIsolates(await page.locator('[data-designer-text-preview-lang="en"] [data-designer-figure-chip="{{fig:p2:orders:hs}}"]').innerText()).includes('HungerStation'))
   await page.screenshot({ path: `${SHOTS}/829-text-${dir}.png`, fullPage: false })
 
   // 3. The summary: added once, removed, undone.
@@ -3524,7 +3525,7 @@ async function designer829({ dir }) {
   await page.locator('[data-designer-outline="block:p1"]').click()
   await page.locator('[data-designer-remove-block="p1"]').click()
   await page.locator('[data-designer-outline="block:t1"]').click()
-  check(`${tag}: a figure whose panel is gone is a red chip`, (await page.locator('[data-designer-text-field="en"] [data-figure-token="{p1:total}"][data-figure-ok="no"]').count()) === 1)
+  check(`${tag}: a figure whose panel is gone is a red chip`, (await page.locator('[data-designer-text-field="en"] [data-figure-token="{{fig:p1:till_value}}"][data-figure-ok="no"]').count()) === 1)
   const posts = (bodies['Analytics/Item'] ?? []).length
   await page.locator('[data-editor-save]').click()
   await page.locator('[data-declaration-problem="figure"]').waitFor({ timeout: 5000 })
@@ -3559,7 +3560,7 @@ async function designer829({ dir }) {
         ]),
     JSON.stringify(byId.p3?.definition?.series),
   )
-  check(`${tag}: … the text with its tokens`, byId.t1?.text?.en === 'HungerStation took {p2:hs} orders against QC’s {p2:qc}; {p1:total} in all.', byId.t1?.text?.en)
+  check(`${tag}: … the text with its tokens`, byId.t1?.text?.en === 'HungerStation took {{fig:p2:orders:hs}} orders against QC’s {{fig:p2:orders:qc}}; {{fig:p1:till_value}} in all.', byId.t1?.text?.en)
   check(`${tag}: … and one summary`, blocks.filter((b) => b.kind === 'summary').length === 1)
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
@@ -3797,7 +3798,7 @@ async function provenance829() {
   check('829: a copied panel says "the original has changed since you copied it"', (await page.locator('[data-designer-source-changed-note]').count()) === 1)
   await page.locator('[data-designer-outline="block:t2"]').click()
   const chips = await page.locator('[data-designer-text-field="en"] [data-figure-token]').evaluateAll((els) => els.map((e) => `${e.dataset.figureToken}:${e.dataset.figureOk}`).join(','))
-  check('829: the sample text’s four figures are chips, each a single value', chips === '{p2:hs}:yes,{p2:qc}:yes,{p3:hs}:yes,{p3:qc}:yes', chips)
+  check('829: the sample text’s four figures are chips, each a single value', chips === '{{fig:p2:orders:hs}}:yes,{{fig:p2:orders:qc}}:yes,{{fig:p3:cancellation_rate:hs}}:yes,{{fig:p3:cancellation_rate:qc}}:yes', chips)
   check('829: the page shows the text as chips', (await page.locator('[data-designer-text="t2"] [data-designer-figure-chip]').count()) === 4)
   check('829 provenance: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -3953,7 +3954,7 @@ async function tutorial831({ dir }) {
   await page.locator('[data-designer-figure-into="en"]').click()
   await page.locator('[data-designer-figure-panel]').selectOption('p3')
   // A series made by hand is named s1, s2…: s1 is HungerStation.
-  await page.locator('[data-designer-figure-value]').selectOption('s1')
+  await page.locator('[data-designer-figure-value]').selectOption('cancellation_rate:s1')
   await page.locator('[data-designer-figure-insert]').click()
   done.push('figure')
   await ticked(done, 'a live figure')
@@ -4151,17 +4152,17 @@ async function acceptance834({ dir, dark = false }) {
   check(`${tag} 5: … and the Kept runs link, for the runs sent to them`, (await rp.locator('[data-report-runs]').count()) === 1)
   const firstAsks = runner.bodies['Analytics/Query'] ?? []
   check(`${tag} 5: every panel runs for yesterday by default`, P827.every((id) => firstAsks.some((b) => b.panelId === id && b.values?.period?.token === 'yesterday')), JSON.stringify(firstAsks.map((b) => [b.panelId, b.values?.period])))
-  check(`${tag} 5: … its figures yesterday's`, (await figure827(rp, '{p1:total}')) === 'SAR 187,500', String(await figure827(rp, '{p1:total}')))
+  check(`${tag} 5: … its figures yesterday's`, (await figure827(rp, '{{fig:p1:till_value}}')) === 'SAR 187,500', String(await figure827(rp, '{{fig:p1:till_value}}')))
   const from = firstAsks.length
   await rp.locator('[data-board-param="period"] [data-board-filter-period]').selectOption('last-week')
-  await rp.waitForFunction(() => document.querySelector('[data-report-figure="{p1:total}"]')?.textContent?.includes('1,000,000'), null, { timeout: 10000 }).catch(() => {})
+  await rp.waitForFunction(() => document.querySelector('[data-report-figure="{{fig:p1:till_value}}"]')?.textContent?.includes('1,000,000'), null, { timeout: 10000 }).catch(() => {})
   await idle827(rp)
   const reAsks = (runner.bodies['Analytics/Query'] ?? []).slice(from)
   check(`${tag} 5: last week re-runs every panel with it`, P827.every((id) => reAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week' && b.itemId === 'r-834')), JSON.stringify(reAsks.map((b) => [b.panelId, b.values?.period])))
   check(
     `${tag} 5: … the Words too, and the figures follow (isolated)`,
-    (runner.bodies['Analytics/Report/r-834/Words'] ?? []).at(-1)?.values?.period?.token === 'last-week' && (await figure827(rp, '{p1:total}')) === 'SAR 1,000,000' && (await rp.locator('[data-report-figure="{p2:hs}"] bdi[dir="ltr"]').count()) === 1,
-    String(await figure827(rp, '{p1:total}')),
+    (runner.bodies['Analytics/Report/r-834/Words'] ?? []).at(-1)?.values?.period?.token === 'last-week' && (await figure827(rp, '{{fig:p1:till_value}}')) === 'SAR 1,000,000' && (await rp.locator('[data-report-figure="{{fig:p2:till_value:hs}}"] bdi[dir="ltr"]').count()) === 1,
+    String(await figure827(rp, '{{fig:p1:till_value}}')),
   )
   check(`${tag} 5: the cancellation rate keeps its caveat for the runner`, (await rp.locator('[data-report-panel="p3"] [data-panel-caveat]').count()) === 1)
   check(`${tag} 5: the URL carries period=last-week`, new URL(rp.url()).searchParams.get('period') === 'last-week', rp.url())
@@ -4180,7 +4181,7 @@ async function acceptance834({ dir, dark = false }) {
   const linkAsks = (runner.bodies['Analytics/Query'] ?? []).slice(opened)
   check(`${tag} 5: the copied link opens on last week`, (await again.locator('[data-board-param="period"] [data-board-filter-period]').inputValue()) === 'last-week' && P827.every((id) => linkAsks.some((b) => b.panelId === id && b.values?.period?.token === 'last-week')))
   if (dir === 'rtl') {
-    const iso = await rp.locator('[data-report-text="t1"] [data-report-figure="{p1:total}"] bdi').getAttribute('dir').catch(() => null)
+    const iso = await rp.locator('[data-report-text="t1"] [data-report-figure="{{fig:p1:till_value}}"] bdi').getAttribute('dir').catch(() => null)
     check(`${tag} 5: a figure in the text stays a left-to-right isolate under RTL`, iso === 'ltr', String(iso))
   }
   check(`${tag} 5: no page errors for the runner`, runner.errors.length === 0, runner.errors.join(' | '))

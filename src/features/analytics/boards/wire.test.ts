@@ -152,8 +152,18 @@ describe('reading a report (827)', () => {
     expect(readReport({ id: 'r-2', kind: 'report' }).definition).toEqual({ params: [], bindings: {}, sections: [] })
   })
 
-  it('reads the Words answer: figures as strings, the summary written or unavailable, absent → none', () => {
-    expect(readWords({ figures: { '{p1:total}': 'SAR 5', '{p1:x}': 4 }, summary: { text: { en: 'Up.' } } })).toEqual({ figures: { '{p1:total}': 'SAR 5' }, summary: { text: { en: 'Up.', ar: '' } } })
+  it('reads the Words answer: each figure’s words in both languages, the summary written or unavailable, absent → none', () => {
+    // 835 live walk: the server answers { value, formatted { en, ar } } per token (3408 §F); a bare string reads as both.
+    const figures = {
+      '{{fig:p1:net}}': { value: 388953.76, formatted: { en: 'SAR 388,953.76', ar: '388,953.76 SAR' } },
+      '{{fig:p2:rate:hs}}': '9.3%',
+      '{{fig:p2:rate:qc}}': { value: null, formatted: { en: '', ar: '' } },
+      '{{fig:p3:x}}': 4,
+    }
+    expect(readWords({ figures, summary: { text: { en: 'Up.' } } })).toEqual({
+      figures: { '{{fig:p1:net}}': { en: 'SAR 388,953.76', ar: '388,953.76 SAR' }, '{{fig:p2:rate:hs}}': { en: '9.3%', ar: '9.3%' } },
+      summary: { text: { en: 'Up.', ar: '' } },
+    })
     expect(readWords({ summary: { unavailable: 'numbers did not match' } })).toEqual({ figures: {}, summary: { unavailable: 'numbers did not match' } })
     expect(readWords(null)).toEqual({ figures: {}, summary: null })
   })

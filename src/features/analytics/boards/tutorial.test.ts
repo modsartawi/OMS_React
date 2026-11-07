@@ -72,10 +72,10 @@ describe('the tutorial checks', () => {
   it('want a text holding a live figure the report can fill', () => {
     const p = panel('p1', view('bar', ['till_value'], ['channel_group']))
     const text = (en: string): AnalyticsReportBlock => ({ id: 't1', kind: 'text', text: { en, ar: '' } })
-    expect(tutorialChecks(withBlocks([p, text('Tills took {p1:total}.')]), model).figure).toBe(true)
+    expect(tutorialChecks(withBlocks([p, text('Tills took {{fig:p1:till_value}}.')]), model).figure).toBe(true)
     expect(tutorialChecks(withBlocks([p, text('Tills took a lot.')]), model).figure).toBe(false)
-    expect(tutorialChecks(withBlocks([p, text('Gone: {p9:total}.')]), model).figure).toBe(false)
-    expect(tutorialChecks(withBlocks([p, text('Not single: {p1:hs}.')]), model).figure).toBe(false)
+    expect(tutorialChecks(withBlocks([p, text('Gone: {{fig:p9:till_value}}.')]), model).figure).toBe(false)
+    expect(tutorialChecks(withBlocks([p, text('Not single: {{fig:p1:till_value:hs}}.')]), model).figure).toBe(false)
   })
 
   it('want the period to default to yesterday and reach every panel', () => {

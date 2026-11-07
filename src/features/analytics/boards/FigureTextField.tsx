@@ -4,7 +4,7 @@ import { chipSegments, FIGURE_TOKEN } from './live-figures'
 
 /**
  * A text block's words with their live figures as chips (spec 819 §E, ticket 829: "figures show as chips, never as
- * raw tokens"). An editable region (no hand-written control): the words are text, each `{panel:figure}` token is an
+ * raw tokens"). An editable region (no hand-written control): the words are text, each `{{fig:…}}` token is an
  * atomic chip (`contenteditable=false`, `data-figure-token`) the caret steps over and Backspace removes whole.
  *
  * The value is the text with its tokens (`./live-figures`' `chipSegments` / `chipsText` round-trip). The DOM is drawn

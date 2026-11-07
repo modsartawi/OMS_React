@@ -8,7 +8,7 @@ const def = (sections: AnalyticsReportDefinition['sections']): AnalyticsReportDe
 
 describe('a report definition (827)', () => {
   const sample = def([
-    { id: 's1', heading: l('Sales'), blocks: [{ id: 'p1', kind: 'panel', title: l(''), definition: view }, { id: 't1', kind: 'text', text: l('Took {p1:total}.') }] },
+    { id: 's1', heading: l('Sales'), blocks: [{ id: 'p1', kind: 'panel', title: l(''), definition: view }, { id: 't1', kind: 'text', text: l('Took {{fig:p1:orders}}.') }] },
     { id: 's2', heading: l('More'), blocks: [{ id: 'p2', kind: 'panel', title: l(''), definition: view }, { id: 'sum', kind: 'summary' }] },
   ])
 
@@ -20,7 +20,7 @@ describe('a report definition (827)', () => {
   it('asks for Words only when a text names a figure or a summary block is there', () => {
     expect(wordsAsked(sample)).toBe(true)
     expect(wordsAsked(def([{ id: 's', heading: l(''), blocks: [{ id: 't', kind: 'text', text: l('No figures here.') }] }]))).toBe(false)
-    expect(wordsAsked(def([{ id: 's', heading: l(''), blocks: [{ id: 't', kind: 'text', text: { en: 'none', ar: '{p1:total}' } }] }]))).toBe(true)
+    expect(wordsAsked(def([{ id: 's', heading: l(''), blocks: [{ id: 't', kind: 'text', text: { en: 'none', ar: '{{fig:p1:orders}}' } }] }]))).toBe(true)
     expect(wordsAsked(def([{ id: 's', heading: l(''), blocks: [{ id: 'sum', kind: 'summary' }] }]))).toBe(true)
   })
 
@@ -74,25 +74,25 @@ describe('a report’s save checks (829)', () => {
       },
     ])
 
-  it('a figure naming a panel’s single value passes: a total, a series', () => {
-    expect(figureProblems(report(l('{p1:total}, {p2:hs} and {p2:qc}')), model)).toEqual([])
-    expect(validateReport(report(l('{p1:total}')), model)).toEqual([])
+  it('a figure naming a panel’s single value passes: a measure, a series’ measure', () => {
+    expect(figureProblems(report(l('{{fig:p1:orders}}, {{fig:p2:rate:hs}} and {{fig:p2:rate:qc}}')), model)).toEqual([])
+    expect(validateReport(report(l('{{fig:p1:orders}}')), model)).toEqual([])
   })
 
   it('refuses a figure naming a missing panel, or a value that is not single — in either language', () => {
-    const r = report({ en: 'Gone: {p9:total}. A rate has no total: {p3:total}.', ar: 'سلسلة غير موجودة {p2:nope}' })
+    const r = report({ en: 'Gone: {{fig:p9:orders}}. Series have no total: {{fig:p2:rate}}.', ar: 'سلسلة غير موجودة {{fig:p2:rate:nope}}' })
     expect(figureProblems(r, model)).toEqual([
-      { what: 'figure', block: 't1', panel: 'p9', figure: 'total', why: 'missingPanel' },
-      { what: 'figure', block: 't1', panel: 'p3', figure: 'total', why: 'notSingle' },
-      { what: 'figure', block: 't1', panel: 'p2', figure: 'nope', why: 'notSingle' },
+      { what: 'figure', block: 't1', panel: 'p9', figure: 'orders', why: 'missingPanel' },
+      { what: 'figure', block: 't1', panel: 'p2', figure: 'rate', why: 'notSingle' },
+      { what: 'figure', block: 't1', panel: 'p2', figure: 'rate:nope', why: 'notSingle' },
     ])
     expect(validateReport(r, model).map((p) => p.what)).toEqual(['figure', 'figure', 'figure'])
   })
 
   it('a figure whose panel was removed is refused at save', () => {
-    const r = report(l('{p1:total}'))
+    const r = report(l('{{fig:p1:orders}}'))
     const gone = { ...r, sections: [{ ...r.sections[0], blocks: r.sections[0].blocks.filter((b) => b.id !== 'p1') }] }
-    expect(figureProblems(gone, model)).toEqual([{ what: 'figure', block: 't1', panel: 'p1', figure: 'total', why: 'missingPanel' }])
+    expect(figureProblems(gone, model)).toEqual([{ what: 'figure', block: 't1', panel: 'p1', figure: 'orders', why: 'missingPanel' }])
   })
 
   it('lists a panel’s series problems with the panel, and a second summary', () => {

@@ -1084,7 +1084,7 @@
       "hint": "A live figure is filled in from each run’s own results, so it is never stale. A figure whose panel is removed is refused at save.",
       "preview": "Preview",
       "empty": "Empty text: write it in the inspector.",
-      "total": "Total",
+      "figureOfSeries": "{{measure}} for {{series}}",
       "missingPanel": "Panel {{panel}} is not on the report",
       "notSingle": "{{panel}}: not a single value"
     },

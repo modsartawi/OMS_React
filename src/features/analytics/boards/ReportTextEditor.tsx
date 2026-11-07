@@ -13,6 +13,7 @@ import { chipSegments, figuresOf, figureToken, insertToken, type PanelFigure } f
 import { reportPanels } from './report'
 import { seriesName } from './series'
 import { generatedTitle } from './title'
+import { measureOf } from './wire'
 
 /**
  * The report designer's text editor (spec 819 §E, ticket 829; the 798 prototype's `TextEditor`): the words in
@@ -32,7 +33,10 @@ export function useFigureNames(def: AnalyticsReportDefinition, model: AnalyticsM
       const title = saysIn(p.title, lang) || generatedTitle(p.definition, model, lang, t) || t('designer.block.untitledPanel')
       return { id: p.id, title, figures: figuresOf(p.definition, model) }
     })
-    const figureName = (f: PanelFigure) => (f.series ? seriesName(f.series, lang) : t('designer.text.total'))
+    // 835 walk: a figure is a measure of the panel (3408 §F), over one named series when the panel has them.
+    const measureName = (f: PanelFigure) => saysIn(measureOf(model, f.measure)?.label ?? { en: f.measure, ar: f.measure }, lang) || f.measure
+    const figureName = (f: PanelFigure) =>
+      f.series ? t('designer.text.figureOfSeries', { measure: fsi(measureName(f)), series: fsi(seriesName(f.series, lang)) }) : measureName(f)
     const chipOf = (panel: string, figure: string): FigureChipLabel => {
       const p = panels.find((x) => x.id === panel)
       if (!p)

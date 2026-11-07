@@ -71,7 +71,7 @@ export function ReportBlock({ block, item, words, ...run }: { block: AnalyticsRe
 export function LiveText({ id, text, lang, words }: { id: string; text: AnalyticsLabel; lang: string; words: ReportWordsView }) {
   const { t } = useTranslation('boards')
   const figures = words.failed ? NONE : (words.data?.figures ?? null)
-  const parts = useMemo(() => fillTokens(saysIn(text, lang), figures), [text, lang, figures])
+  const parts = useMemo(() => fillTokens(saysIn(text, lang), figures, lang), [text, lang, figures])
   return (
     <p className="whitespace-pre-line text-sm leading-7" data-report-text={id}>
       <bdi>
@@ -97,7 +97,7 @@ export function LiveText({ id, text, lang, words }: { id: string; text: Analytic
   )
 }
 
-const NONE: Record<string, string> = {}
+const NONE: Record<string, AnalyticsLabel> = {}
 
 /**
  * The AI summary block: the run's summary, number-checked by the server against this run's results, or

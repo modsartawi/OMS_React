@@ -784,7 +784,7 @@ export const REPORT_827 = {
         heading: label('Sales by channel', 'المبيعات حسب القناة'),
         blocks: [
           panel827('p1', 'Net sales by channel', 'صافي المبيعات حسب القناة', def('bar', ['till_value'], ['channel_group'])),
-          { id: 't1', kind: 'text', text: label('Across every channel the tills took {p1:total} in the period.', 'حصّلت نقاط البيع {p1:total} عبر جميع القنوات خلال الفترة.') },
+          { id: 't1', kind: 'text', text: label('Across every channel the tills took {{fig:p1:till_value}} in the period.', 'حصّلت نقاط البيع {{fig:p1:till_value}} عبر جميع القنوات خلال الفترة.') },
         ],
       },
       {
@@ -796,7 +796,7 @@ export const REPORT_827 = {
           {
             id: 't2',
             kind: 'text',
-            text: label('HungerStation took {p2:hs} orders against QC’s {p2:qc}. Their cancellation rates were {p3:hs} and {p3:qc}.', 'تلقّت هنقرستيشن {p2:hs} طلبًا مقابل {p2:qc} لـ QC. وكانت نسبتا الإلغاء {p3:hs} و{p3:qc}.'),
+            text: label('HungerStation took {{fig:p2:orders:hs}} orders against QC’s {{fig:p2:orders:qc}}. Their cancellation rates were {{fig:p3:cancellation_rate:hs}} and {{fig:p3:cancellation_rate:qc}}.', 'تلقّت هنقرستيشن {{fig:p2:orders:hs}} طلبًا مقابل {{fig:p2:orders:qc}} لـ QC. وكانت نسبتا الإلغاء {{fig:p3:cancellation_rate:hs}} و{{fig:p3:cancellation_rate:qc}}.'),
           },
         ],
       },
@@ -822,17 +822,38 @@ QUERY['v-827-rate'] = inlineAnswer(ITEMS['v-827-rate'].definition, MODEL_827)
  * is the failed number check, with a figure the run lacks.
  */
 const PERIOD_SCALE = { 'last-7-days': 1, 'last-week': 0.8, 'last-month': 3.5, yesterday: 0.15 }
+/** r-827's live figures: p1 the tills, p2 the two series' orders, p3 their cancellation rates. */
+export const FIG_827 = {
+  tills: '{{fig:p1:till_value}}',
+  hsOrders: '{{fig:p2:orders:hs}}',
+  qcOrders: '{{fig:p2:orders:qc}}',
+  hsRate: '{{fig:p3:cancellation_rate:hs}}',
+  qcRate: '{{fig:p3:cancellation_rate:qc}}',
+}
+/** The sample report's (r-834) p2 is the two series' net sales. */
+export const FIG_834 = { ...FIG_827, hsSales: '{{fig:p2:till_value:hs}}', qcSales: '{{fig:p2:till_value:qc}}' }
+/** token → English words  ⇒  the server's figures: { value, formatted { en, ar } } ("SAR 5" reads "5 SAR" in Arabic). */
+const figureWords = (words) =>
+  Object.fromEntries(Object.entries(words).map(([t, en]) => [t, { value: Number(String(en).replace(/[^0-9.]/g, '')) || null, formatted: { en, ar: en.startsWith('SAR ') ? `${en.slice(4)} SAR` : en } }]))
 export function wordsAnswer827(body, { summary = 'written', drop = [] } = {}) {
   const token = body?.values?.period?.token
   const k = PERIOD_SCALE[token] ?? 2
   const n = (x) => Math.round(x * k).toLocaleString('en-US')
-  const figures = { '{p1:total}': `SAR ${n(1250000)}`, '{p2:hs}': n(4200), '{p2:qc}': n(3100), '{p3:hs}': '6.4%', '{p3:qc}': '3.9%' }
-  for (const t of drop) delete figures[t]
+  // 835 walk: tokens as BackOffice 3408 §F writes them ({{fig:panel:measure[:series]}}), each figure the server's
+  // { value, formatted { en, ar } } — the words below are the English, and the Arabic money puts SAR after.
+  const words = {
+    [FIG_827.tills]: `SAR ${n(1250000)}`,
+    [FIG_827.hsOrders]: n(4200),
+    [FIG_827.qcOrders]: n(3100),
+    [FIG_827.hsRate]: '6.4%',
+    [FIG_827.qcRate]: '3.9%',
+  }
+  for (const t of drop) delete words[t]
   return {
-    figures,
+    figures: figureWords(words),
     summary:
       summary === 'written'
-        ? { text: label(`HungerStation outsold QC (${figures['{p2:hs}']} against ${figures['{p2:qc}']}) but cancelled more often.`, `تفوقت هنقرستيشن على QC في الطلبات (${figures['{p2:hs}']} مقابل ${figures['{p2:qc}']}) لكن نسبة إلغائها أعلى.`) }
+        ? { text: label(`HungerStation outsold QC (${words[FIG_827.hsOrders]} against ${words[FIG_827.qcOrders]}) but cancelled more often.`, `تفوقت هنقرستيشن على QC في الطلبات (${words[FIG_827.hsOrders]} مقابل ${words[FIG_827.qcOrders]}) لكن نسبة إلغائها أعلى.`) }
         : { unavailable: 'A number in the summary did not match this run.' },
   }
 }
@@ -900,8 +921,9 @@ export function wordsAnswer834(body) {
   const answer = wordsAnswer827(body)
   const k = PERIOD_SCALE[body?.values?.period?.token] ?? 2
   const sar = (x) => `SAR ${Math.round(x * k).toLocaleString('en-US')}`
-  const figures = { ...answer.figures, '{p2:hs}': sar(310000), '{p2:qc}': sar(185000) }
-  const [hs, qc] = [figures['{p2:hs}'], figures['{p2:qc}']]
+  const [hs, qc] = [sar(310000), sar(185000)]
+  const { [FIG_827.hsOrders]: _hsOrders, [FIG_827.qcOrders]: _qcOrders, ...kept } = answer.figures
+  const figures = { ...kept, ...figureWords({ [FIG_834.hsSales]: hs, [FIG_834.qcSales]: qc }) }
   // The summary is written from the same run's figures (net sales, not 827's orders).
   const summary = answer.summary.text ? { text: label(`HungerStation outsold QC (${hs} against ${qc}) but cancelled more often.`, `تفوقت هنقرستيشن على QC في المبيعات (${hs} مقابل ${qc}) لكن نسبة إلغائها أعلى.`) } : answer.summary
   return { ...answer, figures, summary }

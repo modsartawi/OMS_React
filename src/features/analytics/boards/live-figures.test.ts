@@ -17,98 +17,107 @@ const def = (measures: string[], series?: AnalyticsViewDefinition['series']): An
   ...(series ? { series } : {}),
 })
 
+// 835 live walk (BackOffice 3408 §F, the authority): a token is {{fig:<panel>:<measure>}} or
+// {{fig:<panel>:<measure>:<series>}}; the Words door keys each figure by the token as written and answers
+// { value, formatted { en, ar } }.
 describe('live figure tokens', () => {
-  it('parses every {panel:figure} token in a text, in order', () => {
-    expect(tokensIn('HungerStation sold {p2:hs} against {p2:qc}; total {p1:total}.')).toEqual([
-      { token: '{p2:hs}', panel: 'p2', figure: 'hs' },
-      { token: '{p2:qc}', panel: 'p2', figure: 'qc' },
-      { token: '{p1:total}', panel: 'p1', figure: 'total' },
+  it('parses every {{fig:…}} token in a text, in order', () => {
+    expect(tokensIn('HungerStation sold {{fig:p2:net_value:hs}} against {{fig:p2:net_value:qc}}; total {{fig:p1:net_value}}.')).toEqual([
+      { token: '{{fig:p2:net_value:hs}}', panel: 'p2', figure: 'net_value:hs', measure: 'net_value', series: 'hs' },
+      { token: '{{fig:p2:net_value:qc}}', panel: 'p2', figure: 'net_value:qc', measure: 'net_value', series: 'qc' },
+      { token: '{{fig:p1:net_value}}', panel: 'p1', figure: 'net_value', measure: 'net_value', series: null },
     ])
   })
 
-  it('reads braces that are not a token as text', () => {
-    expect(tokensIn('a {b} c {P1:x} {p1:}')).toEqual([])
+  it('reads braces that are not a token as text — the web’s earlier {panel:figure} included', () => {
+    expect(tokensIn('a {b} c {p1:total} {{fig:p1}} {{fig:p1:}} {{p1:x}}')).toEqual([])
   })
 
-  it('fills each token from the Words answer, keeping the text around it', () => {
-    expect(fillTokens('Tills took {p1:total} in the period.', { '{p1:total}': 'SAR 1,250,000' })).toEqual([
+  it('fills each token from the Words answer in the reader’s language, keeping the text around it', () => {
+    const figures = { '{{fig:p1:net_value}}': { en: 'SAR 1,250,000', ar: '1,250,000 SAR' } }
+    expect(fillTokens('Tills took {{fig:p1:net_value}} in the period.', figures, 'en')).toEqual([
       { kind: 'text', text: 'Tills took ' },
-      { kind: 'figure', token: '{p1:total}', value: 'SAR 1,250,000' },
+      { kind: 'figure', token: '{{fig:p1:net_value}}', value: 'SAR 1,250,000' },
       { kind: 'text', text: ' in the period.' },
     ])
+    expect(fillTokens('{{fig:p1:net_value}}', figures, 'ar')).toEqual([{ kind: 'figure', token: '{{fig:p1:net_value}}', value: '1,250,000 SAR' }])
   })
 
-  it('accepts a figure keyed without its braces (panel:figure)', () => {
-    expect(fillTokens('{p3:hs}', { 'p3:hs': '4.2%' })).toEqual([{ kind: 'figure', token: '{p3:hs}', value: '4.2%' }])
+  it('an Arabic figure the answer left blank reads its English', () => {
+    expect(fillTokens('{{fig:p3:rate:hs}}', { '{{fig:p3:rate:hs}}': { en: '4.2%', ar: '' } }, 'ar')).toEqual([{ kind: 'figure', token: '{{fig:p3:rate:hs}}', value: '4.2%' }])
   })
 
   it('renders a figure the answer lacks as missing — never the raw token as text', () => {
-    const parts = fillTokens('Rates were {p3:hs} and {p3:qc}.', { '{p3:hs}': '4.2%' })
+    const parts = fillTokens('Rates were {{fig:p3:rate:hs}} and {{fig:p3:rate:qc}}.', { '{{fig:p3:rate:hs}}': label('4.2%') }, 'en')
     expect(parts).toEqual([
       { kind: 'text', text: 'Rates were ' },
-      { kind: 'figure', token: '{p3:hs}', value: '4.2%' },
+      { kind: 'figure', token: '{{fig:p3:rate:hs}}', value: '4.2%' },
       { kind: 'text', text: ' and ' },
-      { kind: 'missing', token: '{p3:qc}' },
+      { kind: 'missing', token: '{{fig:p3:rate:qc}}' },
       { kind: 'text', text: '.' },
     ])
-    expect(parts.filter((p) => p.kind === 'text').some((p) => p.text.includes('{p3:qc}'))).toBe(false)
+    expect(parts.filter((p) => p.kind === 'text').some((p) => p.text.includes('{{fig'))).toBe(false)
   })
 
   it('marks every token pending while no answer has come', () => {
-    expect(fillTokens('{p1:total}!', null)).toEqual([
-      { kind: 'pending', token: '{p1:total}' },
+    expect(fillTokens('{{fig:p1:net_value}}!', null, 'en')).toEqual([
+      { kind: 'pending', token: '{{fig:p1:net_value}}' },
       { kind: 'text', text: '!' },
     ])
   })
 
-  it('treats an empty figure as missing', () => {
-    expect(fillTokens('{p1:total}', { '{p1:total}': '' })).toEqual([{ kind: 'missing', token: '{p1:total}' }])
+  it('treats an empty figure (a selection with no data) as missing', () => {
+    expect(fillTokens('{{fig:p1:net_value}}', { '{{fig:p1:net_value}}': label('') }, 'en')).toEqual([{ kind: 'missing', token: '{{fig:p1:net_value}}' }])
   })
 })
 
 describe('figuresOf', () => {
-  it('offers one figure per named series', () => {
+  it('offers each measure for each named series (there is no total across series)', () => {
     const series = [
       { id: 'hs', label: label('HungerStation'), filters: [] },
       { id: 'qc', label: label('QC'), filters: [] },
     ]
-    expect(figuresOf(def(['cancellation_rate'], series), model).map((f) => f.figure)).toEqual(['hs', 'qc'])
+    expect(figuresOf(def(['cancellation_rate', 'net_value'], series), model).map((f) => f.figure)).toEqual([
+      'cancellation_rate:hs',
+      'cancellation_rate:qc',
+      'net_value:hs',
+      'net_value:qc',
+    ])
   })
 
-  it('offers the total of an additive measure', () => {
-    expect(figuresOf(def(['net_value']), model)).toEqual([{ figure: 'total', series: null }])
-  })
-
-  it('offers no single value for a rate without series (a rate has no total)', () => {
-    expect(figuresOf(def(['cancellation_rate']), model)).toEqual([])
+  it('offers each measure over the panel’s whole selection — a rate too (the server computes it Σ÷Σ)', () => {
+    expect(figuresOf(def(['net_value', 'cancellation_rate']), model)).toEqual([
+      { figure: 'net_value', measure: 'net_value', series: null },
+      { figure: 'cancellation_rate', measure: 'cancellation_rate', series: null },
+    ])
   })
 })
 
 describe('the designer’s tokens (829)', () => {
   it('a KPI offers its one figure whatever its shape', () => {
     const kpi: AnalyticsViewDefinition = { chart: { type: 'kpi' }, query: { measures: ['cancellation_rate'], dimensions: [], filters: [] } }
-    expect(figuresOf(kpi, model)).toEqual([{ figure: 'total', series: null }])
+    expect(figuresOf(kpi, model)).toEqual([{ figure: 'cancellation_rate', measure: 'cancellation_rate', series: null }])
   })
 
   it('inserting a chip writes its token, spaced from the words around it', () => {
-    const token = figureToken('p2', 'hs')
-    expect(token).toBe('{p2:hs}')
-    expect(insertToken('HungerStation took orders', token, 18)).toEqual({ text: 'HungerStation took {p2:hs} orders', caret: 26 })
-    expect(insertToken('', token)).toEqual({ text: '{p2:hs}', caret: 7 })
-    expect(insertToken('Took ', token).text).toBe('Took {p2:hs}')
-    expect(insertToken('Took', token, 4).text).toBe('Took {p2:hs}')
-    expect(insertToken('Took.', token, 4).text).toBe('Took {p2:hs}.')
+    const token = figureToken('p2', 'orders:hs')
+    expect(token).toBe('{{fig:p2:orders:hs}}')
+    expect(insertToken('HungerStation took orders', token, 18)).toEqual({ text: 'HungerStation took {{fig:p2:orders:hs}} orders', caret: 39 })
+    expect(insertToken('', token)).toEqual({ text: token, caret: token.length })
+    expect(insertToken('Took ', token).text).toBe(`Took ${token}`)
+    expect(insertToken('Took', token, 4).text).toBe(`Took ${token}`)
+    expect(insertToken('Took.', token, 4).text).toBe(`Took ${token}.`)
   })
 
   it('never inserts inside another token', () => {
-    expect(insertToken('{p1:total} sold', '{p2:hs}', 3).text).toBe('{p1:total} {p2:hs} sold')
+    expect(insertToken('{{fig:p1:net_value}} sold', '{{fig:p2:orders:hs}}', 6).text).toBe('{{fig:p1:net_value}} {{fig:p2:orders:hs}} sold')
   })
 
   it('the text ↔ chip round-trip is exact', () => {
-    const text = 'HungerStation took {p2:hs} against {p2:qc}.\n{p1:total} in all'
+    const text = 'HungerStation took {{fig:p2:orders:hs}} against {{fig:p2:orders:qc}}.\n{{fig:p1:net_value}} in all'
     const segs = chipSegments(text)
     expect(segs.map((s) => s.kind)).toEqual(['text', 'chip', 'text', 'chip', 'text', 'chip', 'text'])
-    expect(segs[1]).toEqual({ kind: 'chip', token: '{p2:hs}', panel: 'p2', figure: 'hs' })
+    expect(segs[1]).toEqual({ kind: 'chip', token: '{{fig:p2:orders:hs}}', panel: 'p2', figure: 'orders:hs' })
     expect(chipsText(segs)).toBe(text)
     expect(chipsText(chipSegments(''))).toBe('')
     // A brace that is no token stays words.

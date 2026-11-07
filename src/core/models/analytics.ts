@@ -478,7 +478,7 @@ export type AnalyticsBoard = Omit<AnalyticsItem, 'definition' | 'kind'> & { kind
 
 /**
  * A report block: a **panel** (an inline view definition — never a reference — with its provenance when it was
- * copied from a saved view), a **text** block (`{en, ar}` holding live-figure tokens `{panel:figure}`), or the
+ * copied from a saved view), a **text** block (`{en, ar}` holding live-figure tokens `{{fig:<panel>:<measure>[:<series>]}}`), or the
  * **summary** block (at most one per report). A panel's id is the `panelId` its query and its tokens name.
  */
 export type AnalyticsReportBlock =
@@ -518,13 +518,13 @@ export interface AnalyticsReportWordsRequest {
 }
 
 /**
- * 827: the Words answer (⚠ proposed). `figures`: each live-figure token (`{p1:total}`) → its value formatted to
- * the panel's display format. `summary`: the AI summary in both languages, or `unavailable` with the reason
- * (the number check failed, or the AI was not reached) — which drops the summary alone. `null` when the report
- * has no summary block.
+ * 827: the Words answer (BackOffice 3408 §F). `figures`: each live-figure token as written
+ * (`{{fig:p1:net_value}}`) → its value's words in both languages, formatted by the measure's unit. `summary`: the
+ * AI summary in both languages, or `unavailable` with the reason (the number check failed, or the AI was not
+ * reached) — which drops the summary alone. `null` when the report has no summary block.
  */
 export interface AnalyticsReportWords {
-  figures: Record<string, string>
+  figures: Record<string, AnalyticsLabel>
   summary: { text: AnalyticsLabel } | { unavailable: string } | null
 }
 

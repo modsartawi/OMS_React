@@ -61,7 +61,7 @@ export function sampleReport(): SampleReport {
           heading: label('Sales by channel', 'المبيعات حسب القناة'),
           blocks: [
             panel('p1', label('Net sales by channel', 'صافي المبيعات حسب القناة'), view('bar', [NET_SALES], [CHANNEL])),
-            { id: 't1', kind: 'text', text: label('Across every channel the tills took {p1:total} in the period.', 'حصّلت نقاط البيع {p1:total} عبر جميع القنوات خلال الفترة.') },
+            { id: 't1', kind: 'text', text: label('Across every channel the tills took {{fig:p1:till_value}} in the period.', 'حصّلت نقاط البيع {{fig:p1:till_value}} عبر جميع القنوات خلال الفترة.') },
           ],
         },
         {
@@ -74,8 +74,8 @@ export function sampleReport(): SampleReport {
               id: 't2',
               kind: 'text',
               text: label(
-                'HungerStation sold {p2:hs} against QC’s {p2:qc}. Their cancellation rates were {p3:hs} and {p3:qc}.',
-                'باعت هنقرستيشن بقيمة {p2:hs} مقابل {p2:qc} لـ QC. وكانت نسبتا الإلغاء {p3:hs} و{p3:qc}.',
+                'HungerStation sold {{fig:p2:till_value:hs}} against QC’s {{fig:p2:till_value:qc}}. Their cancellation rates were {{fig:p3:cancellation_rate:hs}} and {{fig:p3:cancellation_rate:qc}}.',
+                'باعت هنقرستيشن بقيمة {{fig:p2:till_value:hs}} مقابل {{fig:p2:till_value:qc}} لـ QC. وكانت نسبتا الإلغاء {{fig:p3:cancellation_rate:hs}} و{{fig:p3:cancellation_rate:qc}}.',
               ),
             },
           ],

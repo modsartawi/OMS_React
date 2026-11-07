@@ -246,10 +246,19 @@ export function readReport(raw: Loose): AnalyticsReport {
   } as AnalyticsReport
 }
 
-/** 827: the Words answer — only string figures; the summary written (`text`), `unavailable` with its reason, or none. */
+/**
+ * 827: the Words answer. Each figure is the server's `{ value, formatted { en, ar } }` (3408 §F; the 835 live walk) —
+ * its words are kept, a bare string reads as both languages, and one with no words (a selection with no data) or of
+ * another shape is dropped, so it reads "figure unavailable". The summary: written (`text`), `unavailable` with its
+ * reason, or none.
+ */
 export function readWords(raw: unknown): AnalyticsReportWords {
   const w = obj(raw)
-  const figures = Object.fromEntries(Object.entries(obj(w.figures)).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  const figures: Record<string, AnalyticsLabel> = {}
+  for (const [token, v] of Object.entries(obj(w.figures))) {
+    const words = typeof v === 'string' ? { en: v, ar: v } : v && typeof v === 'object' && 'formatted' in v ? said(obj(v).formatted) : null
+    if (words && (words.en || words.ar)) figures[token] = words
+  }
   const s = w.summary && typeof w.summary === 'object' ? obj(w.summary) : null
   const summary = !s ? null : s.text && typeof s.text === 'object' ? { text: said(s.text) } : { unavailable: str(s.unavailable) }
   return { figures, summary }

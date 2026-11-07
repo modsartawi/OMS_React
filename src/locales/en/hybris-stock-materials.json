@@ -1,0 +1,127 @@
+{
+  "title": "Hybris stock materials",
+  "subtitle": "The materials whose stock OMS sends to the website (Hybris) for every Hybris stock store.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Hybris stock",
+    "deniedHint": "Your account does not hold the Hybris stock view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "neverDeletes": "An upload adds and updates materials but never removes one: a material missing from the file stays on the list as it is. Disable a material to stop sending it.",
+  "filters": {
+    "enabled": "State",
+    "enabledAny": "All materials",
+    "enabledOnly": "Enabled",
+    "disabledOnly": "Disabled",
+    "q": "Search",
+    "qPlaceholder": "Material number or name",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "results": {
+    "loading": "Loading materials…",
+    "failedTitle": "The materials could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No material matches.",
+    "count_one": "<n>{{n}}</n> material",
+    "count_other": "<n>{{n}}</n> materials",
+    "viewOnly": "View only: editing the list needs the Hybris stock manage grant."
+  },
+  "columns": {
+    "material": "Material",
+    "name": "Name",
+    "enabled": "State",
+    "addedAt": "Added at",
+    "addedBy": "Added by",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
+    "actions": "Actions"
+  },
+  "state": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "download": {
+    "button": "Download list",
+    "failed": "The list could not be downloaded"
+  },
+  "add": {
+    "button": "Add material",
+    "title": "Add a material",
+    "note": "The material is added enabled. The next delta sends it for every Hybris stock store, whether or not its stock changed.",
+    "number": "Material number",
+    "numberHint": "Digits only, as the material master holds it.",
+    "confirm": "Add material",
+    "failed": "The material could not be added.",
+    "done": "Material added",
+    "doneDetail": "Material {{material}} is on the list."
+  },
+  "enable": {
+    "button": "Enable",
+    "title": "Enable this material",
+    "note": "<material>{{material}}</material> is sent again, for every Hybris stock store, in the next delta.",
+    "confirm": "Enable",
+    "done": "Material enabled",
+    "doneDetail": "Material {{material}} goes out in the next delta."
+  },
+  "disable": {
+    "button": "Disable",
+    "title": "Disable this material",
+    "note": "<material>{{material}}</material> drops out of the files. Hybris keeps the stock it was last sent for it.",
+    "confirm": "Disable",
+    "done": "Material disabled",
+    "doneDetail": "Material {{material}} is no longer sent."
+  },
+  "upload": {
+    "button": "Upload list",
+    "title": "Upload a material list",
+    "note": "Nothing changes until you commit. An upload adds new materials and updates existing ones, and never removes a material missing from the file.",
+    "shape": "CSV or XLSX: a material number column, and an optional enabled column (1 / 0, true / false, yes / no).",
+    "pick": "Choose file",
+    "pickAnother": "Choose another file",
+    "reading": "Reading the file…",
+    "file": "Material list file",
+    "readFailed": "The file could not be read.",
+    "groups": "Preview groups",
+    "outcome": {
+      "new": "New <n>{{n}}</n>",
+      "changed": "Changed <n>{{n}}</n>",
+      "unchanged": "Unchanged <n>{{n}}</n>",
+      "refused": "Refused <n>{{n}}</n>"
+    },
+    "refusalTally": {
+      "unknownMaterial": "{{n}} not a known material",
+      "malformed": "{{n}} not a material number",
+      "badEnabled": "{{n}} with an enabled value that is not one",
+      "repeated": "{{n}} repeated in the file",
+      "other": "{{n}} refused for another reason"
+    },
+    "refusal": {
+      "unknownMaterial": "Not a known material",
+      "malformed": "Not a material number",
+      "badEnabled": "The enabled value is not 1 / 0, true / false or yes / no",
+      "repeated": "Already earlier in the file",
+      "other": "Refused"
+    },
+    "change": {
+      "enable": "Will be enabled",
+      "disable": "Will be disabled"
+    },
+    "isEnabled": "Enabled",
+    "isDisabled": "Disabled",
+    "mismatch": "The server's counts differ from its rows; the rows are shown.",
+    "nothing": "Nothing in this file changes the list.",
+    "groupEmpty": "No row in this group.",
+    "line": "Line",
+    "material": "Material",
+    "name": "Name",
+    "enabled": "Enabled",
+    "why": "Why refused",
+    "confirm": "Commit {{n}} changes",
+    "confirmIdle": "Commit",
+    "gone": "This preview is gone (it expired, or it was committed). Choose the file again.",
+    "done": "Material list updated",
+    "doneDetail": "{{added}} added, {{changed}} changed."
+  }
+}

@@ -1349,6 +1349,13 @@ export const MENU: ShellMenuItem[] = [
         activePrefix: '/hybris-stock/stores',
         access: hybrisStockProbe(canViewHybrisStock),
       },
+      {
+        labelKey: 'hybris-stock-stores:menu.materials',
+        icon: PackageSearch,
+        routerLink: '/hybris-stock/materials',
+        activePrefix: '/hybris-stock/materials',
+        access: hybrisStockProbe(canViewHybrisStock),
+      },
     ],
   },
   // Insurance rules (BackOffice spec 3126, oms 607), LAST: declared in `./menu-insurance-rules`, where 608–617

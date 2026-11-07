@@ -35,7 +35,7 @@ import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
-import { readRun, readRuns, readSchedule, readSchedules } from './schedule'
+import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readBoard, readItem, readItems, readMembers, readModel, readReport, readResult, readWords } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
@@ -201,11 +201,11 @@ export const analyticsApi = {
   },
   /** `POST …/Schedules` — `ANALYTICS-414` names each refused recipient (`refusedRecipients`). Answers the schedule. */
   async createSchedule(reportId: string, body: AnalyticsScheduleWrite): Promise<AnalyticsSchedule> {
-    return readSchedule(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules`, body))
+    return readSchedule(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules`, scheduleBody(body)))
   },
   /** `PUT …/Schedules/{sid}` — an edit, or enable / pause. `ANALYTICS-414` as on create. Answers the schedule. */
   async updateSchedule(reportId: string, sid: string, body: AnalyticsScheduleWrite): Promise<AnalyticsSchedule> {
-    return readSchedule(await api.put<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}`, body))
+    return readSchedule(await api.put<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}`, scheduleBody(body)))
   },
   async deleteSchedule(reportId: string, sid: string): Promise<void> {
     await api.del<unknown>(`Analytics/Report/${encodeURIComponent(reportId)}/Schedules/${encodeURIComponent(sid)}`)

@@ -614,8 +614,8 @@ export interface AnalyticsHealth {
 /** Weekdays as the server's Sunday weeks count them: 0 is Sunday … 6 is Saturday. */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
-/** Daily, weekly on chosen days, or monthly on a day (1–28, so every month has it). */
-export type AnalyticsScheduleCadence = { kind: 'daily' } | { kind: 'weekly'; days: Weekday[] } | { kind: 'monthly'; day: number }
+/** Daily, weekly on chosen days, or monthly on a day (1–28, so every month has it) or its last day (3408 §G). */
+export type AnalyticsScheduleCadence = { kind: 'daily' } | { kind: 'weekly'; days: Weekday[] } | { kind: 'monthly'; day: number | 'last' }
 
 /**
  * Why a schedule is suspended (not deleted): its owner lost the run or author grant (`ownerGrant`, resumed by a
@@ -649,9 +649,9 @@ export type AnalyticsRunTrigger = 'schedule' | 'late' | 'sendNow'
 
 /**
  * How a run ended: sent; sent with the HTML alone (the PDF render failed: "charts unavailable"); stopped on
- * `ANALYTICS-412`; a missed slot skipped (never sent twice); or failed to send.
+ * `ANALYTICS-412`; a missed slot skipped (never sent twice); or failed to send. `open`: queued, not yet sent.
  */
-export type AnalyticsRunOutcome = 'sent' | 'chartsUnavailable' | 'stopped' | 'skipped' | 'failed'
+export type AnalyticsRunOutcome = 'sent' | 'chartsUnavailable' | 'stopped' | 'skipped' | 'failed' | 'open'
 
 /**
  * One kept run (`GET …/Runs`, `GET Analytics/ReportRun/{runId}`): the record is kept for good, the HTML and PDF for 90

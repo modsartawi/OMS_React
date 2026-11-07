@@ -24,7 +24,7 @@ import { isGone } from './schedule'
 import { FilterChips } from './TvMode'
 import { analyticsErrorWords } from './wire'
 
-const OUTCOME_SEV: Record<AnalyticsRunOutcome, Severity> = { sent: 'ok', chartsUnavailable: 'warn', stopped: 'bad', skipped: 'mute', failed: 'bad' }
+const OUTCOME_SEV: Record<AnalyticsRunOutcome, Severity> = { sent: 'ok', chartsUnavailable: 'warn', stopped: 'bad', skipped: 'mute', failed: 'bad', open: 'mute' }
 
 /**
  * A report's kept runs at `/analytics/report/:id/runs` (spec 819 §C/§E, ticket 833): each sent run's date, trigger,

@@ -81,10 +81,11 @@ const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const words = (v: unknown): AnalyticsLabel => (typeof v === 'string' ? { en: v, ar: v } : { en: text(rec(v).en), ar: text(rec(v).ar) })
 
+/** A role; the server (3408 §B) names it by `name` and labels it with one string, read in both languages. */
 function readRole(v: unknown): AnalyticsAudienceRole {
   if (typeof v === 'string') return { key: v, label: { en: '', ar: '' }, removed: false }
   const r = rec(v)
-  return { key: text(r.key), label: words(r.label), removed: r.removed === true }
+  return { key: text(r.key) || text(r.name), label: words(r.label), removed: r.removed === true }
 }
 /** A user (a bare id reads as itself). 833: a report's candidates also carry `email`, `canRun` and `inAudience`, kept only when sent. */
 export function readUser(v: unknown): AnalyticsAudienceUser {
@@ -108,8 +109,15 @@ export function readAudience(raw: unknown): AnalyticsAudience | undefined {
   return { everyone: false, roles: list(a.roles).map(readRole).filter((r) => r.key), users: list(a.users).map(readUser).filter((u) => u.id) }
 }
 
-/** `GET Analytics/AudienceCandidates` — `{ roles, users }`, each list empty when absent. */
+/**
+ * `GET Analytics/AudienceCandidates` — the server (3408 §B) answers one flat list of `{ kind: role | user, … }`,
+ * split here by kind; a `{ roles, users }` object reads too. Each list is empty when absent.
+ */
 export function readCandidates(raw: unknown): AnalyticsAudienceCandidates {
+  if (Array.isArray(raw)) {
+    const of = (kind: string) => raw.filter((m) => rec(m).kind === kind)
+    return { roles: of('role').map(readRole).filter((r) => r.key), users: of('user').map(readUser).filter((u) => u.id) }
+  }
   const c = rec(raw)
   return { roles: list(c.roles).map(readRole).filter((r) => r.key), users: list(c.users).map(readUser).filter((u) => u.id) }
 }

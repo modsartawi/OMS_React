@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import { cadenceSummary, readRun, readSchedule, RECIPIENT_CAP, recipientBar, recipientFilter, refusedRecipients, isGone } from './schedule'
+import { cadenceSummary, readRun, readSchedule, RECIPIENT_CAP, recipientBar, recipientFilter, refusedRecipients, isGone, scheduleBody } from './schedule'
 
 // A `t` that shows the key and what it was given, so the test sees exactly what reaches the sentence.
 const t = (key: string, opts?: Record<string, unknown>) => (opts ? `${key}${JSON.stringify(opts)}` : key)
@@ -41,7 +41,7 @@ describe('recipientBar: why a candidate cannot receive the report, or null', () 
     expect(recipientBar(user('nalharbi'), shared(['NAlharbi']))).toBeNull()
   })
 
-  it('outside the audience is barred, and so is an unflagged one (absent reads as no)', () => {
+  it('outside the audience is barred, and so is an unflagged one when the audience names no role', () => {
     expect(recipientBar(user('kalotaibi', { inAudience: false }), shared())).toBe('audience')
     expect(recipientBar(user('kalotaibi'), shared())).toBe('audience')
   })
@@ -58,15 +58,16 @@ describe('recipientBar: why a candidate cannot receive the report, or null', () 
     expect(recipientBar(user('nalharbi', { inAudience: true }), personal)).toBe('audience')
   })
 
-  it('without the run grant is barred, absent included', () => {
+  it('without the run grant is barred; a grant the server did not say is the save’s to check', () => {
     expect(recipientBar(user('sqahtani', { inAudience: true, canRun: false }), shared())).toBe('runGrant')
-    expect(recipientBar({ id: 'sqahtani', name: '', employeeId: '', email: 'sqahtani@al-dawaa.com.sa', inAudience: true }, shared())).toBe('runGrant')
+    expect(recipientBar({ id: 'sqahtani', name: '', employeeId: '', email: 'sqahtani@al-dawaa.com.sa', inAudience: true }, shared())).toBeNull()
   })
 
-  it('only a company address: another domain, a subdomain, a look-alike or none is barred', () => {
-    for (const email of ['s@gmail.com', 's@mail.al-dawaa.com.sa', 's@al-dawaa.com.sa.evil.io', '@al-dawaa.com.sa', '', undefined]) {
+  it('only a company address: another domain, a subdomain, a look-alike or none is barred; an unsent one is the save’s to check', () => {
+    for (const email of ['s@gmail.com', 's@mail.al-dawaa.com.sa', 's@al-dawaa.com.sa.evil.io', '@al-dawaa.com.sa', '']) {
       expect(recipientBar(user('s', { inAudience: true, email }), shared())).toBe('address')
     }
+    expect(recipientBar({ id: 's', name: '', employeeId: '', canRun: true, inAudience: true }, shared())).toBeNull()
     expect(recipientBar(user('s', { inAudience: true, email: ' S.Q@Al-Dawaa.com.sa ' }), shared())).toBeNull()
   })
 })
@@ -141,6 +142,69 @@ describe('readSchedule / readRun: the proposed wire, read defensively', () => {
 
   it('an unknown trigger reads as the schedule, an unknown outcome as failed', () => {
     expect(readRun({ id: 'r', trigger: 'x', outcome: 'y' })).toMatchObject({ trigger: 'schedule', outcome: 'failed' })
+  })
+})
+
+describe('the server’s wire (BackOffice 3408 §G, confirmed live in 835)', () => {
+  const refusal414 = (data: unknown) => new ApiError('business', 'Invalid recipients.', 400, [{ errorCode: 'ANALYTICS-414', internalErrorCode: '', errorMessage: 'Invalid recipients.' }], data)
+
+  it('weekly days come as sun … sat, monthly as a day or last; recipients as { id, name }', () => {
+    expect(readSchedule({ id: 's1', cadence: { kind: 'weekly', days: ['sun', 'tue', 'xyz', 'sat'] }, time: '07:00', recipients: [{ id: '14419', name: 'M' }, { name: 'no id' }] })).toMatchObject({
+      cadence: { kind: 'weekly', days: [0, 2, 6] },
+      recipients: ['14419'],
+    })
+    expect(readSchedule({ id: 's2', cadence: { kind: 'monthly', day: 'last' } }).cadence).toEqual({ kind: 'monthly', day: 'last' })
+    expect(readSchedule({ id: 's3', cadence: { kind: 'monthly', day: 15 } }).cadence).toEqual({ kind: 'monthly', day: 15 })
+  })
+
+  it('a suspension for a lost grant reads as ownerGrant, whichever grant', () => {
+    expect(readSchedule({ id: 's', suspended: { reason: 'ownerNoRun', at: '2026-11-07T07:00:00' } }).suspended).toEqual({ reason: 'ownerGrant' })
+    expect(readSchedule({ id: 's', suspended: { reason: 'ownerNoAuthor', at: '' } }).suspended).toEqual({ reason: 'ownerGrant' })
+  })
+
+  it('the write sends weekly days as sun … sat, and a monthly day or last as is', () => {
+    const base = { time: '07:00', values: {}, lang: 'en' as const, recipients: ['14419'], enabled: true }
+    expect(scheduleBody({ ...base, cadence: { kind: 'weekly', days: [0, 2, 6] } })).toEqual({ ...base, cadence: { kind: 'weekly', days: ['sun', 'tue', 'sat'] } })
+    expect(scheduleBody({ ...base, cadence: { kind: 'monthly', day: 'last' } }).cadence).toEqual({ kind: 'monthly', day: 'last' })
+    expect(scheduleBody({ ...base, cadence: { kind: 'daily' } }).cadence).toEqual({ kind: 'daily' })
+  })
+
+  it('a 414 names each recipient with the server’s reason', () => {
+    const err = refusal414({ recipients: [{ id: 'a', reason: 'notInAudience' }, { id: 'b', reason: 'noRunGrant' }, { id: 'c', reason: 'noCompanyEmail' }, { id: 'd', reason: 'overLimit' }, { id: 'e', reason: 'new' }] })
+    expect(refusedRecipients(err)).toEqual([
+      { id: 'a', why: 'audience' },
+      { id: 'b', why: 'runGrant' },
+      { id: 'c', why: 'address' },
+      { id: 'd', why: 'cap' },
+      { id: 'e', why: null },
+    ])
+  })
+
+  it('a run: recipients { sent, dropped }, a plain summary, artefacts { html, pdf, expired }, slot and server outcomes', () => {
+    const run = readRun({
+      id: 'run-1', scheduleId: 'sch-1', reportId: 'r-1', slotKey: 'now:01J', trigger: 'slot', revision: 2, values: {}, lang: 'en', dataAsOf: '2026-11-06',
+      recipients: { sent: ['14419'], dropped: [{ id: '777', reason: 'notInAudience' }] },
+      outcome: 'sentWithoutCharts', summary: 'HungerStation led QC.', isProcessed: true, addedAt: '2026-11-07T07:00:00', processedAt: '2026-11-07T07:01:10',
+      artefacts: { html: true, pdf: false, expired: false, keptUntil: '2027-02-05T07:01:10' },
+    })
+    expect(run).toMatchObject({ trigger: 'schedule', outcome: 'chartsUnavailable', ranAt: '2026-11-07T07:01:10', summary: { en: 'HungerStation led QC.', ar: 'HungerStation led QC.' }, artefactsKept: true, hasPdf: false })
+    expect(run.recipients.map((u) => u.id)).toEqual(['14419'])
+    expect(run.dropped.map((u) => u.id)).toEqual(['777'])
+    expect(readRun({ id: 'r', outcome: 'missed' }).outcome).toBe('skipped')
+    expect(readRun({ id: 'r', artefacts: { html: true, pdf: true, expired: true } })).toMatchObject({ artefactsKept: false, hasPdf: false })
+  })
+
+  it('a run still open (Send now just queued) reads as open, at the time it was added', () => {
+    expect(readRun({ id: 'r', outcome: '', isProcessed: false, addedAt: '2026-11-07T07:00:00', processedAt: '' })).toMatchObject({ outcome: 'open', ranAt: '2026-11-07T07:00:00' })
+  })
+
+  it('a candidate the server cannot vouch for (no email, run grant or audience flag sent) is offered; the save’s 414 decides', () => {
+    const bare = { id: '14419', name: 'M', employeeId: '14419' }
+    expect(recipientBar(bare, { tier: 'certified', owner: 'x' })).toBeNull()
+    expect(recipientBar(bare, { tier: 'shared', owner: 'x', audience: { everyone: false, roles: [{ key: 'HQ', label: { en: '', ar: '' }, removed: false }], users: [] } })).toBeNull()
+    // …but what the web does know still bars: a Personal report is its owner’s, an audience of users only names them.
+    expect(recipientBar(bare, { tier: 'personal', owner: 'x' })).toBe('audience')
+    expect(recipientBar(bare, { tier: 'shared', owner: 'x', audience: { everyone: false, roles: [], users: [] } })).toBe('audience')
   })
 })
 

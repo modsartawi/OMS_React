@@ -109,3 +109,27 @@ describe('readAudience and readCandidates: the proposed wire, read defensively',
     expect(readCandidates({ roles: [{ key: 'A', label: { en: 'A', ar: 'أ' } }] }).roles).toEqual([{ key: 'A', label: { en: 'A', ar: 'أ' }, removed: false }])
   })
 })
+
+describe('the server’s wire (BackOffice 3408 §B, confirmed live in 835)', () => {
+  it('candidates come as one flat list of members, split by kind; a role’s key is its name, its label one string', () => {
+    const c = readCandidates([
+      { kind: 'role', id: null, name: 'ANALYTICS_HQ', label: 'HQ analysts', removed: false, employeeId: null },
+      { kind: 'role', name: 'GONE', label: '', removed: true },
+      { kind: 'user', id: '14419', name: 'Mohamed Sartawi', label: null, removed: null, employeeId: '14419' },
+      { kind: 'other', id: 'x' },
+    ])
+    expect(c.roles).toEqual([
+      { key: 'ANALYTICS_HQ', label: { en: 'HQ analysts', ar: 'HQ analysts' }, removed: false },
+      { key: 'GONE', label: { en: '', ar: '' }, removed: true },
+    ])
+    expect(c.users).toEqual([{ id: '14419', name: 'Mohamed Sartawi', employeeId: '14419' }])
+  })
+
+  it('an item’s audience names its roles the same way', () => {
+    expect(readAudience({ everyone: false, roles: [{ kind: 'role', name: 'ANALYTICS_HQ', label: 'HQ analysts', removed: false }], users: [] })).toEqual({
+      everyone: false,
+      roles: [{ key: 'ANALYTICS_HQ', label: { en: 'HQ analysts', ar: 'HQ analysts' }, removed: false }],
+      users: [],
+    })
+  })
+})

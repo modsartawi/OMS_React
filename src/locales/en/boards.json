@@ -870,11 +870,13 @@
       "monthly": "Monthly",
       "days": "On",
       "dayOfMonth": "Day of the month",
-      "dayOfMonthHint": "1 to 28, so every month has it.",
+      "dayOfMonthHint": "1 to 28, so every month has it, or its last day.",
+      "lastDay": "Last day",
       "summary": {
         "daily": "Every day at {{time}} (Riyadh time)",
         "weekly": "Every {{days}} at {{time}} (Riyadh time)",
         "monthly": "On day {{day}} of every month at {{time}} (Riyadh time)",
+        "monthlyLast": "On the last day of every month at {{time}} (Riyadh time)",
         "noDays": "Weekly, but no day is chosen"
       }
     },
@@ -954,7 +956,8 @@
       "chartsUnavailable": "Sent, charts unavailable",
       "stopped": "Stopped: a value no longer resolves",
       "skipped": "Skipped (missed slot)",
-      "failed": "Failed"
+      "failed": "Failed",
+      "open": "Sending…"
     },
     "dropped": "Dropped (left the audience): {{names}}",
     "html": "Email",

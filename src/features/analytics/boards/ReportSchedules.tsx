@@ -314,12 +314,13 @@ function ScheduleEditor({
         <div className="flex flex-wrap items-end gap-3">
           {c.kind === 'monthly' && (
             <Field label={t('schedule.cadence.dayOfMonth')} hint={t('schedule.cadence.dayOfMonthHint')}>
-              <Select value={String(c.day)} onChange={(e) => set({ cadence: { kind: 'monthly', day: Number(e.target.value) } })} className="w-24" data-schedule-month-day>
+              <Select value={String(c.day)} onChange={(e) => set({ cadence: { kind: 'monthly', day: e.target.value === 'last' ? 'last' : Number(e.target.value) } })} className="w-28" data-schedule-month-day>
                 {MONTH_DAYS.map((d) => (
                   <option key={d} value={d}>
                     {d}
                   </option>
                 ))}
+                <option value="last">{t('schedule.cadence.lastDay')}</option>
               </Select>
             </Field>
           )}

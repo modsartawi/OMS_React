@@ -6,26 +6,22 @@ import { newViewLink } from './editor'
 /**
  * The Catalog's author actions (ticket 843, BackOffice spec 3437 §G, stories 49–51). Pure: no React.
  *
- * "New view from this" (agent ruling 5): a dimension node → that dimension; a measure or area node → the date by day
- * (the preview's axis). The measure is the node's own, else the area's first (on a dimension node, the first that can
- * be cut by it). The seed rides in route state (`./editor` `newViewLink`).
+ * "New view from this" (story 49, agent ruling 5 as narrowed by the 3437 review): a measure or area node → the date by
+ * day (the preview's axis). The measure is the node's own, else the area's first. The seed rides in route state
+ * (`./editor` `newViewLink`).
  */
-export function newViewFrom(area: AnalyticsCatalogArea, node: { measure?: string; dimension?: string }) {
-  const byDay = !node.dimension
-  const axis = node.dimension ?? 'date'
-  const measure =
-    area.measures.find((m) => m.key === node.measure) ??
-    (byDay ? area.measures[0] : area.measures.find((m) => m.dimensions.includes(axis)) ?? area.measures[0])
-  const dimensions = measure && measure.dimensions.includes(axis) ? [axis] : []
+export function newViewFrom(area: AnalyticsCatalogArea, measure?: string) {
+  const m = area.measures.find((x) => x.key === measure) ?? area.measures[0]
+  const dimensions = m && m.dimensions.includes('date') ? ['date'] : []
   return newViewLink({
     definition: {
-      chart: { type: byDay ? 'line' : 'bar' },
+      chart: { type: 'line' },
       query: {
-        measures: measure ? [measure.key] : [],
+        measures: m ? [m.key] : [],
         dimensions,
         filters: [],
         period: PREVIEW_PERIOD,
-        grain: byDay && dimensions.length > 0 ? 'day' : null,
+        grain: dimensions.length > 0 ? 'day' : null,
       },
     },
   })

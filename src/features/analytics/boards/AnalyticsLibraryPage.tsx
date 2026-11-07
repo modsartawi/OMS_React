@@ -23,7 +23,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
-import { ANALYTICS_CATALOG_KEY, ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
+import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsCatalogQuery, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
 import { LIBRARY_DRAG_TYPE, libraryItems, libraryItemsQuery, type LibraryChoice, type LibraryFolder } from './library'
 import { libraryPagePath, pageNarrows, pageQuery, pageShows, type LibraryPage } from './library-pages'
@@ -66,13 +66,13 @@ export default function AnalyticsLibraryPage({ page = 'library' }: { page?: Excl
   const subtitle = t(`pages.${page}.subtitle`)
   return (
     <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={title} subtitle={subtitle}>
-      <HomeBody page={page} />
+      <LibraryBody page={page} />
     </ScreenGate>
   )
 }
 
 /** The title an untitled view is shown (and found) by, in both languages: "<measure> by <dimension>". */
-function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined): AnalyticsLabel {
+function untitledViewTitle(item: AnalyticsItem, model: AnalyticsModel | undefined): AnalyticsLabel {
   const q = item.definition.query
   const m = measureOf(model, q.measures[0])
   const d = dimensionOf(model, q.dimensions[0])
@@ -84,8 +84,8 @@ function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined):
 
 const SEARCH_DEBOUNCE_MS = 300
 
-function HomeBody({ page }: { page: LibraryPage }) {
-  const { t } = useTranslation('boards')
+function LibraryBody({ page }: { page: LibraryPage }) {
+  const { t, i18n } = useTranslation('boards')
   const navigate = useNavigate()
   // 837: the library's choice (folder, chips, search) lives in the URL, so a refresh or Back keeps it. 839: what
   // the page's route fixes is laid over it.
@@ -120,7 +120,7 @@ function HomeBody({ page }: { page: LibraryPage }) {
 
   const fallback = useMemo(() => {
     const m = model.data
-    return (it: AnalyticsItem) => generatedTitle(it, m)
+    return (it: AnalyticsItem) => untitledViewTitle(it, m)
   }, [model.data])
   // 837: one list, newest change first — the who chips now say what the tier groups used to.
   const list = useMemo(() => libraryItems(items.data ?? [], shown, me, today, fallback), [items.data, shown, me, today, fallback])
@@ -251,8 +251,8 @@ function HomeBody({ page }: { page: LibraryPage }) {
  * narrowed until the server takes it. The area's name comes from the catalog (asked only while the chip shows).
  */
 function AreaChip({ areaKey, onRemove }: { areaKey: string; onRemove: () => void }) {
-  const { t } = useTranslation('boards')
-  const catalog = useQuery({ queryKey: ANALYTICS_CATALOG_KEY, queryFn: () => analyticsApi.catalog(), staleTime: 60_000, retry: false })
+  const { t, i18n } = useTranslation('boards')
+  const catalog = useQuery(analyticsCatalogQuery())
   const area = catalog.data?.areas.find((a) => a.key === areaKey)
   const name = (area && saysIn(area.label, i18n.language)) || areaKey
   return (
@@ -290,7 +290,7 @@ function HomeRow({
   folders: readonly AnalyticsFolder[] | null
   onFile: (into: AnalyticsFolder | null) => void
 }) {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const lang = i18n.language
   const KindIcon = kindIcon(item.kind)
   const changed = formatPair(formatDay(item.updatedAt, lang), formatClock(item.updatedAt, lang))
@@ -349,7 +349,7 @@ function HomeRow({
 
 /** 837: a Recently deleted row — not a link (a deleted item does not open); Restore puts it back (3432 §3). */
 function DeletedRow({ item, title, pending, onRestore }: { item: AnalyticsItem; title: string; pending: boolean; onRestore: () => void }) {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const lang = i18n.language
   const KindIcon = kindIcon(item.kind)
   const deleted = item.deletedAt ? formatPair(formatDay(item.deletedAt, lang), formatClock(item.deletedAt, lang)) : ''

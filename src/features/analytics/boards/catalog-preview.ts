@@ -27,10 +27,16 @@ export const previewChoice = (measure?: string): PreviewChoice => ({ period: PRE
 
 export const withPreviewPeriod = (choice: PreviewChoice, period: string): PreviewChoice => ({ ...choice, period })
 
-/** The body: the area, the period, and only the lists that narrow — category dimensions only (`date` is the server's). */
+/**
+ * The dimensions the column chooser offers: the category ones, as the server's default takes them
+ * (`AnalyticsCatalogPreview`) — the date is the day axis, and another time dimension is not a category.
+ */
+export const previewDimensions = (area: AnalyticsCatalogArea) => area.dimensions.filter((d) => d.key !== 'date' && d.kind !== 'time')
+
+/** The body: the area, the period, and only the lists that narrow — offered (category) dimensions only. */
 export function previewRequest(area: AnalyticsCatalogArea, choice: PreviewChoice): AnalyticsCatalogPreviewRequest {
-  const category = new Set(area.dimensions.filter((d) => d.kind !== 'time' || d.key !== 'date').map((d) => d.key))
-  const dimensions = choice.dimensions.filter((k) => k !== 'date' && category.has(k))
+  const category = new Set(previewDimensions(area).map((d) => d.key))
+  const dimensions = choice.dimensions.filter((k) => category.has(k))
   return {
     area: area.key,
     period: choice.period || PREVIEW_PERIOD,

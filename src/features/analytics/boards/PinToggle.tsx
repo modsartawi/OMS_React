@@ -5,11 +5,8 @@ import { toast } from 'sonner'
 import type { AnalyticsItem } from '@/core/models/analytics'
 import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
-import { ANALYTICS_HOME_KEY, analyticsApi } from './api'
+import { analyticsApi, analyticsHomeQuery } from './api'
 import { asListed, isPinned, pinMutationOptions, pinRefusalWords } from './pin'
-
-/** The Home entry every pin toggle (and Home itself) reads: one call, shared. Fresh on each mount, so Home shows the last open. */
-export const analyticsHomeQuery = () => ({ queryKey: ANALYTICS_HOME_KEY, queryFn: () => analyticsApi.home(), retry: false, staleTime: 0 }) as const
 
 /**
  * 840 (BackOffice 3443): pin or unpin an item — on every library row and on the board, view and report pages.

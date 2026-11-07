@@ -2,12 +2,11 @@ import { useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Info } from 'lucide-react'
-import i18n from '@/core/i18n'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
-import { ANALYTICS_CATALOG_KEY, analyticsApi } from './api'
+import { analyticsCatalogQuery } from './api'
 import { searchCatalog } from './catalog-search'
 import { buildCatalogTree, type CatalogNode } from './catalog-tree'
 import CatalogDetail from './CatalogDetail'
@@ -31,9 +30,9 @@ export default function AnalyticsCatalogPage() {
 }
 
 function CatalogBody() {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const lang = i18n.language
-  const catalog = useQuery({ queryKey: ANALYTICS_CATALOG_KEY, queryFn: () => analyticsApi.catalog(), staleTime: 60_000, retry: false })
+  const catalog = useQuery(analyticsCatalogQuery())
   const tree = useMemo(() => (catalog.data ? buildCatalogTree(catalog.data) : null), [catalog.data])
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<Set<string>>(() => new Set())

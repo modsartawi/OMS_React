@@ -365,3 +365,12 @@ export const analyticsApi = {
     await api.del<unknown>(`Analytics/Item/${encodeURIComponent(id)}`)
   },
 }
+
+/**
+ * 841: the catalog entry every catalog reader shares (the Catalog page, the library's area chip, the print page).
+ * Under a catalog render ticket `analyticsApi.catalog()` reads `Render/Catalog` instead (845).
+ */
+export const analyticsCatalogQuery = () => ({ queryKey: ANALYTICS_CATALOG_KEY, queryFn: () => analyticsApi.catalog(), staleTime: 60_000, retry: false }) as const
+
+/** 840: the Home entry every pin toggle (and Home itself) reads: one call, shared. Fresh on each mount, so Home shows the last open. */
+export const analyticsHomeQuery = () => ({ queryKey: ANALYTICS_HOME_KEY, queryFn: () => analyticsApi.home(), retry: false, staleTime: 0 }) as const

@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet, redirect, useSearchParams, type LoaderFunctionArgs } from 'react-router'
-import { ALL_ITEMS_PATH, LIBRARY_PAGES, libraryRedirect } from '@/features/analytics/boards/library-pages'
+import { ALL_ITEMS_PATH, LIBRARY_PAGES, libraryRedirect, type LibraryPage, type LibraryPageEntry } from '@/features/analytics/boards/library-pages'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -17,6 +17,18 @@ function ReportPrintGuard() {
   return (search.get('ticket') ?? '').trim() ? <Outlet /> : <ProtectedLayout chromeless />
 }
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
+/** 839/840: an analytics library route's loader — an old `/analytics?who=…&kind=…` link lands on its leaf. */
+const libraryLoader =
+  (page: LibraryPage) =>
+  ({ request }: LoaderFunctionArgs) => {
+    const to = libraryRedirect(page, new URL(request.url).searchParams)
+    return to ? redirect(to) : null
+  }
+
+/** A menu leaf drawn by the library page (every leaf but Home and the Catalog, which have their own pages). */
+const isLibraryLeaf = (p: LibraryPageEntry): p is LibraryPageEntry & { page: Exclude<LibraryPageEntry['page'], 'home' | 'catalog'> } =>
+  p.page !== 'home' && p.page !== 'catalog'
+
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
 const FILL_CONTENT: ShellRouteHandle = { fill: true }
@@ -153,21 +165,15 @@ export const router = createBrowserRouter([
       // its leaf or to All my items (`analytics/library`, the whole library, not a menu leaf).
       {
         path: 'analytics',
-        loader: ({ request }: LoaderFunctionArgs) => {
-          const to = libraryRedirect('home', new URL(request.url).searchParams)
-          return to ? redirect(to) : null
-        },
+        loader: libraryLoader('home'),
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsHomePage')).default }),
       },
-      ...[...LIBRARY_PAGES.filter((p) => p.page !== 'catalog' && p.page !== 'home'), { page: 'library' as const, path: ALL_ITEMS_PATH }].map(({ page, path }) => ({
+      ...[...LIBRARY_PAGES.filter(isLibraryLeaf), { page: 'library' as const, path: ALL_ITEMS_PATH }].map(({ page, path }) => ({
         path: path.slice(1),
-        loader: ({ request }: LoaderFunctionArgs) => {
-          const to = libraryRedirect(page, new URL(request.url).searchParams)
-          return to ? redirect(to) : null
-        },
+        loader: libraryLoader(page),
         lazy: async () => {
           const { default: Library } = await import('@/features/analytics/boards/AnalyticsLibraryPage')
-          return { Component: () => <Library page={page as Exclude<typeof page, 'home' | 'catalog'>} /> }
+          return { Component: () => <Library page={page} /> }
         },
       })),
       {

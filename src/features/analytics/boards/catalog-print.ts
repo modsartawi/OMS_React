@@ -8,7 +8,7 @@ import type {
   AnalyticsCatalogUntapped,
   AnalyticsPlannedStatus,
 } from '@/core/models/analytics'
-import { ANALYTICS_CATALOG_KEY, analyticsApi } from './api'
+import { analyticsCatalogQuery } from './api'
 import { areaFacts, type AreaFacts } from './catalog-area'
 import { groupPlanned, plannedSources, type PlannedSource } from './catalog-planned'
 import { analyticsRefusal, type AnalyticsRefusal } from './wire'
@@ -87,7 +87,7 @@ export function catalogPrint(catalog: AnalyticsCatalog): CatalogPrint {
  * Every read the print page makes. A catalog ticket opens ONLY `Render/Catalog` (BO 3444): no access probe, no
  * `analyticsApi.model()` (it would switch to `Render/Model` and be refused), nothing else that queries.
  */
-export const catalogPrintQueries = () => [{ queryKey: ANALYTICS_CATALOG_KEY, queryFn: () => analyticsApi.catalog(), retry: false as const }]
+export const catalogPrintQueries = () => [analyticsCatalogQuery()]
 
 /** The PDF's file name when the server names none — the server's own (`AnalyticsCatalogPrint`). */
 export const catalogPdfName = (lang: 'en' | 'ar'): string => (lang === 'ar' ? 'catalog-ar.pdf' : 'catalog.pdf')

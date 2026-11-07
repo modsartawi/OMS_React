@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import TableChart from '@/core/charts/TableChart'
-import i18n from '@/core/i18n'
 import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
@@ -12,7 +11,7 @@ import MultiSelect from '@/core/ui/MultiSelect'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { analyticsApi } from './api'
-import { analyticsPreviewKey, droppedNotes, previewChoice, previewRefusal, previewRequest, previewTable, withPreviewPeriod } from './catalog-preview'
+import { analyticsPreviewKey, droppedNotes, previewChoice, previewDimensions, previewRefusal, previewRequest, previewTable, withPreviewPeriod } from './catalog-preview'
 import { PERIODS, periodNameKey } from './periods'
 import { refusalWords } from './wire'
 
@@ -26,14 +25,14 @@ import { refusalWords } from './wire'
  * formats).
  */
 export default function CatalogPreview({ area, measure }: { area: AnalyticsCatalogArea; measure?: string }) {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const lang = i18n.language
   const [choice, setChoice] = useState(() => previewChoice(measure))
   const body = useMemo(() => previewRequest(area, choice), [area, choice])
   const q = useQuery({ queryKey: analyticsPreviewKey(body), queryFn: () => analyticsApi.catalogPreview(body), retry: false, staleTime: 60_000 })
 
   const name = (l: { en: string; ar: string }, key: string) => saysIn(l, lang) || key
-  const categories = area.dimensions.filter((d) => d.key !== 'date')
+  const categories = previewDimensions(area)
   const table = q.data ? previewTable(q.data, area, lang) : null
   const notes = q.data ? droppedNotes(q.data, area, lang) : []
 
@@ -123,7 +122,7 @@ export default function CatalogPreview({ area, measure }: { area: AnalyticsCatal
 }
 
 function PreviewRefused({ area, err, onRetry }: { area: AnalyticsCatalogArea; err: unknown; onRetry: () => void }) {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const lang = i18n.language
   const r = previewRefusal(err, area)
   const words =

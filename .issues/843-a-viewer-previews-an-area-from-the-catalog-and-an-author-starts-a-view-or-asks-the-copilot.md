@@ -66,3 +66,13 @@ is still owed.
   The column chooser sends category dimensions only (the server owns `date`). The grid is `@/core/charts/TableChart`
   (grid base, `fsi` headers, `formatValue`/`formatDay`), lazy-loaded when Preview opens.
 - Shared touches: `DetailShell` gained an optional `below` slot (`CatalogDetailParts.tsx`) for the preview.
+
+**2026-11-07 — 3437 review fixes.**
+
+- **Ruling 4's `fsi` clause is overridden:** the prefilled question interpolates the raw area label (no FSI/PDI),
+  as the copilot panel's own example chips do (`CopilotPanel.tsx`) — the question is what the box will send.
+- **Ruling 5 narrowed:** `newViewFrom(area, measure?)` takes a measure or area node only (story 49); the unmounted
+  dimension-node path and its test case are gone.
+- The column chooser offers, and `previewRequest` sends, category dimensions only — neither the date nor any other
+  time dimension (`previewDimensions`, matching the server default in `AnalyticsCatalogPreview`).
+- The Catalog's labels and the prefilled question follow a language switch (`useTranslation()`'s `i18n`).

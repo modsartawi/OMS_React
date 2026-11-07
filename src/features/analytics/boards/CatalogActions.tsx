@@ -4,12 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Plus, Sparkles, Table2 } from 'lucide-react'
 import { useCopilotPanel } from '@/core/copilot-panel'
-import i18n from '@/core/i18n'
 import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
-import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery } from './access'
 import { catalogAuthorActions, newViewFrom } from './catalog-actions'
 
@@ -25,7 +23,7 @@ const CatalogPreview = lazy(() => import('./CatalogPreview'))
  * the node it was opened on: picking another node closes it.
  */
 export function useCatalogActions(area: AnalyticsCatalogArea, measure?: string): { actions: ReactNode; below: ReactNode } {
-  const { t } = useTranslation('boards')
+  const { t, i18n } = useTranslation('boards')
   const probe = useQuery(analyticsAccessQuery()).data
   const available = useCopilotPanel((s) => s.available)
   const prefill = useCopilotPanel((s) => s.prefill)
@@ -33,7 +31,7 @@ export function useCatalogActions(area: AnalyticsCatalogArea, measure?: string):
   const [openOn, setOpenOn] = useState<string | null>(null)
   const open = openOn === node
   const offer = catalogAuthorActions(probe, available)
-  const view = newViewFrom(area, { measure })
+  const view = newViewFrom(area, measure)
 
   const actions = (
     <>
@@ -50,7 +48,9 @@ export function useCatalogActions(area: AnalyticsCatalogArea, measure?: string):
       {offer.ask && (
         <Button
           variant="outlined"
-          onClick={() => prefill(t('catalog.actions.askQuestion', { area: fsi(saysIn(area.label, i18n.language) || area.key) }))}
+          // The question IS what the box will send, so the area's name is not isolated with `fsi`: those characters
+          // would ride into the question (the copilot panel's examples do the same).
+          onClick={() => prefill(t('catalog.actions.askQuestion', { area: saysIn(area.label, i18n.language) || area.key }))}
           data-catalog-action="ask"
         >
           <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />

@@ -21,7 +21,7 @@ const AREA = readCatalogArea({
 describe('New view from this (843, spec 3437 story 49)', () => {
   it('new view from a measure pre-fills the builder link', () => {
     // A measure node: that measure, by the preview's axis — the date by day, last 7 days.
-    const link = newViewFrom(AREA, { measure: 'units' })
+    const link = newViewFrom(AREA, 'units')
     expect(link.to).toBe(NEW_VIEW_PATH)
     expect(link.state?.editorSeed.definition).toEqual({
       chart: { type: 'line' },
@@ -29,18 +29,12 @@ describe('New view from this (843, spec 3437 story 49)', () => {
     })
 
     // An area node: the area's first measure, same axis.
-    expect(newViewFrom(AREA, {}).state?.editorSeed.definition.query).toEqual({
+    expect(newViewFrom(AREA).state?.editorSeed.definition.query).toEqual({
       measures: ['net_sales'],
       dimensions: ['date'],
       filters: [],
       period: 'last-7-days',
       grain: 'day',
-    })
-
-    // A dimension node: that dimension, with the area's first measure that can be cut by it; no day grain.
-    expect(newViewFrom(AREA, { dimension: 'item' }).state?.editorSeed.definition).toEqual({
-      chart: { type: 'bar' },
-      query: { measures: ['units'], dimensions: ['item'], filters: [], period: 'last-7-days', grain: null },
     })
   })
 })

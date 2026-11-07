@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import { readCatalogArea } from './catalog-wire'
-import { analyticsPreviewKey, droppedNotes, previewChoice, previewRefusal, previewRequest, previewTable, readPreview, withPreviewPeriod } from './catalog-preview'
+import { analyticsPreviewKey, droppedNotes, previewChoice, previewDimensions, previewRefusal, previewRequest, previewTable, readPreview, withPreviewPeriod } from './catalog-preview'
 
 /** One area as `GET Analytics/Catalog` lists it (BackOffice spec3437). */
 const AREA: AnalyticsCatalogArea = readCatalogArea({
@@ -38,6 +38,28 @@ describe('the catalog preview request (843, spec 3437 §D)', () => {
     // The column chooser sends category dimensions only — the server adds the date by day and strips it if sent.
     const chosen = previewRequest(AREA, { period: 'last-7-days', dimensions: ['date', 'store'], measures: ['net_sales'] })
     expect(chosen).toEqual({ area: 'item_sales', period: 'last-7-days', dimensions: ['store'], measures: ['net_sales'] })
+  })
+})
+
+describe('the column chooser offers category dimensions only (843 review, server AnalyticsCatalogPreview)', () => {
+  it('a time dimension other than the date is neither offered nor sent', () => {
+    const withMonth = readCatalogArea({
+      key: 'item_sales',
+      label: { en: 'Item sales', ar: 'مبيعات الأصناف' },
+      available: true,
+      measures: [{ key: 'net_sales', area: 'item_sales', shape: 'additive', unit: 'SAR', label: { en: 'Net sales', ar: 'صافي المبيعات' }, dimensions: ['date', 'month', 'store'] }],
+      dimensions: [
+        { key: 'date', kind: 'time', label: { en: 'Date', ar: 'التاريخ' }, values: [] },
+        { key: 'month', kind: 'time', label: { en: 'Month', ar: 'الشهر' }, values: [] },
+        { key: 'store', kind: 'category', label: { en: 'Store', ar: 'الفرع' }, values: [] },
+      ],
+    })
+    expect(previewDimensions(withMonth).map((d) => d.key)).toEqual(['store'])
+    expect(previewRequest(withMonth, { period: 'last-7-days', dimensions: ['month', 'store'], measures: [] })).toEqual({
+      area: 'item_sales',
+      period: 'last-7-days',
+      dimensions: ['store'],
+    })
   })
 })
 

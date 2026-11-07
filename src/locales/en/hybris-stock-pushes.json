@@ -1,0 +1,95 @@
+{
+  "title": "Hybris stock pushes",
+  "subtitle": "Every file of stock OMS sent towards Hybris: what, when, for which stores, and whether it failed.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Hybris stock",
+    "deniedHint": "Your account does not hold the Hybris stock view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "note": "Delivered to hot folder means the file reached Hybris's import folder. Hybris imports it on its own schedule, and OMS does not read whether it did.",
+  "filters": {
+    "store": "Store",
+    "storePlaceholder": "Store code",
+    "type": "Type",
+    "anyType": "Any type",
+    "status": "Status",
+    "anyStatus": "Any status",
+    "from": "From",
+    "to": "To",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "results": {
+    "loading": "Loading pushes…",
+    "failedTitle": "The pushes could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No push matches.",
+    "count_one": "<n>{{n}}</n> push",
+    "count_other": "<n>{{n}}</n> pushes"
+  },
+  "columns": {
+    "push": "Push",
+    "startedAt": "Started",
+    "finishedAt": "Finished",
+    "type": "Type",
+    "status": "Status",
+    "stores": "Stores",
+    "rows": "Rows",
+    "target": "Target",
+    "files": "Files",
+    "error": "Error",
+    "requestedBy": "Asked by",
+    "reason": "Reason",
+    "actions": "Actions"
+  },
+  "type": {
+    "delta": "Delta",
+    "full": "Full",
+    "storeNow": "Push now — store",
+    "materialsNow": "Push now — materials",
+    "unknown": "Other"
+  },
+  "status": {
+    "running": "Running",
+    "delivered": "Delivered to hot folder",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+  "target": {
+    "shadow": "Shadow path (not imported)",
+    "live": "Hybris hot folder",
+    "unknown": "Unknown target"
+  },
+  "lines": {
+    "button": "Lines",
+    "eyebrow": "A push's lines",
+    "close": "Close lines",
+    "store": "Store",
+    "material": "Material",
+    "quantity": "Quantity sent",
+    "filter": "Filter",
+    "loading": "Loading lines…",
+    "failed": "The lines could not be loaded",
+    "empty": "This push sent no lines.",
+    "noMatch": "No line matches the filter.",
+    "noSuchPush": "No such push. Push lines are kept {{days}} days.",
+    "swept": "This push's lines were swept: lines are kept {{days}} days. The push record itself is kept.",
+    "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>"
+  },
+  "history": {
+    "button": "History",
+    "eyebrow": "A material's history at a store",
+    "hint": "Every quantity sent, newest first. Lines are kept {{days}} days.",
+    "close": "Close history",
+    "material": "Material number",
+    "look": "Look up",
+    "prompt": "Type a material number to see every quantity sent for it at this store.",
+    "loading": "Loading history…",
+    "failed": "The history could not be loaded",
+    "empty": "Nothing was sent for material {{material}} at store {{store}} in the days kept.",
+    "sentAt": "Sent at",
+    "quantity": "Quantity"
+  }
+}

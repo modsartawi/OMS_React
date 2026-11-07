@@ -154,10 +154,11 @@ export const PUSHES = [
   push('P-0100', 'D', ['3003'], '2026-11-07T10:35:00', null, 'R', 0),
 ]
 
-const lineFor = (storeCode, i) => ({ storeCode, materialNumber: String(100000 + (i % 120)), quantity: (i * 7) % 40 })
+// One line per store and material in a push, as the rail writes them.
+const lineFor = (storeCode, m, i) => ({ storeCode, materialNumber: String(100000 + m), quantity: (i * 7) % 40 })
 export const LINES = {
-  'P-0105': Array.from({ length: 812 }, (_, i) => lineFor(['1234', '0099', '2001', '3003'][i % 4], i)),
-  'P-0104': Array.from({ length: 4210 }, (_, i) => lineFor('1234', i)),
+  'P-0105': Array.from({ length: 812 }, (_, i) => lineFor(['1234', '0099', '2001', '3003'][i % 4], Math.floor(i / 4), i)),
+  'P-0104': Array.from({ length: 4210 }, (_, i) => lineFor('1234', i, i)),
   'P-0102': [
     { storeCode: '1234', materialNumber: '100002', quantity: 0 },
     { storeCode: '1234', materialNumber: '100003', quantity: 12 },

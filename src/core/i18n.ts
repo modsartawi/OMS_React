@@ -147,6 +147,9 @@ import hybrisStockStoresAr from '@/locales/ar/hybris-stock-stores.json'
 // `hybris-stock-stores` (the area's binding).
 import hybrisStockMaterials from '@/locales/en/hybris-stock-materials.json'
 import hybrisStockMaterialsAr from '@/locales/ar/hybris-stock-materials.json'
+// Hybris stock push log (ticket 849), English and Arabic together.
+import hybrisStockPushes from '@/locales/en/hybris-stock-pushes.json'
+import hybrisStockPushesAr from '@/locales/ar/hybris-stock-pushes.json'
 // Delivery statistics (BackOffice brief 2641, ticket 484). Namespace == feature name, English and
 // Arabic together. 485–487 add their keys here rather than minting a second namespace.
 import deliveryStatistics from '@/locales/en/delivery-statistics.json'
@@ -235,7 +238,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -286,6 +289,7 @@ i18n.use(initReactI18next).init({
       'hungerstation-promotions': hungerstationPromotions,
       'hybris-stock-stores': hybrisStockStores,
       'hybris-stock-materials': hybrisStockMaterials,
+      'hybris-stock-pushes': hybrisStockPushes,
       'delivery-statistics': deliveryStatistics,
       'dispatch-scorecard': dispatchScorecard,
       'sourcing-advisor': sourcingAdvisor,
@@ -338,6 +342,7 @@ i18n.use(initReactI18next).init({
       'hungerstation-promotions': hungerstationPromotionsAr,
       'hybris-stock-stores': hybrisStockStoresAr,
       'hybris-stock-materials': hybrisStockMaterialsAr,
+      'hybris-stock-pushes': hybrisStockPushesAr,
       'delivery-statistics': deliveryStatisticsAr,
       'dispatch-scorecard': dispatchScorecardAr,
       'sourcing-advisor': sourcingAdvisorAr,

@@ -1,6 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import { BookmarkMinus, BookmarkPlus, History } from 'lucide-react'
+import { BookmarkMinus, BookmarkPlus, History, PackageSearch, ScrollText } from 'lucide-react'
 import type { HybrisStockStoreHealth, HybrisStockStoreRow } from '@/core/models/hybris-stock'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -16,6 +16,10 @@ export interface StoreActions {
   /** `null` when the user may only view: Mark / Unmark is not drawn at all. */
   onMark: ((row: Row) => void) | null
   onHistory: (row: Row) => void
+  /** The store's pushes in the push log (849). */
+  onPushes: (row: Row) => void
+  /** A material's history at the store, in the push log (849). */
+  onMaterial: (row: Row) => void
 }
 
 /** `null` renders blank — an unmarked store has no health block. */
@@ -90,7 +94,7 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 260,
+      width: 480,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -110,6 +114,14 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
             <Button variant="ghost" onClick={() => act.onHistory(data)} data-store-history={data.storeCode}>
               <History className="h-3.5 w-3.5" aria-hidden />
               {t('history.button')}
+            </Button>
+            <Button variant="ghost" onClick={() => act.onPushes(data)} data-store-pushes={data.storeCode}>
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              {t('pushes.button')}
+            </Button>
+            <Button variant="ghost" onClick={() => act.onMaterial(data)} data-store-material={data.storeCode}>
+              <PackageSearch className="h-3.5 w-3.5" aria-hidden />
+              {t('pushes.material')}
             </Button>
           </span>
         ) : null,

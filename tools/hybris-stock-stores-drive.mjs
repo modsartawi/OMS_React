@@ -103,7 +103,7 @@ if (run('menu')) {
   await waitRows(page, 6)
   check('1: the page title reads Hybris stock stores', (await page.locator('h1').innerText()) === 'Hybris stock stores')
   const leaves = await page.locator('nav a[href^="/hybris-stock"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
-  check('1: the first leaf is Stores', leaves[0] === '/hybris-stock/stores', leaves.join())
+  check('1: the leaves are Stores, Materials and Pushes', JSON.stringify(leaves) === JSON.stringify(['/hybris-stock/stores', '/hybris-stock/materials', '/hybris-stock/pushes']), leaves.join())
   check('1: the group, its leaves and the gate cost ONE probe call', calls.filter((c) => c === 'HybrisStockWeb/Access').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()

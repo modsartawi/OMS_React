@@ -117,6 +117,10 @@
     "done": "Store unmarked",
     "doneDetail": "Store {{store}} no longer sends its stock to Hybris."
   },
+  "pushes": {
+    "button": "Pushes",
+    "material": "Material history"
+  },
   "history": {
     "button": "History",
     "eyebrow": "Mark and unmark history",

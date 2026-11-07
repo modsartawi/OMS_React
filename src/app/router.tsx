@@ -1008,6 +1008,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/hybris-stock/materials/MaterialsPage')).default,
         }),
       },
+      {
+        path: 'hybris-stock/pushes',
+        lazy: async () => ({
+          Component: (await import('@/features/hybris-stock/pushes/PushesPage')).default,
+        }),
+      },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
       // Promotions list (ticket 534, BackOffice brief 2848: `/campaigns` lists the promotions, no
       // longer every campaign), a promotion's page, then one campaign's workspace: a shell with the campaign's own menu and its pages as children

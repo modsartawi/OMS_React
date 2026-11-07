@@ -1338,7 +1338,7 @@ export const MENU: ShellMenuItem[] = [
   {
     // Its own top-level group, right after HungerStation (BackOffice spec 3447, ticket 847):
     // `/hybris-stock/*` is a new URL prefix — OMS sending ATP to the website's hot folder. Leaf labels
-    // live in `hybris-stock-stores` (the area's first namespace); 848 and 849 add Materials and Pushes.
+    // live in `hybris-stock-stores` (the area's first namespace); Materials (848), Pushes (849).
     labelKey: 'hybris-stock-stores:menu.hybrisStock',
     icon: Warehouse,
     items: [
@@ -1354,6 +1354,13 @@ export const MENU: ShellMenuItem[] = [
         icon: PackageSearch,
         routerLink: '/hybris-stock/materials',
         activePrefix: '/hybris-stock/materials',
+        access: hybrisStockProbe(canViewHybrisStock),
+      },
+      {
+        labelKey: 'hybris-stock-stores:menu.pushes',
+        icon: ScrollText,
+        routerLink: '/hybris-stock/pushes',
+        activePrefix: '/hybris-stock/pushes',
         access: hybrisStockProbe(canViewHybrisStock),
       },
     ],

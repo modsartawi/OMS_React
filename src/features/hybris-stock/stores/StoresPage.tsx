@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, RowClassRules } from 'ag-grid-community'
 import { RotateCcw, Search } from 'lucide-react'
@@ -67,6 +67,7 @@ const ROW_WARN = '[--ag-data-background-color:var(--attention-050)]'
 function Stores() {
   const { t } = useTranslation('hybris-stock-stores')
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const query = useMemo(() => storesFromParams(params), [params])
   const [draft, setDraft] = useState(query.q ?? '')
   useEffect(() => setDraft(query.q ?? ''), [query.q])
@@ -126,8 +127,11 @@ function Stores() {
       storeColumns(t, {
         onMark: canManage ? (row) => setMarking(row) : null,
         onHistory: (row) => openHistoryRef.current(row.storeCode),
+        // The push log owns the pushes and a material's history; a store links into it by code.
+        onPushes: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode })}`),
+        onMaterial: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode, history: row.storeCode })}`),
       }),
-    [t, canManage],
+    [t, canManage, navigate],
   )
 
   return (

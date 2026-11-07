@@ -6,6 +6,7 @@ import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { apiErrorCode, apiErrorData } from '@/core/api'
+import { saysIn } from '@/core/rules/sentence'
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
 import { panelFailure, refusalField, unavailableReason } from './panel-state'
@@ -91,7 +92,7 @@ export default function PanelBody({
     if (failure === 'retry') return <Failed err={error} onRetry={onRetry} />
     if (failure === 'unavailable') {
       const refusal = analyticsRefusal(error, t('panel.unavailableTitle'))
-      const reason = unavailableReason(definition, model) ?? refusalWords(refusal, t)
+      const reason = saysIn(unavailableReason(definition, model), lang) || refusalWords(refusal, t)
       return (
         <State icon={<CloudOff className="size-5" aria-hidden />} title={t('panel.unavailableTitle')} data-panel-unavailable>
           <bdi>{reason}</bdi>

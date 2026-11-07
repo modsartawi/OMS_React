@@ -8,7 +8,7 @@ const coded = (code: string, message = `Server says ${code}.`, data: unknown = n
 
 const label = (en: string, ar: string) => ({ en, ar })
 const MODEL: AnalyticsModel = {
-  areas: [{ key: 'delivery', available: true }, { key: 'callouts', available: false, unavailableReason: 'Waiting on the replica (753).' }],
+  areas: [{ key: 'delivery', available: true }, { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica (753).', ar: '' } }],
   measures: [
     { key: 'orders', area: 'delivery', shape: 'additive', unit: 'count', label: label('Orders', ''), description: label('', ''), dimensions: [] },
     { key: 'p90', area: 'delivery', shape: 'percentile', unit: 'minutes', maxWindowDays: 92, label: label('P90', ''), description: label('', ''), dimensions: [] },
@@ -33,8 +33,8 @@ describe('the editor reads 406, 407 and 410 in its own terms', () => {
   })
 
   it('410 shows the unavailable area reason from the model, else the server words', () => {
-    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['take_rate']), MODEL)).toEqual({ kind: 'area', reason: 'Waiting on the replica (753).' })
-    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['orders']), MODEL)).toEqual({ kind: 'area', reason: 'Area not ready.' })
+    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['take_rate']), MODEL)).toEqual({ kind: 'area', reason: { en: 'Waiting on the replica (753).', ar: '' }, message: 'Area not ready.' })
+    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['orders']), MODEL)).toEqual({ kind: 'area', reason: null, message: 'Area not ready.' })
   })
 
   it('411 lists the series problems the refusal carries (825), each to its series', () => {

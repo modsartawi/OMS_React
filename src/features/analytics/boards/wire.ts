@@ -40,30 +40,48 @@ const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const said = (v: unknown): AnalyticsLabel => ({ en: str(obj(v).en), ar: str(obj(v).ar) })
 
+/**
+ * An area's unavailable reason: a label `{en, ar}` on the wire (841). A bare string (an older stub) is read as
+ * English; blank or absent is none.
+ */
+export function readReason(v: unknown): AnalyticsLabel | null {
+  const l = typeof v === 'string' ? { en: v, ar: '' } : v && typeof v === 'object' ? said(v) : null
+  return l && (l.en || l.ar) ? l : null
+}
+
+/** One model measure, tolerantly (shared by `Analytics/Model` and the catalog's `areas[].measures`, 841). */
+export function readMeasure(raw: unknown): AnalyticsMeasure {
+  const x = obj(raw)
+  return {
+    ...x,
+    label: said(x.label),
+    description: said(x.description),
+    dimensions: arr<string>(x.dimensions),
+    // 827 (⚠ proposed): a caveat in both languages, and a positive window of days; anything else is none.
+    caveat: x.caveat && typeof x.caveat === 'object' ? said(x.caveat) : null,
+    mayStillRiseDays: typeof x.mayStillRiseDays === 'number' && x.mayStillRiseDays > 0 ? x.mayStillRiseDays : null,
+  } as AnalyticsMeasure
+}
+
+/** One model dimension, tolerantly (shared by `Analytics/Model` and the catalog's `areas[].dimensions`, 841). */
+export function readDimension(raw: unknown): AnalyticsDimension {
+  const x = obj(raw)
+  return {
+    ...x,
+    label: said(x.label),
+    ...('description' in x ? { description: said(x.description) } : {}),
+    values: arr<Record<string, unknown>>(x.values).map((v) => ({ key: str(v.key), label: said(v.label) })),
+  } as AnalyticsDimension
+}
+
 export function readModel(raw: Loose): AnalyticsModel {
   const m = obj(raw)
   return {
-    areas: arr(m.areas),
-    measures: arr<Record<string, unknown>>(m.measures).map(
-      (x) =>
-        ({
-          ...x,
-          label: said(x.label),
-          description: said(x.description),
-          dimensions: arr<string>(x.dimensions),
-          // 827 (⚠ proposed): a caveat in both languages, and a positive window of days; anything else is none.
-          caveat: x.caveat && typeof x.caveat === 'object' ? said(x.caveat) : null,
-          mayStillRiseDays: typeof x.mayStillRiseDays === 'number' && x.mayStillRiseDays > 0 ? x.mayStillRiseDays : null,
-        }) as AnalyticsMeasure,
-    ),
-    dimensions: arr<Record<string, unknown>>(m.dimensions).map(
-      (x) =>
-        ({
-          ...x,
-          label: said(x.label),
-          values: arr<Record<string, unknown>>(x.values).map((v) => ({ key: str(v.key), label: said(v.label) })),
-        }) as AnalyticsDimension,
-    ),
+    areas: arr<unknown>(m.areas)
+      .map(obj)
+      .map((a) => ({ ...a, key: str(a.key), available: a.available === true, unavailableReason: readReason(a.unavailableReason) })),
+    measures: arr<unknown>(m.measures).map(readMeasure),
+    dimensions: arr<unknown>(m.dimensions).map(readDimension),
   }
 }
 

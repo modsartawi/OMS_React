@@ -9,6 +9,8 @@
 
 // 834: the acceptance case is the product's own sample report (type-only imports, so Node strips its types).
 import { sampleReport } from '../src/features/analytics/boards/sample-report.ts'
+// 841: the data catalog fixtures live beside this file.
+import { CATALOG_841 } from './analytics-catalog-stubs.mjs'
 
 export const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -27,7 +29,7 @@ export const MODEL = {
   areas: [
     { key: 'sales', available: true },
     { key: 'delivery', available: true },
-    { key: 'callouts', available: false, unavailableReason: 'Waiting on the replica (753).' },
+    { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica (753).', ar: 'بانتظار النسخة المتماثلة (753).' } },
   ],
   measures: [
     {
@@ -1023,6 +1025,11 @@ export async function installAnalyticsStubs(page, opts = {}) {
     }
     if (p === 'Copilot/Ask') return route.fulfill(envelope(typeof copilotAnswer === 'function' ? copilotAnswer(req.postDataJSON() ?? {}, bodies[p].length) : copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
+    // 841: the data catalog (`opts.catalog`: an answer, a refusal or a fulfil object; default the happy path).
+    if (p === 'Analytics/Catalog') {
+      const catalog = opts.catalog ?? CATALOG_841
+      return route.fulfill(isFulfil(catalog) ? catalog : envelope(catalog))
+    }
     if (p === 'Analytics/Health') return route.fulfill(isFulfil(health) ? health : envelope(health))
     if (p === 'Analytics/DimensionValues') {
       const search = (url.searchParams.get('search') ?? '').toLowerCase()

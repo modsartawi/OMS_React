@@ -31,8 +31,11 @@ export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'shar
 export interface AnalyticsArea {
   key: string
   available: boolean
-  /** ⚠ A server sentence; §C does not say whether it is bilingual. */
-  unavailableReason?: string | null
+  /**
+   * Bilingual on the wire (`AnalyticsAreaInfo.UnavailableReason` is an `AnalyticsLabel`, BackOffice 3437; ticket
+   * 841 fixed the old `string` typing). `readModel` reads it as a label; null when the area is available.
+   */
+  unavailableReason?: AnalyticsLabel | null
 }
 
 export interface AnalyticsMeasure {
@@ -68,6 +71,8 @@ export interface AnalyticsDimension {
   key: string
   kind: 'time' | 'category'
   label: AnalyticsLabel
+  /** 841 (BackOffice 3437 §C): the dimension's description; the Catalog shows it. Absent on older readers. */
+  description?: AnalyticsLabel
   /**
    * Inline when the list is small and fixed. Its ORDER is the catalogue's, and a dimension served
    * with values gets a fixed colour slot per value (766 §F: channel groups and countries).
@@ -722,4 +727,110 @@ export interface AnalyticsReportRun {
   summary: AnalyticsLabel | null
   artefactsKept: boolean
   hasPdf: boolean
+}
+
+// ── Spec 3437 (BackOffice 3438–3442): the data catalog ──────────────────────────────────────────────────────────
+// `GET Analytics/Catalog` (and `GET Analytics/Render/Catalog` under a catalog render ticket), as built on BackOffice
+// branch spec3437 (`AnalyticsCatalog.cs`). camelCase, nulls written as null. Read through `boards/catalog-wire.ts`.
+
+export type AnalyticsMartKind = 'mart' | 'fact' | 'dim'
+export type AnalyticsPlannedStatus = 'idea' | 'approved' | 'building' | 'live'
+export type AnalyticsAreaReader = 'copilot' | 'designer'
+
+/** Saved items using an area, everyone's (cached ~120 s per host). `null` on the area = store fault, never 0. */
+export interface AnalyticsCatalogUsedBy {
+  views: number
+  boards: number
+  reports: number
+}
+
+export interface AnalyticsCatalogArea {
+  key: string
+  label: AnalyticsLabel
+  description: AnalyticsLabel
+  /** The role or team that owns the area ("Analytics team"); English server text. */
+  owner: string
+  available: boolean
+  /** Only when `!available`. */
+  unavailableReason: AnalyticsLabel | null
+  /** Riyadh local, no zone ("2026-11-05T09:45:12"); '' = not known. */
+  dataAsOf: string
+  /** 'yyyy-MM-dd' | '<N>d' | ''. */
+  historyStart: string
+  refresh: AnalyticsLabel
+  boundary: AnalyticsLabel[]
+  /** Unknown readers are dropped by the reader. */
+  readBy: AnalyticsAreaReader[]
+  usedBy: AnalyticsCatalogUsedBy | null
+  access: { grant: string }
+  measures: AnalyticsMeasure[]
+  /** The area's OWN dimensions. */
+  dimensions: AnalyticsDimension[]
+  /** Mart keys (resolve against `AnalyticsCatalog.marts`; a key with no mart object is tolerated). */
+  marts: string[]
+}
+
+export interface AnalyticsCatalogColumn {
+  name: string
+  previewable: boolean
+}
+
+export interface AnalyticsCatalogMart {
+  key: string
+  kind: AnalyticsMartKind
+  /** English only (the dbt description). */
+  description: string
+  /** English only, "One row per …"; '' = none. */
+  grain: string
+  /** TRANSITIVE source keys. */
+  sources: string[]
+  /** Curators only; null otherwise. */
+  columns: AnalyticsCatalogColumn[] | null
+  /** Curators only; null otherwise or for a view. */
+  rows: number | null
+  /** Curators only; null otherwise or for a view. */
+  sizeMb: number | null
+}
+
+export interface AnalyticsCatalogSource {
+  /** `<dbt source>.<table>`, e.g. `pos.RetailTrx`. */
+  key: string
+  server: string
+  database: string
+  table: string
+  /** English only. */
+  description: string
+  /** Mart keys built from it. */
+  usedBy: string[]
+}
+
+export interface AnalyticsCatalogPlanned {
+  key: string
+  label: AnalyticsLabel
+  status: AnalyticsPlannedStatus
+  questions: AnalyticsLabel[]
+  sources: string[]
+  /** Keys naming neither a lineage nor an untapped source (flagged, not dropped). */
+  unknownSources: string[]
+}
+
+export interface AnalyticsCatalogUntapped {
+  key: string
+  server: string
+  database: string
+  table: string
+  /** English only. */
+  note: string
+}
+
+export interface AnalyticsCatalog {
+  /** '' when `lineageAvailable` is false. */
+  imageVersion: string
+  /** false: the image has no `/catalog` (< 1.4.0) or it was unreadable → marts/sources empty, areas still served. */
+  lineageAvailable: boolean
+  areas: AnalyticsCatalogArea[]
+  marts: AnalyticsCatalogMart[]
+  sources: AnalyticsCatalogSource[]
+  planned: AnalyticsCatalogPlanned[]
+  untappedSources: AnalyticsCatalogUntapped[]
 }

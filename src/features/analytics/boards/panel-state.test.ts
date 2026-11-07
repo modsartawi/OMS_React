@@ -42,7 +42,7 @@ describe('panel failure', () => {
   const model = {
     areas: [
       { key: 'sales', available: true },
-      { key: 'callouts', available: false, unavailableReason: 'Waiting on the replica.' },
+      { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica.', ar: '' } },
     ],
     measures: [
       { key: 'orders', area: 'sales' },
@@ -53,7 +53,7 @@ describe('panel failure', () => {
   const def = (measures: string[]) => ({ chart: { type: 'bar' }, query: { measures, dimensions: [], filters: [] } }) as AnalyticsViewDefinition
 
   it("an unavailable panel says its area's own reason", () => {
-    expect(unavailableReason(def(['callouts']), model)).toBe('Waiting on the replica.')
+    expect(unavailableReason(def(['callouts']), model)).toEqual({ en: 'Waiting on the replica.', ar: '' })
   })
   it('no reason from the model (an available area, or none given) is null, for the server message to stand', () => {
     expect(unavailableReason(def(['orders']), model)).toBeNull()

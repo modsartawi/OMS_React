@@ -187,11 +187,81 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, REPORT_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { CATALOG_NO_LINEAGE_841 } from './analytics-catalog-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5201}`
 const SHOTS = 'tools/.analytics-shots'
+// 841 — the Catalog page browses areas, members, marts and sources as a tree with search (BackOffice spec 3437 §G),
+// en and ar: the three areas as roots, the unavailable one greyed with its reason; an area opens to Measures,
+// Dimensions and Marts, a mart to its source tables; a source's detail shows server, database, table and the marts
+// using it; a measure's detail lists the dimensions it cannot be cut by; an Arabic search (without harakat) and a
+// table search open the matches and hide the rest; under ar the tree is on the start (right) side; an image without
+// lineage shows the note in place of the marts and keeps the areas; nothing asks a figure door; no page errors.
+async function catalog841({ dir }) {
+  const tag = `841 ${dir}`
+  const { context, page, errors, calls } = await open({ dir })
+  const roots = () => page.locator('[data-catalog-tree] > li[data-catalog-kind="area"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-node')))
+  const node = (id) => page.locator(`[data-catalog-node="${id}"]`)
+  await page.goto(`${BASE}/analytics/catalog`)
+  await page.locator('[data-catalog-tree]').waitFor({ timeout: 15000 })
+  check(`${tag}: the three areas are the roots`, JSON.stringify(await roots()) === JSON.stringify(['area:till_sales', 'area:delivery_speed', 'area:coupon_redemptions']), JSON.stringify(await roots()))
+  const reason = (await page.locator('[data-catalog-unavailable-reason="area:coupon_redemptions"]').textContent()) ?? ''
+  check(`${tag}: the unavailable area is greyed with its reason`,
+    (await node('area:coupon_redemptions').getAttribute('data-catalog-unavailable')) === 'true' && /بانتظار تغذية القسائم|Waiting on the coupon feed/.test(reason), reason)
+  check(`${tag}: the first area's detail shows by default`, (await page.locator('[data-catalog-detail="area"]').count()) === 1)
+
+  await page.locator('[data-catalog-toggle="area:till_sales"]').click()
+  const groups = await node('area:till_sales').locator(':scope > ul > li').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-node')))
+  check(`${tag}: an area opens to Measures, Dimensions and Marts`, JSON.stringify(groups) === JSON.stringify(['area:till_sales/measures', 'area:till_sales/dimensions', 'area:till_sales/marts']), JSON.stringify(groups))
+  await page.locator('[data-catalog-pick="area:till_sales/marts"]').click()
+  await page.locator('[data-catalog-pick="area:till_sales/mart:mart_till_sales_daily"]').click()
+  check(`${tag}: a mart shows its grain and sources`,
+    ((await page.locator('[data-catalog-fact="grain"]').textContent()) ?? '').includes('One row per day') &&
+    (await page.locator('[data-catalog-detail="mart"] [data-catalog-keys="sources"] li').count()) === 2)
+  await page.locator('[data-catalog-pick="area:till_sales/mart:mart_till_sales_daily/source:pos.RetailTrx"]').click()
+  const facts = await page.locator('[data-catalog-detail="source"] [data-catalog-fact]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.getAttribute('data-catalog-fact'), e.textContent.trim()])))
+  check(`${tag}: a source shows server, database, table and its marts`,
+    facts.server === 'POS-SQL01' && facts.database === 'POS' && facts.table === 'RetailTrx' && facts['used-by'] === 'mart_till_sales_daily', JSON.stringify(facts))
+  await page.locator('[data-catalog-pick="area:till_sales/measures"]').click()
+  await page.locator('[data-catalog-pick="area:till_sales/measure:return_rate"]').click()
+  const notBy = await page.locator('[data-catalog-not-by]').evaluateAll((els) => els.map((e) => e.getAttribute('data-catalog-not-by')))
+  check(`${tag}: a measure lists the dimensions it cannot be cut by`, JSON.stringify(notBy) === '["item"]', JSON.stringify(notBy))
+  await page.screenshot({ path: `${SHOTS}/841-tree-${dir}.png`, fullPage: true })
+
+  await page.locator('[data-catalog-search]').fill('معدل')
+  await page.waitForTimeout(200)
+  check(`${tag}: an Arabic search without harakat finds the measure and hides the rest`,
+    (await node('area:till_sales/measure:return_rate').getAttribute('data-catalog-match')) === 'true' && JSON.stringify(await roots()) === '["area:till_sales"]', JSON.stringify(await roots()))
+  await page.locator('[data-catalog-search]').fill('RetailTrxDetail')
+  await page.waitForTimeout(200)
+  check(`${tag}: a table search opens down to the source`, (await node('area:till_sales/mart:mart_till_sales_daily/source:pos.RetailTrxDetail').isVisible()) && (await page.locator('[data-catalog-match]').count()) === 1)
+  await page.locator('[data-catalog-search]').fill('nothing like this')
+  check(`${tag}: no match says so`, await page.locator('[data-catalog-no-match]').isVisible())
+  await page.locator('[data-catalog-search]').fill('')
+  if (dir === 'rtl') {
+    const tree = await page.locator('[data-catalog-tree]').boundingBox()
+    const detail = await page.locator('[data-catalog-detail]').boundingBox()
+    check(`${tag}: the page is RTL with the tree on the start (right) side`, (await page.locator('html').getAttribute('dir')) === 'rtl' && tree.x > detail.x, `${tree.x} vs ${detail.x}`)
+  }
+  check(`${tag}: browsing asks only the catalog, never a figure door`, calls.includes('Analytics/Catalog') && !calls.some((c) => /^Analytics\/(Query|Catalog\/Preview|Catalog\/Raw)/.test(c)), [...new Set(calls)].join(','))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  const bare = await open({ dir, catalog: CATALOG_NO_LINEAGE_841 })
+  await bare.page.goto(`${BASE}/analytics/catalog`)
+  await bare.page.locator('[data-catalog-tree]').waitFor({ timeout: 15000 })
+  await bare.page.locator('[data-catalog-toggle="area:till_sales"]').click()
+  const kept = await bare.page.locator('[data-catalog-tree] > li[data-catalog-kind="area"]').count()
+  check(`${tag}: no lineage shows the note in place of the marts and keeps the areas`,
+    (await bare.page.locator('[data-catalog-lineage-unavailable]').isVisible()) && (await bare.page.locator('[data-catalog-node="area:till_sales/lineage"] [data-catalog-lineage-note]').isVisible()) &&
+    (await bare.page.locator('[data-catalog-kind="mart"]').count()) === 0 && kept === 3, `areas ${kept}`)
+  await bare.page.screenshot({ path: `${SHOTS}/841-no-lineage-${dir}.png`, fullPage: true })
+  check(`${tag}: no page errors without lineage`, bare.errors.length === 0, bare.errors.join(' | '))
+  await bare.context.close()
+}
+
 mkdirSync(SHOTS, { recursive: true })
 const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
 
@@ -4491,7 +4561,7 @@ async function acceptance834({ dir, dark = false }) {
 //   the eight leaves in order; My views lists only my views, without who/kind chips but with the rail and
 //   New view, and lights only its own leaf; Shared with me lists a colleague's shared view, never my own shared
 //   one or a certified one, with no rail; an old `?who=mine&kind=view` lands on My views and `?folder=deleted` on
-//   Recently deleted; the Catalog is the "coming" placeholder; an item page keeps Home lit; no page errors.
+//   Recently deleted; the Catalog leaf opens the catalog (841 replaced the placeholder); an item page keeps Home lit; no page errors.
 async function libraryLeaves839({ dir }) {
   const tag = `839 ${dir}`
   const { context, page, errors } = await open({ dir })
@@ -4525,7 +4595,7 @@ async function libraryLeaves839({ dir }) {
   check(`${tag}: an old folder=deleted link lands on Recently deleted`, new URL(page.url()).pathname === '/analytics/deleted', page.url())
 
   await page.goto(`${BASE}/analytics/catalog`)
-  check(`${tag}: the Catalog is the coming placeholder`, await page.locator('[data-analytics-catalog-coming]').waitFor({ timeout: 10000 }).then(() => true, () => false))
+  check(`${tag}: the Catalog leaf opens the catalog (841)`, await page.locator('[data-analytics-catalog]').waitFor({ timeout: 10000 }).then(() => true, () => false))
   if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.locator('html').getAttribute('dir')) === 'rtl')
 
   await page.goto(`${BASE}/analytics/view/v-bar`)
@@ -4636,6 +4706,8 @@ const SCENARIOS = [
   ['777', buildsNewView],
   ['839', () => libraryLeaves839({ dir: 'ltr' })],
   ['839', () => libraryLeaves839({ dir: 'rtl' })],
+  ['841', () => catalog841({ dir: 'ltr' })],
+  ['841', () => catalog841({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],

@@ -8,6 +8,7 @@
 import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
   AnalyticsAudienceCandidates,
+  AnalyticsCatalog,
   AnalyticsBoard,
   AnalyticsFiling,
   AnalyticsFolder,
@@ -41,6 +42,7 @@ import { itemsQuery } from './home'
 import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
+import { readCatalog } from './catalog-wire'
 import { renderTicket, ticketHeaders } from './render-ticket'
 import {
   readBoard,
@@ -58,6 +60,8 @@ import {
 } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
+/** 841 (BackOffice spec 3437 §C): the data catalog — metadata only, nothing queries figures. */
+export const ANALYTICS_CATALOG_KEY = ['analytics', 'catalog'] as const
 export const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
 /**
  * The Items list as narrowed (`./home` `itemsQuery`, 837's `./library` `libraryItemsQuery`); every list entry sits
@@ -92,6 +96,15 @@ export const ANALYTICS_HEALTH_KEY = ['analytics', 'health'] as const
 const notAReport = () => new ApiError('business', 'Not a report.', 404, [{ errorCode: 'ANALYTICS-404', internalErrorCode: '', errorMessage: 'Not a report.' }])
 
 export const analyticsApi = {
+  /**
+   * `GET Analytics/Catalog` (BackOffice 3438–3442, ticket 841): areas with their members, marts and sources. Under a
+   * catalog render ticket (845) the print page reads `Analytics/Render/Catalog` with the ticket header instead.
+   */
+  async catalog(): Promise<AnalyticsCatalog> {
+    const held = renderTicket()
+    if (held) return readCatalog(await api.get<unknown>('Analytics/Render/Catalog', undefined, ticketHeaders(held)))
+    return readCatalog(await api.get<unknown>('Analytics/Catalog'))
+  },
   /** `GET Analytics/Health` (BackOffice 3386, curators only): how Cube and the dbt runs are going. */
   async health(): Promise<AnalyticsHealth> {
     return readHealth(await api.get<Record<string, unknown>>('Analytics/Health'))

@@ -1,5 +1,5 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
-import type { AnalyticsModel, AnalyticsViewDefinition, BindReason } from '@/core/models/analytics'
+import type { AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition, BindReason } from '@/core/models/analytics'
 import type { ParamProblem } from './bindings'
 import { ROLLING_PERIODS } from './periods'
 import type { SeriesProblem } from './series'
@@ -17,7 +17,7 @@ import { measureOf } from './wire'
 export type EditorRefusal =
   | { kind: 'invalid'; field: string | null; message: string }
   | { kind: 'window'; measure: string; days: number; shorter: string | null }
-  | { kind: 'area'; reason: string }
+  | { kind: 'area'; reason: AnalyticsLabel | null; message: string }
   /** 825: `ANALYTICS-411`, an invalid declaration — the series problems it lists (others are not a view's). */
   | { kind: 'declaration'; series: SeriesProblem[]; message: string }
 
@@ -114,7 +114,7 @@ export function editorRefusal(err: unknown, definition: AnalyticsViewDefinition,
   }
   if (code === 'ANALYTICS-410') {
     const area = chosen.map((m) => model.areas.find((a) => a.key === m.area)).find((a) => a && !a.available)
-    return { kind: 'area', reason: area?.unavailableReason || apiErrorMessage(err, '') }
+    return { kind: 'area', reason: area?.unavailableReason ?? null, message: apiErrorMessage(err, '') }
   }
   return null
 }

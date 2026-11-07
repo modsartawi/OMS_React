@@ -6,6 +6,7 @@
  */
 import { api, apiErrorCode } from '@/core/api'
 import type { AnalyticsAccess } from '@/core/models/analytics'
+import { renderTicket } from './render-ticket'
 
 /** The ONE cache key the menu leaf and every analytics page's gate share, so the probe costs one call. */
 export const ANALYTICS_ACCESS_KEY = ['analytics', 'access'] as const
@@ -14,7 +15,10 @@ export const ANALYTICS_ACCESS_KEY = ['analytics', 'access'] as const
 export function analyticsAccessQuery() {
   return {
     queryKey: ANALYTICS_ACCESS_KEY,
-    queryFn: () => analyticsAccessApi.access(),
+    // 835: under a render ticket (the PDF's print page, no session) the run is its owner's; the page is read as a
+    // runner's and the probe is never asked (it would answer 401 and send the renderer to the login page).
+    queryFn: (): Promise<AnalyticsAccess> =>
+      renderTicket() ? Promise.resolve({ canView: true, canAuthor: false, canCurate: false }) : analyticsAccessApi.access(),
     staleTime: Infinity,
     retry: false,
   } as const

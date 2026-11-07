@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useIsFetching } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +15,7 @@ import Refused from './Refused'
 import ReportDocument, { PAPER_PX } from './ReportDocument'
 import { FilterChips } from './TvMode'
 import { useReportRun } from './use-report-run'
+import { renderTicket, setRenderTicket, ticketOf } from './render-ticket'
 
 /**
  * A report's print page at `/analytics/print/report/:id` (spec 819 §E, ticket 827) — outside the shell, so the paper
@@ -26,6 +27,15 @@ import { useReportRun } from './use-report-run'
 export default function AnalyticsReportPrintPage() {
   const { t } = useTranslation('boards')
   const { id = '' } = useParams()
+  // 835 (ADR 0125): under a render ticket the page is a scheduled run's PDF, printed by headless Chromium: the doors
+  // are the ticket doors, set before the first read, and the run's language is the page's.
+  const [search] = useSearchParams()
+  const ticket = ticketOf(search)
+  if (ticket && renderTicket()?.ticket !== ticket) setRenderTicket({ ticket, lang: search.get('lang') === 'ar' ? 'ar' : 'en' })
+  const lang = renderTicket()?.lang
+  useEffect(() => {
+    if (lang && i18n.language !== lang) void i18n.changeLanguage(lang)
+  }, [lang])
   const { report, model, failure } = useReportAndModel(id)
 
   useEffect(() => {
@@ -53,18 +63,26 @@ function PrintView({ report, model }: { report: AnalyticsReport; model: Analytic
   const link = useMemo(() => readParamLink(params, declared), [params, declared])
   const run = useReportRun(report, link.values, link.fellBack)
 
-  // Print once every answer — the panels' and the Words — has landed, and the charts had a moment to draw.
+  // Print once every answer — the panels' and the Words — has landed, and the charts had a moment to draw. Under a
+  // render ticket the renderer prints (ADR 0125): the page only says it is ready (`data-print-ready`), never opens
+  // the print dialog.
   const fetching = useIsFetching()
   const ready = fetching === 0
+  const ticketed = renderTicket() !== null
+  const [drawn, setDrawn] = useState(false)
   useEffect(() => {
     if (!ready) return
-    const timer = window.setTimeout(() => window.print(), 1200)
+    const timer = window.setTimeout(() => (ticketed ? setDrawn(true) : window.print()), 1200)
     return () => window.clearTimeout(timer)
-  }, [ready])
+  }, [ready, ticketed])
 
   const title = saysIn(report.title, lang)
   return (
-    <div className="min-h-screen bg-muted/40 py-6 print:bg-card print:py-0" data-report-print-page={ready ? 'ready' : 'waiting'}>
+    <div
+      className="min-h-screen bg-muted/40 py-6 print:bg-card print:py-0"
+      data-report-print-page={ready ? 'ready' : 'waiting'}
+      {...(drawn && ready ? { 'data-print-ready': '' } : {})}
+    >
       <div className="mx-auto mb-4 flex justify-end gap-2 print:hidden" style={{ width: PAPER_PX }}>
         <Link to={reportHref(report.id, params.toString())} className={buttonClass('secondary')} data-report-back>
           {t('report.back')}

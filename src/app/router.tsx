@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter, Navigate, Outlet, useSearchParams } from 'react-router'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -8,6 +8,13 @@ import { insuranceRulesRoute } from './insurance-rules-routes'
 // The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The print
 // routes are chromeless and have no palette.
 const PRINT_ROUTE: PaletteRouteHandle = { print: true }
+// A report's print page opened under a render ticket (ADR 0125, ticket 835) is headless Chromium printing a scheduled
+// run: it holds no session, and the ticket (read by the page) is its whole credential for that one run, so the session
+// guard steps aside. Opened by a person (no ticket), it is guarded like every print page.
+function ReportPrintGuard() {
+  const [search] = useSearchParams()
+  return (search.get('ticket') ?? '').trim() ? <Outlet /> : <ProtectedLayout chromeless />
+}
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
@@ -78,7 +85,7 @@ export const router = createBrowserRouter([
   // A report's print page (spec 819, ticket 827): outside the shell, so the paper is the report alone; its values ride in the query string.
   {
     path: '/analytics/print/report/:id',
-    element: <ProtectedLayout chromeless />,
+    element: <ReportPrintGuard />,
     handle: PRINT_ROUTE,
     children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportPrintPage')).default }) }],
   },

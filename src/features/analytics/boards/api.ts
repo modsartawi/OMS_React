@@ -36,6 +36,7 @@ import { readHealth } from './health'
 import { itemsQuery, type ItemsQuery } from './home'
 import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
+import { renderTicket, ticketHeaders } from './render-ticket'
 import { readBoard, readItem, readItems, readMembers, readModel, readReport, readResult, readWords } from './wire'
 
 export const ANALYTICS_MODEL_KEY = ['analytics', 'model'] as const
@@ -72,6 +73,8 @@ export const analyticsApi = {
   },
   /** `GET Analytics/Model` — the catalogue: areas, measures and dimensions, labelled in en and ar. */
   async model(): Promise<AnalyticsModel> {
+    const held = renderTicket()
+    if (held) return readModel(await api.get<Record<string, unknown>>('Analytics/Render/Model', undefined, ticketHeaders(held)))
     return readModel(await api.get<Record<string, unknown>>('Analytics/Model'))
   },
   /**
@@ -95,7 +98,11 @@ export const analyticsApi = {
    * not found.
    */
   async report(id: string): Promise<AnalyticsReport> {
-    const raw = await api.get<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`)
+    // 835: under a render ticket (the PDF's print page), the report at the ticket's revision, read as its owner.
+    const held = renderTicket()
+    const raw = held
+      ? await api.get<Record<string, unknown>>(`Analytics/Render/Report/${encodeURIComponent(id)}`, undefined, ticketHeaders(held))
+      : await api.get<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}`)
     if (raw?.kind !== 'report') throw notAReport()
     return readReport(raw)
   },
@@ -105,6 +112,10 @@ export const analyticsApi = {
    * unavailable.
    */
   async words(id: string, body: AnalyticsReportWordsRequest): Promise<AnalyticsReportWords> {
+    // 835: under a render ticket the revision and values are the ticket's; only the run's language is asked.
+    const held = renderTicket()
+    if (held)
+      return readWords(await api.post<unknown>(`Analytics/Render/Report/${encodeURIComponent(id)}/Words`, { lang: held.lang }, undefined, ticketHeaders(held)))
     return readWords(await api.post<unknown>(`Analytics/Report/${encodeURIComponent(id)}/Words`, body))
   },
   /** `GET Analytics/DimensionValues` — up to 50 members of `dimension` matching `search` (store, city, region). */
@@ -113,6 +124,10 @@ export const analyticsApi = {
   },
   /** `POST Analytics/Query` — one panel's answer. */
   async query(input: AnalyticsQueryInput): Promise<AnalyticsQueryResult> {
+    // 835: under a render ticket, one panel of the ticket's report: the body names the item and the panel alone.
+    const held = renderTicket()
+    if (held && 'itemId' in input)
+      return readResult(await api.post<Record<string, unknown>>('Analytics/Render/Query', { itemId: input.itemId, panelId: input.panelId }, undefined, ticketHeaders(held)))
     return readResult(await api.post<Record<string, unknown>>('Analytics/Query', input))
   },
   /**

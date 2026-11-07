@@ -137,6 +137,12 @@ import hungerstationOrdersAr from '@/locales/ar/hungerstation-orders.json'
 // HungerStation promotions (BackOffice spec 3201, ticket 665), English and Arabic together.
 import hungerstationPromotions from '@/locales/en/hungerstation-promotions.json'
 import hungerstationPromotionsAr from '@/locales/ar/hungerstation-promotions.json'
+// Hybris stock sync (BackOffice spec 3447, ticket 847) — the Hybris stock area's first namespace,
+// English and Arabic together. It also holds the area's shared words: the menu group and its leaves
+// (`menu.*`), the mode banner (`mode.*`), and the reason dialog `@/core/hybris-stock/ReasonDialog`
+// draws for every Hybris stock write.
+import hybrisStockStores from '@/locales/en/hybris-stock-stores.json'
+import hybrisStockStoresAr from '@/locales/ar/hybris-stock-stores.json'
 // Delivery statistics (BackOffice brief 2641, ticket 484). Namespace == feature name, English and
 // Arabic together. 485–487 add their keys here rather than minting a second namespace.
 import deliveryStatistics from '@/locales/en/delivery-statistics.json'
@@ -225,7 +231,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -274,6 +280,7 @@ i18n.use(initReactI18next).init({
       'hungerstation-materials': hungerstationMaterials,
       'hungerstation-orders': hungerstationOrders,
       'hungerstation-promotions': hungerstationPromotions,
+      'hybris-stock-stores': hybrisStockStores,
       'delivery-statistics': deliveryStatistics,
       'dispatch-scorecard': dispatchScorecard,
       'sourcing-advisor': sourcingAdvisor,
@@ -324,6 +331,7 @@ i18n.use(initReactI18next).init({
       'hungerstation-materials': hungerstationMaterialsAr,
       'hungerstation-orders': hungerstationOrdersAr,
       'hungerstation-promotions': hungerstationPromotionsAr,
+      'hybris-stock-stores': hybrisStockStoresAr,
       'delivery-statistics': deliveryStatisticsAr,
       'dispatch-scorecard': dispatchScorecardAr,
       'sourcing-advisor': sourcingAdvisorAr,

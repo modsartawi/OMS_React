@@ -14,7 +14,7 @@ describe('the Insurance rules nav group', () => {
   it('is ONE group of its own, the LAST, right after HungerStation', () => {
     expect(MENU.filter((g) => g.labelKey === 'insurance-rules:menu.group')).toHaveLength(1)
     expect(MENU.at(-1)).toBe(group)
-    expect(MENU.at(-2)?.labelKey).toBe('hungerstation-stores:menu.hungerstation')
+    expect(MENU.at(-2)?.labelKey).toBe('hybris-stock-stores:menu.hybrisStock')
   })
 
   it('607 ships Guards first, at /insurance-rules/guards', () => {

@@ -201,6 +201,8 @@ hungerstation/promotions 0
 hungerstation/stores 1
   src/features/hungerstation/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 
+hybris-stock/stores 0
+
 insurance-rules/coverage 4
   src/features/insurance-rules/coverage/InsurersPage.tsx button: row picker, the insurer in the side nav selects the payer in-page, restyled in place
   src/features/insurance-rules/coverage/RulesetPage.tsx button: one-off, the Checks pill is a severity-toned validate status, restyled in place

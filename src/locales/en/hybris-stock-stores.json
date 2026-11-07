@@ -1,0 +1,135 @@
+{
+  "menu": {
+    "hybrisStock": "Hybris stock",
+    "stores": "Stores",
+    "materials": "Materials",
+    "pushes": "Pushes"
+  },
+  "title": "Hybris stock stores",
+  "subtitle": "The stores whose stock OMS sends to the website (Hybris), and how each one's sync is doing.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Hybris stock",
+    "deniedHint": "Your account does not hold the Hybris stock view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. It is kept with the change.",
+    "tooLong": "At most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The change was refused",
+    "failedHint": "Try again in a moment."
+  },
+  "mode": {
+    "off": {
+      "title": "The Hybris stock sync is off",
+      "body": "Nothing is sent to Hybris. Marking stores and editing materials still takes effect once it is switched on."
+    },
+    "shadow": {
+      "title": "Shadow mode",
+      "body": "Files are written to a shadow path that Hybris does not import, so the website does not change."
+    },
+    "live": {
+      "title": "Live",
+      "body": "Files are delivered to Hybris's hot folder. Hybris imports them on its own schedule."
+    },
+    "unknown": {
+      "title": "Sync mode unknown",
+      "body": "The rail's mode could not be read. Do not assume it is live."
+    },
+    "interval": "Delta every <n>{{n}}</n> minutes",
+    "alertSince": "since <at>{{at}}</at>"
+  },
+  "filters": {
+    "marked": "Hybris stock",
+    "markedAny": "All stores",
+    "markedOnly": "Marked stores",
+    "unmarkedOnly": "Not marked",
+    "q": "Search",
+    "qPlaceholder": "Store code or name",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "results": {
+    "loading": "Loading stores…",
+    "failedTitle": "The stores could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No store matches.",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "marked_one": "<n>{{n}}</n> marked",
+    "marked_other": "<n>{{n}}</n> marked",
+    "unhealthy_one": "<n>{{n}}</n> unhealthy",
+    "unhealthy_other": "<n>{{n}}</n> unhealthy",
+    "viewOnly": "View only: marking stores and push now need the Hybris stock manage grant."
+  },
+  "columns": {
+    "store": "Store",
+    "name": "Name",
+    "marked": "Hybris stock",
+    "health": "Health",
+    "causes": "Why unhealthy",
+    "lastDelta": "Last delta",
+    "lastFull": "Last full",
+    "nextFull": "Next full due",
+    "lastError": "Last error",
+    "changedAt": "Marked / unmarked at",
+    "changedBy": "By",
+    "actions": "Actions"
+  },
+  "marked": {
+    "yes": "Marked",
+    "no": "Not marked"
+  },
+  "health": {
+    "unmarked": "—",
+    "awaitingFull": "Awaiting first full",
+    "ok": "Healthy",
+    "lastFailed": "Last push failed",
+    "unhealthy": "Unhealthy",
+    "cause": {
+      "deltaBehind": "No successful delta for more than two intervals.",
+      "fullOverdue": "The store's full is overdue."
+    },
+    "causeShort": {
+      "deltaBehind": "Delta behind",
+      "fullOverdue": "Full overdue"
+    }
+  },
+  "mark": {
+    "button": "Mark",
+    "title": "Mark as a Hybris stock store",
+    "note": "<store>{{store}}</store> starts sending its stock to Hybris. Its first push is a full of every enabled material, before any delta.",
+    "confirm": "Mark store",
+    "done": "Store marked",
+    "doneDetail": "Store {{store}} is a Hybris stock store. A full is on its way."
+  },
+  "unmark": {
+    "button": "Unmark",
+    "title": "Unmark this Hybris stock store",
+    "note": "OMS stops sending the stock of <store>{{store}}</store>. Nothing is sent to Hybris: it keeps the stock it was last sent, and taking the store off the website is Hybris's own decision.",
+    "confirm": "Unmark store",
+    "done": "Store unmarked",
+    "doneDetail": "Store {{store}} no longer sends its stock to Hybris."
+  },
+  "history": {
+    "button": "History",
+    "eyebrow": "Mark and unmark history",
+    "close": "Close history",
+    "loading": "Loading history…",
+    "failed": "The history could not be loaded",
+    "empty": "This store has never been marked.",
+    "at": "When",
+    "by": "Who",
+    "action": "Change",
+    "reason": "Why",
+    "door": "From",
+    "marked": "Marked",
+    "unmarked": "Unmarked"
+  }
+}

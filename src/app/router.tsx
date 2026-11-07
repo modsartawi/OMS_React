@@ -994,6 +994,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/hungerstation/promotions/PromotionsPage')).default,
         }),
       },
+      // The Hybris stock area (BackOffice spec 3447, ticket 847) — OMS sends ATP to Hybris's hot
+      // folder: Stores (847), Materials (848) and Pushes (849), each its own page.
+      {
+        path: 'hybris-stock/stores',
+        lazy: async () => ({
+          Component: (await import('@/features/hybris-stock/stores/StoresPage')).default,
+        }),
+      },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
       // Promotions list (ticket 534, BackOffice brief 2848: `/campaigns` lists the promotions, no
       // longer every campaign), a promotion's page, then one campaign's workspace: a shell with the campaign's own menu and its pages as children

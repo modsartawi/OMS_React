@@ -27,10 +27,11 @@ const each = (state: ProbeState): ProbeState[] => gatedLeaves([hungerstation!]).
 const visible = (state: ProbeState) => labels(resolveMenu([hungerstation!], each(state)).items)
 
 describe('the HungerStation nav group', () => {
-  it('is ONE group of its own, right after Deliverect (607 put Insurance rules after it, last)', () => {
+  it('is ONE group of its own, right after Deliverect (847 put Hybris stock after it; 607 Insurance rules last)', () => {
     expect(MENU.filter((g) => g.labelKey === 'hungerstation-stores:menu.hungerstation')).toHaveLength(1)
-    expect(MENU.at(-2)).toBe(hungerstation)
-    expect(MENU.at(-3)?.labelKey).toBe('deliverect-stores:menu.deliverect')
+    expect(MENU.at(-3)).toBe(hungerstation)
+    expect(MENU.at(-2)?.labelKey).toBe('hybris-stock-stores:menu.hybrisStock')
+    expect(MENU.at(-4)?.labelKey).toBe('deliverect-stores:menu.deliverect')
   })
 
   it('one probe call: every leaf rides the ONE shared key, on HungerStationWeb/Access', () => {

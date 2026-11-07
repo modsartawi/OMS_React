@@ -149,6 +149,11 @@ import {
   canManagePromotions as canManageHsPromotions,
 } from '@/core/hungerstation/access'
 import type { HungerStationAccessResult } from '@/core/models/hungerstation'
+// The Hybris stock probe lives in `@/core/` (ticket 847): three features read it. ONE key; every
+// leaf reads the view grant.
+import { HYBRIS_STOCK_ACCESS_KEY, hybrisStockApi } from '@/core/hybris-stock/api'
+import { canViewHybrisStock } from '@/core/hybris-stock/access'
+import type { HybrisStockAccessResult } from '@/core/models/hybris-stock'
 import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -262,6 +267,13 @@ const deliverectProbe = (visible: (r: DeliverectAccessResult) => boolean): Acces
  */
 const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: HUNGERSTATION_ACCESS_KEY, run: () => hungerStationApi.access(), visible })
+
+/**
+ * The Hybris stock area's leaves share ONE probe on ONE key (ticket 847). 🚩 FAILS CLOSED — see
+ * `@/core/hybris-stock/api`.
+ */
+const hybrisStockProbe = (visible: (r: HybrisStockAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: HYBRIS_STOCK_ACCESS_KEY, run: () => hybrisStockApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -1320,6 +1332,22 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/hungerstation/promotions',
         activePrefix: '/hungerstation/promotions',
         access: hungerStationProbe(canManageHsPromotions),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, right after HungerStation (BackOffice spec 3447, ticket 847):
+    // `/hybris-stock/*` is a new URL prefix — OMS sending ATP to the website's hot folder. Leaf labels
+    // live in `hybris-stock-stores` (the area's first namespace); 848 and 849 add Materials and Pushes.
+    labelKey: 'hybris-stock-stores:menu.hybrisStock',
+    icon: Warehouse,
+    items: [
+      {
+        labelKey: 'hybris-stock-stores:menu.stores',
+        icon: Store,
+        routerLink: '/hybris-stock/stores',
+        activePrefix: '/hybris-stock/stores',
+        access: hybrisStockProbe(canViewHybrisStock),
       },
     ],
   },

@@ -11,7 +11,7 @@
 // Never a live SIS.Api.
 //
 // It asserts:
-//   1. the Campaigns group has Coupon finder and Customers leaves, ungated, each lighting itself;
+//   1. the Campaigns group has Coupon finder and Customers leaves, gated on Rules/Access (852), each lighting itself;
 //   2. the finder asks nothing until a code is entered;
 //   3. a code reads its campaign (code + EN + AR names, linking to its coupons), batch, kind, status,
 //      local validity and its bound member; the code is kept in the address;
@@ -30,6 +30,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/support-lookups-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -144,6 +145,7 @@ async function open({ wallet = 'ok' } = {}) {
     const bud = /^RuleCampaign\/Members\/([^/]+)\/Budgets$/.exec(p)
     if (bud) return route.fulfill(envelope(BUDGETS[bud[1]] ?? []))
     if (/^RuleCampaign\/Sessions\//.test(p)) return route.fulfill(envelope(null, { status: 404, success: false, message: 'No customer session has this sale id.', errorCode: 'RULE_SESSION_NOT_FOUND' }))
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })

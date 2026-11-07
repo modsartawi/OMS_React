@@ -15,7 +15,7 @@
 // Never a live SIS.Api.
 //
 // It asserts:
-//   1. the Admin group ends with a Store engine switch leaf, ungated, that opens /admin/engine-switch;
+//   1. the Admin group ends with a Store engine switch leaf, gated on Rules/Access (852), that opens /admin/engine-switch;
 //   2. HQ's stores list with their engine (no row reads Bonus buys) and the flip to the other one;
 //   3. the search goes to HQ as `q` (code or name), the engine filter narrows the answer, both kept
 //      in the address; an answer of 50 says HQ answers the first 50;
@@ -39,6 +39,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/engine-switch-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -167,6 +168,7 @@ async function open({ refuseFlip = 0, deny = '' } = {}) {
       ;(history[body.storeCode] ??= []).unshift(c)
       return route.fulfill(ok(c))
     }
+    { const g = granted852(p); if (g) return route.fulfill(ok(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p)) return route.fulfill(ok({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(ok([]))
   })
@@ -214,7 +216,7 @@ const searchFour = async (page) => {
   await page.waitForURL(`${BASE}/admin/engine-switch`)
   await page.locator('[data-engine-switch]').waitFor({ timeout: 15000 })
   check('1: it opens /admin/engine-switch and lights itself', (await leaf.getAttribute('aria-current')) === 'page')
-  check('1: ungated — no probe call for the leaf', !calls.some((c) => /Switch\/Access|EngineSwitch\/Access/.test(c)))
+  check('1: gated (852) — the leaf rode GET Rules/Access', calls.some((c) => c === 'GET Rules/Access'), calls.filter((c) => /Access/.test(c)).join(' | '))
   check('1: the NewPos facts sit under the lede (517 review)', /Only effective on NewPos stores\. A NewPos rollback resets the store to bonus buys\./.test(await text(page.locator('[data-engine-newpos]'))))
 
   // ── 2 + 3 ── the first answer is HQ's first 50

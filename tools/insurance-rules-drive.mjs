@@ -25,6 +25,7 @@
 //   2. node tools/insurance-rules-drive.mjs        (DRIVE_PORT overrides 5131)
 import { createRequire } from 'node:module'
 import { GUARD_ROWS, envelope, insuranceRulesStub } from './insurance-rules-stubs.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -56,6 +57,7 @@ async function open(dir, { deny = [] } = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     const hit = insuranceRulesStub(req.method(), p, null, { deny, reads })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

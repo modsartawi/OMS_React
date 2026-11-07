@@ -20,6 +20,7 @@
 //   2. DRIVE_PORT=5204 node tools/prescription-sessions-hq-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -147,6 +148,7 @@ async function drive(dir) {
       if (p.endsWith('/Owed')) return route.fulfill(envelope(answer(rtl, { rows: rows(rtl).filter((r) => r.state === 'DISPENSED'), total: 1 })))
       return route.fulfill(envelope(answer(rtl)))
     }
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     return route.fulfill(envelope({}))
   })
 

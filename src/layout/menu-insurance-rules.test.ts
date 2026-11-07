@@ -1,6 +1,6 @@
 /**
- * The Insurance rules nav group (oms 607, BackOffice spec 3126). Read out of the REAL `MENU`. UNGATED until
- * 618 adds the probes: a leaf that grows one before then fails here.
+ * The Insurance rules nav group (oms 607, BackOffice spec 3126). Read out of the REAL `MENU`. Gated per leaf
+ * since oms 852 (`menu-access-852.test.ts`).
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
@@ -60,9 +60,9 @@ describe('the Insurance rules nav group', () => {
     }
   })
 
-  it('🚩 no leaf carries a probe until 618 — the group shows for every user', () => {
-    for (const leaf of leaves([group!])) expect(leaf.access).toBeUndefined()
+  it('852: every leaf carries a probe, and an unanswered probe hides the whole group', () => {
+    for (const leaf of leaves([group!])) expect(leaf.access).toBeDefined()
     expect(group!.access).toBeUndefined()
-    expect(resolveMenu([group!], []).items).toHaveLength(1)
+    expect(resolveMenu([group!], []).items).toHaveLength(0)
   })
 })

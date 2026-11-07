@@ -194,3 +194,12 @@ export interface PrescriptionSessionHqToOpen {
   /** Always false today (the NUPCO upload stamps no batch reference); ignored until a ticket adds one. */
   byUpload: boolean
 }
+
+/**
+ * `GET PrescriptionSessionWeb/Access` (BackOffice 3459, oms 852) → `{ canView, canWriteOff }`: `PrescriptionSessionHq`
+ * and `PrescriptionSessionWriteOff`. ⚠ Built against 3459's proposed wire before the door shipped.
+ */
+export interface PrescriptionSessionAccess {
+  canView: boolean
+  canWriteOff: boolean
+}

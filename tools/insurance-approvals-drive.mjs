@@ -26,6 +26,7 @@
 //   2. node tools/insurance-approvals-drive.mjs        (DRIVE_PORT overrides 5208)
 import { createRequire } from 'node:module'
 import { BACKTEST_DONE, BACKTEST_DONE_ID, approvalStub, envelope, insuranceMetricsStub, insuranceRulesStub, newApprovalStore } from './insurance-rules-stubs.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -64,6 +65,7 @@ async function open(dir, store, who, { now = '2026-10-27T10:30:00', deny = [] } 
       insuranceMetricsStub(req.method(), p, url.searchParams) ??
       insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

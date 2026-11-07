@@ -107,3 +107,39 @@ export function previewAnswer843(body, catalog = CATALOG_841) {
     notReached: null, fellBack: null, values: null, dropped,
   }
 }
+
+// ── 844 (BackOffice 3442): a curator's catalog and the Raw door ──────────────────────────────────────────────────
+// A curator reads every mart's `columns` (table order, previewable flagged), `rows` and `sizeMb`; a view (dim_date
+// here) stores neither. `customer_id` and `mobile` are off the allow-list.
+const TILL_COLUMNS = [
+  { name: 'day', previewable: true },
+  { name: 'store_code', previewable: true },
+  { name: 'customer_id', previewable: false },
+  { name: 'item_code', previewable: true },
+  { name: 'net_sales', previewable: true },
+  { name: 'mobile', previewable: false },
+]
+export const CATALOG_CURATED_844 = {
+  ...CATALOG_841,
+  marts: CATALOG_841.marts.map((m) =>
+    m.key === 'mart_till_sales_daily' ? { ...m, columns: TILL_COLUMNS, rows: 1284311, sizeMb: 412.5 }
+      : m.key === 'dim_date' ? { ...m, columns: [{ name: 'date_key', previewable: true }], rows: null, sizeMb: null }
+        : { ...m, columns: [{ name: 'delivery_id', previewable: true }], rows: 52000, sizeMb: 18 }),
+}
+
+/** The Raw door's answer for a body: 30 rows of the mart's listed columns, ordered as asked (default first, desc). */
+export function rawAnswer844(body) {
+  const mart = CATALOG_CURATED_844.marts.find((m) => m.key === body.mart)
+  const listed = (mart?.columns ?? []).filter((c) => c.previewable).map((c) => c.name)
+  const rows = Array.from({ length: 30 }, (_, i) => ({
+    day: `2026-11-${String((i % 28) + 1).padStart(2, '0')}T00:00:00`,
+    store_code: `S${100 + (i % 7)}`,
+    item_code: `I${2000 + i}`,
+    net_sales: Math.round((i * 37.5 + 12) * 100) / 100,
+    customer_id: 'never-sent',
+  })).map((r) => Object.fromEntries(listed.map((c) => [c, r[c] ?? null])))
+  const by = body.orderBy ?? listed[0]
+  const desc = body.descending !== false
+  rows.sort((a, b) => (a[by] < b[by] ? -1 : a[by] > b[by] ? 1 : 0) * (desc ? -1 : 1))
+  return { columns: listed, rows, hiddenColumnCount: (mart?.columns ?? []).length - listed.length }
+}

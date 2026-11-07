@@ -11,6 +11,8 @@ import type {
   AnalyticsCatalog,
   AnalyticsCatalogPreview,
   AnalyticsCatalogPreviewRequest,
+  AnalyticsRawPreview,
+  AnalyticsRawPreviewRequest,
   AnalyticsBoard,
   AnalyticsFiling,
   AnalyticsFolder,
@@ -49,6 +51,7 @@ import { readRevisions } from './revisions'
 import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readCatalog } from './catalog-wire'
 import { readPreview } from './catalog-preview'
+import { readRaw } from './catalog-raw'
 import { renderTicket, ticketHeaders } from './render-ticket'
 import {
   readBoard,
@@ -102,6 +105,8 @@ export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', '
 export const ANALYTICS_HOME_KEY = ['analytics', 'home'] as const
 /** The analytics status card (785). */
 export const ANALYTICS_HEALTH_KEY = ['analytics', 'health'] as const
+/** 844 (BackOffice 3442): a curator's raw preview of one mart — keyed by the whole body, so a new order asks again. */
+export const analyticsRawKey = (body: AnalyticsRawPreviewRequest) => ['analytics', 'catalogRaw', body] as const
 
 /** 827: an item read as a report that is not one (a view, a board, a CTO demo id) is the report's not-found. */
 const notAReport = () => new ApiError('business', 'Not a report.', 404, [{ errorCode: 'ANALYTICS-404', internalErrorCode: '', errorMessage: 'Not a report.' }])
@@ -126,6 +131,13 @@ export const analyticsApi = {
    */
   async catalogPreview(body: AnalyticsCatalogPreviewRequest): Promise<AnalyticsCatalogPreview> {
     return readPreview(await api.post<unknown>('Analytics/Catalog/Preview', body))
+  },
+  /**
+   * `POST Analytics/Catalog/Raw` (BackOffice 3442, ticket 844): a curator's top 200 rows of a mart / fact / dim through
+   * its allow-listed columns. Refuses 402 (not a curator), 417 (not previewable), 406 (`orderBy`), 408 (10 s), 409.
+   */
+  async catalogRaw(body: AnalyticsRawPreviewRequest): Promise<AnalyticsRawPreview> {
+    return readRaw(await api.post<unknown>('Analytics/Catalog/Raw', body))
   },
   /** `GET Analytics/Model` — the catalogue: areas, measures and dimensions, labelled in en and ar. */
   async model(): Promise<AnalyticsModel> {

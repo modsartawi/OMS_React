@@ -10,7 +10,7 @@
 // 834: the acceptance case is the product's own sample report (type-only imports, so Node strips its types).
 import { sampleReport } from '../src/features/analytics/boards/sample-report.ts'
 // 841: the data catalog fixtures live beside this file.
-import { CATALOG_841, previewAnswer843 } from './analytics-catalog-stubs.mjs'
+import { CATALOG_841, previewAnswer843, rawAnswer844 } from './analytics-catalog-stubs.mjs'
 
 export const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -1040,6 +1040,13 @@ export async function installAnalyticsStubs(page, opts = {}) {
       if (answer && answer.refused)
         return route.fulfill(envelope(answer.data ?? null, { status: 400, success: false, message: `Refused: ${answer.refused}.`, errors: [{ errorCode: answer.refused, internalErrorCode: '', errorMessage: `Refused: ${answer.refused}.` }] }))
       return route.fulfill(envelope(answer))
+    }
+    // 844: a curator's raw preview (`opts.raw`: a function of the body, an answer, or a fulfil/refusal; default the
+    // curated fixture ordered as asked).
+    if (p === 'Analytics/Catalog/Raw') {
+      const raw = opts.raw ?? rawAnswer844
+      const answer = typeof raw === 'function' ? raw(req.postDataJSON() ?? {}) : raw
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     if (p === 'Analytics/Health') return route.fulfill(isFulfil(health) ? health : envelope(health))
     if (p === 'Analytics/DimensionValues') {

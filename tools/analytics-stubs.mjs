@@ -988,7 +988,7 @@ const body823 = (req) => (req.method() === 'POST' ? req.postDataJSON() : null)
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact, home, pin } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 833: each report's schedules and kept runs, written by the schedule doors and Send now.
@@ -997,6 +997,8 @@ export async function installAnalyticsStubs(page, opts = {}) {
   // 778: the tier writes, which (unlike 775/776's) the home's list follows.
   const listedNow = new Map()
   const removed = new Set()
+  /** 840: my pins, last pinned first. */
+  const pinnedNow = []
   const calls = []
   const bodies = {}
   /** 774: GET query strings by path (the Deliveries list's search). */
@@ -1029,6 +1031,29 @@ export async function installAnalyticsStubs(page, opts = {}) {
       const all = members[url.searchParams.get('dimension')] ?? []
       const text = (m) => [m.key, typeof m.label === 'string' ? m.label : `${m.label.en} ${m.label.ar}`].join(' ').toLowerCase()
       return route.fulfill(envelope(all.filter((m) => !search || text(m).includes(search)).slice(0, 50)))
+    }
+    // 840 (BackOffice 3443): Home — `home` = an answer or a fulfil; by default the first three listed items as
+    // recent, my pins as written by the Pin doors, and the listed certified items. `pin` = a refusal for PUT.
+    if (p === 'Analytics/Home') {
+      if (isFulfil(home)) return route.fulfill(home)
+      if (home) return route.fulfill(envelope(home))
+      const rows = Array.isArray(list) ? list : []
+      return route.fulfill(
+        envelope({
+          recent: rows.slice(0, 3),
+          pinned: [...pinnedNow].map((id) => rows.find((it) => it.id === id) ?? items[id]).filter(Boolean),
+          newestCertified: rows.filter((it) => it.tier === 'certified').slice(0, 5),
+        }),
+      )
+    }
+    const pinDoor = /^Analytics\/Items\/([^/]+)\/Pin$/.exec(p ?? '')
+    if (pinDoor) {
+      const id = decodeURIComponent(pinDoor[1])
+      ;(bodies[`${req.method()} ${p}`] ??= []).push(id)
+      if (req.method() === 'PUT' && pin) return route.fulfill(pin)
+      if (req.method() === 'PUT') pinnedNow.unshift(id)
+      else pinnedNow.splice(0, pinnedNow.length, ...pinnedNow.filter((x) => x !== id))
+      return route.fulfill(envelope({ itemId: id, pinned: req.method() === 'PUT' }))
     }
     if (p === 'Analytics/Items') {
       // Review fix 15: the `kind` / `tier` / `search` params are recorded, and ignored — the screens narrow

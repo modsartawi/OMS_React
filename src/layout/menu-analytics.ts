@@ -1,6 +1,6 @@
 import { BadgeCheck, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { ANALYTICS_ACCESS_KEY, analyticsAccessApi, canViewAnalytics } from '@/features/analytics/boards/access'
-import { LIBRARY_PAGES, type LibraryPage } from '@/features/analytics/boards/library-pages'
+import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
 import type { AccessProbe, ShellMenuItem } from './menu-model'
 
 /**
@@ -19,7 +19,7 @@ const analyticsProbe: AccessProbe = {
   visible: (data) => canViewAnalytics(data as Parameters<typeof canViewAnalytics>[0]),
 }
 
-const PAGE_ICON: Record<LibraryPage, LucideIcon> = {
+const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
   home: Home,
   boards: LayoutDashboard,
   views: ChartColumn,

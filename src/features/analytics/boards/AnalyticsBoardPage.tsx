@@ -24,6 +24,7 @@ import FilterStrip from './FilterStrip'
 import { itemActions } from './item-actions'
 import { editingItemOf, sourceMovedOn } from './item-save'
 import ItemHistory from './ItemHistory'
+import PinToggle from './PinToggle'
 import ItemTierActions from './ItemTierActions'
 import { boardParams, defaultsOf, type ParamValues } from './params'
 import { readCrossFilter, readParamLink, writeCrossFilter, writeParamValues } from './permalink'
@@ -174,6 +175,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
               </Link>
             )}
             {canEdit && role === 'author' && <SaveAsReport board={board} views={views} pending={items.some((q) => q.isPending)} model={model} />}
+            {/* 840: pin it to Home. */}
+            <PinToggle item={board} title={title} />
             <ItemHistory item={board} kind="board" />
             <ItemTierActions item={board} />
           </>

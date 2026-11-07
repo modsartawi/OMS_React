@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet, redirect, useSearchParams, type LoaderFunctionArgs } from 'react-router'
-import { LIBRARY_PAGES, libraryRedirect } from '@/features/analytics/boards/library-pages'
+import { ALL_ITEMS_PATH, LIBRARY_PAGES, libraryRedirect } from '@/features/analytics/boards/library-pages'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -141,7 +141,17 @@ export const router = createBrowserRouter([
       // folder (`library-pages`); Home is still the whole library until 840; the Catalog is 841's placeholder. The
       // loader redirects an old `/analytics?who=…&kind=…` (and `folder=deleted`) to its leaf, on every navigation, so
       // a chip on Home that picks a leaf's slice lands on that leaf too.
-      ...LIBRARY_PAGES.filter((p) => p.page !== 'catalog').map(({ page, path }) => ({
+      // 840: Home is its own page (recent / pinned / newest certified); its loader sends an old library link on to
+      // its leaf or to All my items (`analytics/library`, the whole library, not a menu leaf).
+      {
+        path: 'analytics',
+        loader: ({ request }: LoaderFunctionArgs) => {
+          const to = libraryRedirect('home', new URL(request.url).searchParams)
+          return to ? redirect(to) : null
+        },
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsHomePage')).default }),
+      },
+      ...[...LIBRARY_PAGES.filter((p) => p.page !== 'catalog' && p.page !== 'home'), { page: 'library' as const, path: ALL_ITEMS_PATH }].map(({ page, path }) => ({
         path: path.slice(1),
         loader: ({ request }: LoaderFunctionArgs) => {
           const to = libraryRedirect(page, new URL(request.url).searchParams)
@@ -149,7 +159,7 @@ export const router = createBrowserRouter([
         },
         lazy: async () => {
           const { default: Library } = await import('@/features/analytics/boards/AnalyticsLibraryPage')
-          return { Component: () => <Library page={page} /> }
+          return { Component: () => <Library page={page as Exclude<typeof page, 'home' | 'catalog'>} /> }
         },
       })),
       {

@@ -10,7 +10,15 @@
     "catalog": "Catalog",
     "deleted": "Recently deleted"
   },
+  "pin": {
+    "pinLabel": "Pin {{title}} to Home",
+    "unpinLabel": "Unpin {{title}} from Home",
+    "pinFailed": "The item could not be pinned",
+    "unpinFailed": "The item could not be unpinned",
+    "notFound": "This item can't be pinned: it was deleted or is no longer shared with you."
+  },
   "pages": {
+    "library": { "title": "All my items", "subtitle": "Every board, view and report you can open, in your folders." },
     "boards": { "title": "My boards", "subtitle": "The boards you own.", "empty": "You have no boards yet." },
     "views": { "title": "My views", "subtitle": "The analytics views you own.", "empty": "You have no views yet." },
     "reports": { "title": "My reports", "subtitle": "The reports you own.", "empty": "You have no reports yet." },
@@ -43,7 +51,15 @@
   },
   "home": {
     "title": "Analytics",
-    "subtitle": "Boards and analytics views over the governed analytics model.",
+    "subtitle": "What you opened last, what you pinned, and what is newly certified.",
+    "sections": {
+      "loading": "Loading your Home…",
+      "loadFailed": "Your Home could not be loaded",
+      "allItems": "All my items",
+      "recent": { "title": "Recent", "empty": "Nothing opened yet. The boards, views and reports you open appear here, on any computer." },
+      "pinned": { "title": "Pinned", "empty": "Nothing pinned yet. Pin a board, view or report to keep it here." },
+      "newestCertified": { "title": "New in Certified", "empty": "Nothing is certified yet." }
+    },
     "searchLabel": "Search boards and views by title",
     "searchPlaceholder": "Search by title, in English or Arabic",
     "loading": "Loading boards and views…",

@@ -8,10 +8,16 @@
 
 import { choiceNarrows, DEFAULT_LIBRARY_CHOICE, libraryFromParams, libraryToParams, type LibraryChoice } from './library'
 
-export type LibraryPage = 'home' | 'boards' | 'views' | 'reports' | 'shared' | 'certified' | 'catalog' | 'deleted'
+/** The menu's leaves. */
+export type LibraryMenuPage = 'home' | 'boards' | 'views' | 'reports' | 'shared' | 'certified' | 'catalog' | 'deleted'
+/**
+ * Every library page: the menu's leaves, plus 840's All my items (`/analytics/library`) — the whole library Home was
+ * until 840 gave Home its recent / pinned / newest certified. It is not a menu leaf; Home links to it.
+ */
+export type LibraryPage = LibraryMenuPage | 'library'
 
 export interface LibraryPageEntry {
-  page: LibraryPage
+  page: LibraryMenuPage
   /** The route, `/analytics/…`. */
   path: string
   /** Its menu label and page title, in `boards`. */
@@ -30,7 +36,10 @@ export const LIBRARY_PAGES: readonly LibraryPageEntry[] = [
   { page: 'deleted', path: '/analytics/deleted', labelKey: 'boards:menu.deleted' },
 ]
 
-export const libraryPagePath = (page: LibraryPage): string => LIBRARY_PAGES.find((p) => p.page === page)!.path
+/** 840: All my items — the whole library, linked from Home. */
+export const ALL_ITEMS_PATH = '/analytics/library'
+
+export const libraryPagePath = (page: LibraryPage): string => (page === 'library' ? ALL_ITEMS_PATH : LIBRARY_PAGES.find((p) => p.page === page)!.path)
 
 /**
  * What each route fixes. A "My" page: mine, of one kind (folders stay: one folder holds every kind). Shared with
@@ -39,6 +48,7 @@ export const libraryPagePath = (page: LibraryPage): string => LIBRARY_PAGES.find
  */
 const FIXED: Record<LibraryPage, Partial<Pick<LibraryChoice, 'who' | 'kind' | 'folder'>>> = {
   home: {},
+  library: {},
   boards: { who: 'mine', kind: 'board' },
   views: { who: 'mine', kind: 'view' },
   reports: { who: 'mine', kind: 'report' },
@@ -87,19 +97,22 @@ const isMyPage = (page: LibraryPage) => page === 'boards' || page === 'views' ||
 
 /** The leaf a choice belongs on instead of `page`, or null when it belongs where it is. */
 function leafFor(page: LibraryPage, c: LibraryChoice): LibraryPage | null {
-  if (page !== 'home' && !isMyPage(page)) return null
+  if (page !== 'home' && page !== 'library' && !isMyPage(page)) return null
   if (c.folder === 'deleted') return 'deleted'
-  if (page !== 'home') return null
+  if (isMyPage(page)) return null
   if (c.who === 'sharedWithMe') return 'shared'
   if (c.who === 'certified') return 'certified'
   if (c.who === 'mine' && c.kind !== 'all') return MY_PAGE[c.kind]
+  // 840: Home is no longer a list — an old Home link that still narrows lands on All my items with its choice.
+  if (page === 'home' && (choiceNarrows(c) || c.folder !== 'all')) return 'library'
   return null
 }
 
 /**
  * Where a library URL redirects (3437 story 14): an old `/analytics?who=…&kind=…` (and `folder=deleted`) to the
  * leaf that now holds that slice, carrying what the leaf leaves open; a My page's Recently deleted to its own
- * leaf. Null = stay. A choice no single leaf holds (`who=mine` of every kind, a kind alone) stays on Home.
+ * leaf. Null = stay. 840: a Home link no single leaf holds (`who=mine` of every kind, a kind alone, a folder, a
+ * search) goes to All my items; All my items itself sends a leaf's slice on as Home did.
  */
 export function libraryRedirect(page: LibraryPage, params: URLSearchParams): string | null {
   const choice = pageChoice(page, params)

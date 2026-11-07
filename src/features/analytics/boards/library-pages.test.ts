@@ -68,9 +68,9 @@ describe('each leaf narrows the library by its route', () => {
     expect(libraryItemsQuery(pageChoice('deleted', new URLSearchParams()), TODAY)).toEqual({ deleted: true })
   })
 
-  it('Home is still the whole library, its query read as before', () => {
-    expect(ids('home')).toHaveLength(7)
-    expect(ids('home', 'folder=deleted')).toEqual(['my-deleted-board', 'my-deleted-view'])
+  it('840: All my items is the whole library, its query read as Home read it before', () => {
+    expect(ids('library')).toHaveLength(7)
+    expect(ids('library', 'folder=deleted')).toEqual(['my-deleted-board', 'my-deleted-view'])
   })
 
   it('the URL keeps only what the route does not fix', () => {
@@ -80,7 +80,7 @@ describe('each leaf narrows the library by its route', () => {
   })
 
   it('a page shows the chips and the rail its route leaves open', () => {
-    expect(pageShows('home')).toEqual({ who: true, kind: true, rail: true })
+    expect(pageShows('library')).toEqual({ who: true, kind: true, rail: true })
     expect(pageShows('boards')).toEqual({ who: false, kind: false, rail: true })
     expect(pageShows('shared')).toEqual({ who: false, kind: true, rail: false })
     expect(pageShows('certified')).toEqual({ who: false, kind: true, rail: false })
@@ -115,11 +115,25 @@ describe('old who/kind links redirect to the matching leaf', () => {
     expect(from('boards', 'folder=deleted')).toBe('/analytics/deleted?who=mine&kind=board')
   })
 
-  it('a link no single leaf matches stays where it is', () => {
+  it('840: an old Home link no single leaf matches goes to All my items, keeping its choice', () => {
     expect(from('home', '')).toBeNull()
-    expect(from('home', 'who=mine')).toBeNull()
-    expect(from('home', 'kind=board&changed=today')).toBeNull()
-    expect(from('home', 'who=nobody&kind=board')).toBeNull()
+    expect(from('home', 'who=mine')).toBe('/analytics/library?who=mine')
+    expect(from('home', 'kind=board&changed=today')).toBe('/analytics/library?kind=board&changed=today')
+    expect(from('home', 'folder=f-1&q=orders')).toBe('/analytics/library?folder=f-1&q=orders')
+    expect(from('home', 'who=nobody')).toBeNull()
+  })
+
+  it("All my items sends a leaf's slice to its leaf, as Home did", () => {
+    expect(from('library', 'who=mine&kind=board')).toBe('/analytics/boards')
+    expect(from('library', 'who=certified&kind=board')).toBe('/analytics/certified?kind=board')
+    expect(from('library', 'folder=deleted')).toBe('/analytics/deleted')
+  })
+
+  it('a link no single leaf matches stays where it is', () => {
+    expect(from('library', '')).toBeNull()
+    expect(from('library', 'who=mine')).toBeNull()
+    expect(from('library', 'kind=board&changed=today')).toBeNull()
+    expect(from('library', 'who=nobody&kind=board')).toBeNull()
     expect(from('boards', 'folder=f-1')).toBeNull()
     expect(from('shared', 'folder=deleted')).toBeNull()
     expect(from('deleted', 'who=mine&kind=view')).toBeNull()

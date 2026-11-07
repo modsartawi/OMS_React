@@ -363,6 +363,10 @@ const REFUSAL_KEYS: Record<string, string> = {
   'ANALYTICS-412': 'refusal.invalidValue',
   // 833: an invalid recipient; the schedule editor also names each one (`./schedule` `refusedRecipients`).
   'ANALYTICS-414': 'refusal.invalidRecipient',
+  // ── 844 (spec 3437 §G, BO 3442): the Catalog's raw preview. 402 = not a curator; 417 = the table is not
+  // previewable (internal, `stg_*`, or no allow-listed column). Its 10 s timeout is worded in `./catalog-raw`.
+  'ANALYTICS-402': 'refusal.needsCurator',
+  'ANALYTICS-417': 'refusal.notPreviewable',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

@@ -187,7 +187,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { DELAYS_771, DELAYS_772, DELIVERIES_774, ITEMS, ITEMS_773, LIST, LIST_777, LIST_824, MODEL_773, NOT_SHARED_826, PANEL_IDS_773, QUERY, QUERY_773, QUERY_RETIRED, SEQUENCE_773, MODEL_825, MODEL_827, VIEW_825, CREATE_ANSWER_832, REPORT_832, CREATE_ANSWER_834, REPORT_834, editAnswer832, wordsAnswer827, wordsAnswer834, resolveAudience, envelope, inlineAnswer, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
-import { CATALOG_NO_LINEAGE_841 } from './analytics-catalog-stubs.mjs'
+import { CATALOG_CURATED_844, CATALOG_NO_LINEAGE_841 } from './analytics-catalog-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -260,6 +260,66 @@ async function catalog841({ dir }) {
   await bare.page.screenshot({ path: `${SHOTS}/841-no-lineage-${dir}.png`, fullPage: true })
   check(`${tag}: no page errors without lineage`, bare.errors.length === 0, bare.errors.join(' | '))
   await bare.context.close()
+}
+
+// 844 — a curator previews a mart raw from the catalog and sees its hidden-column count and size (BackOffice spec
+// 3437 §G, BO 3442), en and ar: a curator's mart detail shows rows, size and "columns hidden"; Raw preview (top 200)
+// asks the Raw door with the first listed column descending and shows the grid with only the listed columns; the
+// order-by picker offers only previewable columns, and a new order / ascending asks again; a 417 shows its words;
+// a viewer sees no action, no count, no size, and nothing asks the Raw door; no page errors.
+async function rawPreview844({ dir }) {
+  const tag = `844 ${dir}`
+  const goMart = async (page) => {
+    await page.goto(`${BASE}/analytics/catalog`)
+    await page.locator('[data-catalog-tree]').waitFor({ timeout: 15000 })
+    await page.locator('[data-catalog-toggle="area:till_sales"]').click()
+    await page.locator('[data-catalog-pick="area:till_sales/marts"]').click()
+    await page.locator('[data-catalog-pick="area:till_sales/mart:mart_till_sales_daily"]').click()
+    await page.locator('[data-catalog-detail="mart"]').waitFor()
+  }
+  const curator = await open({ dir, access: { canView: true, canAuthor: true, canCurate: true }, catalog: CATALOG_CURATED_844 })
+  const { page, errors, calls, bodies } = curator
+  await goMart(page)
+  const fact = async (k) => ((await page.locator(`[data-catalog-fact="${k}"]`).textContent()) ?? '').trim()
+  check(`${tag}: a curator sees the row count, size and hidden-column count`,
+    (await fact('rows')) === '1,284,311' && /412\.5/.test(await fact('size')) && (await fact('hidden')) === '2',
+    `${await fact('rows')} | ${await fact('size')} | ${await fact('hidden')}`)
+  await page.locator('[data-catalog-raw-action]').click()
+  await page.locator('[data-catalog-raw-grid] .ag-row').first().waitFor({ timeout: 15000 })
+  const first = (bodies['Analytics/Catalog/Raw'] ?? [])[0]
+  check(`${tag}: the first run asks the first listed column, descending`, JSON.stringify(first) === JSON.stringify({ mart: 'mart_till_sales_daily', orderBy: 'day', descending: true }), JSON.stringify(first))
+  const headers = await page.locator('[data-catalog-raw-grid] .ag-header-cell').evaluateAll((els) => els.map((e) => e.getAttribute('col-id')))
+  check(`${tag}: the grid shows only the listed columns`, JSON.stringify(headers) === JSON.stringify(['day', 'store_code', 'item_code', 'net_sales']), JSON.stringify(headers))
+  const options = await page.locator('[data-catalog-raw-order] option').evaluateAll((els) => els.map((e) => e.value))
+  check(`${tag}: order-by offers only previewable columns`, JSON.stringify(options) === JSON.stringify(['day', 'store_code', 'item_code', 'net_sales']), JSON.stringify(options))
+  await page.locator('[data-catalog-raw-order]').selectOption('net_sales')
+  await page.locator('[data-catalog-raw-descending]').click()
+  await page.waitForTimeout(400)
+  const last = (bodies['Analytics/Catalog/Raw'] ?? []).at(-1)
+  check(`${tag}: a new order and ascending ask again`, JSON.stringify(last) === JSON.stringify({ mart: 'mart_till_sales_daily', orderBy: 'net_sales', descending: false }), JSON.stringify(last))
+  const firstCell = ((await page.locator('[data-catalog-raw-grid] .ag-row[row-index="0"] [col-id="net_sales"]').textContent()) ?? '').trim()
+  check(`${tag}: rows come in the asked order`, firstCell === '12', firstCell)
+  await page.screenshot({ path: `${SHOTS}/844-raw-${dir}.png`, fullPage: true })
+  check(`${tag}: no page errors (curator)`, errors.length === 0, errors.join(' | '))
+  await curator.context.close()
+
+  const refused = await open({ dir, access: { canView: true, canAuthor: true, canCurate: true }, catalog: CATALOG_CURATED_844, raw: refusal('ANALYTICS-417', 'Mart not previewable.') })
+  await goMart(refused.page)
+  await refused.page.locator('[data-catalog-raw-action]').click()
+  await refused.page.waitForTimeout(600)
+  const words = ((await refused.page.locator('[data-catalog-raw]').textContent()) ?? '')
+  // The drive's rtl flips direction but keeps English text (the Arabic words are proven by the vitest).
+  check(`${tag}: a 417 shows its own sentence`, words.includes('cannot be previewed raw'), words.slice(0, 160))
+  await refused.context.close()
+
+  const viewer = await open({ dir, access: { canView: true, canAuthor: false, canCurate: false } })
+  await goMart(viewer.page)
+  check(`${tag}: a viewer sees no raw action, no counts, no size`,
+    (await viewer.page.locator('[data-catalog-raw-action]').count()) === 0 &&
+    (await viewer.page.locator('[data-catalog-fact="rows"], [data-catalog-fact="size"], [data-catalog-fact="hidden"]').count()) === 0)
+  check(`${tag}: a viewer never asks the Raw door`, !viewer.calls.includes('Analytics/Catalog/Raw'), [...new Set(viewer.calls)].join(','))
+  check(`${tag}: no page errors (viewer)`, viewer.errors.length === 0, viewer.errors.join(' | '))
+  await viewer.context.close()
 }
 
 mkdirSync(SHOTS, { recursive: true })
@@ -4764,6 +4824,8 @@ const SCENARIOS = [
   ['840', () => home840({ dir: 'rtl' })],
   ['841', () => catalog841({ dir: 'ltr' })],
   ['841', () => catalog841({ dir: 'rtl' })],
+  ['844', () => rawPreview844({ dir: 'ltr' })],
+  ['844', () => rawPreview844({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],

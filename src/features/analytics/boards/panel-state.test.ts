@@ -42,7 +42,7 @@ describe('panel failure', () => {
   const model = {
     areas: [
       { key: 'sales', available: true },
-      { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica.', ar: '' } },
+      { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica.', ar: 'بانتظار النسخة.' } },
     ],
     measures: [
       { key: 'orders', area: 'sales' },
@@ -53,11 +53,12 @@ describe('panel failure', () => {
   const def = (measures: string[]) => ({ chart: { type: 'bar' }, query: { measures, dimensions: [], filters: [] } }) as AnalyticsViewDefinition
 
   it("an unavailable panel says its area's own reason", () => {
-    expect(unavailableReason(def(['callouts']), model)).toEqual({ en: 'Waiting on the replica.', ar: '' })
+    expect(unavailableReason(def(['callouts']), model, 'en')).toBe('Waiting on the replica.')
+    expect(unavailableReason(def(['callouts']), model, 'ar')).toBe('بانتظار النسخة.')
   })
   it('no reason from the model (an available area, or none given) is null, for the server message to stand', () => {
-    expect(unavailableReason(def(['orders']), model)).toBeNull()
-    expect(unavailableReason(def(['unknown']), model)).toBeNull()
+    expect(unavailableReason(def(['orders']), model, 'en')).toBeNull()
+    expect(unavailableReason(def(['unknown']), model, 'en')).toBeNull()
   })
 
   // 766 §B / story 86: a definition naming a member the model no longer holds is retired, never a broken board.

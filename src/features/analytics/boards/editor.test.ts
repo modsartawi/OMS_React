@@ -4,7 +4,7 @@ import { allowedDimensions, colourDimension, colourMemberWords, comparesToPrevio
 
 const label = (en: string) => ({ en, ar: '' })
 const MODEL: AnalyticsModel = {
-  areas: [{ key: 'sales', available: true }, { key: 'callouts', available: false, unavailableReason: { en: 'Later.', ar: '' } }],
+  areas: [{ key: 'sales', available: true }, { key: 'callouts', available: false, unavailableReason: { en: 'Later.', ar: 'لاحقاً.' } }],
   measures: [
     { key: 'orders', area: 'sales', shape: 'additive', unit: 'count', label: label('Orders'), description: label(''), dimensions: ['channel_group', 'store', 'day'] },
     { key: 'p90', area: 'sales', shape: 'percentile', unit: 'minutes', label: label('P90'), description: label(''), dimensions: ['channel_group', 'day'] },

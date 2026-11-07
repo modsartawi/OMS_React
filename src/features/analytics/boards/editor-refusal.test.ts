@@ -8,7 +8,7 @@ const coded = (code: string, message = `Server says ${code}.`, data: unknown = n
 
 const label = (en: string, ar: string) => ({ en, ar })
 const MODEL: AnalyticsModel = {
-  areas: [{ key: 'delivery', available: true }, { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica (753).', ar: '' } }],
+  areas: [{ key: 'delivery', available: true }, { key: 'callouts', available: false, unavailableReason: { en: 'Waiting on the replica (753).', ar: 'بانتظار النسخة (753).' } }],
   measures: [
     { key: 'orders', area: 'delivery', shape: 'additive', unit: 'count', label: label('Orders', ''), description: label('', ''), dimensions: [] },
     { key: 'p90', area: 'delivery', shape: 'percentile', unit: 'minutes', maxWindowDays: 92, label: label('P90', ''), description: label('', ''), dimensions: [] },
@@ -20,21 +20,22 @@ const def = (measures: string[], period = 'year-to-date'): AnalyticsViewDefiniti
 
 describe('the editor reads 406, 407 and 410 in its own terms', () => {
   it('406 names the offending field the refusal carries, or none', () => {
-    expect(editorRefusal(coded('ANALYTICS-406', 'Bad.', { field: 'query.measures[0]' }), def(['orders']), MODEL)).toEqual({
+    expect(editorRefusal(coded('ANALYTICS-406', 'Bad.', { field: 'query.measures[0]' }), def(['orders']), MODEL, 'en')).toEqual({
       kind: 'invalid',
       field: 'query.measures[0]',
       message: 'Bad.',
     })
-    expect(editorRefusal(coded('ANALYTICS-406', 'Bad.'), def(['orders']), MODEL)).toEqual({ kind: 'invalid', field: null, message: 'Bad.' })
+    expect(editorRefusal(coded('ANALYTICS-406', 'Bad.'), def(['orders']), MODEL, 'en')).toEqual({ kind: 'invalid', field: null, message: 'Bad.' })
   })
 
   it('407 names the percentile, its cap, and offers the longest rolling window under it', () => {
-    expect(editorRefusal(coded('ANALYTICS-407'), def(['orders', 'p90']), MODEL)).toEqual({ kind: 'window', measure: 'p90', days: 92, shorter: 'last-30-days' })
+    expect(editorRefusal(coded('ANALYTICS-407'), def(['orders', 'p90']), MODEL, 'en')).toEqual({ kind: 'window', measure: 'p90', days: 92, shorter: 'last-30-days' })
   })
 
   it('410 shows the unavailable area reason from the model, else the server words', () => {
-    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['take_rate']), MODEL)).toEqual({ kind: 'area', reason: { en: 'Waiting on the replica (753).', ar: '' }, message: 'Area not ready.' })
-    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['orders']), MODEL)).toEqual({ kind: 'area', reason: null, message: 'Area not ready.' })
+    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['take_rate']), MODEL, 'en')).toEqual({ kind: 'area', reason: 'Waiting on the replica (753).' })
+    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['orders']), MODEL, 'en')).toEqual({ kind: 'area', reason: 'Area not ready.' })
+    expect(editorRefusal(coded('ANALYTICS-410', 'Area not ready.'), def(['take_rate']), MODEL, 'ar')).toEqual({ kind: 'area', reason: 'بانتظار النسخة (753).' })
   })
 
   it('411 lists the series problems the refusal carries (825), each to its series', () => {
@@ -45,17 +46,17 @@ describe('the editor reads 406, 407 and 410 in its own terms', () => {
       { what: 'name', why: 'slug', param: 'X' },
       { what: 'series', why: 'unheard-of' },
     ]
-    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.', { problems }), def(['orders']), MODEL)).toEqual({
+    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.', { problems }), def(['orders']), MODEL, 'en')).toEqual({
       kind: 'declaration',
       series: [{ why: 'tooMany' }, { why: 'duplicate', series: 's2' }, { why: 'foreignDimension', series: 's3', dimension: 'store' }],
       message: 'Not saved.',
     })
-    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.'), def(['orders']), MODEL)).toEqual({ kind: 'declaration', series: [], message: 'Not saved.' })
+    expect(editorRefusal(coded('ANALYTICS-411', 'Not saved.'), def(['orders']), MODEL, 'en')).toEqual({ kind: 'declaration', series: [], message: 'Not saved.' })
   })
 
   it('any other failure is not the editor’s to word', () => {
-    expect(editorRefusal(coded('ANALYTICS-409'), def(['orders']), MODEL)).toBeNull()
-    expect(editorRefusal(new Error('boom'), def(['orders']), MODEL)).toBeNull()
+    expect(editorRefusal(coded('ANALYTICS-409'), def(['orders']), MODEL, 'en')).toBeNull()
+    expect(editorRefusal(new Error('boom'), def(['orders']), MODEL, 'en')).toBeNull()
   })
 })
 

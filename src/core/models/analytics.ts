@@ -31,10 +31,7 @@ export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'shar
 export interface AnalyticsArea {
   key: string
   available: boolean
-  /**
-   * Bilingual on the wire (`AnalyticsAreaInfo.UnavailableReason` is an `AnalyticsLabel`, BackOffice 3437; ticket
-   * 841 fixed the old `string` typing). `readModel` reads it as a label; null when the area is available.
-   */
+  /** The server's reason, in both languages (SIS.Api `AnalyticsCatalogue`); `wire.ts` reads a bare string as both. */
   unavailableReason?: AnalyticsLabel | null
 }
 

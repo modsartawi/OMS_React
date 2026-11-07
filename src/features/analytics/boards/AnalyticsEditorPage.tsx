@@ -264,7 +264,7 @@ function ViewEditor({
   const primary: SaveHow | null = actions.save === 'read-only' ? null : actions.save
   const reload = () => save.reloadInto((item) => onReseed(item as AnalyticsItem))
 
-  const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model) : null)
+  const refusalOf = (err: unknown) => (definition ? editorRefusal(err, definition, model, lang) : null)
   const previewRefusal = answer.error ? refusalOf(answer.error) : null
   const saveRefusal = save.error && !save.refusal ? refusalOf(save.error) : null
   // 825: the series checks — the web's mirror live, or the server's 411 list after a save.

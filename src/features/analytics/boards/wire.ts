@@ -41,11 +41,11 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const said = (v: unknown): AnalyticsLabel => ({ en: str(obj(v).en), ar: str(obj(v).ar) })
 
 /**
- * An area's unavailable reason: a label `{en, ar}` on the wire (841). A bare string (an older stub) is read as
- * English; blank or absent is none.
+ * An area's unavailable reason: a label `{en, ar}` on the wire (841; passed through raw it reached JSX as an object,
+ * React #31, production 2026-11-07). A bare string reads as both languages; blank or absent is none.
  */
 export function readReason(v: unknown): AnalyticsLabel | null {
-  const l = typeof v === 'string' ? { en: v, ar: '' } : v && typeof v === 'object' ? said(v) : null
+  const l = typeof v === 'string' ? { en: v, ar: v } : v && typeof v === 'object' ? said(v) : null
   return l && (l.en || l.ar) ? l : null
 }
 

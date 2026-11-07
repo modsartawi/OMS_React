@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { AnalyticsModel, AnalyticsViewDefinition, BoardFilterKey, BoardFilters } from '@/core/models/analytics'
-import { effectiveQuery, panelKey, type CrossFilter, type ViewPanel } from './effective-query'
-import { convertV1Board, defaultsOf } from './params'
+import type { AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, AnalyticsViewDefinition, BoardFilterKey, BoardFilters } from '@/core/models/analytics'
+import { effectiveQuery, panelKey, queryKeyOf, type CrossFilter, type ViewPanel } from './effective-query'
+import { convertV1Board, defaultsOf, type ParamValues } from './params'
 
 const label = (en: string) => ({ en, ar: en })
 const MODEL: AnalyticsModel = {
@@ -163,19 +163,55 @@ describe('effective query: named series (825)', () => {
   })
 })
 
-describe('effective query: a draft in the designer asks inline (828, spec 819 §C)', () => {
+describe('effective query: an unsaved board or report asks by draft (853, BackOffice 3419)', () => {
   const p = { ...panel('p1'), viewId: '', optOut: ['crossFilter' as const] }
   const params = [{ name: 'period', kind: 'period' as const, label: label('Period'), required: true, default: { kind: 'period' as const, token: 'yesterday' as const } }]
   const bindings = { period: { p1: true as const } }
+  const block = (id: string, measures: string[]) => ({ id, kind: 'panel' as const, title: label(''), definition: view(measures) })
+  const report = (b: typeof bindings | Record<string, never>, extra: AnalyticsReportBlock[] = []): AnalyticsReportDefinition => ({
+    params,
+    bindings: b,
+    sections: [{ id: 's1', heading: label(''), blocks: [block('p1', ['orders']), ...extra] }],
+  })
+  const askDraft = (draft: AnalyticsReportDefinition, values: ParamValues = {}) =>
+    effectiveQuery({ panel: p, view: view(['orders']), revision: 0, model: MODEL }, { params: draft.params, bindings: draft.bindings, values, draft })
 
-  it('a report not saved yet (or edited since) sends its definition, parameters and bindings, never an item', () => {
-    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 0, model: MODEL }, { params, bindings, values: {}, inline: true })
-    expect(q).toEqual({ definition: view(['orders']), params, bindings, panelId: 'p1', values: { period: { kind: 'period', token: 'yesterday' } } })
+  it('a bound period goes as the draft and the panel’s values — no params, no bindings for the server to drop', () => {
+    const draft = report(bindings)
+    const q = askDraft(draft, { period: { kind: 'period', token: 'last-7-days' } })
+    expect(q).toEqual({ draft, panelId: 'p1', values: { period: { kind: 'period', token: 'last-7-days' } } })
+    expect(q).not.toHaveProperty('params')
+    expect(q).not.toHaveProperty('bindings')
+    expect(q).not.toHaveProperty('definition')
   })
 
-  it('inline wins over an item: the draft is not the saved revision', () => {
-    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 3, model: MODEL }, { params, bindings, values: {}, inline: true, item: { id: 'r-1', revision: 3 } })
+  it('an unbound panel still asks by draft, with no values: it runs at its own period', () => {
+    const q = askDraft(report({}), { period: { kind: 'period', token: 'last-7-days' } })
+    expect(q).toEqual({ draft: report({}), panelId: 'p1', values: {} })
+  })
+
+  it('the draft wins over an item: the draft is not the saved revision', () => {
+    const draft = report(bindings)
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 3, model: MODEL }, { params, bindings, values: {}, draft, item: { id: 'r-1', revision: 3 } })
     expect(q).not.toHaveProperty('itemId')
-    expect(q).toHaveProperty('definition')
+    expect(q).toHaveProperty('draft', draft)
+  })
+
+  it('drill on an unsaved panel keeps the inline definition form: the drilled panel is not on the draft', () => {
+    const draft = report(bindings)
+    const q = effectiveQuery({ panel: p, view: view(['orders']), revision: 0, model: MODEL }, { params, bindings, values: {}, draft }, [{ dimension: 'day', member: '2026-11-01', into: 'store' }])
+    expect(q).not.toHaveProperty('draft')
+    expect(q).toMatchObject({ definition: { query: { dimensions: ['store'], filters: [{ dimension: 'day', values: ['2026-11-01'] }] } }, params, bindings, panelId: 'p1' })
+  })
+
+  it('the cache key is the panel’s own share of the draft: an unrelated block leaves it, its binding re-keys it', () => {
+    const key = (draft: AnalyticsReportDefinition, values: ParamValues = {}) => panelKey(queryKeyOf(askDraft(draft, values), view(['orders'])))
+    const base = key(report(bindings))
+    expect(key(report(bindings, [{ id: 't1', kind: 'text', text: label('Hello') }, block('p2', ['till_value'])]))).toBe(base)
+    expect(key(report(bindings), { period: { kind: 'period', token: 'last-7-days' } })).not.toBe(base)
+    expect(key(report({}))).not.toBe(base)
+    expect(queryKeyOf(askDraft(report(bindings)), view(['orders']))).toEqual({ draftPanel: { definition: view(['orders']), params, bindings }, panelId: 'p1', values: { period: { kind: 'period', token: 'yesterday' } } })
+    // Never the drilled inline form's key: the two never share a cache entry.
+    expect(queryKeyOf(askDraft(report(bindings)), view(['orders']))).not.toHaveProperty('definition')
   })
 })

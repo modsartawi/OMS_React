@@ -10,7 +10,7 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsQueryKey } from './api'
 import { pointOf } from './drill'
-import { drilledDefinition, effectiveQuery, panelKey, panelPeriod, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
+import { drilledDefinition, effectiveQuery, panelKey, panelPeriod, queryKeyOf, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
 import PanelActions from './PanelActions'
 import PanelBody, { bodyState } from './PanelBody'
 import PanelDrill from './PanelDrill'
@@ -132,14 +132,24 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     () => (cross && cross.source === panel.id && cross.dimension === drawn?.query.dimensions[0] ? { dimension: cross.dimension, member: cross.member } : null),
     [cross, panel.id, drawn],
   )
+  // 853: a draft panel is keyed by what of the draft it runs, not the whole draft (`queryKeyOf`).
+  const keyed = useMemo(() => (input && item ? queryKeyOf(input, item.definition) : null), [input, item])
   const answer = useQuery({
-    queryKey: analyticsQueryKey(input ?? { viewId: panel.viewId }),
+    queryKey: analyticsQueryKey(keyed ?? { viewId: panel.viewId }),
     queryFn: () => analyticsApi.query(input!),
     enabled: !!input,
     placeholderData: keepPreviousData,
     retry: false,
   })
   const busy = answer.isFetching
+  // 853: the server refuses a whole draft a save would refuse (a text naming a removed panel, `ANALYTICS-411`), which
+  // no change of this panel's key fixes: a refused draft panel asks again when the draft changes.
+  // Only a refusal of the draft as a whole: a 412/415/404 is this panel's own, which another edit does not fix.
+  const refusedDraft = !!context.draft && DRAFT_REFUSALS.has(apiErrorCode(answer.error) ?? '')
+  useEffect(() => {
+    if (refusedDraft) void answer.refetch({ cancelRefetch: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new draft asks again, not the refusal itself
+  }, [context.draft])
   // While a drill step is asked, the previous answer stays drawn — with the definition it answered, not
   // the drilled one it does not match. Adjusted during render, so no frame pairs one with the other.
   const [shown, setShown] = useState(drawn)
@@ -215,7 +225,7 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
       panel={panel}
       kind="view"
       data-board-panel-state={bodyState(result, answer.error, busy, retired)}
-      data-panel-key={input ? panelKey(input) : undefined}
+      data-panel-key={keyed ? panelKey(keyed) : undefined}
       data-board-cross-source={point ? 'true' : undefined}
       data-board-drill-depth={String(drill.length)}
     >
@@ -312,6 +322,9 @@ const NO_CROSS = () => {}
  * by" and marks as a board panel. Its definition is inline, so it stands in as a view of that definition (titled
  * by the block, else generated); it asks by the report and its own `panelId`, full width, with no cross-filter.
  */
+/** The refusals of a draft as a whole (validated as a save would be, BackOffice 3419): any edit may fix them. */
+const DRAFT_REFUSALS = new Set(['ANALYTICS-406', 'ANALYTICS-411'])
+
 export const ReportPanel = memo(function ReportPanel({
   block,
   report,

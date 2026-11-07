@@ -2530,7 +2530,7 @@ async function buildsNewView() {
 //   2. a row dragged onto the grid shows the drop outline at the cell under the pointer and lands there; Enter on a
 //      row adds it at the end;
 //   3. Preview shows the unsaved board as a viewer does: the draft's title, its panels on the board grid, each asking
-//      Query INLINE (definition + params + bindings, no itemId); nothing is saved;
+//      Query by DRAFT (853: the whole working board + panelId + values, no itemId); nothing is saved;
 //   4. Back to design returns with the layout, the title and the open parameter inspector as they were.
 async function paletteAndPreview837({ dir }) {
   const tag = `837 ${dir}`
@@ -2597,7 +2597,8 @@ async function paletteAndPreview837({ dir }) {
   check(`${tag}: … and its three panels`, shown === 3, String(shown))
   await page.waitForTimeout(800)
   const asked = (bodies['Analytics/Query'] ?? []).slice(before)
-  check(`${tag}: … each panel asks INLINE (definition + params + bindings, never by item)`, asked.length >= 3 && asked.every((b) => b.definition && Array.isArray(b.params) && b.bindings && b.panelId && !b.itemId), JSON.stringify(asked.map((b) => ({ panelId: b.panelId, itemId: b.itemId, inline: !!b.definition }))))
+  // 853: by DRAFT (the whole working board), never the dropped `params`/`bindings` form, never by item.
+  check(`${tag}: … each panel asks by draft (the whole working board, never by item)`, asked.length >= 3 && asked.every((b) => b.draft && Array.isArray(b.draft.panels) && b.panelId && b.values && !b.itemId && !b.definition && !('params' in b) && !('bindings' in b)), JSON.stringify(asked.map((b) => ({ panelId: b.panelId, itemId: b.itemId, draft: !!b.draft }))))
   check(`${tag}: … and nothing is saved`, !(bodies['Analytics/Item'] ?? []).length)
 
   // 4. Back to design: the layout, title and open inspector as they were.

@@ -682,6 +682,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *   access:   an `{ canView, canAuthor, canCurate }` object (default an author, 822), `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
+ *   draftRefuse: (body) => a `refusal(...)` fulfil object refusing a `{ draft }` ask as a whole (853), or null;
  *   query:    id → result, or id → a `refusal(...)` fulfil object;
  *   queryDelayMs: hold every Query answer this long, so the loading frame is seen;
  *   querySequence: view id → answers taken in order, the last one standing (773's time-out then retry);
@@ -987,10 +988,19 @@ export const HEALTH_OK = {
 }
 
 const body823 = (req) => (req.method() === 'POST' ? req.postDataJSON() : null)
+/** 853: a period value as the answer's resolved range (the stub's "today" is 2026-11-06), so a drive sees which period ran. */
+const draftPeriod = (v) => {
+  if (!v || v.kind !== 'period') return null
+  if (v.from && v.to) return { from: v.from, to: v.to }
+  const back = { today: 0, yesterday: 1, 'last-7-days': 7, 'last-30-days': 30, 'last-90-days': 90 }[v.token]
+  if (back === undefined) return null
+  const day = (n) => new Date(Date.UTC(2026, 10, 6 - n)).toISOString().slice(0, 10)
+  return v.token === 'today' ? { from: day(0), to: day(0) } : { from: day(back), to: day(1) }
+}
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact, home, pin } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact, home, pin, draftRefuse = () => null } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 833: each report's schedules and kept runs, written by the schedule doors and Send now.
@@ -1263,6 +1273,34 @@ export async function installAnalyticsStubs(page, opts = {}) {
     // 827: a report's Words — its live figures and summary for one run.
     if (/^Analytics\/Report\/[^/]+\/Words$/.test(p) && req.method() === 'POST') {
       const answer = words(body823(req))
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
+    }
+    // 853 (BackOffice 3419): one panel of an author's UNSAVED board or report, `{ draft, panelId, values }`, run as the
+    // saved item's would be: a runner is 415; the panel's view (a report block's inline definition, a board panel's saved
+    // view) answers, the period parameter bound to it sets the answer's period, and every unbound parameter is not reached.
+    if (p === 'Analytics/Query' && body823(req)?.draft) {
+      const body = body823(req)
+      if (access && typeof access === 'object' && !access.canAuthor) return route.fulfill(refusal('ANALYTICS-415', 'Running an unsaved board or report needs the analytics author grant.', 403))
+      // A scenario's validation of the whole draft (a save's own check): a `refusal(...)` refuses every panel of it.
+      const refused = draftRefuse(body)
+      if (refused) return route.fulfill(refused)
+      const draft = body.draft
+      const block = (draft.sections ?? []).flatMap((x) => x.blocks).find((b) => b.id === body.panelId && b.kind === 'panel')
+      const panel = (draft.panels ?? []).find((x) => x.id === body.panelId && x.kind === 'view')
+      if (!block && !panel) return route.fulfill(refusal('ANALYTICS-404', 'The panel is not on this board or report.', 404))
+      const hold = (panel && queryDelayFor[panel.viewId]) ?? queryDelayMs
+      if (hold) await new Promise((r) => setTimeout(r, hold))
+      const viewDef = block?.definition ?? made[panel.viewId]?.definition ?? items[panel.viewId]?.definition ?? ITEMS_776[panel.viewId]?.definition
+      const base = block || !query[panel.viewId] ? (viewDef ? inlineAnswer(viewDef, model, body.compareToPrevious === true) : null) : query[panel.viewId]
+      if (!base) return route.fulfill(refusal('ANALYTICS-404', 'The view is not found.', 404))
+      if (isFulfil(base)) return route.fulfill(base)
+      const bindings = draft.bindings ?? {}
+      const params = draft.params ?? []
+      const bound = params.find((x) => x.kind === 'period' && bindings[x.name]?.[body.panelId])
+      // Unbound, the panel runs at its view's own period.
+      const period = draftPeriod(bound ? (body.values?.[bound.name] ?? bound.default) : { kind: 'period', token: viewDef?.query?.period })
+      const notReached = params.filter((x) => !bindings[x.name]?.[body.panelId]).map((x) => ({ param: x.name, reason: 'notInArea' }))
+      const answer = paramAnswer(body, { ...base, ...(period ? { period } : {}), notReached, fellBack: [] })
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     // 827: one panel of a report — its inline definition answered, and every parameter not bound to it not reached.

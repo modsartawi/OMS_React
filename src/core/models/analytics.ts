@@ -342,15 +342,26 @@ export interface AnalyticsItemShare extends AnalyticsItemRevision {
  */
 export type AnalyticsQueryInput = AnalyticsViewQuery | AnalyticsParamQuery
 
+/** 853: an unsaved board's or report's whole definition, as a save would send it. */
+export type AnalyticsDraftDefinition = AnalyticsBoardDefinition | AnalyticsReportDefinition
+
 /**
  * ⚠ 819 §C, proposed: a saved item's panel `{ itemId, revision, panelId, values }`, or, while editing or
- * drilled, `{ definition, params, bindings, panelId, values }`. `values` holds the parameters bound to that
- * panel, so a value change re-asks only the panels it is bound to. The cross-filter (772) is the web's own,
+ * drilled, `{ definition, params, bindings, panelId, values }`. ⚠ 853: SIS.Api's request has no `params` or
+ * `bindings` and drops them silently — that form runs at the definition's own period and filters. An unsaved
+ * item's panel goes as `{ draft, panelId, values }` instead; only a drilled panel (not on the draft) still sends it,
+ * and so still runs unbound (a server ask, noted on ticket 853). `values` holds the parameters bound to that panel, so a value change re-asks only the panels it is bound to. The cross-filter (772) is the web's own,
  * not a parameter, and rides as before; `compareToPrevious` too.
  */
 export type AnalyticsParamQuery = (
   | { itemId: string; revision: number }
   | { definition: AnalyticsViewDefinition; params: Param[]; bindings: Bindings }
+  /**
+   * 853 (BackOffice 3419, spec 3408 §D): an author's UNSAVED board or report, whole. The server validates it as a save
+   * would (`ANALYTICS-406`/`411`), never stores it, and runs `panelId` of it through the saved item's compiler, so its
+   * parameters and bindings apply. Author-only (`ANALYTICS-415`).
+   */
+  | { draft: AnalyticsDraftDefinition }
 ) & {
   panelId: string
   values: Record<string, ParamValue>

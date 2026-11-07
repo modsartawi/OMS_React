@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:/Work/DMSCO/BackOffice/.issues/3437-analytics-library-pages-and-the-data-catalog-spec.md
 blocked-by: —
 ---
@@ -34,10 +34,10 @@ UI (menu, router, library) / tests.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `menu lists eight analytics leaves behind the analytics probe` · vitest
-- [ ] `each leaf narrows the library by its route` (pure `library` + route params) · vitest
-- [ ] `old who/kind links redirect to the matching leaf` · vitest
-- [ ] `Shared with me excludes my items and certified` · vitest
+- [x] `menu lists eight analytics leaves behind the analytics probe` · vitest
+- [x] `each leaf narrows the library by its route` (pure `library` + route params) · vitest
+- [x] `old who/kind links redirect to the matching leaf` · vitest
+- [x] `Shared with me excludes my items and certified` · vitest
 
 ## Boundaries
 
@@ -50,3 +50,24 @@ Proofs green; on staging each leaf shows the right subset and a bookmarked old l
 ## Blocked by
 
 None — can start immediately (the Items door's who/kind/folder params exist, 3432)
+
+## Comments
+
+**2026-11-07 — code half done (impl/839).** The four Proofs are vitest: `src/layout/menu-analytics.test.ts`
+(eight leaves, one probe, each leaf lights only itself, an item page lights Home) and
+`src/features/analytics/boards/library-pages.test.ts` (route narrowing, URL keeps only what the route leaves open,
+redirects, Shared excludes mine + certified — mutation-checked by breaking `whoMatches` once). Drive scenario
+`839` in `tools/analytics-drive.mjs` (stubbed doors), 25/25 en + rtl.
+
+- Pure module `features/analytics/boards/library-pages.ts`: `LIBRARY_PAGES` (page, path, labelKey),
+  `libraryPagePath`, `pageChoice`, `pageToParams`, `pageQuery`, `pageShows`, `pageNarrows`, `libraryRedirect`.
+- One library component `AnalyticsLibraryPage` (renamed from `AnalyticsHomePage`) takes `page`; Home still the
+  whole library (840 replaces it). `AnalyticsCatalogPage` is the "coming" placeholder (841 replaces it).
+- Decisions the spec left open: the redirect is a route loader on every library route and every navigation, so a
+  Home chip pick that equals a leaf's slice (Mine+Boards, Certified, Shared with me, Recently deleted) lands on that
+  leaf; `who=mine` of every kind, or a kind alone, has no leaf and stays on Home. Shared / Certified fix
+  `folder=all` (folders are mine) and show no rail; Recently deleted shows no rail but keeps the who/kind chips; a
+  My page's rail "Recently deleted" goes to `/analytics/deleted?kind=<its kind>`. Home keeps the ask box, every
+  New button and the status card; a My page offers only its kind's New; Shared / Certified / Deleted none.
+- **Owed:** the staging walk (each leaf's subset, a bookmarked old link landing on its leaf). BO 3437's doors are
+  not deployed; the Items params this uses (3432) already are.

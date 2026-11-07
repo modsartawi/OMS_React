@@ -4486,6 +4486,55 @@ async function acceptance834({ dir, dark = false }) {
   await author.context.close()
 }
 
+// ── 839 ──────────────────────────────────────────────────────────────────────────────────────────────
+// 839 — the Analytics menu has one leaf per library page (BackOffice spec 3437 §G), en and ar:
+//   the eight leaves in order; My views lists only my views, without who/kind chips but with the rail and
+//   New view, and lights only its own leaf; Shared with me lists a colleague's shared view, never my own shared
+//   one or a certified one, with no rail; an old `?who=mine&kind=view` lands on My views and `?folder=deleted` on
+//   Recently deleted; the Catalog is the "coming" placeholder; an item page keeps Home lit; no page errors.
+async function libraryLeaves839({ dir }) {
+  const tag = `839 ${dir}`
+  const { context, page, errors } = await open({ dir })
+  const ids = () => page.locator('[data-analytics-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-item')))
+  const lit = () => page.locator('nav a[aria-current="page"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
+  await page.goto(`${BASE}/analytics/views`)
+  await page.locator('[data-analytics-library-list]').waitFor({ timeout: 15000 })
+  const LEAVES = ['/analytics', '/analytics/boards', '/analytics/views', '/analytics/reports', '/analytics/shared', '/analytics/certified', '/analytics/catalog', '/analytics/deleted']
+  check(`${tag}: the menu lists the eight leaves in order`, JSON.stringify(await analyticsLinks(page)) === JSON.stringify(LEAVES), JSON.stringify(await analyticsLinks(page)))
+  const views = await ids()
+  check(`${tag}: My views lists only my views`, JSON.stringify([...views].sort()) === JSON.stringify(['v-bar', 'v-old', 'v-titled']), JSON.stringify(views))
+  check(`${tag}: My views has no who/kind chips, keeps changed and the rail`,
+    (await page.locator('[data-analytics-chip-who]').count()) === 0 && (await page.locator('[data-analytics-chip-kind]').count()) === 0 &&
+    (await page.locator('[data-analytics-chip-changed]').count()) > 0 && (await page.locator('[data-analytics-library-rail]').count()) === 1)
+  check(`${tag}: My views offers New view only`, (await page.locator('[data-analytics-new="views"]').count()) === 1 && (await page.locator('[data-analytics-new-board]').count()) === 0)
+  check(`${tag}: only My views is lit`, JSON.stringify(await lit()) === '["/analytics/views"]', JSON.stringify(await lit()))
+  await page.screenshot({ path: `${SHOTS}/839-views-${dir}.png`, fullPage: true })
+
+  await page.goto(`${BASE}/analytics/shared`)
+  await page.locator('[data-analytics-library-list], [data-analytics-home-no-match], [data-analytics-page-empty]').first().waitFor({ timeout: 15000 })
+  const shared = await ids()
+  check(`${tag}: Shared with me lists a colleague's shared item, not mine nor certified`,
+    JSON.stringify(shared) === '["b-shared"]', JSON.stringify(shared))
+  check(`${tag}: Shared with me has no rail`, (await page.locator('[data-analytics-library-rail]').count()) === 0)
+
+  await page.goto(`${BASE}/analytics?who=mine&kind=view&changed=30`)
+  await page.waitForURL(/\/analytics\/views\?changed=30$/, { timeout: 10000 }).catch(() => {})
+  check(`${tag}: an old who=mine&kind=view link lands on My views`, new URL(page.url()).pathname === '/analytics/views' && new URL(page.url()).search === '?changed=30', page.url())
+  await page.goto(`${BASE}/analytics?folder=deleted`)
+  await page.waitForURL(/\/analytics\/deleted$/, { timeout: 10000 }).catch(() => {})
+  check(`${tag}: an old folder=deleted link lands on Recently deleted`, new URL(page.url()).pathname === '/analytics/deleted', page.url())
+
+  await page.goto(`${BASE}/analytics/catalog`)
+  check(`${tag}: the Catalog is the coming placeholder`, await page.locator('[data-analytics-catalog-coming]').waitFor({ timeout: 10000 }).then(() => true, () => false))
+  if (dir === 'rtl') check(`${tag}: the page is RTL`, (await page.locator('html').getAttribute('dir')) === 'rtl')
+
+  await page.goto(`${BASE}/analytics/view/v-bar`)
+  await page.waitForTimeout(800)
+  check(`${tag}: an item page keeps Home lit`, JSON.stringify(await lit()) === '["/analytics"]', JSON.stringify(await lit()))
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const SCENARIOS = [
   ['834', () => acceptance834({ dir: 'ltr' })],
   ['834', () => acceptance834({ dir: 'rtl' })],
@@ -4585,6 +4634,8 @@ const SCENARIOS = [
   ['777', () => removedView({ dir: 'ltr' })],
   ['777', () => removedView({ dir: 'rtl' })],
   ['777', buildsNewView],
+  ['839', () => libraryLeaves839({ dir: 'ltr' })],
+  ['839', () => libraryLeaves839({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],

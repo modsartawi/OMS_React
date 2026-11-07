@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate, Outlet, useSearchParams } from 'react-router'
+import { createBrowserRouter, Navigate, Outlet, redirect, useSearchParams, type LoaderFunctionArgs } from 'react-router'
+import { LIBRARY_PAGES, libraryRedirect } from '@/features/analytics/boards/library-pages'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -136,9 +137,24 @@ export const router = createBrowserRouter([
       // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
       // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route
       // string only.
+      // 839 (BackOffice spec 3437 §G): one route per library leaf, each the library with its route fixing who / kind /
+      // folder (`library-pages`); Home is still the whole library until 840; the Catalog is 841's placeholder. The
+      // loader redirects an old `/analytics?who=…&kind=…` (and `folder=deleted`) to its leaf, on every navigation, so
+      // a chip on Home that picks a leaf's slice lands on that leaf too.
+      ...LIBRARY_PAGES.filter((p) => p.page !== 'catalog').map(({ page, path }) => ({
+        path: path.slice(1),
+        loader: ({ request }: LoaderFunctionArgs) => {
+          const to = libraryRedirect(page, new URL(request.url).searchParams)
+          return to ? redirect(to) : null
+        },
+        lazy: async () => {
+          const { default: Library } = await import('@/features/analytics/boards/AnalyticsLibraryPage')
+          return { Component: () => <Library page={page} /> }
+        },
+      })),
       {
-        path: 'analytics',
-        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsHomePage')).default }),
+        path: 'analytics/catalog',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsCatalogPage')).default }),
       },
       {
         path: 'analytics/board/:id',

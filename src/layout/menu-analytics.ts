@@ -1,5 +1,6 @@
-import { ChartColumnBig, LayoutDashboard } from 'lucide-react'
+import { BadgeCheck, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { ANALYTICS_ACCESS_KEY, analyticsAccessApi, canViewAnalytics } from '@/features/analytics/boards/access'
+import { LIBRARY_PAGES, type LibraryPage } from '@/features/analytics/boards/library-pages'
 import type { AccessProbe, ShellMenuItem } from './menu-model'
 
 /**
@@ -18,17 +19,30 @@ const analyticsProbe: AccessProbe = {
   visible: (data) => canViewAnalytics(data as Parameters<typeof canViewAnalytics>[0]),
 }
 
+const PAGE_ICON: Record<LibraryPage, LucideIcon> = {
+  home: Home,
+  boards: LayoutDashboard,
+  views: ChartColumn,
+  reports: FileText,
+  shared: Users,
+  certified: BadgeCheck,
+  catalog: Library,
+  deleted: Trash2,
+}
+
+/**
+ * 839 (BackOffice spec 3437 §G): one leaf per library page, all on the one probe. Each leaf lights only its own
+ * page; Home keeps the whole `/analytics` subtree as its prefix, so an item page (`/analytics/board/:id`, `new`…)
+ * lights Home and keeps the group open — the longer leaves win on their own pages (`markedLeaf`).
+ */
 export const ANALYTICS_MENU: ShellMenuItem = {
   labelKey: 'boards:menu.analytics',
   icon: ChartColumnBig,
-  items: [
-    {
-      // The home (767's empty state; 770's lists). The whole subtree, so a view or a board keeps it lit.
-      labelKey: 'boards:menu.boards',
-      icon: LayoutDashboard,
-      routerLink: '/analytics',
-      activePrefix: '/analytics',
-      access: analyticsProbe,
-    },
-  ],
+  items: LIBRARY_PAGES.map(({ page, path, labelKey }) => ({
+    labelKey,
+    icon: PAGE_ICON[page],
+    routerLink: path,
+    ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
+    access: analyticsProbe,
+  })),
 }

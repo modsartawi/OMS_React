@@ -1,9 +1,9 @@
 import { useMemo, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChartColumn, FileText, Folder, FolderInput, Inbox, LayoutDashboard, Plus, RotateCcw, SearchX } from 'lucide-react'
-import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH } from '@/core/analytics-routes'
+import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH, NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsFolder, AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
@@ -24,16 +24,8 @@ import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemsKey } from './api'
 import { newViewLink } from './editor'
-import {
-  choiceNarrows,
-  LIBRARY_DRAG_TYPE,
-  libraryFromParams,
-  libraryItems,
-  libraryItemsQuery,
-  libraryToParams,
-  type LibraryChoice,
-  type LibraryFolder,
-} from './library'
+import { LIBRARY_DRAG_TYPE, libraryItems, libraryItemsQuery, type LibraryChoice, type LibraryFolder } from './library'
+import { libraryPagePath, pageNarrows, pageQuery, pageShows, type LibraryPage } from './library-pages'
 import LibraryChips from './LibraryChips'
 import LibraryMenu from './LibraryMenu'
 import LibraryRail from './LibraryRail'
@@ -43,6 +35,13 @@ import TierBadge from './TierBadge'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
 /**
+ * 839 (BackOffice spec 3437 §G): ONE library component behind every library leaf of the Analytics menu — Home
+ * `/analytics`, My boards / views / reports, Shared with me, Certified and Recently deleted. Its `page` says which
+ * (`./library-pages`): the route fixes who / kind / folder, the URL query carries only what the route leaves open,
+ * and the chips and folder rail the route fixes are not shown. Home is still the whole library until 840 gives it
+ * recent / pinned / newest certified; an old `?who=…&kind=…` link is redirected before this renders (the router's
+ * loader, `libraryRedirect`).
+ *
  * The analytics home at `/analytics` (spec 766 §F, user stories 3–6; ticket 770) — the menu leaf's
  * destination, behind `canViewAnalytics` like every analytics page.
  *
@@ -57,11 +56,13 @@ import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
  * The toolbar row above the list (`data-analytics-home-header`) is the page's header slot: 782's ask box
  * joins the search there. Below it, curators see the analytics status card (785, `./AnalyticsStatus`).
  */
-export default function AnalyticsHomePage() {
+export default function AnalyticsLibraryPage({ page = 'home' }: { page?: LibraryPage }) {
   const { t } = useTranslation('boards')
+  const title = page === 'home' ? t('home.title') : t(`pages.${page}.title`)
+  const subtitle = page === 'home' ? t('home.subtitle') : t(`pages.${page}.subtitle`)
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('home.title')} subtitle={t('home.subtitle')}>
-      <HomeBody />
+    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={title} subtitle={subtitle}>
+      <HomeBody page={page} />
     </ScreenGate>
   )
 }
@@ -79,10 +80,18 @@ function generatedTitle(item: AnalyticsItem, model: AnalyticsModel | undefined):
 
 const SEARCH_DEBOUNCE_MS = 300
 
-function HomeBody() {
+function HomeBody({ page }: { page: LibraryPage }) {
   const { t } = useTranslation('boards')
-  // 837: the library's choice (folder, chips, search) lives in the URL, so a refresh or Back keeps it.
-  const { query: choice, update } = useUrlQuery(libraryFromParams, libraryToParams)
+  const navigate = useNavigate()
+  // 837: the library's choice (folder, chips, search) lives in the URL, so a refresh or Back keeps it. 839: what
+  // the page's route fixes is laid over it.
+  const { fromParams, toParams } = pageQuery(page)
+  const { query: choice, update } = useUrlQuery(fromParams, toParams)
+  const shows = pageShows(page)
+  const narrows = (c: LibraryChoice) => pageNarrows(page, c)
+  // 839: Recently deleted is its own leaf — the rail's entry goes there, carrying this page's kind.
+  const pickFolder = (f: LibraryFolder) =>
+    f === 'deleted' && page !== 'home' ? navigate(`${libraryPagePath('deleted')}?kind=${choice.kind}`) : update((c) => ({ ...c, folder: f }))
   const search = choice.search
   const me = useSession((s) => s.userId) ?? ''
   const today = localToday()
@@ -128,7 +137,13 @@ function HomeBody() {
         {t('home.loading')}
       </div>
     )
-  } else if (folder === 'all' && items.data.length === 0 && !choiceNarrows(choice) && !asked.search) {
+  } else if (page !== 'home' && page !== 'deleted' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
+    body = (
+      <div className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground" data-analytics-page-empty={page}>
+        {t(`pages.${page}.empty`)}
+      </div>
+    )
+  } else if (page === 'home' && folder === 'all' && items.data.length === 0 && !narrows(choice) && !asked.search) {
     body = (
       <div className="rounded-lg border border-border/60 bg-card p-6 text-sm" data-analytics-home-empty>
         <p className="font-medium">{t('home.emptyTitle')}</p>
@@ -136,15 +151,15 @@ function HomeBody() {
       </div>
     )
   } else if (list.length === 0) {
-    const onlySearch = !!search.trim() && !choiceNarrows({ ...shown, search: '' })
+    const onlySearch = !!search.trim() && !narrows({ ...shown, search: '' })
     const words =
-      folder === 'deleted' && !choiceNarrows(shown)
+      folder === 'deleted' && !narrows(shown)
         ? t('home.library.deletedEmpty')
         : onlySearch && folder === 'all'
           ? t('home.noMatch', { search: fsi(search.trim()) })
-          : !choiceNarrows(shown) && folder === 'none'
+          : !narrows(shown) && folder === 'none'
             ? t('home.library.emptyUnfiled')
-            : !choiceNarrows(shown) && folder !== 'all' && folder !== 'deleted'
+            : !narrows(shown) && folder !== 'all' && folder !== 'deleted'
               ? t('home.library.emptyFolder')
               : t('home.library.noMatch')
     body = (
@@ -173,7 +188,7 @@ function HomeBody() {
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start">
-      <LibraryRail folders={library.folders} available={library.available} current={folder} onPick={(f) => update((c) => ({ ...c, folder: f }))} onDropItem={fileInto} />
+      {shows.rail && <LibraryRail folders={library.folders} available={library.available} current={folder} onPick={pickFolder} onDropItem={fileInto} />}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3" data-analytics-home-header>
           <Input
@@ -188,8 +203,15 @@ function HomeBody() {
             wrapperClassName="w-80 max-w-full"
             data-analytics-home-search
           />
-          <AskBox />
-          {author && (
+          {page === 'home' && <AskBox />}
+          {/* 822: a runner builds nothing. 839: Home offers every New; a My page its own kind's. */}
+          {author && page !== 'home' && NEW_LINK[page] && (
+            <Link to={NEW_LINK[page].to} className={buttonClass('secondary')} data-analytics-new={page}>
+              <Plus className="size-4" aria-hidden />
+              {t(NEW_LINK[page].labelKey)}
+            </Link>
+          )}
+          {author && page === 'home' && (
             <>
               {/* 775: build a view from the model. */}
               <Link to={newViewLink().to} className={buttonClass('secondary')} data-analytics-new-view>
@@ -209,13 +231,20 @@ function HomeBody() {
             </>
           )}
         </div>
-        <LibraryChips choice={choice} onChange={update} />
-        {curator && <AnalyticsStatus />}
+        <LibraryChips choice={choice} onChange={update} shows={shows} narrows={narrows} />
+        {curator && page === 'home' && <AnalyticsStatus />}
         {folder === 'deleted' && <p className="text-xs text-muted-foreground">{t('home.library.deletedNote')}</p>}
         {body}
       </div>
     </div>
   )
+}
+
+/** 839: a My page's one New button. */
+const NEW_LINK: Partial<Record<LibraryPage, { to: string; labelKey: string }>> = {
+  boards: { to: NEW_BOARD_PATH, labelKey: 'boardEditor.newBoard' },
+  views: { to: NEW_VIEW_PATH, labelKey: 'editor.newView' },
+  reports: { to: NEW_REPORT_PATH, labelKey: 'designer.newReport' },
 }
 
 const kindIcon = (kind: AnalyticsItem['kind']) => (kind === 'board' ? LayoutDashboard : kind === 'report' ? FileText : ChartColumn)

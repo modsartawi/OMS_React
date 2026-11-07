@@ -1,7 +1,31 @@
 {
   "menu": {
     "analytics": "Analytics",
-    "boards": "Boards and views"
+    "home": "Home",
+    "myBoards": "My boards",
+    "myViews": "My views",
+    "myReports": "My reports",
+    "shared": "Shared with me",
+    "certified": "Certified",
+    "catalog": "Catalog",
+    "deleted": "Recently deleted"
+  },
+  "pages": {
+    "boards": { "title": "My boards", "subtitle": "The boards you own.", "empty": "You have no boards yet." },
+    "views": { "title": "My views", "subtitle": "The analytics views you own.", "empty": "You have no views yet." },
+    "reports": { "title": "My reports", "subtitle": "The reports you own.", "empty": "You have no reports yet." },
+    "shared": {
+      "title": "Shared with me",
+      "subtitle": "Items colleagues shared with you, directly or through an audience you are in.",
+      "empty": "Nothing has been shared with you yet."
+    },
+    "certified": { "title": "Certified", "subtitle": "The organisation's official boards, views and reports.", "empty": "Nothing is certified yet." },
+    "deleted": { "title": "Recently deleted", "subtitle": "Your deleted items. Restore one to put it back." },
+    "catalog": {
+      "title": "Catalog",
+      "subtitle": "What the analytics model holds and where it comes from.",
+      "coming": "The data catalog is coming soon."
+    }
   },
   "access": {
     "checking": "Checking your access…",

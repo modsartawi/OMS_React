@@ -20,28 +20,47 @@ const changedKey = (c: LibraryChanged): string => (c.kind === 'days' ? `days${c.
  * 837 item 3: the library's chips — who (All · Mine · Certified · Shared with me), kind (Views · Boards · Reports)
  * and changed (Any time · Today · Last 7 days · Last 30 days · Between dates, with its from/to dates). Each group is
  * one choice; the dates are machine values, so their fields are left-to-right (bidi rule).
+ *
+ * 839: a library page whose route fixes who or kind hides that group (`shows`), and `narrows` says what counts as
+ * narrowing on that page (Clear shows only for what the page leaves open).
  */
-export default function LibraryChips({ choice, onChange }: { choice: LibraryChoice; onChange: (change: (c: LibraryChoice) => LibraryChoice) => void }) {
+export default function LibraryChips({
+  choice,
+  onChange,
+  shows = { who: true, kind: true },
+  narrows = choiceNarrows,
+}: {
+  choice: LibraryChoice
+  onChange: (change: (c: LibraryChoice) => LibraryChoice) => void
+  shows?: { who: boolean; kind: boolean }
+  narrows?: (c: LibraryChoice) => boolean
+}) {
   const { t } = useTranslation('boards')
   const range = choice.changed.kind === 'range' ? choice.changed : null
   return (
     <div className="flex flex-col gap-2" data-analytics-library-chips>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <ChipGroup label={t('home.library.who.label')}>
-          {LIBRARY_WHO.map((who) => (
-            <Chip key={who} on={choice.who === who} onClick={() => onChange((c) => ({ ...c, who }))} data-analytics-chip-who={who}>
-              {t(`home.library.who.${who}`)}
-            </Chip>
-          ))}
-        </ChipGroup>
-        <ChipGroup label={t('home.library.kind.label')}>
-          {LIBRARY_KINDS.map((kind) => (
-            <Chip key={kind} on={choice.kind === kind} onClick={() => onChange((c) => ({ ...c, kind }))} data-analytics-chip-kind={kind}>
-              {t(`home.library.kind.${kind}`)}
-            </Chip>
-          ))}
-        </ChipGroup>
-      </div>
+      {(shows.who || shows.kind) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {shows.who && (
+            <ChipGroup label={t('home.library.who.label')}>
+              {LIBRARY_WHO.map((who) => (
+                <Chip key={who} on={choice.who === who} onClick={() => onChange((c) => ({ ...c, who }))} data-analytics-chip-who={who}>
+                  {t(`home.library.who.${who}`)}
+                </Chip>
+              ))}
+            </ChipGroup>
+          )}
+          {shows.kind && (
+            <ChipGroup label={t('home.library.kind.label')}>
+              {LIBRARY_KINDS.map((kind) => (
+                <Chip key={kind} on={choice.kind === kind} onClick={() => onChange((c) => ({ ...c, kind }))} data-analytics-chip-kind={kind}>
+                  {t(`home.library.kind.${kind}`)}
+                </Chip>
+              ))}
+            </ChipGroup>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <ChipGroup label={t('home.library.changed.label')}>
           {CHANGED.map(({ key, changed }) => (
@@ -88,7 +107,7 @@ export default function LibraryChips({ choice, onChange }: { choice: LibraryChoi
             />
           </div>
         )}
-        {choiceNarrows(choice) && (
+        {narrows(choice) && (
           <Button
             variant="text"
             onClick={() => onChange((c) => ({ ...c, who: 'all', kind: 'all', changed: { kind: 'any' }, search: '' }))}

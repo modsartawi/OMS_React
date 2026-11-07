@@ -16,9 +16,19 @@ const answer = (data: unknown): ProbeState[] => gated([group!]).map(() => ({ isP
 const shown = (results: ProbeState[]) => resolveMenu([group!], results).items.length > 0
 
 describe('the Analytics nav group', () => {
-  it('is one group, every leaf gated on the one analytics key the pages read', () => {
+  it('menu lists eight analytics leaves behind the analytics probe', () => {
     expect(MENU.filter((g) => g.labelKey === 'boards:menu.analytics')).toHaveLength(1)
-    expect(leaves([group!]).map((l) => l.routerLink)).toEqual(['/analytics'])
+    expect(leaves([group!]).map((l) => l.routerLink)).toEqual([
+      '/analytics',
+      '/analytics/boards',
+      '/analytics/views',
+      '/analytics/reports',
+      '/analytics/shared',
+      '/analytics/certified',
+      '/analytics/catalog',
+      '/analytics/deleted',
+    ])
+    expect(new Set(leaves([group!]).map((l) => l.labelKey)).size).toBe(8)
     for (const leaf of leaves([group!])) expect(leaf.access?.key).toBe(ANALYTICS_ACCESS_KEY)
     expect(analyticsAccessQuery().queryKey).toBe(ANALYTICS_ACCESS_KEY)
     expect(analyticsAccessQuery().retry).toBe(false)
@@ -34,7 +44,9 @@ describe('the Analytics nav group', () => {
     expect(shown([{ isPending: true, isSuccess: false, data: undefined }])).toBe(false)
   })
 
-  it('an analytics view keeps the leaf lit', () => {
-    expect(markedLeaf(MENU, '/analytics/view/v-1')?.labelKey).toBe('boards:menu.boards')
+  it('each leaf lights only itself; an item page keeps the group lit on Home', () => {
+    for (const leaf of leaves([group!])) expect(markedLeaf(MENU, leaf.routerLink!)).toBe(leaf)
+    for (const item of ['/analytics/view/v-1', '/analytics/board/b-1', '/analytics/report/r-1/edit', '/analytics/new'])
+      expect(markedLeaf(MENU, item)?.routerLink).toBe('/analytics')
   })
 })

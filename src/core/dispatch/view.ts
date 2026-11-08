@@ -1,4 +1,11 @@
-import type { DispatchBid, DispatchCallout, LocalDateTime } from '@/core/models/dispatch-board'
+import {
+  DISTANCE_FALLBACK_REASONS,
+  type DispatchBid,
+  type DispatchCallout,
+  type DistanceFallbackReason,
+  type DistanceMeasure,
+  type LocalDateTime,
+} from '@/core/models/dispatch-board'
 import type { Severity } from '@/core/ui/severity'
 import { formatNumber } from '@/core/util/number-format'
 
@@ -95,7 +102,10 @@ export interface BidMoment {
 export interface BidRowView {
   bidId: string
   store: string
+  /** The km the decision used. */
   km: number
+  /** A `SHADOW` callout's measured road km, shown beside `km` (the straight line); absent otherwise (spec 3460). */
+  roadKm?: number
   atp: AtpView
   tills: { online: number; signedIn: number }
   dark: boolean
@@ -111,8 +121,11 @@ const secondsBetween = (from: LocalDateTime, to: LocalDateTime | null): number |
   return Number.isNaN(a) || Number.isNaN(b) ? null : Math.round((b - a) / 1000)
 }
 
-/** A bid as the inspector row (541) and the ledger row (542) read it. */
-export function bidRow(bid: DispatchBid): BidRowView {
+/**
+ * A bid as the inspector row (541) and the ledger row (542) read it. Given its callout's measure, a `SHADOW`
+ * callout's bid carries its road km (when measured) so the dispatcher sees the gap to the straight line (858).
+ */
+export function bidRow(bid: DispatchBid, measure?: DistanceMeasure): BidRowView {
   const moment = (kind: BidMomentKind, at: LocalDateTime | null, staff: string, register: string): BidMoment => ({
     kind,
     at: at ?? null,
@@ -120,10 +133,12 @@ export function bidRow(bid: DispatchBid): BidRowView {
     staff: at ? (staff ?? '') : '',
     register: at ? (register ?? '') : '',
   })
+  const road = measure === 'SHADOW' && typeof bid.roadKm === 'number' && bid.roadKm > 0 ? { roadKm: bid.roadKm } : {}
   return {
     bidId: bid.bidId,
     store: bid.store,
     km: bid.distanceKm,
+    ...road,
     atp: atpView(bid),
     tills: { online: bid.onlineTills, signedIn: bid.signedInTills },
     dark: bid.dark,
@@ -144,12 +159,55 @@ export function dutyRemovedView(c: Partial<Pick<DispatchCallout, 'dutyRemovedCou
   return n > 0 ? n : null
 }
 
-/** The radius behind a callout's result (spec 3326): searched n km, no radius search (`0`), or nothing to show. */
-export type SearchRadiusView = { kind: 'searched'; km: string } | { kind: 'none' }
+/**
+ * How a searched radius was measured (spec 3460, oms 858). A fallback's reason is a known code (`key`, labelled
+ * from the locale), an unknown one (`raw`, shown as itself), or `null` when the row carries none.
+ */
+export type RadiusMeasureView =
+  | { kind: 'road' }
+  | { kind: 'shadow' }
+  | { kind: 'fallback'; reason: { key: DistanceFallbackReason } | { raw: string } | null }
 
-/** `null` (no label) when the callout predates spec 3326. The normal radius is not sent, so no "widened" here. */
-export function searchRadiusView(c: Partial<Pick<DispatchCallout, 'searchRadiusKm'>>): SearchRadiusView | null {
+/**
+ * The radius behind a callout's result (spec 3326): searched n km, no radius search (`0`), or nothing to show.
+ * `measure` and `widened` are present only when the row says so (spec 3460), so an unmeasured callout reads as today.
+ */
+export type SearchRadiusView =
+  | { kind: 'searched'; km: string; measure?: RadiusMeasureView; widened?: true }
+  | { kind: 'none' }
+
+export type SearchRadiusInput = Partial<
+  Pick<DispatchCallout, 'searchRadiusKm' | 'distanceMeasure' | 'distanceFallbackReason' | 'searchWidened'>
+>
+
+const measureView = (c: SearchRadiusInput): RadiusMeasureView | null => {
+  switch (c.distanceMeasure) {
+    case 'ROAD':
+      return { kind: 'road' }
+    case 'SHADOW':
+      return { kind: 'shadow' }
+    case 'STRAIGHT_FALLBACK': {
+      const code = (c.distanceFallbackReason ?? '').trim()
+      if (!code) return { kind: 'fallback', reason: null }
+      const known = (DISTANCE_FALLBACK_REASONS as readonly string[]).includes(code)
+      return { kind: 'fallback', reason: known ? { key: code as DistanceFallbackReason } : { raw: code } }
+    }
+    default:
+      return null
+  }
+}
+
+/**
+ * `null` (no label) when the callout predates spec 3326. The normal radius is not sent, so "widened" comes only from
+ * the row's own `searchWidened`, never inferred from the km.
+ */
+export function searchRadiusView(c: SearchRadiusInput): SearchRadiusView | null {
   const km = c.searchRadiusKm
   if (typeof km !== 'number' || !Number.isFinite(km)) return null
-  return km > 0 ? { kind: 'searched', km: formatNumber(km) } : { kind: 'none' }
+  if (km <= 0) return { kind: 'none' }
+  const view: SearchRadiusView = { kind: 'searched', km: formatNumber(km) }
+  const measure = measureView(c)
+  if (measure) view.measure = measure
+  if (c.searchWidened === true) view.widened = true
+  return view
 }

@@ -248,3 +248,46 @@ export const CALLOUT_LOCK_ERRORS = {
   /** The delivery is not locked (already released, or closed). */
   notLocked: 'CALLOUT-104',
 } as const
+
+/**
+ * `GET DispatchBoard/RoadShadow?from=&to=&type=` (BackOffice 3470, spec 3460 story 27; oms ticket 859) — what
+ * deciding by road WOULD have changed on the deliveries a SHADOW type measured. Display, the board's read grant.
+ * Mirrored field for field, camelCase, from BackOffice `CalloutRoadShadowReport` in
+ * `Sartawi.Retail.Data/Modules/Callouts/Scorecard/CalloutRoadShadowReportService.cs` (checked on pricing2 at 7ec9609b8).
+ * Counts only: no delivery, store or customer leaves the door.
+ *
+ * The range is the scorecard's: whole local days, both inclusive (absent = the last 30 days, at most 92), refused with
+ * `CALLOUT-301` / `302` (`DISPATCH_SCORECARD_REFUSALS`). `type` '' = every delivery type.
+ */
+export interface RoadShadowQuery {
+  from?: string
+  to?: string
+  type?: string
+}
+
+/** One `STRAIGHT_FALLBACK` reason (a `RoadDistanceFailureReasons` code) and its delivery count. */
+export interface RoadShadowFallback {
+  reason: string
+  count: number
+}
+
+export interface RoadShadowReport {
+  asOf: LocalDateTime
+  from: LocalDateTime
+  to: LocalDateTime
+  type: string
+  /** SHADOW callouts: measured by road, decided by straight line. */
+  measured: number
+  /** `STRAIGHT_FALLBACK` callouts of the range, by reason, most first. */
+  fallbacks: RoadShadowFallback[]
+  /** Road would have dropped a store that was offered. */
+  roadWouldRemoveBids: number
+  /** Road would have widened to the wider radius. */
+  roadWouldWiden: number
+  /** Would have raced where it did not, or the other way round. */
+  competedWouldDiffer: number
+  /** Shadow bids measured both ways (the median's population). */
+  measuredBids: number
+  /** Median road km / straight km over `measuredBids`, to 3 places; null when there are none. */
+  medianRoadToStraightRatio: number | null
+}

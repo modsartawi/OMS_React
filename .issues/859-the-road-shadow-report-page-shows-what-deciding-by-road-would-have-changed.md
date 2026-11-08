@@ -70,12 +70,12 @@ UI (page, route, menu leaf, models, locales) → web API client → SIS.Api (347
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Unit (pure view module):
+- [x] Unit (pure view module): `road-shadow.test.ts` 25/25 (+ 2 menu-leaf tests in `menu-model.test.ts`)
   - the share percentages, including `measured` 0 (no divide-by-zero, shows "—");
   - the fallback total and its share, with the warning flagged above 2%;
   - known reasons map to words and an unknown code stays raw;
   - a null median reads "Not enough measured bids".
-- [ ] Stubbed drive, LTR and RTL:
+- [x] Stubbed drive, LTR and RTL: `tools/road-shadow-drive.mjs` 67/67
   - the default call sends `type=QC` and a 7-day range;
   - "All types" sends `type=`;
   - a `CALLOUT-301` refusal shows the server's bilingual message;
@@ -95,3 +95,36 @@ The proof tests are green, and the owner has read the staging Shadow week on the
 ## Blocked by
 
 None — the door is on pricing2 (BackOffice 3470). For the live check, a staging host carrying it, with QC in Shadow.
+
+## Comments
+
+**2026-11-08 — built, stubbed; the live read with the owner is still owed, so this stays open.**
+
+- **As built:** `RoadShadowPage.tsx` + pure `road-shadow.ts` in `features/oms/dispatch-board/`, `dispatchBoardApi.roadShadow`, the
+  `RoadShadowReport` wire model in `@/core/models/dispatch-board`. Its field names were checked against
+  `CalloutRoadShadowReport` on pricing2 (7ec9609b8, camelCase). The route is `/oms/dispatch-board/road-shadow`. The menu
+  leaf "Road distance (Shadow)" sits after Serving lists and shares ONE `DISPATCH_BOARD_PROBE` with the board's leaf. No
+  new grant. en + ar strings live under `dispatch-board:roadShadow.*`. 🚩 **The Arabic is a draft and needs review.**
+- **Wire, against the Proof wording:** "All types" sends **no** `type` param, not `type=`. `buildQuery` drops a blank,
+  and the door reads an absent type as `''` (`query?.Type ?? ""`), so the door's answer is the same. The URL does keep
+  `type=`.
+- **Range:** the defaults write nothing to the URL, so a bare link means a rolling last 7 days. A half-typed range makes
+  no call. A reversed or longer-than-92-day range IS sent, so the door answers `CALLOUT-302` / `301` in its own
+  bilingual words, as the Proof asks. Picking only one end of the default range keeps a 7-day window and never makes a
+  reversed range (review).
+- 🚩 **Ruling owed: what the fallback share is measured against.** This ticket says
+  `total / (measured + Σ fallbacks)`, and that is what was built. Runbook §4 says "under ~2% of `Measured`". At low
+  volumes the two can fall on different sides of 2%. The warning tests the share **as displayed** (one decimal), so it
+  never warns beside a share that reads "2%".
+- **Review triage:**
+  - **Dismissed:** "`roadWouldRemoveBids` is bids over callouts". The C# counts callouts (`shadow.Count(...)`) despite
+    the field's name.
+  - **Fixed:** the dash is now `t('roadShadow.dash')`, not a literal. Shares round half-up on the decimal value. The
+    query uses `queryOptions` with no `!`. The reset label interpolates the 7 days and QC. `NORMAL_ROAD_RATIO` moved
+    beside the other runbook constants.
+  - **Left as is:**
+    - The empty state links to `/admin/delivery-types/<type>`, which needs the delivery-type admin grant. A dispatcher
+      without it lands on that screen's denial.
+    - The Measured tile reads "100% of measured", as the ticket literally asks.
+    - "Today" is the browser's date (the estate is one timezone).
+

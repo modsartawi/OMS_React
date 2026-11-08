@@ -95,20 +95,14 @@ function returnBar(
 }
 
 describe('commandGating', () => {
-  it('offers the same seven commands on every captured document — nothing is ever hidden', () => {
+  it('offers the same commands on every captured document of one kind — nothing is hidden for state', () => {
+    const FIVE = ['add-note', 'change-store', 'request-close', 'reschedule', 'return-document']
     for (const documentNo of DOCUMENT_NUMBERS) {
       const kinds = everyCommand(barFor(documentNo)).map((c) => c.kind)
-      expect(kinds.slice().sort()).toEqual(
-        [
-          'add-note',
-          'change-store',
-          'close',
-          'force-close',
-          'request-close',
-          'reschedule',
-          'return-document',
-        ].sort(),
-      )
+      // Reached on the document route, the three `D` captures are deliveries (no Cancel, no Force
+      // cancel — spec 3461); the eRx and the `T` return are not, and keep the terminal pair.
+      const expected = PAYLOADS[documentNo].documentCategory === 'D' ? FIVE : [...FIVE, 'close', 'force-close']
+      expect(kinds.slice().sort()).toEqual(expected.sort())
     }
   })
 
@@ -132,7 +126,8 @@ describe('commandGating', () => {
   })
 
   it('pins the terminal pair — override then sanctioned cancel — outside every cluster', () => {
-    const bar = commandBar(AT_REST, t)
+    // An order: a delivery draws no terminal tier at all (spec 3461).
+    const bar = commandBar({ ...AT_REST, documentCategory: 'O', openedAs: 'document' }, t)
     expect(bar.terminal.map((c) => c.kind)).toEqual(['force-close', 'close'])
     // Unlabelled by design: a label would make it read as a fourth family.
     expect(bar.clusters.flatMap((c) => c.commands.map((x) => x.kind))).not.toContain('close')
@@ -320,9 +315,11 @@ describe('commandGating', () => {
   it('leaves the fulfilment pair and the terminal tier ungated at rest', () => {
     for (const documentNo of DOCUMENT_NUMBERS) {
       const bar = barFor(documentNo)
-      for (const kind of ['reschedule', 'change-store', 'close', 'force-close'] as CommandKind[]) {
+      for (const kind of ['reschedule', 'change-store'] as CommandKind[]) {
         expect(find(bar, kind).disabled).toBe(false)
       }
+      // The terminal tier, wherever it is drawn (not on a delivery — spec 3461).
+      for (const command of bar.terminal) expect(command.disabled).toBe(false)
     }
   })
 
@@ -367,8 +364,10 @@ describe("the list's open intent, through this bar's own gate (ticket 401, D9)",
   it('commandOf finds a command wherever it sits on the bar, and nothing for one it lacks', () => {
     const bar = deliveryBar('8000000253')
     expect(commandOf(bar, 'reschedule')?.kind).toBe('reschedule')
-    expect(commandOf(bar, 'close')?.kind).toBe('close')
+    expect(commandOf(bar, 'add-note')?.kind).toBe('add-note')
     expect(commandOf(bar, 'cancel-close-request')).toBeNull()
+    // The terminal tier is the other half of "wherever": an eRx draws it.
+    expect(commandOf(barFor('2000000551'), 'close')?.kind).toBe('close')
   })
 
   it('R and N open on a delivery at rest; C opens too while no request is open', () => {
@@ -396,8 +395,10 @@ describe("the list's open intent, through this bar's own gate (ticket 401, D9)",
 
 describe('the write grants draw the commands (ticket 521, BackOffice 2763)', () => {
   const CHANGE_KINDS: CommandKind[] = ['reschedule', 'change-store', 'request-close', 'add-note', 'force-close', 'close']
+  // An order, so the terminal tier is drawn and the grants alone decide it (a delivery has none —
+  // spec 3461, below).
   const bar = (canChangeDetail: boolean, canCreateReturn: boolean) =>
-    commandBar({ ...AT_REST, canReturn: true, canChangeDetail, canCreateReturn }, t)
+    commandBar({ ...AT_REST, documentCategory: 'O', openedAs: 'document', canReturn: true, canChangeDetail, canCreateReturn }, t)
   const kinds = (b: CommandBar) => everyCommand(b).map((c) => c.kind)
 
   it('a viewer (neither grant) gets an empty bar: no cluster, no terminal tier, no intent opens', () => {
@@ -445,5 +446,63 @@ describe('the back-office corrections stay outside the grammar (ADR 0065, ADR 01
     expect(t('actions.mark-delivered')).toBe('Mark Delivered…')
     expect(t('actions.mark-returned-back')).toBe('Mark Returned Back…')
     expect(t('actions.mark-returned-back')).not.toMatch(/^Return/)
+  })
+})
+
+describe('a delivery is cancelled only by request (BackOffice spec 3461, ticket 854)', () => {
+  const ORDER: CommandContext = { ...AT_REST, documentCategory: 'O', openedAs: 'document' }
+  const ERX: CommandContext = { ...AT_REST, documentCategory: 'X', openedAs: 'document' }
+  /** A captured document as the delivery route opens it. */
+  const deliveryBar = (documentNo: CapturedDocumentNo) => {
+    const doc = PAYLOADS[documentNo]
+    return commandBar(
+      { ...AT_REST, closeStatus: doc.status?.closeStatus, documentCategory: doc.documentCategory, canReturn: doc.canReturn, lines: doc.lines },
+      t,
+    )
+  }
+
+  it("a delivery's terminal tier is empty — and the cancel-request cluster still holds Request cancellation", () => {
+    const bar = commandBar(AT_REST, t)
+    expect(bar.terminal).toEqual([])
+    expect(commandOf(bar, 'close')).toBeNull()
+    expect(commandOf(bar, 'force-close')).toBeNull()
+    expect(bar.clusters.find((c) => c.id === 'cancel-request')?.commands).toEqual([
+      { kind: 'request-close', disabled: false, reason: null },
+    ])
+    // Its "already requested" disabled state is unchanged.
+    expect(commandOf(commandBar({ ...AT_REST, closeStatus: 'R' }, t), 'request-close')).toEqual({
+      kind: 'request-close',
+      disabled: true,
+      reason: 'A cancellation request is already open for this document.',
+    })
+  })
+
+  it('a D-category document reached on the document route is still a delivery', () => {
+    expect(commandBar({ ...AT_REST, openedAs: 'document' }, t).terminal).toEqual([])
+  })
+
+  it('an order and an eRx keep Force cancel and Cancel', () => {
+    for (const ctx of [ORDER, ERX]) {
+      expect(commandBar(ctx, t).terminal).toEqual([
+        { kind: 'force-close', disabled: false, reason: null },
+        { kind: 'close', disabled: false, reason: null },
+      ])
+    }
+    // The captured eRx, as reached.
+    expect(barFor('2000000551').terminal.map((c) => c.kind)).toEqual(['force-close', 'close'])
+  })
+
+  it('a delivery opened under a non-delivery category (9000000003 shape) is still a delivery', () => {
+    expect(PAYLOADS['9000000003'].documentCategory).toBe('T')
+    const bar = deliveryBar('9000000003')
+    expect(bar.terminal).toEqual([])
+    expect(commandOf(bar, 'request-close')?.kind).toBe('request-close')
+  })
+
+  it('every captured delivery draws the same bar — the ruling is per kind, never per state', () => {
+    const shapes = (['8000000121', '8000000174', '8000000253', '9000000003'] as const).map((no) =>
+      everyCommand(deliveryBar(no)).map((c) => c.kind),
+    )
+    for (const shape of shapes) expect(shape).toEqual(shapes[0])
   })
 })

@@ -1315,3 +1315,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [857](857-the-delivery-type-form-edits-the-callout-distance-mode.md) — The delivery-type form edits the callout distance mode · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3471
 - [858](858-the-dispatch-board-says-whether-a-callout-was-measured-by-road.md) — The dispatch board says whether a callout was measured by road · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3472
+- [859](859-the-road-shadow-report-page-shows-what-deciding-by-road-would-have-changed.md) — The road Shadow report page shows what deciding by road would have changed · *(ticket · BackOffice spec 3460)* · **open** · blocked by: —

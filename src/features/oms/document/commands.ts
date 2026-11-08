@@ -30,6 +30,8 @@
  * the ruling forbids, so Request cancellation is the one way. It is a ruling about the KIND of
  * document, not a state gate: the bar is the same on every delivery. Orders, eRx and every other
  * category keep both. The action codes stay in `actions.ts`; the server doors are untouched.
+ * A record opened through the document route whose category is not `D` counts as a document, by design
+ * (the spec names Return Document's test), so it keeps Cancel and Force cancel.
  *
  * **A missing GRANT is not state** (BackOffice 2763, ticket 521). A session without
  * `canChangeDetail` has no change command to discover, and one without `canCreateReturn` no

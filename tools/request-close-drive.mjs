@@ -8,6 +8,11 @@
 //   4. the pick is cleared on every open;
 //   5. a failed load shows an inline error, the select is off and commit stays disabled;
 //   6. an `SDD-02235` refusal is toasted in this client's words, not the server's English sentence.
+//   Review follow-up (3461 review A/B/D/E):
+//   7. a reopen whose re-read is still running shows loading — the last open's list is not offered;
+//   8. a reopen retrying a failed load shows loading, not the last failure, then the list;
+//   9. a list that loads empty says so inline and commit stays disabled;
+//  10. a 403 on the read toasts the grant refusal and closes the dialog.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/request-close-drive.mjs
@@ -72,6 +77,7 @@ async function session(locale, wire) {
       )
     if (p === 'SdDocumentWeb/CancellationReasons') {
       wire.reads++
+      if (wire.delay) await new Promise((r) => setTimeout(r, wire.delay))
       return route.fulfill(wire.reasons())
     }
     if (p === 'SdDocumentWeb/UpdateDocument' || p === 'SdDocumentWeb/UpdateDelivery') {
@@ -94,6 +100,12 @@ const openDialog = async (page) => {
   await page.locator('dialog[open] #request-close-reason').waitFor()
   await page.waitForTimeout(400)
 }
+const openDialogNow = async (page) => {
+  await page.locator('[data-command="request-close"]').click()
+  await page.locator('dialog[open] #request-close-reason').waitFor()
+}
+const view = (page) => page.locator('dialog[open] #request-close-reason').getAttribute('data-request-close-view')
+const bannerCount = (page) => page.locator('dialog[open] [role="alert"], dialog[open] .text-danger-800').count()
 const options = (page) =>
   page.$$eval('dialog[open] #request-close-reason option', (os) =>
     os.filter((o) => o.value).map((o) => ({ value: o.value, text: o.textContent.replace(/[\u2066-\u2069]/g, '') })),
@@ -197,6 +209,92 @@ async function run() {
         (await page.locator('dialog[open] #request-close-reason').isDisabled()) &&
         (await commitDisabled(page)),
       `banner=${banner}`,
+    )
+    await browser.close()
+  }
+
+  // ---------------------------------------------------------------- stale list on reopen (A)
+  {
+    const wire = { reads: 0, posted: [], reasons: () => envelope(REASONS), update: () => envelope(true) }
+    const { browser, page } = await session('en', wire)
+    await openDialog(page)
+    await closeDialog(page)
+    wire.delay = 1500
+    wire.reasons = () => envelope([REASONS[2]])
+    await openDialogNow(page)
+    await page.waitForTimeout(300)
+    check(
+      'a reopen whose re-read is running shows loading and offers none of the last open’s reasons',
+      (await view(page)) === 'loading' && (await options(page)).length === 0 && (await commitDisabled(page)),
+      `view=${await view(page)}`,
+    )
+    await page.waitForTimeout(1600)
+    const fresh = await options(page)
+    check(
+      'once the re-read lands, only the fresh list is offered',
+      (await view(page)) === 'ready' && JSON.stringify(fresh.map((o) => o.value)) === '["CDUP"]',
+      JSON.stringify(fresh),
+    )
+    await browser.close()
+  }
+
+  // ---------------------------------------------------------------- retry after failure (E)
+  {
+    const wire = {
+      reads: 0,
+      posted: [],
+      reasons: () => ({ status: 500, contentType: 'text/plain', body: 'boom' }),
+      update: () => envelope(true),
+    }
+    const { browser, page } = await session('en', wire)
+    await openDialog(page)
+    await closeDialog(page)
+    wire.delay = 1500
+    wire.reasons = () => envelope(REASONS)
+    await openDialogNow(page)
+    await page.waitForTimeout(300)
+    check(
+      'a reopen retrying a failed load shows loading, not the last failure',
+      (await view(page)) === 'loading' && (await bannerCount(page)) === 0,
+      `view=${await view(page)} banner=${await bannerCount(page)}`,
+    )
+    await page.waitForTimeout(1600)
+    check('the retry lands the list', (await view(page)) === 'ready' && (await options(page)).length === 3)
+    await browser.close()
+  }
+
+  // ---------------------------------------------------------------- empty list (D)
+  {
+    const wire = { reads: 0, posted: [], reasons: () => envelope([]), update: () => envelope(true) }
+    const { browser, page } = await session('en', wire)
+    await openDialog(page)
+    check(
+      'an empty list says no reason is active, and commit stays disabled',
+      (await view(page)) === 'empty' &&
+        (await page.locator('dialog[open] [data-request-close-empty]').count()) === 1 &&
+        (await commitDisabled(page)),
+      `view=${await view(page)}`,
+    )
+    await browser.close()
+  }
+
+  // ---------------------------------------------------------------- 403 on the read (B)
+  {
+    const wire = {
+      reads: 0,
+      posted: [],
+      reasons: () => envelope(null, { status: 403, success: false, message: 'Forbidden' }),
+      update: () => envelope(true),
+    }
+    const { browser, page } = await session('en', wire)
+    await page.locator('[data-command="request-close"]').click()
+    await page.waitForTimeout(800)
+    const toast = await page.$$eval('[data-sonner-toast][data-type="error"]', (ts) => ts.map((t) => t.textContent))
+    check(
+      'a 403 on the read toasts the grant refusal and closes the dialog',
+      (await page.locator('dialog[open] #request-close-reason').count()) === 0 &&
+        toast.some((t) => t.includes('not open to you')),
+      JSON.stringify(toast),
     )
     await browser.close()
   }

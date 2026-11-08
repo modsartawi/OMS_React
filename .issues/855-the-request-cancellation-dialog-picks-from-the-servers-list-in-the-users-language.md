@@ -73,3 +73,23 @@ Owed:
   (`oms.locale` sets only `<html dir>`), so the running app shows `nameEn` under RTL until the Arabic language switch exists.
 - 🚩 Do not deploy before 3462 (and its Sd 080) is on the target SIS.Api.
 
+
+**Review follow-up 2026-11-08 (`3461 review:` on `impl/3461-review`).**
+
+- **Stale list on reopen (A) and retry (E):** `requestCloseCommit` now takes `fetching` and returns a `view`
+  (`loading | failed | empty | ready`). Until this open's read has finished the view is `loading`: the cached list from the
+  last open isn't rendered and can't be committed, and the last failure's banner doesn't show during a retry. When the server
+  refuses with `SDD-02235`, the page invalidates `CANCELLATION_REASONS_KEY` (now exported from `request-close.ts`).
+- **403 on the reasons read (B):** handled the way Mark delivered does it: a `requestClose.grantRefused.*` toast,
+  `revokeOnForbidden(…, 'canChangeDetail')`, and the dialog closes.
+- **Note fallback (C):** `requestCloseUpdate` posts `nameEn`, otherwise `nameAr`, otherwise the code. The note is never blank.
+- **Empty list (D):** view `empty` shows the inline `requestClose.empty` sentence (en + ar) and commit stays disabled.
+- **One name rule (F):** `localizedName` is now in `@/core/util/localized-name.ts`, with a test. It returns the name as stored.
+  `servingListName` and `cancellationReasonName` trim its result, and `loyGroupName` returns it unchanged, so each keeps its old behaviour (their tests are untouched and pass).
+- **Refusal wording (G):** `postUpdate` checks one `REFUSAL_KEY_OF: Partial<Record<UpdateActionKind, …>>` instead of
+  `kind === 'request-close'`. Mark returned back's `refusalKeyOf` was left out. It words a refusal inside its own dialog's
+  mutation and never goes through `postUpdate`, so folding it in would not be a clean fit.
+
+Proof: `request-close.test.ts` 14/14 and `localized-name.test.ts` 4/4. Full suite: 717 files / 9821 tests green.
+Typecheck is clean. Lint gates after boundaries are clean, and the 4 boundary violations were already there. `tools/request-close-drive.mjs` passes 16/16,
+which adds stale-reopen, retry-after-failure, empty-list and 403 cases.

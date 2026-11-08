@@ -61,3 +61,8 @@ now use an order, and "same commands on every document" became per kind. typeche
 `insurance-rules/aliases/door-shapes.test.ts` imports, and it already failed before this change.
 
 **Not proven:** the dev-app check ("a delivery in the dev app shows no Cancel or Force cancel"). It wasn't driven.
+
+**Review follow-up 2026-11-08.** The review flagged that a category-`T` record opened at `/oms/document` gets Cancel back.
+The orchestrator ruled this is by design: it is the spec's test ("the same test Return Document uses"), and this ticket's proof pins it.
+The `commands.ts` header now says so in one sentence. On the page, the category-only flag that shadowed `commands.isDelivery` is renamed to
+`isDeliveryCategoryRecord`. `updateFor`'s endpoint routing was left unchanged.

@@ -29,6 +29,11 @@ describe('the request carries the code and the English name', () => {
     })
   })
 
+  it('a reason with no English name posts its Arabic name, and one with neither its code — never a blank note', () => {
+    expect(requestCloseUpdate({ code: 'CARB', nameEn: '  ', nameAr: 'طلب العميل' }).note).toBe('طلب العميل')
+    expect(requestCloseUpdate({ code: 'CXXX', nameEn: '', nameAr: '' }).note).toBe('CXXX')
+  })
+
   it('a request built without a reason carries no code (every other action stays as it was)', () => {
     expect(buildUpdateHeader('8000000253', 'DADN', 'hello')).toEqual({
       documentNo: '8000000253',
@@ -50,28 +55,54 @@ describe('names follow the UI language', () => {
   })
 })
 
-describe('a failed load disables commit and says why', () => {
-  it('a failed load cannot commit and names the load failure', () => {
-    expect(requestCloseCommit({ status: 'error', reasons: undefined, pickedCode: '' })).toEqual({
+describe('the dialog shows the list only once THIS open has read it', () => {
+  const idle = { fetching: false, pickedCode: '' }
+
+  it('a failed load cannot commit and says so', () => {
+    expect(requestCloseCommit({ ...idle, status: 'error', reasons: undefined })).toEqual({
+      view: 'failed',
       canCommit: false,
       picked: null,
-      loadFailed: true,
     })
   })
 
   it('while loading, nothing can be committed', () => {
-    expect(requestCloseCommit({ status: 'pending', reasons: undefined, pickedCode: 'CMIS' }).canCommit).toBe(false)
+    const first = requestCloseCommit({ status: 'pending', fetching: true, reasons: undefined, pickedCode: 'CMIS' })
+    expect(first).toEqual({ view: 'loading', canCommit: false, picked: null })
+  })
+
+  it('a reopen whose re-read is running shows loading, never the last open’s list, even with a pick', () => {
+    const cached = { status: 'success' as const, fetching: true, reasons: [NO_ARABIC, MISTAKE], pickedCode: 'CMIS' }
+    expect(requestCloseCommit(cached)).toEqual({ view: 'loading', canCommit: false, picked: null })
+  })
+
+  it('a reopen retrying a failed load shows loading, not the last failure', () => {
+    expect(requestCloseCommit({ status: 'error', fetching: true, reasons: undefined, pickedCode: '' }).view).toBe('loading')
   })
 
   it('a loaded list commits only a reason it holds', () => {
-    const loaded = { status: 'success' as const, reasons: [NO_ARABIC, MISTAKE] }
-    expect(requestCloseCommit({ ...loaded, pickedCode: '' })).toEqual({ canCommit: false, picked: null, loadFailed: false })
+    const loaded = { ...idle, status: 'success' as const, reasons: [NO_ARABIC, MISTAKE] }
+    expect(requestCloseCommit(loaded)).toEqual({ view: 'ready', canCommit: false, picked: null })
     expect(requestCloseCommit({ ...loaded, pickedCode: 'GONE' }).canCommit).toBe(false)
-    expect(requestCloseCommit({ ...loaded, pickedCode: 'CMIS' })).toEqual({ canCommit: true, picked: MISTAKE, loadFailed: false })
+    expect(requestCloseCommit({ ...loaded, pickedCode: 'CMIS' })).toEqual({ view: 'ready', canCommit: true, picked: MISTAKE })
   })
 
-  it('the load failure sentence ships in both languages', () => {
-    for (const locale of [en, ar]) expect(hasLocaleKey(locale, 'requestClose.loadFailed')).toBe(true)
+  it('a list that loaded EMPTY says there is no reason to pick, and cannot commit', () => {
+    expect(requestCloseCommit({ ...idle, status: 'success', reasons: [] })).toEqual({
+      view: 'empty',
+      canCommit: false,
+      picked: null,
+    })
+  })
+
+  it('the load-failure, empty-list and grant-refused sentences ship in both languages', () => {
+    const keys = [
+      'requestClose.loadFailed',
+      'requestClose.empty',
+      'requestClose.grantRefused.title',
+      'requestClose.grantRefused.detail',
+    ]
+    for (const locale of [en, ar]) for (const key of keys) expect(hasLocaleKey(locale, key), key).toBe(true)
   })
 })
 

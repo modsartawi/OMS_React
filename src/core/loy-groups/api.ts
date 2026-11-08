@@ -8,6 +8,7 @@
  * ⚠️ **No door is deployed yet** — every envelope is stubbed (`tools/loy-groups-drive.mjs`).
  */
 import { api } from '@/core/api'
+import { localizedName } from '@/core/util/localized-name'
 import type { LoyGroup, LoyGroupAccess, LoyGroupBonusBuy } from '@/core/models/loy-groups'
 
 /** The ONE cache key the menu leaf, the screen's gate and every later consumer share. */
@@ -61,10 +62,7 @@ export function loyGroupsQuery(includeInactive: boolean) {
  * folding) — falling back to the other language's when that one is blank.
  */
 export function loyGroupName(g: Pick<LoyGroup, 'nameEn' | 'nameAr'>, lang: string): string {
-  const blank = (s: string | null | undefined) => (s ?? '').trim() === ''
-  const [first, other] = lang.startsWith('ar') ? [g.nameAr, g.nameEn] : [g.nameEn, g.nameAr]
-  if (!blank(first)) return first
-  return blank(other) ? '' : other
+  return localizedName(g, lang)
 }
 
 /** The live bonus-buys naming the group; `[]` when the door has not filled them (3179) or sent none. */

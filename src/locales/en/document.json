@@ -593,9 +593,14 @@
     "selectRow": "Select a row to continue."
   },
   "requestClose": {
-    "hint": "Pick a cancellation reason — it is recorded as the document note.",
+    "hint": "Pick a cancellation reason — it is recorded on the request, and its English name as the document note.",
     "label": "Cancellation reason",
-    "placeholder": "Select a reason"
+    "placeholder": "Select a reason",
+    "loading": "Loading reasons…",
+    "loadFailed": "The cancellation reasons could not be loaded, so no request can be sent. Close and try again.",
+    "refused": {
+      "unknownReason": "That cancellation reason is no longer in use. Open Request Cancellation again and pick a current one."
+    }
   },
   "access": {
     "checking": "Checking access…",

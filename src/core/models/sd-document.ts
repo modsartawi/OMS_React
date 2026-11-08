@@ -343,7 +343,7 @@ export interface SdDocumentLogModel {
  * Request body for `UpdateDocument` / `UpdateDelivery`.
  *
  * Every simple action sends `documentNo`, `actionType` and `note`; Change Store
- * additionally sends `actionData` / `actionData2`. The `actionType` is a
+ * additionally sends `actionData` / `actionData2`, Request cancellation `reasonCode`. The `actionType` is a
  * 4-letter code chosen by the document category.
  */
 export interface UpdateSdDocumentHeader {
@@ -352,6 +352,23 @@ export interface UpdateSdDocumentHeader {
   note?: string
   actionData?: string // e.g. new store code (Change Store)
   actionData2?: string // e.g. shipping city (Change Store)
+  /**
+   * A cancellation request's reason (`DRCL` / `ORCL` / `XRCL`; BackOffice spec 3461, door 3462): an active
+   * cancellation reason's code. The server records it on the request and refuses a retired or unknown one
+   * (`SDD-02235`). Absent = the request behaves as before.
+   */
+  reasonCode?: string
+}
+
+/**
+ * One active cancellation reason — `GET SdDocumentWeb/CancellationReasons` (BackOffice spec 3461, door 3462;
+ * `CancellationReasonModel`). The server sends the active ones only, in the business's order.
+ */
+export interface CancellationReasonModel {
+  code: string
+  nameEn: string
+  /** `''` when the reason has no Arabic name. */
+  nameAr: string
 }
 
 /** A background (outbox) job — the Jobs tab. */

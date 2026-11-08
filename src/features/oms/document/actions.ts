@@ -137,18 +137,20 @@ export function resolveActionType(kind: UpdateActionKind, documentCategory: stri
   }
 }
 
-/** Extra `UpdateSdDocumentHeader` fields — set only by Change Store. */
+/** Extra `UpdateSdDocumentHeader` fields — set only by Change Store and Request cancellation. */
 export interface UpdateHeaderExtras {
   /** New store code. */
   actionData?: string
   /** Shipping city (delivery mode only). */
   actionData2?: string
+  /** A cancellation request's reason code (spec 3461) — set only by Request cancellation. */
+  reasonCode?: string
 }
 
 /**
  * Build the `UpdateSdDocumentHeader` body. The note is trimmed — it lands in the
  * append-only audit log, so incidental whitespace is dropped. `actionData` /
- * `actionData2` are included only when non-empty, keeping a simple action's body
+ * `actionData2` / `reasonCode` are included only when non-empty, keeping a simple action's body
  * minimal.
  */
 export function buildUpdateHeader(
@@ -167,6 +169,9 @@ export function buildUpdateHeader(
 
   const actionData2 = (extras?.actionData2 ?? '').trim()
   if (actionData2) body.actionData2 = actionData2
+
+  const reasonCode = (extras?.reasonCode ?? '').trim()
+  if (reasonCode) body.reasonCode = reasonCode
 
   return body
 }

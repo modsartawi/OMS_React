@@ -64,6 +64,7 @@ import { pickSupportSectionGate } from './pick-support-section'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
+import { requestCloseRefusalKeyOf, requestCloseUpdate } from './request-close'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
 import MarkDeliveredDialog from './MarkDeliveredDialog'
@@ -436,7 +437,11 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       } catch (err) {
         setActionRunning(false)
         revokeOnForbidden(queryClient, err, 'canChangeDetail')
-        notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
+        // A refusal the server words in English only is worded here by its code (spec 3461: a cancellation
+        // reason retired while the dialog was open).
+        const refusalKey = kind === 'request-close' ? requestCloseRefusalKeyOf(apiErrorCode(err)) : null
+        if (refusalKey) notify.error(t('toast.failed', { label }), t(refusalKey))
+        else notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
       }
     },
     [document, actionBusy, reload, t, queryClient],
@@ -992,7 +997,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             <RequestCloseDialog
               open={requestCloseOpen}
               onClose={() => setRequestCloseOpen(false)}
-              onConfirmed={(reason) => void postUpdate('request-close', reason)}
+              onConfirmed={(reason) => {
+                const { note, extras } = requestCloseUpdate(reason)
+                void postUpdate('request-close', note, extras)
+              }}
             />
             <ReturnDialog
               open={returnOpen}

@@ -122,7 +122,8 @@
     "seen": "Seen",
     "answer": "Answer",
     "dark": "dark",
-    "register": "reg <r>{{reg}}</r>"
+    "register": "reg <r>{{reg}}</r>",
+    "roadKm": "road <n>{{km}}</n>"
   },
   "inspector": {
     "select": "Select a callout.",
@@ -147,7 +148,21 @@
     "changeStore": "Change store",
     "changeStoreHint": "opens the delivery's details, where it is moved.",
     "searchRadius": "Searched <n>{{km}}</n> km",
+    "radiusByRoad": "Searched <n>{{km}}</n> km by road",
+    "radiusShadow": "Searched <n>{{km}}</n> km · shadow",
+    "radiusFallback": "Searched <n>{{km}}</n> km · straight-line (fallback)",
+    "radiusFallbackReason": "Searched <n>{{km}}</n> km · straight-line (fallback: <r>{{reason}}</r>)",
+    "radiusWidened": "· widened",
     "noRadiusSearch": "No radius search"
+  },
+  "fallbackReason": {
+    "NOT_CONFIGURED": "not configured",
+    "ERROR": "error",
+    "TIMEOUT": "timeout",
+    "QUOTA": "quota spent",
+    "KEY": "key refused",
+    "HTTP_ERROR": "HTTP error",
+    "BAD_RESPONSE": "bad response"
   },
   "reasons": {
     "NoStock": "No stock",

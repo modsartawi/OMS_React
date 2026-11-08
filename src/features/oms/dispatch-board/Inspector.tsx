@@ -155,7 +155,7 @@ export default function Inspector({
               </thead>
               <tbody>
                 {c.bids.map((b) => (
-                  <BidRow key={b.bidId} view={bidRow(b)} />
+                  <BidRow key={b.bidId} view={bidRow(b, c.distanceMeasure)} />
                 ))}
               </tbody>
             </table>
@@ -242,6 +242,11 @@ function BidRow({ view }: { view: BidRowView }) {
       </td>
       <td className="py-1 pe-2 text-end font-mono">
         <Ltr>{view.km.toFixed(1)}</Ltr>
+        {view.roadKm != null && (
+          <span className="block font-sans text-[10px] text-muted-foreground" data-road-km={view.roadKm}>
+            <Trans t={t} i18nKey="bid.roadKm" values={{ km: view.roadKm.toFixed(1) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
       </td>
       <td className="py-1 pe-2" data-atp={view.atp.kind}>
         {view.atp.kind === 'covers' ? (

@@ -190,3 +190,79 @@ describe('searchRadiusView (spec 3326, oms 715)', () => {
     expect(searchRadiusView({})).toBeNull()
   })
 })
+
+describe('searchRadiusView — how the radius was measured (BackOffice spec 3460, door 3472; oms 858)', () => {
+  it('no measure (an Off type, or a server before 3472) reads exactly as today', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: '' })).toEqual({ kind: 'searched', km: '5' })
+    expect(searchRadiusView({ searchRadiusKm: 5 })).toEqual({ kind: 'searched', km: '5' })
+  })
+
+  it('ROAD reads "5 km by road"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'ROAD' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'road' },
+    })
+  })
+
+  it('a widened ROAD search reads "10 km by road · widened"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 10, distanceMeasure: 'ROAD', searchWidened: true })).toEqual({
+      kind: 'searched',
+      km: '10',
+      measure: { kind: 'road' },
+      widened: true,
+    })
+  })
+
+  it('a straight-line fallback carries its reason: "5 km · straight-line (fallback: timeout)"', () => {
+    expect(
+      searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'TIMEOUT' }),
+    ).toEqual({ kind: 'searched', km: '5', measure: { kind: 'fallback', reason: { key: 'TIMEOUT' } } })
+  })
+
+  it('a fallback reason the client does not know is kept raw, to show as itself', () => {
+    expect(
+      searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'DNS' }),
+    ).toEqual({ kind: 'searched', km: '5', measure: { kind: 'fallback', reason: { raw: 'DNS' } } })
+  })
+
+  it('a fallback with no reason on the row (the door before the BO ask) reads plain "(fallback)"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'fallback', reason: null },
+    })
+  })
+
+  it('SHADOW reads "5 km · shadow"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'SHADOW' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'shadow' },
+    })
+  })
+
+  it('a measure the client does not know reads as no measure', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'HELICOPTER' })).toEqual({ kind: 'searched', km: '5' })
+  })
+
+  it('no radius search stays "No radius search" whatever the measure', () => {
+    expect(searchRadiusView({ searchRadiusKm: 0, distanceMeasure: 'ROAD' })).toEqual({ kind: 'none' })
+  })
+})
+
+describe('bidRow — road km on a shadow callout (spec 3460, oms 858)', () => {
+  it('a shadow callout shows each bid road km beside its straight-line km', () => {
+    const row = bidRow(bid({ distanceKm: 3.9, straightKm: 3.9, roadKm: 12.2 }), 'SHADOW')
+    expect([row.km, row.roadKm]).toEqual([3.9, 12.2])
+  })
+
+  it('a shadow bid Google could not measure (road 0) shows no road km', () => {
+    expect(bidRow(bid({ straightKm: 2.4, roadKm: 0 }), 'SHADOW').roadKm).toBeUndefined()
+  })
+
+  it('a road or unmeasured callout shows the decision km alone, as today', () => {
+    expect(bidRow(bid({ distanceKm: 12.2, straightKm: 3.9, roadKm: 12.2 }), 'ROAD').roadKm).toBeUndefined()
+    expect(bidRow(bid({ roadKm: 12.2 })).roadKm).toBeUndefined()
+  })
+})

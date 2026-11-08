@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3460-a-qc-callout-measures-its-radius-by-road-spec.md
 blocked-by: BackOffice 3472
 ---
@@ -68,3 +68,6 @@ or deployed).** Wire names are the real ones from that branch: row `distanceMeas
   `src/features/insurance-rules/aliases/door-shapes.test.ts` (on the base branch, not this ticket's); the other
   four gates pass.
 - **Review fixes (2026-11-08):** radius column 240px with a tooltip, its value the label in words (km + measure + reason + widened, so a change refreshes it; fsi in the tooltip only); measure normalised trim + upper case; Delivery details' ledger shows a shadow callout's road km; each measure x widened is one locale sentence (`_widened` keys, `searchRadiusLabelKey`), en+ar.
+- **Closed 2026-11-08:** merged on main. BackOffice answered both asks in 136e8c943: the row carries
+  `distanceFallbackReason` and `searchWidened`, under exactly the names modelled here. The staging read (ROAD,
+  SHADOW and a fallback) is carried by BackOffice 3473's Shadow walk.

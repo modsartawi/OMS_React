@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3460-a-qc-callout-measures-its-radius-by-road-spec.md
 blocked-by: BackOffice 3471
 ---
@@ -59,3 +59,5 @@ message, which the dialog shows on the field like every other refused setting.
 - **Owed:** the staging check that the field edits the mode, once 3471 is on the host. 🚩 Don't deploy before
   BackOffice 3471 ships.
 - **Review fixes (2026-11-08):** a copy sends a blank mode as `OFF` (BO validates every rule on a copy; an edit's untouched blank is excused, so save is unchanged); a host that sends no mode (before 3471) shows the field disabled with a not-available helper, and the detail says so; an unknown held code is `fsi()`-isolated in its native option; Arabic Shadow is "وضع الظل".
+- **Closed 2026-11-08:** merged on main. The staging check that the field edits the mode is carried by BackOffice
+  3473's Shadow walk.

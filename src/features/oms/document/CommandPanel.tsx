@@ -392,23 +392,27 @@ export default function CommandPanel({
 
         {/*
           Unlabelled by design — a label would make the terminal tier read as a
-          fourth family rather than as the edge of the bar.
+          fourth family rather than as the edge of the bar. Not rendered when
+          empty (a delivery, spec 3461; or no grant): an empty flex item would
+          still leave the bar's gap at its end.
         */}
-        <div className="flex flex-wrap items-end gap-1.5 ms-auto">
-          {bar.terminal.map((command) => (
-            <CommandButton
-              key={command.kind}
-              command={command}
-              icon={ICONS[command.kind]}
-              variant={TERMINAL_VARIANT[command.kind]}
-              label={t(`actions.${command.kind}`)}
-              onTake={() => onCommand(command.kind)}
-              refused={refused === command.kind}
-              onRefusedLeft={onRefusedLeft}
-              keys={keysOf[command.kind] ?? null}
-            />
-          ))}
-        </div>
+        {bar.terminal.length > 0 && (
+          <div className="flex flex-wrap items-end gap-1.5 ms-auto">
+            {bar.terminal.map((command) => (
+              <CommandButton
+                key={command.kind}
+                command={command}
+                icon={ICONS[command.kind]}
+                variant={TERMINAL_VARIANT[command.kind]}
+                label={t(`actions.${command.kind}`)}
+                onTake={() => onCommand(command.kind)}
+                refused={refused === command.kind}
+                onRefusedLeft={onRefusedLeft}
+                keys={keysOf[command.kind] ?? null}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

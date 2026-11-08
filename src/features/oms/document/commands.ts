@@ -22,6 +22,15 @@
  * 2026-09-25, BackOffice ticket 2022 — the request itself sends a picked basket
  * to the store's put-back list), so it is on no document, ever.
  *
+ * **A delivery is cancelled only by request** (BackOffice spec 3461, ticket 854). On a delivery —
+ * opened as one, or of the delivery category: the same two-signal test Return Document's first
+ * reason uses (`isDelivery`) — the terminal tier is EMPTY: Cancel (`close`, `DCLS`) and Force cancel
+ * (`force-close`, `DFCL`) are not drawn, so their keys and the list's intents find no command and
+ * refuse like any undrawn one. Ending a delivery without the store's put-back and the carrier is what
+ * the ruling forbids, so Request cancellation is the one way. It is a ruling about the KIND of
+ * document, not a state gate: the bar is the same on every delivery. Orders, eRx and every other
+ * category keep both. The action codes stay in `actions.ts`; the server doors are untouched.
+ *
  * **A missing GRANT is not state** (BackOffice 2763, ticket 521). A session without
  * `canChangeDetail` has no change command to discover, and one without `canCreateReturn` no
  * return: those commands are left off the bar, a cluster left empty goes with them, and the
@@ -168,6 +177,15 @@ const CLUSTERS: { id: ClusterId; commands: CommandKind[] }[] = [
  */
 const TERMINAL: TerminalKind[] = ['force-close', 'close']
 
+/**
+ * Whether this is a delivery: the route opened it as one, OR its category says so. Either signal is
+ * enough — `9000000003` is opened as a delivery under category `T`, and a `D` delivery reached
+ * through `/oms/document/:documentNo` is a delivery whatever the route says (see `openedAs`).
+ */
+export function isDelivery(ctx: Pick<CommandContext, 'openedAs' | 'documentCategory'>): boolean {
+  return ctx.openedAs === 'delivery' || isDeliveryCategory(ctx.documentCategory)
+}
+
 /** Normalise a raw server code for comparison. */
 function code(value: string | null | undefined): string {
   return (value ?? '').trim().toUpperCase()
@@ -210,7 +228,7 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
   // delivery — from being told to open the delivery it is already on. An order
   // or an eRx satisfies neither and still gets the sentence that names its way
   // out.
-  if (ctx.openedAs !== 'delivery' && !isDeliveryCategory(ctx.documentCategory))
+  if (!isDelivery(ctx))
     return 'command.disabled.returnNeedsDelivery'
   const { rows, hiddenCount } = returnableLines(ctx.lines)
   // Exhaustion has to be PROVEN: lines that were all returned. A document whose
@@ -342,7 +360,8 @@ export function commandOf(bar: CommandBar, kind: CommandKind): CommandState | nu
 
 /**
  * The whole bar for one document: three clusters plus the terminal tier, less what this
- * session's grants do not draw (ticket 521) — a cluster left with no command is dropped.
+ * session's grants do not draw (ticket 521) — a cluster left with no command is dropped — and,
+ * on a delivery, less the whole terminal tier (spec 3461, ticket 854).
  */
 export function commandBar(ctx: CommandContext, t: TFn): CommandBar {
   const granted = (kind: CommandKind) => isGranted(kind, ctx)
@@ -352,6 +371,6 @@ export function commandBar(ctx: CommandContext, t: TFn): CommandBar {
       label: t(`command.clusters.${id}`),
       commands: commands.filter(granted).map((kind) => state(kind, ctx, t)),
     })).filter((cluster) => cluster.commands.length > 0),
-    terminal: TERMINAL.filter(granted).map((kind) => state(kind, ctx, t)),
+    terminal: isDelivery(ctx) ? [] : TERMINAL.filter(granted).map((kind) => state(kind, ctx, t)),
   }
 }

@@ -157,3 +157,26 @@ describe('the add-note intent focuses the composer; reschedule and request-close
     expect(surfaceOf('return-document')).toBe('dialog')
   })
 })
+
+describe('a delivery is cancelled only by request (BackOffice spec 3461, ticket 854)', () => {
+  it('the close and force-close keys refuse on a delivery', () => {
+    // No key or palette row takes either command on a delivery …
+    const rows = Object.values(build(AT_REST))
+    expect(rows.map((c) => c.id)).not.toContain('act.close')
+    expect(rows.map((c) => c.id)).not.toContain('act.force-close')
+    expect(rows.some((c) => /actions\.(force-)?close$/.test(c.label))).toBe(false)
+    // … and the bar's gate, which every key and intent is resolved through, has no such command:
+    // refused like any undrawn one, with nothing to explain.
+    const bar = commandBar(AT_REST, t)
+    expect(commandOf(bar, 'close')).toBeNull()
+    expect(commandOf(bar, 'force-close')).toBeNull()
+    // C is still Request cancellation, through its own gate.
+    expect(build(AT_REST)['act.request-close'].run).toBeTypeOf('function')
+  })
+
+  it('an order still finds both through the gate', () => {
+    const bar = commandBar({ ...AT_REST, documentCategory: 'O', openedAs: 'document' }, t)
+    expect(commandOf(bar, 'close')?.disabled).toBe(false)
+    expect(commandOf(bar, 'force-close')?.disabled).toBe(false)
+  })
+})

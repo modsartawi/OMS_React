@@ -17,11 +17,13 @@ import { DOC_TYPE_CONFIG_ERRORS, documentTypesQuery } from './api'
 import { CHANGE_LOG_KEY } from './change-log-api'
 import CodeChoiceSelect from './CodeChoiceSelect'
 import {
+  CALLOUT_DISTANCE_MODES,
   DELIVERY_ALL_FIELDS,
   DELIVERY_CATEGORIES,
   DELIVERY_CODE_MAX,
   DELIVERY_FIELD_GROUPS,
   DELIVERY_FIELD_HINTS,
+  calloutDistanceMode,
   codeChoices,
   deliveryCopyDraft,
   deliveryCopyRequest,
@@ -310,6 +312,7 @@ function DeliveryFieldInput({
   )
   const text = String(value ?? '')
   let input
+  let hint: string | null | undefined = DELIVERY_FIELD_HINTS.includes(def.field) ? t(`deliveryTypes.fieldHints.${def.field}`) : null
   if (def.choice === 'category') {
     const options: string[] = (DELIVERY_CATEGORIES as readonly string[]).includes(text.trim())
       ? [...DELIVERY_CATEGORIES]
@@ -329,6 +332,27 @@ function DeliveryFieldInput({
         ))}
       </Select>
     )
+  } else if (def.choice === 'distanceMode') {
+    // A blank (not yet migrated) shows as Off; an unknown held value is kept visible so opening never changes it.
+    const held = calloutDistanceMode(text)
+    const options: string[] = held ? [...CALLOUT_DISTANCE_MODES] : [...CALLOUT_DISTANCE_MODES, text.trim()]
+    input = (
+      <Select
+        value={held ?? text.trim()}
+        disabled={disabled}
+        aria-invalid={refusal ? true : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-48"
+        data-distance-mode=""
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {t(`deliveryTypes.distanceModes.${o}.label`, { defaultValue: o })}
+          </option>
+        ))}
+      </Select>
+    )
+    hint = held && t(`deliveryTypes.distanceModes.${held}.hint`)
   } else if (def.choice === 'documentType' && docTypeChoices) {
     input = <CodeChoiceSelect choices={docTypeChoices} value={text} disabled={disabled} invalid={!!refusal} onChange={onChange} />
   } else {
@@ -354,9 +378,9 @@ function DeliveryFieldInput({
         <span>{label}</span>
         {input}
       </label>
-      {DELIVERY_FIELD_HINTS.includes(def.field) && (
+      {hint && (
         <span className="block text-xs text-muted-foreground" data-edit-hint="">
-          {t(`deliveryTypes.fieldHints.${def.field}`)}
+          {hint}
         </span>
       )}
       {def.notRead && <NotRead />}

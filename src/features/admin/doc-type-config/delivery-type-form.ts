@@ -22,8 +22,8 @@ export interface DeliveryFieldDef {
   freeText?: boolean
   /** A whole number (minutes), not a decimal. */
   integer?: boolean
-  /** Picked from a list: the delivery categories, or the OMS document types. */
-  choice?: 'category' | 'documentType'
+  /** Picked from a list: the delivery categories, the OMS document types, or the callout distance modes. */
+  choice?: 'category' | 'documentType' | 'distanceMode'
   /** Editable, but nothing in order processing reads it (labelled like the document type's billing settings). */
   notRead?: boolean
 }
@@ -56,6 +56,7 @@ export const DELIVERY_FIELD_GROUPS: readonly { group: DeliveryGroupId; fields: r
       flag('isCompeted'),
       { field: 'calloutRadiusKm', kind: 'number' },
       { field: 'calloutExpandedRadiusKm', kind: 'number' },
+      text('calloutDistanceMode', 10, { choice: 'distanceMode' }),
       flag('calloutStockCheck'),
       flag('calloutLocksDelivery'),
       { field: 'calloutLifetimeMinutes', kind: 'number', integer: true },
@@ -80,9 +81,26 @@ const LOCKED: ReadonlySet<DeliveryTypeField> = new Set<DeliveryTypeField>(['docu
 
 export const isDeliveryLocked = (field: DeliveryTypeField): boolean => LOCKED.has(field)
 
+/** `CalloutDistanceModes` (spec 3460, ticket 3471): the only values a delivery type's distance mode may hold. */
+export const CALLOUT_DISTANCE_MODES = ['OFF', 'SHADOW', 'ON'] as const
+export type CalloutDistanceMode = (typeof CALLOUT_DISTANCE_MODES)[number]
+
+/**
+ * A held distance mode as one of the three codes, compared as the server's `Code()` does (trimmed, upper case). A blank
+ * — a type the migration has not reached — is `OFF`, the column's default. Null for anything else.
+ */
+export function calloutDistanceMode(value: unknown): CalloutDistanceMode | null {
+  const code = typeof value === 'string' ? value.trim().toUpperCase() : ''
+  if (code === '') return 'OFF'
+  return (CALLOUT_DISTANCE_MODES as readonly string[]).includes(code) ? (code as CalloutDistanceMode) : null
+}
+
 export type DeliveryFieldValue = string | number | boolean
 
-/** The draft with one field changed — or the same draft for a locked field, unless it is a copy's draft. */
+/**
+ * The draft with one field changed — or the same draft for a locked field, unless it is a copy's draft, and for a
+ * distance mode that is not one of the three codes (the server refuses it too, `SDC-00053`).
+ */
 export function setDeliveryField(
   draft: DeliveryTypeSettings,
   field: DeliveryTypeField,
@@ -90,6 +108,10 @@ export function setDeliveryField(
   { copy = false }: { copy?: boolean } = {},
 ): DeliveryTypeSettings {
   if (!copy && isDeliveryLocked(field)) return draft
+  if (field === 'calloutDistanceMode') {
+    const mode = typeof value === 'string' && value.trim() !== '' ? calloutDistanceMode(value) : null
+    return mode === null ? draft : { ...draft, calloutDistanceMode: mode }
+  }
   return { ...draft, [field]: value }
 }
 
@@ -101,10 +123,14 @@ export interface DeliveryFieldChange {
 
 const norm = (v: DeliveryFieldValue): DeliveryFieldValue => (typeof v === 'string' ? v.trim() : v)
 
+/** A blank distance mode is Off, so picking Off on a type not yet migrated is no change. */
+const normField = (field: DeliveryTypeField, v: DeliveryFieldValue): DeliveryFieldValue =>
+  field === 'calloutDistanceMode' ? (calloutDistanceMode(v) ?? norm(v)) : norm(v)
+
 /** The fields whose values differ, in field order, compared as the server compares them. */
 export function deliveryChangedFields(before: DeliveryTypeSettings, after: DeliveryTypeSettings): DeliveryFieldChange[] {
   return DELIVERY_ALL_FIELDS.flatMap(({ field }) =>
-    norm(before[field]) === norm(after[field]) ? [] : [{ field, before: before[field], after: after[field] }],
+    normField(field, before[field]) === normField(field, after[field]) ? [] : [{ field, before: before[field], after: after[field] }],
   )
 }
 

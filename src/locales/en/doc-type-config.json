@@ -99,6 +99,7 @@
     "isCompeted": "Competed (callouts)",
     "calloutRadiusKm": "Callout radius (km)",
     "calloutExpandedRadiusKm": "Wider callout radius (km)",
+    "calloutDistanceMode": "Callout distance",
     "calloutStockCheck": "Callout stock check",
     "calloutLocksDelivery": "Callout locks the delivery",
     "calloutLifetimeMinutes": "Callout lifetime (minutes)",
@@ -416,6 +417,11 @@
     },
     "warnings": {
       "expandedRadiusNoEffect": "Has no effect: it must be larger than the callout radius."
+    },
+    "distanceModes": {
+      "OFF": { "label": "Off", "hint": "Straight line." },
+      "SHADOW": { "label": "Shadow", "hint": "Measure by road, but decide by straight line." },
+      "ON": { "label": "On", "hint": "Decide by road." }
     },
     "couriers": {
       "title": "Courier assignments",

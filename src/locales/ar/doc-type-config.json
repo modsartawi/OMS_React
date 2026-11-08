@@ -99,6 +99,7 @@
     "isCompeted": "تنافسي (الاستدعاءات)",
     "calloutRadiusKm": "نطاق الاستدعاء (كم)",
     "calloutExpandedRadiusKm": "نطاق الاستدعاء الموسّع (كم)",
+    "calloutDistanceMode": "قياس مسافة الاستدعاء",
     "calloutStockCheck": "فحص المخزون عند الاستدعاء",
     "calloutLocksDelivery": "الاستدعاء يقفل التوصيل",
     "calloutLifetimeMinutes": "مدة الاستدعاء (دقائق)",
@@ -416,6 +417,11 @@
     },
     "warnings": {
       "expandedRadiusNoEffect": "لا أثر له: يجب أن يكون أكبر من نطاق الاستدعاء."
+    },
+    "distanceModes": {
+      "OFF": { "label": "متوقف", "hint": "خط مستقيم." },
+      "SHADOW": { "label": "تجريبي", "hint": "يُقاس بالطريق، لكن القرار بالخط المستقيم." },
+      "ON": { "label": "مفعّل", "hint": "القرار بالطريق." }
     },
     "couriers": {
       "title": "تعيينات شركات التوصيل",

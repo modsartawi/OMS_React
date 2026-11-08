@@ -7,9 +7,11 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import { copyState, normaliseCode } from './copy-form'
 import {
+  CALLOUT_DISTANCE_MODES,
   DELIVERY_ALL_FIELDS,
   DELIVERY_CATEGORIES,
   DELIVERY_FIELD_GROUPS,
+  calloutDistanceMode,
   codeChoices,
   deliveryChangedFields,
   deliveryCopyDraft,
@@ -34,6 +36,7 @@ const dl = (over: Partial<DeliveryTypeSettings> = {}): DeliveryTypeSettings => (
   isCompeted: false,
   calloutRadiusKm: 0,
   calloutExpandedRadiusKm: 0,
+  calloutDistanceMode: 'OFF',
   calloutStockCheck: false,
   calloutLocksDelivery: false,
   calloutLifetimeMinutes: 0,
@@ -166,11 +169,52 @@ describe('the wider callout radius (ticket 716, BackOffice spec 3326)', () => {
     expect(deliveryFieldWarnings(dl({ calloutRadiusKm: 5, calloutExpandedRadiusKm: 10 }))).toEqual({})
     expect(deliveryFieldWarnings(dl({ calloutRadiusKm: 5, calloutExpandedRadiusKm: -1 }))).toEqual({})
   })
+  it('is followed by the callout distance mode, a choice', () => {
+    const callouts = DELIVERY_FIELD_GROUPS.find((g) => g.group === 'callouts')!.fields
+    const at = callouts.findIndex((f) => f.field === 'calloutExpandedRadiusKm')
+    expect(callouts[at + 1]).toMatchObject({ field: 'calloutDistanceMode', choice: 'distanceMode' })
+  })
   it("shows the server's refusal of a negative value on the field (SDC-00053)", () => {
     const message = 'CalloutExpandedRadiusKm cannot be negative. / لا يمكن أن يكون نطاق الاستدعاء الموسّع بالكيلومتر سالباً.'
     const err = new ApiError('business', 'refused', 400, [{ errorCode: 'SDC-00010', internalErrorCode: '', errorMessage: 'refused' }], {
       fields: [{ field: 'CalloutExpandedRadiusKm', errorCode: 'SDC-00053', message }],
     })
     expect(deliveryFieldRefusals(err)).toEqual({ calloutExpandedRadiusKm: { code: 'SDC-00053', message } })
+  })
+})
+
+describe('the callout distance mode (ticket 857, BackOffice spec 3460 / 3471)', () => {
+  it('offers Off, Shadow and On, in that order', () => {
+    expect([...CALLOUT_DISTANCE_MODES]).toEqual(['OFF', 'SHADOW', 'ON'])
+  })
+
+  it('round-trips: a picked mode is diffed and sent in the save', () => {
+    const loaded = dl({ calloutDistanceMode: 'OFF' })
+    const draft = setDeliveryField(loaded, 'calloutDistanceMode', 'SHADOW')
+    expect(deliveryChangedFields(loaded, draft)).toEqual([{ field: 'calloutDistanceMode', before: 'OFF', after: 'SHADOW' }])
+    expect(deliveryEditState(loaded, draft, 'qc goes to shadow').canSave).toBe(true)
+    expect(deliverySaveRequest(loaded, draft, 'qc goes to shadow').after.calloutDistanceMode).toBe('SHADOW')
+    expect(setDeliveryField(draft, 'calloutDistanceMode', 'ON').calloutDistanceMode).toBe('ON')
+  })
+
+  it('refuses an unknown value: the draft is unchanged', () => {
+    const loaded = dl({ calloutDistanceMode: 'OFF' })
+    for (const bad of ['ROAD', 'off-ish', '', 'X']) expect(setDeliveryField(loaded, 'calloutDistanceMode', bad)).toBe(loaded)
+  })
+
+  it('reads a type not yet migrated (blank) as Off, and picking Off there is no change', () => {
+    expect(calloutDistanceMode('')).toBe('OFF')
+    expect(calloutDistanceMode(' shadow ')).toBe('SHADOW')
+    expect(calloutDistanceMode('ROAD')).toBeNull()
+    const loaded = dl({ calloutDistanceMode: '' })
+    expect(deliveryChangedFields(loaded, setDeliveryField(loaded, 'calloutDistanceMode', 'OFF'))).toEqual([])
+  })
+
+  it("shows the server's bilingual refusal on the field (SDC-00053)", () => {
+    const message = "CalloutDistanceMode 'X' is not one of: OFF, SHADOW, ON. / القيمة 'X' غير مسموحة في طريقة قياس مسافة الاستدعاء."
+    const err = new ApiError('business', 'refused', 400, [{ errorCode: 'SDC-00010', internalErrorCode: '', errorMessage: 'refused' }], {
+      fields: [{ field: 'CalloutDistanceMode', errorCode: 'SDC-00053', message }],
+    })
+    expect(deliveryFieldRefusals(err)).toEqual({ calloutDistanceMode: { code: 'SDC-00053', message } })
   })
 })

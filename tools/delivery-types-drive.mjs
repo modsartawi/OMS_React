@@ -48,7 +48,7 @@ const refuse = (errorCode, message, data = null) => envelope(data, { status: 400
 
 const delivery = (over = {}) => ({
   documentType: 'QC', description: 'Quick Commerce', documentCategory: 'D', numberRangeNumber: '', defaultDocumentType: '',
-  isCompeted: true, calloutRadiusKm: 3, calloutExpandedRadiusKm: 0, calloutStockCheck: false, calloutLocksDelivery: false, calloutLifetimeMinutes: 5,
+  isCompeted: true, calloutRadiusKm: 3, calloutExpandedRadiusKm: 0, calloutDistanceMode: 'OFF', calloutStockCheck: false, calloutLocksDelivery: false, calloutLifetimeMinutes: 5,
   calloutDutyCheck: false, servingListId: '', ...over,
 })
 const docType = {

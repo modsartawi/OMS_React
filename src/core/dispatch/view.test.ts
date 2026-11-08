@@ -4,7 +4,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { DispatchBid } from '@/core/models/dispatch-board'
-import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView, searchRadiusView } from './view'
+import { hasLocaleKey as has } from '@/core/test/locale'
+import enBoard from '@/locales/en/dispatch-board.json'
+import arBoard from '@/locales/ar/dispatch-board.json'
+import enDoc from '@/locales/en/document.json'
+import arDoc from '@/locales/ar/document.json'
+import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView, searchRadiusLabelKey, searchRadiusView } from './view'
 
 describe('countdownLeft', () => {
   const fetchedAt = 1_000_000
@@ -264,5 +269,42 @@ describe('bidRow — road km on a shadow callout (spec 3460, oms 858)', () => {
   it('a road or unmeasured callout shows the decision km alone, as today', () => {
     expect(bidRow(bid({ distanceKm: 12.2, straightKm: 3.9, roadKm: 12.2 }), 'ROAD').roadKm).toBeUndefined()
     expect(bidRow(bid({ roadKm: 12.2 })).roadKm).toBeUndefined()
+  })
+})
+
+describe('the measure as the wire may spell it (858 review)', () => {
+  it('a measure is matched trimmed and upper case, like the reason', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: ' road ' })).toEqual({ kind: 'searched', km: '5', measure: { kind: 'road' } })
+    expect(bidRow(bid({ distanceKm: 3.9, straightKm: 3.9, roadKm: 12.2 }), 'shadow ').roadKm).toBe(12.2)
+  })
+})
+
+describe('searchRadiusLabelKey — one locale sentence per measure, widened or not (858 review)', () => {
+  const key = (input: Parameters<typeof searchRadiusView>[0]) => {
+    const view = searchRadiusView(input)
+    return view?.kind === 'searched' ? searchRadiusLabelKey(view) : null
+  }
+  it.each([
+    [{ searchRadiusKm: 5 }, 'inspector.searchRadius'],
+    [{ searchRadiusKm: 5, searchWidened: true }, 'inspector.searchRadius_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'ROAD' }, 'inspector.radiusByRoad'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'ROAD', searchWidened: true }, 'inspector.radiusByRoad_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'SHADOW', searchWidened: true }, 'inspector.radiusShadow_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK' }, 'inspector.radiusFallback'],
+    [
+      { searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'QUOTA', searchWidened: true },
+      'inspector.radiusFallbackReason_widened',
+    ],
+  ] as const)('%j → %s', (input, expected) => {
+    expect(key(input)).toBe(expected)
+  })
+
+  it.each([
+    ['en', enBoard, enDoc],
+    ['ar', arBoard, arDoc],
+  ])('every label, widened or not, and the ledger road km exist in %s', (_, board, doc) => {
+    const bases = ['searchRadius', 'radiusByRoad', 'radiusShadow', 'radiusFallback', 'radiusFallbackReason']
+    for (const k of bases.flatMap((b) => [`inspector.${b}`, `inspector.${b}_widened`])) expect([k, has(board, k)]).toEqual([k, true])
+    expect(has(doc, 'callout.ledger.roadKm')).toBe(true)
   })
 })

@@ -133,7 +133,7 @@ export function bidRow(bid: DispatchBid, measure?: DistanceMeasure): BidRowView 
     staff: at ? (staff ?? '') : '',
     register: at ? (register ?? '') : '',
   })
-  const road = measure === 'SHADOW' && typeof bid.roadKm === 'number' && bid.roadKm > 0 ? { roadKm: bid.roadKm } : {}
+  const road = distanceMeasureCode(measure) === 'SHADOW' && typeof bid.roadKm === 'number' && bid.roadKm > 0 ? { roadKm: bid.roadKm } : {}
   return {
     bidId: bid.bidId,
     store: bid.store,
@@ -180,8 +180,11 @@ export type SearchRadiusInput = Partial<
   Pick<DispatchCallout, 'searchRadiusKm' | 'distanceMeasure' | 'distanceFallbackReason' | 'searchWidened'>
 >
 
+/** A callout's measure as the server's `Code()` compares it: trimmed, upper case; `''` when absent. */
+export const distanceMeasureCode = (m: DistanceMeasure | null | undefined): string => (m ?? '').trim().toUpperCase()
+
 const measureView = (c: SearchRadiusInput): RadiusMeasureView | null => {
-  switch (c.distanceMeasure) {
+  switch (distanceMeasureCode(c.distanceMeasure)) {
     case 'ROAD':
       return { kind: 'road' }
     case 'SHADOW':
@@ -210,4 +213,23 @@ export function searchRadiusView(c: SearchRadiusInput): SearchRadiusView | null 
   if (measure) view.measure = measure
   if (c.searchWidened === true) view.widened = true
   return view
+}
+
+/**
+ * The `dispatch-board` locale sentence a searched radius reads as: one whole template per measure, with a `_widened`
+ * twin, so "widened" is never a fragment glued on (i18n rule). Every template takes `<n>{{km}}</n>`; the fallback
+ * with a reason also `<r>{{reason}}</r>`.
+ */
+export function searchRadiusLabelKey(view: Extract<SearchRadiusView, { kind: 'searched' }>): string {
+  const m = view.measure
+  const base = !m
+    ? 'inspector.searchRadius'
+    : m.kind === 'road'
+      ? 'inspector.radiusByRoad'
+      : m.kind === 'shadow'
+        ? 'inspector.radiusShadow'
+        : m.reason
+          ? 'inspector.radiusFallbackReason'
+          : 'inspector.radiusFallback'
+  return view.widened ? `${base}_widened` : base
 }

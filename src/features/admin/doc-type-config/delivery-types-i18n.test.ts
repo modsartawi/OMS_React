@@ -23,6 +23,8 @@ describe('doc-type-config — the delivery type words', () => {
       'deliveryTypes.warnings.expandedRadiusNoEffect',
       // ticket 857: each callout distance mode's label and its helper line
       ...CALLOUT_DISTANCE_MODES.flatMap((m) => [`deliveryTypes.distanceModes.${m}.label`, `deliveryTypes.distanceModes.${m}.hint`]),
+      // 857 review: a host before BackOffice 3471 sends no mode
+      'deliveryTypes.distanceModeUnavailable',
       ...DELIVERY_FIELD_GROUPS.map((g) => `deliveryTypes.groups.${g.group}`),
       ...DELIVERY_CATEGORIES.map((c) => `deliveryTypes.categories.${c}`),
       ...['documentType', 'description', 'documentCategory', 'isCompeted'].map((c) => `deliveryTypes.columns.${c}`),

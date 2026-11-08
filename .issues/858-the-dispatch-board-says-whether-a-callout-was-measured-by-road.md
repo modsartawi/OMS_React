@@ -67,3 +67,4 @@ or deployed).** Wire names are the real ones from that branch: row `distanceMeas
 - `npm run lint`: the boundary gate fails on four pre-existing violations in
   `src/features/insurance-rules/aliases/door-shapes.test.ts` (on the base branch, not this ticket's); the other
   four gates pass.
+- **Review fixes (2026-11-08):** radius column 240px with a tooltip, its value the label in words (km + measure + reason + widened, so a change refreshes it; fsi in the tooltip only); measure normalised trim + upper case; Delivery details' ledger shows a shadow callout's road km; each measure x widened is one locale sentence (`_widened` keys, `searchRadiusLabelKey`), en+ar.

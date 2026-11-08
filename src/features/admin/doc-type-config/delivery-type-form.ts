@@ -163,8 +163,21 @@ export function deliveryCopyDraft(source: DeliveryTypeSettings): DeliveryTypeSet
   return { ...source, documentType: '', description: '' }
 }
 
+/**
+ * A copy runs every rule (BackOffice `ValidateDeliveryTypeAsync` with no current row), so a blank distance mode — a
+ * source not yet migrated, shown as Off — is sent as `OFF`; an edit sends it untouched, which the server excuses. A
+ * host before 3471 sends no mode, and none is sent back. An unknown held code is sent as is: its refusal shows on
+ * the field, where the consultant picks a mode.
+ */
 export function deliveryCopyRequest(draft: DeliveryTypeSettings, reasonText: string): DeliveryTypeCopyRequest {
-  return { after: { ...draft, documentType: normaliseCode(draft.documentType) }, reason: reasonField(reasonText).reason }
+  const after = { ...draft, documentType: normaliseCode(draft.documentType) }
+  if (distanceModeOnHost(draft)) after.calloutDistanceMode = calloutDistanceMode(draft.calloutDistanceMode) ?? draft.calloutDistanceMode
+  return { after, reason: reasonField(reasonText).reason }
+}
+
+/** Whether the host's read carries the distance mode at all: a host before BackOffice 3471 sends no such property. */
+export function distanceModeOnHost(settings: DeliveryTypeSettings): boolean {
+  return settings.calloutDistanceMode !== undefined && settings.calloutDistanceMode !== null
 }
 
 // ── refusals ────────────────────────────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import {
   deliveryFieldRefusals,
   deliveryFieldWarnings,
   deliverySaveRequest,
+  distanceModeOnHost,
   isDeliveryLocked,
   setDeliveryField,
 } from './delivery-type-form'
@@ -208,6 +209,25 @@ describe('the callout distance mode (ticket 857, BackOffice spec 3460 / 3471)', 
     expect(calloutDistanceMode('ROAD')).toBeNull()
     const loaded = dl({ calloutDistanceMode: '' })
     expect(deliveryChangedFields(loaded, setDeliveryField(loaded, 'calloutDistanceMode', 'OFF'))).toEqual([])
+  })
+
+  it('a copy of a type not yet migrated sends Off: the server checks every rule on a copy and refuses a blank', () => {
+    const draft = { ...deliveryCopyDraft(dl({ calloutDistanceMode: ' ' })), documentType: 'QC2', description: 'Copy' }
+    expect(deliveryCopyRequest(draft, 'copy of qc').after.calloutDistanceMode).toBe('OFF')
+    const shadow = { ...deliveryCopyDraft(dl({ calloutDistanceMode: 'shadow' })), documentType: 'QC2', description: 'Copy' }
+    expect(deliveryCopyRequest(shadow, 'copy of qc').after.calloutDistanceMode).toBe('SHADOW')
+  })
+
+  it('a copy from a host that sends no distance mode (before BackOffice 3471) sends none', () => {
+    const { calloutDistanceMode: _, ...older } = dl()
+    const draft = { ...deliveryCopyDraft(older as DeliveryTypeSettings), documentType: 'QC2', description: 'Copy' }
+    expect('calloutDistanceMode' in deliveryCopyRequest(draft, 'copy of qc').after).toBe(false)
+  })
+
+  it('a host that sends no distance mode offers none to edit', () => {
+    const { calloutDistanceMode: _, ...older } = dl()
+    expect(distanceModeOnHost(older as DeliveryTypeSettings)).toBe(false)
+    expect(distanceModeOnHost(dl({ calloutDistanceMode: '' }))).toBe(true)
   })
 
   it("shows the server's bilingual refusal on the field (SDC-00053)", () => {

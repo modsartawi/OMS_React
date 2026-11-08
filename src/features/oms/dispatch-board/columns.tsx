@@ -4,14 +4,14 @@ import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { courierQuoteView } from '@/core/dispatch/courier-quote'
-import SearchRadius from '@/core/dispatch/SearchRadius'
+import SearchRadius, { searchRadiusText } from '@/core/dispatch/SearchRadius'
 import { countdownLeft, formatClock, outcomeView } from '@/core/dispatch/view'
 import type { DispatchCallout } from '@/core/models/dispatch-board'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
 import { useSecondClock } from '@/core/ui/second-clock'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { formatPair } from '@/core/util/bidi'
+import { formatPair, fsi } from '@/core/util/bidi'
 import { formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 import { CourierFlag } from './CourierQuote'
@@ -100,7 +100,16 @@ function common(t: TFunction): ColDef<BoardRow>[] {
       valueFormatter: (p: ValueFormatterParams<BoardRow, number>) => formatMoney(p.value),
     },
     { headerName: t('columns.bids'), colId: 'bids', width: 70, type: 'rightAligned', cellClass: MONO, valueGetter: (p) => p.data?.bids.length ?? 0 },
-    { headerName: t('columns.radius'), colId: 'radius', width: 140, valueGetter: (p) => p.data?.searchRadiusKm ?? null, cellRenderer: RadiusCell },
+    // 858: the value is the label in words (km, measure, fallback reason, widened), so copy and filter read it and any
+    // change to one of them refreshes the cell. The tooltip carries the whole label for a cut-off cell; fsi there only.
+    {
+      headerName: t('columns.radius'),
+      colId: 'radius',
+      width: 240,
+      valueGetter: (p) => searchRadiusText(t, p.data),
+      tooltipValueGetter: (p) => searchRadiusText(t, p.data, fsi) || null,
+      cellRenderer: RadiusCell,
+    },
     // 712: the courier quote's flag, NoCourier / Failed only. The value is what the cell reads (the flag and the
     // check's time of day, one pair; empty otherwise), so copy and filter see words, and a new check refreshes it.
     {

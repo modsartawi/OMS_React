@@ -58,3 +58,4 @@ message, which the dialog shows on the field like every other refused setting.
 - `maxLength: 10` on the def is nominal. The select never takes free text, and the column width was not checked.
 - **Owed:** the staging check that the field edits the mode, once 3471 is on the host. 🚩 Don't deploy before
   BackOffice 3471 ships.
+- **Review fixes (2026-11-08):** a copy sends a blank mode as `OFF` (BO validates every rule on a copy; an edit's untouched blank is excused, so save is unchanged); a host that sends no mode (before 3471) shows the field disabled with a not-available helper, and the detail says so; an unknown held code is `fsi()`-isolated in its native option; Arabic Shadow is "وضع الظل".

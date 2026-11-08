@@ -152,7 +152,11 @@
     "radiusShadow": "Searched <n>{{km}}</n> km · shadow",
     "radiusFallback": "Searched <n>{{km}}</n> km · straight-line (fallback)",
     "radiusFallbackReason": "Searched <n>{{km}}</n> km · straight-line (fallback: <r>{{reason}}</r>)",
-    "radiusWidened": "· widened",
+    "searchRadius_widened": "Searched <n>{{km}}</n> km · widened",
+    "radiusByRoad_widened": "Searched <n>{{km}}</n> km by road · widened",
+    "radiusShadow_widened": "Searched <n>{{km}}</n> km · shadow · widened",
+    "radiusFallback_widened": "Searched <n>{{km}}</n> km · straight-line (fallback) · widened",
+    "radiusFallbackReason_widened": "Searched <n>{{km}}</n> km · straight-line (fallback: <r>{{reason}}</r>) · widened",
     "noRadiusSearch": "No radius search"
   },
   "fallbackReason": {

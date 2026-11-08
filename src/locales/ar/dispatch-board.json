@@ -160,7 +160,11 @@
     "radiusShadow": "نطاق البحث <n>{{km}}</n> كم · وضع الظل",
     "radiusFallback": "نطاق البحث <n>{{km}}</n> كم · خط مستقيم (بديل)",
     "radiusFallbackReason": "نطاق البحث <n>{{km}}</n> كم · خط مستقيم (بديل: <r>{{reason}}</r>)",
-    "radiusWidened": "· موسّع",
+    "searchRadius_widened": "نطاق البحث <n>{{km}}</n> كم · موسّع",
+    "radiusByRoad_widened": "نطاق البحث <n>{{km}}</n> كم بالطريق · موسّع",
+    "radiusShadow_widened": "نطاق البحث <n>{{km}}</n> كم · وضع الظل · موسّع",
+    "radiusFallback_widened": "نطاق البحث <n>{{km}}</n> كم · خط مستقيم (بديل) · موسّع",
+    "radiusFallbackReason_widened": "نطاق البحث <n>{{km}}</n> كم · خط مستقيم (بديل: <r>{{reason}}</r>) · موسّع",
     "noRadiusSearch": "لم يجرِ بحث بالنطاق"
   },
   "fallbackReason": {

@@ -1,6 +1,7 @@
+import type { TFunction } from 'i18next'
 import { Trans, useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
-import { searchRadiusView, type RadiusMeasureView, type SearchRadiusInput } from './view'
+import { distanceMeasureCode, searchRadiusLabelKey, searchRadiusView, type RadiusMeasureView, type SearchRadiusInput } from './view'
 
 /**
  * The radius behind a callout's result (spec 3326, oms 715): "Searched 7.5 km", or "No radius search" at 0, and
@@ -9,7 +10,8 @@ import { searchRadiusView, type RadiusMeasureView, type SearchRadiusInput } from
  * precedent). `data-search-radius` carries the km (`'0'` for none) for the drives.
  *
  * Spec 3460 (oms 858) adds how it was measured — "by road", "straight-line (fallback: timeout)" or "shadow" — and
- * "widened" when the row says so; `data-distance-measure` carries the wire code. No measure reads as before.
+ * "widened" when the row says so, each combination one locale sentence (`searchRadiusLabelKey`);
+ * `data-distance-measure` carries the wire code. No measure reads as before.
  */
 export default function SearchRadius({ callout, className }: { callout: SearchRadiusInput; className?: string }) {
   const { t } = useTranslation('dispatch-board')
@@ -22,34 +24,45 @@ export default function SearchRadius({ callout, className }: { callout: SearchRa
       </span>
     )
   }
+  const reason = reasonOf(radius.measure)
   return (
     <span
       className={className}
       data-search-radius={radius.km}
-      data-distance-measure={radius.measure ? callout.distanceMeasure : undefined}
+      data-distance-measure={radius.measure ? distanceMeasureCode(callout.distanceMeasure) : undefined}
       data-search-widened={radius.widened ? '' : undefined}
     >
-      <Measured km={radius.km} measure={radius.measure} />
-      {radius.widened && <span className="ms-1">{t('inspector.radiusWidened')}</span>}
+      <Trans
+        t={t}
+        i18nKey={searchRadiusLabelKey(radius)}
+        values={{ km: radius.km, reason: reason ? reasonText(t, reason) : undefined }}
+        // A known reason is words (`<bdi>`); an unknown one is a machine code (`Ltr`).
+        components={{ n: <Ltr />, r: reason && 'key' in reason ? <bdi /> : <Ltr /> }}
+      />
     </span>
   )
 }
 
-function Measured({ km, measure }: { km: string; measure?: RadiusMeasureView }) {
-  const { t } = useTranslation('dispatch-board')
-  const n = { n: <Ltr /> }
-  if (!measure) return <Trans t={t} i18nKey="inspector.searchRadius" values={{ km }} components={n} />
-  if (measure.kind === 'road') return <Trans t={t} i18nKey="inspector.radiusByRoad" values={{ km }} components={n} />
-  if (measure.kind === 'shadow') return <Trans t={t} i18nKey="inspector.radiusShadow" values={{ km }} components={n} />
-  if (!measure.reason) return <Trans t={t} i18nKey="inspector.radiusFallback" values={{ km }} components={n} />
-  const reason = measure.reason
-  const known = 'key' in reason
-  return (
-    <Trans
-      t={t}
-      i18nKey="inspector.radiusFallbackReason"
-      values={{ km, reason: 'key' in reason ? t(`fallbackReason.${reason.key}`) : reason.raw }}
-      components={{ n: <Ltr />, r: known ? <bdi /> : <Ltr /> }}
-    />
-  )
+type Reason = Extract<RadiusMeasureView, { kind: 'fallback' }>['reason']
+
+const reasonOf = (measure?: RadiusMeasureView): Reason => (measure?.kind === 'fallback' ? measure.reason : null)
+
+const reasonText = (t: TFunction, reason: NonNullable<Reason>): string =>
+  'key' in reason ? t(`fallbackReason.${reason.key}`) : reason.raw
+
+/**
+ * The same label as one plain string, for a grid's value (copy and filter read words, and any change to km, measure,
+ * reason or widened changes it, so the cell refreshes) and its tooltip. `isolate` wraps each interpolated value: the
+ * identity for a grid value (never `fsi` there, bidi rule), `fsi` for the tooltip. `t` is the `dispatch-board` one.
+ */
+export function searchRadiusText(t: TFunction, callout: SearchRadiusInput | undefined, isolate: (v: string) => string = (v) => v): string {
+  const radius = callout ? searchRadiusView(callout) : null
+  if (!radius) return ''
+  if (radius.kind === 'none') return t('inspector.noRadiusSearch')
+  const reason = reasonOf(radius.measure)
+  return t(searchRadiusLabelKey(radius), {
+    km: isolate(radius.km),
+    reason: reason ? isolate(reasonText(t, reason)) : undefined,
+    interpolation: { escapeValue: false },
+  }).replace(/<\/?[nr]>/g, '')
 }

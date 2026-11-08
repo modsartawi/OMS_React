@@ -423,6 +423,7 @@
       "SHADOW": { "label": "Shadow", "hint": "Measure by road, but decide by straight line." },
       "ON": { "label": "On", "hint": "Decide by road." }
     },
+    "distanceModeUnavailable": "Not available on this server yet.",
     "couriers": {
       "title": "Courier assignments",
       "hint": "Read-only here. A copy of this delivery type carries them.",

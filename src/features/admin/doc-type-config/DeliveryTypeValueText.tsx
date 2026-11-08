@@ -12,6 +12,9 @@ export default function DeliveryTypeValueText({ def, value }: { def: DeliveryFie
   if (def.kind === 'number') return <Ltr>{String(Number(value))}</Ltr>
   const text = String(value ?? '').trim()
   if (def.choice === 'distanceMode') {
+    // A host before BackOffice 3471 sends no mode at all: say so, never pretend Off.
+    if (value === undefined || value === null)
+      return <span className="text-muted-foreground" data-distance-mode="">{t('deliveryTypes.distanceModeUnavailable')}</span>
     // In words; a blank (not yet migrated) reads as Off; an unknown code is shown raw.
     const mode = calloutDistanceMode(text)
     if (mode) return <span data-distance-mode={mode}>{t(`deliveryTypes.distanceModes.${mode}.label`)}</span>

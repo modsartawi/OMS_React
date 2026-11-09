@@ -74,10 +74,12 @@ describe('pushAccountsView — per account', () => {
     expect(pushAccountsView([{ ...ok, status: 'X' }]).failed).toBe(1)
   })
 
-  it('a missing stores array reads as none rather than throwing', () => {
-    const v = pushAccountsView([{ ...ok, stores: undefined as unknown as string[] }])
+  it('a missing stores array or rows count reads as none rather than throwing', () => {
+    const v = pushAccountsView([{ ...ok, stores: undefined as unknown as string[], rows: null as unknown as number }])
     expect(v.stores).toBe(0)
+    expect(v.rows).toBe(0)
     expect(v.accounts[0].stores).toEqual([])
+    expect(v.accounts[0].rows).toBe(0)
   })
 })
 
@@ -85,6 +87,10 @@ describe('namedMaterials — the materials a DLV-00004 message names', () => {
   it('matches whole tokens only, case-insensitively, in the order sent', () => {
     const msg = 'Not on the whitelist: 101236, abc9. / ليست في القائمة: 101236، ABC9.'
     expect(namedMaterials(msg, ['101234', '1012', 'ABC9', '101236'])).toEqual(['ABC9', '101236'])
+  })
+
+  it('a number with a hyphen or a dot is matched whole', () => {
+    expect(namedMaterials('Not on the whitelist: MAT-1001, 7.5. / …', ['MAT-1001', '7.5', '75'])).toEqual(['MAT-1001', '7.5'])
   })
 
   it('names nothing when the message names nothing it was sent', () => {

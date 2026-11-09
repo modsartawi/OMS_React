@@ -86,7 +86,7 @@
     },
     "pushStock": "Push stock & price now",
     "pushStockHint": "Once the import is saved, sends these materials’ stock and price to every Deliverect store that is linked and not paused. Untick it to add them quietly, for example before Deliverect has created the products.",
-    "pushOverCap": "More than {{max}} materials: the import is saved, but its push is skipped. They go with the nightly full sync, or push them in parts with Push now."
+    "pushOverCap": "More than {{max}} materials: the import is saved, but if more than {{max}} of them are known its push is skipped. They then go with the nightly full sync, or push them in parts with Push now."
   },
   "result": {
     "title": "Import done",
@@ -150,7 +150,8 @@
     "overCap_other": "One push takes at most {{max}} materials. Remove {{overBy}} materials to send.",
     "notWhitelisted": "Not on the whitelist:",
     "confirm": "Push",
-    "done": "Stock & price pushed"
+    "done": "Stock & price pushed",
+    "doneWarn": "Push answered — not every account’s file was taken"
   },
   "pushResult": {
     "title": "Stock & price push",
@@ -161,7 +162,7 @@
     "noStores": "No Deliverect store that is linked and not paused was reached, so nothing was sent.",
     "failed": "The push failed. The import is saved.",
     "skipped": {
-      "pushStockOff": "Not pushed: “Push stock & price now” was off. The materials go with the next sync.",
+      "pushStockOff": "Not pushed: “Push stock & price now” was off. The materials go out with the next stock sync that runs, or with Push now.",
       "overCap": "Not pushed: more than {{max}} materials. They go with the nightly full sync, or push them in parts with Push now.",
       "noKnownMaterials": "Not pushed: none of the material numbers is known.",
       "other": "Not pushed."

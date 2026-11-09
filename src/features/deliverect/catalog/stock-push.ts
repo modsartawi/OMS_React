@@ -34,11 +34,11 @@ export interface PushAccountsView {
 }
 
 export function pushAccountsView(entries: readonly DeliverectStockPushAccount[]): PushAccountsView {
-  const accounts = entries.map((a) => ({ ...a, stores: a.stores ?? [], failed: a.status !== 'S' }))
+  const accounts = entries.map((a) => ({ ...a, stores: a.stores ?? [], rows: a.rows ?? 0, failed: a.status !== 'S' }))
   return {
     accounts,
     stores: accounts.reduce((n, a) => n + a.stores.length, 0),
-    rows: accounts.reduce((n, a) => n + (a.rows ?? 0), 0),
+    rows: accounts.reduce((n, a) => n + a.rows, 0),
     failed: accounts.filter((a) => a.failed).length,
   }
 }
@@ -71,13 +71,17 @@ export function importPushView(push: DeliverectImportPush | null | undefined): I
 }
 
 /**
- * The materials a refusal's message names, from those sent: whole tokens, matched case-insensitively
+ * The materials a refusal's message names, from those sent: each matched whole (not inside a longer
+ * number — `1012` is not named by `101236` — but a `MAT-1001` is still one number), case-insensitively
  * as the door matches numbers, in the order sent. The door names every non-whitelisted number in
  * `message` (DLV-00004); this picks them back out so the list can mark them.
  */
 export function namedMaterials(message: string, sent: readonly string[]): string[] {
-  const tokens = new Set(message.toUpperCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean))
-  return sent.filter((m) => tokens.has(m.toUpperCase()))
+  const text = message.toUpperCase()
+  return sent.filter((m) => {
+    const escaped = m.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(text)
+  })
 }
 
 /** A refusal of Push now's LIST, shown under the list; the reason's own refusal is the reason field's. */

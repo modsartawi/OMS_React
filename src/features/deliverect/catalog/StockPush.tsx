@@ -164,7 +164,10 @@ export function PushNowDialog({
   const send = useMutation({
     mutationFn: (reason: string) => catalogApi.pushStock({ materialNumbers: list.materials, reason }),
     onSuccess: (result) => {
-      notify.success(t('pushNow.done'))
+      // A 200 is not "pushed": an account can still be "E", and no store may have been reached.
+      const view = pushAccountsView(result.accounts ?? [])
+      if (view.accounts.length > 0 && view.failed === 0) notify.success(t('pushNow.done'))
+      else notify.warn(t('pushNow.doneWarn'))
       onDone(result)
     },
   })

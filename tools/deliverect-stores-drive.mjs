@@ -993,7 +993,8 @@ const painted = (page, code) =>
   )
   check(
     '14 (860): a manual push is labelled Manual and shows who pushed it',
-    (await read('01JM0001', 'type')) === 'Manual' + String.fromCharCode(10) + 'by CATMGR01' &&
+    (await drawer.locator('[data-sync-log="01JM0001"] [data-log-type-label]').innerText()) === 'Manual' &&
+      (await drawer.locator('[data-sync-log="01JM0001"] [data-log-requested-by]').innerText()) === 'by CATMGR01' &&
       (await drawer.locator('[data-sync-log="01JM0001"] [data-log-requested-by] bdi[dir="ltr"]').innerText()) === 'CATMGR01',
     JSON.stringify(await read('01JM0001', 'type')),
   )

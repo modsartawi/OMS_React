@@ -139,7 +139,7 @@ function LogRow({ log, onLines }: { log: DeliverectSyncLogRow; onLines: () => vo
       data-sync-log-failed={failed ? '' : undefined}
     >
       <td className={TD} data-log-type={log.syncType}>
-        {type ? t(`logs.type.${type}`) : <Ltr>{log.syncType}</Ltr>}
+        <span data-log-type-label="">{type ? t(`logs.type.${type}`) : <Ltr>{log.syncType}</Ltr>}</span>
         {/* A manual push says who asked for it (spec 3481); a scheduled one has no requester. */}
         {log.requestedBy && (
           <span className="block text-muted-foreground" data-log-requested-by="">

@@ -25,4 +25,10 @@ describe('formatFigure', () => {
     expect(formatFigure(250)).toBe('250')
     expect(formatFigure(1234567)).toBe('1,234,567')
   })
+
+  it('renders a missing or non-finite figure as empty, never throws', () => {
+    expect(formatFigure(null)).toBe('')
+    expect(formatFigure(undefined)).toBe('')
+    expect(formatFigure(Number.NaN)).toBe('')
+  })
 })

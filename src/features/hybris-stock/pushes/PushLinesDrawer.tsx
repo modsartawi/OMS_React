@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { History, Loader2, Search } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { hybrisStockStatusQuery } from '@/core/hybris-stock/api'
 import { HYBRIS_STOCK_ERRORS, type HybrisStockPushRow } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -28,25 +29,27 @@ import { LINES_PAGE_SIZE, sameLinesFilter } from './pushes-query'
  * instead of reading as empty. A line's material opens its
  * history at that store (`onMaterial`).
  *
- * `push` is the row from the log when the page holds it; a push opened from a link alone has none and
- * reads its header from the lines door's answer only.
+ * `push` is the row from the log while the page holds it (the contract has no one-push read, and the
+ * lines answer carries no header): without it the drawer shows no header, and the lines answer alone
+ * (`linesKept`, or HYS-00020 no such push) says whether the lines are gone.
  */
 export default function PushLinesDrawer({
   pushId,
   push,
-  retentionDays,
   onMaterial,
   onClose,
 }: {
   pushId: string
   push: HybrisStockPushRow | null
-  /** `null` when Status cannot be read (the copy then names no number); `undefined` while it is read (no retention copy yet). */
-  retentionDays: number | null | undefined
   onMaterial: (storeCode: string, materialNumber: string) => void
   onClose: () => void
 }) {
   const { t } = useTranslation('hybris-stock-pushes')
   const titleId = useId()
+  // The line retention, from the area's shared Status read: the copy names its days once known and says
+  // "a limited time" otherwise (loading or failed) — a swept push's notice never waits on Status.
+  const days = useQuery(hybrisStockStatusQuery()).data?.lineRetentionDays
+  const known = typeof days === 'number'
   const [draft, setDraft] = useState({ store: '', material: '' })
   const [query, setQuery] = useState<LinesQuery>({ store: null, material: null, page: 1 })
   // The log row says so before any read; a push opened from a link alone learns it from the lines answer.
@@ -130,13 +133,10 @@ export default function PushLinesDrawer({
           </dl>
         )}
 
-        {/* While Status is read (`undefined`) a retention sentence waits for its number: Status is one shared, cached read. */}
         {swept ? (
-          retentionDays !== undefined && (
-            <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
-              {retentionDays === null ? t('lines.sweptNoDays') : t('lines.swept', { days: fsi(figure(retentionDays)) })}
-            </p>
-          )
+          <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
+            {known ? t('lines.swept', { days: fsi(figure(days)) }) : t('lines.sweptNoDays')}
+          </p>
         ) : (
           <>
             <form
@@ -167,11 +167,9 @@ export default function PushLinesDrawer({
             )}
             {lines.isError &&
               (noSuchPush ? (
-                retentionDays !== undefined && (
-                  <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
-                    {retentionDays === null ? t('lines.noSuchPushNoDays') : t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
-                  </p>
-                )
+                <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
+                  {known ? t('lines.noSuchPush', { days: fsi(figure(days)) }) : t('lines.noSuchPushNoDays')}
+                </p>
               ) : (
                 <ErrorBanner className="p-2" title={t('lines.failed')} message={apiErrorMessage(lines.error, t('results.failed'))} />
               ))}

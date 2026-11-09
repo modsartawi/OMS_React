@@ -1,3 +1,4 @@
+import { HISTORY_PARAM } from '@/core/hybris-stock/params'
 import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
 
 // The stores page's URL ⇄ query ⇄ door mapping (ticket 847). Pure.
@@ -26,9 +27,6 @@ export function storesToParams(query: HybrisStockStoresQuery): URLSearchParams {
 export function storesDoorParams(query: HybrisStockStoresQuery) {
   return { flag: query.flag === 'any' ? null : query.flag, health: query.health === 'any' ? null : query.health, q: query.q }
 }
-
-/** The URL key of the store history drawer — `?history=<storeCode>`, the link the push log follows too. */
-export const HISTORY_PARAM = 'history'
 
 /** The store whose history drawer is open, or `null`. */
 export const historyFromParams = (params: URLSearchParams): string | null => params.get(HISTORY_PARAM) || null

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import { hybrisStockStatusQuery } from '@/core/hybris-stock/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -26,21 +27,20 @@ import { PushStatus, PushType } from './PushCells'
 export default function MaterialHistoryDrawer({
   storeCode,
   materialNumber,
-  retentionDays,
   onPick,
   onPush,
   onClose,
 }: {
   storeCode: string
   materialNumber: string | null
-  /** `null` when Status cannot be read (the hint then names no number); `undefined` while it is read (no hint yet). */
-  retentionDays: number | null | undefined
   onPick: (materialNumber: string) => void
   onPush: (pushId: string) => void
   onClose: () => void
 }) {
   const { t } = useTranslation('hybris-stock-pushes')
   const titleId = useId()
+  // The line retention, from the area's shared Status read: days once known, "a limited time" otherwise.
+  const days = useQuery(hybrisStockStatusQuery()).data?.lineRetentionDays
   const [draft, setDraft] = useState(materialNumber ?? '')
   const history = useQuery({
     queryKey: materialHistoryKey(storeCode, materialNumber ?? ''),
@@ -56,7 +56,7 @@ export default function MaterialHistoryDrawer({
         titleId={titleId}
         eyebrow={t('history.eyebrow')}
         title={<Ltr>{materialNumber ? formatPair(storeCode, materialNumber) : storeCode}</Ltr>}
-        hint={retentionDays === undefined ? undefined : retentionDays === null ? t('history.hintNoDays') : t('history.hint', { days: fsi(figure(retentionDays)) })}
+        hint={typeof days === 'number' ? t('history.hint', { days: fsi(figure(days)) }) : t('history.hintNoDays')}
         closeLabel={t('history.close')}
         onClose={onClose}
         closeData={{ 'data-material-close': '' }}

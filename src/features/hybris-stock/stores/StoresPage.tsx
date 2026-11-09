@@ -13,6 +13,7 @@ import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
 import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
+import { HISTORY_PARAM } from '@/core/hybris-stock/params'
 import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockPushNowResult, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -123,7 +124,7 @@ function Stores() {
         onHistory: (row) => openHistoryRef.current(row.storeCode),
         // The push log owns the pushes and a material's history; a store links into it by code.
         onPushes: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode })}`),
-        onMaterial: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode, history: row.storeCode })}`),
+        onMaterial: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode, [HISTORY_PARAM]: row.storeCode })}`),
       }),
     [t, i18n.language, canManage, navigate],
   )

@@ -232,7 +232,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
           (preview.error instanceof FileUnreadable ? (
             <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-danger-800" data-upload-unreadable="">
               <span>{t('upload.unreadable')}</span>
-              <Button variant="secondary" onClick={() => fileInput.current?.click()} disabled={preview.isPending || commit.isPending} data-upload-repick="">
+              <Button variant="secondary" onClick={() => fileInput.current?.click()} data-upload-repick="">
                 {t('upload.pickAgain')}
               </Button>
             </div>

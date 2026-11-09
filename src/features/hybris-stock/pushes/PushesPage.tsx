@@ -11,7 +11,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { canViewHybrisStock } from '@/core/hybris-stock/access'
-import { hybrisStockAccessQuery, hybrisStockStatusQuery } from '@/core/hybris-stock/api'
+import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
 import type { HybrisStockPushRow, HybrisStockPushStatus, HybrisStockPushType, HybrisStockPushesQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
@@ -73,11 +73,6 @@ function Pushes() {
   // A date past the other end of the range moves that end with it, so the range never turns over.
   const setDate = (end: 'from' | 'to', value: string) => setQuery(withDate({ ...query, store: store.trim() || null, take: PUSHES_STEP }, end, value || null))
 
-  const status = useQuery(hybrisStockStatusQuery())
-  // Unknown (`null`) only when Status cannot be read: the drawers then say lines are swept without a
-  // number. While it is read (`undefined`) they show no retention copy yet, rather than flash "unknown".
-  const retentionDays = status.data ? status.data.lineRetentionDays : status.isError ? null : undefined
-
   const filterKey = pushesFilterKey(query)
   const pushes = useQuery({
     queryKey: [...PUSHES_KEY, filterKey, query.take],
@@ -94,14 +89,6 @@ function Pushes() {
   const next = moreTake(query.take)
 
   const drawer = drawerFromParams(params)
-  // The open push's log row, remembered: a filter change empties the grid while the new filter loads (and
-  // the new filter may not hold the push), but the drawer keeps its header and still knows a swept push's
-  // lines are gone without reading them.
-  const openPushId = drawer?.kind === 'lines' ? drawer.pushId : null
-  const logPush = openPushId === null ? null : (rows.find((r) => r.pushId === openPushId) ?? null)
-  const [knownPush, setKnownPush] = useState<Row | null>(null)
-  if (logPush !== null && logPush !== knownPush) setKnownPush(logPush)
-  const openPush = logPush ?? (knownPush !== null && knownPush.pushId === openPushId ? knownPush : null)
   const openDrawer = useCallback((next: Drawer) => setParams((prev) => withDrawer(prev, next), { replace: true }), [setParams])
   const openRef = useRef(openDrawer)
   useEffect(() => {
@@ -226,8 +213,9 @@ function Pushes() {
         <PushLinesDrawer
           key={drawer.pushId}
           pushId={drawer.pushId}
-          push={openPush}
-          retentionDays={retentionDays}
+          // The contract has no one-push read and the lines answer carries no header: the drawer's header
+          // is the log row while the grid holds it; without one, the lines answer says whether it was swept.
+          push={rows.find((r) => r.pushId === drawer.pushId) ?? null}
           onMaterial={(storeCode, materialNumber) => openDrawer({ kind: 'material', storeCode, materialNumber })}
           onClose={() => openDrawer(null)}
         />
@@ -237,7 +225,6 @@ function Pushes() {
           key={drawer.storeCode}
           storeCode={drawer.storeCode}
           materialNumber={drawer.materialNumber}
-          retentionDays={retentionDays}
           onPick={(materialNumber) => openDrawer({ kind: 'material', storeCode: drawer.storeCode, materialNumber })}
           onPush={(pushId) => openDrawer({ kind: 'lines', pushId })}
           onClose={() => openDrawer(null)}

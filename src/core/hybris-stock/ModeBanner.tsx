@@ -42,10 +42,14 @@ export default function ModeBanner() {
                 <Trans t={t} i18nKey="mode.path" values={{ path: status.data.targetPath }} components={{ p: <Ltr /> }} />
               </span>
             )}
-            {/* Always sent: the contract's Status reads `deltaMinutes` from settings at start. */}
-            <span data-mode-interval="">
-              <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
-            </span>
+            {/* The contract always sends `deltaMinutes` (typed `number`), but this banner tops every Hybris
+                page: a Status that leaves it out hides the interval (formatFigure gives '') rather than
+                breaking them all. */}
+            {formatFigure(status.data.deltaMinutes) !== '' && (
+              <span data-mode-interval="">
+                <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
+              </span>
+            )}
           </span>
         )}
       </div>

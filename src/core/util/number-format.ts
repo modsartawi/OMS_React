@@ -30,7 +30,8 @@ export function formatMoney3(value: number | null | undefined): string {
 /**
  * A count or a figure a sentence names, grouped in Latin digits (`1,234`) — how figures are drawn
  * across the app, whatever the locale. One helper, so the screens never re-declare it.
+ * Non-numeric renders as `''` (like its siblings): a figure the server left out never throws.
  */
-export function formatFigure(n: number): string {
-  return n.toLocaleString('en-US')
+export function formatFigure(n: number | null | undefined): string {
+  return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString('en-US') : ''
 }

@@ -1,3 +1,4 @@
+import { HISTORY_PARAM } from '@/core/hybris-stock/params'
 import type { HybrisStockPushStatus, HybrisStockPushType, HybrisStockPushesQuery } from '@/core/models/hybris-stock'
 import { PUSH_STATUSES, PUSH_TYPES } from './push-labels'
 
@@ -86,7 +87,7 @@ export type Drawer = { kind: 'lines'; pushId: string } | { kind: 'material'; sto
 export function drawerFromParams(params: URLSearchParams): Drawer {
   const push = params.get('push')
   if (push) return { kind: 'lines', pushId: push }
-  const store = params.get('history')
+  const store = params.get(HISTORY_PARAM)
   if (store) return { kind: 'material', storeCode: store, materialNumber: params.get('material') || null }
   return null
 }
@@ -94,10 +95,10 @@ export function drawerFromParams(params: URLSearchParams): Drawer {
 /** `params` with the drawer swapped; the filters untouched. */
 export function withDrawer(params: URLSearchParams, drawer: Drawer): URLSearchParams {
   const out = new URLSearchParams(params)
-  for (const k of ['push', 'history', 'material']) out.delete(k)
+  for (const k of ['push', HISTORY_PARAM, 'material']) out.delete(k)
   if (drawer?.kind === 'lines') out.set('push', drawer.pushId)
   if (drawer?.kind === 'material') {
-    out.set('history', drawer.storeCode)
+    out.set(HISTORY_PARAM, drawer.storeCode)
     if (drawer.materialNumber) out.set('material', drawer.materialNumber)
   }
   return out

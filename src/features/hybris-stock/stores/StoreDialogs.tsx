@@ -6,8 +6,8 @@ import { HYBRIS_STOCK_ERRORS as E, type HybrisStockStoreRow } from '@/core/model
 import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { replaceByKey } from '@/core/util/replace-by-key'
 import { STORES_KEY, historyKey, storesApi } from './api'
-import { replaceRow } from './stores-query'
 
 /**
  * Mark a store as a Hybris stock store, or unmark one, with a mandatory reason (spec 3447 stories
@@ -30,7 +30,7 @@ export function MarkDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose
   const send = useMutation({
     mutationFn: (reason: string) => (row.marked ? storesApi.unmark(row.storeCode, { reason }) : storesApi.mark(row.storeCode, { reason })),
     onSuccess: (next) => {
-      qc.setQueriesData<HybrisStockStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
+      qc.setQueriesData<HybrisStockStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceByKey(rows, next, 'storeCode'))
       // A list under the marked filter may no longer hold the row: read those again (the unfiltered list
       // keeps its in-place patch and is not re-read).
       void qc.invalidateQueries({ queryKey: STORES_KEY, predicate: (q) => /flag=|health=/.test(String(q.queryKey[2] ?? '')) })

@@ -79,7 +79,9 @@
     "noFiles": "No file written",
     "noMatch": "No line matches the filter.",
     "noSuchPush": "No such push. Push lines are kept {{days}} days.",
+    "noSuchPushNoDays": "No such push. Push lines are kept for a limited time only.",
     "swept": "This push's lines were swept: lines are kept {{days}} days. The push record itself is kept.",
+    "sweptNoDays": "This push's lines were swept: lines are kept for a limited time only. The push record itself is kept.",
     "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
     "path": "Path"
   },
@@ -87,6 +89,7 @@
     "button": "History",
     "eyebrow": "A material's history at a store",
     "hint": "Every quantity sent, newest first. Lines are kept {{days}} days.",
+    "hintNoDays": "Every quantity sent, newest first. Lines are kept for a limited time only.",
     "close": "Close history",
     "material": "Material number",
     "look": "Look up",

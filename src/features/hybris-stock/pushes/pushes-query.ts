@@ -13,7 +13,8 @@ export const LINES_PAGE_SIZE = 200
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** `?store=&type=&status=&from=&to=&take=` — a value the door does not know is dropped, a `to` before
- *  `from` too (the door refuses it), and `take` is a step of 50 up to 500. */
+ *  `from` reads as the same range with its ends in order (the door refuses it reversed), and `take` is a
+ *  step of 50 up to 500. */
 export function pushesFromParams(params: URLSearchParams): HybrisStockPushesQuery {
   const type = params.get('type')
   const status = params.get('status')
@@ -21,16 +22,31 @@ export function pushesFromParams(params: URLSearchParams): HybrisStockPushesQuer
   const to = params.get('to')
   const take = Number(params.get('take'))
   const fromOk = from && ISO_DATE.test(from) ? from : null
-  const toOk = to && ISO_DATE.test(to) && !(fromOk && to < fromOk) ? to : null
+  const toOk = to && ISO_DATE.test(to) ? to : null
+  const reversed = fromOk !== null && toOk !== null && toOk < fromOk
   return {
     store: params.get('store')?.trim() || null,
     type: PUSH_TYPES.includes(type as HybrisStockPushType) ? (type as HybrisStockPushType) : null,
     status: PUSH_STATUSES.includes(status as HybrisStockPushStatus) ? (status as HybrisStockPushStatus) : null,
-    from: fromOk,
-    to: toOk,
+    from: reversed ? toOk : fromOk,
+    to: reversed ? fromOk : toOk,
     take: Number.isInteger(take) && take >= PUSHES_STEP && take <= PUSHES_MAX && take % PUSHES_STEP === 0 ? take : PUSHES_STEP,
   }
 }
+
+/** One end of the date range set; when it passes the other end, the other end moves to it, so the
+ *  range never turns over (the door refuses `to` before `from`) and the date just picked is kept. */
+export function withDate(q: HybrisStockPushesQuery, end: 'from' | 'to', value: string | null): HybrisStockPushesQuery {
+  const next = { ...q, [end]: value }
+  if (next.from && next.to && next.to < next.from) {
+    if (end === 'from') next.to = next.from
+    else next.from = next.to
+  }
+  return next
+}
+
+/** The filters without `take`: Show more keeps it, a filter change does not. */
+export const pushesFilterKey = (q: HybrisStockPushesQuery): string => pushesToParams({ ...q, take: PUSHES_STEP }).toString()
 
 /** The filters back to the URL (the drawers' keys are the page's, kept by `withDrawer`). */
 export function pushesToParams(q: HybrisStockPushesQuery): URLSearchParams {

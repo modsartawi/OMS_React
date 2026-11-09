@@ -1,3 +1,4 @@
+import { replaceByKey } from '@/core/util/replace-by-key'
 import type { HybrisStockEnabledFilter, HybrisStockMaterialRow, HybrisStockMaterialsPage, HybrisStockMaterialsQuery } from '@/core/models/hybris-stock'
 
 // The materials page's URL ⇄ query ⇄ door mapping (ticket 848). Pure.
@@ -37,8 +38,9 @@ export function materialsDoorParams(query: HybrisStockMaterialsQuery) {
 
 /** A cached page with the changed material swapped where it stands; a page without it is left alone. */
 export function withRow(page: HybrisStockMaterialsPage | undefined, row: HybrisStockMaterialRow): HybrisStockMaterialsPage | undefined {
-  if (!page || !page.rows.some((r) => r.materialNumber === row.materialNumber)) return page
-  return { ...page, rows: page.rows.map((r) => (r.materialNumber === row.materialNumber ? row : r)) }
+  if (!page) return page
+  const rows = replaceByKey(page.rows, row, 'materialNumber')
+  return rows === page.rows ? page : { ...page, rows }
 }
 
 export { MATERIAL_NUMBER } from '@/core/models/hybris-stock'

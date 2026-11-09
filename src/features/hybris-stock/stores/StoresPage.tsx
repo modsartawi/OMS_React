@@ -186,7 +186,10 @@ function Stores() {
           variant="outlined"
           onClick={() => {
             setDraft('')
-            setParams(new URLSearchParams(), { replace: true })
+            // The filters go; an open history drawer stays.
+            const next = new URLSearchParams()
+            if (historyCode) next.set('history', historyCode)
+            setParams(next, { replace: true })
           }}
           data-stores-clear=""
         >

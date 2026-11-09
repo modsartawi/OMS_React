@@ -68,8 +68,16 @@ export default function HistoryDrawer({ storeCode, storeName, onClose }: { store
                     <Ltr>{r.changedBy}</Ltr>
                   </td>
                   <td className={TD}>
-                    {/* M mark, U unmark (the contract's letters). */}
-                    <StatusBadge sev={r.action === 'M' ? 'go' : 'mute'}>{t(r.action === 'M' ? 'history.marked' : 'history.unmarked')}</StatusBadge>
+                    {/* M mark, U unmark (the contract's letters); a letter the contract does not name shows as sent. */}
+                    {r.action === 'M' ? (
+                      <StatusBadge sev="go">{t('history.marked')}</StatusBadge>
+                    ) : r.action === 'U' ? (
+                      <StatusBadge sev="mute">{t('history.unmarked')}</StatusBadge>
+                    ) : (
+                      <StatusBadge sev="mute">
+                        <Ltr>{r.action}</Ltr>
+                      </StatusBadge>
+                    )}
                   </td>
                   <td className="px-2 py-1.5 align-top whitespace-pre-wrap" data-history-reason="">
                     <bdi>{r.reason}</bdi>

@@ -85,6 +85,8 @@
     "reading": "Reading the file…",
     "file": "Material list file",
     "readFailed": "The file could not be read.",
+    "unreadable": "The file could not be read — it may have been moved or changed since you picked it. Pick the file again.",
+    "pickAgain": "Pick the file again",
     "groups": "Preview groups",
     "outcome": {
       "new": "New <n>{{n}}</n>",

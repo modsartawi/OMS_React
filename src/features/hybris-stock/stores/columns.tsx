@@ -93,7 +93,8 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
       cellRenderer: ({ data, value }: ICellRendererParams<Row>) => {
         if (!data) return null
         const view = storeHealth(data)
-        const hint = view.causes.map((c) => t(`health.cause.${c}`)).join(' ')
+        // One sentence, its causes listed in the reader's language.
+        const hint = view.causes.length > 0 ? t('health.hint', { causes: listText(view.causes.map((c) => t(`health.cause.${c}`)), lang) }) : ''
         return (
           <span data-health={view.reading} data-causes={view.causes.join(' ')} title={hint || undefined}>
             <StatusBadge sev={view.sev}>{value}</StatusBadge>

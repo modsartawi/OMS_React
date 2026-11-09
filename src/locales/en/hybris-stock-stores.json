@@ -99,9 +99,10 @@
     "lastFailed": "Last push failed",
     "unhealthy": "Unhealthy",
     "cause": {
-      "deltaBehind": "No successful delta for more than two intervals.",
-      "fullOverdue": "The store's full is overdue."
+      "deltaBehind": "no successful delta for more than two intervals",
+      "fullOverdue": "the store's full is overdue"
     },
+    "hint": "Unhealthy: {{causes}}.",
     "causeShort": {
       "deltaBehind": "Delta behind",
       "fullOverdue": "Full overdue"

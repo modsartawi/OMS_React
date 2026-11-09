@@ -40,7 +40,8 @@ export default function PushLinesDrawer({
 }: {
   pushId: string
   push: HybrisStockPushRow | null
-  retentionDays: number
+  /** `null` when Status cannot be read: the copy then names no number. */
+  retentionDays: number | null
   onMaterial: (storeCode: string, materialNumber: string) => void
   onClose: () => void
 }) {
@@ -52,7 +53,8 @@ export default function PushLinesDrawer({
   const rowSwept = linesGone(push)
   const lines = useQuery({
     queryKey: linesKey(pushId, query),
-    queryFn: () => pushesApi.lines(pushId, query),
+    // The page travels with its answer, so the range shown is the rows' own while the next page loads.
+    queryFn: async () => ({ page: query.page, ...(await pushesApi.lines(pushId, query)) }),
     placeholderData: keepPreviousData,
     enabled: !rowSwept,
     retry: false,
@@ -61,7 +63,7 @@ export default function PushLinesDrawer({
   const noSuchPush = apiErrorCode(lines.error) === HYBRIS_STOCK_ERRORS.noSuchPush
   const rows = lines.data?.lines ?? []
   const total = lines.data?.total ?? 0
-  const first = (query.page - 1) * LINES_PAGE_SIZE + 1
+  const first = ((lines.data?.page ?? query.page) - 1) * LINES_PAGE_SIZE + 1
   const filtered = query.store !== null || query.material !== null
 
   return (
@@ -126,7 +128,7 @@ export default function PushLinesDrawer({
 
         {swept ? (
           <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
-            {t('lines.swept', { days: fsi(figure(retentionDays)) })}
+            {retentionDays === null ? t('lines.sweptNoDays') : t('lines.swept', { days: fsi(figure(retentionDays)) })}
           </p>
         ) : (
           <>
@@ -159,7 +161,7 @@ export default function PushLinesDrawer({
             {lines.isError &&
               (noSuchPush ? (
                 <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
-                  {t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
+                  {retentionDays === null ? t('lines.noSuchPushNoDays') : t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
                 </p>
               ) : (
                 <ErrorBanner className="p-2" title={t('lines.failed')} message={apiErrorMessage(lines.error, t('results.failed'))} />

@@ -111,9 +111,10 @@
     "lastFailed": "فشل آخر إرسال",
     "unhealthy": "متعثر",
     "cause": {
-      "deltaBehind": "لم ينجح أي تحديث جزئي لأكثر من دورتين.",
-      "fullOverdue": "تأخر الإرسال الكامل لهذا الفرع."
+      "deltaBehind": "لم ينجح أي تحديث جزئي لأكثر من دورتين",
+      "fullOverdue": "تأخر الإرسال الكامل لهذا الفرع"
     },
+    "hint": "متعثر: {{causes}}.",
     "causeShort": {
       "deltaBehind": "تحديث جزئي متأخر",
       "fullOverdue": "إرسال كامل متأخر"

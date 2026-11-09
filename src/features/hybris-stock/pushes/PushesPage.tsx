@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
@@ -28,7 +28,7 @@ import { pushColumns } from './columns'
 import MaterialHistoryDrawer from './MaterialHistoryDrawer'
 import PushLinesDrawer from './PushLinesDrawer'
 import { PUSH_STATUSES, PUSH_TYPES, statusLabel, typeLabel } from './push-labels'
-import { PUSHES_STEP, drawerFromParams, mayHoldMore, moreTake, pushesFromParams, pushesToParams, withDrawer, type Drawer } from './pushes-query'
+import { PUSHES_STEP, drawerFromParams, mayHoldMore, moreTake, pushesFilterKey, pushesFromParams, pushesToParams, withDate, withDrawer, type Drawer } from './pushes-query'
 
 /**
  * The Hybris stock push log (ticket 849, BackOffice spec 3447 stories 43–48): every push across stores
@@ -61,9 +61,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
 
 const ROW_FAILED = '[--ag-data-background-color:var(--danger-050)]'
 
-/** The line retention the doors keep when Status cannot be read (spec 3447 default). */
-const DEFAULT_RETENTION_DAYS = 15
-
 function Pushes() {
   const { t, i18n } = useTranslation('hybris-stock-pushes')
   const [params, setParams] = useSearchParams()
@@ -71,22 +68,25 @@ function Pushes() {
   const [store, setStore] = useState(query.store ?? '')
   useEffect(() => setStore(query.store ?? ''), [query.store])
   // A filter change keeps the open drawer and starts again from the newest 50.
-  const update = (change: Partial<HybrisStockPushesQuery>) => {
-    const next = pushesToParams({ ...query, store: store.trim() || null, take: PUSHES_STEP, ...change })
-    setParams(withDrawer(next, drawerFromParams(params)), { replace: true })
-  }
+  const update = (change: Partial<HybrisStockPushesQuery>) => setQuery({ ...query, store: store.trim() || null, take: PUSHES_STEP, ...change })
+  const setQuery = (next: HybrisStockPushesQuery) => setParams(withDrawer(pushesToParams(next), drawerFromParams(params)), { replace: true })
+  // A date past the other end of the range moves that end with it, so the range never turns over.
+  const setDate = (end: 'from' | 'to', value: string) => setQuery(withDate({ ...query, store: store.trim() || null, take: PUSHES_STEP }, end, value || null))
 
   const status = useQuery(hybrisStockStatusQuery())
-  const retentionDays = status.data?.lineRetentionDays ?? DEFAULT_RETENTION_DAYS
+  // Unknown when Status cannot be read: the drawers then say lines are swept without a number.
+  const retentionDays = status.data?.lineRetentionDays ?? null
 
+  const filterKey = pushesFilterKey(query)
   const pushes = useQuery({
-    queryKey: [...PUSHES_KEY, pushesToParams(query).toString()],
+    queryKey: [...PUSHES_KEY, filterKey, query.take],
     queryFn: () => pushesApi.list(query),
-    placeholderData: keepPreviousData,
+    // Show more keeps the rows on screen while the longer read lands (they are its first rows); a
+    // filter change does not — the old filter's rows are not the new one's, so the grid shows loading.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[PUSHES_KEY.length] === filterKey ? prev : undefined),
     retry: false,
   })
   const current = !pushes.isError && !pushes.isPlaceholderData
-  // Show more keeps the rows on screen while the longer read lands (they are its first rows).
   const rows = useMemo(() => (pushes.isError ? [] : (pushes.data ?? [])), [pushes.data, pushes.isError])
   const loading = pushes.isFetching && !pushes.data
   const full = current && mayHoldMore(rows.length, query.take)
@@ -139,10 +139,10 @@ function Pushes() {
           </Select>
         </Field>
         <Field label={t('filters.from')}>
-          <Input type="date" value={query.from ?? ''} onChange={(e) => update({ from: e.target.value || null })} data-filter-from="" />
+          <Input type="date" value={query.from ?? ''} onChange={(e) => setDate('from', e.target.value)} data-filter-from="" />
         </Field>
         <Field label={t('filters.to')}>
-          <Input type="date" value={query.to ?? ''} onChange={(e) => update({ to: e.target.value || null })} data-filter-to="" />
+          <Input type="date" value={query.to ?? ''} onChange={(e) => setDate('to', e.target.value)} data-filter-to="" />
         </Field>
         <Button type="submit" disabled={pushes.isFetching} data-pushes-search="">
           <Search className="h-3.5 w-3.5" aria-hidden />
@@ -152,7 +152,8 @@ function Pushes() {
           variant="outlined"
           onClick={() => {
             setStore('')
-            setParams(new URLSearchParams(), { replace: true })
+            // The filters go; an open drawer stays.
+            setParams(withDrawer(new URLSearchParams(), drawerFromParams(params)), { replace: true })
           }}
           data-pushes-clear=""
         >

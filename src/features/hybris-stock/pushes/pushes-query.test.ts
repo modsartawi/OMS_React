@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawerFromParams, mayHoldMore, moreTake, pushesDoorParams, pushesFromParams, pushesToParams, withDrawer } from './pushes-query'
+import { drawerFromParams, mayHoldMore, moreTake, pushesDoorParams, pushesFilterKey, pushesFromParams, pushesToParams, withDate, withDrawer } from './pushes-query'
 
 describe('the push log URL and door', () => {
   it("round-trips every filter in the log's words", () => {
@@ -14,8 +14,22 @@ describe('the push log URL and door', () => {
     expect(pushesFromParams(new URLSearchParams('take=70')).take).toBe(50)
   })
 
-  it('a from after to is dropped (the door refuses it)', () => {
-    expect(pushesFromParams(new URLSearchParams('from=2026-11-08&to=2026-11-01'))).toMatchObject({ from: '2026-11-08', to: null })
+  it('a link with from after to reads as the range it names, ends in order (the door refuses it reversed)', () => {
+    expect(pushesFromParams(new URLSearchParams('from=2026-11-08&to=2026-11-01'))).toMatchObject({ from: '2026-11-01', to: '2026-11-08' })
+  })
+
+  it('moving from past to brings to along; moving to before from brings from along', () => {
+    const q = pushesFromParams(new URLSearchParams('from=2026-11-01&to=2026-11-05'))
+    expect(withDate(q, 'from', '2026-11-09')).toMatchObject({ from: '2026-11-09', to: '2026-11-09' })
+    expect(withDate(q, 'to', '2026-10-28')).toMatchObject({ from: '2026-10-28', to: '2026-10-28' })
+    expect(withDate(q, 'from', '2026-11-03')).toMatchObject({ from: '2026-11-03', to: '2026-11-05' })
+    expect(withDate(q, 'to', null)).toMatchObject({ from: '2026-11-01', to: null })
+  })
+
+  it('the filter key ignores take, so Show more is the same filter and a filter change is not', () => {
+    const a = pushesFromParams(new URLSearchParams('store=1234&take=50'))
+    expect(pushesFilterKey({ ...a, take: 100 })).toBe(pushesFilterKey(a))
+    expect(pushesFilterKey({ ...a, status: 'failed' })).not.toBe(pushesFilterKey(a))
   })
 
   it('sends take only — the door has no skip', () => {

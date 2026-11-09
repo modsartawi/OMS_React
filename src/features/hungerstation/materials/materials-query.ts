@@ -1,3 +1,4 @@
+import { replaceByKey } from '@/core/util/replace-by-key'
 import {
   HUNGERSTATION_MATERIALS_TAKE,
   type HungerStationMaterialRow,
@@ -77,6 +78,7 @@ export function materialsPage(query: HungerStationMaterialsQuery, total: number,
  * that does not hold it is handed back as it was, so a cache update leaves it alone.
  */
 export function withRow(page: HungerStationMaterialsPage | undefined, row: HungerStationMaterialRow): HungerStationMaterialsPage | undefined {
-  if (!page || !page.rows.some((r) => r.materialNumber === row.materialNumber)) return page
-  return { ...page, rows: page.rows.map((r) => (r.materialNumber === row.materialNumber ? row : r)) }
+  if (!page) return page
+  const rows = replaceByKey(page.rows, row, 'materialNumber')
+  return rows === page.rows ? page : { ...page, rows }
 }

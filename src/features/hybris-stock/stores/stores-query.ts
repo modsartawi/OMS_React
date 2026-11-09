@@ -1,6 +1,6 @@
-import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
+import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
 
-// The stores page's URL ⇄ query ⇄ door mapping (ticket 847) and its in-place row patch. Pure.
+// The stores page's URL ⇄ query ⇄ door mapping (ticket 847). Pure.
 // The URL speaks the door's own words (`?flag=&health=&q=`).
 
 export const FLAG_FILTERS: readonly HybrisStockFlagFilter[] = ['any', 'marked', 'unmarked']
@@ -25,10 +25,4 @@ export function storesToParams(query: HybrisStockStoresQuery): URLSearchParams {
 /** What `GET HybrisStockWeb/Stores` is sent: `any` left off (it is the door's default). */
 export function storesDoorParams(query: HybrisStockStoresQuery) {
   return { flag: query.flag === 'any' ? null : query.flag, health: query.health === 'any' ? null : query.health, q: query.q }
-}
-
-/** A cached store list with the store's row swapped where it stands (mark / unmark answer the row). */
-export function replaceRow<T extends HybrisStockStoreRow[] | undefined>(rows: T, next: HybrisStockStoreRow): T {
-  if (!rows || !rows.some((r) => r.storeCode === next.storeCode)) return rows
-  return rows.map((r) => (r.storeCode === next.storeCode ? next : r)) as T
 }

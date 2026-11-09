@@ -42,9 +42,11 @@ export default function ModeBanner() {
                 <Trans t={t} i18nKey="mode.path" values={{ path: status.data.targetPath }} components={{ p: <Ltr /> }} />
               </span>
             )}
-            <span data-mode-interval="">
-              <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
-            </span>
+            {typeof status.data.deltaMinutes === 'number' && (
+              <span data-mode-interval="">
+                <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
+              </span>
+            )}
           </span>
         )}
       </div>

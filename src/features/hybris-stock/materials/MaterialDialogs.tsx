@@ -14,6 +14,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { MATERIAL_NUMBER, withRow } from './materials-query'
@@ -129,6 +130,22 @@ export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; o
 
 const OUTCOME_SEV = { new: 'go', changed: 'warn', unchanged: 'mute', refused: 'bad' } as const
 
+/** The picked file could not be read (moved, deleted, or edited on disk after it was picked). */
+class FileUnreadable extends Error {}
+
+/**
+ * The picked file's bytes, read once into memory. A browser `File` is a handle onto the disk: edited
+ * there after the pick, a later read of it fails (NotReadableError). The copy is what the preview
+ * read, so the commit and Preview again re-send exactly those bytes.
+ */
+async function snapshot(file: File): Promise<File> {
+  try {
+    return new File([await file.arrayBuffer()], file.name, { type: file.type, lastModified: file.lastModified })
+  } catch {
+    throw new FileUnreadable(file.name)
+  }
+}
+
 /**
  * **Upload a material list** (spec 3447 stories 13–17, 21; ticket 848): pick a CSV or XLSX (a
  * material number column, an optional enabled column) → the server's PREVIEW, grouped new / changed /
@@ -139,13 +156,16 @@ const OUTCOME_SEV = { new: 'go', changed: 'warn', unchanged: 'mute', refused: 'b
  * Confirm stays off until a preview holds something to apply.
  */
 export function UploadDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation('hybris-stock-materials')
+  const { t, i18n } = useTranslation('hybris-stock-materials')
   const qc = useQueryClient()
   const fileInput = useRef<HTMLInputElement>(null)
   const [shown, setShown] = useState<HybrisStockPreviewOutcome>('new')
   // The previewed file and its answer travel together: the commit re-sends exactly this file.
   const preview = useMutation({
-    mutationFn: async (file: File): Promise<{ file: File; preview: HybrisStockUploadPreview }> => ({ file, preview: await materialsApi.preview(file) }),
+    mutationFn: async (picked: File): Promise<{ file: File; preview: HybrisStockUploadPreview }> => {
+      const file = await snapshot(picked)
+      return { file, preview: await materialsApi.preview(file) }
+    },
     onSuccess: ({ preview: p }) => {
       const s = previewSummary(p)
       // Open on the first group that holds rows, so the user sees what the file does.
@@ -207,9 +227,17 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
         </div>
         <p className="text-xs text-muted-foreground">{t('upload.shape')}</p>
 
-        {preview.isError && (
-          <InlineRefusal message={apiErrorMessage(preview.error, t('upload.readFailed'))} code={apiErrorCode(preview.error)} />
-        )}
+        {preview.isError &&
+          (preview.error instanceof FileUnreadable ? (
+            <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-danger-800" data-upload-unreadable="">
+              <span>{t('upload.unreadable')}</span>
+              <Button variant="secondary" onClick={() => fileInput.current?.click()} data-upload-repick="">
+                {t('upload.pickAgain')}
+              </Button>
+            </div>
+          ) : (
+            <InlineRefusal message={apiErrorMessage(preview.error, t('upload.readFailed'))} code={apiErrorCode(preview.error)} />
+          ))}
 
         {summary && (
           <div className="flex flex-col gap-2" data-upload-preview="">
@@ -222,7 +250,10 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
             </div>
             {summary.refusals.length > 0 && (
               <p className="text-xs text-danger-800" data-upload-refusals="">
-                {summary.refusals.map((r) => t(`upload.refusalTally.${r.kind}`, { n: fsi(figure(r.count)) })).join(' · ')}
+                {listText(
+                  summary.refusals.map((r) => t(`upload.refusalTally.${r.kind}`, { n: fsi(figure(r.count)) })),
+                  i18n.language,
+                )}
               </p>
             )}
             {summary.countsMismatch && (

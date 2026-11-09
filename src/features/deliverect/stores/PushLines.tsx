@@ -125,6 +125,16 @@ export default function PushLines({
           {type ? t(`logs.type.${type}`) : <Ltr>{log.syncType}</Ltr>}{" "}
           <Ltr>{formatDateTime(log.startTime)}</Ltr>
         </span>
+        {log.requestedBy && (
+          <span className="text-xs text-muted-foreground" data-lines-requested-by="">
+            <Trans
+              t={t}
+              i18nKey="logs.requestedBy"
+              values={{ user: log.requestedBy }}
+              components={{ user: <Ltr /> }}
+            />
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {t("lines.hint", { days })}

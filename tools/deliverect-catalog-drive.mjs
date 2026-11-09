@@ -10,10 +10,13 @@
 //   GET  DeliverectWeb/Whitelist?q=&state=&skip=&take=
 //                                                  → { total, rows: [{ materialNumber, nameEn, nameAr, gtins, disabled,
 //                                                      deleted, excludedPlatforms, updatedAt, updatedBy }] }
-//   POST DeliverectWeb/Whitelist/Import            → { added, reactivated, unknown }; DLV-00012
+//   POST DeliverectWeb/Whitelist/Import            → { added, reactivated, unknown, push }; DLV-00012
+//                                                    (860: body gains pushStock; push = { skipped, why, error, accounts })
 //   PUT  DeliverectWeb/Whitelist/{material}        → body { disabled, deleted, reason }
 //   PUT  DeliverectWeb/Exclusions/{material}       → body { platforms, reason }; DLV-00004, DLV-00005
-//   POST DeliverectWeb/Catalog/Push?account=       → { fileId, status, rows }; DLV-00011
+//   POST DeliverectWeb/Stock/Push                  → { accounts: [{ accountKey, stores, rows, fileId, status, error }] };
+//                                                    DLV-00004 (named in message), DLV-00015, DLV-00009   (860)
+//   POST DeliverectWeb/Catalog/Push                → must NEVER be called (860: BackOffice 3486, ADR 0131)
 //   GET  DeliverectWeb/Platforms                   → 200 [{ platformKey, displayName, channelId, creditCustomer, active }]
 //                                                    OR 403 (the contract puts it behind canManageTerms)
 //   GET  DeliverectWeb/Accounts                    → 200 [{ accountKey, deliverectAccountId, active }] OR 403 (same)
@@ -36,8 +39,13 @@
 //      platform only"; Save is off until something changes; the PUT REPLACES the set and KEEPS a
 //      key the Platforms read does not list (shown as a read-only chip); Platforms 403 → the
 //      "platform list unavailable" state, Save disabled, no PUT;
-//   7. push: the account from Accounts → POST Catalog/Push?account=…, the file id, status and rows
-//      shown; DLV-00011 shows Deliverect's answer inline; Accounts 403 → a typed account key;
+//   7. (860) Push now: ticked rows fill the list → POST Stock/Push { materialNumbers, reason }; the
+//      per-account answer (an "E" account red with its error, the others still shown); no store
+//      reached; DLV-00004 names the materials, DLV-00015 and DLV-00009 inline; over 200 refused on
+//      screen with no call; the catalog push is gone and Catalog/Push is never called;
+//   3b. (860) the import's option: on by default (pushStock: true) and off (false); the push block —
+//      pushed per account, skipped (option off, over 200), and a failed push shown as a warning
+//      beside a saved import;
 //   8. under RTL (direction) machine values are isolated, and an exclusion save works.
 //
 // ── 482 (note) ── the Terms leaf joins after Catalog: check 1's full list gains /deliverect/terms.
@@ -74,7 +82,9 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 })
 
 const REFUSALS = {
-  'DLV-00011': [502, 'Deliverect refused the call: too many deletions. / رفضت Deliverect الطلب: حذف كثير.'],
+  'DLV-00009': [400, 'A reason is required. / السبب مطلوب.'],
+  'DLV-00015': [400, 'A material number is blank. / رقم مادة فارغ.'],
+  DeliverectCatalogPushOff: [400, 'The catalog push is switched off (Deliverect:CatalogPush). / إرسال الكتالوج متوقف.'],
   'DLV-00012': [400, 'Row 2 is not a material number. / الصف 2 ليس رقم مادة.'],
   Forbidden: [403, 'Access denied. / تم رفض الوصول.'],
 }
@@ -113,6 +123,12 @@ const PLATFORMS = [
 const ACCOUNTS = [
   { accountKey: 'OlaCare', deliverectAccountId: '64fACC01', active: true },
   { accountKey: 'AlDawaa', deliverectAccountId: '64fACC02', active: true },
+]
+
+/** Stock/Push's per-account entries (contract § Stock sync): one taken, one Deliverect refused. */
+const PUSH_ACCOUNTS = [
+  { accountKey: 'OlaCare', stores: ['1001', '1002'], rows: 6, fileId: 'f-01JM01', status: 'S', error: null },
+  { accountKey: 'AlDawaa', stores: ['2001'], rows: 3, fileId: null, status: 'E', error: 'Deliverect refused the inventory file (503): busy / رفضت Deliverect ملف المخزون' },
 ]
 
 const stateOf = (r) => (r.deleted ? 'deleted' : r.disabled ? 'disabled' : 'active')
@@ -217,18 +233,39 @@ async function open(dir, { access = ALL, platforms = 'ok', accounts = 'ok', tota
       const b = body()
       writes.push({ door: 'import', body: b })
       if (b.materialNumbers.includes('BAD-ROW')) return route.fulfill(refuse('DLV-00012'))
-      return route.fulfill(envelope({ added: 2, reactivated: 1, unknown: b.materialNumbers.filter((m) => m.startsWith('9')) }))
+      // 860 (BackOffice 3485): the push block, as the contract has it.
+      const known = b.materialNumbers.filter((m) => !m.startsWith('9'))
+      const push =
+        b.pushStock === false
+          ? { skipped: true, why: 'pushStockOff', error: null, accounts: [] }
+          : known.length > 200
+            ? { skipped: true, why: 'overCap', error: null, accounts: [] }
+            : b.materialNumbers.includes('101299')
+              ? { skipped: false, why: null, error: 'The push could not be run; the import is saved. / تعذّر الإرسال؛ الاستيراد محفوظ.', accounts: [] }
+              : { skipped: false, why: null, error: null, accounts: PUSH_ACCOUNTS }
+      return route.fulfill(envelope({ added: 2, reactivated: 1, unknown: b.materialNumbers.filter((m) => m.startsWith('9')), push }))
     }
     let m = /^DeliverectWeb\/(Whitelist|Exclusions)\/([^/]+)$/.exec(p)
     if (m && req.method() === 'PUT') {
       writes.push({ door: m[1], material: decodeURIComponent(m[2]), body: body() })
       return route.fulfill(envelope(null))
     }
-    if (p === 'DeliverectWeb/Catalog/Push' && req.method() === 'POST') {
-      const account = url.searchParams.get('account')
-      writes.push({ door: 'push', account, body: body() })
-      if (account === 'AlDawaa') return route.fulfill(refuse('DLV-00011'))
-      return route.fulfill(envelope({ fileId: 'f-01J9ZK', status: 'processing', rows: 1234 }))
+    if (p === 'DeliverectWeb/Catalog/Push') {
+      writes.push({ door: 'catalogPush' })
+      return route.fulfill(refuse('DeliverectCatalogPushOff'))
+    }
+    if (p === 'DeliverectWeb/Stock/Push' && req.method() === 'POST') {
+      const b = body()
+      writes.push({ door: 'stockPush', body: b })
+      if (b.reason === 'NOREASON') return route.fulfill(refuse('DLV-00009'))
+      if (b.materialNumbers.includes('BLANK15')) return route.fulfill(refuse('DLV-00015'))
+      const off = b.materialNumbers.filter((m) => !ROWS.some((r) => r.materialNumber.toUpperCase() === m.toUpperCase()))
+      if (off.length) {
+        const list = off.join(', ')
+        return route.fulfill(envelope(null, { status: 404, success: false, errorCode: 'DLV-00004', message: `Not on the whitelist: ${list}. / ليست في القائمة: ${list}.` }))
+      }
+      if (b.materialNumbers.includes('101236')) return route.fulfill(envelope({ accounts: [] }))
+      return route.fulfill(envelope({ accounts: PUSH_ACCOUNTS }))
     }
     if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
     if (/Access$/.test(p))
@@ -261,9 +298,9 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
 {
   const { context, page, errors, calls } = await open('ltr')
   await page.goto(`${BASE}/`)
-  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ })
+  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/i })
   await header.first().waitFor({ timeout: 20000 })
-  await header.first().click()
+  if ((await header.first().getAttribute('aria-expanded')) !== 'true') await header.first().click()
   await page.locator('nav a[href="/deliverect/catalog"]').first().waitFor({ timeout: 5000 })
   const hrefs = await page.locator('nav a[href^="/deliverect"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check(
@@ -281,9 +318,9 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
 {
   const { context, page, errors, calls } = await open('ltr', { access: { ...ALL, canManageCatalog: false } })
   await page.goto(`${BASE}/`)
-  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ })
+  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/i })
   await header.first().waitFor({ timeout: 20000 })
-  await header.first().click()
+  if ((await header.first().getAttribute('aria-expanded')) !== 'true') await header.first().click()
   await page.locator('nav a[href="/deliverect/stores"]').first().waitFor({ timeout: 5000 })
   check('1: 🚩 without canManageCatalog the Catalog leaf is hidden', (await page.locator('nav a[href="/deliverect/catalog"]').count()) === 0)
   await page.goto(`${BASE}/deliverect/catalog`)
@@ -295,9 +332,9 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
 {
   const { context, page } = await open('ltr', { access: { canManageStores: false, canManageCatalog: true, canViewOrders: false, canManageTerms: false } })
   await page.goto(`${BASE}/`)
-  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ })
+  const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/i })
   await header.first().waitFor({ timeout: 20000 })
-  await header.first().click()
+  if ((await header.first().getAttribute('aria-expanded')) !== 'true') await header.first().click()
   await page.locator('nav a[href="/deliverect/catalog"]').first().waitFor({ timeout: 5000 })
   const hrefs = await page.locator('nav a[href^="/deliverect"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('1: a session holding only canManageCatalog gets a one-leaf group', JSON.stringify(hrefs) === JSON.stringify(['/deliverect/catalog']), hrefs.join())
@@ -391,8 +428,8 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   await dialog(page).locator('[data-import-result]').waitFor({ timeout: 10000 })
   const sent = writes.find((w) => w.door === 'import')
   check(
-    '3: the POST body is exactly { materialNumbers, reason } — trimmed, de-duplicated, header dropped',
-    JSON.stringify(sent?.body) === JSON.stringify({ materialNumbers: ['101234', '901111', '902222', '101240'], reason: 'New online range — نطاق جديد' }),
+    '3: the POST body is exactly { materialNumbers, reason, pushStock: true } — trimmed, de-duplicated, header dropped, the push on by default',
+    JSON.stringify(sent?.body) === JSON.stringify({ materialNumbers: ['101234', '901111', '902222', '101240'], reason: 'New online range — نطاق جديد', pushStock: true }),
     JSON.stringify(sent?.body),
   )
   check('3: the answer shows added and re-activated', (await page.locator('[data-result-added]').innerText()) === '2' && (await page.locator('[data-result-reactivated]').innerText()) === '1')
@@ -403,10 +440,68 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   const clip = await page.evaluate(() => navigator.clipboard.readText())
   // The OS clipboard may hand the line breaks back as CRLF (Windows).
   check('3: Copy puts the unknown list on the clipboard, one per line', clip.replace(/\r\n/g, '\n') === '901111\n902222', JSON.stringify(clip))
+  // 3b (860): the push block, per account.
+  check('3b: the answer carries the push block, pushed', (await page.locator('[data-import-push="pushed"]').count()) === 1)
+  check(
+    '3b: per account — stores reached, rows sent, file id, status',
+    (await page.locator('[data-push-account="OlaCare"] [data-push-account-stores]').getAttribute('data-push-account-stores')) === '2' &&
+      (await page.locator('[data-push-account="OlaCare"] [data-push-account-stores]').innerText()).includes('1001, 1002') &&
+      (await page.locator('[data-push-account="OlaCare"] [data-push-account-rows]').innerText()) === '6' &&
+      (await page.locator('[data-push-account="OlaCare"] [data-push-account-file]').innerText()) === 'f-01JM01' &&
+      (await page.locator('[data-push-account="OlaCare"] [data-push-account-status="S"]').innerText()).includes('Taken'),
+  )
+  check(
+    '3b: an "E" account is red with Deliverect’s answer, and said as one not taken',
+    (await page.locator('[data-push-account="AlDawaa"][data-push-account-failed]').count()) === 1 &&
+      (await page.locator('[data-push-account="AlDawaa"] [data-push-account-error]').innerText()).includes('503') &&
+      (await page.locator('[data-push-some-failed="1"]').count()) === 1,
+  )
+  check('3b: … and the import itself still reads as done', (await page.locator('dialog[open] [data-result-added]').innerText()) === '2')
   await page.screenshot({ path: `${SHOTS}/ltr-import-result.png` })
   await page.locator('[data-result-close]').click()
   await closed(page)
   check('3: the import re-reads the whitelist', lists.length > before)
+
+  // 3b: the option off → pushStock: false, and the block says it was skipped.
+  await page.locator('[data-catalog-import]').click()
+  check('3b: the option is ticked by default', await page.locator('[data-import-push-stock]').isChecked())
+  await page.locator('[data-import-text]').fill('101234')
+  await page.locator('[data-import-push-stock]').uncheck()
+  await giveReason(page, 'Quiet add')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-import-result]').waitFor({ timeout: 10000 })
+  check('3b: unticked sends pushStock: false', writes.filter((w) => w.door === 'import').at(-1).body.pushStock === false)
+  check('3b: skipped, option off, says why', (await page.locator('[data-import-push-why="pushStockOff"]').innerText()).includes('was off'))
+  await page.locator('[data-result-close]').click()
+  await closed(page)
+
+  // 3b: a failed push is a WARNING beside a saved import, never a failed import.
+  await page.locator('[data-catalog-import]').click()
+  await page.locator('[data-import-text]').fill('101234\n101299')
+  await giveReason(page, 'Push fails')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-import-result]').waitFor({ timeout: 10000 })
+  const failedBlock = await page.locator('[data-import-push-failed]').innerText()
+  check('3b: a failed push shows the server’s sentence as a warning', failedBlock.includes('The push failed. The import is saved.') && failedBlock.includes('the import is saved. / تعذّر'), failedBlock)
+  check('3b: … under the import’s own answer (no error banner)', (await page.locator('dialog[open] [data-result-added]').count()) === 1 && (await page.locator('dialog[open] [role="alert"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/ltr-import-push-failed.png` })
+  await page.locator('[data-result-close]').click()
+  await closed(page)
+
+  // 3b: over 200 — said in the dialog before sending, then skipped in the answer.
+  await page.locator('[data-catalog-import]').click()
+  await page.locator('[data-import-text]').evaluate((el, value) => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, value)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, Array.from({ length: 201 }, (_, i) => String(400000 + i)).join('\n'))
+  await page.locator('[data-import-push-over-cap]').waitFor()
+  check('3b: over 200 the dialog says the push will be skipped', /More than\W*200\W*materials/.test(await page.locator('[data-import-push-over-cap]').innerText()))
+  await giveReason(page, 'Big range')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-import-result]').waitFor({ timeout: 10000 })
+  check('3b: skipped, over the cap, says why', /more than\W*200\W*materials/.test(await page.locator('[data-import-push-why="overCap"]').innerText()))
+  await page.locator('[data-result-close]').click()
+  await closed(page)
 
   // DLV-00012 inline, the dialog staying open.
   await page.locator('[data-catalog-import]').click()
@@ -547,42 +642,77 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   await context.close()
 }
 
-// ── 7: push the catalog ────────────────────────────────────────────────────────────────────────
+// ── 7: Push now (860) ──────────────────────────────────────────────────────────────────────────
 {
-  const { context, page, errors, writes } = await open('ltr')
+  const { context, page, errors, writes, calls } = await open('ltr')
   await page.goto(`${BASE}/deliverect/catalog`)
   await waitRows(page, ACTIVE)
-  await page.locator('[data-catalog-push]').click()
-  await dialog(page).locator('[data-push-account-select]').waitFor()
-  check('7: Push waits for an account', await page.locator('[data-push-confirm]').isDisabled())
-  await page.locator('[data-push-account-select]').selectOption('OlaCare')
-  await page.locator('[data-push-confirm]').click()
-  await page.locator('[data-push-result]').waitFor({ timeout: 10000 })
-  const w = writes.at(-1)
-  check('7: POST Catalog/Push?account=OlaCare', w.door === 'push' && w.account === 'OlaCare', JSON.stringify(w))
-  check('7: the file id, status and rows are shown', (await page.locator('[data-push-file-id]').innerText()) === 'f-01J9ZK' && (await page.locator('[data-push-status]').innerText()) === 'processing' && (await page.locator('[data-push-rows]').innerText()) === '1,234')
-  check('7: a second click cannot push the same account again', await page.locator('[data-push-confirm]').isDisabled())
-  await page.screenshot({ path: `${SHOTS}/ltr-push.png` })
-  await page.locator('[data-push-account-select]').selectOption('AlDawaa')
-  await page.locator('[data-push-confirm]').click()
-  await page.locator('[data-push-refusal="DLV-00011"]').waitFor({ timeout: 10000 })
-  check('7: DLV-00011 shows Deliverect’s answer inline', (await page.locator('[data-push-refusal]').innerText()).includes('too many deletions. / رفضت Deliverect الطلب: حذف كثير.'))
-  check('7: … and the earlier success no longer stands beside it', (await page.locator('[data-push-result]').count()) === 0)
+  check('7: the catalog push is not offered', (await page.locator('[data-catalog-push]').count()) === 0)
+  const tick = (n) => page.locator(`.ag-row[row-id="${n}"] .ag-selection-checkbox input`).first()
+  await tick('101234').click()
+  await tick('101235').click()
+  check('7: the button counts the ticked rows', (await page.locator('[data-catalog-push-now]').getAttribute('data-catalog-push-now')) === '2' && /Push now \(\W*2\W*\)/.test(await page.locator('[data-catalog-push-now]').innerText()))
+  await page.locator('[data-catalog-push-now]').click()
+  await dialog(page).locator('[data-push-now-dialog]').waitFor()
+  check('7: the list starts as the ticked rows', (await page.locator('[data-push-now-text]').inputValue()) === '101234\n101235')
+  check('7: the note says every linked, unpaused store and the cap', /linked and not paused/.test(await page.locator('[data-push-now-note]').innerText()) && /At most\W*200/.test(await page.locator('[data-push-now-note]').innerText()))
+  check('7: Push waits for a reason', await page.locator('[data-reason-confirm]').isDisabled())
+  await giveReason(page, ' Deliverect created the products ')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-push-result]').waitFor({ timeout: 10000 })
+  const w = writes.filter((x) => x.door === 'stockPush').at(-1)
+  check('7: POST Stock/Push { materialNumbers, reason } — exactly, reason trimmed', JSON.stringify(w?.body) === JSON.stringify({ materialNumbers: ['101234', '101235'], reason: 'Deliverect created the products' }), JSON.stringify(w?.body))
+  check('7: the per-account answer — the taken account', (await page.locator('[data-push-result] [data-push-account="OlaCare"] [data-push-account-file]').innerText()) === 'f-01JM01')
+  check('7: … and the refused one, red with its error, the other still shown', (await page.locator('[data-push-result] [data-push-account="AlDawaa"][data-push-account-failed] [data-push-account-error]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/ltr-push-now-result.png` })
+  await page.locator('[data-push-result-close]').click()
+  await closed(page)
+
+  // No store reached.
+  await page.locator('[data-catalog-push-now]').click()
+  await page.locator('[data-push-now-text]').fill('101236')
+  await giveReason(page, 'Disabled item')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-push-result-no-stores]').waitFor({ timeout: 10000 })
+  check('7: no store reached is said, not drawn as an empty table', (await page.locator('[data-push-accounts]').count()) === 0)
+  await page.locator('[data-push-result-close]').click()
+  await closed(page)
+
+  // DLV-00004: not whitelisted, with the materials named.
+  await page.locator('[data-catalog-push-now]').click()
+  await page.locator('[data-push-now-text]').fill('101234\n999999\nzz7')
+  await giveReason(page, 'Typo')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-push-now-refusal="DLV-00004"]').waitFor({ timeout: 10000 })
+  check('7: DLV-00004 shows the server’s sentence inline', (await page.locator('[data-push-now-refusal] [data-inline-refusal]').innerText()).includes('Not on the whitelist: 999999, zz7. / ليست في القائمة'))
+  check('7: … and names the materials it refused', (await page.locator('[data-push-now-not-whitelisted]').getAttribute('data-push-now-not-whitelisted')) === '999999 zz7')
+  check('7: … the dialog stays open, no general banner', (await page.locator('[data-reason-error]').count()) === 0 && (await dialog(page).locator('[data-push-now-dialog]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/ltr-push-now-dlv-00004.png` })
+  // An edit clears it.
+  await page.locator('[data-push-now-text]').fill('101234\nBLANK15')
+  check('7: editing the list clears the refusal', (await page.locator('[data-push-now-refusal]').count()) === 0)
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-push-now-refusal="DLV-00015"]').waitFor({ timeout: 10000 })
+  check('7: DLV-00015 shows inline under the list', (await page.locator('[data-push-now-refusal="DLV-00015"]').innerText()).includes('A material number is blank.'))
+  await page.locator('[data-push-now-text]').fill('101234')
+  await giveReason(page, 'NOREASON')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-inline-refusal="DLV-00009"]').waitFor({ timeout: 10000 })
+  check('7: DLV-00009 shows under the reason, not the list', (await page.locator('[data-push-now-refusal]').count()) === 0)
+
+  // Over 200: refused here, nothing sent.
+  const pushes = writes.filter((x) => x.door === 'stockPush').length
+  await page.locator('[data-push-now-text]').evaluate((el, value) => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, value)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, Array.from({ length: 201 }, (_, i) => String(500000 + i)).join('\n'))
+  await page.locator('[data-push-now-over-cap]').waitFor()
+  check('7: 201 materials are refused on screen', /at most\W*200\W*materials\. Remove\W*1\W*material/.test(await page.locator('[data-push-now-over-cap]').innerText()))
+  check('7: … Push is disabled and nothing was sent', (await page.locator('[data-reason-confirm]').isDisabled()) && writes.filter((x) => x.door === 'stockPush').length === pushes)
+  await page.locator('[data-push-now-text]').fill('')
+  check('7: an empty list cannot be pushed', await page.locator('[data-reason-confirm]').isDisabled())
+  check('7: Catalog/Push was never called', !calls.includes('DeliverectWeb/Catalog/Push') && !writes.some((x) => x.door === 'catalogPush'))
   check('7: no page errors', errors.length === 0, errors.join(' | '))
-  await context.close()
-}
-{
-  const { context, page, errors, writes } = await open('ltr', { accounts: 'refused' })
-  await page.goto(`${BASE}/deliverect/catalog`)
-  await waitRows(page, ACTIVE)
-  await page.locator('[data-catalog-push]').click()
-  await dialog(page).locator('[data-push-account-input]').waitFor({ timeout: 10000 })
-  check('7 (403): the account is typed, and the dialog says why', (await page.locator('[data-push-account-fallback]').count()) === 1)
-  await page.locator('[data-push-account-input]').fill(' OlaCare ')
-  await page.locator('[data-push-confirm]').click()
-  await page.locator('[data-push-result]').waitFor({ timeout: 10000 })
-  check('7 (403): a typed key is pushed trimmed', writes.at(-1).account === 'OlaCare')
-  check('7 (403): no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
@@ -610,6 +740,15 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   await page.locator('[data-import-text]').fill('101234\n101235')
   check('8: the import list is an ltr box', (await page.locator('[data-import-text]').getAttribute('dir')) === 'ltr')
   await page.screenshot({ path: `${SHOTS}/rtl-import.png` })
+  await giveReason(page, 'إضافة')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).locator('[data-import-push="pushed"]').waitFor({ timeout: 10000 })
+  check(
+    '8 (860): the store codes are ONE ltr isolate, the error free text',
+    (await page.locator('[data-push-account="OlaCare"] [data-push-account-stores] bdi[dir="ltr"]').nth(1).innerText()) === '1001, 1002' &&
+      (await page.locator('[data-push-account="AlDawaa"] [data-push-account-error] bdi:not([dir])').count()) === 1,
+  )
+  await page.screenshot({ path: `${SHOTS}/rtl-import-push.png` })
   check('8: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

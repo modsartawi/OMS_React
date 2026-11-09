@@ -48,6 +48,8 @@ export const DELIVERECT_ERRORS = {
   importInvalid: 'DLV-00012',
   /** 409 — add platform: a platform with this key already exists. */
   platformExists: 'DLV-00014',
+  /** 400 — stock push (spec 3481): no material numbers, a blank one, or more than 200. */
+  stockPushInvalid: 'DLV-00015',
 } as const
 
 // ── GET DeliverectWeb/Access ─────────────────────────────────────────────────────────────────────
@@ -57,7 +59,7 @@ export const DELIVERECT_ERRORS = {
  * `BackOfficeScreen[…,03]` grant:
  *
  * - `canManageStores` ← `DeliverectStores`: Stores/*, Sync/*, StoreStatus/*.
- * - `canManageCatalog` ← `DeliverectCatalog`: Whitelist/*, Exclusions/*.
+ * - `canManageCatalog` ← `DeliverectCatalog`: Whitelist/*, Exclusions/*, Catalog/Push, Stock/Push (3481).
  * - `canViewOrders` ← `DeliverectOrders`: Orders/*.
  * - `canManageTerms` ← `DeliverectTerms`: Accounts, `GET`/`PUT` Platforms, Terms/*.
  * - `canAddPlatform` ← `DeliverectPlatformAdd`: `POST` Platforms. Not a menu flag — it shows the
@@ -175,12 +177,37 @@ export interface DeliverectWhitelistPage {
 export interface DeliverectWhitelistImportBody {
   materialNumbers: string[]
   reason: string
+  /**
+   * BackOffice 3485 (spec 3481): once the import commits, push every known material it named to
+   * every linked, unpaused Deliverect store. Optional on the wire and `true` when left out.
+   */
+  pushStock?: boolean
+}
+
+/** Why an import's push was not attempted (BackOffice 3485). */
+export type DeliverectImportPushSkip = 'pushStockOff' | 'overCap' | 'noKnownMaterials'
+
+/**
+ * The import's `push` block (BackOffice 3485). The import NEVER rolls back for it: it answers 200
+ * with what it committed whether the push ran, was skipped, was refused by Deliverect, or failed.
+ */
+export interface DeliverectImportPush {
+  /** `true` when no push was attempted; `why` then says why. */
+  skipped: boolean
+  /** Typed as the contract names it, plus `string` for a value a later server may add. */
+  why: DeliverectImportPushSkip | (string & {}) | null
+  /** Why an attempted push failed as a whole (bilingual server text), else `null`. */
+  error: string | null
+  /** Exactly `Stock/Push`'s entries; empty when skipped, failed, or no store was reached. */
+  accounts: DeliverectStockPushAccount[]
 }
 
 export interface DeliverectWhitelistImportResult {
   added: number
   reactivated: number
   unknown: string[]
+  /** BackOffice 3485. Optional only because a server before 3485 leaves it off. */
+  push?: DeliverectImportPush | null
 }
 
 /** `PUT DeliverectWeb/Whitelist/{materialNumber}`. */
@@ -199,6 +226,10 @@ export interface DeliverectExclusionsBody {
   reason: string
 }
 
+// 🚩 BackOffice 3486 / ADR 0131: while `Deliverect:CatalogPush` is off (the default) this door is
+// refused (400 `DeliverectCatalogPushOff`) and the contract says oms-react should not offer it.
+// Ticket 860 took the action off the catalog screen; the shapes stay as the contract has them.
+
 /** The query of `POST DeliverectWeb/Catalog/Push?account=`. */
 export interface DeliverectCatalogPushQuery {
   account: string | null
@@ -213,6 +244,35 @@ export interface DeliverectCatalogPushResult {
 
 // ── Stock sync (2624) ────────────────────────────────────────────────────────────────────────────
 
+/**
+ * `POST DeliverectWeb/Stock/Push` (BackOffice 3483, spec 3481) — the on-demand stock push. Under
+ * `canManageCatalog`. Refusals, all or nothing: DLV-00009 (reason), DLV-00015 (empty, a blank, or
+ * more than 200), DLV-00004 (any number not on the whitelist, each named in `message`).
+ */
+export interface DeliverectStockPushBody {
+  materialNumbers: string[]
+  reason: string
+}
+
+/** One Deliverect account's file of an on-demand push. Accounts are independent. */
+export interface DeliverectStockPushAccount {
+  accountKey: string
+  /** The store codes the account's file covered. */
+  stores: string[]
+  /** PLUs sent (one per material per store; platform rows not counted). */
+  rows: number
+  /** Deliverect's, or `null` when no file was taken. */
+  fileId: string | null
+  /** `"S"` (Deliverect took the file) or `"E"`. */
+  status: string
+  error: string | null
+}
+
+export interface DeliverectStockPushResult {
+  /** Empty when no store was reached. */
+  accounts: DeliverectStockPushAccount[]
+}
+
 /** `PUT DeliverectWeb/Sync/{storeCode}/Active` — pause or resume; never takes the store offline. */
 export interface DeliverectSyncActiveBody {
   active: boolean
@@ -222,7 +282,7 @@ export interface DeliverectSyncActiveBody {
 /** One row of `GET DeliverectWeb/Sync/{storeCode}/Logs?take=` (`take` defaults to 50). */
 export interface DeliverectSyncLogRow {
   logId: string
-  /** `F` full, `D` delta (spec 2615 "Sync log"). */
+  /** `F` full, `D` delta (spec 2615 "Sync log"), `M` manual — an on-demand push (spec 3481). */
   syncType: string
   startTime: LocalDateTime
   endTime: LocalDateTime | null
@@ -236,6 +296,11 @@ export interface DeliverectSyncLogRow {
    * Optional only because a server before 3026 leaves it off; then the Lines door is the answer.
    */
   linesKept?: boolean
+  /**
+   * BackOffice 3483: who asked for an `"M"` push; `null` on a scheduled one. Optional only because
+   * a server before 3483 leaves it off.
+   */
+  requestedBy?: string | null
 }
 
 /** The query of `GET DeliverectWeb/Sync/{storeCode}/Logs?take=` — `take` defaults to 50. */

@@ -189,6 +189,7 @@ const logRow = (logId, over = {}) => ({
   callbackStatus: 'processed',
   error: null,
   linesKept: true,
+  requestedBy: null,
   ...over,
 })
 const SYNC_LOGS = {
@@ -198,6 +199,8 @@ const SYNC_LOGS = {
     logRow('01JD0004', { startTime: '2026-10-12T10:29:00', endTime: null, status: 'E', rows: 0, fileId: null, callbackStatus: null }),
     logRow('01JD0002', { status: 'E', rows: 0, fileId: null, callbackStatus: null, error: 'Deliverect refused the file: location unknown' }),
     logRow('01JF0001', { syncType: 'F', startTime: '2026-10-12T07:05:00', endTime: '2026-10-12T07:09:12', rows: 18240 }),
+    // 860 (BackOffice 3483): an on-demand push — sync type M, its account's file, and who pushed it.
+    logRow('01JM0001', { syncType: 'M', startTime: '2026-10-12T06:50:00', endTime: '2026-10-12T06:50:04', rows: 2, fileId: 'f-01JM01', requestedBy: 'CATMGR01' }),
     // 550: the log still says kept, but the door answers linesKept:false (it expired between the reads).
     logRow('01JD0001', { startTime: '2026-09-27T07:30:00', endTime: '2026-09-27T07:30:20' }),
     // 550: a push the door does not know for this store (DLV-00013).
@@ -989,6 +992,13 @@ const painted = (page, code) =>
     (await read('01JD0003', 'end')) === 'Running' && (await read('01JD0003', 'callback')) === 'Not yet' && (await read('01JD0003', 'type')) === 'Delta',
   )
   check(
+    '14 (860): a manual push is labelled Manual and shows who pushed it',
+    (await read('01JM0001', 'type')) === 'Manual' + String.fromCharCode(10) + 'by CATMGR01' &&
+      (await drawer.locator('[data-sync-log="01JM0001"] [data-log-requested-by] bdi[dir="ltr"]').innerText()) === 'CATMGR01',
+    JSON.stringify(await read('01JM0001', 'type')),
+  )
+  check('14 (860): a scheduled run names no requester', (await drawer.locator('[data-sync-log="01JF0001"] [data-log-requested-by]').count()) === 0)
+  check(
     '14: the title is the store · name pair, isolated once',
     (await drawer.locator('[data-sync-logs-title] bdi[dir="ltr"]').count()) === 1 &&
       (await drawer.locator('[data-sync-logs-title]').innerText()) === '1234 · Riyadh Olaya',
@@ -1033,6 +1043,7 @@ const painted = (page, code) =>
     ['2026-10-12 07:05', '18,240', 'inv-7f3a9c', 'processed'].every((v) => iso.includes(v)),
     iso.join(' | '),
   )
+  check('15 (860): the requester is an ltr isolate under RTL', (await drawer.locator('[data-sync-log="01JM0001"] [data-log-requested-by] bdi[dir="ltr"]').innerText()) === 'CATMGR01')
   await page.screenshot({ path: `${SHOTS}/rtl-sync-logs.png` })
   await page.keyboard.press('Escape')
   await drawer.waitFor({ state: 'detached' })

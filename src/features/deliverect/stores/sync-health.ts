@@ -93,7 +93,10 @@ export function syncHighlight(health: SyncHealth): Extract<Severity, 'bad' | 'wa
   return health === 'failed' ? 'bad' : health === 'overdue' ? 'warn' : null
 }
 
-/** A log row's `syncType` as a label key — `F` full, `D` delta — or `null` for a value the contract does not name. */
-export function syncTypeKey(syncType: string): 'full' | 'delta' | null {
-  return syncType === 'F' ? 'full' : syncType === 'D' ? 'delta' : null
+/**
+ * A log row's `syncType` as a label key — `F` full, `D` delta, `M` manual (an on-demand push, spec
+ * 3481) — or `null` for a value the contract does not name.
+ */
+export function syncTypeKey(syncType: string): 'full' | 'delta' | 'manual' | null {
+  return syncType === 'F' ? 'full' : syncType === 'D' ? 'delta' : syncType === 'M' ? 'manual' : null
 }

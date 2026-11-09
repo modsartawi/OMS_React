@@ -157,7 +157,8 @@
     "noCallback": "ليس بعد",
     "type": {
       "full": "كاملة",
-      "delta": "جزئية"
+      "delta": "جزئية",
+      "manual": "يدوية"
     },
     "columns": {
       "type": "النوع",
@@ -171,7 +172,8 @@
       "lines": "الأسطر"
     },
     "openLines": "الأسطر",
-    "linesGone": "غير محفوظة"
+    "linesGone": "غير محفوظة",
+    "requestedBy": "بواسطة <user>{{user}}</user>"
   },
   "lines": {
     "eyebrow": "أسطر عملية إرسال",

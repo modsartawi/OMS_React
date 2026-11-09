@@ -9,7 +9,7 @@
 //
 // It verifies:
 //   1. an operator's New campaign: Create waits for a profile; the profile's tables are listed and
-//      all ticked; the whole fleet → the exact body (no tables, fleet:'all', name trimmed); the
+//      NONE ticked (Create waits for one); Select all shown ticks them all; the whole fleet → the exact body (no tables, fleet:'all', name trimmed); the
 //      dialog closes onto the new campaign's page, Ready, with Start; Start posts and the status
 //      moves to Running, and Start is gone;
 //   2. pasted stores: a malformed code is flagged with its line and blocks Create; fixed, the codes
@@ -176,9 +176,19 @@ async function openDialog(page) {
   check('1. Create waits for a profile', await dialog.locator('[data-create-submit]').isDisabled())
   check('1. the mode is report-only', (await dialog.locator('[data-create-mode="ReportOnly"]').count()) === 1)
   await dialog.locator('[data-create-profile]').selectOption(P_REPORT)
-  const boxes = dialog.locator('[data-create-tables] input[type="checkbox"]')
+  const boxes = dialog.locator('[data-create-tables] [data-checklist-row] input[type="checkbox"]')
   check('1. the profile lists its tables', (await boxes.count()) === 3)
-  check('1. …all ticked by default', (await boxes.evaluateAll((els) => els.every((e) => e.checked))) === true)
+  check('1. …none ticked by default', (await boxes.evaluateAll((els) => els.every((e) => !e.checked))) === true)
+  check('1. …said quietly, with the count at 0', (await dialog.locator('[data-create-tables-none]').count()) === 1 && (await dialog.locator('[data-checklist-count="0"]').count()) === 1)
+  check('1. …and Create waits for a tick', await dialog.locator('[data-create-submit]').isDisabled())
+  await dialog.locator('[data-checklist-search]').fill('price')
+  check('1. the filter narrows the list', (await boxes.count()) === 1)
+  await dialog.locator('[data-checklist-search]').fill('')
+  await dialog.locator('[data-checklist-select-all]').click()
+  check('1. Select all shown ticks every table', (await boxes.evaluateAll((els) => els.every((e) => e.checked))) === true && (await dialog.locator('[data-checklist-count="3"]').count()) === 1)
+  await dialog.locator('[data-checklist-clear]').click()
+  check('1. Clear unticks them all', (await boxes.evaluateAll((els) => els.every((e) => !e.checked))) === true)
+  await dialog.locator('[data-checklist-select-all]').click()
   check('1. the whole fleet is the default target', await dialog.locator('[data-create-target="fleet"]').isChecked())
   await dialog.locator('[data-create-name]').fill('  Weekly drift check  ')
   await page.screenshot({ path: `${SHOTS}/dialog-fleet.png` })
@@ -211,7 +221,9 @@ async function openDialog(page) {
   const { context, page, errors, posts, state } = await open()
   const dialog = await openDialog(page)
   await dialog.locator('[data-create-profile]').selectOption(P_REPORT)
-  await dialog.locator('[data-create-table="dbo.Product"]').uncheck()
+  // Ticked out of order on purpose: the body sends them in the profile's order.
+  await dialog.locator('[data-checklist-row="dbo.PriceList"] input').check()
+  await dialog.locator('[data-checklist-row="dbo.Category"] input').check()
   await dialog.locator('[data-create-target="stores"]').check()
   const codes = dialog.locator('[data-create-codes]')
   await codes.fill('P003\nP001, p003\tP002\nP 9')
@@ -291,6 +303,7 @@ async function openDialog(page) {
   state.createDenied = true
   const dialog = await openDialog(page)
   await dialog.locator('[data-create-profile]').selectOption(P_REPORT)
+  await dialog.locator('[data-checklist-select-all]').click()
   await dialog.locator('[data-create-submit]').click()
   await page.waitForTimeout(800)
   check('6. a bare 403 closes the dialog and hides New campaign', (await page.locator('dialog[open]').count()) === 0 && (await page.locator('[data-create-open]').count()) === 0)

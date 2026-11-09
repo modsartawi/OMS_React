@@ -249,6 +249,8 @@ async function openDialog(page, profile = P_APPLY) {
   const dialog = page.locator('dialog[open]')
   await dialog.locator('[data-create-profile]').waitFor({ timeout: 10000 })
   await dialog.locator('[data-create-profile]').selectOption(profile)
+  // A profile opens with nothing ticked: these scenarios run the whole profile.
+  await dialog.locator('[data-checklist-select-all]').click()
   return dialog
 }
 
@@ -401,9 +403,10 @@ async function openDialog(page, profile = P_APPLY) {
   check('5. a profile with no applyAllowed table cannot be applied', await dialog.locator('[data-create-mode-pick="Apply"]').isDisabled())
   check('5. …and says so', (await dialog.locator('[data-apply-unavailable]').count()) === 1)
   await dialog.locator('[data-create-profile]').selectOption(P_APPLY)
+  await dialog.locator('[data-checklist-select-all]').click()
   await dialog.locator('[data-create-mode-pick="Apply"]').check()
-  await dialog.locator('[data-create-table="dbo.Category"]').uncheck()
-  await dialog.locator('[data-create-table="dbo.PriceList"]').uncheck()
+  await dialog.locator('[data-checklist-row="dbo.Category"] input').uncheck()
+  await dialog.locator('[data-checklist-row="dbo.PriceList"] input').uncheck()
   check('5. unticking every appliable table falls back to report only', (await dialog.locator('[data-create-mode="ReportOnly"]').count()) === 1 && (await dialog.locator('[data-create-mode-pick="Apply"]').isDisabled()))
   check('no page errors (no appliable table)', errors.length === 0, errors.join(' | '))
   await context.close()

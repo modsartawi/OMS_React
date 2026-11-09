@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { History, Loader2, Search } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
@@ -19,7 +19,7 @@ import { formatFigure as figure } from '@/core/util/number-format'
 import { linesKey, pushesApi, type LinesQuery } from './api'
 import { PushStatus, PushTarget, PushType } from './PushCells'
 import { linesGone } from './push-labels'
-import { LINES_PAGE_SIZE } from './pushes-query'
+import { LINES_PAGE_SIZE, sameLinesFilter } from './pushes-query'
 
 /**
  * **One push's lines** (spec 3447 story 45; ticket 849): every store, material and quantity sent, in
@@ -40,8 +40,8 @@ export default function PushLinesDrawer({
 }: {
   pushId: string
   push: HybrisStockPushRow | null
-  /** `null` when Status cannot be read: the copy then names no number. */
-  retentionDays: number | null
+  /** `null` when Status cannot be read (the copy then names no number); `undefined` while it is read (no retention copy yet). */
+  retentionDays: number | null | undefined
   onMaterial: (storeCode: string, materialNumber: string) => void
   onClose: () => void
 }) {
@@ -55,7 +55,9 @@ export default function PushLinesDrawer({
     queryKey: linesKey(pushId, query),
     // The page travels with its answer, so the range shown is the rows' own while the next page loads.
     queryFn: async () => ({ page: query.page, ...(await pushesApi.lines(pushId, query)) }),
-    placeholderData: keepPreviousData,
+    // Paging keeps the shown page while the next lands (same filter); a new store / material filter does
+    // not — the old filter's lines are not the new one's, so the drawer shows loading.
+    placeholderData: (prev, prevQuery) => (prevQuery && sameLinesFilter(prevQuery.queryKey[3] as LinesQuery, query) ? prev : undefined),
     enabled: !rowSwept,
     retry: false,
   })
@@ -63,7 +65,9 @@ export default function PushLinesDrawer({
   const noSuchPush = apiErrorCode(lines.error) === HYBRIS_STOCK_ERRORS.noSuchPush
   const rows = lines.data?.lines ?? []
   const total = lines.data?.total ?? 0
-  const first = ((lines.data?.page ?? query.page) - 1) * LINES_PAGE_SIZE + 1
+  // The page shown is the rows' own (a placeholder holds the previous page's): the range and the pager read it.
+  const page = lines.data?.page ?? query.page
+  const first = (page - 1) * LINES_PAGE_SIZE + 1
   const filtered = query.store !== null || query.material !== null
 
   return (
@@ -126,10 +130,13 @@ export default function PushLinesDrawer({
           </dl>
         )}
 
+        {/* While Status is read (`undefined`) a retention sentence waits for its number: Status is one shared, cached read. */}
         {swept ? (
-          <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
-            {retentionDays === null ? t('lines.sweptNoDays') : t('lines.swept', { days: fsi(figure(retentionDays)) })}
-          </p>
+          retentionDays !== undefined && (
+            <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" data-lines-swept="">
+              {retentionDays === null ? t('lines.sweptNoDays') : t('lines.swept', { days: fsi(figure(retentionDays)) })}
+            </p>
+          )
         ) : (
           <>
             <form
@@ -160,9 +167,11 @@ export default function PushLinesDrawer({
             )}
             {lines.isError &&
               (noSuchPush ? (
-                <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
-                  {retentionDays === null ? t('lines.noSuchPushNoDays') : t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
-                </p>
+                retentionDays !== undefined && (
+                  <p role="alert" className="text-xs text-muted-foreground" data-lines-no-push="">
+                    {retentionDays === null ? t('lines.noSuchPushNoDays') : t('lines.noSuchPush', { days: fsi(figure(retentionDays)) })}
+                  </p>
+                )
               ) : (
                 <ErrorBanner className="p-2" title={t('lines.failed')} message={apiErrorMessage(lines.error, t('results.failed'))} />
               ))}
@@ -214,7 +223,7 @@ export default function PushLinesDrawer({
                 </table>
                 {total > LINES_PAGE_SIZE && (
                   <div data-lines-pager="">
-                    <GridPager page={query.page} pageSize={LINES_PAGE_SIZE} totalMatches={total} busy={lines.isFetching} onPage={(page) => setQuery({ ...query, page })} />
+                    <GridPager page={page} pageSize={LINES_PAGE_SIZE} totalMatches={total} busy={lines.isFetching} onPage={(p) => setQuery({ ...query, page: p })} />
                   </div>
                 )}
               </>

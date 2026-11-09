@@ -30,7 +30,7 @@ import HistoryDrawer from './HistoryDrawer'
 import { MarkDialog } from './StoreDialogs'
 import { PushMaterialsDialog, PushStoreDialog } from './PushDialogs'
 import { pushResult } from './push-now'
-import { FLAG_FILTERS, HEALTH_FILTERS, storesFromParams, storesToParams } from './stores-query'
+import { FLAG_FILTERS, HEALTH_FILTERS, historyFromParams, storesFromParams, storesToParams, withHistory } from './stores-query'
 
 /**
  * Hybris stock stores (ticket 847, BackOffice spec 3447): every store with its Hybris stock flag,
@@ -77,10 +77,7 @@ function Stores() {
   useEffect(() => setDraft(query.q ?? ''), [query.q])
   // A filter change takes the text box as it reads, and keeps the open drawer.
   const update = (change: Partial<HybrisStockStoresQuery>) => {
-    const next = storesToParams({ ...query, q: draft.trim() || null, ...change })
-    const history = params.get('history')
-    if (history) next.set('history', history)
-    setParams(next, { replace: true })
+    setParams(withHistory(storesToParams({ ...query, q: draft.trim() || null, ...change }), historyFromParams(params)), { replace: true })
   }
 
   const access = useQuery(hybrisStockAccessQuery())
@@ -102,20 +99,8 @@ function Stores() {
   const [pushed, setPushed] = useState<HybrisStockPushNowResult | null>(null)
 
   // The history drawer lives in the URL, so a link that knows only a store code opens it.
-  const historyCode = params.get('history')
-  const openHistory = useCallback(
-    (code: string | null) =>
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev)
-          if (code) next.set('history', code)
-          else next.delete('history')
-          return next
-        },
-        { replace: true },
-      ),
-    [setParams],
-  )
+  const historyCode = historyFromParams(params)
+  const openHistory = useCallback((code: string | null) => setParams((prev) => withHistory(prev, code), { replace: true }), [setParams])
   const openHistoryRef = useRef(openHistory)
   useEffect(() => {
     openHistoryRef.current = openHistory
@@ -187,9 +172,7 @@ function Stores() {
           onClick={() => {
             setDraft('')
             // The filters go; an open history drawer stays.
-            const next = new URLSearchParams()
-            if (historyCode) next.set('history', historyCode)
-            setParams(next, { replace: true })
+            setParams(withHistory(new URLSearchParams(), historyCode), { replace: true })
           }}
           data-stores-clear=""
         >

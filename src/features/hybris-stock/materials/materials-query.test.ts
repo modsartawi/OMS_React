@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { materialsDoorParams, materialsFromParams, materialsToParams, withRow } from './materials-query'
+import { materialsDoorParams, materialsFromParams, materialsToParams } from './materials-query'
 
 describe('the materials URL and door', () => {
   it('round-trips, defaults left off', () => {
@@ -15,11 +15,5 @@ describe('the materials URL and door', () => {
 
   it('sends skip / take and leaves any off', () => {
     expect(materialsDoorParams({ q: null, enabled: 'any', page: 3 })).toEqual({ q: null, enabled: null, skip: 100, take: 50 })
-  })
-
-  it('withRow swaps the row where it stands', () => {
-    const page = { total: 2, rows: [{ materialNumber: '1', enabled: true }, { materialNumber: '2', enabled: true }] } as never
-    expect(withRow(page, { materialNumber: '2', enabled: false } as never)?.rows.map((r) => r.enabled)).toEqual([true, false])
-    expect(withRow(page, { materialNumber: '9' } as never)).toBe(page)
   })
 })

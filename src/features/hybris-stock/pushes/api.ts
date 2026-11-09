@@ -1,6 +1,6 @@
 import { api } from '@/core/api'
 import type { HybrisStockMaterialSent, HybrisStockPushLinesPage, HybrisStockPushRow, HybrisStockPushesQuery } from '@/core/models/hybris-stock'
-import { LINES_PAGE_SIZE, pushesDoorParams } from './pushes-query'
+import { LINES_PAGE_SIZE, pushesDoorParams, type LinesQuery } from './pushes-query'
 
 // The Hybris stock push log doors (BackOffice 3455), as the door contract writes them — see
 // `@/core/models/hybris-stock`.
@@ -8,11 +8,7 @@ import { LINES_PAGE_SIZE, pushesDoorParams } from './pushes-query'
 
 export { HYBRIS_STOCK_PUSHES_KEY as PUSHES_KEY } from '@/core/hybris-stock/api'
 
-export interface LinesQuery {
-  store: string | null
-  material: string | null
-  page: number
-}
+export type { LinesQuery }
 
 export const pushesApi = {
   /** GET HybrisStockWeb/Pushes?store=&type=&status=&from=&to=&take= — the newest `take`, newest first.

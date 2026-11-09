@@ -68,11 +68,13 @@ export default function HistoryDrawer({ storeCode, storeName, onClose }: { store
                     <Ltr>{r.changedBy}</Ltr>
                   </td>
                   <td className={TD}>
-                    {/* M mark, U unmark (the contract's letters); a letter the contract does not name shows as sent. */}
+                    {/* M mark, U unmark (the contract's letters); a letter the contract does not name shows as sent, none as unknown. */}
                     {r.action === 'M' ? (
                       <StatusBadge sev="go">{t('history.marked')}</StatusBadge>
                     ) : r.action === 'U' ? (
                       <StatusBadge sev="mute">{t('history.unmarked')}</StatusBadge>
+                    ) : !r.action ? (
+                      <StatusBadge sev="mute">{t('history.unknownAction')}</StatusBadge>
                     ) : (
                       <StatusBadge sev="mute">
                         <Ltr>{r.action}</Ltr>

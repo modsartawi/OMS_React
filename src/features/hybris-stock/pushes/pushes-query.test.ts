@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawerFromParams, mayHoldMore, moreTake, pushesDoorParams, pushesFilterKey, pushesFromParams, pushesToParams, withDate, withDrawer } from './pushes-query'
+import { drawerFromParams, mayHoldMore, moreTake, pushesDoorParams, pushesFilterKey, pushesFromParams, pushesToParams, sameLinesFilter, withDate, withDrawer } from './pushes-query'
 
 describe('the push log URL and door', () => {
   it("round-trips every filter in the log's words", () => {
@@ -60,5 +60,16 @@ describe('the drawers in the URL', () => {
     const p = new URLSearchParams('store=1234&push=P-1')
     expect(withDrawer(p, { kind: 'material', storeCode: '1234', materialNumber: '9' }).toString()).toBe('store=1234&history=1234&material=9')
     expect(withDrawer(p, null).toString()).toBe('store=1234')
+  })
+})
+
+describe("a push's lines keep their page only while paging", () => {
+  it('the same store and material on another page is the same filter', () => {
+    expect(sameLinesFilter({ store: '1234', material: null, page: 1 }, { store: '1234', material: null, page: 3 })).toBe(true)
+  })
+
+  it('another store or material is a new filter', () => {
+    expect(sameLinesFilter({ store: '1234', material: null, page: 1 }, { store: '0099', material: null, page: 1 })).toBe(false)
+    expect(sameLinesFilter({ store: null, material: null, page: 2 }, { store: null, material: '100234', page: 1 })).toBe(false)
   })
 })

@@ -74,8 +74,9 @@ function Pushes() {
   const setDate = (end: 'from' | 'to', value: string) => setQuery(withDate({ ...query, store: store.trim() || null, take: PUSHES_STEP }, end, value || null))
 
   const status = useQuery(hybrisStockStatusQuery())
-  // Unknown when Status cannot be read: the drawers then say lines are swept without a number.
-  const retentionDays = status.data?.lineRetentionDays ?? null
+  // Unknown (`null`) only when Status cannot be read: the drawers then say lines are swept without a
+  // number. While it is read (`undefined`) they show no retention copy yet, rather than flash "unknown".
+  const retentionDays = status.data ? status.data.lineRetentionDays : status.isError ? null : undefined
 
   const filterKey = pushesFilterKey(query)
   const pushes = useQuery({
@@ -93,6 +94,14 @@ function Pushes() {
   const next = moreTake(query.take)
 
   const drawer = drawerFromParams(params)
+  // The open push's log row, remembered: a filter change empties the grid while the new filter loads (and
+  // the new filter may not hold the push), but the drawer keeps its header and still knows a swept push's
+  // lines are gone without reading them.
+  const openPushId = drawer?.kind === 'lines' ? drawer.pushId : null
+  const logPush = openPushId === null ? null : (rows.find((r) => r.pushId === openPushId) ?? null)
+  const [knownPush, setKnownPush] = useState<Row | null>(null)
+  if (logPush !== null && logPush !== knownPush) setKnownPush(logPush)
+  const openPush = logPush ?? (knownPush !== null && knownPush.pushId === openPushId ? knownPush : null)
   const openDrawer = useCallback((next: Drawer) => setParams((prev) => withDrawer(prev, next), { replace: true }), [setParams])
   const openRef = useRef(openDrawer)
   useEffect(() => {
@@ -217,7 +226,7 @@ function Pushes() {
         <PushLinesDrawer
           key={drawer.pushId}
           pushId={drawer.pushId}
-          push={rows.find((r) => r.pushId === drawer.pushId) ?? null}
+          push={openPush}
           retentionDays={retentionDays}
           onMaterial={(storeCode, materialNumber) => openDrawer({ kind: 'material', storeCode, materialNumber })}
           onClose={() => openDrawer(null)}

@@ -208,6 +208,7 @@
     "reason": "لماذا",
     "door": "من خلال",
     "marked": "تعليم",
-    "unmarked": "إلغاء التعليم"
+    "unmarked": "إلغاء التعليم",
+    "unknownAction": "غير معروف"
   }
 }

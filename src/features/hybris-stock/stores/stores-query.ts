@@ -26,3 +26,17 @@ export function storesToParams(query: HybrisStockStoresQuery): URLSearchParams {
 export function storesDoorParams(query: HybrisStockStoresQuery) {
   return { flag: query.flag === 'any' ? null : query.flag, health: query.health === 'any' ? null : query.health, q: query.q }
 }
+
+/** The URL key of the store history drawer — `?history=<storeCode>`, the link the push log follows too. */
+export const HISTORY_PARAM = 'history'
+
+/** The store whose history drawer is open, or `null`. */
+export const historyFromParams = (params: URLSearchParams): string | null => params.get(HISTORY_PARAM) || null
+
+/** `params` with the history drawer set to `storeCode` (or closed on `null`); the filters untouched. */
+export function withHistory(params: URLSearchParams, storeCode: string | null): URLSearchParams {
+  const out = new URLSearchParams(params)
+  if (storeCode) out.set(HISTORY_PARAM, storeCode)
+  else out.delete(HISTORY_PARAM)
+  return out
+}

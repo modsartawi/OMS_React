@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/hungerstation-stores.json'
 import ar from '@/locales/ar/hungerstation-stores.json'
 import type { HungerStationStoreRow, HungerStationSyncLogRow } from '@/core/models/hungerstation'
-import { SYNC_NOW_REFUSALS, applyPush, replaceRow, syncActivePath, syncNowPath, syncNowRefusal, syncNowResult } from './sync'
+import { SYNC_NOW_REFUSALS, applyPush, syncActivePath, syncNowPath, syncNowRefusal, syncNowResult } from './sync'
 
 const row = (storeCode: string, over: Partial<HungerStationStoreRow['sync']> = {}): HungerStationStoreRow => ({
   storeCode,
@@ -153,22 +153,5 @@ describe('applyPush — the push’s log row refreshes the row’s sync block', 
     const after = applyPush(before, log())
     expect({ ...after, sync: before.sync }).toEqual(before)
     expect(before.sync.lastRun).toBe('2026-10-24T10:30:00')
-  })
-})
-
-describe('replaceRow — pause / resume patch the row in place', () => {
-  it('swaps the store’s row where it stands, the others untouched', () => {
-    const rows = [row('1234'), row('0099'), row('2001')]
-    const paused = row('0099', { active: false })
-    const out = replaceRow(rows, paused)
-    expect(out.map((r) => r.storeCode)).toEqual(['1234', '0099', '2001'])
-    expect(out[1]).toBe(paused)
-    expect(out[0]).toBe(rows[0])
-  })
-
-  it('a list without the store is left as it is', () => {
-    const rows = [row('1234')]
-    expect(replaceRow(rows, row('0099'))).toEqual(rows)
-    expect(replaceRow(undefined, row('0099'))).toBeUndefined()
   })
 })

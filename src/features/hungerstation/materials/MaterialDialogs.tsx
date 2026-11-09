@@ -17,10 +17,10 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
+import { replaceInPage } from '@/core/util/replace-by-key'
 import { xlsxRows } from '@/core/util/xlsx-read'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { MATERIAL_IMPORT_MAX, parseMaterialImport } from './material-import'
-import { withRow } from './materials-query'
 import Field from '@/core/ui/Field'
 import Textarea from '@/core/ui/Textarea'
 
@@ -60,7 +60,7 @@ export function ChangeDialog({ row, onClose }: { row: HungerStationMaterialRow; 
   const send = useMutation({
     mutationFn: (reason: string) => materialsApi.change(row.materialNumber, { disabled, deleted, reason }),
     onSuccess: (changed) => {
-      qc.setQueriesData<HungerStationMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => withRow(page, changed))
+      qc.setQueriesData<HungerStationMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => replaceInPage(page, changed, 'materialNumber'))
       notify.success(t('change.done'), t('change.doneDetail', { material: fsi(row.materialNumber) }))
       onClose()
     },

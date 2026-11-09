@@ -10,9 +10,10 @@ import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { keyChoices } from '@/core/util/filter-choices'
+import { replaceByKey } from '@/core/util/replace-by-key'
 import { STORES_KEY, storesApi, syncNowKey } from './api'
 import { REMOVE_CONSEQUENCES } from './remove'
-import { SYNC_NOW_CODES, applyPush, replaceRow, syncNowRefusal } from './sync'
+import { SYNC_NOW_CODES, applyPush, syncNowRefusal } from './sync'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
@@ -392,7 +393,7 @@ export function SyncActiveDialog({ row, onClose, onDone }: { row: HungerStationS
   const send = useMutation({
     mutationFn: (reason: string) => storesApi.setActive(row.storeCode, { active: nextActive, reason }),
     onSuccess: (next) => {
-      qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
+      qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceByKey(rows, next, 'storeCode'))
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
       onDone()
     },

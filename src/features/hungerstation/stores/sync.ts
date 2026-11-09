@@ -1,6 +1,5 @@
 import { HUNGERSTATION_ERRORS, type HungerStationStoreRow, type HungerStationSyncLogRow } from '@/core/models/hungerstation'
 import { formatFigure as figure } from '@/core/util/number-format'
-import { replaceByKey } from '@/core/util/replace-by-key'
 
 // Pausing / resuming a HungerStation store's stock sync, and pushing its stock now (ticket 553;
 // contract § Stock sync, `PUT …/Sync/{storeCode}/Active` and `POST …/Sync/{storeCode}/Now`).
@@ -74,9 +73,4 @@ export function applyPush(row: HungerStationStoreRow, log: HungerStationSyncLogR
       health: log.status === 'E' ? 'failing' : 'ok',
     },
   }
-}
-
-/** A cached store list with the store's row swapped where it stands (pause / resume answer the row). */
-export function replaceRow<T extends HungerStationStoreRow[] | undefined>(rows: T, next: HungerStationStoreRow): T {
-  return replaceByKey(rows, next, 'storeCode')
 }

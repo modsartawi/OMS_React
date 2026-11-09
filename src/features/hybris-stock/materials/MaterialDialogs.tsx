@@ -16,8 +16,9 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
 import { formatFigure as figure } from '@/core/util/number-format'
+import { replaceInPage } from '@/core/util/replace-by-key'
 import { MATERIALS_KEY, materialsApi } from './api'
-import { MATERIAL_NUMBER, withRow } from './materials-query'
+import { MATERIAL_NUMBER } from './materials-query'
 import { OUTCOMES, changeKind, previewSummary, refusalKind, rowState } from './upload-preview'
 
 /**
@@ -92,7 +93,7 @@ export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; o
   const send = useMutation({
     mutationFn: (reason: string) => materialsApi.setEnabled(row.materialNumber, !row.enabled, { reason }),
     onSuccess: (next) => {
-      qc.setQueriesData<HybrisStockMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => withRow(page, next))
+      qc.setQueriesData<HybrisStockMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => replaceInPage(page, next, 'materialNumber'))
       // A page under the enabled filter may no longer hold the row: read those again.
       void qc.invalidateQueries({ queryKey: MATERIALS_KEY, predicate: (q) => String(q.queryKey[2] ?? '').includes('enabled=') })
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { material: fsi(row.materialNumber) }))
@@ -231,7 +232,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
           (preview.error instanceof FileUnreadable ? (
             <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-danger-800" data-upload-unreadable="">
               <span>{t('upload.unreadable')}</span>
-              <Button variant="secondary" onClick={() => fileInput.current?.click()} data-upload-repick="">
+              <Button variant="secondary" onClick={() => fileInput.current?.click()} disabled={preview.isPending || commit.isPending} data-upload-repick="">
                 {t('upload.pickAgain')}
               </Button>
             </div>

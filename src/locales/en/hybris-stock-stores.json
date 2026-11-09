@@ -192,6 +192,7 @@
     "reason": "Why",
     "door": "From",
     "marked": "Marked",
-    "unmarked": "Unmarked"
+    "unmarked": "Unmarked",
+    "unknownAction": "Unknown"
   }
 }

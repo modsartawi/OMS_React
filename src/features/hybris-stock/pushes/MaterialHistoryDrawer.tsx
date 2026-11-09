@@ -33,8 +33,8 @@ export default function MaterialHistoryDrawer({
 }: {
   storeCode: string
   materialNumber: string | null
-  /** `null` when Status cannot be read: the hint then names no number. */
-  retentionDays: number | null
+  /** `null` when Status cannot be read (the hint then names no number); `undefined` while it is read (no hint yet). */
+  retentionDays: number | null | undefined
   onPick: (materialNumber: string) => void
   onPush: (pushId: string) => void
   onClose: () => void
@@ -56,7 +56,7 @@ export default function MaterialHistoryDrawer({
         titleId={titleId}
         eyebrow={t('history.eyebrow')}
         title={<Ltr>{materialNumber ? formatPair(storeCode, materialNumber) : storeCode}</Ltr>}
-        hint={retentionDays === null ? t('history.hintNoDays') : t('history.hint', { days: fsi(figure(retentionDays)) })}
+        hint={retentionDays === undefined ? undefined : retentionDays === null ? t('history.hintNoDays') : t('history.hint', { days: fsi(figure(retentionDays)) })}
         closeLabel={t('history.close')}
         onClose={onClose}
         closeData={{ 'data-material-close': '' }}

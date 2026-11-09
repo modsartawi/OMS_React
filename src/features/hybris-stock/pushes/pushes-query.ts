@@ -9,6 +9,13 @@ export const PUSHES_STEP = 50
 export const PUSHES_MAX = 500
 export const LINES_PAGE_SIZE = 200
 
+/** A push's lines as the drawer asks them: filtered by store and material, one page of `LINES_PAGE_SIZE`. */
+export interface LinesQuery {
+  store: string | null
+  material: string | null
+  page: number
+}
+
 /** A `yyyy-MM-dd` date, as the date inputs and the door read it. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -94,4 +101,10 @@ export function withDrawer(params: URLSearchParams, drawer: Drawer): URLSearchPa
     if (drawer.materialNumber) out.set('material', drawer.materialNumber)
   }
   return out
+}
+
+/** Two reads of a push's lines filter the same store and material (only the page differs) — paging,
+ *  so the drawer may keep the shown page while the next lands; else a new filter, which shows loading. */
+export function sameLinesFilter(a: LinesQuery, b: LinesQuery): boolean {
+  return a.store === b.store && a.material === b.material
 }

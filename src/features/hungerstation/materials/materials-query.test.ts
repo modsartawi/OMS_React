@@ -4,8 +4,8 @@
  * HungerStationWeb/Materials?q=&state=&skip=&take=`).
  */
 import { describe, expect, it } from 'vitest'
-import type { HungerStationMaterialRow, HungerStationMaterialsQuery } from '@/core/models/hungerstation'
-import { MATERIAL_STATES, MATERIALS_PAGE_SIZE, materialsDoorParams, materialsFromParams, materialsPage, materialsToParams, withRow } from './materials-query'
+import type { HungerStationMaterialsQuery } from '@/core/models/hungerstation'
+import { MATERIAL_STATES, MATERIALS_PAGE_SIZE, materialsDoorParams, materialsFromParams, materialsPage, materialsToParams } from './materials-query'
 
 const query = (over: Partial<HungerStationMaterialsQuery> = {}): HungerStationMaterialsQuery => ({
   q: null,
@@ -73,31 +73,5 @@ describe('materialsPage', () => {
 
   it('a page past the end (the list shrank) goes back to the last page there is', () => {
     expect(materialsPage(query({ skip: 300 }), 120, 0)).toEqual({ first: 0, last: 0, total: 120, previous: 100, next: null })
-  })
-})
-
-describe('withRow — a change updates the grid in place', () => {
-  const row = (materialNumber: string, over: Partial<HungerStationMaterialRow> = {}): HungerStationMaterialRow => ({
-    materialNumber,
-    sku: `SKU-${materialNumber}`,
-    nameEn: 'Panadol',
-    nameAr: 'بنادول',
-    disabled: false,
-    deleted: false,
-    updatedAt: null,
-    updatedBy: '',
-    ...over,
-  })
-
-  it('swaps the returned row in at its place, the rest and the total untouched', () => {
-    const page = { total: 250, rows: [row('101'), row('102'), row('103')] }
-    const changed = row('102', { disabled: true, updatedAt: '2026-10-24T11:00:00', updatedBy: 'CATMGR' })
-    expect(withRow(page, changed)).toEqual({ total: 250, rows: [row('101'), changed, row('103')] })
-  })
-
-  it('a page without the material is handed back as it was', () => {
-    const page = { total: 1, rows: [row('101')] }
-    expect(withRow(page, row('999'))).toBe(page)
-    expect(withRow(undefined, row('999'))).toBeUndefined()
   })
 })

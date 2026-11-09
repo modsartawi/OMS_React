@@ -42,11 +42,10 @@ export default function ModeBanner() {
                 <Trans t={t} i18nKey="mode.path" values={{ path: status.data.targetPath }} components={{ p: <Ltr /> }} />
               </span>
             )}
-            {typeof status.data.deltaMinutes === 'number' && (
-              <span data-mode-interval="">
-                <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
-              </span>
-            )}
+            {/* Always sent: the contract's Status reads `deltaMinutes` from settings at start. */}
+            <span data-mode-interval="">
+              <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
+            </span>
           </span>
         )}
       </div>

@@ -426,6 +426,14 @@
         "DATASYNC_STORE_BUSY": "still worked by ActionSync; its job waits until the store is paused",
         "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; it will never be applied to"
       },
+      "warningStores_one": "<n>{{figure}}</n> store",
+      "warningStores_other": "<n>{{figure}}</n> stores",
+      "warningGroup": {
+        "DATASYNC_STORE_BUSY": "still worked by ActionSync; each job waits until its store is paused",
+        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; never applied to"
+      },
+      "showStores": "Show the stores",
+      "hideStores": "Hide the stores",
       "someStore": "a store",
       "open": "Open the campaign",
       "close": "Close"

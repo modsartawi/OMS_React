@@ -83,7 +83,10 @@
       "otherColumns": "{{fileName}} has more than one column. Keep only the material numbers in the first column.",
       "overCap_one": "{{fileName}} holds {{n}} material — one import takes at most {{max}}. Split the file.",
       "overCap_other": "{{fileName}} holds {{n}} materials — one import takes at most {{max}}. Split the file."
-    }
+    },
+    "pushStock": "Push stock & price now",
+    "pushStockHint": "Once the import is saved, sends these materials’ stock and price to every Deliverect store that is linked and not paused. Untick it to add them quietly, for example before Deliverect has created the products.",
+    "pushOverCap": "More than {{max}} materials: the import is saved, but if more than {{max}} of them are known its push is skipped. They then go with the nightly full sync, or push them in parts with Push now."
   },
   "result": {
     "title": "Import done",
@@ -135,26 +138,46 @@
     "done": "Exclusions saved",
     "doneDetail": "Material {{material}}’s platform exclusions are saved."
   },
-  "push": {
-    "button": "Push catalog now",
-    "title": "Push the catalog now",
-    "note": "Sends the whole whitelist to one Deliverect account now, as the catalog its delivery platforms list.",
-    "account": "Deliverect account",
-    "choose": "Choose an account",
-    "loading": "Loading the accounts…",
-    "inactive": "{{key}} (inactive)",
-    "typePlaceholder": "Account key",
-    "fallbackHint": "No account can be chosen from the account list here — type the account key.",
+  "pushNow": {
+    "button": "Push now",
+    "buttonTicked": "Push now ({{n}})",
+    "title": "Push stock & price now",
+    "note": "Sends these materials’ stock and price now to every Deliverect store that is linked and not paused, one file per Deliverect account. A disabled or deleted material is sent out of stock. At most {{max}} materials per push.",
+    "list": "Material numbers",
+    "count_one": "<n>{{n}}</n> material to push.",
+    "count_other": "<n>{{n}}</n> materials to push.",
+    "overCap_one": "One push takes at most {{max}} materials. Remove {{overBy}} material to send.",
+    "overCap_other": "One push takes at most {{max}} materials. Remove {{overBy}} materials to send.",
+    "notWhitelisted": "Not on the whitelist:",
     "confirm": "Push",
+    "done": "Stock & price pushed",
+    "doneWarn": "Push answered — not every account’s file was taken"
+  },
+  "pushResult": {
+    "title": "Stock & price push",
     "close": "Close",
-    "done": "Catalog pushed",
-    "doneDetail": "The catalog was sent to {{account}}.",
-    "resultAccount": "Account",
-    "fileId": "File id",
-    "status": "Status",
-    "rows": "Rows",
-    "deliverectAnswer": "Deliverect did not take the catalog. Its answer:",
-    "failed": "The push failed",
-    "failedHint": "The catalog could not be pushed."
+    "allTaken": "Deliverect took every account’s file.",
+    "someFailed_one": "{{n}} account’s file was not taken. The other accounts still went.",
+    "someFailed_other": "{{n}} accounts’ files were not taken. The other accounts still went.",
+    "noStores": "No Deliverect store that is linked and not paused was reached, so nothing was sent.",
+    "failed": "The push failed. The import is saved.",
+    "skipped": {
+      "pushStockOff": "Not pushed: “Push stock & price now” was off. The materials go out with the next stock sync that runs, or with Push now.",
+      "overCap": "Not pushed: more than {{max}} materials. They go with the nightly full sync, or push them in parts with Push now.",
+      "noKnownMaterials": "Not pushed: none of the material numbers is known.",
+      "other": "Not pushed."
+    },
+    "columns": {
+      "account": "Account",
+      "stores": "Stores",
+      "rows": "Rows",
+      "fileId": "File id",
+      "status": "Status"
+    },
+    "status": {
+      "taken": "Taken",
+      "failed": "Failed"
+    },
+    "hint": "Deliverect processes each file later. Each store’s sync log shows the push as Manual, with who pushed it."
   }
 }

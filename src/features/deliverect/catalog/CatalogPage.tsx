@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, RowSelectionOptions } from 'ag-grid-community'
 import { ChevronLeft, ChevronRight, RotateCcw, Search, Send, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
@@ -12,14 +12,20 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { deliverectAccessQuery } from '@/core/deliverect/api'
 import { canManageCatalog } from '@/core/deliverect/access'
-import type { DeliverectWhitelistImportResult, DeliverectWhitelistQuery, DeliverectWhitelistRow } from '@/core/models/deliverect'
+import type {
+  DeliverectStockPushResult,
+  DeliverectWhitelistImportResult,
+  DeliverectWhitelistQuery,
+  DeliverectWhitelistRow,
+} from '@/core/models/deliverect'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { formatRange } from '@/core/util/bidi'
+import { formatRange, fsi } from '@/core/util/bidi'
 import { WHITELIST_KEY, catalogApi } from './api'
-import { ExclusionsDialog, ImportDialog, ImportResultDialog, PushDialog, RowActionDialog } from './CatalogDialogs'
+import { ExclusionsDialog, ImportDialog, ImportResultDialog, RowActionDialog } from './CatalogDialogs'
+import { PushNowDialog, PushResultDialog } from './StockPush'
 import { whitelistColumns } from './columns'
 import { WHITELIST_STATES, figure, whitelistFromParams, whitelistToParams, type WhitelistAction } from './whitelist-state'
 import Field from '@/core/ui/Field'
@@ -30,8 +36,12 @@ import Chip from '@/core/ui/Chip'
  * The Deliverect catalog (ticket 479, BackOffice spec 2615): the ONE whitelist of materials pushed
  * to every Deliverect account, paged at 500 and filtered by state and text (the search lives in the
  * URL). A category manager imports material numbers (pasted or from a one-column `.xlsx`), disables,
- * deletes or restores a material, edits its **platform exclusions**, and pushes the catalog to a
- * Deliverect account now — every write but the push with a reason.
+ * deletes or restores a material, and edits its **platform exclusions** — every write with a reason.
+ *
+ * Ticket 860 (BackOffice spec 3481): an import pushes the imported materials' stock and price at
+ * once (an option, on by default), and **Push now** sends the ticked materials again. The old
+ * "Push catalog now" is gone: BackOffice 3486 refuses `Catalog/Push` while `Deliverect:CatalogPush`
+ * is off, and ADR 0131 never publishes our items file.
  *
  * Behind `canManageCatalog` on the ONE Deliverect probe, the same predicate the menu leaf reads. Its
  * doors are BackOffice 2623.
@@ -55,6 +65,13 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   suppressHeaderMenuButton: true,
 }
 
+/** Checkboxes only: a click on a row is not a selection, so its buttons stay plain. Module-level. */
+const ROW_SELECTION: RowSelectionOptions<Row> = {
+  mode: 'multiRow',
+  checkboxes: true,
+  headerCheckbox: true,
+  enableClickSelection: false,
+}
 
 /** The row write open, if any. */
 type Acting = { row: Row; action: WhitelistAction } | null
@@ -96,7 +113,10 @@ function Catalog() {
 
   const [importing, setImporting] = useState(false)
   const [imported, setImported] = useState<DeliverectWhitelistImportResult | null>(null)
+  // The ticked rows on this page, as the grid holds them: Push now starts from them.
+  const [ticked, setTicked] = useState<string[]>([])
   const [pushing, setPushing] = useState(false)
+  const [pushed, setPushed] = useState<DeliverectStockPushResult | null>(null)
   const [exclusions, setExclusions] = useState<Row | null>(null)
   const [acting, setActing] = useState<Acting>(null)
 
@@ -146,9 +166,9 @@ function Catalog() {
             {t('filters.clear')}
           </Button>
           <span className="ms-auto flex items-end gap-2">
-            <Button variant="outlined" onClick={() => setPushing(true)} data-catalog-push="">
+            <Button variant="outlined" onClick={() => setPushing(true)} data-catalog-push-now={ticked.length}>
               <Send className="h-3.5 w-3.5" aria-hidden />
-              {t('push.button')}
+              {ticked.length > 0 ? t('pushNow.buttonTicked', { n: fsi(figure(ticked.length)) }) : t('pushNow.button')}
             </Button>
             <Button onClick={() => setImporting(true)} data-catalog-import="">
               <Upload className="h-3.5 w-3.5" aria-hidden />
@@ -178,6 +198,8 @@ function Catalog() {
             columnDefs={columns}
             defaultColDef={DEFAULT_COL_DEF}
             getRowId={({ data }) => data.materialNumber}
+            rowSelection={ROW_SELECTION}
+            onSelectionChanged={(e) => setTicked(e.api.getSelectedRows().map((r) => r.materialNumber))}
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             tooltipShowDelay={500}
@@ -247,7 +269,17 @@ function Catalog() {
         />
       )}
       {imported && <ImportResultDialog result={imported} onClose={() => setImported(null)} />}
-      {pushing && <PushDialog onClose={() => setPushing(false)} />}
+      {pushing && (
+        <PushNowDialog
+          initial={ticked}
+          onClose={() => setPushing(false)}
+          onDone={(result) => {
+            setPushing(false)
+            setPushed(result)
+          }}
+        />
+      )}
+      {pushed && <PushResultDialog result={pushed} onClose={() => setPushed(null)} />}
       {exclusions && <ExclusionsDialog row={exclusions} onClose={() => setExclusions(null)} />}
       {acting && <RowActionDialog row={acting.row} action={acting.action} onClose={() => setActing(null)} />}
     </div>

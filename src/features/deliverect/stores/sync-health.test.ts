@@ -133,8 +133,8 @@ describe('syncHealth', () => {
 })
 
 describe('the log drawer\'s run labels', () => {
-  it('syncType F is full, D is delta, anything else has no label (shown raw)', () => {
-    expect([syncTypeKey('F'), syncTypeKey('D'), syncTypeKey('X')]).toEqual(['full', 'delta', null])
+  it('syncType F is full, D is delta, M is manual (860), anything else has no label (shown raw)', () => {
+    expect([syncTypeKey('F'), syncTypeKey('D'), syncTypeKey('M'), syncTypeKey('X')]).toEqual(['full', 'delta', 'manual', null])
   })
 
   it('a run failed when its status is non-null and not "S"', () => {

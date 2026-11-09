@@ -1,7 +1,8 @@
 import { api } from '@/core/api'
 import type {
-  DeliverectCatalogPushResult,
   DeliverectExclusionsBody,
+  DeliverectStockPushBody,
+  DeliverectStockPushResult,
   DeliverectWhitelistImportBody,
   DeliverectWhitelistImportResult,
   DeliverectWhitelistPage,
@@ -34,6 +35,8 @@ export const catalogApi = {
   /**
    * POST DeliverectWeb/Whitelist/Import — rows already present are re-activated; the answer counts
    * the added and re-activated ones and lists the unknown material numbers. Refusal: DLV-00012.
+   * BackOffice 3485: `pushStock` (default true) pushes the known materials once the import commits,
+   * and the answer's `push` block says how that went — the import never rolls back for it.
    */
   import(body: DeliverectWhitelistImportBody): Promise<DeliverectWhitelistImportResult> {
     return api.post<DeliverectWhitelistImportResult>('DeliverectWeb/Whitelist/Import', body)
@@ -56,11 +59,15 @@ export const catalogApi = {
   },
 
   /**
-   * POST DeliverectWeb/Catalog/Push?account= — push the catalog to one Deliverect account now. The
-   * contract names no body (and no reason): an empty JSON object is sent, as every body-less POST in
-   * the app does. Refusal: DLV-00011 (Deliverect's answer in `message`).
+   * POST DeliverectWeb/Stock/Push (BackOffice 3483, spec 3481) — the chosen materials' stock and
+   * price now, to every linked, unpaused Deliverect store, one file per account; accounts are
+   * independent, so one `"E"` entry never fails the call. Refusals, all or nothing: DLV-00009,
+   * DLV-00015 (empty, a blank, or more than 200), DLV-00004 (not whitelisted, named in `message`).
+   *
+   * 🚩 `Catalog/Push` is NOT called from this screen (ticket 860; BackOffice 3486, ADR 0131): while
+   * `Deliverect:CatalogPush` is off it is refused, and our items file is never to be published.
    */
-  push(account: string): Promise<DeliverectCatalogPushResult> {
-    return api.post<DeliverectCatalogPushResult>('DeliverectWeb/Catalog/Push', {}, { account })
+  pushStock(body: DeliverectStockPushBody): Promise<DeliverectStockPushResult> {
+    return api.post<DeliverectStockPushResult>('DeliverectWeb/Stock/Push', body)
   },
 }

@@ -68,13 +68,26 @@ describe('deliverect-catalog — the keys the code builds exist', () => {
       'flags.disabled',
       'flags.deleted',
       'exclusions.unavailable',
-      'push.deliverectAnswer',
+      // 860: the stock push — every skip reason, the import option, Push now and its answer.
+      ...['pushStockOff', 'overCap', 'noKnownMaterials', 'other'].map((w) => `pushResult.skipped.${w}`),
+      ...['taken', 'failed'].map((s) => `pushResult.status.${s}`),
+      ...['account', 'stores', 'rows', 'fileId', 'status'].map((c) => `pushResult.columns.${c}`),
+      'pushResult.failed',
+      'pushResult.noStores',
+      'import.pushStock',
+      'import.pushOverCap',
+      'pushNow.notWhitelisted',
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 
   it('the exclusion note says excluded means out of stock on that platform only', () => {
     expect(en.exclusions.note).toMatch(/out of stock on that platform only/i)
+  })
+
+  it('860: the import option says it pushes stock and price, and the catalog push is gone', () => {
+    expect(en.import.pushStock).toBe('Push stock & price now')
+    expect((en as Record<string, unknown>).push).toBeUndefined()
   })
 
   it('🚩 copy never says "chain" and never an unqualified "channel" (CONTEXT.md, Deliverect)', () => {

@@ -73,6 +73,8 @@ describe('deliverect-stores — the keys the code builds exist', () => {
       'syncHealth.deltaOverdue_other',
       'logs.type.full',
       'logs.type.delta',
+      'logs.type.manual',
+      'logs.requestedBy',
       ...['pause', 'resume'].flatMap((v) => ['title', 'note', 'confirm', 'done', 'doneDetail', 'button'].map((k) => `${v}.${k}`)),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])

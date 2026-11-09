@@ -1,14 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { AlertTriangle, FileSpreadsheet, Loader2, Send } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { deliverectAccountsQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
+import { AlertTriangle, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { deliverectPlatformsQuery } from '@/core/deliverect/api'
 import ReasonDialog, { InlineRefusal } from '@/core/deliverect/ReasonDialog'
 import { fieldRefusal } from '@/core/deliverect/reason'
 import {
   DELIVERECT_ERRORS,
-  type DeliverectCatalogPushResult,
   type DeliverectWhitelistImportResult,
   type DeliverectWhitelistRow,
 } from '@/core/models/deliverect'
@@ -16,7 +14,6 @@ import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { xlsxRows } from '@/core/util/xlsx-read'
 import { WHITELIST_KEY, catalogApi } from './api'
@@ -25,9 +22,9 @@ import { exclusionEditor, exclusionSet, sameExclusions } from './exclusion-set'
 import ImportAnswerDialog from '@/core/import/ImportAnswerDialog'
 import { WHITELIST_IMPORT_MAX, parseMaterialList, type MaterialList } from '@/core/import/material-list'
 import { figure, updateBody, type WhitelistAction } from './whitelist-state'
+import { STOCK_PUSH_MAX } from './stock-push'
+import { ImportPushBlock } from './StockPush'
 import Field from '@/core/ui/Field'
-import Input from '@/core/ui/Input'
-import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 
 
@@ -45,6 +42,10 @@ interface FileNote {
  * 5000 is refused HERE: a file over the cap is not loaded, a paste over it cannot be sent.
  * DLV-00012 (the door's own refusal) shows inline under the list. On success the page shows the
  * answer: added, re-activated, and the unknown material numbers.
+ *
+ * Ticket 860 (BackOffice 3485): **Push stock & price now**, ticked by default, is sent as
+ * `pushStock`. Over 200 materials the import still goes and its push is skipped, which the dialog
+ * says before anything is sent.
  */
 export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: (result: DeliverectWhitelistImportResult) => void }) {
   const { t } = useTranslation('deliverect-catalog')
@@ -55,13 +56,14 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
   // What the picked sheet dropped on its way into the list — its header and its repeats — so a file
   // says what a paste says. Cleared the moment the list is edited.
   const [fromFile, setFromFile] = useState<Pick<MaterialList, 'header' | 'duplicates'> | null>(null)
+  const [pushStock, setPushStock] = useState(true)
   // The latest pick (or edit) wins: an older file still being read never overwrites the list.
   const pickSeq = useRef(0)
   const list = useMemo(() => parseMaterialList(text), [text])
   const header = list.header ?? fromFile?.header ?? null
   const duplicates = list.duplicates + (fromFile?.duplicates ?? 0)
   const send = useMutation({
-    mutationFn: (reason: string) => catalogApi.import({ materialNumbers: list.materials, reason }),
+    mutationFn: (reason: string) => catalogApi.import({ materialNumbers: list.materials, reason, pushStock }),
     onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: WHITELIST_KEY })
       onDone(result)
@@ -216,6 +218,28 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
           </p>
         )}
         {listRefusal && <InlineRefusal message={listRefusal.message} code={listRefusal.code} />}
+        <label className="mt-1 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={pushStock}
+            onChange={(e) => {
+              setPushStock(e.target.checked)
+              send.reset()
+            }}
+            disabled={send.isPending}
+            data-import-push-stock=""
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium">{t('import.pushStock')}</span>
+            <span className="text-xs text-muted-foreground">{t('import.pushStockHint')}</span>
+          </span>
+        </label>
+        {pushStock && list.materials.length > STOCK_PUSH_MAX && list.overBy === 0 && (
+          <p className="text-xs text-attention-800" data-import-push-over-cap="">
+            {t('import.pushOverCap', { max: fsi(figure(STOCK_PUSH_MAX)) })}
+          </p>
+        )}
       </div>
     </ReasonDialog>
   )
@@ -224,6 +248,7 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
 /**
  * The import's answer (ticket 479): how many were added, how many re-activated, and the material
  * numbers the server did not know, with a Copy — the core answer dialog (graduated by ticket 555).
+ * Under it, ticket 860's push block: what the stock & price push did, or why it was skipped.
  */
 export function ImportResultDialog({ result, onClose }: { result: DeliverectWhitelistImportResult; onClose: () => void }) {
   const { t } = useTranslation('deliverect-catalog')
@@ -236,7 +261,9 @@ export function ImportResultDialog({ result, onClose }: { result: DeliverectWhit
       ]}
       unknown={result.unknown ?? []}
       onClose={onClose}
-    />
+    >
+      <ImportPushBlock push={result.push} />
+    </ImportAnswerDialog>
   )
 }
 
@@ -403,140 +430,5 @@ export function ExclusionsDialog({ row, onClose }: { row: DeliverectWhitelistRow
         </fieldset>
       )}
     </ReasonDialog>
-  )
-}
-
-/**
- * **Push the catalog now** to one Deliverect account (ticket 479; `POST Catalog/Push?account=`),
- * confirmed on the app modal. The contract names no reason for this write, so none is asked. The
- * account comes from the Accounts read; that read rides `canManageTerms` (contract gap), so when it
- * is refused the account is typed. The answer — the file id, its status and the rows pushed — is
- * shown in the dialog. DLV-00011 shows Deliverect's own answer inline.
- */
-export function PushDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation('deliverect-catalog')
-  const accounts = useQuery(deliverectAccountsQuery())
-  const [account, setAccount] = useState('')
-  const [result, setResult] = useState<{
-    account: string
-    answer: DeliverectCatalogPushResult
-  } | null>(null)
-  const target = account.trim()
-  // Typed when the read is refused (403 — contract gap), and when it holds no active account to choose.
-  const typed = accounts.isError || (accounts.isSuccess && !(accounts.data ?? []).some((a) => a.active))
-  const send = useMutation({
-    mutationFn: (key: string) => catalogApi.push(key),
-    // A new push clears the last answer, so a failure never stands beside an older success.
-    onMutate: () => setResult(null),
-    onSuccess: (answer, key) => {
-      setResult({ account: key, answer })
-      notify.success(t('push.done'), t('push.doneDetail', { account: fsi(key) }))
-    },
-  })
-  const deliverectRefusal = fieldRefusal(send.error, [DELIVERECT_ERRORS.deliverectFailed], t('push.failedHint'))
-  const code = apiErrorCode(send.error)
-
-  return (
-    <Modal
-      open
-      onClose={() => !send.isPending && onClose()}
-      title={t('push.title')}
-      width="32rem"
-      footer={
-        <>
-          <Button variant="text" onClick={onClose} disabled={send.isPending} data-push-cancel="">
-            {result ? t('push.close') : t('dialog.cancel')}
-          </Button>
-          {/* Once pushed, the same account is not pushed again by a second click: choose another, or close. */}
-          <Button
-            variant="primary"
-            disabled={send.isPending || target === '' || result?.account === target}
-            onClick={() => send.mutate(target)}
-            data-push-confirm=""
-          >
-            {send.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
-            {send.isPending ? t('dialog.sending') : t('push.confirm')}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3" data-push-dialog="">
-        <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{t('push.note')}</p>
-        <Field label={t('push.account')}>
-          {typed ? (
-            <Input
-              type="text"
-              value={account}
-              onChange={(e) => {
-                setAccount(e.target.value)
-                send.reset()
-              }}
-              disabled={send.isPending}
-              dir="ltr"
-              placeholder={t('push.typePlaceholder')}
-              className="font-mono"
-              data-push-account-input=""
-            />
-          ) : (
-            <Select
-              value={account}
-              onChange={(e) => {
-                setAccount(e.target.value)
-                send.reset()
-              }}
-              disabled={send.isPending || accounts.isPending}
-              data-push-account-select=""
-            >
-              <option value="">{accounts.isPending ? t('push.loading') : t('push.choose')}</option>
-              {(accounts.data ?? []).map((a) => (
-                <option key={a.accountKey} value={a.accountKey} disabled={!a.active}>
-                  {a.active ? fsi(a.accountKey) : t('push.inactive', { key: fsi(a.accountKey) })}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        {typed && (
-          <span className="text-xs text-muted-foreground" data-push-account-fallback="">
-            {t('push.fallbackHint')}
-          </span>
-        )}
-        {result && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-border/60 p-2 text-sm" data-push-result="">
-            <dt className="text-muted-foreground">{t('push.resultAccount')}</dt>
-            <dd className="font-mono">
-              <Ltr>{result.account}</Ltr>
-            </dd>
-            <dt className="text-muted-foreground">{t('push.fileId')}</dt>
-            <dd className="font-mono" data-push-file-id="">
-              <Ltr>{result.answer.fileId}</Ltr>
-            </dd>
-            <dt className="text-muted-foreground">{t('push.status')}</dt>
-            <dd data-push-status="">
-              <bdi>{result.answer.status}</bdi>
-            </dd>
-            <dt className="text-muted-foreground">{t('push.rows')}</dt>
-            <dd className="tabular-nums" data-push-rows="">
-              <Ltr>{figure(result.answer.rows)}</Ltr>
-            </dd>
-          </dl>
-        )}
-        {deliverectRefusal && (
-          <div className="flex flex-col gap-1" data-push-refusal={deliverectRefusal.code}>
-            <p className="text-xs text-danger-800">{t('push.deliverectAnswer')}</p>
-            <InlineRefusal message={deliverectRefusal.message} code={deliverectRefusal.code} />
-          </div>
-        )}
-        {send.isError && !deliverectRefusal && (
-          <ErrorBanner className="p-2" title={t('push.failed')} message={apiErrorMessage(send.error, t('push.failedHint'))}>
-            {code && (
-              <span className="font-mono text-xs" data-push-error={code}>
-                <Ltr>{code}</Ltr>
-              </span>
-            )}
-          </ErrorBanner>
-        )}
-      </div>
-    </Modal>
   )
 }

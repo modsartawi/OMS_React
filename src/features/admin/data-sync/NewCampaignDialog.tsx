@@ -7,6 +7,7 @@ import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import Button from '@/core/ui/Button'
+import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } from '@/core/ui/ChecklistPicker'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -66,7 +67,8 @@ export function NewCampaignButton() {
 type TargetKind = 'fleet' | 'stores'
 
 /**
- * Pick a profile (its tables listed, all ticked), the targets (the whole fleet, or pasted store
+ * Pick a profile (its tables listed, NONE ticked: a run is usually one to three tables, so the
+ * technician ticks what to run, or Select all shown for the whole profile), the targets (the whole fleet, or pasted store
  * codes checked before the call), an optional name → Create. The campaign is created **Ready** and
  * the dialog closes onto its page, where Start waits. A refusal stays in the dialog, in words, so
  * nothing typed is lost.
@@ -84,6 +86,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
 
   const [profileId, setProfileId] = useState('')
   const [picked, setPicked] = useState<string[]>([])
+  const [tableQuery, setTableQuery] = useState('')
   const [chosenMode, setChosenMode] = useState<Mode>('ReportOnly')
   const [targetKind, setTargetKind] = useState<TargetKind>('fleet')
   const [codesText, setCodesText] = useState('')
@@ -96,6 +99,17 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
 
   const profile: SyncProfile | undefined = profiles.data?.find((p) => p.profileId === profileId)
   const profileTables = useMemo(() => profile?.tableSet.map((s) => s.table) ?? [], [profile])
+  // A table name is a machine value: drawn whole in Ltr by the picker.
+  const tableOptions = useMemo<ChecklistOption[]>(() => profileTables.map((table) => ({ value: table, label: table, machine: true })), [profileTables])
+  const tableLabels: ChecklistPickerLabels = {
+    list: t('create.tables'),
+    search: t('create.tablesSearch'),
+    selectAllShown: t('create.tablesSelectAll'),
+    clear: t('create.tablesClear'),
+    picked: (count) => t('create.tablesPicked', { count, figure: groupDigits(count) }),
+    empty: t('create.tablesEmpty'),
+    noMatch: t('create.tablesNoMatch'),
+  }
   const parsed = useMemo(() => parseStoreCodes(codesText), [codesText])
 
   // Apply (564): only when some ticked table may be written; otherwise the run is report-only.
@@ -191,8 +205,9 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
 
   const pickProfile = (id: string) => {
     setProfileId(id)
-    const p = profiles.data?.find((x) => x.profileId === id)
-    setPicked(p ? p.tableSet.map((s) => s.table) : [])
+    // Nothing ticked: the technician picks the tables (or Select all shown for the whole profile).
+    setPicked([])
+    setTableQuery('')
     send.reset()
     setOutcome(null)
   }
@@ -201,8 +216,6 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     const gone = new Set(codes.map((c) => c.toUpperCase()))
     setCodesText(parsed.codes.filter((c) => !gone.has(c.toUpperCase())).join('\n'))
   }
-  const toggleTable = (table: string, on: boolean) =>
-    setPicked((cur) => (on ? (cur.includes(table) ? cur : [...cur, table]) : cur.filter((x) => x !== table)))
 
   const error = send.error ?? (outcome?.createError || null)
   const words = error ? createRefusalWords(error) : null
@@ -294,26 +307,19 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           <fieldset className="flex flex-col gap-1" data-create-tables="">
             <legend className="text-xs font-medium">{t('create.tables')}</legend>
             <p className="text-xs text-muted-foreground">{t('create.tablesHint')}</p>
-            <ul className="flex flex-col gap-1 rounded-md border border-border/60 p-2">
-              {profile.tableSet.map((spec) => (
-                <li key={spec.table}>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={picked.includes(spec.table)}
-                      onChange={(e) => toggleTable(spec.table, e.target.checked)}
-                      disabled={busy}
-                      data-create-table={spec.table}
-                    />
-                    <span className="font-mono text-xs">
-                      <Ltr>{spec.table}</Ltr>
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <ChecklistPicker
+              options={tableOptions}
+              picks={picked}
+              onPicksChange={setPicked}
+              query={tableQuery}
+              onQueryChange={setTableQuery}
+              labels={tableLabels}
+              disabled={busy}
+              data-testid="create-tables-picker"
+            />
+            {/* The starting state, not a mistake: Create waits for a tick, so this is said quietly. */}
             {picked.length === 0 && (
-              <p className="text-xs text-danger-800" data-create-tables-none="">
+              <p className="text-xs text-muted-foreground" data-create-tables-none="">
                 {t('create.tablesNone')}
               </p>
             )}

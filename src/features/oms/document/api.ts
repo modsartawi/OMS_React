@@ -5,6 +5,7 @@ import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead, type OrderInsuran
 import { orderSearchPageOf, type OrderDocumentRow } from '@/core/models/order-document'
 import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
+  CancellationReasonModel,
   CreatedReturnModel,
   CreateReturnRequest,
   DonorRequestModel,
@@ -158,6 +159,14 @@ export const documentApi = {
   },
   updateDelivery(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDelivery`, body)
+  },
+  /**
+   * The active cancellation reasons, in the business's order (BackOffice spec 3461, door 3462): what Request
+   * cancellation picks from. Behind the Document Details grant and its Change grant — the same two the update
+   * doors it feeds carry.
+   */
+  cancellationReasons(): Promise<CancellationReasonModel[]> {
+    return api.get<CancellationReasonModel[]>(`${BASE}/CancellationReasons`)
   },
   /**
    * The active `DLVM` reasons, ordered by code (BackOffice 2421). Behind both grants: a

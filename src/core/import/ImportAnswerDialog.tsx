@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ClipboardCopy } from 'lucide-react'
 import { notify } from '@/core/services/notify'
@@ -24,17 +25,22 @@ export interface ImportAnswerCount {
  *
  * It speaks in `ns`, whose `result.*` block carries the chrome: `title`, `close`, `unknown`,
  * `unknownHint`, `copy`, `copied`, `copiedDetail` (plural), `copyFailed`, `noneUnknown`.
+ *
+ * `children` is the room for what an import did beyond its rows, under the answer (the Deliverect
+ * import's stock push, ticket 860).
  */
 export default function ImportAnswerDialog({
   ns,
   counts,
   unknown,
   onClose,
+  children,
 }: {
   ns: string
   counts: readonly ImportAnswerCount[]
   unknown: readonly string[]
   onClose: () => void
+  children?: ReactNode
 }) {
   const { t } = useTranslation(ns)
   // Inside the promise, so a page with no clipboard (plain http) says it could not copy rather than throwing.
@@ -97,6 +103,7 @@ export default function ImportAnswerDialog({
             {t('result.noneUnknown')}
           </p>
         )}
+        {children}
       </div>
     </Modal>
   )

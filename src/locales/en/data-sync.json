@@ -314,8 +314,14 @@
     "profilesFailed": "The profiles could not be loaded.",
     "noProfiles": "No profile is enabled, so no campaign can be created.",
     "tables": "Tables",
-    "tablesHint": "Every table is run unless you untick some.",
-    "tablesNone": "Tick at least one table.",
+    "tablesHint": "Tick the tables to run, or Select all shown for the whole profile.",
+    "tablesNone": "No table is ticked yet. Create waits for at least one.",
+    "tablesSearch": "Filter tables",
+    "tablesSelectAll": "Select all shown",
+    "tablesClear": "Clear",
+    "tablesPicked": "{{figure}} ticked",
+    "tablesEmpty": "This profile has no tables.",
+    "tablesNoMatch": "No table matches the filter.",
     "targets": "Target stores",
     "fleet": "The whole fleet",
     "fleetHint": "Every store in HQ's store list.",
@@ -420,6 +426,14 @@
         "DATASYNC_STORE_BUSY": "still worked by ActionSync; its job waits until the store is paused",
         "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; it will never be applied to"
       },
+      "warningStores_one": "<n>{{figure}}</n> store",
+      "warningStores_other": "<n>{{figure}}</n> stores",
+      "warningGroup": {
+        "DATASYNC_STORE_BUSY": "still worked by ActionSync; each job waits until its store is paused",
+        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; never applied to"
+      },
+      "showStores": "Show the stores",
+      "hideStores": "Hide the stores",
       "someStore": "a store",
       "open": "Open the campaign",
       "close": "Close"

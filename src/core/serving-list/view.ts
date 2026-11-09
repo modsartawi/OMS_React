@@ -3,15 +3,14 @@
  * screen's path, and a callout's serving list as one value. In `@/core/` because the Serving lists screen
  * (567-571), the Dispatch board's inspector (541) and a delivery's Callout sub-tab (542) all read them. Pure.
  */
+import { localizedName } from '@/core/util/localized-name'
 
 /**
  * The list's name in the UI language — the Arabic name under Arabic — falling back to the other language's when
  * that one is blank; trimmed; `''` when both are.
  */
 export function servingListName(names: { nameEn?: string | null; nameAr?: string | null }, lang: string): string {
-  const en = (names.nameEn ?? '').trim()
-  const ar = (names.nameAr ?? '').trim()
-  return lang.startsWith('ar') ? ar || en : en || ar
+  return localizedName(names, lang).trim()
 }
 
 /** The serving list's own screen (567's route). */

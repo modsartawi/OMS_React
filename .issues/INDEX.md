@@ -1319,8 +1319,15 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
 
+## Cancellation reasons + delivery cancel-by-request only (BackOffice spec 3461), filed 2026-11-08
+
+- [854](854-a-delivery-offers-request-cancellation-and-no-cancel-or-force-cancel.md) — A delivery offers Request cancellation and no Cancel or Force cancel · *(ticket · BackOffice spec 3461)* · **done** · blocked by: — · delivery terminal tier empty (`isDelivery`); dev-app check owed
+- [855](855-the-request-cancellation-dialog-picks-from-the-servers-list-in-the-users-language.md) — The Request cancellation dialog picks from the server's list, in the user's language · *(ticket · BackOffice 3462)* · **done** *(stubbed; live read-back against a 3462 SIS.Api owed)* · blocked by: BackOffice 3462 · 🚩 do not deploy before 3462
+- [856](856-the-list-owner-maintains-cancellation-reasons-under-admin-cancel-reasons.md) — The list owner maintains cancellation reasons under Admin → Cancel reasons · *(ticket · BackOffice 3463)* · **open** · blocked by: BackOffice 3463 · 🚩 do not deploy before 3463
+
 ## QC callout radius by road (BackOffice spec 3460, filed 2026-11-08)
 
 - [857](857-the-delivery-type-form-edits-the-callout-distance-mode.md) — The delivery-type form edits the callout distance mode · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3471
 - [858](858-the-dispatch-board-says-whether-a-callout-was-measured-by-road.md) — The dispatch board says whether a callout was measured by road · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3472
 - [859](859-the-road-shadow-report-page-shows-what-deciding-by-road-would-have-changed.md) — The road Shadow report page shows what deciding by road would have changed · *(ticket · BackOffice spec 3460)* · **open** (built, stubbed: unit 25/25 + drive 67/67; live read with the owner owed; ruling owed on the fallback-share base) · blocked by: —
+- [860](860-the-deliverect-catalog-screen-pushes-stock-and-price-and-the-sync-log-shows-manual-pushes.md) — The Deliverect catalog screen pushes stock and price, and the sync log shows manual pushes · *(ticket · BO spec 3481)* · **done 2026-11-09** (stubbed: unit + catalog drive 112/112; live staging walk owed) · blocked by: BackOffice 3483, 3485 (done) · import "push stock & price now" (default on) + `push` block; Push now (≤200, reason); sync log labels `M` + requester; hide Catalog push while off (BO 3486)

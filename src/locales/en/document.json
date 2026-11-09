@@ -594,9 +594,19 @@
     "selectRow": "Select a row to continue."
   },
   "requestClose": {
-    "hint": "Pick a cancellation reason — it is recorded as the document note.",
+    "hint": "Pick a cancellation reason — it is recorded on the request, and its English name as the document note.",
     "label": "Cancellation reason",
-    "placeholder": "Select a reason"
+    "placeholder": "Select a reason",
+    "loading": "Loading reasons…",
+    "loadFailed": "The cancellation reasons could not be loaded, so no request can be sent. Close and try again.",
+    "empty": "No cancellation reason is active, so no request can be sent. Ask an administrator to activate one.",
+    "grantRefused": {
+      "title": "Request Cancellation is not open to you",
+      "detail": "The server refused to list the cancellation reasons and nothing changed. The document's change actions have been removed."
+    },
+    "refused": {
+      "unknownReason": "That cancellation reason is no longer in use. Open Request Cancellation again and pick a current one."
+    }
   },
   "access": {
     "checking": "Checking access…",

@@ -249,6 +249,8 @@ async function openDialog(page, profile = P_APPLY) {
   const dialog = page.locator('dialog[open]')
   await dialog.locator('[data-create-profile]').waitFor({ timeout: 10000 })
   await dialog.locator('[data-create-profile]').selectOption(profile)
+  // A profile opens with nothing ticked: these scenarios run the whole profile.
+  await dialog.locator('[data-checklist-select-all]').click()
   return dialog
 }
 
@@ -304,6 +306,10 @@ async function openDialog(page, profile = P_APPLY) {
   check('1. …says it started', (await page.locator('[data-apply-started="Running"]').count()) === 1)
   check('1. …counts the tagged stores', (await page.locator('[data-apply-tagged="228"]').count()) === 1)
   check('1. …lists ActionSync\'s refusal in words', strip(await page.locator('[data-apply-refused="S017"]').innerText()) === 'S017 not on the ActionSync worker')
+  check('1. the create warnings start collapsed: one line per code, no store listed', (await page.locator('[data-apply-warning]').count()) === 0 &&
+    JSON.stringify(await page.locator('[data-apply-warnings] [data-apply-warning-group]').evaluateAll((els) => els.map((e) => `${e.dataset.applyWarningGroup}x${e.dataset.count}`))) === '["DATASYNC_STORE_WPF_HOSTEDx1","DATASYNC_STORE_BUSYx1"]')
+  check('1. …the group line in words', /1 store still worked by ActionSync; each job waits until its store is paused/.test(strip(await page.locator('[data-apply-warning-group="DATASYNC_STORE_BUSY"]').innerText())))
+  await page.locator('[data-apply-warnings] [data-apply-warnings-toggle]').click()
   const warns = await page.locator('[data-apply-warning]').evaluateAll((els) => els.map((e) => `${e.dataset.applyWarning}@${e.dataset.store}`))
   check('1. …and the create warnings, as warnings on the new campaign', JSON.stringify(warns) === '["DATASYNC_STORE_WPF_HOSTED@000/W001","DATASYNC_STORE_BUSY@000/S017"]', JSON.stringify(warns))
   check('1. …the WPF warning in words', /000\/W001 synced by the WPF host; it will never be applied to/.test(strip(await page.locator('[data-apply-warning="DATASYNC_STORE_WPF_HOSTED"]').innerText())))
@@ -313,6 +319,8 @@ async function openDialog(page, profile = P_APPLY) {
   await page.waitForURL(`**/admin/data-sync/campaigns/${NEW_ID}`, { timeout: 10000 })
   check('1. Open the campaign goes to its page', new URL(page.url()).pathname === `/admin/data-sync/campaigns/${NEW_ID}`)
   await page.locator('[data-campaign-create-warnings]').waitFor({ timeout: 10000 })
+  check('1. the campaign page notice starts collapsed', (await page.locator('[data-campaign-create-warnings] [data-apply-warning]').count()) === 0)
+  await page.locator('[data-campaign-create-warnings] [data-apply-warnings-toggle]').click()
   const carried = await page.locator('[data-campaign-create-warnings] [data-apply-warning]').evaluateAll((els) => els.map((e) => `${e.dataset.applyWarning}@${e.dataset.store}`))
   check('1. the campaign page shows the create warnings as a notice', JSON.stringify(carried) === '["DATASYNC_STORE_WPF_HOSTED@000/W001","DATASYNC_STORE_BUSY@000/S017"]', JSON.stringify(carried))
   check('1. …saying they are not kept on a reload', /not kept if the page is reloaded/.test(strip(await page.locator('[data-campaign-create-warnings]').innerText())))
@@ -401,9 +409,10 @@ async function openDialog(page, profile = P_APPLY) {
   check('5. a profile with no applyAllowed table cannot be applied', await dialog.locator('[data-create-mode-pick="Apply"]').isDisabled())
   check('5. …and says so', (await dialog.locator('[data-apply-unavailable]').count()) === 1)
   await dialog.locator('[data-create-profile]').selectOption(P_APPLY)
+  await dialog.locator('[data-checklist-select-all]').click()
   await dialog.locator('[data-create-mode-pick="Apply"]').check()
-  await dialog.locator('[data-create-table="dbo.Category"]').uncheck()
-  await dialog.locator('[data-create-table="dbo.PriceList"]').uncheck()
+  await dialog.locator('[data-checklist-row="dbo.Category"] input').uncheck()
+  await dialog.locator('[data-checklist-row="dbo.PriceList"] input').uncheck()
   check('5. unticking every appliable table falls back to report only', (await dialog.locator('[data-create-mode="ReportOnly"]').count()) === 1 && (await dialog.locator('[data-create-mode-pick="Apply"]').isDisabled()))
   check('no page errors (no appliable table)', errors.length === 0, errors.join(' | '))
   await context.close()

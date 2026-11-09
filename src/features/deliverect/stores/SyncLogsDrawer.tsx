@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { ListTree, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { DeliverectStoreRow, DeliverectSyncLogRow } from '@/core/models/deliverect'
@@ -20,7 +20,8 @@ import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 
 /**
  * **A store's stock sync log** (ticket 480; contract § Stock sync, `GET Sync/{store}/Logs`) — the
- * last 50 runs, most recent first as the door answers them: type (full or delta), start, end, rows,
+ * last 50 runs, most recent first as the door answers them: type (full, delta, or — spec 3481 —
+ * manual, with who pushed it), start, end, rows,
  * status, Deliverect's file id, its `processed` callback, and the error. A failed run's row is red.
  *
  * The frame is core's `SideSheet` (ticket 556; its header core's `SideSheetHeader`, ticket 554): a native `<dialog>`
@@ -137,8 +138,14 @@ function LogRow({ log, onLines }: { log: DeliverectSyncLogRow; onLines: () => vo
       data-sync-log={log.logId}
       data-sync-log-failed={failed ? '' : undefined}
     >
-      <td className={TD} data-log-type="">
-        {type ? t(`logs.type.${type}`) : <Ltr>{log.syncType}</Ltr>}
+      <td className={TD} data-log-type={log.syncType}>
+        <span data-log-type-label="">{type ? t(`logs.type.${type}`) : <Ltr>{log.syncType}</Ltr>}</span>
+        {/* A manual push says who asked for it (spec 3481); a scheduled one has no requester. */}
+        {log.requestedBy && (
+          <span className="block text-muted-foreground" data-log-requested-by="">
+            <Trans t={t} i18nKey="logs.requestedBy" values={{ user: log.requestedBy }} components={{ user: <Ltr /> }} />
+          </span>
+        )}
       </td>
       <td className={TD} data-log-start="">
         <Ltr>{formatDateTime(log.startTime)}</Ltr>

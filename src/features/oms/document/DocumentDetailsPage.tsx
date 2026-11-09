@@ -64,6 +64,7 @@ import { pickSupportSectionGate } from './pick-support-section'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
+import { CANCELLATION_REASONS_KEY, requestCloseRefusalKeyOf, requestCloseUpdate } from './request-close'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
 import MarkDeliveredDialog from './MarkDeliveredDialog'
@@ -97,6 +98,15 @@ const insuranceKey = (documentNo: string) => ['document', 'insurance', documentN
 const PENDING = { rows: null, loading: true, error: null } as const
 /** A read that has nothing to ask: a document that is not a delivery has no donor requests. */
 const NONE = { rows: [], loading: false, error: null }
+
+/**
+ * Refusals the server words in English only, worded here by their code, per Update action. An action not
+ * listed — or a code its lookup does not know — shows the server's own sentence.
+ */
+const REFUSAL_KEY_OF: Partial<Record<UpdateActionKind, (code: string | null) => string | null>> = {
+  // A cancellation reason retired while the dialog was open (spec 3461, `SDD-02235`).
+  'request-close': requestCloseRefusalKeyOf,
+}
 
 /**
  * An Update action's body and endpoint for one document: the payload's category picks both the
@@ -418,12 +428,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   /**
    * Post an Update action: resolve the actionType and endpoint from
    * `documentCategory`, then refresh in place on success. The document is left
-   * untouched on failure — the server's `400` message is the whole story.
+   * untouched on failure — the server's `400` message is the whole story, unless
+   * `REFUSAL_KEY_OF` words the refusal by its code. Resolves to the failure, or
+   * `null` when the post succeeded or was not sent.
    */
   const postUpdate = useCallback(
-    async (kind: UpdateActionKind, actionNote: string, extras?: UpdateHeaderExtras) => {
+    async (kind: UpdateActionKind, actionNote: string, extras?: UpdateHeaderExtras): Promise<unknown> => {
       const doc = document
-      if (!doc || actionBusy) return
+      if (!doc || actionBusy) return null
       const label = t(`actions.${kind}`)
       const { body, post } = updateFor(doc, kind, actionNote, extras)
 
@@ -433,10 +445,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         setActionRunning(false)
         notify.success(t('toast.done', { label }), t('toast.doneDetail', { label }))
         void reload()
+        return null
       } catch (err) {
         setActionRunning(false)
         revokeOnForbidden(queryClient, err, 'canChangeDetail')
-        notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
+        const refusalKey = REFUSAL_KEY_OF[kind]?.(apiErrorCode(err)) ?? null
+        if (refusalKey) notify.error(t('toast.failed', { label }), t(refusalKey))
+        else notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
+        return err
       }
     },
     [document, actionBusy, reload, t, queryClient],
@@ -726,9 +742,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
    * explanation, drawn only for an advisor holder — its probe in `@/core/`, on the key the menu leaf
    * shares, failing closed. A delivery only: the advisor scores deliveries.
    */
-  const isDelivery = document !== null && isDeliveryCategory(document.documentCategory)
-  const sourcingAccess = useQuery({ ...sourcingAdvisorAccessQuery(), enabled: isDelivery })
-  const canExplainSourcing = isDelivery && canViewSourcingAdvisor(sourcingAccess.data)
+  // The CATEGORY alone (not `commands.isDelivery`, which also counts the route): the advisor scores `D` records.
+  const isDeliveryCategoryRecord = document !== null && isDeliveryCategory(document.documentCategory)
+  const sourcingAccess = useQuery({ ...sourcingAdvisorAccessQuery(), enabled: isDeliveryCategoryRecord })
+  const canExplainSourcing = isDeliveryCategoryRecord && canViewSourcingAdvisor(sourcingAccess.data)
 
   // ----- access states ------------------------------------------------------
   // After every hook, before any render. The header is not rendered either: a
@@ -992,7 +1009,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             <RequestCloseDialog
               open={requestCloseOpen}
               onClose={() => setRequestCloseOpen(false)}
-              onConfirmed={(reason) => void postUpdate('request-close', reason)}
+              onConfirmed={(reason) => {
+                const { note, extras } = requestCloseUpdate(reason)
+                void postUpdate('request-close', note, extras).then((failure) => {
+                  // A reason refused as retired: the cached list is wrong, so the next open must not trust it.
+                  if (requestCloseRefusalKeyOf(apiErrorCode(failure)))
+                    void queryClient.invalidateQueries({ queryKey: CANCELLATION_REASONS_KEY })
+                })
+              }}
             />
             <ReturnDialog
               open={returnOpen}

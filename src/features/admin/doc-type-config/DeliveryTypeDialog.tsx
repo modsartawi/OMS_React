@@ -17,11 +17,13 @@ import { DOC_TYPE_CONFIG_ERRORS, documentTypesQuery } from './api'
 import { CHANGE_LOG_KEY } from './change-log-api'
 import CodeChoiceSelect from './CodeChoiceSelect'
 import {
+  CALLOUT_DISTANCE_MODES,
   DELIVERY_ALL_FIELDS,
   DELIVERY_CATEGORIES,
   DELIVERY_CODE_MAX,
   DELIVERY_FIELD_GROUPS,
   DELIVERY_FIELD_HINTS,
+  calloutDistanceMode,
   codeChoices,
   deliveryCopyDraft,
   deliveryCopyRequest,
@@ -310,6 +312,7 @@ function DeliveryFieldInput({
   )
   const text = String(value ?? '')
   let input
+  let hint: string | null | undefined = DELIVERY_FIELD_HINTS.includes(def.field) ? t(`deliveryTypes.fieldHints.${def.field}`) : null
   if (def.choice === 'category') {
     const options: string[] = (DELIVERY_CATEGORIES as readonly string[]).includes(text.trim())
       ? [...DELIVERY_CATEGORIES]
@@ -329,6 +332,31 @@ function DeliveryFieldInput({
         ))}
       </Select>
     )
+  } else if (def.choice === 'distanceMode') {
+    // A host before BackOffice 3471 sends no mode: shown disabled, so an edit is never silently dropped by it.
+    const onHost = value !== undefined && value !== null
+    // A blank (not yet migrated) shows as Off; an unknown held value is kept visible so opening never changes it.
+    const held = onHost ? calloutDistanceMode(text) : null
+    const options: string[] = held || !onHost ? [...CALLOUT_DISTANCE_MODES] : [...CALLOUT_DISTANCE_MODES, text.trim()]
+    input = (
+      <Select
+        value={held ?? text.trim()}
+        disabled={disabled || !onHost}
+        aria-invalid={refusal ? true : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-48"
+        data-distance-mode=""
+      >
+        {!onHost && <option value="" />}
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {/* A native option holds only a string: an unknown held code is isolated with fsi (bidi rule). */}
+            {(CALLOUT_DISTANCE_MODES as readonly string[]).includes(o) ? t(`deliveryTypes.distanceModes.${o}.label`) : fsi(o)}
+          </option>
+        ))}
+      </Select>
+    )
+    hint = !onHost ? t('deliveryTypes.distanceModeUnavailable') : held && t(`deliveryTypes.distanceModes.${held}.hint`)
   } else if (def.choice === 'documentType' && docTypeChoices) {
     input = <CodeChoiceSelect choices={docTypeChoices} value={text} disabled={disabled} invalid={!!refusal} onChange={onChange} />
   } else {
@@ -354,9 +382,9 @@ function DeliveryFieldInput({
         <span>{label}</span>
         {input}
       </label>
-      {DELIVERY_FIELD_HINTS.includes(def.field) && (
+      {hint && (
         <span className="block text-xs text-muted-foreground" data-edit-hint="">
-          {t(`deliveryTypes.fieldHints.${def.field}`)}
+          {hint}
         </span>
       )}
       {def.notRead && <NotRead />}

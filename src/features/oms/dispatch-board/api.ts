@@ -8,9 +8,9 @@
  * ⚠️ BackOffice 2959 / 2964 are merged on `pricing2` but not deployed: nothing here has met a real
  * door. `tools/dispatch-board-drive.mjs` stubs every call in the shapes of `DispatchBoardModels.cs`.
  */
-import { keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { DispatchBoard, DispatchBoardFilter } from '@/core/models/dispatch-board'
+import type { DispatchBoard, DispatchBoardFilter, RoadShadowQuery, RoadShadowReport } from '@/core/models/dispatch-board'
 import { boardDoorParams } from './board-view'
 
 export const dispatchBoardApi = {
@@ -18,6 +18,26 @@ export const dispatchBoardApi = {
   board(filter: DispatchBoardFilter): Promise<DispatchBoard> {
     return api.get<DispatchBoard>('DispatchBoard/Board', boardDoorParams(filter))
   },
+
+  /**
+   * `GET DispatchBoard/RoadShadow?from=&to=&type=` — Display (BackOffice 3470, ticket 859). Counts only. A blank type
+   * is dropped by `buildQuery` and the door reads an absent type as every type. A long or reversed range is refused
+   * with `CALLOUT-301` / `302`, in the server's own words.
+   */
+  roadShadow(query: Required<RoadShadowQuery>): Promise<RoadShadowReport> {
+    return api.get<RoadShadowReport>('DispatchBoard/RoadShadow', { ...query })
+  },
+}
+
+/** The Shadow report's query: a past range does not change under the reader, so no polling. */
+export function roadShadowQuery(query: Required<RoadShadowQuery> | null) {
+  return queryOptions({
+    queryKey: ['oms', 'dispatch-board', 'road-shadow', query] as const,
+    // `enabled` keeps a null query from ever reaching here; the guard says so rather than asserting it.
+    queryFn: () => (query ? dispatchBoardApi.roadShadow(query) : Promise.reject(new Error('road shadow read without a range'))),
+    enabled: query !== null,
+    retry: false,
+  })
 }
 
 export const BOARD_KEY = ['oms', 'dispatch-board', 'board'] as const

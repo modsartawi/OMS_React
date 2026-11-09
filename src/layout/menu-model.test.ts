@@ -436,3 +436,24 @@ describe('the Sourcing advisor leaf (ticket 738)', () => {
     expect(leaf.access?.visible(null)).toBe(false)
   })
 })
+
+describe('the Road distance (Shadow) leaf (ticket 859)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'dispatch-board:menu.roadShadow')!
+
+  it('sits in the OMS group after Serving lists, and the rail marks it (not the board) on its own page', () => {
+    expect(keys.indexOf('dispatch-board:menu.roadShadow')).toBe(keys.indexOf('serving-lists:menu.servingLists') + 1)
+    expect(leaf.routerLink).toBe('/oms/dispatch-board/road-shadow')
+    expect(markedLeaf(MENU, '/oms/dispatch-board/road-shadow')?.labelKey).toBe('dispatch-board:menu.roadShadow')
+    expect(markedLeaf(MENU, '/oms/dispatch-board')?.labelKey).toBe('dispatch-board:menu.dispatchBoard')
+  })
+
+  it('🚩 reads the board’s OWN probe and predicate (no new grant), failing closed', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'dispatch-board', 'access'])
+    expect(leaf.access?.visible({ canOpenDispatchBoard: true, canReleaseLock: false })).toBe(true)
+    expect(leaf.access?.visible({ canOpenDispatchBoard: false, canReleaseLock: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenDispatchBoard: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})

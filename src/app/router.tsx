@@ -317,6 +317,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-board/DispatchBoardPage')).default,
         }),
       },
+      // Road distance (Shadow) (ticket 859, BackOffice spec 3460 / door 3470) — what deciding by road would have
+      // changed, counts only, behind the board's own `canOpenDispatchBoard`. `?from=&to=&type=` in the URL.
+      {
+        path: 'oms/dispatch-board/road-shadow',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/dispatch-board/RoadShadowPage')).default,
+        }),
+      },
       // Serving lists (ticket 567, BackOffice spec 3042) — every list and the delivery types pointing at it,
       // behind `canViewServingLists` on `GET ServingListWeb/Access`. A row opens `/oms/serving-lists/:id` (568).
       {

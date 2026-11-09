@@ -44,7 +44,7 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
-import { ClipboardX, ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
+import { ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -281,6 +281,10 @@ const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean):
 const rulesProbe = (visible: (r: RulesAccess) => boolean): AccessProbe =>
   accessProbe({ key: RULES_ACCESS_KEY, run: () => rulesAccessApi.access(), visible })
 
+// The board's Display probe, ONE value for the board leaf and its Road distance (Shadow) leaf (ticket 859), so the two
+// leaves cannot read different grants.
+const DISPATCH_BOARD_PROBE = accessProbe({ key: DISPATCH_ACCESS_KEY, run: () => dispatchApi.access(), visible: canOpenDispatchBoard })
+
 export const MENU: ShellMenuItem[] = [
   {
     labelKey: 'deliveries:menu.oms',
@@ -439,11 +443,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Radar,
         routerLink: '/oms/dispatch-board',
         activePrefix: '/oms/dispatch-board',
-        access: accessProbe({
-          key: DISPATCH_ACCESS_KEY,
-          run: () => dispatchApi.access(),
-          visible: canOpenDispatchBoard,
-        }),
+        access: DISPATCH_BOARD_PROBE,
       },
       {
         // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
@@ -458,6 +458,16 @@ export const MENU: ShellMenuItem[] = [
           run: () => servingListAccessApi.access(),
           visible: canViewServingLists,
         }),
+      },
+      {
+        // Road distance (Shadow) (ticket 859, BackOffice spec 3460 / door 3470): the board's Shadow report, on the
+        // board's OWN key, call and predicate (no new grant), failing closed. Its longer prefix wins the rail on its
+        // own page (`markedLeaf`). After Serving lists, so Serving lists keeps its place beside the board.
+        labelKey: 'dispatch-board:menu.roadShadow',
+        icon: Waypoints,
+        routerLink: '/oms/dispatch-board/road-shadow',
+        activePrefix: '/oms/dispatch-board/road-shadow',
+        access: DISPATCH_BOARD_PROBE,
       },
       {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,

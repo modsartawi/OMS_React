@@ -124,6 +124,7 @@
       "title": "Bids",
       "store": "Store",
       "km": "km",
+      "roadKm": "road <n>{{km}}</n>",
       "atp": "ATP at offer",
       "tills": "Tills",
       "tillsHint": "Online / signed in when offered",

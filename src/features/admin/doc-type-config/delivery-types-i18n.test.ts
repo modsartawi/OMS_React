@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/doc-type-config.json'
 import ar from '@/locales/ar/doc-type-config.json'
 import { hasLocaleKey as has } from '@/core/test/locale'
-import { DELIVERY_ALL_FIELDS, DELIVERY_CATEGORIES, DELIVERY_FIELD_GROUPS, DELIVERY_FIELD_HINTS, type DeliveryCopyBlocker } from './delivery-type-form'
+import { CALLOUT_DISTANCE_MODES, DELIVERY_ALL_FIELDS, DELIVERY_CATEGORIES, DELIVERY_FIELD_GROUPS, DELIVERY_FIELD_HINTS, type DeliveryCopyBlocker } from './delivery-type-form'
 
 const BLOCKERS: Exclude<DeliveryCopyBlocker, 'reason'>[] = ['codeRequired', 'codeTooLong', 'codeExists', 'descriptionRequired']
 
@@ -21,6 +21,10 @@ describe('doc-type-config — the delivery type words', () => {
       'fields.courierCode',
       ...DELIVERY_FIELD_HINTS.map((f) => `deliveryTypes.fieldHints.${f}`),
       'deliveryTypes.warnings.expandedRadiusNoEffect',
+      // ticket 857: each callout distance mode's label and its helper line
+      ...CALLOUT_DISTANCE_MODES.flatMap((m) => [`deliveryTypes.distanceModes.${m}.label`, `deliveryTypes.distanceModes.${m}.hint`]),
+      // 857 review: a host before BackOffice 3471 sends no mode
+      'deliveryTypes.distanceModeUnavailable',
       ...DELIVERY_FIELD_GROUPS.map((g) => `deliveryTypes.groups.${g.group}`),
       ...DELIVERY_CATEGORIES.map((c) => `deliveryTypes.categories.${c}`),
       ...['documentType', 'description', 'documentCategory', 'isCompeted'].map((c) => `deliveryTypes.columns.${c}`),

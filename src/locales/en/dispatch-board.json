@@ -1,6 +1,7 @@
 {
   "menu": {
-    "dispatchBoard": "Dispatch board"
+    "dispatchBoard": "Dispatch board",
+    "roadShadow": "Road distance (Shadow)"
   },
   "title": "Dispatch board",
   "subtitle": "Competed deliveries on callout now, and those closed in the last hour.",
@@ -122,7 +123,8 @@
     "seen": "Seen",
     "answer": "Answer",
     "dark": "dark",
-    "register": "reg <r>{{reg}}</r>"
+    "register": "reg <r>{{reg}}</r>",
+    "roadKm": "road <n>{{km}}</n>"
   },
   "inspector": {
     "select": "Select a callout.",
@@ -147,7 +149,25 @@
     "changeStore": "Change store",
     "changeStoreHint": "opens the delivery's details, where it is moved.",
     "searchRadius": "Searched <n>{{km}}</n> km",
+    "radiusByRoad": "Searched <n>{{km}}</n> km by road",
+    "radiusShadow": "Searched <n>{{km}}</n> km · shadow",
+    "radiusFallback": "Searched <n>{{km}}</n> km · straight-line (fallback)",
+    "radiusFallbackReason": "Searched <n>{{km}}</n> km · straight-line (fallback: <r>{{reason}}</r>)",
+    "searchRadius_widened": "Searched <n>{{km}}</n> km · widened",
+    "radiusByRoad_widened": "Searched <n>{{km}}</n> km by road · widened",
+    "radiusShadow_widened": "Searched <n>{{km}}</n> km · shadow · widened",
+    "radiusFallback_widened": "Searched <n>{{km}}</n> km · straight-line (fallback) · widened",
+    "radiusFallbackReason_widened": "Searched <n>{{km}}</n> km · straight-line (fallback: <r>{{reason}}</r>) · widened",
     "noRadiusSearch": "No radius search"
+  },
+  "fallbackReason": {
+    "NOT_CONFIGURED": "not configured",
+    "ERROR": "error",
+    "TIMEOUT": "timeout",
+    "QUOTA": "quota spent",
+    "KEY": "key refused",
+    "HTTP_ERROR": "HTTP error",
+    "BAD_RESPONSE": "bad response"
   },
   "reasons": {
     "NoStock": "No stock",
@@ -178,5 +198,83 @@
     "failed": "The lock was not released",
     "failedHint": "Something went wrong. Try again.",
     "done": "Lock released on delivery {{delivery}}."
+  },
+  "roadShadow": {
+    "dash": "—",
+    "title": "Road distance (Shadow)",
+    "subtitle": "What deciding callouts by road would have changed, on the deliveries measured in Shadow. Counts only.",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "type": "Delivery type",
+      "allTypes": "All types",
+      "reset": "Last {{days}} days, {{type}}"
+    },
+    "incomplete": "Pick both days of the range.",
+    "loading": "Reading the Shadow report…",
+    "failedTitle": "The Shadow report could not be read",
+    "failed": "Something went wrong. Try again.",
+    "asOf": "As of <at>{{at}}</at>",
+    "covers": "Covers <r>{{range}}</r>",
+    "tiles": {
+      "label": "What road would have changed",
+      "measured": "Measured",
+      "removed": "Would remove a store",
+      "widened": "Would widen",
+      "competed": "Competed would differ",
+      "share": "<v>{{share}}</v> of measured"
+    },
+    "fallbacks": {
+      "title": "Fell back to straight line",
+      "reason": "Reason",
+      "count": "Deliveries",
+      "total": "Total",
+      "totalShare": "<v>{{share}}</v> of the deliveries in this range",
+      "none": "No fallbacks in this range.",
+      "high": "Fallbacks are high: check the key and the quota before switching on",
+      "unknownHint": "Not a known reason.",
+      "blank": "(no reason)"
+    },
+    "reasons": {
+      "TIMEOUT": {
+        "label": "Google timed out",
+        "hint": "If it persists, raise GoogleRoutes:TimeoutSeconds to 4 or 5. Each second is added to every delivery create."
+      },
+      "QUOTA": {
+        "label": "Daily quota reached",
+        "hint": "Raise the cap, after checking the billing alert and that the volume is real."
+      },
+      "KEY": {
+        "label": "The key was refused",
+        "hint": "Fix the key or its IP list. IT confirms SIS.Api's outbound IP."
+      },
+      "HTTP_ERROR": {
+        "label": "Google answered with an error",
+        "hint": "Check Google's status page and SIS.Api's HTTP log for service GoogleRoutes."
+      },
+      "BAD_RESPONSE": {
+        "label": "Google's answer could not be read",
+        "hint": "Check Google's status page and SIS.Api's HTTP log for service GoogleRoutes."
+      },
+      "ERROR": {
+        "label": "Unexpected error",
+        "hint": "Check Google's status page and SIS.Api's HTTP log for service GoogleRoutes."
+      },
+      "NOT_CONFIGURED": {
+        "label": "No key on this host",
+        "hint": "Place the key in this host's config and recycle SIS.Api."
+      }
+    },
+    "median": {
+      "title": "Median road / straight",
+      "bids_one": "over <v>{{n}}</v> measured bid",
+      "bids_other": "over <v>{{n}}</v> measured bids",
+      "none": "Not enough measured bids",
+      "hint": "About <v>{{normal}}</v> is normal in a city; much higher means long detours"
+    },
+    "empty": {
+      "title": "No Shadow callouts in this range. Is the type set to Shadow?",
+      "link": "Open the delivery-type form"
+    }
   }
 }

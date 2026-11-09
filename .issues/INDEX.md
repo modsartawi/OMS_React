@@ -1310,3 +1310,9 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Menu Access probes (BackOffice 3459), filed 2026-11-07
 
 - [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
+
+## QC callout radius by road (BackOffice spec 3460, filed 2026-11-08)
+
+- [857](857-the-delivery-type-form-edits-the-callout-distance-mode.md) — The delivery-type form edits the callout distance mode · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3471
+- [858](858-the-dispatch-board-says-whether-a-callout-was-measured-by-road.md) — The dispatch board says whether a callout was measured by road · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3472
+- [859](859-the-road-shadow-report-page-shows-what-deciding-by-road-would-have-changed.md) — The road Shadow report page shows what deciding by road would have changed · *(ticket · BackOffice spec 3460)* · **open** (built, stubbed: unit 25/25 + drive 67/67; live read with the owner owed; ruling owed on the fallback-share base) · blocked by: —

@@ -53,6 +53,7 @@ import { readCatalog } from './catalog-wire'
 import { readPreview } from './catalog-preview'
 import { readRaw } from './catalog-raw'
 import { renderTicket, ticketHeaders } from './render-ticket'
+import type { QueryKeyInput } from './effective-query'
 import {
   readBoard,
   readFiling,
@@ -97,7 +98,7 @@ export const analyticsSchedulesKey = (reportId: string) => ['analytics', 'schedu
 export const analyticsRunsKey = (reportId: string) => ['analytics', 'runs', reportId] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
-export const analyticsQueryKey = (input: AnalyticsQueryInput) => ['analytics', 'query', input] as const
+export const analyticsQueryKey = (input: QueryKeyInput) => ['analytics', 'query', input] as const
 /**
  * 840 (BackOffice 3443): `GET Analytics/Home` — recent, pinned, newest certified. It is also the ONLY source of "is
  * this item pinned?" (items carry no flag), so every pin toggle reads this one entry and patches it.

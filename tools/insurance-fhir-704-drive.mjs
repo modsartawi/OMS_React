@@ -16,6 +16,7 @@
 import { createRequire } from 'node:module'
 import { envelope, INSURER_SETTINGS } from './insurance-rules-stubs.mjs'
 import { BUPA, TAKAFUL_WRONG, UCUM, aliasesStub, newAliasStore } from './fhir-rules-stubs-704.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -49,6 +50,7 @@ async function open(dir, store, user, { deny = [] } = {}) {
     const body = req.postData() ? JSON.parse(req.postData()) : undefined
     const hit = aliasesStub(req.method(), p, body, { store, user, deny })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

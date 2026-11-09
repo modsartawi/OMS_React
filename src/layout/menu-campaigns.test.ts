@@ -1,9 +1,8 @@
 /**
  * The Campaigns nav group (ticket 501, BackOffice spec 2737).
  *
- * Read out of the **real** `MENU`, never re-declared. The group is UNGATED by ruling in this wave —
- * no Ua permission exists until BackOffice 2759 — so a leaf that grew a probe before ticket 520
- * fails here, as does one that drifted out of the group's place after Pricing.
+ * Read out of the **real** `MENU`, never re-declared. Since oms 852 every leaf is gated on `Rules/Access`
+ * (`menu-access-852.test.ts` proves the gating); a leaf that drifts out of the group's place after Pricing fails here.
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
@@ -35,11 +34,10 @@ describe('the Campaigns nav group', () => {
     })
   })
 
-  it('🚩 no leaf carries a probe until ticket 520 — the group shows for every user', () => {
-    for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
+  it('852: every leaf carries a probe, and an unanswered probe hides the whole group', () => {
+    for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeDefined()
     expect(campaigns!.access).toBeUndefined()
-    expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(8)
+    expect(resolveMenu([campaigns!], []).items).toHaveLength(0)
   })
 
   it('a campaign’s workspace lights the Promotions leaf and puts its id in the crumb', () => {

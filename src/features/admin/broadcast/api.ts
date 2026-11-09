@@ -1,4 +1,4 @@
-import { api, ApiError } from '@/core/api'
+import { api } from '@/core/api'
 import type {
   CreateNotificationRequest,
   CreateNotificationResult,
@@ -12,19 +12,26 @@ import type {
 
 /**
  * The compose access probe's normalized result (038). `allowed` = the server says
- * the caller holds NotificationBroadcast[01]. `probed` = the endpoint answered
- * (false ⇒ it's absent/404 ⇒ unknown ⇒ degrade to server authority: show the
- * screen and let Create refuse with NC_FORBIDDEN if the grant is missing).
+ * the caller holds NotificationBroadcast[01].
  */
 export interface BroadcastAccessResult {
   allowed: boolean
-  probed: boolean
 }
 
-/** Raw wire shape of GET Notifications/Access (provisional — backend TBD; mirrors
- *  the Sessions/Access / Pricing/Access `{ canOpen }` probe pattern). */
+/** Raw wire shape of GET Notifications/Access. */
 interface BroadcastAccessWire {
   canBroadcast: boolean
+}
+
+/** The ONE key the menu leaf and the page share, and the options both pass (oms 852): a refusal is an answer. */
+export const BROADCAST_ACCESS_KEY = ['broadcast', 'access'] as const
+export function broadcastAccessQuery() {
+  return {
+    queryKey: BROADCAST_ACCESS_KEY,
+    queryFn: () => broadcastApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
 }
 
 export const broadcastApi = {
@@ -34,17 +41,13 @@ export const broadcastApi = {
 
   // Screen-open grant probe. Drives BOTH the shell's permission-aware nav hiding
   // AND the page's own route-guard (shared ['broadcast','access'] cache key → one
-  // call). ⚠️ GET Notifications/Access does NOT exist in SIS.Api yet — a 404 is
-  // caught and mapped to "unknown → allowed" so the feature degrades gracefully
-  // (nav shown, server stays authoritative) until the endpoint ships.
+  // call). 🚩 FAILS CLOSED (oms 852): the route is mapped only while the
+  // notification center is on, so a 404 means nothing about the grant — it now
+  // rejects like any other failure and the nav hides the leaf, instead of the old
+  // "unknown → allowed". BackOffice 3459 makes it always answer.
   access(): Promise<BroadcastAccessResult> {
     return api
       .get<BroadcastAccessWire>('Notifications/Access')
-      .then((r) => ({ allowed: r.canBroadcast === true, probed: true }))
-      .catch((err) => {
-        if (err instanceof ApiError && err.statusCode === 404)
-          return { allowed: true, probed: false }
-        throw err
-      })
+      .then((r) => ({ allowed: r?.canBroadcast === true }))
   },
 }

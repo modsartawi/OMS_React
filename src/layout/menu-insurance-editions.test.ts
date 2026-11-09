@@ -4,11 +4,12 @@ import { MENU, markedLeaf } from './menu-model'
 import { deriveCrumb } from './crumb'
 
 describe('the Editions leaf', () => {
-  it('sits in the Insurance rules group at /insurance-rules/editions, ungated until 618', () => {
+  it('sits in the Insurance rules group at /insurance-rules/editions, on its own flag (852)', () => {
     const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')
     const leaf = group?.items?.find((i) => i.labelKey === 'insurance-rules:menu.editions')
     expect(leaf).toMatchObject({ routerLink: '/insurance-rules/editions' })
-    expect(leaf?.access).toBeUndefined()
+    expect(leaf?.access?.visible({ canEditions: true })).toBe(true)
+    expect(leaf?.access?.visible({ canGuards: true })).toBe(false)
   })
 
   it('an edition page lights Editions and puts the edition id in the crumb', () => {

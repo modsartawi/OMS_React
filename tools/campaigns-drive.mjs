@@ -61,7 +61,7 @@
 // day and the UTC day can be made to disagree.
 //
 // ── 501 ── it asserts:
-//   1. the Campaigns group is in the rail with its Campaigns leaf, ungated, and opens /campaigns;
+//   1. the Campaigns group is in the rail with its Campaigns leaf, gated on Rules/Access (852), and opens /campaigns;
 //   2. a tile per state with its count at the local now (all 16 · draft 1 · waiting 1 · scheduled 1
 //      · running 11 · expired 1 · disabled 1), every row in the grid, both names shown;
 //   3. a tile filters the grid and is pressed, lands in the URL, and All clears it;
@@ -80,6 +80,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, promotionCampaignsOf, promotionDraftsOf, promotionListOf, promotionPageOf, promotionSummaryOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -382,6 +383,7 @@ async function open({ locale = 'en', refuseDelete = 0, refuseBatches = false, de
       const out = deleteUnusedCodes(batches, body.batchId)
       return answer(out, out.result)
     }
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
@@ -439,7 +441,7 @@ const cell = (page, id, col) => page.locator(`${grid} .ag-row[row-id="${id}"] .a
   await page.waitForURL(`${BASE}/campaigns`)
   await page.locator('[data-promotions-grid] [data-no-promotion]').waitFor({ timeout: 15000 })
   check('1: the leaf opens /campaigns', page.url() === `${BASE}/campaigns`)
-  check('1: ungated — no probe call was made for the group', !calls.some((c) => /RuleCampaign\/Access/.test(c)))
+  check('1: gated (852) — the leaf rode GET Rules/Access', calls.some((c) => c === 'GET Rules/Access'), calls.filter((c) => /Access/.test(c)).join(' | '))
 
   await toNoPromotion(page)
   await waitRows(page, ROWS.length)

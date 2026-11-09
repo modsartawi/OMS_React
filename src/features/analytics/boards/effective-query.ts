@@ -1,5 +1,6 @@
 import type {
   AnalyticsBoardPanel,
+  AnalyticsDraftDefinition,
   AnalyticsFilter,
   AnalyticsModel,
   AnalyticsQueryInput,
@@ -69,11 +70,12 @@ export interface BoardContext {
    */
   item?: { id: string; revision: number } | null
   /**
-   * 828: a report's draft in the designer — not saved yet, or edited since its revision: every panel asks with
-   * its inline definition and the draft's parameters and bindings (`{ definition, params, bindings, panelId,
-   * values }`), never by item, which would run the saved revision instead.
+   * 828/853: the WHOLE working definition of a board or report not saved yet, or edited since its revision. Every
+   * panel asks `{ draft, panelId, values }` (BackOffice 3419): the server runs that panel of the draft as it would the
+   * saved item's, so its parameters and bindings apply. Never by item, which would run the saved revision instead.
+   * A drilled panel is not on the draft: it keeps the inline `{ definition, params, bindings }` form.
    */
-  inline?: boolean
+  draft?: AnalyticsDraftDefinition | null
 }
 
 /** The period as the wire carries it: the relative token, or a fixed range `from..to` (⚠). */
@@ -99,14 +101,18 @@ export function drilledDefinition(view: AnalyticsViewDefinition, steps: readonly
   }
 }
 
-/** A v1 board's context (no `item`) gives v1's resolved form; one with an `item` asks by item (823), a draft (`inline`, 828) inline. */
-export function effectiveQuery(source: PanelSource, context: BoardContext & { item?: null; inline?: false }, drill?: readonly DrillStep[]): AnalyticsViewQuery
+/** A v1 board's context (no `item`) gives v1's resolved form; one with an `item` asks by item (823), a `draft` (853) by draft. */
+export function effectiveQuery(source: PanelSource, context: BoardContext & { item?: null; draft?: null }, drill?: readonly DrillStep[]): AnalyticsViewQuery
 export function effectiveQuery(source: PanelSource, context: BoardContext, drill?: readonly DrillStep[]): AnalyticsQueryInput
 export function effectiveQuery(
   { panel, view, revision, model }: PanelSource,
-  { params, bindings, values, crossFilter, item, inline }: BoardContext,
+  context: BoardContext,
   drill: readonly DrillStep[] = [],
 ): AnalyticsQueryInput {
+  const { values, crossFilter, item, draft } = context
+  // 853: a draft's own parameters and bindings are the ones the server applies; the values follow them.
+  const params = draft ? (draft.params ?? []) : context.params
+  const bindings = draft ? (draft.bindings ?? {}) : context.bindings
   const measures = view.query.measures.map((k) => measureOf(model, k))
   const breaksBy = (dimension: string) => measures.some((m) => m?.dimensions.includes(dimension))
   const crossed =
@@ -114,14 +120,11 @@ export function effectiveQuery(
       ? { crossFilter: { dimension: crossFilter.dimension, values: [crossFilter.member] } }
       : {}
 
-  if (item || inline) {
-    return {
-      ...(drill.length || inline || !item ? { definition: drilledDefinition(view, drill), params: [...params], bindings } : { itemId: item.id, revision: item.revision }),
-      panelId: panel.id,
-      values: boundValues(params, bindings, values, panel.id),
-      ...crossed,
-      ...comparing(view),
-    }
+  if (item || draft) {
+    const panelAsk = { panelId: panel.id, values: boundValues(params, bindings, values, panel.id), ...crossed, ...comparing(view) }
+    if (draft && !drill.length) return { draft, ...panelAsk }
+    if (drill.length || !item) return { definition: drilledDefinition(view, drill), params: [...params], bindings, ...panelAsk }
+    return { itemId: item.id, revision: item.revision, ...panelAsk }
   }
 
   let period: string | null = null
@@ -182,8 +185,31 @@ export function panelPeriod(panel: ViewPanel, view: AnalyticsViewDefinition, { p
 export const comparing = (view: AnalyticsViewDefinition): { compareToPrevious?: true } =>
   view.query.compareToPrevious ? { compareToPrevious: true } : {}
 
+/**
+ * The query-cache input of an effective query (853): itself, except that a `draft` is replaced by what of it this one
+ * panel runs — its view's definition, and the parameters bound to it with their bindings here. So editing a block
+ * re-runs its panel, and editing an unrelated block (a text, another panel, a parameter bound elsewhere) re-runs none.
+ */
+export function queryKeyOf(input: AnalyticsQueryInput, view: AnalyticsViewDefinition): QueryKeyInput {
+  if (!('draft' in input)) return input
+  const { draft, ...panelAsk } = input
+  const bindingHere = (name: string) => draft.bindings?.[name]?.[input.panelId]
+  const params = (draft.params ?? []).filter((p) => bindingHere(p.name))
+  const bindings: Bindings = Object.fromEntries(params.map((p) => [p.name, { [input.panelId]: bindingHere(p.name)! }]))
+  return { ...panelAsk, draftPanel: { definition: view, params, bindings } }
+}
+
+/**
+ * A draft panel's cache key (853): its own share of the draft under `draftPanel`, a shape no wire body has, so it never
+ * shares an entry with the inline `{ definition, params, bindings }` form a drilled panel sends.
+ */
+export type DraftPanelKey = Omit<Extract<AnalyticsQueryInput, { draft: unknown }>, 'draft'> & {
+  draftPanel: { definition: AnalyticsViewDefinition; params: Param[]; bindings: Bindings }
+}
+export type QueryKeyInput = AnalyticsQueryInput | DraftPanelKey
+
 /** The canonical key of an effective query: equal inputs give equal strings (keys written in one order). */
-export function panelKey(input: AnalyticsQueryInput): string {
+export function panelKey(input: QueryKeyInput): string {
   return JSON.stringify(input, (_k, v: unknown) =>
     v && typeof v === 'object' && !Array.isArray(v)
       ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))

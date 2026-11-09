@@ -31,6 +31,12 @@ export interface DeliveryTypeSettings {
    * 0 = off; at or below `calloutRadiusKm` the server stores it and ignores it; negative is refused (`SDC-00053`).
    */
   calloutExpandedRadiusKm: number
+  /**
+   * How the callout radius is measured (spec 3460, ticket 3471): `OFF` straight line, `SHADOW` measure by road but
+   * decide by straight line, `ON` decide by road. '' on a type not yet migrated — read as `OFF`. Anything else is
+   * refused (`SDC-00053`).
+   */
+  calloutDistanceMode: string
   calloutStockCheck: boolean
   calloutLocksDelivery: boolean
   calloutLifetimeMinutes: number

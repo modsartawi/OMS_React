@@ -1314,3 +1314,13 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [849](849-the-hybris-stock-push-log-opens-a-pushs-lines-and-a-materials-history.md) — The Hybris stock push log opens a push's lines and a material's history · *(ticket · BackOffice spec 3447)* · **done 2026-11-07** (stubbed) · blocked by: 847, BackOffice 3455 · "Delivered to hot folder", swept after 15 days, material history from a line or a store · drive 56/56
 - [850](850-push-now-from-the-hybris-stock-stores-page.md) — Push now from the Hybris stock stores page · *(ticket · BackOffice spec 3447)* · **done 2026-11-07** (stubbed) · blocked by: 847, BackOffice 3456 · store full + chosen materials; 409 busy a status, not an error; one push per double click
 - [851](851-the-hybris-stock-screens-call-the-real-doors-on-staging.md) — The Hybris stock screens call the real doors on staging · *(ticket · BackOffice spec 3447)* · **open** · blocked by: BackOffice 3453, 3454, 3455, 3456 (unbuilt) · reconcile the guessed contract first (see 851 Comments)
+
+## Menu Access probes (BackOffice 3459), filed 2026-11-07
+
+- [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
+
+## QC callout radius by road (BackOffice spec 3460, filed 2026-11-08)
+
+- [857](857-the-delivery-type-form-edits-the-callout-distance-mode.md) — The delivery-type form edits the callout distance mode · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3471
+- [858](858-the-dispatch-board-says-whether-a-callout-was-measured-by-road.md) — The dispatch board says whether a callout was measured by road · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3472
+- [859](859-the-road-shadow-report-page-shows-what-deciding-by-road-would-have-changed.md) — The road Shadow report page shows what deciding by road would have changed · *(ticket · BackOffice spec 3460)* · **open** (built, stubbed: unit 25/25 + drive 67/67; live read with the owner owed; ruling owed on the fallback-share base) · blocked by: —

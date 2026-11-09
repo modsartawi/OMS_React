@@ -3,7 +3,7 @@ import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, Chart
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
-import { broadcastApi } from '@/features/admin/broadcast/api'
+import { BROADCAST_ACCESS_KEY, broadcastApi } from '@/features/admin/broadcast/api'
 import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/console/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
@@ -44,10 +44,20 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
-import { ClipboardX, ListTree, Route, ShieldAlert, Trophy } from 'lucide-react'
+import { ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
+// The rule engine's probe lives in `@/core/` (oms 852, BackOffice 3459): the Campaigns group and the engine switch
+// both read it. ONE key; each leaf reads its own family's flag.
+import { RULES_ACCESS_KEY, canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine, rulesAccessApi } from '@/core/rules/access'
+import type { RulesAccess } from '@/core/models/rule-campaign'
+// HQ prescription sessions' probe stays with its feature (oms 852): the leaf and the page are its only readers.
+import {
+  PRESCRIPTION_SESSION_ACCESS_KEY,
+  canViewPrescriptionSessions,
+  prescriptionSessionAccessApi,
+} from '@/features/oms/prescription-sessions/access'
 // Analytics (spec 766, ticket 767): declared in `./menu-analytics`, where 770–780 add their leaves.
 import { ANALYTICS_MENU } from './menu-analytics'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
@@ -275,6 +285,18 @@ const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean):
 const hybrisStockProbe = (visible: (r: HybrisStockAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: HYBRIS_STOCK_ACCESS_KEY, run: () => hybrisStockApi.access(), visible })
 
+/**
+ * The rule engine's leaves — the eight Campaigns leaves and the store engine switch — share ONE probe on ONE key
+ * (oms 852, BackOffice 3459), the Collections shape: each leaf passes its family's predicate, so a support-only
+ * session gets a three-leaf Campaigns group and no engine switch. 🚩 FAILS CLOSED — see `@/core/rules/access`.
+ */
+const rulesProbe = (visible: (r: RulesAccess) => boolean): AccessProbe =>
+  accessProbe({ key: RULES_ACCESS_KEY, run: () => rulesAccessApi.access(), visible })
+
+// The board's Display probe, ONE value for the board leaf and its Road distance (Shadow) leaf (ticket 859), so the two
+// leaves cannot read different grants.
+const DISPATCH_BOARD_PROBE = accessProbe({ key: DISPATCH_ACCESS_KEY, run: () => dispatchApi.access(), visible: canOpenDispatchBoard })
+
 export const MENU: ShellMenuItem[] = [
   {
     labelKey: 'deliveries:menu.oms',
@@ -411,13 +433,18 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // HQ prescription sessions (tickets 545-548, BackOffice spec 2994). NO access probe: BackOffice
-        // 3015 built none, so the leaf shows to everyone and the page names the bare 403 of
-        // `BackOfficeScreen[PrescriptionSessionHq, 03]` (the campaign upload leaves' pattern).
+        // HQ prescription sessions (tickets 545-548, BackOffice spec 2994) — `BackOfficeScreen[PrescriptionSessionHq]`
+        // read off `GET PrescriptionSessionWeb/Access` (oms 852, BackOffice 3459). 🚩 FAILS CLOSED. The page
+        // still names its doors' bare 403 itself for a deep link.
         labelKey: 'prescription-sessions:menu.prescriptionSessions',
         icon: Pill,
         routerLink: '/oms/prescription-sessions',
         activePrefix: '/oms/prescription-sessions',
+        access: accessProbe({
+          key: PRESCRIPTION_SESSION_ACCESS_KEY,
+          run: () => prescriptionSessionAccessApi.access(),
+          visible: canViewPrescriptionSessions,
+        }),
       },
       {
         // The Dispatch board (ticket 541, BackOffice spec 2952) — `BackOfficeScreen[DispatchBoard, Display]`
@@ -428,11 +455,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Radar,
         routerLink: '/oms/dispatch-board',
         activePrefix: '/oms/dispatch-board',
-        access: accessProbe({
-          key: DISPATCH_ACCESS_KEY,
-          run: () => dispatchApi.access(),
-          visible: canOpenDispatchBoard,
-        }),
+        access: DISPATCH_BOARD_PROBE,
       },
       {
         // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
@@ -447,6 +470,16 @@ export const MENU: ShellMenuItem[] = [
           run: () => servingListAccessApi.access(),
           visible: canViewServingLists,
         }),
+      },
+      {
+        // Road distance (Shadow) (ticket 859, BackOffice spec 3460 / door 3470): the board's Shadow report, on the
+        // board's OWN key, call and predicate (no new grant), failing closed. Its longer prefix wins the rail on its
+        // own page (`markedLeaf`). After Serving lists, so Serving lists keeps its place beside the board.
+        labelKey: 'dispatch-board:menu.roadShadow',
+        icon: Waypoints,
+        routerLink: '/oms/dispatch-board/road-shadow',
+        activePrefix: '/oms/dispatch-board/road-shadow',
+        access: DISPATCH_BOARD_PROBE,
       },
       {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
@@ -578,19 +611,18 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // Send Broadcast (spec 031). Soft-gated on the NotificationBroadcast grant
-        // (038) via the SAME ['broadcast','access'] probe the page's own guard uses
-        // → one shared call. ⚠️ GET Notifications/Access doesn't exist server-side
-        // yet: the probe maps a 404 to allowed=true (unknown → shown) so the nav
-        // degrades gracefully; the server Create stays authoritative (NC_FORBIDDEN).
+        // Send Broadcast (spec 031). Gated on the NotificationBroadcast grant (038) via the SAME
+        // ['broadcast','access'] probe the page's own guard uses → one shared call. 🚩 FAILS CLOSED
+        // since oms 852: a 404 (notification center off) hides the leaf; BackOffice 3459 makes the
+        // probe answer `{ canBroadcast: false }` there instead.
         labelKey: 'broadcast:menu.sendBroadcast',
         icon: Send,
         routerLink: '/admin/broadcast',
         activePrefix: '/admin/broadcast',
         access: accessProbe({
-          key: ['broadcast', 'access'],
+          key: BROADCAST_ACCESS_KEY,
           run: () => broadcastApi.access(),
-          visible: (r) => r.allowed === true,
+          visible: (r) => r?.allowed === true,
         }),
       },
       {
@@ -726,14 +758,13 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group.
-        // 🚩 UNGATED by ruling: BackOffice 2745 has not seeded its Ua permission, so the leaf shows
-        // to everyone and the doors fail closed on the server (the page shows the refusal). Ticket
-        // 520 adds the probe.
+        // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group, on
+        // `canSwitchEngine` off the rule engine's ONE probe (oms 852). 🚩 FAILS CLOSED.
         labelKey: 'engine-switch:menu.engineSwitch',
         icon: Repeat,
         routerLink: '/admin/engine-switch',
         activePrefix: '/admin/engine-switch',
+        access: rulesProbe(canSwitchEngine),
       },
     ],
   },
@@ -1158,9 +1189,9 @@ export const MENU: ShellMenuItem[] = [
     // Coupon finder and Customers (519), Campaign upload (530) and Campaign uploads (532) each append their leaf with the
     // page it opens.
     //
-    // 🚩 UNGATED by ruling: no Ua permission exists until BackOffice 2759 seeds the author and
-    // approver roles, so the group is visible to every user and the doors fail closed on the server.
-    // Ticket 520 adds the probe.
+    // Every leaf rides the rule engine's ONE probe (`GET Rules/Access`, oms 852, BackOffice 3459) on its family's
+    // flag: the authoring screens on author OR approver, Campaign upload on author alone, support's three on
+    // support. The group drops when no leaf is visible. 🚩 FAILS CLOSED; each page still names its doors' bare 403.
     labelKey: 'campaigns:menu.group',
     icon: Megaphone,
     items: [
@@ -1171,6 +1202,7 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.promotions',
         icon: Megaphone,
         routerLink: '/campaigns',
+        access: rulesProbe(canReadAuthoring),
       },
       {
         // The evaluation order (ticket 513): more specific than the list's `/campaigns`, so it
@@ -1178,12 +1210,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.priority',
         icon: ListOrdered,
         routerLink: '/campaigns/priority',
+        access: rulesProbe(canReadAuthoring),
       },
       {
         // The rule engine's dry run (ticket 514); not Pricing's bonus-buy Simulation.
         labelKey: 'campaigns:menu.simulator',
         icon: FlaskConical,
         routerLink: '/campaigns/simulator',
+        access: rulesProbe(canReadAuthoring),
       },
       {
         // Support's view of the customer sessions (ticket 518); a session
@@ -1191,12 +1225,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.sessions',
         icon: Receipt,
         routerLink: '/campaigns/sessions',
+        access: rulesProbe(canSupportRules),
       },
       {
         // Support finds a coupon code across every campaign (ticket 519).
         labelKey: 'campaigns:menu.couponFinder',
         icon: Ticket,
         routerLink: '/campaigns/coupon-finder',
+        access: rulesProbe(canSupportRules),
       },
       {
         // Support reads a member's wallet, balance and budgets used (ticket 519) — the rule
@@ -1204,21 +1240,22 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.customers',
         icon: UserSearch,
         routerLink: '/campaigns/customers',
+        access: rulesProbe(canSupportRules),
       },
       {
-        // One workbook for one promotion, read all or none (ticket 530). No access probe exists: the
-        // doors answer a bare 403, which the page names.
+        // One workbook for one promotion, read all or none (ticket 530) — the author's act, so author alone.
         labelKey: 'campaigns:menu.upload',
         icon: FileSpreadsheet,
         routerLink: '/campaigns/upload',
+        access: rulesProbe(canAuthorRules),
       },
       {
         // The approver's list of every promotion's upload (ticket 532); an opened upload
-        // (`/campaigns/uploads/:promotionCode`) lights it too. No probe: readers see it, the doors
-        // answer a session without the grant a bare 403, which the page names.
+        // (`/campaigns/uploads/:promotionCode`) lights it too. Every authoring reader sees it.
         labelKey: 'campaigns:menu.uploads',
         icon: ClipboardCheck,
         routerLink: '/campaigns/uploads',
+        access: rulesProbe(canReadAuthoring),
       },
     ],
   },

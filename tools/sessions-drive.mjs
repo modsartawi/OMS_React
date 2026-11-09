@@ -12,7 +12,7 @@
 // Never a live SIS.Api.
 //
 // It asserts:
-//   1. the Campaigns group has a Sessions leaf, ungated, that opens /campaigns/sessions and lights itself;
+//   1. the Campaigns group has a Sessions leaf, gated on Rules/Access (852), that opens /campaigns/sessions and lights itself;
 //   2. nothing is listed (or asked) until a store is chosen;
 //   3. a store lists its sessions of the LOCAL day (today by default) — `from` alone, `take=500` — the filter kept
 //      in the address; a row reads its state, coupon and local moments, a stamp never reached reads blank;
@@ -38,6 +38,7 @@
 //   2. node tools/sessions-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { lookup } from './campaigns-fixtures.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -234,6 +235,7 @@ async function open({ cancel = ['ok'], list = 'ok', stores = 'ok' } = {}) {
       if (step === 'drop') return route.abort('connectionreset')
       return route.fulfill(ok(answer))
     }
+    { const g = granted852(p); if (g) return route.fulfill(ok(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p)) return route.fulfill(ok({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(ok([]))
   })
@@ -266,7 +268,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
   await page.locator('[data-sessions]').waitFor({ timeout: 15000 })
   check('1: it opens /campaigns/sessions and lights itself, not Campaigns',
     (await leaf.getAttribute('aria-current')) === 'page' && (await page.locator('a[href="/campaigns"]').first().getAttribute('aria-current')) !== 'page')
-  check('1: ungated — no probe call for the leaf', !calls.some((c) => /RuleCampaign\/Access|Rules\/[A-Za-z]+\/Access/.test(c)), calls.filter((c) => /Access/.test(c)).join(' | '))
+  check('1: gated (852) — the leaf rode GET Rules/Access', calls.some((c) => c === 'GET Rules/Access'), calls.filter((c) => /Access/.test(c)).join(' | '))
 
   // ── 2 ──
   check('2: nothing is listed until a store is chosen', (await page.locator('[data-sessions-needs-store]').isVisible()) && listCalls(calls).length === 0)

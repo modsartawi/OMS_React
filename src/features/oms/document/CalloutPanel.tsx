@@ -181,7 +181,7 @@ function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryC
               </thead>
               <tbody>
                 {c.bids.map((b) => (
-                  <LedgerRow key={b.bidId} view={bidRow(b)} />
+                  <LedgerRow key={b.bidId} view={bidRow(b, c.distanceMeasure)} />
                 ))}
               </tbody>
             </table>
@@ -277,6 +277,12 @@ function LedgerRow({ view }: { view: BidRowView }) {
       </td>
       <td className={`${TD} text-end font-mono`}>
         <Ltr>{view.km.toFixed(1)}</Ltr>
+        {/* A shadow callout's road km beside the straight line it decided by (858, as the board's inspector). */}
+        {view.roadKm != null && (
+          <span className="block font-sans text-[10px] text-muted-foreground" data-road-km={view.roadKm}>
+            <Trans t={t} i18nKey="callout.ledger.roadKm" values={{ km: view.roadKm.toFixed(1) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
       </td>
       <td className={TD} data-atp={view.atp.kind}>
         {view.atp.kind === 'covers' ? (

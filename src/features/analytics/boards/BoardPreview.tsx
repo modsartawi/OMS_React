@@ -20,8 +20,8 @@ import TierBadge from './TierBadge'
 /**
  * The board editor's Preview (ticket 837 item 1, modelled on the report designer's DraftPreview, story 95): the
  * board exactly as a viewer sees it — its real panels, charts, filter strip and cross-filter — built from the
- * editor's UNSAVED working copy. Every panel asks `inline` (its view's definition plus the draft's parameters and
- * bindings), never by item, which would run the saved revision instead. The filter values and the cross-filter
+ * editor's UNSAVED working copy. Every panel asks by `draft` (853: the whole working definition, so the server applies
+ * its parameters and bindings), never by item, which would run the saved revision instead. The filter values and the cross-filter
  * are the preview's own (not the editor's URL) and start from the draft's defaults; the editor stays mounted
  * behind it, so "Back to design" returns to it as it was.
  */
@@ -52,7 +52,7 @@ export default function BoardPreview({
   const [stream, report] = useReducer(streamReducer, { fetching: new Set<string>(), wave: NO_WAVE })
   const onFetching = useCallback((id: string, on: boolean) => report([id, on]), [])
 
-  const context: BoardContext = useMemo(() => ({ params, bindings, values, crossFilter, item: null, inline: true }), [params, bindings, values, crossFilter])
+  const context: BoardContext = useMemo(() => ({ params, bindings, values, crossFilter, item: null, draft: definition }), [params, bindings, values, crossFilter, definition])
   const panels = useMemo(() => inLogicalOrder(definition.panels), [definition.panels])
   const viewPanels = panels.filter((p): p is ViewPanel => p.kind === 'view')
   // The same cache entries the editor already filled: the preview asks nothing the editor has not.

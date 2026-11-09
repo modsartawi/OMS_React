@@ -71,6 +71,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/campaign-uploads-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -224,6 +225,7 @@ async function open(dir, { template = 'named', read = 'accepted', convert = 'nam
       if (read === 'bad') return route.fulfill(envelope(null, { status: 400, success: false, message: BAD_UPLOAD, errorCode: 'RULES_BAD_UPLOAD' }))
       return route.fulfill(envelope(read === 'refused' ? REFUSED : ACCEPTED))
     }
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
@@ -624,6 +626,7 @@ async function open532(dir, path, { list = 'ok', load = 'ok', activate = 'ok', s
       review = { reviewedBy: ME, reviewedAt: '2026-10-19T10:05:00', reviewNote: body?.note ?? '' }
       return route.fulfill(envelope(summaryOf(PROMOTION, 'sentBack', review)))
     }
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))

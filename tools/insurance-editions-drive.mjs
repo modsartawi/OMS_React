@@ -25,6 +25,7 @@
 //   2. node tools/insurance-editions-drive.mjs        (DRIVE_PORT overrides 5134)
 import { createRequire } from 'node:module'
 import { UPLOADED_EDITION_ID, UPLOADED_FILE_NAME, editionsState, editionsStub, envelope } from './insurance-rules-stubs.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -71,6 +72,7 @@ async function open(dir, { user = 'msartawi', editions, deny = [], refusePublish
     }
     const hit = editionsStub(req.method(), p + url.search, { deny, reads, user, editions, refusePublish, upload })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

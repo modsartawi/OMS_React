@@ -4,7 +4,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { DispatchBid } from '@/core/models/dispatch-board'
-import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView, searchRadiusView } from './view'
+import { hasLocaleKey as has } from '@/core/test/locale'
+import enBoard from '@/locales/en/dispatch-board.json'
+import arBoard from '@/locales/ar/dispatch-board.json'
+import enDoc from '@/locales/en/document.json'
+import arDoc from '@/locales/ar/document.json'
+import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView, searchRadiusLabelKey, searchRadiusView } from './view'
 
 describe('countdownLeft', () => {
   const fetchedAt = 1_000_000
@@ -188,5 +193,118 @@ describe('searchRadiusView (spec 3326, oms 715)', () => {
 
   it('absent (a server before 3326) shows nothing', () => {
     expect(searchRadiusView({})).toBeNull()
+  })
+})
+
+describe('searchRadiusView — how the radius was measured (BackOffice spec 3460, door 3472; oms 858)', () => {
+  it('no measure (an Off type, or a server before 3472) reads exactly as today', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: '' })).toEqual({ kind: 'searched', km: '5' })
+    expect(searchRadiusView({ searchRadiusKm: 5 })).toEqual({ kind: 'searched', km: '5' })
+  })
+
+  it('ROAD reads "5 km by road"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'ROAD' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'road' },
+    })
+  })
+
+  it('a widened ROAD search reads "10 km by road · widened"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 10, distanceMeasure: 'ROAD', searchWidened: true })).toEqual({
+      kind: 'searched',
+      km: '10',
+      measure: { kind: 'road' },
+      widened: true,
+    })
+  })
+
+  it('a straight-line fallback carries its reason: "5 km · straight-line (fallback: timeout)"', () => {
+    expect(
+      searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'TIMEOUT' }),
+    ).toEqual({ kind: 'searched', km: '5', measure: { kind: 'fallback', reason: { key: 'TIMEOUT' } } })
+  })
+
+  it('a fallback reason the client does not know is kept raw, to show as itself', () => {
+    expect(
+      searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'DNS' }),
+    ).toEqual({ kind: 'searched', km: '5', measure: { kind: 'fallback', reason: { raw: 'DNS' } } })
+  })
+
+  it('a fallback with no reason on the row (the door before the BO ask) reads plain "(fallback)"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'fallback', reason: null },
+    })
+  })
+
+  it('SHADOW reads "5 km · shadow"', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'SHADOW' })).toEqual({
+      kind: 'searched',
+      km: '5',
+      measure: { kind: 'shadow' },
+    })
+  })
+
+  it('a measure the client does not know reads as no measure', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: 'HELICOPTER' })).toEqual({ kind: 'searched', km: '5' })
+  })
+
+  it('no radius search stays "No radius search" whatever the measure', () => {
+    expect(searchRadiusView({ searchRadiusKm: 0, distanceMeasure: 'ROAD' })).toEqual({ kind: 'none' })
+  })
+})
+
+describe('bidRow — road km on a shadow callout (spec 3460, oms 858)', () => {
+  it('a shadow callout shows each bid road km beside its straight-line km', () => {
+    const row = bidRow(bid({ distanceKm: 3.9, straightKm: 3.9, roadKm: 12.2 }), 'SHADOW')
+    expect([row.km, row.roadKm]).toEqual([3.9, 12.2])
+  })
+
+  it('a shadow bid Google could not measure (road 0) shows no road km', () => {
+    expect(bidRow(bid({ straightKm: 2.4, roadKm: 0 }), 'SHADOW').roadKm).toBeUndefined()
+  })
+
+  it('a road or unmeasured callout shows the decision km alone, as today', () => {
+    expect(bidRow(bid({ distanceKm: 12.2, straightKm: 3.9, roadKm: 12.2 }), 'ROAD').roadKm).toBeUndefined()
+    expect(bidRow(bid({ roadKm: 12.2 })).roadKm).toBeUndefined()
+  })
+})
+
+describe('the measure as the wire may spell it (858 review)', () => {
+  it('a measure is matched trimmed and upper case, like the reason', () => {
+    expect(searchRadiusView({ searchRadiusKm: 5, distanceMeasure: ' road ' })).toEqual({ kind: 'searched', km: '5', measure: { kind: 'road' } })
+    expect(bidRow(bid({ distanceKm: 3.9, straightKm: 3.9, roadKm: 12.2 }), 'shadow ').roadKm).toBe(12.2)
+  })
+})
+
+describe('searchRadiusLabelKey — one locale sentence per measure, widened or not (858 review)', () => {
+  const key = (input: Parameters<typeof searchRadiusView>[0]) => {
+    const view = searchRadiusView(input)
+    return view?.kind === 'searched' ? searchRadiusLabelKey(view) : null
+  }
+  it.each([
+    [{ searchRadiusKm: 5 }, 'inspector.searchRadius'],
+    [{ searchRadiusKm: 5, searchWidened: true }, 'inspector.searchRadius_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'ROAD' }, 'inspector.radiusByRoad'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'ROAD', searchWidened: true }, 'inspector.radiusByRoad_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'SHADOW', searchWidened: true }, 'inspector.radiusShadow_widened'],
+    [{ searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK' }, 'inspector.radiusFallback'],
+    [
+      { searchRadiusKm: 5, distanceMeasure: 'STRAIGHT_FALLBACK', distanceFallbackReason: 'QUOTA', searchWidened: true },
+      'inspector.radiusFallbackReason_widened',
+    ],
+  ] as const)('%j → %s', (input, expected) => {
+    expect(key(input)).toBe(expected)
+  })
+
+  it.each([
+    ['en', enBoard, enDoc],
+    ['ar', arBoard, arDoc],
+  ])('every label, widened or not, and the ledger road km exist in %s', (_, board, doc) => {
+    const bases = ['searchRadius', 'radiusByRoad', 'radiusShadow', 'radiusFallback', 'radiusFallbackReason']
+    for (const k of bases.flatMap((b) => [`inspector.${b}`, `inspector.${b}_widened`])) expect([k, has(board, k)]).toEqual([k, true])
+    expect(has(doc, 'callout.ledger.roadKm')).toBe(true)
   })
 })

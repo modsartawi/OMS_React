@@ -30,6 +30,7 @@
 //   2. node tools/insurance-coverage-drive.mjs        (DRIVE_PORT overrides 5210)
 import { createRequire } from 'node:module'
 import { BUPA, INSURER_SETTINGS, K_001, MEDGULF, NO_DEDUCTIBLE, TAWUNIYA, envelope, coverageStub, insuranceRulesStub, newCoverageState, wireRule } from './insurance-rules-stubs.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -69,6 +70,7 @@ async function open(dir, { deny = [], user = 'msartawi', viewer, state: shared }
     }
     const hit = coverageStub(req.method(), p, body, { state, deny, reads, query: url.searchParams, user, viewer }) ?? insuranceRulesStub(req.method(), p, body, { reads })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

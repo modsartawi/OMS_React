@@ -194,3 +194,12 @@ export interface PrescriptionSessionHqToOpen {
   /** Always false today (the NUPCO upload stamps no batch reference); ignored until a ticket adds one. */
   byUpload: boolean
 }
+
+/**
+ * `GET PrescriptionSessionWeb/Access` (BackOffice 3459, oms 852) → `{ canView, canWriteOff }`: the HQ list's Display grant
+ * and `PrescriptionSessionWriteOff` Execute. `canWriteOff` is not read yet: the write-off button still learns from its bare 403.
+ */
+export interface PrescriptionSessionAccess {
+  canView: boolean
+  canWriteOff: boolean
+}

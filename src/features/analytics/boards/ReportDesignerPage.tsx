@@ -63,7 +63,7 @@ import { analyticsErrorWords, analyticsRefusal, refusalWords } from './wire'
  * Save creates the report as Personal, or saves it by its tier (403 → copy, 405 → who and when) through 776's
  * shared path; `validate` and the server's `ANALYTICS-411` list every declaration problem. A save clears the
  * unsaved marker, not the history: a new report's history rides to its designer's route. Preview is the runner's
- * page: the saved report itself when nothing is unsaved, else the draft. The draft's panels run inline (`BoardContext.inline`): it is not the saved revision.
+ * page: the saved report itself when nothing is unsaved, else the draft. The draft's panels run by draft (`BoardContext.draft`, 853): it is not the saved revision.
  */
 export default function ReportDesignerPage() {
   const { t } = useTranslation('boards')
@@ -404,9 +404,9 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
     setFocus({ field: p.what === 'name' ? 'name' : p.what === 'binding' ? 'binding' : 'default', panel: p.what === 'binding' ? p.panel : undefined, at: Date.now() })
   }
 
-  // ── The run the page draws: the draft, inline, at its defaults ──
+  // ── The run the page draws: the draft, by draft (853), at its defaults ──
   const defaults = useMemo(() => defaultsOf(def.params), [def.params])
-  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values: defaults, crossFilter: null, item: null, inline: true }), [def.params, def.bindings, defaults])
+  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values: defaults, crossFilter: null, item: null, draft: def }), [def, defaults])
   const words = useMemo(() => designWords(t('designer.summaryOnRun')), [t])
   const runItem = useMemo(() => ({ id: editing?.id ?? 'new', revision: editing?.revision ?? 0 }), [editing?.id, editing?.revision])
   const run = { model, lang, context, onFetching: noop, onParamNotice: noop, words, item: runItem }
@@ -783,13 +783,13 @@ function SavedPreview({ report, model, onBack }: { report: AnalyticsReport; mode
   )
 }
 
-/** A draft not saved (or changed since): its panels inline; its figures and summary are written when it runs. */
+/** A draft not saved (or changed since): its panels run by draft (853); its figures and summary are written when it runs. */
 function DraftPreview({ report, model, onBack }: { report: AnalyticsReport; model: AnalyticsModel; onBack: () => void }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const def = report.definition
   const [values, setValues] = useState<ParamValues>(() => defaultsOf(def.params))
-  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values, crossFilter: null, item: null, inline: true }), [def.params, def.bindings, values])
+  const context: BoardContext = useMemo(() => ({ params: def.params, bindings: def.bindings, values, crossFilter: null, item: null, draft: def }), [def, values])
   const words = useMemo(() => designWords(t('designer.summaryOnRun')), [t])
   return (
     <PreviewFrame report={{ ...report, revision: 0 }} model={model} values={values} onValues={setValues} note={t('designer.previewNote')} onBack={onBack}>

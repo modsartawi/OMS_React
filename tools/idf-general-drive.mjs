@@ -38,6 +38,7 @@
 //   2. node tools/idf-general-drive.mjs        (DRIVE_PORT overrides 5214)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
+import { granted852 } from './access-852-grants.mjs'
 import { IDF_GENERAL_EXPORT_NAME, IDF_GENERAL_TEMPLATE_NAME } from './idf-stubs.mjs' // 651
 import { IDF_GENERAL_ITEMS } from './idf-stubs.mjs' // 3185 review
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -80,6 +81,7 @@ async function open(dir, { deny = [], noFileName = false } = {}) {
     }
     const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny, noFileName, writes })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

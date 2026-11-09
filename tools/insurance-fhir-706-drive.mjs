@@ -19,6 +19,7 @@
 import { createRequire } from 'node:module'
 import { envelope } from './insurance-rules-stubs.mjs'
 import { NEW_HASH, PAST_LOADS, SYSTEM, labelsStub, newLabelsState } from './fhir-rules-stubs-706.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -56,6 +57,7 @@ async function open(dir, { deny = [] } = {}) {
     }
     const hit = labelsStub(req.method(), p, { state, fileName, deny })
     if (hit) return route.fulfill(hit)
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })

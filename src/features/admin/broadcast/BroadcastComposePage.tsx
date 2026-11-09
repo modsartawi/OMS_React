@@ -13,7 +13,7 @@ import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { lookupQueries } from '@/core/services/lookups'
-import { broadcastApi } from './api'
+import { broadcastAccessQuery, broadcastApi } from './api'
 import {
   EMPTY_FORM,
   TITLE_MAX,
@@ -31,10 +31,7 @@ import {
 // Create stays authoritative — a lost grant still refuses on send (NC_FORBIDDEN).
 export default function BroadcastComposePage() {
   const { t } = useTranslation('broadcast')
-  const access = useQuery({
-    queryKey: ['broadcast', 'access'],
-    queryFn: () => broadcastApi.access(),
-  })
+  const access = useQuery(broadcastAccessQuery())
 
   if (access.isPending) {
     return (
@@ -45,10 +42,10 @@ export default function BroadcastComposePage() {
     )
   }
 
-  // A definitive denial (endpoint answered, grant absent) shows the gate. An
-  // absent/unknown probe (probed=false) or a transient error degrades to showing
-  // the screen — the server refuses on send if the grant is truly missing.
-  const denied = access.data ? access.data.probed && !access.data.allowed : false
+  // A definitive denial (endpoint answered, grant absent) shows the gate. A failed
+  // probe (a 404 included, since 852) still degrades to showing the screen for a deep
+  // link — the server refuses on send if the grant is truly missing; the nav hides it.
+  const denied = access.data ? !access.data.allowed : false
   if (denied) {
     return (
       <div className="mx-auto mt-16 max-w-lg rounded-lg border border-border/60 bg-card p-8 text-center" role="alert">

@@ -12,7 +12,7 @@
 // There is NO order save in 2759: "an order-only change rides a campaign draft". Never a live SIS.Api.
 //
 // It asserts:
-//   1. the Campaigns group has a Priority leaf, ungated, that opens /campaigns/priority and lights itself;
+//   1. the Campaigns group has a Priority leaf, gated on Rules/Access (852), that opens /campaigns/priority and lights itself;
 //   2. the base and its groups in the live order, each group's mode and scope, both names, the live
 //      version, the cascade line; every row that earns points says so;
 //   3. Save waits for a change; up is off at the top, down at the bottom; a held group's delete is off;
@@ -35,6 +35,7 @@
 //   2. node tools/priority-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { CAMPAIGNS, CATALOGUE, LIVE_VERSION, TREE, catalogueFor, draftsList, loadDraft, orderOf, rulesetOf, saveDraft } from './campaigns-fixtures.mjs'
+import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -113,6 +114,7 @@ async function open({ staleSaves = 0, edit } = {}) {
       const out = saveDraft(store, body, '2026-10-16 18:30')
       return route.fulfill(out.draft ? envelope(out.draft) : refused(out))
     }
+    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
@@ -143,7 +145,7 @@ const saveBtn = (page) => page.locator('[data-save-order]')
   await page.locator('[data-order-row="BASE-EARN"]').waitFor({ timeout: 15000 })
   check('1: it opens /campaigns/priority and lights itself, not Campaigns',
     (await leaf.getAttribute('aria-current')) === 'page' && (await page.locator('a[href="/campaigns"]').first().getAttribute('aria-current')) !== 'page')
-  check('1: ungated — no probe call was made', !calls.some((c) => /Rules\/.*Access$|RuleCampaign\/Access/.test(c)))
+  check('1: gated (852) — the leaf rode GET Rules/Access', calls.some((c) => c === 'GET Rules/Access'), calls.filter((c) => /Access/.test(c)).join(' | '))
   check('1: it reads the live order (POST Rules/Authoring/Order)', calls.includes('POST Rules/Authoring/Order'))
 
   const start = await layout(page)

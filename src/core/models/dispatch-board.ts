@@ -23,6 +23,13 @@ export type CalloutStatus = 'OPEN' | 'TAKEN' | 'UNANSWERED' | 'WITHDRAWN' | 'NOT
 export const CALLOUT_OUTCOMES = ['Open', 'Taken', 'FellBack', 'Withdrawn', 'NotCompeted'] as const
 export type CalloutOutcome = (typeof CALLOUT_OUTCOMES)[number] | (string & {})
 
+/** `DispatchCallout.distanceMeasure` (BackOffice `CalloutDistanceMeasures`, spec 3460). `''` = no road measure. */
+export type DistanceMeasure = '' | 'ROAD' | 'STRAIGHT_FALLBACK' | 'SHADOW' | (string & {})
+
+/** The fallback reasons the client names (BackOffice `RoadDistanceFailureReasons`); another code shows as itself. */
+export const DISTANCE_FALLBACK_REASONS = ['NOT_CONFIGURED', 'ERROR', 'TIMEOUT', 'QUOTA', 'KEY', 'HTTP_ERROR', 'BAD_RESPONSE'] as const
+export type DistanceFallbackReason = (typeof DISTANCE_FALLBACK_REASONS)[number]
+
 /** `DispatchBid.status`. */
 export const BID_STATUSES = ['OPEN', 'TAKEN', 'PASSED', 'LOST', 'EXPIRED', 'WITHDRAWN'] as const
 export type BidStatus = (typeof BID_STATUSES)[number] | (string & {})
@@ -33,7 +40,12 @@ export interface DispatchBid {
   store: string
   status: BidStatus
   offeredAt: LocalDateTime
+  /** The km the decision used: road km on a `ROAD` callout, straight-line km otherwise (spec 3460). */
   distanceKm: number
+  // Both measures (BackOffice spec 3460, door 3472; oms 858), filled on `ROAD` and `SHADOW` callouts. `0` = not
+  // measured. Optional: a bid read before 3472 deployed carries neither.
+  straightKm?: number
+  roadKm?: number
   /** ATP at offer: `false` = no stock check (or it failed); else covers, or short by `atpShortLines`. */
   atpKnown: boolean
   atpCoversBasket: boolean
@@ -88,6 +100,22 @@ export interface DispatchCallout {
    * Whether it widened is not on the door (the type's normal radius is not sent): never guess it here.
    */
   searchRadiusKm?: number
+  /**
+   * How the radius was measured (BackOffice spec 3460, door 3472; oms 858): `ROAD`, `STRAIGHT_FALLBACK` (Google
+   * could not answer), `SHADOW` (road measured and recorded, decided by straight line), or `''` (no road measure:
+   * an Off type). Optional: a callout read before 3472 deployed has none, and reads as today.
+   */
+  distanceMeasure?: DistanceMeasure
+  /**
+   * 🚩 NOT ON THE DOOR YET (BO ask, oms 858): the fallback's short code (`RoadDistanceFailureReasons`). The Callout
+   * record holds it but `DispatchBoardService` does not map it. Absent → the label says plain "(fallback)".
+   */
+  distanceFallbackReason?: string
+  /**
+   * 🚩 NOT ON THE DOOR YET (BO ask, oms 858): whether the radius behind the result is the type's wider one. The
+   * door sends no normal radius, so the client never infers it from km. Absent → no "widened" in the label.
+   */
+  searchWidened?: boolean
   locksDelivery: boolean
   /** The delivery is locked now: a locking callout, taken or fell back, never released, delivery not closed. */
   locked: boolean
@@ -220,3 +248,46 @@ export const CALLOUT_LOCK_ERRORS = {
   /** The delivery is not locked (already released, or closed). */
   notLocked: 'CALLOUT-104',
 } as const
+
+/**
+ * `GET DispatchBoard/RoadShadow?from=&to=&type=` (BackOffice 3470, spec 3460 story 27; oms ticket 859) — what
+ * deciding by road WOULD have changed on the deliveries a SHADOW type measured. Display, the board's read grant.
+ * Mirrored field for field, camelCase, from BackOffice `CalloutRoadShadowReport` in
+ * `Sartawi.Retail.Data/Modules/Callouts/Scorecard/CalloutRoadShadowReportService.cs` (checked on pricing2 at 7ec9609b8).
+ * Counts only: no delivery, store or customer leaves the door.
+ *
+ * The range is the scorecard's: whole local days, both inclusive (absent = the last 30 days, at most 92), refused with
+ * `CALLOUT-301` / `302` (`DISPATCH_SCORECARD_REFUSALS`). `type` '' = every delivery type.
+ */
+export interface RoadShadowQuery {
+  from?: string
+  to?: string
+  type?: string
+}
+
+/** One `STRAIGHT_FALLBACK` reason (a `RoadDistanceFailureReasons` code) and its delivery count. */
+export interface RoadShadowFallback {
+  reason: string
+  count: number
+}
+
+export interface RoadShadowReport {
+  asOf: LocalDateTime
+  from: LocalDateTime
+  to: LocalDateTime
+  type: string
+  /** SHADOW callouts: measured by road, decided by straight line. */
+  measured: number
+  /** `STRAIGHT_FALLBACK` callouts of the range, by reason, most first. */
+  fallbacks: RoadShadowFallback[]
+  /** Road would have dropped a store that was offered. */
+  roadWouldRemoveBids: number
+  /** Road would have widened to the wider radius. */
+  roadWouldWiden: number
+  /** Would have raced where it did not, or the other way round. */
+  competedWouldDiffer: number
+  /** Shadow bids measured both ways (the median's population). */
+  measuredBids: number
+  /** Median road km / straight km over `measuredBids`, to 3 places; null when there are none. */
+  medianRoadToStraightRatio: number | null
+}

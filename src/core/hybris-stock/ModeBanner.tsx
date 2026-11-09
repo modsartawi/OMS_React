@@ -36,18 +36,25 @@ export default function ModeBanner() {
         </span>
         <span data-mode-body="">{t(view.bodyKey)}</span>
         {status.isSuccess && (view.reading === 'shadow' || view.reading === 'live') && (
-          <span className="ms-auto text-muted-foreground" data-mode-interval="">
-            <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
+          <span className="ms-auto flex flex-wrap gap-x-3 text-muted-foreground">
+            {status.data.targetPath && (
+              <span className="font-mono" data-mode-path="">
+                <Trans t={t} i18nKey="mode.path" values={{ path: status.data.targetPath }} components={{ p: <Ltr /> }} />
+              </span>
+            )}
+            <span data-mode-interval="">
+              <Trans t={t} i18nKey="mode.interval" values={{ n: formatFigure(status.data.deltaMinutes) }} components={{ n: <Ltr /> }} />
+            </span>
           </span>
         )}
       </div>
       {alerts.map((a) => (
         <div key={a.kind} role="alert" className={`flex items-start gap-2 rounded-md border px-3 py-1.5 text-xs ${TONE.bad}`} data-mode-alert={a.kind}>
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <bdi>{a.message}</bdi>
-          {a.since && (
+          <bdi>{a.title}</bdi>
+          {a.raisedAt && (
             <span className="ms-auto whitespace-nowrap">
-              <Trans t={t} i18nKey="mode.alertSince" values={{ at: formatDateTime(a.since) }} components={{ at: <Ltr /> }} />
+              <Trans t={t} i18nKey="mode.alertSince" values={{ at: formatDateTime(a.raisedAt) }} components={{ at: <Ltr /> }} />
             </span>
           )}
         </div>

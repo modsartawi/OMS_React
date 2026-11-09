@@ -18,13 +18,14 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { linesKey, pushesApi, type LinesQuery } from './api'
 import { PushStatus, PushTarget, PushType } from './PushCells'
-import { linesSwept } from './push-labels'
+import { linesGone } from './push-labels'
 import { LINES_PAGE_SIZE } from './pushes-query'
 
 /**
  * **One push's lines** (spec 3447 story 45; ticket 849): every store, material and quantity sent, in
- * pages of 200, filtered by store and material. Lines are kept 15 days: a push past that (or one the
- * sweeper marked) says its lines were swept instead of reading as empty. A line's material opens its
+ * pages of 200, filtered by store and material. Lines are kept `lineRetentionDays`: a push the server
+ * says is past that (`linesKept: false`, on the log row or on the lines answer) says its lines were swept
+ * instead of reading as empty. A line's material opens its
  * history at that store (`onMaterial`).
  *
  * `push` is the row from the log when the page holds it; a push opened from a link alone has none and
@@ -47,14 +48,16 @@ export default function PushLinesDrawer({
   const titleId = useId()
   const [draft, setDraft] = useState({ store: '', material: '' })
   const [query, setQuery] = useState<LinesQuery>({ store: null, material: null, page: 1 })
-  const swept = push ? linesSwept(push, retentionDays, new Date()) : false
+  // The log row says so before any read; a push opened from a link alone learns it from the lines answer.
+  const rowSwept = linesGone(push)
   const lines = useQuery({
     queryKey: linesKey(pushId, query),
     queryFn: () => pushesApi.lines(pushId, query),
     placeholderData: keepPreviousData,
-    enabled: !swept,
+    enabled: !rowSwept,
     retry: false,
   })
+  const swept = rowSwept || linesGone(lines.data)
   const noSuchPush = apiErrorCode(lines.error) === HYBRIS_STOCK_ERRORS.noSuchPush
   const rows = lines.data?.lines ?? []
   const total = lines.data?.total ?? 0
@@ -80,19 +83,27 @@ export default function PushLinesDrawer({
             </dd>
             <dt className="text-muted-foreground">{t('columns.status')}</dt>
             <dd>
-              <PushStatus status={push.status} />
+              <PushStatus status={push.status} statusText={push.statusText} parts={push.parts} />
             </dd>
             <dt className="text-muted-foreground">{t('columns.target')}</dt>
             <dd>
-              <PushTarget target={push.target} />
+              <PushTarget target={push.target} path={push.targetPath} />
             </dd>
+            {push.targetPath && (
+              <>
+                <dt className="text-muted-foreground">{t('lines.path')}</dt>
+                <dd className="font-mono" data-lines-path="">
+                  <Ltr>{push.targetPath}</Ltr>
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">{t('columns.startedAt')}</dt>
             <dd>
               <Ltr>{formatDateTime(push.startedAt)}</Ltr>
             </dd>
             <dt className="text-muted-foreground">{t('columns.files')}</dt>
             <dd className="flex flex-col font-mono" data-lines-files="">
-              {push.files.length === 0 ? t('lines.noFiles') : push.files.map((f) => <Ltr key={f}>{f}</Ltr>)}
+              {(push.fileNames ?? []).length === 0 ? t('lines.noFiles') : push.fileNames.map((f) => <Ltr key={f}>{f}</Ltr>)}
             </dd>
             {push.error && (
               <>

@@ -13,15 +13,16 @@ type Row = HybrisStockMaterialRow
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)
 
 /**
- * The Hybris stock materials grid (ticket 848): number, name, enabled, added at / by, updated at /
- * by, and — for a manager — Enable or Disable. `onToggle` is `null` for a view-only user, and the
+ * The Hybris stock materials grid (ticket 848): number, the master's English and Arabic names, enabled,
+ * added at / by, updated at / by, last enabled (the next delta sends it everywhere), and — for a manager — Enable or Disable. `onToggle` is `null` for a view-only user, and the
  * actions column is then left out.
  */
 export function materialColumns(t: TFunction, onToggle: ((row: Row) => void) | null): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   const cols: ColDef<Row>[] = [
     { field: 'materialNumber', headerName: t('columns.material'), width: 130, pinned: pinStart, cellClass: code, cellRenderer: LtrCell },
-    { field: 'materialName', headerName: t('columns.name'), width: 280, tooltipField: 'materialName' },
+    { field: 'nameEn', headerName: t('columns.name'), width: 240, tooltipField: 'nameEn' },
+    { field: 'nameAr', headerName: t('columns.nameAr'), width: 200, tooltipField: 'nameAr' },
     {
       colId: 'enabled',
       headerName: t('columns.enabled'),
@@ -38,6 +39,7 @@ export function materialColumns(t: TFunction, onToggle: ((row: Row) => void) | n
     { field: 'addedBy', headerName: t('columns.addedBy'), width: 120, cellClass: code, cellRenderer: LtrCell },
     { field: 'updatedAt', headerName: t('columns.updatedAt'), width: 150, valueFormatter: time, cellRenderer: LtrCell },
     { field: 'updatedBy', headerName: t('columns.updatedBy'), width: 120, cellClass: code, cellRenderer: LtrCell },
+    { field: 'lastEnabledAt', headerName: t('columns.lastEnabledAt'), width: 150, valueFormatter: time, cellRenderer: LtrCell },
   ]
   if (onToggle)
     cols.push({

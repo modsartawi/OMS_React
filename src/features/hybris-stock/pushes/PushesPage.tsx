@@ -17,25 +17,26 @@ import type { HybrisStockPushRow, HybrisStockPushStatus, HybrisStockPushType, Hy
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
-import GridPager from '@/core/ui/GridPager'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
+import { fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { PUSHES_KEY, pushesApi } from './api'
 import { pushColumns } from './columns'
 import MaterialHistoryDrawer from './MaterialHistoryDrawer'
 import PushLinesDrawer from './PushLinesDrawer'
 import { PUSH_STATUSES, PUSH_TYPES, statusLabel, typeLabel } from './push-labels'
-import { PUSHES_PAGE_SIZE, drawerFromParams, pushesFromParams, pushesToParams, withDrawer, type Drawer } from './pushes-query'
+import { PUSHES_STEP, drawerFromParams, mayHoldMore, moreTake, pushesFromParams, pushesToParams, withDrawer, type Drawer } from './pushes-query'
 
 /**
  * The Hybris stock push log (ticket 849, BackOffice spec 3447 stories 43–48): every push across stores
  * — delta, full, push now — filtered by store, type, status and date, each with its start and end,
  * rows, target (shadow / live), files and error. A push opens its lines; a line (or `?history=<store>`,
  * the stores page's link) opens a material's history at a store. Status reads "Delivered to hot
- * folder", never "live on the website".
+ * folder", never "live on the website". The door answers the newest N (no skip, no total): the log
+ * shows the newest 50 and Show more asks 50 more, up to the door's 500.
  *
  * Behind `canViewHybrisStock`. Its doors are BackOffice 3455.
  */
@@ -69,9 +70,9 @@ function Pushes() {
   const query = useMemo(() => pushesFromParams(params), [params])
   const [store, setStore] = useState(query.store ?? '')
   useEffect(() => setStore(query.store ?? ''), [query.store])
-  // A filter change keeps the open drawer and starts again on the first page.
+  // A filter change keeps the open drawer and starts again from the newest 50.
   const update = (change: Partial<HybrisStockPushesQuery>) => {
-    const next = pushesToParams({ ...query, store: store.trim() || null, page: 1, ...change })
+    const next = pushesToParams({ ...query, store: store.trim() || null, take: PUSHES_STEP, ...change })
     setParams(withDrawer(next, drawerFromParams(params)), { replace: true })
   }
 
@@ -85,11 +86,11 @@ function Pushes() {
     retry: false,
   })
   const current = !pushes.isError && !pushes.isPlaceholderData
-  const rows = useMemo(() => (current ? (pushes.data?.rows ?? []) : []), [pushes.data, current])
-  const total = current ? (pushes.data?.total ?? 0) : 0
-  const loading = pushes.isFetching && (!pushes.data || pushes.isPlaceholderData)
-  // The pager keeps the last known total while the next page loads, so it never unmounts under the click.
-  const pagerTotal = pushes.isError ? 0 : (pushes.data?.total ?? 0)
+  // Show more keeps the rows on screen while the longer read lands (they are its first rows).
+  const rows = useMemo(() => (pushes.isError ? [] : (pushes.data ?? [])), [pushes.data, pushes.isError])
+  const loading = pushes.isFetching && !pushes.data
+  const full = current && mayHoldMore(rows.length, query.take)
+  const next = moreTake(query.take)
 
   const drawer = drawerFromParams(params)
   const openDrawer = useCallback((next: Drawer) => setParams((prev) => withDrawer(prev, next), { replace: true }), [setParams])
@@ -99,7 +100,7 @@ function Pushes() {
   }, [openDrawer])
 
   const columns = useMemo(() => pushColumns(t, i18n.language, (row) => openRef.current({ kind: 'lines', pushId: row.pushId })), [t, i18n.language])
-  const rowClassRules = useMemo<RowClassRules<Row>>(() => ({ [ROW_FAILED]: ({ data }) => data?.status === 'E' }), [])
+  const rowClassRules = useMemo<RowClassRules<Row>>(() => ({ [ROW_FAILED]: ({ data }) => data?.status === 'failed' }), [])
 
   return (
     <div className="flex flex-col gap-3">
@@ -109,7 +110,7 @@ function Pushes() {
         className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card/40 p-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if ((store.trim() || null) === query.store && query.page === 1) void pushes.refetch()
+          if ((store.trim() || null) === query.store && query.take === PUSHES_STEP) void pushes.refetch()
           else update({})
         }}
         data-pushes-filters=""
@@ -194,12 +195,17 @@ function Pushes() {
               <span>{t('results.loading')}</span>
             ) : (
               <span data-status-count="">
-                <Trans t={t} i18nKey="results.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
+                <Trans t={t} i18nKey="results.count" count={rows.length} values={{ n: figure(rows.length) }} components={{ n: <Ltr /> }} />
               </span>
             )}
-            {pagerTotal > PUSHES_PAGE_SIZE && (
-              <span className="ms-auto" data-pushes-pager="">
-                <GridPager page={query.page} pageSize={PUSHES_PAGE_SIZE} totalMatches={pagerTotal} busy={pushes.isFetching} onPage={(page) => update({ store: query.store, page })} />
+            {full && next !== null && (
+              <Button className="ms-auto" variant="text" disabled={pushes.isFetching} onClick={() => update({ store: query.store, take: next })} data-pushes-more="">
+                {t('results.more')}
+              </Button>
+            )}
+            {full && next === null && (
+              <span className="ms-auto" data-pushes-capped="">
+                {t('results.capped', { n: fsi(figure(query.take)) })}
               </span>
             )}
           </div>

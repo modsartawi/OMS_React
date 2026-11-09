@@ -1,7 +1,6 @@
 import { api, type FileResponse } from '@/core/api'
 import type {
   HybrisStockAddMaterialBody,
-  HybrisStockEnabledBody,
   HybrisStockMaterialRow,
   HybrisStockMaterialsPage,
   HybrisStockMaterialsQuery,
@@ -11,7 +10,8 @@ import type {
 } from '@/core/models/hybris-stock'
 import { materialsDoorParams } from './materials-query'
 
-// The Hybris stock materials doors (BackOffice 3454). 🚩 Guessed routes — see `@/core/models/hybris-stock`.
+// The Hybris stock materials doors (BackOffice 3454), as the door contract writes them — see
+// `@/core/models/hybris-stock`.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 
@@ -27,20 +27,22 @@ export const materialsApi = {
     return { total: page?.total ?? 0, rows: page?.rows ?? [] }
   },
 
-  /** POST HybrisStockWeb/Materials `{ materialNumber, reason }` — add one, enabled. Refusals: HYS-00001, 00004, 00005. */
+  /** POST HybrisStockWeb/Materials `{ materialNumber, reason }` — add one (`enabled` omitted = enabled).
+   *  Refusals, in order: HYS-00001, 00010 (404 not in the master), 00011 (409 already listed). */
   add(body: HybrisStockAddMaterialBody): Promise<HybrisStockMaterialRow> {
     return api.post<HybrisStockMaterialRow>('HybrisStockWeb/Materials', body)
   },
 
-  /** PUT HybrisStockWeb/Materials/{n}/Enabled `{ enabled, reason }` — returns the row. Refusals: HYS-00001, 00004. */
-  setEnabled(materialNumber: string, body: HybrisStockEnabledBody): Promise<HybrisStockMaterialRow> {
-    return api.put<HybrisStockMaterialRow>(`${materialPath(materialNumber)}/Enabled`, body)
+  /** POST HybrisStockWeb/Materials/{n}/Enable or /Disable `{ reason }` — returns the row.
+   *  Refusals, in order: HYS-00001, 00012 (404 not listed), 00013 / 00014 (409 already so). */
+  setEnabled(materialNumber: string, enabled: boolean, body: HybrisStockReasonBody): Promise<HybrisStockMaterialRow> {
+    return api.post<HybrisStockMaterialRow>(`${materialPath(materialNumber)}/${enabled ? 'Enable' : 'Disable'}`, body)
   },
 
   /**
    * POST HybrisStockWeb/Materials/Upload/Preview — multipart part `file` (CSV or XLSX: a material
-   * number column and an optional enabled column). Classifies every row; changes NOTHING.
-   * Refusal: HYS-00007 (the file cannot be read).
+   * number column and an optional enabled column, read by header name). A dry run: classifies every row
+   * and answers its `contentHash`; changes NOTHING. Refusal: HYS-00016 (the file yields no rows at all).
    */
   preview(file: File): Promise<HybrisStockUploadPreview> {
     const form = new FormData()
@@ -49,11 +51,16 @@ export const materialsApi = {
   },
 
   /**
-   * POST HybrisStockWeb/Materials/Upload/{uploadId}/Commit `{ reason }` — applies exactly the preview:
-   * adds the new, updates the changed, never deletes. Refusals: HYS-00001, 00006 (the preview is gone).
+   * POST HybrisStockWeb/Materials/Upload/Commit — multipart `file` (the SAME file), `contentHash` (the
+   * preview's) and `reason`. Applies exactly the preview: adds the new, updates the changed, never
+   * deletes. Refusals, in order: HYS-00001, 00016, 00015 (409 the file or the list changed — preview again).
    */
-  commit(uploadId: string, body: HybrisStockReasonBody): Promise<HybrisStockUploadResult> {
-    return api.post<HybrisStockUploadResult>(`HybrisStockWeb/Materials/Upload/${encodeURIComponent(uploadId)}/Commit`, body)
+  commit(file: File, contentHash: string, reason: string): Promise<HybrisStockUploadResult> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    form.append('contentHash', contentHash)
+    form.append('reason', reason)
+    return api.upload<HybrisStockUploadResult>('HybrisStockWeb/Materials/Upload/Commit', form)
   },
 
   /** GET HybrisStockWeb/Materials/Download — the whole list as a file, in the shape an upload reads back. */

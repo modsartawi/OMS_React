@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { HybrisStockPreviewRow } from '@/core/models/hybris-stock'
-import { changeKind, previewSummary, refusalKind } from './upload-preview'
+import { changeKind, previewSummary, refusalKind, rowState } from './upload-preview'
 
-const row = (line: number, outcome: HybrisStockPreviewRow['outcome'], over: Partial<HybrisStockPreviewRow> = {}): HybrisStockPreviewRow => ({
-  line,
-  materialNumber: String(100000 + line),
-  materialName: 'x',
+const row = (rowNumber: number, outcome: HybrisStockPreviewRow['outcome'], over: Partial<HybrisStockPreviewRow> = {}): HybrisStockPreviewRow => ({
+  rowNumber,
+  materialNumber: String(100000 + rowNumber),
   enabled: null,
-  wasEnabled: null,
+  currentEnabled: null,
   outcome,
   refusal: null,
   ...over,
@@ -15,13 +14,13 @@ const row = (line: number, outcome: HybrisStockPreviewRow['outcome'], over: Part
 
 const ROWS = [
   row(2, 'new'),
-  row(3, 'changed', { enabled: false, wasEnabled: true }),
-  row(4, 'unchanged', { wasEnabled: true }),
-  row(5, 'refused', { refusal: 'unknownMaterial', materialName: '' }),
+  row(3, 'changed', { enabled: false, currentEnabled: true }),
+  row(4, 'unchanged', { currentEnabled: true }),
+  row(5, 'refused', { refusal: 'unknownMaterial' }),
   row(6, 'refused', { refusal: 'malformed', materialNumber: 'ABC' }),
   row(7, 'refused', { refusal: 'unknownMaterial' }),
   row(8, 'new', { enabled: false }),
-  row(9, 'refused', { refusal: 'somethingElse' }),
+  row(9, 'refused', { refusal: 'badEnabled' }),
 ]
 
 describe('previewSummary', () => {
@@ -31,8 +30,8 @@ describe('previewSummary', () => {
 
   it('groups the rows by outcome, in file order', () => {
     const s = previewSummary({ rows: ROWS, counts: { new: 2, changed: 1, unchanged: 1, refused: 4 } })
-    expect(s.groups.new.map((r) => r.line)).toEqual([2, 8])
-    expect(s.groups.refused.map((r) => r.line)).toEqual([5, 6, 7, 9])
+    expect(s.groups.new.map((r) => r.rowNumber)).toEqual([2, 8])
+    expect(s.groups.refused.map((r) => r.rowNumber)).toEqual([5, 6, 7, 9])
   })
 
   it('tallies refused rows by reason, named reasons first and anything else as other', () => {
@@ -61,17 +60,28 @@ describe('previewSummary', () => {
   })
 })
 
+describe('rowState', () => {
+  it("a row reads the state it will have: the file's ask, else the list's, else enabled (a new row states nothing)", () => {
+    expect(rowState({ enabled: false, currentEnabled: true })).toBe(false)
+    expect(rowState({ enabled: null, currentEnabled: false })).toBe(false)
+    expect(rowState({ enabled: null, currentEnabled: null })).toBe(true)
+  })
+})
+
 describe('refusalKind and changeKind', () => {
   it('names the known refusals', () => {
     expect(refusalKind('unknownMaterial')).toBe('unknownMaterial')
     expect(refusalKind('repeated')).toBe('repeated')
+    expect(refusalKind('malformed')).toBe('malformed')
+    // The guess had a separate bad-enabled refusal; the contract folds it into malformed, so the old word is "other".
+    expect(refusalKind('badEnabled')).toBe('other')
     expect(refusalKind(null)).toBe('other')
     expect(refusalKind('nope')).toBe('other')
   })
 
   it('a changed row is an enable or a disable', () => {
-    expect(changeKind({ outcome: 'changed', enabled: false, wasEnabled: true })).toBe('disable')
-    expect(changeKind({ outcome: 'changed', enabled: true, wasEnabled: false })).toBe('enable')
-    expect(changeKind({ outcome: 'new', enabled: false, wasEnabled: null })).toBeNull()
+    expect(changeKind({ outcome: 'changed', enabled: false, currentEnabled: true })).toBe('disable')
+    expect(changeKind({ outcome: 'changed', enabled: true, currentEnabled: false })).toBe('enable')
+    expect(changeKind({ outcome: 'new', enabled: false, currentEnabled: null })).toBeNull()
   })
 })

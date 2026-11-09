@@ -43,7 +43,8 @@
       "body": "The rail's mode could not be read. Do not assume it is live."
     },
     "interval": "Delta every <n>{{n}}</n> minutes",
-    "alertSince": "since <at>{{at}}</at>"
+    "alertSince": "since <at>{{at}}</at>",
+    "path": "Writes to <p>{{path}}</p>"
   },
   "filters": {
     "marked": "Hybris stock",
@@ -53,7 +54,11 @@
     "q": "Search",
     "qPlaceholder": "Store code or name",
     "search": "Search",
-    "clear": "Clear"
+    "clear": "Clear",
+    "health": "Health",
+    "healthAny": "Any health",
+    "healthOk": "Healthy",
+    "healthUnhealthy": "Unhealthy"
   },
   "results": {
     "loading": "Loading stores…",
@@ -78,13 +83,14 @@
     "lastFull": "Last full",
     "nextFull": "Next full due",
     "lastError": "Last error",
-    "changedAt": "Marked / unmarked at",
-    "changedBy": "By",
+    "markedAt": "Marked at",
+    "markedBy": "Marked by",
     "actions": "Actions"
   },
   "marked": {
     "yes": "Marked",
-    "no": "Not marked"
+    "no": "Not marked",
+    "closed": "Closed"
   },
   "health": {
     "unmarked": "—",
@@ -141,15 +147,16 @@
     "refusal": {
       "busy": "A push of this store is already running; try again shortly.",
       "busyHint": "Nothing was pushed or recorded. Try again shortly.",
-      "notMarked": "This store is not a Hybris stock store.",
+      "notMarked": "A chosen store is not a Hybris stock store.",
       "notMarkedHint": "Mark it first; the list is read again.",
       "railOff": "The Hybris stock sync is off.",
       "railOffHint": "Nothing can be pushed until it is switched on.",
-      "sinkFailed": "The file could not be delivered.",
-      "sinkFailedHint": "The push was recorded as failed and shows in the push log.",
-      "unknownMaterial": "A material is not on the Hybris stock list.",
-      "unknownMaterialHint": "Push only listed materials, or add it on the Materials page."
-    }
+      "materialNotEnabled": "A chosen material is not an enabled Hybris stock material.",
+      "materialNotEnabledHint": "Nothing was pushed. Push only enabled materials, or enable it on the Materials page.",
+      "selection": "The choice of stores and materials was refused.",
+      "selectionHint": "Choose at least one store and one material, at most 200 stores and 1,000 materials."
+    },
+    "errorLabel": "Error:"
   },
   "pushMaterials": {
     "button": "Push materials now",
@@ -163,7 +170,9 @@
     "invalid": "Not material numbers: {{values}}",
     "confirm": "Push materials",
     "doneDetail": "{{rows}} rows. See the result above the list.",
-    "resultTitle": "Materials push <push>{{push}}</push> for <stores>{{stores}}</stores>"
+    "resultTitle": "Materials push <push>{{push}}</push> for <stores>{{stores}}</stores>",
+    "tooManyStores": "At most {{max}} stores in one push.",
+    "tooManyMaterials": "At most {{max}} materials in one push."
   },
   "pushes": {
     "button": "Pushes",

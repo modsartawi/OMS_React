@@ -11,8 +11,9 @@ import type { HybrisStockPreviewOutcome, HybrisStockPreviewRow, HybrisStockUploa
 
 export const OUTCOMES: readonly HybrisStockPreviewOutcome[] = ['new', 'changed', 'unchanged', 'refused']
 
-/** The refusals the dialog names in its own words; any other code reads as `other`. */
-export const REFUSAL_KINDS = ['unknownMaterial', 'malformed', 'badEnabled', 'repeated', 'other'] as const
+/** The contract's refusals, named in the dialog's own words (`malformed` covers a bad number AND an
+ *  enabled value not in the table); any other word reads as `other`. */
+export const REFUSAL_KINDS = ['unknownMaterial', 'malformed', 'repeated', 'other'] as const
 export type RefusalKind = (typeof REFUSAL_KINDS)[number]
 
 export function refusalKind(refusal: string | null | undefined): RefusalKind {
@@ -22,9 +23,15 @@ export function refusalKind(refusal: string | null | undefined): RefusalKind {
 /** What a changed row changes: an upload carries only the enabled column, so it is enable or disable. */
 export type ChangeKind = 'enable' | 'disable' | null
 
-export function changeKind(row: Pick<HybrisStockPreviewRow, 'outcome' | 'enabled' | 'wasEnabled'>): ChangeKind {
+export function changeKind(row: Pick<HybrisStockPreviewRow, 'outcome' | 'enabled' | 'currentEnabled'>): ChangeKind {
   if (row.outcome !== 'changed' || row.enabled === null) return null
   return row.enabled ? 'enable' : 'disable'
+}
+
+/** The state a row leaves the material in: the file's ask, else the list's state, else enabled (a new
+ *  material whose row states nothing is added enabled). */
+export function rowState(row: Pick<HybrisStockPreviewRow, 'enabled' | 'currentEnabled'>): boolean {
+  return row.enabled ?? row.currentEnabled ?? true
 }
 
 export interface PreviewSummary {

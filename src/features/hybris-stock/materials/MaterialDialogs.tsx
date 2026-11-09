@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { FileUp, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ReasonDialog, { InlineRefusal } from '@/core/hybris-stock/ReasonDialog'
-import { HYBRIS_STOCK_ERRORS as E, type HybrisStockMaterialRow, type HybrisStockMaterialsPage, type HybrisStockPreviewOutcome } from '@/core/models/hybris-stock'
+import { HYBRIS_STOCK_ERRORS as E, type HybrisStockMaterialRow, type HybrisStockMaterialsPage, type HybrisStockPreviewOutcome, type HybrisStockUploadPreview } from '@/core/models/hybris-stock'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
@@ -17,12 +17,12 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { MATERIAL_NUMBER, withRow } from './materials-query'
-import { OUTCOMES, changeKind, previewSummary, refusalKind } from './upload-preview'
+import { OUTCOMES, changeKind, previewSummary, refusalKind, rowState } from './upload-preview'
 
 /**
  * Add one material to the list, with a reason (spec 3447 story 18; ticket 848). It is added enabled,
  * so the next delta sends it to every Hybris stock store whether or not its stock changed (story 20).
- * HYS-00004 (not a known material) and HYS-00005 (already listed) show inline at the number.
+ * HYS-00010 (not in the material master) and HYS-00011 (already listed) show inline at the number.
  */
 export function AddDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('hybris-stock-materials')
@@ -60,7 +60,6 @@ export function AddDialog({ onClose }: { onClose: () => void }) {
           <Input
             id={id}
             value={number}
-            inputMode="numeric"
             dir="ltr"
             onChange={(e) => {
               setNumber(e.target.value)
@@ -79,14 +78,18 @@ export function AddDialog({ onClose }: { onClose: () => void }) {
 /**
  * Enable or disable one material, with a reason (spec 3447 stories 18–20). Disabling drops it out of
  * the files — Hybris keeps what it was last sent; enabling sends it in the next delta. The door
- * answers the row, patched into the page where it stands.
+ * answers the row, patched into the page where it stands. HYS-00012 (no longer listed) and HYS-00013 /
+ * 00014 (already so — changed from another screen) re-read the list and turn Confirm off.
  */
+/** Enable / Disable refusals after which the row on screen is out of date. */
+const TOGGLE_STALE: string[] = [E.materialNotListed, E.alreadyEnabled, E.alreadyDisabled]
+
 export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; onClose: () => void }) {
   const { t } = useTranslation('hybris-stock-materials')
   const qc = useQueryClient()
   const verb = row.enabled ? 'disable' : 'enable'
   const send = useMutation({
-    mutationFn: (reason: string) => materialsApi.setEnabled(row.materialNumber, { enabled: !row.enabled, reason }),
+    mutationFn: (reason: string) => materialsApi.setEnabled(row.materialNumber, !row.enabled, { reason }),
     onSuccess: (next) => {
       qc.setQueriesData<HybrisStockMaterialsPage>({ queryKey: MATERIALS_KEY }, (page) => withRow(page, next))
       // A page under the enabled filter may no longer hold the row: read those again.
@@ -94,7 +97,11 @@ export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; o
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { material: fsi(row.materialNumber) }))
       onClose()
     },
+    onError: (err) => {
+      if (TOGGLE_STALE.includes(apiErrorCode(err) ?? '')) void qc.invalidateQueries({ queryKey: MATERIALS_KEY })
+    },
   })
+  const name = row.nameEn || row.nameAr
   return (
     <ReasonDialog
       open
@@ -103,13 +110,14 @@ export function EnabledDialog({ row, onClose }: { row: HybrisStockMaterialRow; o
         <Trans
           t={t}
           i18nKey={`${verb}.note`}
-          values={{ material: row.materialName ? formatPair(row.materialNumber, row.materialName) : row.materialNumber }}
+          values={{ material: name ? formatPair(row.materialNumber, name) : row.materialNumber }}
           components={{ material: <Ltr /> }}
         />
       }
       busy={send.isPending}
       error={send.error}
       confirmLabel={t(`${verb}.confirm`)}
+      confirmDisabled={TOGGLE_STALE.includes(apiErrorCode(send.error) ?? '')}
       onEdit={() => send.reset()}
       onConfirm={(reason) => send.mutate(reason)}
       onClose={onClose}
@@ -125,32 +133,35 @@ const OUTCOME_SEV = { new: 'go', changed: 'warn', unchanged: 'mute', refused: 'b
  * **Upload a material list** (spec 3447 stories 13–17, 21; ticket 848): pick a CSV or XLSX (a
  * material number column, an optional enabled column) → the server's PREVIEW, grouped new / changed /
  * unchanged / refused, each refused row with its reason → commit under a reason, which applies exactly
- * that preview. The dialog says up front that an upload never deletes. Picking another file starts a
- * new preview. Confirm stays off until a preview holds something to apply.
+ * that preview: the commit sends the SAME file with the preview's `contentHash`, and the server refuses
+ * HYS-00015 when the file or the list changed since — the dialog then offers to preview the file again.
+ * The dialog says up front that an upload never deletes. Picking another file starts a new preview.
+ * Confirm stays off until a preview holds something to apply.
  */
 export function UploadDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('hybris-stock-materials')
   const qc = useQueryClient()
   const fileInput = useRef<HTMLInputElement>(null)
   const [shown, setShown] = useState<HybrisStockPreviewOutcome>('new')
+  // The previewed file and its answer travel together: the commit re-sends exactly this file.
   const preview = useMutation({
-    mutationFn: (file: File) => materialsApi.preview(file),
-    onSuccess: (p) => {
+    mutationFn: async (file: File): Promise<{ file: File; preview: HybrisStockUploadPreview }> => ({ file, preview: await materialsApi.preview(file) }),
+    onSuccess: ({ preview: p }) => {
       const s = previewSummary(p)
       // Open on the first group that holds rows, so the user sees what the file does.
       setShown(OUTCOMES.find((o) => s.counts[o] > 0) ?? 'new')
     },
   })
   const commit = useMutation({
-    mutationFn: (reason: string) => materialsApi.commit(preview.data!.uploadId, { reason }),
+    mutationFn: (reason: string) => materialsApi.commit(preview.data!.file, preview.data!.preview.contentHash, reason),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: MATERIALS_KEY })
-      notify.success(t('upload.done'), t('upload.doneDetail', { added: fsi(figure(r.added)), changed: fsi(figure(r.changed)) }))
+      notify.success(t('upload.done'), t('upload.doneDetail', { added: fsi(figure(r.counts?.new ?? 0)), changed: fsi(figure(r.counts?.changed ?? 0)) }))
       onClose()
     },
   })
-  const summary = preview.data ? previewSummary(preview.data) : null
-  const gone = apiErrorCode(commit.error) === E.uploadGone
+  const summary = preview.data ? previewSummary(preview.data.preview) : null
+  const gone = apiErrorCode(commit.error) === E.previewStale
 
   return (
     <ReasonDialog
@@ -190,7 +201,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
           />
           {preview.data && (
             <span className="font-mono text-xs text-muted-foreground" data-upload-file-name="">
-              <bdi>{preview.data.fileName}</bdi>
+              <bdi>{preview.data.file.name}</bdi>
             </span>
           )}
         </div>
@@ -233,28 +244,24 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
                     <tr>
                       <th className={TH}>{t('upload.line')}</th>
                       <th className={TH}>{t('upload.material')}</th>
-                      <th className={TH}>{t('upload.name')}</th>
                       <th className={TH}>{t(shown === 'refused' ? 'upload.why' : 'upload.enabled')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.groups[shown].map((r) => (
-                      <tr key={`${r.line}-${r.materialNumber}`} className="border-b border-border/50" data-upload-row={r.line}>
+                      <tr key={`${r.rowNumber}-${r.materialNumber}`} className="border-b border-border/50" data-upload-row={r.rowNumber}>
                         <td className={TD}>
-                          <Ltr>{r.line}</Ltr>
+                          <Ltr>{r.rowNumber}</Ltr>
                         </td>
                         <td className={`${TD} font-mono`}>
                           <Ltr>{r.materialNumber}</Ltr>
-                        </td>
-                        <td className="px-2 py-1.5 align-top">
-                          <bdi>{r.materialName}</bdi>
                         </td>
                         <td className={TD} data-upload-detail="">
                           {r.outcome === 'refused' ? (
                             <span className="text-danger-800">{t(`upload.refusal.${refusalKind(r.refusal)}`)}</span>
                           ) : (
                             <StatusBadge sev={OUTCOME_SEV[r.outcome]}>
-                              {changeKind(r) ? t(`upload.change.${changeKind(r)}`) : t((r.enabled ?? r.wasEnabled ?? true) ? 'upload.isEnabled' : 'upload.isDisabled')}
+                              {changeKind(r) ? t(`upload.change.${changeKind(r)}`) : t(rowState(r) ? 'upload.isEnabled' : 'upload.isDisabled')}
                             </StatusBadge>
                           )}
                         </td>
@@ -267,9 +274,23 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {gone && (
-          <p role="alert" className="text-xs text-danger-800" data-upload-gone="">
-            {t('upload.gone')}
-          </p>
+          <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-danger-800" data-upload-gone="">
+            <span>{t('upload.gone')}</span>
+            {preview.data && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const file = preview.data!.file
+                  commit.reset()
+                  preview.mutate(file)
+                }}
+                disabled={preview.isPending}
+                data-upload-again=""
+              >
+                {t('upload.previewAgain')}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </ReasonDialog>

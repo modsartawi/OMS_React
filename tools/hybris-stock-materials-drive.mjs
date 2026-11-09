@@ -1,19 +1,19 @@
 // Hybris stock materials drive (ticket 848, BackOffice spec 3447).
 //
-// Drives the REAL app against STUBS of the guessed Hybris stock doors (`tools/hybris-stock-stubs.mjs`;
-// BackOffice 3454 is not built, 2026-11-07), LTR and RTL. It asserts:
+// Drives the REAL app against STUBS of the Hybris stock door contract (`tools/hybris-stock-stubs.mjs`,
+// built to BackOffice 3454's contract — reconciled 2026-11-09), LTR and RTL. It asserts:
 //   1. the list: a page of 50 of 120, search and the enabled filter reach the door and the URL, page 2
 //      asks skip=50; the page says an upload never deletes; the mode banner shows;
 //   2. upload: a CSV goes as multipart part `file`; the preview groups new / changed / unchanged /
 //      refused with their counts, each refused row with its reason in words (unknown material,
-//      malformed, bad enabled value, repeated), a changed row says "Will be disabled"; Confirm waits
-//      for a reason; commit POSTs Upload/{id}/Commit with exactly { reason }; the list is read again and
+//      malformed, repeated), a changed row says "Will be disabled"; Confirm waits
+//      for a reason; commit POSTs Upload/Commit as multipart (file, contentHash, reason); the list is read again and
 //      shows the change (a new material listed, a disabled one disabled) and nothing was removed;
 //   3. an upload of only unchanged / refused rows says nothing changes and Commit stays off;
-//      HYS-00007 (unreadable file) shows inline; HYS-00006 (preview gone) says choose the file again;
+//      HYS-00016 (unreadable file) shows inline; HYS-00015 (file or list changed) offers Preview again;
 //   4. add: Confirm waits for a material number and a reason; POSTs exactly { materialNumber, reason };
-//      HYS-00004 / HYS-00005 inline at the number;
-//   5. disable / enable: PUT …/Enabled with exactly { enabled, reason }; the row flips in place;
+//      HYS-00010 / HYS-00011 inline at the number;
+//   5. disable / enable: POST …/Disable or /Enable with exactly { reason }; the row flips in place; HYS-00014 re-reads;
 //   6. download saves the list as a file;
 //   7. view-only: no add / upload / toggle, download stays;
 //   8. RTL: right-to-left, the preview's machine values isolated, an upload commits.
@@ -84,8 +84,8 @@ const FILE = [
   '100003', // unchanged (no enabled column)
   '100004,1', // unchanged
   '999999', // refused: unknown material
-  'ABC-12', // refused: malformed
-  '100005,maybe', // refused: bad enabled
+  'ABC/12', // refused: malformed (not a material number)
+  '100005,maybe', // refused: malformed (an enabled value not in the table)
   '100004,0', // refused: repeated
 ].join('\n')
 const upload = async (page, name, text) =>
@@ -112,14 +112,14 @@ async function materials(dir) {
     await page.locator('[data-filter-enabled]').selectOption('disabled')
     await waitRows(page, 1)
     check('1: the enabled filter reaches the door and starts on page 1', listReads().at(-1).search === 'enabled=disabled&skip=0&take=50' && urlSearch(page) === 'enabled=disabled')
-    check('1: a disabled material reads Disabled, its Arabic name kept', (await cell(page, '100001', 'enabled')) === 'Disabled' && (await cell(page, '100001', 'materialName')) === 'بنادول أقراص 500 ملغ')
+    check('1: a disabled material reads Disabled, its English and Arabic master names shown', (await cell(page, '100001', 'enabled')) === 'Disabled' && (await cell(page, '100001', 'nameEn')) === 'Panadol 500mg 24s' && (await cell(page, '100001', 'nameAr')) === 'بنادول أقراص 500 ملغ')
     await page.locator('[data-materials-clear]').click()
     await page.waitForFunction(() => location.search === '')
     await waitRows(page, 50)
     await page.locator('[data-filter-q]').fill('panadol')
     await page.locator('[data-materials-search]').click()
     await page.waitForFunction(() => /q=panadol/.test(location.search))
-    await waitRows(page, 1)
+    await waitRows(page, 2)
     check('1: search reaches the door and the URL', listReads().at(-1).search === 'q=panadol&skip=0&take=50' && urlSearch(page) === 'q=panadol')
     await page.locator('[data-materials-clear]').click()
     await waitRows(page, 50)
@@ -140,12 +140,12 @@ async function materials(dir) {
   const counts = await dlg.locator('[data-upload-group]').evaluateAll((els) => Object.fromEntries(els.map((e) => [e.getAttribute('data-upload-group'), e.getAttribute('data-count')])))
   check(`2 ${tag}: the preview counts 2 new, 2 changed, 2 unchanged, 4 refused`, JSON.stringify(counts) === JSON.stringify({ new: '2', changed: '2', unchanged: '2', refused: '4' }), JSON.stringify(counts))
   const tally = plain(await dlg.locator('[data-upload-refusals]').innerText())
-  check(`2 ${tag}: the refused rows are tallied by reason`, /1 not a known material/.test(tally) && /1 not a material number/.test(tally) && /1 with an enabled value/.test(tally) && /1 repeated/.test(tally), tally)
+  check(`2 ${tag}: the refused rows are tallied by the contract's reasons`, /1 not in the material master/.test(tally) && /2 not a material number, or an enabled value/.test(tally) && /1 repeated/.test(tally), tally)
   await dlg.locator('[data-upload-group="refused"]').click()
   const refused = await dlg.locator('[data-upload-rows="refused"] [data-upload-row]').evaluateAll((els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()))
   check(
     `2 ${tag}: each refused row shows its line, value and reason`,
-    refused.length === 4 && /^8 999999 .*Not a known material$/.test(refused[0]) && /^9 ABC-12 .*Not a material number$/.test(refused[1]) && /^10 100005 .*not 1 \/ 0/.test(refused[2]) && /^11 100004 .*Already earlier/.test(refused[3]),
+    refused.length === 4 && /^8 999999 .*Not in the material master$/.test(refused[0]) && /^9 ABC\/12 .*Not a material number/.test(refused[1]) && /^10 100005 .*enabled value not understood/.test(refused[2]) && /^11 100004 .*Already earlier/.test(refused[3]),
     refused.join(' | '),
   )
   await dlg.locator('[data-upload-group="changed"]').click()
@@ -160,29 +160,43 @@ async function materials(dir) {
   await dlg.locator('[data-reason-confirm]').click()
   await dlg.waitFor({ state: 'detached', timeout: 10000 })
   const c = writes.at(-1)
-  check(`2 ${tag}: commit POSTs Upload/U-1/Commit with exactly { reason }, trimmed`, c.path === 'HybrisStockWeb/Materials/Upload/U-1/Commit' && JSON.stringify(c.body) === JSON.stringify({ reason: 'November list from Hybris team' }), JSON.stringify(c))
+  check(
+    `2 ${tag}: commit POSTs Upload/Commit as multipart: the SAME file, the preview's contentHash, the reason`,
+    c.path === 'HybrisStockWeb/Materials/Upload/Commit' && JSON.stringify(c.fields) === JSON.stringify(['file', 'contentHash', 'reason']) && c.body.fileName === 'list.csv' && /^[0-9a-f]{64}$/.test(c.body.contentHash) && c.body.reason === 'November list from Hybris team',
+    JSON.stringify(c),
+  )
   await page.waitForFunction((n) => true, before)
   await waitRows(page, 50)
   check(`2 ${tag}: the list is read again`, listReads().length > before)
-  check(`2 ${tag}: the new material is listed and the changed one disabled`, (await cell(page, '200001', 'enabled')) !== null && (await cell(page, '100000', 'enabled')) === 'Disabled')
+  check(`2 ${tag}: the changed one is disabled`, (await cell(page, '100000', 'enabled')) === 'Disabled')
   check(`2 ${tag}: nothing was removed: 122 materials`, /122 materials/.test(await page.locator('[data-status-count]').innerText()))
+  // The list is by material number: the two new ones sort last, so look them up.
+  await page.locator('[data-filter-q]').fill('2000')
+  await page.locator('[data-materials-search]').click()
+  await waitRows(page, 2)
+  check(`2 ${tag}: the new materials are listed, the one the file disabled disabled`, (await cell(page, '200001', 'enabled')) === 'Enabled' && (await cell(page, '200002', 'enabled')) === 'Disabled')
+  await page.locator('[data-materials-clear]').click()
+  await waitRows(page, 50)
 
   // 3: nothing to apply; unreadable; gone
   await page.locator('[data-materials-upload]').click()
   await dlg.locator('[data-upload-dialog]').waitFor({ timeout: 5000 })
-  await upload(page, 'same.csv', '100004,1\n999999')
+  await upload(page, 'same.csv', 'Material Number;Active\n100004;yes\n999999;')
   await dlg.locator('[data-upload-nothing]').waitFor({ timeout: 10000 })
   await dlg.locator('[data-reason-input]').fill('no-op')
   check(`3 ${tag}: only unchanged / refused rows: nothing changes, Commit off`, await dlg.locator('[data-reason-confirm]').isDisabled())
   await upload(page, 'no-column.csv', 'Name\nfoo')
-  await dlg.locator('[data-inline-refusal="HYS-00007"]').waitFor({ timeout: 10000 })
-  check(`3 ${tag}: HYS-00007 shows inline with the server's sentence`, /no material column/.test(await dlg.locator('[data-inline-refusal="HYS-00007"]').innerText()))
-  await upload(page, 'again.csv', '200003')
+  await dlg.locator('[data-inline-refusal="HYS-00016"]').waitFor({ timeout: 10000 })
+  check(`3 ${tag}: HYS-00016 shows inline with the server's sentence`, /no material number column/.test(await dlg.locator('[data-inline-refusal="HYS-00016"]').innerText()))
+  await upload(page, 'again.csv', 'Item\n200003')
   await dlg.locator('[data-upload-group="new"][data-count="1"]').waitFor({ timeout: 10000 })
-  await dlg.locator('[data-reason-input]').fill('trigger 00006')
+  await dlg.locator('[data-reason-input]').fill('trigger 00015')
   await dlg.locator('[data-reason-confirm]').click()
   await dlg.locator('[data-upload-gone]').waitFor({ timeout: 5000 })
-  check(`3 ${tag}: HYS-00006 says the preview is gone, choose the file again; Commit off`, await dlg.locator('[data-reason-confirm]').isDisabled())
+  check(`3 ${tag}: HYS-00015 says the file or the list changed since the preview; Commit off`, /changed since this preview/.test(await dlg.locator('[data-upload-gone]').innerText()) && (await dlg.locator('[data-reason-confirm]').isDisabled()))
+  await dlg.locator('[data-upload-again]').click()
+  await dlg.locator('[data-upload-gone]').waitFor({ state: 'detached', timeout: 5000 })
+  check(`3 ${tag}: Preview again re-reads the same file`, writes.filter((x) => x.path === 'HybrisStockWeb/Materials/Upload/Preview').at(-1).fileName === 'again.csv' && (await dlg.locator('[data-upload-group="new"][data-count="1"]').count()) === 1)
   await dlg.locator('[data-reason-cancel]').click()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
 
@@ -191,17 +205,17 @@ async function materials(dir) {
   await dlg.locator('[data-add-dialog]').waitFor({ timeout: 5000 })
   await dlg.locator('[data-reason-input]').fill('one-off')
   check(`4 ${tag}: Confirm waits for a material number`, await dlg.locator('[data-reason-confirm]').isDisabled())
-  await dlg.locator('[data-add-number]').fill('12AB')
-  check(`4 ${tag}: …a number of digits`, await dlg.locator('[data-reason-confirm]').isDisabled())
+  await dlg.locator('[data-add-number]').fill('12/AB')
+  check(`4 ${tag}: …a material number of letters, digits, . _ -`, await dlg.locator('[data-reason-confirm]').isDisabled())
   await dlg.locator('[data-add-number]').fill('999999')
   await dlg.locator('[data-reason-confirm]').click()
-  await dlg.locator('[data-inline-refusal="HYS-00004"]').waitFor({ timeout: 5000 })
-  check(`4 ${tag}: HYS-00004 inline at the number, no banner`, (await dlg.locator('[data-reason-error]').count()) === 0)
+  await dlg.locator('[data-inline-refusal="HYS-00010"]').waitFor({ timeout: 5000 })
+  check(`4 ${tag}: HYS-00010 inline at the number, no banner`, (await dlg.locator('[data-reason-error]').count()) === 0)
   await dlg.locator('[data-add-number]').fill('100002')
   await dlg.locator('[data-reason-input]').fill('one-off ')
   await dlg.locator('[data-reason-confirm]').click()
-  await dlg.locator('[data-inline-refusal="HYS-00005"]').waitFor({ timeout: 5000 })
-  check(`4 ${tag}: HYS-00005 inline at the number`, true)
+  await dlg.locator('[data-inline-refusal="HYS-00011"]').waitFor({ timeout: 5000 })
+  check(`4 ${tag}: HYS-00011 inline at the number`, true)
   await dlg.locator('[data-add-number]').fill(' 200003 ')
   await dlg.locator('[data-reason-confirm]').click()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
@@ -217,12 +231,21 @@ async function materials(dir) {
   await dlg.locator('[data-reason-confirm]').click()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
   await page.waitForTimeout(300)
-  check(`5 ${tag}: it PUTs …/100003/Enabled with exactly { enabled: false, reason }`, writes.at(-1).path === 'HybrisStockWeb/Materials/100003/Enabled' && JSON.stringify(writes.at(-1).body) === JSON.stringify({ enabled: false, reason: 'Discontinued' }))
+  check(`5 ${tag}: it POSTs …/100003/Disable with exactly { reason }`, writes.at(-1).method === 'POST' && writes.at(-1).path === 'HybrisStockWeb/Materials/100003/Disable' && JSON.stringify(writes.at(-1).body) === JSON.stringify({ reason: 'Discontinued' }))
   check(`5 ${tag}: the row flips in place, no re-read`, (await cell(page, '100003', 'enabled')) === 'Disabled' && listReads().length === reads5)
+  // Changed meanwhile from another screen: HYS-00014 re-reads the list and turns Confirm off.
+  await page.locator('[data-material-toggle="100004"][data-to="disable"]').click()
+  await dlg.locator('[data-reason-input]').fill('trigger stale')
+  await dlg.locator('[data-reason-confirm]').click()
+  await dlg.locator('[data-reason-error="HYS-00014"]').waitFor({ timeout: 5000 })
+  await page.waitForTimeout(300)
+  check(`5 ${tag}: HYS-00014 shows its code, re-reads the list and turns Confirm off`, listReads().length > reads5 && (await dlg.locator('[data-reason-confirm]').isDisabled()))
+  await dlg.locator('[data-reason-cancel]').click()
+  await dlg.waitFor({ state: 'detached', timeout: 5000 })
 
   // 6: download
   const [download] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.locator('[data-materials-download]').click()])
-  check(`6 ${tag}: download saves the list under the server's name`, download.suggestedFilename() === 'hybris-stock-materials.csv', download.suggestedFilename())
+  check(`6 ${tag}: download saves the list under the server's name`, download.suggestedFilename() === 'hybris-stock-materials-20261107104500.csv', download.suggestedFilename())
   check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }

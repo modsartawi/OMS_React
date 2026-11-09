@@ -27,7 +27,9 @@
     "failed": "Try again in a moment.",
     "empty": "No push matches.",
     "count_one": "<n>{{n}}</n> push",
-    "count_other": "<n>{{n}}</n> pushes"
+    "count_other": "<n>{{n}}</n> pushes",
+    "more": "Show more",
+    "capped": "The newest {{n}} pushes are shown. Narrow the filters to see older ones."
   },
   "columns": {
     "push": "Push",
@@ -55,7 +57,8 @@
     "running": "Running",
     "delivered": "Delivered to hot folder",
     "failed": "Failed",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "parts": "<n>{{n}}</n> parts up"
   },
   "target": {
     "shadow": "Shadow path (not imported)",
@@ -77,7 +80,8 @@
     "noMatch": "No line matches the filter.",
     "noSuchPush": "No such push. Push lines are kept {{days}} days.",
     "swept": "This push's lines were swept: lines are kept {{days}} days. The push record itself is kept.",
-    "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>"
+    "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "path": "Path"
   },
   "history": {
     "button": "History",

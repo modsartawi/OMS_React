@@ -13,7 +13,7 @@ import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
 import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
-import type { HybrisStockMarkedFilter, HybrisStockPushRow, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
+import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockPushNowResult, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -30,7 +30,7 @@ import HistoryDrawer from './HistoryDrawer'
 import { MarkDialog } from './StoreDialogs'
 import { PushMaterialsDialog, PushStoreDialog } from './PushDialogs'
 import { pushResult } from './push-now'
-import { MARKED_FILTERS, storesFromParams, storesToParams } from './stores-query'
+import { FLAG_FILTERS, HEALTH_FILTERS, storesFromParams, storesToParams } from './stores-query'
 
 /**
  * Hybris stock stores (ticket 847, BackOffice spec 3447): every store with its Hybris stock flag,
@@ -61,7 +61,8 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   suppressHeaderMenuButton: true,
 }
 
-const MARKED_KEY: Record<HybrisStockMarkedFilter, string> = { any: 'filters.markedAny', marked: 'filters.markedOnly', unmarked: 'filters.unmarkedOnly' }
+const FLAG_KEY: Record<HybrisStockFlagFilter, string> = { any: 'filters.markedAny', marked: 'filters.markedOnly', unmarked: 'filters.unmarkedOnly' }
+const HEALTH_KEY: Record<HybrisStockHealthFilter, string> = { any: 'filters.healthAny', ok: 'filters.healthOk', unhealthy: 'filters.healthUnhealthy' }
 
 /** An unhealthy store's row is red and a store whose last push failed amber. */
 const ROW_BAD = '[--ag-data-background-color:var(--danger-050)]'
@@ -98,7 +99,7 @@ function Stores() {
   // Push now (850): the store dialog, the materials dialog, and the last push's answer above the grid.
   const [pushing, setPushing] = useState<Row | null>(null)
   const [pushingMaterials, setPushingMaterials] = useState(false)
-  const [pushed, setPushed] = useState<HybrisStockPushRow | null>(null)
+  const [pushed, setPushed] = useState<HybrisStockPushNowResult | null>(null)
 
   // The history drawer lives in the URL, so a link that knows only a store code opens it.
   const historyCode = params.get('history')
@@ -157,10 +158,19 @@ function Stores() {
         data-stores-filters=""
       >
         <Field label={t('filters.marked')}>
-          <Select value={query.marked} onChange={(e) => update({ marked: e.target.value as HybrisStockMarkedFilter })} data-filter-marked="">
-            {MARKED_FILTERS.map((m) => (
+          <Select value={query.flag} onChange={(e) => update({ flag: e.target.value as HybrisStockFlagFilter })} data-filter-flag="">
+            {FLAG_FILTERS.map((m) => (
               <option key={m} value={m}>
-                {t(MARKED_KEY[m])}
+                {t(FLAG_KEY[m])}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('filters.health')}>
+          <Select value={query.health} onChange={(e) => update({ health: e.target.value as HybrisStockHealthFilter })} data-filter-health="">
+            {HEALTH_FILTERS.map((h) => (
+              <option key={h} value={h}>
+                {t(HEALTH_KEY[h])}
               </option>
             ))}
           </Select>
@@ -270,8 +280,8 @@ function Stores() {
   )
 }
 
-/** A push now's answer: its type and stores, the rows sent and its status (850). */
-function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: () => void }) {
+/** A push now's answer: its type and stores, the rows sent, its status and a failed upload's error (850). */
+function PushResult({ push, onDismiss }: { push: HybrisStockPushNowResult; onDismiss: () => void }) {
   const { t, i18n } = useTranslation('hybris-stock-stores')
   const line = pushResult(push)
   return (
@@ -284,7 +294,7 @@ function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: 
       <span className="font-semibold">
         <Trans
           t={t}
-          i18nKey={push.type === 'M' ? 'pushMaterials.resultTitle' : 'pushNow.resultTitle'}
+          i18nKey={push.pushType === 'M' ? 'pushMaterials.resultTitle' : 'pushNow.resultTitle'}
           values={{ push: push.pushId, stores: listText(push.storeCodes, i18n.language) }}
           components={{ push: <Ltr />, stores: <Ltr /> }}
         />
@@ -292,6 +302,11 @@ function PushResult({ push, onDismiss }: { push: HybrisStockPushRow; onDismiss: 
       <span data-push-result-line="">
         <Trans t={t} i18nKey={line.key} values={{ rows: line.rows }} components={{ n: <Ltr /> }} />
       </span>
+      {push.error && (
+        <span data-push-result-error="">
+          {t('pushNow.errorLabel')} <bdi>{push.error}</bdi>
+        </span>
+      )}
       <Button variant="text" className="ms-auto" onClick={onDismiss} aria-label={t('pushNow.dismiss')} data-push-result-dismiss="">
         <X className="h-3.5 w-3.5" aria-hidden />
       </Button>

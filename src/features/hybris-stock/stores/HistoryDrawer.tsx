@@ -60,15 +60,16 @@ export default function HistoryDrawer({ storeCode, storeName, onClose }: { store
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i} className="border-b border-border/50" data-history-row={r.action}>
+                <tr key={r.changeId || i} className="border-b border-border/50" data-history-row={r.action}>
                   <td className={TD}>
-                    <Ltr>{formatDateTime(r.at)}</Ltr>
+                    <Ltr>{formatDateTime(r.changedAt)}</Ltr>
                   </td>
                   <td className={`${TD} font-mono`}>
-                    <Ltr>{r.by}</Ltr>
+                    <Ltr>{r.changedBy}</Ltr>
                   </td>
                   <td className={TD}>
-                    <StatusBadge sev={r.action === 'mark' ? 'go' : 'mute'}>{t(r.action === 'mark' ? 'history.marked' : 'history.unmarked')}</StatusBadge>
+                    {/* M mark, U unmark (the contract's letters). */}
+                    <StatusBadge sev={r.action === 'M' ? 'go' : 'mute'}>{t(r.action === 'M' ? 'history.marked' : 'history.unmarked')}</StatusBadge>
                   </td>
                   <td className="px-2 py-1.5 align-top whitespace-pre-wrap" data-history-reason="">
                     <bdi>{r.reason}</bdi>

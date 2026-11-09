@@ -61,7 +61,8 @@ const healthField =
  * The Hybris stock stores grid (ticket 847): every store — its code and name, whether it is a
  * Hybris stock store, and for a marked one its health (`storeHealth`: unhealthy red, a failed last
  * push amber, the row highlighted the same way by the page), last delta, last full, next full due and
- * the last error — then who last marked or unmarked it, and the row's actions.
+ * the last error — then when and by whom it was marked, and the row's actions. A closed store says so
+ * (the list holds a closed store only while it is marked) and offers no Mark.
  *
  * Every plain cell is isolated by the core grid base; a column with its own renderer isolates its own
  * whole value.
@@ -78,8 +79,9 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
       valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? t(data.marked ? 'marked.yes' : 'marked.no') : ''),
       cellRenderer: ({ data, value }: ICellRendererParams<Row>) =>
         data ? (
-          <span data-marked={String(data.marked)}>
+          <span className="flex items-center gap-1" data-marked={String(data.marked)} data-closed={data.closed ? '' : undefined}>
             <StatusBadge sev={data.marked ? 'go' : 'mute'}>{value}</StatusBadge>
+            {data.closed && <StatusBadge sev="warn">{t('marked.closed')}</StatusBadge>}
           </span>
         ) : null,
     },
@@ -115,8 +117,8 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
       valueGetter: ({ data }: ValueGetterParams<Row>) => (data?.marked ? (data.health?.lastError ?? null) : null),
       tooltipValueGetter: ({ data }) => (data?.marked ? (data.health?.lastError ?? null) : null),
     },
-    { field: 'changedAt', headerName: t('columns.changedAt'), width: 150, valueFormatter: time, cellRenderer: LtrCell },
-    { field: 'changedBy', headerName: t('columns.changedBy'), width: 120, cellClass: code, cellRenderer: LtrCell },
+    { field: 'markedAt', headerName: t('columns.markedAt'), width: 150, valueFormatter: time, cellRenderer: LtrCell },
+    { field: 'markedBy', headerName: t('columns.markedBy'), width: 120, cellClass: code, cellRenderer: LtrCell },
     {
       colId: 'actions',
       headerName: t('columns.actions'),
@@ -127,7 +129,8 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
         data ? (
           <span className="flex h-full items-center gap-1.5">
             {act.onPush && data.marked && <PushButton row={data} t={t} onPush={act.onPush} />}
-            {act.onMark && (
+            {/* A closed store cannot be marked (HYS-00003); a marked one that closed can still be unmarked. */}
+            {act.onMark && (data.marked || !data.closed) && (
               <Button
                 variant={data.marked ? 'danger-outlined' : 'ghost'}
                 onClick={() => act.onMark?.(data)}

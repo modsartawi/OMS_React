@@ -1,31 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/hybris-stock-pushes.json'
-import { linesSwept, statusLabel, targetLabel, typeLabel } from './push-labels'
+import { linesGone, statusLabel, targetLabel, typeLabel } from './push-labels'
 
 const at = (key: string) => key.split('.').reduce<unknown>((n, p) => (n as Record<string, unknown> | undefined)?.[p], en)
 
 describe('typeLabel', () => {
   it.each([
-    ['D', 'type.delta'],
-    ['F', 'type.full'],
-    ['S', 'type.storeNow'],
-    ['M', 'type.materialsNow'],
-    ['X', 'type.unknown'],
+    ['delta', 'type.delta'],
+    ['full', 'type.full'],
+    ['now-store', 'type.storeNow'],
+    ['now-materials', 'type.materialsNow'],
+    // The guessed letters are not the log's words.
+    ['D', 'type.unknown'],
     [null, 'type.unknown'],
   ])('%s → %s', (type, key) => expect(typeLabel(type)).toBe(key))
 })
 
 describe('statusLabel', () => {
   it('a sent push reads delivered to hot folder, never live on the website', () => {
-    expect(statusLabel('S')).toEqual({ key: 'status.delivered', sev: 'ok' })
+    expect(statusLabel('sent')).toEqual({ key: 'status.delivered', sev: 'ok' })
     expect(String(at('status.delivered'))).toBe('Delivered to hot folder')
     expect(JSON.stringify(en)).not.toMatch(/live on the website/i)
   })
 
-  it('running, failed and an unknown letter', () => {
-    expect(statusLabel('R')).toEqual({ key: 'status.running', sev: 'mute' })
-    expect(statusLabel('E')).toEqual({ key: 'status.failed', sev: 'bad' })
-    expect(statusLabel('Q').key).toBe('status.unknown')
+  it('running, failed and an unknown word', () => {
+    expect(statusLabel('running')).toEqual({ key: 'status.running', sev: 'mute' })
+    expect(statusLabel('failed')).toEqual({ key: 'status.failed', sev: 'bad' })
+    expect(statusLabel('S').key).toBe('status.unknown')
   })
 })
 
@@ -43,16 +44,11 @@ describe('targetLabel', () => {
   })
 })
 
-describe('linesSwept', () => {
-  const now = new Date('2026-11-07T12:00:00')
-  it('the sweeper flag wins', () => {
-    expect(linesSwept({ linesSwept: true, startedAt: '2026-11-07T10:00:00' }, 15, now)).toBe(true)
-  })
-  it('older than the retention window by the clock', () => {
-    expect(linesSwept({ linesSwept: false, startedAt: '2026-10-22T11:00:00' }, 15, now)).toBe(true)
-    expect(linesSwept({ linesSwept: false, startedAt: '2026-10-23T13:00:00' }, 15, now)).toBe(false)
-  })
-  it('an unreadable stamp is not swept', () => {
-    expect(linesSwept({ linesSwept: false, startedAt: 'nope' }, 15, now)).toBe(false)
+describe('linesGone', () => {
+  it('the server says whether the lines are kept; only an explicit false is gone', () => {
+    expect(linesGone({ linesKept: false })).toBe(true)
+    expect(linesGone({ linesKept: true })).toBe(false)
+    expect(linesGone(null)).toBe(false)
+    expect(linesGone({ linesKept: undefined as never })).toBe(false)
   })
 })

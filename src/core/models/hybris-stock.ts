@@ -1,136 +1,177 @@
 // The Hybris stock sync's web doors (BackOffice spec 3447, ADR 0127; oms tickets 847–850).
 //
-// 🚩 GUESSED SHAPES. The door contract (`C:\Work\DMSCO\BackOffice\.issues\assets\
-// 3447-hybris-stock-web-door-contract.md`) is written by BackOffice 3453 and extended by 3454–3456,
-// and none of them is built yet (2026-11-07). Every route, field and refusal code below is read off
-// spec 3447's "Web API" and "Data" sections, in the HungerStation contract's style (`…Web/` prefix,
-// `<CODE>-00000` refusals, a bare 403 for a missing grant, local-time stamps with no zone). Ticket
-// 851 reconciles them with the real doors. Every stamp is local KSA time (the `no-utc-time` rule).
+// Built to the door contract `C:\Work\DMSCO\BackOffice\.issues\assets\3447-hybris-stock-web-door-contract.md`
+// (BackOffice 3453–3456, reconciled 2026-11-09 at BackOffice 6749be2de; ticket 851 walks them live).
+// `HybrisStockWeb/` prefix, cookie auth, a BARE 403 for a missing grant, refusal codes in
+// `errors[].errorCode`, every `errorMessage` "<English> / <Arabic>". Every stamp is local KSA wall-clock
+// time `yyyy-MM-ddTHH:mm:ss`, no offset (the `no-utc-time` rule); an absent one is `null`.
 
-/** The `HybrisStockWeb/*` refusal codes the screens read by name. */
+/** The `HybrisStockWeb/*` refusal codes the screens read by name (the contract's "Error codes"). */
 export const HYBRIS_STOCK_ERRORS = {
-  /** 400 — a reason is required (1–200 characters). */
+  /** 400 — a reason is required (1–200 characters once trimmed). */
   reasonInvalid: 'HYS-00001',
-  /** 404 — no such store in the store master. */
+  /** 404 — no such store in the store master (nor on the Hybris stock list). */
   noSuchStore: 'HYS-00002',
-  /** 409 — the store is already marked (mark) or not marked (unmark). */
-  storeState: 'HYS-00003',
-  /** 404 — the material number is not a known material. */
-  unknownMaterial: 'HYS-00004',
-  /** 409 — the material is already on the list (add). */
-  materialListed: 'HYS-00005',
-  /** 404 — the upload's preview is gone (expired, or committed already). */
-  uploadGone: 'HYS-00006',
-  /** 400 — the file could not be read (not CSV/XLSX, or no material column). */
-  fileUnreadable: 'HYS-00007',
-  /** 404 — no such push. */
-  noSuchPush: 'HYS-00008',
-  /** 409 — push now on a store that is not a Hybris stock store. */
-  storeNotMarked: 'HYS-00009',
-  /** 409 — the rail is off (`Hybris:StockSync:Enabled` false): push now refused. */
-  railOff: 'HYS-00010',
-  /** 502 — the file could not be written to the target; the push IS recorded as failed. */
-  sinkFailed: 'HYS-00011',
-  /** 409 — a push of this store is already running; nothing was recorded. */
-  pushBusy: 'HybrisStockPushBusy',
+  /** 400 — Mark: the store is closed. */
+  storeClosed: 'HYS-00003',
+  /** 409 — Mark: the store is already a Hybris stock store. */
+  alreadyMarked: 'HYS-00004',
+  /** 409 — Unmark: the store is not a Hybris stock store. */
+  notMarked: 'HYS-00005',
+  /** 404 — Add: no such material in the material master. */
+  unknownMaterial: 'HYS-00010',
+  /** 409 — Add: the material is already on the list. */
+  materialListed: 'HYS-00011',
+  /** 404 — Enable / Disable / material History: the material is not on the list. */
+  materialNotListed: 'HYS-00012',
+  /** 409 — Enable: already enabled. */
+  alreadyEnabled: 'HYS-00013',
+  /** 409 — Disable: already disabled. */
+  alreadyDisabled: 'HYS-00014',
+  /** 409 — Upload commit: the file, or the list, changed since the preview — preview again. */
+  previewStale: 'HYS-00015',
+  /** 400 — Upload: no file, over 10 MB, not .csv/.xlsx, unreadable, no rows, > 50,000 rows, no material column. */
+  fileUnreadable: 'HYS-00016',
+  /** 404 — Lines: no such push. */
+  noSuchPush: 'HYS-00020',
+  /** 409 — Push now: a chosen store is being pushed. Nothing is recorded. */
+  pushBusy: 'HYS-00030',
+  /** 409 — Push now: a chosen store is not a marked Hybris stock store. */
+  pushStoreNotMarked: 'HYS-00031',
+  /** 400 — Materials push now: a chosen material is not an ENABLED Hybris stock material. */
+  materialNotEnabled: 'HYS-00032',
+  /** 400 — Materials push now: no store or no material, or more than 200 stores / 1,000 materials. */
+  pushSelectionInvalid: 'HYS-00033',
+  /** 409 — Push now: the rail is switched off (`Hybris:StockSync:Enabled`). Nothing is recorded. */
+  railOff: 'HYS-00034',
+  /** 400 — a filter value the door does not know. */
+  filterUnknown: 'HybrisStockFilterUnknown',
+  /** 400 — paging out of range, a malformed day, `from` after `to`. */
+  inputInvalid: 'HybrisStockInputInvalid',
 } as const
 
-/** A material number as the material master holds it: 1–18 digits, kept as typed (leading zeros too). */
-export const MATERIAL_NUMBER = /^\d{1,18}$/
+/** A material number as the upload reads it: letters, digits, `.`, `_`, `-`; up to 30. Kept as typed. */
+export const MATERIAL_NUMBER = /^[A-Za-z0-9._-]{1,30}$/
+
+/** The materials push-now door's selection limits (HYS-00033). */
+export const PUSH_LIMITS = { stores: 200, materials: 1000 } as const
 
 // ── Access and status ────────────────────────────────────────────────────────────────────────────
 
-/** `GET HybrisStockWeb/Access` — what the signed-in user may do. Manage implies view. */
+/** `GET HybrisStockWeb/Access` — exactly these two keys. Manage implies view (by role). */
 export interface HybrisStockAccessResult {
   canView: boolean
   canManage: boolean
 }
 
-/** Where the rail writes: off (the feature flag), a shadow blob path Hybris does not import, or live. */
+/** Off (the feature flag), shadow (a path Hybris does not import) or live. */
 export type HybrisStockMode = 'off' | 'shadow' | 'live'
 
-/** A standing alert of the rail (spec 3447 "Alerts"), one per kind. */
+export type HybrisStockTarget = 'shadow' | 'live'
+
+/** A standing alert of the rail, one per kind at most, oldest raised first. */
 export interface HybrisStockAlert {
-  kind: 'uploadFailing' | 'stockSourceDown' | 'storeBehind' | string
-  /** Server text, `"<English> / <Arabic>"`. */
-  message: string
-  since: string | null
+  kind: 'upload-failing' | 'stock-visibility' | 'store-behind' | string
+  /** Server text. */
+  title: string
+  /** When it was raised; it does not move while the alert stands. */
+  raisedAt: string | null
 }
 
-/** `GET HybrisStockWeb/Status` — the rail's mode and its settings. */
+/** `GET HybrisStockWeb/Status` — the rail's settings as this host read them at start. */
 export interface HybrisStockStatus {
   mode: HybrisStockMode | string
+  target: HybrisStockTarget | string
+  /** `master/hotfolder-shadow/` or `master/hotfolder/`. */
+  targetPath: string
   deltaMinutes: number
   overlapMinutes: number
   fullRoundHours: number[]
   storesPerRound: number
+  maxRowsPerFile: number
+  minutesBetweenParts: number
   lineRetentionDays: number
   alerts: HybrisStockAlert[]
 }
 
 // ── Stores (847) ─────────────────────────────────────────────────────────────────────────────────
 
-/** A marked store's sync health. The server decides `deltaBehind` (more than two intervals since the
- *  anchor) and `fullOverdue`; the screen never does the arithmetic (story 11). */
+/** A marked store's sync health. The server decides every flag (`HybrisStockHealth`); the screen never
+ *  does the arithmetic (story 11). */
 export interface HybrisStockStoreHealth {
+  /** Start of the last SUCCESSFUL delta / full; `null` before one. */
   lastDeltaAt: string | null
   lastFullAt: string | null
+  /** A "due by" time; `null` when the store never had a full and none is requested. */
   nextFullDue: string | null
-  /** Set on mark, cleared by a successful full: the store waits for its first full. */
+  /** Set by Mark; cleared by a full that started after the request. */
   fullRequested: boolean
-  lastErrorAt: string | null
-  /** Server text of the last failed push, `null` once a push succeeds. */
+  /** The last failed push's error; `null` once a push succeeds. */
   lastError: string | null
+  lastErrorAt: string | null
   deltaBehind: boolean
   fullOverdue: boolean
+  /** Not delta behind and not full overdue. */
+  healthy: boolean
 }
 
-/** One row of `GET HybrisStockWeb/Stores?marked=&q=` — every store, marked or not. */
+/** One row of `GET HybrisStockWeb/Stores` — every OPEN store, plus every marked store even when closed. */
 export interface HybrisStockStoreRow {
   storeCode: string
+  /** `""` when the store master has no row for the code. */
   storeName: string
+  closed: boolean
   marked: boolean
-  /** The last mark or unmark. */
-  changedAt: string | null
-  changedBy: string | null
-  /** `null` on a store that is not marked. */
+  /** `null` while unmarked. */
+  markedAt: string | null
+  markedBy: string | null
+  /** `null` while unmarked. */
   health: HybrisStockStoreHealth | null
 }
 
-/** `marked` on the stores list — `any` is the default and is left off the wire. */
-export type HybrisStockMarkedFilter = 'any' | 'marked' | 'unmarked'
+/** `flag` on the stores list — `any` is the default and is left off the wire. */
+export type HybrisStockFlagFilter = 'any' | 'marked' | 'unmarked'
+/** `health` on the stores list — `ok` and `unhealthy` match marked stores only. */
+export type HybrisStockHealthFilter = 'any' | 'ok' | 'unhealthy'
 
 export interface HybrisStockStoresQuery {
-  marked: HybrisStockMarkedFilter
+  flag: HybrisStockFlagFilter
+  health: HybrisStockHealthFilter
   q: string | null
 }
 
-/** `POST HybrisStockWeb/Stores/{storeCode}/Mark` and `/Unmark`. */
+/** Mark, Unmark, Enable, Disable, store push now. */
 export interface HybrisStockReasonBody {
   reason: string
 }
 
-/** One row of `GET HybrisStockWeb/Stores/{storeCode}/History`, newest first. */
+/** One row of `GET HybrisStockWeb/Stores/{storeCode}/History?take=`, newest first. */
 export interface HybrisStockStoreChange {
-  at: string
-  by: string
-  action: 'mark' | 'unmark'
+  changeId: string
+  /** `M` mark, `U` unmark. */
+  action: 'M' | 'U' | string
+  /** `oms-react`; `api` is reserved for the deferred Hybris API. */
+  door: string
   /** Free text the user typed. */
   reason: string
-  /** `oms-react` now; `api` is reserved for the deferred Hybris API. */
-  door: string
+  changedBy: string
+  changedAt: string
 }
 
 // ── Materials (848) ──────────────────────────────────────────────────────────────────────────────
 
 export interface HybrisStockMaterialRow {
   materialNumber: string
-  materialName: string
+  /** The material master's names (`Item.Description` / `Description2`), `""` when absent. */
+  nameEn: string
+  nameAr: string
   enabled: boolean
   addedAt: string | null
   addedBy: string | null
   updatedAt: string | null
   updatedBy: string | null
+  /** Stamped on add-enabled and re-enable: the next delta sends it everywhere. `null` if never enabled. */
+  lastEnabledAt: string | null
 }
 
 export type HybrisStockEnabledFilter = 'any' | 'enabled' | 'disabled'
@@ -147,111 +188,109 @@ export interface HybrisStockMaterialsPage {
   rows: HybrisStockMaterialRow[]
 }
 
-/** `POST HybrisStockWeb/Materials` */
+/** `POST HybrisStockWeb/Materials` — `enabled` omitted means `true`. */
 export interface HybrisStockAddMaterialBody {
   materialNumber: string
-  reason: string
-}
-
-/** `PUT HybrisStockWeb/Materials/{materialNumber}/Enabled` */
-export interface HybrisStockEnabledBody {
-  enabled: boolean
+  enabled?: boolean
   reason: string
 }
 
 export type HybrisStockPreviewOutcome = 'new' | 'changed' | 'unchanged' | 'refused'
 
 /** Why a preview row is refused. */
-export type HybrisStockRefusal = 'unknownMaterial' | 'malformed' | 'badEnabled' | 'repeated' | string
+export type HybrisStockRefusal = 'malformed' | 'repeated' | 'unknownMaterial' | string
 
 /** One row of an upload preview, in file order. */
 export interface HybrisStockPreviewRow {
-  /** The 1-based line (CSV) or sheet row (XLSX). */
-  line: number
-  /** As read from the file — may be malformed on a refused row. */
+  /** The row a spreadsheet shows (the header is row 1). */
+  rowNumber: number
+  /** The list's / master's spelling when known, else as typed. */
   materialNumber: string
-  /** The master's name; `""` on a refused row. */
-  materialName: string
-  /** The enabled value the row asks for; `null` when the column is absent (a new row → enabled). */
+  /** What the file asks; `null` = states nothing. */
   enabled: boolean | null
-  /** The list's value before the upload; `null` for a new or refused row. */
-  wasEnabled: boolean | null
+  /** The list's state now; `null` = not on the list. */
+  currentEnabled: boolean | null
   outcome: HybrisStockPreviewOutcome
+  /** Only on a refused row. */
   refusal: HybrisStockRefusal | null
 }
 
-/** `POST HybrisStockWeb/Materials/Upload/Preview` (multipart `file`). Nothing changes yet. */
+/** `POST HybrisStockWeb/Materials/Upload/Preview` (multipart `file`). A dry run — writes nothing. */
 export interface HybrisStockUploadPreview {
-  uploadId: string
-  fileName: string
+  /** 64 hex; the commit must reproduce it. */
+  contentHash: string
   counts: Record<HybrisStockPreviewOutcome, number>
   rows: HybrisStockPreviewRow[]
 }
 
-/** `POST HybrisStockWeb/Materials/Upload/{uploadId}/Commit` `{ reason }` — what it applied. */
+/** `POST HybrisStockWeb/Materials/Upload/Commit` (multipart `file`, `contentHash`, `reason`). */
 export interface HybrisStockUploadResult {
-  uploadId: string
-  added: number
-  changed: number
-  unchanged: number
-  refused: number
+  /** On every history row it wrote; `null` when it changed nothing. */
+  uploadId: string | null
+  counts: Record<HybrisStockPreviewOutcome, number>
 }
 
-// ── Pushes (849, 850) ────────────────────────────────────────────────────────────────────────────
+// ── Pushes (849) ─────────────────────────────────────────────────────────────────────────────────
 
-/** `D` delta, `F` full, `S` push-now store (a full), `M` push-now materials. */
-export type HybrisStockPushType = 'D' | 'F' | 'S' | 'M'
+/** The push log's type words (`type=` filter and the row's `type`). */
+export type HybrisStockPushType = 'delta' | 'full' | 'now-store' | 'now-materials'
 
-/** `R` running, `S` delivered to the hot folder (never "live on the website"), `E` failed. */
-export type HybrisStockPushStatus = 'R' | 'S' | 'E'
+/** The push log's status words: `sent` = delivered to the hot folder, never "live on the website". */
+export type HybrisStockPushStatus = 'running' | 'sent' | 'failed'
 
-export type HybrisStockTarget = 'shadow' | 'live'
-
-/** One push. Kept permanently; its lines are kept `lineRetentionDays` (15). */
+/** One push of `GET HybrisStockWeb/Pushes`. Kept permanently; its lines `lineRetentionDays`. */
 export interface HybrisStockPushRow {
   pushId: string
   type: HybrisStockPushType | string
-  storeCodes: string[]
-  startedAt: string
-  finishedAt: string | null
   status: HybrisStockPushStatus | string
-  rows: number
-  target: HybrisStockTarget | string
-  files: string[]
-  /** Server text; `null` on a push that did not fail. */
-  error: string | null
-  /** A push now's asker and reason; `null` on a scheduled push. */
+  /** Server text, `"<English> / <Arabic>"`. */
+  statusText: string
+  startedAt: string
+  /** `null` while running. */
+  finishedAt: string | null
+  storeCount: number
+  storeCodes: string[]
+  /** Push now only; `null` for a scheduled delta or full. */
   requestedBy: string | null
   reason: string | null
-  /** The retention sweeper removed its lines. */
-  linesSwept: boolean
+  rows: number
+  target: HybrisStockTarget | string
+  targetPath: string
+  fileCount: number
+  /** `[]` when no file was uploaded (a failed push, or an empty run). */
+  fileNames: string[]
+  /** Server text, verbatim; on a running push, a failing part's error. */
+  error: string | null
+  /** On a running SPLIT push only. */
+  parts: { uploaded: number; total: number } | null
+  /** The push's lines are still within the retention (Lines answers them). */
+  linesKept: boolean
 }
 
 export interface HybrisStockPushesQuery {
   store: string | null
   type: HybrisStockPushType | null
   status: HybrisStockPushStatus | null
-  /** `yyyy-MM-dd`, inclusive. */
+  /** `yyyy-MM-dd`, inclusive, on the start. */
   from: string | null
   to: string | null
-  page: number
-}
-
-/** `GET HybrisStockWeb/Pushes?store=&type=&status=&from=&to=&skip=&take=`, newest first. */
-export interface HybrisStockPushesPage {
-  total: number
-  rows: HybrisStockPushRow[]
+  /** The newest N — the door takes no `skip` and answers no total (1–500). */
+  take: number
 }
 
 export interface HybrisStockPushLine {
   storeCode: string
   materialNumber: string
+  /** Whole units, never below 0. */
   quantity: number
 }
 
 /** `GET HybrisStockWeb/Pushes/{pushId}/Lines?store=&material=&skip=&take=` */
 export interface HybrisStockPushLinesPage {
   pushId: string
+  /** `false` past the retention: `total: 0`, `lines: []`. */
+  linesKept: boolean
+  /** Every line matching the filters, not only this page. */
   total: number
   lines: HybrisStockPushLine[]
 }
@@ -261,14 +300,36 @@ export interface HybrisStockMaterialSent {
   pushId: string
   type: HybrisStockPushType | string
   status: HybrisStockPushStatus | string
-  target: HybrisStockTarget | string
+  /** The push's start. */
   sentAt: string
   quantity: number
 }
 
-/** `POST HybrisStockWeb/Pushes/Materials` — push now, chosen materials across chosen stores. */
+// ── Push now (850) ───────────────────────────────────────────────────────────────────────────────
+
+/** `POST HybrisStockWeb/Pushes/MaterialsNow` — chosen materials × chosen stores. */
 export interface HybrisStockPushMaterialsBody {
   storeCodes: string[]
   materialNumbers: string[]
   reason: string
+}
+
+/** Push now's answer (both doors): the push as recorded. A failed upload is a 200 with `status: "E"`. */
+export interface HybrisStockPushNowResult {
+  pushId: string
+  /** `S` store (a full), `M` materials. */
+  pushType: 'S' | 'M' | string
+  /** `S` delivered to the hot folder, `E` failed, `R` running (a split push, later parts to go). */
+  status: 'S' | 'E' | 'R' | string
+  storeCodes: string[]
+  rowsSent: number
+  fileCount: number
+  fileNames: string[]
+  target: HybrisStockTarget | string
+  targetPath: string
+  requestedBy: string
+  reason: string
+  startedAt: string
+  finishedAt: string | null
+  error: string | null
 }

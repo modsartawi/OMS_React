@@ -1,7 +1,7 @@
 // Hybris stock stores drive (tickets 847 + 850, BackOffice spec 3447).
 //
-// Drives the REAL app in Chromium against STUBS of the guessed Hybris stock door contract
-// (`tools/hybris-stock-stubs.mjs` — BackOffice 3453/3456 are not built, 2026-11-07), LTR and RTL.
+// Drives the REAL app in Chromium against STUBS of the Hybris stock door contract (`tools/hybris-stock-stubs.mjs`,
+// built to BackOffice 3453/3456's contract — reconciled 2026-11-09), LTR and RTL.
 //
 // ── 847 ── it asserts:
 //   1. the Hybris stock group is its own, right after HungerStation, its leaves on ONE probe call;
@@ -13,7 +13,7 @@
 //      store's health cells are blank; the marked filter and search reach the door and the URL;
 //   4. Mark opens a reason dialog that says a full comes first; Confirm waits for a reason; it POSTs
 //      Stores/{code}/Mark with exactly { reason } (trimmed, unicode kept); the row flips in place to
-//      Marked / Awaiting first full with NO list re-read; HYS-00001 inline; HYS-00003 re-reads the
+//      Marked / Awaiting first full with NO list re-read; HYS-00001 inline; HYS-00004 re-reads the
 //      list and turns Confirm off;
 //   5. Unmark says nothing is sent to Hybris and it keeps its last stock; the row flips to Not marked;
 //   6. History opens a drawer (who, when, why, door), newest first, the new change on top;
@@ -27,9 +27,9 @@
 //   9. Push now on marked stores only; its note says a FULL that counts as the store's full; in flight
 //      the dialog and the row show progress and a double click sends ONE push of exactly { reason };
 //      the result shows the push, rows and "delivered to hot folder"; the list is read again;
-//  10. 409 HybrisStockPushBusy says "a push of this store is already running; try again shortly" as a
+//  10. 409 HYS-00030 says "a push of this store is already running; try again shortly" as a
 //      status, not an error — no code, no re-read, Confirm stays on;
-//  11. 502 HYS-00011 says the push was recorded as failed and re-reads; HYS-00010 turns Confirm off;
+//  11. a failed upload (200, status E) reads failed with its error and re-reads; HYS-00034 turns Confirm off;
 //  12. Push materials now: marked stores only, malformed numbers named, ONE push of exactly
 //      { storeCodes, materialNumbers, reason }, 409 the same way, the result shown.
 //
@@ -107,7 +107,9 @@ if (run('menu')) {
   const groups = await groupHeaders(page)
   // Its place among the groups (right after HungerStation) is pinned by src/layout/menu-hungerstation.test.ts;
   // here the other areas' probes are denied, so only the shown groups can be compared.
-  check('1: the Hybris stock group is its own, before Insurance rules', groups.filter((g) => g === 'Hybris stock').length === 1 && groups.indexOf('Hybris stock') === groups.indexOf('Insurance rules') - 1, groups.join(' · '))
+  // Since 852 the Insurance rules group is probe-gated too, so under these stubs it is hidden: only the group's
+  // uniqueness is checked here.
+  check('1: the Hybris stock group is its own', groups.filter((g) => g === 'Hybris stock').length === 1, groups.join(' · '))
   await header.first().click()
   await page.locator('nav a[href="/hybris-stock/stores"]').first().click()
   await waitRows(page, 6)
@@ -153,10 +155,11 @@ if (run('mode')) {
     check(`2 (${reading}): no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
-  const { context, page } = await open('ltr', { alerts: [{ kind: 'storeBehind', message: 'Store 0099 delta is behind. / الفرع 0099 متأخر.', since: '2026-11-07T09:30:00' }] })
+  const { context, page } = await open('ltr', { alerts: [{ kind: 'store-behind', title: 'Hybris stock stores are behind', raisedAt: '2026-11-07T09:30:00' }] })
   await page.goto(`${BASE}/hybris-stock/stores`)
-  await page.locator('[data-mode-alert="storeBehind"]').waitFor({ timeout: 10000 })
-  check('2: a standing alert shows under the banner with its time', /Store 0099 delta is behind.*since 2026-11-07 09:30/s.test(await page.locator('[data-mode-alert="storeBehind"]').innerText()))
+  await page.locator('[data-mode-alert="store-behind"]').waitFor({ timeout: 10000 })
+  check('2: a standing alert shows its title under the banner with when it was raised', /Hybris stock stores are behind.*since 2026-11-07 09:30/s.test(await page.locator('[data-mode-alert="store-behind"]').innerText()))
+  check('2: the banner names the path the rail writes to', /master\/hotfolder-shadow\//.test(await page.locator('[data-mode-path]').innerText()))
   await context.close()
 }
 
@@ -175,22 +178,28 @@ async function stores(dir) {
   check(`3 ${tag}: the list asks the door with no params`, storeReads()[0]?.search === '', JSON.stringify(storeReads()))
   check(`3 ${tag}: every store lists, marked and not`, (await cell(page, '1234', 'marked')) === (ar ? 'معلَّم' : 'Marked') && (await cell(page, '0450', 'marked')) === (ar ? 'غير معلَّم' : 'Not marked'))
   if (!rtl) {
-    check('3: a healthy marked store reads Healthy, with its health times', (await cell(page, '1234', 'health')) === 'Healthy' && (await cell(page, '1234', 'lastDeltaAt')) === '2026-11-07 10:30' && (await cell(page, '1234', 'lastFullAt')) === '2026-11-06 03:05' && (await cell(page, '1234', 'nextFullDue')) === '2026-11-08 03:00')
+    check('3: a healthy marked store reads Healthy, with its health times', (await cell(page, '1234', 'health')) === 'Healthy' && (await cell(page, '1234', 'lastDeltaAt')) === '2026-11-07 10:30' && (await cell(page, '1234', 'lastFullAt')) === '2026-11-06 03:05' && (await cell(page, '1234', 'nextFullDue')) === '2026-11-08 06:00')
     check('3: a delta behind is Unhealthy and RED', (await cell(page, '0099', 'health')) === 'Unhealthy' && (await cell(page, '0099', 'causes')) === 'Delta behind' && /danger-050/.test(await rowClass(page, '0099')))
     check('3: a full overdue is Unhealthy and RED, its error shown', (await cell(page, '2001', 'health')) === 'Unhealthy' && (await cell(page, '2001', 'causes')) === 'Full overdue' && /danger-050/.test(await rowClass(page, '2001')) && (await cell(page, '2001', 'lastError')) === 'Blob upload failed: 503 Server Busy')
     check('3: a failed last push on a store not behind is AMBER', (await cell(page, '3003', 'health')) === 'Last push failed' && /attention-050/.test(await rowClass(page, '3003')))
+    check('3: a marked store that closed says Closed and still offers Unmark', /Closed/.test(await cell(page, '3003', 'marked')) && (await page.locator('[data-store-mark="3003"][data-to="unmark"]').count()) === 1)
     check('3: an unmarked store has blank health cells and no highlight', (await cell(page, '0450', 'lastDeltaAt')) === '' && (await cell(page, '0450', 'nextFullDue')) === '' && !/danger-050|attention-050/.test(await rowClass(page, '0450')))
     check('3: the status bar counts stores, marked and unhealthy', /6 stores/.test(await page.locator('[data-status-count]').innerText()) && /4 marked/.test(await page.locator('[data-status-marked]').innerText()) && /2 unhealthy/.test(await page.locator('[data-status-unhealthy]').innerText()))
     const hint = await page.locator(`${GRID} [data-health="unhealthy"]`).first().getAttribute('title')
     check('3: the unhealthy badge says why in words', /more than two intervals/.test(hint ?? ''), hint)
 
-    await page.locator('[data-filter-marked]').selectOption('marked')
+    await page.locator('[data-filter-flag]').selectOption('marked')
     await waitRows(page, 4)
-    check('3: the marked filter reaches the door and the URL', storeReads().at(-1).search === 'marked=marked' && urlSearch(page) === 'marked=marked')
+    check('3: the flag filter reaches the door and the URL', storeReads().at(-1).search === 'flag=marked' && urlSearch(page) === 'flag=marked')
+    await page.locator('[data-filter-health]').selectOption('unhealthy')
+    await waitRows(page, 2)
+    check('3: the health filter reaches the door and the URL', storeReads().at(-1).search === 'flag=marked&health=unhealthy' && urlSearch(page) === 'flag=marked&health=unhealthy')
+    await page.locator('[data-filter-health]').selectOption('any')
+    await waitRows(page, 4)
     await page.locator('[data-filter-q]').fill('olaya')
     await page.locator('[data-stores-search]').click()
     await waitRows(page, 1)
-    check('3: search reaches the door and the URL', storeReads().at(-1).search === 'marked=marked&q=olaya' && urlSearch(page) === 'marked=marked&q=olaya')
+    check('3: search reaches the door and the URL', storeReads().at(-1).search === 'flag=marked&q=olaya' && urlSearch(page) === 'flag=marked&q=olaya')
     await page.locator('[data-stores-clear]').click()
     await waitRows(page, 6)
     check('3: Clear resets the URL', urlSearch(page) === '')
@@ -223,13 +232,13 @@ async function stores(dir) {
   check(`4 ${tag}: the row flips in place to Marked, awaiting its first full`, (await cell(page, '0450', 'marked')) === (ar ? 'معلَّم' : 'Marked') && (await cell(page, '0450', 'health')) === (ar ? 'بانتظار أول إرسال كامل' : 'Awaiting first full'))
   check(`4 ${tag}: with no list re-read`, storeReads().length === before, `${before} → ${storeReads().length}`)
 
-  // HYS-00003: changed meanwhile
+  // HYS-00004: marked meanwhile, from another screen
   await page.locator('[data-store-mark="0451"]').click()
-  await dlg.locator('[data-reason-input]').fill('trigger 00003')
+  await dlg.locator('[data-reason-input]').fill('trigger 00004')
   await dlg.locator('[data-reason-confirm]').click()
-  await dlg.locator('[data-reason-error="HYS-00003"]').waitFor({ timeout: 5000 })
+  await dlg.locator('[data-reason-error="HYS-00004"]').waitFor({ timeout: 5000 })
   await page.waitForTimeout(300)
-  check(`4 ${tag}: HYS-00003 shows with its code, re-reads the list and turns Confirm off`, storeReads().length === before + 1 && (await dlg.locator('[data-reason-confirm]').isDisabled()))
+  check(`4 ${tag}: HYS-00004 shows with its code, re-reads the list and turns Confirm off`, storeReads().length === before + 1 && (await dlg.locator('[data-reason-confirm]').isDisabled()))
   await dlg.locator('[data-reason-cancel]').click()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
 
@@ -249,7 +258,7 @@ async function stores(dir) {
   const drawer = page.locator('[data-history-drawer="1234"]')
   await drawer.locator('[data-history-table]').waitFor({ timeout: 5000 })
   const actions = await drawer.locator('[data-history-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-history-row')))
-  check(`6 ${tag}: the drawer lists every change newest first, the unmark just made on top`, JSON.stringify(actions) === JSON.stringify(['unmark', 'mark', 'unmark', 'mark']), actions.join())
+  check(`6 ${tag}: the drawer lists every change newest first, the unmark just made on top`, JSON.stringify(actions) === JSON.stringify(['U', 'M', 'U', 'M']), actions.join())
   const first = await drawer.locator('[data-history-row]').first().innerText()
   check(`6 ${tag}: who, when, why and door show`, /MSARTAWI/.test(first) && /2026-11-07 10:45/.test(first) && /Store closed for refit/.test(first) && /oms-react/.test(first), first)
   check(`6 ${tag}: the URL carries ?history=1234`, urlSearch(page) === 'history=1234')
@@ -334,18 +343,22 @@ async function pushNow(dir) {
   check(`10 ${tag}: …as a status, not an error (no alert, no error banner, no code)`, (await busy.getAttribute('role')) === 'status' && (await dlg.locator('[data-reason-error], [role="alert"]').count()) === 0)
   check(`10 ${tag}: …the dialog stays, Confirm stays on, and the list is not re-read`, (await dlg.count()) === 1 && !(await dlg.locator('[data-reason-confirm]').isDisabled()) && storeReads() === before)
 
-  // 502: recorded as failed
-  await dlg.locator('[data-reason-input]').fill('trigger 00011')
+  // A failed upload is a 200 with status E, not a refusal: the result says failed with the error.
+  await dlg.locator('[data-reason-input]').fill('trigger failed')
   await dlg.locator('[data-reason-confirm]').click()
-  await dlg.locator('[data-push-refusal="sinkFailed"]').waitFor({ timeout: 5000 })
-  check(`11 ${tag}: HYS-00011 says it was recorded as failed, with the server's words`, /recorded as failed/.test(await dlg.locator('[data-push-refusal="sinkFailed"]').innerText()) && /503 Server Busy/.test(await dlg.locator('[data-push-refusal="sinkFailed"]').innerText()))
+  await dlg.waitFor({ state: 'detached', timeout: 5000 })
+  const failedBox = page.locator('[data-push-result="P-0107"][data-status="E"]')
+  await failedBox.waitFor({ timeout: 5000 })
+  check(`11 ${tag}: a failed upload (200, status E) reads failed with the server's error, never delivered`, /failed/.test(await failedBox.innerText()) && /503 Server Busy/.test(await failedBox.innerText()) && !/delivered/i.test(await failedBox.innerText()))
   await page.waitForTimeout(300)
-  check(`11 ${tag}: …and the list is read again`, storeReads() > before)
+  check(`11 ${tag}: …and the list is read again, the store's last error moved`, storeReads() > before && (await cell(page, '0099', 'lastError')) === 'Blob upload failed: 503 Server Busy')
+  await page.locator('[data-push-result-dismiss]').click()
   // rail off
+  await page.locator('[data-store-push="0099"]').click()
   await dlg.locator('[data-reason-input]').fill('trigger off')
   await dlg.locator('[data-reason-confirm]').click()
   await dlg.locator('[data-push-refusal="railOff"]').waitFor({ timeout: 5000 })
-  check(`11 ${tag}: HYS-00010 says the sync is off and turns Confirm off`, await dlg.locator('[data-reason-confirm]').isDisabled())
+  check(`11 ${tag}: HYS-00034 says the sync is off and turns Confirm off`, (await dlg.locator('[data-reason-error], [data-inline-refusal="HYS-00034"]').count()) >= 1 && (await dlg.locator('[data-reason-confirm]').isDisabled()))
   await dlg.locator('[data-reason-cancel]').click()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
 
@@ -361,9 +374,14 @@ async function pushNow(dir) {
   // Close the picker's panel (it lies over the materials box while open), as a user would.
   await dlg.locator('[data-multi-select-trigger]').click()
   check(`12 ${tag}: the two stores are chosen`, (await dlg.locator('[data-chip]').count()) === 2)
-  await dlg.locator('[data-push-materials-text]').fill('100002, 100003 ABC')
+  await dlg.locator('[data-push-materials-text]').fill('100002, 100003 12/3')
   await dlg.locator('[data-reason-input]').fill('Correct two materials')
-  check(`12 ${tag}: a malformed number is named and Confirm stays off`, /Not material numbers: .*ABC/.test(await dlg.innerText()) && (await dlg.locator('[data-reason-confirm]').isDisabled()))
+  check(`12 ${tag}: a malformed number is named and Confirm stays off`, /Not material numbers: .*12\/3/.test(await dlg.innerText()) && (await dlg.locator('[data-reason-confirm]').isDisabled()))
+  // A material that is not ENABLED refuses the whole push (HYS-00032).
+  await dlg.locator('[data-push-materials-text]').fill('100001 100002')
+  await dlg.locator('[data-reason-confirm]').click()
+  await dlg.locator('[data-push-refusal="materialNotEnabled"]').waitFor({ timeout: 5000 })
+  check(`12 ${tag}: HYS-00032 says a material is not enabled, with the server's words`, /not an enabled Hybris stock material/.test(await dlg.locator('[data-push-refusal="materialNotEnabled"]').innerText()) && /999999/.test(await dlg.locator('[data-push-refusal="materialNotEnabled"]').innerText()))
   await dlg.locator('[data-push-materials-text]').fill('100002\n100003 100002')
   await dlg.locator('[data-reason-input]').fill('trigger busy')
   await dlg.locator('[data-reason-confirm]').click()
@@ -374,8 +392,8 @@ async function pushNow(dir) {
   await page.waitForFunction(() => /Sending/.test(document.querySelector('dialog[open] [data-reason-confirm]')?.textContent ?? ''), null, { timeout: 5000 })
   gate.release()
   await dlg.waitFor({ state: 'detached', timeout: 5000 })
-  const m = pushWrites('HybrisStockWeb/Pushes/Materials')
-  check(`12 ${tag}: ONE push of exactly { storeCodes, materialNumbers (deduplicated), reason }`, m.length === 2 && JSON.stringify(m[1].body) === JSON.stringify({ storeCodes: ['1234', '2001'], materialNumbers: ['100002', '100003'], reason: 'slow' }), JSON.stringify(m.map((x) => x.body)))
+  const m = pushWrites('HybrisStockWeb/Pushes/MaterialsNow')
+  check(`12 ${tag}: ONE push to Pushes/MaterialsNow of exactly { storeCodes, materialNumbers (deduplicated), reason }`, m.length === 3 && JSON.stringify(m[2].body) === JSON.stringify({ storeCodes: ['1234', '2001'], materialNumbers: ['100002', '100003'], reason: 'slow' }), JSON.stringify(m.map((x) => x.body)))
   await page.locator('[data-push-result="P-0108"]').waitFor({ timeout: 5000 })
   check(`12 ${tag}: the result names the materials push, its stores and rows`, /Materials push P-0108 for 1234 and 2001/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')) && /4 rows, delivered/.test((await page.locator('[data-push-result="P-0108"]').innerText()).replace(/[⁦-⁩]/g, '')))
   check(`${tag} (850): no page errors`, errors.length === 0, errors.join(' | '))

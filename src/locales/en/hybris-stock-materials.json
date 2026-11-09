@@ -31,11 +31,13 @@
   "columns": {
     "material": "Material",
     "name": "Name",
+    "nameAr": "Arabic name",
     "enabled": "State",
     "addedAt": "Added at",
     "addedBy": "Added by",
     "updatedAt": "Updated at",
     "updatedBy": "Updated by",
+    "lastEnabledAt": "Last enabled",
     "actions": "Actions"
   },
   "state": {
@@ -51,7 +53,7 @@
     "title": "Add a material",
     "note": "The material is added enabled. The next delta sends it for every Hybris stock store, whether or not its stock changed.",
     "number": "Material number",
-    "numberHint": "Digits only, as the material master holds it.",
+    "numberHint": "Letters, digits, . _ or -, up to 30, as the material master holds it.",
     "confirm": "Add material",
     "failed": "The material could not be added.",
     "done": "Material added",
@@ -77,7 +79,7 @@
     "button": "Upload list",
     "title": "Upload a material list",
     "note": "Nothing changes until you commit. An upload adds new materials and updates existing ones, and never removes a material missing from the file.",
-    "shape": "CSV or XLSX: a material number column, and an optional enabled column (1 / 0, true / false, yes / no).",
+    "shape": "CSV or XLSX (first sheet), up to 10 MB and 50,000 rows: a material number column (MaterialNumber, Material, Item, Article…) and an optional enabled column (1 / 0, true / false, yes / no, enabled / disabled). A blank enabled cell keeps a listed material as it is.",
     "pick": "Choose file",
     "pickAnother": "Choose another file",
     "reading": "Reading the file…",
@@ -91,16 +93,14 @@
       "refused": "Refused <n>{{n}}</n>"
     },
     "refusalTally": {
-      "unknownMaterial": "{{n}} not a known material",
-      "malformed": "{{n}} not a material number",
-      "badEnabled": "{{n}} with an enabled value that is not one",
+      "unknownMaterial": "{{n}} not in the material master",
+      "malformed": "{{n}} not a material number, or an enabled value not understood",
       "repeated": "{{n}} repeated in the file",
       "other": "{{n}} refused for another reason"
     },
     "refusal": {
-      "unknownMaterial": "Not a known material",
-      "malformed": "Not a material number",
-      "badEnabled": "The enabled value is not 1 / 0, true / false or yes / no",
+      "unknownMaterial": "Not in the material master",
+      "malformed": "Not a material number, or an enabled value not understood",
       "repeated": "Already earlier in the file",
       "other": "Refused"
     },
@@ -113,14 +113,14 @@
     "mismatch": "The server's counts differ from its rows; the rows are shown.",
     "nothing": "Nothing in this file changes the list.",
     "groupEmpty": "No row in this group.",
-    "line": "Line",
+    "line": "Row",
     "material": "Material",
-    "name": "Name",
     "enabled": "Enabled",
     "why": "Why refused",
     "confirm": "Commit {{n}} changes",
     "confirmIdle": "Commit",
-    "gone": "This preview is gone (it expired, or it was committed). Choose the file again.",
+    "gone": "The file or the material list changed since this preview, so nothing was applied. Preview it again.",
+    "previewAgain": "Preview again",
     "done": "Material list updated",
     "doneDetail": "{{added}} added, {{changed}} changed."
   }

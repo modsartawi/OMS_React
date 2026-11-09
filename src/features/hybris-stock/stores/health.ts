@@ -6,7 +6,8 @@ import type { Severity } from '@/core/ui/severity'
 // 🔑 The server does the arithmetic — "delta behind by more than two intervals" and "full overdue"
 // arrive as flags (story 11: "so that I do not have to do the arithmetic"). This module only decides
 // how a row reads and whether it is highlighted, and it reads an explicit `true` only, so a stub or
-// an older door that never sent a flag never paints a store red.
+// an older door that never sent a flag never paints a store red. An explicit `healthy: false` (the
+// contract's `HybrisStockHealth` verdict) paints it red even when neither cause flag is set.
 
 export type HealthReading =
   /** Not a Hybris stock store: no health block, nothing sent. */
@@ -37,7 +38,8 @@ export function storeHealth(row: Pick<HybrisStockStoreRow, 'marked' | 'health'>)
   const causes: UnhealthyCause[] = []
   if (h.deltaBehind === true) causes.push('deltaBehind')
   if (h.fullOverdue === true) causes.push('fullOverdue')
-  if (causes.length > 0) return { reading: 'unhealthy', causes, highlight: 'bad', sev: 'bad' }
+  // The server's own verdict counts too: `healthy: false` with no flag the screen knows is still red.
+  if (causes.length > 0 || h.healthy === false) return { reading: 'unhealthy', causes, highlight: 'bad', sev: 'bad' }
   if (h.lastError) return { reading: 'lastFailed', causes, highlight: 'warn', sev: 'warn' }
   if (h.fullRequested === true || !h.lastFullAt) return { reading: 'awaitingFull', causes, highlight: null, sev: 'mute' }
   return { reading: 'ok', causes, highlight: null, sev: 'ok' }

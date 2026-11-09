@@ -11,13 +11,14 @@ const health = (over: Partial<HybrisStockStoreHealth> = {}): HybrisStockStoreHea
   lastError: null,
   deltaBehind: false,
   fullOverdue: false,
+  healthy: true,
   ...over,
 })
 
 describe('storeHealth', () => {
   it('an unmarked store has no health, whatever block it carries', () => {
     expect(storeHealth({ marked: false, health: null })).toMatchObject({ reading: 'unmarked', highlight: null })
-    expect(storeHealth({ marked: false, health: health({ deltaBehind: true }) })).toMatchObject({ reading: 'unmarked', highlight: null })
+    expect(storeHealth({ marked: false, health: health({ deltaBehind: true, healthy: false }) })).toMatchObject({ reading: 'unmarked', highlight: null })
   })
 
   it('a healthy marked store is ok', () => {
@@ -36,6 +37,10 @@ describe('storeHealth', () => {
   it('a full overdue is unhealthy; both causes are kept in order', () => {
     expect(storeHealth({ marked: true, health: health({ fullOverdue: true }) }).causes).toEqual(['fullOverdue'])
     expect(storeHealth({ marked: true, health: health({ fullOverdue: true, deltaBehind: true }) }).causes).toEqual(['deltaBehind', 'fullOverdue'])
+  })
+
+  it('a store the server calls not healthy is unhealthy, even with no cause flag', () => {
+    expect(storeHealth({ marked: true, health: health({ healthy: false }) })).toEqual({ reading: 'unhealthy', causes: [], highlight: 'bad', sev: 'bad' })
   })
 
   it('unhealthy outranks a last error', () => {

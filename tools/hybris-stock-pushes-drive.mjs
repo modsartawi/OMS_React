@@ -1,7 +1,7 @@
 // Hybris stock push log drive (ticket 849, BackOffice spec 3447).
 //
-// Drives the REAL app against STUBS of the guessed Hybris stock doors (`tools/hybris-stock-stubs.mjs`;
-// BackOffice 3455 is not built, 2026-11-07), LTR and RTL. It asserts:
+// Drives the REAL app against STUBS of the Hybris stock door contract (`tools/hybris-stock-stubs.mjs`,
+// built to BackOffice 3455's contract — reconciled 2026-11-09), LTR and RTL. It asserts:
 //   1. the log lists every push across stores, newest first, with type, started / finished, rows,
 //      target, files and error; a sent push reads "Delivered to hot folder" (never "live"), a shadow
 //      push "Shadow path (not imported)", a live one "Hybris hot folder"; a failed push RED; a push now
@@ -13,7 +13,7 @@
 //   5. a line's History opens the material's history at that store — every quantity, its push type,
 //      status and target; a push id there opens that push's lines;
 //   6. `?history=<store>` (the stores page's link) asks for a material first; `?push=<id>` opens lines;
-//      an unknown push says so (HYS-00008); Escape closes and clears the URL;
+//      an unknown push says so (HYS-00020); Escape closes and clears the URL;
 //   7. the stores page's Pushes and Material history land here with the store set;
 //   8. under RTL: right-to-left, machine values isolated, the drawers work.
 //
@@ -88,13 +88,15 @@ async function log(dir) {
   await waitRows(page, 7)
 
   // 1
-  check(`1 ${tag}: the log asks skip=0&take=50 and lists every push`, pushReads()[0].search === 'skip=0&take=50')
+  check(`1 ${tag}: the log asks take=50 (no skip) and lists every push`, pushReads()[0].search === 'take=50')
+  check(`1 ${tag}: a short log offers no Show more`, (await page.locator('[data-pushes-more]').count()) === 0)
   check(`1 ${tag}: a sent delta reads Delivered to hot folder, shadow path`, (await cell(page, 'P-0105', 'type')) === 'Delta' && (await cell(page, 'P-0105', 'status')) === 'Delivered to hot folder' && (await cell(page, 'P-0105', 'target')) === 'Shadow path (not imported)')
-  check(`1 ${tag}: started, finished, rows and files show`, (await cell(page, 'P-0105', 'startedAt')) === '2026-11-07 10:30' && (await cell(page, 'P-0105', 'finishedAt')) === '2026-11-07 10:30' && (await cell(page, 'P-0105', 'rows')) === '812' && /aldawaastocklevel-20261107103000-1\.csv/.test(await cell(page, 'P-0105', 'files')))
+  check(`1 ${tag}: started, finished, rows and files show`, (await cell(page, 'P-0105', 'startedAt')) === '2026-11-07 10:30' && (await cell(page, 'P-0105', 'finishedAt')) === '2026-11-07 10:30' && (await cell(page, 'P-0105', 'rows')) === '812' && /aldawaastocklevel-20261107103000-dp-0105\.csv/.test(await cell(page, 'P-0105', 'files')))
   check(`1 ${tag}: a failed push is RED with its error`, (await cell(page, 'P-0103', 'status')) === 'Failed' && /danger-050/.test(await rowClass(page, 'P-0103')) && (await cell(page, 'P-0103', 'error')) === 'Blob upload failed: 503 Server Busy')
   check(`1 ${tag}: a push now shows who asked and why`, (await cell(page, 'P-0104', 'type')) === 'Push now — store' && (await cell(page, 'P-0104', 'requestedBy')) === 'HYBRIS1' && (await cell(page, 'P-0104', 'reason')) === 'Website showed stale stock')
   check(`1 ${tag}: a full split in three files lists them all`, (await cell(page, 'P-0101', 'files')).split(',').length === 3)
-  check(`1 ${tag}: a running push reads Running`, (await cell(page, 'P-0100', 'status')) === 'Running')
+  check(`1 ${tag}: a running split push reads Running with its parts up`, /^Running/.test(await cell(page, 'P-0100', 'status')) && /1 \/ 2 parts up/.test(plain(await cell(page, 'P-0100', 'status'))), await cell(page, 'P-0100', 'status'))
+  check(`1 ${tag}: the status carries the server's statusText as its tooltip`, /Delivered to hot folder \/ تم التسليم/.test(plain((await page.locator(`${GRID} [data-push-status="sent"]`).first().getAttribute('title')) ?? '')))
   const text = await page.locator(GRID).innerText()
   check(`1 ${tag}: no cell says live on the website`, !/live on the website/i.test(text))
   check(`1 ${tag}: the page says what delivered to hot folder means`, /does not read whether it did/.test(await page.locator('[data-pushes-note]').innerText()))
@@ -102,23 +104,23 @@ async function log(dir) {
 
   // 2
   if (dir === 'ltr') {
-    await page.locator('[data-filter-type]').selectOption('F')
-    await waitRows(page, 2)
-    check('2: the type filter reaches the door and the URL', pushReads().at(-1).search === 'type=F&skip=0&take=50' && urlSearch(page) === 'type=F')
-    await page.locator('[data-filter-status]').selectOption('S')
+    await page.locator('[data-filter-type]').selectOption('full')
+    await waitRows(page, 3)
+    check("2: the type filter reaches the door and the URL in the log's words", pushReads().at(-1).search === 'type=full&take=50' && urlSearch(page) === 'type=full')
+    await page.locator('[data-filter-status]').selectOption('sent')
     await page.waitForTimeout(500)
-    check('2: the status filter too', pushReads().at(-1).search === 'type=F&status=S&skip=0&take=50')
+    check('2: the status filter too', pushReads().at(-1).search === 'type=full&status=sent&take=50')
     await page.locator('[data-filter-store]').fill('0099')
     await page.locator('[data-pushes-search]').click()
     await waitRows(page, 1)
-    check('2: the store filter on search', pushReads().at(-1).search === 'store=0099&type=F&status=S&skip=0&take=50' && urlSearch(page) === 'store=0099&type=F&status=S')
+    check('2: the store filter on search', pushReads().at(-1).search === 'store=0099&type=full&status=sent&take=50' && urlSearch(page) === 'store=0099&type=full&status=sent')
     await page.locator('[data-pushes-clear]').click()
     await waitRows(page, 7)
     await page.locator('[data-filter-from]').fill('2026-11-01')
     await page.waitForTimeout(500)
     await page.locator('[data-filter-to]').fill('2026-11-07')
     await waitRows(page, 6)
-    check('2: the date range reaches the door as from / to', pushReads().at(-1).search === 'from=2026-11-01&to=2026-11-07&skip=0&take=50', pushReads().at(-1).search)
+    check('2: the date range reaches the door as from / to', pushReads().at(-1).search === 'from=2026-11-01&to=2026-11-07&take=50', pushReads().at(-1).search)
     await page.locator('[data-pushes-clear]').click()
     await waitRows(page, 7)
   }
@@ -158,7 +160,7 @@ async function log(dir) {
   await hist.locator('[data-material-table]').waitFor({ timeout: 10000 })
   check(`5 ${tag}: a line opens the material's history at its store`, reads.at(-1).path === 'HybrisStockWeb/Stores/1234/Materials/100002/History' && urlSearch(page) === 'history=1234&material=100002')
   const hl = await hist.locator('[data-material-line]').evaluateAll((els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()))
-  check(`5 ${tag}: every quantity sent, newest first, with type, status and target`, hl.length === 3 && /2026-11-07 10:30 3 Delta Delivered to hot folder Shadow path/.test(plain(hl[0])) && /0 Push now — materials/.test(plain(hl[2])), hl.join(' | '))
+  check(`5 ${tag}: every quantity sent, newest first, with type and status`, hl.length === 3 && /2026-11-07 10:30 3 Delta Delivered to hot folder P-0105/.test(plain(hl[0])) && /0 Push now — materials/.test(plain(hl[2])), hl.join(' | '))
   await hist.locator('[data-material-push="P-0104"]').click()
   await page.locator('[data-lines-drawer="P-0104"] [data-lines-table]').waitFor({ timeout: 10000 })
   check(`5 ${tag}: a push id in the history opens that push's lines`, urlSearch(page) === 'push=P-0104')
@@ -191,8 +193,23 @@ await log('rtl')
   check('6: an empty history names the material and the store', /material 100002 at store 2001/.test(plain(await hist.locator('[data-material-empty]').innerText())))
   await page.goto(`${BASE}/hybris-stock/pushes?push=P-9999`)
   await page.locator('[data-lines-no-push]').waitFor({ timeout: 15000 })
-  check('6: an unknown push (HYS-00008) says no such push', /No such push/.test(await page.locator('[data-lines-no-push]').innerText()))
+  check('6: an unknown push (HYS-00020) says no such push', /No such push/.test(await page.locator('[data-lines-no-push]').innerText()))
   check('6: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// Show more: the door answers the newest N, no skip and no total
+{
+  const { context, page, errors, reads } = await open('ltr', { extraPushes: 60 })
+  await page.goto(`${BASE}/hybris-stock/pushes`)
+  await page.locator('[data-pushes-more]').waitFor({ timeout: 20000 })
+  const pushReads = () => reads.filter((r) => r.path === 'HybrisStockWeb/Pushes')
+  check('9: a full first read (50) shows 50 and offers Show more', /^50 pushes/.test(plain(await page.locator('[data-status-count]').innerText())) && pushReads().at(-1).search === 'take=50')
+  await page.locator('[data-pushes-more]').click()
+  await page.waitForFunction(() => /67 pushes/.test(document.querySelector('[data-status-count]')?.textContent.replace(/[\u2066-\u2069]/g, '') ?? ''), null, { timeout: 10000 })
+  check('9: Show more asks take=100 (still no skip) and lands in the URL', pushReads().at(-1).search === 'take=100' && urlSearch(page) === 'take=100')
+  check('9: a short answer is the whole match: no more Show more', (await page.locator('[data-pushes-more]').count()) === 0)
+  check('9: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

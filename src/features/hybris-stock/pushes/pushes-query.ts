@@ -3,26 +3,32 @@ import { PUSH_STATUSES, PUSH_TYPES } from './push-labels'
 
 // The push log's URL ⇄ query ⇄ door mapping (ticket 849), and the drawers' URL keys. Pure.
 
-export const PUSHES_PAGE_SIZE = 50
+/** The log reads the newest N: the door takes no `skip` and answers no total. Show more adds a step. */
+export const PUSHES_STEP = 50
+/** The door's `take` limit (Common: 1–500, else HybrisStockInputInvalid). */
+export const PUSHES_MAX = 500
 export const LINES_PAGE_SIZE = 200
 
 /** A `yyyy-MM-dd` date, as the date inputs and the door read it. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-/** `?store=&type=&status=&from=&to=&page=` — a value the door does not know is dropped. */
+/** `?store=&type=&status=&from=&to=&take=` — a value the door does not know is dropped, a `to` before
+ *  `from` too (the door refuses it), and `take` is a step of 50 up to 500. */
 export function pushesFromParams(params: URLSearchParams): HybrisStockPushesQuery {
   const type = params.get('type')
   const status = params.get('status')
   const from = params.get('from')
   const to = params.get('to')
-  const page = Number(params.get('page'))
+  const take = Number(params.get('take'))
+  const fromOk = from && ISO_DATE.test(from) ? from : null
+  const toOk = to && ISO_DATE.test(to) && !(fromOk && to < fromOk) ? to : null
   return {
     store: params.get('store')?.trim() || null,
     type: PUSH_TYPES.includes(type as HybrisStockPushType) ? (type as HybrisStockPushType) : null,
     status: PUSH_STATUSES.includes(status as HybrisStockPushStatus) ? (status as HybrisStockPushStatus) : null,
-    from: from && ISO_DATE.test(from) ? from : null,
-    to: to && ISO_DATE.test(to) ? to : null,
-    page: Number.isInteger(page) && page > 1 ? page : 1,
+    from: fromOk,
+    to: toOk,
+    take: Number.isInteger(take) && take >= PUSHES_STEP && take <= PUSHES_MAX && take % PUSHES_STEP === 0 ? take : PUSHES_STEP,
   }
 }
 
@@ -34,13 +40,22 @@ export function pushesToParams(q: HybrisStockPushesQuery): URLSearchParams {
   if (q.status) out.set('status', q.status)
   if (q.from) out.set('from', q.from)
   if (q.to) out.set('to', q.to)
-  if (q.page > 1) out.set('page', String(q.page))
+  if (q.take !== PUSHES_STEP) out.set('take', String(q.take))
   return out
 }
 
+/** What `GET HybrisStockWeb/Pushes` is sent: no `skip` (the door has none), `any` left off. */
 export function pushesDoorParams(q: HybrisStockPushesQuery) {
-  return { store: q.store, type: q.type, status: q.status, from: q.from, to: q.to, skip: (q.page - 1) * PUSHES_PAGE_SIZE, take: PUSHES_PAGE_SIZE }
+  return { store: q.store, type: q.type, status: q.status, from: q.from, to: q.to, take: q.take }
 }
+
+/** The next `take` for Show more, or `null` at the door's limit. */
+export function moreTake(take: number): number | null {
+  return take >= PUSHES_MAX ? null : Math.min(take + PUSHES_STEP, PUSHES_MAX)
+}
+
+/** A page that came back full may have more behind it; a short one is the whole match. */
+export const mayHoldMore = (rows: number, take: number): boolean => rows >= take
 
 /** The drawer the URL opens: a push's lines (`?push=`), or a material's history at a store (`?history=<store>&material=`). */
 export type Drawer = { kind: 'lines'; pushId: string } | { kind: 'material'; storeCode: string; materialNumber: string | null } | null

@@ -15,11 +15,11 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { materialHistoryKey, pushesApi } from './api'
-import { PushStatus, PushTarget, PushType } from './PushCells'
+import { PushStatus, PushType } from './PushCells'
 
 /**
  * **A material's history at a store** (spec 3447 story 46; ticket 849): every quantity sent for it at
- * that store and when, newest first, each with its push's type, status and target — to answer a
+ * that store and when, newest first, each with its push's type and status — to answer a
  * customer complaint about one product. Opened from a push line (store and material known), or from
  * a store (`?history=<store>`: it asks for the material). `onPick` writes the material to the URL.
  */
@@ -70,7 +70,7 @@ export default function MaterialHistoryDrawer({
           }}
         >
           <Field label={t('history.material')}>
-            <Input value={draft} dir="ltr" inputMode="numeric" onChange={(e) => setDraft(e.target.value)} data-material-input="" />
+            <Input value={draft} dir="ltr" onChange={(e) => setDraft(e.target.value)} data-material-input="" />
           </Field>
           <Button type="submit" variant="secondary" disabled={!draft.trim()} data-material-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
@@ -99,7 +99,6 @@ export default function MaterialHistoryDrawer({
                 <th className={`${TH} text-end`}>{t('history.quantity')}</th>
                 <th className={TH}>{t('columns.type')}</th>
                 <th className={TH}>{t('columns.status')}</th>
-                <th className={TH}>{t('columns.target')}</th>
                 <th className={TH}>{t('columns.push')}</th>
               </tr>
             </thead>
@@ -117,9 +116,6 @@ export default function MaterialHistoryDrawer({
                   </td>
                   <td className={TD}>
                     <PushStatus status={r.status} />
-                  </td>
-                  <td className={TD}>
-                    <PushTarget target={r.target} />
                   </td>
                   <td className={TD}>
                     <Button variant="text" onClick={() => onPush(r.pushId)} data-material-push={r.pushId}>

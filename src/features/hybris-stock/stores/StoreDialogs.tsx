@@ -15,10 +15,14 @@ import { replaceRow } from './stores-query'
  * delta; unmarking stops the pushes and sends Hybris nothing — taking the store off the website is
  * Hybris's own decision, and Hybris keeps the stock it was last sent.
  *
- * The door answers the row, which is patched into the list in place (no re-read). HYS-00003 — the
- * store was marked or unmarked meanwhile, from another screen — re-reads the list, and Confirm stays
- * off until the dialog is closed. HYS-00001 shows inline under the reason (the area binding).
+ * The door answers the row, which is patched into the list in place (no re-read). HYS-00004 / 00005 —
+ * the store was marked or unmarked meanwhile, from another screen — and HYS-00002 / 00003 (gone from the
+ * master, closed) re-read the list, and Confirm stays off until the dialog is closed. HYS-00001 shows
+ * inline under the reason (the area binding).
  */
+/** The refusals after which the row on screen is out of date: re-read, and do not let Confirm try again. */
+const STALE: string[] = [E.noSuchStore, E.storeClosed, E.alreadyMarked, E.notMarked]
+
 export function MarkDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose: () => void }) {
   const { t } = useTranslation('hybris-stock-stores')
   const qc = useQueryClient()
@@ -29,18 +33,16 @@ export function MarkDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose
       qc.setQueriesData<HybrisStockStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
       // A list under the marked filter may no longer hold the row: read those again (the unfiltered list
       // keeps its in-place patch and is not re-read).
-      void qc.invalidateQueries({ queryKey: STORES_KEY, predicate: (q) => String(q.queryKey[2] ?? '').includes('marked=') })
+      void qc.invalidateQueries({ queryKey: STORES_KEY, predicate: (q) => /flag=|health=/.test(String(q.queryKey[2] ?? '')) })
       void qc.invalidateQueries({ queryKey: historyKey(row.storeCode) })
       notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
       onClose()
     },
     onError: (err) => {
-      const code = apiErrorCode(err)
-      if (code === E.storeState || code === E.noSuchStore) void qc.invalidateQueries({ queryKey: STORES_KEY })
+      if (STALE.includes(apiErrorCode(err) ?? '')) void qc.invalidateQueries({ queryKey: STORES_KEY })
     },
   })
-  const code = apiErrorCode(send.error)
-  const stale = code === E.storeState || code === E.noSuchStore
+  const stale = STALE.includes(apiErrorCode(send.error) ?? '')
 
   return (
     <ReasonDialog

@@ -6,9 +6,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
-import { copilotViewEmbed } from '@/core/copilot-view-embed'
+import { copilotTableEmbed, copilotViewEmbed } from '@/core/copilot-view-embed'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
@@ -95,6 +95,25 @@ export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] })
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * The answer's tables (ticket 868, BackOffice spec 3558 D5), under its summary: each the analytics table form through
+ * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before.
+ */
+export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[] }) {
+  const { t } = useTranslation('copilot')
+  const Embed = copilotTableEmbed()
+  if (tables.length === 0 || !Embed) return null
+  return (
+    <div aria-label={t('answer.tables')} className="flex min-w-0 flex-col gap-3" data-copilot-tables>
+      {tables.map((table, i) => (
+        <Suspense key={`${table.step}-${i}`} fallback={null}>
+          <Embed table={table} />
+        </Suspense>
+      ))}
+    </div>
   )
 }
 
@@ -313,6 +332,7 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
           model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
         )}
       </section>
+      <AnswerTables tables={model.tables} />
       <ViewLinks viewRefs={model.viewRefs} />
       <Assumptions assumptions={model.assumptions} />
       <ReportEditNote reportEdit={model.reportEdit} />

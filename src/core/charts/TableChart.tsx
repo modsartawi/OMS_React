@@ -4,7 +4,7 @@ import type { ColDef } from 'ag-grid-community'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
-import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
+import { TABLE_DEFAULT_COL_DEF, type TableRow } from './table-columns'
 import { fsi } from '@/core/util/bidi'
 import CellBar from './CellBar'
 import { formatValue } from './format'
@@ -30,9 +30,7 @@ export interface TableChartColumn {
   tooltip?: string
 }
 
-type Row = Record<string, string | number | null>
-
-const TABLE_DEFAULT_COL_DEF: ColDef<Row> = { ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true }
+type Row = TableRow
 
 export default function TableChart({
   columns,

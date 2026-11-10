@@ -238,6 +238,11 @@ export function toTableView(
   allWord = '',
   /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
   tooltipOf?: (key: string) => string | undefined,
+  /**
+   * 868 (BackOffice spec 3558 D5): the copilot's answer table is drawn AS SENT — the result's own row order (its
+   * `order`, or a running share's), no sort arrow and no top N; a header click still re-sorts in the grid.
+   */
+  asSent = false,
 ): TableView {
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
@@ -260,8 +265,9 @@ export function toTableView(
   // Spec 3543 decision 3: a running share within a parent comes back grouped by parent, each parent already cut to the
   // top N by the server ("top N in each {parent}"), so it is drawn as it comes — a sort or a cut here would mix parents.
   const perParent = (definition.query.calculations ?? []).some((c) => c.kind === 'cumulativeShare' && (c.within?.length ?? 0) > 0)
+  const keepOrder = perParent || asSent
   const sorted = [...source]
-  if (sort && !perParent) {
+  if (sort && !keepOrder) {
     const sign = sort.direction === 'asc' ? 1 : -1
     sorted.sort((a, b) => {
       const av = a[sort.key]
@@ -271,7 +277,7 @@ export function toTableView(
     })
   }
   const topN = definition.chart.topN
-  const kept = topN && topN > 0 && !perParent ? sorted.slice(0, topN) : sorted
+  const kept = topN && topN > 0 && !keepOrder ? sorted.slice(0, topN) : sorted
 
   const rows = [...kept, ...totals].map((r) => {
     const out: Record<string, string | number | null> = {}
@@ -303,7 +309,7 @@ export function toTableView(
   ]
   const members = kept.map((r) => String(r[dimKeys[0]] ?? ''))
   // The grid applies the sort it is handed, so a per-parent table hands it none (it would interleave the parents again).
-  return { kind: 'table', columns, rows, members, sort: perParent ? null : sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
+  return { kind: 'table', columns, rows, members, sort: keepOrder ? null : sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
 }
 
 // ── Combo ────────────────────────────────────────────────────────────────────────────────────────────

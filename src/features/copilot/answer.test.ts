@@ -253,3 +253,45 @@ describe('Copy puts the answer on the clipboard as clean text', () => {
     expect(answerPlainText([])).toBe('')
   })
 })
+
+describe('the answer tables (spec 3558 D5; ticket 868)', () => {
+  const reply: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Riyadh leads with 1,204 deliveries.',
+    trace: [{ tool: 'semantic_query', input: { measures: ['deliveries'] }, rows: 2, ms: 40, ok: true }],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+  const table = {
+    step: 0,
+    columns: [{ key: 'city', role: 'dimension', label: { en: 'City', ar: 'المدينة' }, unit: null, shape: null, dateBasis: null, calculation: null, variant: null }],
+    rows: [{ values: ['Riyadh'], isTotal: null }],
+    total: 1,
+    truncated: false,
+    periodFrom: '2026-10-01',
+    periodTo: '2026-10-31',
+    previous: null,
+    previousFrom: null,
+    previousTo: null,
+    dataAsOf: '2026-11-11T08:00:00',
+    notes: { untilReached: null, untilReachedByParent: null, notSplit: null, notFiltered: null, dataGap: null },
+    query: { measures: ['deliveries'], dimensions: ['city'], filters: [] },
+  }
+
+  it('noTables_theAnswerRendersAsToday', () => {
+    const today = copilotAnswerModel(reply)
+    expect(today.tables).toEqual([])
+    // Absent, empty, null or not a list: the same model, field for field.
+    for (const tables of [undefined, [], null, 'x']) {
+      expect(copilotAnswerModel({ ...reply, tables } as unknown as Partial<CopilotAnswer>)).toEqual(today)
+    }
+  })
+
+  it('tables_areKeptInTheOrderSent_andOneWithoutColumnsOrRowsIsDropped', () => {
+    const second = { ...table, step: 2 }
+    const model = copilotAnswerModel({ ...reply, tables: [table, { step: 1 }, second] } as unknown as Partial<CopilotAnswer>)
+    expect(model.tables).toEqual([table, second])
+  })
+})

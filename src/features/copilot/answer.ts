@@ -1,6 +1,6 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswer, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -48,6 +48,11 @@ export interface CopilotAnswerModel {
   assumptions: AnalyticsLabel[]
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
   rules: AnswerRules | null
+  /**
+   * The tables to draw under the summary (ticket 868, spec 3558 D5), in the order sent; absent or empty reads as none,
+   * and the answer renders as before.
+   */
+  tables: CopilotAnswerTable[]
 }
 
 /** `promptVersion` read: a saved version, or 0, the built-in fallback. */
@@ -169,8 +174,13 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     boardEdit: boardEditOf(r.boardEdit),
     assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(bilingual).filter((a) => a.en.trim() !== '' || a.ar.trim() !== '') : [],
     rules: rulesOf(r.promptVersion),
+    tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
   }
 }
+
+/** A table the panel can draw: an object with its columns and rows as lists. Anything else is left out. */
+const isTable = (v: unknown): v is CopilotAnswerTable =>
+  !!v && typeof v === 'object' && Array.isArray((v as { columns?: unknown }).columns) && Array.isArray((v as { rows?: unknown }).rows)
 
 const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 

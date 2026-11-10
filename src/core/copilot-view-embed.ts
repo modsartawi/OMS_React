@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { CopilotAnswerTable } from '@/core/models/copilot'
 
 /**
  * How a copilot answer draws the views it created, inline (CTO demo, spec 766 D): the copilot may not import the
@@ -15,4 +16,20 @@ export function setCopilotViewEmbed(component: CopilotViewEmbed): void {
 
 export function copilotViewEmbed(): CopilotViewEmbed | null {
   return embed
+}
+
+/**
+ * How a copilot answer draws its tables (ticket 868, BackOffice spec 3558 D5): the analytics table form with its notes,
+ * downloads and "Open as view", registered by the app shell like the view embed. Absent, the answer keeps its summary.
+ */
+export type CopilotTableEmbed = ComponentType<{ table: CopilotAnswerTable }>
+
+let tableEmbed: CopilotTableEmbed | null = null
+
+export function setCopilotTableEmbed(component: CopilotTableEmbed): void {
+  tableEmbed = component
+}
+
+export function copilotTableEmbed(): CopilotTableEmbed | null {
+  return tableEmbed
 }

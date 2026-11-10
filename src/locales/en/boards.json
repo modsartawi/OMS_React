@@ -467,6 +467,10 @@
     "placeholder": "Ask a question, e.g. orders by channel last week",
     "send": "Ask"
   },
+  "copilotTable": {
+    "actions": "Table actions",
+    "openAsView": "Open as view"
+  },
   "panel": {
     "actions": "Panel actions",
     "refresh": "Refresh",

@@ -66,6 +66,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "The answer could not be copied.",
+    "tables": "Tables this answer shows",
     "views": "Views this answer created",
     "openView": "Open view",
     "stoppedEarly": "The copilot stopped before it finished, so this answer may be incomplete.",

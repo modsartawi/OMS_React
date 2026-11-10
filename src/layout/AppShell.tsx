@@ -4,10 +4,12 @@ import TopBar from './TopBar'
 import { useRailMode } from './rail-mode'
 import { fillsContent, hidesShell } from './shell-route'
 import { lazy } from 'react'
-import { setCopilotViewEmbed } from '@/core/copilot-view-embed'
+import { setCopilotTableEmbed, setCopilotViewEmbed } from '@/core/copilot-view-embed'
 
 // A copilot answer draws the views it created inline (CTO demo, spec 766 D): the analytics embed, lazily.
 setCopilotViewEmbed(lazy(() => import('@/features/analytics/boards/CopilotViewEmbed')))
+// …and the tables it marked to show (ticket 868, spec 3558 D5): the analytics table form, lazily.
+setCopilotTableEmbed(lazy(() => import('@/features/analytics/boards/CopilotTableEmbed')))
 
 // The Ops Console shell (spec 380 F10–F13): the navy rail on the inline-start side
 // (ticket 385), and beside it the 44px top bar over the screen (ticket 386). The account

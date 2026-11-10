@@ -238,6 +238,62 @@ export interface CopilotAnswer {
    * fallback. Absent on a pre-3395 server and `null` on a trial: either way not shown.
    */
   promptVersion?: number | null
+  /**
+   * Ticket 868 (BackOffice spec 3558 D5-D7, D13, 3564): the `semantic_query` results the model marked to show, each with
+   * ALL its rows, drawn under the summary as the analytics table form. Empty or absent (the switch
+   * `Copilot:Speed:PanelTables` off, or nothing marked): the answer renders as before.
+   */
+  tables?: CopilotAnswerTable[]
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
+}
+
+/** One answer table (3564): a shown `semantic_query` result. Every value is text on the wire; a measure's is a number's invariant text. */
+export interface CopilotAnswerTable {
+  /** 0-based index of its call in `trace`. */
+  step: number
+  columns: CopilotTableColumn[]
+  /** ALL the rows, in the result's order; `values` by column position. */
+  rows: CopilotTableRow[]
+  total: number
+  truncated: boolean
+  /** `yyyy-MM-dd`. */
+  periodFrom: string
+  periodTo: string
+  previous: CopilotTableRow[] | null
+  previousFrom: string | null
+  previousTo: string | null
+  dataAsOf: string
+  notes: CopilotTableNotes
+  /** The `semantic_query` input it ran (the `show` mark taken off): what "Open as view" seeds the editor with. */
+  query: Record<string, unknown>
+}
+
+export interface CopilotTableColumn {
+  key: string
+  role: 'dimension' | 'measure'
+  /** The header in both languages: the calculation's or variant's own label, else the model's, else the key. */
+  label: AnalyticsLabel
+  /** `count` | `SAR` | `minutes` | `percent`; null on a dimension. */
+  unit: string | null
+  shape: string | null
+  dateBasis: AnalyticsLabel | null
+  calculation: { kind: string; measure: string; of: string | null; within: string[] | null } | null
+  variant: { measure: string; filters: { dimension: string; values: string[] }[] } | null
+}
+
+export interface CopilotTableRow {
+  values: (string | null)[]
+  /** An "All" row (spec 3543 D12); null on every other row. */
+  isTotal: boolean | null
+}
+
+/** The server's notes on a table; each null when it does not apply. */
+export interface CopilotTableNotes {
+  untilReached: boolean | null
+  /** A running share within a parent: each parent's values in the `within` order, and whether it reached `until`. */
+  untilReachedByParent: { parent: (string | null)[]; reached: boolean }[] | null
+  notSplit: { measure: string; by: string[] }[] | null
+  notFiltered: { measure: string; by: string[] }[] | null
+  dataGap: string | null
 }

@@ -44,6 +44,7 @@ export default function ViewsPalette({
   onDragEnd,
   heading = true,
   hint,
+  target = 'board',
 }: {
   items: readonly AnalyticsItem[] | undefined
   loading: boolean
@@ -57,6 +58,8 @@ export default function ViewsPalette({
   heading?: boolean
   /** 846: the caller's own how-to line (the report designer drops into sections, not a grid); default the grid's. */
   hint?: string
+  /** What a view is added to, for the add button's words: the board editor's grid, or the report designer's section. */
+  target?: 'board' | 'report'
 }) {
   const { t } = useTranslation('boards')
   const me = useSession((s) => s.userId) ?? ''
@@ -117,7 +120,7 @@ export default function ViewsPalette({
       ) : (
         <ul className="-mx-1 flex max-h-[32rem] flex-col gap-1 overflow-auto px-1" data-board-palette-list>
           {shown.map((it) => (
-            <PaletteRow key={it.id} item={it} title={titleOf(it)} onAdd={onAdd} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+            <PaletteRow key={it.id} item={it} title={titleOf(it)} onAdd={onAdd} onDragStart={onDragStart} onDragEnd={onDragEnd} target={target} />
           ))}
         </ul>
       )}
@@ -131,12 +134,14 @@ function PaletteRow({
   onAdd,
   onDragStart,
   onDragEnd,
+  target,
 }: {
   item: AnalyticsItem
   title: string
   onAdd: (item: AnalyticsItem) => void
   onDragStart: (item: AnalyticsItem) => void
   onDragEnd: () => void
+  target: 'board' | 'report'
 }) {
   const { t } = useTranslation('boards')
   const known = definitionKnown(item)
@@ -161,7 +166,7 @@ function PaletteRow({
       onDragStart={start}
       onDragEnd={onDragEnd}
       onKeyDown={key}
-      aria-label={t('boardEditor.palette.row', { view: fsi(title), owner: fsi(item.owner) })}
+      aria-label={t(target === 'report' ? 'boardEditor.palette.rowToReport' : 'boardEditor.palette.row', { view: fsi(title), owner: fsi(item.owner) })}
       // 846 item 3: the full name on hover, for a name the row cuts short.
       title={fsi(title || t('home.untitled'))}
       className="group flex cursor-grab items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:bg-muted/50 focus-visible:bg-muted/50 active:cursor-grabbing"
@@ -181,7 +186,7 @@ function PaletteRow({
         </span>
       </span>
       {item.tier === 'certified' && <TierBadge tier={item.tier} />}
-      <IconButton label={t('boardEditor.palette.add', { view: fsi(title) })} size="compact" onClick={() => onAdd(item)} data-board-palette-add={item.id}>
+      <IconButton label={t(target === 'report' ? 'boardEditor.palette.addToReport' : 'boardEditor.palette.add', { view: fsi(title) })} size="compact" onClick={() => onAdd(item)} data-board-palette-add={item.id}>
         <Plus className="size-3.5" aria-hidden />
       </IconButton>
     </li>

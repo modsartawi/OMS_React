@@ -1046,6 +1046,8 @@
       "row": "{{view}}، من {{owner}}. اضغط Enter لإضافته إلى اللوحة.",
       "owner": "من <owner>{{owner}}</owner>",
       "add": "أضف {{view}} إلى اللوحة",
+      "addToReport": "أضف {{view}} إلى التقرير",
+      "rowToReport": "{{view}}، من {{owner}}. اضغط Enter لإضافته إلى التقرير.",
       "addFailed": "تعذّرت إضافة العرض",
       "chart": {
         "kpi": "مؤشر أداء",

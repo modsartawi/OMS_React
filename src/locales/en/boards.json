@@ -1010,6 +1010,8 @@
       "row": "{{view}}, by {{owner}}. Press Enter to add it to the board.",
       "owner": "by <owner>{{owner}}</owner>",
       "add": "Add {{view}} to the board",
+      "addToReport": "Add {{view}} to the report",
+      "rowToReport": "{{view}}, by {{owner}}. Press Enter to add it to the report.",
       "addFailed": "The view could not be added",
       "chart": {
         "kpi": "KPI",

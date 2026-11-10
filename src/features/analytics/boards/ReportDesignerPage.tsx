@@ -536,6 +536,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
                     onDragStart={dnd.startView}
                     onDragEnd={dnd.end}
                     hint={t('designer.side.viewsHint')}
+                    target="report"
                   />
                 </div>
               )}

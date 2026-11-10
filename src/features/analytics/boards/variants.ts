@@ -2,7 +2,7 @@ import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsMod
 import { CALCULATION_KEY_PATTERN, MAX_VARIANTS, type AnalyticsVariant } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
 import { labelOverride, settleCalculations } from './calculations-edit'
-import { filterableDimensions, pickableMeasures } from './editor'
+import { filterableDimensions, MAX_AREAS, pickableMeasures, queryAreas } from './editor'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -17,7 +17,7 @@ import { dimensionOf, measureOf } from './wire'
  * As in `./calculations-edit`, the web's copy of the server's rules only chooses what to offer; `AnalyticsVariants`
  * (SIS.Api) validates the same rules and refuses the rest with `ANALYTICS-406`.
  *
- * ⚠ 864 (cross-area) relaxes {@link variantMeasures}' one-area rule; the server does the same in 3548.
+ * 864 (spec 3543 decision 11, server 3548): a variant may be of any area, within the query's four.
  */
 
 /** Names in `lang` joined as a list ("Region and City", "المنطقة والمدينة"; "Delivery or Pickup" as a disjunction). */
@@ -40,7 +40,7 @@ export type VariantProblem =
   | 'brokenDown'
   /** Decision 6: a filter on a dimension its measure's area lacks. */
   | 'notFilterable'
-  /** Its measure is not one of the query's area (one area per query until 864). */
+  /** Its measure would make a fifth area (864: up to four per query). */
   | 'measure'
   /** Decision 5: the label is both languages or neither. */
   | 'oneLanguage'
@@ -54,14 +54,15 @@ export interface DroppedVariant {
 const variantsOf = (def: AnalyticsViewDefinition) => def.query.variants ?? []
 
 /**
- * The measures a variant may filter: the pickable measures of the query's own area (the area of its first model
- * measure), or every pickable measure before one is chosen. Model measures only — never a variant of a variant.
+ * The measures a variant may filter (864, spec 3543 decision 11): every pickable measure while the query's measures and
+ * variants read fewer than four areas, else those of its four. Model measures only — never a variant of a variant.
  */
 export function variantMeasures(def: AnalyticsViewDefinition, model: AnalyticsModel): string[] {
   const own = new Set(variantsOf(def).map((v) => v.key))
-  const area = def.query.measures.filter((k) => !own.has(k)).map((k) => measureOf(model, k)?.area).find(Boolean) ?? null
+  const named = [...def.query.measures.filter((k) => !own.has(k)), ...variantsOf(def).map((v) => v.measure)]
+  const areas = queryAreas(named, model)
   return pickableMeasures(model)
-    .filter((m) => !area || m.area === area)
+    .filter((m) => areas.length < MAX_AREAS || areas.includes(m.area))
     .map((m) => m.key)
 }
 
@@ -177,6 +178,22 @@ export function variantLabel(variant: Pick<AnalyticsVariant, 'measure' | 'filter
   const groups = variant.filters.map((f) => listOf(f.values.map((v) => valueName(f.dimension, v, model, lang)), lang, 'disjunction'))
   return word({ measure, values: new Intl.ListFormat(lang, { type: 'unit', style: 'short' }).format(groups) })
 }
+
+/**
+ * The name of a query's FIRST measure in `lang`, for a generated title: a model measure's label, a variant key's variant
+ * label (863's gap: a query whose only measures are variants), else `''` (a retired measure, or none).
+ */
+export function queryMeasureName(def: AnalyticsViewDefinition, model: Pick<AnalyticsModel, 'measures' | 'dimensions'>, lang: string, word: VariantWord): string {
+  const key = def.query.measures[0]
+  if (!key) return ''
+  const variant = variantsOf(def).find((v) => v.key === key)
+  if (variant && !measureOf(model, key)) return measureOf(model, variant.measure) ? variantLabel(variant, model, lang, word) : ''
+  return saysIn(measureOf(model, key)?.label, lang)
+}
+
+/** The model measure behind a query measure key: a variant key resolves to its variant's measure. */
+export const baseMeasureKey = (def: AnalyticsViewDefinition, key: string | undefined): string | undefined =>
+  variantsOf(def).find((v) => v.key === key)?.measure ?? key
 
 /**
  * `model` plus one measure per variant: its measure's shape, unit and area (decision 7), labelled in `lang`, and its

@@ -98,7 +98,8 @@ export function previewTable(preview: AnalyticsCatalogPreview, area: AnalyticsCa
   const rows = preview.rows.map((r) => {
     const out: Record<string, Cell> = {}
     for (const c of columns) {
-      const v = r[c.key] ?? null
+      // A preview row is one area's: it never carries a cross-area row's boolean `isTotal`.
+      const v = (r[c.key] ?? null) as string | number | null
       if (c.role === 'measure' || v === null) out[c.key] = v
       else {
         const d = area.dimensions.find((x) => x.key === c.key)

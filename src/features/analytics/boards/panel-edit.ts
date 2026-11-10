@@ -11,7 +11,7 @@ import { settleCalculations } from './calculations-edit'
 import { allowedDimensions, comparesToPrevious, DEFAULT_PERIOD, GRAINS, grainFor, MAX_DIMENSIONS, pickableMeasures, withCompare, type Grain } from './editor'
 import { seriesOf } from './series'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice, type ChartOffer } from './shape-rules'
-import { settleVariants } from './variants'
+import { baseMeasureKey, settleVariants } from './variants'
 import { measureOf } from './wire'
 
 /**
@@ -39,8 +39,12 @@ export const panelOffers = (def: AnalyticsViewDefinition, model: AnalyticsModel)
     model,
   )
 
-/** The area a panel measures in: its first measure's. `null` with no measure. */
-export const panelArea = (def: AnalyticsViewDefinition, model: AnalyticsModel): string | null => measureOf(model, def.query.measures[0])?.area ?? null
+/**
+ * The area a panel measures in: its first measure's (a variant key read as its measure — 863's gap, a panel of variants
+ * only). `null` with no measure. 864: a cross-area panel reads more; this is the one the area picker shows.
+ */
+export const panelArea = (def: AnalyticsViewDefinition, model: AnalyticsModel): string | null =>
+  measureOf(model, def.query.measures[0])?.area ?? measureOf(model, baseMeasureKey(def, def.query.measures[0]))?.area ?? null
 
 /** The definition with its chart fitted to its selection, and the query tidied to it. */
 export function fitted(raw: AnalyticsViewDefinition, model: AnalyticsModel): AnalyticsViewDefinition {

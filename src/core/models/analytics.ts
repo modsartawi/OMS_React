@@ -1,4 +1,11 @@
-import type { AnalyticsCalculation, AnalyticsColumnCalculation, AnalyticsColumnVariant, AnalyticsParentReached, AnalyticsVariant } from './analytics-calculations'
+import type {
+  AnalyticsCalculation,
+  AnalyticsColumnCalculation,
+  AnalyticsColumnVariant,
+  AnalyticsFigureDimensions,
+  AnalyticsParentReached,
+  AnalyticsVariant,
+} from './analytics-calculations'
 
 /**
  * The analytics doors' wire (spec 766 §C — PROPOSED, owned by BackOffice 3378 once filed).
@@ -405,10 +412,16 @@ export interface AnalyticsColumn {
   calculation?: AnalyticsColumnCalculation | null
   /** Spec 3543 D5 (3546): set on a variant column (its measure's shape and unit). */
   variant?: AnalyticsColumnVariant | null
+  /**
+   * Spec 3543 D14 (3548): on a measure column of a CROSS-AREA result, what its area's dates mean ("by business date",
+   * "by the day the delivery was created"). Null on every other column and in a one-area result.
+   */
+  dateBasis?: AnalyticsLabel | null
 }
 
 /** ⚠ A row is an object keyed by column key (Cube's own shape); §C says `rows[]` only. */
-export type AnalyticsRow = Record<string, string | number | null>
+/** Spec 3543 D12 (3548): an "All" row of a cross-area result also carries `isTotal: true` (`./analytics-calculations`). */
+export type AnalyticsRow = Record<string, string | number | boolean | null>
 
 export interface AnalyticsQueryResult {
   columns: AnalyticsColumn[]
@@ -429,6 +442,13 @@ export interface AnalyticsQueryResult {
   untilReached?: boolean
     /** Spec 3543 D3 (3545): a running share within a parent answers per parent, in the rows' parent order. */
     | AnalyticsParentReached[]
+  /**
+   * Spec 3543 D12 (3548), a cross-area result only: the figures that cannot be split by some asked dimensions. Their
+   * totals are on the "All" rows (`row.isTotal === true`, listed last). Absent = every figure splits.
+   */
+  notSplit?: AnalyticsFigureDimensions[]
+  /** Spec 3543 D18 (3549), a cross-area result only: the figures left unfiltered by some filters. Absent = none. */
+  notFiltered?: AnalyticsFigureDimensions[]
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────

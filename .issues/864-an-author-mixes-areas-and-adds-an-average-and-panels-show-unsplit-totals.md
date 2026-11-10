@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3543-analytics-calculations-phase-2-share-within-a-parent-filtered-measures-averages-and-questions-across-areas-spec.md
 blocked-by: 863, BackOffice 3549, BackOffice 3550
 ---
@@ -43,3 +43,17 @@ The tests are green, and the staging walk is recorded in Comments.
 ## Blocked by
 
 863, BackOffice 3549, BackOffice 3550
+
+## Comments
+
+- 2026-11-10 (implementer): built test-first on `3519-864`. Wire (`analytics-calculations.ts`, `wire.ts`): `average`,
+  `notSplit`, `notFiltered`, `column.dateBasis`, the row's `isTotal`. `./unsplit`: "All" rows never drawn (every chart
+  builder), listed last in the panel table, the table form (after sort and top N, not clickable) and the CSV/xlsx, the
+  unsplit dimension reading "All"; `AreaNotes` carries the `notSplit` sentence with each total and the "not filtered by"
+  note; `dateBasis` (and the not-filtered mark) in the table column header tooltip. Editor: measures from every area,
+  grouped, chosen areas first, a fifth blocked; breakdowns of any chosen area (notBy only from a measure's own area),
+  each naming the figures it will not split; a variant of any area within four; `average` with `of` free of the unit
+  rule, "{measure} per {of}", formatted by `column.unit`. canBind mirrors 3548/3551 (a measure option of another area
+  binds; members binds when some area has the dimension; variant keys read as their measure). 863's gap fixed (title
+  and report panel area of a variant-only query). Tests: `cross-area.test.ts`, `average.test.ts`.
+- **Open (HITL):** the staging walk — a board of till sales and deliveries by region x category with a category filter.

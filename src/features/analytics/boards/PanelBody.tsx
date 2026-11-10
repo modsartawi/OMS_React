@@ -11,7 +11,9 @@ import { listText } from '@/core/util/list-format'
 import { panelFailure, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
+import AreaNotes, { useAreaNoteWords } from './AreaNotes'
 import UntilNote from './UntilNote'
+import { columnTooltip } from './unsplit'
 import { useCalculatedModel } from './use-calculations'
 import ViewChart from './ViewChart'
 import type { MarkPoint } from './drill'
@@ -137,9 +139,17 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
   const seriesHeader = t('view.seriesColumn')
   // 861: calculated columns are measures, labelled in the viewer's language.
   const shown = useCalculatedModel(model, definition, result, lang)
+  const noteWords = useAreaNoteWords()
   const view = useMemo(
-    () => panelTable(result, definition, shown, lang, { series: seriesHeader, previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }) }),
-    [result, definition, shown, lang, seriesHeader, t],
+    () =>
+      panelTable(result, definition, shown, lang, {
+        series: seriesHeader,
+        previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }),
+        // 864 (spec 3543 decisions 12, 14): "All" rows last, and a cross-area column's date basis on its header.
+        all: t('view.allMembers'),
+        tooltip: (key) => columnTooltip(key, result, shown, lang, noteWords),
+      }),
+    [result, definition, shown, lang, seriesHeader, t, noteWords],
   )
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
@@ -153,6 +163,7 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
         ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
       />
       <UntilNote definition={definition} result={result} model={model} lang={lang} />
+      <AreaNotes definition={definition} result={result} model={shown} lang={lang} />
     </div>
   )
 }

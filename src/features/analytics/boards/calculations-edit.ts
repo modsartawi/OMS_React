@@ -22,6 +22,8 @@ export type CalculationUnavailable =
   | 'noAdditive'
   /** Decision 9: a ratio needs two additive measures in the same unit. */
   | 'noPair'
+  /** Spec 3543 decision 9: an average needs two additive measures (any units). */
+  | 'noTwo'
   /** Decision 8: change needs compare with the previous period. */
   | 'needsCompare'
   /** Decision 7: a running share refuses a date breakdown… */
@@ -48,18 +50,24 @@ export interface CalculationSelection {
 
 const additive = (key: string, model: AnalyticsModel) => measureOf(model, key)?.shape === 'additive'
 
+/** The kinds that take an `of` (a denominator): a ratio (3519) and an average (spec 3543 part C). */
+export const takesOf = (kind: AnalyticsCalculationKind): kind is 'ratio' | 'average' => kind === 'ratio' || kind === 'average'
+
 /** The measures a kind may take (decision 9): the selected additive ones, any selected one for `change`. */
 export function measuresFor(kind: AnalyticsCalculationKind, measures: readonly string[], model: AnalyticsModel): string[] {
   if (kind === 'change') return [...measures]
   const sums = measures.filter((k) => additive(k, model))
-  return kind === 'ratio' ? sums.filter((k) => ofFor(k, measures, model).length > 0) : sums
+  return takesOf(kind) ? sums.filter((k) => ofFor(k, measures, model, kind).length > 0) : sums
 }
 
-/** A ratio's denominators for `measure` (decision 9): the other selected additive measures in the same unit. */
-export function ofFor(measure: string, measures: readonly string[], model: AnalyticsModel): string[] {
+/**
+ * The denominators for `measure` (decision 9): the other selected additive measures — in the same unit for a ratio;
+ * in any unit (and from any area) for an average (spec 3543 decisions 9 and 16: "deliveries per till sale").
+ */
+export function ofFor(measure: string, measures: readonly string[], model: AnalyticsModel, kind: 'ratio' | 'average' = 'ratio'): string[] {
   const unit = measureOf(model, measure)?.unit
   if (!additive(measure, model)) return []
-  return measures.filter((k) => k !== measure && additive(k, model) && measureOf(model, k)?.unit === unit)
+  return measures.filter((k) => k !== measure && additive(k, model) && (kind === 'average' || measureOf(model, k)?.unit === unit))
 }
 
 /** The four kinds, each offered or with the reason it is not (decisions 1, 7–9). */
@@ -69,7 +77,7 @@ export function calculationKinds(sel: CalculationSelection, model: AnalyticsMode
     const no = (reason: CalculationUnavailable): CalculationKindOffer => ({ kind, offered: false, reason })
     if (sel.calculations.length >= MAX_CALCULATIONS) return no('full')
     if (kind === 'change') return sel.compare ? { kind, offered: true } : no('needsCompare')
-    if (measuresFor(kind, sel.measures, model).length === 0) return no(kind === 'ratio' ? 'noPair' : 'noAdditive')
+    if (measuresFor(kind, sel.measures, model).length === 0) return no(kind === 'ratio' ? 'noPair' : kind === 'average' ? 'noTwo' : 'noAdditive')
     if (kind === 'cumulativeShare') {
       if (hasDate) return no('runningDate')
       if (sel.series > 0) return no('runningSeries')
@@ -126,6 +134,7 @@ const KEY_STEM: Record<AnalyticsCalculationKind, string> = {
   ratio: 'ratio',
   cumulativeShare: 'running',
   change: 'change',
+  average: 'avg',
 }
 
 /**
@@ -134,7 +143,7 @@ const KEY_STEM: Record<AnalyticsCalculationKind, string> = {
  */
 export function calculationKey(draft: CalculationDraft, def: AnalyticsViewDefinition): string {
   const clean = (s: string) => s.replace(/[^A-Za-z0-9_]/g, '_')
-  const base = [KEY_STEM[draft.kind], clean(draft.measure), ...(draft.kind === 'ratio' && draft.of ? [clean(draft.of)] : [])].join('_').slice(0, 40)
+  const base = [KEY_STEM[draft.kind], clean(draft.measure), ...(takesOf(draft.kind) && draft.of ? [clean(draft.of)] : [])].join('_').slice(0, 40)
   const taken = new Set([...def.query.measures, ...def.query.dimensions, ...(def.query.calculations ?? []).map((c) => c.key)])
   if (!taken.has(base)) return base
   for (let n = 2; ; n++) {
@@ -170,7 +179,7 @@ export function settleCalculations(def: AnalyticsViewDefinition, model: Analytic
   const kept: AnalyticsCalculation[] = []
   for (const c of all) {
     const reason: DroppedReason | null = !measuresFor(c.kind, measures, model).includes(c.measure) ||
-      (c.kind === 'ratio' && !ofFor(c.measure, measures, model).includes(c.of ?? ''))
+      (takesOf(c.kind) && !ofFor(c.measure, measures, model, c.kind).includes(c.of ?? ''))
       ? 'measure'
       : c.kind === 'change' && def.query.compareToPrevious !== true
         ? 'compare'
@@ -213,12 +222,12 @@ export function removeCalculation(def: AnalyticsViewDefinition, key: string, mod
 }
 
 /**
- * Only the fields its kind carries: `of` on a ratio, `until` (1–100, whole) on a running share, `within` (non-empty) on
+ * Only the fields its kind carries: `of` on a ratio or an average, `until` (1–100, whole) on a running share, `within` (non-empty) on
  * a share or a running share, a label if given.
  */
 function tidy(d: CalculationDraft): CalculationDraft {
   const out: CalculationDraft = { kind: d.kind, measure: d.measure }
-  if (d.kind === 'ratio' && d.of) out.of = d.of
+  if (takesOf(d.kind) && d.of) out.of = d.of
   if (d.kind === 'cumulativeShare' && typeof d.until === 'number' && Number.isFinite(d.until)) out.until = Math.min(100, Math.max(1, Math.round(d.until)))
   if (takesWithin(d.kind) && d.within?.length) out.within = [...new Set(d.within)]
   if (d.label) out.label = d.label

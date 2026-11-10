@@ -17,6 +17,7 @@ export function useCalculationWords(): CalculationWords {
       ratio: (v) => t('calculation.label.ratio', v),
       cumulativeShare: (v) => t('calculation.label.cumulativeShare', v),
       change: (v) => t('calculation.label.change', v),
+      average: (v) => t('calculation.label.average', v),
       shareOfTotalWithin: (v) => t('calculation.label.shareOfTotalWithin', v),
       cumulativeShareWithin: (v) => t('calculation.label.cumulativeShareWithin', v),
     }),

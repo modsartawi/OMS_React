@@ -10,6 +10,8 @@ import { listText } from '@/core/util/list-format'
 import type { MarkPoint } from './drill'
 import { hasSeries, seriesColumnOf } from './series'
 import { toComboView, toDonutView, toHeatmapView, toTableView } from './view-model-forms'
+import { useAreaNoteWords } from './AreaNotes'
+import { columnTooltip } from './unsplit'
 
 /**
  * The donut, the table with cell bars, the heatmap and the combo (ticket 769) — the forms the view
@@ -44,6 +46,7 @@ export default function ViewForm({
 }) {
   const { t } = useTranslation('boards')
   const { t: tc } = useTranslation('common')
+  const noteWords = useAreaNoteWords()
 
   if (type === 'donut') {
     const view = toDonutView(result, definition, model, lang)
@@ -72,7 +75,17 @@ export default function ViewForm({
   }
 
   if (type === 'table') {
-    const view = toTableView(result, definition, model, lang, t('view.seriesColumn'), (measure) => t('view.previousColumn', { measure: fsi(measure) }))
+    const view = toTableView(
+      result,
+      definition,
+      model,
+      lang,
+      t('view.seriesColumn'),
+      (measure) => t('view.previousColumn', { measure: fsi(measure) }),
+      // 864 (spec 3543 decisions 12, 14): "All" rows after the sorted rows, and a cross-area column's date basis.
+      t('view.allMembers'),
+      (key) => columnTooltip(key, result, model, lang, noteWords),
+    )
     // 825: the series column is not a dimension a row click cross-filters on.
     const seriesKey = hasSeries(definition) ? seriesColumnOf(result.columns) : null
     const dims = view.columns.filter((c) => c.role === 'dimension' && c.key !== seriesKey).map((c) => c.label)

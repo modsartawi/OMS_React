@@ -41,6 +41,7 @@
     "cancel": { "name": "cancel", "kind": "threshold", "label": { "en": "", "ar": "" }, "required": false, "measure": "cancel_rate", "default": { "kind": "threshold", "op": "off", "value": 5 } },
     "top": { "name": "top", "kind": "topN", "label": { "en": "", "ar": "" }, "required": true, "default": { "kind": "topN", "n": 10 } },
     "figure": { "name": "figure", "kind": "measure", "label": { "en": "", "ar": "" }, "required": true, "options": ["orders", "deliveries"], "default": { "kind": "measure", "key": "orders" } },
+    "figureCross": { "name": "figure-cross", "kind": "measure", "label": { "en": "", "ar": "" }, "required": true, "options": ["orders", "till"], "default": { "kind": "measure", "key": "orders" } },
     "figureRate": { "name": "figure-rate", "kind": "measure", "label": { "en": "", "ar": "" }, "required": true, "options": ["orders", "cancel_rate"], "default": { "kind": "measure", "key": "orders" } },
     "split": { "name": "split", "kind": "breakdown", "label": { "en": "", "ar": "" }, "required": true, "options": ["channel_group", "city"], "default": { "kind": "breakdown", "key": "channel_group" } }
   },
@@ -81,7 +82,8 @@
     ["figure", "kpi", null, "ok"],
     ["figure", "rate", null, "ok"],
     ["figure", "two", null, "measureShape"],
-    ["figure", "till", null, "measureShape"],
+    ["figure", "till", null, "ok"],
+    ["figureCross", "two", null, "ok"],
     ["figureRate", "bar", null, "ok"],
     ["figureRate", "stacked", null, "measureShape"],
 

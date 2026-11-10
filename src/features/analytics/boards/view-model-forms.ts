@@ -7,6 +7,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { mergeSeries, seriesColumnOf, seriesName, seriesOf, type NamedSeries } from './series'
 import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
 import { dimensionOf, measureOf } from './wire'
+import { drawnResult, isTotalRow, splitThenTotals } from './unsplit'
 
 /**
  * The result → view model for the donut, the table with cell bars, the heatmap and the combo
@@ -67,6 +68,8 @@ export function toDonutView(
   model: AnalyticsModel,
   lang: string,
 ): DonutView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   const measureKey = firstKey(definition.query.measures, result, 'measure')
   const dimensionKey = firstKey(definition.query.dimensions, result, 'dimension')
   // The model's shape decides when the column is silent: the refusal must not depend on the answer.
@@ -154,6 +157,8 @@ export function toHeatmapView(
   model: AnalyticsModel,
   lang: string,
 ): HeatmapView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   const measureKey = firstKey(definition.query.measures, result, 'measure')
   const xKey = firstKey(definition.query.dimensions, result, 'dimension', 0)
   const yKey = firstKey(definition.query.dimensions, result, 'dimension', 1)
@@ -202,6 +207,8 @@ export interface TableColumn {
   unit?: ViewMeasure['unit']
   /** A measure column's largest absolute value: the cell bars' full width. */
   max?: number
+  /** 864 (spec 3543 decision 14): the header's tooltip on a cross-area panel (its date basis, "not filtered by ..."). */
+  tooltip?: string
 }
 
 export interface TableView {
@@ -227,6 +234,10 @@ export function toTableView(
   seriesHeader = 'series',
   /** Spec 3519 item 11: a measure's previous-period column header, in the screen's language. */
   previousHeader: (measure: string) => string = previousKey,
+  /** 864 (spec 3543 decision 12): what an "All" row's unsplit dimension reads, in the screen's language. */
+  allWord = '',
+  /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
+  tooltipOf?: (key: string) => string | undefined,
 ): TableView {
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
@@ -238,7 +249,9 @@ export function toTableView(
   const named = seriesOf(definition)
   const seriesKey = seriesColumnOf(result.columns)
   const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
-  const source = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
+  const inSeries = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
+  // 864 (decision 12): the "All" rows are kept out of the sort and the top N, and listed after them (`./unsplit`).
+  const { split: source, totals } = splitThenTotals(inSeries)
   // Compared with the previous period: a previous column after each of the query's measures (`./previous-rows`).
   const withPrevious = new Set(previousMeasures(definition, result))
   const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
@@ -257,10 +270,10 @@ export function toTableView(
   const topN = definition.chart.topN
   const kept = topN && topN > 0 ? sorted.slice(0, topN) : sorted
 
-  const rows = kept.map((r) => {
+  const rows = [...kept, ...totals].map((r) => {
     const out: Record<string, string | number | null> = {}
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
-    for (const k of dimKeys) out[k] = namers.get(k)!.label(String(r[k] ?? ''))
+    for (const k of dimKeys) out[k] = r[k] == null && isTotalRow(r) ? allWord : namers.get(k)!.label(String(r[k] ?? ''))
     const before = withPrevious.size ? previousOf(r) : undefined
     for (const k of measureKeys) {
       out[k] = num(r[k])
@@ -273,7 +286,15 @@ export function toTableView(
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.category.label })),
     ...measureKeys.flatMap((k) => {
       const m = viewMeasureOf(k, model, result, lang)
-      const column = (key: string, label: string) => ({ key, role: 'measure' as const, label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))) })
+      const tooltip = tooltipOf?.(k)
+      const column = (key: string, label: string) => ({
+        key,
+        role: 'measure' as const,
+        label,
+        unit: m.unit,
+        max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))),
+        ...(tooltip ? { tooltip } : {}),
+      })
       return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
     }),
   ]
@@ -316,6 +337,8 @@ export function toComboView(
   model: AnalyticsModel,
   lang: string,
 ): ComboView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   // 861: a calculated share is a rate measure, so it is the combo's line.
   const keys = measureKeysOf(definition, result)
   const measures = keys.map((k) => viewMeasureOf(k, model, result, lang))

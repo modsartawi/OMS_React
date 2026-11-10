@@ -8,6 +8,7 @@ import type {
   MeasureUnit,
 } from '@/core/models/analytics'
 import { dimensionOf, measureOf } from './wire'
+import { drawnResult } from './unsplit'
 
 /**
  * The result → view model (spec 766 §F, ticket 767): one `Analytics/Query` answer, its definition and
@@ -79,6 +80,8 @@ export function toBarView(
   model: AnalyticsModel,
   lang: string,
 ): BarView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   const measureKey = definition.query.measures[0] ?? result.columns.find((c) => c.role === 'measure')?.key ?? ''
   const categoryKey = definition.query.dimensions[0] ?? result.columns.find((c) => c.role === 'dimension')?.key ?? ''
   const dim = dimensionOf(model, categoryKey)

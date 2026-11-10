@@ -122,11 +122,10 @@ describe('builder pass (CTO demo)', () => {
     ],
   }
 
-  it('groups measures by subject and blocks the other subject once one is chosen', () => {
-    const groups = pickerSubjects(model, ['delivery_count'], '', 'en')
-    expect(groups.map((g) => g.area)).toEqual(['ops', 'till'])
-    expect(groups[0].measures.every((x) => x.blocked === null)).toBe(true)
-    expect(groups[1].measures[0].blocked).toBe('otherSubject')
+  it('groups measures by subject, the chosen subject first; another subject stays open (864: up to four)', () => {
+    const groups = pickerSubjects(model, ['till_sales'], '', 'en')
+    expect(groups.map((g) => g.area)).toEqual(['till', 'ops'])
+    expect(groups.flatMap((g) => g.measures).every((x) => x.blocked === null)).toBe(true)
   })
 
   it('searches label and description, and drops subjects with no match', () => {

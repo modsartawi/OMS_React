@@ -95,14 +95,8 @@ export default function ReportPanelEditor({
 
   const area = panelArea(view, model)
   const areas = model.areas.filter((a) => pickableMeasures(baseModel).some((m) => m.area === a.key))
-  // The measure picker asks one subject: the panel's area. Picking another area starts it on that area's first measure.
-  const inArea = useMemo(
-    () => ({
-      ...model,
-      measures: model.measures.filter((m) => !area || m.area === area),
-    }),
-    [model, area],
-  )
+  // Picking an area starts the panel on that area's first measure. 864 (spec 3543 decision 30): the measure picker then
+  // lists every area, grouped, so a panel may add measures of up to four.
   const measures = view.query.measures
   const dimensions = view.query.dimensions
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
@@ -149,7 +143,7 @@ export default function ReportPanelEditor({
       </Field>
 
       <QueryFields
-        model={inArea}
+        model={model}
         lang={lang}
         measures={measures}
         onMeasures={(next) => setView((d) => withMeasures(d, next, model))}

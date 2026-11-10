@@ -52,8 +52,8 @@ describe('variants: what "Add filtered measure" offers (decisions 5, 6)', () => 
     expect(variantFilterDimensions('claim_value', [], MODEL).map((d) => d.key)).toEqual(['region'])
   })
 
-  it("offers the measures of the query's own area", () => {
-    expect(variantMeasures(def(), MODEL)).toEqual(['net', 'orders'])
+  it('offers the measures of every area (864: a query reads up to four areas)', () => {
+    expect(variantMeasures(def(), MODEL)).toEqual(['net', 'orders', 'claim_value'])
   })
 
   it('refuses a filter on a broken-down dimension, a variant with no filter, a half label, and a fifth', () => {

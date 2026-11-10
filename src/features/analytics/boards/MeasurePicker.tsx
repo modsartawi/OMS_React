@@ -8,7 +8,8 @@ import { FIELD_LABEL } from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { pickerSubjects } from './editor'
+import { listText } from '@/core/util/list-format'
+import { MAX_AREAS, pickerSubjects, queryAreas } from './editor'
 import { measureOf } from './wire'
 
 /** A subject area's name: its `boards:editor.area.<key>` words, else the key made readable. */
@@ -19,9 +20,9 @@ export function useAreaName() {
 
 /**
  * The builder's measures, by subject (CTO demo builder pass): the chosen ones as removable chips, a search, and every
- * measure grouped under its subject area with its one-line definition. A view asks ONE subject, so once a measure is
- * chosen its subject comes first and the other subjects' measures are greyed with the reason. A subject that is not
- * available yet says why.
+ * measure grouped under its subject area with its one-line definition. 864 (spec 3543 decisions 11, 30): a view reads
+ * up to four subjects, so the chosen subjects come first and, once four are chosen, a fifth's measures are greyed with
+ * the reason. A subject that is not available yet says why.
  */
 export default function MeasurePicker({
   model,
@@ -40,7 +41,7 @@ export default function MeasurePicker({
   const areaName = useAreaName()
   const [search, setSearch] = useState('')
   const subjects = pickerSubjects(model, value, search, lang)
-  const chosenArea = value.map((k) => measureOf(model, k)?.area).find(Boolean) ?? null
+  const chosenAreas = queryAreas(value, model)
   const toggle = (key: string) => onChange(value.includes(key) ? value.filter((k) => k !== key) : [...value, key])
   const nameOf = (k: string) => saysIn(measureOf(model, k)?.label, lang) || k
 
@@ -87,7 +88,7 @@ export default function MeasurePicker({
                 const why = !g.available
                   ? t('editor.subjectUnavailable')
                   : off
-                    ? t('editor.otherSubject', { subject: fsi(areaName(chosenArea ?? '')) })
+                    ? t('editor.tooManyAreas', { max: MAX_AREAS })
                     : undefined
                 return (
                   <li key={m.key}>
@@ -121,9 +122,9 @@ export default function MeasurePicker({
           </section>
         ))}
       </div>
-      {chosenArea && (
-        <p className="text-xs text-muted-foreground" data-analytics-one-subject>
-          {t('editor.oneSubject', { subject: fsi(areaName(chosenArea)) })}
+      {chosenAreas.length > 1 && (
+        <p className="text-xs text-muted-foreground" data-analytics-subjects-chosen={chosenAreas.length}>
+          {t('editor.manySubjects', { subjects: fsi(listText(chosenAreas.map(areaName), lang)), max: MAX_AREAS })}
         </p>
       )}
     </fieldset>

@@ -117,6 +117,7 @@ describe('the panel table: calculated columns', () => {
     ratio: ({ measure, of }) => `${measure} as % of ${of}`,
     cumulativeShare: ({ measure }) => `Running share of ${measure}`,
     change: ({ measure }) => `Change in ${measure}`,
+    average: ({ measure, of }) => `${measure} per ${of}`,
     shareOfTotalWithin: ({ measure, within }) => `Share of ${measure} in each ${within}`,
     cumulativeShareWithin: ({ measure, within }) => `Running share of ${measure} in each ${within}`,
   }

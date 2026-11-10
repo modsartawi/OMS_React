@@ -23,7 +23,15 @@ import type {
   Bindings,
   Param,
 } from '@/core/models/analytics'
-import { readCalculations, readColumnCalculation, readColumnVariant, readUntilReached, readVariants } from '@/core/models/analytics-calculations'
+import {
+  readCalculations,
+  readColumnCalculation,
+  readColumnVariant,
+  readDateBasis,
+  readFigureDimensions,
+  readUntilReached,
+  readVariants,
+} from '@/core/models/analytics-calculations'
 import { readAudience } from './audience'
 
 /**
@@ -102,7 +110,9 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     columns: arr<unknown>(r.columns).map((c) => {
       const col = obj(c) as unknown as AnalyticsQueryResult['columns'][number]
       // 863 (spec 3543): a variant column's `variant` is read the same way.
-      const out = 'variant' in col ? { ...col, variant: readColumnVariant(col.variant) } : col
+      const withVariant = 'variant' in col ? { ...col, variant: readColumnVariant(col.variant) } : col
+      // 864 (spec 3543 D14): a cross-area measure column's `dateBasis`, both languages or null.
+      const out = 'dateBasis' in withVariant ? { ...withVariant, dateBasis: readDateBasis(withVariant.dateBasis) } : withVariant
       if (!('calculation' in out)) return out
       const calculation = readColumnCalculation(out.calculation)
       return { ...out, calculation }
@@ -119,6 +129,9 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     fellBack: arr<unknown>(r.fellBack).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param) })),
     // 861 (spec 3519 D7): absent stays absent, so a result without a running-share cut is the shape it always was.
     ...(readUntilReached(r.untilReached) === undefined ? {} : { untilReached: readUntilReached(r.untilReached) }),
+    // 864 (spec 3543 D12, D18): a cross-area result's unsplit and unfiltered figures; absent (or null) stays absent.
+    ...(readFigureDimensions(r.notSplit) ? { notSplit: readFigureDimensions(r.notSplit) } : {}),
+    ...(readFigureDimensions(r.notFiltered) ? { notFiltered: readFigureDimensions(r.notFiltered) } : {}),
   }
 }
 

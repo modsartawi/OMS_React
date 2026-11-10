@@ -434,6 +434,13 @@
     "notSharedTitle": "This view isn’t shared with you",
     "seriesColumn": "Series",
     "previousColumn": "{{measure}} (previous period)",
+    "allMembers": "All",
+    "unsplit": {
+      "notSplit": "{{measure}} cannot be split by {{by}}.",
+      "totalIn": "In {{parent}}: {{value}}",
+      "total": "Total: {{value}}",
+      "notFiltered": "{{measure}} is not filtered by {{by}}."
+    },
     "seriesKpiLabel": "{{measure}} for {{series}}"
   },
   "refusal": {
@@ -513,7 +520,8 @@
     "loadFailed": "The analytics model could not be loaded",
     "measures": "Measures",
     "dimensions": "Breakdowns",
-    "dimensionsHint": "Only the breakdowns every chosen measure allows.",
+    "dimensionsHint": "Any breakdown of the chosen subjects. A figure whose subject lacks one is shown as its total.",
+    "dimensionNotSplit": "{{dimension}} (does not split {{measures}})",
     "filterOn": "Only these: {{dimension}}",
     "period": {
       "today": "today",
@@ -628,8 +636,8 @@
     "noMeasureMatch": "No measure matches.",
     "removeMeasure": "Remove {{measure}}",
     "subjectUnavailable": "Not available yet.",
-    "otherSubject": "A view asks one subject: this one is not {{subject}}.",
-    "oneSubject": "Measures from {{subject}} only: one view asks one subject. Remove them to change subject.",
+    "tooManyAreas": "A view reads at most {{max}} subjects: remove a measure of another subject first.",
+    "manySubjects": "Figures from {{subjects}}, joined on the breakdowns they share. Up to {{max}} subjects.",
     "shape": {
       "rate": "rate",
       "percentile": "percentile",
@@ -672,17 +680,19 @@
     "whyOff": "Why {{n}} types are off",
     "calc": {
       "title": "Calculations",
-      "hint": "Shares, ratios, running shares and changes, computed by the server. Up to {{max}}.",
+      "hint": "Shares, ratios, running shares, changes and averages, computed by the server. Up to {{max}}.",
       "kind": "Calculation",
       "kindPick": "Add a calculation…",
       "kindName": {
         "shareOfTotal": "Share of total",
         "ratio": "Ratio of two measures",
         "cumulativeShare": "Running share",
-        "change": "Change from the previous period"
+        "change": "Change from the previous period",
+        "average": "Average (one measure per another)"
       },
       "measure": "Of the measure",
       "of": "As a percentage of",
+      "per": "Per",
       "until": "Stop at (%)",
       "untilPlaceholder": "All rows",
       "untilWithin": "Stop at (%) in each {{within}}",
@@ -703,6 +713,7 @@
         "full": "A query takes at most four calculations.",
         "noAdditive": "Needs a measure that adds up (a count or an amount), not a rate or a percentile.",
         "noPair": "Needs two measures that add up, in the same unit.",
+        "noTwo": "Needs two measures that add up (a count or an amount).",
         "needsCompare": "Turn on compare with the previous period first.",
         "runningDate": "A running share cannot be broken down by date.",
         "runningSeries": "A running share cannot be used with named series.",
@@ -1614,6 +1625,7 @@
       "ratio": "{{measure}} as % of {{of}}",
       "cumulativeShare": "Running share of {{measure}}",
       "change": "Change in {{measure}}",
+      "average": "{{measure}} per {{of}}",
       "shareOfTotalWithin": "Share of {{measure}} in each {{within}}",
       "cumulativeShareWithin": "Running share of {{measure}} in each {{within}}"
     },

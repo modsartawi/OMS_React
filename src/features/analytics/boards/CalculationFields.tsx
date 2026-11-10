@@ -16,6 +16,7 @@ import {
   labelOverride,
   measuresFor,
   ofFor,
+  takesOf,
   takesWithin,
   withinChoices,
   withinProblem,
@@ -67,7 +68,7 @@ export default function CalculationFields({
   const choices = pickedKind ? measuresFor(pickedKind, selection.measures, model) : []
   const [measure, setMeasure] = useState('')
   const shownMeasure = choices.includes(measure) ? measure : (choices[0] ?? '')
-  const ofs = pickedKind === 'ratio' ? ofFor(shownMeasure, selection.measures, model) : []
+  const ofs = pickedKind && takesOf(pickedKind) ? ofFor(shownMeasure, selection.measures, model, pickedKind) : []
   const [of, setOf] = useState('')
   const shownOf = ofs.includes(of) ? of : (ofs[0] ?? '')
   const [until, setUntil] = useState<number | null>(null)
@@ -79,11 +80,11 @@ export default function CalculationFields({
 
   if (selection.measures.length === 0) return null
   const add = () => {
-    if (!pickedKind || !shownMeasure || (pickedKind === 'ratio' && !shownOf) || badWithin) return
+    if (!pickedKind || !shownMeasure || (takesOf(pickedKind) && !shownOf) || badWithin) return
     onAdd({
       kind: pickedKind,
       measure: shownMeasure,
-      ...(pickedKind === 'ratio' ? { of: shownOf } : {}),
+      ...(takesOf(pickedKind) ? { of: shownOf } : {}),
       ...(pickedKind === 'cumulativeShare' && until ? { until } : {}),
       ...(shownWithin.length ? { within: shownWithin } : {}),
     })
@@ -161,8 +162,8 @@ export default function CalculationFields({
                 ))}
               </Select>
             </Field>
-            {pickedKind === 'ratio' && (
-              <Field label={t('editor.calc.of')}>
+            {pickedKind && takesOf(pickedKind) && (
+              <Field label={t(pickedKind === 'average' ? 'editor.calc.per' : 'editor.calc.of')}>
                 <Select value={shownOf} onChange={(e) => setOf(e.target.value)} data-editor-calc-of>
                   {ofs.map((k) => (
                     <option key={k} value={k}>
@@ -309,7 +310,7 @@ function CalculationRow({
             value={c.measure}
             onChange={(e) => {
               const measure = e.target.value
-              const of = c.kind === 'ratio' ? ofFor(measure, selection.measures, model)[0] : undefined
+              const of = takesOf(c.kind) ? ofFor(measure, selection.measures, model, c.kind)[0] : undefined
               onUpdate({ ...draft, measure, ...(of ? { of } : {}) })
             }}
           >
@@ -320,10 +321,10 @@ function CalculationRow({
             ))}
           </Select>
         </Field>
-        {c.kind === 'ratio' && (
-          <Field label={t('editor.calc.of')}>
+        {takesOf(c.kind) && (
+          <Field label={t(c.kind === 'average' ? 'editor.calc.per' : 'editor.calc.of')}>
             <Select value={c.of ?? ''} onChange={(e) => onUpdate({ ...draft, of: e.target.value })}>
-              {ofFor(c.measure, selection.measures, model).map((k) => (
+              {ofFor(c.measure, selection.measures, model, c.kind).map((k) => (
                 <option key={k} value={k}>
                   {fsi(measureName(k))}
                 </option>

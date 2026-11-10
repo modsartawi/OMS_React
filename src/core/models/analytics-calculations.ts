@@ -18,9 +18,13 @@ import type { AnalyticsFilter, AnalyticsLabel } from './analytics'
  *   else derived by the web.
  */
 
-export type AnalyticsCalculationKind = 'shareOfTotal' | 'ratio' | 'cumulativeShare' | 'change'
+export type AnalyticsCalculationKind = 'shareOfTotal' | 'ratio' | 'cumulativeShare' | 'change' | 'average'
 
-export const CALCULATION_KINDS: readonly AnalyticsCalculationKind[] = ['shareOfTotal', 'ratio', 'cumulativeShare', 'change']
+/**
+ * Spec 3543 part C (BackOffice 3550) adds `average`: `measure ÷ of` per row, NOT × 100, in the MEASURE's own unit (the
+ * first calculated column whose unit is not percent — read `column.unit`, never assume percent).
+ */
+export const CALCULATION_KINDS: readonly AnalyticsCalculationKind[] = ['shareOfTotal', 'ratio', 'cumulativeShare', 'change', 'average']
 
 /** Decision 1: at most four per query. */
 export const MAX_CALCULATIONS = 4
@@ -34,7 +38,7 @@ export interface AnalyticsCalculation {
   kind: AnalyticsCalculationKind
   /** A measure the query already selects. */
   measure: string
-  /** `ratio` only: the denominator, also a selected measure. */
+  /** `ratio` and `average` (3550): the denominator, also a selected measure. */
   of?: string | null
   /** `cumulativeShare` only: cut the rows once the running share reaches this percent (e.g. 80). */
   until?: number | null
@@ -87,7 +91,10 @@ export interface AnalyticsColumnCalculation {
   within?: string[] | null
 }
 
-/** Decision 2: every calculated column's shape and unit. */
+/**
+ * Decision 2: a calculated column's shape and unit, when the column does not say. An `average` (spec 3543 decision 9)
+ * carries its measure's own unit on the column, which wins.
+ */
 export const CALCULATION_SHAPE = 'rate' as const
 export const CALCULATION_UNIT = 'percent' as const
 
@@ -185,3 +192,32 @@ export function readUntilReached(raw: unknown): boolean | AnalyticsParentReached
       reached: p.reached as boolean,
     }))
 }
+
+// ── Cross-area results (spec 3543 part D: BackOffice 3548, 3549) ─────────────────────────────────────────────
+
+/**
+ * `AnalyticsQueryResult.notSplit` (decision 12): a figure whose area cannot be split by some asked dimensions. Its value
+ * is on the "All" rows (`isTotal: true`), never on the split rows. `notFiltered` (decision 18) has the same shape: a
+ * figure left unfiltered by filters on dimensions its area lacks.
+ */
+export interface AnalyticsFigureDimensions {
+  measure: string
+  /** The dimensions, in the query's (notSplit) or the filters' (notFiltered) order. */
+  by: string[]
+}
+
+/** The row key of an "All" row (decision 12); absent on every other row. */
+export const IS_TOTAL_KEY = 'isTotal'
+
+/** `notSplit` / `notFiltered`, tolerantly: an entry needs a measure and one dimension. `undefined` when absent, null or empty. */
+export function readFigureDimensions(raw: unknown): AnalyticsFigureDimensions[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const list = raw
+    .map(obj)
+    .map((e) => ({ measure: str(e.measure), by: Array.isArray(e.by) ? e.by.filter((k): k is string => typeof k === 'string' && !!k) : [] }))
+    .filter((e) => !!e.measure && e.by.length > 0)
+  return list.length ? list : undefined
+}
+
+/** A column's `dateBasis` (decision 14), both languages or `null`. */
+export const readDateBasis = (raw: unknown): AnalyticsLabel | null => readLabel(raw)

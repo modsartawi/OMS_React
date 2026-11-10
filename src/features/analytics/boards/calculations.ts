@@ -99,8 +99,10 @@ export function calculatedModel(
       return {
         key: c.key,
         area: base?.area ?? '',
-        shape: CALCULATION_SHAPE,
-        unit: CALCULATION_UNIT,
+        // 864 (spec 3543 decision 9): the column's own shape and unit win — an average is in its measure's unit (SAR,
+        // count), not a percent. A column that says none is 3519's percent.
+        shape: c.shape ?? CALCULATION_SHAPE,
+        unit: c.unit ?? CALCULATION_UNIT,
         // The label as the viewer reads it, in either language: it was derived in `lang` already.
         label: { en: label, ar: label },
         description: { en: '', ar: '' },

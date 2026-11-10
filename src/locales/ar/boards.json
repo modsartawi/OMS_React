@@ -1666,11 +1666,11 @@
     "label": {
       "shareOfTotal": "حصة {{measure}}",
       "ratio": "{{measure}} كنسبة من {{of}}",
-      "cumulativeShare": "الحصة التراكمية لـ{{measure}}",
+      "cumulativeShare": "الحصة التراكمية من {{measure}}",
       "change": "التغير في {{measure}}",
       "average": "{{measure}} لكل {{of}}",
       "shareOfTotalWithin": "حصة {{measure}} في كل {{within}}",
-      "cumulativeShareWithin": "الحصة التراكمية لـ{{measure}} في كل {{within}}"
+      "cumulativeShareWithin": "الحصة التراكمية من {{measure}} في كل {{within}}"
     },
     "untilNotReached": "قُطعت القائمة قبل <n>{{until}}</n> %؛ ارفع الحد أو أضف عامل تصفية.",
     "untilNotReachedIn": "في {{parents}}، قُطعت القائمة قبل <n>{{until}}</n> %؛ ارفع الحد أو أضف عامل تصفية."

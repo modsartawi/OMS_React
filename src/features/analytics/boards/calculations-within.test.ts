@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import { calculationLabel, untilNote, type CalculationWords } from './calculations'
+import { calculationLabel, eachParent, untilNote, type CalculationWords } from './calculations'
 import { addCalculation, settleCalculations, withinChoices, withinProblem } from './calculations-edit'
 import { toTableView } from './view-model-forms'
 
@@ -88,13 +88,13 @@ describe('within: the default label (ticket 863)', () => {
   it('reads "Share of {measure} in each {parent}" in English and Arabic', () => {
     const share = { kind: 'shareOfTotal' as const, measure: 'net', within: ['region'] }
     expect(calculationLabel(share, null, MODEL, 'en', wordsOf(en))).toBe('Share of Net value in each Region')
-    expect(calculationLabel(share, null, MODEL, 'ar', wordsOf(ar))).toBe('حصة صافي القيمة في كل المنطقة')
+    expect(calculationLabel(share, null, MODEL, 'ar', wordsOf(ar))).toBe('حصة صافي القيمة في كل منطقة') // كل + an indefinite noun: each region, not the whole region
   })
 
   it('names two parents together, and a running share the same way', () => {
     const running = { kind: 'cumulativeShare' as const, measure: 'net', within: ['region', 'city'] }
     expect(calculationLabel(running, null, MODEL, 'en', wordsOf(en))).toBe('Running share of Net value in each Region and City')
-    expect(calculationLabel(running, null, MODEL, 'ar', wordsOf(ar))).toBe('الحصة التراكمية لـصافي القيمة في كل المنطقة والمدينة')
+    expect(calculationLabel(running, null, MODEL, 'ar', wordsOf(ar))).toBe('الحصة التراكمية من صافي القيمة في كل منطقة ومدينة')
   })
 
   it('keeps the 3519 label without within, and an own label over the default', () => {
@@ -115,6 +115,17 @@ describe('within: the 80 % note per parent (decision 3)', () => {
   it('says nothing when every parent reached it, and keeps the 3519 note for a plain false', () => {
     expect(untilNote(running, result([{ parent: { region: 'R1' }, reached: true }]))).toBeNull()
     expect(untilNote(running, result(false))).toEqual({ until: 80 })
+  })
+})
+
+describe('eachParent: the parents after "each" (local walk 2026-11-10)', () => {
+  it('in Arabic each parent drops its article, so كل reads "each", never "the whole"', () => {
+    expect(eachParent(['المدينة'], 'ar')).toBe('مدينة')
+    expect(eachParent(['المنطقة', 'المدينة'], 'ar')).toBe('منطقة ومدينة')
+    expect(eachParent(['نوع التوصيل'], 'ar')).toBe('نوع التوصيل')
+  })
+  it('in English the labels are listed as they are', () => {
+    expect(eachParent(['Region', 'City'], 'en')).toBe('Region and City')
   })
 })
 

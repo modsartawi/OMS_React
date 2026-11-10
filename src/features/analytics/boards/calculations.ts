@@ -45,6 +45,15 @@ export function measureKeysOf(definition: AnalyticsViewDefinition, result: Analy
 }
 
 /**
+ * The parents after "each" ("in each {within}"), listed in `lang`. In Arabic each label drops its article: كل before a
+ * definite noun means "the whole" (في كل المدينة, the whole city), before an indefinite one "each" (في كل مدينة).
+ */
+export function eachParent(labels: readonly string[], lang: string): string {
+  const shown = lang.startsWith('ar') ? labels.map((l) => (l.startsWith('ال') && l.length > 3 && !l.includes(' ') ? l.slice(2) : l)) : labels
+  return listText([...shown], lang)
+}
+
+/**
  * A calculated column's label in `lang`: the calculation's own `label` when the query gives one, else the kind's
  * default over the model's labels of `measure` and `of` (a measure the model lacks is named by its key).
  */
@@ -59,7 +68,7 @@ export function calculationLabel(
   if (explicit) return explicit
   const name = (key: string | null | undefined) => (key ? saysIn(measureOf(model, key)?.label, lang) || key : '')
   const parents = (calculation.within ?? []).map((k) => saysIn(model.dimensions?.find((d) => d.key === k)?.label, lang) || k)
-  const names = { measure: name(calculation.measure), of: name(calculation.of), within: listText(parents, lang) }
+  const names = { measure: name(calculation.measure), of: name(calculation.of), within: eachParent(parents, lang) }
   const kind = calculation.kind
   if (parents.length && (kind === 'shareOfTotal' || kind === 'cumulativeShare')) return words[`${kind}Within`](names)
   return words[kind](names)

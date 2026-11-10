@@ -91,7 +91,7 @@ describe('a calculated column’s label', () => {
   })
 
   it('derives the default per kind in Arabic', () => {
-    expect(labels('ar', AR)).toEqual(['حصة قيمة التوصيل', 'قيمة التوصيل كنسبة من القيمة الإجمالية', 'الحصة التراكمية لـقيمة التوصيل', 'التغير في قيمة التوصيل'])
+    expect(labels('ar', AR)).toEqual(['حصة قيمة التوصيل', 'قيمة التوصيل كنسبة من القيمة الإجمالية', 'الحصة التراكمية من قيمة التوصيل', 'التغير في قيمة التوصيل'])
   })
 
   it('an explicit label wins, in the viewer’s language', () => {

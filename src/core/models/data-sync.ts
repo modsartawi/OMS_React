@@ -180,6 +180,11 @@ export interface Campaign {
   status: CampaignStatus
   totalJobs: number
   jobsByState: JobsByState
+  /**
+   * How many jobs are retryable (engine spec §2.6, ticket 866): `POST Campaigns/{id}/Retry` retries
+   * them all. Optional: a build before the Retry change does not send it (read as 0).
+   */
+  retryableJobs?: number
   /** Apply only. */
   reason: string | null
   createdAt: string
@@ -230,6 +235,11 @@ export interface Job {
   holdReason: HoldReason | null
   /** Apply jobs only; false for report-only. */
   actionSyncResumable: boolean
+  /**
+   * Failed with StoreUnreachable / TargetUnresolved and its campaign not cancelling (engine spec §2.6,
+   * ticket 866): `POST Jobs/{id}/Retry` resumes it from its checkpoints. Optional: absent = not retryable.
+   */
+  retryable?: boolean
 }
 
 /** A JSON scalar as a manifest carries it. `null` and `""` are different values. */

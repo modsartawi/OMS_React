@@ -10,6 +10,7 @@ import { DATA_SYNC_ACCESS_KEY, campaignKey, campaignSummaryKey, canOperateDataSy
 import {
   campaignControls,
   controlBody,
+  controlRefusalWords,
   controlTakesNote,
   isOperateDenied,
   jobControls,
@@ -21,7 +22,8 @@ import { codeValue } from './code-words'
 
 /**
  * The campaign page's Pause / Resume / Cancel (spec 558, ticket 563): a campaign's in the header,
- * a job's in its row and in its drawer. Each set offers only the moves its status allows
+ * a job's in its row and in its drawer. Retry (ticket 866): *Retry N retryable* in the header, and
+ * Retry in a retryable job's drawer. Each set offers only the moves its status allows
  * (`campaignControls` / `jobControls`) and nothing without `DataSync.Operate`; each opens the
  * shared `ControlDialog`.
  *
@@ -36,8 +38,8 @@ export function useCanOperateDataSync(): boolean {
   return canOperateDataSync(useQuery(dataSyncAccessQuery()).data)
 }
 
-const VARIANT = { Pause: 'secondary', Resume: 'secondary', Cancel: 'danger-outlined' } as const
-const CONFIRM_VARIANT = { Pause: 'primary', Resume: 'primary', Cancel: 'danger' } as const
+const VARIANT = { Pause: 'secondary', Resume: 'secondary', Cancel: 'danger-outlined', Retry: 'secondary' } as const
+const CONFIRM_VARIANT = { Pause: 'primary', Resume: 'primary', Cancel: 'danger', Retry: 'primary' } as const
 
 /** A bare 403: hide every Operate control on the page, and say why once. */
 function dropOperate(qc: QueryClient, words: string) {
@@ -76,13 +78,17 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
     setAction(null)
   }
 
-  const moves = campaignControls(campaign.status, canOperate)
+  // Retry (866): *Retry N retryable*, beside the status moves, when the server counts any.
+  const retryable = campaign.retryableJobs ?? 0
+  const label = (a: ControlAction) =>
+    a === 'Retry' ? t('controls.action.RetryCampaign', { count: retryable }) : t(`controls.action.${a}`)
+  const moves = campaignControls(campaign.status, canOperate, retryable)
   if (moves.length === 0 && !action) return null
   return (
     <>
       {moves.map((a) => (
         <Button key={a} variant={VARIANT[a]} onClick={() => setAction(a)} data-control={a} data-control-scope="campaign">
-          {t(`controls.action.${a}`)}
+          {label(a)}
         </Button>
       ))}
       {action && (
@@ -99,12 +105,13 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
               </span>
             </>
           }
-          note={t(`controls.note.campaign.${action}`)}
+          note={t(`controls.note.campaign.${action}`, { count: retryable })}
           takesNote={controlTakesNote(action)}
-          confirmLabel={t(`controls.action.${action}`)}
+          confirmLabel={label(action)}
           confirmVariant={CONFIRM_VARIANT[action]}
           busy={send.isPending}
           error={send.error}
+          refusalWords={(code) => controlRefusalWords(code, action)}
           onConfirm={(note) => send.mutate({ action, note })}
           onClose={close}
         />
@@ -113,8 +120,12 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
   )
 }
 
-/** One job's controls — in its grid row and in its drawer. Nothing for a viewer or a finished job. */
-export function JobControls({ job, compact = false }: { job: Job; compact?: boolean }) {
+/**
+ * One job's controls — in its grid row and in its drawer. Nothing for a viewer or a finished job.
+ * `retry` (866) offers Retry on a `retryable` job: the drawer passes it, the row does not — the
+ * drawer is where the technician reads why the store failed before retrying it.
+ */
+export function JobControls({ job, compact = false, retry = false }: { job: Job; compact?: boolean; retry?: boolean }) {
   const { t } = useTranslation('data-sync')
   const qc = useQueryClient()
   const canOperate = useCanOperateDataSync()
@@ -151,7 +162,7 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
     setAction(null)
   }
 
-  const moves = jobControls(job.status, canOperate)
+  const moves = jobControls(job.status, canOperate, retry && job.retryable === true)
   if (moves.length === 0 && !action) return null
   return (
     <span className="inline-flex h-full items-center gap-1.5" data-job-controls={job.jobId}>
@@ -185,6 +196,7 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
           confirmVariant={CONFIRM_VARIANT[action]}
           busy={send.isPending}
           error={send.error}
+          refusalWords={(code) => controlRefusalWords(code, action)}
           onConfirm={(note) => send.mutate({ action, note })}
           onClose={close}
         />
@@ -199,5 +211,5 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
  */
 export const jobRowControls = (job: Job) => <JobControls job={job} compact />
 
-/** The drawer footer's seam: the open job's controls at full size. */
-export const jobDrawerControls = (job: Job) => <JobControls job={job} />
+/** The drawer footer's seam: the open job's controls at full size, Retry included (866). */
+export const jobDrawerControls = (job: Job) => <JobControls job={job} retry />

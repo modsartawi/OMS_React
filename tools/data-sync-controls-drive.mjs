@@ -21,6 +21,19 @@
 //   7. a viewer (canOperate false) sees no control anywhere: header, rows (no actions column), drawer;
 //   8. a bare 403 on a control hides every control.
 //
+// Retry (ticket 866, spec 863; doors and fields from DataSync 27989cf, engine spec §2.6):
+//   9. a Completed campaign with `retryableJobs: 4` offers *Retry 4 retryable* alone; the rows never
+//      offer Retry (drawer only); a retryable job's drawer offers Retry, a TableFailures job's does
+//      not; the drawer's Retry dialog says the store resumes where it stopped and finished tables are
+//      not redone, posts `Jobs/{id}/Retry` with the trimmed note, the drawer shows Queued, and the
+//      poll picks up the campaign reopened (Running);
+//  10. Retry refusals read in the dialog in Retry's own words with their code: STORE_BUSY (pause
+//      ActionSync first, then retry), STORE_WPF_HOSTED (never), INVALID_STATE (nothing retryable any
+//      more, or cancelling / cancelled) — on a job and on the campaign; the dialog stays open;
+//      the header's Retry posts `Campaigns/{id}/Retry` with the note and the answer (Running, 0
+//      retryable) drops the button;
+//  11. a viewer sees no Retry: not in the header, not in a retryable job's drawer.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/data-sync-controls-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
@@ -98,17 +111,39 @@ const makeJob = (i, campaignId) => ({
   notBefore: null,
   holdReason: null,
   actionSyncResumable: false,
+  // 866: a Failed(StoreUnreachable) job IS retryable — the row must still not offer Retry.
+  retryable: SHOWCASE[i].status === 'Failed',
   ...SHOWCASE[i],
 })
 
+// ── Retry (866): a Completed campaign whose stores partly dropped out ──
+const RETRY_CID = '01JB2C9X4E6F8G0H1J3K5MRTRY'
+const RETRY_JOBS = [
+  { status: 'Failed', failureReason: 'StoreUnreachable', retryable: true }, // 0: retried
+  { status: 'Failed', failureReason: 'TargetUnresolved', retryable: true }, // 1: Retry → STORE_BUSY
+  { status: 'Failed', failureReason: 'StoreUnreachable', retryable: true }, // 2: Retry → STORE_WPF_HOSTED
+  { status: 'Failed', failureReason: 'TableFailures', retryable: false }, // 3: no Retry
+  { status: 'Succeeded' }, // 4
+  { status: 'Failed', failureReason: 'StoreUnreachable', retryable: true }, // 5: Retry → INVALID_STATE
+]
+const makeRetryJob = (i) => ({ ...makeJob(0, RETRY_CID), jobId: jobId(i), store: { client: '000', code: String(200 + i).padStart(4, '0') }, phase: null, ...RETRY_JOBS[i] })
+const RETRY_REFUSALS = {
+  [jobId(1)]: ['DATASYNC_STORE_BUSY', 'DS-0409-07', 'Store 000/0201 is actively worked and not paused.'],
+  [jobId(2)]: ['DATASYNC_STORE_WPF_HOSTED', 'DS-0409-08', 'Store 000/0202 is synced by the WPF host and can never be applied to.'],
+  [jobId(5)]: ['DATASYNC_INVALID_STATE', 'DS-0409-01', 'Job is not retryable.'],
+}
+
 const browser = await chromium.launch()
 
-async function open({ canOperate = true, campaignId = CID, campaignStatus = 'Running', bare403 = false } = {}) {
+async function open({ canOperate = true, campaignId = CID, campaignStatus = 'Running', bare403 = false, retryableJobs = 0, jobs = null, refuseCampaignRetry = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
   const posts = []
-  const state = { campaign: campaignOf(campaignId, campaignStatus), jobs: SHOWCASE.map((_, i) => makeJob(i, campaignId)) }
+  const state = {
+    campaign: { ...campaignOf(campaignId, campaignStatus), retryableJobs },
+    jobs: jobs ?? SHOWCASE.map((_, i) => makeJob(i, campaignId)),
+  }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript(() => {
@@ -128,7 +163,29 @@ async function open({ canOperate = true, campaignId = CID, campaignStatus = 'Run
       const body = req.postData() ? JSON.parse(req.postData()) : null
       posts.push({ path: p, body })
       if (bare403) return route.fulfill({ status: 403, body: '' })
-      let m = p.match(/^DataSync\/Campaigns\/([^/]+)\/(Pause|Resume|Cancel)$/)
+      // 866: Retry, as DataSync §2.6 answers it — a job back to Queued, a Completed campaign reopened.
+      let m = p.match(/^DataSync\/Campaigns\/([^/]+)\/Retry$/)
+      if (m) {
+        const c = state.campaign
+        if (refuseCampaignRetry)
+          return route.fulfill(refusal(409, 'DATASYNC_INVALID_STATE', 'DS-0409-01', 'No job of this campaign is retryable.', `Campaign ${c.campaignId} has no retryable job.`))
+        for (const j of state.jobs) if (j.retryable) Object.assign(j, { status: 'Queued', failureReason: null, retryable: false, attemptCount: 0 })
+        Object.assign(c, { status: 'Running', retryableJobs: 0, finishedAt: null })
+        return route.fulfill(envelope(c))
+      }
+      m = p.match(/^DataSync\/Jobs\/([^/]+)\/Retry$/)
+      if (m) {
+        const id = m[1]
+        if (RETRY_REFUSALS[id]) {
+          const [code, internal, message] = RETRY_REFUSALS[id]
+          return route.fulfill(refusal(409, code, internal, message, message))
+        }
+        const job = state.jobs.find((j) => j.jobId === id)
+        Object.assign(job, { status: 'Queued', failureReason: null, retryable: false, attemptCount: 0 })
+        Object.assign(state.campaign, { status: 'Running', retryableJobs: state.campaign.retryableJobs - 1, finishedAt: null })
+        return route.fulfill(envelope(job))
+      }
+      m = p.match(/^DataSync\/Campaigns\/([^/]+)\/(Pause|Resume|Cancel)$/)
       if (m) {
         const [, , action] = m
         const c = state.campaign
@@ -314,6 +371,109 @@ const dialogText = async (page) => strip(await page.locator('dialog:has([data-co
   check('8. a bare 403 closes the dialog and hides every control', await until(page, async () => (await page.locator('[data-control]').count()) === 0 && (await dialog(page).count()) === 0))
   check('8. …and the actions column', await until(page, async () => (await page.locator('[data-jobs-grid] .ag-header-cell[col-id="actions"]').count()) === 0))
   check('no page errors (403)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 9–10: Retry from the drawer and from the header (ticket 866) ───────────────────────────────────
+const openRetry = (opts = {}) =>
+  open({ campaignId: RETRY_CID, campaignStatus: 'Completed', retryableJobs: 4, jobs: RETRY_JOBS.map((_, i) => makeRetryJob(i)), ...opts })
+const drawerMoves = (page) => page.locator('[data-job-drawer-footer] [data-control-scope="job"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-control')))
+const openDrawer = async (page, i) => {
+  await page.locator(`[data-job-open="${jobId(i)}"]`).click()
+  await page.locator(`[data-job-drawer]`).waitFor({ timeout: 10000 })
+  await until(page, async () => (await page.locator('[data-job-drawer] header').innerText()).includes(`0${200 + i}`))
+}
+const closeDrawer = async (page) => {
+  await page.locator('[data-job-drawer-close]').click()
+  await until(page, async () => (await page.locator('[data-job-drawer]').count()) === 0)
+}
+{
+  const { context, page, errors, posts } = await openRetry()
+  check('9. a Completed campaign with 4 retryable offers Retry alone', JSON.stringify(await headerMoves(page)) === '["Retry"]', JSON.stringify(await headerMoves(page)))
+  check('9. …labelled "Retry 4 retryable"', strip(await header(page).locator('[data-control="Retry"]').innerText()) === 'Retry 4 retryable', strip(await header(page).locator('[data-control="Retry"]').innerText()))
+  let rowRetry = 0
+  for (let i = 0; i < RETRY_JOBS.length; i++) rowRetry += (await rowMoves(page, i)).filter((a) => a === 'Retry').length
+  check('9. no row offers Retry (drawer only)', rowRetry === 0, String(rowRetry))
+  await page.screenshot({ path: `${SHOTS}/retry-header.png`, fullPage: true })
+
+  await openDrawer(page, 3)
+  check('9. a TableFailures job\'s drawer offers no Retry', (await page.locator('[data-job-drawer] [data-control="Retry"]').count()) === 0)
+  await closeDrawer(page)
+
+  await openDrawer(page, 0)
+  await page.locator('[data-job-drawer-footer]').waitFor({ timeout: 10000 })
+  check('9. a retryable job\'s drawer offers Retry', JSON.stringify(await drawerMoves(page)) === '["Retry"]', JSON.stringify(await drawerMoves(page)))
+  await page.locator('[data-job-drawer-footer] [data-control="Retry"]').click()
+  await dialog(page).waitFor()
+  const t9 = await dialogText(page)
+  check('9. the drawer Retry dialog is titled for the store', /Retry the job for store 000\/0200/.test(t9) && t9.includes(jobId(0)), t9)
+  check('9. …says the store resumes where it stopped and finished tables are not redone', /resumes from where it stopped/.test(t9) && /finished tables are not redone/.test(t9))
+  check('9. …offers an optional note', (await page.locator('[data-control-note]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/retry-drawer-dialog.png` })
+  await page.locator('[data-control-note]').fill('  link to 0200 is back  ')
+  await page.locator('[data-control-confirm]').click()
+  check('9. posts Jobs/{id}/Retry with the trimmed note', await until(page, () => posts.some((x) => x.path === `DataSync/Jobs/${jobId(0)}/Retry` && x.body?.reason === 'link to 0200 is back')), JSON.stringify(posts))
+  check('9. the dialog closes', await until(page, async () => (await dialog(page).count()) === 0))
+  check('9. the drawer shows the answer (Queued, no Retry left)', await until(page, async () => /Queued/.test(strip(await page.locator('[data-job-drawer] header').innerText())) && (await page.locator('[data-job-drawer] [data-control="Retry"]').count()) === 0))
+  check('9. the campaign reopens: the header reads Running', await until(page, async () => (await header(page).locator('[data-campaign-status="Running"]').count()) === 1))
+  check('9. …and counts 3 retryable', await until(page, async () => (await header(page).locator('[data-control="Retry"]').count()) === 1 && strip(await header(page).locator('[data-control="Retry"]').innerText()) === 'Retry 3 retryable'))
+  await closeDrawer(page)
+
+  // ── 10: refusals, in Retry's own words ──
+  const refused = async (i, code, words) => {
+    await openDrawer(page, i)
+    await page.locator('[data-job-drawer-footer] [data-control="Retry"]').click()
+    await dialog(page).waitFor()
+    await page.locator('[data-control-confirm]').click()
+    await page.locator('[data-control-error]').waitFor({ timeout: 10000 })
+    const said = strip(await page.locator('[data-control-refusal]').innerText())
+    check(`10. a job Retry refused ${code} reads in words with its code`, words.test(said) && (await page.locator(`[data-control-error="${code}"]`).count()) === 1, said)
+    check(`10. …posted to Jobs/{id}/Retry, and the dialog stays open`, posts.some((x) => x.path === `DataSync/Jobs/${jobId(i)}/Retry`) && (await dialog(page).count()) === 1)
+    if (code === 'DATASYNC_STORE_BUSY') await page.screenshot({ path: `${SHOTS}/retry-store-busy.png` })
+    await page.locator('[data-control-close]').click()
+    await until(page, async () => (await dialog(page).count()) === 0)
+    await closeDrawer(page)
+  }
+  await refused(1, 'DATASYNC_STORE_BUSY', /Pause the store on ActionSync first, then retry this job/)
+  await refused(2, 'DATASYNC_STORE_WPF_HOSTED', /can never be applied to/)
+  await refused(5, 'DATASYNC_INVALID_STATE', /Nothing here can be retried any more.*cancelling or cancelled/)
+
+  // ── 10: the header's Retry ──
+  await header(page).locator('[data-control="Retry"]').click()
+  await dialog(page).waitFor()
+  const t10 = await dialogText(page)
+  check('10. the header Retry dialog is titled for the campaign', /Retry the retryable jobs/.test(t10), t10)
+  check('10. …counts the jobs and says finished tables are not redone', /Retry sends the 3 jobs/.test(t10) && /finished tables are not redone/.test(t10))
+  await page.screenshot({ path: `${SHOTS}/retry-campaign-dialog.png` })
+  await page.locator('[data-control-note]').fill('network blip at 03:10 is over')
+  await page.locator('[data-control-confirm]').click()
+  check('10. posts Campaigns/{id}/Retry with the note', await until(page, () => posts.some((x) => x.path === `DataSync/Campaigns/${RETRY_CID}/Retry` && x.body?.reason === 'network blip at 03:10 is over')), JSON.stringify(posts.at(-1)))
+  check('10. the answer (Running, 0 retryable) drops the Retry button', await until(page, async () => (await dialog(page).count()) === 0 && JSON.stringify(await headerMoves(page)) === '["Pause","Cancel"]'), JSON.stringify(await headerMoves(page)))
+  check('no page errors (retry)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10b: a campaign Retry refused INVALID_STATE ────────────────────────────────────────────────────
+{
+  const { context, page, errors, posts } = await openRetry({ refuseCampaignRetry: true })
+  await header(page).locator('[data-control="Retry"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-control-confirm]').click()
+  await page.locator('[data-control-error]').waitFor({ timeout: 10000 })
+  check('10b. posts Campaigns/{id}/Retry with {} for a blank note', posts.some((x) => x.path === `DataSync/Campaigns/${RETRY_CID}/Retry` && JSON.stringify(x.body) === '{}'))
+  check('10b. INVALID_STATE reads in Retry\'s words in the dialog', /Nothing here can be retried any more/.test(strip(await page.locator('[data-control-refusal]').innerText())) && (await page.locator('[data-control-error="DATASYNC_INVALID_STATE"]').count()) === 1)
+  check('10b. …and the dialog stays open', (await dialog(page).count()) === 1)
+  check('no page errors (retry refusal)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 11: a viewer sees no Retry ─────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors } = await openRetry({ canOperate: false })
+  check('11. a viewer sees no Retry in the header', (await header(page).locator('[data-control]').count()) === 0)
+  await openDrawer(page, 0)
+  check('11. …nor in a retryable job\'s drawer', (await page.locator('[data-job-drawer-footer]').count()) === 0 && (await page.locator('[data-control]').count()) === 0)
+  check('no page errors (retry viewer)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

@@ -96,16 +96,15 @@ describe('opening the editor seeded', () => {
 })
 
 describe('compare with the previous period (766 story 23)', () => {
-  it('is offered where the shape allows it: a KPI and a line over time', () => {
-    expect(comparesToPrevious('kpi')).toBe(true)
-    expect(comparesToPrevious('line')).toBe(true)
-    for (const c of ['area', 'bar-vertical', 'bar-grouped', 'donut', 'table', 'heatmap', 'combo'] as const) expect(comparesToPrevious(c)).toBe(false)
+  it('is offered where the shape shows it: a KPI, a line over time, a table and a bar (spec 3519 review)', () => {
+    for (const c of ['kpi', 'line', 'table', 'bar-vertical', 'bar-grouped'] as const) expect(comparesToPrevious(c)).toBe(true)
+    for (const c of ['area', 'donut', 'heatmap', 'combo'] as const) expect(comparesToPrevious(c)).toBe(false)
   })
   it('is stored in the definition when on and offered, and left out otherwise', () => {
     const q = { measures: ['orders'], dimensions: [], filters: [], period: 'last-7-days' }
     expect(withCompare(q, 'kpi', true)).toEqual({ ...q, compareToPrevious: true })
     expect(withCompare({ ...q, compareToPrevious: true }, 'kpi', false)).toEqual(q)
-    expect(withCompare({ ...q, compareToPrevious: true }, 'table', true)).toEqual(q)
+    expect(withCompare({ ...q, compareToPrevious: true }, 'donut', true)).toEqual(q)
   })
 })
 

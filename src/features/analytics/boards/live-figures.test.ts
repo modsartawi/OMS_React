@@ -126,19 +126,32 @@ describe('the designer’s tokens (829)', () => {
 })
 
 // 861 (spec 3519 D15): a calculated key is a figure like a measure key; the server fills it, formatted as a percent.
+// A share or a running share is not offered: over the whole selection it is 100 % by construction, and the server
+// refuses it (reason shareFigure).
 describe('live figures: calculated keys', () => {
   const shared: AnalyticsViewDefinition = {
     chart: { type: 'bar' },
-    query: { measures: ['net_value'], dimensions: ['day'], filters: [], calculations: [{ key: 'deliveryShare', kind: 'shareOfTotal', measure: 'net_value' }] },
+    query: {
+      measures: ['net_value', 'gross_value'],
+      dimensions: ['day'],
+      filters: [],
+      compareToPrevious: true,
+      calculations: [
+        { key: 'deliveryShare', kind: 'shareOfTotal', measure: 'net_value' },
+        { key: 'netPct', kind: 'ratio', measure: 'net_value', of: 'gross_value' },
+        { key: 'running', kind: 'cumulativeShare', measure: 'net_value' },
+        { key: 'growth', kind: 'change', measure: 'net_value' },
+      ],
+    },
   }
 
-  it('offers the calculated key after the measures', () => {
-    expect(figuresOf(shared, model).map((f) => f.figure)).toEqual(['net_value', 'deliveryShare'])
+  it('offers the ratio and change keys after the measures, never a share', () => {
+    expect(figuresOf(shared, model).map((f) => f.figure)).toEqual(['net_value', 'gross_value', 'netPct', 'growth'])
   })
 
-  it('offers it per named series too', () => {
+  it('offers them per named series too', () => {
     const series = [{ id: 'hs', label: label('HungerStation'), filters: [] }]
-    expect(figuresOf({ ...shared, series }, model).map((f) => f.figure)).toEqual(['net_value:hs', 'deliveryShare:hs'])
+    expect(figuresOf({ ...shared, series }, model).map((f) => f.figure)).toEqual(['net_value:hs', 'gross_value:hs', 'netPct:hs', 'growth:hs'])
   })
 
   it('{{fig:p:deliveryShare}} resolves and reads as a percent', () => {

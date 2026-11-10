@@ -116,4 +116,21 @@ describe('the 80 % note', () => {
     expect(untilNote(def(CALCS), result(CALCS, { untilReached: true }))).toBeNull()
     expect(untilNote(def(CALCS), result(CALCS))).toBeNull()
   })
+
+  it("names the calculation's own threshold, never a fixed 80", () => {
+    const at65 = CALCS.map((c) => (c.kind === 'cumulativeShare' ? { ...c, until: 65 } : c))
+    expect(untilNote(def(at65), result(at65, { untilReached: false }))).toEqual({ until: 65 })
+  })
+
+  it('shows none when the running share has no until', () => {
+    const uncut = CALCS.map(({ until: _u, ...c }) => c)
+    expect(untilNote(def(uncut), result(uncut, { untilReached: false }))).toBeNull()
+  })
+
+  it('interpolates the threshold in both languages', () => {
+    for (const bundle of [en, ar]) {
+      expect(bundle.calculation.untilNotReached).toContain('{{until}}')
+      expect(bundle.calculation.untilNotReached).not.toMatch(/80|٨٠/)
+    }
+  })
 })

@@ -134,7 +134,7 @@ export default function CalculationFields({
               <Select value={shownMeasure} onChange={(e) => setMeasure(e.target.value)} data-editor-calc-measure>
                 {choices.map((k) => (
                   <option key={k} value={k}>
-                    {measureName(k)}
+                    {fsi(measureName(k))}
                   </option>
                 ))}
               </Select>
@@ -144,7 +144,7 @@ export default function CalculationFields({
                 <Select value={shownOf} onChange={(e) => setOf(e.target.value)} data-editor-calc-of>
                   {ofs.map((k) => (
                     <option key={k} value={k}>
-                      {measureName(k)}
+                      {fsi(measureName(k))}
                     </option>
                   ))}
                 </Select>
@@ -243,7 +243,7 @@ function CalculationRow({
           >
             {choices.map((k) => (
               <option key={k} value={k}>
-                {measureName(k)}
+                {fsi(measureName(k))}
               </option>
             ))}
           </Select>
@@ -253,7 +253,7 @@ function CalculationRow({
             <Select value={c.of ?? ''} onChange={(e) => onUpdate({ ...draft, of: e.target.value })}>
               {ofFor(c.measure, selection.measures, model).map((k) => (
                 <option key={k} value={k}>
-                  {measureName(k)}
+                  {fsi(measureName(k))}
                 </option>
               ))}
             </Select>
@@ -270,7 +270,7 @@ function CalculationRow({
           />
         )}
         <Field label={t('editor.calc.labelEn')} invalid={!checked.ok && !typed.en.trim()}>
-          <Input value={typed.en} dir="ltr" placeholder={name} onChange={(e) => setLabel({ ...typed, en: e.target.value })} data-editor-calc-label="en" />
+          <Input value={typed.en} dir="ltr" placeholder={fsi(name)} onChange={(e) => setLabel({ ...typed, en: e.target.value })} data-editor-calc-label="en" />
         </Field>
         <Field label={t('editor.calc.labelAr')} invalid={!checked.ok && !typed.ar.trim()}>
           <Input value={typed.ar} dir="rtl" onChange={(e) => setLabel({ ...typed, ar: e.target.value })} data-editor-calc-label="ar" />

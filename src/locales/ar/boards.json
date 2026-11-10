@@ -445,6 +445,7 @@
     "edit": "تعديل",
     "notSharedTitle": "هذا العرض غير مُشارك معك",
     "seriesColumn": "السلسلة",
+    "previousColumn": "{{measure}} (الفترة السابقة)",
     "seriesKpiLabel": "{{measure}} لسلسلة {{series}}"
   },
   "refusal": {

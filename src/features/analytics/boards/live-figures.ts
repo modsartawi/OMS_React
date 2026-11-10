@@ -1,4 +1,5 @@
 import type { AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsCalculationKind } from '@/core/models/analytics-calculations'
 import { seriesOf } from './series'
 
 /**
@@ -76,10 +77,14 @@ export interface PanelFigure {
  * measure for each series instead, since there is no total across series. `_model` is kept for the callers: the
  * offer no longer depends on a measure's shape.
  */
+/** The kinds with no whole-selection figure (the server's `HasWholeSelectionFigure`). */
+const SHARE_KINDS: ReadonlySet<AnalyticsCalculationKind> = new Set<AnalyticsCalculationKind>(['shareOfTotal', 'cumulativeShare'])
+
 export function figuresOf(definition: AnalyticsViewDefinition, _model?: AnalyticsModel): PanelFigure[] {
   const series = seriesOf(definition)
-  // 861 (spec 3519 D15): a calculated key is a figure like a measure key, after the measures.
-  const calculated = (definition.query.calculations ?? []).map((c) => c.key)
+  // 861 (spec 3519 D15): a calculated key is a figure like a measure key, after the measures. A share or a running
+  // share is not: over the whole selection it is 100 % by construction, and the server refuses it.
+  const calculated = (definition.query.calculations ?? []).filter((c) => !SHARE_KINDS.has(c.kind)).map((c) => c.key)
   const measures = [...definition.query.measures, ...calculated].filter((m) => m.trim() !== '')
   if (series.length > 0) return measures.flatMap((measure) => series.map((s) => ({ figure: figureOf(measure, s.id), measure, series: s })))
   return measures.map((measure) => ({ figure: measure, measure, series: null }))

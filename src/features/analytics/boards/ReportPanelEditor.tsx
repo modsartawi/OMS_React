@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, TriangleAlert } from 'lucide-react'
 import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition } from '@/core/models/analytics'
-import { saysIn } from '@/core/rules/sentence'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -12,9 +11,8 @@ import { fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsItemKey } from './api'
 import { canBind } from './bindings'
 import CalculationFields from './CalculationFields'
-import { calculationLabel } from './calculations'
-import { useCalculationWords } from './use-calculations'
-import { addCalculation, droppedBy, removeCalculation, sortKeys, updateCalculation, type DroppedCalculation } from './calculations-edit'
+import { useCalculationEditing } from './use-calculations'
+import { droppedBy, sortKeys } from './calculations-edit'
 import { allowedDimensions, DEFAULT_PERIOD, filterableDimensions, GRAINS, pickableMeasures, type Grain } from './editor'
 import { ChartFields, QueryFields } from './EditorFields'
 import { useAreaName } from './MeasurePicker'
@@ -39,7 +37,6 @@ import { ownCategoryDimensions, seriesOf, seriesProblems } from './series'
 import SeriesFields from './SeriesFields'
 import { choiceOf } from './shape-rules'
 import { viewTitleOf } from './ViewChart'
-import { measureOf } from './wire'
 
 /**
  * The report designer's panel editor (spec 819 §E, ticket 829; the 798 prototype's `PanelEditor`), in the
@@ -74,10 +71,11 @@ export default function ReportPanelEditor({
   const areaName = useAreaName()
   const view = block.definition
   // 862: a calculation an edit takes out (its measure removed, compare off, …) is named in a note until dismissed.
-  const [dropped, setDropped] = useState<DroppedCalculation[]>([])
+  const calcs = view.query.calculations ?? []
+  const calc = useCalculationEditing(model, lang, calcs)
   const setView = (f: (d: PanelBlock['definition']) => PanelBlock['definition']) => {
     const lost = droppedBy(view, f(view), model)
-    if (lost.length) setDropped(lost)
+    if (lost.length) calc.setDropped(lost)
     onBlock((b) => ({ ...b, definition: f(b.definition) }))
   }
   const setTitle = (title: AnalyticsLabel, which: 'en' | 'ar') => onBlock((b) => ({ ...b, title }), `block:${block.id}:title:${which}`)
@@ -104,13 +102,7 @@ export default function ReportPanelEditor({
     return filterableDimensions(allowed).filter((d) => own.has(d.key))
   }, [allowed, view, model])
   const problems = useMemo(() => seriesProblems(view, model), [view, model])
-  const calcs = view.query.calculations ?? []
-  const calcWords = useCalculationWords()
-  const calcName = (c: (typeof calcs)[number]) => calculationLabel(c, c.label, model, lang, calcWords)
-  const measureName = (k: string) => {
-    const c = calcs.find((x) => x.key === k)
-    return c ? calcName(c) : saysIn(measureOf(model, k)?.label, lang) || k
-  }
+  const measureName = calc.measureName
 
   return (
     <div className="flex flex-col gap-4" data-designer-panel-editor={block.id}>
@@ -181,12 +173,7 @@ export default function ReportPanelEditor({
         model={model}
         lang={lang}
         selection={{ measures, dimensions, series: seriesOf(view).length, compare: comparing(view), calculations: calcs }}
-        onAdd={(draft) => setView((d) => addCalculation(d, draft, model))}
-        onUpdate={(key, draft) => setView((d) => updateCalculation(d, key, draft, model))}
-        onRemove={(key) => setView((d) => removeCalculation(d, key, model))}
-        dropped={dropped}
-        onDismissDropped={() => setDropped([])}
-        nameOf={calcName}
+        {...calc.fields(setView)}
       />
 
       <SeriesFields

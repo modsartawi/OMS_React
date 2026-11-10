@@ -15,7 +15,11 @@ export function drawsAsSeries(def: AnalyticsViewDefinition): boolean {
   const { type, orientation } = def.chart
   if (type === 'kpi' || type === 'line' || type === 'area') return true
   // 825: a bar with named series is a series chart, whatever its shape (767's bar draws one series).
-  return type === 'bar' && (orientation === 'horizontal' || def.query.measures.length > 1 || def.query.dimensions.length > 1 || hasSeries(def))
+  // Spec 3519 item 11: a bar compared with the previous period draws its previous series beside it.
+  return (
+    type === 'bar' &&
+    (orientation === 'horizontal' || def.query.measures.length > 1 || def.query.dimensions.length > 1 || hasSeries(def) || def.query.compareToPrevious === true)
+  )
 }
 
 export default function SeriesPanel({

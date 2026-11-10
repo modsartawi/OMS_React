@@ -82,9 +82,11 @@ export function colourMemberWords(
 
 /**
  * Compare with the previous period (766 story 23, §C `compareToPrevious`) is offered where the shape shows it:
- * a KPI's ▲▼ against the previous figure, and a line over time drawing the previous period beside it.
+ * a KPI's ▲▼ against the previous figure, a line over time drawing the previous period beside it, and (BackOffice
+ * spec 3519 review, owner decision) a table's "previous" column per measure and a bar's previous-period series.
  */
-export const comparesToPrevious = (choice: ChartChoice | null): boolean => choice === 'kpi' || choice === 'line'
+export const comparesToPrevious = (choice: ChartChoice | null): boolean =>
+  choice === 'kpi' || choice === 'line' || choice === 'table' || (choice?.startsWith('bar-') ?? false)
 
 /** The query with `compareToPrevious` stored when it is on and the chosen type offers it, and left out otherwise. */
 export function withCompare<Q extends AnalyticsSemanticQuery>(query: Q, choice: ChartChoice | null, on: boolean): Q {

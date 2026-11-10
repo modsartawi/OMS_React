@@ -18,16 +18,8 @@ import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import CalculationFields from './CalculationFields'
-import { calculationLabel } from './calculations'
-import { useCalculationWords } from './use-calculations'
-import {
-  addCalculation,
-  removeCalculation,
-  settleCalculations,
-  sortKeys,
-  updateCalculation,
-  type DroppedCalculation,
-} from './calculations-edit'
+import { useCalculationEditing } from './use-calculations'
+import { settleCalculations, sortKeys } from './calculations-edit'
 import ColourPicker from './ColourPicker'
 import {
   allowedDimensions,
@@ -58,7 +50,7 @@ import { generatedTitle } from './title'
 import ReportDesignerPage from './ReportDesignerPage'
 import ViewChart from './ViewChart'
 import { useItemSave, type SaveHow } from './use-item-save'
-import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
+import { analyticsRefusal, dimensionOf, refusalWords } from './wire'
 
 /**
  * The builder at `/analytics/new?kind=view` (spec 766 §F, stories 41–47, 755 items 4–5; ticket 775).
@@ -188,7 +180,8 @@ function ViewEditor({
   const [series, setSeries] = useState<AnalyticsSeries[]>(start?.series ?? [])
   // 862 (spec 3519): up to 4 calculations the server computes; one an edit takes out is named in a note.
   const [calculations, setCalculations] = useState<AnalyticsCalculation[]>(start?.query.calculations ?? [])
-  const [dropped, setDropped] = useState<DroppedCalculation[]>([])
+  const calc = useCalculationEditing(model, lang, calculations)
+  const setDropped = calc.setDropped
 
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
@@ -235,12 +228,10 @@ function ViewEditor({
     }
     const sort = settled.definition.chart.sort ?? null
     if (JSON.stringify(sort) !== JSON.stringify(settings.sort ?? null)) setSettings((s) => ({ ...s, sort }))
-  }, [settled, settings.sort])
+  }, [settled, settings.sort, setDropped])
   const editCalculations = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
     if (definition) setCalculations(f(definition).query.calculations ?? [])
   }
-  const calcWords = useCalculationWords()
-  const calcName = (c: AnalyticsCalculation) => calculationLabel(c, c.label, model, lang, calcWords)
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -322,10 +313,7 @@ function ViewEditor({
   const setFilter = (dimension: string, values: string[]) =>
     setFilters((fs) => [...fs.filter((f) => f.dimension !== dimension), ...(values.length ? [{ dimension, values }] : [])])
   const label = (l: AnalyticsLabel | undefined, key: string) => saysIn(l, lang) || key
-  const measureName = (k: string) => {
-    const c = calculations.find((x) => x.key === k)
-    return c ? calcName(c) : label(measureOf(model, k)?.label, k)
-  }
+  const measureName = calc.measureName
 
   const draft: AnalyticsViewDefinition = definition ?? { chart: settings, query: { measures, dimensions, filters, period } }
   const generated = {
@@ -373,12 +361,7 @@ function ViewEditor({
           model={model}
           lang={lang}
           selection={{ measures, dimensions, series: series.length, compare: definition?.query.compareToPrevious === true, calculations }}
-          onAdd={(draft) => editCalculations((d) => addCalculation(d, draft, model))}
-          onUpdate={(key, draft) => editCalculations((d) => updateCalculation(d, key, draft, model))}
-          onRemove={(key) => editCalculations((d) => removeCalculation(d, key, model))}
-          dropped={dropped}
-          onDismissDropped={() => setDropped([])}
-          nameOf={calcName}
+          {...calc.fields(editCalculations)}
         />
         <SeriesFields
           series={series}

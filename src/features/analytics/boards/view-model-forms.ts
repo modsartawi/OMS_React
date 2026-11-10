@@ -1,5 +1,6 @@
 import { assignSlots } from '@/core/charts/slots'
 import { measureKeysOf } from './calculations'
+import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
 import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
@@ -224,6 +225,8 @@ export function toTableView(
   lang: string,
   /** 825: the series column's header, in the screen's language. */
   seriesHeader = 'series',
+  /** Spec 3519 item 11: a measure's previous-period column header, in the screen's language. */
+  previousHeader: (measure: string) => string = previousKey,
 ): TableView {
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
@@ -236,6 +239,9 @@ export function toTableView(
   const seriesKey = seriesColumnOf(result.columns)
   const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
   const source = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
+  // Compared with the previous period: a previous column after each of the query's measures (`./previous-rows`).
+  const withPrevious = new Set(previousMeasures(definition, result))
+  const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
 
   const sort = definition.chart.sort ?? (measureKeys[0] ? { key: measureKeys[0], direction: 'desc' as const } : null)
   const sorted = [...source]
@@ -255,16 +261,20 @@ export function toTableView(
     const out: Record<string, string | number | null> = {}
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = namers.get(k)!.label(String(r[k] ?? ''))
-    for (const k of measureKeys) out[k] = num(r[k])
+    const before = withPrevious.size ? previousOf(r) : undefined
+    for (const k of measureKeys) {
+      out[k] = num(r[k])
+      if (withPrevious.has(k)) out[previousKey(k)] = num(before?.[k])
+    }
     return out
   })
   const columns: TableColumn[] = [
     ...(named.length ? [{ key: seriesKey, role: 'dimension' as const, label: seriesHeader }] : []),
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.category.label })),
-    ...measureKeys.map((k) => {
+    ...measureKeys.flatMap((k) => {
       const m = viewMeasureOf(k, model, result, lang)
-      const max = Math.max(0, ...rows.map((r) => Math.abs(num(r[k]) ?? 0)))
-      return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max }
+      const column = (key: string, label: string) => ({ key, role: 'measure' as const, label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))) })
+      return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
     }),
   ]
   const members = kept.map((r) => String(r[dimKeys[0]] ?? ''))

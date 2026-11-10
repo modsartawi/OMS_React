@@ -433,6 +433,7 @@
     "edit": "Edit",
     "notSharedTitle": "This view isn’t shared with you",
     "seriesColumn": "Series",
+    "previousColumn": "{{measure}} (previous period)",
     "seriesKpiLabel": "{{measure}} for {{series}}"
   },
   "refusal": {

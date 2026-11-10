@@ -302,7 +302,8 @@ export function toTableView(
     }),
   ]
   const members = kept.map((r) => String(r[dimKeys[0]] ?? ''))
-  return { kind: 'table', columns, rows, members, sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
+  // The grid applies the sort it is handed, so a per-parent table hands it none (it would interleave the parents again).
+  return { kind: 'table', columns, rows, members, sort: perParent ? null : sort, cut: kept.length < sorted.length, empty: result.rows.length === 0 }
 }
 
 // ── Combo ────────────────────────────────────────────────────────────────────────────────────────────

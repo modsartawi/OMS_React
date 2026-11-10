@@ -411,7 +411,8 @@ function ViewEditor({
           lang={lang}
           problems={shownProblems}
         />
-        {series.length === 0 && (
+        {/* A chart that colours no member (a table, KPI, heatmap, combo) has no colour breakdown and so no picker. */}
+        {series.length === 0 && colourDim && (
         <ColourPicker
           fixedLabel={fixedColours ? label(colourDimModel?.label, colourDim ?? '') : null}
           members={members}

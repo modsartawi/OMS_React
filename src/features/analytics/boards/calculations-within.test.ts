@@ -155,5 +155,7 @@ describe('within: the top N in each parent on a saved table (decision 3)', () =>
 
     expect(view.rows.map((r) => r.city)).toEqual(['J1', 'J2', 'R1', 'R2'])
     expect(view.cut).toBe(false)
+    // Local walk 2026-11-10: the grid applied the sort itself and interleaved the regions; it is handed none.
+    expect(view.sort).toBeNull()
   })
 })

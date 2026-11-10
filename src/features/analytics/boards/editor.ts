@@ -59,11 +59,16 @@ export function unsplitFigures(dimension: string, measures: readonly string[], m
   })
 }
 
+/** The chart types that colour by member (`assignSlots` in `./view-model`, `./view-model-forms`, `./series-view`). */
+const COLOURED_CHARTS: ReadonlySet<AnalyticsViewDefinition['chart']['type']> = new Set(['bar', 'donut', 'line', 'area'])
+
 /**
  * The breakdown a chart colours by: its last category (non-time) breakdown — a bar's or donut's own
  * category, a line's or area's series, a two-breakdown bar's second. `null` when it has none.
  */
 export function colourDimension(definition: AnalyticsViewDefinition, model: AnalyticsModel): string | null {
+  // A table, KPI, heatmap or combo colours no member, so it offers no colours (a table once listed every store).
+  if (!COLOURED_CHARTS.has(definition.chart.type)) return null
   const cats = definition.query.dimensions.filter((k) => dimensionOf(model, k)?.kind !== 'time')
   return cats.at(-1) ?? null
 }

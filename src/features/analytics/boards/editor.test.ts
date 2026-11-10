@@ -31,6 +31,12 @@ describe('the editor picks from the model only', () => {
     expect(colourDimension(d(['store', 'channel_group']), MODEL)).toBe('channel_group')
     expect(colourDimension(d(['day']), MODEL)).toBeNull()
   })
+  it('a chart that colours no member has no coloured breakdown (local walk 2026-11-10: a table listed every store)', () => {
+    for (const type of ['table', 'kpi', 'heatmap', 'combo'] as const)
+      expect(colourDimension({ chart: { type }, query: { measures: ['orders'], dimensions: ['store'], filters: [] } }, MODEL)).toBeNull()
+    for (const type of ['bar', 'donut', 'line', 'area'] as const)
+      expect(colourDimension({ chart: { type }, query: { measures: ['orders'], dimensions: ['store'], filters: [] } }, MODEL)).toBe('store')
+  })
 })
 
 describe('series colours: each member reads by its label, never its bare key', () => {

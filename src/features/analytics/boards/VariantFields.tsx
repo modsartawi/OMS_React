@@ -80,7 +80,7 @@ export default function VariantFields({
   const dimLabel = (d: AnalyticsDimension) => saysIn(d.label, lang) || d.key
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-md border border-border/60 p-3" data-analytics-variants>
+    <fieldset className="flex min-w-0 flex-col gap-3 rounded-md border border-border/60 p-3" data-analytics-variants>
       <legend className="px-1 text-xs font-medium text-muted-foreground">{t('editor.variant.title')}</legend>
       <p className="text-xs text-muted-foreground">{t('editor.variant.hint', { max: MAX_VARIANTS })}</p>
 

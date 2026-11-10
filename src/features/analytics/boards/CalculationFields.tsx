@@ -94,7 +94,7 @@ export default function CalculationFields({
   }
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-md border border-border/60 p-3" data-analytics-calculations>
+    <fieldset className="flex min-w-0 flex-col gap-3 rounded-md border border-border/60 p-3" data-analytics-calculations>
       <legend className="px-1 text-xs font-medium text-muted-foreground">{t('editor.calc.title')}</legend>
       <p className="text-xs text-muted-foreground">{t('editor.calc.hint', { max: MAX_CALCULATIONS })}</p>
 
@@ -304,7 +304,7 @@ function CalculationRow({
           <Trash2 className="size-3.5" aria-hidden />
         </IconButton>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
         <Field label={t('editor.calc.measure')}>
           <Select
             value={c.measure}

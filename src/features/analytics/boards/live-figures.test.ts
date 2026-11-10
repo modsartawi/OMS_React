@@ -124,3 +124,29 @@ describe('the designer’s tokens (829)', () => {
     expect(chipSegments('{not a token}')).toEqual([{ kind: 'text', text: '{not a token}' }])
   })
 })
+
+// 861 (spec 3519 D15): a calculated key is a figure like a measure key; the server fills it, formatted as a percent.
+describe('live figures: calculated keys', () => {
+  const shared: AnalyticsViewDefinition = {
+    chart: { type: 'bar' },
+    query: { measures: ['net_value'], dimensions: ['day'], filters: [], calculations: [{ key: 'deliveryShare', kind: 'shareOfTotal', measure: 'net_value' }] },
+  }
+
+  it('offers the calculated key after the measures', () => {
+    expect(figuresOf(shared, model).map((f) => f.figure)).toEqual(['net_value', 'deliveryShare'])
+  })
+
+  it('offers it per named series too', () => {
+    const series = [{ id: 'hs', label: label('HungerStation'), filters: [] }]
+    expect(figuresOf({ ...shared, series }, model).map((f) => f.figure)).toEqual(['net_value:hs', 'deliveryShare:hs'])
+  })
+
+  it('{{fig:p:deliveryShare}} resolves and reads as a percent', () => {
+    const figures = { '{{fig:p:deliveryShare}}': { en: '42.5%', ar: '42.5%' } }
+    expect(fillTokens('Delivery took {{fig:p:deliveryShare}}.', figures, 'en')).toEqual([
+      { kind: 'text', text: 'Delivery took ' },
+      { kind: 'figure', token: '{{fig:p:deliveryShare}}', value: '42.5%' },
+      { kind: 'text', text: '.' },
+    ])
+  })
+})

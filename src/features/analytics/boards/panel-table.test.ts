@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { FSI, PDI } from '@/core/util/bidi'
+import { calculatedModel, type CalculationWords } from './calculations'
 import { panelCsv, panelFileBase, panelSheet, panelTable } from './panel-table'
 
 const model = {
@@ -106,5 +107,43 @@ describe('the panel table of a view with named series (825)', () => {
       { type: String, value: 'QC' },
     ])
     expect(JSON.stringify(sheet)).not.toMatch(/[\u2068\u2069]/)
+  })
+})
+
+// 861 (spec 3519): a calculated column the server returns is a measure of the table, the CSV and the xlsx.
+describe('the panel table: calculated columns', () => {
+  const WORDS: CalculationWords = {
+    shareOfTotal: ({ measure }) => `Share of ${measure}`,
+    ratio: ({ measure, of }) => `${measure} as % of ${of}`,
+    cumulativeShare: ({ measure }) => `Running share of ${measure}`,
+    change: ({ measure }) => `Change in ${measure}`,
+  }
+  const withShare = { ...definition, query: { ...definition.query, calculations: [{ key: 'ordersShare', kind: 'shareOfTotal', measure: 'orders' }] } } as AnalyticsViewDefinition
+  const shareResult = (rows: Record<string, string | number | null>[]): AnalyticsQueryResult => {
+    const r = result(rows)
+    return { ...r, columns: [...r.columns, { key: 'ordersShare', role: 'measure', shape: 'rate', unit: 'percent', calculation: { kind: 'shareOfTotal', measure: 'orders' } }] }
+  }
+  const table = (rows: Record<string, string | number | null>[]) => {
+    const r = shareResult(rows)
+    return panelTable(r, withShare, calculatedModel(model, withShare, r, 'en', WORDS), 'en')
+  }
+
+  it('renders a share of total after the measures, labelled, as a percent, with null as unknown', () => {
+    const t = table([{ channel_group: 'app', orders: 3100, ordersShare: 63.2653 }, { channel_group: 'web', orders: 0, ordersShare: null }])
+    expect(t.columns.map((c) => [c.key, c.role, c.label, c.unit])).toEqual([
+      ['channel_group', 'dimension', 'Channel', undefined],
+      ['orders', 'measure', 'Orders', 'count'],
+      ['ordersShare', 'measure', 'Share of Orders', 'percent'],
+    ])
+    expect(t.rows).toEqual([{ channel_group: 'App', orders: 3100, ordersShare: 63.2653 }, { channel_group: 'web', orders: 0, ordersShare: null }])
+  })
+
+  it('the CSV and the xlsx carry the calculated column under its label', () => {
+    const t = table([{ channel_group: 'app', orders: 3100, ordersShare: 63.2653 }, { channel_group: 'web', orders: 1, ordersShare: null }])
+    expect(panelCsv(t)).toBe('﻿Channel,Orders,Share of Orders\r\nApp,3100,63.2653\r\nweb,1,\r\n')
+    const sheet = panelSheet(t, 'Orders')
+    expect(sheet.data[0]).toEqual(['Channel', 'Orders', 'Share of Orders'].map((value) => ({ value, fontWeight: 'bold' })))
+    expect(sheet.data[1]).toEqual([{ type: String, value: 'App' }, { type: Number, value: 3100 }, { type: Number, value: 63.2653 }])
+    expect(sheet.data[2][2]).toEqual({ type: String, value: '' })
   })
 })

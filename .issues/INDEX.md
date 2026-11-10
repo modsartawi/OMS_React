@@ -1334,5 +1334,5 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Analytics calculations (BackOffice spec 3519), filed 2026-11-10
 
-- [861](861-a-panel-shows-the-calculated-columns-the-server-returns.md) — A panel shows the calculated columns the server returns · *(ticket · BackOffice spec 3519)* · **open** · blocked by: BackOffice 3520 · today the web drops them silently; ship before BackOffice 3525
+- [861](861-a-panel-shows-the-calculated-columns-the-server-returns.md) — A panel shows the calculated columns the server returns · *(ticket · BackOffice spec 3519)* · **done 2026-11-10** · blocked by: BackOffice 3520 · calculated columns drawn in table/chart/exports/figures; wire in core/models/analytics-calculations.ts; HITL staging walk owed (3522/3525)
 - [862](862-an-author-adds-a-calculation-from-the-query-builder.md) — An author adds a calculation from the query builder · *(ticket · BackOffice spec 3519 · slice 2)* · **open** · blocked by: 861, BackOffice 3524 · replaces BackOffice 3526

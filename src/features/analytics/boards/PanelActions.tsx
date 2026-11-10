@@ -14,6 +14,7 @@ import { useNow } from './panel-hooks'
 import { chartPng, drawsAsPicture } from './panel-png'
 import { fetchedAgo, isBehind } from './panel-state'
 import { panelCsv, panelFileBase, panelSheet, panelTable } from './panel-table'
+import { useCalculatedModel } from './use-calculations'
 
 /**
  * A panel's actions and freshness (spec 766 §F, ticket 773), in the header slot of a board panel
@@ -56,7 +57,9 @@ export default memo(function PanelActions(p: PanelActionsProps) {
   const behind = !!result && isBehind(result.dataAsOf, now)
   const ago = result ? fetchedAgo(result.fetchedAt || (p.updatedAt ? new Date(p.updatedAt).toISOString() : ''), now) : null
   const base = panelFileBase(p.viewId)
-  const table = () => panelTable(result!, p.definition, p.model, lang, { series: t('view.seriesColumn') })
+  // 861: the downloads carry the calculated columns under their labels.
+  const shown = useCalculatedModel(p.model, p.definition, result, lang)
+  const table = () => panelTable(result!, p.definition, shown, lang, { series: t('view.seriesColumn') })
 
   const picture = drawsAsPicture(p.definition.chart.type)
   const pngReason = !picture ? t('panel.pngUnavailable') : p.table ? t('panel.pngTableView') : null

@@ -108,6 +108,28 @@ describe('the live steps (spec 3558 D12, D17; ticket 869)', () => {
     stop()
   })
 
+  it('liveSteps_threeFailedReadsAndNoStepEverRead_stopPolling_theSwitchIsOff', async () => {
+    // Copilot:Speed:Steps off: every read is a 404. A step is recorded before the first model call, so three seconds of
+    // nothing means there will be none; the panel stops asking rather than GET a 404 every second for the whole ask.
+    const d = door([null])
+    const seen: string[] = []
+    pollSteps(ID, d.read, (k) => seen.push(k))
+    for (let i = 0; i < 6; i++) await tick()
+    expect(d.reads).toHaveLength(3)
+    expect(seen).toEqual([])
+  })
+
+  it('liveSteps_onceAStepWasRead_failedReadsKeepPolling', async () => {
+    // A step was read, so the switch is on: a failed read later (another host behind a balancer, a blip) is no reason
+    // to stop; polling goes on until done or stop, as before.
+    const d = door([at(['model']), null, null, null, null, at(['model', 'answer'], true)])
+    const seen: string[] = []
+    pollSteps(ID, d.read, (k) => seen.push(k))
+    for (let i = 0; i < 8; i++) await tick()
+    expect(d.reads).toHaveLength(6)
+    expect(seen).toEqual(['live.model', 'live.answer'])
+  })
+
   it('stepsOrNothing_anyFailedReadIsNothing', async () => {
     await expect(stepsOrNothing(Promise.reject(new ApiError('server', 'down', 503)))).resolves.toBeNull()
     await expect(stepsOrNothing(Promise.resolve(at(['answer'], true)))).resolves.toEqual(at(['answer'], true))

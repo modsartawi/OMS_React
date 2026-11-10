@@ -1574,5 +1574,14 @@
         }
       }
     }
+  },
+  "calculation": {
+    "label": {
+      "shareOfTotal": "Share of {{measure}}",
+      "ratio": "{{measure}} as % of {{of}}",
+      "cumulativeShare": "Running share of {{measure}}",
+      "change": "Change in {{measure}}"
+    },
+    "untilNotReached": "The list was cut before <n>{{until}}</n> %; raise the limit or add a filter."
   }
 }

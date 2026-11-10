@@ -1614,5 +1614,14 @@
         }
       }
     }
+  },
+  "calculation": {
+    "label": {
+      "shareOfTotal": "حصة {{measure}}",
+      "ratio": "{{measure}} كنسبة من {{of}}",
+      "cumulativeShare": "الحصة التراكمية لـ{{measure}}",
+      "change": "التغير في {{measure}}"
+    },
+    "untilNotReached": "قُطعت القائمة قبل <n>{{until}}</n> %؛ ارفع الحد أو أضف عامل تصفية."
   }
 }

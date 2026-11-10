@@ -78,7 +78,9 @@ export interface PanelFigure {
  */
 export function figuresOf(definition: AnalyticsViewDefinition, _model?: AnalyticsModel): PanelFigure[] {
   const series = seriesOf(definition)
-  const measures = definition.query.measures.filter((m) => m.trim() !== '')
+  // 861 (spec 3519 D15): a calculated key is a figure like a measure key, after the measures.
+  const calculated = (definition.query.calculations ?? []).map((c) => c.key)
+  const measures = [...definition.query.measures, ...calculated].filter((m) => m.trim() !== '')
   if (series.length > 0) return measures.flatMap((measure) => series.map((s) => ({ figure: figureOf(measure, s.id), measure, series: s })))
   return measures.map((measure) => ({ figure: measure, measure, series: null }))
 }

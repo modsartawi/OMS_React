@@ -184,3 +184,38 @@ describe('view model: the table and the combo', () => {
     ])
   })
 })
+
+// 861 (spec 3519): a calculated share is a rate measure, so a combo draws it as the line beside the volume bars.
+describe('view model: calculated columns in the charts', () => {
+  const calcs = [{ key: 'ordersShare', kind: 'shareOfTotal' as const, measure: 'orders' }]
+  const withShare = (type: AnalyticsViewDefinition['chart']['type']): AnalyticsViewDefinition => {
+    const d = def(type, ['orders'], ['channel_group'])
+    return { ...d, query: { ...d.query, calculations: calcs } }
+  }
+  const rows = result(
+    [
+      { key: 'channel_group', role: 'dimension' },
+      { key: 'orders', role: 'measure', shape: 'additive', unit: 'count' },
+      { key: 'ordersShare', role: 'measure', shape: 'rate', unit: 'percent', calculation: { kind: 'shareOfTotal', measure: 'orders' } },
+    ],
+    [
+      { channel_group: 'app', orders: 31, ordersShare: 63.2653 },
+      { channel_group: 'web', orders: 18, ordersShare: 36.7347 },
+    ],
+  )
+
+  it('a combo of an additive bar and a share line draws both', () => {
+    const view = toComboView(rows, withShare('combo'), MODEL, 'en')
+    expect(view.volume.key).toBe('orders')
+    expect(view.rate).toMatchObject({ key: 'ordersShare', unit: 'percent', shape: 'rate' })
+    expect(view.points).toEqual([
+      { member: 'app', label: 'App', volume: 31, rate: 63.2653 },
+      { member: 'web', label: 'Web', volume: 18, rate: 36.7347 },
+    ])
+  })
+
+  it('the table form shows the calculated column after the measures', () => {
+    const view = toTableView(rows, withShare('table'), MODEL, 'en')
+    expect(view.columns.map((c) => c.key)).toEqual(['channel_group', 'orders', 'ordersShare'])
+  })
+})

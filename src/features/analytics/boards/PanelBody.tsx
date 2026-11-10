@@ -11,6 +11,8 @@ import { listText } from '@/core/util/list-format'
 import { panelFailure, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
+import UntilNote from './UntilNote'
+import { useCalculatedModel } from './use-calculations'
 import ViewChart from './ViewChart'
 import type { MarkPoint } from './drill'
 import type { PointHandler } from './ViewChart'
@@ -133,7 +135,9 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
   const { t: tc } = useTranslation('common')
   const { t } = useTranslation('boards')
   const seriesHeader = t('view.seriesColumn')
-  const view = useMemo(() => panelTable(result, definition, model, lang, { series: seriesHeader }), [result, definition, model, lang, seriesHeader])
+  // 861: calculated columns are measures, labelled in the viewer's language.
+  const shown = useCalculatedModel(model, definition, result, lang)
+  const view = useMemo(() => panelTable(result, definition, shown, lang, { series: seriesHeader }), [result, definition, shown, lang, seriesHeader])
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
   return (
@@ -145,6 +149,7 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
         locale={lang}
         ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
       />
+      <UntilNote definition={definition} result={result} />
     </div>
   )
 }

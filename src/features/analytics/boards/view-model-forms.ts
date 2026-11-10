@@ -1,4 +1,5 @@
 import { assignSlots } from '@/core/charts/slots'
+import { measureKeysOf } from './calculations'
 import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
@@ -227,9 +228,8 @@ export function toTableView(
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
     : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)
-  const measureKeys = definition.query.measures.length
-    ? definition.query.measures
-    : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
+  // 861: the query's measures, then the calculated columns the server returned.
+  const measureKeys = measureKeysOf(definition, result)
   const namers = new Map(dimKeys.map((k) => [k, memberLabeller(k, model, lang)]))
   // 825: named series — a series column first, each row named by its series; a series the view lacks is dropped.
   const named = seriesOf(definition)
@@ -306,9 +306,8 @@ export function toComboView(
   model: AnalyticsModel,
   lang: string,
 ): ComboView {
-  const keys = definition.query.measures.length
-    ? definition.query.measures
-    : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
+  // 861: a calculated share is a rate measure, so it is the combo's line.
+  const keys = measureKeysOf(definition, result)
   const measures = keys.map((k) => viewMeasureOf(k, model, result, lang))
   const volume = measures.find((m) => m.shape === 'additive') ?? measures[0]
   const rate = measures.find((m) => m !== volume) ?? volume

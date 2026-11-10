@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3519-analytics-calculations-shares-ratios-running-share-and-change-computed-by-the-server-spec.md
 blocked-by: BackOffice 3520
 ---
@@ -47,15 +47,15 @@ UI (panel table, chart series, export, live figures) → SIS.Api analytics query
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `panel-table`: a result with a `shareOfTotal` column renders it after the measures, labelled and as a percent,
+- [x] `panel-table`: a result with a `shareOfTotal` column renders it after the measures, labelled and as a percent,
       with `null` as unknown
-- [ ] Chart series: a combo of an additive bar and a share line draws both
-- [ ] CSV and Excel export include the calculated column with its label
-- [ ] Labels: the default per kind in EN and AR, and an explicit `label` wins
-- [ ] `untilReached: false` shows the note; `true` or absent shows none
-- [ ] Live figures: `{{fig:p:deliveryShare}}` resolves and formats as a percent
-- [ ] A definition without `calculations` renders byte-identically (the existing panel tests stay green)
-- [ ] typecheck + lint + build clean
+- [x] Chart series: a combo of an additive bar and a share line draws both
+- [x] CSV and Excel export include the calculated column with its label
+- [x] Labels: the default per kind in EN and AR, and an explicit `label` wins
+- [x] `untilReached: false` shows the note; `true` or absent shows none
+- [x] Live figures: `{{fig:p:deliveryShare}}` resolves and formats as a percent
+- [x] A definition without `calculations` renders byte-identically (the existing panel tests stay green)
+- [x] typecheck + lint + build clean
 - [ ] **HITL:** on staging, ask the copilot for the 80 % delivery regions, save them as a view, and see the running
       share column and the note on the saved view
 
@@ -73,3 +73,49 @@ table, chart, exports and live figures, and the staging walk is recorded in Comm
 
 - BackOffice [3520](C:/Work/DMSCO/BackOffice/.issues/3520-a-querys-share-of-total-is-each-rows-share-of-the-whole-result-not-of-the-top-n.md)
   (it can be built against a stub of the wire first)
+
+## Comments
+
+**2026-11-10 — built (impl/3519-861).** All proofs are red-green, except the HITL staging walk, which is still
+**owed**: it needs BackOffice 3522 (`cumulativeShare` + `untilReached`) and 3525 (the copilot prompt) deployed on
+staging. Record it here when it is walked.
+
+- **Wire types live in one file:** `src/core/models/analytics-calculations.ts` (kinds, `AnalyticsCalculation`,
+  `AnalyticsColumnCalculation`, limits, tolerant readers). `analytics.ts` only references it, through
+  `AnalyticsSemanticQuery.calculations?`, `AnalyticsColumn.calculation?` and `AnalyticsQueryResult.untilReached?`.
+  `wire.ts` `readDefinition` / `readResult` read them; absent stays absent.
+- **Render:** `boards/calculations.ts`:
+  - `measureKeysOf` gives the query's measures, then the calculated columns in `query.calculations` order. It is read
+    by `panel-table`, `toTableView`, `toComboView` and `toSeriesView`.
+  - `calculatedModel` adds one labelled rate/percent measure per calculated column, so `viewMeasureOf` reads it
+    unchanged.
+  - `calculationLabel` gives the explicit label, else the per-kind default from `boards:calculation.label.*`.
+  - `untilNote` gives the 80 % note, which `UntilNote.tsx` renders in the chart and table views.
+  - The components go through `use-calculations.ts`, which is used in `ViewChart`, the `PanelBody` table and the
+    `PanelActions` exports.
+- **Live figures:** `figuresOf` offers each calculation key after the measures, per series too. The value is
+  formatted by the server's Words answer, as for any figure.
+- **Format:** the new `MeasureUnit` `'percent'` is percent points (42.5 = 42.5 %). `core/charts/format.ts` scales it
+  by 1/100 before `Intl`'s percent style, so it reads like a `share`. A `null` cell is blank.
+
+**Wire assumptions, reconciled against BackOffice 3520 (BackOffice-3519 @ 743caeb81, `AnalyticsWire.cs`,
+`AnalyticsCalculations.cs`).** No mismatch was found:
+- the fields are camelCase `key/kind/measure/of/until/label`;
+- `of` and `until` are nullable (`until` is a decimal, so a JSON number), and so is `label`, which is `{en, ar}`,
+  both languages or neither (the server refuses a one-sided label; the web reads one leniently);
+- the column is `role "measure"`, `shape "rate"`, `unit "percent"`, `calculation {kind, measure, of}`, and
+  `calculation` is null on other columns;
+- values are percent points (`part / whole × 100`), rounded to 4 dp, null on a zero or missing denominator.
+
+Still on the spec's shape, because they are not merged yet:
+- `untilReached` (3522): a boolean on the result, absent = no note;
+- the `ratio`, `cumulativeShare` and `change` kinds (3521–3523);
+- calculated figure keys in the Words answer (3524).
+
+Gates:
+- `npm run typecheck` is clean and `npm run build` is clean.
+- `npm test` passes: 733 files, 10020 tests.
+- `npm run lint` fails on **4 pre-existing** import-boundary violations in
+  `src/features/insurance-rules/aliases/door-shapes.test.ts`. That file is unchanged since d412363d, and
+  `check-boundaries` reports the same 4 on a d412363d checkout. The other four gates (`grid-base`, `contrast`,
+  `palette`, `controls`) pass when run directly.

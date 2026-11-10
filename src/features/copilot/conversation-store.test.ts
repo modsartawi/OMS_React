@@ -43,13 +43,13 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     const store = createCopilotConversation(d.ask)
     const done = store.getState().ask('Why was order 7000123456 late?')
     expect(done).not.toBeNull()
-    expect(store.getState().pending).toBe('Why was order 7000123456 late?')
+    expect(store.getState().inFlight?.question).toBe('Why was order 7000123456 late?')
     // A second ask while one is in flight is refused: one ask at a time, whichever panel sent it.
     expect(store.getState().ask('And another?')).toBeNull()
     expect(d.calls).toHaveLength(1)
     d.calls[0].answer(reply('c-0001', 1))
     await done
-    expect(store.getState().pending).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
     expect(store.getState().conv.id).toBe('c-0001')
     expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['Why was order 7000123456 late?'])
     // The follow-up sends the id back.
@@ -57,7 +57,7 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     expect(d.calls[1].body).toEqual({ question: 'And the one before?', conversationId: 'c-0001' })
     d.calls[1].refuse(new ApiError('business', 'No.', 400, [{ errorCode: 'COPILOT-403', internalErrorCode: '', errorMessage: 'No.' }]))
     await next
-    expect(store.getState().pending).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
     expect(store.getState().conv.turns).toHaveLength(2)
     expect(store.getState().conv.turns[1].reply).toBeNull()
   })
@@ -67,14 +67,14 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     const store = createCopilotConversation(d.ask)
     const late = store.getState().ask('slow question')
     store.getState().startNew()
-    expect(store.getState().pending).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
     // The new conversation can ask at once; the old reply, arriving after, is dropped.
     const fresh = store.getState().ask('fresh question')
     expect(d.calls[1].body).toEqual({ question: 'fresh question' })
     d.calls[0].answer(reply('c-old', 1))
     await late
     expect(store.getState().conv.turns).toHaveLength(0)
-    expect(store.getState().pending).toBe('fresh question')
+    expect(store.getState().inFlight?.question).toBe('fresh question')
     d.calls[1].answer(reply('c-new', 1))
     await fresh
     expect(store.getState().conv.id).toBe('c-new')
@@ -90,14 +90,14 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     expect(store.getState().stop()).toBe('add a pie chart')
     // The request is aborted (so the server stops), nothing is in flight, and the next question can go at once.
     expect(d.calls[0].signal?.aborted).toBe(true)
-    expect(store.getState().pending).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
     const second = store.getState().ask('add a donut chart')
     expect(second).not.toBeNull()
     // The stopped question's late reply (or its abort failure) adds nothing to the thread.
     d.calls[0].refuse(new ApiError('network', 'aborted', 0))
     await first
     expect(store.getState().conv.turns).toHaveLength(0)
-    expect(store.getState().pending).toBe('add a donut chart')
+    expect(store.getState().inFlight?.question).toBe('add a donut chart')
     d.calls[1].answer(reply('c-1', 1))
     await second
     expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['add a donut chart'])
@@ -130,7 +130,7 @@ describe('the copilot conversation store (spec 734 D5, review items 1 and 2)', (
     useSession.getState().setSession({ userId: 'a.user' })
     const inFlight = store.getState().ask('another of A')
     useSession.getState().setSession({ userId: 'b.user' })
-    expect(store.getState().pending).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
     d.calls[1].answer(reply('c-a', 2))
     await inFlight
     expect(store.getState().conv.turns).toHaveLength(0)
@@ -291,38 +291,38 @@ describe('the copilot and the board open in its editor (ticket 836, BackOffice 3
 describe('the live steps id (ticket 869, BackOffice spec 3558 D17)', () => {
   const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/
 
-  it('ask_sendsAFreshUlidRequestId_heldAsPendingIdOnlyWhileTheQuestionIsOut', async () => {
+  it('ask_sendsAFreshUlidRequestId_heldInFlightOnlyWhileTheQuestionIsOut', async () => {
     const d = door()
     const store = createCopilotConversation(d.ask)
-    expect(store.getState().pendingId).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
 
     const first = store.getState().ask('How many orders yesterday?')
     const id1 = d.calls[0].requestId
     expect(id1).toMatch(ULID)
-    expect(store.getState().pendingId).toBe(id1)
+    expect(store.getState().inFlight?.requestId).toBe(id1)
     d.calls[0].answer(reply('c-0001', 1))
     await first
     // The answer landed: the panel stops polling.
-    expect(store.getState().pendingId).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
 
     // One question, one id: the next question mints its own.
     const second = store.getState().ask('And the day before?')
     const id2 = d.calls[1].requestId
     expect(id2).toMatch(ULID)
     expect(id2).not.toBe(id1)
-    expect(store.getState().pendingId).toBe(id2)
+    expect(store.getState().inFlight?.requestId).toBe(id2)
     d.calls[1].refuse(new ApiError('business', 'No.', 400, [{ errorCode: 'COPILOT-403', internalErrorCode: '', errorMessage: 'No.' }]))
     await second
-    expect(store.getState().pendingId).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
 
     void store.getState().ask('A slow one')
-    expect(store.getState().pendingId).toBe(d.calls[2].requestId)
+    expect(store.getState().inFlight?.requestId).toBe(d.calls[2].requestId)
     store.getState().stop()
-    expect(store.getState().pendingId).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
 
     void store.getState().ask('Another slow one')
-    expect(store.getState().pendingId).toBe(d.calls[3].requestId)
+    expect(store.getState().inFlight?.requestId).toBe(d.calls[3].requestId)
     store.getState().startNew()
-    expect(store.getState().pendingId).toBeNull()
+    expect(store.getState().inFlight).toBeNull()
   })
 })

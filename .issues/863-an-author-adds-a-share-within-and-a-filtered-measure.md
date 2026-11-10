@@ -65,3 +65,10 @@ the orchestrator's instruction.
   values of one filter as "a or b". Settle: an unticked variant goes quietly; one whose filter dimension became a
   breakdown goes with its key, noted. Panels name variant columns (`calculatedModel`), and a saved variant panel is not
   "retired" while its measure exists (`retiredMembers`, found during the slice).
+- 2026-11-10, local walk on live POS_Analytics (not the staging walk; the HITL box stays open): share of till value
+  within each city by delivery type — all 152 cities sum to 100.000 (Riyadh: none 80.69, DL 18.42, QC 0.87, BB 0.02);
+  delivery value (variant: DL + QC) as % of till value by city — Riyadh 19.3 %, agreeing with the share view. The
+  variant form drops delivery type from the breakdowns, as it should. Both on board 06GWDRJYSR1G6C719CTA04WJV4.
+  Found and fixed: a per-parent table was re-sorted by the grid (54f2a6a5); the calculation card overflowed (54f2a6a5).
+  Note: on these panels Country is `notInArea` (the delivery-type view has no country), so the author sees
+  "Not filtered by Country, Category".

@@ -57,3 +57,11 @@ The tests are green, and the staging walk is recorded in Comments.
   binds; members binds when some area has the dimension; variant keys read as their measure). 863's gap fixed (title
   and report panel area of a variant-only query). Tests: `cross-area.test.ts`, `average.test.ts`.
 - **Open (HITL):** the staging walk — a board of till sales and deliveries by region x category with a category filter.
+- 2026-11-10, local walk on live POS_Analytics (not the staging walk; the HITL box stays open): item sales value and
+  deliveries by city x category, view filter BABY CARE + PHARMA-OTC, on board 06GWDRJYSR1G6C719CTA04WJV4 with a
+  Category parameter (BABY CARE). One "All" row per city, last, item value empty (never 0); notes "Deliveries cannot
+  be split by Category" and "Deliveries is not filtered by Category"; header tooltip carries the date basis. The
+  board Category reaches the panel (some measure's area has it). Found and fixed: the table's note repeated all 155
+  "All" rows (4672d667); a SAR + percent series chart had no pane names and odd percent ticks (96f57698).
+  Unconfirmed: the header tooltip's second line (not filtered) is in the column definition, but only the first line
+  was seen on screen.

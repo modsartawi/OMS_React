@@ -72,7 +72,7 @@ export default function ViewForm({
   }
 
   if (type === 'table') {
-    const view = toTableView(result, definition, model, lang, t('view.seriesColumn'))
+    const view = toTableView(result, definition, model, lang, t('view.seriesColumn'), (measure) => t('view.previousColumn', { measure: fsi(measure) }))
     // 825: the series column is not a dimension a row click cross-filters on.
     const seriesKey = hasSeries(definition) ? seriesColumnOf(result.columns) : null
     const dims = view.columns.filter((c) => c.role === 'dimension' && c.key !== seriesKey).map((c) => c.label)

@@ -93,6 +93,7 @@ export function calculatedModel(
  */
 export function untilNote(definition: AnalyticsViewDefinition, result: AnalyticsQueryResult | undefined): { until: number } | null {
   if (result?.untilReached !== false) return null
+  // The calculation's own threshold; a running share without one cuts nothing, so it has no note.
   const cut = (definition.query.calculations ?? []).find((c) => c.kind === 'cumulativeShare' && typeof c.until === 'number')
-  return { until: cut?.until ?? 80 }
+  return typeof cut?.until === 'number' ? { until: cut.until } : null
 }

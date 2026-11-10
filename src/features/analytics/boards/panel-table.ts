@@ -4,6 +4,7 @@ import { stripIsolates } from '@/core/util/bidi'
 import type { XlsxSheet } from '@/core/util/grid-xlsx'
 import { saysIn } from '@/core/rules/sentence'
 import { measureKeysOf } from './calculations'
+import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
 import { seriesColumnOf, seriesName, seriesOf } from './series'
 import { viewMeasureOf } from './view-model'
 import { dimensionOf } from './wire'
@@ -15,7 +16,8 @@ import { dimensionOf } from './wire'
  * table view matches the chart. Unlike the table FORM (769's `toTableView`) it never sorts or cuts.
  *
  * Exports go through the core xlsx writer and strip isolates (the bidi rule): no FSI…PDI ever reaches a
- * file, whatever a label or member carried.
+ * file, whatever a label or member carried. A view compared with the previous period has a previous column after
+ * each of its measures (`./previous-rows`), so the downloads carry it too.
  */
 
 type Cell = string | number | null
@@ -36,7 +38,7 @@ export function panelTable(
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
-  words: { series: string } = { series: 'series' },
+  words: { series: string; previous?: (measure: string) => string } = { series: 'series' },
 ): PanelTable {
   const named = seriesOf(definition)
   const seriesKey = seriesColumnOf(result.columns)
@@ -46,6 +48,9 @@ export function panelTable(
   const dimKeys = definition.query.dimensions.length ? definition.query.dimensions : fromColumns('dimension')
   // 861: the query's measures, then the calculated columns the server returned (`./calculations`).
   const measureKeys = measureKeysOf(definition, result)
+  const withPrevious = new Set(previousMeasures(definition, result))
+  const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
+  const previousHeader = words.previous ?? previousKey
 
   const namers = new Map(
     dimKeys.map((k) => {
@@ -58,15 +63,20 @@ export function panelTable(
     const out: Record<string, Cell> = {}
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = r[k] == null ? '' : namers.get(k)!.member(String(r[k]))
-    for (const k of measureKeys) out[k] = num(r[k])
+    const before = withPrevious.size ? previousOf(r) : undefined
+    for (const k of measureKeys) {
+      out[k] = num(r[k])
+      if (withPrevious.has(k)) out[previousKey(k)] = num(before?.[k])
+    }
     return out
   })
   const columns: TableChartColumn[] = [
     ...(named.length ? [{ key: seriesKey, role: 'dimension' as const, label: words.series }] : []),
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.label })),
-    ...measureKeys.map((k) => {
+    ...measureKeys.flatMap((k) => {
       const m = viewMeasureOf(k, model, result, lang)
-      return { key: k, role: 'measure' as const, label: m.label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[k]) ?? 0))) }
+      const column = (key: string, label: string) => ({ key, role: 'measure' as const, label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))) })
+      return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
     }),
   ]
   return { columns, rows }

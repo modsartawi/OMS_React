@@ -1,5 +1,6 @@
 import { formatAxisDay } from '@/core/charts/format'
 import { measureKeysOf } from './calculations'
+import { previousMatcher } from './previous-rows'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type {
   AnalyticsModel,
@@ -281,14 +282,33 @@ export function toSeriesView(
       series.push({ key: 'prev', member: '', label: '', slot: null, other: false, unit: m.unit, previous: true })
       xs.forEach((x, i) => (values.get(x)!.prev = earlier[i] ? num(earlier[i][m.key]) : null))
     }
+    // Spec 3519 item 11: a bar compared with the previous period — the query's first measure over the previous
+    // period, matched to each bar by its member (a time bucket by its place), drawn beside it, never stacked on it.
+    const firstMeasure = definition.query.measures[0]
+    if (form === 'bar' && firstMeasure && definition.query.compareToPrevious === true && result.previous.length > 0) {
+      const m = measures.find((x) => x.key === firstMeasure) ?? measures[0]
+      const before = previousMatcher(result, [xKey], model)
+      series.push({ key: 'prev', member: '', label: '', slot: null, other: false, unit: m.unit, previous: true })
+      for (const x of xs) {
+        const row = rowsAt.get(x)?.[0]
+        values.get(x)!.prev = row ? num(before(row)?.[m.key]) : null
+      }
+    }
   }
 
   // A single series coloured by its x member, as 767's bar is (a fixed dimension, or a saved map).
   const xRule = series.length === 1 && !isTime ? slotRuleFor(xKey, model, definition) : null
   const xSlots = xRule ? assignSlots(xs, xRule) : null
 
+  const withPrevious = series.some((s) => s.previous)
   const stacking: SeriesView['stacking'] =
-    form === 'area' ? 'stacked' : form === 'bar' && series.length > 1 ? (definition.chart.stack ?? 'grouped') : 'none'
+    form === 'area'
+      ? 'stacked'
+      : form === 'bar' && series.length > 1
+        ? withPrevious
+          ? 'grouped'
+          : (definition.chart.stack ?? 'grouped')
+        : 'none'
 
   return {
     kind: 'series',

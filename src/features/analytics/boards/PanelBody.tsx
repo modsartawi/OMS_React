@@ -137,7 +137,10 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
   const seriesHeader = t('view.seriesColumn')
   // 861: calculated columns are measures, labelled in the viewer's language.
   const shown = useCalculatedModel(model, definition, result, lang)
-  const view = useMemo(() => panelTable(result, definition, shown, lang, { series: seriesHeader }), [result, definition, shown, lang, seriesHeader])
+  const view = useMemo(
+    () => panelTable(result, definition, shown, lang, { series: seriesHeader, previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }) }),
+    [result, definition, shown, lang, seriesHeader, t],
+  )
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
   return (

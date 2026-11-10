@@ -184,9 +184,12 @@ describe('panel edits keep calculations to what the query allows (ticket 862)', 
       query: { measures: ['orders'], dimensions: ['day'], filters: [], compareToPrevious: true, calculations: [{ key: 'change_orders', kind: 'change', measure: 'orders' }] },
     }
     expect(fitted(line, model).query.calculations).toHaveLength(1)
-    const table = withChoice(line, 'table', model)
-    expect(table.query.calculations).toBeUndefined()
-    expect(droppedBy(line, table, model).map((d) => d.reason)).toEqual(['compare'])
+    // A table compares too (spec 3519 review), so the change stays there; a combo does not.
+    expect(withChoice(line, 'table', model).query.calculations).toHaveLength(1)
+    const combo = withChoice(line, 'combo', model)
+    expect(combo.chart.type).toBe('combo')
+    expect(combo.query.calculations).toBeUndefined()
+    expect(droppedBy(line, combo, model).map((d) => d.reason)).toEqual(['compare'])
     expect(withComparing(line, false, model).query.calculations).toBeUndefined()
   })
 

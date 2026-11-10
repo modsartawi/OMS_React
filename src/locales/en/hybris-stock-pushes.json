@@ -77,6 +77,7 @@
     "failed": "The lines could not be loaded",
     "empty": "This push sent no lines.",
     "noFiles": "No file written",
+    "filesSoFar": "{{written}} of {{total}} files written so far",
     "noMatch": "No line matches the filter.",
     "noSuchPush": "No such push. Push lines are kept {{days}} days.",
     "noSuchPushNoDays": "No such push. Push lines are kept for a limited time only.",

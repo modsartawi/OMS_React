@@ -19,7 +19,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure as figure } from '@/core/util/number-format'
 import { linesKey, pushesApi, type LinesQuery } from './api'
 import { PushStatus, PushTarget, PushType } from './PushCells'
-import { linesGone } from './push-labels'
+import { filesSoFar, linesGone } from './push-labels'
 import { LINES_PAGE_SIZE, sameLinesFilter } from './pushes-query'
 
 /**
@@ -112,7 +112,7 @@ export default function PushLinesDrawer({
             </dd>
             <dt className="text-muted-foreground">{t('columns.files')}</dt>
             <dd className="flex flex-col font-mono" data-lines-files="">
-              {(push.fileNames ?? []).length === 0 ? t('lines.noFiles') : push.fileNames.map((f) => <Ltr key={f}>{f}</Ltr>)}
+              <FileNames push={push} />
             </dd>
             {push.error && (
               <>
@@ -230,5 +230,23 @@ export default function PushLinesDrawer({
         )}
       </div>
     </SideSheet>
+  )
+}
+
+/** The push's files. A running split push names each part as it uploads, so it says how many are written
+ *  of how many (and the names so far) rather than "no file written". */
+function FileNames({ push }: { push: HybrisStockPushRow }) {
+  const { t } = useTranslation('hybris-stock-pushes')
+  const names = push.fileNames ?? []
+  const progress = filesSoFar(push)
+  return (
+    <>
+      {progress && (
+        <span className="font-sans text-muted-foreground" data-lines-files-so-far="">
+          {t('lines.filesSoFar', { written: figure(progress.written), total: figure(progress.total) })}
+        </span>
+      )}
+      {names.length === 0 && !progress ? t('lines.noFiles') : names.map((f) => <Ltr key={f}>{f}</Ltr>)}
+    </>
   )
 }

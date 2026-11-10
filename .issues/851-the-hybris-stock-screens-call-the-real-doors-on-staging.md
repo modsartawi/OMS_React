@@ -128,3 +128,19 @@ The 2026-11-07 asks: 1 (health flags) and 2 (preview refusals) are answered by t
 6. **Contract location.** The asset lives on BackOffice branch `spec3447` (worktree `BackOffice-3447`), not yet on
    BackOffice `main`; the model's header cites the main-repo path it will land at.
 7. **Live proof still owed** — this ticket's walk against staging (LTR + RTL, rail in shadow) is unchanged.
+
+**2026-11-10 — the partner's file format (BackOffice, Bosch update 2026-11-09), for whoever walks this.** BackOffice
+spec 3447 is merged into `pricing2` (`24ec7bc36`); the door contract now lives at
+`C:\Work\DMSCO\BackOffice\.issues\assets\3447-hybris-stock-web-door-contract.md` (the `BackOffice-3447` worktree
+cited above is removed). No field changed; only the file names and when they appear:
+
+- File names are now `aldawaastockfull-oms-yyyyMMddHHmmss.csv` (a full, a nightly round, a store push now) and
+  `aldawaastockdelta-oms-yyyyMMddHHmmss.csv` (a delta, a materials push now), the stamp the file's creation time in
+  KSA. The old `aldawaastocklevel-…-<tag>[-pNN].csv` names are gone; two files in the same second differ by a
+  second, not by a tag. Expect these names in the push log, the lines drawer and the push-now result — not a finding.
+- A split push's parts are named as each one uploads, so a running split push starts with `fileNames: []` and fills
+  in a name per part. The lines drawer now says "0 of 3 files written so far" (and the names so far) instead of "No
+  file written" (`filesSoFar` in `push-labels.ts`). Walk one split push on staging if the data allows (a store over
+  `maxRowsPerFile`), and check the drawer while it runs.
+- Staging needs `Hybris:StockSync:ContainerSasUrl` set (the container SAS Bosch issued) before any push can upload;
+  without it every push fails with "…not configured (Hybris:StockSync:ContainerSasUrl)" — a setup gap, not a screen bug.

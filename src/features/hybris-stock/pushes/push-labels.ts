@@ -44,3 +44,17 @@ export function targetLabel(target: string | null | undefined): { key: `target.$
 export function linesGone(push: Pick<HybrisStockPushRow, 'linesKept'> | null | undefined): boolean {
   return push?.linesKept === false
 }
+
+/**
+ * A split push that is still running has written only some of its files. Each part is named as it is
+ * uploaded (the partner's file names, BackOffice 2026-11-09), so `fileNames` grows while the push runs and is
+ * empty until the first part is up. Answers how many are written of how many, so the drawer does not read
+ * that as "no file written"; `null` once the push is finished, or when every file is already named.
+ */
+export function filesSoFar(
+  push: Pick<HybrisStockPushRow, 'status' | 'fileNames' | 'fileCount' | 'parts'>,
+): { written: number; total: number } | null {
+  const written = (push.fileNames ?? []).length
+  const total = push.parts?.total ?? push.fileCount
+  return push.status === 'running' && total > written ? { written, total } : null
+}

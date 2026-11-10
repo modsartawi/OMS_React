@@ -74,5 +74,7 @@ describe('rerunDraft', () => {
     expect(rerunCount(offer())).toBe(3)
     expect(rerunCount(offer({ targets: [] }))).toBe(0)
     expect(rerunCount(undefined)).toBe(0)
+    // A service without the door (or a stub) answering something else never crashes the header.
+    expect(rerunCount([] as unknown as RerunOffer)).toBe(0)
   })
 })

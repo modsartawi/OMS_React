@@ -48,4 +48,4 @@ export function rerunDraft(offer: RerunOffer, profileTables: readonly string[]):
 }
 
 /** The N of *New campaign from failed (N)*: the offer's target count; the button is hidden at 0. */
-export const rerunCount = (offer: RerunOffer | undefined): number => offer?.targets.length ?? 0
+export const rerunCount = (offer: RerunOffer | undefined): number => (Array.isArray(offer?.targets) ? offer.targets.length : 0)

@@ -128,7 +128,7 @@ function CampaignView() {
       <StartCampaignButton campaign={campaign.data} />
       <CampaignControls campaign={campaign.data} />
       <HandBackButton campaign={campaign.data} />
-      <RerunCampaignButton campaign={campaign.data} refetchInterval={interval} />
+      <RerunCampaignButton campaign={campaign.data} />
     </>
   )
   // 563: a job row's Pause / Resume / Cancel — set this and the grid grows an `actions` column.

@@ -228,19 +228,6 @@ export function campaignJobsQuery(
   } as const
 }
 
-/**
- * The campaign's re-run offer (863), under its campaign so a control or a create refreshes it; polled
- * with the page (a running campaign gains failures as it goes).
- */
-export function rerunTargetsQuery(campaignId: string, refetchInterval: number | false) {
-  return {
-    queryKey: [...campaignKey(campaignId), 'rerun-targets'] as const,
-    queryFn: () => dataSyncApi.rerunTargets(campaignId),
-    refetchInterval,
-    retry: retryUnlessNotFound,
-  } as const
-}
-
 /** The drawer's job. Keyed under its campaign when that is known, so the page's invalidation reaches it. */
 export function jobQuery(campaignId: string, jobId: string, refetchInterval: number | false) {
   return {

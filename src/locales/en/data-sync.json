@@ -513,6 +513,7 @@
     "open": "New campaign from failed (<n>{{figure}}</n>)",
     "openHint": "A new campaign of the stores that failed on their data, with the tables they did not finish. Fix the cause first.",
     "title": "New campaign from failed",
+    "offerFailed": "Could not read the failed stores to re-run. Try again.",
     "intro": "Re-runs the stores of <v>{{name}}</v> that failed on their data, with only the tables they did not finish. Drop any store or table you have not fixed yet.",
     "profileLocked": "A re-run keeps the original campaign's profile.",
     "wpfLeftOut_one": "<n>{{figure}}</n> WPF-hosted store was left out: an Apply campaign can never write to it.",

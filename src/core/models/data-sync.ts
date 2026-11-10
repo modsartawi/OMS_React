@@ -187,6 +187,13 @@ export interface Campaign {
    * them all. Optional: a build before the Retry change does not send it (read as 0).
    */
   retryableJobs?: number
+  /**
+   * Spec 863: how many stores the re-run offer (`RerunTargets`) holds — the failures Retry refuses in
+   * this campaign, less the stores a live re-run holds. Optional: an older service does not send it (read as 0).
+   */
+  rerunnableJobs?: number
+  /** Spec 863: how many of `rerunnableJobs` failed `StoreWpfHosted` (an Apply re-run leaves them out). */
+  rerunnableWpfHostedJobs?: number
   /** Apply only. */
   reason: string | null
   createdAt: string
@@ -216,7 +223,10 @@ export interface RerunLink {
 export interface RerunTarget {
   client: string
   code: string
-  /** `TableFailures`, `Error` or `StoreWpfHosted` — the failures Retry refuses. */
+  /**
+   * The failures Retry refuses in that campaign: `TableFailures`, `Error` or `StoreWpfHosted`; in a
+   * Cancelling/Cancelled campaign (no Retry at all) also `StoreUnreachable` / `TargetUnresolved`.
+   */
   failureReason: string
   unfinishedTables: string[]
 }

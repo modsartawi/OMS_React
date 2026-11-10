@@ -25,7 +25,6 @@ import {
   dataSyncAccessQuery,
   dataSyncApi,
   profilesQuery,
-  rerunTargetsQuery,
 } from './api'
 import {
   applyTableSplit,
@@ -42,7 +41,7 @@ import { campaignPath } from './campaign-columns'
 import { buildCreateRequest, createRefusalWords, parseStoreCodes, type CreateDraft } from './create-helpers'
 import RefusalBanner from './RefusalBanner'
 import { groupDigits } from './helpers'
-import { rerunCount, rerunDraft, type RerunPrefill } from './rerun-helpers'
+import { rerunCodesForMode, rerunCount, rerunDraft, type RerunPrefill } from './rerun-helpers'
 
 /**
  * The Campaigns page's **New campaign** button and dialog (spec 558, ticket 561).
@@ -76,34 +75,47 @@ export function NewCampaignButton() {
 }
 
 /**
- * *New campaign from failed (N)* in the campaign header (spec 863, ticket 864): N is the re-run
- * offer's store count. Absent without `DataSync.Operate`, and at N = 0; offered in any campaign
- * state (failed jobs never run again, so re-running them while the rest still runs is safe).
+ * *New campaign from failed (N)* in the campaign header (spec 863, ticket 864): N is the campaign's
+ * own count (`rerunCount`: `rerunnableJobs`, less the WPF-hosted stores of an Apply campaign), polled
+ * with the page at no extra cost. Absent without `DataSync.Operate`, and at N = 0; offered in any
+ * campaign state (failed jobs never run again, so re-running them while the rest still runs is safe).
  *
- * It opens the New campaign dialog in re-run mode, pre-filled by `rerunDraft` from the offer as it
- * stood at the click — a later poll does not rewrite what the technician is editing.
+ * The full offer (`RerunTargets`) is read only on the click, and pre-fills the dialog by `rerunDraft`
+ * as it stood then — a later poll does not rewrite what the technician is editing. Once open, the
+ * dialog stays mounted until it is closed even when N drops to 0 under it (its own create, or a
+ * poll): an Apply create ends on its outcome, which must still be read.
  */
-export function RerunCampaignButton({ campaign, refetchInterval }: { campaign: Campaign; refetchInterval: number | false }) {
+export function RerunCampaignButton({ campaign }: { campaign: Campaign }) {
   const { t } = useTranslation('data-sync')
   const access = useQuery(dataSyncAccessQuery())
   const canOperate = canOperateDataSync(access.data)
-  const offer = useQuery({ ...rerunTargetsQuery(campaign.campaignId, refetchInterval), enabled: canOperate })
   const profiles = useQuery(profilesQuery())
   const [prefill, setPrefill] = useState<RerunPrefill | null>(null)
   const [denied, setDenied] = useState(false)
-  const data = offer.data
-  const n = rerunCount(data)
-  if (!canOperate || denied || n === 0 || !data) return null
-  const openDialog = () => {
-    const tables = profiles.data?.find((p) => p.profileId === data.profileId)?.tableSet.map((s) => s.table) ?? data.tables
-    setPrefill(rerunDraft(data, tables))
-  }
+  const offer = useMutation({
+    mutationFn: () => dataSyncApi.rerunTargets(campaign.campaignId),
+    onSuccess: (data) => {
+      const tables = profiles.data?.find((p) => p.profileId === data.profileId)?.tableSet.map((s) => s.table) ?? data.tables
+      setPrefill(rerunDraft(data, tables))
+    },
+    onError: (err) => notify.error(apiErrorMessage(err, t('rerun.offerFailed'))),
+  })
+  const n = rerunCount(campaign)
+  if (!canOperate || denied) return null
   return (
     <>
-      <Button variant="secondary" onClick={openDialog} disabled={profiles.isPending} title={t('rerun.openHint')} data-rerun-open={n}>
-        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-        <Trans t={t} i18nKey="rerun.open" values={{ figure: groupDigits(n) }} components={{ n: <Ltr /> }} />
-      </Button>
+      {n > 0 && (
+        <Button
+          variant="secondary"
+          onClick={() => offer.mutate()}
+          disabled={profiles.isPending || offer.isPending || prefill !== null}
+          title={t('rerun.openHint')}
+          data-rerun-open={n}
+        >
+          {offer.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden />}
+          <Trans t={t} i18nKey="rerun.open" values={{ figure: groupDigits(n) }} components={{ n: <Ltr /> }} />
+        </Button>
+      )}
       {prefill && (
         <NewCampaignDialog
           rerun={{ prefill, originalName: campaign.name ?? campaign.campaignId }}
@@ -179,6 +191,14 @@ function NewCampaignDialog({ onClose, onDenied, rerun }: { onClose: () => void; 
   const canApply = split.written.length > 0
   const mode: Mode = chosenMode === 'Apply' && canApply ? 'Apply' : 'ReportOnly'
   const applying = mode === 'Apply'
+  // Re-run mode (863): the WPF-hosted stores follow the effective mode — out while Apply (they can
+  // never be applied to), back in once report only, however the mode got there (picked, or fallen
+  // back because no ticked table may be written). Adjusted during render, on the change itself.
+  const [codesMode, setCodesMode] = useState<Mode>(rerun?.prefill.mode ?? mode)
+  if (rerun && codesMode !== mode) {
+    setCodesMode(mode)
+    setCodesText(rerunCodesForMode(codesText.split('\n'), rerun.prefill.wpfHosted, mode).join('\n'))
+  }
 
   const draft: CreateDraft = {
     profileId,
@@ -339,7 +359,7 @@ function NewCampaignDialog({ onClose, onDenied, rerun }: { onClose: () => void; 
         <ApplyOutcomeView outcome={outcome} paused={outcome.held !== null} />
       ) : (
       <div className="flex flex-col gap-4 text-sm" data-create-dialog="" data-create-rerun-of={rerun?.prefill.rerunOf}>
-        {rerun && <RerunNotes rerun={rerun} />}
+        {rerun && <RerunNotes rerun={rerun} applying={applying} />}
         {/* ── Profile ── */}
         <label className="flex flex-col gap-1 text-xs font-medium">
           {t('create.profile')}
@@ -586,9 +606,11 @@ function NewCampaignDialog({ onClose, onDenied, rerun }: { onClose: () => void; 
 }
 
 /** Re-run mode's notes (863): what the dialog was filled from, and the stores it left out and why. */
-function RerunNotes({ rerun }: { rerun: RerunMode }) {
+function RerunNotes({ rerun, applying }: { rerun: RerunMode; applying: boolean }) {
   const { t } = useTranslation('data-sync')
-  const { leftOutWpf, excluded } = rerun.prefill
+  const { excluded } = rerun.prefill
+  // Only Apply leaves the WPF-hosted stores out; report only runs them, so there is nothing to say.
+  const leftOutWpf = applying ? rerun.prefill.wpfHosted : []
   return (
     <div className="flex flex-col gap-2" data-rerun-notes="">
       <p className="rounded-md bg-muted px-3 py-2 text-xs" data-rerun-intro="">

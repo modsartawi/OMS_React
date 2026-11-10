@@ -102,17 +102,19 @@ export const dataSyncApi = {
   },
 
   /**
-   * `POST DataSync/Campaigns/{id}/{Pause|Resume|Cancel}` (ticket 563) → the campaign AFTER the move
-   * and its settle (Pause → Pausing or Paused; Cancel → Cancelling or Cancelled). 409
-   * `DATASYNC_INVALID_STATE`, 404 `DATASYNC_CAMPAIGN_NOT_FOUND`; a bare 403 without Operate.
+   * `POST DataSync/Campaigns/{id}/{Pause|Resume|Cancel|Retry}` (tickets 563, 866) → the campaign AFTER
+   * the move and its settle (Pause → Pausing or Paused; Cancel → Cancelling or Cancelled; Retry → a
+   * Completed campaign is Running again). 409 `DATASYNC_INVALID_STATE` (for Retry: nothing retryable,
+   * or cancelling / cancelled), 404 `DATASYNC_CAMPAIGN_NOT_FOUND`; a bare 403 without Operate.
    */
   controlCampaign(campaignId: string, action: ControlAction, body: ControlRequest): Promise<Campaign> {
     return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/${action}`, body)
   },
 
   /**
-   * `POST DataSync/Jobs/{id}/{Pause|Resume|Cancel}` (ticket 563) → the job after the move. 409
-   * `DATASYNC_INVALID_STATE`; an apply job's Resume re-checks its store: 409 `DATASYNC_STORE_BUSY` /
+   * `POST DataSync/Jobs/{id}/{Pause|Resume|Cancel|Retry}` (tickets 563, 866) → the job after the move
+   * (a Retry: Queued, resuming from its checkpoints). 409 `DATASYNC_INVALID_STATE`; an apply job's
+   * Resume or Retry re-checks its store: 409 `DATASYNC_STORE_BUSY` /
    * `DATASYNC_STORE_WPF_HOSTED`. 404 `DATASYNC_JOB_NOT_FOUND`; a bare 403 without Operate.
    */
   controlJob(jobId: string, action: ControlAction, body: ControlRequest): Promise<Job> {

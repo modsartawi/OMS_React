@@ -231,6 +231,8 @@ import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
 // The chart wrapper's words (`@/core/charts`) live in `common` (spec 766 §F); a PARTIAL Arabic `common`, those words only.
 import commonAr from '@/locales/ar/common.json'
+// A PARTIAL Arabic `data-sync`: the re-run words (spec 863) only; the rest falls back to English.
+import dataSyncAr from '@/locales/ar/data-sync.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -358,6 +360,7 @@ i18n.use(initReactI18next).init({
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       boards: boardsAr,
+      'data-sync': dataSyncAr,
       common: commonAr,
       ...INSURANCE_RULES_AR,
     },

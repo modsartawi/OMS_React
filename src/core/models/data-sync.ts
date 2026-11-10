@@ -113,6 +113,7 @@ export type DataSyncErrorCode =
   | 'DATASYNC_STORE_BUSY'
   | 'DATASYNC_STORE_WPF_HOSTED'
   | 'DATASYNC_MANIFEST_PRUNED'
+  | 'DATASYNC_RERUN_PROFILE_MISMATCH' // spec 863: create with `rerunOf` naming a campaign of another profile
 
 // ── Read models ─────────────────────────────────────────────────────────────────
 
@@ -186,6 +187,50 @@ export interface Campaign {
   startedAt: string | null
   finishedAt: string | null
   asOf: string
+  /** Spec 863: the campaign whose failed stores this one re-runs; `null` (or absent on an older service) = not a re-run. */
+  rerunOf?: CampaignLink | null
+  /** Spec 863: the campaigns created as re-runs of this one, newest first. */
+  rerunBy?: RerunLink[]
+}
+
+/** The original of a re-run (spec 863). */
+export interface CampaignLink {
+  campaignId: Ulid
+  name: string | null
+}
+
+/** One re-run of a campaign, with its status (spec 863). */
+export interface RerunLink {
+  campaignId: Ulid
+  name: string | null
+  status: CampaignStatus
+}
+
+/** A store of the re-run offer: why it failed, and the tables it did not finish (not `Succeeded`). */
+export interface RerunTarget {
+  client: string
+  code: string
+  /** `TableFailures`, `Error` or `StoreWpfHosted` — the failures Retry refuses. */
+  failureReason: string
+  unfinishedTables: string[]
+}
+
+/** A re-runnable store already held by a live re-run of the campaign (ticket 865; empty until then). */
+export interface RerunExclusion {
+  client: string
+  code: string
+  rerunCampaignId: Ulid
+}
+
+/** `GET DataSync/Campaigns/{id}/RerunTargets` (spec 863): the offer that pre-fills *New campaign from failed*. */
+export interface RerunOffer {
+  campaignId: Ulid
+  profileId: Ulid
+  mode: Mode
+  /** The union of every target's unfinished tables, in profile order. */
+  tables: string[]
+  targets: RerunTarget[]
+  excluded: RerunExclusion[]
 }
 
 export interface TableTask {
@@ -287,6 +332,8 @@ export interface CreateCampaignRequest {
   name?: string | null
   /** Apply: trimmed, ≥ 10 characters. Ignored for ReportOnly. */
   reason?: string | null
+  /** Spec 863: the campaign whose failed stores this re-runs (same profile, else 422). Never satisfies `reason`. */
+  rerunOf?: Ulid | null
 }
 
 /** The optional note on a control; blank is sent as nothing. */

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, RotateCcw } from 'lucide-react'
 import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
@@ -15,8 +15,18 @@ import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import type { Mode, SyncProfile } from '@/core/models/data-sync'
-import { CAMPAIGNS_KEY, actionSyncApi, actionSyncFleetQuery, canOperateDataSync, dataSyncAccessQuery, dataSyncApi, profilesQuery } from './api'
+import type { Campaign, Mode, SyncProfile } from '@/core/models/data-sync'
+import {
+  CAMPAIGNS_KEY,
+  actionSyncApi,
+  actionSyncFleetQuery,
+  campaignKey,
+  canOperateDataSync,
+  dataSyncAccessQuery,
+  dataSyncApi,
+  profilesQuery,
+  rerunTargetsQuery,
+} from './api'
 import {
   applyTableSplit,
   reasonProblem,
@@ -32,6 +42,7 @@ import { campaignPath } from './campaign-columns'
 import { buildCreateRequest, createRefusalWords, parseStoreCodes, type CreateDraft } from './create-helpers'
 import RefusalBanner from './RefusalBanner'
 import { groupDigits } from './helpers'
+import { rerunCount, rerunDraft, type RerunPrefill } from './rerun-helpers'
 
 /**
  * The Campaigns page's **New campaign** button and dialog (spec 558, ticket 561).
@@ -64,7 +75,56 @@ export function NewCampaignButton() {
   )
 }
 
+/**
+ * *New campaign from failed (N)* in the campaign header (spec 863, ticket 864): N is the re-run
+ * offer's store count. Absent without `DataSync.Operate`, and at N = 0; offered in any campaign
+ * state (failed jobs never run again, so re-running them while the rest still runs is safe).
+ *
+ * It opens the New campaign dialog in re-run mode, pre-filled by `rerunDraft` from the offer as it
+ * stood at the click — a later poll does not rewrite what the technician is editing.
+ */
+export function RerunCampaignButton({ campaign, refetchInterval }: { campaign: Campaign; refetchInterval: number | false }) {
+  const { t } = useTranslation('data-sync')
+  const access = useQuery(dataSyncAccessQuery())
+  const canOperate = canOperateDataSync(access.data)
+  const offer = useQuery({ ...rerunTargetsQuery(campaign.campaignId, refetchInterval), enabled: canOperate })
+  const profiles = useQuery(profilesQuery())
+  const [prefill, setPrefill] = useState<RerunPrefill | null>(null)
+  const [denied, setDenied] = useState(false)
+  const data = offer.data
+  const n = rerunCount(data)
+  if (!canOperate || denied || n === 0 || !data) return null
+  const openDialog = () => {
+    const tables = profiles.data?.find((p) => p.profileId === data.profileId)?.tableSet.map((s) => s.table) ?? data.tables
+    setPrefill(rerunDraft(data, tables))
+  }
+  return (
+    <>
+      <Button variant="secondary" onClick={openDialog} disabled={profiles.isPending} title={t('rerun.openHint')} data-rerun-open={n}>
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+        <Trans t={t} i18nKey="rerun.open" values={{ figure: groupDigits(n) }} components={{ n: <Ltr /> }} />
+      </Button>
+      {prefill && (
+        <NewCampaignDialog
+          rerun={{ prefill, originalName: campaign.name ?? campaign.campaignId }}
+          onClose={() => setPrefill(null)}
+          onDenied={() => {
+            setPrefill(null)
+            setDenied(true)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
 type TargetKind = 'fleet' | 'stores'
+
+/** Re-run mode (863): the offer's pre-fill, and the original's name for the dialog's intro. */
+interface RerunMode {
+  prefill: RerunPrefill
+  originalName: string
+}
 
 /**
  * Pick a profile (its tables listed, NONE ticked: a run is usually one to three tables, so the
@@ -78,18 +138,20 @@ type TargetKind = 'fleet' | 'stores'
  * (pause untagged → create → re-pause tagged → Start) and ends on `ApplyOutcomeView` rather than
  * closing, so warnings and per-store refusals are read before leaving.
  */
-function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenied: () => void }) {
+function NewCampaignDialog({ onClose, onDenied, rerun }: { onClose: () => void; onDenied: () => void; rerun?: RerunMode }) {
   const { t } = useTranslation('data-sync')
   const qc = useQueryClient()
   const navigate = useNavigate()
   const profiles = useQuery(profilesQuery())
 
-  const [profileId, setProfileId] = useState('')
-  const [picked, setPicked] = useState<string[]>([])
+  // Re-run mode (863) starts from the offer: profile (locked), its stores by code, the union of their
+  // unfinished tables, the original's mode, an empty reason. Everything but the profile stays editable.
+  const [profileId, setProfileId] = useState(rerun?.prefill.profileId ?? '')
+  const [picked, setPicked] = useState<string[]>(rerun?.prefill.pickedTables ?? [])
   const [tableQuery, setTableQuery] = useState('')
-  const [chosenMode, setChosenMode] = useState<Mode>('ReportOnly')
-  const [targetKind, setTargetKind] = useState<TargetKind>('fleet')
-  const [codesText, setCodesText] = useState('')
+  const [chosenMode, setChosenMode] = useState<Mode>(rerun?.prefill.mode ?? 'ReportOnly')
+  const [targetKind, setTargetKind] = useState<TargetKind>(rerun ? 'stores' : 'fleet')
+  const [codesText, setCodesText] = useState(rerun?.prefill.codes.join('\n') ?? '')
   const [name, setName] = useState('')
   const [reason, setReason] = useState('')
   const [pauseFirst, setPauseFirst] = useState(true)
@@ -126,6 +188,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     targets: targetKind === 'fleet' ? { kind: 'fleet' } : { kind: 'stores', codes: parsed.codes },
     name,
     reason,
+    rerunOf: rerun?.prefill.rerunOf ?? null,
   }
   const targetsOk = targetKind === 'fleet' || (parsed.codes.length > 0 && parsed.malformed.length === 0)
   const check = useApplyReadiness(applying, draft.targets)
@@ -139,6 +202,8 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     onSuccess: (env) => {
       // A report-only create carries no warnings; an Apply create's per-store warnings (errors[]) are 564's.
       void qc.invalidateQueries({ queryKey: CAMPAIGNS_KEY })
+      // The original's page lists its re-runs (`rerunBy`).
+      if (rerun) void qc.invalidateQueries({ queryKey: campaignKey(rerun.prefill.rerunOf) })
       notify.success(t('create.created'))
       onClose()
       if (env.data) navigate(campaignPath(env.data.campaignId))
@@ -184,6 +249,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       setOutcome(out)
       if (out.campaign) {
         void qc.invalidateQueries({ queryKey: CAMPAIGNS_KEY })
+        if (rerun) void qc.invalidateQueries({ queryKey: campaignKey(rerun.prefill.rerunOf) })
         notify.success(t('apply.outcome.title'))
       } else if (isBareDenial(out.createError) && stillPausedAfterFailure(out).length === 0) onDenied()
     },
@@ -225,7 +291,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     <Modal
       open
       onClose={() => !busy && onClose()}
-      title={t('create.title')}
+      title={t(rerun ? 'rerun.title' : 'create.title')}
       width="38rem"
       footer={
         created ? (
@@ -272,7 +338,8 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       {created && outcome ? (
         <ApplyOutcomeView outcome={outcome} paused={outcome.held !== null} />
       ) : (
-      <div className="flex flex-col gap-4 text-sm" data-create-dialog="">
+      <div className="flex flex-col gap-4 text-sm" data-create-dialog="" data-create-rerun-of={rerun?.prefill.rerunOf}>
+        {rerun && <RerunNotes rerun={rerun} />}
         {/* ── Profile ── */}
         <label className="flex flex-col gap-1 text-xs font-medium">
           {t('create.profile')}
@@ -285,7 +352,8 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
             <Select
               value={profileId}
               onChange={(e) => pickProfile(e.target.value)}
-              disabled={busy}
+              // A re-run keeps the original's profile (the door refuses another with a 422).
+              disabled={busy || !!rerun}
               className="font-normal"
               data-create-profile=""
             >
@@ -299,6 +367,11 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
             </Select>
           )}
         </label>
+        {rerun && (
+          <p className="text-xs text-muted-foreground" data-create-profile-locked="">
+            {t('rerun.profileLocked')}
+          </p>
+        )}
         {profiles.isError && <ErrorBanner className="p-2" message={apiErrorMessage(profiles.error, t('create.profilesFailed'))} />}
         {profiles.data?.length === 0 && <p className="text-xs text-muted-foreground">{t('create.noProfiles')}</p>}
 
@@ -370,7 +443,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
               name="ds-create-target"
               checked={targetKind === 'fleet'}
               onChange={() => setTargetKind('fleet')}
-              disabled={busy}
+              disabled={busy || !!rerun}
               data-create-target="fleet"
             />
             {t('create.fleet')}
@@ -509,5 +582,41 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       </div>
       )}
     </Modal>
+  )
+}
+
+/** Re-run mode's notes (863): what the dialog was filled from, and the stores it left out and why. */
+function RerunNotes({ rerun }: { rerun: RerunMode }) {
+  const { t } = useTranslation('data-sync')
+  const { leftOutWpf, excluded } = rerun.prefill
+  return (
+    <div className="flex flex-col gap-2" data-rerun-notes="">
+      <p className="rounded-md bg-muted px-3 py-2 text-xs" data-rerun-intro="">
+        <Trans t={t} i18nKey="rerun.intro" values={{ name: rerun.originalName }} components={{ v: <bdi /> }} />{' '}
+        {t('rerun.reasonHint')}
+      </p>
+      {leftOutWpf.length > 0 && (
+        <div className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs" data-rerun-wpf-left-out={leftOutWpf.length}>
+          <p>
+            <Trans t={t} i18nKey="rerun.wpfLeftOut" count={leftOutWpf.length} values={{ figure: groupDigits(leftOutWpf.length) }} components={{ n: <Ltr /> }} />
+          </p>
+          <StoreList codes={leftOutWpf} attr="data-rerun-wpf-store" />
+        </div>
+      )}
+      {excluded.length > 0 && (
+        <ul className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs" data-rerun-excluded={excluded.length}>
+          {excluded.map((e) => (
+            <li key={`${e.client}/${e.code}`} data-rerun-excluded-store={e.code}>
+              <Trans
+                t={t}
+                i18nKey="rerun.excluded"
+                values={{ store: e.code, campaign: e.rerunCampaignId }}
+                components={{ v: <Ltr />, id: <span className="font-mono"><Ltr /></span> }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

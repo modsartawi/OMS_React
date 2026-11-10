@@ -29,6 +29,8 @@ export interface CreateDraft {
   name: string
   /** Apply only; ignored for ReportOnly. */
   reason: string
+  /** Spec 863: set when the dialog was opened from *New campaign from failed*. */
+  rerunOf?: string | null
 }
 
 /**
@@ -48,6 +50,7 @@ export function buildCreateRequest(d: CreateDraft): CreateCampaignRequest {
   const name = d.name.trim()
   if (name) body.name = name
   if (d.mode === 'Apply') body.reason = d.reason.trim()
+  if (d.rerunOf) body.rerunOf = d.rerunOf
   return body
 }
 
@@ -113,6 +116,9 @@ export const CREATE_REFUSAL_CODES = [
   'DATASYNC_REASON_REQUIRED',
   'DATASYNC_PROFILE_NO_APPLY_TABLES',
   'DATASYNC_STORE_BUSY',
+  // A re-run (spec 863): the original is gone, or ran another profile.
+  'DATASYNC_CAMPAIGN_NOT_FOUND',
+  'DATASYNC_RERUN_PROFILE_MISMATCH',
 ] as const satisfies readonly DataSyncErrorCode[]
 
 export type CreateRefusalCode = (typeof CREATE_REFUSAL_CODES)[number]

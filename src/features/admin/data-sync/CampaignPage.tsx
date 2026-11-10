@@ -32,6 +32,7 @@ import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { buildJobColumns } from './job-columns'
 import { campaignJobsFromParams, campaignJobsToParams, isDataSyncNotFound, pollInterval } from './job-helpers'
 import HandBackButton from './HandBack'
+import { RerunCampaignButton } from './NewCampaignDialog'
 import JobDrawer from './JobDrawer'
 import Pager from './Pager'
 import ServiceBannerView from './ServiceBannerView'
@@ -99,6 +100,7 @@ function CampaignView() {
       <StartCampaignButton campaign={campaign.data} />
       <CampaignControls campaign={campaign.data} />
       <HandBackButton campaign={campaign.data} />
+      <RerunCampaignButton campaign={campaign.data} refetchInterval={interval} />
     </>
   )
   // 563: a job row's Pause / Resume / Cancel — set this and the grid grows an `actions` column.

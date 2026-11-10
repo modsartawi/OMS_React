@@ -16,6 +16,7 @@ import type {
   DataSyncAccess,
   DataSyncHealth,
   Job,
+  RerunOffer,
   SyncProfile,
 } from '@/core/models/data-sync'
 import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
@@ -142,6 +143,17 @@ export const dataSyncApi = {
   startCampaign(campaignId: string): Promise<Campaign> {
     return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/Start`, {})
   },
+
+  // ── Re-run (spec 863, ticket 864) ──
+
+  /**
+   * `GET DataSync/Campaigns/{id}/RerunTargets` (View) → the failed stores Retry cannot help
+   * (`TableFailures` / `Error` / `StoreWpfHosted`), each with its unfinished tables, and their union
+   * in profile order. 404 `DATASYNC_CAMPAIGN_NOT_FOUND`. A create with `rerunOf` uses it.
+   */
+  rerunTargets(campaignId: string): Promise<RerunOffer> {
+    return api.get<RerunOffer>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/RerunTargets`)
+  },
 }
 
 export function healthQuery() {
@@ -204,6 +216,19 @@ export function campaignJobsQuery(
   return {
     queryKey: campaignJobsKey(campaignId, filter),
     queryFn: () => dataSyncApi.campaignJobs(campaignId, filter),
+    refetchInterval,
+    retry: retryUnlessNotFound,
+  } as const
+}
+
+/**
+ * The campaign's re-run offer (863), under its campaign so a control or a create refreshes it; polled
+ * with the page (a running campaign gains failures as it goes).
+ */
+export function rerunTargetsQuery(campaignId: string, refetchInterval: number | false) {
+  return {
+    queryKey: [...campaignKey(campaignId), 'rerun-targets'] as const,
+    queryFn: () => dataSyncApi.rerunTargets(campaignId),
     refetchInterval,
     retry: retryUnlessNotFound,
   } as const

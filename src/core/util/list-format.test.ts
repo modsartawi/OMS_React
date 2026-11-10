@@ -11,4 +11,9 @@ describe('listText_joinsInTheReadersLanguage', () => {
   it('reads an Arabic list with the Arabic conjunction', () => {
     expect(listText(['أ', 'ب'], 'ar')).toBe('أ وب')
   })
+
+  it('reads a disjunction with "or" in either language', () => {
+    expect(listText(['Delivery', 'Pickup'], 'en', 'disjunction')).toBe('Delivery or Pickup')
+    expect(listText(['أ', 'ب'], 'ar', 'disjunction')).toBe('أ أو ب')
+  })
 })

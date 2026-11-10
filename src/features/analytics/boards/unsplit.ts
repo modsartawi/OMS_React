@@ -3,10 +3,10 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewD
 import { IS_TOTAL_KEY } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
 import { formatParts, fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { seriesColumnOf, seriesName, seriesOf } from './series'
-import { listOf } from './variants'
 import { viewMeasureOf } from './view-model'
-import { dimensionOf, measureOf } from './wire'
+import { dimensionOf, measureOf, valueLabel } from './wire'
 
 /**
  * Unsplit totals on a cross-area panel (ticket 864, BackOffice spec 3543 decision 12; the owner's artifact *Unsplit
@@ -73,9 +73,7 @@ export interface AreaNotes {
 type Model = Pick<AnalyticsModel, 'measures' | 'dimensions'>
 
 const measureName = (key: string, model: Model, lang: string) => saysIn(measureOf(model, key)?.label, lang) || key
-const dimensionNames = (keys: readonly string[], model: Model, lang: string) => listOf(keys.map((k) => saysIn(dimensionOf(model, k)?.label, lang) || k), lang)
-const memberName = (dimension: string, member: string, model: Model, lang: string) =>
-  saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === member)?.label, lang) || member
+const dimensionNames = (keys: readonly string[], model: Model, lang: string) => listText(keys.map((k) => saysIn(dimensionOf(model, k)?.label, lang) || k), lang)
 
 /**
  * The panel note of a cross-area answer (decisions 12 and 18), in `lang`. `model` is the panel's drawing model (its
@@ -105,7 +103,7 @@ export function areaNotes(
         const value = fsi(formatValue(r[e.measure] as number, unit, lang))
         const parts = [
           ...(named.length && r[seriesKey] != null ? [seriesNames.get(String(r[seriesKey])) ?? String(r[seriesKey])] : []),
-          ...dims.filter((k) => !e.by.includes(k) && r[k] != null).map((k) => memberName(k, String(r[k]), model, lang)),
+          ...dims.filter((k) => !e.by.includes(k) && r[k] != null).map((k) => valueLabel(model, k, String(r[k]), lang)),
         ]
         return parts.length ? words.totalIn({ parent: fsi(formatParts(parts)), value }) : words.total({ value })
       })

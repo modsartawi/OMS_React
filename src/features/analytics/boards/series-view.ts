@@ -190,6 +190,28 @@ export interface RefusedView {
 
 const TOP = CHART_SLOT_COUNT
 
+/**
+ * Spec 3543 review (owner): one value axis per unit. An average in SAR and a percent are both shape `rate`, so they
+ * may meet in one series chart — never on one axis. Each unit is its own pane with its own value axis, in the order
+ * its first series comes (the combo's two panes: 766 §E amendment 1, never two y-axes on one chart). A series keeps
+ * its key and colour slot; the previous-period series stays with its measure's unit. One unit: the view as it is.
+ */
+export function unitPanes(view: SeriesView): SeriesView[] {
+  const units = [...new Set(view.series.map((s) => s.unit))]
+  if (units.length < 2) return [view]
+  return units.map((unit) => {
+    const series = view.series.filter((s) => s.unit === unit)
+    const keys = new Set(series.map((s) => s.key))
+    return {
+      ...view,
+      series,
+      unit,
+      measureLabel: series.find((s) => !s.previous && !s.other)?.label ?? view.measureLabel,
+      rows: view.rows.map((r) => ({ ...r, values: Object.fromEntries(Object.entries(r.values).filter(([k]) => keys.has(k))) })),
+    }
+  })
+}
+
 export function toSeriesView(
   result: AnalyticsQueryResult,
   definition: AnalyticsViewDefinition,

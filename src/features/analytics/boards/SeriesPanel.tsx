@@ -4,7 +4,7 @@ import SeriesChart from '@/core/charts/SeriesChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
 import { hasSeries } from './series'
-import { toKpiView, toKpiViews, toSeriesView } from './series-view'
+import { toKpiView, toKpiViews, toSeriesView, unitPanes } from './series-view'
 import { slotColour } from '@/core/charts/slots'
 
 /**
@@ -95,24 +95,31 @@ export default function SeriesPanel({
   }
   if (view.empty) return <Empty />
   const form = view.form === 'bar' ? `bar.${view.stacking === 'none' ? view.orientation : view.stacking}` : view.form
+  // Spec 3543 review: measures of different units (an average in SAR beside a percent) each get their own pane and axis.
+  const panes = unitPanes(view)
   return (
     <>
-    <SeriesChart
-      form={view.form}
-      orientation={view.orientation}
-      stacking={view.stacking}
-      series={view.series}
-      rows={view.rows}
-      colourBy={view.colourBy}
-      unit={view.unit}
-      format={view.format}
-      locale={lang}
-      otherCount={view.folded}
-      // 825: clicking a named series highlights it and never cross-filters.
-      onPoint={onPoint && view.form === 'bar' && !hasSeries(definition) ? (x) => onPoint(view.x.key, x) : undefined}
-      legend={definition.chart.legend}
-      ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(view.measureLabel), dimension: fsi(view.x.label) })}
-    />
+    {panes.map((pane) => (
+      <SeriesChart
+        key={pane.unit}
+        form={pane.form}
+        orientation={pane.orientation}
+        stacking={pane.stacking}
+        series={pane.series}
+        rows={pane.rows}
+        colourBy={pane.colourBy}
+        unit={pane.unit}
+        format={pane.format}
+        locale={lang}
+        otherCount={pane.folded}
+        // 825: clicking a named series highlights it and never cross-filters.
+        onPoint={onPoint && pane.form === 'bar' && !hasSeries(definition) ? (x) => onPoint(pane.x.key, x) : undefined}
+        legend={definition.chart.legend}
+        // two panes share the one chart's height, as the combo's do
+        height={panes.length > 1 ? 180 : undefined}
+        ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(pane.measureLabel), dimension: fsi(pane.x.label) })}
+      />
+    ))}
     {/* A rate's members past five are drawn nowhere (no "Other" can sum a rate): say how many (766 §E amendment 2). */}
     {view.notShown > 0 && (
       <p className="text-xs text-muted-foreground" data-analytics-not-shown={view.notShown}>

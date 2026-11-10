@@ -4,6 +4,7 @@ import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
 import { calculationLabel, untilNote, type CalculationWords } from './calculations'
 import { addCalculation, settleCalculations, withinChoices, withinProblem } from './calculations-edit'
+import { toTableView } from './view-model-forms'
 
 // Ticket 863 (BackOffice spec 3543 part A, decisions 1–4): a share or a running share within a parent.
 const label = (en: string, ar: string) => ({ en, ar })
@@ -114,5 +115,45 @@ describe('within: the 80 % note per parent (decision 3)', () => {
   it('says nothing when every parent reached it, and keeps the 3519 note for a plain false', () => {
     expect(untilNote(running, result([{ parent: { region: 'R1' }, reached: true }]))).toBeNull()
     expect(untilNote(running, result(false))).toEqual({ until: 80 })
+  })
+})
+
+describe('within: the top N in each parent on a saved table (decision 3)', () => {
+  it("draws the server's per-parent rows as they come: never re-sorted or cut to the top N across parents", () => {
+    // The server kept the top 2 of each region, grouped by region; a global sort and a top 2 would keep Riyadh only.
+    const definition: AnalyticsViewDefinition = {
+      chart: { type: 'table', sort: { key: 'net', direction: 'desc' }, topN: 2 },
+      query: {
+        measures: ['net'],
+        dimensions: ['region', 'city'],
+        filters: [],
+        calculations: [{ key: 'running', kind: 'cumulativeShare', measure: 'net', within: ['region'] }],
+      },
+    }
+    const rows = [
+      { region: 'Jeddah', city: 'J1', net: 60, running: 30 },
+      { region: 'Jeddah', city: 'J2', net: 50, running: 55 },
+      { region: 'Riyadh', city: 'R1', net: 500, running: 50 },
+      { region: 'Riyadh', city: 'R2', net: 300, running: 80 },
+    ]
+    const result = {
+      columns: [
+        { key: 'region', role: 'dimension' },
+        { key: 'city', role: 'dimension' },
+        { key: 'net', role: 'measure', shape: 'additive', unit: 'SAR' },
+        { key: 'running', role: 'measure', shape: 'rate', unit: 'percent', calculation: { kind: 'cumulativeShare', measure: 'net', within: ['region'] } },
+      ],
+      rows,
+      total: rows.length,
+      truncated: false,
+      period: { from: '2026-11-01', to: '2026-11-05' },
+      previous: [],
+      fetchedAt: '2026-11-05T10:00:00',
+    } as unknown as Parameters<typeof toTableView>[0]
+
+    const view = toTableView(result, definition, MODEL, 'en')
+
+    expect(view.rows.map((r) => r.city)).toEqual(['J1', 'J2', 'R1', 'R2'])
+    expect(view.cut).toBe(false)
   })
 })

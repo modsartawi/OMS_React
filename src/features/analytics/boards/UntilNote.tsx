@@ -1,11 +1,10 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { saysIn } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import { fsi, formatParts } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { untilNote } from './calculations'
-import { listOf } from './variants'
-import { dimensionOf } from './wire'
+import { valueLabel } from './wire'
 
 /**
  * 861 (spec 3519 decision 26): "The list was cut before 80 %; raise the limit or add a filter." — when a running-share
@@ -31,8 +30,8 @@ export default function UntilNote({
   if (!note) return null
   const shown = lang ?? i18n.language
   const nameOf = (parent: Record<string, string>) =>
-    formatParts(Object.entries(parent).map(([dim, value]) => saysIn(dimensionOf(model, dim)?.values.find((v) => v.key === value)?.label, shown) || value))
-  const parents = note.parents?.length ? listOf(note.parents.map((p) => fsi(nameOf(p))), shown) : null
+    formatParts(Object.entries(parent).map(([dim, value]) => valueLabel(model, dim, value, shown)))
+  const parents = note.parents?.length ? listText(note.parents.map((p) => fsi(nameOf(p))), shown) : null
   return (
     <p className="text-xs text-attention-800" role="note" data-panel-until-not-reached={note.until} data-panel-until-parents={note.parents?.length}>
       <Trans

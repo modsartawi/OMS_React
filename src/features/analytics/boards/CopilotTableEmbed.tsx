@@ -25,6 +25,7 @@ import {
 } from './copilot-table'
 import { panelCsv, panelFileBase, panelSheet } from './panel-table'
 import { columnTooltip } from './unsplit'
+import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 
 /** Until the model arrives (or when it cannot be read) the wire's labels name every column; members show as sent. */
@@ -74,6 +75,7 @@ export default function CopilotTableEmbed({ table }: { table: CopilotAnswerTable
         locale={lang}
         ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
       />
+      <TruncatedNote result={result} />
       <UntilNote definition={definition} result={result} model={drawing} lang={lang} />
       <AreaNotes definition={definition} result={result} model={drawing} lang={lang} />
       <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label={t('copilotTable.actions')} data-copilot-table-actions>

@@ -9,6 +9,7 @@ import { saysIn } from '@/core/rules/sentence'
 import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import AreaNotes from './AreaNotes'
+import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
@@ -80,7 +81,7 @@ export default function ViewChart({
       <ChartFrame busy={busy} hasChart={!!result}>
         {result && <ChartBody result={result} definition={definition} model={shown} lang={lang} onPoint={onPoint} selected={selected} />}
       </ChartFrame>
-      {result?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
+      <TruncatedNote result={result} />
       <UntilNote definition={definition} result={result} model={model} lang={lang} />
       <AreaNotes definition={definition} result={result} model={shown} lang={lang} />
     </>

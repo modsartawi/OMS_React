@@ -1,4 +1,9 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import i18next from 'i18next'
+import { I18nextProvider } from 'react-i18next'
 import { describe, expect, it } from 'vitest'
+import boards from '@/locales/en/boards.json'
 import type { AnalyticsModel } from '@/core/models/analytics'
 import type { CopilotAnswerTable, CopilotTableColumn } from '@/core/models/copilot'
 import { TABLE_DEFAULT_COL_DEF } from '@/core/charts/table-columns'
@@ -10,6 +15,7 @@ import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { readEditorSeed } from './editor'
 import { copilotTableDefinition, copilotTableDownload, copilotTableOpenAsView, copilotTableModel, copilotTableResult, copilotTableView } from './copilot-table'
 import { panelCsv } from './panel-table'
+import TruncatedNote from './TruncatedNote'
 import { areaNotes, type AreaNoteWords } from './unsplit'
 
 // Ticket 868 (BackOffice spec 3558 D5-D7, D13): the answer's tables as SIS.Api 3564 sends them (CopilotPanelTables.cs).
@@ -144,6 +150,23 @@ describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
       ])
       const csv = panelCsv(copilotTableDownload(crossArea, EMPTY_MODEL, 'en', WORDS))
       expect(csv.split('\r\n')).toEqual(['﻿Region,Category,Till sales,Deliveries', 'E,otc,10,', 'W,rx,3,', 'E,All,,4', ''])
+    })
+  })
+
+  describe('a cut table says so, as a view panel does (owner rule: never present a cut table as every row)', () => {
+    const instance = i18next.createInstance()
+    instance.init({ lng: 'en', resources: { en: { boards } }, ns: ['boards'], defaultNS: 'boards', initAsync: false })
+    const render = (t: CopilotAnswerTable) =>
+      renderToStaticMarkup(createElement(I18nextProvider, { i18n: instance }, createElement(TruncatedNote, { result: copilotTableResult(t) })))
+
+    it('aTruncatedTable_saysOnlyTheFirstRowsAreShown', () => {
+      const html = render(table({ rows: ROWS_152, total: 5000, truncated: true }))
+      expect(html).toContain('Only the first rows are shown: the answer was cut at the row cap.')
+      expect(html).toContain('data-analytics-truncated-note')
+    })
+
+    it('aWholeTable_saysNothing', () => {
+      expect(render(table({ rows: ROWS_152, total: 152, truncated: false }))).toBe('')
     })
   })
 

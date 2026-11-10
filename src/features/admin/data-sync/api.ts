@@ -24,7 +24,7 @@ import type { ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
 import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
-import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
+import { isDataSyncNotFound, jobsQuery, type JobsFilter } from './job-helpers'
 
 /**
  * The ONE cache key the Admin menu leaf and the page's own gate share, so the probe costs one
@@ -89,10 +89,11 @@ export const dataSyncApi = {
   },
 
   /**
-   * `GET DataSync/Campaigns/{id}/Jobs?status=&page=&pageSize=` → a plain array (creation order, no
-   * total), each job WITH its table tasks. 404 `DATASYNC_CAMPAIGN_NOT_FOUND`.
+   * `GET DataSync/Campaigns/{id}/Jobs?status=&store=&failureReason=&page=&pageSize=` → a plain array
+   * (creation order, no total), each job WITH its table tasks; the filters AND together. 400
+   * `DATASYNC_INVALID_REQUEST` for an unknown status or failure reason; 404 `DATASYNC_CAMPAIGN_NOT_FOUND`.
    */
-  campaignJobs(campaignId: string, filter: Pick<CampaignJobsView, 'status' | 'page'>): Promise<Job[]> {
+  campaignJobs(campaignId: string, filter: JobsFilter): Promise<Job[]> {
     return api.get<Job[]>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/Jobs`, { ...jobsQuery(filter) })
   },
 
@@ -194,8 +195,12 @@ export function campaignsListQuery(filter: CampaignsFilter) {
 export const campaignKey = (campaignId: string) => ['data-sync', 'campaign', campaignId] as const
 
 export const campaignSummaryKey = (campaignId: string) => [...campaignKey(campaignId), 'summary'] as const
-export const campaignJobsKey = (campaignId: string, filter: Pick<CampaignJobsView, 'status' | 'page'>) =>
-  [...campaignKey(campaignId), 'jobs', { status: filter.status, page: filter.page }] as const
+export const campaignJobsKey = (campaignId: string, filter: JobsFilter) =>
+  [
+    ...campaignKey(campaignId),
+    'jobs',
+    { status: filter.status, store: filter.store?.trim() || null, failureReason: filter.failureReason ?? null, page: filter.page },
+  ] as const
 
 /** A not-found is an answer (the page says so), not an outage: never retried. Anything else once. */
 const retryUnlessNotFound = (count: number, err: unknown) => !isDataSyncNotFound(err) && count < 1
@@ -212,7 +217,7 @@ export function campaignQuery(campaignId: string, refetchInterval: number | fals
 
 export function campaignJobsQuery(
   campaignId: string,
-  filter: Pick<CampaignJobsView, 'status' | 'page'>,
+  filter: JobsFilter,
   refetchInterval: number | false,
 ) {
   return {

@@ -252,6 +252,13 @@
     "Applied": "Applied",
     "ReportedOnly": "Reported only"
   },
+  "failureReason": {
+    "TableFailures": "Table failures",
+    "StoreUnreachable": "Store unreachable",
+    "StoreWpfHosted": "WPF-hosted store",
+    "TargetUnresolved": "Target unresolved",
+    "Error": "Unexpected error"
+  },
   "failure": {
     "job": {
       "TableFailures": "One or more tables failed.",
@@ -271,10 +278,14 @@
     "heading": "Jobs",
     "status": "Job status",
     "statusAny": "Any status",
+    "store": "Find a store",
+    "storePlaceholder": "Store code",
+    "failureReason": "Failure reason",
+    "failureReasonAny": "Any failure reason",
     "failed": "The jobs could not be loaded.",
     "loading": "Loading jobs…",
     "empty": "This campaign has no jobs.",
-    "emptyFiltered": "No jobs with this status.",
+    "emptyFiltered": "Nothing matches the filter.",
     "emptyPage": "No more jobs on this page.",
     "columns": {
       "store": "Store",

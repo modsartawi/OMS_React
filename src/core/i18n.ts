@@ -103,6 +103,9 @@ import materialsDetailAr from '@/locales/ar/materials-detail.json'
 // 446–449 add their keys here rather than minting a second namespace.
 import syncConsole from '@/locales/en/sync-console.json'
 import dataSync from '@/locales/en/data-sync.json'
+// DataSync's Arabic is PARTIAL (spec 863: the jobs list's store search and failure-reason filter, ticket 867, and the re-run words,
+// ticket 864); every key not in it falls back to English through `fallbackLng`.
+import dataSyncAr from '@/locales/ar/data-sync.json'
 // The SAP export console (BackOffice spec 2579, ticket 461). Namespace == feature name, and ENGLISH
 // ONLY like the sync console (spec 2579 Out of Scope: no Arabic UI), so there is no `ar` bundle.
 // 462–465 add their keys here rather than minting a second namespace.
@@ -231,8 +234,6 @@ import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
 // The chart wrapper's words (`@/core/charts`) live in `common` (spec 766 §F); a PARTIAL Arabic `common`, those words only.
 import commonAr from '@/locales/ar/common.json'
-// A PARTIAL Arabic `data-sync`: the re-run words (spec 863) only; the rest falls back to English.
-import dataSyncAr from '@/locales/ar/data-sync.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -357,10 +358,10 @@ i18n.use(initReactI18next).init({
       'doc-type-config': docTypeConfigAr,
       'loy-groups': loyGroupsAr,
       'release-queue': releaseQueueAr,
+      'data-sync': dataSyncAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       boards: boardsAr,
-      'data-sync': dataSyncAr,
       common: commonAr,
       ...INSURANCE_RULES_AR,
     },

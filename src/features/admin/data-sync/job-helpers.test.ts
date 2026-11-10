@@ -18,7 +18,9 @@ import {
   CAMPAIGN_POLL_MS,
   campaignJobsFromParams,
   campaignJobsToParams,
+  changeJobsFilter,
   failureWords,
+  jobsEmptyKey,
   isDataSyncNotFound,
   jobStateWords,
   pollInterval,
@@ -27,6 +29,7 @@ import {
   tableTaskStatusBadge,
 } from './job-helpers'
 import en from '@/locales/en/data-sync.json'
+import ar from '@/locales/ar/data-sync.json'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -227,19 +230,64 @@ describe('tableProgress', () => {
 // ── The rest of the page's pure pieces ─────────────────────────────────────────
 
 describe('the campaign page URL', () => {
-  it('reads the job status, page and drawer job, defaulting the rest', () => {
-    expect(campaignJobsFromParams(new URLSearchParams('status=Failed&page=3&job=01JB2CA2R4S6T8V0W1X3Y5Z7AB'))).toEqual({
-      status: 'Failed',
-      page: 3,
-      job: '01JB2CA2R4S6T8V0W1X3Y5Z7AB',
-    })
-    expect(campaignJobsFromParams(new URLSearchParams(''))).toEqual({ status: null, page: 1, job: null })
-    expect(campaignJobsFromParams(new URLSearchParams('status=failed&page=-1&job='))).toEqual({ status: null, page: 1, job: null })
+  const none = { status: null, store: '', failureReason: null, page: 1, job: null }
+
+  it('reads the job status, store search, failure reason, page and drawer job, defaulting the rest', () => {
+    expect(
+      campaignJobsFromParams(new URLSearchParams('status=Failed&store=p01&failureReason=StoreUnreachable&page=3&job=01JB2CA2R4S6T8V0W1X3Y5Z7AB')),
+    ).toEqual({ status: 'Failed', store: 'p01', failureReason: 'StoreUnreachable', page: 3, job: '01JB2CA2R4S6T8V0W1X3Y5Z7AB' })
+    expect(campaignJobsFromParams(new URLSearchParams(''))).toEqual(none)
+    expect(campaignJobsFromParams(new URLSearchParams('status=failed&page=-1&job='))).toEqual(none)
   })
 
-  it('writes only what differs, so the drawer and the filter never clobber each other', () => {
-    expect(campaignJobsToParams({ status: null, page: 1, job: null }).toString()).toBe('')
-    expect(campaignJobsToParams({ status: 'Running', page: 2, job: 'J1' }).toString()).toBe('status=Running&page=2&job=J1')
+  it('trims the store search and drops a failure reason the door would refuse (it matches case-sensitively)', () => {
+    expect(campaignJobsFromParams(new URLSearchParams('store=%20%20P01%20&failureReason=storeunreachable'))).toEqual({ ...none, store: 'P01' })
+    expect(campaignJobsFromParams(new URLSearchParams('store=%20%20'))).toEqual(none)
+  })
+
+  it('writes only what differs, so the drawer and the filters never clobber each other', () => {
+    expect(campaignJobsToParams(none).toString()).toBe('')
+    expect(campaignJobsToParams({ status: 'Running', store: '', failureReason: null, page: 2, job: 'J1' }).toString()).toBe(
+      'status=Running&page=2&job=J1',
+    )
+    expect(campaignJobsToParams({ status: 'Failed', store: 'P01', failureReason: 'TableFailures', page: 1, job: null }).toString()).toBe(
+      'status=Failed&store=P01&failureReason=TableFailures',
+    )
+  })
+
+  it('round-trips every filter through the address', () => {
+    const view = { status: 'Failed' as const, store: 'ryd p01', failureReason: 'TargetUnresolved' as const, page: 4, job: 'J9' }
+    expect(campaignJobsFromParams(campaignJobsToParams(view))).toEqual(view)
+  })
+
+  it('goes back to page one on any filter change, and keeps the open drawer', () => {
+    const on = { status: 'Failed' as const, store: 'P01', failureReason: null, page: 3, job: 'J1' }
+    expect(changeJobsFilter(on, { store: 'P02' })).toEqual({ ...on, store: 'P02', page: 1 })
+    expect(changeJobsFilter(on, { failureReason: 'StoreUnreachable' })).toEqual({ ...on, failureReason: 'StoreUnreachable', page: 1 })
+    expect(changeJobsFilter(on, { status: null })).toEqual({ ...on, status: null, page: 1 })
+  })
+
+  it('keeps the page when nothing actually changed (a debounced echo of the same search)', () => {
+    const on = { status: null, store: 'P01', failureReason: null, page: 3, job: null }
+    expect(changeJobsFilter(on, { store: 'P01' })).toBe(on)
+  })
+
+  it('says nothing matches the filter (not that there are no jobs) when any filter is set', () => {
+    expect(jobsEmptyKey(none)).toBe('jobs.empty')
+    expect(jobsEmptyKey({ ...none, status: 'Failed' })).toBe('jobs.emptyFiltered')
+    expect(jobsEmptyKey({ ...none, store: 'P01' })).toBe('jobs.emptyFiltered')
+    expect(jobsEmptyKey({ ...none, failureReason: 'Error' })).toBe('jobs.emptyFiltered')
+    expect(jobsEmptyKey({ ...none, store: 'P01', page: 2 })).toBe('jobs.emptyPage')
+    expect(word('jobs.emptyFiltered')).toBe('Nothing matches the filter.')
+  })
+
+  it('names every failure reason in the filter, in English and Arabic', () => {
+    for (const r of JOB_FAILURE_REASONS) {
+      expect(typeof word(`failureReason.${r}`), r).toBe('string')
+      expect(typeof (ar.failureReason as Record<string, unknown>)[r], r).toBe('string')
+    }
+    for (const k of ['store', 'storePlaceholder', 'failureReason', 'failureReasonAny', 'emptyFiltered'])
+      expect(typeof (ar.jobs as Record<string, unknown>)[k], k).toBe('string')
   })
 })
 
@@ -282,6 +330,15 @@ describe('the campaign page reads', () => {
     )
     expect(await fetched(() => dataSyncApi.campaignJobs('C1', { status: 'Failed', page: 2 }), [])).toBe(
       'DataSync/Campaigns/C1/Jobs?status=Failed&page=2&pageSize=50',
+    )
+  })
+
+  it('sends the store search and the failure reason only when set', async () => {
+    expect(
+      await fetched(() => dataSyncApi.campaignJobs('C1', { status: 'Failed', store: 'p01', failureReason: 'StoreUnreachable', page: 1 }), []),
+    ).toBe('DataSync/Campaigns/C1/Jobs?status=Failed&store=p01&failureReason=StoreUnreachable&page=1&pageSize=50')
+    expect(await fetched(() => dataSyncApi.campaignJobs('C1', { status: null, store: '', failureReason: null, page: 1 }), [])).toBe(
+      'DataSync/Campaigns/C1/Jobs?page=1&pageSize=50',
     )
   })
 

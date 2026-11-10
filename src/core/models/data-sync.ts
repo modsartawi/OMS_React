@@ -364,6 +364,10 @@ export interface CampaignsQuery {
 
 export interface JobsQuery {
   status?: JobStatus | null
+  /** Case-insensitive contains on the store code (not the client); blank or absent is no filter. */
+  store?: string | null
+  /** A job failure reason code, exact spelling; the door refuses an unknown one. */
+  failureReason?: JobFailureReason | null
   page: number
   pageSize: number
 }

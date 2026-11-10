@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CHART_BOX_DIR, chartMirror } from './direction'
-import { formatTick, formatValue } from './format'
+import { formatTick, formatValue, percentTicks } from './format'
 import { CHART_INK, slotColour } from './slots'
 import type { MeasureUnit } from '@/core/models/analytics'
 
@@ -73,16 +73,22 @@ export default function ComboChart({
       [formatValue(typeof v === 'number' ? v : null, unit, locale), named ? String(name) : label] as [string, string],
   })
   const margin = { top: 8, right: 8, bottom: 4, left: 8 }
-  const valueAxis = (unit: MeasureUnit) => (
-    <YAxis
-      orientation={chartMirror.valueAxisSide}
-      tick={tick}
-      tickLine={false}
-      axisLine={false}
-      width={AXIS_WIDTH}
-      tickFormatter={(v: number) => formatTick(v, unit, locale)}
-    />
-  )
+  // A percent or share axis in round steps (0%, 10%, 20%…), as in `SeriesChart`; the rate pane is where it lands.
+  const rates = points.flatMap((p) => [p.rate, ...Object.values(p.bySeries ?? {}).map((b) => b.rate)]).filter((v): v is number => typeof v === 'number')
+  const valueAxis = (unit: MeasureUnit, values: readonly number[] = []) => {
+    const ticks = (unit === 'percent' || unit === 'share') && values.length ? percentTicks(Math.min(...values), Math.max(...values)) : undefined
+    return (
+      <YAxis
+        orientation={chartMirror.valueAxisSide}
+        tick={tick}
+        tickLine={false}
+        axisLine={false}
+        width={AXIS_WIDTH}
+        tickFormatter={(v: number) => formatTick(v, unit, locale)}
+        {...(ticks ? { ticks, domain: [ticks[0], ticks[ticks.length - 1]] } : {})}
+      />
+    )
+  }
   // 🚩 LOGICAL EXCEPTION (logical-tailwind rule): the pane title sits inside the always-LTR chart box, where
   // `text-start` would always mean left; physical `text-right`/`text-left` anchors it to the reading start by the
   // boot direction (`./direction`).
@@ -140,7 +146,7 @@ export default function ComboChart({
               axisLine={{ stroke: CHART_INK.axis }}
               interval="preserveStartEnd"
             />
-            {valueAxis(rate.unit)}
+            {valueAxis(rate.unit, rates)}
             <Tooltip cursor={{ stroke: CHART_INK.axis }} {...tooltip(rate.unit, rate.label)} />
             {named ? (
               series.map((s) => (

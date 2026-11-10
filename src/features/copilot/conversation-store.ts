@@ -2,6 +2,7 @@ import { create, type StoreApi } from 'zustand'
 import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
+import { newRequestId } from '@/core/engine-session/request-id'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
@@ -49,6 +50,11 @@ export interface CopilotConversationState {
   conv: CopilotConversation
   /** The question in flight, or null: at most one. */
   pending: string | null
+  /**
+   * The question in flight's `requestId` (ticket 869, BackOffice spec 3558 D17): a fresh ULID per question, sent on
+   * the ask; the panel polls its live steps while it is set. Null whenever `pending` is.
+   */
+  pendingId: string | null
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
   /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
@@ -84,12 +90,14 @@ export function createCopilotConversation(
   const store = create<CopilotConversationState>((set, get) => ({
     conv: EMPTY_CONVERSATION,
     pending: null,
+    pendingId: null,
     epoch: 0,
     history: [],
     ask: (question) => {
       const { conv, pending, epoch } = get()
       if (pending !== null || !canAskMore(conv) || question.trim() === '') return null
-      set({ pending: question })
+      const requestId = newRequestId()
+      set({ pending: question, pendingId: requestId })
       const controller = new AbortController()
       inFlight = controller
       // A reply to a cleared conversation, or to a question stopped, is dropped.
@@ -97,9 +105,10 @@ export function createCopilotConversation(
       const landed = (next: (c: CopilotConversation) => CopilotConversation) => {
         if (dropped()) return
         if (inFlight === controller) inFlight = null
-        set((s) => ({ conv: next(s.conv), pending: null }))
+        set((s) => ({ conv: next(s.conv), pending: null, pendingId: null }))
       }
-      return send(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), controller.signal).then(
+      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), requestId }
+      return send(body, controller.signal).then(
         (reply) => {
           if (dropped()) return
           landed((c) => withAnswer(c, question, reply))
@@ -114,12 +123,12 @@ export function createCopilotConversation(
       const { pending } = get()
       if (pending === null) return null
       abandon()
-      set({ pending: null })
+      set({ pending: null, pendingId: null })
       return pending
     },
     startNew: () => {
       abandon()
-      set((s) => ({ conv: EMPTY_CONVERSATION, pending: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
+      set((s) => ({ conv: EMPTY_CONVERSATION, pending: null, pendingId: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
     },
     resume: (index) =>
       set((s) => {
@@ -127,13 +136,13 @@ export function createCopilotConversation(
         if (!past) return {}
         abandon()
         const rest = s.history.filter((_, i) => i !== index)
-        return { conv: past.conv, pending: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
+        return { conv: past.conv, pending: null, pendingId: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
       }),
     forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
   }))
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, pending: null, epoch: s.epoch + 1, history: [] }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, pending: null, pendingId: null, epoch: s.epoch + 1, history: [] }))
   })
   return store
 }

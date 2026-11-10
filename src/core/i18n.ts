@@ -223,8 +223,10 @@ import loyGroupsAr from '@/locales/ar/loy-groups.json'
 // The release download queue (ticket 791, BackOffice spec 3396). Namespace == feature name, English and Arabic.
 import releaseQueue from '@/locales/en/release-queue.json'
 import releaseQueueAr from '@/locales/ar/release-queue.json'
-// The copilot (ticket 735, spec 734 D11): a top-level feature like `auth`, its own namespace. English only so far.
+// The copilot (ticket 735, spec 734 D11): a top-level feature like `auth`, its own namespace. A PARTIAL Arabic
+// `copilot` (869, BackOffice spec 3558 D12): the working state's live and tool steps only; the rest falls back to English.
 import copilot from '@/locales/en/copilot.json'
+import copilotAr from '@/locales/ar/copilot.json'
 // Analytics boards (spec 766, ticket 767): the `analytics` area's first feature `boards`; namespace == feature name,
 // English and Arabic together. Every later analytics screen (the home, boards, editors, TV mode) ADDS keys here.
 import boards from '@/locales/en/boards.json'
@@ -358,6 +360,7 @@ i18n.use(initReactI18next).init({
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       boards: boardsAr,
+      copilot: copilotAr,
       common: commonAr,
       ...INSURANCE_RULES_AR,
     },

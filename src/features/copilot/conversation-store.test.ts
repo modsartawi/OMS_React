@@ -20,10 +20,17 @@ const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
 
 /** A `Copilot/Ask` stand-in whose calls the test answers by hand, in any order. */
 function door() {
-  const calls: { body: CopilotAskRequest; signal?: AbortSignal; answer: (r: CopilotAnswer) => void; refuse: (e: unknown) => void }[] = []
-  const ask = (body: CopilotAskRequest, signal?: AbortSignal) =>
+  const calls: {
+    body: CopilotAskRequest
+    requestId?: string
+    signal?: AbortSignal
+    answer: (r: CopilotAnswer) => void
+    refuse: (e: unknown) => void
+  }[] = []
+  // The live steps' id (869) is kept beside the body, so each test's body reads as the question it sent.
+  const ask = ({ requestId, ...body }: CopilotAskRequest, signal?: AbortSignal) =>
     new Promise<CopilotAnswer>((answer, refuse) => {
-      calls.push({ body, signal, answer, refuse })
+      calls.push({ body, requestId, signal, answer, refuse })
     })
   return { ask, calls }
 }
@@ -278,5 +285,44 @@ describe('the copilot and the board open in its editor (ticket 836, BackOffice 3
     expect(taken?.request).toBe('swap the chart')
     expect(taken?.edit.definition.panels[0]).toMatchObject({ viewId: 'v-2' })
     expect(boards.getState().takeEdit('b-1')).toBeNull()
+  })
+})
+
+describe('the live steps id (ticket 869, BackOffice spec 3558 D17)', () => {
+  const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/
+
+  it('ask_sendsAFreshUlidRequestId_heldAsPendingIdOnlyWhileTheQuestionIsOut', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    expect(store.getState().pendingId).toBeNull()
+
+    const first = store.getState().ask('How many orders yesterday?')
+    const id1 = d.calls[0].requestId
+    expect(id1).toMatch(ULID)
+    expect(store.getState().pendingId).toBe(id1)
+    d.calls[0].answer(reply('c-0001', 1))
+    await first
+    // The answer landed: the panel stops polling.
+    expect(store.getState().pendingId).toBeNull()
+
+    // One question, one id: the next question mints its own.
+    const second = store.getState().ask('And the day before?')
+    const id2 = d.calls[1].requestId
+    expect(id2).toMatch(ULID)
+    expect(id2).not.toBe(id1)
+    expect(store.getState().pendingId).toBe(id2)
+    d.calls[1].refuse(new ApiError('business', 'No.', 400, [{ errorCode: 'COPILOT-403', internalErrorCode: '', errorMessage: 'No.' }]))
+    await second
+    expect(store.getState().pendingId).toBeNull()
+
+    void store.getState().ask('A slow one')
+    expect(store.getState().pendingId).toBe(d.calls[2].requestId)
+    store.getState().stop()
+    expect(store.getState().pendingId).toBeNull()
+
+    void store.getState().ask('Another slow one')
+    expect(store.getState().pendingId).toBe(d.calls[3].requestId)
+    store.getState().startNew()
+    expect(store.getState().pendingId).toBeNull()
   })
 })

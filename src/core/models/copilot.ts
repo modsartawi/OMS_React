@@ -135,6 +135,28 @@ export interface CopilotAskRequest {
   conversationId?: string
   reportContext?: CopilotReportContext
   boardContext?: CopilotBoardContext
+  /**
+   * Ticket 869 (BackOffice spec 3558 D17, 3565): this question's client-minted ULID. With `Copilot:Speed:Steps` on,
+   * `GET Copilot/Ask/{requestId}/Steps` reads its steps while it runs; with it off the server ignores it.
+   */
+  requestId?: string
+}
+
+/** `GET Copilot/Ask/{requestId}/Steps` -> `data` (BackOffice 3565). A 404 (no body): nothing yet, or the switch off. */
+export interface CopilotSteps {
+  requestId: string
+  /** The answer call has returned (answered, refused or failed). */
+  done: boolean
+  /** Oldest first; the last is the current one. */
+  steps: CopilotStep[]
+}
+
+/** One step: `model` | `tool:<name>` | `answer`. The panel shows its own words for it, never `label` (English only). */
+export interface CopilotStep {
+  step: string
+  label: string
+  /** Estate local wall clock, `yyyy-MM-ddTHH:mm:ss`. */
+  at: string
 }
 
 /** One tool call the server made for the answer (D10 `trace`). */

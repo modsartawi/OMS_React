@@ -52,6 +52,11 @@
     "report_move_block": "Moving a block",
     "report_update_block": "Changing a block"
   },
+  "live": {
+    "model": "Thinking",
+    "tool": "Looking up the data",
+    "answer": "Writing the answer"
+  },
   "failed": "The question could not be answered.",
   "answer": {
     "question": "You asked",

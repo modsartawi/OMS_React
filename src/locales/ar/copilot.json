@@ -1,0 +1,32 @@
+{
+  "live": {
+    "model": "جارٍ التفكير",
+    "tool": "جارٍ البحث في البيانات",
+    "answer": "جارٍ كتابة الإجابة"
+  },
+  "steps": {
+    "order_timeline": "جارٍ البحث عن الطلب",
+    "order_delay_facts": "جارٍ تحديد سبب التأخير",
+    "orders_by_channel": "جارٍ عدّ الطلبات",
+    "sales_summary": "جارٍ جمع المبيعات",
+    "callout_stats": "جارٍ قراءة أرقام الاستدعاءات",
+    "sap_posting_backlog": "جارٍ فحص ترحيلات SAP",
+    "store_lookup": "جارٍ البحث عن الفروع",
+    "sourcing_explain": "جارٍ فحص مصدر التوريد",
+    "sourcing_savings": "جارٍ تقدير الوفورات",
+    "describe_model": "جارٍ قراءة نموذج التحليلات",
+    "semantic_query": "جارٍ تشغيل استعلام التحليلات",
+    "create_view": "جارٍ حفظ عرض",
+    "create_report": "جارٍ إنشاء تقرير",
+    "edit_report": "جارٍ تعديل التقرير",
+    "edit_board": "جارٍ تعديل اللوحة",
+    "board_add_panel": "جارٍ الإضافة إلى اللوحة",
+    "board_remove_panels": "جارٍ الحذف من اللوحة",
+    "board_arrange_panel": "جارٍ ترتيب اللوحة",
+    "board_update_panel": "جارٍ تغيير لوحة فرعية",
+    "report_add_block": "جارٍ الإضافة إلى التقرير",
+    "report_remove_blocks": "جارٍ الحذف من التقرير",
+    "report_move_block": "جارٍ نقل جزء",
+    "report_update_block": "جارٍ تغيير جزء"
+  }
+}

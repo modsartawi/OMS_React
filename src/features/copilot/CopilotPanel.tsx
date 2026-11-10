@@ -91,6 +91,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   // Held in the store, not here: the sheet unmounts the panel when an order link navigates (736).
   const conv = useCopilotConversation((s) => s.conv)
   const pending = useCopilotConversation((s) => s.pending)
+  const pendingId = useCopilotConversation((s) => s.pendingId)
   const epoch = useCopilotConversation((s) => s.epoch)
   const history = useCopilotConversation((s) => s.history)
   const ask = useCopilotConversation((s) => s.ask)
@@ -311,7 +312,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                     <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                       {t('working')}
-                      <WorkingStep />
+                      <WorkingStep requestId={pendingId} />
                     </div>
                   </AnswerRow>
                 </div>

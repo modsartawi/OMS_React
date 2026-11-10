@@ -1331,3 +1331,8 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [858](858-the-dispatch-board-says-whether-a-callout-was-measured-by-road.md) — The dispatch board says whether a callout was measured by road · *(ticket · BackOffice spec 3460)* · **done** · blocked by: BackOffice 3472
 - [859](859-the-road-shadow-report-page-shows-what-deciding-by-road-would-have-changed.md) — The road Shadow report page shows what deciding by road would have changed · *(ticket · BackOffice spec 3460)* · **open** (built, stubbed: unit 25/25 + drive 67/67; live read with the owner owed; ruling owed on the fallback-share base) · blocked by: —
 - [860](860-the-deliverect-catalog-screen-pushes-stock-and-price-and-the-sync-log-shows-manual-pushes.md) — The Deliverect catalog screen pushes stock and price, and the sync log shows manual pushes · *(ticket · BO spec 3481)* · **done 2026-11-09** (stubbed: unit + catalog drive 112/112; live staging walk owed) · blocked by: BackOffice 3483, 3485 (done) · import "push stock & price now" (default on) + `push` block; Push now (≤200, reason); sync log labels `M` + requester; hide Catalog push while off (BO 3486)
+
+## Analytics calculations (BackOffice spec 3519), filed 2026-11-10
+
+- [861](861-a-panel-shows-the-calculated-columns-the-server-returns.md) — A panel shows the calculated columns the server returns · *(ticket · BackOffice spec 3519)* · **open** · blocked by: BackOffice 3520 · today the web drops them silently; ship before BackOffice 3525
+- [862](862-an-author-adds-a-calculation-from-the-query-builder.md) — An author adds a calculation from the query builder · *(ticket · BackOffice spec 3519 · slice 2)* · **open** · blocked by: 861, BackOffice 3524 · replaces BackOffice 3526

@@ -14,14 +14,14 @@ const label = (en: string) => ({ en, ar: en })
 export const V1_MODEL: AnalyticsModel = {
   areas: [],
   measures: [
-    { key: 'orders', area: 'sales', shape: 'additive', unit: 'count', label: label('Orders'), description: label(''), dimensions: ['channel_group', 'store', 'city', 'region', 'country', 'day'] },
+    { key: 'orders', area: 'sales', shape: 'additive', unit: 'count', label: label('Orders'), description: label(''), dimensions: ['channel', 'store', 'city', 'region', 'country', 'day'] },
     // No channel breakdown: a channel filter never reaches till sales.
     { key: 'till_value', area: 'sales', shape: 'additive', unit: 'SAR', label: label('Till'), description: label(''), dimensions: ['store', 'city', 'region', 'day'] },
     // Store and channel only: city, region and country never reach deliveries.
-    { key: 'deliveries', area: 'sales', shape: 'additive', unit: 'count', label: label('Deliveries'), description: label(''), dimensions: ['channel_group', 'store', 'day'] },
+    { key: 'deliveries', area: 'sales', shape: 'additive', unit: 'count', label: label('Deliveries'), description: label(''), dimensions: ['channel', 'store', 'day'] },
   ],
   dimensions: [
-    { key: 'channel_group', kind: 'category', label: label('Channel'), values: [{ key: 'app', label: label('App') }, { key: 'web', label: label('Web') }] },
+    { key: 'channel', kind: 'category', label: label('Channel'), values: [{ key: 'app', label: label('App') }, { key: 'web', label: label('Web') }] },
     { key: 'store', kind: 'category', label: label('Store'), values: [] },
     { key: 'city', kind: 'category', label: label('City'), values: [] },
     { key: 'region', kind: 'category', label: label('Region'), values: [] },
@@ -38,8 +38,8 @@ const def = (measures: string[], dimensions: string[], compareToPrevious = false
 /** Each view by id, at revision 3. */
 export const V1_VIEWS: Record<string, AnalyticsViewDefinition> = {
   'v-kpi': def(['orders'], ['day'], true),
-  'v-bar': def(['orders'], ['channel_group']),
-  'v-area': def(['orders'], ['day', 'channel_group']),
+  'v-bar': def(['orders'], ['channel']),
+  'v-area': def(['orders'], ['day', 'channel']),
   'v-line-measures': def(['orders', 'deliveries'], ['day']),
   'v-donut': def(['orders'], ['store']),
   'v-table': def(['orders', 'till_value'], ['store']),
@@ -98,7 +98,7 @@ export const V1_PERMALINKS = [
   'region=',
   'region=&channel=',
   'period=last-century&store=P009',
-  'tv=1&refresh=30s&region=central&cross=channel_group:app&crossFrom=p-bar',
+  'tv=1&refresh=30s&region=central&cross=channel:app&crossFrom=p-bar',
   'cross=store:P001&crossFrom=p-stores&channel=app',
   'period=today&store=P002&store=P001&store=P002',
 ]

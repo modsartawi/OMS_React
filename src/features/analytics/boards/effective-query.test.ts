@@ -7,7 +7,7 @@ const label = (en: string) => ({ en, ar: en })
 const MODEL: AnalyticsModel = {
   areas: [],
   measures: [
-    { key: 'orders', area: 'sales', shape: 'additive', unit: 'count', label: label('Orders'), description: label(''), dimensions: ['store', 'region', 'city', 'channel_group', 'country', 'day'] },
+    { key: 'orders', area: 'sales', shape: 'additive', unit: 'count', label: label('Orders'), description: label(''), dimensions: ['store', 'region', 'city', 'channel', 'country', 'day'] },
     // Till sales have no channel breakdown in this model: a channel filter never reaches them.
     { key: 'till_value', area: 'sales', shape: 'additive', unit: 'SAR', label: label('Till'), description: label(''), dimensions: ['store', 'region', 'city', 'day'] },
   ],
@@ -67,7 +67,7 @@ describe('effective query', () => {
     expect(panelKey(ask(orders, ['orders'], after))).not.toBe(panelKey(ask(orders, ['orders'], before)))
     // The channel filter does not reach a measure the model never breaks down by channel.
     expect(panelKey(ask(till, ['till_value'], after))).toBe(panelKey(ask(till, ['till_value'], before)))
-    expect(ask(orders, ['orders'], after).filters).toEqual([{ dimension: 'channel_group', values: ['app'] }])
+    expect(ask(orders, ['orders'], after).filters).toEqual([{ dimension: 'channel', values: ['app'] }])
   })
 
   it('an opted-out panel keeps its key', () => {
@@ -110,7 +110,7 @@ describe('effective query: the cross-filter (772)', () => {
   })
 
   it('does not reach a panel whose measures never break down by its dimension', () => {
-    const channel = { source: 'channels', dimension: 'channel_group', member: 'app' }
+    const channel = { source: 'channels', dimension: 'channel', member: 'app' }
     expect(askX(panel('till'), ['till_value'], channel)).toEqual({ viewId: 'v-till', revision: 3, period: 'last-30-days', filters: [] })
   })
 })
@@ -133,11 +133,11 @@ describe('effective query: drill by (772)', () => {
   it('a second step keeps the first step’s filter', () => {
     const q = drillAsk([
       { dimension: 'store', member: 'P001', into: 'city' },
-      { dimension: 'city', member: 'riyadh', into: 'channel_group' },
+      { dimension: 'city', member: 'riyadh', into: 'channel' },
     ])
     expect('definition' in q && q.definition.query).toEqual({
       measures: ['orders'],
-      dimensions: ['channel_group'],
+      dimensions: ['channel'],
       filters: [
         { dimension: 'store', values: ['P001'] },
         { dimension: 'city', values: ['riyadh'] },
@@ -156,7 +156,7 @@ describe('effective query: named series (825)', () => {
     const p = panel('s')
     const named: AnalyticsViewDefinition = {
       ...view(['orders']),
-      series: [{ id: 'hs', label: label('HungerStation'), filters: [{ dimension: 'channel_group', values: ['hungerstation'] }] }],
+      series: [{ id: 'hs', label: label('HungerStation'), filters: [{ dimension: 'channel', values: ['hungerstation'] }] }],
     }
     const input = effectiveQuery({ panel: p, view: named, revision: 3, model: MODEL }, v1(p, { ...NONE, channel: ['app'], city: ['riyadh'] }))
     expect('filters' in input && input.filters).toEqual([{ dimension: 'city', values: ['riyadh'] }])

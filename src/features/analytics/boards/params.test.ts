@@ -22,7 +22,7 @@ describe('convertV1Board (797 item 6)', () => {
       ['city', 'members', 'city', { kind: 'members', values: [] }],
       ['region', 'members', 'region', { kind: 'members', values: ['central'] }],
       ['store', 'members', 'store', { kind: 'members', values: [] }],
-      ['channel', 'members', 'channel_group', { kind: 'members', values: ['app'] }],
+      ['channel', 'members', 'channel', { kind: 'members', values: ['app'] }], // the model's dimension is `channel` (Cube alias of channel_group)
       ['country', 'members', 'country', { kind: 'members', values: [] }],
     ])
     expect(params.find((p) => p.name === 'period')?.required).toBe(true)
@@ -31,7 +31,7 @@ describe('convertV1Board (797 item 6)', () => {
       city: { 'p-till': 'city', 'p-bar': 'city' },
       region: { 'p-till': 'region' },
       store: { 'p-till': 'store', 'p-deliveries': 'store', 'p-bar': 'store' },
-      channel: { 'p-deliveries': 'channel_group', 'p-bar': 'channel_group' },
+      channel: { 'p-deliveries': 'channel', 'p-bar': 'channel' },
       country: { 'p-bar': 'country' },
     })
   })

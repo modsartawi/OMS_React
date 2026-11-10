@@ -34,7 +34,9 @@ export const READY_MADE_DIMENSIONS = {
   city: 'city',
   region: 'region',
   store: 'store',
-  channel: 'channel_group',
+  // The model's dimension is `channel` (the Cube views alias channel_group to it). `channel_group` made every new
+  // board's default parameters fail the server's save (ANALYTICS-411 unknownDimension), found on the 3543 walk.
+  channel: 'channel',
   country: 'country',
 } as const satisfies Record<Exclude<ReadyMadeName, 'period'>, string>
 

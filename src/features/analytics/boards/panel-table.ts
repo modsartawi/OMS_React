@@ -6,6 +6,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { measureKeysOf } from './calculations'
 import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
 import { seriesColumnOf, seriesName, seriesOf } from './series'
+import { isTotalRow, splitThenTotals } from './unsplit'
 import { viewMeasureOf } from './view-model'
 import { dimensionOf } from './wire'
 
@@ -18,6 +19,9 @@ import { dimensionOf } from './wire'
  * Exports go through the core xlsx writer and strip isolates (the bidi rule): no FSI…PDI ever reaches a
  * file, whatever a label or member carried. A view compared with the previous period has a previous column after
  * each of its measures (`./previous-rows`), so the downloads carry it too.
+ *
+ * 864 (spec 3543 decision 12): a cross-area answer's "All" rows are listed LAST, after every split row, whatever order
+ * they came in (`./unsplit`), and the dimension they total over reads `words.all` ("All").
  */
 
 type Cell = string | number | null
@@ -38,12 +42,21 @@ export function panelTable(
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
-  words: { series: string; previous?: (measure: string) => string } = { series: 'series' },
+  words: {
+    series: string
+    previous?: (measure: string) => string
+    /** 864: what an "All" row's unsplit dimension reads. */
+    all?: string
+    /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
+    tooltip?: (key: string) => string | undefined
+  } = { series: 'series' },
 ): PanelTable {
   const named = seriesOf(definition)
   const seriesKey = seriesColumnOf(result.columns)
   const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
-  const kept = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
+  const inSeries = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
+  const { split, totals } = splitThenTotals(inSeries)
+  const kept = totals.length ? [...split, ...totals] : inSeries
   const fromColumns = (role: 'dimension' | 'measure') => result.columns.filter((c) => c.role === role).map((c) => c.key)
   const dimKeys = definition.query.dimensions.length ? definition.query.dimensions : fromColumns('dimension')
   // 861: the query's measures, then the calculated columns the server returned (`./calculations`).
@@ -62,7 +75,7 @@ export function panelTable(
   const rows = kept.map((r) => {
     const out: Record<string, Cell> = {}
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
-    for (const k of dimKeys) out[k] = r[k] == null ? '' : namers.get(k)!.member(String(r[k]))
+    for (const k of dimKeys) out[k] = r[k] == null ? (isTotalRow(r) ? (words.all ?? '') : '') : namers.get(k)!.member(String(r[k]))
     const before = withPrevious.size ? previousOf(r) : undefined
     for (const k of measureKeys) {
       out[k] = num(r[k])
@@ -75,7 +88,15 @@ export function panelTable(
     ...dimKeys.map((k) => ({ key: k, role: 'dimension' as const, label: namers.get(k)!.label })),
     ...measureKeys.flatMap((k) => {
       const m = viewMeasureOf(k, model, result, lang)
-      const column = (key: string, label: string) => ({ key, role: 'measure' as const, label, unit: m.unit, max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))) })
+      const tooltip = words.tooltip?.(k)
+      const column = (key: string, label: string) => ({
+        key,
+        role: 'measure' as const,
+        label,
+        unit: m.unit,
+        max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))),
+        ...(tooltip ? { tooltip } : {}),
+      })
       return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
     }),
   ]

@@ -26,10 +26,37 @@ export function pickableMeasures(model: AnalyticsModel) {
   return model.measures.filter((m) => !unavailable.has(m.area))
 }
 
-/** The breakdowns every chosen measure allows (all of them before a measure is chosen), in model order. */
+/** Spec 3543 decision 11 (SIS.Api `AnalyticsAreas.MaxAreas`): a query reads measures from at most four areas. */
+export const MAX_AREAS = 4
+
+/** The areas a query's measures read, in the order they are first named (a variant is its measure's area). */
+export function queryAreas(measures: readonly string[], model: Pick<AnalyticsModel, 'measures'>): string[] {
+  return [...new Set(measures.map((k) => measureOf(model, k)?.area).filter((a): a is string => !!a))]
+}
+
+/** Whether `area` has the dimension: some measure of it breaks down by it (the model lists no per-area dimensions). */
+const areaHas = (area: string, dimension: string, model: Pick<AnalyticsModel, 'measures'>) =>
+  model.measures.some((m) => m.area === area && m.dimensions.includes(dimension))
+
+/**
+ * The breakdowns a query may take (all of them before a measure is chosen), in model order. Spec 3543 decision 12
+ * (SIS.Api 3548): a dimension of ANY chosen area, since a figure whose area lacks it is answered as a total — but never
+ * one a measure's OWN area has and the measure does not (the model's `notBy`, still refused by the server). For one
+ * area this is exactly "every chosen measure allows it", as before.
+ */
 export function allowedDimensions(measures: readonly string[], model: AnalyticsModel) {
   const chosen = measures.map((k) => measureOf(model, k)).filter((m) => !!m)
-  return model.dimensions.filter((d) => chosen.every((m) => m.dimensions.includes(d.key)))
+  return model.dimensions.filter(
+    (d) => (chosen.length === 0 || chosen.some((m) => m.dimensions.includes(d.key))) && chosen.every((m) => m.dimensions.includes(d.key) || !areaHas(m.area, d.key, model)),
+  )
+}
+
+/** Spec 3543 decision 30: the chosen measures a breakdown will NOT split (their area lacks it), in query order. */
+export function unsplitFigures(dimension: string, measures: readonly string[], model: Pick<AnalyticsModel, 'measures'>): string[] {
+  return measures.filter((k) => {
+    const m = measureOf(model, k)
+    return !!m && !areaHas(m.area, dimension, model)
+  })
 }
 
 /**
@@ -174,8 +201,8 @@ export interface PickerMeasure {
   description: string
   shape: AnalyticsModel['measures'][number]['shape']
   chosen: boolean
-  /** `otherSubject`: the chosen measures come from another subject, and one view asks one subject. */
-  blocked: 'otherSubject' | null
+  /** `tooManyAreas` (spec 3543 decision 11): the chosen measures already read four other subjects. */
+  blocked: 'tooManyAreas' | null
 }
 
 export interface PickerSubject {
@@ -186,13 +213,16 @@ export interface PickerSubject {
 }
 
 /**
- * The model's measures grouped by subject area, in model order, narrowed by `search` (label, description or key,
- * any case). A view asks ONE subject (the server refuses two with 406), so once a measure is chosen every measure
- * of another subject is listed blocked, with its reason. A subject with no match is left out.
+ * The model's measures grouped by subject area, narrowed by `search` (label, description or key, any case). Spec 3543
+ * decisions 11 and 30: a view reads up to FOUR subjects, merged on their shared breakdowns, so the chosen subjects come
+ * first (in the order their measures were chosen), then the rest in model order; once four are chosen, every measure of
+ * a fifth is listed blocked, with its reason (the server refuses it with 406). A subject with no match is left out.
  */
 export function pickerSubjects(model: AnalyticsModel, chosen: readonly string[], search: string, lang: string): PickerSubject[] {
   const s = search.trim().toLowerCase()
-  const chosenArea = chosen.map((k) => measureOf(model, k)?.area).find(Boolean) ?? null
+  const chosenAreas = queryAreas(chosen, model)
+  const full = chosenAreas.length >= MAX_AREAS
+  const rank = (area: string) => (chosenAreas.includes(area) ? chosenAreas.indexOf(area) : MAX_AREAS)
   return model.areas
     .map((a) => ({
       area: a.key,
@@ -209,14 +239,14 @@ export function pickerSubjects(model: AnalyticsModel, chosen: readonly string[],
             description: description && description !== label ? description : '',
             shape: m.shape,
             chosen: chosen.includes(m.key),
-            blocked: chosenArea && m.area !== chosenArea ? ('otherSubject' as const) : null,
+            blocked: full && !chosenAreas.includes(m.area) ? ('tooManyAreas' as const) : null,
           }
         })
         .filter((m) => !s || m.label.toLowerCase().includes(s) || m.description.toLowerCase().includes(s) || m.key.includes(s)),
     }))
     .filter((g) => g.measures.length > 0)
-    // The chosen subject first: the rest are greyed below it.
-    .sort((a, b) => Number(b.area === chosenArea) - Number(a.area === chosenArea))
+    // The chosen subjects first, in the order they were chosen (a stable sort keeps the rest in model order).
+    .sort((a, b) => rank(a.area) - rank(b.area))
 }
 
 /** The breakdowns a view may be filtered on (a date is the period's job; a store's name is its code's). */

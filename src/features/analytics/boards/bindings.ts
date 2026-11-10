@@ -2,7 +2,8 @@ import type { AnalyticsModel, AnalyticsViewDefinition, BindReason, Bindings, Par
 import { isReservedName, TOP_N_MAX, TOP_N_MIN } from './params'
 import { seriesBindReason, seriesOf } from './series'
 import { chartOffers, choiceOf } from './shape-rules'
-import { GRAINS } from './editor'
+import { allowedDimensions, GRAINS, MAX_AREAS, queryAreas } from './editor'
+import { baseMeasureKey } from './variants'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -17,9 +18,18 @@ export type BindCheck = { ok: true; target?: string } | { ok: false; reason: Bin
 
 const no = (reason: BindReason): BindCheck => ({ ok: false, reason })
 
-/** Whether this view's measures break down by a dimension: v1's rule for a filter reaching a panel (`effectiveQuery`). */
+/**
+ * The view's measures as model measures: a variant key reads as its variant's measure (server 3551,
+ * `AnalyticsParameters.MeasureOf`), so a panel of variants is judged like one of their measures.
+ */
+const modelMeasures = (view: AnalyticsViewDefinition) => view.query.measures.map((k) => baseMeasureKey(view, k) ?? k)
+
+/**
+ * Whether this view's measures break down by a dimension: v1's rule for a filter reaching a panel (`effectiveQuery`).
+ * 864 / server 3551: on a mixed-area panel, SOME measure's area having it is enough (the others come back `notFiltered`).
+ */
 const breaksBy = (view: AnalyticsViewDefinition, model: AnalyticsModel, dimension: string) =>
-  view.query.measures.some((k) => measureOf(model, k)?.dimensions.includes(dimension))
+  modelMeasures(view).some((k) => measureOf(model, k)?.dimensions.includes(dimension))
 
 /** Whether the chart the view saved is still offered for this selection (v1's shape table). */
 function fits(view: AnalyticsViewDefinition, model: AnalyticsModel, measures: readonly string[], dimensions: readonly string[]): boolean {
@@ -37,8 +47,10 @@ function fits(view: AnalyticsViewDefinition, model: AnalyticsModel, measures: re
  *   the panel's series filter on;
  * - **threshold** needs that measure and a category breakdown — a KPI cannot filter itself to empty;
  * - **top N** needs one category dimension and no time axis;
- * - **measure** needs a one-measure panel where every option is in the same area, breaks down by the
- *   panel's dimensions and keeps its chart (the shape table);
+ * - **measure** swaps each option into the panel's first measure: the panel must still take every one of its
+ *   dimensions and keep its chart (the shape table). 864 (spec 3543 decision 11, the server's 3548 case-table
+ *   change): an option from another area binds — the panel reads up to four. An option already among the panel's
+ *   other measures is refused;
  * - **breakdown** needs a category axis where every option is a category the measures break down by, no
  *   series filters on it, and the chart still fits.
  * ⚠ The 92-day percentile cap on a measure option is the server's to check at save (it needs the period).
@@ -64,12 +76,15 @@ export function canBind(param: Param, view: AnalyticsViewDefinition, model: Anal
       return !kpi && cats.length === 1 && time.length === 0 ? { ok: true } : no('topNShape')
     case 'measure': {
       const options = param.options ?? []
-      const own = view.query.measures.length === 1 ? measureOf(model, view.query.measures[0]) : null
+      // A variant key reads as its measure (server 3551: a swap into a variant's place swaps its measure).
+      const [first, ...rest] = modelMeasures(view)
       const each = (key: string) => {
-        const m = measureOf(model, key)
-        return !!m && !!own && m.area === own.area && dims.every((d) => m.dimensions.includes(d)) && fits(view, model, [key], dims)
+        if (!measureOf(model, key) || rest.includes(key)) return false
+        const shaped = [key, ...rest]
+        const allowed = new Set(allowedDimensions(shaped, model).map((d) => d.key))
+        return queryAreas(shaped, model).length <= MAX_AREAS && dims.every((d) => allowed.has(d)) && fits(view, model, shaped, dims)
       }
-      return own && options.length > 0 && options.every(each) ? { ok: true } : no('measureShape')
+      return first !== undefined && options.length > 0 && options.every(each) ? { ok: true } : no('measureShape')
     }
     case 'breakdown': {
       const options = param.options ?? []

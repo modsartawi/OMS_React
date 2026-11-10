@@ -446,6 +446,13 @@
     "notSharedTitle": "هذا العرض غير مُشارك معك",
     "seriesColumn": "السلسلة",
     "previousColumn": "{{measure}} (الفترة السابقة)",
+    "allMembers": "الكل",
+    "unsplit": {
+      "notSplit": "لا يمكن تقسيم {{measure}} حسب {{by}}.",
+      "totalIn": "في {{parent}}: {{value}}",
+      "total": "الإجمالي: {{value}}",
+      "notFiltered": "لم يُطبَّق ترشيح {{by}} على {{measure}}."
+    },
     "seriesKpiLabel": "{{measure}} لسلسلة {{series}}"
   },
   "refusal": {
@@ -541,7 +548,8 @@
     "loadFailed": "تعذّر تحميل نموذج التحليلات",
     "measures": "المقاييس",
     "dimensions": "التقسيمات",
-    "dimensionsHint": "فقط التقسيمات التي تسمح بها كل المقاييس المختارة.",
+    "dimensionsHint": "أي تقسيم للمواضيع المختارة. الرقم الذي لا يملك موضوعُه هذا التقسيم يُعرض بإجماليه.",
+    "dimensionNotSplit": "{{dimension}} (لا يقسّم {{measures}})",
     "filterOn": "هذه فقط: {{dimension}}",
     "period": {
       "today": "اليوم",
@@ -656,8 +664,8 @@
     "noMeasureMatch": "لا يوجد مقياس مطابق.",
     "removeMeasure": "إزالة {{measure}}",
     "subjectUnavailable": "غير متاح بعد.",
-    "otherSubject": "العرض الواحد يستعلم عن موضوع واحد: هذا ليس من {{subject}}.",
-    "oneSubject": "مقاييس من {{subject}} فقط: العرض الواحد يستعلم عن موضوع واحد. أزلها لتغيير الموضوع.",
+    "tooManyAreas": "العرض الواحد يقرأ {{max}} مواضيع على الأكثر: أزل مقياسًا من موضوع آخر أولًا.",
+    "manySubjects": "أرقام من {{subjects}}، تُجمع على التقسيمات المشتركة بينها. حتى {{max}} مواضيع.",
     "shape": {
       "rate": "نسبة",
       "percentile": "مئين",
@@ -700,17 +708,19 @@
     "whyOff": "لماذا {{n}} أنواع غير متاحة",
     "calc": {
       "title": "الحسابات",
-      "hint": "الحصص والنسب والحصص التراكمية والتغيرات، يحسبها الخادم. حتى {{max}}.",
+      "hint": "الحصص والنسب والحصص التراكمية والتغيرات والمتوسطات، يحسبها الخادم. حتى {{max}}.",
       "kind": "الحساب",
       "kindPick": "أضف حسابًا…",
       "kindName": {
         "shareOfTotal": "الحصة من الإجمالي",
         "ratio": "نسبة مقياسين",
         "cumulativeShare": "الحصة التراكمية",
-        "change": "التغير عن الفترة السابقة"
+        "change": "التغير عن الفترة السابقة",
+        "average": "المتوسط (مقياس لكل مقياس آخر)"
       },
       "measure": "للمقياس",
       "of": "كنسبة من",
+      "per": "لكل",
       "until": "توقف عند (%)",
       "untilPlaceholder": "كل الصفوف",
       "untilWithin": "توقف عند (%) في كل {{within}}",
@@ -731,6 +741,7 @@
         "full": "يقبل الاستعلام أربعة حسابات على الأكثر.",
         "noAdditive": "يحتاج مقياسًا يُجمع (عددًا أو مبلغًا)، لا نسبة ولا مئينًا.",
         "noPair": "يحتاج مقياسين يُجمعان، بالوحدة نفسها.",
+        "noTwo": "يحتاج مقياسين يُجمعان (عددًا أو مبلغًا).",
         "needsCompare": "فعّل المقارنة بالفترة السابقة أولًا.",
         "runningDate": "لا تُقسَّم الحصة التراكمية حسب التاريخ.",
         "runningSeries": "لا تُستخدم الحصة التراكمية مع سلاسل مسماة.",
@@ -1654,6 +1665,7 @@
       "ratio": "{{measure}} كنسبة من {{of}}",
       "cumulativeShare": "الحصة التراكمية لـ{{measure}}",
       "change": "التغير في {{measure}}",
+      "average": "{{measure}} لكل {{of}}",
       "shareOfTotalWithin": "حصة {{measure}} في كل {{within}}",
       "cumulativeShareWithin": "الحصة التراكمية لـ{{measure}} في كل {{within}}"
     },

@@ -26,6 +26,8 @@ export interface TableChartColumn {
   label: string
   unit?: MeasureUnit
   max?: number
+  /** The header's tooltip (spec 3543 decision 14: a cross-area column's date basis). Absent → none. */
+  tooltip?: string
 }
 
 type Row = Record<string, string | number | null>
@@ -55,7 +57,14 @@ export default function TableChart({
     () =>
       columns.map((c) => {
         // An AG Grid header name is a string-only sink: isolate the whole label (bidi rule).
-        const base: ColDef<Row> = { colId: c.key, field: c.key, headerName: fsi(c.label), sort: sort?.key === c.key ? sort.direction : null }
+        const base: ColDef<Row> = {
+          colId: c.key,
+          field: c.key,
+          headerName: fsi(c.label),
+          // A tooltip is a string-only sink too: the whole text isolated.
+          ...(c.tooltip ? { headerTooltip: fsi(c.tooltip) } : {}),
+          sort: sort?.key === c.key ? sort.direction : null,
+        }
         if (c.role === 'dimension') return { ...base, flex: 1, minWidth: 140 }
         const unit = c.unit ?? 'count'
         return {

@@ -8,11 +8,13 @@ import { fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
+import AreaNotes from './AreaNotes'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
 import ViewForm, { isViewForm } from './ViewForms'
-import { dimensionOf, measureOf } from './wire'
+import { queryMeasureName } from './variants'
+import { dimensionOf } from './wire'
 
 /**
  * ONE view's chart, wherever a view is drawn (ticket 771): the view page and every board panel use it,
@@ -35,10 +37,10 @@ export function drawsHere(def: AnalyticsViewDefinition): boolean {
 /** A view's title, or — empty, as an AI view's is by default — one made from the model labels (766 §B). */
 export function viewTitleOf(item: AnalyticsItem, model: AnalyticsModel, lang: string, t: TFunction<'boards'>): string {
   const def = item.definition
-  const measure = measureOf(model, def.query.measures[0])
   const dimension = dimensionOf(model, def.query.dimensions[0])
-  // A member the model no longer holds is named as retired, never by its raw key (766 §B).
-  const measureLabel = saysIn(measure?.label, lang) || (def.query.measures[0] ? t('title.retiredMeasure') : '')
+  // A member the model no longer holds is named as retired, never by its raw key (766 §B). 863's gap: a first measure
+  // that is a variant key is named by its variant label.
+  const measureLabel = queryMeasureName(def, model, lang, (v) => t('variant.label', v)) || (def.query.measures[0] ? t('title.retiredMeasure') : '')
   const dimensionLabel = saysIn(dimension?.label, lang) || (def.query.dimensions[0] ? t('title.retiredDimension') : '')
   return saysIn(item.title, lang) || t('view.generatedTitle', { measure: fsi(measureLabel), dimension: fsi(dimensionLabel) })
 }
@@ -80,6 +82,7 @@ export default function ViewChart({
       </ChartFrame>
       {result?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
       <UntilNote definition={definition} result={result} model={model} lang={lang} />
+      <AreaNotes definition={definition} result={result} model={shown} lang={lang} />
     </>
   )
 }

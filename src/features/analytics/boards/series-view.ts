@@ -14,6 +14,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { hasSeries, mergeSeries, seriesOf, seriesName, seriesRows, type NamedSeries } from './series'
 import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
 import { dimensionOf } from './wire'
+import { drawnResult } from './unsplit'
 
 /**
  * The KPI and series view models (spec 766 §E/§F, ticket 768): one `Analytics/Query` answer turned into
@@ -86,6 +87,8 @@ export function toKpiView(
   model: AnalyticsModel,
   lang: string,
 ): KpiView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   const key = definition.query.measures[0] ?? result.columns.find((c) => c.role === 'measure')?.key ?? ''
   const measure = viewMeasureOf(key, model, result, lang)
   const additive = measure.shape === 'additive'
@@ -193,6 +196,8 @@ export function toSeriesView(
   model: AnalyticsModel,
   lang: string,
 ): SeriesView | RefusedView {
+  // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
+  result = drawnResult(result)
   const form = definition.chart.type === 'area' ? 'area' : definition.chart.type === 'bar' ? 'bar' : 'line'
   // 861: the query's measures, then the calculated columns the server returned.
   const measureKeys = measureKeysOf(definition, result)

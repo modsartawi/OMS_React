@@ -18,6 +18,7 @@ import Input from '@/core/ui/Input'
 import MultiSelect from '@/core/ui/MultiSelect'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import {
   comparesToPrevious,
   DEFAULT_PERIOD,
@@ -31,13 +32,14 @@ import {
   rangePeriod,
   rangeProblem,
   readRange,
+  unsplitFigures,
   type Grain,
 } from './editor'
 import MeasurePicker from './MeasurePicker'
 import { periodNameKey, resolvePeriod } from './periods'
 import SearchFilterField from './SearchFilterField'
 import type { ChartChoice, ChartOffer } from './shape-rules'
-import { dimensionOf } from './wire'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * The view editor's field panels (ticket 775), split out of `AnalyticsEditorPage` as thin renderers: the query
@@ -67,7 +69,7 @@ export function QueryFields({
   onMeasures: (next: string[]) => void
   dimensions: string[]
   onDimensions: (next: string[]) => void
-  /** The breakdowns every chosen measure allows. */
+  /** The breakdowns the chosen measures allow (864: any of their subjects'). */
   allowed: AnalyticsDimension[]
   filters: AnalyticsFilter[]
   onFilter: (dimension: string, values: string[]) => void
@@ -82,6 +84,13 @@ export function QueryFields({
   const { t } = useTranslation('boards')
   const label = (d: AnalyticsDimension | undefined, key: string) => saysIn(d?.label, lang) || key
   const hasTime = dimensions.some((k) => dimensionOf(model, k)?.kind === 'time')
+  // 864 (spec 3543 decision 30): a breakdown names the chosen figures it will not split (their subject lacks it).
+  const optionText = (d: AnalyticsDimension) => {
+    const unsplit = unsplitFigures(d.key, measures, model)
+    if (unsplit.length === 0) return label(d, d.key)
+    const names = listText(unsplit.map((k) => saysIn(measureOf(model, k)?.label, lang) || k), lang)
+    return t('editor.dimensionNotSplit', { dimension: fsi(label(d, d.key)), measures: fsi(names) })
+  }
   return (
     <>
       <MeasurePicker model={model} lang={lang} value={measures} onChange={onMeasures} invalid={invalid.measure} />
@@ -91,7 +100,7 @@ export function QueryFields({
           label={t('editor.dimensions')}
           value={dimensions}
           onChange={onDimensions}
-          options={allowed.map((d) => ({ value: d.key, text: label(d, d.key) }))}
+          options={allowed.map((d) => ({ value: d.key, text: optionText(d) }))}
           data-testid="editor-dimensions"
         />
       </Field>

@@ -61,7 +61,12 @@ export default memo(function PanelActions(p: PanelActionsProps) {
   // 861: the downloads carry the calculated columns under their labels.
   const shown = useCalculatedModel(p.model, p.definition, result, lang)
   const table = () =>
-    panelTable(result!, p.definition, shown, lang, { series: t('view.seriesColumn'), previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }) })
+    panelTable(result!, p.definition, shown, lang, {
+      series: t('view.seriesColumn'),
+      previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }),
+      // 864 (spec 3543 decision 12): a cross-area answer's "All" rows are written last, the unsplit dimension "All".
+      all: t('view.allMembers'),
+    })
 
   const picture = drawsAsPicture(p.definition.chart.type)
   const pngReason = !picture ? t('panel.pngUnavailable') : p.table ? t('panel.pngTableView') : null

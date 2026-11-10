@@ -195,6 +195,11 @@ describe('the notSplit note carries the sentence and the totals', () => {
     const r = crossResult([{ region: 'E', till_sales: 10, deliveries: null }, { region: null, till_sales: null, deliveries: 1234, isTotal: true }], { notSplit: [{ measure: 'deliveries', by: ['region'] }] })
     expect(areaNotes(crossDef('bar', ['region']), r, MODEL, 'en', noteWords(en)).notSplit[0].totals).toEqual([`Total: ${iso('1,234')}`])
   })
+  it('a table lists its totals as its own "All" rows, so its note is the sentence alone (local walk 2026-11-10)', () => {
+    const n = areaNotes(crossDef('table'), crossResult(), MODEL, 'en', noteWords(en))
+    expect(n.notSplit.map((x) => x.totals)).toEqual([[]])
+    expect(n.notSplit[0].sentence).toBe(`${iso('Deliveries')} cannot be split by ${iso('Category')}.`)
+  })
   it('no notes on a one-area result', () => {
     expect(areaNotes(crossDef('bar'), crossResult([], { notSplit: undefined }), MODEL, 'en', noteWords(en))).toEqual({ notSplit: [], notFiltered: [] })
   })

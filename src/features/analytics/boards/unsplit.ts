@@ -16,7 +16,8 @@ import { dimensionOf, measureOf, valueLabel } from './wire'
  * - {@link drawnResult} — what a chart draws: never an "All" row as a bar, a slice or a point (nor a KPI's figure);
  * - {@link splitThenTotals} — what a table and every export lists: the split rows in the answer's order, then the "All"
  *   rows, whatever order they came in;
- * - {@link areaNotes} — the panel note: each unsplit figure's `notSplit` sentence with its totals, and each `notFiltered`
+ * - {@link areaNotes} — the panel note: each unsplit figure's `notSplit` sentence with its totals (not on a table, which
+ *   lists them as its "All" rows), and each `notFiltered`
  *   figure marked "not filtered by …" (decision 18);
  * - {@link columnTooltip} — a cross-area column header's tooltip: its area's `dateBasis` (decision 14) and the
  *   "not filtered" mark.
@@ -94,7 +95,8 @@ export function areaNotes(
   const named = seriesOf(definition)
   const seriesKey = seriesColumnOf(result.columns)
   const seriesNames = new Map(named.map((s) => [s.id, seriesName(s, lang)]))
-  const totals = result.rows.filter(isTotalRow)
+  // A table lists the "All" rows itself (last, `splitThenTotals`), so its note is the sentence alone; a chart draws none.
+  const totals = definition.chart.type === 'table' ? [] : result.rows.filter(isTotalRow)
   const notSplit = (result.notSplit ?? []).map((e): UnsplitNote => {
     const unit = viewMeasureOf(e.measure, model, result, lang).unit
     const lines = totals

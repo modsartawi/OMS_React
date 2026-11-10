@@ -26,9 +26,9 @@ UI (pickers, table, charts, exports, panel notes) / wire types
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Tests: "All" rows are last in the table and the exports, and never in a chart series · oms-react test suite
-- [ ] Tests: the `notSplit` and `notFiltered` notes in EN and AR; `dateBasis` in the header · oms-react test suite
-- [ ] Tests: the measure picker groups by area and stops at 4 areas; `average` has no unit rule · oms-react test suite
+- [x] Tests: "All" rows are last in the table and the exports, and never in a chart series · oms-react test suite
+- [x] Tests: the `notSplit` and `notFiltered` notes in EN and AR; `dateBasis` in the header · oms-react test suite
+- [x] Tests: the measure picker groups by area and stops at 4 areas; `average` has no unit rule · oms-react test suite
 - [x] **HITL:** a staging walk: a board of till sales and deliveries by region × category with a category filter
 
 ## Boundaries

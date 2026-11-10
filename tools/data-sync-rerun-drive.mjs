@@ -1,4 +1,4 @@
-// Data sync re-run drive (ticket 864, spec 863) — drives the REAL campaign page's *New campaign from
+// Data sync re-run drive (tickets 864 + 865, spec 863) — drives the REAL campaign page's *New campaign from
 // failed (N)* in Chromium against STUBBED `DataSync/*` envelopes, shaped from the DataSync change of
 // the same ticket (`GET /Campaigns/{id}/RerunTargets` → RerunOffer; `rerunOf` on create;
 // `rerunOf` / `rerunBy` on the Campaign read model).
@@ -13,7 +13,10 @@
 //   2. an Apply original: the WPF-hosted store is left out of the pre-fill and named in a note, the
 //      mode starts Apply and the reason is empty;
 //   3. an offer with no target → no button;
-//   4. a viewer (no canOperate) sees the Re-run of / Re-run by links but no button.
+//   4. a viewer (no canOperate) sees the Re-run of / Re-run by links but no button;
+//   5. (865) a second click on an original whose first re-run holds two stores: N is smaller, the
+//      dialog pre-fills only the free store and names each held store with its re-run; putting a
+//      held store back is refused 422 DATASYNC_STORE_IN_LIVE_RERUN, shown as a sentence naming it.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/data-sync-rerun-drive.mjs          (DRIVE_PORT overrides 5199)
@@ -93,7 +96,19 @@ const offer = (mode) => ({
 
 const browser = await chromium.launch()
 
-async function open({ access = { screenAllowed: true, canOperate: true }, mode = 'ReportOnly', targets = true, created = false } = {}) {
+const FIRST_RERUN = '01JE4F6G8H0J2K4M6N8P0Q2R4S'
+// The answer once FIRST_RERUN (live) holds P003 and P001: only P007 is still offered (865).
+const heldOffer = (mode) => ({
+  ...offer(mode),
+  tables: ['dbo.Product', 'dbo.PriceList'],
+  targets: offer(mode).targets.filter((t) => t.code === 'P007'),
+  excluded: [
+    { client: '000', code: 'P003', rerunCampaignId: FIRST_RERUN },
+    { client: '000', code: 'P001', rerunCampaignId: FIRST_RERUN },
+  ],
+})
+
+async function open({ access = { screenAllowed: true, canOperate: true }, mode = 'ReportOnly', targets = true, created = false, held = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -116,12 +131,31 @@ async function open({ access = { screenAllowed: true, canOperate: true }, mode =
     if (p === 'DataSync/Profiles') return route.fulfill(envelope(PROFILES))
     if (p === 'DataSync/Campaigns' && method === 'POST') {
       posts.create.push(route.request().postDataJSON())
+      const asked = (route.request().postDataJSON().targets?.storeCodes ?? []).map((k) => k.code)
+      const clash = held ? heldOffer(mode).excluded.filter((e) => asked.includes(e.code)) : []
+      if (clash.length)
+        return route.fulfill(
+          envelope(null, {
+            status: 422,
+            success: false,
+            message: 'A store is already in a live re-run of this campaign.',
+            errors: [
+              {
+                errorCode: 'DATASYNC_STORE_IN_LIVE_RERUN',
+                internalErrorCode: 'DS-0422-07',
+                errorMessage:
+                  clash.map((e) => `${e.client}/${e.code} is in re-run ${e.rerunCampaignId}`).join('; ') +
+                  ` of campaign ${ORIG}; cancel that re-run or leave the store out.`,
+              },
+            ],
+          }),
+        )
       state.created = true
       return route.fulfill(envelope(newCampaign(), { status: 201, message: 'Campaign created.' }))
     }
     if (p === `DataSync/Campaigns/${ORIG}/RerunTargets`) {
       reads.rerunTargets++
-      return route.fulfill(envelope(targets ? offer(mode) : { ...offer(mode), tables: [], targets: [] }))
+      return route.fulfill(envelope(held ? heldOffer(mode) : targets ? offer(mode) : { ...offer(mode), tables: [], targets: [] }))
     }
     if (p === `DataSync/Campaigns/${NEW_ID}/RerunTargets`) return route.fulfill(envelope({ ...offer(mode), campaignId: NEW_ID, tables: [], targets: [] }))
     if (p === `DataSync/Campaigns/${ORIG}`)
@@ -245,6 +279,43 @@ const ticked = (dialog) =>
   check('4. a viewer sees Re-run by', (await page.locator('[data-field="rerunBy"]').count()) === 1)
   check('4. …but no New campaign from failed (and the offer is not read)', (await page.locator('[data-rerun-open]').count()) === 0 && reads.rerunTargets === 0)
   check('no page errors (viewer)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 5: a second click — the stores a live re-run holds are left out and named (865) ─────────────
+{
+  const { context, page, errors, posts } = await open({ held: true })
+  await page.goto(ORIG_PAGE)
+  const button = page.locator('[data-campaign-actions] [data-rerun-open]')
+  await button.waitFor({ timeout: 20000 })
+  check('5. N counts only the store no live re-run holds', (await button.getAttribute('data-rerun-open')) === '1', strip(await button.innerText()))
+  await button.click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-create-dialog]').waitFor({ timeout: 10000 })
+  check('5. only the free store is pre-filled', (await dialog.locator('[data-create-codes]').inputValue()) === 'P007')
+  const notes = dialog.locator('[data-rerun-excluded="2"]')
+  check(
+    '5. each held store is named with its re-run',
+    (await notes.locator('[data-rerun-excluded-store="P003"]').count()) === 1 &&
+      (await notes.locator('[data-rerun-excluded-store="P001"]').count()) === 1 &&
+      strip(await notes.locator('[data-rerun-excluded-store="P003"]').innerText()) === `P003 is already in re-run ${FIRST_RERUN}.`,
+    strip(await dialog.locator('[data-rerun-notes]').innerText()),
+  )
+  await page.screenshot({ path: `${SHOTS}/dialog-held.png` })
+  // The refusal is the guard: put a held store back and create anyway.
+  await dialog.locator('[data-create-codes]').fill('P007\nP003')
+  await dialog.locator('[data-create-submit]').click()
+  await until(page, () => posts.create.length === 1)
+  const refusal = dialog.locator('[data-create-refusal]')
+  await refusal.waitFor({ timeout: 10000 })
+  check(
+    '5. a create naming a held store is refused in words, naming it',
+    strip(await refusal.innerText()) === '000/P003 is already in a live re-run of this campaign. Remove it, or cancel that re-run, and create again.',
+    strip(await refusal.innerText()),
+  )
+  check('5. the dialog stays open on the refusal', (await dialog.locator('[data-create-dialog]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/dialog-held-refused.png` })
+  check('no page errors (second click)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

@@ -43,6 +43,19 @@ describe('rerunDraft', () => {
     expect(d.leftOutWpf).toEqual([])
   })
 
+  it('names the stores a live re-run holds in notes, never as targets (865)', () => {
+    const RERUN = '01JE4F6G8H0J2K4M6N8P0Q2R4S'
+    const excluded = [
+      { client: '000', code: 'P014', rerunCampaignId: RERUN },
+      { client: '000', code: 'P003', rerunCampaignId: RERUN },
+    ]
+    // The door already leaves them out of targets; a stale answer listing one in both still never targets it.
+    const d = rerunDraft(offer({ mode: 'ReportOnly', excluded }), PROFILE)
+    expect(d.codes).toEqual(['P007', 'P001'])
+    expect(d.excluded).toEqual(excluded)
+    expect(d.leftOutWpf).toEqual([])
+  })
+
   it('never ticks a table beyond the profile', () => {
     const d = rerunDraft(offer({ tables: ['dbo.Product', 'dbo.Gone'] }), PROFILE)
     expect(d.pickedTables).toEqual(['dbo.Product'])

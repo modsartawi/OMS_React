@@ -114,6 +114,7 @@ export type DataSyncErrorCode =
   | 'DATASYNC_STORE_WPF_HOSTED'
   | 'DATASYNC_MANIFEST_PRUNED'
   | 'DATASYNC_RERUN_PROFILE_MISMATCH' // spec 863: create with `rerunOf` naming a campaign of another profile
+  | 'DATASYNC_STORE_IN_LIVE_RERUN' // 865: create with `rerunOf` naming a store a live re-run of it already holds
 
 // ── Read models ─────────────────────────────────────────────────────────────────
 

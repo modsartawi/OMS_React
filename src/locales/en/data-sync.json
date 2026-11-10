@@ -380,7 +380,8 @@
       "someStore": "one of the stores",
       "someTable": "one of the tables",
       "DATASYNC_CAMPAIGN_NOT_FOUND": "The campaign this re-runs no longer exists. Close the dialog and start again from a campaign.",
-      "DATASYNC_RERUN_PROFILE_MISMATCH": "A re-run must use the original campaign's profile. Close the dialog and start again from the campaign."
+      "DATASYNC_RERUN_PROFILE_MISMATCH": "A re-run must use the original campaign's profile. Close the dialog and start again from the campaign.",
+      "DATASYNC_STORE_IN_LIVE_RERUN": "<v>{{store}}</v> is already in a live re-run of this campaign. Remove it, or cancel that re-run, and create again."
     }
   },
   "apply": {

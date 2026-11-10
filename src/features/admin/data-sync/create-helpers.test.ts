@@ -125,6 +125,17 @@ describe('createRefusalWords', () => {
     ).toEqual({ key: 'create.refusal.DATASYNC_TABLE_NOT_IN_PROFILE', table: 'dbo.Ghost' })
   })
 
+  it('names every store a live re-run already holds (865)', () => {
+    const detail =
+      '000/P014 is in re-run 01JE4F6G8H0J2K4M6N8P0Q2R4S; 000/P015 is in re-run 01JE4F6G8H0J2K4M6N8P0Q2R4S ' +
+      'of campaign 01JB2C9X4E6F8G0H1J3K5M7N9P; cancel that re-run or leave the store out.'
+    expect(createRefusalWords(refusal(422, 'DATASYNC_STORE_IN_LIVE_RERUN', detail))).toEqual({
+      key: 'create.refusal.DATASYNC_STORE_IN_LIVE_RERUN',
+      store: '000/P014, 000/P015',
+    })
+    expect(CREATE_REFUSAL_CODES).toContain('DATASYNC_STORE_IN_LIVE_RERUN')
+  })
+
   it('has no words for a code it does not know, a bare denial or a crash', () => {
     expect(createRefusalWords(refusal(409, 'SOMETHING_NEW'))).toBeNull()
     expect(createRefusalWords(new ApiError('unknown', 'HTTP 403', 403))).toBeNull()

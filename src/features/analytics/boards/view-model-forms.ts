@@ -8,6 +8,7 @@ import { mergeSeries, seriesColumnOf, seriesName, seriesOf, type NamedSeries } f
 import { viewMeasureOf, slotRuleFor, type ViewMeasure } from './view-model'
 import { dimensionOf, measureOf } from './wire'
 import { drawnResult, isTotalRow, splitThenTotals } from './unsplit'
+import type { TableWords } from './panel-table'
 
 /**
  * The result → view model for the donut, the table with cell bars, the heatmap and the combo
@@ -224,26 +225,28 @@ export interface TableView {
   empty: boolean
 }
 
+/**
+ * How a table form is drawn, beyond its answer: the screen's words (`./panel-table` {@link TableWords}, the same the
+ * downloads take — `series` 825, `previous` spec 3519 item 11, `all` and `tooltip` 864) and whether it keeps the rows
+ * as sent. Absent words read as the keys ('series', the previous key) and an empty "All".
+ */
+export interface TableViewOptions extends Partial<TableWords> {
+  /**
+   * 868 (BackOffice spec 3558 D5): the copilot's answer table is drawn AS SENT — the result's own row order (its
+   * `order`, or a running share's), no sort arrow and no top N; a header click still re-sorts in the grid.
+   */
+  asSent?: boolean
+}
+
 /** Any measures × 1–3 dimensions (755's table): sort, top N, cell bars on the numeric columns. */
 export function toTableView(
   result: AnalyticsQueryResult,
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
-  /** 825: the series column's header, in the screen's language. */
-  seriesHeader = 'series',
-  /** Spec 3519 item 11: a measure's previous-period column header, in the screen's language. */
-  previousHeader: (measure: string) => string = previousKey,
-  /** 864 (spec 3543 decision 12): what an "All" row's unsplit dimension reads, in the screen's language. */
-  allWord = '',
-  /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
-  tooltipOf?: (key: string) => string | undefined,
-  /**
-   * 868 (BackOffice spec 3558 D5): the copilot's answer table is drawn AS SENT — the result's own row order (its
-   * `order`, or a running share's), no sort arrow and no top N; a header click still re-sorts in the grid.
-   */
-  asSent = false,
+  options: TableViewOptions = {},
 ): TableView {
+  const { series: seriesHeader = 'series', previous: previousHeader = previousKey, all: allWord = '', tooltip: tooltipOf, asSent = false } = options
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
     : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)

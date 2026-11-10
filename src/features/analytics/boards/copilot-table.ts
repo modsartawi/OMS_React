@@ -2,7 +2,7 @@ import type { AnalyticsDimension, AnalyticsMeasure, AnalyticsModel, AnalyticsQue
 import { IS_TOTAL_KEY } from '@/core/models/analytics-calculations'
 import type { CopilotAnswerTable, CopilotTableRow } from '@/core/models/copilot'
 import { newViewLink, type EditorSeed } from './editor'
-import { panelTable, type PanelTable } from './panel-table'
+import { panelTable, type PanelTable, type TableWords } from './panel-table'
 import { toTableView, type TableView } from './view-model-forms'
 import { readDefinition, readResult } from './wire'
 
@@ -38,23 +38,15 @@ function keyedRows(table: CopilotAnswerTable, rows: readonly CopilotTableRow[]):
   })
 }
 
-const queryOf = (table: CopilotAnswerTable): Record<string, unknown> =>
-  table.query && typeof table.query === 'object' && !Array.isArray(table.query) ? table.query : {}
+/** The running share's `within` dimensions (read through `readDefinition`): the keys a parent's values come in. */
+const withinOf = (definition: AnalyticsViewDefinition): string[] =>
+  definition.query.calculations?.find((c) => c.kind === 'cumulativeShare')?.within ?? []
 
-/** The running share's `within` dimensions: the keys a parent's values come in. */
-function withinOf(table: CopilotAnswerTable): string[] {
-  const calculations = queryOf(table).calculations
-  if (!Array.isArray(calculations)) return []
-  const cut = calculations.find((c) => c && typeof c === 'object' && (c as { kind?: unknown }).kind === 'cumulativeShare')
-  const within = cut ? (cut as { within?: unknown }).within : null
-  return Array.isArray(within) ? within.filter((k): k is string => typeof k === 'string') : []
-}
-
-function untilReachedOf(table: CopilotAnswerTable): unknown {
+function untilReachedOf(table: CopilotAnswerTable, definition: AnalyticsViewDefinition): unknown {
   const notes = table.notes ?? null
   const byParent = notes?.untilReachedByParent
   if (Array.isArray(byParent) && byParent.length) {
-    const within = withinOf(table)
+    const within = withinOf(definition)
     return byParent.map((p) => ({
       parent: Object.fromEntries(within.map((k, i) => [k, p.parent?.[i] ?? ''])),
       reached: p.reached,
@@ -63,8 +55,8 @@ function untilReachedOf(table: CopilotAnswerTable): unknown {
   return notes?.untilReached ?? undefined
 }
 
-/** The table read as the analytics query result a view panel draws. */
-export function copilotTableResult(table: CopilotAnswerTable): AnalyticsQueryResult {
+/** The table read as the analytics query result a view panel draws; `definition` is {@link copilotTableDefinition}'s. */
+export function copilotTableResult(table: CopilotAnswerTable, definition: AnalyticsViewDefinition = copilotTableDefinition(table)): AnalyticsQueryResult {
   const columns = table.columns ?? []
   return readResult({
     columns: columns.map((c) => ({
@@ -82,7 +74,7 @@ export function copilotTableResult(table: CopilotAnswerTable): AnalyticsQueryRes
     period: table.periodFrom || table.periodTo ? { from: table.periodFrom, to: table.periodTo } : null,
     previous: keyedRows(table, table.previous ?? []),
     dataAsOf: table.dataAsOf,
-    untilReached: untilReachedOf(table),
+    untilReached: untilReachedOf(table, definition),
     notSplit: table.notes?.notSplit ?? undefined,
     notFiltered: table.notes?.notFiltered ?? undefined,
   })
@@ -91,10 +83,13 @@ export function copilotTableResult(table: CopilotAnswerTable): AnalyticsQueryRes
 /**
  * The table's query as a table view's definition: the `semantic_query` input it ran, its first `order` as the table's
  * sort (a view query has no `order`). What the table is drawn with, and what "Open as view" seeds the editor with.
+ *
+ * A table view sorts by ONE key (`chart.sort`), so a second `order` key does not survive "Open as view": the view
+ * sorts by the first, its ties in the server's order. The answer's own table is drawn as sent, so it keeps them all.
  */
 export function copilotTableDefinition(table: CopilotAnswerTable): AnalyticsViewDefinition {
-  const { order, show: _show, ...query } = queryOf(table)
-  const first = Array.isArray(order) ? (order[0] as { key?: unknown; direction?: unknown } | undefined) : undefined
+  const { order, show: _show, ...query } = table.query ?? {}
+  const first = Array.isArray(order) ? order[0] : undefined
   const sort = first && typeof first.key === 'string' ? { key: first.key, direction: first.direction === 'asc' ? 'asc' : 'desc' } : null
   return readDefinition({ chart: { type: 'table', ...(sort ? { sort } : {}) }, query })
 }
@@ -135,36 +130,33 @@ export function copilotTableModel(table: CopilotAnswerTable, model: AnalyticsMod
   }
 }
 
-/** The words a table takes from the `boards` locale, in the screen's language. */
-export interface CopilotTableWords {
-  series: string
-  previous: (measure: string) => string
-  /** What an "All" row's unsplit dimension reads. */
-  all: string
-  tooltip?: (key: string) => string | undefined
+/**
+ * A table read once into what it is drawn with: its result, its definition and the model headed by the wire's labels.
+ * The embed memoises each; the view, the downloads and "Open as view" take them as read.
+ */
+export interface CopilotTableParts {
+  result: AnalyticsQueryResult
+  definition: AnalyticsViewDefinition
+  model: AnalyticsModel
+}
+
+/** {@link CopilotTableParts} for a table, over the analytics model (may be empty while it loads). */
+export function copilotTableParts(table: CopilotAnswerTable, model: AnalyticsModel): CopilotTableParts {
+  const definition = copilotTableDefinition(table)
+  return { result: copilotTableResult(table, definition), definition, model: copilotTableModel(table, model) }
 }
 
 /** The table form's view model: every row, as sent, the "All" rows last, headed by the wire's labels. */
-export function copilotTableView(table: CopilotAnswerTable, model: AnalyticsModel, lang: string, words: CopilotTableWords): TableView {
-  return toTableView(
-    copilotTableResult(table),
-    copilotTableDefinition(table),
-    copilotTableModel(table, model),
-    lang,
-    words.series,
-    words.previous,
-    words.all,
-    words.tooltip,
-    true,
-  )
+export function copilotTableView(parts: CopilotTableParts, lang: string, words: TableWords): TableView {
+  return toTableView(parts.result, parts.definition, parts.model, lang, { ...words, asSent: true })
 }
 
 /** What the CSV and xlsx downloads write (`./panel-table`): every row as sent, the "All" rows last, the wire's headers. */
-export function copilotTableDownload(table: CopilotAnswerTable, model: AnalyticsModel, lang: string, words: CopilotTableWords): PanelTable {
-  return panelTable(copilotTableResult(table), copilotTableDefinition(table), copilotTableModel(table, model), lang, words)
+export function copilotTableDownload(parts: CopilotTableParts, lang: string, words: TableWords): PanelTable {
+  return panelTable(parts.result, parts.definition, parts.model, lang, words)
 }
 
-/** "Open as view": the view editor, seeded with the table's query as a table (`./editor` `newViewLink`, route state). */
-export function copilotTableOpenAsView(table: CopilotAnswerTable): { to: string; state: { editorSeed: EditorSeed } | null } {
-  return newViewLink({ definition: copilotTableDefinition(table) })
+/** "Open as view": the view editor, seeded with the table's definition (`./editor` `newViewLink`, route state). */
+export function copilotTableOpenAsView(definition: AnalyticsViewDefinition): { to: string; state: { editorSeed: EditorSeed } | null } {
+  return newViewLink({ definition })
 }

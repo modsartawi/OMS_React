@@ -118,7 +118,7 @@ describe('"All" rows are listed last in the table and the exports', () => {
     ])
   })
   it('the table form sorts and cuts the split rows only, then lists every "All" row, never clickable', () => {
-    const v = toTableView(crossResult(), crossDef('table', ['region', 'category'], { sort: { key: 'till_sales', direction: 'desc' }, topN: 2 }), MODEL, 'en', 'Series', undefined, 'All')
+    const v = toTableView(crossResult(), crossDef('table', ['region', 'category'], { sort: { key: 'till_sales', direction: 'desc' }, topN: 2 }), MODEL, 'en', { series: 'Series', all: 'All' })
     expect(v.rows.map((r) => [r.region, r.category, r.till_sales, r.deliveries])).toEqual([
       ['Central', 'otc', 30, null],
       ['Eastern', 'rx', 20, null],
@@ -227,7 +227,7 @@ describe('dateBasis in the column header tooltip of a cross-area panel (decision
   it('the panel table and the table form put it on the column', () => {
     const t = panelTable(crossResult(), crossDef('bar'), MODEL, 'en', { series: 'Series', all: 'All', tooltip: (k) => columnTooltip(k, crossResult(), MODEL, 'en', noteWords(en)) })
     expect(t.columns.find((c) => c.key === 'till_sales')?.tooltip).toBe('By business date')
-    const v = toTableView(crossResult(), crossDef('table'), MODEL, 'en', 'Series', undefined, 'All', (k) => columnTooltip(k, crossResult(), MODEL, 'en', noteWords(en)))
+    const v = toTableView(crossResult(), crossDef('table'), MODEL, 'en', { series: 'Series', all: 'All', tooltip: (k) => columnTooltip(k, crossResult(), MODEL, 'en', noteWords(en)) })
     expect(v.columns.find((c) => c.key === 'deliveries')?.tooltip).toBe('By the day the delivery was created')
   })
 })

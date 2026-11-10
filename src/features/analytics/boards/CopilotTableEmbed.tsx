@@ -13,7 +13,7 @@ import { writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { listText } from '@/core/util/list-format'
 import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi } from './api'
-import AreaNotes, { useAreaNoteWords } from './AreaNotes'
+import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
 import {
   copilotTableDefinition,
   copilotTableDownload,
@@ -21,9 +21,9 @@ import {
   copilotTableOpenAsView,
   copilotTableResult,
   copilotTableView,
-  type CopilotTableWords,
+  type CopilotTableParts,
 } from './copilot-table'
-import { panelCsv, panelFileBase, panelSheet } from './panel-table'
+import { panelCsv, panelFileBase, panelSheet, stamped, type TableWords } from './panel-table'
 import { columnTooltip } from './unsplit'
 import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
@@ -45,24 +45,25 @@ export default function CopilotTableEmbed({ table }: { table: CopilotAnswerTable
   const author = canAuthorAnalytics(useQuery(analyticsAccessQuery()).data)
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false }).data ?? NO_MODEL
   const noteWords = useAreaNoteWords()
+  const tableWords = useTableWords()
 
-  const result = useMemo(() => copilotTableResult(table), [table])
+  // Read once (review item 7): the table form, the downloads and "Open as view" all take these.
   const definition = useMemo(() => copilotTableDefinition(table), [table])
+  const result = useMemo(() => copilotTableResult(table, definition), [table, definition])
   const drawing = useMemo(() => copilotTableModel(table, model), [table, model])
-  const words: CopilotTableWords = {
-    series: t('view.seriesColumn'),
-    previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }),
-    all: t('view.allMembers'),
-    tooltip: (key) => columnTooltip(key, result, drawing, lang, noteWords),
-  }
-  const view = copilotTableView(table, model, lang, words)
+  const parts: CopilotTableParts = useMemo(() => ({ result, definition, model: drawing }), [result, definition, drawing])
+  const words: TableWords = useMemo(
+    () => ({ ...tableWords, tooltip: (key: string) => columnTooltip(key, result, drawing, lang, noteWords) }),
+    [tableWords, result, drawing, lang, noteWords],
+  )
+  const view = useMemo(() => copilotTableView(parts, lang, words), [parts, lang, words])
 
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const base = panelFileBase(`copilot-${table.step}`)
-  const download = () => copilotTableDownload(table, model, lang, words)
+  const download = () => copilotTableDownload(parts, lang, words)
   const openAsView = () => {
-    const link = copilotTableOpenAsView(table)
+    const link = copilotTableOpenAsView(definition)
     navigate(link.to, { state: link.state })
   }
 
@@ -82,7 +83,7 @@ export default function CopilotTableEmbed({ table }: { table: CopilotAnswerTable
         <Button
           variant="ghost"
           className="h-7 px-2 text-xs"
-          onClick={() => downloadCsv(xlsxFileName(base).replace(/\.xlsx$/, '.csv'), panelCsv(download()))}
+          onClick={() => downloadCsv(stamped(base, 'csv'), panelCsv(download()))}
           data-copilot-table-action="csv"
         >
           <FileText className="size-3.5" aria-hidden />

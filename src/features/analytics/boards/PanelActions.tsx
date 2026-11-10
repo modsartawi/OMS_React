@@ -7,14 +7,14 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { fsi } from '@/core/util/bidi'
 import { copyText } from '@/core/util/copy-text'
 import { downloadCsv, saveBlob } from '@/core/util/download-file'
 import { writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { useNow } from './panel-hooks'
 import { chartPng, drawsAsPicture } from './panel-png'
 import { fetchedAgo, isBehind } from './panel-state'
-import { panelCsv, panelFileBase, panelSheet, panelTable } from './panel-table'
+import { panelCsv, panelFileBase, panelSheet, panelTable, stamped } from './panel-table'
+import { useTableWords } from './AreaNotes'
 import { useCalculatedModel } from './use-calculations'
 
 /**
@@ -48,8 +48,6 @@ export interface PanelActionsProps {
   permalink: () => string
 }
 
-const stamped = (base: string, ext: string) => xlsxFileName(base).replace(/\.xlsx$/, `.${ext}`)
-
 export default memo(function PanelActions(p: PanelActionsProps) {
   const { t } = useTranslation('boards')
   const now = useNow()
@@ -60,13 +58,9 @@ export default memo(function PanelActions(p: PanelActionsProps) {
   const base = panelFileBase(p.viewId)
   // 861: the downloads carry the calculated columns under their labels.
   const shown = useCalculatedModel(p.model, p.definition, result, lang)
-  const table = () =>
-    panelTable(result!, p.definition, shown, lang, {
-      series: t('view.seriesColumn'),
-      previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }),
-      // 864 (spec 3543 decision 12): a cross-area answer's "All" rows are written last, the unsplit dimension "All".
-      all: t('view.allMembers'),
-    })
+  // 864 (spec 3543 decision 12): a cross-area answer's "All" rows are written last, the unsplit dimension "All".
+  const tableWords = useTableWords()
+  const table = () => panelTable(result!, p.definition, shown, lang, tableWords)
 
   const picture = drawsAsPicture(p.definition.chart.type)
   const pngReason = !picture ? t('panel.pngUnavailable') : p.table ? t('panel.pngTableView') : null

@@ -13,7 +13,7 @@ import { FSI, PDI } from '@/core/util/bidi'
 import { untilNote } from './calculations'
 import { NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { readEditorSeed } from './editor'
-import { copilotTableDefinition, copilotTableDownload, copilotTableOpenAsView, copilotTableModel, copilotTableResult, copilotTableView } from './copilot-table'
+import { copilotTableDefinition, copilotTableDownload, copilotTableOpenAsView, copilotTableModel, copilotTableParts, copilotTableResult, copilotTableView } from './copilot-table'
 import { panelCsv } from './panel-table'
 import TruncatedNote from './TruncatedNote'
 import { areaNotes, type AreaNoteWords } from './unsplit'
@@ -57,7 +57,7 @@ const ROWS_152 = Array.from({ length: 152 }, (_, i) => ({ values: [`C${String(i)
 
 describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
   it('a152RowTable_rendersEveryRow_inTheOrderSent_unsorted', () => {
-    const view = copilotTableView(table({ rows: ROWS_152, total: 152 }), EMPTY_MODEL, 'en', WORDS)
+    const view = copilotTableView(copilotTableParts(table({ rows: ROWS_152, total: 152 }), EMPTY_MODEL), 'en', WORDS)
     expect(view.rows).toHaveLength(152)
     expect(view.rows.slice(0, 3)).toEqual([
       { city: 'C000', deliveries: 7 },
@@ -79,8 +79,8 @@ describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
 
   it('columnLabels_areTheWiresInTheScreensLanguage', () => {
     const t = table({ rows: ROWS_152.slice(0, 2) })
-    expect(copilotTableView(t, EMPTY_MODEL, 'en', WORDS).columns.map((c) => c.label)).toEqual(['City', 'Deliveries'])
-    expect(copilotTableView(t, EMPTY_MODEL, 'ar', WORDS).columns.map((c) => c.label)).toEqual(['المدينة', 'التوصيلات'])
+    expect(copilotTableView(copilotTableParts(t, EMPTY_MODEL), 'en', WORDS).columns.map((c) => c.label)).toEqual(['City', 'Deliveries'])
+    expect(copilotTableView(copilotTableParts(t, EMPTY_MODEL), 'ar', WORDS).columns.map((c) => c.label)).toEqual(['المدينة', 'التوصيلات'])
   })
 
   describe('notes and "All" rows, as on a view panel', () => {
@@ -142,13 +142,13 @@ describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
     })
 
     it('allRows_areListedLast_onScreenAndInTheDownloads', () => {
-      const view = copilotTableView(crossArea, EMPTY_MODEL, 'en', WORDS)
+      const view = copilotTableView(copilotTableParts(crossArea, EMPTY_MODEL), 'en', WORDS)
       expect(view.rows).toEqual([
         { region: 'E', category: 'otc', till_sales: 10, deliveries: null },
         { region: 'W', category: 'rx', till_sales: 3, deliveries: null },
         { region: 'E', category: 'All', till_sales: null, deliveries: 4 },
       ])
-      const csv = panelCsv(copilotTableDownload(crossArea, EMPTY_MODEL, 'en', WORDS))
+      const csv = panelCsv(copilotTableDownload(copilotTableParts(crossArea, EMPTY_MODEL), 'en', WORDS))
       expect(csv.split('\r\n')).toEqual(['﻿Region,Category,Till sales,Deliveries', 'E,otc,10,', 'W,rx,3,', 'E,All,,4', ''])
     })
   })
@@ -181,7 +181,7 @@ describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
       limit: 10,
       compareToPrevious: true,
     }
-    const link = copilotTableOpenAsView(table({ query }))
+    const link = copilotTableOpenAsView(copilotTableDefinition(table({ query })))
     expect(link.to).toBe(NEW_VIEW_PATH)
     const seed = readEditorSeed(link.state)
     expect(seed?.definition).toEqual({

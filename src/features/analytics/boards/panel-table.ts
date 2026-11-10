@@ -1,7 +1,7 @@
 import type { TableChartColumn } from '@/core/charts/TableChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { stripIsolates } from '@/core/util/bidi'
-import type { XlsxSheet } from '@/core/util/grid-xlsx'
+import { xlsxFileName, type XlsxSheet } from '@/core/util/grid-xlsx'
 import { saysIn } from '@/core/rules/sentence'
 import { measureKeysOf } from './calculations'
 import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
@@ -30,6 +30,24 @@ export interface PanelTable {
   rows: Record<string, Cell>[]
 }
 
+/** A download's file name: the base, stamped with the local date and time, and the extension (`csv`, `png`, …). */
+export const stamped = (base: string, ext: string): string => xlsxFileName(base).replace(/\.xlsx$/, `.${ext}`)
+
+/**
+ * The words a table takes, in the screen's language (`./AreaNotes` `useTableWords` for the first three): the table form
+ * (`./view-model-forms` `toTableView`) and the downloads ({@link panelTable}) alike.
+ */
+export interface TableWords {
+  /** 825: the series column's header. */
+  series: string
+  /** Spec 3519 item 11: a measure's previous-period column header. */
+  previous?: (measure: string) => string
+  /** 864 (spec 3543 decision 12): what an "All" row's unsplit dimension reads. */
+  all?: string
+  /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
+  tooltip?: (key: string) => string | undefined
+}
+
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
 /**
@@ -42,14 +60,7 @@ export function panelTable(
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
-  words: {
-    series: string
-    previous?: (measure: string) => string
-    /** 864: what an "All" row's unsplit dimension reads. */
-    all?: string
-    /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
-    tooltip?: (key: string) => string | undefined
-  } = { series: 'series' },
+  words: TableWords = { series: 'series' },
 ): PanelTable {
   const named = seriesOf(definition)
   const seriesKey = seriesColumnOf(result.columns)

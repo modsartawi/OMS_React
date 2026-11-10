@@ -11,7 +11,7 @@ import { listText } from '@/core/util/list-format'
 import { panelFailure, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
-import AreaNotes, { useAreaNoteWords } from './AreaNotes'
+import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
 import UntilNote from './UntilNote'
 import { columnTooltip } from './unsplit'
 import { useCalculatedModel } from './use-calculations'
@@ -135,21 +135,14 @@ export default function PanelBody({
 
 function PanelTableView({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
   const { t: tc } = useTranslation('common')
-  const { t } = useTranslation('boards')
-  const seriesHeader = t('view.seriesColumn')
   // 861: calculated columns are measures, labelled in the viewer's language.
   const shown = useCalculatedModel(model, definition, result, lang)
   const noteWords = useAreaNoteWords()
+  const tableWords = useTableWords()
+  // 864 (spec 3543 decisions 12, 14): "All" rows last, and a cross-area column's date basis on its header.
   const view = useMemo(
-    () =>
-      panelTable(result, definition, shown, lang, {
-        series: seriesHeader,
-        previous: (measure) => t('view.previousColumn', { measure: fsi(measure) }),
-        // 864 (spec 3543 decisions 12, 14): "All" rows last, and a cross-area column's date basis on its header.
-        all: t('view.allMembers'),
-        tooltip: (key) => columnTooltip(key, result, shown, lang, noteWords),
-      }),
-    [result, definition, shown, lang, seriesHeader, t, noteWords],
+    () => panelTable(result, definition, shown, lang, { ...tableWords, tooltip: (key) => columnTooltip(key, result, shown, lang, noteWords) }),
+    [result, definition, shown, lang, tableWords, noteWords],
   )
   const measures = view.columns.filter((c) => c.role === 'measure').map((c) => c.label)
   const dims = view.columns.filter((c) => c.role === 'dimension').map((c) => c.label)

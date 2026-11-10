@@ -88,7 +88,7 @@ describe('compare with the previous period: where it is offered', () => {
 
 describe('a table compared with the previous period', () => {
   it('the table form puts a previous column after each measure, matched by member', () => {
-    const view = toTableView(answer(ROWS, PREVIOUS), byRegion('table'), MODEL, 'en', 'Series', PREVIOUS_HEADER)
+    const view = toTableView(answer(ROWS, PREVIOUS), byRegion('table'), MODEL, 'en', { series: 'Series', previous: PREVIOUS_HEADER })
     expect(view.columns.map((c) => [c.key, c.label])).toEqual([
       ['region', 'Region'],
       ['orders', 'Orders'],

@@ -266,7 +266,17 @@ export interface CopilotAnswerTable {
   dataAsOf: string
   notes: CopilotTableNotes
   /** The `semantic_query` input it ran (the `show` mark taken off): what "Open as view" seeds the editor with. */
-  query: Record<string, unknown>
+  query: CopilotTableQuery
+}
+
+/**
+ * The `semantic_query` input a table ran: a view query (read through the analytics wire's `readDefinition`) plus the
+ * tool's own `order` (a view sorts by its chart's one key instead) and `show` mark.
+ */
+export interface CopilotTableQuery {
+  order?: { key: string; direction?: string | null }[] | null
+  show?: unknown
+  [field: string]: unknown
 }
 
 export interface CopilotTableColumn {

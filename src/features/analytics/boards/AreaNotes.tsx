@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { fsi } from '@/core/util/bidi'
+import type { TableWords } from './panel-table'
 import { areaNotes, type AreaNoteWords } from './unsplit'
 
 /** 864: the cross-area notes' words (`boards:view.unsplit.*`) in the screen's language. */
@@ -12,6 +14,23 @@ export function useAreaNoteWords(): AreaNoteWords {
       notFiltered: (v) => t('view.unsplit.notFiltered', v),
       totalIn: (v) => t('view.unsplit.totalIn', v),
       total: (v) => t('view.unsplit.total', v),
+    }),
+    [t],
+  )
+}
+
+/**
+ * A table's words (`boards:view.*`) in the screen's language: the series column's header, a measure's previous-period
+ * header and an "All" row's unsplit dimension. The table form and the downloads take them alike; a column tooltip is
+ * the caller's (it needs the answer).
+ */
+export function useTableWords(): Required<Pick<TableWords, 'series' | 'previous' | 'all'>> {
+  const { t } = useTranslation('boards')
+  return useMemo(
+    () => ({
+      series: t('view.seriesColumn'),
+      previous: (measure: string) => t('view.previousColumn', { measure: fsi(measure) }),
+      all: t('view.allMembers'),
     }),
     [t],
   )

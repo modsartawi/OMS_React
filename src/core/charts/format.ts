@@ -28,18 +28,23 @@ const OPTIONS: Record<MeasureUnit, Intl.NumberFormatOptions> = {
   seconds: { style: 'unit', unit: 'second', unitDisplay: 'short', maximumFractionDigits: 0 },
   km: { style: 'unit', unit: 'kilometer', unitDisplay: 'short', maximumFractionDigits: 1 },
   share: { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 },
+  // Percent points (spec 3519 D2): scaled to a fraction before `Intl` formats it, so it reads like a share.
+  percent: { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 },
 }
+
+/** `Intl`'s percent style multiplies by 100; a `percent` value is already in points. */
+const scaled = (value: number, unit: MeasureUnit): number => (unit === 'percent' ? value / 100 : value)
 
 /** One value as a tooltip or a label says it. `''` for no value. */
 export function formatValue(value: number | null | undefined, unit: MeasureUnit, locale: string): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return ''
-  return nf(locale, OPTIONS[unit] ?? OPTIONS.count).format(value)
+  return nf(locale, OPTIONS[unit] ?? OPTIONS.count).format(scaled(value, unit))
 }
 
 /** A value-axis tick: compact (`12K`), and a share as a whole percent. */
 export function formatTick(value: number, unit: MeasureUnit, locale: string): string {
   if (!Number.isFinite(value)) return ''
-  if (unit === 'share') return nf(locale, { style: 'percent', maximumFractionDigits: 0 }).format(value)
+  if (unit === 'share' || unit === 'percent') return nf(locale, { style: 'percent', maximumFractionDigits: 0 }).format(scaled(value, unit))
   return nf(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(value)
 }
 
@@ -83,12 +88,12 @@ export function formatAs(
 ): string {
   if (!format || format === 'auto') return formatValue(value, unit, locale)
   if (typeof value !== 'number' || !Number.isFinite(value)) return ''
-  return nf(locale, FORMAT_OPTIONS[format]).format(value)
+  return nf(locale, FORMAT_OPTIONS[format]).format(format === 'percent' ? scaled(value, unit) : value)
 }
 
 /** A value-axis tick in the definition's format: compact, and a percent as a whole percent. */
 export function formatTickAs(value: number, format: AnalyticsNumberFormat | null | undefined, unit: MeasureUnit, locale: string): string {
-  return formatTick(value, format === 'percent' ? 'share' : unit, locale)
+  return formatTick(format === 'percent' ? scaled(value, unit) : value, format === 'percent' ? 'share' : unit, locale)
 }
 
 /** A day (`yyyy-MM-dd`) as a short axis label (`1 Nov`); anything else as it came. */

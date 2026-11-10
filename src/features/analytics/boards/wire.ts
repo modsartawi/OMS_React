@@ -23,6 +23,7 @@ import type {
   Bindings,
   Param,
 } from '@/core/models/analytics'
+import { readCalculations, readColumnCalculation, readUntilReached } from '@/core/models/analytics-calculations'
 import { readAudience } from './audience'
 
 /**
@@ -97,7 +98,13 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
   const r = obj(raw)
   const period = obj(r.period)
   return {
-    columns: arr(r.columns),
+    // 861: a calculated column's `calculation` is read tolerantly; every other column passes through as it came.
+    columns: arr<unknown>(r.columns).map((c) => {
+      const col = obj(c) as unknown as AnalyticsQueryResult['columns'][number]
+      if (!('calculation' in col)) return col
+      const calculation = readColumnCalculation(col.calculation)
+      return { ...col, calculation }
+    }),
     rows: arr<AnalyticsRow>(r.rows),
     total: typeof r.total === 'number' ? r.total : 0,
     truncated: r.truncated === true,
@@ -108,6 +115,8 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     // 823: each entry must name its parameter; anything else is left out.
     notReached: arr<unknown>(r.notReached).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param), reason: str(n.reason) })),
     fellBack: arr<unknown>(r.fellBack).map(obj).filter((n) => !!str(n.param)).map((n) => ({ param: str(n.param) })),
+    // 861 (spec 3519 D7): absent stays absent, so a result without a running-share cut is the shape it always was.
+    ...(readUntilReached(r.untilReached) === undefined ? {} : { untilReached: readUntilReached(r.untilReached) }),
   }
 }
 
@@ -121,7 +130,8 @@ function readSeries(raw: unknown): AnalyticsSeries[] {
 
 export function readDefinition(raw: unknown): AnalyticsViewDefinition {
   const d = obj(raw)
-  const q = obj(d.query)
+  const { calculations: rawCalculations, ...q } = obj(d.query)
+  const calculations = readCalculations(rawCalculations)
   const chart = obj(d.chart)
   return {
     ...(d as object),
@@ -133,6 +143,8 @@ export function readDefinition(raw: unknown): AnalyticsViewDefinition {
       measures: arr<string>(q.measures),
       dimensions: arr<string>(q.dimensions),
       filters: arr(q.filters),
+      // 861: absent (or empty) stays absent, so a definition without calculations keeps its old shape.
+      ...(calculations ? { calculations } : {}),
     },
   } as AnalyticsViewDefinition
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
@@ -10,10 +10,20 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { DATA_SYNC_PAGE_SIZE, JOB_STATUSES, type Campaign, type Job, type JobStatus } from '@/core/models/data-sync'
+import { useDebounced } from '@/core/util/use-debounced'
+import {
+  DATA_SYNC_PAGE_SIZE,
+  JOB_FAILURE_REASONS,
+  JOB_STATUSES,
+  type Campaign,
+  type Job,
+  type JobFailureReason,
+  type JobStatus,
+} from '@/core/models/data-sync'
 import {
   campaignJobsKey,
   campaignJobsQuery,
@@ -30,7 +40,14 @@ import { CampaignControls, jobDrawerControls, jobRowControls, useCanOperateDataS
 import { useChangesLinkFooter } from './ChangesLink'
 import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { buildJobColumns } from './job-columns'
-import { campaignJobsFromParams, campaignJobsToParams, isDataSyncNotFound, pollInterval } from './job-helpers'
+import {
+  campaignJobsFromParams,
+  campaignJobsToParams,
+  changeJobsFilter,
+  isDataSyncNotFound,
+  jobsEmptyKey,
+  pollInterval,
+} from './job-helpers'
 import HandBackButton from './HandBack'
 import JobDrawer from './JobDrawer'
 import Pager from './Pager'
@@ -40,8 +57,8 @@ import StartCampaignButton from './StartCampaignButton'
 /**
  * One campaign's page (spec 558, ticket 560) — `/admin/data-sync/campaigns/:campaignId`.
  *
- * The header and rollup, the jobs grid (one row per store, 50 a page, a job-status filter kept in
- * the URL) and the job drawer (`?job=`). Campaign, jobs and the open job refetch every 5 s while
+ * The header and rollup, the jobs grid (one row per store, 50 a page; a job-status filter, a store
+ * search and a failure-reason filter (867) kept in the URL) and the job drawer (`?job=`). Campaign, jobs and the open job refetch every 5 s while
  * any job is non-terminal and the tab is visible (`pollInterval`); a 404 shows a not-found state.
  * Pause / Resume / Cancel (563, `./Controls`) show for holders of `DataSync.Operate` only.
  */
@@ -59,7 +76,18 @@ const jobId = ({ data }: { data: Job }) => data.jobId
 function CampaignView() {
   const { t } = useTranslation('data-sync')
   const { campaignId = '' } = useParams()
-  const { query: view, update } = useUrlQuery(campaignJobsFromParams, campaignJobsToParams)
+  const { query: view, update, changedFromOutside } = useUrlQuery(campaignJobsFromParams, campaignJobsToParams)
+  // The store search is a draft beside the address, so typing never waits on a navigation; it reaches
+  // the address (and the door) once typing stops. Back or a pasted link moves the draft to the address's.
+  const [storeDraft, setStoreDraft] = useState(view.store)
+  const storeSearch = useDebounced(storeDraft.trim(), 300)
+  useEffect(() => {
+    update((v) => changeJobsFilter(v, { store: storeSearch }))
+    // Only the debounced draft drives this; the view it changes is the latest one written.
+  }, [storeSearch])
+  useEffect(() => {
+    if (changedFromOutside()) setStoreDraft(view.store)
+  }, [view.store, changedFromOutside])
   const profiles = useQuery(profilesQuery())
 
   // The campaign and the page of jobs decide together whether to keep polling, from what the
@@ -178,9 +206,21 @@ function CampaignView() {
           <h2 id="ds-jobs-heading" className="me-auto text-sm font-semibold">
             {t('jobs.heading')}
           </h2>
+          <Input
+            type="search"
+            value={storeDraft}
+            onChange={(e) => setStoreDraft(e.target.value)}
+            aria-label={t('jobs.store')}
+            placeholder={t('jobs.storePlaceholder')}
+            maxLength={64}
+            dir="ltr"
+            wrapperClassName="w-44"
+            className="font-mono"
+            data-job-store-search=""
+          />
           <Select
             value={view.status ?? ''}
-            onChange={(e) => update((v) => ({ ...v, status: (e.target.value || null) as JobStatus | null, page: 1 }))}
+            onChange={(e) => update((v) => changeJobsFilter(v, { status: (e.target.value || null) as JobStatus | null }))}
             aria-label={t('jobs.status')}
             data-job-status-filter=""
           >
@@ -188,6 +228,19 @@ function CampaignView() {
             {JOB_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(`jobStatus.${s}`)}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={view.failureReason ?? ''}
+            onChange={(e) => update((v) => changeJobsFilter(v, { failureReason: (e.target.value || null) as JobFailureReason | null }))}
+            aria-label={t('jobs.failureReason')}
+            data-job-failure-filter=""
+          >
+            <option value="">{t('jobs.failureReasonAny')}</option>
+            {JOB_FAILURE_REASONS.map((r) => (
+              <option key={r} value={r}>
+                {t(`failureReason.${r}`)}
               </option>
             ))}
           </Select>
@@ -205,7 +258,7 @@ function CampaignView() {
             <div className="overflow-hidden rounded-md border border-border/60">
               {rows.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground" data-jobs-empty="">
-                  {t(view.page > 1 ? 'jobs.emptyPage' : view.status ? 'jobs.emptyFiltered' : 'jobs.empty')}
+                  {t(jobsEmptyKey(view))}
                 </p>
               ) : (
                 <div className="h-[28rem]" data-jobs-grid="">

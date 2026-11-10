@@ -103,6 +103,9 @@ import materialsDetailAr from '@/locales/ar/materials-detail.json'
 // 446–449 add their keys here rather than minting a second namespace.
 import syncConsole from '@/locales/en/sync-console.json'
 import dataSync from '@/locales/en/data-sync.json'
+// DataSync's Arabic is PARTIAL (spec 863 is its first key set: the jobs list's store search and failure-reason
+// filter, ticket 867); every key not in it falls back to English through `fallbackLng`.
+import dataSyncAr from '@/locales/ar/data-sync.json'
 // The SAP export console (BackOffice spec 2579, ticket 461). Namespace == feature name, and ENGLISH
 // ONLY like the sync console (spec 2579 Out of Scope: no Arabic UI), so there is no `ar` bundle.
 // 462–465 add their keys here rather than minting a second namespace.
@@ -355,6 +358,7 @@ i18n.use(initReactI18next).init({
       'doc-type-config': docTypeConfigAr,
       'loy-groups': loyGroupsAr,
       'release-queue': releaseQueueAr,
+      'data-sync': dataSyncAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       boards: boardsAr,

@@ -412,6 +412,9 @@
   },
   "view": {
     "title": "Analytics view",
+    "paneTitle": "{{measures}}",
+    "paneTitleUnit": "{{measures}} ({{unit}})",
+    "paneUnit": { "SAR": "SAR", "minutes": "minutes", "seconds": "seconds", "km": "km" },
     "subtitle": "One chart over the governed analytics model.",
     "generatedTitle": "{{measure}} by {{dimension}}",
     "dataAsOf": "Data as of <at>{{at}}</at>",

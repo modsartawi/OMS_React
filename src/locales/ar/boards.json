@@ -416,6 +416,9 @@
   },
   "view": {
     "title": "عرض تحليلي",
+    "paneTitle": "{{measures}}",
+    "paneTitleUnit": "{{measures}} ({{unit}})",
+    "paneUnit": { "SAR": "ر.س", "minutes": "دقائق", "seconds": "ثوانٍ", "km": "كم" },
     "subtitle": "رسم بياني واحد فوق نموذج التحليلات المعتمد.",
     "generatedTitle": "{{measure}} حسب {{dimension}}",
     "dataAsOf": "البيانات حتى <at>{{at}}</at>",

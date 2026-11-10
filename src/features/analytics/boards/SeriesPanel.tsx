@@ -3,6 +3,7 @@ import KpiTile from '@/core/charts/KpiTile'
 import SeriesChart from '@/core/charts/SeriesChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { hasSeries } from './series'
 import { toKpiView, toKpiViews, toSeriesView, unitPanes } from './series-view'
 import { slotColour } from '@/core/charts/slots'
@@ -100,8 +101,16 @@ export default function SeriesPanel({
   return (
     <>
     {panes.map((pane) => (
+      <div key={pane.unit} className="flex flex-col" data-analytics-pane={pane.unit}>
+      {/* One series per pane draws no legend: with two panes or more, each names its measures and its unit. */}
+      {panes.length > 1 && (
+        <p className="px-2 text-xs font-medium text-muted-foreground" data-analytics-pane-title={pane.unit}>
+          {UNIT_WORDS.has(pane.unit)
+            ? t('view.paneTitleUnit', { measures: fsi(listText(pane.labels ?? [], lang)), unit: t(`view.paneUnit.${pane.unit}`) })
+            : t('view.paneTitle', { measures: fsi(listText(pane.labels ?? [], lang)) })}
+        </p>
+      )}
       <SeriesChart
-        key={pane.unit}
         form={pane.form}
         orientation={pane.orientation}
         stacking={pane.stacking}
@@ -119,6 +128,7 @@ export default function SeriesPanel({
         height={panes.length > 1 ? 180 : undefined}
         ariaLabel={tc(`charts.formLabel.${form}`, { measure: fsi(pane.measureLabel), dimension: fsi(pane.x.label) })}
       />
+      </div>
     ))}
     {/* A rate's members past five are drawn nowhere (no "Other" can sum a rate): say how many (766 §E amendment 2). */}
     {view.notShown > 0 && (
@@ -129,6 +139,9 @@ export default function SeriesPanel({
     </>
   )
 }
+
+/** The units a pane title names; a percent or count axis already reads as itself. */
+const UNIT_WORDS: ReadonlySet<string> = new Set(['SAR', 'minutes', 'seconds', 'km'])
 
 function Empty() {
   const { t } = useTranslation('boards')

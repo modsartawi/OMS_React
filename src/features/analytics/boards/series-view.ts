@@ -170,6 +170,8 @@ export interface SeriesView {
   measureLabel: string
   /** The value axis' unit: the first measure's. */
   unit: MeasureUnit
+  /** `unitPanes`: the measures this pane draws, by label — a pane's title, since one series draws no legend. */
+  labels?: string[]
   format: AnalyticsNumberFormat
   /** A single series coloured per x member (a fixed dimension, or a saved slot map). */
   colourBy: 'member' | 'single'
@@ -207,6 +209,7 @@ export function unitPanes(view: SeriesView): SeriesView[] {
       series,
       unit,
       measureLabel: series.find((s) => !s.previous && !s.other)?.label ?? view.measureLabel,
+      labels: series.filter((s) => !s.previous && !s.other).map((s) => s.label),
       rows: view.rows.map((r) => ({ ...r, values: Object.fromEntries(Object.entries(r.values).filter(([k]) => keys.has(k))) })),
     }
   })

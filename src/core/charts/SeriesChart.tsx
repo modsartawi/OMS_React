@@ -17,7 +17,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
-import { formatAs, formatTickAs } from './format'
+import { formatAs, formatTickAs, percentTicks } from './format'
 import { CHART_INK, seriesOpacity, seriesRowFill, slotColour } from './slots'
 import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
@@ -149,8 +149,19 @@ export default function SeriesChart({
       minTickGap={8}
     />
   )
+  // A percent or share axis in round steps (0%, 10%, 20%…), not Recharts' own split of the range.
+  const values = rows.flatMap((r) => Object.values(r.values)).filter((v): v is number => typeof v === 'number')
+  const ticks = (unit === 'percent' || unit === 'share') && stacking !== 'stacked' && values.length ? percentTicks(Math.min(...values), Math.max(...values)) : undefined
   const valueAxis = (
-    <YAxis orientation={chartMirror.valueAxisSide} tick={CHART_TICK} tickLine={false} axisLine={false} width={56} tickFormatter={valueTick} />
+    <YAxis
+      orientation={chartMirror.valueAxisSide}
+      tick={CHART_TICK}
+      tickLine={false}
+      axisLine={false}
+      width={56}
+      tickFormatter={valueTick}
+      {...(ticks ? { ticks, domain: [ticks[0], ticks[ticks.length - 1]] } : {})}
+    />
   )
 
   let chart
@@ -213,7 +224,7 @@ export default function SeriesChart({
         {horizontal ? (
           <>
             {/* A horizontal bar's category is the Y axis: mirror the VALUE axis, category on the right under RTL. */}
-            <XAxis type="number" reversed={chartMirror.rtl} tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={valueTick} />
+            <XAxis type="number" reversed={chartMirror.rtl} tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={valueTick} {...(ticks ? { ticks, domain: [ticks[0], ticks[ticks.length - 1]] } : {})} />
             <YAxis
               type="category"
               dataKey="label"

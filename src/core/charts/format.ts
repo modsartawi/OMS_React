@@ -96,6 +96,25 @@ export function formatTickAs(value: number, format: AnalyticsNumberFormat | null
   return formatTick(format === 'percent' ? scaled(value, unit) : value, format === 'percent' ? 'share' : unit, locale)
 }
 
+/**
+ * A percent (or share) axis' ticks in round steps (1, 2, 2.5 or 5 times a power of ten), at most five steps, from zero (or the
+ * lowest value below it) up past the highest. Recharts' own split of 0..34 read 0%, 9%, 17%, 26%, 34%.
+ */
+export function percentTicks(min: number, max: number): number[] {
+  const lo = Math.min(0, min)
+  const hi = Math.max(0, max)
+  if (hi === lo) return [0]
+  const span = hi - lo
+  const round = (n: number) => Number(n.toFixed(10))
+  for (let power = Math.floor(Math.log10(span)) - 1; ; power++)
+    for (const f of [1, 2, 2.5, 5]) {
+      const step = f * 10 ** power
+      const from = Math.floor(round(lo / step))
+      const to = Math.ceil(round(hi / step))
+      if (to - from <= 5) return Array.from({ length: to - from + 1 }, (_, i) => round((from + i) * step))
+    }
+}
+
 /** A day (`yyyy-MM-dd`) as a short axis label (`1 Nov`); anything else as it came. */
 export function formatAxisDay(value: string, locale: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)

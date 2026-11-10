@@ -366,6 +366,8 @@ describe('unitPanes: one value axis per unit', () => {
       ['percent', ['share'], [{ s1: 40 }, { s1: 60 }]],
     ])
     expect(panes[1].series[0].slot).toBe(1) // a measure keeps its colour slot in its own pane
+    // Local walk 2026-11-10: one series per pane draws no legend, so each pane names its measures.
+    expect(panes.map((p) => p.labels)).toEqual([['avg_basket'], ['share']]) // the test model has no labels for them
   })
 
   it('keeps one pane when every series shares a unit', () => {

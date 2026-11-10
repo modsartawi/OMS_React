@@ -1668,7 +1668,7 @@
       "ratio": "{{measure}} كنسبة من {{of}}",
       "cumulativeShare": "الحصة التراكمية من {{measure}}",
       "change": "التغير في {{measure}}",
-      "average": "{{measure}} لكل {{of}}",
+      "average": "{{measure}} بالقسمة على {{of}}",
       "shareOfTotalWithin": "حصة {{measure}} في كل {{within}}",
       "cumulativeShareWithin": "الحصة التراكمية من {{measure}} في كل {{within}}"
     },

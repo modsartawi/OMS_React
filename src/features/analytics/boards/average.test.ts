@@ -67,7 +67,7 @@ describe('an average column (decision 9: "{measure} per {of}", in the measure\'s
   const calc = { kind: 'average' as const, measure: 'net_till_value_sar', of: 'till_sales' }
   it('reads "{measure} per {of}" in EN and AR', () => {
     expect(calculationLabel(calc, null, model, 'en', wordsOf(en))).toBe('Net till value per Till sales')
-    expect(calculationLabel(calc, null, model, 'ar', wordsOf(ar))).toBe('صافي قيمة الصندوق لكل مبيعات الصندوق')
+    expect(calculationLabel(calc, null, model, 'ar', wordsOf(ar))).toBe('صافي قيمة الصندوق بالقسمة على مبيعات الصندوق') // not لكل: كل before a definite noun reads "all"
   })
   it('is shaped and formatted by its column\'s unit (SAR), never as a percent', () => {
     const result = {

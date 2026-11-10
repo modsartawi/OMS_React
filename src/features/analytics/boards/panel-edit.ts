@@ -7,6 +7,7 @@ import type {
   AnalyticsSeries,
   AnalyticsViewDefinition,
 } from '@/core/models/analytics'
+import { settleCalculations } from './calculations-edit'
 import { allowedDimensions, comparesToPrevious, DEFAULT_PERIOD, GRAINS, grainFor, MAX_DIMENSIONS, pickableMeasures, withCompare, type Grain } from './editor'
 import { seriesOf } from './series'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice, type ChartOffer } from './shape-rules'
@@ -32,6 +33,7 @@ export const panelOffers = (def: AnalyticsViewDefinition, model: AnalyticsModel)
       measures: def.query.measures,
       dimensions: def.query.dimensions,
       series: seriesOf(def).length,
+      calculations: def.query.calculations?.length ?? 0,
     },
     model,
   )
@@ -40,7 +42,9 @@ export const panelOffers = (def: AnalyticsViewDefinition, model: AnalyticsModel)
 export const panelArea = (def: AnalyticsViewDefinition, model: AnalyticsModel): string | null => measureOf(model, def.query.measures[0])?.area ?? null
 
 /** The definition with its chart fitted to its selection, and the query tidied to it. */
-export function fitted(def: AnalyticsViewDefinition, model: AnalyticsModel): AnalyticsViewDefinition {
+export function fitted(raw: AnalyticsViewDefinition, model: AnalyticsModel): AnalyticsViewDefinition {
+  // Spec 3519 (862): first the calculations the query no longer allows go (`droppedBy` names them for the note).
+  const def = settleCalculations(raw, model).definition
   const offers = panelOffers(def, model)
   const was = choiceOf(def.chart)
   const fits = offers.find((o) => o.choice === was)?.offered === true
@@ -52,6 +56,7 @@ export function fitted(def: AnalyticsViewDefinition, model: AnalyticsModel): Ana
           measures: def.query.measures,
           dimensions: def.query.dimensions,
           series: seriesOf(def).length,
+          calculations: def.query.calculations?.length ?? 0,
         },
         model,
       )
@@ -68,7 +73,8 @@ export function fitted(def: AnalyticsViewDefinition, model: AnalyticsModel): Ana
     choice ?? was,
     def.query.compareToPrevious === true,
   )
-  return { ...def, chart, query }
+  // …and again once compare is settled: a change goes with it (decision 8).
+  return settleCalculations({ ...def, chart, query }, model).definition
 }
 
 /** New measures: the breakdowns they no longer allow go, and the chart is re-fitted. */
@@ -120,15 +126,14 @@ export function withChoice(def: AnalyticsViewDefinition, choice: ChartChoice, mo
 }
 
 /** Compare with the previous period, where the type shows it (KPI, line). */
-export const withComparing = (def: AnalyticsViewDefinition, on: boolean): AnalyticsViewDefinition => ({
-  ...def,
-  query: withCompare(def.query, choiceOf(def.chart), on),
-})
+export const withComparing = (def: AnalyticsViewDefinition, on: boolean, model: AnalyticsModel): AnalyticsViewDefinition =>
+  settleCalculations({ ...def, query: withCompare(def.query, choiceOf(def.chart), on) }, model).definition
 
 /** The chart's own settings (format, legend, sort, top N), its type kept. */
-export const withSettings = (def: AnalyticsViewDefinition, f: (chart: AnalyticsChart) => AnalyticsChart): AnalyticsViewDefinition => {
+export const withSettings = (def: AnalyticsViewDefinition, f: (chart: AnalyticsChart) => AnalyticsChart, model: AnalyticsModel): AnalyticsViewDefinition => {
   const next = f(def.chart)
-  return {
+  // A running share keeps the order on its measure (spec 3519 D7): the settle puts it back.
+  return settleCalculations({
     ...def,
     chart: {
       ...next,
@@ -136,7 +141,7 @@ export const withSettings = (def: AnalyticsViewDefinition, f: (chart: AnalyticsC
       orientation: def.chart.orientation,
       stack: def.chart.stack,
     },
-  }
+  }, model).definition
 }
 
 /** The named series (825): none leaves no `series` at all; the chart is re-fitted (a donut takes none). */

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
 import { itemHref, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
+import type { AnalyticsCalculation } from '@/core/models/analytics-calculations'
 import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
@@ -16,6 +17,17 @@ import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
+import CalculationFields from './CalculationFields'
+import { calculationLabel } from './calculations'
+import { useCalculationWords } from './use-calculations'
+import {
+  addCalculation,
+  removeCalculation,
+  settleCalculations,
+  sortKeys,
+  updateCalculation,
+  type DroppedCalculation,
+} from './calculations-edit'
 import ColourPicker from './ColourPicker'
 import {
   allowedDimensions,
@@ -174,24 +186,29 @@ function ViewEditor({
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(seed?.subtitle ?? EMPTY_LABEL)
   // 825: named series (up to 4), each with its own filters on the view's own category breakdowns.
   const [series, setSeries] = useState<AnalyticsSeries[]>(start?.series ?? [])
+  // 862 (spec 3519): up to 4 calculations the server computes; one an edit takes out is named in a note.
+  const [calculations, setCalculations] = useState<AnalyticsCalculation[]>(start?.query.calculations ?? [])
+  const [dropped, setDropped] = useState<DroppedCalculation[]>([])
 
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
-  const offers = chartOffers({ measures, dimensions, series: series.length }, model)
+  const offers = chartOffers({ measures, dimensions, series: series.length, calculations: calculations.length }, model)
   const offer = choice ? offers.find((o) => o.choice === choice) : undefined
   // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does. Until one is
   // picked (or while the pick does not fit) the builder picks the best fitting type, so the preview always draws.
-  const suggested = suggestChoice(offers, { measures, dimensions, series: series.length }, model)
+  const suggested = suggestChoice(offers, { measures, dimensions, series: series.length, calculations: calculations.length }, model)
   const chosen = offer?.offered ? choice : suggested
   const keptGrain = grainFor(dimensions, model, grain)
 
-  const definition: AnalyticsViewDefinition | null = useMemo(() => {
+  const settled = useMemo(() => {
     if (!chosen) return null
-    const { grain: _old, ...startQuery } = start?.query ?? { grain: null }
+    const { grain: _old, calculations: _oldCalcs, ...startQuery } = start?.query ?? { grain: null, calculations: null }
     void _old
+    void _oldCalcs
     const query = withCompare(
       {
         ...startQuery,
+        ...(calculations.length ? { calculations } : {}),
         measures,
         dimensions,
         filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
@@ -205,8 +222,25 @@ function ViewEditor({
     const named = series.map((x) => ({ ...x, filters: x.filters.filter((f) => f.values.length > 0) }))
     const { series: _oldSeries, ...rest } = start ?? {}
     void _oldSeries
-    return { ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series])
+    // 862: the calculations the query no longer allows go, and a running share holds the order (spec 3519 D7–D10).
+    return settleCalculations({ ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }, model)
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series, calculations, model])
+  const definition: AnalyticsViewDefinition | null = settled?.definition ?? null
+  // The editor's own state follows the settle: what went is named, and the sort shows the order the query holds.
+  useEffect(() => {
+    if (!settled) return
+    if (settled.dropped.length) {
+      setDropped(settled.dropped)
+      setCalculations(settled.definition.query.calculations ?? [])
+    }
+    const sort = settled.definition.chart.sort ?? null
+    if (JSON.stringify(sort) !== JSON.stringify(settings.sort ?? null)) setSettings((s) => ({ ...s, sort }))
+  }, [settled, settings.sort])
+  const editCalculations = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
+    if (definition) setCalculations(f(definition).query.calculations ?? [])
+  }
+  const calcWords = useCalculationWords()
+  const calcName = (c: AnalyticsCalculation) => calculationLabel(c, c.label, model, lang, calcWords)
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)
@@ -288,7 +322,10 @@ function ViewEditor({
   const setFilter = (dimension: string, values: string[]) =>
     setFilters((fs) => [...fs.filter((f) => f.dimension !== dimension), ...(values.length ? [{ dimension, values }] : [])])
   const label = (l: AnalyticsLabel | undefined, key: string) => saysIn(l, lang) || key
-  const measureName = (k: string) => label(measureOf(model, k)?.label, k)
+  const measureName = (k: string) => {
+    const c = calculations.find((x) => x.key === k)
+    return c ? calcName(c) : label(measureOf(model, k)?.label, k)
+  }
 
   const draft: AnalyticsViewDefinition = definition ?? { chart: settings, query: { measures, dimensions, filters, period } }
   const generated = {
@@ -329,6 +366,19 @@ function ViewEditor({
           onSettings={setSettings}
           compare={compare}
           onCompare={setCompare}
+          sortKeys={definition ? sortKeys(definition) : measures}
+          sortLocked={calculations.some((c) => c.kind === 'cumulativeShare')}
+        />
+        <CalculationFields
+          model={model}
+          lang={lang}
+          selection={{ measures, dimensions, series: series.length, compare: definition?.query.compareToPrevious === true, calculations }}
+          onAdd={(draft) => editCalculations((d) => addCalculation(d, draft, model))}
+          onUpdate={(key, draft) => editCalculations((d) => updateCalculation(d, key, draft, model))}
+          onRemove={(key) => editCalculations((d) => removeCalculation(d, key, model))}
+          dropped={dropped}
+          onDismissDropped={() => setDropped([])}
+          nameOf={calcName}
         />
         <SeriesFields
           series={series}

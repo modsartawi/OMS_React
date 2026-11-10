@@ -75,6 +75,25 @@ export function calculationLabel(
 }
 
 /**
+ * A panel's figure (a measure, variant or calculation key) named as its column is (862 walk): a calculation by its own
+ * or derived label, a variant by its own or "{measure} ({values})", a model measure by its label, else the key itself.
+ * From the definition alone — the report designer names figures before any panel has run.
+ */
+export function figureMeasureName(
+  definition: AnalyticsViewDefinition,
+  key: string,
+  model: AnalyticsModel,
+  lang: string,
+  words: CalculationWords,
+  variantWord: VariantWord,
+): string {
+  const withVariants = variantModel(model, definition.query.variants, lang, variantWord)
+  const calculation = definition.query.calculations?.find((c) => c.key === key)
+  if (calculation) return calculationLabel(calculation, calculation.label, withVariants, lang, words)
+  return saysIn(measureOf(withVariants, key)?.label, lang) || key
+}
+
+/**
  * `model` plus one measure per calculated column of `result`, labelled in `lang`. The same object when the result
  * has none, so a panel without calculations renders exactly as before.
  */

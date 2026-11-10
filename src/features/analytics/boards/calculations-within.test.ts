@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import { calculationLabel, eachParent, untilNote, type CalculationWords } from './calculations'
+import { calculationLabel, eachParent, figureMeasureName, untilNote, type CalculationWords } from './calculations'
 import { addCalculation, settleCalculations, withinChoices, withinProblem } from './calculations-edit'
 import { toTableView } from './view-model-forms'
 
@@ -115,6 +115,30 @@ describe('within: the 80 % note per parent (decision 3)', () => {
   it('says nothing when every parent reached it, and keeps the 3519 note for a plain false', () => {
     expect(untilNote(running, result([{ parent: { region: 'R1' }, reached: true }]))).toBeNull()
     expect(untilNote(running, result(false))).toEqual({ until: 80 })
+  })
+})
+
+describe('figureMeasureName: a live figure is named like its column (862 walk 2026-11-10)', () => {
+  // The report's "Insert a live figure" listed a variant and a ratio by their keys.
+  const definition: AnalyticsViewDefinition = {
+    chart: { type: 'table' },
+    query: {
+      measures: ['net', 'net_DL'],
+      dimensions: ['city'],
+      filters: [],
+      variants: [{ key: 'net_DL', measure: 'net', filters: [{ dimension: 'channel', values: ['DL'] }], label: { en: 'Delivery value', ar: 'قيمة التوصيل' } }],
+      calculations: [{ key: 'ratio_net_DL', kind: 'ratio', measure: 'net_DL', of: 'net' }],
+    },
+  }
+  const variantWord = (v: { measure: string; values: string }) => `${v.measure} (${v.values})`
+  it('a model measure by its label, a variant by its label, a calculation by its derived label', () => {
+    expect(figureMeasureName(definition, 'net', MODEL, 'en', wordsOf(en), variantWord)).toBe('Net value')
+    expect(figureMeasureName(definition, 'net_DL', MODEL, 'en', wordsOf(en), variantWord)).toBe('Delivery value')
+    expect(figureMeasureName(definition, 'ratio_net_DL', MODEL, 'en', wordsOf(en), variantWord)).toBe('Delivery value as % of Net value')
+    expect(figureMeasureName(definition, 'ratio_net_DL', MODEL, 'ar', wordsOf(ar), variantWord)).toBe('قيمة التوصيل كنسبة من صافي القيمة')
+  })
+  it('a key nothing names reads as itself', () => {
+    expect(figureMeasureName(definition, 'gone', MODEL, 'en', wordsOf(en), variantWord)).toBe('gone')
   })
 })
 

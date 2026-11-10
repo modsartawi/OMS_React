@@ -9,11 +9,12 @@ import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import FigureTextField, { type FigureChipLabel } from './FigureTextField'
+import { figureMeasureName } from './calculations'
 import { chipSegments, figuresOf, figureToken, insertToken, type PanelFigure } from './live-figures'
 import { reportPanels } from './report'
 import { seriesName } from './series'
 import { generatedTitle } from './title'
-import { measureOf } from './wire'
+import { useCalculationWords, useVariantWord } from './use-calculations'
 
 /**
  * The report designer's text editor (spec 819 §E, ticket 829; the 798 prototype's `TextEditor`): the words in
@@ -28,13 +29,17 @@ type TextBlock = { id: string; kind: 'text'; text: AnalyticsLabel }
 /** What each chip says (the panel and its figure, as one pair) and whether it names a single value. */
 export function useFigureNames(def: AnalyticsReportDefinition, model: AnalyticsModel, lang: string) {
   const { t } = useTranslation('boards')
+  const words = useCalculationWords()
+  const variantWord = useVariantWord()
   return useMemo(() => {
     const panels = reportPanels(def).map((p) => {
       const title = saysIn(p.title, lang) || generatedTitle(p.definition, model, lang, t) || t('designer.block.untitledPanel')
-      return { id: p.id, title, figures: figuresOf(p.definition, model) }
+      // 862 walk: a variant or a calculation is named as its column is, never by its key.
+      const nameOf = (key: string) => figureMeasureName(p.definition, key, model, lang, words, variantWord)
+      return { id: p.id, title, figures: figuresOf(p.definition, model), nameOf }
     })
     // 835 walk: a figure is a measure of the panel (3408 §F), over one named series when the panel has them.
-    const measureName = (f: PanelFigure) => saysIn(measureOf(model, f.measure)?.label ?? { en: f.measure, ar: f.measure }, lang) || f.measure
+    const measureName = (f: PanelFigure) => panels.find((p) => p.figures.includes(f))?.nameOf(f.measure) ?? f.measure
     const figureName = (f: PanelFigure) =>
       f.series ? t('designer.text.figureOfSeries', { measure: fsi(measureName(f)), series: fsi(seriesName(f.series, lang)) }) : measureName(f)
     const chipOf = (panel: string, figure: string): FigureChipLabel => {
@@ -55,7 +60,7 @@ export function useFigureNames(def: AnalyticsReportDefinition, model: AnalyticsM
     // The chips are drawn again when any of their words change.
     const key = JSON.stringify([lang, panels.map((p) => [p.id, p.title, p.figures.map((f) => [f.figure, f.series && figureName(f)])])])
     return { panels, figureName, chipOf, key }
-  }, [def, model, lang, t])
+  }, [def, model, lang, t, words, variantWord])
 }
 
 /** A text block's words with their figures as chips, as the designer's page and the editor's preview show them. */

@@ -11,6 +11,7 @@ import { settleCalculations } from './calculations-edit'
 import { allowedDimensions, comparesToPrevious, DEFAULT_PERIOD, GRAINS, grainFor, MAX_DIMENSIONS, pickableMeasures, withCompare, type Grain } from './editor'
 import { seriesOf } from './series'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice, type ChartOffer } from './shape-rules'
+import { settleVariants } from './variants'
 import { measureOf } from './wire'
 
 /**
@@ -43,8 +44,9 @@ export const panelArea = (def: AnalyticsViewDefinition, model: AnalyticsModel): 
 
 /** The definition with its chart fitted to its selection, and the query tidied to it. */
 export function fitted(raw: AnalyticsViewDefinition, model: AnalyticsModel): AnalyticsViewDefinition {
-  // Spec 3519 (862): first the calculations the query no longer allows go (`droppedBy` names them for the note).
-  const def = settleCalculations(raw, model).definition
+  // Spec 3543 (863): first a variant unticked, or now filtered on a breakdown, goes with its key…
+  // Spec 3519 (862): …then the calculations the query no longer allows (`droppedBy` names them for the note).
+  const def = settleCalculations(settleVariants(raw, model).definition, model).definition
   const offers = panelOffers(def, model)
   const was = choiceOf(def.chart)
   const fits = offers.find((o) => o.choice === was)?.offered === true

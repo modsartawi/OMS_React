@@ -1,4 +1,4 @@
-import type { AnalyticsCalculation, AnalyticsColumnCalculation } from './analytics-calculations'
+import type { AnalyticsCalculation, AnalyticsColumnCalculation, AnalyticsColumnVariant, AnalyticsParentReached, AnalyticsVariant } from './analytics-calculations'
 
 /**
  * The analytics doors' wire (spec 766 §C — PROPOSED, owned by BackOffice 3378 once filed).
@@ -107,6 +107,8 @@ export interface AnalyticsSemanticQuery {
   compareToPrevious?: boolean
   /** Spec 3519 D1: shares, ratios, running shares and changes the server computes (`./analytics-calculations`). */
   calculations?: AnalyticsCalculation[] | null
+  /** Spec 3543 D5 (3546): measures under their own filters; each key is also in `measures` (`./analytics-calculations`). */
+  variants?: AnalyticsVariant[] | null
 }
 
 /** The editor's number formats (755 item 4). `auto` follows the measure's unit. */
@@ -401,6 +403,8 @@ export interface AnalyticsColumn {
   unit?: MeasureUnit | null
   /** Spec 3519 D2: set on a calculated column (role `measure`, shape `rate`, unit `percent`). */
   calculation?: AnalyticsColumnCalculation | null
+  /** Spec 3543 D5 (3546): set on a variant column (its measure's shape and unit). */
+  variant?: AnalyticsColumnVariant | null
 }
 
 /** ⚠ A row is an object keyed by column key (Cube's own shape); §C says `rows[]` only. */
@@ -423,6 +427,8 @@ export interface AnalyticsQueryResult {
   fellBack?: { param: string }[]
   /** Spec 3519 D7: `false` when a `cumulativeShare` cut ran out of rows before its `until`. Absent reads as no note. */
   untilReached?: boolean
+    /** Spec 3543 D3 (3545): a running share within a parent answers per parent, in the rows' parent order. */
+    | AnalyticsParentReached[]
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import type { AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { CALCULATION_SHAPE, CALCULATION_UNIT, type AnalyticsCalculationKind, type AnalyticsColumnCalculation } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
+import { listOf, variantModel, type VariantWord } from './variants'
 import { measureOf } from './wire'
 
 /**
@@ -18,8 +19,14 @@ import { measureOf } from './wire'
  * {@link calculationLabel}.
  */
 
-/** A calculation's default label per kind (decision 24), from the locale (`boards:calculation.label.*`). */
-export type CalculationWords = Record<AnalyticsCalculationKind, (names: { measure: string; of: string }) => string>
+/**
+ * A calculation's default label per kind (decision 24), from the locale (`boards:calculation.label.*`). 863 (spec 3543
+ * part A): a share or running share `within` a parent reads "… in each {within}" (`…Within`).
+ */
+export type CalculationWords = Record<
+  AnalyticsCalculationKind | 'shareOfTotalWithin' | 'cumulativeShareWithin',
+  (names: { measure: string; of: string; within: string }) => string
+>
 
 const calculatedColumns = (result: AnalyticsQueryResult) => result.columns.filter((c) => c.role === 'measure' && !!c.calculation)
 
@@ -43,14 +50,18 @@ export function measureKeysOf(definition: AnalyticsViewDefinition, result: Analy
 export function calculationLabel(
   calculation: AnalyticsColumnCalculation,
   own: { en: string; ar: string } | null | undefined,
-  model: Pick<AnalyticsModel, 'measures'>,
+  model: Pick<AnalyticsModel, 'measures'> & Partial<Pick<AnalyticsModel, 'dimensions'>>,
   lang: string,
   words: CalculationWords,
 ): string {
   const explicit = saysIn(own ?? undefined, lang)
   if (explicit) return explicit
   const name = (key: string | null | undefined) => (key ? saysIn(measureOf(model, key)?.label, lang) || key : '')
-  return words[calculation.kind]({ measure: name(calculation.measure), of: name(calculation.of) })
+  const parents = (calculation.within ?? []).map((k) => saysIn(model.dimensions?.find((d) => d.key === k)?.label, lang) || k)
+  const names = { measure: name(calculation.measure), of: name(calculation.of), within: listOf(parents, lang) }
+  const kind = calculation.kind
+  if (parents.length && (kind === 'shareOfTotal' || kind === 'cumulativeShare')) return words[`${kind}Within`](names)
+  return words[kind](names)
 }
 
 /**
@@ -63,7 +74,19 @@ export function calculatedModel(
   result: AnalyticsQueryResult | undefined,
   lang: string,
   words: CalculationWords,
+  /**
+   * 863 (spec 3543 part B): given, the model first gains one measure per variant — the definition's, else a variant
+   * column's own origin — so a variant column, and a calculation over one, is named like any measure.
+   */
+  variantWord?: VariantWord,
 ): AnalyticsModel {
+  if (variantWord) {
+    const own = definition.query.variants ?? []
+    const fromColumns = (result?.columns ?? [])
+      .filter((c) => c.role === 'measure' && !!c.variant && !own.some((v) => v.key === c.key))
+      .map((c) => ({ key: c.key, ...c.variant! }))
+    model = variantModel(model, [...own, ...fromColumns], lang, variantWord)
+  }
   const columns = result ? calculatedColumns(result) : []
   if (columns.length === 0) return model
   const own = new Map((definition.query.calculations ?? []).map((c) => [c.key, c.label]))
@@ -90,10 +113,19 @@ export function calculatedModel(
 /**
  * Decision 26: `{ until }` when the result says a running-share cut ran out of rows (`untilReached: false`),
  * else `null`. The `until` is the query's running share's (80 when it names none).
+ *
+ * 863 (spec 3543 decision 3): a running share within a parent answers per parent; the note then names each `parents`
+ * entry (its values keyed by the `within` dimensions) whose rows ran out, and is `null` when every parent reached it.
  */
-export function untilNote(definition: AnalyticsViewDefinition, result: AnalyticsQueryResult | undefined): { until: number } | null {
-  if (result?.untilReached !== false) return null
+export function untilNote(
+  definition: AnalyticsViewDefinition,
+  result: AnalyticsQueryResult | undefined,
+): { until: number; parents?: Record<string, string>[] } | null {
+  const reached = result?.untilReached
+  const short = Array.isArray(reached) ? reached.filter((p) => !p.reached).map((p) => p.parent) : null
+  if (short ? short.length === 0 : reached !== false) return null
   // The calculation's own threshold; a running share without one cuts nothing, so it has no note.
   const cut = (definition.query.calculations ?? []).find((c) => c.kind === 'cumulativeShare' && typeof c.until === 'number')
-  return typeof cut?.until === 'number' ? { until: cut.until } : null
+  if (typeof cut?.until !== 'number') return null
+  return short ? { until: cut.until, parents: short } : { until: cut.until }
 }

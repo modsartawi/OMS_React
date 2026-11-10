@@ -13,6 +13,8 @@ const wordsOf = (bundle: typeof en): CalculationWords => ({
   ratio: (v) => fill(bundle.calculation.label.ratio, v),
   cumulativeShare: (v) => fill(bundle.calculation.label.cumulativeShare, v),
   change: (v) => fill(bundle.calculation.label.change, v),
+  shareOfTotalWithin: (v) => fill(bundle.calculation.label.shareOfTotalWithin, v),
+  cumulativeShareWithin: (v) => fill(bundle.calculation.label.cumulativeShareWithin, v),
 })
 const EN = wordsOf(en)
 const AR = wordsOf(ar)

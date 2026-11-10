@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
 import { itemHref, NEW_REPORT_PATH } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
-import type { AnalyticsCalculation } from '@/core/models/analytics-calculations'
+import type { AnalyticsCalculation, AnalyticsVariant } from '@/core/models/analytics-calculations'
 import type { AnalyticsChart, AnalyticsFilter, AnalyticsItem, AnalyticsLabel, AnalyticsModel, AnalyticsSeries, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
@@ -18,7 +18,9 @@ import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import CalculationFields from './CalculationFields'
-import { useCalculationEditing } from './use-calculations'
+import { useCalculationEditing, useVariantModel, useVariantWord } from './use-calculations'
+import VariantFields from './VariantFields'
+import { addVariant, relabelVariant, removeVariant, settleVariants, variantLabel, type DroppedVariant } from './variants'
 import { settleCalculations, sortKeys } from './calculations-edit'
 import ColourPicker from './ColourPicker'
 import {
@@ -149,7 +151,7 @@ const EMPTY_LABEL: AnalyticsLabel = { en: '', ar: '' }
 const PREVIEW_DEBOUNCE_MS = 250
 
 function ViewEditor({
-  model,
+  model: baseModel,
   seed,
   onReseed,
   onSavedView,
@@ -180,6 +182,12 @@ function ViewEditor({
   const [series, setSeries] = useState<AnalyticsSeries[]>(start?.series ?? [])
   // 862 (spec 3519): up to 4 calculations the server computes; one an edit takes out is named in a note.
   const [calculations, setCalculations] = useState<AnalyticsCalculation[]>(start?.query.calculations ?? [])
+  // 863 (spec 3543 B): up to 4 filtered measures; each key is also one of `measures`. Every picker below reads `vModel`,
+  // the model plus one measure per variant, so a variant is offered wherever a measure is.
+  const [variants, setVariants] = useState<AnalyticsVariant[]>(start?.query.variants ?? [])
+  const [droppedVariants, setDroppedVariants] = useState<DroppedVariant[]>([])
+  const variantWord = useVariantWord()
+  const model = useVariantModel(baseModel, variants, lang)
   const calc = useCalculationEditing(model, lang, calculations)
   const setDropped = calc.setDropped
 
@@ -195,13 +203,15 @@ function ViewEditor({
 
   const settled = useMemo(() => {
     if (!chosen) return null
-    const { grain: _old, calculations: _oldCalcs, ...startQuery } = start?.query ?? { grain: null, calculations: null }
+    const { grain: _old, calculations: _oldCalcs, variants: _oldVariants, ...startQuery } = start?.query ?? { grain: null, calculations: null, variants: null }
     void _old
     void _oldCalcs
+    void _oldVariants
     const query = withCompare(
       {
         ...startQuery,
         ...(calculations.length ? { calculations } : {}),
+        ...(variants.length ? { variants } : {}),
         measures,
         dimensions,
         filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
@@ -215,22 +225,38 @@ function ViewEditor({
     const named = series.map((x) => ({ ...x, filters: x.filters.filter((f) => f.values.length > 0) }))
     const { series: _oldSeries, ...rest } = start ?? {}
     void _oldSeries
-    // 862: the calculations the query no longer allows go, and a running share holds the order (spec 3519 D7–D10).
-    return settleCalculations({ ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }, model)
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series, calculations, model])
+    // 863: a variant unticked, or now filtered on a breakdown, goes with its key (spec 3543 D6)…
+    const v = settleVariants({ ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }, model)
+    // 862: …then the calculations the query no longer allows go, and a running share holds the order (spec 3519 D7–D10).
+    return { ...settleCalculations(v.definition, model), droppedVariants: v.dropped }
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series, calculations, variants, model])
   const definition: AnalyticsViewDefinition | null = settled?.definition ?? null
   // The editor's own state follows the settle: what went is named, and the sort shows the order the query holds.
   useEffect(() => {
     if (!settled) return
+    const keptVariants = settled.definition.query.variants ?? []
+    if (keptVariants.length !== variants.length) {
+      setVariants(keptVariants)
+      setMeasures(settled.definition.query.measures)
+      if (settled.droppedVariants.length) setDroppedVariants(settled.droppedVariants)
+    }
     if (settled.dropped.length) {
       setDropped(settled.dropped)
       setCalculations(settled.definition.query.calculations ?? [])
     }
     const sort = settled.definition.chart.sort ?? null
     if (JSON.stringify(sort) !== JSON.stringify(settings.sort ?? null)) setSettings((s) => ({ ...s, sort }))
-  }, [settled, settings.sort, setDropped])
+  }, [settled, settings.sort, setDropped, variants.length])
   const editCalculations = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
     if (definition) setCalculations(f(definition).query.calculations ?? [])
+  }
+  // 863: a variant added, relabelled or removed moves its key in `measures` (and the calculations that read it) too.
+  const editVariants = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
+    if (!definition) return
+    const next = f(definition)
+    setVariants(next.query.variants ?? [])
+    setMeasures(next.query.measures)
+    setCalculations(next.query.calculations ?? [])
   }
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
@@ -356,6 +382,18 @@ function ViewEditor({
           onCompare={setCompare}
           sortKeys={definition ? sortKeys(definition) : measures}
           sortLocked={calculations.some((c) => c.kind === 'cumulativeShare')}
+          perParent={calc.perParent}
+        />
+        <VariantFields
+          model={baseModel}
+          lang={lang}
+          definition={definition ?? draft}
+          onAdd={(d) => editVariants((def) => addVariant(def, d, baseModel))}
+          onRemove={(key) => editVariants((def) => removeVariant(def, key, model))}
+          onRelabel={(key, l) => editVariants((def) => relabelVariant(def, key, l))}
+          nameOf={(v) => variantLabel(v, baseModel, lang, variantWord)}
+          dropped={droppedVariants}
+          onDismissDropped={() => setDroppedVariants([])}
         />
         <CalculationFields
           model={model}

@@ -79,7 +79,7 @@ export default function ViewChart({
         {result && <ChartBody result={result} definition={definition} model={shown} lang={lang} onPoint={onPoint} selected={selected} />}
       </ChartFrame>
       {result?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
-      <UntilNote definition={definition} result={result} />
+      <UntilNote definition={definition} result={result} model={model} lang={lang} />
     </>
   )
 }

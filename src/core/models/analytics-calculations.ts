@@ -1,9 +1,12 @@
-import type { AnalyticsLabel } from './analytics'
+import type { AnalyticsFilter, AnalyticsLabel } from './analytics'
 
 /**
  * The calculation wire (BackOffice spec 3519, decisions 1–3, 7, 15, 26) — in ONE place, so reconciling the web
  * against the real server (BackOffice 3520) is a change to this file. Tickets 861 (render) and 862 (editor) both
  * read it.
+ *
+ * Phase 2 (BackOffice spec 3543, ticket 863): `within` on a share, `variants` on the query, `variant` on a result
+ * column and `untilReached` per parent — reconciled against the built server (3545, 3546: `AnalyticsWire.cs`).
  *
  * ⚠ Built against the spec's wire before 3520 merged. Assumptions to check against the server:
  * - the query field is `calculations` (camelCase, like every other query field), null/absent/empty = none;
@@ -35,8 +38,44 @@ export interface AnalyticsCalculation {
   of?: string | null
   /** `cumulativeShare` only: cut the rows once the running share reaches this percent (e.g. 80). */
   until?: number | null
+  /**
+   * Spec 3543 decision 1 (BackOffice 3545): `shareOfTotal` / `cumulativeShare` only — the query dimensions that make
+   * each row's parent (some, never all). Absent = a share of the whole result, exactly as in 3519.
+   */
+  within?: string[] | null
   /** Both languages or neither; absent → the web derives one from the kind and the measure's label. */
   label?: AnalyticsLabel | null
+}
+
+/** Spec 3543 decision 5 (BackOffice 3546): at most four variants per query. */
+export const MAX_VARIANTS = 4
+
+/**
+ * One entry of `AnalyticsSemanticQuery.variants` (decision 5): a model measure under its own filters, named by `key`.
+ * The key follows the calculation key rule, never collides with a measure, dimension or calculation key, and MUST also
+ * be listed in `query.measures` (the owner kept 3546's default: that is what selects and places its column). At least
+ * one filter, never on a dimension the query breaks down by.
+ */
+export interface AnalyticsVariant {
+  key: string
+  measure: string
+  filters: AnalyticsFilter[]
+  /** Both languages or neither; absent → "{measure} ({filter values})". */
+  label?: AnalyticsLabel | null
+}
+
+/** `AnalyticsColumn.variant` (3546): a variant column's origin, for its label. */
+export interface AnalyticsColumnVariant {
+  measure: string
+  filters: AnalyticsFilter[]
+  label?: AnalyticsLabel | null
+}
+
+/** Spec 3543 decision 3: one parent of a running share within, and whether its `until` was reached. */
+export interface AnalyticsParentReached {
+  /** The parent's values, keyed by the `within` dimension keys. */
+  parent: Record<string, string>
+  reached: boolean
 }
 
 /** `AnalyticsColumn.calculation` (decision 2): what the column was computed from, for its label. */
@@ -44,6 +83,8 @@ export interface AnalyticsColumnCalculation {
   kind: AnalyticsCalculationKind
   measure: string
   of?: string | null
+  /** Spec 3543 (3545): the parent dimensions of a share within; absent otherwise. */
+  within?: string[] | null
 }
 
 /** Decision 2: every calculated column's shape and unit. */
@@ -61,6 +102,18 @@ function readLabel(v: unknown): AnalyticsLabel | null {
   return en || ar ? { en, ar } : null
 }
 
+const readWithin = (v: unknown): string[] | null => {
+  const keys = Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string' && !!k) : []
+  return keys.length ? keys : null
+}
+
+function readFilters(v: unknown): AnalyticsFilter[] {
+  return (Array.isArray(v) ? v : [])
+    .map(obj)
+    .map((f) => ({ dimension: str(f.dimension), values: Array.isArray(f.values) ? f.values.filter((x): x is string => typeof x === 'string') : [] }))
+    .filter((f) => !!f.dimension && f.values.length > 0)
+}
+
 /**
  * The query's `calculations`, tolerantly: an entry without a key, a measure or a known kind is left out.
  * `undefined` when the wire has none, so a definition without calculations keeps its old object shape.
@@ -74,6 +127,8 @@ export function readCalculations(raw: unknown): AnalyticsCalculation[] | undefin
       const out: AnalyticsCalculation = { key: str(c.key), kind: c.kind as AnalyticsCalculationKind, measure: str(c.measure) }
       if (str(c.of)) out.of = str(c.of)
       if (typeof c.until === 'number' && Number.isFinite(c.until)) out.until = c.until
+      const within = readWithin(c.within)
+      if (within) out.within = within
       const label = readLabel(c.label)
       if (label) out.label = label
       return out
@@ -85,8 +140,48 @@ export function readCalculations(raw: unknown): AnalyticsCalculation[] | undefin
 export function readColumnCalculation(raw: unknown): AnalyticsColumnCalculation | null {
   const c = obj(raw)
   if (!isKind(c.kind) || !str(c.measure)) return null
-  return { kind: c.kind, measure: str(c.measure), ...(str(c.of) ? { of: str(c.of) } : {}) }
+  const within = readWithin(c.within)
+  return { kind: c.kind, measure: str(c.measure), ...(str(c.of) ? { of: str(c.of) } : {}), ...(within ? { within } : {}) }
 }
 
-/** The result's `untilReached`: a boolean, or `undefined` when absent (no note). */
-export const readUntilReached = (raw: unknown): boolean | undefined => (typeof raw === 'boolean' ? raw : undefined)
+/**
+ * The query's `variants`, tolerantly: one without a key, a measure or a filter holding a value is left out (the server
+ * refuses a variant with no filter). `undefined` when the wire has none, so an older definition keeps its shape.
+ */
+export function readVariants(raw: unknown): AnalyticsVariant[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const list = raw
+    .map(obj)
+    .map((v): AnalyticsVariant => {
+      const out: AnalyticsVariant = { key: str(v.key), measure: str(v.measure), filters: readFilters(v.filters) }
+      const label = readLabel(v.label)
+      if (label) out.label = label
+      return out
+    })
+    .filter((v) => !!v.key && !!v.measure && v.filters.length > 0)
+  return list.length ? list : undefined
+}
+
+/** A result column's `variant`, or `null` when it is not a variant column. */
+export function readColumnVariant(raw: unknown): AnalyticsColumnVariant | null {
+  const v = obj(raw)
+  if (!str(v.measure)) return null
+  const label = readLabel(v.label)
+  return { measure: str(v.measure), filters: readFilters(v.filters), ...(label ? { label } : {}) }
+}
+
+/**
+ * The result's `untilReached`: a boolean (3519), the list per parent of a running share within (3545: each entry needs
+ * a `parent` object and a boolean `reached`), or `undefined` when absent (no note).
+ */
+export function readUntilReached(raw: unknown): boolean | AnalyticsParentReached[] | undefined {
+  if (typeof raw === 'boolean') return raw
+  if (!Array.isArray(raw)) return undefined
+  return raw
+    .map(obj)
+    .filter((p) => typeof p.reached === 'boolean' && !!p.parent && typeof p.parent === 'object' && !Array.isArray(p.parent))
+    .map((p) => ({
+      parent: Object.fromEntries(Object.entries(obj(p.parent)).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')])),
+      reached: p.reached as boolean,
+    }))
+}

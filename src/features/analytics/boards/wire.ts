@@ -23,7 +23,7 @@ import type {
   Bindings,
   Param,
 } from '@/core/models/analytics'
-import { readCalculations, readColumnCalculation, readUntilReached } from '@/core/models/analytics-calculations'
+import { readCalculations, readColumnCalculation, readColumnVariant, readUntilReached, readVariants } from '@/core/models/analytics-calculations'
 import { readAudience } from './audience'
 
 /**
@@ -101,9 +101,11 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     // 861: a calculated column's `calculation` is read tolerantly; every other column passes through as it came.
     columns: arr<unknown>(r.columns).map((c) => {
       const col = obj(c) as unknown as AnalyticsQueryResult['columns'][number]
-      if (!('calculation' in col)) return col
-      const calculation = readColumnCalculation(col.calculation)
-      return { ...col, calculation }
+      // 863 (spec 3543): a variant column's `variant` is read the same way.
+      const out = 'variant' in col ? { ...col, variant: readColumnVariant(col.variant) } : col
+      if (!('calculation' in out)) return out
+      const calculation = readColumnCalculation(out.calculation)
+      return { ...out, calculation }
     }),
     rows: arr<AnalyticsRow>(r.rows),
     total: typeof r.total === 'number' ? r.total : 0,
@@ -130,8 +132,9 @@ function readSeries(raw: unknown): AnalyticsSeries[] {
 
 export function readDefinition(raw: unknown): AnalyticsViewDefinition {
   const d = obj(raw)
-  const { calculations: rawCalculations, ...q } = obj(d.query)
+  const { calculations: rawCalculations, variants: rawVariants, ...q } = obj(d.query)
   const calculations = readCalculations(rawCalculations)
+  const variants = readVariants(rawVariants)
   const chart = obj(d.chart)
   return {
     ...(d as object),
@@ -145,6 +148,8 @@ export function readDefinition(raw: unknown): AnalyticsViewDefinition {
       filters: arr(q.filters),
       // 861: absent (or empty) stays absent, so a definition without calculations keeps its old shape.
       ...(calculations ? { calculations } : {}),
+      // 863 (spec 3543): the same for variants.
+      ...(variants ? { variants } : {}),
     },
   } as AnalyticsViewDefinition
 }

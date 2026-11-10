@@ -84,8 +84,37 @@ export function calculationKinds(sel: CalculationSelection, model: AnalyticsMode
 /** What the author picks: the key is the builder's to give. */
 export type CalculationDraft = Omit<AnalyticsCalculation, 'key'>
 
-/** Why a calculation was taken out when the query changed under it: each a `boards:editor.calc.dropped.<reason>` key. */
-export type DroppedReason = 'measure' | 'compare' | 'runningDate' | 'runningSeries'
+/**
+ * Why a calculation was taken out when the query changed under it: each a `boards:editor.calc.dropped.<reason>` key.
+ * `within` (863): a share within a parent whose parent breakdown left the query, or that would now name them all.
+ */
+export type DroppedReason = 'measure' | 'compare' | 'runningDate' | 'runningSeries' | 'within'
+
+// ── Within a parent (ticket 863, spec 3543 part A) ─────────────────────────────────────────────────────────
+
+/** The kinds that take `within` (decision 1). */
+export const takesWithin = (kind: AnalyticsCalculationKind): boolean => kind === 'shareOfTotal' || kind === 'cumulativeShare'
+
+const categoryBreakdowns = (dimensions: readonly string[], model: AnalyticsModel) => dimensions.filter((k) => dimensionOf(model, k)?.kind !== 'time')
+
+/**
+ * The breakdowns a share may be within (decision 1): the query's own category breakdowns, in query order, and only when
+ * there are two or more — some must be left for the rows. The date is not offered: it already partitions every share
+ * (3519), so naming it changes nothing, and with the date set aside a pick that names every other breakdown is 100 %
+ * on every row. Stricter than the server's own check (which refuses only every dimension), never looser.
+ */
+export function withinChoices(dimensions: readonly string[], model: AnalyticsModel): string[] {
+  const cats = categoryBreakdowns(dimensions, model)
+  return cats.length >= 2 ? cats : []
+}
+
+/** Why a `within` pick cannot be saved: a key the query does not break down by, or every category breakdown. */
+export function withinProblem(within: readonly string[], dimensions: readonly string[], model: AnalyticsModel): 'notInQuery' | 'all' | null {
+  const choices = withinChoices(dimensions, model)
+  if (within.some((k) => !dimensions.includes(k) || (dimensionOf(model, k)?.kind !== 'time' && !choices.includes(k)))) return 'notInQuery'
+  const cats = categoryBreakdowns(dimensions, model)
+  return cats.every((k) => within.includes(k)) ? 'all' : null
+}
 
 export interface DroppedCalculation {
   calculation: AnalyticsCalculation
@@ -149,7 +178,9 @@ export function settleCalculations(def: AnalyticsViewDefinition, model: Analytic
           ? 'runningDate'
           : c.kind === 'cumulativeShare' && series > 0
             ? 'runningSeries'
-            : null
+            : c.within?.length && withinProblem(c.within, def.query.dimensions, model)
+              ? 'within'
+              : null
     if (reason) dropped.push({ calculation: c, reason })
     else if (c.kind !== 'cumulativeShare' || !runningOf(kept)) kept.push(c)
   }
@@ -181,11 +212,15 @@ export function removeCalculation(def: AnalyticsViewDefinition, key: string, mod
   return settleCalculations({ ...def, query: { ...def.query, calculations: calcs } }, model).definition
 }
 
-/** Only the fields its kind carries: `of` on a ratio, `until` (1–100, whole) on a running share, a label if given. */
+/**
+ * Only the fields its kind carries: `of` on a ratio, `until` (1–100, whole) on a running share, `within` (non-empty) on
+ * a share or a running share, a label if given.
+ */
 function tidy(d: CalculationDraft): CalculationDraft {
   const out: CalculationDraft = { kind: d.kind, measure: d.measure }
   if (d.kind === 'ratio' && d.of) out.of = d.of
   if (d.kind === 'cumulativeShare' && typeof d.until === 'number' && Number.isFinite(d.until)) out.until = Math.min(100, Math.max(1, Math.round(d.until)))
+  if (takesWithin(d.kind) && d.within?.length) out.within = [...new Set(d.within)]
   if (d.label) out.label = d.label
   return out
 }

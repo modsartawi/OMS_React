@@ -1,7 +1,8 @@
 import type { AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { CALCULATION_SHAPE, CALCULATION_UNIT, type AnalyticsCalculationKind, type AnalyticsColumnCalculation } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
-import { listOf, variantModel, type VariantWord } from './variants'
+import { listText } from '@/core/util/list-format'
+import { variantModel, type VariantWord } from './variants'
 import { measureOf } from './wire'
 
 /**
@@ -58,7 +59,7 @@ export function calculationLabel(
   if (explicit) return explicit
   const name = (key: string | null | undefined) => (key ? saysIn(measureOf(model, key)?.label, lang) || key : '')
   const parents = (calculation.within ?? []).map((k) => saysIn(model.dimensions?.find((d) => d.key === k)?.label, lang) || k)
-  const names = { measure: name(calculation.measure), of: name(calculation.of), within: listOf(parents, lang) }
+  const names = { measure: name(calculation.measure), of: name(calculation.of), within: listText(parents, lang) }
   const kind = calculation.kind
   if (parents.length && (kind === 'shareOfTotal' || kind === 'cumulativeShare')) return words[`${kind}Within`](names)
   return words[kind](names)

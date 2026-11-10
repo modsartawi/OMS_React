@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { toKpiView, toKpiViews, toSeriesView } from './series-view'
+import { toKpiView, toKpiViews, toSeriesView, unitPanes, type SeriesView } from './series-view'
 
 const label = (en: string, ar: string) => ({ en, ar })
 
@@ -337,5 +337,39 @@ describe('view model: named series (825)', () => {
       ['هنقرستيشن', 0, 0.8, 0.5, 'up'],
       ['التوصيل السريع', 1, 0.6, 0.6, 'flat'],
     ])
+  })
+})
+
+// Spec 3543 review (owner): an average in SAR and a percent are both shape rate, so a series chart once drew both on
+// the first measure's axis. Each unit gets its own pane and its own value axis (the combo's two panes, 766 §E amendment
+// 1: never two y-axes on one chart).
+describe('unitPanes: one value axis per unit', () => {
+  const twoUnits = (): AnalyticsQueryResult => ({
+    ...answer([
+      { day: '2026-11-01', orders: 10, avg_basket: 85.5, share: 40 },
+      { day: '2026-11-02', orders: 12, avg_basket: 90.25, share: 60 },
+    ]),
+    columns: [
+      { key: 'day', role: 'dimension' },
+      { key: 'orders', role: 'measure', shape: 'additive', unit: 'count' },
+      { key: 'avg_basket', role: 'measure', shape: 'rate', unit: 'SAR' },
+      { key: 'share', role: 'measure', shape: 'rate', unit: 'percent' },
+    ],
+  }) as AnalyticsQueryResult
+  const line = (measures: string[]): AnalyticsViewDefinition => ({ chart: { type: 'line' }, query: { measures, dimensions: ['day'], filters: [] } })
+
+  it('splits SAR and percent into panes, each with its unit, its own series and only their values', () => {
+    const view = toSeriesView(twoUnits(), line(['avg_basket', 'share']), MODEL, 'en') as SeriesView
+    const panes = unitPanes(view)
+    expect(panes.map((p) => [p.unit, p.series.map((s) => s.member), p.rows.map((r) => r.values)])).toEqual([
+      ['SAR', ['avg_basket'], [{ s0: 85.5 }, { s0: 90.25 }]],
+      ['percent', ['share'], [{ s1: 40 }, { s1: 60 }]],
+    ])
+    expect(panes[1].series[0].slot).toBe(1) // a measure keeps its colour slot in its own pane
+  })
+
+  it('keeps one pane when every series shares a unit', () => {
+    const view = toSeriesView(twoUnits(), line(['orders']), MODEL, 'en') as SeriesView
+    expect(unitPanes(view)).toEqual([view])
   })
 })

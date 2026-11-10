@@ -740,7 +740,7 @@
       "add": "Add filtered measure",
       "remove": "Remove {{variant}}",
       "why": {
-        "full": "A query takes at most four filtered measures.",
+        "full": "A query takes at most {{max}} filtered measures.",
         "noFilter": "Pick at least one filter value.",
         "brokenDown": "A filter cannot be on a breakdown of this query.",
         "notFilterable": "This measure cannot be filtered on that breakdown.",

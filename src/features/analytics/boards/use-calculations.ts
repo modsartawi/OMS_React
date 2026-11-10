@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import type { AnalyticsCalculation, AnalyticsVariant } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
+import { listText } from '@/core/util/list-format'
 import { calculatedModel, calculationLabel, type CalculationWords } from './calculations'
 import { addCalculation, removeCalculation, updateCalculation, type CalculationDraft, type DroppedCalculation } from './calculations-edit'
-import { listOf, variantModel, type VariantWord } from './variants'
+import { variantModel, type VariantWord } from './variants'
 import { dimensionOf, measureOf } from './wire'
 
 /** 861: the calculation labels' default words (decision 24) in the screen's language. */
@@ -74,6 +75,6 @@ export function useCalculationEditing(model: AnalyticsModel, lang: string, calcu
   })
   // 863: a running share within a parent cuts its top N per parent — the parents' names, for the top N field.
   const running = calculations.find((c) => c.kind === 'cumulativeShare' && c.within?.length)
-  const perParent = running ? listOf(running.within!.map((k) => saysIn(dimensionOf(model, k)?.label, lang) || k), lang) : null
+  const perParent = running ? listText(running.within!.map((k) => saysIn(dimensionOf(model, k)?.label, lang) || k), lang) : null
   return { nameOf, measureName, setDropped, fields, perParent }
 }

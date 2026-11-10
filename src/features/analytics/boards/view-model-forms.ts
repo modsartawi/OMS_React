@@ -257,8 +257,11 @@ export function toTableView(
   const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
 
   const sort = definition.chart.sort ?? (measureKeys[0] ? { key: measureKeys[0], direction: 'desc' as const } : null)
+  // Spec 3543 decision 3: a running share within a parent comes back grouped by parent, each parent already cut to the
+  // top N by the server ("top N in each {parent}"), so it is drawn as it comes — a sort or a cut here would mix parents.
+  const perParent = (definition.query.calculations ?? []).some((c) => c.kind === 'cumulativeShare' && (c.within?.length ?? 0) > 0)
   const sorted = [...source]
-  if (sort) {
+  if (sort && !perParent) {
     const sign = sort.direction === 'asc' ? 1 : -1
     sorted.sort((a, b) => {
       const av = a[sort.key]
@@ -268,7 +271,7 @@ export function toTableView(
     })
   }
   const topN = definition.chart.topN
-  const kept = topN && topN > 0 ? sorted.slice(0, topN) : sorted
+  const kept = topN && topN > 0 && !perParent ? sorted.slice(0, topN) : sorted
 
   const rows = [...kept, ...totals].map((r) => {
     const out: Record<string, string | number | null> = {}

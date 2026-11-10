@@ -32,6 +32,7 @@ import {
   readUntilReached,
   readVariants,
 } from '@/core/models/analytics-calculations'
+import { saysIn } from '@/core/rules/sentence'
 import { readAudience } from './audience'
 
 /**
@@ -101,6 +102,10 @@ export const measureOf = (model: Pick<AnalyticsModel, 'measures'> | null | undef
 /** The model's dimension by key, or `undefined` when the model does not hold it. */
 export const dimensionOf = (model: Pick<AnalyticsModel, 'dimensions'> | null | undefined, key: string | null | undefined): AnalyticsDimension | undefined =>
   model?.dimensions.find((d) => d.key === key)
+
+/** A dimension value's name in `lang`: the dimension's inline label, else the value as sent. */
+export const valueLabel = (model: Pick<AnalyticsModel, 'dimensions'> | null | undefined, dimension: string, value: string, lang: string): string =>
+  saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === value)?.label, lang) || value
 
 export function readResult(raw: Loose): AnalyticsQueryResult {
   const r = obj(raw)

@@ -4,6 +4,7 @@ import { Info, Plus, Trash2, X } from 'lucide-react'
 import { MAX_CALCULATIONS, type AnalyticsCalculation, type AnalyticsCalculationKind } from '@/core/models/analytics-calculations'
 import type { AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import { listText } from '@/core/util/list-format'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
@@ -24,7 +25,6 @@ import {
   type CalculationSelection,
   type DroppedCalculation,
 } from './calculations-edit'
-import { listOf } from './variants'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -177,7 +177,7 @@ export default function CalculationFields({
               <WithinField choices={parents} value={shownWithin} onChange={setWithin} problem={badWithin} dimensionName={dimensionName} />
             )}
             {pickedKind === 'cumulativeShare' && (
-              <UntilField value={until} onChange={setUntil} within={shownWithin.length ? listOf(shownWithin.map(dimensionName), lang) : null} />
+              <UntilField value={until} onChange={setUntil} within={shownWithin.length ? listText(shownWithin.map(dimensionName), lang) : null} />
             )}
             <div className="flex justify-end">
               <Button variant="secondary" onClick={add} disabled={!!badWithin} data-editor-calc-add>
@@ -337,7 +337,7 @@ function CalculationRow({
         )}
         {c.kind === 'cumulativeShare' && (
           <UntilField
-            within={within.length ? listOf(within.map(dimensionName), lang) : null}
+            within={within.length ? listText(within.map(dimensionName), lang) : null}
             value={c.until ?? null}
             onChange={(n) => {
               const { until: _u, ...rest } = draft

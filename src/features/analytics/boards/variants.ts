@@ -1,9 +1,10 @@
 import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { CALCULATION_KEY_PATTERN, MAX_VARIANTS, type AnalyticsVariant } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
+import { listText } from '@/core/util/list-format'
 import { labelOverride, settleCalculations } from './calculations-edit'
 import { filterableDimensions, MAX_AREAS, pickableMeasures, queryAreas } from './editor'
-import { dimensionOf, measureOf } from './wire'
+import { measureOf, valueLabel } from './wire'
 
 /**
  * Filtered measures — "variants" (ticket 863, BackOffice spec 3543 part B, decisions 5–8, the owner-kept 3546 defaults).
@@ -19,10 +20,6 @@ import { dimensionOf, measureOf } from './wire'
  *
  * 864 (spec 3543 decision 11, server 3548): a variant may be of any area, within the query's four.
  */
-
-/** Names in `lang` joined as a list ("Region and City", "المنطقة والمدينة"; "Delivery or Pickup" as a disjunction). */
-export const listOf = (names: readonly string[], lang: string, type: 'conjunction' | 'disjunction' = 'conjunction'): string =>
-  new Intl.ListFormat(lang, { type }).format(names)
 
 /** A variant's default label, from the locale (`boards:variant.label`: "{{measure}} ({{values}})"). */
 export type VariantWord = (names: { measure: string; values: string }) => string
@@ -163,10 +160,6 @@ export function settleVariants(def: AnalyticsViewDefinition, model: AnalyticsMod
   return { definition: { ...def, query: kept.length ? { ...query, measures, variants: kept } : { ...query, measures } }, dropped }
 }
 
-/** A filter value's name in `lang`: the dimension's inline label, else its code. */
-const valueName = (dimension: string, value: string, model: Pick<AnalyticsModel, 'dimensions'>, lang: string) =>
-  saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === value)?.label, lang) || value
-
 /**
  * A variant's label in `lang`: its own (both languages), else "{measure} ({filter values})" — a filter's values read as
  * either ("Delivery or Pickup", they are any-of), the filters one after another.
@@ -175,7 +168,7 @@ export function variantLabel(variant: Pick<AnalyticsVariant, 'measure' | 'filter
   const own = saysIn(variant.label ?? undefined, lang)
   if (own) return own
   const measure = saysIn(measureOf(model, variant.measure)?.label, lang) || variant.measure
-  const groups = variant.filters.map((f) => listOf(f.values.map((v) => valueName(f.dimension, v, model, lang)), lang, 'disjunction'))
+  const groups = variant.filters.map((f) => listText(f.values.map((v) => valueLabel(model, f.dimension, v, lang)), lang, 'disjunction'))
   return word({ measure, values: new Intl.ListFormat(lang, { type: 'unit', style: 'short' }).format(groups) })
 }
 

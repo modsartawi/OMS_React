@@ -155,7 +155,7 @@ export default function VariantFields({
           <LabelFields typed={typed} onTyped={setTyped} />
           {problem && problem !== 'oneLanguage' && (
             <p className="text-xs text-muted-foreground" data-analytics-variant-why={problem}>
-              {t(`editor.variant.why.${problem}`)}
+              {t(`editor.variant.why.${problem}`, { max: MAX_VARIANTS })}
             </p>
           )}
           <div className="flex justify-end">

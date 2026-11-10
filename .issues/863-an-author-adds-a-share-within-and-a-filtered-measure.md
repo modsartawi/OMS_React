@@ -28,7 +28,7 @@ UI (editor fields, pickers, labels, panel note) / wire types
 
 - [x] Builder tests: `within` offers only the allowed dimensions; a variant filter cannot be on a broken-down dimension; a saved definition carries both · oms-react test suite
 - [x] Label tests: the EN and AR defaults, and the both-or-neither override · oms-react test suite
-- [ ] **HITL:** a staging walk: a board panel of delivery share within region, and delivery value ÷ till value by region and city
+- [x] **HITL:** a staging walk: a board panel of delivery share within region, and delivery value ÷ till value by region and city
 
 ## Boundaries
 
@@ -72,3 +72,5 @@ the orchestrator's instruction.
   Found and fixed: a per-parent table was re-sorted by the grid (54f2a6a5); the calculation card overflowed (54f2a6a5).
   Note: on these panels Country is `notInArea` (the delivery-type view has no country), so the author sees
   "Not filtered by Country, Category".
+- 2026-11-10: owner accepted the local walk (live POS_Analytics, notes above) in place of the staging walk. A short
+  staging check after deploy (open the walk board, one scheduled Arabic report) covers the build, RTL and the PDF.

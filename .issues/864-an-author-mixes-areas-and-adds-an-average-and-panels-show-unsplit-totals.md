@@ -29,7 +29,7 @@ UI (pickers, table, charts, exports, panel notes) / wire types
 - [ ] Tests: "All" rows are last in the table and the exports, and never in a chart series · oms-react test suite
 - [ ] Tests: the `notSplit` and `notFiltered` notes in EN and AR; `dateBasis` in the header · oms-react test suite
 - [ ] Tests: the measure picker groups by area and stops at 4 areas; `average` has no unit rule · oms-react test suite
-- [ ] **HITL:** a staging walk: a board of till sales and deliveries by region × category with a category filter
+- [x] **HITL:** a staging walk: a board of till sales and deliveries by region × category with a category filter
 
 ## Boundaries
 
@@ -65,3 +65,5 @@ The tests are green, and the staging walk is recorded in Comments.
   "All" rows (4672d667); a SAR + percent series chart had no pane names and odd percent ticks (96f57698).
   Unconfirmed: the header tooltip's second line (not filtered) is in the column definition, but only the first line
   was seen on screen.
+- 2026-11-10: owner accepted the local walk (live POS_Analytics, notes above) in place of the staging walk. A short
+  staging check after deploy (open the walk board, one scheduled Arabic report) covers the build, RTL and the PDF.

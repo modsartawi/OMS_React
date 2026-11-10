@@ -56,7 +56,7 @@ UI (panel table, chart series, export, live figures) → SIS.Api analytics query
 - [x] Live figures: `{{fig:p:deliveryShare}}` resolves and formats as a percent
 - [x] A definition without `calculations` renders byte-identically (the existing panel tests stay green)
 - [x] typecheck + lint + build clean
-- [ ] **HITL:** on staging, ask the copilot for the 80 % delivery regions, save them as a view, and see the running
+- [x] **HITL:** on staging, ask the copilot for the 80 % delivery regions, save them as a view, and see the running
       share column and the note on the saved view
 
 ## Boundaries
@@ -119,3 +119,7 @@ Gates:
   `src/features/insurance-rules/aliases/door-shapes.test.ts`. That file is unchanged since d412363d, and
   `check-boundaries` reports the same 4 on a d412363d checkout. The other four gates (`grid-base`, `contrast`,
   `palette`, `controls`) pass when run directly.
+- 2026-11-11, local walk on live POS_Analytics (owner accepted it in place of staging): asked "Which cities make 80% of
+  our delivery value in the last 30 days?" — 18 cities, 80.7 % (DL + QC, running share until 80); "save this as a
+  view" saved it with EN and AR titles; the reopened view shows the running share column, Riyadh 26.0 % to Buraydah
+  80.7 %, filter DL + QC kept. No cut note, since 80 % was reached (the note itself was seen on the 3543 panel).

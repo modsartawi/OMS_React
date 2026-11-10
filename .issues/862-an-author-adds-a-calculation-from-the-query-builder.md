@@ -43,7 +43,7 @@ UI (query builder, chart picker) → SIS.Api analytics item store (save) and que
 - [x] The chart picker refuses a donut and a stacked bar for a calculated column, and allows a combo line
 - [x] Removing a used measure drops its calculation with a note
 - [x] typecheck + lint + build clean
-- [ ] **HITL:** on staging, build a board panel with a delivery-value bar and its share as a line, and a report text
+- [x] **HITL:** on staging, build a board panel with a delivery-value bar and its share as a line, and a report text
       that quotes the share as a live figure; save, reopen, and check that both render
 
 ## Boundaries
@@ -82,3 +82,9 @@ staging walk (last proof) is done and recorded here; it needs BackOffice 3520/35
 - The 80 % note is 861's (`untilReached`). It is not duplicated here.
 - `npm run lint`: the boundary gate fails on four pre-existing violations in `insurance-rules/aliases/door-shapes.test.ts`.
   They are there with this change stashed, too. The other four gates are clean.
+- 2026-11-11, local walk on live POS_Analytics (owner accepted it in place of staging): delivery value (DL + QC) by
+  city as a combo, bars plus its share as a line, top 10 — share over all cities (Riyadh 26.0 %), saved, on the walk
+  board and in the walk report. The share itself is not a live figure (spec 3519 D15: over the whole selection it is
+  100 %), so the report text quotes the ratio instead: "15.0% of our till value came through delivery" — checked,
+  66,692,042.21 / 444,375,816.41 = 15.01 %. Fixed on the way: the combo's percent axis (e6e911df), live figures
+  named by key, and "Add … to the board" in the report designer.

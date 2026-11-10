@@ -1,0 +1,92 @@
+import type { AnalyticsLabel } from './analytics'
+
+/**
+ * The calculation wire (BackOffice spec 3519, decisions 1–3, 7, 15, 26) — in ONE place, so reconciling the web
+ * against the real server (BackOffice 3520) is a change to this file. Tickets 861 (render) and 862 (editor) both
+ * read it.
+ *
+ * ⚠ Built against the spec's wire before 3520 merged. Assumptions to check against the server:
+ * - the query field is `calculations` (camelCase, like every other query field), null/absent/empty = none;
+ * - a calculated result column is `{ key, role: 'measure', shape: 'rate', unit: 'percent', calculation: { kind,
+ *   measure, of } }`, and its values are PERCENT POINTS (42.5 means 42.5 %, decision 6's `× 100`), 4 dp, `null`
+ *   for a zero or missing denominator;
+ * - the result carries `untilReached` (boolean) only when a `cumulativeShare` has an `until`; absent = no note;
+ * - the result column does NOT carry the label: the label is the query's `calculations[i].label` (matched by key),
+ *   else derived by the web.
+ */
+
+export type AnalyticsCalculationKind = 'shareOfTotal' | 'ratio' | 'cumulativeShare' | 'change'
+
+export const CALCULATION_KINDS: readonly AnalyticsCalculationKind[] = ['shareOfTotal', 'ratio', 'cumulativeShare', 'change']
+
+/** Decision 1: at most four per query. */
+export const MAX_CALCULATIONS = 4
+
+/** Decision 1: a calculation's key. Unique in the query; never a measure or dimension key. */
+export const CALCULATION_KEY_PATTERN = /^[a-z][A-Za-z0-9_]{0,39}$/
+
+/** One entry of `AnalyticsSemanticQuery.calculations` (decision 1). */
+export interface AnalyticsCalculation {
+  key: string
+  kind: AnalyticsCalculationKind
+  /** A measure the query already selects. */
+  measure: string
+  /** `ratio` only: the denominator, also a selected measure. */
+  of?: string | null
+  /** `cumulativeShare` only: cut the rows once the running share reaches this percent (e.g. 80). */
+  until?: number | null
+  /** Both languages or neither; absent → the web derives one from the kind and the measure's label. */
+  label?: AnalyticsLabel | null
+}
+
+/** `AnalyticsColumn.calculation` (decision 2): what the column was computed from, for its label. */
+export interface AnalyticsColumnCalculation {
+  kind: AnalyticsCalculationKind
+  measure: string
+  of?: string | null
+}
+
+/** Decision 2: every calculated column's shape and unit. */
+export const CALCULATION_SHAPE = 'rate' as const
+export const CALCULATION_UNIT = 'percent' as const
+
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {})
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+const isKind = (v: unknown): v is AnalyticsCalculationKind => CALCULATION_KINDS.includes(v as AnalyticsCalculationKind)
+
+function readLabel(v: unknown): AnalyticsLabel | null {
+  const l = obj(v)
+  const en = str(l.en)
+  const ar = str(l.ar)
+  return en || ar ? { en, ar } : null
+}
+
+/**
+ * The query's `calculations`, tolerantly: an entry without a key, a measure or a known kind is left out.
+ * `undefined` when the wire has none, so a definition without calculations keeps its old object shape.
+ */
+export function readCalculations(raw: unknown): AnalyticsCalculation[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const list = raw
+    .map(obj)
+    .filter((c) => !!str(c.key) && !!str(c.measure) && isKind(c.kind))
+    .map((c) => {
+      const out: AnalyticsCalculation = { key: str(c.key), kind: c.kind as AnalyticsCalculationKind, measure: str(c.measure) }
+      if (str(c.of)) out.of = str(c.of)
+      if (typeof c.until === 'number' && Number.isFinite(c.until)) out.until = c.until
+      const label = readLabel(c.label)
+      if (label) out.label = label
+      return out
+    })
+  return list.length ? list : undefined
+}
+
+/** A result column's `calculation`, or `null` when it is not a calculated column. */
+export function readColumnCalculation(raw: unknown): AnalyticsColumnCalculation | null {
+  const c = obj(raw)
+  if (!isKind(c.kind) || !str(c.measure)) return null
+  return { kind: c.kind, measure: str(c.measure), ...(str(c.of) ? { of: str(c.of) } : {}) }
+}
+
+/** The result's `untilReached`: a boolean, or `undefined` when absent (no note). */
+export const readUntilReached = (raw: unknown): boolean | undefined => (typeof raw === 'boolean' ? raw : undefined)

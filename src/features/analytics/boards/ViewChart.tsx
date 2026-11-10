@@ -8,6 +8,8 @@ import { fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
 import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
+import UntilNote from './UntilNote'
+import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
 import ViewForm, { isViewForm } from './ViewForms'
 import { dimensionOf, measureOf } from './wire'
@@ -60,6 +62,8 @@ export default function ViewChart({
   selected?: MarkPoint | null
 }) {
   const { t } = useTranslation('boards')
+  // 861: calculated columns are measures, labelled in the viewer's language.
+  const shown = useCalculatedModel(model, definition, result, lang)
 
   if (!drawsHere(definition)) {
     return (
@@ -72,9 +76,10 @@ export default function ViewChart({
   return (
     <>
       <ChartFrame busy={busy} hasChart={!!result}>
-        {result && <ChartBody result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} selected={selected} />}
+        {result && <ChartBody result={result} definition={definition} model={shown} lang={lang} onPoint={onPoint} selected={selected} />}
       </ChartFrame>
       {result?.truncated && <p className="text-xs text-muted-foreground">{t('view.truncated')}</p>}
+      <UntilNote definition={definition} result={result} />
     </>
   )
 }

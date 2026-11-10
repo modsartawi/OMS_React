@@ -1,3 +1,5 @@
+import type { AnalyticsCalculation, AnalyticsColumnCalculation } from './analytics-calculations'
+
 /**
  * The analytics doors' wire (spec 766 §C — PROPOSED, owned by BackOffice 3378 once filed).
  *
@@ -26,7 +28,8 @@ export interface AnalyticsAccess {
 }
 
 export type MeasureShape = 'additive' | 'rate' | 'percentile'
-export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'share'
+/** `share` is a fraction (0.42); `percent` is percent points (42), the unit of a calculated column (spec 3519 D2). */
+export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'share' | 'percent'
 
 export interface AnalyticsArea {
   key: string
@@ -102,6 +105,8 @@ export interface AnalyticsSemanticQuery {
   grain?: string | null
   limit?: number | null
   compareToPrevious?: boolean
+  /** Spec 3519 D1: shares, ratios, running shares and changes the server computes (`./analytics-calculations`). */
+  calculations?: AnalyticsCalculation[] | null
 }
 
 /** The editor's number formats (755 item 4). `auto` follows the measure's unit. */
@@ -394,6 +399,8 @@ export interface AnalyticsColumn {
   role: 'dimension' | 'measure' | 'series'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
+  /** Spec 3519 D2: set on a calculated column (role `measure`, shape `rate`, unit `percent`). */
+  calculation?: AnalyticsColumnCalculation | null
 }
 
 /** ⚠ A row is an object keyed by column key (Cube's own shape); §C says `rows[]` only. */
@@ -414,6 +421,8 @@ export interface AnalyticsQueryResult {
   notReached?: { param: string; reason: string }[]
   /** ⚠ 819 §C (823): the parameters whose value was outside a declared list, so the default ran. Absent reads as none. */
   fellBack?: { param: string }[]
+  /** Spec 3519 D7: `false` when a `cumulativeShare` cut ran out of rows before its `until`. Absent reads as no note. */
+  untilReached?: boolean
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────

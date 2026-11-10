@@ -3,6 +3,7 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import { stripIsolates } from '@/core/util/bidi'
 import type { XlsxSheet } from '@/core/util/grid-xlsx'
 import { saysIn } from '@/core/rules/sentence'
+import { measureKeysOf } from './calculations'
 import { seriesColumnOf, seriesName, seriesOf } from './series'
 import { viewMeasureOf } from './view-model'
 import { dimensionOf } from './wire'
@@ -43,7 +44,8 @@ export function panelTable(
   const kept = named.length ? result.rows.filter((r) => seriesNames.has(String(r[seriesKey] ?? ''))) : result.rows
   const fromColumns = (role: 'dimension' | 'measure') => result.columns.filter((c) => c.role === role).map((c) => c.key)
   const dimKeys = definition.query.dimensions.length ? definition.query.dimensions : fromColumns('dimension')
-  const measureKeys = definition.query.measures.length ? definition.query.measures : fromColumns('measure')
+  // 861: the query's measures, then the calculated columns the server returned (`./calculations`).
+  const measureKeys = measureKeysOf(definition, result)
 
   const namers = new Map(
     dimKeys.map((k) => {

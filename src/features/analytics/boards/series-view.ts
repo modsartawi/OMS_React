@@ -1,4 +1,5 @@
 import { formatAxisDay } from '@/core/charts/format'
+import { measureKeysOf } from './calculations'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type {
   AnalyticsModel,
@@ -192,9 +193,8 @@ export function toSeriesView(
   lang: string,
 ): SeriesView | RefusedView {
   const form = definition.chart.type === 'area' ? 'area' : definition.chart.type === 'bar' ? 'bar' : 'line'
-  const measureKeys = definition.query.measures.length
-    ? definition.query.measures
-    : result.columns.filter((c) => c.role === 'measure').map((c) => c.key)
+  // 861: the query's measures, then the calculated columns the server returned.
+  const measureKeys = measureKeysOf(definition, result)
   const measures = measureKeys.map((k) => viewMeasureOf(k, model, result, lang))
   if (hasSeries(definition)) return namedSeriesView(result, definition, model, lang, form, measures)
 

@@ -545,6 +545,7 @@
     "sortDesc": "{{column}}, largest first",
     "sortAsc": "{{column}}, smallest first",
     "topN": "Top N",
+    "topNWithin": "Top N in each {{within}}",
     "topNPlaceholder": "All rows",
     "titleEn": "Title in English",
     "titleAr": "Title in Arabic",
@@ -684,6 +685,13 @@
       "of": "As a percentage of",
       "until": "Stop at (%)",
       "untilPlaceholder": "All rows",
+      "untilWithin": "Stop at (%) in each {{within}}",
+      "within": "Within each",
+      "withinHint": "Leave empty for a share of the whole result. Pick some breakdowns, not all of them.",
+      "withinProblem": {
+        "all": "Leave at least one breakdown out: within all of them, every row is 100 %.",
+        "notInQuery": "Pick only breakdowns this query has."
+      },
       "add": "Add calculation",
       "remove": "Remove {{calculation}}",
       "labelEn": "Label (English)",
@@ -704,9 +712,33 @@
         "measure": "Removed “{{calculation}}”: it used a measure that is no longer in the query.",
         "compare": "Removed “{{calculation}}”: a change needs compare with the previous period.",
         "runningDate": "Removed “{{calculation}}”: a running share cannot be broken down by date.",
-        "runningSeries": "Removed “{{calculation}}”: a running share cannot be used with named series."
+        "runningSeries": "Removed “{{calculation}}”: a running share cannot be used with named series.",
+        "within": "Removed “{{calculation}}”: the breakdowns it was within changed."
       },
       "dismiss": "Dismiss"
+    },
+    "variant": {
+      "title": "Filtered measures",
+      "hint": "A measure under its own filter, for example till value where the delivery type is delivery. Up to {{max}}; each is added to the measures.",
+      "measure": "Measure",
+      "where": "Where {{dimension}} is",
+      "addFilter": "Filter it on",
+      "addFilterPick": "Pick a breakdown…",
+      "noFilterable": "This measure has no breakdown left to filter on: the query breaks down by all of them.",
+      "labelHint": "Leave both empty for the default label: the measure and its filter values.",
+      "add": "Add filtered measure",
+      "remove": "Remove {{variant}}",
+      "why": {
+        "full": "A query takes at most four filtered measures.",
+        "noFilter": "Pick at least one filter value.",
+        "brokenDown": "A filter cannot be on a breakdown of this query.",
+        "notFilterable": "This measure cannot be filtered on that breakdown.",
+        "measure": "Pick a measure of this query's subject."
+      },
+      "dropped": {
+        "brokenDown": "Removed “{{variant}}”: the query now breaks down by the breakdown it filters on.",
+        "measure": "Removed “{{variant}}”: its measure is not of this query's subject."
+      }
     },
     "series": {
       "title": "Named series",
@@ -1581,8 +1613,14 @@
       "shareOfTotal": "Share of {{measure}}",
       "ratio": "{{measure}} as % of {{of}}",
       "cumulativeShare": "Running share of {{measure}}",
-      "change": "Change in {{measure}}"
+      "change": "Change in {{measure}}",
+      "shareOfTotalWithin": "Share of {{measure}} in each {{within}}",
+      "cumulativeShareWithin": "Running share of {{measure}} in each {{within}}"
     },
-    "untilNotReached": "The list was cut before <n>{{until}}</n> %; raise the limit or add a filter."
+    "untilNotReached": "The list was cut before <n>{{until}}</n> %; raise the limit or add a filter.",
+    "untilNotReachedIn": "In {{parents}}, the list was cut before <n>{{until}}</n> %; raise the limit or add a filter."
+  },
+  "variant": {
+    "label": "{{measure}} ({{values}})"
   }
 }

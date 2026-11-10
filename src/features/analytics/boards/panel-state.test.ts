@@ -68,6 +68,16 @@ describe('panel failure', () => {
     expect(retiredMembers(d, withDims)).toEqual(['old_orders', 'old_zone'])
     expect(retiredMembers(def(['orders']), withDims)).toEqual([])
   })
+  it('863: a variant key is not retired while its own measure is held; it is when that measure goes', () => {
+    const withDims = { ...model, dimensions: [{ key: 'store' }] } as unknown as AnalyticsModel
+    const variant = (measure: string) =>
+      ({
+        chart: { type: 'bar' },
+        query: { measures: ['orders', 'orders_app'], dimensions: ['store'], filters: [], variants: [{ key: 'orders_app', measure, filters: [{ dimension: 'channel', values: ['app'] }] }] },
+      }) as AnalyticsViewDefinition
+    expect(retiredMembers(variant('orders'), withDims)).toEqual([])
+    expect(retiredMembers(variant('old_orders'), withDims)).toEqual(['orders_app'])
+  })
   it('406 naming a field is the retired state; 406 naming none is a refusal in its own words', () => {
     expect(panelFailure('ANALYTICS-406', 'query.measures[0]')).toBe('retired')
     expect(panelFailure('ANALYTICS-406')).toBe('refused')

@@ -8,6 +8,7 @@ import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
+import MultiSelect from '@/core/ui/MultiSelect'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import {
@@ -15,11 +16,15 @@ import {
   labelOverride,
   measuresFor,
   ofFor,
+  takesWithin,
+  withinChoices,
+  withinProblem,
   type CalculationDraft,
   type CalculationSelection,
   type DroppedCalculation,
 } from './calculations-edit'
-import { measureOf } from './wire'
+import { listOf } from './variants'
+import { dimensionOf, measureOf } from './wire'
 
 /**
  * "Add calculation" in the query builder (ticket 862, spec 3519 decisions 23–24) — a thin renderer over
@@ -27,6 +32,9 @@ import { measureOf } from './wire'
  * It offers only what the server's rules allow (a kind that does not fit is listed disabled, with why); each saved
  * calculation's measure, `of`, `until` and label stay editable, and it can be removed. A calculation an edit took out
  * is named in a note until dismissed.
+ *
+ * 863 (spec 3543 part A): a share or running share takes `within` — the query's own category breakdowns, some but not
+ * all (`withinChoices` / `withinProblem`); with it, `until` reads "in each {parent}".
  */
 export default function CalculationFields({
   model,
@@ -63,13 +71,25 @@ export default function CalculationFields({
   const [of, setOf] = useState('')
   const shownOf = ofs.includes(of) ? of : (ofs[0] ?? '')
   const [until, setUntil] = useState<number | null>(null)
+  const [within, setWithin] = useState<string[]>([])
+  const parents = pickedKind && takesWithin(pickedKind) ? withinChoices(selection.dimensions, model) : []
+  const shownWithin = within.filter((k) => parents.includes(k))
+  const badWithin = shownWithin.length ? withinProblem(shownWithin, selection.dimensions, model) : null
+  const dimensionName = (k: string) => saysIn(dimensionOf(model, k)?.label, lang) || k
 
   if (selection.measures.length === 0) return null
   const add = () => {
-    if (!pickedKind || !shownMeasure || (pickedKind === 'ratio' && !shownOf)) return
-    onAdd({ kind: pickedKind, measure: shownMeasure, ...(pickedKind === 'ratio' ? { of: shownOf } : {}), ...(pickedKind === 'cumulativeShare' && until ? { until } : {}) })
+    if (!pickedKind || !shownMeasure || (pickedKind === 'ratio' && !shownOf) || badWithin) return
+    onAdd({
+      kind: pickedKind,
+      measure: shownMeasure,
+      ...(pickedKind === 'ratio' ? { of: shownOf } : {}),
+      ...(pickedKind === 'cumulativeShare' && until ? { until } : {}),
+      ...(shownWithin.length ? { within: shownWithin } : {}),
+    })
     setKind('')
     setUntil(null)
+    setWithin([])
   }
 
   return (
@@ -100,6 +120,8 @@ export default function CalculationFields({
           model={model}
           selection={selection}
           measureName={measureName}
+          dimensionName={dimensionName}
+          lang={lang}
           name={nameOf(c)}
           onUpdate={(draft) => onUpdate(c.key, draft)}
           onRemove={() => onRemove(c.key)}
@@ -150,9 +172,14 @@ export default function CalculationFields({
                 </Select>
               </Field>
             )}
-            {pickedKind === 'cumulativeShare' && <UntilField value={until} onChange={setUntil} />}
+            {parents.length > 0 && (
+              <WithinField choices={parents} value={shownWithin} onChange={setWithin} problem={badWithin} dimensionName={dimensionName} />
+            )}
+            {pickedKind === 'cumulativeShare' && (
+              <UntilField value={until} onChange={setUntil} within={shownWithin.length ? listOf(shownWithin.map(dimensionName), lang) : null} />
+            )}
             <div className="flex justify-end">
-              <Button variant="secondary" onClick={add} data-editor-calc-add>
+              <Button variant="secondary" onClick={add} disabled={!!badWithin} data-editor-calc-add>
                 <Plus className="size-3.5" aria-hidden />
                 {t('editor.calc.add')}
               </Button>
@@ -164,11 +191,43 @@ export default function CalculationFields({
   )
 }
 
-/** `until` (1–100), optional: empty keeps every row. */
-function UntilField({ value, onChange }: { value: number | null; onChange: (n: number | null) => void }) {
+/**
+ * 863: `within` — the parents a share is of (decision 1). Empty is a share of the whole result; every category
+ * breakdown is refused (each row would be 100 %).
+ */
+function WithinField({
+  choices,
+  value,
+  onChange,
+  problem,
+  dimensionName,
+}: {
+  choices: string[]
+  value: string[]
+  onChange: (keys: string[]) => void
+  problem: 'notInQuery' | 'all' | null
+  dimensionName: (key: string) => string
+}) {
   const { t } = useTranslation('boards')
   return (
-    <Field label={t('editor.calc.until')}>
+    <Field label={t('editor.calc.within')} hint={t(problem ? `editor.calc.withinProblem.${problem}` : 'editor.calc.withinHint')} invalid={!!problem}>
+      <MultiSelect
+        label={t('editor.calc.within')}
+        value={value}
+        // In query order, whatever order they were ticked in.
+        onChange={(keys) => onChange(choices.filter((k) => keys.includes(k)))}
+        options={choices.map((k) => ({ value: k, text: dimensionName(k) }))}
+        data-testid="editor-calc-within"
+      />
+    </Field>
+  )
+}
+
+/** `until` (1–100), optional: empty keeps every row. 863: within a parent, it cuts each parent ("in each {within}"). */
+function UntilField({ value, onChange, within = null }: { value: number | null; onChange: (n: number | null) => void; within?: string | null }) {
+  const { t } = useTranslation('boards')
+  return (
+    <Field label={within ? t('editor.calc.untilWithin', { within: fsi(within) }) : t('editor.calc.until')}>
       <Input
         type="number"
         min={1}
@@ -193,6 +252,8 @@ function CalculationRow({
   model,
   selection,
   measureName,
+  dimensionName,
+  lang,
   name,
   onUpdate,
   onRemove,
@@ -201,6 +262,8 @@ function CalculationRow({
   model: AnalyticsModel
   selection: CalculationSelection
   measureName: (k: string) => string
+  dimensionName: (k: string) => string
+  lang: string
   name: string
   onUpdate: (draft: CalculationDraft) => void
   onRemove: () => void
@@ -220,6 +283,15 @@ function CalculationRow({
     }
   }
   const choices = measuresFor(c.kind, selection.measures, model)
+  const parents = takesWithin(c.kind) ? withinChoices(selection.dimensions, model) : []
+  const within = c.within ?? []
+  const setWithin = (keys: string[]) => {
+    const { within: _w, ...rest } = draft
+    void _w
+    // A pick the server would refuse (every breakdown) is not saved: the field says why, and the saved one stays.
+    if (keys.length && withinProblem(keys, selection.dimensions, model)) return
+    onUpdate(keys.length ? { ...rest, within: keys } : rest)
+  }
   return (
     <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-2" data-analytics-calc={c.key} data-analytics-calc-kind={c.kind}>
       <div className="flex items-center gap-2">
@@ -259,8 +331,12 @@ function CalculationRow({
             </Select>
           </Field>
         )}
+        {parents.length > 0 && (
+          <WithinField choices={parents} value={within.filter((k) => parents.includes(k))} onChange={setWithin} problem={null} dimensionName={dimensionName} />
+        )}
         {c.kind === 'cumulativeShare' && (
           <UntilField
+            within={within.length ? listOf(within.map(dimensionName), lang) : null}
             value={c.until ?? null}
             onChange={(n) => {
               const { until: _u, ...rest } = draft

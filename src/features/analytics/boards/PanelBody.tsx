@@ -152,7 +152,7 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
         locale={lang}
         ariaLabel={tc('charts.tableLabel', { measures: fsi(listText(measures, lang)), dimensions: fsi(listText(dims, lang)) })}
       />
-      <UntilNote definition={definition} result={result} />
+      <UntilNote definition={definition} result={result} model={model} lang={lang} />
     </div>
   )
 }

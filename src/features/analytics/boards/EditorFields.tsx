@@ -265,7 +265,10 @@ export function ChartFields({
   suggested = false,
   sortKeys,
   sortLocked = false,
+  perParent = null,
 }: {
+  /** 863 (spec 3543 D3): a running share within a parent keeps the top N of each parent; its parents' names. */
+  perParent?: string | null
   /** 862: the keys the sort may name — the measures and the calculated keys (`calculations-edit.sortKeys`). Absent: the measures. */
   sortKeys?: string[]
   /** 862: a running share holds the order on its measure (spec 3519 D7); the sort shows it, fixed. */
@@ -400,7 +403,7 @@ export function ChartFields({
             ])}
           </Select>
         </Field>
-        <Field label={t('editor.topN')}>
+        <Field label={perParent ? t('editor.topNWithin', { within: fsi(perParent) }) : t('editor.topN')}>
           <Input
             type="number"
             min={1}

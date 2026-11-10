@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, TriangleAlert } from 'lucide-react'
@@ -11,13 +11,16 @@ import { fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsItemKey } from './api'
 import { canBind } from './bindings'
 import CalculationFields from './CalculationFields'
-import { useCalculationEditing } from './use-calculations'
+import { useCalculationEditing, useVariantModel, useVariantWord } from './use-calculations'
+import VariantFields from './VariantFields'
+import { addVariant, droppedVariantsBy, relabelVariant, removeVariant, variantLabel, variantModel, type DroppedVariant } from './variants'
 import { droppedBy, sortKeys } from './calculations-edit'
 import { allowedDimensions, DEFAULT_PERIOD, filterableDimensions, GRAINS, pickableMeasures, type Grain } from './editor'
 import { ChartFields, QueryFields } from './EditorFields'
 import { useAreaName } from './MeasurePicker'
 import {
   comparing,
+  fitted,
   panelArea,
   panelOffers,
   sourceChanged,
@@ -53,7 +56,7 @@ import { viewTitleOf } from './ViewChart'
 export default function ReportPanelEditor({
   block,
   def,
-  model,
+  model: baseModel,
   lang,
   onBlock,
   onBind,
@@ -70,18 +73,28 @@ export default function ReportPanelEditor({
   const { t } = useTranslation('boards')
   const areaName = useAreaName()
   const view = block.definition
+  // 863 (spec 3543 B): the model plus one measure per variant of the panel, so every picker offers a variant like a
+  // measure; `baseModel` is the model's own (the area picker, and what a variant may filter).
+  const variantWord = useVariantWord()
+  const model = useVariantModel(baseModel, view.query.variants, lang)
+  const [droppedVariants, setDroppedVariants] = useState<DroppedVariant[]>([])
   // 862: a calculation an edit takes out (its measure removed, compare off, …) is named in a note until dismissed.
   const calcs = view.query.calculations ?? []
   const calc = useCalculationEditing(model, lang, calcs)
   const setView = (f: (d: PanelBlock['definition']) => PanelBlock['definition']) => {
-    const lost = droppedBy(view, f(view), model)
+    const after = f(view)
+    const lost = droppedBy(view, after, model)
     if (lost.length) calc.setDropped(lost)
+    const lostVariants = droppedVariantsBy(view, after, model)
+    if (lostVariants.length) setDroppedVariants(lostVariants)
     onBlock((b) => ({ ...b, definition: f(b.definition) }))
   }
+  // A variant added or removed changes the measures: the chart is re-fitted over the model as it then is.
+  const refit = (d: PanelBlock['definition']) => fitted(d, variantModel(baseModel, d.query.variants, lang, variantWord))
   const setTitle = (title: AnalyticsLabel, which: 'en' | 'ar') => onBlock((b) => ({ ...b, title }), `block:${block.id}:title:${which}`)
 
   const area = panelArea(view, model)
-  const areas = model.areas.filter((a) => pickableMeasures(model).some((m) => m.area === a.key))
+  const areas = model.areas.filter((a) => pickableMeasures(baseModel).some((m) => m.area === a.key))
   // The measure picker asks one subject: the panel's area. Picking another area starts it on that area's first measure.
   const inArea = useMemo(
     () => ({
@@ -121,7 +134,7 @@ export default function ReportPanelEditor({
         <Select
           value={area ?? ''}
           onChange={(e) => {
-            const first = pickableMeasures(model).find((m) => m.area === e.target.value)
+            const first = pickableMeasures(baseModel).find((m) => m.area === e.target.value)
             if (first) setView((d) => withMeasures(d, [first.key], model))
           }}
           data-designer-panel-area
@@ -167,6 +180,19 @@ export default function ReportPanelEditor({
         onCompare={(on) => setView((d) => withComparing(d, on, model))}
         sortKeys={sortKeys(view)}
         sortLocked={calcs.some((c) => c.kind === 'cumulativeShare')}
+        perParent={calc.perParent}
+      />
+
+      <VariantFields
+        model={baseModel}
+        lang={lang}
+        definition={view}
+        onAdd={(draft) => setView((d) => refit(addVariant(d, draft, baseModel)))}
+        onRemove={(key) => setView((d) => refit(removeVariant(d, key, model)))}
+        onRelabel={(key, l) => setView((d) => relabelVariant(d, key, l))}
+        nameOf={(v) => variantLabel(v, baseModel, lang, variantWord)}
+        dropped={droppedVariants}
+        onDismissDropped={() => setDroppedVariants([])}
       />
 
       <CalculationFields

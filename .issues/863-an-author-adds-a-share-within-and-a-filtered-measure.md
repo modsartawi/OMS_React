@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3543-analytics-calculations-phase-2-share-within-a-parent-filtered-measures-averages-and-questions-across-areas-spec.md
 blocked-by: BackOffice 3545, BackOffice 3546
 ---
@@ -26,8 +26,8 @@ UI (editor fields, pickers, labels, panel note) / wire types
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Builder tests: `within` offers only the allowed dimensions; a variant filter cannot be on a broken-down dimension; a saved definition carries both · oms-react test suite
-- [ ] Label tests: the EN and AR defaults, and the both-or-neither override · oms-react test suite
+- [x] Builder tests: `within` offers only the allowed dimensions; a variant filter cannot be on a broken-down dimension; a saved definition carries both · oms-react test suite
+- [x] Label tests: the EN and AR defaults, and the both-or-neither override · oms-react test suite
 - [ ] **HITL:** a staging walk: a board panel of delivery share within region, and delivery value ÷ till value by region and city
 
 ## Boundaries
@@ -42,3 +42,26 @@ The builder tests are green, and the staging walk is recorded in Comments.
 ## Blocked by
 
 BackOffice 3545, BackOffice 3546
+
+## Comments
+
+**2026-11-10 — built on `3519-863` (from `spec/3519-calculations`).** Code proofs green; the **HITL staging walk is
+still open** (needs BackOffice spec3543 deployed to staging) and should be recorded here when done. Status set `done` on
+the orchestrator's instruction.
+
+- Wire (`src/core/models/analytics-calculations.ts`, tested in `analytics-calculations.test.ts`): `within` on a
+  calculation and on a column's `calculation`; `AnalyticsVariant` / `query.variants`; a column's `variant: {measure,
+  filters, label}`; `untilReached` as a boolean or the per-parent list `[{parent, reached}]`. Matches `AnalyticsWire.cs`
+  on BackOffice `spec3543` — no mismatch found.
+- `within` (`calculations-edit.ts`, `calculations-within.test.ts`): offered on share and running share over the query's
+  category breakdowns, only with two or more; a pick naming all of them is refused (stricter than the server: the date is
+  never offered, it already partitions every share). Settle drops a share within whose parents left the query
+  (reason `within`, noted). Default label "Share of {measure} in each {parent}" / running share alike, EN + AR; the 80 %
+  note names each parent that ran out (`untilNote`, `UntilNote`); `until` and top N read "in each {parent}".
+- Variants (`variants.ts`, `variants.test.ts`): "Add filtered measure" (`VariantFields`) in the view editor and the
+  report panel editor — a measure of the query's area, filters on its own breakdowns the query does not break down by,
+  label both-or-neither. Its key is appended to `query.measures` (owner-kept 3546 rule) and `variantModel` gives every
+  picker (calculations, sort, chart shape table, breakdowns) a measure for it. Default label "{measure} ({values})",
+  values of one filter as "a or b". Settle: an unticked variant goes quietly; one whose filter dimension became a
+  breakdown goes with its key, noted. Panels name variant columns (`calculatedModel`), and a saved variant panel is not
+  "retired" while its measure exists (`retiredMembers`, found during the slice).

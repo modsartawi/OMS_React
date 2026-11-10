@@ -120,8 +120,10 @@ export function panelFailure(code: string | null | undefined, field?: string | n
  * Such a panel is not asked at all: it shows the retired state while the rest of the board runs.
  */
 export function retiredMembers(definition: AnalyticsViewDefinition, model: AnalyticsModel): string[] {
+  // 863 (spec 3543 B): a variant's key is not a model measure — it is held while the measure it filters is.
+  const variants = new Map((definition.query.variants ?? []).map((v) => [v.key, v.measure]))
   return [
-    ...definition.query.measures.filter((k) => !measureOf(model, k)),
+    ...definition.query.measures.filter((k) => !measureOf(model, variants.get(k) ?? k)),
     ...definition.query.dimensions.filter((k) => !dimensionOf(model, k)),
   ]
 }

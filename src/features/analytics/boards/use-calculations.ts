@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
-import type { AnalyticsCalculation } from '@/core/models/analytics-calculations'
+import type { AnalyticsCalculation, AnalyticsVariant } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
 import { calculatedModel, calculationLabel, type CalculationWords } from './calculations'
 import { addCalculation, removeCalculation, updateCalculation, type CalculationDraft, type DroppedCalculation } from './calculations-edit'
-import { measureOf } from './wire'
+import { listOf, variantModel, type VariantWord } from './variants'
+import { dimensionOf, measureOf } from './wire'
 
 /** 861: the calculation labels' default words (decision 24) in the screen's language. */
 export function useCalculationWords(): CalculationWords {
@@ -16,6 +17,8 @@ export function useCalculationWords(): CalculationWords {
       ratio: (v) => t('calculation.label.ratio', v),
       cumulativeShare: (v) => t('calculation.label.cumulativeShare', v),
       change: (v) => t('calculation.label.change', v),
+      shareOfTotalWithin: (v) => t('calculation.label.shareOfTotalWithin', v),
+      cumulativeShareWithin: (v) => t('calculation.label.cumulativeShareWithin', v),
     }),
     [t],
   )
@@ -27,7 +30,23 @@ export function useCalculationWords(): CalculationWords {
  */
 export function useCalculatedModel(model: AnalyticsModel, definition: AnalyticsViewDefinition, result: AnalyticsQueryResult | undefined, lang: string): AnalyticsModel {
   const words = useCalculationWords()
-  return useMemo(() => calculatedModel(model, definition, result, lang, words), [model, definition, result, lang, words])
+  const variantWord = useVariantWord()
+  return useMemo(() => calculatedModel(model, definition, result, lang, words, variantWord), [model, definition, result, lang, words, variantWord])
+}
+
+/** 863: a variant's default label ("{measure} ({filter values})", `boards:variant.label`) in the screen's language. */
+export function useVariantWord(): VariantWord {
+  const { t } = useTranslation('boards')
+  return useMemo(() => (v) => t('variant.label', v), [t])
+}
+
+/**
+ * 863: the model the query builder offers from — its own, plus one measure per variant of the draft (`./variants`), so
+ * every measure picker (calculations, sort, chart) sees a variant like a measure. The same model with none.
+ */
+export function useVariantModel(model: AnalyticsModel, variants: readonly AnalyticsVariant[] | null | undefined, lang: string): AnalyticsModel {
+  const word = useVariantWord()
+  return useMemo(() => variantModel(model, variants, lang, word), [model, variants, lang, word])
 }
 
 /**
@@ -52,5 +71,8 @@ export function useCalculationEditing(model: AnalyticsModel, lang: string, calcu
     onDismissDropped: () => setDropped([]),
     nameOf,
   })
-  return { nameOf, measureName, setDropped, fields }
+  // 863: a running share within a parent cuts its top N per parent — the parents' names, for the top N field.
+  const running = calculations.find((c) => c.kind === 'cumulativeShare' && c.within?.length)
+  const perParent = running ? listOf(running.within!.map((k) => saysIn(dimensionOf(model, k)?.label, lang) || k), lang) : null
+  return { nameOf, measureName, setDropped, fields, perParent }
 }

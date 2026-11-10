@@ -36,13 +36,13 @@ UI (query builder, chart picker) → SIS.Api analytics item store (save) and que
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] The builder offers only the allowed measures per kind, and change stays disabled until compare is on
-- [ ] A running share sets the order and is hidden with a date dimension or series
-- [ ] The saved definition carries `calculations` exactly as the wire expects (key, kind, measure, of, until, label)
-- [ ] Label override: both languages or neither
-- [ ] The chart picker refuses a donut and a stacked bar for a calculated column, and allows a combo line
-- [ ] Removing a used measure drops its calculation with a note
-- [ ] typecheck + lint + build clean
+- [x] The builder offers only the allowed measures per kind, and change stays disabled until compare is on
+- [x] A running share sets the order and is hidden with a date dimension or series
+- [x] The saved definition carries `calculations` exactly as the wire expects (key, kind, measure, of, until, label)
+- [x] Label override: both languages or neither
+- [x] The chart picker refuses a donut and a stacked bar for a calculated column, and allows a combo line
+- [x] Removing a used measure drops its calculation with a note
+- [x] typecheck + lint + build clean
 - [ ] **HITL:** on staging, build a board panel with a delivery-value bar and its share as a line, and a report text
       that quotes the share as a live figure; save, reopen, and check that both render
 
@@ -60,3 +60,26 @@ and the staging walk is recorded in Comments.
 
 - [861](861-a-panel-shows-the-calculated-columns-the-server-returns.md)
 - BackOffice [3524](C:/Work/DMSCO/BackOffice/.issues/3524-views-boards-and-reports-keep-calculations-chart-shape-rules-round-trip-and-live-report-figures.md)
+
+## Comments
+
+**2026-11-10 — code part built (branch `impl/3519-862`), HITL staging walk still OPEN.** Status stays `open` until the
+staging walk (last proof) is done and recorded here; it needs BackOffice 3520/3524 deployed.
+
+- `boards/calculations-edit.ts` (pure, `calculations-edit.test.ts`): the kinds offered and why not (four max; change
+  needs compare; running share refuses a date breakdown, named series, and a second running share), the measures per
+  kind (additive; any for change), a ratio's `of` (other additive, same unit), keys (`share_<m>`, `ratio_<m>_<of>`,
+  `running_<m>`, `change_<m>`, de-duplicated against measures, dimensions and other keys, ≤ 40), `until` clamped
+  1–100, the label override (both languages or neither), and `settleCalculations`, which drops what the query no longer
+  allows and reports it. It also pins a running share's order (`chart.sort` = its measure, descending, which the server
+  reads as the order when `query.order` is absent), and drops a sort on a calculated key that went.
+- `boards/CalculationFields.tsx`: the "Add calculation" control, used in the view editor (and so a board's "build a new
+  view") and in the report panel editor. A dropped calculation is named in a note until it is dismissed.
+- `shape-rules.ts`: `ShapeSelection.calculations` counts each calculated column as a `rate` measure (no donut, no
+  stacked bar, a combo's line). `panel-edit.ts` settles calculations on every fit, compare toggle and settings change.
+- Sorting by a calculated key is offered in the sort picker. Beside a running share, the picker is fixed on its measure.
+- ⚠ The editor names a calculation with an interim `calculationName` (its label, else "kind · measure"). Replace it
+  with 861's derived default label once that lands.
+- The 80 % note is 861's (`untilReached`). It is not duplicated here.
+- `npm run lint`: the boundary gate fails on four pre-existing violations in `insurance-rules/aliases/door-shapes.test.ts`.
+  They are there with this change stashed, too. The other four gates are clean.

@@ -263,7 +263,13 @@ export function ChartFields({
   compare,
   onCompare,
   suggested = false,
+  sortKeys,
+  sortLocked = false,
 }: {
+  /** 862: the keys the sort may name — the measures and the calculated keys (`calculations-edit.sortKeys`). Absent: the measures. */
+  sortKeys?: string[]
+  /** 862: a running share holds the order on its measure (spec 3519 D7); the sort shows it, fixed. */
+  sortLocked?: boolean
   /** The chosen type was picked by the builder (nothing picked yet, or the pick no longer fits). */
   suggested?: boolean
   offers: ChartOffer[]
@@ -378,10 +384,13 @@ export function ChartFields({
               const [key, direction] = e.target.value.split(':')
               onSettings((s) => ({ ...s, sort: key ? { key, direction: direction === 'asc' ? 'asc' : 'desc' } : null }))
             }}
+            disabled={sortLocked}
+            title={sortLocked ? t('editor.calc.sortLocked') : undefined}
             data-editor-sort
+            data-editor-sort-locked={sortLocked ? 'yes' : undefined}
           >
             <option value="">{t('editor.sortDefault')}</option>
-            {measures.flatMap((m) => [
+            {(sortKeys ?? measures).flatMap((m) => [
               <option key={`${m}:desc`} value={`${m}:desc`}>
                 {t('editor.sortDesc', { column: fsi(measureName(m)) })}
               </option>,

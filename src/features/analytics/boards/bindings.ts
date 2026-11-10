@@ -24,7 +24,7 @@ const breaksBy = (view: AnalyticsViewDefinition, model: AnalyticsModel, dimensio
 /** Whether the chart the view saved is still offered for this selection (v1's shape table). */
 function fits(view: AnalyticsViewDefinition, model: AnalyticsModel, measures: readonly string[], dimensions: readonly string[]): boolean {
   const choice = choiceOf(view.chart)
-  const offer = chartOffers({ measures, dimensions, series: seriesOf(view).length }, model).find((o) => o.choice === choice)
+  const offer = chartOffers({ measures, dimensions, series: seriesOf(view).length, calculations: view.query.calculations?.length ?? 0 }, model).find((o) => o.choice === choice)
   return !!offer?.offered
 }
 

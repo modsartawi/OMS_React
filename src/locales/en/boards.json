@@ -668,6 +668,45 @@
     "addFilter": "Add a filter on…",
     "addAnotherFilter": "Another filter",
     "whyOff": "Why {{n}} types are off",
+    "calc": {
+      "title": "Calculations",
+      "hint": "Shares, ratios, running shares and changes, computed by the server. Up to {{max}}.",
+      "kind": "Calculation",
+      "kindPick": "Add a calculation…",
+      "kindName": {
+        "shareOfTotal": "Share of total",
+        "ratio": "Ratio of two measures",
+        "cumulativeShare": "Running share",
+        "change": "Change from the previous period"
+      },
+      "measure": "Of the measure",
+      "of": "As a percentage of",
+      "until": "Stop at (%)",
+      "untilPlaceholder": "All rows",
+      "add": "Add calculation",
+      "remove": "Remove {{calculation}}",
+      "labelEn": "Label (English)",
+      "labelAr": "Label (Arabic)",
+      "labelHint": "Leave both empty for the default label.",
+      "labelOneLanguage": "Write the label in both languages, or leave both empty.",
+      "sortLocked": "A running share orders the rows by its measure, largest first.",
+      "why": {
+        "full": "A query takes at most four calculations.",
+        "noAdditive": "Needs a measure that adds up (a count or an amount), not a rate or a percentile.",
+        "noPair": "Needs two measures that add up, in the same unit.",
+        "needsCompare": "Turn on compare with the previous period first.",
+        "runningDate": "A running share cannot be broken down by date.",
+        "runningSeries": "A running share cannot be used with named series.",
+        "runningOnce": "A query takes one running share."
+      },
+      "dropped": {
+        "measure": "Removed “{{calculation}}”: it used a measure that is no longer in the query.",
+        "compare": "Removed “{{calculation}}”: a change needs compare with the previous period.",
+        "runningDate": "Removed “{{calculation}}”: a running share cannot be broken down by date.",
+        "runningSeries": "Removed “{{calculation}}”: a running share cannot be used with named series."
+      },
+      "dismiss": "Dismiss"
+    },
     "series": {
       "title": "Named series",
       "hint": "Up to 4. Each series runs as its own query with its own filters, so rates stay right. There is no total across series.",

@@ -60,10 +60,20 @@ export interface ShapeSelection {
   dimensions: readonly string[]
   /** 825: how many named series the view holds; absent = none. */
   series?: number
+  /**
+   * Spec 3519 D2/D25: how many calculated columns the query asks for; absent = none. Each is a measure of shape
+   * `rate` (never stacked, never a donut, a combo's line), after the selected measures — the server's `ChartFits`
+   * counts them in `m` the same way.
+   */
+  calculations?: number
 }
 
+/** A calculated column, as the shape table reads it: a rate. */
+const CALCULATED = { shape: 'rate' } as const
+
 export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOffer[] {
-  const measures = sel.measures.map((k) => measureOf(model, k))
+  const calculated = Math.max(0, sel.calculations ?? 0)
+  const measures = [...sel.measures.map((k) => measureOf(model, k)), ...Array.from({ length: calculated }, () => CALCULATED)]
   const additive = measures.map((m) => (m?.shape ?? 'additive') === 'additive')
   const allAdditive = additive.every(Boolean)
   const dims = sel.dimensions.map((k) => dimensionOf(model, k))

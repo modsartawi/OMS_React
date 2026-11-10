@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { blankPanelDefinition, copiedPanel, fitted, panelOffers, sourceChanged, withChoice, withDimensions, withMeasures, withSeries } from './panel-edit'
+import { blankPanelDefinition, copiedPanel, fitted, panelOffers, sourceChanged, withChoice, withComparing, withDimensions, withMeasures, withSeries, withSettings } from './panel-edit'
+import { droppedBy } from './calculations-edit'
 
 const l = (en: string) => ({ en, ar: en })
 const model: AnalyticsModel = {
@@ -151,5 +152,55 @@ describe('copy a saved view (829): provenance', () => {
     expect(sourceChanged(block, null)).toBe(false)
     expect(sourceChanged({ ...block, sourceChangedSinceCopy: true }, { revision: 3 })).toBe(true)
     expect(sourceChanged({ id: 'p1', kind: 'panel', title: l(''), definition: view.definition }, { revision: 9 })).toBe(false)
+  })
+})
+
+describe('panel edits keep calculations to what the query allows (ticket 862)', () => {
+  const twoMeasures: AnalyticsViewDefinition = {
+    chart: { type: 'bar', orientation: 'vertical' },
+    query: {
+      measures: ['orders', 'rate'],
+      dimensions: ['channel_group'],
+      filters: [],
+      calculations: [{ key: 'share_orders', kind: 'shareOfTotal', measure: 'orders' }],
+    },
+  }
+
+  it('removing a measure a calculation uses drops the calculation, and says so', () => {
+    const next = withMeasures(twoMeasures, ['rate'], model)
+    expect(next.query.calculations).toBeUndefined()
+    expect(droppedBy(twoMeasures, next, model).map((d) => [d.calculation.key, d.reason])).toEqual([['share_orders', 'measure']])
+  })
+
+  it('counts a calculated column as a rate when it fits the chart', () => {
+    const one: AnalyticsViewDefinition = { ...twoMeasures, chart: { type: 'donut' }, query: { ...twoMeasures.query, measures: ['orders'] } }
+    expect(panelOffers(one, model).find((o) => o.choice === 'donut')?.offered).toBe(false)
+    expect(fitted(one, model).chart.type).not.toBe('donut')
+  })
+
+  it('a change goes when the chart no longer compares with the previous period', () => {
+    const line: AnalyticsViewDefinition = {
+      chart: { type: 'line' },
+      query: { measures: ['orders'], dimensions: ['day'], filters: [], compareToPrevious: true, calculations: [{ key: 'change_orders', kind: 'change', measure: 'orders' }] },
+    }
+    expect(fitted(line, model).query.calculations).toHaveLength(1)
+    const table = withChoice(line, 'table', model)
+    expect(table.query.calculations).toBeUndefined()
+    expect(droppedBy(line, table, model).map((d) => d.reason)).toEqual(['compare'])
+    expect(withComparing(line, false, model).query.calculations).toBeUndefined()
+  })
+
+  it('a running share keeps the order on its measure when the sort is changed', () => {
+    const running: AnalyticsViewDefinition = {
+      chart: { type: 'table', sort: { key: 'orders', direction: 'desc' } },
+      query: { measures: ['orders'], dimensions: ['city'], filters: [], calculations: [{ key: 'running_orders', kind: 'cumulativeShare', measure: 'orders', until: 80 }] },
+    }
+    expect(withSettings(running, (c) => ({ ...c, sort: { key: 'orders', direction: 'asc' } }), model).chart.sort).toEqual({ key: 'orders', direction: 'desc' })
+  })
+
+  it('leaves a panel without calculations byte-identical', () => {
+    const plain: AnalyticsViewDefinition = { chart: { type: 'bar', orientation: 'vertical' }, query: { measures: ['orders'], dimensions: ['channel_group'], filters: [] } }
+    expect(JSON.stringify(fitted(plain, model))).toBe(JSON.stringify(plain))
+    expect(droppedBy(plain, fitted(plain, model), model)).toEqual([])
   })
 })

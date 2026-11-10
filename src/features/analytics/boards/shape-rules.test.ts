@@ -191,3 +191,30 @@ describe('shape rules with named series (825): line, area, bar, combo, table and
     expect(why(['orders', 'till_value'], ['day'], 'line')).toBe('seriesShape')
   })
 })
+
+describe('shape rules: a calculated column is a rate measure (spec 3519 D2, D25)', () => {
+  const withCalc = (measures: string[], dimensions: string[], calculations: number) => chartOffers({ measures, dimensions, calculations }, MODEL)
+  const reason = (o: ReturnType<typeof withCalc>, choice: ChartChoice) => {
+    const x = o.find((y) => y.choice === choice)
+    return x && !x.offered ? x.reason : null
+  }
+
+  it('refuses a donut and a stacked bar for a value and its share, and allows the share as a combo line', () => {
+    const o = withCalc(['orders'], ['channel_group'], 1)
+    expect(reason(o, 'donut')).toBe('donutShape')
+    expect(reason(o, 'bar-stacked')).toBe('rateStacked')
+    expect(o.find((x) => x.choice === 'combo')?.offered).toBe(true)
+    expect(o.find((x) => x.choice === 'bar-grouped')?.offered).toBe(true)
+  })
+
+  it('counts the calculated column against the measure caps', () => {
+    // A KPI is one measure: a value and its share are two.
+    expect(reason(withCalc(['orders'], [], 1), 'kpi')).toBe('kpiShape')
+    // A combo takes exactly one volume and one rate.
+    expect(reason(withCalc(['orders', 'return_rate'], ['channel_group'], 1), 'combo')).toBe('comboShape')
+  })
+
+  it('offers what it always did without calculations', () => {
+    expect(withCalc(['orders'], ['channel_group'], 0)).toEqual(offers(['orders'], ['channel_group']))
+  })
+})

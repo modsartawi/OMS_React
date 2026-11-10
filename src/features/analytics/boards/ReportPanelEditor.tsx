@@ -12,7 +12,9 @@ import { fsi } from '@/core/util/bidi'
 import { analyticsApi, analyticsItemKey } from './api'
 import { canBind } from './bindings'
 import CalculationFields from './CalculationFields'
-import { addCalculation, calculationName, droppedBy, removeCalculation, sortKeys, updateCalculation, type DroppedCalculation } from './calculations-edit'
+import { calculationLabel } from './calculations'
+import { useCalculationWords } from './use-calculations'
+import { addCalculation, droppedBy, removeCalculation, sortKeys, updateCalculation, type DroppedCalculation } from './calculations-edit'
 import { allowedDimensions, DEFAULT_PERIOD, filterableDimensions, GRAINS, pickableMeasures, type Grain } from './editor'
 import { ChartFields, QueryFields } from './EditorFields'
 import { useAreaName } from './MeasurePicker'
@@ -103,7 +105,8 @@ export default function ReportPanelEditor({
   }, [allowed, view, model])
   const problems = useMemo(() => seriesProblems(view, model), [view, model])
   const calcs = view.query.calculations ?? []
-  const calcName = (c: (typeof calcs)[number]) => calculationName(c, model, lang, (kind) => t(`editor.calc.kindName.${kind}`))
+  const calcWords = useCalculationWords()
+  const calcName = (c: (typeof calcs)[number]) => calculationLabel(c, c.label, model, lang, calcWords)
   const measureName = (k: string) => {
     const c = calcs.find((x) => x.key === k)
     return c ? calcName(c) : saysIn(measureOf(model, k)?.label, lang) || k

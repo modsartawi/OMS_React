@@ -5,7 +5,6 @@ import {
   type AnalyticsCalculationKind,
 } from '@/core/models/analytics-calculations'
 import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
-import { saysIn } from '@/core/rules/sentence'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -215,14 +214,3 @@ export function droppedBy(before: AnalyticsViewDefinition, after: AnalyticsViewD
   return had.filter((c) => !kept.has(c.key) && why.has(c.key)).map((c) => ({ calculation: c, reason: why.get(c.key)! }))
 }
 
-/**
- * A calculation's name on screen: its label in `lang`, else the kind and the measure ("Share of total · Delivery
- * value"). ⚠ Interim until 861's derived default label lands on the integration branch; the editor then names a
- * calculation the way the panel heads its column.
- */
-export function calculationName(c: AnalyticsCalculation, model: AnalyticsModel, lang: string, kindName: (kind: AnalyticsCalculationKind) => string): string {
-  const own = saysIn(c.label, lang)
-  if (own) return own
-  const m = (k: string | null | undefined) => (k ? saysIn(measureOf(model, k)?.label, lang) || k : '')
-  return [kindName(c.kind), m(c.measure), ...(c.kind === 'ratio' && c.of ? [m(c.of)] : [])].join(' · ')
-}

@@ -18,9 +18,10 @@ import { analyticsAccessQuery, canAuthorAnalytics } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import CalculationFields from './CalculationFields'
+import { calculationLabel } from './calculations'
+import { useCalculationWords } from './use-calculations'
 import {
   addCalculation,
-  calculationName,
   removeCalculation,
   settleCalculations,
   sortKeys,
@@ -238,7 +239,8 @@ function ViewEditor({
   const editCalculations = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
     if (definition) setCalculations(f(definition).query.calculations ?? [])
   }
-  const calcName = (c: AnalyticsCalculation) => calculationName(c, model, lang, (kind) => t(`editor.calc.kindName.${kind}`))
+  const calcWords = useCalculationWords()
+  const calcName = (c: AnalyticsCalculation) => calculationLabel(c, c.label, model, lang, calcWords)
 
   // The preview asks for the definition a moment after the last change, not on every keystroke.
   const [asked, setAsked] = useState(definition)

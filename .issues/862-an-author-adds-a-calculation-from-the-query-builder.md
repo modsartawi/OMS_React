@@ -78,8 +78,7 @@ staging walk (last proof) is done and recorded here; it needs BackOffice 3520/35
 - `shape-rules.ts`: `ShapeSelection.calculations` counts each calculated column as a `rate` measure (no donut, no
   stacked bar, a combo's line). `panel-edit.ts` settles calculations on every fit, compare toggle and settings change.
 - Sorting by a calculated key is offered in the sort picker. Beside a running share, the picker is fixed on its measure.
-- ⚠ The editor names a calculation with an interim `calculationName` (its label, else "kind · measure"). Replace it
-  with 861's derived default label once that lands.
+- The editor names a calculation the way the panel heads its column, using 861's `calculationLabel` with `useCalculationWords()`. The interim local name was dropped after merging 861.
 - The 80 % note is 861's (`untilReached`). It is not duplicated here.
 - `npm run lint`: the boundary gate fails on four pre-existing violations in `insurance-rules/aliases/door-shapes.test.ts`.
   They are there with this change stashed, too. The other four gates are clean.

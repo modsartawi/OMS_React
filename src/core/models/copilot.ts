@@ -247,6 +247,35 @@ export interface CopilotAskRequest {
   choiceKey?: string
   /** 3598 (A49, A55): where the question came from. Only the audit keeps it; absent is "not said", never refused. */
   origin?: CopilotQuestionOrigin
+  /**
+   * BackOffice 3664 (spec 3631 S18, S37, oms-react 885): Confirm or Cancel of a `proposed` answer's card, always with that
+   * answer's `conversationId`. A request carrying it is not a question: `question` is not read (send `''`), the model is
+   * not called and nothing is taken from the hourly limit.
+   */
+  confirmation?: CopilotConfirmation
+}
+
+/** The confirmation of a proposal (3664): its id, and the card's values, or a cancel. */
+export interface CopilotConfirmation {
+  /** The proposed answer's `proposal.id`. */
+  proposalId: string
+  /** Cancel: `values` are not read. */
+  cancel?: boolean
+  /** The card as the reader left it; absent (or a field absent) is "as proposed". */
+  values?: CopilotConfirmationValues
+}
+
+/** The card's values a confirmation sends (3664). */
+export interface CopilotConfirmationValues {
+  /** Cut to 80 characters by the server. */
+  title?: string
+  cadence?: { kind: CopilotCadenceKind; days?: CopilotWeekday[] | null; day?: string | null }
+  /** `HH:mm`, Riyadh. */
+  time?: string
+  /** Read only when the card offered `periodChoices`. */
+  periodChoice?: CopilotPeriodChoice
+  /** Read ONLY for the language of the "expired" sentence: send the proposal's own. */
+  lang?: 'en' | 'ar'
 }
 
 /**
@@ -331,6 +360,11 @@ export type CopilotOutcome =
   | 'error'
   | 'figures-only'
   | 'asked'
+  | 'proposed'
+  | 'confirmed'
+  | 'cancelled'
+  | 'expired'
+  | 'not-confirmed'
 
 /** `POST Copilot/Ask` → `data`. */
 export interface CopilotAnswer {
@@ -392,8 +426,70 @@ export interface CopilotAnswer {
    * (`questionNo` 10), or when none passed the check.
    */
   suggestions?: CopilotSuggestion[]
+  /**
+   * BackOffice 3663 (spec 3631 S13, S36, oms-react 885): what the reader may confirm. Present exactly when `outcome` is
+   * `proposed`; absent (never null) otherwise, and always with `Copilot:Schedule:Propose` off. `answer` then holds the
+   * same lines as plain text, for a client that does not draw the card.
+   */
+  proposal?: CopilotProposal
+  /**
+   * 3663/3664: a proposal refused for the reader's own reason. On an `answered` answer (3663: `limit`, `noCompanyEmail`)
+   * or a `not-confirmed` one (3664, which adds `noViewGrant`; the card stays confirmable). `limit` links "My schedules".
+   */
+  scheduleRefusal?: CopilotScheduleRefusal
+  /** 3664: ONLY on `confirmed`: what was saved and when it is first sent. */
+  confirmed?: CopilotConfirmed
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
+}
+
+/** The kinds of proposal: `schedule` (3663); 3665 adds `pause` and `delete`. */
+export type CopilotProposalKind = 'schedule' | 'pause' | 'delete'
+
+export type CopilotWeekday = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
+export type CopilotCadenceKind = 'daily' | 'weekly' | 'monthly'
+/** How a fixed period is read on each send (S32): the same length ending at the send, or the same dates. */
+export type CopilotPeriodChoice = 'sameLength' | 'sameDates'
+
+/** A proposal (3663): the server writes all of it, the model none. */
+export interface CopilotProposal {
+  /** What the confirmation names (3664). */
+  id: string
+  kind: CopilotProposalKind
+  /** The card, in order, in both languages: what, one "- <block>" per block, when, how the period is read, to whom. */
+  lines: AnalyticsLabel[]
+  values: CopilotProposalValues
+}
+
+/** The card's editable values as proposed (3663). */
+export interface CopilotProposalValues {
+  /** The question that produced the answer, at most 80 characters. */
+  title: string
+  /** Weekly: `days`; monthly: `day` (`'1'`..`'28'` or `'last'`); the other null. */
+  cadence: { kind: CopilotCadenceKind; days: CopilotWeekday[] | null; day: string | null }
+  /** `HH:mm` Riyadh, default `07:00`. */
+  time: string
+  /** The question's language. */
+  lang: 'en' | 'ar'
+  /** null: a relative period, no choice to show. */
+  periodChoice: CopilotPeriodChoice | null
+  /** Fixed dates: `[sameLength, sameDates]`; dates of different lengths: `[sameDates]`; else null. */
+  periodChoices: { key: CopilotPeriodChoice; label: AnalyticsLabel }[] | null
+}
+
+/** Why a proposal was not made or not saved (3663, 3664). `limit` and `held` only on `limit`. */
+export interface CopilotScheduleRefusal {
+  reason: 'limit' | 'noCompanyEmail' | 'noViewGrant'
+  limit?: number
+  held?: number
+}
+
+/** A confirmed save (3664). */
+export interface CopilotConfirmed {
+  scheduleId: string
+  reportId: string
+  /** `yyyy-MM-ddTHH:mm:ss` Riyadh. */
+  firstSendAt: string
 }
 
 /** One suggested next question (3598). A tap sends `question` as a normal question with `origin: 'suggestion'`. */

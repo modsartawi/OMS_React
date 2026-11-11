@@ -6,7 +6,8 @@ import { newRequestId } from '@/core/engine-session/request-id'
 import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
-import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
+import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation, type TurnConfirms } from './conversation'
+import { cancellationBody, confirmationBody, type CardValues, type ProposalCard } from './proposal'
 
 /** A conversation filed in the history, with when it was left. */
 export interface PastConversation {
@@ -52,11 +53,20 @@ export interface CopilotConversationState {
    * The question in flight, or null: at most one. `requestId` (ticket 869, BackOffice spec 3558 D17) is a fresh ULID per
    * question, sent on the ask; the panel polls its live steps while the question is in flight.
    */
-  inFlight: { question: string; requestId: string } | null
+  inFlight: { question: string; requestId: string; confirms?: TurnConfirms } | null
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
   /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
   ask: (question: string) => Promise<void> | null
+  /**
+   * 885 (BackOffice 3664): Confirm a proposal's card with its values. Not a question: it lands as a turn marked
+   * `confirms`, and is sent even at the conversation's tenth question (it takes none). Resolves to the reply (null on a
+   * refusal or a dropped reply); `null` (nothing sent) while something is in flight, with no conversation, or once it
+   * is over.
+   */
+  confirm: (card: ProposalCard, values: CardValues) => Promise<CopilotAnswer | null> | null
+  /** 885: Cancel a proposal's card, as `confirm`. */
+  cancel: (card: ProposalCard) => Promise<CopilotAnswer | null> | null
   /**
    * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
    * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
@@ -85,16 +95,12 @@ export function createCopilotConversation(
     aborter?.abort()
     aborter = null
   }
-  const store = create<CopilotConversationState>((set, get) => ({
-    conv: EMPTY_CONVERSATION,
-    inFlight: null,
-    epoch: 0,
-    history: [],
-    ask: (question) => {
-      const { conv, inFlight, epoch } = get()
-      if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
+  const store = create<CopilotConversationState>((set, get) => {
+    /** Sends one request and lands its reply (or refusal) as a turn: the reply, or null when refused or dropped. */
+    const run = (body: CopilotAskRequest, question: string, confirms?: TurnConfirms): Promise<CopilotAnswer | null> => {
+      const { epoch } = get()
       const requestId = newRequestId()
-      set({ inFlight: { question, requestId } })
+      set({ inFlight: { question, requestId, ...(confirms ? { confirms } : {}) } })
       const controller = new AbortController()
       aborter = controller
       // A reply to a cleared conversation, or to a question stopped, is dropped.
@@ -104,39 +110,66 @@ export function createCopilotConversation(
         if (aborter === controller) aborter = null
         set((s) => ({ conv: next(s.conv), inFlight: null }))
       }
-      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), requestId }
-      return send(body, controller.signal).then(
+      return send({ ...body, requestId }, controller.signal).then(
         (reply) => {
-          if (dropped()) return
-          landed((c) => withAnswer(c, question, reply))
+          if (dropped()) return null
+          landed((c) => withAnswer(c, question, reply, confirms))
           const { reportEdit, boardEdit } = copilotAnswerModel(reply)
           if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
           if (boardEdit) boardBridge.getState().postEdit(boardEdit, question)
+          return reply
         },
-        (err: unknown) => landed((c) => withRefusal(c, question, err)),
+        (err: unknown) => {
+          landed((c) => withRefusal(c, question, err, confirms))
+          return null
+        },
       )
-    },
-    stop: () => {
-      const { inFlight } = get()
-      if (inFlight === null) return null
-      abandon()
-      set({ inFlight: null })
-      return inFlight.question
-    },
-    startNew: () => {
-      abandon()
-      set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
-    },
-    resume: (index) =>
-      set((s) => {
-        const past = s.history[index]
-        if (!past) return {}
+    }
+    /** A confirmation needs the conversation the proposal was made in, still open, and nothing in flight. */
+    const openConversation = (): string | null => {
+      const { conv, inFlight } = get()
+      return inFlight === null && conv.id !== null && !conv.over ? conv.id : null
+    }
+    return {
+      conv: EMPTY_CONVERSATION,
+      inFlight: null,
+      epoch: 0,
+      history: [],
+      ask: (question) => {
+        const { conv, inFlight } = get()
+        if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
+        return run(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), question).then(() => undefined)
+      },
+      confirm: (card, values) => {
+        const id = openConversation()
+        return id === null ? null : run(confirmationBody(id, card, values), '', { proposalId: card.id, cancel: false })
+      },
+      cancel: (card) => {
+        const id = openConversation()
+        return id === null ? null : run(cancellationBody(id, card), '', { proposalId: card.id, cancel: true })
+      },
+      stop: () => {
+        const { inFlight } = get()
+        if (inFlight === null) return null
         abandon()
-        const rest = s.history.filter((_, i) => i !== index)
-        return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
-      }),
-    forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
-  }))
+        set({ inFlight: null })
+        return inFlight.question
+      },
+      startNew: () => {
+        abandon()
+        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
+      },
+      resume: (index) =>
+        set((s) => {
+          const past = s.history[index]
+          if (!past) return {}
+          abandon()
+          const rest = s.history.filter((_, i) => i !== index)
+          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
+        }),
+      forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
+    }
+  })
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
     if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [] }))

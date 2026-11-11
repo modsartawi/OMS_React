@@ -97,8 +97,8 @@ export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', 
 export const analyticsAudienceCandidatesKey = (search: string, reportId?: string) => ['analytics', 'audienceCandidates', search, ...(reportId ? [reportId] : [])] as const
 /** 833: a report's schedules, and its kept runs. */
 export const analyticsSchedulesKey = (reportId: string) => ['analytics', 'schedules', reportId] as const
-/** 886: the reader's personal schedules (`GET Analytics/MySchedules`) — the page's list and the menu leaf's probe. */
-export const ANALYTICS_MY_SCHEDULES_KEY = ['analytics', 'mySchedules'] as const
+/** 886: the reader's personal schedules — the page's list and the menu leaf's probe; in core since 885 (the copilot saves one too). */
+export { ANALYTICS_MY_SCHEDULES_KEY } from '@/core/analytics-schedules'
 export const analyticsRunsKey = (reportId: string) => ['analytics', 'runs', reportId] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */

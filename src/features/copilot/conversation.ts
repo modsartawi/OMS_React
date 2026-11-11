@@ -23,6 +23,17 @@ export interface CopilotTurn {
   questionNo: number | null
   reply: CopilotAnswer | null
   refusal: unknown
+  /**
+   * 885 (BackOffice 3664): this turn is not a question but the Confirm or Cancel of a proposal's card; `question` is
+   * then `''`. Absent on a question.
+   */
+  confirms?: TurnConfirms
+}
+
+/** What a confirmation turn answered: the proposal it named, and whether it was a cancel. */
+export interface TurnConfirms {
+  proposalId: string
+  cancel: boolean
 }
 
 export interface CopilotConversation {
@@ -54,19 +65,19 @@ export function askBody(
  * new one) starts a fresh thread holding only that reply: the old turns are not this conversation's,
  * and their numbers would not be the server's count.
  */
-export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer): CopilotConversation {
+export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer, confirms?: TurnConfirms): CopilotConversation {
   const id = typeof reply?.conversationId === 'string' && reply.conversationId ? reply.conversationId : c.id
   const questionNo = typeof reply?.questionNo === 'number' ? reply.questionNo : null
-  const turn: CopilotTurn = { question, questionNo, reply, refusal: null }
+  const turn: CopilotTurn = { question, questionNo, reply, refusal: null, ...(confirms ? { confirms } : {}) }
   if (c.id !== null && id !== c.id) return { id, turns: [turn], over: false }
   return { ...c, id, turns: [...c.turns, turn] }
 }
 
-export function withRefusal(c: CopilotConversation, question: string, err: unknown): CopilotConversation {
+export function withRefusal(c: CopilotConversation, question: string, err: unknown, confirms?: TurnConfirms): CopilotConversation {
   return {
     ...c,
     over: c.over || apiErrorCode(err) === CONVERSATION_OVER,
-    turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err }],
+    turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err, ...(confirms ? { confirms } : {}) }],
   }
 }
 

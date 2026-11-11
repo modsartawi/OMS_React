@@ -16,6 +16,8 @@ import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
+import { ProposalCard, ScheduleLinks } from './ProposalCard'
+import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 
@@ -299,15 +301,15 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               {conv.turns.length > 0 && (
                 <ol className="flex flex-col gap-5" data-copilot-thread>
                   {conv.turns.map((turn, i) => (
-                    <Turn key={i} turn={turn} />
+                    <Turn key={i} turn={turn} card={cardState(conv, i, inFlight)} />
                   ))}
                 </ol>
               )}
 
               {working && (
                 <div className="flex flex-col gap-3" data-copilot-pending>
-                  <TurnRule label={t('answer.question')} />
-                  <Asked question={pending} />
+                  <TurnRule label={inFlight?.confirms ? t(inFlight.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn') : t('answer.question')} />
+                  {!inFlight?.confirms && <Asked question={pending} />}
                   <AnswerRow>
                     <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -480,14 +482,18 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
  * One question in the thread, with its answer or its refusal. `cannot-answer` is not an error, and neither is
  * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups.
  */
-function Turn({ turn }: { turn: CopilotTurn }) {
-  const { t } = useTranslation('copilot')
+function Turn({ turn, card: state }: { turn: CopilotTurn; card: CardState }) {
+  const { t, i18n } = useTranslation('copilot')
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
+  // 885: a proposed answer's card; a confirmation turn (Confirm or Cancel) asked nothing, so it draws no question.
+  const card = state === 'none' ? null : proposalCard(turn.reply, i18n.language)
   return (
     <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome}>
       <TurnRule
         label={
-          turn.questionNo !== null ? (
+          turn.confirms ? (
+            t(turn.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn')
+          ) : turn.questionNo !== null ? (
             <span data-copilot-turn-no>
               {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
             </span>
@@ -496,7 +502,7 @@ function Turn({ turn }: { turn: CopilotTurn }) {
           )
         }
       />
-      <Asked question={turn.question} />
+      {!turn.confirms && <Asked question={turn.question} />}
       {!turn.reply ? (
         <AnswerRow plain>
           <Refusal err={turn.refusal} />
@@ -516,7 +522,9 @@ function Turn({ turn }: { turn: CopilotTurn }) {
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} />
+          {card && <ProposalCard card={card} state={state} />}
+          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} />
+          <ScheduleLinks reply={turn.reply} />
         </AnswerRow>
       )}
     </li>

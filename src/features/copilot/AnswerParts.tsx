@@ -328,7 +328,7 @@ function CopyAnswer({ text }: { text: string }) {
 }
 
 /** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-export function Answer({ model }: { model: CopilotAnswerModel }) {
+export function Answer({ model, withText = true }: { model: CopilotAnswerModel; withText?: boolean }) {
   const { t } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
@@ -359,7 +359,8 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
   }
   return (
     <>
-      {layout.parts.map(part)}
+      {/* 885: a proposed answer's text repeats its card's lines for a client that draws no card; the card replaces it. */}
+      {layout.parts.filter((p) => withText || p !== 'text').map(part)}
       <AnswerProvenance
         trace={model.trace}
         lookupsOpen={layout.lookups === 'open'}

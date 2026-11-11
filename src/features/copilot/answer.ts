@@ -83,6 +83,7 @@ function sqlOf(v: unknown): AnswerSql | null {
   return {
     ran: p.ran === true,
     statement: p.statement,
+    ...(typeof p.authoredStatement === 'string' ? { authoredStatement: p.authoredStatement } : {}),
     tables: Array.isArray(p.tables) ? p.tables.filter((t): t is string => typeof t === 'string') : [],
     columns,
     rows,

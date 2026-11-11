@@ -42,7 +42,7 @@ import type {
   AnalyticsScheduleWrite,
   AnalyticsUsedBy,
 } from '@/core/models/analytics'
-import type { AnalyticsSqlItem, AnalyticsSqlItemCreate, AnalyticsSqlItemUpdate, AnalyticsSqlResult, AnalyticsSqlRunRequest } from '@/core/models/analytics-sql'
+import type { AnalyticsSqlItem, AnalyticsSqlItemCreate, AnalyticsSqlItemUpdate, AnalyticsSqlResult, AnalyticsSqlRunRequest, AnalyticsSqlVerifyBody } from '@/core/models/analytics-sql'
 import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery } from './home'
@@ -289,12 +289,15 @@ export const analyticsApi = {
     return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Revert`, body))
   },
   /**
-   * 890: a curator's mark (BackOffice 3676, Q44) — `POST …/Verify` / `…/Unverify`, no body; answers the item with
-   * `verified` set, at the same revision (the mark is not a revision). `ANALYTICS-402` not a curator, `-432` not a SQL
-   * item, `-409` not-available (the database lacks Sql/011).
+   * 890: a curator's mark (BackOffice 3676, Q44) — `POST …/Verify` with `{ baseRevision }` (3632 review, item 8: the
+   * revision the curator is looking at; a newer one on the server is `ANALYTICS-405` with `data { revision, updatedBy,
+   * updatedAt }`, read by `./item-save` `saveRefusal`, and nothing is marked) / `…/Unverify`, no body; answers the item
+   * with `verified` set, at the same revision (the mark is not a revision). `ANALYTICS-402` not a curator, `-432` not a
+   * SQL item, `-409` not-available (the database lacks Sql/011).
    */
-  async sqlVerify(id: string): Promise<AnalyticsSqlItem> {
-    return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Verify`, {}))
+  async sqlVerify(id: string, baseRevision: number): Promise<AnalyticsSqlItem> {
+    const body: AnalyticsSqlVerifyBody = { baseRevision }
+    return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Verify`, body))
   },
   async sqlUnverify(id: string): Promise<AnalyticsSqlItem> {
     return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Unverify`, {}))

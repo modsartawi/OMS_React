@@ -17,6 +17,7 @@ const KEYS: Record<string, string> = {
   'COPILOT-404': 'refusal.unreachable',
   'COPILOT-405': 'refusal.tooLong',
   'COPILOT-406': 'refusal.conversationOver',
+  'COPILOT-456': 'refusal.sqlItemNotOpenable',
 }
 
 /** A refusal the panel words itself (`key`, with 402's reset time) or the server's message as it came. */

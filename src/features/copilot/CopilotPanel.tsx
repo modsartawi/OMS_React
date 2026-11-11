@@ -116,6 +116,19 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- taken once, in the mode the toggle is in then
   }, [handed, ask])
 
+  // Q46: "Change by asking" on a SQL item: a new conversation in SQL mode, the item sent with the first question.
+  const handedItem = useCopilotPanel((s) => s.sqlItem)
+  const openSqlItem = useCopilotConversation((s) => s.openSqlItem)
+  const sqlItem = useCopilotConversation((s) => s.sqlItem)
+  const sqlItemSent = useCopilotConversation((s) => s.sqlItemSent)
+  useEffect(() => {
+    if (handedItem === null) return
+    const item = useCopilotPanel.getState().takeSqlItem()
+    if (item === null) return
+    openSqlItem(item)
+    box.current?.focus()
+  }, [handedItem, openSqlItem])
+
   // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.
   const drafted = useCopilotPanel((s) => s.draft)
   useEffect(() => {
@@ -330,6 +343,11 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
         {listing ? null : canAsk ? (
           <form onSubmit={send} className="flex shrink-0 flex-col gap-2" data-copilot-form>
+            {sqlItem !== null && !sqlItemSent && (
+              <p role="note" className="rounded-lg border border-border/60 bg-muted/40 p-2 text-xs" data-copilot-sql-item={sqlItem.itemId}>
+                {t('sql.itemOpened')}
+              </p>
+            )}
             <Field
               label={t('box.label')}
               error={tooLong ? t('box.tooLong', { max: fsi(formatNumber(COPILOT_MAX_QUESTION)) }) : undefined}

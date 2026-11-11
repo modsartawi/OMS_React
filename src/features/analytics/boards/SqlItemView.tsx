@@ -9,6 +9,7 @@ import { useSession } from '@/core/session'
 import { buttonClass } from '@/core/ui/control-classes'
 import { analyticsAccessQuery, canCurateAnalytics, canEditSql, canViewAnalytics } from './access'
 import { analyticsApi, analyticsSqlItemKey } from './api'
+import ChangeByAsking from './ChangeByAsking'
 import Refused from './Refused'
 import { SqlRefusalNote, SqlResultTable } from './SqlResult'
 import { sqlItemActions } from './sql-editor'
@@ -45,12 +46,15 @@ export default function SqlItemView({ id }: { id: string }) {
           </h2>
           <SqlMark mark={sqlMark(sql)} />
         </div>
-        {(acts.edit || acts.verify) && (
-          <Link to={sqlEditHref(sql.id)} className={buttonClass('secondary')} data-analytics-sql-edit>
-            <Pencil className="size-3.5" aria-hidden />
-            {t('sqlEditor.edit')}
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ChangeByAsking item={sql} />
+          {(acts.edit || acts.verify) && (
+            <Link to={sqlEditHref(sql.id)} className={buttonClass('secondary')} data-analytics-sql-edit>
+              <Pencil className="size-3.5" aria-hidden />
+              {t('sqlEditor.edit')}
+            </Link>
+          )}
+        </div>
       </header>
       {sql.sql?.result ? (
         <SqlResultTable result={sql.sql.result} />

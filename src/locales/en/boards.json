@@ -1674,6 +1674,10 @@
     "untitled": "SQL item"
   },
   "sqlEditor": {
+    "changeByAsking": "Change by asking",
+    "changeByAskingHint": "Open this item in the copilot in SQL mode and change its statement by asking",
+    "verifyStale": "This item changed since you opened it: {{by}} saved revision {{revision}} at {{at}}. It has been reloaded; check it and verify again.",
+    "verifyStaleUnknown": "This item changed since you opened it. It has been reloaded; check it and verify again.",
     "title": "SQL editor",
     "subtitle": "Write, run and save one read-only SQL statement over the analytics tables.",
     "loading": "Loading the SQL item…",

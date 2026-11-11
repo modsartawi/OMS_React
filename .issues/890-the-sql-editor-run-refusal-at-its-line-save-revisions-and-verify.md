@@ -66,6 +66,39 @@ and `AnalyticsItem.engine` / `verified` in `analytics.ts`.
 - Not driven in a browser (no RTL; no live SIS.Api with 3672/3675/3676 on this box): the screens are thin renderers over
   the tested module.
 
+## Review fixes
+
+From BackOffice spec 3632's review (3680 `## Review fixes (items, copilot)`, wire in 3673/3676/3678 Build notes), branch
+`t3632-review`. Each test-first, red seen.
+
+- **The authored statement is saved (review item 14).** The answer's SQL part reads `sql.authoredStatement` (the model's
+  statement before the server's layout and its `TOP 1001` cap), kept only when sent. `sql-save.ts` `keptStatement` is it,
+  falling back to `sql.statement` for an older server; the save dialog's `sqlSaveBody` and the answer's Edit (`sqlEditLink`)
+  both use it. Tests `sql-save.test.ts` "Save sends the statement as authored", `sql-mode.test.ts` "reads the statement as
+  authored".
+- **Verify names its base revision (review items 5, 8).** `analyticsApi.sqlVerify(id, baseRevision)` posts
+  `{ baseRevision }` (`AnalyticsSqlVerifyBody`); the editor sends the revision on screen. `ANALYTICS-405` is read by
+  `saveRefusal` and said as "This item changed since you opened it: <who> saved revision <n> at <when>", and the item is
+  reloaded. `sqlItemActions` gains `revisions` (the same rule as `edit`, under the server's `revisions` action), and
+  `ItemHistory` follows it, so a curator the server gives `verify` alone gets Verify and no edit or revisions. Tests
+  `sql-editor.test.ts` "Verify posts the revision the curator read", "Verify on a stale revision", "a curator the server
+  gives verify alone".
+- **Change by asking (Q46, BackOffice 3678).** On a SQL item's page (`SqlItemView`) and in its editor, `ChangeByAsking`
+  shows when the item's actions include `edit`, the copilot is available and the reader holds the SQL grant
+  (`sql-editor.ts` `changeByAsking`). It calls `@/core/copilot-panel` `openSqlItem({ itemId, revision })` (the features
+  do not import each other). The panel takes it once, and the conversation store's `openSqlItem` starts a new
+  conversation (the old one filed), turns SQL mode on and holds the item: the first question asked in SQL mode carries
+  `sqlItemContext { itemId }`, follow-ups do not. A note above the box says nothing is saved. `COPILOT-456` has its own
+  words. In that conversation the answer's Save-as-new is not offered; its Edit ("Edit and save the item") opens the
+  item's own editor with the statement and the revision it was opened at, and Save there is the item's
+  `PUT Analytics/Item/{id}` at that `baseRevision` (a save in between is `ANALYTICS-405`). A new conversation, a resumed
+  one or a user change drops the item. Tests `copilot-panel.test.ts` "openSqlItem", `sql-mode.test.ts` "a SQL item
+  opened in the copilot", `sql-save.test.ts` "Edit, in a conversation that opened a SQL item", `sql-editor.test.ts`
+  "Change by asking", "Save from the copilot".
+
+Gate: `npm run typecheck` clean; `npm test` 754 files, 10380 tests green; `npm run lint` only the known boundary failure
+in `src/features/insurance-rules/aliases/door-shapes.test.ts` (the other four checks pass).
+
 ## Comments
 
 - For 891: `SqlItemView` is a plain drawing of a SQL item on the view page (the table, not the saved chart type), so the

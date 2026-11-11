@@ -169,9 +169,12 @@ export function readSqlPanelAnswer(raw: unknown): AnalyticsSqlPanelAnswer {
   }
 }
 
-/** Save's body: the edited statement, the item's own question and chart, at the revision the editor opened. */
-export function sqlSaveBody(item: AnalyticsSqlItem, statement: string): AnalyticsSqlItemUpdate {
-  return { definition: { statement, question: item.definition.question, chart: item.definition.chart }, baseRevision: item.revision }
+/**
+ * Save's body: the edited statement, the item's own question and chart, at the revision the editor opened, or (Q46) the
+ * one the copilot opened the item at (`baseRevision`), so a save made in between is refused `ANALYTICS-405`.
+ */
+export function sqlSaveBody(item: AnalyticsSqlItem, statement: string, baseRevision?: number): AnalyticsSqlItemUpdate {
+  return { definition: { statement, question: item.definition.question, chart: item.definition.chart }, baseRevision: baseRevision ?? item.revision }
 }
 
 /**
@@ -190,8 +193,10 @@ export interface SqlActor {
 }
 
 export interface SqlItemActions {
-  /** Edit the statement, Run it, Save a revision, list the revisions and Restore one (Q45). */
+  /** Edit the statement, Run it, Save a revision (Q45). */
   edit: boolean
+  /** List the revisions and Restore one (Q45): the same rule as `edit`, under the server's own `revisions` action. */
+  revisions: boolean
   /** A curator's mark (Q44): `verify` on an unverified item, `unverify` on a verified one, never both. */
   verify: 'verify' | 'unverify' | null
 }
@@ -201,13 +206,22 @@ const sameUser = (a: string, b: string | null) => !!b && a.toLowerCase() === b.t
 /**
  * What the SQL editor offers (3675, 3676): changing a SQL item is for its owner with the SQL grant, or a curator (who
  * needs the SQL grant too: every write runs the statement); Verify / Unverify only for a curator. When the server sends
- * the caller's `actions`, they can only take an action away. Pure; the server stays the judge.
+ * the caller's `actions`, they can only take an action away (3632 review, item 5: a curator without the SQL grant gets
+ * `verify`/`unverify` but neither `edit` nor `revisions`). Pure; the server stays the judge.
  */
 export function sqlItemActions(item: AnalyticsSqlItem, actor: SqlActor): SqlItemActions {
   const server = item.actions
   const allows = (key: string) => !server || server.includes(key)
-  const edit = actor.canView && actor.canSql && (actor.canCurate || sameUser(item.owner, actor.userId)) && allows('edit')
+  const changer = actor.canView && actor.canSql && (actor.canCurate || sameUser(item.owner, actor.userId))
   const mark = item.verified ? 'unverify' : 'verify'
   const verify = actor.canView && actor.canCurate && allows(mark) ? mark : null
-  return { edit, verify }
+  return { edit: changer && allows('edit'), revisions: changer && allows('revisions'), verify }
 }
+
+/**
+ * Q46 (BackOffice 3678): "Change by asking" (open the item in the copilot, in SQL mode) is offered only when the server's
+ * actions for this reader include `edit` (absent actions are not enough: the copilot's door applies that same rule), the
+ * copilot is there (`useCopilotPanel` `available`) and the reader holds the SQL grant (SQL mode is theirs).
+ */
+export const changeByAsking = (item: Pick<AnalyticsSqlItem, 'actions'>, there: { copilot: boolean; canSql: boolean }): boolean =>
+  there.copilot && there.canSql && (item.actions?.includes('edit') ?? false)

@@ -9,6 +9,7 @@ import i18n from '@/core/i18n'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import type { AnalyticsSqlEditorSeed, AnalyticsSqlItem, AnalyticsSqlRefusal, AnalyticsSqlResult } from '@/core/models/analytics-sql'
 import { saysIn } from '@/core/rules/sentence'
+import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
@@ -19,7 +20,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
 import { analyticsAccessQuery, canCurateAnalytics, canEditSql, canViewAnalytics } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsItemKey, analyticsRevisionsKey, analyticsSqlItemKey } from './api'
+import ChangeByAsking from './ChangeByAsking'
 import ItemHistory from './ItemHistory'
+import { saveRefusal } from './item-save'
 import Refused from './Refused'
 import { SqlRefusalNote, SqlResultTable } from './SqlResult'
 import { removesVerified, sqlItemActions, sqlRunRefusal, sqlSaveBody } from './sql-editor'
@@ -32,7 +35,9 @@ import { analyticsErrorWords } from './wire'
  * The statement; Run (`POST Analytics/Sql/Run`, the one SQL door) and its rows, or its refusal's reason at its line and
  * column; Save, a new revision (`PUT Analytics/Item/{id}`, run first by the server) or, for a new statement, a new
  * Personal SQL item; the revisions with their authors and Restore (`ItemHistory`, `…/Revert`); a curator's Verify and
- * Unverify. A save that changes a verified statement removes the mark: the editor says so before Save.
+ * Unverify (at the revision on screen: a newer one is ANALYTICS-405, said with who and when, and the item reloads). A save
+ * that changes a verified statement removes the mark: the editor says so before Save. "Change by asking" opens the item
+ * in the copilot (Q46); the copilot's Edit comes back here with its statement and the revision it opened the item at.
  *
  * Behind `canViewAnalytics`: a reader without the SQL grant sees the statement and its kept result, read only.
  */
@@ -48,6 +53,12 @@ export default function AnalyticsSqlEditorPage({ isNew = false }: { isNew?: bool
 function ItemSqlBody() {
   const { t } = useTranslation('boards')
   const { id = '' } = useParams()
+  // Q46: the copilot's Edit on an opened item hands its statement and the revision it opened the item at.
+  const state = useLocation().state as Partial<AnalyticsSqlEditorSeed> | null
+  const seed: AnalyticsSqlEditorSeed | null =
+    typeof state?.statement === 'string'
+      ? { statement: state.statement, ...(typeof state.baseRevision === 'number' ? { baseRevision: state.baseRevision } : {}) }
+      : null
   const item = useQuery({ queryKey: analyticsSqlItemKey(id), queryFn: () => analyticsApi.sqlItem(id), retry: false })
   if (item.error) return <Refused err={item.error} fallbackKey="sqlEditor.loadFailed" />
   if (!item.data) {
@@ -58,7 +69,7 @@ function ItemSqlBody() {
     )
   }
   // A new revision (a save or a restore) starts the editor again from what the server holds.
-  return <SqlEditor key={`${item.data.id}:${item.data.revision}`} item={item.data} seed={null} />
+  return <SqlEditor key={`${item.data.id}:${item.data.revision}`} item={item.data} seed={seed} />
 }
 
 function NewSqlBody() {
@@ -82,9 +93,9 @@ function SqlEditor({ item, seed }: { item: AnalyticsSqlItem | null; seed: Analyt
   const userId = useSession((s) => s.userId)
   const acts = item
     ? sqlItemActions(item, { userId, canView: canViewAnalytics(access), canSql: canEditSql(access), canCurate: canCurateAnalytics(access) })
-    : { edit: canEditSql(access), verify: null }
+    : { edit: canEditSql(access), revisions: false, verify: null }
 
-  const [statement, setStatement] = useState(item?.definition.statement ?? seed?.statement ?? '')
+  const [statement, setStatement] = useState(seed?.statement ?? item?.definition.statement ?? '')
   const [title, setTitle] = useState<AnalyticsLabel>({ en: '', ar: '' })
   const [last, setLast] = useState<LastRun | null>(null)
 
@@ -115,23 +126,39 @@ function SqlEditor({ item, seed }: { item: AnalyticsSqlItem | null; seed: Analyt
   const save = useMutation({
     mutationFn: (s: string) =>
       item
-        ? analyticsApi.saveSqlItem(item.id, sqlSaveBody(item, s))
+        ? analyticsApi.saveSqlItem(item.id, sqlSaveBody(item, s, seed?.baseRevision))
         : analyticsApi.createSqlItem({ statement: s, question: seed?.question ?? '', title: { en: title.en.trim(), ar: title.ar.trim() } }),
     onSuccess: (saved) => {
       landed(saved)
       toast.success(t('sqlEditor.saved', { revision: fsi(String(saved.revision)) }))
-      if (!item) navigate(sqlEditHref(saved.id), { replace: true })
+      // A new item goes to its own address; a copilot seed is spent once saved (the route state is dropped).
+      if (!item || seed) navigate(sqlEditHref(saved.id), { replace: true, state: null })
     },
     onError: (err, s) => refusedOr(err, 'sqlEditor.saveFailed', s),
   })
 
   const verify = useMutation({
-    mutationFn: (on: boolean) => (item ? (on ? analyticsApi.sqlVerify(item.id) : analyticsApi.sqlUnverify(item.id)) : Promise.reject(new Error('no item'))),
+    // 3632 review, item 8: Verify names the revision the curator is looking at.
+    mutationFn: (on: boolean) =>
+      item ? (on ? analyticsApi.sqlVerify(item.id, item.revision) : analyticsApi.sqlUnverify(item.id)) : Promise.reject(new Error('no item')),
     onSuccess: (saved, on) => {
       landed(saved)
       toast.success(t(on ? 'sqlEditor.verifiedDone' : 'sqlEditor.unverifiedDone'))
     },
-    onError: (err) => toast.error(sqlRunRefusal(err)?.message || analyticsErrorWords(err, t('sqlEditor.verifyFailed'), t)),
+    onError: (err) => {
+      // ANALYTICS-405: someone saved a newer revision; say who and when, and reload the item to verify what is there now.
+      const stale = saveRefusal(err)
+      if (stale?.kind === 'conflict' && item) {
+        toast.error(
+          stale.by && stale.at && stale.revision !== null
+            ? t('sqlEditor.verifyStale', { by: fsi(stale.by), revision: fsi(String(stale.revision)), at: fsi(formatDateTime(stale.at)) })
+            : t('sqlEditor.verifyStaleUnknown'),
+        )
+        void queryClient.invalidateQueries({ queryKey: analyticsSqlItemKey(item.id) })
+        return
+      }
+      toast.error(sqlRunRefusal(err)?.message || analyticsErrorWords(err, t('sqlEditor.verifyFailed'), t))
+    },
   })
 
   const blank = statement.trim() === ''
@@ -150,6 +177,7 @@ function SqlEditor({ item, seed }: { item: AnalyticsSqlItem | null; seed: Analyt
           </StatusBadge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {item && <ChangeByAsking item={item} />}
           {item && acts.verify && (
             <Button
               variant="secondary"
@@ -165,7 +193,7 @@ function SqlEditor({ item, seed }: { item: AnalyticsSqlItem | null; seed: Analyt
             <ItemHistory
               item={item}
               kind="view"
-              may={acts.edit}
+              may={acts.revisions}
               onReverted={() => void queryClient.invalidateQueries({ queryKey: analyticsSqlItemKey(item.id) })}
             />
           )}

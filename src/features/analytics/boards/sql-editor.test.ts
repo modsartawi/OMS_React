@@ -12,7 +12,8 @@ vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/cor
 const { ApiError } = await import('@/core/api')
 const { analyticsApi } = await import('./api')
 const { canEditSql } = await import('./access')
-const { readSqlItem, refusalSpot, removesVerified, sqlCells, sqlItemActions, sqlRunRefusal, sqlSaveBody } = await import('./sql-editor')
+const { changeByAsking, readSqlItem, refusalSpot, removesVerified, sqlCells, sqlItemActions, sqlRunRefusal, sqlSaveBody } = await import('./sql-editor')
+const { saveRefusal } = await import('./item-save')
 const { revisionList } = await import('./revisions')
 
 const refused = (code: string, data: unknown) =>
@@ -215,19 +216,59 @@ describe('Verify', () => {
   })
 
   it('the server\'s actions, when it sends them, can only take an action away', () => {
-    expect(sqlItemActions(item({ verified: false, actions: ['edit', 'revisions'] }), curator)).toEqual({ edit: true, verify: null })
-    expect(sqlItemActions(item({ verified: false, actions: ['verify'] }), curator)).toEqual({ edit: false, verify: 'verify' })
+    expect(sqlItemActions(item({ verified: false, actions: ['edit', 'revisions'] }), curator)).toEqual({ edit: true, revisions: true, verify: null })
+    expect(sqlItemActions(item({ verified: false, actions: ['verify'] }), curator)).toEqual({ edit: false, revisions: false, verify: 'verify' })
     // A server action the grants do not back is not offered.
-    expect(sqlItemActions(item({ verified: false, actions: ['edit', 'verify'] }), reader)).toEqual({ edit: false, verify: null })
+    expect(sqlItemActions(item({ verified: false, actions: ['edit', 'verify'] }), reader)).toEqual({ edit: false, revisions: false, verify: null })
   })
 
-  it('Verify and Unverify post to their doors with no body and answer the item with its mark', async () => {
+  // 3632 review, item 5 (BackOffice 3676 Build notes): a curator without the SQL grant gets no edit/revisions actions; the
+  // revisions list follows its own action, not edit's.
+  it('a curator the server gives verify alone gets Verify, and neither edit nor the revisions', () => {
+    const acts = sqlItemActions(item({ verified: false, actions: ['verify'] }), { ...curator, canSql: false })
+    expect(acts).toEqual({ edit: false, revisions: false, verify: 'verify' })
+    expect(sqlItemActions(item({ actions: ['edit'] }), owner)).toEqual({ edit: true, revisions: false, verify: null })
+  })
+
+  // 3632 review, item 8: Verify takes the revision the curator is looking at; a stale one is ANALYTICS-405 with who and when.
+  it('Verify posts the revision the curator read; Unverify posts no body', async () => {
     api.post.mockResolvedValueOnce({ ...SQL_ITEM, verified: true }).mockResolvedValueOnce({ ...SQL_ITEM, verified: false })
-    expect((await analyticsApi.sqlVerify('q1')).verified).toBe(true)
-    expect(api.post).toHaveBeenLastCalledWith('Analytics/Item/q1/Verify', {})
+    expect((await analyticsApi.sqlVerify('q1', 3)).verified).toBe(true)
+    expect(api.post).toHaveBeenLastCalledWith('Analytics/Item/q1/Verify', { baseRevision: 3 })
     const off = await analyticsApi.sqlUnverify('q1')
     expect(api.post).toHaveBeenLastCalledWith('Analytics/Item/q1/Unverify', {})
     expect(off.verified).toBe(false)
     expect(off.revision).toBe(3)
+  })
+})
+
+describe('Verify on a stale revision (3632 review, item 8)', () => {
+  it('reads ANALYTICS-405 as the item having changed, with who and when', async () => {
+    api.post.mockRejectedValue(refused('ANALYTICS-405', { revision: 4, updatedBy: 'u-owner', updatedAt: '2026-11-12T10:00:00' }))
+    const err = await analyticsApi.sqlVerify('q1', 3).catch((e: unknown) => e)
+    expect(api.post).toHaveBeenLastCalledWith('Analytics/Item/q1/Verify', { baseRevision: 3 })
+    expect(saveRefusal(err)).toEqual({ kind: 'conflict', by: 'u-owner', at: '2026-11-12T10:00:00', revision: 4, message: 'The statement was refused.' })
+  })
+})
+
+describe('Save from the copilot, at the revision the item was opened at (Q46)', () => {
+  it('puts the statement at the given base revision, not the one loaded since', () => {
+    const item = readSqlItem({ ...SQL_ITEM, revision: 5 })
+    expect(sqlSaveBody(item, 'SELECT 2', 3).baseRevision).toBe(3)
+    expect(sqlSaveBody(item, 'SELECT 2').baseRevision).toBe(5)
+  })
+})
+
+// 3632 Q46 (BackOffice 3678): "Change by asking" shows only when the item's actions include edit and SQL mode is there to use.
+describe('Change by asking (Q46)', () => {
+  const sqlItem = (actions?: string[]) => readSqlItem({ ...SQL_ITEM, actions })
+  it('shows when the server gives edit, the copilot is available and the reader holds the SQL grant', () => {
+    expect(changeByAsking(sqlItem(['edit', 'revisions']), { copilot: true, canSql: true })).toBe(true)
+  })
+  it('hides without edit in the actions, without the copilot, or without the SQL grant', () => {
+    expect(changeByAsking(sqlItem(['verify']), { copilot: true, canSql: true })).toBe(false)
+    expect(changeByAsking(sqlItem(), { copilot: true, canSql: true })).toBe(false)
+    expect(changeByAsking(sqlItem(['edit']), { copilot: false, canSql: true })).toBe(false)
+    expect(changeByAsking(sqlItem(['edit']), { copilot: true, canSql: false })).toBe(false)
   })
 })

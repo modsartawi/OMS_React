@@ -3,7 +3,7 @@ import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSqlOffer } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotSqlItemRef, CopilotSqlOffer } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
@@ -67,6 +67,15 @@ export interface CopilotConversationState {
   sqlMode: boolean
   setSqlMode: (on: boolean) => void
   /**
+   * Q46 (BackOffice 3678): the SQL item this conversation was opened on ("Change by asking"), or null. Its id rides as
+   * `sqlItemContext` on the first question asked in SQL mode only (`sqlItemSent` then); an answer's Edit opens that
+   * item's editor at the revision it was opened at. Dropped by a new conversation, a resumed one and a user change.
+   */
+  sqlItem: CopilotSqlItemRef | null
+  sqlItemSent: boolean
+  /** Opens a SQL item: a new conversation (the current one filed), the toggle on, the item held for the first question. */
+  openSqlItem: (item: CopilotSqlItemRef) => void
+  /**
    * "Try in SQL mode" tapped (888, BackOffice 3674, Q28): the toggle goes on and the offer's question is asked again in
    * SQL mode, in the offer's conversation, or (its id null: that was the conversation's last question) in a new one,
    * the old one filed in the history. `null` as `ask`.
@@ -120,7 +129,10 @@ export function createCopilotConversation(
         if (aborter === controller) aborter = null
         set((s) => ({ conv: next(s.conv), inFlight: null }))
       }
-      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql), requestId }
+      const { sqlItem, sqlItemSent } = get()
+      const itemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
+      if (itemContext) set({ sqlItemSent: true })
+      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql, itemContext), requestId }
       return send(body, controller.signal).then(
         (reply) => {
           if (dropped()) return
@@ -141,6 +153,12 @@ export function createCopilotConversation(
     },
     sqlMode: false,
     setSqlMode: (on) => set({ sqlMode: on }),
+    sqlItem: null,
+    sqlItemSent: false,
+    openSqlItem: (item) => {
+      get().startNew()
+      set({ sqlMode: true, sqlItem: { itemId: item.itemId, revision: item.revision }, sqlItemSent: false })
+    },
     trySqlOffer: (offer) => {
       if (get().inFlight !== null) return null
       if (offer.conversationId === null) get().startNew()
@@ -149,7 +167,7 @@ export function createCopilotConversation(
     },
     startNew: () => {
       abandon()
-      set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
+      set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false }))
     },
     resume: (index) =>
       set((s) => {
@@ -157,13 +175,13 @@ export function createCopilotConversation(
         if (!past) return {}
         abandon()
         const rest = s.history.filter((_, i) => i !== index)
-        return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
+        return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false }
       }),
     forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
   }))
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false }))
   })
   return store
 }

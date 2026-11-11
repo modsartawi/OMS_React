@@ -24,6 +24,7 @@ import { pollSteps } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
 import { sqlEditLink } from './sql-save'
 import { canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { useCopilotConversation } from './conversation-store'
 import { useQuery } from '@tanstack/react-query'
 import type { AnalyticsItem } from '@/core/models/analytics'
 
@@ -324,9 +325,12 @@ export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string
   const { t } = useTranslation('copilot')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<AnalyticsItem | null>(null)
-  const canSave = sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
   // 890: Edit opens the SQL editor on this statement, beside Save; for a SQL grant holder only.
-  const edit = sqlEditLink(sql, question, canUseSqlMode(useQuery(copilotSqlAccessQuery()).data))
+  // Q46: in a conversation opened on a SQL item, Edit opens that item's editor, where Save is the item's PUT.
+  const item = useCopilotConversation((s) => s.sqlItem)
+  const edit = sqlEditLink(sql, question, canUseSqlMode(useQuery(copilotSqlAccessQuery()).data), item)
+  // A new item is saved from an ordinary answer only: an opened item is saved through its own editor (Edit).
+  const canSave = item === null && sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
   return (
     <section aria-label={t('sql.result')} className="flex min-w-0 flex-col gap-2 text-xs" data-copilot-sql data-copilot-sql-ran={sql.ran ? 'yes' : 'no'}>
       <div className="flex flex-wrap items-center gap-2">
@@ -415,7 +419,7 @@ export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string
           {edit && (
             <Link to={edit.to} state={edit.state} className={buttonClass('outlined', 'h-7 px-2 text-xs')} data-copilot-sql-edit>
               <Pencil className="h-3.5 w-3.5" aria-hidden />
-              {t('sql.edit')}
+              {t(item ? 'sql.editItem' : 'sql.edit')}
             </Link>
           )}
           {saving && question !== undefined && (

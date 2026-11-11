@@ -55,6 +55,8 @@
     "run_sql": "Running the SQL"
   },
   "sql": {
+    "itemOpened": "Changing a SQL item by asking. Say what to change; nothing is saved until you open it in the editor and save.",
+    "editItem": "Edit and save the item",
     "toggle": "SQL mode",
     "toggleHint": "Answer by writing and running one read-only SQL statement over the analytics tables",
     "askedIn": "Asked in SQL mode",
@@ -201,6 +203,7 @@
     }
   },
   "refusal": {
+    "sqlItemNotOpenable": "This SQL item cannot be changed by asking: it must be a SQL item you can change (yours, with the SQL grant, or as a curator), asked in SQL mode.",
     "noGrant": "Your account does not hold the copilot grant. Ask an administrator if you need it.",
     "rateLimit": "You have reached the limit of questions for this hour. You can ask again at <time>{{time}}</time>.",
     "rateLimitNoTime": "You have reached the limit of questions for this hour. Try again later.",

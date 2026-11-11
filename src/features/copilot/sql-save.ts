@@ -1,5 +1,5 @@
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import { NEW_SQL_PATH } from '@/core/analytics-routes'
+import { NEW_SQL_PATH, sqlEditHref } from '@/core/analytics-routes'
 import {
   ANALYTICS_SQL_MAX_QUESTION,
   ANALYTICS_SQL_MAX_TITLE,
@@ -10,6 +10,7 @@ import {
   type AnalyticsSqlItemCreate,
   type AnalyticsSqlValueColumn,
 } from '@/core/models/analytics-sql'
+import type { CopilotSqlItemRef } from '@/core/models/copilot'
 import type { AnswerSql } from './answer'
 
 /**
@@ -130,14 +131,20 @@ const words = (l: AnalyticsLabel): AnalyticsLabel => ({
   ar: l.ar.trim().slice(0, ANALYTICS_SQL_MAX_TITLE),
 })
 
-/** `POST Analytics/Item/Sql`'s body: the answer's statement as shown, its question, the title and the chart. */
+/**
+ * The statement to keep (3632 review, item 14): as authored, before the server's layout and its `TOP 1001` cap; an older
+ * server that sends no authored statement leaves the one it ran.
+ */
+export const keptStatement = (sql: AnswerSql): string => sql.authoredStatement ?? sql.statement
+
+/** `POST Analytics/Item/Sql`'s body: the answer's statement as authored, its question, the title and the chart. */
 export function sqlSaveBody(sql: AnswerSql, question: string, form: SqlSaveForm): AnalyticsSqlItemCreate {
   const shape = SHAPES[form.type]
   const chart: AnalyticsSqlChart = { type: form.type, values: form.values.map((v) => ({ column: v.column, label: words(v.label), format: v.format })) }
   if (shape.axis !== 'none' && form.axis !== null) chart.axis = form.axis
   if (shape.series !== 'none' && form.series !== null) chart.series = form.series
   return {
-    statement: sql.statement,
+    statement: keptStatement(sql),
     question: question.slice(0, ANALYTICS_SQL_MAX_QUESTION),
     title: words(form.title),
     chart,
@@ -148,8 +155,17 @@ export function sqlSaveBody(sql: AnswerSql, question: string, form: SqlSaveForm)
  * 890 (spec 3632 Q45): the SQL answer's Edit — the SQL editor on the answer's statement, by route string (the copilot
  * may not import the analytics feature), the statement and question in route state. Offered only to a reader holding
  * the SQL grant (`canUseSqlMode`), and only when there is a statement; a statement that did not run can still be edited.
+ * Q46: in a conversation opened on a SQL item (`item`), the item's own editor, at the revision it was opened at, so the
+ * reader's Save there is the item's `PUT` (a new revision), never a new item.
  */
-export function sqlEditLink(sql: AnswerSql, question: string | undefined, canSql: boolean): { to: string; state: AnalyticsSqlEditorSeed } | null {
-  if (!canSql || sql.statement === '') return null
-  return { to: NEW_SQL_PATH, state: { statement: sql.statement, ...(question !== undefined ? { question } : {}) } }
+export function sqlEditLink(
+  sql: AnswerSql,
+  question: string | undefined,
+  canSql: boolean,
+  item: CopilotSqlItemRef | null = null,
+): { to: string; state: AnalyticsSqlEditorSeed } | null {
+  const statement = keptStatement(sql)
+  if (!canSql || statement === '') return null
+  if (item) return { to: sqlEditHref(item.itemId), state: { statement, baseRevision: item.revision } }
+  return { to: NEW_SQL_PATH, state: { statement, ...(question !== undefined ? { question } : {}) } }
 }

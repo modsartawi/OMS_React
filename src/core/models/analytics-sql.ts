@@ -191,6 +191,11 @@ export interface AnalyticsSqlItemUpdate {
   subtitle?: AnalyticsLabel
 }
 
+/** 3632 review, item 8: `POST Analytics/Item/{id}/Verify`'s body, the revision the curator is looking at (required). */
+export interface AnalyticsSqlVerifyBody {
+  baseRevision: number
+}
+
 /**
  * What another screen hands the editor when it opens it on a statement that is not yet an item (the copilot's SQL
  * answer): the router state of `NEW_SQL_PATH` (`@/core/analytics-routes`). In `core` because the copilot links there by route string and
@@ -199,6 +204,11 @@ export interface AnalyticsSqlItemUpdate {
 export interface AnalyticsSqlEditorSeed {
   statement: string
   question?: string
+  /**
+   * Q46: on a SQL item's own editor (`sqlEditHref`), the revision the copilot opened the item at, so the Save's
+   * `baseRevision` is that one, not the one loaded since (a save in between is then `ANALYTICS-405`).
+   */
+  baseRevision?: number
 }
 
 // ── A SQL item on a board and in a report (ticket 891; BackOffice 3677, spec 3632 Q43, Q47-Q49) ────────────────────

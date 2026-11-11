@@ -253,6 +253,21 @@ export interface CopilotAskRequest {
    * an ask too) and ignores it, never refuses, for a reader without the grant or off the panel. Absent: a normal question.
    */
   sqlMode?: boolean
+  /**
+   * BackOffice 3678 (spec 3632 Q46, oms-react 890): a SQL item opened in the copilot ("Change by asking"). Sent with
+   * `sqlMode: true` on the question that OPENS the item only; follow-ups omit it. Refused `COPILOT-456` (no data) when not
+   * in SQL mode, not a readable SQL item, or the reader may not change it. Only the id: the server reads the rest.
+   */
+  sqlItemContext?: { itemId: string }
+}
+
+/**
+ * The SQL item a conversation was opened on (Q46): its id, sent as `sqlItemContext`, and the revision it was opened at,
+ * the `baseRevision` of the reader's Save (the item's own `PUT`) so a save in between is refused `ANALYTICS-405`.
+ */
+export interface CopilotSqlItemRef {
+  itemId: string
+  revision: number
 }
 
 /**
@@ -537,6 +552,11 @@ export interface CopilotSqlPart {
   step: number | null
   /** As the server ran it: laid out by the parser, with the server's `TOP 1001` cap. */
   statement: string
+  /**
+   * 3632 review, item 14 (BackOffice 3673 Build notes): the same statement as the model authored it, trimmed, before the
+   * server's layout and its inserted `TOP 1001` cap; `""` when nothing ran. A Save sends THIS. Absent from an older server.
+   */
+  authoredStatement?: string
   /** The analytics tables it read, the allow-list's spelling, each once, in the order met. */
   tables: string[]
   /** The result's columns, the database's order. */

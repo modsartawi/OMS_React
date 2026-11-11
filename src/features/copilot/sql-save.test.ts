@@ -151,3 +151,34 @@ describe('Edit', () => {
     expect(sqlEditLink({ ...answer, statement: '' }, 'q', true)).toBeNull()
   })
 })
+
+// 3632 review, item 14 (BackOffice 3673 Build notes): the answer's statement as the server ran it carries the server's layout
+// and its inserted TOP 1001 cap. Save sends the statement as authored, before both; an older server sends none.
+describe('Save sends the statement as authored (3632 review, item 14)', () => {
+  it('sends sql.authoredStatement as the statement, not the laid-out capped one', () => {
+    const sql = answer({ authoredStatement: 'select StoreName, sum(NetSales) as Sales from an.SalesDaily group by StoreName' })
+    const body = sqlSaveBody(sql, 'Top stores?', { ...sqlSaveForm(sql, 'Top stores?'), title: { en: 'Top stores', ar: '' } })
+    expect(body.statement).toBe('select StoreName, sum(NetSales) as Sales from an.SalesDaily group by StoreName')
+  })
+  it('falls back to the statement as run when an older server sends no authored statement', () => {
+    const sql = answer()
+    const body = sqlSaveBody(sql, 'Top stores?', { ...sqlSaveForm(sql, 'Top stores?'), title: { en: 'Top stores', ar: '' } })
+    expect(body.statement).toBe(sql.statement)
+  })
+  it('Edit opens the editor on the authored statement too', () => {
+    const sql = answer({ authoredStatement: 'select 1' })
+    expect(sqlEditLink(sql, undefined, true)?.state).toEqual({ statement: 'select 1' })
+  })
+})
+
+// 3632 Q46 (BackOffice 3678): an answer in a conversation that opened a SQL item edits THAT item: its Edit opens the item's
+// own editor on the answer's statement, at the revision the item was opened at, so the reader's Save is the item's PUT.
+describe('Edit, in a conversation that opened a SQL item (Q46)', () => {
+  it('opens the item editor with the statement and the revision it was opened at', () => {
+    const sql = answer({ authoredStatement: 'select 2' })
+    expect(sqlEditLink(sql, 'Net?', true, { itemId: 'q1', revision: 3 })).toEqual({
+      to: '/analytics/sql/q1',
+      state: { statement: 'select 2', baseRevision: 3 },
+    })
+  })
+})

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { ApiError } from '@/core/api'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest, CopilotSqlPart } from '@/core/models/copilot'
 import { answerLayout, copilotAnswerModel } from './answer'
 import { canUseSqlMode } from './access'
 import { askBody, EMPTY_CONVERSATION } from './conversation'
 import { createCopilotConversation } from './conversation-store'
+import { copilotRefusal } from './refusal'
 import { toolLabelKey } from './trace'
 
 /**
@@ -151,6 +153,13 @@ describe('a SQL answer draws its mark, rows, statement and the tables it read (Q
     })
   })
 
+  it('reads the statement as authored beside the one the server ran (3632 review, item 14)', () => {
+    expect(copilotAnswerModel(reply({ sql: { ...SQL, authoredStatement: 'select StoreCode, sum(Sales) from Fact_Sales group by StoreCode' } })).sql?.authoredStatement).toBe(
+      'select StoreCode, sum(Sales) from Fact_Sales group by StoreCode',
+    )
+    expect(copilotAnswerModel(reply({ sql: SQL })).sql).not.toHaveProperty('authoredStatement')
+  })
+
   it('draws the SQL part right under the text, before anything else', () => {
     const model = copilotAnswerModel(reply({ sql: { ...SQL, rows: [], tables: [], columns: [] }, assumptions: [{ en: 'Last week.', ar: 'الأسبوع الماضي.' }] }))
     expect(answerLayout(model).parts).toEqual(['text', 'sql', 'assumptions'])
@@ -196,5 +205,57 @@ describe('an answer with no SQL part draws as today', () => {
   it('a malformed SQL part (no statement or rows list) is no SQL part', () => {
     expect(copilotAnswerModel(reply({ sql: { mark: 'sql' } as never })).sql).toBeNull()
     expect(copilotAnswerModel(reply({ sql: null as never })).sql).toBeNull()
+  })
+})
+
+// 3632 Q46 (BackOffice 3678): "Change by asking" opens the panel on a SQL item. The conversation starts anew in SQL mode, and
+// its first question carries `sqlItemContext { itemId }`; follow-ups do not (the conversation already holds the statement).
+describe('a SQL item opened in the copilot sends its context with the first question only (Q46)', () => {
+  it('starts a new conversation in SQL mode and sends the item with the first question', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const before = store.getState().ask('Anything?')
+    d.calls[0].answer(reply())
+    await before
+    store.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    expect(store.getState().sqlMode).toBe(true)
+    expect(store.getState().conv.turns).toEqual([])
+    expect(store.getState().history).toHaveLength(1)
+    expect(store.getState().sqlItem).toEqual({ itemId: 'q1', revision: 3 })
+    const first = store.getState().ask('Only Riyadh, please', true)
+    expect(d.calls[1].body).toEqual({ question: 'Only Riyadh, please', sqlMode: true, sqlItemContext: { itemId: 'q1' } })
+    d.calls[1].answer(reply({ conversationId: 'c-0002' }))
+    await first
+    const next = store.getState().ask('And last month?', true)
+    expect(d.calls[2].body).toEqual({ question: 'And last month?', conversationId: 'c-0002', sqlMode: true })
+    d.calls[2].answer(reply({ conversationId: 'c-0002', questionNo: 2 }))
+    await next
+    // The conversation still edits that item, for the answer's Edit.
+    expect(store.getState().sqlItem).toEqual({ itemId: 'q1', revision: 3 })
+  })
+
+  it('a question asked with the mode off does not carry the item, and leaves it for the first SQL question', () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    store.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    store.getState().ask('Change it')
+    expect(d.calls[0].body).toEqual({ question: 'Change it' })
+  })
+
+  it('a new conversation, or another user, drops the item', () => {
+    const store = createCopilotConversation(door().ask)
+    store.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    store.getState().startNew()
+    expect(store.getState().sqlItem).toBeNull()
+    store.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    useSession.setState({ userId: 'someone-else' })
+    expect(store.getState().sqlItem).toBeNull()
+  })
+
+  it('COPILOT-456 has its own words', () => {
+    expect(copilotRefusal(new ApiError('business', 'No.', 400, [{ errorCode: 'COPILOT-456', internalErrorCode: '', errorMessage: 'No.' }]), 'x')).toEqual({
+      key: 'refusal.sqlItemNotOpenable',
+      resetAt: null,
+    })
   })
 })

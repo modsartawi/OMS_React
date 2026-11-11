@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
+import { Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
+import { Brain, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
 import { saysIn } from '@/core/rules/sentence'
@@ -18,6 +20,7 @@ import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type Copil
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
+import { meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
 const AT_END = 32
@@ -81,6 +84,23 @@ function InContext() {
         </span>
       )}
     </div>
+  )
+}
+
+/**
+ * 894 (BackOffice 3633 R28): the way to "What the copilot knows about me". Shown only when `GET Copilot/Me` reads: a
+ * `COPILOT-430` (own readings off), no grant, a failure or the wait all hide it (3689: the access probe does not say).
+ * The page shares this query, so opening it costs no second call.
+ */
+function KnowsMeEntry() {
+  const { t } = useTranslation('copilot')
+  const me = useQuery(meQuery())
+  if (!meEntryVisible(me)) return null
+  return (
+    <Link to="/copilot/me" className="inline-flex items-center gap-1 self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-me-entry>
+      <Brain className="h-3.5 w-3.5" aria-hidden />
+      {t('me.entry')}
+    </Link>
   )
 }
 
@@ -237,6 +257,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 ${wide ? 'mx-auto max-w-4xl' : ''}`}>
         <InContext />
+        <KnowsMeEntry />
         {(!empty || history.length > 0) && !wide && (
           <div className="flex shrink-0 items-center justify-between gap-2" data-copilot-thread-bar>
             <div className="text-xs font-medium text-muted-foreground">{listing ? t('history.heading') : t('thread.heading')}</div>

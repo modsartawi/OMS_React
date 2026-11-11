@@ -1468,5 +1468,5 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [892](892-tappable-assumption-lines-and-the-keep-offer.md) — Assumption lines under an answer are tappable, and the offer line keeps a reading on Keep · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3685, BackOffice 3686
 - [893](893-the-named-set-card.md) — The named-set card shows the name and its members, with Keep and Not now · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3687, 892
-- [894](894-the-what-the-copilot-knows-about-me-page.md) — The page "What the copilot knows about me" lists, changes and deletes every kept reading and named set · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3689
+- [894](894-the-what-the-copilot-knows-about-me-page.md) — The page "What the copilot knows about me" lists, changes and deletes every kept reading and named set · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3689
 - [895](895-the-curators-counts-on-the-house-rules-screen.md) — The house-rules screen shows how many readers changed each default, and to what · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3691

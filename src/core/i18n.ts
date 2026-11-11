@@ -227,7 +227,7 @@ import loyGroupsAr from '@/locales/ar/loy-groups.json'
 import releaseQueue from '@/locales/en/release-queue.json'
 import releaseQueueAr from '@/locales/ar/release-queue.json'
 // The copilot (ticket 735, spec 734 D11): a top-level feature like `auth`, its own namespace. A PARTIAL Arabic
-// `copilot` (869, BackOffice spec 3558 D12): the working state's live and tool steps only; the rest falls back to English.
+// `copilot` (869, BackOffice spec 3558 D12): the working state's live and tool steps, and (894) the page "What the copilot knows about me"; the rest falls back to English.
 import copilot from '@/locales/en/copilot.json'
 import copilotAr from '@/locales/ar/copilot.json'
 // Analytics boards (spec 766, ticket 767): the `analytics` area's first feature `boards`; namespace == feature name,

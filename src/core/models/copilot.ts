@@ -556,3 +556,113 @@ export interface CopilotTableNotes {
   /** BackOffice 3607: each area that does not hold the same weeks last year, the day its data starts and its measures; absent otherwise. */
   lastYearNotHeld?: { area: string; dataFrom: string; measures: string[] }[] | null
 }
+
+// ── "What the copilot knows about me" (BackOffice spec 3633 R25/R28/R29, door 3689, oms-react 894) ─────────────────
+// Every door behind the cookie and `[Copilot, 01]`: `COPILOT-401` without the grant, `COPILOT-430` while own readings
+// are off (a 430 on `GET Copilot/Me` reads as "feature off": the page's entry is hidden). The reader is always the
+// cookie's user. Nothing is cached server-side, so a change, a delete or "forget" is used from the next question (R29).
+
+/** One value a kept reading may be changed to (or the value it holds), labelled in both languages. */
+export interface CopilotReadingChoice {
+  value: string
+  label: AnalyticsLabel
+}
+
+/** Who kept it: accepted from an answer's offer, changed on this page, or said directly. */
+export type CopilotKeptBy = 'offer' | 'page' | 'direct'
+
+/** 3689: one kept reading. */
+export interface CopilotKeptReading {
+  kind: CopilotOwnReadingKind
+  value: string
+  label: AnalyticsLabel
+  /** R25: the server no longer has the value, and no question uses it (drawn struck through; Change or Delete). */
+  unused: boolean
+  /** Every value the reading may be changed to. */
+  choices: CopilotReadingChoice[]
+  /** `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  keptBy: CopilotKeptBy
+}
+
+/** 3689: one member of a named set; `key` is the name lookup's (`store:S101`, `city:Jeddah`, …). */
+export interface CopilotSetMember {
+  key: string
+  kind: string
+  label: AnalyticsLabel
+  /** R25: no longer in the store master / channel list. A gone member must be left out of an edit. */
+  gone: boolean
+}
+
+/** 3689: one named set, by name. */
+export interface CopilotNamedSet {
+  /** 26-char ULID. */
+  setId: string
+  name: string
+  kind: string
+  members: CopilotSetMember[]
+  /** How many members are gone. */
+  gone: number
+  keptAt: string
+  keptBy: CopilotKeptBy
+}
+
+export interface CopilotKnowsMeLimits {
+  maxSets: number
+  maxMembers: number
+  maxName: number
+}
+
+/**
+ * `GET Copilot/Me` → `data` (3689 `CopilotKnowsMePage`): the page's one payload. `readings` holds only kept kinds, in
+ * the order period, comparison, scope, money-base. The investigations spec adds its profile beside these.
+ */
+export interface CopilotKnowsMe {
+  readings: CopilotKeptReading[]
+  sets: CopilotNamedSet[]
+  limits: CopilotKnowsMeLimits
+}
+
+/** `POST Copilot/Me/Readings` → one reading (`keptBy: "page"`). `COPILOT-430` for a kind or value not allowed. */
+export interface CopilotKeepReadingRequest {
+  kind: CopilotOwnReadingKind
+  value: string
+}
+
+/** `POST Copilot/Me/Readings/Delete`. */
+export interface CopilotDeleteReadingRequest {
+  kind: CopilotOwnReadingKind
+}
+
+/**
+ * `POST Copilot/Me/Sets` → one set, its members replaced in the order given (name and id kept). `COPILOT-433`: not the
+ * reader's set, a member the server cannot find now, two kinds, 0 or over `maxMembers` members.
+ */
+export interface CopilotEditSetRequest {
+  setId: string
+  members: string[]
+}
+
+/** `POST Copilot/Me/Sets/Delete`. */
+export interface CopilotDeleteSetRequest {
+  setId: string
+}
+
+/** `…/Delete` → `data`; `false` = already gone. */
+export interface CopilotDeleted {
+  deleted: boolean
+}
+
+/** `POST Copilot/Me/Forget` (no body) → how many readings and sets went, in one transaction. */
+export interface CopilotForgotten {
+  removed: number
+}
+
+/**
+ * `GET Copilot/Me/Lookup?text=` → the name lookup's stores, cities, regions and channels, best first (at most 20).
+ * `COPILOT-433` for a blank / over-100-character text, text that looks like personal data, or no lookup on the server.
+ */
+export interface CopilotMeLookup {
+  text: string
+  matches: CopilotSetMember[]
+}

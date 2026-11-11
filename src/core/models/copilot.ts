@@ -5,7 +5,7 @@ import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsReportDefinitio
  * unbuilt). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
  *
  * Refusals are not here: they are envelope business outcomes (`COPILOT-401` … `COPILOT-406`, D7)
- * read through `@/core/api`'s `apiErrorCode`.
+ * read through `@/core/api`'s `apiErrorCode`. Only a refusal's `data` is (`CopilotPromptFieldRefusal`).
  */
 
 /** `GET Copilot/Access` — both flags read `BackOfficeScreen[Copilot, 01]` (D7). */
@@ -57,6 +57,24 @@ export interface CopilotPromptWire {
   savedAt: string
   note: string
   maxLength: number
+  /**
+   * BackOffice spec 3586 A23 (3593, oms-react 874): the active version's default readings; `""` when it has none of
+   * its own, and it then uses `builtInDefaultReadings`. On the wire whether `Copilot:Answers:DefaultReadings` is on or off.
+   */
+  defaultReadings: string
+  /** The built-in default readings (A24): show them when `defaultReadings` is `""`, and send `""` back unless edited. */
+  builtInDefaultReadings: string
+  /** The default readings' own limit, 2000 (A25): not taken from the house rules' `maxLength`. */
+  defaultReadingsMaxLength: number
+  /**
+   * Spec 3586 A51 (3600, oms-react 875): the active version's starters, each with its proof; both lists empty when it
+   * has none. Absent with `Copilot:Answers:Starters` off.
+   */
+  starters?: CopilotStarterSet
+  /** 3600: the most starters for one kind of reader, 6. Absent with the switch off. */
+  startersPerKind?: number
+  /** 3600: the longest starter text in one language, 200. Absent with the switch off. */
+  starterMaxLength?: number
 }
 
 /** One version as `GET Copilot/Prompt/History`, `POST Copilot/Prompt` and `…/Revert` return it (`CopilotPromptVersionView`). */
@@ -67,19 +85,95 @@ export interface CopilotPromptVersionWire {
   savedBy: string
   savedAt: string
   revertedFrom: number | null
+  /** 3593: the version's default readings; `""` when it has none of its own (the built-in text). */
+  defaultReadings: string
+  /** 3600: the version's starters, each with its proof; absent with `Copilot:Answers:Starters` off. */
+  starters?: CopilotStarterSet
 }
 
-/** `POST Copilot/Prompt` body. `baseVersion` is the version the draft was edited from (`COPILOT-411` when stale). */
+/**
+ * `POST Copilot/Prompt` body. `baseVersion` is the version the draft was edited from (`COPILOT-411` when stale). One
+ * save makes one version holding all three texts.
+ */
 export interface CopilotPromptSaveRequest {
   houseRules: string
   note: string | null
   baseVersion: number
+  /**
+   * 3593: the default readings, at most 2,000 characters (else `COPILOT-412` naming `defaultReadings`). Absent, null or
+   * blank: the version has none of its own. Send `""`, not the built-in text, when the curator did not change it.
+   */
+  defaultReadings?: string | null
+  /**
+   * 3600: the starters, each non-blank one with its trial's proof (a stored proof is sent back unchanged); a failing one
+   * is `COPILOT-412` naming its path. Absent or two empty lists: none. Ignored with `Copilot:Answers:Starters` off.
+   */
+  starters?: CopilotStarterSet
 }
 
 /** `POST Copilot/Prompt/Try` body: a question answered with the draft house rules, saved or not. */
 export interface CopilotPromptTryRequest {
   houseRules: string
   question: string
+  /** 3593: the draft default readings, checked like a save. Absent or blank: the trial uses the built-in text. */
+  defaultReadings?: string | null
+}
+
+/**
+ * Spec 3586 A51 (3600): one house-rules version's starter questions, a list for each kind of reader. Both lists are
+ * always there, at most `startersPerKind` (6) each.
+ */
+export interface CopilotStarterSet {
+  /** For a reader holding one of the configured executive roles (A53). */
+  executive: CopilotStarter[]
+  /** For everyone else. */
+  operations: CopilotStarter[]
+}
+
+/** The two kinds of reader a starter is written for (A51, A53). */
+export type CopilotReaderKind = 'executive' | 'operations'
+
+/** One starter as the house-rules doors carry it (3600, A51, A52). */
+export interface CopilotStarter {
+  /** Both languages needed, each at most `starterMaxLength` (200) characters after trimming. */
+  question: AnalyticsLabel
+  /** A52: the question has a blank the reader fills; the panel puts it in the question box and it needs no proof. */
+  blank: boolean
+  /** A52: the tool call that answered it in the curator's trial (one `trace` entry's `tool` and `input`). Absent on a blank starter. */
+  proof?: CopilotStarterProof
+}
+
+/** A52: a starter's proof - one entry of the trial answer's `trace`; the server checks it without running it. */
+export interface CopilotStarterProof {
+  tool: string
+  input: Record<string, unknown>
+}
+
+/**
+ * `COPILOT-412`'s `data` (3593, 3600): the field the refusal is about. `defaultReadings`, or a starter's path with a
+ * zero-based index (`starters.executive`, `starters.executive[0]`, `starters.executive[0].question.en` / `.ar`,
+ * `starters.executive[0].proof`); the message counts from 1. A `COPILOT-412` with no `data` is about the house rules.
+ */
+export interface CopilotPromptFieldRefusal {
+  field: string
+}
+
+/**
+ * `GET Copilot/Starters` → `data` (3601, A53, oms-react 873): the starters for the asking reader's kind, gated like
+ * `Ask`. An empty `starters` (the switch off, none saved, or the reader's own list empty) means the panel keeps its two
+ * fixed examples.
+ */
+export interface CopilotReaderStarters {
+  /** Absent when there are no starters to give (the switch off, or none saved). */
+  kind?: CopilotReaderKind
+  /** In their saved order. */
+  starters: CopilotReaderStarter[]
+}
+
+/** One starter as a reader gets it: never the proof. A tap asks it with `origin: 'starter'`; a `blank` one fills the box. */
+export interface CopilotReaderStarter {
+  question: AnalyticsLabel
+  blank: boolean
 }
 
 /** `POST Copilot/Prompt/Revert` body: the version to restore; the server makes it a new version. */
@@ -140,7 +234,26 @@ export interface CopilotAskRequest {
    * `GET Copilot/Ask/{requestId}/Steps` reads its steps while it runs; with it off the server ignores it.
    */
   requestId?: string
+  /**
+   * BackOffice 3597 (spec 3586 A37, A55, oms-react 872): on a reply to an `asked` answer, its `ask.id`, always with
+   * that answer's `conversationId`. The reply continues the asked question (same `questionNo`, nothing taken from the
+   * hourly limit). An id naming no pending ask is ignored: the request is a new question. Absent on any other question.
+   */
+  askId?: string
+  /**
+   * 3597: with `askId`, the `key` of the tapped choice. Absent when the reader typed: `question` is then the reply. On a
+   * tap `question` is still sent, as the choice's label shown (it is the new question if the ask is gone).
+   */
+  choiceKey?: string
+  /** 3598 (A49, A55): where the question came from. Only the audit keeps it; absent is "not said", never refused. */
+  origin?: CopilotQuestionOrigin
 }
+
+/**
+ * The request's `origin` (3598): typed, a tapped suggestion (its `question` sent as the question), a tapped starter
+ * (3601), or a tapped choice of an `ask` (beside `askId` and `choiceKey`).
+ */
+export type CopilotQuestionOrigin = 'typed' | 'suggestion' | 'starter' | 'choice'
 
 /** `GET Copilot/Ask/{requestId}/Steps` -> `data` (BackOffice 3565). A 404 (no body): nothing yet, or the switch off. */
 export interface CopilotSteps {
@@ -202,8 +315,22 @@ export interface CopilotViewRef {
   title: { en: string; ar: string }
 }
 
-/** The audit's outcome (D6), as the answer carries it. */
-export type CopilotOutcome = 'answered' | 'cannot-answer' | 'refused' | 'blocked-pii' | 'limit' | 'error'
+/**
+ * The audit's outcome (D6), as the answer carries it. BackOffice spec 3586 adds two, each only with its server switch
+ * on: `figures-only` (3590, `Copilot:Answers:NumberCheck`: `answer` is a fixed sentence holding none of the model's
+ * words, `tables` every analytics result, `orderRefs` `[]`) and `asked` (3596, `Copilot:Answers:AskUnclearName`: `ask`
+ * holds the question; `answer` repeats it as plain text and is not drawn beside it). The audit's own `trial-figures-only`
+ * and `trial-asked` never reach an answer.
+ */
+export type CopilotOutcome =
+  | 'answered'
+  | 'cannot-answer'
+  | 'refused'
+  | 'blocked-pii'
+  | 'limit'
+  | 'error'
+  | 'figures-only'
+  | 'asked'
 
 /** `POST Copilot/Ask` → `data`. */
 export interface CopilotAnswer {
@@ -227,11 +354,19 @@ export interface CopilotAnswer {
   viewRefs?: CopilotViewRef[]
   /** The reports `create_report` / `edit_report` saved in this answer (spec 819 §D); absent reads as empty. */
   reportRefs?: CopilotReportRef[]
-  /** `edit_report`'s unsaved definition for the report in context (spec 819 §D); absent reads as none. */
+  /**
+   * `edit_report`'s unsaved definition for the report in context (spec 819 §D); absent reads as none. With
+   * `Copilot:Answers:NumberCheck` on (BackOffice 3591) its `note` may be the fixed "The change is ready to review."
+   */
   reportEdit?: CopilotReportEdit | null
-  /** `edit_board`'s unsaved definition for the board in context (836, BackOffice 3430); absent reads as none. */
+  /** `edit_board`'s unsaved definition for the board in context (836, BackOffice 3430); absent reads as none. 3591 as `reportEdit`. */
   boardEdit?: CopilotBoardEdit | null
-  /** What a built or edited report assumed, one line each, in both languages (802 item 1; ⚠ field name proposed). */
+  /**
+   * What the answer assumed, one line each, in both languages, at most 10 (802 item 1). First a built or edited
+   * report's; with `Copilot:Answers:DefaultReadings` on (BackOffice 3594, oms-react 870) also an answer where no report
+   * or board tool ran, written by the server. With `Copilot:Answers:NumberCheck` on (3591) a failing line is dropped.
+   * `[]` on an `asked` answer.
+   */
   assumptions?: AnalyticsLabel[]
   /**
    * The house-rules version the answer was given under (ticket 790, BackOffice 3395); 0 is the built-in
@@ -244,8 +379,51 @@ export interface CopilotAnswer {
    * `Copilot:Speed:PanelTables` off, or nothing marked): the answer renders as before.
    */
   tables?: CopilotAnswerTable[]
+  /**
+   * BackOffice 3596 (spec 3586 A36, A54, oms-react 872): the server's question about a name the reader typed. Present
+   * exactly when `outcome` is `asked`; absent (never null) otherwise. On `Copilot/Prompt/Try` it is shown only
+   * (`conversationId` `""`): it cannot be replied to.
+   */
+  ask?: CopilotAsk
+  /**
+   * BackOffice 3598/3599 (spec 3586 A46, A47, A54, oms-react 871): 1 to 3 next questions the server has checked as
+   * answerable, the model's first, in the order to show. Absent (never null, never `[]`) with
+   * `Copilot:Answers:Suggestions` off, on an `asked` or `refused` answer, on the conversation's last question
+   * (`questionNo` 10), or when none passed the check.
+   */
+  suggestions?: CopilotSuggestion[]
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
+}
+
+/** One suggested next question (3598). A tap sends `question` as a normal question with `origin: 'suggestion'`. */
+export interface CopilotSuggestion {
+  /** In the reader's language, at most 200 characters. */
+  question: string
+  by: CopilotSuggestionBy
+}
+
+/** Who wrote a suggestion: the model (3598), or the server from an analytics query of the answer (3599). */
+export type CopilotSuggestionBy = 'model' | 'server'
+
+/** The copilot's question about an unclear name (3596, `ask`). The server writes all of it, the model none. */
+export interface CopilotAsk {
+  /** What the reply names as `askId` (3597). */
+  id: string
+  /** The fixed question in both languages; with no choice, the "type the name again" sentence. */
+  question: AnalyticsLabel
+  /** The unclear text, as it was looked up. */
+  text: string
+  /** 0 to 4, in the order to show. `[]`: the reader types the name again. */
+  choices: CopilotAskChoice[]
+}
+
+/** One choice of an `ask` (3596). */
+export interface CopilotAskChoice {
+  /** `kind:key` (`city:Jeddah`, `store:S102`): what a tap sends back as `choiceKey`. */
+  key: string
+  /** Ready to show: the name, its kind and, for a store, its city. */
+  label: AnalyticsLabel
 }
 
 /** One answer table (3564): a shown `semantic_query` result. Every value is text on the wire; a measure's is a number's invariant text. */

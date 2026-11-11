@@ -558,11 +558,18 @@ function useTurnReadings(turn: CopilotTurn): AnswerReadings {
   const keepReading = useCopilotConversation((s) => s.keepReading)
   const notNowReading = useCopilotConversation((s) => s.notNowReading)
   const conversationId = turn.reply?.conversationId ?? ''
+  const proposalId = turn.reply?.namedSet?.id ?? ''
+  const namedSet = useCopilotConversation((s) => s.offerState(proposalId))
+  const keepNamedSet = useCopilotConversation((s) => s.keepNamedSet)
+  const notNowNamedSet = useCopilotConversation((s) => s.notNowNamedSet)
   return {
     choose: (reading) => void ask(turn.question, reading),
     canChoose,
     offer,
     keep: () => void keepReading(conversationId, offerId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
     notNow: () => void notNowReading(conversationId, offerId),
+    namedSet,
+    keepSet: () => void keepNamedSet(conversationId, proposalId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNowSet: () => notNowNamedSet(proposalId),
   }
 }

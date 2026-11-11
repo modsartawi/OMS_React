@@ -6,6 +6,8 @@ import type {
   CopilotAnswerTable,
   CopilotAssumptionChoice,
   CopilotBoardEdit,
+  CopilotNamedSetKind,
+  CopilotNamedSetProposal,
   CopilotOwnReadingKind,
   CopilotReadingOffer,
   CopilotReportEdit,
@@ -66,6 +68,8 @@ export interface CopilotAnswerModel {
   assumptionChoices: (CopilotAssumptionChoice | null)[]
   /** BackOffice 3686 (892): the offer to keep a reading under this answer, or none. */
   readingOffer: CopilotReadingOffer | null
+  /** BackOffice 3687 (893): the named set proposed in this answer, or none. */
+  namedSet: CopilotNamedSetProposal | null
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
   rules: AnswerRules | null
   /**
@@ -199,6 +203,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     boardEdit: boardEditOf(r.boardEdit),
     ...assumptionsOf(r.assumptions, r.assumptionChoices),
     readingOffer: readingOfferOf(r.readingOffer),
+    namedSet: namedSetOf(r.namedSet),
     rules: rulesOf(r.promptVersion),
     tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
     figuresOnly: r.outcome === 'figures-only',
@@ -206,7 +211,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
 }
 
 /** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */
-export type AnswerPart = 'text' | 'tables' | 'views' | 'assumptions' | 'readingOffer' | 'reportEdit' | 'boardEdit' | 'reports'
+export type AnswerPart = 'text' | 'tables' | 'views' | 'assumptions' | 'readingOffer' | 'namedSet' | 'reportEdit' | 'boardEdit' | 'reports'
 
 /** How the list of lookups ("How I got this") is drawn: not at all (no trace), folded, or open. */
 export type AnswerLookups = 'none' | 'collapsed' | 'open'
@@ -224,6 +229,7 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   if (model.viewRefs.length > 0) parts.push('views')
   if (model.assumptions.length > 0) parts.push('assumptions')
   if (model.readingOffer) parts.push('readingOffer')
+  if (model.namedSet) parts.push('namedSet')
   if (model.reportEdit) parts.push('reportEdit')
   if (model.boardEdit) parts.push('boardEdit')
   if (model.reportRefs.length > 0) parts.push('reports')
@@ -306,6 +312,33 @@ function assumptionsOf(raw: unknown, rawChoices: unknown): Pick<CopilotAnswerMod
   }
   const kept = raw.map((a, line) => ({ label: bilingual(a), choice: byLine.get(line) ?? null })).filter((a) => said(a.label))
   return { assumptions: kept.map((a) => a.label), assumptionChoices: kept.map((a) => a.choice) }
+}
+
+/** The named-set card as drawn (893): the name as the server gave it, and every member in order in the panel's language. */
+export interface NamedSetCard {
+  name: string
+  members: { key: string; kind: CopilotNamedSetKind; text: string }[]
+}
+
+export const namedSetCard = (set: CopilotNamedSetProposal, lang: string): NamedSetCard => ({
+  name: set.name,
+  members: set.members.map((m) => ({ key: m.key, kind: m.kind, text: saysIn(m.label, lang) })),
+})
+
+const SET_KINDS: readonly string[] = ['store', 'city', 'region', 'channel'] satisfies CopilotNamedSetKind[]
+const setKind = (v: unknown): v is CopilotNamedSetKind => typeof v === 'string' && SET_KINDS.includes(v)
+
+/** The proposed named set (3687), or none when it lacks its id, its name, a known kind or a member with a key. */
+function namedSetOf(v: unknown): CopilotNamedSetProposal | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.id !== 'string' || o.id.trim() === '' || typeof o.name !== 'string' || o.name.trim() === '' || !setKind(o.kind)) return null
+  const members = (Array.isArray(o.members) ? (o.members as unknown[]) : []).flatMap((x) => {
+    const m = x && typeof x === 'object' ? (x as Record<string, unknown>) : {}
+    return typeof m.key === 'string' && m.key.trim() !== '' && setKind(m.kind) ? [{ key: m.key, kind: m.kind, label: bilingual(m.label) }] : []
+  })
+  if (members.length === 0) return null
+  return { id: o.id, name: o.name, kind: o.kind, members, offer: bilingual(o.offer) }
 }
 
 /** The offer to keep a reading (3686), or none when it lacks its id, a known kind, a value or its words. */

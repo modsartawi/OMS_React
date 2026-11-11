@@ -6,7 +6,7 @@
  * Non-streaming (D10): the panel shows its working state for the whole call.
  */
 import { api } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotNamedSetKeepRequest, CopilotNamedSetKept, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
 import { stepsOrNothing } from './steps'
 
 export const copilotApi = {
@@ -39,3 +39,17 @@ export const copilotReadingApi = {
 }
 
 export type CopilotReadingDoors = typeof copilotReadingApi
+
+/**
+ * The named-set card's Keep (ticket 893, BackOffice 3687): stores the set the SERVER proposed as `proposalId`. Not now
+ * calls nothing. A refusal (`COPILOT-434` at the limit of 10 sets, `COPILOT-435` no longer open, `COPILOT-433`,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotNamedSetApi = {
+  /** `POST Copilot/NamedSets/Keep` `{ conversationId, proposalId }` -> the kept set and its confirmation line. */
+  keep(body: CopilotNamedSetKeepRequest): Promise<CopilotNamedSetKept> {
+    return api.post<CopilotNamedSetKept>('Copilot/NamedSets/Keep', body)
+  },
+}
+
+export type CopilotNamedSetDoors = typeof copilotNamedSetApi

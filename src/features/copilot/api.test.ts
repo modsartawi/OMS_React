@@ -7,7 +7,7 @@ vi.mock('@/core/api', async (actual) => ({
   api: { post },
 }))
 
-const { copilotReadingApi } = await import('./api')
+const { copilotNamedSetApi, copilotReadingApi } = await import('./api')
 
 describe('the doors of the offer to keep a reading (BackOffice 3686; ticket 892)', () => {
   beforeEach(() => post.mockReset().mockResolvedValue({}))
@@ -20,5 +20,15 @@ describe('the doors of the offer to keep a reading (BackOffice 3686; ticket 892)
       ['Copilot/Readings/Keep', body],
       ['Copilot/Readings/NotNow', body],
     ])
+  })
+})
+
+describe('the named-set Keep door (BackOffice 3687; ticket 893)', () => {
+  beforeEach(() => post.mockReset().mockResolvedValue({}))
+
+  it('keep_postsTheConversationAndTheProposalId', async () => {
+    const body = { conversationId: 'c-0001', proposalId: 'fedcba9876543210fedcba9876543210' }
+    await copilotNamedSetApi.keep(body)
+    expect(post.mock.calls).toEqual([['Copilot/NamedSets/Keep', body]])
   })
 })

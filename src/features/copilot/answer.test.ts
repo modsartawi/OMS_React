@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, namedSetCard, orderSegments, questionFits, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -450,5 +450,41 @@ describe('tappable assumption lines and the offer to keep a reading (BackOffice 
     const model = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }], readingOffer: offer })
     expect(model.readingOffer).toEqual(offer)
     expect(answerLayout(model).parts).toEqual(['text', 'assumptions', 'readingOffer'])
+  })
+})
+
+describe('the named-set card (BackOffice spec 3633 R20, 3687; ticket 893)', () => {
+  const plain: Partial<CopilotAnswer> = { conversationId: 'c-1', questionNo: 1, answer: 'Noted.', trace: [], outcome: 'answered', stoppedEarly: false, servedBy: 'anthropic/claude' }
+  const proposal: NonNullable<CopilotAnswer['namedSet']> = {
+    id: 'fedcba9876543210fedcba9876543210',
+    name: 'my stores',
+    kind: 'city',
+    members: [
+      { key: 'city:Jeddah', kind: 'city', label: { en: 'Jeddah (city)', ar: 'جدة (مدينة)' } },
+      { key: 'city:Makkah', kind: 'city', label: { en: 'Makkah (city)', ar: 'مكة (مدينة)' } },
+    ],
+    offer: { en: 'Remember "my stores" as: Jeddah (city), Makkah (city)?', ar: 'أحفظ "my stores" على أنها: جدة (مدينة)، مكة (مدينة)؟' },
+  }
+
+  it('theCardShowsTheNameAndEveryMemberWithItsKind_inTheReadersLanguage', () => {
+    const model = copilotAnswerModel({ ...plain, namedSet: proposal })
+    expect(model.namedSet).toEqual(proposal)
+    expect(answerLayout(model).parts).toEqual(['text', 'namedSet'])
+    expect(namedSetCard(model.namedSet!, 'ar')).toEqual({
+      name: 'my stores',
+      members: [
+        { key: 'city:Jeddah', kind: 'city', text: 'جدة (مدينة)' },
+        { key: 'city:Makkah', kind: 'city', text: 'مكة (مدينة)' },
+      ],
+    })
+    expect(namedSetCard(model.namedSet!, 'en').members.map((m) => m.text)).toEqual(['Jeddah (city)', 'Makkah (city)'])
+  })
+
+  it('aProposalWithoutItsIdNameKindOrMembers_drawsNoCard', () => {
+    for (const bad of [null, 'x', { ...proposal, id: '' }, { ...proposal, name: ' ' }, { ...proposal, kind: 'planet' }, { ...proposal, members: [] }, { ...proposal, members: [{ kind: 'city' }] }]) {
+      const model = copilotAnswerModel({ ...plain, namedSet: bad } as unknown as Partial<CopilotAnswer>)
+      expect(model.namedSet).toBeNull()
+      expect(answerLayout(model).parts).toEqual(['text'])
+    }
   })
 })

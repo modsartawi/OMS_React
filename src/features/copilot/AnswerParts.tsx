@@ -7,7 +7,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
 import { copilotTableEmbed, copilotViewEmbed } from '@/core/copilot-view-embed'
-import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReadingOffer, CopilotReportEdit, CopilotReportRef, CopilotStatedReading, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswerTable, CopilotBoardEdit, CopilotNamedSetProposal, CopilotReadingOffer, CopilotReportEdit, CopilotReportRef, CopilotStatedReading, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
@@ -15,7 +15,7 @@ import { Check, ChevronDown, Copy } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, answerTableKey, assumptionRows, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, answerTableKey, assumptionRows, type AnswerPart, inlineMarks, namedSetCard, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -170,6 +170,11 @@ export interface AnswerReadings {
   offer: ReadingOfferState
   keep: () => void
   notNow: () => void
+  /** 893 (BackOffice 3687): the named-set card proposed in this answer, its state and its two buttons. */
+  namedSet: ReadingOfferState
+  keepSet: () => void
+  /** Calls nothing: the card closes for this answer. */
+  notNowSet: () => void
 }
 
 /**
@@ -274,6 +279,78 @@ export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOff
             </span>
           )}
         </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * The named-set card (893, BackOffice 3633 R20 / 3687): the name as the reader gave it and every member with its kind,
+ * with Keep and Not now. Keep puts the server's confirmation in place of the buttons with the way to "What the copilot
+ * knows about me"; at the limit of 10 sets (`COPILOT-434`) the server's reason shows with that same way, Keep kept to
+ * try again after a delete; a card no longer open (`COPILOT-435`) keeps its words and loses its buttons.
+ */
+export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetProposal; readings: AnswerReadings }) {
+  const { t, i18n } = useTranslation('copilot')
+  const s = readings.namedSet
+  if (s.state === 'dismissed') return null
+  const card = namedSetCard(set, i18n.language)
+  const toMine = (
+    <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-named-set-me>
+      {t('reading.seeMine')}
+    </Link>
+  )
+  const busy = s.state === 'busy'
+  return (
+    <section aria-label={t('namedSet.title')} className="flex flex-col gap-1.5 rounded-md border border-border p-2.5 text-sm" data-copilot-named-set={s.state}>
+      <p className="text-xs font-medium text-muted-foreground">{t('namedSet.title')}</p>
+      <p className="font-medium">
+        <bdi>{card.name}</bdi>
+      </p>
+      <p className="text-xs text-muted-foreground">{t('namedSet.members', { count: card.members.length })}</p>
+      <ul className="list-disc ps-5" data-copilot-named-set-members>
+        {card.members.map((m) => (
+          <li key={m.key} data-copilot-named-set-member={m.kind}>
+            <bdi>{m.text}</bdi>
+          </li>
+        ))}
+      </ul>
+      {s.state === 'kept' ? (
+        <>
+          <p className="flex items-center gap-1.5">
+            <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <bdi>{saysIn(s.line, i18n.language)}</bdi>
+          </p>
+          {toMine}
+        </>
+      ) : s.state === 'closed' ? (
+        <p className="text-xs text-muted-foreground" data-copilot-named-set-closed>
+          {s.message || t('namedSet.closed')}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button variant="primary" disabled={busy} onClick={readings.keepSet} data-copilot-named-set-keep>
+              {t('reading.keep')}
+            </Button>
+            <Button variant="text" disabled={busy} onClick={readings.notNowSet} data-copilot-named-set-not-now>
+              {t('reading.notNow')}
+            </Button>
+            {s.state === 'failed' && (
+              <span className="text-xs text-destructive" role="alert">
+                {t('reading.failed')}
+              </span>
+            )}
+          </div>
+          {s.state === 'full' && (
+            <>
+              <p className="text-xs text-destructive" role="alert" data-copilot-named-set-full>
+                {s.message || t('namedSet.full')}
+              </p>
+              {toMine}
+            </>
+          )}
+        </>
       )}
     </section>
   )
@@ -451,6 +528,8 @@ export function Answer({ model, readings }: { model: CopilotAnswerModel; reading
         return <Assumptions key={p} model={model} readings={readings} />
       case 'readingOffer':
         return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} /> : null
+      case 'namedSet':
+        return model.namedSet && readings ? <NamedSetCardView key={p} set={model.namedSet} readings={readings} /> : null
       case 'reportEdit':
         return <ReportEditNote key={p} reportEdit={model.reportEdit} />
       case 'boardEdit':

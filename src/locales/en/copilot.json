@@ -364,5 +364,12 @@
     "failed": "That did not go through. Try again.",
     "closed": "This offer is no longer open.",
     "seeMine": "See what the copilot knows about me"
+  },
+  "namedSet": {
+    "title": "Remember this named set?",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "closed": "This set can no longer be kept.",
+    "full": "You already keep 10 named sets. Delete one on \"What the copilot knows about me\" to keep this one."
   }
 }

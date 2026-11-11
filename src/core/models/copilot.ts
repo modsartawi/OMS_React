@@ -364,6 +364,54 @@ export interface CopilotReadingKept {
   line: AnalyticsLabel
 }
 
+/** BackOffice 3687: a named set's kind, the name lookup's kind code; a set holds one kind. */
+export type CopilotNamedSetKind = 'store' | 'city' | 'region' | 'channel'
+
+/** 3687: one proposed member: `key` the lookup's (`city:Jeddah`), `label` naming its kind (`Jeddah (city)`). */
+export interface CopilotProposedMember {
+  key: string
+  kind: CopilotNamedSetKind
+  label: AnalyticsLabel
+}
+
+/**
+ * BackOffice 3687 (spec 3633 R20, oms-react 893): a named set the copilot proposes from what the reader said. The card
+ * shows `name` as given and every member, in order, with Keep and Not now. The server holds the proposal: Keep names it
+ * by `id` and stores what the server checked, never what a client sends.
+ */
+export interface CopilotNamedSetProposal {
+  /** 32 hex: Keep's `proposalId`. */
+  id: string
+  name: string
+  kind: CopilotNamedSetKind
+  /** 1-200, in the order proposed. */
+  members: CopilotProposedMember[]
+  /** The server's question, naming the first 3 members and counting the rest. */
+  offer: AnalyticsLabel
+}
+
+/** `POST Copilot/NamedSets/Keep` body (3687). Not now calls nothing. */
+export interface CopilotNamedSetKeepRequest {
+  conversationId: string
+  proposalId: string
+}
+
+/**
+ * `POST Copilot/NamedSets/Keep` -> `data` (3687). `line` is shown in place of the buttons. Refusals: `COPILOT-434` (the
+ * reader already keeps 10 sets: the message says to delete one on "What the copilot knows about me"), `COPILOT-435`
+ * (the card is no longer open: hide the buttons), `COPILOT-433` (invalid), `COPILOT-401`.
+ */
+export interface CopilotNamedSetKept {
+  /** 26-char ULID. */
+  setId: string
+  name: string
+  kind: CopilotNamedSetKind
+  members: CopilotProposedMember[]
+  /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  line: AnalyticsLabel
+}
+
 /** `POST Copilot/Readings/NotNow` -> `data` (3686): the line is hidden; no offer of that kind until the conversation ends. */
 export interface CopilotReadingNotNow {
   kind: CopilotOwnReadingKind
@@ -519,6 +567,8 @@ export interface CopilotAnswer {
   assumptionChoices?: CopilotAssumptionChoice[]
   /** BackOffice 3686 (R16): absent unless this answer offers to keep a reading. At most one. */
   readingOffer?: CopilotReadingOffer
+  /** BackOffice 3687 (R20, oms-react 893): absent unless a named set was proposed in this answer. */
+  namedSet?: CopilotNamedSetProposal
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

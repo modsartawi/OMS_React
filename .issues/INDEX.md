@@ -1450,3 +1450,23 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [882](882-stores-not-on-the-map-are-counted-and-listed-and-every-map-shows-as-a-table.md) — Stores not on the map are counted and listed, and every map can be shown as a table · *(ticket · BackOffice spec 3630)* · **open** · blocked by: BackOffice 3639, 880
 - [883](883-the-print-page-waits-for-its-maps-and-falls-back-to-the-table.md) — The print page says it is ready only after its maps are drawn, and prints the table when a map is not ready in 20 seconds · *(ticket · BackOffice spec 3630)* · **open** · blocked by: 880
 - [884](884-the-copilot-panel-draws-a-map-above-its-table.md) — The copilot panel draws a map above its table · *(ticket · BackOffice spec 3630)* · **open** · blocked by: BackOffice 3641, 880
+
+## The copilot's personal schedule (BackOffice spec 3631), filed 2026-11-11
+
+- [885](885-the-copilot-panel-draws-a-proposed-answer-as-a-confirm-card.md) — The copilot panel draws a `proposed` answer as a card the reader can change, confirm or cancel · *(ticket · BackOffice spec 3631)* · **open** · blocked by: BackOffice 3663, BackOffice 3664
+- [886](886-the-my-schedules-page.md) — The "My schedules" page lists a reader's personal schedules and lets them pause, resume, retime, rename and delete them · *(ticket · BackOffice spec 3631)* · **open** · blocked by: BackOffice 3662
+- [887](887-the-copilot-panel-draws-a-pause-or-delete-card-with-its-choices.md) — The copilot panel draws a pause or delete card, with up to 4 choices when the words matched several · *(ticket · BackOffice spec 3631)* · **open** · blocked by: BackOffice 3665, 885
+
+## SQL mode (BackOffice spec 3632), filed 2026-11-11
+
+- [888](888-the-panels-sql-mode-toggle-the-offer-and-a-sql-answer.md) — The panel's SQL mode toggle, the "Try in SQL mode" offer, and a SQL answer with its mark, rows and statement · *(ticket · BackOffice spec 3632)* · **open** · blocked by: BackOffice 3673, BackOffice 3674
+- [889](889-the-sql-save-dialog-title-chart-type-and-column-mapping.md) — The save dialog saves a SQL answer with a title, a chart type and its column mapping · *(ticket · BackOffice spec 3632)* · **open** · blocked by: BackOffice 3675, 888
+- [890](890-the-sql-editor-run-refusal-at-its-line-save-revisions-and-verify.md) — The SQL editor runs a statement, shows a refusal at its line, saves revisions, restores one, and a curator verifies · *(ticket · BackOffice spec 3632)* · **open** · blocked by: BackOffice 3672, BackOffice 3676
+- [891](891-the-sql-and-sql-verified-marks-everywhere-and-the-panels-sql-messages.md) — The "SQL" and "SQL, verified" marks show in the library, on a board panel, in a report block and on the print page, with the "filters do not apply" and "can no longer run" messages · *(ticket · BackOffice spec 3632)* · **open** · blocked by: BackOffice 3677
+
+## The copilot keeps a reader's own readings (BackOffice spec 3633), filed 2026-11-11
+
+- [892](892-tappable-assumption-lines-and-the-keep-offer.md) — Assumption lines under an answer are tappable, and the offer line keeps a reading on Keep · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3685, BackOffice 3686
+- [893](893-the-named-set-card.md) — The named-set card shows the name and its members, with Keep and Not now · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3687, 892
+- [894](894-the-what-the-copilot-knows-about-me-page.md) — The page "What the copilot knows about me" lists, changes and deletes every kept reading and named set · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3689
+- [895](895-the-curators-counts-on-the-house-rules-screen.md) — The house-rules screen shows how many readers changed each default, and to what · *(ticket · BackOffice spec 3633)* · **open** · blocked by: BackOffice 3691

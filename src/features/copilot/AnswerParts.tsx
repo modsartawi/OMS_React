@@ -12,7 +12,7 @@ import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotRe
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Save } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
@@ -20,6 +20,8 @@ import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, an
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
+import SqlSaveDialog from './SqlSaveDialog'
+import type { AnalyticsItem } from '@/core/models/analytics'
 
 /**
  * The answer's links, trace and provenance (ticket 736, spec 734 D10/D11), beside the answer's own
@@ -310,10 +312,14 @@ export function AnswerProvenance({
  * The answer's SQL part (888, BackOffice 3673, spec 3632 Q33), right under its words: the "SQL, not a certified figure"
  * mark, the count, the time and the cut line, every row, the tables read, and the statement folded with its own Copy.
  * Column names, table names and the statement are machine values (`Ltr`); a cell may be a name in either script
- * (`<bdi>`). Save and Edit are not drawn here: they are 889's (the save dialog) and 890's (the SQL editor).
+ * (`<bdi>`). Its footer holds Save (889, Q39): the reader's tap, never the model's, offered when a statement ran and gave
+ * columns and the answer's question is known; it opens the save dialog. Edit is 890's (the SQL editor).
  */
-export function SqlAnswer({ sql }: { sql: AnswerSql }) {
+export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string }) {
   const { t } = useTranslation('copilot')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState<AnalyticsItem | null>(null)
+  const canSave = sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
   return (
     <section aria-label={t('sql.result')} className="flex min-w-0 flex-col gap-2 text-xs" data-copilot-sql data-copilot-sql-ran={sql.ran ? 'yes' : 'no'}>
       <div className="flex flex-wrap items-center gap-2">
@@ -384,6 +390,36 @@ export function SqlAnswer({ sql }: { sql: AnswerSql }) {
           </div>
         </details>
       )}
+      {canSave && (
+        <div className="flex flex-wrap items-center gap-2" data-copilot-sql-footer>
+          {saved === null ? (
+            <Button variant="outlined" className="h-7 px-2 text-xs" onClick={() => setSaving(true)} data-copilot-sql-save-open>
+              <Save className="h-3.5 w-3.5" aria-hidden />
+              {t('sqlSave.open')}
+            </Button>
+          ) : (
+            <span className="text-muted-foreground" data-copilot-sql-saved={saved.id}>
+              {t('sqlSave.saved')}{' '}
+              <Link to={viewHref(saved.id)} className="text-primary underline underline-offset-2">
+                {t('sqlSave.openSaved')}
+              </Link>
+            </span>
+          )}
+          {saving && (
+            <SqlSaveDialog
+              sql={sql}
+              question={question}
+              open
+              onClose={() => setSaving(false)}
+              onSaved={(item) => {
+                setSaved(item)
+                setSaving(false)
+                notify.success(t('sqlSave.saved'))
+              }}
+            />
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -410,7 +446,7 @@ function CopyAnswer({ text, label, failed }: { text: string; label?: string; fai
 }
 
 /** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-export function Answer({ model }: { model: CopilotAnswerModel }) {
+export function Answer({ model, question }: { model: CopilotAnswerModel; question?: string }) {
   const { t } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
@@ -426,7 +462,7 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
           </section>
         )
       case 'sql':
-        return model.sql ? <SqlAnswer key={p} sql={model.sql} /> : null
+        return model.sql ? <SqlAnswer key={p} sql={model.sql} question={question} /> : null
       case 'tables':
         return <AnswerTables key={p} tables={model.tables} />
       case 'views':

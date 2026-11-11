@@ -540,13 +540,13 @@ function Turn({ turn }: { turn: CopilotTurn }) {
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} />
+            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} />
             <SqlOffer reply={turn.reply} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} />
+          <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} />
         </AnswerRow>
       )}
     </li>

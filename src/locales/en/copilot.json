@@ -73,6 +73,54 @@
     "copy": "Copy SQL",
     "copyFailed": "The SQL could not be copied."
   },
+  "sqlSave": {
+    "open": "Save",
+    "title": "Save the SQL answer",
+    "personal": "It is saved as your own item (Personal). Sharing works as for any view; a SQL item is never certified.",
+    "titleEn": "Title (English)",
+    "titleAr": "Title (Arabic)",
+    "type": "Chart type",
+    "axis": "Axis",
+    "series": "Series",
+    "noSeries": "No series",
+    "values": "Values",
+    "noValues": "No value columns: the table shows every column as it is.",
+    "column": "Column",
+    "labelEn": "Label (English)",
+    "labelAr": "Label (Arabic)",
+    "format": "Format",
+    "addValue": "Add a value",
+    "removeValue": "Remove this value",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved to your items.",
+    "openSaved": "Open it",
+    "failed": "The SQL answer could not be saved.",
+    "types": {
+      "kpi": "KPI",
+      "line": "Line",
+      "area": "Area",
+      "bar": "Bar",
+      "donut": "Donut",
+      "table": "Table",
+      "heatmap": "Heat map",
+      "combo": "Combo"
+    },
+    "formats": {
+      "number": "Number",
+      "money": "Money",
+      "percent": "Percent"
+    },
+    "problem": {
+      "title": "Give it a title, in English or Arabic.",
+      "axis": "Pick the column for the axis.",
+      "series": "Pick the column for the series.",
+      "values": "This chart type takes a different number of values.",
+      "sameColumn": "Each column can have only one role.",
+      "notNumber": "A value column must hold numbers."
+    }
+  },
   "live": {
     "model": "Thinking",
     "tool": "Looking up the data",

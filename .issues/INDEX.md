@@ -1455,7 +1455,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [885](885-the-copilot-panel-draws-a-proposed-answer-as-a-confirm-card.md) — The copilot panel draws a `proposed` answer as a card the reader can change, confirm or cancel · *(ticket · BackOffice spec 3631)* · **done 2026-11-12** · blocked by: BackOffice 3663, BackOffice 3664
 - [886](886-the-my-schedules-page.md) — The "My schedules" page lists a reader's personal schedules and lets them pause, resume, retime, rename and delete them · *(ticket · BackOffice spec 3631)* · **done 2026-11-11** · blocked by: BackOffice 3662
-- [887](887-the-copilot-panel-draws-a-pause-or-delete-card-with-its-choices.md) — The copilot panel draws a pause or delete card, with up to 4 choices when the words matched several · *(ticket · BackOffice spec 3631)* · **open** · blocked by: BackOffice 3665, 885
+- [887](887-the-copilot-panel-draws-a-pause-or-delete-card-with-its-choices.md) — The copilot panel draws a pause or delete card, with up to 4 choices when the words matched several · *(ticket · BackOffice spec 3631)* · **done** · blocked by: BackOffice 3665, 885
 
 ## SQL mode (BackOffice spec 3632), filed 2026-11-11
 

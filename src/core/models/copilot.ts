@@ -276,6 +276,12 @@ export interface CopilotConfirmationValues {
   periodChoice?: CopilotPeriodChoice
   /** Read ONLY for the language of the "expired" sentence: send the proposal's own. */
   lang?: 'en' | 'ar'
+  /**
+   * BackOffice 3665 (oms-react 887): a pause/delete card's chosen schedule (a `choices[].id`), and the only value such a
+   * confirmation reads. Omitted on a one-choice card (the server takes its only choice). Missing when several were
+   * offered, or not one of them: `COPILOT-441` with `data.problems[{ field: 'choice', reason: 'required' | 'badChoice' }]`.
+   */
+  choice?: string
 }
 
 /**
@@ -437,8 +443,10 @@ export interface CopilotAnswer {
    * or a `not-confirmed` one (3664, which adds `noViewGrant`; the card stays confirmable). `limit` links "My schedules".
    */
   scheduleRefusal?: CopilotScheduleRefusal
-  /** 3664: ONLY on `confirmed`: what was saved and when it is first sent. */
+  /** 3664: ONLY on `confirmed`: what was saved and when it is first sent. A confirmed pause/delete carries none. */
   confirmed?: CopilotConfirmed
+  /** 3665 (oms-react 887): ONLY on a `confirmed` pause/delete: the schedule paused or deleted. */
+  stopped?: CopilotStopped
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }
@@ -459,9 +467,33 @@ export interface CopilotProposal {
   /** The card, in order, in both languages: what, one "- <block>" per block, when, how the period is read, to whom. */
   lines: AnalyticsLabel[]
   values: CopilotProposalValues
+  /** 3665: pause/delete only, 1..4 in "My schedules" order (one must be picked when several); absent on `schedule`. */
+  choices?: CopilotProposalChoice[]
 }
 
-/** The card's editable values as proposed (3663). */
+/** A schedule a pause/delete card offers (3665). */
+export interface CopilotProposalChoice {
+  /** The schedule's id ("My schedules"' id): what `values.choice` names. */
+  id: string
+  /** Both languages hold the reader's own words. */
+  title: AnalyticsLabel
+  /** "every Monday at 07:00 Riyadh time". */
+  when: AnalyticsLabel
+  /** Always false on a pause card (paused ones are not offered). */
+  paused: boolean
+}
+
+/** A confirmed pause or delete (3665). */
+export interface CopilotStopped {
+  kind: 'pause' | 'delete'
+  scheduleId: string
+  title: string
+}
+
+/**
+ * The card's editable values as proposed (3663). On a pause/delete card (3665) they are read only: `lang` is the
+ * question's, `title`/`cadence`/`time` the one matched schedule's (empty strings when several matched), the period null.
+ */
 export interface CopilotProposalValues {
   /** The question that produced the answer, at most 80 characters. */
   title: string
@@ -475,11 +507,16 @@ export interface CopilotProposalValues {
   periodChoice: CopilotPeriodChoice | null
   /** Fixed dates: `[sameLength, sameDates]`; dates of different lengths: `[sameDates]`; else null. */
   periodChoices: { key: CopilotPeriodChoice; label: AnalyticsLabel }[] | null
+  /** 3665, pause/delete: preset to the only choice; ABSENT when the reader must choose. */
+  choice?: string
 }
 
-/** Why a proposal was not made or not saved (3663, 3664). `limit` and `held` only on `limit`. */
+/**
+ * Why a proposal was not made or not saved (3663, 3664). `limit` and `held` only on `limit`. `notFound` (3665): the
+ * schedule a pause/delete named was gone meanwhile (`not-confirmed`).
+ */
 export interface CopilotScheduleRefusal {
-  reason: 'limit' | 'noCompanyEmail' | 'noViewGrant'
+  reason: 'limit' | 'noCompanyEmail' | 'noViewGrant' | 'notFound'
   limit?: number
   held?: number
 }

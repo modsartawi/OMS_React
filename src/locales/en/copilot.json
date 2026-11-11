@@ -264,6 +264,12 @@
     "cancelTurn": "Cancel",
     "firstSend": "First send",
     "mySchedules": "My schedules",
+    "label_pause": "A schedule to pause",
+    "label_delete": "A schedule to delete",
+    "confirm_pause": "Pause",
+    "confirm_delete": "Delete",
+    "choose_pause": "Choose the schedule to pause",
+    "choose_delete": "Choose the schedule to delete",
     "day": {
       "sun": "Sunday",
       "mon": "Monday",

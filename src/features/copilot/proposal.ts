@@ -1,12 +1,26 @@
 import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
+import { apiErrorCode, apiErrorData } from '@/core/api'
 import { saysIn } from '@/core/rules/sentence'
-import type { CopilotAnswer, CopilotAskRequest, CopilotCadenceKind, CopilotPeriodChoice, CopilotProposal, CopilotWeekday } from '@/core/models/copilot'
+import type {
+  CopilotAnswer,
+  CopilotAskRequest,
+  CopilotCadenceKind,
+  CopilotPeriodChoice,
+  CopilotProposal,
+  CopilotProposalChoice,
+  CopilotProposalKind,
+  CopilotStopped,
+  CopilotWeekday,
+} from '@/core/models/copilot'
 import type { CopilotConversation, CopilotTurn, TurnConfirms } from './conversation'
 
 /**
  * The proposal card (ticket 885, BackOffice spec 3631 S13, S17 to S19; contract 3663/3664) — the pure seam between a
  * `proposed` answer and the card the panel draws. The server writes every line; the panel writes no wording of its own
  * about what is scheduled. An answer with no `proposal` (the switch off) has no card and draws as before.
+ *
+ * Ticket 887 (BackOffice 3665, spec 3631 S32) adds the `pause` and `delete` kinds: the same card, with no values to
+ * edit, only the schedule to stop, named when one matched, picked from up to 4 `choices` when several did.
  */
 
 /** The card's editable values (S17): days, time, title and, when offered, the period choice. */
@@ -16,10 +30,26 @@ export interface CardValues {
   /** `HH:mm`, Riyadh. */
   time: string
   periodChoice: CopilotPeriodChoice | null
+  /** 887, a pause/delete card only: the chosen schedule's id; null until one is picked. */
+  choice?: string | null
+}
+
+/** A schedule a pause/delete card offers (887), in the screen's language. */
+export interface CardChoice {
+  id: string
+  title: string
+  when: string
+  paused: boolean
 }
 
 export interface ProposalCard {
   id: string
+  /** `schedule` (885): the values are edited; `pause`/`delete` (887): a schedule is chosen. */
+  kind: CopilotProposalKind
+  /** Delete's Confirm is drawn as destructive (887). */
+  destructive: boolean
+  /** 887: the schedules a pause/delete card offers (1..4); `[]` on a schedule card. */
+  choices: CardChoice[]
   /** The proposal's own language: sent back on a confirmation, for the "expired" sentence (3664). */
   lang: 'en' | 'ar'
   /** The screen's direction: the card follows the panel's language. */
@@ -38,17 +68,27 @@ const PERIODS: readonly CopilotPeriodChoice[] = ['sameLength', 'sameDates']
 
 const isRtl = (lang: string) => lang.toLowerCase().startsWith('ar')
 
-/** The card a reply draws, or none: only a `proposed` answer whose `proposal` is a `schedule` with an id. */
+const isStop = (kind: CopilotProposalKind): boolean => kind === 'pause' || kind === 'delete'
+
+/**
+ * The card a reply draws, or none: only a `proposed` answer whose `proposal` has an id and is a `schedule`, or a
+ * `pause`/`delete` offering at least one schedule (887).
+ */
 export function proposalCard(reply: Partial<CopilotAnswer> | null | undefined, lang: string): ProposalCard | null {
   if (!reply || reply.outcome !== 'proposed') return null
   const p = reply.proposal as Partial<CopilotProposal> | undefined
-  if (!p || typeof p !== 'object' || typeof p.id !== 'string' || p.id.trim() === '' || p.kind !== 'schedule') return null
+  if (!p || typeof p !== 'object' || typeof p.id !== 'string' || p.id.trim() === '') return null
+  if (p.kind === 'pause' || p.kind === 'delete') return stopCard(p as CopilotProposal, lang)
+  if (p.kind !== 'schedule') return null
   const v = (p.values ?? {}) as Partial<CopilotProposal['values']>
   const c = (v.cadence ?? {}) as Partial<CardValues['cadence']>
   const choices = Array.isArray(v.periodChoices) ? v.periodChoices.filter((x) => x && PERIODS.includes(x.key)) : []
   const offered = choices.map((x) => x.key)
   return {
     id: p.id,
+    kind: 'schedule',
+    destructive: false,
+    choices: [],
     lang: v.lang === 'ar' ? 'ar' : 'en',
     dir: isRtl(lang) ? 'rtl' : 'ltr',
     lines: Array.isArray(p.lines) ? p.lines.map((l) => saysIn(l ?? { en: '', ar: '' }, lang)).filter((l) => l.trim() !== '') : [],
@@ -67,10 +107,56 @@ export function proposalCard(reply: Partial<CopilotAnswer> | null | undefined, l
 }
 
 /**
+ * A pause/delete card (887, 3665): the server's lines (the "- <title>, <when>" lines dropped when several matched, as
+ * the choices are drawn as a list instead), the offered schedules, and the choice preset when only one was offered.
+ */
+function stopCard(p: CopilotProposal, lang: string): ProposalCard | null {
+  const offered = (Array.isArray(p.choices) ? p.choices : []).filter(
+    (c): c is CopilotProposalChoice => !!c && typeof c.id === 'string' && c.id.trim() !== '',
+  )
+  if (offered.length === 0) return null
+  const choices = offered.map((c) => ({
+    id: c.id,
+    title: saysIn(c.title ?? { en: '', ar: '' }, lang),
+    when: saysIn(c.when ?? { en: '', ar: '' }, lang),
+    paused: c.paused === true,
+  }))
+  const v = (p.values ?? {}) as Partial<CopilotProposal['values']>
+  const several = choices.length > 1
+  const lines = (Array.isArray(p.lines) ? p.lines : [])
+    .filter((l) => !(several && (l?.en ?? '').startsWith('- ')))
+    .map((l) => saysIn(l ?? { en: '', ar: '' }, lang))
+    .filter((l) => l.trim() !== '')
+  const preset = typeof v.choice === 'string' && choices.some((c) => c.id === v.choice) ? v.choice : several ? null : choices[0].id
+  return {
+    id: p.id,
+    kind: p.kind,
+    destructive: p.kind === 'delete',
+    choices,
+    lang: v.lang === 'ar' ? 'ar' : 'en',
+    dir: isRtl(lang) ? 'rtl' : 'ltr',
+    lines,
+    values: {
+      title: typeof v.title === 'string' ? v.title : '',
+      cadence: { kind: 'daily', days: null, day: null },
+      time: typeof v.time === 'string' ? v.time : '',
+      periodChoice: null,
+      choice: preset,
+    },
+    periodChoices: [],
+  }
+}
+
+/**
  * Confirm (S18, 3664): the proposal's id with every value the card holds, and the proposal's own language (read only
  * for the "expired" sentence). The period choice goes only when the card offered one. Not a question: `question` is `''`.
+ * A pause/delete card (887, 3665) sends only the chosen schedule, and not even that when the card offered one.
  */
 export function confirmationBody(conversationId: string, card: ProposalCard, values: CardValues): CopilotAskRequest {
+  if (isStop(card.kind)) {
+    const choice = card.choices.length > 1 && values.choice ? { choice: values.choice } : {}
+    return { question: '', conversationId, confirmation: { proposalId: card.id, values: choice } }
+  }
   const { title, cadence, time, periodChoice } = values
   return {
     question: '',
@@ -127,6 +213,26 @@ export function confirmedNote(reply: Partial<CopilotAnswer> | null | undefined):
   return { firstSendAt: reply.confirmed.firstSendAt, href: MY_SCHEDULES_PATH }
 }
 
+/** 887: a confirmed pause/delete's schedule and the link to "My schedules", beside the server's sentence; else none. */
+export function stoppedNote(reply: Partial<CopilotAnswer> | null | undefined): { kind: CopilotStopped['kind']; title: string; href: string } | null {
+  const s = reply?.outcome === 'confirmed' ? reply.stopped : undefined
+  if (!s || (s.kind !== 'pause' && s.kind !== 'delete')) return null
+  return { kind: s.kind, title: typeof s.title === 'string' ? s.title : '', href: MY_SCHEDULES_PATH }
+}
+
+/**
+ * 887: the server's `COPILOT-441` message (no choice, or one the card did not offer), when the latest confirmation of
+ * this proposal was refused so; drawn beside the choices while the card stays open. Else null.
+ */
+export function choiceProblem(conv: CopilotConversation, proposalId: string): string | null {
+  const last = [...conv.turns].reverse().find((t) => t.confirms?.proposalId === proposalId)
+  if (!last || last.reply || apiErrorCode(last.refusal) !== 'COPILOT-441') return null
+  const problems = (apiErrorData(last.refusal) as { problems?: { message?: unknown }[] } | null)?.problems
+  const message = Array.isArray(problems) ? problems[0]?.message : undefined
+  if (typeof message === 'string' && message.trim() !== '') return message
+  return last.refusal instanceof Error ? last.refusal.message : null
+}
+
 /** The card switched to another cadence (S17): weekly starts on Monday, monthly on the 1st, unless it already was. */
 export function withCadence(values: CardValues, kind: CopilotCadenceKind): CardValues {
   const c = values.cadence
@@ -147,7 +253,9 @@ export function withDay(values: CardValues, day: CopilotWeekday): CardValues {
 export const CARD_WEEKDAYS = WEEKDAYS
 
 /** Confirm is offered once the card is whole: a title, an `HH:mm` time, and a day on a weekly or monthly card. The server checks the rest (COPILOT-440). */
-export function cardReady(values: CardValues): boolean {
+export function cardReady(values: CardValues, card?: ProposalCard): boolean {
+  // 887: a pause/delete card is ready once one of its own schedules is chosen.
+  if (card && isStop(card.kind)) return !!values.choice && card.choices.some((x) => x.id === values.choice)
   const c = values.cadence
   if (values.title.trim() === '' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.time)) return false
   if (c.kind === 'weekly') return (c.days ?? []).length > 0

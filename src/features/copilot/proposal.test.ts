@@ -187,7 +187,7 @@ describe('no proposal, no card; an Arabic screen (885)', () => {
     const plain: Partial<CopilotAnswer> = { conversationId: 'c-1', questionNo: 1, outcome: 'answered', answer: 'Sales were up.' }
     expect(proposalCard(plain, 'en')).toBeNull()
     expect(cardState({ id: 'c-1', over: false, turns: [{ question: 'q', questionNo: 1, reply: plain as CopilotAnswer, refusal: null }] }, 0)).toBe('none')
-    // A `proposed` outcome missing its proposal, or a kind this ticket does not draw (887's pause/delete), has no card.
+    // A `proposed` outcome missing its proposal, or a pause/delete offering no schedule (887), has no card.
     expect(proposalCard(proposed({ proposal: undefined }), 'en')).toBeNull()
     expect(proposalCard(proposed({ proposal: { ...PROPOSAL, kind: 'pause' } }), 'en')).toBeNull()
     // A proposal on an answer whose outcome is not `proposed` is not drawn either.

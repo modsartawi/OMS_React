@@ -51,6 +51,12 @@
     "cancelTurn": "إلغاء",
     "firstSend": "أول إرسال",
     "mySchedules": "جداولي",
+    "label_pause": "جدول للإيقاف المؤقت",
+    "label_delete": "جدول للحذف",
+    "confirm_pause": "إيقاف مؤقت",
+    "confirm_delete": "حذف",
+    "choose_pause": "اختر الجدول المراد إيقافه مؤقتًا",
+    "choose_delete": "اختر الجدول المراد حذفه",
     "day": {
       "sun": "الأحد",
       "mon": "الاثنين",

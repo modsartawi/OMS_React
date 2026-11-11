@@ -348,7 +348,7 @@
     "closed": {
       "off": {
         "title": "Not switched on",
-        "hint": "Keeping your own readings is not switched on for the copilot."
+        "hint": "The copilot keeps no readings of yours on this server."
       },
       "grant": {
         "title": "No access to Ask the OMS",

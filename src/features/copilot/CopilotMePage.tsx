@@ -21,7 +21,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { canAskCopilot, copilotAccessQuery } from './access'
 import { addMember, lookupFits, LOOKUP_MAX, removeMember, type MePage, type SetEdit } from './me'
-import { ME_NO_GRANT, copilotMeApi, meActions, meFeatureOff, meQuery } from './me-api'
+import { COPILOT_ME_KEY, ME_FEATURE_OFF, copilotMeApi, meActions, meQuery, meRefusal } from './me-api'
 
 /**
  * `/copilot/me` — "What the copilot knows about me" (ticket 894, BackOffice spec 3633 R25/R28/R29, doors 3689), reached
@@ -29,7 +29,10 @@ import { ME_NO_GRANT, copilotMeApi, meActions, meFeatureOff, meQuery } from './m
  * through the name lookup, delete), unused readings and gone members marked, and "Forget everything" with a confirm.
  * A change is used from the reader's next question (R29). The investigations spec's profile joins as its own section.
  *
- * Gated like `/copilot` on `canAsk`; a `COPILOT-430` (own readings off) or `COPILOT-401` from any door draws its state.
+ * Gated like `/copilot` on `canAsk`; `COPILOT-401` from any door, or a `COPILOT-430` on the read (no store on the
+ * server), draws its closed state. Review of 3633: with `canChange` false (own readings do not apply) the page still
+ * lists, deletes and forgets, but Change, the member edits and the lookup are hidden; a change refused with 430 is a
+ * message in place. A scope choice may be one of the reader's sets (`set:<id>`), drawn by the server's label.
  * Bidi: labels and set names are free text (`<bdi>`); keys, times and counts are machine values (`Ltr`).
  */
 export default function CopilotMePage() {
@@ -42,7 +45,6 @@ export default function CopilotMePage() {
 }
 
 type Refused = 'off' | 'grant' | null
-const refusedBy = (err: unknown): Refused => (meFeatureOff(err) ? 'off' : apiErrorCode(err) === ME_NO_GRANT ? 'grant' : null)
 
 function MeScreen() {
   const { t } = useTranslation('copilot')
@@ -56,15 +58,19 @@ function MeScreen() {
   const change = useMutation({
     mutationFn: (run: () => Promise<unknown>) => run(),
     onError: (err) => {
-      const r = refusedBy(err)
+      const r = meRefusal(err, 'change')
       if (r) setRefused(r)
-      else toast.error(apiErrorMessage(err, t('me.failed')))
+      else {
+        toast.error(apiErrorMessage(err, t('me.failed')))
+        // A change refused because own readings no longer apply: read the page again, so `canChange` follows.
+        if (apiErrorCode(err) === ME_FEATURE_OFF) void qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })
+      }
     },
   })
   const busy = change.isPending
   const run = (fn: () => Promise<unknown>, done: string) => change.mutate(fn, { onSuccess: () => toast.success(done) })
 
-  const state = refused ?? refusedBy(me.error)
+  const state = refused ?? meRefusal(me.error, 'read')
   if (state) return <Closed state={state} />
   if (me.isPending) {
     return (
@@ -91,6 +97,7 @@ function MeScreen() {
               <ReadingRow
                 key={r.kind}
                 reading={r}
+                canChange={page.canChange}
                 busy={busy}
                 onChange={(value) => run(() => act.changeReading(r.kind, value), t('me.readings.changed'))}
                 onDelete={() => run(() => act.deleteReading(r.kind), t('me.readings.deleted'))}
@@ -111,6 +118,7 @@ function MeScreen() {
                 key={s.setId}
                 set={s}
                 maxMembers={page.limits.maxMembers}
+                canChange={page.canChange}
                 busy={busy}
                 onEdit={(edit, done) => {
                   if (edit.ok) run(() => act.editSet(edit.request), done)
@@ -165,11 +173,13 @@ function MeScreen() {
 /** One kept reading: its kind, its value (struck through when unused), when it was kept, Change and Delete. */
 function ReadingRow({
   reading,
+  canChange,
   busy,
   onChange,
   onDelete,
 }: {
   reading: CopilotKeptReading
+  canChange: boolean
   busy: boolean
   onChange: (value: string) => void
   onDelete: () => void
@@ -193,7 +203,7 @@ function ReadingRow({
           </span>
         )}
       </div>
-      {reading.choices.length > 0 && (
+      {canChange && reading.choices.length > 0 && (
         <Field label={t('me.readings.changeTo')} hideLabel>
           <Select value={value} onChange={(e) => setPicked(e.target.value)} disabled={busy} data-me-reading-choice>
             {!reading.choices.some((c) => c.value === reading.value) && <option value={reading.value}>{fsi(saysIn(reading.label, i18n.language))}</option>}
@@ -205,18 +215,20 @@ function ReadingRow({
           </Select>
         </Field>
       )}
-      <Button
-        variant="secondary"
-        disabled={busy || value === reading.value}
-        onClick={() => {
-          onChange(value)
-          setPicked(null)
-        }}
-        data-me-reading-change
-      >
-        <Check className="h-3.5 w-3.5" aria-hidden />
-        {t('me.readings.change')}
-      </Button>
+      {canChange && (
+        <Button
+          variant="secondary"
+          disabled={busy || value === reading.value}
+          onClick={() => {
+            onChange(value)
+            setPicked(null)
+          }}
+          data-me-reading-change
+        >
+          <Check className="h-3.5 w-3.5" aria-hidden />
+          {t('me.readings.change')}
+        </Button>
+      )}
       <IconButton label={t('me.readings.delete')} variant="danger" disabled={busy} onClick={onDelete} data-me-reading-delete>
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
       </IconButton>
@@ -228,12 +240,14 @@ function ReadingRow({
 function SetCard({
   set,
   maxMembers,
+  canChange,
   busy,
   onEdit,
   onDelete,
 }: {
   set: CopilotNamedSet
   maxMembers: number
+  canChange: boolean
   busy: boolean
   onEdit: (edit: SetEdit, done: string) => void
   onDelete: () => void
@@ -273,59 +287,65 @@ function SetCard({
           >
             {named(m)}
             {m.gone && <span className="no-underline">{t('me.sets.gone')}</span>}
-            <IconButton
-              size="compact"
-              label={t('me.sets.remove')}
-              disabled={busy}
-              onClick={() => onEdit(removeMember(set, m.key), t('me.sets.changed'))}
-              data-me-member-remove
-            >
-              <X className="h-3 w-3" aria-hidden />
-            </IconButton>
+            {canChange && (
+              <IconButton
+                size="compact"
+                label={t('me.sets.remove')}
+                disabled={busy}
+                onClick={() => onEdit(removeMember(set, m.key), t('me.sets.changed'))}
+                data-me-member-remove
+              >
+                <X className="h-3 w-3" aria-hidden />
+              </IconButton>
+            )}
           </li>
         ))}
       </ul>
       {set.gone > 0 && <p className="text-xs text-muted-foreground">{t('me.sets.goneHint')}</p>}
-      <form onSubmit={search} className="flex flex-wrap items-end gap-2">
-        <Field label={t('me.sets.lookup')} error={text.length > LOOKUP_MAX ? t('me.sets.lookupTooLong', { max: fsi(formatNumber(LOOKUP_MAX)) }) : undefined}>
-          <Input dir="auto" value={text} placeholder={t('me.sets.lookupPlaceholder')} onChange={(e) => setText(e.target.value)} data-me-lookup />
-        </Field>
-        <Button type="submit" variant="secondary" disabled={!lookupFits(text) || lookup.isPending} data-me-lookup-run>
-          {lookup.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Search className="h-3.5 w-3.5" aria-hidden />}
-          {t('me.sets.find')}
-        </Button>
-      </form>
-      {lookup.isError ? (
-        <ErrorBanner message={apiErrorMessage(lookup.error, t('me.sets.lookupFailed'))} />
-      ) : lookup.data ? (
-        lookup.data.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('me.sets.noMatch')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1" data-me-matches>
-            {lookup.data.map((m) => (
-              <li key={m.key} className="flex items-center gap-2 text-sm" data-me-match={m.key}>
-                <Button
-                  variant="ghost"
-                  disabled={busy || set.members.some((x) => x.key === m.key)}
-                  onClick={() => onEdit(addMember(set, m, maxMembers), t('me.sets.changed'))}
-                  data-me-match-add
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden />
-                  {named(m)}
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  <Ltr>{m.key}</Ltr>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )
-      ) : null}
+      {canChange && (
+        <>
+          <form onSubmit={search} className="flex flex-wrap items-end gap-2">
+            <Field label={t('me.sets.lookup')} error={text.length > LOOKUP_MAX ? t('me.sets.lookupTooLong', { max: fsi(formatNumber(LOOKUP_MAX)) }) : undefined}>
+              <Input dir="auto" value={text} placeholder={t('me.sets.lookupPlaceholder')} onChange={(e) => setText(e.target.value)} data-me-lookup />
+            </Field>
+            <Button type="submit" variant="secondary" disabled={!lookupFits(text) || lookup.isPending} data-me-lookup-run>
+              {lookup.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Search className="h-3.5 w-3.5" aria-hidden />}
+              {t('me.sets.find')}
+            </Button>
+          </form>
+          {lookup.isError ? (
+            <ErrorBanner message={apiErrorMessage(lookup.error, t('me.sets.lookupFailed'))} />
+          ) : lookup.data ? (
+            lookup.data.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t('me.sets.noMatch')}</p>
+            ) : (
+              <ul className="flex flex-col gap-1" data-me-matches>
+                {lookup.data.map((m) => (
+                  <li key={m.key} className="flex items-center gap-2 text-sm" data-me-match={m.key}>
+                    <Button
+                      variant="ghost"
+                      disabled={busy || set.members.some((x) => x.key === m.key)}
+                      onClick={() => onEdit(addMember(set, m, maxMembers), t('me.sets.changed'))}
+                      data-me-match-add
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      {named(m)}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      <Ltr>{m.key}</Ltr>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : null}
+        </>
+      )}
     </li>
   )
 }
 
-/** Own readings are off, or the grant went while the page was open. */
+/** The server keeps nothing (no store), or the grant went while the page was open. */
 function Closed({ state }: { state: 'off' | 'grant' }) {
   const { t } = useTranslation('copilot')
   return (

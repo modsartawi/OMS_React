@@ -685,11 +685,17 @@ export interface CopilotTableNotes {
 }
 
 // ── "What the copilot knows about me" (BackOffice spec 3633 R25/R28/R29, door 3689, oms-react 894) ─────────────────
-// Every door behind the cookie and `[Copilot, 01]`: `COPILOT-401` without the grant, `COPILOT-430` while own readings
-// are off (a 430 on `GET Copilot/Me` reads as "feature off": the page's entry is hidden). The reader is always the
+// Every door behind the cookie and `[Copilot, 01]`: `COPILOT-401` without the grant. Since the review of 3633 (3692
+// fix 7) a reader can always see and delete what is kept: `GET Copilot/Me`, the two deletes and Forget answer whatever
+// the switch (`COPILOT-430` there only when the server has no store); only `POST Copilot/Me/Readings`,
+// `POST Copilot/Me/Sets` and the lookup are `COPILOT-430` while own readings do not apply. The reader is always the
 // cookie's user. Nothing is cached server-side, so a change, a delete or "forget" is used from the next question (R29).
 
-/** One value a kept reading may be changed to (or the value it holds), labelled in both languages. */
+/**
+ * One value a kept reading may be changed to (or the value it holds), labelled in both languages. A scope may be one of
+ * the reader's own named sets, `set:<setId>`, labelled by the set's name (review of 3633, R8): show the label, never
+ * build one from the value.
+ */
 export interface CopilotReadingChoice {
   value: string
   label: AnalyticsLabel
@@ -748,6 +754,12 @@ export interface CopilotKnowsMe {
   readings: CopilotKeptReading[]
   sets: CopilotNamedSet[]
   limits: CopilotKnowsMeLimits
+  /**
+   * Review of 3633: whether own readings apply, so a reading may be changed and a set edited. False = list, Delete and
+   * Forget only: hide Change, Edit and the lookup. Absent (a door from before the review, which answered only when on)
+   * reads as true.
+   */
+  canChange: boolean
 }
 
 /** `POST Copilot/Me/Readings` → one reading (`keptBy: "page"`). `COPILOT-430` for a kind or value not allowed. */

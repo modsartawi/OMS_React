@@ -88,8 +88,9 @@ function InContext() {
 }
 
 /**
- * 894 (BackOffice 3633 R28): the way to "What the copilot knows about me". Shown only when `GET Copilot/Me` reads: a
- * `COPILOT-430` (own readings off), no grant, a failure or the wait all hide it (3689: the access probe does not say).
+ * 894 (BackOffice 3633 R28): the way to "What the copilot knows about me". Shown whenever `GET Copilot/Me` reads (review
+ * of 3633: a reader can always see and delete what is kept, whatever the switch); a `COPILOT-430` (no store on the
+ * server), no grant, a failure or the wait hide it.
  * The page shares this query, so opening it costs no second call.
  */
 function KnowsMeEntry() {

@@ -427,6 +427,40 @@ describe('tappable assumption lines and the offer to keep a reading (BackOffice 
     expect(assumptionRows(model, 'ar')[1].choice?.choices.map((c) => c.text)).toEqual(['آخر 7 أيام', 'الشهر الماضي'])
   })
 
+  it('aScopeLineOffersTheReadersSets_byTheNameTheServerGave_andATapSendsTheSetValue', () => {
+    // Review of 3633 (R8): `set:<id>` choices after chain/ksa/bahrain, labelled by the set's name; never built from the id.
+    const model = copilotAnswerModel({
+      ...plain,
+      assumptions: [{ en: 'Scope: the whole chain', ar: 'النطاق: السلسلة كلها' }],
+      assumptionChoices: [
+        {
+          line: 0,
+          kind: 'scope',
+          value: 'chain',
+          choices: [
+            { value: 'ksa', label: { en: 'Saudi Arabia', ar: 'السعودية' } },
+            { value: 'set:01jcset00000000000000000001', label: { en: 'my stores', ar: 'my stores' } },
+          ],
+        },
+      ],
+    })
+    expect(assumptionRows(model, 'en')[0].choice?.choices).toEqual([
+      { value: 'ksa', text: 'Saudi Arabia' },
+      { value: 'set:01jcset00000000000000000001', text: 'my stores' },
+    ])
+  })
+
+  it('anOfferToKeepASetScope_carriesTheSetValueAndTheServersName', () => {
+    const offer = {
+      id: '0123456789abcdef0123456789abcdef',
+      kind: 'scope',
+      value: 'set:01jcset00000000000000000001',
+      label: { en: 'my stores', ar: 'my stores' },
+      offer: { en: 'Always read the scope as my stores when I do not say?', ar: 'هل أقرأ النطاق دائمًا على أنه my stores ما لم تحدّد؟' },
+    } as const
+    expect(copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }], readingOffer: offer }).readingOffer).toEqual(offer)
+  })
+
   it('anAnswerWithNoOfferAndPlainLines_drawsAsToday', () => {
     const lines = { ...plain, assumptions: [{ en: 'Period: yesterday', ar: 'الفترة: أمس' }] }
     const today = copilotAnswerModel(lines)

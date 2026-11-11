@@ -84,16 +84,17 @@ export function setOf(w: unknown): CopilotNamedSet | null {
 
 const byKind = (a: CopilotKeptReading, b: CopilotKeptReading) => OWN_READING_KINDS.indexOf(a.kind) - OWN_READING_KINDS.indexOf(b.kind)
 
-const page = (readings: CopilotKeptReading[], sets: CopilotNamedSet[], limits: CopilotKnowsMeLimits): MePage => ({
+const page = (readings: CopilotKeptReading[], sets: CopilotNamedSet[], limits: CopilotKnowsMeLimits, canChange: boolean): MePage => ({
   readings: [...readings].sort(byKind),
   sets,
   limits,
+  canChange,
   empty: readings.length === 0 && sets.length === 0,
 })
 
 /** The page after a change: the readings back in kind order, and `empty` following. */
 export const withPage = (p: MePage, change: Partial<Pick<MePage, 'readings' | 'sets'>>): MePage =>
-  page(change.readings ?? p.readings, change.sets ?? p.sets, p.limits)
+  page(change.readings ?? p.readings, change.sets ?? p.sets, p.limits, p.canChange)
 
 /** `GET Copilot/Me`'s payload as the page draws it. A reply that is not one reads as an empty page. */
 export function fromMeWire(w: unknown): MePage {
@@ -103,6 +104,8 @@ export function fromMeWire(w: unknown): MePage {
     list(v.readings).map(readingOf).filter((r): r is CopilotKeptReading => r !== null),
     list(v.sets).map(setOf).filter((s): s is CopilotNamedSet => s !== null),
     { maxSets: positive(l.maxSets, LIMITS.maxSets), maxMembers: positive(l.maxMembers, LIMITS.maxMembers), maxName: positive(l.maxName, LIMITS.maxName) },
+    // Only a plain false refuses changes: a door from before the review answered only with own readings applying.
+    v.canChange !== false,
   )
 }
 

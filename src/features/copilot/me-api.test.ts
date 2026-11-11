@@ -11,7 +11,7 @@ vi.mock('@/core/api', async (actual) => ({
   api: { get, post },
 }))
 
-const { COPILOT_ME_KEY, copilotMeApi, meActions, meEntryVisible, meFeatureOff, meQuery } = await import('./me-api')
+const { COPILOT_ME_KEY, copilotMeApi, meActions, meEntryVisible, meQuery, meRefusal } = await import('./me-api')
 
 const label = (en: string) => ({ en, ar: `${en} (ar)` })
 const PERIODS = [
@@ -119,11 +119,34 @@ describe('the page "What the copilot knows about me" calls its doors and redraws
     expect(found.map((m) => m.key)).toEqual(['city:Jeddah'])
   })
 
-  it('aFourThirtyOnGetCopilotMeIsFeatureOff_andHidesTheEntry', async () => {
-    expect(meFeatureOff(refusal('COPILOT-430'))).toBe(true)
-    expect(meFeatureOff(refusal('COPILOT-401'))).toBe(false)
-    expect(meFeatureOff(new Error('x'))).toBe(false)
-    // The entry shows only on a page read: off, no grant, failed or pending all hide it.
+  it('changeReading_aSetScope_postsTheSetValueAsTheServerGaveIt', async () => {
+    // Review of 3633 (R8): the reader's own set is a scope, `set:<id>`, sent back exactly as the choice held it.
+    const setScope = { ...scope, value: 'set:01jcset00000000000000000001', label: label('my stores'), keptBy: 'page' }
+    post.mockResolvedValueOnce(setScope)
+    await meActions(qc).changeReading('scope', 'set:01jcset00000000000000000001')
+    expect(post).toHaveBeenCalledWith('Copilot/Me/Readings', { kind: 'scope', value: 'set:01jcset00000000000000000001' })
+    expect(drawn().readings.find((r) => r.kind === 'scope')?.label.en).toBe('my stores')
+  })
+
+  it('aDeleteOrForget_keepsCanChangeAsTheServerSaidIt', async () => {
+    get.mockResolvedValue({ ...ME, canChange: false })
+    await qc.fetchQuery({ ...meQuery(), staleTime: 0 })
+    post.mockResolvedValueOnce({ deleted: true })
+    await meActions(qc).deleteReading('period')
+    expect(drawn().canChange).toBe(false)
+  })
+
+  it('aFourThirtyClosesThePageOnlyWhenReadingIt_aChangeRefusedWithItIsShownInPlace', () => {
+    // Review of 3633: a 430 on GET Copilot/Me now means only "the server has no store": the page is closed.
+    expect(meRefusal(refusal('COPILOT-430'), 'read')).toBe('off')
+    // A change refused with 430 (own readings no longer apply, or a value not allowed): the page stays, delete and
+    // forget still work; the server's message is shown.
+    expect(meRefusal(refusal('COPILOT-430'), 'change')).toBeNull()
+    // No grant closes the page from any door.
+    expect(meRefusal(refusal('COPILOT-401'), 'read')).toBe('grant')
+    expect(meRefusal(refusal('COPILOT-401'), 'change')).toBe('grant')
+    expect(meRefusal(new Error('x'), 'read')).toBeNull()
+    // The entry shows whenever the page reads (a reader can always see and delete what is kept); else it hides.
     expect(meEntryVisible({ isSuccess: true })).toBe(true)
     expect(meEntryVisible({ isSuccess: false })).toBe(false)
   })

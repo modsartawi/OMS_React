@@ -1,8 +1,9 @@
 /**
  * The doors of "What the copilot knows about me" (ticket 894, BackOffice 3689), apart from `./api` so the panel's
  * chunk carries only the probe. Through `@/core/api` like every call (`.claude/rules/api-envelope.md`): a refusal
- * (`COPILOT-401` no grant, `COPILOT-430` the switch off or a value not allowed, `COPILOT-433` a set edit or a lookup
- * refused) arrives as a business `ApiError`, read with `apiErrorCode` / `apiErrorMessage`.
+ * (`COPILOT-401` no grant; `COPILOT-430` on `GET Copilot/Me` no store on the server, on a change own readings not
+ * applying or a value not allowed; `COPILOT-433` a set edit or a lookup refused) arrives as a business `ApiError`, read
+ * with `apiErrorCode` / `apiErrorMessage`.
  *
  * Every change redraws the page from the door's own answer, then asks for the page afresh (R29: the server caches
  * nothing, so what is drawn is what the next question uses).
@@ -26,15 +27,26 @@ export const COPILOT_ME_KEY = ['copilot', 'me'] as const
 
 /** No grant (`[Copilot, 01]`). */
 export const ME_NO_GRANT = 'COPILOT-401'
-/** Own readings are off: the page and its entry are hidden. */
+/** On `GET Copilot/Me`: the server keeps nothing (no store), the page is closed. On a change: refused, shown in place. */
 export const ME_FEATURE_OFF = 'COPILOT-430'
 /** A set edit or a lookup the server refused: its message is shown. */
 export const ME_REFUSED = 'COPILOT-433'
 
-/** A 430 on `GET Copilot/Me` is "feature off" (3689: the access probe does not say). */
-export const meFeatureOff = (err: unknown): boolean => apiErrorCode(err) === ME_FEATURE_OFF
+/**
+ * What a refusal does to the page. No grant closes it from any door. A 430 closes it only on the read (review of 3633:
+ * there it means only that the server has no store); a change refused with 430 leaves the page up, since delete and
+ * forget still work, and its message is shown. Null = shown in place.
+ */
+export function meRefusal(err: unknown, door: 'read' | 'change'): 'off' | 'grant' | null {
+  const code = apiErrorCode(err)
+  if (code === ME_NO_GRANT) return 'grant'
+  return code === ME_FEATURE_OFF && door === 'read' ? 'off' : null
+}
 
-/** The panel's entry shows only when the page could be read: off, no grant, failed or pending all hide it. */
+/**
+ * The panel's entry shows whenever the page could be read (review of 3633: a reader can always see and delete what is
+ * kept, whatever the switch); no store, no grant, failed or pending hide it.
+ */
 export const meEntryVisible = (q: { isSuccess: boolean }): boolean => q.isSuccess === true
 
 /** The one query the panel's entry and the page share, so opening the page costs no second call. */

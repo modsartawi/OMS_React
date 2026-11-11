@@ -15,6 +15,7 @@ const WIRE = {
         { value: 'chain', label: label('The whole chain') },
         { value: 'ksa', label: label('Saudi Arabia') },
         { value: 'bahrain', label: label('Bahrain') },
+        { value: 'set:01jcset00000000000000000001', label: label('my stores') },
       ],
       keptAt: '2026-11-12T09:32:00',
       keptBy: 'direct',
@@ -47,6 +48,7 @@ const WIRE = {
     },
   ],
   limits: { maxSets: 10, maxMembers: 200, maxName: 40 },
+  canChange: true,
 }
 
 describe('the page "What the copilot knows about me" (ticket 894, BackOffice 3689)', () => {
@@ -57,7 +59,14 @@ describe('the page "What the copilot knows about me" (ticket 894, BackOffice 368
       ['period', 'last-fortnight', true],
       ['scope', 'ksa', false],
     ])
-    expect(me.readings[1].choices.map((c) => c.value)).toEqual(['chain', 'ksa', 'bahrain'])
+    // A set scope (review of 3633, R8) is a choice like the others, labelled by the server with the set's name.
+    expect(me.readings[1].choices.map((c) => [c.value, c.label.en])).toEqual([
+      ['chain', 'The whole chain'],
+      ['ksa', 'Saudi Arabia'],
+      ['bahrain', 'Bahrain'],
+      ['set:01jcset00000000000000000001', 'my stores'],
+    ])
+    expect(me.canChange).toBe(true)
     expect(me.sets).toHaveLength(1)
     expect(me.sets[0].name).toBe('my stores')
     expect(me.sets[0].members.map((m) => [m.key, m.gone])).toEqual([
@@ -83,6 +92,17 @@ describe('the page "What the copilot knows about me" (ticket 894, BackOffice 368
     } as never)
     expect(odd.readings).toEqual([])
     expect(odd.sets[0].members).toEqual([])
+  })
+
+  it('canChange_falseHidesTheChanges_absentReadsAsTheOldDoorThatAnsweredOnlyWhenOn', () => {
+    // Review of 3633: GET Copilot/Me answers whatever the switch; `canChange: false` = list, delete and forget only.
+    expect(fromMeWire({ ...WIRE, canChange: false }).canChange).toBe(false)
+    // A door from before the review answered only with own readings applying: there, changes were allowed.
+    const { canChange: _c, ...old } = WIRE
+    void _c
+    expect(fromMeWire(old).canChange).toBe(true)
+    // Anything but a plain false is not a refusal to draw.
+    expect(fromMeWire({ ...WIRE, canChange: 'no' } as never).canChange).toBe(true)
   })
 
   it('aSetsGoneCountFollowsItsMembers_whenTheWireCountIsMissing', () => {

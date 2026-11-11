@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Info, Plus, Trash2, X } from 'lucide-react'
-import { MAX_CALCULATIONS, type AnalyticsCalculation, type AnalyticsCalculationKind } from '@/core/models/analytics-calculations'
+import { MAX_CALCULATIONS, type AnalyticsCalculation, type AnalyticsCalculationKind, type AnalyticsChangeFrom } from '@/core/models/analytics-calculations'
 import type { AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
@@ -13,6 +13,8 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import {
   calculationKinds,
+  changeFromOf,
+  changeFroms,
   labelOverride,
   measuresFor,
   ofFor,
@@ -22,6 +24,7 @@ import {
   withinProblem,
   type CalculationDraft,
   type CalculationSelection,
+  type ChangeFromOffer,
   type DroppedCalculation,
 } from './calculations-edit'
 import { eachParent } from './calculations'
@@ -36,6 +39,9 @@ import { dimensionOf, measureOf } from './wire'
  *
  * 863 (spec 3543 part A): a share or running share takes `within` — the query's own category breakdowns, some but not
  * all (`withinChoices` / `withinProblem`); with it, `until` reads "in each {parent}".
+ *
+ * 876 (BackOffice spec 3587 B10): a change says which comparison it is taken from — the previous period or the same
+ * weeks last year (`changeFroms`). Picking one whose comparison is off turns that comparison on.
  */
 export default function CalculationFields({
   model,
@@ -77,6 +83,10 @@ export default function CalculationFields({
   const shownWithin = within.filter((k) => parents.includes(k))
   const badWithin = shownWithin.length ? withinProblem(shownWithin, selection.dimensions, model) : null
   const dimensionName = (k: string) => saysIn(dimensionOf(model, k)?.label, lang) || k
+  // 876: what a change is taken from — the pick, else the first comparison that is on.
+  const froms = changeFroms(selection)
+  const [from, setFrom] = useState<AnalyticsChangeFrom | ''>('')
+  const shownFrom: AnalyticsChangeFrom = from || froms.find((f) => f.on)?.from || 'previous'
 
   if (selection.measures.length === 0) return null
   const add = () => {
@@ -87,10 +97,12 @@ export default function CalculationFields({
       ...(takesOf(pickedKind) ? { of: shownOf } : {}),
       ...(pickedKind === 'cumulativeShare' && until ? { until } : {}),
       ...(shownWithin.length ? { within: shownWithin } : {}),
+      ...(pickedKind === 'change' && shownFrom === 'lastYear' ? { from: shownFrom } : {}),
     })
     setKind('')
     setUntil(null)
     setWithin([])
+    setFrom('')
   }
 
   return (
@@ -173,6 +185,7 @@ export default function CalculationFields({
                 </Select>
               </Field>
             )}
+            {pickedKind === 'change' && <FromField froms={froms} value={shownFrom} onChange={setFrom} sayTurnsOn />}
             {parents.length > 0 && (
               <WithinField choices={parents} value={shownWithin} onChange={setWithin} problem={badWithin} dimensionName={dimensionName} />
             )}
@@ -189,6 +202,36 @@ export default function CalculationFields({
         )}
       </div>
     </fieldset>
+  )
+}
+
+/**
+ * 876: what a change is taken from — the previous period, or the same weeks last year. Both are listed; picking one
+ * whose comparison is off turns it on (`addCalculation` / `updateCalculation`), and the add form says so first.
+ */
+function FromField({
+  froms,
+  value,
+  onChange,
+  sayTurnsOn = false,
+}: {
+  froms: ChangeFromOffer[]
+  value: AnalyticsChangeFrom
+  onChange: (from: AnalyticsChangeFrom) => void
+  sayTurnsOn?: boolean
+}) {
+  const { t } = useTranslation('boards')
+  const off = sayTurnsOn && froms.find((f) => f.from === value)?.on === false
+  return (
+    <Field label={t('editor.calc.from')} hint={off ? t(`editor.calc.fromTurnsOn.${value}`) : undefined}>
+      <Select value={value} onChange={(e) => onChange(e.target.value as AnalyticsChangeFrom)} data-editor-calc-from={value}>
+        {froms.map((f) => (
+          <option key={f.from} value={f.from} data-on={f.on ? 'yes' : 'no'}>
+            {t(`editor.calc.fromName.${f.from}`)}
+          </option>
+        ))}
+      </Select>
+    </Field>
   )
 }
 
@@ -331,6 +374,18 @@ function CalculationRow({
               ))}
             </Select>
           </Field>
+        )}
+        {c.kind === 'change' && (
+          <FromField
+            froms={changeFroms(selection)}
+            value={changeFromOf(c)}
+            onChange={(from) => {
+              const { from: _f, ...rest } = draft
+              void _f
+              // Only last year is written: a change from the previous period is the calculation it always was.
+              onUpdate(from === 'lastYear' ? { ...rest, from } : rest)
+            }}
+          />
         )}
         {parents.length > 0 && (
           <WithinField choices={parents} value={within.filter((k) => parents.includes(k))} onChange={setWithin} problem={null} dimensionName={dimensionName} />

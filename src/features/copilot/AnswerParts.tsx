@@ -16,7 +16,7 @@ import { Check, Copy } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerPlainText, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, answerTableKey, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -100,7 +100,8 @@ export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] })
 
 /**
  * The answer's tables (ticket 868, BackOffice spec 3558 D5), under its summary: each the analytics table form through
- * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before.
+ * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before. 878: in the
+ * order sent, each under its own title when it has one (an analysis result's parts), told apart by place as well as step.
  */
 export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[] }) {
   const { t } = useTranslation('copilot')
@@ -109,8 +110,8 @@ export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[]
   return (
     <div aria-label={t('answer.tables')} className="flex min-w-0 flex-col gap-3" data-copilot-tables>
       {tables.map((table, i) => (
-        <Suspense key={`${table.step}-${i}`} fallback={null}>
-          <Embed table={table} />
+        <Suspense key={answerTableKey(table, i)} fallback={null}>
+          <Embed table={table} index={i} />
         </Suspense>
       ))}
     </div>
@@ -157,7 +158,10 @@ export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReport
   )
 }
 
-/** What the report assumed (802 item 1), one line each, in the reader's language. Each line is the model's text: `<bdi>`. */
+/**
+ * What the answer assumed (802 item 1; any answer since 870), one line each, in the reader's language, under the answer
+ * and apart from it. Each line is free text: `<bdi>`.
+ */
 export function Assumptions({ assumptions }: { assumptions: readonly AnalyticsLabel[] }) {
   const { t, i18n } = useTranslation('copilot')
   if (assumptions.length === 0) return null
@@ -165,9 +169,9 @@ export function Assumptions({ assumptions }: { assumptions: readonly AnalyticsLa
     <section aria-label={t('answer.assumptions')} className="flex flex-col gap-1 text-sm" data-copilot-assumptions>
       <p className="text-xs font-medium text-muted-foreground">{t('answer.assumptions')}</p>
       <ul className="list-disc ps-5">
-        {assumptions.map((a, i) => (
+        {assumptionLines(assumptions, i18n.language).map((line, i) => (
           <li key={i} data-copilot-assumption>
-            <bdi>{saysIn(a, i18n.language)}</bdi>
+            <bdi>{line}</bdi>
           </li>
         ))}
       </ul>
@@ -216,7 +220,10 @@ export function AnswerProvenance({
   servedBy,
   rules = null,
   copy,
+  lookupsOpen = false,
 }: {
+  /** The lookups ("How I got this") start open: a figures-only answer's sentence says they are listed below (870). */
+  lookupsOpen?: boolean
   /** The answer's text for its Copy button; no button when absent. */
   copy?: string
   trace: readonly CopilotTraceEntry[]
@@ -235,7 +242,7 @@ export function AnswerProvenance({
         </p>
       )}
       {rows.length > 0 && (
-        <details className="rounded-lg border border-border p-2" data-copilot-trace>
+        <details open={lookupsOpen || undefined} className="rounded-lg border border-border p-2" data-copilot-trace>
           <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
             {t('trace.heading', { count: rows.length, n: fsi(formatNumber(rows.length)) })}
           </summary>
@@ -323,23 +330,39 @@ function CopyAnswer({ text }: { text: string }) {
 /** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
 export function Answer({ model }: { model: CopilotAnswerModel }) {
   const { t } = useTranslation('copilot')
+  const layout = answerLayout(model)
+  const part = (p: AnswerPart) => {
+    switch (p) {
+      case 'text':
+        return (
+          <section key={p} data-copilot-answer data-copilot-figures-only={layout.figuresOnly || undefined} aria-label={t('answer.heading')} className="flex flex-col gap-2 text-sm">
+            {model.blocks.length === 0 ? (
+              <p className="text-muted-foreground">{t('answer.empty')}</p>
+            ) : (
+              model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
+            )}
+          </section>
+        )
+      case 'tables':
+        return <AnswerTables key={p} tables={model.tables} />
+      case 'views':
+        return <ViewLinks key={p} viewRefs={model.viewRefs} />
+      case 'assumptions':
+        return <Assumptions key={p} assumptions={model.assumptions} />
+      case 'reportEdit':
+        return <ReportEditNote key={p} reportEdit={model.reportEdit} />
+      case 'boardEdit':
+        return <BoardEditNote key={p} boardEdit={model.boardEdit} />
+      case 'reports':
+        return <ReportLinks key={p} reportRefs={model.reportRefs} />
+    }
+  }
   return (
     <>
-      <section data-copilot-answer aria-label={t('answer.heading')} className="flex flex-col gap-2 text-sm">
-        {model.blocks.length === 0 ? (
-          <p className="text-muted-foreground">{t('answer.empty')}</p>
-        ) : (
-          model.blocks.map((b, i) => <Block key={i} block={b} orderRefs={model.orderRefs} />)
-        )}
-      </section>
-      <AnswerTables tables={model.tables} />
-      <ViewLinks viewRefs={model.viewRefs} />
-      <Assumptions assumptions={model.assumptions} />
-      <ReportEditNote reportEdit={model.reportEdit} />
-      <BoardEditNote boardEdit={model.boardEdit} />
-      <ReportLinks reportRefs={model.reportRefs} />
+      {layout.parts.map(part)}
       <AnswerProvenance
         trace={model.trace}
+        lookupsOpen={layout.lookups === 'open'}
         stoppedEarly={model.stoppedEarly}
         servedBy={model.servedBy}
         rules={model.rules}

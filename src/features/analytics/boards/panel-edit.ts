@@ -8,7 +8,7 @@ import type {
   AnalyticsViewDefinition,
 } from '@/core/models/analytics'
 import { settleCalculations } from './calculations-edit'
-import { allowedDimensions, comparesToPrevious, DEFAULT_PERIOD, GRAINS, grainFor, MAX_DIMENSIONS, pickableMeasures, withCompare, type Grain } from './editor'
+import { allowedDimensions, comparesToPrevious, DEFAULT_PERIOD, GRAINS, grainFor, MAX_DIMENSIONS, pickableMeasures, withCompare, withLastYear, type Grain } from './editor'
 import { seriesOf } from './series'
 import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice, type ChartOffer } from './shape-rules'
 import { baseMeasureKey, settleVariants } from './variants'
@@ -70,14 +70,19 @@ export function fitted(raw: AnalyticsViewDefinition, model: AnalyticsModel): Ana
   const allowed = new Set(allowedDimensions(def.query.measures, model).map((d) => d.key))
   const { grain, ...rest } = def.query
   const kept = grainFor(def.query.dimensions, model, (GRAINS as readonly string[]).includes(grain ?? '') ? (grain as Grain) : 'day')
-  const query = withCompare(
-    {
-      ...rest,
-      filters: def.query.filters.filter((f) => allowed.has(f.dimension)),
-      ...(kept ? { grain: kept } : {}),
-    },
+  // 876: last year stays where the previous period does — only where the type shows a comparison.
+  const query = withLastYear(
+    withCompare(
+      {
+        ...rest,
+        filters: def.query.filters.filter((f) => allowed.has(f.dimension)),
+        ...(kept ? { grain: kept } : {}),
+      },
+      choice ?? was,
+      def.query.compareToPrevious === true,
+    ),
     choice ?? was,
-    def.query.compareToPrevious === true,
+    def.query.compareToLastYear === true,
   )
   // …and again once compare is settled: a change goes with it (decision 8).
   return settleCalculations({ ...def, chart, query }, model).definition
@@ -135,6 +140,10 @@ export function withChoice(def: AnalyticsViewDefinition, choice: ChartChoice, mo
 export const withComparing = (def: AnalyticsViewDefinition, on: boolean, model: AnalyticsModel): AnalyticsViewDefinition =>
   settleCalculations({ ...def, query: withCompare(def.query, choiceOf(def.chart), on) }, model).definition
 
+/** 876: compare with the same weeks last year, where the type shows a comparison; independent of the previous period's. */
+export const withComparingLastYear = (def: AnalyticsViewDefinition, on: boolean, model: AnalyticsModel): AnalyticsViewDefinition =>
+  settleCalculations({ ...def, query: withLastYear(def.query, choiceOf(def.chart), on) }, model).definition
+
 /** The chart's own settings (format, legend, sort, top N), its type kept. */
 export const withSettings = (def: AnalyticsViewDefinition, f: (chart: AnalyticsChart) => AnalyticsChart, model: AnalyticsModel): AnalyticsViewDefinition => {
   const next = f(def.chart)
@@ -159,6 +168,9 @@ export function withSeries(def: AnalyticsViewDefinition, series: AnalyticsSeries
 
 /** Whether the panel's chart compares with the previous period where it may. */
 export const comparing = (def: AnalyticsViewDefinition): boolean => comparesToPrevious(choiceOf(def.chart)) && def.query.compareToPrevious === true
+
+/** 876: whether the panel's chart compares with the same weeks last year where it may. */
+export const comparingLastYear = (def: AnalyticsViewDefinition): boolean => comparesToPrevious(choiceOf(def.chart)) && def.query.compareToLastYear === true
 
 /**
  * A new chart or table: the first measure of the first area available, as one figure (a KPI), over the default

@@ -1,5 +1,6 @@
 import { assignSlots } from '@/core/charts/slots'
 import { measureKeysOf } from './calculations'
+import { lastYearKey, lastYearMatcher, lastYearMeasures, lastYearRange } from './last-year'
 import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
 import { sequentialFill, sequentialWeight } from '@/core/charts/sequential'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
@@ -210,6 +211,8 @@ export interface TableColumn {
   max?: number
   /** 864 (spec 3543 decision 14): the header's tooltip on a cross-area panel (its date basis, "not filtered by ..."). */
   tooltip?: string
+  /** 878: the cells are the server's texts, shown as sent (`@/core/charts/TableChart`); only the copilot's analysis tables. */
+  asSent?: boolean
 }
 
 export interface TableView {
@@ -246,7 +249,7 @@ export function toTableView(
   lang: string,
   options: TableViewOptions = {},
 ): TableView {
-  const { series: seriesHeader = 'series', previous: previousHeader = previousKey, all: allWord = '', tooltip: tooltipOf, asSent = false } = options
+  const { series: seriesHeader = 'series', previous: previousHeader = previousKey, lastYear: lastYearHeader = lastYearKey, all: allWord = '', tooltip: tooltipOf, asSent = false } = options
   const dimKeys = definition.query.dimensions.length
     ? definition.query.dimensions
     : result.columns.filter((c) => c.role === 'dimension').map((c) => c.key)
@@ -263,6 +266,10 @@ export function toTableView(
   // Compared with the previous period: a previous column after each of the query's measures (`./previous-rows`).
   const withPrevious = new Set(previousMeasures(definition, result))
   const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
+  // 877: compared with the same weeks last year — a last-year column after the measure and its previous column (`./last-year`).
+  const withLastYear = new Set(lastYearMeasures(definition, result))
+  const lastYearRowOf = lastYearMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
+  const range = lastYearRange(result, lang)
 
   const sort = definition.chart.sort ?? (measureKeys[0] ? { key: measureKeys[0], direction: 'desc' as const } : null)
   // Spec 3543 decision 3: a running share within a parent comes back grouped by parent, each parent already cut to the
@@ -287,9 +294,11 @@ export function toTableView(
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = r[k] == null && isTotalRow(r) ? allWord : namers.get(k)!.label(String(r[k] ?? ''))
     const before = withPrevious.size ? previousOf(r) : undefined
+    const yearAgo = withLastYear.size ? lastYearRowOf(r) : undefined
     for (const k of measureKeys) {
       out[k] = num(r[k])
       if (withPrevious.has(k)) out[previousKey(k)] = num(before?.[k])
+      if (withLastYear.has(k)) out[lastYearKey(k)] = num(yearAgo?.[k])
     }
     return out
   })
@@ -307,7 +316,11 @@ export function toTableView(
         max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))),
         ...(tooltip ? { tooltip } : {}),
       })
-      return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
+      return [
+        column(k, m.label),
+        ...(withPrevious.has(k) ? [column(previousKey(k), previousHeader(m.label))] : []),
+        ...(withLastYear.has(k) ? [column(lastYearKey(k), lastYearHeader(m.label, range))] : []),
+      ]
     }),
   ]
   const members = kept.map((r) => String(r[dimKeys[0]] ?? ''))

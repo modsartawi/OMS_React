@@ -271,6 +271,8 @@ export function ChartFields({
   onSettings,
   compare,
   onCompare,
+  lastYear,
+  onLastYear,
   suggested = false,
   sortKeys,
   sortLocked = false,
@@ -297,6 +299,9 @@ export function ChartFields({
   /** Compare with the previous period (stored only where the chosen type offers it). */
   compare: boolean
   onCompare: (on: boolean) => void
+  /** 876: compare with the same weeks last year, beside the previous period (stored where the chosen type offers it). */
+  lastYear: boolean
+  onLastYear: (on: boolean) => void
 }) {
   const { t } = useTranslation('boards')
   const offer = chosen ? offers.find((o) => o.choice === chosen) : undefined
@@ -335,6 +340,15 @@ export function ChartFields({
               {t('editor.compare')}
             </Chip>
             <span className="text-xs text-muted-foreground">{t(chosen === 'kpi' ? 'editor.compareHintKpi' : 'editor.compareHintLine')}</span>
+          </div>
+        )}
+        {comparesToPrevious(chosen) && (
+          // 876 (BackOffice spec 3587 B7): the same weeks last year, beside the previous period; either or both.
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip on={lastYear} onClick={() => onLastYear(!lastYear)} data-editor-compare-last-year={lastYear ? 'on' : 'off'}>
+              {t('editor.compareLastYear')}
+            </Chip>
+            <span className="text-xs text-muted-foreground">{t('editor.compareLastYearHint')}</span>
           </div>
         )}
         {offer?.offered && offer.folds && (

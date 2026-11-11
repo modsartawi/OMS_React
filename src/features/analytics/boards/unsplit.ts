@@ -37,12 +37,18 @@ export function splitThenTotals<R extends AnalyticsRow>(rows: readonly R[]): { s
 const hasTotals = (rows: readonly AnalyticsRow[]) => rows.some(isTotalRow)
 
 /**
- * `result` without its "All" rows (in `rows` and `previous`), for every chart form. The same object when it has none,
+ * `result` without its "All" rows (in `rows`, `previous` and `lastYear`), for every chart form. The same object when it has none,
  * so a one-area panel draws exactly as before.
  */
 export function drawnResult(result: AnalyticsQueryResult): AnalyticsQueryResult {
-  if (!hasTotals(result.rows) && !hasTotals(result.previous)) return result
-  return { ...result, rows: result.rows.filter((r) => !isTotalRow(r)), previous: result.previous.filter((r) => !isTotalRow(r)) }
+  if (!hasTotals(result.rows) && !hasTotals(result.previous) && !hasTotals(result.lastYear ?? [])) return result
+  return {
+    ...result,
+    rows: result.rows.filter((r) => !isTotalRow(r)),
+    previous: result.previous.filter((r) => !isTotalRow(r)),
+    // 877: last year's rows are drawn where the previous period's are, so their "All" rows are left out the same way.
+    ...(result.lastYear ? { lastYear: result.lastYear.filter((r) => !isTotalRow(r)) } : {}),
+  }
 }
 
 // ── The panel note and the header tooltip ────────────────────────────────────────────────────────────────

@@ -476,7 +476,10 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
   )
 }
 
-/** One question in the thread, with its answer or its refusal. `cannot-answer` is not an error. */
+/**
+ * One question in the thread, with its answer or its refusal. `cannot-answer` is not an error, and neither is
+ * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups.
+ */
 function Turn({ turn }: { turn: CopilotTurn }) {
   const { t } = useTranslation('copilot')
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'

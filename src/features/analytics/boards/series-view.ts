@@ -1,5 +1,6 @@
 import { formatAxisDay } from '@/core/charts/format'
 import { measureKeysOf } from './calculations'
+import { lastYearMatcher, lastYearMeasures, lastYearOf, lastYearRange } from './last-year'
 import { previousMatcher } from './previous-rows'
 import { assignSlots, CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type {
@@ -64,6 +65,11 @@ export interface KpiView {
   delta: KpiDelta | null
   spark: { x: string; label: string; value: number | null }[]
   empty: boolean
+  /**
+   * 877: the figure of the same weeks last year, by the headline's own rule ({@link figureOf}), with last year's dates.
+   * Absent when the answer has none. No change is computed against it: the tile's ▲▼ stays the previous period's.
+   */
+  lastYear?: { value: number; range: string }
 }
 
 /** One figure for a set of rows: the row itself, or the sum of an additive measure; never a rate's sum. */
@@ -103,7 +109,19 @@ export function toKpiView(
         .map((p) => ({ ...p, label: formatAxisDay(p.x, lang) }))
     : []
 
-  return { kind: 'kpi', measure, format: formatOf(definition), value, previous, delta: deltaOf(value, previous), spark, empty: result.rows.length === 0 }
+  const lastYear = lastYearMeasures(definition, result).includes(key) ? figureOf(lastYearOf(result)?.rows ?? [], key, additive) : null
+
+  return {
+    kind: 'kpi',
+    measure,
+    format: formatOf(definition),
+    value,
+    previous,
+    delta: deltaOf(value, previous),
+    spark,
+    empty: result.rows.length === 0,
+    ...(lastYear !== null ? { lastYear: { value: lastYear, range: lastYearRange(result, lang) } } : {}),
+  }
 }
 
 /** A KPI tile of one named series (825). */
@@ -122,7 +140,12 @@ export function toKpiViews(
   const columns = result.columns
   return seriesOf(definition).map((s, slot) => ({
     ...toKpiView(
-      { ...result, rows: seriesRows(result.rows, columns, s.id), previous: seriesRows(result.previous, columns, s.id) },
+      {
+        ...result,
+        rows: seriesRows(result.rows, columns, s.id),
+        previous: seriesRows(result.previous, columns, s.id),
+        ...(result.lastYear ? { lastYear: seriesRows(result.lastYear, columns, s.id) } : {}),
+      },
       definition,
       model,
       lang,
@@ -146,6 +169,17 @@ export interface SeriesDef {
   unit: MeasureUnit
   /** The previous period beside a line over time (766 story 23): ink grey, dashed, named by the chart. */
   previous?: boolean
+  /**
+   * 877: the same weeks last year beside a line over time or a bar — ink, never a palette slot, and its own dash on a
+   * line. Unlike the previous period it is named HERE (`label`), with last year's dates ({@link SeriesWords}).
+   */
+  lastYear?: boolean
+}
+
+/** The words a series chart takes, in the screen's language (`./SeriesPanel`). */
+export interface SeriesWords {
+  /** 877: the last-year series' name; `range` is last year's dates (`./last-year` `lastYearRange`). Absent: the dates alone. */
+  lastYear?: (range: string) => string
 }
 
 export interface SeriesRow {
@@ -208,8 +242,8 @@ export function unitPanes(view: SeriesView): SeriesView[] {
       ...view,
       series,
       unit,
-      measureLabel: series.find((s) => !s.previous && !s.other)?.label ?? view.measureLabel,
-      labels: series.filter((s) => !s.previous && !s.other).map((s) => s.label),
+      measureLabel: series.find((s) => !s.previous && !s.lastYear && !s.other)?.label ?? view.measureLabel,
+      labels: series.filter((s) => !s.previous && !s.lastYear && !s.other).map((s) => s.label),
       rows: view.rows.map((r) => ({ ...r, values: Object.fromEntries(Object.entries(r.values).filter(([k]) => keys.has(k))) })),
     }
   })
@@ -220,6 +254,7 @@ export function toSeriesView(
   definition: AnalyticsViewDefinition,
   model: AnalyticsModel,
   lang: string,
+  words: SeriesWords = {},
 ): SeriesView | RefusedView {
   // 864 (spec 3543 decision 12): an "All" row of a cross-area answer is never drawn (`./unsplit`).
   result = drawnResult(result)
@@ -324,13 +359,33 @@ export function toSeriesView(
         values.get(x)!.prev = row ? num(before(row)?.[m.key]) : null
       }
     }
+    // 877: the same weeks last year, drawn where the previous period is and the same way — beside a line of one
+    // measure over time by position, beside a bar by its member — after it, named with last year's dates.
+    const range = lastYearRange(result, lang)
+    const lastYearSeries = (unit: MeasureUnit): SeriesDef => ({ key: 'ly', member: '', label: words.lastYear?.(range) ?? range, slot: null, other: false, unit, lastYear: true })
+    const withLastYear = lastYearMeasures(definition, result)
+    if (form === 'line' && isTime && measures.length === 1 && withLastYear.includes(measures[0].key)) {
+      const m = measures[0]
+      const yearAgo = [...(lastYearOf(result)?.rows ?? [])].sort((a, b) => (String(a[xKey] ?? '') < String(b[xKey] ?? '') ? -1 : 1))
+      series.push(lastYearSeries(m.unit))
+      xs.forEach((x, i) => (values.get(x)!.ly = yearAgo[i] ? num(yearAgo[i][m.key]) : null))
+    }
+    if (form === 'bar' && firstMeasure && definition.query.compareToLastYear === true && withLastYear.includes(firstMeasure)) {
+      const m = measures.find((x) => x.key === firstMeasure) ?? measures[0]
+      const yearAgo = lastYearMatcher(result, [xKey], model)
+      series.push(lastYearSeries(m.unit))
+      for (const x of xs) {
+        const row = rowsAt.get(x)?.[0]
+        values.get(x)!.ly = row ? num(yearAgo(row)?.[m.key]) : null
+      }
+    }
   }
 
   // A single series coloured by its x member, as 767's bar is (a fixed dimension, or a saved map).
   const xRule = series.length === 1 && !isTime ? slotRuleFor(xKey, model, definition) : null
   const xSlots = xRule ? assignSlots(xs, xRule) : null
 
-  const withPrevious = series.some((s) => s.previous)
+  const withPrevious = series.some((s) => s.previous || s.lastYear)
   const stacking: SeriesView['stacking'] =
     form === 'area'
       ? 'stacked'

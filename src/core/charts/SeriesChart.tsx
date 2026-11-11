@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
 import { formatAs, formatTickAs, percentTicks } from './format'
-import { CHART_INK, seriesOpacity, seriesRowFill, slotColour } from './slots'
+import { CHART_INK, seriesColour, seriesDash, seriesOpacity, seriesRowFill } from './slots'
 import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
@@ -45,6 +45,8 @@ export interface ChartSeries {
   unit: MeasureUnit
   /** The previous period (line only): ink grey and dashed, named "Previous period". */
   previous?: boolean
+  /** The same weeks last year (877; a line or a bar): the darker ink, its own dash on a line, named by its `label`. */
+  lastYear?: boolean
 }
 
 export interface ChartSeriesRow {
@@ -97,7 +99,7 @@ export default function SeriesChart({
   const named = series.map((s) => ({
     ...s,
     name: s.other ? t('charts.other', { count: otherCount, n: otherCount }) : s.previous ? t('charts.previousPeriod') : s.label,
-    colour: slotColour(s.slot),
+    colour: seriesColour(s),
   }))
   const unitOf = new Map(series.map((s) => [s.key, s.unit]))
   // The row fill only for one series (ticket 820): Recharts lets a row's `fill` beat `<Bar fill>`.
@@ -182,7 +184,7 @@ export default function SeriesChart({
             stroke={s.colour}
             strokeOpacity={opacity(s.key)}
             strokeWidth={2}
-            strokeDasharray={s.previous ? '5 4' : undefined}
+            strokeDasharray={seriesDash(s)}
             dot={false}
             activeDot={{ r: 4 }}
             connectNulls={false}

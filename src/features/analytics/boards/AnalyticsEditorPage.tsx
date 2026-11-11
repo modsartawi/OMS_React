@@ -27,6 +27,7 @@ import {
   allowedDimensions,
   colourDimension,
   colourMemberWords,
+  comparisonsOf,
   DEFAULT_PERIOD,
   filterableDimensions,
   editItemLink,
@@ -37,6 +38,7 @@ import {
   readEditorSeed,
   settledSlots,
   withCompare,
+  withLastYear,
   withMemberSlot,
   type EditorSeed,
 } from './editor'
@@ -174,7 +176,9 @@ function ViewEditor({
   const [grain, setGrain] = useState<Grain>(() => GRAINS.find((g) => g === start?.query.grain) ?? 'day')
   const [choice, setChoice] = useState<ChartChoice | null>(start ? choiceOf(start.chart) : null)
   const [settings, setSettings] = useState<AnalyticsChart>(start?.chart ?? { type: 'table' })
-  const [compare, setCompare] = useState<boolean>(start?.query.compareToPrevious === true)
+  const [compare, setCompare] = useState<boolean>(() => comparisonsOf(start?.query).previous)
+  // 876: compare with the same weeks last year, beside the previous period; a saved view opens with it as saved.
+  const [lastYear, setLastYear] = useState<boolean>(() => comparisonsOf(start?.query).lastYear)
   const [slots, setSlots] = useState<Record<string, Record<string, number>>>(start?.slots ?? {})
   const [title, setTitle] = useState<AnalyticsLabel>(seed?.title ?? EMPTY_LABEL)
   const [subtitle, setSubtitle] = useState<AnalyticsLabel>(seed?.subtitle ?? EMPTY_LABEL)
@@ -207,19 +211,23 @@ function ViewEditor({
     void _old
     void _oldCalcs
     void _oldVariants
-    const query = withCompare(
-      {
-        ...startQuery,
-        ...(calculations.length ? { calculations } : {}),
-        ...(variants.length ? { variants } : {}),
-        measures,
-        dimensions,
-        filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
-        period,
-        ...(keptGrain ? { grain: keptGrain } : {}),
-      },
+    const query = withLastYear(
+      withCompare(
+        {
+          ...startQuery,
+          ...(calculations.length ? { calculations } : {}),
+          ...(variants.length ? { variants } : {}),
+          measures,
+          dimensions,
+          filters: filters.filter((f) => f.values.length > 0 && allowedKeys.has(f.dimension)),
+          period,
+          ...(keptGrain ? { grain: keptGrain } : {}),
+        },
+        chosen,
+        compare,
+      ),
       chosen,
-      compare,
+      lastYear,
     )
     // A series' filter with no value yet filters nothing; a view with no series carries no `series` at all.
     const named = series.map((x) => ({ ...x, filters: x.filters.filter((f) => f.values.length > 0) }))
@@ -229,7 +237,7 @@ function ViewEditor({
     const v = settleVariants({ ...rest, chart: chartFor(chosen, settings), query, slots, ...(named.length ? { series: named } : {}) }, model)
     // 862: …then the calculations the query no longer allows go, and a running share holds the order (spec 3519 D7–D10).
     return { ...settleCalculations(v.definition, model), droppedVariants: v.dropped }
-  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, keptGrain, series, calculations, variants, model])
+  }, [chosen, measures, dimensions, filters, allowedKeys, period, settings, slots, start, compare, lastYear, keptGrain, series, calculations, variants, model])
   const definition: AnalyticsViewDefinition | null = settled?.definition ?? null
   // The editor's own state follows the settle: what went is named, and the sort shows the order the query holds.
   useEffect(() => {
@@ -248,7 +256,13 @@ function ViewEditor({
     if (JSON.stringify(sort) !== JSON.stringify(settings.sort ?? null)) setSettings((s) => ({ ...s, sort }))
   }, [settled, settings.sort, setDropped, variants.length])
   const editCalculations = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
-    if (definition) setCalculations(f(definition).query.calculations ?? [])
+    if (!definition) return
+    const next = f(definition)
+    setCalculations(next.query.calculations ?? [])
+    // 876: a change picked from a comparison that was off turned it on (`calculations-edit`); the switch follows.
+    const on = comparisonsOf(next.query)
+    if (on.previous) setCompare(true)
+    if (on.lastYear) setLastYear(true)
   }
   // 863: a variant added, relabelled or removed moves its key in `measures` (and the calculations that read it) too.
   const editVariants = (f: (d: AnalyticsViewDefinition) => AnalyticsViewDefinition) => {
@@ -265,7 +279,7 @@ function ViewEditor({
     const id = setTimeout(() => setAsked(definition), PREVIEW_DEBOUNCE_MS)
     return () => clearTimeout(id)
   }, [definition])
-  // 766 §C: the previous period's rows are asked for when the definition compares to it.
+  // 766 §C: the previous period's rows are asked for when the definition compares to it; last year's too (876).
   const input = asked ? { definition: asked, ...comparing(asked) } : null
   const answer = useQuery({
     queryKey: analyticsQueryKey(input ?? { definition: { chart: { type: 'table' }, query: { measures: [], dimensions: [], filters: [] } } }),
@@ -380,6 +394,8 @@ function ViewEditor({
           onSettings={setSettings}
           compare={compare}
           onCompare={setCompare}
+          lastYear={lastYear}
+          onLastYear={setLastYear}
           sortKeys={definition ? sortKeys(definition) : measures}
           sortLocked={calculations.some((c) => c.kind === 'cumulativeShare')}
           perParent={calc.perParent}
@@ -398,7 +414,7 @@ function ViewEditor({
         <CalculationFields
           model={model}
           lang={lang}
-          selection={{ measures, dimensions, series: series.length, compare: definition?.query.compareToPrevious === true, calculations }}
+          selection={{ measures, dimensions, series: series.length, compare: comparisonsOf(definition?.query).previous, lastYear: comparisonsOf(definition?.query).lastYear, calculations }}
           {...calc.fields(editCalculations)}
         />
         <SeriesFields

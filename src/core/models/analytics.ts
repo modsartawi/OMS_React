@@ -112,6 +112,11 @@ export interface AnalyticsSemanticQuery {
   grain?: string | null
   limit?: number | null
   compareToPrevious?: boolean
+  /**
+   * BackOffice spec 3587 B7 (ticket 3604; web 876): compare with the same weeks last year — the period's own span 364
+   * days back, so each day falls on the same weekday. Alone or beside `compareToPrevious`. Absent = not asked.
+   */
+  compareToLastYear?: boolean
   /** Spec 3519 D1: shares, ratios, running shares and changes the server computes (`./analytics-calculations`). */
   calculations?: AnalyticsCalculation[] | null
   /** Spec 3543 D5 (3546): measures under their own filters; each key is also in `measures` (`./analytics-calculations`). */
@@ -381,6 +386,8 @@ export type AnalyticsParamQuery = (
   values: Record<string, ParamValue>
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export type AnalyticsViewQuery = (
@@ -400,6 +407,8 @@ export type AnalyticsViewQuery = (
    */
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export interface AnalyticsColumn {
@@ -423,6 +432,13 @@ export interface AnalyticsColumn {
 /** Spec 3543 D12 (3548): an "All" row of a cross-area result also carries `isTotal: true` (`./analytics-calculations`). */
 export type AnalyticsRow = Record<string, string | number | boolean | null>
 
+/** One area whose last year is not held (BackOffice 3606): its key, the day its data starts (`yyyy-MM-dd`), its measures. */
+export interface AnalyticsLastYearNotHeld {
+  area: string
+  dataFrom: string
+  measures: string[]
+}
+
 export interface AnalyticsQueryResult {
   columns: AnalyticsColumn[]
   rows: AnalyticsRow[]
@@ -431,6 +447,20 @@ export interface AnalyticsQueryResult {
   period: { from: string; to: string } | null
   /** Present when `compareToPrevious` was asked. */
   previous: AnalyticsRow[]
+  /**
+   * BackOffice spec 3587 B9 (ticket 3604; web 876): the rows of the same weeks last year, with the columns of `rows`,
+   * when `compareToLastYear` was asked. Absent when it was not (the server leaves it off the wire, unlike `previous`).
+   */
+  lastYear?: AnalyticsRow[]
+  /** The dates `lastYear` covers: the period's own, 364 days back. Absent with `lastYear`. */
+  lastYearPeriod?: { from: string; to: string }
+  /**
+   * BackOffice spec 3587 B11 (ticket 3606; web 877): every area whose last year is NOT HELD — its data starts after the
+   * first day of last year's span — with the day its data starts and the query's measures it answers. Those figures have
+   * no last year: they are empty on every row of `lastYear` (never 0), and `lastYear` may be `[]`. Absent when every
+   * area holds the span, or when last year was not asked.
+   */
+  lastYearNotHeld?: AnalyticsLastYearNotHeld[]
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string

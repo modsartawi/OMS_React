@@ -4,10 +4,7 @@ import type { ColDef } from 'ag-grid-community'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
-import { TABLE_DEFAULT_COL_DEF, type TableRow } from './table-columns'
-import { fsi } from '@/core/util/bidi'
-import CellBar from './CellBar'
-import { formatValue } from './format'
+import { TABLE_DEFAULT_COL_DEF, tableColumnDefs, type TableRow } from './table-columns'
 import { tableLayout } from './table-layout'
 import type { MeasureUnit } from '@/core/models/analytics'
 
@@ -15,7 +12,8 @@ import type { MeasureUnit } from '@/core/models/analytics'
  * The table form — any measures × 1–3 dimensions, with cell bars on the numeric columns (ticket 769).
  *
  * AG Grid, spreading the core grid base (`npm run lint`'s grid gate): a dimension cell keeps the base's
- * `BdiCell`; a measure cell takes `CellBar`, which isolates its own whole value. The sort and top N are
+ * `BdiCell`; a measure cell takes `CellBar`, which isolates its own whole value (`./table-columns`
+ * `tableColumnDefs`; 878: a column of the server's own texts is shown as sent and sorted by number). The sort and top N are
  * the view model's (`toTableView`); the sorted column shows its arrow and a reader may re-sort.
  * The grid is direction-aware by the app's global options, so it mirrors under Arabic on its own.
  * A long table keeps row virtualisation: it scrolls in a fixed viewport instead of growing (./table-layout).
@@ -28,6 +26,11 @@ export interface TableChartColumn {
   max?: number
   /** The header's tooltip (spec 3543 decision 14: a cross-area column's date basis). Absent → none. */
   tooltip?: string
+  /**
+   * 878 (BackOffice spec 3587 B22): a measure column whose cells are the server's own texts ("62.0%", "-620"). They
+   * are shown as sent — never formatted by `unit`, no cell bar — and sorted by the number each holds.
+   */
+  asSent?: boolean
 }
 
 type Row = TableRow
@@ -51,31 +54,7 @@ export default function TableChart({
   /** The row a cross-filter was clicked on here (`rows` index): marked `data-selected` and highlighted. */
   selectedRow?: number | null
 }) {
-  const columnDefs = useMemo<ColDef<Row>[]>(
-    () =>
-      columns.map((c) => {
-        // An AG Grid header name is a string-only sink: isolate the whole label (bidi rule).
-        const base: ColDef<Row> = {
-          colId: c.key,
-          field: c.key,
-          headerName: fsi(c.label),
-          // A tooltip is a string-only sink too: the whole text isolated.
-          ...(c.tooltip ? { headerTooltip: fsi(c.tooltip) } : {}),
-          sort: sort?.key === c.key ? sort.direction : null,
-        }
-        if (c.role === 'dimension') return { ...base, flex: 1, minWidth: 140 }
-        const unit = c.unit ?? 'count'
-        return {
-          ...base,
-          flex: 1,
-          minWidth: 140,
-          valueFormatter: (p) => formatValue(typeof p.value === 'number' ? p.value : null, unit, locale),
-          cellRenderer: CellBar,
-          cellRendererParams: { max: c.max ?? 0 },
-        }
-      }),
-    [columns, sort, locale],
-  )
+  const columnDefs = useMemo<ColDef<Row>[]>(() => tableColumnDefs(columns, sort, locale), [columns, sort, locale])
   // A long table scrolls inside a fixed viewport, so AG Grid renders only the rows in sight (./table-layout).
   const layout = tableLayout(rows.length, OMS_GRID_ROW_HEIGHT, OMS_GRID_HEADER_HEIGHT)
   return (

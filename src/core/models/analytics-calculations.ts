@@ -32,6 +32,13 @@ export const MAX_CALCULATIONS = 4
 /** Decision 1: a calculation's key. Unique in the query; never a measure or dimension key. */
 export const CALCULATION_KEY_PATTERN = /^[a-z][A-Za-z0-9_]{0,39}$/
 
+/**
+ * BackOffice spec 3587 B10 (ticket 3605; web 876): the comparison a `change` is taken from, spelled as the result field
+ * that holds its rows — `previous` (`compareToPrevious`) or `lastYear` (`compareToLastYear`).
+ */
+export type AnalyticsChangeFrom = 'previous' | 'lastYear'
+export const CHANGE_FROMS: readonly AnalyticsChangeFrom[] = ['previous', 'lastYear']
+
 /** One entry of `AnalyticsSemanticQuery.calculations` (decision 1). */
 export interface AnalyticsCalculation {
   key: string
@@ -47,6 +54,11 @@ export interface AnalyticsCalculation {
    * each row's parent (some, never all). Absent = a share of the whole result, exactly as in 3519.
    */
   within?: string[] | null
+  /**
+   * `change` only (BackOffice 3605): the comparison it is taken from. Absent = the previous period, exactly as before
+   * the field existed; the web writes it only as `"lastYear"`, so a change from the previous period is today's JSON.
+   */
+  from?: AnalyticsChangeFrom | null
   /** Both languages or neither; absent → the web derives one from the kind and the measure's label. */
   label?: AnalyticsLabel | null
 }
@@ -89,6 +101,8 @@ export interface AnalyticsColumnCalculation {
   of?: string | null
   /** Spec 3543 (3545): the parent dimensions of a share within; absent otherwise. */
   within?: string[] | null
+  /** BackOffice 3605: `"lastYear"` on a change taken from last year; absent on every other column. */
+  from?: AnalyticsChangeFrom | null
 }
 
 /**
@@ -136,6 +150,8 @@ export function readCalculations(raw: unknown): AnalyticsCalculation[] | undefin
       if (typeof c.until === 'number' && Number.isFinite(c.until)) out.until = c.until
       const within = readWithin(c.within)
       if (within) out.within = within
+      // 876 (BackOffice 3605): only a change says where it is from, and only last year is written.
+      if (out.kind === 'change' && c.from === 'lastYear') out.from = 'lastYear'
       const label = readLabel(c.label)
       if (label) out.label = label
       return out
@@ -148,7 +164,13 @@ export function readColumnCalculation(raw: unknown): AnalyticsColumnCalculation 
   const c = obj(raw)
   if (!isKind(c.kind) || !str(c.measure)) return null
   const within = readWithin(c.within)
-  return { kind: c.kind, measure: str(c.measure), ...(str(c.of) ? { of: str(c.of) } : {}), ...(within ? { within } : {}) }
+  return {
+    kind: c.kind,
+    measure: str(c.measure),
+    ...(str(c.of) ? { of: str(c.of) } : {}),
+    ...(within ? { within } : {}),
+    ...(c.kind === 'change' && c.from === 'lastYear' ? { from: 'lastYear' as const } : {}),
+  }
 }
 
 /**

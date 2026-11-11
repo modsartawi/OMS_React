@@ -12,6 +12,7 @@ import { panelFailure, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
 import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
+import LastYearNote from './LastYearNote'
 import UntilNote from './UntilNote'
 import { columnTooltip } from './unsplit'
 import { useCalculatedModel } from './use-calculations'
@@ -157,6 +158,7 @@ function PanelTableView({ result, definition, model, lang }: { result: Analytics
       />
       <UntilNote definition={definition} result={result} model={model} lang={lang} />
       <AreaNotes definition={definition} result={result} model={shown} lang={lang} />
+      <LastYearNote result={result} model={shown} lang={lang} />
     </div>
   )
 }

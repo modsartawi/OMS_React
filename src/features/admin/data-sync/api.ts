@@ -16,6 +16,7 @@ import type {
   DataSyncAccess,
   DataSyncHealth,
   Job,
+  RerunOffer,
   SyncProfile,
 } from '@/core/models/data-sync'
 import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
@@ -23,7 +24,7 @@ import type { ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
 import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
-import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
+import { isDataSyncNotFound, jobsQuery, type JobsFilter } from './job-helpers'
 
 /**
  * The ONE cache key the Admin menu leaf and the page's own gate share, so the probe costs one
@@ -88,10 +89,11 @@ export const dataSyncApi = {
   },
 
   /**
-   * `GET DataSync/Campaigns/{id}/Jobs?status=&page=&pageSize=` → a plain array (creation order, no
-   * total), each job WITH its table tasks. 404 `DATASYNC_CAMPAIGN_NOT_FOUND`.
+   * `GET DataSync/Campaigns/{id}/Jobs?status=&store=&failureReason=&page=&pageSize=` → a plain array
+   * (creation order, no total), each job WITH its table tasks; the filters AND together. 400
+   * `DATASYNC_INVALID_REQUEST` for an unknown status or failure reason; 404 `DATASYNC_CAMPAIGN_NOT_FOUND`.
    */
-  campaignJobs(campaignId: string, filter: Pick<CampaignJobsView, 'status' | 'page'>): Promise<Job[]> {
+  campaignJobs(campaignId: string, filter: JobsFilter): Promise<Job[]> {
     return api.get<Job[]>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/Jobs`, { ...jobsQuery(filter) })
   },
 
@@ -101,17 +103,19 @@ export const dataSyncApi = {
   },
 
   /**
-   * `POST DataSync/Campaigns/{id}/{Pause|Resume|Cancel}` (ticket 563) → the campaign AFTER the move
-   * and its settle (Pause → Pausing or Paused; Cancel → Cancelling or Cancelled). 409
-   * `DATASYNC_INVALID_STATE`, 404 `DATASYNC_CAMPAIGN_NOT_FOUND`; a bare 403 without Operate.
+   * `POST DataSync/Campaigns/{id}/{Pause|Resume|Cancel|Retry}` (tickets 563, 866) → the campaign AFTER
+   * the move and its settle (Pause → Pausing or Paused; Cancel → Cancelling or Cancelled; Retry → a
+   * Completed campaign is Running again). 409 `DATASYNC_INVALID_STATE` (for Retry: nothing retryable,
+   * or cancelling / cancelled), 404 `DATASYNC_CAMPAIGN_NOT_FOUND`; a bare 403 without Operate.
    */
   controlCampaign(campaignId: string, action: ControlAction, body: ControlRequest): Promise<Campaign> {
     return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/${action}`, body)
   },
 
   /**
-   * `POST DataSync/Jobs/{id}/{Pause|Resume|Cancel}` (ticket 563) → the job after the move. 409
-   * `DATASYNC_INVALID_STATE`; an apply job's Resume re-checks its store: 409 `DATASYNC_STORE_BUSY` /
+   * `POST DataSync/Jobs/{id}/{Pause|Resume|Cancel|Retry}` (tickets 563, 866) → the job after the move
+   * (a Retry: Queued, resuming from its checkpoints). 409 `DATASYNC_INVALID_STATE`; an apply job's
+   * Resume or Retry re-checks its store: 409 `DATASYNC_STORE_BUSY` /
    * `DATASYNC_STORE_WPF_HOSTED`. 404 `DATASYNC_JOB_NOT_FOUND`; a bare 403 without Operate.
    */
   controlJob(jobId: string, action: ControlAction, body: ControlRequest): Promise<Job> {
@@ -141,6 +145,17 @@ export const dataSyncApi = {
   /** `POST DataSync/Campaigns/{id}/Start` → the campaign, Running. 409 `DATASYNC_INVALID_STATE`, 404. */
   startCampaign(campaignId: string): Promise<Campaign> {
     return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/Start`, {})
+  },
+
+  // ── Re-run (spec 863, ticket 864) ──
+
+  /**
+   * `GET DataSync/Campaigns/{id}/RerunTargets` (View) → the failed stores Retry cannot help
+   * (`TableFailures` / `Error` / `StoreWpfHosted`), each with its unfinished tables, and their union
+   * in profile order. 404 `DATASYNC_CAMPAIGN_NOT_FOUND`. A create with `rerunOf` uses it.
+   */
+  rerunTargets(campaignId: string): Promise<RerunOffer> {
+    return api.get<RerunOffer>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/RerunTargets`)
   },
 }
 
@@ -180,8 +195,12 @@ export function campaignsListQuery(filter: CampaignsFilter) {
 export const campaignKey = (campaignId: string) => ['data-sync', 'campaign', campaignId] as const
 
 export const campaignSummaryKey = (campaignId: string) => [...campaignKey(campaignId), 'summary'] as const
-export const campaignJobsKey = (campaignId: string, filter: Pick<CampaignJobsView, 'status' | 'page'>) =>
-  [...campaignKey(campaignId), 'jobs', { status: filter.status, page: filter.page }] as const
+export const campaignJobsKey = (campaignId: string, filter: JobsFilter) =>
+  [
+    ...campaignKey(campaignId),
+    'jobs',
+    { status: filter.status, store: filter.store?.trim() || null, failureReason: filter.failureReason ?? null, page: filter.page },
+  ] as const
 
 /** A not-found is an answer (the page says so), not an outage: never retried. Anything else once. */
 const retryUnlessNotFound = (count: number, err: unknown) => !isDataSyncNotFound(err) && count < 1
@@ -198,7 +217,7 @@ export function campaignQuery(campaignId: string, refetchInterval: number | fals
 
 export function campaignJobsQuery(
   campaignId: string,
-  filter: Pick<CampaignJobsView, 'status' | 'page'>,
+  filter: JobsFilter,
   refetchInterval: number | false,
 ) {
   return {

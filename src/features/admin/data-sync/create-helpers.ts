@@ -29,6 +29,8 @@ export interface CreateDraft {
   name: string
   /** Apply only; ignored for ReportOnly. */
   reason: string
+  /** Spec 863: set when the dialog was opened from *New campaign from failed*. */
+  rerunOf?: string | null
 }
 
 /**
@@ -48,6 +50,7 @@ export function buildCreateRequest(d: CreateDraft): CreateCampaignRequest {
   const name = d.name.trim()
   if (name) body.name = name
   if (d.mode === 'Apply') body.reason = d.reason.trim()
+  if (d.rerunOf) body.rerunOf = d.rerunOf
   return body
 }
 
@@ -113,6 +116,11 @@ export const CREATE_REFUSAL_CODES = [
   'DATASYNC_REASON_REQUIRED',
   'DATASYNC_PROFILE_NO_APPLY_TABLES',
   'DATASYNC_STORE_BUSY',
+  // A re-run (spec 863): the original is gone, or ran another profile.
+  'DATASYNC_CAMPAIGN_NOT_FOUND',
+  'DATASYNC_RERUN_PROFILE_MISMATCH',
+  // 865: a requested store is already in a live re-run of the original (the guard behind the offer's `excluded`).
+  'DATASYNC_STORE_IN_LIVE_RERUN',
 ] as const satisfies readonly DataSyncErrorCode[]
 
 export type CreateRefusalCode = (typeof CREATE_REFUSAL_CODES)[number]
@@ -120,7 +128,10 @@ export type CreateRefusalCode = (typeof CREATE_REFUSAL_CODES)[number]
 export interface CreateRefusalWords {
   /** The sentence key (`data-sync:create.refusal.<code>`). */
   key: string
-  /** `DATASYNC_UNKNOWN_STORE`: the store the door named (`client/code`), when the detail carried it. */
+  /**
+   * `DATASYNC_UNKNOWN_STORE`: the store the door named (`client/code`), when the detail carried it.
+   * `DATASYNC_STORE_IN_LIVE_RERUN`: every store it named, comma-separated.
+   */
   store?: string
   /** `DATASYNC_TABLE_NOT_IN_PROFILE`: the table the door named. */
   table?: string
@@ -131,6 +142,9 @@ const detailOf = (err: unknown): string => (err instanceof ApiError ? (err.detai
 
 /** The leading token of a detail like `000/P009 is not in DistributionLocation.` */
 const leadingName = (detail: string): string | undefined => /^(\S+) is not in /.exec(detail)?.[1]
+
+/** Every store in a detail like `000/P014 is in re-run 01JE…; 000/P015 is in re-run 01JE… of campaign 01JB…; …` */
+const heldStores = (detail: string): string[] => [...detail.matchAll(/(?:^|; )(\S+) is in re-run /g)].map((m) => m[1])
 
 /**
  * A create refusal as a sentence key, plus the store or table it names. `null` for anything else —
@@ -143,6 +157,8 @@ export function createRefusalWords(err: unknown): CreateRefusalWords | null {
   const name = leadingName(detailOf(err))
   if (name && code === 'DATASYNC_UNKNOWN_STORE') words.store = name
   if (name && code === 'DATASYNC_TABLE_NOT_IN_PROFILE') words.table = name
+  const held = code === 'DATASYNC_STORE_IN_LIVE_RERUN' ? heldStores(detailOf(err)) : []
+  if (held.length > 0) words.store = held.join(', ')
   return words
 }
 

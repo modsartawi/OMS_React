@@ -149,7 +149,7 @@ export function effectiveQuery(
     ...(period === null ? {} : { period }),
     filters: reached,
     ...crossed,
-    // 766 §C: the previous period's rows ride back when the view compares to it (story 23).
+    // 766 §C: the previous period's rows ride back when the view compares to it (story 23); last year's too (876).
     ...comparing(view),
   }
 }
@@ -181,9 +181,15 @@ export function panelPeriod(panel: ViewPanel, view: AnalyticsViewDefinition, { p
   return view.query.period ?? null
 }
 
-/** `{ compareToPrevious: true }` when the view compares with the previous period; nothing otherwise. */
-export const comparing = (view: AnalyticsViewDefinition): { compareToPrevious?: true } =>
-  view.query.compareToPrevious ? { compareToPrevious: true } : {}
+/**
+ * `{ compareToPrevious: true }` when the view compares with the previous period, `{ compareToLastYear: true }` when it
+ * compares with the same weeks last year (876, BackOffice 3604: the request's override resolves as the previous one
+ * does); nothing otherwise, so a view that asks for neither sends the request it always sent.
+ */
+export const comparing = (view: AnalyticsViewDefinition): { compareToPrevious?: true; compareToLastYear?: true } => ({
+  ...(view.query.compareToPrevious ? { compareToPrevious: true as const } : {}),
+  ...(view.query.compareToLastYear ? { compareToLastYear: true as const } : {}),
+})
 
 /**
  * The query-cache input of an effective query (853): itself, except that a `draft` is replaced by what of it this one

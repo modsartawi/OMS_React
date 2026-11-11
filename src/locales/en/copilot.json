@@ -198,9 +198,17 @@
       "saveFailed": "The house rules could not be saved.",
       "invalid": "The server refused these house rules."
     },
+    "readings": {
+      "label": "Default readings",
+      "hint": "How the copilot reads a question that leaves something open, such as which sales or which month. Saved with the house rules as one version.",
+      "builtIn": "The built-in readings, never changed. Edit them to make them this version's own.",
+      "tooLong": "The default readings can be at most {{max}} characters. Shorten them to save.",
+      "invalid": "The server refused these default readings.",
+      "history": "Default readings"
+    },
     "try": {
       "heading": "Try it",
-      "hint": "Ask a question and see how the copilot answers with the text above, saved or not.",
+      "hint": "Ask a question and see how the copilot answers with the house rules and default readings above, saved or not.",
       "label": "Question",
       "placeholder": "Ask a question to try the draft",
       "run": "Try with this draft",
@@ -219,7 +227,7 @@
     },
     "history": {
       "heading": "History",
-      "hint": "The last 20 versions, newest first. Open one to read it beside the current text.",
+      "hint": "The last 20 versions, newest first. Open one to read it beside the current text. A restore brings back its house rules and its default readings.",
       "none": "No saved versions yet.",
       "active": "Active",
       "revertedFrom": "reverted from <v>v{{n}}</v>",

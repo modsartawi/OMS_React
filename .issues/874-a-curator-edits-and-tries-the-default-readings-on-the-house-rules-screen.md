@@ -20,11 +20,11 @@ BackOffice spec 3586 A23, A25, A56, "The web half"; ticket 3593.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] The screen's view model carries the default readings from the read door, and the built-in text when the version has none · oms-react tests (the house-rules tests)
-- [ ] A save request carries both texts and the base version · oms-react tests
-- [ ] A try request carries the draft default readings · oms-react tests
-- [ ] 2,001 characters disables the save and shows the limit; 2,000 is fine · oms-react tests
-- [ ] A refusal naming the default readings marks that field · oms-react tests
+- [x] The screen's view model carries the default readings from the read door, and the built-in text when the version has none · oms-react tests (the house-rules tests)
+- [x] A save request carries both texts and the base version · oms-react tests
+- [x] A try request carries the draft default readings · oms-react tests
+- [x] 2,001 characters disables the save and shows the limit; 2,000 is fine · oms-react tests
+- [x] A refusal naming the default readings marks that field · oms-react tests
 
 ## Boundaries
 

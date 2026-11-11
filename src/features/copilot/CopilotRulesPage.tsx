@@ -23,24 +23,43 @@ import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer
 import { Answer, Refusal } from './AnswerParts'
 import { COPILOT_PROMPT_HISTORY_KEY, COPILOT_PROMPT_KEY, copilotRulesApi } from './rules-api'
 import {
-  RULES_INVALID,
+  HOUSE_RULES_FIELD,
+  READINGS_FIELD,
+  READINGS_MAX,
   RULES_MAX,
   SAVED_FIRST,
   canSaveRules,
   curatorRefused,
+  draftOf,
   historyRows,
   isRulesDirty,
   mergeOffer,
+  readingsOf,
+  readingsTooLong,
+  refusedField,
   rulesTooLong,
   saveRequest,
+  tryRequest,
   type HistoryRow,
   type MergeOffer,
   type RulesDraft,
+  type RulesFrame,
 } from './rules'
+
+/** A `COPILOT-412` the screen shows at its field: the house rules or the default readings. */
+interface FieldRefusal {
+  field: typeof HOUSE_RULES_FIELD | typeof READINGS_FIELD
+  message: string
+}
+
+/** Before the read door answers: no built-in text, the default limit. */
+const NO_FRAME: RulesFrame = { builtInDefaultReadings: '', defaultReadingsMaxLength: READINGS_MAX }
 
 /**
  * `/copilot/rules` — a copilot curator edits the house rules (ticket 790, BackOffice 3395): the read-only core,
  * the editor (4,000 characters, a note, Save on `baseVersion`), Try with the draft, and the history with restore.
+ * Ticket 874 (BackOffice 3593): the default readings beside the house rules, their own 2,000 limit and counter,
+ * saved, tried and restored with them; a `COPILOT-412` naming `defaultReadings` marks that field.
  *
  * 🚩 Fails closed twice: the gate reads `canCurate` off `GET Copilot/Access`, and a `COPILOT-410` from any of
  * the five doors shows the same no-access state.
@@ -79,19 +98,34 @@ function RulesScreen() {
   const [refused, setRefused] = useState(false)
   /** The version the draft was edited from; its number is the save's `baseVersion`. */
   const [base, setBase] = useState<CopilotPromptVersion | null>(null)
-  const [draft, setDraft] = useState<RulesDraft>({ text: '', note: '' })
-  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [draft, setDraft] = useState<RulesDraft>({ text: '', note: '', readings: '' })
+  const [fieldError, setFieldError] = useState<FieldRefusal | null>(null)
   const [conflict, setConflict] = useState<{ offer: MergeOffer; theirs: CopilotPromptVersion } | null>(null)
   const [opened, setOpened] = useState<HistoryRow | null>(null)
   const [confirming, setConfirming] = useState<HistoryRow | null>(null)
+  /** The default readings' built-in text and limit, from the read door. */
+  const frame: RulesFrame = prompt.data ?? NO_FRAME
 
   // The first load fills the editor; a later refetch never overwrites what the curator is typing.
   useEffect(() => {
     if (base === null && prompt.data) {
       setBase(prompt.data.active)
-      setDraft({ text: prompt.data.active.text, note: '' })
+      setDraft(draftOf(prompt.data.active, prompt.data))
     }
   }, [base, prompt.data])
+
+  /**
+   * A `COPILOT-412` (from Save or Try) at the field it names: the default readings, or the house rules. A field this
+   * screen does not draw yet (a starter's path, ticket 875) is a toast.
+   */
+  const fieldRefused = (err: unknown): boolean => {
+    const field = refusedField(err)
+    if (field === null) return false
+    if (field === READINGS_FIELD) setFieldError({ field, message: apiErrorMessage(err, t('rules.readings.invalid')) })
+    else if (field === HOUSE_RULES_FIELD) setFieldError({ field, message: apiErrorMessage(err, t('rules.editor.invalid')) })
+    else toast.error(apiErrorMessage(err, t('rules.editor.saveFailed')))
+    return true
+  }
 
   const denied = (err: unknown) => {
     if (!curatorRefused(err)) return false
@@ -105,7 +139,7 @@ function RulesScreen() {
   /** A version the server saved (by Save or Restore) becomes the editor's base and text. */
   const adopt = (v: CopilotPromptVersion) => {
     setBase(v)
-    setDraft({ text: v.text, note: '' })
+    setDraft(draftOf(v, frame))
     setFieldError(null)
     refreshAll()
   }
@@ -120,14 +154,18 @@ function RulesScreen() {
     },
     onError: async (err, body) => {
       if (denied(err)) return
-      const code = apiErrorCode(err)
-      if (code === RULES_INVALID) {
-        setFieldError(apiErrorMessage(err, t('rules.editor.invalid')))
-      } else if (code === SAVED_FIRST) {
+      if (fieldRefused(err)) return
+      if (apiErrorCode(err) === SAVED_FIRST) {
         // Nothing is lost silently: their version beside mine, and the curator chooses.
         try {
           const theirs = await latest()
-          setConflict({ offer: mergeOffer(theirs, { text: body.houseRules, note: body.note ?? '' }), theirs })
+          // Mine as it was sent: `""` default readings read back as the built-in text it showed.
+          const mine: RulesDraft = {
+            text: body.houseRules,
+            note: body.note ?? '',
+            readings: body.defaultReadings ? body.defaultReadings : frame.builtInDefaultReadings,
+          }
+          setConflict({ offer: mergeOffer(theirs, mine, frame), theirs })
           void qc.invalidateQueries({ queryKey: COPILOT_PROMPT_HISTORY_KEY, exact: true })
         } catch (e) {
           if (!denied(e)) toast.error(apiErrorMessage(e, t('rules.editor.saveFailed')))
@@ -152,7 +190,7 @@ function RulesScreen() {
       if (apiErrorCode(err) === SAVED_FIRST) {
         try {
           const now = await latest()
-          if (!isRulesDirty(draft, base)) adopt(now)
+          if (!isRulesDirty(draft, base, frame)) adopt(now)
           else refreshAll()
         } catch (e) {
           denied(e)
@@ -164,7 +202,7 @@ function RulesScreen() {
   /** `v4`: a machine value, isolated whole by the caller. */
   const vTag = (n: number) => t('rules.versionTag', { n: formatNumber(n) })
   const busy = save.isPending || revert.isPending
-  const dirty = isRulesDirty(draft, base)
+  const dirty = isRulesDirty(draft, base, frame)
 
   if (refused || curatorRefused(prompt.error) || curatorRefused(history.error)) return <NoAccess />
   if (prompt.isPending || (base === null && prompt.data)) {
@@ -182,14 +220,18 @@ function RulesScreen() {
 
   const onSave = (e?: FormEvent) => {
     e?.preventDefault()
-    if (!canSaveRules(draft, base, busy)) return
+    if (!canSaveRules(draft, base, busy, frame)) return
     setFieldError(null)
-    save.mutate(saveRequest(draft, base.version))
+    save.mutate(saveRequest(draft, base.version, frame))
   }
   const tooLong = rulesTooLong(draft.text)
   const blank = draft.text.trim() === ''
+  const readingsMax = frame.defaultReadingsMaxLength
+  const readingsLong = readingsTooLong(draft.readings, frame)
+  /** The version had none of its own and the curator has not changed the built-in text. */
+  const readingsBuiltIn = base.defaultReadings === '' && draft.readings === frame.builtInDefaultReadings && draft.readings !== ''
   // The version in force is the server's, not the one the draft was edited from (someone may have saved since).
-  const rows = historyRows(history.data, prompt.data.active.version)
+  const rows = historyRows(history.data, prompt.data.active.version, frame)
   /** The opened row as the history now reads it, so its active mark follows a save. */
   const openedRow = opened ? (rows.find((r) => r.version === opened.version) ?? opened) : null
 
@@ -213,7 +255,7 @@ function RulesScreen() {
             label={t('rules.editor.label')}
             hideLabel
             error={
-              fieldError ??
+              (fieldError?.field === HOUSE_RULES_FIELD ? fieldError.message : undefined) ??
               (tooLong ? t('rules.editor.tooLong', { max: fsi(formatNumber(RULES_MAX)) }) : dirty && blank ? t('rules.editor.blank') : undefined)
             }
             hint={
@@ -236,6 +278,35 @@ function RulesScreen() {
               data-rules-text
             />
           </Field>
+          <Field
+            label={t('rules.readings.label')}
+            error={
+              (fieldError?.field === READINGS_FIELD ? fieldError.message : undefined) ??
+              (readingsLong ? t('rules.readings.tooLong', { max: fsi(formatNumber(readingsMax)) }) : undefined)
+            }
+            hint={
+              <span className="flex flex-col gap-0.5">
+                <span>{t('rules.readings.hint')}</span>
+                {readingsBuiltIn && <span data-rules-readings-builtin>{t('rules.readings.builtIn')}</span>}
+                <span data-rules-readings-count>
+                  {t('rules.editor.chars')} <Ltr>{formatCount(formatNumber(draft.readings.length), formatNumber(readingsMax))}</Ltr>
+                </span>
+              </span>
+            }
+          >
+            <Textarea
+              rows={8}
+              dir="auto"
+              value={draft.readings}
+              onChange={(e) => {
+                const readings = e.target.value
+                setDraft((d) => ({ ...d, readings }))
+                setFieldError(null)
+              }}
+              className="w-full resize-y font-mono text-xs leading-relaxed"
+              data-rules-readings
+            />
+          </Field>
           <Field label={t('rules.editor.note')}>
             <Input
               dir="auto"
@@ -249,14 +320,14 @@ function RulesScreen() {
             />
           </Field>
           <div className="flex justify-end">
-            <Button type="submit" disabled={!canSaveRules(draft, base, busy)} data-rules-save>
+            <Button type="submit" disabled={!canSaveRules(draft, base, busy, frame)} data-rules-save>
               {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
               {save.isPending ? t('rules.editor.saving') : t('rules.editor.save')}
             </Button>
           </div>
         </form>
 
-        <TryBox text={draft.text} onRefused={denied} />
+        <TryBox draft={draft} frame={frame} onRefused={(err) => denied(err) || (refusedField(err) === READINGS_FIELD && fieldRefused(err))} />
       </div>
 
       <section className="flex flex-col gap-3" data-rules-history>
@@ -313,6 +384,19 @@ function RulesScreen() {
                 }
                 text={base.text}
                 data-rules-compare-current
+              />
+            </div>
+            <h3 className="text-xs font-semibold">{t('rules.readings.history')}</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Pane label={<Ltr>{vTag(openedRow.version)}</Ltr>} text={openedRow.readings} data-rules-compare-old-readings />
+              <Pane
+                label={
+                  <>
+                    {t('rules.history.current')} <Ltr>{vTag(base.version)}</Ltr>
+                  </>
+                }
+                text={readingsOf(base, frame)}
+                data-rules-compare-current-readings
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -405,6 +489,11 @@ function RulesScreen() {
               />
               <Pane label={t('rules.conflict.mine')} text={conflict.offer.mine.text} data-rules-conflict-mine />
             </div>
+            <h3 className="text-xs font-semibold">{t('rules.readings.history')}</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Pane label={t('rules.conflict.theirs')} text={conflict.offer.theirs.readings} data-rules-conflict-theirs-readings />
+              <Pane label={t('rules.conflict.mine')} text={conflict.offer.mine.readings} data-rules-conflict-mine-readings />
+            </div>
           </div>
         )}
       </Modal>
@@ -459,18 +548,20 @@ function Pane({ label, text, ...rest }: { label: ReactNode; text: string; [data:
 }
 
 /**
- * Try it: a question answered with the textarea's text as it stands, saved or not, drawn by the copilot's own
- * answer rendering and labelled a draft. It joins no conversation; it does count toward the copilot limit.
+ * Try it: a question answered with the draft house rules and default readings as they stand, saved or not, drawn
+ * by the copilot's own answer rendering and labelled a draft. It joins no conversation; it does count toward the
+ * copilot limit.
  */
-function TryBox({ text, onRefused }: { text: string; onRefused: (err: unknown) => boolean }) {
+function TryBox({ draft, frame, onRefused }: { draft: RulesDraft; frame: RulesFrame; onRefused: (err: unknown) => boolean }) {
   const { t } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
   const run = useMutation({
-    mutationFn: (q: string) => copilotRulesApi.tryDraft({ houseRules: text, question: q }),
+    mutationFn: (q: string) => copilotRulesApi.tryDraft(tryRequest(draft, q, frame)),
     onError: (err) => void onRefused(err),
   })
   const tooLong = question.length > COPILOT_MAX_QUESTION
-  const canTry = questionFits(question) && text.trim() !== '' && !rulesTooLong(text) && !run.isPending
+  const canTry =
+    questionFits(question) && draft.text.trim() !== '' && !rulesTooLong(draft.text) && !readingsTooLong(draft.readings, frame) && !run.isPending
   const send = (e: FormEvent) => {
     e.preventDefault()
     if (canTry) run.mutate(question.trim())

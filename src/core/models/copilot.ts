@@ -38,12 +38,18 @@ export interface CopilotPromptVersion {
   note: string | null
   /** Set on a version a restore made: the version it copied. */
   revertedFrom: number | null
+  /** 3593 (oms-react 874): the version's own default readings; `""` when it has none (it uses the built-in text). */
+  defaultReadings: string
 }
 
 /** The locked core (read-only, never sent back) and the active house rules, as the screen holds them. */
 export interface CopilotPrompt {
   core: string
   active: CopilotPromptVersion
+  /** 3593: the built-in default readings, shown for a version with none of its own. */
+  builtInDefaultReadings: string
+  /** 3593: the default readings' own limit (2,000), apart from the house rules' 4,000. */
+  defaultReadingsMaxLength: number
 }
 
 /** `GET Copilot/Prompt` → `data` (BackOffice 3395 `CopilotPromptView`): the active version, flat. */

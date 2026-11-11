@@ -33,11 +33,11 @@ export const copilotRulesApi = {
     const rows = await api.get<CopilotPromptVersionWire[]>('Copilot/Prompt/History', { take: HISTORY_MAX })
     return Array.isArray(rows) ? rows.map(fromVersionWire) : []
   },
-  /** `POST Copilot/Prompt` `{ houseRules, note, baseVersion }` → the version it saved. */
+  /** `POST Copilot/Prompt` `{ houseRules, note, baseVersion, defaultReadings }` → the version it saved. */
   async save(body: CopilotPromptSaveRequest): Promise<CopilotPromptVersion> {
     return fromVersionWire(await api.post<CopilotPromptVersionWire>('Copilot/Prompt', body))
   },
-  /** `POST Copilot/Prompt/Try` `{ houseRules, question }` → an answer under the draft (`promptVersion: null`). */
+  /** `POST Copilot/Prompt/Try` `{ houseRules, question, defaultReadings }` → an answer under the draft (`promptVersion: null`). */
   tryDraft(body: CopilotPromptTryRequest): Promise<CopilotAnswer> {
     return api.post<CopilotAnswer>('Copilot/Prompt/Try', body)
   },

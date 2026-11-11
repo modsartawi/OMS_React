@@ -432,6 +432,13 @@ export interface AnalyticsColumn {
 /** Spec 3543 D12 (3548): an "All" row of a cross-area result also carries `isTotal: true` (`./analytics-calculations`). */
 export type AnalyticsRow = Record<string, string | number | boolean | null>
 
+/** One area whose last year is not held (BackOffice 3606): its key, the day its data starts (`yyyy-MM-dd`), its measures. */
+export interface AnalyticsLastYearNotHeld {
+  area: string
+  dataFrom: string
+  measures: string[]
+}
+
 export interface AnalyticsQueryResult {
   columns: AnalyticsColumn[]
   rows: AnalyticsRow[]
@@ -447,6 +454,13 @@ export interface AnalyticsQueryResult {
   lastYear?: AnalyticsRow[]
   /** The dates `lastYear` covers: the period's own, 364 days back. Absent with `lastYear`. */
   lastYearPeriod?: { from: string; to: string }
+  /**
+   * BackOffice spec 3587 B11 (ticket 3606; web 877): every area whose last year is NOT HELD — its data starts after the
+   * first day of last year's span — with the day its data starts and the query's measures it answers. Those figures have
+   * no last year: they are empty on every row of `lastYear` (never 0), and `lastYear` may be `[]`. Absent when every
+   * area holds the span, or when last year was not asked.
+   */
+  lastYearNotHeld?: AnalyticsLastYearNotHeld[]
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string

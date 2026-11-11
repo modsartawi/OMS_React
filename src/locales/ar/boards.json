@@ -449,6 +449,10 @@
     "notSharedTitle": "هذا العرض غير مُشارك معك",
     "seriesColumn": "السلسلة",
     "previousColumn": "{{measure}} (الفترة السابقة)",
+    "lastYearColumn": "{{measure}} (العام الماضي، {{range}})",
+    "lastYearSeries": "العام الماضي ({{range}})",
+    "lastYearNotHeld": "لا يُعرض العام الماضي لـ {{measures}}: تبدأ البيانات في {{day}}.",
+    "lastYearNotHeldNoDay": "لا يُعرض العام الماضي لـ {{measures}}: البيانات لا تعود إلى ذلك الوقت.",
     "allMembers": "الكل",
     "unsplit": {
       "notSplit": "لا يمكن تقسيم {{measure}} حسب {{by}}.",

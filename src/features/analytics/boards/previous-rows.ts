@@ -26,15 +26,29 @@ export function previousMatcher(
   model: AnalyticsModel,
   extraKeys: readonly string[] = [],
 ): (row: AnalyticsRow) => AnalyticsRow | undefined {
+  return comparisonMatcher(result.rows, result.previous, dimKeys, model, extraKeys)
+}
+
+/**
+ * {@link previousMatcher}'s rule over any comparison's rows (877: last year's are matched the same way, `./last-year`):
+ * each of `rows` paired with its row among `earlierRows`.
+ */
+export function comparisonMatcher(
+  rows: readonly AnalyticsRow[],
+  earlierRows: readonly AnalyticsRow[],
+  dimKeys: readonly string[],
+  model: AnalyticsModel,
+  extraKeys: readonly string[] = [],
+): (row: AnalyticsRow) => AnalyticsRow | undefined {
   const timeKeys = dimKeys.filter((k) => dimensionOf(model, k)?.kind === 'time')
-  const ranks = (rows: readonly AnalyticsRow[]) =>
-    new Map(timeKeys.map((k) => [k, new Map([...new Set(rows.map((r) => String(r[k] ?? '')))].sort().map((b, i) => [b, i]))]))
-  const current = ranks(result.rows)
-  const earlier = ranks(result.previous)
+  const ranks = (of: readonly AnalyticsRow[]) =>
+    new Map(timeKeys.map((k) => [k, new Map([...new Set(of.map((r) => String(r[k] ?? '')))].sort().map((b, i) => [b, i]))]))
+  const current = ranks(rows)
+  const earlier = ranks(earlierRows)
   const keyOf = (r: AnalyticsRow, rank: Map<string, Map<string, number>>) =>
     [...extraKeys, ...dimKeys].map((k) => (rank.has(k) ? String(rank.get(k)!.get(String(r[k] ?? ''))) : String(r[k] ?? ''))).join('\u0001')
   const before = new Map<string, AnalyticsRow>()
-  for (const r of result.previous) {
+  for (const r of earlierRows) {
     const key = keyOf(r, earlier)
     if (!before.has(key)) before.set(key, r)
   }

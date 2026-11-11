@@ -437,6 +437,10 @@
     "notSharedTitle": "This view isn’t shared with you",
     "seriesColumn": "Series",
     "previousColumn": "{{measure}} (previous period)",
+    "lastYearColumn": "{{measure}} (last year, {{range}})",
+    "lastYearSeries": "Last year ({{range}})",
+    "lastYearNotHeld": "Last year is not shown for {{measures}}: the data starts on {{day}}.",
+    "lastYearNotHeldNoDay": "Last year is not shown for {{measures}}: the data does not go back that far.",
     "allMembers": "All",
     "unsplit": {
       "notSplit": "{{measure}} cannot be split by {{by}}.",

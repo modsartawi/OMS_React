@@ -107,6 +107,13 @@ export const dimensionOf = (model: Pick<AnalyticsModel, 'dimensions'> | null | u
 export const valueLabel = (model: Pick<AnalyticsModel, 'dimensions'> | null | undefined, dimension: string, value: string, lang: string): string =>
   saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === value)?.label, lang) || value
 
+/** 877 (BackOffice 3606): each entry must name the figures it covers; anything else is left out. */
+const readLastYearNotHeld = (raw: unknown[]): NonNullable<AnalyticsQueryResult['lastYearNotHeld']> =>
+  raw
+    .map(obj)
+    .map((e) => ({ area: str(e.area), dataFrom: str(e.dataFrom), measures: arr<unknown>(e.measures).filter((m): m is string => typeof m === 'string' && m !== '') }))
+    .filter((e) => e.measures.length > 0)
+
 export function readResult(raw: Loose): AnalyticsQueryResult {
   const r = obj(raw)
   const period = obj(r.period)
@@ -130,6 +137,8 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     // 876 (BackOffice 3604): last year's rows and dates ride only when asked; absent stays absent.
     ...(Array.isArray(r.lastYear) ? { lastYear: arr<AnalyticsRow>(r.lastYear) } : {}),
     ...(r.lastYearPeriod && typeof r.lastYearPeriod === 'object' ? { lastYearPeriod: { from: str(obj(r.lastYearPeriod).from), to: str(obj(r.lastYearPeriod).to) } } : {}),
+    // 877 (BackOffice 3606): the areas whose last year is not held; absent (or null) stays absent.
+    ...(Array.isArray(r.lastYearNotHeld) ? { lastYearNotHeld: readLastYearNotHeld(r.lastYearNotHeld) } : {}),
     fetchedAt: str(r.fetchedAt),
     dataAsOf: str(r.dataAsOf),
     // 823: each entry must name its parameter; anything else is left out.

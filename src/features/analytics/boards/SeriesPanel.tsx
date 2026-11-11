@@ -16,10 +16,15 @@ export function drawsAsSeries(def: AnalyticsViewDefinition): boolean {
   const { type, orientation } = def.chart
   if (type === 'kpi' || type === 'line' || type === 'area') return true
   // 825: a bar with named series is a series chart, whatever its shape (767's bar draws one series).
-  // Spec 3519 item 11: a bar compared with the previous period draws its previous series beside it.
+  // Spec 3519 item 11: a bar compared with the previous period draws its previous series beside it; 877: last year's too.
   return (
     type === 'bar' &&
-    (orientation === 'horizontal' || def.query.measures.length > 1 || def.query.dimensions.length > 1 || hasSeries(def) || def.query.compareToPrevious === true)
+    (orientation === 'horizontal' ||
+      def.query.measures.length > 1 ||
+      def.query.dimensions.length > 1 ||
+      hasSeries(def) ||
+      def.query.compareToPrevious === true ||
+      def.query.compareToLastYear === true)
   )
 }
 
@@ -56,6 +61,7 @@ export default function SeriesPanel({
               measureLabel={t('view.seriesKpiLabel', { measure: fsi(k.measure.label), series: fsi(k.series.label) })}
               value={k.value}
               previous={k.previous}
+              lastYear={k.lastYear}
               delta={k.delta}
               spark={k.spark}
               unit={k.measure.unit}
@@ -77,6 +83,7 @@ export default function SeriesPanel({
         measureLabel={kpi.measure.label}
         value={kpi.value}
         previous={kpi.previous}
+        lastYear={kpi.lastYear}
         delta={kpi.delta}
         spark={kpi.spark}
         unit={kpi.measure.unit}
@@ -86,7 +93,8 @@ export default function SeriesPanel({
     )
   }
 
-  const view = toSeriesView(result, definition, model, lang)
+  // 877: the last-year series is named with last year's dates, so it reads apart from the previous period's.
+  const view = toSeriesView(result, definition, model, lang, { lastYear: (range) => t('view.lastYearSeries', { range: fsi(range) }) })
   if (view.kind === 'refused') {
     return (
       <p className="flex h-72 items-center justify-center text-center text-sm text-muted-foreground" role="alert" data-analytics-refused={view.reason}>

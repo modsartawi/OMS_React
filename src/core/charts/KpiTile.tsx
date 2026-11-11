@@ -11,7 +11,8 @@ import type { AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics
 
 /**
  * The KPI tile (ticket 768; 755 Q3): one headline figure, its change against the previous period
- * (▲▼ % from the answer's `previous` rows) and a sparkline when the view is asked over time.
+ * (▲▼ % from the answer's `previous` rows) and a sparkline when the view is asked over time. 877: the figure of the
+ * same weeks last year reads under it, with last year's dates — a figure only: the ▲▼ stays the previous period's.
  *
  * The change is drawn in INK, not in a status colour: whether "up" is good depends on the measure
  * (orders up is good, minutes late up is not), and the status colours are never series colours (766 §F).
@@ -30,6 +31,7 @@ export default function KpiTile({
   measureLabel,
   value,
   previous,
+  lastYear = null,
   delta,
   spark,
   unit,
@@ -42,6 +44,8 @@ export default function KpiTile({
   measureLabel: string
   value: number | null
   previous: number | null
+  /** 877: the figure of the same weeks last year and its dates (one plain range string); absent or `null` → no line. */
+  lastYear?: { value: number; range: string } | null
   delta: KpiTileDelta | null
   spark: readonly { x: string; label: string; value: number | null }[]
   unit: MeasureUnit
@@ -84,6 +88,11 @@ export default function KpiTile({
               <Trans t={t} i18nKey="charts.kpi.previous" values={{ value: fmt(previous) }} components={{ v: <Ltr /> }} />
             </span>
           )}
+        </div>
+      )}
+      {lastYear && (
+        <div className="text-sm text-muted-foreground" data-kpi-last-year>
+          <Trans t={t} i18nKey="charts.kpi.lastYear" values={{ value: fmt(lastYear.value), range: lastYear.range }} components={{ v: <Ltr />, r: <Ltr /> }} />
         </div>
       )}
       {spark.length > 1 && (

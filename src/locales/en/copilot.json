@@ -217,6 +217,46 @@
       "keepTheirs": "Keep theirs",
       "saveMine": "Save mine on top"
     },
+    "readers": {
+      "heading": "Readers' own readings",
+      "hint": "How many readers changed each default for themselves, and to what. A value is shown only when 5 or more readers chose it; no reader is named.",
+      "none": "No reader has their own",
+      "holding_one": "{{n}} reader has their own",
+      "holding_other": "{{n}} readers have their own",
+      "other": "Other values",
+      "kind": {
+        "period": "Period",
+        "comparison": "Comparison",
+        "scope": "Scope",
+        "money-base": "Money base"
+      },
+      "value": {
+        "period": {
+          "today": "Today",
+          "yesterday": "Yesterday",
+          "this-week": "This week",
+          "last-week": "Last week",
+          "last-7-days": "Last 7 days",
+          "last-28-days": "Last 28 days",
+          "last-30-days": "Last 30 days",
+          "this-month": "This month",
+          "last-month": "Last month",
+          "year-to-date": "Year to date"
+        },
+        "comparison": {
+          "previous": "The previous period",
+          "last-year": "Last year",
+          "both": "Both",
+          "none": "No comparison"
+        },
+        "scope": {
+          "chain": "The whole chain",
+          "ksa": "KSA",
+          "bahrain": "Bahrain",
+          "named-set": "A named set"
+        }
+      }
+    },
     "history": {
       "heading": "History",
       "hint": "The last 20 versions, newest first. Open one to read it beside the current text.",

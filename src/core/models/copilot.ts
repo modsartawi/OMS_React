@@ -44,6 +44,17 @@ export interface CopilotPromptVersion {
 export interface CopilotPrompt {
   core: string
   active: CopilotPromptVersion
+  /** 895: the curators' counts of readers' own readings (`readerCountRows`); absent when the server sends none (switch off). */
+  readerCounts?: ReaderCountRow[]
+}
+
+/** 895: one kind of default reading as the house-rules screen draws its counts (`features/copilot/rules`). */
+export interface ReaderCountRow {
+  kind: CopilotOwnReadingKind
+  readers: number
+  values: { value: string; readers: number; label: AnalyticsLabel | null }[]
+  /** Null: nothing is drawn for the other values. */
+  other: number | null
 }
 
 /** `GET Copilot/Prompt` → `data` (BackOffice 3395 `CopilotPromptView`): the active version, flat. */
@@ -75,6 +86,45 @@ export interface CopilotPromptWire {
   startersPerKind?: number
   /** 3600: the longest starter text in one language, 200. Absent with the switch off. */
   starterMaxLength?: number
+  /**
+   * BackOffice spec 3633 R30 (3691, oms-react 895): how many readers hold their own reading of each kind, and the values
+   * held by at least `minimumReaders`. Absent with `Copilot:Answers:OwnReadings` off. Read-only: the save never sends it.
+   */
+  readerReadings?: CopilotReaderReadings
+}
+
+/** The four kinds of default reading a reader may hold their own of (spec 3633), in the order the server sends them. */
+export type CopilotOwnReadingKind = 'period' | 'comparison' | 'scope' | 'money-base'
+
+/** 3691: the curators' counts. No reader is ever named; a value held by fewer than `minimumReaders` is never sent. */
+export interface CopilotReaderReadings {
+  /** 5 (R30). */
+  minimumReaders: number
+  /** Always the four kinds, in `CopilotOwnReadingKind` order. */
+  kinds: CopilotReaderReadingKind[]
+}
+
+/** 3691: one kind's count. `readers` may exceed the sum shown: values under the threshold are not listed. */
+export interface CopilotReaderReadingKind {
+  kind: CopilotOwnReadingKind
+  /** Readers holding their own reading of this kind; 0 = none. Shown whatever its size: it names no value. */
+  readers: number
+  /** Only values held by at least `minimumReaders`, most held first; may be empty. */
+  values: CopilotReaderReadingValue[]
+  /** The readers on every value not listed, together; null when they too are fewer than `minimumReaders` (show nothing). */
+  other: number | null
+}
+
+/**
+ * 3691: one value and its readers. `value` is the stored code: a period's named period (`last-7-days` …), a comparison's
+ * `previous` | `last-year` | `both` | `none`, a scope's `chain` | `ksa` | `bahrain` | `named-set` (every named set
+ * together, never by name), or a money base's measure key. The screen names the codes itself, except a money base.
+ */
+export interface CopilotReaderReadingValue {
+  value: string
+  readers: number
+  /** A money base only: its name in the analytics model (its key in both when the model has none). Absent otherwise. */
+  label?: AnalyticsLabel
 }
 
 /** One version as `GET Copilot/Prompt/History`, `POST Copilot/Prompt` and `…/Revert` return it (`CopilotPromptVersionView`). */

@@ -26,6 +26,12 @@ export function certifiedCopyOf(items: readonly Pick<AnalyticsItem, 'id' | 'tier
 export const needsCurator = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-402'
 
 /**
+ * 3631 review (BackOffice 3666): `ANALYTICS-419` "a personal schedule sends this report" — its delete is refused; the
+ * schedule (and the report made for it) is deleted in My schedules.
+ */
+export const personalReportScheduled = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-419'
+
+/**
  * 837 (BackOffice 3432 §2): `ANALYTICS-416` "view in use" — the view is linked by a live board that is Certified or
  * not the caller's own. The refusal's `data` is `UsedBy`'s `{ boards, hidden }`; `null` for any other failure.
  */

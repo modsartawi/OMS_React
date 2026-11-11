@@ -465,7 +465,8 @@
     "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
     "invalidRecipient": "That recipient can't receive this report.",
     "needsCurator": "Raw previews of the data are for analytics curators only.",
-    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns."
+    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns.",
+    "personalScheduled": "One of your personal schedules sends this report, so it can't be deleted here. Delete that schedule in My schedules."
   },
   "ask": {
     "label": "Ask the OMS about analytics",

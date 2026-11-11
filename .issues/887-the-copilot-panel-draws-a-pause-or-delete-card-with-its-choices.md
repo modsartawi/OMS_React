@@ -68,3 +68,7 @@ Two code-review findings on spec 3631's oms-react slice (tickets 885–887), eac
    (`setQueryData(prev => …)`) when it comes; the page's mutation calls it. `my-schedules.test.ts`: a pause and a
    resume, and a delete and a rename, overlapping with answers out of order — both changes stay. Mutation-checked:
    the old snapshot behaviour fails both.
+3. **A report a personal schedule sends was refused with a generic failure** (BackOffice 3666 review finding 1:
+   `DELETE Analytics/Item/{id}` now answers `ANALYTICS-419`). `wire.ts` maps 419 to `refusal.personalScheduled`
+   (en/ar), `item-tier.ts` reads it (`personalReportScheduled`), and the item page's tier actions word it with a link to
+   My schedules (`MY_SCHEDULES_PATH`, `data-analytics-tier-refusal="personal-scheduled"`). `item-tier.test.ts`: red seen first.

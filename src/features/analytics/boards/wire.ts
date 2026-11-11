@@ -422,6 +422,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   // previewable (internal, `stg_*`, or no allow-listed column). Its 10 s timeout is worded in `./catalog-raw`.
   'ANALYTICS-402': 'refusal.needsCurator',
   'ANALYTICS-417': 'refusal.notPreviewable',
+  // 3631 review (BO 3666): a report a live personal schedule sends is not deleted here; the item page links My schedules.
+  'ANALYTICS-419': 'refusal.personalScheduled',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

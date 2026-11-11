@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import { certifiedCopyOf, needsCurator, tierActionsOf, viewDeleteBlocked, viewInUse } from './item-tier'
+import { certifiedCopyOf, needsCurator, personalReportScheduled, tierActionsOf, viewDeleteBlocked, viewInUse } from './item-tier'
+import { analyticsRefusal } from './wire'
 
 const item = (id: string, over: Record<string, unknown> = {}) => ({ id, tier: 'shared', certifiedFrom: null, ...over }) as never
 
@@ -52,5 +53,17 @@ describe('837: a view in use (BackOffice 3432 §2)', () => {
     expect(viewDeleteBlocked({ boards: [board('a', { tier: 'certified' })], hidden: 0 })).toBe(true)
     expect(viewDeleteBlocked({ boards: [board('a', { mine: false, tier: 'shared' })], hidden: 0 })).toBe(true)
     expect(viewDeleteBlocked({ boards: [], hidden: 1 })).toBe(true)
+  })
+})
+
+describe('3666 review: a report a personal schedule sends (ANALYTICS-419)', () => {
+  const refused = (code: string) => new ApiError('business', 'Delete that schedule in My schedules.', 409, [{ errorCode: code, internalErrorCode: '', errorMessage: 'Delete that schedule in My schedules.' }])
+  it('is read as "scheduled by a personal schedule"; any other failure is not', () => {
+    expect(personalReportScheduled(refused('ANALYTICS-419'))).toBe(true)
+    expect(personalReportScheduled(refused('ANALYTICS-416'))).toBe(false)
+    expect(personalReportScheduled(new Error('x'))).toBe(false)
+  })
+  it('is worded by its own key, not the generic failure', () => {
+    expect(analyticsRefusal(refused('ANALYTICS-419'), 'fallback')).toEqual({ code: 'ANALYTICS-419', key: 'refusal.personalScheduled' })
   })
 })

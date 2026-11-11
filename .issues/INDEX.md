@@ -1338,3 +1338,13 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [862](862-an-author-adds-a-calculation-from-the-query-builder.md) — An author adds a calculation from the query builder · *(ticket · BackOffice spec 3519 · slice 2)* · **open** · blocked by: 861, BackOffice 3524 · replaces BackOffice 3526
 - [863](863-an-author-adds-a-share-within-and-a-filtered-measure.md) — An author adds a share within a parent and a filtered measure · *(ticket · BackOffice spec 3543)* · **done** (staging walk open) · blocked by: BackOffice 3545, BackOffice 3546
 - [864](864-an-author-mixes-areas-and-adds-an-average-and-panels-show-unsplit-totals.md) — An author mixes areas and adds an average, and panels show unsplit totals · *(ticket · BackOffice spec 3543)* · **done** (staging walk open) · blocked by: 863, BackOffice 3549, BackOffice 3550
+
+## Copilot answers you can trust, and a next step (BackOffice spec 3586), filed 2026-11-11
+
+- [870](870-the-panel-lists-what-was-assumed-and-shows-a-figures-only-answer.md) — The panel lists what was assumed under any answer, and shows a figures-only answer as its sentence above the tables · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3590, BackOffice 3594
+- [871](871-the-panel-shows-suggestions-as-buttons-and-a-tap-asks-at-once.md) — The panel shows suggestions as buttons, and a tap asks at once · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3598
+- [872](872-the-panel-shows-a-clarifying-question-with-its-choices.md) — The panel shows a clarifying question with its choices, and the box stays open for something else · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3597
+- [873](873-the-empty-panel-shows-the-readers-starters-or-the-two-fixed-examples.md) — The empty panel shows the reader's starters, or the two fixed examples when there are none · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3601
+- [874](874-a-curator-edits-and-tries-the-default-readings-on-the-house-rules-screen.md) — A curator edits and tries the default readings on the house-rules screen · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3593
+- [875](875-a-curator-writes-starters-in-both-languages-each-with-its-try-proof.md) — A curator writes starters in both languages, each with its "Try" proof · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3600
+

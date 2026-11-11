@@ -52,3 +52,19 @@ browser.
   of the schedule fields; Confirm reads Pause / Delete, drawn `danger` on Delete; the "My schedules" link sits under a
   confirmed pause/delete; any `confirmed` answer rereads My schedules (`rereadMySchedules`). `notFound` is the server's
   sentence on a `not-confirmed` turn; the card stays open. New words `proposal.label_*`, `confirm_*`, `choose_*` in en and ar.
+
+## Review fixes
+
+Two code-review findings on spec 3631's oms-react slice (tickets 885–887), each fixed test-first:
+
+1. **The "My schedules" menu leaf never showed.** `src/layout/menu-analytics.ts` spread
+   `...[{ labelKey: 'boards:menu.mySchedules', … }]` into the `ShellMenuItem` object itself (as keys `0`), not
+   into its `items`, so the leaf was never in the menu. It is now the last entry of `items`, still behind
+   `mySchedulesProbe` (`mySchedulesOffered`). `menu-analytics.test.ts`: the menu holds the leaf when it is offered,
+   and not when the probe answers no or nothing; the leaf list is the eight library leaves then My schedules.
+2. **Two quick acts on My schedules overwrote each other on screen.** `MySchedulesPage` built each act's new list from
+   `list.data` as it was when the act began, then replaced the cache with it, so the later answer undid the earlier.
+   The new `actOnMySchedules(qc, a)` (`my-schedules.ts`) applies the answer to the CURRENT cache
+   (`setQueryData(prev => …)`) when it comes; the page's mutation calls it. `my-schedules.test.ts`: a pause and a
+   resume, and a delete and a rename, overlapping with answers out of order — both changes stay. Mutation-checked:
+   the old snapshot behaviour fails both.

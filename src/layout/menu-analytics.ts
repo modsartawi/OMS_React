@@ -49,13 +49,15 @@ const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
 export const ANALYTICS_MENU: ShellMenuItem = {
   labelKey: 'boards:menu.analytics',
   icon: ChartColumnBig,
-  items: LIBRARY_PAGES.map(({ page, path, labelKey }) => ({
-    labelKey,
-    icon: PAGE_ICON[page],
-    routerLink: path,
-    ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
-    access: analyticsProbe,
-  })),
-  // 886: last, after the library's leaves — it lists schedules, not items.
-  ...[{ labelKey: 'boards:menu.mySchedules', icon: CalendarClock, routerLink: MY_SCHEDULES_PATH, access: mySchedulesProbe }],
+  items: [
+    ...LIBRARY_PAGES.map(({ page, path, labelKey }) => ({
+      labelKey,
+      icon: PAGE_ICON[page],
+      routerLink: path,
+      ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
+      access: analyticsProbe,
+    })),
+    // 886: last, after the library's leaves — it lists schedules, not items. Shown only while `mySchedulesProbe` says yes.
+    { labelKey: 'boards:menu.mySchedules', icon: CalendarClock, routerLink: MY_SCHEDULES_PATH, access: mySchedulesProbe },
+  ],
 }

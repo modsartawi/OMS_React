@@ -20,7 +20,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { analyticsAccessQuery, canViewAnalytics } from './access'
 import { ANALYTICS_MY_SCHEDULES_KEY, analyticsApi } from './api'
-import { actOnMySchedule, myScheduleRow, mySchedulesOff, type MyScheduleAct, type MyScheduleState } from './my-schedules'
+import { actOnMySchedules, myScheduleRow, mySchedulesOff, type MyScheduleAct, type MyScheduleState } from './my-schedules'
 import Refused from './Refused'
 import { cadenceSummary } from './schedule'
 import { analyticsErrorWords } from './wire'
@@ -54,9 +54,9 @@ function MySchedulesBody() {
   const list = useQuery({ queryKey: ANALYTICS_MY_SCHEDULES_KEY, queryFn: () => analyticsApi.mySchedules(), retry: false })
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const act = useMutation({
-    mutationFn: (a: MyScheduleAct) => actOnMySchedule(list.data ?? [], a),
-    onSuccess: (rows, a) => {
-      qc.setQueryData(ANALYTICS_MY_SCHEDULES_KEY, rows)
+    // 887 review: the answer lands on the list as it is NOW, so a second quick act does not undo the first on screen.
+    mutationFn: (a: MyScheduleAct) => actOnMySchedules(qc, a),
+    onSuccess: (_, a) => {
       setDialog(null)
       toast.success(t(`mySchedules.${DONE[a.act]}`))
     },

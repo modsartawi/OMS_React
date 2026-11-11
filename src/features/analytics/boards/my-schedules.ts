@@ -1,8 +1,9 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { apiErrorCode } from '@/core/api'
 import { MY_SCHEDULES_PATH, reportHref } from '@/core/analytics-routes'
 import type { AnalyticsItem, AnalyticsPersonalSchedule, AnalyticsScheduleCadence } from '@/core/models/analytics'
 import { formatDateTime } from '@/core/util/date-format'
-import { analyticsApi } from './api'
+import { ANALYTICS_MY_SCHEDULES_KEY, analyticsApi } from './api'
 import { cadenceSummary } from './schedule'
 
 /**
@@ -49,12 +50,26 @@ export type MyScheduleAct =
  * delete. A refusal is thrown as it came, and the list given is never changed.
  */
 export async function actOnMySchedule(rows: readonly AnalyticsPersonalSchedule[], a: MyScheduleAct): Promise<AnalyticsPersonalSchedule[]> {
+  return (await takeAct(a))(rows)
+}
+
+/**
+ * The page's act (887 review): takes it on its door, then applies the answer to the list in the cache AS IT IS when the
+ * answer comes — never to the list as it was when the act began, so two quick acts each keep their own row.
+ */
+export async function actOnMySchedules(qc: QueryClient, a: MyScheduleAct): Promise<void> {
+  const apply = await takeAct(a)
+  qc.setQueryData<AnalyticsPersonalSchedule[]>(ANALYTICS_MY_SCHEDULES_KEY, (prev) => (prev ? apply(prev) : prev))
+}
+
+/** The act on its door, answered as the change it makes to a list. */
+async function takeAct(a: MyScheduleAct): Promise<(rows: readonly AnalyticsPersonalSchedule[]) => AnalyticsPersonalSchedule[]> {
   if (a.act === 'delete') {
     await analyticsApi.deleteMySchedule(a.id)
-    return rows.filter((r) => r.id !== a.id)
+    return (rows) => rows.filter((r) => r.id !== a.id)
   }
   const answer = await answerOf(a)
-  return rows.map((r) => (r.id === a.id ? answer : r))
+  return (rows) => rows.map((r) => (r.id === a.id ? answer : r))
 }
 
 function answerOf(a: Exclude<MyScheduleAct, { act: 'delete' }>): Promise<AnalyticsPersonalSchedule> {

@@ -4,6 +4,7 @@
  * read only with its line. The network is stubbed at the `@/core/api` boundary.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/core/api'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() }))
@@ -11,7 +12,8 @@ vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/cor
 
 const { analyticsApi } = await import('./api')
 const { mySchedulesOffered } = await import('./access')
-const { actOnMySchedule, myScheduleRow, mySchedulesOff, personalReportOf } = await import('./my-schedules')
+const { ANALYTICS_MY_SCHEDULES_KEY } = await import('./api')
+const { actOnMySchedule, actOnMySchedules, myScheduleRow, mySchedulesOff, personalReportOf } = await import('./my-schedules')
 
 const t = (key: string, opts?: Record<string, unknown>) => (opts ? `${key}${JSON.stringify(opts)}` : key)
 const iso = (s: string) => `⁨${s}⁩`
@@ -173,6 +175,57 @@ describe('pause, resume, retime, rename and delete each call their door and redr
     api.del.mockResolvedValue(true)
     await actOnMySchedule(rows, { act: 'delete', id: 'a/b' })
     expect(api.del).toHaveBeenCalledWith('Analytics/MySchedules/a%2Fb')
+  })
+})
+
+describe('887 review: two quick acts each land on the list as it is when its answer comes', () => {
+  /** A door held open until the test answers it. */
+  const held = <T,>() => {
+    let answer!: (v: T) => void
+    const promise = new Promise<T>((r) => (answer = r))
+    return { promise, answer }
+  }
+
+  it('pause s1 and resume s2 overlapping: both rows show their answers, whichever answers first', async () => {
+    api.get.mockResolvedValue([MONDAYS, MONTHLY])
+    const qc = new QueryClient()
+    qc.setQueryData(ANALYTICS_MY_SCHEDULES_KEY, await analyticsApi.mySchedules())
+    const pause = held<unknown>()
+    const resume = held<unknown>()
+    api.post.mockImplementation((url: string) => (url.endsWith('/Pause') ? pause.promise : resume.promise))
+
+    const first = actOnMySchedules(qc, { act: 'pause', id: 's1' })
+    const second = actOnMySchedules(qc, { act: 'resume', id: 's2' })
+    resume.answer({ ...MONTHLY, paused: false, nextSend: '2026-11-30T18:30' })
+    await second
+    pause.answer({ ...MONDAYS, paused: true, nextSend: null })
+    await first
+
+    const rows = qc.getQueryData<{ id: string; paused: boolean }[]>(ANALYTICS_MY_SCHEDULES_KEY)!
+    expect(rows.map((r) => [r.id, r.paused])).toEqual([
+      ['s1', true],
+      ['s2', false],
+    ])
+  })
+
+  it('a delete and a rename overlapping: the deleted row stays gone and the renamed one keeps its title', async () => {
+    api.get.mockResolvedValue([MONDAYS, MONTHLY])
+    const qc = new QueryClient()
+    qc.setQueryData(ANALYTICS_MY_SCHEDULES_KEY, await analyticsApi.mySchedules())
+    const del = held<unknown>()
+    const rename = held<unknown>()
+    api.del.mockReturnValue(del.promise)
+    api.put.mockReturnValue(rename.promise)
+
+    const first = actOnMySchedules(qc, { act: 'delete', id: 's1' })
+    const second = actOnMySchedules(qc, { act: 'rename', id: 's2', title: 'Close' })
+    del.answer(true)
+    await first
+    rename.answer({ ...MONTHLY, title: { en: 'Close', ar: 'Close' } })
+    await second
+
+    const rows = qc.getQueryData<{ id: string; title: { en: string } }[]>(ANALYTICS_MY_SCHEDULES_KEY)!
+    expect(rows.map((r) => [r.id, r.title.en])).toEqual([['s2', 'Close']])
   })
 })
 

@@ -41,7 +41,7 @@ export function SqlResultTable({ result }: { result: AnalyticsSqlResult }) {
         </p>
       )}
       {result.columns.length > 0 && (
-        <div className="max-h-[28rem] overflow-auto rounded-md border border-border/60">
+        <div className="max-h-[28rem] overflow-auto rounded-md border border-border/60 print:max-h-none print:overflow-visible">
           <table className="min-w-full border-collapse">
             <thead className="sticky top-0 bg-muted">
               <tr>

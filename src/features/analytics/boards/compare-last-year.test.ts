@@ -100,7 +100,7 @@ describe('876: a saved definition with the option opens with the switch on', () 
       definition: { params: [], bindings: {}, sections: [{ id: 's1', blocks: [{ id: 'p1', kind: 'panel', title: { en: 'Orders', ar: 'الطلبات' }, definition: saved({ compareToLastYear: true }) }] }] },
     })
     const block = report.definition.sections[0].blocks[0]
-    if (block.kind !== 'panel') throw new Error('a panel block')
+    if (block.kind !== 'panel' || block.engine === 'sql') throw new Error('a panel block')
     expect(comparingLastYear(block.definition)).toBe(true)
     expect(comparing(block.definition)).toBe(false)
     // What the designer saves is the block's definition itself: the option is still in it.

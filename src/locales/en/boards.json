@@ -1454,6 +1454,7 @@
     "unsaved": "Save the item once first: the copilot edits a saved item."
   },
   "designer": {
+    "sqlBlock": "This block shows a SQL item, held by reference. Its SQL is the item's own: open it in the SQL editor to change it.",
     "newTitle": "New report",
     "editTitle": "Edit report",
     "subtitle": "Lay out the report: sections and blocks, every change undoable",
@@ -1661,6 +1662,16 @@
   },
   "variant": {
     "label": "{{measure}} ({{values}})"
+  },
+  "sqlPanel": {
+    "filtersDoNotApply": "Filters do not apply to this SQL panel.",
+    "cannotRun": "This SQL panel can no longer run:",
+    "notRun": "This SQL panel has not run yet.",
+    "loading": "Running the SQL…",
+    "openSql": "Open the SQL",
+    "openSqlLabel": "Open the SQL behind {{title}}",
+    "ranAt": "Ran <at>{{at}}</at>",
+    "untitled": "SQL item"
   },
   "sqlEditor": {
     "title": "SQL editor",

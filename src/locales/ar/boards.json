@@ -1494,6 +1494,7 @@
     "unsaved": "احفظ العنصر مرة أولًا: المساعد يعدّل عنصرًا محفوظًا."
   },
   "designer": {
+    "sqlBlock": "تعرض هذه الكتلة عنصر SQL بالإشارة إليه. عبارة SQL خاصة بالعنصر نفسه: افتحه في محرر SQL لتغييرها.",
     "newTitle": "تقرير جديد",
     "editTitle": "تعديل التقرير",
     "subtitle": "رتّب التقرير: الأقسام والكتل، وكل تغيير يمكن التراجع عنه",
@@ -1701,6 +1702,16 @@
   },
   "variant": {
     "label": "{{measure}} ({{values}})"
+  },
+  "sqlPanel": {
+    "filtersDoNotApply": "لا تنطبق عوامل التصفية على لوحة SQL هذه.",
+    "cannotRun": "لم يعد بالإمكان تشغيل لوحة SQL هذه:",
+    "notRun": "لم يتم تشغيل لوحة SQL هذه بعد.",
+    "loading": "جارٍ تشغيل SQL…",
+    "openSql": "فتح عبارة SQL",
+    "openSqlLabel": "فتح عبارة SQL خلف {{title}}",
+    "ranAt": "شُغّلت <at>{{at}}</at>",
+    "untitled": "عنصر SQL"
   },
   "sqlEditor": {
     "title": "محرر SQL",

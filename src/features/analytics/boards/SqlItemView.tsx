@@ -7,17 +7,17 @@ import i18n from '@/core/i18n'
 import { saysIn } from '@/core/rules/sentence'
 import { useSession } from '@/core/session'
 import { buttonClass } from '@/core/ui/control-classes'
-import StatusBadge from '@/core/ui/StatusBadge'
 import { analyticsAccessQuery, canCurateAnalytics, canEditSql, canViewAnalytics } from './access'
 import { analyticsApi, analyticsSqlItemKey } from './api'
 import Refused from './Refused'
 import { SqlRefusalNote, SqlResultTable } from './SqlResult'
 import { sqlItemActions } from './sql-editor'
+import SqlMark from './SqlMark'
+import { sqlMark } from './sql-panel'
 
 /**
  * A SQL item at `/analytics/view/:id` (ticket 890): its title and mark, its kept result (or the reason it did not run),
- * its statement folded, and Edit — the SQL editor — for its owner with the SQL grant, or a curator. The marks across
- * the library, boards and reports are 891's.
+ * its statement folded, and Edit — the SQL editor — for its owner with the SQL grant, or a curator.
  */
 export default function SqlItemView({ id }: { id: string }) {
   const { t } = useTranslation('boards')
@@ -43,9 +43,7 @@ export default function SqlItemView({ id }: { id: string }) {
           <h2 className="text-base font-semibold tracking-tight" data-analytics-view-title>
             <bdi>{title}</bdi>
           </h2>
-          <StatusBadge sev={sql.verified ? 'ok' : 'warn'}>
-            <span data-analytics-sql-mark={sql.verified ? 'verified' : 'sql'}>{t(sql.verified ? 'sqlEditor.markVerified' : 'sqlEditor.mark')}</span>
-          </StatusBadge>
+          <SqlMark mark={sqlMark(sql)} />
         </div>
         {(acts.edit || acts.verify) && (
           <Link to={sqlEditHref(sql.id)} className={buttonClass('secondary')} data-analytics-sql-edit>

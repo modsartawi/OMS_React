@@ -200,3 +200,40 @@ export interface AnalyticsSqlEditorSeed {
   statement: string
   question?: string
 }
+
+// ── A SQL item on a board and in a report (ticket 891; BackOffice 3677, spec 3632 Q43, Q47-Q49) ────────────────────
+
+/**
+ * A SQL panel's answer: `POST Analytics/Query { itemId, revision?, panelId, values }` (also `{ draft, panelId, values }`
+ * and the print page's `Analytics/Render/Query`) on a board panel or report block naming a SQL item. The statement runs
+ * through the SQL door as the reader, kept 15 minutes per revision (3675). Rides on `AnalyticsQueryResult` as `sql`,
+ * beside `engine: 'sql'`, empty `columns`/`rows`, `fetchedAt` = `ranAt` (or `""`), and `notReached` listing every
+ * parameter with reason `sqlPanel` (Q48: "filters do not apply to this SQL panel").
+ *
+ * ```
+ * 200  { engine: "sql", columns: [], rows: [], total: 0, truncated: false, fetchedAt, dataAsOf: "",
+ *        notReached: [{ param, reason: "sqlPanel" }, …every parameter], sql: AnalyticsSqlPanelAnswer }
+ * 404  ANALYTICS-404 the reader may not see the SQL item (as a Cube view panel)
+ * ```
+ *
+ * A statement that no longer runs (a column off the allow-list, a join off the join list) is a `refusal`, never an
+ * error: the panel shows the reason in place of the chart (Q49), and the statement is never rewritten.
+ */
+export interface AnalyticsSqlPanelAnswer {
+  itemId: string
+  title: AnalyticsLabel
+  subtitle: AnalyticsLabel
+  /** 3675's shape; `{ type: "table" }` by default. */
+  chart: AnalyticsSqlChart
+  /** Always `false` in spec 3632. */
+  filtersApply: boolean
+  /** 3676: a curator's mark — "SQL, verified". */
+  verified: boolean
+  revision: number
+  ranAt: string | null
+  result: AnalyticsSqlResult | null
+  refusal: AnalyticsSqlRefusal | null
+}
+
+/** The reason a parameter does not reach a SQL panel (`notReached[].reason`, BackOffice `AnalyticsBindReasons.SqlPanel`). */
+export const ANALYTICS_SQL_PANEL_REASON = 'sqlPanel'

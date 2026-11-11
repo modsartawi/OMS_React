@@ -141,7 +141,7 @@ describe('reading a report (827)', () => {
       ['s2', ['summary:sum']],
     ])
     const p = r.definition.sections[0].blocks[0]
-    expect(p.kind === 'panel' && [p.title, p.definition.query.filters, p.from, p.sourceChangedSinceCopy]).toEqual([{ en: 'Net sales', ar: '' }, [], { viewId: 'v-9', revision: 3 }, true])
+    expect(p.kind === 'panel' && p.engine !== 'sql' && [p.title, p.definition.query.filters, p.from, p.sourceChangedSinceCopy]).toEqual([{ en: 'Net sales', ar: '' }, [], { viewId: 'v-9', revision: 3 }, true])
     expect(r.definition.sections[1].heading).toEqual({ en: '', ar: '' })
   })
 

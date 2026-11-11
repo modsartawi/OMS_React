@@ -34,6 +34,7 @@ import {
 } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
 import { readAudience } from './audience'
+import { readSqlPanelAnswer } from './sql-editor'
 
 /**
  * Reading the analytics wire (spec 766 §C, ticket 767) — defensively, because the doors are proposed
@@ -149,6 +150,8 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     // 864 (spec 3543 D12, D18): a cross-area result's unsplit and unfiltered figures; absent (or null) stays absent.
     ...(readFigureDimensions(r.notSplit) ? { notSplit: readFigureDimensions(r.notSplit) } : {}),
     ...(readFigureDimensions(r.notFiltered) ? { notFiltered: readFigureDimensions(r.notFiltered) } : {}),
+    // 891 (BackOffice 3677): a SQL panel's answer; a Cube answer carries no engine and stays the shape it always was.
+    ...(r.engine === 'sql' ? { engine: 'sql' as const, sql: readSqlPanelAnswer(r.sql) } : {}),
   }
 }
 
@@ -259,7 +262,8 @@ const layout = (v: unknown) => {
 function readPanel(raw: unknown): AnalyticsBoardPanel | null {
   const p = obj(raw)
   const base = { id: str(p.id), layout: layout(p.layout) }
-  if (p.kind === 'view' && str(p.viewId)) return { ...base, kind: 'view', viewId: str(p.viewId), optOut: arr(p.optOut) }
+  // 891 (BackOffice 3677): a SQL item's panel is marked `engine: "sql"` on read.
+  if (p.kind === 'view' && str(p.viewId)) return { ...base, kind: 'view', viewId: str(p.viewId), optOut: arr(p.optOut), ...(p.engine === 'sql' ? { engine: 'sql' as const } : {}) }
   if (p.kind === 'text') return { ...base, kind: 'text', text: said(p.text) }
   if (p.kind === 'section') return { ...base, kind: 'section', title: said(p.title) }
   return null
@@ -311,6 +315,8 @@ function readReportBlock(raw: unknown): AnalyticsReportBlock | null {
   const b = obj(raw)
   const id = str(b.id)
   if (!id) return null
+  // 891 (BackOffice 3677): a SQL item's block is held by reference, marked on read, with no definition.
+  if (b.kind === 'panel' && (b.engine === 'sql' || (!b.definition && str(b.viewId)))) return { id, kind: 'panel', viewId: str(b.viewId), engine: 'sql' }
   if (b.kind === 'panel') {
     const from = obj(b.from)
     return {

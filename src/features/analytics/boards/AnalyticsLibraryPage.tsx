@@ -34,6 +34,8 @@ import PinToggle from './PinToggle'
 import { useFileItem, useLibraryFolders, useRestoreItem } from './use-library'
 import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
+import SqlMark from './SqlMark'
+import { sqlMark } from './sql-panel'
 import { analyticsRefusal, dimensionOf, measureOf, refusalWords } from './wire'
 
 /**
@@ -319,6 +321,8 @@ function HomeRow({
         <span data-analytics-item-tier={item.tier}>
           <TierBadge tier={item.tier} />
         </span>
+        {/* 891 (spec 3632 Q43): "SQL" / "SQL, verified". */}
+        <SqlMark mark={sqlMark(item)} />
         {/* 826: who a Shared item is shared with. */}
         <AudienceChip item={item} />
         <span className="text-xs text-muted-foreground" data-analytics-item-owner>
@@ -361,6 +365,7 @@ function DeletedRow({ item, title, pending, onRestore }: { item: AnalyticsItem; 
         <bdi>{name}</bdi>
       </span>
       <TierBadge tier={item.tier} />
+      <SqlMark mark={sqlMark(item)} />
       {deleted && (
         <span className="text-xs text-muted-foreground" data-analytics-item-deleted-at>
           <Trans t={t} i18nKey="home.library.deletedAt" values={{ at: deleted }} components={{ at: <Ltr /> }} />

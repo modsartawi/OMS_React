@@ -1,5 +1,13 @@
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
-import type { AnalyticsSqlChart, AnalyticsSqlItem, AnalyticsSqlItemRun, AnalyticsSqlItemUpdate, AnalyticsSqlRefusal, AnalyticsSqlResult } from '@/core/models/analytics-sql'
+import type {
+  AnalyticsSqlChart,
+  AnalyticsSqlItem,
+  AnalyticsSqlItemRun,
+  AnalyticsSqlItemUpdate,
+  AnalyticsSqlPanelAnswer,
+  AnalyticsSqlRefusal,
+  AnalyticsSqlResult,
+} from '@/core/models/analytics-sql'
 import type { AnalyticsLabel, AnalyticsTier } from '@/core/models/analytics'
 
 /**
@@ -141,6 +149,23 @@ export function readSqlItem(raw: unknown): AnalyticsSqlItem {
     definition: { statement: str(d.statement), question: str(d.question), chart: readChart(d.chart) },
     sql: readRun(i.sql),
     ...(Array.isArray(i.actions) ? { actions: strings(i.actions) } : {}),
+  }
+}
+
+/** 891: a SQL panel's `sql` part of a query answer (BackOffice 3677), every field present. */
+export function readSqlPanelAnswer(raw: unknown): AnalyticsSqlPanelAnswer {
+  const s = obj(raw)
+  return {
+    itemId: str(s.itemId),
+    title: said(s.title),
+    subtitle: said(s.subtitle),
+    chart: readChart(s.chart),
+    filtersApply: s.filtersApply === true,
+    verified: s.verified === true,
+    revision: count(s.revision),
+    ranAt: str(s.ranAt) || null,
+    result: s.result && typeof s.result === 'object' ? readSqlResult(s.result) : null,
+    refusal: s.refusal && typeof s.refusal === 'object' ? readSqlRefusal(s.refusal) : null,
   }
 }
 

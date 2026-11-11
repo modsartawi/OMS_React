@@ -25,7 +25,8 @@ import { measureOf } from './wire'
  * with a date breakdown; filters only on dimensions the measures still allow.
  */
 
-export type PanelBlock = Extract<AnalyticsReportBlock, { kind: 'panel' }>
+/** A Cube panel block (891: a SQL block, held by reference, is not edited here). */
+export type PanelBlock = Exclude<Extract<AnalyticsReportBlock, { kind: 'panel' }>, { engine: 'sql' }>
 
 /** The chart types for this definition's selection: each offered, or why not. */
 export const panelOffers = (def: AnalyticsViewDefinition, model: AnalyticsModel): ChartOffer[] =>

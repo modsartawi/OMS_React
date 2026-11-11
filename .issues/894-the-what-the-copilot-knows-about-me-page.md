@@ -52,6 +52,33 @@ Built 2026-11-12 on `t894` (from `spec/3633`), against BackOffice 3689's wire.
 - Not driven against a live SIS.Api in this slice (no drive tool added); typecheck, tests and lint (bar the base
   boundaries failure in `insurance-rules/aliases/door-shapes.test.ts`) green.
 
+## Review fixes
+
+Built 2026-11-12 on `t3633-review` (from `spec/3633`), test-first, against BackOffice 3633's review (3692
+`## Review fixes` 2 and 7; the wire in 3689's Build notes).
+
+- **A reader can always see and delete what is kept.** `GET Copilot/Me`, the two deletes and Forget answer whatever the
+  switch; a `COPILOT-430` on the read now means only that the server has no store. `CopilotKnowsMe` gains `canChange`
+  (`fromMeWire`: only a plain `false` refuses; absent reads as true, as the door before the review answered only when on;
+  `withPage` carries it through every redraw). With `canChange` false the page hides Change (and its select), the member
+  remove buttons and the lookup, and keeps the list, Delete, Delete set and Forget everything.
+- **Refusals** (`meRefusal(err, 'read' | 'change')`, replacing `meFeatureOff`): `COPILOT-401` closes the page from any
+  door; `COPILOT-430` closes it only on the read (the `me.closed.off` hint reworded to "no readings kept on this server",
+  English and Arabic). A change refused with 430 shows the server's message in place, and the page is read again so
+  `canChange` follows.
+- **The panel's entry** shows whenever `GET Copilot/Me` reads (`meEntryVisible` unchanged; its doc and the panel's
+  comment updated).
+- **Set scopes (R8).** Scope choices on the page, on an assumption line's `choices` and in `readingOffer` may hold
+  `set:<setId>` labelled by the set's name. The readers already carried any value with the server's label, so no code
+  changed there; tests now pin it: `me.test` (page choices), `me-api.test`
+  `changeReading_aSetScope_postsTheSetValueAsTheServerGaveIt`, `answer.test`
+  `aScopeLineOffersTheReadersSets_byTheNameTheServerGave_andATapSendsTheSetValue` and
+  `anOfferToKeepASetScope_carriesTheSetValueAndTheServersName`. The label is always the server's; nothing is built from
+  the id.
+- Gate: typecheck and `npm test` (753 files, 10,345 tests) green; lint's boundaries check fails only on the base's
+  `insurance-rules/aliases/door-shapes.test.ts` violations (4 before and after); grid-base, contrast, palette and
+  controls green.
+
 ## Comments
 
 - The panel's entry costs one `GET Copilot/Me` per panel mount. 3689's suggested `canKeepReadings` flag on

@@ -27,7 +27,13 @@ import { measureOf } from './wire'
 export type CalculationWords = Record<
   AnalyticsCalculationKind | 'shareOfTotalWithin' | 'cumulativeShareWithin',
   (names: { measure: string; of: string; within: string }) => string
->
+> & {
+  /**
+   * 876 (BackOffice 3605): a change taken from last year, "Change in {measure} from last year". The screens' words
+   * (`useCalculationWords`) always give it; a caller that gives none names it as any change.
+   */
+  changeLastYear?: (names: { measure: string; of: string; within: string }) => string
+}
 
 const calculatedColumns = (result: AnalyticsQueryResult) => result.columns.filter((c) => c.role === 'measure' && !!c.calculation)
 
@@ -71,6 +77,8 @@ export function calculationLabel(
   const names = { measure: name(calculation.measure), of: name(calculation.of), within: eachParent(parents, lang) }
   const kind = calculation.kind
   if (parents.length && (kind === 'shareOfTotal' || kind === 'cumulativeShare')) return words[`${kind}Within`](names)
+  // 876: a query may hold a change from each comparison on one measure; the name says which.
+  if (kind === 'change' && calculation.from === 'lastYear' && words.changeLastYear) return words.changeLastYear(names)
   return words[kind](names)
 }
 

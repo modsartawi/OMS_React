@@ -127,6 +127,9 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     truncated: r.truncated === true,
     period: r.period ? { from: str(period.from), to: str(period.to) } : null,
     previous: arr<AnalyticsRow>(r.previous),
+    // 876 (BackOffice 3604): last year's rows and dates ride only when asked; absent stays absent.
+    ...(Array.isArray(r.lastYear) ? { lastYear: arr<AnalyticsRow>(r.lastYear) } : {}),
+    ...(r.lastYearPeriod && typeof r.lastYearPeriod === 'object' ? { lastYearPeriod: { from: str(obj(r.lastYearPeriod).from), to: str(obj(r.lastYearPeriod).to) } } : {}),
     fetchedAt: str(r.fetchedAt),
     dataAsOf: str(r.dataAsOf),
     // 823: each entry must name its parameter; anything else is left out.

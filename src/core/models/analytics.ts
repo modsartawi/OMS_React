@@ -112,6 +112,11 @@ export interface AnalyticsSemanticQuery {
   grain?: string | null
   limit?: number | null
   compareToPrevious?: boolean
+  /**
+   * BackOffice spec 3587 B7 (ticket 3604; web 876): compare with the same weeks last year — the period's own span 364
+   * days back, so each day falls on the same weekday. Alone or beside `compareToPrevious`. Absent = not asked.
+   */
+  compareToLastYear?: boolean
   /** Spec 3519 D1: shares, ratios, running shares and changes the server computes (`./analytics-calculations`). */
   calculations?: AnalyticsCalculation[] | null
   /** Spec 3543 D5 (3546): measures under their own filters; each key is also in `measures` (`./analytics-calculations`). */
@@ -381,6 +386,8 @@ export type AnalyticsParamQuery = (
   values: Record<string, ParamValue>
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export type AnalyticsViewQuery = (
@@ -400,6 +407,8 @@ export type AnalyticsViewQuery = (
    */
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export interface AnalyticsColumn {
@@ -431,6 +440,13 @@ export interface AnalyticsQueryResult {
   period: { from: string; to: string } | null
   /** Present when `compareToPrevious` was asked. */
   previous: AnalyticsRow[]
+  /**
+   * BackOffice spec 3587 B9 (ticket 3604; web 876): the rows of the same weeks last year, with the columns of `rows`,
+   * when `compareToLastYear` was asked. Absent when it was not (the server leaves it off the wire, unlike `previous`).
+   */
+  lastYear?: AnalyticsRow[]
+  /** The dates `lastYear` covers: the period's own, 364 days back. Absent with `lastYear`. */
+  lastYearPeriod?: { from: string; to: string }
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string

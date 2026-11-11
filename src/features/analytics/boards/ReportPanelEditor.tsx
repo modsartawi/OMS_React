@@ -20,12 +20,14 @@ import { ChartFields, QueryFields } from './EditorFields'
 import { useAreaName } from './MeasurePicker'
 import {
   comparing,
+  comparingLastYear,
   fitted,
   panelArea,
   panelOffers,
   sourceChanged,
   withChoice,
   withComparing,
+  withComparingLastYear,
   withDimensions,
   withFilter,
   withGrain,
@@ -172,6 +174,8 @@ export default function ReportPanelEditor({
         }
         compare={comparing(view)}
         onCompare={(on) => setView((d) => withComparing(d, on, model))}
+        lastYear={comparingLastYear(view)}
+        onLastYear={(on) => setView((d) => withComparingLastYear(d, on, model))}
         sortKeys={sortKeys(view)}
         sortLocked={calcs.some((c) => c.kind === 'cumulativeShare')}
         perParent={calc.perParent}
@@ -192,7 +196,7 @@ export default function ReportPanelEditor({
       <CalculationFields
         model={model}
         lang={lang}
-        selection={{ measures, dimensions, series: seriesOf(view).length, compare: comparing(view), calculations: calcs }}
+        selection={{ measures, dimensions, series: seriesOf(view).length, compare: comparing(view), lastYear: comparingLastYear(view), calculations: calcs }}
         {...calc.fields(setView)}
       />
 

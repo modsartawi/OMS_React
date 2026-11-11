@@ -547,6 +547,8 @@
     "compare": "Compare with the previous period",
     "compareHintKpi": "The tile shows ▲▼ against the period before.",
     "compareHintLine": "The previous period is drawn as a dashed line.",
+    "compareLastYear": "Compare with the same weeks last year",
+    "compareLastYearHint": "Last year is the same days, 364 days earlier, so every day falls on the same weekday.",
     "folds": "Past five members, the rest is drawn as “Other”.",
     "format": "Number format",
     "legend": "Legend",
@@ -694,8 +696,17 @@
         "shareOfTotal": "Share of total",
         "ratio": "Ratio of two measures",
         "cumulativeShare": "Running share",
-        "change": "Change from the previous period",
+        "change": "Change from an earlier period",
         "average": "Average (one measure per another)"
+      },
+      "from": "Compared with",
+      "fromName": {
+        "previous": "The previous period",
+        "lastYear": "The same weeks last year"
+      },
+      "fromTurnsOn": {
+        "previous": "Adding it turns on compare with the previous period.",
+        "lastYear": "Adding it turns on compare with the same weeks last year."
       },
       "measure": "Of the measure",
       "of": "As a percentage of",
@@ -721,7 +732,7 @@
         "noAdditive": "Needs a measure that adds up (a count or an amount), not a rate or a percentile.",
         "noPair": "Needs two measures that add up, in the same unit.",
         "noTwo": "Needs two measures that add up (a count or an amount).",
-        "needsCompare": "Turn on compare with the previous period first.",
+        "needsCompare": "Turn on a comparison first: the previous period, or the same weeks last year.",
         "runningDate": "A running share cannot be broken down by date.",
         "runningSeries": "A running share cannot be used with named series.",
         "runningOnce": "A query takes one running share."
@@ -729,6 +740,7 @@
       "dropped": {
         "measure": "Removed “{{calculation}}”: it used a measure that is no longer in the query.",
         "compare": "Removed “{{calculation}}”: a change needs compare with the previous period.",
+        "lastYear": "Removed “{{calculation}}”: a change from last year needs compare with the same weeks last year.",
         "runningDate": "Removed “{{calculation}}”: a running share cannot be broken down by date.",
         "runningSeries": "Removed “{{calculation}}”: a running share cannot be used with named series.",
         "within": "Removed “{{calculation}}”: the breakdowns it was within changed."
@@ -1634,6 +1646,7 @@
       "ratio": "{{measure}} as % of {{of}}",
       "cumulativeShare": "Running share of {{measure}}",
       "change": "Change in {{measure}}",
+      "changeLastYear": "Change in {{measure}} from last year",
       "average": "{{measure}} per {{of}}",
       "shareOfTotalWithin": "Share of {{measure}} in each {{within}}",
       "cumulativeShareWithin": "Running share of {{measure}} in each {{within}}"

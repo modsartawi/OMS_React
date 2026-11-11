@@ -116,6 +116,7 @@ export function colourMemberWords(
  * Compare with the previous period (766 story 23, §C `compareToPrevious`) is offered where the shape shows it:
  * a KPI's ▲▼ against the previous figure, a line over time drawing the previous period beside it, and (BackOffice
  * spec 3519 review, owner decision) a table's "previous" column per measure and a bar's previous-period series.
+ * 876: the comparison with the same weeks last year is offered on the same types ({@link withLastYear}).
  */
 export const comparesToPrevious = (choice: ChartChoice | null): boolean =>
   choice === 'kpi' || choice === 'line' || choice === 'table' || (choice?.startsWith('bar-') ?? false)
@@ -125,6 +126,25 @@ export function withCompare<Q extends AnalyticsSemanticQuery>(query: Q, choice: 
   const { compareToPrevious: _, ...rest } = query
   return (on && comparesToPrevious(choice) ? { ...rest, compareToPrevious: true } : rest) as Q
 }
+
+/**
+ * 876 (BackOffice spec 3587 B7): the query with `compareToLastYear` stored when it is on and the chosen type offers a
+ * comparison (the previous period's own rule, {@link comparesToPrevious}), and left out otherwise. It is independent of
+ * `compareToPrevious`: a query may hold either or both.
+ */
+export function withLastYear<Q extends AnalyticsSemanticQuery>(query: Q, choice: ChartChoice | null, on: boolean): Q {
+  const { compareToLastYear: _, ...rest } = query
+  return (on && comparesToPrevious(choice) ? { ...rest, compareToLastYear: true } : rest) as Q
+}
+
+/**
+ * 876: the comparison switches a definition opens with — the previous period's and last year's, each on only when its
+ * option is saved as `true`.
+ */
+export const comparisonsOf = (query: Pick<AnalyticsSemanticQuery, 'compareToPrevious' | 'compareToLastYear'> | null | undefined): { previous: boolean; lastYear: boolean } => ({
+  previous: query?.compareToPrevious === true,
+  lastYear: query?.compareToLastYear === true,
+})
 
 /** The saved map plus a slot for every member on screen that finds one free (written when saved). */
 export function settledSlots(saved: Readonly<Record<string, number>>, members: readonly string[]): Record<string, number> {

@@ -250,8 +250,18 @@ export interface CopilotAnswer {
 
 /** One answer table (3564): a shown `semantic_query` result. Every value is text on the wire; a measure's is a number's invariant text. */
 export interface CopilotAnswerTable {
-  /** 0-based index of its call in `trace`. */
+  /**
+   * 0-based index of its call in `trace`. NOT unique among an answer's tables (3621): an analysis result gives one table
+   * per part, all on its one step, so a table is told apart by its place in `tables` as well.
+   */
   step: number
+  /**
+   * BackOffice 3621 (spec 3587 B22; web 878): the title of a table made from a part of an analysis result (a cut's name,
+   * "The headline"), in both languages. Absent on a plain query's table. A titled table's cells are the tool's own
+   * texts ("62.0%", "-620"), shown as sent; the columns the tool computed are not in `query`, and `query` is `{}` when
+   * the part came from no single query.
+   */
+  title?: AnalyticsLabel | null
   columns: CopilotTableColumn[]
   /** ALL the rows, in the result's order; `values` by column position. */
   rows: CopilotTableRow[]
@@ -261,8 +271,16 @@ export interface CopilotAnswerTable {
   periodFrom: string
   periodTo: string
   previous: CopilotTableRow[] | null
+  /** On an analysis result's table (3621): the comparison's days, for either comparison, while `previous` stays null. */
   previousFrom: string | null
   previousTo: string | null
+  /**
+   * BackOffice 3607 (spec 3587 B13; web 878): the rows of the same weeks last year when the query asked for them — `[]`
+   * where no area holds those weeks — with their days (`yyyy-MM-dd`). All three absent when it did not ask.
+   */
+  lastYear?: CopilotTableRow[] | null
+  lastYearFrom?: string | null
+  lastYearTo?: string | null
   dataAsOf: string
   notes: CopilotTableNotes
   /** The `semantic_query` input it ran (the `show` mark taken off): what "Open as view" seeds the editor with. */
@@ -288,7 +306,8 @@ export interface CopilotTableColumn {
   unit: string | null
   shape: string | null
   dateBasis: AnalyticsLabel | null
-  calculation: { kind: string; measure: string; of: string | null; within: string[] | null } | null
+  /** `from` (3607): `lastYear` on a change taken from the same weeks last year; absent on every other. */
+  calculation: { kind: string; measure: string; of: string | null; within: string[] | null; from?: string | null } | null
   variant: { measure: string; filters: { dimension: string; values: string[] }[] } | null
 }
 
@@ -306,4 +325,6 @@ export interface CopilotTableNotes {
   notSplit: { measure: string; by: string[] }[] | null
   notFiltered: { measure: string; by: string[] }[] | null
   dataGap: string | null
+  /** BackOffice 3607: each area that does not hold the same weeks last year, the day its data starts and its measures; absent otherwise. */
+  lastYearNotHeld?: { area: string; dataFrom: string; measures: string[] }[] | null
 }

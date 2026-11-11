@@ -211,6 +211,8 @@ export interface TableColumn {
   max?: number
   /** 864 (spec 3543 decision 14): the header's tooltip on a cross-area panel (its date basis, "not filtered by ..."). */
   tooltip?: string
+  /** 878: the cells are the server's texts, shown as sent (`@/core/charts/TableChart`); only the copilot's analysis tables. */
+  asSent?: boolean
 }
 
 export interface TableView {

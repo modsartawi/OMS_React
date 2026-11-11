@@ -178,6 +178,12 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
   }
 }
 
+/**
+ * A table's key among the answer's tables (878): its step AND its place. An analysis result gives one table per part,
+ * all on one step (BackOffice 3621), so the step alone is no key.
+ */
+export const answerTableKey = (table: CopilotAnswerTable, index: number): string => `${table.step}-${index}`
+
 /** A table the panel can draw: an object with its columns and rows as lists. Anything else is left out. */
 const isTable = (v: unknown): v is CopilotAnswerTable =>
   !!v && typeof v === 'object' && Array.isArray((v as { columns?: unknown }).columns) && Array.isArray((v as { rows?: unknown }).rows)

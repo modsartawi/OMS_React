@@ -473,7 +473,8 @@
   },
   "copilotTable": {
     "actions": "Table actions",
-    "openAsView": "Open as view"
+    "openAsView": "Open as view",
+    "computedColumns": "Open as view shows the table's query only, without {{columns}} (computed by the analysis)."
   },
   "panel": {
     "actions": "Panel actions",

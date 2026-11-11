@@ -485,7 +485,8 @@
   },
   "copilotTable": {
     "actions": "إجراءات الجدول",
-    "openAsView": "فتح كعرض"
+    "openAsView": "فتح كعرض",
+    "computedColumns": "«فتح كعرض» يعرض استعلام الجدول فقط، دون {{columns}} (من حساب التحليل)."
   },
   "panel": {
     "actions": "إجراءات اللوحة",

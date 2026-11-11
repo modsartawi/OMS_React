@@ -1,10 +1,12 @@
-import type { AnalyticsDimension, AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { IS_TOTAL_KEY } from '@/core/models/analytics-calculations'
 import type { CopilotAnswerTable, CopilotTableRow } from '@/core/models/copilot'
+import { saysIn } from '@/core/rules/sentence'
+import type { CalculationWords } from './calculations'
 import { newViewLink, type EditorSeed } from './editor'
-import { panelTable, type PanelTable, type TableWords } from './panel-table'
+import { panelFileBase, panelTable, type PanelTable, type TableWords } from './panel-table'
 import { toTableView, type TableView } from './view-model-forms'
-import { readDefinition, readResult } from './wire'
+import { dimensionOf, readDefinition, readResult } from './wire'
 
 /**
  * The copilot answer's tables (ticket 868, BackOffice spec 3558 D5-D7, D13; wire 3564) — pure. The copilot may not
@@ -18,6 +20,52 @@ import { readDefinition, readResult } from './wire'
  * - the rows are drawn AS SENT (`toTableView`'s `asSent`): no sort arrow, no top N — the server already ordered and cut;
  * - the headers are the WIRE's labels ({@link copilotTableModel}), in the screen's language.
  */
+
+/**
+ * 878 (BackOffice 3621): the title of a table made from a part of an analysis result, in the screen's language (the
+ * other language when that one is blank); `''` on a plain query's table, which has none.
+ */
+export const copilotTableTitle = (table: CopilotAnswerTable, lang: string): string => saysIn(table.title, lang).trim()
+
+/**
+ * 878 (BackOffice 3621): a table made from a part of an analysis result — the one that carries a title. Its cells are
+ * the tool's own texts, already formatted ("3000", "-620", "62.0%"), and some of its columns are the tool's own
+ * (`before`, `after`, `change`, `share`: not in `query`). So it is NOT read into an analytics result, whose measure
+ * cells are numbers the table form formats: it is drawn column for column and cell for cell as sent ({@link sentTable}).
+ * A plain query's table has no title and is read as before.
+ */
+export const isAnalysisTable = (table: CopilotAnswerTable): boolean => table.title != null && typeof table.title === 'object'
+
+/**
+ * An analysis table as the table form and the downloads take it: every column sent, in the order sent, under the wire's
+ * label; every figure the server's text, untouched (null where it sent none); the rows in the order sent. A member is
+ * named as on any table (the model's label for an inline value, else the member itself). No comparison column: the
+ * tool's own columns already hold the figures it compared.
+ */
+function sentTable(table: CopilotAnswerTable, model: AnalyticsModel, lang: string, words: TableWords): PanelTable {
+  const columns = table.columns ?? []
+  const members = new Map(
+    columns
+      .filter((c) => c.role === 'dimension')
+      .map((c) => [c.key, new Map(dimensionOf(model, c.key)?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])] as const),
+  )
+  return {
+    columns: columns.map((c) =>
+      c.role === 'dimension'
+        ? { key: c.key, role: 'dimension' as const, label: saysIn(c.label, lang) || c.key }
+        : { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, asSent: true },
+    ),
+    rows: (table.rows ?? []).map((r) => {
+      const out: Record<string, string | number | null> = {}
+      columns.forEach((c, i) => {
+        const v = r.values?.[i] ?? null
+        if (c.role !== 'dimension') out[c.key] = v
+        else out[c.key] = v == null ? (r.isTotal === true ? (words.all ?? '') : '') : members.get(c.key)?.get(v) || v
+      })
+      return out
+    }),
+  }
+}
 
 /** A measure's value: the invariant number text the wire carries, or null. */
 const numberOf = (v: string | null | undefined): number | null => {
@@ -73,6 +121,12 @@ export function copilotTableResult(table: CopilotAnswerTable, definition: Analyt
     truncated: table.truncated,
     period: table.periodFrom || table.periodTo ? { from: table.periodFrom, to: table.periodTo } : null,
     previous: keyedRows(table, table.previous ?? []),
+    // 878 (BackOffice 3607): the same weeks last year, when the query asked — rows, days and the areas that do not hold
+    // them — read as a view's are (877), so the table form and the downloads gain the last-year column and its note.
+    // Absent stays absent: a table that did not ask is read as before.
+    ...(Array.isArray(table.lastYear) ? { lastYear: keyedRows(table, table.lastYear) } : {}),
+    ...(table.lastYearFrom && table.lastYearTo ? { lastYearPeriod: { from: table.lastYearFrom, to: table.lastYearTo } } : {}),
+    ...(Array.isArray(table.notes?.lastYearNotHeld) ? { lastYearNotHeld: table.notes.lastYearNotHeld } : {}),
     dataAsOf: table.dataAsOf,
     untilReached: untilReachedOf(table, definition),
     notSplit: table.notes?.notSplit ?? undefined,
@@ -95,12 +149,31 @@ export function copilotTableDefinition(table: CopilotAnswerTable): AnalyticsView
 }
 
 /**
+ * How the panel names a column the server left unnamed (878): the screen's language and its calculation words
+ * (`./use-calculations` `useCalculationWords`). Without it every column is headed by the wire's label, as before.
+ */
+export interface CopilotColumnNaming {
+  lang: string
+  words: Pick<CalculationWords, 'changeLastYear'>
+}
+
+/**
  * The model the table is drawn with: the analytics model (its member labels; may be empty while it loads) with every
  * column of the table named by the WIRE's label — a calculated or variant column too, which the model does not hold.
  */
-export function copilotTableModel(table: CopilotAnswerTable, model: AnalyticsModel): AnalyticsModel {
+export function copilotTableModel(table: CopilotAnswerTable, model: AnalyticsModel, naming?: CopilotColumnNaming): AnalyticsModel {
   const columns = table.columns ?? []
   const keys = new Set(columns.map((c) => c.key))
+  // 878 (BackOffice 3607): a change from last year the server left unnamed (its header is its key) is named as the
+  // query builder names it, "Change in {measure} from last year" (876) — it says which comparison it is from.
+  const labelOf = (c: CopilotAnswerTable['columns'][number]): AnalyticsLabel => {
+    const of = naming && c.calculation?.kind === 'change' && c.calculation.from === 'lastYear' ? c.calculation.measure : null
+    if (!naming || !of || (saysIn(c.label, naming.lang) || c.key) !== c.key) return c.label
+    const measure = columns.find((m) => m.key === of)?.label ?? model.measures.find((m) => m.key === of)?.label
+    // The label as the viewer reads it, in either language: it is derived in `lang` already (as `./calculations` does).
+    const named = naming.words.changeLastYear?.({ measure: saysIn(measure, naming.lang) || of, of: '', within: '' })
+    return named ? { en: named, ar: named } : c.label
+  }
   const measures: AnalyticsMeasure[] = columns
     .filter((c) => c.role === 'measure')
     .map((c) => {
@@ -114,7 +187,7 @@ export function copilotTableModel(table: CopilotAnswerTable, model: AnalyticsMod
           description: { en: '', ar: '' },
           dimensions: [],
         }),
-        label: c.label,
+        label: labelOf(c),
       }
     })
   const dimensions: AnalyticsDimension[] = columns
@@ -138,22 +211,64 @@ export interface CopilotTableParts {
   result: AnalyticsQueryResult
   definition: AnalyticsViewDefinition
   model: AnalyticsModel
+  /** 878: the table itself when it is an analysis result's ({@link isAnalysisTable}), drawn as sent; absent on a plain query's. */
+  sent?: CopilotAnswerTable
 }
 
 /** {@link CopilotTableParts} for a table, over the analytics model (may be empty while it loads). */
-export function copilotTableParts(table: CopilotAnswerTable, model: AnalyticsModel): CopilotTableParts {
+export function copilotTableParts(table: CopilotAnswerTable, model: AnalyticsModel, naming?: CopilotColumnNaming): CopilotTableParts {
   const definition = copilotTableDefinition(table)
-  return { result: copilotTableResult(table, definition), definition, model: copilotTableModel(table, model) }
+  return { result: copilotTableResult(table, definition), definition, model: copilotTableModel(table, model, naming), ...(isAnalysisTable(table) ? { sent: table } : {}) }
 }
 
 /** The table form's view model: every row, as sent, the "All" rows last, headed by the wire's labels. */
 export function copilotTableView(parts: CopilotTableParts, lang: string, words: TableWords): TableView {
+  if (parts.sent) {
+    const { columns, rows } = sentTable(parts.sent, parts.model, lang, words)
+    const first = columns.findIndex((c) => c.role === 'dimension')
+    const members = parts.sent.rows.map((r) => String((first < 0 ? null : r.values?.[first]) ?? ''))
+    return { kind: 'table', columns, rows, members, sort: null, cut: false, empty: rows.length === 0 }
+  }
   return toTableView(parts.result, parts.definition, parts.model, lang, { ...words, asSent: true })
 }
 
 /** What the CSV and xlsx downloads write (`./panel-table`): every row as sent, the "All" rows last, the wire's headers. */
 export function copilotTableDownload(parts: CopilotTableParts, lang: string, words: TableWords): PanelTable {
+  // 878: an analysis table downloads what it shows — every column and every text as sent, so the file reads as the screen.
+  if (parts.sent) return sentTable(parts.sent, parts.model, lang, words)
   return panelTable(parts.result, parts.definition, parts.model, lang, words)
+}
+
+/**
+ * A download's base name. A plain query's table keeps the name it had (`analytics-copilot-<step>`: one table per
+ * step). 878: an analysis result's tables all sit on one step, so each is named by its place among the answer's tables
+ * as well (`index`, 0-based; written from 1).
+ */
+export function copilotTableFileBase(table: CopilotAnswerTable, index: number): string {
+  return panelFileBase(isAnalysisTable(table) ? `copilot-${table.step}-${index + 1}` : `copilot-${table.step}`)
+}
+
+/**
+ * Whether the table has a query to open as a view. A plain query's table always does (the input it ran). 878
+ * (BackOffice 3621): a part of an analysis result that came from no single query carries `{}`, and is offered no
+ * "Open as view" — there is nothing to open.
+ */
+export function copilotTableOpensAsView(table: CopilotAnswerTable): boolean {
+  const { order: _order, show: _show, ...query } = table.query ?? {}
+  return Object.keys(query).length > 0
+}
+
+/**
+ * 878 (BackOffice 3621): the columns of an analysis table that its query does not hold — the ones the analysis computed
+ * itself (before, after, change, share) — by the wire's label in `lang`. "Open as view" opens the query, so the view
+ * lacks them, and `./ComputedColumnsNote` says so. Empty on a plain query's table (every column of it is its query's),
+ * and when there is no query to open.
+ */
+export function copilotTableComputedColumns(table: CopilotAnswerTable, definition: AnalyticsViewDefinition, lang: string): string[] {
+  if (!isAnalysisTable(table) || !copilotTableOpensAsView(table)) return []
+  const { measures, dimensions, calculations, variants } = definition.query
+  const asked = new Set([...measures, ...dimensions, ...(calculations ?? []).map((c) => c.key), ...(variants ?? []).map((v) => v.key)])
+  return (table.columns ?? []).filter((c) => !asked.has(c.key)).map((c) => saysIn(c.label, lang) || c.key)
 }
 
 /** "Open as view": the view editor, seeded with the table's definition (`./editor` `newViewLink`, route state). */

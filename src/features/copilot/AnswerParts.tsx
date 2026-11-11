@@ -16,7 +16,7 @@ import { Check, Copy } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerPlainText, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, answerPlainText, answerTableKey, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -100,7 +100,8 @@ export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] })
 
 /**
  * The answer's tables (ticket 868, BackOffice spec 3558 D5), under its summary: each the analytics table form through
- * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before.
+ * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before. 878: in the
+ * order sent, each under its own title when it has one (an analysis result's parts), told apart by place as well as step.
  */
 export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[] }) {
   const { t } = useTranslation('copilot')
@@ -109,8 +110,8 @@ export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[]
   return (
     <div aria-label={t('answer.tables')} className="flex min-w-0 flex-col gap-3" data-copilot-tables>
       {tables.map((table, i) => (
-        <Suspense key={`${table.step}-${i}`} fallback={null}>
-          <Embed table={table} />
+        <Suspense key={answerTableKey(table, i)} fallback={null}>
+          <Embed table={table} index={i} />
         </Suspense>
       ))}
     </div>

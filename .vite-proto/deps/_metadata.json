@@ -1,0 +1,120 @@
+{
+  "hash": "fded7c6b",
+  "configHash": "34a4edd9",
+  "lockfileHash": "340a9681",
+  "browserHash": "c973ee04",
+  "optimized": {
+    "@tanstack/react-query": {
+      "src": "../../../oms-react/node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "89d48f0f",
+      "needsInterop": false
+    },
+    "ag-grid-community": {
+      "src": "../../../oms-react/node_modules/ag-grid-community/dist/package/main.esm.mjs",
+      "file": "ag-grid-community.js",
+      "fileHash": "735d0266",
+      "needsInterop": false
+    },
+    "ag-grid-react": {
+      "src": "../../../oms-react/node_modules/ag-grid-react/dist/package/index.esm.mjs",
+      "file": "ag-grid-react.js",
+      "fileHash": "58aa308a",
+      "needsInterop": false
+    },
+    "i18next": {
+      "src": "../../../oms-react/node_modules/i18next/dist/esm/i18next.js",
+      "file": "i18next.js",
+      "fileHash": "941f4b10",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../../oms-react/node_modules/lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "8cc172ab",
+      "needsInterop": false
+    },
+    "react-dom": {
+      "src": "../../../oms-react/node_modules/react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "aacdf1c1",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../../oms-react/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "abe1baf4",
+      "needsInterop": true
+    },
+    "react-i18next": {
+      "src": "../../../oms-react/node_modules/react-i18next/dist/es/index.js",
+      "file": "react-i18next.js",
+      "fileHash": "823eb576",
+      "needsInterop": false
+    },
+    "react-qr-code": {
+      "src": "../../../oms-react/node_modules/react-qr-code/lib/index.mjs",
+      "file": "react-qr-code.js",
+      "fileHash": "b637285b",
+      "needsInterop": false
+    },
+    "react-router": {
+      "src": "../../../oms-react/node_modules/react-router/dist/development/index.js",
+      "file": "react-router.js",
+      "fileHash": "50d05f34",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../../oms-react/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "f4a14fa3",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../../oms-react/node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "14a18c47",
+      "needsInterop": true
+    },
+    "react/jsx-runtime": {
+      "src": "../../../oms-react/node_modules/react/jsx-runtime.js",
+      "file": "react_jsx-runtime.js",
+      "fileHash": "f9e4711c",
+      "needsInterop": true
+    },
+    "sonner": {
+      "src": "../../../oms-react/node_modules/sonner/dist/index.mjs",
+      "file": "sonner.js",
+      "fileHash": "4ffdd597",
+      "needsInterop": false
+    },
+    "write-excel-file/browser": {
+      "src": "../../../oms-react/node_modules/write-excel-file/browser/index.js",
+      "file": "write-excel-file_browser.js",
+      "fileHash": "1c6a0275",
+      "needsInterop": false
+    },
+    "zustand": {
+      "src": "../../../oms-react/node_modules/zustand/esm/index.mjs",
+      "file": "zustand.js",
+      "fileHash": "ecd56578",
+      "needsInterop": false
+    },
+    "zustand/react/shallow": {
+      "src": "../../../oms-react/node_modules/zustand/esm/react/shallow.mjs",
+      "file": "zustand_react_shallow.js",
+      "fileHash": "eaaa0c80",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "main.esm-DwVIfivr": {
+      "file": "main.esm-DwVIfivr.js",
+      "isDynamicEntry": false
+    },
+    "rolldown-runtime-B-1-B7_t": {
+      "file": "rolldown-runtime-B-1-B7_t.js",
+      "isDynamicEntry": false
+    }
+  }
+}

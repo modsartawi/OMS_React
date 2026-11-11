@@ -40,7 +40,7 @@ BackOffice 3663, BackOffice 3664
 
 ## Build notes
 
-Built 2026-11-12 on `t885` (from `spec/3631`). Proofs: `src/features/copilot/proposal.test.ts` (12 cases: the pure card
+Built 2026-11-12 on `t885` (from `spec/3631`). Proofs: `src/features/copilot/proposal.test.ts` (11 cases: the pure card
 seam `proposal.ts` and the conversation store with `Copilot/Ask` stubbed), one `describe` per Proof box. Full suite, typecheck,
 and lint (bar the base boundary failure in `insurance-rules/aliases/door-shapes.test.ts`) green. Not driven in a browser:
 no Playwright on this box (`tools/copilot-drive.mjs` has no proposal scenario yet).

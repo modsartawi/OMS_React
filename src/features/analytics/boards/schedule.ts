@@ -2,12 +2,15 @@ import { ApiError, apiErrorCode, apiErrorData } from '@/core/api'
 import type {
   AnalyticsAudienceUser,
   AnalyticsItem,
+  AnalyticsPersonalSchedule,
+  AnalyticsPersonalScheduleTimeBody,
   AnalyticsReportRun,
   AnalyticsRunOutcome,
   AnalyticsRunTrigger,
   AnalyticsSchedule,
   AnalyticsScheduleCadence,
   AnalyticsScheduleWrite,
+  AnalyticsWeekdayName,
   ParamValue,
   Weekday,
 } from '@/core/models/analytics'
@@ -131,7 +134,7 @@ const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const values = (v: unknown): Record<string, ParamValue> => rec(v) as Record<string, ParamValue>
 
 /** The server's weekdays (3408 §G), Sunday first: index = `Weekday`. */
-const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+const DAY_NAMES: readonly AnalyticsWeekdayName[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
 /** A weekday as the server names it, or a 0–6 number; anything else is dropped. */
 const readDay = (d: unknown): Weekday | null => {
@@ -177,6 +180,42 @@ export function readSchedule(raw: unknown): AnalyticsSchedule {
 }
 
 export const readSchedules = (raw: unknown): AnalyticsSchedule[] => list(raw).map(readSchedule).filter((s) => s.id)
+
+// ── 886 (BackOffice spec 3631 S24/S30, contract 3662): the reader's personal schedules, `Analytics/MySchedules`. ──
+
+/**
+ * One personal schedule as `GET Analytics/MySchedules` and each act answer it: its cadence read as any schedule's
+ * (weekdays as numbers, the month's day a number or `last`), its title in both languages, no next send while paused or
+ * suspended.
+ */
+export function readPersonalSchedule(raw: unknown): AnalyticsPersonalSchedule {
+  const s = rec(raw)
+  const title = rec(s.title)
+  const susp = s.suspended && typeof s.suspended === 'object' ? rec(s.suspended) : null
+  return {
+    id: text(s.id),
+    reportId: text(s.reportId),
+    title: { en: text(title.en), ar: text(title.ar) },
+    cadence: readCadence(s.cadence),
+    time: text(s.time),
+    timeZone: 'Asia/Riyadh',
+    lang: s.lang === 'ar' ? 'ar' : 'en',
+    paused: s.paused === true,
+    suspended: susp ? { reason: text(susp.reason), at: text(susp.at) } : null,
+    nextSend: text(s.nextSend) || null,
+    periodLengthDays: typeof s.periodLengthDays === 'number' ? s.periodLengthDays : null,
+  }
+}
+
+/** `GET Analytics/MySchedules`: an absent list is empty, a row without an id is dropped. */
+export const readPersonalSchedules = (raw: unknown): AnalyticsPersonalSchedule[] => list(raw).map(readPersonalSchedule).filter((s) => s.id)
+
+/** The body of `PUT Analytics/MySchedules/{sid}/Time`: weekly days named `sun` … `sat`, in week order. */
+export function personalTimeBody(cadence: AnalyticsScheduleCadence, time: string): AnalyticsPersonalScheduleTimeBody {
+  if (cadence.kind === 'weekly') return { cadence: { kind: 'weekly', days: [...new Set(cadence.days)].sort((a, b) => a - b).map((d) => DAY_NAMES[d]) }, time }
+  if (cadence.kind === 'monthly') return { cadence: { kind: 'monthly', day: cadence.day }, time }
+  return { cadence: { kind: 'daily' }, time }
+}
 
 const TRIGGERS: readonly AnalyticsRunTrigger[] = ['schedule', 'late', 'sendNow']
 const OUTCOMES: readonly AnalyticsRunOutcome[] = ['sent', 'chartsUnavailable', 'stopped', 'skipped', 'failed']

@@ -263,6 +263,12 @@ export interface AnalyticsItem {
   folderId?: string | null
   /** 837 (3432 §3): when the item was deleted — only on `Items?deleted=true` rows; `null` otherwise. */
   deletedAt?: string | null
+  /**
+   * 886 (BackOffice spec 3631 S24, ticket 3662): set only when the item is the caller's report made for one of THEIR
+   * personal schedules — it opens read only, with a line saying it is sent to them on a schedule. Absent otherwise,
+   * and always while the personal-schedules switch is off.
+   */
+  personalScheduleId?: string
 }
 
 /** 837 (3432 §1): `GET Analytics/Folders` — one of the caller's own flat folders. */
@@ -967,4 +973,55 @@ export interface AnalyticsRawPreview {
   rows: Record<string, AnalyticsRawValue>[]
   /** The table's columns not on the list. */
   hiddenColumnCount: number
+}
+
+// ── My schedules (BackOffice spec 3631 S24/S30, ticket 3662's contract; oms-react 886) ────────────────────────
+// Doors (cookie session, the view grant; any `{sid}` not the caller's own personal schedule is `ANALYTICS-404`, and
+// every door answers `ANALYTICS-424` while `Copilot:Schedule:Propose` is off — the page is then not offered):
+//   GET    Analytics/MySchedules             → AnalyticsPersonalScheduleWire[], oldest first
+//   POST   Analytics/MySchedules/{sid}/Pause  → AnalyticsPersonalScheduleWire
+//   POST   Analytics/MySchedules/{sid}/Resume → AnalyticsPersonalScheduleWire
+//   PUT    Analytics/MySchedules/{sid}/Time   AnalyticsPersonalScheduleTimeBody  → AnalyticsPersonalScheduleWire
+//          (`ANALYTICS-411` `data.problems[] { field, reason, message }`; `ANALYTICS-414` `noCompanyEmail`)
+//   PUT    Analytics/MySchedules/{sid}/Title  AnalyticsPersonalScheduleTitleBody → AnalyticsPersonalScheduleWire
+//          (trimmed, cut to 80, kept in both languages; blank is `ANALYTICS-411` `title`/`required`)
+//   DELETE Analytics/MySchedules/{sid}        → true; the report made for it is deleted too
+//   GET    Analytics/Item/{reportId}          carries `personalScheduleId` (above)
+
+/** The server's weekday names. */
+export type AnalyticsWeekdayName = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
+
+/** One personal schedule exactly as `GET Analytics/MySchedules` sends it (3662 "Wire / contract"). */
+export interface AnalyticsPersonalScheduleWire {
+  id: string
+  /** The Personal report made for it: `GET Analytics/Item/{reportId}`. */
+  reportId: string
+  /** Both hold the reader's words. */
+  title: { en: string; ar: string }
+  /** `day`: `'1'`..`'28'` or `'last'`. */
+  cadence: { kind: 'daily' | 'weekly' | 'monthly'; days: AnalyticsWeekdayName[] | null; day: string | null }
+  /** `HH:mm`, Riyadh. */
+  time: string
+  timeZone: 'Asia/Riyadh'
+  lang: 'en' | 'ar'
+  paused: boolean
+  /** The worker's (3661), e.g. reason `ownerNoRun`. */
+  suspended: { reason: string; at: string } | null
+  /** `yyyy-MM-ddTHH:mm` local; null while paused or suspended. */
+  nextSend: string | null
+  periodLengthDays: number | null
+}
+
+/** A personal schedule as the screen holds it: the wire with its cadence read as any schedule's (`Weekday` numbers). */
+export type AnalyticsPersonalSchedule = Omit<AnalyticsPersonalScheduleWire, 'cadence'> & { cadence: AnalyticsScheduleCadence }
+
+/** `PUT …/{sid}/Time`: weekly days named `sun` … `sat`, a monthly day a number or `'last'`. */
+export interface AnalyticsPersonalScheduleTimeBody {
+  cadence: { kind: 'daily' } | { kind: 'weekly'; days: AnalyticsWeekdayName[] } | { kind: 'monthly'; day: number | 'last' }
+  time: string
+}
+
+/** `PUT …/{sid}/Title`. */
+export interface AnalyticsPersonalScheduleTitleBody {
+  title: string
 }

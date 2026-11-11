@@ -355,5 +355,14 @@
         "hint": "Your account does not hold the copilot grant. Ask an administrator if you need it."
       }
     }
+  },
+  "reading": {
+    "offer": "Keep this reading",
+    "readAs": "Read it as",
+    "keep": "Keep",
+    "notNow": "Not now",
+    "failed": "That did not go through. Try again.",
+    "closed": "This offer is no longer open.",
+    "seeMine": "See what the copilot knows about me"
   }
 }

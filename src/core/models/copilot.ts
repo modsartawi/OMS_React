@@ -297,6 +297,76 @@ export interface CopilotAskRequest {
   choiceKey?: string
   /** 3598 (A49, A55): where the question came from. Only the audit keeps it; absent is "not said", never refused. */
   origin?: CopilotQuestionOrigin
+  /**
+   * BackOffice 3685 (spec 3633 R15, oms-react 892): a tapped assumption line's choice. Sent with `question` = the tapped
+   * answer's question, verbatim, and the same `conversationId`; the server re-asks it with the reading stated. Ignored
+   * where own readings do not apply; a reading the server does not allow is the `COPILOT-430` envelope.
+   */
+  statedReading?: CopilotStatedReading
+}
+
+/** 3685: a reading stated by a tap, `value` the readings store's code (as `CopilotAssumptionChoice.choices[].value`). */
+export interface CopilotStatedReading {
+  kind: CopilotOwnReadingKind
+  value: string
+}
+
+/**
+ * BackOffice 3685 (spec 3633 R15): the other readings one server-written assumption line offers. A line with no entry
+ * is not tappable.
+ */
+export interface CopilotAssumptionChoice {
+  /** 0-based index into the answer's `assumptions`. */
+  line: number
+  kind: CopilotOwnReadingKind
+  /** The reading the query used; `null` when it was none of the named ones (a fixed range). */
+  value: string | null
+  /** Never holds `value`. A tap sends `statedReading: { kind, value: choices[i].value }`. */
+  choices: CopilotReadingChoice[]
+}
+
+/** One reading a line offers (3685): the store code and its words. */
+export interface CopilotReadingChoice {
+  value: string
+  label: AnalyticsLabel
+}
+
+/**
+ * BackOffice 3686 (spec 3633 R16-R18): "Always read it this way for me?", offered once, under the answer that corrected
+ * an assumed reading. The server writes every word; the client shows `offer` with Keep and Not now.
+ */
+export interface CopilotReadingOffer {
+  /** 32 hex: what Keep and Not now name as `offerId`. */
+  id: string
+  kind: CopilotOwnReadingKind
+  /** The store code the server holds; Keep stores THIS, never a value the client sends. */
+  value: string
+  label: AnalyticsLabel
+  /** The question, in both languages. */
+  offer: AnalyticsLabel
+}
+
+/** `POST Copilot/Readings/Keep` and `POST Copilot/Readings/NotNow` body (3686). */
+export interface CopilotReadingOfferRequest {
+  conversationId: string
+  offerId: string
+}
+
+/**
+ * `POST Copilot/Readings/Keep` -> `data` (3686). `line` is shown in place of the buttons. Refusals: `COPILOT-437` (the
+ * offer is no longer open: hide the buttons), `COPILOT-430` (the reading is no longer allowed), `COPILOT-401`.
+ */
+export interface CopilotReadingKept {
+  kind: CopilotOwnReadingKind
+  value: string
+  /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  line: AnalyticsLabel
+}
+
+/** `POST Copilot/Readings/NotNow` -> `data` (3686): the line is hidden; no offer of that kind until the conversation ends. */
+export interface CopilotReadingNotNow {
+  kind: CopilotOwnReadingKind
 }
 
 /**
@@ -442,6 +512,13 @@ export interface CopilotAnswer {
    * (`questionNo` 10), or when none passed the check.
    */
   suggestions?: CopilotSuggestion[]
+  /**
+   * BackOffice 3685 (spec 3633 R15, oms-react 892): the assumption lines that offer other readings. Absent: no line is
+   * tappable (`Copilot:Answers:OwnReadings` off, or no line offers anything).
+   */
+  assumptionChoices?: CopilotAssumptionChoice[]
+  /** BackOffice 3686 (R16): absent unless this answer offers to keep a reading. At most one. */
+  readingOffer?: CopilotReadingOffer
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }

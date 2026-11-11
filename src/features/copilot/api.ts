@@ -6,7 +6,7 @@
  * Non-streaming (D10): the panel shows its working state for the whole call.
  */
 import { api } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSteps } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
 import { stepsOrNothing } from './steps'
 
 export const copilotApi = {
@@ -21,3 +21,21 @@ export const copilotApi = {
     return stepsOrNothing(api.get<CopilotSteps>(`Copilot/Ask/${encodeURIComponent(requestId)}/Steps`))
   },
 }
+
+/**
+ * The offer to keep a reading (ticket 892, BackOffice 3686): Keep stores the reading the SERVER holds for `offerId`, Not
+ * now ends offers of its kind for the conversation. A refusal (`COPILOT-437` no longer open, `COPILOT-430` not allowed,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotReadingApi = {
+  /** `POST Copilot/Readings/Keep` `{ conversationId, offerId }` -> the kept reading and its confirmation line. */
+  keep(body: CopilotReadingOfferRequest): Promise<CopilotReadingKept> {
+    return api.post<CopilotReadingKept>('Copilot/Readings/Keep', body)
+  },
+  /** `POST Copilot/Readings/NotNow` `{ conversationId, offerId }`. */
+  notNow(body: CopilotReadingOfferRequest): Promise<CopilotReadingNotNow> {
+    return api.post<CopilotReadingNotNow>('Copilot/Readings/NotNow', body)
+  },
+}
+
+export type CopilotReadingDoors = typeof copilotReadingApi

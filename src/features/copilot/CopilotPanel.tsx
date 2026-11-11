@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Brain, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
@@ -17,10 +17,10 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
-import { Answer, Refusal, WorkingStep } from './AnswerParts'
+import { Answer, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
-import { meEntryVisible, meQuery } from './me-api'
+import { COPILOT_ME_KEY, meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
 const AT_END = 32
@@ -503,6 +503,7 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
  */
 function Turn({ turn }: { turn: CopilotTurn }) {
   const { t } = useTranslation('copilot')
+  const readings = useTurnReadings(turn)
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
   return (
     <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome}>
@@ -532,14 +533,36 @@ function Turn({ turn }: { turn: CopilotTurn }) {
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} />
+            <Answer model={copilotAnswerModel(turn.reply)} readings={readings} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} />
+          <Answer model={copilotAnswerModel(turn.reply)} readings={readings} />
         </AnswerRow>
       )}
     </li>
   )
+}
+
+/**
+ * A thread answer's readings (892, BackOffice 3685/3686): a tapped choice asks the turn's question again, verbatim, with
+ * the reading stated; Keep and Not now answer the answer's offer. A Keep refreshes "What the copilot knows about me".
+ */
+function useTurnReadings(turn: CopilotTurn): AnswerReadings {
+  const qc = useQueryClient()
+  const ask = useCopilotConversation((s) => s.ask)
+  const canChoose = useCopilotConversation((s) => s.inFlight === null && canAskMore(s.conv))
+  const offerId = turn.reply?.readingOffer?.id ?? ''
+  const offer = useCopilotConversation((s) => s.offerState(offerId))
+  const keepReading = useCopilotConversation((s) => s.keepReading)
+  const notNowReading = useCopilotConversation((s) => s.notNowReading)
+  const conversationId = turn.reply?.conversationId ?? ''
+  return {
+    choose: (reading) => void ask(turn.question, reading),
+    canChoose,
+    offer,
+    keep: () => void keepReading(conversationId, offerId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNow: () => void notNowReading(conversationId, offerId),
+  }
 }

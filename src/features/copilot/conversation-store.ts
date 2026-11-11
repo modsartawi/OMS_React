@@ -3,7 +3,7 @@ import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotSqlOffer } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
@@ -52,11 +52,26 @@ export interface CopilotConversationState {
    * The question in flight, or null: at most one. `requestId` (ticket 869, BackOffice spec 3558 D17) is a fresh ULID per
    * question, sent on the ask; the panel polls its live steps while the question is in flight.
    */
-  inFlight: { question: string; requestId: string } | null
+  inFlight: { question: string; requestId: string; sqlMode?: true } | null
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
-  /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
-  ask: (question: string) => Promise<void> | null
+  /**
+   * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `sqlMode` (888, spec
+   * 3632 Q27): asked in SQL mode. The panel passes it only while the toggle is on for a holder of the SQL grant.
+   */
+  ask: (question: string, sqlMode?: boolean) => Promise<void> | null
+  /**
+   * The SQL mode toggle (888), held here so it outlives the sheet's unmount. Off at start, and off again when the user
+   * changes. The panel shows it only on `canSql`.
+   */
+  sqlMode: boolean
+  setSqlMode: (on: boolean) => void
+  /**
+   * "Try in SQL mode" tapped (888, BackOffice 3674, Q28): the toggle goes on and the offer's question is asked again in
+   * SQL mode, in the offer's conversation, or (its id null: that was the conversation's last question) in a new one,
+   * the old one filed in the history. `null` as `ask`.
+   */
+  trySqlOffer: (offer: CopilotSqlOffer) => Promise<void> | null
   /**
    * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
    * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
@@ -90,11 +105,12 @@ export function createCopilotConversation(
     inFlight: null,
     epoch: 0,
     history: [],
-    ask: (question) => {
+    ask: (question, sqlMode) => {
       const { conv, inFlight, epoch } = get()
       if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
+      const sql = sqlMode === true
       const requestId = newRequestId()
-      set({ inFlight: { question, requestId } })
+      set({ inFlight: sql ? { question, requestId, sqlMode: true } : { question, requestId } })
       const controller = new AbortController()
       aborter = controller
       // A reply to a cleared conversation, or to a question stopped, is dropped.
@@ -104,7 +120,7 @@ export function createCopilotConversation(
         if (aborter === controller) aborter = null
         set((s) => ({ conv: next(s.conv), inFlight: null }))
       }
-      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), requestId }
+      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql), requestId }
       return send(body, controller.signal).then(
         (reply) => {
           if (dropped()) return
@@ -123,6 +139,14 @@ export function createCopilotConversation(
       set({ inFlight: null })
       return inFlight.question
     },
+    sqlMode: false,
+    setSqlMode: (on) => set({ sqlMode: on }),
+    trySqlOffer: (offer) => {
+      if (get().inFlight !== null) return null
+      if (offer.conversationId === null) get().startNew()
+      set({ sqlMode: true })
+      return get().ask(offer.question, true)
+    },
     startNew: () => {
       abandon()
       set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
@@ -139,7 +163,7 @@ export function createCopilotConversation(
   }))
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [] }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false }))
   })
   return store
 }

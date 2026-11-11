@@ -247,6 +247,12 @@ export interface CopilotAskRequest {
   choiceKey?: string
   /** 3598 (A49, A55): where the question came from. Only the audit keeps it; absent is "not said", never refused. */
   origin?: CopilotQuestionOrigin
+  /**
+   * BackOffice spec 3632 Q27 (3673, oms-react 888): the panel's SQL mode toggle. Sent `true` only while the toggle is on,
+   * and the toggle shows only on `Analytics/Access`'s `canSql`. The server reads it per request (send it on a reply to
+   * an ask too) and ignores it, never refuses, for a reader without the grant or off the panel. Absent: a normal question.
+   */
+  sqlMode?: boolean
 }
 
 /**
@@ -392,6 +398,16 @@ export interface CopilotAnswer {
    * (`questionNo` 10), or when none passed the check.
    */
   suggestions?: CopilotSuggestion[]
+  /**
+   * BackOffice 3673 (spec 3632 Q33, oms-react 888): the answer's SQL part. ABSENT on every answer not given in SQL mode.
+   * `assumptions` is `[]` and `tables` absent in SQL mode: the rows are here.
+   */
+  sql?: CopilotSqlPart
+  /**
+   * BackOffice 3674 (spec 3632 Q28, oms-react 888): "Try in SQL mode", added by the server (never the model) to a
+   * `cannot-answer` given OUTSIDE SQL mode, on the panel, to a reader holding the SQL grant. Absent on every other answer.
+   */
+  sqlOffer?: CopilotSqlOffer
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }
@@ -505,4 +521,44 @@ export interface CopilotTableNotes {
   dataGap: string | null
   /** BackOffice 3607: each area that does not hold the same weeks last year, the day its data starts and its measures; absent otherwise. */
   lastYearNotHeld?: { area: string; dataFrom: string; measures: string[] }[] | null
+}
+
+/**
+ * An answer's SQL part (BackOffice 3673, spec 3632 Q33): the last statement that ran, as the server ran it, and its result.
+ * Shown under the "SQL, not a certified figure" mark.
+ */
+export interface CopilotSqlPart {
+  /** Always `"sql"`. */
+  mark: 'sql'
+  /** False: no statement ran (the model said it cannot answer, or every statement was refused); then `step` is null,
+   *  `statement` `""`, the lists empty and the counts 0. */
+  ran: boolean
+  /** 0-based index of its `run_sql` call in `trace`. */
+  step: number | null
+  /** As the server ran it: laid out by the parser, with the server's `TOP 1001` cap. */
+  statement: string
+  /** The analytics tables it read, the allow-list's spelling, each once, in the order met. */
+  tables: string[]
+  /** The result's columns, the database's order. */
+  columns: string[]
+  /**
+   * EVERY returned row (at most 1,000), cells in `columns`' order, each the invariant text: a date `yyyy-MM-dd`, a time
+   * `yyyy-MM-ddTHH:mm:ss`, a number as stored. `null` is SQL NULL.
+   */
+  rows: (string | null)[][]
+  rowCount: number
+  /** More than 1,000 rows: `rows` are the first 1,000. */
+  isCut: boolean
+  durationMs: number
+}
+
+/**
+ * "Try in SQL mode" (BackOffice 3674, spec 3632 Q28). The tap: `POST Copilot/Ask { question, sqlMode: true,
+ * conversationId }` (omitted when null) and the toggle turned on. It is a new question.
+ */
+export interface CopilotSqlOffer {
+  /** The question the reader asked (for a reply to the copilot's own question, that question, not the reply). */
+  question: string
+  /** Ask in this conversation; `null`: this was its last question, start a new one. */
+  conversationId: string | null
 }

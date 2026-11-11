@@ -27,6 +27,37 @@
     "report_add_block": "جارٍ الإضافة إلى التقرير",
     "report_remove_blocks": "جارٍ الحذف من التقرير",
     "report_move_block": "جارٍ نقل جزء",
-    "report_update_block": "جارٍ تغيير جزء"
+    "report_update_block": "جارٍ تغيير جزء",
+    "describe_tables": "جارٍ قراءة الجداول",
+    "run_sql": "جارٍ تشغيل استعلام SQL"
+  },
+  "trace": {
+    "tools": {
+      "describe_tables": "قرأ أعمدة الجداول",
+      "run_sql": "شغّل استعلام SQL"
+    }
+  },
+  "sql": {
+    "toggle": "وضع SQL",
+    "toggleHint": "الإجابة بكتابة استعلام SQL واحد للقراءة فقط وتشغيله على جداول التحليلات",
+    "askedIn": "سُئل في وضع SQL",
+    "offer": "جرّب في وضع SQL",
+    "offerHint": "اطرح السؤال نفسه مرة أخرى لتُجاب عنه باستعلام SQL واحد للقراءة فقط",
+    "result": "نتيجة SQL",
+    "mark": "SQL، ليس رقمًا معتمدًا",
+    "notRan": "لم يُشغَّل أي استعلام.",
+    "rows_zero": "{{n}} صف",
+    "rows_one": "صف واحد",
+    "rows_two": "صفان",
+    "rows_few": "{{n}} صفوف",
+    "rows_many": "{{n}} صفًا",
+    "rows_other": "{{n}} صف",
+    "duration": "{{ms}} ملّي ثانية",
+    "cut": "عدد الصفوف أكبر من الحد: تُعرض أول {{n}} فقط.",
+    "null": "NULL",
+    "tablesRead": "الجداول المقروءة:",
+    "statement": "استعلام SQL",
+    "copy": "نسخ SQL",
+    "copyFailed": "تعذّر نسخ استعلام SQL."
   }
 }

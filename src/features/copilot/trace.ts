@@ -33,6 +33,9 @@ export const COPILOT_TOOLS = [
   'report_remove_blocks',
   'report_move_block',
   'report_update_block',
+  // BackOffice 3673 (spec 3632, oms-react 888): SQL mode's two tools.
+  'describe_tables',
+  'run_sql',
 ] as const
 export type CopilotTool = (typeof COPILOT_TOOLS)[number]
 

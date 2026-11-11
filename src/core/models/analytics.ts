@@ -32,6 +32,11 @@ export interface AnalyticsAccess {
   canView: boolean
   canAuthor: boolean
   canCurate: boolean
+  /**
+   * BackOffice 3672 (spec 3632 Q5, Q27): the SQL grant, held only beside the author grant. Shows the copilot's SQL mode
+   * toggle (oms-react 888) and the SQL editor (890). Absent (a pre-3672 server) reads as denied.
+   */
+  canSql?: boolean
 }
 
 export type MeasureShape = 'additive' | 'rate' | 'percentile'

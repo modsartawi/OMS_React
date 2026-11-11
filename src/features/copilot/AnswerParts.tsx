@@ -16,7 +16,7 @@ import { Check, Copy } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, answerTableKey, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, answerTableKey, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -306,8 +306,90 @@ export function AnswerProvenance({
   )
 }
 
+/**
+ * The answer's SQL part (888, BackOffice 3673, spec 3632 Q33), right under its words: the "SQL, not a certified figure"
+ * mark, the count, the time and the cut line, every row, the tables read, and the statement folded with its own Copy.
+ * Column names, table names and the statement are machine values (`Ltr`); a cell may be a name in either script
+ * (`<bdi>`). Save and Edit are not drawn here: they are 889's (the save dialog) and 890's (the SQL editor).
+ */
+export function SqlAnswer({ sql }: { sql: AnswerSql }) {
+  const { t } = useTranslation('copilot')
+  return (
+    <section aria-label={t('sql.result')} className="flex min-w-0 flex-col gap-2 text-xs" data-copilot-sql data-copilot-sql-ran={sql.ran ? 'yes' : 'no'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge sev="warn">
+          <span data-copilot-sql-mark>{t('sql.mark')}</span>
+        </StatusBadge>
+        {sql.ran ? (
+          <span className="text-muted-foreground" data-copilot-sql-count>
+            {t('sql.rows', { count: sql.rowCount, n: fsi(formatNumber(sql.rowCount)) })}
+            {' · '}
+            {t('sql.duration', { ms: fsi(formatNumber(sql.durationMs)) })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground" data-copilot-sql-not-ran>
+            {t('sql.notRan')}
+          </span>
+        )}
+      </div>
+      {sql.isCut && (
+        <p role="note" className="text-muted-foreground" data-copilot-sql-cut>
+          {t('sql.cut', { n: fsi(formatNumber(sql.rows.length)) })}
+        </p>
+      )}
+      {sql.columns.length > 0 && (
+        <div className="max-h-96 overflow-auto rounded-md border border-border/60" data-copilot-sql-rows>
+          <table className="min-w-full border-collapse">
+            <thead className="sticky top-0 bg-muted">
+              <tr>
+                {sql.columns.map((c, i) => (
+                  <th key={i} className="border-b border-border px-2 py-1 text-start font-semibold">
+                    <Ltr>{c}</Ltr>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sql.rows.map((row, r) => (
+                <tr key={r} data-copilot-sql-row>
+                  {row.map((cell, i) => (
+                    <td key={i} className="border-b border-border/60 px-2 py-1 text-start">
+                      {cell === null ? <span className="text-muted-foreground">{t('sql.null')}</span> : <bdi>{cell}</bdi>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {sql.tables.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground" data-copilot-sql-tables>
+          <span>{t('sql.tablesRead')}</span>
+          {sql.tables.map((name) => (
+            <span key={name} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground" data-copilot-sql-table={name}>
+              <Ltr>{name}</Ltr>
+            </span>
+          ))}
+        </p>
+      )}
+      {sql.statement !== '' && (
+        <details className="rounded-lg border border-border p-2" data-copilot-sql-statement>
+          <summary className="cursor-pointer select-none font-medium text-muted-foreground">{t('sql.statement')}</summary>
+          <div className="mt-2 flex flex-col items-start gap-1.5">
+            <pre dir="ltr" className="w-full overflow-x-auto whitespace-pre rounded bg-muted p-2 text-start font-mono text-[11px] text-foreground">
+              {sql.statement}
+            </pre>
+            <CopyAnswer text={sql.statement} label={t('sql.copy')} failed={t('sql.copyFailed')} />
+          </div>
+        </details>
+      )}
+    </section>
+  )
+}
+
 /** Copy: the answer's text on the clipboard (clean, see `answerPlainText`); the button says Copied for a moment. */
-function CopyAnswer({ text }: { text: string }) {
+function CopyAnswer({ text, label, failed }: { text: string; label?: string; failed?: string }) {
   const { t } = useTranslation('copilot')
   const [done, setDone] = useState(false)
   useEffect(() => {
@@ -317,12 +399,12 @@ function CopyAnswer({ text }: { text: string }) {
   }, [done])
   const put = async () => {
     if ((await copyText(text)) === 'copied') setDone(true)
-    else notify.error(t('answer.copyFailed'))
+    else notify.error(failed ?? t('answer.copyFailed'))
   }
   return (
     <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => void put()} disabled={text === ''} data-copilot-copy={done ? 'done' : ''}>
       {done ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
-      {done ? t('answer.copied') : t('answer.copy')}
+      {done ? t('answer.copied') : (label ?? t('answer.copy'))}
     </Button>
   )
 }
@@ -343,6 +425,8 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
             )}
           </section>
         )
+      case 'sql':
+        return model.sql ? <SqlAnswer key={p} sql={model.sql} /> : null
       case 'tables':
         return <AnswerTables key={p} tables={model.tables} />
       case 'views':

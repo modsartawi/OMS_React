@@ -50,7 +50,28 @@
     "report_add_block": "Adding to the report",
     "report_remove_blocks": "Removing from the report",
     "report_move_block": "Moving a block",
-    "report_update_block": "Changing a block"
+    "report_update_block": "Changing a block",
+    "describe_tables": "Reading the tables",
+    "run_sql": "Running the SQL"
+  },
+  "sql": {
+    "toggle": "SQL mode",
+    "toggleHint": "Answer by writing and running one read-only SQL statement over the analytics tables",
+    "askedIn": "Asked in SQL mode",
+    "offer": "Try in SQL mode",
+    "offerHint": "Ask the same question again, answered by one read-only SQL statement",
+    "result": "SQL result",
+    "mark": "SQL, not a certified figure",
+    "notRan": "No statement ran.",
+    "rows_one": "{{n}} row",
+    "rows_other": "{{n}} rows",
+    "duration": "{{ms}} ms",
+    "cut": "More rows than the limit: only the first {{n}} are shown.",
+    "null": "NULL",
+    "tablesRead": "Tables read:",
+    "statement": "The SQL statement",
+    "copy": "Copy SQL",
+    "copyFailed": "The SQL could not be copied."
   },
   "live": {
     "model": "Thinking",
@@ -125,7 +146,9 @@
       "report_add_block": "Added a block to the report",
       "report_remove_blocks": "Removed blocks from the report",
       "report_move_block": "Moved a block",
-      "report_update_block": "Changed a block"
+      "report_update_block": "Changed a block",
+      "describe_tables": "Read the tables' columns",
+      "run_sql": "Ran a SQL statement"
     }
   },
   "refusal": {

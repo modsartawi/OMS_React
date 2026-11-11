@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Database, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
 import { saysIn } from '@/core/rules/sentence'
@@ -13,6 +14,7 @@ import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
+import { canUseSqlMode, copilotSqlAccessQuery } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
@@ -98,6 +100,10 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const clear = useCopilotConversation((s) => s.startNew)
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
+  // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`Analytics/Access` `canSql`).
+  const canSql = canUseSqlMode(useQuery(copilotSqlAccessQuery()).data)
+  const sqlOn = useCopilotConversation((s) => s.sqlMode) && canSql
+  const setSqlMode = useCopilotConversation((s) => s.setSqlMode)
   const box = useRef<HTMLTextAreaElement>(null)
   const working = pending !== null
 
@@ -106,7 +112,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (handed === null) return
     const q = useCopilotPanel.getState().takeQuestion()
     if (q === null) return
-    if (!questionFits(q) || ask(q) === null) setQuestion(q)
+    if (!questionFits(q) || ask(q, sqlOn) === null) setQuestion(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- taken once, in the mode the toggle is in then
   }, [handed, ask])
 
   // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.
@@ -178,7 +185,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const send = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canSend) return
-    if (ask(question.trim()) !== null) setQuestion('')
+    if (ask(question.trim(), sqlOn) !== null) setQuestion('')
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
     box.current?.focus()
   }
@@ -307,7 +314,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               {working && (
                 <div className="flex flex-col gap-3" data-copilot-pending>
                   <TurnRule label={t('answer.question')} />
-                  <Asked question={pending} />
+                  <Asked question={pending} sql={inFlight?.sqlMode === true} />
                   <AnswerRow>
                     <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -346,7 +353,22 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                 data-copilot-question
               />
             </Field>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2">
+              {canSql ? (
+                <Button
+                  type="button"
+                  variant={sqlOn ? 'primary' : 'ghost'}
+                  onClick={() => setSqlMode(!sqlOn)}
+                  aria-pressed={sqlOn}
+                  title={t('sql.toggleHint')}
+                  data-copilot-sql-toggle={sqlOn ? 'on' : 'off'}
+                >
+                  <Database className="h-3.5 w-3.5" aria-hidden />
+                  {t('sql.toggle')}
+                </Button>
+              ) : (
+                <span />
+              )}
               {/* While the answer is coming, Send becomes Stop: the request is aborted and the question comes back to the box. */}
               {working ? (
                 <Button type="button" variant="secondary" onClick={stopAsk} title={t('box.stopHint')} data-copilot-stop>
@@ -449,13 +471,20 @@ function TurnRule({ label }: { label: ReactNode }) {
   )
 }
 
-/** The question as it was asked: a bubble on the inline end, in the primary tint. */
-function Asked({ question }: { question: string }) {
+/** The question as it was asked: a bubble on the inline end, in the primary tint. `sql` (888): asked in SQL mode, said under it. */
+function Asked({ question, sql = false }: { question: string; sql?: boolean }) {
+  const { t } = useTranslation('copilot')
   return (
-    <div className="flex justify-end" data-copilot-asked>
+    <div className="flex flex-col items-end gap-1" data-copilot-asked data-copilot-asked-sql={sql || undefined}>
       <p className="max-w-[85%] whitespace-pre-line rounded-2xl rounded-se-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground shadow-sm">
         <bdi>{question}</bdi>
       </p>
+      {sql && (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground" data-copilot-asked-in-sql>
+          <Database className="h-3 w-3" aria-hidden />
+          {t('sql.askedIn')}
+        </span>
+      )}
     </div>
   )
 }
@@ -496,7 +525,7 @@ function Turn({ turn }: { turn: CopilotTurn }) {
           )
         }
       />
-      <Asked question={turn.question} />
+      <Asked question={turn.question} sql={turn.reply?.sql !== undefined && turn.reply?.sql !== null} />
       {!turn.reply ? (
         <AnswerRow plain>
           <Refusal err={turn.refusal} />
@@ -512,6 +541,7 @@ function Turn({ turn }: { turn: CopilotTurn }) {
               {t('answer.cannotAnswer')}
             </div>
             <Answer model={copilotAnswerModel(turn.reply)} />
+            <SqlOffer reply={turn.reply} />
           </div>
         </AnswerRow>
       ) : (
@@ -520,5 +550,25 @@ function Turn({ turn }: { turn: CopilotTurn }) {
         </AnswerRow>
       )}
     </li>
+  )
+}
+
+/**
+ * "Try in SQL mode" under a can't-answer (888, BackOffice 3674, spec 3632 Q28): the server adds it, never the model, and
+ * only for a holder of the SQL grant. A tap turns the toggle on and asks the same question again in SQL mode.
+ */
+function SqlOffer({ reply }: { reply: CopilotTurn['reply'] }) {
+  const { t } = useTranslation('copilot')
+  const offer = copilotAnswerModel(reply).sqlOffer
+  const busy = useCopilotConversation((s) => s.inFlight !== null)
+  const trySqlOffer = useCopilotConversation((s) => s.trySqlOffer)
+  if (!offer) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1" data-copilot-sql-offer>
+      <Button variant="secondary" disabled={busy} onClick={() => void trySqlOffer(offer)} title={t('sql.offerHint')} data-copilot-sql-offer-try>
+        <Database className="h-3.5 w-3.5" aria-hidden />
+        {t('sql.offer')}
+      </Button>
+    </div>
   )
 }

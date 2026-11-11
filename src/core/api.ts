@@ -488,4 +488,8 @@ export const api = {
   del<T>(path: string, params?: Record<string, unknown>): Promise<T> {
     return request<T>(path + buildQuery(params), { method: 'DELETE' })
   },
+  /** A DELETE whose door wants a body (InsuranceRules list entries take `{ key, reason }`, BackOffice 3133). */
+  delBody<T>(path: string, body: unknown): Promise<T> {
+    return request<T>(path, { method: 'DELETE', body: JSON.stringify(body) })
+  },
 }

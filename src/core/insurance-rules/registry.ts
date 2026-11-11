@@ -45,33 +45,34 @@ export const liveFields = (fields: readonly RegistryField[], scope?: FieldScope)
 /** A patient list (keyed by National ID / Iqama) or a policy list (keyed by SubscriberId). */
 export type KeyedListKind = 'patient' | 'policy'
 
-/**
- * One patient or policy list. ⚠️ PROVISIONAL door and shape: the brief spells only the lists' Entries and Log
- * doors; `GET InsuranceRules/PatientLists` / `PolicyLists` → `[{ id, name, entries }]` is 610's guess.
- */
+/** One patient or policy list (`GET InsuranceRules/PatientLists` | `PolicyLists`, BackOffice 3133). */
 export interface KeyedList {
   id: string
   name: Says
   /** How many entries it holds now. */
   entries: number
+  createdBy?: string | null
+  createdAt?: string | null
 }
 
-/** `GET …/{Patient|Policy}Lists/{id}/Entries` — one entry. */
+/** `GET …/{Patient|Policy}Lists/{id}/Entries` — one entry. An expired entry stays listed and no longer matches. */
 export interface KeyedListEntry {
   key: string
   addedBy: string
+  addedAt?: string | null
   reason: string
-  /** Local day; absent or null = no expiry. */
+  /** Local day, the last one it counts; absent or null = no expiry. */
   expiresOn?: string | null
+  expired?: boolean
 }
 
-/** `GET …/{Patient|Policy}Lists/{id}/Log` — one change. ⚠️ PROVISIONAL shape (the brief says "the change log"). */
+/** `GET …/{Patient|Policy}Lists/{id}/Log` — one change, newest first (3133). */
 export interface KeyedListLogRow {
   /** Local moment. */
   at: string
   by: string
-  action: 'added' | 'removed' | 'expired'
-  key: string
+  action: 'createList' | 'add' | 'change' | 'remove'
+  key: string | null
   reason?: string | null
   expiresOn?: string | null
 }

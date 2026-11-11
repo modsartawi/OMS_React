@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ArrowRight, Loader2, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ClipboardPaste, Loader2, Plus, X } from 'lucide-react'
 
 import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY } from '@/core/insurance-rules/api'
@@ -21,6 +21,8 @@ import { fsi, formatPair } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { listsApi, type ListPreview } from './api'
 import { attributeCodes, attributeMode, listProblems, withList, type ListProblem } from './list-graph'
+import PasteCodes from './PasteCodes'
+import type { PasteKind } from './paste'
 import { CARD, CHIP } from './ui'
 
 interface Props {
@@ -74,6 +76,7 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
   const toggleRef = (side: 'include' | 'exclude', id: string) =>
     setList((l) => ({ ...l, [side]: l[side].includes(id) ? l[side].filter((x) => x !== id) : [...l[side], id] }))
 
+  const [pasting, setPasting] = useState<{ fi: number; kind: PasteKind } | null>(null)
   const current = previewed && previewed.json === json ? previewed.result : null
   const blocked = problems.length > 0
 
@@ -119,21 +122,15 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
                 />
               ))}
               {(['articles', 'categories'] as const).map((k) =>
-                f[k].length ? (
-                  <div key={k} className="flex flex-wrap items-center gap-1 text-sm" data-editor-picked={k}>
-                    <span className="text-xs text-muted-foreground">{t(`def.${k}`)}</span>
-                    {f[k].map((v) => (
-                      <span key={v} className={CHIP}>
-                        <Ltr>{v}</Ltr>
-                        <IconButton variant="danger" size="compact" label={t('editor.removeCode', { code: fsi(v) })} onClick={() => setFilter(fi, { ...f, [k]: f[k].filter((x) => x !== v) })}>
-                          <X className="h-3 w-3" aria-hidden />
-                        </IconButton>
-                      </span>
-                    ))}
-                  </div>
-                ) : null,
+                f[k].length ? <PickedCodes key={k} kind={k} codes={f[k]} onChange={(codes) => setFilter(fi, { ...f, [k]: codes })} /> : null,
               )}
               <div className="flex flex-wrap gap-2">
+                {(['articles', 'categories'] as const).map((k) => (
+                  <Button key={k} variant="outlined" onClick={() => setPasting({ fi, kind: k })} data-paste-open={`${fi}:${k}`}>
+                    <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+                    {t(`paste.${k}.open`)}
+                  </Button>
+                ))}
                 <Button
                   variant="outlined"
                   disabled={!firstField}
@@ -220,6 +217,18 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
         </ErrorBanner>
       )}
 
+      <PasteCodes
+        open={pasting !== null}
+        kind={pasting?.kind ?? 'articles'}
+        held={pasting ? list.filters[pasting.fi][pasting.kind] : []}
+        onAdd={(codes) => {
+          if (!pasting) return
+          const f = list.filters[pasting.fi]
+          setFilter(pasting.fi, { ...f, [pasting.kind]: [...f[pasting.kind], ...codes] })
+        }}
+        onClose={() => setPasting(null)}
+      />
+
       <div className="flex gap-2">
         <Button variant="primary" aria-disabled={blocked || save.isPending} onClick={() => !blocked && !save.isPending && save.mutate()} data-list-save="">
           {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
@@ -229,6 +238,38 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
           {t('editor.cancel')}
         </Button>
       </div>
+    </div>
+  )
+}
+
+const SHOWN = 30
+
+/** The items or categories a filter picked by code: the first 30 as chips (a pasted list runs to thousands), Remove all. */
+function PickedCodes({ kind, codes, onChange }: { kind: PasteKind; codes: string[]; onChange: (codes: string[]) => void }) {
+  const { t } = useTranslation('insurance-lists')
+  const [all, setAll] = useState(false)
+  const shown = all ? codes : codes.slice(0, SHOWN)
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-sm" data-editor-picked={kind}>
+      <span className="text-xs text-muted-foreground">
+        {t(`def.${kind}`)} (<Ltr>{codes.length}</Ltr>)
+      </span>
+      {shown.map((v) => (
+        <span key={v} className={CHIP}>
+          <Ltr>{v}</Ltr>
+          <IconButton variant="danger" size="compact" label={t('editor.removeCode', { code: fsi(v) })} onClick={() => onChange(codes.filter((x) => x !== v))}>
+            <X className="h-3 w-3" aria-hidden />
+          </IconButton>
+        </span>
+      ))}
+      {codes.length > SHOWN && (
+        <Button variant="text" onClick={() => setAll(!all)} data-picked-toggle="">
+          {all ? t('paste.showFewer') : t('paste.showAll', { count: codes.length, n: fsi(codes.length) })}
+        </Button>
+      )}
+      <Button variant="text" onClick={() => onChange([])} data-picked-clear="">
+        {t('paste.removeAll')}
+      </Button>
     </div>
   )
 }

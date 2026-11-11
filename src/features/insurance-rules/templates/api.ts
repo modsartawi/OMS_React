@@ -7,7 +7,7 @@
  * the created draft rule (HQ mints its id and adds it to the draft, whose revision moves on).
  */
 import { api } from '@/core/api'
-import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
+import { INSURANCE_RULES_BASE, insuranceRulesApi } from '@/core/insurance-rules/api'
 import type { GuardRule } from '@/core/insurance-rules/model'
 import { GUARD_TEMPLATES_KEY, type GuardTemplate } from '@/core/insurance-rules/templates'
 
@@ -16,9 +16,24 @@ export const templatesApi = {
   async list(): Promise<GuardTemplate[]> {
     return (await api.get<GuardTemplate[] | null>(`${INSURANCE_RULES_BASE}/Guards/Templates`)) ?? []
   },
-  /** `POST InsuranceRules/Guards/Templates/{id}/Create` — the blanks' values make an independent draft rule. */
-  create(id: string, values: Record<string, unknown>, folder: string): Promise<GuardRule> {
-    return api.post<GuardRule>(`${INSURANCE_RULES_BASE}/Guards/Templates/${encodeURIComponent(id)}/Create`, { values, folder })
+  /**
+   * `POST InsuranceRules/Guards/Templates/{id}/Create { revision, ruleId, folder?, values }` (3139) — the blanks'
+   * values add an independent copy to the draft read at `revision`; HQ answers the draft, so the new rule is the
+   * id sent. The id is the template's plus the first free `-n` (⚠️ HQ spells no id rule; the PUT checks it).
+   */
+  async create(id: string, values: Record<string, unknown>, folder: string): Promise<Pick<GuardRule, 'id'>> {
+    const draft = await insuranceRulesApi.guardDraft()
+    const taken = new Set(draft.rules.map((r) => r.id))
+    let n = 1
+    while (taken.has(`${id}-${n}`)) n++
+    const ruleId = `${id}-${n}`
+    await api.post<unknown>(`${INSURANCE_RULES_BASE}/Guards/Templates/${encodeURIComponent(id)}/Create`, {
+      revision: draft.revision,
+      ruleId,
+      ...(folder ? { folder } : {}),
+      values,
+    })
+    return { id: ruleId }
   },
 }
 

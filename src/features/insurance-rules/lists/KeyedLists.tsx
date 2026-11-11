@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
-import { Loader2, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 
-import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { KeyedList, KeyedListKind } from '@/core/insurance-rules/registry'
 import { keyedListsKey, keyedListsQuery } from '@/core/insurance-rules/registry-api'
-import { confirmAction } from '@/core/services/confirm'
+import { REASON_MAX, reasonField } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
+import Modal from '@/core/ui/Modal'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -35,21 +36,40 @@ export default function KeyedLists({ kind }: { kind: KeyedListKind }) {
   const { t } = useTranslation('insurance-lists')
   const [params, setParams] = useSearchParams()
   const lists = useQuery(keyedListsQuery(kind))
+  const [creating, setCreating] = useState(false)
 
   if (lists.isError && isBareDenial(lists.error)) return <DeniedCard ns="insurance-lists" hook="keyed-denied" />
   if (lists.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(lists.error, t('keyed.failed'))} />
   if (!lists.data) return <Loading text={t('keyed.loading')} />
-  if (lists.data.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">{t(`keyed.${kind}.none`)}</p>
 
-  const picked = lists.data.find((l) => l.id === params.get('list')) ?? lists.data[0]
   const pick = (id: string) => {
     const next = new URLSearchParams(params)
     next.set('list', id)
     setParams(next, { replace: true })
   }
+  const create = (
+    <>
+      <Button variant="primary" className="mb-3" onClick={() => setCreating(true)} data-keyed-new={kind}>
+        <Plus className="h-3.5 w-3.5" aria-hidden />
+        {t('keyed.newList')}
+      </Button>
+      <NewListDialog kind={kind} open={creating} onClose={() => setCreating(false)} onCreated={pick} />
+    </>
+  )
+  if (lists.data.length === 0)
+    return (
+      <div className="flex flex-col items-center py-6" data-keyed-lists={kind}>
+        <p className="mb-3 text-sm text-muted-foreground">{t(`keyed.${kind}.none`)}</p>
+        <p className="mb-3 max-w-xl text-center text-xs text-muted-foreground">{t(`keyed.${kind}.lede`)}</p>
+        {create}
+      </div>
+    )
+
+  const picked = lists.data.find((l) => l.id === params.get('list')) ?? lists.data[0]
   return (
     <div className="flex flex-col gap-4 md:flex-row" data-keyed-lists={kind}>
       <aside className="w-full shrink-0 md:w-64">
+        {create}
         <p className="mb-2 text-xs text-muted-foreground">{t(`keyed.${kind}.lede`)}</p>
         <ul className="flex flex-col gap-1">
           {lists.data.map((l) => (
@@ -96,10 +116,14 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
     },
     onError: (err) => notify.apiError(t('keyed.addFailed'), err, isBareDenial(err) ? t('access.deniedHint') : t('keyed.addFailed')),
   })
+  // HQ takes a reason on a removal too (3133: `DELETE …/Entries { key, reason }`), so Remove asks for one.
+  const [removing, setRemoving] = useState<string | null>(null)
+  const [removeReason, setRemoveReason] = useState('')
   const remove = useMutation({
-    mutationFn: (key: string) => listsApi.removeEntry(kind, list.id, key),
-    onSuccess: (_d, key) => {
+    mutationFn: ({ key, reason }: { key: string; reason: string }) => listsApi.removeEntry(kind, list.id, key, reason),
+    onSuccess: (_d, { key }) => {
       notify.success(t('keyed.removed'), fsi(key))
+      setRemoving(null)
       return refresh()
     },
     onError: (err) => notify.apiError(t('keyed.removeFailed'), err, isBareDenial(err) ? t('access.deniedHint') : t('keyed.removeFailed')),
@@ -108,8 +132,13 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
     setTried(true)
     if (problems.length === 0 && !add.isPending) add.mutate()
   }
-  const askRemove = async (key: string) => {
-    if (await confirmAction(t('keyed.removeConfirm', { key: fsi(key), list: fsi(saysIn(list.name, i18n.language)) }), t('keyed.removeTitle'))) remove.mutate(key)
+  const askRemove = (key: string) => {
+    setRemoveReason('')
+    setRemoving(key)
+  }
+  const removeCheck = reasonField(removeReason)
+  const confirmRemove = () => {
+    if (removing && removeCheck.problem === null && !remove.isPending) remove.mutate({ key: removing, reason: removeReason.trim() })
   }
   const shown = tried ? problems : []
 
@@ -191,6 +220,11 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                   </td>
                   <td className="py-1.5" data-entry-expiry="">
                     {e.expiresOn ? <Ltr>{formatDay(e.expiresOn)}</Ltr> : <span className="text-muted-foreground">{t('keyed.noExpiry')}</span>}
+                    {e.expired && (
+                      <span className="ms-2 rounded-full bg-attention-050 px-2 py-0.5 text-xs text-attention-800" data-entry-expired="">
+                        {t('keyed.expired')}
+                      </span>
+                    )}
                   </td>
                   <td className="py-1.5 text-end">
                     <IconButton variant="danger" label={t('keyed.removeLabel', { key: fsi(e.key) })} onClick={() => askRemove(e.key)} data-entry-remove={e.key}>
@@ -220,9 +254,11 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                   <Ltr>{formatDateTime(r.at)}</Ltr>
                 </span>
                 <span>{t(`logAction.${r.action}`)}</span>
-                <span className="font-mono" data-log-key="">
-                  <Ltr>{r.key}</Ltr>
-                </span>
+                {r.key && (
+                  <span className="font-mono" data-log-key="">
+                    <Ltr>{r.key}</Ltr>
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {t('keyed.by')} <Ltr>{r.by}</Ltr>
                 </span>
@@ -241,6 +277,92 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
           </ol>
         )}
       </section>
+
+      <Modal
+        open={removing !== null}
+        onClose={() => !remove.isPending && setRemoving(null)}
+        title={t('keyed.removeTitle')}
+        footer={
+          <>
+            <Button variant="text" onClick={() => setRemoving(null)} disabled={remove.isPending} data-remove-cancel="">
+              {t('editor.cancel')}
+            </Button>
+            <Button variant="danger" aria-disabled={removeCheck.problem !== null || remove.isPending} onClick={confirmRemove} data-remove-confirm="">
+              {remove.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+              {t('keyed.remove')}
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-sm">{removing && t('keyed.removeConfirm', { key: fsi(removing), list: fsi(saysIn(list.name, i18n.language)) })}</p>
+        <Field label={t('keyed.reason')}>
+          <Input value={removeReason} maxLength={REASON_MAX} onChange={(e) => setRemoveReason(e.target.value)} data-remove-reason="" />
+        </Field>
+      </Modal>
     </div>
+  )
+}
+
+const LIST_ID = /^[A-Za-z0-9._-]{1,40}$/
+
+/** `POST InsuranceRules/{Patient|Policy}Lists { id, name: { en, ar }, reason }` (3133): a new, empty list. */
+function NewListDialog({ kind, open, onClose, onCreated }: { kind: KeyedListKind; open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
+  const { t } = useTranslation('insurance-lists')
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ id: '', en: '', ar: '', reason: '' })
+  const id = form.id.trim()
+  const ready = LIST_ID.test(id) && form.en.trim() !== '' && form.ar.trim() !== '' && reasonField(form.reason).problem === null
+  const create = useMutation({
+    mutationFn: () => listsApi.createList(kind, { id, name: { en: form.en.trim(), ar: form.ar.trim() }, reason: form.reason.trim() }),
+    onSuccess: async () => {
+      notify.success(t('keyed.created'), fsi(id))
+      await qc.invalidateQueries({ queryKey: keyedListsKey(kind), exact: true })
+      onCreated(id)
+      close()
+    },
+  })
+  function close() {
+    setForm({ id: '', en: '', ar: '', reason: '' })
+    create.reset()
+    onClose()
+  }
+  return (
+    <Modal
+      open={open}
+      onClose={() => !create.isPending && close()}
+      title={t(`keyed.${kind}.newTitle`)}
+      footer={
+        <>
+          <Button variant="text" onClick={close} disabled={create.isPending} data-newlist-cancel="">
+            {t('editor.cancel')}
+          </Button>
+          <Button variant="primary" aria-disabled={!ready || create.isPending} onClick={() => ready && !create.isPending && create.mutate()} data-newlist-create="">
+            {create.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+            {t('keyed.create')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3" data-newlist={kind}>
+        <Field label={t('editor.id')} hint={t('keyed.idHint')}>
+          <Input dir="ltr" maxLength={40} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} data-newlist-id="" />
+        </Field>
+        <Field label={t('editor.nameEn')}>
+          <Input lang="en" dir="ltr" value={form.en} onChange={(e) => setForm({ ...form, en: e.target.value })} data-newlist-en="" />
+        </Field>
+        <Field label={t('editor.nameAr')}>
+          <Input lang="ar" dir="rtl" value={form.ar} onChange={(e) => setForm({ ...form, ar: e.target.value })} data-newlist-ar="" />
+        </Field>
+        <Field label={t('keyed.reason')}>
+          <Input value={form.reason} maxLength={REASON_MAX} onChange={(e) => setForm({ ...form, reason: e.target.value })} data-newlist-reason="" />
+        </Field>
+        {create.isError && (
+          <ErrorBanner
+            className="p-2"
+            message={apiErrorCode(create.error) === 'INSLISTS_EXISTS' ? t('keyed.idTaken') : apiErrorMessage(create.error, isBareDenial(create.error) ? t('access.deniedHint') : t('keyed.createFailed'))}
+          />
+        )}
+      </div>
+    </Modal>
   )
 }

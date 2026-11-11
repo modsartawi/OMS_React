@@ -59,8 +59,9 @@ const LIST_KEYS = [
   ...['include', 'exclude', 'includeHint', 'excludeHint'].map((k) => `editor.${k}`),
   ...['cycle', 'tooDeep', 'unknownList', 'idTaken', 'idInvalid', 'nameMissing', 'emptyAttribute', 'emptyDefinition'].map((k) => `problem.${k}`),
   ...['keyMissing', 'keyInvalid', 'keyListed', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
-  ...['added', 'removed', 'expired'].map((k) => `logAction.${k}`),
-  ...['patient', 'policy'].flatMap((k) => ['none', 'lede', 'key'].map((x) => `keyed.${k}.${x}`)),
+  ...['createList', 'add', 'change', 'remove'].map((k) => `logAction.${k}`),
+  ...['articles', 'categories'].flatMap((k) => ['open', 'title', 'label'].map((x) => `paste.${k}.${x}`)),
+  ...['patient', 'policy'].flatMap((k) => ['none', 'lede', 'key', 'newTitle'].map((x) => `keyed.${k}.${x}`)),
 ]
 const FIELD_KEYS = [
   ...FIELD_SCOPES.map((s) => `scope.${s}`),

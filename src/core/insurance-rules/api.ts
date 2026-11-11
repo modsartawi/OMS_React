@@ -19,7 +19,7 @@ export const INSURANCE_RULES_BASE = 'InsuranceRules'
 export const insuranceRulesApi = {
   /** `GET InsuranceRules/Guards/Draft` — the whole guard ruleset with its `revision`. */
   guardDraft(): Promise<GuardRuleset> {
-    return api.get<GuardRuleset>(`${INSURANCE_RULES_BASE}/Guards/Draft`)
+    return rulesetDraftDoors<GuardRuleset>('Guards').read()
   },
   /** `PUT InsuranceRules/Guards/Draft` (608) — the whole document; see `rulesetDraftDoors`. */
   saveGuardDraft(doc: GuardRuleset): Promise<GuardRuleset> {
@@ -31,8 +31,43 @@ export const insuranceRulesApi = {
   },
 }
 
-/** The refusal code of a PUT whose `revision` is stale (409). ⚠️ PROVISIONAL spelling (608): 3139 owns it. */
-export const STALE_REVISION = 'STALE_REVISION'
+/** The refusal code of a PUT whose `revision` is stale (409, BackOffice 3139). */
+export const STALE_REVISION = 'GUARDS_DRAFT_STALE'
+
+/**
+ * Every draft reply (BackOffice 3139; the category and coverage documents' doors are the same, 3145/3146):
+ * the draft's standing around its document. With no draft, `state: none` and `document` is the newest
+ * published one at `revision: 0`.
+ */
+interface DraftEnvelope<T> {
+  revision: number
+  state: 'none' | 'editing' | 'pending' | 'sentBack'
+  origin: string | null
+  baseVersionNo: number | null
+  updatedBy: string | null
+  updatedAt: string | null
+  requestedBy: string | null
+  requestedAt: string | null
+  requestNote: string | null
+  reviewedBy: string | null
+  reviewNote: string | null
+  document: T
+}
+
+/** The document the screens edit: the envelope's, at the envelope's revision (a document may leave `lists` out). */
+const draftDocument = <T extends { revision: number }>(e: DraftEnvelope<T>): T => ({ lists: [], ...e.document, revision: e.revision })
+
+/** Where the draft stands. No access probe exists yet, so both actions show and HQ refuses a user without the grant. */
+const draftStanding = (e: DraftEnvelope<unknown>, backtestId: string | null): DraftApproval => ({
+  revision: e.revision,
+  state: e.state === 'pending' ? 'waiting' : 'draft',
+  submittedBy: e.state === 'pending' ? e.requestedBy : null,
+  submittedAt: e.state === 'pending' ? e.requestedAt : null,
+  note: e.state === 'pending' ? e.requestNote : null,
+  sentBack: e.state === 'sentBack' && e.reviewedBy ? { by: e.reviewedBy, at: e.updatedAt ?? '', note: e.reviewNote ?? '' } : null,
+  backtestId,
+  viewer: { author: true, approver: true },
+})
 
 /**
  * The draft doors every insurance ruleset shares (oms 608): the guard ruleset under `Guards`, and the category
@@ -47,13 +82,23 @@ export const STALE_REVISION = 'STALE_REVISION'
 export function rulesetDraftDoors<T extends { revision: number }>(kind: 'Guards' | 'Categories' | 'Coverage') {
   const base = `${INSURANCE_RULES_BASE}/${kind}`
   return {
-    read: (): Promise<T> => api.get<T>(`${base}/Draft`),
-    save: (doc: T): Promise<T> => api.put<T>(`${base}/Draft`, doc),
+    read: async (): Promise<T> => draftDocument(await api.get<DraftEnvelope<T>>(`${base}/Draft`)),
+    save: async (doc: T): Promise<T> => draftDocument(await api.put<DraftEnvelope<T>>(`${base}/Draft`, doc)),
     validate: async (doc: T): Promise<GuardIssue[]> => (await api.post<GuardIssue[] | null>(`${base}/Validate`, doc)) ?? [],
   }
 }
 
-/** One published version of a ruleset: who, when, note. PROVISIONAL field spellings (611). */
+/** `GET …/Versions`' row as HQ spells it (3139). */
+interface WireVersion {
+  versionNo: number
+  publishedAt: string
+  publishedBy: string
+  requestedBy: string | null
+  action: 'approve' | 'promote' | ''
+  note: string | null
+}
+
+/** One published version of a ruleset: who, when, note. */
 export interface RulesetVersion {
   version: number
   by: string
@@ -69,13 +114,26 @@ export interface RulesetVersion {
  */
 export function rulesetApprovalDoors<T extends { revision: number }>(kind: 'Guards' | 'Categories' | 'Coverage') {
   const base = `${INSURANCE_RULES_BASE}/${kind}`
+  // Only the guard ruleset is back-tested (3140); its back-tests list newest first.
+  const latestBacktest = async (): Promise<string | null> =>
+    kind === 'Guards' ? ((await api.get<{ id: string }[] | null>(`${base}/Backtests`)) ?? [])[0]?.id ?? null : null
+  const approval = async (): Promise<DraftApproval> => {
+    const [draft, backtestId] = await Promise.all([api.get<DraftEnvelope<unknown>>(`${base}/Draft`), latestBacktest()])
+    return draftStanding(draft, backtestId)
+  }
+  const standingAfter = async (e: DraftEnvelope<unknown>): Promise<DraftApproval> => draftStanding(e, await latestBacktest())
   return {
-    approval: (): Promise<DraftApproval> => api.get<DraftApproval>(`${base}/Approval`),
-    submit: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/Submit`, { note }),
-    approve: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/Approve`, { note }),
-    sendBack: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/SendBack`, { note }),
-    versions: async (): Promise<RulesetVersion[]> => (await api.get<RulesetVersion[] | null>(`${base}/Versions`)) ?? [],
-    restore: (version: number): Promise<T> => api.post<T>(`${base}/Versions/${version}/Restore`, {}),
+    approval,
+    submit: async (note: string): Promise<DraftApproval> => standingAfter(await api.post<DraftEnvelope<unknown>>(`${base}/Submit`, { note })),
+    // Approve answers the published version, not the draft: the standing is read again.
+    approve: async (note: string): Promise<DraftApproval> => {
+      await api.post<unknown>(`${base}/Approve`, { note })
+      return approval()
+    },
+    sendBack: async (note: string): Promise<DraftApproval> => standingAfter(await api.post<DraftEnvelope<unknown>>(`${base}/SendBack`, { note })),
+    versions: async (): Promise<RulesetVersion[]> =>
+      ((await api.get<WireVersion[] | null>(`${base}/Versions`)) ?? []).map((v) => ({ version: v.versionNo, by: v.publishedBy, at: v.publishedAt, note: v.note || null })),
+    restore: async (version: number): Promise<T> => draftDocument(await api.post<DraftEnvelope<T>>(`${base}/Versions/${version}/Restore`, {})),
   }
 }
 

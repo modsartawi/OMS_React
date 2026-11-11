@@ -7,7 +7,7 @@
  * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 610): no door here has met a real SIS.Api.
  */
 import { api } from '@/core/api'
-import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
+import { INSURANCE_RULES_BASE, insuranceRulesApi } from '@/core/insurance-rules/api'
 import type { GuardList, GuardRuleset } from '@/core/insurance-rules/model'
 import type { KeyedListEntry, KeyedListKind, KeyedListLogRow } from '@/core/insurance-rules/registry'
 import { keyedListsKey, keyedListsPath } from '@/core/insurance-rules/registry-api'
@@ -35,14 +35,16 @@ export const listsApi = {
    * (its new revision). A stale revision is a 409. (608's editor saves through the same door.)
    */
   saveDraft(ruleset: GuardRuleset): Promise<GuardRuleset> {
-    return api.put<GuardRuleset>(`${INSURANCE_RULES_BASE}/Guards/Draft`, ruleset)
+    return insuranceRulesApi.saveGuardDraft(ruleset)
   },
   /**
    * `POST InsuranceRules/Lists/Preview` — ⚠️ PROVISIONAL body `{ list, lists }`: the definition being edited and
    * the draft's other lists, so the lists it includes or excludes resolve before the save.
    */
-  preview(list: GuardList, lists: GuardList[]): Promise<ListPreview> {
-    return api.post<ListPreview>(`${INSURANCE_RULES_BASE}/Lists/Preview`, { list, lists })
+  async preview(list: GuardList, lists: GuardList[]): Promise<ListPreview> {
+    // HQ (3132) answers `{ count, unknown, items: [{ item, description }] (first 50), warnings, errors }`.
+    const r = await api.post<{ count: number; items: { item: string; description: string }[] | null }>(`${INSURANCE_RULES_BASE}/Lists/Preview`, { list, lists })
+    return { count: r.count, items: (r.items ?? []).map((i) => ({ article: i.item, name: i.description })), matchesNothing: r.count === 0 }
   },
   /** `GET InsuranceRules/{Patient|Policy}Lists/{id}/Entries`. */
   async entries(kind: KeyedListKind, id: string): Promise<KeyedListEntry[]> {
@@ -52,9 +54,13 @@ export const listsApi = {
   addEntry(kind: KeyedListKind, id: string, body: EntryBody): Promise<KeyedListEntry> {
     return api.post<KeyedListEntry>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, body)
   },
-  /** `DELETE InsuranceRules/{Patient|Policy}Lists/{id}/Entries?key=` — ⚠️ PROVISIONAL: the key as a query param. */
-  removeEntry(kind: KeyedListKind, id: string, key: string): Promise<unknown> {
-    return api.del<unknown>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, { key })
+  /** `DELETE InsuranceRules/{Patient|Policy}Lists/{id}/Entries` with a BODY `{ key, reason }` → `{ key }` (3133). */
+  removeEntry(kind: KeyedListKind, id: string, key: string, reason: string): Promise<unknown> {
+    return api.delBody<unknown>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, { key, reason })
+  },
+  /** `POST InsuranceRules/{Patient|Policy}Lists { id, name: { en, ar }, reason }` makes a list (409 `INSLISTS_EXISTS`). */
+  createList(kind: KeyedListKind, body: { id: string; name: { en: string; ar: string }; reason: string }): Promise<unknown> {
+    return api.post<unknown>(keyedListsPath(kind), body)
   },
   /** `GET InsuranceRules/{Patient|Policy}Lists/{id}/Log` — every change, newest first. */
   async log(kind: KeyedListKind, id: string): Promise<KeyedListLogRow[]> {

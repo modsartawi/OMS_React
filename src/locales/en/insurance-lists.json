@@ -96,18 +96,20 @@
     "patient": {
       "none": "There is no patient list.",
       "lede": "By National ID or Iqama. A rule can leave out the patients of a list (VIP).",
-      "key": "National ID / Iqama"
+      "key": "National ID / Iqama",
+      "newTitle": "New patient list"
     },
     "policy": {
       "none": "There is no policy list.",
       "lede": "By SubscriberId. A rule can leave out the policies of a list.",
-      "key": "SubscriberId"
+      "key": "SubscriberId",
+      "newTitle": "New policy list"
     },
     "added": "Entry added",
     "addFailed": "The entry could not be added",
     "removed": "Entry removed",
     "removeFailed": "The entry could not be removed",
-    "removeConfirm": "Remove {{key}} from {{list}}? The change is logged.",
+    "removeConfirm": "Remove {{key}} from {{list}}? Say why; the change is logged.",
     "removeTitle": "Remove the entry",
     "removeLabel": "Remove {{key}}",
     "reason": "Reason",
@@ -121,7 +123,15 @@
     "logFailed": "The change log could not be loaded.",
     "noLog": "No change yet.",
     "by": "by",
-    "until": "until"
+    "until": "until",
+    "newList": "New list",
+    "create": "Create the list",
+    "created": "List created",
+    "createFailed": "The list could not be created.",
+    "idTaken": "Another list has this id.",
+    "idHint": "Letters, digits, dot, underscore and hyphen, up to 40. It never changes.",
+    "remove": "Remove",
+    "expired": "Expired"
   },
   "entryProblem": {
     "keyMissing": "Enter the key.",
@@ -133,8 +143,36 @@
     "expiryPast": "The expiry must be after today."
   },
   "logAction": {
-    "added": "Added",
-    "removed": "Removed",
-    "expired": "Expired"
+    "createList": "List created",
+    "add": "Added",
+    "change": "Changed",
+    "remove": "Removed"
+  },
+  "paste": {
+    "articles": {
+      "open": "Paste items",
+      "title": "Paste items",
+      "label": "Item numbers",
+      "rejected_one": "{{n}} line is not an item number and is left out:",
+      "rejected_other": "{{n}} lines are not item numbers and are left out:"
+    },
+    "categories": {
+      "open": "Paste categories",
+      "title": "Paste categories",
+      "label": "Category codes",
+      "rejected_one": "{{n}} line is not a category code and is left out:",
+      "rejected_other": "{{n}} lines are not category codes and are left out:"
+    },
+    "hint": "One per line, as copied from an Excel column, or separated by commas or spaces.",
+    "new_one": "{{n}} new code.",
+    "new_other": "{{n}} new codes.",
+    "repeated_one": "{{n}} is already on the list.",
+    "repeated_other": "{{n}} are already on the list.",
+    "add_one": "Add {{n}} code",
+    "add_other": "Add {{n}} codes",
+    "showAll_one": "Show all {{n}}",
+    "showAll_other": "Show all {{n}}",
+    "showFewer": "Show fewer",
+    "removeAll": "Remove all"
   }
 }

@@ -15,6 +15,7 @@ import {
   TABLE_FAILURE_CODES,
   type Campaign,
   type Job,
+  type JobFailureReason,
   type JobStatus,
   type JobsQuery,
   type StoreRef,
@@ -156,26 +157,37 @@ export function tableProgress(task: Pick<TableTask, 'chunksDone' | 'chunksTotal'
 
 // ── The page's URL: the jobs filter, the page and the drawer ────────────────────
 
-/** What the campaign page shows. All three live in the URL, so a filtered page or an open drawer can be linked. */
+/** What the campaign page shows. All of it lives in the URL, so a filtered page or an open drawer can be linked. */
 export interface CampaignJobsView {
   status: JobStatus | null
+  /** The store search (ticket 867), trimmed; `''` is no search. */
+  store: string
+  /** One job failure reason code (ticket 867), or `null`. */
+  failureReason: JobFailureReason | null
   page: number
   /** The job whose drawer is open (`?job=`), or `null`. */
   job: string | null
 }
 
 const isJobStatus = (v: string): v is JobStatus => (JOB_STATUSES as readonly string[]).includes(v)
+const isJobFailureReason = (v: string): v is JobFailureReason => (JOB_FAILURE_REASONS as readonly string[]).includes(v)
 
 function pageFromParam(raw: string | null): number {
   const n = Number(raw)
   return Number.isInteger(n) && n >= 1 ? n : 1
 }
 
-/** The view read from the address. An unknown status is dropped (the door refuses one, case-sensitively). */
+/**
+ * The view read from the address. An unknown status or failure reason is dropped (the door refuses
+ * one, case-sensitively); the store search is trimmed.
+ */
 export function campaignJobsFromParams(params: URLSearchParams): CampaignJobsView {
   const status = params.get('status') ?? ''
+  const failureReason = params.get('failureReason') ?? ''
   return {
     status: isJobStatus(status) ? status : null,
+    store: (params.get('store') ?? '').trim(),
+    failureReason: isJobFailureReason(failureReason) ? failureReason : null,
     page: pageFromParam(params.get('page')),
     job: params.get('job') || null,
   }
@@ -185,14 +197,45 @@ export function campaignJobsFromParams(params: URLSearchParams): CampaignJobsVie
 export function campaignJobsToParams(view: CampaignJobsView): URLSearchParams {
   const out = new URLSearchParams()
   if (view.status) out.set('status', view.status)
+  if (view.store) out.set('store', view.store)
+  if (view.failureReason) out.set('failureReason', view.failureReason)
   if (view.page > 1) out.set('page', String(view.page))
   if (view.job) out.set('job', view.job)
   return out
 }
 
-/** The jobs door's query: the status by its exact name, the page, 50 a page. */
-export function jobsQuery(filter: Pick<CampaignJobsView, 'status' | 'page'>): JobsQuery {
-  return { status: filter.status, page: filter.page, pageSize: DATA_SYNC_PAGE_SIZE }
+/** The filters a jobs read is made of (the drawer's `job` is not one). */
+export type JobsFilter = Pick<CampaignJobsView, 'status' | 'page'> & Partial<Pick<CampaignJobsView, 'store' | 'failureReason'>>
+
+/** The jobs door's query: the status and failure reason by their exact names, the store search, the page, 50 a page. */
+export function jobsQuery(filter: JobsFilter): JobsQuery {
+  return {
+    status: filter.status,
+    store: filter.store?.trim() || null,
+    failureReason: filter.failureReason ?? null,
+    page: filter.page,
+    pageSize: DATA_SYNC_PAGE_SIZE,
+  }
+}
+
+/**
+ * A filter change (status, store search or failure reason): back to page one — a later page of the
+ * old filter means nothing under the new one. The open drawer stays. A change to the same values (a
+ * debounced echo of the search already in the address) returns the view itself, so the page is kept.
+ */
+export function changeJobsFilter(
+  view: CampaignJobsView,
+  change: Partial<Pick<CampaignJobsView, 'status' | 'store' | 'failureReason'>>,
+): CampaignJobsView {
+  const next = { ...view, ...change }
+  if (next.status === view.status && next.store === view.store && next.failureReason === view.failureReason) return view
+  return { ...next, page: 1 }
+}
+
+/** The empty grid's sentence: past page one, no more jobs; under any filter, nothing matches it; else none at all. */
+export function jobsEmptyKey(view: Pick<CampaignJobsView, 'status' | 'store' | 'failureReason' | 'page'>): string {
+  if (view.page > 1) return 'jobs.emptyPage'
+  return view.status || view.store || view.failureReason ? 'jobs.emptyFiltered' : 'jobs.empty'
 }
 
 // ── Small pieces ────────────────────────────────────────────────────────────────

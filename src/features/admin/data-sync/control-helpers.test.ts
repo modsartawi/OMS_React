@@ -60,6 +60,35 @@ describe('jobControls', () => {
   it('offers nothing for a status this bundle does not know', () => {
     expect(jobControls('Skipped', true)).toEqual([])
   })
+
+  // Retry (ticket 866, engine spec §2.6): the server decides retryability (`Job.retryable` —
+  // StoreUnreachable / TargetUnresolved, campaign not cancelling); the page only reads it.
+  it('offers Retry exactly when the job is retryable and the user can operate', () => {
+    expect(jobControls('Failed', true, true)).toEqual(['Retry'])
+    expect(jobControls('Failed', true, false)).toEqual([])
+    expect(jobControls('Failed', false, true)).toEqual([])
+    expect(jobControls('Failed', true)).toEqual([])
+  })
+
+  it('never offers Retry on a status this bundle does not know, even if flagged', () => {
+    expect(jobControls('Skipped', true, true)).toEqual([])
+  })
+})
+
+describe('campaignControls — Retry N retryable', () => {
+  it('adds Retry after the status moves exactly when retryableJobs > 0 and the user can operate', () => {
+    expect(campaignControls('Completed', true, 3)).toEqual(['Retry'])
+    expect(campaignControls('Running', true, 1)).toEqual(['Pause', 'Cancel', 'Retry'])
+    expect(campaignControls('Paused', true, 30)).toEqual(['Resume', 'Cancel', 'Retry'])
+    expect(campaignControls('Completed', true, 0)).toEqual([])
+    expect(campaignControls('Running', true)).toEqual(['Pause', 'Cancel'])
+    expect(campaignControls('Completed', false, 3)).toEqual([])
+    expect(campaignControls('Running', false, 3)).toEqual([])
+  })
+
+  it('never offers Retry on a status this bundle does not know', () => {
+    expect(campaignControls('Archived', true, 2)).toEqual([])
+  })
 })
 
 describe('controlRefusalWords', () => {
@@ -87,6 +116,35 @@ describe('controlRefusalWords', () => {
   })
 })
 
+describe('controlRefusalWords — Retry (ticket 866)', () => {
+  it('maps the Retry refusals to their own Retry sentences, which exist', () => {
+    const keys = {
+      DATASYNC_INVALID_STATE: 'controls.retryRefusal.DATASYNC_INVALID_STATE',
+      DATASYNC_STORE_BUSY: 'controls.retryRefusal.DATASYNC_STORE_BUSY',
+      DATASYNC_STORE_WPF_HOSTED: 'controls.retryRefusal.DATASYNC_STORE_WPF_HOSTED',
+    }
+    for (const [code, key] of Object.entries(keys)) {
+      expect(controlRefusalWords(code, 'Retry')).toBe(key)
+      expect(typeof word(key)).toBe('string')
+    }
+    // Nothing retryable any more, or the campaign is cancelling / cancelled.
+    expect(word(keys.DATASYNC_INVALID_STATE)).toMatch(/retr/i)
+    expect(word(keys.DATASYNC_INVALID_STATE)).toMatch(/cancel/i)
+    // Busy: pause ActionSync for the store first, then retry — not "resume".
+    expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/Pause the store on ActionSync first/)
+    expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/retry/i)
+    expect(word(keys.DATASYNC_STORE_WPF_HOSTED)).toMatch(/never/)
+  })
+
+  it('keeps the shared sentences for the not-founds, and the control sentences for the other moves', () => {
+    expect(controlRefusalWords('DATASYNC_JOB_NOT_FOUND', 'Retry')).toBe('controls.refusal.DATASYNC_JOB_NOT_FOUND')
+    expect(controlRefusalWords('DATASYNC_CAMPAIGN_NOT_FOUND', 'Retry')).toBe('controls.refusal.DATASYNC_CAMPAIGN_NOT_FOUND')
+    expect(controlRefusalWords('DATASYNC_STORE_BUSY', 'Resume')).toBe('controls.refusal.DATASYNC_STORE_BUSY')
+    expect(controlRefusalWords('DATASYNC_REASON_REQUIRED', 'Retry')).toBeNull()
+    expect(controlRefusalWords(null, 'Retry')).toBeNull()
+  })
+})
+
 describe('isOperateDenied', () => {
   it('is a bare 403 only', () => {
     expect(isOperateDenied(new ApiError('unknown', 'Unexpected API error (HTTP 403)', 403))).toBe(true)
@@ -103,6 +161,12 @@ describe('controlBody', () => {
     expect(controlTakesNote('Pause')).toBe(true)
     expect(controlTakesNote('Cancel')).toBe(true)
     expect(controlTakesNote('Resume')).toBe(false)
+  })
+
+  it('takes a note on Retry (the last control note says why it was retried)', () => {
+    expect(controlTakesNote('Retry')).toBe(true)
+    expect(controlBody('Retry', '  link to P014 is back  ')).toEqual({ reason: 'link to P014 is back' })
+    expect(controlBody('Retry', ' ')).toEqual({})
   })
 
   it('sends the note trimmed, and nothing for a blank note or a Resume', () => {
@@ -145,5 +209,18 @@ describe('the control doors', () => {
     })
     expect((await sent(() => dataSyncApi.controlJob('J1', 'Resume', {}))).body).toEqual({})
     expect((await sent(() => dataSyncApi.controlJob('J1', 'Pause', {}))).path).toBe('DataSync/Jobs/J1/Pause')
+  })
+
+  it('posts a Retry to Jobs/{id}/Retry and Campaigns/{id}/Retry with the note (ticket 866)', async () => {
+    expect(await sent(() => dataSyncApi.controlJob('J1', 'Retry', { reason: 'link is back' }))).toEqual({
+      path: 'DataSync/Jobs/J1/Retry',
+      method: 'POST',
+      body: { reason: 'link is back' },
+    })
+    expect(await sent(() => dataSyncApi.controlCampaign('C1', 'Retry', {}))).toEqual({
+      path: 'DataSync/Campaigns/C1/Retry',
+      method: 'POST',
+      body: {},
+    })
   })
 })

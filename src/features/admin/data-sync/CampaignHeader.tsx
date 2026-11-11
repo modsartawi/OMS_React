@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { JOBS_BY_STATE_KEYS, type Campaign } from '@/core/models/data-sync'
+import { campaignPath } from './campaign-columns'
 import CodeBadgeView from './CodeBadgeView'
 import CodeWord from './CodeWord'
 import { campaignStatusBadge, groupDigits } from './helpers'
@@ -70,6 +72,26 @@ export default function CampaignHeader({
         <Field label={t('campaign.finishedAt')} hook="finishedAt">
           {time(c.finishedAt)}
         </Field>
+        {c.rerunOf && (
+          <Field label={t('rerun.of')} hook="rerunOf">
+            <CampaignLinkView campaignId={c.rerunOf.campaignId} name={c.rerunOf.name} hook="data-rerun-of" />
+          </Field>
+        )}
+        {(c.rerunBy?.length ?? 0) > 0 && (
+          <div className="col-span-full flex flex-col gap-0.5" data-field="rerunBy">
+            <dt className="text-xs text-muted-foreground">{t('rerun.by')}</dt>
+            <dd>
+              <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                {c.rerunBy?.map((r) => (
+                  <li key={r.campaignId} className="inline-flex items-center gap-2">
+                    <CampaignLinkView campaignId={r.campaignId} name={r.name} hook="data-rerun-by" />
+                    <CodeBadgeView badge={campaignStatusBadge(r.status)} code={r.status} />
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        )}
         {c.reason && (
           <div className="col-span-full flex flex-col gap-0.5" data-field="reason">
             <dt className="text-xs text-muted-foreground">{t('campaign.reason')}</dt>
@@ -95,6 +117,15 @@ export default function CampaignHeader({
         </ul>
       </div>
     </section>
+  )
+}
+
+/** A link to another campaign's page (863's *Re-run of* / *Re-run by*): its name, or its id when unnamed. */
+function CampaignLinkView({ campaignId, name, hook }: { campaignId: string; name: string | null; hook: string }) {
+  return (
+    <Link to={campaignPath(campaignId)} className="text-primary underline-offset-2 hover:underline" {...{ [hook]: campaignId }}>
+      {name ? <bdi>{name}</bdi> : <span className="font-mono text-xs"><Ltr>{campaignId}</Ltr></span>}
+    </Link>
   )
 }
 

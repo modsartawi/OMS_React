@@ -56,6 +56,15 @@ drift, an edit to BackOffice spec 3369 first**
   refusal codes and the force-refund body matched. Drives `lf-return-drive` 156/156 and
   `lf-returns-queue-drive` 22/22 re-run on the corrected stubs.)*
 - [ ] `ungranted user sees nothing LF` · flow, live
+  *(2026-11-05 read-only walk on STAGING `http://172.23.10.110:4321` as 14419, holding 03+04, after
+  b5291886: bonded return 9000000017 → Detail answers `400 SDD-02205`, no panel, no banner (the
+  original "HTTP 200" bug is gone); LF `8000008056` → Return disabled, "has not reached the customer
+  yet" (`notDelivered`); LF `8000007074` → "The return window for this delivery closed on
+  2026-09-27" (`outsideWindow`); the needing-action queue reads the real door: 0 rows, empty-state
+  sentence. Staging has NO LF return at all (45 BZ03 deliveries: 42 notDelivered, 3 outsideWindow),
+  so the panel and force refund are unwalked. ⚠ Staging's Starlinks says `Mintsoft fulfilment
+  profile 'Domestic' is not configured` on every LF Create Order — a real LF return booked there
+  would fail too; that is BackOffice config (3370/3377), not this client. No ungranted account yet.)*
 - [ ] `a real LF return is created once` · flow, live
 - [ ] `window and return-open refusals render` · flow, live
 - [ ] `force refund pays once and the panel says forced` · flow, live

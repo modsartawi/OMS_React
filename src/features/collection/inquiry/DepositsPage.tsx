@@ -28,8 +28,10 @@ import CollectorBalances from './CollectorBalances'
 import { buildDepositsColumns, buildDepositsDefaultColDef } from './deposit-columns'
 import {
   buildDepositsParams,
+  depositsParamsFor,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type DepositsCriteria,
 } from './deposit-criteria'
 import DepositDetail from './DepositDetail'
@@ -42,8 +44,8 @@ import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './
  * the suite that is not a flat list** (ticket 256).
  *
  * It keeps 254's skeleton whole: the same access gate, the same criteria draft
- * that only Search/Reset promote, the same today-defaulted landing, the same
- * client paging at 50, the same cap banner, the same More-columns toggle and the
+ * that only Search promotes, the same open-blank landing as Cash Collections and
+ * ACRs (spec 2423's ruling, reaching this screen later), the same client paging at 50, the same cap banner, the same More-columns toggle and the
  * same floating filter row on by default.
  *
  * ⚠️ **Copied, not extracted.** There is no shared inquiry shell in `core/` and
@@ -93,10 +95,10 @@ export default function DepositsPage() {
  * there is nothing here their own scope could hold.
  *
  * 🚩 **The body is not mounted until the roster answer has settled**, for 1165's
- * reason: the landing scope is the *initial state* of both the draft and the applied
- * query, and mounting first would fire the estate-wide query and then a second one,
- * flashing every collector's deposits at a user whose screen is supposed to open on
- * their own.
+ * reason: the landing scope is the *initial state* of the draft. No query fires on
+ * landing, but mounting first would still open the Served-by box on "Everyone" and
+ * leave it there, so the first Search would ask for every collector's deposits on a
+ * screen that is supposed to open on the user's own.
  *
  * A failed or empty answer lands **unscoped** — the scope is a finding aid, never a
  * permission, and an unreachable roster must not lock anybody out of a screen they
@@ -126,40 +128,45 @@ const DEPOSIT_ROW_SELECTION: RowSelectionOptions<DepositInquiryRow> = {
 function DepositsBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
 
-  // Today, read at mount and again on Reset — never on render, so a screen left
-  // open across midnight does not silently re-scope itself mid-reconciliation.
-  const [today, setToday] = useState(() => new Date())
+  // `criteria` is the live toolbar draft; `appliedCriteria` is what has actually
+  // been searched. Only Search promotes one to the other.
+  const [criteria, setCriteria] = useState<DepositsCriteria>(() => landingCriteria(options))
+  // 🚩 **`null` until the first Search**: the open-blank landing. No criteria applied
+  // is no query, and `depositsParamsFor` answers `null` for it.
+  const [appliedCriteria, setAppliedCriteria] = useState<DepositsCriteria | null>(null)
+  const appliedParams = useMemo(() => depositsParamsFor(appliedCriteria), [appliedCriteria])
 
-  // `criteria` is the live toolbar draft; `appliedParams` is the query that has
-  // actually been issued. Only Search/Reset promote one to the other.
-  const [criteria, setCriteria] = useState<DepositsCriteria>(() => landingCriteria(today, options))
-  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildDepositsParams(landingCriteria(today, options)),
-  )
-
-  // The landing query IS the mount query — no `enabled`, no "click Load". ONE
-  // query for the whole screen: the grid, the detail region and the balances
-  // panel all read this single result.
+  // Enabled on a query existing: the landing issues no request until Search. ONE
+  // query for the whole screen: the grid, the detail region and the balances panel
+  // all read this single result.
   const list = useQuery({
     queryKey: ['collection', 'deposits', appliedParams],
-    queryFn: () => collectionApi.deposits(appliedParams),
+    // Non-null by construction: `enabled` below is the same condition.
+    queryFn: () => collectionApi.deposits(appliedParams!),
+    enabled: appliedParams !== null,
   })
 
   const onChange = useCallback(
     (patch: Partial<DepositsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedParams(buildDepositsParams(criteria)), [criteria])
+  // 🚩 Search on an UNCHANGED draft re-asks the door. The open-blank landing made
+  // Search the only way to load, so pressing it again to see what has come in since
+  // must not be swallowed by an identical query key (Cash Collections' 423 rule).
+  const { refetch } = list
+  const onSearch = useCallback(() => {
+    if (appliedParams !== null && sameQuery(buildDepositsParams(criteria), appliedParams)) {
+      void refetch()
+      return
+    }
+    setAppliedCriteria(criteria)
+  }, [criteria, appliedParams, refetch])
   const onReset = useCallback(() => {
-    // Reset re-reads the clock: a screen left open overnight resets to the day
-    // the accountant is actually looking at, not the day they opened it.
-    const now = new Date()
-    // Reset restores the landing SCOPE too, not "no scope" — it is the state the
-    // screen opened on, and the chip's ✕ is this button.
-    const landing = landingCriteria(now, options)
-    setToday(now)
-    setCriteria(landing)
-    setAppliedParams(buildDepositsParams(landing))
+    // ⚠️ Reset returns to the UN-SEARCHED landing: the empty draft with the LANDING
+    // scope, not "no scope", and nothing applied — so the grid goes back to "press
+    // Search" and no request is issued. The chip's ✕ is this button.
+    setCriteria(landingCriteria(options))
+    setAppliedCriteria(null)
   }, [options])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
@@ -219,9 +226,10 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
   }, [])
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
-  // that the grid is no longer showing today, and the grid shows the result of the
-  // last Search. Reset is its ✕.
-  const isFiltered = !isLandingQuery(appliedParams, today, options)
+  // that the grid is showing more than the empty landing's Search, and the grid
+  // shows the result of the last Search. Before the first Search nothing was
+  // issued, so there is no chip. Reset is its ✕.
+  const isFiltered = appliedParams !== null && !isLandingQuery(appliedParams, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
   // ---- the export (ticket 258; a workbook since 336) ----
@@ -270,7 +278,11 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
         />
       )}
 
-      {list.isPending ? (
+      {appliedParams === null ? (
+        // Not an empty result: nothing has been asked yet. A disabled query is still
+        // `isPending`, so this state is tested first or the shimmer would never end.
+        <EmptyState title={t('deposits.landing.title')} hint={t('deposits.landing.hint')} />
+      ) : list.isPending ? (
         <ListShimmer label={t('deposits.loading')} />
       ) : rows.length === 0 && !list.isError ? (
         <EmptyState title={t('deposits.empty.title')} hint={t('deposits.empty.hint')} />

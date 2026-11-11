@@ -8,8 +8,7 @@
  * because the shared inquiry shell would be an abstraction designed before the
  * four screens exist to prove it (244 §1, 254's own ruling).
  *
- * Pure — no React, no i18n, no network, and **no `new Date()`**: every function
- * that needs today takes it as an argument.
+ * Pure — no React, no i18n, no network, no clock.
  *
  * Two filters are this screen's own: **Bank** and the segmented **Status**
  * (All / POSTED / VOID). Both are the WPF's, and the radio group becomes a
@@ -21,10 +20,9 @@
  * - **Business date** — the dates of **ANY** of the deposit's ACRs, read off the
  *   deposit's own lines (so a VOID deposit, which handed its ACRs back, is still
  *   found by the days it banked). The deposit rows once, with all its lines.
- * - **Collection date** — deposited-at, the bank-visit day. The window this screen
- *   has always landed on.
+ * - **Collection date** — deposited-at, the bank-visit day: what an accountant
+ *   reconciles, not the day the collector's phone wrote the record.
  */
-import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
 import {
   buildServedByParams,
@@ -92,25 +90,20 @@ export interface DepositsCriteria {
 }
 
 /**
- * The state the screen opens on: **deposited today, on both ends, Status = All,
- * nothing else set** — the same today-defaulted landing 254 settled, with the
- * business range open.
+ * The state the screen opens on: **no date, Status = All, nothing else set** but
+ * the caller's default scope. The today..today collection window is gone, matching
+ * what spec 2423 did to Cash Collections and ACRs: finance chooses the period
+ * instead of first clearing one they never asked for.
  *
- * ⚠️ The window applies to `DepositedAt`, **the bank-visit day**, not to
- * `CreatedAt`: what an accountant reconciles is the day the money reached the
- * bank, not the day the collector's phone wrote the record. Ticket 316 renamed it
- * on the wire (`CollectionDate*`); it did not move it.
+ * ⚠️ This is the draft only. The screen issues **no request** on landing: the
+ * applied criteria start as `null`, and `depositsParamsFor` answers `null` for them.
  */
-export function landingCriteria(
-  today: Date,
-  options?: Partial<AssignmentOptions>,
-): DepositsCriteria {
-  const day = toIsoDate(today)
+export function landingCriteria(options?: Partial<AssignmentOptions>): DepositsCriteria {
   return {
     businessDateFrom: '',
     businessDateTo: '',
-    collectionDateFrom: day,
-    collectionDateTo: day,
+    collectionDateFrom: '',
+    collectionDateTo: '',
     depositNumber: '',
     // 🚩 **Default-to-mine, but only for a caller this screen can scope** (spec D8;
     // BackOffice 1167's ruling, inherited whole). `defaultSelection` drops the
@@ -125,26 +118,46 @@ export function landingCriteria(
 }
 
 /**
- * Is the query that has actually been **issued** still the landing one?
+ * The query the Page issues for what has been applied — **`null` is "issue
+ * nothing"**. The applied criteria are `null` until the first Search, and the
+ * Page's `useQuery` is enabled on a non-null answer, so the open-blank landing
+ * costs no request.
+ */
+export function depositsParamsFor(
+  applied: DepositsCriteria | null,
+): Record<string, unknown> | null {
+  return applied === null ? null : buildDepositsParams(applied)
+}
+
+/**
+ * Is the query that has actually been **issued** still the landing one — the empty
+ * draft, Searched as it stands?
  *
  * Takes the applied params, **not the draft**, for 254's reason: the chip's
  * sentence is about what the grid is showing, and the grid shows the result of
- * the last Search.
+ * the last Search. Before the first Search nothing was issued and the Page shows
+ * no chip.
  */
 export function isLandingQuery(
   params: Record<string, unknown>,
-  today: Date,
   options?: Partial<AssignmentOptions>,
 ): boolean {
   // 🚩 Measured against the landing the screen ACTUALLY opened on, scope and all
   // (1165's ruling, inherited here with 1167's). Against an unscoped landing the
-  // chip would be lit on mount for every collector, over a grid showing exactly what
-  // the screen chose to show them — and its ✕ (Reset) would put the same scope
+  // chip would be lit on every collector's first Search, over a grid showing exactly
+  // what the screen chose to show them — and its ✕ (Reset) would put the same scope
   // straight back.
-  const landing = buildDepositsParams(landingCriteria(today, options))
-  const keys = Object.keys(landing)
-  if (Object.keys(params).length !== keys.length) return false
-  return keys.every((key) => params[key] === landing[key])
+  return sameQuery(params, buildDepositsParams(landingCriteria(options)))
+}
+
+/**
+ * Are two built queries the same request? Key by key. The Page uses it to tell a
+ * repeated Search from a new one. (The ACR screen's own, copied.)
+ */
+export function sameQuery(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = Object.keys(b)
+  if (Object.keys(a).length !== keys.length) return false
+  return keys.every((key) => a[key] === b[key])
 }
 
 /**

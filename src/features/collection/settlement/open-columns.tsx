@@ -6,6 +6,7 @@ import type {
   SettlementOpenLaneRow,
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
+import { formatPair } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
 import { approvalTarget, dayVarianceFor, type SupervisionAct, type ApprovalTarget } from './approval'
 import { businessDayCell, dayVarianceWords, entryKindLabel } from './entry-cells'
@@ -681,6 +682,9 @@ const BRANCH_SHAPE = {
   field: 'storeName',
   flex: 1,
   minWidth: 220,
+  // The renderer draws the cell; the workbook needs the code as well as the name.
+  valueFormatter: (p: { data?: { storeId: string } | null; value?: string | null }) =>
+    formatPair(p.data?.storeId, p.value),
 } as const
 
 /** Sorted and filtered on `ageDays` — the SERVER's subtraction — whatever the date

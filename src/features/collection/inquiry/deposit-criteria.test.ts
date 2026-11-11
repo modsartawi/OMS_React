@@ -3,28 +3,25 @@ import { GRID_LIMIT } from './cap'
 import {
   DEPOSIT_STATUSES,
   buildDepositsParams,
+  depositsParamsFor,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type DepositsCriteria,
 } from './deposit-criteria'
 
 // Ticket 256's criteria Proof. What is asserted is what the wire and the
 // accountant can observe — the params object and which draft counts as the
 // landing state — never how the builder reached it.
-//
-// Fixed "today" throughout: the module takes `now` as an argument precisely so
-// this suite does not have to run at a particular time of day.
-const TODAY = new Date(2026, 7, 8) // 2026-08-08, local parts (no UTC round-trip)
 
 describe('landingCriteria', () => {
-  it('defaults the COLLECTION range to today on both ends, with Status = All and nothing else set', () => {
-    expect(landingCriteria(TODAY)).toEqual({
-      // Ticket 316: deposited-at is this screen's collection date, and it is the
-      // window the screen has always landed on — only its wire name moved.
+  it('opens with no date at all, Status = All and nothing else set', () => {
+    expect(landingCriteria()).toEqual({
+      // The today..today collection range is gone, as on Cash Collections and ACRs.
       businessDateFrom: '',
       businessDateTo: '',
-      collectionDateFrom: '2026-08-08',
-      collectionDateTo: '2026-08-08',
+      collectionDateFrom: '',
+      collectionDateTo: '',
       depositNumber: '',
       // Nothing picked — the estate. A caller the roster does not know, or a payload
       // that never arrived, opens exactly as this screen did before the control
@@ -43,33 +40,34 @@ describe('landingCriteria', () => {
     const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
     const accountant = { defaultScope: { kind: 'MINE' as const, staffId: '4466', role: 'ACCOUNTANT', displayName: 'ضحى' } }
 
-    expect(landingCriteria(TODAY, collector).servedBy).toEqual({ kind: 'MINE', id: '7787' })
-    expect(buildDepositsParams(landingCriteria(TODAY, collector))).toMatchObject({
+    expect(landingCriteria(collector).servedBy).toEqual({ kind: 'MINE', id: '7787' })
+    expect(buildDepositsParams(landingCriteria(collector))).toMatchObject({
       ServedByKind: 'MINE',
       ServedById: '7787',
     })
 
-    expect(landingCriteria(TODAY, accountant).servedBy).toEqual({ kind: '', id: '' })
-    expect(buildDepositsParams(landingCriteria(TODAY, accountant))).not.toHaveProperty(
+    expect(landingCriteria(accountant).servedBy).toEqual({ kind: '', id: '' })
+    expect(buildDepositsParams(landingCriteria(accountant))).not.toHaveProperty(
       'ServedByKind',
     )
   })
 
   // …and the chip is measured against the landing the screen ACTUALLY opened on,
-  // scope and all — otherwise it would be lit on mount for every collector, over a
-  // grid showing exactly what the screen chose to show them.
+  // scope and all — otherwise it would be lit on every collector's first Search,
+  // over a grid showing exactly what the screen chose to show them.
   it('does not call a scoped landing "filtered"', () => {
     const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
-    const landed = buildDepositsParams(landingCriteria(TODAY, collector))
+    const landed = buildDepositsParams(landingCriteria(collector))
 
-    expect(isLandingQuery(landed, TODAY, collector)).toBe(true)
+    expect(isLandingQuery(landed, collector)).toBe(true)
     // Against an UNSCOPED landing the very same query is filtered, which is what
     // makes the options argument load-bearing rather than decorative.
-    expect(isLandingQuery(landed, TODAY)).toBe(false)
+    expect(isLandingQuery(landed)).toBe(false)
   })
 
-  it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
-    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).collectionDateFrom).toBe('2026-01-01')
+  it('issues no request until the first Search — nothing applied is no query', () => {
+    expect(depositsParamsFor(null)).toBeNull()
+    expect(depositsParamsFor(landingCriteria())).toEqual({ Limit: GRID_LIMIT })
   })
 
   it('offers exactly the WPF’s three states, All first', () => {
@@ -83,7 +81,7 @@ describe('the segmented Status control', () => {
   // only 'POSTED'/'VOID', so the grid would go silently empty while the control
   // said the opposite — a screen lying about its own filter.
   it('All sends NOTHING — not Status=All, not even Status=', () => {
-    const params = buildDepositsParams({ ...landingCriteria(TODAY), status: 'ALL' })
+    const params = buildDepositsParams({ ...landingCriteria(), status: 'ALL' })
     expect(params).not.toHaveProperty('Status')
     expect(Object.values(params)).not.toContain('ALL')
     expect(Object.values(params)).not.toContain('All')
@@ -100,12 +98,14 @@ describe('the segmented Status control', () => {
 })
 
 describe('buildDepositsParams', () => {
-  it('sends the landing state as today’s collection range plus the system cap, and nothing else', () => {
-    expect(buildDepositsParams(landingCriteria(TODAY))).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
-      Limit: GRID_LIMIT,
-    })
+  it('sends the landing state as the system cap alone — no date', () => {
+    expect(buildDepositsParams(landingCriteria())).toEqual({ Limit: GRID_LIMIT })
+  })
+
+  it('tells a repeated Search from a new one', () => {
+    const landing = buildDepositsParams(landingCriteria())
+    expect(sameQuery(buildDepositsParams(landingCriteria()), landing)).toBe(true)
+    expect(sameQuery(buildDepositsParams({ bankCode: 'ANB' }), landing)).toBe(false)
   })
 
   it('drops the Bank when the box is empty — or only whitespace', () => {
@@ -212,7 +212,7 @@ describe('the business and collection date ranges', () => {
   it('never sends the legacy FromDate/ToDate — the contract retires them for the web', () => {
     // 🚩 The door still honours them and INTERSECTS them with CollectionDate*.
     const params = buildDepositsParams({
-      ...landingCriteria(TODAY),
+      ...landingCriteria(),
       businessDateFrom: '2026-08-01',
       businessDateTo: '2026-08-08',
     })
@@ -235,7 +235,7 @@ describe('the business and collection date ranges', () => {
   it('may leave the collection range off entirely, to ask by the ACRs’ days alone', () => {
     expect(
       buildDepositsParams({
-        ...landingCriteria(TODAY),
+        ...landingCriteria(),
         businessDateFrom: '2026-09-01',
         businessDateTo: '2026-09-10',
         collectionDateFrom: '',
@@ -267,21 +267,15 @@ describe('the business and collection date ranges', () => {
 
 describe('a draft that has not been promoted', () => {
   it('a half-typed deposit number leaves the applied query untouched', () => {
-    const applied = buildDepositsParams(landingCriteria(TODAY))
+    const applied = buildDepositsParams(landingCriteria())
     expect(applied).not.toEqual(
-      buildDepositsParams({ ...landingCriteria(TODAY), depositNumber: '5' }),
+      buildDepositsParams({ ...landingCriteria(), depositNumber: '5' }),
     )
-    expect(applied).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
-      Limit: GRID_LIMIT,
-    })
+    expect(applied).toEqual({ Limit: GRID_LIMIT })
   })
 
   it('Search promoting that draft is what changes the query', () => {
-    expect(buildDepositsParams({ ...landingCriteria(TODAY), depositNumber: '5501' })).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
+    expect(buildDepositsParams({ ...landingCriteria(), depositNumber: '5501' })).toEqual({
       DepositNumber: '5501',
       Limit: GRID_LIMIT,
     })
@@ -290,32 +284,32 @@ describe('a draft that has not been promoted', () => {
 
 describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   const applied = (criteria: Partial<DepositsCriteria>) =>
-    isLandingQuery(buildDepositsParams(criteria), TODAY)
+    isLandingQuery(buildDepositsParams(criteria))
 
   it('the landing state is the landing query', () => {
-    expect(applied(landingCriteria(TODAY))).toBe(true)
+    expect(applied(landingCriteria())).toBe(true)
   })
 
   it('a chosen status is not — this is what makes the segmented control re-query visibly', () => {
-    expect(applied({ ...landingCriteria(TODAY), status: 'POSTED' })).toBe(false)
-    expect(applied({ ...landingCriteria(TODAY), status: 'VOID' })).toBe(false)
+    expect(applied({ ...landingCriteria(), status: 'POSTED' })).toBe(false)
+    expect(applied({ ...landingCriteria(), status: 'VOID' })).toBe(false)
   })
 
   it('a widened period, a searched number and a chosen bank are not either', () => {
-    expect(applied({ ...landingCriteria(TODAY), collectionDateFrom: '2026-08-07' })).toBe(false)
-    expect(applied({ ...landingCriteria(TODAY), depositNumber: '5501' })).toBe(false)
-    expect(applied({ ...landingCriteria(TODAY), bankCode: 'ANB' })).toBe(false)
+    expect(applied({ ...landingCriteria(), collectionDateFrom: '2026-08-07' })).toBe(false)
+    expect(applied({ ...landingCriteria(), depositNumber: '5501' })).toBe(false)
+    expect(applied({ ...landingCriteria(), bankCode: 'ANB' })).toBe(false)
   })
 
   it('a whitespace-only bank never made it onto the wire, so it is', () => {
-    expect(applied({ ...landingCriteria(TODAY), bankCode: '  ' })).toBe(true)
+    expect(applied({ ...landingCriteria(), bankCode: '  ' })).toBe(true)
   })
 
   it('a business range is not the landing query — it is a filter like any other', () => {
-    expect(applied({ ...landingCriteria(TODAY), businessDateTo: '2026-08-08' })).toBe(false)
+    expect(applied({ ...landingCriteria(), businessDateTo: '2026-08-08' })).toBe(false)
   })
 
-  it('a query missing the collection range entirely is not it', () => {
-    expect(applied({})).toBe(false)
+  it('a query carrying the cap alone is it — the landing has no date', () => {
+    expect(applied({})).toBe(true)
   })
 })

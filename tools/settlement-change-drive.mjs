@@ -130,6 +130,7 @@
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
+import { exportWorkbook, todayStamp } from './read-workbook.mjs'
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const ROUTE = '/collection/settlement'
@@ -2236,6 +2237,18 @@ async function run() {
     await settle()
   }
 
+  /** The change queue's file, read back from a tab already showing rows. */
+  const checkChangeQueueExport = async () => {
+    const book = await exportWorkbook(
+      page,
+      page.locator('[data-region="change-queue"]').getByRole('button', { name: 'Export', exact: true }),
+    )
+    check('export → the change queue file is named for the screen', book.name === `settlement-changes-${todayStamp()}.xlsx`, book.name)
+    check('export → …with no Decision column of buttons', !book.head.includes('Decision') && book.head.length > 0, book.head.join('|'))
+    const askedAt = book.head.findIndex((h) => /asked/i.test(h))
+    check('export → …and says what is asked in words', askedAt >= 0 && (book.body[0]?.[askedAt]?.text ?? '') !== '', book.head.join('|'))
+  }
+
   // ---- 40. the tab: a supervisor's, never an accountant's ----
   resetCr()
   queue353 = { rows: structuredClone(Q.all), missing: false, calls: [] }
@@ -2260,6 +2273,7 @@ async function run() {
 
   // ---- 41. the rows ----
   await onChangesTab()
+  await checkChangeQueueExport()
   const order = await queueRows()
   check("🔑 one row per waiting request, in the read's order (oldest first)", order.join(',') === Q.all.map((r) => r.changeRequestId).join(','), order.join(','))
   const recorded = queueRow(Q.recorded.changeRequestId)

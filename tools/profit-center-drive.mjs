@@ -203,7 +203,7 @@ const SCREENS = {
     codeHeader: 'Store Code',
     landing: { colId: 'storeText', header: COLUMN, withPc: 'PH-019', none: 'P020' },
     tail: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
-    loading: "Loading today's attempts…",
+    loading: 'Loading attempts…',
     emptyTitle: 'No attempts in this period',
     csvName: 'collection-attempts',
   },
@@ -302,8 +302,8 @@ async function run() {
   const load = async (path) => {
     await page.goto(BASE + path)
     await page.waitForLoadState('networkidle')
-    // Ticket 423: Cash Collections opens blank and loads nothing until Search.
-    if (path === '/collection/collections') {
+    // Cash Collections (ticket 423) and Attempts open blank and load nothing until Search.
+    if (path === '/collection/collections' || path === '/collection/attempts') {
       await page.getByRole('button', { name: 'Search', exact: true }).click()
       await page.waitForLoadState('networkidle')
     }
@@ -398,8 +398,9 @@ async function run() {
     let release
     hold = new Promise((r) => (release = r))
     await page.goto(BASE + screen.route)
-    // Ticket 423: Cash Collections loads nothing until Search.
-    if (key === 'collections') await page.getByRole('button', { name: 'Search', exact: true }).click()
+    // Both screens load nothing until Search.
+    await page.waitForLoadState('networkidle')
+    if (key === 'collections' || key === 'attempts') await page.getByRole('button', { name: 'Search', exact: true }).click()
     const loading = page.getByRole('status', { name: screen.loading })
     await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
     check(`${key} — loading: the list says it is loading`, (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)

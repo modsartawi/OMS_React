@@ -24,7 +24,7 @@ import { bootDirection } from './direction'
  * has 41 columns and density is a settled product decision (403 §7, D-9).
  * Spec 380 F8 (ticket 382, values from 362 §6) takes it to the Ops Console
  * look: 26px rows under a 28px `--grid-head` header, 12px cells and 11.5/600
- * headers in Plex Sans, an 8px wrapper, and a `--border-strong` rule beside a
+ * headers in Roboto, an 8px wrapper, and a `--border-strong` rule beside a
  * pinned column.
  *
  * Two deliberate omissions, named so they are not rediscovered as fallout:
@@ -46,7 +46,7 @@ export const omsGridTheme = themeQuartz
     // 26px row is the legibility check 362 §6 passed in both modes.
     spacing: 4,
     fontSize: 12,
-    // The app's own face stack (Plex Sans + Plex Sans Arabic, spec 380 F1), so
+    // The app's own face stack (Roboto + Avenir Arabic, ADR 0004, 0005), so
     // the grid can never name a font the stylesheet no longer ships.
     fontFamily: 'var(--font-sans)',
     headerFontSize: 11.5,

@@ -7,6 +7,7 @@ import { Columns3, Filter } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { ApiError, apiErrorMessage } from '@/core/api'
+import type { CollectionReadyRow } from '@/core/models/collection'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -17,7 +18,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { READY_GRID_KEY, assignmentOptionsQuery, canOpenReady, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { AttentionBanner, CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { AttentionBanner, CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
+import { useXlsxExport } from './use-xlsx-export'
 import { buildReadyColumns, buildReadyDefaultColDef } from './ready-columns'
 import {
   buildReadyParams,
@@ -83,6 +85,7 @@ function ReadyScope() {
 
 function ReadyBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
+  const xlsxExport = useXlsxExport<CollectionReadyRow>('ready')
 
   // `criteria` is the live toolbar draft; `appliedCriteria` is what has actually
   // been searched. Only Search promotes one to the other.
@@ -183,6 +186,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
             pressed={showFilters}
             onToggle={() => setShowFilters((v) => !v)}
           />
+          <ExportButton {...xlsxExport.buttonProps} />
         </div>
       </div>
 
@@ -212,6 +216,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
+            {...xlsxExport.gridProps}
             // ⚠️ No `onRowClicked`, no action column, no `rowSelection`: read-only by design.
             // The one control in a row is the Slips count, which opens the drawer (321).
             pagination

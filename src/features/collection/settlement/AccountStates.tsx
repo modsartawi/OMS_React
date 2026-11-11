@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { TriangleAlert } from 'lucide-react'
+import { Download, TriangleAlert } from 'lucide-react'
+import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 
 /**
@@ -11,11 +12,9 @@ import Chip from '@/core/ui/Chip'
  * exactly where ticket 268's rubric says *copy* rather than *graduate*: the third
  * area is the trigger, and 268 already honoured it once for `ScreenGate`.
  *
- * ⚠️ **Only three of the neighbour's five came across**, and the two that stayed
- * behind are the argument that this is a copy rather than a drift:
+ * ⚠️ **`EmptyState` stayed behind**, and is the argument that this is a copy rather
+ * than a drift:
  *
- * - `ExportButton` — 269 is **read-only** and exports nothing. A button that this
- *   screen has no file to hand would be dead surface waiting for someone to wire it.
  * - `EmptyState` — this screen's empty case is *"no settlement entry has ever been
  *   posted against this branch"*, which is the ordinary state of most of the estate
  *   and needs a sentence, not a full-height illustration implying a failed search.
@@ -44,6 +43,24 @@ export function AccountShimmer({ label }: { label: string }) {
  * real trade a reader makes rather than a preference. `aria-pressed` rather than a
  * checkbox — it is a toggle button whose effect is immediate and visible.
  */
+/** The Excel button a settlement grid wears: its file is the grid as shown. */
+export function ExportButton({
+  label,
+  onExport,
+  disabled,
+}: {
+  label: string
+  onExport: () => void
+  disabled: boolean
+}) {
+  return (
+    <Button variant="outlined" onClick={onExport} disabled={disabled}>
+      <Download className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </Button>
+  )
+}
+
 export function ToggleChip({
   icon,
   label,

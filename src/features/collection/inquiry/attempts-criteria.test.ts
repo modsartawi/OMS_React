@@ -1,26 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { GRID_LIMIT } from './cap'
 import {
+  attemptsParamsFor,
   buildAttemptsParams,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type AttemptsCriteria,
 } from './attempts-criteria'
 
 // Ticket 255's Collection Attempts criteria Proof: the reason code is dropped when
-// empty, and the today-defaulted range holds. Ticket 316 added the two named date
-// ranges and the Served-by pair (BackOffice 1993).
-const TODAY = new Date(2026, 7, 8) // 2026-08-08, local parts (no UTC round-trip)
+// empty. Ticket 316 added the two named date ranges and the Served-by pair
+// (BackOffice 1993).
 
 describe('landingCriteria', () => {
-  it('defaults the COLLECTION range to today on both ends, and leaves everything else open', () => {
-    expect(landingCriteria(TODAY)).toEqual({
-      // The attempt time is this screen's collection date, and it is the window the
-      // screen has always landed on — only its wire name moved.
+  it('opens with no date at all and everything else open', () => {
+    expect(landingCriteria()).toEqual({
       businessDateFrom: '',
       businessDateTo: '',
-      collectionDateFrom: '2026-08-08',
-      collectionDateTo: '2026-08-08',
+      collectionDateFrom: '',
+      collectionDateTo: '',
       storeCode: '',
       collectorStaffId: '',
       reasonCode: '',
@@ -30,18 +29,21 @@ describe('landingCriteria', () => {
     })
   })
 
-  it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
-    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).collectionDateFrom).toBe('2026-01-01')
+  it('issues no request until the first Search — nothing applied is no query', () => {
+    expect(attemptsParamsFor(null)).toBeNull()
+    expect(attemptsParamsFor(landingCriteria())).toEqual({ Limit: GRID_LIMIT })
+  })
+
+  it('tells a repeated Search from a new one', () => {
+    const landing = buildAttemptsParams(landingCriteria())
+    expect(sameQuery(buildAttemptsParams(landingCriteria()), landing)).toBe(true)
+    expect(sameQuery(buildAttemptsParams({ reasonCode: 'OTHER' }), landing)).toBe(false)
   })
 })
 
 describe('buildAttemptsParams', () => {
-  it('sends the landing state as today’s collection range plus the system cap', () => {
-    expect(buildAttemptsParams(landingCriteria(TODAY))).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
-      Limit: GRID_LIMIT,
-    })
+  it('sends the landing state as the system cap alone — no date', () => {
+    expect(buildAttemptsParams(landingCriteria())).toEqual({ Limit: GRID_LIMIT })
   })
 
   it('drops the reason code when the box is empty — or only whitespace', () => {
@@ -126,7 +128,7 @@ describe('the business and collection date ranges', () => {
 
   it('never sends the legacy FromDate/ToDate — the contract retires them for the web', () => {
     // 🚩 The door still honours them and INTERSECTS them with CollectionDate*.
-    const params = buildAttemptsParams(landingCriteria(TODAY))
+    const params = buildAttemptsParams(landingCriteria())
     expect(params).not.toHaveProperty('FromDate')
     expect(params).not.toHaveProperty('ToDate')
   })
@@ -146,7 +148,7 @@ describe('the business and collection date ranges', () => {
   it('may leave the collection range off entirely, to ask about business days alone', () => {
     expect(
       buildAttemptsParams({
-        ...landingCriteria(TODAY),
+        ...landingCriteria(),
         businessDateFrom: '2026-09-02',
         businessDateTo: '2026-09-02',
         collectionDateFrom: '',
@@ -209,46 +211,42 @@ describe('the Served-by pair', () => {
 
 describe('a draft that has not been promoted', () => {
   it('a half-typed store code leaves the applied query untouched', () => {
-    const applied = buildAttemptsParams(landingCriteria(TODAY))
+    const applied = buildAttemptsParams(landingCriteria())
     expect(applied).not.toEqual(
-      buildAttemptsParams({ ...landingCriteria(TODAY), storeCode: '10' }),
+      buildAttemptsParams({ ...landingCriteria(), storeCode: '10' }),
     )
-    expect(applied).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
-      Limit: GRID_LIMIT,
-    })
+    expect(applied).toEqual({ Limit: GRID_LIMIT })
   })
 })
 
 describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   const applied = (criteria: Partial<AttemptsCriteria>) =>
-    isLandingQuery(buildAttemptsParams(criteria), TODAY)
+    isLandingQuery(buildAttemptsParams(criteria))
 
   it('the landing state is the landing query', () => {
-    expect(applied(landingCriteria(TODAY))).toBe(true)
+    expect(applied(landingCriteria())).toBe(true)
   })
 
   it('a searched reason code is not', () => {
-    expect(applied({ ...landingCriteria(TODAY), reasonCode: 'OTHER' })).toBe(false)
+    expect(applied({ ...landingCriteria(), reasonCode: 'OTHER' })).toBe(false)
   })
 
   it('a widened period is not either', () => {
-    expect(applied({ ...landingCriteria(TODAY), collectionDateFrom: '2026-08-07' })).toBe(false)
+    expect(applied({ ...landingCriteria(), collectionDateFrom: '2026-08-07' })).toBe(false)
   })
 
   it('a business range and a Served-by pick are filters like any other', () => {
-    expect(applied({ ...landingCriteria(TODAY), businessDateFrom: '2026-08-01' })).toBe(false)
+    expect(applied({ ...landingCriteria(), businessDateFrom: '2026-08-01' })).toBe(false)
     expect(
-      applied({ ...landingCriteria(TODAY), servedBy: { kind: 'ACCOUNTANT', id: '4466' } }),
+      applied({ ...landingCriteria(), servedBy: { kind: 'ACCOUNTANT', id: '4466' } }),
     ).toBe(false)
   })
 
   it('a whitespace-only reason code never made it onto the wire, so it is', () => {
-    expect(applied({ ...landingCriteria(TODAY), reasonCode: '  ' })).toBe(true)
+    expect(applied({ ...landingCriteria(), reasonCode: '  ' })).toBe(true)
   })
 
-  it('a query missing the collection range entirely is not it', () => {
-    expect(applied({})).toBe(false)
+  it('a query carrying the cap alone is it — the landing has no date', () => {
+    expect(applied({})).toBe(true)
   })
 })

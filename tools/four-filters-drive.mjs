@@ -10,10 +10,8 @@
 // weeks apart — which a live door will not produce on demand.
 //
 // Verifies ticket 316's screen Proof, on each of the three screens:
-//   1. the landing query is today..today by deposited-at / attempt time (collection) on Deposits
-//      and Attempts — under the new names, with no legacy FromDate/ToDate, and four optional date
-//      ends in the toolbar. ACRs land BLANK since spec 2423 (ticket 425): no request until
-//      Search, every date end empty, and Reset returns there;
+//   1. all three screens land BLANK: no request until Search, every date end empty, the first
+//      Search sends no legacy FromDate/ToDate, and Reset returns there;
 //   2. Business Date and Collection Date are default columns, side by side; the multi-valued one
 //      draws as a span of days (one date when they share a day, blank when there is none);
 //   3. the toolbar sends both ranges, an end alone, the number box (digits only on Deposits — a
@@ -204,6 +202,7 @@ const SCREENS = {
     // the empty landing's Search sends the cap alone. (The 2026-09-27 collection-date
     // landing, and 316's business-date one before it, are both gone.)
     landsBlank: true,
+    landingTitle: 'Press Search to see ACRs',
     landingKeys: 'Limit',
   },
   deposits: {
@@ -211,22 +210,24 @@ const SCREENS = {
     door: 'CollectionWeb/Deposits',
     rows: () => ({ rows: DEPOSIT_ROWS, balances: BALANCES }),
     empty: () => ({ rows: [], balances: [] }),
-    loading: "Loading today's deposits…",
+    loading: 'Loading deposits…',
     emptyTitle: 'No deposits in this period',
     emptyHint: 'Widen the business or collection dates',
-    landingKeys: 'CollectionDateFrom,CollectionDateTo,Limit',
-    landingBusiness: false,
+    landsBlank: true,
+    landingTitle: 'Press Search to see deposits',
+    landingKeys: 'Limit',
   },
   attempts: {
     route: '/collection/attempts',
     door: 'CollectionWeb/Attempts',
     rows: () => ATTEMPT_ROWS,
     empty: () => [],
-    loading: "Loading today's attempts…",
+    loading: 'Loading attempts…',
     emptyTitle: 'No attempts in this period',
     emptyHint: 'Widen the business or collection dates',
-    landingKeys: 'CollectionDateFrom,CollectionDateTo,Limit',
-    landingBusiness: false,
+    landsBlank: true,
+    landingTitle: 'Press Search to see attempts',
+    landingKeys: 'Limit',
   },
 }
 
@@ -341,7 +342,7 @@ async function run() {
         `${key} — …four optional date ends, all empty`,
         await page.locator('form input[type="date"]').evaluateAll((els) => els.length === 4 && els.every((el) => !el.required && el.value === '')),
       )
-      check(`${key} — …and the grid says to press Search`, (await mainText()).includes('Press Search to see ACRs') && (await page.locator('.ag-root').count()) === 0)
+      check(`${key} — …and the grid says to press Search`, (await mainText()).includes(screen.landingTitle) && (await page.locator('.ag-root').count()) === 0)
       check(`${key} — the Filtered chip is dark on landing`, (await page.getByText('Filtered').count()) === 0)
       await search()
       await page.locator('.ag-row').first().waitFor()
@@ -413,7 +414,7 @@ async function run() {
       // Ticket 425 (423's ruling, copied): Reset returns to the UN-SEARCHED landing.
       check(
         `${key} — Reset returns to the un-searched landing: no request, the "press Search" state`,
-        calls[key] === beforeReset && (await mainText()).includes('Press Search to see ACRs'),
+        calls[key] === beforeReset && (await mainText()).includes(screen.landingTitle),
         `${calls[key]} vs ${beforeReset}`,
       )
     } else {
@@ -458,7 +459,7 @@ async function run() {
   {
     const q = () => new URLSearchParams(lastQuery.deposits)
     scenario = {}
-    await load(SCREENS.deposits.route)
+    await open(SCREENS.deposits)
     await page.locator('.ag-row').first().waitFor()
     check(
       'deposits — Business Date is the span of the deposit’s ACRs’ days',
@@ -496,7 +497,7 @@ async function run() {
   {
     const q = () => new URLSearchParams(lastQuery.attempts)
     scenario = {}
-    await load(SCREENS.attempts.route)
+    await open(SCREENS.attempts)
     await page.locator('.ag-row').first().waitFor()
     check('attempts — Business Date is the attempted business day', (await cellText(0, 'businessDay')) === '2026-09-02', await cellText(0, 'businessDay'))
     check('attempts — Collection Date is the attempt time', (await cellText(0, 'attemptTime')) === '2026-09-05 10:15', await cellText(0, 'attemptTime'))
@@ -537,6 +538,7 @@ async function run() {
 
     await page.getByRole('button', { name: 'Reset' }).click()
     await page.waitForLoadState('networkidle')
+    await search()
     check('attempts — Reset clears the pick and the query drops the pair', (await picker.inputValue()) === '' && !q().has('ServedByKind'), lastQuery.attempts)
     await noRawKeys('attempts toolbar')
   }
@@ -600,7 +602,7 @@ async function run() {
 
   // Attempts only: the Served-by resolver's refusals are now reachable on this door.
   scenario = { list: 'servedByRefusal' }
-  await load(SCREENS.attempts.route)
+  await open(SCREENS.attempts)
   await page.getByText('A Served-by id needs a Kind.').first().waitFor({ timeout: 8000 }).catch(() => {})
   const sbText = await mainText()
   check(

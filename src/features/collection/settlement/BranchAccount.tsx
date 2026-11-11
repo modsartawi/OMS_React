@@ -25,7 +25,8 @@ import { settlementMoney } from './money-display'
 import { accountHeadline, projectAccount, type AccountEntryRow } from './account-projection'
 import { canOpenSettlement, canSuperviseSettlement, settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
+import { AccountCapBanner, AccountShimmer, ExportButton, ToggleChip } from './AccountStates'
+import { useSettlementExport } from './xlsx'
 import Button from '@/core/ui/Button'
 import EntryApproval from './EntryApproval'
 import EntryAudit from './EntryAudit'
@@ -58,6 +59,7 @@ export default function BranchAccount({
   entryNumber?: number | null
 }) {
   const { t } = useTranslation('settlement')
+  const xlsxExport = useSettlementExport<AccountEntryRow>(`account-${storeId}`, t('export.sheets.account'))
 
   const account = useQuery({
     queryKey: ['settlement', 'account', storeId],
@@ -152,6 +154,7 @@ export default function BranchAccount({
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
+        <ExportButton label={t('export.button')} onExport={xlsxExport.onExport} disabled={xlsxExport.disabled} />
       </div>
 
       {/* The one case where entries really ARE missing, said out loud. It fires on a
@@ -182,6 +185,7 @@ export default function BranchAccount({
               animateRows={false}
               getRowId={accountRowId}
               getRowClass={accountRowClass}
+              {...xlsxExport.gridProps}
               rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
               // ONE source of truth for which entry the journal is showing: whatever
               // the grid says is selected. A separate click handler would drift from

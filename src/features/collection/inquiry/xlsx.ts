@@ -28,17 +28,21 @@ import type { AcrInquiryRow, CollectionInquiryRow } from '@/core/models/collecti
 import { MONEY_FIELDS as ACR_MONEY_FIELDS } from './acr-columns'
 import { MONEY_FIELDS as COLLECTIONS_MONEY_FIELDS } from './collections-columns'
 import { MONEY_FIELDS as DEPOSITS_MONEY_FIELDS } from './deposit-columns'
+import { MONEY_FIELDS as READY_MONEY_FIELDS, SLIP_FIELDS as READY_SLIP_FIELDS } from './ready-columns'
 import { ACTIONS_COLUMN } from './RowActions'
 
+/** Assignment's row-picking column holds a checkbox and no value. */
+const TICK_COLUMN = 'tick'
+
 /**
- * The four screens, as the file-name slug **and** the `collection` namespace's
+ * The screens, as the file-name slug **and** the `collection` namespace's
  * section for the button label and the sheet's name.
  *
  * 🚩 A union rather than a `string`: the slug names the file an accountant will go
  * looking for in a shared folder months later, and a typo would quietly write
  * `collection-collectons-2026-08-08.xlsx` with nothing to catch it.
  */
-export type CollectionScreen = 'collections' | 'acrs' | 'deposits' | 'attempts'
+export type CollectionScreen = 'collections' | 'acrs' | 'deposits' | 'attempts' | 'ready' | 'assignment'
 
 /**
  * Each screen's figures, by column id — the only columns written as numbers.
@@ -68,6 +72,8 @@ const NUMERIC_COLUMNS: Record<CollectionScreen, ReadonlySet<string>> = {
   acrs: new Set<string>([...ACR_MONEY_FIELDS, ...ACR_COUNT_FIELDS]),
   deposits: new Set<string>(DEPOSITS_MONEY_FIELDS),
   attempts: new Set<string>(),
+  ready: new Set<string>([...READY_MONEY_FIELDS, ...READY_SLIP_FIELDS, 'daysWaiting']),
+  assignment: new Set<string>(),
 }
 
 /**
@@ -81,7 +87,7 @@ export function collectionSheet<Row>(
 ): XlsxSheet & { rows: Row[]; count: number } {
   const numeric = NUMERIC_COLUMNS[screen]
   return gridSheet(api, name, {
-    skip: (colId) => colId === ACTIONS_COLUMN,
+    skip: (colId) => colId === ACTIONS_COLUMN || colId === TICK_COLUMN,
     asText: (colId) => !numeric.has(colId),
   })
 }

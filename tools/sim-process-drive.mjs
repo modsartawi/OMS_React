@@ -251,7 +251,7 @@ async function drive(browser, { theme, dir }) {
         .map((b) => [b.textContent.trim().slice(0, 12), radius(b), b.getBoundingClientRect().height]),
     }
   })
-  check(`${label}: the page is set in IBM Plex Sans`, /IBM Plex Sans/.test(look.font), look.font)
+  check(`${label}: the page is set in Roboto`, /Roboto/.test(look.font), look.font)
   check(
     // 380 dropped the pill (6px); spec 590 made every Button a full pill at h-7 (owner).
     `${label}: the run controls are full pills (radius at least half the height)`,

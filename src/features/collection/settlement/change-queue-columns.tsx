@@ -3,7 +3,8 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import type { TFunction } from 'i18next'
 import { Check, X } from 'lucide-react'
 
-import { formatDateTime } from '@/core/util/date-format'
+import { formatPair } from '@/core/util/bidi'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import ChangeFromTo from './ChangeFromTo'
 import type { ChangeQueueRow } from './change-queue'
 import type { ChangeRefusal } from './change-refusal'
@@ -68,6 +69,9 @@ export function buildChangeQueueColumns(
       field: 'storeName',
       flex: 1,
       minWidth: 160,
+      // The renderer draws the cell; the workbook needs the code as well as the name.
+      valueFormatter: (p: ValueFormatterParams<ChangeQueueRow, string>) =>
+        formatPair(p.data?.storeId, p.value),
       filterValueGetter: (p) => `${p.data?.storeName ?? ''} ${p.data?.storeId ?? ''}`,
       cellRenderer: (p: ICellRendererParams<ChangeQueueRow>) =>
         p.data ? (
@@ -104,6 +108,8 @@ export function buildChangeQueueColumns(
       autoHeight: true,
       sortable: false,
       filter: false,
+      // The cell draws components; the workbook reads this plain sentence.
+      valueGetter: (p) => (p.data ? askedWords(t, p.data) : ''),
       cellRenderer: (p: ICellRendererParams<ChangeQueueRow>) =>
         p.data ? (
           <div className="flex min-h-[44px] flex-col justify-center gap-0.5 py-1.5 leading-snug" data-testid="change-queue-asked">
@@ -229,6 +235,26 @@ export function buildChangeQueueColumns(
       },
     },
   ]
+}
+
+/**
+ * What a queue request asks, as one plain string for the workbook. No bidi isolates: their
+ * invisible characters must not reach a file.
+ */
+export function askedWords(t: TFunction, row: ChangeQueueRow): string {
+  if (row.kind === 'DELETE') return t('open.changes.deleteAsk')
+  if (row.changes.length === 0) return t('open.changes.nothingDiffers')
+  return row.changes
+    .map((c) => {
+      const words =
+        c.field === 'amount'
+          ? { from: settlementMoney(c.from, row.currencyKey), to: settlementMoney(c.to, row.currencyKey) }
+          : c.field === 'businessDay'
+            ? { from: formatDay(c.from), to: formatDay(c.to) }
+            : { from: c.from, to: c.to }
+      return `${t(`changeRequest.card.field.${c.field}`)}: ${t('changeRequest.card.fromTo', words)}`
+    })
+    .join('; ')
 }
 
 /**

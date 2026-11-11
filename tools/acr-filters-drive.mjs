@@ -299,6 +299,7 @@ async function run() {
   // ---- 3b. Deposits does NOT offer accountants ----
   await page.goto(BASE + '/collection/deposits')
   await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.locator('.ag-row').first().waitFor()
   const depositGroups = await page.locator('form select').locator('optgroup').evaluateAll((els) => els.map((el) => el.label))
   check('Served by on Deposits does NOT offer the Accountants group', !depositGroups.includes('Accountants'), depositGroups.join(', '))

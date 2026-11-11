@@ -24,7 +24,8 @@ import type {
 } from '@/core/models/settlement'
 import { branchSearch } from './addresses'
 import { canSuperviseSettlement, settlementApi } from './api'
-import { AccountCapBanner, AccountShimmer, Nothing, ToggleChip } from './AccountStates'
+import { AccountCapBanner, AccountShimmer, ExportButton, Nothing, ToggleChip } from './AccountStates'
+import { useSettlementExport } from './xlsx'
 import ApprovalDialog, { type ApprovalRequest } from './ApprovalDialog'
 import { buildChangeQueue } from './change-queue'
 import ChangeQueue from './ChangeQueue'
@@ -696,6 +697,7 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
            */
           key={`${tab}-${section.which}`}
           section={section}
+          exportSlug={`open-${tab}-${section.which}`}
           columns={columns}
           getRowId={getRowId}
           allTitle={allTitle}
@@ -717,6 +719,7 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
  */
 function Section<Row extends OpenLaneRowFacts>({
   section,
+  exportSlug,
   columns,
   getRowId,
   allTitle,
@@ -724,11 +727,15 @@ function Section<Row extends OpenLaneRowFacts>({
 }: {
   allTitle?: string
   section: OpenLaneSection<Row>
+  /** The file's slug: which tab and which section this grid is. */
+  exportSlug: string
   columns: ColDef<Row>[]
   getRowId: (p: { data: Row }) => string
   onRow: (row: Row) => void
 }) {
   const { t } = useTranslation('settlement')
+  const title = section.which === 'all' && allTitle ? allTitle : t(`open.sections.${section.which}`)
+  const xlsxExport = useSettlementExport<Row>(exportSlug, title)
 
   const defaultColDef = useMemo(
     () => ({
@@ -747,7 +754,7 @@ function Section<Row extends OpenLaneRowFacts>({
     <section className="flex flex-col gap-2" data-region={`open-section-${section.which}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">
-          {section.which === 'all' && allTitle ? allTitle : t(`open.sections.${section.which}`)}
+          {title}
         </h3>
         <span
           data-testid={`open-section-count-${section.which}`}
@@ -756,6 +763,9 @@ function Section<Row extends OpenLaneRowFacts>({
           {section.rows.length.toLocaleString('en-US')}
         </span>
         <Signpost section={section} />
+        <span className="ms-auto">
+          <ExportButton label={t('export.button')} onExport={xlsxExport.onExport} disabled={xlsxExport.disabled} />
+        </span>
       </div>
 
       <div style={{ height }}>
@@ -773,6 +783,7 @@ function Section<Row extends OpenLaneRowFacts>({
           // ⚠️ The row's own id and never the index — the entry's on two tabs, the
           // CONSUMPTION's on the third (one entry can have more than one receipt).
           getRowId={getRowId}
+          {...xlsxExport.gridProps}
           // 🔑 Every row is a way into the branch's ACCOUNT, landing on this exact
           // entry (269's `?store=&entry=` idiom): *understanding* an entry is one
           // click from *chasing* it, and the account is where it can be acted on. A

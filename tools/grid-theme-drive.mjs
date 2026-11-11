@@ -408,7 +408,7 @@ async function driveDeliveries({ theme, dir }) {
 
   // IDs in Plex Mono (359, 362 §6) — the Delivery no. at 600 — and money in the sans.
   const isMono = (c) => !!c && /^"?IBM Plex Mono"?/.test(c.family)
-  const isSans = (c) => !!c && /^"?IBM Plex Sans"?,/.test(c.family)
+  const isSans = (c) => !!c && /^"?Roboto"?,/.test(c.family)
   check(
     `${label}: the Delivery no. computes Plex Mono at weight 600`,
     isMono(got.deliveryNo) && got.deliveryNo.weight === '600',
@@ -428,7 +428,7 @@ async function driveDeliveries({ theme, dir }) {
     [got.documentNo, got.orderNo, got.storeCode].map((c) => c?.family.split(',')[0]).join(' · '),
   )
   check(
-    `${label}: money and names stay in Plex Sans`,
+    `${label}: money and names stay in Roboto`,
     isSans(got.netTotal) && isSans(got.customerName),
     `${got.netTotal?.family.split(',')[0]} · ${got.customerName?.family.split(',')[0]}`,
   )

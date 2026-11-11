@@ -29,6 +29,7 @@
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
+import { exportWorkbook, todayStamp } from './read-workbook.mjs'
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const ROUTE = '/collection/ready'
@@ -145,6 +146,8 @@ let hold = null
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 2400, height: 900 } })
+  // The menu checks read the labelled tree; since 385 the rail boots collapsed.
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on(
@@ -453,6 +456,13 @@ async function run() {
   check('refusal — the 400 binding failure reads as a rejection, not an empty list', bindText.includes('The request was rejected by the server.') && !bindText.includes('Nothing is waiting'), bindText.replace(/\n/g, ' ').slice(-160))
   await noRawKeys('states')
   scenario = {}
+
+  // ---- the grid exports what it shows ----
+  await loadSearched(ROUTE)
+  await page.locator('.ag-row').first().waitFor()
+  const readyBook = await exportWorkbook(page, page.getByRole('button', { name: 'Export', exact: true }))
+  check('export — the file is named for the screen and the day', readyBook.name === `collection-ready-${todayStamp()}.xlsx`, readyBook.name)
+  check('export — …its Cash to Hand Over is a number Excel can total', readyBook.at(readyBook.body[0], 'Cash to Hand Over')?.numeric === true, readyBook.head.join('|'))
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

@@ -68,6 +68,8 @@ import type { AssignmentUploadCommit } from './assignment-upload'
 import PeopleUploadDialog from './PeopleUploadDialog'
 import type { PeopleUploadCommit } from './people-upload'
 import { GRID_PAGE_SIZE } from './cap'
+import { ExportButton } from './GridStates'
+import { useXlsxExport } from './use-xlsx-export'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Button from '@/core/ui/Button'
@@ -198,6 +200,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
   const collectors = useMemo<AssignmentPerson[]>(() => slotPeople(people, 'collectorId'), [people])
 
   const nameOf = useMemo(() => rosterNameOf(people), [people])
+  const xlsxExport = useXlsxExport<AssignmentBranch>('assignment')
 
   // ---- the filter (client-side over the one payload) ----
   const [filter, setFilter] = useState<AssignmentFilter>(ASSIGNMENT_LANDING)
@@ -438,6 +441,8 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         colId: 'accountant',
         headerName: t('assignment.columns.accountant'),
         width: 200,
+        // The dropdown draws the cell; the workbook reads the person's name.
+        valueGetter: (p) => (p.data ? nameOf(p.data.accountantId) || p.data.accountantId : ''),
         // 🚩 A dropdown over the roster, never a free-text box — deliberately
         // against the house style of the four inquiry toolbars beside it,
         // because this writes master data and a typo'd staff id here is inert,
@@ -460,6 +465,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         colId: 'collector',
         headerName: t('assignment.columns.collector'),
         width: 200,
+        valueGetter: (p) => (p.data ? nameOf(p.data.collectorId) || p.data.collectorId : ''),
         cellRenderer: (p: ICellRendererParams<AssignmentBranch>) => (
           <SlotSelect
             row={p.data!}
@@ -483,7 +489,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
       },
       { field: 'updatedBy', headerName: t('assignment.columns.updatedBy'), width: 140 },
     ],
-    [accountants, collectors, onSlotChange, saving, t, ticked, toggleTick],
+    [accountants, collectors, nameOf, onSlotChange, saving, t, ticked, toggleTick],
   )
 
   const failed = Object.entries(failures)
@@ -636,6 +642,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         >
           {t('assignment.upload.open')}
         </Button>
+        <ExportButton {...xlsxExport.buttonProps} />
       </div>
 
       <AssignmentUploadDialog
@@ -714,6 +721,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
             paginationPageSize={GRID_PAGE_SIZE}
             paginationPageSizeSelector={false}
             onPaginationChanged={(e) => setPageIndex(e.api.paginationGetCurrentPage())}
+            {...xlsxExport.gridProps}
           />
         </div>
       )}

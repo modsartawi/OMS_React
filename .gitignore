@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# local scratch files, including source font downloads
+.temp/
+
 # build output
 dist/
 dist-ssr/

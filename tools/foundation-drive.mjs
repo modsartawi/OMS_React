@@ -4,10 +4,10 @@
 // screens S1 is judged on, Deliveries and Delivery details, in light, dark and RTL:
 //   1. the page, card and rail grounds are palette B's values (362 §1–§2) — asserted against
 //      362's hex, not against the token, because the claim is "these ARE the B values";
-//   2. the face a cell is actually RENDERED in is IBM Plex Sans — read through the DevTools
+//   2. the face a cell is actually RENDERED in is Roboto — read through the DevTools
 //      protocol (`CSS.getPlatformFontsForNode`), not from `font-family`, which only names the
 //      stack and would pass with every file missing;
-//   3. an Arabic string renders in IBM Plex Sans Arabic, and that face carries 115% size-adjust;
+//   3. an Arabic string renders in Avenir Arabic, and that face carries 105% size-adjust;
 //   4. a `font-mono` code renders in IBM Plex Mono;
 //   5. a keyboard-focused button shows the 2px ring at a 2px offset — navy in light, GOLD in dark;
 //   6. `core/ui/Button` is a full pill (spec 590, 594), and still 28px tall.
@@ -74,7 +74,7 @@
 // 388: overlays share one recipe, and toasts sit bottom-end in 082's colours. In the same four modes:
 //  28. a warning, an error, a success and an info toast, each raised by the Deliveries list's own
 //      code path, compute 082's -050 ground, -border edge and -800 ink (info: the primary tiers),
-//      render in IBM Plex Sans, and are 340px, 8px, --shadow-pop, a 12.5px/600 title over 12px;
+//      render in Roboto, and are 340px, 8px, --shadow-pop, a 12.5px/600 title over 12px;
 //  29. they land at the bottom inline-END corner, 16px in, clear of the store chip, the bell and the
 //      open bell panel; an English server message keeps its full stop at its end under RTL, with a
 //      control that drops the per-line direction and must see the stop flip;
@@ -338,11 +338,11 @@ async function driveOneMode({ theme, dir }) {
 
   // Before any Arabic is on screen, the Arabic faces cost nothing (unicode-range gating).
   const arabicBefore = await page.evaluate(() =>
-    [...document.fonts].filter((f) => /Plex Sans Arabic/.test(f.family)).map((f) => f.status),
+    [...document.fonts].filter((f) => /Avenir Arabic/.test(f.family)).map((f) => f.status),
   )
   check(
-    `${label}: Deliveries — the four Arabic faces are declared and none is fetched before Arabic renders`,
-    arabicBefore.length === 4 && arabicBefore.every((s) => s === 'unloaded'),
+    `${label}: Deliveries — the three Arabic faces are declared and none is fetched before Arabic renders`,
+    arabicBefore.length === 3 && arabicBefore.every((s) => s === 'unloaded'),
     arabicBefore.join(','),
   )
 
@@ -372,35 +372,36 @@ async function driveOneMode({ theme, dir }) {
   // measures them), and the name column is past column virtualisation at this width.
   const cellFonts = await renderedFonts('.ag-root', 'CLCN')
   check(
-    `${label}: Deliveries — a painted cell RENDERS in the self-hosted IBM Plex Sans`,
-    cellFonts.length > 0 && cellFonts.every((f) => f.family === 'IBM Plex Sans' && f.custom),
+    `${label}: Deliveries — a painted cell RENDERS in the self-hosted Roboto`,
+    cellFonts.length > 0 && cellFonts.every((f) => f.family === 'Roboto' && f.custom),
     show(cellFonts),
   )
-  // Every Arabic letter in Plex Sans Arabic; the spaces between words are Latin-range and fall to
-  // Plex Sans, which is the unicode-range split working, not a fallback.
+  // Every Arabic letter in Avenir Arabic; the spaces between words are Latin-range and fall to
+  // Roboto, which is the unicode-range split working, not a fallback. The protocol reports the
+  // file's own family name, which carries its source weight ("Avenir Arabic Light").
   const letters = ARABIC_REASON.replace(/\s/g, '').length
   const arabicFonts = await renderedFonts('.ag-root', ARABIC_REASON)
   check(
-    `${label}: Deliveries — an Arabic cell RENDERS in IBM Plex Sans Arabic (Plex only, no platform face)`,
-    arabicFonts.some((f) => f.family === 'IBM Plex Sans Arabic' && f.glyphs >= letters) &&
-      arabicFonts.every((f) => /^IBM Plex Sans( Arabic)?$/.test(f.family) && f.custom),
+    `${label}: Deliveries — an Arabic cell RENDERS in Avenir Arabic (no platform face)`,
+    arabicFonts.some((f) => /^Avenir Arabic/.test(f.family) && f.glyphs >= letters) &&
+      arabicFonts.every((f) => /^(Roboto|Avenir Arabic)/.test(f.family) && f.custom),
     show(arabicFonts),
   )
   const arabicFaces = await page.evaluate(() =>
     [...document.fonts]
-      .filter((f) => /Plex Sans Arabic/.test(f.family))
+      .filter((f) => /Avenir Arabic/.test(f.family))
       .map((f) => ({ weight: f.weight, status: f.status, sizeAdjust: f.sizeAdjust })),
   )
   check(
-    `${label}: Deliveries — the Arabic face loaded once Arabic rendered, and every Arabic face is size-adjust 115%`,
-    arabicFaces.some((f) => f.status === 'loaded') && arabicFaces.every((f) => f.sizeAdjust === '115%'),
+    `${label}: Deliveries — the Arabic face loaded once Arabic rendered, and every Arabic face is size-adjust 105%`,
+    arabicFaces.some((f) => f.status === 'loaded') && arabicFaces.every((f) => f.sizeAdjust === '105%'),
     JSON.stringify(arabicFaces),
   )
   const latinAdjust = await page.evaluate(() =>
-    [...document.fonts].filter((f) => /^"?IBM Plex (Sans|Mono)"?$/.test(f.family)).map((f) => f.sizeAdjust),
+    [...document.fonts].filter((f) => /^"?(Roboto|IBM Plex Mono)"?$/.test(f.family)).map((f) => f.sizeAdjust),
   )
   check(
-    `${label}: Deliveries — Latin Plex Sans and Mono are NOT size-adjusted`,
+    `${label}: Deliveries — Latin Roboto and Plex Mono are NOT size-adjusted`,
     latinAdjust.length === 3 && latinAdjust.every((v) => v === '100%'),
     latinAdjust.join(','),
   )
@@ -2102,8 +2103,8 @@ async function driveOverlays({ theme, dir }) {
     const faces = await renderedFace('[data-toast-probe]')
     await page.evaluate(() => document.querySelector('[data-toast-probe]')?.removeAttribute('data-toast-probe'))
     check(
-      `${label}: the ${type} toast renders in IBM Plex Sans`,
-      faces.length > 0 && faces.every((f) => /^IBM Plex Sans/.test(f)),
+      `${label}: the ${type} toast renders in Roboto`,
+      faces.length > 0 && faces.every((f) => /^Roboto/.test(f)),
       JSON.stringify(faces),
     )
     return toast

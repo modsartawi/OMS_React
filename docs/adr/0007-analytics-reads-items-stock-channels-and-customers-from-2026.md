@@ -172,6 +172,13 @@ These come from the owner, the code, and the owner's data dictionary `POS_OMS_Da
      - `retail` otherwise (cash and the payment programmes).
 
      The probe lists the customers behind type 3 so the owner can check the rule.
+
+     *(Amended 2026-11-06, owner: the sale type is decided by the account customer instead. Nupco /
+     Wasfaty is `CustomerID` 0001100135, 0001100340 or 0001100341. Insurance is
+     `Customer.IsInsurance = 1`, joined on `Client` + `CustomerID`. Any other customer is
+     `other_account`, and no customer is `retail`. The join is a left join, and `online` is no longer
+     a sale type, because the channel says that. It ships as a 1.2.x fix before production; see
+     oms-react spec 819 §B.)*
    - **`programme`:** `SubDocumentType` as it is (NUPCO, YUSUR, NPHIES, SABIC, or none).
 6. **Returns by channel and by item hierarchy,** in the item mart and the till mart:
    - **Measures:** units returned, return value, and the **return rate** = return value ÷ sales value (also a unit

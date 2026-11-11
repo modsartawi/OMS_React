@@ -1,0 +1,121 @@
+===== b00
+TableName|IndexName|key_ordinal|ColumnName
+---------|---------|-----------|----------
+Bonusbuy|PK_BonusBuy|1|Client
+Bonusbuy|PK_BonusBuy|2|Code
+LoyActivityStatisticsDay|PK_LoyActivityStatisticsDay|1|PeriodDay
+LoyActivityStatisticsDay|PK_LoyActivityStatisticsDay|2|LoyId
+LoyActivityTypeStatisticsDay|PK_LoyActivityTypeStatisticsDay|1|PeriodDay
+LoyActivityTypeStatisticsDay|PK_LoyActivityTypeStatisticsDay|2|LoyId
+LoyActivityTypeStatisticsDay|PK_LoyActivityTypeStatisticsDay|3|ActivityType
+LoyLedger|PK_LoyLedger_1|1|LedgerId
+NAuth|PK_NAuth|1|Id
+NAuthLine|PK_NAuthLine|1|Id
+NAuthLine|PK_NAuthLine|2|Sequence
+NPaymentNotice|PK_NPaymentNotice|1|Id
+NPaymentReconciliation|PK_NPaymentReconciliation|1|Id
+TableName|Rows|Cols
+---------|----|----
+NPaymentNotice|588800|Id,PaymentIdSystem,PaymentIdValue,PaymentRef,Amount,PayerCode,ProviderCode,PaymentDate,PaymentStatus,ActionDateTime,ErrorMessage,Success,RowIndex,UserId
+NAuth|11137055|Id,OriginalId,RowIndex,ClaimType,ClaimRequestType,ProviderCode,PatientId,PatientIdType,PatientGender,PatientName,PatientBirthDate,PayerCode,EligibilityId,MemberId,ActionDateTime,ResponseDateTime,ActionDuration,StatusCode,Result,UpdateDateTime,ClaimProcessi
+NPaymentReconciliation|743602|Id,PollId,MessageId,IdSystem,IdValue,PeriodStart,PeriodEnd,PayerId,PayerCode,ProviderCode,Outcome,Disposition,PaymentDate,PaymentAmount,ActionDateTime,RowIndex,Notified,NotifiedDateTime
+===== b01
+ActivityTypeGroup|TransactionType|Activities|Cancellations|SalesAmount|SpendPoints|PointsInCurrency|Branches|WithCampaign|WithOrderNo
+-----------------|---------------|----------|-------------|-----------|-----------|----------------|--------|------------|-----------
+E|E|184298|0|.00|-3866371.41435|.00000|1|0|0
+S|A|86868|0|8513765.14|2909591.46432|8443694.09800|956|22|7771
+P|A|11863|0|.00|2228672.88889|.00000|825|4202|0
+R|R|3152|0|.00|-1410336.44335|42293.59000|754|0|0
+C|A|1405|1405|123751.56|-40404.07857|122714.56000|640|0|129
+M|R|253|253|.00|87725.99996|502.55000|36|0|0
+3|R|40|0|.00|-11696.00000|.00000|1|0|0
+T|T|4|0|.00|.00000|.00000|1|0|0
+Section|ElapsedMs
+-------|---------
+B1 LoyActivity one day|55686
+===== b02
+Rows_|BranchMatchesStore|MinActivityId|MaxActivityId|NewestEntry
+-----|------------------|-------------|-------------|-----------
+287883|93576|21014709313|21015180853|2026-11-06 02:41:51.6090059
+Section|ElapsedMs
+-------|---------
+B1b branch join|7535
+===== b03
+TierId|Members|PointsBalance|Pending
+------|-------|-------------|-------
+S|12050894|551586921.97341|12845646.16492
+P|40224|111092746.05978|4581937.55196
+G|195321|194135780.04033|5673045.38139
+Section|ElapsedMs
+-------|---------
+B2 LoyMembership snapshot|235
+MemberType|Enrolments|Branches
+----------|----------|--------
+M|3881|754
+Section|ElapsedMs
+-------|---------
+B2b LoyMember enrolments|281
+===== b04
+Timeout expired
+===== b05
+Kind|MainConditionType|Rows_|CondAmount|DiscountAmount|Trx|Coupons|Bbys|InfoOnly|Disabled
+----|-----------------|-----|----------|--------------|---|-------|----|--------|--------
+Section|ElapsedMs
+-------|---------
+B4 RetailTrxCondition one day|98768
+===== b06
+Bbys|InBBHeader|InBonusbuy
+----|----------|----------
+0|NULL|NULL
+Section|ElapsedMs
+-------|---------
+B4b bby key match (month)|1236
+===== b07
+Lines|TotalBBDiscount|TotalPromo|PriceCut
+-----|---------------|----------|--------
+399258|-1268331.37|-1268331.37|.00
+Section|ElapsedMs
+-------|---------
+B5 RetailTrxDetailPromo one day|6894
+===== b08
+ApprovalStatus|Lines|Orders|OrdersWithPayer|CouponLines|CouponDiscount
+--------------|-----|------|---------------|-----------|--------------
+Section|ElapsedMs
+-------|---------
+B6 order lines 30 days|1814
+===== b09
+ClaimType|StatusCode|Result|Auths|Payers|Newest
+---------|----------|------|-----|------|------
+1|200|0|146956|27|2026-11-05 21:20:25.2995059
+0|200|0|134716|29|2026-11-05 23:59:21.1106295
+2|0|0|33156|17|2026-11-05 23:58:44.9148108
+3|0|0|24829|3|2026-11-05 23:57:40.8297315
+4|0|0|2679|21|2026-11-05 23:52:43.1108950
+6|0|0|1371|1|2026-11-05 23:08:15.3783142
+0|0|0|1289|20|2026-11-05 23:00:38.3365444
+0|413|0|901|13|2026-11-05 23:49:31.9410941
+0|503|0|666|23|2026-11-05 18:47:11.5908932
+1|503|0|409|5|2026-11-05 18:43:37.1421214
+1|0|0|221|7|2026-11-05 20:15:38.2595488
+0|500|0|58|11|2026-10-27 12:24:44.2109034
+0|504|0|3|3|2026-11-04 11:09:43.2171533
+Section|ElapsedMs
+-------|---------
+B7 NAuth 30 days|21932
+AdjudicationOutcome|Lines|NetAmount|Benefit|Submitted
+-------------------|-----|---------|-------|---------
+NULL|15231|3442951.79|317390.35|.00
+approved|9235|1924872.48|2053756.51|1211413.14
+rejected|3185|1419095.93|.00|982672.45
+partial|312|152790.01|91099.43|151556.71
+not-required|52|14213.43|14104.37|.00
+Section|ElapsedMs
+-------|---------
+B7b NAuthLine one day|4566
+===== b10
+Trx|WithNphiesPayer|WithApproval|PayerInNPayer|ApprovalIsNAuth
+---|---------------|------------|-------------|---------------
+189620|4341|61838|4341|0
+Section|ElapsedMs
+-------|---------
+B8 insured till sales|6862

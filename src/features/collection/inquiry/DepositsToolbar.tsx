@@ -36,7 +36,7 @@ export interface DepositsToolbarProps {
   onChange: (patch: Partial<DepositsCriteria>) => void
   onSearch: () => void
   onReset: () => void
-  /** True when the applied query is anything other than the today-landing one. */
+  /** True when the applied query is anything other than the empty landing's Search. */
   isFiltered: boolean
 }
 
@@ -163,7 +163,7 @@ export default function DepositsToolbar({
         </Button>
       </div>
 
-      {/* The chip says the screen is no longer showing today. Dismissing it is
+      {/* The chip says a filter narrows what the grid shows. Dismissing it is
           Reset — one way back to the landing state, not two. */}
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">

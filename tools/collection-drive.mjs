@@ -1205,13 +1205,22 @@ async function run() {
   lastAttemptsQuery = ''
   await page.goto(BASE + ROUTES.attempts)
   await page.waitForLoadState('networkidle')
+  check('Attempts lands blank: NO request on mount', attemptsCalls === 0, `${attemptsCalls} calls`)
+  check(
+    'Attempts lands blank: …no date in any box, and the grid says to press Search',
+    (await page.locator('form input[type="date"]').evaluateAll((els) => els.every((el) => el.value === ''))) &&
+      (await mainText()).includes('Press Search to see attempts') &&
+      (await page.locator('.ag-root').count()) === 0,
+  )
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const qt = () => new URLSearchParams(lastAttemptsQuery)
-  check('255 — Attempts queries on MOUNT', attemptsCalls === 1, `${attemptsCalls} calls`)
+  check('255 — Search as it stands queries once', attemptsCalls === 1, `${attemptsCalls} calls`)
   check(
-    '255 — …and it queries an attempt time of TODAY (316: the collection range), at the system cap',
-    qt().get('CollectionDateFrom') === TODAY && qt().get('CollectionDateTo') === TODAY && qt().get('Limit') === '2000',
+    '255 — …with no date, at the system cap',
+    !qt().has('CollectionDateFrom') && !qt().has('CollectionDateTo') && qt().get('Limit') === '2000',
     lastAttemptsQuery,
   )
   check(
@@ -1295,20 +1304,28 @@ async function run() {
     lastAttemptsQuery,
   )
   check('255 — …and the Filtered chip lights', (await page.getByText('Filtered').count()) > 0)
+  const attemptCallsBeforeReset = attemptsCalls
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
   check(
-    '255 — Reset returns to today with the reason cleared',
-    qt().get('CollectionDateFrom') === TODAY && !lastAttemptsQuery.includes('ReasonCode'),
-    lastAttemptsQuery,
+    '255 — Reset returns to the un-searched landing with the reason cleared',
+    attemptsCalls === attemptCallsBeforeReset &&
+      (await page.getByPlaceholder('Reason code').inputValue()) === '' &&
+      (await mainText()).includes('Press Search to see attempts'),
+    `${attemptsCalls} vs ${attemptCallsBeforeReset}`,
   )
 
   attemptRows = makeAttemptRows(2000)
   await page.goto(BASE + ROUTES.attempts)
   await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  await page.getByText(CAP_TEXT).first().waitFor({ timeout: 8000 }).catch(() => {})
   check('255 — 2,000 attempts REACHED the cap: the amber banner fires', /reached the 2,000-row system cap/.test(await mainText()))
   attemptRows = []
   await page.goto(BASE + ROUTES.attempts)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.waitForLoadState('networkidle')
   check('255 — an empty period reads as empty, not as an error', (await mainText()).includes('No attempts in this period'))
   attemptRows = makeAttemptRows(174)
@@ -1325,13 +1342,26 @@ async function run() {
   lastDepositsQuery = ''
   await page.goto(BASE + ROUTES.deposits)
   await page.waitForLoadState('networkidle')
+  check('Deposits lands blank: NO request on mount', depositsCalls === 0, `${depositsCalls} calls`)
+  check(
+    'Deposits lands blank: …no date in any box, and the grid says to press Search',
+    (await page.locator('form input[type="date"]').evaluateAll((els) => els.every((el) => el.value === ''))) &&
+      (await mainText()).includes('Press Search to see deposits') &&
+      (await page.locator('.ag-root').count()) === 0,
+  )
+  check(
+    'Deposits lands blank: …and no balances panel until the first Search',
+    (await page.getByRole('button', { name: /Collector balances/ }).count()) === 0,
+  )
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const qd = () => new URLSearchParams(lastDepositsQuery)
-  check('256 — Deposits queries on MOUNT (no Load button to press)', depositsCalls === 1, `${depositsCalls} calls`)
+  check('256 — Search as it stands queries once', depositsCalls === 1, `${depositsCalls} calls`)
   check(
-    '256 — …and it queries a deposited-at of TODAY (316: the collection range), at the system cap',
-    qd().get('CollectionDateFrom') === TODAY && qd().get('CollectionDateTo') === TODAY && qd().get('Limit') === '2000',
+    '256 — …with no date, at the system cap',
+    !qd().has('CollectionDateFrom') && !qd().has('CollectionDateTo') && qd().get('Limit') === '2000',
     lastDepositsQuery,
   )
   check(
@@ -1583,32 +1613,48 @@ async function run() {
     qd().get('DepositNumber') === '5501' && !lastDepositsQuery.includes('DepositId'),
     lastDepositsQuery,
   )
+  const depositCallsBeforeReset = depositsCalls
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
   check(
-    '256 — Reset returns to today with the number, bank and status cleared',
-    qd().get('CollectionDateFrom') === TODAY &&
-      !lastDepositsQuery.includes('DepositNumber') &&
-      !lastDepositsQuery.includes('BankCode') &&
-      !lastDepositsQuery.includes('Status'),
-    lastDepositsQuery,
+    '256 — Reset returns to the un-searched landing: no request, the boxes cleared, "press Search"',
+    depositsCalls === depositCallsBeforeReset &&
+      (await page.getByPlaceholder('Number').inputValue()) === '' &&
+      (await page.getByPlaceholder('Bank code').inputValue()) === '' &&
+      (await mainText()).includes('Press Search to see deposits'),
+    `${depositsCalls} vs ${depositCallsBeforeReset}`,
   )
   check('256 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
+
+  // ---- a repeated Search re-asks the door ----
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  const callsBeforeRepeat = depositsCalls
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  check('Deposits — Search on an unchanged draft asks again', depositsCalls === callsBeforeRepeat + 1, `${depositsCalls} vs ${callsBeforeRepeat}`)
 
   // ---- the cap banner: reached, not merely large ----
   depositRows = makeDepositRows(1999)
   await page.goto(BASE + ROUTES.deposits)
   await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   check('256 — 1,999 deposits is merely large: NO banner', !CAP_TEXT.test(await mainText()))
   depositRows = makeDepositRows(2000)
   await page.goto(BASE + ROUTES.deposits)
   await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  await page.getByText(CAP_TEXT).first().waitFor({ timeout: 8000 }).catch(() => {})
   check('256 — 2,000 deposits REACHED the cap: the amber banner fires', CAP_TEXT.test(await mainText()))
 
   // ---- an empty day says so, and takes both regions with it ----
   depositRows = []
   depositBalances = []
   await page.goto(BASE + ROUTES.deposits)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.waitForLoadState('networkidle')
   const emptyDeposits = await mainText()
   check(
@@ -2143,6 +2189,7 @@ async function run() {
       folded: ['Created', 'Collector Id', 'Bank Code', 'Note', 'Voided By', 'Voided', 'Void Reason'],
       money: ['Calculated', 'Banked', 'Difference'],
       identity: 'Deposit No#',
+      landsBlank: true,
     },
     {
       key: 'attempts',
@@ -2152,6 +2199,7 @@ async function run() {
       // 🚩 None. An attempt collected nothing — that is what makes it an attempt.
       money: [],
       identity: 'Store Code',
+      landsBlank: true,
     },
   ]
   for (const screen of OTHERS) {

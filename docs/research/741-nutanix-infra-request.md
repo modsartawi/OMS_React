@@ -1,6 +1,6 @@
 # Analytics container — request to infra
 
-**From:** the OMS BackOffice team · **Date:** 2026-11-05
+**From:** the OMS BackOffice team · **Date:** 2026-11-05 · **Updated:** 2026-11-07 (version 1.4.0, see §7)
 
 Please run **one container image** that we supply, the same way you run our other apps. We build
 and test the image ourselves; you only run it. All its settings are built in; you set only the
@@ -30,6 +30,7 @@ three secrets in §4. A ready deployment file comes with the image: `oms-analyti
 | Production SIS.Api and staging SIS.Api → the container | 443 | allow |
 | Your monitoring → the container | 443 | allow (health check only) |
 | The container → `DWPOSREPL03` / 172.23.27.47 | 1433 | allow |
+| **New in 1.4.0:** production SIS.Api and staging SIS.Api → `DWPOSREPL03` / 172.23.27.47 | 1433 | allow |
 | Anything else in, and the container → the internet | — | **deny** |
 
 ## 4. Secrets (environment variables, set at deploy time)
@@ -54,3 +55,15 @@ Please alert **the OMS BackOffice team** when `/health` returns 503 for more tha
   how we hand you a new image version.
 - **Running:** read access to the container's logs, and a way to see it running and restart it (or a
   named contact who can). **No shell access is needed.**
+
+## 7. Version 1.4.0: what changes for you
+
+- **Swap the image** to `oms-analytics:1.4.0`. It comes with its `.sha256` and our passing test log. Nothing else about
+  the container changes: the same port, size, secrets, health checks and deployment file.
+- **The first start rebuilds the data once**, and this can take a while. `/health` stays `200` throughout and the old
+  data keeps answering; the JSON body shows the rebuild's progress. A restart during it is safe: the rebuild starts again.
+- **One new network rule** (§3): production and staging SIS.Api → `DWPOSREPL03` / 172.23.27.47 on **1433**. It lets a
+  small group of analysts look at a few rows of the analytics tables. SIS.Api signs in with its own read-only login,
+  which our DBA creates, limited to the analytics database and to approved columns.
+- **Only if you also run the SIS.Api servers:** the catalog prints to PDF with headless Chromium, which must be installed
+  on every SIS.Api server (the same component the scheduled reports already use). We send the exact steps.

@@ -19,7 +19,8 @@ import Modal from '@/core/ui/Modal'
 import { OMS_GRID_HEADER_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { settlementApi } from './api'
-import { AccountShimmer, Nothing } from './AccountStates'
+import { AccountShimmer, ExportButton, Nothing } from './AccountStates'
+import { useSettlementExport } from './xlsx'
 import { withEntryNow, withoutRequest, type ChangeQueue as Queue, type ChangeQueueRow } from './change-queue'
 import { AskedLines, buildChangeQueueColumns, changeQueueRowId, entryNumberWords, refusalWords } from './change-queue-columns'
 import { afterDecide, changeRequestFailure, rejectBody, type DecideDoor } from './change-request'
@@ -64,6 +65,7 @@ export default function ChangeQueue({
   onRow: (row: ChangeQueueRow) => void
 }) {
   const { t } = useTranslation('settlement')
+  const xlsxExport = useSettlementExport<ChangeQueueRow>('changes', t('open.changes.title'))
   const queryClient = useQueryClient()
   /** The refusal last answered for a request, by its id — said on its row (story 20). */
   const [refusals, setRefusals] = useState<ReadonlyMap<string, ChangeRefusal>>(new Map())
@@ -206,6 +208,9 @@ export default function ChangeQueue({
         >
           {rows.length.toLocaleString('en-US')}
         </span>
+        <span className="ms-auto">
+          <ExportButton label={t('export.button')} onExport={xlsxExport.onExport} disabled={xlsxExport.disabled} />
+        </span>
       </div>
       <div>
         <AgGridReact<ChangeQueueRow>
@@ -220,6 +225,7 @@ export default function ChangeQueue({
           domLayout="autoHeight"
           animateRows={false}
           getRowId={changeQueueRowId}
+          {...xlsxExport.gridProps}
           // Opens the entry's branch account — except from a button of the row's own.
           onRowClicked={(e) =>
             e.data &&

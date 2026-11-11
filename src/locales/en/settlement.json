@@ -6,6 +6,15 @@
     "ledger": "Ledger",
     "upload": "Bulk upload"
   },
+  "export": {
+    "button": "Export",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again.",
+    "sheets": {
+      "account": "Branch account",
+      "ledger": "Ledger"
+    }
+  },
   "title": "Settlement Account",
   "subtitle": "What a branch must hand over (shortage · عجز) or may keep back (surplus · فائض), and what a till has already taken against it.",
   "access": {

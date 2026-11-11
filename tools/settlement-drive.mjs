@@ -35,6 +35,7 @@
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
+import { exportWorkbook, todayStamp } from './read-workbook.mjs'
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 
@@ -3491,6 +3492,35 @@ async function run() {
     (await page.locator('[data-lane="wrong-money"]').count()) === 1,
   )
   scenario = { ...scenario, laneRefuses: false }
+
+  // ---- every settlement grid exports what it shows ----
+  {
+    scenario = { accessBody: ALL, access403: false, access500: false }
+    const exportButton = () => page.getByRole('button', { name: 'Export', exact: true })
+
+    await page.goto(`${BASE}${ROUTE}?store=0142`)
+    await page.waitForLoadState('networkidle')
+    await page.locator('.ag-row').first().waitFor()
+    const account = await exportWorkbook(page, exportButton())
+    check('export → the account file is named for the branch and the day', account.name === `settlement-account-0142-${todayStamp()}.xlsx`, account.name)
+    check('export → …its Amount is a number Excel can total', account.body.length > 0 && account.at(account.body[0], 'Amount')?.numeric === true, account.head.join('|'))
+
+    await page.goto(`${BASE}${LEDGER_ROUTE}?status=OPEN`)
+    await page.waitForLoadState('networkidle')
+    await page.locator('.ag-row').first().waitFor()
+    const ledger = await exportWorkbook(page, exportButton())
+    check('export → the ledger file is named for the screen', ledger.name === `settlement-ledger-${todayStamp()}.xlsx`, ledger.name)
+    check('export → …holding the ledger rows', ledger.body.length > 0, `${ledger.body.length} rows`)
+
+    await page.goto(`${BASE}${OPEN_ROUTE}?tab=owing`)
+    await page.waitForLoadState('networkidle')
+    const section = page.locator('[data-region^="open-section-"]').first()
+    await section.locator('.ag-row').first().waitFor()
+    const lane = await exportWorkbook(page, section.getByRole('button', { name: 'Export', exact: true }))
+    check('export → the open-lane file is named for its tab and section', /^settlement-open-owing-[a-z]+-\d{4}-\d{2}-\d{2}\.xlsx$/.test(lane.name), lane.name)
+    check('export → …its Branch carries the code as well as the name', / · /.test(lane.at(lane.body[0], 'Branch')?.text ?? ''), lane.at(lane.body[0], 'Branch')?.text)
+    check('export → …and its Still open is a number', lane.at(lane.body[0], 'Still open')?.numeric === true, lane.head.join('|'))
+  }
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

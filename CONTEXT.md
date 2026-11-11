@@ -516,6 +516,11 @@ outside the system. Read-only — no act, no Z viewer.
 _Avoid_: queue, backlog; "receipt" alone (a **collection**'s receipt is the سند قبض — say *prepared
 settlement receipt*).
 
+**Wrong money** (orphan consumption):
+Money a till took from a settlement entry at a shift close, with no Z behind it after 72 hours. The
+system detects it and a person repairs it, putting the money back on the entry; it is never reversed
+automatically, because a Z arriving late may already claim that deduction.
+_Avoid_: auto-repair; "wrong number" (the count of wrong money is correct, the money behind it is not).
 
 **Collector supervisor**:
 The Ua role `COLLECTOR_SUPERVISOR` (BackOffice 1995): the five collection read grants — Cash
@@ -726,6 +731,34 @@ not. With the lock on, a store trying to back out of a take mostly shows here, n
 rate. Its attempts are kept 6 months; after that the count still stands with no attempts listed.
 _Avoid_: failed close, blocked cancel.
 
+**Courier** (of a delivery):
+The courier type a home delivery was actually dispatched to: FarEye (`FREY`), OTO (`OTOX`), SMSA or
+Starlinks (`SLNK`). `DAWA` is the old last mile, retired for about two years, and is not a live
+courier. Known by the dispatch sent, never by the delivery's courier field
+alone, which defaults to FarEye even on a pick-up. On delivery statistics it is a scope like the store:
+absent means every courier (the till's view); a chosen courier scopes the figures to its home
+deliveries, so a pick-up never has one.
+_Avoid_: carrier, fleet, partner (the last-mile partner is a different thing), "owned by us".
+
+**In slot** / **Out of slot** / **No slot** (of a delivered home delivery):
+How a Delivered home delivery kept its time-slot promise. **In slot**: delivered before the end of
+the slot it held when it was delivered, after any reschedule, so early counts as in slot. **Out of
+slot**: delivered after that slot ended. **No slot**: it held no slot (an express delivery, bad data).
+A pick-up has no slot and is none of the three. The server counts them; a reschedule is its own miss.
+_Avoid_: on time, late, SLA (no SLA is defined), early.
+
+**Avg delivery time** (of the Delivery track):
+The average minutes from when a home delivery became **due** to when it was Delivered. It became due
+at the later of its entry and the start of the slot it held when delivered; with no slot, at its
+entry. Delivered before its slot opened counts as 0, never negative. A pick-up's average still runs
+from entry to Made ready.
+_Avoid_: avg hand-over (the old entry-based figure), lead time, SLA time.
+
+**Delivered per trip** (of the Delivery track):
+Delivered home deliveries over Trips (the times deliveries left the store) in a period: how well a
+store batches its drivers. The server's figure, never the page's; with no trip it has no value.
+_Avoid_: batching rate, trip efficiency, drops per run.
+
 **Courier quote** (predicted courier):
 What OTO **predicted** for a delivery's assigned store when it was checked: a courier company with a
 price and ETA, no courier, or a failed check. Always a prediction: neither "no courier" nor a failed
@@ -755,16 +788,134 @@ _Avoid_: saved view (that's the Deliveries list's browser-local bundle), card, q
 A grid of panels: analytics views linked by reference, plus text and section-header panels. It has
 board filters, cross-filter, and optional auto-refresh. It has an owner and a **tier**, like an
 analytics view (ticket 755).
-_Avoid_: dashboard in copy (fine in conversation), report.
+_Avoid_: dashboard in copy (fine in conversation), report (that's its own kind, below).
+
+**Report** (in analytics, v2):
+A saved, parameterised document that reads top to bottom: a title, the parameter strip, then
+ordered sections of chart and table blocks, text and at most one summary. It shares the board's
+parameters, audience, tiers and revisions. It has no grid, cross-filter or TV mode. It alone can
+be printed to A4, scheduled and emailed. Its chart and table blocks are **inline**: owned by the
+report, optionally copied from a saved analytics view, with where they came from recorded. The
+saved report is the template (ticket 801).
+_Avoid_: dashboard, document (fine in conversation), copilot report (the CTO demo's frozen
+document that this replaces), template (fine in conversation, but the item is the report).
+
+**Report run**:
+A report at one revision, run with parameter values at a time. Runs on screen are recomputed and
+never kept. A scheduled or emailed run keeps a record (revision, values, data as of, recipients,
+outcome, summary text), and keeps what was sent for 90 days (ticket 801).
+_Avoid_: instance, snapshot (unless the kept artefact is meant), execution.
+
+**Live figure** (in a report's text):
+A token in an author's text that names one panel of the same report and one single value of it.
+The server fills it from that run's results in the measure's format. A report's text never holds
+a number the server cannot trace (ticket 801).
+_Avoid_: variable, placeholder, merge field.
+
+**Report summary**:
+The one optional block the AI rewrites on every run from that run's results only. The server
+checks every number in it against those results, and on any mismatch shows "summary unavailable"
+instead (ticket 801).
+_Avoid_: insight, commentary (fine in conversation), narrative.
+
+**Report in context** (copilot, v2):
+The report open in the designer when the author asks the copilot something. The panel sends it with
+the question (id, revision and the unsaved working copy), so "add the cancellation rate as a bar"
+edits that report. The AI's edit comes back as one undo step in the designer, and the AI never saves
+it (ticket 802).
+_Avoid_: active report, current document.
 
 **Tier** (of an analytics view or board):
-**Personal** is seen and edited by its owner only. **Shared** is seen by every holder of the
-analytics grant and edited by its owner only. **Certified** is promoted by a **curator**, frozen
+**Personal** is seen and edited by its owner only. **Shared** is seen by its **audience**, which is every
+analytics user (v1) or chosen roles and users (v2, ticket 794), and edited by its owner only. **Certified** is promoted by a **curator**, frozen
 as a copy, and edited by curators only. Editing an item you may not edit makes a Personal copy and
 never changes the original (ticket 755).
 _Avoid_: public, published, official.
+
+**Audience** (of a Shared analytics item, v2):
+Who may open a Shared item: either everyone with analytics, or a list of authz roles and named
+users. Membership is read from authz when the item is opened, so analytics keeps no team list of
+its own. The owner sets the audience, and a curator may narrow it. Anyone outside it is refused
+with `ANALYTICS-413` (ticket 794).
+_Avoid_: team (fine in conversation, but there is no team object), group, ACL.
+
+**Analytics author** / **Runner** (v2):
+An **author** holds the analytics author grant: they build, edit, copy, share and declare
+parameters, and use the analytics AI. A **runner** holds only the screen grant: they open what
+their audience lets them see, change parameter values, export and copy the permalink, and never
+build or save (ticket 794).
+_Avoid_: viewer (too loose), consumer, editor.
 
 **Curator** (in analytics):
 A holder of the analytics curation grant, beside the screen grant. Only a curator certifies,
 un-certifies, or edits a Certified item. The AI is never a curator.
 _Avoid_: admin, editor, owner (an owner is the person who made an item).
+
+**Parameter** (in analytics, v2):
+A named input that the author declares on a board or report, never on an analytics view. It has
+a kind, a default, and the panels it is **bound** to. The kinds are period, members, grain,
+threshold, top N, measure and breakdown. Every parameter has a default, so a report can always
+run unattended. Its value overrides the bound view's own saved value. SIS.Api resolves it into the
+query, so Cube never sees one. v1's six board filters are the six ready-made parameters (ticket
+797).
+_Avoid_: variable, prompt, filter (a view's own filter is part of its definition, not an input),
+template parameter (the BI tools' SQL-splicing kind, which we never do).
+
+**Delivery type** (in analytics, v2):
+The type of the delivery document an order was fulfilled by (`DeliveryDocumentType`): `QC` quick
+commerce (Dawaa Now), `DL`, `BB`, `LF`, and so on. It is a dimension that crosses the channel
+groups, never a channel. An order with any QC delivery is QC, and one with no delivery is
+`(none)` (ticket 796).
+_Avoid_: channel, order type (that is the order's own `DocumentType`), source, fulfilment (pick-up or
+home).
+
+**Fulfilment** (in analytics):
+Whether an order was a **pick-up** or a **home delivery** (`DeliveryHeader.DeliveryType`). Only a home
+delivery can be In slot, Out of slot or No slot.
+_Avoid_: delivery type (that is the delivery document's type, QC, DL, …).
+
+**Sale type** (in analytics):
+The kind of sale a till receipt is, decided by its **account customer** (`RetailTrx.CustomerID` →
+`Customer`), owner's rule of 2026-11-06:
+- **Nupco / Wasfaty:** the customer is one of the three Nupco accounts (`0001100135`, `0001100340`,
+  `0001100341`).
+- **Insurance:** the customer is an insurer (`Customer.IsInsurance = 1`).
+- **Other account:** any other account customer.
+- **Retail:** no customer, which is cash or another walk-in sale.
+
+It is independent of the channel: an insurance or Wasfaty sale can come in online. A receipt without
+a customer is still a sale, so the customer is always a left join.
+_Avoid_: channel, document type (`DocumentType` is kept as its own dimension), payment type.
+
+**Cancelled order** / **Expired order** (in analytics, v2):
+An order whose own close, or whose delivery's close, is terminal (`C` or `X`, never `N`). It is
+**cancelled** when a person, the store, the courier or the platform requested the close. It is
+**expired** when `AutoClose` did. The cancellation rate is Σ cancelled ÷ Σ orders by order date.
+Expiry is never part of it. Platform-side cancels that never reach an OMS document are not
+counted (ticket 796).
+_Avoid_: closed (fine for the raw state), failed, rejected.
+
+**Binding** (of a parameter):
+The saved link from a parameter to one panel, and to the member it acts on there. The editor
+pre-fills a binding wherever the panel can take the parameter, and the author may remove one. A
+binding that cannot apply is refused when the item is saved, never silently dropped (ticket 797).
+_Avoid_: scope, mapping, opt-out (v1's word, which binding replaces for parameters; the
+cross-filter keeps its opt-out).
+
+**Named series** (of an analytics view, v2):
+One of up to four labelled, filtered series in one view, each with its own filters on that
+view's category dimensions (for example "HungerStation" = channel is HungerStation, and "QC" =
+delivery type is QC). Every series shares the view's measures and axis. SIS.Api runs one query per
+series, so rates stay Σ ÷ Σ and overlapping series are never added together. A series is not a
+member: it does not cross-filter, and a members parameter cannot bind to a dimension a series
+filters on (ticket 799).
+_Avoid_: segment, group, compare set, breakdown (a breakdown splits by every member of one
+dimension; a series is an author-chosen filter).
+
+**Cross-area view** (in analytics, v2):
+A Cube view that BackOffice declares over one dbt mart combining several areas' additive figures
+on shared keys, so that one panel can hold figures from more than one area. The first and only one
+in v2 is **Stores by day** (`store_day`: day × store × channel × delivery type). Each figure keeps
+its own area's date and definition, and ratios across areas are declared over sums. Users never
+make joins (ticket 799).
+_Avoid_: join, blended view, merged dataset, scorecard (the dispatch screen's word).

@@ -14,23 +14,27 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Self-hosted IBM Plex (spec 380 F1, 359, ADR 0003) — woff2 under
-   `src/assets/fonts`, no package. Latin loads always; the Arabic faces are
-   declared but cost 0 bytes until Arabic glyphs render (unicode-range gating).
+   Self-hosted fonts (ADR 0003, 0004, 0005) — woff2 under `src/assets/fonts`,
+   no package. Latin loads always; the Arabic faces are declared but cost
+   0 bytes until Arabic glyphs render (unicode-range gating).
 
-   - Plex Sans, variable, is the UI and grid face.
+   - Roboto, variable, is the UI and grid face.
    - Plex Mono 400/600 is `--font-mono`, for IDs and codes ONLY (delivery,
      document and order numbers, SAP, material and store codes, device ids).
-     Money and quantities stay in Plex Sans: its figures already align.
-   - Plex Sans Arabic 400/500/600/700, four static files because the app uses
-     all four weights. `size-adjust: 115%` on these four rules only (378 §4,
-     owner): at 100% Arabic reads a step smaller than Latin at 12px. Latin, the
+     Money and quantities stay in Roboto: its figures already align.
+   - Avenir Arabic is the Arabic face, and for Arabic only (ADR 0004): its Latin
+     and digits are never used, because `unicode-range` leaves those to Roboto.
+     Three static files serve the app's four weights. The source files' names
+     do not match their stroke weights, so they are named here by the weight
+     they serve: 400 is the source's "light", 500 its "medium", and 600 and 700
+     share its "heavy", so no bold is synthesized. `size-adjust: 105%` on these
+     three rules only keeps the Arabic the same size as Latin at 12px. Latin, the
      12px grid text and the row heights do not move.
    --------------------------------------------------------------------------- */
 @font-face {
-  font-family: 'IBM Plex Sans';
-  src: url('../assets/fonts/ibm-plex-sans-latin-wght-normal.woff2') format('woff2');
-  font-weight: 100 700;
+  font-family: 'Roboto';
+  src: url('../assets/fonts/roboto-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
@@ -58,42 +62,32 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2') format('woff2');
+  font-family: 'Avenir Arabic';
+  src: url('../assets/fonts/avenir-arabic-400-normal.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  size-adjust: 115%;
+  size-adjust: 105%;
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
     U+FE70-FEFF;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2') format('woff2');
+  font-family: 'Avenir Arabic';
+  src: url('../assets/fonts/avenir-arabic-500-normal.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
-  size-adjust: 115%;
+  size-adjust: 105%;
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
     U+FE70-FEFF;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2') format('woff2');
-  font-weight: 600;
+  font-family: 'Avenir Arabic';
+  src: url('../assets/fonts/avenir-arabic-600-700-normal.woff2') format('woff2');
+  font-weight: 600 700;
   font-style: normal;
   font-display: swap;
-  size-adjust: 115%;
-  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
-    U+FE70-FEFF;
-}
-@font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-  size-adjust: 115%;
+  size-adjust: 105%;
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
     U+FE70-FEFF;
 }
@@ -102,7 +96,7 @@
      unicode-range gates above route scripts automatically. Headings are the
      same sans, small and bold — one family everywhere, weight does the
      hierarchy. */
-  --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-sans: 'Roboto', 'Avenir Arabic', system-ui, sans-serif;
   /* Plex Mono has no Arabic; an Arabic glyph in a mono run falls through to
      the platform mono, which is right — a code is never Arabic. */
   --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
@@ -624,8 +618,8 @@ body {
   }
 }
 
-/* A no-op under Plex Sans, whose figures are tabular by default (359) — kept
-   so a fallback face aligns the same way while Plex loads. `[data-numeric]`
+/* A no-op under Roboto, whose figures are tabular by default — kept so a
+   fallback face aligns the same way while Roboto loads. `[data-numeric]`
    stays as the marker for a numeric surface. */
 .ag-cell,
 .ag-header-cell,

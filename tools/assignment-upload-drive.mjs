@@ -32,6 +32,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
+import { exportWorkbook, todayStamp } from './read-workbook.mjs'
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const ROUTE = '/collection/assignment'
@@ -472,6 +473,18 @@ async function run() {
   await shot('profit-center-too-long')
   await noRawKeys('profit center refusal')
   await closeDialog()
+
+  // ---- the grid exports what it shows ----
+  await load()
+  await page.locator('.ag-row').first().waitFor()
+  const book = await exportWorkbook(page, page.getByRole('button', { name: 'Export', exact: true }))
+  check('export — the file is named for the screen and the day', book.name === `collection-assignment-${todayStamp()}.xlsx`, book.name)
+  check('export — the tick column is left out, and the store code leads', book.head[0] === 'Store Code', book.head.join('|'))
+  check(
+    'export — a filled slot reads as a person, not a blank',
+    book.body.some((row) => (book.at(row, 'Accountant')?.text ?? '') !== ''),
+    book.head.join('|'),
+  )
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

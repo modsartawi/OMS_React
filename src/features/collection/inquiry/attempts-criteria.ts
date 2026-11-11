@@ -4,7 +4,7 @@
  * The plainest of the four. A variation on 254's template — ⚠️ **copied, not
  * extracted** (244 §1).
  *
- * Pure, and **no `new Date()`**: today arrives as an argument.
+ * Pure: no React, no i18n, no network, no clock.
  *
  * 🚩 **Two ranges, named by what they mean on THIS screen** (ticket 316, BackOffice
  * 1993 — 1992's four-filter contract with spec 1976's per-screen meanings):
@@ -16,7 +16,6 @@
  *   to the previous business day answers to the day it physically happened here,
  *   and to the day it came for under the business range.
  */
-import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
 import { NO_SERVED_BY, buildServedByParams, type ServedBySelection } from './served-by'
 
@@ -50,24 +49,22 @@ export interface AttemptsCriteria {
 }
 
 /**
- * The state the screen opens on: **attempted today, on both ends, nothing else
- * set** — the business range open.
- *
- * 🚩 The attempt-time window is the one the screen has always landed on; ticket
- * 316 renamed it on the wire and did not move it.
+ * The state the screen opens on: **no date and nothing else set**. The today..today
+ * attempt-time window is gone, matching the other Collections inquiries: the user
+ * chooses the period. This is the draft only: the applied criteria start as `null`,
+ * and `attemptsParamsFor` answers `null`, so landing issues no request.
  *
  * ⚠️ **No default-to-mine.** The landing stays the estate, as it was before the
  * control arrived: the ticket gave this screen the picker, not a landing scope, and
  * a screen that silently opened narrower than it used to would be a change nobody
  * asked for. The caller's own scope is one pick away in the control.
  */
-export function landingCriteria(today: Date): AttemptsCriteria {
-  const day = toIsoDate(today)
+export function landingCriteria(): AttemptsCriteria {
   return {
     businessDateFrom: '',
     businessDateTo: '',
-    collectionDateFrom: day,
-    collectionDateTo: day,
+    collectionDateFrom: '',
+    collectionDateTo: '',
     storeCode: '',
     collectorStaffId: '',
     reasonCode: '',
@@ -79,11 +76,20 @@ export function landingCriteria(today: Date): AttemptsCriteria {
  * Is the query that has actually been **issued** still the landing one? Reads the
  * applied params, not the draft (254's ruling).
  */
-export function isLandingQuery(params: Record<string, unknown>, today: Date): boolean {
-  const landing = buildAttemptsParams(landingCriteria(today))
-  const keys = Object.keys(landing)
-  if (Object.keys(params).length !== keys.length) return false
-  return keys.every((key) => params[key] === landing[key])
+export function isLandingQuery(params: Record<string, unknown>): boolean {
+  return sameQuery(params, buildAttemptsParams(landingCriteria()))
+}
+
+/** The query for what has been applied: `null` means issue nothing (the blank landing). */
+export function attemptsParamsFor(applied: AttemptsCriteria | null): Record<string, unknown> | null {
+  return applied === null ? null : buildAttemptsParams(applied)
+}
+
+/** Are two built queries the same request? Tells a repeated Search from a new one. */
+export function sameQuery(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = Object.keys(b)
+  if (Object.keys(a).length !== keys.length) return false
+  return keys.every((key) => a[key] === b[key])
 }
 
 /**

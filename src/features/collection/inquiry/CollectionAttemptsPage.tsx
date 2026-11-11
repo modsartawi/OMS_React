@@ -18,9 +18,11 @@ import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenAttempts, collectionApi } from './api'
 import { buildAttemptsColumns, buildAttemptsDefaultColDef } from './attempts-columns'
 import {
+  attemptsParamsFor,
   buildAttemptsParams,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type AttemptsCriteria,
 } from './attempts-criteria'
 import AttemptsToolbar from './AttemptsToolbar'
@@ -34,7 +36,7 @@ import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './
  * given.
  *
  * A **variation on the template 254 settled** — same gate, same criteria draft,
- * same today-defaulted landing, same client paging at 50, same cap banner, same
+ * same open-blank landing as its siblings, same client paging at 50, same cap banner, same
  * More-columns toggle, same floating filter row on by default. ⚠️ **Copied, not
  * extracted** (244 §1).
  *
@@ -68,36 +70,39 @@ export default function CollectionAttemptsPage() {
 function AttemptsBody() {
   const { t } = useTranslation('collection')
 
-  // Today, read at mount and again on Reset — never on render. State rather than
-  // a frozen ref, because the "Filtered" chip is measured against it.
-  const [today, setToday] = useState(() => new Date())
+  // `criteria` is the live toolbar draft; `appliedCriteria` is what has actually
+  // been searched. Only Search promotes one to the other.
+  const [criteria, setCriteria] = useState<AttemptsCriteria>(() => landingCriteria())
+  // 🚩 **`null` until the first Search**: the open-blank landing.
+  const [appliedCriteria, setAppliedCriteria] = useState<AttemptsCriteria | null>(null)
+  const appliedParams = useMemo(() => attemptsParamsFor(appliedCriteria), [appliedCriteria])
 
-  // `criteria` is the live toolbar draft; `appliedParams` is the query that has
-  // actually been issued. Only Search/Reset promote one to the other.
-  const [criteria, setCriteria] = useState<AttemptsCriteria>(() => landingCriteria(today))
-  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildAttemptsParams(landingCriteria(today)),
-  )
-
-  // The landing query IS the mount query — no `enabled`, no "click Load".
+  // Enabled on a query existing: the landing issues no request until Search.
   const list = useQuery({
     queryKey: ['collection', 'attempts', appliedParams],
-    queryFn: () => collectionApi.attempts(appliedParams),
+    // Non-null by construction: `enabled` below is the same condition.
+    queryFn: () => collectionApi.attempts(appliedParams!),
+    enabled: appliedParams !== null,
   })
 
   const onChange = useCallback(
     (patch: Partial<AttemptsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedParams(buildAttemptsParams(criteria)), [criteria])
+  // 🚩 Search on an UNCHANGED draft re-asks the door: Search is the only way to load,
+  // so pressing it again must not be swallowed by an identical query key.
+  const { refetch } = list
+  const onSearch = useCallback(() => {
+    if (appliedParams !== null && sameQuery(buildAttemptsParams(criteria), appliedParams)) {
+      void refetch()
+      return
+    }
+    setAppliedCriteria(criteria)
+  }, [criteria, appliedParams, refetch])
   const onReset = useCallback(() => {
-    // Reset re-reads the clock, so a screen left open overnight resets to the day
-    // the supervisor is actually looking at.
-    const now = new Date()
-    const landing = landingCriteria(now)
-    setToday(now)
-    setCriteria(landing)
-    setAppliedParams(buildAttemptsParams(landing))
+    // ⚠️ Back to the UN-SEARCHED landing: nothing applied, no request.
+    setCriteria(landingCriteria())
+    setAppliedCriteria(null)
   }, [])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
@@ -108,7 +113,7 @@ function AttemptsBody() {
   const rows = useMemo(() => list.data ?? [], [list.data])
   const columns = useMemo(() => buildAttemptsColumns(t, showMore), [t, showMore])
 
-  const isFiltered = !isLandingQuery(appliedParams, today)
+  const isFiltered = appliedParams !== null && !isLandingQuery(appliedParams)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
   // ---- the export (ticket 258; a workbook since 336) ----
@@ -156,7 +161,11 @@ function AttemptsBody() {
         />
       )}
 
-      {list.isPending ? (
+      {appliedParams === null ? (
+        // Not an empty result: nothing has been asked yet. A disabled query is still
+        // `isPending`, so this state is tested first or the shimmer would never end.
+        <EmptyState title={t('attempts.landing.title')} hint={t('attempts.landing.hint')} />
+      ) : list.isPending ? (
         <ListShimmer label={t('attempts.loading')} />
       ) : rows.length === 0 && !list.isError ? (
         <EmptyState title={t('attempts.empty.title')} hint={t('attempts.empty.hint')} />

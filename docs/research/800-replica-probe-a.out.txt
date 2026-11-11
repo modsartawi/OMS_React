@@ -1,0 +1,452 @@
+SchemaName|TableName|create_date|Rows|Indexes
+----------|---------|-----------|----|-------
+dbo|DeliveryHeader|2026-02-21 18:07:13.767|7111725|CLUSTERED(PK),NONCLUSTERED COLUMNSTORE
+dbo|LoyAccrued|2026-02-21 18:39:31.700|271790897|CLUSTERED(PK)
+dbo|LoyActivity|2026-02-21 18:39:31.760|341774583|CLUSTERED(PK)
+dbo|LoyActivityImport|2026-05-28 00:21:35.260|61612|CLUSTERED(PK)
+dbo|LoyActivityLine|2026-02-21 18:39:31.840|163302512|CLUSTERED(PK)
+dbo|LoyActivityStatistics|2026-02-21 18:39:31.897|10656536|CLUSTERED(PK)
+dbo|LoyActivityStatisticsDay|2026-02-21 18:39:31.970|244886846|CLUSTERED(PK)
+dbo|LoyActivityStatisticsMonth|2026-02-21 18:39:32.060|115455519|CLUSTERED(PK)
+dbo|LoyActivityStatisticsYear|2026-02-21 18:39:32.197|28687849|CLUSTERED(PK)
+dbo|LoyActivityType|2026-02-21 18:39:32.340|49|CLUSTERED(PK)
+dbo|LoyActivityTypeCondition|2026-02-21 18:39:32.650|51|CLUSTERED(PK)
+dbo|LoyActivityTypeLimit|2026-02-21 18:39:32.780|14|CLUSTERED(PK)
+dbo|LoyActivityTypeStatistics|2026-02-21 18:39:33.010|66262828|CLUSTERED(PK)
+dbo|LoyActivityTypeStatisticsDay|2026-02-21 18:39:33.213|319590087|CLUSTERED(PK)
+dbo|LoyActivityTypeStatisticsMonth|2026-02-21 18:39:33.443|218644979|CLUSTERED(PK)
+dbo|LoyActivityTypeStatisticsYear|2026-02-21 18:39:33.670|96847077|CLUSTERED(PK)
+dbo|LoyCampaignAction|2026-05-28 00:21:35.527|411969|CLUSTERED(PK)
+dbo|LoyCampaignCustomerTracking|2026-08-26 14:58:57.607|9700551|CLUSTERED(PK),NONCLUSTERED,NONCLUSTERED,NONCLUSTERED,NONCLUSTERED,NONCLUSTERED
+dbo|LoyCity|2026-02-21 18:39:33.910|160|CLUSTERED(PK)
+dbo|LoyCountry|2026-02-21 18:39:34.003|242|CLUSTERED(PK)
+dbo|LoyCustomersNotifications|2026-02-21 18:39:34.120|1268252|CLUSTERED(PK)
+dbo|LoyFamily|2026-05-10 13:21:55.557|8621|CLUSTERED(PK)
+dbo|LoyFamilyActivityLog|2026-05-10 13:21:55.613|9332|CLUSTERED(PK)
+dbo|LoyFamilyChronicDisease|2026-05-10 13:21:55.643|4|CLUSTERED(PK)
+dbo|LoyFamilyChronicMapping|2026-05-10 13:21:55.673|196|CLUSTERED(PK)
+dbo|LoyFamilyInvitation|2026-05-10 13:21:55.763|606|CLUSTERED(PK)
+dbo|LoyFamilyMember|2026-05-10 13:21:55.787|544|CLUSTERED(PK)
+dbo|LoyFamilyProfileConfiguration|2026-05-10 13:21:55.810|1|CLUSTERED(PK)
+dbo|LoyFamilyRelationshipType|2026-05-10 13:21:55.837|10|CLUSTERED(PK)
+dbo|LoyLedger|2026-02-21 18:39:34.303|460727952|CLUSTERED(PK)
+dbo|LoyLedgerTransaction|2026-02-21 18:39:34.413|221323646|CLUSTERED(PK)
+dbo|LoyMember|2026-02-21 18:39:34.623|14874400|CLUSTERED(PK)
+dbo|LoyMemberAction|2026-02-21 18:39:34.910|18426605|CLUSTERED(PK)
+dbo|LoyMemberBlockedConsent|2026-10-08 17:19:42.840|37|CLUSTERED(PK),NONCLUSTERED,NONCLUSTERED
+dbo|LoyMemberBlockedReason|2026-02-21 18:39:35.143|5|CLUSTERED(PK)
+dbo|LoyMemberMainActionType|2026-02-21 18:39:35.313|10|CLUSTERED(PK)
+dbo|LoyMemberProfile|2026-02-21 18:39:35.387|33290|CLUSTERED(PK)
+dbo|LoyMembership|2026-02-21 18:39:35.443|12286439|CLUSTERED(PK)
+dbo|LoyMemberSubActionType|2026-02-21 18:39:35.610|18|CLUSTERED(PK)
+dbo|LoyMemberUpdate|2026-02-21 18:39:35.667|6834322|CLUSTERED(PK)
+dbo|LoyMemberUpdateProfileReminder|2026-02-21 18:39:35.810|4986222|CLUSTERED(PK)
+dbo|LoyPointsExpireSoon|2026-02-21 18:39:35.890|1408563|CLUSTERED(PK)
+dbo|LoyProfile|2026-02-21 18:39:35.997|2|CLUSTERED(PK)
+dbo|LoyProspectiveSMSReminderLog|2026-03-10 14:04:00.540|361508|CLUSTERED(PK)
+dbo|LoySMSInactiveCustomerReminderLog|2026-04-14 10:44:47.590|1201181|CLUSTERED(PK)
+dbo|LoySurveyCampaignRecipients|2026-09-06 12:33:19.123|980|CLUSTERED(PK),NONCLUSTERED,NONCLUSTERED,NONCLUSTERED
+dbo|LoyTier|2026-02-21 18:39:36.143|3|CLUSTERED(PK)
+dbo|LoyTierDowngradeTracker|2026-04-09 13:24:40.907|337391|CLUSTERED(PK),NONCLUSTERED
+dbo|LoyTransactionType|2026-02-21 18:39:36.220|4|CLUSTERED(PK)
+dbo|NItemPayer|2026-02-21 16:59:24.080|1322|CLUSTERED(PK)
+dbo|NPayer|2026-02-21 16:59:24.103|57|CLUSTERED(PK)
+dbo|NphiesActionType|2025-09-28 16:43:12.793|5|CLUSTERED(PK)
+dbo|PayerWebhookAuthJwt|2026-10-08 14:58:46.397|1|CLUSTERED(PK)
+dbo|PayerWebhookAuthSecret|2026-10-08 14:58:46.377|0|CLUSTERED(PK)
+dbo|PayerWebhookConfig|2026-10-08 14:58:46.270|1|CLUSTERED(PK)
+dbo|PayerWebhookHttpLog|2026-10-08 14:58:46.527|3671|CLUSTERED(PK)
+dbo|PayerWebhookQueue|2026-10-14 09:45:26.100|3082|CLUSTERED(PK),NONCLUSTERED
+dbo|PayerWebhookQueueDetail|2026-10-08 14:58:46.483|7733|CLUSTERED(PK),NONCLUSTERED
+dbo|RetailTrx|2026-02-22 06:31:51.320|465800187|CLUSTERED(PK),NONCLUSTERED COLUMNSTORE
+dbo|RetailTrxCondition|2026-02-21 22:24:32.753|1803059046|CLUSTERED(PK),NONCLUSTERED COLUMNSTORE
+dbo|RetailTrxDetailPromo|2026-02-21 18:39:30.707|726188483|CLUSTERED(PK)
+dbo|RetailTrxPayment|2026-02-21 18:39:30.697|501871416|CLUSTERED(PK),NONCLUSTERED COLUMNSTORE
+dbo|SdDocumentLine|2026-02-21 18:07:14.593|36735333|CLUSTERED(PK)
+TableName|Present
+---------|-------
+BbyHeader|MISSING
+CouponInstance|MISSING
+CouponTemplate|MISSING
+CouponTransaction|MISSING
+InsuranceAuthFhir|MISSING
+LoyCampaign|MISSING
+NphiesTrxClaimHeader|MISSING
+NphiesTrxClaimLine|MISSING
+PaymentDiscountCampaign|MISSING
+RetailTrxBonusbuy|MISSING
+SdDocumentInsurance|MISSING
+DeliveryHeader|yes
+LoyActivity|yes
+LoyActivityLine|yes
+LoyMember|yes
+LoyMembership|yes
+LoyTier|yes
+RetailTrxCondition|yes
+RetailTrxDetailPromo|yes
+publisher|publisher_db|publication|LastAgentWrite
+---------|------------|-----------|--------------
+DWPOS03|POS|CalloutAndDonor|2026-11-06 04:11:00
+DWPOS03|POS|Julib|2026-11-06 04:11:00
+DWPOS03|POS|Loy|2026-11-06 04:11:00
+DWPOS03|POS|Loy_2|2026-11-06 04:11:00
+DWPOS03|POS|Loy_Family|2026-11-06 04:11:00
+DWPOS03|POS|Master1|2026-11-06 04:11:00
+DWPOS03|POS|OMS|2026-11-06 04:11:00
+DWPOS03|POS|Other1|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrx|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxConditions|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxDetail|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxDetailPromo|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxEmail|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxIndex|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxPayment|2026-11-06 04:11:00
+DWPOS03|POS|RetailTrxSerial|2026-11-06 04:11:00
+DWPOS03|POS|SapTrx|2026-11-06 04:11:00
+DWPOS03|POS|StockDiscrepancy|2026-11-06 04:11:00
+DWPOS03|POS|Wp|2026-11-06 04:11:00
+DWWASDB01|Wasfaty|Wasfaty|2026-11-06 04:10:00
+NPDB01|Nphies|Nphies|2026-11-06 04:10:00
+NPDB01|Nphies|Others|2026-11-06 04:11:00
+publisher|publisher_db|publication|article
+---------|------------|-----------|-------
+DWPOS03|POS|OMS|DeliveryHeader
+DWPOS03|POS|Loy|LoyAccrued
+DWPOS03|POS|Loy|LoyActivity
+DWPOS03|POS|Loy_2|LoyActivityImport
+DWPOS03|POS|Loy|LoyActivityLine
+DWPOS03|POS|Loy|LoyActivityStatistics
+DWPOS03|POS|Loy|LoyActivityStatisticsDay
+DWPOS03|POS|Loy|LoyActivityStatisticsMonth
+DWPOS03|POS|Loy|LoyActivityStatisticsYear
+DWPOS03|POS|Loy|LoyActivityType
+DWPOS03|POS|Loy|LoyActivityTypeCondition
+DWPOS03|POS|Loy|LoyActivityTypeLimit
+DWPOS03|POS|Loy|LoyActivityTypeStatistics
+DWPOS03|POS|Loy|LoyActivityTypeStatisticsDay
+DWPOS03|POS|Loy|LoyActivityTypeStatisticsMonth
+DWPOS03|POS|Loy|LoyActivityTypeStatisticsYear
+DWPOS03|POS|Loy_2|LoyCampaignAction
+DWPOS03|POS|Loy|LoyCity
+DWPOS03|POS|Loy|LoyCountry
+DWPOS03|POS|Loy|LoyCustomersNotifications
+DWPOS03|POS|Loy_Family|LoyFamily
+DWPOS03|POS|Loy_Family|LoyFamilyActivityLog
+DWPOS03|POS|Loy_Family|LoyFamilyChronicDisease
+DWPOS03|POS|Loy_Family|LoyFamilyChronicMapping
+DWPOS03|POS|Loy_Family|LoyFamilyInvitation
+DWPOS03|POS|Loy_Family|LoyFamilyMember
+DWPOS03|POS|Loy_Family|LoyFamilyProfileConfiguration
+DWPOS03|POS|Loy_Family|LoyFamilyRelationshipType
+DWPOS03|POS|Loy|LoyLedger
+DWPOS03|POS|Loy|LoyLedgerTransaction
+DWPOS03|POS|Loy|LoyMember
+DWPOS03|POS|Loy|LoyMemberAction
+DWPOS03|POS|Loy|LoyMemberBlockedReason
+DWPOS03|POS|Loy|LoyMemberMainActionType
+DWPOS03|POS|Loy|LoyMemberProfile
+DWPOS03|POS|Loy|LoyMembership
+DWPOS03|POS|Loy|LoyMemberSubActionType
+DWPOS03|POS|Loy|LoyMemberUpdate
+DWPOS03|POS|Loy|LoyMemberUpdateProfileReminder
+DWPOS03|POS|Loy|LoyPointsExpireSoon
+DWPOS03|POS|Loy|LoyProfile
+DWPOS03|POS|Loy|LoyTier
+DWPOS03|POS|Other1|LoyTierDowngradeTracker
+DWPOS03|POS|Loy|LoyTransactionType
+NPDB01|Nphies|Nphies|NItemPayer
+NPDB01|Nphies|Nphies|NPayer
+DWPOS03|POS|RetailTrxConditions|RetailTrxCondition
+DWPOS03|POS|RetailTrxDetailPromo|RetailTrxDetailPromo
+TableName|column_id|ColumnName|TypeName|max_length|is_nullable
+---------|---------|----------|--------|----------|-----------
+LoyActivity|1|ActivityId|varchar|15|0
+LoyActivity|2|LoyId|varchar|15|0
+LoyActivity|3|RefLoyId|varchar|15|0
+LoyActivity|4|ActivityType|varchar|4|0
+LoyActivity|5|UserId|varchar|10|0
+LoyActivity|6|BranchId|varchar|10|0
+LoyActivity|7|StaffId|varchar|10|0
+LoyActivity|8|TierId|varchar|1|0
+LoyActivity|9|EntryTime|datetime2|8|0
+LoyActivity|10|ActivityStatus|varchar|1|0
+LoyActivity|11|ActivityDateTime|datetime|8|0
+LoyActivity|12|SalesAmount|decimal|9|0
+LoyActivity|13|PointsAmount|decimal|9|0
+LoyActivity|14|SpendPointsFactor|decimal|9|0
+LoyActivity|15|TierPointsFactor|decimal|9|0
+LoyActivity|16|PostingDateTime|datetime2|8|0
+LoyActivity|17|PendingUntil|datetime2|8|0
+LoyActivity|18|RelatedActivityId|varchar|15|0
+LoyActivity|19|RequestId|varchar|40|0
+LoyActivity|20|RefRequestId|varchar|40|0
+LoyActivity|21|IsCancellation|bit|1|0
+LoyActivity|22|TransactionType|varchar|1|0
+LoyActivity|23|DebitCreditIndicator|varchar|1|0
+LoyActivity|24|IsAuto|bit|1|0
+LoyActivity|25|ReferenceNumber|varchar|50|0
+LoyActivity|26|SpendPoints|decimal|9|0
+LoyActivity|27|TierPoints|decimal|9|0
+LoyActivity|28|ActivityTypeGroup|varchar|1|0
+LoyActivity|29|CampaignId|varchar|60|1
+LoyActivity|30|OrderNumber|varchar|30|1
+LoyActivity|31|DocumentType|varchar|4|0
+LoyActivity|32|ExpiryDate|datetime2|8|0
+LoyActivity|33|OldActivityId|bigint|8|0
+LoyActivity|34|CancellationStatus|varchar|1|0
+LoyActivity|35|CancelledSpendPoints|decimal|9|0
+LoyActivity|36|CancelledTierPoints|decimal|9|0
+LoyActivity|37|ActivityReason|varchar|4|0
+LoyActivity|38|PointsAmountInCurrency|decimal|9|0
+LoyActivity|39|Currency|varchar|5|0
+LoyActivity|40|ExchangeRate|decimal|5|0
+LoyActivity|41|AttemptsCount|int|4|0
+LoyActivity|42|LastAttemptTime|datetime2|8|0
+LoyActivity|43|ThirdPartyAmount|decimal|9|0
+LoyActivityLine|1|ActivityId|varchar|15|0
+LoyActivityLine|2|MaterialNumber|varchar|18|0
+LoyActivityLine|3|SalesAmount|decimal|9|0
+LoyActivityLine|4|PointsAmount|decimal|9|0
+LoyActivityLine|5|Quantity|decimal|9|0
+LoyActivityLine|6|CancelledQuantity|decimal|9|0
+LoyMember|1|LoyId|varchar|15|0
+LoyMember|2|OldLoyaltyId|varchar|15|0
+LoyMember|3|MobileCountry|varchar|3|0
+LoyMember|4|Mobile|varchar|16|0
+LoyMember|5|MobileVerified|bit|1|0
+LoyMember|6|MobileVerifiedTime|datetime2|8|0
+LoyMember|7|FullName|varchar|100|0
+LoyMember|8|BirthDate|datetime2|8|0
+LoyMember|9|Gender|varchar|1|0
+LoyMember|10|NationalId|varchar|10|0
+LoyMember|11|Email|varchar|100|0
+LoyMember|12|EmailVerified|bit|1|0
+LoyMember|13|EmailVerifiedTime|datetime2|8|0
+LoyMember|14|Nationality|varchar|3|0
+LoyMember|15|CityCode|varchar|3|0
+LoyMember|16|CityName|varchar|30|0
+LoyMember|17|ProfileUpdated|bit|1|0
+LoyMember|18|CreatedAt|datetime2|8|0
+LoyMember|19|CreatedBy|varchar|15|0
+LoyMember|20|CreatedByStaffId|varchar|15|0
+LoyMember|21|CreatedByBranchId|varchar|15|0
+LoyMember|22|UpdatedAt|datetime2|8|0
+LoyMember|23|UpdatedBy|varchar|15|0
+LoyMember|24|UpdatedByStaffId|varchar|15|0
+LoyMember|25|UpdatedByBranchId|varchar|15|0
+LoyMember|26|PreferredLanguage|varchar|1|0
+LoyMember|27|BlockedReason|varchar|2|0
+LoyMember|28|InsuranceCompany|varchar|30|0
+LoyMember|29|ReferralCode|varchar|20|0
+LoyMember|30|OriginalMobile|varchar|16|0
+LoyMember|31|MemberType|varchar|1|0
+LoyMember|32|ManualUpdateNote|varchar|200|0
+LoyMembership|1|LoyId|varchar|15|0
+LoyMembership|2|JoinDate|datetime2|8|0
+LoyMembership|3|PlanId|varchar|10|0
+LoyMembership|4|TierId|varchar|1|0
+LoyMembership|5|TierEntryAt|datetime2|8|0
+LoyMembership|6|TierExpiryAt|datetime2|8|0
+LoyMembership|7|PendingPoints|decimal|9|0
+LoyMembership|8|PointsAccrued|decimal|9|0
+LoyMembership|9|PointsAccruedCancelled|decimal|9|0
+LoyMembership|10|PointsRedeemed|decimal|9|0
+LoyMembership|11|PointsRedeemedCancelled|decimal|9|0
+LoyMembership|12|PointsExpired|decimal|9|0
+LoyMembership|13|PointsBalance|decimal|9|0
+LoyMembership|14|LastUpdate|datetime2|8|0
+LoyMembership|15|TierPointsAccrued|decimal|9|0
+LoyMembership|16|TierPointsAccruedCancelled|decimal|9|0
+LoyMembership|17|TierPointsRedeemed|decimal|9|0
+LoyMembership|18|TierPointsRedeemedCancelled|decimal|9|0
+LoyMembership|19|TierPointsExpired|decimal|9|0
+LoyMembership|20|TierPointsBalance|decimal|9|0
+LoyMembership|21|TierPendingPoints|decimal|9|0
+LoyTier|1|TierId|varchar|1|0
+LoyTier|2|Description|varchar|40|0
+LoyTier|3|SequenceNumber|int|4|0
+LoyTier|4|MinimumEligibleBalance|decimal|9|0
+LoyTier|5|MaximumEligibleBalance|decimal|9|0
+LoyTier|6|TierExpiresIn|int|4|0
+RetailTrxCondition|1|Client|varchar|3|0
+RetailTrxCondition|2|StoreCode|varchar|30|0
+RetailTrxCondition|3|MachineCode|varchar|30|0
+RetailTrxCondition|4|TrxNumber|varchar|30|0
+RetailTrxCondition|5|LineNumber|int|4|0
+RetailTrxCondition|6|ConditionKey|varchar|30|0
+RetailTrxCondition|7|PromoNo|varchar|30|0
+RetailTrxCondition|8|BBCode|varchar|30|1
+RetailTrxCondition|9|ConditionType|smallint|2|0
+RetailTrxCondition|10|ConditionQty|decimal|9|0
+RetailTrxCondition|11|UOM|varchar|30|0
+RetailTrxCondition|12|DiscountPercentage|decimal|9|0
+RetailTrxCondition|13|DiscountAmount|decimal|9|0
+RetailTrxCondition|14|IsFreeGoods|bit|1|0
+RetailTrxCondition|15|IsConditionCompleted|bit|1|0
+RetailTrxCondition|16|IsPrerequisite|bit|1|0
+RetailTrxCondition|17|IsCondition|bit|1|0
+RetailTrxCondition|18|MainConditionType|varchar|4|0
+RetailTrxCondition|19|SubConditionType|varchar|4|0
+RetailTrxCondition|20|ConditionClass|varchar|4|0
+RetailTrxCondition|21|ConditionCategory|varchar|4|0
+RetailTrxCondition|22|ItemNumber|varchar|30|0
+RetailTrxCondition|23|DiscountType|varchar|4|0
+RetailTrxCondition|24|BbyNumber|varchar|30|0
+RetailTrxCondition|25|PromoNumber|varchar|30|0
+RetailTrxCondition|26|CondDescription|varchar|100|0
+RetailTrxCondition|27|ConditionTargetType|varchar|1|0
+RetailTrxCondition|28|CondQty|decimal|9|0
+RetailTrxCondition|29|CondValue|decimal|9|0
+RetailTrxCondition|30|CondValueP|decimal|9|0
+RetailTrxCondition|31|Recalculate|bit|1|0
+RetailTrxCondition|32|SequenceNo|int|4|0
+RetailTrxCondition|33|Counter|int|4|0
+RetailTrxCondition|34|IsInfoOnly|bit|1|0
+RetailTrxCondition|35|IsNegative|bit|1|0
+RetailTrxCondition|36|CondAmount|decimal|9|0
+RetailTrxCondition|37|AccumulateAmount|decimal|9|0
+RetailTrxCondition|38|IsDisabled|bit|1|0
+RetailTrxCondition|39|WithCoupon|bit|1|0
+RetailTrxCondition|40|CouponCode|varchar|30|0
+RetailTrxCondition|41|Year|smallint|2|0
+RetailTrxCondition|42|Month|smallint|2|0
+RetailTrxDetailPromo|1|Client|varchar|3|0
+RetailTrxDetailPromo|2|StoreCode|varchar|30|0
+RetailTrxDetailPromo|3|MachineCode|varchar|30|0
+RetailTrxDetailPromo|4|TrxNumber|varchar|30|0
+RetailTrxDetailPromo|5|LineNumber|int|4|0
+RetailTrxDetailPromo|6|BBCode_1|varchar|30|0
+RetailTrxDetailPromo|7|ConditionType_1|varchar|30|0
+RetailTrxDetailPromo|8|Discount_1|decimal|9|0
+RetailTrxDetailPromo|9|BBCode_2|varchar|30|0
+RetailTrxDetailPromo|10|ConditionType_2|varchar|30|0
+RetailTrxDetailPromo|11|Discount_2|decimal|9|0
+RetailTrxDetailPromo|12|BBCode_3|varchar|30|0
+RetailTrxDetailPromo|13|ConditionType_3|varchar|30|0
+RetailTrxDetailPromo|14|Discount_3|decimal|9|0
+RetailTrxDetailPromo|15|BBCode_4|varchar|30|0
+RetailTrxDetailPromo|16|ConditionType_4|varchar|30|0
+RetailTrxDetailPromo|17|Discount_4|decimal|9|0
+RetailTrxDetailPromo|18|BBCode_5|varchar|30|0
+RetailTrxDetailPromo|19|ConditionType_5|varchar|30|0
+RetailTrxDetailPromo|20|Discount_5|decimal|9|0
+RetailTrxDetailPromo|21|TotalBBDiscount|decimal|9|0
+RetailTrxDetailPromo|22|PriceCut|decimal|9|0
+RetailTrxDetailPromo|23|BBDiscountValue|decimal|9|0
+RetailTrxDetailPromo|24|TotalPromoDiscountValue|decimal|9|0
+RetailTrxDetailPromo|25|BBCount|int|4|0
+TableName|IndexName|type_desc|key_ordinal|ColumnName
+---------|---------|---------|-----------|----------
+LoyActivity|PK_LoyActivity|CLUSTERED|1|ActivityId
+LoyActivityLine|PK_LoyActivityLine|CLUSTERED|1|ActivityId
+LoyActivityLine|PK_LoyActivityLine|CLUSTERED|2|MaterialNumber
+LoyMember|PK_LoyMemberMobile|CLUSTERED|1|LoyId
+LoyMembership|PK_LoyMembership|CLUSTERED|1|LoyId
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|1|Client
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|2|StoreCode
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|3|MachineCode
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|4|TrxNumber
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|5|LineNumber
+RetailTrxCondition|PK_RetailTrxCondition|CLUSTERED|6|ConditionKey
+RetailTrxDetailPromo|PK_RetailTrxDetailPromo|CLUSTERED|1|Client
+RetailTrxDetailPromo|PK_RetailTrxDetailPromo|CLUSTERED|2|StoreCode
+RetailTrxDetailPromo|PK_RetailTrxDetailPromo|CLUSTERED|3|MachineCode
+RetailTrxDetailPromo|PK_RetailTrxDetailPromo|CLUSTERED|4|TrxNumber
+RetailTrxDetailPromo|PK_RetailTrxDetailPromo|CLUSTERED|5|LineNumber
+TableName|ColumnName|TypeName
+---------|----------|--------
+RetailTrxPayment|Client|varchar
+RetailTrxPayment|StoreCode|varchar
+RetailTrxPayment|MachineCode|varchar
+RetailTrxPayment|TrxNumber|varchar
+RetailTrxPayment|LineNumber|int
+RetailTrxPayment|ReceiptNumber|varchar
+RetailTrxPayment|TrxType|smallint
+RetailTrxPayment|TrxDate|datetime
+RetailTrxPayment|TrxTime|datetime
+RetailTrxPayment|PayTypeID|varchar
+RetailTrxPayment|Amount|decimal
+RetailTrxPayment|AmountValue|decimal
+RetailTrxPayment|StaffID|varchar
+RetailTrxPayment|CustomerID|varchar
+RetailTrxPayment|LoyaltyCustomerID|varchar
+RetailTrxPayment|CustomerAccountOrCard|varchar
+RetailTrxPayment|CheckOrCardNumber|varchar
+RetailTrxPayment|AuthorizationCode|varchar
+RetailTrxPayment|TerminalID|varchar
+RetailTrxPayment|CardNumber|varchar
+RetailTrxPayment|TraceNumber|varchar
+RetailTrxPayment|DateTime1|varchar
+RetailTrxPayment|CardExpirationDate|varchar
+RetailTrxPayment|RRN|varchar
+RetailTrxPayment|MerchantID|varchar
+RetailTrxPayment|ECRNumber|varchar
+RetailTrxPayment|CardType|varchar
+RetailTrxPayment|TransType|varchar
+RetailTrxPayment|ResponseCode|varchar
+RetailTrxPayment|AdditinalAmount|varchar
+RetailTrxPayment|Year|smallint
+RetailTrxPayment|Month|smallint
+RetailTrxPayment|DocumentType|smallint
+RetailTrxPayment|RequestId|varchar
+RetailTrxPayment|RefRequestId|varchar
+RetailTrxPayment|Currency|varchar
+RetailTrxPayment|ExchangeRate|decimal
+RetailTrxPayment|ReferenceNumber|varchar
+RetailTrxPayment|RefReferenceNumber|varchar
+SdDocumentLine|DocumentNo|varchar
+SdDocumentLine|LineNumber|int
+SdDocumentLine|ItemNumber|varchar
+SdDocumentLine|EnteredItemNumber|varchar
+SdDocumentLine|SfdaItem|varchar
+SdDocumentLine|ItemDescription|varchar
+SdDocumentLine|DocumentItemCategory|varchar
+SdDocumentLine|DeliveryItem|bit
+SdDocumentLine|BillingItem|bit
+SdDocumentLine|SalesQuantity|decimal
+SdDocumentLine|SalesUom|varchar
+SdDocumentLine|Numerator|decimal
+SdDocumentLine|Denominator|decimal
+SdDocumentLine|BaseQuantity|decimal
+SdDocumentLine|BaseUom|varchar
+SdDocumentLine|CustomerItemNumber|varchar
+SdDocumentLine|UnitPrice|decimal
+SdDocumentLine|Discount|decimal
+SdDocumentLine|GrossAmount|decimal
+SdDocumentLine|VatPercent|decimal
+SdDocumentLine|VatAmount|decimal
+SdDocumentLine|NetAmount|decimal
+SdDocumentLine|ConfirmedQuantity|decimal
+SdDocumentLine|ReferenceDocument|varchar
+SdDocumentLine|ReferenceLine|int
+SdDocumentLine|RelevantForGs1|bit
+SdDocumentLine|Deleted|bit
+SdDocumentLine|NeedTransaction|bit
+SdDocumentLine|NeedTransactionQty|decimal
+SdDocumentLine|ReferenceErxLine|varchar
+SdDocumentLine|GenericCode|varchar
+SdDocumentLine|GenericName|varchar
+SdDocumentLine|ApprovalStatus|varchar
+SdDocumentLine|DenialCode|varchar
+SdDocumentLine|DenialDescription|varchar
+SdDocumentLine|DurationPerDay|decimal
+SdDocumentLine|Refills|decimal
+SdDocumentLine|DispensedDate|datetime2
+SdDocumentLine|NextRefillDate|datetime2
+SdDocumentLine|SelectedMaterialNumber|varchar
+SdDocumentLine|SelectedQty|decimal
+SdDocumentLine|SelectedQtyUom|varchar
+SdDocumentLine|SelectedNetAmount|decimal
+SdDocumentLine|SelectedInstructions|varchar
+SdDocumentLine|ItemType|varchar
+SdDocumentLine|RelevantForBilling|varchar
+SdDocumentLine|StatisticalItem|bit
+SdDocumentLine|SfdaRegisterNumber|varchar
+SdDocumentLine|Plant|varchar
+SdDocumentLine|ItemText|varchar
+SdDocumentLine|PatientShare|decimal
+SdDocumentLine|IsFreeGoods|bit
+SdDocumentLine|HasPickingFees|bit
+SdDocumentLine|PickingFees|decimal
+SdDocumentLine|PromotionCouponDiscount|decimal
+SdDocumentLine|PromotionCouponCode|varchar

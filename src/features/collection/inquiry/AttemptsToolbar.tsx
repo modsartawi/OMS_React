@@ -28,7 +28,7 @@ export interface AttemptsToolbarProps {
   onChange: (patch: Partial<AttemptsCriteria>) => void
   onSearch: () => void
   onReset: () => void
-  /** True when the applied query is anything other than the today-landing one. */
+  /** True when the applied query is anything other than the empty landing's Search. */
   isFiltered: boolean
 }
 

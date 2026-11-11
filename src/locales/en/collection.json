@@ -226,8 +226,12 @@
   "deposits": {
     "title": "Deposits",
     "subtitle": "Bank deposits, the ACRs they claim, and the per-collector balances.",
-    "loading": "Loading today's deposits…",
+    "loading": "Loading deposits…",
     "capReached": "This result reached the {{limit}}-row system cap, so some deposits may be missing. Narrow the dates, who banked, the bank or the status to be sure you are seeing all of them.",
+    "landing": {
+      "title": "Press Search to see deposits",
+      "hint": "Nothing is loaded until you search. Fill in any box to narrow it, or press Search as it stands to see the newest deposits that \"Served by\" covers, up to the system cap. Set \"Served by\" to Everyone to look across the estate."
+    },
     "search": {
       "businessDateFrom": "Business date from",
       "businessDateTo": "Business date to",
@@ -247,7 +251,7 @@
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
-      "clearFilter": "Clear the filter and go back to today"
+      "clearFilter": "Clear the filters and start over"
     },
     "toolbar": {
       "filterRow": "Filter row",
@@ -259,7 +263,7 @@
       "hint": "Nothing banked matches these dates. Widen the business or collection dates, or clear the deposit No#, \"Served by\", the bank and the status."
     },
     "errors": {
-      "loadFailed": "Today's deposits could not be loaded."
+      "loadFailed": "Deposits could not be loaded."
     },
     "detail": {
       "title": "Claimed ACRs and slips",
@@ -315,8 +319,12 @@
   "attempts": {
     "title": "Collection Attempts",
     "subtitle": "Visits that collected nothing, and the reason given.",
-    "loading": "Loading today's attempts…",
+    "loading": "Loading attempts…",
     "capReached": "This result reached the {{limit}}-row system cap, so some attempts may be missing. Narrow the dates, the store, the collector or the reason to be sure you are seeing all of them.",
+    "landing": {
+      "title": "Press Search to see attempts",
+      "hint": "Nothing is loaded until you search. Fill in any box to narrow it, or press Search with every box empty to see the newest attempts, up to the system cap."
+    },
     "search": {
       "businessDateFrom": "Business date from",
       "businessDateTo": "Business date to",
@@ -331,7 +339,7 @@
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
-      "clearFilter": "Clear the filter and go back to today"
+      "clearFilter": "Clear the filters and start over"
     },
     "toolbar": {
       "filterRow": "Filter row",
@@ -343,7 +351,7 @@
       "hint": "Every visit in these dates collected something. Widen the business or collection dates, or clear the store, collector, reason and \"Served by\"."
     },
     "errors": {
-      "loadFailed": "Today's collection attempts could not be loaded."
+      "loadFailed": "Collection attempts could not be loaded."
     },
     "columns": {
       "attemptTime": "Collection Date",
@@ -385,7 +393,8 @@
     },
     "toolbar": {
       "filterRow": "Filter row",
-      "moreColumns": "More columns"
+      "moreColumns": "More columns",
+      "export": "Export"
     },
     "landing": {
       "title": "Press Search to see what is waiting",
@@ -475,6 +484,9 @@
     "title": "Collection Assignment",
     "subtitle": "Who serves each branch: the accountant who handles its money and the collector who visits it.",
     "loading": "Loading the estate…",
+    "toolbar": {
+      "export": "Export"
+    },
     "counts": "{{total}} branches · {{assigned}} assigned · {{half}} half assigned · {{nobody}} with nobody",
     "search": {
       "label": "Find a branch",

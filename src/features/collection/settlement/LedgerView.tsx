@@ -31,7 +31,8 @@ import {
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { branchSearch } from './addresses'
 import { settlementApi, settlementRosterQuery } from './api'
-import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
+import { AccountCapBanner, AccountShimmer, ExportButton, ToggleChip } from './AccountStates'
+import { useSettlementExport } from './xlsx'
 import { GRID_PAGE_SIZE, isCapReached, LEDGER_LIMIT } from './cap'
 import { entryKindLabel, entryStatusLabel } from './entry-cells'
 import {
@@ -79,6 +80,7 @@ import { buildLedgerColumns, ledgerRowClass, ledgerRowId } from './ledger-column
  */
 export default function LedgerView() {
   const { t } = useTranslation('settlement')
+  const xlsxExport = useSettlementExport<SettlementLedgerRow>('ledger', t('export.sheets.ledger'))
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
@@ -183,13 +185,14 @@ export default function LedgerView() {
             <p className="text-xs text-muted-foreground" data-testid="ledger-count">
               {t('ledger.showing', { count: rows.length })}
             </p>
-            <div className="ms-auto">
+            <div className="ms-auto flex flex-wrap items-center gap-2">
               <ToggleChip
                 icon={<Filter className="h-3.5 w-3.5" aria-hidden />}
                 label={t('account.toolbar.filterRow')}
                 pressed={showFilters}
                 onToggle={() => setShowFilters((v) => !v)}
               />
+              <ExportButton label={t('export.button')} onExport={xlsxExport.onExport} disabled={xlsxExport.disabled} />
             </div>
           </div>
 
@@ -213,6 +216,7 @@ export default function LedgerView() {
               animateRows={false}
               getRowId={ledgerRowId}
               getRowClass={ledgerRowClass}
+              {...xlsxExport.gridProps}
               // 🔑 Every row is a way to its branch's ACCOUNT, landing on this exact
               // entry (269's `?store=&entry=` idiom). The ledger answers *which
               // branch*; the account is where the entry can be acted on — this view

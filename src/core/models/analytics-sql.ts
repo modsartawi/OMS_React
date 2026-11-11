@@ -1,4 +1,4 @@
-import type { AnalyticsLabel } from './analytics'
+import type { AnalyticsItem, AnalyticsLabel } from './analytics'
 
 /**
  * A SQL item (BackOffice spec 3632 Q39–Q42, server ticket 3675; web 889). A view whose definition is a statement, not an
@@ -104,4 +104,99 @@ export function sqlChartOffers(columns: readonly string[], rows: readonly (reado
         return all >= 2 ? { type, offered: true } : no('needsAxis')
     }
   })
+}
+
+// ── The SQL editor (ticket 890; BackOffice 3672 Run, 3675 SQL items, 3676 verified) ────────────────────────────────
+
+/** `POST Analytics/Sql/Run` (3672): the editor's Run. No cause: the editor's run is always `editor`. */
+export interface AnalyticsSqlRunRequest {
+  statement: string
+}
+
+/**
+ * The SQL door's answer (3672): the columns in the database's order, at most 1,000 rows keyed by column (SQL NULL is
+ * `null`), `isCut` when there were more, and the statement as the server ran it (laid out, with its cap). `tables`: the
+ * analytics tables read (3673). Also a SQL item's kept `sql.result`.
+ *
+ * ```
+ * POST Analytics/Sql/Run   { statement }          (cookie; the view grant on the route)
+ * 200  AnalyticsSqlResult
+ * 400  ANALYTICS-428 no SQL grant beside the author grant (no data) · ANALYTICS-401 no view grant
+ *      ANALYTICS-425 data { reason, line, column }: refused (line/column only for not-parsed)
+ *      ANALYTICS-408 data { reason: "timed-out" } · ANALYTICS-409 data { reason: "not-available" }
+ * ```
+ */
+export interface AnalyticsSqlResult {
+  columns: string[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  isCut: boolean
+  durationMs: number
+  statement: string
+  tables: string[]
+}
+
+/**
+ * A SQL door refusal as the editor shows it, and as a SQL item's read carries it (`sql.refusal`, 3675 Q49). `reason`
+ * is one of 3672's (`not-parsed`, `not-one-select`, `table-not-allowed`, `column-not-allowed`, `join-not-on-list`,
+ * `facts-not-grouped`, `function-not-allowed`, `too-long`, `busy`, `timed-out`, `not-available`) or the web's
+ * `needs-sql-grant` for `ANALYTICS-428`; one not known is kept as sent and the screen shows the server's message.
+ * Only `not-parsed` has a `line` and `column` (1-based).
+ */
+export interface AnalyticsSqlRefusal {
+  code: string
+  reason: string
+  line: number | null
+  column: number | null
+  message: string
+}
+
+/** A SQL item's run on its read (3675 Q47-Q49): the result (kept 15 minutes per revision) or the refusal, or neither. */
+export interface AnalyticsSqlItemRun {
+  revision: number
+  ranAt: string | null
+  result: AnalyticsSqlResult | null
+  refusal: AnalyticsSqlRefusal | null
+}
+
+/**
+ * A SQL item (3675, 3676) as `GET Analytics/Item/{id}` answers it: kind `view`, `engine: 'sql'`, its definition
+ * `{ statement, question, chart }`. `verified` is a curator's mark (Q44), removed by a save or restore that changes the
+ * statement. `actions`: what the server says THIS caller may do (`edit`, `revisions`, `verify`, `unverify`, `copy`, …);
+ * absent on an older server.
+ *
+ * ```
+ * PUT  Analytics/Item/{id}            AnalyticsSqlItemUpdate -> the item at a new revision, run first
+ *                                     (425/408/409 as Run; 403 not yours; 428 an owner without the SQL grant)
+ * POST Analytics/Item/{id}/Revert     { revision } -> the kept snapshot run first, written as a new revision
+ * GET  Analytics/Item/{id}/Revisions  [{ revision, savedAt, savedBy, action, revertedFrom }]
+ * POST Analytics/Item/{id}/Verify     no body -> the item, verified true  (curators; ANALYTICS-402 otherwise)
+ * POST Analytics/Item/{id}/Unverify   no body -> the item, verified false (ANALYTICS-432 not a SQL item;
+ *                                     ANALYTICS-409 not-available: the database lacks Sql/011)
+ * ```
+ */
+export type AnalyticsSqlItem = Omit<AnalyticsItem, 'definition' | 'engine' | 'verified'> & {
+  engine: 'sql'
+  verified: boolean
+  definition: AnalyticsSqlDefinition
+  sql: AnalyticsSqlItemRun | null
+  actions?: string[]
+}
+
+/** `PUT Analytics/Item/{id}` on a SQL item (3675). A title left out keeps the current one. */
+export interface AnalyticsSqlItemUpdate {
+  definition: AnalyticsSqlDefinition
+  baseRevision: number
+  title?: AnalyticsLabel
+  subtitle?: AnalyticsLabel
+}
+
+/**
+ * What another screen hands the editor when it opens it on a statement that is not yet an item (the copilot's SQL
+ * answer): the router state of `NEW_SQL_PATH` (`@/core/analytics-routes`). In `core` because the copilot links there by route string and
+ * may not import the analytics feature.
+ */
+export interface AnalyticsSqlEditorSeed {
+  statement: string
+  question?: string
 }

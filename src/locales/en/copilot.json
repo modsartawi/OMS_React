@@ -71,7 +71,8 @@
     "tablesRead": "Tables read:",
     "statement": "The SQL statement",
     "copy": "Copy SQL",
-    "copyFailed": "The SQL could not be copied."
+    "copyFailed": "The SQL could not be copied.",
+    "edit": "Edit SQL"
   },
   "sqlSave": {
     "open": "Save",

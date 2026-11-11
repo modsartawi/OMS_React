@@ -1,10 +1,12 @@
 import type { AnalyticsLabel } from '@/core/models/analytics'
+import { NEW_SQL_PATH } from '@/core/analytics-routes'
 import {
   ANALYTICS_SQL_MAX_QUESTION,
   ANALYTICS_SQL_MAX_TITLE,
   numericColumns,
   type AnalyticsSqlChart,
   type AnalyticsSqlChartType,
+  type AnalyticsSqlEditorSeed,
   type AnalyticsSqlItemCreate,
   type AnalyticsSqlValueColumn,
 } from '@/core/models/analytics-sql'
@@ -140,4 +142,14 @@ export function sqlSaveBody(sql: AnswerSql, question: string, form: SqlSaveForm)
     title: words(form.title),
     chart,
   }
+}
+
+/**
+ * 890 (spec 3632 Q45): the SQL answer's Edit — the SQL editor on the answer's statement, by route string (the copilot
+ * may not import the analytics feature), the statement and question in route state. Offered only to a reader holding
+ * the SQL grant (`canUseSqlMode`), and only when there is a statement; a statement that did not run can still be edited.
+ */
+export function sqlEditLink(sql: AnswerSql, question: string | undefined, canSql: boolean): { to: string; state: AnalyticsSqlEditorSeed } | null {
+  if (!canSql || sql.statement === '') return null
+  return { to: NEW_SQL_PATH, state: { statement: sql.statement, ...(question !== undefined ? { question } : {}) } }
 }

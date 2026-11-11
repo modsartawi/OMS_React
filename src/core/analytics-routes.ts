@@ -46,3 +46,11 @@ export type ReportDialog = 'share' | 'schedule'
 export const reportDialogHref = (id: string, dialog: ReportDialog): string => `${reportHref(id)}#${dialog}`
 /** The dialog a report page's hash asks for, or null (a panel permalink's `#panel-…`, or none). */
 export const reportDialogOf = (hash: string): ReportDialog | null => (hash === '#share' ? 'share' : hash === '#schedule' ? 'schedule' : null)
+
+/**
+ * 890 (BackOffice spec 3632 Q45): the SQL editor — a SQL item's at `/analytics/sql/:id`, and on a statement not yet an
+ * item (the copilot's SQL answer's Edit) at `/analytics/sql/new`, the statement riding in route state
+ * (`AnalyticsSqlEditorSeed`, never the URL: a statement is long and a URL is logged).
+ */
+export const sqlEditHref = (id: string): string => `/analytics/sql/${encodeURIComponent(id)}`
+export const NEW_SQL_PATH = '/analytics/sql/new'

@@ -12,8 +12,9 @@ import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotRe
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, Copy, Save } from 'lucide-react'
+import { Check, Copy, Pencil, Save } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
 import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, answerTableKey, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
@@ -21,6 +22,9 @@ import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
+import { sqlEditLink } from './sql-save'
+import { canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { useQuery } from '@tanstack/react-query'
 import type { AnalyticsItem } from '@/core/models/analytics'
 
 /**
@@ -313,13 +317,16 @@ export function AnswerProvenance({
  * mark, the count, the time and the cut line, every row, the tables read, and the statement folded with its own Copy.
  * Column names, table names and the statement are machine values (`Ltr`); a cell may be a name in either script
  * (`<bdi>`). Its footer holds Save (889, Q39): the reader's tap, never the model's, offered when a statement ran and gave
- * columns and the answer's question is known; it opens the save dialog. Edit is 890's (the SQL editor).
+ * columns and the answer's question is known; it opens the save dialog. Beside it, Edit (890, Q45) opens the SQL editor
+ * on the statement, for a SQL grant holder only.
  */
 export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string }) {
   const { t } = useTranslation('copilot')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<AnalyticsItem | null>(null)
   const canSave = sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
+  // 890: Edit opens the SQL editor on this statement, beside Save; for a SQL grant holder only.
+  const edit = sqlEditLink(sql, question, canUseSqlMode(useQuery(copilotSqlAccessQuery()).data))
   return (
     <section aria-label={t('sql.result')} className="flex min-w-0 flex-col gap-2 text-xs" data-copilot-sql data-copilot-sql-ran={sql.ran ? 'yes' : 'no'}>
       <div className="flex flex-wrap items-center gap-2">
@@ -390,9 +397,9 @@ export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string
           </div>
         </details>
       )}
-      {canSave && (
+      {(canSave || edit) && (
         <div className="flex flex-wrap items-center gap-2" data-copilot-sql-footer>
-          {saved === null ? (
+          {!canSave ? null : saved === null ? (
             <Button variant="outlined" className="h-7 px-2 text-xs" onClick={() => setSaving(true)} data-copilot-sql-save-open>
               <Save className="h-3.5 w-3.5" aria-hidden />
               {t('sqlSave.open')}
@@ -405,7 +412,13 @@ export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string
               </Link>
             </span>
           )}
-          {saving && (
+          {edit && (
+            <Link to={edit.to} state={edit.state} className={buttonClass('outlined', 'h-7 px-2 text-xs')} data-copilot-sql-edit>
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t('sql.edit')}
+            </Link>
+          )}
+          {saving && question !== undefined && (
             <SqlSaveDialog
               sql={sql}
               question={question}

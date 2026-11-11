@@ -268,6 +268,10 @@ export interface AnalyticsItem {
   folderId?: string | null
   /** 837 (3432 §3): when the item was deleted — only on `Items?deleted=true` rows; `null` otherwise. */
   deletedAt?: string | null
+  /** BackOffice 3675 (spec 3632 Q43): `sql` is a SQL item (`AnalyticsSqlItem`); anything else, or absent, is `cube`. */
+  engine?: 'cube' | 'sql'
+  /** BackOffice 3676 (Q44): a curator's "SQL, verified" mark; always false on a cube item. */
+  verified?: boolean
 }
 
 /** 837 (3432 §1): `GET Analytics/Folders` — one of the caller's own flat folders. */

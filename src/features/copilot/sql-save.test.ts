@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { sqlChartOffers } from '@/core/models/analytics-sql'
 import type { AnswerSql } from './answer'
-import { sqlSaveBody, sqlSaveForm, sqlSaveProblem, withChartType, withValue } from './sql-save'
+import { sqlEditLink, sqlSaveBody, sqlSaveForm, sqlSaveProblem, withChartType, withValue } from './sql-save'
 
 /**
  * BackOffice spec 3632 Q39, Q41 (ticket 889): Save on a SQL answer. The fit table is BackOffice 3675's (`POST
@@ -132,5 +132,22 @@ describe('Save sends the statement, the question, the title and the mapping (Q39
     expect(sqlSaveForm(answer(), 'Top stores?').title).toEqual({ en: 'Top stores?', ar: '' })
     expect(sqlSaveForm(answer(), 'أعلى الفروع؟').title).toEqual({ en: '', ar: 'أعلى الفروع؟' })
     expect(sqlSaveForm(answer(), 'y'.repeat(300)).title.en).toHaveLength(200)
+  })
+})
+
+// Ticket 890 (spec 3632 Q45): the SQL answer's Edit opens the SQL editor on its statement, by route string, the statement
+// and question in route state (never the URL). Only for a reader with the SQL grant, and only when there is a statement.
+describe('Edit', () => {
+  const answer = { ran: false, statement: 'SELECT store FROM sales', tables: [], columns: [], rows: [], rowCount: 0, isCut: false, durationMs: 0 }
+  it('opens the editor on the statement and the question, even when the statement did not run', () => {
+    expect(sqlEditLink(answer, 'Net by store?', true)).toEqual({
+      to: '/analytics/sql/new',
+      state: { statement: 'SELECT store FROM sales', question: 'Net by store?' },
+    })
+    expect(sqlEditLink(answer, undefined, true)?.state).toEqual({ statement: 'SELECT store FROM sales' })
+  })
+  it('is not offered without the SQL grant, or without a statement', () => {
+    expect(sqlEditLink(answer, 'q', false)).toBeNull()
+    expect(sqlEditLink({ ...answer, statement: '' }, 'q', true)).toBeNull()
   })
 })

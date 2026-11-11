@@ -58,7 +58,8 @@
     "tablesRead": "الجداول المقروءة:",
     "statement": "استعلام SQL",
     "copy": "نسخ SQL",
-    "copyFailed": "تعذّر نسخ استعلام SQL."
+    "copyFailed": "تعذّر نسخ استعلام SQL.",
+    "edit": "عدّل SQL"
   },
   "sqlSave": {
     "open": "حفظ",

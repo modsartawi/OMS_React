@@ -42,10 +42,22 @@ export interface HistoryItem {
  * offers "Undo", which is just a revert back to the revision that was showing. Audience changes and reassigns are
  * listed as events (826). `onReverted` tells the host a revert (or its undo) landed — the designer re-reads its draft.
  */
-export default function ItemHistory({ item, kind, onReverted }: { item: HistoryItem; kind: 'view' | 'board' | 'report'; onReverted?: () => void }) {
+export default function ItemHistory({
+  item,
+  kind,
+  onReverted,
+  may: mayOverride,
+}: {
+  item: HistoryItem
+  kind: 'view' | 'board' | 'report'
+  onReverted?: () => void
+  /** 890: who may edit a SQL item is its own rule (`./sql-editor` `sqlItemActions`), not the tier's. */
+  may?: boolean
+}) {
   const { t } = useTranslation('boards')
   const [open, setOpen] = useState(false)
-  const may = mayEditItem(item, useItemActor())
+  const byTier = mayEditItem(item, useItemActor())
+  const may = mayOverride ?? byTier
   if (!may) return null
   return (
     <>

@@ -25,6 +25,7 @@ import { useFullscreen } from './panel-hooks'
 import { panelPermalink, retiredMembers } from './panel-state'
 import Refused from './Refused'
 import { SourceMovedOn } from './SaveNotes'
+import SqlItemView from './SqlItemView'
 import AudienceChip from './AudienceChip'
 import TierBadge from './TierBadge'
 import { useItemActor } from './use-item-save'
@@ -59,6 +60,8 @@ function ViewBody() {
   const item = useQuery({ queryKey: analyticsItemKey(id), queryFn: () => analyticsApi.item(id), retry: false })
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
 
+  // 890: a SQL item is not a cube view: it is drawn from its kept run, with its own Edit (the SQL editor).
+  if (item.data?.engine === 'sql') return <SqlItemView id={id} />
   const failure = item.error ?? model.error
   if (failure) return <Refused err={failure} fallbackKey="view.loadFailed" />
   if (!item.data || !model.data) {

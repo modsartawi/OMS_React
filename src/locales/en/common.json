@@ -164,6 +164,7 @@
       "down": "Down {{change}} on the previous period",
       "flat": "No change on the previous period",
       "previous": "versus <v>{{value}}</v> in the previous period",
+      "lastYear": "versus <v>{{value}}</v> last year (<r>{{range}}</r>)",
       "withUnit": "{{value}} {{unit}}"
     },
     "previousPeriod": "Previous period",

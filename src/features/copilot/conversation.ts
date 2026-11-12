@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAsk, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAsk, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext, CopilotStatedReading } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -23,6 +23,17 @@ export interface CopilotTurn {
   questionNo: number | null
   reply: CopilotAnswer | null
   refusal: unknown
+  /**
+   * 885 (BackOffice 3664): this turn is not a question but the Confirm or Cancel of a proposal's card; `question` is
+   * then `''`. Absent on a question.
+   */
+  confirms?: TurnConfirms
+}
+
+/** What a confirmation turn answered: the proposal it named, and whether it was a cancel. */
+export interface TurnConfirms {
+  proposalId: string
+  cancel: boolean
 }
 
 export interface CopilotConversation {
@@ -50,14 +61,21 @@ export interface AskFrom {
    */
   askId?: string
   choiceKey?: string
+  /** 888 (spec 3632 Q27): asked in SQL mode. */
+  sqlMode?: boolean
+  /** Q46: the SQL item the question opens on; sent only with `sqlMode`. */
+  sqlItemContext?: { itemId: string } | null
+  /** 892: the reading a tapped assumption line states: the tapped answer's question, asked again. */
+  statedReading?: CopilotStatedReading | null
 }
 
 /**
- * The `Copilot/Ask` body: the question, the conversation's id once it has one, the context open, and the origin. A
- * field with nothing to say is left out.
+ * The `Copilot/Ask` body: the question, the conversation's id once it has one, the context open, and the origin. 888
+ * (spec 3632 Q27): `sqlMode: true` when the question is asked in SQL mode, and nothing otherwise; Q46: with it,
+ * `sqlItemContext` on the question opening a SQL item. A field with nothing to say is left out.
  */
 export function askBody(c: CopilotConversation, question: string, from: AskFrom = {}): CopilotAskRequest {
-  const { origin, reportContext, boardContext, askId, choiceKey } = from
+  const { origin, reportContext, boardContext, askId, choiceKey, sqlMode, sqlItemContext, statedReading } = from
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
   return {
     ...body,
@@ -65,6 +83,9 @@ export function askBody(c: CopilotConversation, question: string, from: AskFrom 
     ...(boardContext ? { boardContext } : {}),
     ...(origin ? { origin } : {}),
     ...(askId ? { askId, ...(choiceKey ? { choiceKey } : {}) } : {}),
+    ...(sqlMode ? { sqlMode: true } : {}),
+    ...(sqlMode && sqlItemContext ? { sqlItemContext } : {}),
+    ...(statedReading ? { statedReading } : {}),
   }
 }
 
@@ -89,19 +110,19 @@ export function pendingAsk(c: CopilotConversation): { index: number; ask: Copilo
  * new one) starts a fresh thread holding only that reply: the old turns are not this conversation's,
  * and their numbers would not be the server's count.
  */
-export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer): CopilotConversation {
+export function withAnswer(c: CopilotConversation, question: string, reply: CopilotAnswer, confirms?: TurnConfirms): CopilotConversation {
   const id = typeof reply?.conversationId === 'string' && reply.conversationId ? reply.conversationId : c.id
   const questionNo = typeof reply?.questionNo === 'number' ? reply.questionNo : null
-  const turn: CopilotTurn = { question, questionNo, reply, refusal: null }
+  const turn: CopilotTurn = { question, questionNo, reply, refusal: null, ...(confirms ? { confirms } : {}) }
   if (c.id !== null && id !== c.id) return { id, turns: [turn], over: false }
   return { ...c, id, turns: [...c.turns, turn] }
 }
 
-export function withRefusal(c: CopilotConversation, question: string, err: unknown): CopilotConversation {
+export function withRefusal(c: CopilotConversation, question: string, err: unknown, confirms?: TurnConfirms): CopilotConversation {
   return {
     ...c,
     over: c.over || apiErrorCode(err) === CONVERSATION_OVER,
-    turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err }],
+    turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err, ...(confirms ? { confirms } : {}) }],
   }
 }
 

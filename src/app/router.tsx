@@ -153,6 +153,12 @@ export const router = createBrowserRouter([
         path: 'copilot/rules',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotRulesPage')).default }),
       },
+      // "What the copilot knows about me" (ticket 894, BackOffice 3633 R28 / 3689) — reached from the copilot panel, behind
+      // `canAskCopilot`; its entry is hidden while `GET Copilot/Me` answers COPILOT-430 (own readings off). Not a nav item.
+      {
+        path: 'copilot/me',
+        lazy: async () => ({ Component: (await import('@/features/copilot/CopilotMePage')).default }),
+      },
       // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
       // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
       // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route
@@ -204,6 +210,24 @@ export const router = createBrowserRouter([
         // A report's kept runs (spec 819, ticket 833): the owner's, curators' and each run's own recipients'.
         path: 'analytics/report/:id/runs',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportRunsPage')).default }),
+      },
+      {
+        // The reader's personal schedules (886, BackOffice spec 3631 S30): any reader with the view grant.
+        path: 'analytics/my-schedules',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/MySchedulesPage')).default }),
+      },
+      {
+        // The SQL editor (890, BackOffice spec 3632 Q45): a SQL item's, and a statement not yet saved (the copilot's Edit,
+        // the statement in route state).
+        path: 'analytics/sql/new',
+        lazy: async () => {
+          const { default: Page } = await import('@/features/analytics/boards/AnalyticsSqlEditorPage')
+          return { Component: () => <Page isNew /> }
+        },
+      },
+      {
+        path: 'analytics/sql/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsSqlEditorPage')).default }),
       },
       {
         path: 'analytics/view/:id',

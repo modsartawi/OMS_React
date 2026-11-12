@@ -21,8 +21,11 @@ export function copilotViewEmbed(): CopilotViewEmbed | null {
 /**
  * How a copilot answer draws its tables (ticket 868, BackOffice spec 3558 D5): the analytics table form with its notes,
  * downloads and "Open as view", registered by the app shell like the view embed. Absent, the answer keeps its summary.
+ *
+ * `index` (878) is the table's place among the answer's tables: an analysis result gives one table per part, all on one
+ * `step`, so the step alone no longer tells two tables apart (a download's name, a marker in the page).
  */
-export type CopilotTableEmbed = ComponentType<{ table: CopilotAnswerTable }>
+export type CopilotTableEmbed = ComponentType<{ table: CopilotAnswerTable; index: number }>
 
 let tableEmbed: CopilotTableEmbed | null = null
 

@@ -6,6 +6,7 @@
  */
 import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
+import type { AnalyticsAccess } from '@/core/models/analytics'
 import type { CopilotAccess } from '@/core/models/copilot'
 import { useSession } from '@/core/session'
 
@@ -17,6 +18,28 @@ export const COPILOT_ACCESS_KEY = ['copilot', 'access'] as const
  * when the user changes (below), and marked stale when the house rules (and their starters) are saved or restored.
  */
 export const COPILOT_STARTERS_KEY = ['copilot', 'starters'] as const
+
+/**
+ * The panel's own read of `GET Analytics/Access` (ticket 888, BackOffice 3672): only its `canSql` is read, for the SQL
+ * mode toggle. Its own key, not the analytics feature's (features never import features); a second call per page life.
+ */
+export const COPILOT_SQL_ACCESS_KEY = ['copilot', 'sql-access'] as const
+
+/** The options the panel passes. Fails closed: an error leaves no data, and no data is no toggle. */
+export function copilotSqlAccessQuery() {
+  return {
+    queryKey: COPILOT_SQL_ACCESS_KEY,
+    queryFn: () => copilotAccessApi.analyticsAccess(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
+ * Spec 3632 Q27: the SQL mode toggle shows only to a reader the server says holds the SQL grant. `=== true` and nothing
+ * looser, so a pre-3672 answer (no `canSql`) or a malformed one is a denial.
+ */
+export const canUseSqlMode = (r: AnalyticsAccess | null | undefined): boolean => r?.canSql === true
 
 /** The one set of options every reader passes: a refusal is an answer, and a grant does not change in a page life. */
 export function copilotAccessQuery() {
@@ -53,6 +76,8 @@ export function dropCopilotAccessOnUserChange(client: QueryClient): () => void {
     if (now.userId === before.userId) return
     void client.resetQueries({ queryKey: COPILOT_ACCESS_KEY, exact: true })
     client.removeQueries({ queryKey: COPILOT_STARTERS_KEY, exact: true })
+    // 888: the SQL grant is the user's too.
+    void client.resetQueries({ queryKey: COPILOT_SQL_ACCESS_KEY, exact: true })
   })
 }
 
@@ -66,5 +91,9 @@ export const copilotAccessApi = {
    */
   access(): Promise<CopilotAccess> {
     return api.get<CopilotAccess>('Copilot/Access')
+  },
+  /** `GET Analytics/Access` → `{ canView, canAuthor, canCurate, canSql }` (3672); the panel reads `canSql` only. Fails closed. */
+  analyticsAccess(): Promise<AnalyticsAccess> {
+    return api.get<AnalyticsAccess>('Analytics/Access')
   },
 }

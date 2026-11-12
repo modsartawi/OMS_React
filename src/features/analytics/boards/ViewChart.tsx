@@ -9,6 +9,7 @@ import { saysIn } from '@/core/rules/sentence'
 import type { MarkPoint } from './drill'
 import SeriesPanel, { drawsAsSeries } from './SeriesPanel'
 import AreaNotes from './AreaNotes'
+import LastYearNote from './LastYearNote'
 import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
@@ -84,6 +85,7 @@ export default function ViewChart({
       <TruncatedNote result={result} />
       <UntilNote definition={definition} result={result} model={model} lang={lang} />
       <AreaNotes definition={definition} result={result} model={shown} lang={lang} />
+      <LastYearNote result={result} model={shown} lang={lang} />
     </>
   )
 }

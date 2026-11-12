@@ -1,10 +1,14 @@
 import {
   CALCULATION_KINDS,
+  CHANGE_FROMS,
   MAX_CALCULATIONS,
   type AnalyticsCalculation,
   type AnalyticsCalculationKind,
+  type AnalyticsChangeFrom,
 } from '@/core/models/analytics-calculations'
 import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/analytics'
+import { comparesToPrevious } from './editor'
+import { choiceOf } from './shape-rules'
 import { dimensionOf, measureOf } from './wire'
 
 /**
@@ -24,7 +28,7 @@ export type CalculationUnavailable =
   | 'noPair'
   /** Spec 3543 decision 9: an average needs two additive measures (any units). */
   | 'noTwo'
-  /** Decision 8: change needs compare with the previous period. */
+  /** Decision 8: change needs a comparison — the previous period, or (876) the same weeks last year. */
   | 'needsCompare'
   /** Decision 7: a running share refuses a date breakdown… */
   | 'runningDate'
@@ -45,6 +49,8 @@ export interface CalculationSelection {
   series: number
   /** Whether the query compares with the previous period (as it will be saved). */
   compare: boolean
+  /** 876: whether the query compares with the same weeks last year (as it will be saved). Absent reads as off. */
+  lastYear?: boolean
   calculations: readonly AnalyticsCalculation[]
 }
 
@@ -76,7 +82,7 @@ export function calculationKinds(sel: CalculationSelection, model: AnalyticsMode
   return CALCULATION_KINDS.map((kind): CalculationKindOffer => {
     const no = (reason: CalculationUnavailable): CalculationKindOffer => ({ kind, offered: false, reason })
     if (sel.calculations.length >= MAX_CALCULATIONS) return no('full')
-    if (kind === 'change') return sel.compare ? { kind, offered: true } : no('needsCompare')
+    if (kind === 'change') return sel.compare || sel.lastYear ? { kind, offered: true } : no('needsCompare')
     if (measuresFor(kind, sel.measures, model).length === 0) return no(kind === 'ratio' ? 'noPair' : kind === 'average' ? 'noTwo' : 'noAdditive')
     if (kind === 'cumulativeShare') {
       if (hasDate) return no('runningDate')
@@ -87,6 +93,37 @@ export function calculationKinds(sel: CalculationSelection, model: AnalyticsMode
   })
 }
 
+// ── What a change is taken from (ticket 876, BackOffice spec 3587 B10) ────────────────────────────────────
+
+/** A comparison a change may be taken from, and whether the query has it on. */
+export interface ChangeFromOffer {
+  from: AnalyticsChangeFrom
+  on: boolean
+}
+
+/**
+ * The comparisons a change may be taken from, in the wire's order: the previous period, then the same weeks last year.
+ * `on` says the query already compares with it; a pick that is not on turns its comparison on ({@link addCalculation}).
+ */
+export const changeFroms = (sel: Pick<CalculationSelection, 'compare' | 'lastYear'>): ChangeFromOffer[] =>
+  CHANGE_FROMS.map((from) => ({ from, on: from === 'lastYear' ? sel.lastYear === true : sel.compare }))
+
+/** The comparison a change is taken from: last year when it says so, else the previous period (the wire's default). */
+export const changeFromOf = (c: Pick<AnalyticsCalculation, 'from'>): AnalyticsChangeFrom => (c.from === 'lastYear' ? 'lastYear' : 'previous')
+
+/** The query option that loads a comparison's rows. */
+const COMPARE_OPTION = { previous: 'compareToPrevious', lastYear: 'compareToLastYear' } as const
+
+/**
+ * A picked change turns on the comparison it is taken from (876), where the chart type shows a comparison — the server
+ * refuses a change whose comparison is off (406 on `query.calculations[i].from`). Any other kind changes nothing.
+ */
+function withItsComparison(def: AnalyticsViewDefinition, draft: CalculationDraft): AnalyticsViewDefinition {
+  if (draft.kind !== 'change' || !comparesToPrevious(choiceOf(def.chart))) return def
+  const option = COMPARE_OPTION[changeFromOf(draft)]
+  return def.query[option] === true ? def : { ...def, query: { ...def.query, [option]: true } }
+}
+
 // ── Adding, editing and settling (the definition is the draft) ────────────────────────────────────────────
 
 /** What the author picks: the key is the builder's to give. */
@@ -95,8 +132,9 @@ export type CalculationDraft = Omit<AnalyticsCalculation, 'key'>
 /**
  * Why a calculation was taken out when the query changed under it: each a `boards:editor.calc.dropped.<reason>` key.
  * `within` (863): a share within a parent whose parent breakdown left the query, or that would now name them all.
+ * `lastYear` (876): a change taken from last year whose comparison went off (`compare` is the previous period's).
  */
-export type DroppedReason = 'measure' | 'compare' | 'runningDate' | 'runningSeries' | 'within'
+export type DroppedReason = 'measure' | 'compare' | 'lastYear' | 'runningDate' | 'runningSeries' | 'within'
 
 // ── Within a parent (ticket 863, spec 3543 part A) ─────────────────────────────────────────────────────────
 
@@ -143,7 +181,9 @@ const KEY_STEM: Record<AnalyticsCalculationKind, string> = {
  */
 export function calculationKey(draft: CalculationDraft, def: AnalyticsViewDefinition): string {
   const clean = (s: string) => s.replace(/[^A-Za-z0-9_]/g, '_')
-  const base = [KEY_STEM[draft.kind], clean(draft.measure), ...(takesOf(draft.kind) && draft.of ? [clean(draft.of)] : [])].join('_').slice(0, 40)
+  // 876: a change from last year is keyed apart, so a query may hold one of each on the same measure.
+  const stem = draft.kind === 'change' && changeFromOf(draft) === 'lastYear' ? 'change_ly' : KEY_STEM[draft.kind]
+  const base = [stem, clean(draft.measure), ...(takesOf(draft.kind) && draft.of ? [clean(draft.of)] : [])].join('_').slice(0, 40)
   const taken = new Set([...def.query.measures, ...def.query.dimensions, ...(def.query.calculations ?? []).map((c) => c.key)])
   if (!taken.has(base)) return base
   for (let n = 2; ; n++) {
@@ -164,9 +204,10 @@ export function sortKeys(def: AnalyticsViewDefinition): string[] {
 
 /**
  * The calculations re-checked against the query as it now is: one whose measure (or `of`) is no longer selected, a
- * change without compare, a running share beside a date breakdown or named series is taken out and reported, rather
- * than saved for the server to refuse. A running share then orders the query by its measure descending (decision 7),
- * and a sort the picker would no longer offer (a calculated key that went, or beside a running share) is dropped.
+ * change without the comparison it is taken from (876: the previous period's, or last year's), a running share beside
+ * a date breakdown or named series is taken out and reported, rather than saved for the server to refuse. A running
+ * share then orders the query by its measure descending (decision 7), and a sort the picker would no longer offer (a
+ * calculated key that went, or beside a running share) is dropped.
  * No calculations leaves no `calculations` at all.
  */
 export function settleCalculations(def: AnalyticsViewDefinition, model: AnalyticsModel): { definition: AnalyticsViewDefinition; dropped: DroppedCalculation[] } {
@@ -181,8 +222,10 @@ export function settleCalculations(def: AnalyticsViewDefinition, model: Analytic
     const reason: DroppedReason | null = !measuresFor(c.kind, measures, model).includes(c.measure) ||
       (takesOf(c.kind) && !ofFor(c.measure, measures, model, c.kind).includes(c.of ?? ''))
       ? 'measure'
-      : c.kind === 'change' && def.query.compareToPrevious !== true
-        ? 'compare'
+      : c.kind === 'change' && def.query[COMPARE_OPTION[changeFromOf(c)]] !== true
+        ? changeFromOf(c) === 'lastYear'
+          ? 'lastYear'
+          : 'compare'
         : c.kind === 'cumulativeShare' && hasDate
           ? 'runningDate'
           : c.kind === 'cumulativeShare' && series > 0
@@ -206,13 +249,15 @@ export function settleCalculations(def: AnalyticsViewDefinition, model: Analytic
 /** A new calculation, keyed, then settled. */
 export function addCalculation(def: AnalyticsViewDefinition, draft: CalculationDraft, model: AnalyticsModel): AnalyticsViewDefinition {
   const calc: AnalyticsCalculation = { key: calculationKey(draft, def), ...tidy(draft) }
-  return settleCalculations({ ...def, query: { ...def.query, calculations: [...(def.query.calculations ?? []), calc] } }, model).definition
+  const on = withItsComparison(def, draft)
+  return settleCalculations({ ...on, query: { ...on.query, calculations: [...(def.query.calculations ?? []), calc] } }, model).definition
 }
 
 /** One calculation changed in place (its key kept), then settled. */
 export function updateCalculation(def: AnalyticsViewDefinition, key: string, draft: CalculationDraft, model: AnalyticsModel): AnalyticsViewDefinition {
   const calcs = (def.query.calculations ?? []).map((c) => (c.key === key ? { key, ...tidy(draft) } : c))
-  return settleCalculations({ ...def, query: { ...def.query, calculations: calcs } }, model).definition
+  const on = withItsComparison(def, draft)
+  return settleCalculations({ ...on, query: { ...on.query, calculations: calcs } }, model).definition
 }
 
 /** One calculation taken out. */
@@ -223,13 +268,15 @@ export function removeCalculation(def: AnalyticsViewDefinition, key: string, mod
 
 /**
  * Only the fields its kind carries: `of` on a ratio or an average, `until` (1–100, whole) on a running share, `within` (non-empty) on
- * a share or a running share, a label if given.
+ * a share or a running share, `from` on a change taken from last year (never written for the previous period), a label
+ * if given.
  */
 function tidy(d: CalculationDraft): CalculationDraft {
   const out: CalculationDraft = { kind: d.kind, measure: d.measure }
   if (takesOf(d.kind) && d.of) out.of = d.of
   if (d.kind === 'cumulativeShare' && typeof d.until === 'number' && Number.isFinite(d.until)) out.until = Math.min(100, Math.max(1, Math.round(d.until)))
   if (takesWithin(d.kind) && d.within?.length) out.within = [...new Set(d.within)]
+  if (d.kind === 'change' && d.from === 'lastYear') out.from = 'lastYear'
   if (d.label) out.label = d.label
   return out
 }

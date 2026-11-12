@@ -20,6 +20,7 @@
       "down": "انخفاض {{change}} عن الفترة السابقة",
       "flat": "لا تغيير عن الفترة السابقة",
       "previous": "مقابل <v>{{value}}</v> في الفترة السابقة",
+      "lastYear": "مقابل <v>{{value}}</v> في العام الماضي (<r>{{range}}</r>)",
       "withUnit": "{{value}} {{unit}}"
     },
     "previousPeriod": "الفترة السابقة",

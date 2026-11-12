@@ -54,7 +54,79 @@
     "report_add_block": "Adding to the report",
     "report_remove_blocks": "Removing from the report",
     "report_move_block": "Moving a block",
-    "report_update_block": "Changing a block"
+    "report_update_block": "Changing a block",
+    "describe_tables": "Reading the tables",
+    "run_sql": "Running the SQL"
+  },
+  "sql": {
+    "itemOpened": "Changing a SQL item by asking. Say what to change; nothing is saved until you open it in the editor and save.",
+    "editItem": "Edit and save the item",
+    "toggle": "SQL mode",
+    "toggleHint": "Answer by writing and running one read-only SQL statement over the analytics tables",
+    "askedIn": "Asked in SQL mode",
+    "offer": "Try in SQL mode",
+    "offerHint": "Ask the same question again, answered by one read-only SQL statement",
+    "result": "SQL result",
+    "mark": "SQL, not a certified figure",
+    "notRan": "No statement ran.",
+    "rows_one": "{{n}} row",
+    "rows_other": "{{n}} rows",
+    "duration": "{{ms}} ms",
+    "cut": "More rows than the limit: only the first {{n}} are shown.",
+    "null": "NULL",
+    "tablesRead": "Tables read:",
+    "statement": "The SQL statement",
+    "copy": "Copy SQL",
+    "copyFailed": "The SQL could not be copied.",
+    "edit": "Edit SQL"
+  },
+  "sqlSave": {
+    "open": "Save",
+    "title": "Save the SQL answer",
+    "personal": "It is saved as your own item (Personal). Sharing works as for any view; a SQL item is never certified.",
+    "titleEn": "Title (English)",
+    "titleAr": "Title (Arabic)",
+    "type": "Chart type",
+    "axis": "Axis",
+    "series": "Series",
+    "noSeries": "No series",
+    "values": "Values",
+    "noValues": "No value columns: the table shows every column as it is.",
+    "column": "Column",
+    "labelEn": "Label (English)",
+    "labelAr": "Label (Arabic)",
+    "format": "Format",
+    "addValue": "Add a value",
+    "removeValue": "Remove this value",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved to your items.",
+    "openSaved": "Open it",
+    "failed": "The SQL answer could not be saved.",
+    "types": {
+      "kpi": "KPI",
+      "line": "Line",
+      "area": "Area",
+      "bar": "Bar",
+      "donut": "Donut",
+      "table": "Table",
+      "heatmap": "Heat map",
+      "combo": "Combo"
+    },
+    "formats": {
+      "number": "Number",
+      "money": "Money",
+      "percent": "Percent"
+    },
+    "problem": {
+      "title": "Give it a title, in English or Arabic.",
+      "axis": "Pick the column for the axis.",
+      "series": "Pick the column for the series.",
+      "values": "This chart type takes a different number of values.",
+      "sameColumn": "Each column can have only one role.",
+      "notNumber": "A value column must hold numbers."
+    }
   },
   "live": {
     "model": "Thinking",
@@ -130,10 +202,13 @@
       "report_add_block": "Added a block to the report",
       "report_remove_blocks": "Removed blocks from the report",
       "report_move_block": "Moved a block",
-      "report_update_block": "Changed a block"
+      "report_update_block": "Changed a block",
+      "describe_tables": "Read the tables' columns",
+      "run_sql": "Ran a SQL statement"
     }
   },
   "refusal": {
+    "sqlItemNotOpenable": "This SQL item cannot be changed by asking: it must be a SQL item you can change (yours, with the SQL grant, or as a curator), asked in SQL mode.",
     "noGrant": "Your account does not hold the copilot grant. Ask an administrator if you need it.",
     "rateLimit": "You have reached the limit of questions for this hour. You can ask again at <time>{{time}}</time>.",
     "rateLimitNoTime": "You have reached the limit of questions for this hour. Try again later.",
@@ -283,6 +358,183 @@
       "body": "Your changes to the house rules are not saved. If you leave, they are lost.",
       "stay": "Stay",
       "go": "Leave"
+    },
+    "readers": {
+      "heading": "Readers' own readings",
+      "hint": "How many readers changed each default for themselves, and to what. A value is shown only when 5 or more readers chose it; no reader is named.",
+      "none": "No reader has their own",
+      "holding_one": "{{n}} reader has their own",
+      "holding_other": "{{n}} readers have their own",
+      "other": "Other values",
+      "kind": {
+        "period": "Period",
+        "comparison": "Comparison",
+        "scope": "Scope",
+        "money-base": "Money base"
+      },
+      "value": {
+        "period": {
+          "today": "Today",
+          "yesterday": "Yesterday",
+          "this-week": "This week",
+          "last-week": "Last week",
+          "last-7-days": "Last 7 days",
+          "last-28-days": "Last 28 days",
+          "last-30-days": "Last 30 days",
+          "this-month": "This month",
+          "last-month": "Last month",
+          "year-to-date": "Year to date"
+        },
+        "comparison": {
+          "previous": "The previous period",
+          "last-year": "Last year",
+          "both": "Both",
+          "none": "No comparison"
+        },
+        "scope": {
+          "chain": "The whole chain",
+          "ksa": "KSA",
+          "bahrain": "Bahrain",
+          "named-set": "A named set"
+        }
+      }
     }
+  },
+  "proposal": {
+    "label": "A schedule to confirm",
+    "title": "Title",
+    "cadence": "How often",
+    "daily": "Every day",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "days": "On",
+    "dayOfMonth": "Day of the month",
+    "lastDay": "Last day",
+    "time": "Time (Riyadh)",
+    "period": "The period on each send",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "expired": "This offer has expired. Ask again.",
+    "confirmedState": "Confirmed",
+    "cancelledState": "Cancelled",
+    "confirmTurn": "Confirm",
+    "cancelTurn": "Cancel",
+    "firstSend": "First send",
+    "mySchedules": "My schedules",
+    "label_pause": "A schedule to pause",
+    "label_delete": "A schedule to delete",
+    "confirm_pause": "Pause",
+    "confirm_delete": "Delete",
+    "choose_pause": "Choose the schedule to pause",
+    "choose_delete": "Choose the schedule to delete",
+    "day": {
+      "sun": "Sunday",
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday"
+    },
+    "dayShort": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    }
+  },
+  "me": {
+    "entry": "What the copilot knows about me",
+    "title": "What the copilot knows about me",
+    "subtitle": "The readings you kept and the sets you named. A change is used from your next question.",
+    "hint": "These are yours alone. Change or delete any of them; the copilot uses what is here from your next question.",
+    "loading": "Loading what the copilot keeps for you…",
+    "loadFailed": "What the copilot keeps for you could not be loaded.",
+    "failed": "The change could not be made.",
+    "kind": {
+      "period": "Period",
+      "comparison": "Comparison",
+      "scope": "Scope",
+      "money-base": "Money base"
+    },
+    "keptBy": {
+      "offer": "Kept from an answer",
+      "page": "Changed here",
+      "direct": "Kept when you said it"
+    },
+    "readings": {
+      "heading": "Your readings",
+      "none": "You keep no reading of your own: the copilot uses the house defaults.",
+      "unused": "No longer used",
+      "changeTo": "Change to",
+      "change": "Change",
+      "delete": "Delete this reading",
+      "changed": "Reading changed. Your next question uses it.",
+      "deleted": "Reading deleted. Your next question uses the house default."
+    },
+    "sets": {
+      "heading": "Your named sets",
+      "none": "You have no named sets.",
+      "members": "Members",
+      "gone": "(gone)",
+      "goneCount_one": "{{n}} member gone",
+      "goneCount_other": "{{n}} members gone",
+      "goneHint": "A gone member is no longer in the store list. It is left out of your questions and dropped at your next edit.",
+      "remove": "Remove this member",
+      "delete": "Delete the set",
+      "deleted": "Set deleted.",
+      "changed": "Set changed. Your next question uses it.",
+      "lookup": "Add a member",
+      "lookupPlaceholder": "A store, city, region or channel",
+      "lookupTooLong": "At most {{max}} characters.",
+      "lookupFailed": "The lookup could not be made.",
+      "find": "Find",
+      "noMatch": "Nothing matches.",
+      "cannot": {
+        "already": "That member is already in the set.",
+        "kind": "A set holds one kind of member only.",
+        "full": "A set holds at most {{max}} members.",
+        "last": "A set cannot be left empty. Delete the set instead."
+      }
+    },
+    "forget": {
+      "hint": "Forget everything: every reading and every set you keep, at once.",
+      "button": "Forget everything",
+      "confirmTitle": "Forget everything?",
+      "confirmBody": "Every reading and every named set you keep is deleted. Your next question uses the house defaults. This cannot be undone.",
+      "confirm": "Forget everything",
+      "cancel": "Cancel",
+      "done": "Forgotten: {{n}} removed."
+    },
+    "closed": {
+      "off": {
+        "title": "Not switched on",
+        "hint": "The copilot keeps no readings of yours on this server."
+      },
+      "grant": {
+        "title": "No access to Ask the OMS",
+        "hint": "Your account does not hold the copilot grant. Ask an administrator if you need it."
+      }
+    }
+  },
+  "reading": {
+    "offer": "Keep this reading",
+    "readAs": "Read it as",
+    "keep": "Keep",
+    "notNow": "Not now",
+    "failed": "That did not go through. Try again.",
+    "closed": "This offer is no longer open.",
+    "seeMine": "See what the copilot knows about me"
+  },
+  "namedSet": {
+    "title": "Remember this named set?",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "closed": "This set can no longer be kept.",
+    "full": "You already keep 10 named sets. Delete one on \"What the copilot knows about me\" to keep this one."
   }
 }

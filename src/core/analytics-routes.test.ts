@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardEditHref, itemHref, reportDialogHref, reportDialogOf, reportHref, reportPrintHref, reportRunsHref } from './analytics-routes'
+import { boardEditHref, itemHref, NEW_SQL_PATH, reportDialogHref, reportDialogOf, reportHref, reportPrintHref, reportRunsHref, sqlEditHref } from './analytics-routes'
 
 describe('analytics item routes', () => {
   it('a view and a board open their own page, the id escaped', () => {
@@ -27,5 +27,13 @@ describe('analytics item routes', () => {
     // A panel's permalink, or nothing, opens no dialog.
     expect(reportDialogOf('#panel-p1')).toBeNull()
     expect(reportDialogOf('')).toBeNull()
+  })
+})
+
+// 890: the SQL editor — a SQL item's, its id escaped, and a statement not yet saved (the statement rides in route state).
+describe('the SQL editor routes', () => {
+  it('builds an item editor link and names the new-statement editor', () => {
+    expect(sqlEditHref('q 1/x')).toBe('/analytics/sql/q%201%2Fx')
+    expect(NEW_SQL_PATH).toBe('/analytics/sql/new')
   })
 })

@@ -21,15 +21,17 @@ export function useAreaNoteWords(): AreaNoteWords {
 
 /**
  * A table's words (`boards:view.*`) in the screen's language: the series column's header, a measure's previous-period
- * header and an "All" row's unsplit dimension. The table form and the downloads take them alike; a column tooltip is
+ * header, its last-year header (877: the measure and last year's dates, each isolated whole) and an "All" row's unsplit
+ * dimension. The table form and the downloads take them alike; a column tooltip is
  * the caller's (it needs the answer).
  */
-export function useTableWords(): Required<Pick<TableWords, 'series' | 'previous' | 'all'>> {
+export function useTableWords(): Required<Pick<TableWords, 'series' | 'previous' | 'lastYear' | 'all'>> {
   const { t } = useTranslation('boards')
   return useMemo(
     () => ({
       series: t('view.seriesColumn'),
       previous: (measure: string) => t('view.previousColumn', { measure: fsi(measure) }),
+      lastYear: (measure: string, range: string) => t('view.lastYearColumn', { measure: fsi(measure), range: fsi(range) }),
       all: t('view.allMembers'),
     }),
     [t],

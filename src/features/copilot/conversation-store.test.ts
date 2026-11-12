@@ -336,7 +336,7 @@ describe('where the question came from (BackOffice 3598, A49; ticket 871)', () =
     expect(d.calls[0].origin).toBe('typed')
     d.calls[0].answer(reply('c-0001', 1))
     await typed
-    const tapped = store.getState().ask('Break it down by city', 'suggestion')
+    const tapped = store.getState().ask('Break it down by city', { origin: 'suggestion' })
     expect(d.calls[1].body).toEqual({ question: 'Break it down by city', conversationId: 'c-0001' })
     expect(d.calls[1].origin).toBe('suggestion')
     d.calls[1].answer(reply('c-0001', 2))
@@ -439,5 +439,149 @@ describe('the reply to a clarifying question (BackOffice spec 3586 A37, A55, 359
     // The box's pending-ask exception is the reply's alone: a handed-in question is not sent (the panel keeps it in the box).
     expect(store.getState().ask('How many orders yesterday?')).toBeNull()
     expect(d.calls).toHaveLength(10)
+  })
+})
+
+describe('a tapped reading and the offer to keep one (BackOffice spec 3633 R15-R17, 3685, 3686; ticket 892)', () => {
+  const refusal = (code: string) => new ApiError('business', `${code} said no.`, 400, [{ errorCode: code, internalErrorCode: '', errorMessage: `${code} said no.` }])
+  const OFFER = '0123456789abcdef0123456789abcdef'
+  const kept = {
+    kind: 'period' as const,
+    value: 'last-7-days',
+    keptAt: '2026-11-12T10:00:00',
+    line: { en: 'Kept: I will read the period as the last 7 days when you do not say.', ar: 'تم الحفظ: سأقرأ الفترة على أنها آخر 7 أيام ما لم تحدّد.' },
+  }
+  /** The two offer doors, answered by hand. */
+  function offerDoors() {
+    const calls: { door: 'keep' | 'notNow'; body: unknown; answer: (r: unknown) => void; refuse: (e: unknown) => void }[] = []
+    const call = (door: 'keep' | 'notNow') => (body: unknown) =>
+      new Promise<never>((answer, refuse) => {
+        calls.push({ door, body, answer: answer as (r: unknown) => void, refuse })
+      })
+    return { doors: { keep: call('keep'), notNow: call('notNow') } as never, calls }
+  }
+
+  it('aChoiceSendsTheSameQuestionAgain_withTheReadingStated_inTheSameConversation', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const first = store.getState().ask('How did sales do?')
+    d.calls[0].answer(reply('c-0001', 1))
+    await first
+    const again = store.getState().ask('How did sales do?', { statedReading: { kind: 'period', value: 'last-7-days' } })
+    expect(again).not.toBeNull()
+    expect(d.calls[1].body).toEqual({ question: 'How did sales do?', conversationId: 'c-0001', statedReading: { kind: 'period', value: 'last-7-days' } })
+    d.calls[1].answer(reply('c-0001', 2))
+    await again
+    expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['How did sales do?', 'How did sales do?'])
+    // A typed question states nothing.
+    void store.getState().ask('And Jeddah?')
+    expect(d.calls[2].body).toEqual({ question: 'And Jeddah?', conversationId: 'c-0001' })
+  })
+
+  it('keep_sendsTheOfferId_andTheLineConfirmsInTheServersWords', async () => {
+    const o = offerDoors()
+    const store = createCopilotConversation(door().ask, undefined, undefined, undefined, o.doors)
+    expect(store.getState().offerState(OFFER)).toEqual({ state: 'open' })
+    const keeping = store.getState().keepReading('c-0001', OFFER)
+    expect(o.calls).toEqual([expect.objectContaining({ door: 'keep', body: { conversationId: 'c-0001', offerId: OFFER } })])
+    expect(store.getState().offerState(OFFER)).toEqual({ state: 'busy' })
+    // One request at a time: a second tap while it runs sends nothing.
+    void store.getState().keepReading('c-0001', OFFER)
+    void store.getState().notNowReading('c-0001', OFFER)
+    expect(o.calls).toHaveLength(1)
+    o.calls[0].answer(kept)
+    await keeping
+    expect(store.getState().offerState(OFFER)).toEqual({ state: 'kept', line: kept.line })
+  })
+
+  it('notNow_sendsTheOfferId_andHidesTheLine', async () => {
+    const o = offerDoors()
+    const store = createCopilotConversation(door().ask, undefined, undefined, undefined, o.doors)
+    const later = store.getState().notNowReading('c-0001', OFFER)
+    expect(o.calls).toEqual([expect.objectContaining({ door: 'notNow', body: { conversationId: 'c-0001', offerId: OFFER } })])
+    o.calls[0].answer({ kind: 'period' })
+    await later
+    expect(store.getState().offerState(OFFER)).toEqual({ state: 'dismissed' })
+  })
+
+  it('anOfferNoLongerOpen_losesItsButtons_aFailureKeepsThemToTryAgain', async () => {
+    const o = offerDoors()
+    const store = createCopilotConversation(door().ask, undefined, undefined, undefined, o.doors)
+    const gone = store.getState().keepReading('c-1', 'a')
+    o.calls[0].refuse(refusal('COPILOT-437'))
+    await gone
+    expect(store.getState().offerState('a')).toEqual({ state: 'closed', message: 'COPILOT-437 said no.' })
+    const notAllowed = store.getState().keepReading('c-1', 'b')
+    o.calls[1].refuse(refusal('COPILOT-430'))
+    await notAllowed
+    expect(store.getState().offerState('b')).toEqual({ state: 'closed', message: 'COPILOT-430 said no.' })
+    const down = store.getState().keepReading('c-1', 'c')
+    const err = new Error('network')
+    o.calls[2].refuse(err)
+    await down
+    expect(store.getState().offerState('c')).toEqual({ state: 'failed', error: err })
+    // Failed is still open to another tap.
+    void store.getState().keepReading('c-1', 'c')
+    expect(o.calls).toHaveLength(4)
+  })
+})
+
+describe("the named-set card's Keep and Not now (BackOffice spec 3633 R20, 3687; ticket 893)", () => {
+  const refusal = (code: string, message: string) => new ApiError('business', message, 400, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
+  const SET = 'fedcba9876543210fedcba9876543210'
+  const kept = {
+    setId: '01JC0000000000000000000000',
+    name: 'my stores',
+    kind: 'city',
+    members: [{ key: 'city:Jeddah', kind: 'city', label: { en: 'Jeddah (city)', ar: 'جدة (مدينة)' } }],
+    keptAt: '2026-11-12T10:00:00',
+    line: { en: 'Kept "my stores".', ar: 'تم حفظ "my stores".' },
+  }
+  function keepDoor() {
+    const calls: { body: unknown; answer: (r: unknown) => void; refuse: (e: unknown) => void }[] = []
+    const keep = (body: unknown) =>
+      new Promise<never>((answer, refuse) => {
+        calls.push({ body, answer: answer as (r: unknown) => void, refuse })
+      })
+    return { doors: { keep } as never, calls }
+  }
+  const storeWith = (doors: never) => createCopilotConversation(door().ask, undefined, undefined, undefined, undefined, doors)
+
+  it('keep_sendsTheConversationAndTheProposal_andTheCardShowsTheServersLine', async () => {
+    const k = keepDoor()
+    const store = storeWith(k.doors)
+    expect(store.getState().offerState(SET)).toEqual({ state: 'open' })
+    const keeping = store.getState().keepNamedSet('c-0001', SET)
+    expect(k.calls.map((c) => c.body)).toEqual([{ conversationId: 'c-0001', proposalId: SET }])
+    expect(store.getState().offerState(SET)).toEqual({ state: 'busy' })
+    expect(store.getState().keepNamedSet('c-0001', SET)).toBeNull()
+    k.calls[0].answer(kept)
+    await keeping
+    expect(store.getState().offerState(SET)).toEqual({ state: 'kept', line: kept.line })
+    expect(store.getState().keepNamedSet('c-0001', SET)).toBeNull()
+  })
+
+  it('aRefusalAtTheLimit_isShownWithItsMessage_andKeepCanBeTriedAgainAfterADelete', async () => {
+    const k = keepDoor()
+    const store = storeWith(k.doors)
+    const full = store.getState().keepNamedSet('c-0001', SET)
+    const said = 'You already keep 10 sets. Delete one on "What the copilot knows about me" first.'
+    k.calls[0].refuse(refusal('COPILOT-434', said))
+    await full
+    expect(store.getState().offerState(SET)).toEqual({ state: 'full', message: said })
+    void store.getState().keepNamedSet('c-0001', SET)
+    expect(k.calls).toHaveLength(2)
+  })
+
+  it('aCardNoLongerOpen_losesItsButtons_andNotNowCallsNothing', async () => {
+    const k = keepDoor()
+    const store = storeWith(k.doors)
+    const gone = store.getState().keepNamedSet('c-0001', SET)
+    k.calls[0].refuse(refusal('COPILOT-435', 'This set can no longer be kept.'))
+    await gone
+    expect(store.getState().offerState(SET)).toEqual({ state: 'closed', message: 'This set can no longer be kept.' })
+    store.getState().notNowNamedSet('other')
+    expect(store.getState().offerState('other')).toEqual({ state: 'dismissed' })
+    expect(k.calls).toHaveLength(1)
   })
 })

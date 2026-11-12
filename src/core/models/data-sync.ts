@@ -113,6 +113,8 @@ export type DataSyncErrorCode =
   | 'DATASYNC_STORE_BUSY'
   | 'DATASYNC_STORE_WPF_HOSTED'
   | 'DATASYNC_MANIFEST_PRUNED'
+  | 'DATASYNC_RERUN_PROFILE_MISMATCH' // spec 863: create with `rerunOf` naming a campaign of another profile
+  | 'DATASYNC_STORE_IN_LIVE_RERUN' // 865: create with `rerunOf` naming a store a live re-run of it already holds
 
 // ── Read models ─────────────────────────────────────────────────────────────────
 
@@ -180,12 +182,71 @@ export interface Campaign {
   status: CampaignStatus
   totalJobs: number
   jobsByState: JobsByState
+  /**
+   * How many jobs are retryable (engine spec §2.6, ticket 866): `POST Campaigns/{id}/Retry` retries
+   * them all. Optional: a build before the Retry change does not send it (read as 0).
+   */
+  retryableJobs?: number
+  /**
+   * Spec 863: how many stores the re-run offer (`RerunTargets`) holds — the failures Retry refuses in
+   * this campaign, less the stores a live re-run holds. Optional: an older service does not send it (read as 0).
+   */
+  rerunnableJobs?: number
+  /** Spec 863: how many of `rerunnableJobs` failed `StoreWpfHosted` (an Apply re-run leaves them out). */
+  rerunnableWpfHostedJobs?: number
   /** Apply only. */
   reason: string | null
   createdAt: string
   startedAt: string | null
   finishedAt: string | null
   asOf: string
+  /** Spec 863: the campaign whose failed stores this one re-runs; `null` (or absent on an older service) = not a re-run. */
+  rerunOf?: CampaignLink | null
+  /** Spec 863: the campaigns created as re-runs of this one, newest first. */
+  rerunBy?: RerunLink[]
+}
+
+/** The original of a re-run (spec 863). */
+export interface CampaignLink {
+  campaignId: Ulid
+  name: string | null
+}
+
+/** One re-run of a campaign, with its status (spec 863). */
+export interface RerunLink {
+  campaignId: Ulid
+  name: string | null
+  status: CampaignStatus
+}
+
+/** A store of the re-run offer: why it failed, and the tables it did not finish (not `Succeeded`). */
+export interface RerunTarget {
+  client: string
+  code: string
+  /**
+   * The failures Retry refuses in that campaign: `TableFailures`, `Error` or `StoreWpfHosted`; in a
+   * Cancelling/Cancelled campaign (no Retry at all) also `StoreUnreachable` / `TargetUnresolved`.
+   */
+  failureReason: string
+  unfinishedTables: string[]
+}
+
+/** A re-runnable store already held by a live re-run of the campaign (ticket 865; empty until then). */
+export interface RerunExclusion {
+  client: string
+  code: string
+  rerunCampaignId: Ulid
+}
+
+/** `GET DataSync/Campaigns/{id}/RerunTargets` (spec 863): the offer that pre-fills *New campaign from failed*. */
+export interface RerunOffer {
+  campaignId: Ulid
+  profileId: Ulid
+  mode: Mode
+  /** The union of every target's unfinished tables, in profile order. */
+  tables: string[]
+  targets: RerunTarget[]
+  excluded: RerunExclusion[]
 }
 
 export interface TableTask {
@@ -230,6 +291,11 @@ export interface Job {
   holdReason: HoldReason | null
   /** Apply jobs only; false for report-only. */
   actionSyncResumable: boolean
+  /**
+   * Failed with StoreUnreachable / TargetUnresolved and its campaign not cancelling (engine spec §2.6,
+   * ticket 866): `POST Jobs/{id}/Retry` resumes it from its checkpoints. Optional: absent = not retryable.
+   */
+  retryable?: boolean
 }
 
 /** A JSON scalar as a manifest carries it. `null` and `""` are different values. */
@@ -287,6 +353,8 @@ export interface CreateCampaignRequest {
   name?: string | null
   /** Apply: trimmed, ≥ 10 characters. Ignored for ReportOnly. */
   reason?: string | null
+  /** Spec 863: the campaign whose failed stores this re-runs (same profile, else 422). Never satisfies `reason`. */
+  rerunOf?: Ulid | null
 }
 
 /** The optional note on a control; blank is sent as nothing. */
@@ -307,6 +375,10 @@ export interface CampaignsQuery {
 
 export interface JobsQuery {
   status?: JobStatus | null
+  /** Case-insensitive contains on the store code (not the client); blank or absent is no filter. */
+  store?: string | null
+  /** A job failure reason code, exact spelling; the door refuses an unknown one. */
+  failureReason?: JobFailureReason | null
   page: number
   pageSize: number
 }

@@ -103,6 +103,9 @@ import materialsDetailAr from '@/locales/ar/materials-detail.json'
 // 446–449 add their keys here rather than minting a second namespace.
 import syncConsole from '@/locales/en/sync-console.json'
 import dataSync from '@/locales/en/data-sync.json'
+// DataSync's Arabic is PARTIAL (spec 863: the jobs list's store search and failure-reason filter, ticket 867, and the re-run words,
+// ticket 864); every key not in it falls back to English through `fallbackLng`.
+import dataSyncAr from '@/locales/ar/data-sync.json'
 // The SAP export console (BackOffice spec 2579, ticket 461). Namespace == feature name, and ENGLISH
 // ONLY like the sync console (spec 2579 Out of Scope: no Arabic UI), so there is no `ar` bundle.
 // 462–465 add their keys here rather than minting a second namespace.
@@ -224,7 +227,7 @@ import loyGroupsAr from '@/locales/ar/loy-groups.json'
 import releaseQueue from '@/locales/en/release-queue.json'
 import releaseQueueAr from '@/locales/ar/release-queue.json'
 // The copilot (ticket 735, spec 734 D11): a top-level feature like `auth`, its own namespace. A PARTIAL Arabic
-// `copilot` (869, BackOffice spec 3558 D12): the working state's live and tool steps only; the rest falls back to English.
+// `copilot` (869, BackOffice spec 3558 D12): the working state's live and tool steps, and (894) the page "What the copilot knows about me"; the rest falls back to English.
 import copilot from '@/locales/en/copilot.json'
 import copilotAr from '@/locales/ar/copilot.json'
 // Analytics boards (spec 766, ticket 767): the `analytics` area's first feature `boards`; namespace == feature name,
@@ -357,6 +360,7 @@ i18n.use(initReactI18next).init({
       'doc-type-config': docTypeConfigAr,
       'loy-groups': loyGroupsAr,
       'release-queue': releaseQueueAr,
+      'data-sync': dataSyncAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       boards: boardsAr,

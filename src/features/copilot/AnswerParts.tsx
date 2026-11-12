@@ -7,19 +7,45 @@ import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
 import { copilotTableEmbed, copilotViewEmbed } from '@/core/copilot-view-embed'
-import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswerTable, CopilotBoardEdit, CopilotNamedSetProposal, CopilotReadingOffer, CopilotReportEdit, CopilotReportRef, CopilotStatedReading, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, Copy, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Copy, Pencil, Save, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, askView, assumptionLines, type AnswerPart, type AskView, inlineMarks, orderHref, orderSegments, suggestionButtons, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel, type SuggestionButton } from './answer'
+import {
+  COPILOT_MAX_QUESTION,
+  type AnswerSql,
+  answerLayout,
+  answerPlainText,
+  answerTableKey,
+  askView,
+  assumptionRows,
+  type AnswerPart,
+  type AskView,
+  inlineMarks,
+  namedSetCard,
+  orderHref,
+  orderSegments,
+  suggestionButtons,
+  viewHref,
+  type AnswerBlock,
+  type AnswerRules,
+  type CopilotAnswerModel,
+  type SuggestionButton,
+} from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
+import SqlSaveDialog from './SqlSaveDialog'
+import { sqlEditLink } from './sql-save'
+import { canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { useCopilotConversation, type ReadingOfferState } from './conversation-store'
+import { useQuery } from '@tanstack/react-query'
+import type { AnalyticsItem } from '@/core/models/analytics'
 
 /**
  * The answer's links, trace and provenance (ticket 736, spec 734 D10/D11), beside the answer's own
@@ -100,7 +126,8 @@ export function ViewLinks({ viewRefs }: { viewRefs: readonly CopilotViewRef[] })
 
 /**
  * The answer's tables (ticket 868, BackOffice spec 3558 D5), under its summary: each the analytics table form through
- * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before.
+ * the core bridge (the copilot never imports analytics). None, or no embed registered: nothing, as before. 878: in the
+ * order sent, each under its own title when it has one (an analysis result's parts), told apart by place as well as step.
  */
 export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[] }) {
   const { t } = useTranslation('copilot')
@@ -109,8 +136,8 @@ export function AnswerTables({ tables }: { tables: readonly CopilotAnswerTable[]
   return (
     <div aria-label={t('answer.tables')} className="flex min-w-0 flex-col gap-3" data-copilot-tables>
       {tables.map((table, i) => (
-        <Suspense key={`${table.step}-${i}`} fallback={null}>
-          <Embed table={table} />
+        <Suspense key={answerTableKey(table, i)} fallback={null}>
+          <Embed table={table} index={i} />
         </Suspense>
       ))}
     </div>
@@ -158,22 +185,199 @@ export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReport
 }
 
 /**
- * What the answer assumed (802 item 1; any answer since 870), one line each, in the reader's language, under the answer
- * and apart from it. Each line is free text: `<bdi>`.
+ * What a thread answer can do with its readings (892, BackOffice 3685/3686). Only the panel's thread passes it: the
+ * house-rules Try box draws its lines plain and no offer.
  */
-export function Assumptions({ assumptions }: { assumptions: readonly AnalyticsLabel[] }) {
+export interface AnswerReadings {
+  /** A tapped line's choice: the answer's question asked again with that reading stated. */
+  choose: (reading: CopilotStatedReading) => void
+  /** False while a question is in flight or the conversation is over: the choices show, disabled. */
+  canChoose: boolean
+  offer: ReadingOfferState
+  keep: () => void
+  notNow: () => void
+  /** 893 (BackOffice 3687): the named-set card proposed in this answer, its state and its two buttons. */
+  namedSet: ReadingOfferState
+  keepSet: () => void
+  /** Calls nothing: the card closes for this answer. */
+  notNowSet: () => void
+}
+
+/**
+ * What the answer assumed (802 item 1; any answer since 870), one line each, in the reader's language, under the answer
+ * and apart from it. Each line is free text: `<bdi>`, drawn as the server wrote it ("as you prefer" included). A line the
+ * server offers other readings for (892, 3685) opens them on a tap; choosing one asks the question again with it.
+ */
+export function Assumptions({ model, readings }: { model: CopilotAnswerModel; readings?: AnswerReadings }) {
   const { t, i18n } = useTranslation('copilot')
-  if (assumptions.length === 0) return null
+  const [open, setOpen] = useState<number | null>(null)
+  if (model.assumptions.length === 0) return null
   return (
     <section aria-label={t('answer.assumptions')} className="flex flex-col gap-1 text-sm" data-copilot-assumptions>
       <p className="text-xs font-medium text-muted-foreground">{t('answer.assumptions')}</p>
       <ul className="list-disc ps-5">
-        {assumptionLines(assumptions, i18n.language).map((line, i) => (
-          <li key={i} data-copilot-assumption>
-            <bdi>{line}</bdi>
+        {assumptionRows(model, i18n.language).map((row, i) =>
+          row.choice && readings ? (
+            <li key={i} data-copilot-assumption data-copilot-assumption-kind={row.choice.kind}>
+              <Button
+                variant="text"
+                className="h-auto px-0 text-start text-sm"
+                aria-expanded={open === i}
+                onClick={() => setOpen(open === i ? null : i)}
+                data-copilot-assumption-tap
+              >
+                <bdi>{row.text}</bdi>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </Button>
+              {open === i && (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label={t('reading.readAs')} data-copilot-assumption-choices>
+                  <span className="text-xs text-muted-foreground">{t('reading.readAs')}</span>
+                  {row.choice.choices.map((c) => (
+                    <Button
+                      key={c.value}
+                      variant="outlined"
+                      disabled={!readings.canChoose}
+                      onClick={() => {
+                        setOpen(null)
+                        readings.choose({ kind: row.choice!.kind, value: c.value })
+                      }}
+                      data-copilot-assumption-choice={c.value}
+                    >
+                      <bdi>{c.text}</bdi>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </li>
+          ) : (
+            <li key={i} data-copilot-assumption>
+              <bdi>{row.text}</bdi>
+            </li>
+          ),
+        )}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * The offer under a corrected answer (892, BackOffice 3686 R16/R17): the server's question with Keep and Not now. Keep
+ * puts the server's confirmation in place of the buttons, with the way to "What the copilot knows about me"; Not now
+ * hides the line. An offer no longer open keeps its words and loses its buttons.
+ */
+export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOffer; readings: AnswerReadings }) {
+  const { t, i18n } = useTranslation('copilot')
+  const s = readings.offer
+  if (s.state === 'dismissed') return null
+  if (s.state === 'kept')
+    return (
+      <section aria-label={t('reading.offer')} className="flex flex-col gap-1 text-sm" data-copilot-reading-offer="kept">
+        <p className="flex items-center gap-1.5">
+          <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+          <bdi>{saysIn(s.line, i18n.language)}</bdi>
+        </p>
+        <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-reading-me>
+          {t('reading.seeMine')}
+        </Link>
+      </section>
+    )
+  const busy = s.state === 'busy'
+  return (
+    <section aria-label={t('reading.offer')} className="flex flex-col gap-1.5 text-sm" data-copilot-reading-offer={s.state}>
+      <p>
+        <bdi>{saysIn(offer.offer, i18n.language)}</bdi>
+      </p>
+      {s.state === 'closed' ? (
+        <p className="text-xs text-muted-foreground" data-copilot-reading-closed>
+          {s.message || t('reading.closed')}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button variant="primary" disabled={busy} onClick={readings.keep} data-copilot-reading-keep>
+            {t('reading.keep')}
+          </Button>
+          <Button variant="text" disabled={busy} onClick={readings.notNow} data-copilot-reading-not-now>
+            {t('reading.notNow')}
+          </Button>
+          {s.state === 'failed' && (
+            <span className="text-xs text-destructive" role="alert">
+              {t('reading.failed')}
+            </span>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * The named-set card (893, BackOffice 3633 R20 / 3687): the name as the reader gave it and every member with its kind,
+ * with Keep and Not now. Keep puts the server's confirmation in place of the buttons with the way to "What the copilot
+ * knows about me"; at the limit of 10 sets (`COPILOT-434`) the server's reason shows with that same way, Keep kept to
+ * try again after a delete; a card no longer open (`COPILOT-435`) keeps its words and loses its buttons.
+ */
+export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetProposal; readings: AnswerReadings }) {
+  const { t, i18n } = useTranslation('copilot')
+  const s = readings.namedSet
+  if (s.state === 'dismissed') return null
+  const card = namedSetCard(set, i18n.language)
+  const toMine = (
+    <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-named-set-me>
+      {t('reading.seeMine')}
+    </Link>
+  )
+  const busy = s.state === 'busy'
+  return (
+    <section aria-label={t('namedSet.title')} className="flex flex-col gap-1.5 rounded-md border border-border p-2.5 text-sm" data-copilot-named-set={s.state}>
+      <p className="text-xs font-medium text-muted-foreground">{t('namedSet.title')}</p>
+      <p className="font-medium">
+        <bdi>{card.name}</bdi>
+      </p>
+      <p className="text-xs text-muted-foreground">{t('namedSet.members', { count: card.members.length })}</p>
+      <ul className="list-disc ps-5" data-copilot-named-set-members>
+        {card.members.map((m) => (
+          <li key={m.key} data-copilot-named-set-member={m.kind}>
+            <bdi>{m.text}</bdi>
           </li>
         ))}
       </ul>
+      {s.state === 'kept' ? (
+        <>
+          <p className="flex items-center gap-1.5">
+            <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <bdi>{saysIn(s.line, i18n.language)}</bdi>
+          </p>
+          {toMine}
+        </>
+      ) : s.state === 'closed' ? (
+        <p className="text-xs text-muted-foreground" data-copilot-named-set-closed>
+          {s.message || t('namedSet.closed')}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button variant="primary" disabled={busy} onClick={readings.keepSet} data-copilot-named-set-keep>
+              {t('reading.keep')}
+            </Button>
+            <Button variant="text" disabled={busy} onClick={readings.notNowSet} data-copilot-named-set-not-now>
+              {t('reading.notNow')}
+            </Button>
+            {s.state === 'failed' && (
+              <span className="text-xs text-destructive" role="alert">
+                {t('reading.failed')}
+              </span>
+            )}
+          </div>
+          {s.state === 'full' && (
+            <>
+              <p className="text-xs text-destructive" role="alert" data-copilot-named-set-full>
+                {s.message || t('namedSet.full')}
+              </p>
+              {toMine}
+            </>
+          )}
+        </>
+      )}
     </section>
   )
 }
@@ -305,8 +509,136 @@ export function AnswerProvenance({
   )
 }
 
+/**
+ * The answer's SQL part (888, BackOffice 3673, spec 3632 Q33), right under its words: the "SQL, not a certified figure"
+ * mark, the count, the time and the cut line, every row, the tables read, and the statement folded with its own Copy.
+ * Column names, table names and the statement are machine values (`Ltr`); a cell may be a name in either script
+ * (`<bdi>`). Its footer holds Save (889, Q39): the reader's tap, never the model's, offered when a statement ran and gave
+ * columns and the answer's question is known; it opens the save dialog. Beside it, Edit (890, Q45) opens the SQL editor
+ * on the statement, for a SQL grant holder only.
+ */
+export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string }) {
+  const { t } = useTranslation('copilot')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState<AnalyticsItem | null>(null)
+  // 890: Edit opens the SQL editor on this statement, beside Save; for a SQL grant holder only.
+  // Q46: in a conversation opened on a SQL item, Edit opens that item's editor, where Save is the item's PUT.
+  const item = useCopilotConversation((s) => s.sqlItem)
+  const edit = sqlEditLink(sql, question, canUseSqlMode(useQuery(copilotSqlAccessQuery()).data), item)
+  // A new item is saved from an ordinary answer only: an opened item is saved through its own editor (Edit).
+  const canSave = item === null && sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
+  return (
+    <section aria-label={t('sql.result')} className="flex min-w-0 flex-col gap-2 text-xs" data-copilot-sql data-copilot-sql-ran={sql.ran ? 'yes' : 'no'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge sev="warn">
+          <span data-copilot-sql-mark>{t('sql.mark')}</span>
+        </StatusBadge>
+        {sql.ran ? (
+          <span className="text-muted-foreground" data-copilot-sql-count>
+            {t('sql.rows', { count: sql.rowCount, n: fsi(formatNumber(sql.rowCount)) })}
+            {' · '}
+            {t('sql.duration', { ms: fsi(formatNumber(sql.durationMs)) })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground" data-copilot-sql-not-ran>
+            {t('sql.notRan')}
+          </span>
+        )}
+      </div>
+      {sql.isCut && (
+        <p role="note" className="text-muted-foreground" data-copilot-sql-cut>
+          {t('sql.cut', { n: fsi(formatNumber(sql.rows.length)) })}
+        </p>
+      )}
+      {sql.columns.length > 0 && (
+        <div className="max-h-96 overflow-auto rounded-md border border-border/60" data-copilot-sql-rows>
+          <table className="min-w-full border-collapse">
+            <thead className="sticky top-0 bg-muted">
+              <tr>
+                {sql.columns.map((c, i) => (
+                  <th key={i} className="border-b border-border px-2 py-1 text-start font-semibold">
+                    <Ltr>{c}</Ltr>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sql.rows.map((row, r) => (
+                <tr key={r} data-copilot-sql-row>
+                  {row.map((cell, i) => (
+                    <td key={i} className="border-b border-border/60 px-2 py-1 text-start">
+                      {cell === null ? <span className="text-muted-foreground">{t('sql.null')}</span> : <bdi>{cell}</bdi>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {sql.tables.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground" data-copilot-sql-tables>
+          <span>{t('sql.tablesRead')}</span>
+          {sql.tables.map((name) => (
+            <span key={name} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground" data-copilot-sql-table={name}>
+              <Ltr>{name}</Ltr>
+            </span>
+          ))}
+        </p>
+      )}
+      {sql.statement !== '' && (
+        <details className="rounded-lg border border-border p-2" data-copilot-sql-statement>
+          <summary className="cursor-pointer select-none font-medium text-muted-foreground">{t('sql.statement')}</summary>
+          <div className="mt-2 flex flex-col items-start gap-1.5">
+            <pre dir="ltr" className="w-full overflow-x-auto whitespace-pre rounded bg-muted p-2 text-start font-mono text-[11px] text-foreground">
+              {sql.statement}
+            </pre>
+            <CopyAnswer text={sql.statement} label={t('sql.copy')} failed={t('sql.copyFailed')} />
+          </div>
+        </details>
+      )}
+      {(canSave || edit) && (
+        <div className="flex flex-wrap items-center gap-2" data-copilot-sql-footer>
+          {!canSave ? null : saved === null ? (
+            <Button variant="outlined" className="h-7 px-2 text-xs" onClick={() => setSaving(true)} data-copilot-sql-save-open>
+              <Save className="h-3.5 w-3.5" aria-hidden />
+              {t('sqlSave.open')}
+            </Button>
+          ) : (
+            <span className="text-muted-foreground" data-copilot-sql-saved={saved.id}>
+              {t('sqlSave.saved')}{' '}
+              <Link to={viewHref(saved.id)} className="text-primary underline underline-offset-2">
+                {t('sqlSave.openSaved')}
+              </Link>
+            </span>
+          )}
+          {edit && (
+            <Link to={edit.to} state={edit.state} className={buttonClass('outlined', 'h-7 px-2 text-xs')} data-copilot-sql-edit>
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t(item ? 'sql.editItem' : 'sql.edit')}
+            </Link>
+          )}
+          {saving && question !== undefined && (
+            <SqlSaveDialog
+              sql={sql}
+              question={question}
+              open
+              onClose={() => setSaving(false)}
+              onSaved={(item) => {
+                setSaved(item)
+                setSaving(false)
+                notify.success(t('sqlSave.saved'))
+              }}
+            />
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 /** Copy: the answer's text on the clipboard (clean, see `answerPlainText`); the button says Copied for a moment. */
-function CopyAnswer({ text }: { text: string }) {
+function CopyAnswer({ text, label, failed }: { text: string; label?: string; failed?: string }) {
   const { t } = useTranslation('copilot')
   const [done, setDone] = useState(false)
   useEffect(() => {
@@ -316,12 +648,12 @@ function CopyAnswer({ text }: { text: string }) {
   }, [done])
   const put = async () => {
     if ((await copyText(text)) === 'copied') setDone(true)
-    else notify.error(t('answer.copyFailed'))
+    else notify.error(failed ?? t('answer.copyFailed'))
   }
   return (
     <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => void put()} disabled={text === ''} data-copilot-copy={done ? 'done' : ''}>
       {done ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
-      {done ? t('answer.copied') : t('answer.copy')}
+      {done ? t('answer.copied') : (label ?? t('answer.copy'))}
     </Button>
   )
 }
@@ -413,10 +745,17 @@ export function AskQuestion({ view, onChoose }: { view: AskView; onChoose?: (cho
  */
 export function Answer({
   model,
+  withText = true,
+  question,
+  readings,
   onAsk,
   onChoose,
 }: {
   model: CopilotAnswerModel
+  /** 885: false when a proposal's card replaces the answer's text. */
+  withText?: boolean
+  question?: string
+  readings?: AnswerReadings
   onAsk?: (question: string) => void
   /** 872: the answer's ask is the one pending, with nothing in flight; a tap on a choice replies with it. */
   onChoose?: (choice: { key: string; label: string }) => void
@@ -439,12 +778,18 @@ export function Answer({
             )}
           </section>
         )
+      case 'sql':
+        return model.sql ? <SqlAnswer key={p} sql={model.sql} question={question} /> : null
       case 'tables':
         return <AnswerTables key={p} tables={model.tables} />
       case 'views':
         return <ViewLinks key={p} viewRefs={model.viewRefs} />
       case 'assumptions':
-        return <Assumptions key={p} assumptions={model.assumptions} />
+        return <Assumptions key={p} model={model} readings={readings} />
+      case 'readingOffer':
+        return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} /> : null
+      case 'namedSet':
+        return model.namedSet && readings ? <NamedSetCardView key={p} set={model.namedSet} readings={readings} /> : null
       case 'reportEdit':
         return <ReportEditNote key={p} reportEdit={model.reportEdit} />
       case 'boardEdit':
@@ -457,7 +802,8 @@ export function Answer({
   }
   return (
     <>
-      {layout.parts.map(part)}
+      {/* 885: a proposed answer's text repeats its card's lines for a client that draws no card; the card replaces it. */}
+      {layout.parts.filter((p) => withText || p !== 'text').map(part)}
       <AnswerProvenance
         trace={model.trace}
         lookupsOpen={layout.lookups === 'open'}

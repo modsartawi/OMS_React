@@ -60,6 +60,27 @@ describe('panel opener (ticket 782)', () => {
     expect(panel.getState().takeDraft()).toBeNull()
   })
 
+  it('openSqlItem opens the panel and hands the SQL item over once, asking nothing (3632 Q46)', () => {
+    const panel = createCopilotPanel()
+    panel.getState().setAvailable(true)
+    panel.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    expect(panel.getState().open).toBe(true)
+    expect(panel.getState().takeQuestion()).toBeNull()
+    expect(panel.getState().takeSqlItem()).toEqual({ itemId: 'q1', revision: 3 })
+    expect(panel.getState().takeSqlItem()).toBeNull()
+  })
+
+  it('closing, or the copilot going away, drops a SQL item nobody took', () => {
+    const panel = createCopilotPanel()
+    panel.getState().setAvailable(true)
+    panel.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    panel.getState().close()
+    expect(panel.getState().takeSqlItem()).toBeNull()
+    panel.getState().openSqlItem({ itemId: 'q1', revision: 3 })
+    panel.getState().setAvailable(false)
+    expect(panel.getState().takeSqlItem()).toBeNull()
+  })
+
   it('without the copilot, a prefill is dropped', () => {
     const panel = createCopilotPanel()
     panel.getState().prefill('Anything')

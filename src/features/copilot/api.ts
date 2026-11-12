@@ -6,7 +6,9 @@
  * Non-streaming (D10): the panel shows its working state for the whole call.
  */
 import { api } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotReaderStarters, CopilotSteps } from '@/core/models/copilot'
+import type { AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsSqlItemCreate } from '@/core/models/analytics-sql'
+import type { CopilotAnswer, CopilotAskRequest, CopilotNamedSetKeepRequest, CopilotNamedSetKept, CopilotReaderStarters, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
 import { startersOrNothing } from './starters'
 import { stepsOrNothing } from './steps'
 
@@ -26,4 +28,41 @@ export const copilotApi = {
   starters(): Promise<CopilotReaderStarters | null> {
     return startersOrNothing(api.get<CopilotReaderStarters>('Copilot/Starters'))
   },
+  /** `POST Analytics/Item/Sql` (889, BackOffice 3675, spec 3632 Q39): a SQL answer saved as a Personal SQL item. The
+   *  server runs the statement once first; its refusals (`ANALYTICS-428`, `406`, `425`/`408`/`409`) arrive as an `ApiError`. */
+  saveSql(body: AnalyticsSqlItemCreate): Promise<AnalyticsItem> {
+    return api.post<AnalyticsItem>('Analytics/Item/Sql', body)
+  },
 }
+
+/**
+ * The offer to keep a reading (ticket 892, BackOffice 3686): Keep stores the reading the SERVER holds for `offerId`, Not
+ * now ends offers of its kind for the conversation. A refusal (`COPILOT-437` no longer open, `COPILOT-430` not allowed,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotReadingApi = {
+  /** `POST Copilot/Readings/Keep` `{ conversationId, offerId }` -> the kept reading and its confirmation line. */
+  keep(body: CopilotReadingOfferRequest): Promise<CopilotReadingKept> {
+    return api.post<CopilotReadingKept>('Copilot/Readings/Keep', body)
+  },
+  /** `POST Copilot/Readings/NotNow` `{ conversationId, offerId }`. */
+  notNow(body: CopilotReadingOfferRequest): Promise<CopilotReadingNotNow> {
+    return api.post<CopilotReadingNotNow>('Copilot/Readings/NotNow', body)
+  },
+}
+
+export type CopilotReadingDoors = typeof copilotReadingApi
+
+/**
+ * The named-set card's Keep (ticket 893, BackOffice 3687): stores the set the SERVER proposed as `proposalId`. Not now
+ * calls nothing. A refusal (`COPILOT-434` at the limit of 10 sets, `COPILOT-435` no longer open, `COPILOT-433`,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotNamedSetApi = {
+  /** `POST Copilot/NamedSets/Keep` `{ conversationId, proposalId }` -> the kept set and its confirmation line. */
+  keep(body: CopilotNamedSetKeepRequest): Promise<CopilotNamedSetKept> {
+    return api.post<CopilotNamedSetKept>('Copilot/NamedSets/Keep', body)
+  },
+}
+
+export type CopilotNamedSetDoors = typeof copilotNamedSetApi

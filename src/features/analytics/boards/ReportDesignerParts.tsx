@@ -262,7 +262,11 @@ export function useNames(model: AnalyticsModel, lang: string) {
   return {
     section: (heading: AnalyticsLabel) => saysIn(heading, lang) || t('designer.section.untitled'),
     block: (b: AnalyticsReportBlock) =>
-      b.kind === 'panel' ? saysIn(b.title, lang) || generatedTitle(b.definition, model, lang, t) || t('designer.block.untitledPanel') : t(`designer.block.${b.kind}`),
+      b.kind === 'panel' && b.engine === 'sql'
+        ? t('sqlEditor.mark')
+        : b.kind === 'panel'
+          ? saysIn(b.title, lang) || generatedTitle(b.definition, model, lang, t) || t('designer.block.untitledPanel')
+          : t(`designer.block.${b.kind}`),
   }
 }
 
@@ -494,7 +498,12 @@ export function BlockInspector({
           </span>
         )}
       </h2>
-      {block.kind === 'panel' ? (
+      {block.kind === 'panel' && block.engine === 'sql' ? (
+        // 891 (BackOffice 3677): a SQL item's block is held by reference; its SQL is the item's, edited in the SQL editor.
+        <p className="text-sm text-muted-foreground" data-designer-sql-block={block.viewId}>
+          {t('designer.sqlBlock')}
+        </p>
+      ) : block.kind === 'panel' ? (
         <ReportPanelEditor
           block={block}
           def={def}

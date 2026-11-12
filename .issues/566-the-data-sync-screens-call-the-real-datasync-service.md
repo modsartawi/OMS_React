@@ -56,3 +56,7 @@ The live drive is green against a real DataSync on the same HQ as SIS.Api, as op
 [563](563-a-technician-pauses-resumes-or-cancels-a-campaign-or-one-store-s-job.md),
 [564](564-a-technician-applies-a-profile-to-stores-with-actionsync-paused-first.md),
 [565](565-stores-whose-apply-succeeded-are-handed-back-to-actionsync-the-rest-stay-paused.md)
+
+## Comments
+
+- 2026-11-10 (spec 863): the live walk also covers 864-867 on DWOMS02 - a real StoreUnreachable job retried from its drawer, a real TableFailures store re-run as a linked campaign (and a second re-run leaving it out), and the store search / reason filter on a fleet campaign.

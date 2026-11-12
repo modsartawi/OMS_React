@@ -6,6 +6,7 @@ import type {
   AnalyticsParentReached,
   AnalyticsVariant,
 } from './analytics-calculations'
+import type { AnalyticsSqlPanelAnswer } from './analytics-sql'
 
 /**
  * The analytics doors' wire (spec 766 §C — PROPOSED, owned by BackOffice 3378 once filed).
@@ -32,6 +33,11 @@ export interface AnalyticsAccess {
   canView: boolean
   canAuthor: boolean
   canCurate: boolean
+  /**
+   * BackOffice 3672 (spec 3632 Q5, Q27): the SQL grant, held only beside the author grant. Shows the copilot's SQL mode
+   * toggle (oms-react 888) and the SQL editor (890). Absent (a pre-3672 server) reads as denied.
+   */
+  canSql?: boolean
 }
 
 export type MeasureShape = 'additive' | 'rate' | 'percentile'
@@ -112,6 +118,11 @@ export interface AnalyticsSemanticQuery {
   grain?: string | null
   limit?: number | null
   compareToPrevious?: boolean
+  /**
+   * BackOffice spec 3587 B7 (ticket 3604; web 876): compare with the same weeks last year — the period's own span 364
+   * days back, so each day falls on the same weekday. Alone or beside `compareToPrevious`. Absent = not asked.
+   */
+  compareToLastYear?: boolean
   /** Spec 3519 D1: shares, ratios, running shares and changes the server computes (`./analytics-calculations`). */
   calculations?: AnalyticsCalculation[] | null
   /** Spec 3543 D5 (3546): measures under their own filters; each key is also in `measures` (`./analytics-calculations`). */
@@ -258,6 +269,16 @@ export interface AnalyticsItem {
   folderId?: string | null
   /** 837 (3432 §3): when the item was deleted — only on `Items?deleted=true` rows; `null` otherwise. */
   deletedAt?: string | null
+  /**
+   * 886 (BackOffice spec 3631 S24, ticket 3662): set only when the item is the caller's report made for one of THEIR
+   * personal schedules — it opens read only, with a line saying it is sent to them on a schedule. Absent otherwise,
+   * and always while the personal-schedules switch is off.
+   */
+  personalScheduleId?: string
+  /** BackOffice 3675 (spec 3632 Q43): `sql` is a SQL item (`AnalyticsSqlItem`); anything else, or absent, is `cube`. */
+  engine?: 'cube' | 'sql'
+  /** BackOffice 3676 (Q44): a curator's "SQL, verified" mark; always false on a cube item. */
+  verified?: boolean
 }
 
 /** 837 (3432 §1): `GET Analytics/Folders` — one of the caller's own flat folders. */
@@ -381,6 +402,8 @@ export type AnalyticsParamQuery = (
   values: Record<string, ParamValue>
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export type AnalyticsViewQuery = (
@@ -400,6 +423,8 @@ export type AnalyticsViewQuery = (
    */
   crossFilter?: AnalyticsFilter | null
   compareToPrevious?: boolean
+  /** 876 (BackOffice 3604): overrides the view's own `compareToLastYear` when sent; absent = the view's own. */
+  compareToLastYear?: boolean
 }
 
 export interface AnalyticsColumn {
@@ -423,6 +448,13 @@ export interface AnalyticsColumn {
 /** Spec 3543 D12 (3548): an "All" row of a cross-area result also carries `isTotal: true` (`./analytics-calculations`). */
 export type AnalyticsRow = Record<string, string | number | boolean | null>
 
+/** One area whose last year is not held (BackOffice 3606): its key, the day its data starts (`yyyy-MM-dd`), its measures. */
+export interface AnalyticsLastYearNotHeld {
+  area: string
+  dataFrom: string
+  measures: string[]
+}
+
 export interface AnalyticsQueryResult {
   columns: AnalyticsColumn[]
   rows: AnalyticsRow[]
@@ -431,10 +463,27 @@ export interface AnalyticsQueryResult {
   period: { from: string; to: string } | null
   /** Present when `compareToPrevious` was asked. */
   previous: AnalyticsRow[]
+  /**
+   * BackOffice spec 3587 B9 (ticket 3604; web 876): the rows of the same weeks last year, with the columns of `rows`,
+   * when `compareToLastYear` was asked. Absent when it was not (the server leaves it off the wire, unlike `previous`).
+   */
+  lastYear?: AnalyticsRow[]
+  /** The dates `lastYear` covers: the period's own, 364 days back. Absent with `lastYear`. */
+  lastYearPeriod?: { from: string; to: string }
+  /**
+   * BackOffice spec 3587 B11 (ticket 3606; web 877): every area whose last year is NOT HELD — its data starts after the
+   * first day of last year's span — with the day its data starts and the query's measures it answers. Those figures have
+   * no last year: they are empty on every row of `lastYear` (never 0), and `lastYear` may be `[]`. Absent when every
+   * area holds the span, or when last year was not asked.
+   */
+  lastYearNotHeld?: AnalyticsLastYearNotHeld[]
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string
-  /** ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. */
+  /**
+   * ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. On a SQL panel
+   * (BackOffice 3677, Q48) it lists EVERY parameter of the board or report with reason `sqlPanel`.
+   */
   notReached?: { param: string; reason: string }[]
   /** ⚠ 819 §C (823): the parameters whose value was outside a declared list, so the default ran. Absent reads as none. */
   fellBack?: { param: string }[]
@@ -449,6 +498,13 @@ export interface AnalyticsQueryResult {
   notSplit?: AnalyticsFigureDimensions[]
   /** Spec 3543 D18 (3549), a cross-area result only: the figures left unfiltered by some filters. Absent = none. */
   notFiltered?: AnalyticsFigureDimensions[]
+  /**
+   * BackOffice 3677 (spec 3632 Q43): `'sql'` on a panel naming a SQL item; a Cube answer carries NO `engine` (absent =
+   * cube, spec 3587 B3). A SQL panel's `columns`/`rows` are empty and its run is in `sql`.
+   */
+  engine?: 'sql'
+  /** A SQL panel's item and run (`AnalyticsSqlPanelAnswer`); present exactly when `engine` is `'sql'`. */
+  sql?: AnalyticsSqlPanelAnswer
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────
@@ -497,7 +553,12 @@ export type AnalyticsBoardPanel =
    * `optOut`: v1's opt-outs. Since 819 only `crossFilter` is read from it (the cross-filter keeps its
    * opt-out); the six ready-made parameters reach a panel through the board's `bindings`.
    */
-  | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[] }
+  /**
+   * `engine`: BackOffice 3677 (spec 3632 Q43) — `'sql'` on a panel naming a SQL item, computed on the board's read and
+   * dropped by the server from any save; absent on every other panel. Such a panel asks `Analytics/Query` by item and
+   * panel as any other, and its answer is a SQL panel's (`AnalyticsQueryResult.sql`).
+   */
+  | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[]; engine?: 'sql' }
   | { id: string; kind: 'text'; text: AnalyticsLabel; layout: BoardLayout }
   | { id: string; kind: 'section'; title: AnalyticsLabel; layout: BoardLayout }
 
@@ -586,9 +647,30 @@ export type AnalyticsReportBlock =
       from?: { viewId: string; revision: number } | null
       /** Computed by the server: the source view has been saved since the copy. */
       sourceChangedSinceCopy?: boolean
+      engine?: undefined
     }
+  | AnalyticsReportSqlBlock
   | { id: string; kind: 'text'; text: AnalyticsLabel }
   | { id: string; kind: 'summary' }
+
+/**
+ * BackOffice 3677 (spec 3632 Q43, Q47): a report panel block holding a SQL item **by reference** — it has no analytics
+ * query to copy inline, so no `definition` and no `title` (the item's own title is drawn, from the panel's answer).
+ * `engine: 'sql'` is computed on read (`GET Analytics/Item/{id}` and the print page's `Analytics/Render/Report/{id}`)
+ * and dropped by the server on save, so a save sends `{ id, kind: 'panel', viewId }`.
+ *
+ * ```
+ * POST/PUT Analytics/Item (report)   411 at sections[i].blocks[j].viewId: badShape (a definition too) |
+ *                                    unknownPanel (not a SQL item)
+ * ```
+ * A live figure cannot name a SQL block (`unknownPanel`); a deleted SQL item stays referenced.
+ */
+export interface AnalyticsReportSqlBlock {
+  id: string
+  kind: 'panel'
+  viewId: string
+  engine: 'sql'
+}
 
 export interface AnalyticsReportSection {
   id: string
@@ -937,4 +1019,55 @@ export interface AnalyticsRawPreview {
   rows: Record<string, AnalyticsRawValue>[]
   /** The table's columns not on the list. */
   hiddenColumnCount: number
+}
+
+// ── My schedules (BackOffice spec 3631 S24/S30, ticket 3662's contract; oms-react 886) ────────────────────────
+// Doors (cookie session, the view grant; any `{sid}` not the caller's own personal schedule is `ANALYTICS-404`, and
+// every door answers `ANALYTICS-424` while `Copilot:Schedule:Propose` is off — the page is then not offered):
+//   GET    Analytics/MySchedules             → AnalyticsPersonalScheduleWire[], oldest first
+//   POST   Analytics/MySchedules/{sid}/Pause  → AnalyticsPersonalScheduleWire
+//   POST   Analytics/MySchedules/{sid}/Resume → AnalyticsPersonalScheduleWire
+//   PUT    Analytics/MySchedules/{sid}/Time   AnalyticsPersonalScheduleTimeBody  → AnalyticsPersonalScheduleWire
+//          (`ANALYTICS-411` `data.problems[] { field, reason, message }`; `ANALYTICS-414` `noCompanyEmail`)
+//   PUT    Analytics/MySchedules/{sid}/Title  AnalyticsPersonalScheduleTitleBody → AnalyticsPersonalScheduleWire
+//          (trimmed, cut to 80, kept in both languages; blank is `ANALYTICS-411` `title`/`required`)
+//   DELETE Analytics/MySchedules/{sid}        → true; the report made for it is deleted too
+//   GET    Analytics/Item/{reportId}          carries `personalScheduleId` (above)
+
+/** The server's weekday names. */
+export type AnalyticsWeekdayName = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
+
+/** One personal schedule exactly as `GET Analytics/MySchedules` sends it (3662 "Wire / contract"). */
+export interface AnalyticsPersonalScheduleWire {
+  id: string
+  /** The Personal report made for it: `GET Analytics/Item/{reportId}`. */
+  reportId: string
+  /** Both hold the reader's words. */
+  title: { en: string; ar: string }
+  /** `day`: `'1'`..`'28'` or `'last'`. */
+  cadence: { kind: 'daily' | 'weekly' | 'monthly'; days: AnalyticsWeekdayName[] | null; day: string | null }
+  /** `HH:mm`, Riyadh. */
+  time: string
+  timeZone: 'Asia/Riyadh'
+  lang: 'en' | 'ar'
+  paused: boolean
+  /** The worker's (3661), e.g. reason `ownerNoRun`. */
+  suspended: { reason: string; at: string } | null
+  /** `yyyy-MM-ddTHH:mm` local; null while paused or suspended. */
+  nextSend: string | null
+  periodLengthDays: number | null
+}
+
+/** A personal schedule as the screen holds it: the wire with its cadence read as any schedule's (`Weekday` numbers). */
+export type AnalyticsPersonalSchedule = Omit<AnalyticsPersonalScheduleWire, 'cadence'> & { cadence: AnalyticsScheduleCadence }
+
+/** `PUT …/{sid}/Time`: weekly days named `sun` … `sat`, a monthly day a number or `'last'`. */
+export interface AnalyticsPersonalScheduleTimeBody {
+  cadence: { kind: 'daily' } | { kind: 'weekly'; days: AnalyticsWeekdayName[] } | { kind: 'monthly'; day: number | 'last' }
+  time: string
+}
+
+/** `PUT …/{sid}/Title`. */
+export interface AnalyticsPersonalScheduleTitleBody {
+  title: string
 }

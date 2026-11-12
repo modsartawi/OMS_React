@@ -1,5 +1,5 @@
 /**
- * The controls' pure logic (spec 558, ticket 563): which Pause / Resume / Cancel a campaign or a
+ * The controls' pure logic (spec 558, ticket 563; Retry ticket 866): which Pause / Resume / Cancel / Retry a campaign or a
  * job offers, the body each control sends, and a refusal in words. No React, no network — pinned by
  * `control-helpers.test.ts`. 564 and 565 reuse `controlRefusalWords` and `isOperateDenied`.
  *
@@ -12,7 +12,7 @@
 import { isBareDenial } from '@/core/api'
 import type { CampaignStatus, ControlRequest, JobStatus } from '@/core/models/data-sync'
 
-export type ControlAction = 'Pause' | 'Resume' | 'Cancel'
+export type ControlAction = 'Pause' | 'Resume' | 'Cancel' | 'Retry'
 
 /** What a control acts on: the door's segment (`Campaigns/{id}/…` or `Jobs/{id}/…`). */
 export type ControlScope = 'campaign' | 'job'
@@ -40,23 +40,38 @@ const JOB_MOVES: Record<JobStatus, readonly ControlAction[]> = {
   Cancelled: NONE,
 }
 
-function movesFor<K extends string>(table: Record<K, readonly ControlAction[]>, status: string, canOperate: boolean): ControlAction[] {
-  // A status newer than this bundle (or a key off Object.prototype) offers nothing.
+/**
+ * Retry (ticket 866, engine spec §2.6) is NOT a status move: the server decides it and says so in
+ * `Job.retryable` / `Campaign.retryableJobs` (only StoreUnreachable / TargetUnresolved, never under a
+ * cancel). The page reads that answer rather than re-deriving the rule, and puts Retry last.
+ */
+function movesFor<K extends string>(
+  table: Record<K, readonly ControlAction[]>,
+  status: string,
+  canOperate: boolean,
+  retry: boolean,
+): ControlAction[] {
+  // A status newer than this bundle (or a key off Object.prototype) offers nothing — not even Retry.
   if (!canOperate || !Object.hasOwn(table, status)) return []
-  return [...table[status as K]]
+  const moves = [...table[status as K]]
+  if (retry) moves.push('Retry')
+  return moves
 }
 
-/** The controls a campaign offers, in button order. Nothing without `DataSync.Operate`. */
-export function campaignControls(status: string, canOperate: boolean): ControlAction[] {
-  return movesFor(CAMPAIGN_MOVES, status, canOperate)
+/**
+ * The controls a campaign offers, in button order; `retryableJobs > 0` adds *Retry N retryable*.
+ * Nothing without `DataSync.Operate`.
+ */
+export function campaignControls(status: string, canOperate: boolean, retryableJobs = 0): ControlAction[] {
+  return movesFor(CAMPAIGN_MOVES, status, canOperate, retryableJobs > 0)
 }
 
-/** The controls one job offers, in button order. Nothing without `DataSync.Operate`. */
-export function jobControls(status: string, canOperate: boolean): ControlAction[] {
-  return movesFor(JOB_MOVES, status, canOperate)
+/** The controls one job offers, in button order; a `retryable` job adds Retry. Nothing without `DataSync.Operate`. */
+export function jobControls(status: string, canOperate: boolean, retryable = false): ControlAction[] {
+  return movesFor(JOB_MOVES, status, canOperate, retryable)
 }
 
-/** Pause and Cancel carry an optional note (`ControlRequest.reason`); Resume sends none. */
+/** Pause, Cancel and Retry carry an optional note (`ControlRequest.reason`); Resume sends none. */
 export const controlTakesNote = (action: ControlAction): boolean => action !== 'Resume'
 
 /** The control's body: the note trimmed, or nothing — a blank note is no note ([CODE] trims too). */
@@ -76,12 +91,25 @@ const REFUSAL_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * A control refusal's own sentence (`controls.refusal.<code>`), shown in the dialog beside the
- * door's message; `null` for a code it does not handle (the dialog then shows the door's message
- * and the raw code only).
+ * Retry's 409s mean something else than the same codes on Pause / Resume (ticket 866): INVALID_STATE
+ * is "nothing retryable any more, or the campaign is cancelling / cancelled", and BUSY says retry,
+ * not resume, once ActionSync is paused. They get their own sentences (`controls.retryRefusal.<code>`).
  */
-export function controlRefusalWords(code: string | null): string | null {
-  return code && REFUSAL_CODES.has(code) ? `controls.refusal.${code}` : null
+const RETRY_REFUSAL_CODES: ReadonlySet<string> = new Set([
+  'DATASYNC_INVALID_STATE',
+  'DATASYNC_STORE_BUSY',
+  'DATASYNC_STORE_WPF_HOSTED',
+])
+
+/**
+ * A control refusal's own sentence (`controls.refusal.<code>`, or `controls.retryRefusal.<code>` for
+ * a Retry), shown in the dialog beside the door's message; `null` for a code it does not handle (the
+ * dialog then shows the door's message and the raw code only).
+ */
+export function controlRefusalWords(code: string | null, action?: ControlAction): string | null {
+  if (!code) return null
+  if (action === 'Retry' && RETRY_REFUSAL_CODES.has(code)) return `controls.retryRefusal.${code}`
+  return REFUSAL_CODES.has(code) ? `controls.refusal.${code}` : null
 }
 
 /**

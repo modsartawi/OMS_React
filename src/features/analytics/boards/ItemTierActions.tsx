@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { BadgeCheck, BadgeX, Lock, Share2, ShieldAlert, Trash2, UserRoundCog, UsersRound } from 'lucide-react'
-import { itemHref } from '@/core/analytics-routes'
+import { itemHref, MY_SCHEDULES_PATH } from '@/core/analytics-routes'
 import type { AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 import Modal from '@/core/ui/Modal'
 import { needsAuthor } from './access'
-import { needsCurator, type TierActionKey } from './item-tier'
+import { needsCurator, personalReportScheduled, type TierActionKey } from './item-tier'
 import ShareDialog, { ReassignDialog } from './ShareDialog'
 import { useItemTier } from './use-item-tier'
 import ViewDeletePrompt, { useViewDeleteCheck } from './ViewDeletePrompt'
@@ -39,7 +39,8 @@ const isDialog = (key: TierActionKey): key is DialogKey => key === 'share' || ke
  * curator's Certify (or Certify this revision into the existing certified copy), Un-certify and Delete. An action
  * the actor cannot take is not shown. A refusal is worded beside them; `ANALYTICS-402` says the curator grant
  * is gone, and the curator's actions are hidden from then on; `ANALYTICS-415` (822) the author grant, and every
- * author's action hides.
+ * author's action hides. `ANALYTICS-419` (BO 3666): a personal schedule sends this report — worded with a link to
+ * My schedules, where that schedule (and the report made for it) is deleted.
  */
 export default function ItemTierActions({ item, startShare = false }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport; startShare?: boolean }) {
   const { t } = useTranslation('boards')
@@ -100,11 +101,21 @@ export default function ItemTierActions({ item, startShare = false }: { item: An
         <p
           className="flex max-w-md items-start gap-1 text-xs text-attention-800"
           role="alert"
-          data-analytics-tier-refusal={needsCurator(tier.error) ? 'needs-curator' : needsAuthor(tier.error) ? 'needs-author' : 'other'}
+          data-analytics-tier-refusal={
+            needsCurator(tier.error) ? 'needs-curator' : needsAuthor(tier.error) ? 'needs-author' : personalReportScheduled(tier.error) ? 'personal-scheduled' : 'other'
+          }
         >
           <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
             <bdi>{refusedWords}</bdi>
+            {personalReportScheduled(tier.error) && (
+              <>
+                {' '}
+                <Link to={MY_SCHEDULES_PATH} className="font-medium text-primary underline underline-offset-2" data-analytics-my-schedules>
+                  {t('menu.mySchedules')}
+                </Link>
+              </>
+            )}
           </span>
         </p>
       )}

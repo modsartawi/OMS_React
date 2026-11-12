@@ -183,18 +183,22 @@
     "action": {
       "Pause": "Pause",
       "Resume": "Resume",
-      "Cancel": "Cancel"
+      "Cancel": "Cancel",
+      "Retry": "Retry",
+      "RetryCampaign": "Retry {{count}} retryable"
     },
     "title": {
       "campaign": {
         "Pause": "Pause the campaign",
         "Resume": "Resume the campaign",
-        "Cancel": "Cancel the campaign"
+        "Cancel": "Cancel the campaign",
+        "Retry": "Retry the retryable jobs"
       },
       "job": {
         "Pause": "Pause the job for store {{store}}",
         "Resume": "Resume the job for store {{store}}",
-        "Cancel": "Cancel the job for store {{store}}"
+        "Cancel": "Cancel the job for store {{store}}",
+        "Retry": "Retry the job for store {{store}}"
       }
     },
     "actsOnCampaign": "Campaign",
@@ -203,12 +207,15 @@
       "campaign": {
         "Pause": "Pause takes effect at the next chunk boundary: running jobs show Pausing until they reach it, then Paused. Queued jobs are simply not started.",
         "Resume": "Resume re-queues the jobs a person paused. Jobs held because their store became busy resume on their own once it is safe.",
-        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back."
+        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back.",
+        "Retry_one": "Retry sends the one job whose store dropped out back to the queue with a fresh set of attempts. The store resumes from where it stopped: finished tables are not redone. A completed campaign shows Running again. Stores that failed on their data are not retried.",
+        "Retry_other": "Retry sends the {{count}} jobs whose store dropped out back to the queue with a fresh set of attempts. Each store resumes from where it stopped: finished tables are not redone. A completed campaign shows Running again. Stores that failed on their data are not retried."
       },
       "job": {
         "Pause": "Pause takes effect at the next chunk boundary: a running job shows Pausing until it reaches it, then Paused. A queued job is paused at once.",
         "Resume": "Resume puts the job back in the queue. An apply job checks again that its store is safe to write to.",
-        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back."
+        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back.",
+        "Retry": "Retry sends the job back to the queue with a fresh set of attempts. The store resumes from where it stopped: finished tables are not redone. An apply job checks again that its store is safe to write to."
       }
     },
     "reason": "Note (optional)",
@@ -227,6 +234,11 @@
       "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to. Cancel this job instead.",
       "DATASYNC_CAMPAIGN_NOT_FOUND": "DataSync no longer knows this campaign.",
       "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job."
+    },
+    "retryRefusal": {
+      "DATASYNC_INVALID_STATE": "Nothing here can be retried any more: the job already went back to the queue, or the campaign is cancelling or cancelled. The page now shows the current state.",
+      "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then retry this job.",
+      "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to, so retrying will not help. Cancel this job instead."
     }
   },
   "tableStatus": {
@@ -239,6 +251,13 @@
   "disposition": {
     "Applied": "Applied",
     "ReportedOnly": "Reported only"
+  },
+  "failureReason": {
+    "TableFailures": "Table failures",
+    "StoreUnreachable": "Store unreachable",
+    "StoreWpfHosted": "WPF-hosted store",
+    "TargetUnresolved": "Target unresolved",
+    "Error": "Unexpected error"
   },
   "failure": {
     "job": {
@@ -259,10 +278,14 @@
     "heading": "Jobs",
     "status": "Job status",
     "statusAny": "Any status",
+    "store": "Find a store",
+    "storePlaceholder": "Store code",
+    "failureReason": "Failure reason",
+    "failureReasonAny": "Any failure reason",
     "failed": "The jobs could not be loaded.",
     "loading": "Loading jobs…",
     "empty": "This campaign has no jobs.",
-    "emptyFiltered": "No jobs with this status.",
+    "emptyFiltered": "Nothing matches the filter.",
     "emptyPage": "No more jobs on this page.",
     "columns": {
       "store": "Store",
@@ -355,7 +378,10 @@
       "DATASYNC_PROFILE_NO_APPLY_TABLES": "None of the chosen tables may be applied. Run it as report only.",
       "DATASYNC_STORE_BUSY": "No target store is safe to apply yet. Pause them on ActionSync first.",
       "someStore": "one of the stores",
-      "someTable": "one of the tables"
+      "someTable": "one of the tables",
+      "DATASYNC_CAMPAIGN_NOT_FOUND": "The campaign this re-runs no longer exists. Close the dialog and start again from a campaign.",
+      "DATASYNC_RERUN_PROFILE_MISMATCH": "A re-run must use the original campaign's profile. Close the dialog and start again from the campaign.",
+      "DATASYNC_STORE_IN_LIVE_RERUN": "<v>{{store}}</v> is already in a live re-run of this campaign. Remove it, or cancel that re-run, and create again."
     }
   },
   "apply": {
@@ -482,5 +508,20 @@
     "stoppedHint": "ActionSync could not be reached.",
     "denied": "Resuming stores on ActionSync needs ActionSync Operate.",
     "unsentTitle": "Not sent, so still paused:"
+  },
+  "rerun": {
+    "open": "New campaign from failed (<n>{{figure}}</n>)",
+    "openHint": "A new campaign of the stores that failed on their data, with the tables they did not finish. Fix the cause first.",
+    "title": "New campaign from failed",
+    "offerFailed": "Could not read the failed stores to re-run. Try again.",
+    "intro": "Re-runs the stores of <v>{{name}}</v> that failed on their data, with only the tables they did not finish. Drop any store or table you have not fixed yet.",
+    "profileLocked": "A re-run keeps the original campaign's profile.",
+    "wpfLeftOut_one": "<n>{{figure}}</n> WPF-hosted store was left out: an Apply campaign can never write to it.",
+    "wpfLeftOut_other": "<n>{{figure}}</n> WPF-hosted stores were left out: an Apply campaign can never write to them.",
+    "excluded": "<v>{{store}}</v> is already in re-run <id>{{campaign}}</id>.",
+    "reasonHint": "Write what was fixed, so the audit says why these stores are run again.",
+    "loading": "Reading the failed stores…",
+    "of": "Re-run of",
+    "by": "Re-run by"
   }
 }

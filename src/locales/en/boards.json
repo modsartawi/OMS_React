@@ -8,7 +8,8 @@
     "shared": "Shared with me",
     "certified": "Certified",
     "catalog": "Catalog",
-    "deleted": "Recently deleted"
+    "deleted": "Recently deleted",
+    "mySchedules": "My schedules"
   },
   "pin": {
     "pinLabel": "Pin {{title}} to Home",
@@ -437,6 +438,10 @@
     "notSharedTitle": "This view isn’t shared with you",
     "seriesColumn": "Series",
     "previousColumn": "{{measure}} (previous period)",
+    "lastYearColumn": "{{measure}} (last year, {{range}})",
+    "lastYearSeries": "Last year ({{range}})",
+    "lastYearNotHeld": "Last year is not shown for {{measures}}: the data starts on {{day}}.",
+    "lastYearNotHeldNoDay": "Last year is not shown for {{measures}}: the data does not go back that far.",
     "allMembers": "All",
     "unsplit": {
       "notSplit": "{{measure}} cannot be split by {{by}}.",
@@ -460,7 +465,8 @@
     "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
     "invalidRecipient": "That recipient can't receive this report.",
     "needsCurator": "Raw previews of the data are for analytics curators only.",
-    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns."
+    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns.",
+    "personalScheduled": "One of your personal schedules sends this report, so it can't be deleted here. Delete that schedule in My schedules."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -469,7 +475,8 @@
   },
   "copilotTable": {
     "actions": "Table actions",
-    "openAsView": "Open as view"
+    "openAsView": "Open as view",
+    "computedColumns": "Open as view shows the table's query only, without {{columns}} (computed by the analysis)."
   },
   "panel": {
     "actions": "Panel actions",
@@ -547,6 +554,8 @@
     "compare": "Compare with the previous period",
     "compareHintKpi": "The tile shows ▲▼ against the period before.",
     "compareHintLine": "The previous period is drawn as a dashed line.",
+    "compareLastYear": "Compare with the same weeks last year",
+    "compareLastYearHint": "Last year is the same days, 364 days earlier, so every day falls on the same weekday.",
     "folds": "Past five members, the rest is drawn as “Other”.",
     "format": "Number format",
     "legend": "Legend",
@@ -694,8 +703,17 @@
         "shareOfTotal": "Share of total",
         "ratio": "Ratio of two measures",
         "cumulativeShare": "Running share",
-        "change": "Change from the previous period",
+        "change": "Change from an earlier period",
         "average": "Average (one measure per another)"
+      },
+      "from": "Compared with",
+      "fromName": {
+        "previous": "The previous period",
+        "lastYear": "The same weeks last year"
+      },
+      "fromTurnsOn": {
+        "previous": "Adding it turns on compare with the previous period.",
+        "lastYear": "Adding it turns on compare with the same weeks last year."
       },
       "measure": "Of the measure",
       "of": "As a percentage of",
@@ -721,7 +739,7 @@
         "noAdditive": "Needs a measure that adds up (a count or an amount), not a rate or a percentile.",
         "noPair": "Needs two measures that add up, in the same unit.",
         "noTwo": "Needs two measures that add up (a count or an amount).",
-        "needsCompare": "Turn on compare with the previous period first.",
+        "needsCompare": "Turn on a comparison first: the previous period, or the same weeks last year.",
         "runningDate": "A running share cannot be broken down by date.",
         "runningSeries": "A running share cannot be used with named series.",
         "runningOnce": "A query takes one running share."
@@ -729,6 +747,7 @@
       "dropped": {
         "measure": "Removed “{{calculation}}”: it used a measure that is no longer in the query.",
         "compare": "Removed “{{calculation}}”: a change needs compare with the previous period.",
+        "lastYear": "Removed “{{calculation}}”: a change from last year needs compare with the same weeks last year.",
         "runningDate": "Removed “{{calculation}}”: a running share cannot be broken down by date.",
         "runningSeries": "Removed “{{calculation}}”: a running share cannot be used with named series.",
         "within": "Removed “{{calculation}}”: the breakdowns it was within changed."
@@ -1437,6 +1456,7 @@
     "unsaved": "Save the item once first: the copilot edits a saved item."
   },
   "designer": {
+    "sqlBlock": "This block shows a SQL item, held by reference. Its SQL is the item's own: open it in the SQL editor to change it.",
     "newTitle": "New report",
     "editTitle": "Edit report",
     "subtitle": "Lay out the report: sections and blocks, every change undoable",
@@ -1634,6 +1654,7 @@
       "ratio": "{{measure}} as % of {{of}}",
       "cumulativeShare": "Running share of {{measure}}",
       "change": "Change in {{measure}}",
+      "changeLastYear": "Change in {{measure}} from last year",
       "average": "{{measure}} per {{of}}",
       "shareOfTotalWithin": "Share of {{measure}} in each {{within}}",
       "cumulativeShareWithin": "Running share of {{measure}} in each {{within}}"
@@ -1643,5 +1664,115 @@
   },
   "variant": {
     "label": "{{measure}} ({{values}})"
+  },
+  "mySchedules": {
+    "title": "My schedules",
+    "subtitle": "The reports sent to you on a schedule",
+    "intro": "Each schedule emails you its report at the time shown (Riyadh time). Pause it, change when it is sent, rename it or delete it here.",
+    "loading": "Loading your schedules…",
+    "loadFailed": "Your schedules could not be loaded",
+    "off": "Personal schedules are not available.",
+    "none": "You have no personal schedules. Ask the copilot to send you a report on a schedule.",
+    "col": {
+      "title": "Title",
+      "when": "Days and time",
+      "nextSend": "Next send",
+      "state": "State",
+      "actions": "Actions"
+    },
+    "state": {
+      "active": "Running",
+      "paused": "Paused",
+      "suspended": "Suspended"
+    },
+    "noNextSend": "Not while paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "retime": "Change time",
+    "rename": "Rename",
+    "delete": "Delete",
+    "retimeTitle": "When {{title}} is sent",
+    "renameTitle": "Rename {{title}}",
+    "titleLabel": "Title",
+    "titleHint": "Up to 80 characters",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete {{title}}?",
+    "deleteBody": "The schedule stops and the report made for it is deleted too. This cannot be undone.",
+    "deleteConfirm": "Delete schedule and report",
+    "failed": "That did not work",
+    "paused": "Paused",
+    "resumed": "Resumed",
+    "retimed": "The time was changed",
+    "renamed": "Renamed",
+    "deleted": "Deleted, with its report",
+    "line": "This report is sent to you on a schedule.",
+    "lineLink": "My schedules"
+  },
+  "sqlPanel": {
+    "filtersDoNotApply": "Filters do not apply to this SQL panel.",
+    "cannotRun": "This SQL panel can no longer run:",
+    "notRun": "This SQL panel has not run yet.",
+    "loading": "Running the SQL…",
+    "openSql": "Open the SQL",
+    "openSqlLabel": "Open the SQL behind {{title}}",
+    "ranAt": "Ran <at>{{at}}</at>",
+    "untitled": "SQL item"
+  },
+  "sqlEditor": {
+    "changeByAsking": "Change by asking",
+    "changeByAskingHint": "Open this item in the copilot in SQL mode and change its statement by asking",
+    "verifyStale": "This item changed since you opened it: {{by}} saved revision {{revision}} at {{at}}. It has been reloaded; check it and verify again.",
+    "verifyStaleUnknown": "This item changed since you opened it. It has been reloaded; check it and verify again.",
+    "title": "SQL editor",
+    "subtitle": "Write, run and save one read-only SQL statement over the analytics tables.",
+    "loading": "Loading the SQL item…",
+    "loadFailed": "The SQL item could not be loaded",
+    "newTitle": "New SQL item",
+    "mark": "SQL",
+    "markVerified": "SQL, verified",
+    "edit": "Edit SQL",
+    "verify": "Verify",
+    "unverify": "Remove verified",
+    "verifiedDone": "Marked as verified",
+    "unverifiedDone": "The verified mark was removed",
+    "verifyFailed": "The verified mark could not be changed",
+    "question": "Asked:",
+    "titleEn": "Title (English)",
+    "titleAr": "Title (Arabic)",
+    "needsTitle": "Give it a title to save it.",
+    "statement": "SQL statement",
+    "readOnly": "Read only: changing it needs the SQL grant, and the item must be yours, or you a curator.",
+    "run": "Run",
+    "running": "Running…",
+    "runFailed": "The statement could not be run",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved as revision {{revision}}",
+    "saveFailed": "The SQL item could not be saved",
+    "removesVerified": "This changes the statement of a verified item: saving it removes the verified mark until a curator verifies it again.",
+    "result": "SQL result",
+    "rows_one": "{{n}} row",
+    "rows_other": "{{n}} rows",
+    "duration": "{{ms}} ms",
+    "cut": "More rows than the limit: only the first {{n}} are shown.",
+    "null": "NULL",
+    "tablesRead": "Tables read:",
+    "at": "Line {{line}}, column {{column}}",
+    "reason": {
+      "not-parsed": "The statement could not be read as SQL.",
+      "not-one-select": "Only one SELECT statement can be run.",
+      "table-not-allowed": "The statement reads a table that is not open to SQL.",
+      "column-not-allowed": "The statement reads a column that is not open to SQL.",
+      "join-not-on-list": "The statement joins tables in a way that is not allowed.",
+      "facts-not-grouped": "Rows from a facts table must be grouped (summed or counted), not listed one by one.",
+      "function-not-allowed": "The statement uses a function that is not allowed.",
+      "too-long": "The statement is too long.",
+      "busy": "Too many statements are running. Try again in a moment.",
+      "timed-out": "The statement took too long and was stopped.",
+      "not-available": "SQL is not available right now.",
+      "needs-sql-grant": "Running SQL needs the SQL grant.",
+      "unknown": "The statement was refused."
+    }
   }
 }

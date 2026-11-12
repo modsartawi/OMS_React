@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import type { CopilotAnswer, CopilotPromptVersion } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotPromptVersion, CopilotReaderReadings } from '@/core/models/copilot'
 import {
   RULES_MAX,
   canSaveRules,
@@ -14,6 +14,7 @@ import {
   READINGS_MAX,
   readingsTooLong,
   refusedField,
+  readerCountRows,
   rulesTooLong,
   saveRequest,
   tryRequest,
@@ -507,5 +508,49 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
     expect(starterOfField('houseRules')).toBeNull()
     expect(starterOfField('starters.managers[0]')).toBeNull()
     expect(starterOfField(null)).toBeNull()
+  })
+})
+
+describe("the curators' counts of readers' own readings (895, BackOffice 3633 R30 / 3691)", () => {
+  // The wire's worked example (3691 build notes), with one value under the threshold slipped in.
+  const wire: CopilotReaderReadings = {
+    minimumReaders: 5,
+    kinds: [
+      { kind: 'comparison', readers: 10, values: [{ value: 'none', readers: 5 }, { value: 'both', readers: 2 }], other: 5 },
+      { kind: 'period', readers: 8, values: [{ value: 'last-7-days', readers: 6 }], other: null },
+      {
+        kind: 'money-base',
+        readers: 6,
+        values: [{ value: 'net_till_value_sar', readers: 6, label: { en: 'Net till value', ar: 'صافي قيمة الصندوق' } }],
+        other: null,
+      },
+    ],
+  }
+
+  it('readerCountRows_drawsTheFourKindsInOrder_eachWithItsCount_andNothingForAHiddenValue', () => {
+    expect(readerCountRows(wire)).toEqual([
+      { kind: 'period', readers: 8, values: [{ value: 'last-7-days', readers: 6, label: null }], other: null },
+      { kind: 'comparison', readers: 10, values: [{ value: 'none', readers: 5, label: null }], other: 5 },
+      { kind: 'scope', readers: 0, values: [], other: null },
+      {
+        kind: 'money-base',
+        readers: 6,
+        values: [{ value: 'net_till_value_sar', readers: 6, label: { en: 'Net till value', ar: 'صافي قيمة الصندوق' } }],
+        other: null,
+      },
+    ])
+  })
+
+  it('readerCountRows_anOtherUnderTheThresholdIsNotShown_andTheSwitchOffIsNoSection', () => {
+    const rows = readerCountRows({ minimumReaders: 5, kinds: [{ kind: 'scope', readers: 7, values: [], other: 3 }] })
+    expect(rows?.find((r) => r.kind === 'scope')).toEqual({ kind: 'scope', readers: 7, values: [], other: null })
+    expect(readerCountRows(undefined)).toBeNull()
+    expect(readerCountRows(null)).toBeNull()
+  })
+
+  it('fromPromptWire_carriesTheCountsOnlyWhenTheServerSendsThem', () => {
+    const base = { core: 'c', houseRules: 'r', version: 1, savedBy: 'a', savedAt: '', note: '', maxLength: 4000 }
+    expect(fromPromptWire(base).readerCounts).toBeUndefined()
+    expect(fromPromptWire({ ...base, readerReadings: wire }).readerCounts?.map((r) => r.kind)).toEqual(['period', 'comparison', 'scope', 'money-base'])
   })
 })

@@ -1,4 +1,4 @@
-import type { AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, Param } from '@/core/models/analytics'
+import type { AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition, AnalyticsReportSqlBlock, Param } from '@/core/models/analytics'
 import { validate } from './bindings'
 import type { DeclarationProblem, FigureProblem } from './editor-refusal'
 import type { ViewPanel } from './effective-query'
@@ -12,13 +12,15 @@ import { valueOf, type ParamValues } from './params'
  * asks the Words door.
  */
 
-export type ReportPanelBlock = Extract<AnalyticsReportBlock, { kind: 'panel' }>
+/** A report's Cube panel block: its view definition inline. A SQL block (`AnalyticsReportSqlBlock`, 891) is not one. */
+export type ReportPanelBlock = Exclude<Extract<AnalyticsReportBlock, { kind: 'panel' }>, AnalyticsReportSqlBlock>
 
 /** Every block, section by section, top to bottom. */
 export const reportBlocks = (def: AnalyticsReportDefinition): AnalyticsReportBlock[] => def.sections.flatMap((s) => s.blocks)
 
 /** The panel blocks, top to bottom: what a run asks `Analytics/Query` for, one `panelId` each. */
-export const reportPanels = (def: AnalyticsReportDefinition): ReportPanelBlock[] => reportBlocks(def).filter((b): b is ReportPanelBlock => b.kind === 'panel')
+export const reportPanels = (def: AnalyticsReportDefinition): ReportPanelBlock[] =>
+  reportBlocks(def).filter((b): b is ReportPanelBlock => b.kind === 'panel' && b.engine !== 'sql')
 
 /** Whether a run asks `Analytics/Report/{id}/Words`: some text names a live figure (in either language), or there is a summary. */
 export const wordsAsked = (def: AnalyticsReportDefinition): boolean =>

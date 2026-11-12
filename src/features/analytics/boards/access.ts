@@ -41,6 +41,13 @@ export const canCurateAnalytics = (r: AnalyticsAccess | null | undefined): boole
 export const canAuthorAnalytics = (r: AnalyticsAccess | null | undefined): boolean =>
   canViewAnalytics(r) && (r?.canAuthor === true || r?.canCurate === true)
 
+/**
+ * 890 (BackOffice 3672, spec 3632 Q45): the SQL grant, which shows the SQL editor (Run, Save, Restore). The server holds
+ * it only beside the author grant; read on `canView` and `=== true`, so a pre-3672 answer (no `canSql`) is a denial.
+ * The copilot reads the same field through its own probe (`canUseSqlMode`): a feature may not import another.
+ */
+export const canEditSql = (r: AnalyticsAccess | null | undefined): boolean => canViewAnalytics(r) && r?.canSql === true
+
 /** `ANALYTICS-415` "needs the author grant": a stale probe offered an author's action. */
 export const needsAuthor = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-415'
 
@@ -61,4 +68,25 @@ export const analyticsAccessApi = {
   access(): Promise<AnalyticsAccess> {
     return api.get<AnalyticsAccess>('Analytics/Access')
   },
+}
+
+/**
+ * 886 (BackOffice spec 3631 S30, contract 3662): the "My schedules" leaf's probe. Its own key, apart from the page's
+ * list (`ANALYTICS_MY_SCHEDULES_KEY` in `./api`, which holds the READ rows): this one caches only whether the page is
+ * offered, so the menu stays off `./api`'s bundle.
+ */
+export const MY_SCHEDULES_OFFERED_KEY = ['analytics', 'mySchedules', 'offered'] as const
+
+/**
+ * Whether the page is offered: the list door answers (any reader with the view grant). `ANALYTICS-424` — the
+ * personal-schedules switch is off — is a plain no; any other failure is thrown, and the menu fails closed on it.
+ */
+export async function mySchedulesOffered(): Promise<boolean> {
+  try {
+    await api.get<unknown>('Analytics/MySchedules')
+    return true
+  } catch (err) {
+    if (apiErrorCode(err) === 'ANALYTICS-424') return false
+    throw err
+  }
 }

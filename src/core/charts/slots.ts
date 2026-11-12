@@ -75,9 +75,28 @@ export const CHART_INK = {
   legend: 'var(--foreground)',
   /** "Other" is ink grey (768), never a sixth hue. */
   other: 'var(--ink-3)',
+  /**
+   * The same weeks last year (877): the darker ink, so it reads apart from the previous period's ink grey without
+   * taking a palette slot (a slot is an entity's colour). 4.5:1 or more on every surface (the contrast gate's
+   * `--muted-foreground` rows).
+   */
+  lastYear: 'var(--muted-foreground)',
   card: 'var(--card)',
   cursor: 'var(--accent)',
 } as const
+
+/**
+ * A series' colour: its slot's token; "Other" and the previous period (no slot) in ink grey; last year (877) in the
+ * darker ink — the two comparisons are never the same grey.
+ */
+export function seriesColour(series: { slot: number | null; previous?: boolean; lastYear?: boolean }): string {
+  return series.lastYear ? CHART_INK.lastYear : slotColour(series.slot)
+}
+
+/** A line's dash: each comparison its own (the previous period long, last year short — 877), a plain series none. */
+export function seriesDash(series: { previous?: boolean; lastYear?: boolean }): string | undefined {
+  return series.lastYear ? '2 3' : series.previous ? '5 4' : undefined
+}
 
 /**
  * A series chart row's own fill (ticket 820). Recharts gives a data row's `fill` priority over a

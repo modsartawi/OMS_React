@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, TriangleAlert } from 'lucide-react'
-import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition } from '@/core/models/analytics'
+import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsReportDefinition } from '@/core/models/analytics'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -20,12 +20,14 @@ import { ChartFields, QueryFields } from './EditorFields'
 import { useAreaName } from './MeasurePicker'
 import {
   comparing,
+  comparingLastYear,
   fitted,
   panelArea,
   panelOffers,
   sourceChanged,
   withChoice,
   withComparing,
+  withComparingLastYear,
   withDimensions,
   withFilter,
   withGrain,
@@ -172,6 +174,8 @@ export default function ReportPanelEditor({
         }
         compare={comparing(view)}
         onCompare={(on) => setView((d) => withComparing(d, on, model))}
+        lastYear={comparingLastYear(view)}
+        onLastYear={(on) => setView((d) => withComparingLastYear(d, on, model))}
         sortKeys={sortKeys(view)}
         sortLocked={calcs.some((c) => c.kind === 'cumulativeShare')}
         perParent={calc.perParent}
@@ -192,7 +196,7 @@ export default function ReportPanelEditor({
       <CalculationFields
         model={model}
         lang={lang}
-        selection={{ measures, dimensions, series: seriesOf(view).length, compare: comparing(view), calculations: calcs }}
+        selection={{ measures, dimensions, series: seriesOf(view).length, compare: comparing(view), lastYear: comparingLastYear(view), calculations: calcs }}
         {...calc.fields(setView)}
       />
 
@@ -255,7 +259,7 @@ function PanelParams({
   lang,
   onBind,
 }: {
-  block: AnalyticsReportBlock & { kind: 'panel' }
+  block: PanelBlock
   def: AnalyticsReportDefinition
   model: AnalyticsModel
   lang: string

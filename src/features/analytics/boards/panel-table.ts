@@ -4,6 +4,7 @@ import { stripIsolates } from '@/core/util/bidi'
 import { xlsxFileName, type XlsxSheet } from '@/core/util/grid-xlsx'
 import { saysIn } from '@/core/rules/sentence'
 import { measureKeysOf } from './calculations'
+import { lastYearKey, lastYearMatcher, lastYearMeasures, lastYearRange } from './last-year'
 import { previousKey, previousMatcher, previousMeasures } from './previous-rows'
 import { seriesColumnOf, seriesName, seriesOf } from './series'
 import { isTotalRow, splitThenTotals } from './unsplit'
@@ -18,7 +19,9 @@ import { dimensionOf } from './wire'
  *
  * Exports go through the core xlsx writer and strip isolates (the bidi rule): no FSI…PDI ever reaches a
  * file, whatever a label or member carried. A view compared with the previous period has a previous column after
- * each of its measures (`./previous-rows`), so the downloads carry it too.
+ * each of its measures (`./previous-rows`), so the downloads carry it too; 877: a view compared with the same weeks
+ * last year has a last-year column after that, headed by last year's dates (`./last-year`) — none for a figure whose
+ * last year is not held.
  *
  * 864 (spec 3543 decision 12): a cross-area answer's "All" rows are listed LAST, after every split row, whatever order
  * they came in (`./unsplit`), and the dimension they total over reads `words.all` ("All").
@@ -42,6 +45,8 @@ export interface TableWords {
   series: string
   /** Spec 3519 item 11: a measure's previous-period column header. */
   previous?: (measure: string) => string
+  /** 877: a measure's last-year column header; `range` is last year's dates (`./last-year` `lastYearRange`). */
+  lastYear?: (measure: string, range: string) => string
   /** 864 (spec 3543 decision 12): what an "All" row's unsplit dimension reads. */
   all?: string
   /** 864 (spec 3543 decision 14): a measure column's header tooltip (`./unsplit` `columnTooltip`). */
@@ -75,6 +80,11 @@ export function panelTable(
   const withPrevious = new Set(previousMeasures(definition, result))
   const previousOf = previousMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
   const previousHeader = words.previous ?? previousKey
+  // 877: compared with the same weeks last year — a last-year column after the measure and its previous column.
+  const withLastYear = new Set(lastYearMeasures(definition, result))
+  const lastYearRowOf = lastYearMatcher(result, dimKeys, model, named.length ? [seriesKey] : [])
+  const lastYearHeader = words.lastYear ?? lastYearKey
+  const range = lastYearRange(result, lang)
 
   const namers = new Map(
     dimKeys.map((k) => {
@@ -88,9 +98,11 @@ export function panelTable(
     if (named.length) out[seriesKey] = seriesNames.get(String(r[seriesKey] ?? '')) ?? ''
     for (const k of dimKeys) out[k] = r[k] == null ? (isTotalRow(r) ? (words.all ?? '') : '') : namers.get(k)!.member(String(r[k]))
     const before = withPrevious.size ? previousOf(r) : undefined
+    const yearAgo = withLastYear.size ? lastYearRowOf(r) : undefined
     for (const k of measureKeys) {
       out[k] = num(r[k])
       if (withPrevious.has(k)) out[previousKey(k)] = num(before?.[k])
+      if (withLastYear.has(k)) out[lastYearKey(k)] = num(yearAgo?.[k])
     }
     return out
   })
@@ -108,7 +120,11 @@ export function panelTable(
         max: Math.max(0, ...rows.map((r) => Math.abs(num(r[key]) ?? 0))),
         ...(tooltip ? { tooltip } : {}),
       })
-      return withPrevious.has(k) ? [column(k, m.label), column(previousKey(k), previousHeader(m.label))] : [column(k, m.label)]
+      return [
+        column(k, m.label),
+        ...(withPrevious.has(k) ? [column(previousKey(k), previousHeader(m.label))] : []),
+        ...(withLastYear.has(k) ? [column(lastYearKey(k), lastYearHeader(m.label, range))] : []),
+      ]
     }),
   ]
   return { columns, rows }

@@ -34,6 +34,7 @@ import {
 } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
 import { readAudience } from './audience'
+import { readSqlPanelAnswer } from './sql-editor'
 
 /**
  * Reading the analytics wire (spec 766 §C, ticket 767) — defensively, because the doors are proposed
@@ -107,6 +108,13 @@ export const dimensionOf = (model: Pick<AnalyticsModel, 'dimensions'> | null | u
 export const valueLabel = (model: Pick<AnalyticsModel, 'dimensions'> | null | undefined, dimension: string, value: string, lang: string): string =>
   saysIn(dimensionOf(model, dimension)?.values.find((v) => v.key === value)?.label, lang) || value
 
+/** 877 (BackOffice 3606): each entry must name the figures it covers; anything else is left out. */
+const readLastYearNotHeld = (raw: unknown[]): NonNullable<AnalyticsQueryResult['lastYearNotHeld']> =>
+  raw
+    .map(obj)
+    .map((e) => ({ area: str(e.area), dataFrom: str(e.dataFrom), measures: arr<unknown>(e.measures).filter((m): m is string => typeof m === 'string' && m !== '') }))
+    .filter((e) => e.measures.length > 0)
+
 export function readResult(raw: Loose): AnalyticsQueryResult {
   const r = obj(raw)
   const period = obj(r.period)
@@ -127,6 +135,11 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     truncated: r.truncated === true,
     period: r.period ? { from: str(period.from), to: str(period.to) } : null,
     previous: arr<AnalyticsRow>(r.previous),
+    // 876 (BackOffice 3604): last year's rows and dates ride only when asked; absent stays absent.
+    ...(Array.isArray(r.lastYear) ? { lastYear: arr<AnalyticsRow>(r.lastYear) } : {}),
+    ...(r.lastYearPeriod && typeof r.lastYearPeriod === 'object' ? { lastYearPeriod: { from: str(obj(r.lastYearPeriod).from), to: str(obj(r.lastYearPeriod).to) } } : {}),
+    // 877 (BackOffice 3606): the areas whose last year is not held; absent (or null) stays absent.
+    ...(Array.isArray(r.lastYearNotHeld) ? { lastYearNotHeld: readLastYearNotHeld(r.lastYearNotHeld) } : {}),
     fetchedAt: str(r.fetchedAt),
     dataAsOf: str(r.dataAsOf),
     // 823: each entry must name its parameter; anything else is left out.
@@ -137,6 +150,8 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     // 864 (spec 3543 D12, D18): a cross-area result's unsplit and unfiltered figures; absent (or null) stays absent.
     ...(readFigureDimensions(r.notSplit) ? { notSplit: readFigureDimensions(r.notSplit) } : {}),
     ...(readFigureDimensions(r.notFiltered) ? { notFiltered: readFigureDimensions(r.notFiltered) } : {}),
+    // 891 (BackOffice 3677): a SQL panel's answer; a Cube answer carries no engine and stays the shape it always was.
+    ...(r.engine === 'sql' ? { engine: 'sql' as const, sql: readSqlPanelAnswer(r.sql) } : {}),
   }
 }
 
@@ -184,7 +199,14 @@ export function readItem(raw: Loose): AnalyticsItem {
     // 837 (BackOffice 3432): absent on a server before 3432 → unfiled, not deleted.
     folderId: str(i.folderId) || null,
     deletedAt: str(i.deletedAt) || null,
+    ...personalSchedule(i),
   } as AnalyticsItem
+}
+
+/** 886 (3662): the caller's personal-schedule mark — kept only when it names a schedule; absent otherwise. */
+const personalSchedule = (i: Record<string, unknown>): { personalScheduleId?: string } => {
+  const id = str(i.personalScheduleId)
+  return id ? { personalScheduleId: id } : { personalScheduleId: undefined }
 }
 
 /** 837: `GET Analytics/Folders` → the caller's folders by `order`. A row without an id is dropped. */
@@ -247,7 +269,8 @@ const layout = (v: unknown) => {
 function readPanel(raw: unknown): AnalyticsBoardPanel | null {
   const p = obj(raw)
   const base = { id: str(p.id), layout: layout(p.layout) }
-  if (p.kind === 'view' && str(p.viewId)) return { ...base, kind: 'view', viewId: str(p.viewId), optOut: arr(p.optOut) }
+  // 891 (BackOffice 3677): a SQL item's panel is marked `engine: "sql"` on read.
+  if (p.kind === 'view' && str(p.viewId)) return { ...base, kind: 'view', viewId: str(p.viewId), optOut: arr(p.optOut), ...(p.engine === 'sql' ? { engine: 'sql' as const } : {}) }
   if (p.kind === 'text') return { ...base, kind: 'text', text: said(p.text) }
   if (p.kind === 'section') return { ...base, kind: 'section', title: said(p.title) }
   return null
@@ -299,6 +322,8 @@ function readReportBlock(raw: unknown): AnalyticsReportBlock | null {
   const b = obj(raw)
   const id = str(b.id)
   if (!id) return null
+  // 891 (BackOffice 3677): a SQL item's block is held by reference, marked on read, with no definition.
+  if (b.kind === 'panel' && (b.engine === 'sql' || (!b.definition && str(b.viewId)))) return { id, kind: 'panel', viewId: str(b.viewId), engine: 'sql' }
   if (b.kind === 'panel') {
     const from = obj(b.from)
     return {
@@ -334,6 +359,7 @@ export function readReport(raw: Loose): AnalyticsReport {
   return {
     ...(i as object),
     kind: 'report',
+    ...personalSchedule(i),
     title: said(i.title),
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
@@ -402,6 +428,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   // previewable (internal, `stg_*`, or no allow-listed column). Its 10 s timeout is worded in `./catalog-raw`.
   'ANALYTICS-402': 'refusal.needsCurator',
   'ANALYTICS-417': 'refusal.notPreviewable',
+  // 3631 review (BO 3666): a report a live personal schedule sends is not deleted here; the item page links My schedules.
+  'ANALYTICS-419': 'refusal.personalScheduled',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

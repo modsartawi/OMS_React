@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
+import { Link } from 'react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Brain, Database, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
 import { saysIn } from '@/core/rules/sentence'
@@ -14,14 +15,17 @@ import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
+import { COPILOT_STARTERS_KEY, canUseSqlMode, copilotSqlAccessQuery } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
-import { COPILOT_MAX_QUESTIONS, boxOpen, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
-import { Answer, QuestionButtons, Refusal, WorkingStep } from './AnswerParts'
-import { COPILOT_STARTERS_KEY } from './access'
+import { COPILOT_MAX_QUESTIONS, boxOpen, canAskMore, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
+import { Answer, QuestionButtons, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
+import { ProposalCard, ScheduleLinks } from './ProposalCard'
+import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 import { copilotApi } from './api'
 import { emptyPanelOffer, type StarterTap } from './starters'
+import { COPILOT_ME_KEY, meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
 const AT_END = 32
@@ -88,6 +92,24 @@ function InContext() {
   )
 }
 
+/**
+ * 894 (BackOffice 3633 R28): the way to "What the copilot knows about me". Shown whenever `GET Copilot/Me` reads (review
+ * of 3633: a reader can always see and delete what is kept, whatever the switch); a `COPILOT-430` (no store on the
+ * server), no grant, a failure or the wait hide it.
+ * The page shares this query, so opening it costs no second call.
+ */
+function KnowsMeEntry() {
+  const { t } = useTranslation('copilot')
+  const me = useQuery(meQuery())
+  if (!meEntryVisible(me)) return null
+  return (
+    <Link to="/copilot/me" className="inline-flex items-center gap-1 self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-me-entry>
+      <Brain className="h-3.5 w-3.5" aria-hidden />
+      {t('me.entry')}
+    </Link>
+  )
+}
+
 export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const { t, i18n } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
@@ -103,6 +125,10 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const clear = useCopilotConversation((s) => s.startNew)
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
+  // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`Analytics/Access` `canSql`).
+  const canSql = canUseSqlMode(useQuery(copilotSqlAccessQuery()).data)
+  const sqlOn = useCopilotConversation((s) => s.sqlMode) && canSql
+  const setSqlMode = useCopilotConversation((s) => s.setSqlMode)
   const box = useRef<HTMLTextAreaElement>(null)
   const working = pending !== null
 
@@ -113,8 +139,22 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (q === null) return
     // A NEW question, never the reply to a pending ask (A37): only the box's own text replies. Not sent (the tenth
     // question's ask pending, among others), it waits in the box.
-    if (!questionFits(q) || ask(q) === null) setQuestion(q)
+    if (!questionFits(q) || ask(q, { sqlMode: sqlOn }) === null) setQuestion(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- taken once, in the mode the toggle is in then
   }, [handed, ask])
+
+  // Q46: "Change by asking" on a SQL item: a new conversation in SQL mode, the item sent with the first question.
+  const handedItem = useCopilotPanel((s) => s.sqlItem)
+  const openSqlItem = useCopilotConversation((s) => s.openSqlItem)
+  const sqlItem = useCopilotConversation((s) => s.sqlItem)
+  const sqlItemSent = useCopilotConversation((s) => s.sqlItemSent)
+  useEffect(() => {
+    if (handedItem === null) return
+    const item = useCopilotPanel.getState().takeSqlItem()
+    if (item === null) return
+    openSqlItem(item)
+    box.current?.focus()
+  }, [handedItem, openSqlItem])
 
   // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.
   const drafted = useCopilotPanel((s) => s.draft)
@@ -186,13 +226,13 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     e?.preventDefault()
     if (!canSend) return
     // Only the box's own text can be the reply to a pending ask (872, A37).
-    if (askFromBox(question.trim()) !== null) setQuestion('')
+    if (askFromBox(question.trim(), sqlOn) !== null) setQuestion('')
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
     box.current?.focus()
   }
   /** A tapped suggestion (871) is asked at once, in this conversation, saying where it came from; the box keeps what is typed. */
   const askSuggestion = (q: string) => {
-    void ask(q, 'suggestion')
+    void ask(q, { origin: 'suggestion' })
   }
   /** A tapped choice of the pending ask (872) replies with it at once; the box keeps what is typed. */
   const choose = useCopilotConversation((s) => s.choose)
@@ -246,7 +286,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   /** A starter asks at once, saying it came from a starter; one with a blank goes to the box, unsent, for the reader to complete. */
   const tapStarter = (tap: StarterTap) => {
     if (tap.kind === 'fill') fillExample(tap.text, null)
-    else if (ask(tap.question, tap.origin) === null) setQuestion(tap.question)
+    else if (ask(tap.question, { origin: tap.origin }) === null) setQuestion(tap.question)
   }
   // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
   const canAsk = boxOpen(conv)
@@ -266,6 +306,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 ${wide ? 'mx-auto max-w-4xl' : ''}`}>
         <InContext />
+        <KnowsMeEntry />
         {(!empty || history.length > 0) && !wide && (
           <div className="flex shrink-0 items-center justify-between gap-2" data-copilot-thread-bar>
             <div className="text-xs font-medium text-muted-foreground">{listing ? t('history.heading') : t('thread.heading')}</div>
@@ -339,6 +380,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                       <Turn
                         key={i}
                         turn={turn}
+                        card={cardState(conv, i, inFlight)}
                         continues={continuesAsk(conv, i)}
                         onAsk={taps.suggestions ? askSuggestion : undefined}
                         onChoose={taps.choices ? chooseAnswer : undefined}
@@ -350,8 +392,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
               {working && (
                 <div className="flex flex-col gap-3" data-copilot-pending>
-                  <TurnRule label={t('answer.question')} />
-                  <Asked question={pending} />
+                  <TurnRule label={inFlight?.confirms ? t(inFlight.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn') : t('answer.question')} />
+                  {!inFlight?.confirms && <Asked question={pending} sql={inFlight?.sqlMode === true} />}
                   <AnswerRow>
                     <div role="status" data-copilot-working className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -367,6 +409,11 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
         {listing ? null : canAsk ? (
           <form onSubmit={send} className="flex shrink-0 flex-col gap-2" data-copilot-form>
+            {sqlItem !== null && !sqlItemSent && (
+              <p role="note" className="rounded-lg border border-border/60 bg-muted/40 p-2 text-xs" data-copilot-sql-item={sqlItem.itemId}>
+                {t('sql.itemOpened')}
+              </p>
+            )}
             <Field
               label={t('box.label')}
               error={tooLong ? t('box.tooLong', { max: fsi(formatNumber(COPILOT_MAX_QUESTION)) }) : undefined}
@@ -390,7 +437,22 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                 data-copilot-question
               />
             </Field>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2">
+              {canSql ? (
+                <Button
+                  type="button"
+                  variant={sqlOn ? 'primary' : 'ghost'}
+                  onClick={() => setSqlMode(!sqlOn)}
+                  aria-pressed={sqlOn}
+                  title={t('sql.toggleHint')}
+                  data-copilot-sql-toggle={sqlOn ? 'on' : 'off'}
+                >
+                  <Database className="h-3.5 w-3.5" aria-hidden />
+                  {t('sql.toggle')}
+                </Button>
+              ) : (
+                <span />
+              )}
               {/* While the answer is coming, Send becomes Stop: the request is aborted and the question comes back to the box. */}
               {working ? (
                 <Button type="button" variant="secondary" onClick={stopAsk} title={t('box.stopHint')} data-copilot-stop>
@@ -493,13 +555,20 @@ function TurnRule({ label }: { label: ReactNode }) {
   )
 }
 
-/** The question as it was asked: a bubble on the inline end, in the primary tint. */
-function Asked({ question }: { question: string }) {
+/** The question as it was asked: a bubble on the inline end, in the primary tint. `sql` (888): asked in SQL mode, said under it. */
+function Asked({ question, sql = false }: { question: string; sql?: boolean }) {
+  const { t } = useTranslation('copilot')
   return (
-    <div className="flex justify-end" data-copilot-asked>
+    <div className="flex flex-col items-end gap-1" data-copilot-asked data-copilot-asked-sql={sql || undefined}>
       <p className="max-w-[85%] whitespace-pre-line rounded-2xl rounded-se-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground shadow-sm">
         <bdi>{question}</bdi>
       </p>
+      {sql && (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground" data-copilot-asked-in-sql>
+          <Database className="h-3 w-3" aria-hidden />
+          {t('sql.askedIn')}
+        </span>
+      )}
     </div>
   )
 }
@@ -529,23 +598,30 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
  */
 function Turn({
   turn,
+  card: state,
   continues = false,
   onAsk,
   onChoose,
 }: {
   turn: CopilotTurn
+  card: CardState
   continues?: boolean
   onAsk?: (question: string) => void
   onChoose?: (choice: { key: string; label: string }) => void
 }) {
-  const { t } = useTranslation('copilot')
+  const { t, i18n } = useTranslation('copilot')
+  const readings = useTurnReadings(turn)
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
+  // 885: a proposed answer's card; a confirmation turn (Confirm or Cancel) asked nothing, so it draws no question.
+  const card = state === 'none' ? null : proposalCard(turn.reply, i18n.language)
   return (
     <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome} data-copilot-continues={continues || undefined}>
       {!continues && (
         <TurnRule
           label={
-            turn.questionNo !== null ? (
+            turn.confirms ? (
+              t(turn.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn')
+            ) : turn.questionNo !== null ? (
               <span data-copilot-turn-no>
                 {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
               </span>
@@ -555,7 +631,7 @@ function Turn({
           }
         />
       )}
-      <Asked question={turn.question} />
+      {!turn.confirms && <Asked question={turn.question} sql={turn.reply?.sql !== undefined && turn.reply?.sql !== null} />}
       {!turn.reply ? (
         <AnswerRow plain>
           <Refusal err={turn.refusal} />
@@ -570,14 +646,66 @@ function Turn({
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} />
+            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} readings={readings} onAsk={onAsk} />
+            <SqlOffer reply={turn.reply} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} onChoose={onChoose} />
+          {card && <ProposalCard card={card} state={state} />}
+          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} question={turn.question} readings={readings} onAsk={onAsk} onChoose={onChoose} />
+          <ScheduleLinks reply={turn.reply} />
         </AnswerRow>
       )}
     </li>
   )
+}
+
+/**
+ * "Try in SQL mode" under a can't-answer (888, BackOffice 3674, spec 3632 Q28): the server adds it, never the model, and
+ * only for a holder of the SQL grant. A tap turns the toggle on and asks the same question again in SQL mode.
+ */
+function SqlOffer({ reply }: { reply: CopilotTurn['reply'] }) {
+  const { t } = useTranslation('copilot')
+  const offer = copilotAnswerModel(reply).sqlOffer
+  const busy = useCopilotConversation((s) => s.inFlight !== null)
+  const trySqlOffer = useCopilotConversation((s) => s.trySqlOffer)
+  if (!offer) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1" data-copilot-sql-offer>
+      <Button variant="secondary" disabled={busy} onClick={() => void trySqlOffer(offer)} title={t('sql.offerHint')} data-copilot-sql-offer-try>
+        <Database className="h-3.5 w-3.5" aria-hidden />
+        {t('sql.offer')}
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * A thread answer's readings (892, BackOffice 3685/3686): a tapped choice asks the turn's question again, verbatim, with
+ * the reading stated; Keep and Not now answer the answer's offer. A Keep refreshes "What the copilot knows about me".
+ */
+function useTurnReadings(turn: CopilotTurn): AnswerReadings {
+  const qc = useQueryClient()
+  const ask = useCopilotConversation((s) => s.ask)
+  const canChoose = useCopilotConversation((s) => s.inFlight === null && canAskMore(s.conv))
+  const offerId = turn.reply?.readingOffer?.id ?? ''
+  const offer = useCopilotConversation((s) => s.offerState(offerId))
+  const keepReading = useCopilotConversation((s) => s.keepReading)
+  const notNowReading = useCopilotConversation((s) => s.notNowReading)
+  const conversationId = turn.reply?.conversationId ?? ''
+  const proposalId = turn.reply?.namedSet?.id ?? ''
+  const namedSet = useCopilotConversation((s) => s.offerState(proposalId))
+  const keepNamedSet = useCopilotConversation((s) => s.keepNamedSet)
+  const notNowNamedSet = useCopilotConversation((s) => s.notNowNamedSet)
+  return {
+    choose: (reading) => void ask(turn.question, { statedReading: reading }),
+    canChoose,
+    offer,
+    keep: () => void keepReading(conversationId, offerId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNow: () => void notNowReading(conversationId, offerId),
+    namedSet,
+    keepSet: () => void keepNamedSet(conversationId, proposalId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNowSet: () => notNowNamedSet(proposalId),
+  }
 }

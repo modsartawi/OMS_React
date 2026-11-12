@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerPlainText, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -289,9 +289,171 @@ describe('the answer tables (spec 3558 D5; ticket 868)', () => {
     }
   })
 
+  describe('a figures-only answer (BackOffice spec 3586 A16-A18, 3590; ticket 870)', () => {
+    const lookups = [
+      { tool: 'semantic_query', input: { measures: ['deliveries'] }, rows: 2, ms: 40, ok: true },
+      { tool: 'store_lookup', input: { text: 'Olaya' }, rows: 1, ms: 12, ok: true },
+    ]
+
+    it('figuresOnly_showsItsSentenceAboveItsTables_andItsLookups', () => {
+      const model = copilotAnswerModel({
+        ...reply,
+        outcome: 'figures-only',
+        answer: 'I could not verify my summary, so here are the figures.',
+        orderRefs: [],
+        trace: lookups,
+        tables: [table, { ...table, step: 1 }],
+      } as unknown as Partial<CopilotAnswer>)
+      // The sentence first, the tables under it, and the lookups open below: what the sentence points at.
+      expect(answerLayout(model)).toEqual({ figuresOnly: true, parts: ['text', 'tables'], lookups: 'open' })
+      expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'I could not verify my summary, so here are the figures.' }])
+      expect(model.tables).toHaveLength(2)
+      expect(model.trace).toEqual(lookups)
+    })
+
+    it('figuresOnly_withNoTables_showsItsSentenceAndItsLookups', () => {
+      const model = copilotAnswerModel({
+        ...reply,
+        outcome: 'figures-only',
+        answer: 'I could not verify my summary. The lookups I ran are listed below.',
+        orderRefs: [],
+        trace: lookups,
+      })
+      expect(answerLayout(model)).toEqual({ figuresOnly: true, parts: ['text'], lookups: 'open' })
+      expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'I could not verify my summary. The lookups I ran are listed below.' }])
+      // Stopped early: the loop's stop note follows the sentence after a blank line, as its own paragraph.
+      const stopped = copilotAnswerModel({
+        ...reply,
+        outcome: 'figures-only',
+        answer: 'I could not verify my summary. The lookups I ran are listed below.\n\nI stopped before finishing (the 60-second time limit).',
+        stoppedEarly: true,
+        orderRefs: [],
+        trace: lookups,
+      })
+      expect(stopped.blocks).toEqual([
+        { kind: 'paragraph', text: 'I could not verify my summary. The lookups I ran are listed below.' },
+        { kind: 'paragraph', text: 'I stopped before finishing (the 60-second time limit).' },
+      ])
+      expect(answerLayout(stopped)).toEqual({ figuresOnly: true, parts: ['text'], lookups: 'open' })
+    })
+  })
+
   it('tables_areKeptInTheOrderSent_andOneWithoutColumnsOrRowsIsDropped', () => {
     const second = { ...table, step: 2 }
     const model = copilotAnswerModel({ ...reply, tables: [table, { step: 1 }, second] } as unknown as Partial<CopilotAnswer>)
     expect(model.tables).toEqual([table, second])
+  })
+})
+
+describe('what the answer assumed, under any answer (BackOffice spec 3586, 3594; ticket 870)', () => {
+  const plain: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Sales rose 4% on last week.',
+    trace: [{ tool: 'semantic_query', input: { measures: ['sales'] }, rows: 1, ms: 30, ok: true }],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+
+  it('aPlainAnswerWithTwoAssumptions_listsBothUnderTheAnswer_inThePanelsLanguage', () => {
+    const model = copilotAnswerModel({
+      ...plain,
+      assumptions: [
+        { en: 'Period: last week, Sunday to Saturday', ar: 'الفترة: الأسبوع الماضي، من الأحد إلى السبت' },
+        { en: 'Compared with the week before', ar: 'مقارنة بالأسبوع الذي قبله' },
+      ],
+    })
+    expect(assumptionLines(model.assumptions, 'en')).toEqual(['Period: last week, Sunday to Saturday', 'Compared with the week before'])
+    expect(assumptionLines(model.assumptions, 'ar')).toEqual(['الفترة: الأسبوع الماضي، من الأحد إلى السبت', 'مقارنة بالأسبوع الذي قبله'])
+    // Not mixed into the answer's own text.
+    expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'Sales rose 4% on last week.' }])
+  })
+
+  it('anAnswerWithNoAssumptions_rendersAsToday', () => {
+    const today = copilotAnswerModel(plain)
+    // The text, then the collapsed "How I got this": no assumptions part.
+    expect(answerLayout(today)).toEqual({ figuresOnly: false, parts: ['text'], lookups: 'collapsed' })
+    // Absent, empty, null or not a list: the same model and the same layout.
+    for (const assumptions of [undefined, [], null, 'x']) {
+      const model = copilotAnswerModel({ ...plain, assumptions } as unknown as Partial<CopilotAnswer>)
+      expect(model).toEqual(today)
+      expect(answerLayout(model)).toEqual(answerLayout(today))
+    }
+    // With two, they sit under the text.
+    const withTwo = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }, { en: 'b', ar: 'ب' }] })
+    expect(answerLayout(withTwo).parts).toEqual(['text', 'assumptions'])
+  })
+})
+
+describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; ticket 871)', () => {
+  const plain: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Olaya delivered 412 orders last week.',
+    trace: [{ tool: 'semantic_query', input: { measures: ['deliveries'] }, rows: 1, ms: 30, ok: true }],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+  const three: CopilotAnswer['suggestions'] = [
+    { question: 'Break it down by city', by: 'model' },
+    { question: 'Compare with the week before', by: 'server' },
+    { question: 'Show the lowest 10 stores', by: 'server' },
+  ]
+
+  it('anAnswerWithThreeSuggestions_showsThreeButtonsUnderIt', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    // Under the answer: after its text and its other parts.
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(answerLayout(copilotAnswerModel({ ...plain, suggestions: three, assumptions: [{ en: 'a', ar: 'أ' }] })).parts).toEqual([
+      'text',
+      'assumptions',
+      'suggestions',
+    ])
+    // One button each, in the order sent, its text the suggestion's own question; the latest answer's can be tapped.
+    expect(suggestionButtons(model, true)).toEqual([
+      { question: 'Break it down by city', tappable: true },
+      { question: 'Compare with the week before', tappable: true },
+      { question: 'Show the lowest 10 stores', tappable: true },
+    ])
+    // Not part of the answer's own text, nor of what Copy takes.
+    expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'Olaya delivered 412 orders last week.' }])
+  })
+
+  it('anEarlierAnswersSuggestions_areShownButCannotBeTapped', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(suggestionButtons(model, false)).toEqual([
+      { question: 'Break it down by city', tappable: false },
+      { question: 'Compare with the week before', tappable: false },
+      { question: 'Show the lowest 10 stores', tappable: false },
+    ])
+  })
+
+  it('anAnswerWithNoSuggestions_rendersAsToday', () => {
+    const today = copilotAnswerModel(plain)
+    // The text, then the collapsed "How I got this": no suggestions part, no buttons.
+    expect(answerLayout(today)).toEqual({ figuresOnly: false, parts: ['text'], lookups: 'collapsed' })
+    expect(suggestionButtons(today, true)).toEqual([])
+    // Absent, empty, null, not a list, or none usable: the same layout and no buttons.
+    for (const suggestions of [undefined, [], null, 'x', [{ question: '', by: 'model' }]]) {
+      const model = copilotAnswerModel({ ...plain, suggestions } as unknown as Partial<CopilotAnswer>)
+      expect(answerLayout(model)).toEqual(answerLayout(today))
+      expect(suggestionButtons(model, true)).toEqual([])
+      expect(model.blocks).toEqual(today.blocks)
+    }
+  })
+
+  it('suggestions_showAtMostThree_andABlankOrMalformedOneIsLeftOut', () => {
+    const model = copilotAnswerModel({
+      ...plain,
+      suggestions: [{ question: '  ', by: 'model' }, null, { by: 'model' }, ...(three ?? []), { question: 'A fourth', by: 'server' }],
+    } as unknown as Partial<CopilotAnswer>)
+    expect(suggestionButtons(model, true).map((b) => b.question)).toEqual([
+      'Break it down by city',
+      'Compare with the week before',
+      'Show the lowest 10 stores',
+    ])
   })
 })

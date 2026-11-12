@@ -80,6 +80,7 @@
     "rulesVersion": "rules <v>v{{n}}</v>",
     "rulesBuiltIn": "built-in rules",
     "assumptions": "What I assumed",
+    "suggestions": "Ask next",
     "reportEdited": "I changed the report open in the designer. Undo takes it back, and nothing is saved until you save.",
     "reportEditNote": "What changed:",
     "boardEdited": "I changed the board open in its editor. Undo takes it back, and nothing is saved until you save."

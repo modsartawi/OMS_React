@@ -1,6 +1,7 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import { saysIn } from '@/core/rules/sentence'
+import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotSuggestion, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -53,6 +54,16 @@ export interface CopilotAnswerModel {
    * and the answer renders as before.
    */
   tables: CopilotAnswerTable[]
+  /**
+   * The outcome was `figures-only` (BackOffice 3590, ticket 870): the text is the server's fixed sentence, none of the
+   * model's words, and the answer is its tables and its lookups. Not an error.
+   */
+  figuresOnly: boolean
+  /**
+   * The next questions the server checked (BackOffice 3598, ticket 871), at most 3, in the order to show. Absent reads as
+   * none, and the answer renders as before.
+   */
+  suggestions: CopilotSuggestion[]
 }
 
 /** `promptVersion` read: a saved version, or 0, the built-in fallback. */
@@ -175,8 +186,68 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(bilingual).filter((a) => a.en.trim() !== '' || a.ar.trim() !== '') : [],
     rules: rulesOf(r.promptVersion),
     tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
+    figuresOnly: r.outcome === 'figures-only',
+    suggestions: Array.isArray(r.suggestions) ? r.suggestions.flatMap(suggestionOf).slice(0, COPILOT_MAX_SUGGESTIONS) : [],
   }
 }
+
+/** The panel shows at most this many suggestions under an answer (BackOffice 3598, A46). */
+export const COPILOT_MAX_SUGGESTIONS = 3
+
+/** A suggestion the panel can show: one with a non-blank question. The server already checked it; the panel does not. */
+function suggestionOf(v: unknown): CopilotSuggestion[] {
+  if (!v || typeof v !== 'object') return []
+  const { question, by } = v as Partial<CopilotSuggestion>
+  if (typeof question !== 'string' || question.trim() === '') return []
+  return [{ question, by: by === 'server' ? 'server' : 'model' }]
+}
+
+/** One suggestion's button (ticket 871): its text, and whether a tap asks it (only the latest answer's can). */
+export interface SuggestionButton {
+  question: string
+  tappable: boolean
+}
+
+/**
+ * The answer's suggestions as buttons, in the order sent. `latest`: the answer is the conversation's latest and it can
+ * take another question; any other answer's suggestions are shown but cannot be tapped.
+ */
+export function suggestionButtons(model: CopilotAnswerModel, latest: boolean): SuggestionButton[] {
+  return model.suggestions.map((s) => ({ question: s.question, tappable: latest }))
+}
+
+/** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */
+export type AnswerPart = 'text' | 'tables' | 'views' | 'assumptions' | 'reportEdit' | 'boardEdit' | 'reports' | 'suggestions'
+
+/** How the list of lookups ("How I got this") is drawn: not at all (no trace), folded, or open. */
+export type AnswerLookups = 'none' | 'collapsed' | 'open'
+
+export interface AnswerLayout {
+  figuresOnly: boolean
+  parts: AnswerPart[]
+  lookups: AnswerLookups
+}
+
+/** What the panel draws for one answer, in order: only the parts the answer has. */
+export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
+  const parts: AnswerPart[] = ['text']
+  if (model.tables.length > 0) parts.push('tables')
+  if (model.viewRefs.length > 0) parts.push('views')
+  if (model.assumptions.length > 0) parts.push('assumptions')
+  if (model.reportEdit) parts.push('reportEdit')
+  if (model.boardEdit) parts.push('boardEdit')
+  if (model.reportRefs.length > 0) parts.push('reports')
+  if (model.suggestions.length > 0) parts.push('suggestions')
+  // A figures-only answer's sentence says the lookups are listed below: they start open.
+  const lookups: AnswerLookups = model.trace.length === 0 ? 'none' : model.figuresOnly ? 'open' : 'collapsed'
+  return { figuresOnly: model.figuresOnly, parts, lookups }
+}
+
+/**
+ * What the answer assumed (802 item 1; BackOffice 3594, ticket 870), one line each in the panel's language: a report's,
+ * or the server's for any other answer. A line missing in that language reads the other one.
+ */
+export const assumptionLines = (assumptions: readonly AnalyticsLabel[], lang: string): string[] => assumptions.map((a) => saysIn(a, lang))
 
 /** A table the panel can draw: an object with its columns and rows as lists. Anything else is left out. */
 const isTable = (v: unknown): v is CopilotAnswerTable =>

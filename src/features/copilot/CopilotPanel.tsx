@@ -14,7 +14,7 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
-import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
+import { COPILOT_MAX_QUESTIONS, canAskMore, isLatestAnswer, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
@@ -182,6 +182,10 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
     box.current?.focus()
   }
+  /** A tapped suggestion (871) is asked at once, in this conversation, saying where it came from; the box keeps what is typed. */
+  const askSuggestion = (q: string) => {
+    void ask(q, 'suggestion')
+  }
   /** Stop: the question in flight is abandoned and comes back to the box to change, unless something new is typed there. */
   const stopAsk = () => {
     const stopped = stop()
@@ -299,7 +303,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               {conv.turns.length > 0 && (
                 <ol className="flex flex-col gap-5" data-copilot-thread>
                   {conv.turns.map((turn, i) => (
-                    <Turn key={i} turn={turn} />
+                    <Turn key={i} turn={turn} onAsk={!working && isLatestAnswer(conv, i) ? askSuggestion : undefined} />
                   ))}
                 </ol>
               )}
@@ -476,8 +480,12 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
   )
 }
 
-/** One question in the thread, with its answer or its refusal. `cannot-answer` is not an error. */
-function Turn({ turn }: { turn: CopilotTurn }) {
+/**
+ * One question in the thread, with its answer or its refusal. `cannot-answer` is not an error, and neither is
+ * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups. `onAsk` (871):
+ * the latest answer, with nothing in flight; a tap on one of its suggestions asks it.
+ */
+function Turn({ turn, onAsk }: { turn: CopilotTurn; onAsk?: (question: string) => void }) {
   const { t } = useTranslation('copilot')
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
   return (
@@ -508,12 +516,12 @@ function Turn({ turn }: { turn: CopilotTurn }) {
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} />
+            <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} />
+          <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} />
         </AnswerRow>
       )}
     </li>

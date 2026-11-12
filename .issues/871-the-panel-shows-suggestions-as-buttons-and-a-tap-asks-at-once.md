@@ -18,10 +18,10 @@ BackOffice spec 3586 A46, A49, "The web half"; ticket 3598.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] An answer with three suggestions shows three buttons under it · oms-react tests (the panel's answer tests)
-- [ ] A tap builds a request with the suggestion's text and the origin "suggestion"; a typed question has the origin "typed" · oms-react tests
-- [ ] Suggestions of an earlier answer are shown but cannot be tapped · oms-react tests
-- [ ] No `suggestions`: the answer renders as today · oms-react tests
+- [x] An answer with three suggestions shows three buttons under it · oms-react tests (the panel's answer tests) · `answer.test.ts` `anAnswerWithThreeSuggestions_showsThreeButtonsUnderIt`, `suggestions_showAtMostThree_andABlankOrMalformedOneIsLeftOut`
+- [x] A tap builds a request with the suggestion's text and the origin "suggestion"; a typed question has the origin "typed" · oms-react tests · `conversation.test.ts` `aTappedSuggestion_isAskedWithItsText_andTheOriginSuggestion_aTypedQuestionSaysTyped`, `conversation-store.test.ts` `aTypedQuestionSaysTyped_aTappedSuggestionSaysSuggestion_inTheSameConversation`
+- [x] Suggestions of an earlier answer are shown but cannot be tapped · oms-react tests · `conversation.test.ts` `onlyTheLatestAnswersSuggestions_canBeTapped`, `answer.test.ts` `anEarlierAnswersSuggestions_areShownButCannotBeTapped`
+- [x] No `suggestions`: the answer renders as today · oms-react tests · `answer.test.ts` `anAnswerWithNoSuggestions_rendersAsToday` (a guard: green on its first run, the defensive read was built in the first cycle)
 
 ## Boundaries
 

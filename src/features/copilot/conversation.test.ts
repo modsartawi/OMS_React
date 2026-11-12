@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal } from './conversation'
+import { EMPTY_CONVERSATION, askBody, canAskMore, isLatestAnswer, withAnswer, withRefusal } from './conversation'
 
 const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
   conversationId,
@@ -83,10 +83,45 @@ describe('the report in context (spec 819 §D, ticket 832)', () => {
     draft: { params: [], bindings: {}, sections: [] },
   }
   it('askBody_sendsTheReportOpenInTheDesigner_andNothingWhenNoneIs', () => {
-    expect(askBody(EMPTY_CONVERSATION, 'Add the cancellation rate as a bar', context)).toEqual({ question: 'Add the cancellation rate as a bar', reportContext: context })
+    expect(askBody(EMPTY_CONVERSATION, 'Add the cancellation rate as a bar', { reportContext: context })).toEqual({ question: 'Add the cancellation rate as a bar', reportContext: context })
     const c = withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0001', 1))
-    expect(askBody(c, 'And a table', context)).toEqual({ question: 'And a table', conversationId: 'c-0001', reportContext: context })
-    expect(askBody(c, 'And a table', null)).toEqual({ question: 'And a table', conversationId: 'c-0001' })
+    expect(askBody(c, 'And a table', { reportContext: context })).toEqual({ question: 'And a table', conversationId: 'c-0001', reportContext: context })
+    expect(askBody(c, 'And a table', { reportContext: null })).toEqual({ question: 'And a table', conversationId: 'c-0001' })
+  })
+})
+
+describe('where the question came from (BackOffice spec 3586 A49, A55, 3598; ticket 871)', () => {
+  it('aTappedSuggestion_isAskedWithItsText_andTheOriginSuggestion_aTypedQuestionSaysTyped', () => {
+    const c = withAnswer(EMPTY_CONVERSATION, 'How many orders did Olaya deliver last week?', reply('c-0001', 1))
+    // The tap: the suggestion's own text, as a normal question in the same conversation.
+    expect(askBody(c, 'Break it down by city', { origin: 'suggestion' })).toEqual({
+      question: 'Break it down by city',
+      conversationId: 'c-0001',
+      origin: 'suggestion',
+    })
+    // A question the reader typed says so.
+    expect(askBody(c, 'And Jeddah?', { origin: 'typed' })).toEqual({ question: 'And Jeddah?', conversationId: 'c-0001', origin: 'typed' })
+    // The report in context still travels beside the origin.
+    const reportContext = { reportId: 'r-1', revision: 2, draft: { params: [], bindings: {}, sections: [] } }
+    expect(askBody(EMPTY_CONVERSATION, 'Add a bar', { origin: 'typed', reportContext })).toEqual({
+      question: 'Add a bar',
+      reportContext,
+      origin: 'typed',
+    })
+  })
+
+  it('onlyTheLatestAnswersSuggestions_canBeTapped', () => {
+    let c = withAnswer(EMPTY_CONVERSATION, 'q1', reply('c-0001', 1))
+    expect(isLatestAnswer(c, 0)).toBe(true)
+    c = withAnswer(c, 'Break it down by city', reply('c-0001', 2))
+    // The earlier answer's suggestions are still shown, but no longer tappable.
+    expect([isLatestAnswer(c, 0), isLatestAnswer(c, 1)]).toEqual([false, true])
+    // A refused question after it is the latest turn: no answer's suggestions are tappable.
+    const refused = withRefusal(c, 'Mobile 0551234567?', refusal('COPILOT-403'))
+    expect([0, 1, 2].map((i) => isLatestAnswer(refused, i))).toEqual([false, false, false])
+    // A conversation that takes no more questions offers none.
+    const closed = withRefusal(c, 'Still there?', refusal('COPILOT-406'))
+    expect(isLatestAnswer(closed, 1)).toBe(false)
   })
 })
 

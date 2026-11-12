@@ -12,11 +12,11 @@ import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotRe
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, suggestionButtons, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel, type SuggestionButton } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -326,8 +326,44 @@ function CopyAnswer({ text }: { text: string }) {
   )
 }
 
-/** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-export function Answer({ model }: { model: CopilotAnswerModel }) {
+/**
+ * The answer's suggested next questions (871, BackOffice 3598), one button each. A tap asks the suggestion's text at once
+ * (`onAsk`); without `onAsk` (an earlier answer, a question in flight, the house-rules Try box) they are shown only.
+ * Each is free text in the reader's language: `<bdi>`.
+ */
+export function Suggestions({ suggestions, onAsk }: { suggestions: readonly SuggestionButton[]; onAsk?: (question: string) => void }) {
+  const { t } = useTranslation('copilot')
+  if (suggestions.length === 0) return null
+  return (
+    <section aria-label={t('answer.suggestions')} className="flex flex-col gap-1.5" data-copilot-suggestions>
+      <p className="text-xs font-medium text-muted-foreground">{t('answer.suggestions')}</p>
+      <div className="flex flex-col items-start gap-1.5">
+        {suggestions.map((s, i) => (
+          <Button
+            key={i}
+            variant="secondary"
+            className="h-auto min-h-7 py-1 text-start"
+            disabled={!s.tappable || !onAsk}
+            data-copilot-suggestion
+            onClick={() => onAsk?.(s.question)}
+          >
+            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              <bdi>{s.question}</bdi>
+            </span>
+          </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), its suggestions
+ * (871), then its trace, `servedBy` and stopped-early note (736). `onAsk`: the answer is the latest, and a tap on a
+ * suggestion asks it; absent, its suggestions are shown only.
+ */
+export function Answer({ model, onAsk }: { model: CopilotAnswerModel; onAsk?: (question: string) => void }) {
   const { t } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
@@ -354,6 +390,8 @@ export function Answer({ model }: { model: CopilotAnswerModel }) {
         return <BoardEditNote key={p} boardEdit={model.boardEdit} />
       case 'reports':
         return <ReportLinks key={p} reportRefs={model.reportRefs} />
+      case 'suggestions':
+        return <Suggestions key={p} suggestions={suggestionButtons(model, onAsk !== undefined)} onAsk={onAsk} />
     }
   }
   return (

@@ -3,7 +3,7 @@ import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotQuestionOrigin } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
@@ -55,8 +55,11 @@ export interface CopilotConversationState {
   inFlight: { question: string; requestId: string } | null
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
-  /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
-  ask: (question: string) => Promise<void> | null
+  /**
+   * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `origin` (871, A49)
+   * says where it came from: typed unless said otherwise, `suggestion` for a tapped suggestion.
+   */
+  ask: (question: string, origin?: CopilotQuestionOrigin) => Promise<void> | null
   /**
    * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
    * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
@@ -90,7 +93,7 @@ export function createCopilotConversation(
     inFlight: null,
     epoch: 0,
     history: [],
-    ask: (question) => {
+    ask: (question, origin = 'typed') => {
       const { conv, inFlight, epoch } = get()
       if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
       const requestId = newRequestId()
@@ -104,7 +107,8 @@ export function createCopilotConversation(
         if (aborter === controller) aborter = null
         set((s) => ({ conv: next(s.conv), inFlight: null }))
       }
-      const body = { ...askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), requestId }
+      const from = { origin, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
+      const body = { ...askBody(conv, question, from), requestId }
       return send(body, controller.signal).then(
         (reply) => {
           if (dropped()) return

@@ -23,14 +23,15 @@ function door() {
   const calls: {
     body: CopilotAskRequest
     requestId?: string
+    origin?: CopilotAskRequest['origin']
     signal?: AbortSignal
     answer: (r: CopilotAnswer) => void
     refuse: (e: unknown) => void
   }[] = []
-  // The live steps' id (869) is kept beside the body, so each test's body reads as the question it sent.
-  const ask = ({ requestId, ...body }: CopilotAskRequest, signal?: AbortSignal) =>
+  // The live steps' id (869) and the origin (871) are kept beside the body, so each test's body reads as the question it sent.
+  const ask = ({ requestId, origin, ...body }: CopilotAskRequest, signal?: AbortSignal) =>
     new Promise<CopilotAnswer>((answer, refuse) => {
-      calls.push({ body, requestId, signal, answer, refuse })
+      calls.push({ body, requestId, origin, signal, answer, refuse })
     })
   return { ask, calls }
 }
@@ -324,5 +325,22 @@ describe('the live steps id (ticket 869, BackOffice spec 3558 D17)', () => {
     expect(store.getState().inFlight?.requestId).toBe(d.calls[3].requestId)
     store.getState().startNew()
     expect(store.getState().inFlight).toBeNull()
+  })
+})
+
+describe('where the question came from (BackOffice 3598, A49; ticket 871)', () => {
+  it('aTypedQuestionSaysTyped_aTappedSuggestionSaysSuggestion_inTheSameConversation', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const typed = store.getState().ask('How many orders did Olaya deliver last week?')
+    expect(d.calls[0].origin).toBe('typed')
+    d.calls[0].answer(reply('c-0001', 1))
+    await typed
+    const tapped = store.getState().ask('Break it down by city', 'suggestion')
+    expect(d.calls[1].body).toEqual({ question: 'Break it down by city', conversationId: 'c-0001' })
+    expect(d.calls[1].origin).toBe('suggestion')
+    d.calls[1].answer(reply('c-0001', 2))
+    await tapped
+    expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['How many orders did Olaya deliver last week?', 'Break it down by city'])
   })
 })

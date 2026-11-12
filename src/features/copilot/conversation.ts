@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotReportContext } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -36,17 +36,29 @@ export interface CopilotConversation {
 export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null, turns: [], over: false }) as CopilotConversation
 
 /**
- * The `Copilot/Ask` body: the question, the conversation's id once it has one, and (832) the report open in the
- * designer when one is published, and (836) the board open in its editor.
+ * What travels with a question besides its text: where it came from (871, BackOffice 3598, A49: typed, a tapped
+ * suggestion, and later a starter or an ask's choice), and what is open in context: (832) the report in the designer,
+ * (836) the board in its editor.
  */
-export function askBody(
-  c: CopilotConversation,
-  question: string,
-  reportContext: CopilotReportContext | null = null,
-  boardContext: CopilotBoardContext | null = null,
-): CopilotAskRequest {
+export interface AskFrom {
+  origin?: CopilotQuestionOrigin
+  reportContext?: CopilotReportContext | null
+  boardContext?: CopilotBoardContext | null
+}
+
+/**
+ * The `Copilot/Ask` body: the question, the conversation's id once it has one, the context open, and the origin. A
+ * field with nothing to say is left out.
+ */
+export function askBody(c: CopilotConversation, question: string, from: AskFrom = {}): CopilotAskRequest {
+  const { origin, reportContext, boardContext } = from
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
-  return { ...body, ...(reportContext ? { reportContext } : {}), ...(boardContext ? { boardContext } : {}) }
+  return {
+    ...body,
+    ...(reportContext ? { reportContext } : {}),
+    ...(boardContext ? { boardContext } : {}),
+    ...(origin ? { origin } : {}),
+  }
 }
 
 /**
@@ -68,6 +80,14 @@ export function withRefusal(c: CopilotConversation, question: string, err: unkno
     over: c.over || apiErrorCode(err) === CONVERSATION_OVER,
     turns: [...c.turns, { question, questionNo: null, reply: null, refusal: err }],
   }
+}
+
+/**
+ * The `index`th turn is the conversation's latest answer, and the conversation can take another question (871): only
+ * then are its suggestions tappable. An earlier answer's, or any after a refused last question, are shown only.
+ */
+export function isLatestAnswer(c: CopilotConversation, index: number): boolean {
+  return index === c.turns.length - 1 && c.turns[index].reply !== null && canAskMore(c)
 }
 
 /**

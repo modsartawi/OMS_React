@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -383,5 +383,77 @@ describe('what the answer assumed, under any answer (BackOffice spec 3586, 3594;
     // With two, they sit under the text.
     const withTwo = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }, { en: 'b', ar: 'ب' }] })
     expect(answerLayout(withTwo).parts).toEqual(['text', 'assumptions'])
+  })
+})
+
+describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; ticket 871)', () => {
+  const plain: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Olaya delivered 412 orders last week.',
+    trace: [{ tool: 'semantic_query', input: { measures: ['deliveries'] }, rows: 1, ms: 30, ok: true }],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+  const three: CopilotAnswer['suggestions'] = [
+    { question: 'Break it down by city', by: 'model' },
+    { question: 'Compare with the week before', by: 'server' },
+    { question: 'Show the lowest 10 stores', by: 'server' },
+  ]
+
+  it('anAnswerWithThreeSuggestions_showsThreeButtonsUnderIt', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    // Under the answer: after its text and its other parts.
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(answerLayout(copilotAnswerModel({ ...plain, suggestions: three, assumptions: [{ en: 'a', ar: 'أ' }] })).parts).toEqual([
+      'text',
+      'assumptions',
+      'suggestions',
+    ])
+    // One button each, in the order sent, its text the suggestion's own question; the latest answer's can be tapped.
+    expect(suggestionButtons(model, true)).toEqual([
+      { question: 'Break it down by city', tappable: true },
+      { question: 'Compare with the week before', tappable: true },
+      { question: 'Show the lowest 10 stores', tappable: true },
+    ])
+    // Not part of the answer's own text, nor of what Copy takes.
+    expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'Olaya delivered 412 orders last week.' }])
+  })
+
+  it('anEarlierAnswersSuggestions_areShownButCannotBeTapped', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(suggestionButtons(model, false)).toEqual([
+      { question: 'Break it down by city', tappable: false },
+      { question: 'Compare with the week before', tappable: false },
+      { question: 'Show the lowest 10 stores', tappable: false },
+    ])
+  })
+
+  it('anAnswerWithNoSuggestions_rendersAsToday', () => {
+    const today = copilotAnswerModel(plain)
+    // The text, then the collapsed "How I got this": no suggestions part, no buttons.
+    expect(answerLayout(today)).toEqual({ figuresOnly: false, parts: ['text'], lookups: 'collapsed' })
+    expect(suggestionButtons(today, true)).toEqual([])
+    // Absent, empty, null, not a list, or none usable: the same layout and no buttons.
+    for (const suggestions of [undefined, [], null, 'x', [{ question: '', by: 'model' }]]) {
+      const model = copilotAnswerModel({ ...plain, suggestions } as unknown as Partial<CopilotAnswer>)
+      expect(answerLayout(model)).toEqual(answerLayout(today))
+      expect(suggestionButtons(model, true)).toEqual([])
+      expect(model.blocks).toEqual(today.blocks)
+    }
+  })
+
+  it('suggestions_showAtMostThree_andABlankOrMalformedOneIsLeftOut', () => {
+    const model = copilotAnswerModel({
+      ...plain,
+      suggestions: [{ question: '  ', by: 'model' }, null, { by: 'model' }, ...(three ?? []), { question: 'A fourth', by: 'server' }],
+    } as unknown as Partial<CopilotAnswer>)
+    expect(suggestionButtons(model, true).map((b) => b.question)).toEqual([
+      'Break it down by city',
+      'Compare with the week before',
+      'Show the lowest 10 stores',
+    ])
   })
 })

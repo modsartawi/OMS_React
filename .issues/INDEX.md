@@ -1470,3 +1470,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [893](893-the-named-set-card.md) — The named-set card shows the name and its members, with Keep and Not now · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3687, 892
 - [894](894-the-what-the-copilot-knows-about-me-page.md) — The page "What the copilot knows about me" lists, changes and deletes every kept reading and named set · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3689
 - [895](895-the-curators-counts-on-the-house-rules-screen.md) — The house-rules screen shows how many readers changed each default, and to what · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3691
+
+## Nphies undispense (BackOffice 3208), filed 2026-11-13
+
+- [898](898-the-undispense-page-lists-pending-and-failed-undispenses-retries-them-and-frees-a-returned-authorization.md) — The Undispense page lists pending and failed undispenses, retries them, and frees a returned authorization · *(ticket · BackOffice spec 3208)* · **open** · blocked by: BO 3725

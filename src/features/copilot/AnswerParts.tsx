@@ -16,7 +16,7 @@ import { Check, Copy, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, suggestionButtons, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel, type SuggestionButton } from './answer'
+import { COPILOT_MAX_QUESTION, answerLayout, answerPlainText, askView, assumptionLines, type AnswerPart, type AskView, inlineMarks, orderHref, orderSegments, suggestionButtons, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel, type SuggestionButton } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -359,15 +359,65 @@ export function Suggestions({ suggestions, onAsk }: { suggestions: readonly Sugg
 }
 
 /**
+ * An `asked` answer (872, BackOffice 3596): the server's question about an unclear name in the reader's language, and one
+ * button per choice. A tap replies with that choice (`onChoose`); without it (the ask answered or dropped, a reply in
+ * flight, the house-rules Try box) the choices are shown only. With no choice the question asks the reader to type the
+ * name again, in the box. The question and each label are free text: `<bdi>`.
+ */
+export function AskQuestion({ view, onChoose }: { view: AskView; onChoose?: (choice: { key: string; label: string }) => void }) {
+  const { t } = useTranslation('copilot')
+  const open = onChoose !== undefined && view.choices.some((c) => c.tappable)
+  return (
+    <section aria-label={t('ask.heading')} className="flex flex-col gap-2 text-sm" data-copilot-ask>
+      <p className="font-medium" data-copilot-ask-question>
+        <bdi>{view.question}</bdi>
+      </p>
+      {view.choices.length > 0 && (
+        <div className="flex flex-col items-start gap-1.5">
+          {view.choices.map((c) => (
+            <Button
+              key={c.key}
+              variant="secondary"
+              className="h-auto min-h-7 py-1 text-start"
+              disabled={!c.tappable || !onChoose}
+              data-copilot-ask-choice={c.key}
+              onClick={() => onChoose?.({ key: c.key, label: c.label })}
+            >
+              <span>
+                <bdi>{c.label}</bdi>
+              </span>
+            </Button>
+          ))}
+        </div>
+      )}
+      {open && <p className="text-xs text-muted-foreground">{t('ask.orType')}</p>}
+    </section>
+  )
+}
+
+/**
  * One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), its suggestions
  * (871), then its trace, `servedBy` and stopped-early note (736). `onAsk`: the answer is the latest, and a tap on a
  * suggestion asks it; absent, its suggestions are shown only.
  */
-export function Answer({ model, onAsk }: { model: CopilotAnswerModel; onAsk?: (question: string) => void }) {
-  const { t } = useTranslation('copilot')
+export function Answer({
+  model,
+  onAsk,
+  onChoose,
+}: {
+  model: CopilotAnswerModel
+  onAsk?: (question: string) => void
+  /** 872: the answer's ask is the one pending, with nothing in flight; a tap on a choice replies with it. */
+  onChoose?: (choice: { key: string; label: string }) => void
+}) {
+  const { t, i18n } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
     switch (p) {
+      case 'ask': {
+        const view = askView(model, i18n.language, onChoose !== undefined)
+        return view ? <AskQuestion key={p} view={view} onChoose={onChoose} /> : null
+      }
       case 'text':
         return (
           <section key={p} data-copilot-answer data-copilot-figures-only={layout.figuresOnly || undefined} aria-label={t('answer.heading')} className="flex flex-col gap-2 text-sm">

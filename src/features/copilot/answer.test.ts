@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -455,5 +455,49 @@ describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; tic
       'Compare with the week before',
       'Show the lowest 10 stores',
     ])
+  })
+})
+
+describe('the clarifying question (BackOffice spec 3586 A36, 3596; ticket 872)', () => {
+  const asked: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 2,
+    answer: 'Which one did you mean by "Mall"?',
+    trace: [{ tool: 'find_names', input: { text: 'Mall' }, rows: 3, ms: 20, ok: true }],
+    outcome: 'asked',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+    assumptions: [],
+    ask: {
+      id: 'ask-1',
+      question: { en: 'Which one did you mean by "Mall"?', ar: 'أيّها تقصد بـ «Mall»؟' },
+      text: 'Mall',
+      choices: [
+        { key: 'store:S102', label: { en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' } },
+        { key: 'store:S207', label: { en: 'Riyadh Mall (store, Riyadh)', ar: 'الرياض مول (فرع، الرياض)' } },
+      ],
+    },
+  }
+
+  it('anAskedAnswer_showsTheQuestionAndOneButtonPerChoice_inThePanelsLanguage_andNotItsTextBesideIt', () => {
+    const model = copilotAnswerModel(asked)
+    // The question in place of the text: the plain-text repeat of it is not drawn beside it.
+    expect(answerLayout(model).parts).toEqual(['ask'])
+    expect(askView(model, 'en', true)).toEqual({
+      question: 'Which one did you mean by "Mall"?',
+      choices: [
+        { key: 'store:S102', label: 'Jeddah Mall (store, Jeddah)', tappable: true },
+        { key: 'store:S207', label: 'Riyadh Mall (store, Riyadh)', tappable: true },
+      ],
+    })
+    expect(askView(model, 'ar', true)).toEqual({
+      question: 'أيّها تقصد بـ «Mall»؟',
+      choices: [
+        { key: 'store:S102', label: 'جدة مول (فرع، جدة)', tappable: true },
+        { key: 'store:S207', label: 'الرياض مول (فرع، الرياض)', tappable: true },
+      ],
+    })
+    // Any other answer has no question to show.
+    expect(askView(copilotAnswerModel({ ...asked, outcome: 'answered', ask: undefined }), 'en', true)).toBeNull()
   })
 })

@@ -14,7 +14,7 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
-import { COPILOT_MAX_QUESTIONS, canAskMore, isLatestAnswer, type CopilotConversation, type CopilotTurn } from './conversation'
+import { COPILOT_MAX_QUESTIONS, boxOpen, choicesTappable, continuesAsk, isLatestAnswer, questionCount, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
@@ -186,6 +186,11 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const askSuggestion = (q: string) => {
     void ask(q, 'suggestion')
   }
+  /** A tapped choice of the pending ask (872) replies with it at once; the box keeps what is typed. */
+  const choose = useCopilotConversation((s) => s.choose)
+  const chooseAnswer = (choice: { key: string; label: string }) => {
+    void choose(choice)
+  }
   /** Stop: the question in flight is abandoned and comes back to the box to change, unless something new is typed there. */
   const stopAsk = () => {
     const stopped = stop()
@@ -224,7 +229,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   }
 
   const empty = conv.turns.length === 0 && !working
-  const canAsk = canAskMore(conv)
+  // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
+  const canAsk = boxOpen(conv)
   const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))
 
   return (
@@ -303,7 +309,13 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               {conv.turns.length > 0 && (
                 <ol className="flex flex-col gap-5" data-copilot-thread>
                   {conv.turns.map((turn, i) => (
-                    <Turn key={i} turn={turn} onAsk={!working && isLatestAnswer(conv, i) ? askSuggestion : undefined} />
+                    <Turn
+                      key={i}
+                      turn={turn}
+                      continues={continuesAsk(conv, i)}
+                      onAsk={!working && isLatestAnswer(conv, i) ? askSuggestion : undefined}
+                      onChoose={!working && choicesTappable(conv, i) ? chooseAnswer : undefined}
+                    />
                   ))}
                 </ol>
               )}
@@ -423,7 +435,7 @@ function HistoryList({
                 <bdi>{p.conv.turns[0]?.question ?? ''}</bdi>
               </span>
               <span className="text-[11px] font-normal text-muted-foreground">
-                {t('history.questions', { count: p.conv.turns.length, n: fsi(formatNumber(p.conv.turns.length)) })}
+                {t('history.questions', { count: questionCount(p.conv), n: fsi(formatNumber(questionCount(p.conv))) })}
                 {' · '}
                 <Ltr>{formatDateTime(new Date(p.at).toISOString())}</Ltr>
               </span>
@@ -483,24 +495,38 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
 /**
  * One question in the thread, with its answer or its refusal. `cannot-answer` is not an error, and neither is
  * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups. `onAsk` (871):
- * the latest answer, with nothing in flight; a tap on one of its suggestions asks it.
+ * the latest answer, with nothing in flight; a tap on one of its suggestions asks it. An `asked` answer (872) is its
+ * question and choices; `onChoose`: its ask is pending, and a tap replies. `continues`: the turn is that ask's
+ * continuation, the same question, so it draws no new number.
  */
-function Turn({ turn, onAsk }: { turn: CopilotTurn; onAsk?: (question: string) => void }) {
+function Turn({
+  turn,
+  continues = false,
+  onAsk,
+  onChoose,
+}: {
+  turn: CopilotTurn
+  continues?: boolean
+  onAsk?: (question: string) => void
+  onChoose?: (choice: { key: string; label: string }) => void
+}) {
   const { t } = useTranslation('copilot')
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
   return (
-    <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome}>
-      <TurnRule
-        label={
-          turn.questionNo !== null ? (
-            <span data-copilot-turn-no>
-              {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
-            </span>
-          ) : (
-            t('answer.question')
-          )
-        }
-      />
+    <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome} data-copilot-continues={continues || undefined}>
+      {!continues && (
+        <TurnRule
+          label={
+            turn.questionNo !== null ? (
+              <span data-copilot-turn-no>
+                {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
+              </span>
+            ) : (
+              t('answer.question')
+            )
+          }
+        />
+      )}
       <Asked question={turn.question} />
       {!turn.reply ? (
         <AnswerRow plain>
@@ -521,7 +547,7 @@ function Turn({ turn, onAsk }: { turn: CopilotTurn; onAsk?: (question: string) =
         </AnswerRow>
       ) : (
         <AnswerRow>
-          <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} />
+          <Answer model={copilotAnswerModel(turn.reply)} onAsk={onAsk} onChoose={onChoose} />
         </AnswerRow>
       )}
     </li>

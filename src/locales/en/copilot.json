@@ -26,6 +26,10 @@
     "stop": "Stop",
     "stopHint": "Stop this answer. Your question comes back to the box to change and send again."
   },
+  "ask": {
+    "heading": "The copilot's question",
+    "orType": "Or type something else in the box below."
+  },
   "working": "Working on your question…",
   "steps": {
     "order_timeline": "Looking up the order",

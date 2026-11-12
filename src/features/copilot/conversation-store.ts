@@ -6,7 +6,7 @@ import { newRequestId } from '@/core/engine-session/request-id'
 import type { CopilotAnswer, CopilotAskRequest, CopilotQuestionOrigin } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
-import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation } from './conversation'
+import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, pendingAsk, withAnswer, withRefusal, type AskFrom, type CopilotConversation } from './conversation'
 
 /** A conversation filed in the history, with when it was left. */
 export interface PastConversation {
@@ -57,9 +57,15 @@ export interface CopilotConversationState {
   epoch: number
   /**
    * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `origin` (871, A49)
-   * says where it came from: typed unless said otherwise, `suggestion` for a tapped suggestion.
+   * says where it came from: typed unless said otherwise, `suggestion` for a tapped suggestion. A typed question while
+   * an ask is pending (872, A37) is the reply to it: sent with the ask's id, the text as the reply.
    */
   ask: (question: string, origin?: CopilotQuestionOrigin) => Promise<void> | null
+  /**
+   * A tap on one of the pending ask's choices (872, BackOffice 3597): sends the choice's label as shown, with the ask's
+   * id, the choice's key and `origin: 'choice'`. `null` (nothing sent) when no ask is pending or one is in flight.
+   */
+  choose: (choice: { key: string; label: string }) => Promise<void> | null
   /**
    * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
    * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
@@ -94,31 +100,13 @@ export function createCopilotConversation(
     epoch: 0,
     history: [],
     ask: (question, origin = 'typed') => {
-      const { conv, inFlight, epoch } = get()
-      if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
-      const requestId = newRequestId()
-      set({ inFlight: { question, requestId } })
-      const controller = new AbortController()
-      aborter = controller
-      // A reply to a cleared conversation, or to a question stopped, is dropped.
-      const dropped = () => get().epoch !== epoch || controller.signal.aborted
-      const landed = (next: (c: CopilotConversation) => CopilotConversation) => {
-        if (dropped()) return
-        if (aborter === controller) aborter = null
-        set((s) => ({ conv: next(s.conv), inFlight: null }))
-      }
-      const from = { origin, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
-      const body = { ...askBody(conv, question, from), requestId }
-      return send(body, controller.signal).then(
-        (reply) => {
-          if (dropped()) return
-          landed((c) => withAnswer(c, question, reply))
-          const { reportEdit, boardEdit } = copilotAnswerModel(reply)
-          if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
-          if (boardEdit) boardBridge.getState().postEdit(boardEdit, question)
-        },
-        (err: unknown) => landed((c) => withRefusal(c, question, err)),
-      )
+      const pending = origin === 'typed' ? pendingAsk(get().conv) : null
+      return put(question, pending ? { origin, askId: pending.ask.id } : { origin })
+    },
+    choose: (choice) => {
+      const pending = pendingAsk(get().conv)
+      if (pending === null) return null
+      return put(choice.label, { origin: 'choice', askId: pending.ask.id, choiceKey: choice.key })
     },
     stop: () => {
       const { inFlight } = get()
@@ -141,6 +129,37 @@ export function createCopilotConversation(
       }),
     forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
   }))
+  /** Sends one question, or a reply to the pending ask (`said.askId`): the one path a typed question, a tap and a reply take. */
+  function put(question: string, said: Pick<AskFrom, 'origin' | 'askId' | 'choiceKey'>): Promise<void> | null {
+    const get = store.getState
+    const set = store.setState
+    const { conv, inFlight, epoch } = get()
+    // A reply to the pending ask is the same question: taken even when the conversation holds its tenth (872).
+    if (inFlight !== null || !(said.askId ? boxOpen(conv) : canAskMore(conv)) || question.trim() === '') return null
+    const requestId = newRequestId()
+    set({ inFlight: { question, requestId } })
+    const controller = new AbortController()
+    aborter = controller
+    // A reply to a cleared conversation, or to a question stopped, is dropped.
+    const dropped = () => get().epoch !== epoch || controller.signal.aborted
+    const landed = (next: (c: CopilotConversation) => CopilotConversation) => {
+      if (dropped()) return
+      if (aborter === controller) aborter = null
+      set((s) => ({ conv: next(s.conv), inFlight: null }))
+    }
+    const from: AskFrom = { ...said, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
+    const body = { ...askBody(conv, question, from), requestId }
+    return send(body, controller.signal).then(
+      (reply) => {
+        if (dropped()) return
+        landed((c) => withAnswer(c, question, reply))
+        const { reportEdit, boardEdit } = copilotAnswerModel(reply)
+        if (reportEdit) reportBridge.getState().postEdit(reportEdit, question)
+        if (boardEdit) boardBridge.getState().postEdit(boardEdit, question)
+      },
+      (err: unknown) => landed((c) => withRefusal(c, question, err)),
+    )
+  }
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
     if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [] }))

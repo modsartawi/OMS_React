@@ -344,3 +344,71 @@ describe('where the question came from (BackOffice 3598, A49; ticket 871)', () =
     expect(store.getState().conv.turns.map((t) => t.question)).toEqual(['How many orders did Olaya deliver last week?', 'Break it down by city'])
   })
 })
+
+describe('the reply to a clarifying question (BackOffice spec 3586 A37, A55, 3597; ticket 872)', () => {
+  const asked = (conversationId: string, questionNo: number, choices: { key: string; en: string; ar: string }[]): CopilotAnswer => ({
+    ...reply(conversationId, questionNo),
+    answer: 'Which one did you mean by "Mall"?',
+    outcome: 'asked',
+    assumptions: [],
+    ask: {
+      id: 'ask-1',
+      question: { en: 'Which one did you mean by "Mall"?', ar: 'أيّها تقصد بـ «Mall»؟' },
+      text: 'Mall',
+      choices: choices.map((c) => ({ key: c.key, label: { en: c.en, ar: c.ar } })),
+    },
+  })
+
+  it('aTapOnAChoice_sendsTheAsksId_theChosenKey_itsLabelAsShown_andTheOriginChoice', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const first = store.getState().ask('How did Mall do last week?')
+    d.calls[0].answer(asked('c-0001', 1, [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' }]))
+    await first
+    const tapped = store.getState().choose({ key: 'store:S102', label: 'Jeddah Mall (store, Jeddah)' })
+    expect(tapped).not.toBeNull()
+    expect(d.calls[1].body).toEqual({ question: 'Jeddah Mall (store, Jeddah)', conversationId: 'c-0001', askId: 'ask-1', choiceKey: 'store:S102' })
+    expect(d.calls[1].origin).toBe('choice')
+    d.calls[1].answer(reply('c-0001', 1))
+    await tapped
+    expect(store.getState().conv.turns.map((t) => [t.question, t.questionNo])).toEqual([
+      ['How did Mall do last week?', 1],
+      ['Jeddah Mall (store, Jeddah)', 1],
+    ])
+  })
+
+  it('textTypedWhileTheAskIsPending_isSentAsTheReply_withTheAsksIdAndTheText_andNoKey', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const first = store.getState().ask('How did Mall do last week?')
+    d.calls[0].answer(asked('c-0001', 1, [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' }]))
+    await first
+    const typed = store.getState().ask('the one near the airport')
+    expect(d.calls[1].body).toEqual({ question: 'the one near the airport', conversationId: 'c-0001', askId: 'ask-1' })
+    expect(d.calls[1].origin).toBe('typed')
+    d.calls[1].answer(reply('c-0001', 1))
+    await typed
+    // Once answered, the ask is over: the next typed question is a new one.
+    void store.getState().ask('And Riyadh?')
+    expect(d.calls[2].body).toEqual({ question: 'And Riyadh?', conversationId: 'c-0001' })
+  })
+
+  it('anAskOnTheTenthQuestion_stillTakesTheTypedReply_thenTheConversationIsFull', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    for (let n = 1; n <= 9; n++) {
+      const p = store.getState().ask(`q${n}`)
+      d.calls[n - 1].answer(reply('c-0001', n))
+      await p
+    }
+    const tenth = store.getState().ask('How did Mall do?')
+    d.calls[9].answer(asked('c-0001', 10, []))
+    await tenth
+    const typed = store.getState().ask('Mall of Arabia')
+    expect(typed).not.toBeNull()
+    expect(d.calls[10].body).toEqual({ question: 'Mall of Arabia', conversationId: 'c-0001', askId: 'ask-1' })
+    d.calls[10].answer(reply('c-0001', 10))
+    await typed
+    expect(store.getState().ask('One more?')).toBeNull()
+  })
+})

@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAsk, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -44,6 +44,12 @@ export interface AskFrom {
   origin?: CopilotQuestionOrigin
   reportContext?: CopilotReportContext | null
   boardContext?: CopilotBoardContext | null
+  /**
+   * A reply to the pending ask (872, BackOffice 3597, A37): its id, and with a tap the chosen choice's key (the
+   * `question` is then the choice's label as shown). A typed reply sends the id alone, the text as `question`.
+   */
+  askId?: string
+  choiceKey?: string
 }
 
 /**
@@ -51,14 +57,31 @@ export interface AskFrom {
  * field with nothing to say is left out.
  */
 export function askBody(c: CopilotConversation, question: string, from: AskFrom = {}): CopilotAskRequest {
-  const { origin, reportContext, boardContext } = from
+  const { origin, reportContext, boardContext, askId, choiceKey } = from
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
   return {
     ...body,
     ...(reportContext ? { reportContext } : {}),
     ...(boardContext ? { boardContext } : {}),
     ...(origin ? { origin } : {}),
+    ...(askId ? { askId, ...(choiceKey ? { choiceKey } : {}) } : {}),
   }
+}
+
+/**
+ * The ask a reply would answer (872, BackOffice 3597): the latest ANSWER's, when its outcome is `asked` and it can be
+ * replied to (it carries an id, and the conversation one). A refused reply after it leaves it pending, as the server
+ * does; a later answer (its continuation, or a new question) ends it, and so does a closed conversation.
+ */
+export function pendingAsk(c: CopilotConversation): { index: number; ask: CopilotAsk } | null {
+  if (c.over || !c.id) return null
+  for (let i = c.turns.length - 1; i >= 0; i--) {
+    const reply = c.turns[i].reply
+    if (reply === null) continue
+    const ask = reply.outcome === 'asked' ? reply.ask : undefined
+    return ask && typeof ask.id === 'string' && ask.id !== '' ? { index: i, ask } : null
+  }
+  return null
 }
 
 /**
@@ -94,6 +117,43 @@ export function isLatestAnswer(c: CopilotConversation, index: number): boolean {
  * The box stays while the conversation can take another question: not refused with 406, and the server's
  * own `questionNo` not yet at ten. The client never counts turns itself — the server is the authority.
  */
+/**
+ * The `index`th turn's choices can be tapped (872, A40): its ask is the one pending. Once its continuation is answered,
+ * or a new question is, or the conversation closes, they are shown only.
+ */
+export function choicesTappable(c: CopilotConversation, index: number): boolean {
+  return pendingAsk(c)?.index === index
+}
+
+/**
+ * The `index`th turn continues an asked question (872, BackOffice 3597, A38): it was answered with the same number as the
+ * answer before it, which asked. The two are one question. A reply the server took as a new question (its ask had gone)
+ * has the next number, or a new conversation, and is not one.
+ */
+export function continuesAsk(c: CopilotConversation, index: number): boolean {
+  const turn = c.turns[index]
+  if (!turn?.reply || turn.questionNo === null) return false
+  for (let i = index - 1; i >= 0; i--) {
+    const before = c.turns[i]
+    if (before.reply === null) continue
+    return before.reply.outcome === 'asked' && before.questionNo === turn.questionNo
+  }
+  return false
+}
+
+/** The conversation's questions, as the panel counts them (872): an asked question and its continuation count once. */
+export function questionCount(c: CopilotConversation): number {
+  return c.turns.filter((_, i) => !continuesAsk(c, i)).length
+}
+
+/**
+ * The question box is shown (872, A37): the conversation can take another question, or an ask is pending, whose reply
+ * is the same question (even the tenth's). With no choices the box is how the reader types the name again.
+ */
+export function boxOpen(c: CopilotConversation): boolean {
+  return canAskMore(c) || pendingAsk(c) !== null
+}
+
 export function canAskMore(c: CopilotConversation): boolean {
   if (c.over) return false
   const last = c.turns.reduce((n, t) => Math.max(n, t.questionNo ?? 0), 0)

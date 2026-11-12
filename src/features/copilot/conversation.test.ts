@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { EMPTY_CONVERSATION, askBody, canAskMore, isLatestAnswer, withAnswer, withRefusal } from './conversation'
+import { askView, answerLayout, copilotAnswerModel } from './answer'
+import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, choicesTappable, continuesAsk, isLatestAnswer, questionCount, withAnswer, withRefusal } from './conversation'
 
 const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
   conversationId,
@@ -122,6 +123,68 @@ describe('where the question came from (BackOffice spec 3586 A49, A55, 3598; tic
     // A conversation that takes no more questions offers none.
     const closed = withRefusal(c, 'Still there?', refusal('COPILOT-406'))
     expect(isLatestAnswer(closed, 1)).toBe(false)
+  })
+})
+
+describe('the clarifying question in the thread (BackOffice spec 3586 A36-A40, 3596, 3597; ticket 872)', () => {
+  const asked = (questionNo: number, choices: { key: string; en: string; ar: string }[]): CopilotAnswer => ({
+    ...reply('c-0001', questionNo),
+    answer: 'I could not find "Mall". Type the name again.',
+    outcome: 'asked',
+    assumptions: [],
+    ask: {
+      id: 'ask-1',
+      question: { en: 'I could not find "Mall". Type the name again.', ar: 'لم أجد «Mall». اكتب الاسم مرة أخرى.' },
+      text: 'Mall',
+      choices: choices.map((c) => ({ key: c.key, label: { en: c.en, ar: c.ar } })),
+    },
+  })
+
+  it('anAskWithNoChoices_showsTheQuestion_andLeavesTheBoxOpen_evenOnTheTenthQuestion', () => {
+    const c = withAnswer(EMPTY_CONVERSATION, 'How did Mall do?', asked(1, []))
+    const model = copilotAnswerModel(c.turns[0].reply)
+    expect(answerLayout(model).parts).toEqual(['ask'])
+    expect(askView(model, 'en', true)).toEqual({ question: 'I could not find "Mall". Type the name again.', choices: [] })
+    expect(boxOpen(c)).toBe(true)
+    // Asked on the conversation's tenth question, the box still takes the reply: it is the same question.
+    let full = EMPTY_CONVERSATION
+    for (let n = 1; n <= 9; n++) full = withAnswer(full, `q${n}`, reply('c-0001', n))
+    full = withAnswer(full, 'How did Mall do?', asked(10, []))
+    expect(canAskMore(full)).toBe(false)
+    expect(boxOpen(full)).toBe(true)
+    // A plain tenth answer closes it, as before.
+    expect(boxOpen(withAnswer(full, 'the airport one', reply('c-0001', 10)))).toBe(false)
+  })
+
+  it('theAskedHalfAndItsContinuation_countAsOneQuestion', () => {
+    let c = withAnswer(EMPTY_CONVERSATION, 'Orders last week?', reply('c-0001', 1))
+    c = withAnswer(c, 'How did Mall do?', asked(2, [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول' }]))
+    expect(questionCount(c)).toBe(2)
+    c = withAnswer(c, 'Jeddah Mall (store, Jeddah)', reply('c-0001', 2))
+    // The continuation keeps the asked half's number: no new question, and its turn draws no new number.
+    expect(questionCount(c)).toBe(2)
+    expect([0, 1, 2].map((i) => continuesAsk(c, i))).toEqual([false, false, true])
+    c = withAnswer(c, 'And Riyadh?', reply('c-0001', 3))
+    expect(questionCount(c)).toBe(3)
+    expect(continuesAsk(c, 3)).toBe(false)
+    // A reply the server took as a new question (its ask had gone) has the next number: it counts.
+    let gone = withAnswer(EMPTY_CONVERSATION, 'How did Mall do?', asked(1, []))
+    gone = withAnswer(gone, 'Mall of Arabia', reply('c-0001', 2))
+    expect(questionCount(gone)).toBe(2)
+  })
+
+  it('afterTheContinuationsAnswer_theChoicesCannotBeTapped_butARefusedReplyLeavesThemOpen', () => {
+    const choices = [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول' }]
+    const c = withAnswer(EMPTY_CONVERSATION, 'How did Mall do?', asked(1, choices))
+    expect(choicesTappable(c, 0)).toBe(true)
+    // A refused reply changes nothing on the server: the ask is still pending and its choices still tap.
+    const refused = withRefusal(c, 'Mall 0551234567', refusal('COPILOT-403'))
+    expect(choicesTappable(refused, 0)).toBe(true)
+    // The continuation's answer ends it.
+    const answered = withAnswer(refused, 'Jeddah Mall (store, Jeddah)', reply('c-0001', 1))
+    expect([0, 1, 2].map((i) => choicesTappable(answered, i))).toEqual([false, false, false])
+    // So does a conversation closed under it.
+    expect(choicesTappable(withRefusal(c, 'Still there?', refusal('COPILOT-406')), 0)).toBe(false)
   })
 })
 

@@ -674,6 +674,11 @@ export interface CopilotAnswer {
   namedSet?: CopilotNamedSetProposal
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
+  /**
+   * BackOffice 3729: `ar` when the reader asked in Arabic; absent for any other question (and on an older server). The
+   * server's own lines under the answer follow it.
+   */
+  language?: 'ar'
 }
 
 /** The kinds of proposal: `schedule` (3663); 3665 adds `pause` and `delete`. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, namedSetCard, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, namedSetCard, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -383,6 +383,122 @@ describe('what the answer assumed, under any answer (BackOffice spec 3586, 3594;
     // With two, they sit under the text.
     const withTwo = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }, { en: 'b', ar: 'ب' }] })
     expect(answerLayout(withTwo).parts).toEqual(['text', 'assumptions'])
+  })
+})
+
+describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; ticket 871)', () => {
+  const plain: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Olaya delivered 412 orders last week.',
+    trace: [{ tool: 'semantic_query', input: { measures: ['deliveries'] }, rows: 1, ms: 30, ok: true }],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+  const three: CopilotAnswer['suggestions'] = [
+    { question: 'Break it down by city', by: 'model' },
+    { question: 'Compare with the week before', by: 'server' },
+    { question: 'Show the lowest 10 stores', by: 'server' },
+  ]
+
+  it('anAnswerWithThreeSuggestions_showsThreeButtonsUnderIt', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    // Under the answer: after its text and its other parts.
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(answerLayout(copilotAnswerModel({ ...plain, suggestions: three, assumptions: [{ en: 'a', ar: 'أ' }] })).parts).toEqual([
+      'text',
+      'assumptions',
+      'suggestions',
+    ])
+    // One button each, in the order sent, its text the suggestion's own question; the latest answer's can be tapped.
+    expect(suggestionButtons(model)).toEqual([
+      { question: 'Break it down by city' },
+      { question: 'Compare with the week before' },
+      { question: 'Show the lowest 10 stores' },
+    ])
+    // Not part of the answer's own text, nor of what Copy takes.
+    expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'Olaya delivered 412 orders last week.' }])
+  })
+
+  it('anEarlierAnswersSuggestions_areStillShown_whetherTheyCanBeTappedIsTheConversations (turnTaps)', () => {
+    const model = copilotAnswerModel({ ...plain, suggestions: three })
+    expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
+    expect(suggestionButtons(model)).toEqual([
+      { question: 'Break it down by city' },
+      { question: 'Compare with the week before' },
+      { question: 'Show the lowest 10 stores' },
+    ])
+  })
+
+  it('anAnswerWithNoSuggestions_rendersAsToday', () => {
+    const today = copilotAnswerModel(plain)
+    // The text, then the collapsed "How I got this": no suggestions part, no buttons.
+    expect(answerLayout(today)).toEqual({ figuresOnly: false, parts: ['text'], lookups: 'collapsed' })
+    expect(suggestionButtons(today)).toEqual([])
+    // Absent, empty, null, not a list, or none usable: the same layout and no buttons.
+    for (const suggestions of [undefined, [], null, 'x', [{ question: '', by: 'model' }]]) {
+      const model = copilotAnswerModel({ ...plain, suggestions } as unknown as Partial<CopilotAnswer>)
+      expect(answerLayout(model)).toEqual(answerLayout(today))
+      expect(suggestionButtons(model)).toEqual([])
+      expect(model.blocks).toEqual(today.blocks)
+    }
+  })
+
+  it('suggestions_showAtMostThree_andABlankOrMalformedOneIsLeftOut', () => {
+    const model = copilotAnswerModel({
+      ...plain,
+      suggestions: [{ question: '  ', by: 'model' }, null, { by: 'model' }, ...(three ?? []), { question: 'A fourth', by: 'server' }],
+    } as unknown as Partial<CopilotAnswer>)
+    expect(suggestionButtons(model).map((b) => b.question)).toEqual([
+      'Break it down by city',
+      'Compare with the week before',
+      'Show the lowest 10 stores',
+    ])
+  })
+})
+
+describe('the clarifying question (BackOffice spec 3586 A36, 3596; ticket 872)', () => {
+  const asked: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 2,
+    answer: 'Which one did you mean by "Mall"?',
+    trace: [{ tool: 'find_names', input: { text: 'Mall' }, rows: 3, ms: 20, ok: true }],
+    outcome: 'asked',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+    assumptions: [],
+    ask: {
+      id: 'ask-1',
+      question: { en: 'Which one did you mean by "Mall"?', ar: 'أيّها تقصد بـ «Mall»؟' },
+      text: 'Mall',
+      choices: [
+        { key: 'store:S102', label: { en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' } },
+        { key: 'store:S207', label: { en: 'Riyadh Mall (store, Riyadh)', ar: 'الرياض مول (فرع، الرياض)' } },
+      ],
+    },
+  }
+
+  it('anAskedAnswer_showsTheQuestionAndOneButtonPerChoice_inThePanelsLanguage_andNotItsTextBesideIt', () => {
+    const model = copilotAnswerModel(asked)
+    // The question in place of the text: the plain-text repeat of it is not drawn beside it.
+    expect(answerLayout(model).parts).toEqual(['ask'])
+    expect(askView(model, 'en')).toEqual({
+      question: 'Which one did you mean by "Mall"?',
+      choices: [
+        { key: 'store:S102', label: 'Jeddah Mall (store, Jeddah)' },
+        { key: 'store:S207', label: 'Riyadh Mall (store, Riyadh)' },
+      ],
+    })
+    expect(askView(model, 'ar')).toEqual({
+      question: 'أيّها تقصد بـ «Mall»؟',
+      choices: [
+        { key: 'store:S102', label: 'جدة مول (فرع، جدة)' },
+        { key: 'store:S207', label: 'الرياض مول (فرع، الرياض)' },
+      ],
+    })
+    // Any other answer has no question to show.
+    expect(askView(copilotAnswerModel({ ...asked, outcome: 'answered', ask: undefined }), 'en')).toBeNull()
   })
 })
 

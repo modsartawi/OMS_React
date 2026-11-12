@@ -5,10 +5,10 @@ import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSqlItemRef, CopilotSqlOffer, CopilotStatedReading } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotQuestionOrigin, CopilotSqlItemRef, CopilotSqlOffer, CopilotStatedReading } from '@/core/models/copilot'
 import { copilotApi, copilotNamedSetApi, copilotReadingApi, type CopilotNamedSetDoors, type CopilotReadingDoors } from './api'
 import { copilotAnswerModel } from './answer'
-import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation, type TurnConfirms } from './conversation'
+import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, pendingAsk, withAnswer, withRefusal, type AskFrom, type CopilotConversation, type TurnConfirms } from './conversation'
 import { cancellationBody, confirmationBody, type CardValues, type ProposalCard } from './proposal'
 
 /**
@@ -36,6 +36,13 @@ const SET_ENDED = ['COPILOT-435', 'COPILOT-433']
 const SETS_FULL = 'COPILOT-434'
 
 const OPEN: ReadingOfferState = Object.freeze({ state: 'open' }) as ReadingOfferState
+
+/** What `ask` is told besides the question: its origin (871), SQL mode (888) and a stated reading (892). */
+export interface AskSaid {
+  origin?: CopilotQuestionOrigin
+  sqlMode?: boolean
+  statedReading?: CopilotStatedReading
+}
 
 /** A conversation filed in the history, with when it was left. */
 export interface PastConversation {
@@ -85,12 +92,25 @@ export interface CopilotConversationState {
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
   /**
-   * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `sqlMode` (888, spec
-   * 3632 Q27): asked in SQL mode. The panel passes it only while the toggle is on for a holder of the SQL grant. With
+   * Sends a NEW question, never a reply to a pending ask; `null` (nothing sent) while one is in flight or the
+   * conversation cannot take another question. `origin` (871, A49) says where it came from: typed unless said otherwise
+   * (a question handed in from another screen is typed, 782), `suggestion` for a tapped suggestion, `starter` for a
+   * starter. Only the question box's own text is ever a reply: that is `askFromBox`. `sqlMode` (888, spec 3632 Q27):
+   * asked in SQL mode; the panel passes it only while the toggle is on for a holder of the SQL grant. With
    * `statedReading` (892, a tapped assumption line's choice) the question is the tapped answer's, asked again with that
    * reading stated.
    */
-  ask: (question: string, sqlMode?: boolean, statedReading?: CopilotStatedReading) => Promise<void> | null
+  ask: (question: string, said?: AskSaid) => Promise<void> | null
+  /**
+   * The question box's text (872, A37): while an ask is pending it is the reply to it, sent with the ask's id and the
+   * text as the reply (taken even on the tenth question); otherwise a new typed question, as `ask`. `sqlMode` as `ask`.
+   */
+  askFromBox: (text: string, sqlMode?: boolean) => Promise<void> | null
+  /**
+   * A tap on one of the pending ask's choices (872, BackOffice 3597): sends the choice's label as shown, with the ask's
+   * id, the choice's key and `origin: 'choice'`. `null` (nothing sent) when no ask is pending or one is in flight.
+   */
+  choose: (choice: { key: string; label: string }) => Promise<void> | null
   /**
    * The SQL mode toggle (888), held here so it outlives the sheet's unmount. Off at start, and off again when the user
    * changes. The panel shows it only on `canSql`.
@@ -195,6 +215,21 @@ export function createCopilotConversation(
         },
       )
     }
+    /**
+     * Sends one question, or a reply to the pending ask (`said.askId`): the one path a typed question, a tap and a reply
+     * take. In SQL mode the held SQL item (Q46) rides on the first question only.
+     */
+    const put = (question: string, said: Pick<AskFrom, 'origin' | 'askId' | 'choiceKey' | 'sqlMode' | 'statedReading'>): Promise<void> | null => {
+      const { conv, inFlight } = get()
+      // A reply to the pending ask is the same question: taken even when the conversation holds its tenth (872).
+      if (inFlight !== null || !(said.askId ? boxOpen(conv) : canAskMore(conv)) || question.trim() === '') return null
+      const sql = said.sqlMode === true
+      const { sqlItem, sqlItemSent } = get()
+      const sqlItemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
+      if (sqlItemContext) set({ sqlItemSent: true })
+      const from: AskFrom = { ...said, sqlMode: sql, sqlItemContext, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
+      return run(askBody(conv, question, from), question, undefined, sql).then(() => undefined)
+    }
     /** A confirmation needs the conversation the proposal was made in, still open, and nothing in flight. */
     const openConversation = (): string | null => {
       const { conv, inFlight } = get()
@@ -221,15 +256,15 @@ export function createCopilotConversation(
         const now = get().offerState(proposalId).state
         if (now === 'open' || now === 'failed' || now === 'full') set((s) => ({ offers: { ...s.offers, [proposalId]: { state: 'dismissed' } } }))
       },
-      ask: (question, sqlMode, statedReading) => {
-        const { conv, inFlight } = get()
-        if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
-        const sql = sqlMode === true
-        const { sqlItem, sqlItemSent } = get()
-        const itemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
-        if (itemContext) set({ sqlItemSent: true })
-        const body = askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql, itemContext, statedReading ?? null)
-        return run(body, question, undefined, sql).then(() => undefined)
+      ask: (question, said = {}) => put(question, { origin: said.origin ?? 'typed', sqlMode: said.sqlMode, statedReading: said.statedReading }),
+      askFromBox: (text, sqlMode) => {
+        const pending = pendingAsk(get().conv)
+        return put(text, pending ? { origin: 'typed', askId: pending.ask.id, sqlMode } : { origin: 'typed', sqlMode })
+      },
+      choose: (choice) => {
+        const pending = pendingAsk(get().conv)
+        if (pending === null) return null
+        return put(choice.label, { origin: 'choice', askId: pending.ask.id, choiceKey: choice.key })
       },
       confirm: (card, values) => {
         const id = openConversation()
@@ -258,7 +293,7 @@ export function createCopilotConversation(
         if (get().inFlight !== null) return null
         if (offer.conversationId === null) get().startNew()
         set({ sqlMode: true })
-        return get().ask(offer.question, true)
+        return get().ask(offer.question, { sqlMode: true })
       },
       startNew: () => {
         abandon()

@@ -14,6 +14,8 @@
  * a reload, a Back or a pasted link never pops a write dialog.
  */
 
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
+
 /** The three acts the list offers, named as Delivery details' commands are. */
 export const OPEN_INTENTS = ['reschedule', 'request-close', 'add-note'] as const
 export type OpenIntent = (typeof OPEN_INTENTS)[number]
@@ -49,10 +51,6 @@ export function openIntentState(intent: OpenIntent): OpenIntentState {
 
 function isOpenIntent(value: unknown): value is OpenIntent {
   return typeof value === 'string' && (OPEN_INTENTS as readonly string[]).includes(value)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** The intent a history entry carries, read defensively: anything else is none. */

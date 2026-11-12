@@ -11,12 +11,32 @@ import type { CopilotAnswerTable, CopilotBoardEdit, CopilotNamedSetProposal, Cop
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, ChevronDown, Copy, Pencil, Save } from 'lucide-react'
+import { Check, ChevronDown, Copy, Pencil, Save, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, answerTableKey, assumptionRows, type AnswerPart, inlineMarks, namedSetCard, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import {
+  COPILOT_MAX_QUESTION,
+  type AnswerSql,
+  answerLayout,
+  answerPlainText,
+  answerTableKey,
+  askView,
+  assumptionRows,
+  type AnswerPart,
+  type AskView,
+  inlineMarks,
+  namedSetCard,
+  orderHref,
+  orderSegments,
+  suggestionButtons,
+  viewHref,
+  type AnswerBlock,
+  type AnswerRules,
+  type CopilotAnswerModel,
+  type SuggestionButton,
+} from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
@@ -638,12 +658,116 @@ function CopyAnswer({ text, label, failed }: { text: string; label?: string; fai
   )
 }
 
-/** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-export function Answer({ model, withText = true, question, readings }: { model: CopilotAnswerModel; withText?: boolean; question?: string; readings?: AnswerReadings }) {
+/**
+ * The answer's suggested next questions (871, BackOffice 3598), one button each. A tap asks the suggestion's text at once
+ * (`onAsk`); without `onAsk` (an earlier answer, a question in flight, the house-rules Try box) they are shown only.
+ * Each is free text in the reader's language: `<bdi>`.
+ */
+export function Suggestions({ suggestions, onAsk }: { suggestions: readonly SuggestionButton[]; onAsk?: (question: string) => void }) {
   const { t } = useTranslation('copilot')
+  if (suggestions.length === 0) return null
+  return (
+    <section aria-label={t('answer.suggestions')} className="flex flex-col gap-1.5" data-copilot-suggestions>
+      <p className="text-xs font-medium text-muted-foreground">{t('answer.suggestions')}</p>
+      <QuestionButtons
+        buttons={suggestions.map((s, i) => ({
+          key: String(i),
+          text: s.question,
+          onClick: onAsk ? () => onAsk(s.question) : undefined,
+          data: { 'data-copilot-suggestion': true },
+        }))}
+      />
+    </section>
+  )
+}
+
+/** One of `QuestionButtons`: its text (free text, either script), what a tap does (none: shown only), and its data marks. */
+export interface QuestionButton {
+  key: string
+  text: string
+  onClick?: () => void
+  data?: Record<`data-${string}`, string | boolean>
+}
+
+/**
+ * A column of question-shaped buttons — the empty panel's starters and examples, an answer's suggestions, an ask's
+ * choices: one look for them all. A button without `onClick` is shown, disabled. The text is a `<bdi>` (bidi rule).
+ */
+export function QuestionButtons({ buttons, icon = true }: { buttons: readonly QuestionButton[]; icon?: boolean }) {
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      {buttons.map((b) => (
+        <Button key={b.key} variant="secondary" className="h-auto min-h-7 py-1 text-start" disabled={!b.onClick} onClick={b.onClick} {...b.data}>
+          {icon && <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+          <span>
+            <bdi>{b.text}</bdi>
+          </span>
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * An `asked` answer (872, BackOffice 3596): the server's question about an unclear name in the reader's language, and one
+ * button per choice. A tap replies with that choice (`onChoose`); without it (the ask answered or dropped, a reply in
+ * flight, the house-rules Try box) the choices are shown only. With no choice the question asks the reader to type the
+ * name again, in the box. The question and each label are free text: `<bdi>`.
+ */
+export function AskQuestion({ view, onChoose }: { view: AskView; onChoose?: (choice: { key: string; label: string }) => void }) {
+  const { t } = useTranslation('copilot')
+  const open = onChoose !== undefined && view.choices.length > 0
+  return (
+    <section aria-label={t('ask.heading')} className="flex flex-col gap-2 text-sm" data-copilot-ask>
+      <p className="font-medium" data-copilot-ask-question>
+        <bdi>{view.question}</bdi>
+      </p>
+      {view.choices.length > 0 && (
+        <QuestionButtons
+          icon={false}
+          buttons={view.choices.map((c) => ({
+            key: c.key,
+            text: c.label,
+            onClick: onChoose ? () => onChoose({ key: c.key, label: c.label }) : undefined,
+            data: { 'data-copilot-ask-choice': c.key },
+          }))}
+        />
+      )}
+      {open && <p className="text-xs text-muted-foreground">{t('ask.orType')}</p>}
+    </section>
+  )
+}
+
+/**
+ * One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), its suggestions
+ * (871), then its trace, `servedBy` and stopped-early note (736). `onAsk`: the answer is the latest, and a tap on a
+ * suggestion asks it; absent, its suggestions are shown only.
+ */
+export function Answer({
+  model,
+  withText = true,
+  question,
+  readings,
+  onAsk,
+  onChoose,
+}: {
+  model: CopilotAnswerModel
+  /** 885: false when a proposal's card replaces the answer's text. */
+  withText?: boolean
+  question?: string
+  readings?: AnswerReadings
+  onAsk?: (question: string) => void
+  /** 872: the answer's ask is the one pending, with nothing in flight; a tap on a choice replies with it. */
+  onChoose?: (choice: { key: string; label: string }) => void
+}) {
+  const { t, i18n } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
     switch (p) {
+      case 'ask': {
+        const view = askView(model, i18n.language)
+        return view ? <AskQuestion key={p} view={view} onChoose={onChoose} /> : null
+      }
       case 'text':
         return (
           <section key={p} data-copilot-answer data-copilot-figures-only={layout.figuresOnly || undefined} aria-label={t('answer.heading')} className="flex flex-col gap-2 text-sm">
@@ -672,6 +796,8 @@ export function Answer({ model, withText = true, question, readings }: { model: 
         return <BoardEditNote key={p} boardEdit={model.boardEdit} />
       case 'reports':
         return <ReportLinks key={p} reportRefs={model.reportRefs} />
+      case 'suggestions':
+        return <Suggestions key={p} suggestions={suggestionButtons(model)} onAsk={onAsk} />
     }
   }
   return (

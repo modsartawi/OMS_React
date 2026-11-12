@@ -27,12 +27,12 @@ const reply = (over: Partial<CopilotAnswer> = {}): CopilotAnswer => ({
   ...over,
 })
 
-/** A `Copilot/Ask` stand-in whose calls the test answers by hand. */
+/** A `Copilot/Ask` stand-in whose calls the test answers by hand. The origin (871) is kept beside the body. */
 function door() {
-  const calls: { body: CopilotAskRequest; answer: (r: CopilotAnswer) => void }[] = []
-  const ask = ({ requestId: _id, ...body }: CopilotAskRequest) =>
+  const calls: { body: CopilotAskRequest; origin?: CopilotAskRequest['origin']; answer: (r: CopilotAnswer) => void }[] = []
+  const ask = ({ requestId: _id, origin, ...body }: CopilotAskRequest) =>
     new Promise<CopilotAnswer>((answer) => {
-      calls.push({ body, answer })
+      calls.push({ body, origin, answer })
     })
   return { ask, calls }
 }
@@ -51,15 +51,15 @@ describe('the SQL mode toggle shows for a grant holder only and sends the mode (
   })
 
   it('the ask body says sqlMode: true only when the mode is on', () => {
-    expect(askBody(EMPTY_CONVERSATION, 'Top stores?', null, null, true)).toEqual({ question: 'Top stores?', sqlMode: true })
-    expect(askBody(EMPTY_CONVERSATION, 'Top stores?', null, null, false)).toEqual({ question: 'Top stores?' })
+    expect(askBody(EMPTY_CONVERSATION, 'Top stores?', { sqlMode: true })).toEqual({ question: 'Top stores?', sqlMode: true })
+    expect(askBody(EMPTY_CONVERSATION, 'Top stores?', { sqlMode: false })).toEqual({ question: 'Top stores?' })
     expect(askBody(EMPTY_CONVERSATION, 'Top stores?')).toEqual({ question: 'Top stores?' })
   })
 
   it('the store sends the mode with the question when asked in it, and not otherwise', async () => {
     const d = door()
     const store = createCopilotConversation(d.ask)
-    const first = store.getState().ask('Top 5 stores by sales last week?', true)
+    const first = store.getState().ask('Top 5 stores by sales last week?', { sqlMode: true })
     expect(d.calls[0].body).toEqual({ question: 'Top 5 stores by sales last week?', sqlMode: true })
     d.calls[0].answer(reply())
     await first
@@ -222,11 +222,11 @@ describe('a SQL item opened in the copilot sends its context with the first ques
     expect(store.getState().conv.turns).toEqual([])
     expect(store.getState().history).toHaveLength(1)
     expect(store.getState().sqlItem).toEqual({ itemId: 'q1', revision: 3 })
-    const first = store.getState().ask('Only Riyadh, please', true)
+    const first = store.getState().ask('Only Riyadh, please', { sqlMode: true })
     expect(d.calls[1].body).toEqual({ question: 'Only Riyadh, please', sqlMode: true, sqlItemContext: { itemId: 'q1' } })
     d.calls[1].answer(reply({ conversationId: 'c-0002' }))
     await first
-    const next = store.getState().ask('And last month?', true)
+    const next = store.getState().ask('And last month?', { sqlMode: true })
     expect(d.calls[2].body).toEqual({ question: 'And last month?', conversationId: 'c-0002', sqlMode: true })
     d.calls[2].answer(reply({ conversationId: 'c-0002', questionNo: 2 }))
     await next

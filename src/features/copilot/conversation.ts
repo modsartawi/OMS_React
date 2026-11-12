@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotReportContext, CopilotStatedReading } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAsk, CopilotAskRequest, CopilotBoardContext, CopilotQuestionOrigin, CopilotReportContext, CopilotStatedReading } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -47,29 +47,62 @@ export interface CopilotConversation {
 export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null, turns: [], over: false }) as CopilotConversation
 
 /**
- * The `Copilot/Ask` body: the question, the conversation's id once it has one, and (832) the report open in the
- * designer when one is published, (836) the board open in its editor, and (892) the reading a tapped assumption line
- * states: the tapped answer's question, asked again. 888 (spec 3632 Q27): `sqlMode: true` when the question is asked in
- * SQL mode, and nothing otherwise; Q46: with it, `sqlItemContext` on the question opening a SQL item.
+ * What travels with a question besides its text: where it came from (871, BackOffice 3598, A49: typed, a tapped
+ * suggestion, and later a starter or an ask's choice), and what is open in context: (832) the report in the designer,
+ * (836) the board in its editor.
  */
-export function askBody(
-  c: CopilotConversation,
-  question: string,
-  reportContext: CopilotReportContext | null = null,
-  boardContext: CopilotBoardContext | null = null,
-  sqlMode = false,
-  sqlItemContext: { itemId: string } | null = null,
-  statedReading: CopilotStatedReading | null = null,
-): CopilotAskRequest {
+export interface AskFrom {
+  origin?: CopilotQuestionOrigin
+  reportContext?: CopilotReportContext | null
+  boardContext?: CopilotBoardContext | null
+  /**
+   * A reply to the pending ask (872, BackOffice 3597, A37): its id, and with a tap the chosen choice's key (the
+   * `question` is then the choice's label as shown). A typed reply sends the id alone, the text as `question`.
+   */
+  askId?: string
+  choiceKey?: string
+  /** 888 (spec 3632 Q27): asked in SQL mode. */
+  sqlMode?: boolean
+  /** Q46: the SQL item the question opens on; sent only with `sqlMode`. */
+  sqlItemContext?: { itemId: string } | null
+  /** 892: the reading a tapped assumption line states: the tapped answer's question, asked again. */
+  statedReading?: CopilotStatedReading | null
+}
+
+/**
+ * The `Copilot/Ask` body: the question, the conversation's id once it has one, the context open, and the origin. 888
+ * (spec 3632 Q27): `sqlMode: true` when the question is asked in SQL mode, and nothing otherwise; Q46: with it,
+ * `sqlItemContext` on the question opening a SQL item. A field with nothing to say is left out.
+ */
+export function askBody(c: CopilotConversation, question: string, from: AskFrom = {}): CopilotAskRequest {
+  const { origin, reportContext, boardContext, askId, choiceKey, sqlMode, sqlItemContext, statedReading } = from
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
   return {
     ...body,
     ...(reportContext ? { reportContext } : {}),
     ...(boardContext ? { boardContext } : {}),
+    ...(origin ? { origin } : {}),
+    ...(askId ? { askId, ...(choiceKey ? { choiceKey } : {}) } : {}),
     ...(sqlMode ? { sqlMode: true } : {}),
     ...(sqlMode && sqlItemContext ? { sqlItemContext } : {}),
     ...(statedReading ? { statedReading } : {}),
   }
+}
+
+/**
+ * The ask a reply would answer (872, BackOffice 3597): the latest ANSWER's, when its outcome is `asked` and it can be
+ * replied to (it carries an id, and the conversation one). A refused reply after it leaves it pending, as the server
+ * does; a later answer (its continuation, or a new question) ends it, and so does a closed conversation.
+ */
+export function pendingAsk(c: CopilotConversation): { index: number; ask: CopilotAsk } | null {
+  if (c.over || !c.id) return null
+  for (let i = c.turns.length - 1; i >= 0; i--) {
+    const reply = c.turns[i].reply
+    if (reply === null) continue
+    const ask = reply.outcome === 'asked' ? reply.ask : undefined
+    return ask && typeof ask.id === 'string' && ask.id !== '' ? { index: i, ask } : null
+  }
+  return null
 }
 
 /**
@@ -94,8 +127,67 @@ export function withRefusal(c: CopilotConversation, question: string, err: unkno
 }
 
 /**
- * The box stays while the conversation can take another question: not refused with 406, and the server's
- * own `questionNo` not yet at ten. The client never counts turns itself — the server is the authority.
+ * The `index`th turn is the conversation's latest answer, and the conversation can take another question (871): only
+ * then are its suggestions tappable. An earlier answer's, or any after a refused last question, are shown only.
+ */
+export function isLatestAnswer(c: CopilotConversation, index: number): boolean {
+  return index === c.turns.length - 1 && c.turns[index].reply !== null && canAskMore(c)
+}
+
+/**
+ * The `index`th turn's choices can be tapped (872, A40): its ask is the one pending. Once its continuation is answered,
+ * or a new question is, or the conversation closes, they are shown only.
+ */
+export function choicesTappable(c: CopilotConversation, index: number): boolean {
+  return pendingAsk(c)?.index === index
+}
+
+/**
+ * What can be tapped on the `index`th turn — the ONE place the panel asks (3586 review item 8): its suggestions only on
+ * the latest answer of a conversation that can take another question, its choices only while its ask is pending; and
+ * neither while a question is in flight (`working`). The answer's parts draw buttons; this says whether they tap.
+ */
+export function turnTaps(c: CopilotConversation, index: number, working: boolean): { suggestions: boolean; choices: boolean } {
+  return {
+    suggestions: !working && isLatestAnswer(c, index),
+    choices: !working && choicesTappable(c, index),
+  }
+}
+
+/**
+ * The `index`th turn continues an asked question (872, BackOffice 3597, A38): it was answered with the same number as the
+ * answer before it, which asked. The two are one question. A reply the server took as a new question (its ask had gone)
+ * has the next number, or a new conversation, and is not one.
+ */
+export function continuesAsk(c: CopilotConversation, index: number): boolean {
+  const turn = c.turns[index]
+  if (!turn?.reply || turn.questionNo === null) return false
+  for (let i = index - 1; i >= 0; i--) {
+    const before = c.turns[i]
+    if (before.reply === null) continue
+    return before.reply.outcome === 'asked' && before.questionNo === turn.questionNo
+  }
+  return false
+}
+
+/** The conversation's questions, as the panel counts them (872): an asked question and its continuation count once. */
+export function questionCount(c: CopilotConversation): number {
+  return c.turns.filter((_, i) => !continuesAsk(c, i)).length
+}
+
+/**
+ * The question box is shown (872, A37): the conversation can take another question, or an ask is pending, whose reply
+ * is the same question (even the tenth's). With no choices the box is how the reader types the name again.
+ */
+export function boxOpen(c: CopilotConversation): boolean {
+  return canAskMore(c) || pendingAsk(c) !== null
+}
+
+/**
+ * The conversation can take another question: not refused with 406, and the server's own `questionNo` not yet at
+ * ten. The limit is read from the server's numbers, never from counting turns — the server is the authority. (The
+ * panel does count questions for display, `questionCount`, and tells an ask's continuation apart, `continuesAsk`;
+ * neither decides whether one more can be asked.)
  */
 export function canAskMore(c: CopilotConversation): boolean {
   if (c.over) return false

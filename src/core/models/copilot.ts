@@ -38,12 +38,29 @@ export interface CopilotPromptVersion {
   note: string | null
   /** Set on a version a restore made: the version it copied. */
   revertedFrom: number | null
+  /** 3593 (oms-react 874): the version's own default readings; `""` when it has none (it uses the built-in text). */
+  defaultReadings: string
+  /** 3600 (oms-react 875): the version's starters, each with its proof; two empty lists when it has none or the switch is off. */
+  starters: CopilotStarterSet
 }
 
 /** The locked core (read-only, never sent back) and the active house rules, as the screen holds them. */
 export interface CopilotPrompt {
   core: string
   active: CopilotPromptVersion
+  /** 3593: the built-in default readings, shown for a version with none of its own. */
+  builtInDefaultReadings: string
+  /** 3593: the default readings' own limit (2,000), apart from the house rules' 4,000. */
+  defaultReadingsMaxLength: number
+  /**
+   * 3600 (oms-react 875): the read door carried the starters (`Copilot:Answers:Starters` on). Off: the screen draws no
+   * starters and a save sends none (the server keeps the ones it cannot show).
+   */
+  startersOn: boolean
+  /** 3600: the most starters for one kind of reader (6 when the door names none). */
+  startersPerKind: number
+  /** 3600: the longest starter text in one language, after trimming (200 when the door names none). */
+  starterMaxLength: number
   /** 895: the curators' counts of readers' own readings (`readerCountRows`); absent when the server sends none (switch off). */
   readerCounts?: ReaderCountRow[]
 }

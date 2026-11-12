@@ -8,7 +8,8 @@
 import { api } from '@/core/api'
 import type { AnalyticsItem } from '@/core/models/analytics'
 import type { AnalyticsSqlItemCreate } from '@/core/models/analytics-sql'
-import type { CopilotAnswer, CopilotAskRequest, CopilotNamedSetKeepRequest, CopilotNamedSetKept, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotNamedSetKeepRequest, CopilotNamedSetKept, CopilotReaderStarters, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
+import { startersOrNothing } from './starters'
 import { stepsOrNothing } from './steps'
 
 export const copilotApi = {
@@ -21,6 +22,11 @@ export const copilotApi = {
    *  recorded yet, or `Copilot:Speed:Steps` off) or any other failed read. */
   steps(requestId: string): Promise<CopilotSteps | null> {
     return stepsOrNothing(api.get<CopilotSteps>(`Copilot/Ask/${encodeURIComponent(requestId)}/Steps`))
+  },
+  /** `GET Copilot/Starters` → the asking reader's starters (873, BackOffice 3601, A53), gated like Ask; `null` on any
+   *  failed read, which the empty panel shows as its two fixed examples. */
+  starters(): Promise<CopilotReaderStarters | null> {
+    return startersOrNothing(api.get<CopilotReaderStarters>('Copilot/Starters'))
   },
   /** `POST Analytics/Item/Sql` (889, BackOffice 3675, spec 3632 Q39): a SQL answer saved as a Personal SQL item. The
    *  server runs the statement once first; its refusals (`ANALYTICS-428`, `406`, `425`/`408`/`409`) arrive as an `ApiError`. */

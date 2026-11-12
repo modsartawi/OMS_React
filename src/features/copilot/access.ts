@@ -14,6 +14,12 @@ import { useSession } from '@/core/session'
 export const COPILOT_ACCESS_KEY = ['copilot', 'access'] as const
 
 /**
+ * The empty panel's starters (873): the asking reader's own, so they are the user's as much as the probe is. Dropped
+ * when the user changes (below), and marked stale when the house rules (and their starters) are saved or restored.
+ */
+export const COPILOT_STARTERS_KEY = ['copilot', 'starters'] as const
+
+/**
  * The panel's own read of `GET Analytics/Access` (ticket 888, BackOffice 3672): only its `canSql` is read, for the SQL
  * mode toggle. Its own key, not the analytics feature's (features never import features); a second call per page life.
  */
@@ -61,11 +67,15 @@ export const canCurateCopilot = (r: CopilotAccess | null | undefined): boolean =
  * 🚩 Privacy (review item 1): the probe is `staleTime: Infinity`, so without this a grant would outlive
  * its user — B, signing in on A's tab, would see A's button. Whenever the session's user changes or
  * signs out, the answer is reset (no data: fails closed) and asked afresh. Returns the unsubscribe.
+ *
+ * The reader's starters (873, 3586 review item 1) are the user's too, held five minutes: dropped with the probe, so B
+ * never sees A's.
  */
 export function dropCopilotAccessOnUserChange(client: QueryClient): () => void {
   return useSession.subscribe((now, before) => {
     if (now.userId === before.userId) return
     void client.resetQueries({ queryKey: COPILOT_ACCESS_KEY, exact: true })
+    client.removeQueries({ queryKey: COPILOT_STARTERS_KEY, exact: true })
     // 888: the SQL grant is the user's too.
     void client.resetQueries({ queryKey: COPILOT_SQL_ACCESS_KEY, exact: true })
   })

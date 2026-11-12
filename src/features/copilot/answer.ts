@@ -4,6 +4,7 @@ import { saysIn } from '@/core/rules/sentence'
 import type {
   CopilotAnswer,
   CopilotAnswerTable,
+  CopilotAsk,
   CopilotAssumptionChoice,
   CopilotBoardEdit,
   CopilotNamedSetKind,
@@ -15,6 +16,7 @@ import type {
   CopilotReportStep,
   CopilotSqlOffer,
   CopilotSqlPart,
+  CopilotSuggestion,
   CopilotTraceEntry,
   CopilotViewRef,
 } from '@/core/models/copilot'
@@ -84,6 +86,16 @@ export interface CopilotAnswerModel {
    * model's words, and the answer is its tables and its lookups. Not an error.
    */
   figuresOnly: boolean
+  /**
+   * The next questions the server checked (BackOffice 3598, ticket 871), at most 3, in the order to show. Absent reads as
+   * none, and the answer renders as before.
+   */
+  suggestions: CopilotSuggestion[]
+  /**
+   * The server's question about an unclear name (BackOffice 3596, ticket 872), on an `asked` answer only: drawn in place
+   * of the answer's text, which repeats it as plain text. `null` on any other answer.
+   */
+  ask: CopilotAsk | null
   /**
    * The SQL part (888, BackOffice 3673, spec 3632 Q33): drawn under the "SQL, not a certified figure" mark with every
    * row, the statement, the tables read, the count, the time and the cut line. `null` on an answer not given in SQL mode.
@@ -251,11 +263,93 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     figuresOnly: r.outcome === 'figures-only',
     sql: sqlOf(r.sql),
     sqlOffer: sqlOfferOf(r.sqlOffer),
+    suggestions: Array.isArray(r.suggestions) ? r.suggestions.flatMap(suggestionOf).slice(0, COPILOT_MAX_SUGGESTIONS) : [],
+    ask: r.outcome === 'asked' ? askOf(r.ask) : null,
   }
 }
 
+/** The answer's `ask` (3596), or none when it carries no id. A choice with no key is left out; a missing label half reads as blank. */
+function askOf(v: unknown): CopilotAsk | null {
+  if (!v || typeof v !== 'object') return null
+  const { id, question, text: unclear, choices } = v as { id?: unknown; question?: unknown; text?: unknown; choices?: unknown }
+  if (typeof id !== 'string' || id.trim() === '') return null
+  const list = Array.isArray(choices) ? choices : []
+  return {
+    id,
+    question: bilingual(question),
+    text: text(unclear),
+    choices: list.flatMap((c) => {
+      const { key, label } = (c && typeof c === 'object' ? c : {}) as { key?: unknown; label?: unknown }
+      return typeof key === 'string' && key.trim() !== '' ? [{ key, label: bilingual(label) }] : []
+    }),
+  }
+}
+
+/**
+ * One choice's button (ticket 872): its key and its label in the panel's language. Whether a tap sends it is the
+ * conversation's to say (`turnTaps`), not the answer's.
+ */
+export interface AskChoiceButton {
+  key: string
+  label: string
+}
+
+/** What the panel draws for an `asked` answer: the question, and its choices (none: the reader types the name again). */
+export interface AskView {
+  question: string
+  choices: AskChoiceButton[]
+}
+
+/**
+ * The answer's clarifying question in the panel's language, with one button per choice in the order sent; `null` when
+ * the answer asks nothing.
+ */
+export function askView(model: CopilotAnswerModel, lang: string): AskView | null {
+  if (!model.ask) return null
+  return {
+    question: saysIn(model.ask.question, lang),
+    choices: model.ask.choices.map((c) => ({ key: c.key, label: saysIn(c.label, lang) })),
+  }
+}
+
+/** The panel shows at most this many suggestions under an answer (BackOffice 3598, A46). */
+export const COPILOT_MAX_SUGGESTIONS = 3
+
+/** A suggestion the panel can show: one with a non-blank question. The server already checked it; the panel does not. */
+function suggestionOf(v: unknown): CopilotSuggestion[] {
+  if (!v || typeof v !== 'object') return []
+  const { question, by } = v as Partial<CopilotSuggestion>
+  if (typeof question !== 'string' || question.trim() === '') return []
+  return [{ question, by: by === 'server' ? 'server' : 'model' }]
+}
+
+/**
+ * One suggestion's button (ticket 871): its text. Whether a tap asks it (only the latest answer's can) is the
+ * conversation's to say (`turnTaps`), not the answer's.
+ */
+export interface SuggestionButton {
+  question: string
+}
+
+/** The answer's suggestions as buttons, in the order sent. */
+export function suggestionButtons(model: CopilotAnswerModel): SuggestionButton[] {
+  return model.suggestions.map((s) => ({ question: s.question }))
+}
+
 /** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */
-export type AnswerPart = 'text' | 'sql' | 'tables' | 'views' | 'assumptions' | 'readingOffer' | 'namedSet' | 'reportEdit' | 'boardEdit' | 'reports'
+export type AnswerPart =
+  | 'ask'
+  | 'text'
+  | 'sql'
+  | 'tables'
+  | 'views'
+  | 'assumptions'
+  | 'readingOffer'
+  | 'namedSet'
+  | 'reportEdit'
+  | 'boardEdit'
+  | 'reports'
+  | 'suggestions'
 
 /** How the list of lookups ("How I got this") is drawn: not at all (no trace), folded, or open. */
 export type AnswerLookups = 'none' | 'collapsed' | 'open'
@@ -268,7 +362,8 @@ export interface AnswerLayout {
 
 /** What the panel draws for one answer, in order: only the parts the answer has. */
 export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
-  const parts: AnswerPart[] = ['text']
+  // An `asked` answer (872) draws its question in place of the text, which only repeats it.
+  const parts: AnswerPart[] = [model.ask ? 'ask' : 'text']
   // 888: the SQL part right under the words, which speak about its rows.
   if (model.sql) parts.push('sql')
   if (model.tables.length > 0) parts.push('tables')
@@ -279,6 +374,7 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   if (model.reportEdit) parts.push('reportEdit')
   if (model.boardEdit) parts.push('boardEdit')
   if (model.reportRefs.length > 0) parts.push('reports')
+  if (model.suggestions.length > 0) parts.push('suggestions')
   // A figures-only answer's sentence says the lookups are listed below: they start open.
   const lookups: AnswerLookups = model.trace.length === 0 ? 'none' : model.figuresOnly ? 'open' : 'collapsed'
   return { figuresOnly: model.figuresOnly, parts, lookups }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3586-copilot-answers-you-can-trust-and-a-next-step-spec.md
 blocked-by: BackOffice 3597
 ---
@@ -19,12 +19,12 @@ BackOffice spec 3586 A36–A40, "The web half"; tickets 3596 and 3597.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] An `asked` answer shows the question and one button per choice, labelled in the panel's language · oms-react tests (the panel's answer tests)
-- [ ] A tap builds a request with the ask's id, the chosen key and the origin "choice" · oms-react tests
-- [ ] Text typed while the ask is pending builds a request with the ask's id and the text · oms-react tests
-- [ ] An ask with no choices shows the question and leaves the box open · oms-react tests
-- [ ] The asked half and its continuation count as one question in the panel's counter · oms-react tests
-- [ ] After the continuation's answer the choices cannot be tapped · oms-react tests
+- [x] An `asked` answer shows the question and one button per choice, labelled in the panel's language · oms-react tests (the panel's answer tests) · `answer.test.ts` `anAskedAnswer_showsTheQuestionAndOneButtonPerChoice_inThePanelsLanguage_andNotItsTextBesideIt`
+- [x] A tap builds a request with the ask's id, the chosen key and the origin "choice" · oms-react tests · `conversation-store.test.ts` `aTapOnAChoice_sendsTheAsksId_theChosenKey_itsLabelAsShown_andTheOriginChoice`
+- [x] Text typed while the ask is pending builds a request with the ask's id and the text · oms-react tests · `conversation-store.test.ts` `textTypedWhileTheAskIsPending_isSentAsTheReply_withTheAsksIdAndTheText_andNoKey`
+- [x] An ask with no choices shows the question and leaves the box open · oms-react tests · `conversation.test.ts` `anAskWithNoChoices_showsTheQuestion_andLeavesTheBoxOpen_evenOnTheTenthQuestion`, `conversation-store.test.ts` `anAskOnTheTenthQuestion_stillTakesTheTypedReply_thenTheConversationIsFull`
+- [x] The asked half and its continuation count as one question in the panel's counter · oms-react tests · `conversation.test.ts` `theAskedHalfAndItsContinuation_countAsOneQuestion`
+- [x] After the continuation's answer the choices cannot be tapped · oms-react tests · `conversation.test.ts` `afterTheContinuationsAnswer_theChoicesCannotBeTapped_butARefusedReplyLeavesThemOpen`
 
 ## Boundaries
 

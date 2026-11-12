@@ -1429,12 +1429,12 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Copilot answers you can trust, and a next step (BackOffice spec 3586), filed 2026-11-11
 
-- [870](870-the-panel-lists-what-was-assumed-and-shows-a-figures-only-answer.md) — The panel lists what was assumed under any answer, and shows a figures-only answer as its sentence above the tables · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3590, BackOffice 3594
-- [871](871-the-panel-shows-suggestions-as-buttons-and-a-tap-asks-at-once.md) — The panel shows suggestions as buttons, and a tap asks at once · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3598
-- [872](872-the-panel-shows-a-clarifying-question-with-its-choices.md) — The panel shows a clarifying question with its choices, and the box stays open for something else · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3597
-- [873](873-the-empty-panel-shows-the-readers-starters-or-the-two-fixed-examples.md) — The empty panel shows the reader's starters, or the two fixed examples when there are none · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3601
-- [874](874-a-curator-edits-and-tries-the-default-readings-on-the-house-rules-screen.md) — A curator edits and tries the default readings on the house-rules screen · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3593
-- [875](875-a-curator-writes-starters-in-both-languages-each-with-its-try-proof.md) — A curator writes starters in both languages, each with its "Try" proof · *(ticket · BackOffice spec 3586)* · **open** · blocked by: BackOffice 3600
+- [870](870-the-panel-lists-what-was-assumed-and-shows-a-figures-only-answer.md) — The panel lists what was assumed under any answer, and shows a figures-only answer as its sentence above the tables · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3590, BackOffice 3594
+- [871](871-the-panel-shows-suggestions-as-buttons-and-a-tap-asks-at-once.md) — The panel shows suggestions as buttons, and a tap asks at once · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3598
+- [872](872-the-panel-shows-a-clarifying-question-with-its-choices.md) — The panel shows a clarifying question with its choices, and the box stays open for something else · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3597
+- [873](873-the-empty-panel-shows-the-readers-starters-or-the-two-fixed-examples.md) — The empty panel shows the reader's starters, or the two fixed examples when there are none · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3601
+- [874](874-a-curator-edits-and-tries-the-default-readings-on-the-house-rules-screen.md) — A curator edits and tries the default readings on the house-rules screen · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3593
+- [875](875-a-curator-writes-starters-in-both-languages-each-with-its-try-proof.md) — A curator writes starters in both languages, each with its "Try" proof · *(ticket · BackOffice spec 3586)* · **done 2026-11-12** · blocked by: BackOffice 3600
 
 ## The copilot's analysis tools (BackOffice spec 3587), filed 2026-11-11
 

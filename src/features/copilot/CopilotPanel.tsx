@@ -15,14 +15,16 @@ import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { COPILOT_STARTERS_KEY, canUseSqlMode, copilotSqlAccessQuery } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
-import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
-import { Answer, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
+import { COPILOT_MAX_QUESTIONS, boxOpen, canAskMore, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
+import { Answer, QuestionButtons, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
 import { ProposalCard, ScheduleLinks } from './ProposalCard'
 import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
+import { copilotApi } from './api'
+import { emptyPanelOffer, type StarterTap } from './starters'
 import { COPILOT_ME_KEY, meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
@@ -109,7 +111,7 @@ function KnowsMeEntry() {
 }
 
 export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
-  const { t } = useTranslation('copilot')
+  const { t, i18n } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   // Held in the store, not here: the sheet unmounts the panel when an order link navigates (736).
@@ -119,6 +121,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const epoch = useCopilotConversation((s) => s.epoch)
   const history = useCopilotConversation((s) => s.history)
   const ask = useCopilotConversation((s) => s.ask)
+  const askFromBox = useCopilotConversation((s) => s.askFromBox)
   const clear = useCopilotConversation((s) => s.startNew)
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
@@ -134,7 +137,9 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (handed === null) return
     const q = useCopilotPanel.getState().takeQuestion()
     if (q === null) return
-    if (!questionFits(q) || ask(q, sqlOn) === null) setQuestion(q)
+    // A NEW question, never the reply to a pending ask (A37): only the box's own text replies. Not sent (the tenth
+    // question's ask pending, among others), it waits in the box.
+    if (!questionFits(q) || ask(q, { sqlMode: sqlOn }) === null) setQuestion(q)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- taken once, in the mode the toggle is in then
   }, [handed, ask])
 
@@ -220,9 +225,19 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const send = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canSend) return
-    if (ask(question.trim(), sqlOn) !== null) setQuestion('')
+    // Only the box's own text can be the reply to a pending ask (872, A37).
+    if (askFromBox(question.trim(), sqlOn) !== null) setQuestion('')
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
     box.current?.focus()
+  }
+  /** A tapped suggestion (871) is asked at once, in this conversation, saying where it came from; the box keeps what is typed. */
+  const askSuggestion = (q: string) => {
+    void ask(q, { origin: 'suggestion' })
+  }
+  /** A tapped choice of the pending ask (872) replies with it at once; the box keeps what is typed. */
+  const choose = useCopilotConversation((s) => s.choose)
+  const chooseAnswer = (choice: { key: string; label: string }) => {
+    void choose(choice)
   }
   /** Stop: the question in flight is abandoned and comes back to the box to change, unless something new is typed there. */
   const stopAsk = () => {
@@ -262,7 +277,19 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   }
 
   const empty = conv.turns.length === 0 && !working
-  const canAsk = canAskMore(conv)
+  // 873 (A52, A53): the reader's starters, read once the panel is empty. A failed read is `null` (never an error), and
+  // that, like none, is the two fixed examples. While the read is out the empty state offers nothing, so the examples
+  // never flash before the starters.
+  // The key is dropped when the user changes, and marked stale by a house-rules save or restore (`COPILOT_STARTERS_KEY`).
+  const startersRead = useQuery({ queryKey: COPILOT_STARTERS_KEY, queryFn: () => copilotApi.starters(), enabled: empty, staleTime: 5 * 60_000, retry: false })
+  const offer = startersRead.isPending ? null : emptyPanelOffer(startersRead.data, i18n.language)
+  /** A starter asks at once, saying it came from a starter; one with a blank goes to the box, unsent, for the reader to complete. */
+  const tapStarter = (tap: StarterTap) => {
+    if (tap.kind === 'fill') fillExample(tap.text, null)
+    else if (ask(tap.question, { origin: tap.origin }) === null) setQuestion(tap.question)
+  }
+  // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
+  const canAsk = boxOpen(conv)
   const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))
 
   return (
@@ -312,38 +339,54 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
             data-copilot-scroller
           >
             <div ref={content} className="flex flex-col gap-4">
-              {empty && (
+              {empty && offer?.kind === 'starters' && (
+                <div data-copilot-starters className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
+                  <QuestionButtons
+                    buttons={offer.starters.map((s, i) => ({
+                      key: `${i}-${s.text}`,
+                      text: s.text,
+                      onClick: () => tapStarter(s.tap),
+                      data: { 'data-copilot-starter': s.tap.kind },
+                    }))}
+                  />
+                </div>
+              )}
+
+              {empty && offer?.kind === 'examples' && (
                 <div data-copilot-examples className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
-                  <div className="flex flex-col items-start gap-1.5">
-                    {/* The example IS the question the box will send, so its order number is not isolated with
-                        `fsi`: those characters would ride into the question. The label is a `<bdi>` instead. */}
-                    {[
+                  {/* The example IS the question the box will send, so its order number is not isolated with
+                      `fsi`: those characters would ride into the question. The label is a `<bdi>` instead. */}
+                  <QuestionButtons
+                    buttons={[
                       { text: t('examples.late', { orderNo: late.orderNo }), select: late.select },
                       { text: t('examples.hungerstation'), select: null },
-                    ].map((ex) => (
-                      <Button
-                        key={ex.text}
-                        variant="secondary"
-                        className="h-auto min-h-7 py-1 text-start"
-                        data-copilot-example
-                        onClick={() => fillExample(ex.text, ex.select)}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>
-                          <bdi>{ex.text}</bdi>
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                    ].map((ex) => ({
+                      key: ex.text,
+                      text: ex.text,
+                      onClick: () => fillExample(ex.text, ex.select),
+                      data: { 'data-copilot-example': true },
+                    }))}
+                  />
                 </div>
               )}
 
               {conv.turns.length > 0 && (
                 <ol className="flex flex-col gap-5" data-copilot-thread>
-                  {conv.turns.map((turn, i) => (
-                    <Turn key={i} turn={turn} card={cardState(conv, i, inFlight)} />
-                  ))}
+                  {conv.turns.map((turn, i) => {
+                    const taps = turnTaps(conv, i, working)
+                    return (
+                      <Turn
+                        key={i}
+                        turn={turn}
+                        card={cardState(conv, i, inFlight)}
+                        continues={continuesAsk(conv, i)}
+                        onAsk={taps.suggestions ? askSuggestion : undefined}
+                        onChoose={taps.choices ? chooseAnswer : undefined}
+                      />
+                    )
+                  })}
                 </ol>
               )}
 
@@ -482,7 +525,7 @@ function HistoryList({
                 <bdi>{p.conv.turns[0]?.question ?? ''}</bdi>
               </span>
               <span className="text-[11px] font-normal text-muted-foreground">
-                {t('history.questions', { count: p.conv.turns.length, n: fsi(formatNumber(p.conv.turns.length)) })}
+                {t('history.questions', { count: questionCount(p.conv), n: fsi(formatNumber(questionCount(p.conv))) })}
                 {' · '}
                 <Ltr>{formatDateTime(new Date(p.at).toISOString())}</Ltr>
               </span>
@@ -548,29 +591,46 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
 
 /**
  * One question in the thread, with its answer or its refusal. `cannot-answer` is not an error, and neither is
- * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups.
+ * `figures-only` (870): it is drawn as an answer, its fixed sentence above its tables and its lookups. `onAsk` (871):
+ * the latest answer, with nothing in flight; a tap on one of its suggestions asks it. An `asked` answer (872) is its
+ * question and choices; `onChoose`: its ask is pending, and a tap replies. `continues`: the turn is that ask's
+ * continuation, the same question, so it draws no new number.
  */
-function Turn({ turn, card: state }: { turn: CopilotTurn; card: CardState }) {
+function Turn({
+  turn,
+  card: state,
+  continues = false,
+  onAsk,
+  onChoose,
+}: {
+  turn: CopilotTurn
+  card: CardState
+  continues?: boolean
+  onAsk?: (question: string) => void
+  onChoose?: (choice: { key: string; label: string }) => void
+}) {
   const { t, i18n } = useTranslation('copilot')
   const readings = useTurnReadings(turn)
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
   // 885: a proposed answer's card; a confirmation turn (Confirm or Cancel) asked nothing, so it draws no question.
   const card = state === 'none' ? null : proposalCard(turn.reply, i18n.language)
   return (
-    <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome}>
-      <TurnRule
-        label={
-          turn.confirms ? (
-            t(turn.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn')
-          ) : turn.questionNo !== null ? (
-            <span data-copilot-turn-no>
-              {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
-            </span>
-          ) : (
-            t('answer.question')
-          )
-        }
-      />
+    <li className="flex flex-col gap-3" data-copilot-turn data-copilot-outcome={outcome} data-copilot-continues={continues || undefined}>
+      {!continues && (
+        <TurnRule
+          label={
+            turn.confirms ? (
+              t(turn.confirms.cancel ? 'proposal.cancelTurn' : 'proposal.confirmTurn')
+            ) : turn.questionNo !== null ? (
+              <span data-copilot-turn-no>
+                {t('thread.questionNo')} <Ltr>{formatNumber(turn.questionNo)}</Ltr>
+              </span>
+            ) : (
+              t('answer.question')
+            )
+          }
+        />
+      )}
       {!turn.confirms && <Asked question={turn.question} sql={turn.reply?.sql !== undefined && turn.reply?.sql !== null} />}
       {!turn.reply ? (
         <AnswerRow plain>
@@ -586,14 +646,14 @@ function Turn({ turn, card: state }: { turn: CopilotTurn; card: CardState }) {
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} readings={readings} />
+            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} readings={readings} onAsk={onAsk} />
             <SqlOffer reply={turn.reply} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
           {card && <ProposalCard card={card} state={state} />}
-          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} question={turn.question} readings={readings} />
+          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} question={turn.question} readings={readings} onAsk={onAsk} onChoose={onChoose} />
           <ScheduleLinks reply={turn.reply} />
         </AnswerRow>
       )}
@@ -639,7 +699,7 @@ function useTurnReadings(turn: CopilotTurn): AnswerReadings {
   const keepNamedSet = useCopilotConversation((s) => s.keepNamedSet)
   const notNowNamedSet = useCopilotConversation((s) => s.notNowNamedSet)
   return {
-    choose: (reading) => void ask(turn.question, undefined, reading),
+    choose: (reading) => void ask(turn.question, { statedReading: reading }),
     canChoose,
     offer,
     keep: () => void keepReading(conversationId, offerId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),

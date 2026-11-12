@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3586-copilot-answers-you-can-trust-and-a-next-step-spec.md
 blocked-by: BackOffice 3590, BackOffice 3594
 ---

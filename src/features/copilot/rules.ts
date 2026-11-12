@@ -1,4 +1,5 @@
 import { apiErrorCode, apiErrorData, isBareDenial } from '@/core/api'
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 import type {
   CopilotAnswer,
   CopilotReaderKind,
@@ -73,7 +74,12 @@ export const startersOf = (set: CopilotStarterSet): StartersDraft => ({
   operations: set.operations.map(starterDraftOf),
 })
 
+/** A fresh client-only identity for a starter in the draft (3586 review item 3); never sent. */
+let starterIds = 0
+export const newStarterId = (): string => `starter-${++starterIds}`
+
 const starterDraftOf = (s: CopilotStarter): StarterDraft => ({
+  id: newStarterId(),
   en: s.question.en,
   ar: s.question.ar,
   blank: s.blank,
@@ -91,22 +97,29 @@ export const draftOf = (v: CopilotPromptVersion, frame: RulesFrame): RulesDraft 
 const noteOf = (note: string | null | undefined): string | null => (note && note.trim() !== '' ? note.trim() : null)
 
 /**
- * The default readings as a door takes them (3593): the shown text, or `""` (none of its own) when it is blank or
- * still the built-in text — the built-in text is never stored as a version's own.
+ * The default readings as a door takes them (3593): the shown text, or `""` (none of its own) when it is blank, or when
+ * it is still the built-in text the screen showed for a `base` with none of its own. A version whose OWN readings are
+ * that text keeps them: they are sent as they are. No `base` (a try) reads as one with none.
  */
-export const readingsToSend = (readings: string, frame: RulesFrame): string =>
-  readings.trim() === '' || readings === frame.builtInDefaultReadings ? '' : readings
+export const readingsToSend = (readings: string, frame: RulesFrame, base: Pick<CopilotPromptVersion, 'defaultReadings'> | null = null): string =>
+  readings.trim() === '' || (readings === frame.builtInDefaultReadings && (base === null || base.defaultReadings === '')) ? '' : readings
+
+/** Starters as compared for dirtiness: everything but their client-only ids. */
+const comparable = (starters: StartersDraft): string => {
+  const bare = ({ en, ar, blank, proof }: StarterDraft) => ({ en, ar, blank, proof })
+  return JSON.stringify({ executive: starters.executive.map(bare), operations: starters.operations.map(bare) })
+}
 
 /** The draft's starters differ from the version's (text, blank mark, order, a proof taken or cleared). */
 const startersChanged = (starters: StartersDraft, base: CopilotPromptVersion): boolean =>
-  JSON.stringify(starters) !== JSON.stringify(startersOf(base.starters))
+  comparable(starters) !== comparable(startersOf(base.starters))
 
 /** The draft differs from the version it was edited from: either text, the starters, or a note was written. */
 export function isRulesDirty(draft: RulesDraft, base: CopilotPromptVersion | null, frame: RulesFrame): boolean {
   if (!base) return false
   return (
     draft.text !== base.text ||
-    readingsToSend(draft.readings, frame) !== base.defaultReadings ||
+    readingsToSend(draft.readings, frame, base) !== base.defaultReadings ||
     (frame.startersOn && startersChanged(draft.starters, base)) ||
     noteOf(draft.note) !== null
   )
@@ -146,15 +159,15 @@ export const startersToSend = (starters: StartersDraft): CopilotStarterSet => ({
 })
 
 /**
- * The body a save sends: both texts and the starters in one version, on the version the draft was edited from. With
- * the starters off (875) it sends none, and the server keeps the version's own.
+ * The body a save sends: both texts and the starters in one version, on the version the draft was edited from (`base`).
+ * With the starters off (875) it sends none, and the server keeps the version's own.
  */
-export function saveRequest(draft: RulesDraft, baseVersion: number, frame: RulesFrame): CopilotPromptSaveRequest {
+export function saveRequest(draft: RulesDraft, base: CopilotPromptVersion, frame: RulesFrame): CopilotPromptSaveRequest {
   return {
     houseRules: draft.text,
     note: noteOf(draft.note),
-    baseVersion,
-    defaultReadings: readingsToSend(draft.readings, frame),
+    baseVersion: base.version,
+    defaultReadings: readingsToSend(draft.readings, frame, base),
     ...(frame.startersOn ? { starters: startersToSend(draft.starters) } : {}),
   }
 }
@@ -169,6 +182,8 @@ export function tryRequest(draft: RulesDraft, question: string, frame: RulesFram
  * tool call its last successful try answered with — null until tried, and again once its text changes.
  */
 export interface StarterDraft {
+  /** Client-only (3586 review item 3): which starter a try's answer belongs to, through removals and edits. Never sent. */
+  id: string
   en: string
   ar: string
   blank: boolean
@@ -186,7 +201,8 @@ const PROVEN_OUTCOMES: ReadonlySet<CopilotAnswer['outcome']> = new Set(['answere
  * did not answer ("can't answer", a refusal, a question back) or answered with no lookup.
  */
 export function trialProof(answer: CopilotAnswer): CopilotStarterProof | null {
-  if (!PROVEN_OUTCOMES.has(answer.outcome)) return null
+  // No outcome is an answer, as the panel reads it (`outcome ?? 'answered'`).
+  if (!PROVEN_OUTCOMES.has(answer.outcome ?? 'answered')) return null
   const trace = Array.isArray(answer.trace) ? answer.trace : []
   for (let i = trace.length - 1; i >= 0; i--) {
     if (trace[i].ok) return { tool: trace[i].tool, input: trace[i].input }
@@ -199,14 +215,32 @@ const withStarter = (starters: StartersDraft, kind: CopilotReaderKind, index: nu
   [kind]: starters[kind].map((s, i) => (i === index ? f(s) : s)),
 })
 
+/** A starter's try: which starter (its kind and client-only id), and its two texts as they were when it was sent. */
+export interface StarterTrial {
+  kind: CopilotReaderKind
+  id: string
+  en: string
+  ar: string
+}
+
+/** The try of `s` as it stands now. */
+export const trialOf = (kind: CopilotReaderKind, s: StarterDraft): StarterTrial => ({ kind, id: s.id, en: s.en, ar: s.ar })
+
 /**
- * A try's answer on the starter it was run for: its proof is the try's (or none). Dropped when the starter's English
- * text is no longer the text tried — the curator edited it while the try was out.
+ * The try's answer belongs to `s` as it stands (3586 review item 3): the same starter, wherever it now sits in its list,
+ * its text in either language unchanged since. An edit hides the answer (and its "no proof kept" note).
  */
-export function applyTrial(starters: StartersDraft, kind: CopilotReaderKind, index: number, triedText: string, answer: CopilotAnswer): StartersDraft {
-  const s = starters[kind][index]
-  if (!s || s.en !== triedText) return starters
-  return withStarter(starters, kind, index, (x) => ({ ...x, proof: trialProof(answer) }))
+export const trialIsOf = (trial: StarterTrial | undefined, s: StarterDraft): boolean =>
+  trial !== undefined && trial.id === s.id && trial.en === s.en && trial.ar === s.ar
+
+/**
+ * A try's answer on the starter it was run for: its proof is the try's (or none). Dropped when that starter is gone, or
+ * its text is no longer the text tried — the curator removed or edited it while the try was out.
+ */
+export function applyTrial(starters: StartersDraft, trial: StarterTrial, answer: CopilotAnswer): StartersDraft {
+  const index = starters[trial.kind].findIndex((s) => trialIsOf(trial, s))
+  if (index < 0) return starters
+  return withStarter(starters, trial.kind, index, (x) => ({ ...x, proof: trialProof(answer) }))
 }
 
 /**
@@ -231,7 +265,9 @@ export const canAddStarter = (starters: StartersDraft, kind: CopilotReaderKind, 
 
 /** One more, empty and unproven, at the end of the kind's list; the same set when the list is full. */
 export const addStarter = (starters: StartersDraft, kind: CopilotReaderKind, frame: RulesFrame): StartersDraft =>
-  canAddStarter(starters, kind, frame) ? { ...starters, [kind]: [...starters[kind], { en: '', ar: '', blank: false, proof: null }] } : starters
+  canAddStarter(starters, kind, frame)
+    ? { ...starters, [kind]: [...starters[kind], { id: newStarterId(), en: '', ar: '', blank: false, proof: null }] }
+    : starters
 
 export const removeStarter = (starters: StartersDraft, kind: CopilotReaderKind, index: number): StartersDraft => ({
   ...starters,
@@ -274,22 +310,35 @@ export function starterIssue(starters: StartersDraft, frame: RulesFrame): Starte
 
 /** The `COPILOT-411` dialog: their saved version beside my draft, and the re-post "Save mine on top" sends. */
 export interface MergeOffer {
-  theirs: { version: number; text: string; readings: string; savedBy: string | null; savedAt: string | null }
+  theirs: { version: number; text: string; readings: string; starters: StartersDraft; savedBy: string | null; savedAt: string | null }
   mine: RulesDraft
   saveMineOnTop: CopilotPromptSaveRequest
 }
 
-export function mergeOffer(theirs: CopilotPromptVersion, mine: RulesDraft, frame: RulesFrame): MergeOffer {
+/**
+ * The dialog for a save refused with `COPILOT-411`: their newest version beside mine as it was sent (`""` default
+ * readings read back as the built-in text the screen showed), and "Save mine on top": the same body again, on their
+ * version — so it says exactly what the refused save said, readings and starters included.
+ */
+export function mergeOffer(theirs: CopilotPromptVersion, sent: CopilotPromptSaveRequest, frame: RulesFrame): MergeOffer {
+  const mine: RulesDraft = {
+    text: sent.houseRules,
+    note: sent.note ?? '',
+    readings: sent.defaultReadings ? sent.defaultReadings : frame.builtInDefaultReadings,
+    starters: startersOf(sent.starters ?? { executive: [], operations: [] }),
+  }
   return {
     theirs: {
       version: theirs.version,
       text: theirs.text,
       readings: readingsOf(theirs, frame),
+      // "Save mine on top" replaces their starters with mine: the dialog shows both (3586 review item 4).
+      starters: startersOf(theirs.starters),
       savedBy: theirs.savedBy,
       savedAt: theirs.savedAt,
     },
-    mine: { text: mine.text, note: mine.note, readings: mine.readings, starters: mine.starters },
-    saveMineOnTop: saveRequest(mine, theirs.version, frame),
+    mine,
+    saveMineOnTop: { ...sent, baseVersion: theirs.version },
   }
 }
 
@@ -308,7 +357,10 @@ export interface HistoryRow {
   starters: StartersDraft
 }
 
-/** The last 20 versions, newest first, the active one marked. A reply that is not a list reads as none. */
+/**
+ * The last 20 versions, newest first, the active one marked. A reply that is not a list reads as none. Each version is
+ * already normalised off the wire (`fromVersionWire`).
+ */
 export function historyRows(
   history: readonly CopilotPromptVersion[] | null | undefined,
   activeVersion: number,
@@ -320,14 +372,14 @@ export function historyRows(
     .slice(0, HISTORY_MAX)
     .map((h) => ({
       version: h.version,
-      savedBy: h.savedBy ?? null,
-      savedAt: h.savedAt ?? null,
-      note: noteOf(h.note),
-      revertedFrom: typeof h.revertedFrom === 'number' ? h.revertedFrom : null,
+      savedBy: h.savedBy,
+      savedAt: h.savedAt,
+      note: h.note,
+      revertedFrom: h.revertedFrom,
       active: h.version === activeVersion,
-      text: typeof h.text === 'string' ? h.text : '',
-      readings: readingsOf({ ...h, defaultReadings: typeof h.defaultReadings === 'string' ? h.defaultReadings : '' }, frame),
-      starters: startersOf(starterSetFromWire(h.starters)),
+      text: h.text,
+      readings: readingsOf(h, frame),
+      starters: startersOf(h.starters),
     }))
 }
 
@@ -389,8 +441,6 @@ export function fromVersionWire(w: Partial<CopilotPromptVersionWire> | null | un
     starters: starterSetFromWire(v.starters),
   }
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 /** One starter off the wire, or null when it is not one. A blank starter carries no proof (3600). */
 function starterFromWire(w: unknown): CopilotStarter | null {

@@ -25,8 +25,11 @@ import {
   removeStarter,
   rulesTooLong,
   starterIssue,
+  trialIsOf,
+  trialOf,
   tryRequest,
   type RefusedStarter,
+  type StarterTrial,
   type RulesDraft,
   type RulesFrame,
   type StarterDraft,
@@ -37,13 +40,6 @@ import {
 /** A `COPILOT-412` naming a starter (or a kind's list), with the server's words. */
 export interface StarterRefusal extends RefusedStarter {
   message: string
-}
-
-/** The starter being tried: its place and the English text sent. */
-interface Trial {
-  kind: CopilotReaderKind
-  index: number
-  text: string
 }
 
 const only = (kind: CopilotReaderKind, s: StarterDraft): StartersDraft =>
@@ -73,8 +69,8 @@ export default function StartersEditor({
 }) {
   const { t } = useTranslation('copilot')
   const run = useMutation({
-    mutationFn: (trial: Trial) => copilotRulesApi.tryDraft(tryRequest(draft, trial.text.trim(), frame)),
-    onSuccess: (answer, trial) => onStarters((s) => applyTrial(s, trial.kind, trial.index, trial.text, answer)),
+    mutationFn: (trial: StarterTrial) => copilotRulesApi.tryDraft(tryRequest(draft, trial.en.trim(), frame)),
+    onSuccess: (answer, trial) => onStarters((s) => applyTrial(s, trial, answer)),
     onError: (err) => void onRefused(err),
   })
   const draftTriable = draft.text.trim() !== '' && !rulesTooLong(draft.text) && !readingsTooLong(draft.readings, frame)
@@ -121,14 +117,15 @@ export default function StartersEditor({
                 {list.map((s, index) => {
                   const own = starterIssue(only(kind, s), frame)
                   const marked = refusal && refusal.kind === kind && refusal.index === index ? refusal.message : null
-                  const trying = run.isPending && run.variables?.kind === kind && run.variables.index === index
-                  const shown = !run.isPending && run.variables?.kind === kind && run.variables.index === index
+                  // The try's answer belongs to this starter by its id, and only while its text is the text tried.
+                  const trying = run.isPending && run.variables?.id === s.id
+                  const shown = !run.isPending && trialIsOf(run.variables, s)
                   const canTry = !s.blank && own?.problem !== 'missing' && own?.problem !== 'tooLong' && draftTriable && !run.isPending
                   const langError = (lang: 'en' | 'ar') =>
                     own?.problem === 'tooLong' && own.lang === lang ? t('rules.starters.tooLong', { max: fsi(formatNumber(max)) }) : undefined
                   return (
                     <li
-                      key={index}
+                      key={s.id}
                       className={`flex flex-col gap-2 rounded-lg border p-2.5 ${marked ? 'border-danger-border bg-danger-050' : 'border-border/60 bg-card'}`}
                       data-rules-starter={`${kind}-${index}`}
                       data-refused={marked ? true : undefined}
@@ -196,7 +193,7 @@ export default function StartersEditor({
                           <Button
                             variant="secondary"
                             disabled={!canTry}
-                            onClick={() => run.mutate({ kind, index, text: s.en })}
+                            onClick={() => run.mutate(trialOf(kind, s))}
                             data-rules-starter-try
                           >
                             {trying ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FlaskConical className="h-3.5 w-3.5" aria-hidden />}

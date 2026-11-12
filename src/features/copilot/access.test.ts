@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import { useSession } from '@/core/session'
-import { COPILOT_ACCESS_KEY, canAskCopilot, canCurateCopilot, dropCopilotAccessOnUserChange } from './access'
+import { COPILOT_ACCESS_KEY, COPILOT_STARTERS_KEY, canAskCopilot, canCurateCopilot, dropCopilotAccessOnUserChange } from './access'
 
 afterEach(() => useSession.getState().clear())
 
@@ -32,6 +32,25 @@ describe('the copilot probe (spec 734 D7)', () => {
     client.setQueryData(COPILOT_ACCESS_KEY, { canAsk: true, canUseMcp: false })
     useSession.getState().clear()
     expect(client.getQueryData(COPILOT_ACCESS_KEY)).toBeUndefined()
+    stop()
+  })
+
+  it('theReadersStarters_neverOutliveTheirUser (3586 review item 1)', () => {
+    const client = new QueryClient()
+    const stop = dropCopilotAccessOnUserChange(client)
+    useSession.getState().setSession({ userId: 'a.user' })
+    const mine = { starters: [{ question: { en: 'A asks', ar: 'أ' }, blank: false }] }
+    client.setQueryData(COPILOT_STARTERS_KEY, mine)
+    // The same user switching store keeps them.
+    useSession.getState().setCurrentStore('P002')
+    expect(client.getQueryData(COPILOT_STARTERS_KEY)).toEqual(mine)
+    // Another user: A's starters are gone.
+    useSession.getState().setSession({ userId: 'b.user' })
+    expect(client.getQueryData(COPILOT_STARTERS_KEY)).toBeUndefined()
+    // Sign-out: gone too.
+    client.setQueryData(COPILOT_STARTERS_KEY, mine)
+    useSession.getState().clear()
+    expect(client.getQueryData(COPILOT_STARTERS_KEY)).toBeUndefined()
     stop()
   })
 

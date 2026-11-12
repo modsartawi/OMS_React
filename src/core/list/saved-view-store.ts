@@ -25,6 +25,7 @@
  *   filters differ from what was saved ({@link SavedViewStore.viewDrift}).
  */
 import type { ColumnState, FilterModel } from 'ag-grid-community'
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 
 /** A view's name is capped, as the dialog's box is. */
 export const VIEW_NAME_MAX = 60
@@ -105,8 +106,6 @@ export interface InMemorySearch<Q> {
 
 // ----- defensive parsing ----------------------------------------------------------------------
 
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const PINS = ['left', 'right'] as const
 const SORTS = ['asc', 'desc'] as const

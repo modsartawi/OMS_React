@@ -18,7 +18,7 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { canCurateCopilot, copilotAccessQuery } from './access'
+import { COPILOT_STARTERS_KEY, canCurateCopilot, copilotAccessQuery } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { Answer, Refusal } from './AnswerParts'
 import { COPILOT_PROMPT_HISTORY_KEY, COPILOT_PROMPT_KEY, copilotRulesApi } from './rules-api'
@@ -170,6 +170,8 @@ function RulesScreen() {
     setStarterError(null)
     refreshAll()
   }
+  /** A saved or restored version carries its own starters: the panel's (873) are read afresh. */
+  const dropStarters = () => void qc.invalidateQueries({ queryKey: COPILOT_STARTERS_KEY, exact: true })
   /** The newest active version, asked afresh. */
   const latest = () => qc.fetchQuery(queries.prompt).then((p) => p.active)
 
@@ -177,6 +179,7 @@ function RulesScreen() {
     mutationFn: (body: CopilotPromptSaveRequest) => copilotRulesApi.save(body),
     onSuccess: (v) => {
       adopt(v)
+      dropStarters()
       toast.success(t('rules.editor.saved', { n: fsi(formatNumber(v.version)) }))
     },
     onError: async (err, body) => {
@@ -186,14 +189,7 @@ function RulesScreen() {
         // Nothing is lost silently: their version beside mine, and the curator chooses.
         try {
           const theirs = await latest()
-          // Mine as it was sent: `""` default readings read back as the built-in text it showed.
-          const mine: RulesDraft = {
-            text: body.houseRules,
-            note: body.note ?? '',
-            readings: body.defaultReadings ? body.defaultReadings : frame.builtInDefaultReadings,
-            starters: body.starters ? startersOf(body.starters) : NO_STARTERS,
-          }
-          setConflict({ offer: mergeOffer(theirs, mine, frame), theirs })
+          setConflict({ offer: mergeOffer(theirs, body, frame), theirs })
           void qc.invalidateQueries({ queryKey: COPILOT_PROMPT_HISTORY_KEY, exact: true })
         } catch (e) {
           if (!denied(e)) toast.error(apiErrorMessage(e, t('rules.editor.saveFailed')))
@@ -208,6 +204,7 @@ function RulesScreen() {
     mutationFn: (row: HistoryRow) => copilotRulesApi.revert({ version: row.version }),
     onSuccess: (v, row) => {
       adopt(v)
+      dropStarters()
       setOpened(null)
       toast.success(t('rules.history.restored', { from: fsi(formatNumber(row.version)), n: fsi(formatNumber(v.version)) }))
     },
@@ -251,7 +248,7 @@ function RulesScreen() {
     if (!canSaveRules(draft, base, busy, frame)) return
     setFieldError(null)
     setStarterError(null)
-    save.mutate(saveRequest(draft, base.version, frame))
+    save.mutate(saveRequest(draft, base, frame))
   }
   /** The first starter that keeps the save shut (875), named under the Save button. */
   const blockingStarter = frame.startersOn && dirty ? starterIssue(draft.starters, frame) : null
@@ -551,6 +548,16 @@ function RulesScreen() {
               <Pane label={t('rules.conflict.theirs')} text={conflict.offer.theirs.readings} data-rules-conflict-theirs-readings />
               <Pane label={t('rules.conflict.mine')} text={conflict.offer.mine.readings} data-rules-conflict-mine-readings />
             </div>
+            {/* "Save mine on top" sends my starters in place of theirs: both are shown (3586 review item 4). */}
+            {frame.startersOn && (
+              <>
+                <h3 className="text-xs font-semibold">{t('rules.starters.heading')}</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <StartersPane label={t('rules.conflict.theirs')} starters={conflict.offer.theirs.starters} data-rules-conflict-theirs-starters />
+                  <StartersPane label={t('rules.conflict.mine')} starters={conflict.offer.mine.starters} data-rules-conflict-mine-starters />
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>

@@ -15,8 +15,9 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
-import { COPILOT_MAX_QUESTIONS, boxOpen, choicesTappable, continuesAsk, isLatestAnswer, questionCount, type CopilotConversation, type CopilotTurn } from './conversation'
-import { Answer, Refusal, WorkingStep } from './AnswerParts'
+import { COPILOT_MAX_QUESTIONS, boxOpen, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
+import { Answer, QuestionButtons, Refusal, WorkingStep } from './AnswerParts'
+import { COPILOT_STARTERS_KEY } from './access'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 import { copilotApi } from './api'
@@ -98,6 +99,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const epoch = useCopilotConversation((s) => s.epoch)
   const history = useCopilotConversation((s) => s.history)
   const ask = useCopilotConversation((s) => s.ask)
+  const askFromBox = useCopilotConversation((s) => s.askFromBox)
   const clear = useCopilotConversation((s) => s.startNew)
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
@@ -109,6 +111,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (handed === null) return
     const q = useCopilotPanel.getState().takeQuestion()
     if (q === null) return
+    // A NEW question, never the reply to a pending ask (A37): only the box's own text replies. Not sent (the tenth
+    // question's ask pending, among others), it waits in the box.
     if (!questionFits(q) || ask(q) === null) setQuestion(q)
   }, [handed, ask])
 
@@ -181,7 +185,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const send = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canSend) return
-    if (ask(question.trim()) !== null) setQuestion('')
+    // Only the box's own text can be the reply to a pending ask (872, A37).
+    if (askFromBox(question.trim()) !== null) setQuestion('')
     // Sent by the Send button, the focus sits on a button that is now disabled: give it back to the box.
     box.current?.focus()
   }
@@ -235,7 +240,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   // 873 (A52, A53): the reader's starters, read once the panel is empty. A failed read is `null` (never an error), and
   // that, like none, is the two fixed examples. While the read is out the empty state offers nothing, so the examples
   // never flash before the starters.
-  const startersRead = useQuery({ queryKey: ['copilot', 'starters'], queryFn: () => copilotApi.starters(), enabled: empty, staleTime: 5 * 60_000, retry: false })
+  // The key is dropped when the user changes, and marked stale by a house-rules save or restore (`COPILOT_STARTERS_KEY`).
+  const startersRead = useQuery({ queryKey: COPILOT_STARTERS_KEY, queryFn: () => copilotApi.starters(), enabled: empty, staleTime: 5 * 60_000, retry: false })
   const offer = startersRead.isPending ? null : emptyPanelOffer(startersRead.data, i18n.language)
   /** A starter asks at once, saying it came from a starter; one with a blank goes to the box, unsent, for the reader to complete. */
   const tapStarter = (tap: StarterTap) => {
@@ -295,64 +301,50 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
               {empty && offer?.kind === 'starters' && (
                 <div data-copilot-starters className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
-                  <div className="flex flex-col items-start gap-1.5">
-                    {/* A starter's text is free text in either script: a `<bdi>` (bidi rule). */}
-                    {offer.starters.map((s, i) => (
-                      <Button
-                        key={`${i}-${s.text}`}
-                        variant="secondary"
-                        className="h-auto min-h-7 py-1 text-start"
-                        data-copilot-starter={s.tap.kind}
-                        onClick={() => tapStarter(s.tap)}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>
-                          <bdi>{s.text}</bdi>
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                  <QuestionButtons
+                    buttons={offer.starters.map((s, i) => ({
+                      key: `${i}-${s.text}`,
+                      text: s.text,
+                      onClick: () => tapStarter(s.tap),
+                      data: { 'data-copilot-starter': s.tap.kind },
+                    }))}
+                  />
                 </div>
               )}
 
               {empty && offer?.kind === 'examples' && (
                 <div data-copilot-examples className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
-                  <div className="flex flex-col items-start gap-1.5">
-                    {/* The example IS the question the box will send, so its order number is not isolated with
-                        `fsi`: those characters would ride into the question. The label is a `<bdi>` instead. */}
-                    {[
+                  {/* The example IS the question the box will send, so its order number is not isolated with
+                      `fsi`: those characters would ride into the question. The label is a `<bdi>` instead. */}
+                  <QuestionButtons
+                    buttons={[
                       { text: t('examples.late', { orderNo: late.orderNo }), select: late.select },
                       { text: t('examples.hungerstation'), select: null },
-                    ].map((ex) => (
-                      <Button
-                        key={ex.text}
-                        variant="secondary"
-                        className="h-auto min-h-7 py-1 text-start"
-                        data-copilot-example
-                        onClick={() => fillExample(ex.text, ex.select)}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>
-                          <bdi>{ex.text}</bdi>
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                    ].map((ex) => ({
+                      key: ex.text,
+                      text: ex.text,
+                      onClick: () => fillExample(ex.text, ex.select),
+                      data: { 'data-copilot-example': true },
+                    }))}
+                  />
                 </div>
               )}
 
               {conv.turns.length > 0 && (
                 <ol className="flex flex-col gap-5" data-copilot-thread>
-                  {conv.turns.map((turn, i) => (
-                    <Turn
-                      key={i}
-                      turn={turn}
-                      continues={continuesAsk(conv, i)}
-                      onAsk={!working && isLatestAnswer(conv, i) ? askSuggestion : undefined}
-                      onChoose={!working && choicesTappable(conv, i) ? chooseAnswer : undefined}
-                    />
-                  ))}
+                  {conv.turns.map((turn, i) => {
+                    const taps = turnTaps(conv, i, working)
+                    return (
+                      <Turn
+                        key={i}
+                        turn={turn}
+                        continues={continuesAsk(conv, i)}
+                        onAsk={taps.suggestions ? askSuggestion : undefined}
+                        onChoose={taps.choices ? chooseAnswer : undefined}
+                      />
+                    )
+                  })}
                 </ol>
               )}
 

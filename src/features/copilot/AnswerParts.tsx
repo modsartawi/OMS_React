@@ -337,24 +337,42 @@ export function Suggestions({ suggestions, onAsk }: { suggestions: readonly Sugg
   return (
     <section aria-label={t('answer.suggestions')} className="flex flex-col gap-1.5" data-copilot-suggestions>
       <p className="text-xs font-medium text-muted-foreground">{t('answer.suggestions')}</p>
-      <div className="flex flex-col items-start gap-1.5">
-        {suggestions.map((s, i) => (
-          <Button
-            key={i}
-            variant="secondary"
-            className="h-auto min-h-7 py-1 text-start"
-            disabled={!s.tappable || !onAsk}
-            data-copilot-suggestion
-            onClick={() => onAsk?.(s.question)}
-          >
-            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>
-              <bdi>{s.question}</bdi>
-            </span>
-          </Button>
-        ))}
-      </div>
+      <QuestionButtons
+        buttons={suggestions.map((s, i) => ({
+          key: String(i),
+          text: s.question,
+          onClick: onAsk ? () => onAsk(s.question) : undefined,
+          data: { 'data-copilot-suggestion': true },
+        }))}
+      />
     </section>
+  )
+}
+
+/** One of `QuestionButtons`: its text (free text, either script), what a tap does (none: shown only), and its data marks. */
+export interface QuestionButton {
+  key: string
+  text: string
+  onClick?: () => void
+  data?: Record<`data-${string}`, string | boolean>
+}
+
+/**
+ * A column of question-shaped buttons — the empty panel's starters and examples, an answer's suggestions, an ask's
+ * choices: one look for them all. A button without `onClick` is shown, disabled. The text is a `<bdi>` (bidi rule).
+ */
+export function QuestionButtons({ buttons, icon = true }: { buttons: readonly QuestionButton[]; icon?: boolean }) {
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      {buttons.map((b) => (
+        <Button key={b.key} variant="secondary" className="h-auto min-h-7 py-1 text-start" disabled={!b.onClick} onClick={b.onClick} {...b.data}>
+          {icon && <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+          <span>
+            <bdi>{b.text}</bdi>
+          </span>
+        </Button>
+      ))}
+    </div>
   )
 }
 
@@ -366,29 +384,22 @@ export function Suggestions({ suggestions, onAsk }: { suggestions: readonly Sugg
  */
 export function AskQuestion({ view, onChoose }: { view: AskView; onChoose?: (choice: { key: string; label: string }) => void }) {
   const { t } = useTranslation('copilot')
-  const open = onChoose !== undefined && view.choices.some((c) => c.tappable)
+  const open = onChoose !== undefined && view.choices.length > 0
   return (
     <section aria-label={t('ask.heading')} className="flex flex-col gap-2 text-sm" data-copilot-ask>
       <p className="font-medium" data-copilot-ask-question>
         <bdi>{view.question}</bdi>
       </p>
       {view.choices.length > 0 && (
-        <div className="flex flex-col items-start gap-1.5">
-          {view.choices.map((c) => (
-            <Button
-              key={c.key}
-              variant="secondary"
-              className="h-auto min-h-7 py-1 text-start"
-              disabled={!c.tappable || !onChoose}
-              data-copilot-ask-choice={c.key}
-              onClick={() => onChoose?.({ key: c.key, label: c.label })}
-            >
-              <span>
-                <bdi>{c.label}</bdi>
-              </span>
-            </Button>
-          ))}
-        </div>
+        <QuestionButtons
+          icon={false}
+          buttons={view.choices.map((c) => ({
+            key: c.key,
+            text: c.label,
+            onClick: onChoose ? () => onChoose({ key: c.key, label: c.label }) : undefined,
+            data: { 'data-copilot-ask-choice': c.key },
+          }))}
+        />
       )}
       {open && <p className="text-xs text-muted-foreground">{t('ask.orType')}</p>}
     </section>
@@ -415,7 +426,7 @@ export function Answer({
   const part = (p: AnswerPart) => {
     switch (p) {
       case 'ask': {
-        const view = askView(model, i18n.language, onChoose !== undefined)
+        const view = askView(model, i18n.language)
         return view ? <AskQuestion key={p} view={view} onChoose={onChoose} /> : null
       }
       case 'text':
@@ -441,7 +452,7 @@ export function Answer({
       case 'reports':
         return <ReportLinks key={p} reportRefs={model.reportRefs} />
       case 'suggestions':
-        return <Suggestions key={p} suggestions={suggestionButtons(model, onAsk !== undefined)} onAsk={onAsk} />
+        return <Suggestions key={p} suggestions={suggestionButtons(model)} onAsk={onAsk} />
     }
   }
   return (

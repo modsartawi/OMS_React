@@ -12,6 +12,12 @@ import { useSession } from '@/core/session'
 /** The ONE cache key the top-bar button and the `/copilot` page's gate share, so the probe costs one call. */
 export const COPILOT_ACCESS_KEY = ['copilot', 'access'] as const
 
+/**
+ * The empty panel's starters (873): the asking reader's own, so they are the user's as much as the probe is. Dropped
+ * when the user changes (below), and marked stale when the house rules (and their starters) are saved or restored.
+ */
+export const COPILOT_STARTERS_KEY = ['copilot', 'starters'] as const
+
 /** The one set of options every reader passes: a refusal is an answer, and a grant does not change in a page life. */
 export function copilotAccessQuery() {
   return {
@@ -38,10 +44,15 @@ export const canCurateCopilot = (r: CopilotAccess | null | undefined): boolean =
  * 🚩 Privacy (review item 1): the probe is `staleTime: Infinity`, so without this a grant would outlive
  * its user — B, signing in on A's tab, would see A's button. Whenever the session's user changes or
  * signs out, the answer is reset (no data: fails closed) and asked afresh. Returns the unsubscribe.
+ *
+ * The reader's starters (873, 3586 review item 1) are the user's too, held five minutes: dropped with the probe, so B
+ * never sees A's.
  */
 export function dropCopilotAccessOnUserChange(client: QueryClient): () => void {
   return useSession.subscribe((now, before) => {
-    if (now.userId !== before.userId) void client.resetQueries({ queryKey: COPILOT_ACCESS_KEY, exact: true })
+    if (now.userId === before.userId) return
+    void client.resetQueries({ queryKey: COPILOT_ACCESS_KEY, exact: true })
+    client.removeQueries({ queryKey: COPILOT_STARTERS_KEY, exact: true })
   })
 }
 

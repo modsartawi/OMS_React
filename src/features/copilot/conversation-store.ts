@@ -56,11 +56,17 @@ export interface CopilotConversationState {
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
   /**
-   * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `origin` (871, A49)
-   * says where it came from: typed unless said otherwise, `suggestion` for a tapped suggestion. A typed question while
-   * an ask is pending (872, A37) is the reply to it: sent with the ask's id, the text as the reply.
+   * Sends a NEW question, never a reply to a pending ask; `null` (nothing sent) while one is in flight or the
+   * conversation cannot take another question. `origin` (871, A49) says where it came from: typed unless said otherwise
+   * (a question handed in from another screen is typed, 782), `suggestion` for a tapped suggestion, `starter` for a
+   * starter. Only the question box's own text is ever a reply: that is `askFromBox`.
    */
   ask: (question: string, origin?: CopilotQuestionOrigin) => Promise<void> | null
+  /**
+   * The question box's text (872, A37): while an ask is pending it is the reply to it, sent with the ask's id and the
+   * text as the reply (taken even on the tenth question); otherwise a new typed question, as `ask`.
+   */
+  askFromBox: (text: string) => Promise<void> | null
   /**
    * A tap on one of the pending ask's choices (872, BackOffice 3597): sends the choice's label as shown, with the ask's
    * id, the choice's key and `origin: 'choice'`. `null` (nothing sent) when no ask is pending or one is in flight.
@@ -99,9 +105,10 @@ export function createCopilotConversation(
     inFlight: null,
     epoch: 0,
     history: [],
-    ask: (question, origin = 'typed') => {
-      const pending = origin === 'typed' ? pendingAsk(get().conv) : null
-      return put(question, pending ? { origin, askId: pending.ask.id } : { origin })
+    ask: (question, origin = 'typed') => put(question, { origin }),
+    askFromBox: (text) => {
+      const pending = pendingAsk(get().conv)
+      return put(text, pending ? { origin: 'typed', askId: pending.ask.id } : { origin: 'typed' })
     },
     choose: (choice) => {
       const pending = pendingAsk(get().conv)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { CopilotAnswer } from '@/core/models/copilot'
 import { askView, answerLayout, copilotAnswerModel } from './answer'
-import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, choicesTappable, continuesAsk, isLatestAnswer, questionCount, withAnswer, withRefusal } from './conversation'
+import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, choicesTappable, continuesAsk, isLatestAnswer, questionCount, turnTaps, withAnswer, withRefusal } from './conversation'
 
 const reply = (conversationId: string, questionNo: number): CopilotAnswer => ({
   conversationId,
@@ -123,6 +123,9 @@ describe('where the question came from (BackOffice spec 3586 A49, A55, 3598; tic
     // A conversation that takes no more questions offers none.
     const closed = withRefusal(c, 'Still there?', refusal('COPILOT-406'))
     expect(isLatestAnswer(closed, 1)).toBe(false)
+    // The one place the panel asks (3586 review item 8): the earlier answer's are shown only, and none while one is in flight.
+    expect([0, 1].map((i) => turnTaps(c, i, false).suggestions)).toEqual([false, true])
+    expect(turnTaps(c, 1, true).suggestions).toBe(false)
   })
 })
 
@@ -144,7 +147,7 @@ describe('the clarifying question in the thread (BackOffice spec 3586 A36-A40, 3
     const c = withAnswer(EMPTY_CONVERSATION, 'How did Mall do?', asked(1, []))
     const model = copilotAnswerModel(c.turns[0].reply)
     expect(answerLayout(model).parts).toEqual(['ask'])
-    expect(askView(model, 'en', true)).toEqual({ question: 'I could not find "Mall". Type the name again.', choices: [] })
+    expect(askView(model, 'en')).toEqual({ question: 'I could not find "Mall". Type the name again.', choices: [] })
     expect(boxOpen(c)).toBe(true)
     // Asked on the conversation's tenth question, the box still takes the reply: it is the same question.
     let full = EMPTY_CONVERSATION
@@ -185,6 +188,10 @@ describe('the clarifying question in the thread (BackOffice spec 3586 A36-A40, 3
     expect([0, 1, 2].map((i) => choicesTappable(answered, i))).toEqual([false, false, false])
     // So does a conversation closed under it.
     expect(choicesTappable(withRefusal(c, 'Still there?', refusal('COPILOT-406')), 0)).toBe(false)
+    // The one place the panel asks (3586 review item 8): locked once answered, and while a reply is in flight.
+    expect(turnTaps(refused, 0, false).choices).toBe(true)
+    expect(turnTaps(refused, 0, true).choices).toBe(false)
+    expect([0, 1, 2].map((i) => turnTaps(answered, i, false).choices)).toEqual([false, false, false])
   })
 })
 

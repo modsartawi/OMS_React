@@ -17,6 +17,7 @@
  */
 import { foldDigits } from '@/core/commands/palette-model'
 import { compact } from './resolve-member'
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 
 /** The router state the palette navigates to `/loy/members` with. */
 export interface MemberLookupState {
@@ -36,10 +37,6 @@ export function memberLookupKeyOf(query: string): string | null {
 
 export function memberLookupState(typed: string): MemberLookupState {
   return { lookup: typed }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** The key a history entry carries, read defensively: anything but a non-blank string is none. */

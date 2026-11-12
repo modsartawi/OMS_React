@@ -214,11 +214,13 @@ function askOf(v: unknown): CopilotAsk | null {
   }
 }
 
-/** One choice's button (ticket 872): its key, its label in the panel's language, and whether a tap sends it. */
+/**
+ * One choice's button (ticket 872): its key and its label in the panel's language. Whether a tap sends it is the
+ * conversation's to say (`turnTaps`), not the answer's.
+ */
 export interface AskChoiceButton {
   key: string
   label: string
-  tappable: boolean
 }
 
 /** What the panel draws for an `asked` answer: the question, and its choices (none: the reader types the name again). */
@@ -229,13 +231,13 @@ export interface AskView {
 
 /**
  * The answer's clarifying question in the panel's language, with one button per choice in the order sent; `null` when
- * the answer asks nothing. `tappable`: the ask is still pending (no later answer) and nothing is in flight.
+ * the answer asks nothing.
  */
-export function askView(model: CopilotAnswerModel, lang: string, tappable: boolean): AskView | null {
+export function askView(model: CopilotAnswerModel, lang: string): AskView | null {
   if (!model.ask) return null
   return {
     question: saysIn(model.ask.question, lang),
-    choices: model.ask.choices.map((c) => ({ key: c.key, label: saysIn(c.label, lang), tappable })),
+    choices: model.ask.choices.map((c) => ({ key: c.key, label: saysIn(c.label, lang) })),
   }
 }
 
@@ -250,18 +252,17 @@ function suggestionOf(v: unknown): CopilotSuggestion[] {
   return [{ question, by: by === 'server' ? 'server' : 'model' }]
 }
 
-/** One suggestion's button (ticket 871): its text, and whether a tap asks it (only the latest answer's can). */
+/**
+ * One suggestion's button (ticket 871): its text. Whether a tap asks it (only the latest answer's can) is the
+ * conversation's to say (`turnTaps`), not the answer's.
+ */
 export interface SuggestionButton {
   question: string
-  tappable: boolean
 }
 
-/**
- * The answer's suggestions as buttons, in the order sent. `latest`: the answer is the conversation's latest and it can
- * take another question; any other answer's suggestions are shown but cannot be tapped.
- */
-export function suggestionButtons(model: CopilotAnswerModel, latest: boolean): SuggestionButton[] {
-  return model.suggestions.map((s) => ({ question: s.question, tappable: latest }))
+/** The answer's suggestions as buttons, in the order sent. */
+export function suggestionButtons(model: CopilotAnswerModel): SuggestionButton[] {
+  return model.suggestions.map((s) => ({ question: s.question }))
 }
 
 /** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */

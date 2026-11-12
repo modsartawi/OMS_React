@@ -9,8 +9,8 @@
  *   are imported **once** into the signed-in user's store as **layout-only** views: no criteria,
  *   lens All. 🚩 **The old key is only ever read** — never written, never removed.
  */
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 import {
-  isRecord,
   savedViewStore,
   type InMemorySearch as CoreInMemorySearch,
   type RemovedView as CoreRemovedView,

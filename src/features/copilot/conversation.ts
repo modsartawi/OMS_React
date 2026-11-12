@@ -114,15 +114,23 @@ export function isLatestAnswer(c: CopilotConversation, index: number): boolean {
 }
 
 /**
- * The box stays while the conversation can take another question: not refused with 406, and the server's
- * own `questionNo` not yet at ten. The client never counts turns itself — the server is the authority.
- */
-/**
  * The `index`th turn's choices can be tapped (872, A40): its ask is the one pending. Once its continuation is answered,
  * or a new question is, or the conversation closes, they are shown only.
  */
 export function choicesTappable(c: CopilotConversation, index: number): boolean {
   return pendingAsk(c)?.index === index
+}
+
+/**
+ * What can be tapped on the `index`th turn — the ONE place the panel asks (3586 review item 8): its suggestions only on
+ * the latest answer of a conversation that can take another question, its choices only while its ask is pending; and
+ * neither while a question is in flight (`working`). The answer's parts draw buttons; this says whether they tap.
+ */
+export function turnTaps(c: CopilotConversation, index: number, working: boolean): { suggestions: boolean; choices: boolean } {
+  return {
+    suggestions: !working && isLatestAnswer(c, index),
+    choices: !working && choicesTappable(c, index),
+  }
 }
 
 /**
@@ -154,6 +162,12 @@ export function boxOpen(c: CopilotConversation): boolean {
   return canAskMore(c) || pendingAsk(c) !== null
 }
 
+/**
+ * The conversation can take another question: not refused with 406, and the server's own `questionNo` not yet at
+ * ten. The limit is read from the server's numbers, never from counting turns — the server is the authority. (The
+ * panel does count questions for display, `questionCount`, and tells an ask's continuation apart, `continuesAsk`;
+ * neither decides whether one more can be asked.)
+ */
 export function canAskMore(c: CopilotConversation): boolean {
   if (c.over) return false
   const last = c.turns.reduce((n, t) => Math.max(n, t.questionNo ?? 0), 0)

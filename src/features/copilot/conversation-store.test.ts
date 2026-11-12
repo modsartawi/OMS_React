@@ -383,13 +383,13 @@ describe('the reply to a clarifying question (BackOffice spec 3586 A37, A55, 359
     const first = store.getState().ask('How did Mall do last week?')
     d.calls[0].answer(asked('c-0001', 1, [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' }]))
     await first
-    const typed = store.getState().ask('the one near the airport')
+    const typed = store.getState().askFromBox('the one near the airport')
     expect(d.calls[1].body).toEqual({ question: 'the one near the airport', conversationId: 'c-0001', askId: 'ask-1' })
     expect(d.calls[1].origin).toBe('typed')
     d.calls[1].answer(reply('c-0001', 1))
     await typed
     // Once answered, the ask is over: the next typed question is a new one.
-    void store.getState().ask('And Riyadh?')
+    void store.getState().askFromBox('And Riyadh?')
     expect(d.calls[2].body).toEqual({ question: 'And Riyadh?', conversationId: 'c-0001' })
   })
 
@@ -404,11 +404,40 @@ describe('the reply to a clarifying question (BackOffice spec 3586 A37, A55, 359
     const tenth = store.getState().ask('How did Mall do?')
     d.calls[9].answer(asked('c-0001', 10, []))
     await tenth
-    const typed = store.getState().ask('Mall of Arabia')
+    const typed = store.getState().askFromBox('Mall of Arabia')
     expect(typed).not.toBeNull()
     expect(d.calls[10].body).toEqual({ question: 'Mall of Arabia', conversationId: 'c-0001', askId: 'ask-1' })
     d.calls[10].answer(reply('c-0001', 10))
     await typed
-    expect(store.getState().ask('One more?')).toBeNull()
+    expect(store.getState().askFromBox('One more?')).toBeNull()
+  })
+
+  it('aQuestionHandedInWhileTheAskIsPending_isANewQuestion_neverTheReply (A37)', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    const first = store.getState().ask('How did Mall do last week?')
+    d.calls[0].answer(asked('c-0001', 1, [{ key: 'store:S102', en: 'Jeddah Mall (store, Jeddah)', ar: 'جدة مول (فرع، جدة)' }]))
+    await first
+    // Handed in from another screen (782): only the box's own text replies, so this goes as a new question.
+    const handed = store.getState().ask('How many orders yesterday?')
+    expect(handed).not.toBeNull()
+    expect(d.calls[1].body).toEqual({ question: 'How many orders yesterday?', conversationId: 'c-0001' })
+    expect(d.calls[1].origin).toBe('typed')
+  })
+
+  it('aQuestionHandedInOnTheTenthsPendingAsk_isNotSent_theConversationIsFull', async () => {
+    const d = door()
+    const store = createCopilotConversation(d.ask)
+    for (let n = 1; n <= 9; n++) {
+      const p = store.getState().ask(`q${n}`)
+      d.calls[n - 1].answer(reply('c-0001', n))
+      await p
+    }
+    const tenth = store.getState().ask('How did Mall do?')
+    d.calls[9].answer(asked('c-0001', 10, []))
+    await tenth
+    // The box's pending-ask exception is the reply's alone: a handed-in question is not sent (the panel keeps it in the box).
+    expect(store.getState().ask('How many orders yesterday?')).toBeNull()
+    expect(d.calls).toHaveLength(10)
   })
 })

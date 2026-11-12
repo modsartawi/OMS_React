@@ -24,9 +24,18 @@ import {
   canAddStarter,
   addStarter,
   starterOfField,
+  removeStarter,
+  trialIsOf,
+  trialOf,
   type StarterDraft,
   type StartersDraft,
 } from './rules'
+
+/** The starters without their client-only ids, to compare by content. */
+const bare = (s: StartersDraft) => ({
+  executive: s.executive.map(({ en, ar, blank, proof }) => ({ en, ar, blank, proof })),
+  operations: s.operations.map(({ en, ar, blank, proof }) => ({ en, ar, blank, proof })),
+})
 
 /** No starters (the 875 switch off in the frames of 790 and 874). */
 const NONE: StartersDraft = { executive: [], operations: [] }
@@ -78,13 +87,15 @@ describe('the house-rules editor (ticket 790)', () => {
 
   it('mergeOffer_showsTheirsAndMine_andSavesMineOnTheirVersion', () => {
     const theirs = v(4, { text: 'their rules', savedBy: 'b.curator', note: 'tables' })
-    const offer = mergeOffer(theirs, { text: 'my rules', note: 'markdown', readings: '', starters: NONE }, noBuiltIn)
-    expect(offer.theirs).toEqual({ version: 4, text: 'their rules', readings: '', savedBy: 'b.curator', savedAt: '2026-11-06T09:00:00' })
+    const sent = saveRequest({ text: 'my rules', note: 'markdown', readings: '', starters: NONE }, v(3), noBuiltIn)
+    const offer = mergeOffer(theirs, sent, noBuiltIn)
+    expect(offer.theirs).toEqual({ version: 4, text: 'their rules', readings: '', starters: NONE, savedBy: 'b.curator', savedAt: '2026-11-06T09:00:00' })
     expect(offer.mine).toEqual({ text: 'my rules', note: 'markdown', readings: '', starters: NONE })
     // "Save mine on top" re-posts mine on their version.
     expect(offer.saveMineOnTop).toEqual({ houseRules: 'my rules', note: 'markdown', baseVersion: 4, defaultReadings: '' })
-    // A blank note is sent as none.
-    expect(mergeOffer(theirs, { text: 'my rules', note: ' ', readings: '', starters: NONE }, noBuiltIn).saveMineOnTop.note).toBeNull()
+    // A blank note was sent as none, and is again.
+    const blankNote = saveRequest({ text: 'my rules', note: ' ', readings: '', starters: NONE }, v(3), noBuiltIn)
+    expect(mergeOffer(theirs, blankNote, noBuiltIn).saveMineOnTop.note).toBeNull()
   })
 
   it('historyRows_newestFirst_twenty_revertedFromAndTheActiveMark', () => {
@@ -100,7 +111,7 @@ describe('the house-rules editor (ticket 790)', () => {
     expect(rows[0].version).toBe(25)
     expect(rows[19].version).toBe(6)
     // A blank note reads as none; an odd reply reads as no history.
-    expect(historyRows([v(1, { note: '  ' })], 1, noBuiltIn)[0].note).toBeNull()
+    expect(historyRows([fromVersionWire({ version: 1, houseRules: 'r', note: '  ' })], 1, noBuiltIn)[0].note).toBeNull()
     expect(historyRows(null, 1, noBuiltIn)).toEqual([])
   })
 
@@ -161,7 +172,7 @@ describe('the house-rules editor (ticket 790)', () => {
   })
 
   it('saveRequest_sendsTheTextAsHouseRules', () => {
-    expect(saveRequest({ text: 'new rules', note: ' ', readings: '', starters: NONE }, 4, noBuiltIn)).toEqual({ houseRules: 'new rules', note: null, baseVersion: 4, defaultReadings: '' })
+    expect(saveRequest({ text: 'new rules', note: ' ', readings: '', starters: NONE }, v(4), noBuiltIn)).toEqual({ houseRules: 'new rules', note: null, baseVersion: 4, defaultReadings: '' })
   })
 })
 
@@ -206,15 +217,27 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
   })
 
   it('saveRequest_carriesBothTextsAndTheBaseVersion_theBuiltInTextGoesBackAsNone', () => {
-    expect(saveRequest({ text: 'new rules', note: 'why', readings: 'Own readings.', starters: NONE }, 4, frame)).toEqual({
+    expect(saveRequest({ text: 'new rules', note: 'why', readings: 'Own readings.', starters: NONE }, v(4), frame)).toEqual({
       houseRules: 'new rules',
       note: 'why',
       baseVersion: 4,
       defaultReadings: 'Own readings.',
     })
     // Unchanged from the built-in text, or cleared: the version has none of its own (send "", not the built-in text).
-    expect(saveRequest({ text: 'r', note: '', readings: 'Sales means net sales.', starters: NONE }, 4, frame).defaultReadings).toBe('')
-    expect(saveRequest({ text: 'r', note: '', readings: '  \n', starters: NONE }, 4, frame).defaultReadings).toBe('')
+    expect(saveRequest({ text: 'r', note: '', readings: 'Sales means net sales.', starters: NONE }, v(4), frame).defaultReadings).toBe('')
+    expect(saveRequest({ text: 'r', note: '', readings: '  \n', starters: NONE }, v(4), frame).defaultReadings).toBe('')
+  })
+
+  it('aVersionWhoseOwnReadingsAreTheBuiltInText_isCleanOnLoad_andASaveKeepsThem (3586 review item 5)', () => {
+    const own = v(3, { defaultReadings: 'Sales means net sales.' })
+    const shown = draftOf(own, frame)
+    expect(shown.readings).toBe('Sales means net sales.')
+    // Not dirty as loaded.
+    expect(isRulesDirty(shown, own, frame)).toBe(false)
+    // A save for another reason sends its own readings as they are, never "" (which would wipe them).
+    expect(saveRequest({ ...shown, text: 'changed' }, own, frame).defaultReadings).toBe('Sales means net sales.')
+    // Cleared by the curator: none of its own.
+    expect(saveRequest({ ...shown, readings: ' ' }, own, frame).defaultReadings).toBe('')
   })
 
   it('isRulesDirty_andCanSaveRules_followAChangeToTheDefaultReadingsAlone', () => {
@@ -227,10 +250,26 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
   })
 
   it('mergeOffer_saveMineOnTop_carriesMyDefaultReadings', () => {
-    const offer = mergeOffer(v(5, { defaultReadings: 'Theirs.' }), { text: 'mine', note: '', readings: 'Mine.', starters: NONE }, frame)
+    const sent = saveRequest({ text: 'mine', note: '', readings: 'Mine.', starters: NONE }, v(4), frame)
+    const offer = mergeOffer(v(5, { defaultReadings: 'Theirs.' }), sent, frame)
     expect(offer.theirs.readings).toBe('Theirs.')
     expect(offer.mine.readings).toBe('Mine.')
     expect(offer.saveMineOnTop).toEqual({ houseRules: 'mine', note: null, baseVersion: 5, defaultReadings: 'Mine.' })
+    // Mine had none of its own (shown as the built-in text): theirs having their own does not make mine store it.
+    const none = saveRequest({ text: 'mine', note: '', readings: 'Sales means net sales.', starters: NONE }, v(4), frame)
+    const onTop = mergeOffer(v(5, { defaultReadings: 'Theirs.' }), none, frame)
+    expect(onTop.mine.readings).toBe('Sales means net sales.')
+    expect(onTop.saveMineOnTop.defaultReadings).toBe('')
+  })
+
+  it('mergeOffer_showsTheirStartersBesideMine_sinceSaveMineOnTopReplacesThem (3586 review item 4)', () => {
+    const on = { ...frame, startersOn: true }
+    const theirs = v(5, { starters: { executive: [{ question: { en: 'Their question?', ar: 'سؤالهم؟' }, blank: true }], operations: [] } })
+    const mine: StartersDraft = { executive: [], operations: [{ id: 'm', en: 'My question?', ar: 'سؤالي؟', blank: true, proof: null }] }
+    const offer = mergeOffer(theirs, saveRequest({ text: 'mine', note: '', readings: 'Mine.', starters: mine }, v(4), on), on)
+    expect(bare(offer.theirs.starters)).toEqual({ executive: [{ en: 'Their question?', ar: 'سؤالهم؟', blank: true, proof: null }], operations: [] })
+    expect(bare(offer.mine.starters)).toEqual(bare(mine))
+    expect(offer.saveMineOnTop.starters).toEqual({ executive: [], operations: [{ question: { en: 'My question?', ar: 'سؤالي؟' }, blank: true }] })
   })
 
   it('tryRequest_carriesTheDraftDefaultReadingsWithTheDraftHouseRules', () => {
@@ -288,7 +327,8 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
     askedAt: '2026-11-12T09:00:00',
     ...over,
   })
-  const starter = (en: string, over: Partial<StarterDraft> = {}): StarterDraft => ({ en, ar: `${en} (ar)`, blank: false, proof: null, ...over })
+  let ids = 0
+  const starter = (en: string, over: Partial<StarterDraft> = {}): StarterDraft => ({ id: `t${++ids}`, en, ar: `${en} (ar)`, blank: false, proof: null, ...over })
 
   it('trialProof_keepsTheLastSuccessfulToolCall_noLookupOrCannotAnswerKeepsNone', () => {
     const answered = answer({
@@ -303,22 +343,53 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
     expect(trialProof(answer({ trace: [call('sales_summary', {}, false)] }))).toBeNull()
   })
 
+  it('trialProof_aMissingOutcomeIsAnAnswer_asThePanelReadsIt (3586 review item 6)', () => {
+    const noOutcome = { ...answer({ trace: [call('sales_summary', { from: '2026-11-01' })] }), outcome: undefined } as unknown as CopilotAnswer
+    expect(trialProof(noOutcome)).toEqual({ tool: 'sales_summary', input: { from: '2026-11-01' } })
+  })
+
   it('applyTrial_setsTheTriedStartersProof_onlyWhileItsTextIsTheOneTried', () => {
     const starters: StartersDraft = { executive: [starter('Sales this month?')], operations: [starter('Late deliveries?')] }
     const tried = answer({ trace: [call('sales_summary', { from: '2026-11-01' })] })
-    const after = applyTrial(starters, 'executive', 0, 'Sales this month?', tried)
+    const trial = trialOf('executive', starters.executive[0])
+    const after = applyTrial(starters, trial, tried)
     expect(after.executive[0].proof).toEqual({ tool: 'sales_summary', input: { from: '2026-11-01' } })
     expect(after.operations[0].proof).toBeNull()
     // A try that keeps none takes a proof away.
-    expect(applyTrial(after, 'executive', 0, 'Sales this month?', answer()).executive[0].proof).toBeNull()
-    // The text changed while the try was out: the answer is not about it.
-    expect(applyTrial(starters, 'executive', 0, 'Sales last month?', tried).executive[0].proof).toBeNull()
+    expect(applyTrial(after, trial, answer()).executive[0].proof).toBeNull()
+    // The text changed while the try was out, in either language: the answer is not about it.
+    expect(applyTrial(editStarter(starters, 'executive', 0, { en: 'Sales last month?' }), trial, tried).executive[0].proof).toBeNull()
+    expect(applyTrial(editStarter(starters, 'executive', 0, { ar: 'other' }), trial, tried).executive[0].proof).toBeNull()
+  })
+
+  it('aTrysAnswer_followsItsStarter_throughARemovalAbove_andGoesWithItsEdit (3586 review item 3)', () => {
+    const first = starter('Sales this month?')
+    const second = starter('Sales last month?')
+    const starters: StartersDraft = { executive: [first, second], operations: [] }
+    const tried = answer({ trace: [call('sales_summary', { from: '2026-10-01' })] })
+    const trial = trialOf('executive', second)
+    // The first is removed while the second's try is out: the answer lands on the second, now at index 0.
+    const after = applyTrial(removeStarter(starters, 'executive', 0), trial, tried)
+    expect(after.executive.map((s) => [s.en, s.proof?.tool ?? null])).toEqual([['Sales last month?', 'sales_summary']])
+    // The shown answer belongs to that starter wherever it sits, and to no other in its old place.
+    expect(trialIsOf(trial, after.executive[0])).toBe(true)
+    expect(trialIsOf(trial, first)).toBe(false)
+    // The tried starter itself removed: the answer goes nowhere.
+    expect(applyTrial(removeStarter(starters, 'executive', 1), trial, tried)).toEqual(removeStarter(starters, 'executive', 1))
+    // Its text edited: the answer and its "no proof kept" note are no longer shown for it.
+    expect(trialIsOf(trial, editStarter(after, 'executive', 0, { en: 'Sales last week?' }).executive[0])).toBe(false)
+    expect(trialIsOf(trial, editStarter(after, 'executive', 0, { ar: 'other' }).executive[0])).toBe(false)
+    // The blank mark is not its text.
+    expect(trialIsOf(trial, editStarter(after, 'executive', 0, { blank: true }).executive[0])).toBe(true)
+    // None tried: nothing shown.
+    expect(trialIsOf(undefined, second)).toBe(false)
   })
 
   it('editStarter_aTextChangeInEitherLanguageClearsTheProof_anUnchangedTextKeepsIt', () => {
     const proof = { tool: 'sales_summary', input: { from: '2026-11-01' } }
     const starters: StartersDraft = { executive: [starter('Sales this month?', { proof })], operations: [starter('Late?', { proof })] }
     expect(editStarter(starters, 'executive', 0, { en: 'Sales this week?' }).executive[0]).toEqual({
+      id: starters.executive[0].id,
       en: 'Sales this week?',
       ar: 'Sales this month? (ar)',
       blank: false,
@@ -358,7 +429,7 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
     expect(addStarter(full, 'executive', on)).toBe(full)
     // The other kind still has room; a new starter is empty, unmarked and unproven.
     expect(canAddStarter(full, 'operations', on)).toBe(true)
-    expect(addStarter(full, 'operations', on).operations).toEqual([{ en: '', ar: '', blank: false, proof: null }])
+    expect(bare(addStarter(full, 'operations', on)).operations).toEqual([{ en: '', ar: '', blank: false, proof: null }])
 
     const active = v(1)
     const one = (s: StarterDraft): StartersDraft => ({ executive: [], operations: [s] })
@@ -379,7 +450,7 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
       executive: [starter(' Sales this month? ', { ar: 'كيف المبيعات هذا الشهر؟', proof })],
       operations: [starter('Where is order ___?', { ar: 'أين الطلب ___؟', blank: true })],
     }
-    expect(saveRequest({ text: 'new rules', note: 'starters', readings: 'Own.', starters }, 4, on)).toEqual({
+    expect(saveRequest({ text: 'new rules', note: 'starters', readings: 'Own.', starters }, v(4), on)).toEqual({
       houseRules: 'new rules',
       note: 'starters',
       baseVersion: 4,
@@ -391,9 +462,9 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
       },
     })
     // None: two empty lists, so the new version has none.
-    expect(saveRequest({ text: 'r', note: '', readings: '', starters: NONE }, 4, on).starters).toEqual({ executive: [], operations: [] })
+    expect(saveRequest({ text: 'r', note: '', readings: '', starters: NONE }, v(4), on).starters).toEqual({ executive: [], operations: [] })
     // The switch off: no starters at all, and the server keeps the ones it cannot show.
-    expect(saveRequest({ text: 'r', note: '', readings: '', starters }, 4, noBuiltIn)).not.toHaveProperty('starters')
+    expect(saveRequest({ text: 'r', note: '', readings: '', starters }, v(4), noBuiltIn)).not.toHaveProperty('starters')
   })
 
   it('aStoredStartersProof_comesBackUnchangedOnASave_andTheHistoryShowsAndRestoresTheStarters', () => {
@@ -404,13 +475,13 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
     const prompt = fromPromptWire({ core: 'c', houseRules: 'r', version: 3, starters: stored, startersPerKind: 6, starterMaxLength: 200 })
     expect(prompt.startersOn).toBe(true)
     const draft = draftOf(prompt.active, prompt)
-    expect(draft.starters).toEqual({
+    expect(bare(draft.starters)).toEqual({
       executive: [{ en: 'Sales this month?', ar: 'المبيعات؟', blank: false, proof }],
       operations: [{ en: 'Order ___?', ar: 'الطلب ___؟', blank: true, proof: null }],
     })
     // Untouched: not dirty, and a save for the note alone sends the stored proof back as it came.
     expect(isRulesDirty(draft, prompt.active, prompt)).toBe(false)
-    expect(saveRequest({ ...draft, note: 'why' }, 3, prompt).starters).toEqual(stored)
+    expect(saveRequest({ ...draft, note: 'why' }, prompt.active, prompt).starters).toEqual(stored)
     // An older server or the switch off: no starters, the default limits.
     expect(fromPromptWire({ core: 'c', houseRules: 'r', version: 3 })).toMatchObject({ startersOn: false, startersPerKind: 6, starterMaxLength: 200 })
     expect(fromPromptWire({ core: 'c', houseRules: 'r', version: 3 }).active.starters).toEqual({ executive: [], operations: [] })
@@ -422,7 +493,7 @@ describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)',
       [2, ['Sales this month?']],
     ])
     const restored = fromVersionWire({ version: 4, houseRules: 'old', revertedFrom: 2, starters: stored })
-    expect(draftOf(restored, prompt).starters).toEqual(draft.starters)
+    expect(bare(draftOf(restored, prompt).starters)).toEqual(bare(draft.starters))
   })
 
   it('starterOfField_aRefusalNamingAStarterMarksThatStarter_orItsKindsList', () => {

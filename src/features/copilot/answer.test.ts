@@ -412,22 +412,22 @@ describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; tic
       'suggestions',
     ])
     // One button each, in the order sent, its text the suggestion's own question; the latest answer's can be tapped.
-    expect(suggestionButtons(model, true)).toEqual([
-      { question: 'Break it down by city', tappable: true },
-      { question: 'Compare with the week before', tappable: true },
-      { question: 'Show the lowest 10 stores', tappable: true },
+    expect(suggestionButtons(model)).toEqual([
+      { question: 'Break it down by city' },
+      { question: 'Compare with the week before' },
+      { question: 'Show the lowest 10 stores' },
     ])
     // Not part of the answer's own text, nor of what Copy takes.
     expect(model.blocks).toEqual([{ kind: 'paragraph', text: 'Olaya delivered 412 orders last week.' }])
   })
 
-  it('anEarlierAnswersSuggestions_areShownButCannotBeTapped', () => {
+  it('anEarlierAnswersSuggestions_areStillShown_whetherTheyCanBeTappedIsTheConversations (turnTaps)', () => {
     const model = copilotAnswerModel({ ...plain, suggestions: three })
     expect(answerLayout(model).parts).toEqual(['text', 'suggestions'])
-    expect(suggestionButtons(model, false)).toEqual([
-      { question: 'Break it down by city', tappable: false },
-      { question: 'Compare with the week before', tappable: false },
-      { question: 'Show the lowest 10 stores', tappable: false },
+    expect(suggestionButtons(model)).toEqual([
+      { question: 'Break it down by city' },
+      { question: 'Compare with the week before' },
+      { question: 'Show the lowest 10 stores' },
     ])
   })
 
@@ -435,12 +435,12 @@ describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; tic
     const today = copilotAnswerModel(plain)
     // The text, then the collapsed "How I got this": no suggestions part, no buttons.
     expect(answerLayout(today)).toEqual({ figuresOnly: false, parts: ['text'], lookups: 'collapsed' })
-    expect(suggestionButtons(today, true)).toEqual([])
+    expect(suggestionButtons(today)).toEqual([])
     // Absent, empty, null, not a list, or none usable: the same layout and no buttons.
     for (const suggestions of [undefined, [], null, 'x', [{ question: '', by: 'model' }]]) {
       const model = copilotAnswerModel({ ...plain, suggestions } as unknown as Partial<CopilotAnswer>)
       expect(answerLayout(model)).toEqual(answerLayout(today))
-      expect(suggestionButtons(model, true)).toEqual([])
+      expect(suggestionButtons(model)).toEqual([])
       expect(model.blocks).toEqual(today.blocks)
     }
   })
@@ -450,7 +450,7 @@ describe('the suggested next questions (BackOffice spec 3586 A46, A49, 3598; tic
       ...plain,
       suggestions: [{ question: '  ', by: 'model' }, null, { by: 'model' }, ...(three ?? []), { question: 'A fourth', by: 'server' }],
     } as unknown as Partial<CopilotAnswer>)
-    expect(suggestionButtons(model, true).map((b) => b.question)).toEqual([
+    expect(suggestionButtons(model).map((b) => b.question)).toEqual([
       'Break it down by city',
       'Compare with the week before',
       'Show the lowest 10 stores',
@@ -483,21 +483,21 @@ describe('the clarifying question (BackOffice spec 3586 A36, 3596; ticket 872)',
     const model = copilotAnswerModel(asked)
     // The question in place of the text: the plain-text repeat of it is not drawn beside it.
     expect(answerLayout(model).parts).toEqual(['ask'])
-    expect(askView(model, 'en', true)).toEqual({
+    expect(askView(model, 'en')).toEqual({
       question: 'Which one did you mean by "Mall"?',
       choices: [
-        { key: 'store:S102', label: 'Jeddah Mall (store, Jeddah)', tappable: true },
-        { key: 'store:S207', label: 'Riyadh Mall (store, Riyadh)', tappable: true },
+        { key: 'store:S102', label: 'Jeddah Mall (store, Jeddah)' },
+        { key: 'store:S207', label: 'Riyadh Mall (store, Riyadh)' },
       ],
     })
-    expect(askView(model, 'ar', true)).toEqual({
+    expect(askView(model, 'ar')).toEqual({
       question: 'أيّها تقصد بـ «Mall»؟',
       choices: [
-        { key: 'store:S102', label: 'جدة مول (فرع، جدة)', tappable: true },
-        { key: 'store:S207', label: 'الرياض مول (فرع، الرياض)', tappable: true },
+        { key: 'store:S102', label: 'جدة مول (فرع، جدة)' },
+        { key: 'store:S207', label: 'الرياض مول (فرع، الرياض)' },
       ],
     })
     // Any other answer has no question to show.
-    expect(askView(copilotAnswerModel({ ...asked, outcome: 'answered', ask: undefined }), 'en', true)).toBeNull()
+    expect(askView(copilotAnswerModel({ ...asked, outcome: 'answered', ask: undefined }), 'en')).toBeNull()
   })
 })

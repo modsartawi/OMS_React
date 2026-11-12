@@ -8,8 +8,8 @@
  * 🚩 The Date is stored as the relative entry itself ("Last 3 days"), resolved only when the
  * view's search runs — so a view saved today still means the last three days tomorrow.
  */
+import { isPlainObject as isRecord } from '@/core/util/plain-object'
 import {
-  isRecord,
   savedViewStore,
   type InMemorySearch as CoreInMemorySearch,
   type SavedView as CoreSavedView,

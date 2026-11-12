@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
@@ -18,6 +19,8 @@ import { COPILOT_MAX_QUESTIONS, boxOpen, choicesTappable, continuesAsk, isLatest
 import { Answer, Refusal, WorkingStep } from './AnswerParts'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
+import { copilotApi } from './api'
+import { emptyPanelOffer, type StarterTap } from './starters'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
 const AT_END = 32
@@ -85,7 +88,7 @@ function InContext() {
 }
 
 export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
-  const { t } = useTranslation('copilot')
+  const { t, i18n } = useTranslation('copilot')
   const [question, setQuestion] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   // Held in the store, not here: the sheet unmounts the panel when an order link navigates (736).
@@ -229,6 +232,16 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   }
 
   const empty = conv.turns.length === 0 && !working
+  // 873 (A52, A53): the reader's starters, read once the panel is empty. A failed read is `null` (never an error), and
+  // that, like none, is the two fixed examples. While the read is out the empty state offers nothing, so the examples
+  // never flash before the starters.
+  const startersRead = useQuery({ queryKey: ['copilot', 'starters'], queryFn: () => copilotApi.starters(), enabled: empty, staleTime: 5 * 60_000, retry: false })
+  const offer = startersRead.isPending ? null : emptyPanelOffer(startersRead.data, i18n.language)
+  /** A starter asks at once, saying it came from a starter; one with a blank goes to the box, unsent, for the reader to complete. */
+  const tapStarter = (tap: StarterTap) => {
+    if (tap.kind === 'fill') fillExample(tap.text, null)
+    else if (ask(tap.question, tap.origin) === null) setQuestion(tap.question)
+  }
   // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
   const canAsk = boxOpen(conv)
   const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))
@@ -279,7 +292,30 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
             data-copilot-scroller
           >
             <div ref={content} className="flex flex-col gap-4">
-              {empty && (
+              {empty && offer?.kind === 'starters' && (
+                <div data-copilot-starters className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
+                  <div className="flex flex-col items-start gap-1.5">
+                    {/* A starter's text is free text in either script: a `<bdi>` (bidi rule). */}
+                    {offer.starters.map((s, i) => (
+                      <Button
+                        key={`${i}-${s.text}`}
+                        variant="secondary"
+                        className="h-auto min-h-7 py-1 text-start"
+                        data-copilot-starter={s.tap.kind}
+                        onClick={() => tapStarter(s.tap)}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        <span>
+                          <bdi>{s.text}</bdi>
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {empty && offer?.kind === 'examples' && (
                 <div data-copilot-examples className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>
                   <div className="flex flex-col items-start gap-1.5">

@@ -17,10 +17,10 @@ BackOffice spec 3586 A52, A53, "The web half"; ticket 3601.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Starters from the door are shown in the panel's language · oms-react tests (the panel's answer tests)
-- [ ] A tap builds a request with the starter's text and the origin "starter" · oms-react tests
-- [ ] A starter with a blank fills the question box and sends nothing · oms-react tests
-- [ ] No starters, or a failed read: the two fixed examples are shown · oms-react tests
+- [x] Starters from the door are shown in the panel's language · oms-react tests (`starters.test.ts` startersFromTheDoor_areShownInThePanelsLanguage)
+- [x] A tap builds a request with the starter's text and the origin "starter" · oms-react tests (`starters.test.ts` aTap_buildsARequestWithTheStartersText_andTheOriginStarter)
+- [x] A starter with a blank fills the question box and sends nothing · oms-react tests (`starters.test.ts` aStarterWithABlank_fillsTheQuestionBox_andSendsNothing)
+- [x] No starters, or a failed read: the two fixed examples are shown · oms-react tests (`starters.test.ts` noStarters_orAFailedRead_showsTheTwoFixedExamples)
 
 ## Boundaries
 

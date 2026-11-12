@@ -6,7 +6,8 @@
  * Non-streaming (D10): the panel shows its working state for the whole call.
  */
 import { api } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSteps } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotReaderStarters, CopilotSteps } from '@/core/models/copilot'
+import { startersOrNothing } from './starters'
 import { stepsOrNothing } from './steps'
 
 export const copilotApi = {
@@ -19,5 +20,10 @@ export const copilotApi = {
    *  recorded yet, or `Copilot:Speed:Steps` off) or any other failed read. */
   steps(requestId: string): Promise<CopilotSteps | null> {
     return stepsOrNothing(api.get<CopilotSteps>(`Copilot/Ask/${encodeURIComponent(requestId)}/Steps`))
+  },
+  /** `GET Copilot/Starters` → the asking reader's starters (873, BackOffice 3601, A53), gated like Ask; `null` on any
+   *  failed read, which the empty panel shows as its two fixed examples. */
+  starters(): Promise<CopilotReaderStarters | null> {
+    return startersOrNothing(api.get<CopilotReaderStarters>('Copilot/Starters'))
   },
 }

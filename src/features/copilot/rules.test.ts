@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import type { CopilotPromptVersion } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotPromptVersion } from '@/core/models/copilot'
 import {
   RULES_MAX,
   canSaveRules,
@@ -17,9 +17,21 @@ import {
   rulesTooLong,
   saveRequest,
   tryRequest,
+  trialProof,
+  applyTrial,
+  editStarter,
+  starterIssue,
+  canAddStarter,
+  addStarter,
+  starterOfField,
+  type StarterDraft,
+  type StartersDraft,
 } from './rules'
 
-const noBuiltIn = { builtInDefaultReadings: '', defaultReadingsMaxLength: 2000 }
+/** No starters (the 875 switch off in the frames of 790 and 874). */
+const NONE: StartersDraft = { executive: [], operations: [] }
+const switchOff = { startersOn: false, startersPerKind: 6, starterMaxLength: 200 }
+const noBuiltIn = { builtInDefaultReadings: '', defaultReadingsMaxLength: 2000, ...switchOff }
 
 const v = (version: number, over: Partial<CopilotPromptVersion> = {}): CopilotPromptVersion => ({
   version,
@@ -29,57 +41,58 @@ const v = (version: number, over: Partial<CopilotPromptVersion> = {}): CopilotPr
   note: null,
   revertedFrom: null,
   defaultReadings: '',
+  starters: { executive: [], operations: [] },
   ...over,
 })
 
 describe('the house-rules editor (ticket 790)', () => {
   it('isRulesDirty_whenTheTextOrTheNoteChanged', () => {
     const active = v(1)
-    expect(isRulesDirty({ text: 'rules 1', note: '', readings: '' }, active, noBuiltIn)).toBe(false)
-    expect(isRulesDirty({ text: 'rules 1 and more', note: '', readings: '' }, active, noBuiltIn)).toBe(true)
-    expect(isRulesDirty({ text: 'rules 1', note: 'tables', readings: '' }, active, noBuiltIn)).toBe(true)
+    expect(isRulesDirty({ text: 'rules 1', note: '', readings: '', starters: NONE }, active, noBuiltIn)).toBe(false)
+    expect(isRulesDirty({ text: 'rules 1 and more', note: '', readings: '', starters: NONE }, active, noBuiltIn)).toBe(true)
+    expect(isRulesDirty({ text: 'rules 1', note: 'tables', readings: '', starters: NONE }, active, noBuiltIn)).toBe(true)
     // A blank note is no note.
-    expect(isRulesDirty({ text: 'rules 1', note: '   ', readings: '' }, active, noBuiltIn)).toBe(false)
+    expect(isRulesDirty({ text: 'rules 1', note: '   ', readings: '', starters: NONE }, active, noBuiltIn)).toBe(false)
     // Nothing loaded yet: nothing to lose.
-    expect(isRulesDirty({ text: 'x', note: '', readings: '' }, null, noBuiltIn)).toBe(false)
+    expect(isRulesDirty({ text: 'x', note: '', readings: '', starters: NONE }, null, noBuiltIn)).toBe(false)
   })
 
   it('canSaveRules_dirtyNotBlankAtMostFourThousandNothingInFlight', () => {
     const active = v(1)
     expect(RULES_MAX).toBe(4000)
-    expect(canSaveRules({ text: 'new', note: '', readings: '' }, active, false, noBuiltIn)).toBe(true)
+    expect(canSaveRules({ text: 'new', note: '', readings: '', starters: NONE }, active, false, noBuiltIn)).toBe(true)
     // Unchanged.
-    expect(canSaveRules({ text: 'rules 1', note: '', readings: '' }, active, false, noBuiltIn)).toBe(false)
+    expect(canSaveRules({ text: 'rules 1', note: '', readings: '', starters: NONE }, active, false, noBuiltIn)).toBe(false)
     // Blank.
-    expect(canSaveRules({ text: '   \n', note: 'cleared', readings: '' }, active, false, noBuiltIn)).toBe(false)
+    expect(canSaveRules({ text: '   \n', note: 'cleared', readings: '', starters: NONE }, active, false, noBuiltIn)).toBe(false)
     // At the limit, and one over.
-    expect(canSaveRules({ text: 'a'.repeat(4000), note: '', readings: '' }, active, false, noBuiltIn)).toBe(true)
-    expect(canSaveRules({ text: 'a'.repeat(4001), note: '', readings: '' }, active, false, noBuiltIn)).toBe(false)
+    expect(canSaveRules({ text: 'a'.repeat(4000), note: '', readings: '', starters: NONE }, active, false, noBuiltIn)).toBe(true)
+    expect(canSaveRules({ text: 'a'.repeat(4001), note: '', readings: '', starters: NONE }, active, false, noBuiltIn)).toBe(false)
     expect(rulesTooLong('a'.repeat(4001))).toBe(true)
     expect(rulesTooLong('a'.repeat(4000))).toBe(false)
     // A save or a restore already out.
-    expect(canSaveRules({ text: 'new', note: '', readings: '' }, active, true, noBuiltIn)).toBe(false)
+    expect(canSaveRules({ text: 'new', note: '', readings: '', starters: NONE }, active, true, noBuiltIn)).toBe(false)
     // Nothing loaded.
-    expect(canSaveRules({ text: 'new', note: '', readings: '' }, null, false, noBuiltIn)).toBe(false)
+    expect(canSaveRules({ text: 'new', note: '', readings: '', starters: NONE }, null, false, noBuiltIn)).toBe(false)
   })
 
   it('mergeOffer_showsTheirsAndMine_andSavesMineOnTheirVersion', () => {
     const theirs = v(4, { text: 'their rules', savedBy: 'b.curator', note: 'tables' })
-    const offer = mergeOffer(theirs, { text: 'my rules', note: 'markdown', readings: '' }, noBuiltIn)
+    const offer = mergeOffer(theirs, { text: 'my rules', note: 'markdown', readings: '', starters: NONE }, noBuiltIn)
     expect(offer.theirs).toEqual({ version: 4, text: 'their rules', readings: '', savedBy: 'b.curator', savedAt: '2026-11-06T09:00:00' })
-    expect(offer.mine).toEqual({ text: 'my rules', note: 'markdown', readings: '' })
+    expect(offer.mine).toEqual({ text: 'my rules', note: 'markdown', readings: '', starters: NONE })
     // "Save mine on top" re-posts mine on their version.
     expect(offer.saveMineOnTop).toEqual({ houseRules: 'my rules', note: 'markdown', baseVersion: 4, defaultReadings: '' })
     // A blank note is sent as none.
-    expect(mergeOffer(theirs, { text: 'my rules', note: ' ', readings: '' }, noBuiltIn).saveMineOnTop.note).toBeNull()
+    expect(mergeOffer(theirs, { text: 'my rules', note: ' ', readings: '', starters: NONE }, noBuiltIn).saveMineOnTop.note).toBeNull()
   })
 
   it('historyRows_newestFirst_twenty_revertedFromAndTheActiveMark', () => {
     const history = [v(1), v(3, { revertedFrom: 1 }), v(2, { note: 'rule 12' })]
     expect(historyRows(history, 3, noBuiltIn)).toEqual([
-      { version: 3, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: 1, active: true, text: 'rules 3', readings: '' },
-      { version: 2, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: 'rule 12', revertedFrom: null, active: false, text: 'rules 2', readings: '' },
-      { version: 1, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: null, active: false, text: 'rules 1', readings: '' },
+      { version: 3, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: 1, active: true, text: 'rules 3', readings: '', starters: NONE },
+      { version: 2, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: 'rule 12', revertedFrom: null, active: false, text: 'rules 2', readings: '', starters: NONE },
+      { version: 1, savedBy: 'a.curator', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: null, active: false, text: 'rules 1', readings: '', starters: NONE },
     ])
     const many = Array.from({ length: 25 }, (_, i) => v(i + 1))
     const rows = historyRows(many, 25, noBuiltIn)
@@ -114,9 +127,10 @@ describe('the house-rules editor (ticket 790)', () => {
     }
     expect(fromPromptWire(wire)).toEqual({
       core: 'The core.',
-      active: { version: 1, text: '- Rule 8\n- Rule 12', savedBy: 'seed', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: null, defaultReadings: '' },
+      active: { version: 1, text: '- Rule 8\n- Rule 12', savedBy: 'seed', savedAt: '2026-11-06T09:00:00', note: null, revertedFrom: null, defaultReadings: '', starters: NONE },
       builtInDefaultReadings: '',
       defaultReadingsMaxLength: 2000,
+      ...switchOff,
     })
     // Version 0: nothing stored, the built-in text, no saver and no time.
     expect(fromPromptWire({ core: 'c', houseRules: 'built-in', version: 0, savedBy: '', savedAt: '', note: '', maxLength: 4000 }).active).toEqual({
@@ -127,30 +141,32 @@ describe('the house-rules editor (ticket 790)', () => {
       note: null,
       revertedFrom: null,
       defaultReadings: '',
+      starters: NONE,
     })
     // A bare or odd reply never throws.
     expect(fromPromptWire(null)).toEqual({
       core: '',
-      active: { version: 0, text: '', savedBy: null, savedAt: null, note: null, revertedFrom: null, defaultReadings: '' },
+      active: { version: 0, text: '', savedBy: null, savedAt: null, note: null, revertedFrom: null, defaultReadings: '', starters: NONE },
       builtInDefaultReadings: '',
       defaultReadingsMaxLength: 2000,
+      ...switchOff,
     })
   })
 
   it('fromVersionWire_readsAHistoryRow', () => {
     expect(
       fromVersionWire({ version: 3, houseRules: 'v1 text', note: '  ', savedBy: 'a.curator', savedAt: '2026-11-06T10:00:00', revertedFrom: 1 }),
-    ).toEqual({ version: 3, text: 'v1 text', savedBy: 'a.curator', savedAt: '2026-11-06T10:00:00', note: null, revertedFrom: 1, defaultReadings: '' })
+    ).toEqual({ version: 3, text: 'v1 text', savedBy: 'a.curator', savedAt: '2026-11-06T10:00:00', note: null, revertedFrom: 1, defaultReadings: '', starters: NONE })
     expect(fromVersionWire({ version: 2, houseRules: 'x', note: 'why', savedBy: 'b', savedAt: 's', revertedFrom: null }).note).toBe('why')
   })
 
   it('saveRequest_sendsTheTextAsHouseRules', () => {
-    expect(saveRequest({ text: 'new rules', note: ' ', readings: '' }, 4, noBuiltIn)).toEqual({ houseRules: 'new rules', note: null, baseVersion: 4, defaultReadings: '' })
+    expect(saveRequest({ text: 'new rules', note: ' ', readings: '', starters: NONE }, 4, noBuiltIn)).toEqual({ houseRules: 'new rules', note: null, baseVersion: 4, defaultReadings: '' })
   })
 })
 
 describe('the default readings on the house-rules screen (ticket 874, BackOffice 3593)', () => {
-  const frame = { builtInDefaultReadings: 'Sales means net sales.', defaultReadingsMaxLength: 2000 }
+  const frame = { builtInDefaultReadings: 'Sales means net sales.', defaultReadingsMaxLength: 2000, ...switchOff }
 
   it('fromPromptWire_carriesTheDefaultReadings_theBuiltInText_andTheirOwnLimit', () => {
     const wire = {
@@ -177,8 +193,8 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
   })
 
   it('draftOf_showsTheVersionsOwnReadings_orTheBuiltInTextWhenItHasNone', () => {
-    expect(draftOf(v(2, { defaultReadings: 'Own readings.' }), frame)).toEqual({ text: 'rules 2', note: '', readings: 'Own readings.' })
-    expect(draftOf(v(1), frame)).toEqual({ text: 'rules 1', note: '', readings: 'Sales means net sales.' })
+    expect(draftOf(v(2, { defaultReadings: 'Own readings.' }), frame)).toEqual({ text: 'rules 2', note: '', readings: 'Own readings.', starters: NONE })
+    expect(draftOf(v(1), frame)).toEqual({ text: 'rules 1', note: '', readings: 'Sales means net sales.', starters: NONE })
   })
 
   it('historyRows_showEachVersionsDefaultReadings_theBuiltInTextWhenItHasNone', () => {
@@ -190,41 +206,41 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
   })
 
   it('saveRequest_carriesBothTextsAndTheBaseVersion_theBuiltInTextGoesBackAsNone', () => {
-    expect(saveRequest({ text: 'new rules', note: 'why', readings: 'Own readings.' }, 4, frame)).toEqual({
+    expect(saveRequest({ text: 'new rules', note: 'why', readings: 'Own readings.', starters: NONE }, 4, frame)).toEqual({
       houseRules: 'new rules',
       note: 'why',
       baseVersion: 4,
       defaultReadings: 'Own readings.',
     })
     // Unchanged from the built-in text, or cleared: the version has none of its own (send "", not the built-in text).
-    expect(saveRequest({ text: 'r', note: '', readings: 'Sales means net sales.' }, 4, frame).defaultReadings).toBe('')
-    expect(saveRequest({ text: 'r', note: '', readings: '  \n' }, 4, frame).defaultReadings).toBe('')
+    expect(saveRequest({ text: 'r', note: '', readings: 'Sales means net sales.', starters: NONE }, 4, frame).defaultReadings).toBe('')
+    expect(saveRequest({ text: 'r', note: '', readings: '  \n', starters: NONE }, 4, frame).defaultReadings).toBe('')
   })
 
   it('isRulesDirty_andCanSaveRules_followAChangeToTheDefaultReadingsAlone', () => {
     const active = v(2, { defaultReadings: '' })
     const shown = draftOf(active, frame)
     expect(isRulesDirty(shown, active, frame)).toBe(false)
-    const edited = { ...shown, readings: 'Own readings.' }
+    const edited = { ...shown, readings: 'Own readings.', starters: NONE }
     expect(isRulesDirty(edited, active, frame)).toBe(true)
     expect(canSaveRules(edited, active, false, frame)).toBe(true)
   })
 
   it('mergeOffer_saveMineOnTop_carriesMyDefaultReadings', () => {
-    const offer = mergeOffer(v(5, { defaultReadings: 'Theirs.' }), { text: 'mine', note: '', readings: 'Mine.' }, frame)
+    const offer = mergeOffer(v(5, { defaultReadings: 'Theirs.' }), { text: 'mine', note: '', readings: 'Mine.', starters: NONE }, frame)
     expect(offer.theirs.readings).toBe('Theirs.')
     expect(offer.mine.readings).toBe('Mine.')
     expect(offer.saveMineOnTop).toEqual({ houseRules: 'mine', note: null, baseVersion: 5, defaultReadings: 'Mine.' })
   })
 
   it('tryRequest_carriesTheDraftDefaultReadingsWithTheDraftHouseRules', () => {
-    expect(tryRequest({ text: 'draft rules', note: 'n', readings: 'Draft readings.' }, 'Sales last month?', frame)).toEqual({
+    expect(tryRequest({ text: 'draft rules', note: 'n', readings: 'Draft readings.', starters: NONE }, 'Sales last month?', frame)).toEqual({
       houseRules: 'draft rules',
       question: 'Sales last month?',
       defaultReadings: 'Draft readings.',
     })
     // Still the built-in text: the trial uses the built-in text.
-    expect(tryRequest({ text: 'r', note: '', readings: 'Sales means net sales.' }, 'q', frame).defaultReadings).toBe('')
+    expect(tryRequest({ text: 'r', note: '', readings: 'Sales means net sales.', starters: NONE }, 'q', frame).defaultReadings).toBe('')
   })
 
   it('readingsTooLong_overTheirOwnTwoThousand_disablesTheSave_notTheHouseRulesFourThousand', () => {
@@ -232,11 +248,11 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
     expect(READINGS_MAX).toBe(2000)
     expect(readingsTooLong('a'.repeat(2000), frame)).toBe(false)
     expect(readingsTooLong('a'.repeat(2001), frame)).toBe(true)
-    expect(canSaveRules({ text: 'rules 2', note: '', readings: 'a'.repeat(2000) }, active, false, frame)).toBe(true)
-    expect(canSaveRules({ text: 'rules 2', note: '', readings: 'a'.repeat(2001) }, active, false, frame)).toBe(false)
+    expect(canSaveRules({ text: 'rules 2', note: '', readings: 'a'.repeat(2000), starters: NONE }, active, false, frame)).toBe(true)
+    expect(canSaveRules({ text: 'rules 2', note: '', readings: 'a'.repeat(2001), starters: NONE }, active, false, frame)).toBe(false)
     // The limit is the read door's, not the house rules' 4,000.
     expect(readingsTooLong('a'.repeat(2001), { ...frame, defaultReadingsMaxLength: 2500 })).toBe(false)
-    expect(canSaveRules({ text: 'a'.repeat(4000), note: '', readings: 'b'.repeat(2000) }, active, false, frame)).toBe(true)
+    expect(canSaveRules({ text: 'a'.repeat(4000), note: '', readings: 'b'.repeat(2000), starters: NONE }, active, false, frame)).toBe(true)
   })
 
   it('refusedField_aCopilot412NamingTheDefaultReadingsMarksThatField_noFieldIsTheHouseRules', () => {
@@ -255,5 +271,170 @@ describe('the default readings on the house-rules screen (ticket 874, BackOffice
   it('fromVersionWire_readsTheVersionsDefaultReadings_noneIsEmpty', () => {
     expect(fromVersionWire({ version: 3, houseRules: 'x', defaultReadings: 'Own.' }).defaultReadings).toBe('Own.')
     expect(fromVersionWire({ version: 3, houseRules: 'x' }).defaultReadings).toBe('')
+  })
+})
+
+describe('the starters on the house-rules screen (ticket 875, BackOffice 3600)', () => {
+  const call = (tool: string, input: Record<string, unknown>, ok = true) => ({ tool, input, rows: 3, ms: 40, ok })
+  const answer = (over: Partial<CopilotAnswer> = {}): CopilotAnswer => ({
+    conversationId: '',
+    questionNo: 1,
+    answer: 'Sales were 1,200.',
+    orderRefs: [],
+    trace: [],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'test',
+    askedAt: '2026-11-12T09:00:00',
+    ...over,
+  })
+  const starter = (en: string, over: Partial<StarterDraft> = {}): StarterDraft => ({ en, ar: `${en} (ar)`, blank: false, proof: null, ...over })
+
+  it('trialProof_keepsTheLastSuccessfulToolCall_noLookupOrCannotAnswerKeepsNone', () => {
+    const answered = answer({
+      trace: [call('sales_summary', { from: '2026-11-01' }), call('semantic_query', { measure: 'net' }), call('semantic_query', { measure: 'bad' }, false)],
+    })
+    expect(trialProof(answered)).toEqual({ tool: 'semantic_query', input: { measure: 'net' } })
+    // Answered with no lookup.
+    expect(trialProof(answer({ trace: [] }))).toBeNull()
+    // "Can't answer", even with a call made.
+    expect(trialProof(answer({ outcome: 'cannot-answer', trace: [call('sales_summary', {})] }))).toBeNull()
+    // Only failed calls.
+    expect(trialProof(answer({ trace: [call('sales_summary', {}, false)] }))).toBeNull()
+  })
+
+  it('applyTrial_setsTheTriedStartersProof_onlyWhileItsTextIsTheOneTried', () => {
+    const starters: StartersDraft = { executive: [starter('Sales this month?')], operations: [starter('Late deliveries?')] }
+    const tried = answer({ trace: [call('sales_summary', { from: '2026-11-01' })] })
+    const after = applyTrial(starters, 'executive', 0, 'Sales this month?', tried)
+    expect(after.executive[0].proof).toEqual({ tool: 'sales_summary', input: { from: '2026-11-01' } })
+    expect(after.operations[0].proof).toBeNull()
+    // A try that keeps none takes a proof away.
+    expect(applyTrial(after, 'executive', 0, 'Sales this month?', answer()).executive[0].proof).toBeNull()
+    // The text changed while the try was out: the answer is not about it.
+    expect(applyTrial(starters, 'executive', 0, 'Sales last month?', tried).executive[0].proof).toBeNull()
+  })
+
+  it('editStarter_aTextChangeInEitherLanguageClearsTheProof_anUnchangedTextKeepsIt', () => {
+    const proof = { tool: 'sales_summary', input: { from: '2026-11-01' } }
+    const starters: StartersDraft = { executive: [starter('Sales this month?', { proof })], operations: [starter('Late?', { proof })] }
+    expect(editStarter(starters, 'executive', 0, { en: 'Sales this week?' }).executive[0]).toEqual({
+      en: 'Sales this week?',
+      ar: 'Sales this month? (ar)',
+      blank: false,
+      proof: null,
+    })
+    expect(editStarter(starters, 'executive', 0, { ar: 'other' }).executive[0].proof).toBeNull()
+    // The other starters keep theirs.
+    expect(editStarter(starters, 'executive', 0, { ar: 'other' }).operations[0].proof).toEqual(proof)
+    // The same text typed again, or the blank mark, is no text change.
+    expect(editStarter(starters, 'executive', 0, { en: 'Sales this month?' }).executive[0].proof).toEqual(proof)
+    expect(editStarter(starters, 'executive', 0, { blank: true }).executive[0]).toEqual({ ...starters.executive[0], blank: true })
+  })
+
+  const on = { builtInDefaultReadings: '', defaultReadingsMaxLength: 2000, startersOn: true, startersPerKind: 6, starterMaxLength: 200 }
+  const proof = { tool: 'sales_summary', input: { from: '2026-11-01' } }
+
+  it('starterIssue_blocksTheSaveWhileAStarterHasNoProof_namingIt_aStarterWithABlankIsExempt', () => {
+    const active = v(1)
+    const starters: StartersDraft = {
+      executive: [starter('Sales this month?', { proof })],
+      operations: [starter('Late deliveries?', { proof }), starter('Where is order ___?', { blank: true }), starter('Returns today?')],
+    }
+    const draft = { text: 'rules 1', note: '', readings: '', starters }
+    // The third operations starter, counted from 1 on the screen, 0 here.
+    expect(starterIssue(starters, on)).toEqual({ kind: 'operations', index: 2, problem: 'unproven' })
+    expect(canSaveRules(draft, active, false, on)).toBe(false)
+    // Tried: the save opens; the blank one never needed a proof.
+    const proven = { ...draft, starters: { ...starters, operations: [starters.operations[0], starters.operations[1], { ...starters.operations[2], proof }] } }
+    expect(starterIssue(proven.starters, on)).toBeNull()
+    expect(canSaveRules(proven, active, false, on)).toBe(true)
+  })
+
+  it('addStarter_aSeventhForOneKindCannotBeAdded_201CharactersOrAMissingLanguageBlocksTheSave', () => {
+    const six = Array.from({ length: 6 }, (_, i) => starter(`Question ${i + 1}?`, { proof }))
+    const full: StartersDraft = { executive: six, operations: [] }
+    expect(canAddStarter(full, 'executive', on)).toBe(false)
+    expect(addStarter(full, 'executive', on)).toBe(full)
+    // The other kind still has room; a new starter is empty, unmarked and unproven.
+    expect(canAddStarter(full, 'operations', on)).toBe(true)
+    expect(addStarter(full, 'operations', on).operations).toEqual([{ en: '', ar: '', blank: false, proof: null }])
+
+    const active = v(1)
+    const one = (s: StarterDraft): StartersDraft => ({ executive: [], operations: [s] })
+    // 200 characters after trimming is the limit; 201 is over it, in either language.
+    expect(starterIssue(one(starter('a'.repeat(200), { ar: ` ${'b'.repeat(200)} `, proof })), on)).toBeNull()
+    expect(starterIssue(one(starter('a'.repeat(201), { proof })), on)).toEqual({ kind: 'operations', index: 0, problem: 'tooLong', lang: 'en' })
+    expect(starterIssue(one(starter('q?', { ar: 'b'.repeat(201), proof })), on)).toEqual({ kind: 'operations', index: 0, problem: 'tooLong', lang: 'ar' })
+    // A missing (or blank) language, even on a starter with a blank for the reader.
+    expect(starterIssue(one(starter('q?', { ar: '  ', proof })), on)).toEqual({ kind: 'operations', index: 0, problem: 'missing', lang: 'ar' })
+    expect(starterIssue(one(starter('', { blank: true })), on)).toEqual({ kind: 'operations', index: 0, problem: 'missing', lang: 'en' })
+    expect(canSaveRules({ text: 'rules 1', note: '', readings: '', starters: one(starter('a'.repeat(201), { proof })) }, active, false, on)).toBe(false)
+    // The limit is the read door's.
+    expect(starterIssue(one(starter('a'.repeat(201), { proof })), { ...on, starterMaxLength: 250 })).toBeNull()
+  })
+
+  it('saveRequest_carriesEveryStarterWithItsProof_besideTheTwoTexts', () => {
+    const starters: StartersDraft = {
+      executive: [starter(' Sales this month? ', { ar: 'كيف المبيعات هذا الشهر؟', proof })],
+      operations: [starter('Where is order ___?', { ar: 'أين الطلب ___؟', blank: true })],
+    }
+    expect(saveRequest({ text: 'new rules', note: 'starters', readings: 'Own.', starters }, 4, on)).toEqual({
+      houseRules: 'new rules',
+      note: 'starters',
+      baseVersion: 4,
+      defaultReadings: 'Own.',
+      starters: {
+        executive: [{ question: { en: 'Sales this month?', ar: 'كيف المبيعات هذا الشهر؟' }, blank: false, proof }],
+        // A starter with a blank goes without a proof.
+        operations: [{ question: { en: 'Where is order ___?', ar: 'أين الطلب ___؟' }, blank: true }],
+      },
+    })
+    // None: two empty lists, so the new version has none.
+    expect(saveRequest({ text: 'r', note: '', readings: '', starters: NONE }, 4, on).starters).toEqual({ executive: [], operations: [] })
+    // The switch off: no starters at all, and the server keeps the ones it cannot show.
+    expect(saveRequest({ text: 'r', note: '', readings: '', starters }, 4, noBuiltIn)).not.toHaveProperty('starters')
+  })
+
+  it('aStoredStartersProof_comesBackUnchangedOnASave_andTheHistoryShowsAndRestoresTheStarters', () => {
+    const stored = {
+      executive: [{ question: { en: 'Sales this month?', ar: 'المبيعات؟' }, blank: false, proof }],
+      operations: [{ question: { en: 'Order ___?', ar: 'الطلب ___؟' }, blank: true }],
+    }
+    const prompt = fromPromptWire({ core: 'c', houseRules: 'r', version: 3, starters: stored, startersPerKind: 6, starterMaxLength: 200 })
+    expect(prompt.startersOn).toBe(true)
+    const draft = draftOf(prompt.active, prompt)
+    expect(draft.starters).toEqual({
+      executive: [{ en: 'Sales this month?', ar: 'المبيعات؟', blank: false, proof }],
+      operations: [{ en: 'Order ___?', ar: 'الطلب ___؟', blank: true, proof: null }],
+    })
+    // Untouched: not dirty, and a save for the note alone sends the stored proof back as it came.
+    expect(isRulesDirty(draft, prompt.active, prompt)).toBe(false)
+    expect(saveRequest({ ...draft, note: 'why' }, 3, prompt).starters).toEqual(stored)
+    // An older server or the switch off: no starters, the default limits.
+    expect(fromPromptWire({ core: 'c', houseRules: 'r', version: 3 })).toMatchObject({ startersOn: false, startersPerKind: 6, starterMaxLength: 200 })
+    expect(fromPromptWire({ core: 'c', houseRules: 'r', version: 3 }).active.starters).toEqual({ executive: [], operations: [] })
+
+    // The history shows each version's starters; a restore's reply opens with them.
+    const rows = historyRows([fromVersionWire({ version: 2, houseRules: 'old', starters: stored }), fromVersionWire({ version: 3, houseRules: 'r' })], 3, prompt)
+    expect(rows.map((r) => [r.version, r.starters.executive.map((s) => s.en)])).toEqual([
+      [3, []],
+      [2, ['Sales this month?']],
+    ])
+    const restored = fromVersionWire({ version: 4, houseRules: 'old', revertedFrom: 2, starters: stored })
+    expect(draftOf(restored, prompt).starters).toEqual(draft.starters)
+  })
+
+  it('starterOfField_aRefusalNamingAStarterMarksThatStarter_orItsKindsList', () => {
+    expect(starterOfField('starters.executive[0].proof')).toEqual({ kind: 'executive', index: 0 })
+    expect(starterOfField('starters.operations[3].question.ar')).toEqual({ kind: 'operations', index: 3 })
+    expect(starterOfField('starters.operations[1]')).toEqual({ kind: 'operations', index: 1 })
+    // Over 6 for the kind: the list, not one starter.
+    expect(starterOfField('starters.executive')).toEqual({ kind: 'executive', index: null })
+    // Not a starter.
+    expect(starterOfField('defaultReadings')).toBeNull()
+    expect(starterOfField('houseRules')).toBeNull()
+    expect(starterOfField('starters.managers[0]')).toBeNull()
+    expect(starterOfField(null)).toBeNull()
   })
 })

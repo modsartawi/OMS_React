@@ -28,6 +28,8 @@ import {
   READINGS_MAX,
   RULES_MAX,
   SAVED_FIRST,
+  STARTER_MAX,
+  STARTERS_PER_KIND,
   canSaveRules,
   curatorRefused,
   draftOf,
@@ -39,12 +41,17 @@ import {
   refusedField,
   rulesTooLong,
   saveRequest,
+  starterIssue,
+  starterOfField,
+  startersOf,
   tryRequest,
   type HistoryRow,
   type MergeOffer,
   type RulesDraft,
   type RulesFrame,
+  type StartersDraft,
 } from './rules'
+import StartersEditor, { StartersPane, useStarterIssueText, type StarterRefusal } from './StartersEditor'
 
 /** A `COPILOT-412` the screen shows at its field: the house rules or the default readings. */
 interface FieldRefusal {
@@ -52,14 +59,24 @@ interface FieldRefusal {
   message: string
 }
 
-/** Before the read door answers: no built-in text, the default limit. */
-const NO_FRAME: RulesFrame = { builtInDefaultReadings: '', defaultReadingsMaxLength: READINGS_MAX }
+/** Before the read door answers: no built-in text, the default limits, no starters. */
+const NO_FRAME: RulesFrame = {
+  builtInDefaultReadings: '',
+  defaultReadingsMaxLength: READINGS_MAX,
+  startersOn: false,
+  startersPerKind: STARTERS_PER_KIND,
+  starterMaxLength: STARTER_MAX,
+}
+
+const NO_STARTERS: StartersDraft = { executive: [], operations: [] }
 
 /**
  * `/copilot/rules` — a copilot curator edits the house rules (ticket 790, BackOffice 3395): the read-only core,
  * the editor (4,000 characters, a note, Save on `baseVersion`), Try with the draft, and the history with restore.
  * Ticket 874 (BackOffice 3593): the default readings beside the house rules, their own 2,000 limit and counter,
- * saved, tried and restored with them; a `COPILOT-412` naming `defaultReadings` marks that field.
+ * saved, tried and restored with them; a `COPILOT-412` naming `defaultReadings` marks that field. Ticket 875
+ * (BackOffice 3600): the starters, each proven by its own "Try" and saved, shown and restored with the house rules;
+ * a `COPILOT-412` naming a starter marks that starter (`StartersEditor`).
  *
  * 🚩 Fails closed twice: the gate reads `canCurate` off `GET Copilot/Access`, and a `COPILOT-410` from any of
  * the five doors shows the same no-access state.
@@ -98,8 +115,11 @@ function RulesScreen() {
   const [refused, setRefused] = useState(false)
   /** The version the draft was edited from; its number is the save's `baseVersion`. */
   const [base, setBase] = useState<CopilotPromptVersion | null>(null)
-  const [draft, setDraft] = useState<RulesDraft>({ text: '', note: '', readings: '' })
+  const [draft, setDraft] = useState<RulesDraft>({ text: '', note: '', readings: '', starters: NO_STARTERS })
   const [fieldError, setFieldError] = useState<FieldRefusal | null>(null)
+  /** A `COPILOT-412` naming a starter: that starter (or its kind's list) is marked until the starters change. */
+  const [starterError, setStarterError] = useState<StarterRefusal | null>(null)
+  const starterIssueText = useStarterIssueText()
   const [conflict, setConflict] = useState<{ offer: MergeOffer; theirs: CopilotPromptVersion } | null>(null)
   const [opened, setOpened] = useState<HistoryRow | null>(null)
   const [confirming, setConfirming] = useState<HistoryRow | null>(null)
@@ -115,16 +135,22 @@ function RulesScreen() {
   }, [base, prompt.data])
 
   /**
-   * A `COPILOT-412` (from Save or Try) at the field it names: the default readings, or the house rules. A field this
-   * screen does not draw yet (a starter's path, ticket 875) is a toast.
+   * A `COPILOT-412` (from Save or Try) at the field it names: the default readings, the house rules, or a starter
+   * (875). A field this screen does not draw is a toast.
    */
   const fieldRefused = (err: unknown): boolean => {
     const field = refusedField(err)
     if (field === null) return false
+    const starter = starterOfField(field)
     if (field === READINGS_FIELD) setFieldError({ field, message: apiErrorMessage(err, t('rules.readings.invalid')) })
     else if (field === HOUSE_RULES_FIELD) setFieldError({ field, message: apiErrorMessage(err, t('rules.editor.invalid')) })
+    else if (starter) setStarterError({ ...starter, message: apiErrorMessage(err, t('rules.starters.invalid')) })
     else toast.error(apiErrorMessage(err, t('rules.editor.saveFailed')))
     return true
+  }
+  const onStarters = (f: (s: StartersDraft) => StartersDraft) => {
+    setDraft((d) => ({ ...d, starters: f(d.starters) }))
+    setStarterError(null)
   }
 
   const denied = (err: unknown) => {
@@ -141,6 +167,7 @@ function RulesScreen() {
     setBase(v)
     setDraft(draftOf(v, frame))
     setFieldError(null)
+    setStarterError(null)
     refreshAll()
   }
   /** The newest active version, asked afresh. */
@@ -164,6 +191,7 @@ function RulesScreen() {
             text: body.houseRules,
             note: body.note ?? '',
             readings: body.defaultReadings ? body.defaultReadings : frame.builtInDefaultReadings,
+            starters: body.starters ? startersOf(body.starters) : NO_STARTERS,
           }
           setConflict({ offer: mergeOffer(theirs, mine, frame), theirs })
           void qc.invalidateQueries({ queryKey: COPILOT_PROMPT_HISTORY_KEY, exact: true })
@@ -222,8 +250,12 @@ function RulesScreen() {
     e?.preventDefault()
     if (!canSaveRules(draft, base, busy, frame)) return
     setFieldError(null)
+    setStarterError(null)
     save.mutate(saveRequest(draft, base.version, frame))
   }
+  /** The first starter that keeps the save shut (875), named under the Save button. */
+  const blockingStarter = frame.startersOn && dirty ? starterIssue(draft.starters, frame) : null
+  const tryRefused = (err: unknown) => denied(err) || (refusedField(err) === READINGS_FIELD && fieldRefused(err))
   const tooLong = rulesTooLong(draft.text)
   const blank = draft.text.trim() === ''
   const readingsMax = frame.defaultReadingsMaxLength
@@ -307,6 +339,9 @@ function RulesScreen() {
               data-rules-readings
             />
           </Field>
+          {frame.startersOn && (
+            <StartersEditor draft={draft} frame={frame} onStarters={onStarters} refusal={starterError} onRefused={tryRefused} />
+          )}
           <Field label={t('rules.editor.note')}>
             <Input
               dir="auto"
@@ -319,7 +354,12 @@ function RulesScreen() {
               data-rules-note
             />
           </Field>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {blockingStarter && (
+              <p className="text-xs text-danger-800" data-rules-save-blocked={`${blockingStarter.kind}-${blockingStarter.index}`}>
+                {starterIssueText(blockingStarter, frame)}
+              </p>
+            )}
             <Button type="submit" disabled={!canSaveRules(draft, base, busy, frame)} data-rules-save>
               {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
               {save.isPending ? t('rules.editor.saving') : t('rules.editor.save')}
@@ -327,7 +367,7 @@ function RulesScreen() {
           </div>
         </form>
 
-        <TryBox draft={draft} frame={frame} onRefused={(err) => denied(err) || (refusedField(err) === READINGS_FIELD && fieldRefused(err))} />
+        <TryBox draft={draft} frame={frame} onRefused={tryRefused} />
       </div>
 
       <section className="flex flex-col gap-3" data-rules-history>
@@ -399,6 +439,23 @@ function RulesScreen() {
                 data-rules-compare-current-readings
               />
             </div>
+            {frame.startersOn && (
+              <>
+                <h3 className="text-xs font-semibold">{t('rules.starters.heading')}</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <StartersPane label={<Ltr>{vTag(openedRow.version)}</Ltr>} starters={openedRow.starters} data-rules-compare-old-starters />
+                  <StartersPane
+                    label={
+                      <>
+                        {t('rules.history.current')} <Ltr>{vTag(base.version)}</Ltr>
+                      </>
+                    }
+                    starters={startersOf(base.starters)}
+                    data-rules-compare-current-starters
+                  />
+                </div>
+              </>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="text" onClick={() => setOpened(null)}>
                 {t('rules.history.close')}

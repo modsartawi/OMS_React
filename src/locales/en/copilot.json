@@ -211,6 +211,36 @@
       "invalid": "The server refused these default readings.",
       "history": "Default readings"
     },
+    "starters": {
+      "heading": "Starter questions",
+      "hint": "The questions a reader sees before asking anything, a list for each kind of reader, in English and Arabic. Try each one: the lookup that answers it is kept as its proof and saved with it. A question with a blank for the reader to fill, such as an order number, needs no proof.",
+      "kind": {
+        "executive": "Executives",
+        "operations": "Operations"
+      },
+      "lang": {
+        "en": "English",
+        "ar": "Arabic"
+      },
+      "number": "Starter",
+      "add": "Add a starter",
+      "full": "At most {{max}} starters for each kind of reader.",
+      "remove": "Remove this starter",
+      "none": "No starters.",
+      "blank": "Has a blank for the reader to fill",
+      "try": "Try",
+      "proven": "Proven by",
+      "unproven": "Not proven: try it",
+      "noProofNeeded": "Has a blank: no proof needed",
+      "noProofKept": "This try answered without a lookup, so no proof was kept. Reword the question and try again.",
+      "tooLong": "At most {{max}} characters.",
+      "invalid": "The server refused this starter.",
+      "issue": {
+        "missing": "{{kind}} starter {{n}} needs its {{lang}} text.",
+        "tooLong": "{{kind}} starter {{n}} is over {{max}} characters in {{lang}}.",
+        "unproven": "{{kind}} starter {{n}} has no proof. Try it, or mark it as having a blank."
+      }
+    },
     "try": {
       "heading": "Try it",
       "hint": "Ask a question and see how the copilot answers with the house rules and default readings above, saved or not.",
@@ -232,7 +262,7 @@
     },
     "history": {
       "heading": "History",
-      "hint": "The last 20 versions, newest first. Open one to read it beside the current text. A restore brings back its house rules and its default readings.",
+      "hint": "The last 20 versions, newest first. Open one to read it beside the current text. A restore brings back its house rules, its default readings and its starters.",
       "none": "No saved versions yet.",
       "active": "Active",
       "revertedFrom": "reverted from <v>v{{n}}</v>",

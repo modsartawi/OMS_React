@@ -21,12 +21,15 @@ BackOffice spec 3586 A51, A52, A56, "The web half"; ticket 3600.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] A successful try keeps the answering tool call as the starter's proof; a try that answered with no lookup, or "can't answer", keeps none · oms-react tests (the house-rules tests)
-- [ ] Editing a proven starter's text clears its proof · oms-react tests
-- [ ] The save is blocked while a starter has no proof, naming it; a starter with a blank is exempt · oms-react tests
-- [ ] A seventh starter for one kind cannot be added; 201 characters or a missing language blocks the save · oms-react tests
-- [ ] The save request carries every starter with its proof, beside the two texts · oms-react tests
-- [ ] A refusal naming a starter marks that starter · oms-react tests
+- [x] A successful try keeps the answering tool call as the starter's proof; a try that answered with no lookup, or "can't answer", keeps none · oms-react tests (the house-rules tests) · `rules.test.ts` `trialProof_keepsTheLastSuccessfulToolCall_noLookupOrCannotAnswerKeepsNone`, `applyTrial_setsTheTriedStartersProof_onlyWhileItsTextIsTheOneTried`
+- [x] Editing a proven starter's text clears its proof · oms-react tests · `editStarter_aTextChangeInEitherLanguageClearsTheProof_anUnchangedTextKeepsIt`
+- [x] The save is blocked while a starter has no proof, naming it; a starter with a blank is exempt · oms-react tests · `starterIssue_blocksTheSaveWhileAStarterHasNoProof_namingIt_aStarterWithABlankIsExempt`
+- [x] A seventh starter for one kind cannot be added; 201 characters or a missing language blocks the save · oms-react tests · `addStarter_aSeventhForOneKindCannotBeAdded_201CharactersOrAMissingLanguageBlocksTheSave`
+- [x] The save request carries every starter with its proof, beside the two texts · oms-react tests · `saveRequest_carriesEveryStarterWithItsProof_besideTheTwoTexts`, `aStoredStartersProof_comesBackUnchangedOnASave_andTheHistoryShowsAndRestoresTheStarters`
+- [x] A refusal naming a starter marks that starter · oms-react tests · `starterOfField_aRefusalNamingAStarterMarksThatStarter_orItsKindsList`
+
+The screen (`CopilotRulesPage` + `StartersEditor`) was checked by `typecheck` only: no drive was run (Playwright is not
+installed on this machine, and `tools/copilot-rules-drive.mjs` does not cover the starters yet).
 
 ## Boundaries
 

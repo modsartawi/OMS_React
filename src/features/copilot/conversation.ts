@@ -1,5 +1,5 @@
 import { apiErrorCode } from '@/core/api'
-import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotReportContext } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotBoardContext, CopilotReportContext, CopilotStatedReading } from '@/core/models/copilot'
 
 /**
  * The copilot conversation (ticket 737, spec 734 D5) — the panel's thread, as one pure value.
@@ -48,8 +48,9 @@ export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null,
 
 /**
  * The `Copilot/Ask` body: the question, the conversation's id once it has one, and (832) the report open in the
- * designer when one is published, and (836) the board open in its editor. 888 (spec 3632 Q27): `sqlMode: true` when the
- * question is asked in SQL mode, and nothing otherwise; Q46: with it, `sqlItemContext` on the question opening a SQL item.
+ * designer when one is published, (836) the board open in its editor, and (892) the reading a tapped assumption line
+ * states: the tapped answer's question, asked again. 888 (spec 3632 Q27): `sqlMode: true` when the question is asked in
+ * SQL mode, and nothing otherwise; Q46: with it, `sqlItemContext` on the question opening a SQL item.
  */
 export function askBody(
   c: CopilotConversation,
@@ -58,6 +59,7 @@ export function askBody(
   boardContext: CopilotBoardContext | null = null,
   sqlMode = false,
   sqlItemContext: { itemId: string } | null = null,
+  statedReading: CopilotStatedReading | null = null,
 ): CopilotAskRequest {
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
   return {
@@ -66,6 +68,7 @@ export function askBody(
     ...(boardContext ? { boardContext } : {}),
     ...(sqlMode ? { sqlMode: true } : {}),
     ...(sqlMode && sqlItemContext ? { sqlItemContext } : {}),
+    ...(statedReading ? { statedReading } : {}),
   }
 }
 

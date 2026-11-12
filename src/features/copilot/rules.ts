@@ -5,6 +5,9 @@ import type {
   CopilotPromptVersion,
   CopilotPromptVersionWire,
   CopilotPromptWire,
+  CopilotOwnReadingKind,
+  CopilotReaderReadings,
+  ReaderCountRow,
 } from '@/core/models/copilot'
 
 /**
@@ -120,5 +123,38 @@ export function fromVersionWire(w: Partial<CopilotPromptVersionWire> | null | un
 /** `GET Copilot/Prompt`'s flat view as the core and the active version. */
 export function fromPromptWire(w: Partial<CopilotPromptWire> | null | undefined): CopilotPrompt {
   const v = w ?? {}
-  return { core: str(v.core), active: fromVersionWire({ ...v, revertedFrom: null }) }
+  const readerCounts = readerCountRows(v.readerReadings)
+  return {
+    core: str(v.core),
+    active: fromVersionWire({ ...v, revertedFrom: null }),
+    ...(readerCounts ? { readerCounts } : {}),
+  }
+}
+
+/** The four kinds, in the order the screen draws them (spec 3633). */
+export const OWN_READING_KINDS: readonly CopilotOwnReadingKind[] = ['period', 'comparison', 'scope', 'money-base']
+
+/** R30's threshold, should the server not say. */
+const MINIMUM_READERS = 5
+
+/**
+ * The curators' counts (895, BackOffice 3633 R30 / 3691): the four kinds in order, each with how many readers hold their
+ * own, and only the values held by at least the threshold. The server already hides the rest; a value or an `other`
+ * below it is dropped here too, so a hidden value can never be drawn. Null when the server sent none (the switch off).
+ */
+export function readerCountRows(w: CopilotReaderReadings | null | undefined): ReaderCountRow[] | null {
+  if (!w || typeof w !== 'object' || !Array.isArray(w.kinds)) return null
+  const min = typeof w.minimumReaders === 'number' && w.minimumReaders > 0 ? w.minimumReaders : MINIMUM_READERS
+  const shown = (n: unknown): n is number => typeof n === 'number' && n >= min
+  return OWN_READING_KINDS.map((kind) => {
+    const k = w.kinds.find((x) => x?.kind === kind)
+    return {
+      kind,
+      readers: whole(k?.readers),
+      values: (Array.isArray(k?.values) ? k.values : [])
+        .filter((x) => typeof x?.value === 'string' && shown(x.readers))
+        .map((x) => ({ value: x.value, readers: x.readers, label: x.label ?? null })),
+      other: shown(k?.other) ? k.other : null,
+    }
+  })
 }

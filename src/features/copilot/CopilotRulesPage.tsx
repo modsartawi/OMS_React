@@ -2,9 +2,10 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { FlaskConical, History, Loader2, RotateCcw, Save, ShieldAlert } from 'lucide-react'
+import { FlaskConical, History, Loader2, RotateCcw, Save, ShieldAlert, Users } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { CopilotPromptSaveRequest, CopilotPromptVersion } from '@/core/models/copilot'
+import type { CopilotPromptSaveRequest, CopilotPromptVersion, ReaderCountRow } from '@/core/models/copilot'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -259,6 +260,8 @@ function RulesScreen() {
         <TryBox text={draft.text} onRefused={denied} />
       </div>
 
+      {prompt.data.readerCounts && <ReaderCounts rows={prompt.data.readerCounts} />}
+
       <section className="flex flex-col gap-3" data-rules-history>
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-semibold">
@@ -413,6 +416,50 @@ function RulesScreen() {
 }
 
 /** Version N, who saved it and when — or the built-in rules (version 0, never saved). */
+/**
+ * 895 (BackOffice 3633 R30): beside each kind of default reading, how many readers hold their own, and the values held
+ * by 5 or more (`readerCountRows` keeps nothing under that). No reader is named. A value is a machine code named here,
+ * except a money base, which carries its model label; the counts are machine values (`Ltr`).
+ */
+function ReaderCounts({ rows }: { rows: ReaderCountRow[] }) {
+  const { t, i18n } = useTranslation('copilot')
+  const named = (kind: ReaderCountRow['kind'], value: string, label: ReaderCountRow['values'][number]['label']) =>
+    label ? <bdi>{saysIn(label, i18n.language)}</bdi> : t(`rules.readers.value.${kind}.${value}`, { defaultValue: '' }) || <Ltr>{value}</Ltr>
+  return (
+    <section className="flex flex-col gap-3" data-rules-readers>
+      <div>
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+          <Users className="h-4 w-4" aria-hidden />
+          {t('rules.readers.heading')}
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t('rules.readers.hint')}</p>
+      </div>
+      <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+        {rows.map((r) => (
+          <div key={r.kind} className="contents" data-rules-readers-kind={r.kind}>
+            <dt className="font-medium">{t(`rules.readers.kind.${r.kind}`)}</dt>
+            <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-muted-foreground">
+              <span data-rules-readers-count>
+                {r.readers === 0 ? t('rules.readers.none') : t('rules.readers.holding', { n: fsi(formatNumber(r.readers)), count: r.readers })}
+              </span>
+              {r.values.map((v) => (
+                <span key={v.value} data-rules-readers-value={v.value}>
+                  {named(r.kind, v.value, v.label)} <Ltr>{formatNumber(v.readers)}</Ltr>
+                </span>
+              ))}
+              {r.other !== null && (
+                <span data-rules-readers-other>
+                  {t('rules.readers.other')} <Ltr>{formatNumber(r.other)}</Ltr>
+                </span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
 function VersionMeta({ v }: { v: CopilotPromptVersion }) {
   const { t } = useTranslation('copilot')
   if (v.version === 0) return <span className="text-xs text-muted-foreground" data-rules-version={0}>{t('rules.editor.builtIn')}</span>

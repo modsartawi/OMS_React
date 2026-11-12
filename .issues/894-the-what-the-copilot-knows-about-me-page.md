@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice .issues\3633-the-copilot-keeps-a-readers-own-readings-on-a-tap-spec.md
 blocked-by: BackOffice 3689
 ---
@@ -14,8 +14,8 @@ and "Forget everything" with a confirm. Built so the investigations spec's profi
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] The page lists readings and sets, marking unused ones · oms-react tests
-- [ ] Change, edit, delete and forget everything call their doors and redraw · oms-react tests
+- [x] The page lists readings and sets, marking unused ones · oms-react tests
+- [x] Change, edit, delete and forget everything call their doors and redraw · oms-react tests
 
 ## Boundaries
 
@@ -28,3 +28,58 @@ The Proof boxes are ticked.
 ## Blocked by
 
 BackOffice 3689
+
+## Build notes
+
+Built 2026-11-12 on `t894` (from `spec/3633`), against BackOffice 3689's wire.
+
+- **Contract** in `src/core/models/copilot.ts`: `CopilotKnowsMe` (`readings` / `sets` / `limits`; the investigations
+  spec's profile joins beside them), `CopilotKeptReading`, `CopilotNamedSet`, `CopilotSetMember`, the request and answer
+  shapes of the seven doors.
+- **Pure seam** `src/features/copilot/me.ts` (`me.test.ts`): `fromMeWire` reads the page defensively (readings in kind
+  order, `unused` and `gone` kept, a missing gone count taken from the members); `addMember` / `removeMember` build the
+  `POST Copilot/Me/Sets` body - the live keys in order, a gone member always left out (3689 refuses it), one kind, at
+  most `maxMembers`, never an empty set (delete instead); `lookupFits` (blank / over 100 is not sent).
+- **Doors** `src/features/copilot/me-api.ts` (`me-api.test.ts`, `@/core/api` mocked, a real `QueryClient`): each change
+  calls its door with its body, redraws the cached page from the door's own answer, then asks for it afresh (R29). A
+  refusal redraws nothing. `meFeatureOff` = `COPILOT-430`; `meEntryVisible` = the page read.
+- **Screen** `CopilotMePage` at `/copilot/me`, behind `canAskCopilot`: readings (struck through + "No longer used" when
+  unused; Change through the reading's `choices`; Delete), sets (members, gone ones marked and counted; add through the
+  name lookup; remove; delete the set), "Forget everything" with a confirm. `COPILOT-430` / `COPILOT-401` from any door
+  draw their own closed state. **Entry**: a link at the top of the copilot panel, shown only when `GET Copilot/Me`
+  reads, so a 430 hides it (the page shares the query).
+- **Words**: `me.*` in `copilot.json`, English and Arabic (the Arabic file gained the section).
+- Not driven against a live SIS.Api in this slice (no drive tool added); typecheck, tests and lint (bar the base
+  boundaries failure in `insurance-rules/aliases/door-shapes.test.ts`) green.
+
+## Review fixes
+
+Built 2026-11-12 on `t3633-review` (from `spec/3633`), test-first, against BackOffice 3633's review (3692
+`## Review fixes` 2 and 7; the wire in 3689's Build notes).
+
+- **A reader can always see and delete what is kept.** `GET Copilot/Me`, the two deletes and Forget answer whatever the
+  switch; a `COPILOT-430` on the read now means only that the server has no store. `CopilotKnowsMe` gains `canChange`
+  (`fromMeWire`: only a plain `false` refuses; absent reads as true, as the door before the review answered only when on;
+  `withPage` carries it through every redraw). With `canChange` false the page hides Change (and its select), the member
+  remove buttons and the lookup, and keeps the list, Delete, Delete set and Forget everything.
+- **Refusals** (`meRefusal(err, 'read' | 'change')`, replacing `meFeatureOff`): `COPILOT-401` closes the page from any
+  door; `COPILOT-430` closes it only on the read (the `me.closed.off` hint reworded to "no readings kept on this server",
+  English and Arabic). A change refused with 430 shows the server's message in place, and the page is read again so
+  `canChange` follows.
+- **The panel's entry** shows whenever `GET Copilot/Me` reads (`meEntryVisible` unchanged; its doc and the panel's
+  comment updated).
+- **Set scopes (R8).** Scope choices on the page, on an assumption line's `choices` and in `readingOffer` may hold
+  `set:<setId>` labelled by the set's name. The readers already carried any value with the server's label, so no code
+  changed there; tests now pin it: `me.test` (page choices), `me-api.test`
+  `changeReading_aSetScope_postsTheSetValueAsTheServerGaveIt`, `answer.test`
+  `aScopeLineOffersTheReadersSets_byTheNameTheServerGave_andATapSendsTheSetValue` and
+  `anOfferToKeepASetScope_carriesTheSetValueAndTheServersName`. The label is always the server's; nothing is built from
+  the id.
+- Gate: typecheck and `npm test` (753 files, 10,345 tests) green; lint's boundaries check fails only on the base's
+  `insurance-rules/aliases/door-shapes.test.ts` violations (4 before and after); grid-base, contrast, palette and
+  controls green.
+
+## Comments
+
+- The panel's entry costs one `GET Copilot/Me` per panel mount. 3689's suggested `canKeepReadings` flag on
+  `GET Copilot/Access` would let the entry ride the access probe instead - a small follow-up if wanted.

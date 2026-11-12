@@ -8,7 +8,7 @@
 import { api } from '@/core/api'
 import type { AnalyticsItem } from '@/core/models/analytics'
 import type { AnalyticsSqlItemCreate } from '@/core/models/analytics-sql'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSteps } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotNamedSetKeepRequest, CopilotNamedSetKept, CopilotReadingKept, CopilotReadingNotNow, CopilotReadingOfferRequest, CopilotSteps } from '@/core/models/copilot'
 import { stepsOrNothing } from './steps'
 
 export const copilotApi = {
@@ -28,3 +28,35 @@ export const copilotApi = {
     return api.post<AnalyticsItem>('Analytics/Item/Sql', body)
   },
 }
+
+/**
+ * The offer to keep a reading (ticket 892, BackOffice 3686): Keep stores the reading the SERVER holds for `offerId`, Not
+ * now ends offers of its kind for the conversation. A refusal (`COPILOT-437` no longer open, `COPILOT-430` not allowed,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotReadingApi = {
+  /** `POST Copilot/Readings/Keep` `{ conversationId, offerId }` -> the kept reading and its confirmation line. */
+  keep(body: CopilotReadingOfferRequest): Promise<CopilotReadingKept> {
+    return api.post<CopilotReadingKept>('Copilot/Readings/Keep', body)
+  },
+  /** `POST Copilot/Readings/NotNow` `{ conversationId, offerId }`. */
+  notNow(body: CopilotReadingOfferRequest): Promise<CopilotReadingNotNow> {
+    return api.post<CopilotReadingNotNow>('Copilot/Readings/NotNow', body)
+  },
+}
+
+export type CopilotReadingDoors = typeof copilotReadingApi
+
+/**
+ * The named-set card's Keep (ticket 893, BackOffice 3687): stores the set the SERVER proposed as `proposalId`. Not now
+ * calls nothing. A refusal (`COPILOT-434` at the limit of 10 sets, `COPILOT-435` no longer open, `COPILOT-433`,
+ * `COPILOT-401`) is a business `ApiError`.
+ */
+export const copilotNamedSetApi = {
+  /** `POST Copilot/NamedSets/Keep` `{ conversationId, proposalId }` -> the kept set and its confirmation line. */
+  keep(body: CopilotNamedSetKeepRequest): Promise<CopilotNamedSetKept> {
+    return api.post<CopilotNamedSetKept>('Copilot/NamedSets/Keep', body)
+  },
+}
+
+export type CopilotNamedSetDoors = typeof copilotNamedSetApi

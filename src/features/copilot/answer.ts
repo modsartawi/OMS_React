@@ -1,7 +1,23 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
-import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotSqlOffer, CopilotSqlPart, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type {
+  CopilotAnswer,
+  CopilotAnswerTable,
+  CopilotAssumptionChoice,
+  CopilotBoardEdit,
+  CopilotNamedSetKind,
+  CopilotNamedSetProposal,
+  CopilotOwnReadingKind,
+  CopilotReadingOffer,
+  CopilotReportEdit,
+  CopilotReportRef,
+  CopilotReportStep,
+  CopilotSqlOffer,
+  CopilotSqlPart,
+  CopilotTraceEntry,
+  CopilotViewRef,
+} from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -47,6 +63,15 @@ export interface CopilotAnswerModel {
   boardEdit: CopilotBoardEdit | null
   /** What the report assumed, one line each (802 item 1); absent reads as empty. */
   assumptions: AnalyticsLabel[]
+  /**
+   * BackOffice 3685 (892): beside each of `assumptions`, the other readings its line offers, or `null` (not tappable).
+   * Re-indexed from the wire's `line` (an index into the assumptions AS SENT) onto the lines kept.
+   */
+  assumptionChoices: (CopilotAssumptionChoice | null)[]
+  /** BackOffice 3686 (892): the offer to keep a reading under this answer, or none. */
+  readingOffer: CopilotReadingOffer | null
+  /** BackOffice 3687 (893): the named set proposed in this answer, or none. */
+  namedSet: CopilotNamedSetProposal | null
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
   rules: AnswerRules | null
   /**
@@ -218,7 +243,9 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
     reportEdit: reportEditOf(r.reportEdit),
     boardEdit: boardEditOf(r.boardEdit),
-    assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(bilingual).filter((a) => a.en.trim() !== '' || a.ar.trim() !== '') : [],
+    ...assumptionsOf(r.assumptions, r.assumptionChoices),
+    readingOffer: readingOfferOf(r.readingOffer),
+    namedSet: namedSetOf(r.namedSet),
     rules: rulesOf(r.promptVersion),
     tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
     figuresOnly: r.outcome === 'figures-only',
@@ -228,7 +255,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
 }
 
 /** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */
-export type AnswerPart = 'text' | 'sql' | 'tables' | 'views' | 'assumptions' | 'reportEdit' | 'boardEdit' | 'reports'
+export type AnswerPart = 'text' | 'sql' | 'tables' | 'views' | 'assumptions' | 'readingOffer' | 'namedSet' | 'reportEdit' | 'boardEdit' | 'reports'
 
 /** How the list of lookups ("How I got this") is drawn: not at all (no trace), folded, or open. */
 export type AnswerLookups = 'none' | 'collapsed' | 'open'
@@ -247,6 +274,8 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   if (model.tables.length > 0) parts.push('tables')
   if (model.viewRefs.length > 0) parts.push('views')
   if (model.assumptions.length > 0) parts.push('assumptions')
+  if (model.readingOffer) parts.push('readingOffer')
+  if (model.namedSet) parts.push('namedSet')
   if (model.reportEdit) parts.push('reportEdit')
   if (model.boardEdit) parts.push('boardEdit')
   if (model.reportRefs.length > 0) parts.push('reports')
@@ -260,6 +289,23 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
  * or the server's for any other answer. A line missing in that language reads the other one.
  */
 export const assumptionLines = (assumptions: readonly AnalyticsLabel[], lang: string): string[] => assumptions.map((a) => saysIn(a, lang))
+
+/** One assumption line as drawn (892): its words, and the other readings a tap offers (`null`: a plain line). */
+export interface AssumptionRow {
+  text: string
+  choice: { kind: CopilotOwnReadingKind; value: string | null; choices: { value: string; text: string }[] } | null
+}
+
+/** The assumption lines in the panel's language, each with what a tap on it offers. A line's words are the server's, as sent. */
+export function assumptionRows(model: Pick<CopilotAnswerModel, 'assumptions' | 'assumptionChoices'>, lang: string): AssumptionRow[] {
+  return model.assumptions.map((a, i) => {
+    const c = model.assumptionChoices[i] ?? null
+    return {
+      text: saysIn(a, lang),
+      choice: c ? { kind: c.kind, value: c.value, choices: c.choices.map((x) => ({ value: x.value, text: saysIn(x.label, lang) })) } : null,
+    }
+  })
+}
 
 /**
  * A table's key among the answer's tables (878): its step AND its place. An analysis result gives one table per part,
@@ -287,6 +333,68 @@ function viewRef(v: unknown): CopilotViewRef[] {
 const bilingual = (v: unknown): AnalyticsLabel => {
   const t = v && typeof v === 'object' ? (v as { en?: unknown; ar?: unknown }) : {}
   return { en: text(t.en), ar: text(t.ar) }
+}
+
+const READING_KINDS: readonly string[] = ['period', 'comparison', 'scope', 'money-base'] satisfies CopilotOwnReadingKind[]
+const readingKind = (v: unknown): v is CopilotOwnReadingKind => typeof v === 'string' && READING_KINDS.includes(v)
+const said = (l: AnalyticsLabel): boolean => l.en.trim() !== '' || l.ar.trim() !== ''
+
+/**
+ * The assumption lines kept (blank ones dropped) and, beside each, its choices (3685). An entry naming no line, an unknown
+ * kind, or no choice with a value is left out: that line is drawn plain.
+ */
+function assumptionsOf(raw: unknown, rawChoices: unknown): Pick<CopilotAnswerModel, 'assumptions' | 'assumptionChoices'> {
+  if (!Array.isArray(raw)) return { assumptions: [], assumptionChoices: [] }
+  const byLine = new Map<number, CopilotAssumptionChoice>()
+  for (const c of Array.isArray(rawChoices) ? (rawChoices as unknown[]) : []) {
+    if (!c || typeof c !== 'object') continue
+    const { line, kind, value, choices } = c as Record<string, unknown>
+    if (typeof line !== 'number' || !Number.isInteger(line) || !readingKind(kind) || !Array.isArray(choices)) continue
+    const list = choices.flatMap((x) => {
+      const o = x && typeof x === 'object' ? (x as { value?: unknown; label?: unknown }) : {}
+      return typeof o.value === 'string' && o.value.trim() !== '' ? [{ value: o.value, label: bilingual(o.label) }] : []
+    })
+    if (list.length > 0) byLine.set(line, { line, kind, value: typeof value === 'string' ? value : null, choices: list })
+  }
+  const kept = raw.map((a, line) => ({ label: bilingual(a), choice: byLine.get(line) ?? null })).filter((a) => said(a.label))
+  return { assumptions: kept.map((a) => a.label), assumptionChoices: kept.map((a) => a.choice) }
+}
+
+/** The named-set card as drawn (893): the name as the server gave it, and every member in order in the panel's language. */
+export interface NamedSetCard {
+  name: string
+  members: { key: string; kind: CopilotNamedSetKind; text: string }[]
+}
+
+export const namedSetCard = (set: CopilotNamedSetProposal, lang: string): NamedSetCard => ({
+  name: set.name,
+  members: set.members.map((m) => ({ key: m.key, kind: m.kind, text: saysIn(m.label, lang) })),
+})
+
+const SET_KINDS: readonly string[] = ['store', 'city', 'region', 'channel'] satisfies CopilotNamedSetKind[]
+const setKind = (v: unknown): v is CopilotNamedSetKind => typeof v === 'string' && SET_KINDS.includes(v)
+
+/** The proposed named set (3687), or none when it lacks its id, its name, a known kind or a member with a key. */
+function namedSetOf(v: unknown): CopilotNamedSetProposal | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.id !== 'string' || o.id.trim() === '' || typeof o.name !== 'string' || o.name.trim() === '' || !setKind(o.kind)) return null
+  const members = (Array.isArray(o.members) ? (o.members as unknown[]) : []).flatMap((x) => {
+    const m = x && typeof x === 'object' ? (x as Record<string, unknown>) : {}
+    return typeof m.key === 'string' && m.key.trim() !== '' && setKind(m.kind) ? [{ key: m.key, kind: m.kind, label: bilingual(m.label) }] : []
+  })
+  if (members.length === 0) return null
+  return { id: o.id, name: o.name, kind: o.kind, members, offer: bilingual(o.offer) }
+}
+
+/** The offer to keep a reading (3686), or none when it lacks its id, a known kind, a value or its words. */
+function readingOfferOf(v: unknown): CopilotReadingOffer | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.id !== 'string' || o.id.trim() === '' || !readingKind(o.kind) || typeof o.value !== 'string') return null
+  const offer = bilingual(o.offer)
+  if (!said(offer)) return null
+  return { id: o.id, kind: o.kind, value: o.value, label: bilingual(o.label), offer }
 }
 
 /** One `reportRefs` entry, or none when it carries no id. An absent revision reads as 1 (a new report). */

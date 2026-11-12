@@ -44,6 +44,17 @@ export interface CopilotPromptVersion {
 export interface CopilotPrompt {
   core: string
   active: CopilotPromptVersion
+  /** 895: the curators' counts of readers' own readings (`readerCountRows`); absent when the server sends none (switch off). */
+  readerCounts?: ReaderCountRow[]
+}
+
+/** 895: one kind of default reading as the house-rules screen draws its counts (`features/copilot/rules`). */
+export interface ReaderCountRow {
+  kind: CopilotOwnReadingKind
+  readers: number
+  values: { value: string; readers: number; label: AnalyticsLabel | null }[]
+  /** Null: nothing is drawn for the other values. */
+  other: number | null
 }
 
 /** `GET Copilot/Prompt` → `data` (BackOffice 3395 `CopilotPromptView`): the active version, flat. */
@@ -75,6 +86,45 @@ export interface CopilotPromptWire {
   startersPerKind?: number
   /** 3600: the longest starter text in one language, 200. Absent with the switch off. */
   starterMaxLength?: number
+  /**
+   * BackOffice spec 3633 R30 (3691, oms-react 895): how many readers hold their own reading of each kind, and the values
+   * held by at least `minimumReaders`. Absent with `Copilot:Answers:OwnReadings` off. Read-only: the save never sends it.
+   */
+  readerReadings?: CopilotReaderReadings
+}
+
+/** The four kinds of default reading a reader may hold their own of (spec 3633), in the order the server sends them. */
+export type CopilotOwnReadingKind = 'period' | 'comparison' | 'scope' | 'money-base'
+
+/** 3691: the curators' counts. No reader is ever named; a value held by fewer than `minimumReaders` is never sent. */
+export interface CopilotReaderReadings {
+  /** 5 (R30). */
+  minimumReaders: number
+  /** Always the four kinds, in `CopilotOwnReadingKind` order. */
+  kinds: CopilotReaderReadingKind[]
+}
+
+/** 3691: one kind's count. `readers` may exceed the sum shown: values under the threshold are not listed. */
+export interface CopilotReaderReadingKind {
+  kind: CopilotOwnReadingKind
+  /** Readers holding their own reading of this kind; 0 = none. Shown whatever its size: it names no value. */
+  readers: number
+  /** Only values held by at least `minimumReaders`, most held first; may be empty. */
+  values: CopilotReaderReadingValue[]
+  /** The readers on every value not listed, together; null when they too are fewer than `minimumReaders` (show nothing). */
+  other: number | null
+}
+
+/**
+ * 3691: one value and its readers. `value` is the stored code: a period's named period (`last-7-days` …), a comparison's
+ * `previous` | `last-year` | `both` | `none`, a scope's `chain` | `ksa` | `bahrain` | `named-set` (every named set
+ * together, never by name), or a money base's measure key. The screen names the codes itself, except a money base.
+ */
+export interface CopilotReaderReadingValue {
+  value: string
+  readers: number
+  /** A money base only: its name in the analytics model (its key in both when the model has none). Absent otherwise. */
+  label?: AnalyticsLabel
 }
 
 /** One version as `GET Copilot/Prompt/History`, `POST Copilot/Prompt` and `…/Revert` return it (`CopilotPromptVersionView`). */
@@ -265,6 +315,12 @@ export interface CopilotAskRequest {
    * in SQL mode, not a readable SQL item, or the reader may not change it. Only the id: the server reads the rest.
    */
   sqlItemContext?: { itemId: string }
+  /**
+   * BackOffice 3685 (spec 3633 R15, oms-react 892): a tapped assumption line's choice. Sent with `question` = the tapped
+   * answer's question, verbatim, and the same `conversationId`; the server re-asks it with the reading stated. Ignored
+   * where own readings do not apply; a reading the server does not allow is the `COPILOT-430` envelope.
+   */
+  statedReading?: CopilotStatedReading
 }
 
 /** The confirmation of a proposal (3664): its id, and the card's values, or a cancel. */
@@ -303,6 +359,118 @@ export interface CopilotConfirmationValues {
 export interface CopilotSqlItemRef {
   itemId: string
   revision: number
+}
+
+/** 3685: a reading stated by a tap, `value` the readings store's code (as `CopilotAssumptionChoice.choices[].value`). */
+export interface CopilotStatedReading {
+  kind: CopilotOwnReadingKind
+  value: string
+}
+
+/**
+ * BackOffice 3685 (spec 3633 R15): the other readings one server-written assumption line offers. A line with no entry
+ * is not tappable.
+ */
+export interface CopilotAssumptionChoice {
+  /** 0-based index into the answer's `assumptions`. */
+  line: number
+  kind: CopilotOwnReadingKind
+  /** The reading the query used; `null` when it was none of the named ones (a fixed range). */
+  value: string | null
+  /** Never holds `value`. A tap sends `statedReading: { kind, value: choices[i].value }`. */
+  choices: CopilotReadingChoice[]
+}
+
+/** One reading a line offers (3685): the store code and its words. */
+export interface CopilotReadingChoice {
+  value: string
+  label: AnalyticsLabel
+}
+
+/**
+ * BackOffice 3686 (spec 3633 R16-R18): "Always read it this way for me?", offered once, under the answer that corrected
+ * an assumed reading. The server writes every word; the client shows `offer` with Keep and Not now.
+ */
+export interface CopilotReadingOffer {
+  /** 32 hex: what Keep and Not now name as `offerId`. */
+  id: string
+  kind: CopilotOwnReadingKind
+  /** The store code the server holds; Keep stores THIS, never a value the client sends. */
+  value: string
+  label: AnalyticsLabel
+  /** The question, in both languages. */
+  offer: AnalyticsLabel
+}
+
+/** `POST Copilot/Readings/Keep` and `POST Copilot/Readings/NotNow` body (3686). */
+export interface CopilotReadingOfferRequest {
+  conversationId: string
+  offerId: string
+}
+
+/**
+ * `POST Copilot/Readings/Keep` -> `data` (3686). `line` is shown in place of the buttons. Refusals: `COPILOT-437` (the
+ * offer is no longer open: hide the buttons), `COPILOT-430` (the reading is no longer allowed), `COPILOT-401`.
+ */
+export interface CopilotReadingKept {
+  kind: CopilotOwnReadingKind
+  value: string
+  /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  line: AnalyticsLabel
+}
+
+/** BackOffice 3687: a named set's kind, the name lookup's kind code; a set holds one kind. */
+export type CopilotNamedSetKind = 'store' | 'city' | 'region' | 'channel'
+
+/** 3687: one proposed member: `key` the lookup's (`city:Jeddah`), `label` naming its kind (`Jeddah (city)`). */
+export interface CopilotProposedMember {
+  key: string
+  kind: CopilotNamedSetKind
+  label: AnalyticsLabel
+}
+
+/**
+ * BackOffice 3687 (spec 3633 R20, oms-react 893): a named set the copilot proposes from what the reader said. The card
+ * shows `name` as given and every member, in order, with Keep and Not now. The server holds the proposal: Keep names it
+ * by `id` and stores what the server checked, never what a client sends.
+ */
+export interface CopilotNamedSetProposal {
+  /** 32 hex: Keep's `proposalId`. */
+  id: string
+  name: string
+  kind: CopilotNamedSetKind
+  /** 1-200, in the order proposed. */
+  members: CopilotProposedMember[]
+  /** The server's question, naming the first 3 members and counting the rest. */
+  offer: AnalyticsLabel
+}
+
+/** `POST Copilot/NamedSets/Keep` body (3687). Not now calls nothing. */
+export interface CopilotNamedSetKeepRequest {
+  conversationId: string
+  proposalId: string
+}
+
+/**
+ * `POST Copilot/NamedSets/Keep` -> `data` (3687). `line` is shown in place of the buttons. Refusals: `COPILOT-434` (the
+ * reader already keeps 10 sets: the message says to delete one on "What the copilot knows about me"), `COPILOT-435`
+ * (the card is no longer open: hide the buttons), `COPILOT-433` (invalid), `COPILOT-401`.
+ */
+export interface CopilotNamedSetKept {
+  /** 26-char ULID. */
+  setId: string
+  name: string
+  kind: CopilotNamedSetKind
+  members: CopilotProposedMember[]
+  /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  line: AnalyticsLabel
+}
+
+/** `POST Copilot/Readings/NotNow` -> `data` (3686): the line is hidden; no offer of that kind until the conversation ends. */
+export interface CopilotReadingNotNow {
+  kind: CopilotOwnReadingKind
 }
 
 /**
@@ -478,6 +646,15 @@ export interface CopilotAnswer {
    * `cannot-answer` given OUTSIDE SQL mode, on the panel, to a reader holding the SQL grant. Absent on every other answer.
    */
   sqlOffer?: CopilotSqlOffer
+  /**
+   * BackOffice 3685 (spec 3633 R15, oms-react 892): the assumption lines that offer other readings. Absent: no line is
+   * tappable (`Copilot:Answers:OwnReadings` off, or no line offers anything).
+   */
+  assumptionChoices?: CopilotAssumptionChoice[]
+  /** BackOffice 3686 (R16): absent unless this answer offers to keep a reading. At most one. */
+  readingOffer?: CopilotReadingOffer
+  /** BackOffice 3687 (R20, oms-react 893): absent unless a named set was proposed in this answer. */
+  namedSet?: CopilotNamedSetProposal
   /** Estate local wall-clock, `yyyy-MM-ddTHH:mm:ss`. */
   askedAt: string
 }
@@ -714,4 +891,126 @@ export interface CopilotSqlOffer {
   question: string
   /** Ask in this conversation; `null`: this was its last question, start a new one. */
   conversationId: string | null
+}
+
+// ── "What the copilot knows about me" (BackOffice spec 3633 R25/R28/R29, door 3689, oms-react 894) ─────────────────
+// Every door behind the cookie and `[Copilot, 01]`: `COPILOT-401` without the grant. Since the review of 3633 (3692
+// fix 7) a reader can always see and delete what is kept: `GET Copilot/Me`, the two deletes and Forget answer whatever
+// the switch (`COPILOT-430` there only when the server has no store); only `POST Copilot/Me/Readings`,
+// `POST Copilot/Me/Sets` and the lookup are `COPILOT-430` while own readings do not apply. The reader is always the
+// cookie's user. Nothing is cached server-side, so a change, a delete or "forget" is used from the next question (R29).
+
+/**
+ * One value a kept reading may be changed to (or the value it holds), labelled in both languages. A scope may be one of
+ * the reader's own named sets, `set:<setId>`, labelled by the set's name (review of 3633, R8): show the label, never
+ * build one from the value.
+ */
+export interface CopilotReadingChoice {
+  value: string
+  label: AnalyticsLabel
+}
+
+/** Who kept it: accepted from an answer's offer, changed on this page, or said directly. */
+export type CopilotKeptBy = 'offer' | 'page' | 'direct'
+
+/** 3689: one kept reading. */
+export interface CopilotKeptReading {
+  kind: CopilotOwnReadingKind
+  value: string
+  label: AnalyticsLabel
+  /** R25: the server no longer has the value, and no question uses it (drawn struck through; Change or Delete). */
+  unused: boolean
+  /** Every value the reading may be changed to. */
+  choices: CopilotReadingChoice[]
+  /** `yyyy-MM-ddTHH:mm:ss`. */
+  keptAt: string
+  keptBy: CopilotKeptBy
+}
+
+/** 3689: one member of a named set; `key` is the name lookup's (`store:S101`, `city:Jeddah`, …). */
+export interface CopilotSetMember {
+  key: string
+  kind: string
+  label: AnalyticsLabel
+  /** R25: no longer in the store master / channel list. A gone member must be left out of an edit. */
+  gone: boolean
+}
+
+/** 3689: one named set, by name. */
+export interface CopilotNamedSet {
+  /** 26-char ULID. */
+  setId: string
+  name: string
+  kind: string
+  members: CopilotSetMember[]
+  /** How many members are gone. */
+  gone: number
+  keptAt: string
+  keptBy: CopilotKeptBy
+}
+
+export interface CopilotKnowsMeLimits {
+  maxSets: number
+  maxMembers: number
+  maxName: number
+}
+
+/**
+ * `GET Copilot/Me` → `data` (3689 `CopilotKnowsMePage`): the page's one payload. `readings` holds only kept kinds, in
+ * the order period, comparison, scope, money-base. The investigations spec adds its profile beside these.
+ */
+export interface CopilotKnowsMe {
+  readings: CopilotKeptReading[]
+  sets: CopilotNamedSet[]
+  limits: CopilotKnowsMeLimits
+  /**
+   * Review of 3633: whether own readings apply, so a reading may be changed and a set edited. False = list, Delete and
+   * Forget only: hide Change, Edit and the lookup. Absent (a door from before the review, which answered only when on)
+   * reads as true.
+   */
+  canChange: boolean
+}
+
+/** `POST Copilot/Me/Readings` → one reading (`keptBy: "page"`). `COPILOT-430` for a kind or value not allowed. */
+export interface CopilotKeepReadingRequest {
+  kind: CopilotOwnReadingKind
+  value: string
+}
+
+/** `POST Copilot/Me/Readings/Delete`. */
+export interface CopilotDeleteReadingRequest {
+  kind: CopilotOwnReadingKind
+}
+
+/**
+ * `POST Copilot/Me/Sets` → one set, its members replaced in the order given (name and id kept). `COPILOT-433`: not the
+ * reader's set, a member the server cannot find now, two kinds, 0 or over `maxMembers` members.
+ */
+export interface CopilotEditSetRequest {
+  setId: string
+  members: string[]
+}
+
+/** `POST Copilot/Me/Sets/Delete`. */
+export interface CopilotDeleteSetRequest {
+  setId: string
+}
+
+/** `…/Delete` → `data`; `false` = already gone. */
+export interface CopilotDeleted {
+  deleted: boolean
+}
+
+/** `POST Copilot/Me/Forget` (no body) → how many readings and sets went, in one transaction. */
+export interface CopilotForgotten {
+  removed: number
+}
+
+/**
+ * `GET Copilot/Me/Lookup?text=` → the name lookup's stores, cities, regions and channels, best first (at most 20).
+ * `COPILOT-433` for a blank / over-100-character text, text that looks like personal data, or no lookup on the server.
+ */
+export interface CopilotMeLookup {
+  text: string
+  matches: CopilotSetMember[]
 }

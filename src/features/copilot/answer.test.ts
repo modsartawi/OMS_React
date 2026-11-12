@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, copilotAnswerModel, inlineMarks, orderSegments, questionFits, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, namedSetCard, orderSegments, questionFits, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -383,5 +383,142 @@ describe('what the answer assumed, under any answer (BackOffice spec 3586, 3594;
     // With two, they sit under the text.
     const withTwo = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }, { en: 'b', ar: 'ب' }] })
     expect(answerLayout(withTwo).parts).toEqual(['text', 'assumptions'])
+  })
+})
+
+describe('tappable assumption lines and the offer to keep a reading (BackOffice spec 3633 R15-R17, 3685, 3686; ticket 892)', () => {
+  const plain: Partial<CopilotAnswer> = {
+    conversationId: 'c-1',
+    questionNo: 1,
+    answer: 'Sales rose 4%.',
+    trace: [],
+    outcome: 'answered',
+    stoppedEarly: false,
+    servedBy: 'anthropic/claude',
+  }
+  const periods = [
+    { value: 'last-7-days', label: { en: 'The last 7 days', ar: 'آخر 7 أيام' } },
+    { value: 'last-month', label: { en: 'Last month', ar: 'الشهر الماضي' } },
+  ]
+
+  it('aLineListsTheOtherReadingsTheServerListed_byItsIndexIntoTheAssumptions', () => {
+    const model = copilotAnswerModel({
+      ...plain,
+      assumptions: [
+        { en: 'Report: daily sales', ar: 'التقرير: المبيعات اليومية' },
+        { en: '', ar: '' },
+        { en: 'Period: yesterday', ar: 'الفترة: أمس' },
+        { en: 'Scope: as you prefer, Saudi Arabia only', ar: 'النطاق: كما تفضّل، السعودية فقط' },
+      ],
+      assumptionChoices: [
+        // `line` indexes the assumptions AS SENT: the blank line 1 is dropped, line 2 is still the period.
+        { line: 2, kind: 'period', value: 'yesterday', choices: periods },
+        { line: 9, kind: 'scope', value: 'chain', choices: periods },
+        { line: 0, kind: 'nonsense', value: 'x', choices: periods },
+        { line: 3, kind: 'scope', value: 'ksa', choices: [] },
+      ] as unknown as CopilotAnswer['assumptionChoices'],
+    })
+    expect(assumptionRows(model, 'en')).toEqual([
+      { text: 'Report: daily sales', choice: null },
+      { text: 'Period: yesterday', choice: { kind: 'period', value: 'yesterday', choices: [{ value: 'last-7-days', text: 'The last 7 days' }, { value: 'last-month', text: 'Last month' }] } },
+      // The "as you prefer" line, drawn as the server wrote it; nothing to offer: not tappable.
+      { text: 'Scope: as you prefer, Saudi Arabia only', choice: null },
+    ])
+    expect(assumptionRows(model, 'ar')[1].choice?.choices.map((c) => c.text)).toEqual(['آخر 7 أيام', 'الشهر الماضي'])
+  })
+
+  it('aScopeLineOffersTheReadersSets_byTheNameTheServerGave_andATapSendsTheSetValue', () => {
+    // Review of 3633 (R8): `set:<id>` choices after chain/ksa/bahrain, labelled by the set's name; never built from the id.
+    const model = copilotAnswerModel({
+      ...plain,
+      assumptions: [{ en: 'Scope: the whole chain', ar: 'النطاق: السلسلة كلها' }],
+      assumptionChoices: [
+        {
+          line: 0,
+          kind: 'scope',
+          value: 'chain',
+          choices: [
+            { value: 'ksa', label: { en: 'Saudi Arabia', ar: 'السعودية' } },
+            { value: 'set:01jcset00000000000000000001', label: { en: 'my stores', ar: 'my stores' } },
+          ],
+        },
+      ],
+    })
+    expect(assumptionRows(model, 'en')[0].choice?.choices).toEqual([
+      { value: 'ksa', text: 'Saudi Arabia' },
+      { value: 'set:01jcset00000000000000000001', text: 'my stores' },
+    ])
+  })
+
+  it('anOfferToKeepASetScope_carriesTheSetValueAndTheServersName', () => {
+    const offer = {
+      id: '0123456789abcdef0123456789abcdef',
+      kind: 'scope',
+      value: 'set:01jcset00000000000000000001',
+      label: { en: 'my stores', ar: 'my stores' },
+      offer: { en: 'Always read the scope as my stores when I do not say?', ar: 'هل أقرأ النطاق دائمًا على أنه my stores ما لم تحدّد؟' },
+    } as const
+    expect(copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }], readingOffer: offer }).readingOffer).toEqual(offer)
+  })
+
+  it('anAnswerWithNoOfferAndPlainLines_drawsAsToday', () => {
+    const lines = { ...plain, assumptions: [{ en: 'Period: yesterday', ar: 'الفترة: أمس' }] }
+    const today = copilotAnswerModel(lines)
+    for (const extra of [{}, { assumptionChoices: undefined, readingOffer: undefined }, { assumptionChoices: 'x', readingOffer: null }, { readingOffer: { id: '', kind: 'period' } }]) {
+      const model = copilotAnswerModel({ ...lines, ...extra } as unknown as Partial<CopilotAnswer>)
+      expect(model).toEqual(today)
+      expect(answerLayout(model).parts).toEqual(['text', 'assumptions'])
+      expect(assumptionRows(model, 'en')).toEqual([{ text: 'Period: yesterday', choice: null }])
+    }
+    expect(today.readingOffer).toBeNull()
+  })
+
+  it('theOfferIsItsOwnPartUnderTheAssumptions_inTheServersWords', () => {
+    const offer = {
+      id: '0123456789abcdef0123456789abcdef',
+      kind: 'period',
+      value: 'last-7-days',
+      label: { en: 'The last 7 days', ar: 'آخر 7 أيام' },
+      offer: { en: 'Always read the period as the last 7 days when I do not say?', ar: 'هل أقرأ الفترة دائمًا على أنها آخر 7 أيام ما لم تحدّد؟' },
+    } as const
+    const model = copilotAnswerModel({ ...plain, assumptions: [{ en: 'a', ar: 'أ' }], readingOffer: offer })
+    expect(model.readingOffer).toEqual(offer)
+    expect(answerLayout(model).parts).toEqual(['text', 'assumptions', 'readingOffer'])
+  })
+})
+
+describe('the named-set card (BackOffice spec 3633 R20, 3687; ticket 893)', () => {
+  const plain: Partial<CopilotAnswer> = { conversationId: 'c-1', questionNo: 1, answer: 'Noted.', trace: [], outcome: 'answered', stoppedEarly: false, servedBy: 'anthropic/claude' }
+  const proposal: NonNullable<CopilotAnswer['namedSet']> = {
+    id: 'fedcba9876543210fedcba9876543210',
+    name: 'my stores',
+    kind: 'city',
+    members: [
+      { key: 'city:Jeddah', kind: 'city', label: { en: 'Jeddah (city)', ar: 'جدة (مدينة)' } },
+      { key: 'city:Makkah', kind: 'city', label: { en: 'Makkah (city)', ar: 'مكة (مدينة)' } },
+    ],
+    offer: { en: 'Remember "my stores" as: Jeddah (city), Makkah (city)?', ar: 'أحفظ "my stores" على أنها: جدة (مدينة)، مكة (مدينة)؟' },
+  }
+
+  it('theCardShowsTheNameAndEveryMemberWithItsKind_inTheReadersLanguage', () => {
+    const model = copilotAnswerModel({ ...plain, namedSet: proposal })
+    expect(model.namedSet).toEqual(proposal)
+    expect(answerLayout(model).parts).toEqual(['text', 'namedSet'])
+    expect(namedSetCard(model.namedSet!, 'ar')).toEqual({
+      name: 'my stores',
+      members: [
+        { key: 'city:Jeddah', kind: 'city', text: 'جدة (مدينة)' },
+        { key: 'city:Makkah', kind: 'city', text: 'مكة (مدينة)' },
+      ],
+    })
+    expect(namedSetCard(model.namedSet!, 'en').members.map((m) => m.text)).toEqual(['Jeddah (city)', 'Makkah (city)'])
+  })
+
+  it('aProposalWithoutItsIdNameKindOrMembers_drawsNoCard', () => {
+    for (const bad of [null, 'x', { ...proposal, id: '' }, { ...proposal, name: ' ' }, { ...proposal, kind: 'planet' }, { ...proposal, members: [] }, { ...proposal, members: [{ kind: 'city' }] }]) {
+      const model = copilotAnswerModel({ ...plain, namedSet: bad } as unknown as Partial<CopilotAnswer>)
+      expect(model.namedSet).toBeNull()
+      expect(answerLayout(model).parts).toEqual(['text'])
+    }
   })
 })

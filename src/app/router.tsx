@@ -153,6 +153,12 @@ export const router = createBrowserRouter([
         path: 'copilot/rules',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotRulesPage')).default }),
       },
+      // "What the copilot knows about me" (ticket 894, BackOffice 3633 R28 / 3689) — reached from the copilot panel, behind
+      // `canAskCopilot`; its entry is hidden while `GET Copilot/Me` answers COPILOT-430 (own readings off). Not a nav item.
+      {
+        path: 'copilot/me',
+        lazy: async () => ({ Component: (await import('@/features/copilot/CopilotMePage')).default }),
+      },
       // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
       // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
       // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route

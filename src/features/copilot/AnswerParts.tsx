@@ -7,24 +7,23 @@ import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { saysIn } from '@/core/rules/sentence'
 import { copilotTableEmbed, copilotViewEmbed } from '@/core/copilot-view-embed'
-import type { AnalyticsLabel } from '@/core/models/analytics'
-import type { CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswerTable, CopilotBoardEdit, CopilotNamedSetProposal, CopilotReadingOffer, CopilotReportEdit, CopilotReportRef, CopilotStatedReading, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 import { reportDialogHref, reportEditHref } from '@/core/analytics-routes'
 import { formatDateTime } from '@/core/util/date-format'
 import { copilotRefusal } from './refusal'
-import { Check, Copy, Pencil, Save } from 'lucide-react'
+import { Check, ChevronDown, Copy, Pencil, Save } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, answerTableKey, assumptionLines, type AnswerPart, inlineMarks, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
+import { COPILOT_MAX_QUESTION, type AnswerSql, answerLayout, answerPlainText, answerTableKey, assumptionRows, type AnswerPart, inlineMarks, namedSetCard, orderHref, orderSegments, viewHref, type AnswerBlock, type AnswerRules, type CopilotAnswerModel } from './answer'
 import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
 import { copilotApi } from './api'
 import { pollSteps } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
 import { sqlEditLink } from './sql-save'
 import { canUseSqlMode, copilotSqlAccessQuery } from './access'
-import { useCopilotConversation } from './conversation-store'
+import { useCopilotConversation, type ReadingOfferState } from './conversation-store'
 import { useQuery } from '@tanstack/react-query'
 import type { AnalyticsItem } from '@/core/models/analytics'
 
@@ -166,22 +165,199 @@ export function ReportLinks({ reportRefs }: { reportRefs: readonly CopilotReport
 }
 
 /**
- * What the answer assumed (802 item 1; any answer since 870), one line each, in the reader's language, under the answer
- * and apart from it. Each line is free text: `<bdi>`.
+ * What a thread answer can do with its readings (892, BackOffice 3685/3686). Only the panel's thread passes it: the
+ * house-rules Try box draws its lines plain and no offer.
  */
-export function Assumptions({ assumptions }: { assumptions: readonly AnalyticsLabel[] }) {
+export interface AnswerReadings {
+  /** A tapped line's choice: the answer's question asked again with that reading stated. */
+  choose: (reading: CopilotStatedReading) => void
+  /** False while a question is in flight or the conversation is over: the choices show, disabled. */
+  canChoose: boolean
+  offer: ReadingOfferState
+  keep: () => void
+  notNow: () => void
+  /** 893 (BackOffice 3687): the named-set card proposed in this answer, its state and its two buttons. */
+  namedSet: ReadingOfferState
+  keepSet: () => void
+  /** Calls nothing: the card closes for this answer. */
+  notNowSet: () => void
+}
+
+/**
+ * What the answer assumed (802 item 1; any answer since 870), one line each, in the reader's language, under the answer
+ * and apart from it. Each line is free text: `<bdi>`, drawn as the server wrote it ("as you prefer" included). A line the
+ * server offers other readings for (892, 3685) opens them on a tap; choosing one asks the question again with it.
+ */
+export function Assumptions({ model, readings }: { model: CopilotAnswerModel; readings?: AnswerReadings }) {
   const { t, i18n } = useTranslation('copilot')
-  if (assumptions.length === 0) return null
+  const [open, setOpen] = useState<number | null>(null)
+  if (model.assumptions.length === 0) return null
   return (
     <section aria-label={t('answer.assumptions')} className="flex flex-col gap-1 text-sm" data-copilot-assumptions>
       <p className="text-xs font-medium text-muted-foreground">{t('answer.assumptions')}</p>
       <ul className="list-disc ps-5">
-        {assumptionLines(assumptions, i18n.language).map((line, i) => (
-          <li key={i} data-copilot-assumption>
-            <bdi>{line}</bdi>
+        {assumptionRows(model, i18n.language).map((row, i) =>
+          row.choice && readings ? (
+            <li key={i} data-copilot-assumption data-copilot-assumption-kind={row.choice.kind}>
+              <Button
+                variant="text"
+                className="h-auto px-0 text-start text-sm"
+                aria-expanded={open === i}
+                onClick={() => setOpen(open === i ? null : i)}
+                data-copilot-assumption-tap
+              >
+                <bdi>{row.text}</bdi>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </Button>
+              {open === i && (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label={t('reading.readAs')} data-copilot-assumption-choices>
+                  <span className="text-xs text-muted-foreground">{t('reading.readAs')}</span>
+                  {row.choice.choices.map((c) => (
+                    <Button
+                      key={c.value}
+                      variant="outlined"
+                      disabled={!readings.canChoose}
+                      onClick={() => {
+                        setOpen(null)
+                        readings.choose({ kind: row.choice!.kind, value: c.value })
+                      }}
+                      data-copilot-assumption-choice={c.value}
+                    >
+                      <bdi>{c.text}</bdi>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </li>
+          ) : (
+            <li key={i} data-copilot-assumption>
+              <bdi>{row.text}</bdi>
+            </li>
+          ),
+        )}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * The offer under a corrected answer (892, BackOffice 3686 R16/R17): the server's question with Keep and Not now. Keep
+ * puts the server's confirmation in place of the buttons, with the way to "What the copilot knows about me"; Not now
+ * hides the line. An offer no longer open keeps its words and loses its buttons.
+ */
+export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOffer; readings: AnswerReadings }) {
+  const { t, i18n } = useTranslation('copilot')
+  const s = readings.offer
+  if (s.state === 'dismissed') return null
+  if (s.state === 'kept')
+    return (
+      <section aria-label={t('reading.offer')} className="flex flex-col gap-1 text-sm" data-copilot-reading-offer="kept">
+        <p className="flex items-center gap-1.5">
+          <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+          <bdi>{saysIn(s.line, i18n.language)}</bdi>
+        </p>
+        <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-reading-me>
+          {t('reading.seeMine')}
+        </Link>
+      </section>
+    )
+  const busy = s.state === 'busy'
+  return (
+    <section aria-label={t('reading.offer')} className="flex flex-col gap-1.5 text-sm" data-copilot-reading-offer={s.state}>
+      <p>
+        <bdi>{saysIn(offer.offer, i18n.language)}</bdi>
+      </p>
+      {s.state === 'closed' ? (
+        <p className="text-xs text-muted-foreground" data-copilot-reading-closed>
+          {s.message || t('reading.closed')}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button variant="primary" disabled={busy} onClick={readings.keep} data-copilot-reading-keep>
+            {t('reading.keep')}
+          </Button>
+          <Button variant="text" disabled={busy} onClick={readings.notNow} data-copilot-reading-not-now>
+            {t('reading.notNow')}
+          </Button>
+          {s.state === 'failed' && (
+            <span className="text-xs text-destructive" role="alert">
+              {t('reading.failed')}
+            </span>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * The named-set card (893, BackOffice 3633 R20 / 3687): the name as the reader gave it and every member with its kind,
+ * with Keep and Not now. Keep puts the server's confirmation in place of the buttons with the way to "What the copilot
+ * knows about me"; at the limit of 10 sets (`COPILOT-434`) the server's reason shows with that same way, Keep kept to
+ * try again after a delete; a card no longer open (`COPILOT-435`) keeps its words and loses its buttons.
+ */
+export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetProposal; readings: AnswerReadings }) {
+  const { t, i18n } = useTranslation('copilot')
+  const s = readings.namedSet
+  if (s.state === 'dismissed') return null
+  const card = namedSetCard(set, i18n.language)
+  const toMine = (
+    <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-named-set-me>
+      {t('reading.seeMine')}
+    </Link>
+  )
+  const busy = s.state === 'busy'
+  return (
+    <section aria-label={t('namedSet.title')} className="flex flex-col gap-1.5 rounded-md border border-border p-2.5 text-sm" data-copilot-named-set={s.state}>
+      <p className="text-xs font-medium text-muted-foreground">{t('namedSet.title')}</p>
+      <p className="font-medium">
+        <bdi>{card.name}</bdi>
+      </p>
+      <p className="text-xs text-muted-foreground">{t('namedSet.members', { count: card.members.length })}</p>
+      <ul className="list-disc ps-5" data-copilot-named-set-members>
+        {card.members.map((m) => (
+          <li key={m.key} data-copilot-named-set-member={m.kind}>
+            <bdi>{m.text}</bdi>
           </li>
         ))}
       </ul>
+      {s.state === 'kept' ? (
+        <>
+          <p className="flex items-center gap-1.5">
+            <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <bdi>{saysIn(s.line, i18n.language)}</bdi>
+          </p>
+          {toMine}
+        </>
+      ) : s.state === 'closed' ? (
+        <p className="text-xs text-muted-foreground" data-copilot-named-set-closed>
+          {s.message || t('namedSet.closed')}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button variant="primary" disabled={busy} onClick={readings.keepSet} data-copilot-named-set-keep>
+              {t('reading.keep')}
+            </Button>
+            <Button variant="text" disabled={busy} onClick={readings.notNowSet} data-copilot-named-set-not-now>
+              {t('reading.notNow')}
+            </Button>
+            {s.state === 'failed' && (
+              <span className="text-xs text-destructive" role="alert">
+                {t('reading.failed')}
+              </span>
+            )}
+          </div>
+          {s.state === 'full' && (
+            <>
+              <p className="text-xs text-destructive" role="alert" data-copilot-named-set-full>
+                {s.message || t('namedSet.full')}
+              </p>
+              {toMine}
+            </>
+          )}
+        </>
+      )}
     </section>
   )
 }
@@ -463,7 +639,7 @@ function CopyAnswer({ text, label, failed }: { text: string; label?: string; fai
 }
 
 /** One answer's body (ticket 735; moved here for the house-rules Try box, 790), its view links (781), then its trace, `servedBy` and stopped-early note (736). */
-export function Answer({ model, withText = true, question }: { model: CopilotAnswerModel; withText?: boolean; question?: string }) {
+export function Answer({ model, withText = true, question, readings }: { model: CopilotAnswerModel; withText?: boolean; question?: string; readings?: AnswerReadings }) {
   const { t } = useTranslation('copilot')
   const layout = answerLayout(model)
   const part = (p: AnswerPart) => {
@@ -485,7 +661,11 @@ export function Answer({ model, withText = true, question }: { model: CopilotAns
       case 'views':
         return <ViewLinks key={p} viewRefs={model.viewRefs} />
       case 'assumptions':
-        return <Assumptions key={p} assumptions={model.assumptions} />
+        return <Assumptions key={p} model={model} readings={readings} />
+      case 'readingOffer':
+        return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} /> : null
+      case 'namedSet':
+        return model.namedSet && readings ? <NamedSetCardView key={p} set={model.namedSet} readings={readings} /> : null
       case 'reportEdit':
         return <ReportEditNote key={p} reportEdit={model.reportEdit} />
       case 'boardEdit':

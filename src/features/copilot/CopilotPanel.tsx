@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { Database, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
+import { Link } from 'react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Brain, Database, History, HelpCircle, Loader2, MessageSquarePlus, PencilLine, Send, Sparkles, Square, X } from 'lucide-react'
 import { useBoardContext } from '@/core/board-context'
 import { useReportContext } from '@/core/report-context'
 import { saysIn } from '@/core/rules/sentence'
@@ -17,11 +18,12 @@ import { formatNumber } from '@/core/util/number-format'
 import { canUseSqlMode, copilotSqlAccessQuery } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, canAskMore, type CopilotConversation, type CopilotTurn } from './conversation'
-import { Answer, Refusal, WorkingStep } from './AnswerParts'
+import { Answer, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
 import { ProposalCard, ScheduleLinks } from './ProposalCard'
 import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
+import { COPILOT_ME_KEY, meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
 const AT_END = 32
@@ -85,6 +87,24 @@ function InContext() {
         </span>
       )}
     </div>
+  )
+}
+
+/**
+ * 894 (BackOffice 3633 R28): the way to "What the copilot knows about me". Shown whenever `GET Copilot/Me` reads (review
+ * of 3633: a reader can always see and delete what is kept, whatever the switch); a `COPILOT-430` (no store on the
+ * server), no grant, a failure or the wait hide it.
+ * The page shares this query, so opening it costs no second call.
+ */
+function KnowsMeEntry() {
+  const { t } = useTranslation('copilot')
+  const me = useQuery(meQuery())
+  if (!meEntryVisible(me)) return null
+  return (
+    <Link to="/copilot/me" className="inline-flex items-center gap-1 self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-me-entry>
+      <Brain className="h-3.5 w-3.5" aria-hidden />
+      {t('me.entry')}
+    </Link>
   )
 }
 
@@ -259,6 +279,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
 
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 ${wide ? 'mx-auto max-w-4xl' : ''}`}>
         <InContext />
+        <KnowsMeEntry />
         {(!empty || history.length > 0) && !wide && (
           <div className="flex shrink-0 items-center justify-between gap-2" data-copilot-thread-bar>
             <div className="text-xs font-medium text-muted-foreground">{listing ? t('history.heading') : t('thread.heading')}</div>
@@ -531,6 +552,7 @@ function AnswerRow({ children, plain = false }: { children: ReactNode; plain?: b
  */
 function Turn({ turn, card: state }: { turn: CopilotTurn; card: CardState }) {
   const { t, i18n } = useTranslation('copilot')
+  const readings = useTurnReadings(turn)
   const outcome = turn.reply ? (turn.reply.outcome ?? 'answered') : 'refused'
   // 885: a proposed answer's card; a confirmation turn (Confirm or Cancel) asked nothing, so it draws no question.
   const card = state === 'none' ? null : proposalCard(turn.reply, i18n.language)
@@ -564,14 +586,14 @@ function Turn({ turn, card: state }: { turn: CopilotTurn; card: CardState }) {
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
               {t('answer.cannotAnswer')}
             </div>
-            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} />
+            <Answer model={copilotAnswerModel(turn.reply)} question={turn.question} readings={readings} />
             <SqlOffer reply={turn.reply} />
           </div>
         </AnswerRow>
       ) : (
         <AnswerRow>
           {card && <ProposalCard card={card} state={state} />}
-          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} question={turn.question} />
+          <Answer model={copilotAnswerModel(turn.reply)} withText={!card} question={turn.question} readings={readings} />
           <ScheduleLinks reply={turn.reply} />
         </AnswerRow>
       )}
@@ -597,4 +619,33 @@ function SqlOffer({ reply }: { reply: CopilotTurn['reply'] }) {
       </Button>
     </div>
   )
+}
+
+/**
+ * A thread answer's readings (892, BackOffice 3685/3686): a tapped choice asks the turn's question again, verbatim, with
+ * the reading stated; Keep and Not now answer the answer's offer. A Keep refreshes "What the copilot knows about me".
+ */
+function useTurnReadings(turn: CopilotTurn): AnswerReadings {
+  const qc = useQueryClient()
+  const ask = useCopilotConversation((s) => s.ask)
+  const canChoose = useCopilotConversation((s) => s.inFlight === null && canAskMore(s.conv))
+  const offerId = turn.reply?.readingOffer?.id ?? ''
+  const offer = useCopilotConversation((s) => s.offerState(offerId))
+  const keepReading = useCopilotConversation((s) => s.keepReading)
+  const notNowReading = useCopilotConversation((s) => s.notNowReading)
+  const conversationId = turn.reply?.conversationId ?? ''
+  const proposalId = turn.reply?.namedSet?.id ?? ''
+  const namedSet = useCopilotConversation((s) => s.offerState(proposalId))
+  const keepNamedSet = useCopilotConversation((s) => s.keepNamedSet)
+  const notNowNamedSet = useCopilotConversation((s) => s.notNowNamedSet)
+  return {
+    choose: (reading) => void ask(turn.question, undefined, reading),
+    canChoose,
+    offer,
+    keep: () => void keepReading(conversationId, offerId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNow: () => void notNowReading(conversationId, offerId),
+    namedSet,
+    keepSet: () => void keepNamedSet(conversationId, proposalId)?.then(() => qc.invalidateQueries({ queryKey: COPILOT_ME_KEY, exact: true })),
+    notNowSet: () => notNowNamedSet(proposalId),
+  }
 }

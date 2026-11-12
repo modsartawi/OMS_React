@@ -3,11 +3,39 @@ import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CopilotAnswer, CopilotAskRequest, CopilotSqlItemRef, CopilotSqlOffer } from '@/core/models/copilot'
-import { copilotApi } from './api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import type { AnalyticsLabel } from '@/core/models/analytics'
+import type { CopilotAnswer, CopilotAskRequest, CopilotSqlItemRef, CopilotSqlOffer, CopilotStatedReading } from '@/core/models/copilot'
+import { copilotApi, copilotNamedSetApi, copilotReadingApi, type CopilotNamedSetDoors, type CopilotReadingDoors } from './api'
 import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation, type TurnConfirms } from './conversation'
 import { cancellationBody, confirmationBody, type CardValues, type ProposalCard } from './proposal'
+
+/**
+ * Where an offer to keep a reading stands (892, BackOffice 3686): `open` with its buttons, `busy` while Keep or Not now
+ * runs, `kept` (the server's confirmation line replaces the buttons), `dismissed` (Not now: the line is hidden), `closed`
+ * (refused `COPILOT-437`/`COPILOT-430`: the words stay, the buttons go, the refusal's message beside them), `failed`
+ * (anything else: the buttons stay to try again). The named-set card (893, BackOffice 3687) shares these states, keyed by
+ * its proposal id, and adds `full` (refused `COPILOT-434`: the reader keeps 10 sets; the message beside the way to the
+ * page, and Keep stays to try again after a delete).
+ */
+export type ReadingOfferState =
+  | { state: 'open' }
+  | { state: 'busy' }
+  | { state: 'kept'; line: AnalyticsLabel }
+  | { state: 'dismissed' }
+  | { state: 'closed'; message: string }
+  | { state: 'failed'; error: unknown }
+  | { state: 'full'; message: string }
+
+/** The refusals that end an offer for good: no longer open (437), or the reading no longer allowed (430). */
+const OFFER_ENDED = ['COPILOT-437', 'COPILOT-430']
+/** The refusals that end a named-set card for good: no longer open (435), or invalid (433). */
+const SET_ENDED = ['COPILOT-435', 'COPILOT-433']
+/** The reader already keeps 10 sets (3687). */
+const SETS_FULL = 'COPILOT-434'
+
+const OPEN: ReadingOfferState = Object.freeze({ state: 'open' }) as ReadingOfferState
 
 /** A conversation filed in the history, with when it was left. */
 export interface PastConversation {
@@ -58,9 +86,11 @@ export interface CopilotConversationState {
   epoch: number
   /**
    * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `sqlMode` (888, spec
-   * 3632 Q27): asked in SQL mode. The panel passes it only while the toggle is on for a holder of the SQL grant.
+   * 3632 Q27): asked in SQL mode. The panel passes it only while the toggle is on for a holder of the SQL grant. With
+   * `statedReading` (892, a tapped assumption line's choice) the question is the tapped answer's, asked again with that
+   * reading stated.
    */
-  ask: (question: string, sqlMode?: boolean) => Promise<void> | null
+  ask: (question: string, sqlMode?: boolean, statedReading?: CopilotStatedReading) => Promise<void> | null
   /**
    * The SQL mode toggle (888), held here so it outlives the sheet's unmount. Off at start, and off again when the user
    * changes. The panel shows it only on `canSql`.
@@ -91,6 +121,17 @@ export interface CopilotConversationState {
   confirm: (card: ProposalCard, values: CardValues) => Promise<CopilotAnswer | null> | null
   /** 885: Cancel a proposal's card, as `confirm`. */
   cancel: (card: ProposalCard) => Promise<CopilotAnswer | null> | null
+  /** 892: each offer the reader has acted on, by its id; an offer not here is `open`. In memory, like the thread. */
+  offers: Record<string, ReadingOfferState>
+  offerState: (offerId: string) => ReadingOfferState
+  /** Keep (3686): stores the reading the server offered. `null` while that offer's request runs or after it is done. */
+  keepReading: (conversationId: string, offerId: string) => Promise<void> | null
+  /** Not now (3686): the line goes; no offer of that kind until the conversation ends. */
+  notNowReading: (conversationId: string, offerId: string) => Promise<void> | null
+  /** Keep (893, 3687): stores the named set the server proposed. `null` while it runs or once it is kept or closed. */
+  keepNamedSet: (conversationId: string, proposalId: string) => Promise<void> | null
+  /** Not now (893): calls nothing; the card closes for that answer. */
+  notNowNamedSet: (proposalId: string) => void
   /**
    * Stop: abandons the question in flight (the request is aborted, so the server stops working on it) and
    * hands it back, so the panel can put it in the box to change and send again. Its reply, if one still
@@ -112,6 +153,8 @@ export function createCopilotConversation(
   now: () => number = () => Date.now(),
   reportBridge: StoreApi<ReportContextState> = useReportContext,
   boardBridge: StoreApi<BoardContextState> = useBoardContext,
+  readings: CopilotReadingDoors = copilotReadingApi,
+  namedSets: CopilotNamedSetDoors = copilotNamedSetApi,
 ) {
   /** The question in flight's abort, so Stop (and a clear) can end its request. */
   let aborter: AbortController | null = null
@@ -162,14 +205,30 @@ export function createCopilotConversation(
       inFlight: null,
       epoch: 0,
       history: [],
-      ask: (question, sqlMode) => {
+      offers: {},
+      offerState: (offerId) => get().offers[offerId] ?? OPEN,
+      keepReading: (conversationId, offerId) =>
+        answerOffer(offerId, () => readings.keep({ conversationId, offerId }), (r) => ({ state: 'kept', line: { en: r?.line?.en ?? '', ar: r?.line?.ar ?? '' } })),
+      notNowReading: (conversationId, offerId) => answerOffer(offerId, () => readings.notNow({ conversationId, offerId }), () => ({ state: 'dismissed' })),
+      keepNamedSet: (conversationId, proposalId) =>
+        answerOffer(
+          proposalId,
+          () => namedSets.keep({ conversationId, proposalId }),
+          (r) => ({ state: 'kept', line: { en: r?.line?.en ?? '', ar: r?.line?.ar ?? '' } }),
+          SET_ENDED,
+        ),
+      notNowNamedSet: (proposalId) => {
+        const now = get().offerState(proposalId).state
+        if (now === 'open' || now === 'failed' || now === 'full') set((s) => ({ offers: { ...s.offers, [proposalId]: { state: 'dismissed' } } }))
+      },
+      ask: (question, sqlMode, statedReading) => {
         const { conv, inFlight } = get()
         if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
         const sql = sqlMode === true
         const { sqlItem, sqlItemSent } = get()
         const itemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
         if (itemContext) set({ sqlItemSent: true })
-        const body = askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql, itemContext)
+        const body = askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql, itemContext, statedReading ?? null)
         return run(body, question, undefined, sql).then(() => undefined)
       },
       confirm: (card, values) => {
@@ -216,9 +275,27 @@ export function createCopilotConversation(
       forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
     }
   })
+  /** One request per offer, and none once it is kept, dismissed or closed. */
+  function answerOffer<T>(offerId: string, call: () => Promise<T>, done: (r: T) => ReadingOfferState, ended: readonly string[] = OFFER_ENDED): Promise<void> | null {
+    const now = store.getState().offerState(offerId).state
+    if (now !== 'open' && now !== 'failed' && now !== 'full') return null
+    const put = (o: ReadingOfferState) => store.setState((s) => ({ offers: { ...s.offers, [offerId]: o } }))
+    put({ state: 'busy' })
+    return call().then(
+      (r) => put(done(r)),
+      (error: unknown) =>
+        put(
+          ended === SET_ENDED && apiErrorCode(error) === SETS_FULL
+            ? { state: 'full', message: apiErrorMessage(error, '') }
+            : ended.includes(apiErrorCode(error) ?? '')
+              ? { state: 'closed', message: apiErrorMessage(error, '') }
+              : { state: 'failed', error },
+        ),
+    )
+  }
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false, offers: {} }))
   })
   return store
 }

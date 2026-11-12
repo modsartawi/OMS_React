@@ -315,6 +315,46 @@
       "body": "Your changes to the house rules are not saved. If you leave, they are lost.",
       "stay": "Stay",
       "go": "Leave"
+    },
+    "readers": {
+      "heading": "Readers' own readings",
+      "hint": "How many readers changed each default for themselves, and to what. A value is shown only when 5 or more readers chose it; no reader is named.",
+      "none": "No reader has their own",
+      "holding_one": "{{n}} reader has their own",
+      "holding_other": "{{n}} readers have their own",
+      "other": "Other values",
+      "kind": {
+        "period": "Period",
+        "comparison": "Comparison",
+        "scope": "Scope",
+        "money-base": "Money base"
+      },
+      "value": {
+        "period": {
+          "today": "Today",
+          "yesterday": "Yesterday",
+          "this-week": "This week",
+          "last-week": "Last week",
+          "last-7-days": "Last 7 days",
+          "last-28-days": "Last 28 days",
+          "last-30-days": "Last 30 days",
+          "this-month": "This month",
+          "last-month": "Last month",
+          "year-to-date": "Year to date"
+        },
+        "comparison": {
+          "previous": "The previous period",
+          "last-year": "Last year",
+          "both": "Both",
+          "none": "No comparison"
+        },
+        "scope": {
+          "chain": "The whole chain",
+          "ksa": "KSA",
+          "bahrain": "Bahrain",
+          "named-set": "A named set"
+        }
+      }
     }
   },
   "proposal": {
@@ -363,5 +403,95 @@
       "fri": "Fri",
       "sat": "Sat"
     }
+  },
+  "me": {
+    "entry": "What the copilot knows about me",
+    "title": "What the copilot knows about me",
+    "subtitle": "The readings you kept and the sets you named. A change is used from your next question.",
+    "hint": "These are yours alone. Change or delete any of them; the copilot uses what is here from your next question.",
+    "loading": "Loading what the copilot keeps for you…",
+    "loadFailed": "What the copilot keeps for you could not be loaded.",
+    "failed": "The change could not be made.",
+    "kind": {
+      "period": "Period",
+      "comparison": "Comparison",
+      "scope": "Scope",
+      "money-base": "Money base"
+    },
+    "keptBy": {
+      "offer": "Kept from an answer",
+      "page": "Changed here",
+      "direct": "Kept when you said it"
+    },
+    "readings": {
+      "heading": "Your readings",
+      "none": "You keep no reading of your own: the copilot uses the house defaults.",
+      "unused": "No longer used",
+      "changeTo": "Change to",
+      "change": "Change",
+      "delete": "Delete this reading",
+      "changed": "Reading changed. Your next question uses it.",
+      "deleted": "Reading deleted. Your next question uses the house default."
+    },
+    "sets": {
+      "heading": "Your named sets",
+      "none": "You have no named sets.",
+      "members": "Members",
+      "gone": "(gone)",
+      "goneCount_one": "{{n}} member gone",
+      "goneCount_other": "{{n}} members gone",
+      "goneHint": "A gone member is no longer in the store list. It is left out of your questions and dropped at your next edit.",
+      "remove": "Remove this member",
+      "delete": "Delete the set",
+      "deleted": "Set deleted.",
+      "changed": "Set changed. Your next question uses it.",
+      "lookup": "Add a member",
+      "lookupPlaceholder": "A store, city, region or channel",
+      "lookupTooLong": "At most {{max}} characters.",
+      "lookupFailed": "The lookup could not be made.",
+      "find": "Find",
+      "noMatch": "Nothing matches.",
+      "cannot": {
+        "already": "That member is already in the set.",
+        "kind": "A set holds one kind of member only.",
+        "full": "A set holds at most {{max}} members.",
+        "last": "A set cannot be left empty. Delete the set instead."
+      }
+    },
+    "forget": {
+      "hint": "Forget everything: every reading and every set you keep, at once.",
+      "button": "Forget everything",
+      "confirmTitle": "Forget everything?",
+      "confirmBody": "Every reading and every named set you keep is deleted. Your next question uses the house defaults. This cannot be undone.",
+      "confirm": "Forget everything",
+      "cancel": "Cancel",
+      "done": "Forgotten: {{n}} removed."
+    },
+    "closed": {
+      "off": {
+        "title": "Not switched on",
+        "hint": "The copilot keeps no readings of yours on this server."
+      },
+      "grant": {
+        "title": "No access to Ask the OMS",
+        "hint": "Your account does not hold the copilot grant. Ask an administrator if you need it."
+      }
+    }
+  },
+  "reading": {
+    "offer": "Keep this reading",
+    "readAs": "Read it as",
+    "keep": "Keep",
+    "notNow": "Not now",
+    "failed": "That did not go through. Try again.",
+    "closed": "This offer is no longer open.",
+    "seeMine": "See what the copilot knows about me"
+  },
+  "namedSet": {
+    "title": "Remember this named set?",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "closed": "This set can no longer be kept.",
+    "full": "You already keep 10 named sets. Delete one on \"What the copilot knows about me\" to keep this one."
   }
 }

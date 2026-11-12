@@ -18,10 +18,10 @@ BackOffice spec 3586, "The web half"; tickets 3590 and 3594.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] A plain answer with two assumptions lists both under the answer, in the panel's language · oms-react tests (the panel's answer tests)
-- [ ] An answer with no assumptions renders as today · oms-react tests
-- [ ] A `figures-only` answer shows its sentence above its tables and its lookups · oms-react tests
-- [ ] A `figures-only` answer with no tables shows its sentence and its lookups · oms-react tests
+- [x] A plain answer with two assumptions lists both under the answer, in the panel's language · oms-react tests (the panel's answer tests)
+- [x] An answer with no assumptions renders as today · oms-react tests
+- [x] A `figures-only` answer shows its sentence above its tables and its lookups · oms-react tests
+- [x] A `figures-only` answer with no tables shows its sentence and its lookups · oms-react tests
 
 ## Boundaries
 

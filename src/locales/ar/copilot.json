@@ -28,5 +28,52 @@
     "report_remove_blocks": "جارٍ الحذف من التقرير",
     "report_move_block": "جارٍ نقل جزء",
     "report_update_block": "جارٍ تغيير جزء"
+  },
+  "proposal": {
+    "label": "جدول للتأكيد",
+    "title": "العنوان",
+    "cadence": "كم مرة",
+    "daily": "كل يوم",
+    "weekly": "أسبوعيًا",
+    "monthly": "شهريًا",
+    "days": "في",
+    "dayOfMonth": "يوم الشهر",
+    "lastDay": "آخر يوم",
+    "time": "الوقت (الرياض)",
+    "period": "الفترة في كل إرسال",
+    "confirm": "تأكيد",
+    "cancel": "إلغاء",
+    "sending": "جارٍ الإرسال…",
+    "expired": "انتهت صلاحية هذا العرض. اسأل مرة أخرى.",
+    "confirmedState": "تم التأكيد",
+    "cancelledState": "تم الإلغاء",
+    "confirmTurn": "تأكيد",
+    "cancelTurn": "إلغاء",
+    "firstSend": "أول إرسال",
+    "mySchedules": "جداولي",
+    "label_pause": "جدول للإيقاف المؤقت",
+    "label_delete": "جدول للحذف",
+    "confirm_pause": "إيقاف مؤقت",
+    "confirm_delete": "حذف",
+    "choose_pause": "اختر الجدول المراد إيقافه مؤقتًا",
+    "choose_delete": "اختر الجدول المراد حذفه",
+    "day": {
+      "sun": "الأحد",
+      "mon": "الاثنين",
+      "tue": "الثلاثاء",
+      "wed": "الأربعاء",
+      "thu": "الخميس",
+      "fri": "الجمعة",
+      "sat": "السبت"
+    },
+    "dayShort": {
+      "sun": "أحد",
+      "mon": "اثنين",
+      "tue": "ثلاثاء",
+      "wed": "أربعاء",
+      "thu": "خميس",
+      "fri": "جمعة",
+      "sat": "سبت"
+    }
   }
 }

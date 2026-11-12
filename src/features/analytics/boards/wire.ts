@@ -196,7 +196,14 @@ export function readItem(raw: Loose): AnalyticsItem {
     // 837 (BackOffice 3432): absent on a server before 3432 → unfiled, not deleted.
     folderId: str(i.folderId) || null,
     deletedAt: str(i.deletedAt) || null,
+    ...personalSchedule(i),
   } as AnalyticsItem
+}
+
+/** 886 (3662): the caller's personal-schedule mark — kept only when it names a schedule; absent otherwise. */
+const personalSchedule = (i: Record<string, unknown>): { personalScheduleId?: string } => {
+  const id = str(i.personalScheduleId)
+  return id ? { personalScheduleId: id } : { personalScheduleId: undefined }
 }
 
 /** 837: `GET Analytics/Folders` → the caller's folders by `order`. A row without an id is dropped. */
@@ -346,6 +353,7 @@ export function readReport(raw: Loose): AnalyticsReport {
   return {
     ...(i as object),
     kind: 'report',
+    ...personalSchedule(i),
     title: said(i.title),
     subtitle: said(i.subtitle),
     sourceChangedSinceCopy: i.sourceChangedSinceCopy === true,
@@ -414,6 +422,8 @@ const REFUSAL_KEYS: Record<string, string> = {
   // previewable (internal, `stg_*`, or no allow-listed column). Its 10 s timeout is worded in `./catalog-raw`.
   'ANALYTICS-402': 'refusal.needsCurator',
   'ANALYTICS-417': 'refusal.notPreviewable',
+  // 3631 review (BO 3666): a report a live personal schedule sends is not deleted here; the item page links My schedules.
+  'ANALYTICS-419': 'refusal.personalScheduled',
 }
 
 /** A refusal the screen words itself (`key`), or the server's message as it came; `code` either way. */

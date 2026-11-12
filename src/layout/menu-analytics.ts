@@ -1,5 +1,6 @@
-import { BadgeCheck, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
-import { ANALYTICS_ACCESS_KEY, analyticsAccessApi, canViewAnalytics } from '@/features/analytics/boards/access'
+import { BadgeCheck, CalendarClock, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
+import { ANALYTICS_ACCESS_KEY, analyticsAccessApi, canViewAnalytics, MY_SCHEDULES_OFFERED_KEY, mySchedulesOffered } from '@/features/analytics/boards/access'
 import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
 import type { AccessProbe, ShellMenuItem } from './menu-model'
 
@@ -17,6 +18,16 @@ const analyticsProbe: AccessProbe = {
   key: ANALYTICS_ACCESS_KEY,
   run: () => analyticsAccessApi.access(),
   visible: (data) => canViewAnalytics(data as Parameters<typeof canViewAnalytics>[0]),
+}
+
+/**
+ * 886 (BackOffice spec 3631 S30): "My schedules" is offered to any reader with the view grant — but only while the
+ * personal-schedules doors answer: `ANALYTICS-424` (the switch off) hides it, and so does any other failure.
+ */
+const mySchedulesProbe: AccessProbe = {
+  key: MY_SCHEDULES_OFFERED_KEY,
+  run: () => mySchedulesOffered(),
+  visible: (data) => data === true,
 }
 
 const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
@@ -38,11 +49,15 @@ const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
 export const ANALYTICS_MENU: ShellMenuItem = {
   labelKey: 'boards:menu.analytics',
   icon: ChartColumnBig,
-  items: LIBRARY_PAGES.map(({ page, path, labelKey }) => ({
-    labelKey,
-    icon: PAGE_ICON[page],
-    routerLink: path,
-    ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
-    access: analyticsProbe,
-  })),
+  items: [
+    ...LIBRARY_PAGES.map(({ page, path, labelKey }) => ({
+      labelKey,
+      icon: PAGE_ICON[page],
+      routerLink: path,
+      ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
+      access: analyticsProbe,
+    })),
+    // 886: last, after the library's leaves — it lists schedules, not items. Shown only while `mySchedulesProbe` says yes.
+    { labelKey: 'boards:menu.mySchedules', icon: CalendarClock, routerLink: MY_SCHEDULES_PATH, access: mySchedulesProbe },
+  ],
 }

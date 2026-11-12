@@ -241,5 +241,52 @@
       "stay": "Stay",
       "go": "Leave"
     }
+  },
+  "proposal": {
+    "label": "A schedule to confirm",
+    "title": "Title",
+    "cadence": "How often",
+    "daily": "Every day",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "days": "On",
+    "dayOfMonth": "Day of the month",
+    "lastDay": "Last day",
+    "time": "Time (Riyadh)",
+    "period": "The period on each send",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "expired": "This offer has expired. Ask again.",
+    "confirmedState": "Confirmed",
+    "cancelledState": "Cancelled",
+    "confirmTurn": "Confirm",
+    "cancelTurn": "Cancel",
+    "firstSend": "First send",
+    "mySchedules": "My schedules",
+    "label_pause": "A schedule to pause",
+    "label_delete": "A schedule to delete",
+    "confirm_pause": "Pause",
+    "confirm_delete": "Delete",
+    "choose_pause": "Choose the schedule to pause",
+    "choose_delete": "Choose the schedule to delete",
+    "day": {
+      "sun": "Sunday",
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday"
+    },
+    "dayShort": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    }
   }
 }

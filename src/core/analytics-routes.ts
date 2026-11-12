@@ -46,3 +46,9 @@ export type ReportDialog = 'share' | 'schedule'
 export const reportDialogHref = (id: string, dialog: ReportDialog): string => `${reportHref(id)}#${dialog}`
 /** The dialog a report page's hash asks for, or null (a panel permalink's `#panel-…`, or none). */
 export const reportDialogOf = (hash: string): ReportDialog | null => (hash === '#share' ? 'share' : hash === '#schedule' ? 'schedule' : null)
+
+/**
+ * 886 (BackOffice spec 3631 S30): the reader's "My schedules" page — their personal schedules. Here, not in the feature,
+ * so the copilot's schedule cards (885, 887) link it by route string too.
+ */
+export const MY_SCHEDULES_PATH = '/analytics/my-schedules'

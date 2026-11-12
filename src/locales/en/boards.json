@@ -8,7 +8,8 @@
     "shared": "Shared with me",
     "certified": "Certified",
     "catalog": "Catalog",
-    "deleted": "Recently deleted"
+    "deleted": "Recently deleted",
+    "mySchedules": "My schedules"
   },
   "pin": {
     "pinLabel": "Pin {{title}} to Home",
@@ -464,7 +465,8 @@
     "declaration": "This definition was not saved: one of its declarations is invalid (a series, a parameter or a binding).",
     "invalidRecipient": "That recipient can't receive this report.",
     "needsCurator": "Raw previews of the data are for analytics curators only.",
-    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns."
+    "notPreviewable": "This table cannot be previewed raw: it is internal, a staging table, or has no allow-listed columns.",
+    "personalScheduled": "One of your personal schedules sends this report, so it can't be deleted here. Delete that schedule in My schedules."
   },
   "ask": {
     "label": "Ask the OMS about analytics",
@@ -1661,5 +1663,49 @@
   },
   "variant": {
     "label": "{{measure}} ({{values}})"
+  },
+  "mySchedules": {
+    "title": "My schedules",
+    "subtitle": "The reports sent to you on a schedule",
+    "intro": "Each schedule emails you its report at the time shown (Riyadh time). Pause it, change when it is sent, rename it or delete it here.",
+    "loading": "Loading your schedules…",
+    "loadFailed": "Your schedules could not be loaded",
+    "off": "Personal schedules are not available.",
+    "none": "You have no personal schedules. Ask the copilot to send you a report on a schedule.",
+    "col": {
+      "title": "Title",
+      "when": "Days and time",
+      "nextSend": "Next send",
+      "state": "State",
+      "actions": "Actions"
+    },
+    "state": {
+      "active": "Running",
+      "paused": "Paused",
+      "suspended": "Suspended"
+    },
+    "noNextSend": "Not while paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "retime": "Change time",
+    "rename": "Rename",
+    "delete": "Delete",
+    "retimeTitle": "When {{title}} is sent",
+    "renameTitle": "Rename {{title}}",
+    "titleLabel": "Title",
+    "titleHint": "Up to 80 characters",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete {{title}}?",
+    "deleteBody": "The schedule stops and the report made for it is deleted too. This cannot be undone.",
+    "deleteConfirm": "Delete schedule and report",
+    "failed": "That did not work",
+    "paused": "Paused",
+    "resumed": "Resumed",
+    "retimed": "The time was changed",
+    "renamed": "Renamed",
+    "deleted": "Deleted, with its report",
+    "line": "This report is sent to you on a schedule.",
+    "lineLink": "My schedules"
   }
 }

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Link2, Pencil, Printer } from 'lucide-react'
+import { CalendarClock, Link2, Pencil, Printer } from 'lucide-react'
 import { reportDialogOf, reportEditHref, reportPrintHref } from '@/core/analytics-routes'
 import i18n from '@/core/i18n'
 import type { AnalyticsModel, AnalyticsReport } from '@/core/models/analytics'
@@ -20,6 +20,7 @@ import { itemActions } from './item-actions'
 import ItemHistory from './ItemHistory'
 import PinToggle from './PinToggle'
 import ItemTierActions from './ItemTierActions'
+import { personalReportOf } from './my-schedules'
 import { editingItemOf } from './item-save'
 import { defaultsOf, type ParamValues } from './params'
 import { readParamLink, writeParamValues } from './permalink'
@@ -81,7 +82,10 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
   const setValues = useCallback((next: ParamValues) => setParams((prev) => writeParamValues(prev, declared, next), { replace: true }), [setParams, declared])
   const reset = useCallback(() => setValues(defaultsOf(declared)), [setValues, declared])
   const run = useReportRun(report, values, link.fellBack)
-  const canEdit = itemActions(editingItemOf({ ...report, kind: 'report' }), useItemActor()).save !== 'read-only'
+  // 886 (BackOffice spec 3631 S24): a report made for the reader's personal schedule opens read only — no edit,
+  // history, share or schedule control — with a line saying it is sent to them on a schedule.
+  const personal = personalReportOf(report)
+  const canEdit = !personal && itemActions(editingItemOf({ ...report, kind: 'report' }), useItemActor()).save !== 'read-only'
   // The copilot's "Share…" / "Schedule…" (story 108) arrive as `#share` / `#schedule`: that dialog opens once, and the
   // hash is dropped so a copied link never carries it.
   const location = useLocation()
@@ -119,10 +123,14 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
           {/* 819 stories 15 and 91: the revisions, revert, and the audience and reassign events. */}
           {/* 840: pin it to Home. */}
           <PinToggle item={report} title={title} />
-          <ItemHistory item={report} kind="report" />
-          <ItemTierActions item={report} startShare={dialog === 'share'} />
-          {/* 833: the owner's and curators' schedules, and the kept runs (anyone who may open the report). */}
-          <ReportSchedules report={report} model={model} startOpen={dialog === 'schedule'} />
+          {!personal && (
+            <>
+              <ItemHistory item={report} kind="report" />
+              <ItemTierActions item={report} startShare={dialog === 'share'} />
+              {/* 833: the owner's and curators' schedules, and the kept runs (anyone who may open the report). */}
+              <ReportSchedules report={report} model={model} startOpen={dialog === 'schedule'} />
+            </>
+          )}
           <Button variant="secondary" onClick={() => void copyLink()} data-report-copy-link>
             <Link2 className="size-3.5" aria-hidden />
             {t('report.copyLink')}
@@ -133,6 +141,15 @@ function ReportView({ report, model }: { report: AnalyticsReport; model: Analyti
           </a>
         </div>
       </div>
+      {personal && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" data-report-personal-schedule={personal.scheduleId}>
+          <CalendarClock className="size-3.5" aria-hidden />
+          {t('mySchedules.line')}
+          <Link to={personal.href} className="text-primary hover:underline">
+            {t('mySchedules.lineLink')}
+          </Link>
+        </p>
+      )}
       <FilterStrip params={declared} values={values} onChange={setValues} onReset={reset} fellBack={run.fellBack} invalid={run.invalid} model={model} lang={lang} wave={run.wave} />
       <ReportDocument
         report={report}

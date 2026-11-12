@@ -30,6 +30,7 @@ import type {
   AnalyticsItemUpdate,
   AnalyticsMember,
   AnalyticsModel,
+  AnalyticsPersonalSchedule,
   AnalyticsPinState,
   AnalyticsQueryInput,
   AnalyticsQueryResult,
@@ -39,6 +40,7 @@ import type {
   AnalyticsReportWordsRequest,
   AnalyticsRevision,
   AnalyticsSchedule,
+  AnalyticsScheduleCadence,
   AnalyticsScheduleWrite,
   AnalyticsUsedBy,
 } from '@/core/models/analytics'
@@ -48,7 +50,7 @@ import { itemsQuery } from './home'
 import { readHome, readPinState } from './home-page'
 import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
-import { readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
+import { personalTimeBody, readPersonalSchedule, readPersonalSchedules, readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readCatalog } from './catalog-wire'
 import { readPreview } from './catalog-preview'
 import { readRaw } from './catalog-raw'
@@ -95,6 +97,8 @@ export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', 
 export const analyticsAudienceCandidatesKey = (search: string, reportId?: string) => ['analytics', 'audienceCandidates', search, ...(reportId ? [reportId] : [])] as const
 /** 833: a report's schedules, and its kept runs. */
 export const analyticsSchedulesKey = (reportId: string) => ['analytics', 'schedules', reportId] as const
+/** 886: the reader's personal schedules — the page's list and the menu leaf's probe; in core since 885 (the copilot saves one too). */
+export { ANALYTICS_MY_SCHEDULES_KEY } from '@/core/analytics-schedules'
 export const analyticsRunsKey = (reportId: string) => ['analytics', 'runs', reportId] as const
 export const analyticsMembersKey = (dimension: string, search: string) => ['analytics', 'members', dimension, search] as const
 /** A panel's query key — the query input itself, so the same input is the same entry. */
@@ -317,6 +321,31 @@ export const analyticsApi = {
   async reassign(id: string, body: AnalyticsItemReassign): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Reassign`, body))
   },
+  // ── 886 (BackOffice spec 3631 S24/S30, contract 3662): the reader's own personal schedules. Every door answers
+  // `ANALYTICS-424` while the switch is off, `ANALYTICS-404` for a schedule that is not the caller's own personal one. ──
+  /** `GET Analytics/MySchedules` — the caller's personal schedules, oldest first. */
+  async mySchedules(): Promise<AnalyticsPersonalSchedule[]> {
+    return readPersonalSchedules(await api.get<unknown>('Analytics/MySchedules'))
+  },
+  async pauseMySchedule(sid: string): Promise<AnalyticsPersonalSchedule> {
+    return readPersonalSchedule(await api.post<unknown>(`Analytics/MySchedules/${encodeURIComponent(sid)}/Pause`, {}))
+  },
+  async resumeMySchedule(sid: string): Promise<AnalyticsPersonalSchedule> {
+    return readPersonalSchedule(await api.post<unknown>(`Analytics/MySchedules/${encodeURIComponent(sid)}/Resume`, {}))
+  },
+  /** `PUT …/{sid}/Time` — refused as any schedule (`ANALYTICS-411` problems, `ANALYTICS-414` no company address). */
+  async retimeMySchedule(sid: string, cadence: AnalyticsScheduleCadence, time: string): Promise<AnalyticsPersonalSchedule> {
+    return readPersonalSchedule(await api.put<unknown>(`Analytics/MySchedules/${encodeURIComponent(sid)}/Time`, personalTimeBody(cadence, time)))
+  },
+  /** `PUT …/{sid}/Title` — one text kept in both languages; the server trims and cuts it to 80 (blank is `ANALYTICS-411`). */
+  async renameMySchedule(sid: string, title: string): Promise<AnalyticsPersonalSchedule> {
+    return readPersonalSchedule(await api.put<unknown>(`Analytics/MySchedules/${encodeURIComponent(sid)}/Title`, { title: title.trim() }))
+  },
+  /** `DELETE …/{sid}` — the report made for it is deleted too. */
+  async deleteMySchedule(sid: string): Promise<void> {
+    await api.del<unknown>(`Analytics/MySchedules/${encodeURIComponent(sid)}`)
+  },
+
   // ── 833: schedules and kept runs (spec 819 §C, ⚠ proposed). The owner and curators manage schedules. ──
   /** `GET Analytics/Report/{id}/Schedules` — the report's schedules, each with its suspension when suspended. */
   async schedules(reportId: string): Promise<AnalyticsSchedule[]> {

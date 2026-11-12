@@ -206,6 +206,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsReportRunsPage')).default }),
       },
       {
+        // The reader's personal schedules (886, BackOffice spec 3631 S30): any reader with the view grant.
+        path: 'analytics/my-schedules',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/MySchedulesPage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },

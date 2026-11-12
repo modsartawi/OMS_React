@@ -6,6 +6,7 @@ import type {
   AnalyticsParentReached,
   AnalyticsVariant,
 } from './analytics-calculations'
+import type { AnalyticsSqlPanelAnswer } from './analytics-sql'
 
 /**
  * The analytics doors' wire (spec 766 §C — PROPOSED, owned by BackOffice 3378 once filed).
@@ -32,6 +33,11 @@ export interface AnalyticsAccess {
   canView: boolean
   canAuthor: boolean
   canCurate: boolean
+  /**
+   * BackOffice 3672 (spec 3632 Q5, Q27): the SQL grant, held only beside the author grant. Shows the copilot's SQL mode
+   * toggle (oms-react 888) and the SQL editor (890). Absent (a pre-3672 server) reads as denied.
+   */
+  canSql?: boolean
 }
 
 export type MeasureShape = 'additive' | 'rate' | 'percentile'
@@ -269,6 +275,10 @@ export interface AnalyticsItem {
    * and always while the personal-schedules switch is off.
    */
   personalScheduleId?: string
+  /** BackOffice 3675 (spec 3632 Q43): `sql` is a SQL item (`AnalyticsSqlItem`); anything else, or absent, is `cube`. */
+  engine?: 'cube' | 'sql'
+  /** BackOffice 3676 (Q44): a curator's "SQL, verified" mark; always false on a cube item. */
+  verified?: boolean
 }
 
 /** 837 (3432 §1): `GET Analytics/Folders` — one of the caller's own flat folders. */
@@ -470,7 +480,10 @@ export interface AnalyticsQueryResult {
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string
-  /** ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. */
+  /**
+   * ⚠ 819 §C (823): the parameters that do not reach this panel, and why. Absent reads as none. On a SQL panel
+   * (BackOffice 3677, Q48) it lists EVERY parameter of the board or report with reason `sqlPanel`.
+   */
   notReached?: { param: string; reason: string }[]
   /** ⚠ 819 §C (823): the parameters whose value was outside a declared list, so the default ran. Absent reads as none. */
   fellBack?: { param: string }[]
@@ -485,6 +498,13 @@ export interface AnalyticsQueryResult {
   notSplit?: AnalyticsFigureDimensions[]
   /** Spec 3543 D18 (3549), a cross-area result only: the figures left unfiltered by some filters. Absent = none. */
   notFiltered?: AnalyticsFigureDimensions[]
+  /**
+   * BackOffice 3677 (spec 3632 Q43): `'sql'` on a panel naming a SQL item; a Cube answer carries NO `engine` (absent =
+   * cube, spec 3587 B3). A SQL panel's `columns`/`rows` are empty and its run is in `sql`.
+   */
+  engine?: 'sql'
+  /** A SQL panel's item and run (`AnalyticsSqlPanelAnswer`); present exactly when `engine` is `'sql'`. */
+  sql?: AnalyticsSqlPanelAnswer
 }
 
 // ── Boards (ticket 771) ──────────────────────────────────────────────────────────────────────────────
@@ -533,7 +553,12 @@ export type AnalyticsBoardPanel =
    * `optOut`: v1's opt-outs. Since 819 only `crossFilter` is read from it (the cross-filter keeps its
    * opt-out); the six ready-made parameters reach a panel through the board's `bindings`.
    */
-  | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[] }
+  /**
+   * `engine`: BackOffice 3677 (spec 3632 Q43) — `'sql'` on a panel naming a SQL item, computed on the board's read and
+   * dropped by the server from any save; absent on every other panel. Such a panel asks `Analytics/Query` by item and
+   * panel as any other, and its answer is a SQL panel's (`AnalyticsQueryResult.sql`).
+   */
+  | { id: string; kind: 'view'; viewId: string; layout: BoardLayout; optOut: BoardFilterKey[]; engine?: 'sql' }
   | { id: string; kind: 'text'; text: AnalyticsLabel; layout: BoardLayout }
   | { id: string; kind: 'section'; title: AnalyticsLabel; layout: BoardLayout }
 
@@ -622,9 +647,30 @@ export type AnalyticsReportBlock =
       from?: { viewId: string; revision: number } | null
       /** Computed by the server: the source view has been saved since the copy. */
       sourceChangedSinceCopy?: boolean
+      engine?: undefined
     }
+  | AnalyticsReportSqlBlock
   | { id: string; kind: 'text'; text: AnalyticsLabel }
   | { id: string; kind: 'summary' }
+
+/**
+ * BackOffice 3677 (spec 3632 Q43, Q47): a report panel block holding a SQL item **by reference** — it has no analytics
+ * query to copy inline, so no `definition` and no `title` (the item's own title is drawn, from the panel's answer).
+ * `engine: 'sql'` is computed on read (`GET Analytics/Item/{id}` and the print page's `Analytics/Render/Report/{id}`)
+ * and dropped by the server on save, so a save sends `{ id, kind: 'panel', viewId }`.
+ *
+ * ```
+ * POST/PUT Analytics/Item (report)   411 at sections[i].blocks[j].viewId: badShape (a definition too) |
+ *                                    unknownPanel (not a SQL item)
+ * ```
+ * A live figure cannot name a SQL block (`unknownPanel`); a deleted SQL item stays referenced.
+ */
+export interface AnalyticsReportSqlBlock {
+  id: string
+  kind: 'panel'
+  viewId: string
+  engine: 'sql'
+}
 
 export interface AnalyticsReportSection {
   id: string

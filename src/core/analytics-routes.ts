@@ -52,3 +52,11 @@ export const reportDialogOf = (hash: string): ReportDialog | null => (hash === '
  * so the copilot's schedule cards (885, 887) link it by route string too.
  */
 export const MY_SCHEDULES_PATH = '/analytics/my-schedules'
+
+/**
+ * 890 (BackOffice spec 3632 Q45): the SQL editor — a SQL item's at `/analytics/sql/:id`, and on a statement not yet an
+ * item (the copilot's SQL answer's Edit) at `/analytics/sql/new`, the statement riding in route state
+ * (`AnalyticsSqlEditorSeed`, never the URL: a statement is long and a URL is logged).
+ */
+export const sqlEditHref = (id: string): string => `/analytics/sql/${encodeURIComponent(id)}`
+export const NEW_SQL_PATH = '/analytics/sql/new'

@@ -3,7 +3,7 @@ import { useBoardContext, type BoardContextState } from '@/core/board-context'
 import { useReportContext, type ReportContextState } from '@/core/report-context'
 import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CopilotAnswer, CopilotAskRequest } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAskRequest, CopilotSqlItemRef, CopilotSqlOffer } from '@/core/models/copilot'
 import { copilotApi } from './api'
 import { copilotAnswerModel } from './answer'
 import { EMPTY_CONVERSATION, askBody, canAskMore, withAnswer, withRefusal, type CopilotConversation, type TurnConfirms } from './conversation'
@@ -53,11 +53,35 @@ export interface CopilotConversationState {
    * The question in flight, or null: at most one. `requestId` (ticket 869, BackOffice spec 3558 D17) is a fresh ULID per
    * question, sent on the ask; the panel polls its live steps while the question is in flight.
    */
-  inFlight: { question: string; requestId: string; confirms?: TurnConfirms } | null
+  inFlight: { question: string; requestId: string; confirms?: TurnConfirms; sqlMode?: true } | null
   /** Moves on at every clear, so a reply to a cleared conversation is recognised and dropped. */
   epoch: number
-  /** Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. */
-  ask: (question: string) => Promise<void> | null
+  /**
+   * Sends a question; `null` (nothing sent) while one is in flight or the conversation is closed. `sqlMode` (888, spec
+   * 3632 Q27): asked in SQL mode. The panel passes it only while the toggle is on for a holder of the SQL grant.
+   */
+  ask: (question: string, sqlMode?: boolean) => Promise<void> | null
+  /**
+   * The SQL mode toggle (888), held here so it outlives the sheet's unmount. Off at start, and off again when the user
+   * changes. The panel shows it only on `canSql`.
+   */
+  sqlMode: boolean
+  setSqlMode: (on: boolean) => void
+  /**
+   * Q46 (BackOffice 3678): the SQL item this conversation was opened on ("Change by asking"), or null. Its id rides as
+   * `sqlItemContext` on the first question asked in SQL mode only (`sqlItemSent` then); an answer's Edit opens that
+   * item's editor at the revision it was opened at. Dropped by a new conversation, a resumed one and a user change.
+   */
+  sqlItem: CopilotSqlItemRef | null
+  sqlItemSent: boolean
+  /** Opens a SQL item: a new conversation (the current one filed), the toggle on, the item held for the first question. */
+  openSqlItem: (item: CopilotSqlItemRef) => void
+  /**
+   * "Try in SQL mode" tapped (888, BackOffice 3674, Q28): the toggle goes on and the offer's question is asked again in
+   * SQL mode, in the offer's conversation, or (its id null: that was the conversation's last question) in a new one,
+   * the old one filed in the history. `null` as `ask`.
+   */
+  trySqlOffer: (offer: CopilotSqlOffer) => Promise<void> | null
   /**
    * 885 (BackOffice 3664): Confirm a proposal's card with its values. Not a question: it lands as a turn marked
    * `confirms`, and is sent even at the conversation's tenth question (it takes none). Resolves to the reply (null on a
@@ -96,11 +120,14 @@ export function createCopilotConversation(
     aborter = null
   }
   const store = create<CopilotConversationState>((set, get) => {
-    /** Sends one request and lands its reply (or refusal) as a turn: the reply, or null when refused or dropped. */
-    const run = (body: CopilotAskRequest, question: string, confirms?: TurnConfirms): Promise<CopilotAnswer | null> => {
+    /**
+     * Sends one request and lands its reply (or refusal) as a turn: the reply, or null when refused or dropped. `sqlMode`
+     * (888): the question was asked in SQL mode, so the pending turn shows it.
+     */
+    const run = (body: CopilotAskRequest, question: string, confirms?: TurnConfirms, sqlMode = false): Promise<CopilotAnswer | null> => {
       const { epoch } = get()
       const requestId = newRequestId()
-      set({ inFlight: { question, requestId, ...(confirms ? { confirms } : {}) } })
+      set({ inFlight: { question, requestId, ...(confirms ? { confirms } : {}), ...(sqlMode ? { sqlMode: true as const } : {}) } })
       const controller = new AbortController()
       aborter = controller
       // A reply to a cleared conversation, or to a question stopped, is dropped.
@@ -135,10 +162,15 @@ export function createCopilotConversation(
       inFlight: null,
       epoch: 0,
       history: [],
-      ask: (question) => {
+      ask: (question, sqlMode) => {
         const { conv, inFlight } = get()
         if (inFlight !== null || !canAskMore(conv) || question.trim() === '') return null
-        return run(askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context), question).then(() => undefined)
+        const sql = sqlMode === true
+        const { sqlItem, sqlItemSent } = get()
+        const itemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
+        if (itemContext) set({ sqlItemSent: true })
+        const body = askBody(conv, question, reportBridge.getState().context, boardBridge.getState().context, sql, itemContext)
+        return run(body, question, undefined, sql).then(() => undefined)
       },
       confirm: (card, values) => {
         const id = openConversation()
@@ -155,9 +187,23 @@ export function createCopilotConversation(
         set({ inFlight: null })
         return inFlight.question
       },
+      sqlMode: false,
+      setSqlMode: (on) => set({ sqlMode: on }),
+      sqlItem: null,
+      sqlItemSent: false,
+      openSqlItem: (item) => {
+        get().startNew()
+        set({ sqlMode: true, sqlItem: { itemId: item.itemId, revision: item.revision }, sqlItemSent: false })
+      },
+      trySqlOffer: (offer) => {
+        if (get().inFlight !== null) return null
+        if (offer.conversationId === null) get().startNew()
+        set({ sqlMode: true })
+        return get().ask(offer.question, true)
+      },
       startNew: () => {
         abandon()
-        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()) }))
+        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false }))
       },
       resume: (index) =>
         set((s) => {
@@ -165,14 +211,14 @@ export function createCopilotConversation(
           if (!past) return {}
           abandon()
           const rest = s.history.filter((_, i) => i !== index)
-          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()) }
+          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false }
         }),
       forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
     }
   })
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [] }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false }))
   })
   return store
 }

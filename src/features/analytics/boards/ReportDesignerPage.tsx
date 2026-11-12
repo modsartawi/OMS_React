@@ -264,7 +264,7 @@ function Designer({ model, start, startEditing }: { model: AnalyticsModel; start
     removeBlock: (id) => {
       const b = def.sections.flatMap((s) => s.blocks).find((x) => x.id === id)
       if (!b) return
-      editDef((d) => ops.removeBlock(d, id), null, { kind: 'removed', what: b.kind, name: b.kind === 'panel' ? b.title : null })
+      editDef((d) => ops.removeBlock(d, id), null, { kind: 'removed', what: b.kind, name: b.kind === 'panel' && b.engine !== 'sql' ? b.title : null })
       if (selected === `block:${id}`) setSelected(null)
     },
     duplicateBlock: (id) => {

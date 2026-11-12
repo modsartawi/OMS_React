@@ -8,6 +8,7 @@ import { fsi } from '@/core/util/bidi'
 import { ReportPanel, type ParamNotice } from './BoardPanel'
 import type { BoardContext } from './effective-query'
 import { fillTokens } from './live-figures'
+import SqlPanel from './SqlPanel'
 
 /**
  * A report, top to bottom (spec 819 §E, ticket 827): its sections in order, each heading then its blocks — a
@@ -58,6 +59,13 @@ export default function ReportDocument({ report, words, ...run }: { report: Anal
 
 /** One block as the report reads it; the designer (828) frames each with its own tools. */
 export function ReportBlock({ block, item, words, ...run }: { block: AnalyticsReportBlock; item: { id: string; revision: number }; words: ReportWordsView } & RunProps) {
+  // 891 (BackOffice 3677): a SQL item's block, held by reference, asks by the report and its id as any panel.
+  if (block.kind === 'panel' && block.engine === 'sql')
+    return (
+      <div data-report-panel={block.id}>
+        <SqlPanel panelId={block.id} viewId={block.viewId} context={run.context} lang={run.lang} onFetching={run.onFetching} />
+      </div>
+    )
   if (block.kind === 'panel') return <ReportPanel block={block} report={item} {...run} />
   if (block.kind === 'text') return <LiveText id={block.id} text={block.text} lang={run.lang} words={words} />
   return <SummaryBlock id={block.id} lang={run.lang} words={words} />

@@ -48,16 +48,25 @@ export const EMPTY_CONVERSATION: CopilotConversation = Object.freeze({ id: null,
 
 /**
  * The `Copilot/Ask` body: the question, the conversation's id once it has one, and (832) the report open in the
- * designer when one is published, and (836) the board open in its editor.
+ * designer when one is published, and (836) the board open in its editor. 888 (spec 3632 Q27): `sqlMode: true` when the
+ * question is asked in SQL mode, and nothing otherwise; Q46: with it, `sqlItemContext` on the question opening a SQL item.
  */
 export function askBody(
   c: CopilotConversation,
   question: string,
   reportContext: CopilotReportContext | null = null,
   boardContext: CopilotBoardContext | null = null,
+  sqlMode = false,
+  sqlItemContext: { itemId: string } | null = null,
 ): CopilotAskRequest {
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
-  return { ...body, ...(reportContext ? { reportContext } : {}), ...(boardContext ? { boardContext } : {}) }
+  return {
+    ...body,
+    ...(reportContext ? { reportContext } : {}),
+    ...(boardContext ? { boardContext } : {}),
+    ...(sqlMode ? { sqlMode: true } : {}),
+    ...(sqlMode && sqlItemContext ? { sqlItemContext } : {}),
+  }
 }
 
 /**

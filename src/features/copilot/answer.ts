@@ -1,7 +1,7 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
-import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
+import type { CopilotAnswer, CopilotAnswerTable, CopilotBoardEdit, CopilotReportEdit, CopilotReportRef, CopilotReportStep, CopilotSqlOffer, CopilotSqlPart, CopilotTraceEntry, CopilotViewRef } from '@/core/models/copilot'
 
 /**
  * The copilot answer's view model (ticket 735, spec 734 D10/D11) — the one pure seam between the
@@ -59,6 +59,46 @@ export interface CopilotAnswerModel {
    * model's words, and the answer is its tables and its lookups. Not an error.
    */
   figuresOnly: boolean
+  /**
+   * The SQL part (888, BackOffice 3673, spec 3632 Q33): drawn under the "SQL, not a certified figure" mark with every
+   * row, the statement, the tables read, the count, the time and the cut line. `null` on an answer not given in SQL mode.
+   */
+  sql: AnswerSql | null
+  /** "Try in SQL mode" (888, BackOffice 3674, Q28) under a can't-answer; `null` when the server added none. */
+  sqlOffer: CopilotSqlOffer | null
+}
+
+/** The SQL part as the panel draws it: the wire's, less its fixed mark and its trace step. Each row has one cell per column. */
+export type AnswerSql = Omit<CopilotSqlPart, 'mark' | 'step'>
+
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0)
+
+/** `sql`, or none when it carries no statement text or no rows list. Rows are read to the columns; a non-text cell is NULL. */
+function sqlOf(v: unknown): AnswerSql | null {
+  if (!v || typeof v !== 'object') return null
+  const p = v as Partial<Record<keyof CopilotSqlPart, unknown>>
+  if (typeof p.statement !== 'string' || !Array.isArray(p.rows)) return null
+  const columns = Array.isArray(p.columns) ? p.columns.filter((c): c is string => typeof c === 'string') : []
+  const rows = p.rows.filter(Array.isArray).map((row: unknown[]) => columns.map((_, i) => (typeof row[i] === 'string' ? (row[i] as string) : null)))
+  return {
+    ran: p.ran === true,
+    statement: p.statement,
+    ...(typeof p.authoredStatement === 'string' ? { authoredStatement: p.authoredStatement } : {}),
+    tables: Array.isArray(p.tables) ? p.tables.filter((t): t is string => typeof t === 'string') : [],
+    columns,
+    rows,
+    rowCount: count(p.rowCount),
+    isCut: p.isCut === true,
+    durationMs: count(p.durationMs),
+  }
+}
+
+/** `sqlOffer`, or none when it carries no question. A missing or odd id reads as null: ask in a new conversation. */
+function sqlOfferOf(v: unknown): CopilotSqlOffer | null {
+  if (!v || typeof v !== 'object') return null
+  const { question, conversationId } = v as { question?: unknown; conversationId?: unknown }
+  if (typeof question !== 'string' || question.trim() === '') return null
+  return { question, conversationId: typeof conversationId === 'string' && conversationId !== '' ? conversationId : null }
 }
 
 /** `promptVersion` read: a saved version, or 0, the built-in fallback. */
@@ -182,11 +222,13 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     rules: rulesOf(r.promptVersion),
     tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
     figuresOnly: r.outcome === 'figures-only',
+    sql: sqlOf(r.sql),
+    sqlOffer: sqlOfferOf(r.sqlOffer),
   }
 }
 
 /** A part the panel draws under the answer's text, in this order; the provenance (stop note, lookups, footer) follows. */
-export type AnswerPart = 'text' | 'tables' | 'views' | 'assumptions' | 'reportEdit' | 'boardEdit' | 'reports'
+export type AnswerPart = 'text' | 'sql' | 'tables' | 'views' | 'assumptions' | 'reportEdit' | 'boardEdit' | 'reports'
 
 /** How the list of lookups ("How I got this") is drawn: not at all (no trace), folded, or open. */
 export type AnswerLookups = 'none' | 'collapsed' | 'open'
@@ -200,6 +242,8 @@ export interface AnswerLayout {
 /** What the panel draws for one answer, in order: only the parts the answer has. */
 export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   const parts: AnswerPart[] = ['text']
+  // 888: the SQL part right under the words, which speak about its rows.
+  if (model.sql) parts.push('sql')
   if (model.tables.length > 0) parts.push('tables')
   if (model.viewRefs.length > 0) parts.push('views')
   if (model.assumptions.length > 0) parts.push('assumptions')

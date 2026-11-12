@@ -44,12 +44,14 @@ import type {
   AnalyticsScheduleWrite,
   AnalyticsUsedBy,
 } from '@/core/models/analytics'
+import type { AnalyticsSqlItem, AnalyticsSqlItemCreate, AnalyticsSqlItemUpdate, AnalyticsSqlResult, AnalyticsSqlRunRequest, AnalyticsSqlVerifyBody } from '@/core/models/analytics-sql'
 import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery } from './home'
 import { readHome, readPinState } from './home-page'
 import type { LibraryItemsQuery } from './library'
 import { readRevisions } from './revisions'
+import { readSqlItem, readSqlResult } from './sql-editor'
 import { personalTimeBody, readPersonalSchedule, readPersonalSchedules, readRun, readRuns, readSchedule, readSchedules, scheduleBody } from './schedule'
 import { readCatalog } from './catalog-wire'
 import { readPreview } from './catalog-preview'
@@ -91,6 +93,8 @@ export const analyticsBoardKey = (id: string) => ['analytics', 'board', id] as c
 export const analyticsReportKey = (id: string) => ['analytics', 'report', id] as const
 /** 827: one run's live figures and summary — keyed by the revision and every value, so a value change asks again. */
 export const analyticsWordsKey = (id: string, body: AnalyticsReportWordsRequest) => ['analytics', 'words', id, body] as const
+/** 890: a SQL item, read as one (apart from `analyticsItemKey`, whose entries are read as cube views). */
+export const analyticsSqlItemKey = (id: string) => ['analytics', 'sql-item', id] as const
 /** An item's last 20 revisions (779). */
 export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
 /** 826: the share dialog's candidates for a search (roles and analytics users). */
@@ -260,6 +264,51 @@ export const analyticsApi = {
   /** `POST Analytics/Item/{id}/Copy` — save as my copy (ticket 776): a Personal item recording its source. */
   async copy(id: string, body: AnalyticsItemCopy): Promise<AnalyticsItem> {
     return readItem(await api.post<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Copy`, body))
+  },
+  /**
+   * 890: `POST Analytics/Sql/Run` with `{ statement }` (BackOffice 3672) — the SQL editor's Run, through the one SQL
+   * door. A refusal (`ANALYTICS-425/408/409/428`) is read by `./sql-editor` `sqlRunRefusal`.
+   */
+  async sqlRun(statement: string): Promise<AnalyticsSqlResult> {
+    const body: AnalyticsSqlRunRequest = { statement }
+    return readSqlResult(await api.post<unknown>('Analytics/Sql/Run', body))
+  },
+  /**
+   * 890: `GET Analytics/Item/{id}` read as a SQL item (BackOffice 3675): `{ statement, question, chart }`, its kept run
+   * or refusal, the verified mark and the caller's `actions`. Apart from `item(id)`, which reads a cube view.
+   */
+  async sqlItem(id: string): Promise<AnalyticsSqlItem> {
+    return readSqlItem(await api.get<unknown>(`Analytics/Item/${encodeURIComponent(id)}`))
+  },
+  /**
+   * 890: `PUT Analytics/Item/{id}` on a SQL item (3675): the statement is run first, then written as a new revision with
+   * its author. A changed statement removes the verified mark (3676). Refusals as Run's; 403 not the caller's to edit.
+   */
+  async saveSqlItem(id: string, body: AnalyticsSqlItemUpdate): Promise<AnalyticsSqlItem> {
+    return readSqlItem(await api.put<unknown>(`Analytics/Item/${encodeURIComponent(id)}`, body))
+  },
+  /** 890: Restore — `POST …/Revert` with `{ revision }` (779's door), the snapshot run first; answers the SQL item. */
+  async sqlRevert(id: string, revision: number): Promise<AnalyticsSqlItem> {
+    const body: AnalyticsItemRevert = { revision }
+    return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Revert`, body))
+  },
+  /**
+   * 890: a curator's mark (BackOffice 3676, Q44) — `POST …/Verify` with `{ baseRevision }` (3632 review, item 8: the
+   * revision the curator is looking at; a newer one on the server is `ANALYTICS-405` with `data { revision, updatedBy,
+   * updatedAt }`, read by `./item-save` `saveRefusal`, and nothing is marked) / `…/Unverify`, no body; answers the item
+   * with `verified` set, at the same revision (the mark is not a revision). `ANALYTICS-402` not a curator, `-432` not a
+   * SQL item, `-409` not-available (the database lacks Sql/011).
+   */
+  async sqlVerify(id: string, baseRevision: number): Promise<AnalyticsSqlItem> {
+    const body: AnalyticsSqlVerifyBody = { baseRevision }
+    return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Verify`, body))
+  },
+  async sqlUnverify(id: string): Promise<AnalyticsSqlItem> {
+    return readSqlItem(await api.post<unknown>(`Analytics/Item/${encodeURIComponent(id)}/Unverify`, {}))
+  },
+  /** 890: `POST Analytics/Item/Sql` (3675) — a statement not yet an item (the copilot's Edit) saved as a Personal SQL item. */
+  async createSqlItem(body: AnalyticsSqlItemCreate): Promise<AnalyticsSqlItem> {
+    return readSqlItem(await api.post<unknown>('Analytics/Item/Sql', body))
   },
   /** `GET Analytics/Item/{id}/Revisions` — the item's last 20 revisions, who and when (ticket 779). */
   async revisions(id: string): Promise<AnalyticsRevision[]> {

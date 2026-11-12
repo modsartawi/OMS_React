@@ -41,6 +41,13 @@ export const canCurateAnalytics = (r: AnalyticsAccess | null | undefined): boole
 export const canAuthorAnalytics = (r: AnalyticsAccess | null | undefined): boolean =>
   canViewAnalytics(r) && (r?.canAuthor === true || r?.canCurate === true)
 
+/**
+ * 890 (BackOffice 3672, spec 3632 Q45): the SQL grant, which shows the SQL editor (Run, Save, Restore). The server holds
+ * it only beside the author grant; read on `canView` and `=== true`, so a pre-3672 answer (no `canSql`) is a denial.
+ * The copilot reads the same field through its own probe (`canUseSqlMode`): a feature may not import another.
+ */
+export const canEditSql = (r: AnalyticsAccess | null | undefined): boolean => canViewAnalytics(r) && r?.canSql === true
+
 /** `ANALYTICS-415` "needs the author grant": a stale probe offered an author's action. */
 export const needsAuthor = (err: unknown): boolean => apiErrorCode(err) === 'ANALYTICS-415'
 

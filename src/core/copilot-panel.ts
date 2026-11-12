@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CopilotSqlItemRef } from './models/copilot'
 
 /**
  * The app shell's copilot panel opener (ticket 782, spec 766 §F) — moved out of the top-bar button's
@@ -21,10 +22,18 @@ export interface CopilotPanelState {
   question: string | null
   /** The text waiting to be put in the panel's box unsent (843), or null. Read it through `takeDraft`. */
   draft: string | null
+  /**
+   * Q46 (BackOffice 3678): the SQL item "Change by asking" opened the panel on, or null. The copilot takes it ONCE
+   * (`takeSqlItem`), starts a new conversation in SQL mode and sends it with the reader's first question. The analytics
+   * feature hands it over here: neither feature imports the other.
+   */
+  sqlItem: CopilotSqlItemRef | null
   /** The copilot probe answered `canAsk: true` — published by the shell's button. */
   available: boolean
   openPanel: (question?: string) => void
   prefill: (text: string) => void
+  openSqlItem: (item: CopilotSqlItemRef) => void
+  takeSqlItem: () => CopilotSqlItemRef | null
   close: () => void
   takeQuestion: () => string | null
   takeDraft: () => string | null
@@ -36,6 +45,7 @@ export function createCopilotPanel() {
     open: false,
     question: null,
     draft: null,
+    sqlItem: null,
     available: false,
     openPanel: (question) => {
       const q = question?.trim() ?? ''
@@ -45,7 +55,13 @@ export function createCopilotPanel() {
       const d = text.trim()
       set({ open: true, draft: d === '' ? null : d })
     },
-    close: () => set({ open: false, question: null, draft: null }),
+    openSqlItem: (item) => set({ open: true, sqlItem: { itemId: item.itemId, revision: item.revision } }),
+    takeSqlItem: () => {
+      const s = get().sqlItem
+      if (s !== null) set({ sqlItem: null })
+      return s
+    },
+    close: () => set({ open: false, question: null, draft: null, sqlItem: null }),
     takeQuestion: () => {
       const q = get().question
       if (q !== null) set({ question: null })
@@ -56,7 +72,7 @@ export function createCopilotPanel() {
       if (d !== null) set({ draft: null })
       return d
     },
-    setAvailable: (available) => set(available ? { available } : { available, open: false, question: null, draft: null }),
+    setAvailable: (available) => set(available ? { available } : { available, open: false, question: null, draft: null, sqlItem: null }),
   }))
 }
 

@@ -23,8 +23,10 @@ export function readRevisions(raw: unknown): AnalyticsRevision[] {
     .filter((r) => typeof r.revision === 'number' && Number.isFinite(r.revision))
     .map((r) => ({
       revision: r.revision as number,
-      updatedAt: text(r.updatedAt),
-      updatedBy: text(r.updatedBy),
+      // 890: the server names a revision's author and time `savedBy` / `savedAt` (`AnalyticsRevisionInfo`); the older
+      // spelling is still read.
+      updatedAt: text(r.savedAt) || text(r.updatedAt),
+      updatedBy: text(r.savedBy) || text(r.updatedBy),
       revertedFrom: typeof r.revertedFrom === 'number' ? r.revertedFrom : null,
       // 826: an audience change or a reassign; any other kind reads as an ordinary row.
       ...(r.event === 'audience' || r.event === 'reassign' ? { event: r.event } : {}),

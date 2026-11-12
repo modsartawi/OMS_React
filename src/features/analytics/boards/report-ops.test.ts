@@ -215,7 +215,7 @@ describe('a block edited in place (829)', () => {
     const d = { ...sample(), params }
     // A named series filtering by city: the city parameter can no longer bind p1 (seriesFilters).
     const withSeries = (b: Parameters<Parameters<typeof updateBlock>[2]>[0]) =>
-      b.kind === 'panel' ? { ...b, definition: { ...b.definition, series: [{ id: 's1', label: l('Riyadh'), filters: [{ dimension: 'city', values: ['riyadh'] }] }] } } : b
+      b.kind === 'panel' && b.engine !== 'sql' ? { ...b, definition: { ...b.definition, series: [{ id: 's1', label: l('Riyadh'), filters: [{ dimension: 'city', values: ['riyadh'] }] }] } } : b
     const next = updateBlock(d, 'p1', withSeries, model)
     expect(next.bindings.city).toEqual({ p2: 'city' })
     expect(next.bindings.period).toEqual({ p1: true, p2: true })

@@ -87,7 +87,7 @@ describe('boardToReport', () => {
     expect(create.title).toEqual({ en: 'Operations week', ar: 'أسبوع العمليات' })
     expect(create.subtitle).toEqual({ en: 'Every store', ar: 'كل الفروع' })
     const block = create.definition.sections[0].blocks[0]
-    expect(block.kind === 'panel' && block.definition).not.toBe(VIEWS.get('v-a')!.definition)
+    expect(block.kind === 'panel' && block.engine !== 'sql' && block.definition).not.toBe(VIEWS.get('v-a')!.definition)
   })
 
   it('makes each section panel a heading: the blocks after it fall under it', () => {

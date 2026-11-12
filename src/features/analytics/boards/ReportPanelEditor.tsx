@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, TriangleAlert } from 'lucide-react'
-import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsReportBlock, AnalyticsReportDefinition } from '@/core/models/analytics'
+import type { AnalyticsChart, AnalyticsLabel, AnalyticsModel, AnalyticsReportDefinition } from '@/core/models/analytics'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
@@ -259,7 +259,7 @@ function PanelParams({
   lang,
   onBind,
 }: {
-  block: AnalyticsReportBlock & { kind: 'panel' }
+  block: PanelBlock
   def: AnalyticsReportDefinition
   model: AnalyticsModel
   lang: string

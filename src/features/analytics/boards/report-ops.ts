@@ -138,7 +138,7 @@ export function addBlock(def: AnalyticsReportDefinition, sectionId: string, bloc
     return [...blocks.slice(0, at), block, ...blocks.slice(at)]
   }
   const placed = withSections(def, def.sections.map((s) => (s.id === sectionId ? { ...s, blocks: into(s.blocks) } : s)))
-  if (block.kind !== 'panel') return placed
+  if (block.kind !== 'panel' || block.engine === 'sql') return placed
   const decl = bindPanel({ params: placed.params, bindings: placed.bindings }, { id: block.id, definition: block.definition }, model)
   return { ...placed, bindings: decl.bindings }
 }
@@ -192,7 +192,7 @@ export function updateBlock(def: AnalyticsReportDefinition, blockId: string, f: 
   if (!changed.block) return def
   const placed = withSections(def, sections)
   const edited = changed.block
-  if (!model || edited.kind !== 'panel') return placed
+  if (!model || edited.kind !== 'panel' || edited.engine === 'sql') return placed
   return { ...placed, bindings: bindingsTaken(placed, edited.id, edited.definition, model) }
 }
 

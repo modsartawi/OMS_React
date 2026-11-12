@@ -211,6 +211,19 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/MySchedulesPage')).default }),
       },
       {
+        // The SQL editor (890, BackOffice spec 3632 Q45): a SQL item's, and a statement not yet saved (the copilot's Edit,
+        // the statement in route state).
+        path: 'analytics/sql/new',
+        lazy: async () => {
+          const { default: Page } = await import('@/features/analytics/boards/AnalyticsSqlEditorPage')
+          return { Component: () => <Page isNew /> }
+        },
+      },
+      {
+        path: 'analytics/sql/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsSqlEditorPage')).default }),
+      },
+      {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),
       },

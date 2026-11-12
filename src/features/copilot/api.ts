@@ -6,6 +6,8 @@
  * Non-streaming (D10): the panel shows its working state for the whole call.
  */
 import { api } from '@/core/api'
+import type { AnalyticsItem } from '@/core/models/analytics'
+import type { AnalyticsSqlItemCreate } from '@/core/models/analytics-sql'
 import type { CopilotAnswer, CopilotAskRequest, CopilotSteps } from '@/core/models/copilot'
 import { stepsOrNothing } from './steps'
 
@@ -19,5 +21,10 @@ export const copilotApi = {
    *  recorded yet, or `Copilot:Speed:Steps` off) or any other failed read. */
   steps(requestId: string): Promise<CopilotSteps | null> {
     return stepsOrNothing(api.get<CopilotSteps>(`Copilot/Ask/${encodeURIComponent(requestId)}/Steps`))
+  },
+  /** `POST Analytics/Item/Sql` (889, BackOffice 3675, spec 3632 Q39): a SQL answer saved as a Personal SQL item. The
+   *  server runs the statement once first; its refusals (`ANALYTICS-428`, `406`, `425`/`408`/`409`) arrive as an `ApiError`. */
+  saveSql(body: AnalyticsSqlItemCreate): Promise<AnalyticsItem> {
+    return api.post<AnalyticsItem>('Analytics/Item/Sql', body)
   },
 }

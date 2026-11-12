@@ -19,6 +19,7 @@ import { panelMarks, panelPermalink, refusedParam, retiredMembers } from './pane
 import { asBoardPanel, type ReportPanelBlock } from './report'
 import { notFilteredBy, paramLabel } from './params'
 import Refused from './Refused'
+import SqlPanel from './SqlPanel'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -69,7 +70,23 @@ export interface ParamNotice {
 }
 
 export default memo(function BoardPanel({ panel, ...view }: { panel: AnalyticsBoardPanel } & PanelProps) {
-  if (panel.kind === 'view') return <ViewPanelCard panel={panel} {...view} />
+  if (panel.kind === 'view') {
+    // 891 (BackOffice 3677): a panel naming a SQL item — marked on the board's read, or its item read says so.
+    if (panel.engine === 'sql' || view.item?.engine === 'sql')
+      return (
+        <SqlPanel
+          panelId={panel.id}
+          viewId={panel.viewId}
+          fallbackTitle={view.item?.title}
+          context={view.context}
+          lang={view.lang}
+          onFetching={view.onFetching}
+          registerRefresh={view.registerRefresh}
+          style={view.flow ? undefined : place(panel.layout)}
+        />
+      )
+    return <ViewPanelCard panel={panel} {...view} />
+  }
   if (panel.kind === 'section') {
     return (
       <h2 className="self-end border-b border-border/60 pb-1 text-sm font-semibold tracking-tight" style={place(panel.layout)} data-board-panel={panel.id} data-board-panel-kind="section">

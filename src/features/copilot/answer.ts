@@ -74,6 +74,8 @@ export interface CopilotAnswerModel {
   readingOffer: CopilotReadingOffer | null
   /** BackOffice 3687 (893): the named set proposed in this answer, or none. */
   namedSet: CopilotNamedSetProposal | null
+  /** BackOffice 3729: `ar` when the reader asked in Arabic, else `null` (the interface's language applies). */
+  language: 'ar' | null
   /** The house rules it was answered under (ticket 790): `rules vN`, the built-in rules, or not known. */
   rules: AnswerRules | null
   /**
@@ -258,6 +260,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     ...assumptionsOf(r.assumptions, r.assumptionChoices),
     readingOffer: readingOfferOf(r.readingOffer),
     namedSet: namedSetOf(r.namedSet),
+    language: r.language === 'ar' ? 'ar' : null,
     rules: rulesOf(r.promptVersion),
     tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
     figuresOnly: r.outcome === 'figures-only',
@@ -393,6 +396,20 @@ export interface AssumptionRow {
 }
 
 /** The assumption lines in the panel's language, each with what a tap on it offers. A line's words are the server's, as sent. */
+/**
+ * BackOffice 3729: the language of the server's own lines under an answer - its assumptions, the offer, the kept line,
+ * the named-set card and the ask - which is the question's (`ar` from the server) over the interface's `uiLang`. The
+ * panel's own words (headings, buttons) stay in `uiLang`.
+ */
+export function lineLanguage(model: Pick<CopilotAnswerModel, 'language'>, uiLang: string): string {
+  return model.language ?? uiLang
+}
+
+/** `rtl` for lines in Arabic, so a list of them reads right to left; `undefined` (inherit) otherwise. */
+export function lineDir(lang: string): 'rtl' | undefined {
+  return lang.startsWith('ar') ? 'rtl' : undefined
+}
+
 export function assumptionRows(model: Pick<CopilotAnswerModel, 'assumptions' | 'assumptionChoices'>, lang: string): AssumptionRow[] {
   return model.assumptions.map((a, i) => {
     const c = model.assumptionChoices[i] ?? null

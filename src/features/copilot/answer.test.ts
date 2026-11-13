@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, namedSetCard, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, lineDir, lineLanguage, namedSetCard, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -636,5 +636,38 @@ describe('the named-set card (BackOffice spec 3633 R20, 3687; ticket 893)', () =
       expect(model.namedSet).toBeNull()
       expect(answerLayout(model).parts).toEqual(['text'])
     }
+  })
+})
+
+describe("the server's own lines follow the question's language (BackOffice 3729)", () => {
+  const offer = { conversationId: 'c-1', questionNo: 1, answer: 'x' } as Partial<CopilotAnswer>
+  const arabicAnswer = {
+    ...offer,
+    language: 'ar',
+    assumptions: [{ en: "'My stores' read as: Jeddah (city), as you saved.", ar: '«فروعي» تعني: جدة (مدينة)، كما حفظتها.' }],
+    namedSet: { id: 's-1', name: 'فروعي', kind: 'city', members: [{ key: 'Jeddah', label: { en: 'Jeddah', ar: 'جدة' } }] },
+  } as unknown as Partial<CopilotAnswer>
+
+  it('anArabicQuestionsLines_areArabic_rightToLeft_whateverTheInterfaceLanguage', () => {
+    const model = copilotAnswerModel(arabicAnswer)
+    expect(model.language).toBe('ar')
+    const lang = lineLanguage(model, 'en')
+    expect(lang).toBe('ar')
+    expect(lineDir(lang)).toBe('rtl')
+    expect(assumptionRows(model, lang).map((r) => r.text)).toEqual(['«فروعي» تعني: جدة (مدينة)، كما حفظتها.'])
+    expect(askView({ ...model, ask: { text: 'Jed', question: { en: 'Which one?', ar: 'أيّها تقصد؟' }, choices: [] } } as never, lang)?.question)
+      .toBe('أيّها تقصد؟')
+  })
+
+  it('anAnswerWithNoLanguage_followsTheInterface_asBefore', () => {
+    const model = copilotAnswerModel({ ...arabicAnswer, language: undefined } as Partial<CopilotAnswer>)
+    expect(model.language).toBeNull()
+    expect(lineLanguage(model, 'en')).toBe('en')
+    expect(lineDir('en')).toBeUndefined()
+    expect(assumptionRows(model, lineLanguage(model, 'en'))[0].text).toBe("'My stores' read as: Jeddah (city), as you saved.")
+  })
+
+  it('anUnknownLanguage_isReadAsNone', () => {
+    expect(copilotAnswerModel({ ...offer, language: 'fr' } as unknown as Partial<CopilotAnswer>).language).toBeNull()
   })
 })

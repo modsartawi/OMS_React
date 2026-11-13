@@ -27,6 +27,8 @@ import {
   type AnswerPart,
   type AskView,
   inlineMarks,
+  lineDir,
+  lineLanguage,
   namedSetCard,
   orderHref,
   orderSegments,
@@ -212,11 +214,12 @@ export function Assumptions({ model, readings }: { model: CopilotAnswerModel; re
   const { t, i18n } = useTranslation('copilot')
   const [open, setOpen] = useState<number | null>(null)
   if (model.assumptions.length === 0) return null
+  const lang = lineLanguage(model, i18n.language) // 3729: the question's language
   return (
     <section aria-label={t('answer.assumptions')} className="flex flex-col gap-1 text-sm" data-copilot-assumptions>
       <p className="text-xs font-medium text-muted-foreground">{t('answer.assumptions')}</p>
-      <ul className="list-disc ps-5">
-        {assumptionRows(model, i18n.language).map((row, i) =>
+      <ul className="list-disc ps-5" dir={lineDir(lang)} lang={lang}>
+        {assumptionRows(model, lang).map((row, i) =>
           row.choice && readings ? (
             <li key={i} data-copilot-assumption data-copilot-assumption-kind={row.choice.kind}>
               <Button
@@ -265,16 +268,17 @@ export function Assumptions({ model, readings }: { model: CopilotAnswerModel; re
  * puts the server's confirmation in place of the buttons, with the way to "What the copilot knows about me"; Not now
  * hides the line. An offer no longer open keeps its words and loses its buttons.
  */
-export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOffer; readings: AnswerReadings }) {
+export function ReadingOfferLine({ offer, readings, lang: asked }: { offer: CopilotReadingOffer; readings: AnswerReadings; lang?: string }) {
   const { t, i18n } = useTranslation('copilot')
+  const lang = asked ?? i18n.language // 3729: the question's language
   const s = readings.offer
   if (s.state === 'dismissed') return null
   if (s.state === 'kept')
     return (
       <section aria-label={t('reading.offer')} className="flex flex-col gap-1 text-sm" data-copilot-reading-offer="kept">
-        <p className="flex items-center gap-1.5">
+        <p className="flex items-center gap-1.5" dir={lineDir(lang)} lang={lang}>
           <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-          <bdi>{saysIn(s.line, i18n.language)}</bdi>
+          <bdi>{saysIn(s.line, lang)}</bdi>
         </p>
         <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-reading-me>
           {t('reading.seeMine')}
@@ -284,8 +288,8 @@ export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOff
   const busy = s.state === 'busy'
   return (
     <section aria-label={t('reading.offer')} className="flex flex-col gap-1.5 text-sm" data-copilot-reading-offer={s.state}>
-      <p>
-        <bdi>{saysIn(offer.offer, i18n.language)}</bdi>
+      <p dir={lineDir(lang)} lang={lang}>
+        <bdi>{saysIn(offer.offer, lang)}</bdi>
       </p>
       {s.state === 'closed' ? (
         <p className="text-xs text-muted-foreground" data-copilot-reading-closed>
@@ -316,11 +320,12 @@ export function ReadingOfferLine({ offer, readings }: { offer: CopilotReadingOff
  * knows about me"; at the limit of 10 sets (`COPILOT-434`) the server's reason shows with that same way, Keep kept to
  * try again after a delete; a card no longer open (`COPILOT-435`) keeps its words and loses its buttons.
  */
-export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetProposal; readings: AnswerReadings }) {
+export function NamedSetCardView({ set, readings, lang: asked }: { set: CopilotNamedSetProposal; readings: AnswerReadings; lang?: string }) {
   const { t, i18n } = useTranslation('copilot')
   const s = readings.namedSet
   if (s.state === 'dismissed') return null
-  const card = namedSetCard(set, i18n.language)
+  const lang = asked ?? i18n.language // 3729: the question's language
+  const card = namedSetCard(set, lang)
   const toMine = (
     <Link to="/copilot/me" className="self-start text-xs font-medium text-primary underline underline-offset-2" data-copilot-named-set-me>
       {t('reading.seeMine')}
@@ -334,7 +339,7 @@ export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetPropos
         <bdi>{card.name}</bdi>
       </p>
       <p className="text-xs text-muted-foreground">{t('namedSet.members', { count: card.members.length })}</p>
-      <ul className="list-disc ps-5" data-copilot-named-set-members>
+      <ul className="list-disc ps-5" dir={lineDir(lang)} lang={lang} data-copilot-named-set-members>
         {card.members.map((m) => (
           <li key={m.key} data-copilot-named-set-member={m.kind}>
             <bdi>{m.text}</bdi>
@@ -343,9 +348,9 @@ export function NamedSetCardView({ set, readings }: { set: CopilotNamedSetPropos
       </ul>
       {s.state === 'kept' ? (
         <>
-          <p className="flex items-center gap-1.5">
+          <p className="flex items-center gap-1.5" dir={lineDir(lang)} lang={lang}>
             <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <bdi>{saysIn(s.line, i18n.language)}</bdi>
+            <bdi>{saysIn(s.line, lang)}</bdi>
           </p>
           {toMine}
         </>
@@ -714,12 +719,12 @@ export function QuestionButtons({ buttons, icon = true }: { buttons: readonly Qu
  * flight, the house-rules Try box) the choices are shown only. With no choice the question asks the reader to type the
  * name again, in the box. The question and each label are free text: `<bdi>`.
  */
-export function AskQuestion({ view, onChoose }: { view: AskView; onChoose?: (choice: { key: string; label: string }) => void }) {
+export function AskQuestion({ view, onChoose, lang }: { view: AskView; onChoose?: (choice: { key: string; label: string }) => void; lang?: string }) {
   const { t } = useTranslation('copilot')
   const open = onChoose !== undefined && view.choices.length > 0
   return (
     <section aria-label={t('ask.heading')} className="flex flex-col gap-2 text-sm" data-copilot-ask>
-      <p className="font-medium" data-copilot-ask-question>
+      <p className="font-medium" dir={lang ? lineDir(lang) : undefined} lang={lang} data-copilot-ask-question>
         <bdi>{view.question}</bdi>
       </p>
       {view.choices.length > 0 && (
@@ -762,11 +767,12 @@ export function Answer({
 }) {
   const { t, i18n } = useTranslation('copilot')
   const layout = answerLayout(model)
+  const lang = lineLanguage(model, i18n.language) // 3729: the server's own lines follow the question's language
   const part = (p: AnswerPart) => {
     switch (p) {
       case 'ask': {
-        const view = askView(model, i18n.language)
-        return view ? <AskQuestion key={p} view={view} onChoose={onChoose} /> : null
+        const view = askView(model, lang)
+        return view ? <AskQuestion key={p} view={view} onChoose={onChoose} lang={lang} /> : null
       }
       case 'text':
         return (
@@ -787,9 +793,9 @@ export function Answer({
       case 'assumptions':
         return <Assumptions key={p} model={model} readings={readings} />
       case 'readingOffer':
-        return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} /> : null
+        return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} lang={lang} /> : null
       case 'namedSet':
-        return model.namedSet && readings ? <NamedSetCardView key={p} set={model.namedSet} readings={readings} /> : null
+        return model.namedSet && readings ? <NamedSetCardView key={p} set={model.namedSet} readings={readings} lang={lang} /> : null
       case 'reportEdit':
         return <ReportEditNote key={p} reportEdit={model.reportEdit} />
       case 'boardEdit':

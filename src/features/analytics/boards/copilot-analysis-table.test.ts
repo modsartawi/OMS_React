@@ -299,7 +299,9 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
         cut('city', 'City', 'المدينة', [['Riyadh', value], ['Jeddah', '10']], {
           columns: [column('city', 'dimension', 'City', 'المدينة'), column('x', 'measure', 'X', 'س', unit, 'additive')],
         })
-      for (const [unit, value] of [['count', '12.5'], ['SAR', '1.005'], ['SAR', 'SAR 3,000'], ['SAR', '1e3'], ['SAR', '0x10']] as const) {
+      // A figure past 15 digits, which a JavaScript number cannot hold exactly; a unit 897 did not ask to format.
+      const cases = [['count', '12.5'], ['SAR', '1.005'], ['SAR', 'SAR 3,000'], ['SAR', '1e3'], ['SAR', '0x10'], ['SAR', '12345678901234567.5'], ['minutes', '42']] as const
+      for (const [unit, value] of cases) {
         const view = viewOf(odd(unit, value))
         expect(view.rows.map((r) => r.x)).toEqual([value, '10'])
         expect(view.columns[1].asSent).toBe(true)

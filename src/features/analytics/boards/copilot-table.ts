@@ -1,6 +1,7 @@
 import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition, MeasureUnit } from '@/core/models/analytics'
 import { IS_TOTAL_KEY } from '@/core/models/analytics-calculations'
 import type { CopilotAnswerTable, CopilotTableRow } from '@/core/models/copilot'
+import { shownDecimals } from '@/core/charts/format'
 import { saysIn } from '@/core/rules/sentence'
 import type { CalculationWords } from './calculations'
 import { newViewLink, type EditorSeed } from './editor'
@@ -54,10 +55,11 @@ function sentTable(table: CopilotAnswerTable, model: AnalyticsModel, lang: strin
   const formatted = columns.map((c, i) => (byUnit && c.role !== 'dimension' ? unitOfSent(c.unit, rows.map((r) => r.values?.[i] ?? null)) : null))
   return {
     columns: columns.map((c, i) => {
-      if (c.role === 'dimension') return { key: c.key, role: 'dimension' as const, label: saysIn(c.label, lang) || c.key }
+      const label = saysIn(c.label, lang) || c.key
+      if (c.role === 'dimension') return { key: c.key, role: 'dimension' as const, label }
       const unit = formatted[i]
       // No `max`: a cell bar's width would be a figure the panel worked out.
-      return unit ? { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, unit } : { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, asSent: true }
+      return unit ? { key: c.key, role: 'measure' as const, label, unit } : { key: c.key, role: 'measure' as const, label, asSent: true }
     }),
     rows: rows.map((r) => {
       const out: Record<string, string | number | null> = {}
@@ -72,14 +74,15 @@ function sentTable(table: CopilotAnswerTable, model: AnalyticsModel, lang: strin
 }
 
 /**
- * 897 (BackOffice spec 3587): the decimals the table form shows a unit with (`@/core/charts/format`), for the units it
- * formats an analysis table's figures by — money with its currency and separators, a count with separators. A percent
- * and a share stay as sent (the server writes them "62.0%"), and so does a column with no unit, or one this map lacks.
+ * 897 (BackOffice spec 3587): the units an analysis table's figures are formatted by, as the table form formats them
+ * (`@/core/charts/format`) — money with its currency and separators, a count with separators. A percent and a share
+ * stay as sent (the server writes them "62.0%"), and so does a column with no unit or any other unit (minutes, km: not
+ * asked for by 897).
  */
-const SHOWN_DECIMALS: Partial<Record<MeasureUnit, number>> = { SAR: 2, count: 0, minutes: 1, seconds: 0, km: 1 }
+const FORMATTED_UNITS: ReadonlySet<string> = new Set<MeasureUnit>(['SAR', 'count'])
 
 /** A plain invariant number as the wire writes it: `-1883288.19`, `3000` — no exponent, no separator, no symbol. */
-const PLAIN_NUMBER = /^-?\d+(?:\.(\d+))?$/
+const PLAIN_NUMBER = /^-?(\d+)(?:\.(\d+))?$/
 
 /**
  * The unit an analysis column's figures are formatted by (897), or null to show the column as sent. A column is
@@ -88,12 +91,13 @@ const PLAIN_NUMBER = /^-?\d+(?:\.(\d+))?$/
  * reads as sent, whole.
  */
 function unitOfSent(unit: string | null | undefined, cells: readonly (string | null)[]): MeasureUnit | null {
-  const decimals = unit ? SHOWN_DECIMALS[unit as MeasureUnit] : undefined
-  if (decimals == null) return null
+  if (!unit || !FORMATTED_UNITS.has(unit)) return null
+  const decimals = shownDecimals(unit as MeasureUnit)
   const fits = cells.every((v) => {
     if (v == null) return true
     const m = PLAIN_NUMBER.exec(v)
-    return m != null && (m[1] ?? '').replace(/0+$/, '').length <= decimals
+    // Over 15 digits a JavaScript number no longer holds the figure exactly: it would read differently from the server's.
+    return m != null && (m[2] ?? '').replace(/0+$/, '').length <= decimals && (m[1] + (m[2] ?? '')).replace(/^0+/, '').length <= 15
   })
   return fits ? (unit as MeasureUnit) : null
 }

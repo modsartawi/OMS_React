@@ -1477,7 +1477,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Copilot analysis walk (BackOffice 3629), filed 2026-11-12
 
-- [897](897-an-analysis-tables-figures-are-formatted-by-their-unit.md) — An analysis table's figures are formatted by their unit, as a query table's are · *(ticket · BackOffice spec 3587, found walking BackOffice 3629)* · **open** · owner ruling first (reverses part of 878) · blocked by: —
+- [897](897-an-analysis-tables-figures-are-formatted-by-their-unit.md) — An analysis table's figures are formatted by their unit, as a query table's are · *(ticket · BackOffice spec 3587, found walking BackOffice 3629)* · **done** · built on the recommended option, owner ruling not recorded · blocked by: —
 
 ## Nphies undispense (BackOffice 3208), filed 2026-11-13
 

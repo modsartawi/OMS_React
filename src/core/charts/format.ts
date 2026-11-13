@@ -32,6 +32,9 @@ const OPTIONS: Record<MeasureUnit, Intl.NumberFormatOptions> = {
   percent: { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 },
 }
 
+/** The most decimals {@link formatValue} shows a unit with: a figure with more is rounded on screen (897). */
+export const shownDecimals = (unit: MeasureUnit): number => OPTIONS[unit]?.maximumFractionDigits ?? 0
+
 /** `Intl`'s percent style multiplies by 100; a `percent` value is already in points. */
 const scaled = (value: number, unit: MeasureUnit): number => (unit === 'percent' ? value / 100 : value)
 

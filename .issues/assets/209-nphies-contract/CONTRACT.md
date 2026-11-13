@@ -1,4 +1,4 @@
-# The Nphies web API — frozen contract v1.0, amended to v1.2
+# The Nphies web API — frozen contract v1.0, amended to v1.3
 
 > Asset of [209](../../209-nphies-web-spec.md), map [196](../../196-nphies-to-web-map.md).
 > Frozen 2026-08-01.
@@ -322,7 +322,8 @@ underlying read.
 
 Row shape is `AuthForListDto` / the eligibility equivalent, projected to what the grid shows:
 identity, both axes ([§5](#5-the-two-status-axes)), `NeedComm` and `IsDispensed` as **markers**, and
-the timestamps.
+the timestamps. Since 1.3 the authorization row also carries its last undispense, `lastUndispensedTime`
+(local wall clock, `null` when never undispensed) and `lastUndispensedUser`, from the Nphies service.
 
 ### 3.4 The two details
 
@@ -667,6 +668,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.0 | 2026-08-01 | Frozen. | — | [209](../../209-nphies-web-spec.md) |
 | 1.1 | 2026-11-03 | Releasing an approval number: §1.1 rows 17–18, `canReleaseApprovalNumber` on row 16, the release stamps in §1.3, and three §6 codes. | Additive (minor) | BackOffice [3342](C:\Work\DMSCO\BackOffice\.issues\3342-support-releases-a-nphies-approval-number-from-oms-react-spec.md) / [3343](C:\Work\DMSCO\BackOffice\.issues\3343-a-support-user-with-the-release-grant-releases-an-approval-number-through-sis-api.md) |
 | 1.2 | 2026-11-13 | Undispensing a returned authorization: §1.1 rows 19–21, `canUndispense` on row 16, the undispense stamps in §1.3, and five §6 codes (`NOTE_REQUIRED` now also the undispense's). | Additive (minor) | BackOffice [3208](C:\Work\DMSCO\BackOffice\.issues\3208-a-full-newpos-return-undispenses-its-nphies-authorization-and-support-can-finish-it-from-oms-react-spec.md) / [3725](C:\Work\DMSCO\BackOffice\.issues\3725-support-and-the-call-center-list-retry-and-undispense-a-returned-authorization-through-sis-api.md) |
+| 1.3 | 2026-11-13 | The authorization list row carries its last undispense, `lastUndispensedTime` / `lastUndispensedUser` (§3.3), from the Nphies service (its 009). | Additive (minor) | BackOffice [3208](C:\Work\DMSCO\BackOffice\.issues\3208-a-full-newpos-return-undispenses-its-nphies-authorization-and-support-can-finish-it-from-oms-react-spec.md) / [3727](C:\Work\DMSCO\BackOffice\.issues\3727-a-freed-authorization-shows-as-undispensed-at-the-till-and-a-second-store-dispenses-it.md) |
 
 ---
 

@@ -196,5 +196,11 @@ export const insuranceRulesRoute: RouteObject = {
       path: 'idf/groups',
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/GroupsPage')).default }),
     },
+
+    // 896 · Payer months (`payer-months`, `?year=&month=`; BackOffice spec 1623) — its OWN probe, not the area's
+    {
+      path: 'payer-months',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/payer-month/PayerMonthPage')).default }),
+    },
   ],
 }

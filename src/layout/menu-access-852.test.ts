@@ -18,13 +18,15 @@ const { RULES_ACCESS_KEY } = await import('@/core/rules/access')
 const { INSURANCE_RULES_ACCESS_KEY, INSURANCE_RULES_FLAGS } = await import('@/core/insurance-rules/access')
 const { PRESCRIPTION_SESSION_ACCESS_KEY } = await import('@/features/oms/prescription-sessions/access')
 const { broadcastApi } = await import('@/features/admin/broadcast/api')
+// 896: the Insurance rules group's payer-month leaf rides its OWN probe (BackOffice 1628 D36).
+const { PAYER_MONTH_ACCESS_KEY } = await import('@/features/insurance-rules/payer-month/access')
 
 type Item = (typeof MENU)[number]
 type State = { isPending: boolean; isSuccess: boolean; data: unknown }
 
 const BROADCAST_KEY = ['broadcast', 'access'] as const
 const keyOf = (k: readonly unknown[]) => JSON.stringify(k)
-const PROBE_KEYS = [RULES_ACCESS_KEY, INSURANCE_RULES_ACCESS_KEY, PRESCRIPTION_SESSION_ACCESS_KEY, BROADCAST_KEY].map(keyOf)
+const PROBE_KEYS = [RULES_ACCESS_KEY, INSURANCE_RULES_ACCESS_KEY, PRESCRIPTION_SESSION_ACCESS_KEY, BROADCAST_KEY, PAYER_MONTH_ACCESS_KEY].map(keyOf)
 
 const gated = (items: Item[]): Item[] => items.flatMap((i) => [...(i.access ? [i] : []), ...gated(i.items ?? [])])
 const leaves = (items: Item[]): Item[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
@@ -46,6 +48,7 @@ const ALL_FALSE: Record<string, State> = {
   [keyOf(INSURANCE_RULES_ACCESS_KEY)]: answered(INS_NONE),
   [keyOf(PRESCRIPTION_SESSION_ACCESS_KEY)]: answered({ canView: false, canWriteOff: false }),
   [keyOf(BROADCAST_KEY)]: answered({ allowed: false }),
+  [keyOf(PAYER_MONTH_ACCESS_KEY)]: answered({ canManage: false }),
 }
 
 const AUTHORING = ['campaigns:menu.promotions', 'campaigns:menu.priority', 'campaigns:menu.simulator', 'campaigns:menu.uploads']
@@ -103,7 +106,7 @@ describe('852 — the five areas hide until their probe says yes', () => {
   })
 
   it('a pending, errored or malformed probe hides every leaf of the five (no flash-then-hide)', () => {
-    const malformed = answered({ canAuthor: 'true', canSupport: 1, canView: 'yes', allowed: 'true', canGuards: 1 })
+    const malformed = answered({ canAuthor: 'true', canSupport: 1, canView: 'yes', allowed: 'true', canGuards: 1, canManage: 'true' })
     for (const state of [pending, errored, answered({}), answered(null), malformed])
       expect(visibleLeaves(Object.fromEntries(PROBE_KEYS.map((k) => [k, state])))).toEqual([])
   })

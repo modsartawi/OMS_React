@@ -220,6 +220,8 @@ insurance-rules/guards 2
 insurance-rules/lists 1
   src/features/insurance-rules/lists/KeyedLists.tsx button: row picker, picks a keyed list in the side list (aria-current, ?list= in-page), restyled in place
 
+insurance-rules/payer-month 0
+
 loy/member 1
   src/features/loy/member/MemberHeader.tsx button: disclosure (aria-expanded, Show/Hide details), restyled in place (597 Q2)
 

@@ -1,0 +1,143 @@
+{
+  "title": "Payer months",
+  "subtitle": "Close a payer's month so tills refuse insurance returns and corrections in it; reopen it for a late correction. Every act takes a reason.",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access to payer months",
+    "deniedHint": "Closing payer months needs the INSURANCE_TEAM role. Ask an administrator.",
+    "unreachableTitle": "Couldn't check access",
+    "unreachableHint": "The server didn't answer. Try again in a moment."
+  },
+  "period": {
+    "year": "Year",
+    "month": "Month",
+    "label": "Payer month"
+  },
+  "list": {
+    "showActivity": "Show payers with activity",
+    "rereadActivity": "Read payers with activity again",
+    "activityHint": "Reads every payer with sales in the month. It scans the month's sales, so it runs only when you press it.",
+    "ledgerCaption": "Payers already on the ledger, and payers with a correction this month.",
+    "activityCaption": "Every payer with sales this month, and every payer already on the ledger.",
+    "loadedAt": "Read at {{time}}",
+    "reading": "Reading…",
+    "readingActivity": "Scanning the month's sales…",
+    "emptyLedger": "No payer has been closed or corrected in {{period}} yet. Show payers with activity to close the month.",
+    "emptyActivity": "No payer had sales in {{period}}.",
+    "failed": "Couldn't read the month",
+    "count_one": "{{count}} payer",
+    "count_other": "{{count}} payers"
+  },
+  "col": {
+    "payer": "Payer",
+    "state": "State",
+    "lastAct": "Last act",
+    "reason": "Reason",
+    "corrections": "Corrections",
+    "actions": "Actions"
+  },
+  "state": {
+    "closed": "Closed",
+    "reopened": "Reopened",
+    "open": "Open"
+  },
+  "row": {
+    "close": "Close",
+    "reopen": "Reopen",
+    "details": "History",
+    "detailsLabel": "History and corrections of {{payer}}",
+    "correctionsOnClose_one": "{{count}} correction to review before closing",
+    "correctionsOnClose_other": "{{count}} corrections to review before closing",
+    "lastActBy": "by {{actor}}"
+  },
+  "closeAll": {
+    "button_one": "Close all · {{count}} payer",
+    "button_other": "Close all · {{count}} payers",
+    "notOffered": "Show payers with activity first: Close all closes that list."
+  },
+  "dialog": {
+    "closeTitle": "Close this payer's month",
+    "reopenTitle": "Reopen this payer's month",
+    "closeAllTitle": "Close the whole month",
+    "closeBody": "Close {{payer}} for {{period}}. Tills will refuse insurance returns and corrections for it.",
+    "reopenBody": "Reopen {{payer}} for {{period}}. Tills will accept returns and corrections for it again.",
+    "closeAllBody_one": "Close {{count}} payer for {{period}}, in one act. Tills will refuse insurance returns and corrections for it.",
+    "closeAllBody_other": "Close {{count}} payers for {{period}}, in one act. Tills will refuse insurance returns and corrections for them.",
+    "alreadyClosed_one": "{{count}} of them is already closed; its close is recorded again.",
+    "alreadyClosed_other": "{{count}} of them are already closed; their close is recorded again.",
+    "corrections_one": "This month carries {{count}} correction. Read it under History before you close.",
+    "corrections_other": "This month carries {{count}} corrections. Read them under History before you close.",
+    "reason": "Reason",
+    "reasonPlaceholder": "Why — this is the answer to the question the payer will ask.",
+    "reasonRequired": "A reason is required.",
+    "reasonTooLong": "The reason is longer than {{max}} characters.",
+    "back": "Back",
+    "confirmClose": "Close the month",
+    "confirmReopen": "Reopen the month",
+    "confirmCloseAll": "Close all",
+    "refused": "Not done"
+  },
+  "done": {
+    "closed": "Month closed",
+    "reopened": "Month reopened",
+    "closedAll_one": "{{count}} payer closed",
+    "closedAll_other": "{{count}} payers closed"
+  },
+  "refusal": {
+    "INS-16261": "The payer is missing.",
+    "INS-16262": "That month can't be closed.",
+    "INS-16263": "Your session has no user to record the act against. Sign in again.",
+    "INS-16264": "The reason is missing or longer than 512 characters. Nothing was written.",
+    "denied": "You don't hold the INSURANCE_TEAM role for this screen."
+  },
+  "sheet": {
+    "eyebrow": "Payer month",
+    "close": "Close",
+    "history": "History",
+    "historyEmpty": "Nobody has closed or reopened this month.",
+    "historyFailed": "Couldn't read the history",
+    "corrections": "Corrections register",
+    "correctionsEmpty": "No correction was made in this month.",
+    "correctionsFailed": "Couldn't read the corrections",
+    "reading": "Reading…"
+  },
+  "history": {
+    "action": {
+      "close": "Closed",
+      "reopen": "Reopened",
+      "other": "Other act"
+    },
+    "by": "By",
+    "at": "At",
+    "reason": "Reason"
+  },
+  "correction": {
+    "direction": {
+      "Collect": "Collect from patient",
+      "Refund": "Refund to patient"
+    },
+    "businessDay": "Business day",
+    "store": "Store",
+    "tillStore": "Till store",
+    "invoice": "Invoice",
+    "netAmount": "Net amount",
+    "patientBefore": "Patient amount before",
+    "patientAfter": "Patient amount after",
+    "reason": "Reason",
+    "note": "Note",
+    "pincode": "Pay-out pincode used",
+    "by": "By",
+    "at": "Recorded",
+    "lines": "Lines",
+    "line": {
+      "number": "Line",
+      "material": "Material",
+      "description": "Description",
+      "before": "Before",
+      "after": "After",
+      "coverage": "Coverage group",
+      "rejected": "Rejected from cover",
+      "moved": "Moved by the cap"
+    }
+  }
+}

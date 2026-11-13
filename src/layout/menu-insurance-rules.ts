@@ -24,6 +24,10 @@ import { Inbox } from 'lucide-react' // 696
 import { Replace } from 'lucide-react' // 704
 // 706 · icons
 import { Languages } from 'lucide-react' // 706
+// 896 · icons
+import { CalendarCheck } from 'lucide-react' // 896
+// 896 · the payer-month screen's OWN probe (BackOffice 1628 D36: one grant for the screen, not the area's)
+import { PAYER_MONTH_ACCESS_KEY, canManagePayerMonths, payerMonthAccessApi } from '@/features/insurance-rules/payer-month/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
 import type { AccessProbe, ShellMenuItem } from './menu-model'
 import {
@@ -262,6 +266,20 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       icon: Layers,
       routerLink: '/insurance-rules/idf/groups',
       access: insuranceRulesProbe('canIdfGroups'),
+    },
+
+    // 896 · Payer months (`menu.payerMonths`, `/insurance-rules/payer-months`; BackOffice spec 1623)
+    {
+      // 896 — the insurance team closes, reopens and audits a payer's month. 🚩 Its OWN probe, not the area's:
+      // `InsurancePayerMonthWeb/Access` reports the screen's one grant (`INSURANCE_TEAM`), and fails closed.
+      labelKey: 'insurance-rules:menu.payerMonths',
+      icon: CalendarCheck,
+      routerLink: '/insurance-rules/payer-months',
+      access: {
+        key: PAYER_MONTH_ACCESS_KEY,
+        run: () => payerMonthAccessApi.access(),
+        visible: canManagePayerMonths as (data: unknown) => boolean,
+      },
     },
   ],
 }

@@ -73,6 +73,10 @@ import insuranceAliasesAr from '@/locales/ar/insurance-aliases.json'
 import insuranceLabelsEn from '@/locales/en/insurance-labels.json'
 import insuranceLabelsAr from '@/locales/ar/insurance-labels.json'
 
+// 896 · imports — the payer-month closure screen (`features/insurance-rules/payer-month`, BackOffice spec 1623).
+import insurancePayerMonthEn from '@/locales/en/insurance-payer-month.json'
+import insurancePayerMonthAr from '@/locales/ar/insurance-payer-month.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -119,6 +123,9 @@ export const INSURANCE_RULES_NS = [
 
   // 706 · ns
   'insurance-labels',
+
+  // 896 · ns
+  'insurance-payer-month',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -167,6 +174,9 @@ export const INSURANCE_RULES_EN = {
 
   // 706 · en
   'insurance-labels': insuranceLabelsEn,
+
+  // 896 · en
+  'insurance-payer-month': insurancePayerMonthEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -215,4 +225,7 @@ export const INSURANCE_RULES_AR = {
 
   // 706 · ar
   'insurance-labels': insuranceLabelsAr,
+
+  // 896 · ar
+  'insurance-payer-month': insurancePayerMonthAr,
 }

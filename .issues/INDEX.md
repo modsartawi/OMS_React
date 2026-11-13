@@ -1471,6 +1471,14 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [894](894-the-what-the-copilot-knows-about-me-page.md) — The page "What the copilot knows about me" lists, changes and deletes every kept reading and named set · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3689
 - [895](895-the-curators-counts-on-the-house-rules-screen.md) — The house-rules screen shows how many readers changed each default, and to what · *(ticket · BackOffice spec 3633)* · **done 2026-11-12** · blocked by: BackOffice 3691
 
+## Insurance payer-month close (BackOffice spec 1623), filed 2026-11-12
+
+- [896](896-the-insurance-team-closes-reopens-and-audits-a-payer-month.md) — The insurance team closes, reopens and audits a payer month from the web · *(ticket · BackOffice spec 1623)* · **open** · blocked by: BackOffice 1648, BackOffice 1642
+
+## Copilot analysis walk (BackOffice 3629), filed 2026-11-12
+
+- [897](897-an-analysis-tables-figures-are-formatted-by-their-unit.md) — An analysis table's figures are formatted by their unit, as a query table's are · *(ticket · BackOffice spec 3587, found walking BackOffice 3629)* · **open** · owner ruling first (reverses part of 878) · blocked by: —
+
 ## Nphies undispense (BackOffice 3208), filed 2026-11-13
 
 - [898](898-the-undispense-page-lists-pending-and-failed-undispenses-retries-them-and-frees-a-returned-authorization.md) — The Undispense page lists pending and failed undispenses, retries them, and frees a returned authorization · *(ticket · BackOffice spec 3208)* · **open** · blocked by: BO 3725

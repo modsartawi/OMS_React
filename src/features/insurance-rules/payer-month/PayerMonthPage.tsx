@@ -29,6 +29,7 @@ import {
   closeAllOffer,
   counted,
   mergeRow,
+  payerName,
   periodFromParams,
   periodText,
   periodToParams,
@@ -277,7 +278,8 @@ function PayerMonthBody() {
 }
 
 function PayerRow({ row, onAct, onDetails }: { row: PayerMonthRow; onAct: (kind: 'close' | 'reopen') => void; onDetails: () => void }) {
-  const { t } = useTranslation('insurance-payer-month')
+  const { t, i18n } = useTranslation('insurance-payer-month')
+  const name = payerName(row, i18n.language)
   const state = rowState(row)
   const action = closeAction(row)
   const at = formatDateTime(row.lastActionAt)
@@ -285,7 +287,12 @@ function PayerRow({ row, onAct, onDetails }: { row: PayerMonthRow; onAct: (kind:
   return (
     <tr className="border-t border-border/60" data-testid="payer-month-row" data-payer={row.customerId} data-state={state}>
       <td className={TD}>
-        <Ltr>{row.customerId}</Ltr>
+        <span className="flex flex-col">
+          {name && <bdi className="font-medium" data-testid="payer-month-row-name">{name}</bdi>}
+          <span className={name ? 'text-xs text-muted-foreground' : undefined}>
+            <Ltr>{row.customerId}</Ltr>
+          </span>
+        </span>
       </td>
       <td className={TD}>
         <StatusBadge sev={STATE_SEV[state]}>{t(`state.${state}`)}</StatusBadge>
@@ -306,7 +313,7 @@ function PayerRow({ row, onAct, onDetails }: { row: PayerMonthRow; onAct: (kind:
       </td>
       <td className={`${TD} text-end`}>
         <span className="inline-flex items-center gap-1">
-          <Button variant="text" onClick={onDetails} aria-label={t('row.detailsLabel', { payer: fsi(row.customerId) })} data-testid="payer-month-details">
+          <Button variant="text" onClick={onDetails} aria-label={t('row.detailsLabel', { payer: fsi(name || row.customerId) })} data-testid="payer-month-details">
             <History className="h-3.5 w-3.5" aria-hidden />
             {t('row.details')}
           </Button>

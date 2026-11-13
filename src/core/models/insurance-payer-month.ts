@@ -14,6 +14,10 @@ export interface InsurancePayerMonthAccess {
 /** One payer-month as the screen lists it (`PayerMonthRowResponse`). */
 export interface PayerMonthRow {
   customerId: string
+  /** The insurance company's name (`Customer.CustomerName`); the list holds `IsInsurance = 1` customers only. */
+  customerName: string
+  /** Its Arabic name (`Customer.CustomerName2`), empty where none is kept. */
+  customerNameAr: string
   year: number
   month: number
   isClosed: boolean

@@ -12,6 +12,8 @@ const { payerMonthAccessApi } = await import('./access')
 
 const ROW: PayerMonthRow = {
   customerId: 'BUPA',
+  customerName: 'BUPA Arabia',
+  customerNameAr: '',
   year: 2026,
   month: 10,
   isClosed: false,

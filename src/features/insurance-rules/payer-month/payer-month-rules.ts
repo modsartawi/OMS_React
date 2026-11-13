@@ -2,6 +2,7 @@
  * The payer-month screen's pure rules (oms 896; BackOffice spec 1623, tickets 1628, 1639, 1644, 1648). No React,
  * no i18n calls: each answer is a key or a value the page renders, so every rule here is tested in node.
  */
+import { localizedName } from '@/core/util/localized-name'
 import { apiErrorCode, isBareDenial } from '@/core/api'
 import type {
   PayerMonthActRequest,
@@ -51,6 +52,10 @@ export function actBody(target: ActTarget, reason: string): PayerMonthActRequest
 // ---- a row ----------------------------------------------------------------------------------------------------
 
 /** The one act a row offers: Reopen on a closed row only, Close otherwise. */
+/** The payer's name in the reader's language, falling back to the other one; empty when the row carries neither. */
+export const payerName = (row: Pick<PayerMonthRow, 'customerName' | 'customerNameAr'>, language: string): string =>
+  localizedName({ nameEn: row.customerName, nameAr: row.customerNameAr }, language)
+
 export const rowAct = (row: PayerMonthRow): 'close' | 'reopen' => (row.isClosed ? 'reopen' : 'close')
 
 /** Closed, reopened, or open because nobody has acted — `hasRow` tells the last two apart. */

@@ -14,6 +14,7 @@ import {
   defaultPeriod,
   historyLines,
   mergeRow,
+  payerName,
   periodFromParams,
   periodText,
   periodToParams,
@@ -26,6 +27,8 @@ import { canManagePayerMonths } from './access'
 
 const ROW = (over: Partial<PayerMonthRow> = {}): PayerMonthRow => ({
   customerId: 'BUPA',
+  customerName: 'BUPA Arabia',
+  customerNameAr: 'بوبا العربية',
   year: 2026,
   month: 10,
   isClosed: false,
@@ -171,5 +174,15 @@ describe('the refusals', () => {
     expect(refusalKey(new ApiError('business', '', 403))).toBe('refusal.denied')
     expect(refusalKey(coded('INS-99999'))).toBeNull()
     expect(refusalKey(new Error('boom'))).toBeNull()
+  })
+})
+
+describe('payerName', () => {
+  it('names the payer in the reader\'s language, and falls back to the other one', () => {
+    expect(payerName(ROW(), 'en')).toBe('BUPA Arabia')
+    expect(payerName(ROW(), 'ar')).toBe('بوبا العربية')
+    expect(payerName(ROW({ customerNameAr: '' }), 'ar')).toBe('BUPA Arabia')
+    expect(payerName(ROW({ customerName: ' ' }), 'en')).toBe('بوبا العربية')
+    expect(payerName(ROW({ customerName: '', customerNameAr: '' }), 'en')).toBe('')
   })
 })

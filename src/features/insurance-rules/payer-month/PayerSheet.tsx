@@ -16,7 +16,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localizedName } from '@/core/util/localized-name'
 import { formatMoney3 } from '@/core/util/number-format'
 import { auditKey, correctionsKey, payerMonthApi } from './api'
-import { historyLines, periodText } from './payer-month-rules'
+import { historyLines, payerName, periodText } from './payer-month-rules'
 
 /**
  * One payer-month's **history** (every close and reopen, oldest first) and its **corrections register** (oms 896;
@@ -45,7 +45,7 @@ export default function PayerSheet({ row, onClose }: { row: PayerMonthRow; onClo
       <SideSheetHeader
         titleId={titleId}
         eyebrow={t('sheet.eyebrow')}
-        title={<Ltr>{formatPair(customerId, periodText(row))}</Ltr>}
+        title={<bdi>{formatPair(payerName(row, i18n.language) || customerId, periodText(row))}</bdi>}
         closeLabel={t('sheet.close')}
         onClose={onClose}
       />

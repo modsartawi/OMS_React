@@ -155,7 +155,7 @@ async function run() {
   check('Reopen shows on the closed row only', (await page.locator(`${rowSel('BUPA')} [data-testid=payer-month-reopen]`).count()) === 1 && (await page.locator(`${rowSel('MEDGULF')} [data-testid=payer-month-reopen]`).count()) === 0)
   check('the closed row offers no Close', (await page.locator(`${rowSel('BUPA')} [data-testid=payer-month-close]`).count()) === 0)
   check('the corrections count shows on the close action', strip(await page.textContent(`${rowSel('MEDGULF')} [data-testid=payer-month-close-count]`)) === '2')
-  check('…and its title says to review them', ((await page.getAttribute(`${rowSel('MEDGULF')} [data-testid=payer-month-close]`, 'title')) ?? '').includes('2 corrections to review'))
+  check('…and its title says to review them', strip(await page.getAttribute(`${rowSel('MEDGULF')} [data-testid=payer-month-close]`, 'title')).includes('2 corrections to review'))
 
   // 3 — no timer.
   await page.waitForTimeout(2500)
@@ -213,12 +213,13 @@ async function run() {
   await page.waitForSelector('[data-testid=payer-month-correction]')
   const reg = strip(await page.textContent('[data-testid=payer-month-corrections]'))
   check('the register lists each correction', (await page.locator('[data-testid=payer-month-correction]').count()) === 2)
-  check('…with store, invoice, direction, amount, reason, note and the pincode flag', ['1001', '445566', 'Refund to patient', '12.50', 'WRONG_COPAY · Wrong co-pay', 'patient brought the card late', 'Pay-out pincode used'].every((w) => reg.includes(w)), reg.slice(0, 400))
+  check('…with store, invoice, direction, amount, reason, note and the pincode flag', ['1001', '445566', 'Refund to patient', '12.500', 'WRONG_COPAY · Wrong co-pay', 'patient brought the card late', 'Pay-out pincode used'].every((w) => reg.includes(w)), reg.slice(0, 400))
   check('…and its lines beneath, rejected and moved marked', reg.includes('Panadol 500') && reg.includes('Rejected from cover') && reg.includes('Moved by the cap'))
   await page.keyboard.press('Escape')
 
   // 8 — Close all: one ask, one request, the list re-reads.
   const ledgerReadsBefore = calls.month.filter((c) => c.query === '').length
+  const activityReadsBefore = calls.month.filter((c) => c.query === '?activity=true').length
   await page.click('[data-testid=payer-month-close-all]')
   await page.waitForSelector('[data-testid=payer-month-reason]')
   const ask = strip(await page.textContent('[data-testid=payer-month-dialog]'))
@@ -231,6 +232,7 @@ async function run() {
   check('Close all sends ONE request, naming no payer', calls.closeAll.length === 1 && JSON.stringify(calls.closeAll[0].body) === JSON.stringify({ year: 2026, month: 10, reason: 'October month-end' }), JSON.stringify(calls.closeAll))
   await page.waitForTimeout(500)
   check('…and the list re-reads (the ledger read again)', calls.month.filter((c) => c.query === '').length > ledgerReadsBefore)
+  check('…and the activity list re-reads too', calls.month.filter((c) => c.query === '?activity=true').length === activityReadsBefore + 1)
   const states = await page.locator('[data-testid=payer-month-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')))
   check('every row now reads closed', states.length === 4 && states.every((s) => s === 'closed'), JSON.stringify(states))
   await page.waitForSelector('[data-sonner-toast]')
@@ -242,6 +244,15 @@ async function run() {
   await page.waitForTimeout(500)
   check('changing the month reads its ledger, no activity', calls.month.at(-1).month === '9' && calls.month.at(-1).query === '', JSON.stringify(calls.month.at(-1)))
   check('…and Close all is not offered for it', (await page.locator('[data-testid=payer-month-close-all]').count()) === 0)
+  const scansBefore = calls.month.filter((c) => c.query === '?activity=true').length
+  await page.selectOption('[data-testid=payer-month-month]', '10')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('month') === '10')
+  await page.waitForTimeout(500)
+  check('coming back to the scanned month opens on its ledger, with no new scan', calls.month.filter((c) => c.query === '?activity=true').length === scansBefore && (await page.locator('[data-testid=payer-month-close-all]').count()) === 0)
+  await page.click('[data-testid=payer-month-year]', { clickCount: 3 })
+  await page.keyboard.type('2025')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('year') === '2025')
+  check('a year can be typed digit by digit', (await page.inputValue('[data-testid=payer-month-year]')) === '2025')
   await page.close()
 
   // 10 — a refusal renders in the dialog, in the page's words, and the dialog stays.

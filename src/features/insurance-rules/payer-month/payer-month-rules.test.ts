@@ -70,8 +70,9 @@ describe('the reason', () => {
     for (const body of [close, reopen, all]) expect(Object.keys(body!)).not.toContain('actor')
   })
 
-  it('the meter counts the field as typed, and is over past 512', () => {
+  it('the meter counts the reason trimmed, as the ledger does, and is over past 512', () => {
     expect(reasonMeter('abc')).toEqual({ length: 3, max: 512, over: false, blank: false })
+    expect(reasonMeter('x'.repeat(500) + ' '.repeat(20))).toMatchObject({ length: 500, over: false })
     expect(reasonMeter('   ')).toMatchObject({ blank: true })
     expect(reasonMeter('x'.repeat(513))).toMatchObject({ length: 513, over: true })
   })

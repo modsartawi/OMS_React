@@ -11,9 +11,6 @@ export interface InsurancePayerMonthAccess {
   canManage: boolean
 }
 
-/** `Close` or `Reopen` — the ledger's two acts. */
-export type PayerMonthAction = 'Close' | 'Reopen'
-
 /** One payer-month as the screen lists it (`PayerMonthRowResponse`). */
 export interface PayerMonthRow {
   customerId: string

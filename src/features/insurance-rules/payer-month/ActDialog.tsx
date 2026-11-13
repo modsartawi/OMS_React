@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
@@ -10,7 +10,7 @@ import Modal from '@/core/ui/Modal'
 import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import { formatCount, fsi } from '@/core/util/bidi'
-import { REASON_MAX, actBody, periodText, reasonMeter, refusalKey, type ActTarget, type CloseAllOffer } from './payer-month-rules'
+import { REASON_MAX, actBody, counted, periodText, reasonMeter, refusalKey, type ActTarget, type CloseAllOffer } from './payer-month-rules'
 
 /**
  * The one ask before Close, Reopen or Close all (oms 896; BackOffice 1628, 1639, 1648). The **reason** is
@@ -31,23 +31,27 @@ export interface ActDialogProps {
   onConfirm: (reason: string) => void
 }
 
-export default function ActDialog({ target, offer, busy, error, onClose, onConfirm }: ActDialogProps) {
+export default function ActDialog({ target: open, offer, busy, error, onClose, onConfirm }: ActDialogProps) {
   const { t } = useTranslation('insurance-payer-month')
+  // The words are the last target's while the dialog closes, so it never flips to Close's copy on the way out.
+  const last = useRef<ActTarget | null>(open)
+  if (open) last.current = open
+  const target = open ?? last.current
   const [reason, setReason] = useState('')
   const meter = reasonMeter(reason)
-  const ready = target !== null && !busy && actBody(target, reason) !== null
+  const ready = open !== null && target !== null && !busy && actBody(target, reason) !== null
   const refusal = error ? refusalKey(error) : null
   const kind = target?.kind ?? 'close'
   const period = target ? fsi(periodText(target)) : ''
-  const corrections = target?.kind === 'closeAll' ? (offer?.corrections ?? 0) : target ? (target.row.correctionCount ?? 0) : 0
+  const corrections = target?.kind === 'closeAll' ? (offer?.corrections ?? 0) : target ? target.row.correctionCount : 0
 
   const titleKey = kind === 'closeAll' ? 'dialog.closeAllTitle' : kind === 'reopen' ? 'dialog.reopenTitle' : 'dialog.closeTitle'
   const confirmKey = kind === 'closeAll' ? 'dialog.confirmCloseAll' : kind === 'reopen' ? 'dialog.confirmReopen' : 'dialog.confirmClose'
-  const hint = meter.blank ? t('dialog.reasonRequired') : meter.over ? t('dialog.reasonTooLong', { max: REASON_MAX }) : undefined
+  const hint = meter.blank ? t('dialog.reasonRequired') : meter.over ? t('dialog.reasonTooLong', { max: fsi(REASON_MAX) }) : undefined
 
   return (
     <Modal
-      open={target !== null}
+      open={open !== null}
       onClose={onClose}
       title={t(titleKey)}
       // Every open starts blank: the last payer's reason must not land on this one.
@@ -76,9 +80,9 @@ export default function ActDialog({ target, offer, busy, error, onClose, onConfi
         {/* Interpolated values are isolated whole with fsi (bidi rule). */}
         {target?.kind === 'closeAll' ? (
           <>
-            <p>{t('dialog.closeAllBody', { count: target.count, period })}</p>
+            <p>{t('dialog.closeAllBody', { ...counted(target.count), period })}</p>
             {(offer?.alreadyClosed ?? 0) > 0 && (
-              <p className="text-muted-foreground">{t('dialog.alreadyClosed', { count: offer!.alreadyClosed })}</p>
+              <p className="text-muted-foreground">{t('dialog.alreadyClosed', counted(offer!.alreadyClosed))}</p>
             )}
           </>
         ) : target ? (
@@ -87,7 +91,7 @@ export default function ActDialog({ target, offer, busy, error, onClose, onConfi
 
         {kind !== 'reopen' && corrections > 0 && (
           <p className="rounded-md border border-attention-border bg-attention-050 p-2 text-attention-800" data-testid="payer-month-dialog-corrections">
-            {t('dialog.corrections', { count: corrections })}
+            {t('dialog.corrections', counted(corrections))}
           </p>
         )}
 

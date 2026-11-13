@@ -14,7 +14,7 @@ import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localizedName } from '@/core/util/localized-name'
-import { formatMoney } from '@/core/util/number-format'
+import { formatMoney3 } from '@/core/util/number-format'
 import { auditKey, correctionsKey, payerMonthApi } from './api'
 import { historyLines, periodText } from './payer-month-rules'
 
@@ -120,7 +120,7 @@ function Reading({ label }: { label: string }) {
   )
 }
 
-/** One correction group, with its lines beneath, old beside new. */
+/** One correction group, with its lines beneath, old beside new. Amounts at the columns' scale, 3 (spec 1623 K9). */
 function Correction({ entry, lang }: { entry: CorrectionRegisterEntry; lang: string }) {
   const { t } = useTranslation('insurance-payer-month')
   const reasonName = localizedName({ nameEn: entry.reasonNameEn, nameAr: entry.reasonNameAr }, lang)
@@ -132,9 +132,9 @@ function Correction({ entry, lang }: { entry: CorrectionRegisterEntry; lang: str
     [t('correction.store'), <Ltr>{entry.storeCode}</Ltr>],
     ...(tillDiffers ? ([[t('correction.tillStore'), <Ltr>{entry.tillStoreCode}</Ltr>]] as [string, ReactNode][]) : []),
     [t('correction.invoice'), <Ltr>{entry.originalTrxNumber || entry.originalTransactionId}</Ltr>],
-    [t('correction.netAmount'), <Ltr>{formatMoney(entry.netAmount)}</Ltr>],
-    [t('correction.patientBefore'), <Ltr>{formatMoney(entry.patientAmountOld)}</Ltr>],
-    [t('correction.patientAfter'), <Ltr>{formatMoney(entry.patientAmountNew)}</Ltr>],
+    [t('correction.netAmount'), <Ltr>{formatMoney3(entry.netAmount)}</Ltr>],
+    [t('correction.patientBefore'), <Ltr>{formatMoney3(entry.patientAmountOld)}</Ltr>],
+    [t('correction.patientAfter'), <Ltr>{formatMoney3(entry.patientAmountNew)}</Ltr>],
     // A pair led by a machine value: the code and its name, isolated once.
     [t('correction.reason'), <Ltr>{reasonName ? formatPair(entry.reasonCode, reasonName) : entry.reasonCode}</Ltr>],
     ...(entry.reasonNote ? ([[t('correction.note'), <bdi>{entry.reasonNote}</bdi>]] as [string, ReactNode][]) : []),
@@ -189,10 +189,10 @@ function Correction({ entry, lang }: { entry: CorrectionRegisterEntry; lang: str
                   <bdi>{line.description}</bdi>
                 </td>
                 <td className={`${TD} text-end`}>
-                  <Ltr>{formatMoney(line.patientAmountOld)}</Ltr>
+                  <Ltr>{formatMoney3(line.patientAmountOld)}</Ltr>
                 </td>
                 <td className={`${TD} text-end`}>
-                  <Ltr>{formatMoney(line.patientAmountNew)}</Ltr>
+                  <Ltr>{formatMoney3(line.patientAmountNew)}</Ltr>
                 </td>
                 <td className={TD}>
                   <span className="flex flex-wrap items-center gap-1">

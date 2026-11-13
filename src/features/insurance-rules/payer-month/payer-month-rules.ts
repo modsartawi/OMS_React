@@ -8,6 +8,7 @@ import type {
   PayerMonthAuditEntry,
   PayerMonthRow,
 } from '@/core/models/insurance-payer-month'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 
 // ---- the reason -----------------------------------------------------------------------------------------------
@@ -22,9 +23,10 @@ export interface ReasonMeter {
   blank: boolean
 }
 
-/** What the field shows under itself. Counted as typed — the server trims, so a trailing space is the user's. */
+/** What the field shows under itself. Counted TRIMMED, as the ledger counts it (it trims, then bounds). */
 export function reasonMeter(reason: string): ReasonMeter {
-  return { length: reason.length, max: REASON_MAX, over: reason.length > REASON_MAX, blank: reason.trim() === '' }
+  const length = reason.trim().length
+  return { length, max: REASON_MAX, over: length > REASON_MAX, blank: length === 0 }
 }
 
 /** What an act is about. Close all carries the count it states, read from the activity list. */
@@ -58,7 +60,7 @@ export function rowState(row: PayerMonthRow): 'closed' | 'reopened' | 'open' {
 }
 
 /** The row's action and the corrections count it carries (1639: closing is a review, not a button). */
-export const closeAction = (row: PayerMonthRow) => ({ act: rowAct(row), corrections: row.correctionCount ?? 0 })
+export const closeAction = (row: PayerMonthRow) => ({ act: rowAct(row), corrections: row.correctionCount })
 
 const samePayer = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase()
 
@@ -89,7 +91,7 @@ export function closeAllOffer(view: { activity: boolean; rows: readonly PayerMon
   return {
     count: view.rows.length,
     alreadyClosed: view.rows.filter((r) => r.isClosed).length,
-    corrections: view.rows.reduce((sum, r) => sum + (r.correctionCount ?? 0), 0),
+    corrections: view.rows.reduce((sum, r) => sum + r.correctionCount, 0),
   }
 }
 
@@ -142,6 +144,11 @@ export const periodText = (p: Period): string => `${String(p.year).padStart(4, '
 export function periodToParams(period: Period): URLSearchParams {
   return new URLSearchParams({ year: String(period.year), month: String(period.month) })
 }
+
+// ---- counts ---------------------------------------------------------------------------------------------------
+
+/** A count for a plural `t()` sentence: `count` picks the form, `n` is what the template shows, isolated (bidi). */
+export const counted = (count: number) => ({ count, n: fsi(count) })
 
 // ---- refusals -------------------------------------------------------------------------------------------------
 

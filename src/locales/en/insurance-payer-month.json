@@ -10,8 +10,7 @@
   },
   "period": {
     "year": "Year",
-    "month": "Month",
-    "label": "Payer month"
+    "month": "Month"
   },
   "list": {
     "showActivity": "Show payers with activity",
@@ -25,8 +24,8 @@
     "emptyLedger": "No payer has been closed or corrected in {{period}} yet. Show payers with activity to close the month.",
     "emptyActivity": "No payer had sales in {{period}}.",
     "failed": "Couldn't read the month",
-    "count_one": "{{count}} payer",
-    "count_other": "{{count}} payers"
+    "count_one": "{{n}} payer",
+    "count_other": "{{n}} payers"
   },
   "col": {
     "payer": "Payer",
@@ -46,13 +45,13 @@
     "reopen": "Reopen",
     "details": "History",
     "detailsLabel": "History and corrections of {{payer}}",
-    "correctionsOnClose_one": "{{count}} correction to review before closing",
-    "correctionsOnClose_other": "{{count}} corrections to review before closing",
+    "correctionsOnClose_one": "{{n}} correction to review before closing",
+    "correctionsOnClose_other": "{{n}} corrections to review before closing",
     "lastActBy": "by {{actor}}"
   },
   "closeAll": {
-    "button_one": "Close all · {{count}} payer",
-    "button_other": "Close all · {{count}} payers",
+    "button_one": "Close all · {{n}} payer",
+    "button_other": "Close all · {{n}} payers",
     "notOffered": "Show payers with activity first: Close all closes that list."
   },
   "dialog": {
@@ -61,12 +60,12 @@
     "closeAllTitle": "Close the whole month",
     "closeBody": "Close {{payer}} for {{period}}. Tills will refuse insurance returns and corrections for it.",
     "reopenBody": "Reopen {{payer}} for {{period}}. Tills will accept returns and corrections for it again.",
-    "closeAllBody_one": "Close {{count}} payer for {{period}}, in one act. Tills will refuse insurance returns and corrections for it.",
-    "closeAllBody_other": "Close {{count}} payers for {{period}}, in one act. Tills will refuse insurance returns and corrections for them.",
-    "alreadyClosed_one": "{{count}} of them is already closed; its close is recorded again.",
-    "alreadyClosed_other": "{{count}} of them are already closed; their close is recorded again.",
-    "corrections_one": "This month carries {{count}} correction. Read it under History before you close.",
-    "corrections_other": "This month carries {{count}} corrections. Read them under History before you close.",
+    "closeAllBody_one": "Close {{n}} payer for {{period}}, in one act. Tills will refuse insurance returns and corrections for it.",
+    "closeAllBody_other": "Close {{n}} payers for {{period}}, in one act. Tills will refuse insurance returns and corrections for them.",
+    "alreadyClosed_one": "{{n}} of them is already closed; its close is recorded again.",
+    "alreadyClosed_other": "{{n}} of them are already closed; their close is recorded again.",
+    "corrections_one": "This month carries {{n}} correction. Read it under History before you close.",
+    "corrections_other": "This month carries {{n}} corrections. Read them under History before you close.",
     "reason": "Reason",
     "reasonPlaceholder": "Why — this is the answer to the question the payer will ask.",
     "reasonRequired": "A reason is required.",
@@ -80,8 +79,8 @@
   "done": {
     "closed": "Month closed",
     "reopened": "Month reopened",
-    "closedAll_one": "{{count}} payer closed",
-    "closedAll_other": "{{count}} payers closed"
+    "closedAll_one": "{{n}} payer closed",
+    "closedAll_other": "{{n}} payers closed"
   },
   "refusal": {
     "INS-16261": "The payer is missing.",

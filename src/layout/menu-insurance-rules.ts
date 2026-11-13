@@ -278,7 +278,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       access: {
         key: PAYER_MONTH_ACCESS_KEY,
         run: () => payerMonthAccessApi.access(),
-        visible: canManagePayerMonths as (data: unknown) => boolean,
+        visible: (data) => canManagePayerMonths(data as Parameters<typeof canManagePayerMonths>[0]),
       },
     },
   ],

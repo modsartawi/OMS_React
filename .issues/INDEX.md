@@ -1473,7 +1473,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Insurance payer-month close (BackOffice spec 1623), filed 2026-11-12
 
-- [896](896-the-insurance-team-closes-reopens-and-audits-a-payer-month.md) — The insurance team closes, reopens and audits a payer month from the web · *(ticket · BackOffice spec 1623)* · **open** · blocked by: —
+- [896](896-the-insurance-team-closes-reopens-and-audits-a-payer-month.md) — The insurance team closes, reopens and audits a payer month from the web · *(ticket · BackOffice spec 1623)* · **open** (built, stubbed; staging walk owed) · blocked by: —
 
 ## Copilot analysis walk (BackOffice 3629), filed 2026-11-12
 

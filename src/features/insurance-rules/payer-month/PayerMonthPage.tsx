@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -27,6 +27,7 @@ import PayerSheet from './PayerSheet'
 import {
   closeAction,
   closeAllOffer,
+  counted,
   mergeRow,
   periodFromParams,
   periodText,
@@ -49,9 +50,6 @@ import {
  * One grant for the whole screen (`InsurancePayerMonthWeb/Access`, D36). The gate below hides; the server's grant
  * filter on every door refuses.
  */
-const PERIOD_FROM = (params: URLSearchParams) => periodFromParams(params)
-const PERIOD_TO = periodToParams
-
 const STATE_SEV: Record<ReturnType<typeof rowState>, Severity> = { closed: 'ok', reopened: 'warn', open: 'mute' }
 
 export default function PayerMonthPage() {
@@ -72,7 +70,7 @@ export default function PayerMonthPage() {
 function PayerMonthBody() {
   const { t, i18n } = useTranslation('insurance-payer-month')
   const queryClient = useQueryClient()
-  const { query: period, update } = useUrlQuery<Period>(PERIOD_FROM, PERIOD_TO)
+  const { query: period, update } = useUrlQuery<Period>(periodFromParams, periodToParams)
   const { year, month } = period
   const periodValue = periodText(period)
 
@@ -80,6 +78,11 @@ function PayerMonthBody() {
   // is per month, and pressing for one month must not scan the next one the user looks at.
   const [activityFor, setActivityFor] = useState<string | null>(null)
   const showingActivity = activityFor === periodValue
+  // Leaving the month forgets the press, so coming back to it (by the pickers or by back/forward) opens on the
+  // ledger again and never re-scans on its own.
+  useEffect(() => {
+    setActivityFor((prev) => (prev === periodValue ? prev : null))
+  }, [periodValue])
 
   const ledger = useQuery({
     queryKey: monthKey(year, month, false),
@@ -96,8 +99,11 @@ function PayerMonthBody() {
     retry: false,
   })
 
-  const shown = showingActivity ? activity : ledger
+  // While the scan runs the ledger stays on screen; the activity list replaces it once it has answered.
+  const viewingActivity = showingActivity && activity.data !== undefined
+  const shown = viewingActivity ? activity : ledger
   const rows = shown.data
+  const activityFailed = showingActivity && activity.isError
   const offer = closeAllOffer({ activity: showingActivity && activity.isSuccess, rows: activity.data })
 
   const onShowActivity = () => {
@@ -118,10 +124,10 @@ function PayerMonthBody() {
       setTarget(null)
       const at = fsi(periodText(tgt))
       if (done.kind === 'closeAll') {
-        // The server's own answer IS the month's resulting list (its rows, re-derived) — the activity view shows
-        // it without scanning the month's sales again; the ledger read re-reads.
-        queryClient.setQueryData(monthKey(tgt.year, tgt.month, true), done.answer.payers ?? [])
-        toast.success(t('done.closedAll', { count: done.answer.closedCount }), { description: at })
+        // The list re-reads (ticket Proof): the activity read too, because close-all's own answer omits a payer
+        // with only a correction, which the month read lists. One more scan, after a deliberate month-end only.
+        void queryClient.invalidateQueries({ queryKey: monthKey(tgt.year, tgt.month, true) })
+        toast.success(t('done.closedAll', counted(done.answer.closedCount)), { description: at })
       } else {
         const row = done.answer
         queryClient.setQueryData<PayerMonthRow[]>(monthKey(tgt.year, tgt.month, true), (prev) => (prev ? mergeRow(prev, row) : prev))
@@ -145,13 +151,18 @@ function PayerMonthBody() {
     const name = new Intl.DateTimeFormat(i18n.language, { month: 'long' })
     return Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: name.format(new Date(2000, i, 1)) }))
   }, [i18n.language])
+  // The field holds what is typed; the period takes it only once it is a year, so "202" on the way to "2025"
+  // is kept as typed rather than snapped back.
+  const [yearDraft, setYearDraft] = useState(String(year))
+  useEffect(() => setYearDraft(String(year)), [year])
   const setYear = (value: string) => {
+    setYearDraft(value)
     const y = Number(value)
     if (Number.isInteger(y) && y >= 2000 && y <= 9999) update((p) => ({ ...p, year: y }))
   }
 
-  const reading = shown.isFetching
-  const emptyKey = showingActivity ? 'list.emptyActivity' : 'list.emptyLedger'
+  const reading = ledger.isFetching || activity.isFetching
+  const emptyKey = viewingActivity ? 'list.emptyActivity' : 'list.emptyLedger'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -161,8 +172,9 @@ function PayerMonthBody() {
             type="number"
             min={2000}
             max={9999}
-            value={year}
+            value={yearDraft}
             onChange={(e) => setYear(e.target.value)}
+            onBlur={() => setYearDraft(String(year))}
             dir="ltr"
             data-testid="payer-month-year"
           />
@@ -195,7 +207,7 @@ function PayerMonthBody() {
             data-testid="payer-month-close-all"
           >
             <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
-            {t('closeAll.button', { count: offer.count })}
+            {t('closeAll.button', counted(offer.count))}
           </Button>
         ) : (
           !showingActivity && <span className="text-xs text-muted-foreground">{t('closeAll.notOffered')}</span>
@@ -203,18 +215,21 @@ function PayerMonthBody() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="payer-month-caption">
-        <span>{t(showingActivity ? 'list.activityCaption' : 'list.ledgerCaption')}</span>
-        {rows && <span>{t('list.count', { count: rows.length })}</span>}
+        <span>{t(viewingActivity ? 'list.activityCaption' : 'list.ledgerCaption')}</span>
+        {rows && <span>{t('list.count', counted(rows.length))}</span>}
         {reading ? (
           <span className="flex items-center gap-1" role="status">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            {t(showingActivity ? 'list.readingActivity' : 'list.reading')}
+            {t(activity.isFetching ? 'list.readingActivity' : 'list.reading')}
           </span>
         ) : (
           shown.dataUpdatedAt > 0 && <span>{t('list.loadedAt', { time: fsi(formatClock(shown.dataUpdatedAt)) })}</span>
         )}
       </div>
 
+      {activityFailed && (
+        <ErrorBanner title={t('list.failed')} message={apiErrorMessage(activity.error, t('list.failed'))} className="p-3" />
+      )}
       {shown.isError ? (
         <ErrorBanner title={t('list.failed')} message={apiErrorMessage(shown.error, t('list.failed'))} className="p-3" />
       ) : rows && rows.length === 0 ? (
@@ -287,7 +302,7 @@ function PayerRow({ row, onAct, onDetails }: { row: PayerMonthRow; onAct: (kind:
         <bdi>{row.lastActionReason}</bdi>
       </td>
       <td className={`${TD} text-end`} data-testid="payer-month-row-corrections">
-        <Ltr>{row.correctionCount ?? 0}</Ltr>
+        <Ltr>{row.correctionCount}</Ltr>
       </td>
       <td className={`${TD} text-end`}>
         <span className="inline-flex items-center gap-1">
@@ -305,7 +320,7 @@ function PayerRow({ row, onAct, onDetails }: { row: PayerMonthRow; onAct: (kind:
               variant="danger"
               onClick={() => onAct('close')}
               // The corrections count rides the close action (BackOffice 1639): closing is a review.
-              title={action.corrections > 0 ? t('row.correctionsOnClose', { count: action.corrections }) : undefined}
+              title={action.corrections > 0 ? t('row.correctionsOnClose', counted(action.corrections)) : undefined}
               data-testid="payer-month-close"
             >
               <Lock className="h-3.5 w-3.5" aria-hidden />

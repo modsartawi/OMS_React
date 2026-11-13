@@ -69,6 +69,7 @@
       "empty": "This authorization has no approval number, so there is nothing to release.",
       "noGrant": "You can see this authorization, but releasing an approval number needs a grant you do not hold."
     },
+    "undispenseLink": "Open it on the Undispense page",
     "dispensedUnknown": "This page cannot see whether the authorization is dispensed. If it is, the release will be refused."
   },
   "dialog": {

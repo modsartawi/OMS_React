@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { SearchX, Unlock } from 'lucide-react'
@@ -194,6 +194,19 @@ function ReleaseBody() {
               offer.reason && (
                 <p className="text-sm text-muted-foreground" data-testid="release-withheld">
                   {t(`act.withheld.${offer.reason}`)}
+                  {/* "Undispense it first" goes where that is done (ticket 898), on this id. */}
+                  {offer.reason === 'dispensed' && (
+                    <>
+                      {' '}
+                      <Link
+                        to={`/nphies/undispense?authId=${encodeURIComponent(authId)}`}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                        data-testid="release-undispense-link"
+                      >
+                        {t('act.undispenseLink')}
+                      </Link>
+                    </>
+                  )}
                 </p>
               )
             )}

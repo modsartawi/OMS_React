@@ -25,6 +25,9 @@ import authorizations from '@/locales/en/authorizations.json'
 // (the two older Nphies namespaces are English only).
 import approvalRelease from '@/locales/en/approval-release.json'
 import approvalReleaseAr from '@/locales/ar/approval-release.json'
+// Undispense (ticket 898, BackOffice spec 3208): EN + AR, as the release page.
+import undispense from '@/locales/en/undispense.json'
+import undispenseAr from '@/locales/ar/undispense.json'
 // 🚩 `loy`, not `member` — a DELIBERATE deviation from "namespace == feature
 // name" (spec 231, ticket 233). The feature is `member` under the new `loy`
 // area, and `member` is too generic a name for a global namespace.
@@ -243,7 +246,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -266,6 +269,7 @@ i18n.use(initReactI18next).init({
       eligibility,
       authorizations,
       'approval-release': approvalRelease,
+      undispense,
       loy,
       collection,
       settlement,
@@ -324,6 +328,7 @@ i18n.use(initReactI18next).init({
     },
     ar: {
       'approval-release': approvalReleaseAr,
+      undispense: undispenseAr,
       deliveries: deliveriesAr,
       orders: ordersAr,
       document: documentAr,

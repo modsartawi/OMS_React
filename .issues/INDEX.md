@@ -1481,4 +1481,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Nphies undispense (BackOffice 3208), filed 2026-11-13
 
-- [898](898-the-undispense-page-lists-pending-and-failed-undispenses-retries-them-and-frees-a-returned-authorization.md) — The Undispense page lists pending and failed undispenses, retries them, and frees a returned authorization · *(ticket · BackOffice spec 3208)* · **open** · blocked by: BO 3725
+- [898](898-the-undispense-page-lists-pending-and-failed-undispenses-retries-them-and-frees-a-returned-authorization.md) — The Undispense page lists pending and failed undispenses, retries them, and frees a returned authorization · *(ticket · BackOffice spec 3208)* · **open** — built 2026-11-13, stubbed (drive 46/46); BO 3727's walk owed · blocked by: BO 3725 (done)

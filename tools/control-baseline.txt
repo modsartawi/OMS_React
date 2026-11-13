@@ -241,6 +241,8 @@ nphies/authorizations 0
 
 nphies/eligibility 0
 
+nphies/undispense 0
+
 oms/central-invoice 1
   src/features/oms/central-invoice/list-columns.tsx button: grid-cell action (Serials opens the packs dialog; spec 590: restyled in place)
 

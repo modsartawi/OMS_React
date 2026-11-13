@@ -134,6 +134,7 @@ import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } fr
 // The copilot's house rules (ticket 790): the SAME probe key, call and options the top-bar button reads, so one call.
 import { COPILOT_ACCESS_KEY, canCurateCopilot, copilotAccessApi } from '@/features/copilot/access'
 import { ScrollText } from 'lucide-react'
+import { Undo2 } from 'lucide-react'
 import { FileCog } from 'lucide-react'
 import { Workflow } from 'lucide-react'
 import { Radio } from 'lucide-react'
@@ -902,6 +903,18 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'approval-release:menu.release',
         icon: Unlock,
         routerLink: '/nphies/approval-release',
+        access: accessProbe({
+          key: NPHIES_ACCESS_KEY,
+          run: () => nphiesAccessApi.access(),
+          visible: (r) => r.canOpenNphies === true,
+        }),
+      },
+      {
+        // Undispense (ticket 898, BackOffice spec 3208 Q7). The list reads under the Nphies grant,
+        // so the leaf shows on it alone; `canUndispense` only shows Retry and the manual act.
+        labelKey: 'undispense:menu.undispense',
+        icon: Undo2,
+        routerLink: '/nphies/undispense',
         access: accessProbe({
           key: NPHIES_ACCESS_KEY,
           run: () => nphiesAccessApi.access(),

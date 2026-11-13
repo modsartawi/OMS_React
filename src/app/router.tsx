@@ -656,6 +656,15 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Undispense (898, BackOffice spec 3208) — the queue of pending and failed undispenses,
+        // Retry, and the manual undispense of a fully returned authorization. `?authId=` is the
+        // link from the release page's "undispense it first".
+        path: 'nphies/undispense',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/undispense/UndispensePage')).default,
+        }),
+      },
+      {
         // One authorization as its own page (216) — a ROUTE, not a modal, so it
         // survives a refresh and can be linked to, and it is opened from the
         // list's own Open column. It is where the payer's per-line reasons and

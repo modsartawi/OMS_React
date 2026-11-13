@@ -24,6 +24,12 @@ export interface NphiesAccessResult {
    * reads as "no".
    */
   canReleaseApprovalNumber?: boolean
+  /**
+   * Contract 1.2 (BackOffice 3208/3725): true only with BOTH the Nphies grant and the undispense
+   * grant (`BackOfficeScreen[NphiesUndispense,03]`). It shows or hides Retry and the manual
+   * Undispense, nothing more: the two POSTs' own filter is the gate. Absent (a 1.0/1.1 door) is "no".
+   */
+  canUndispense?: boolean
 }
 
 /**
@@ -61,6 +67,59 @@ export interface NphiesApprovalNumberReleased {
   before: string
   after: string
   release: NphiesApprovalRelease
+}
+
+/** An undispense request's state (contract 1.2 §1.1 #19): pending = the worker's, failed = three
+ *  attempts spent (Retry makes it pending again), done = sent, never sent again. */
+export type NphiesUndispenseState = 'pending' | 'failed' | 'done'
+
+/**
+ * One undispense request (contract 1.2 §1.1 rows 19–21) — SIS.Api's `NphiesUndispenseRow`, read
+ * field by field 2026-11-13 from `Sartawi.Retail.Data\Modules\Nphies\Undispense\NphiesUndispenseDesk.cs`.
+ *
+ * `id` is a ULID string. Times are HQ local wall clock with no offset; unset ones are `null`.
+ * `requestedByName` is empty from a till (`origin: return`) and repeats `requestedBy` from the door.
+ */
+export interface NphiesUndispenseRequest {
+  id: string
+  authId: string
+  storeCode: string
+  returnTransactionId: string
+  /** `return` | `support` | `callcenter`. */
+  origin: string
+  requestedBy: string
+  requestedByName: string
+  note: string
+  state: NphiesUndispenseState
+  attempts: number
+  /** The last error; on a done row, the service's note when there was one. */
+  lastError: string | null
+  addedTime: string
+  processedTime: string | null
+  lastAttemptTime: string | null
+  retriedBy: string | null
+  retriedTime: string | null
+}
+
+/** `GET Nphies/Undispense` answer: newest first, at most 500; `truncated` = more matched. */
+export interface NphiesUndispenseList {
+  items: NphiesUndispenseRequest[]
+  truncated: boolean
+  contractVersion?: string
+}
+
+/** The answer of Retry and of the manual undispense: the queue row. `created: false` on the manual
+ *  undispense = it collapsed onto the row already queued for that authorization and return. */
+export interface NphiesUndispenseQueued {
+  request: NphiesUndispenseRequest | null
+  created: boolean
+  contractVersion?: string
+}
+
+/** `POST Nphies/Auth/{authId}/Undispense` body. The note alone: who, origin and the return are the
+ *  server's (contract 1.2 §1.3). */
+export interface NphiesUndispenseNoteRequest {
+  note: string
 }
 
 /**

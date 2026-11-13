@@ -1,0 +1,105 @@
+{
+  "menu": {
+    "undispense": "Undispense"
+  },
+  "title": "Undispense",
+  "subtitle": "Undispenses waiting to be sent or failed, so a returned authorization can be dispensed at another store. Retry a failed one, or undispense one authorization whose invoice is fully returned.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Nphies",
+    "deniedHint": "Your account does not have access to the Nphies screens. Ask an administrator to grant it.",
+    "unreachableTitle": "Could not check your access",
+    "unreachableHint": "The access check did not answer. Try again in a moment."
+  },
+  "state": {
+    "pending": "Pending",
+    "failed": "Failed",
+    "done": "Done"
+  },
+  "origin": {
+    "return": "Till return",
+    "support": "Support",
+    "callcenter": "Call center"
+  },
+  "filters": {
+    "state": "State",
+    "allStates": "All states",
+    "store": "Store",
+    "from": "Added from",
+    "to": "Added to",
+    "authId": "Authorization",
+    "search": "Search",
+    "reset": "Reset"
+  },
+  "list": {
+    "loading": "Reading the undispenses…",
+    "failed": "The undispenses could not be read. Try again in a moment.",
+    "count_one": "{{formatted}} undispense",
+    "count_other": "{{formatted}} undispenses",
+    "loadedAt": "Loaded at {{at}}",
+    "refresh": "Refresh",
+    "truncated": "Only the newest 500 are shown. Narrow the filters to see the rest.",
+    "retry": "Retry",
+    "empty": {
+      "title": "Nothing here",
+      "hint": "No undispense matches these filters."
+    },
+    "columns": {
+      "authId": "Authorization",
+      "state": "State",
+      "store": "Store",
+      "return": "Return",
+      "origin": "Origin",
+      "who": "Who",
+      "attempts": "Attempts",
+      "lastError": "Last message",
+      "note": "Note",
+      "addedTime": "Added",
+      "processedTime": "Processed",
+      "retriedBy": "Retried",
+      "acts": "Actions"
+    }
+  },
+  "retry": {
+    "inFlight": "Retrying the undispense of {{authId}}…",
+    "done": "Sent back to the queue",
+    "doneDetail": "The undispense of {{authId}} is pending again and will be sent shortly.",
+    "refused": "The retry was refused"
+  },
+  "manual": {
+    "label": "Undispense one authorization",
+    "hint": "Only when its invoice is fully returned, on either till.",
+    "placeholder": "The authorization Id, exactly",
+    "open": "Undispense…",
+    "outcome": {
+      "queued": "Undispense queued",
+      "queuedDetail": "The undispense of {{authId}} is queued and will be sent shortly.",
+      "alreadyPending": "Already queued",
+      "alreadyPendingDetail": "An undispense of {{authId}} for this return is already waiting to be sent. Nothing new was queued.",
+      "alreadyFailed": "Already queued, and it failed",
+      "alreadyFailedDetail": "An undispense of {{authId}} for this return already exists and failed. Retry it from the list.",
+      "alreadyDone": "Already undispensed",
+      "alreadyDoneDetail": "{{authId}} was already undispensed for this return. Nothing new was queued."
+    }
+  },
+  "dialog": {
+    "title": "Undispense authorization",
+    "body": "Undispense authorization {{authId}}? Its dispensed mark is cleared, so another store can dispense it. Your name and the note are recorded.",
+    "note": "Note",
+    "notePlaceholder": "Why is this authorization being undispensed?",
+    "noteRequired": "Type a note first — every undispense is logged with its reason.",
+    "back": "Back",
+    "confirm": "Undispense",
+    "refused": "The undispense was refused"
+  },
+  "refusals": {
+    "authNotFound": "No authorization has this Id.",
+    "invoiceNotFound": "Head office holds no completed sale under this authorization, so it cannot be undispensed here.",
+    "notFullyReturned": "The invoice is not fully returned. Every item of the sale must be returned before the authorization can be undispensed.",
+    "noteRequired": "A note is required to undispense an authorization.",
+    "noGrant": "You do not hold the grant to undispense. Ask an administrator.",
+    "retryNotFound": "This undispense no longer exists. The list has been refreshed.",
+    "retryNotFailed": "This undispense is not failed any more — it is pending or done. The list has been refreshed.",
+    "stateInvalid": "The state filter was not understood. Reset the filters and try again."
+  }
+}

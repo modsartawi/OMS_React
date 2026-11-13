@@ -801,8 +801,76 @@ async function openReport(dir) {
   await context.close()
 }
 
+// ── Scenario "analysis-table" (ticket 897, BackOffice spec 3587) ──
+// An analysis result's table (one with a `title`, BackOffice 3621) as the real grid draws it. In LTR and RTL:
+//   a. a money column's cell reads as a query table's money cell does — `SAR 25,011,888.87`, the sign kept on a negative;
+//   b. the share column (`percent`) reads exactly as sent, `62.0%`;
+//   c. a header click on the money column sorts it by number — the negatives below the positives;
+//   d. no page errors.
+const ANALYSIS = {
+  ...ANSWER,
+  answer: 'Sales fell in Riyadh.',
+  orderRefs: [],
+  trace: [{ tool: 'what_changed', input: { measure: 'net_till_value_sar' }, rows: 3, ms: 200, ok: true }],
+  tables: [
+    {
+      step: 0,
+      title: { en: 'City', ar: 'المدينة' },
+      columns: [
+        { key: 'city', role: 'dimension', label: { en: 'City', ar: 'المدينة' }, unit: null, shape: null, dateBasis: null, calculation: null, variant: null },
+        { key: 'change', role: 'measure', label: { en: 'Change', ar: 'التغيّر' }, unit: 'SAR', shape: 'additive', dateBasis: null, calculation: null, variant: null },
+        { key: 'share', role: 'measure', label: { en: 'Share of the change', ar: 'الحصة من التغيّر' }, unit: 'percent', shape: 'rate', dateBasis: null, calculation: null, variant: null },
+      ],
+      rows: [
+        { values: ['Riyadh', '-1883288.19', '62.0%'], isTotal: null },
+        { values: ['Jeddah', '25011888.87', '-3.0%'], isTotal: null },
+        { values: ['Abha', '-90.5', '9.5%'], isTotal: null },
+      ],
+      total: 3,
+      truncated: false,
+      periodFrom: '2026-11-03',
+      periodTo: '2026-11-09',
+      previous: null,
+      previousFrom: '2026-10-27',
+      previousTo: '2026-11-02',
+      dataAsOf: '2026-11-12T08:00:00',
+      notes: { untilReached: null, untilReachedByParent: null, notSplit: null, notFiltered: null, dataGap: null },
+      query: {},
+    },
+  ],
+}
+
+async function analysisTable(dir) {
+  const label = `${dir}: analysis-table`
+  const { context, page, errors } = await open(dir, { onAsk: async () => envelope(ANALYSIS) })
+  await page.goto(`${BASE}/`)
+  await button(page).waitFor({ timeout: 20000 })
+  await button(page).click()
+  const sheet = page.locator('dialog[data-copilot-sheet]')
+  await sheet.locator('[data-copilot-question]').fill('Why did sales fall last week?')
+  await sheet.locator('[data-copilot-send]').click()
+  const table = sheet.locator('[data-copilot-table]').first()
+  await table.locator('.ag-row').first().waitFor({ timeout: 15000 })
+  const column = (key) => table.locator(`.ag-row .ag-cell[col-id="${key}"]`).evaluateAll((cs) => cs.sort((a, b) => Number(a.closest(".ag-row").getAttribute("row-index")) - Number(b.closest(".ag-row").getAttribute("row-index"))).map((c) => c.textContent ?? ""))
+  const norm = (xs) => xs.map((x) => x.replace(/[\s⁦-⁩]+/g, ' ').trim())
+  const money = norm(await column('change'))
+  check(`${label} — a money cell reads with its currency and separators, its sign kept`, JSON.stringify(money) === JSON.stringify(['-SAR 1,883,288.19', 'SAR 25,011,888.87', '-SAR 90.50']), JSON.stringify(money))
+  const share = norm(await column('share'))
+  check(`${label} — the share reads exactly as sent`, JSON.stringify(share) === JSON.stringify(['62.0%', '-3.0%', '9.5%']), JSON.stringify(share))
+  await table.locator('.ag-header-cell[col-id="change"] .ag-header-cell-label').click()
+  await page.waitForTimeout(300)
+  const sortedRows = await table.locator(".ag-row").evaluateAll((rows) =>
+    rows.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((r) => r.querySelector('[col-id="change"]')?.textContent?.replace(/[\s⁦-⁩]+/g, ' ').trim()),
+  )
+  check(`${label} — a header click sorts by number, the negatives below the positives`, JSON.stringify(sortedRows) === JSON.stringify(['-SAR 1,883,288.19', '-SAR 90.50', 'SAR 25,011,888.87']), JSON.stringify(sortedRows))
+  check(`${label} — no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
 const SCENARIOS = [
+  ['analysis-table', () => analysisTable('ltr')],
+  ['analysis-table', () => analysisTable('rtl')],
   ['open-view', () => openView('ltr')],
   ['open-view', () => openView('rtl')],
   ['open-report', () => openReport('ltr')],

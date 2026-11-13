@@ -1,4 +1,4 @@
-import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
+import type { AnalyticsDimension, AnalyticsLabel, AnalyticsMeasure, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition, MeasureUnit } from '@/core/models/analytics'
 import { IS_TOTAL_KEY } from '@/core/models/analytics-calculations'
 import type { CopilotAnswerTable, CopilotTableRow } from '@/core/models/copilot'
 import { saysIn } from '@/core/rules/sentence'
@@ -42,29 +42,60 @@ export const isAnalysisTable = (table: CopilotAnswerTable): boolean => table.tit
  * named as on any table (the model's label for an inline value, else the member itself). No comparison column: the
  * tool's own columns already hold the figures it compared.
  */
-function sentTable(table: CopilotAnswerTable, model: AnalyticsModel, lang: string, words: TableWords): PanelTable {
+function sentTable(table: CopilotAnswerTable, model: AnalyticsModel, lang: string, words: TableWords, byUnit = false): PanelTable {
   const columns = table.columns ?? []
   const members = new Map(
     columns
       .filter((c) => c.role === 'dimension')
       .map((c) => [c.key, new Map(dimensionOf(model, c.key)?.values.map((v) => [v.key, saysIn(v.label, lang)]) ?? [])] as const),
   )
+  const rows = table.rows ?? []
+  // 897: the measure columns the table form formats by their unit, on the screen only.
+  const formatted = columns.map((c, i) => (byUnit && c.role !== 'dimension' ? unitOfSent(c.unit, rows.map((r) => r.values?.[i] ?? null)) : null))
   return {
-    columns: columns.map((c) =>
-      c.role === 'dimension'
-        ? { key: c.key, role: 'dimension' as const, label: saysIn(c.label, lang) || c.key }
-        : { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, asSent: true },
-    ),
-    rows: (table.rows ?? []).map((r) => {
+    columns: columns.map((c, i) => {
+      if (c.role === 'dimension') return { key: c.key, role: 'dimension' as const, label: saysIn(c.label, lang) || c.key }
+      const unit = formatted[i]
+      // No `max`: a cell bar's width would be a figure the panel worked out.
+      return unit ? { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, unit } : { key: c.key, role: 'measure' as const, label: saysIn(c.label, lang) || c.key, asSent: true }
+    }),
+    rows: rows.map((r) => {
       const out: Record<string, string | number | null> = {}
       columns.forEach((c, i) => {
         const v = r.values?.[i] ?? null
-        if (c.role !== 'dimension') out[c.key] = v
+        if (c.role !== 'dimension') out[c.key] = formatted[i] && v != null ? Number(v) : v
         else out[c.key] = v == null ? (r.isTotal === true ? (words.all ?? '') : '') : members.get(c.key)?.get(v) || v
       })
       return out
     }),
   }
+}
+
+/**
+ * 897 (BackOffice spec 3587): the decimals the table form shows a unit with (`@/core/charts/format`), for the units it
+ * formats an analysis table's figures by — money with its currency and separators, a count with separators. A percent
+ * and a share stay as sent (the server writes them "62.0%"), and so does a column with no unit, or one this map lacks.
+ */
+const SHOWN_DECIMALS: Partial<Record<MeasureUnit, number>> = { SAR: 2, count: 0, minutes: 1, seconds: 0, km: 1 }
+
+/** A plain invariant number as the wire writes it: `-1883288.19`, `3000` — no exponent, no separator, no symbol. */
+const PLAIN_NUMBER = /^-?\d+(?:\.(\d+))?$/
+
+/**
+ * The unit an analysis column's figures are formatted by (897), or null to show the column as sent. A column is
+ * formatted only when every figure in it is a plain number its unit shows to its last decimal: the panel never shows a
+ * figure rounded differently from the server's, so a column with one that would round, or one that is not a number,
+ * reads as sent, whole.
+ */
+function unitOfSent(unit: string | null | undefined, cells: readonly (string | null)[]): MeasureUnit | null {
+  const decimals = unit ? SHOWN_DECIMALS[unit as MeasureUnit] : undefined
+  if (decimals == null) return null
+  const fits = cells.every((v) => {
+    if (v == null) return true
+    const m = PLAIN_NUMBER.exec(v)
+    return m != null && (m[1] ?? '').replace(/0+$/, '').length <= decimals
+  })
+  return fits ? (unit as MeasureUnit) : null
 }
 
 /** A measure's value: the invariant number text the wire carries, or null. */
@@ -224,7 +255,8 @@ export function copilotTableParts(table: CopilotAnswerTable, model: AnalyticsMod
 /** The table form's view model: every row, as sent, the "All" rows last, headed by the wire's labels. */
 export function copilotTableView(parts: CopilotTableParts, lang: string, words: TableWords): TableView {
   if (parts.sent) {
-    const { columns, rows } = sentTable(parts.sent, parts.model, lang, words)
+    // 897: on screen, a money or count column is formatted by its unit, as a query table's is.
+    const { columns, rows } = sentTable(parts.sent, parts.model, lang, words, true)
     const first = columns.findIndex((c) => c.role === 'dimension')
     const members = parts.sent.rows.map((r) => String((first < 0 ? null : r.values?.[first]) ?? ''))
     return { kind: 'table', columns, rows, members, sort: null, cut: false, empty: rows.length === 0 }
@@ -234,7 +266,8 @@ export function copilotTableView(parts: CopilotTableParts, lang: string, words: 
 
 /** What the CSV and xlsx downloads write (`./panel-table`): every row as sent, the "All" rows last, the wire's headers. */
 export function copilotTableDownload(parts: CopilotTableParts, lang: string, words: TableWords): PanelTable {
-  // 878: an analysis table downloads what it shows — every column and every text as sent, so the file reads as the screen.
+  // 878: an analysis table downloads every column and every text as sent. 897: the screen formats a money or count
+  // column by its unit; the file keeps the server's figures — it is for reading back, not for display.
   if (parts.sent) return sentTable(parts.sent, parts.model, lang, words)
   return panelTable(parts.result, parts.definition, parts.model, lang, words)
 }

@@ -150,25 +150,26 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
       expect(viewOf(byCity, 'ar').columns.map((c) => c.label)).toEqual(['المدينة', 'قبل', 'بعد', 'التغيّر', 'الحصة من التغيّر'])
     })
 
-    it('everyCell_isTheServersText_asSent_neverReformattedOrComputed', () => {
+    it('everyFigure_isTheServers_neverComputed_aMoneyFigureCarriedAsItsNumber_aShareAsItsText', () => {
       const view = viewOf(byCity)
-      // "1500.5" stays "1500.5" (not "SAR 1,500.50"), "62.0%" stays "62.0%", and the order is the server's.
+      // 897: a money column carries the server's number for the table form to format by its unit; "62.0%" stays
+      // "62.0%"; nothing is derived, and the order is the server's.
       expect(view.rows).toEqual([
-        { city: 'Riyadh', before: '3000', after: '2380', change: '-620', share: '62.0%' },
-        { city: 'Jeddah', before: '1500.5', after: '1250.25', change: '-250.25', share: '25.0%' },
-        { city: 'Abha', before: '90', after: '80', change: '-10', share: '9.5%' },
-        { city: 'Dammam', before: '400', after: '430', change: '30', share: '-3.0%' },
+        { city: 'Riyadh', before: 3000, after: 2380, change: -620, share: '62.0%' },
+        { city: 'Jeddah', before: 1500.5, after: 1250.25, change: -250.25, share: '25.0%' },
+        { city: 'Abha', before: 90, after: 80, change: -10, share: '9.5%' },
+        { city: 'Dammam', before: 400, after: 430, change: 30, share: '-3.0%' },
       ])
       expect(view.sort).toBeNull()
       expect(view.cut).toBe(false)
       expect(view.empty).toBe(false)
-      // The same texts under Arabic: a figure is not localised either.
+      // The same under Arabic: a sent text is not localised either.
       expect(viewOf(byCity, 'ar').rows.map((r) => r.share)).toEqual(['62.0%', '25.0%', '9.5%', '-3.0%'])
     })
 
     it('aCellWithNoFigure_staysEmpty', () => {
       const view = viewOf(cut('city', 'City', 'المدينة', [['Tabuk', null, '40', '40', null]]))
-      expect(view.rows).toEqual([{ city: 'Tabuk', before: null, after: '40', change: '40', share: null }])
+      expect(view.rows).toEqual([{ city: 'Tabuk', before: null, after: 40, change: 40, share: null }])
     })
 
     it('aMember_isNamedByTheModel_asOnAnOrdinaryTable', () => {
@@ -196,7 +197,9 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
     // What a header click does: the grid orders the view's rows by the column's own comparator (`tableColumnDefs`).
     const sortedBy = (key: string, direction: 'asc' | 'desc') => {
       const view = viewOf(byCity)
-      const compare = tableColumnDefs(view.columns, view.sort, 'en').find((d) => d.colId === key)!.comparator as unknown as (a: unknown, b: unknown) => number
+      // A column carried as numbers (897) has no comparator of its own: the grid's default orders numbers by value.
+      const own = tableColumnDefs(view.columns, view.sort, 'en').find((d) => d.colId === key)!.comparator as unknown as ((a: unknown, b: unknown) => number) | undefined
+      const compare = own ?? ((a: unknown, b: unknown) => (a as number) - (b as number))
       const rows = [...view.rows].sort((a, b) => compare(a[key], b[key]))
       return (direction === 'asc' ? rows : rows.reverse()).map((r) => `${r.city} ${r[key]}`)
     }
@@ -210,6 +213,108 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
       // As text, "-10" would sort below "-250.25" and "-620".
       expect(sortedBy('change', 'asc')).toEqual(['Riyadh -620', 'Jeddah -250.25', 'Abha -10', 'Dammam 30'])
       expect(sortedBy('before', 'desc')).toEqual(['Riyadh 3000', 'Jeddah 1500.5', 'Dammam 400', 'Abha 90'])
+    })
+  })
+
+  describe("an analysis table's figures are formatted by their unit, as a query table's are (ticket 897)", () => {
+    const defsOf = (t: CopilotAnswerTable, lang = 'en') => {
+      const view = viewOf(t, lang)
+      return { view, defs: tableColumnDefs(view.columns, view.sort, lang) }
+    }
+    /** What a cell reads on screen: the column's formatter over the cell, or the cell itself when it has none. */
+    const shown = (t: CopilotAnswerTable, key: string, row = 0, lang = 'en') => {
+      const { view, defs } = defsOf(t, lang)
+      const format = defs.find((d) => d.colId === key)!.valueFormatter as ((p: { value: unknown }) => string) | undefined
+      const value = view.rows[row][key]
+      return format ? format({ value }) : value
+    }
+    const money = (rows: (string | null)[][]) =>
+      cut('city', 'City', 'المدينة', rows, {
+        columns: [column('city', 'dimension', 'City', 'المدينة'), column('change', 'measure', 'Change', 'التغيّر', 'SAR', 'additive'), column('share', 'measure', 'Share', 'الحصة', 'percent', 'rate')],
+      })
+    /** A plain query's table with one money column: how the panel shows a query's SAR figure today. */
+    const queryMoney = (value: string) =>
+      plain({
+        columns: [column('city', 'dimension', 'City', 'المدينة'), column('net', 'measure', 'Net', 'الصافي', 'SAR', 'additive')],
+        rows: [{ values: ['Riyadh', value], isTotal: null }],
+        query: { measures: ['net'], dimensions: ['city'], filters: [] },
+      })
+
+    it('aMoneyCell_readsAsAQueryTablesMoneyCellOfTheSameValue', () => {
+      const t = money([['Riyadh', '25011888.87', '62.0%']])
+      expect(shown(t, 'change')).toBe(shown(queryMoney('25011888.87'), 'net'))
+      expect(shown(t, 'change')).toMatch(/^SAR\s25,011,888\.87$/)
+      // Under Arabic too: the same text as the query table beside it.
+      expect(shown(t, 'change', 0, 'ar')).toBe(shown(queryMoney('25011888.87'), 'net', 0, 'ar'))
+    })
+
+    it('aNegativeMoneyCell_keepsItsSign_andSortsBelowThePositives', () => {
+      const t = money([
+        ['Riyadh', '-1883288.19', '80.0%'],
+        ['Jeddah', '120000', '-5.0%'],
+        ['Abha', '-90.5', '4.0%'],
+      ])
+      expect(shown(t, 'change')).toBe(shown(queryMoney('-1883288.19'), 'net'))
+      expect(String(shown(t, 'change'))).toMatch(/^-SAR|^SAR\s?-/)
+      const { view, defs } = defsOf(t)
+      // No comparator of its own: the grid orders the numbers by value.
+      expect(defs.find((d) => d.colId === 'change')!.comparator).toBeUndefined()
+      expect(view.rows.map((r) => r.change)).toEqual([-1883288.19, 120000, -90.5])
+      expect([...view.rows].sort((a, b) => (a.change as number) - (b.change as number)).map((r) => r.city)).toEqual(['Riyadh', 'Abha', 'Jeddah'])
+    })
+
+    it('noFigureIsDerived_noBarIsDrawn_andAnEmptyCellStaysEmpty', () => {
+      const t = money([
+        ['Riyadh', '-620', '62.0%'],
+        ['Tabuk', null, null],
+      ])
+      const { view } = defsOf(t)
+      // No cell bar: a bar's width would be a figure the panel worked out.
+      expect(view.columns.find((c) => c.key === 'change')).toEqual({ key: 'change', role: 'measure', label: 'Change', unit: 'SAR' })
+      expect(view.rows[1]).toEqual({ city: 'Tabuk', change: null, share: null })
+      expect(shown(t, 'change', 1)).toBe('')
+    })
+
+    it('aCountCell_readsWithSeparators', () => {
+      const t = cut('city', 'City', 'المدينة', [['Riyadh', '1204567']], {
+        columns: [column('city', 'dimension', 'City', 'المدينة'), column('receipts', 'measure', 'Receipts', 'الإيصالات', 'count', 'additive')],
+      })
+      expect(shown(t, 'receipts')).toBe('1,204,567')
+    })
+
+    it('aPercentColumn_andAColumnWithNoUnit_readExactlyAsSentToday', () => {
+      const t = cut('city', 'City', 'المدينة', [['Riyadh', '62.0%', '1500.5']], {
+        columns: [column('city', 'dimension', 'City', 'المدينة'), column('share', 'measure', 'Share', 'الحصة', 'percent', 'rate'), column('odd', 'measure', 'Odd', 'غريب')],
+      })
+      const { view, defs } = defsOf(t)
+      expect(view.rows[0]).toEqual({ city: 'Riyadh', share: '62.0%', odd: '1500.5' })
+      expect(view.columns.filter((c) => c.role === 'measure').map((c) => c.asSent)).toEqual([true, true])
+      expect(defs.filter((d) => d.colId !== 'city').map((d) => d.valueFormatter)).toEqual([undefined, undefined])
+    })
+
+    it('aColumnItsUnitWouldRound_orThatHoldsAText_staysAsSent', () => {
+      // A count with a fraction, money with a third decimal, a money cell that is not a plain number: the panel never
+      // shows a figure rounded differently from the server's, so the whole column reads as sent.
+      const odd = (unit: string, value: string) =>
+        cut('city', 'City', 'المدينة', [['Riyadh', value], ['Jeddah', '10']], {
+          columns: [column('city', 'dimension', 'City', 'المدينة'), column('x', 'measure', 'X', 'س', unit, 'additive')],
+        })
+      for (const [unit, value] of [['count', '12.5'], ['SAR', '1.005'], ['SAR', 'SAR 3,000'], ['SAR', '1e3'], ['SAR', '0x10']] as const) {
+        const view = viewOf(odd(unit, value))
+        expect(view.rows.map((r) => r.x)).toEqual([value, '10'])
+        expect(view.columns[1].asSent).toBe(true)
+      }
+    })
+
+    it('theDownload_keepsTheServersFiguresAsSent', () => {
+      const t = money([['Riyadh', '-1883288.19', '80.0%']])
+      const table = copilotTableDownload(copilotTableParts(t, EMPTY_MODEL), 'en', WORDS)
+      expect(panelCsv(table).split('\r\n')[1]).toBe('Riyadh,-1883288.19,80.0%')
+      expect(panelSheet(table, 'City').data[1]).toEqual([
+        { type: String, value: 'Riyadh' },
+        { type: String, value: '-1883288.19' },
+        { type: String, value: '80.0%' },
+      ])
     })
   })
 
@@ -245,9 +350,9 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
       expect(THREE.map((t) => copilotTableTitle(t, 'en'))).toEqual(['City', 'Channel', 'Category'])
       expect(THREE.map((t) => copilotTableTitle(t, 'ar'))).toEqual(['المدينة', 'القناة', 'الفئة'])
       expect(THREE.map((t) => viewOf(t).rows[0])).toEqual([
-        { city: 'Riyadh', before: '3000', after: '2380', change: '-620', share: '62.0%' },
-        { channel: 'Online', before: '900', after: '500', change: '-400', share: '40.0%' },
-        { category: 'OTC', before: '700', after: '400', change: '-300', share: '30.0%' },
+        { city: 'Riyadh', before: 3000, after: 2380, change: -620, share: '62.0%' },
+        { channel: 'Online', before: 900, after: 500, change: -400, share: '40.0%' },
+        { category: 'OTC', before: 700, after: 400, change: -300, share: '30.0%' },
       ])
     })
 
@@ -319,7 +424,7 @@ describe("an analysis result's tables in the copilot panel (spec 3587 B22; ticke
       expect(copilotTableOpensAsView({ ...headline, query: { show: true } })).toBe(false)
       expect(copilotTableComputedColumns(headline, copilotTableDefinition(headline), 'en')).toEqual([])
       // It is still drawn, whole.
-      expect(viewOf(headline).rows).toEqual([{ figure: 'Net till value', before: '3000', after: '2380', change: '-620', share: '100.0%' }])
+      expect(viewOf(headline).rows).toEqual([{ figure: 'Net till value', before: 3000, after: 2380, change: -620, share: '100.0%' }])
     })
 
     it('aPlainQuerysTable_isOfferedOpenAsView_asToday_andNeverHasTheNote', () => {

@@ -44,7 +44,13 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
-import { ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+// The expired approval picks report's probe stays with its feature (BackOffice ticket 3874): it is its only consumer.
+import {
+  EXPIRED_APPROVAL_PICK_ACCESS_KEY,
+  canOpenExpiredApprovalPicks,
+  expiredApprovalPickAccessApi,
+} from '@/features/oms/expired-approval-picks/access'
+import { CalendarX, ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -522,6 +528,21 @@ export const MENU: ShellMenuItem[] = [
           key: SERIAL_REFUSAL_ACCESS_KEY,
           run: () => serialRefusalAccessApi.access(),
           visible: canOpenSerialRefusals,
+        }),
+      },
+      {
+        // Expired approval picks (BackOffice ticket 3874, spec 3849) — the insurance team's weekly report of approval picks
+        // that expired with no sale, per store and pharmacist. Its own grant, `BackOfficeScreen[ExpiredApprovalPick, 03]`
+        // (role INSURANCE_EXPIRED_PICK_VIEWER), on its own probe; the leaf and the page's gate share the one predicate and
+        // fail closed. Right after Serial refusals, before Pick support.
+        labelKey: 'expired-approval-picks:menu.expiredApprovalPicks',
+        icon: CalendarX,
+        routerLink: '/oms/expired-approval-picks',
+        activePrefix: '/oms/expired-approval-picks',
+        access: accessProbe({
+          key: EXPIRED_APPROVAL_PICK_ACCESS_KEY,
+          run: () => expiredApprovalPickAccessApi.access(),
+          visible: canOpenExpiredApprovalPicks,
         }),
       },
       {

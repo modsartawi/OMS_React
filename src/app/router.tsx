@@ -332,6 +332,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/serial-refusals/SerialRefusalsPage')).default,
         }),
       },
+      // Expired approval picks (BackOffice spec 3849 / ticket 3874) — the insurance team's weekly report of approval picks
+      // that expired with no sale, per store and pharmacist, behind its own `ExpiredApprovalPick/Access` probe. Filters in the URL.
+      {
+        path: 'oms/expired-approval-picks',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/expired-approval-picks/ExpiredApprovalPicksPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

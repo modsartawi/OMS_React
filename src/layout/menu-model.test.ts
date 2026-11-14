@@ -395,6 +395,28 @@ describe('the Serial refusals leaf (ticket 573)', () => {
   })
 })
 
+describe('the Expired approval picks leaf (BackOffice ticket 3874)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'expired-approval-picks:menu.expiredApprovalPicks')!
+
+  it('sits in the OMS group right after Serial refusals, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('expired-approval-picks:menu.expiredApprovalPicks')).toBe(keys.indexOf('serial-refusals:menu.serialRefusals') + 1)
+    expect(leaf.routerLink).toBe('/oms/expired-approval-picks')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/expired-approval-picks')).map((i) => i.labelKey)).toEqual([
+      'expired-approval-picks:menu.expiredApprovalPicks',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (ExpiredApprovalPick/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'expired-approval-picks', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})
+
 describe('the Serving lists leaf (ticket 567)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const keys = (oms.items ?? []).map((i) => i.labelKey)

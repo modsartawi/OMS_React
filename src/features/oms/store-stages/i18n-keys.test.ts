@@ -31,6 +31,8 @@ describe('store-stages — the keys the code builds exist', () => {
       ...STAGE_COLUMN_IDS.map((c) => `column.${c}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
       'menu.storeStages',
+      // Ticket 3898: every release kind the log shows.
+      ...['Seeded', 'ByHand'].map((k) => `count.kind.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

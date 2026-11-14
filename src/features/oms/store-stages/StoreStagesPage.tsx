@@ -3,11 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ArrowRightLeft, Loader2, RotateCcw } from 'lucide-react'
+import { ArrowRightLeft, Loader2, Lock, RotateCcw, Unlock } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import type { StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
@@ -25,16 +25,20 @@ import Textarea from '@/core/ui/Textarea'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
-import { formatDateTime } from '@/core/util/date-format'
-import { canMoveStoreStage, canOpenStoreStages, storeStageAccessQuery } from './access'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, storeStageAccessQuery } from './access'
 import { storeStageApi } from './api'
 import { STAGE_SEVERITY, moverLabel, stageColumns, stageLabel } from './columns'
 import {
   STAGES,
   STAGES_DEFAULTS,
   WHY_MAX,
+  canAskCountClosed,
+  countOf,
+  countState,
   moveCommit,
   personMovesFrom,
+  releaseCommit,
   stageRow,
   stagesFiltersFromParams,
   stagesFiltersToParams,
@@ -45,6 +49,8 @@ import {
 
 const LIST_KEY = ['oms', 'store-stages', 'list'] as const
 const movesKey = (store: string) => ['oms', 'store-stages', 'moves', store] as const
+const COUNTS_KEY = ['oms', 'store-stages', 'counts'] as const
+const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store] as const
 
 /**
  * Store stages (BackOffice ticket 3899, spec 3849 user stories 49 and 54): each store's stage at Stock Visibility and its
@@ -90,6 +96,8 @@ function Stages() {
   const rows = useMemo(() => stagesShown(read.data ?? [], filters).map(stageRow), [read.data, filters])
   const columns = useMemo(() => stageColumns(t) as ColDef[], [t])
   const open = filters.open ? ((read.data ?? []).find((s) => s.store === filters.open) ?? null) : null
+  // Ticket 3898: the stores under count (StoreLastInventory) and the count's closing mark.
+  const counts = useQuery({ queryKey: COUNTS_KEY, queryFn: () => storeStageApi.counts(), retry: false })
 
   return (
     <div className="flex flex-col gap-3">
@@ -168,12 +176,35 @@ function Stages() {
         {t('note')}
       </p>
 
-      {open && <StoreSheet stage={open} canMove={canMoveStoreStage(access.data)} onClose={() => patch({ open: '' })} />}
+      {open && (
+        <StoreSheet
+          stage={open}
+          canMove={canMoveStoreStage(access.data)}
+          canCloseCount={canCloseStoreCount(access.data)}
+          count={countOf(counts.data ?? [], open.store)}
+          countFailed={counts.isError}
+          onClose={() => patch({ open: '' })}
+        />
+      )}
     </div>
   )
 }
 
-function StoreSheet({ stage, canMove, onClose }: { stage: StoreStage; canMove: boolean; onClose: () => void }) {
+function StoreSheet({
+  stage,
+  canMove,
+  canCloseCount,
+  count,
+  countFailed,
+  onClose,
+}: {
+  stage: StoreStage
+  canMove: boolean
+  canCloseCount: boolean
+  count: StoreCountRow | null
+  countFailed: boolean
+  onClose: () => void
+}) {
   const { t } = useTranslation('store-stages')
   const log = useQuery({ queryKey: movesKey(stage.store), queryFn: () => storeStageApi.moves(stage.store), retry: false })
   const moves = log.data ?? []
@@ -188,6 +219,7 @@ function StoreSheet({ stage, canMove, onClose }: { stage: StoreStage; canMove: b
         onClose={onClose}
       />
       <div className={SHEET_BODY}>
+        <CountSection store={stage.store} count={count} failed={countFailed} canClose={canCloseCount} canRelease={canMove} />
         {canMove && <MoveForm stage={stage} />}
         <section className="flex flex-col gap-2" data-stage-log="">
           <h3 className="text-sm font-semibold">{t('log.title')}</h3>
@@ -322,6 +354,189 @@ function MoveForm({ stage }: { stage: StoreStage }) {
         </Button>
       </div>
     </form>
+  )
+}
+
+/**
+ * Ticket 3898 - the store's count: its StoreLastInventory row and the count's closing mark. "Count closed" (behind
+ * `BackOfficeScreen[StoreCountClose, 02]`) holds every sale and DRS post of the store, moves it to Seeding and asks its seed;
+ * the row is deleted when the seed writes Seeded. A refused seed shows in SIS.Stock's words and the store stays held; then
+ * a holder of the stage's move grant may release it by hand, with a reason, and the release is logged.
+ */
+function CountSection({
+  store,
+  count,
+  failed,
+  canClose,
+  canRelease,
+}: {
+  store: string
+  count: StoreCountRow | null
+  failed: boolean
+  canClose: boolean
+  canRelease: boolean
+}) {
+  const { t } = useTranslation('store-stages')
+  const queryClient = useQueryClient()
+  const [refusal, setRefusal] = useState<string | null>(null)
+  const [why, setWhy] = useState('')
+  const inFlight = useRef(false)
+  const state = countState(count)
+  const releases = useQuery({ queryKey: releasesKey(store), queryFn: () => storeStageApi.releases(store), retry: false })
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: LIST_KEY })
+    void queryClient.invalidateQueries({ queryKey: COUNTS_KEY })
+    void queryClient.invalidateQueries({ queryKey: movesKey(store) })
+    void queryClient.invalidateQueries({ queryKey: releasesKey(store) })
+  }
+
+  const close = useMutation({
+    mutationFn: () => storeStageApi.countClosed(store),
+    onSettled: () => {
+      inFlight.current = false
+      refresh()
+    },
+    onSuccess: (result) => {
+      setRefusal(result?.seedRefusal ?? null)
+      if (result?.released) notify.success(t('count.released.title'), t('count.released.detail', { store: fsi(store) }))
+    },
+  })
+
+  const release = useMutation({
+    mutationFn: () => storeStageApi.release(store, { why: why.trim() }),
+    onSettled: () => {
+      inFlight.current = false
+      refresh()
+    },
+    onSuccess: () => {
+      notify.success(t('count.release.done.title'), t('count.release.done.detail', { store: fsi(store) }))
+      setWhy('')
+      setRefusal(null)
+    },
+  })
+  const releasable = releaseCommit({ row: count, why, pending: release.isPending })
+  const releaseRows = releases.data ?? []
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/40 p-3" data-stage-count={state}>
+      <h3 className="text-sm font-semibold">{t('count.title')}</h3>
+      {failed && <ErrorBanner className="p-2.5" title={t('count.readFailed')} message="" />}
+      {state === 'none' ? (
+        <p className="text-[0.8125rem] text-muted-foreground">{t('count.none')}</p>
+      ) : (
+        <>
+          <p className="text-[0.8125rem]">
+            {t('count.day')}:{' '}
+            <Ltr>{formatDay(count!.inventoryDate)}</Ltr>
+          </p>
+          <p className="text-[0.8125rem] text-muted-foreground" data-stage-count-state="">
+            {state === 'open'
+              ? t('count.open')
+              : t('count.closed', { who: fsi(count!.countClosedBy), at: fsi(formatDateTime(count!.countClosedAt)) })}
+          </p>
+        </>
+      )}
+
+      {canAskCountClosed(count, canClose, close.isPending) && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-muted-foreground">{t('count.closeHint')}</p>
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              disabled={close.isPending}
+              onClick={() => {
+                if (inFlight.current) return
+                inFlight.current = true
+                close.mutate()
+              }}
+              data-stage-count-close=""
+            >
+              {close.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Lock className="h-3.5 w-3.5" aria-hidden />}
+              {close.isPending ? t('count.closing') : state === 'closed' ? t('count.closeAgain') : t('count.close')}
+            </Button>
+          </div>
+        </div>
+      )}
+      {close.isError && (
+        <ErrorBanner className="p-2.5" title={t('count.failedTitle')} message={apiErrorMessage(close.error, t('count.failed'))} />
+      )}
+      {refusal && <ErrorBanner className="p-2.5" title={t('count.seedRefusedTitle')} message={refusal} />}
+
+      {state === 'closed' && canRelease && (
+        <form
+          className="flex flex-col gap-2 border-t border-border/40 pt-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (inFlight.current || !releasable.canCommit) return
+            inFlight.current = true
+            release.mutate()
+          }}
+          data-stage-count-release=""
+        >
+          <h4 className="text-[0.8125rem] font-semibold">{t('count.release.title')}</h4>
+          <p className="text-xs text-muted-foreground">{t('count.release.hint')}</p>
+          <Field id="store-count-why" label={t('count.release.why')}>
+            <Textarea
+              value={why}
+              onChange={(e) => setWhy(e.target.value)}
+              disabled={release.isPending}
+              rows={2}
+              placeholder={t('count.release.whyPlaceholder')}
+              className="w-full"
+              required
+            />
+          </Field>
+          {releasable.tooLong && (
+            <p className="text-xs text-attention-800">{t('move.tooLong', { max: fsi(String(WHY_MAX)) })}</p>
+          )}
+          {release.isError && (
+            <ErrorBanner
+              className="p-2.5"
+              title={t('count.release.refusedTitle')}
+              message={apiErrorMessage(release.error, t('count.release.failed'))}
+            />
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" variant="secondary" disabled={!releasable.canCommit} data-stage-count-release-commit="">
+              {release.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Unlock className="h-3.5 w-3.5" aria-hidden />}
+              {release.isPending ? t('count.release.committing') : t('count.release.commit')}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {releases.isError && <ErrorBanner className="p-2.5" title={t('count.releases.failed')} message="" />}
+      {releaseRows.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-border/40 pt-2.5" data-stage-count-releases="">
+          <h4 className="text-[0.8125rem] font-semibold">{t('count.releases.title')}</h4>
+          <table className="w-full text-[0.8125rem]">
+            <thead className="text-xs text-muted-foreground">
+              <tr>
+                <th className={TH}>{t('count.releases.releasedAt')}</th>
+                <th className={TH}>{t('count.releases.kind')}</th>
+                <th className={TH}>{t('count.releases.who')}</th>
+                <th className={TH}>{t('count.releases.why')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {releaseRows.map((r) => (
+                <tr key={r.id} className="border-t border-border/40">
+                  <td className={`${TD} tabular-nums`}>
+                    <Ltr>{formatDateTime(r.releasedAt)}</Ltr>
+                  </td>
+                  <td className={TD}>{t(`count.kind.${r.kind}`, { defaultValue: r.kind })}</td>
+                  <td className={`${TD} font-mono text-[12px]`}>
+                    <Ltr>{r.releasedBy}</Ltr>
+                  </td>
+                  <td className={`${TD} whitespace-normal`}>{r.why}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
 import {
   STAGES_DEFAULTS,
   WHY_MAX,
+  canAskCountClosed,
+  countOf,
+  countState,
   moveCommit,
   personMovesFrom,
+  releaseCommit,
   stageRow,
   stagesFiltersFromParams,
   stagesFiltersToParams,
@@ -94,5 +98,38 @@ describe('the filters and rows', () => {
       lastWhy: '',
       lastMovedAt: '',
     })
+  })
+})
+
+describe('the count closing (BackOffice 3898)', () => {
+  const row = (isCountClosed: boolean): StoreCountRow => ({
+    storeCode: 'P883 ',
+    inventoryDate: '2026-11-10T00:00:00',
+    isCountClosed,
+    countClosedAt: isCountClosed ? '2026-11-14T00:55:00' : '0001-01-01T00:00:00',
+    countClosedBy: isCountClosed ? 'u.invctl' : '',
+  })
+
+  it('finds the count row of a store and its state', () => {
+    expect(countOf([row(false)], 'p883')?.inventoryDate).toBe('2026-11-10T00:00:00')
+    expect(countOf([row(false)], 'P884')).toBeNull()
+    expect(countState(null)).toBe('none')
+    expect(countState(row(false))).toBe('open')
+    expect(countState(row(true))).toBe('closed')
+  })
+
+  it('offers "count closed" on a store under count, to a holder of the grant, again after a refused seed', () => {
+    expect(canAskCountClosed(row(false), true, false)).toBe(true)
+    expect(canAskCountClosed(row(true), true, false)).toBe(true)
+    expect(canAskCountClosed(null, true, false)).toBe(false)
+    expect(canAskCountClosed(row(false), false, false)).toBe(false)
+    expect(canAskCountClosed(row(false), true, true)).toBe(false)
+  })
+
+  it('releases by hand only a closed count, with a reason the log keeps', () => {
+    expect(releaseCommit({ row: row(true), why: 'Seed refused twice', pending: false }).canCommit).toBe(true)
+    expect(releaseCommit({ row: row(false), why: 'x', pending: false }).canCommit).toBe(false)
+    expect(releaseCommit({ row: row(true), why: '  ', pending: false }).canCommit).toBe(false)
+    expect(releaseCommit({ row: row(true), why: 'a'.repeat(501), pending: false })).toEqual({ canCommit: false, tooLong: true })
   })
 })

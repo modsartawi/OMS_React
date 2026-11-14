@@ -7,7 +7,15 @@
  * empty.
  */
 import { api } from '@/core/api'
-import type { StoreStage, StoreStageMove, StoreStageMoveRequest } from '@/core/models/store-stage'
+import type {
+  StoreCountCloseResult,
+  StoreCountRelease,
+  StoreCountReleaseRequest,
+  StoreCountRow,
+  StoreStage,
+  StoreStageMove,
+  StoreStageMoveRequest,
+} from '@/core/models/store-stage'
 
 export const storeStageApi = {
   /** `GET StoreStage` → each store's stage and its last move. */
@@ -23,5 +31,25 @@ export const storeStageApi = {
   /** `POST StoreStage/{store}/Move` → the store's stage after the move. A refused move is a business `ApiError`. */
   move(store: string, request: StoreStageMoveRequest): Promise<StoreStage> {
     return api.post<StoreStage>(`StoreStage/${encodeURIComponent(store)}/Move`, request)
+  },
+
+  /** Ticket 3898: `GET StoreStage/Counts` → every store under count, with the count's closing mark. */
+  async counts(): Promise<StoreCountRow[]> {
+    return (await api.get<StoreCountRow[] | null>('StoreStage/Counts')) ?? []
+  },
+
+  /** Ticket 3898: `GET StoreStage/{store}/Releases` → the store's releases of closed counts, newest first. */
+  async releases(store: string): Promise<StoreCountRelease[]> {
+    return (await api.get<StoreCountRelease[] | null>(`StoreStage/${encodeURIComponent(store)}/Releases`)) ?? []
+  },
+
+  /** Ticket 3898: `POST StoreStage/{store}/CountClosed` → what "count closed" did (a refused seed is in the answer). */
+  countClosed(store: string): Promise<StoreCountCloseResult> {
+    return api.post<StoreCountCloseResult>(`StoreStage/${encodeURIComponent(store)}/CountClosed`, {})
+  },
+
+  /** Ticket 3898: `POST StoreStage/{store}/Release` → a closed count released by hand. A refusal is a business `ApiError`. */
+  release(store: string, request: StoreCountReleaseRequest): Promise<boolean> {
+    return api.post<boolean>(`StoreStage/${encodeURIComponent(store)}/Release`, request)
   },
 }

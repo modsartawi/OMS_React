@@ -5,7 +5,7 @@
  * offers only those (any stage back to Shadow, Seeded to Blocking, Blocking back to Seeded) so a person is not invited to a
  * refusal. Shadow to Seeding is the count's closing and Seeding to Seeded the seed's: never a person's.
  */
-import type { StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
 
 export const STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking'] as const
 export type StageName = (typeof STAGES)[number]
@@ -93,4 +93,37 @@ export function stageRow(s: StoreStage): StageRow {
     lastWhy: m?.why ?? '',
     lastMovedAt: m?.movedAt ?? '',
   }
+}
+
+/**
+ * Ticket 3898, the count's closing. A store under count has a `StoreLastInventory` row; "count closed" marks it (both
+ * export rails and DRS then hold the store whatever the date) and asks the seed. The row is gone once the seed writes
+ * Seeded; after a refused seed a named person releases it by hand with a reason.
+ */
+export type CountState = 'none' | 'open' | 'closed'
+
+/** The store's count row, if it is under count. */
+export function countOf(counts: StoreCountRow[], store: string): StoreCountRow | null {
+  const wanted = store.trim().toUpperCase()
+  return counts.find((c) => c.storeCode.trim().toUpperCase() === wanted) ?? null
+}
+
+export function countState(row: StoreCountRow | null): CountState {
+  if (!row) return 'none'
+  return row.isCountClosed ? 'closed' : 'open'
+}
+
+/** "Count closed" is offered on an open count, and again on a closed one (the seed is asked again). */
+export function canAskCountClosed(row: StoreCountRow | null, granted: boolean, pending: boolean): boolean {
+  return granted && !pending && countState(row) !== 'none'
+}
+
+/** The hand release may be sent on a closed count, with a reason of at most 500 characters (the log's width). */
+export function releaseCommit({ row, why, pending }: { row: StoreCountRow | null; why: string; pending: boolean }): {
+  canCommit: boolean
+  tooLong: boolean
+} {
+  const reason = why.trim()
+  const tooLong = reason.length > WHY_MAX
+  return { canCommit: !pending && countState(row) === 'closed' && reason.length > 0 && !tooLong, tooLong }
 }

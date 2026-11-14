@@ -26,6 +26,9 @@ export const canOpenStoreStages = (r: StoreStageAccess | null | undefined): bool
 /** The move form shows on `canMove === true`; the server checks the grant again on the move. */
 export const canMoveStoreStage = (r: StoreStageAccess | null | undefined): boolean => r?.canMove === true
 
+/** Ticket 3898: "count closed" shows on `canCloseCount === true`; the server checks the grant again. */
+export const canCloseStoreCount = (r: StoreStageAccess | null | undefined): boolean => r?.canCloseCount === true
+
 export const storeStageAccessApi = {
   /**
    * `GET StoreStage/Access` → `{ screenAllowed, canMove }`, cookie only, not grant-gated.

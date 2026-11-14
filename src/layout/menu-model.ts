@@ -64,7 +64,9 @@ import {
   canOpenHoldDailyList,
   holdDailyListAccessApi,
 } from '@/features/oms/hold-daily-list/access'
-import { Ban, CalendarX, ClipboardX, FileDiff, Gauge, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+// The stage screen's probe stays with its feature (BackOffice ticket 3899): it is its only consumer.
+import { STORE_STAGE_ACCESS_KEY, canOpenStoreStages, storeStageAccessApi } from '@/features/oms/store-stages/access'
+import { Ban, CalendarX, ClipboardX, FileDiff, Gauge, Layers, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -626,6 +628,21 @@ export const MENU: ShellMenuItem[] = [
           key: HOLD_DAILY_LIST_ACCESS_KEY,
           run: () => holdDailyListAccessApi.access(),
           visible: canOpenHoldDailyList,
+        }),
+      },
+      {
+        // Store stages (BackOffice ticket 3899, spec 3849 phase 2) — each store's stage at Stock Visibility and its last move;
+        // a named permission moves it through SIS.Stock 064. Its own grant, `BackOfficeScreen[StoreStage, 03]` to see and
+        // `02` to move (roles STORE_STAGE_VIEWER / STORE_STAGE_MOVER), on its own probe; the leaf and the page's gate share
+        // the one predicate and fail closed. After Holds that should have ended.
+        labelKey: 'store-stages:menu.storeStages',
+        icon: Layers,
+        routerLink: '/oms/store-stages',
+        activePrefix: '/oms/store-stages',
+        access: accessProbe({
+          key: STORE_STAGE_ACCESS_KEY,
+          run: () => storeStageAccessApi.access(),
+          visible: canOpenStoreStages,
         }),
       },
       {

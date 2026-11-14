@@ -332,6 +332,15 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/serial-refusals/SerialRefusalsPage')).default,
         }),
       },
+      // Bupa line outcomes (oms 899, BackOffice spec 3888 / doors 3889–3891) — every Bupa Care Connect line whose
+      // dispensed item or quantity differs from what Bupa sent, behind its own `BupaLineOutcomes/Access` probe.
+      // `?from=&to=&store=&kind=` live in the URL.
+      {
+        path: 'oms/bupa-line-outcomes',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/bupa-line-outcomes/BupaLineOutcomesPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

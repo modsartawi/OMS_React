@@ -177,6 +177,8 @@ import donorWordsAr from '@/locales/ar/donor-words.json'
 // Serial refusals (BackOffice spec 3049 / ticket 3065, ticket 573). Namespace == feature name, English and Arabic together.
 import serialRefusals from '@/locales/en/serial-refusals.json'
 import serialRefusalsAr from '@/locales/ar/serial-refusals.json'
+import bupaLineOutcomes from '@/locales/en/bupa-line-outcomes.json'
+import bupaLineOutcomesAr from '@/locales/ar/bupa-line-outcomes.json'
 // The insurance-rules area (BackOffice spec 3126, oms 607): every one of its namespaces, English and Arabic,
 // is registered in `@/core/insurance-rules/locales` — a later slice edits THAT file, never this one.
 import { INSURANCE_RULES_AR, INSURANCE_RULES_EN, INSURANCE_RULES_NS } from '@/core/insurance-rules/locales'
@@ -246,7 +248,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -324,6 +326,7 @@ i18n.use(initReactI18next).init({
       copilot,
       boards,
       'serial-refusals': serialRefusals,
+      'bupa-line-outcomes': bupaLineOutcomes,
       ...INSURANCE_RULES_EN,
     },
     ar: {
@@ -367,6 +370,7 @@ i18n.use(initReactI18next).init({
       'release-queue': releaseQueueAr,
       'data-sync': dataSyncAr,
       'serial-refusals': serialRefusalsAr,
+      'bupa-line-outcomes': bupaLineOutcomesAr,
       callcenter: callcenterAr,
       boards: boardsAr,
       copilot: copilotAr,

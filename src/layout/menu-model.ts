@@ -44,6 +44,9 @@ import {
   canOpenSerialRefusals,
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
+// Bupa line outcomes' probe stays with its feature (oms 899): the leaf and the page are its only readers.
+import { BUPA_OUTCOME_ACCESS_KEY, bupaOutcomeAccessApi, canViewBupaOutcomes } from '@/features/oms/bupa-line-outcomes/access'
+import { FileDiff } from 'lucide-react'
 import { ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
@@ -318,6 +321,20 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: (r) => r.canOpenList === true,
+        }),
+      },
+      {
+        // Bupa line outcomes (oms 899, BackOffice spec 3888) — beside Delivery documents, as the brief places it.
+        // Its own grant, `BupaLineOutcomes.View` (`[BupaLineOutcomes, 03]`), read off `GET BupaLineOutcomes/Access`;
+        // the leaf and the page's gate share the one predicate. 🚩 FAILS CLOSED.
+        labelKey: 'bupa-line-outcomes:menu.bupaLineOutcomes',
+        icon: FileDiff,
+        routerLink: '/oms/bupa-line-outcomes',
+        activePrefix: '/oms/bupa-line-outcomes',
+        access: accessProbe({
+          key: BUPA_OUTCOME_ACCESS_KEY,
+          run: () => bupaOutcomeAccessApi.access(),
+          visible: canViewBupaOutcomes,
         }),
       },
       {

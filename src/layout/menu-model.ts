@@ -50,7 +50,13 @@ import {
   canOpenExpiredApprovalPicks,
   expiredApprovalPickAccessApi,
 } from '@/features/oms/expired-approval-picks/access'
-import { CalendarX, ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+// The held-stock reports' probe stays with their feature (BackOffice ticket 3873): it is its only consumer.
+import {
+  HELD_STOCK_REPORT_ACCESS_KEY,
+  canOpenHeldStockReport,
+  heldStockReportAccessApi,
+} from '@/features/oms/held-stock-report/access'
+import { Ban, CalendarX, ClipboardX, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -543,6 +549,32 @@ export const MENU: ShellMenuItem[] = [
           key: EXPIRED_APPROVAL_PICK_ACCESS_KEY,
           run: () => expiredApprovalPickAccessApi.access(),
           visible: canOpenExpiredApprovalPicks,
+        }),
+      },
+      {
+        // Take refusals (BackOffice ticket 3873, spec 3849) — HQ's refusal report, read before a held-stock switch is moved.
+        // The two held-stock reports share one grant, `BackOfficeScreen[HeldStockReport, 03]` (role HELD_STOCK_REPORT_VIEWER),
+        // on one probe; both leaves and both pages read the one predicate and fail closed. After Expired approval picks.
+        labelKey: 'held-stock-report:menu.refusals',
+        icon: Ban,
+        routerLink: '/oms/held-stock-report/refusals',
+        activePrefix: '/oms/held-stock-report/refusals',
+        access: accessProbe({
+          key: HELD_STOCK_REPORT_ACCESS_KEY,
+          run: () => heldStockReportAccessApi.access(),
+          visible: canOpenHeldStockReport,
+        }),
+      },
+      {
+        // Held stock impact (BackOffice ticket 3873) — what held would take off the channels' figure; same probe and grant.
+        labelKey: 'held-stock-report:menu.held',
+        icon: PackageMinus,
+        routerLink: '/oms/held-stock-report/held',
+        activePrefix: '/oms/held-stock-report/held',
+        access: accessProbe({
+          key: HELD_STOCK_REPORT_ACCESS_KEY,
+          run: () => heldStockReportAccessApi.access(),
+          visible: canOpenHeldStockReport,
         }),
       },
       {

@@ -340,6 +340,20 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/expired-approval-picks/ExpiredApprovalPicksPage')).default,
         }),
       },
+      // HQ's two held-stock reports (BackOffice spec 3849 / ticket 3873), read before a switch is moved — the take refusals
+      // and what held would take off the channels' figure — behind the one `HeldStockReport/Access` probe. Filters in the URL.
+      {
+        path: 'oms/held-stock-report/refusals',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/RefusalsPage')).default,
+        }),
+      },
+      {
+        path: 'oms/held-stock-report/held',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

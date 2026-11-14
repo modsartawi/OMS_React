@@ -290,6 +290,9 @@ oms/failed-donor-transfers 2
 
 oms/geography 0
 
+oms/held-stock-report 1
+  src/features/oms/held-stock-report/RefusalsPage.tsx button: drill Clear, a non-navigating text button: restyled in place, copied from oms/expired-approval-picks (BackOffice ticket 3873)
+
 oms/orders 5
   src/features/oms/orders/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens, copied from oms/deliveries (ticket 786)
   src/features/oms/orders/QueryBar.tsx button: query field menu entry (menu-item recipe), copied from oms/deliveries (ticket 786)

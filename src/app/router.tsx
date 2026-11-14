@@ -354,6 +354,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
         }),
       },
+      // The till-side gate figures per store (BackOffice ticket 3900), behind the same probe.
+      {
+        path: 'oms/held-stock-report/gates',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/GatesPage')).default,
+        }),
+      },
       // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
       // `HoldDailyList/Access` probe. Kind, cause, stores, tab and the drilled store live in the URL.
       {

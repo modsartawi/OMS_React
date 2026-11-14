@@ -9,6 +9,8 @@
  */
 import { api } from '@/core/api'
 import type {
+  GateFiguresQuery,
+  GateFiguresReport,
   HeldImpactReport,
   HeldImpactReportQuery,
   TakeRefusalReport,
@@ -42,6 +44,17 @@ export const heldStockReportApi = {
       repairsTo: data?.repairsTo ?? '',
       repairs: data?.repairs ?? 0,
       repairsPerDay: data?.repairsPerDay ?? [],
+    }
+  },
+
+  /** `GET HeldStockReport/GateFigures` → the till-side gates per store over the 14 days ending on `to` (ticket 3900). */
+  async gateFigures(query: GateFiguresQuery): Promise<GateFiguresReport> {
+    const data = await api.get<Partial<GateFiguresReport> | null>('HeldStockReport/GateFigures', { ...query })
+    return {
+      asOf: data?.asOf ?? '',
+      from: data?.from ?? '',
+      to: data?.to ?? '',
+      stores: data?.stores ?? [],
     }
   },
 }

@@ -62,7 +62,7 @@ import {
   canOpenHoldDailyList,
   holdDailyListAccessApi,
 } from '@/features/oms/hold-daily-list/access'
-import { Ban, CalendarX, ClipboardX, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+import { Ban, CalendarX, ClipboardX, Gauge, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -578,6 +578,19 @@ export const MENU: ShellMenuItem[] = [
         icon: PackageMinus,
         routerLink: '/oms/held-stock-report/held',
         activePrefix: '/oms/held-stock-report/held',
+        access: accessProbe({
+          key: HELD_STOCK_REPORT_ACCESS_KEY,
+          run: () => heldStockReportAccessApi.access(),
+          visible: canOpenHeldStockReport,
+        }),
+      },
+      {
+        // Till-side gate figures (BackOffice ticket 3900, spec 3849 A) — per store over 14 days, the gates the till and OMS
+        // own before a store blocks; read by the same people, so the same probe and grant. After Held stock impact.
+        labelKey: 'held-stock-report:menu.gates',
+        icon: Gauge,
+        routerLink: '/oms/held-stock-report/gates',
+        activePrefix: '/oms/held-stock-report/gates',
         access: accessProbe({
           key: HELD_STOCK_REPORT_ACCESS_KEY,
           run: () => heldStockReportAccessApi.access(),

@@ -1,7 +1,8 @@
 {
   "menu": {
     "refusals": "Take refusals",
-    "held": "Held stock impact"
+    "held": "Held stock impact",
+    "gates": "Till-side gate figures"
   },
   "access": {
     "checking": "Checking your access…",
@@ -69,7 +70,18 @@
     "day": "Day",
     "repairs": "Repairs",
     "holdsReleased": "Holds released",
-    "holdsAdded": "Holds added"
+    "holdsAdded": "Holds added",
+    "holds": "All gates hold",
+    "takesReported": "Takes reported",
+    "withinOneSecondPercent": "Within 1 s %",
+    "unansweredPercent": "Unanswered %",
+    "takesHold": "Takes hold",
+    "deliveriesWithoutPick": "Delivery sales without pick",
+    "deliveryDays": "By day",
+    "deliveriesHold": "Delivery sales hold",
+    "tillsSeen": "Tills seen",
+    "tillsOnAnOldEngine": "Tills on an old engine",
+    "tillsHold": "Tills hold"
   },
   "columnHint": {
     "quantityAvailable": "The quantity available at the group's latest refusal.",
@@ -84,7 +96,11 @@
     "heldBeyondOpenPicks": "Held minus the open picking documents' held units: sold holds waiting for their sale, door holds not yet confirmed, or a gap the check repairs. Negative when Stock Visibility is behind the pick tables.",
     "units": "The held units on open picking documents of this source type.",
     "pairs": "The store and material pairs this source type holds on.",
-    "repairs": "Each repair is a writer that forgot its ledger row."
+    "repairs": "Each repair is a writer that forgot its ledger row.",
+    "withinOneSecondPercent": "Takes answered at the till within 1 second. The gate is 99%.",
+    "unansweredPercent": "Takes with no answer at the till at 2 seconds. The gate is under 1%.",
+    "deliveriesWithoutPick": "Delivery sales completed without their picking document. The gate is none.",
+    "tillsOnAnOldEngine": "Tills seen at the store that SIS.Api has not heard on the hold seam in the window."
   },
   "list": {
     "failedTitle": "The report could not be loaded",
@@ -199,6 +215,32 @@
       "pairs": "No pair has a standing hold.",
       "sources": "No source type holds stock.",
       "repairs": "The check made no repair in this range."
+    }
+  },
+  "gates": {
+    "title": "Till-side gate figures",
+    "subtitle": "Per store over the last 14 days, the gates the till and OMS own before a store blocks: takes answered at the till, delivery sales without their picking document, and every till on the hold seam.",
+    "fileName": "till-side-gate-figures",
+    "to": "Last day",
+    "reset": "The fleet, the 14 days ending today",
+    "failed": "The gate figures could not be read. Try again in a moment.",
+    "failingOnly": "Only stores not holding",
+    "window": "From <d>{{from}}</d> to <d>{{to}}</d>",
+    "note": "A take's time is the till's own, reported on its next take. A delivery sale is counted on the day it completed, from the sales that have reached HQ. A till is on the hold seam when SIS.Api heard its start-up release or a take in the window.",
+    "empty": "No store to show.",
+    "tile": {
+      "stores": "Stores",
+      "holding": "Holding all three",
+      "takesFailing": "Takes not holding",
+      "deliveriesFailing": "Delivery sales not holding",
+      "tillsFailing": "Tills not holding"
+    },
+    "tileHint": {
+      "stores": "The stores read.",
+      "holding": "Stores whose three till-side gates all hold.",
+      "takesFailing": "Stores under 99% of takes within 1 second, or with 1 in 100 or more unanswered at 2 seconds, or with no take reported.",
+      "deliveriesFailing": "Stores with a delivery sale completed without its picking document.",
+      "tillsFailing": "Stores with a till not heard on the hold seam, or with no till seen."
     }
   }
 }

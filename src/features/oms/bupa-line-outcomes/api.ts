@@ -35,5 +35,5 @@ export const bupaOutcomeApi = {
   },
 }
 
-/** The file name when the server sends none — the door's own spelling (3891). */
+/** The file name when the server sends none — the name ticket 3891 specifies for the door. */
 export const exportFileName = (query: BupaOutcomeQuery): string => `bupa-line-outcomes_${query.from}_${query.to}.xlsx`

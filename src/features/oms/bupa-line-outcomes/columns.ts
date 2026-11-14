@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { BupaOutcomeSummaryRow } from '@/core/models/bupa-line-outcome'
+import { kindKey } from './outcomes'
 
 /**
  * The summary grid's columns (oms 899): kind · what was sent · what was dispensed · the counts. Counts are the door's,
@@ -19,8 +20,8 @@ const COUNT: Partial<ColDef<SummaryGridRow>> = { type: 'numericColumn', cellClas
 export function summaryColumns(t: TFunction): ColDef<SummaryGridRow>[] {
   const dash = t('dash')
   /** A dispensed field: "—" when nothing was dispensed; the totals row stays blank. */
-  const dispensed = (pick: (d: NonNullable<BupaOutcomeSummaryRow['dispensed']>) => string | null): Partial<ColDef<SummaryGridRow>> => ({
-    valueGetter: ({ data }) => (!data || data.total ? '' : data.dispensed ? (pick(data.dispensed) ?? '') : dash),
+  const dispensed = (field: (d: NonNullable<BupaOutcomeSummaryRow['dispensed']>) => string | null): Partial<ColDef<SummaryGridRow>> => ({
+    valueGetter: ({ data }) => (!data || data.total ? '' : data.dispensed ? (field(data.dispensed) ?? '') : dash),
   })
   const count = (field: keyof BupaOutcomeSummaryRow, header: string): ColDef<SummaryGridRow> => ({
     colId: field,
@@ -35,7 +36,7 @@ export function summaryColumns(t: TFunction): ColDef<SummaryGridRow>[] {
       headerName: t('column.kind'),
       minWidth: 130,
       valueFormatter: ({ data, value }: ValueFormatterParams<SummaryGridRow>) =>
-        data?.total ? t('report.total') : value ? t(`kind.${value}`) : '',
+        data?.total ? t('report.total') : value ? t(kindKey(value)) : '',
       cellClass: ({ data }) => (data?.total ? 'font-semibold' : ''),
     },
     { colId: 'sentMaterial', headerName: t('column.sentMaterial'), valueGetter: ({ data }) => data?.sent?.materialNumber ?? '', cellClass: CODE, width: 120 },

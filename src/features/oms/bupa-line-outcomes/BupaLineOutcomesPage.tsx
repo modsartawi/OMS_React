@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef, RowClassParams, RowClickedEvent } from 'ag-grid-community'
+import type { ColDef, GridApi, RowClassParams, RowClickedEvent } from 'ag-grid-community'
 import { ChevronDown, ChevronRight, Download, Loader2, RotateCcw, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import { BUPA_OUTCOME_KINDS, type BupaOutcomeDetail, type BupaOutcomeKind, type BupaOutcomeSummaryRow } from '@/core/models/bupa-line-outcome'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -28,7 +28,7 @@ import { bupaOutcomeAccessQuery, canViewBupaOutcomes } from './access'
 import { bupaOutcomeApi, exportFileName } from './api'
 import { summaryColumns, type SummaryGridRow } from './columns'
 import { DEFAULT_FILTERS, MAX_MONTHS, filtersFromParams, filtersToParams, normalizeStore, outcomeQuery, resolveRange, type OutcomeFilters } from './filters'
-import { actKey, linesOf, summaryKey } from './outcomes'
+import { actKey, kindKey, linesOf, summaryKey } from './outcomes'
 
 /**
  * Bupa line outcomes (oms 899, BackOffice spec 3888, doors 3889–3891): every Bupa Care Connect line whose dispensed
@@ -87,6 +87,11 @@ function Report() {
     [openKey, report],
   )
   const lines = useMemo(() => (openRow && report ? linesOf(openRow, report.details) : []), [openRow, report])
+  // `getRowClass` runs only when a row is drawn, so a new open row redraws them to move the highlight.
+  const gridApi = useRef<GridApi<SummaryGridRow> | null>(null)
+  useEffect(() => {
+    gridApi.current?.redrawRows()
+  }, [openKey])
 
   const [exporting, setExporting] = useState(false)
   async function exportXlsx() {
@@ -94,7 +99,7 @@ function Report() {
     setExporting(true)
     try {
       const file = await bupaOutcomeApi.export(query)
-      saveBlob(file.filename ?? exportFileName(query), file.blob)
+      saveBlob(file.filename || exportFileName(query), file.blob)
     } catch (err) {
       notify.apiError(t('export.failed'), err, t('export.failed'))
     } finally {
@@ -195,7 +200,10 @@ function Report() {
       {read.isError && (
         // The door's coded refusal (a reversed or over-long range) is a business outcome, shown inline in its words.
         <div data-blo-refusal={apiErrorCode(read.error) ?? ''}>
-          <ErrorBanner className="p-2.5" title={t('report.failedTitle')} message={apiErrorMessage(read.error, t('report.failed'))} />
+          <ErrorBanner
+            className="p-2.5"
+            title={read.error instanceof ApiError && read.error.kind === 'business' ? t('report.refusedTitle') : t('report.failedTitle')}
+            message={apiErrorMessage(read.error, t('report.failed'))} />
         </div>
       )}
 
@@ -206,6 +214,9 @@ function Report() {
           pinnedBottomRowData={read.isError || !range.ok ? [] : totalsRow}
           columnDefs={columns}
           defaultColDef={DEFAULT_COL_DEF}
+          onGridReady={({ api }) => {
+            gridApi.current = api
+          }}
           onRowClicked={(e: RowClickedEvent<SummaryGridRow>) => {
             if (e.data && !e.data.total) setOpenKey(summaryKey(e.data as BupaOutcomeSummaryRow))
           }}
@@ -224,7 +235,7 @@ function Report() {
       </div>
       <p className="text-xs text-muted-foreground">{t('report.hint')}</p>
 
-      {openRow && <Lines row={openRow} lines={lines} onClose={() => setOpenKey(null)} />}
+      {openRow && <Lines key={openKey} row={openRow} lines={lines} onClose={() => setOpenKey(null)} />}
     </div>
   )
 }
@@ -270,12 +281,18 @@ function Lines({ row, lines, onClose }: { row: BupaOutcomeSummaryRow; lines: Bup
       <header className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold">{t('detail.title')}</h2>
         <span className="text-xs text-muted-foreground" data-blo-lines-of="">
-          {t(`kind.${row.kind}`)} · <Sent sent={row.sent} dash={t('dash')} />
-          {row.dispensed && (
-            <>
-              {' '}
-              {t('detail.into')} <Ltr>{formatPair(row.dispensed.materialNumber, row.dispensed.nameEn)}</Ltr>
-            </>
+          {row.dispensed ? (
+            <Trans
+              t={t}
+              i18nKey="detail.ofRowDispensed"
+              values={{ kind: t(kindKey(row.kind)) }}
+              components={{
+                sent: <Sent sent={row.sent} dash={t('dash')} />,
+                dispensed: <Ltr>{formatPair(row.dispensed.materialNumber, row.dispensed.nameEn)}</Ltr>,
+              }}
+            />
+          ) : (
+            <Trans t={t} i18nKey="detail.ofRow" values={{ kind: t(kindKey(row.kind)) }} components={{ sent: <Sent sent={row.sent} dash={t('dash')} /> }} />
           )}
         </span>
         <span className="text-xs text-muted-foreground">
@@ -296,6 +313,7 @@ function Lines({ row, lines, onClose }: { row: BupaOutcomeSummaryRow; lines: Bup
               <th className={th}>{t('detail.placedAt')}</th>
               <th className={th}>{t('detail.store')}</th>
               <th className={th}>{t('detail.line')}</th>
+              <th className={th}>{t('detail.kind')}</th>
               <th className={th}>{t('detail.sent')}</th>
               <th className={th}>{t('detail.dispensed')}</th>
             </tr>
@@ -303,7 +321,7 @@ function Lines({ row, lines, onClose }: { row: BupaOutcomeSummaryRow; lines: Bup
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td className={td} colSpan={9}>
+                <td className={td} colSpan={10}>
                   {t('detail.none')}
                 </td>
               </tr>
@@ -370,6 +388,9 @@ function LineRows({
         <td className={td}>
           <Ltr>{String(d.lineNumber)}</Ltr>
         </td>
+        <td className={td} data-blo-line-kind={d.kind}>
+          {t(kindKey(d.kind))}
+        </td>
         <td className={td}>
           <div>
             <Sent sent={d.sent} dash={dash} />
@@ -382,7 +403,7 @@ function LineRows({
           {d.dispensed ? (
             <>
               <div>
-                <Ltr>{formatPair(d.dispensed.materialNumber, d.dispensed.sfdaCode)}</Ltr>
+                <Ltr>{formatPair(d.dispensed.materialNumber, d.dispensed.sfdaCode) || dash}</Ltr>
               </div>
               <div>
                 <bdi>{d.dispensed.nameEn}</bdi>
@@ -402,7 +423,7 @@ function LineRows({
       {expanded && (
         <tr data-blo-acts={`${d.documentNo}-${d.lineNumber}`}>
           <td />
-          <td colSpan={8} className="pb-2">
+          <td colSpan={9} className="pb-2">
             <Acts line={d} dash={dash} />
           </td>
         </tr>

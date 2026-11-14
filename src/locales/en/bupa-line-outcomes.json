@@ -20,7 +20,7 @@
     "kind": "Kind",
     "anyKind": "Every kind",
     "apply": "Apply",
-    "reset": "Last 30 days"
+    "reset": "Reset"
   },
   "kind": {
     "resolved": "Resolved",
@@ -28,7 +28,8 @@
     "swapped": "Swapped",
     "quantityOnly": "Quantity only",
     "voided": "Voided",
-    "unresolved": "Unresolved"
+    "unresolved": "Unresolved",
+    "unknown": "Other"
   },
   "act": {
     "PICK": "Resolve",
@@ -40,7 +41,7 @@
     "unknown": "Other"
   },
   "problem": {
-    "incomplete": "Pick both ends of the range.",
+    "incomplete": "Choose both ends of the range.",
     "reversed": "The range ends before it starts.",
     "tooLong": "A range is at most <max>{{max}}</max> months."
   },
@@ -49,7 +50,8 @@
     "failed": "The report could not be read. Try again in a moment.",
     "empty": "No Bupa line differs from what was sent in this range.",
     "total": "Total",
-    "hint": "Open a row to see the lines behind it."
+    "hint": "Open a row to see the lines behind it.",
+    "refusedTitle": "The server refused this range"
   },
   "column": {
     "kind": "Kind",
@@ -70,8 +72,7 @@
   },
   "detail": {
     "title": "Lines behind the row",
-    "into": "dispensed as",
-    "count": "<n>{{count}}</n> lines",
+    "count": "Lines: <n>{{count}}</n>",
     "close": "Close the lines",
     "acts": "Act history",
     "showActs": "Show the act history",
@@ -85,7 +86,10 @@
     "store": "Store",
     "line": "Line",
     "sent": "Sent",
-    "dispensed": "Dispensed"
+    "dispensed": "Dispensed",
+    "ofRow": "{{kind}} · <sent></sent>",
+    "ofRowDispensed": "{{kind}} · <sent></sent> dispensed as <dispensed></dispensed>",
+    "kind": "Kind"
   },
   "actCol": {
     "act": "Act",

@@ -189,6 +189,10 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-blo-lines]').waitFor({ timeout: 5000 })
   const lineIds = await page.locator('[data-blo-line]').evaluateAll((els) => els.map((e) => e.getAttribute('data-blo-line')))
   check(`${dir} 5 the row's lines exactly`, JSON.stringify(lineIds) === JSON.stringify(['2000000551-1', '2000000552-3']), lineIds.join(','))
+  const kinds = await page.locator('[data-blo-line-kind]').evaluateAll((els) => els.map((e) => e.getAttribute('data-blo-line-kind')))
+  check(`${dir} 5 each line shows its kind`, kinds.join(',') === 'resolved,resolved', kinds.join(','))
+  const lit = () => page.locator('[data-blo-summary] .ag-row[class~="bg-primary/10"]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('row-index')))])
+  check(`${dir} 5 the open row is highlighted`, (await lit()).join(',') === '0', (await lit()).join(','))
   const href = await page.locator('[data-blo-document="2000000551"]').getAttribute('href')
   check(`${dir} 5 document links to its page`, href === '/oms/document/2000000551', href ?? '')
 
@@ -206,12 +210,17 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-blo-summary] .ag-row[row-index="1"] [col-id="kind"]').first().click()
   await settle(page)
   const voidedLines = await page.locator('[data-blo-line]').evaluateAll((els) => els.map((e) => e.getAttribute('data-blo-line')))
+  check(`${dir} 5 the highlight moves to the new row`, (await lit()).join(',') === '1', (await lit()).join(','))
   check(`${dir} 5 voided row opens its own line`, JSON.stringify(voidedLines) === JSON.stringify(['2000000553-2']), voidedLines.join(','))
 
   // 4. filters → URL + report
   await page.locator('[data-blo-filter="kind"]').selectOption('swapped')
   await page.locator('[data-blo-filter="store"]').fill(' p002 ')
+  const asked = page
+    .waitForRequest((r) => r.url().includes('BupaLineOutcomes/report?') && r.url().includes('store=P002'), { timeout: 10000 })
+    .catch(() => null)
   await page.locator('[data-blo-apply]').click()
+  await asked
   await settle(page)
   const q4 = last(queries, 'BupaLineOutcomes/report')
   check(`${dir} 4 kind + store reach the report`, q4?.get('kind') === 'swapped' && q4?.get('store') === 'P002', q4?.toString())
@@ -239,7 +248,7 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-blo-apply]').click()
   await page.locator('[data-blo-refusal="SD-00999"]').waitFor({ timeout: 10000 }).catch(() => {})
   const refusal = await page.locator('[data-blo-refusal]').innerText().catch(() => '')
-  check(`${dir} 8 the coded refusal shows inline`, refusal.includes('The range is at most 3 months.'), refusal.replace(/\s+/g, ' '))
+  check(`${dir} 8 the coded refusal shows inline`, refusal.includes('The range is at most 3 months.') && refusal.includes('refused'), refusal.replace(/\s+/g, ' '))
   await page.screenshot({ path: `${SHOTS}/${dir}-refusal.png` })
 
   check(`${dir} 9 no page errors`, errors.length === 0, errors.join(' | '))

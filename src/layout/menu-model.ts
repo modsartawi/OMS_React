@@ -46,8 +46,7 @@ import {
 } from '@/features/oms/serial-refusals/access'
 // Bupa line outcomes' probe stays with its feature (oms 899): the leaf and the page are its only readers.
 import { BUPA_OUTCOME_ACCESS_KEY, bupaOutcomeAccessApi, canViewBupaOutcomes } from '@/features/oms/bupa-line-outcomes/access'
-import { FileDiff } from 'lucide-react'
-import { ClipboardX, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+import { ClipboardX, FileDiff, ListTree, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
 import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'

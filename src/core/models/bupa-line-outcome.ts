@@ -26,8 +26,8 @@ export interface BupaOutcomeQuery {
   to: string
   /** One store code; blank = every store. */
   store?: string
-  /** One of {@link BUPA_OUTCOME_KINDS}; blank = every kind. */
-  kind?: string
+  /** Blank = every kind. */
+  kind?: BupaOutcomeKind | ''
 }
 
 /** `GET BupaLineOutcomes/Access` (3889's Changes line) — cookie only, not grant-gated. */

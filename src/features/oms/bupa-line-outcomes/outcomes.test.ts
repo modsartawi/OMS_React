@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/bupa-line-outcomes.json'
 import ar from '@/locales/ar/bupa-line-outcomes.json'
 import { BUPA_OUTCOME_ACTS, BUPA_OUTCOME_KINDS, type BupaOutcomeDetail, type BupaOutcomeSummaryRow } from '@/core/models/bupa-line-outcome'
-import { actKey, linesOf, sentKey } from './outcomes'
+import { actKey, kindKey, linesOf, sentKey } from './outcomes'
 
 const item = (materialNumber: string) => ({ materialNumber, sfdaCode: null, nameEn: 'X', nameAr: 'س' })
 
@@ -74,8 +74,10 @@ describe('PICK reads as Resolve in both languages', () => {
     for (const locale of [en, ar]) expect(JSON.stringify(locale.act)).not.toMatch(/\bPick\b/)
   })
 
-  it('an act the screen does not know reads as its unknown key', () => {
+  it('an act or kind the screen does not know reads as its unknown key, never a raw one', () => {
     expect(actKey('SOMETHING')).toBe('act.unknown')
+    expect(kindKey('partial')).toBe('kind.unknown')
+    expect(kindKey('swapped')).toBe('kind.swapped')
   })
 })
 
@@ -97,6 +99,7 @@ describe('bupa-line-outcomes — en and ar', () => {
       ...BUPA_OUTCOME_KINDS.map((k) => `kind.${k}`),
       ...BUPA_OUTCOME_ACTS.map((a) => actKey(a)),
       'act.unknown',
+      'kind.unknown',
       ...['incomplete', 'reversed', 'tooLong'].map((p) => `problem.${p}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
       'menu.bupaLineOutcomes',

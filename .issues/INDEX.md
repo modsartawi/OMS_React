@@ -1482,3 +1482,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Nphies undispense (BackOffice 3208), filed 2026-11-13
 
 - [898](898-the-undispense-page-lists-pending-and-failed-undispenses-retries-them-and-frees-a-returned-authorization.md) — The Undispense page lists pending and failed undispenses, retries them, and frees a returned authorization · *(ticket · BackOffice spec 3208)* · **open** — built 2026-11-13, stubbed (drive 46/46); BO 3727's walk owed · blocked by: BO 3725 (done)
+
+## Bupa line outcomes (BackOffice spec 3888, brief assets/3888-oms-react-bupa-outcomes-brief.md, filed 2026-11-14)
+
+- [899](899-bupa-line-outcomes-filter-a-date-range-read-the-summary-open-its-lines-and-export.md) — Bupa line outcomes: filter a date range, read the summary, open its lines, and export to Excel · *(ticket · BackOffice spec 3888; doors 3889-3891)* · **done** — built 2026-11-14, stubbed (drive 52/52); staging walk owed once BO 3889-3891 land · blocked by: BO 3889 (stubs first)

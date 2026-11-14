@@ -10,6 +10,8 @@ import { REFUSAL_KINDS, REFUSAL_TABS, REFUSAL_TILES } from './refusals'
 import { HELD_TABS, HELD_TILES } from './held'
 import { REFUSAL_COLUMN_HINTS, REFUSAL_COLUMN_IDS } from './refusal-columns'
 import { HELD_COLUMN_HINTS, HELD_COLUMN_IDS } from './held-columns'
+import { GATES_TILES } from './gates'
+import { GATE_COLUMN_HINTS, GATE_COLUMN_IDS } from './gate-columns'
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -60,11 +62,14 @@ describe('held-stock-report — the keys the code builds exist', () => {
       ...REFUSAL_KINDS.map((k) => `kind.${k || 'any'}`),
       ...HELD_TABS.flatMap((tab) => [`held.tabs.${tab}`, `held.note.${tab}`, `held.empty.${tab}`]),
       ...HELD_TILES.flatMap((tile) => [`held.tile.${tile}`, `held.tileHint.${tile}`]),
-      ...[...REFUSAL_COLUMN_IDS, ...HELD_COLUMN_IDS].map((c) => `column.${c}`),
-      ...[...REFUSAL_COLUMN_HINTS, ...HELD_COLUMN_HINTS].map((c) => `columnHint.${c}`),
+      ...GATES_TILES.flatMap((tile) => [`gates.tile.${tile}`, `gates.tileHint.${tile}`]),
+      ...[...REFUSAL_COLUMN_IDS, ...HELD_COLUMN_IDS, ...GATE_COLUMN_IDS].map((c) => `column.${c}`),
+      ...[...REFUSAL_COLUMN_HINTS, ...HELD_COLUMN_HINTS, ...GATE_COLUMN_HINTS].map((c) => `columnHint.${c}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
       'menu.refusals',
       'menu.held',
+      'menu.gates',
+      ...['title', 'subtitle', 'to', 'reset', 'failed', 'failingOnly', 'window', 'note', 'empty'].map((k) => `gates.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

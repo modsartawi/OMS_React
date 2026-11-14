@@ -1,0 +1,125 @@
+{
+  "menu": {
+    "holdDailyList": "Holds that should have ended"
+  },
+  "title": "Holds that should have ended",
+  "subtitle": "Once a day: the holds standing longer than they should, each traced to its document, unit and take, so support can explain why a pack is held.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the daily list of holds",
+    "deniedHint": "Your account does not hold the daily list of holds grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "filledAt": "Filled <at>{{at}}</at>",
+  "notFilled": "Not filled yet: the daily fill has not run.",
+  "stale": "This list is more than a day old: today's fill did not run or failed, so these are yesterday's holds.",
+  "asOf": "As of <at>{{at}}</at>",
+  "tileHeld": "<q>{{q}}</q> held",
+  "filters": {
+    "kind": "Kind",
+    "anyKind": "Every kind",
+    "cause": "Cause",
+    "anyCause": "Every cause",
+    "stores": "Stores",
+    "storesPlaceholder": "Every store, or e.g. P001, P002",
+    "apply": "Apply",
+    "reset": "Every kind, every store"
+  },
+  "kind": {
+    "SOLD_OVER_24H": "A sold hold whose sale was pushed over 24 hours ago and never reached HQ.",
+    "DONOR_WAITS_GI": "A donor store's hold waiting for the transfer's goods issue: sold and never transferred, or the transfer failed.",
+    "WAITING_OVER_1H": "A hold waiting for a stock movement for over an hour.",
+    "RETURN_PO_OVER_30D": "A Return PO saved over 30 days ago and not issued.",
+    "OUT_OVER_3D": "A delivery out for delivery for more than 3 days.",
+    "DELIVERED_NO_SALE": "A delivery delivered with no sale."
+  },
+  "kindShort": {
+    "SOLD_OVER_24H": "Sold over 24 hours",
+    "DONOR_WAITS_GI": "Donor waits for goods issue",
+    "WAITING_OVER_1H": "Waiting over an hour",
+    "RETURN_PO_OVER_30D": "Return PO over 30 days",
+    "OUT_OVER_3D": "Out over 3 days",
+    "DELIVERED_NO_SALE": "Delivered, no sale"
+  },
+  "cause": {
+    "SOLD_NOT_TRANSFERRED": "Sold over a day ago at the order store, and the donor's transfer never made.",
+    "TRANSFER_FAILED": "The donor's latest transfer failed.",
+    "STANDING": "The delivery is delivered and its pick still holds.",
+    "ENDED_BY_SWEEP": "The expiry sweep ended the pick since the last fill: delivered, never sold.",
+    "UNTRACED": "No picking document's ledger or unit names this take."
+  },
+  "causeShort": {
+    "SOLD_NOT_TRANSFERRED": "Sold, not transferred",
+    "TRANSFER_FAILED": "Transfer failed",
+    "STANDING": "Still holds",
+    "ENDED_BY_SWEEP": "Ended by the sweep",
+    "UNTRACED": "Untraced"
+  },
+  "tabs": {
+    "label": "List sections",
+    "rows": "Held units",
+    "stores": "Per store"
+  },
+  "column": {
+    "kind": "Kind",
+    "cause": "Cause",
+    "store": "Store",
+    "age": "Age",
+    "since": "Since",
+    "firstListedAt": "First listed",
+    "documentNo": "Document",
+    "sourceType": "Source",
+    "sourceKey": "Source key",
+    "documentState": "State",
+    "lineNumber": "Line",
+    "pickIndex": "Pick",
+    "itemNumber": "Material",
+    "batch": "Batch",
+    "heldQuantity": "Held",
+    "takeId": "Take",
+    "serialNumber": "Serial",
+    "soldStore": "Sold at",
+    "soldTrx": "Sale",
+    "requestNo": "Donor request",
+    "orderStore": "Order store",
+    "donorStore": "Donor store",
+    "reference": "Waits for",
+    "rows": "Held units"
+  },
+  "columnHint": {
+    "store": "The store whose book holds it: the donor store for a donor's hold.",
+    "age": "How long the hold has stood, from Since to the list's as-of time.",
+    "since": "What the age counts from: the sale's push, the pick, the request, the movement or the delivery's dispatch.",
+    "firstListedAt": "When a daily fill first listed it. A hold that ended leaves the list at the next fill.",
+    "reference": "What the hold waits for, as the fill could name it."
+  },
+  "age": {
+    "days": "{{d}}d {{h}}h",
+    "hours": "{{h}}h {{m}}m",
+    "minutes": "{{m}}m"
+  },
+  "drill": {
+    "label": "Showing",
+    "clear": "Every store"
+  },
+  "list": {
+    "failedTitle": "The list could not be loaded",
+    "failed": "Something went wrong reading the list. Try again in a moment.",
+    "empty": "No hold that should have ended."
+  },
+  "export": {
+    "button": "Export .xlsx",
+    "fileName": "holds-that-should-have-ended",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "note": {
+    "rows": "One row per held unit. Sold over 24 hours lists only sales that reached Stock Visibility; a sale the till never pushed is not here. Return POs appear once DRS writes them.",
+    "stores": "Click a store to see its held units. The Return POs over 30 days read per store here."
+  }
+}

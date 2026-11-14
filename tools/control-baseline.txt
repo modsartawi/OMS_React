@@ -285,11 +285,19 @@ oms/document-source-users 0
 
 oms/donor-requests 0
 
+oms/expired-approval-picks 1
+  src/features/oms/expired-approval-picks/ExpiredApprovalPicksPage.tsx button: drill Clear, a non-navigating text button: restyled in place, copied from oms/serial-refusals (BackOffice ticket 3874)
+
 oms/failed-donor-transfers 2
   src/features/oms/failed-donor-transfers/columns.tsx button: grid-cell action (a request/delivery number opens it; spec 590: restyled in place)
   src/features/oms/failed-donor-transfers/columns.tsx button: grid-cell action (Re-run a failed line; spec 590: restyled in place)
 
 oms/geography 0
+
+oms/held-stock-report 1
+  src/features/oms/held-stock-report/RefusalsPage.tsx button: drill Clear, a non-navigating text button: restyled in place, copied from oms/expired-approval-picks (BackOffice ticket 3873)
+
+oms/hold-daily-list 0
 
 oms/orders 5
   src/features/oms/orders/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens, copied from oms/deliveries (ticket 786)

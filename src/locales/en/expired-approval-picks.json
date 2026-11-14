@@ -1,0 +1,100 @@
+{
+  "menu": {
+    "expiredApprovalPicks": "Expired approval picks"
+  },
+  "title": "Expired approval picks",
+  "subtitle": "Once a week: the picks on an insurance approval that expired with no sale, per store and pharmacist, so the insurance team can follow them up.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to expired approval picks",
+    "deniedHint": "Your account does not hold the expired approval picks report grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "unknownPharmacist": "Unnamed pharmacist",
+  "week": {
+    "label": "Week",
+    "range": "<from>{{from}}</from> to <to>{{to}}</to>",
+    "previous": "Previous week",
+    "next": "Next week",
+    "newest": "Newest week",
+    "filledAt": "Filled <at>{{at}}</at>",
+    "notFilled": "Not filled yet"
+  },
+  "filters": {
+    "stores": "Stores",
+    "storesPlaceholder": "Every store, or e.g. P001, P002",
+    "outcome": "Group",
+    "anyOutcome": "Both groups",
+    "apply": "Apply",
+    "reset": "Newest week, every store"
+  },
+  "outcome": {
+    "SOLD_NOT_BILLED": "Sold from the approvals screen, delivery never billed",
+    "NEVER_SOLD": "Never sold"
+  },
+  "outcomeShort": {
+    "SOLD_NOT_BILLED": "Sold, not billed",
+    "NEVER_SOLD": "Never sold"
+  },
+  "tabs": {
+    "label": "Report sections",
+    "pharmacists": "Per pharmacist",
+    "picks": "Picks"
+  },
+  "tile": {
+    "picks": "Expired picks",
+    "soldNotBilled": "Sold, not billed",
+    "neverSold": "Never sold",
+    "units": "Units held",
+    "stores": "Stores",
+    "pharmacists": "Pharmacists"
+  },
+  "tileHint": {
+    "picks": "Approval picks that expired this week with no sale.",
+    "soldNotBilled": "The approval was sold from the approvals screen, but the delivery picked on it was never billed.",
+    "neverSold": "The approval was neither sold nor billed.",
+    "units": "The units the expired picks held.",
+    "stores": "Stores with at least one expired approval pick this week.",
+    "pharmacists": "Store and pharmacist rows: the same pharmacist at two stores counts twice."
+  },
+  "column": {
+    "store": "Store",
+    "pharmacist": "Pharmacist",
+    "soldNotBilled": "Sold, not billed",
+    "neverSold": "Never sold",
+    "picks": "Picks",
+    "units": "Units",
+    "documentNo": "Picking document",
+    "sourceType": "Approval type",
+    "sourceKey": "Approval",
+    "outcome": "Group",
+    "deliveryNo": "Delivery",
+    "pickedAt": "Picked",
+    "expiredAt": "Expired"
+  },
+  "drill": {
+    "label": "Showing",
+    "clear": "All pharmacists"
+  },
+  "list": {
+    "failedTitle": "The report could not be loaded",
+    "failed": "Something went wrong reading the report. Try again in a moment.",
+    "empty": "No approval pick expired without a sale in this week."
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "export": {
+    "button": "Export .xlsx",
+    "fileName": "expired-approval-picks",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "note": {
+    "pharmacists": "Click a pharmacist to see their picks. The pharmacist is who confirmed the pick, else who picked it, else who opened it. The week is filled every Sunday, and the three weeks before it again, so an approval invoiced since leaves the report.",
+    "picks": "An approval picked again after this pick expired and sold at the till is in Sold, not billed when its delivery was never billed."
+  }
+}

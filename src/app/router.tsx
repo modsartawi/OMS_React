@@ -332,6 +332,36 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/serial-refusals/SerialRefusalsPage')).default,
         }),
       },
+      // Expired approval picks (BackOffice spec 3849 / ticket 3874) — the insurance team's weekly report of approval picks
+      // that expired with no sale, per store and pharmacist, behind its own `ExpiredApprovalPick/Access` probe. Filters in the URL.
+      {
+        path: 'oms/expired-approval-picks',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/expired-approval-picks/ExpiredApprovalPicksPage')).default,
+        }),
+      },
+      // HQ's two held-stock reports (BackOffice spec 3849 / ticket 3873), read before a switch is moved — the take refusals
+      // and what held would take off the channels' figure — behind the one `HeldStockReport/Access` probe. Filters in the URL.
+      {
+        path: 'oms/held-stock-report/refusals',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/RefusalsPage')).default,
+        }),
+      },
+      {
+        path: 'oms/held-stock-report/held',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
+        }),
+      },
+      // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
+      // `HoldDailyList/Access` probe. Kind, cause, stores, tab and the drilled store live in the URL.
+      {
+        path: 'oms/hold-daily-list',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/hold-daily-list/HoldDailyListPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

@@ -1,0 +1,204 @@
+{
+  "menu": {
+    "refusals": "Take refusals",
+    "held": "Held stock impact"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the held stock reports",
+    "deniedHint": "Your account does not hold the held stock report grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "yes": "Yes",
+  "no": "No",
+  "tabsLabel": "Report sections",
+  "asOf": "As of <at>{{at}}</at>",
+  "filters": {
+    "stores": "Stores",
+    "apply": "Apply"
+  },
+  "kind": {
+    "any": "Refusals and would-be refusals",
+    "real": "Refused",
+    "shadow": "Would refuse (shadow)"
+  },
+  "column": {
+    "store": "Store",
+    "material": "Material",
+    "batch": "Batch",
+    "kind": "Kind",
+    "count": "Refusals",
+    "quantityAsked": "Quantity asked",
+    "quantityAvailable": "Available",
+    "reasons": "Reasons",
+    "sapFeedAge": "SAP feed age",
+    "posFeedAge": "POS feed age",
+    "firstAt": "First",
+    "lastAt": "Last",
+    "loggedAt": "Logged",
+    "takeId": "Take",
+    "code": "Code",
+    "reason": "Reason",
+    "batchWithStock": "Batch with stock",
+    "batchWithStockExpiry": "Its expiry",
+    "batchWithStockQuantity": "Its stock",
+    "expiredQuantity": "Expired",
+    "document": "Document",
+    "user": "User",
+    "stage": "Stage",
+    "lines": "Lines spanning batches",
+    "documentNo": "Picking document",
+    "sourceType": "Source type",
+    "sourceKey": "Source",
+    "lineNumber": "Line",
+    "pickIndex": "Pick",
+    "quantity": "Quantity",
+    "pickedBy": "Picked by",
+    "pickedAt": "Picked",
+    "channelToday": "Channels today",
+    "held": "Held",
+    "channelWithHeld": "Channels with held",
+    "takenOff": "Taken off",
+    "fallsToZero": "Falls to zero",
+    "heldBeyondOpenPicks": "Held beyond open picks",
+    "heldBy": "Held by {{sourceType}}",
+    "units": "Held units",
+    "pairs": "Store and material pairs",
+    "day": "Day",
+    "repairs": "Repairs",
+    "holdsReleased": "Holds released",
+    "holdsAdded": "Holds added"
+  },
+  "columnHint": {
+    "quantityAvailable": "The quantity available at the group's latest refusal.",
+    "sapFeedAge": "How old the SAP stock feed was when the refusal was logged (h:mm:ss). On a group, the oldest of its rows.",
+    "posFeedAge": "How old the POS sales feed was when the refusal was logged (h:mm:ss). On a group, the oldest of its rows.",
+    "lines": "Picked lines whose last pick fell on the day and whose units carry more than one batch.",
+    "channelToday": "What the channels get today: Stock Visibility's ATP.",
+    "held": "Held, as Stock Visibility stands it: what serving held would subtract.",
+    "channelWithHeld": "What the channels would get with held subtracted, never below zero.",
+    "takenOff": "Channels today minus channels with held.",
+    "fallsToZero": "The channels have stock today and would have none.",
+    "heldBeyondOpenPicks": "Held minus the open picking documents' held units: sold holds waiting for their sale, door holds not yet confirmed, or a gap the check repairs. Negative when Stock Visibility is behind the pick tables.",
+    "units": "The held units on open picking documents of this source type.",
+    "pairs": "The store and material pairs this source type holds on.",
+    "repairs": "Each repair is a writer that forgot its ledger row."
+  },
+  "list": {
+    "failedTitle": "The report could not be loaded",
+    "failed": "Something went wrong reading the report. Try again in a moment."
+  },
+  "export": {
+    "button": "Export .xlsx",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "refusals": {
+    "title": "Take refusals",
+    "subtitle": "One day of the take door's refusals, and a shadow store's would-be refusals, by store, material and batch with the feeds' ages; the lines that span batches; and each take of last-resort stock.",
+    "fileName": "take-refusals",
+    "day": {
+      "label": "Day",
+      "previous": "Previous day",
+      "next": "Next day"
+    },
+    "storesPlaceholder": "Every open store, or e.g. P001, P002",
+    "kindLabel": "Kind",
+    "reset": "Today, every open store",
+    "unreached": {
+      "title_one": "{{n}} store did not answer",
+      "title_other": "{{n}} stores did not answer",
+      "hint": "Stock Visibility did not return their refusal log, so their refusals are missing from this report, not zero:"
+    },
+    "tabs": {
+      "groups": "By store, material and batch",
+      "rows": "Refusal log",
+      "multiBatch": "Lines spanning batches",
+      "lastResort": "Last-resort takes"
+    },
+    "tile": {
+      "refused": "Refused",
+      "wouldRefuse": "Would refuse",
+      "groups": "Store, material and batch",
+      "multiBatchLines": "Lines spanning batches",
+      "lastResortTakes": "Last-resort takes",
+      "storesUnreached": "Stores not answering"
+    },
+    "tileHint": {
+      "refused": "Takes the door refused at a live store.",
+      "wouldRefuse": "Takes the door would have refused at a shadow store: nothing was refused.",
+      "groups": "Rows of the first tab: one per store, material, batch and kind.",
+      "multiBatchLines": "Picked lines of the day whose units carry more than one batch.",
+      "lastResortTakes": "Units that took DUMMY or the store's own DM placeholder batch.",
+      "storesUnreached": "Stores whose refusal log Stock Visibility did not return."
+    },
+    "drill": {
+      "label": "Showing",
+      "clear": "All refusals"
+    },
+    "noBatch": "No batch named",
+    "note": {
+      "groups": "Click a row to see its refusals. A shadow store's would-be refusals are never mixed with real ones. Feed ages are h:mm:ss.",
+      "rows": "Every row of the log as Stock Visibility answered it, with the feed ages it was logged with.",
+      "multiBatch": "A line counts on the day of its last pick. Empty until the door's batch is stamped on the unit.",
+      "lastResort": "Last resort is DUMMY, or DM followed by the store's own code, on a unit with a take. Empty until the door's batch is stamped on the unit."
+    },
+    "empty": {
+      "groups": "No refusal on this day.",
+      "rows": "No refusal row matches.",
+      "multiBatch": "No line spanned more than one batch on this day.",
+      "lastResort": "No take of last-resort stock on this day."
+    }
+  },
+  "held": {
+    "title": "Held stock impact",
+    "subtitle": "What held would take off the channels' figure, before held is served: per store and material, per picking source type with DRS on its own line, and the check's repairs per day.",
+    "fileName": "held-stock-impact",
+    "storesPlaceholder": "The fleet, or e.g. P001, P002",
+    "repairsFrom": "Repairs from",
+    "repairsTo": "Repairs to",
+    "sourceLabel": "Source type",
+    "anySource": "Every source",
+    "reset": "The fleet, the last 7 days",
+    "failed": "Stock Visibility could not be read for every pair, so no figure is shown: a partial figure would mislead. Try again in a moment.",
+    "fallingOnly": "Only pairs falling to zero",
+    "tabs": {
+      "pairs": "Per store and material",
+      "sources": "Per source type",
+      "repairs": "Repairs per day"
+    },
+    "tile": {
+      "pairs": "Pairs with holds",
+      "pairsFallingToZero": "Falling to zero",
+      "channelToday": "Channels today",
+      "held": "Held",
+      "takenOff": "Taken off",
+      "channelWithHeld": "Channels with held",
+      "repairs": "Repairs in range"
+    },
+    "tileHint": {
+      "pairs": "Store and material pairs with a standing hold on an open picking document.",
+      "pairsFallingToZero": "Pairs whose channels have stock today and would have none.",
+      "channelToday": "Stock Visibility's ATP over the pairs: what the channels get today.",
+      "held": "Held over the pairs, as Stock Visibility stands it.",
+      "takenOff": "What serving held would take off the channels' figure.",
+      "channelWithHeld": "What the channels would get with held subtracted.",
+      "repairs": "The check on held's repairs over the range: each one is a writer that forgot its ledger row."
+    },
+    "note": {
+      "pairs": "Only pairs with a hold on an open picking document are listed; a pair whose holds are only at Stock Visibility is not.",
+      "sources": "The held units on open picking documents per source type, over the fleet. DRS is a line of its own.",
+      "repairs": "The report's last line: the check on held's repairs per day, fleet-wide."
+    },
+    "empty": {
+      "pairs": "No pair has a standing hold.",
+      "sources": "No source type holds stock.",
+      "repairs": "The check made no repair in this range."
+    }
+  }
+}

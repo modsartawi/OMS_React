@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import type { HeldImpactPair } from '@/core/models/held-stock-report'
-import { HELD_DEFAULTS, heldFiltersFromParams, heldFiltersToParams, heldQuery, pairsShown, unitsFrom } from './held'
+import type { HeldImpactPair, HeldImpactReport } from '@/core/models/held-stock-report'
+import {
+  HELD_DEFAULTS,
+  HELD_TABS,
+  HELD_TILES,
+  heldFiltersFromParams,
+  heldFiltersToParams,
+  heldQuery,
+  heldTileValue,
+  pairsShown,
+  unitsFrom,
+} from './held'
 
 describe('the held report URL', () => {
   it('writes nothing for the defaults: the fleet, the last 7 days of repairs, every pair', () => {
@@ -77,5 +87,23 @@ describe('the pairs shown', () => {
   it('reads a pair’s units from one source type, and a source that holds nothing there as zero', () => {
     expect(unitsFrom(PAIRS[0], 'DRS')).toBe(2)
     expect(unitsFrom(PAIRS[1], 'DRS')).toBe(0)
+  })
+})
+
+describe('the netting line (BackOffice ticket 3903)', () => {
+  it('is a section of its own before the repairs per day, which stay the last line', () => {
+    expect(HELD_TABS).toEqual(['pairs', 'sources', 'netting', 'repairs'])
+    expect(heldFiltersFromParams(new URLSearchParams('tab=netting')).tab).toBe('netting')
+  })
+
+  it("tiles the reserving documents' gap: netted as picked and unsold minus what Stock Visibility holds", () => {
+    expect(HELD_TILES).toContain('nettingGap')
+    const report = {
+      totals: { channelToday: 0, channelWithHeld: 0, takenOff: 0, held: 0, pairs: 0, pairsFallingToZero: 0 },
+      repairs: 4,
+      netting: { lines: 3, nettedPicked: 6, held: 4, gap: 2, differences: [] },
+    } as unknown as HeldImpactReport
+    expect(heldTileValue(report, 'nettingGap')).toBe(2)
+    expect(heldTileValue(report, 'repairs')).toBe(4)
   })
 })

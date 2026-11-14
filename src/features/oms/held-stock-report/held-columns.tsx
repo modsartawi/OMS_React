@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
-import type { HeldImpactPair, HeldImpactRepairDay, HeldImpactSource } from '@/core/models/held-stock-report'
+import type { HeldImpactPair, HeldImpactRepairDay, HeldImpactSource, HeldNettingDifference } from '@/core/models/held-stock-report'
 import { pinStart } from '@/core/theme/direction'
 import { formatDay } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
@@ -21,15 +21,18 @@ const NUMBER: Partial<ColDef> = { type: 'numericColumn', cellClass: 'text-end ta
 export const HELD_COLUMN_IDS = [
   'store', 'material', 'channelToday', 'held', 'channelWithHeld', 'takenOff', 'fallsToZero', 'heldBeyondOpenPicks',
   'heldBy', 'sourceType', 'units', 'pairs', 'day', 'repairs', 'holdsReleased', 'holdsAdded',
+  'side', 'reservingDocument', 'lineNumber', 'approvalNo', 'ordered', 'nettedPicked', 'nettedSold', 'heldForDocument',
+  'heldSold', 'gap',
 ] as const
 
 /** The column ids that carry a header hint, in both locales. */
 export const HELD_COLUMN_HINTS = [
   'channelToday', 'held', 'channelWithHeld', 'takenOff', 'fallsToZero', 'heldBeyondOpenPicks', 'units', 'pairs', 'repairs',
+  'side', 'nettedPicked', 'nettedSold', 'heldForDocument', 'heldSold', 'gap',
 ] as const
 
 /** Every code column id, exported as text. */
-export const HELD_TEXT_COLUMNS = new Set(['store', 'material', 'sourceType'])
+export const HELD_TEXT_COLUMNS = new Set(['store', 'material', 'sourceType', 'side', 'reservingDocument', 'approvalNo'])
 
 const figure = ({ value }: ValueFormatterParams) => formatFigure(value as number | null)
 
@@ -78,6 +81,24 @@ export function sourceColumns(t: TFunction): ColDef<HeldImpactSource>[] {
     { colId: 'sourceType', field: 'sourceType', headerName: t('column.sourceType'), pinned: pinStart, minWidth: 120, cellClass: CODE },
     { ...num<HeldImpactSource>(t, 'units', true), flex: 1 },
     { ...num<HeldImpactSource>(t, 'pairs', true), flex: 1 },
+  ]
+}
+
+/** The reserving document lines whose netting and hold differ (ticket 3903). */
+export function nettingColumns(t: TFunction): ColDef<HeldNettingDifference>[] {
+  return [
+    { colId: 'store', field: 'store', headerName: t('column.store'), pinned: pinStart, minWidth: 90, cellClass: CODE },
+    { colId: 'material', field: 'material', headerName: t('column.material'), pinned: pinStart, minWidth: 110, cellClass: CODE },
+    { colId: 'side', field: 'side', headerName: t('column.side'), headerTooltip: t('columnHint.side'), minWidth: 80, cellClass: CODE },
+    { colId: 'reservingDocument', field: 'documentNo', headerName: t('column.reservingDocument'), minWidth: 130, cellClass: CODE },
+    { ...num<HeldNettingDifference>(t, 'lineNumber'), minWidth: 80 },
+    { colId: 'approvalNo', field: 'approvalNo', headerName: t('column.approvalNo'), minWidth: 110, cellClass: CODE },
+    num<HeldNettingDifference>(t, 'ordered'),
+    num<HeldNettingDifference>(t, 'nettedPicked', true),
+    num<HeldNettingDifference>(t, 'nettedSold', true),
+    { ...num<HeldNettingDifference>(t, 'heldForDocument', true), field: 'held' },
+    num<HeldNettingDifference>(t, 'heldSold', true),
+    { ...num<HeldNettingDifference>(t, 'gap', true), cellClass: 'text-end tabular-nums font-semibold text-attention-800' },
   ]
 }
 

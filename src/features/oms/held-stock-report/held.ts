@@ -4,11 +4,12 @@
  * The stores and the repairs' range are the door's (a change re-reads Stock Visibility); the falls-to-zero and source-type
  * filters only narrow the pairs already read. Dates are local `yyyy-MM-dd` calendar days (`no-utc-time`).
  */
-import type { HeldImpactPair, HeldImpactReportQuery } from '@/core/models/held-stock-report'
+import type { HeldImpactPair, HeldImpactReport, HeldImpactReportQuery } from '@/core/models/held-stock-report'
 import { normalizeStores, realDay } from './shared'
 
-/** The report's three sections, in its order: the repairs per day are its last line. */
-export const HELD_TABS = ['pairs', 'sources', 'repairs'] as const
+/** The report's sections, in its order: the reserving documents' netting against held (ticket 3903), then the repairs per
+ * day, its last line. */
+export const HELD_TABS = ['pairs', 'sources', 'netting', 'repairs'] as const
 export type HeldTab = (typeof HELD_TABS)[number]
 
 /** The screen's whole query, as its URL holds it. A blank repairs edge is the door's default (the last 7 days). */
@@ -78,6 +79,15 @@ export function pairsShown(pairs: readonly HeldImpactPair[], filters: HeldFilter
   )
 }
 
-/** The tiles, in the order they read: the fleet totals, then the check's repairs over the range. */
-export const HELD_TILES = ['pairs', 'pairsFallingToZero', 'channelToday', 'held', 'takenOff', 'channelWithHeld', 'repairs'] as const
+/** The tiles, in the order they read: the fleet totals, the reserving documents' netting gap, then the check's repairs. */
+export const HELD_TILES = [
+  'pairs', 'pairsFallingToZero', 'channelToday', 'held', 'takenOff', 'channelWithHeld', 'nettingGap', 'repairs',
+] as const
 export type HeldTile = (typeof HELD_TILES)[number]
+
+/** A tile's figure, as the door sent it. */
+export function heldTileValue(report: HeldImpactReport, key: HeldTile): number {
+  if (key === 'repairs') return report.repairs
+  if (key === 'nettingGap') return report.netting?.gap ?? 0
+  return report.totals[key]
+}

@@ -354,6 +354,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
         }),
       },
+      // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
+      // `HoldDailyList/Access` probe. Kind, cause, stores, tab and the drilled store live in the URL.
+      {
+        path: 'oms/hold-daily-list',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/hold-daily-list/HoldDailyListPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

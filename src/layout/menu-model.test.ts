@@ -447,6 +447,28 @@ describe('the held-stock report leaves (BackOffice ticket 3873)', () => {
   })
 })
 
+describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'hold-daily-list:menu.holdDailyList')!
+
+  it('sits in the OMS group right after Held stock impact, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('hold-daily-list:menu.holdDailyList')).toBe(keys.indexOf('held-stock-report:menu.held') + 1)
+    expect(leaf.routerLink).toBe('/oms/hold-daily-list')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/hold-daily-list')).map((i) => i.labelKey)).toEqual([
+      'hold-daily-list:menu.holdDailyList',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (HoldDailyList/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'hold-daily-list', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})
+
 describe('the Serving lists leaf (ticket 567)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const keys = (oms.items ?? []).map((i) => i.labelKey)

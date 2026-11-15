@@ -8,6 +8,7 @@ import {
   countState,
   moveCommit,
   personMovesFrom,
+  personName,
   releaseCommit,
   stageRow,
   stagesFiltersFromParams,
@@ -76,6 +77,7 @@ describe('the filters and rows', () => {
           to: 'Shadow',
           mover: 'Person',
           who: 'u.stockctl',
+          whoName: 'Rana Haddad',
           why: 'Dead link',
           movedAt: '2026-11-14T10:05:00',
         }),
@@ -85,7 +87,8 @@ describe('the filters and rows', () => {
       stage: 'Shadow',
       lastFrom: 'Blocking',
       lastMover: 'Person',
-      lastWho: 'u.stockctl',
+      lastWho: 'Rana Haddad',
+      lastWhoId: 'u.stockctl',
       lastWhy: 'Dead link',
       lastMovedAt: '2026-11-14T10:05:00',
     })
@@ -95,6 +98,7 @@ describe('the filters and rows', () => {
       lastFrom: '',
       lastMover: '',
       lastWho: '',
+      lastWhoId: '',
       lastWhy: '',
       lastMovedAt: '',
     })
@@ -108,6 +112,7 @@ describe('the count closing (BackOffice 3898)', () => {
     isCountClosed,
     countClosedAt: isCountClosed ? '2026-11-14T00:55:00' : '0001-01-01T00:00:00',
     countClosedBy: isCountClosed ? 'u.invctl' : '',
+    countClosedByName: isCountClosed ? 'Huda Saleh' : '',
   })
 
   it('finds the count row of a store and its state', () => {
@@ -131,5 +136,34 @@ describe('the count closing (BackOffice 3898)', () => {
     expect(releaseCommit({ row: row(false), why: 'x', pending: false }).canCommit).toBe(false)
     expect(releaseCommit({ row: row(true), why: '  ', pending: false }).canCommit).toBe(false)
     expect(releaseCommit({ row: row(true), why: 'a'.repeat(501), pending: false })).toEqual({ canCommit: false, tooLong: true })
+  })
+})
+
+// Owner ruling 2026-11-15: the log shows people's names, not user ids. SIS.Api names each id from HQ's user directory and
+// keeps the id beside it; an id the directory does not know (the seed, the sweep's SIS.Api, an old row) comes back as itself.
+describe("people's names (BackOffice 3899, owner ruling 2026-11-15)", () => {
+  it('shows the name, and the id when there is no name', () => {
+    expect(personName('u.stockctl', 'Rana Haddad')).toBe('Rana Haddad')
+    expect(personName('SIS.Api', 'SIS.Api')).toBe('SIS.Api')
+    expect(personName('u.old', '  ')).toBe('u.old')
+    expect(personName('u.old', undefined)).toBe('u.old')
+    expect(personName('', '')).toBe('')
+  })
+
+  it('a row whose last mover is unknown shows the raw id', () => {
+    const row = stageRow(
+      stage('P883', 'Seeded', {
+        store: 'P883',
+        from: 'Seeding',
+        to: 'Seeded',
+        mover: 'Seed',
+        who: 'SIS.Api',
+        whoName: 'SIS.Api',
+        why: '',
+        movedAt: '2026-11-14T10:05:00',
+      }),
+    )
+    expect(row.lastWho).toBe('SIS.Api')
+    expect(row.lastWhoId).toBe('SIS.Api')
   })
 })

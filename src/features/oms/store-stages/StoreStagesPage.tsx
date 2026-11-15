@@ -38,6 +38,7 @@ import {
   countState,
   moveCommit,
   personMovesFrom,
+  personName,
   releaseCommit,
   stageRow,
   stagesFiltersFromParams,
@@ -251,8 +252,8 @@ function StoreSheet({
                       {t('log.fromTo', { from: fsi(stageLabel(t, m.from)), to: fsi(stageLabel(t, m.to)) })}
                     </td>
                     <td className={TD}>{moverLabel(t, m.mover)}</td>
-                    <td className={`${TD} font-mono text-[12px]`}>
-                      <Ltr>{m.who}</Ltr>
+                    <td className={TD} title={m.who}>
+                      {personName(m.who, m.whoName)}
                     </td>
                     <td className={`${TD} whitespace-normal`}>{m.why}</td>
                   </tr>
@@ -433,7 +434,7 @@ function CountSection({
           <p className="text-[0.8125rem] text-muted-foreground" data-stage-count-state="">
             {state === 'open'
               ? t('count.open')
-              : t('count.closed', { who: fsi(count!.countClosedBy), at: fsi(formatDateTime(count!.countClosedAt)) })}
+              : t('count.closed', { who: fsi(personName(count!.countClosedBy, count!.countClosedByName)), at: fsi(formatDateTime(count!.countClosedAt)) })}
           </p>
         </>
       )}
@@ -526,8 +527,8 @@ function CountSection({
                     <Ltr>{formatDateTime(r.releasedAt)}</Ltr>
                   </td>
                   <td className={TD}>{t(`count.kind.${r.kind}`, { defaultValue: r.kind })}</td>
-                  <td className={`${TD} font-mono text-[12px]`}>
-                    <Ltr>{r.releasedBy}</Ltr>
+                  <td className={TD} title={r.releasedBy}>
+                    {personName(r.releasedBy, r.releasedByName)}
                   </td>
                   <td className={`${TD} whitespace-normal`}>{r.why}</td>
                 </tr>

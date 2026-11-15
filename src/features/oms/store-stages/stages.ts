@@ -71,13 +71,24 @@ export function stagesShown(stages: StoreStage[], filters: StagesFilters): Store
   )
 }
 
+/**
+ * Owner ruling 2026-11-15: the screen shows people's names, not user ids. SIS.Api sends each id with its name from HQ's
+ * user directory (the raw id when it knows none); an older SIS.Api, or a blank name, falls back to the id.
+ */
+export function personName(id: string, name: string | null | undefined): string {
+  return name?.trim() || id
+}
+
 /** One store as one grid row: its stage and its last move. */
 export interface StageRow {
   store: string
   stage: string
   lastFrom: string
   lastMover: string
+  /** The last mover's name (`personName`). */
   lastWho: string
+  /** The last mover's user id, the cell's tooltip. */
+  lastWhoId: string
   lastWhy: string
   lastMovedAt: string
 }
@@ -89,7 +100,8 @@ export function stageRow(s: StoreStage): StageRow {
     stage: s.stage,
     lastFrom: m?.from ?? '',
     lastMover: m?.mover ?? '',
-    lastWho: m?.who ?? '',
+    lastWho: m ? personName(m.who, m.whoName) : '',
+    lastWhoId: m?.who ?? '',
     lastWhy: m?.why ?? '',
     lastMovedAt: m?.movedAt ?? '',
   }

@@ -8,7 +8,7 @@ import type { StageRow } from './stages'
 
 /**
  * The stage screen's columns (BackOffice ticket 3899): one row per store, its stage and its last move. Store codes and user
- * ids are machine values: monospace.
+ * ids are machine values: monospace. A person is shown by name (owner ruling 2026-11-15), the user id as the cell's tooltip.
  */
 
 const CODE = 'font-mono text-[12px]'
@@ -47,7 +47,7 @@ export function stageColumns(t: TFunction): ColDef<StageRow>[] {
     },
     { ...header(t, 'lastFrom'), minWidth: 110, valueFormatter: ({ value }) => (value ? stageLabel(t, value as string) : '') },
     { ...header(t, 'lastMover'), minWidth: 120, valueFormatter: ({ value }) => moverLabel(t, value as string) },
-    { ...header(t, 'lastWho'), minWidth: 120, cellClass: CODE },
+    { ...header(t, 'lastWho'), minWidth: 140, tooltipField: 'lastWhoId' },
     { ...header(t, 'lastWhy'), flex: 1, minWidth: 220, tooltipField: 'lastWhy' },
     {
       ...header(t, 'lastMovedAt'),

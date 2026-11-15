@@ -25,7 +25,13 @@ export interface StoreStageMove {
   from: string
   to: string
   mover: string
+  /** The mover's user id as SIS.Stock logged it (the durable key), or a system mover's name. */
   who: string
+  /**
+   * Owner ruling 2026-11-15: the person's name from HQ's user directory, named by SIS.Api; `who` itself when the directory
+   * does not know it (the seed, the sweep's `SIS.Api`, an old row). Show this, keep `who` beside it.
+   */
+  whoName: string
   why: string
   movedAt: string
 }
@@ -62,7 +68,10 @@ export interface StoreCountRow {
   isCountClosed: boolean
   /** `0001-01-01T00:00:00` while the count is open. */
   countClosedAt: string
+  /** The closer's user id (stored). */
   countClosedBy: string
+  /** Owner ruling 2026-11-15: the closer's name; `countClosedBy` when unknown. */
+  countClosedByName: string
 }
 
 /** One release of a closed count. `kind` is `Seeded` or `ByHand`. */
@@ -72,8 +81,11 @@ export interface StoreCountRelease {
   inventoryDate: string
   countClosedAt: string
   countClosedBy: string
+  countClosedByName: string
   kind: string
   releasedBy: string
+  /** Owner ruling 2026-11-15: the releaser's name; `releasedBy` when unknown (the sweep's `SIS.Api`). */
+  releasedByName: string
   releasedAt: string
   why: string
 }

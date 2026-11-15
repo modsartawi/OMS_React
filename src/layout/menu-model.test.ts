@@ -471,6 +471,28 @@ describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () =>
   })
 })
 
+describe('the Store stages leaf (BackOffice ticket 3899)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'store-stages:menu.storeStages')!
+
+  it('sits in the OMS group right after Holds that should have ended, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('store-stages:menu.storeStages')).toBe(keys.indexOf('hold-daily-list:menu.holdDailyList') + 1)
+    expect(leaf.routerLink).toBe('/oms/store-stages')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/store-stages')).map((i) => i.labelKey)).toEqual([
+      'store-stages:menu.storeStages',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (StoreStage/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'store-stages', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true, canMove: false })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false, canMove: true })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})
+
 describe('the Serving lists leaf (ticket 567)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const keys = (oms.items ?? []).map((i) => i.labelKey)

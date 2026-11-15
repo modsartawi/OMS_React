@@ -188,6 +188,8 @@ import heldStockReportAr from '@/locales/ar/held-stock-report.json'
 // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872). Namespace == feature name, English and Arabic together.
 import holdDailyList from '@/locales/en/hold-daily-list.json'
 import holdDailyListAr from '@/locales/ar/hold-daily-list.json'
+import storeStages from '@/locales/en/store-stages.json'
+import storeStagesAr from '@/locales/ar/store-stages.json'
 // The insurance-rules area (BackOffice spec 3126, oms 607): every one of its namespaces, English and Arabic,
 // is registered in `@/core/insurance-rules/locales` — a later slice edits THAT file, never this one.
 import { INSURANCE_RULES_AR, INSURANCE_RULES_EN, INSURANCE_RULES_NS } from '@/core/insurance-rules/locales'
@@ -257,7 +259,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -339,6 +341,7 @@ i18n.use(initReactI18next).init({
       'expired-approval-picks': expiredApprovalPicks,
       'held-stock-report': heldStockReport,
       'hold-daily-list': holdDailyList,
+      'store-stages': storeStages,
       ...INSURANCE_RULES_EN,
     },
     ar: {
@@ -386,6 +389,7 @@ i18n.use(initReactI18next).init({
       'expired-approval-picks': expiredApprovalPicksAr,
       'held-stock-report': heldStockReportAr,
       'hold-daily-list': holdDailyListAr,
+      'store-stages': storeStagesAr,
       callcenter: callcenterAr,
       boards: boardsAr,
       copilot: copilotAr,

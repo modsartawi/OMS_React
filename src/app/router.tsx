@@ -378,6 +378,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/hold-daily-list/HoldDailyListPage')).default,
         }),
       },
+      // Store stages (BackOffice spec 3849 / ticket 3899) — each store's stage at Stock Visibility and its log; a named
+      // permission moves it. Behind its own `StoreStage/Access` probe. Store, stage and the open store live in the URL.
+      {
+        path: 'oms/store-stages',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

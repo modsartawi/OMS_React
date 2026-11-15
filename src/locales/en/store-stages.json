@@ -1,0 +1,129 @@
+{
+  "menu": {
+    "storeStages": "Store stages"
+  },
+  "title": "Store stages",
+  "subtitle": "Each store's stage at Stock Visibility and its last move. Open a store for its log and to move its stage.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to store stages",
+    "deniedHint": "Your account does not hold the store stage grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "stage": {
+    "Shadow": "Shadow",
+    "Seeding": "Seeding",
+    "Seeded": "Seeded",
+    "Blocking": "Blocking"
+  },
+  "mover": {
+    "Person": "A person",
+    "CountClosing": "Count closing",
+    "Seed": "The seed"
+  },
+  "filters": {
+    "store": "Store",
+    "storePlaceholder": "Store code or its start",
+    "stage": "Stage",
+    "anyStage": "Any stage",
+    "apply": "Apply",
+    "reset": "Reset"
+  },
+  "column": {
+    "store": "Store",
+    "stage": "Stage",
+    "lastFrom": "Moved from",
+    "lastMover": "Moved by",
+    "lastWho": "Who",
+    "lastWhy": "Why",
+    "lastMovedAt": "When"
+  },
+  "list": {
+    "failedTitle": "The stages could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "empty": "No store matches."
+  },
+  "note": "A person can put any store back to Shadow, move a Seeded store to Blocking and a Blocking store back to Seeded. Shadow to Seeding is the count's closing and Seeding to Seeded is the seed's: no person writes them.",
+  "sheet": {
+    "eyebrow": "Store stage",
+    "close": "Close"
+  },
+  "log": {
+    "title": "Stage log",
+    "loading": "Reading the log…",
+    "empty": "This store's stage has never moved.",
+    "failedTitle": "The log could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "movedAt": "When",
+    "move": "Move",
+    "fromTo": "{{from}} to {{to}}",
+    "mover": "Moved by",
+    "who": "Who",
+    "why": "Why"
+  },
+  "move": {
+    "title": "Move this store's stage",
+    "to": "New stage",
+    "toPlaceholder": "Choose a stage",
+    "why": "Why",
+    "whyPlaceholder": "The reason, kept in the store's log",
+    "tooLong": "The reason is longer than {{max}} characters.",
+    "commit": "Move",
+    "committing": "Moving…",
+    "refusedTitle": "The move was refused",
+    "failed": "The stage could not be moved. Try again in a moment.",
+    "noneFromShadow": "A Shadow store moves on only when its count closes.",
+    "done": {
+      "title": "Stage moved",
+      "detail": "{{store}} is now {{stage}}."
+    }
+  },
+  "count": {
+    "title": "Count",
+    "none": "This store is not blocked for a count.",
+    "day": "Count day",
+    "open": "Under count, open: sales dated after the count day are held.",
+    "closed": "Count closed by {{who}} at {{at}}: every sale and every DRS post of the store is held until its seed writes Seeded.",
+    "close": "Count closed",
+    "closing": "Closing…",
+    "closeAgain": "Ask the seed again",
+    "closeHint": "Holds every sale and DRS post of the store, moves it to Seeding and asks its seed. The store is released when the seed writes Seeded.",
+    "failedTitle": "The count could not be closed",
+    "failed": "The count could not be closed. Try again in a moment.",
+    "readFailed": "The store's count could not be read.",
+    "seedRefusedTitle": "The seed was refused: the store stays held",
+    "released": {
+      "title": "Count released",
+      "detail": "{{store}} is Seeded; its count row is deleted."
+    },
+    "release": {
+      "title": "Release this closed count by hand",
+      "hint": "Only after a refused seed. The store goes back to Shadow and is seeded at its next count.",
+      "why": "Why",
+      "whyPlaceholder": "The reason, kept in the release log",
+      "commit": "Release",
+      "committing": "Releasing…",
+      "refusedTitle": "The release was refused",
+      "failed": "The count could not be released. Try again in a moment.",
+      "done": {
+        "title": "Count released",
+        "detail": "{{store}} is released and back to Shadow."
+      }
+    },
+    "releases": {
+      "title": "Releases of closed counts",
+      "empty": "No closed count of this store has been released.",
+      "failed": "The releases could not be read.",
+      "releasedAt": "When",
+      "kind": "How",
+      "who": "Who",
+      "why": "Why"
+    },
+    "kind": {
+      "Seeded": "The seed wrote Seeded",
+      "ByHand": "By hand"
+    }
+  }
+}

@@ -165,7 +165,8 @@
     "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown for the master and counter rails.",
     "healthAsOf": "Health as of <at>{{at}}</at>",
     "noHealth": "The worker has not reported health for this store yet.",
-    "disabled": "Disabled by <who>{{who}}</who> on <at>{{at}}</at> — <reason>{{reason}}</reason>"
+    "disabled": "Disabled by <who>{{who}}</who> on <at>{{at}}</at> — <reason>{{reason}}</reason>",
+    "unrecorded": "Not recorded"
   },
   "health": {
     "label": "Sync health",
@@ -357,7 +358,11 @@
     "cancel": "Cancel",
     "sending": "Sending…",
     "failed": "The control could not be sent.",
-    "failedHint": "Try again in a moment."
+    "failedHint": "Try again in a moment.",
+    "storesCount_one": "<n>{{n}}</n> store",
+    "storesCount_other": "<n>{{n}}</n> stores",
+    "showStores": "Show the codes",
+    "storesMore": "and <n>{{n}}</n> more"
   },
   "selection": {
     "count_one": "<n>{{n}}</n> store selected",
@@ -368,7 +373,9 @@
     "all": "Select all matching",
     "allNone": "No store matches this filter.",
     "allFailed": "The matching stores could not be read.",
-    "bulk": "Over {{cap}} stores: sent as one batch, {{cap}} stores at a time. It finishes even if this page is closed."
+    "bulk": "Over {{cap}} stores: sent as one batch, {{cap}} stores at a time. It finishes even if this page is closed.",
+    "tooMany": "{{n}} stores match, more than one group can take ({{cap}}). Narrow the filter, then select all again.",
+    "clearedOnFilter": "The filter changed, so the selection of every matching store was cleared."
   },
   "list": {
     "separator": ", "
@@ -470,7 +477,9 @@
       "reason": "Reason"
     },
     "chunks_one": "<n>{{n}}</n> chunk",
-    "chunks_other": "<n>{{n}}</n> chunks"
+    "chunks_other": "<n>{{n}}</n> chunks",
+    "cut": "Continues on another page",
+    "pageNote": "Pages count audit rows: a batch writes one row per <n>{{cap}}</n> stores, so a batch can run across pages."
   },
   "loops": {
     "push": "Push",
@@ -1357,7 +1366,8 @@
       "tillBacklog": "Till backlog",
       "deadLetters": "Dead letters",
       "scriptsWaiting": "Scripts waiting"
-    }
+    },
+    "hidden": "<n>{{n}}</n> more stores are not listed. The stores still holding work are listed first."
   },
   "resumeAll": {
     "open": "Resume all paused…",

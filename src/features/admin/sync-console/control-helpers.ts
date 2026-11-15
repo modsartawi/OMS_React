@@ -7,6 +7,7 @@
  * 448 (Re-push, Cancel) and 449 (Dismiss, Edit store, Edit location) reuse the reason,
  * the cap and the result summary from here rather than growing their own.
  */
+import { CONTROL_ACTIONS } from '@/core/models/sync-console'
 import type {
   AuditAction,
   ControlAction,
@@ -99,6 +100,26 @@ export function disableWarnings(stores: readonly DisablePreviewStore[]): Disable
     return { store, work }
   })
   return { rows, total: rows.length, outstanding: rows.filter((r) => r.work.length > 0).length }
+}
+
+/** The most rows the Disable warnings table draws: a Select-all Disable can reach thousands of stores. */
+export const DISABLE_ROWS_SHOWN = 200
+
+/**
+ * The rows the warnings table draws: the stores still holding work first, then the rest, each in the
+ * door's order, cut at `limit`. `hidden` counts the rows left out, so the table can say so.
+ */
+export function disableWarningRowsShown(
+  w: DisableWarnings,
+  limit = DISABLE_ROWS_SHOWN,
+): { rows: DisableWarningRow[]; hidden: number } {
+  const ordered = [...w.rows.filter((r) => r.work.length > 0), ...w.rows.filter((r) => r.work.length === 0)]
+  return { rows: ordered.slice(0, limit), hidden: Math.max(0, ordered.length - limit) }
+}
+
+/** A long list cut at `limit`: the first ones, and how many more there are. */
+export function limitedList<T>(items: readonly T[], limit: number): { shown: T[]; more: number } {
+  return { shown: items.slice(0, limit), more: Math.max(0, items.length - limit) }
 }
 
 /** The preview as the dialog holds it: read, still being read, or failed. */
@@ -210,9 +231,25 @@ export function selectionCap(current: readonly string[], wanted: readonly string
  * code `GET ActionSync/Fleet/Codes` matched under the page's filter — past the 50 cap,
  * in the door's order, each code once. It replaces the selection rather than adding to it.
  * The cap still guards clicks: `selectionCap` lets a selection already over it only shrink.
+ *
+ * Over `BULK_CAP` codes nothing is selected (`tooMany`): no door would take the group, so it is
+ * refused here, before a reason is typed, and the operator narrows the filter instead.
  */
-export function selectAllMatching(codes: readonly string[]): string[] {
-  return [...new Set(codes)]
+export function selectAllMatching(codes: readonly string[], cap = BULK_CAP): { codes: string[]; tooMany: boolean } {
+  const unique = [...new Set(codes)]
+  return unique.length > cap ? { codes: [], tooMany: true } : { codes: unique, tooMany: false }
+}
+
+/** The bulk door and the Disable preview take at most 5,000 distinct codes (BackOffice 3916, 3917). */
+export const BULK_CAP = 5000
+
+/**
+ * The selection once the table's filter changes. Ticks (50 or fewer) are kept across filters, as
+ * ever; a selection over 50 can only have come from "Select all matching" under the OLD filter, so
+ * it is emptied — it would otherwise act on stores the table no longer shows.
+ */
+export function selectionOnFilterChange(selected: readonly string[]): string[] {
+  return selected.length > SELECTION_CAP ? [] : [...selected]
 }
 
 // ── Where a control is sent (BackOffice 3913/3916, ticket 902) ──────────────────
@@ -371,24 +408,52 @@ export function auditQuery(filter: AuditFilter, page: number): Record<string, un
 export interface AuditEvent extends SyncAudit {
   /** How many audit rows (50-store chunks) the event holds; 1 for an ordinary row. */
   chunks: number
+  /** Part of its batch is on another page of the feed: the door pages audit rows, not events. */
+  cut: boolean
 }
+
+/** The lasting controls the bulk door writes in chunks; only their rows are folded by batch. */
+const BULK_CONTROL_ACTIONS: ReadonlySet<string> = new Set<string>(CONTROL_ACTIONS)
+
+/** The rows one event may fold: the same bulk batch, the same control, the same before and after. */
+const foldKey = (r: SyncAudit): string | null =>
+  r.batchId && BULK_CONTROL_ACTIONS.has(r.action)
+    ? JSON.stringify([r.batchId, r.action, r.before ?? null, r.after ?? null])
+    : null
 
 /**
  * The bulk door (BackOffice 3916) writes one audit row per 50-store chunk, all sharing one
- * `batchId`. The feed draws the rows of one batch as ONE event, where its newest chunk sits,
+ * `batchId`. The feed draws the chunks of one batch as ONE event, where its newest chunk sits,
  * with the chunk count and every chunk's stores in the order they were sent (the door pages
- * newest first, so the oldest chunk is the first sent). A row with no batch, or alone in its
- * batch, is drawn as it came. Only the page in hand is grouped: a batch cut by the door's
- * paging shows its part on each page.
+ * newest first, so the oldest chunk is the first sent).
+ *
+ * Only a lasting control's rows are folded, and only rows with the same action, `before` and
+ * `after`: anything else sharing a batch id (448's Re-push, a chunk whose change reads otherwise)
+ * stays a row of its own, so one summary never misstates a change. A row with no batch is drawn
+ * as it came.
+ *
+ * Only the page in hand is grouped: the door pages audit rows, so a batch it cuts shows its part on
+ * each page. `paging` says whether a page lies before this one (`before`) or after it (`after`); the
+ * event at a cut edge is marked `cut`, so the feed says the batch continues on another page.
  */
-export function groupAuditByBatch(rows: readonly SyncAudit[]): AuditEvent[] {
-  const byBatch = new Map<string, SyncAudit[]>()
-  for (const r of rows) if (r.batchId) byBatch.set(r.batchId, [...(byBatch.get(r.batchId) ?? []), r])
+export function groupAuditByBatch(
+  rows: readonly SyncAudit[],
+  paging: { before: boolean; after: boolean } = { before: false, after: false },
+): AuditEvent[] {
+  const byKey = new Map<string, SyncAudit[]>()
+  for (const r of rows) {
+    const key = foldKey(r)
+    if (key) byKey.set(key, [...(byKey.get(key) ?? []), r])
+  }
+  const first = rows[0]
+  const last = rows[rows.length - 1]
   const events: AuditEvent[] = []
   for (const r of rows) {
-    const chunks = r.batchId ? byBatch.get(r.batchId)! : [r]
+    const key = foldKey(r)
+    const chunks = key ? byKey.get(key)! : [r]
     if (chunks[0] !== r) continue // drawn with its batch's newest chunk
-    events.push({ ...r, codes: [...chunks].reverse().flatMap((c) => c.codes), chunks: chunks.length })
+    const cut = key !== null && ((paging.before && chunks.includes(first)) || (paging.after && chunks.includes(last)))
+    events.push({ ...r, codes: [...chunks].reverse().flatMap((c) => c.codes), chunks: chunks.length, cut })
   }
   return events
 }

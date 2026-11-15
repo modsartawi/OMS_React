@@ -260,10 +260,11 @@ export const actionSyncApi = {
    * Every store ActionSync lists, all pages (`GET ActionSync/Fleet?page=&pageSize=200`), then the
    * disabled view (`disabled=only`, BackOffice 3914) so a disabled store reads as disabled rather
    * than missing. The door has no exact-codes filter, so picked stores are matched against the
-   * whole fleet. Only the readiness fields are kept (`readReadinessFleet`).
+   * whole fleet. Only the readiness fields are kept (`readReadinessFleet`). `withDisabled: false`
+   * (the acknowledgement poll) reads the default fleet alone.
    */
-  fleet(): Promise<ReadinessRow[]> {
-    return readReadinessFleet((q: FleetPageQuery) => api.get<Paged<StoreRow>>('ActionSync/Fleet', q))
+  fleet(opts?: { withDisabled?: boolean }): Promise<ReadinessRow[]> {
+    return readReadinessFleet((q: FleetPageQuery) => api.get<Paged<StoreRow>>('ActionSync/Fleet', q), opts)
   },
 
   /**

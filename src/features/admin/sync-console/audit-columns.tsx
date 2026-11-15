@@ -57,6 +57,11 @@ export function buildAuditColumns(t: TFunction): ColDef<AuditEvent>[] {
                     />
                   </span>
                 )}
+                {p.data.cut && (
+                  <span className="ms-1 italic" data-audit-cut="">
+                    {t('audit.cut')}
+                  </span>
+                )}
               </span>
             )}
           </span>

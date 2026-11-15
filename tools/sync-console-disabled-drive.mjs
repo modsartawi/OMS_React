@@ -373,7 +373,8 @@ const sendWithReason = async (page, reason) => {
   await dialog.locator('[data-disable-warnings="read"]').waitFor({ timeout: 5000 })
   check('10. one preview POST, for exactly the selection', JSON.stringify(previews) === JSON.stringify([{ codes: picked }]), JSON.stringify(previews))
   const rows = await dialog.locator('[data-disable-row]').evaluateAll((rs) => rs.map((r) => `${r.getAttribute('data-disable-row')}:${r.getAttribute('data-outstanding')}`).join(' '))
-  check('10. one row per store; P001, P002, P005, P006 highlighted', rows === 'P001:true P002:true P004:false P005:true P006:true P007:false P008:false', rows)
+  // 3913 review: the stores still holding work are drawn first, each kind in the door's order.
+  check('10. one row per store, held work first; P001, P002, P005, P006 highlighted', rows === 'P001:true P002:true P005:true P006:true P004:false P007:false P008:false', rows)
   const summary = strip(await dialog.locator('[data-disable-summary]').innerText())
   check('10. the one-line count reads "4 of 7"', summary === 'Stores still holding work HQ has not received: 4 of 7.', summary)
   const heads = strip(await dialog.locator('[data-disable-table] thead').innerText())

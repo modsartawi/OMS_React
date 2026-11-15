@@ -243,7 +243,8 @@ function NewCampaignDialog({ onClose, onDenied, rerun }: { onClose: () => void; 
       runApplyFlow(
         {
           control: (req) => actionSyncApi.control(req),
-          readFleet: () => actionSyncApi.fleet(),
+          // The acknowledgement poll (every 3 s) asks only after stores it paused: active ones, one read.
+          readFleet: () => actionSyncApi.fleet({ withDisabled: false }),
           create: (body) => dataSyncApi.createCampaign(body),
           start: (id) => dataSyncApi.startCampaign(id),
           // The wait's timer lives here, in the flow's driver; the decision is `ackDecision`'s.

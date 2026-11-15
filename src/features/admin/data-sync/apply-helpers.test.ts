@@ -203,6 +203,17 @@ describe('readReadinessFleet', () => {
     const rows = await readReadinessFleet(get)
     expect(rows.map((x) => `${x.code}:${x.isDisabled}`)).toEqual(['P001:false', 'P002:false'])
   })
+
+  it('the 3 s acknowledgement poll reads the default fleet only: the paused stores are active ones, so no disabled pass', async () => {
+    const calls: string[] = []
+    const get = async (q: { page: number; pageSize: number; disabled?: 'only' }) => {
+      calls.push(`${q.disabled ?? 'default'} ${q.page}`)
+      return { items: q.page === 1 ? [r('P001')] : [], total: 1, page: q.page, pageSize: q.pageSize }
+    }
+    const rows = await readReadinessFleet(get, { withDisabled: false })
+    expect(calls).toEqual(['default 1'])
+    expect(rows.map((x) => x.code)).toEqual(['P001'])
+  })
 })
 
 describe('ActionSync control batches', () => {

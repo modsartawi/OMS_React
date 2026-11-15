@@ -19,6 +19,10 @@ import {
   reasonReady,
   selectionCap,
   selectAllMatching,
+  selectionOnFilterChange,
+  BULK_CAP,
+  limitedList,
+  disableWarningRowsShown,
   controlRoute,
   groupAuditByBatch,
   resumeAllRequest,
@@ -157,19 +161,39 @@ describe('selectAllMatching (selectAllMatching_takesEveryCode_uncapped)', () => 
 
   it('takes every code the filter matched, past the 50 cap, in the door order', () => {
     const picked = selectAllMatching(many)
-    expect(picked).toHaveLength(137)
-    expect(picked[0]).toBe('S000')
-    expect(picked[136]).toBe('S136')
+    expect(picked.tooMany).toBe(false)
+    expect(picked.codes).toHaveLength(137)
+    expect(picked.codes[0]).toBe('S000')
+    expect(picked.codes[136]).toBe('S136')
   })
 
   it('replaces the selection it is given, and keeps one of a code sent twice', () => {
-    expect(selectAllMatching(['A001', 'B002', 'A001'])).toEqual(['A001', 'B002'])
+    expect(selectAllMatching(['A001', 'B002', 'A001']).codes).toEqual(['A001', 'B002'])
   })
 
   it('leaves the one-by-one cap where it was: a click past 50 on that selection is still refused', () => {
-    const next = selectionCap(selectAllMatching(many), [...many, 'Z999'])
+    const next = selectionCap(selectAllMatching(many).codes, [...many, 'Z999'])
     expect(next.refused).toBe(1)
     expect(next.codes).toHaveLength(137)
+  })
+
+  it('refuses a match over the bulk door ceiling (5,000 codes, BackOffice 3916/3917) and selects nothing', () => {
+    expect(BULK_CAP).toBe(5000)
+    const big = Array.from({ length: 5001 }, (_, i) => `X${i}`)
+    expect(selectAllMatching(big)).toEqual({ codes: [], tooMany: true })
+    expect(selectAllMatching(big.slice(0, 5000))).toMatchObject({ tooMany: false })
+    expect(selectAllMatching(big.slice(0, 5000)).codes).toHaveLength(5000)
+  })
+})
+
+describe('selectionOnFilterChange (an over-cap selection never outlives its filter)', () => {
+  const codes = (n: number) => Array.from({ length: n }, (_, i) => `C${i}`)
+  it("empties a selection over 50: it was the old filter's 'all matching'", () => {
+    expect(selectionOnFilterChange(codes(51))).toEqual([])
+  })
+  it('keeps a selection of 50 or fewer, as ticks have always been kept across filters', () => {
+    expect(selectionOnFilterChange(codes(50))).toHaveLength(50)
+    expect(selectionOnFilterChange([])).toEqual([])
   })
 })
 
@@ -374,6 +398,89 @@ describe('auditGrouping_byBatchId', () => {
   })
 })
 
+describe('auditGrouping_onlyBulkControlRowsWithOneChange', () => {
+  const row = (id: string, codes: string[], over: Partial<SyncAudit> = {}): SyncAudit => ({
+    id,
+    at: '2026-11-16T10:00:00',
+    who: 'ops1',
+    action: 'Pause',
+    codes,
+    batchId: 'B1',
+    before: 'Worker',
+    after: 'Worker, paused',
+    reason: 'closing',
+    ...over,
+  })
+
+  it('never folds rows of a non-control action that share a batch id (a Re-push batch stays row by row)', () => {
+    const events = groupAuditByBatch([
+      row('2', ['A002'], { action: 'RePush', batchId: 'R1' }),
+      row('1', ['A001'], { action: 'RePush', batchId: 'R1' }),
+    ])
+    expect(events.map((e) => [e.id, e.chunks])).toEqual([
+      ['2', 1],
+      ['1', 1],
+    ])
+  })
+
+  it('keeps apart rows of one batch whose action or before/after differ, so no summary misstates a change', () => {
+    const events = groupAuditByBatch([
+      row('4', ['C004']),
+      row('3', ['C003'], { before: 'Wpf' }),
+      row('2', ['C002']),
+      row('1', ['C001'], { action: 'Resume' }),
+    ])
+    expect(events.map((e) => [e.id, e.codes])).toEqual([
+      ['4', ['C002', 'C004']],
+      ['3', ['C003']],
+      ['1', ['C001']],
+    ])
+  })
+
+  it("marks an event the door's paging cut: the first on a page that follows another, the last on a page with more after it", () => {
+    const page = [row('3', ['C003']), row('2', ['C002']), row('1', ['C001'], { batchId: null })]
+    const cut = groupAuditByBatch(page, { before: true, after: false })
+    expect(cut.map((e) => [e.id, e.cut])).toEqual([
+      ['3', true],
+      ['1', false],
+    ])
+    // A row with no batch is never cut; nor anything when the page stands alone.
+    expect(groupAuditByBatch(page, { before: false, after: true }).map((e) => e.cut)).toEqual([false, false])
+    expect(groupAuditByBatch([row('2', ['C002']), row('1', ['C001'])], { before: false, after: true })[0].cut).toBe(true)
+    expect(groupAuditByBatch(page).every((e) => e.cut === false)).toBe(true)
+  })
+})
+
+describe('limitedList (a long list of codes is a count plus its first ones)', () => {
+  it('shows up to the limit and counts the rest', () => {
+    expect(limitedList(['a', 'b', 'c'], 2)).toEqual({ shown: ['a', 'b'], more: 1 })
+    expect(limitedList(['a', 'b'], 2)).toEqual({ shown: ['a', 'b'], more: 0 })
+  })
+})
+
+describe('disableWarningRowsShown (an over-cap Disable draws the stores holding work first, and a limited table)', () => {
+  const s = (code: string, pendingActions = 0): DisablePreviewStore => ({
+    code,
+    description: code,
+    lastConnectOkAt: null,
+    push: { lastPassAt: null, lastPassOutcome: null } as unknown as DisablePreviewStore['push'],
+    pull: { lastPassAt: null, lastPassOutcome: null } as unknown as DisablePreviewStore['pull'],
+    lastTrxPulledAt: null,
+    pendingActions,
+    tillBacklogCount: null,
+    openDeadLetters: 0,
+    scriptsWaiting: 0,
+  })
+
+  it('puts held rows first (each kind in the door order) and cuts at the limit, counting the rows left out', () => {
+    const w = disableWarnings([s('1'), s('2', 4), s('3'), s('4', 1), s('5')])
+    const shown = disableWarningRowsShown(w, 3)
+    expect(shown.rows.map((r) => r.store.code)).toEqual(['2', '4', '1'])
+    expect(shown.hidden).toBe(2)
+    expect(disableWarningRowsShown(w, 10).hidden).toBe(0)
+  })
+})
+
 describe('auditActionKey', () => {
   it('labels Disable and Enable (auditActionKey_knowsDisableEnable, BackOffice 3913)', () => {
     expect(lookup(auditActionKey('Disable') as string)).toBe('Disabled a store')
@@ -507,6 +614,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'audit',
       'auditActions',
       'controls',
+      'dialog',
       'disableWarnings',
       'failures',
       'fleetView',
@@ -516,7 +624,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'states',
       'store',
     ])
-    expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled'])
+    expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled', 'unrecorded'])
   })
 })
 
@@ -532,6 +640,18 @@ describe('the select-all-matching words (BackOffice 3913, ticket 902)', () => {
     'results.batch',
     'audit.chunks_one',
     'audit.chunks_other',
+    // The 3913 review's words: the select-all ceiling, the cleared selection, the folded code list,
+    // the limited warnings table, the cut batch, and an unrecorded Disable stamp.
+    'selection.tooMany',
+    'selection.clearedOnFilter',
+    'dialog.storesCount_one',
+    'dialog.storesCount_other',
+    'dialog.showStores',
+    'dialog.storesMore',
+    'disableWarnings.hidden',
+    'audit.cut',
+    'audit.pageNote',
+    'store.unrecorded',
   ]
 
   it('has every new key in English and in Arabic', () => {

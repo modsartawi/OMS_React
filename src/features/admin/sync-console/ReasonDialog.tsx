@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+import { memo, useState, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
@@ -8,7 +8,8 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import Field from '@/core/ui/Field'
 import Textarea from '@/core/ui/Textarea'
-import { cleanReason, reasonReady } from './control-helpers'
+import { SELECTION_CAP, cleanReason, limitedList, reasonReady } from './control-helpers'
+import { figure } from './helpers'
 
 /**
  * The ONE reason dialog of the console (spec 444, ticket 447), on the app modal —
@@ -101,15 +102,7 @@ export default function ReasonDialog({
       }
     >
       <div className="flex flex-col gap-3" data-reason-dialog="">
-        {codes && codes.length > 0 && (
-          <div className="text-xs">
-            <span className="text-muted-foreground">{t('dialog.stores')} </span>
-            {/* One list of machine codes, isolated once as a whole. */}
-            <span className="font-mono [overflow-wrap:anywhere]" data-reason-codes="">
-              <Ltr>{codes.join(t('list.separator'))}</Ltr>
-            </span>
-          </div>
-        )}
+        {codes && codes.length > 0 && <CodeList codes={codes} />}
         {note && <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{note}</p>}
         {children}
         <Field label={t('dialog.reason')}>
@@ -141,3 +134,52 @@ export default function ReasonDialog({
     </Modal>
   )
 }
+
+/** The codes a dialog lists in full; a larger group ("Select all matching") shows its count instead. */
+const CODES_LISTED = SELECTION_CAP
+
+/** The most codes the folded list shows once opened: thousands of codes help nobody read. */
+const CODES_EXPANDED = 200
+
+/**
+ * The stores the action reaches. Up to 50 are listed as they always were; a group over 50 is its
+ * count, with the first codes behind "Show the codes" — never thousands of codes printed at once.
+ */
+const CodeList = memo(function CodeList({ codes }: { codes: readonly string[] }) {
+  const { t } = useTranslation('sync-console')
+  if (codes.length <= CODES_LISTED) {
+    return (
+      <div className="text-xs">
+        <span className="text-muted-foreground">{t('dialog.stores')} </span>
+        {/* One list of machine codes, isolated once as a whole. */}
+        <span className="font-mono [overflow-wrap:anywhere]" data-reason-codes="">
+          <Ltr>{codes.join(t('list.separator'))}</Ltr>
+        </span>
+      </div>
+    )
+  }
+  const { shown, more } = limitedList(codes, CODES_EXPANDED)
+  return (
+    <details className="text-xs" data-reason-codes-folded={codes.length}>
+      <summary className="cursor-pointer">
+        <span className="text-muted-foreground">{t('dialog.stores')} </span>
+        <Trans
+          t={t}
+          i18nKey="dialog.storesCount"
+          count={codes.length}
+          values={{ n: figure(codes.length) }}
+          components={{ n: <Ltr /> }}
+        />
+        <span className="ms-2 text-muted-foreground">{t('dialog.showStores')}</span>
+      </summary>
+      <p className="mt-1 font-mono [overflow-wrap:anywhere]" data-reason-codes="">
+        <Ltr>{shown.join(t('list.separator'))}</Ltr>
+      </p>
+      {more > 0 && (
+        <p className="mt-1 text-muted-foreground" data-reason-codes-more={more}>
+          <Trans t={t} i18nKey="dialog.storesMore" values={{ n: figure(more) }} components={{ n: <Ltr /> }} />
+        </p>
+      )}
+    </details>
+  )
+})

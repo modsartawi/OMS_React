@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -45,7 +45,14 @@ import {
   type FleetView,
 } from './helpers'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
-import { SELECTION_CAP, bulkActions, controlRoute, selectAllMatching } from './control-helpers'
+import {
+  BULK_CAP,
+  SELECTION_CAP,
+  bulkActions,
+  controlRoute,
+  selectAllMatching,
+  selectionOnFilterChange,
+} from './control-helpers'
 import ConsoleNav from './ConsoleNav'
 import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlRequest } from './ControlDialog'
 import ControlResults from './ControlResults'
@@ -80,6 +87,10 @@ import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
  * selection over 50 is offered only Pause, Resume, Disable (or Enable in the disabled view),
  * and is sent through the bulk door as one batch. The "Closed, not disabled" tile is the way
  * in for retiring closed stores: that tile, then Select all matching, then Disable.
+ *
+ * 3913 review: a match over the bulk door's 5,000 codes is refused when it is selected; a selection
+ * over 50 is emptied once the filter changes (it was the old filter's); and a door that sends no
+ * `closedNotDisabled` count (pre-3917) draws no such tile.
  */
 export default function FleetPage() {
   const { t } = useTranslation('sync-console')
@@ -169,12 +180,36 @@ function Fleet() {
   const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
   const [resumeAll, setResumeAll] = useState(false)
 
+  // What the filter matches (not its sort or page): a change of it is a different set of stores.
+  const matchKey = JSON.stringify([filter.view, filter.states, filter.host, filter.q])
+  const matchKeyRef = useRef(matchKey)
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  // An over-cap selection is the OLD filter's "all matching": it never outlives that filter.
+  useEffect(() => {
+    if (matchKeyRef.current === matchKey) return
+    matchKeyRef.current = matchKey
+    const next = selectionOnFilterChange(selectedRef.current)
+    if (next.length !== selectedRef.current.length) {
+      setSelected(next)
+      notify.info(t('selection.clearedOnFilter'))
+    }
+  }, [matchKey, setSelected, t])
+
   // 902: every code the filter matches, read when asked — the table's filter as it stands.
   const selectAll = useMutation({
-    mutationFn: () => syncConsoleApi.fleetCodes(filter),
-    onSuccess: (codes) => {
+    mutationFn: (asked: { filter: FleetFilter; key: string }) => syncConsoleApi.fleetCodes(asked.filter),
+    onSuccess: (codes, asked) => {
+      // The filter changed while the codes were read: they answer a table no longer shown.
+      if (asked.key !== matchKeyRef.current) return
       if (codes.length === 0) notify.info(t('selection.allNone'))
-      setSelected(selectAllMatching(codes))
+      const all = selectAllMatching(codes)
+      // Over the bulk door's ceiling no group can be sent: refused now, before a reason is typed.
+      if (all.tooMany) {
+        notify.warn(t('selection.tooMany', { n: fsi(figure(codes.length)), cap: fsi(figure(BULK_CAP)) }))
+        return
+      }
+      setSelected(all.codes)
     },
     onError: (err) => notify.error(apiErrorMessage(err, t('selection.allFailed'))),
   })
@@ -232,12 +267,19 @@ function Fleet() {
             <ErrorBanner className="mb-2 p-3" message={apiErrorMessage(summary.error, t('tiles.failed'))} />
           )}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
-            {FLEET_TILES.map((tile) => (
+            {FLEET_TILES.filter(
+              // A door before 3917 sends no `closedNotDisabled` count and knows no such state: no tile.
+              // Drawn (blank) until the summary arrives, so the tiles do not reflow under the table.
+              (tile) =>
+                tile !== 'closedNotDisabled' || !summary.data || typeof summary.data.counts.closedNotDisabled === 'number',
+            ).map((tile) => (
               <Tile
                 key={tile}
                 tile={tile}
                 count={summary.data?.counts[tile]}
                 on={tileOn(filter, tile)}
+                // Not a filter until the door has counted it: a state the door may not know is never sent.
+                inert={tile === 'closedNotDisabled' && summary.data?.counts.closedNotDisabled === undefined}
                 onClick={() => setFilter((f) => toggleTile(f, tile))}
               />
             ))}
@@ -356,7 +398,7 @@ function Fleet() {
               <Button
                 variant="outlined"
                 disabled={!shown || total === 0 || selectAll.isPending}
-                onClick={() => selectAll.mutate()}
+                onClick={() => selectAll.mutate({ filter, key: matchKey })}
                 data-select-all=""
               >
                 {selectAll.isPending && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -436,11 +478,13 @@ function Tile({
   tile,
   count,
   on,
+  inert = false,
   onClick,
 }: {
   tile: FleetTile
   count: number | undefined
   on: boolean
+  inert?: boolean
   onClick: () => void
 }) {
   const { t } = useTranslation('sync-console')
@@ -449,6 +493,7 @@ function Tile({
     <button
       type="button"
       onClick={onClick}
+      disabled={inert}
       aria-pressed={on}
       data-tile={tile}
       className={

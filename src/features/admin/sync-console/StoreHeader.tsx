@@ -41,12 +41,13 @@ export default function StoreHeader({ row }: { row: StoreDetail }) {
           <Trans
             t={t}
             i18nKey="store.disabled"
+            // A stamp the door did not record reads "Not recorded", never a gap in the sentence.
             values={{
-              who: row.disabledBy ?? '',
-              at: row.disabledAt ? formatDateTime(row.disabledAt) : '',
-              reason: row.disableReason ?? '',
+              who: row.disabledBy || t('store.unrecorded'),
+              at: row.disabledAt ? formatDateTime(row.disabledAt) : t('store.unrecorded'),
+              reason: row.disableReason || t('store.unrecorded'),
             }}
-            components={{ who: <bdi />, at: <Ltr />, reason: <bdi /> }}
+            components={{ who: <bdi />, at: row.disabledAt ? <Ltr /> : <bdi />, reason: <bdi /> }}
           />
         </p>
       )}

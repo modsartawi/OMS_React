@@ -61,12 +61,16 @@ function ResumeAll({ onClose, onResult }: { onClose: () => void; onResult: (outc
     staleTime: 0,
     gcTime: 0,
     retry: false,
+    // Read once per opening: the list the operator unticks does not change under them.
+    refetchOnWindowFocus: false,
   })
   const stores = preview.data ?? []
   // `null` = untouched: every store ticked (`resumeAllTicks`), however the preview arrives.
   const [touched, setTouched] = useState<string[] | null>(null)
   const ticked = touched ?? resumeAllTicks(stores)
   const view = resumeAllView(stores, ticked)
+  // One lookup per render, not a scan of the ticks per row.
+  const tickedSet = new Set(ticked)
 
   const send = useMutation({
     mutationFn: (reason: string) => {
@@ -149,7 +153,7 @@ function ResumeAll({ onClose, onResult }: { onClose: () => void; onResult: (outc
               </thead>
               <tbody>
                 {stores.map((s) => {
-                  const on = ticked.includes(s.code)
+                  const on = tickedSet.has(s.code)
                   return (
                     <tr
                       key={s.code}

@@ -83,10 +83,16 @@ type FleetRowIn = Pick<StoreRow, 'code' | 'isPaused' | 'isDisabled' | 'controlPe
  * A store counts as disabled only when a row says so: a door that predates 3914 ignores
  * `disabled=only` and answers the whole fleet again, which must not mark anything disabled. Each
  * code is listed once (case-insensitive), in the order first read.
+ *
+ * `withDisabled: false` skips the disabled view: the acknowledgement poll (every 3 s) only asks after
+ * stores it just paused, which are active ones, so it needs the default read alone.
  */
-export async function readReadinessFleet(get: (q: FleetPageQuery) => Promise<Paged<FleetRowIn>>): Promise<ReadinessRow[]> {
+export async function readReadinessFleet(
+  get: (q: FleetPageQuery) => Promise<Paged<FleetRowIn>>,
+  { withDisabled = true }: { withDisabled?: boolean } = {},
+): Promise<ReadinessRow[]> {
   const byCode = new Map<string, ReadinessRow>()
-  for (const disabled of [undefined, 'only'] as const) {
+  for (const disabled of withDisabled ? ([undefined, 'only'] as const) : ([undefined] as const)) {
     for (let page = 1; ; page++) {
       const res = await get({ page, pageSize: FLEET_PAGE_SIZE, ...(disabled ? { disabled } : {}) })
       for (const r of res.items) {

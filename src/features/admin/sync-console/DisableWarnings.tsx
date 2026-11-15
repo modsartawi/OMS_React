@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
@@ -6,7 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import type { LoopHealth } from '@/core/models/sync-console'
 import { formatPair } from '@/core/util/bidi'
 import { syncConsoleApi } from './api'
-import { disableWarnings, type DisableWork } from './control-helpers'
+import { disableWarningRowsShown, disableWarnings, type DisableWork } from './control-helpers'
 import CodeBadgeView from './CodeBadgeView'
 import { figure } from './helpers'
 import { passOutcomeBadge } from './store-helpers'
@@ -31,8 +32,11 @@ const COUNTS: { work: DisableWork; column: string }[] = [
  * It only informs. Confirm is never gated on it (`disableConfirmReady`): not on what it shows, not
  * while it is read, not when the read fails — a closed store is often unreachable, and refusing would
  * make it impossible to disable.
+ *
+ * A Select-all Disable can reach thousands of stores: the table draws the stores still holding work
+ * first and at most 200 rows (`disableWarningRowsShown`), and says how many it left out.
  */
-export default function DisableWarnings({ codes }: { codes: readonly string[] }) {
+export default memo(function DisableWarnings({ codes }: { codes: readonly string[] }) {
   const { t } = useTranslation('sync-console')
   const preview = useQuery({
     queryKey: ['sync-console', 'disable-preview', [...codes]] as const,
@@ -41,7 +45,13 @@ export default function DisableWarnings({ codes }: { codes: readonly string[] })
     staleTime: 0,
     gcTime: 0,
     retry: false,
+    // Read once per opening: the preview does not change under the operator while they type the reason.
+    refetchOnWindowFocus: false,
   })
+  // An answer with no `stores` list is read as a failed preview, never a crash (it holds nothing back either).
+  const stores = preview.data?.stores
+  const w = useMemo(() => (Array.isArray(stores) ? disableWarnings(stores) : null), [stores])
+  const shown = useMemo(() => (w ? disableWarningRowsShown(w) : null), [w])
 
   if (preview.isPending) {
     return (
@@ -51,15 +61,17 @@ export default function DisableWarnings({ codes }: { codes: readonly string[] })
       </p>
     )
   }
-  if (preview.isError) {
+  if (preview.isError || !w || !shown) {
     return (
       <p className="rounded-md bg-attention-050 px-3 py-2 text-xs text-attention-800" data-disable-warnings="failed">
-        {t('disableWarnings.failed')} <bdi>{apiErrorMessage(preview.error, t('disableWarnings.failedHint'))}</bdi>
+        {t('disableWarnings.failed')}{' '}
+        <bdi>
+          {preview.isError ? apiErrorMessage(preview.error, t('disableWarnings.failedHint')) : t('disableWarnings.failedHint')}
+        </bdi>
       </p>
     )
   }
 
-  const w = disableWarnings(preview.data.stores)
   const col = (k: string) => t(`disableWarnings.columns.${k}`)
   return (
     <section className="flex flex-col gap-2" data-disable-warnings="read">
@@ -93,7 +105,7 @@ export default function DisableWarnings({ codes }: { codes: readonly string[] })
             </tr>
           </thead>
           <tbody>
-            {w.rows.map(({ store, work }) => {
+            {shown.rows.map(({ store, work }) => {
               const held = work.length > 0
               const counts: Record<DisableWork, number | null> = {
                 pendingActions: store.pendingActions,
@@ -148,12 +160,17 @@ export default function DisableWarnings({ codes }: { codes: readonly string[] })
           </tbody>
         </table>
       </div>
+      {shown.hidden > 0 && (
+        <p className="text-xs text-muted-foreground" data-disable-hidden={shown.hidden}>
+          <Trans t={t} i18nKey="disableWarnings.hidden" values={{ n: figure(shown.hidden) }} components={{ n: <Ltr /> }} />
+        </p>
+      )}
       <p className="text-xs text-muted-foreground" data-disable-allowed="">
         {t('disableWarnings.allowed')}
       </p>
     </section>
   )
-}
+})
 
 /** A loop's last pass: when, and its outcome. */
 function LastPass({ health }: { health: LoopHealth }) {

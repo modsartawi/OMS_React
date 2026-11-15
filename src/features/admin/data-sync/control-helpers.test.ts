@@ -97,6 +97,7 @@ describe('controlRefusalWords', () => {
       DATASYNC_INVALID_STATE: 'controls.refusal.DATASYNC_INVALID_STATE',
       DATASYNC_STORE_BUSY: 'controls.refusal.DATASYNC_STORE_BUSY',
       DATASYNC_STORE_WPF_HOSTED: 'controls.refusal.DATASYNC_STORE_WPF_HOSTED',
+      DATASYNC_STORE_DISABLED: 'controls.refusal.DATASYNC_STORE_DISABLED',
       DATASYNC_CAMPAIGN_NOT_FOUND: 'controls.refusal.DATASYNC_CAMPAIGN_NOT_FOUND',
       DATASYNC_JOB_NOT_FOUND: 'controls.refusal.DATASYNC_JOB_NOT_FOUND',
     }
@@ -107,6 +108,7 @@ describe('controlRefusalWords', () => {
     // Three different sentences: busy says pause ActionSync, WPF says never.
     expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/ActionSync/)
     expect(word(keys.DATASYNC_STORE_WPF_HOSTED)).toMatch(/never/)
+    expect(word(keys.DATASYNC_STORE_DISABLED)).toMatch(/disabled/)
   })
 
   it('has no words for a code it does not handle, or none', () => {
@@ -122,6 +124,7 @@ describe('controlRefusalWords — Retry (ticket 866)', () => {
       DATASYNC_INVALID_STATE: 'controls.retryRefusal.DATASYNC_INVALID_STATE',
       DATASYNC_STORE_BUSY: 'controls.retryRefusal.DATASYNC_STORE_BUSY',
       DATASYNC_STORE_WPF_HOSTED: 'controls.retryRefusal.DATASYNC_STORE_WPF_HOSTED',
+      DATASYNC_STORE_DISABLED: 'controls.retryRefusal.DATASYNC_STORE_DISABLED',
     }
     for (const [code, key] of Object.entries(keys)) {
       expect(controlRefusalWords(code, 'Retry')).toBe(key)
@@ -134,6 +137,7 @@ describe('controlRefusalWords — Retry (ticket 866)', () => {
     expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/Pause the store on ActionSync first/)
     expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/retry/i)
     expect(word(keys.DATASYNC_STORE_WPF_HOSTED)).toMatch(/never/)
+    expect(word(keys.DATASYNC_STORE_DISABLED)).toMatch(/disabled/)
   })
 
   it('keeps the shared sentences for the not-founds, and the control sentences for the other moves', () => {

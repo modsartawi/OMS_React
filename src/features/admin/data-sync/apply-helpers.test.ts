@@ -15,6 +15,7 @@ import {
   createWarningStore,
   createWarningsFromState,
   pendingControlReason,
+  readReadinessFleet,
   reasonProblem,
   runApplyFlow,
   stillPausedAfterFailure,
@@ -116,6 +117,15 @@ describe('applyReadiness', () => {
       readiness: 'willPause',
     })
   })
+  it('readiness_disabledStore_isNeverDisabled: a disabled store is never appliable, though it is paused and acknowledged underneath', () => {
+    expect(applyReadiness({ ...row('P006', 'Worker', true, false), isDisabled: true })).toEqual({
+      readiness: 'never',
+      why: 'disabled',
+    })
+    expect(applyReadiness({ ...row('P007', 'Worker', false, false), isDisabled: false })).toEqual({
+      readiness: 'willPause',
+    })
+  })
   it('a store with no host is ready (nothing writes to it)', () => {
     expect(applyReadiness(row('P005', 'None', false, false))).toEqual({
       readiness: 'ready',
@@ -162,6 +172,36 @@ describe('storesReadiness', () => {
       willPause: ['P003'],
       toPause: ['P003'],
     })
+  })
+})
+
+describe('readReadinessFleet', () => {
+  type Row = { code: string; host: 'Worker' | 'Wpf'; isPaused: boolean; controlPending: boolean; isDisabled?: boolean }
+  const r = (code: string, over: Partial<Row> = {}): Row => ({ code, host: 'Worker', isPaused: false, controlPending: false, ...over })
+
+  it('fleet_readsDisabledStoresToo: pages the default fleet, then the disabled view, so a picked disabled store reads as disabled, not missing', async () => {
+    // The default read hides disabled stores (BackOffice 3914); `disabled=only` returns only them.
+    const active = Array.from({ length: 250 }, (_, i) => r(`S${String(i).padStart(3, '0')}`))
+    const disabled = [r('D001', { isPaused: true, isDisabled: true })]
+    const calls: string[] = []
+    const get = async (q: { page: number; pageSize: number; disabled?: 'only' }) => {
+      calls.push(`${q.disabled ?? 'default'} ${q.page}/${q.pageSize}`)
+      const all = q.disabled === 'only' ? disabled : active
+      return { items: all.slice((q.page - 1) * q.pageSize, q.page * q.pageSize), total: all.length, page: q.page, pageSize: q.pageSize }
+    }
+    const rows = await readReadinessFleet(get)
+    expect(calls).toEqual(['default 1/200', 'default 2/200', 'only 1/200'])
+    expect(rows).toHaveLength(251)
+    expect(rows.find((x) => x.code === 'D001')).toEqual({ code: 'D001', host: 'Worker', isPaused: true, controlPending: false, isDisabled: true })
+    expect(rows.find((x) => x.code === 'S007')?.isDisabled).toBe(false)
+    expect(storesReadiness({ kind: 'stores', codes: ['d001', 'S007'] }, rows).never).toEqual([{ code: 'D001', why: 'disabled' }])
+  })
+
+  it('a door that predates the disabled view (it ignores `disabled=only` and answers the whole fleet again) marks nothing disabled and lists each store once', async () => {
+    const fleet = [r('P001'), r('P002', { isPaused: true })]
+    const get = async (q: { page: number; pageSize: number; disabled?: 'only' }) => ({ items: q.page === 1 ? fleet : [], total: fleet.length, page: q.page, pageSize: q.pageSize })
+    const rows = await readReadinessFleet(get)
+    expect(rows.map((x) => `${x.code}:${x.isDisabled}`)).toEqual(['P001:false', 'P002:false'])
   })
 })
 
@@ -516,8 +556,11 @@ describe('the Apply words', () => {
   it('has a sentence for every step, never-why, ActionSync refusal and create warning the dialog names by key', () => {
     const steps: ApplyStep[] = ['holding', 'waiting', 'creating', 'tagging', 'starting']
     for (const s of steps) expect(en.apply.step[s]).toBeTruthy()
-    for (const w of ['wpf', 'notFound'] as const) expect(en.apply.readiness[w]).toBeTruthy()
+    for (const w of ['wpf', 'notFound', 'disabled'] as const) expect(en.apply.readiness[w]).toBeTruthy()
     for (const c of ['NOT_ON_WORKER', 'NO_STORE'] as const) expect(en.apply.refused[c]).toBeTruthy()
-    for (const c of ['DATASYNC_STORE_BUSY', 'DATASYNC_STORE_WPF_HOSTED'] as const) expect(en.apply.outcome.warning[c]).toBeTruthy()
+    for (const c of ['DATASYNC_STORE_BUSY', 'DATASYNC_STORE_WPF_HOSTED', 'DATASYNC_STORE_DISABLED'] as const) {
+      expect(en.apply.outcome.warning[c]).toBeTruthy()
+      expect(en.apply.outcome.warningGroup[c]).toBeTruthy()
+    }
   })
 })

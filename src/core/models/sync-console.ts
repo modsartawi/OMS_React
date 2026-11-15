@@ -142,6 +142,11 @@ export interface StoreRow {
   description: string
   host: 'Worker' | 'Wpf'
   isPaused: boolean
+  /**
+   * A disabled store (BackOffice 3913/3914): out of operation, `isPaused` stays true underneath.
+   * Absent from a door that predates 3914, which reads as not disabled.
+   */
+  isDisabled?: boolean
   /** `appliedVersion < controlVersion` — the "pending" badge reads this. */
   controlPending: boolean
   states: StoreState[]

@@ -38,5 +38,26 @@
     "loading": "جارٍ قراءة الفروع الفاشلة…",
     "of": "إعادة تشغيل لـ",
     "by": "أُعيد تشغيلها في"
+  },
+  "controls": {
+    "refusal": {
+      "DATASYNC_STORE_DISABLED": "هذا الفرع معطَّل على ActionSync، لذا لا يُطبَّق عليه. ألغِ هذه المهمة، أو اطلب تفعيل الفرع من وحدة المزامنة أولاً."
+    },
+    "retryRefusal": {
+      "DATASYNC_STORE_DISABLED": "هذا الفرع معطَّل على ActionSync، لذا لن تفيد إعادة المحاولة ما دام معطَّلاً. ألغِ هذه المهمة، أو اطلب تفعيل الفرع من وحدة المزامنة أولاً."
+    }
+  },
+  "apply": {
+    "readiness": {
+      "disabled": "معطَّل على ActionSync"
+    },
+    "outcome": {
+      "warning": {
+        "DATASYNC_STORE_DISABLED": "معطَّل على ActionSync؛ لن يُطبَّق عليه"
+      },
+      "warningGroup": {
+        "DATASYNC_STORE_DISABLED": "معطَّلة على ActionSync؛ لا يُطبَّق عليها"
+      }
+    }
   }
 }

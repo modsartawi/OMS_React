@@ -9,7 +9,7 @@
  */
 import type { ApiEnvelope, GeneralErrorResponse } from '@/core/api'
 import type { Campaign, CreateCampaignRequest, TableSpec } from '@/core/models/data-sync'
-import type { StoreControlRequest, StoreControlResponse, StoreRow, SyncHost } from '@/core/models/sync-console'
+import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncHost } from '@/core/models/sync-console'
 import type { CreateTargets } from './create-helpers'
 
 // ── Reason ──────────────────────────────────────────────────────────────────────
@@ -46,23 +46,58 @@ export function applyTableSplit(tableSet: readonly TableSpec[], picked: readonly
 // ── Store readiness (from `ActionSync/Fleet`) ───────────────────────────────────
 
 /** The fields of an ActionSync fleet row readiness reads. `host` is widened: the door may send `None`. */
-export type ReadinessRow = Pick<StoreRow, 'code' | 'isPaused' | 'controlPending'> & { host: SyncHost }
+export type ReadinessRow = Pick<StoreRow, 'code' | 'isPaused' | 'isDisabled' | 'controlPending'> & { host: SyncHost }
 
-/** Why a store can never be applied to: synced by the WPF host, or not on ActionSync at all. */
-export type NeverWhy = 'wpf' | 'notFound'
+/** Why a store can never be applied to: synced by the WPF host, not on ActionSync at all, or disabled on it. */
+export type NeverWhy = 'wpf' | 'notFound' | 'disabled'
 
 export type StoreReadiness = { readiness: 'never'; why: NeverWhy } | { readiness: 'ready' } | { readiness: 'willPause' }
 
 /**
- * One store's apply readiness (DataSync's safe-to-apply, engine spec §7.2): WPF-hosted or unknown
- * to ActionSync → never; on the worker, paused and acknowledged (`!controlPending`) → ready; on the
- * worker otherwise → will be paused; no host → ready (nothing writes to it).
+ * One store's apply readiness (DataSync's safe-to-apply, engine spec §7.2): WPF-hosted, unknown to
+ * ActionSync or disabled on it (BackOffice 3913: paused underneath, but out of operation) → never;
+ * on the worker, paused and acknowledged (`!controlPending`) → ready; on the worker otherwise →
+ * will be paused; no host → ready (nothing writes to it).
  */
 export function applyReadiness(row: ReadinessRow | undefined): StoreReadiness {
   if (!row) return { readiness: 'never', why: 'notFound' }
+  if (row.isDisabled === true) return { readiness: 'never', why: 'disabled' }
   if (row.host === 'Wpf') return { readiness: 'never', why: 'wpf' }
   if (row.host === 'None') return { readiness: 'ready' }
   return row.isPaused && !row.controlPending ? { readiness: 'ready' } : { readiness: 'willPause' }
+}
+
+/** `GET ActionSync/Fleet` caps `pageSize` at 200 (400 `BAD_PAGING` beyond). */
+export const FLEET_PAGE_SIZE = 200
+
+/** One `GET ActionSync/Fleet` page as the readiness read asks for it; `disabled: 'only'` is the disabled view (3914). */
+export type FleetPageQuery = { page: number; pageSize: number; disabled?: 'only' }
+
+/** The fleet row fields the readiness read keeps (the door may send `None` as host). */
+type FleetRowIn = Pick<StoreRow, 'code' | 'isPaused' | 'isDisabled' | 'controlPending'> & { host: SyncHost }
+
+/**
+ * Every store ActionSync lists, for readiness: all pages of the default fleet, then all pages of
+ * the disabled view (`disabled=only`). The default read hides disabled stores (BackOffice 3914), so
+ * without the second read a picked disabled store would read as `notFound` instead of `disabled`.
+ * A store counts as disabled only when a row says so: a door that predates 3914 ignores
+ * `disabled=only` and answers the whole fleet again, which must not mark anything disabled. Each
+ * code is listed once (case-insensitive), in the order first read.
+ */
+export async function readReadinessFleet(get: (q: FleetPageQuery) => Promise<Paged<FleetRowIn>>): Promise<ReadinessRow[]> {
+  const byCode = new Map<string, ReadinessRow>()
+  for (const disabled of [undefined, 'only'] as const) {
+    for (let page = 1; ; page++) {
+      const res = await get({ page, pageSize: FLEET_PAGE_SIZE, ...(disabled ? { disabled } : {}) })
+      for (const r of res.items) {
+        const key = r.code.toUpperCase()
+        const isDisabled = r.isDisabled === true || byCode.get(key)?.isDisabled === true
+        byCode.set(key, { code: byCode.get(key)?.code ?? r.code, host: r.host, isPaused: r.isPaused, controlPending: r.controlPending, isDisabled })
+      }
+      if (res.items.length === 0 || page * FLEET_PAGE_SIZE >= res.total) break
+    }
+  }
+  return [...byCode.values()]
 }
 
 export interface StoresReadiness {

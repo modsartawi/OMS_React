@@ -112,6 +112,7 @@ export type DataSyncErrorCode =
   | 'DATASYNC_INVALID_STATE'
   | 'DATASYNC_STORE_BUSY'
   | 'DATASYNC_STORE_WPF_HOSTED'
+  | 'DATASYNC_STORE_DISABLED' // ticket 904 (BackOffice 3913): create warning, job resume/retry — the store is disabled on ActionSync
   | 'DATASYNC_MANIFEST_PRUNED'
   | 'DATASYNC_RERUN_PROFILE_MISMATCH' // spec 863: create with `rerunOf` naming a campaign of another profile
   | 'DATASYNC_STORE_IN_LIVE_RERUN' // 865: create with `rerunOf` naming a store a live re-run of it already holds

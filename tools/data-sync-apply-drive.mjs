@@ -118,7 +118,13 @@ const BIG_FLEET = [
   row('W002', 'Wpf', false, false),
 ]
 // The small fleet for picked stores.
-const SMALL_FLEET = [row('P001', 'Worker', false, false), row('P002', 'Worker', true, false), row('P003', 'Wpf', false, false)]
+// D001 is disabled (BackOffice 3913/3914): paused underneath, hidden from the default read, listed by `disabled=only`.
+const SMALL_FLEET = [
+  row('P001', 'Worker', false, false),
+  row('P002', 'Worker', true, false),
+  row('P003', 'Wpf', false, false),
+  { ...row('D001', 'Worker', true, false), isDisabled: true },
+]
 
 const campaignOf = (status, body) => ({
   campaignId: NEW_ID,
@@ -170,9 +176,11 @@ async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnb
     if (p === 'ActionSync/Fleet') {
       const pg = Number(url.searchParams.get('page') || 1)
       const size = Number(url.searchParams.get('pageSize') || 50)
-      if (pg === 1) state.fleetReads++
-      log.push(`fleet page ${pg} size ${size}`)
-      return route.fulfill(envelope({ items: fleet.slice((pg - 1) * size, pg * size).map(live), total: fleet.length, page: pg, pageSize: size }, { errors: null }))
+      const disabledOnly = url.searchParams.get('disabled') === 'only'
+      const view = fleet.filter((r) => (r.isDisabled === true) === disabledOnly)
+      if (pg === 1 && !disabledOnly) state.fleetReads++
+      log.push(`fleet${disabledOnly ? ' disabled' : ''} page ${pg} size ${size}`)
+      return route.fulfill(envelope({ items: view.slice((pg - 1) * size, pg * size).map(live), total: view.length, page: pg, pageSize: size }, { errors: null }))
     }
     if (p === 'ActionSync/Stores/Control' && method === 'POST') {
       const body = route.request().postDataJSON()
@@ -339,13 +347,15 @@ async function openDialog(page, profile = P_APPLY) {
   const dialog = await openDialog(page)
   await dialog.locator('[data-create-mode-pick="Apply"]').check()
   await dialog.locator('[data-create-target="stores"]').check()
-  await dialog.locator('[data-create-codes]').fill('p001\nP002\nP003\nX999')
+  await dialog.locator('[data-create-codes]').fill('p001\nP002\nP003\nX999\nd001')
   await dialog.locator('[data-apply-reason]').fill(REASON)
   await dialog.locator('[data-apply-never]').waitFor({ timeout: 10000 })
   check('2. readiness: P002 ready, P001 will be paused', (await dialog.locator('[data-apply-ready="1"]').count()) === 1 && (await dialog.locator('[data-apply-will-pause="1"]').count()) === 1)
   const never = await dialog.locator('[data-apply-never-store]').evaluateAll((els) => els.map((e) => `${e.dataset.applyNeverStore}:${e.dataset.why}`))
-  check('2. never: the WPF store and the one not on ActionSync', JSON.stringify(never) === '["P003:wpf","X999:notFound"]', JSON.stringify(never))
-  check('2. …in words', /P003 synced by the WPF host/.test(strip(await dialog.locator('[data-apply-never]').innerText())) && /X999 not on ActionSync/.test(strip(await dialog.locator('[data-apply-never]').innerText())))
+  check('2. never: the WPF store, the one not on ActionSync and the disabled one (read from the disabled view, not missing)', JSON.stringify(never) === '["P003:wpf","X999:notFound","D001:disabled"]', JSON.stringify(never))
+  const neverText = strip(await dialog.locator('[data-apply-never]').innerText())
+  check('2. …in words', /P003 synced by the WPF host/.test(neverText) && /X999 not on ActionSync/.test(neverText) && /D001 disabled on ActionSync/.test(neverText), neverText)
+  check('2. the readiness read asked the fleet for its disabled view too', log.includes('fleet disabled page 1 size 200'))
   await page.screenshot({ path: `${SHOTS}/apply-stores-never.png`, fullPage: true })
   await dialog.locator('[data-apply-drop]').click()
   check('2. "Drop them" removes the never-appliable stores', (await dialog.locator('[data-create-codes]').inputValue()) === 'p001\nP002', JSON.stringify(await dialog.locator('[data-create-codes]').inputValue()))

@@ -232,13 +232,15 @@
       "DATASYNC_INVALID_STATE": "This move is no longer allowed from its current status. The page now shows the current state.",
       "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then resume this job.",
       "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to. Cancel this job instead.",
+      "DATASYNC_STORE_DISABLED": "This store is disabled on ActionSync, so it is not applied to. Cancel this job, or have the store enabled on the sync console first.",
       "DATASYNC_CAMPAIGN_NOT_FOUND": "DataSync no longer knows this campaign.",
       "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job."
     },
     "retryRefusal": {
       "DATASYNC_INVALID_STATE": "Nothing here can be retried any more: the job already went back to the queue, or the campaign is cancelling or cancelled. The page now shows the current state.",
       "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then retry this job.",
-      "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to, so retrying will not help. Cancel this job instead."
+      "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to, so retrying will not help. Cancel this job instead.",
+      "DATASYNC_STORE_DISABLED": "This store is disabled on ActionSync, so retrying will not help while it stays disabled. Cancel this job, or have the store enabled on the sync console first."
     }
   },
   "tableStatus": {
@@ -409,6 +411,7 @@
       "neverTitle": "Never appliable, so DataSync will not write to these:",
       "wpf": "synced by the WPF host",
       "notFound": "not on ActionSync",
+      "disabled": "disabled on ActionSync",
       "drop": "Drop them",
       "fleetNever": "They are part of the whole fleet: DataSync skips them and warns on the campaign."
     },
@@ -450,13 +453,15 @@
       "warningsTitle": "DataSync warned about these stores:",
       "warning": {
         "DATASYNC_STORE_BUSY": "still worked by ActionSync; its job waits until the store is paused",
-        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; it will never be applied to"
+        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; it will never be applied to",
+        "DATASYNC_STORE_DISABLED": "disabled on ActionSync; it will not be applied to"
       },
       "warningStores_one": "<n>{{figure}}</n> store",
       "warningStores_other": "<n>{{figure}}</n> stores",
       "warningGroup": {
         "DATASYNC_STORE_BUSY": "still worked by ActionSync; each job waits until its store is paused",
-        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; never applied to"
+        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; never applied to",
+        "DATASYNC_STORE_DISABLED": "disabled on ActionSync; not applied to"
       },
       "showStores": "Show the stores",
       "hideStores": "Hide the stores",

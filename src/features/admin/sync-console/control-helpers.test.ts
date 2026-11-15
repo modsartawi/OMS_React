@@ -21,7 +21,13 @@ import {
   selectAllMatching,
   controlRoute,
   groupAuditByBatch,
+  resumeAllRequest,
+  resumeAllTicks,
+  resumeAllView,
+  tickAllResume,
+  toggleResumeTick,
 } from './control-helpers'
+import type { PausedStore } from '@/core/models/sync-console'
 import type { SyncAudit } from '@/core/models/sync-console'
 import { syncConsoleApi } from './api'
 import en from '@/locales/en/sync-console.json'
@@ -505,6 +511,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'failures',
       'fleetView',
       'results',
+      'resumeAll',
       'selection',
       'states',
       'store',
@@ -612,5 +619,120 @@ describe('the Disable warnings words (ticket 901)', () => {
     expect(keys(at(ar, 'disableWarnings'), 'disableWarnings.').sort()).toEqual([...enKeys].sort())
     const slots = (text: unknown) => [...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]).sort()
     for (const key of enKeys) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
+  })
+})
+
+describe('Resume all paused (BackOffice 3913, ticket 903)', () => {
+  const paused = (code: string, pauseReason: string | null = 'DataSync campaign DS-0042'): PausedStore => ({
+    code,
+    description: `Store ${code}`,
+    pausedBy: 'ops.ali',
+    pausedAt: '2026-11-15T22:10:00',
+    pauseReason,
+  })
+  const preview = [paused('S001'), paused('S002', 'store-side fault'), paused('S003')]
+
+  it('starts with every paused store ticked, and an unticked store stays out (resumeAll_startsAllTicked_untickKeepsPaused)', () => {
+    const start = resumeAllTicks(preview)
+    expect(start).toEqual(['S001', 'S002', 'S003'])
+    const ticked = toggleResumeTick(preview, start, 'S002')
+    expect(ticked).toEqual(['S001', 'S003'])
+    // The unticked store is not sent: it stays paused.
+    expect(resumeAllRequest(preview, ticked, 'after DataSync')?.codes).toEqual(['S001', 'S003'])
+    // Ticking it again puts it back in the preview's order, not at the end.
+    expect(toggleResumeTick(preview, ticked, 'S002')).toEqual(['S001', 'S002', 'S003'])
+    // Tick none, tick all.
+    expect(tickAllResume(preview, false)).toEqual([])
+    expect(tickAllResume(preview, true)).toEqual(['S001', 'S002', 'S003'])
+  })
+
+  describe('the send (resumeAll_sendsTickedCodesToBulkDoor_withReason)', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('sends the ticked codes as one Resume with the trimmed reason, and nothing while none is ticked or the reason is blank', () => {
+      const ticked = toggleResumeTick(preview, resumeAllTicks(preview), 'S002')
+      expect(resumeAllRequest(preview, ticked, '  after DataSync DS-0042 ')).toEqual({
+        action: 'Resume',
+        codes: ['S001', 'S003'],
+        reason: 'after DataSync DS-0042',
+      })
+      expect(resumeAllRequest(preview, [], 'after DataSync')).toBeNull()
+      expect(resumeAllRequest(preview, ticked, '   ')).toBeNull()
+    })
+
+    it('posts it to Stores/Control/Bulk even for a few stores, and reads the paused preview from Stores/Paused', async () => {
+      const fetch = vi.fn().mockImplementation(async (url: string) => ({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          statusCode: 200,
+          success: true,
+          message: '',
+          errors: [],
+          data: String(url).includes('Stores/Paused')
+            ? { stores: preview }
+            : { batchId: '01JRESUME', results: [{ code: 'S001', ok: true, error: null, controlVersion: 5 }] },
+        }),
+      }))
+      vi.stubGlobal('fetch', fetch)
+      expect(await syncConsoleApi.pausedStores()).toEqual(preview)
+      const request = resumeAllRequest(preview, ['S001', 'S003'], 'after DataSync')!
+      const answer = await syncConsoleApi.controlBulk(request)
+      const url = String(fetch.mock.calls[0][0])
+      expect(url.slice(url.indexOf('ActionSync/'))).toBe('ActionSync/Stores/Paused')
+      const sent = String(fetch.mock.calls[1][0])
+      expect(sent.slice(sent.indexOf('ActionSync/'))).toBe('ActionSync/Stores/Control/Bulk')
+      expect(JSON.parse(String((fetch.mock.calls[1][1] as RequestInit).body))).toEqual({
+        action: 'Resume',
+        codes: ['S001', 'S003'],
+        reason: 'after DataSync',
+      })
+      expect(answer.batchId).toBe('01JRESUME')
+    })
+  })
+
+  it('reads an empty preview as the empty state, never as an error or a list (resumeAll_emptyPreview_isEmptyState)', () => {
+    expect(resumeAllView([], [])).toEqual({ state: 'empty' })
+    expect(resumeAllRequest([], [], 'after DataSync')).toBeNull()
+    // A list says how many are ticked and whether the tick-all box is on, off or mixed.
+    expect(resumeAllView(preview, resumeAllTicks(preview))).toEqual({ state: 'list', ticked: 3, total: 3, all: 'all' })
+    expect(resumeAllView(preview, ['S002'])).toEqual({ state: 'list', ticked: 1, total: 3, all: 'some' })
+    expect(resumeAllView(preview, [])).toEqual({ state: 'list', ticked: 0, total: 3, all: 'none' })
+  })
+})
+
+describe('the Resume-all words (ticket 903)', () => {
+  const at = (bundle: unknown, key: string): unknown =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
+  const KEYS = [
+    'resumeAll.open',
+    'resumeAll.title',
+    'resumeAll.note',
+    'resumeAll.loading',
+    'resumeAll.failed',
+    'resumeAll.failedHint',
+    'resumeAll.empty',
+    'resumeAll.summary',
+    'resumeAll.tickAll',
+    'resumeAll.tick',
+    'resumeAll.columns.store',
+    'resumeAll.columns.pausedBy',
+    'resumeAll.columns.pausedAt',
+    'resumeAll.columns.reason',
+    'resumeAll.unrecorded',
+    'resumeAll.confirm_one',
+    'resumeAll.confirm_other',
+  ]
+
+  it('has every new key in English and in Arabic', () => {
+    for (const key of KEYS) {
+      expect(at(en, key), `en ${key}`).toBeTruthy()
+      expect(at(ar, key), `ar ${key}`).toBeTruthy()
+    }
+  })
+
+  it('keeps the same slots in both languages', () => {
+    const slots = (text: unknown) => [...new Set([...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]))].sort()
+    for (const key of KEYS) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
   })
 })

@@ -1358,5 +1358,26 @@
       "deadLetters": "Dead letters",
       "scriptsWaiting": "Scripts waiting"
     }
+  },
+  "resumeAll": {
+    "open": "Resume all paused…",
+    "title": "Resume all paused stores",
+    "note": "Every paused worker store is listed, all ticked. Untick the stores to leave paused. Disabled stores are never listed and stay disabled. The ticked stores are resumed as one batch, {{cap}} at a time, and it finishes even if this page is closed.",
+    "loading": "Reading the paused stores…",
+    "failed": "The paused stores could not be read.",
+    "failedHint": "Try again in a moment.",
+    "empty": "No store is paused. There is nothing to resume.",
+    "summary": "<n>{{n}}</n> of <total>{{total}}</total> paused stores ticked. Unticked stores stay paused.",
+    "tickAll": "Tick or untick every store",
+    "tick": "Resume {{code}}",
+    "columns": {
+      "store": "Store",
+      "pausedBy": "Paused by",
+      "pausedAt": "Paused at",
+      "reason": "Reason"
+    },
+    "unrecorded": "Not recorded",
+    "confirm_one": "Resume {{n}} store",
+    "confirm_other": "Resume {{n}} stores"
   }
 }

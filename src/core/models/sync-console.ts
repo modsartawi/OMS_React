@@ -549,6 +549,24 @@ export interface ControlAnswer {
   results: StoreControlResult[]
 }
 
+// ── The Resume-all preview — `GET ActionSync/Stores/Paused` (BackOffice 3913/3917) ─────
+
+/**
+ * One paused, non-disabled worker store, as "Resume all paused…" previews it, ordered by `pausedAt`.
+ *
+ * 🚩 The door (3917) is unbuilt and the 2523 contract not amended: the keys are 3913's names for the
+ * pause fields on the store row (`pausedBy`, `pausedAt`, `pauseReason`) plus `code` and `description`.
+ * A store paused before 3914 stamped them carries `null`s. Check against 3917 when it lands.
+ */
+export interface PausedStore {
+  code: string
+  description: string
+  pausedBy: string | null
+  pausedAt: string | null
+  /** As written — a DataSync campaign's tag included. */
+  pauseReason: string | null
+}
+
 // ── The Disable preview — `POST ActionSync/Stores/Disable/Preview` (BackOffice 3913/3917) ─────
 
 /** 1–5,000 codes. It reads HQ's records only: it never connects to a store and never refuses an unreachable one. */

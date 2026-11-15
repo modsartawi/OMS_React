@@ -51,6 +51,7 @@ import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlReques
 import ControlResults from './ControlResults'
 import LastHourPanel from './LastHourPanel'
 import RePushDialog from './RePushDialog'
+import ResumeAllDialog from './ResumeAllDialog'
 import WorkerCard from './WorkerCard'
 import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
 
@@ -166,6 +167,7 @@ function Fleet() {
   const [request, setRequest] = useState<ControlRequest | null>(null)
   const [rePush, setRePush] = useState<string[] | null>(null)
   const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
+  const [resumeAll, setResumeAll] = useState(false)
 
   // 902: every code the filter matches, read when asked — the table's filter as it stands.
   const selectAll = useMutation({
@@ -211,6 +213,12 @@ function Fleet() {
             </span>
           )}
         </Button>
+        {/* 903: one action that resumes the working fleet; disabled stores are never in it. */}
+        {canOperate && !disabledView && (
+          <Button variant="secondary" onClick={() => setResumeAll(true)} data-resume-all-open="">
+            {t('resumeAll.open')}
+          </Button>
+        )}
         {disabledView && (
           <p className="text-sm text-muted-foreground" data-disabled-note="">
             {t('fleetView.note')}
@@ -401,6 +409,14 @@ function Fleet() {
         onResult={(o) => {
           setOutcome(o)
           // The answered selection is spent; its refusals stay listed with their codes.
+          setSelected([])
+        }}
+      />
+      <ResumeAllDialog
+        open={resumeAll}
+        onClose={() => setResumeAll(false)}
+        onResult={(o) => {
+          setOutcome(o)
           setSelected([])
         }}
       />

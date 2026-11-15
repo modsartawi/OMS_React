@@ -29,6 +29,7 @@ import type {
   DeadLetterActionResponse,
   DisablePreviewRequest,
   DisablePreviewResponse,
+  PausedStore,
   DismissPendingRequest,
   EditLocationRequest,
   EnrolObjectRequest,
@@ -335,6 +336,18 @@ export const syncConsoleApi = {
     return controlRoute(body.codes.length) === 'bulk'
       ? syncConsoleApi.controlBulk(body).then((r) => ({ batchId: r.batchId ?? null, results: r.results }))
       : syncConsoleApi.control(body).then((r) => ({ batchId: null, results: r.results }))
+  },
+
+  /**
+   * `GET ActionSync/Stores/Paused` (BackOffice 3913/3917, 🚩 not built — stubbed): the "Resume all
+   * paused…" preview — every paused, non-disabled worker store with who paused it, when and why,
+   * ordered by `pausedAt`. 🚩 The answer's shape is not in the contract yet: `{ stores }` is read,
+   * and so is a bare array.
+   */
+  pausedStores(): Promise<PausedStore[]> {
+    return api
+      .get<PausedStore[] | { stores: PausedStore[] }>('ActionSync/Stores/Paused')
+      .then((r) => (Array.isArray(r) ? r : (r?.stores ?? [])))
   },
 
   /**

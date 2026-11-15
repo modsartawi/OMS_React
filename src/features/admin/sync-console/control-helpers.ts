@@ -12,8 +12,10 @@ import type {
   ControlAction,
   DeadLetter,
   DisablePreviewStore,
+  PausedStore,
   StoreRow,
   SyncAudit,
+  StoreControlRequest,
   SyncConsoleAccess,
 } from '@/core/models/sync-console'
 import type { FleetView } from './helpers'
@@ -109,6 +111,51 @@ export type DisablePreviewState = DisableWarnings | 'loading' | 'failed'
  */
 export function disableConfirmReady(reason: string, _preview: DisablePreviewState): boolean {
   return reasonReady(reason)
+}
+
+// ── Resume all paused (BackOffice 3913, ticket 903) ─────────────────────────────
+
+/** The preview starts with every paused store ticked: the common case is one confirm. */
+export const resumeAllTicks = (stores: readonly PausedStore[]): string[] => stores.map((s) => s.code)
+
+/** Ticks or unticks one store. The ticks are always kept in the preview's order. */
+export function toggleResumeTick(stores: readonly PausedStore[], ticked: readonly string[], code: string): string[] {
+  const on = new Set(ticked)
+  if (on.has(code)) on.delete(code)
+  else on.add(code)
+  return stores.map((s) => s.code).filter((c) => on.has(c))
+}
+
+/** Tick every store, or none. */
+export const tickAllResume = (stores: readonly PausedStore[], on: boolean): string[] => (on ? resumeAllTicks(stores) : [])
+
+/**
+ * The Resume the dialog sends through the bulk door (`syncConsoleApi.controlBulk`, whatever the count):
+ * the ticked codes, in the preview's order, with the trimmed reason. An unticked store is left paused.
+ * `null` while nothing is ticked or the reason is blank — Confirm stays off.
+ */
+export function resumeAllRequest(
+  stores: readonly PausedStore[],
+  ticked: readonly string[],
+  reason: string,
+): StoreControlRequest | null {
+  const on = new Set(ticked)
+  const codes = stores.map((s) => s.code).filter((c) => on.has(c))
+  // Nothing is sent without a store or a reason: Confirm reads this.
+  if (codes.length === 0 || !reasonReady(reason)) return null
+  return { action: 'Resume', codes, reason: cleanReason(reason) }
+}
+
+/** What the Resume-all dialog draws: the empty state (no paused store — never an error), or the ticked list. */
+export type ResumeAllView =
+  | { state: 'empty' }
+  | { state: 'list'; ticked: number; total: number; all: 'all' | 'some' | 'none' }
+
+export function resumeAllView(stores: readonly PausedStore[], ticked: readonly string[]): ResumeAllView {
+  if (stores.length === 0) return { state: 'empty' }
+  const on = new Set(ticked)
+  const n = stores.filter((s) => on.has(s.code)).length
+  return { state: 'list', ticked: n, total: stores.length, all: n === stores.length ? 'all' : n === 0 ? 'none' : 'some' }
 }
 
 // ── The reason ──────────────────────────────────────────────────────────────────

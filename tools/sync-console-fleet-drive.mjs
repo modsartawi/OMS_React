@@ -271,8 +271,9 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   check('1. the worker card shows instance, version, in-flight and settings', /SISAPI-SYNC-01/.test(card) && /1\.4\.2/.test(card) && /41 \/ 64/.test(card) && /17 \/ 64/.test(card) && /ChunkSize 500/.test(card), card)
   const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ')))
   // 456: twelve, not eight — the four mirror tiles join (an old summary has no count for them yet).
-  // 459: thirteen — the rails-disagree tile closes the row.
-  check('1. thirteen tiles, each with its count', tiles.length === 13 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
+  // 459: thirteen — the rails-disagree tile closes the row. 902: fourteen — "Closed, not disabled" follows it
+  // (this summary predates BackOffice 3917, so that tile has no count).
+  check('1. fourteen tiles, each with its count', tiles.length === 14 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
   const hour = strip(await page.locator('[data-last-hour]').innerText())
   check('1. the last-hour totals show this hour and the previous one', /Push passes 11,820 23,640/.test(hour) && /Connect failures 312 624/.test(hour), hour)
   check("1. an old door's last hour reads its mirror totals as zeros", /Mirror rail Mirror sweeps 0 0/.test(hour), hour)
@@ -434,9 +435,10 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   // The four tiles.
   const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ')))
   check(
-    '10. the four mirror tiles with their counts, then the rails-disagree tile (459) last',
-    tiles.length === 13 &&
+    '10. the four mirror tiles with their counts, then the rails-disagree tile (459), then closed-not-disabled (902)',
+    tiles.length === 14 &&
       tiles[12] === 'railsDisagree:4 Rails disagree' &&
+      tiles[13] === 'closedNotDisabled:Closed, not disabled' &&
       tiles.includes('mirrorOffline:1 Mirror offline') &&
       tiles.includes('mirrorBehind:2 Mirror behind') &&
       tiles.includes('deadLetters:1 Dead letters') &&

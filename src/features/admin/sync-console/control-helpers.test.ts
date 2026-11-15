@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CONTROL_ACTIONS } from '@/core/models/sync-console'
 import {
   AUDIT_PAGE_SIZE,
@@ -16,7 +16,12 @@ import {
   mirrorRefusalLabel,
   reasonReady,
   selectionCap,
+  selectAllMatching,
+  controlRoute,
+  groupAuditByBatch,
 } from './control-helpers'
+import type { SyncAudit } from '@/core/models/sync-console'
+import { syncConsoleApi } from './api'
 import en from '@/locales/en/sync-console.json'
 import ar from '@/locales/ar/sync-console.json'
 
@@ -139,6 +144,102 @@ describe('selectionCap', () => {
   })
 })
 
+describe('selectAllMatching (selectAllMatching_takesEveryCode_uncapped)', () => {
+  const many = Array.from({ length: 137 }, (_, i) => `S${String(i).padStart(3, '0')}`)
+
+  it('takes every code the filter matched, past the 50 cap, in the door order', () => {
+    const picked = selectAllMatching(many)
+    expect(picked).toHaveLength(137)
+    expect(picked[0]).toBe('S000')
+    expect(picked[136]).toBe('S136')
+  })
+
+  it('replaces the selection it is given, and keeps one of a code sent twice', () => {
+    expect(selectAllMatching(['A001', 'B002', 'A001'])).toEqual(['A001', 'B002'])
+  })
+
+  it('leaves the one-by-one cap where it was: a click past 50 on that selection is still refused', () => {
+    const next = selectionCap(selectAllMatching(many), [...many, 'Z999'])
+    expect(next.refused).toBe(1)
+    expect(next.codes).toHaveLength(137)
+  })
+})
+
+describe('the door a control goes through (controlRoute_over50_usesBulkDoor_else50Door)', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const codes = (n: number) => Array.from({ length: n }, (_, i) => `C${String(i).padStart(3, '0')}`)
+
+  /** Sends one control through the console's router and reports the path it was posted to. */
+  const posted = async (n: number) => {
+    const fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        statusCode: 200,
+        success: true,
+        message: '',
+        errors: [],
+        data: { batchId: '01JBATCH', auditId: 'A1', results: [] },
+      }),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetch)
+    await syncConsoleApi.sendControl({ action: 'Resume', codes: codes(n), reason: 'after DataSync' })
+    const url = String(fetch.mock.calls[0][0])
+    const body = JSON.parse(String((fetch.mock.calls[0][1] as RequestInit).body))
+    return { path: url.slice(url.indexOf('ActionSync/')), body }
+  }
+
+  it('keeps 50 or fewer on the 50-store door, and sends 51 and on to the bulk door', () => {
+    expect(controlRoute(1)).toBe('control')
+    expect(controlRoute(50)).toBe('control')
+    expect(controlRoute(51)).toBe('bulk')
+    expect(controlRoute(300)).toBe('bulk')
+  })
+
+  it('posts 50 stores to Stores/Control', async () => {
+    expect((await posted(50)).path).toBe('ActionSync/Stores/Control')
+  })
+
+  it('posts 51 stores to Stores/Control/Bulk with the same body, every code in it', async () => {
+    const { path, body } = await posted(51)
+    expect(path).toBe('ActionSync/Stores/Control/Bulk')
+    expect(body).toEqual({ action: 'Resume', codes: codes(51), reason: 'after DataSync' })
+  })
+
+  it('reads the bulk door answer as per-store results plus its batch id', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        statusCode: 200,
+        success: true,
+        message: '',
+        errors: [],
+        data: {
+          batchId: '01JBATCH',
+          results: [
+            { code: 'C000', ok: true, error: null, controlVersion: 4 },
+            { code: 'C001', ok: false, error: 'DISABLED', controlVersion: 2 },
+          ],
+        },
+      }),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetch)
+    const answer = await syncConsoleApi.controlBulk({ action: 'Resume', codes: codes(120), reason: 'r' })
+    expect(answer.batchId).toBe('01JBATCH')
+    expect(controlResultSummary(answer.results).failures).toEqual([
+      { id: 'C001', code: 'DISABLED', labelKey: 'failures.DISABLED' },
+    ])
+  })
+
+  it('offers a selection over 50 only the group actions of its view: no Move, Hand back or Re-push', () => {
+    expect(bulkActions('active', 51)).toEqual(['Pause', 'Resume', 'Disable'])
+    expect(bulkActions('disabled', 51)).toEqual(['Enable'])
+    expect(bulkActions('active', 50)).toEqual(['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable'])
+  })
+})
+
 describe('controlResultSummary', () => {
   const row = (code: string, ok: boolean, error: string | null = null) => ({ code, ok, error, controlVersion: 3 })
 
@@ -220,6 +321,48 @@ describe('auditQuery', () => {
     expect(auditRangeValid({ from: '2026-10-01', to: '2026-10-01' })).toBe(true)
     expect(auditRangeValid({ from: '', to: '2026-10-01' })).toBe(true)
     expect(auditRangeValid({ from: '2026-10-01', to: '' })).toBe(true)
+  })
+})
+
+describe('auditGrouping_byBatchId', () => {
+  const row = (id: string, at: string, codes: string[], batchId: string | null, action: SyncAudit['action'] = 'Resume'): SyncAudit => ({
+    id,
+    at,
+    who: 'ops1',
+    action,
+    codes,
+    batchId,
+    before: 'Worker, paused',
+    after: 'Worker',
+    reason: 'after DataSync',
+  })
+
+  // Newest first, as the door pages it: a 120-store resume wrote three chunks (C3 newest), with a
+  // single pause before and after it.
+  const page: SyncAudit[] = [
+    row('9', '2026-11-16T10:05:00', ['Z001'], null, 'Pause'),
+    row('8', '2026-11-16T10:00:03', ['C101', 'C120'], 'B1'),
+    row('7', '2026-11-16T10:00:02', ['C051', 'C100'], 'B1'),
+    row('6', '2026-11-16T10:00:01', ['C001', 'C050'], 'B1'),
+    row('5', '2026-11-16T09:00:00', ['Y001'], null, 'Pause'),
+  ]
+
+  it('draws the rows of one batch as one event, with its chunk count, where its newest chunk sits', () => {
+    const events = groupAuditByBatch(page)
+    expect(events.map((e) => e.id)).toEqual(['9', '8', '5'])
+    expect(events[1].chunks).toBe(3)
+    expect(events[1].batchId).toBe('B1')
+  })
+
+  it('lists the stores of every chunk in the order they were sent: first chunk first', () => {
+    expect(groupAuditByBatch(page)[1].codes).toEqual(['C001', 'C050', 'C051', 'C100', 'C101', 'C120'])
+  })
+
+  it('leaves a row with no batch, or the only row of its batch, as it was: one chunk', () => {
+    const events = groupAuditByBatch([row('1', '2026-11-16T08:00:00', ['A001'], 'R9', 'RePush'), page[0]])
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({ id: '1', codes: ['A001'], batchId: 'R9', chunks: 1 })
+    expect(events[1]).toMatchObject({ id: '9', batchId: null, chunks: 1 })
   })
 })
 
@@ -351,8 +494,45 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
     for (const key of ['fleetView.show', 'store.disabled']) expect(slots(at(ar, key))).toEqual(slots(at(en, key)))
   })
 
-  it('carries only the disabled-store words in Arabic: every other key still falls back to English', () => {
-    expect(Object.keys(ar).sort()).toEqual(['auditActions', 'controls', 'failures', 'fleetView', 'states', 'store'])
+  it('carries only the spec 3913 words in Arabic: every other key still falls back to English', () => {
+    expect(Object.keys(ar).sort()).toEqual([
+      'audit',
+      'auditActions',
+      'controls',
+      'failures',
+      'fleetView',
+      'results',
+      'selection',
+      'states',
+      'store',
+    ])
     expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled'])
+  })
+})
+
+describe('the select-all-matching words (BackOffice 3913, ticket 902)', () => {
+  const at = (bundle: unknown, key: string): unknown =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
+  const KEYS = [
+    'states.closedNotDisabled',
+    'selection.all',
+    'selection.allNone',
+    'selection.allFailed',
+    'selection.bulk',
+    'results.batch',
+    'audit.chunks_one',
+    'audit.chunks_other',
+  ]
+
+  it('has every new key in English and in Arabic', () => {
+    for (const key of KEYS) {
+      expect(at(en, key), `en ${key}`).toBeTruthy()
+      expect(at(ar, key), `ar ${key}`).toBeTruthy()
+    }
+  })
+
+  it('keeps the same slots in both languages', () => {
+    const slots = (text: unknown) => [...new Set([...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]))].sort()
+    for (const key of KEYS) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
   })
 })

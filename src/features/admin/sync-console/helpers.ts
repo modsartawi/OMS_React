@@ -48,6 +48,8 @@ const STATE_SEVERITY: Record<StoreState, Severity> = {
   railsDisagree: 'bad',
   // Out of operation on purpose (BackOffice 3913): not a problem, so muted like a pause.
   disabled: 'mute',
+  // Closed in the store master but still on the worker's list (BackOffice 3917): a store to retire.
+  closedNotDisabled: 'warn',
 }
 
 /** A machine code's badge: its label key, or `null` for a code this bundle does not know. */
@@ -123,7 +125,8 @@ export type FleetTile = 'all' | StoreState
  * rail agreement's `railsDisagree` (459), last. That tile is also how the fleet filters on
  * agreement — the door has no `agreement` parameter, only the `railsDisagree` state.
  * `disabled` has no tile (BackOffice 3913): the default view never holds a disabled store, and
- * the "Show disabled (N)" toggle is its way in (`fleetView`).
+ * the "Show disabled (N)" toggle is its way in (`fleetView`). "Closed, not disabled" (BackOffice
+ * 3917, ticket 902) closes the row: that tile, then "Select all matching", then Disable.
  */
 export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES.filter((s) => s !== 'disabled')]
 
@@ -161,6 +164,17 @@ export function fleetQuery(filter: FleetFilter): Record<string, unknown> {
     page: Math.max(1, Math.floor(filter.page)),
     pageSize: FLEET_PAGE_SIZE,
   }
+}
+
+/**
+ * The `GET ActionSync/Fleet/Codes` parameters (BackOffice 3917, ticket 902): the table's own
+ * filter — tiles, host, search and view — without its sort and page, since the door answers
+ * every matching code unpaged. "Select all matching" therefore selects exactly what the
+ * table is filtered on.
+ */
+export function fleetCodesQuery(filter: FleetFilter): Record<string, unknown> {
+  const { state, host, q, disabled } = fleetQuery(filter)
+  return { state, host, q, ...(disabled ? { disabled } : {}) }
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   FLEET_SORTS,
   FLEET_TILES,
   agreementBadge,
+  fleetCodesQuery,
   fleetQuery,
   fleetView,
   lastLoopError,
@@ -114,6 +115,30 @@ describe('fleetQuery', () => {
       expect(await urlFor(fleetView(shown, 'active').filter)).toBe('ActionSync/Fleet?q=P00&sort=mostBehind&page=1&pageSize=50')
     })
 
+    it('asks Fleet/Codes with the same filter but no sort or page (Select all matching, ticket 902)', async () => {
+      const fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({ statusCode: 200, success: true, message: '', errors: [], data: ['A001', 'B002'] }),
+      } as unknown as Response)
+      vi.stubGlobal('fetch', fetch)
+      const f = toggleTile(filter({ host: 'Worker', q: ' P0 ', page: 3, sort: 'code' }), 'closedNotDisabled')
+      expect(await syncConsoleApi.fleetCodes(f)).toEqual(['A001', 'B002'])
+      const url = String(fetch.mock.calls[0][0])
+      expect(url.slice(url.indexOf('ActionSync/'))).toBe('ActionSync/Fleet/Codes?state=closedNotDisabled&host=Worker&q=P0')
+      expect(fleetCodesQuery(fleetView(f, 'disabled').filter)).toEqual({ state: [], host: 'Worker', q: 'P0', disabled: 'only' })
+    })
+
+    it('reads a Fleet/Codes answer sent as { codes } too', async () => {
+      const fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({ statusCode: 200, success: true, message: '', errors: [], data: { codes: ['C003'], total: 1 } }),
+      } as unknown as Response)
+      vi.stubGlobal('fetch', fetch)
+      expect(await syncConsoleApi.fleetCodes(DEFAULT_FLEET_FILTER)).toEqual(['C003'])
+    })
+
     it('sends the host, the search and the sort, and the page asked for', async () => {
       expect(await urlFor(filter({ host: 'Wpf', q: 'Riyadh', sort: 'code', page: 2 }))).toBe(
         'ActionSync/Fleet?host=Wpf&q=Riyadh&sort=code&page=2&pageSize=50',
@@ -151,10 +176,19 @@ describe('the tiles', () => {
   // Changed deliberately by 456 (the four mirror tiles joined) and again by 459: the
   // railsDisagree tile, held out of the row until rail agreement, now closes it.
   // And by 900 (BackOffice 3913): `disabled` is a state with no tile — the toggle is its way in.
-  it('offer All and every state, the four mirror tiles then rails disagree last', () => {
+  // And by 902 (BackOffice 3917): "Closed, not disabled" closes the row.
+  it('offer All and every state but disabled', () => {
     expect(FLEET_TILES).toEqual(['all', ...STORE_STATES.filter((s) => s !== 'disabled')])
     expect(FLEET_TILES).not.toContain('disabled')
-    expect(FLEET_TILES.slice(-5)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
+  })
+
+  it('end with the "Closed, not disabled" tile, which filters on closedNotDisabled (tiles_includeClosedNotDisabled)', () => {
+    expect(FLEET_TILES.at(-1)).toBe('closedNotDisabled')
+    expect(FLEET_TILES.slice(-6, -1)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
+    const f = toggleTile({ ...DEFAULT_FLEET_FILTER, page: 3 }, 'closedNotDisabled')
+    expect(fleetQuery(f)).toMatchObject({ state: ['closedNotDisabled'], page: 1 })
+    expect(stateBadge('closedNotDisabled')).toEqual({ labelKey: 'states.closedNotDisabled', sev: 'warn' })
+    expect(en.states.closedNotDisabled).toBe('Closed, not disabled')
   })
 
   it('filter on agreement through the railsDisagree state — the door has no agreement parameter', () => {

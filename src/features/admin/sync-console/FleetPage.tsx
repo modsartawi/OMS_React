@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { RowSelectionOptions } from 'ag-grid-community'
@@ -19,6 +19,7 @@ import Select from '@/core/ui/Select'
 import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import type { StoreRow } from '@/core/models/sync-console'
+import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import {
@@ -26,6 +27,7 @@ import {
   fleetStoresQuery,
   fleetSummaryQuery,
   syncConsoleAccessQuery,
+  syncConsoleApi,
 } from './api'
 import {
   DEFAULT_FLEET_FILTER,
@@ -43,7 +45,7 @@ import {
   type FleetView,
 } from './helpers'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
-import { SELECTION_CAP, bulkActions } from './control-helpers'
+import { SELECTION_CAP, bulkActions, controlRoute, selectAllMatching } from './control-helpers'
 import ConsoleNav from './ConsoleNav'
 import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlRequest } from './ControlDialog'
 import ControlResults from './ControlResults'
@@ -71,6 +73,12 @@ import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
  * (`disabled=only`), where the bulk bar offers only Enable; the switch empties the
  * selection, so the two kinds of store are never sent together. The tiles and the
  * last-hour totals are the active fleet's, so the disabled view does not draw them.
+ *
+ * BackOffice 3913 (ticket 902): "Select all matching" selects every code the table's filter
+ * matches (`Fleet/Codes`), past the 50 cap; ticking rows one by one is still capped. A
+ * selection over 50 is offered only Pause, Resume, Disable (or Enable in the disabled view),
+ * and is sent through the bulk door as one batch. The "Closed, not disabled" tile is the way
+ * in for retiring closed stores: that tile, then Select all matching, then Disable.
  */
 export default function FleetPage() {
   const { t } = useTranslation('sync-console')
@@ -158,6 +166,17 @@ function Fleet() {
   const [request, setRequest] = useState<ControlRequest | null>(null)
   const [rePush, setRePush] = useState<string[] | null>(null)
   const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
+
+  // 902: every code the filter matches, read when asked — the table's filter as it stands.
+  const selectAll = useMutation({
+    mutationFn: () => syncConsoleApi.fleetCodes(filter),
+    onSuccess: (codes) => {
+      if (codes.length === 0) notify.info(t('selection.allNone'))
+      setSelected(selectAllMatching(codes))
+    },
+    onError: (err) => notify.error(apiErrorMessage(err, t('selection.allFailed'))),
+  })
+  const overCap = controlRoute(selected.length) === 'bulk'
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -326,8 +345,18 @@ function Fleet() {
                   />
                 )}
               </span>
-              {/* The view's own actions (900): Disable in the active view, only Enable in the disabled one. */}
-              {bulkActions(filter.view).map((action) =>
+              <Button
+                variant="outlined"
+                disabled={!shown || total === 0 || selectAll.isPending}
+                onClick={() => selectAll.mutate()}
+                data-select-all=""
+              >
+                {selectAll.isPending && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+                {t('selection.all')}
+              </Button>
+              {/* The view's own actions (900): Disable in the active view, only Enable in the disabled
+                  one; over 50 stores (902) only the group actions, sent through the bulk door. */}
+              {bulkActions(filter.view, selected.length).map((action) =>
                 action === 'RePush' ? (
                   // 448: the selection's re-push, through its own dialog (preview, then confirm).
                   <Button
@@ -357,6 +386,11 @@ function Fleet() {
                 </Button>
               )}
             </div>
+            {overCap && (
+              <p className="text-xs text-muted-foreground" data-selection-bulk="">
+                {t('selection.bulk', { cap: fsi(figure(SELECTION_CAP)) })}
+              </p>
+            )}
             <ControlResults outcome={outcome} onDismiss={() => setOutcome(null)} />
           </div>
         )}

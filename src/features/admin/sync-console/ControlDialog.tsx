@@ -5,7 +5,7 @@ import type { ButtonVariant } from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import type { CommandKind, ControlAction } from '@/core/models/sync-console'
-import { AUDIT_KEY, FLEET_KEY, storeKey, syncConsoleApi } from './api'
+import { AUDIT_KEY, FLEET_KEY, STORE_PAGES_KEY, storeKey, syncConsoleApi } from './api'
 import { controlResultSummary, type ResultSummary } from './control-helpers'
 import { figure } from './helpers'
 import ReasonDialog from './ReasonDialog'
@@ -75,7 +75,9 @@ export function notifyOutcome(s: ResultSummary, sentence: string, detail?: strin
 
 /**
  * `POST ActionSync/Stores/Control` behind the shared reason dialog (ticket 447) — one
- * store from its page, or the fleet's selection of up to 50.
+ * store from its page, or the fleet's selection of up to 50. A selection over 50
+ * ("Select all matching", ticket 902) goes to `Stores/Control/Bulk` instead
+ * (`syncConsoleApi.sendControl`), and its toast names the batch.
  *
  * The answer becomes one toast sentence (`controlResultSummary`), and the failures go
  * back to the page (`onResult`) to stay listed with their codes. Every answer
@@ -96,14 +98,17 @@ export default function ControlDialog({
   const qc = useQueryClient()
   const send = useMutation({
     mutationFn: ({ action, codes, reason }: ControlRequest & { reason: string }) =>
-      syncConsoleApi.control({ action, codes, reason }),
+      // 902: over 50 stores ("Select all matching") the bulk door takes it, as one batch.
+      syncConsoleApi.sendControl({ action, codes, reason }),
     onSuccess: (data, { action, codes }) => {
       const summary = controlResultSummary(data.results)
       const sentence = resultSentence(t, t(`controls.${action}`), summary)
-      notifyOutcome(summary, sentence)
+      notifyOutcome(summary, sentence, data.batchId ? t('results.batch', { batchId: fsi(data.batchId) }) : undefined)
       onResult({ action, summary })
       void qc.invalidateQueries({ queryKey: FLEET_KEY })
-      for (const code of codes) void qc.invalidateQueries({ queryKey: storeKey(code) })
+      // A batch reaches past any page held open; every store page is refreshed at once.
+      if (data.batchId) void qc.invalidateQueries({ queryKey: STORE_PAGES_KEY })
+      else for (const code of codes) void qc.invalidateQueries({ queryKey: storeKey(code) })
       void qc.invalidateQueries({ queryKey: AUDIT_KEY })
       close()
     },

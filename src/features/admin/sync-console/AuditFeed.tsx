@@ -3,13 +3,12 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import GridPager from '@/core/ui/GridPager'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
-import type { SyncAudit } from '@/core/models/sync-console'
 import { auditQueryOptions } from './api'
 import { buildAuditColumns } from './audit-columns'
-import { AUDIT_PAGE_SIZE, type AuditFilter } from './control-helpers'
+import { AUDIT_PAGE_SIZE, groupAuditByBatch, type AuditEvent, type AuditFilter } from './control-helpers'
 import TabGrid from './TabGrid'
 
-const auditId = (a: SyncAudit) => a.id
+const auditId = (a: AuditEvent) => a.id
 
 /**
  * One page of `GET ActionSync/Audit` (ticket 447), newest first, paged by the door at
@@ -24,6 +23,8 @@ export default function AuditFeed({ filter, empty }: { filter: AuditFilter; empt
   // As on the Fleet table: a failed read draws none of the previous page's rows.
   const shown = audit.isError ? undefined : audit.data
   const total = shown?.total ?? 0
+  // 902: a bulk run's chunks (one audit row each, one batch id) are drawn as one event.
+  const events = useMemo(() => (shown ? groupAuditByBatch(shown.items) : undefined), [shown])
 
   // A later read can shrink the feed under an inner page: an emptied page falls back to the last.
   const settled = shown && !audit.isPlaceholderData ? shown : undefined
@@ -41,7 +42,7 @@ export default function AuditFeed({ filter, empty }: { filter: AuditFilter; empt
   return (
     <div className="flex flex-col gap-2">
       <TabGrid
-        rows={shown?.items}
+        rows={events}
         columns={columns}
         rowId={auditId}
         pending={audit.isPending}

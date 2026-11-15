@@ -20,6 +20,7 @@ import type {
   AgreementRecheckRequest,
   AgreementRecheckResponse,
   AuditedWriteResponse,
+  ControlAnswer,
   CancelCommandsRequest,
   CancelCommandsResponse,
   CreateLocationsRequest,
@@ -63,6 +64,7 @@ import type {
   StoreMirror,
   StorePass,
   StoreRow,
+  StoreBulkControlResponse,
   StoreControlRequest,
   StoreControlResponse,
   StoreScripts,
@@ -76,8 +78,8 @@ import type {
   SyncWorkers,
 } from '@/core/models/sync-console'
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
-import { auditQuery, type AuditFilter } from './control-helpers'
-import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
+import { auditQuery, controlRoute, type AuditFilter } from './control-helpers'
+import { FLEET_REFRESH_MS, fleetCodesQuery, fleetQuery, type FleetFilter } from './helpers'
 import { recentPassesQuery, type RecentPassesFilter } from './recent-passes-helpers'
 import { replaysQuery } from './replay-helpers'
 import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
@@ -183,6 +185,17 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Fleet?state=&host=&q=&sort=&page=&pageSize=` → one page of stores. */
   fleet(filter: FleetFilter): Promise<Paged<StoreRow>> {
     return api.get<Paged<WireStoreRow>>('ActionSync/Fleet', fleetQuery(filter)).then(normaliseFleet)
+  },
+
+  /**
+   * `GET ActionSync/Fleet/Codes?state=&host=&q=&disabled=` (BackOffice 3917, 🚩 not built — stubbed):
+   * every code the Fleet's filter matches, unpaged — what "Select all matching" selects. 🚩 The answer's
+   * shape is not in the contract yet: a bare `string[]` is read, and so is `{ codes }`.
+   */
+  fleetCodes(filter: FleetFilter): Promise<string[]> {
+    return api
+      .get<string[] | { codes: string[] }>('ActionSync/Fleet/Codes', fleetCodesQuery(filter))
+      .then((r) => (Array.isArray(r) ? r : (r?.codes ?? [])))
   },
 
   /** `GET ActionSync/Passes?minutes=&loop=&kind=&code=&page=&pageSize=` → the fleet's last passes and their mix. */
@@ -301,6 +314,25 @@ export const syncConsoleApi = {
    */
   control(body: StoreControlRequest): Promise<StoreControlResponse> {
     return api.post<StoreControlResponse>('ActionSync/Stores/Control', body)
+  },
+
+  /**
+   * `POST ActionSync/Stores/Control/Bulk` (BackOffice 3916, 🚩 not built — stubbed): the same body as
+   * `control`, any number of stores up to the door's 5,000. The door runs them in 50-store chunks, each
+   * its own transaction and audit row, all under one `batchId`, and finishes even when the browser
+   * closes. A whole refusal (no codes, too many, blank reason) throws and writes nothing; a per-store
+   * one (`DISABLED`, `NOT_ON_WORKER`, …) comes back in `results[].error`, in request order.
+   * "Select all matching" (902) and "Resume all paused" (903) send through it.
+   */
+  controlBulk(body: StoreControlRequest): Promise<StoreBulkControlResponse> {
+    return api.post<StoreBulkControlResponse>('ActionSync/Stores/Control/Bulk', body)
+  },
+
+  /** A control through the door its size calls for (`controlRoute`): over 50 the bulk door, else `control`. */
+  sendControl(body: StoreControlRequest): Promise<ControlAnswer> {
+    return controlRoute(body.codes.length) === 'bulk'
+      ? syncConsoleApi.controlBulk(body).then((r) => ({ batchId: r.batchId ?? null, results: r.results }))
+      : syncConsoleApi.control(body).then((r) => ({ batchId: null, results: r.results }))
   },
 
   /** `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=` → one page, newest first. */
@@ -525,6 +557,9 @@ export const recentPassesQueryOptions = (filter: RecentPassesFilter) => ({
  * (`passDetailQuery`): the pass is the door's key, and its detail is read afresh
  * each time it is opened.
  */
+/** Every store page's reads, of every store — a bulk control (902) refreshes them all at once. */
+export const STORE_PAGES_KEY = ['sync-console', 'store'] as const
+
 export const storeKey = (code: string) => ['sync-console', 'store', code] as const
 
 /** A refusal that is an answer, not an outage: retrying a `NO_STORE` only delays the "no such store" state. */

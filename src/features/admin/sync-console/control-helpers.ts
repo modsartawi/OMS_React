@@ -12,6 +12,7 @@ import type {
   ControlAction,
   DeadLetter,
   StoreRow,
+  SyncAudit,
   SyncConsoleAccess,
 } from '@/core/models/sync-console'
 import type { FleetView } from './helpers'
@@ -52,8 +53,13 @@ export type BulkAction = ControlAction | 'RePush'
  * the active view every lasting control but Enable, then Re-push, then Disable; the
  * disabled view only Enable — the door refuses everything else on a disabled store.
  */
-export function bulkActions(view: FleetView): BulkAction[] {
-  return view === 'disabled' ? ['Enable'] : ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable']
+export function bulkActions(view: FleetView, selected = 0): BulkAction[] {
+  if (view === 'disabled') return ['Enable']
+  // A selection over 50 ("Select all matching", ticket 902) goes through the bulk door, and the
+  // screen offers a group only Pause, Resume and Disable (3913: Move and Hand back are not offered
+  // for groups; Re-push has no bulk door).
+  if (controlRoute(selected) === 'bulk') return ['Pause', 'Resume', 'Disable']
+  return ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable']
 }
 
 // ── The reason ──────────────────────────────────────────────────────────────────
@@ -102,6 +108,24 @@ export function selectionCap(current: readonly string[], wanted: readonly string
     messageKey: refused > 0 ? 'selection.capped' : null,
   }
 }
+
+/**
+ * "Select all matching" (BackOffice spec 3913, ticket 902): the selection becomes every
+ * code `GET ActionSync/Fleet/Codes` matched under the page's filter — past the 50 cap,
+ * in the door's order, each code once. It replaces the selection rather than adding to it.
+ * The cap still guards clicks: `selectionCap` lets a selection already over it only shrink.
+ */
+export function selectAllMatching(codes: readonly string[]): string[] {
+  return [...new Set(codes)]
+}
+
+// ── Where a control is sent (BackOffice 3913/3916, ticket 902) ──────────────────
+
+/** The door a control goes through: the 50-store `Stores/Control`, or the bulk `Stores/Control/Bulk`. */
+export type ControlRoute = 'control' | 'bulk'
+
+/** Over 50 stores the bulk door takes it (50-store chunks, one batch); 50 or fewer keep today's door. */
+export const controlRoute = (count: number): ControlRoute => (count > SELECTION_CAP ? 'bulk' : 'control')
 
 // ── Per-row results ─────────────────────────────────────────────────────────────
 
@@ -245,6 +269,32 @@ export function auditQuery(filter: AuditFilter, page: number): Record<string, un
     page: Math.max(1, Math.floor(page)),
     pageSize: AUDIT_PAGE_SIZE,
   }
+}
+
+/** An audit row as the feed draws it: a bulk run's chunks folded into one event (ticket 902). */
+export interface AuditEvent extends SyncAudit {
+  /** How many audit rows (50-store chunks) the event holds; 1 for an ordinary row. */
+  chunks: number
+}
+
+/**
+ * The bulk door (BackOffice 3916) writes one audit row per 50-store chunk, all sharing one
+ * `batchId`. The feed draws the rows of one batch as ONE event, where its newest chunk sits,
+ * with the chunk count and every chunk's stores in the order they were sent (the door pages
+ * newest first, so the oldest chunk is the first sent). A row with no batch, or alone in its
+ * batch, is drawn as it came. Only the page in hand is grouped: a batch cut by the door's
+ * paging shows its part on each page.
+ */
+export function groupAuditByBatch(rows: readonly SyncAudit[]): AuditEvent[] {
+  const byBatch = new Map<string, SyncAudit[]>()
+  for (const r of rows) if (r.batchId) byBatch.set(r.batchId, [...(byBatch.get(r.batchId) ?? []), r])
+  const events: AuditEvent[] = []
+  for (const r of rows) {
+    const chunks = r.batchId ? byBatch.get(r.batchId)! : [r]
+    if (chunks[0] !== r) continue // drawn with its batch's newest chunk
+    events.push({ ...r, codes: [...chunks].reverse().flatMap((c) => c.codes), chunks: chunks.length })
+  }
+  return events
 }
 
 /** Every `AuditAction` the bundle labels — a `Record`, so a new action in the model fails to compile here. */

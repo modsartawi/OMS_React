@@ -12,7 +12,8 @@
     "NOT_DISABLED": "الفرع غير معطّل"
   },
   "states": {
-    "disabled": "معطّل"
+    "disabled": "معطّل",
+    "closedNotDisabled": "مغلق وغير معطّل"
   },
   "auditActions": {
     "Disable": "عطّل فرعًا",
@@ -27,5 +28,22 @@
   },
   "store": {
     "disabled": "عطّله <who>{{who}}</who> في <at>{{at}}</at> — <reason>{{reason}}</reason>"
+  },
+  "selection": {
+    "all": "تحديد كل المطابِق",
+    "allNone": "لا يطابق هذه التصفية أي فرع.",
+    "allFailed": "تعذّرت قراءة الفروع المطابِقة.",
+    "bulk": "أكثر من {{cap}} فرعًا: تُرسَل دفعةً واحدة، {{cap}} فرعًا في كل مرة، وتكتمل حتى لو أُغلقت هذه الصفحة."
+  },
+  "results": {
+    "batch": "الدفعة {{batchId}}"
+  },
+  "audit": {
+    "chunks_zero": "<n>{{n}}</n> جزء",
+    "chunks_one": "جزء واحد (<n>{{n}}</n>)",
+    "chunks_two": "جزآن (<n>{{n}}</n>)",
+    "chunks_few": "<n>{{n}}</n> أجزاء",
+    "chunks_many": "<n>{{n}}</n> جزءًا",
+    "chunks_other": "<n>{{n}}</n> جزء"
   }
 }

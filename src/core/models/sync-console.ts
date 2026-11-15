@@ -42,6 +42,9 @@ export type StoreState =
   | 'railsDisagree'
   // A disabled store (BackOffice 3913/3914): out of operation, met only in the `disabled=only` view.
   | 'disabled'
+  // A worker store the store master marks closed (the 2882 rule) that is not disabled yet (BackOffice
+  // 3917): the "Closed, not disabled" tile, the way in to "Select all matching" → Disable.
+  | 'closedNotDisabled'
 
 /** Every `StoreState`, in the contract's order — the order the tiles and the query use. */
 export const STORE_STATES: readonly StoreState[] = [
@@ -58,6 +61,7 @@ export const STORE_STATES: readonly StoreState[] = [
   'deferredTooLong',
   'railsDisagree',
   'disabled',
+  'closedNotDisabled',
 ]
 
 /** The mirror lane's states, in the contract's order. `railsDisagree` is NOT one: it is agreement's. */
@@ -289,7 +293,11 @@ export interface FleetSummary {
    * (BackOffice 3914, 🚩 placement guessed: the spec names "the disabled count", not its key)
    * is how many there are, for the "Show disabled (N)" toggle. A pre-3914 door omits it.
    */
-  counts: Record<Exclude<StoreState, 'disabled'> | 'all', number> & { disabled?: number }
+  counts: Record<Exclude<StoreState, 'disabled' | 'closedNotDisabled'> | 'all', number> & {
+    disabled?: number
+    /** BackOffice 3917's tile count; a pre-3917 door omits it and the tile shows no figure. */
+    closedNotDisabled?: number
+  }
 }
 
 export interface HourTotals {
@@ -521,6 +529,23 @@ export interface StoreControlResult {
 
 export interface StoreControlResponse {
   auditId: string
+  results: StoreControlResult[]
+}
+
+/**
+ * `POST ActionSync/Stores/Control/Bulk` (BackOffice 3916): the same body as `Stores/Control`, up to
+ * 5,000 codes, run in 50-store chunks (one audit row each, all sharing `batchId`). One per-store result
+ * list in request order. 🚩 Shape guessed from 3913/3916 (the 2523 contract is not amended yet): no
+ * `auditId` (a chunk each), the results as `Stores/Control`'s.
+ */
+export interface StoreBulkControlResponse {
+  batchId: string
+  results: StoreControlResult[]
+}
+
+/** A control's answer whichever door took it: `batchId` is the bulk door's, `null` from the 50-store door. */
+export interface ControlAnswer {
+  batchId: string | null
   results: StoreControlResult[]
 }
 

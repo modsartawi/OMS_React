@@ -26,7 +26,8 @@
     "deadLetters": "Dead letters",
     "deferredTooLong": "Deferred too long",
     "railsDisagree": "Rails disagree",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "closedNotDisabled": "Closed, not disabled"
   },
   "hosts": {
     "Worker": "Worker",
@@ -363,7 +364,11 @@
     "count_other": "<n>{{n}}</n> stores selected",
     "capped": "At most {{cap}} stores can be selected at once. Act on these first, then select the next ones.",
     "clear": "Clear selection",
-    "hint": "Select stores in the table to act on up to {{cap}} at once."
+    "hint": "Select stores in the table to act on up to {{cap}} at once.",
+    "all": "Select all matching",
+    "allNone": "No store matches this filter.",
+    "allFailed": "The matching stores could not be read.",
+    "bulk": "Over {{cap}} stores: sent as one batch, {{cap}} stores at a time. It finishes even if this page is closed."
   },
   "list": {
     "separator": ", "
@@ -378,7 +383,8 @@
     "refusedTitle": "{{action}}: refused for these stores",
     "dismiss": "Dismiss",
     "refusedCommandsTitle": "{{action}}: refused for these commands",
-    "refusedDeadLettersTitle": "{{action}}: refused for these dead letters"
+    "refusedDeadLettersTitle": "{{action}}: refused for these dead letters",
+    "batch": "Batch {{batchId}}"
   },
   "deadLetterResults": {
     "allOk_one": "{{action}}: done for {{total}} dead letter.",
@@ -462,7 +468,9 @@
       "codes": "Stores",
       "change": "Before → after",
       "reason": "Reason"
-    }
+    },
+    "chunks_one": "<n>{{n}}</n> chunk",
+    "chunks_other": "<n>{{n}}</n> chunks"
   },
   "loops": {
     "push": "Push",

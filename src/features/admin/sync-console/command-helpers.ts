@@ -29,13 +29,15 @@ export type StoreAction = ControlAction | CommandKind
 /**
  * The one-shot commands a store's page renders. Without `canOperate`: none (absent,
  * not disabled). A WPF store: only Test connection — Retry now and Re-push need the
- * worker (the door's `NOT_ON_WORKER`). A worker store: all three.
+ * worker (the door's `NOT_ON_WORKER`). A worker store: all three. A disabled store: none.
  */
 export function allowedCommands(
-  row: Pick<StoreRow, 'host'>,
+  row: Pick<StoreRow, 'host' | 'isDisabled'>,
   access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
 ): CommandKind[] {
   if (access?.canOperate !== true) return []
+  // A disabled store refuses every command (BackOffice 3913, `DISABLED`): none is offered.
+  if (row.isDisabled === true) return []
   if (row.host === 'Wpf') return ['ConnectionTest']
   if (row.host === 'Worker') return ['RetryNow', 'RePush', 'ConnectionTest']
   return []
@@ -43,16 +45,16 @@ export function allowedCommands(
 
 /**
  * The whole control row in the prototype's order: on a worker store Retry now,
- * Pause or Resume, Re-push, Test connection, Hand back; on a WPF store Move to
- * worker, Test connection.
+ * Pause or Resume, Re-push, Test connection, Disable, Hand back; on a WPF store Move to
+ * worker, Test connection; on a disabled store (BackOffice 3913) Enable alone.
  */
 export function storeActions(
-  row: Pick<StoreRow, 'host' | 'isPaused'>,
+  row: Pick<StoreRow, 'host' | 'isPaused' | 'isDisabled'>,
   access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
 ): StoreAction[] {
   const controls = allowedControls(row, access)
   const commands = allowedCommands(row, access)
-  const order: StoreAction[] = ['RetryNow', 'Move', 'Pause', 'Resume', 'RePush', 'ConnectionTest', 'HandBack']
+  const order: StoreAction[] = ['RetryNow', 'Move', 'Pause', 'Resume', 'RePush', 'ConnectionTest', 'Disable', 'HandBack', 'Enable']
   const offered = new Set<StoreAction>([...controls, ...commands])
   return order.filter((a) => offered.has(a))
 }

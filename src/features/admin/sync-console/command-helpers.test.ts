@@ -37,6 +37,7 @@ describe('allowedCommands / storeActions', () => {
       'Pause',
       'RePush',
       'ConnectionTest',
+      'Disable',
       'HandBack',
     ])
     expect(storeActions({ host: 'Worker', isPaused: true }, operate)).toEqual([
@@ -44,8 +45,14 @@ describe('allowedCommands / storeActions', () => {
       'Resume',
       'RePush',
       'ConnectionTest',
+      'Disable',
       'HandBack',
     ])
+  })
+
+  it('offers a disabled store only Enable: no command can wake it (BackOffice 3913)', () => {
+    expect(allowedCommands({ host: 'Worker', isDisabled: true }, operate)).toEqual([])
+    expect(storeActions({ host: 'Worker', isPaused: true, isDisabled: true }, operate)).toEqual(['Enable'])
   })
 
   it('offers a WPF store only Move to worker and Test connection', () => {

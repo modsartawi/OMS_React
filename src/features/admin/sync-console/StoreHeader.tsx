@@ -1,7 +1,8 @@
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { StoreDetail } from '@/core/models/sync-console'
+import { formatDateTime } from '@/core/util/date-format'
 import { stateBadge } from './helpers'
 import { hostBadge } from './store-helpers'
 import CodeBadgeView from './CodeBadgeView'
@@ -13,6 +14,9 @@ import StateBadges from './StateBadges'
  *
  * The pending badge reads `controlPending` and nothing else, so it is left out of
  * the state badges beside it — the Fleet table's split, kept on this page.
+ *
+ * A disabled store (BackOffice 3913, ticket 900) adds one line under it: who disabled
+ * it, when, and why, so anyone opening it knows it was taken out on purpose.
  */
 export default function StoreHeader({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
@@ -31,6 +35,20 @@ export default function StoreHeader({ row }: { row: StoreDetail }) {
         <span data-control-pending="">
           <StatusBadge sev={stateBadge('controlPending').sev}>{t('store.pending')}</StatusBadge>
         </span>
+      )}
+      {row.isDisabled === true && (
+        <p className="basis-full text-sm text-muted-foreground" data-store-disabled="">
+          <Trans
+            t={t}
+            i18nKey="store.disabled"
+            values={{
+              who: row.disabledBy ?? '',
+              at: row.disabledAt ? formatDateTime(row.disabledAt) : '',
+              reason: row.disableReason ?? '',
+            }}
+            components={{ who: <bdi />, at: <Ltr />, reason: <bdi /> }}
+          />
+        </p>
       )}
     </div>
   )

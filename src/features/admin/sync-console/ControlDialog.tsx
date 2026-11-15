@@ -32,10 +32,13 @@ export const CONTROL_VARIANT: Record<ControlAction, ButtonVariant> = {
   Pause: 'secondary',
   Resume: 'secondary',
   HandBack: 'danger-outlined',
+  // BackOffice 3913: Disable takes a store out of operation; Enable only returns it to paused.
+  Disable: 'danger-outlined',
+  Enable: 'secondary',
 }
 
 /** The controls whose effect deserves a sentence in the dialog (the prototype's notes). */
-const NOTED: ReadonlySet<ControlAction> = new Set(['Move', 'HandBack', 'Pause'])
+const NOTED: ReadonlySet<ControlAction> = new Set(['Move', 'HandBack', 'Pause', 'Disable', 'Enable'])
 
 /**
  * The one-sentence summary of a per-row answer, for the toast. The counts are data

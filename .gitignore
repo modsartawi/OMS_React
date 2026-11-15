@@ -105,6 +105,7 @@ tools/.materials-live-shots/
 tools/.sync-console-fleet-shots/
 tools/.sync-console-store-shots/
 tools/.sync-console-controls-shots/
+tools/.sync-console-disabled-shots/
 tools/.sync-console-commands-shots/
 tools/.sync-console-onboard-shots/
 tools/.sync-console-live-shots/

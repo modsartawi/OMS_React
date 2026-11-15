@@ -14,6 +14,7 @@ import type {
   StoreRow,
   SyncConsoleAccess,
 } from '@/core/models/sync-console'
+import type { FleetView } from './helpers'
 
 // ── The controls a store offers ─────────────────────────────────────────────────
 
@@ -22,18 +23,37 @@ import type {
  *
  * - Without `canOperate`: none — the controls are absent, not disabled.
  * - A WPF store: only Move to worker (448 adds Test connection).
- * - A worker store: Pause, or Resume when the door says it `isPaused`; then Hand back.
+ * - A disabled store (BackOffice 3913): only Enable. It is paused underneath, but the door
+ *   refuses Resume, Pause and Hand back on it (`DISABLED`), so none of them is offered.
+ * - A worker store: Pause, or Resume when the door says it `isPaused`; then Disable, then Hand back.
  *
- * The host and the paused flag are the door's fields, never a guess from health.
+ * The host and the paused and disabled flags are the door's fields, never a guess from health.
+ * A door that sends no `isDisabled` (pre-3914) reads as an active store.
  */
 export function allowedControls(
-  row: Pick<StoreRow, 'host' | 'isPaused'>,
+  row: Pick<StoreRow, 'host' | 'isPaused' | 'isDisabled'>,
   access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
 ): ControlAction[] {
   if (access?.canOperate !== true) return []
+  if (row.isDisabled === true) return ['Enable']
   if (row.host === 'Wpf') return ['Move']
-  if (row.host === 'Worker') return [row.isPaused ? 'Resume' : 'Pause', 'HandBack']
+  if (row.host === 'Worker') return [row.isPaused ? 'Resume' : 'Pause', 'Disable', 'HandBack']
   return []
+}
+
+// ── The fleet's bulk bar (BackOffice 3913, ticket 900) ───────────────────────────
+
+/** A bulk bar button: a lasting control, or 448's previewed Re-push. */
+export type BulkAction = ControlAction | 'RePush'
+
+/**
+ * The bulk bar's buttons, in the order they are drawn. The two views never share a
+ * selection (switching clears it), so each offers only what its stores can take:
+ * the active view every lasting control but Enable, then Re-push, then Disable; the
+ * disabled view only Enable — the door refuses everything else on a disabled store.
+ */
+export function bulkActions(view: FleetView): BulkAction[] {
+  return view === 'disabled' ? ['Enable'] : ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable']
 }
 
 // ── The reason ──────────────────────────────────────────────────────────────────
@@ -104,6 +124,9 @@ const FAILURE_CODES = new Set([
   // Met on the built doors (450): a field over its width, and a row whose own write faulted.
   'BAD_FIELD',
   'FAILED',
+  // A disabled store (BackOffice 3914): every control but Enable is refused on it, and Enable on an active one.
+  'DISABLED',
+  'NOT_DISABLED',
 ])
 
 /** A failure code's `sync-console` label key, or `null` — the caller then shows the raw code. */
@@ -253,6 +276,9 @@ const AUDIT_ACTIONS: Record<AuditAction, true> = {
   SendScript: true,
   WithdrawScript: true,
   RetryScript: true,
+  // A disabled store (BackOffice 3913/3914): one row per Disable and per Enable.
+  Disable: true,
+  Enable: true,
 }
 
 /** An audit action's label key, or `null` for one this bundle does not know (show the raw code). */

@@ -278,7 +278,7 @@ async function sendCommand(page, kind, reason) {
   const { context, page, errors, calls, posts } = await open()
   await page.goto(`${BASE}/admin/sync/store/P001`)
   await page.locator('[data-store-controls]').waitFor({ timeout: 20000 })
-  check('1. a worker store offers Retry now, Re-push and Test connection, in the prototype order', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'RetryNow Pause RePush ConnectionTest HandBack')
+  check('1. a worker store offers Retry now, Re-push and Test connection, in the prototype order', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'RetryNow Pause RePush ConnectionTest Disable HandBack')
 
   // 2: a connection test that ends OK.
   await page.locator('[data-control="ConnectionTest"]').click()

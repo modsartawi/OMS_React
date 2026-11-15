@@ -18,7 +18,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
-import { CONTROL_ACTIONS, type StoreRow } from '@/core/models/sync-console'
+import type { StoreRow } from '@/core/models/sync-console'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import {
@@ -33,15 +33,17 @@ import {
   FLEET_SORTS,
   FLEET_TILES,
   figure,
+  fleetView,
   stateBadge,
   tileOn,
   toggleTile,
   type FleetFilter,
   type FleetHostFilter,
   type FleetTile,
+  type FleetView,
 } from './helpers'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
-import { SELECTION_CAP } from './control-helpers'
+import { SELECTION_CAP, bulkActions } from './control-helpers'
 import ConsoleNav from './ConsoleNav'
 import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlRequest } from './ControlDialog'
 import ControlResults from './ControlResults'
@@ -63,6 +65,12 @@ import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
  * Hand back, Pause or Resume (or, 448, a previewed Re-push) for the whole selection
  * in one call. Without the grant
  * neither the checkboxes nor the bar render.
+ *
+ * BackOffice 3913 (ticket 900): disabled stores are not in the default list, tiles or
+ * counts — the door leaves them out. "Show disabled (N)" switches to a view of only them
+ * (`disabled=only`), where the bulk bar offers only Enable; the switch empties the
+ * selection, so the two kinds of store are never sent together. The tiles and the
+ * last-hour totals are the active fleet's, so the disabled view does not draw them.
  */
 export default function FleetPage() {
   const { t } = useTranslation('sync-console')
@@ -140,6 +148,13 @@ function Fleet() {
 
   // ── The selection (447): codes, not rows, so it outlives a page, a filter and a refresh.
   const { selected, setSelected, gridProps } = useCappedSelection(storeCode)
+  const disabledView = filter.view === 'disabled'
+  const disabledCount = summary.data?.counts.disabled
+  const switchView = (view: FleetView) => {
+    const next = fleetView(filter, view)
+    setFilter(next.filter)
+    setSelected(next.selected)
+  }
   const [request, setRequest] = useState<ControlRequest | null>(null)
   const [rePush, setRePush] = useState<string[] | null>(null)
   const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
@@ -159,24 +174,51 @@ function Fleet() {
 
       <WorkerCard />
 
-      <section aria-label={t('tiles.label')} data-tiles="">
-        {summary.isError && (
-          <ErrorBanner className="mb-2 p-3" message={apiErrorMessage(summary.error, t('tiles.failed'))} />
+      <div className="flex flex-wrap items-center gap-2" data-fleet-view={filter.view}>
+        <Button
+          variant={disabledView ? 'secondary' : 'outlined'}
+          aria-pressed={disabledView}
+          onClick={() => switchView(disabledView ? 'active' : 'disabled')}
+          data-show-disabled={disabledCount ?? ''}
+        >
+          {disabledView ? (
+            t('fleetView.back')
+          ) : disabledCount === undefined ? (
+            t('fleetView.showUnknown')
+          ) : (
+            // One span: the button lays its children out apart, and the count belongs inside the words.
+            <span>
+              <Trans t={t} i18nKey="fleetView.show" values={{ n: figure(disabledCount) }} components={{ n: <Ltr /> }} />
+            </span>
+          )}
+        </Button>
+        {disabledView && (
+          <p className="text-sm text-muted-foreground" data-disabled-note="">
+            {t('fleetView.note')}
+          </p>
         )}
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
-          {FLEET_TILES.map((tile) => (
-            <Tile
-              key={tile}
-              tile={tile}
-              count={summary.data?.counts[tile]}
-              on={tileOn(filter, tile)}
-              onClick={() => setFilter((f) => toggleTile(f, tile))}
-            />
-          ))}
-        </div>
-      </section>
+      </div>
 
-      <LastHourPanel />
+      {!disabledView && (
+        <section aria-label={t('tiles.label')} data-tiles="">
+          {summary.isError && (
+            <ErrorBanner className="mb-2 p-3" message={apiErrorMessage(summary.error, t('tiles.failed'))} />
+          )}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
+            {FLEET_TILES.map((tile) => (
+              <Tile
+                key={tile}
+                tile={tile}
+                count={summary.data?.counts[tile]}
+                on={tileOn(filter, tile)}
+                onClick={() => setFilter((f) => toggleTile(f, tile))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!disabledView && <LastHourPanel />}
 
       <section className="flex min-w-0 flex-col gap-2" data-fleet-table="">
         <div className="flex flex-wrap items-center gap-2">
@@ -234,7 +276,7 @@ function Fleet() {
             <div className="overflow-hidden rounded-md border border-border/60">
               {rows.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground" data-fleet-empty="">
-                  {t(filter.page > 1 ? 'table.emptyPage' : 'table.empty')}
+                  {t(filter.page > 1 ? 'table.emptyPage' : disabledView ? 'fleetView.empty' : 'table.empty')}
                 </p>
               ) : (
                 <div className="h-[32rem]">
@@ -284,26 +326,31 @@ function Fleet() {
                   />
                 )}
               </span>
-              {CONTROL_ACTIONS.map((action) => (
-                <Button
-                  key={action}
-                  variant={CONTROL_VARIANT[action]}
-                  disabled={selected.length === 0}
-                  onClick={() => setRequest({ action, codes: selected })}
-                  data-bulk={action}
-                >
-                  {t(`controls.${action}`)}
-                </Button>
-              ))}
-              {/* 448: the selection's re-push, through its own dialog (preview, then confirm). */}
-              <Button
-                variant="secondary"
-                disabled={selected.length === 0}
-                onClick={() => setRePush(selected)}
-                data-bulk="RePush"
-              >
-                {t('controls.RePush')}
-              </Button>
+              {/* The view's own actions (900): Disable in the active view, only Enable in the disabled one. */}
+              {bulkActions(filter.view).map((action) =>
+                action === 'RePush' ? (
+                  // 448: the selection's re-push, through its own dialog (preview, then confirm).
+                  <Button
+                    key={action}
+                    variant="secondary"
+                    disabled={selected.length === 0}
+                    onClick={() => setRePush(selected)}
+                    data-bulk="RePush"
+                  >
+                    {t('controls.RePush')}
+                  </Button>
+                ) : (
+                  <Button
+                    key={action}
+                    variant={CONTROL_VARIANT[action]}
+                    disabled={selected.length === 0}
+                    onClick={() => setRequest({ action, codes: selected })}
+                    data-bulk={action}
+                  >
+                    {t(`controls.${action}`)}
+                  </Button>
+                ),
+              )}
               {selected.length > 0 && (
                 <Button variant="text" onClick={() => setSelected([])} data-selection-clear="">
                   {t('selection.clear')}

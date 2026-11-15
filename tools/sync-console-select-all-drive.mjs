@@ -176,6 +176,15 @@ async function open({ locale = 'en' } = {}) {
     if (p === 'ActionSync/Audit') {
       return route.fulfill(envelope({ items: audit, total: audit.length, page: Number(q.get('page')), pageSize: Number(q.get('pageSize')) }))
     }
+    // Ticket 901's Disable dialog reads what HQ may not have yet; nothing is held in this fleet.
+    if (p === 'ActionSync/Stores/Disable/Preview') {
+      const body = route.request().postDataJSON()
+      return route.fulfill(
+        envelope({
+          stores: body.codes.map(byCode).filter(Boolean).map((st) => ({ code: st.code, description: st.description, lastConnectOkAt: st.lastConnectOkAt, push: st.push, pull: st.pull, lastTrxPulledAt: st.lastTrxPulledAt, pendingActions: 0, tillBacklogCount: 0, openDeadLetters: 0, scriptsWaiting: 0 })),
+        }),
+      )
+    }
     if (p === 'ActionSync/Stores/Control') {
       const body = route.request().postDataJSON()
       posts.push({ door: 'control', ...body })

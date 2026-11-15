@@ -18,6 +18,10 @@
 //   9. under `oms.locale = ar` (RTL) the toggle's count and the disabled line keep their order. The chrome stays
 //      English there (`lng` is pinned to `en` app-wide), so the ar bundle's key coverage is proven in
 //      control-helpers.test.ts, on the lf-returns precedent.
+//  10. ticket 901, "Disable warns, then allows": the Disable dialog reads `POST ActionSync/Stores/Disable/Preview`
+//      (🚩 BackOffice 3917, unbuilt — row keys guessed) for exactly its stores, shows one row per store with the
+//      seven facts, highlights the stores holding work under a one-line count, and never gates Confirm: not on
+//      the warnings, not on a failed preview (10b). One store from its page too, and the table under RTL (10c).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-disabled-drive.mjs
@@ -110,13 +114,29 @@ const AUDIT = [
 
 const browser = await chromium.launch()
 
-async function open({ locale = 'en' } = {}) {
+// What HQ may not have yet, per store (ticket 901). P001 holds its pending actions, P002 a till backlog, P005 dead
+// letters, P006 a waiting script; P007 never connected (null backlog) and P008's pull last failed — neither is work held.
+const previewOf = (s) => ({
+  code: s.code,
+  description: s.description,
+  lastConnectOkAt: s.code === 'P007' ? null : s.lastConnectOkAt,
+  push: s.push,
+  pull: s.code === 'P008' ? { ...s.pull, lastPassOutcome: 'Failed' } : s.pull,
+  lastTrxPulledAt: s.lastTrxPulledAt,
+  pendingActions: s.code === 'P001' ? s.pendingActions : 0,
+  tillBacklogCount: s.code === 'P002' ? 12 : s.code === 'P007' ? null : 0,
+  openDeadLetters: s.code === 'P005' ? 2 : 0,
+  scriptsWaiting: s.code === 'P006' ? 1 : 0,
+})
+
+async function open({ locale = 'en', previewFails = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1300 } })
   const page = await context.newPage()
   await page.clock.install({ time: new Date('2026-11-15T12:04:00') })
   const errors = []
   const calls = []
   const posts = []
+  const previews = []
   const stores = makeStores()
   const audit = AUDIT.map((a) => ({ ...a }))
   const byCode = (c) => stores.find((s) => s.code === c)
@@ -161,6 +181,12 @@ async function open({ locale = 'en' } = {}) {
       const items = audit.filter((a) => !code || a.codes.includes(code))
       return route.fulfill(envelope({ items, total: items.length, page: Number(q.get('page')), pageSize: Number(q.get('pageSize')) }))
     }
+    if (p === 'ActionSync/Stores/Disable/Preview') {
+      const body = route.request().postDataJSON()
+      previews.push(body)
+      if (previewFails) return route.fulfill(envelope(null, { status: 500, success: false, message: 'The preview read timed out.' }))
+      return route.fulfill(envelope({ stores: body.codes.map(byCode).filter(Boolean).map(previewOf) }))
+    }
     if (p === 'ActionSync/Stores/Control') {
       const body = route.request().postDataJSON()
       posts.push(body)
@@ -185,7 +211,7 @@ async function open({ locale = 'en' } = {}) {
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, posts, byCode }
+  return { context, page, errors, calls, posts, previews, byCode }
 }
 
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -332,6 +358,110 @@ const sendWithReason = async (page, reason) => {
   check('9. …each value isolated (who, when, reason)', (await page.locator('[data-store-disabled] bdi').count()) === 3)
   await page.screenshot({ path: `${SHOTS}/store-disabled-ar.png`, fullPage: true })
   check('no page errors (ar)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10: the Disable dialog warns, then allows (ticket 901) ─────────────────────────────────────
+{
+  const { context, page, errors, posts, previews } = await open()
+  const picked = ['P001', 'P002', 'P004', 'P005', 'P006', 'P007', 'P008']
+  await page.goto(`${BASE}/admin/sync`)
+  await page.locator('.ag-row[row-id="P001"]').waitFor({ timeout: 20000 })
+  for (const c of picked) await tick(page, c)
+  await page.locator('[data-bulk="Disable"]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-disable-warnings="read"]').waitFor({ timeout: 5000 })
+  check('10. one preview POST, for exactly the selection', JSON.stringify(previews) === JSON.stringify([{ codes: picked }]), JSON.stringify(previews))
+  const rows = await dialog.locator('[data-disable-row]').evaluateAll((rs) => rs.map((r) => `${r.getAttribute('data-disable-row')}:${r.getAttribute('data-outstanding')}`).join(' '))
+  check('10. one row per store; P001, P002, P005, P006 highlighted', rows === 'P001:true P002:true P004:false P005:true P006:true P007:false P008:false', rows)
+  const summary = strip(await dialog.locator('[data-disable-summary]').innerText())
+  check('10. the one-line count reads "4 of 7"', summary === 'Stores still holding work HQ has not received: 4 of 7.', summary)
+  const heads = strip(await dialog.locator('[data-disable-table] thead').innerText())
+  check(
+    '10. the seven facts are columns',
+    ['Last good connect', 'Last push', 'Last pull', 'Last transaction pulled', 'Pending actions', 'Till backlog', 'Dead letters', 'Scripts waiting'].every((h) => heads.includes(h)),
+    heads,
+  )
+  const cell = (code, col) => dialog.locator(`[data-disable-row="${code}"] [data-disable-count="${col}"]`)
+  check(
+    '10. the held count is marked, the others not',
+    (await cell('P002', 'tillBacklog').getAttribute('data-held')) === 'true' &&
+      strip(await cell('P002', 'tillBacklog').innerText()) === '12' &&
+      (await cell('P002', 'pendingActions').getAttribute('data-held')) === 'false',
+  )
+  check(
+    '10. a backlog never measured reads "Not measured"; a store never connected reads "Never"',
+    strip(await cell('P007', 'tillBacklog').innerText()) === 'Not measured' && /Never/.test(strip(await dialog.locator('[data-disable-row="P007"]').innerText())),
+  )
+  check('10. a failed last pull is shown, not flagged', /Failed/.test(strip(await dialog.locator('[data-disable-row="P008"] [data-disable-loop="pull"]').innerText())))
+  const storeCell = dialog.locator('[data-disable-row="P002"] td').first()
+  check('10. the store cell is "code · name", isolated once', strip(await storeCell.innerText()) === 'P002 · Store P002' && (await storeCell.locator('bdi').count()) === 1, strip(await storeCell.innerText()))
+  check('10. the dialog says nothing stops it', (await dialog.locator('[data-disable-allowed]').count()) === 1)
+  check('10. Confirm waits only for the reason', (await dialog.locator('[data-reason-confirm]').isDisabled()) === true)
+  await dialog.locator('[data-reason-input]').fill('Closed for good')
+  check('10. …and is offered with stores still holding work', (await dialog.locator('[data-reason-confirm]').isDisabled()) === false)
+  await page.screenshot({ path: `${SHOTS}/disable-warnings.png`, fullPage: true })
+  await dialog.locator('[data-reason-confirm]').click()
+  await waitFor(page, async () => (await page.locator('dialog[open]').count()) === 0)
+  check('10. Disable is sent for all seven, held work or not', JSON.stringify(posts.at(-1)) === JSON.stringify({ action: 'Disable', codes: picked, reason: 'Closed for good' }), JSON.stringify(posts.at(-1)))
+
+  // One store from its page, nothing held.
+  await page.goto(`${BASE}/admin/sync/store/P009`)
+  await page.locator('[data-control="Disable"]').waitFor({ timeout: 20000 })
+  await page.locator('[data-control="Disable"]').click()
+  await page.locator('dialog[open] [data-disable-warnings="read"]').waitFor({ timeout: 5000 })
+  const one = strip(await page.locator('dialog[open] [data-disable-summary]').innerText())
+  check('10. one store, nothing held: "No store holds work … (1 checked)"', one === 'No store holds work HQ has not received (1 checked).' && JSON.stringify(previews.at(-1)) === JSON.stringify({ codes: ['P009'] }), one)
+  check('10. …and its row is not highlighted', (await page.locator('dialog[open] [data-disable-row="P009"]').getAttribute('data-outstanding')) === 'false')
+  await page.locator('dialog[open] [data-reason-cancel]').click()
+
+  // Every other control reads no preview.
+  const before = previews.length
+  await page.goto(`${BASE}/admin/sync`)
+  await page.locator('.ag-row[row-id="P010"]').waitFor({ timeout: 20000 })
+  await tick(page, 'P010')
+  await page.locator('[data-bulk="Pause"]').click()
+  await page.locator('dialog[open]').waitFor()
+  await page.waitForTimeout(300)
+  check('10. Pause reads no preview and draws no table', previews.length === before && (await page.locator('dialog[open] [data-disable-warnings]').count()) === 0)
+  await page.locator('dialog[open] [data-reason-cancel]').click()
+  check('no page errors (warnings)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10b: a failed preview never blocks the Disable ─────────────────────────────────────────────
+{
+  const { context, page, errors, posts } = await open({ previewFails: true })
+  await page.goto(`${BASE}/admin/sync/store/P002`)
+  await page.locator('[data-control="Disable"]').waitFor({ timeout: 20000 })
+  await page.locator('[data-control="Disable"]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-disable-warnings="failed"]').waitFor({ timeout: 5000 })
+  const said = strip(await dialog.locator('[data-disable-warnings="failed"]').innerText())
+  check('10b. a failed preview says so, and that Disable is still allowed', /^What HQ may not have yet could not be read\. You can still disable\. \S/.test(said), said)
+  await dialog.locator('[data-reason-input]').fill('Unreachable, closed')
+  check('10b. …and Confirm is offered', (await dialog.locator('[data-reason-confirm]').isDisabled()) === false)
+  await dialog.locator('[data-reason-confirm]').click()
+  await waitFor(page, async () => (await page.locator('dialog[open]').count()) === 0)
+  check('10b. Disable is sent', JSON.stringify(posts.at(-1)) === JSON.stringify({ action: 'Disable', codes: ['P002'], reason: 'Unreachable, closed' }), JSON.stringify(posts.at(-1)))
+  check('no page errors (failed preview)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10c: the table under RTL ─────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors } = await open({ locale: 'ar' })
+  await page.goto(`${BASE}/admin/sync`)
+  await page.locator('.ag-row[row-id="P001"]').waitFor({ timeout: 20000 })
+  for (const c of ['P001', 'P002', 'P004']) await tick(page, c)
+  await page.locator('[data-bulk="Disable"]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.locator('[data-disable-warnings="read"]').waitFor({ timeout: 5000 })
+  const summary = strip(await dialog.locator('[data-disable-summary]').innerText())
+  check('10c. under RTL the count keeps its order, each figure isolated', /2 of 3/.test(summary) && (await dialog.locator('[data-disable-summary] bdi[dir="ltr"]').count()) === 2, summary)
+  check('10c. the pair stays "code · name"', strip(await dialog.locator('[data-disable-row="P002"] td').first().innerText()) === 'P002 · Store P002')
+  await page.screenshot({ path: `${SHOTS}/disable-warnings-ar.png`, fullPage: true })
+  check('no page errors (warnings ar)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

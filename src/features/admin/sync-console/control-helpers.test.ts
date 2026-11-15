@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CONTROL_ACTIONS } from '@/core/models/sync-console'
+import { CONTROL_ACTIONS, type DisablePreviewStore } from '@/core/models/sync-console'
 import {
   AUDIT_PAGE_SIZE,
   EMPTY_AUDIT_FILTER,
@@ -12,6 +12,8 @@ import {
   cleanReason,
   controlResultSummary,
   deadLetterActions,
+  disableConfirmReady,
+  disableWarnings,
   failureLabelKey,
   mirrorRefusalLabel,
   reasonReady,
@@ -499,6 +501,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'audit',
       'auditActions',
       'controls',
+      'disableWarnings',
       'failures',
       'fleetView',
       'results',
@@ -534,5 +537,80 @@ describe('the select-all-matching words (BackOffice 3913, ticket 902)', () => {
   it('keeps the same slots in both languages', () => {
     const slots = (text: unknown) => [...new Set([...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]))].sort()
     for (const key of KEYS) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
+  })
+})
+
+describe('disableWarnings (BackOffice 3913, ticket 901)', () => {
+  const quiet = (code: string, over: Partial<DisablePreviewStore> = {}): DisablePreviewStore => ({
+    code,
+    description: `Store ${code}`,
+    lastConnectOkAt: '2026-11-10T08:00:00',
+    push: { lastPassAt: '2026-11-10T08:00:00', lastPassOutcome: 'Ok', lastErrorAt: null, lastError: null },
+    pull: { lastPassAt: '2026-11-10T08:00:00', lastPassOutcome: 'Failed', lastErrorAt: null, lastError: null },
+    lastTrxPulledAt: '2026-11-10T07:59:00',
+    pendingActions: 0,
+    tillBacklogCount: 0,
+    openDeadLetters: 0,
+    scriptsWaiting: 0,
+    ...over,
+  })
+
+  it('flags the stores with outstanding work and counts them (disableWarnings_flagsStoresWithOutstandingWork_countsThem)', () => {
+    const w = disableWarnings([
+      quiet('1001'),
+      quiet('1002', { pendingActions: 3 }),
+      quiet('1003', { tillBacklogCount: 12, scriptsWaiting: 1 }),
+      quiet('1004', { openDeadLetters: 2 }),
+      // Never measured is not outstanding work: nothing is known to be held there.
+      quiet('1005', { tillBacklogCount: null, lastConnectOkAt: null }),
+    ])
+    expect(w.total).toBe(5)
+    expect(w.outstanding).toBe(3)
+    expect(w.rows.map((r) => [r.store.code, r.work])).toEqual([
+      ['1001', []],
+      ['1002', ['pendingActions']],
+      ['1003', ['tillBacklog', 'scriptsWaiting']],
+      ['1004', ['deadLetters']],
+      ['1005', []],
+    ])
+    // A failed last pull is shown, but it is not work held: the store is not flagged for it alone.
+    expect(w.rows[0].work).toEqual([])
+  })
+
+  it('never blocks Confirm: only the reason gates it (disableWarnings_neverBlocksConfirm)', () => {
+    // Every store holds work, and the closed one was never reachable: still allowed once a reason is given.
+    const allHeld = disableWarnings([
+      quiet('1002', { pendingActions: 3, lastConnectOkAt: null }),
+      quiet('1003', { openDeadLetters: 9 }),
+    ])
+    expect(allHeld.outstanding).toBe(2)
+    expect(disableConfirmReady('store closed for good', allHeld)).toBe(true)
+    // The preview still being read, or failed outright, holds nothing back either.
+    expect(disableConfirmReady('store closed for good', 'loading')).toBe(true)
+    expect(disableConfirmReady('store closed for good', 'failed')).toBe(true)
+    // The reason is the one gate, as on every control.
+    expect(disableConfirmReady('   ', allHeld)).toBe(false)
+    expect(disableConfirmReady('', 'failed')).toBe(false)
+  })
+
+  it('counts nothing for an empty preview', () => {
+    expect(disableWarnings([])).toEqual({ rows: [], total: 0, outstanding: 0 })
+  })
+})
+
+describe('the Disable warnings words (ticket 901)', () => {
+  const at = (bundle: unknown, key: string): unknown =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
+  const keys = (bundle: unknown, prefix = ''): string[] =>
+    Object.entries(bundle as Record<string, unknown>).flatMap(([k, v]) =>
+      typeof v === 'object' && v !== null ? keys(v, `${prefix}${k}.`) : [`${prefix}${k}`],
+    )
+
+  it('has the same keys in English and in Arabic, each with the same slots', () => {
+    const enKeys = keys(at(en, 'disableWarnings'), 'disableWarnings.')
+    expect(enKeys.length).toBeGreaterThan(10)
+    expect(keys(at(ar, 'disableWarnings'), 'disableWarnings.').sort()).toEqual([...enKeys].sort())
+    const slots = (text: unknown) => [...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]).sort()
+    for (const key of enKeys) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
   })
 })

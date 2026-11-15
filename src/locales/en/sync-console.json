@@ -1337,5 +1337,26 @@
     "back": "Back to the active stores",
     "note": "Disabled stores only. The worker never visits them and nothing can be sent to them; Enable returns a store to paused.",
     "empty": "No store is disabled."
+  },
+  "disableWarnings": {
+    "title": "What HQ may not have yet",
+    "loading": "Reading what HQ may not have yet from these stores…",
+    "failed": "What HQ may not have yet could not be read. You can still disable.",
+    "failedHint": "Try again by reopening the dialog.",
+    "summary": "Stores still holding work HQ has not received: <n>{{n}}</n> of <total>{{total}}</total>.",
+    "summaryNone": "No store holds work HQ has not received (<total>{{total}}</total> checked).",
+    "allowed": "Nothing here stops the Disable: a closed store is often unreachable. Give a reason and confirm.",
+    "notMeasured": "Not measured",
+    "columns": {
+      "store": "Store",
+      "lastConnectOk": "Last good connect",
+      "lastPush": "Last push",
+      "lastPull": "Last pull",
+      "lastTrxPulled": "Last transaction pulled",
+      "pendingActions": "Pending actions",
+      "tillBacklog": "Till backlog",
+      "deadLetters": "Dead letters",
+      "scriptsWaiting": "Scripts waiting"
+    }
   }
 }

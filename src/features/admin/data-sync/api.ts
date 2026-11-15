@@ -20,7 +20,7 @@ import type {
   SyncProfile,
 } from '@/core/models/data-sync'
 import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
-import type { ReadinessRow } from './apply-helpers'
+import { readReadinessFleet, type FleetPageQuery, type ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
 import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
@@ -250,9 +250,6 @@ export function jobQuery(campaignId: string, jobId: string, refetchInterval: num
  */
 export const ACTION_SYNC_ACCESS_KEY = ['sync-console', 'access'] as const
 
-/** `GET ActionSync/Fleet` caps `pageSize` at 200 (400 `BAD_PAGING` beyond). */
-const FLEET_PAGE_SIZE = 200
-
 export const actionSyncApi = {
   /** `GET ActionSync/Access` → `{ screenAllowed, canOperate, … }`; `canOperate` is `ActionSync.Operate`. */
   access(): Promise<SyncConsoleAccess> {
@@ -260,17 +257,13 @@ export const actionSyncApi = {
   },
 
   /**
-   * Every store ActionSync lists, all pages (`GET ActionSync/Fleet?page=&pageSize=200`). The door
-   * has no exact-codes filter, so picked stores are matched against the whole fleet. Only the
-   * readiness fields are kept.
+   * Every store ActionSync lists, all pages (`GET ActionSync/Fleet?page=&pageSize=200`), then the
+   * disabled view (`disabled=only`, BackOffice 3914) so a disabled store reads as disabled rather
+   * than missing. The door has no exact-codes filter, so picked stores are matched against the
+   * whole fleet. Only the readiness fields are kept (`readReadinessFleet`).
    */
-  async fleet(): Promise<ReadinessRow[]> {
-    const rows: ReadinessRow[] = []
-    for (let page = 1; ; page++) {
-      const res = await api.get<Paged<StoreRow>>('ActionSync/Fleet', { page, pageSize: FLEET_PAGE_SIZE })
-      for (const r of res.items) rows.push({ code: r.code, host: r.host, isPaused: r.isPaused, controlPending: r.controlPending })
-      if (res.items.length === 0 || page * FLEET_PAGE_SIZE >= res.total) return rows
-    }
+  fleet(): Promise<ReadinessRow[]> {
+    return readReadinessFleet((q: FleetPageQuery) => api.get<Paged<StoreRow>>('ActionSync/Fleet', q))
   },
 
   /**

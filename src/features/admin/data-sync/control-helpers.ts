@@ -86,6 +86,7 @@ const REFUSAL_CODES: ReadonlySet<string> = new Set([
   'DATASYNC_INVALID_STATE', // the status moved on since the page read it
   'DATASYNC_STORE_BUSY', // job resume, apply: ActionSync still drives the store
   'DATASYNC_STORE_WPF_HOSTED', // job resume, apply: the store can never be applied to
+  'DATASYNC_STORE_DISABLED', // job resume, apply: the store is disabled on ActionSync (904)
   'DATASYNC_CAMPAIGN_NOT_FOUND',
   'DATASYNC_JOB_NOT_FOUND',
 ])
@@ -99,6 +100,7 @@ const RETRY_REFUSAL_CODES: ReadonlySet<string> = new Set([
   'DATASYNC_INVALID_STATE',
   'DATASYNC_STORE_BUSY',
   'DATASYNC_STORE_WPF_HOSTED',
+  'DATASYNC_STORE_DISABLED',
 ])
 
 /**

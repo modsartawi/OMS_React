@@ -11,6 +11,7 @@ import type {
   AuditAction,
   ControlAction,
   DeadLetter,
+  DisablePreviewStore,
   StoreRow,
   SyncConsoleAccess,
 } from '@/core/models/sync-console'
@@ -54,6 +55,54 @@ export type BulkAction = ControlAction | 'RePush'
  */
 export function bulkActions(view: FleetView): BulkAction[] {
   return view === 'disabled' ? ['Enable'] : ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable']
+}
+
+// ── The Disable warnings (BackOffice 3913 "Disable warns, then allows", ticket 901) ──
+
+/** The kinds of work HQ may not have yet, in the order the table's columns draw them. */
+export type DisableWork = 'pendingActions' | 'tillBacklog' | 'deadLetters' | 'scriptsWaiting'
+
+export interface DisableWarningRow {
+  store: DisablePreviewStore
+  /** What this store still holds; empty = nothing outstanding, the row is not highlighted. */
+  work: DisableWork[]
+}
+
+export interface DisableWarnings {
+  /** One row per store, in the door's order. */
+  rows: DisableWarningRow[]
+  total: number
+  /** How many stores hold anything ("3 of 12 stores still hold work HQ has not received"). */
+  outstanding: number
+}
+
+/**
+ * The Disable preview read as warnings: which stores still hold work HQ has not received,
+ * and how many. Work is a count above zero; a till backlog never measured (`null`) is not
+ * work known to be held, and a failed last pass or an old connect is shown but flags nothing.
+ */
+export function disableWarnings(stores: readonly DisablePreviewStore[]): DisableWarnings {
+  const rows = stores.map((store) => {
+    const work: DisableWork[] = []
+    if (store.pendingActions > 0) work.push('pendingActions')
+    if ((store.tillBacklogCount ?? 0) > 0) work.push('tillBacklog')
+    if (store.openDeadLetters > 0) work.push('deadLetters')
+    if (store.scriptsWaiting > 0) work.push('scriptsWaiting')
+    return { store, work }
+  })
+  return { rows, total: rows.length, outstanding: rows.filter((r) => r.work.length > 0).length }
+}
+
+/** The preview as the dialog holds it: read, still being read, or failed. */
+export type DisablePreviewState = DisableWarnings | 'loading' | 'failed'
+
+/**
+ * Whether Disable may be confirmed. **Nothing is refused** (3913): a closed store is often
+ * unreachable, so the warnings — and a preview still loading or failed — never hold Confirm
+ * back. The reason is the one gate, as on every control.
+ */
+export function disableConfirmReady(reason: string, _preview: DisablePreviewState): boolean {
+  return reasonReady(reason)
 }
 
 // ── The reason ──────────────────────────────────────────────────────────────────

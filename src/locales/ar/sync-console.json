@@ -27,5 +27,26 @@
   },
   "store": {
     "disabled": "عطّله <who>{{who}}</who> في <at>{{at}}</at> — <reason>{{reason}}</reason>"
+  },
+  "disableWarnings": {
+    "title": "ما قد لا يكون لدى المقر بعد",
+    "loading": "جارٍ قراءة ما قد لا يكون لدى المقر بعد من هذه الفروع…",
+    "failed": "تعذّرت قراءة ما قد لا يكون لدى المقر بعد. ما زال بإمكانك التعطيل.",
+    "failedHint": "أعد المحاولة بإعادة فتح النافذة.",
+    "summary": "فروع ما زال لديها عمل لم يستلمه المقر: <n>{{n}}</n> من <total>{{total}}</total>.",
+    "summaryNone": "لا يوجد فرع لديه عمل لم يستلمه المقر (تم فحص <total>{{total}}</total>).",
+    "allowed": "لا شيء هنا يمنع التعطيل: الفرع المغلق كثيرًا ما يتعذّر الوصول إليه. اكتب السبب ثم أكّد.",
+    "notMeasured": "لم يُقَس",
+    "columns": {
+      "store": "الفرع",
+      "lastConnectOk": "آخر اتصال ناجح",
+      "lastPush": "آخر دفع",
+      "lastPull": "آخر سحب",
+      "lastTrxPulled": "آخر معاملة مسحوبة",
+      "pendingActions": "إجراءات معلّقة",
+      "tillBacklog": "متأخرات نقطة البيع",
+      "deadLetters": "رسائل ميتة",
+      "scriptsWaiting": "نصوص منتظرة"
+    }
   }
 }

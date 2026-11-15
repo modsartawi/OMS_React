@@ -524,6 +524,42 @@ export interface StoreControlResponse {
   results: StoreControlResult[]
 }
 
+// ── The Disable preview — `POST ActionSync/Stores/Disable/Preview` (BackOffice 3913/3917) ─────
+
+/** 1–5,000 codes. It reads HQ's records only: it never connects to a store and never refuses an unreachable one. */
+export interface DisablePreviewRequest {
+  codes: string[]
+}
+
+/**
+ * What HQ may not have yet from one store, read before it is disabled.
+ *
+ * 🚩 The door (3917) is unbuilt and the 2523 contract not amended: 3917 names the seven facts, not
+ * their keys. The keys below reuse the fleet row's and the mirror lane's own names for the same facts
+ * (`lastConnectOkAt`, `push`/`pull`, `lastTrxPulledAt`, `pendingActions`, `tillBacklogCount`,
+ * `openDeadLetters`); `scriptsWaiting` is a new name. Check against 3917 when it lands.
+ */
+export interface DisablePreviewStore {
+  code: string
+  description: string
+  lastConnectOkAt: string | null
+  /** The last push and pull pass, and its outcome. */
+  push: LoopHealth
+  pull: LoopHealth
+  lastTrxPulledAt: string | null
+  pendingActions: number
+  /** `null` = never measured (no good mirror connect yet), as on the mirror lane — not `0`. */
+  tillBacklogCount: number | null
+  /** Open mirror dead letters, both stages, unacknowledged. */
+  openDeadLetters: number
+  /** Store scripts sent to it and still waiting. */
+  scriptsWaiting: number
+}
+
+export interface DisablePreviewResponse {
+  stores: DisablePreviewStore[]
+}
+
 /** One entry of `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=`, newest first. */
 export interface SyncAudit {
   id: string

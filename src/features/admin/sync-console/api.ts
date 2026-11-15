@@ -26,6 +26,8 @@ import type {
   CreateLocationsResponse,
   DeadLetterActionRequest,
   DeadLetterActionResponse,
+  DisablePreviewRequest,
+  DisablePreviewResponse,
   DismissPendingRequest,
   EditLocationRequest,
   EnrolObjectRequest,
@@ -301,6 +303,15 @@ export const syncConsoleApi = {
    */
   control(body: StoreControlRequest): Promise<StoreControlResponse> {
     return api.post<StoreControlResponse>('ActionSync/Stores/Control', body)
+  },
+
+  /**
+   * `POST ActionSync/Stores/Disable/Preview` (BackOffice 3913/3917, 🚩 unbuilt) → per store, what HQ
+   * may not have yet. It reads HQ's records only and writes nothing, so it never refuses an
+   * unreachable store; the Disable dialog shows it and never gates Confirm on it.
+   */
+  disablePreview(body: DisablePreviewRequest): Promise<DisablePreviewResponse> {
+    return api.post<DisablePreviewResponse>('ActionSync/Stores/Disable/Preview', body)
   },
 
   /** `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=` → one page, newest first. */

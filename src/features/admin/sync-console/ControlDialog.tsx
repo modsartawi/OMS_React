@@ -8,6 +8,7 @@ import type { CommandKind, ControlAction } from '@/core/models/sync-console'
 import { AUDIT_KEY, FLEET_KEY, storeKey, syncConsoleApi } from './api'
 import { controlResultSummary, type ResultSummary } from './control-helpers'
 import { figure } from './helpers'
+import DisableWarnings from './DisableWarnings'
 import ReasonDialog from './ReasonDialog'
 
 /** A control about to be sent: what, and to which stores. */
@@ -133,6 +134,10 @@ export default function ControlDialog({
       confirmLabel={label}
       onConfirm={(reason) => send.mutate({ action, codes, reason })}
       onClose={close}
-    />
+      // Disable first shows what HQ may not have yet (ticket 901). It only warns: Confirm stays the reason's alone.
+      width={action === 'Disable' ? '80rem' : undefined}
+    >
+      {action === 'Disable' && <DisableWarnings codes={codes} />}
+    </ReasonDialog>
   )
 }

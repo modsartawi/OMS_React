@@ -46,6 +46,8 @@ const STATE_SEVERITY: Record<StoreState, Severity> = {
   deadLetters: 'bad',
   deferredTooLong: 'warn',
   railsDisagree: 'bad',
+  // Out of operation on purpose (BackOffice 3913): not a problem, so muted like a pause.
+  disabled: 'mute',
 }
 
 /** A machine code's badge: its label key, or `null` for a code this bundle does not know. */
@@ -76,6 +78,13 @@ export function stateBadge(state: string): CodeBadge {
 
 export type FleetHostFilter = 'Worker' | 'Wpf' | null
 
+/**
+ * Which stores the Fleet page lists (BackOffice 3913): the active ones — the door's default,
+ * which leaves disabled stores out of rows, tiles and counts — or only the disabled ones
+ * (`disabled=only`). There is no mixed view.
+ */
+export type FleetView = 'active' | 'disabled'
+
 /** Everything the store table is asked for — tiles, filters, sort and page in one object. */
 export interface FleetFilter {
   /** The tiles chosen; sent as a REPEATED `state` (the door ANDs them). Empty = All. */
@@ -84,6 +93,7 @@ export interface FleetFilter {
   q: string
   sort: FleetSort
   page: number
+  view: FleetView
 }
 
 /** The door's sorts; the mirror rail's two (2563) are appended after the store worker's four. */
@@ -102,6 +112,7 @@ export const DEFAULT_FLEET_FILTER: FleetFilter = {
   q: '',
   sort: 'mostBehind',
   page: 1,
+  view: 'active',
 }
 
 /** A tile: `all`, or one state. */
@@ -111,8 +122,10 @@ export type FleetTile = 'all' | StoreState
  * `all` and a tile per state, in the contract's order: the mirror lane's four (456), then
  * rail agreement's `railsDisagree` (459), last. That tile is also how the fleet filters on
  * agreement — the door has no `agreement` parameter, only the `railsDisagree` state.
+ * `disabled` has no tile (BackOffice 3913): the default view never holds a disabled store, and
+ * the "Show disabled (N)" toggle is its way in (`fleetView`).
  */
-export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES]
+export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES.filter((s) => s !== 'disabled')]
 
 /**
  * What clicking a tile does to the filter. `all` clears every state; a state tile
@@ -142,10 +155,22 @@ export function fleetQuery(filter: FleetFilter): Record<string, unknown> {
     state: filter.states,
     host: filter.host,
     q: filter.q.trim(),
+    // Only the disabled view names it: the default read is the door's own default.
+    ...(filter.view === 'disabled' ? { disabled: 'only' } : {}),
     sort: filter.sort,
     page: Math.max(1, Math.floor(filter.page)),
     pageSize: FLEET_PAGE_SIZE,
   }
+}
+
+/**
+ * The switch of the "Show disabled (N)" toggle. The tiles are the active fleet's, so a
+ * chosen tile is let go; the search, host and sort are kept; the page goes back to 1.
+ * The selection is always emptied (`selected`): the two views never share one, so a
+ * bulk action never mixes disabled and active stores.
+ */
+export function fleetView(filter: FleetFilter, view: FleetView): { filter: FleetFilter; selected: string[] } {
+  return { filter: { ...filter, states: [], page: 1, view }, selected: [] }
 }
 
 // ── The worker banner ───────────────────────────────────────────────────────────

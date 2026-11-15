@@ -105,6 +105,9 @@ import materialsDetailAr from '@/locales/ar/materials-detail.json'
 // ruling (BackOffice 2522 §3): there is no `ar` bundle, so Arabic falls back to these strings.
 // 446–449 add their keys here rather than minting a second namespace.
 import syncConsole from '@/locales/en/sync-console.json'
+// …and a PARTIAL Arabic bundle since BackOffice spec 3913 (ticket 900): the disabled-store words only. Every key
+// not in it still falls back to English through `fallbackLng`, as the whole console did before.
+import syncConsoleAr from '@/locales/ar/sync-console.json'
 import dataSync from '@/locales/en/data-sync.json'
 // DataSync's Arabic is PARTIAL (spec 863: the jobs list's store search and failure-reason filter, ticket 867, and the re-run words,
 // ticket 864); every key not in it falls back to English through `fallbackLng`.
@@ -380,6 +383,7 @@ i18n.use(initReactI18next).init({
       'doc-type-config': docTypeConfigAr,
       'loy-groups': loyGroupsAr,
       'release-queue': releaseQueueAr,
+      'sync-console': syncConsoleAr,
       'data-sync': dataSyncAr,
       'serial-refusals': serialRefusalsAr,
       'bupa-line-outcomes': bupaLineOutcomesAr,

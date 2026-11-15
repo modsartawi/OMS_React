@@ -5,6 +5,7 @@ import {
   EMPTY_AUDIT_FILTER,
   SELECTION_CAP,
   allowedControls,
+  bulkActions,
   auditActionKey,
   auditQuery,
   auditRangeValid,
@@ -17,6 +18,7 @@ import {
   selectionCap,
 } from './control-helpers'
 import en from '@/locales/en/sync-console.json'
+import ar from '@/locales/ar/sync-console.json'
 
 const lookup = (key: string): unknown =>
   key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en)
@@ -25,12 +27,22 @@ const operate = { canOperate: true }
 const viewOnly = { canOperate: false }
 
 describe('allowedControls', () => {
-  it('offers a worker store Pause and Hand back', () => {
-    expect(allowedControls({ host: 'Worker', isPaused: false }, operate)).toEqual(['Pause', 'HandBack'])
+  it('offers a worker store Pause, Disable and Hand back (allowedControls_activeWorker_offersDisable)', () => {
+    expect(allowedControls({ host: 'Worker', isPaused: false, isDisabled: false }, operate)).toEqual(['Pause', 'Disable', 'HandBack'])
   })
 
-  it('offers a paused worker store Resume and Hand back', () => {
-    expect(allowedControls({ host: 'Worker', isPaused: true }, operate)).toEqual(['Resume', 'HandBack'])
+  it('offers a paused worker store Resume, Disable and Hand back', () => {
+    expect(allowedControls({ host: 'Worker', isPaused: true, isDisabled: false }, operate)).toEqual(['Resume', 'Disable', 'HandBack'])
+  })
+
+  it('offers a disabled store only Enable (allowedControls_disabledStore_offersOnlyEnable)', () => {
+    // A disabled store is paused underneath (BackOffice 3913): still only Enable, never Resume.
+    expect(allowedControls({ host: 'Worker', isPaused: true, isDisabled: true }, operate)).toEqual(['Enable'])
+    expect(allowedControls({ host: 'Worker', isPaused: true, isDisabled: true }, viewOnly)).toEqual([])
+  })
+
+  it('reads a door that sends no isDisabled as an active store', () => {
+    expect(allowedControls({ host: 'Worker', isPaused: false }, operate)).toEqual(['Pause', 'Disable', 'HandBack'])
   })
 
   it('offers a WPF store only Move to worker', () => {
@@ -53,6 +65,16 @@ describe('allowedControls', () => {
 
   it('labels every control', () => {
     for (const action of CONTROL_ACTIONS) expect(lookup(`controls.${action}`)).toBeTruthy()
+  })
+})
+
+describe('bulkActions (bulkActions_perView)', () => {
+  it('offers Disable beside the lasting controls and Re-push in the normal view, and never Enable', () => {
+    expect(bulkActions('active')).toEqual(['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'Disable'])
+  })
+
+  it('offers only Enable in the disabled view', () => {
+    expect(bulkActions('disabled')).toEqual(['Enable'])
   })
 })
 
@@ -165,7 +187,7 @@ describe('controlResultSummary', () => {
       const node = lookup(`results.${outcome}`) ?? lookup(`results.${outcome}_other`)
       expect(node).toBeTruthy()
     }
-    for (const code of ['NOT_ON_WORKER', 'NO_STORE', 'NO_STORES', 'TOO_MANY_STORES', 'REASON_REQUIRED', 'BAD_FIELD', 'FAILED']) {
+    for (const code of ['NOT_ON_WORKER', 'NO_STORE', 'NO_STORES', 'TOO_MANY_STORES', 'REASON_REQUIRED', 'BAD_FIELD', 'FAILED', 'DISABLED', 'NOT_DISABLED']) {
       const key = failureLabelKey(code)
       expect(key).toBe(`failures.${code}`)
       expect(lookup(key as string)).toBeTruthy()
@@ -202,6 +224,11 @@ describe('auditQuery', () => {
 })
 
 describe('auditActionKey', () => {
+  it('labels Disable and Enable (auditActionKey_knowsDisableEnable, BackOffice 3913)', () => {
+    expect(lookup(auditActionKey('Disable') as string)).toBe('Disabled a store')
+    expect(lookup(auditActionKey('Enable') as string)).toBe('Enabled a store')
+  })
+
   it('labels every audit action, and leaves an unknown one raw', () => {
     for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView', 'ReceiptReplay', 'EnrolObject']) {
       const key = auditActionKey(a)
@@ -288,5 +315,44 @@ describe('mirrorRefusalLabel', () => {
       { id: 'pull:7', code: 'PULL_STAGE', labelKey: 'mirrorRefusals.PULL_STAGE' },
       { id: 'apply:42', code: 'MELTED', labelKey: null },
     ])
+  })
+})
+
+describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
+  const at = (bundle: unknown, key: string): unknown =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
+  const KEYS = [
+    'controls.Disable',
+    'controls.Enable',
+    'controls.notes.Disable',
+    'controls.notes.Enable',
+    'failures.DISABLED',
+    'failures.NOT_DISABLED',
+    'states.disabled',
+    'auditActions.Disable',
+    'auditActions.Enable',
+    'fleetView.show',
+    'fleetView.showUnknown',
+    'fleetView.back',
+    'fleetView.note',
+    'fleetView.empty',
+    'store.disabled',
+  ]
+
+  it('has every new key in English and in Arabic', () => {
+    for (const key of KEYS) {
+      expect(at(en, key), `en ${key}`).toBeTruthy()
+      expect(at(ar, key), `ar ${key}`).toBeTruthy()
+    }
+  })
+
+  it('keeps the same slots in both languages', () => {
+    const slots = (text: unknown) => [...String(text).matchAll(/<(\w+)>|\{\{(\w+)\}\}/g)].map((m) => m[1] ?? m[2]).sort()
+    for (const key of ['fleetView.show', 'store.disabled']) expect(slots(at(ar, key))).toEqual(slots(at(en, key)))
+  })
+
+  it('carries only the disabled-store words in Arabic: every other key still falls back to English', () => {
+    expect(Object.keys(ar).sort()).toEqual(['auditActions', 'controls', 'failures', 'fleetView', 'states', 'store'])
+    expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled'])
   })
 })

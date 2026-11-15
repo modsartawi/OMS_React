@@ -25,7 +25,8 @@
     "mirrorBehind": "Mirror behind",
     "deadLetters": "Dead letters",
     "deferredTooLong": "Deferred too long",
-    "railsDisagree": "Rails disagree"
+    "railsDisagree": "Rails disagree",
+    "disabled": "Disabled"
   },
   "hosts": {
     "Worker": "Worker",
@@ -162,7 +163,8 @@
     "pending": "Control pending: the worker has not applied it yet",
     "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown for the master and counter rails.",
     "healthAsOf": "Health as of <at>{{at}}</at>",
-    "noHealth": "The worker has not reported health for this store yet."
+    "noHealth": "The worker has not reported health for this store yet.",
+    "disabled": "Disabled by <who>{{who}}</who> on <at>{{at}}</at> — <reason>{{reason}}</reason>"
   },
   "health": {
     "label": "Sync health",
@@ -334,11 +336,15 @@
       "HandBack": "The worker finishes its current chunk, then lets go. WPF takes the store on its next job firing.",
       "Pause": "Both loops stop at the next chunk boundary. The store stays on the worker.",
       "RetryNow": "Clears the connect backoff, puts the store first in both loops and runs housekeeping (DDL and failed scripts).",
-      "ConnectionTest": "Runs from the worker's own network. The result shows here and on the Commands page."
+      "ConnectionTest": "Runs from the worker's own network. The result shows here and on the Commands page.",
+      "Disable": "The worker stops visiting the store, and it leaves the fleet's list, tiles and counts. Nothing can be sent to it, and no Resume lifts it: only Enable does. Commands still waiting for it are cancelled.",
+      "Enable": "The store comes back paused. Resuming it is a second, separate step."
     },
     "RetryNow": "Retry now",
     "RePush": "Re-push…",
-    "ConnectionTest": "Test connection"
+    "ConnectionTest": "Test connection",
+    "Disable": "Disable",
+    "Enable": "Enable"
   },
   "dialog": {
     "titleOne": "{{action}}: store {{code}}",
@@ -396,7 +402,9 @@
     "DUPLICATE_IN_BATCH": "The same code twice in this request",
     "STORE_EXISTS": "The store already exists",
     "BAD_FIELD": "A field is blank or too long",
-    "FAILED": "This write failed. Retrying it is safe"
+    "FAILED": "This write failed. Retrying it is safe",
+    "DISABLED": "The store is disabled: only Enable is allowed",
+    "NOT_DISABLED": "The store is not disabled"
   },
   "auditActions": {
     "Move": "Move to worker",
@@ -420,7 +428,9 @@
     "EnrolObject": "Enrolled a push object",
     "SendScript": "Sent a store script",
     "WithdrawScript": "Withdrew a store script",
-    "RetryScript": "Retried a store script"
+    "RetryScript": "Retried a store script",
+    "Disable": "Disabled a store",
+    "Enable": "Enabled a store"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -1312,5 +1322,12 @@
     "withdraw": "Withdraw",
     "retryAll": "Retry all exhausted",
     "retryStore": "Retry"
+  },
+  "fleetView": {
+    "show": "Show disabled (<n>{{n}}</n>)",
+    "showUnknown": "Show disabled",
+    "back": "Back to the active stores",
+    "note": "Disabled stores only. The worker never visits them and nothing can be sent to them; Enable returns a store to paused.",
+    "empty": "No store is disabled."
   }
 }

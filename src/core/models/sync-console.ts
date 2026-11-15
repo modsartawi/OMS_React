@@ -40,6 +40,8 @@ export type StoreState =
   | 'deferredTooLong'
   // …and rail agreement's, which belongs to the `agreement`, not to the lane (2571).
   | 'railsDisagree'
+  // A disabled store (BackOffice 3913/3914): out of operation, met only in the `disabled=only` view.
+  | 'disabled'
 
 /** Every `StoreState`, in the contract's order — the order the tiles and the query use. */
 export const STORE_STATES: readonly StoreState[] = [
@@ -55,6 +57,7 @@ export const STORE_STATES: readonly StoreState[] = [
   'deadLetters',
   'deferredTooLong',
   'railsDisagree',
+  'disabled',
 ]
 
 /** The mirror lane's states, in the contract's order. `railsDisagree` is NOT one: it is agreement's. */
@@ -82,7 +85,8 @@ export type PassOutcome = 'Ok' | 'Partial' | 'Failed' | 'Skipped' | 'None'
 export type SyncLoop = 'push' | 'pull'
 export type CommandKind = 'RetryNow' | 'RePush' | 'ConnectionTest'
 export type CommandStatus = 'Pending' | 'Running' | 'Done' | 'Failed' | 'Cancelled' | 'Expired'
-export type ControlAction = 'Move' | 'HandBack' | 'Pause' | 'Resume'
+/** `Disable` / `Enable` are BackOffice 3913/3914's: Enable returns a disabled store to paused. */
+export type ControlAction = 'Move' | 'HandBack' | 'Pause' | 'Resume' | 'Disable' | 'Enable'
 export type AuditAction =
   | ControlAction
   | 'RePush'
@@ -142,6 +146,21 @@ export interface StoreRow {
   description: string
   host: 'Worker' | 'Wpf'
   isPaused: boolean
+  /**
+   * BackOffice 3913/3914: out of operation. A disabled store is paused underneath
+   * (`isPaused` stays true), refuses every control but Enable (`DISABLED`), and is in the
+   * fleet's rows only under `disabled=only`. Optional: a pre-3914 door does not send it,
+   * and a missing flag reads as an active store.
+   */
+  isDisabled?: boolean
+  /** Who disabled it, when (local) and why — `null` on an active store. */
+  disabledBy?: string | null
+  disabledAt?: string | null
+  disableReason?: string | null
+  /** Who paused it, when and why (Pause and Disable stamp them, Resume clears them). */
+  pausedBy?: string | null
+  pausedAt?: string | null
+  pauseReason?: string | null
   /** `appliedVersion < controlVersion` — the "pending" badge reads this. */
   controlPending: boolean
   states: StoreState[]
@@ -265,7 +284,12 @@ export interface SyncWorkers {
 export interface FleetSummary {
   asOf: string
   total: number
-  counts: Record<StoreState | 'all', number>
+  /**
+   * The tile counts. Disabled stores are left out of every one of them; `counts.disabled`
+   * (BackOffice 3914, 🚩 placement guessed: the spec names "the disabled count", not its key)
+   * is how many there are, for the "Show disabled (N)" toggle. A pre-3914 door omits it.
+   */
+  counts: Record<Exclude<StoreState, 'disabled'> | 'all', number> & { disabled?: number }
 }
 
 export interface HourTotals {
@@ -478,7 +502,7 @@ export interface StoreLocation {
 // ── The control door and the audit feed (ticket 447) ─────────────────────────────
 
 /** Every `ControlAction`, in the contract's order. */
-export const CONTROL_ACTIONS: readonly ControlAction[] = ['Move', 'HandBack', 'Pause', 'Resume']
+export const CONTROL_ACTIONS: readonly ControlAction[] = ['Move', 'HandBack', 'Pause', 'Resume', 'Disable', 'Enable']
 
 /** `POST ActionSync/Stores/Control` — 1–50 codes and a reason that is not blank. */
 export interface StoreControlRequest {

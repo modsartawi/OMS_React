@@ -18,6 +18,7 @@ import {
   FLEET_TILES,
   agreementBadge,
   fleetQuery,
+  fleetView,
   lastLoopError,
   mirrorLaneChip,
   stateBadge,
@@ -107,6 +108,12 @@ describe('fleetQuery', () => {
       )
     })
 
+    it('asks for disabled=only in the disabled view, and never names it in the default one (BackOffice 3913)', async () => {
+      const { filter: shown } = fleetView(filter({ q: 'P00' }), 'disabled')
+      expect(await urlFor(shown)).toBe('ActionSync/Fleet?q=P00&disabled=only&sort=mostBehind&page=1&pageSize=50')
+      expect(await urlFor(fleetView(shown, 'active').filter)).toBe('ActionSync/Fleet?q=P00&sort=mostBehind&page=1&pageSize=50')
+    })
+
     it('sends the host, the search and the sort, and the page asked for', async () => {
       expect(await urlFor(filter({ host: 'Wpf', q: 'Riyadh', sort: 'code', page: 2 }))).toBe(
         'ActionSync/Fleet?host=Wpf&q=Riyadh&sort=code&page=2&pageSize=50',
@@ -115,11 +122,38 @@ describe('fleetQuery', () => {
   })
 })
 
+describe('fleetView (fleetQuery_showDisabled_sendsDisabledOnly_andClearsSelection)', () => {
+  const on = { ...DEFAULT_FLEET_FILTER, states: ['paused', 'offline'] as StoreState[], host: 'Worker' as const, q: 'P0', sort: 'code' as const, page: 3 }
+
+  it('shows the disabled stores only: disabled=only, back to page 1, no tile, the search kept', () => {
+    const next = fleetView(on, 'disabled')
+    expect(next.filter).toEqual({ states: [], host: 'Worker', q: 'P0', sort: 'code', page: 1, view: 'disabled' })
+    expect(fleetQuery(next.filter)).toEqual({ state: [], host: 'Worker', q: 'P0', disabled: 'only', sort: 'code', page: 1, pageSize: 50 })
+  })
+
+  it('clears the selection on every switch, so a selection never mixes the two views', () => {
+    expect(fleetView(on, 'disabled').selected).toEqual([])
+    expect(fleetView({ ...on, view: 'disabled' }, 'active').selected).toEqual([])
+  })
+
+  it('goes back to the default view, which never sends disabled', () => {
+    const back = fleetView({ ...on, view: 'disabled' }, 'active')
+    expect(back.filter.view).toBe('active')
+    expect(fleetQuery(back.filter)).not.toHaveProperty('disabled')
+  })
+
+  it('starts on the active view', () => {
+    expect(DEFAULT_FLEET_FILTER.view).toBe('active')
+  })
+})
+
 describe('the tiles', () => {
   // Changed deliberately by 456 (the four mirror tiles joined) and again by 459: the
   // railsDisagree tile, held out of the row until rail agreement, now closes it.
+  // And by 900 (BackOffice 3913): `disabled` is a state with no tile — the toggle is its way in.
   it('offer All and every state, the four mirror tiles then rails disagree last', () => {
-    expect(FLEET_TILES).toEqual(['all', ...STORE_STATES])
+    expect(FLEET_TILES).toEqual(['all', ...STORE_STATES.filter((s) => s !== 'disabled')])
+    expect(FLEET_TILES).not.toContain('disabled')
     expect(FLEET_TILES.slice(-5)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
   })
 

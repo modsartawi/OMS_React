@@ -40,6 +40,7 @@ export const heldStockReportApi = {
       pairs: data?.pairs ?? [],
       sources: data?.sources ?? [],
       totals: data?.totals ?? { channelToday: 0, channelWithHeld: 0, takenOff: 0, held: 0, pairs: 0, pairsFallingToZero: 0 },
+      netting: data?.netting ?? { lines: 0, nettedPicked: 0, held: 0, gap: 0, differences: [] },
       repairsFrom: data?.repairsFrom ?? '',
       repairsTo: data?.repairsTo ?? '',
       repairs: data?.repairs ?? 0,

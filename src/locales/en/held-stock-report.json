@@ -81,7 +81,16 @@
     "deliveriesHold": "Delivery sales hold",
     "tillsSeen": "Tills seen",
     "tillsOnAnOldEngine": "Tills on an old engine",
-    "tillsHold": "Tills hold"
+    "tillsHold": "Tills hold",
+    "side": "Side",
+    "reservingDocument": "Reserving document",
+    "approvalNo": "Approval",
+    "ordered": "Ordered",
+    "nettedPicked": "Netted as picked",
+    "nettedSold": "Netted as sold",
+    "heldForDocument": "Held for it",
+    "heldSold": "Held, sold",
+    "gap": "Gap"
   },
   "columnHint": {
     "quantityAvailable": "The quantity available at the group's latest refusal.",
@@ -100,7 +109,13 @@
     "withinOneSecondPercent": "Takes answered at the till within 1 second. The gate is 99%.",
     "unansweredPercent": "Takes with no answer at the till at 2 seconds. The gate is under 1%.",
     "deliveriesWithoutPick": "Delivery sales completed without their picking document. The gate is none.",
-    "tillsOnAnOldEngine": "Tills seen at the store that SIS.Api has not heard on the hold seam in the window."
+    "tillsOnAnOldEngine": "Tills seen at the store that SIS.Api has not heard on the hold seam in the window.",
+    "side": "O = order, D = delivery.",
+    "nettedPicked": "Units the netting join takes as picked and unsold (open or complete picking documents).",
+    "nettedSold": "Units the netting join takes as sold (consumed picking documents).",
+    "heldForDocument": "Stock Visibility's standing holds on the picking document lines behind this line.",
+    "heldSold": "The same holds with a sold mark: their sale has not taken the stock down yet.",
+    "gap": "Netted as picked minus held for it."
   },
   "list": {
     "failedTitle": "The report could not be loaded",
@@ -186,6 +201,7 @@
     "tabs": {
       "pairs": "Per store and material",
       "sources": "Per source type",
+      "netting": "Netting against held",
       "repairs": "Repairs per day"
     },
     "tile": {
@@ -195,6 +211,7 @@
       "held": "Held",
       "takenOff": "Taken off",
       "channelWithHeld": "Channels with held",
+      "nettingGap": "Netting gap",
       "repairs": "Repairs in range"
     },
     "tileHint": {
@@ -204,16 +221,19 @@
       "held": "Held over the pairs, as Stock Visibility stands it.",
       "takenOff": "What serving held would take off the channels' figure.",
       "channelWithHeld": "What the channels would get with held subtracted.",
+      "nettingGap": "Over the reserving documents of the pairs: units netted as picked and unsold minus what Stock Visibility holds for them. Not zero is a fault of the ledger.",
       "repairs": "The check on held's repairs over the range: each one is a writer that forgot its ledger row."
     },
     "note": {
       "pairs": "Only pairs with a hold on an open picking document are listed; a pair whose holds are only at Stock Visibility is not.",
       "sources": "The held units on open picking documents per source type, over the fleet. DRS is a line of its own.",
+      "netting": "For the documents that reserve (orders and deliveries), the units the netting join takes as picked and unsold beside what Stock Visibility holds for them, read for each pair of the report. Only the lines where the two differ are listed: a gap is a fault of the ledger, not an effect of held.",
       "repairs": "The report's last line: the check on held's repairs per day, fleet-wide."
     },
     "empty": {
       "pairs": "No pair has a standing hold.",
       "sources": "No source type holds stock.",
+      "netting": "Every reserving document's netting matches what Stock Visibility holds.",
       "repairs": "The check made no repair in this range."
     }
   },

@@ -33,18 +33,19 @@ import {
   heldFiltersFromParams,
   heldFiltersToParams,
   heldQuery,
+  heldTileValue,
   pairsShown,
   type HeldFilters,
   type HeldTab,
-  type HeldTile,
 } from './held'
-import { HELD_TEXT_COLUMNS, pairColumns, repairColumns, sourceColumns } from './held-columns'
+import { HELD_TEXT_COLUMNS, nettingColumns, pairColumns, repairColumns, sourceColumns } from './held-columns'
 import { normalizeStores } from './shared'
 
 /**
  * Held stock impact (BackOffice ticket 3873, spec 3849): what held would take off the channels' figure (Stock Visibility's
  * ATP), fleet-wide, before held is served. Per store and material — with the held units per picking source type, DRS's on a
- * line of their own — then per source type over the fleet, and last the check on held's repairs per day.
+ * line of their own — then per source type over the fleet, then each reserving document whose netting differs from what
+ * Stock Visibility holds for it (ticket 3903), and last the check on held's repairs per day.
  *
  * Behind `canOpenHeldStockReport` on `HeldStockReport/Access` (`BackOfficeScreen[HeldStockReport, 03]`), the predicate the
  * menu leaves read, failing closed.
@@ -244,14 +245,10 @@ function Report() {
   )
 }
 
-function tileValue(report: HeldImpactReport, key: HeldTile): number {
-  return key === 'repairs' ? report.repairs : report.totals[key]
-}
-
 function Tiles({ report, loading }: { report: HeldImpactReport | undefined; loading: boolean }) {
   const { t } = useTranslation('held-stock-report')
   return (
-    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-7" data-hsr-tiles="">
+    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-8" data-hsr-tiles="">
       {HELD_TILES.map((key) => (
         <div
           key={key}
@@ -261,7 +258,7 @@ function Tiles({ report, loading }: { report: HeldImpactReport | undefined; load
         >
           <dt className="text-xs text-muted-foreground">{t(`held.tile.${key}`)}</dt>
           <dd className="text-lg font-semibold tabular-nums">
-            <Ltr>{loading || !report ? t('dash') : formatFigure(tileValue(report, key))}</Ltr>
+            <Ltr>{loading || !report ? t('dash') : formatFigure(heldTileValue(report, key))}</Ltr>
           </dd>
         </div>
       ))}
@@ -293,6 +290,8 @@ function TabGrid({
         return pairColumns(t, sourceTypes) as ColDef[]
       case 'sources':
         return sourceColumns(t) as ColDef[]
+      case 'netting':
+        return nettingColumns(t) as ColDef[]
       case 'repairs':
         return repairColumns(t) as ColDef[]
     }
@@ -304,6 +303,8 @@ function TabGrid({
         return pairsShown(data.pairs, filters)
       case 'sources':
         return data.sources
+      case 'netting':
+        return data.netting?.differences ?? []
       case 'repairs':
         return data.repairsPerDay
     }

@@ -160,11 +160,41 @@ export interface HeldImpactRepairDay {
   holdsAdded: number
 }
 
+/** One reserving document line whose units netted as picked and unsold differ from what Stock Visibility holds (3903). */
+export interface HeldNettingDifference {
+  /** `O` (order) or `D` (delivery). */
+  side: string
+  documentNo: string
+  /** 0 for a document picked on its approval (`approvalNo`). */
+  lineNumber: number
+  approvalNo: string
+  store: string
+  material: string
+  ordered: number
+  nettedPicked: number
+  nettedSold: number
+  held: number
+  heldSold: number
+  /** nettedPicked - held. */
+  gap: number
+}
+
+/** For the documents that reserve, the netting join's picked-and-unsold units beside Stock Visibility's holds (3903). */
+export interface HeldNettingComparison {
+  lines: number
+  nettedPicked: number
+  held: number
+  gap: number
+  differences: HeldNettingDifference[]
+}
+
 export interface HeldImpactReport {
   asOf: string
   pairs: HeldImpactPair[]
   sources: HeldImpactSource[]
   totals: HeldImpactTotals
+  /** The reserving documents' netting against Stock Visibility's holds; each line where they differ (ticket 3903). */
+  netting: HeldNettingComparison
   repairsFrom: string
   repairsTo: string
   repairs: number

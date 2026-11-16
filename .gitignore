@@ -169,3 +169,5 @@ tools/.lf-return-shots/
 tools/.analytics-shots/
 tools/.insurance-section-shots/
 tools/.delivery-money-strip-shots/
+# Document family drive screenshots (tools/document-family-drive.mjs, ticket 906)
+tools/.document-family-shots/

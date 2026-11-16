@@ -22,7 +22,15 @@ export interface FamilyTreeNode {
   link: string | null
   /** The member as the endpoint answered it (its facts for the row). */
   member: DocumentFamilyNode
+  /** Every child, in the answer's order. */
   children: FamilyTreeNode[]
+  /**
+   * The children drawn while the billings are folded (ticket 907): every child but the billings past
+   * the first, when this member has **more than two** billings; otherwise all of them. Answer order.
+   */
+  shown: FamilyTreeNode[]
+  /** The billings hidden behind "+ N more billings" (N = its length); empty when nothing folds. */
+  folded: FamilyTreeNode[]
 }
 
 /** The tree the panel draws. */
@@ -30,6 +38,8 @@ export interface FamilyTreeView {
   root: FamilyTreeNode
   /** The members drawn: the title's "Family (n)". Always more than one (a lone document is hidden). */
   count: number
+  /** The walk hit the endpoint's cap: not every member is shown (the warning under the tree). */
+  truncated: boolean
 }
 
 /** The page a member opens on, by its category (ruling 3940): a billing and the C/V memos have none. */
@@ -47,6 +57,20 @@ const PAGE: Record<string, 'delivery' | 'document'> = {
 export function familyLink(no: string, category: string): string | null {
   const page = PAGE[category.trim()]
   return page ? `/oms/${page}/${encodeURIComponent(no.trim())}` : null
+}
+
+/** The endpoint's member cap (BackOffice 3954): a family past it answers `truncated` — the warning's number. */
+export const FAMILY_MEMBER_CAP = 100
+
+/** Under one parent, billings fold when there are more than this many. */
+const FOLD_OVER = 2
+
+/** Splits a parent's children into those drawn and the billings folded past the first (ticket 907). */
+function fold(children: FamilyTreeNode[]): { shown: FamilyTreeNode[]; folded: FamilyTreeNode[] } {
+  const billings = children.filter((c) => c.category === 'B')
+  if (billings.length <= FOLD_OVER) return { shown: children, folded: [] }
+  const folded = new Set(billings.slice(1))
+  return { shown: children.filter((c) => !folded.has(c)), folded: billings.slice(1) }
 }
 
 const keyOf = (no: string | null | undefined, category: string | null | undefined) =>
@@ -85,7 +109,9 @@ export function familyTree(family: DocumentFamily | null | undefined): FamilyTre
     const key = keyOf(member.no, member.category)
     drawn.add(key)
     const isOpen = key === openKey
-    const children = (byParent.get(key) ?? []).filter((child) => !drawn.has(keyOf(child.no, child.category)))
+    const children = (byParent.get(key) ?? [])
+      .filter((child) => !drawn.has(keyOf(child.no, child.category)))
+      .map((child) => place(child, depth + 1))
     return {
       key,
       no: member.no.trim(),
@@ -94,12 +120,13 @@ export function familyTree(family: DocumentFamily | null | undefined): FamilyTre
       isOpen,
       link: isOpen ? null : familyLink(member.no, member.category),
       member,
-      children: children.map((child) => place(child, depth + 1)),
+      children,
+      ...fold(children),
     }
   }
   const root = place(rootMember, 0)
   if (drawn.size <= 1) return null
-  return { root, count: drawn.size }
+  return { root, count: drawn.size, truncated: family.truncated === true }
 }
 
 /** The categories with a name of their own under `document:family.categories`. */

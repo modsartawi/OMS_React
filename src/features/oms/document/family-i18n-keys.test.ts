@@ -21,7 +21,23 @@ describe('document:family — en and ar mirror each other', () => {
 
   it.each([en, ar])('every key the panel uses has words', (locale) => {
     const categories = ['Q', 'O', 'X', 'D', 'T', 'R', 'E', 'B', 'C', 'V', 'Z'].map(familyCategoryKey)
-    const keys = ['family.heading', 'family.youAreHere', 'family.ariaLabel', ...categories]
+    const keys = [
+      'family.heading',
+      'family.youAreHere',
+      'family.ariaLabel',
+      ...categories,
+      // ticket 907
+      'family.noPage.billing',
+      'family.noPage.memo',
+      'family.tillInvoice',
+      'family.tillInvoiceTitle',
+      'family.partnerReference',
+      'family.moreBillings',
+      'family.truncated',
+      'family.title',
+      'family.failed',
+      'family.failedWithReason',
+    ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

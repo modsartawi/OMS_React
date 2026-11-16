@@ -189,3 +189,59 @@ describe('family tree: the title\'s count, and a document that stands alone show
     expect(tree.count).toBe(4)
   })
 })
+
+/** A delivery's billings, by number, under order 1000887766 → delivery 8005000012 (the prototype's big family). */
+function billed(count: number, extra: DocumentFamilyNode[] = []): DocumentFamily {
+  const nodes = [node('1000887766', 'O', null), node('8005000012', 'D', ['1000887766', 'O'])]
+  for (let b = 1; b <= count; b++) nodes.push(node(`300502000${b}`, 'B', ['8005000012', 'D']))
+  return { askedNo: '8005000012', askedCategory: 'D', rootNo: '1000887766', rootCategory: 'O', truncated: false, nodes: [...nodes, ...extra] }
+}
+const delivery = (tree: { root: FamilyTreeNode }) => tree.root.children[0]
+const keys = (ns: FamilyTreeNode[]) => ns.map((n) => n.key)
+
+describe('family tree: billings fold under a parent with more than two', () => {
+  it('six billings under one delivery: only the first shows, five are folded behind "+ 5 more billings", and the count is all eight', () => {
+    const tree = familyTree(billed(6))!
+    expect(keys(delivery(tree).shown)).toEqual(['B:3005020001'])
+    expect(keys(delivery(tree).folded)).toEqual(['B:3005020002', 'B:3005020003', 'B:3005020004', 'B:3005020005', 'B:3005020006'])
+    expect(tree.count).toBe(8)
+  })
+
+  it('two billings both show, nothing folds', () => {
+    const tree = familyTree(billed(2))!
+    expect(keys(delivery(tree).shown)).toEqual(['B:3005020001', 'B:3005020002'])
+    expect(delivery(tree).folded).toEqual([])
+  })
+
+  it('three billings fold to one; a return order beside them is never folded and keeps its place in the answer\'s order', () => {
+    const tree = familyTree({
+      ...billed(1),
+      nodes: [
+        ...billed(1).nodes,
+        node('3000000018', 'R', ['8005000012', 'D']),
+        node('3005020002', 'B', ['8005000012', 'D']),
+        node('3005020003', 'B', ['8005000012', 'D']),
+      ],
+    })!
+    expect(keys(delivery(tree).shown)).toEqual(['B:3005020001', 'R:3000000018'])
+    expect(keys(delivery(tree).folded)).toEqual(['B:3005020002', 'B:3005020003'])
+    expect(keys(delivery(tree).children)).toEqual(['B:3005020001', 'R:3000000018', 'B:3005020002', 'B:3005020003'])
+  })
+
+  it('a parent with no billings shows every child', () => {
+    const tree = familyTree(SPLIT)!
+    expect(keys(tree.root.shown)).toEqual(['D:8007000001', 'D:8007000002'])
+    expect(tree.root.folded).toEqual([])
+  })
+})
+
+describe('family tree: a family cut short at the cap', () => {
+  it('an answer marked truncated is drawn, and says so', () => {
+    expect(familyTree({ ...SPLIT, truncated: true })!.truncated).toBe(true)
+  })
+
+  it('a whole answer is not truncated, nor one that leaves the flag out', () => {
+    expect(familyTree(SPLIT)!.truncated).toBe(false)
+    expect(familyTree({ ...SPLIT, truncated: undefined as unknown as boolean })!.truncated).toBe(false)
+  })
+})

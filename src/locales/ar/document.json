@@ -678,6 +678,18 @@
       "C": "مذكرة",
       "V": "مذكرة",
       "unknown": "مستند"
-    }
+    },
+    "title": "العائلة",
+    "noPage": {
+      "billing": "لا توجد صفحة للفوترة",
+      "memo": "لا توجد صفحة للمذكرات"
+    },
+    "tillInvoice": "فاتورة",
+    "tillInvoiceTitle": "فاتورة نقطة البيع",
+    "partnerReference": "مرجع الشريك",
+    "moreBillings": "+ <n>{{count}}</n> فوترة أخرى",
+    "truncated": "تم اختصار العائلة عند <n>{{cap}}</n> مستند — لا تظهر كل المستندات.",
+    "failed": "تعذّر تحميل العائلة.",
+    "failedWithReason": "تعذّر تحميل العائلة: <m>{{message}}</m>"
   }
 }

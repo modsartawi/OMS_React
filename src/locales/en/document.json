@@ -1022,6 +1022,18 @@
       "C": "Memo",
       "V": "Memo",
       "unknown": "Document"
-    }
+    },
+    "title": "Family",
+    "noPage": {
+      "billing": "Billings have no page",
+      "memo": "Memos have no page"
+    },
+    "tillInvoice": "Inv",
+    "tillInvoiceTitle": "Till invoice",
+    "partnerReference": "Partner reference",
+    "moreBillings": "+ <n>{{count}}</n> more billings",
+    "truncated": "Family cut short at <n>{{cap}}</n> members — not every document is shown.",
+    "failed": "The family couldn't be loaded.",
+    "failedWithReason": "The family couldn't be loaded: <m>{{message}}</m>"
   }
 }

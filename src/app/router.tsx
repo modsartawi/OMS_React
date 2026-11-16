@@ -363,12 +363,27 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
         }),
       },
+      // The till-side gate figures per store (BackOffice ticket 3900), behind the same probe.
+      {
+        path: 'oms/held-stock-report/gates',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/held-stock-report/GatesPage')).default,
+        }),
+      },
       // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
       // `HoldDailyList/Access` probe. Kind, cause, stores, tab and the drilled store live in the URL.
       {
         path: 'oms/hold-daily-list',
         lazy: async () => ({
           Component: (await import('@/features/oms/hold-daily-list/HoldDailyListPage')).default,
+        }),
+      },
+      // Store stages (BackOffice spec 3849 / ticket 3899) — each store's stage at Stock Visibility and its log; a named
+      // permission moves it. Behind its own `StoreStage/Access` probe. Store, stage and the open store live in the URL.
+      {
+        path: 'oms/store-stages',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
         }),
       },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout

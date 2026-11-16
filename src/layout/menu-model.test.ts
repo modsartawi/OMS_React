@@ -417,26 +417,28 @@ describe('the Expired approval picks leaf (BackOffice ticket 3874)', () => {
   })
 })
 
-describe('the held-stock report leaves (BackOffice ticket 3873)', () => {
+describe('the held-stock report leaves (BackOffice tickets 3873, 3900)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const items = oms.items ?? []
   const leaf = (key: string) => items.find((i) => i.labelKey === key)!
+  const LEAVES = ['held-stock-report:menu.refusals', 'held-stock-report:menu.held', 'held-stock-report:menu.gates']
 
   it('sit in the OMS group right after Expired approval picks, each lit alone on its own screen', () => {
     const keys = items.map((i) => i.labelKey)
     const after = keys.indexOf('expired-approval-picks:menu.expiredApprovalPicks')
-    expect(keys.slice(after + 1, after + 3)).toEqual(['held-stock-report:menu.refusals', 'held-stock-report:menu.held'])
+    expect(keys.slice(after + 1, after + 4)).toEqual(LEAVES)
     for (const [key, path] of [
       ['held-stock-report:menu.refusals', '/oms/held-stock-report/refusals'],
       ['held-stock-report:menu.held', '/oms/held-stock-report/held'],
+      ['held-stock-report:menu.gates', '/oms/held-stock-report/gates'],
     ] as const) {
       expect(leaf(key).routerLink).toBe(path)
       expect(items.filter((i) => isActive(i, path)).map((i) => i.labelKey)).toEqual([key])
     }
   })
 
-  it('🚩 both read the ONE probe (HeldStockReport/Access), and fail closed on anything but screenAllowed true', () => {
-    for (const key of ['held-stock-report:menu.refusals', 'held-stock-report:menu.held']) {
+  it('🚩 all read the ONE probe (HeldStockReport/Access), and fail closed on anything but screenAllowed true', () => {
+    for (const key of LEAVES) {
       const access = leaf(key).access
       expect(access?.key).toEqual(['oms', 'held-stock-report', 'access'])
       expect(access?.visible({ screenAllowed: true })).toBe(true)
@@ -451,9 +453,9 @@ describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () =>
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const leaf = (oms.items ?? []).find((i) => i.labelKey === 'hold-daily-list:menu.holdDailyList')!
 
-  it('sits in the OMS group right after Held stock impact, lit alone on its own screen', () => {
+  it('sits in the OMS group right after the held-stock reports (Till-side gate figures, ticket 3900), lit alone on its own screen', () => {
     const keys = (oms.items ?? []).map((i) => i.labelKey)
-    expect(keys.indexOf('hold-daily-list:menu.holdDailyList')).toBe(keys.indexOf('held-stock-report:menu.held') + 1)
+    expect(keys.indexOf('hold-daily-list:menu.holdDailyList')).toBe(keys.indexOf('held-stock-report:menu.gates') + 1)
     expect(leaf.routerLink).toBe('/oms/hold-daily-list')
     expect((oms.items ?? []).filter((i) => isActive(i, '/oms/hold-daily-list')).map((i) => i.labelKey)).toEqual([
       'hold-daily-list:menu.holdDailyList',
@@ -464,6 +466,28 @@ describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () =>
     expect(leaf.access?.key).toEqual(['oms', 'hold-daily-list', 'access'])
     expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
     expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})
+
+describe('the Store stages leaf (BackOffice ticket 3899)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'store-stages:menu.storeStages')!
+
+  it('sits in the OMS group right after Holds that should have ended, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('store-stages:menu.storeStages')).toBe(keys.indexOf('hold-daily-list:menu.holdDailyList') + 1)
+    expect(leaf.routerLink).toBe('/oms/store-stages')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/store-stages')).map((i) => i.labelKey)).toEqual([
+      'store-stages:menu.storeStages',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (StoreStage/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'store-stages', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true, canMove: false })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false, canMove: true })).toBe(false)
     expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
     expect(leaf.access?.visible(null)).toBe(false)
   })

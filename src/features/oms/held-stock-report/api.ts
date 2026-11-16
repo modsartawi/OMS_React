@@ -9,6 +9,8 @@
  */
 import { api } from '@/core/api'
 import type {
+  GateFiguresQuery,
+  GateFiguresReport,
   HeldImpactReport,
   HeldImpactReportQuery,
   TakeRefusalReport,
@@ -38,10 +40,22 @@ export const heldStockReportApi = {
       pairs: data?.pairs ?? [],
       sources: data?.sources ?? [],
       totals: data?.totals ?? { channelToday: 0, channelWithHeld: 0, takenOff: 0, held: 0, pairs: 0, pairsFallingToZero: 0 },
+      netting: data?.netting ?? { lines: 0, nettedPicked: 0, held: 0, gap: 0, differences: [] },
       repairsFrom: data?.repairsFrom ?? '',
       repairsTo: data?.repairsTo ?? '',
       repairs: data?.repairs ?? 0,
       repairsPerDay: data?.repairsPerDay ?? [],
+    }
+  },
+
+  /** `GET HeldStockReport/GateFigures` → the till-side gates per store over the 14 days ending on `to` (ticket 3900). */
+  async gateFigures(query: GateFiguresQuery): Promise<GateFiguresReport> {
+    const data = await api.get<Partial<GateFiguresReport> | null>('HeldStockReport/GateFigures', { ...query })
+    return {
+      asOf: data?.asOf ?? '',
+      from: data?.from ?? '',
+      to: data?.to ?? '',
+      stores: data?.stores ?? [],
     }
   },
 }

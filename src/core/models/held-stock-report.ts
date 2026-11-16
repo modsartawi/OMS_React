@@ -160,14 +160,112 @@ export interface HeldImpactRepairDay {
   holdsAdded: number
 }
 
+/** One reserving document line whose units netted as picked and unsold differ from what Stock Visibility holds (3903). */
+export interface HeldNettingDifference {
+  /** `O` (order) or `D` (delivery). */
+  side: string
+  documentNo: string
+  /** 0 for a document picked on its approval (`approvalNo`). */
+  lineNumber: number
+  approvalNo: string
+  store: string
+  material: string
+  ordered: number
+  nettedPicked: number
+  nettedSold: number
+  held: number
+  heldSold: number
+  /** nettedPicked - held. */
+  gap: number
+}
+
+/** For the documents that reserve, the netting join's picked-and-unsold units beside Stock Visibility's holds (3903). */
+export interface HeldNettingComparison {
+  lines: number
+  nettedPicked: number
+  held: number
+  gap: number
+  differences: HeldNettingDifference[]
+}
+
 export interface HeldImpactReport {
   asOf: string
   pairs: HeldImpactPair[]
   sources: HeldImpactSource[]
   totals: HeldImpactTotals
+  /** The reserving documents' netting against Stock Visibility's holds; each line where they differ (ticket 3903). */
+  netting: HeldNettingComparison
   repairsFrom: string
   repairsTo: string
   repairs: number
   /** The report's last line: the check on held's repairs per day, fleet-wide. */
   repairsPerDay: HeldImpactRepairDay[]
+}
+
+// ----- the till-side gate figures (BackOffice ticket 3900) -----
+
+/**
+ * The gate figures' query: the last day of the 14 (`yyyy-MM-dd`; absent = today) and the stores (blank = every open store).
+ * Mirrors `GateFiguresReportModels.cs`.
+ */
+export interface GateFiguresQuery {
+  to?: string
+  /** Comma-separated store codes. */
+  stores?: string
+}
+
+/** The store's takes as its tills timed them: 99% within 1 s and fewer than 1 in 100 unanswered at 2 s. */
+export interface TakeGateFigures {
+  reported: number
+  withinOneSecond: number
+  withinTwoSeconds: number
+  unanswered: number
+  overOneSecond: number
+  withinOneSecondPercent: number
+  unansweredPercent: number
+  holds: boolean
+}
+
+export interface GateDayCount {
+  day: string
+  count: number
+}
+
+/** The delivery sales completed without their picking document: only the days that had one, oldest first. */
+export interface DeliveryGateFigures {
+  total: number
+  days: GateDayCount[]
+  holds: boolean
+}
+
+export interface TillSeen {
+  till: string
+  build: string
+  lastSeen: string
+  /** When SIS.Api last heard the till on the hold seam; null = not in the window. */
+  holdSeamSeen: string | null
+  onHoldSeam: boolean
+}
+
+/** The store's tills seen in the window; every one must be heard on the hold seam. */
+export interface TillGateFigures {
+  seen: TillSeen[]
+  onAnOldEngine: string[]
+  holds: boolean
+}
+
+export interface StoreGateFigures {
+  store: string
+  takes: TakeGateFigures
+  deliveriesWithoutPick: DeliveryGateFigures
+  tills: TillGateFigures
+  /** All three gates hold. */
+  holds: boolean
+}
+
+export interface GateFiguresReport {
+  asOf: string
+  from: string
+  to: string
+  stores: StoreGateFigures[]
 }

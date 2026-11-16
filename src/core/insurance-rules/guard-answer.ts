@@ -39,10 +39,28 @@ export type GuardDrafts = Record<string, GuardAnswerDraft>
 
 export const guardKey = (line: number, ruleId: string): string => `${line}:${ruleId}`
 
+/** A finding as every guard view prints it: `SEVERITY · RULE-ID` before its text (BackOffice 3977). */
+export interface GuardSays {
+  heading: string
+  en: string
+  ar: string
+}
+
+/**
+ * `REFUSE · BR-7`, then the finding's own text in each language (BackOffice ticket 3977, spec 3972; 3967): the view
+ * prints the rule id, so no rule repeats it in its message. The till and the OMS till dialog print the same.
+ */
+export function guardSays(fired: GuardFired): GuardSays {
+  const heading = `${fired.severity} · ${fired.ruleId}`
+  return { heading, en: `${heading}: ${fired.en}`, ar: `${heading}: ${fired.ar}` }
+}
+
 export interface GuardItem {
   key: string
   line: number
   fired: GuardFired
+  /** What the dialog prints for it, in the reply's (HQ-sorted) order. */
+  says: GuardSays
   need: GuardNeed
   /** Whether this OVERRIDE asks a reason (its rule is in `accepts`). */
   asksReason: boolean
@@ -118,7 +136,7 @@ export function guardAnswer(input: {
           })
         }
       }
-      items.push({ key, line: l.line, fired, need, asksReason, problem })
+      items.push({ key, line: l.line, fired, says: guardSays(fired), need, asksReason, problem })
     }
   }
 

@@ -13,7 +13,7 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
-import { GuardSeverityBadge, RuleId } from './badges'
+import { GuardSeverityBadge } from './badges'
 import { guardAnswer, hasSuggestion, reasonChoices, type GuardAnswerDraft, type GuardDrafts, type GuardItem } from './guard-answer'
 import type { GuardAnswerResult, GuardReasonCode, GuardReasons, OrderGuards } from './guard-check'
 import { PROBLEM_KEYS, suggestionsOf } from './guard-words'
@@ -173,7 +173,7 @@ function FiredRule({
   onEdit: (patch: Partial<GuardAnswerDraft>) => void
 }) {
   const { t } = useTranslation('insurance-order-guards')
-  const { fired, need, problem } = item
+  const { fired, says, need, problem } = item
   const draft = drafts[item.key] ?? {}
   // Story 6 / 35: a suggestion is applied in one tap — the line goes on changed (a CHANGE answer), no triad needed.
   const canApply = need !== 'exception' && hasSuggestion(fired)
@@ -183,7 +183,6 @@ function FiredRule({
     <div className="flex flex-col gap-2 px-3 py-2 text-sm" data-guard-item={item.key} data-need={need} data-problem={problem ?? ''} data-applied={applied ? 'yes' : 'no'}>
       <div className="flex flex-wrap items-center gap-2">
         <GuardSeverityBadge severity={fired.severity} />
-        <RuleId id={fired.ruleId} />
         <span className="ms-auto flex flex-wrap gap-3 text-xs text-muted-foreground">
           {fired.codes?.conflict && (
             <span data-guard-conflict="">
@@ -197,7 +196,10 @@ function FiredRule({
           )}
         </span>
       </div>
-      <SaysBoth says={{ en: fired.en, ar: fired.ar }} />
+      {/* BackOffice 3977 (3967): SEVERITY · RULE-ID before the text, in both languages, in the reply's order. */}
+      <span data-guard-heading={says.heading}>
+        <SaysBoth says={{ en: says.en, ar: says.ar }} />
+      </span>
       {suggestionsOf(fired.suggestion).map((s) => (
         <p key={s.key} className="text-xs text-muted-foreground" data-guard-suggestion={s.value}>
           <Trans t={t} i18nKey={s.key} values={{ value: s.value }} components={{ n: <Ltr /> }} />

@@ -90,6 +90,12 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/console/__prototype__/CouponSignupPrototypePage')).default,
     }),
   },
+  // DEVELOPMENT ONLY — the map panel's proof page (ticket 879, BackOffice spec 3630; 3635 prints it, 883 removes it).
+  // `import.meta.env.DEV` is a build-time constant, so a production build drops the route and the page's chunk.
+  // Outside the shell and the session guard: it calls no door, and the PDF renderer opens it with no session.
+  ...(import.meta.env.DEV
+    ? [{ path: '/dev/map-proof', lazy: async () => ({ Component: (await import('@/app/MapProofPage')).default }) }]
+    : []),
   // The two collection documents' print routes (spec 249, tickets 251 and 252).
   // Top-level and OUTSIDE the AppShell subtree below on purpose: a print page's
   // entire body IS the document (241), so there is no nav, no shell and nothing

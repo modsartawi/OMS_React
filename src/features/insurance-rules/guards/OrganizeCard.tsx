@@ -79,6 +79,15 @@ export default function OrganizeCard({ rule, rules, canTemplate = true }: { rule
 
 /** A value of the rule as it reads now: a number or code LTR, words in both languages. */
 function CandidateValue({ value }: { value: BlankValue }) {
+  // A supply's per-list values (ticket 3952): one "value list" row each, LTR.
+  if (Array.isArray(value))
+    return (
+      <span className="flex flex-col font-mono text-xs" data-candidate-per-list="">
+        {value.map((r, i) => (
+          <Ltr key={i}>{`${r.value} ${r.list}`}</Ltr>
+        ))}
+      </span>
+    )
   if (typeof value === 'object')
     return (
       <span className="flex flex-col text-xs">

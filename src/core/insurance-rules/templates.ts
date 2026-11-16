@@ -82,7 +82,10 @@ export function templateOut(t: GuardTemplate): Record<string, unknown> {
 export const teamTemplateId = (ruleId: string): string => `team-${ruleId}`.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 40)
 
 /** A blank's value: a number, a text (a list id, a day), or EN + AR words. */
-export type BlankValue = number | string | Says
+/** One row of a per-list blank (`consumedBelowFor`, `eligibleDaysBeforeDueFor`). */
+export type PerListRow = { list: string; value: number }
+
+export type BlankValue = number | string | Says | PerListRow[]
 
 // Spelled out, not imported from `./api`, so this pure module loads in vitest without the http client.
 export const GUARD_TEMPLATES_KEY = ['insurance-rules', 'guards', 'templates'] as const
@@ -129,6 +132,9 @@ function setAt(root: unknown, path: string, value: unknown): boolean {
   return true
 }
 
+const isPerListRow = (v: unknown): v is PerListRow =>
+  typeof v === 'object' && v !== null && typeof (v as PerListRow).list === 'string' && typeof (v as PerListRow).value === 'number'
+
 const isSays = (v: unknown): v is Says => typeof v === 'object' && v !== null && 'en' in v && 'ar' in v
 
 /** Whether a blank's value is still empty: no number, an empty text, or words missing a language. */
@@ -136,6 +142,9 @@ export function blankIsEmpty(v: unknown): boolean {
   if (typeof v === 'number') return !Number.isFinite(v)
   if (typeof v === 'string') return v.trim() === ''
   if (isSays(v)) return !v.en.trim() || !v.ar.trim()
+  // A per-list blank (`consumedBelowFor`, `eligibleDaysBeforeDueFor`) holds rows of { list, value }: filled when it has
+  // a row and every row names a list and a number.
+  if (Array.isArray(v)) return v.length === 0 || v.some((r) => !isPerListRow(r) || !r.list.trim() || !Number.isFinite(r.value))
   return true
 }
 
@@ -231,13 +240,15 @@ export const blankKey = (path: string): string => {
   return last ?? path
 }
 
-/** How a blank is typed: words in two languages, a list picked from the ruleset, a number, or a code. */
-export type BlankKind = 'says' | 'list' | 'number' | 'text'
+/** How a blank is typed: words in two languages, a list picked from the ruleset, a number, rows of a list and its own
+ * number (a supply's per-list days or share), or a code. */
+export type BlankKind = 'says' | 'list' | 'number' | 'perList' | 'text'
 
 export function blankKind(t: Pick<GuardTemplate, 'rule'>, path: string): BlankKind {
   const v = valueAt(t.rule, path)
   if (isSays(v)) return 'says'
   if (typeof v === 'number') return 'number'
+  if (Array.isArray(v)) return 'perList'
   const key = blankKey(path)
   if (key === 'list' || key === 'inList') return 'list'
   // A history / volume block names its list as `match: "list:<id>"` (the engine's spelling, 3130).
@@ -267,6 +278,7 @@ export const BLANK_WORDS = [
   'match',
   'by',
   'eligibleDaysBeforeDueFor',
+  'consumedBelowFor',
 ] as const
 
 export const blankWord = (path: string): string => {

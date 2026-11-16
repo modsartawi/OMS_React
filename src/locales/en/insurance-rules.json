@@ -172,6 +172,7 @@
       "daysBeforeDue_other": "the patient asks for <match>{{match}}</match> more than <days>{{days}}</days> days before the last supply runs out",
       "consumedBelow": "less than <pct>{{pct}}</pct> of the last supply of <match>{{match}}</match> is used",
       "daysFor": "<days>{{days}}</days> days for <list>{{list}}</list>",
+      "consumedFor": "<pct>{{pct}}</pct> for <list>{{list}}</list>",
       "accumulate": "early refills add up to <surplusdays>{{surplusDays}}</surplusdays> spare days over <overdays>{{overDays}}</overdays> days",
       "unknownSupply": "a supply of unknown length counts as <assumedays>{{assumeDays}}</assumedays> days"
     },
@@ -360,7 +361,8 @@
       "severity": "Severity",
       "match": "What counts",
       "by": "Counted per",
-      "eligibleDaysBeforeDueFor": "Days before due, per list"
+      "eligibleDaysBeforeDueFor": "Days before due, per list",
+      "consumedBelowFor": "Share consumed, per list"
     }
   },
   "publishChecks": {

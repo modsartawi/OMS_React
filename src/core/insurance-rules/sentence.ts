@@ -141,6 +141,7 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
           ? S('supply.daysBeforeDue', { match, days: num(c.eligibleDaysBeforeDue) }, c.eligibleDaysBeforeDue)
           : S('supply.consumedBelow', { match, pct: { kind: 'percent', n: Math.round((c.consumedBelow ?? 0) * 100) } })
       for (const f of c.eligibleDaysBeforeDueFor ?? []) clauses.push(S('supply.daysFor', { days: num(f.value), list: listValue(f.list, ctx) }))
+      for (const f of c.consumedBelowFor ?? []) clauses.push(S('supply.consumedFor', { pct: { kind: 'percent', n: Math.round(f.value * 100) }, list: listValue(f.list, ctx) }))
       if (c.accumulate) clauses.push(S('supply.accumulate', { surplusDays: num(c.accumulate.surplusDays), overDays: num(c.accumulate.overDays) }))
       if (c.unknownSupply) clauses.push(S('supply.unknownSupply', { assumeDays: num(c.unknownSupply.assumeDays) }))
       return { sentence, clauses }

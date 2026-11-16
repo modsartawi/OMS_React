@@ -347,6 +347,13 @@
       "remove": "Remove this list value",
       "add": "+ Days for a list"
     },
+    "consumedFor": {
+      "pct": "Share consumed for the list",
+      "for": "% for",
+      "list": "The list this share is for",
+      "remove": "Remove this list value",
+      "add": "+ Share for a list"
+    },
     "audience": {
       "channels": "Checked on",
       "stores": "Stores",

@@ -23,6 +23,13 @@
     "en": "English",
     "ar": "Arabic",
     "pickList": "Pick a list…",
+    "perList": {
+      "value": "The value for the list",
+      "for": "for",
+      "list": "The list",
+      "remove": "Remove",
+      "add": "+ A list"
+    },
     "folder": "Folder",
     "noFolder": "No folder",
     "readsAs": "Reads as",

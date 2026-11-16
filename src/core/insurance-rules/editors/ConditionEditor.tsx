@@ -7,14 +7,16 @@ import { X } from 'lucide-react'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
 import {
   addCondition,
-  addDaysFor,
+  addPerList,
   canAddGroup,
   listOfAlias,
   newCondition,
   paletteBlockOf,
   removeCondition,
-  removeDaysFor,
-  setDaysFor,
+  removePerList,
+  setPerList,
+  setSupplyMode,
+  supplyPerListKey,
   toggleNarrow,
   toggleNot,
   updateCondition,
@@ -346,6 +348,9 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
       )
     case 'supply': {
       const mode = c.eligibleDaysBeforeDue !== undefined ? 'daysBeforeDue' : 'consumedBelow'
+      const perKey = supplyPerListKey(c)
+      const asPercent = perKey === 'consumedBelowFor'
+      const perWords = asPercent ? 'consumedFor' : 'daysFor'
       return (
         <>
           {matchSelect(c.match, (m) => set((x) => ({ ...x, match: m })))}
@@ -353,14 +358,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             <Select
               value={mode}
               data-input="supplyMode"
-              onChange={(e) =>
-                set((x: SupplyCondition) => {
-                  const { eligibleDaysBeforeDue: _d, consumedBelow: _c, ...rest } = x
-                  void _d
-                  void _c
-                  return e.target.value === 'daysBeforeDue' ? { ...rest, eligibleDaysBeforeDue: 10 } : { ...rest, consumedBelow: 0.75 }
-                })
-              }
+              onChange={(e) => set((x: SupplyCondition) => setSupplyMode(x, e.target.value === 'daysBeforeDue' ? 'daysBeforeDue' : 'consumedBelow'))}
             >
               <option value="daysBeforeDue">{t('editor.supplyMode.daysBeforeDue')}</option>
               <option value="consumedBelow">{t('editor.supplyMode.consumedBelow')}</option>
@@ -384,38 +382,37 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             />
           )}
           <span className="text-xs text-muted-foreground">{unit(mode === 'daysBeforeDue' ? 'days' : 'percent')}</span>
-          {mode === 'daysBeforeDue' && (
-            <span className="inline-flex flex-wrap items-center gap-2" data-days-for="">
-              {(c.eligibleDaysBeforeDueFor ?? []).map((f, i) => (
-                <span key={i} className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-days-for-row={i}>
-                  <NumberInput
-                    value={f.value}
-                    invalid={bad(`eligibleDaysBeforeDueFor.${i}`)}
-                    aria-label={t('editor.daysFor.days')}
-                    data-input={`daysFor.${i}.value`}
-                    onValue={(n) => set((x: SupplyCondition) => setDaysFor(x, i, { value: n }), `daysFor.${i}`)}
-                  />
-                  {t('editor.daysFor.for')}
-                  <Select value={f.list} aria-label={t('editor.daysFor.list')} data-input={`daysFor.${i}.list`} onChange={(e) => set((x: SupplyCondition) => setDaysFor(x, i, { list: e.target.value }))}>
-                    {!ctx.lists.some((l) => l.id === f.list) && <option value={f.list}>{fsi(f.list)}</option>}
-                    {ctx.lists.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {listName(l)}
-                      </option>
-                    ))}
-                  </Select>
-                  <IconButton variant="danger" size="compact" label={t('editor.daysFor.remove')} data-days-for-remove={i} onClick={() => set((x: SupplyCondition) => removeDaysFor(x, i))}>
-                    <X className="h-3.5 w-3.5" aria-hidden />
-                  </IconButton>
-                </span>
-              ))}
-              {ctx.lists.length > 0 && (
-                <button type="button" className="text-xs text-primary hover:underline" data-days-for-add="" onClick={() => set((x: SupplyCondition) => addDaysFor(x, ctx.lists[0].id))}>
-                  {t('editor.daysFor.add')}
-                </button>
-              )}
-            </span>
-          )}
+          {/* The form's own per-list values: days before due, or the share consumed (the controlled 90%, ticket 3952). */}
+          <span className="inline-flex flex-wrap items-center gap-2" data-days-for="" data-per-list={perKey}>
+            {(c[perKey] ?? []).map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-days-for-row={i}>
+                <NumberInput
+                  value={asPercent ? Math.round(f.value * 100) : f.value}
+                  invalid={bad(`${perKey}.${i}`)}
+                  aria-label={t(`editor.${perWords}.${asPercent ? 'pct' : 'days'}`)}
+                  data-input={`${perWords}.${i}.value`}
+                  onValue={(n) => set((x: SupplyCondition) => setPerList(x, perKey, i, { value: asPercent ? n / 100 : n }), `${perWords}.${i}`)}
+                />
+                {t(`editor.${perWords}.for`)}
+                <Select value={f.list} aria-label={t(`editor.${perWords}.list`)} data-input={`${perWords}.${i}.list`} onChange={(e) => set((x: SupplyCondition) => setPerList(x, perKey, i, { list: e.target.value }))}>
+                  {!ctx.lists.some((l) => l.id === f.list) && <option value={f.list}>{fsi(f.list)}</option>}
+                  {ctx.lists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {listName(l)}
+                    </option>
+                  ))}
+                </Select>
+                <IconButton variant="danger" size="compact" label={t(`editor.${perWords}.remove`)} data-days-for-remove={i} onClick={() => set((x: SupplyCondition) => removePerList(x, perKey, i))}>
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </IconButton>
+              </span>
+            ))}
+            {ctx.lists.length > 0 && (
+              <button type="button" className="text-xs text-primary hover:underline" data-days-for-add="" onClick={() => set((x: SupplyCondition) => addPerList(x, perKey, ctx.lists[0].id))}>
+                {t(`editor.${perWords}.add`)}
+              </button>
+            )}
+          </span>
           <Field label={t('editor.field.surplusDays')} unit={unit('days')}>
             <NumberInput
               value={c.accumulate?.surplusDays ?? 0}

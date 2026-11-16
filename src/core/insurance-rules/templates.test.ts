@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES } from '../../../tools/insurance-rules-stubs.mjs'
-import { blankCandidates, fillTemplate, missingBlanks, templateIn, templateOut, valueAt, type GuardTemplate } from './templates'
+import { blankCandidates, blankKind, fillTemplate, missingBlanks, templateIn, templateOut, valueAt, type GuardTemplate } from './templates'
 
 const DUPLICATE: GuardTemplate = {
   id: 'T-DUP',
@@ -95,6 +95,39 @@ describe('missingBlanks', () => {
   it('names the blanks still empty: an empty list, a name without its Arabic', () => {
     expect(missingBlanks(DUPLICATE, { name: { en: 'X', ar: '' } })).toEqual(['name', 'filters[0].list'])
     expect(missingBlanks(DUPLICATE, { name: { en: 'X', ar: 'س' }, 'filters[0].list': 'glp1' })).toEqual([])
+  })
+})
+
+describe('missingBlanks — a per-list blank (the 80% refill template)', () => {
+  const REFILL80: GuardTemplate = {
+    ...DUPLICATE,
+    id: 'T-R80',
+    blanks: [{ path: 'when[0].consumedBelowFor', label: { en: 'Value', ar: 'القيمة' } }],
+    rule: { ...DUPLICATE.rule, when: [{ check: 'supply', match: 'sameKind', consumedBelow: 0.8, consumedBelowFor: [{ list: 'controlled', value: 0.9 }] }] },
+  }
+
+  it("is filled by the template's own list, so Create is not held", () => {
+    expect(missingBlanks(REFILL80, {})).toEqual([])
+  })
+
+  it('is empty when the list is emptied', () => {
+    expect(missingBlanks(REFILL80, { 'when[0].consumedBelowFor': [] })).toEqual(['when[0].consumedBelowFor'])
+  })
+
+  it('is empty while a row names no list or has no number', () => {
+    expect(missingBlanks(REFILL80, { 'when[0].consumedBelowFor': [{ list: 'controlled', value: 0.9 }, { list: '', value: 0.9 }] })).toEqual(['when[0].consumedBelowFor'])
+    expect(missingBlanks(REFILL80, { 'when[0].consumedBelowFor': [{ list: 'controlled', value: Number.NaN }] })).toEqual(['when[0].consumedBelowFor'])
+  })
+
+  it('is typed as rows of a list and its number, never as text (the dialog drew "[object Object]")', () => {
+    expect(blankKind(REFILL80, 'when[0].consumedBelowFor')).toBe('perList')
+    expect(blankKind(REFILL80, 'when[0].consumedBelow')).toBe('number')
+  })
+
+  it('fills into the rule as rows, so HQ gets the list it expects', () => {
+    const rows = [{ list: 'controlled', value: 0.85 }]
+    const rule = fillTemplate(REFILL80, { 'when[0].consumedBelowFor': rows }, { id: 'G-900' })
+    expect(rule.when[0]).toMatchObject({ check: 'supply', consumedBelow: 0.8, consumedBelowFor: rows })
   })
 })
 

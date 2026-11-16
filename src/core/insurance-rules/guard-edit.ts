@@ -530,21 +530,51 @@ export function toggleNarrow(c: HistoryCondition, scope: HistoryNarrow): History
   return ordered.length ? { ...rest, narrowTo: ordered } : rest
 }
 
+/** A supply's per-list values: days before due (the days form) or the share consumed (the percentage form). */
+export type SupplyPerListKey = 'eligibleDaysBeforeDueFor' | 'consumedBelowFor'
+
+/** The per-list key of a supply's form: the days form when it states its days, else the percentage form. */
+export const supplyPerListKey = (c: SupplyCondition): SupplyPerListKey =>
+  c.eligibleDaysBeforeDue !== undefined ? 'eligibleDaysBeforeDueFor' : 'consumedBelowFor'
+
+/** A new per-list row's value: the SFDA 7 days for controlled drugs, or 90% used (ticket 3952). */
+export const PER_LIST_START: Record<SupplyPerListKey, number> = { eligibleDaysBeforeDueFor: 7, consumedBelowFor: 0.9 }
+
+export function addPerList(c: SupplyCondition, key: SupplyPerListKey, list: string, value = PER_LIST_START[key]): SupplyCondition {
+  return { ...c, [key]: [...(c[key] ?? []), { list, value }] }
+}
+
+export function setPerList(c: SupplyCondition, key: SupplyPerListKey, i: number, patch: Partial<{ list: string; value: number }>): SupplyCondition {
+  return { ...c, [key]: (c[key] ?? []).map((f, k) => (k === i ? { ...f, ...patch } : f)) }
+}
+
+export function removePerList(c: SupplyCondition, key: SupplyPerListKey, i: number): SupplyCondition {
+  const left = (c[key] ?? []).filter((_, k) => k !== i)
+  const rest: SupplyCondition = { ...c }
+  delete rest[key]
+  return left.length ? { ...rest, [key]: left } : rest
+}
+
+/**
+ * Switch a supply between its two forms. The per-list values of BOTH forms go: a list's days mean nothing as a share
+ * (and the reverse), so a switched block never carries the other form's values to HQ.
+ */
+export function setSupplyMode(c: SupplyCondition, mode: 'daysBeforeDue' | 'consumedBelow'): SupplyCondition {
+  const { eligibleDaysBeforeDue: _d, consumedBelow: _c, eligibleDaysBeforeDueFor: _df, consumedBelowFor: _cf, ...rest } = c
+  void _d
+  void _c
+  void _df
+  void _cf
+  return mode === 'daysBeforeDue' ? { ...rest, eligibleDaysBeforeDue: 10 } : { ...rest, consumedBelow: 0.75 }
+}
+
 /** A list's own refill days (the SFDA 7 for controlled drugs): a new row starts at 7. */
-export function addDaysFor(c: SupplyCondition, list: string, value = 7): SupplyCondition {
-  return { ...c, eligibleDaysBeforeDueFor: [...(c.eligibleDaysBeforeDueFor ?? []), { list, value }] }
-}
+export const addDaysFor = (c: SupplyCondition, list: string, value = 7): SupplyCondition => addPerList(c, 'eligibleDaysBeforeDueFor', list, value)
 
-export function setDaysFor(c: SupplyCondition, i: number, patch: Partial<{ list: string; value: number }>): SupplyCondition {
-  return { ...c, eligibleDaysBeforeDueFor: (c.eligibleDaysBeforeDueFor ?? []).map((f, k) => (k === i ? { ...f, ...patch } : f)) }
-}
+export const setDaysFor = (c: SupplyCondition, i: number, patch: Partial<{ list: string; value: number }>): SupplyCondition =>
+  setPerList(c, 'eligibleDaysBeforeDueFor', i, patch)
 
-export function removeDaysFor(c: SupplyCondition, i: number): SupplyCondition {
-  const left = (c.eligibleDaysBeforeDueFor ?? []).filter((_, k) => k !== i)
-  const { eligibleDaysBeforeDueFor: _f, ...rest } = c
-  void _f
-  return left.length ? { ...rest, eligibleDaysBeforeDueFor: left } : rest
-}
+export const removeDaysFor = (c: SupplyCondition, i: number): SupplyCondition => removePerList(c, 'eligibleDaysBeforeDueFor', i)
 
 /** A channel on or off the rule's audience, kept in the fixed channel order. */
 export function toggleChannel(r: GuardRule, ch: GuardChannel): GuardRule {

@@ -121,3 +121,12 @@ describe('guard-wire', () => {
     expect(JSON.stringify((rulesetOut(doc).rules as unknown[])[0])).toBe(JSON.stringify({ id: 'C-1', when, then: [] }))
   })
 })
+
+describe('a supply\'s per-list share through the draft codec (ticket 3952)', () => {
+  it('GET → editor → PUT keeps consumedBelowFor exactly as HQ sent it', () => {
+    const block = { check: 'supply', match: 'sameKind', consumedBelow: 0.8, consumedBelowFor: [{ list: 'controlled', value: 0.9 }], accumulate: { surplusDays: 10, overDays: 90 }, unknownSupply: { assumeDays: 30 } }
+    const doc = { schema: 1, kind: 'guard', revision: 4, lists: [], rules: [{ id: 'G-801', name: { en: 'Refill', ar: 'صرف' }, folder: 'History', when: [block], then: [] }] }
+    const out = guardRulesetOut(guardRulesetIn(doc)) as { rules: { when: unknown[] }[] }
+    expect(out.rules[0].when[0]).toEqual(block)
+  })
+})

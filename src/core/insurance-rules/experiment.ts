@@ -118,7 +118,7 @@ export interface RuleSource {
 const LIST_MATCH = /^list:(.+)$/
 const AUDIENCE_LISTS = ['excludePatientLists', 'excludePolicyLists', 'excludeClassLists'] as const
 
-/** Every list id a rule's blocks and audience name: `match: list:<id>`, any `inList`, a supply's per-list days. */
+/** Every list id a rule's blocks and audience name: `match: list:<id>`, any `inList`, a supply's per-list days or shares. */
 function listIdsNamed(rule: Record<string, unknown>): string[] {
   const out: string[] = []
   const add = (id: unknown) => typeof id === 'string' && id && !out.includes(id) && out.push(id)
@@ -128,7 +128,8 @@ function listIdsNamed(rule: Record<string, unknown>): string[] {
       if (!isRecord(c)) continue
       if (typeof c.match === 'string') add(LIST_MATCH.exec(c.match)?.[1])
       add(c.inList)
-      if (Array.isArray(c.eligibleDaysBeforeDueFor)) for (const x of c.eligibleDaysBeforeDueFor) if (isRecord(x)) add(x.list)
+      for (const key of ['eligibleDaysBeforeDueFor', 'consumedBelowFor'] as const)
+        if (Array.isArray(c[key])) for (const x of c[key] as unknown[]) if (isRecord(x)) add(x.list)
       walk(c.conditions)
     }
   }

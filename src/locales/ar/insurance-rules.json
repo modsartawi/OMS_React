@@ -188,6 +188,7 @@
       "daysBeforeDue_other": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> يوم",
       "consumedBelow": "استُهلك أقل من <pct>{{pct}}</pct> من آخر كمية من <match>{{match}}</match>",
       "daysFor": "<days>{{days}}</days> يوماً لـ <list>{{list}}</list>",
+      "consumedFor": "<pct>{{pct}}</pct> لـ <list>{{list}}</list>",
       "accumulate": "الصرف المبكر يتراكم حتى <surplusdays>{{surplusDays}}</surplusdays> يوماً فائضاً خلال <overdays>{{overDays}}</overdays> يوماً",
       "unknownSupply": "الكمية غير معروفة المدة تُحسب <assumedays>{{assumeDays}}</assumedays> يوماً"
     },
@@ -384,7 +385,8 @@
       "severity": "درجة الخطورة",
       "match": "ما يُحتسب",
       "by": "يُحتسب لكل",
-      "eligibleDaysBeforeDueFor": "الأيام قبل الاستحقاق لكل قائمة"
+      "eligibleDaysBeforeDueFor": "الأيام قبل الاستحقاق لكل قائمة",
+      "consumedBelowFor": "نسبة الاستهلاك لكل قائمة"
     }
   },
   "publishChecks": {

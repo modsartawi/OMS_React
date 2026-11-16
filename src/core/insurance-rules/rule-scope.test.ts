@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/insurance-rules.json'
 import { plainSentence, type Sentence } from '@/core/rules/sentence'
 import type { GuardList, GuardRule, HistoryCondition, SupplyCondition } from './model'
-import { addDaysFor, newGuardRule, removeDaysFor, setDaysFor, setWindow, toggleAudienceExclude, toggleChannel, toggleNarrow, setAudienceStores } from './guard-edit'
+import { addDaysFor, addPerList, newGuardRule, removeDaysFor, removePerList, setDaysFor, setPerList, setSupplyMode, supplyPerListKey, setWindow, toggleAudienceExclude, toggleChannel, toggleNarrow, setAudienceStores } from './guard-edit'
 import { conditionSentence, guardSentence } from './sentence'
 
 const instance = i18next.createInstance()
@@ -46,6 +46,38 @@ describe('refill days per list (story 11, controlled drugs)', () => {
   it('reads as "7 days for Controlled drugs"', () => {
     const n = conditionSentence(addDaysFor(supply, 'ctrl'), { rule: newGuardRule('G-X'), lists: LISTS })
     expect(n.clauses.map(text)).toEqual(['7 days for Controlled drugs'])
+  })
+})
+
+describe('the share consumed per list (ticket 3952, the controlled 90%)', () => {
+  const pct: SupplyCondition = { check: 'supply', match: 'sameKind', consumedBelow: 0.8, accumulate: { surplusDays: 10, overDays: 90 } }
+
+  it('the percentage form keeps its per-list values in consumedBelowFor; a new row starts at 90%', () => {
+    expect(supplyPerListKey(pct)).toBe('consumedBelowFor')
+    expect(supplyPerListKey(supply)).toBe('eligibleDaysBeforeDueFor')
+    const a = addPerList(pct, 'consumedBelowFor', 'ctrl')
+    expect(a.consumedBelowFor).toEqual([{ list: 'ctrl', value: 0.9 }])
+    expect(a.eligibleDaysBeforeDueFor).toBeUndefined()
+    const b = setPerList(a, 'consumedBelowFor', 0, { value: 0.95 })
+    expect(b.consumedBelowFor).toEqual([{ list: 'ctrl', value: 0.95 }])
+    expect(removePerList(b, 'consumedBelowFor', 0).consumedBelowFor).toBeUndefined()
+  })
+
+  it('an edit of the 80% keeps the 90% (every edit copies the block)', () => {
+    const a = addPerList(pct, 'consumedBelowFor', 'ctrl')
+    expect({ ...a, consumedBelow: 0.75 }.consumedBelowFor).toEqual([{ list: 'ctrl', value: 0.9 }])
+  })
+
+  it('switching the form drops BOTH forms\' per-list values, and keeps the rest of the block', () => {
+    const days = setSupplyMode(addPerList(pct, 'consumedBelowFor', 'ctrl'), 'daysBeforeDue')
+    expect(days).toEqual({ check: 'supply', match: 'sameKind', eligibleDaysBeforeDue: 10, accumulate: { surplusDays: 10, overDays: 90 } })
+    const back = setSupplyMode(addDaysFor(supply, 'ctrl'), 'consumedBelow')
+    expect(back).toEqual({ check: 'supply', match: 'sameKind', consumedBelow: 0.75 })
+  })
+
+  it('reads as "90% for Controlled drugs"', () => {
+    const n = conditionSentence(addPerList(pct, 'consumedBelowFor', 'ctrl'), { rule: newGuardRule('G-X'), lists: LISTS })
+    expect(n.clauses.map(text)).toEqual(['90% for Controlled drugs', 'early refills add up to 10 spare days over 90 days'])
   })
 })
 

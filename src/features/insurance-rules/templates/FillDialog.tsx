@@ -13,7 +13,7 @@ import { guardEditPath, type GuardRuleset, type Says } from '@/core/insurance-ru
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import { nextGuardId } from '@/core/insurance-rules/guard-edit'
-import { blankKind, changedValues, fillTemplate, listBlankId, listBlankValue, missingBlanks, valueAt, type BlankValue, type GuardTemplate } from '@/core/insurance-rules/templates'
+import { blankKind, changedValues, fillTemplate, listBlankId, listBlankValue, missingBlanks, valueAt, type BlankValue, type GuardTemplate, type PerListRow } from '@/core/insurance-rules/templates'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
@@ -115,7 +115,15 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
                 </>
               ) : (
                 <Field label={<BlankLabel blank={b} />}>
-                  {kind === 'list' ? (
+                  {kind === 'perList' ? (
+                    <PerListRows
+                      rows={v as PerListRow[]}
+                      lists={draft.lists.map((l) => ({ id: l.id, name: fsi(saysIn(l.name, i18n.language)) }))}
+                      invalid={empty}
+                      path={b.path}
+                      onChange={(rows) => set(b.path, rows)}
+                    />
+                  ) : kind === 'list' ? (
                     <Select value={listBlankId(b.path, v)} onChange={(e) => set(b.path, listBlankValue(b.path, e.target.value))} aria-invalid={empty || undefined} className="w-64" data-input={b.path}>
                       <option value="">{t('fill.pickList')}</option>
                       {draft.lists.map((l) => (
@@ -156,5 +164,71 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
         </section>
       </div>
     </Modal>
+  )
+}
+
+/**
+ * A per-list blank (a supply's `consumedBelowFor` / `eligibleDaysBeforeDueFor`): one row per list, its number as the
+ * template states it (a share as 0.9, days as 7). Rows can be changed, added and removed; the blank is filled while every
+ * row names a list and a number (`blankIsEmpty`).
+ */
+function PerListRows({
+  rows,
+  lists,
+  invalid,
+  path,
+  onChange,
+}: {
+  rows: PerListRow[]
+  lists: { id: string; name: string }[]
+  invalid: boolean
+  path: string
+  onChange: (rows: PerListRow[]) => void
+}) {
+  const { t } = useTranslation('insurance-templates')
+  const setRow = (i: number, patch: Partial<PerListRow>) => onChange(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)))
+  const start = rows[0]?.value ?? 0
+  return (
+    <div className="flex flex-col gap-1" data-per-list-blank={path}>
+      {rows.map((r, i) => (
+        <span key={i} className="inline-flex items-center gap-2" data-per-list-row={i}>
+          <Input
+            type="number"
+            dir="ltr"
+            value={Number.isFinite(r.value) ? r.value : ''}
+            onChange={(e) => setRow(i, { value: e.target.value === '' ? Number.NaN : Number(e.target.value) })}
+            aria-invalid={(invalid && !Number.isFinite(r.value)) || undefined}
+            aria-label={t('fill.perList.value')}
+            className="w-28 text-end"
+            data-input={`${path}.${i}.value`}
+          />
+          <span className="text-muted-foreground">{t('fill.perList.for')}</span>
+          <Select
+            value={r.list}
+            onChange={(e) => setRow(i, { list: e.target.value })}
+            aria-invalid={(invalid && !r.list.trim()) || undefined}
+            aria-label={t('fill.perList.list')}
+            className="w-64"
+            data-input={`${path}.${i}.list`}
+          >
+            <option value="">{t('fill.pickList')}</option>
+            {r.list && !lists.some((l) => l.id === r.list) && <option value={r.list}>{fsi(r.list)}</option>}
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </Select>
+          <Button variant="text" onClick={() => onChange(rows.filter((_, k) => k !== i))} data-per-list-remove={i}>
+            {t('fill.perList.remove')}
+          </Button>
+        </span>
+      ))}
+      <span>
+        <Button variant="text" onClick={() => onChange([...rows, { list: '', value: start }])} data-per-list-add="">
+          {t('fill.perList.add')}
+        </Button>
+      </span>
+    </div>
   )
 }

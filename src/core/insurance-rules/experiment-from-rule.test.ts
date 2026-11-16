@@ -107,3 +107,11 @@ describe('experimentFromRule', () => {
     expect(readExperiment(experimentFile(e))).toEqual({ ok: true, experiment: e })
   })
 })
+
+describe('experimentFromRule — a supply\'s per-list share (ticket 3952)', () => {
+  it('carries the list consumedBelowFor names, so the playground tests the 90%, not the plain 80%', () => {
+    const rule = { ...GUARD_RULE, id: 'G-801', when: [{ check: 'supply', match: 'sameKind', consumedBelow: 0.8, consumedBelowFor: [{ list: 'controlled', value: 0.9 }] }] }
+    const e = experimentFromRule({ kind: 'guard', rule, document: GUARD_DOC }, AS_OF)
+    expect((e.document as { lists: { id: string }[] }).lists.map((l) => l.id)).toEqual(['controlled'])
+  })
+})

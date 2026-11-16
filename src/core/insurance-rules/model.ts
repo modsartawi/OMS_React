@@ -147,6 +147,8 @@ export interface SupplyCondition extends ConditionBase {
   eligibleDaysBeforeDueFor?: { list: string; value: number }[]
   /** The percentage form, 0–1, for a payer that states one. */
   consumedBelow?: number
+  /** The percentage form's own share per list (the controlled 90%, ticket 3952), 0–1. */
+  consumedBelowFor?: { list: string; value: number }[]
   accumulate?: { surplusDays: number; overDays: number }
   unknownSupply?: { assumeDays: number }
 }

@@ -1494,3 +1494,8 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [902](902-the-operator-selects-every-store-a-filter-matches-and-acts-on-them-as-one-group.md) — The operator selects every store a filter matches and acts on them as one group · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: 900, BO 3916, BO 3917
 - [903](903-resume-all-paused-resumes-the-working-fleet-in-one-action.md) — "Resume all paused…" resumes the working fleet in one action · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3916, BO 3917
 - [904](904-datasync-never-applies-to-a-disabled-store.md) — DataSync never applies to a disabled store · *(ticket · BackOffice spec 3913; code also in Replicate_SqlDataCompare)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3914 (deploy after HQ mig 012)
+
+## Document family panel (BackOffice spec 3953, filed 2026-11-16)
+
+- [906](906-an-order-page-shows-its-family-and-every-delivery-opens-in-one-click.md) — An order page shows its family and every delivery opens in one click · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (stubbed; live walk owed on BO 3954) · blocked by: BO 3954
+- [907](907-billings-fold-a-cut-short-family-warns-and-a-failed-load-stays-quiet.md) — Billings fold, a cut-short family warns, and a failed load stays quiet · *(ticket · BackOffice spec 3953)* · **open** · blocked by: 906, BO 3956

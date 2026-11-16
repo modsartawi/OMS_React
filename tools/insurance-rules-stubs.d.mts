@@ -260,3 +260,14 @@ export declare const NPHIES_ANSWER: Record<string, unknown>
 
 /** 681: `GET InsuranceRules/Fields` for the playground; any other method counts into `store.fieldPosts`. */
 export declare function playgroundFieldsStub(method: string, path: string, opts?: { store?: { fieldPosts?: number }; deny?: string[] }): FulfillArg | null
+
+// --- BackOffice 3981 ---
+import type { RuleHit } from '../src/features/insurance-rules/rule-hits/api'
+export declare const RULE_HITS: RuleHit[]
+/** Door 3980's `GET InsuranceRules/RuleHits` and `…/RuleHits/Excel`, with its defaults and 400s. */
+export declare function ruleHitsStub(
+  method: string,
+  path: string,
+  query: URLSearchParams,
+  opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[]; rows?: RuleHit[]; today?: Date },
+): (FulfillArg & { headers?: Record<string, string> }) | null

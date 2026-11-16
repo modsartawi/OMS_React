@@ -32,4 +32,6 @@ export interface InsuranceRulesAccess {
   canIdfLookup: boolean
   canIdfEvents: boolean
   canIdfGroups: boolean
+  /** BackOffice 3980: the month's rule hits (`BackOfficeScreen[InsuranceRuleHits, 03]`); no rules grant lights it. */
+  canRuleHits: boolean
 }

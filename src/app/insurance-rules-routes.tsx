@@ -96,6 +96,12 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/metrics/MetricsPage')).default }),
     },
 
+    // BackOffice 3981 · the month's rule hits and their Excel (`rule-hits`), under their own grant
+    {
+      path: 'rule-hits',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/rule-hits/RuleHitsPage')).default }),
+    },
+
     // 617 · insurer settings, category and coverage rules (e.g. `insurers`, `categories`, `coverage`)
     {
       path: 'insurers',

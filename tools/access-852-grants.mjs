@@ -5,7 +5,7 @@
 
 export const INSURANCE_RULES_FLAGS_852 = [
   'canGuards', 'canTemplates', 'canLists', 'canPatientLists', 'canFields', 'canApprovals', 'canSimulator', 'canEditions', 'canReview',
-  'canExceptions', 'canMetrics', 'canInsurers', 'canCategories', 'canCoverage', 'canPlayground', 'canInspector',
+  'canExceptions', 'canMetrics', 'canRuleHits', 'canInsurers', 'canCategories', 'canCoverage', 'canPlayground', 'canInspector',
   'canFieldProposals', 'canAliases', 'canCodeLabels', 'canIdfMasters', 'canIdfStoreLists', 'canIdfExceptions',
   'canIdfLookup', 'canIdfEvents', 'canIdfGroups',
 ]

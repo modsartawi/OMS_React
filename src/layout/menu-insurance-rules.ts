@@ -10,6 +10,7 @@ import { Store } from 'lucide-react' // 620
 // 624 · icons
 import { ListX } from 'lucide-react' // 624
 import { UserX } from 'lucide-react' // BackOffice 3982
+import { FileClock } from 'lucide-react' // BackOffice 3981
 import { SearchCheck } from 'lucide-react' // 625
 // 626 · icons
 import { History } from 'lucide-react' // 626
@@ -149,6 +150,16 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       icon: ChartColumn,
       routerLink: '/insurance-rules/metrics',
       access: insuranceRulesProbe('canMetrics'),
+    },
+
+    // BackOffice 3981 · Rule hits (`menu.ruleHits`, `/insurance-rules/rule-hits`)
+    {
+      // BackOffice 3981 — the month's rule hits (every fire, its patient, payer and outcome) and their Excel. Its own
+      // grant (`InsuranceRuleHits`, Display): the rows carry national ids, so no rules grant lights it.
+      labelKey: 'insurance-rules:menu.ruleHits',
+      icon: FileClock,
+      routerLink: '/insurance-rules/rule-hits',
+      access: insuranceRulesProbe('canRuleHits'),
     },
 
     // 617 · Insurers, Categories, Coverage

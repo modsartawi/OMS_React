@@ -77,6 +77,10 @@ import insuranceLabelsAr from '@/locales/ar/insurance-labels.json'
 import insurancePayerMonthEn from '@/locales/en/insurance-payer-month.json'
 import insurancePayerMonthAr from '@/locales/ar/insurance-payer-month.json'
 
+// BackOffice 3981 · imports — the month's rule hits (`features/insurance-rules/rule-hits`, spec 3972, door 3980).
+import insuranceRuleHitsEn from '@/locales/en/insurance-rule-hits.json'
+import insuranceRuleHitsAr from '@/locales/ar/insurance-rule-hits.json'
+
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
@@ -126,6 +130,9 @@ export const INSURANCE_RULES_NS = [
 
   // 896 · ns
   'insurance-payer-month',
+
+  // BackOffice 3981 · ns
+  'insurance-rule-hits',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -177,6 +184,9 @@ export const INSURANCE_RULES_EN = {
 
   // 896 · en
   'insurance-payer-month': insurancePayerMonthEn,
+
+  // BackOffice 3981 · en
+  'insurance-rule-hits': insuranceRuleHitsEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -228,4 +238,7 @@ export const INSURANCE_RULES_AR = {
 
   // 896 · ar
   'insurance-payer-month': insurancePayerMonthAr,
+
+  // BackOffice 3981 · ar
+  'insurance-rule-hits': insuranceRuleHitsAr,
 }

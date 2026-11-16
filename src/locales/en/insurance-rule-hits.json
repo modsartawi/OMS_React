@@ -1,0 +1,65 @@
+{
+  "title": "Rule hits",
+  "lede": "Every time a guard rule fired at a till or an online check, with the patient, payer, store and what happened next. Download the window as Excel for the payer's review. The rows carry national IDs.",
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask for the insurance rule hits grant to read the rule hits."
+  },
+  "window": {
+    "label": "Window",
+    "from": "From",
+    "to": "To",
+    "invalid": "Pick a real start and end date.",
+    "reversed": "The end date is before the start date.",
+    "tooLong": "Pick a window of 93 days or less.",
+    "outOfBounds": "The window is outside the days the hits keep."
+  },
+  "filter": {
+    "label": "Filters",
+    "rule": "Rule ID",
+    "payer": "Payer",
+    "store": "Store",
+    "kind": "Live or shadow"
+  },
+  "kind": {
+    "live": "Live",
+    "shadow": "Shadow"
+  },
+  "columns": {
+    "firedAt": "Fired at",
+    "store": "Store",
+    "staff": "Staff",
+    "patientKey": "Patient ID",
+    "payer": "Payer",
+    "policy": "Policy",
+    "item": "Item",
+    "rule": "Rule",
+    "checkpoint": "Checkpoint",
+    "channel": "Channel",
+    "quantity": "Quantity",
+    "severity": "Severity",
+    "outcome": "Outcome",
+    "message": "Message"
+  },
+  "version": "version <v>{{version}}</v>",
+  "exception": "exception <v>{{id}}</v>",
+  "checkpoint": {
+    "submit": "Submit",
+    "dispense": "Dispense"
+  },
+  "outcome": {
+    "acknowledged": "Acknowledged",
+    "overridden": "Overridden",
+    "passedByException": "Passed by exception",
+    "refused": "Refused",
+    "unanswered": "Unanswered",
+    "notShown": "Not shown (shadow)"
+  },
+  "total_one": "<v>{{n}}</v> hit",
+  "total_other": "<v>{{n}}</v> hits",
+  "empty": "No rule fired in this window with these filters.",
+  "loading": "Loading the rule hits…",
+  "failed": "The rule hits could not be read.",
+  "download": "Download Excel",
+  "downloadFailed": "The Excel could not be downloaded."
+}

@@ -26,7 +26,8 @@
     "playground": "Playground",
     "codeLabels": "Code labels",
     "inspector": "Decision inspector",
-    "patientLists": "Patient lists"
+    "patientLists": "Patient lists",
+    "ruleHits": "Rule hits"
   },
   "labelsChanged": {
     "badge": "Labels changed",

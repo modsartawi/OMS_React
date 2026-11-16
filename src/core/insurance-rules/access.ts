@@ -33,6 +33,7 @@ export const INSURANCE_RULES_FLAGS = [
   'canReview',
   'canExceptions',
   'canMetrics',
+  'canRuleHits',
   'canInsurers',
   'canCategories',
   'canCoverage',

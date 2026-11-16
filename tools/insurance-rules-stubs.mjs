@@ -2658,3 +2658,59 @@ export function playgroundFieldsStub(method, path, opts = {}) {
   if (deny.includes('fields')) return { status: 403, body: '' }
   return envelope(FIELDS)
 }
+
+// --- BackOffice 3981 --- the month's rule hits (door 3980): `GET InsuranceRules/RuleHits?from&to&rule&payer&store
+// &channel&checkpoint&kind` answers `{ from, to, kind, rows }`; `GET InsuranceRules/RuleHits/Excel` the same query as
+// an .xlsx (Content-Disposition `rule-hits-{from}-to-{to}[-shadow].xlsx`). Defaults and refusals as 3980 builds them:
+// last calendar month, `kind=live`, more than 93 days or a reversed window is the JSON 400 `INSMETRICS_BAD_REQUEST`.
+// Synthetic national ids (`10398…`). `opts.asked` collects each read's `{ door, params }`; `opts.deny` names doors
+// (`ruleHits`, `ruleHitsExcel`) answered with a bare 403.
+const hit = (firedAt, store, staff, patientKey, payer, policy, item, ruleId, version, checkpoint, channel, severity, outcome, kind, o = {}) => ({
+  firedAt, store, staff, patientKey, payer, policy, item, ruleId, version, checkpoint, channel,
+  requestReference: `${channel.toUpperCase()}-${item}:${checkpoint}`, quantity: 1, severity, outcome, exceptionId: '', kind,
+  messageEn: 'Refill too soon', messageAr: 'إعادة الصرف مبكرة', checkId: `CHK-${firedAt.slice(8, 10)}${item}`, lineNumber: 1, ...o,
+})
+export const RULE_HITS = [
+  hit('2026-10-03T14:05:06', 'S001', 'pharm1', '1039800001', 'BUPA', 'POL-77', '000123', 'BR-3.3', 4, 'dispense', 'nphies', 'REFUSE', 'refused', 'live', { quantity: 2 }),
+  hit('2026-10-07T09:12:40', 'S014', 'pharm2', '1039800002', 'TAWUNIYA', 'POL-12', '000456', 'BR-1', 2, 'submit', 'waseel', 'OVERRIDE', 'overridden', 'live', { messageEn: 'Infant formula needs approval', messageAr: 'حليب الأطفال يحتاج موافقة' }),
+  hit('2026-10-11T18:30:00', 'S001', 'pharm1', '1039800003', 'BUPA', 'POL-80', '000789', 'BR-7', 1, 'submit', 'bupa', 'REFUSE', 'passedByException', 'live', { exceptionId: 'EX-31', messageEn: 'Patient is blocked', messageAr: 'المريض محظور' }),
+  hit('2026-10-20T11:00:00', 'S020', 'pharm3', '1039800004', 'MEDGULF', 'POL-5', '000123', 'BR-3.3', 4, 'dispense', 'oms', 'WARN', 'unanswered', 'live'),
+  hit('2026-10-22T16:45:10', 'S001', 'pharm1', '1039800005', 'BUPA', 'POL-77', '000321', 'BR-4', 1, 'submit', 'nphies', 'WARN', 'notShown', 'shadow', { messageEn: 'Over the limit', messageAr: 'تجاوز الحد' }),
+]
+
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function ruleHitsWindow(query, today = new Date()) {
+  const from = query.get('from') || iso(new Date(today.getFullYear(), today.getMonth() - 1, 1))
+  const to = query.get('to') || (query.get('from') ? iso(today) : iso(new Date(today.getFullYear(), today.getMonth(), 0)))
+  const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1
+  if (!(days >= 1)) return { problem: 'from is after to.' }
+  if (days > 93) return { problem: 'The range is at most 93 days.' }
+  const kind = query.get('kind') || 'live'
+  if (!['live', 'shadow'].includes(kind)) return { problem: 'kind must be live or shadow.' }
+  return { from, to, kind }
+}
+
+export function ruleHitsStub(method, path, query, opts = {}) {
+  const { deny = [], asked = [], rows = RULE_HITS } = opts
+  if (method !== 'GET') return null
+  const door = path === 'InsuranceRules/RuleHits' ? 'ruleHits' : path === 'InsuranceRules/RuleHits/Excel' ? 'ruleHitsExcel' : null
+  if (!door) return null
+  asked.push({ door, params: Object.fromEntries(query) })
+  if (deny.includes(door)) return { status: 403, body: '' }
+  const w = ruleHitsWindow(query, opts.today)
+  if (w.problem) return envelope(null, { status: 400, success: false, message: w.problem, errorCode: 'INSMETRICS_BAD_REQUEST' })
+  const eq = (field) => (r) => !query.get(field) || r[field === 'rule' ? 'ruleId' : field] === query.get(field)
+  const matched = rows
+    .filter((r) => r.kind === w.kind && r.firedAt.slice(0, 10) >= w.from && r.firedAt.slice(0, 10) <= w.to)
+    .filter(eq('rule')).filter(eq('payer')).filter(eq('store')).filter(eq('channel')).filter(eq('checkpoint'))
+  if (door === 'ruleHitsExcel') {
+    const day = (d) => d.replace(/-/g, '')
+    return {
+      status: 200,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      headers: { 'Content-Disposition': `attachment; filename="rule-hits-${day(w.from)}-to-${day(w.to)}${w.kind === 'shadow' ? '-shadow' : ''}.xlsx"` },
+      body: 'PK-stub-xlsx',
+    }
+  }
+  return envelope({ from: `${w.from}T00:00:00`, to: `${w.to}T00:00:00`, kind: w.kind, rows: matched })
+}

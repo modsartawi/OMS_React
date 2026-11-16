@@ -74,7 +74,24 @@
       "added_other": "{{n}} codes to add",
       "skipped_one": "{{n}} skipped: already in the field or repeated",
       "skipped_other": "{{n}} skipped: already in the field or repeated",
-      "ok": "Add the codes"
+      "ok": "Add the codes",
+      "replaceAction": "Replace with a paste",
+      "replaceTitle": "Replace every code of this field",
+      "replaced_one": "{{n}} code will replace the field's codes",
+      "replaced_other": "{{n}} codes will replace the field's codes",
+      "replaceOk": "Replace the codes",
+      "compare": "Compare with the live list",
+      "againstLive": "Against the live list",
+      "count": {
+        "added_one": "{{n}} code added",
+        "added_other": "{{n}} codes added",
+        "removed_one": "{{n}} code removed",
+        "removed_other": "{{n}} codes removed",
+        "notInMaster_one": "{{n}} code not in the item master",
+        "notInMaster_other": "{{n}} codes not in the item master"
+      },
+      "notInMasterCodes": "Not in the item master (never matches):",
+      "countFailed": "The paste could not be compared with the live list"
     }
   },
   "problem": {

@@ -21,6 +21,7 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi, formatPair } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { listsApi, type ListPreview } from './api'
+import { pasteCountLines, type PasteCounts } from './paste-counts'
 import { attributeCodes, attributeMode, listProblems, withList, type ListProblem } from './list-graph'
 import { CARD, CHIP } from './ui'
 
@@ -113,6 +114,7 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
               {f.attributes.map((a, ai) => (
                 <AttributeRow
                   key={ai}
+                  listId={list.id}
                   attr={a}
                   fields={itemFields}
                   onChange={(next) => setAttr(fi, ai, next)}
@@ -236,9 +238,11 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
 
 /**
  * One registry-field row: the field, any of / none of, the codes (each with its description), the picker, and a
- * paste box for a column of codes from Excel (655) — item numbers, say, once the registry holds that field.
+ * paste box for a column of codes from Excel (655) — item numbers (the `ItemNumber` registry row, BackOffice 3983).
+ * A paste either adds to the codes or replaces them all (a new TCS or GIG workbook, 3971); after either, HQ counts
+ * the field's codes against the LIVE version of the list — added, removed, not in the item master — before submit.
  */
-function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAttribute; fields: RegistryField[]; onChange: (a: GuardListAttribute) => void; onRemove: () => void }) {
+function AttributeRow({ listId, attr, fields, onChange, onRemove }: { listId: string; attr: GuardListAttribute; fields: RegistryField[]; onChange: (a: GuardListAttribute) => void; onRemove: () => void }) {
   const { t } = useTranslation('insurance-lists')
   const mode = attributeMode(attr)
   const codes = attributeCodes(attr)
@@ -249,7 +253,14 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
   const found = useQuery({ ...fieldValuesQuery(attr.field, settled), enabled: !!attr.field && settled !== '' })
   const describe = (code: string) => [...(known.data ?? []), ...(found.data ?? [])].find((v) => v.code === code)?.description ?? ''
   const options = (settled ? found.data : known.data)?.filter((v) => !codes.includes(v.code)).slice(0, 8) ?? []
-  const [pasting, setPasting] = useState(false)
+  const [pasting, setPasting] = useState<'add' | 'replace' | null>(null)
+  const [counted, setCounted] = useState<{ key: string; counts: PasteCounts } | null>(null)
+  const countKey = (field: string, list: string[]) => JSON.stringify([listId, field, list])
+  const count = useMutation({
+    mutationFn: (next: string[]) => listsApi.pasteCounts(listId, attr.field, next),
+    onSuccess: (counts, next) => setCounted({ key: countKey(attr.field, next), counts }),
+  })
+  const shownCounts = counted && counted.key === countKey(attr.field, codes) ? counted.counts : null
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2" data-attribute-row={attr.field}>
@@ -284,28 +295,51 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
           </span>
         ))}
       </div>
-      <Button variant="text" className="w-fit" onClick={() => setPasting(true)} disabled={!attr.field} data-paste-codes="">
-        <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
-        {t('editor.paste.action')}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="text" className="w-fit" onClick={() => setPasting('add')} disabled={!attr.field} data-paste-codes="">
+          <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+          {t('editor.paste.action')}
+        </Button>
+        <Button variant="text" className="w-fit" onClick={() => setPasting('replace')} disabled={!attr.field} data-paste-replace="">
+          <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+          {t('editor.paste.replaceAction')}
+        </Button>
+        <Button
+          variant="text"
+          className="w-fit"
+          aria-disabled={!attr.field || !listId || count.isPending}
+          onClick={() => attr.field && listId && !count.isPending && count.mutate(codes)}
+          data-paste-compare=""
+        >
+          {count.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+          {t('editor.paste.compare')}
+        </Button>
+      </div>
       <PasteCodesDialog
-        open={pasting}
-        existing={codes}
+        open={pasting !== null}
+        existing={pasting === 'replace' ? [] : codes}
         testId="list-paste"
         labels={{
-          title: t('editor.paste.title'),
+          title: pasting === 'replace' ? t('editor.paste.replaceTitle') : t('editor.paste.title'),
           hint: t('editor.paste.hint'),
-          added: (count) => t('editor.paste.added', { count, n: fsi(String(count)) }),
-          skipped: (count) => t('editor.paste.skipped', { count, n: fsi(String(count)) }),
-          ok: t('editor.paste.ok'),
+          added: (n) =>
+            pasting === 'replace'
+              ? t('editor.paste.replaced', { count: n, n: fsi(String(n)) })
+              : t('editor.paste.added', { count: n, n: fsi(String(n)) }),
+          skipped: (n) => t('editor.paste.skipped', { count: n, n: fsi(String(n)) }),
+          ok: pasting === 'replace' ? t('editor.paste.replaceOk') : t('editor.paste.ok'),
           cancel: t('editor.cancel'),
         }}
-        onClose={() => setPasting(false)}
+        onClose={() => setPasting(null)}
         onConfirm={(pasted) => {
-          onChange(make(attr.field, mode, [...codes, ...pasted]))
-          setPasting(false)
+          const next = pasting === 'replace' ? pasted : [...codes, ...pasted]
+          onChange(make(attr.field, mode, next))
+          setPasting(null)
+          if (listId) count.mutate(next)
         }}
       />
+      {count.isError && <ErrorBanner className="p-2" message={apiErrorMessage(count.error, t('editor.paste.countFailed'))} />}
+      {shownCounts && <PasteCountsResult counts={shownCounts} />}
       <div className="flex flex-col gap-1">
         <Input
           className="max-w-sm"
@@ -329,6 +363,36 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
           {settled && found.data && options.length === 0 && <span className="text-xs text-muted-foreground">{t('editor.noValue')}</span>}
         </div>
       </div>
+    </div>
+  )
+}
+
+const NOT_IN_MASTER_SHOWN = 50
+
+/** The paste against the live list (3983): always the three counts, then the codes no item of the master has. */
+function PasteCountsResult({ counts }: { counts: PasteCounts }) {
+  const { t } = useTranslation('insurance-lists')
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 p-2 text-sm" data-paste-counts="">
+      <span className="text-xs font-semibold text-muted-foreground">{t('editor.paste.againstLive')}</span>
+      <ul className="flex flex-wrap gap-x-4">
+        {pasteCountLines(counts).map((l) => (
+          <li key={l.kind} data-paste-count={l.kind} data-count={l.count} className={l.kind === 'notInMaster' && l.count > 0 ? 'text-attention-800' : undefined}>
+            {t(`editor.paste.count.${l.kind}`, { count: l.count, n: fsi(String(l.count)) })}
+          </li>
+        ))}
+      </ul>
+      {counts.notInMasterCodes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1" data-paste-not-in-master="">
+          <span className="text-xs text-muted-foreground">{t('editor.paste.notInMasterCodes')}</span>
+          {counts.notInMasterCodes.slice(0, NOT_IN_MASTER_SHOWN).map((c) => (
+            <span key={c} className={CHIP}>
+              <Ltr>{c}</Ltr>
+            </span>
+          ))}
+          {counts.notInMasterCodes.length > NOT_IN_MASTER_SHOWN && <span className="text-xs text-muted-foreground">…</span>}
+        </div>
+      )}
     </div>
   )
 }

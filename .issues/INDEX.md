@@ -1486,3 +1486,11 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Bupa line outcomes (BackOffice spec 3888, brief assets/3888-oms-react-bupa-outcomes-brief.md, filed 2026-11-14)
 
 - [899](899-bupa-line-outcomes-filter-a-date-range-read-the-summary-open-its-lines-and-export.md) — Bupa line outcomes: filter a date range, read the summary, open its lines, and export to Excel · *(ticket · BackOffice spec 3888; doors 3889-3891)* · **done** — built 2026-11-14, stubbed (drive 52/52); staging walk owed once BO 3889-3891 land · blocked by: BO 3889 (stubs first)
+
+## Store sync: disabled stores and resume-all (BackOffice spec 3913), filed 2026-11-15
+
+- [900](900-the-operator-disables-and-enables-stores-and-disabled-stores-hide-behind-show-disabled.md) — The operator disables and enables stores, and disabled stores hide behind "Show disabled (N)" · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3914
+- [901](901-the-disable-dialog-warns-what-hq-may-not-have-yet.md) — The Disable dialog warns what HQ may not have yet · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: 900, BO 3917
+- [902](902-the-operator-selects-every-store-a-filter-matches-and-acts-on-them-as-one-group.md) — The operator selects every store a filter matches and acts on them as one group · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: 900, BO 3916, BO 3917
+- [903](903-resume-all-paused-resumes-the-working-fleet-in-one-action.md) — "Resume all paused…" resumes the working fleet in one action · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3916, BO 3917
+- [904](904-datasync-never-applies-to-a-disabled-store.md) — DataSync never applies to a disabled store · *(ticket · BackOffice spec 3913; code also in Replicate_SqlDataCompare)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3914 (deploy after HQ mig 012)

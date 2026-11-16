@@ -60,6 +60,7 @@ import ActivitySpine, { type Deferred } from './ActivitySpine'
 import CalloutPanel from './CalloutPanel'
 import CommandPanel from './CommandPanel'
 import FactsColumn from './FactsColumn'
+import { familyKey } from './family-tree'
 import { pickSupportSectionGate } from './pick-support-section'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
@@ -704,6 +705,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     // The delivery money strip's order row (789): it asks its own read, so Refresh re-reads it too.
     const stripKey = document ? stripRefreshKey({ openedAs, refDocumentNo: document.refDocumentNo, access: access.data }) : null
     if (stripKey) void queryClient.invalidateQueries({ queryKey: stripKey })
+    // The Family section (906) asks its own read, so Refresh re-reads it too.
+    if (document) void queryClient.invalidateQueries({ queryKey: familyKey(document.documentNo, document.documentCategory) })
   }
 
   /**

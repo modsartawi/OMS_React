@@ -1005,5 +1005,23 @@
       "amountDue": "This delivery's amount due"
     },
     "link": "Open the order's insurance"
+  },
+  "family": {
+    "heading": "Family (<n>{{count}}</n>)",
+    "ariaLabel": "Document family",
+    "youAreHere": "You are here",
+    "categories": {
+      "Q": "Request",
+      "O": "Order",
+      "X": "E-prescription",
+      "D": "Delivery",
+      "T": "Delivery return",
+      "R": "Order return",
+      "E": "E-prescription return",
+      "B": "Billing",
+      "C": "Memo",
+      "V": "Memo",
+      "unknown": "Document"
+    }
   }
 }

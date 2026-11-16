@@ -1,5 +1,6 @@
 import { api, apiErrorCode } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
+import type { DocumentFamily } from '@/core/models/document-family'
 import type { ForceLfReturnRefundRequest, LfReturnDetailModel } from '@/core/models/lf-return'
 import { NOT_AN_INSURANCE_ORDER_CODE, type OrderInsuranceRead, type OrderInsuranceReadWire } from '@/core/models/order-insurance'
 import { orderSearchPageOf, type OrderDocumentRow } from '@/core/models/order-document'
@@ -63,6 +64,14 @@ export const documentApi = {
   },
   getOutbox(documentNo: string): Promise<SdDocumentOutboxModel[]> {
     return api.get<SdDocumentOutboxModel[]>(`${BASE}/Document/${encode(documentNo)}/Outbox`)
+  },
+  /**
+   * The document's whole family (BackOffice spec 3953, endpoint 3954, ticket 906): every member from
+   * the family root down, as a flat list. Keyed by number AND category (billings and return orders
+   * share the 30… range); a delivery is asked the same way, with D or T. Same DocumentDetails grant.
+   */
+  getFamily(documentNo: string, category: string): Promise<DocumentFamily> {
+    return api.get<DocumentFamily>(`${BASE}/Document/${encode(documentNo)}/Family`, { category: (category ?? '').trim() })
   },
   /**
    * A delivery's donor requests (BackOffice 2458, ticket 429): live ones oldest first, the

@@ -40,6 +40,10 @@ function encode(value: string): string {
   return encodeURIComponent((value ?? '').trim())
 }
 
+/** The query key of a document's family read (ticket 906), by the record's number and category. */
+export const familyKey = (documentNo: string, category: string) =>
+  ['document', 'family', (documentNo ?? '').trim(), (category ?? '').trim()] as const
+
 /**
  * Data access for Screen 2 — Document Details.
  *

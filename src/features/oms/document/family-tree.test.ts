@@ -120,7 +120,7 @@ describe('family tree: the open document and where one click takes each member',
     expect(members(tree.root).filter((n) => n.isOpen).map((n) => n.key)).toEqual(['D:8007000002'])
   })
 
-  it('a delivery or return delivery opens on the delivery page; a request, order, ERX, return order or E on the document page', () => {
+  it('a member opens where the server’s pageKind says: "delivery" on the delivery page, "document" on the document page', () => {
     const tree = familyTree({
       askedNo: '9000012345',
       askedCategory: 'Q',
@@ -128,13 +128,13 @@ describe('family tree: the open document and where one click takes each member',
       rootCategory: 'Q',
       truncated: false,
       nodes: [
-        node('9000012345', 'Q', null),
-        node('1001299001', 'O', ['9000012345', 'Q']),
-        node('1001299002', 'X', ['9000012345', 'Q']),
-        node('8007123470', 'D', ['1001299001', 'O']),
-        node('3000000018', 'R', ['8007123470', 'D']),
-        node('6000000011', 'T', ['3000000018', 'R']),
-        node('3000000019', 'E', ['8007123470', 'D']),
+        node('9000012345', 'Q', null, { pageKind: 'document' }),
+        node('1001299001', 'O', ['9000012345', 'Q'], { pageKind: 'document' }),
+        node('1001299002', 'X', ['9000012345', 'Q'], { pageKind: 'document' }),
+        node('8007123470', 'D', ['1001299001', 'O'], { pageKind: 'delivery' }),
+        node('3000000018', 'R', ['8007123470', 'D'], { pageKind: 'document' }),
+        node('6000000011', 'T', ['3000000018', 'R'], { pageKind: 'delivery' }),
+        node('3000000019', 'E', ['8007123470', 'D'], { pageKind: 'document' }),
       ],
     })!
     expect(Object.fromEntries(members(tree.root).map((n) => [n.key, n.link]))).toEqual({
@@ -145,6 +145,26 @@ describe('family tree: the open document and where one click takes each member',
       'R:3000000018': '/oms/document/3000000018',
       'T:6000000011': '/oms/delivery/6000000011',
       'E:3000000019': '/oms/document/3000000019',
+    })
+  })
+
+  it('the link follows pageKind, not the category: a null pageKind is no link even on an order, and the server may send a category to either page', () => {
+    const tree = familyTree({
+      ...SPLIT,
+      nodes: [
+        node('1005551234', 'O', null, { pageKind: null }),
+        node('8007000001', 'D', ['1005551234', 'O'], { pageKind: 'document' }),
+        node('3007700101', 'B', ['8007000001', 'D'], { pageKind: null }),
+        node('8007000002', 'D', ['1005551234', 'O'], { pageKind: 'delivery' }),
+      ],
+      askedNo: '3007700101',
+      askedCategory: 'B',
+    })!
+    expect(Object.fromEntries(members(tree.root).map((n) => [n.key, n.link]))).toEqual({
+      'O:1005551234': null,
+      'D:8007000001': '/oms/document/8007000001',
+      'B:3007700101': null,
+      'D:8007000002': '/oms/delivery/8007000002',
     })
   })
 
@@ -187,6 +207,43 @@ describe('family tree: the title\'s count, and a document that stands alone show
     })!
     expect(outline(tree.root)).toEqual(['0 1005551234/O', '1 8007000001/D', '2 3007700101/B', '1 8007000002/D'])
     expect(tree.count).toBe(4)
+  })
+})
+
+describe('family tree: a member whose parent is not in the answer (an orphan) never vanishes', () => {
+  it('it is drawn as an extra top-level row after the root’s tree, at depth 0, with its own children, and counted', () => {
+    const tree = familyTree({
+      ...SPLIT,
+      nodes: [
+        ...SPLIT.nodes,
+        node('8007000009', 'D', ['1009999999', 'O']),
+        node('3007700909', 'B', ['8007000009', 'D']),
+      ],
+    })!
+    expect(outline(tree.root)).toEqual(['0 1005551234/O', '1 8007000001/D', '2 3007700101/B', '1 8007000002/D'])
+    expect(tree.orphans.flatMap(outline)).toEqual(['0 8007000009/D', '1 3007700909/B'])
+    expect(tree.count).toBe(6)
+  })
+
+  it('an orphan that is the open document is the one "You are here"', () => {
+    const tree = familyTree({
+      ...SPLIT,
+      askedNo: '8007000009',
+      askedCategory: 'D',
+      nodes: [...SPLIT.nodes, node('8007000009', 'D', ['1009999999', 'O'], { pageKind: 'delivery' })],
+    })!
+    const all = [...members(tree.root), ...tree.orphans.flatMap(members)]
+    expect(all.filter((n) => n.isOpen).map((n) => n.key)).toEqual(['D:8007000009'])
+    expect(tree.orphans[0].link).toBeNull()
+  })
+
+  it('a family with no orphans has none', () => {
+    expect(familyTree(SPLIT)!.orphans).toEqual([])
+  })
+
+  it('a root alone with only orphans beside it still shows (two members drawn)', () => {
+    const tree = familyTree({ ...SPLIT, askedNo: '1005551234', askedCategory: 'O', nodes: [node('1005551234', 'O', null), node('8007000009', 'D', ['1009999999', 'O'])] })!
+    expect(tree.count).toBe(2)
   })
 })
 

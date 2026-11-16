@@ -82,3 +82,29 @@ met a real answer.
   server's message — the envelope's design, not this ticket's.
 - `npm run lint`'s boundary gate still fails only on the pre-existing
   `src/features/insurance-rules/aliases/door-shapes.test.ts`; the other four gates pass.
+
+**2026-11-16 — review fixes (branch `impl/3953-review-fixes`).** The code review's thirteen rulings, applied:
+
+- **A failed read:** a 404 (the route not deployed) and a bare 403 (`isBareDenial`) draw nothing; any other
+  failure draws the section titled "Family" (no count) with one quiet line inside it, "The family couldn't be
+  loaded." only — `failedWithReason` and the server's reason are gone. `family.title` is kept: it is that
+  title (the only count-less title the ruling asks for).
+- **Scroll:** the tree sits in its own box (`max-h-96`, `overflow-y-auto`); the open row is brought into view by
+  setting that box's `scrollTop` by hand (`nearest`), once per record — never the window, never on a refetch.
+- **Orphans:** a member whose parent is not in the answer is drawn as a top-level row (depth 0) after the
+  root's tree (`FamilyTreeView.orphans`), counted, and can be "You are here" — model tests.
+- **Links from `pageKind`:** `familyLink(no, pageKind)`; the category tables (`NAMED_CATEGORIES`, `BADGE`,
+  `NO_PAGE`, the `'B'` check) are one descriptor table, `familyCategory()` in `family-tree.ts` (name key,
+  badge tint, billing, no-page tooltip). The unruled C/V "Memos have no page" tooltip and key are gone.
+  `familyKey` moved to `api.ts`.
+- **Words:** the warning is "Family cut short — not every document is shown." (no cap; `FAMILY_MEMBER_CAP`
+  removed); `heading` and `moreBillings` carry the six Arabic plural forms (en `_one`/`_other`), and the key
+  test compares plural base keys and checks the forms; the till invoice is one `<Trans>` key with an `Ltr`
+  slot; the partner pair is one `<bdi>` (led by free text), root only.
+- **Panel:** the tree is `useMemo`'d on the query data; "+ N more billings" sits right after the first
+  billing, where the folded ones appear, so expanding reorders nothing.
+- **Proof:** `npm run typecheck` clean; `npm test` 782 files / 10790 tests green; the lint gates other than
+  boundaries pass (boundaries still fails only on the pre-existing `insurance-rules/aliases`);
+  `tools/document-family-drive.mjs` 87/87 — adds 404 → nothing, bare 403 → nothing, 500 → the quiet line
+  inside "Family", the window never scrolling, a 31-member family scrolled inside its own box and not again
+  after Refresh (LTR + RTL), the orphan row, the fold button's place, and the partner `<bdi>`.

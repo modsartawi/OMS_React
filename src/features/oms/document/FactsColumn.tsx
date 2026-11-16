@@ -55,7 +55,8 @@ const MONO = new Set([
  * Top to bottom:
  * - **Family** (ticket 906, BackOffice spec 3953), a disclosure open by default with the
  *   document's whole family as a tree from its root; drawn only when the family has more than
- *   one member, and nothing at all while its read is pending or failed (`FamilyPanel`);
+ *   one member; nothing while its read is pending, 404s or is barely denied, one quiet line
+ *   inside the section on any other failure (`FamilyPanel`);
  * - **the facts**: Customer · Prescription · Fulfilment · Driver & tracking · Payment as
  *   dense label/value blocks. `railCards` decides which blocks and rows exist (083
  *   D-5/D-6: Prescription and Driver collapse out when empty, a blank text row is

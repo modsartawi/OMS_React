@@ -663,7 +663,12 @@
     "link": "افتح تأمين الطلب"
   },
   "family": {
-    "heading": "العائلة (<n>{{count}}</n>)",
+    "heading_zero": "العائلة (<n>{{count}}</n>)",
+    "heading_one": "العائلة (<n>{{count}}</n>)",
+    "heading_two": "العائلة (<n>{{count}}</n>)",
+    "heading_few": "العائلة (<n>{{count}}</n>)",
+    "heading_many": "العائلة (<n>{{count}}</n>)",
+    "heading_other": "العائلة (<n>{{count}}</n>)",
     "ariaLabel": "عائلة المستند",
     "youAreHere": "أنت هنا",
     "categories": {
@@ -681,15 +686,18 @@
     },
     "title": "العائلة",
     "noPage": {
-      "billing": "لا توجد صفحة للفوترة",
-      "memo": "لا توجد صفحة للمذكرات"
+      "billing": "لا توجد صفحة للفوترة"
     },
-    "tillInvoice": "فاتورة",
+    "tillInvoice": "فاتورة <n>{{tillInvoice}}</n>",
     "tillInvoiceTitle": "فاتورة نقطة البيع",
     "partnerReference": "مرجع الشريك",
-    "moreBillings": "+ <n>{{count}}</n> فوترة أخرى",
-    "truncated": "تم اختصار العائلة عند <n>{{cap}}</n> مستند — لا تظهر كل المستندات.",
-    "failed": "تعذّر تحميل العائلة.",
-    "failedWithReason": "تعذّر تحميل العائلة: <m>{{message}}</m>"
+    "moreBillings_zero": "+ <n>{{count}}</n> فوترة أخرى",
+    "moreBillings_one": "+ <n>{{count}}</n> فوترة أخرى",
+    "moreBillings_two": "+ <n>{{count}}</n> فوترتان أخريان",
+    "moreBillings_few": "+ <n>{{count}}</n> فوترات أخرى",
+    "moreBillings_many": "+ <n>{{count}}</n> فوترة أخرى",
+    "moreBillings_other": "+ <n>{{count}}</n> فوترة أخرى",
+    "truncated": "تم اختصار العائلة — لا تظهر كل المستندات.",
+    "failed": "تعذّر تحميل العائلة."
   }
 }

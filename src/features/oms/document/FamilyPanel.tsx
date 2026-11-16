@@ -1,44 +1,37 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
+import { ApiError, isBareDenial } from '@/core/api'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { documentApi } from './api'
+import { documentApi, familyKey } from './api'
 import Disclosure from './Disclosure'
-import { FAMILY_MEMBER_CAP, familyCategoryKey, familyKey, familyTree, type FamilyTreeNode } from './family-tree'
+import { familyCategory, familyTree, type FamilyTreeNode } from './family-tree'
 
 /**
- * A category badge's tint, by category. Categorical, not a severity: an order reads blue, a
- * delivery green, a return red, and a member with no page (a billing, a memo) neutral — the
- * prototype's palette (3943), on the theme's own tokens, never a literal.
+ * A failed read that draws nothing at all: a 404 (the Family route is not deployed on this host yet —
+ * spec 3953 "Deployment order") or a bare 403 (the grant filter refused; the page's own gate speaks for
+ * that). Any other failure is the section's one quiet line.
  */
-const BADGE: Record<string, string> = {
-  Q: 'bg-attention-050 text-attention-800',
-  O: 'bg-primary-050 text-primary-800',
-  X: 'bg-primary-050 text-primary-800',
-  D: 'bg-success-050 text-success-800',
-  R: 'bg-danger-050 text-danger-800',
-  E: 'bg-danger-050 text-danger-800',
-  T: 'bg-danger-050 text-danger-800',
-}
-const BADGE_NEUTRAL = 'bg-muted text-muted-foreground'
+const silentFailure = (err: unknown) => (err instanceof ApiError && err.statusCode === 404) || isBareDenial(err)
 
 /**
  * **The Family section** (ticket 906, BackOffice spec 3953 "Family panel", ruling 3943): the
- * document's whole family as an indented tree from the family root, first in the facts column and
- * open by default, on both Document details and Delivery details (one component). Every member with
- * a page opens with one click through the router, so the page it lands on records it in Recent.
+ * document's whole **document family** as an indented tree from the **family root**, first in the facts
+ * column and open by default, on both Document details and Delivery details (one component). Every
+ * member with a page (the server's `pageKind`) opens with one click through the router, so the page it
+ * lands on records it in Recent.
  *
  * Self-contained: it asks the Family read (`documentApi.getFamily`, BackOffice 3954) once the record
- * has loaded, by the record's number and `documentCategory`. A lone document — or no answer — draws
- * nothing; a failed read draws one quiet line (ticket 907): the section never blocks the page.
+ * has loaded, by the record's number and `documentCategory`. A lone document — or no answer, a 404 or a
+ * bare 403 — draws nothing; any other failed read draws the section with one quiet line in it (ticket
+ * 907): the section never blocks the page.
  *
  * Ticket 907: a parent's billings past the first fold behind "+ N more billings" when it has more than
  * two (the model's `shown`/`folded`), expanded in place; a truncated answer warns under the tree.
@@ -56,29 +49,34 @@ export default function FamilyPanel({ document }: { document: Pick<SdDocumentHea
   const [open, setOpen] = useState(true)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   const openRow = useRef<HTMLDivElement>(null)
-  const view = read.isError ? null : familyTree(read.data)
+  const scroller = useRef<HTMLDivElement>(null)
+  const scrolled = useRef(false)
+  const view = useMemo(() => familyTree(read.data), [read.data])
   const expand = (key: string) => setExpanded((prev) => new Set(prev).add(key))
 
-  // In a big family the open document is scrolled into view — `nearest`, so a row already on
-  // screen moves nothing.
-  useEffect(() => {
-    openRow.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [view?.count, no])
+  // In a big family the open document is brought into view — inside the tree's own scroll box only,
+  // never the window, and once per record (the panel is keyed by it): a refetch moves nothing.
+  // `nearest`: a row already in view moves nothing.
+  useLayoutEffect(() => {
+    if (scrolled.current || read.isError || !view) return
+    const box = scroller.current
+    const row = openRow.current
+    if (!box || !row) return
+    scrolled.current = true
+    const b = box.getBoundingClientRect()
+    const r = row.getBoundingClientRect()
+    if (r.top < b.top) box.scrollTop += r.top - b.top
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom
+  }, [view, read.isError])
 
   if (read.isError) {
-    const message = apiErrorMessage(read.error, '').trim()
+    if (silentFailure(read.error)) return null
     return (
-      <p
-        role="status"
-        className="m-0 min-w-0 truncate rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground"
-        data-family-failed=""
-      >
-        {message ? (
-          <Trans t={t} i18nKey="family.failedWithReason" values={{ message }} components={{ m: <bdi /> }} />
-        ) : (
-          t('family.failed')
-        )}
-      </p>
+      <Disclosure id="doc-family" open={open} onToggle={setOpen} summary={t('family.title')}>
+        <p role="status" className="m-0 text-xs text-muted-foreground" data-family-failed="">
+          {t('family.failed')}
+        </p>
+      </Disclosure>
     )
   }
   if (!view) return null
@@ -89,9 +87,14 @@ export default function FamilyPanel({ document }: { document: Pick<SdDocumentHea
       onToggle={setOpen}
       summary={<Trans t={t} i18nKey="family.heading" count={view.count} components={{ n: <Ltr /> }} />}
     >
-      <ul aria-label={t('family.ariaLabel')} className="m-0 list-none p-0" data-family-tree="">
-        <Member node={view.root} openRow={openRow} expanded={expanded} onExpand={expand} />
-      </ul>
+      <div ref={scroller} className="max-h-96 overflow-y-auto" data-family-scroll="">
+        <ul aria-label={t('family.ariaLabel')} className="m-0 list-none p-0" data-family-tree="">
+          <Member node={view.root} isRoot openRow={openRow} expanded={expanded} onExpand={expand} />
+          {view.orphans.map((orphan) => (
+            <Member key={orphan.key} node={orphan} openRow={openRow} expanded={expanded} onExpand={expand} />
+          ))}
+        </ul>
+      </div>
       {view.truncated && (
         <p
           role="note"
@@ -99,9 +102,7 @@ export default function FamilyPanel({ document }: { document: Pick<SdDocumentHea
           data-family-truncated=""
         >
           <TriangleAlert aria-hidden className="mt-px size-3.5 flex-none" />
-          <span className="min-w-0">
-            <Trans t={t} i18nKey="family.truncated" values={{ cap: FAMILY_MEMBER_CAP }} components={{ n: <Ltr /> }} />
-          </span>
+          <span className="min-w-0">{t('family.truncated')}</span>
         </p>
       )}
     </Disclosure>
@@ -110,6 +111,8 @@ export default function FamilyPanel({ document }: { document: Pick<SdDocumentHea
 
 interface MemberProps {
   node: FamilyTreeNode
+  /** The family root (its partner reference shows); an orphan row at depth 0 is not. */
+  isRoot?: boolean
   openRow: RefObject<HTMLDivElement | null>
   /** The parents whose folded billings were expanded. */
   expanded: ReadonlySet<string>
@@ -118,35 +121,36 @@ interface MemberProps {
 
 /**
  * One member and, under it, its children — indented on the inline-start side, so it mirrors under
- * RTL. Its billings past the first are folded behind "+ N more billings" until that is clicked.
+ * RTL. Its billings past the first are folded behind "+ N more billings", drawn right after that first
+ * billing — where the folded ones appear once it is clicked, so expanding reorders nothing.
  */
-function Member({ node, openRow, expanded, onExpand }: MemberProps) {
+function Member({ node, isRoot = false, openRow, expanded, onExpand }: MemberProps) {
   const { t } = useTranslation('document')
   const folded = node.folded.length > 0 && !expanded.has(node.key)
   const children = folded ? node.shown : node.children
+  const firstBilling = folded ? node.shown.find((c) => familyCategory(c.category).billing)?.key : undefined
   return (
     <li>
-      <MemberRow node={node} openRow={openRow} />
+      <MemberRow node={node} isRoot={isRoot} openRow={openRow} />
       {children.length > 0 && (
         <ul className="m-0 ms-3.5 list-none border-s border-border p-0 ps-2.5">
-          {children.map((child) => (
-            <Member key={child.key} node={child} openRow={openRow} expanded={expanded} onExpand={onExpand} />
-          ))}
-          {folded && (
-            <li>
-              <Button variant="ghost" className="h-6 px-2 text-xs" onClick={() => onExpand(node.key)} data-family-more={node.key}>
-                <Trans t={t} i18nKey="family.moreBillings" count={node.folded.length} components={{ n: <Ltr /> }} />
-              </Button>
-            </li>
-          )}
+          {children.flatMap((child) => {
+            const row = <Member key={child.key} node={child} openRow={openRow} expanded={expanded} onExpand={onExpand} />
+            if (child.key !== firstBilling) return [row]
+            return [
+              row,
+              <li key={`more:${node.key}`}>
+                <Button variant="ghost" className="h-6 px-2 text-xs" onClick={() => onExpand(node.key)} data-family-more={node.key}>
+                  <Trans t={t} i18nKey="family.moreBillings" count={node.folded.length} components={{ n: <Ltr /> }} />
+                </Button>
+              </li>,
+            ]
+          })}
         </ul>
       )}
     </li>
   )
 }
-
-/** The tooltip of a member with no page: a billing's, or a memo's (C, V). */
-const NO_PAGE: Record<string, string> = { B: 'family.noPage.billing', C: 'family.noPage.memo', V: 'family.noPage.memo' }
 
 /** A small dashed label beside the meta line (the till invoice, the partner reference); it gives way only after the meta line. */
 const LABEL = 'min-w-0 truncate rounded border border-dashed border-border px-1.5 text-[0.6875rem] text-muted-foreground'
@@ -157,24 +161,27 @@ const LABEL = 'min-w-0 truncate rounded border border-dashed border-border px-1.
  * meta line gives way. The open document is tinted, with an accent bar on its inline-start edge and a
  * "You are here" tag, and is not a link.
  */
-function MemberRow({ node, openRow }: { node: FamilyTreeNode; openRow: RefObject<HTMLDivElement | null> }) {
+function MemberRow({ node, isRoot, openRow }: { node: FamilyTreeNode; isRoot: boolean; openRow: RefObject<HTMLDivElement | null> }) {
   const { t } = useTranslation('document')
   const m = node.member
-  const categoryName = t(familyCategoryKey(node.category))
+  const kind = familyCategory(node.category)
+  const categoryName = t(kind.nameKey)
   const type = (m.documentTypeDescription ?? '').trim() || (m.documentType ?? '').trim()
   const store = formatPair(m.storeCode, m.storeName)
   const when = formatDateTime(m.entryTime)
   const status = (m.statusDescription ?? '').trim() || (m.status ?? '').trim()
   const tillInvoice = (m.tillInvoiceNo ?? '').trim()
-  const partner = m.partnerReference
-    ? formatPair(m.partnerReference.source, (m.partnerReference.orderNo ?? '').trim() || m.partnerReference.sourceReference)
-    : ''
+  // The partner reference: a pair led by the partner's name (free text), so one `<bdi>` around the whole pair.
+  const partner =
+    isRoot && m.partnerReference
+      ? formatPair(m.partnerReference.source, (m.partnerReference.orderNo ?? '').trim() || m.partnerReference.sourceReference)
+      : ''
 
   const body = (
     <>
       <span
         title={categoryName}
-        className={`grid h-5.5 w-5.5 flex-none place-items-center rounded-[5px] text-xs font-bold ${BADGE[node.category] ?? BADGE_NEUTRAL}`}
+        className={`grid h-5.5 w-5.5 flex-none place-items-center rounded-[5px] text-xs font-bold ${kind.badge}`}
         data-family-category={node.category}
       >
         <Ltr>{node.category}</Ltr>
@@ -211,12 +218,12 @@ function MemberRow({ node, openRow }: { node: FamilyTreeNode; openRow: RefObject
       </span>
       {tillInvoice && (
         <span title={t('family.tillInvoiceTitle')} className={LABEL} data-family-till="">
-          {t('family.tillInvoice')} <Ltr>{tillInvoice}</Ltr>
+          <Trans t={t} i18nKey="family.tillInvoice" values={{ tillInvoice }} components={{ n: <Ltr /> }} />
         </span>
       )}
       {partner && (
         <span title={t('family.partnerReference')} className={LABEL} data-family-partner="">
-          <Ltr>{partner}</Ltr>
+          <bdi>{partner}</bdi>
         </span>
       )}
       {status && (
@@ -247,10 +254,9 @@ function MemberRow({ node, openRow }: { node: FamilyTreeNode; openRow: RefObject
         {body}
       </Link>
     )
-  const noPage = NO_PAGE[node.category]
   return (
     <div
-      title={noPage ? t(noPage) : undefined}
+      title={kind.noPageKey ? t(kind.noPageKey) : undefined}
       className={`${row} border-transparent text-muted-foreground`}
       data-family-member={node.key}
     >

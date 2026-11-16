@@ -1,6 +1,6 @@
 /**
  * Ticket 906 — the Family section's words ship in English and Arabic together: `document:family.*`
- * mirrors key for key, and every key the panel builds (the title, "You are here", each category's
+ * mirrors key for key (Arabic carrying its six plural forms where a key takes a count), and every key the panel builds (the title, "You are here", each category's
  * name) has words in both.
  */
 import { describe, expect, it } from 'vitest'
@@ -14,29 +14,49 @@ function leaves(node: unknown, prefix = ''): string[] {
   return Object.entries(node).flatMap(([k, v]) => leaves(v, prefix ? `${prefix}.${k}` : k))
 }
 
+const PLURAL = /_(zero|one|two|few|many|other)$/
+const EN_FORMS = ['one', 'other']
+const AR_FORMS = ['zero', 'one', 'two', 'few', 'many', 'other']
+/** The keys with their plural suffix dropped, each once. */
+const bases = (keys: string[]) => [...new Set(keys.map((k) => k.replace(PLURAL, '')))].sort()
+/** The plural forms a base key carries. */
+const forms = (keys: string[], base: string) =>
+  keys.filter((k) => k.replace(PLURAL, '') === base && PLURAL.test(k)).map((k) => k.match(PLURAL)![1]).sort()
+
+/** The keys the panel passes a `count` to. */
+const COUNTED = ['heading', 'moreBillings']
+
 describe('document:family — en and ar mirror each other', () => {
-  it('the same keys', () => {
-    expect(leaves(ar.family).sort()).toEqual(leaves(en.family).sort())
+  it('the same keys, plural forms aside', () => {
+    expect(bases(leaves(ar.family))).toEqual(bases(leaves(en.family)))
+  })
+
+  it('every counted key has the two English plural forms and the six Arabic ones, and no other key is plural', () => {
+    for (const base of COUNTED) {
+      expect([base, forms(leaves(en.family), base)]).toEqual([base, [...EN_FORMS].sort()])
+      expect([base, forms(leaves(ar.family), base)]).toEqual([base, [...AR_FORMS].sort()])
+    }
+    const plural = (keys: string[]) => bases(keys.filter((k) => PLURAL.test(k)))
+    expect(plural(leaves(en.family))).toEqual([...COUNTED].sort())
+    expect(plural(leaves(ar.family))).toEqual([...COUNTED].sort())
   })
 
   it.each([en, ar])('every key the panel uses has words', (locale) => {
     const categories = ['Q', 'O', 'X', 'D', 'T', 'R', 'E', 'B', 'C', 'V', 'Z'].map(familyCategoryKey)
     const keys = [
-      'family.heading',
+      'family.heading_other',
       'family.youAreHere',
       'family.ariaLabel',
       ...categories,
       // ticket 907
       'family.noPage.billing',
-      'family.noPage.memo',
       'family.tillInvoice',
       'family.tillInvoiceTitle',
       'family.partnerReference',
-      'family.moreBillings',
+      'family.moreBillings_other',
       'family.truncated',
       'family.title',
       'family.failed',
-      'family.failedWithReason',
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

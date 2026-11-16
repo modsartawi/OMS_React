@@ -18,7 +18,7 @@ export interface FamilyTreeNode {
   depth: number
   /** The document the page has open: tinted, tagged "You are here", never a link. */
   isOpen: boolean
-  /** Where one click takes it: `/oms/delivery/:no` (D, T), `/oms/document/:no` (Q, O, X, R, E), or `null` (no page, or the open document). */
+  /** Where one click takes it, from the server's `pageKind`: `/oms/delivery/:no`, `/oms/document/:no`, or `null` (no page, or the open document). */
   link: string | null
   /** The member as the endpoint answered it (its facts for the row). */
   member: DocumentFamilyNode
@@ -36,38 +36,62 @@ export interface FamilyTreeNode {
 /** The tree the panel draws. */
 export interface FamilyTreeView {
   root: FamilyTreeNode
+  /** Members whose parent is not in the answer, each a top-level row (depth 0) after the root's tree. */
+  orphans: FamilyTreeNode[]
   /** The members drawn: the title's "Family (n)". Always more than one (a lone document is hidden). */
   count: number
   /** The walk hit the endpoint's cap: not every member is shown (the warning under the tree). */
   truncated: boolean
 }
 
-/** The page a member opens on, by its category (ruling 3940): a billing and the C/V memos have none. */
-const PAGE: Record<string, 'delivery' | 'document'> = {
-  D: 'delivery',
-  T: 'delivery',
-  Q: 'document',
-  O: 'document',
-  X: 'document',
-  R: 'document',
-  E: 'document',
+/** The route a member opens on, from the server's `pageKind` (ruling 3940), or `null` when it has none. */
+export function familyLink(no: string, pageKind: DocumentFamilyNode['pageKind'] | undefined): string | null {
+  return pageKind === 'delivery' || pageKind === 'document' ? `/oms/${pageKind}/${encodeURIComponent(no.trim())}` : null
 }
 
-/** The route a member of this category opens on, or `null` when it has no page. */
-export function familyLink(no: string, category: string): string | null {
-  const page = PAGE[category.trim()]
-  return page ? `/oms/${page}/${encodeURIComponent(no.trim())}` : null
+/**
+ * What the panel knows of a category, in one table: whether it has a name of its own under
+ * `document:family.categories`, its badge tint (categorical, not a severity: an order blue, a delivery
+ * green, a return red, a page-less member neutral — the prototype's palette, 3943, on the theme's
+ * tokens), whether it folds as a billing, and the tooltip of a member with no page (the billing's only;
+ * the C/V memos carry none — unruled). Where a member opens is never read from here: that is `pageKind`.
+ */
+interface FamilyCategory {
+  badge: string
+  billing?: true
+  noPageKey?: string
+}
+const NEUTRAL = 'bg-muted text-muted-foreground'
+const CATEGORIES: Record<string, FamilyCategory> = {
+  Q: { badge: 'bg-attention-050 text-attention-800' },
+  O: { badge: 'bg-primary-050 text-primary-800' },
+  X: { badge: 'bg-primary-050 text-primary-800' },
+  D: { badge: 'bg-success-050 text-success-800' },
+  T: { badge: 'bg-danger-050 text-danger-800' },
+  R: { badge: 'bg-danger-050 text-danger-800' },
+  E: { badge: 'bg-danger-050 text-danger-800' },
+  B: { badge: NEUTRAL, billing: true, noPageKey: 'family.noPage.billing' },
+  C: { badge: NEUTRAL },
+  V: { badge: NEUTRAL },
+}
+const UNKNOWN: FamilyCategory = { badge: NEUTRAL }
+
+/** A category's row in the table; an unlisted one reads as the unknown "Document". */
+export function familyCategory(category: string): FamilyCategory & { nameKey: string } {
+  const c = (category ?? '').trim()
+  const known = Object.hasOwn(CATEGORIES, c)
+  return { ...(known ? CATEGORIES[c] : UNKNOWN), nameKey: `family.categories.${known ? c : 'unknown'}` }
 }
 
-/** The endpoint's member cap (BackOffice 3954): a family past it answers `truncated` — the warning's number. */
-export const FAMILY_MEMBER_CAP = 100
+/** The `document` key of a category's name (the badge's tooltip and the meta line). */
+export const familyCategoryKey = (category: string): string => familyCategory(category).nameKey
 
 /** Under one parent, billings fold when there are more than this many. */
 const FOLD_OVER = 2
 
 /** Splits a parent's children into those drawn and the billings folded past the first (ticket 907). */
 function fold(children: FamilyTreeNode[]): { shown: FamilyTreeNode[]; folded: FamilyTreeNode[] } {
-  const billings = children.filter((c) => c.category === 'B')
+  const billings = children.filter((c) => familyCategory(c.category).billing)
   if (billings.length <= FOLD_OVER) return { shown: children, folded: [] }
   const folded = new Set(billings.slice(1))
   return { shown: children.filter((c) => !folded.has(c)), folded: billings.slice(1) }
@@ -85,6 +109,7 @@ const keyOf = (no: string | null | undefined, category: string | null | undefine
  * - A member is keyed by number AND category, so a billing and a return order sharing a 30… number
  *   stay two members. A key repeated in the answer is drawn once (the first), and a link that loops
  *   back to a member already drawn ends there.
+ * - A member whose parent is not in the answer (an orphan) is drawn as a top-level row after the root's tree.
  * - `count` is the members drawn — the title's n.
  */
 export function familyTree(family: DocumentFamily | null | undefined): FamilyTreeView | null {
@@ -118,26 +143,22 @@ export function familyTree(family: DocumentFamily | null | undefined): FamilyTre
       category: member.category.trim(),
       depth,
       isOpen,
-      link: isOpen ? null : familyLink(member.no, member.category),
+      link: isOpen ? null : familyLink(member.no, member.pageKind),
       member,
       children,
       ...fold(children),
     }
   }
   const root = place(rootMember, 0)
+  // An orphan — a member whose family-link parent is not in the answer — is drawn as a top-level row
+  // after the root's tree, with whatever hangs under it, so the count and "You are here" agree with
+  // the answer. Answer order; one already drawn (under another orphan) is not drawn again.
+  const orphans: FamilyTreeNode[] = []
+  for (const [key, member] of members) {
+    if (drawn.has(key) || member.parentNo == null) continue
+    if (members.has(keyOf(member.parentNo, member.parentCategory))) continue
+    orphans.push(place(member, 0))
+  }
   if (drawn.size <= 1) return null
-  return { root, count: drawn.size, truncated: family.truncated === true }
+  return { root, orphans, count: drawn.size, truncated: family.truncated === true }
 }
-
-/** The categories with a name of their own under `document:family.categories`. */
-const NAMED_CATEGORIES = new Set(['Q', 'O', 'X', 'D', 'T', 'R', 'E', 'B', 'C', 'V'])
-
-/** The `document` key of a category's name (the badge's tooltip and the meta line); an unlisted one reads as "Document". */
-export function familyCategoryKey(category: string): string {
-  const c = (category ?? '').trim()
-  return `family.categories.${NAMED_CATEGORIES.has(c) ? c : 'unknown'}`
-}
-
-/** The query key of a document's family read (ticket 906), by the record's number and category. */
-export const familyKey = (documentNo: string, category: string) =>
-  ['document', 'family', (documentNo ?? '').trim(), (category ?? '').trim()] as const

@@ -481,6 +481,16 @@ export function insuranceListsStub(method, path, body, opts = {}) {
       })
     })
 
+  if (p === 'Lists/PasteCounts' && method === 'POST')
+    return door('pasteCounts', () => {
+      // BackOffice 3983: the stub has no live version, so every pasted code is added; a code no stub item has (by
+      // article, or by the field's value) is not in the master.
+      const codes = [...new Set((body.codes ?? []).map((c) => String(c).trim()).filter(Boolean))]
+      const known = (c) => PREVIEW_ITEMS.some((i) => i.article === c || i[body.field] === c)
+      const missing = codes.filter((c) => !known(c))
+      return envelope({ added: codes.length, removed: 0, notInMaster: missing.length, addedCodes: codes, removedCodes: [], notInMasterCodes: missing })
+    })
+
   // The ONE `GET Insurers` handler: 3144's settings rows as built (`[{ payer, …settings }]`, `*` among them, no name).
   if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(Object.values(state.settings)))
 

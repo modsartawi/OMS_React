@@ -58,6 +58,8 @@ const LIST_KEYS = [
   'mode.noneOf',
   ...['include', 'exclude', 'articles', 'categories'].map((k) => `def.${k}`),
   ...['include', 'exclude', 'includeHint', 'excludeHint'].map((k) => `editor.${k}`),
+  // BackOffice 3983: the paste-against-live counts (`pasteCountLines` kinds).
+  ...['added', 'removed', 'notInMaster'].map((k) => `editor.paste.count.${k}_other`),
   ...['cycle', 'tooDeep', 'unknownList', 'idTaken', 'idInvalid', 'nameMissing', 'emptyAttribute', 'emptyDefinition'].map((k) => `problem.${k}`),
   ...['keyMissing', 'keyInvalid', 'payerInvalid', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
   // BackOffice 3982: the blocked-patient entry's problems, kinds and page.

@@ -13,6 +13,7 @@ import type { GuardList, GuardRuleset } from '@/core/insurance-rules/model'
 import type { KeyedList, KeyedListEntry, KeyedListKind, KeyedListLogRow } from '@/core/insurance-rules/registry'
 import { keyedListsKey, keyedListsPath } from '@/core/insurance-rules/registry-api'
 import type { EntryBody, NewListBody } from './entry-form'
+import { pasteCountsOf, type PasteCounts, type PasteCountsReply } from './paste-counts'
 
 /** One matched item of a preview: its item number and today's master description. */
 export interface PreviewItem {
@@ -70,6 +71,13 @@ export const listsApi = {
    */
   async preview(list: GuardList, lists: GuardList[]): Promise<ListPreview> {
     return previewOf(await api.post<PreviewReply | null>(`${INSURANCE_RULES_BASE}/Lists/Preview`, { list, lists }))
+  },
+  /**
+   * `POST InsuranceRules/Lists/PasteCounts { listId, field, codes }` (BackOffice 3983) — the field's codes after a
+   * paste, counted against the live version of the list: added, removed, not in the item master.
+   */
+  async pasteCounts(listId: string, field: string, codes: string[]): Promise<PasteCounts> {
+    return pasteCountsOf(await api.post<PasteCountsReply | null>(`${INSURANCE_RULES_BASE}/Lists/PasteCounts`, { listId, field, codes }))
   },
   /** `POST InsuranceRules/{Patient|Policy|Class}Lists` `{ id, name, reason }` — a new list (409 `INSLISTS_EXISTS`). */
   createList(kind: KeyedListKind, body: NewListBody): Promise<KeyedList> {

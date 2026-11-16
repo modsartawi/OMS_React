@@ -13,7 +13,17 @@
 //   3. one click on the sibling, then the order, then back to the first delivery lands each page,
 //      and each page draws the same tree with its own member open;
 //   4. the indentation sits on the inline-start side (left in LTR, right in RTL);
-//   5. a lone document and a failed read draw no section, and the page still works.
+//   5. a lone document draws no section; a failed read draws one quiet line, and the page still works.
+//
+// Ticket 907 adds, on the prototype's "big family" (order 1000887766 -> three deliveries, the middle
+// one 8005000012 with six billings; answered `truncated: true`), in LTR light at desktop width, RTL
+// dark at 375px and LTR dark at 375px:
+//   6. the billings past the first fold behind "+ 5 more billings", which expands them in place;
+//   7. the truncated warning sits under the tree; on the Bupa family a billing is grey, no link,
+//      tooltip "Billings have no page", its till invoice a dashed label in an ltr isolate, and the
+//      root's partner reference a dashed label (source · order number) in an ltr isolate;
+//   8. at phone width every row stays one line, the page does not scroll sideways, and the badge,
+//      the number and the status chip are whole (only the meta line is cut short).
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/document-family-drive.mjs   (DRIVE_PORT=<port> for another port)
@@ -71,6 +81,17 @@ const NODES = [
   }),
 ]
 const FAMILY_OF = new Set(NODES.map((n) => `${n.category}:${n.no}`))
+
+// Ticket 907: the prototype's big family, answered cut short at the cap.
+const BIG = [
+  member('1000887766', 'O', null, { documentType: 'CMRC', documentTypeDescription: 'Commerce order', status: 'C', statusDescription: 'Completed', pageKind: 'document', storeCode: 'R001', storeName: 'Riyadh 1' }),
+]
+for (let d = 1; d <= 3; d++) {
+  const dNo = `80050000${10 + d}`
+  BIG.push(member(dNo, 'D', ['1000887766', 'O'], { documentType: 'DLVR', documentTypeDescription: 'Delivery', status: 'C', statusDescription: 'Delivered', pageKind: 'delivery', storeCode: `R00${d}`, storeName: `Riyadh ${d} long store name for the ellipsis` }))
+  for (let b = 1; b <= (d === 2 ? 6 : 1); b++)
+    BIG.push(member(`30050${d}000${b}`, 'B', [dNo, 'D'], { tillInvoiceNo: `R00${d}-00${d}${b}`, storeCode: `R00${d}`, storeName: `Riyadh ${d}` }))
+}
 const ORDER_TREE = ['O:1005551234', 'D:8007000001', 'B:3007700101', 'D:8007000002']
 
 const browser = await chromium.launch()
@@ -135,6 +156,11 @@ async function drive(dir) {
         borderLeft: cs ? parseFloat(cs.borderLeftWidth) : 0,
         borderRight: cs ? parseFloat(cs.borderRightWidth) : 0,
         noIsolated: rows.every((r) => !!r.querySelector('[data-family-no] bdi[dir="ltr"]')),
+        billingTitle: s.querySelector('[data-family-member="B:3007700101"]')?.getAttribute('title') ?? null,
+        till: s.querySelector('[data-family-member="B:3007700101"] [data-family-till] bdi[dir="ltr"]')?.textContent ?? null,
+        partner: s.querySelector('[data-family-member="O:1005551234"] [data-family-partner] bdi[dir="ltr"]')?.textContent ?? null,
+        partnerCount: s.querySelectorAll('[data-family-partner]').length,
+        truncated: !!s.querySelector('[data-family-truncated]'),
       }
     })
 
@@ -155,6 +181,10 @@ async function drive(dir) {
     JSON.stringify(t1.links),
   )
   check(`${label}: every number is in an ltr isolate`, t1.noIsolated)
+  check(`${label}: the billing's tooltip says billings have no page`, t1.billingTitle === 'Billings have no page', String(t1.billingTitle))
+  check(`${label}: the billing's till invoice is a dashed label, isolated whole`, t1.till === 'J044-0551100', String(t1.till))
+  check(`${label}: the root's partner reference is a label (source · order number), isolated whole, on the root only`, t1.partner === 'BUPA · BUPA-7781203' && t1.partnerCount === 1, String(t1.partner))
+  check(`${label}: a whole family shows no cut-short warning`, !t1.truncated)
   check(
     `${label}: the indentation sits on the inline-start side`,
     rtl ? t1.borderRight > 0 && t1.borderLeft === 0 : t1.borderLeft > 0 && t1.borderRight === 0,
@@ -182,14 +212,117 @@ async function drive(dir) {
   await open('/oms/document/2000000551')
   check(`${label}: a lone document draws no Family section`, (await section().count()) === 0 && asked.includes('O:2000000551'))
   await open('/oms/delivery/8009999999')
-  check(`${label}: a failed read draws no section and the page still works`, (await section().count()) === 0 && (await page.locator('[data-facts-block]').count()) > 0)
+  const failed = page.locator('[data-family-failed]')
+  await failed.waitFor({ timeout: 10000 }).catch(() => {})
+  const failedCount = await failed.count()
+  check(
+    `${label}: a failed read draws one quiet line (the reason core/api gives, isolated) and the page still works`,
+    (await section().count()) === 0 && failedCount === 1 && /^The family couldn't be loaded/.test(await failed.textContent()) && ((await failed.locator('bdi').textContent()) ?? '').trim() !== '' && (await page.locator('[data-facts-block]').count()) > 0,
+    failedCount ? await failed.textContent() : 'no line',
+  )
+  if (failedCount) await failed.screenshot({ path: `${SHOTS}/${dir}-failed.png` })
 
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// -- 6-8 (ticket 907): the big family, folded, cut short, at desktop and phone width, light and dark --
+async function driveBig(dir, { dark, width }) {
+  const rtl = dir === 'rtl'
+  const label = `${dir} ${dark ? 'dark' : 'light'} ${width}px`
+  const context = await browser.newContext({ viewport: { width, height: 900 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  await page.addInitScript(([d, k]) => {
+    localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    localStorage.setItem('oms.darkMode', String(k))
+  }, [dir, dark])
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url())
+    const p = url.pathname.split('/api/')[1]
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    const fam = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Family$/)
+    if (fam) return route.fulfill(envelope({ askedNo: fam[1], askedCategory: url.searchParams.get('category'), rootNo: '1000887766', rootCategory: 'O', truncated: true, nodes: BIG }))
+    if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/PrescriptionSessions$/.test(p)) return route.fulfill(envelope({ sessions: [] }))
+    if (/\/Callout$/.test(p)) return route.fulfill(envelope({ callouts: [] }))
+    const doc = p.match(/^SdDocumentWeb\/(Document|Delivery)\/(\d+)$/)
+    if (doc) return route.fulfill(envelope({ ...deliveryDoc, documentNo: doc[2], documentCategory: 'D', refDocumentNo: '1000887766' }))
+    return route.fulfill(envelope({}))
+  })
+  await page.goto(`${BASE}/oms/delivery/8005000012`)
+  await page.locator('[data-spine]').waitFor({ timeout: 20000 })
+  const section = page.locator('#doc-family')
+  await section.waitFor({ timeout: 10000 })
+  const mode = await page.evaluate(() => `${document.documentElement.classList.contains('dark')},${document.documentElement.dir || 'ltr'}`)
+  check(`${label}: the theme is ${dark ? 'dark' : 'light'}, the page ${dir}`, mode === `${dark},${dir}`, mode)
+  const billingsOfMiddle = () =>
+    section.evaluate((s) => [...s.querySelectorAll('[data-family-member^="B:30050200"]')].map((r) => r.getAttribute('data-family-member')))
+  const title = (await section.locator('summary').textContent()).replace(/\s+/g, ' ')
+  check(`${label}: the title counts all twelve members, folded ones included`, /\(12\)/.test(title), title)
+  const before = await billingsOfMiddle()
+  const more = section.locator('[data-family-more="D:8005000012"]')
+  const moreText = (await more.count()) ? (await more.textContent()).replace(/\s+/g, ' ') : 'no button'
+  check(`${label}: six billings fold to the first, then "+ 5 more billings"`, JSON.stringify(before) === '["B:3005020001"]' && /\+\s*5 more billings/.test(moreText), `${before.join()} | ${moreText}`)
+  check(
+    `${label}: a delivery with one billing shows it, and only the six-billing delivery folds`,
+    (await section.locator('[data-family-member="B:3005010001"]').count()) === 1 && (await section.locator('[data-family-more]').count()) === 1,
+  )
+  const warn = section.locator('[data-family-truncated]')
+  const warnOk = (await warn.count()) === 1 &&
+    (await warn.evaluate((w) => {
+      const tree = w.parentElement.querySelector('[data-family-tree]')
+      return !!(tree.compareDocumentPosition(w) & Node.DOCUMENT_POSITION_FOLLOWING) && w.querySelector('bdi[dir="ltr"]')?.textContent === '100'
+    }))
+  check(`${label}: the cut-short warning sits under the tree, its cap isolated`, warnOk, (await warn.count()) ? await warn.textContent() : 'none')
+  const fit = () =>
+    page.evaluate(() => {
+      const rows = [...document.querySelectorAll('#doc-family [data-family-member]')]
+      const whole = (el) => !el || el.scrollWidth <= el.clientWidth + 1
+      const bad = rows.filter((r) => {
+        const parts = ['[data-family-category]', '[data-family-no]', '[data-family-status]'].map((q) => r.querySelector(q)).filter(Boolean)
+        const box = r.getBoundingClientRect()
+        const mids = parts.map((e) => { const b = e.getBoundingClientRect(); return b.top + b.height / 2 })
+        const oneLine = Math.max(...mids) - Math.min(...mids) <= 3 && box.height < 40
+        const inside = parts.every((e) => { const b = e.getBoundingClientRect(); return b.left >= box.left - 1 && b.right <= box.right + 1 })
+        return !(oneLine && inside && parts.every(whole))
+      })
+      return { bad: bad.map((r) => r.getAttribute('data-family-member')), pageScroll: document.documentElement.scrollWidth - window.innerWidth }
+    })
+  const f1 = await fit()
+  check(`${label}: folded, every row is one line, badge/number/chip whole and inside it; no sideways scroll`, f1.bad.length === 0 && f1.pageScroll <= 0, `bad=${f1.bad.join()} scroll=${f1.pageScroll}`)
+  await section.screenshot({ path: `${SHOTS}/big-${dir}-${dark ? 'dark' : 'light'}-${width}-folded.png` })
+  await more.click()
+  const after = await billingsOfMiddle()
+  check(
+    `${label}: "+ 5 more billings" expands all six in place, in order, and goes away`,
+    after.length === 6 && after[0] === 'B:3005020001' && after[5] === 'B:3005020006' && (await section.locator('[data-family-more]').count()) === 0,
+    after.join(),
+  )
+  const f2 = await fit()
+  check(`${label}: expanded, every row still fits`, f2.bad.length === 0 && f2.pageScroll <= 0, `bad=${f2.bad.join()} scroll=${f2.pageScroll}`)
+  if (width < 500) {
+    const cut = await section.locator('[data-family-member="D:8005000012"] [data-family-meta]').evaluate((m) => m.scrollWidth > m.clientWidth)
+    check(`${label}: at phone width the meta line is the one cut short`, cut)
+  }
+  const inlineStart = await section.locator('[data-family-tree] ul').first().evaluate((u, r) => {
+    const cs = getComputedStyle(u)
+    const l = parseFloat(cs.borderLeftWidth), rr = parseFloat(cs.borderRightWidth)
+    return r ? rr > 0 && l === 0 : l > 0 && rr === 0
+  }, rtl)
+  check(`${label}: the indentation sits on the inline-start side`, inlineStart)
+  await section.screenshot({ path: `${SHOTS}/big-${dir}-${dark ? 'dark' : 'light'}-${width}-expanded.png` })
   check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 await drive('ltr')
 await drive('rtl')
+await driveBig('ltr', { dark: false, width: 1440 })
+await driveBig('rtl', { dark: true, width: 375 })
+await driveBig('ltr', { dark: true, width: 375 })
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

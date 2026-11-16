@@ -1,8 +1,8 @@
 // Sync console "Select all matching" drive (ticket 902, BackOffice spec 3913) — drives the REAL Fleet page and
-// audit page in Chromium against STUBBED `ActionSync/*` envelopes. The shapes are BackOffice 3913/3916/3917's (the
-// door contract asset of 2523 is not amended yet): `Fleet/Codes` answering a bare `string[]`, the bulk door
-// answering `{ batchId, results }`, `counts.closedNotDisabled` on the Summary — all guesses.
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3916/3917 are unbuilt. The staging walk is owed.
+// audit page in Chromium against STUBBED `ActionSync/*` envelopes, in the amended 2523 contract's shapes (BackOffice
+// 3916/3917, pricing2 merge d5e48c4a2): `Fleet/Codes` answering `{ codes }`, the bulk door `{ batchId, results }`,
+// `counts.closedNotDisabled` and the top-level `disabled` on the Summary, the preview `{ items, unknown }`.
+// 🚩 NOTHING here is driven against a live SIS.Api. The staging walk is owed.
 //
 // It verifies:
 //   1. the "Closed, not disabled" tile, its count, and that it filters the table on `state=closedNotDisabled`;
@@ -161,12 +161,13 @@ async function open({ locale = 'en' } = {}) {
         envelope({
           asOf: '2026-11-16T12:04:31',
           total: active.length,
-          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: 0, mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: stores.length - active.length, closedNotDisabled: n('closedNotDisabled') },
+          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: 0, mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: 0, closedNotDisabled: n('closedNotDisabled') },
+          disabled: stores.length - active.length,
         }),
       )
     }
     if (p === 'ActionSync/Fleet/LastHour') return route.fulfill(envelope({ current: HOUR('2026-11-16T12:00:00'), previous: HOUR('2026-11-16T11:00:00') }))
-    if (p === 'ActionSync/Fleet/Codes') return route.fulfill(envelope(matching(q).map((s) => s.code)))
+    if (p === 'ActionSync/Fleet/Codes') return route.fulfill(envelope({ codes: matching(q).map((s) => s.code) }))
     if (p === 'ActionSync/Fleet') {
       const all = matching(q)
       const pg = Number(q.get('page'))
@@ -181,7 +182,8 @@ async function open({ locale = 'en' } = {}) {
       const body = route.request().postDataJSON()
       return route.fulfill(
         envelope({
-          stores: body.codes.map(byCode).filter(Boolean).map((st) => ({ code: st.code, description: st.description, lastConnectOkAt: st.lastConnectOkAt, push: st.push, pull: st.pull, lastTrxPulledAt: st.lastTrxPulledAt, pendingActions: 0, tillBacklogCount: 0, openDeadLetters: 0, scriptsWaiting: 0 })),
+          unknown: body.codes.filter((c) => !byCode(c)),
+          items: body.codes.map(byCode).filter(Boolean).map((st) => ({ code: st.code, description: st.description, lastConnectOkAt: st.lastConnectOkAt, push: st.push, pull: st.pull, lastTrxPulledAt: st.lastTrxPulledAt, pendingActions: 0, tillBacklogCount: 0, openDeadLetters: 0, scriptsWaiting: 0 })),
         }),
       )
     }

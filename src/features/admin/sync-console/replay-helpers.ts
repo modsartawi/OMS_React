@@ -210,6 +210,8 @@ export function removedLabel(removed: string): string | null {
  */
 export const REPLAY_REFUSALS = [
   'NO_STORE',
+  // A disabled store (BackOffice 3915, a 409): refused before any connect, after NO_STORE.
+  'DISABLED',
   'NOT_NEWPOS_STORE',
   'STORE_UNREACHABLE',
   'NO_REGISTER',

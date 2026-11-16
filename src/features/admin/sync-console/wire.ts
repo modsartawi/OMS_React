@@ -21,7 +21,11 @@
  */
 import {
   MIRROR_HOUR_TOTALS,
+  type DisablePreviewResponse,
   type FleetLastHour,
+  type FleetSummary,
+  type PausedStore,
+  type PausedStoresResponse,
   type HourTotals,
   type MirrorHour,
   type MirrorHourTotal,
@@ -127,4 +131,26 @@ export function normaliseStoreScripts(data: WireStoreScripts): StoreScripts {
   return {
     items: data.items.map((s) => ({ ...s, title: s.title ?? null, attempts: s.attempts ?? null, state: s.state ?? null })),
   }
+}
+
+// ── The spec 3913 reads (BackOffice 3914/3917) ──────────────────────────────────
+
+/**
+ * The "Show disabled (N)" figure: `Fleet/Summary`'s top-level `disabled`, the fleet's disabled stores
+ * whatever the view. Not `counts.disabled`, which counts the view (`0` by default). `undefined` from a
+ * pre-3914 door, which the toggle words without a figure.
+ */
+export const disabledCountOf = (summary: FleetSummary): number | undefined =>
+  typeof summary.disabled === 'number' ? summary.disabled : undefined
+
+/** `Stores/Paused` → its `items`. */
+export const pausedStoresOf = (data: PausedStoresResponse): PausedStore[] => data.items
+
+/**
+ * `Stores/Disable/Preview`, filled: no `unknown` reads as none unknown. `items` passes as sent; one
+ * that is not a list is read by the dialog as a failed preview, never a crash.
+ */
+export function normaliseDisablePreview(data: Partial<DisablePreviewResponse>): DisablePreviewResponse {
+  const unknown = Array.isArray(data.unknown) ? data.unknown.filter((c): c is string => typeof c === 'string') : []
+  return { items: data.items as DisablePreviewResponse['items'], unknown }
 }

@@ -279,6 +279,11 @@ describe("the script doors' refusals", () => {
     )
   })
 
+  it('words a chosen send refused for a disabled store (BackOffice 3915)', () => {
+    expect(scriptRefusalKey('DISABLED')).toBe('scriptCodes.DISABLED')
+    expect(label('scriptCodes.DISABLED')).toBe('A store is disabled, so it cannot take a store script.')
+  })
+
   it('leaves a code it does not know unworded (the raw code shows)', () => {
     expect(scriptRefusalKey('MELTED')).toBeNull()
   })
@@ -287,6 +292,11 @@ describe("the script doors' refusals", () => {
     expect(refusedStoreCodes({ unknown: ['P999'], notEligible: ['BackOffice', 'W001'] })).toEqual(['P999', 'BackOffice', 'W001'])
     expect(refusedStoreCodes({ unknown: [], notEligible: ['BackOffice'] })).toEqual(['BackOffice'])
     expect(refusedStoreCodes({ unknown: ['P999', 7, null] })).toEqual(['P999'])
+  })
+
+  it("reads a chosen-store send refusal's disabled codes after the unknown and not-eligible ones (BackOffice 3915)", () => {
+    expect(refusedStoreCodes({ unknown: ['P999'], notEligible: ['W001'], disabled: ['p042', 'P107'] })).toEqual(['P999', 'W001', 'p042', 'P107'])
+    expect(refusedStoreCodes({ unknown: [], notEligible: [], disabled: ['P042'] })).toEqual(['P042'])
   })
 
   it("reads a retry refusal's not-exhausted codes", () => {

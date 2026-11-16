@@ -157,6 +157,8 @@ async function open({ canReplay, replays = [] }) {
     if (p === 'ActionSync/Replay/Registers') {
       if (code === 'P002') return route.fulfill(envelope(null, { status: 400, success: false, message: 'P002 is not a NewPos store.', errorCode: 'NOT_NEWPOS_STORE' }))
       if (code === 'P503') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The store could not be reached.', errorCode: 'STORE_UNREACHABLE' }))
+      // A disabled store (BackOffice 3915): a 409, refused before any connect.
+      if (code === 'P409') return route.fulfill(envelope(null, { status: 409, success: false, message: 'P409 is disabled.', errorCode: 'DISABLED' }))
       if (code === 'P777') return route.fulfill(envelope(null, { status: 400, success: false, message: 'Something melted at the store.', errorCode: 'MELTED' }))
       const r = REGISTERS[code]
       return route.fulfill(r ? envelope(r) : envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
@@ -389,6 +391,7 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
   // The registers door's refusals, under the store field.
   const REGISTER_REFUSALS = [
     ['P404', 'NO_STORE', 'There is no store with this code.'],
+    ['P409', 'DISABLED', 'This store is disabled. Enable it before replaying a receipt to it.'],
     ['P002', 'NOT_NEWPOS_STORE', 'This store does not run NewPos, so it cannot take a replay.'],
     ['P503', 'STORE_UNREACHABLE', "The store's database could not be reached. Try again in a moment."],
   ]
@@ -416,6 +419,7 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
   // The push's refusals, in the result area.
   const PUSH_REFUSALS = [
     ['NO_STORE', 'There is no store with this code.'],
+    ['DISABLED', 'This store is disabled. Enable it before replaying a receipt to it.'],
     ['NOT_NEWPOS_STORE', 'This store does not run NewPos, so it cannot take a replay.'],
     ['STORE_UNREACHABLE', "The store's database could not be reached. Try again in a moment."],
     ['NO_REGISTER', 'This store has no such register. Pick another of its registers.'],
@@ -430,7 +434,7 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
     ['500', null],
   ]
   const registerReads = () => calls.filter((c) => c === 'ActionSync/Replay/Registers?code=P020').length
-  const TARGET_CODES = ['NO_STORE', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']
+  const TARGET_CODES = ['NO_STORE', 'DISABLED', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']
   for (const [code, words] of PUSH_REFUSALS) {
     stub.pushCode = code
     const readsBefore = registerReads()

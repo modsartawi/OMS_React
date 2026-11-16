@@ -1,7 +1,8 @@
 // Sync console disabled-store drive (ticket 900, BackOffice spec 3913) — drives the REAL Fleet page, store page
 // and audit page in Chromium against STUBBED `ActionSync/*` envelopes. The shapes are BackOffice 3913/3914's
-// (the door contract asset of 2523 is not amended yet); `counts.disabled` on the Summary is a guess at the key.
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3914 is unbuilt. The staging walk is owed.
+// as the amended 2523 contract names them (BackOffice pricing2, merge d5e48c4a2): the toggle's count is the Summary's
+// top-level `disabled` (`counts.disabled` counts the view, 0 by default); the preview answers `{ items, unknown }`.
+// 🚩 NOTHING here is driven against a live SIS.Api. The staging walk is owed.
 //
 // It verifies:
 //   1. the default Fleet view: the disabled store is not listed, there is no Disabled tile, the GET names no
@@ -19,7 +20,7 @@
 //      English there (`lng` is pinned to `en` app-wide), so the ar bundle's key coverage is proven in
 //      control-helpers.test.ts, on the lf-returns precedent.
 //  10. ticket 901, "Disable warns, then allows": the Disable dialog reads `POST ActionSync/Stores/Disable/Preview`
-//      (🚩 BackOffice 3917, unbuilt — row keys guessed) for exactly its stores, shows one row per store with the
+//      (BackOffice 3917) for exactly its stores, shows one row per store with the
 //      seven facts, highlights the stores holding work under a one-line count, and never gates Confirm: not on
 //      the warnings, not on a failed preview (10b). One store from its page too, and the table under RTL (10c).
 //
@@ -129,6 +130,9 @@ const previewOf = (s) => ({
   scriptsWaiting: s.code === 'P006' ? 1 : 0,
 })
 
+/** Codes the preview stub also names under `unknown`, beside any sent code the fleet lacks. */
+let extraUnknown = []
+
 async function open({ locale = 'en', previewFails = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1300 } })
   const page = await context.newPage()
@@ -161,7 +165,8 @@ async function open({ locale = 'en', previewFails = false } = {}) {
         envelope({
           asOf: '2026-11-15T12:04:31',
           total: active.length,
-          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: n('controlPending'), mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: stores.length - active.length },
+          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: n('controlPending'), mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: 0 },
+          disabled: stores.length - active.length,
         }),
       )
     }
@@ -185,7 +190,8 @@ async function open({ locale = 'en', previewFails = false } = {}) {
       const body = route.request().postDataJSON()
       previews.push(body)
       if (previewFails) return route.fulfill(envelope(null, { status: 500, success: false, message: 'The preview read timed out.' }))
-      return route.fulfill(envelope({ stores: body.codes.map(byCode).filter(Boolean).map(previewOf) }))
+      const unknown = [...body.codes.filter((c) => !byCode(c)), ...extraUnknown]
+      return route.fulfill(envelope({ items: body.codes.map(byCode).filter(Boolean).map(previewOf), unknown }))
     }
     if (p === 'ActionSync/Stores/Control') {
       const body = route.request().postDataJSON()
@@ -404,9 +410,11 @@ const sendWithReason = async (page, reason) => {
   await page.screenshot({ path: `${SHOTS}/disable-warnings.png`, fullPage: true })
   await dialog.locator('[data-reason-confirm]').click()
   await waitFor(page, async () => (await page.locator('dialog[open]').count()) === 0)
+  check('10. …and, every code known, no "not in the fleet" line', (await page.locator('[data-disable-unknown]').count()) === 0)
   check('10. Disable is sent for all seven, held work or not', JSON.stringify(posts.at(-1)) === JSON.stringify({ action: 'Disable', codes: picked, reason: 'Closed for good' }), JSON.stringify(posts.at(-1)))
 
-  // One store from its page, nothing held.
+  // One store from its page, nothing held; the door also answers one code the fleet does not have (`unknown`).
+  extraUnknown = ['ZZ99']
   await page.goto(`${BASE}/admin/sync/store/P009`)
   await page.locator('[data-control="Disable"]').waitFor({ timeout: 20000 })
   await page.locator('[data-control="Disable"]').click()
@@ -414,6 +422,9 @@ const sendWithReason = async (page, reason) => {
   const one = strip(await page.locator('dialog[open] [data-disable-summary]').innerText())
   check('10. one store, nothing held: "No store holds work … (1 checked)"', one === 'No store holds work HQ has not received (1 checked).' && JSON.stringify(previews.at(-1)) === JSON.stringify({ codes: ['P009'] }), one)
   check('10. …and its row is not highlighted', (await page.locator('dialog[open] [data-disable-row="P009"]').getAttribute('data-outstanding')) === 'false')
+  const unknownLine = strip(await page.locator('dialog[open] [data-disable-unknown]').innerText().catch(() => ''))
+  check('10. the codes the fleet does not have are named on one line, isolated once', unknownLine === 'Not in the fleet, so not disabled: ZZ99' && (await page.locator('dialog[open] [data-disable-unknown] bdi[dir="ltr"]').count()) === 1, unknownLine)
+  extraUnknown = []
   await page.locator('dialog[open] [data-reason-cancel]').click()
 
   // Every other control reads no preview.

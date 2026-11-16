@@ -48,8 +48,9 @@ export default memo(function DisableWarnings({ codes }: { codes: readonly string
     // Read once per opening: the preview does not change under the operator while they type the reason.
     refetchOnWindowFocus: false,
   })
-  // An answer with no `stores` list is read as a failed preview, never a crash (it holds nothing back either).
-  const stores = preview.data?.stores
+  // An answer with no `items` list is read as a failed preview, never a crash (it holds nothing back either).
+  const stores = preview.data?.items
+  const unknown = preview.data?.unknown ?? []
   const w = useMemo(() => (Array.isArray(stores) ? disableWarnings(stores) : null), [stores])
   const shown = useMemo(() => (w ? disableWarningRowsShown(w) : null), [w])
 
@@ -160,6 +161,15 @@ export default memo(function DisableWarnings({ codes }: { codes: readonly string
           </tbody>
         </table>
       </div>
+      {unknown.length > 0 && (
+        <p className="text-xs text-muted-foreground" data-disable-unknown={unknown.length}>
+          <span>{t('disableWarnings.unknown')} </span>
+          {/* One list of machine codes, as sent, isolated once as a whole. */}
+          <span className="font-mono [overflow-wrap:anywhere]">
+            <Ltr>{unknown.join(t('list.separator'))}</Ltr>
+          </span>
+        </p>
+      )}
       {shown.hidden > 0 && (
         <p className="text-xs text-muted-foreground" data-disable-hidden={shown.hidden}>
           <Trans t={t} i18nKey="disableWarnings.hidden" values={{ n: figure(shown.hidden) }} components={{ n: <Ltr /> }} />

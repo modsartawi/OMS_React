@@ -61,6 +61,7 @@ import RePushDialog from './RePushDialog'
 import ResumeAllDialog from './ResumeAllDialog'
 import WorkerCard from './WorkerCard'
 import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
+import { disabledCountOf } from './wire'
 
 /**
  * The store sync console's Fleet page (spec 444, ticket 445) — `/admin/sync`.
@@ -169,7 +170,8 @@ function Fleet() {
   // ── The selection (447): codes, not rows, so it outlives a page, a filter and a refresh.
   const { selected, setSelected, gridProps } = useCappedSelection(storeCode)
   const disabledView = filter.view === 'disabled'
-  const disabledCount = summary.data?.counts.disabled
+  // The fleet's disabled stores whatever the view (top-level `disabled`); `counts.disabled` is the view's, 0 by default.
+  const disabledCount = summary.data ? disabledCountOf(summary.data) : undefined
   const switchView = (view: FleetView) => {
     const next = fleetView(filter, view)
     setFilter(next.filter)

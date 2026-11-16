@@ -9,6 +9,9 @@ import {
   normaliseStoreScripts,
   notOnMirrorLane,
   withMirrorLane,
+  disabledCountOf,
+  normaliseDisablePreview,
+  pausedStoresOf,
 } from './wire'
 
 /**
@@ -182,5 +185,36 @@ describe('the store Scripts door before BackOffice 3207', () => {
   it('passes the members a 3207 door sent through as they are', () => {
     const sent = { ...old, createdAt: '2026-10-29T10:00:00', title: 'Drop the IDF view', attempts: 5, state: 'exhausted' }
     expect(normaliseStoreScripts({ items: [sent] }).items[0]).toEqual(sent)
+  })
+})
+
+/**
+ * The 3913 doors, as the amended 2523 contract names them (BackOffice 3914/3917, merge d5e48c4a2).
+ */
+describe('the spec 3913 reads', () => {
+  it('reads the "Show disabled (N)" count from the top-level disabled, not counts.disabled (which is 0 in the default view)', () => {
+    const summary = { asOf: '2026-11-16T08:00:00', total: 120, counts: { all: 120, disabled: 0 }, disabled: 7 }
+    expect(disabledCountOf(summary as never)).toBe(7)
+  })
+
+  it('reads no count from a pre-3914 summary', () => {
+    expect(disabledCountOf({ asOf: '2026-11-16T08:00:00', total: 3, counts: { all: 3 } } as never)).toBeUndefined()
+  })
+
+  it('reads the paused stores off { items }', () => {
+    const s = { code: 'S001', description: 'Store S001', pausedBy: 'ops.ali', pausedAt: null, pauseReason: null }
+    expect(pausedStoresOf({ items: [s] })).toEqual([s])
+  })
+
+  it('reads the Disable preview as its items and the codes the fleet does not have', () => {
+    const store = { code: 'S001' }
+    expect(normaliseDisablePreview({ items: [store], unknown: ['zz9', 'Q000'] } as never)).toEqual({
+      items: [store],
+      unknown: ['zz9', 'Q000'],
+    })
+  })
+
+  it('reads a preview with no unknown list as none unknown', () => {
+    expect(normaliseDisablePreview({ items: [] } as never)).toEqual({ items: [], unknown: [] })
   })
 })

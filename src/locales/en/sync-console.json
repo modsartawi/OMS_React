@@ -1073,6 +1073,7 @@
     },
     "refusal": {
       "NO_STORE": "There is no store with this code.",
+      "DISABLED": "This store is disabled. Enable it before replaying a receipt to it.",
       "NOT_NEWPOS_STORE": "This store does not run NewPos, so it cannot take a replay.",
       "STORE_UNREACHABLE": "The store's database could not be reached. Try again in a moment.",
       "NO_REGISTER": "This store has no such register. Pick another of its registers.",
@@ -1282,6 +1283,7 @@
     "SCRIPT_NOT_ASCII": "The script has a character that is not ASCII, which the stores would receive corrupted. Write Arabic or other unicode text as NCHAR(...) or hex (0x...) literals.",
     "UNKNOWN_STORE": "A store code is not known.",
     "NOT_ELIGIBLE": "A store is not a worker store (or is HQ), so it cannot take a store script.",
+    "DISABLED": "A store is disabled, so it cannot take a store script.",
     "NO_STORES": "The target reaches no store.",
     "UNKNOWN_SCRIPT": "There is no such store script.",
     "LEGACY_SCRIPT": "A legacy store script cannot be withdrawn.",
@@ -1367,7 +1369,8 @@
       "deadLetters": "Dead letters",
       "scriptsWaiting": "Scripts waiting"
     },
-    "hidden": "<n>{{n}}</n> more stores are not listed. The stores still holding work are listed first."
+    "hidden": "<n>{{n}}</n> more stores are not listed. The stores still holding work are listed first.",
+    "unknown": "Not in the fleet, so not disabled:"
   },
   "resumeAll": {
     "open": "Resume all paused…",

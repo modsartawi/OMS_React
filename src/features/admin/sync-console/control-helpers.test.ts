@@ -618,8 +618,10 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'disableWarnings',
       'failures',
       'fleetView',
+      'replay',
       'results',
       'resumeAll',
+      'scriptCodes',
       'selection',
       'states',
       'store',
@@ -725,6 +727,33 @@ describe('disableWarnings (BackOffice 3913, ticket 901)', () => {
   })
 })
 
+describe("a disabled store's refusals on the doors that reach a store (BackOffice 3915)", () => {
+  const at = (bundle: unknown, key: string): unknown =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
+  const KEYS = ['failures.DISABLED', 'scriptCodes.DISABLED', 'replay.refusal.DISABLED', 'disableWarnings.unknown']
+
+  it('has every key in English and in Arabic', () => {
+    for (const key of KEYS) {
+      expect(at(en, key), `en ${key}`).toBeTruthy()
+      expect(at(ar, key), `ar ${key}`).toBeTruthy()
+    }
+  })
+
+  it('words a command or re-push row refused for a disabled store, never the raw code', () => {
+    const s = controlResultSummary([
+      { code: 'P001', ok: true, error: null },
+      { code: 'P042', ok: false, error: 'DISABLED' },
+    ])
+    expect(s.failures).toEqual([{ id: 'P042', code: 'DISABLED', labelKey: 'failures.DISABLED' }])
+  })
+
+  it('carries in Arabic only the replay and script words it adds', () => {
+    expect(Object.keys(at(ar, 'scriptCodes') as object)).toEqual(['DISABLED'])
+    expect(Object.keys(at(ar, 'replay') as object)).toEqual(['refusal'])
+    expect(Object.keys(at(ar, 'replay.refusal') as object)).toEqual(['DISABLED'])
+  })
+})
+
 describe('the Disable warnings words (ticket 901)', () => {
   const at = (bundle: unknown, key: string): unknown =>
     key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
@@ -790,7 +819,7 @@ describe('Resume all paused (BackOffice 3913, ticket 903)', () => {
           message: '',
           errors: [],
           data: String(url).includes('Stores/Paused')
-            ? { stores: preview }
+            ? { items: preview }
             : { batchId: '01JRESUME', results: [{ code: 'S001', ok: true, error: null, controlVersion: 5 }] },
         }),
       }))

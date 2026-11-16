@@ -217,6 +217,8 @@ export const SCRIPT_REFUSALS = [
   'SCRIPT_NOT_ASCII',
   'UNKNOWN_STORE',
   'NOT_ELIGIBLE',
+  // A chosen send naming a disabled store (BackOffice 3915).
+  'DISABLED',
   'NO_STORES',
   'UNKNOWN_SCRIPT',
   'LEGACY_SCRIPT',
@@ -230,12 +232,13 @@ export function scriptRefusalKey(code: string): string | null {
 }
 
 /** The `data` members the store refusals carry their codes in (contract "Store script doors"), in reading order. */
-const REFUSED_STORE_MEMBERS = ['unknown', 'notEligible', 'notExhausted'] as const
+const REFUSED_STORE_MEMBERS = ['unknown', 'notEligible', 'disabled', 'notExhausted'] as const
 
 /**
  * The store codes a refusal names, off its `data` (ticket 673, the doors' final shapes): a
- * chosen-store send refusal's `{ unknown, notEligible }` (`UNKNOWN_STORE` / `NOT_ELIGIBLE`, the
- * unknown codes first) and a retry refusal's `{ notExhausted }`, each as the sender typed it. Any
+ * chosen-store send refusal's `{ unknown, notEligible, disabled }` (`UNKNOWN_STORE` / `NOT_ELIGIBLE`
+ * / `DISABLED`, BackOffice 3915, in that order) and a retry refusal's `{ notExhausted }`, each as the
+ * sender typed it. Any
  * other shape names none; the door's message names the codes too and is always shown.
  */
 export function refusedStoreCodes(data: unknown): string[] {

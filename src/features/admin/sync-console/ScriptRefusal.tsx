@@ -6,7 +6,7 @@ import { refusedStoreCodes, scriptRefusalKey } from './scripts-helpers'
 
 /**
  * A script door's refusal of a preview (ticket 664), under `title`: its words, its code and, for a
- * refusal that names stores (`UNKNOWN_STORE`, `NOT_ELIGIBLE`, `NOT_EXHAUSTED`), the codes it names.
+ * refusal that names stores (`UNKNOWN_STORE`, `NOT_ELIGIBLE`, `DISABLED`, `NOT_EXHAUSTED`), the codes it names.
  * A refusal of the confirm shows under the reason (ReasonDialog); its named stores show here too,
  * through `storesOnly`.
  */

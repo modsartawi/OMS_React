@@ -289,6 +289,7 @@ describe('replayRefusal', () => {
   it('words every refusal of the replay doors, from a key that exists, with no code beside', () => {
     expect([...REPLAY_REFUSALS]).toEqual([
       'NO_STORE',
+      'DISABLED',
       'NOT_NEWPOS_STORE',
       'STORE_UNREACHABLE',
       'NO_REGISTER',
@@ -318,7 +319,7 @@ describe('replayRefusal', () => {
 
 describe('rereadsRegisters', () => {
   it('re-reads the target registers after a push refused for the store or its register', () => {
-    for (const code of ['NO_STORE', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']) expect(rereadsRegisters(code)).toBe(true)
+    for (const code of ['NO_STORE', 'DISABLED', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']) expect(rereadsRegisters(code)).toBe(true)
   })
 
   it('leaves them for a refusal about the JSON, any other code, or a 500', () => {

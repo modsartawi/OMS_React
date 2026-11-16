@@ -1,8 +1,8 @@
 // Sync console "Resume all paused…" drive (ticket 903, BackOffice spec 3913) — drives the REAL Fleet page in
-// Chromium against STUBBED `ActionSync/*` envelopes. The shapes are BackOffice 3913/3916/3917's (the door contract
-// asset of 2523 is not amended yet): `Stores/Paused` answering `{ stores: [{ code, description, pausedBy, pausedAt,
-// pauseReason }] }`, the bulk door answering `{ batchId, results }` — guesses.
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3916/3917 are unbuilt. The staging walk is owed.
+// Chromium against STUBBED `ActionSync/*` envelopes, in the amended 2523 contract's shapes (BackOffice 3916/3917,
+// pricing2 merge d5e48c4a2): `Stores/Paused` answering `{ items: [{ code, description, pausedBy, pausedAt,
+// pauseReason }] }`, the bulk door `{ batchId, results }`.
+// 🚩 NOTHING here is driven against a live SIS.Api. The staging walk is owed.
 //
 // It verifies:
 //   1. "Resume all paused…" is on the Fleet page with canOperate, not in the disabled view, not without canOperate;
@@ -156,7 +156,8 @@ async function open({ locale = 'en', canOperate = true, none = false, pausedFail
         envelope({
           asOf: '2026-11-16T12:04:31',
           total: active.length,
-          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: 0, mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: stores.length - active.length, closedNotDisabled: 0 },
+          counts: { all: active.length, onWorker: n('onWorker'), onWpf: 0, paused: n('paused'), offline: 0, behind: 0, erroring: 0, controlPending: 0, mirrorOffline: 0, mirrorBehind: 0, deadLetters: 0, deferredTooLong: 0, railsDisagree: 0, disabled: 0, closedNotDisabled: 0 },
+          disabled: stores.length - active.length,
         }),
       )
     }
@@ -175,7 +176,7 @@ async function open({ locale = 'en', canOperate = true, none = false, pausedFail
         .filter((s) => s.isPaused && !s.isDisabled)
         .sort((a, b) => String(a.pausedAt ?? '').localeCompare(String(b.pausedAt ?? '')))
         .map(({ code, description, pausedBy, pausedAt, pauseReason }) => ({ code, description, pausedBy, pausedAt, pauseReason }))
-      return route.fulfill(envelope({ stores: paused }))
+      return route.fulfill(envelope({ items: paused }))
     }
     if (p === 'ActionSync/Stores/Control') {
       posts.push({ door: 'control', ...route.request().postDataJSON() })

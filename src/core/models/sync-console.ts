@@ -289,15 +289,19 @@ export interface FleetSummary {
   asOf: string
   total: number
   /**
-   * The tile counts. Disabled stores are left out of every one of them; `counts.disabled`
-   * (BackOffice 3914, 🚩 placement guessed: the spec names "the disabled count", not its key)
-   * is how many there are, for the "Show disabled (N)" toggle. A pre-3914 door omits it.
+   * The tile counts, over the view `disabled=` selects (as `GET ActionSync/Fleet`): by default a
+   * disabled store is in no tile and no count, so `counts.disabled` is then `0` (BackOffice 3914).
    */
   counts: Record<Exclude<StoreState, 'disabled' | 'closedNotDisabled'> | 'all', number> & {
     disabled?: number
     /** BackOffice 3917's tile count; a pre-3917 door omits it and the tile shows no figure. */
     closedNotDisabled?: number
   }
+  /**
+   * How many disabled stores the fleet has, whatever the view: the "Show disabled (N)" toggle
+   * (BackOffice 3914). A pre-3914 door omits it.
+   */
+  disabled?: number
 }
 
 export interface HourTotals {
@@ -535,8 +539,9 @@ export interface StoreControlResponse {
 /**
  * `POST ActionSync/Stores/Control/Bulk` (BackOffice 3916): the same body as `Stores/Control`, up to
  * 5,000 codes, run in 50-store chunks (one audit row each, all sharing `batchId`). One per-store result
- * list in request order. 🚩 Shape guessed from 3913/3916 (the 2523 contract is not amended yet): no
- * `auditId` (a chunk each), the results as `Stores/Control`'s.
+ * list in request order, with the 50-store door's per-row refusals (`NO_STORE`, `NOT_ON_WORKER`,
+ * `DISABLED`, `NOT_DISABLED`) plus `FAILED` (the store's chunk faulted and rolled back alone; sending
+ * it again is safe). No `auditId`: each chunk writes its own audit row carrying `batchId`.
  */
 export interface StoreBulkControlResponse {
   batchId: string
@@ -552,12 +557,15 @@ export interface ControlAnswer {
 // ── The Resume-all preview — `GET ActionSync/Stores/Paused` (BackOffice 3913/3917) ─────
 
 /**
- * One paused, non-disabled worker store, as "Resume all paused…" previews it, ordered by `pausedAt`.
- *
- * 🚩 The door (3917) is unbuilt and the 2523 contract not amended: the keys are 3913's names for the
- * pause fields on the store row (`pausedBy`, `pausedAt`, `pauseReason`) plus `code` and `description`.
- * A store paused before 3914 stamped them carries `null`s. Check against 3917 when it lands.
+ * One paused, non-disabled worker store, as "Resume all paused…" previews it (BackOffice 3917):
+ * ordered by `pausedAt`, oldest first, a pause with none first, ties by code. A store paused before
+ * 3914 stamped them carries `null`s.
  */
+/** `GET ActionSync/Stores/Paused` → every paused store, not paged. */
+export interface PausedStoresResponse {
+  items: PausedStore[]
+}
+
 export interface PausedStore {
   code: string
   description: string
@@ -575,16 +583,13 @@ export interface DisablePreviewRequest {
 }
 
 /**
- * What HQ may not have yet from one store, read before it is disabled.
- *
- * 🚩 The door (3917) is unbuilt and the 2523 contract not amended: 3917 names the seven facts, not
- * their keys. The keys below reuse the fleet row's and the mirror lane's own names for the same facts
- * (`lastConnectOkAt`, `push`/`pull`, `lastTrxPulledAt`, `pendingActions`, `tillBacklogCount`,
- * `openDeadLetters`); `scriptsWaiting` is a new name. Check against 3917 when it lands.
+ * What HQ may not have yet from one store, read before it is disabled (BackOffice 3917). It reads
+ * HQ's records (and the mirror sink's), never the store.
  */
 export interface DisablePreviewStore {
   code: string
   description: string
+  /** The last good connect; `null` = never (or a WPF store: no health). */
   lastConnectOkAt: string | null
   /** The last push and pull pass, and its outcome. */
   push: LoopHealth
@@ -595,12 +600,17 @@ export interface DisablePreviewStore {
   tillBacklogCount: number | null
   /** Open mirror dead letters, both stages, unacknowledged. */
   openDeadLetters: number
-  /** Store scripts sent to it and still waiting. */
+  /** Store scripts not executed, not withdrawn, not exhausted. */
   scriptsWaiting: number
 }
 
+/**
+ * The preview's answer: `items` are the fleet's stores among the codes sent, in code order, as HQ
+ * spells them; `unknown` the codes the fleet does not have, as sent.
+ */
 export interface DisablePreviewResponse {
-  stores: DisablePreviewStore[]
+  items: DisablePreviewStore[]
+  unknown: string[]
 }
 
 /** One entry of `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=`, newest first. */

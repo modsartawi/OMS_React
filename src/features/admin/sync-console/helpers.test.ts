@@ -119,7 +119,7 @@ describe('fleetQuery', () => {
       const fetch = vi.fn().mockResolvedValue({
         status: 200,
         ok: true,
-        json: async () => ({ statusCode: 200, success: true, message: '', errors: [], data: ['A001', 'B002'] }),
+        json: async () => ({ statusCode: 200, success: true, message: '', errors: [], data: { codes: ['A001', 'B002'] } }),
       } as unknown as Response)
       vi.stubGlobal('fetch', fetch)
       const f = toggleTile(filter({ host: 'Worker', q: ' P0 ', page: 3, sort: 'code' }), 'closedNotDisabled')

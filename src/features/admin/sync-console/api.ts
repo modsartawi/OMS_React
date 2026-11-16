@@ -29,6 +29,7 @@ import type {
   DeadLetterActionResponse,
   DisablePreviewRequest,
   DisablePreviewResponse,
+  PausedStoresResponse,
   PausedStore,
   DismissPendingRequest,
   EditLocationRequest,
@@ -88,11 +89,13 @@ import { replaysQuery } from './replay-helpers'
 import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
 import { transactionsPollInterval, transactionsQuery, type TransactionsFilter } from './transactions-helpers'
 import {
+  normaliseDisablePreview,
   normaliseFleet,
   normaliseLastHour,
   normaliseStoreHours,
   normaliseStoreScripts,
   normaliseWorkers,
+  pausedStoresOf,
   withMirrorLane,
   type WireLastHour,
   type WireStoreDetail,
@@ -191,14 +194,12 @@ export const syncConsoleApi = {
   },
 
   /**
-   * `GET ActionSync/Fleet/Codes?state=&host=&q=&disabled=` (BackOffice 3917, 🚩 not built — stubbed):
-   * every code the Fleet's filter matches, unpaged — what "Select all matching" selects. 🚩 The answer's
-   * shape is not in the contract yet: a bare `string[]` is read, and so is `{ codes }`.
+   * `GET ActionSync/Fleet/Codes?state=&host=&q=&disabled=` (BackOffice 3917) → `{ codes }`: every
+   * code the Fleet's filter matches, unpaged, in code order — what "Select all matching" selects.
+   * `sort`, `page` and `pageSize` are not sent: the door does not read them.
    */
   fleetCodes(filter: FleetFilter): Promise<string[]> {
-    return api
-      .get<string[] | { codes: string[] }>('ActionSync/Fleet/Codes', fleetCodesQuery(filter))
-      .then((r) => (Array.isArray(r) ? r : (r?.codes ?? [])))
+    return api.get<{ codes: string[] }>('ActionSync/Fleet/Codes', fleetCodesQuery(filter)).then((r) => r.codes)
   },
 
   /** `GET ActionSync/Passes?minutes=&loop=&kind=&code=&page=&pageSize=` → the fleet's last passes and their mix. */
@@ -320,11 +321,11 @@ export const syncConsoleApi = {
   },
 
   /**
-   * `POST ActionSync/Stores/Control/Bulk` (BackOffice 3916, 🚩 not built — stubbed): the same body as
+   * `POST ActionSync/Stores/Control/Bulk` (BackOffice 3916): the same body as
    * `control`, any number of stores up to the door's 5,000. The door runs them in 50-store chunks, each
    * its own transaction and audit row, all under one `batchId`, and finishes even when the browser
    * closes. A whole refusal (no codes, too many, blank reason) throws and writes nothing; a per-store
-   * one (`DISABLED`, `NOT_ON_WORKER`, …) comes back in `results[].error`, in request order.
+   * one (`DISABLED`, `NOT_ON_WORKER`, `FAILED`, …) comes back in `results[].error`, in request order.
    * "Select all matching" (902) and "Resume all paused" (903) send through it.
    */
   controlBulk(body: StoreControlRequest): Promise<StoreBulkControlResponse> {
@@ -339,24 +340,22 @@ export const syncConsoleApi = {
   },
 
   /**
-   * `GET ActionSync/Stores/Paused` (BackOffice 3913/3917, 🚩 not built — stubbed): the "Resume all
-   * paused…" preview — every paused, non-disabled worker store with who paused it, when and why,
-   * ordered by `pausedAt`. 🚩 The answer's shape is not in the contract yet: `{ stores }` is read,
-   * and so is a bare array.
+   * `GET ActionSync/Stores/Paused` (BackOffice 3917) → `{ items }`: the "Resume all paused…"
+   * preview — every paused, non-disabled worker store with who paused it, when and why, ordered by
+   * `pausedAt`, not paged.
    */
   pausedStores(): Promise<PausedStore[]> {
-    return api
-      .get<PausedStore[] | { stores: PausedStore[] }>('ActionSync/Stores/Paused')
-      .then((r) => (Array.isArray(r) ? r : (r?.stores ?? [])))
+    return api.get<PausedStoresResponse>('ActionSync/Stores/Paused').then(pausedStoresOf)
   },
 
   /**
-   * `POST ActionSync/Stores/Disable/Preview` (BackOffice 3913/3917, 🚩 unbuilt) → per store, what HQ
-   * may not have yet. It reads HQ's records only and writes nothing, so it never refuses an
-   * unreachable store; the Disable dialog shows it and never gates Confirm on it.
+   * `POST ActionSync/Stores/Disable/Preview` (BackOffice 3917) → `{ items, unknown }`: per store, what
+   * HQ may not have yet, and the codes the fleet does not have. It reads HQ's records only and writes
+   * nothing, so it never refuses an unreachable store; the Disable dialog shows it and never gates
+   * Confirm on it.
    */
   disablePreview(body: DisablePreviewRequest): Promise<DisablePreviewResponse> {
-    return api.post<DisablePreviewResponse>('ActionSync/Stores/Disable/Preview', body)
+    return api.post<Partial<DisablePreviewResponse>>('ActionSync/Stores/Disable/Preview', body).then(normaliseDisablePreview)
   },
 
   /** `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=` → one page, newest first. */

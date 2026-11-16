@@ -1,7 +1,7 @@
 // Sync console Scripts drive (tickets 663 + 664 + 673, BackOffice spec 3202 D11/D14, doors 3205-3207) — drives the REAL
 // Scripts page and the store page's Scripts tab in Chromium against STUBBED `ActionSync/*` envelopes, shaped from the
 // door contract's "Store script doors" (2523 at BackOffice pricing2 5a89d2f40): the Detail door sends its stores and no
-// counts, a chosen-store send refusal's data is `{ unknown, notEligible }`, a retry refusal's `{ notExhausted }`.
+// counts, a chosen-store send refusal's data is `{ unknown, notEligible, disabled }` (disabled: BackOffice 3915), a retry refusal's `{ notExhausted }`.
 // 🚩 NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
@@ -436,6 +436,23 @@ const fillSend = async (page, { title = 'Deactivate item 100235', sql = SQL, rea
   const named = plain(await page.locator('[data-script-refused-stores]').innerText())
   check('10. …names the stores it refused', named.endsWith('P009, BackOffice'), named)
   check('10. …and the dialog stays open', (await page.locator('[data-script-send-sql]').count()) === 1)
+  // BackOffice 3915: a chosen send naming a disabled store is refused whole with DISABLED, its codes under data.disabled.
+  await page.unroute('**/api/ActionSync/Scripts/Send')
+  await page.route('**/api/ActionSync/Scripts/Send', (route) => {
+    const body = route.request().postDataJSON()
+    posts.Send.push(body)
+    return body.preview
+      ? route.fulfill(envelope({ scriptId: null, stores: ['P001'], auditId: null }))
+      : route.fulfill(envelope({ unknown: [], notEligible: [], disabled: ['P042'] }, { status: 400, success: false, message: 'P042 is disabled.', errorCode: 'DISABLED' }))
+  })
+  await page.locator('[data-script-send-preview]').click()
+  await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="DISABLED"]').waitFor({ timeout: 10000 })
+  const disabledLabel = plain(await page.locator('[data-reason-error-label]').innerText().catch(() => ''))
+  check('10. a DISABLED send refusal reads in words, never the raw code alone (BackOffice 3915)', disabledLabel === 'A store is disabled, so it cannot take a store script.', disabledLabel)
+  const disabledNamed = plain(await page.locator('[data-script-refused-stores]').innerText())
+  check('10. …and names the disabled store off data.disabled', disabledNamed.endsWith('P042'), disabledNamed)
   await page.locator('[data-script-send-preview]').click()
   await page.locator('[data-script-send-preview-box="fresh"]').waitFor({ timeout: 10000 })
   await page.waitForTimeout(300)

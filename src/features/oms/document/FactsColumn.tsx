@@ -9,6 +9,7 @@ import { totalsFooterRow } from './items'
 import DetailGrid from './DetailGrid'
 import AttachmentsTab from './AttachmentsTab'
 import Disclosure from './Disclosure'
+import FamilyPanel from './FamilyPanel'
 import { HEADING } from './facts-heading'
 import PickSupportSection from './PickSupportSection'
 import PrescriptionSessionsPanel from './PrescriptionSessionsPanel'
@@ -52,6 +53,10 @@ const MONO = new Set([
  * beside the activity spine. It replaces 083's 340px summary rail and its tabs.
  *
  * Top to bottom:
+ * - **Family** (ticket 906, BackOffice spec 3953), a disclosure open by default with the
+ *   document's whole family as a tree from its root; drawn only when the family has more than
+ *   one member; nothing while its read is pending, 404s or is barely denied, one quiet line
+ *   inside the section on any other failure (`FamilyPanel`);
  * - **the facts**: Customer · Prescription · Fulfilment · Driver & tracking · Payment as
  *   dense label/value blocks. `railCards` decides which blocks and rows exist (083
  *   D-5/D-6: Prescription and Driver collapse out when empty, a blank text row is
@@ -115,6 +120,9 @@ export default function FactsColumn({
 
   return (
     <div className="grid min-w-0 content-start gap-2.5">
+      {/* Keyed by the record: another record starts open again, with its own scroll to "You are here". */}
+      <FamilyPanel key={`${document.documentCategory}:${document.documentNo}`} document={document} />
+
       <div
         // `role="group"`: `aria-label` is ignored on a bare div.
         role="group"

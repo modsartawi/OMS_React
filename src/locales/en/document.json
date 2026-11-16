@@ -1005,5 +1005,35 @@
       "amountDue": "This delivery's amount due"
     },
     "link": "Open the order's insurance"
+  },
+  "family": {
+    "heading_one": "Family (<n>{{count}}</n>)",
+    "heading_other": "Family (<n>{{count}}</n>)",
+    "ariaLabel": "Document family",
+    "youAreHere": "You are here",
+    "categories": {
+      "Q": "Request",
+      "O": "Order",
+      "X": "E-prescription",
+      "D": "Delivery",
+      "T": "Delivery return",
+      "R": "Order return",
+      "E": "E-prescription return",
+      "B": "Billing",
+      "C": "Memo",
+      "V": "Memo",
+      "unknown": "Document"
+    },
+    "title": "Family",
+    "noPage": {
+      "billing": "Billings have no page"
+    },
+    "tillInvoice": "Inv <n>{{tillInvoice}}</n>",
+    "tillInvoiceTitle": "Till invoice",
+    "partnerReference": "Partner reference",
+    "moreBillings_one": "+ <n>{{count}}</n> more billing",
+    "moreBillings_other": "+ <n>{{count}}</n> more billings",
+    "truncated": "Family cut short — not every document is shown.",
+    "failed": "The family couldn't be loaded."
   }
 }

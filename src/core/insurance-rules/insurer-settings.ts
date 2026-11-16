@@ -20,6 +20,12 @@ export interface InsurerSettings {
   hasFixedDiscount: boolean
   /** 0–100. */
   fixedDiscountPct: number
+  /**
+   * 0–100 (BackOffice 3949; spec 3946): the % off the gross that the patient's deductible is taken of, on a type that
+   * prices on `D00002`. 0 = the normal base. NOT the fixed discount (`fixedDiscountPct` discounts the SAP receivable),
+   * and NEVER inherited from the `*` row — unlike every other 0 here, an insurer's 0 means 0.
+   */
+  deductibleBaseDiscountPct: number
   /** The SAP customer the insurer's receivable posts to. */
   receivableCustomer: string | null
   createsInsuranceCoupon: boolean

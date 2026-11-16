@@ -30,6 +30,7 @@ export const blankSettings = (payer: string): InsurerSettings => ({
   payer,
   hasFixedDiscount: false,
   fixedDiscountPct: 0,
+  deductibleBaseDiscountPct: 0,
   receivableCustomer: null,
   createsInsuranceCoupon: false,
   memberId: { minLength: 0, maxLength: 0, pattern: null },
@@ -43,8 +44,15 @@ export const blankSettings = (payer: string): InsurerSettings => ({
   updatedAt: null,
 })
 
+/**
+ * A settings row as the screen holds it. 3949 defaults an omitted `deductibleBaseDiscountPct` to 0; a host without
+ * 3949 deployed sends none at all, and `undefined` would fail the 0–100 check and lock Save for every insurer.
+ */
+export const readSettings = (s: InsurerSettings): InsurerSettings => ({ ...s, deductibleBaseDiscountPct: s.deductibleBaseDiscountPct ?? 0 })
+
 export type SettingsProblem =
   | 'discountRange'
+  | 'deductibleBaseRange'
   | 'memberIdLength'
   | 'memberIdPattern'
   | 'daysSupplyRange'
@@ -56,6 +64,7 @@ export type SettingsProblem =
 
 export const SETTINGS_PROBLEMS: readonly SettingsProblem[] = [
   'discountRange',
+  'deductibleBaseRange',
   'memberIdLength',
   'memberIdPattern',
   'daysSupplyRange',
@@ -81,11 +90,13 @@ const parses = (pattern: string): boolean => {
   }
 }
 const whole = (n: number) => Number.isInteger(n) && n >= 0
+const percent = (n: number) => n >= 0 && n <= 100
 
 /** What is wrong with the settings, in screen order; empty = the PUT may go. */
 export function settingsProblems(s: InsurerSettings): SettingsIssue[] {
   const out: SettingsIssue[] = []
-  if (!(s.fixedDiscountPct >= 0 && s.fixedDiscountPct <= 100)) out.push({ problem: 'discountRange' })
+  if (!percent(s.fixedDiscountPct)) out.push({ problem: 'discountRange' })
+  if (!percent(s.deductibleBaseDiscountPct)) out.push({ problem: 'deductibleBaseRange' })
   const { minLength, maxLength, pattern } = s.memberId
   if (!whole(minLength) || !whole(maxLength) || (minLength > 0 && maxLength > 0 && minLength > maxLength)) out.push({ problem: 'memberIdLength' })
   if (pattern && !parses(pattern)) out.push({ problem: 'memberIdPattern' })
@@ -126,6 +137,7 @@ export const SETTINGS_FIELD_WORDS = [
   'payer',
   'hasFixedDiscount',
   'fixedDiscountPct',
+  'deductibleBaseDiscountPct',
   'receivableCustomer',
   'createsInsuranceCoupon',
   'memberId.minLength',

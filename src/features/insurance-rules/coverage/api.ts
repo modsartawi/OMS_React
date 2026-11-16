@@ -12,7 +12,7 @@ import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rule
 import type { InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
 import { insurersKey } from '@/core/insurance-rules/registry-api'
 import { rulesetDoors as coreRulesetDoors, type RulesetDraft } from '@/core/insurance-rules/ruleset-draft'
-import type { InsurerSettings, SettingsLogRow } from './settings'
+import { readSettings, type InsurerSettings, type SettingsLogRow } from './settings'
 
 const settingsPath = (payer: string) => `${INSURANCE_RULES_BASE}/Insurers/${encodeURIComponent(payer)}/Settings`
 
@@ -22,15 +22,15 @@ export const INSURER_SETTINGS_NOT_FOUND = 'INSURER_SETTINGS_NOT_FOUND'
 /** `GET InsuranceRules/Insurers` is core's `insurerSettingsQuery` (one cache entry with 610's class-list picker). */
 export const insurersApi = {
   /** `GET InsuranceRules/Insurers/{payer}/Settings`; an unknown insurer is 404 `INSURER_SETTINGS_NOT_FOUND`. */
-  settings(payer: string): Promise<InsurerSettings> {
-    return api.get<InsurerSettings>(settingsPath(payer))
+  async settings(payer: string): Promise<InsurerSettings> {
+    return readSettings(await api.get<InsurerSettings>(settingsPath(payer)))
   },
   /**
    * `PUT InsuranceRules/Insurers/{payer}/Settings` — the whole settings with the author's `note`; creates the row
    * when there is none. Logged, not versioned. 400 `INSURER_SETTINGS_BAD_REQUEST`, one error per problem.
    */
-  save(s: InsurerSettings): Promise<InsurerSettings> {
-    return api.put<InsurerSettings>(settingsPath(s.payer), s)
+  async save(s: InsurerSettings): Promise<InsurerSettings> {
+    return readSettings(await api.put<InsurerSettings>(settingsPath(s.payer), s))
   },
   /** `GET InsuranceRules/Insurers/{payer}/Settings/Log` — newest first. */
   async log(payer: string): Promise<SettingsLogRow[]> {

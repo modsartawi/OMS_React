@@ -1753,6 +1753,7 @@ const settingsRow = (payer, over) => ({
   payer,
   hasFixedDiscount: false,
   fixedDiscountPct: 0,
+  deductibleBaseDiscountPct: 0,
   receivableCustomer: null,
   createsInsuranceCoupon: false,
   memberId: { minLength: 0, maxLength: 0, pattern: null },
@@ -1879,6 +1880,9 @@ export function newCoverageState() {
 function settingsErrors(s) {
   const out = []
   if (!(s?.fixedDiscountPct >= 0 && s?.fixedDiscountPct <= 100)) out.push('fixedDiscountPct must be between 0 and 100.')
+  // 3949 as built: omitted defaults to 0; out of range is this exact message, nothing stored or logged.
+  const dbd = s?.deductibleBaseDiscountPct ?? 0
+  if (!(dbd >= 0 && dbd <= 100)) out.push('deductibleBaseDiscountPct is a percentage from 0 to 100.')
   const ds = s?.daysSupply ?? {}
   if (ds.min > 0 && ds.max > 0 && ds.min > ds.max) out.push('daysSupply.min must not exceed daysSupply.max.')
   return out
@@ -1925,7 +1929,8 @@ export function coverageStub(method, path, body, opts = {}) {
       return door('settings', () => (state.settings[payer] ? envelope(state.settings[payer]) : refuse(404, 'INSURER_SETTINGS_NOT_FOUND', 'No settings for this insurer.')))
     if (method === 'PUT')
       return door('saveSettings', () => {
-        const errors = settingsErrors(body)
+        // `state.refuseSettings` (905): HQ refuses what this build let through — a drive proves the server's words are shown.
+        const errors = state.refuseSettings ? [state.refuseSettings] : settingsErrors(body)
         if (errors.length)
           return {
             status: 400,
@@ -1933,7 +1938,7 @@ export function coverageStub(method, path, body, opts = {}) {
             body: JSON.stringify({ statusCode: 400, success: false, message: errors[0], errors: errors.map((e) => ({ errorCode: 'INSURER_SETTINGS_BAD_REQUEST', errorMessage: e, internalErrorCode: '' })), data: null }),
           }
         const before = state.settings[payer] ?? null
-        const after = { ...structuredClone(body), payer, updatedBy: user, updatedAt: localNow() }
+        const after = { deductibleBaseDiscountPct: 0, ...structuredClone(body), payer, updatedBy: user, updatedAt: localNow() }
         delete after.note
         state.settings[payer] = after
         ;(state.log[payer] ??= []).unshift({ changeId: state.nextChange++, changedBy: user, changedAt: after.updatedAt, note: body?.note ?? null, before, after })

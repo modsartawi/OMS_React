@@ -138,6 +138,33 @@ for (const dir of ['ltr', 'rtl']) {
     const changes = await page.locator('[data-log-row="0"] [data-log-change]').evaluateAll((els) => els.map((e) => e.getAttribute('data-log-change')))
     check(`${dir} 1. the log's new first line: its note and what changed`, JSON.stringify(changes.sort()) === JSON.stringify(['benefitCategories[3].code', 'benefitCategories[3].meaning', 'benefitCategories[3].source', 'fixedDiscountPct']) && (await page.locator('[data-log-row]').count()) === 2 && strip(await page.locator('[data-log-row="0"] [data-log-note]').innerText()) === 'Renewal 2027', JSON.stringify(changes))
     check(`${dir} 1. saved: nothing to cancel, the note box empties`, (await page.locator('[data-settings-cancel]').isDisabled()) && (await input(s, 'note').inputValue()) === '')
+
+    // 905 (BO 3949): the deductible-base discount — loads, 120 refused in words, HQ's refusal shown, 5 saved and logged.
+    // The app's `lng` is `en` (Arabic is a locale file, not switched on), so the RTL pass reads English in a mirrored page.
+    const dbd = s.locator('[data-deductible-base]')
+    check(`${dir} 905. the deductible-base discount reads Bupa's 0, labelled apart from the fixed discount`, (await input(s, 'deductibleBaseDiscountPct').inputValue()) === '0' && ['Deductible-base discount', 'خصم أساس التحمّل'].includes(strip(await dbd.locator('label > span').first().innerText())))
+    const help = strip(await dbd.locator('[data-deductible-base-help]').innerText())
+    check(`${dir} 905. its help: the % off the gross, 0 = the normal base, not the fixed discount, never inherited`, /off the gross/.test(help) && /0 means the normal base/.test(help) && /not the fixed discount/.test(help) && /never inherited/.test(help), help)
+    check(`${dir} 905. no "inherits the estate default" hint on the field; the page's hint names it as the exception`, (await dbd.locator('[data-inherit-hint]').count()) === 0 && /except the deductible-base discount/.test(await page.locator('[data-inherit-hint]').innerText()))
+    const before905 = writesOf(state, 'saveSettings').length
+    await input(s, 'deductibleBaseDiscountPct').fill('120')
+    check(`${dir} 905. 120 is refused in words before any PUT`, (await page.locator('[data-settings-problems] [data-problem="deductibleBaseRange"]').count()) === 1 && (await input(s, 'deductibleBaseDiscountPct').getAttribute('aria-invalid')) === 'true' && (await page.locator('[data-settings-save]').getAttribute('aria-disabled')) === 'true')
+    await page.locator('[data-settings-save]').click({ force: true })
+    check(`${dir} 905. …and nothing is sent`, writesOf(state, 'saveSettings').length === before905)
+    await input(s, 'deductibleBaseDiscountPct').fill('5')
+    await input(s, 'note').fill('Care Connect contract')
+    state.refuseSettings = 'deductibleBaseDiscountPct is a percentage from 0 to 100.'
+    await page.locator('[data-settings-save]').click()
+    await page.locator('[data-settings-refused]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 905. a value the page lets through (5) that HQ refuses anyway (forced 400 INSURER_SETTINGS_BAD_REQUEST, 3949's words) is shown in HQ's words; nothing logged`, (await page.locator('[data-settings-refused]').innerText()).includes(state.refuseSettings) && (await page.locator('[data-log-row]').count()) === 2)
+    state.refuseSettings = null
+    await page.locator('[data-settings-save]').click()
+    await page.locator('[data-log-row="2"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const put905 = writesOf(state, 'saveSettings').at(-1)
+    check(`${dir} 905. the PUT carries deductibleBaseDiscountPct 5, the fixed discount untouched`, put905?.body.deductibleBaseDiscountPct === 5 && put905.body.fixedDiscountPct === 14.5, JSON.stringify(put905?.body))
+    const change905 = page.locator('[data-log-row="0"] [data-log-change="deductibleBaseDiscountPct"]')
+    check(`${dir} 905. the change is logged: "Deductible-base discount (%) from 0 to 5"`, (await page.locator('[data-log-row="0"] [data-log-change]').count()) === 1 && (await change905.count()) === 1 && (await change905.locator('[data-log-field="log.field.deductibleBaseDiscountPct"]').count()) === 1 && strip(await change905.innerText()).replace(/\s/g, '').endsWith('0to5'), await change905.innerText().catch(() => ''))
+    check(`${dir} 905. saved: the field reads 5 and the refusal is gone`, (await input(s, 'deductibleBaseDiscountPct').inputValue()) === '5' && (await page.locator('[data-settings-refused]').count()) === 0)
     await page.locator(`[data-insurer="${TAWUNIYA}"]`).click()
     await page.locator(`[data-settings="${TAWUNIYA}"]`).waitFor({ timeout: 10000 })
     check(`${dir} 1. another insurer lands in the URL`, new URL(page.url()).searchParams.get('payer') === TAWUNIYA && (await input(page.locator(`[data-settings="${TAWUNIYA}"]`), 'fixedDiscountPct').inputValue()) === '9.5')

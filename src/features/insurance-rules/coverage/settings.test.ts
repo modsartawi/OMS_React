@@ -1,11 +1,12 @@
 /** Ticket 617 (BackOffice 3144 as built) — an insurer's settings are refused in words before the PUT; the log reads what changed. */
 import { describe, expect, it } from 'vitest'
-import { blankSettings, settingsChanges, settingsFieldWord, settingsProblems, type InsurerSettings } from './settings'
+import { blankSettings, readSettings, settingsChanges, settingsFieldWord, settingsProblems, type InsurerSettings } from './settings'
 
 const BUPA: InsurerSettings = {
   payer: '0001100041',
   hasFixedDiscount: true,
   fixedDiscountPct: 15,
+  deductibleBaseDiscountPct: 0,
   receivableCustomer: '0001100041',
   createsInsuranceCoupon: false,
   memberId: { minLength: 8, maxLength: 8, pattern: '^\\d{8}$' },
@@ -35,6 +36,15 @@ describe('settingsProblems', () => {
     expect(problems({ ...BUPA, fixedDiscountPct: 101, memberId: { minLength: 10, maxLength: 8, pattern: '^(\\d' } })).toEqual(['discountRange', 'memberIdLength', 'memberIdPattern'])
   })
 
+  it('905 — the deductible-base discount is 0–100 % (0 = the normal base); 120 or a negative is refused in words, apart from the fixed discount', () => {
+    expect(problems({ ...BUPA, deductibleBaseDiscountPct: 5 })).toEqual([])
+    expect(problems({ ...BUPA, deductibleBaseDiscountPct: 100 })).toEqual([])
+    expect(problems({ ...BUPA, deductibleBaseDiscountPct: 120 })).toEqual(['deductibleBaseRange'])
+    expect(problems({ ...BUPA, deductibleBaseDiscountPct: -1 })).toEqual(['deductibleBaseRange'])
+    expect(problems({ ...BUPA, fixedDiscountPct: 120, deductibleBaseDiscountPct: 120 })).toEqual(['discountRange', 'deductibleBaseRange'])
+    expect(blankSettings('0001100099').deductibleBaseDiscountPct).toBe(0)
+  })
+
   it('days supply: whole, not negative, the least not above the most, the default between them', () => {
     expect(problems({ ...BUPA, daysSupply: { min: 100, max: 90, default: 95 } })).toEqual(['daysSupplyRange'])
     expect(problems({ ...BUPA, daysSupply: { min: 1, max: 90, default: 120 } })).toEqual(['daysSupplyDefault'])
@@ -47,6 +57,16 @@ describe('settingsProblems', () => {
   })
 })
 
+describe('readSettings', () => {
+  it('905 — a row from a host without BackOffice 3949 (no deductibleBaseDiscountPct) reads 0, the contract default, so Save is not locked', () => {
+    const { deductibleBaseDiscountPct: _, ...old } = BUPA
+    const read = readSettings(old as InsurerSettings)
+    expect(read.deductibleBaseDiscountPct).toBe(0)
+    expect(settingsProblems(read)).toEqual([])
+    expect(readSettings({ ...BUPA, deductibleBaseDiscountPct: 5 }).deductibleBaseDiscountPct).toBe(5)
+  })
+})
+
 describe('settingsChanges', () => {
   it('settingsChanges_namesEachFieldThatMoved — before and after, the stamp and note left out', () => {
     const after = { ...BUPA, fixedDiscountPct: 14.5, payerPins: ['Vitality', 'Gold'], note: 'new contract', updatedBy: 'msartawi', updatedAt: '2026-10-27T10:00:00' }
@@ -54,6 +74,9 @@ describe('settingsChanges', () => {
       { field: 'fixedDiscountPct', from: '15', to: '14.5' },
       { field: 'payerPins[1]', from: null, to: 'Gold' },
     ])
+  })
+  it('905 — setting the deductible-base discount to 5 is one logged change', () => {
+    expect(settingsChanges(BUPA, { ...BUPA, deductibleBaseDiscountPct: 5 })).toEqual([{ field: 'deductibleBaseDiscountPct', from: '0', to: '5' }])
   })
   it('a PUT that created the insurer (before null) lists what it set', () => {
     const created = settingsChanges(null, { ...blankSettings('0001100099'), fixedDiscountPct: 5 })
@@ -69,6 +92,7 @@ describe('settingsFieldWord', () => {
     expect(settingsFieldWord('daysSupply.default')).toEqual({ key: 'log.field.daysSupply.default' })
     expect(settingsFieldWord('benefitCategories[2].meaning')).toEqual({ key: 'log.field.benefitCategories.meaning', n: 3 })
     expect(settingsFieldWord('payerPins[0]')).toEqual({ key: 'log.field.payerPins', n: 1 })
+    expect(settingsFieldWord('deductibleBaseDiscountPct')).toEqual({ key: 'log.field.deductibleBaseDiscountPct' })
     expect(settingsFieldWord('somethingNew')).toBeNull()
     expect(settingsFieldWord('memberId.colour')).toBeNull()
   })

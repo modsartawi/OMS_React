@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
@@ -152,6 +152,7 @@ function SettingsForm({ saved, isNew }: { saved: InsurerSettings; isNew: boolean
   const busy = save.isPending
   const estate = saved.payer === ESTATE_DEFAULT
   const set = (patch: Partial<InsurerSettings>) => setS({ ...s, ...patch })
+  const deductibleBaseHelpId = useId()
 
   return (
     <div className="flex flex-col gap-4" data-settings={saved.payer}>
@@ -178,6 +179,21 @@ function SettingsForm({ saved, isNew }: { saved: InsurerSettings; isNew: boolean
           <Row label={t('settings.discount')} unit={t('unit.percent')}>
             <NumberInput value={s.fixedDiscountPct} invalid={has('discountRange')} data-input="fixedDiscountPct" onValue={(n) => set({ fixedDiscountPct: n })} />
           </Row>
+          {/* 905: NOT the fixed discount, and never inherited from `*` — its own help, no inherit wording. */}
+          <div className="flex flex-col gap-1" data-deductible-base="">
+            <Row label={t('settings.deductibleBase')} unit={t('unit.percent')}>
+              <NumberInput
+                value={s.deductibleBaseDiscountPct}
+                invalid={has('deductibleBaseRange')}
+                aria-describedby={deductibleBaseHelpId}
+                data-input="deductibleBaseDiscountPct"
+                onValue={(n) => set({ deductibleBaseDiscountPct: n })}
+              />
+            </Row>
+            <p id={deductibleBaseHelpId} className="text-xs text-muted-foreground" data-deductible-base-help="">
+              {t('settings.deductibleBaseHelp')}
+            </p>
+          </div>
           <Row label={t('settings.receivable')}>
             <CodeInput value={s.receivableCustomer ?? ''} data-input="receivableCustomer" onValue={(v) => set({ receivableCustomer: v.trim() ? v : null })} />
           </Row>

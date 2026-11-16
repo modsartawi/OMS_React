@@ -241,6 +241,8 @@
   "settings": {
     "contract": "Contract",
     "discount": "Fixed discount",
+    "deductibleBase": "Deductible-base discount",
+    "deductibleBaseHelp": "The % off the gross that the patient's deductible is taken of. 0 means the normal base. This is not the fixed discount, and it is never inherited from the estate default: only this insurer's own value counts.",
     "receivable": "Receivable customer",
     "memberId": "Membership id",
     "daysSupply": "Days of supply",
@@ -264,8 +266,8 @@
     "saveFailed": "The settings could not be saved",
     "updated": "Last changed by",
     "isNew": "No settings for this insurer yet: it inherits the estate default. Fill in what differs and create its row.",
-    "inheritHint": "A 0 or an empty value inherits the estate default.",
-    "estateHint": "Every insurer inherits these values where its own is 0 or empty.",
+    "inheritHint": "A 0 or an empty value inherits the estate default, except the deductible-base discount, which is never inherited.",
+    "estateHint": "Every insurer inherits these values where its own is 0 or empty, except the deductible-base discount, which is never inherited.",
     "hasFixedDiscount": "Has a fixed discount",
     "createsInsuranceCoupon": "Creates an insurance coupon",
     "minLength": "At least",
@@ -305,6 +307,7 @@
       "payer": "Insurer",
       "hasFixedDiscount": "Has a fixed discount",
       "fixedDiscountPct": "Fixed discount (%)",
+      "deductibleBaseDiscountPct": "Deductible-base discount (%)",
       "receivableCustomer": "Receivable customer",
       "createsInsuranceCoupon": "Creates an insurance coupon",
       "memberId": {
@@ -334,6 +337,7 @@
   },
   "problem": {
     "discountRange": "The discount is between 0 and 100 %.",
+    "deductibleBaseRange": "The deductible-base discount is between 0 and 100 %.",
     "memberIdLength": "Membership id lengths are whole numbers, and the least is not above the most.",
     "memberIdPattern": "The membership id pattern is not a valid pattern.",
     "daysSupplyRange": "Days of supply are whole numbers, and the least is not above the most.",

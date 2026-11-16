@@ -1494,3 +1494,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [902](902-the-operator-selects-every-store-a-filter-matches-and-acts-on-them-as-one-group.md) — The operator selects every store a filter matches and acts on them as one group · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: 900, BO 3916, BO 3917
 - [903](903-resume-all-paused-resumes-the-working-fleet-in-one-action.md) — "Resume all paused…" resumes the working fleet in one action · *(ticket · BackOffice spec 3913)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3916, BO 3917
 - [904](904-datasync-never-applies-to-a-disabled-store.md) — DataSync never applies to a disabled store · *(ticket · BackOffice spec 3913; code also in Replicate_SqlDataCompare)* · **done 2026-11-16** (stubbed; staging walk owed) · blocked by: BO 3914 (deploy after HQ mig 012)
+
+## Bupa Care Connect deductible base (BackOffice spec 3946, 2026-11-16)
+
+- [905](905-the-insurer-settings-page-edits-the-deductible-base-discount.md) — The insurer settings page edits the deductible-base discount · *(ticket · BackOffice spec 3946; door 3949)* · **done 2026-11-16** (stubbed; live walk owed on BO 3949) · blocked by: BO 3949 · open ruling: hide the field on the `*` row?

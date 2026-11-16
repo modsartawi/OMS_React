@@ -25,7 +25,8 @@
     "aliases": "الأسماء البديلة",
     "playground": "ساحة التجربة",
     "codeLabels": "تسميات الرموز",
-    "inspector": "فاحص القرارات"
+    "inspector": "فاحص القرارات",
+    "patientLists": "قوائم المرضى"
   },
   "labelsChanged": {
     "badge": "تغيّرت التسميات",

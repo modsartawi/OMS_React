@@ -12,6 +12,7 @@ import rulesEn from '@/locales/en/insurance-rules.json'
 import rulesAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { FIELD_SCOPES, FIELD_TYPES, KEYED_LIST_KINDS } from '@/core/insurance-rules/registry'
+import { REASON_KINDS } from './entry-form'
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -59,6 +60,11 @@ const LIST_KEYS = [
   ...['include', 'exclude', 'includeHint', 'excludeHint'].map((k) => `editor.${k}`),
   ...['cycle', 'tooDeep', 'unknownList', 'idTaken', 'idInvalid', 'nameMissing', 'emptyAttribute', 'emptyDefinition'].map((k) => `problem.${k}`),
   ...['keyMissing', 'keyInvalid', 'payerInvalid', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
+  // BackOffice 3982: the blocked-patient entry's problems, kinds and page.
+  ...['reasonKindMissing', 'referenceTooLong', 'startInvalid', 'startAfterExpiry'].map((k) => `entryProblem.${k}`),
+  ...REASON_KINDS.map((k) => `reasonKind.${k}`),
+  'patientPage.title',
+  'patientPage.lede',
   ...['createList', 'add', 'change', 'remove'].map((k) => `logAction.${k}`),
   ...['idInvalid', 'idTaken', 'nameMissing'].map((k) => `listProblem.${k}`),
   ...KEYED_LIST_KINDS.flatMap((k) => ['none', 'lede', 'key', 'newTitle'].map((x) => `keyed.${k}.${x}`)),
@@ -77,6 +83,6 @@ describe('the keys the code builds exist', () => {
     for (const key of FIELD_KEYS) expect([key, hasLocaleKey(bundle, key)]).toEqual([key, true])
   })
   it.each([rulesEn, rulesAr])('the two menu leaves in insurance-rules', (bundle) => {
-    for (const key of ['menu.lists', 'menu.fields']) expect([key, hasLocaleKey(bundle, key)]).toEqual([key, true])
+    for (const key of ['menu.lists', 'menu.fields', 'menu.patientLists']) expect([key, hasLocaleKey(bundle, key)]).toEqual([key, true])
   })
 })

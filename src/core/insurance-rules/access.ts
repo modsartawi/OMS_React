@@ -25,6 +25,7 @@ export const INSURANCE_RULES_FLAGS = [
   'canGuards',
   'canTemplates',
   'canLists',
+  'canPatientLists',
   'canFields',
   'canApprovals',
   'canSimulator',

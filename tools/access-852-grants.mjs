@@ -4,7 +4,7 @@
 // `tools/access-852-grants.test.mjs` pins the insurance flag list to `INSURANCE_RULES_FLAGS`.
 
 export const INSURANCE_RULES_FLAGS_852 = [
-  'canGuards', 'canTemplates', 'canLists', 'canFields', 'canApprovals', 'canSimulator', 'canEditions', 'canReview',
+  'canGuards', 'canTemplates', 'canLists', 'canPatientLists', 'canFields', 'canApprovals', 'canSimulator', 'canEditions', 'canReview',
   'canExceptions', 'canMetrics', 'canInsurers', 'canCategories', 'canCoverage', 'canPlayground', 'canInspector',
   'canFieldProposals', 'canAliases', 'canCodeLabels', 'canIdfMasters', 'canIdfStoreLists', 'canIdfExceptions',
   'canIdfLookup', 'canIdfEvents', 'canIdfGroups',

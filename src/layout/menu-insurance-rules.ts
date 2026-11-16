@@ -9,6 +9,7 @@ import { ListOrdered } from 'lucide-react' // 619
 import { Store } from 'lucide-react' // 620
 // 624 · icons
 import { ListX } from 'lucide-react' // 624
+import { UserX } from 'lucide-react' // BackOffice 3982
 import { SearchCheck } from 'lucide-react' // 625
 // 626 · icons
 import { History } from 'lucide-react' // 626
@@ -83,6 +84,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       icon: ListChecks,
       routerLink: '/insurance-rules/lists',
       access: insuranceRulesProbe('canLists'),
+    },
+    {
+      // BackOffice 3982 — the patient lists (BR-7's blocked patients, BR-4's patient) under the insurance managers'
+      // own grant: a rule author never sees a national id, and a manager without the author's grant still reaches them.
+      labelKey: 'insurance-rules:menu.patientLists',
+      icon: UserX,
+      routerLink: '/insurance-rules/patient-lists',
+      access: insuranceRulesProbe('canPatientLists'),
     },
     {
       // 610 — the Fields registry: add a field from a source, retire one (never delete).

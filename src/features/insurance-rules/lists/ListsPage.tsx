@@ -4,7 +4,8 @@ import Chip from '@/core/ui/Chip'
 import ItemLists from './ItemLists'
 import KeyedLists from './KeyedLists'
 
-const TABS = ['items', 'patients', 'policies', 'classes'] as const
+// BackOffice 3982: the patient lists left this page for their own leaf (`PatientListsPage`), under their own grant.
+const TABS = ['items', 'policies', 'classes'] as const
 type Tab = (typeof TABS)[number]
 const PANEL_ID = 'insurance-lists-panel'
 
@@ -41,7 +42,6 @@ export default function ListsPage() {
       </div>
       <div id={PANEL_ID} role="tabpanel">
         {open === 'items' && <ItemLists />}
-        {open === 'patients' && <KeyedLists key="patient" kind="patient" />}
         {open === 'policies' && <KeyedLists key="policy" kind="policy" />}
         {open === 'classes' && <KeyedLists key="class" kind="class" />}
       </div>

@@ -154,7 +154,19 @@
     "create": "Create the list",
     "created": "List created",
     "listId": "Id",
-    "listIdHint": "Letters, digits, dot, underscore and hyphen, up to 40. It never changes."
+    "listIdHint": "Letters, digits, dot, underscore and hyphen, up to 40. It never changes.",
+    "reasonKind": "Kind of finding",
+    "reasonKindNone": "Not given",
+    "payer": "Reporting payer",
+    "payerHint": "A note: the block applies under every payer.",
+    "reference": "Reference",
+    "referenceHint": "Payer email, PA numbers and the like, up to 500 characters.",
+    "startsOn": "Starts on",
+    "startsToday": "Blank: from the day it is added.",
+    "notStarted": "Not started",
+    "from": "from",
+    "reasonKindRequired": "Every entry names its kind of finding (abuse or fraud)",
+    "asksKind": "Kind of finding required"
   },
   "entryProblem": {
     "keyMissing": "Enter the key.",
@@ -163,7 +175,11 @@
     "reasonTooLong": "The reason is longer than 200 characters.",
     "expiryInvalid": "The expiry is not a date.",
     "expiryPast": "The expiry cannot be before today.",
-    "payerInvalid": "The insurer's SAP customer id is up to 10 characters."
+    "payerInvalid": "The payer is too long: a class list's insurer is its SAP customer id, up to 10 characters; a reporting payer is up to 40.",
+    "reasonKindMissing": "Choose the kind of finding: abuse or fraud.",
+    "referenceTooLong": "The reference is longer than 500 characters.",
+    "startInvalid": "The start is not a date.",
+    "startAfterExpiry": "The start cannot be after the expiry."
   },
   "logAction": {
     "createList": "List created",
@@ -186,5 +202,13 @@
     "sending": "Sending…",
     "failed": "The change was refused",
     "failedHint": "Try again in a moment."
+  },
+  "patientPage": {
+    "title": "Patient lists",
+    "lede": "Blocked patients and the other patient lists, by National ID or Iqama. Only insurance managers see them. A change takes effect at the next check, with no approval, and is logged."
+  },
+  "reasonKind": {
+    "abuse": "Abuse",
+    "fraud": "Fraud"
   }
 }

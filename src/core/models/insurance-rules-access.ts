@@ -9,6 +9,8 @@ export interface InsuranceRulesAccess {
   canGuards: boolean
   canTemplates: boolean
   canLists: boolean
+  /** BackOffice 3982: the patient lists (blocked patients) are the insurance managers' own grant, never the authors'. */
+  canPatientLists: boolean
   canFields: boolean
   canApprovals: boolean
   canSimulator: boolean

@@ -58,6 +58,8 @@ export interface KeyedList {
   createdBy: string
   /** Local moment. */
   createdAt: string
+  /** BackOffice 3982: every entry names its reason kind (abuse | fraud). Absent on an older HQ = false. */
+  reasonKindRequired?: boolean
 }
 
 /** `GET …/{Patient|Policy|Class}Lists/{id}/Entries` — one entry (3133 / 3172). */
@@ -71,8 +73,15 @@ export interface KeyedListEntry {
   expiresOn: string | null
   /** Listed still, but no longer matches. */
   expired: boolean
-  /** A class list's insurer (SAP customer id); null = any insurer, and always null on patient / policy lists. */
+  /** A class list's insurer (SAP customer id); null = any insurer. A patient list's reporting payer (3982), a note. */
   payer?: string | null
+  /** BackOffice 3982, patient lists: `abuse` | `fraud`, or null. */
+  reasonKind?: 'abuse' | 'fraud' | null
+  reference?: string | null
+  /** The first local day it counts (inclusive); null = no start. */
+  startsOn?: string | null
+  /** Before its first day: listed, not matching yet. */
+  notStarted?: boolean
 }
 
 /** `GET …/{Patient|Policy|Class}Lists/{id}/Log` — one change, newest first (3133 / 3172). */
@@ -85,4 +94,8 @@ export interface KeyedListLogRow {
   reason: string | null
   expiresOn: string | null
   payer?: string | null
+  /** BackOffice 3982: what the change set. */
+  reasonKind?: 'abuse' | 'fraud' | null
+  reference?: string | null
+  startsOn?: string | null
 }

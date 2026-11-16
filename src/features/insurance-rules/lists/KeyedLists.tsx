@@ -22,12 +22,24 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localToday } from '@/core/util/date-window'
 import { entriesQuery, keyedListKey, listsApi, logQuery } from './api'
-import { entryAction, entryBody, entryIdentity, entryProblems, newListBody, newListProblems, type EntryForm, type NewListForm } from './entry-form'
+import {
+  REASON_KINDS,
+  REFERENCE_MAX,
+  entryAction,
+  entryBody,
+  entryIdentity,
+  entryProblems,
+  newListBody,
+  newListProblems,
+  type EntryForm,
+  type NewListForm,
+  type ReasonKind,
+} from './entry-form'
 import { CARD } from './ui'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
-const BLANK: EntryForm = { key: '', reason: '', expiresOn: '', payer: '' }
-const BLANK_LIST: NewListForm = { id: '', en: '', ar: '' }
+const BLANK: EntryForm = { key: '', reason: '', expiresOn: '', payer: '', reasonKind: '', reference: '', startsOn: '' }
+const BLANK_LIST: NewListForm = { id: '', en: '', ar: '', reasonKindRequired: false }
 /** The lists doors' refusal of a missing or bad reason (3133), shown under the reason field. */
 const BAD_REQUEST = 'INSLISTS_BAD_REQUEST'
 const EXISTS = 'INSLISTS_EXISTS'
@@ -146,6 +158,18 @@ function NewListDialog({ kind, open, taken, onClose, onCreated }: { kind: KeyedL
         <Field label={t('editor.nameAr')}>
           <Input dir="rtl" lang="ar" value={form.ar} onChange={(e) => setForm({ ...form, ar: e.target.value })} data-new-list-ar="" />
         </Field>
+        {kind === 'patient' && (
+          // BackOffice 3982: BR-4's and BR-7's lists ask every entry for its kind of finding.
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!!form.reasonKindRequired}
+              onChange={(e) => setForm({ ...form, reasonKindRequired: e.target.checked })}
+              data-new-list-asks-kind=""
+            />
+            {t('keyed.reasonKindRequired')}
+          </label>
+        )}
         {(shown.length > 0 || taken409) && (
           <ul className="text-xs text-danger-800" role="alert">
             {(taken409 && !shown.includes('idTaken') ? [...shown, 'idTaken' as const] : shown).map((p) => (
@@ -169,8 +193,10 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
   const [form, setForm] = useState<EntryForm>(BLANK)
   const [tried, setTried] = useState(false)
   const [removing, setRemoving] = useState<KeyedListEntry | null>(null)
-  const listed = (entries.data ?? []).map((e) => entryIdentity(e.key, e.payer))
-  const problems = entryProblems(form, kind, localToday())
+  const isPatient = kind === 'patient'
+  // A patient entry's payer is a note, not part of its identity (3982); a class entry's insurer is.
+  const listed = (entries.data ?? []).map((e) => entryIdentity(e.key, kind === 'class' ? e.payer : null))
+  const problems = entryProblems(form, kind, localToday(), { reasonKindRequired: !!list.reasonKindRequired })
   // A key (+ insurer) already on the list is a CHANGE: HQ replaces its reason and expiry and logs `change`.
   const action = entryAction(form, kind, listed)
   const isClass = kind === 'class'
@@ -205,7 +231,8 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
   const shown = tried ? problems : []
   const forOne = (entries.data ?? []).filter((e) => !!e.payer).length
   const forAny = (entries.data ?? []).length - forOne
-  const cols = isClass ? 'md:grid-cols-[1fr_1fr_2fr_auto_auto]' : 'md:grid-cols-[1fr_2fr_auto_auto]'
+  const cols = isPatient ? 'md:grid-cols-4' : isClass ? 'md:grid-cols-[1fr_1fr_2fr_auto_auto]' : 'md:grid-cols-[1fr_2fr_auto_auto]'
+  const fullRow = isPatient ? 'md:col-span-4' : isClass ? 'md:col-span-5' : 'md:col-span-4'
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4" data-keyed-panel={list.id}>
@@ -216,6 +243,11 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
             {list.name.ar}
           </bdi>
         </h2>
+        {list.reasonKindRequired && (
+          <span data-list-asks-kind="">
+            <StatusBadge sev="mute">{t('keyed.asksKind')}</StatusBadge>
+          </span>
+        )}
       </header>
 
       <form
@@ -241,9 +273,36 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
             </Select>
           </Field>
         )}
+        {isPatient && (
+          <Field label={t('keyed.reasonKind')}>
+            <Select value={form.reasonKind ?? ''} onChange={(e) => setForm({ ...form, reasonKind: e.target.value as ReasonKind | '' })} data-entry-reason-kind="">
+              <option value="">{t('keyed.reasonKindNone')}</option>
+              {REASON_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {t(`reasonKind.${k}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {isPatient && (
+          <Field label={t('keyed.payer')} hint={t('keyed.payerHint')}>
+            <Input dir="ltr" value={form.payer ?? ''} onChange={(e) => setForm({ ...form, payer: e.target.value })} data-entry-payer="" />
+          </Field>
+        )}
         <Field label={t('keyed.reason')}>
           <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} data-entry-reason="" />
         </Field>
+        {isPatient && (
+          <Field label={t('keyed.reference')} hint={t('keyed.referenceHint')}>
+            <Input value={form.reference ?? ''} maxLength={REFERENCE_MAX + 1} onChange={(e) => setForm({ ...form, reference: e.target.value })} data-entry-reference="" />
+          </Field>
+        )}
+        {isPatient && (
+          <Field label={t('keyed.startsOn')} hint={t('keyed.startsToday')}>
+            <Input type="date" value={form.startsOn ?? ''} onChange={(e) => setForm({ ...form, startsOn: e.target.value })} data-entry-starts="" />
+          </Field>
+        )}
         <Field label={t('keyed.expiresOn')}>
           <Input type="date" value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} data-entry-expires="" />
         </Field>
@@ -252,12 +311,12 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
           {t(action === 'change' ? 'keyed.change' : 'keyed.add')}
         </Button>
         {action === 'change' && (
-          <p className={`text-xs text-attention-800 ${isClass ? 'md:col-span-5' : 'md:col-span-4'}`} data-entry-change="">
+          <p className={`text-xs text-attention-800 ${fullRow}`} data-entry-change="">
             {t('keyed.changeHint')}
           </p>
         )}
         {shown.length > 0 && (
-          <ul className={`text-xs text-danger-800 ${isClass ? 'md:col-span-5' : 'md:col-span-4'}`} role="alert" data-entry-problems="">
+          <ul className={`text-xs text-danger-800 ${fullRow}`} role="alert" data-entry-problems="">
             {shown.map((p) => (
               <li key={p} data-problem={p}>
                 {t(`entryProblem.${p}`)}
@@ -288,17 +347,27 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
               <tr className="text-xs text-muted-foreground">
                 <th className="py-1 text-start font-medium">{t(`keyed.${kind}.key`)}</th>
                 {isClass && <th className="py-1 text-start font-medium">{t('keyed.insurer')}</th>}
+                {isPatient && <th className="py-1 text-start font-medium">{t('keyed.reasonKind')}</th>}
+                {isPatient && <th className="py-1 text-start font-medium">{t('keyed.payer')}</th>}
                 <th className="py-1 text-start font-medium">{t('keyed.addedBy')}</th>
                 <th className="py-1 text-start font-medium">{t('keyed.reason')}</th>
+                {isPatient && <th className="py-1 text-start font-medium">{t('keyed.reference')}</th>}
+                {isPatient && <th className="py-1 text-start font-medium">{t('keyed.startsOn')}</th>}
                 <th className="py-1 text-start font-medium">{t('keyed.expiresOn')}</th>
                 <th className="py-1" />
               </tr>
             </thead>
             <tbody>
               {entries.data.map((e) => {
-                const id = entryIdentity(e.key, e.payer)
+                const id = entryIdentity(e.key, isClass ? e.payer : null)
                 return (
-                  <tr key={id} className={`border-t border-border/60 ${e.expired ? 'text-muted-foreground' : ''}`} data-entry={isClass ? id : e.key} data-expired={e.expired ? 'true' : 'false'}>
+                  <tr
+                    key={id}
+                    className={`border-t border-border/60 ${e.expired || e.notStarted ? 'text-muted-foreground' : ''}`}
+                    data-entry={isClass ? id : e.key}
+                    data-expired={e.expired ? 'true' : 'false'}
+                    data-not-started={e.notStarted ? 'true' : 'false'}
+                  >
                     <td className="py-1.5 font-mono">
                       <Ltr>{e.key}</Ltr>
                     </td>
@@ -307,12 +376,39 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                         {e.payer ? <Ltr>{insurerText(e.payer, insurers, lang)}</Ltr> : <span className="text-muted-foreground">{t('keyed.anyInsurer')}</span>}
                       </td>
                     )}
+                    {isPatient && (
+                      <td className="py-1.5" data-entry-reason-kind={e.reasonKind ?? ''}>
+                        {e.reasonKind ? t(`reasonKind.${e.reasonKind}`) : <span className="text-muted-foreground">{t('keyed.reasonKindNone')}</span>}
+                      </td>
+                    )}
+                    {isPatient && (
+                      <td className="py-1.5" data-entry-payer-note={e.payer ?? ''}>
+                        {e.payer ? <Ltr>{e.payer}</Ltr> : null}
+                      </td>
+                    )}
                     <td className="py-1.5">
                       <Ltr>{e.addedBy}</Ltr>
                     </td>
                     <td className="py-1.5">
                       <bdi>{e.reason}</bdi>
                     </td>
+                    {isPatient && (
+                      <td className="py-1.5" data-entry-reference="">
+                        <bdi>{e.reference ?? ''}</bdi>
+                      </td>
+                    )}
+                    {isPatient && (
+                      <td className="py-1.5" data-entry-start="">
+                        <span className="inline-flex items-center gap-2">
+                          {e.startsOn ? <Ltr>{formatDay(e.startsOn)}</Ltr> : null}
+                          {e.notStarted && (
+                            <span data-entry-not-started="">
+                              <StatusBadge sev="mute">{t('keyed.notStarted')}</StatusBadge>
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                    )}
                     <td className="py-1.5" data-entry-expiry="">
                       <span className="inline-flex items-center gap-2">
                         {e.expiresOn ? <Ltr>{formatDay(e.expiresOn)}</Ltr> : <span className="text-muted-foreground">{t('keyed.noExpiry')}</span>}
@@ -378,6 +474,12 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                     {r.payer ? <Ltr>{insurerText(r.payer, insurers, lang)}</Ltr> : t('keyed.anyInsurer')}
                   </span>
                 )}
+                {isPatient && r.reasonKind && <span data-log-reason-kind={r.reasonKind}>{t(`reasonKind.${r.reasonKind}`)}</span>}
+                {isPatient && r.payer && (
+                  <span className="text-xs text-muted-foreground" data-log-payer={r.payer}>
+                    <Ltr>{r.payer}</Ltr>
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {t('keyed.by')} <Ltr>{r.by}</Ltr>
                 </span>
@@ -386,9 +488,19 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                     <bdi>{r.reason}</bdi>
                   </span>
                 )}
+                {r.startsOn && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('keyed.from')} <Ltr>{formatDay(r.startsOn)}</Ltr>
+                  </span>
+                )}
                 {r.expiresOn && (
                   <span className="text-xs text-muted-foreground">
                     {t('keyed.until')} <Ltr>{formatDay(r.expiresOn)}</Ltr>
+                  </span>
+                )}
+                {r.reference && (
+                  <span className="text-xs text-muted-foreground" data-log-reference="">
+                    <bdi>{r.reference}</bdi>
                   </span>
                 )}
               </li>

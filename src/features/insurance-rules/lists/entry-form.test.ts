@@ -68,8 +68,8 @@ describe('a class-list entry (BackOffice 3172)', () => {
     expect(entryBody({ ...cls, key: ' vip-a ' }, 'class')).toEqual({ key: 'VIP-A', reason: 'Gold class' })
     expect(entryBody({ ...cls, payer: '1000123', expiresOn: '2026-11-30' }, 'class')).toEqual({ key: 'VIP-A', payer: '1000123', reason: 'Gold class', expiresOn: '2026-11-30' })
   })
-  it('a patient body never carries a payer', () => {
-    expect(entryBody({ ...ok, payer: '1000123' }, 'patient')).toEqual({ key: '1012345678', reason: 'Board member' })
+  it('a policy body never carries a payer (a patient body carries the reporting payer: 3982)', () => {
+    expect(entryBody({ ...ok, key: 'SUB-1', payer: '1000123' }, 'policy')).toEqual({ key: 'SUB-1', reason: 'Board member' })
   })
 })
 
@@ -85,5 +85,53 @@ describe('a new patient, policy or class list (3133: `POST … { id, name: { en,
   })
   it('the body is trimmed and carries the reason', () => {
     expect(newListBody({ ...list, id: ' CL-GOLD ', en: ' Gold classes ' }, 'gone')).toEqual({ id: 'CL-GOLD', name: { en: 'Gold classes', ar: 'فئات ذهبية' }, reason: 'gone' })
+  })
+})
+
+describe('a blocked-patient entry (BackOffice 3982)', () => {
+  const blocked = { key: '1039820001', reason: 'Bupa finding', expiresOn: '', reasonKind: 'fraud' as const, payer: 'BUPA', reference: 'PA 45678', startsOn: '' }
+
+  it('the kind is required only where the list asks for it, and is abuse or fraud', () => {
+    expect(entryProblems(blocked, 'patient', today, { reasonKindRequired: true })).toEqual([])
+    expect(entryProblems({ ...blocked, reasonKind: '' }, 'patient', today, { reasonKindRequired: true })).toEqual(['reasonKindMissing'])
+    expect(entryProblems({ ...blocked, reasonKind: '' }, 'patient', today)).toEqual([])
+  })
+
+  it('a start day is a date, may be backdated, and is not after the end day (both inclusive)', () => {
+    expect(entryProblems({ ...blocked, startsOn: '2026-10-01' }, 'patient', today)).toEqual([])
+    expect(entryProblems({ ...blocked, startsOn: '2026-11-01', expiresOn: '2026-11-01' }, 'patient', today)).toEqual([])
+    expect(entryProblems({ ...blocked, startsOn: '2026-11-02', expiresOn: '2026-11-01' }, 'patient', today)).toEqual(['startAfterExpiry'])
+    expect(entryProblems({ ...blocked, startsOn: '1/11/2026' }, 'patient', today)).toEqual(['startInvalid'])
+  })
+
+  it('the reporting payer is a code up to 40 (it may hold spaces: NPHIES names); the reference up to 500', () => {
+    expect(entryProblems({ ...blocked, payer: 'GIG (Previously AXA)' }, 'patient', today)).toEqual([])
+    expect(entryProblems({ ...blocked, payer: 'x'.repeat(41) }, 'patient', today)).toEqual(['payerInvalid'])
+    expect(entryProblems({ ...blocked, reference: 'x'.repeat(501) }, 'patient', today)).toEqual(['referenceTooLong'])
+  })
+
+  it('the body carries the four fields, trimmed, and leaves out the blank ones', () => {
+    expect(entryBody({ ...blocked, payer: ' BUPA ', reference: ' PA 45678 ', startsOn: '2026-11-20', expiresOn: '2027-02-20' }, 'patient')).toEqual({
+      key: '1039820001',
+      payer: 'BUPA',
+      reason: 'Bupa finding',
+      reasonKind: 'fraud',
+      reference: 'PA 45678',
+      startsOn: '2026-11-20',
+      expiresOn: '2027-02-20',
+    })
+    expect(entryBody({ ...blocked, reasonKind: '', payer: '', reference: '' }, 'patient')).toEqual({ key: '1039820001', reason: 'Bupa finding' })
+  })
+
+  it('a policy or class entry never carries the patient fields', () => {
+    expect(entryBody({ ...blocked, key: 'SUB-1' }, 'policy')).toEqual({ key: 'SUB-1', reason: 'Bupa finding' })
+  })
+})
+
+describe('a new patient list may ask every entry for its kind (BackOffice 3982)', () => {
+  it('the body carries reasonKindRequired only when ticked', () => {
+    const list = { id: 'blocked-patients', en: 'Blocked patients', ar: 'مرضى محظورون' }
+    expect(newListBody({ ...list, reasonKindRequired: true }, 'BR-7')).toEqual({ id: 'blocked-patients', name: { en: 'Blocked patients', ar: 'مرضى محظورون' }, reason: 'BR-7', reasonKindRequired: true })
+    expect(newListBody(list, 'BR-7')).toEqual({ id: 'blocked-patients', name: { en: 'Blocked patients', ar: 'مرضى محظورون' }, reason: 'BR-7' })
   })
 })

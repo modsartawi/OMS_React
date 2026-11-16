@@ -52,6 +52,11 @@ export const insuranceRulesRoute: RouteObject = {
       path: 'fields',
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/fields/FieldsPage')).default }),
     },
+    // BackOffice 3982 · the patient lists, under their own grant
+    {
+      path: 'patient-lists',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/lists/PatientListsPage')).default }),
+    },
 
     // 611 · approval and versions (e.g. `approvals`, `guards/:ruleId/versions`)
     {

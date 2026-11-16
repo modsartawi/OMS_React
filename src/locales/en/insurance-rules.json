@@ -25,7 +25,8 @@
     "aliases": "Aliases",
     "playground": "Playground",
     "codeLabels": "Code labels",
-    "inspector": "Decision inspector"
+    "inspector": "Decision inspector",
+    "patientLists": "Patient lists"
   },
   "labelsChanged": {
     "badge": "Labels changed",

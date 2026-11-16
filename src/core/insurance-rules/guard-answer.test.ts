@@ -5,7 +5,7 @@
  * `INS_GUARD` grant. A line passed by an HQ exception needs nothing. Expected bodies are literals.
  */
 import { describe, expect, it } from 'vitest'
-import { guardAnswer, guardKey, reasonChoices, type GuardDrafts } from './guard-answer'
+import { guardAnswer, guardKey, guardSays, reasonChoices, type GuardDrafts } from './guard-answer'
 import type { GuardReasons, OrderGuards } from './guard-check'
 
 const fired = (ruleId: string, severity: 'REFUSE' | 'OVERRIDE' | 'WARN', over: Record<string, unknown> = {}) => ({
@@ -160,5 +160,16 @@ describe('guardAnswer — a suggestion applied (review 3126 P2, stories 6 and 35
   })
   it('a rule with no suggestion ignores apply', () => {
     expect(run({ '20:G-002': { apply: true } }).items.find((i) => i.key === '20:G-002')?.problem).toBe('interventionMissing')
+  })
+})
+
+// BackOffice ticket 3977 (spec 3972; 3967): every guard view prints SEVERITY · RULE-ID before the finding's text, in
+// English and Arabic, so no rule repeats its id in its message — and the findings keep the reply's (HQ-sorted) order.
+describe('guardSays', () => {
+  it('guardView_printsSeverityAndRuleIdBeforeText', () => {
+    expect(guardSays(fired('BR-7', 'REFUSE'))).toEqual({ heading: 'REFUSE · BR-7', en: 'REFUSE · BR-7: BR-7 fired', ar: 'REFUSE · BR-7: BR-7 أطلق' })
+  })
+  it('the dialog items keep the reply order and carry their text', () => {
+    expect(run({}).items.map((i) => i.says.heading)).toEqual(['OVERRIDE · G-002', 'WARN · G-003', 'OVERRIDE · G-005', 'REFUSE · G-004'])
   })
 })

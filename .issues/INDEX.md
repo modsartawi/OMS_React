@@ -1497,5 +1497,5 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Document family panel (BackOffice spec 3953, filed 2026-11-16)
 
-- [906](906-an-order-page-shows-its-family-and-every-delivery-opens-in-one-click.md) — An order page shows its family and every delivery opens in one click · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (stubbed; live walk owed on BO 3954) · blocked by: BO 3954
-- [907](907-billings-fold-a-cut-short-family-warns-and-a-failed-load-stays-quiet.md) — Billings fold, a cut-short family warns, and a failed load stays quiet · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (stubbed; live walk owed on BO 3956) · blocked by: 906, BO 3956
+- [906](906-an-order-page-shows-its-family-and-every-delivery-opens-in-one-click.md) — An order page shows its family and every delivery opens in one click · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (drift-checked against BO pricing2 b281ff971 - contract matches; live walk owed once SIS.Api with 3954 is deployed) · blocked by: BO 3954
+- [907](907-billings-fold-a-cut-short-family-warns-and-a-failed-load-stays-quiet.md) — Billings fold, a cut-short family warns, and a failed load stays quiet · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (drift-checked against BO pricing2 b281ff971 - contract matches; live walk owed once SIS.Api with 3956 is deployed) · blocked by: 906, BO 3956

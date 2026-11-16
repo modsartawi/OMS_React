@@ -33,7 +33,7 @@ export interface DocumentFamilyNode {
   entryTime: string | null
   /** `"delivery"` (D, T) · `"document"` (Q, O, X, R, E) · `null` (B, C, V). */
   pageKind: 'delivery' | 'document' | null
-  /** Root O/X only. */
+  /** The family root only, when it is an order or ERX (O, X, E). */
   partnerReference: DocumentFamilyPartnerReference | null
   /** Billing only: its till invoice (`RefInvoiceNo`). */
   tillInvoiceNo: string | null
@@ -45,7 +45,7 @@ export interface DocumentFamily {
   askedCategory: string
   rootNo: string
   rootCategory: string
-  /** The walk hit its cap (depth 6, 100 members); the path from the asked document to the root is still kept. */
+  /** The walk hit its cap (depth 6 going down, 100 members); the path from the asked document to the true root is always kept. */
   truncated: boolean
   nodes: DocumentFamilyNode[]
 }

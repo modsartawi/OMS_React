@@ -108,3 +108,7 @@ met a real answer.
   `tools/document-family-drive.mjs` 87/87 — adds 404 → nothing, bare 403 → nothing, 500 → the quiet line
   inside "Family", the window never scrolling, a 31-member family scrolled inside its own box and not again
   after Refresh (LTR + RTL), the orphan row, the fold button's place, and the partner `<bdi>`.
+
+### 2026-11-16 - drift check
+
+BackOffice 3954-3956 are done and merged to BO `pricing2` (b281ff971, 11 commits ahead of origin, unpushed). `DocumentFamilyModel` and the `GET SdDocumentWeb/Document/{documentNo}/Family?category=` route match `src/core/models/document-family.ts` field for field; no client change was needed. Server refinements (54773acf): an over-long number is refused SDD-02252, the walk up is uncapped (the depth cap bounds the walk down only), and the partner reference may sit on a root ERX as well as O/X; the client already draws it on the root whatever its category. The route is NOT on staging yet (172.23.10.110:4321 answers 404 for Family, 401 for Logs), so the live walk is still owed.

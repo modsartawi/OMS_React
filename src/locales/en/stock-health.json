@@ -123,6 +123,13 @@
       "Tills heard in the last hour": "Tills heard in the last hour",
       "Stores heard in the last hour": "Stores heard in the last hour"
     },
+    "drsQueue": {
+      "Unsent": "Unsent",
+      "Oldest unsent (minutes)": "Oldest unsent (minutes)",
+      "Failed, waiting to retry": "Failed, waiting to retry",
+      "Last sent": "Last sent",
+      "Last heartbeat": "Last heartbeat"
+    },
     "storeStages": {
       "Shadow": "Shadow",
       "Seeding": "Seeding",

@@ -9,9 +9,10 @@
 //   2. with it: the leaf sits right after Store stages; the tiles come in the server's order, one per signal;
 //   3. each tile's tone follows its verdict (noAnswer is did-not-answer, red-outlined, never neutral; null is neutral);
 //      the header counts the judged signals that are not good; "as of" is the server's wall-clock, unshifted;
-//   4. a tile shows at most four figures; a tile with a link is a link, one without is not;
+//   4. a tile shows at most five figures (S7's stuck-seeding count shows); a tile with a link is a link, one without is not;
 //   5. the Refresh button re-reads, and so does the 60-second timer;
-//   6. with S8 present and every judged signal good: eight tiles and "All good";
+//   6. with S8 present (3993's shape) and every judged signal good: eight tiles, S8 with its five figures, "All good";
+//      S8 null ("DRS holds are off", no figures) is neutral and not counted;
 //   7. a tile opens its link;
 //   8. no page errors.
 //
@@ -78,7 +79,13 @@ const SEVEN = [
 ]
 const ALL_GOOD_EIGHT = [
   ...SEVEN.map((s) => (s.verdict === null ? s : { ...s, verdict: 'good', readAt: READ_AT })),
-  sig('drsQueue', 'good', 'The DRS queue is draining.', [{ label: 'Waiting', value: 0 }]),
+  sig('drsQueue', 'good', "DRS's queue to SIS.Api drains: 3 call(s) wait, the oldest under 15 minutes.", [
+    { label: 'Unsent', value: 3 },
+    { label: 'Oldest unsent (minutes)', value: 2.5 },
+    { label: 'Failed, waiting to retry', value: 0 },
+    { label: 'Last sent', value: '2026-11-17T00:29:40' },
+    { label: 'Last heartbeat', value: '2026-11-17T00:29:55' },
+  ]),
 ]
 
 const browser = await chromium.launch()
@@ -159,7 +166,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir}/${theme} 3 as of, unshifted`, asOf === 'as of 2026-11-17 00:30:05', asOf)
 
     // 4. figures + links
-    check(`${dir}/${theme} 4 at most four figures`, (await page.locator('[data-health-tile="storeStages"] [data-health-figure]').count()) === 4)
+    check(`${dir}/${theme} 4 storeStages shows all five figures`, (await page.locator('[data-health-tile="storeStages"] [data-health-figure]').count()) === 5)
     const tags = await tiles(page).evaluateAll((els) => els.map((e) => e.tagName))
     check(`${dir}/${theme} 4 linked tiles are links`, tags.join(',') === 'A,DIV,A,DIV,A,A,A', tags.join(','))
     await page.screenshot({ path: `${SHOTS}/${dir}-${theme}.png`, fullPage: true })
@@ -192,9 +199,25 @@ for (const dir of ['ltr', 'rtl']) {
     const order = await tileAttr(page, 'data-health-tile')
     check(`${dir} 6 eight tiles with drsQueue last`, order.length === 8 && order[7] === 'drsQueue', order.join(','))
     check(`${dir} 6 All good`, (await page.locator('[data-health-header]').getAttribute('data-health-header')) === 'allGood')
+    check(`${dir} 6 S8 shows its five figures`, (await page.locator('[data-health-tile="drsQueue"] [data-health-figure]').count()) === 5)
+    check(`${dir} 6 S8 has no link`, (await page.locator('[data-health-tile="drsQueue"]').evaluate((e) => e.tagName)) === 'DIV')
     check(`${dir} 6 header reads All good`, /All good/.test(await page.locator('[data-health-header]').innerText()))
     await page.screenshot({ path: `${SHOTS}/${dir}-all-good.png`, fullPage: true })
     check(`${dir} 6 no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 6b. S8 null: DRS holds are off, no figures, neutral, not counted
+  {
+    const off = [...ALL_GOOD_EIGHT.slice(0, 7), sig('drsQueue', null, "DRS holds are off: DRS has never sent its queue's heartbeat.", [])]
+    const { context, page, errors } = await open(dir, { signals: off })
+    await page.goto(`${BASE}/oms/stock-health`)
+    await tiles(page).first().waitFor({ timeout: 15000 })
+    const s8 = page.locator('[data-health-tile="drsQueue"]')
+    check(`${dir} 6b S8 off is neutral`, (await s8.getAttribute('data-tone')) === 'neutral')
+    check(`${dir} 6b S8 off has no figures`, (await s8.locator('[data-health-figure]').count()) === 0)
+    check(`${dir} 6b S8 off is not counted`, (await page.locator('[data-health-header]').getAttribute('data-health-header')) === 'allGood')
+    check(`${dir} 6b no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

@@ -85,8 +85,8 @@ export function figureLabel(t: Translate, key: string, label: string): string {
 /** The page re-reads the door every minute (the server caches its answer for 30 seconds, so no faster). */
 export const REFRESH_MS = 60_000
 
-/** A tile shows at most four figures, in the server's order. */
-export const MAX_FIGURES = 4
+/** A tile shows at most five figures, in the server's order (S7 sends five: the four stages and the stuck-seeding count). */
+export const MAX_FIGURES = 5
 
 export function figuresShown(signal: StockHealthSignal) {
   return (signal.figures ?? []).slice(0, MAX_FIGURES)

@@ -40,7 +40,7 @@ model/api (answer + access probe) · logic (header line, verdict → tone, AR re
 - [x] `the header reads All good only when every judged signal is good` · pure (null verdicts are not judged) (`health.test.ts`)
 - [x] `noAnswer draws as did-not-answer, never as neutral` · pure (`health.test.ts`)
 - [x] `an AR reason is picked by key and verdict, with the figures interpolated` · pure (`health.test.ts`, a real i18next over the shipped locale files)
-- [x] drive (stubbed): tiles in order, a tile opens its link, refresh re-reads, no leaf without the grant (`tools/stock-health-drive.mjs`, 70/70)
+- [x] drive (stubbed): tiles in order, a tile opens its link, refresh re-reads, no leaf without the grant (`tools/stock-health-drive.mjs`, 82/82)
 - [ ] staging walk: all green; SIS.Stock stopped shows No answer on S1-S4 only; a user without the role does not see
   the leaf (BackOffice 3994's open proof)
 
@@ -91,3 +91,12 @@ stages (lucide `HeartPulse`).
 - AR reasons are one sentence per key + verdict, so they cannot carry every EN variant (S1 bad names which feeds;
   S2 bad is either the alerts' text or the errored count; S7 `null` is either the stage summary or "the stage log did not
   answer"). The AR line is the summary; the figures carry the detail.
+
+**2026-11-18 — S8 filled, five figures.** BackOffice 3993 merged into `spec3991` (92a588ddc): `drsQueue` is the eighth
+signal, `link: null`, figures `Unsent`, `Oldest unsent (minutes)`, `Failed, waiting to retry`, `Last sent`,
+`Last heartbeat`; `null` with no figures = "DRS holds are off". Its AR reasons now carry the figures (watch and bad name the
+waiting count and the oldest row's age, bad also the last heartbeat, since a stale heartbeat is the other way to bad), the
+`null` line reads "حجوزات DRS متوقفة", and all five figure labels have Arabic. Per the coordinator's decision the tile cap is
+**five** figures (the brief will say "up to five" on the BackOffice side), so S7's "Seeding over N hours" now shows; the
+first mismatch above is closed. Drive extended: S8 in 3993's shape (five figures, no link), and S8 `null` (neutral, no
+figures, not counted). Drive 82/82.

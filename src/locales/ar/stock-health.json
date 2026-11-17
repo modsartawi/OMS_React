@@ -83,10 +83,10 @@
       "noAnswer": "لم يُجب مصدر هذه الإشارة: {{detail}}"
     },
     "drsQueue": {
-      "good": "طابور DRS سليم.",
-      "watch": "طابور DRS يستحق المتابعة.",
-      "bad": "طابور DRS يحتاج إلى تدخل.",
-      "none": "طابور DRS، للعلم فقط.",
+      "good": "طابور DRS إلى SIS.Api يتصرّف: {{f1}} طلب بانتظار الإرسال.",
+      "watch": "ينتظر {{f1}} طلب في طابور DRS إلى SIS.Api، أقدمها منذ {{f2}} دقيقة؛ فشل {{f3}} وينتظر إعادة المحاولة.",
+      "bad": "طابور DRS إلى SIS.Api في حالة سيئة: {{f1}} طلب بانتظار الإرسال، أقدمها منذ {{f2}} دقيقة؛ آخر نبضة من DRS {{f5}}.",
+      "none": "حجوزات DRS متوقفة: لم يرسل DRS نبضة طابوره قط.",
       "noAnswer": "لم يُجب مصدر هذه الإشارة: {{detail}}"
     }
   },
@@ -122,6 +122,13 @@
     "holdSeamTills": {
       "Tills heard in the last hour": "أجهزة سُمعت في الساعة الأخيرة",
       "Stores heard in the last hour": "فروع سُمعت في الساعة الأخيرة"
+    },
+    "drsQueue": {
+      "Unsent": "غير مُرسَل",
+      "Oldest unsent (minutes)": "أقدم غير مُرسَل (بالدقائق)",
+      "Failed, waiting to retry": "فشل، بانتظار إعادة المحاولة",
+      "Last sent": "آخر إرسال",
+      "Last heartbeat": "آخر نبضة"
     },
     "storeStages": {
       "Shadow": "ظل",

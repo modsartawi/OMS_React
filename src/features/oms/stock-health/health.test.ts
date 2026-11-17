@@ -141,11 +141,11 @@ describe('the figures', () => {
 })
 
 describe('the tile', () => {
-  it('shows at most four figures, in the order sent', () => {
+  it('shows at most five figures, in the order sent, so the stuck-seeding count shows', () => {
     const stages = signal('storeStages', null, {
-      figures: ['Shadow', 'Seeding', 'Seeded', 'Blocking', 'Seeding over 24 hours'].map((label, i) => ({ label, value: i })),
+      figures: ['Shadow', 'Seeding', 'Seeded', 'Blocking', 'Seeding over 24 hours', 'A sixth'].map((label, i) => ({ label, value: i })),
     })
-    expect(figuresShown(stages).map((f) => f.label)).toEqual(['Shadow', 'Seeding', 'Seeded', 'Blocking'])
+    expect(figuresShown(stages).map((f) => f.label)).toEqual(['Shadow', 'Seeding', 'Seeded', 'Blocking', 'Seeding over 24 hours'])
     expect(figuresShown(signal('feeds', 'noAnswer'))).toEqual([])
   })
 
@@ -168,5 +168,31 @@ describe('the refresh', () => {
   it('"as of" is the server wall-clock as sent, never shifted', () => {
     expect(asOf('2026-11-17T00:30:05')).toBe('2026-11-17 00:30:05')
     expect(asOf('')).toBe('')
+  })
+})
+
+describe('S8, the DRS queue (BackOffice 3993)', () => {
+  const figures = [
+    { label: 'Unsent', value: 7 },
+    { label: 'Oldest unsent (minutes)', value: 22.5 },
+    { label: 'Failed, waiting to retry', value: 2 },
+    { label: 'Last sent', value: '2026-11-17T10:41:00' },
+    { label: 'Last heartbeat', value: '2026-11-17T10:42:30' },
+  ]
+
+  it('null with no figures reads "DRS holds are off"', () => {
+    const off = signal('drsQueue', null, { reason: "DRS holds are off: DRS has never sent its queue's heartbeat." })
+    expect(stripIsolates(reasonText(translator('ar'), off))).toBe('حجوزات DRS متوقفة: لم يرسل DRS نبضة طابوره قط.')
+  })
+
+  it('watch puts the queue figures into the Arabic line', () => {
+    const watch = signal('drsQueue', 'watch', { figures })
+    expect(stripIsolates(reasonText(translator('ar'), watch))).toBe(
+      'ينتظر 7 طلب في طابور DRS إلى SIS.Api، أقدمها منذ 22.5 دقيقة؛ فشل 2 وينتظر إعادة المحاولة.',
+    )
+  })
+
+  it('every shipped figure label has its Arabic', () => {
+    for (const f of figures) expect(figureLabel(translator('ar'), 'drsQueue', f.label)).not.toBe(f.label)
   })
 })

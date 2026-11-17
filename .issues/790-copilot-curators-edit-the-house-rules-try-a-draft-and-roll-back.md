@@ -71,14 +71,14 @@ of 0 (the fallback) reads *built-in rules*.
 - [x] `answer.test.ts`: `promptVersion` is read: a number gives *rules vN*, 0 gives *built-in rules*, absent gives
   nothing.
 - [ ] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
-  - [ ] a viewer without the grant gets no menu item and the no-access state at the URL;
+  - [x] a viewer without the grant gets no menu item and the no-access state at the URL;
   - [x] a curator sees the core and version 1;
   - [ ] removing rule 12 and trying a comparison question shows a "Metric | Value" list;
   - [ ] putting it back and trying again shows one column per compared thing;
   - [x] save makes version 2 and the copilot panel's next answer reads *rules v2*;
   - [x] restoring version 1 makes version 3, reverted from 1;
   - [x] two tabs: saving in the second after the first gives the 411 dialog.
-- [ ] Under Arabic, the version, times and count read the right way round, and the house-rules text keeps its own
+- [x] Under Arabic, the version, times and count read the right way round, and the house-rules text keeps its own
   direction (`<bdi>` / `dir="auto"` on the textarea).
 - [x] `npm run typecheck`, `npm test` and `npm run lint` are clean. Any new hand-written control goes in
   `tools/control-baseline.txt` with its reason, or uses `core/ui`. *(2026-11-06: typecheck, the 654 test files and four lint gates clean; the boundary gate's one failure is
@@ -220,3 +220,40 @@ also updated for 874's `defaultReadings`; they failed before this change.
 (`src/core/i18n.ts`). `oms.locale` sets only `dir`, as the other RTL drives note. So outside the drive, a real
 browser will still show this screen in English and mirrored until Arabic is switched on app-wide. That switch is not
 this ticket's. The screenshot shows the screen as it reads once the switch is made.
+
+### 2026-11-17 — the last two boxes walked live: no grant, and Arabic
+
+Walked on the local rig: SIS.Api on pricing2 against the local dev HQ database, and the app at `origin/main`
+`a86564a7`, which holds the Arabic fix. Two throwaway users were made for the walk and deleted after it:
+`T790VIEW` (`COPILOT_USER` + `ANALYTICS_VIEWER`, no curator grant) and `T790CUR` (the same plus `COPILOT_CURATOR`).
+Nothing was saved: the house rules stayed at v7.
+
+**A viewer without the grant (ticked).**
+
+- With the access checks settled, `T790VIEW`'s menu holds *BackOffice* and *Analytics* only: no *Administration*
+  group and no `/copilot/rules` leaf.
+- At the URL, the page shows *No access to the copilot rules*. `GET Copilot/Prompt` answers 403, and no editor is
+  drawn.
+- The control: `T790CUR` sees *Administration › Copilot rules*, and the editor opens.
+- Screenshots: `assets/790-live-viewer-menu.png` and `assets/790-live-viewer-no-access.png`.
+
+**Under Arabic (ticked).** As `T790CUR`, on live data (v7, saved by 14419, and v5/v7 restored from v3), the page was
+switched to `ar` and RTL in the running app, the way the drive does it.
+
+- The version line reads *الإصدار 7، حفظه 14419 في 2026-11-17 20:44*. Its three isolates sit right to left:
+  version, then saver, then time.
+- The count reads *عدد الأحرف 1954 / 4000*: the words on the right, the number after them.
+- The history row reads *مُستعاد من v3*: the words first, `v3` after them.
+- No English word is left outside data. The house-rules textarea is `dir="auto"` and keeps its English LTR. The
+  empty note is RTL. The menu leaf reads *قواعد المساعد*.
+- Screenshots: `assets/790-live-ar-top.png` and `assets/790-live-ar-history.png`.
+- ⚠ The caveat from the note above still holds. `lng` is hard-coded to `en` in `src/core/i18n.ts`, so a real
+  user sees this only once Arabic is switched on app-wide, which is a separate ticket.
+
+**Still open: the two rule-12 boxes, which today's model has overtaken.** With the Tables rule removed from the
+draft, the fast model already answers comparisons with one column per compared thing (see the walk note above).
+So the *Metric | Value* failure the first box expects cannot be shown, and the pair proves nothing. They need the
+owner's call: accept them as overtaken, or reword them against a failure the current model still shows.
+
+**Also seen, not this ticket's:** the history shows v2's seeded note as *spec 3408 Â§I*. That is the BackOffice
+seed script's double-encoded `§`, noted earlier.

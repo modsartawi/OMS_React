@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 734
 blocked-by: BackOffice 3395
 ---
@@ -70,11 +70,11 @@ of 0 (the fallback) reads *built-in rules*.
   - [x] history rows (*reverted from*, active mark).
 - [x] `answer.test.ts`: `promptVersion` is read: a number gives *rules vN*, 0 gives *built-in rules*, absent gives
   nothing.
-- [ ] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
+- [x] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
   - [x] a viewer without the grant gets no menu item and the no-access state at the URL;
   - [x] a curator sees the core and version 1;
-  - [ ] removing rule 12 and trying a comparison question shows a "Metric | Value" list;
-  - [ ] putting it back and trying again shows one column per compared thing;
+  - [x] ~~removing rule 12 and trying a comparison question shows a "Metric | Value" list;~~ *overtaken: owner, 2026-11-18*
+  - [x] ~~putting it back and trying again shows one column per compared thing;~~ *overtaken: owner, 2026-11-18*
   - [x] save makes version 2 and the copilot panel's next answer reads *rules v2*;
   - [x] restoring version 1 makes version 3, reverted from 1;
   - [x] two tabs: saving in the second after the first gives the 411 dialog.
@@ -257,3 +257,10 @@ owner's call: accept them as overtaken, or reword them against a failure the cur
 
 **Also seen, not this ticket's:** the history shows v2's seeded note as *spec 3408 Â§I*. That is the BackOffice
 seed script's double-encoded `§`, noted earlier.
+
+### 2026-11-18 — closed: the rule-12 pair accepted as overtaken (owner)
+
+The owner accepted the two rule-12 boxes as overtaken. Even with the Tables rule taken out of the draft, today's model
+answers comparisons with one column per compared thing, so the *Metric | Value* failure they were written against no
+longer appears. Rule 12 stays in the house rules. Every other proof holds, live or stubbed. *Done when* is met: on
+2026-11-17 the owner saved a change (v4) and the next answer followed it (*rules v4*). **Status: done.**

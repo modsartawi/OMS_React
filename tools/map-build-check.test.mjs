@@ -1,43 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import { MAP_ADDRESS_ALLOWED, mapCodeLeaks, outsideAddresses } from './map-build-check.mjs'
+import { GOOGLE_MAP_HOSTS } from './google-map-hosts.mjs'
+import { googleNamedOutsideMap, keyShapedStrings, MAP_ADDRESS_ALLOWED, mapCodeLeaks, outsideAddresses, retiredEngineIn } from './map-build-check.mjs'
 
-// Ticket 879 (BackOffice spec 3630 M29, M35; seam 7): the checks on the built app, as pure functions over its text and
-// its chunk graph. `check-map-build.mjs` runs them over a real build in `npm run lint`.
+// Ticket 879, rewritten by 911 for Google (BackOffice spec 3630 M29, M35 as amended 2026-11-17, ADR 0139; seam 7): the
+// checks on the built app, as pure functions over its text and its chunk graph. `check-map-build.mjs` runs them over a
+// real build in `npm run lint`.
 
-describe('an address on another host, in the map code or its style', () => {
+describe('the map names no outside host but Google’s', () => {
+  it('the allowed hosts are exactly the drives’ one named list of Google’s hosts, each with its reason', () => {
+    expect([...MAP_ADDRESS_ALLOWED.keys()]).toEqual([...GOOGLE_MAP_HOSTS])
+    for (const reason of MAP_ADDRESS_ALLOWED.values()) expect(reason.length).toBeGreaterThan(10)
+  })
+
+  it('each of Google’s hosts passes, at any path', () => {
+    for (const host of ['maps.googleapis.com', 'maps.gstatic.com', 'fonts.googleapis.com', 'fonts.gstatic.com'])
+      expect(outsideAddresses(`src:"https://${host}/some/path?x=1"`, MAP_ADDRESS_ALLOWED)).toEqual([])
+    expect(outsideAddresses('const SCRIPT_ORIGIN="https://maps.googleapis.com/maps/api/js";', MAP_ADDRESS_ALLOWED)).toEqual([])
+  })
+
   it('a CDN the page would fetch is found', () => {
-    const text = 'setRTLTextPlugin("https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js",!1)'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js'])
+    const text = 'import("https://unpkg.com/@googlemaps/js-api-loader@1.16.8/dist/index.min.js")'
+    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['https://unpkg.com/@googlemaps/js-api-loader@1.16.8/dist/index.min.js'])
   })
 
-  it('a tile or font server with no scheme (protocol-relative) is found', () => {
-    const text = `glyphs:"//protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf"`
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['//protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf'])
+  it('a tile server with no scheme (protocol-relative) is found', () => {
+    const text = `tiles:"//tile.openstreetmap.org/{z}/{x}/{y}.png"`
+    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['//tile.openstreetmap.org/{z}/{x}/{y}.png'])
   })
 
-  it('the credit line\u2019s link is the one allowed address', () => {
-    const text = 'href:"https://www.openstreetmap.org/copyright",text:"\u00a9 OpenStreetMap"'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([])
+  it('a host is matched exactly: a Google look-alike, a sub-domain or another Google host is found', () => {
+    const text = '"https://maps.googleapis.com.evil.example/js" "https://x.maps.gstatic.com/a" "https://www.google.com/maps/search"'
+    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([
+      'https://maps.googleapis.com.evil.example/js',
+      'https://x.maps.gstatic.com/a',
+      'https://www.google.com/maps/search',
+    ])
   })
 
-  it('an allowed address allows only itself: the same host\u2019s tile server is found', () => {
-    const text = 'tiles:["https://www.openstreetmap.org/tiles/{z}/{x}/{y}.png"]'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['https://www.openstreetmap.org/tiles/{z}/{x}/{y}.png'])
+  it('a host is matched with its port ignored and its case folded', () => {
+    expect(outsideAddresses('"https://MAPS.googleapis.com:443/maps/api/js"', MAP_ADDRESS_ALLOWED)).toEqual([])
   })
 
   it('a path on our own site is not an outside address', () => {
-    const text = 'glyphs:e+"/map/fonts/{fontstack}/{range}.pbf",url:`pmtiles://${e}/basemap/ksa-bh.pmtiles`'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([])
-  })
-
-  it('Google’s script address is allowed (908, ADR 0139): the map’s one fetched outside address', () => {
-    const text = 'const SCRIPT_ORIGIN="https://maps.googleapis.com/maps/api/js";'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([])
-  })
-
-  it('another script on Google’s host is not: an allowed address allows only itself', () => {
-    const text = 'src:"https://maps.googleapis.com/maps/api/staticmap"'
-    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['https://maps.googleapis.com/maps/api/staticmap'])
+    expect(outsideAddresses('fetch(e+"/api/Analytics/Model")', MAP_ADDRESS_ALLOWED)).toEqual([])
   })
 
   it('a JavaScript comment is not an address', () => {
@@ -45,8 +50,24 @@ describe('an address on another host, in the map code or its style', () => {
   })
 })
 
+describe('no key is in any built file', () => {
+  it('a string shaped like a Google API key is found', () => {
+    const key = 'AIzaSyB' + 'x'.repeat(32)
+    expect(keyShapedStrings(`const k="${key}";`)).toEqual([key])
+  })
+
+  it('a key-shaped string inside a script address is found', () => {
+    const key = 'AIza' + '0123456789abcdefghij_-ABCDEFGHIJKLMNO'.slice(0, 35)
+    expect(keyShapedStrings(`"https://maps.googleapis.com/maps/api/js?key=${key}&v=3.66"`)).toEqual([key])
+  })
+
+  it('the word on its own, or a short run after it, is not a key', () => {
+    expect(keyShapedStrings('AIza is the prefix of a key; AIzaShort')).toEqual([])
+  })
+})
+
 /** A chunk of the build, as the bundler reports it. */
-const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEntry = false, facade = null } = {}) => ({
+const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEntry = false, facade = null, code = '' } = {}) => ({
   type: 'chunk',
   fileName,
   isEntry,
@@ -54,10 +75,13 @@ const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEn
   moduleIds: modules,
   imports,
   dynamicImports,
+  code,
 })
 
 const ROOT = 'C:/app'
-const MAPLIBRE = `${ROOT}/node_modules/maplibre-gl/dist/maplibre-gl.js`
+const PANEL = `${ROOT}/src/core/map/MapPanel.tsx`
+const ENGINE = `${ROOT}/src/core/map/google-engine.ts`
+const LOADER = `${ROOT}/src/core/map/google-loader.ts`
 const BOARD = `${ROOT}/src/features/analytics/boards/AnalyticsBoardPage.tsx`
 
 describe('the map code is loaded only when a map is on screen', () => {
@@ -66,7 +90,7 @@ describe('the map code is loaded only when a map is on screen', () => {
       chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, imports: ['assets/react.js'], dynamicImports: ['assets/AnalyticsBoardPage.js'] }),
       chunk('assets/react.js', { modules: [`${ROOT}/node_modules/react/index.js`] }),
       chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], dynamicImports: ['assets/MapPanel.js'] }),
-      chunk('assets/MapPanel.js', { facade: `${ROOT}/src/core/map/MapPanel.tsx`, modules: [MAPLIBRE] }),
+      chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL, ENGINE, LOADER] }),
     ]
     expect(mapCodeLeaks(chunks, ROOT)).toEqual([])
   })
@@ -74,34 +98,69 @@ describe('the map code is loaded only when a map is on screen', () => {
   it('the entry reaching the map code by static imports is a leak, named with the path to it', () => {
     const chunks = [
       chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, imports: ['assets/shared.js'] }),
-      chunk('assets/shared.js', { imports: ['assets/maplibre.js'] }),
-      chunk('assets/maplibre.js', { modules: [MAPLIBRE] }),
+      chunk('assets/shared.js', { imports: ['assets/google.js'] }),
+      chunk('assets/google.js', { modules: [ENGINE] }),
     ]
-    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/index.js -> assets/shared.js -> assets/maplibre.js (maplibre-gl)'])
+    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/index.js -> assets/shared.js -> assets/google.js (google-engine)'])
   })
 
-  it('a board page chunk reaching the map code by a static import is a leak', () => {
+  it('a board page chunk reaching the map panel by a static import is a leak', () => {
     const chunks = [
       chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, dynamicImports: ['assets/AnalyticsBoardPage.js'] }),
       chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], imports: ['assets/MapPanel.js'] }),
-      chunk('assets/MapPanel.js', { modules: [MAPLIBRE] }),
+      chunk('assets/MapPanel.js', { modules: [PANEL] }),
     ]
-    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js -> assets/MapPanel.js (maplibre-gl)'])
-  })
-
-  it('the Google adapter and its loader are map code too (908): a board reaching them statically is a leak', () => {
-    const chunks = [
-      chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], imports: ['assets/google.js'] }),
-      chunk('assets/google.js', { modules: [`${ROOT}/src/core/map/google-engine.ts`, `${ROOT}/src/core/map/google-loader.ts`] }),
-    ]
-    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js -> assets/google.js (google-engine, google-loader)'])
+    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js -> assets/MapPanel.js (MapPanel)'])
   })
 
   it('the copilot panel chunk is held to the same rule', () => {
-    const PANEL = `${ROOT}/src/features/copilot/CopilotPanel.tsx`
+    const COPILOT = `${ROOT}/src/features/copilot/CopilotPanel.tsx`
+    const chunks = [chunk('assets/CopilotPanel.js', { facade: COPILOT, modules: [COPILOT, LOADER] })]
+    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/CopilotPanel.js (google-loader)'])
+  })
+})
+
+describe('no Google script is named outside the map’s own chunk', () => {
+  it('the map’s chunk naming Google’s script is fine', () => {
+    const chunks = [chunk('assets/MapPanel.js', { modules: [PANEL, LOADER], code: '"https://maps.googleapis.com/maps/api/js"' })]
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual([])
+  })
+
+  it('another chunk naming one of Google’s map hosts is found', () => {
     const chunks = [
-      chunk('assets/CopilotPanel.js', { facade: PANEL, modules: [PANEL, `${ROOT}/node_modules/pmtiles/dist/esm/index.js`] }),
+      chunk('assets/MapPanel.js', { modules: [PANEL, LOADER] }),
+      chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], code: 's.src="https://maps.googleapis.com/maps/api/js?v=3"' }),
     ]
-    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/CopilotPanel.js (pmtiles)'])
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js: names maps.googleapis.com'])
+  })
+
+  it('maps.gstatic.com outside the map’s chunk is found too', () => {
+    const chunks = [chunk('assets/shared.js', { code: '"https://maps.gstatic.com/mapfiles/x.png"' })]
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual(['assets/shared.js: names maps.gstatic.com'])
+  })
+
+  it('the grid’s Google Fonts stylesheet (AG Grid’s theme font loader) is not a Google map script', () => {
+    const chunks = [chunk('assets/grid-base.js', { code: '`https://fonts.googleapis.com/css2?family=${f}`' })]
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual([])
+  })
+
+  it('a link to google.com’s map site (the call centre’s location card) is not a Google script', () => {
+    const chunks = [chunk('assets/LocationCard.js', { code: '`https://www.google.com/maps/search/?api=1&query=${a}`' })]
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual([])
+  })
+})
+
+describe('MapLibre, pmtiles and Protomaps are in no chunk', () => {
+  it('a chunk holding a retired engine module is found, by package', () => {
+    const chunks = [
+      chunk('assets/MapPanel.js', { modules: [PANEL, `${ROOT}/node_modules/maplibre-gl/dist/maplibre-gl.js`, `${ROOT}/node_modules/pmtiles/dist/esm/index.js`] }),
+      chunk('assets/style.js', { modules: [`${ROOT}/node_modules/@protomaps/basemaps/dist/index.js`] }),
+      chunk('assets/index.js', { modules: [`${ROOT}/src/main.tsx`] }),
+    ]
+    expect(retiredEngineIn(chunks, ROOT)).toEqual(['assets/MapPanel.js (maplibre-gl, pmtiles)', 'assets/style.js (@protomaps/basemaps)'])
+  })
+
+  it('a build on Google alone holds none', () => {
+    expect(retiredEngineIn([chunk('assets/MapPanel.js', { modules: [PANEL, ENGINE, LOADER] })], ROOT)).toEqual([])
   })
 })

@@ -4,7 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { basemapDevMiddleware } from './tools/basemap-dev-file.mjs'
 
 // --- Build stamp (issue 435) -------------------------------------------------
 // Computed once so the `define` constants and the /version.json asset agree byte
@@ -53,27 +52,13 @@ function versionAsset(): Plugin {
   }
 }
 
-// The base-map file at its fixed path, by byte range, for `vite` and `vite preview` (ticket 879; see the module). In
-// production IIS serves the deployed file there (BackOffice 3634's README). Never emitted into dist/.
-function basemapDevFile(): Plugin {
-  return {
-    name: 'oms-basemap-dev-file',
-    configureServer(server) {
-      server.middlewares.use(basemapDevMiddleware())
-    },
-    configurePreviewServer(server) {
-      server.middlewares.use(basemapDevMiddleware())
-    },
-  }
-}
-
 // Dev-only proxy: the browser talks same-origin (/api/...) so the HttpOnly
 // sis_session cookie round-trips untouched; SIS.Api itself serves at the root,
 // so the /api prefix is stripped (matches the Angular prototype's proxy.conf.json).
 // Staging/production are same-origin under IIS — no proxy, no CORS anywhere; the
 // prod client uses base `/` (see src/core/api.ts, issue 435).
 export default defineConfig({
-  plugins: [react(), tailwindcss(), versionAsset(), basemapDevFile()],
+  plugins: [react(), tailwindcss(), versionAsset()],
   define: {
     __APP_VERSION__: JSON.stringify(VERSION),
     __BUILD_SHA__: JSON.stringify(SHA),

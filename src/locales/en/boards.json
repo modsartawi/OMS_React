@@ -489,6 +489,8 @@
     "send": "Ask"
   },
   "copilotTable": {
+    "mapLarger": "Larger map",
+    "mapLargerTitle": "The map, larger",
     "actions": "Table actions",
     "openAsView": "Open as view",
     "computedColumns": "Open as view shows the table's query only, without {{columns}} (computed by the analysis)."

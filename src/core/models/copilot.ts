@@ -1,4 +1,4 @@
-import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsReportDefinition } from './analytics'
+import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsMapLegend, AnalyticsReportDefinition } from './analytics'
 
 /**
  * The copilot's wire shapes (spec 734 D10; doors `Copilot/Access` and `Copilot/Ask`, BackOffice BO-1,
@@ -826,6 +826,17 @@ export interface CopilotAnswerTable {
   notes: CopilotTableNotes
   /** The `semantic_query` input it ran (the `show` mark taken off): what "Open as view" seeds the editor with. */
   query: CopilotTableQuery
+  /**
+   * BackOffice 3641 (spec 3630 M42, oms-react 884): the map part of a table from a map that fit — drawn as a map above the
+   * table. Its rows then carry the `place` and `legend` columns after the table's own. ABSENT (never null) on every other
+   * table, and on every table with `Copilot:Charts:Map` or `Analytics:MapChart` off.
+   */
+  map?: CopilotAnswerMap
+}
+
+/** A table's map part (BackOffice 3641): the same legend a map view's answer carries (3639). */
+export interface CopilotAnswerMap {
+  legend: AnalyticsMapLegend
 }
 
 /**
@@ -840,7 +851,11 @@ export interface CopilotTableQuery {
 
 export interface CopilotTableColumn {
   key: string
-  role: 'dimension' | 'measure'
+  /**
+   * BackOffice 3641 (oms-react 884): on a table with a map part only, `place` (`latitude`, `longitude`, `store_name`,
+   * `city`) and then `legend` (`hollow`, and `colour_step` with a colour measure) — the map's, not the table's.
+   */
+  role: 'dimension' | 'measure' | 'place' | 'legend'
   /** The header in both languages: the calculation's or variant's own label, else the model's, else the key. */
   label: AnalyticsLabel
   /** `count` | `SAR` | `minutes` | `percent`; null on a dimension. */

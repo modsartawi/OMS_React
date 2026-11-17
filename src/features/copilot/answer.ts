@@ -262,7 +262,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     namedSet: namedSetOf(r.namedSet),
     language: r.language === 'ar' ? 'ar' : null,
     rules: rulesOf(r.promptVersion),
-    tables: Array.isArray(r.tables) ? r.tables.filter(isTable) : [],
+    tables: Array.isArray(r.tables) ? r.tables.filter(isTable).map(withMapPart) : [],
     figuresOnly: r.outcome === 'figures-only',
     sql: sqlOf(r.sql),
     sqlOffer: sqlOfferOf(r.sqlOffer),
@@ -429,6 +429,17 @@ export const answerTableKey = (table: CopilotAnswerTable, index: number): string
 /** A table the panel can draw: an object with its columns and rows as lists. Anything else is left out. */
 const isTable = (v: unknown): v is CopilotAnswerTable =>
   !!v && typeof v === 'object' && Array.isArray((v as { columns?: unknown }).columns) && Array.isArray((v as { rows?: unknown }).rows)
+
+/**
+ * 884 (BackOffice 3641): a table's map part is kept only when it carries a legend object (the analytics wire reads the
+ * legend itself, tolerantly); anything else is left out and the table is drawn as a table. A table with none is untouched.
+ */
+function withMapPart(table: CopilotAnswerTable): CopilotAnswerTable {
+  if (!('map' in table)) return table
+  const { map, ...rest } = table
+  const legend = map && typeof map === 'object' ? (map as { legend?: unknown }).legend : null
+  return legend && typeof legend === 'object' ? { ...rest, map } : rest
+}
 
 const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 

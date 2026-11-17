@@ -1,12 +1,13 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FileSpreadsheet, FileText } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, FileText, Maximize2 } from 'lucide-react'
 import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsModel } from '@/core/models/analytics'
 import type { CopilotAnswerTable } from '@/core/models/copilot'
 import Button from '@/core/ui/Button'
+import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { downloadCsv } from '@/core/util/download-file'
 import { writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
@@ -27,6 +28,7 @@ import {
 } from './copilot-table'
 import CopilotTableTitle from './CopilotTableTitle'
 import LastYearNote from './LastYearNote'
+import MapBody from './MapBody'
 import { panelCsv, panelSheet, stamped, type TableWords } from './panel-table'
 import { columnTooltip } from './unsplit'
 import TruncatedNote from './TruncatedNote'
@@ -49,6 +51,12 @@ const NO_MODEL: AnalyticsModel = { areas: [], measures: [], dimensions: [] }
  * - "Open as view" opens the table's own query: not offered when it has none (`{}`), and followed by one line naming
  *   the columns the analysis computed, which the query does not hold;
  * - a table whose query asked for the same weeks last year shows the last-year column and the "not held" note (877).
+ *
+ * 884 (BackOffice spec 3630 M42; ticket 3641): a table that carries a map part is drawn as the map a board draws
+ * (`./MapBody`: its legend, groups, card, not-on-map line and "Show as table"), at the panel's width, ABOVE the table of
+ * the same rows — which is always there, so the copilot's words can be checked against them. "Larger map" opens it in a
+ * wide dialog. When the map cannot be drawn only its line is left, over the table. The map code is fetched only when a
+ * map is on screen (`@/core/map/LazyMapPanel`); a table with no map part draws none.
  *
  * A table without a title that did not ask for last year is drawn and downloaded exactly as before.
  */
@@ -85,10 +93,25 @@ export default function CopilotTableEmbed({ table, index = 0 }: { table: Copilot
     const link = copilotTableOpenAsView(definition)
     navigate(link.to, { state: link.state })
   }
+  const [larger, setLarger] = useState(false)
 
   return (
     <section className="flex min-w-0 flex-col gap-1.5" aria-labelledby={title ? titleId : undefined} data-copilot-table={table.step} data-copilot-table-index={index}>
       <CopilotTableTitle table={table} lang={lang} id={titleId} />
+      {parts.map && (
+        <div className="flex min-w-0 flex-col gap-1" data-copilot-map>
+          <MapBody result={result} definition={parts.map} model={drawing} lang={lang} tableBelow />
+          <div className="flex justify-end">
+            <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => setLarger(true)} data-copilot-map-larger>
+              <Maximize2 className="size-3.5" aria-hidden />
+              {t('copilotTable.mapLarger')}
+            </Button>
+          </div>
+          <Modal open={larger} onClose={() => setLarger(false)} title={t('copilotTable.mapLargerTitle')} width="72rem">
+            {larger && <MapBody result={result} definition={parts.map} model={drawing} lang={lang} tableBelow className="h-[70vh] w-full" />}
+          </Modal>
+        </div>
+      )}
       <TableChart
         columns={view.columns}
         rows={view.rows}

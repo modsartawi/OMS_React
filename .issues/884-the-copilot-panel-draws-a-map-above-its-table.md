@@ -21,10 +21,10 @@ draws one, with or without the author grant.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] An answer with a map part draws the map panel above its table, with the result's points and legend · oms-react tests (the panel's answer tests)
-- [ ] An answer without one renders as today · oms-react tests
-- [ ] The answer's contract type gains the map part first, and an answer from a server without it still parses · oms-react tests
-- [ ] When the map cannot draw, the table and the line are shown · oms-react tests
+- [x] An answer with a map part draws the map panel above its table, with the result's points and legend · oms-react tests (the panel's answer tests)
+- [x] An answer without one renders as today · oms-react tests
+- [x] The answer's contract type gains the map part first, and an answer from a server without it still parses · oms-react tests
+- [x] When the map cannot draw, the table and the line are shown · oms-react tests
 - [ ] A reader with the view grant only sees the map on the local stack, in English and in Arabic · seen by a person, screenshot
 
 ## Boundaries
@@ -39,3 +39,27 @@ Proof boxes ticked; `test`, `lint` and `build` are green.
 ## Blocked by
 
 BackOffice 3641, 880.
+
+## Comments
+
+**2026-11-17 — built (branch `spec/3630-884`).** `test` 10,971 green (797 files), `typecheck` and `build` green; `lint`: the
+grid/contrast/palette/control gates and the map-build gate green, ⚠ `check-boundaries` red with the **4 insurance-rules
+findings already on `spec/3630-map-chart`** (879's note), none from 884.
+
+- **Contract** (`src/core/models/copilot.ts`): `CopilotAnswerTable.map?: CopilotAnswerMap` (`{ legend: AnalyticsMapLegend }`,
+  3641's wire), and `CopilotTableColumn.role` gains `place` / `legend`. `copilotAnswerModel` keeps a table's map part only
+  when it holds a legend object; a table from a server without it parses as before (`answer-map.test.ts`).
+- **Reading** (`copilot-table.ts`): the copilot's string cells become what a map view's answer carries — `latitude` /
+  `longitude` numbers (null = not on the map), `hollow` a flag — and the legend rides into the result through `readResult`
+  (so `notOnMap` is the server's count). `CopilotTableParts.map` is the table's own query under `chart: map`.
+- **Drawing**: `MapBody` moved out of `ViewChart.tsx` into `./MapBody.tsx` unchanged, plus `tableBelow` and `className`.
+  `CopilotTableEmbed` draws it above the grid with "Larger map" (a 72rem dialog, `h-[70vh]` map, mounted only while open).
+  With `tableBelow`, a map that cannot draw — or has no placed row — draws no table of its own (`mapDisplay` → `shows:
+  'none'`), only its line, over the answer's table of the same rows. "Show as table" is still the board's (`MapTable`,
+  with store name and city). The grid under the map shows the table's own columns only (place/legend columns are not in
+  its query), identical to the same rows without a map part.
+- Tests: `src/features/analytics/boards/copilot-map-answer.test.ts` (static markup, en + ar; the cannot-draw branch is
+  driven through the print context's `fell-back`, the same `fellBack` the panel's own cannot-draw sets) and
+  `src/features/copilot/answer-map.test.ts`. Mutation-checked: dropping `tableBelow` reds the cannot-draw test; reading
+  `hollow` as the raw string reds the points test.
+- **Left open:** the "seen by a person" box (view grant only, local stack, en + ar) — so the ticket stays `open`.

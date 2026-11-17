@@ -5,6 +5,7 @@ import { shownDecimals } from '@/core/charts/format'
 import { saysIn } from '@/core/rules/sentence'
 import type { CalculationWords } from './calculations'
 import { newViewLink, type EditorSeed } from './editor'
+import { MAP_HOLLOW, MAP_LATITUDE, MAP_LONGITUDE } from './map-chart'
 import { panelFileBase, panelTable, type PanelTable, type TableWords } from './panel-table'
 import { toTableView, type TableView } from './view-model-forms'
 import { dimensionOf, readDefinition, readResult } from './wire'
@@ -109,12 +110,22 @@ const numberOf = (v: string | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * 884 (BackOffice 3641): a map table's `place` and `legend` cells as a map view's answer carries them — the coordinates
+ * numbers (null: not on the map), `hollow` a flag — so the board's map reads them unchanged. The rest stay as sent.
+ */
+function cellOf(c: CopilotAnswerTable['columns'][number], v: string | null): AnalyticsRow[string] {
+  if (c.role === 'measure') return numberOf(v)
+  if (c.role === 'place' && (c.key === MAP_LATITUDE || c.key === MAP_LONGITUDE)) return numberOf(v)
+  if (c.role === 'legend' && c.key === MAP_HOLLOW) return v === 'true'
+  return v
+}
+
 function keyedRows(table: CopilotAnswerTable, rows: readonly CopilotTableRow[]): AnalyticsRow[] {
   return rows.map((r) => {
     const out: AnalyticsRow = {}
     table.columns.forEach((c, i) => {
-      const v = r.values?.[i] ?? null
-      out[c.key] = c.role === 'measure' ? numberOf(v) : v
+      out[c.key] = cellOf(c, r.values?.[i] ?? null)
     })
     if (r.isTotal === true) out[IS_TOTAL_KEY] = true
     return out
@@ -166,7 +177,22 @@ export function copilotTableResult(table: CopilotAnswerTable, definition: Analyt
     untilReached: untilReachedOf(table, definition),
     notSplit: table.notes?.notSplit ?? undefined,
     notFiltered: table.notes?.notFiltered ?? undefined,
+    // 884 (BackOffice 3641): a map table's legend, read as a map view's is (`./wire` `readMapLegend`, which also gives
+    // the server's count of stores not on the map). Absent stays absent.
+    ...(hasMapPart(table) ? { legend: table.map.legend } : {}),
   })
+}
+
+/** 884: the table carries a map part (BackOffice 3641) — the copilot drew it as a map. */
+const hasMapPart = (table: CopilotAnswerTable): table is CopilotAnswerTable & { map: NonNullable<CopilotAnswerTable['map']> } =>
+  !!table.map && typeof table.map === 'object' && !!table.map.legend && typeof table.map.legend === 'object'
+
+/**
+ * 884: the definition a map table is drawn with as a map — its own query under the map chart, so the map is the one a
+ * board draws (`./map-chart`: the first measure the size, the second the colour). Undefined on a table with no map part.
+ */
+export function copilotTableMapDefinition(table: CopilotAnswerTable, definition: AnalyticsViewDefinition = copilotTableDefinition(table)): AnalyticsViewDefinition | undefined {
+  return hasMapPart(table) ? { ...definition, chart: { type: 'map' } } : undefined
 }
 
 /**
@@ -248,12 +274,21 @@ export interface CopilotTableParts {
   model: AnalyticsModel
   /** 878: the table itself when it is an analysis result's ({@link isAnalysisTable}), drawn as sent; absent on a plain query's. */
   sent?: CopilotAnswerTable
+  /** 884: the map's definition when the table carries a map part ({@link copilotTableMapDefinition}); absent otherwise. */
+  map?: AnalyticsViewDefinition
 }
 
 /** {@link CopilotTableParts} for a table, over the analytics model (may be empty while it loads). */
 export function copilotTableParts(table: CopilotAnswerTable, model: AnalyticsModel, naming?: CopilotColumnNaming): CopilotTableParts {
   const definition = copilotTableDefinition(table)
-  return { result: copilotTableResult(table, definition), definition, model: copilotTableModel(table, model, naming), ...(isAnalysisTable(table) ? { sent: table } : {}) }
+  const map = copilotTableMapDefinition(table, definition)
+  return {
+    result: copilotTableResult(table, definition),
+    definition,
+    model: copilotTableModel(table, model, naming),
+    ...(isAnalysisTable(table) ? { sent: table } : {}),
+    ...(map ? { map } : {}),
+  }
 }
 
 /** The table form's view model: every row, as sent, the "All" rows last, headed by the wire's labels. */

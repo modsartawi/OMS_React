@@ -116,7 +116,8 @@ export function notOnMapTableView(
 
 /** What a map body shows, the line under it, and the switch it offers ("Show as table" / "Show as map"). */
 export interface MapDisplay {
-  shows: 'map' | 'table'
+  /** `none` (884): only under a copilot answer, whose own table of the same rows is drawn below. */
+  shows: 'map' | 'table' | 'none'
   line: 'notOnMap' | 'cannotDraw' | null
   switchTo: 'table' | 'map' | null
 }
@@ -126,10 +127,26 @@ export interface MapDisplay {
  * - no row has coordinates: the table in place of the map, with the not-on-map line;
  * - "Show as table" chosen: the table, and a switch back to the map;
  * - otherwise the map, a switch to the table, and the not-on-map line when the SERVER counted any (`notOnMap`).
+ *
+ * 884: above a copilot answer's table (`tableBelow`), a map that cannot draw, or has no row placed, draws no table of its
+ * own — the answer's table of the same rows is right under it — only its line. "Show as table" stays the board's.
  */
-export function mapDisplay({ placed: onMap, notOnMap, cannotDraw, asTable }: { placed: number; notOnMap: number; cannotDraw: boolean; asTable: boolean }): MapDisplay {
-  if (cannotDraw) return { shows: 'table', line: 'cannotDraw', switchTo: null }
-  if (onMap === 0) return { shows: 'table', line: notOnMap > 0 ? 'notOnMap' : null, switchTo: null }
+export function mapDisplay({
+  placed: onMap,
+  notOnMap,
+  cannotDraw,
+  asTable,
+  tableBelow = false,
+}: {
+  placed: number
+  notOnMap: number
+  cannotDraw: boolean
+  asTable: boolean
+  tableBelow?: boolean
+}): MapDisplay {
+  const instead = tableBelow ? 'none' : 'table'
+  if (cannotDraw) return { shows: instead, line: 'cannotDraw', switchTo: null }
+  if (onMap === 0) return { shows: instead, line: notOnMap > 0 ? 'notOnMap' : null, switchTo: null }
   if (asTable) return { shows: 'table', line: null, switchTo: 'map' }
   return { shows: 'map', line: notOnMap > 0 ? 'notOnMap' : null, switchTo: 'table' }
 }

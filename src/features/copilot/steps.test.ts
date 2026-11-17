@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CopilotSteps } from '@/core/models/copilot'
 import { ApiError } from '@/core/api'
-import { STEP_POLL_MS, liveStepKey, pollSteps, stepsOrNothing } from './steps'
+import { STEP_POLL_MS, WALKED_STEP_TOOLS, liveStepKey, pollSteps, stepsOrNothing, walkedStepKey } from './steps'
 
 const ID = '01JCOPILOT0000000000000000'
 
@@ -133,5 +133,27 @@ describe('the live steps (spec 3558 D12, D17; ticket 869)', () => {
   it('stepsOrNothing_anyFailedReadIsNothing', async () => {
     await expect(stepsOrNothing(Promise.reject(new ApiError('server', 'down', 503)))).resolves.toBeNull()
     await expect(stepsOrNothing(Promise.resolve(at(['answer'], true)))).resolves.toEqual(at(['answer'], true))
+  })
+})
+
+describe('the walked steps with no live step (D11; BackOffice 3630 walk fix)', () => {
+  // The walk: a read-only map question showed "Removing from the report", because with no live step the panel walked
+  // EVERY tool's words, the writing tools' too. It walks only the words of tools that read.
+  const writes = /^(create_|edit_|board_|report_)/
+
+  it("never shows a writing tool's words, over the whole walk", () => {
+    const seen = Array.from({ length: 3 * WALKED_STEP_TOOLS.length }, (_, n) => walkedStepKey(n))
+    expect(seen).not.toContain('steps.report_remove_blocks')
+    expect(seen).not.toContain('steps.create_view')
+    expect(seen.filter((key) => writes.test(key.slice('steps.'.length)))).toEqual([])
+  })
+
+  it('walks the lookups and the analytics query, and no SQL-mode step outside SQL mode', () => {
+    expect(WALKED_STEP_TOOLS).toContain('semantic_query')
+    expect(WALKED_STEP_TOOLS).toContain('order_timeline')
+    expect(WALKED_STEP_TOOLS).not.toContain('run_sql')
+    expect(WALKED_STEP_TOOLS).not.toContain('describe_tables')
+    expect(walkedStepKey(0)).toBe('steps.order_timeline')
+    expect(walkedStepKey(WALKED_STEP_TOOLS.length)).toBe('steps.order_timeline')
   })
 })

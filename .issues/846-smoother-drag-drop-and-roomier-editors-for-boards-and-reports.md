@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 spec: none (owner feedback 2026-11-07 on 837; research docs/research/846-canvas-editor-drag-drop-ux.md)
 blocked-by: none (client only)
 ---
@@ -64,9 +64,9 @@ After using 837 the owner said:
 
 - [x] pure: `edgeSpeed`, separator keys with bounds and edge, `closeGaps` (all and one section, order kept,
       no-op), undo history (one step per gesture), duplicate placement, nearest-edge indicator · unit
-- [ ] drive (stub): a long board drag scrolls gradually; Close gaps; resize the list; undo/redo; Esc cancels;
+- [x] drive (stub): a long board drag scrolls gradually; Close gaps; resize the list; undo/redo; Esc cancels;
       report indicator line and dragging a view into a section · flow (stub)
-- [ ] live on the local rig: the owner's Executive overview · flow (live)
+- [x] live on the local rig: the owner's Executive overview · flow (live)
 
 ## Boundaries
 
@@ -119,3 +119,36 @@ After using 837 the owner said:
   `ViewsPalette` (board-owned). Clicking a block on the page does not select it; the edit tool or the outline does.
 
 **2026-11-17 - test run on main 7daac778.** Unit: the same vitest run (79 files, 1,104 tests, all pass, `auto-scroll` and `layout` included). Stub: `DRIVE_PORT=5173 node tools/report-designer-846-drive.mjs` 80/80 PASS, LTR and RTL (gradual edge scroll, the drop line, Views tab, "+" add, Delete/Undo, Ctrl+D, Esc, no page errors). That is the report-designer half of the stub box only; no drive covers the board half (long board drag, Close gaps, resizing the list), so the stub box stays open, as does the live box (the owner's Executive overview).
+
+### 2026-11-17 — stub drive and live walk: done
+
+- **Correction to the note above.** The board half does have a stub drive: `dragAndGaps846` in
+  `tools/analytics-drive.mjs`. The earlier note missed it.
+- **Stub, on main 698e19a9 code (the dev server's analytics code is the same).**
+  - `DRIVE_PORT=5173 DRIVE_ONLY=846 node tools/analytics-drive.mjs`: 68/68, en and ar. It covers the long
+    board drag scrolling gradually, the ghost, Esc, a drag as one undo step (buttons and Ctrl+Z / Ctrl+Y /
+    Ctrl+Shift+Z), section and board Close gaps, "no gaps", the list splitter (keys, pointer, remembered), the
+    rail, the outline, Ctrl+D, Delete, Align top and `?`.
+  - `DRIVE_PORT=5173 node tools/report-designer-846-drive.mjs`: 80/80, en and ar (the indicator line, a view
+    dragged into a section, "+", Delete, Ctrl+D, Esc).
+- **Live, on the local rig** (SIS.Api pricing2 walk build, local POS_Server). A throwaway user `T846WALK` with
+  `ANALYTICS_VIEWER` edited a personal copy of the owner's shared "Executive overview" (22 panels, 3 sections,
+  29 rows). The owner's two boards were not touched, and the copy was never saved.
+  - **Long drag.** Holding "Net sales" in the bottom band scrolled the page gradually: 0.23 to 0.86 px/ms,
+    under full speed, ramping up, and 853 of 2,882 px after about a second. The held panel followed to row 13 as
+    a ghost. Esc put all 22 panels back. ![long drag](assets/846-live-long-drag.png)
+  - **Undo and redo.** A drag four columns over was one undo step, through the buttons and through
+    Ctrl+Z / Ctrl+Y.
+  - **Close gaps.** Removing the sales line left its gap. The section's Close gaps moved "Value through our tills
+    by channel" up from row 7 to row 3, and left the next sections alone ("Gaps closed in this section"). The
+    toolbar's Close gaps then moved the Orders section up from row 11 to row 7, keeping the reading order. A
+    second press said "There are no gaps to close.", and three Undos went back step by step to the start.
+    ![close gaps](assets/846-live-close-gaps.png)
+  - **Views list.** It went from 272 to 320 px with the keys and to 420 px with the pointer, and the width was
+    remembered. It folded to a rail and reopened at 420. ![wide list](assets/846-live-wide-list.png)
+  - **Outline and keys.** The outline listed all 22 panels. Clicking the note scrolled it into view and focused
+    it. Ctrl+D put the copy in the free slot below it (0,24 → 0,29), Delete removed it, and `?` opened the
+    shortcut sheet. The board ended identical to how it started.
+- **Rig note, not 846.** On this rig two menu access probes are slow when signed in: `StoreStage/Access` took
+  about 8 s and `SdDocumentWeb/Access` about 17 s. With about 40 probes behind the browser's 6 connections, a
+  fresh sign-in waits roughly a minute on "Checking your access…" before analytics answers.

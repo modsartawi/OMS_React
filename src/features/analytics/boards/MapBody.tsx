@@ -6,7 +6,7 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
-import { mapDisplay, mapDrawing, mapLegendView } from './map-chart'
+import { mapCannotDrawHolds, mapDisplay, mapDrawing, mapLegendView } from './map-chart'
 import MapLegend from './MapLegend'
 import MapTable, { MapLine } from './MapTable'
 import { usePrintMap } from './PrintMapsContext'
@@ -48,7 +48,9 @@ export default function MapBody({
   const drawing = useMemo(() => mapDrawing(result, model, lang), [result, model, lang])
   const legend = useMemo(() => mapLegendView(result, model, lang), [result, model, lang])
   const points = drawing.points
-  const [cannotDraw, setCannotDraw] = useState(false)
+  // 909: a cannot-draw holds only for the key it was tried with (the model may load after the answer).
+  const [failed, setFailed] = useState<{ triedWith: string } | null>(null)
+  const cannotDraw = mapCannotDrawHolds(failed, model.maps?.key)
   const [asTable, setAsTable] = useState(false)
   const print = usePrintMap()
   const noneOnMap = points.length === 0
@@ -77,7 +79,7 @@ export default function MapBody({
           className={className}
           onDrawn={print.drawn}
           onCannotDraw={() => {
-            setCannotDraw(true)
+            setFailed({ triedWith: model.maps?.key ?? '' })
             print.cannotDraw()
           }}
         />

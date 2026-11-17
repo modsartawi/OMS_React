@@ -1,4 +1,4 @@
-import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, PLAIN_INK, POINT_RADIUS, RING_INK, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
+import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
 
 export type { MapCard, MapCardState, MapFeature, MapGrouping, MapPoint, MapTarget } from './map-drawing'
 
@@ -46,13 +46,12 @@ export interface MapEngineStart {
   mapId?: string
   /** Always {@link MAP_REGION}. */
   region: typeof MAP_REGION
-  /** The plain point's look (908: one size, one colour; 909 brings back the sizes and colours of 881). Resolved inks. */
-  plainPoint: { radius: number; fill: string; ring: string }
   /** Where the zoom buttons stand: the top corner at the reading end. Physical corners. */
   controlsCorner: 'top-left' | 'top-right'
   /**
-   * What to draw at a zoom (881): each point at its size and colour, nearby points joined into groups. The engine asks
-   * again whenever the whole-number zoom changes.
+   * What to draw at a zoom (881, 909): each point at its size and colour, nearby points joined into groups that never
+   * overlap on Google's map. The one source of the groups: the engine asks again whenever the whole-number zoom changes,
+   * and a tap, a group's opening zoom and the card's fold are all read against the same features.
    */
   featuresAt(zoom: number): MapFeature[]
   /** The resolved ink of a group's words. */
@@ -223,7 +222,6 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         key,
         ...(open.maps?.mapId ? { mapId: open.maps.mapId } : {}),
         region: MAP_REGION,
-        plainPoint: { radius: POINT_RADIUS.plain, fill: inkOf(PLAIN_INK), ring: inkOf(RING_INK) },
         controlsCorner: open.dir === 'rtl' ? 'top-left' : 'top-right',
         featuresAt: featuresOf,
         labelInk: inkOf(GROUP_LABEL_INK),
@@ -245,7 +243,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
           const f = featureOf(target, zoom)
           // A click on a group zooms in, centred on it, to where it opens (M19).
           if (f?.kind === 'group') {
-            running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom))
+            running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom, open.grouping ?? null))
             return
           }
           cardOn({ kind: 'tap', target: f ? target : null })

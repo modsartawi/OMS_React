@@ -1,4 +1,6 @@
 import { googleLoader, type GoogleLoader } from './google-loader'
+import { markerHits, markerLook } from './map-markers'
+import type { MapFeature } from './map-drawing'
 import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapView } from './map-panel'
 
 /**
@@ -13,8 +15,10 @@ import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapV
  *   zoom buttons at the reading end. Google's logo and terms are drawn by Google, on screen and in print (M34).
  * - Raster tiles (`renderingType: RASTER`), so a headless print needs no graphics card. A served map ID brings its own
  *   rendering setting, which must be raster too (908's open question).
- * - Points: plain, one size and one colour (908), as classic markers with a circle symbol, which need no map ID. 909
- *   decides the marker kind for sized, coloured and grouped points.
+ * - Points and groups (909): the panel's features at the whole zoom (`start.featuresAt`), drawn as HTML elements on one
+ *   `OverlayView` with `./map-markers`' look — no map ID needed, so the map stays raster with Google's default style.
+ *   Redrawn when the whole zoom changes; the panel's own grouping is the one source, so a tap, a group's opening zoom
+ *   and the card's fold all read the features drawn. A click on a group eases to the zoom where it opens.
  * - "Drawn": the points are put on the map before Google can report anything; the panel then waits for `tilesloaded` and
  *   `idle` (M37).
  */
@@ -41,14 +45,19 @@ interface GLatLng {
   lat(): number
   lng(): number
 }
-interface GMarker {
+interface GOverlayView {
   setMap(map: GMap | null): void
+  getPanes(): { overlayMouseTarget: HTMLElement } | null
+  getProjection(): { fromLatLngToDivPixel(at: LatLngLiteral): { x: number; y: number } | null } | undefined
+}
+interface GOverlayViewClass {
+  new (): GOverlayView
+  preventMapHitsAndGesturesFrom(el: HTMLElement): void
 }
 interface GoogleMapsNs {
   importLibrary(name: 'maps'): Promise<{ Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap; RenderingType: { RASTER: unknown } }>
-  importLibrary(name: 'marker'): Promise<{ Marker: new (options: Record<string, unknown>) => GMarker }>
   ControlPosition: { TOP_LEFT: unknown; TOP_RIGHT: unknown }
-  SymbolPath: { CIRCLE: unknown }
+  OverlayView: GOverlayViewClass
   event: { addListenerOnce(target: GMap, event: string, handler: () => void): GListener }
 }
 
@@ -66,7 +75,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       let map: GMap | null = null
       let g: GoogleMapsNs | undefined
       const listeners: GListener[] = []
-      let markers: GMarker[] = []
+      let overlay: GOverlayView | null = null
       let resize: ResizeObserver | null = null
       const fail = (reason: 'refused' | 'unreachable' | 'no-graphics') => {
         if (destroyed || ended) return
@@ -98,7 +107,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       const draw = async () => {
         g = googleMaps()
         if (!g) throw new Error('Google Maps did not define google.maps')
-        const [{ Map, RenderingType }, { Marker }] = await Promise.all([g.importLibrary('maps'), g.importLibrary('marker')])
+        const { Map, RenderingType } = await g.importLibrary('maps')
         if (destroyed) return
         const view = start.view
         try {
@@ -124,18 +133,12 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         }
         if (view.kind === 'bounds') fit(view)
         // The points are on the map before Google can report its tiles or idle: "drawn" then includes them.
-        const { radius, fill, ring } = start.plainPoint
-        markers = start.points.map(
-          (p) =>
-            new Marker({
-              map,
-              position: { lat: p.lat, lng: p.lon },
-              clickable: false,
-              icon: { path: g!.SymbolPath.CIRCLE, scale: radius, fillColor: fill, fillOpacity: 1, strokeColor: ring, strokeWeight: 1.5 },
-            }),
-        )
         const m = map
+        const hits = markerHits(events, () => m.getZoom() ?? 0)
+        overlay = markersOverlay(g, m, container, start, hits)
+        overlay.setMap(m)
         listeners.push(
+          m.addListener('click', () => !destroyed && hits.mapClick()),
           m.addListener('tilesloaded', () => !destroyed && events.tilesLoaded()),
           m.addListener('idle', () => !destroyed && events.idle()),
           m.addListener('bounds_changed', () => !destroyed && events.moved(m.getZoom() ?? 0)),
@@ -159,8 +162,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           stopRefused()
           resize?.disconnect()
           for (const l of listeners) l.remove()
-          for (const marker of markers) marker.setMap(null)
-          markers = []
+          overlay?.setMap(null)
+          overlay = null
           map = null
         },
         zoomTo: (lon, lat, zoom) => {
@@ -185,4 +188,76 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       }
     },
   }
+}
+
+/**
+ * One overlay holding every marker as an HTML element (909): the features at the map's whole zoom, placed at Google's
+ * own pixel for their place on every redraw, made again when the whole zoom changes. Hits on a marker are the panel's
+ * (`preventMapHitsAndGesturesFrom`: the map neither pans from a marker nor sees its click as a click beside it).
+ */
+function markersOverlay(
+  g: GoogleMapsNs,
+  map: GMap,
+  container: HTMLElement,
+  start: MapEngineStart,
+  hits: ReturnType<typeof markerHits>,
+): GOverlayView {
+  const layer = document.createElement('div')
+  layer.setAttribute('data-map-markers', '')
+  let drawnZoom: number | null = null
+  let shown: { f: MapFeature; el: HTMLElement }[] = []
+  // A hit's place in the panel's pixels, as the card is placed (physical, from the map box's own corner).
+  const placeOf = (e: MouseEvent) => {
+    const box = container.getBoundingClientRect()
+    return { x: e.clientX - box.left, y: e.clientY - box.top }
+  }
+  const make = (zoom: number) => {
+    drawnZoom = zoom
+    // The whole zoom the markers were made at, for the drives (as `data-map-state` is).
+    layer.setAttribute('data-zoom', String(zoom))
+    layer.replaceChildren()
+    shown = start.featuresAt(zoom).map((f) => {
+      const el = document.createElement('div')
+      const look = markerLook(f, start.labelInk)
+      Object.assign(el.style, look.style)
+      el.setAttribute('data-feature', f.kind)
+      if (look.label) {
+        // `auto`: an Arabic sum's word reads right to left inside its circle; the digits stay Latin (M19).
+        el.dir = 'auto'
+        el.textContent = look.label
+      }
+      el.addEventListener('pointerenter', (e) => hits.enter(f.id, zoom, placeOf(e)))
+      el.addEventListener('pointerleave', () => hits.leave(zoom))
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        hits.click(f.id, zoom, placeOf(e))
+      })
+      g.OverlayView.preventMapHitsAndGesturesFrom(el)
+      layer.appendChild(el)
+      return { f, el }
+    })
+  }
+  const overlay = new g.OverlayView()
+  return Object.assign(overlay, {
+    onAdd() {
+      overlay.getPanes()?.overlayMouseTarget.appendChild(layer)
+    },
+    draw() {
+      const zoom = Math.floor(map.getZoom() ?? 0)
+      if (zoom !== drawnZoom) make(zoom)
+      const projection = overlay.getProjection()
+      if (!projection) return
+      for (const { f, el } of shown) {
+        const at = projection.fromLatLngToDivPixel({ lat: f.lat, lng: f.lon })
+        if (!at) continue
+        el.style.left = `${at.x}px`
+        el.style.top = `${at.y}px`
+      }
+    },
+    onRemove() {
+      layer.remove()
+      shown = []
+      drawnZoom = null
+    },
+  })
 }

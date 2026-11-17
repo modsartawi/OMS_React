@@ -1,20 +1,32 @@
-// Report map print drive (ticket 883, BackOffice spec 3630 M34, M37, M38): the REAL report print page, under a render
-// ticket, with a map block and a bar block, printed to PDF the way the report renderer does (it waits for
-// `data-print-ready`, then prints). It replaced 879's development proof page. Network OFF: every request to a host
-// other than the dev server is aborted; the analytics ticket doors are stubbed here.
-// Manual-run, like every drive here; not a CI gate.
+// Report map print drive (ticket 883, BackOffice spec 3630 M34, M37, M38; ticket 910, ADR 0139: on Google): the REAL
+// report print page, under a render ticket, with a map block and a bar block, printed to PDF the way the report
+// renderer does (it waits for `data-print-ready`, then prints). The map is Google's: the stubbed model carries the
+// `maps` part with the key from the environment. Google's hosts (`tools/google-map-hosts.mjs`, the one named list) are
+// let through; every other outside request is aborted and counted (must be 0). The analytics ticket doors are stubbed
+// here. Manual-run, like every drive here; not a CI gate. Each run makes billed map loads (the two drawn scenarios,
+// three loads with the warm one): keep the runs few.
 //
 // Scenarios:
-//   drawn-en / drawn-ar  the map draws; the page says ready only after it has; PDF to .issues/assets/883-report-map-<lang>.pdf
-//   timeout-en           the base map never answers; after 20 s the map block is the table with "The map could not be
-//                        drawn", the page says ready, and it still prints (.issues/assets/883-report-map-timeout-en.pdf)
+//   drawn-en / drawn-ar  Google draws the map; the page says ready only after it has; PDF to
+//                        .issues/assets/910-report-map-<lang>.pdf. drawn-en also loads the page again in the same
+//                        browser (warm cache) and records both times to ready.
+//   blocked-en           every Google host is aborted: the map block is the table under "The map could not be drawn",
+//                        the page says ready, and it still prints (.issues/assets/910-report-map-google-blocked-en.pdf)
+//   refused-en           a key Google refuses (`gm_authFailure`): the same fall-back (PDF to the temp folder)
+//   slow-en              Google's script is never answered: the loader gives up at 15 s, the same fall-back
+//   no-key-en            the model carries no `maps` part: the same fall-back at once, and Google is never asked
 //
-//   1. run the app:  npx vite --port 5207 --strictPort        (serves the dev base-map file; see tools/basemap-dev-file.mjs)
-//   2. DRIVE_PORT=5207 node tools/report-map-print-drive.mjs   (DRIVE_ONLY=drawn-en to run one)
+//   1. run the app:  npx vite --port 5207 --strictPort        (the app only: no base-map file is needed any more)
+//   2. GOOGLE_MAPS_KEY=<a browser key whose referrers allow localhost> DRIVE_PORT=5207 node tools/report-map-print-drive.mjs
+//      (DRIVE_ONLY=drawn-en,blocked-en to run some). The key is never printed: every output line is passed through
+//      `withoutKey`. Never write it into a file in git.
 //
-// Headless Edge with software graphics, as the PDF renderer (BackOffice 3635: `--enable-unsafe-swiftshader`).
+// Headless Edge with software graphics, as the PDF renderer (BackOffice 3635: `--enable-unsafe-swiftshader`). Google's
+// map is raster here (`renderingType: RASTER`), so it needs no graphics card to print.
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import { envelope, MODEL, REPORT_827, inlineAnswer } from './analytics-stubs.mjs'
+import { GOOGLE_MAP_HOSTS, isGoogleMapHost, withoutKey } from './google-map-hosts.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -22,8 +34,11 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5207}`
 const OUT = '.issues/assets'
 const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
 const label = (en, ar) => ({ en, ar })
+const KEY = (process.env.GOOGLE_MAPS_KEY ?? '').trim()
+// Not a key of anyone's: Google answers it with `gm_authFailure` (InvalidKeyMapError), no map load billed.
+const REFUSED_KEY = 'AIzaSy-oms-react-910-not-a-key-0000000000'
 
-// Seven stores inside the development base-map file's box (central Riyadh, 46.60-46.80 E, 24.60-24.80 N; BackOffice 3634).
+// Seven stores in central Riyadh (the box 879-883 drew: 46.60-46.80 E, 24.60-24.80 N).
 const STORES = [
   ['P001', 'Olaya', 24.6943, 46.6853, 1200],
   ['P002', 'Malaz', 24.6612, 46.7311, 940],
@@ -70,23 +85,36 @@ const REPORT = {
   },
 }
 const MAP_MODEL = { ...MODEL, chartTypes: ['kpi', 'line', 'area', 'bar', 'donut', 'table', 'heatmap', 'combo', 'map'] }
+const modelWith = (key) => (key ? { ...MAP_MODEL, maps: { key } } : MAP_MODEL)
 
-async function scenario(browser, name, { lang, holdBaseMap = false }) {
+async function scenario(browser, name, { lang, key = KEY, blockGoogle = false, holdScript = false, warm = false, keep = true }) {
   const context = await browser.newContext({ viewport: { width: 1100, height: 900 } })
   const outside = []
+  const googleHosts = new Set()
+  let googleRequests = 0
+  let googleBlocked = 0
   const tickets = []
   await context.route('**/*', async (route) => {
     const req = route.request()
     const url = new URL(req.url())
     if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-      outside.push(url.href)
+      if (isGoogleMapHost(url.hostname)) {
+        if (blockGoogle) {
+          googleBlocked++
+          return route.abort()
+        }
+        if (holdScript && url.pathname === '/maps/api/js') return // never answered: the loader gives up at 15 s
+        googleHosts.add(url.hostname)
+        googleRequests++
+        return route.continue()
+      }
+      outside.push(withoutKey(url.href, key))
       return route.abort()
     }
-    if (holdBaseMap && url.pathname === '/basemap/ksa-bh.pmtiles') return // never answered: the map cannot finish
     const p = url.pathname.split('/api/')[1]
     if (p === undefined) return route.continue()
     if (p.startsWith('Analytics/Render/')) tickets.push(req.headers()['x-analytics-render-ticket'] ?? null)
-    if (p === 'Analytics/Render/Model') return route.fulfill(envelope(MAP_MODEL))
+    if (p === 'Analytics/Render/Model') return route.fulfill(envelope(modelWith(key)))
     if (p === 'Analytics/Render/Report/r-883') return route.fulfill(envelope(REPORT))
     if (p === 'Analytics/Render/Report/r-883/Words') return route.fulfill(envelope({ figures: {}, summary: { unavailable: 'No summary block.' } }))
     if (p === 'Analytics/Render/Query') {
@@ -97,52 +125,113 @@ async function scenario(browser, name, { lang, holdBaseMap = false }) {
   })
   const page = await context.newPage()
   const errors = []
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
-  page.on('pageerror', (e) => errors.push(String(e)))
-  const t0 = Date.now()
-  await page.goto(`${BASE}/analytics/print/report/r-883?period=last-7-days&lang=${lang}&ticket=T-883`)
-  // What the renderer does: wait for the marker, and look at the map at that moment.
-  let mapWhenNotReady = null
-  const poll = setInterval(async () => {
-    try {
-      const s = await page.evaluate(() => ({ ready: document.querySelector('[data-print-ready]') !== null, map: document.querySelector('[data-map-state]')?.getAttribute('data-map-state') ?? null }))
-      if (!s.ready) mapWhenNotReady = s.map
-    } catch {}
-  }, 250)
-  await page.waitForSelector('[data-print-ready]', { timeout: 60000 })
-  clearInterval(poll)
-  const readyAfterMs = Date.now() - t0
-  const state = await page.evaluate(() => ({
-    map: document.querySelector('[data-map-state]')?.getAttribute('data-map-state') ?? null,
-    fellBack: document.querySelector('[data-map-cannot-draw]')?.textContent ?? null,
-    credit: document.querySelector('a[href="https://www.openstreetmap.org/copyright"]')?.textContent ?? null,
-    dir: document.documentElement.dir,
-  }))
-  const file = `${OUT}/883-report-map-${name.replace(/^drawn-/, '')}.pdf`
+  page.on('console', (m) => m.type() === 'error' && errors.push(withoutKey(m.text(), key)))
+  page.on('pageerror', (e) => errors.push(withoutKey(String(e), key)))
+  const address = `${BASE}/analytics/print/report/r-883?period=last-7-days&lang=${lang}&ticket=T-883`
+
+  // What the renderer does: open the page, wait for the marker, and look at the map at that moment.
+  const openAndWait = async () => {
+    let mapWhenNotReady = null
+    const t0 = Date.now()
+    await page.goto(address)
+    const poll = setInterval(async () => {
+      try {
+        const s = await page.evaluate(() => ({ ready: document.querySelector('[data-print-ready]') !== null, map: document.querySelector('[data-map-state]')?.getAttribute('data-map-state') ?? null }))
+        if (!s.ready) mapWhenNotReady = s.map
+      } catch {}
+    }, 250)
+    await page.waitForSelector('[data-print-ready]', { timeout: 60000 })
+    clearInterval(poll)
+    return { readyAfterMs: Date.now() - t0, mapWhenNotReady }
+  }
+  const cold = await openAndWait()
+  const warmRun = warm ? await openAndWait() : null
+  const boxOf = () =>
+    page.evaluate(() => {
+      const r = document.querySelector('[data-map-state]')?.getBoundingClientRect()
+      return r ? { width: Math.round(r.width), height: Math.round(r.height) } : null
+    })
+  const state = await page.evaluate(() => {
+    const map = document.querySelector('[data-map-state]')
+    const fellBack = document.querySelector('[data-map-fell-back]')
+    return {
+      map: map?.getAttribute('data-map-state') ?? null,
+      fellBack: document.querySelector('[data-map-cannot-draw]')?.textContent ?? null,
+      fallbackTableRows: fellBack ? fellBack.querySelectorAll('[data-map-table] .ag-row[row-index], [data-map-table] tbody tr').length : null,
+      googleVersion: window.google?.maps?.version ?? null,
+      // Google's own logo and terms, drawn by Google on the map (M34). Our own credit line is gone (908).
+      googleLogo: !!map?.querySelector('img[alt="Google"], a[href*="maps.google.com/maps?"], a[title*="Google Maps"]'),
+      googleTerms: [...(map?.querySelectorAll('.gm-style-cc') ?? [])].map((e) => e.textContent.trim()).filter(Boolean).join(' | ') || null,
+      ourCredit: document.querySelector('a[href="https://www.openstreetmap.org/copyright"]')?.textContent ?? null,
+      dir: document.documentElement.dir,
+    }
+  })
+  const mapBox = await boxOf()
+  const file = keep ? `${OUT}/910-report-map-${name.replace(/^drawn-/, '').replace(/^blocked-/, 'google-blocked-')}.pdf` : `${tmpdir()}/910-report-map-${name}.pdf`
   await page.emulateMedia({ media: 'print' })
+  // The map's box in print: the same size it was drawn at (3635: a map resized between drawing and printing prints cut).
+  const printBox = await boxOf()
   await page.pdf({ path: file, format: 'A4', printBackground: true, preferCSSPageSize: true })
   await context.close()
-  return { name, readyAfterMs, mapStateJustBeforeReady: mapWhenNotReady, ...state, ticketHeaders: [...new Set(tickets)], outsideRequestsAttempted: outside, consoleErrors: errors, pdf: file }
+  return {
+    name,
+    readyAfterMs: cold.readyAfterMs,
+    warmReadyAfterMs: warmRun?.readyAfterMs ?? null,
+    mapStateJustBeforeReady: cold.mapWhenNotReady,
+    ...state,
+    mapBox,
+    printBox,
+    ticketHeaders: [...new Set(tickets)],
+    googleHostsReached: [...googleHosts].sort(),
+    googleRequests,
+    googleBlocked,
+    outsideRequestsAttempted: outside,
+    consoleErrors: errors,
+    pdf: file,
+  }
 }
 
+if (!KEY) {
+  console.error('report-map-print-drive: set GOOGLE_MAPS_KEY to a browser key whose referrers allow localhost')
+  process.exit(2)
+}
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
 const results = []
-let failed = false
+const failures = []
 const runs = [
-  ['drawn-en', { lang: 'en' }],
+  ['drawn-en', { lang: 'en', warm: true }],
   ['drawn-ar', { lang: 'ar' }],
-  ['timeout-en', { lang: 'en', holdBaseMap: true }],
+  ['blocked-en', { lang: 'en', blockGoogle: true }],
+  ['refused-en', { lang: 'en', key: REFUSED_KEY, keep: false }],
+  ['slow-en', { lang: 'en', holdScript: true, keep: false }],
+  ['no-key-en', { lang: 'en', key: '', keep: false }],
 ]
-for (const [name, opts] of runs) {
-  if (ONLY.length && !ONLY.includes(name)) continue
-  const r = await scenario(browser, name, opts)
-  results.push(r)
-  const timedOut = opts.holdBaseMap
-  if (r.outsideRequestsAttempted.length || r.ticketHeaders.some((h) => h !== 'T-883')) failed = true
-  if (!timedOut && (r.map !== 'drawn' || r.credit !== '© OpenStreetMap' || r.fellBack !== null)) failed = true
-  if (timedOut && (r.map !== null || !r.fellBack || r.readyAfterMs < 20000)) failed = true
+try {
+  for (const [name, opts] of runs) {
+    if (ONLY.length && !ONLY.includes(name)) continue
+    const r = await scenario(browser, name, opts)
+    results.push(r)
+    const fail = (why) => failures.push(`${name}: ${why}`)
+    if (r.outsideRequestsAttempted.length) fail('a request outside Google’s list')
+    if (r.ticketHeaders.some((h) => h !== 'T-883')) fail('a door read without the ticket')
+    if (r.readyAfterMs > 60000) fail('not ready inside the report worker’s 60 s')
+    if (r.googleHostsReached.some((h) => !GOOGLE_MAP_HOSTS.includes(h))) fail('a Google host off the list')
+    if (name.startsWith('drawn-')) {
+      if (r.map !== 'drawn' || r.fellBack !== null) fail(`the map is ${r.map}, not drawn`)
+      if (!r.googleLogo) fail('no Google logo on the map')
+      if (r.ourCredit !== null) fail('our own credit line is back')
+      if (JSON.stringify(r.mapBox) !== JSON.stringify(r.printBox)) fail('the map was resized for print')
+    } else {
+      if (r.map !== null || !r.fellBack) fail('the map did not fall back to its table')
+      if (opts.blockGoogle && r.googleBlocked === 0) fail('Google was not asked, so not blocked')
+      if (opts.key === '' && (r.googleRequests || r.googleBlocked)) fail('Google was asked with no key')
+      if (opts.holdScript && r.readyAfterMs < 15000) fail('ready before the loader gave up')
+    }
+  }
+} finally {
+  await browser.close()
 }
-await browser.close()
-console.log(JSON.stringify(results, null, 1))
-console.log(failed ? 'report-map-print-drive: FAILED' : 'report-map-print-drive: ok')
-process.exit(failed ? 1 : 0)
+console.log(withoutKey(JSON.stringify(results, null, 1), KEY))
+for (const f of failures) console.log(`  FAILED ${f}`)
+console.log(failures.length ? 'report-map-print-drive: FAILED' : 'report-map-print-drive: ok')
+process.exit(failures.length ? 1 : 0)

@@ -263,11 +263,14 @@
     "editor": {
       "heading": "House rules",
       "label": "House rules",
-      "version": "Version",
+      "versionLine": {
+        "full": "Version <n>{{n}}</n> saved by <by>{{by}}</by> on <at>{{at}}</at>",
+        "by": "Version <n>{{n}}</n> saved by <by>{{by}}</by>",
+        "at": "Version <n>{{n}}</n> saved on <at>{{at}}</at>",
+        "bare": "Version <n>{{n}}</n>"
+      },
+      "charCount": "Characters <n>{{n}}</n>",
       "builtIn": "Built-in rules, never saved",
-      "savedBy": "saved by",
-      "savedAt": "on",
-      "chars": "Characters",
       "tooLong": "The house rules can be at most {{max}} characters. Shorten them to save.",
       "blank": "The house rules cannot be blank.",
       "note": "Why the change",

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: BackOffice 3639, 880
 ---
@@ -42,7 +42,7 @@ The engine is a stand-in; the tests read what the panel would draw.
 - [x] A group has the neutral colour whatever its members' steps · oms-react tests
 - [x] The card shows name, city and both figures in the table's format, and a tap pins it · oms-react tests
 - [x] The colours pass `check-contrast` and `check-palette` · `lint`
-- [ ] Riyadh's stores are seen as groups that open on zoom, on the local stack · seen by a person, screenshot
+- [x] Riyadh's stores are seen as groups that open on zoom, on the local stack · seen by a person, screenshot
 
 ## Boundaries
 
@@ -98,3 +98,5 @@ BackOffice 3639, 880.
   map answer. Not done here: a pinned card stays where it was tapped while the map pans (it is closed by the next tap).
 - **For 882:** `readMapLegend` reads `notOnMap`; the table fallback still lists `hollow`/`colour_step` (role `legend`) —
   "Show as table" should skip that role.
+
+**2026-11-17 — seen by the owner.** The owner looked at the screenshots/PDFs under `.issues/assets/` and said they look fine, and to stay with the map decisions (dots sized and coloured, names on the card, no pins, no always-on labels). The person-check box is ticked and the ticket closed.

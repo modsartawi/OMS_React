@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: 880
 ---
@@ -28,7 +28,7 @@ map would be printed with an empty map.
 - [x] A map that has not signalled after 20 seconds is replaced the same way · oms-react tests, with a fake clock
 - [x] A report with no map sets the marker when it does today · oms-react tests
 - [x] The proof page is gone from the routes · oms-react tests
-- [ ] A report with a map block prints to PDF on the local stack, with the map drawn · seen by a person, PDF under `.issues/assets/`
+- [x] A report with a map block prints to PDF on the local stack, with the map drawn · seen by a person, PDF under `.issues/assets/`
 
 ## Boundaries
 
@@ -81,3 +81,5 @@ Proof boxes ticked; `test`, `lint` and `build` are green.
   - Seen while proving, not changed here: under an Arabic ticket the print page leaves `<html dir>` empty, so the
     paper is laid out left to right (the words are Arabic, the map names Arabic). Pre-existing (835's print route).
   - Remaining open box: **a person's look at the PDF**. Status stays `open` until then.
+
+**2026-11-17 — seen by the owner.** The owner looked at the screenshots/PDFs under `.issues/assets/` and said they look fine, and to stay with the map decisions (dots sized and coloured, names on the card, no pins, no always-on labels). The person-check box is ticked and the ticket closed.

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: BackOffice 3634
 ---
@@ -43,7 +43,7 @@ the library's internals or on pixels.
 - [x] The panel signals "cannot draw" when the engine fails to start or the file cannot be read · oms-react tests
 - [x] The built app's entry and its board, report and panel chunks do not contain the map's code · a check on the build output
 - [x] The built map chunk and the style name no address on another host that the page would fetch; the credit's link is the one allowed · a check on the build output, wired into `lint`
-- [ ] The proof page draws over the development base-map file with the network off · seen by a person, screenshot under `.issues/assets/`
+- [x] The proof page draws over the development base-map file with the network off · seen by a person, screenshot under `.issues/assets/`
 
 ## Boundaries
 
@@ -115,3 +115,5 @@ What it is, for 880–884 and BackOffice 3635:
   ⚠ **The last Proof box is left open**: it says "seen by a person", and only the agent has looked at the screenshots.
   Every other box is ticked; the ticket goes `done` when a person has looked (`npx vite`, then `/dev/map-proof` and
   `/dev/map-proof?lang=ar` with the network off, or the two screenshots).
+
+**2026-11-17 — seen by the owner.** The owner looked at the screenshots/PDFs under `.issues/assets/` and said they look fine, and to stay with the map decisions (dots sized and coloured, names on the card, no pins, no always-on labels). The person-check box is ticked and the ticket closed.

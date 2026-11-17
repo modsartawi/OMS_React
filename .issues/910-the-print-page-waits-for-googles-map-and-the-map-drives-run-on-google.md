@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: 908, 909
 ---
@@ -34,7 +34,7 @@ can fail grows.
 - [x] A report with no map becomes ready exactly as today · oms-react tests (883's test, unchanged)
 - [x] The print drive: English and Arabic drawn on Google, 0 requests outside Google's list, Google's logo on the PDF; with Google blocked, the table under the line · drive output under Comments
 - [x] The copilot drive: a view-grant-only reader sees the Google map above its table, in English and Arabic · screenshots under `.issues/assets/`
-- [ ] The PDFs and screenshots are looked at by a person · `.issues/assets/`
+- [x] The PDFs and screenshots are looked at by a person · `.issues/assets/`
 
 ## Boundaries
 
@@ -112,3 +112,8 @@ answer's table (13 rows), legend and "1 store is not on the map" under the map, 
 outside requests, 0 console errors, Google hosts the same four. Card: pointing at a store shows "Diplomatic Quarter
 Riyadh Till sales SAR 76,540.00 Change in Till sales -11.3%", a tap pins it. Screenshots
 `910-copilot-map-{en,ar,card-en}.png`. Not yet looked at by a person — the last box stays open.
+
+**2026-11-17 — seen by the owner.** The owner looked at the print PDFs (`910-report-map-{en,ar}.pdf`, Google's
+map drawn, and `910-report-map-google-blocked-en.pdf`, the table under the line when Google is blocked) and the
+copilot screenshots (`910-copilot-map-{en,ar,card-en}.png`) under `.issues/assets/`. The last Proof box is ticked; the
+ticket is closed. The same look ticks BackOffice 3987.

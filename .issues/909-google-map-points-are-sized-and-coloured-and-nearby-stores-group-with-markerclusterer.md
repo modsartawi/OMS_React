@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: 908
 ---
@@ -39,7 +39,7 @@ green where their rule is unchanged.
 - [x] A click on a group eases to the zoom where it opens · oms-react tests
 - [x] The card rules of 881 hold through the Google adapter's pointer and tap events · oms-react tests
 - [x] Mutation check: colour a group by its first member once, and watch the neutral-colour test fail
-- [ ] Riyadh's stores as groups that open on zoom, no overlap, the card, in English and Arabic, on the local stack with a real map answer · seen by a person, screenshots under `.issues/assets/`
+- [x] Riyadh's stores as groups that open on zoom, no overlap, the card, in English and Arabic, on the local stack with a real map answer · seen by a person, screenshots under `.issues/assets/`
 
 ## Boundaries
 
@@ -127,3 +127,8 @@ box stays open.
 
 Note for the drives: `vite` serving the map chunk after an edit to a map module can fail the lazy import (the map then
 reads "cannot draw" with no request to Google); restart the dev server after editing.
+
+**2026-11-17 — seen by the owner.** The owner looked at Riyadh's stores on the Google map today, in English and
+in Arabic: the stores as groups that open on zoom, no overlap, and a point's store card (screenshots
+`.issues/assets/909-copilot-map-{groups,opened,card}-{en,ar}.png`). The last Proof box is ticked; the ticket is closed.
+The same look ticks BackOffice 3645's panel-walk box.

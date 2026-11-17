@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: BackOffice 3986
 ---
@@ -49,7 +49,7 @@ not unit-tested against Google's internals.
 - [x] "Drawn" is signalled once, after tiles loaded and idle with the points on · oms-react tests
 - [x] The loader's URL carries the key, `region=SA`, `language`, a pinned `v=`, and nothing else of ours · oms-react tests
 - [x] The board, report and copilot chunks load no map code and no Google script until a map is on screen · the build gate (`check-map-build`), Google's hosts added to its allow-list with their reason
-- [ ] A board map drawn in English and in Arabic on the local stack with a real key: Google's road map, KSA borders, "Arabian Gulf" / "الخليج العربي", Arabic labels on an Arabic screen · seen by a person, screenshots under `.issues/assets/`
+- [x] A board map drawn in English and in Arabic on the local stack with a real key: Google's road map, KSA borders, "Arabian Gulf" / "الخليج العربي", Arabic labels on an Arabic screen · seen by a person, screenshots under `.issues/assets/`
 
 ## Boundaries
 
@@ -152,3 +152,6 @@ Open questions, answered:
 For 909: the adapter does not yet wire pointer, tap or move events (the points are not clickable), so the card and a
 group's click wait for 909; the legend shows 881's sizes and colours above plain points until then.
 
+**2026-11-17 — seen by the owner.** The owner looked at the Google map today on the local stack, in English and
+in Arabic: Google's road map with the KSA borders, "Arabian Gulf" / "الخليج العربي", and Arabic labels on the Arabic
+screen (screenshots `.issues/assets/908-copilot-map-{en,ar}.png`). The last Proof box is ticked; the ticket is closed.

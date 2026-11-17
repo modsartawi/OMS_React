@@ -507,6 +507,7 @@
   "copilotTable": {
     "mapLarger": "خريطة أكبر",
     "mapLargerTitle": "الخريطة بحجم أكبر",
+    "mapLargerClose": "إغلاق الخريطة الأكبر",
     "actions": "إجراءات الجدول",
     "openAsView": "فتح كعرض",
     "computedColumns": "«فتح كعرض» يعرض استعلام الجدول فقط، دون {{columns}} (من حساب التحليل)."

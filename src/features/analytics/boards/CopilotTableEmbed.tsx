@@ -107,7 +107,7 @@ export default function CopilotTableEmbed({ table, index = 0 }: { table: Copilot
               {t('copilotTable.mapLarger')}
             </Button>
           </div>
-          <Modal open={larger} onClose={() => setLarger(false)} title={t('copilotTable.mapLargerTitle')} width="72rem">
+          <Modal open={larger} onClose={() => setLarger(false)} title={t('copilotTable.mapLargerTitle')} closeLabel={t('copilotTable.mapLargerClose')} width="72rem">
             {larger && <MapBody result={result} definition={parts.map} model={drawing} lang={lang} tableBelow className="h-[70vh] w-full" />}
           </Modal>
         </div>

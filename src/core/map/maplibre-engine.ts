@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { isBasemapUnreadable, isPainted, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
+import { GROUP_LABEL_TEXT } from './map-drawing'
 import { BASEMAP_SOURCE } from './map-style'
 
 /**
@@ -114,8 +115,9 @@ export function maplibreEngine(): MapEngine {
           layout: {
             'text-field': ['get', 'label'],
             'text-font': ['Noto Sans Medium'],
-            'text-size': 11,
-            'text-line-height': 1.1,
+            // Set as the panel sized each group for them (`groupRadius`), so the words stay inside the circle.
+            'text-size': GROUP_LABEL_TEXT.size,
+            'text-line-height': GROUP_LABEL_TEXT.lineHeight,
             'text-allow-overlap': true,
             'text-ignore-placement': true,
           },

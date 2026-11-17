@@ -62,8 +62,31 @@ export interface MapFeature {
 /** The point radii in pixels: the smallest and the largest value of the legend, and the plain point of 879. */
 export const POINT_RADIUS = { min: 4, max: 20, plain: 6 } as const
 
-/** A group's radius in pixels. */
+/** A group's smallest radius in pixels: a count alone fits it. */
 export const GROUP_RADIUS = 16
+
+/** How a group's words are set (the engine draws them so): the font size in pixels, and the line height in ems. */
+export const GROUP_LABEL_TEXT = { size: 11, lineHeight: 1.1 } as const
+
+/**
+ * The widest a character of a group's words is taken to be, in ems: above Noto Sans's digits (0.57), its `K` and the
+ * Arabic letters of a sum's word, so the estimate errs on the wide side and the words never reach the circle's edge.
+ */
+const LABEL_CHAR_EM = 0.62
+
+/** Room left between the words and the circle's edge, in pixels. */
+const LABEL_INSET_PX = 2
+
+/**
+ * A group's radius for its words (884 shots): the smallest radius, grown until the circle reaches past every corner of
+ * the words' box, so a long sum ("120.5K", "92 ألف") sits inside its group in either language. Still one neutral colour.
+ */
+export function groupRadius(label: string): number {
+  const lines = label.split('\n')
+  const width = Math.max(...lines.map((l) => [...l].length)) * LABEL_CHAR_EM * GROUP_LABEL_TEXT.size
+  const height = lines.length * GROUP_LABEL_TEXT.size * GROUP_LABEL_TEXT.lineHeight
+  return Math.max(GROUP_RADIUS, Math.ceil(Math.hypot(width / 2, height / 2) + LABEL_INSET_PX))
+}
 
 /** Points closer than this on screen, in pixels, join into one group. */
 export const GROUP_DISTANCE_PX = 40
@@ -183,17 +206,18 @@ export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: 
   return groupsAt(points, zoom).map((g): MapFeature => {
     if (g.kind === 'group') {
       const count = String(g.members.length)
+      const label = grouping?.sums ? `${count}\n${grouping.formatSum(groupSum(g.members))}` : count
       return {
         id: g.id,
         kind: 'group',
         lon: g.lon,
         lat: g.lat,
-        radius: GROUP_RADIUS,
+        radius: groupRadius(label),
         fill: inkOf(GROUP_INK),
         fillOpacity: 1,
         stroke: inkOf(GROUP_RING_INK),
         strokeWidth: 2,
-        label: grouping?.sums ? `${count}\n${grouping.formatSum(groupSum(g.members))}` : count,
+        label,
         members: g.members.map((m) => m.id),
       }
     }

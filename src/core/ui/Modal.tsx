@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { DIALOG, DIALOG_TITLE } from './overlay'
 
 /**
@@ -35,6 +36,12 @@ export interface ModalProps {
    * caller's own buttons decide for themselves. Defaults to `true`.
    */
   dismissable?: boolean
+  /**
+   * The accessible name of a close (X) button drawn at the end of the title bar (a `t()` string). Absent: no button,
+   * and the title bar is drawn exactly as before — a dialog closes by its own footer buttons and Escape. Given by a
+   * dialog with no footer to close it by (the copilot's larger map, oms-react 884). The button calls `onClose`.
+   */
+  closeLabel?: string
 }
 
 export default function Modal({
@@ -46,6 +53,7 @@ export default function Modal({
   children,
   footer,
   dismissable = true,
+  closeLabel,
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Kept in a ref so re-rendering with a new closure never re-fires the effect —
@@ -90,12 +98,30 @@ export default function Modal({
       style={{ maxWidth: width }}
     >
       <div className="flex max-h-[90vh] flex-col">
-        <h2
-          id="modal-title"
-          className={'shrink-0 border-b border-border/60 px-3 py-2.5 ' + DIALOG_TITLE}
-        >
-          {title}
-        </h2>
+        {closeLabel ? (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+            <h2 id="modal-title" className={'min-w-0 ' + DIALOG_TITLE}>
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={closeLabel}
+              title={closeLabel}
+              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted"
+              data-modal-close=""
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        ) : (
+          <h2
+            id="modal-title"
+            className={'shrink-0 border-b border-border/60 px-3 py-2.5 ' + DIALOG_TITLE}
+          >
+            {title}
+          </h2>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
         {footer && (
           <div className="flex shrink-0 justify-end gap-2 border-t border-border/60 px-3 py-2">

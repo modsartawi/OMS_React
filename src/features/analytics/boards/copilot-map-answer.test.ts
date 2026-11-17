@@ -13,6 +13,7 @@ import type { AnalyticsAccess, AnalyticsModel } from '@/core/models/analytics'
 import type { CopilotAnswerTable, CopilotTableColumn } from '@/core/models/copilot'
 import { ANALYTICS_ACCESS_KEY } from './access'
 import { ANALYTICS_MODEL_KEY } from './api'
+import { readFileSync } from 'node:fs'
 import CopilotTableEmbed from './CopilotTableEmbed'
 import { copilotTableParts } from './copilot-table'
 import { mapDisplay, mapDrawing, mapLegendView } from './map-chart'
@@ -194,5 +195,15 @@ describe('the copilot panel draws a map above its table (oms-react 884)', () => 
     expect(mapDisplay({ placed: 0, notOnMap: 3, cannotDraw: false, asTable: false, tableBelow: true })).toEqual({ shows: 'none', line: 'notOnMap', switchTo: null })
     // "Show as table" stays the board's: the map's own table, with each store's name and city.
     expect(mapDisplay({ placed: 2, notOnMap: 0, cannotDraw: false, asTable: true, tableBelow: true })).toEqual({ shows: 'table', line: null, switchTo: 'map' })
+  })
+})
+
+describe('the larger map can be closed from its title bar (884 shots)', () => {
+  it('theLargerMapDialog_isGivenACloseLabel_inEnglishAndArabic', () => {
+    // The dialog is opened by state, so its markup is not in a static render: read the call instead.
+    const source = readFileSync(new URL('./CopilotTableEmbed.tsx', import.meta.url), 'utf8')
+    expect(source).toMatch(/<Modal [^\n]*closeLabel=\{t\('copilotTable\.mapLargerClose'\)\}/)
+    expect(boards.copilotTable.mapLargerClose).toBe('Close the larger map')
+    expect(boardsAr.copilotTable.mapLargerClose).toBe('إغلاق الخريطة الأكبر')
   })
 })

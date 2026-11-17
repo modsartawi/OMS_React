@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapPoint, type MapTarget } from './map-panel'
-import { cardAfter, GROUP_INK, placeCard, pointRadius, POINT_RADIUS, type MapCardState } from './map-drawing'
+import { cardAfter, GROUP_INK, GROUP_LABEL_TEXT, GROUP_RADIUS, placeCard, pointRadius, POINT_RADIUS, type MapCardState } from './map-drawing'
 
 // Ticket 881 (BackOffice spec 3630 M15-M20, M23): what the panel would draw — each point's size, colour and hollow,
 // nearby stores joined into one group, and the card a point shows. The engine is a stand-in: the tests read the
@@ -198,6 +198,36 @@ describe("a group has one neutral colour whatever its members' steps (M19)", () 
     const g = groupsOf(e.start, COUNTRY)[0]
     expect(g.fill).toBe(`ink(${GROUP_INK})`)
     expect(g.fillOpacity).toBe(1)
+  })
+})
+
+describe("a group's words sit inside its circle, in either language (884 shots)", () => {
+  // A lower bound on the drawn words, independent of the panel's own estimate: Noto Sans's narrowest digit advance is
+  // about 0.55 of the font size, and each line is the font size times the line height. The circle must reach the
+  // corners of that box, or the words spill past its edge (the 884 screenshots: "2 / 120.5K" over a 16px circle).
+  const encloses = (label: string, radius: number) => {
+    const lines = label.split('\n')
+    const w = Math.max(...lines.map((l) => [...l].length)) * 0.55 * GROUP_LABEL_TEXT.size
+    const h = lines.length * GROUP_LABEL_TEXT.size * GROUP_LABEL_TEXT.lineHeight
+    return radius >= Math.hypot(w / 2, h / 2)
+  }
+
+  it('a count with a long sum grows the circle until the words are inside it', () => {
+    const { e } = open(STORES, { grouping: { sums: true, formatSum: () => '120.5K' } })
+    const g = groupsOf(e.start, COUNTRY)[0]
+    expect(g.label).toBe('3\n120.5K')
+    expect(encloses(g.label, g.radius)).toBe(true)
+  })
+
+  it('an Arabic sum is inside its circle too', () => {
+    const { e } = open(STORES, { grouping: { sums: true, formatSum: () => '92 ألف' } })
+    const g = groupsOf(e.start, COUNTRY)[0]
+    expect(encloses(g.label, g.radius)).toBe(true)
+  })
+
+  it('a count alone keeps the smallest group circle', () => {
+    const { e } = open(STORES, { grouping: { sums: false, formatSum: () => '' } })
+    expect(groupsOf(e.start, COUNTRY)[0].radius).toBe(GROUP_RADIUS)
   })
 })
 

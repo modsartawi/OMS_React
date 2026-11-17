@@ -116,6 +116,25 @@ describe('the model says which chart types the door accepts (3638 wire)', () => 
   })
 })
 
+describe('the model carries Google’s browser key in its `maps` part (BackOffice 3986 wire, oms-react 908)', () => {
+  it('reads the key and the map ID as sent', () => {
+    expect(readModel({ maps: { key: 'planted-test-key', mapId: 'planted-map-id' } }).maps).toEqual({ key: 'planted-test-key', mapId: 'planted-map-id' })
+  })
+
+  it('no map ID, or an empty one: the part has the key only', () => {
+    expect(readModel({ maps: { key: 'planted-test-key' } }).maps).toEqual({ key: 'planted-test-key' })
+    expect(readModel({ maps: { key: 'planted-test-key', mapId: '' } }).maps).toEqual({ key: 'planted-test-key' })
+  })
+
+  it('no part, an empty key or a key that is not text: no part (the map cannot draw, the table shows)', () => {
+    expect(readModel({}).maps).toBeUndefined()
+    expect(readModel({ maps: null }).maps).toBeUndefined()
+    expect(readModel({ maps: { key: '' } }).maps).toBeUndefined()
+    expect(readModel({ maps: { key: 42 } }).maps).toBeUndefined()
+    expect('maps' in readModel({})).toBe(false)
+  })
+})
+
 const mapView = (measures: string[]): AnalyticsViewDefinition => ({
   chart: { type: 'map' },
   query: { measures, dimensions: ['store'], filters: [], period: 'last-30-days' },

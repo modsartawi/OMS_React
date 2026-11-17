@@ -50,3 +50,29 @@ export function mapStyle(lang: 'en' | 'ar', origin: string): StyleSpecification 
     layers: lang === 'ar' ? base.map(withoutItalic) : base,
   }
 }
+
+// The MapLibre engine's own reads (879; moved here from `./map-panel` by 908, which put Google behind the port). Removed
+// with MapLibre by 911.
+
+export type MapLang = 'en' | 'ar'
+
+/**
+ * Whether an engine error means the base-map file cannot be read (review W5): an error on the base map's own source that
+ * is not about one tile — the file or its header not read. One tile failing leaves the rest of the map drawn.
+ */
+export function isBasemapUnreadable(e: { sourceId?: string; tile?: unknown; error?: unknown }): boolean {
+  return e.sourceId === BASEMAP_SOURCE && e.tile == null
+}
+
+/** The text-shaping add-on's state, as MapLibre reports it (`unavailable`, `deferred`, `requested`, `loading`, `loaded`, `error`). */
+export type RtlTextStatus = string
+
+/**
+ * Whether the map is painted (879; review W6): the base map's tiles and the points are in, and on an Arabic screen its
+ * letters are shaped — the add-on has loaded (or failed to: unshaped labels are not an undrawn map). Until then the print
+ * page would print Arabic labels unjoined. On an English screen the add-on is not waited for.
+ */
+export function isPainted(p: { tilesLoaded: boolean; basemapLoaded: boolean; pointsLoaded: boolean; lang: MapLang; rtl: RtlTextStatus }): boolean {
+  if (!p.tilesLoaded || !p.basemapLoaded || !p.pointsLoaded) return false
+  return p.lang !== 'ar' || p.rtl === 'loaded' || p.rtl === 'error'
+}

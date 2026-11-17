@@ -1,11 +1,14 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
-import { isBasemapUnreadable, isPainted, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
+import type { MapEngine, MapEngineEvents, MapEngineStart, MapView } from './map-panel'
 import { GROUP_LABEL_TEXT } from './map-drawing'
-import { BASEMAP_SOURCE } from './map-style'
+import { BASEMAP_SOURCE, isBasemapUnreadable, isPainted, mapStyle, RTL_TEXT_PLUGIN_PATH } from './map-style'
 
 /**
+ * ⚠ No longer drawn by the panel (908, ADR 0139: Google Maps everywhere, `./google-engine`). Kept, unused, so the two can
+ * be compared until 911 removes it with MapLibre; it builds its own style and ignores the port's Google fields.
+ *
  * The map engine: MapLibre (ADR 0135), over the base-map file read by byte range through the `pmtiles://` protocol.
  * The one module that touches MapLibre; `./map-panel` decides everything it is handed, and the tests drive that module
  * with a stand-in instead of this one (spec 3630 seam 6: no library internals, no pixels).
@@ -22,7 +25,7 @@ const GROUP_WORDS_LAYER = 'group-words'
 let protocolAdded = false
 
 /** The add-on is set once per page (MapLibre refuses a second call). */
-function ensureRtlTextPlugin(plugin: MapEngineStart['rtlTextPlugin']) {
+function ensureRtlTextPlugin(plugin: { url: string; deferred: boolean }) {
   if (maplibregl.getRTLTextPluginStatus() !== 'unavailable') return
   // A failed add-on load leaves Arabic labels unshaped, not the map undrawn: it is not a "cannot draw".
   maplibregl.setRTLTextPlugin(plugin.url, plugin.deferred).catch(() => {})
@@ -43,13 +46,14 @@ export function maplibreEngine(): MapEngine {
         maplibregl.addProtocol('pmtiles', new Protocol().tile)
         protocolAdded = true
       }
-      ensureRtlTextPlugin(start.rtlTextPlugin)
+      const origin = window.location.origin
+      ensureRtlTextPlugin({ url: origin + RTL_TEXT_PLUGIN_PATH, deferred: start.lang !== 'ar' })
 
       const view = start.view
       // Throws when the browser gives no graphics context: the panel reads that as "cannot draw".
       const map = new maplibregl.Map({
         container: start.container as HTMLElement,
-        style: start.style,
+        style: mapStyle(start.lang, origin),
         // The panel draws "© OpenStreetMap" itself, as an element that prints (M34).
         attributionControl: false,
         // Keep the drawn frame in the canvas: Chromium prints a WebGL canvas from its drawing buffer, which is otherwise
@@ -67,7 +71,7 @@ export function maplibreEngine(): MapEngine {
 
       // Review W5: only the file (or its header) unread is "unreadable"; one tile failing leaves the rest drawn.
       map.on('error', (e: { sourceId?: string; tile?: unknown; error?: unknown }) => {
-        if (isBasemapUnreadable(e)) events.basemapUnreadable()
+        if (isBasemapUnreadable(e)) events.failed('unreachable')
       })
       // Review W9: the browser can take the graphics away (too many maps, a GPU reset); the canvas is then blank.
       map.on('webglcontextlost', () => events.graphicsLost())
@@ -154,7 +158,8 @@ export function maplibreEngine(): MapEngine {
           })
           if (painted) {
             map.off('idle', whenPainted)
-            events.painted()
+            events.tilesLoaded()
+            events.idle()
           }
         }
         map.on('idle', whenPainted)

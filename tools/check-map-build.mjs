@@ -7,7 +7,8 @@
 //   1. M35 — the app's entry, and every analytics (board, report, print) and copilot chunk, reach no map code by
 //      STATIC imports. The map arrives by a dynamic import only, when a map is on screen.
 //   2. M29 — the map's chunks, its stylesheet and the files under `public/map/` name no address on another host
-//      except those in `MAP_ADDRESS_ALLOWED` (the licence texts beside them, `.txt`/`.md`, are never loaded by the page), each a link or a message the page never fetches. (The style itself is
+//      except those in `MAP_ADDRESS_ALLOWED` (908: Google's script address is on it; 911 rewrites the list as Google's
+//      hosts only) (the licence texts beside them, `.txt`/`.md`, are never loaded by the page), each a link or a message the page never fetches. (The style itself is
 //      built by code in those chunks; `src/core/map/map-panel.test.ts` checks its output names our origin only.)
 //
 // Exit non-zero with the findings, like the other gates.
@@ -42,8 +43,10 @@ for (const leak of mapCodeLeaks(chunks, ROOT)) failures.push(`map code loaded wi
 
 // 2. No outside address. The map's chunks: every chunk holding a map module (the same list `mapCodeLeaks` uses).
 const mapChunks = chunks.filter((c) => c.moduleIds.some((id) => /node_modules[\\/](maplibre-gl|pmtiles|@protomaps[\\/]basemaps)[\\/]|src[\\/]core[\\/]map[\\/]/.test(id)))
-if (!mapChunks.some((c) => c.moduleIds.some((id) => /node_modules[\\/]maplibre-gl[\\/]/.test(id))))
-  failures.push('no built chunk holds MapLibre: the check would scan nothing (did the map door move?)')
+// 908 (ADR 0139): the panel draws with Google, so the map's chunks must hold the Google adapter, or the check scans
+// nothing. (MapLibre is no longer reached by the panel; 911 removes it.)
+if (!mapChunks.some((c) => c.moduleIds.some((id) => /src[\\/]core[\\/]map[\\/]google-engine\.ts$/.test(id))))
+  failures.push('no built chunk holds the Google adapter: the check would scan nothing (did the map door move?)')
 const scanned = []
 for (const c of mapChunks) scanned.push([c.fileName, c.code])
 for (const a of outputs.filter((o) => o.type === 'asset' && o.fileName.endsWith('.css')))

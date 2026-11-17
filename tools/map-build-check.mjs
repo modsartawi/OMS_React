@@ -6,6 +6,8 @@
  * allowed address allows only itself, never its host.
  */
 export const MAP_ADDRESS_ALLOWED = new Map([
+  // 908 (ADR 0139): the one outside address the map fetches. 911 rewrites this list as Google's hosts only.
+  ['https://maps.googleapis.com/maps/api/js', 'Google’s Maps JavaScript script, fetched by `google-loader` when a map starts (ADR 0139)'],
   ['https://www.openstreetmap.org/copyright', 'the credit line’s link (M34): followed by a reader’s click, never fetched'],
   ['http://www.w3.org/2000/svg', 'the SVG namespace: an identifier in createElementNS and CSS data URIs, never fetched'],
   ['https://maplibre.org/', 'MapLibre’s logo and default-credit link: off in this panel, and a link, never fetched'],
@@ -35,6 +37,8 @@ const MAP_MODULES = [
   ['node_modules/pmtiles/', 'pmtiles'],
   ['node_modules/@protomaps/basemaps/', '@protomaps/basemaps'],
   ['src/core/map/MapPanel.tsx', 'MapPanel'],
+  ['src/core/map/google-engine.ts', 'google-engine'],
+  ['src/core/map/google-loader.ts', 'google-loader'],
   ['src/core/map/maplibre-engine.ts', 'maplibre-engine'],
   ['src/core/map/map-style.ts', 'map-style'],
 ]

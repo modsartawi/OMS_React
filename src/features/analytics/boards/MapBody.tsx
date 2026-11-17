@@ -14,7 +14,7 @@ import { usePrintMap } from './PrintMapsContext'
 /**
  * A map view's body (880): the result's points on the map panel. 882 (spec 3630 M21, M24): "Show as table" switches to
  * every row as a table and back; the stores not on the map are counted under it by the server's count and open as a
- * list; with no row placed, or when the screen cannot draw a map (879: no graphics, or the base map unreadable), the
+ * list; with no row placed, or when the screen cannot draw a map (879, 908: no key, Google refused or unreachable, no graphics), the
  * table is drawn in place of the map with its line (`./map-chart` `mapDisplay`).
  *
  * 883 (spec 3630 M37, M38): on the report print page the map joins the page's maps, which hold the ready marker until
@@ -72,6 +72,7 @@ export default function MapBody({
         <LazyMapPanel
           points={points}
           grouping={drawing.grouping}
+          maps={model.maps}
           ariaLabel={t('view.mapLabel', { measure: fsi(measure) })}
           className={className}
           onDrawn={print.drawn}

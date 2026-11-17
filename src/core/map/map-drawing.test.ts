@@ -6,7 +6,7 @@ import { cardAfter, GROUP_INK, GROUP_LABEL_TEXT, GROUP_RADIUS, placeCard, pointR
 // nearby stores joined into one group, and the card a point shows. The engine is a stand-in: the tests read the
 // features the panel hands it at a zoom, and play the pointer and the tap as the engine would report them.
 
-const ORIGIN = 'https://oms.example.test'
+const MAPS = { key: 'planted-test-key' }
 
 function standIn() {
   const started: MapEngineStart[] = []
@@ -52,7 +52,7 @@ function open(points: readonly MapPoint[], over: Partial<Parameters<typeof openM
     points,
     lang: 'en',
     dir: 'ltr',
-    origin: ORIGIN,
+    maps: MAPS,
     inkOf,
     onDrawn: () => {},
     onCannotDraw: () => {},

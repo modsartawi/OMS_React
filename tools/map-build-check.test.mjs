@@ -30,6 +30,16 @@ describe('an address on another host, in the map code or its style', () => {
     expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([])
   })
 
+  it('Google’s script address is allowed (908, ADR 0139): the map’s one fetched outside address', () => {
+    const text = 'const SCRIPT_ORIGIN="https://maps.googleapis.com/maps/api/js";'
+    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual([])
+  })
+
+  it('another script on Google’s host is not: an allowed address allows only itself', () => {
+    const text = 'src:"https://maps.googleapis.com/maps/api/staticmap"'
+    expect(outsideAddresses(text, MAP_ADDRESS_ALLOWED)).toEqual(['https://maps.googleapis.com/maps/api/staticmap'])
+  })
+
   it('a JavaScript comment is not an address', () => {
     expect(outsideAddresses('a=1;// see the README\nb=2', MAP_ADDRESS_ALLOWED)).toEqual([])
   })
@@ -77,6 +87,14 @@ describe('the map code is loaded only when a map is on screen', () => {
       chunk('assets/MapPanel.js', { modules: [MAPLIBRE] }),
     ]
     expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js -> assets/MapPanel.js (maplibre-gl)'])
+  })
+
+  it('the Google adapter and its loader are map code too (908): a board reaching them statically is a leak', () => {
+    const chunks = [
+      chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], imports: ['assets/google.js'] }),
+      chunk('assets/google.js', { modules: [`${ROOT}/src/core/map/google-engine.ts`, `${ROOT}/src/core/map/google-loader.ts`] }),
+    ]
+    expect(mapCodeLeaks(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js -> assets/google.js (google-engine, google-loader)'])
   })
 
   it('the copilot panel chunk is held to the same rule', () => {

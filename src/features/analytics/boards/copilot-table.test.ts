@@ -198,3 +198,14 @@ describe('the copilot answer table (spec 3558 D5; ticket 868)', () => {
     })
   })
 })
+
+describe('the copilot map draws with the key the reader’s model holds (oms-react 908, BackOffice 3986)', () => {
+  it('the model a table is drawn with keeps the analytics model’s `maps` part', () => {
+    const model: AnalyticsModel = { ...EMPTY_MODEL, maps: { key: 'planted-test-key', mapId: 'planted-map-id' } }
+    expect(copilotTableModel(table(), model).maps).toEqual({ key: 'planted-test-key', mapId: 'planted-map-id' })
+  })
+
+  it('a model with no `maps` part gives none', () => {
+    expect('maps' in copilotTableModel(table(), EMPTY_MODEL)).toBe(false)
+  })
+})

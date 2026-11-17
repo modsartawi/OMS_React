@@ -72,12 +72,12 @@ of 0 (the fallback) reads *built-in rules*.
   nothing.
 - [ ] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
   - [ ] a viewer without the grant gets no menu item and the no-access state at the URL;
-  - [ ] a curator sees the core and version 1;
+  - [x] a curator sees the core and version 1;
   - [ ] removing rule 12 and trying a comparison question shows a "Metric | Value" list;
   - [ ] putting it back and trying again shows one column per compared thing;
-  - [ ] save makes version 2 and the copilot panel's next answer reads *rules v2*;
-  - [ ] restoring version 1 makes version 3, reverted from 1;
-  - [ ] two tabs: saving in the second after the first gives the 411 dialog.
+  - [x] save makes version 2 and the copilot panel's next answer reads *rules v2*;
+  - [x] restoring version 1 makes version 3, reverted from 1;
+  - [x] two tabs: saving in the second after the first gives the 411 dialog.
 - [ ] Under Arabic, the version, times and count read the right way round, and the house-rules text keeps its own
   direction (`<bdi>` / `dir="auto"` on the textarea).
 - [x] `npm run typecheck`, `npm test` and `npm run lint` are clean. Any new hand-written control goes in
@@ -180,3 +180,7 @@ contract did not match what the server built. The client now reads 3395's own wi
 
 Drive moved to the same wire: 88/88 (LTR + RTL). 667 test files and build green. Still owed: the walk on the deployed
 host (both `COPILOT_USER` and `COPILOT_CURATOR` are needed, and SQL `004_create_copilot_prompt.sql` before the build).
+
+**2026-11-17 - walked live with the owner watching** (local SIS.Api on pricing2 4bbb888a5 against the local dev HQ database, which held v1-v3 from the system seed). Seen: the core ("What the copilot always follows") and the active version; **save** (one line added) made v4 and the panel's next answer read *rules v4* (and named the store by code and name, the line added); **restore** of v3 made v5 *reverted from v3*; **two tabs**: a save posted from the page's own session as the other tab made v6, and saving the stale edit opened "Someone saved first - Version 6 was saved while you were editing" with Theirs / Yours, *Keep theirs* and *Save mine on top*; v3 restored again as v7, so the rules end as they began. The adapted boxes: the local history started at v3, so "version 1 / 2 / 3" read as v3 / v4 / v5.
+
+**Not ticked:** (a) no viewer without the grant was signed in; (b) the two rule-12 boxes - with the Tables rule removed from the draft, *Try* answered both a two-store and a two-period comparison with one column per compared thing, so today's fast model no longer shows the "Metric | Value" list the box expects; the Try draft itself works ("Draft. Not saved, not in your conversations"); (c) **Arabic fails**: under `oms.locale=ar` the page is laid out RTL but its strings stay English, so the version line reads "2026-11-17 20:44 on 14419 saved by 7 Version", "956 / 2000 Characters", "v3 reverted from", and full stops jump to the front. The house-rules textareas keep LTR correctly. Fix on branch `fix/790-rules-arabic`. Also seen: v2's seeded note reads "spec 3408 Â§I" - the `§` was stored double-encoded by its BackOffice seed script.

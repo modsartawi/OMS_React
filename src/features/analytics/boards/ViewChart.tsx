@@ -16,6 +16,7 @@ import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
 import { drawsAsMap, mapPoints } from './map-chart'
+import { usePrintMap } from './PrintMapsContext'
 import ViewForm, { isViewForm } from './ViewForms'
 import { queryMeasureName } from './variants'
 import { dimensionOf } from './wire'
@@ -138,16 +139,41 @@ const ChartBody = memo(function ChartBody({
 
 /**
  * A map view's body (880): the result's points on the map panel. When the screen cannot draw a map (no graphics, or
- * the base map unreadable) the same answer is shown as a table instead, as the panel asks (879).
+ * the base map unreadable) the same answer is shown as a table instead, as the panel asks (879), under the line "The
+ * map could not be drawn".
+ *
+ * 883 (spec 3630 M37, M38): on the report print page the map joins the page's maps, which hold the ready marker until
+ * it has drawn; one that cannot draw, or has not drawn within 20 seconds, prints as that table. Its size is fixed on
+ * screen and paper alike: the print page lays the report out at the paper's width, so the canvas is never resized
+ * between drawing and printing (BackOffice 3635).
  */
 function MapBody({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
   const { t } = useTranslation('boards')
   // A stable array per answer: a new identity restarts the map.
   const points = useMemo(() => mapPoints(result), [result])
   const [cannotDraw, setCannotDraw] = useState(false)
-  if (cannotDraw) return <ViewForm type="table" result={result} definition={{ ...definition, chart: { ...definition.chart, type: 'table' } }} model={model} lang={lang} />
+  const print = usePrintMap()
+  if (cannotDraw || print.state === 'fell-back')
+    return (
+      <div className="flex flex-col gap-2" data-map-fell-back>
+        <p className="text-sm text-muted-foreground" data-map-cannot-draw>
+          {t('view.mapCannotDraw')}
+        </p>
+        <ViewForm type="table" result={result} definition={{ ...definition, chart: { ...definition.chart, type: 'table' } }} model={model} lang={lang} />
+      </div>
+    )
   const measure = saysIn(model.measures.find((m) => m.key === definition.query.measures[0])?.label, lang)
-  return <LazyMapPanel points={points} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+  return (
+    <LazyMapPanel
+      points={points}
+      ariaLabel={t('view.mapLabel', { measure: fsi(measure) })}
+      onDrawn={print.drawn}
+      onCannotDraw={() => {
+        setCannotDraw(true)
+        print.cannotDraw()
+      }}
+    />
+  )
 }
 
 function Empty() {

@@ -171,7 +171,7 @@ describe('the refresh', () => {
   })
 })
 
-describe('S8, the DRS queue (BackOffice 3993)', () => {
+describe('S8, the DRS queue (BackOffice 3993, review fixes b9f6b3403)', () => {
   const figures = [
     { label: 'Unsent', value: 7 },
     { label: 'Oldest unsent (minutes)', value: 22.5 },
@@ -180,16 +180,26 @@ describe('S8, the DRS queue (BackOffice 3993)', () => {
     { label: 'Last heartbeat', value: '2026-11-17T10:42:30' },
   ]
 
-  it('null with no figures reads "DRS holds are off"', () => {
-    const off = signal('drsQueue', null, { reason: "DRS holds are off: DRS has never sent its queue's heartbeat." })
-    expect(stripIsolates(reasonText(translator('ar'), off))).toBe('حجوزات DRS متوقفة: لم يرسل DRS نبضة طابوره قط.')
+  it('null reads "DRS holds are off", with no heartbeat ever and with every instance switched off', () => {
+    const never = signal('drsQueue', null, { reason: "DRS holds are off: DRS has never sent its queue's heartbeat." })
+    expect(stripIsolates(reasonText(translator('ar'), never))).toBe('حجوزات DRS متوقفة.')
+    const off = signal('drsQueue', null, { reason: 'DRS holds are off: DRSWEB01, DRSWEB02 said so in its last heartbeat.', figures })
+    expect(stripIsolates(reasonText(translator('ar'), off))).toBe('حجوزات DRS متوقفة.')
   })
 
-  it('watch puts the queue figures into the Arabic line', () => {
-    const watch = signal('drsQueue', 'watch', { figures })
+  it('watch puts the queue totals into the Arabic line and keeps the server line, which names the instance', () => {
+    const reason = 'DRS DRSWEB02: 7 call(s) wait in its queue to SIS.Api, the oldest for 22 minutes; 2 failed and wait to retry.'
+    const watch = signal('drsQueue', 'watch', { figures, reason })
     expect(stripIsolates(reasonText(translator('ar'), watch))).toBe(
-      'ينتظر 7 طلب في طابور DRS إلى SIS.Api، أقدمها منذ 22.5 دقيقة؛ فشل 2 وينتظر إعادة المحاولة.',
+      `ينتظر 7 طلب في طابور DRS إلى SIS.Api، أقدمها منذ 22.5 دقيقة؛ فشل 2 وينتظر إعادة المحاولة. (${reason})`,
     )
+  })
+
+  it('bad keeps the server line too, so the silent or slow instance is named', () => {
+    const reason = 'DRS DRSWEB01 has sent no heartbeat for 40 minutes with its holds on (bad at 15): its queue to SIS.Api is not known.'
+    const bad = stripIsolates(reasonText(translator('ar'), signal('drsQueue', 'bad', { figures, reason })))
+    expect(bad).toContain('DRSWEB01')
+    expect(bad).toContain('2026-11-17 10:42:30')
   })
 
   it('every shipped figure label has its Arabic', () => {

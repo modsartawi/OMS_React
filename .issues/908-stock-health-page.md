@@ -100,3 +100,12 @@ waiting count and the oldest row's age, bad also the last heartbeat, since a sta
 **five** figures (the brief will say "up to five" on the BackOffice side), so S7's "Seeding over N hours" now shows; the
 first mismatch above is closed. Drive extended: S8 in 3993's shape (five figures, no link), and S8 `null` (neutral, no
 figures, not counted). Drive 82/82.
+
+**2026-11-18 — aligned with BackOffice review fixes (spec3991 b9f6b3403).** S8 now beats with holds on or off
+(`holdsOn`) and judges each DRS instance, worst wins, the reason naming the instance(s); figures total the instances. The AR
+`null` line is now just "حجوزات DRS متوقفة." (it covers both "never beat" and "every instance switched off", where the
+figures still show). The AR watch and bad lines keep the totals and append the server's line, isolated, because only it
+names the slow or silent instance. No label changed (S7 and S8 alike). S7's reason now names its source (Stock
+Visibility's stage list, or PickStoreStage with four figures when that does not answer); the AR `none` line is the stage
+counts only and does not name the source. Drive: S8 holds-off with figures (neutral, not counted) and two instances
+(watch, reason names DRSWEB02, header counts 1). Drive 90/90; tests 11046/11046.

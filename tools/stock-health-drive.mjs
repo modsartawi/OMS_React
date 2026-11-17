@@ -12,7 +12,8 @@
 //   4. a tile shows at most five figures (S7's stuck-seeding count shows); a tile with a link is a link, one without is not;
 //   5. the Refresh button re-reads, and so does the 60-second timer;
 //   6. with S8 present (3993's shape) and every judged signal good: eight tiles, S8 with its five figures, "All good";
-//      S8 null ("DRS holds are off", no figures) is neutral and not counted;
+//      S8 null ("DRS holds are off": every instance switched off, figures still shown) is neutral and not counted;
+//      S8 judged per instance (two DRS instances, one slow): watch, the reason names the instance, header counts 1;
 //   7. a tile opens its link;
 //   8. no page errors.
 //
@@ -79,7 +80,7 @@ const SEVEN = [
 ]
 const ALL_GOOD_EIGHT = [
   ...SEVEN.map((s) => (s.verdict === null ? s : { ...s, verdict: 'good', readAt: READ_AT })),
-  sig('drsQueue', 'good', "DRS's queue to SIS.Api drains: 3 call(s) wait, the oldest under 15 minutes.", [
+  sig('drsQueue', 'good', "DRS DRSWEB01's queue to SIS.Api drains: 3 call(s) wait, the oldest under 15 minutes. DRS DRSWEB02's queue to SIS.Api is empty.", [
     { label: 'Unsent', value: 3 },
     { label: 'Oldest unsent (minutes)', value: 2.5 },
     { label: 'Failed, waiting to retry', value: 0 },
@@ -207,17 +208,45 @@ for (const dir of ['ltr', 'rtl']) {
     await context.close()
   }
 
-  // 6b. S8 null: DRS holds are off, no figures, neutral, not counted
+  // 6b. S8 null: every DRS instance beats with its holds off - the figures still show, neutral, not counted
   {
-    const off = [...ALL_GOOD_EIGHT.slice(0, 7), sig('drsQueue', null, "DRS holds are off: DRS has never sent its queue's heartbeat.", [])]
+    const off = [
+      ...ALL_GOOD_EIGHT.slice(0, 7),
+      sig('drsQueue', null, 'DRS holds are off: DRSWEB01, DRSWEB02 said so in its last heartbeat.', ALL_GOOD_EIGHT[7].figures),
+    ]
     const { context, page, errors } = await open(dir, { signals: off })
     await page.goto(`${BASE}/oms/stock-health`)
     await tiles(page).first().waitFor({ timeout: 15000 })
     const s8 = page.locator('[data-health-tile="drsQueue"]')
-    check(`${dir} 6b S8 off is neutral`, (await s8.getAttribute('data-tone')) === 'neutral')
-    check(`${dir} 6b S8 off has no figures`, (await s8.locator('[data-health-figure]').count()) === 0)
-    check(`${dir} 6b S8 off is not counted`, (await page.locator('[data-health-header]').getAttribute('data-health-header')) === 'allGood')
+    check(`${dir} 6b S8 holds off is neutral`, (await s8.getAttribute('data-tone')) === 'neutral')
+    check(`${dir} 6b S8 holds off keeps its five figures`, (await s8.locator('[data-health-figure]').count()) === 5)
+    check(`${dir} 6b S8 holds off is not counted`, (await page.locator('[data-health-header]').getAttribute('data-health-header')) === 'allGood')
     check(`${dir} 6b no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 6c. S8 judged per instance: DRSWEB01 drains, DRSWEB02's oldest row is 22 minutes old - the worst (watch) wins
+  {
+    const slow = 'DRS DRSWEB02: 4 call(s) wait in its queue to SIS.Api, the oldest for 22 minutes; 1 failed and wait to retry.'
+    const two = [
+      ...ALL_GOOD_EIGHT.slice(0, 7),
+      sig('drsQueue', 'watch', slow, [
+        { label: 'Unsent', value: 7 },
+        { label: 'Oldest unsent (minutes)', value: 22.4 },
+        { label: 'Failed, waiting to retry', value: 1 },
+        { label: 'Last sent', value: '2026-11-17T00:29:40' },
+        { label: 'Last heartbeat', value: '2026-11-17T00:29:58' },
+      ]),
+    ]
+    const { context, page, errors } = await open(dir, { signals: two })
+    await page.goto(`${BASE}/oms/stock-health`)
+    await tiles(page).first().waitFor({ timeout: 15000 })
+    const s8 = page.locator('[data-health-tile="drsQueue"]')
+    check(`${dir} 6c S8 worst instance wins: watch`, (await s8.getAttribute('data-tone')) === 'watch')
+    check(`${dir} 6c S8 reason names the instance`, (await s8.locator('[data-health-reason]').innerText()).includes('DRSWEB02'))
+    check(`${dir} 6c header counts 1`, /1 need attention/.test((await page.locator('[data-health-header]').innerText()).replace(/[\u2066-\u2069]/g, '')))
+    await page.screenshot({ path: `${SHOTS}/${dir}-drs-watch.png`, fullPage: true })
+    check(`${dir} 6c no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

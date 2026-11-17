@@ -59,7 +59,7 @@ export function figureText(value: string | number | null | undefined): string {
  * The reason line. The key is `reason.<key>.<verdict>` (`none` for a figure-only signal). English holds `{{reason}}` for
  * each, so English shows the server's own line; Arabic holds a sentence with the signal's figures interpolated by
  * position (`{{f1}}` is the first figure), each isolated (`bidi`). `{{detail}}` is the server's line, isolated, for the
- * one fact Arabic cannot rebuild from the figures (which door did not answer, and how). A key or verdict the locale does
+ * facts Arabic cannot rebuild from the figures (which door did not answer and how; which DRS instance is slow or silent). A key or verdict the locale does
  * not hold falls back to the server's English line.
  */
 export function reasonText(t: Translate, signal: StockHealthSignal): string {

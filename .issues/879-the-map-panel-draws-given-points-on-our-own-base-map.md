@@ -117,3 +117,5 @@ What it is, for 880–884 and BackOffice 3635:
   `/dev/map-proof?lang=ar` with the network off, or the two screenshots).
 
 **2026-11-17 — seen by the owner.** The owner looked at the screenshots/PDFs under `.issues/assets/` and said they look fine, and to stay with the map decisions (dots sized and coloured, names on the card, no pins, no always-on labels). The person-check box is ticked and the ticket closed.
+
+**2026-11-17 — engine superseded.** The owner moved the map chart to Google Maps everywhere (BackOffice ADR 0139, superseding ADR 0135). The panel's door and contract stay; its engine moves to Google in [908](908-the-map-panel-draws-with-google-maps.md), and MapLibre, the vendored assets and the base-map dev server go in [911](911-maplibre-and-our-base-map-are-retired-and-the-map-build-gate-allows-only-googles-hosts.md). What is written above stays as the record.

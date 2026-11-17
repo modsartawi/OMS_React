@@ -2,11 +2,15 @@
  * build: its route exists only under `import.meta.env.DEV` (`./router`), so the bundler drops it. BackOffice 3635 prints
  * it through the report renderer; oms-react 883 removes it.
  *
+ * Print readiness (BackOffice 3635, spec 3630 M37): the report renderer prints once the page carries `data-print-ready`,
+ * so this page sets it only after its map has left `drawing` (drawn, or cannot draw) - as 883's print route will. It also
+ * stamps `data-map-drawn-at` on <html> (performance.now() at the panel's onDrawn) so the proof can time load -> drawn.
+ *
  * The panel with 20 fixed store points inside the development base-map file's box (central Riyadh, 46.60-46.80 E,
  * 24.60-24.80 N; BackOffice 3634). `?lang=ar` draws it in Arabic, right to left. The words here are dev chrome, exempt
  * from the t() rule like the prototype switcher's.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import LazyMapPanel from '@/core/map/LazyMapPanel'
@@ -24,6 +28,7 @@ export default function MapProofPage() {
   const { i18n } = useTranslation()
   const lang = search.get('lang') === 'ar' ? 'ar' : 'en'
   const [ready, setReady] = useState(false)
+  const [settled, setSettled] = useState(false)
 
   // Language and direction are set BEFORE the panel mounts: the panel reads both when it starts.
   useEffect(() => {
@@ -32,10 +37,24 @@ export default function MapProofPage() {
     void i18n.changeLanguage(lang).then(() => setReady(true))
   }, [i18n, lang])
 
+  const onDrawn = useCallback(() => {
+    document.documentElement.dataset.mapDrawnAt = String(Math.round(performance.now()))
+    setSettled(true)
+  }, [])
+  const onCannotDraw = useCallback(() => setSettled(true), [])
+
   return (
-    <main className="flex h-screen flex-col gap-2 bg-background p-4">
+    <main className="flex flex-col gap-2 bg-background p-4" data-print-ready={settled ? '' : undefined}>
       <h1 className="text-sm font-semibold text-foreground">Map panel proof (development only) · {lang}</h1>
-      {ready && <LazyMapPanel points={MAP_PROOF_POINTS} ariaLabel="Map proof" className="min-h-0 w-full flex-1" />}
+      {ready && (
+        <LazyMapPanel
+          points={MAP_PROOF_POINTS}
+          ariaLabel="Map proof"
+          className="h-[960px] w-[720px]"
+          onDrawn={onDrawn}
+          onCannotDraw={onCannotDraw}
+        />
+      )}
     </main>
   )
 }

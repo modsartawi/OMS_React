@@ -48,6 +48,9 @@ export function maplibreEngine(ink: PointInk): MapEngine {
         style: start.style,
         // The panel draws "© OpenStreetMap" itself, as an element that prints (M34).
         attributionControl: false,
+        // Keep the drawn frame in the canvas: Chromium prints a WebGL canvas from its drawing buffer, which is otherwise
+        // cleared once shown, so the report PDF would print a blank map (BackOffice 3635, spec 3630 M32/M37).
+        canvasContextAttributes: { preserveDrawingBuffer: true },
         // The prototype's look: no rotation, no tilt.
         dragRotate: false,
         pitchWithRotate: false,

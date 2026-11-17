@@ -41,6 +41,7 @@ import { paramLabel } from './params'
 import { ownCategoryDimensions, seriesOf, seriesProblems } from './series'
 import SeriesFields from './SeriesFields'
 import { choiceOf } from './shape-rules'
+import { swapMapMeasures } from './map-chart'
 import { viewTitleOf } from './ViewChart'
 
 /**
@@ -179,6 +180,7 @@ export default function ReportPanelEditor({
         sortKeys={sortKeys(view)}
         sortLocked={calcs.some((c) => c.kind === 'cumulativeShare')}
         perParent={calc.perParent}
+        onSwapMeasures={() => setView((d) => swapMapMeasures(d))}
       />
 
       <VariantFields

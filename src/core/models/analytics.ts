@@ -98,10 +98,21 @@ export interface AnalyticsModel {
   areas: AnalyticsArea[]
   measures: AnalyticsMeasure[]
   dimensions: AnalyticsDimension[]
+  /**
+   * BackOffice 3638 (spec 3630, oms-react 880): the chart types the query door accepts, in its order. `map` is listed
+   * only while the server's `Analytics:MapChart` is on. Absent (a server before 3638) = no map.
+   */
+  chartTypes?: AnalyticsChartType[]
 }
 
-/** The eight chart types (766 §E). Slice 0 (767) draws `bar` vertical; 768/769 add the rest. */
-export type AnalyticsChartType = 'kpi' | 'line' | 'area' | 'bar' | 'donut' | 'table' | 'heatmap' | 'combo'
+/**
+ * The chart types (766 §E). Slice 0 (767) draws `bar` vertical; 768/769 add the rest. `map` is the ninth (BackOffice
+ * spec 3630 M13, oms-react 880): offered only when the model's `chartTypes` lists it.
+ */
+export type AnalyticsChartType = 'kpi' | 'line' | 'area' | 'bar' | 'donut' | 'table' | 'heatmap' | 'combo' | 'map'
+
+/** Every chart type the web knows, in the door's order (the read keeps only these from `chartTypes`). */
+export const ANALYTICS_CHART_TYPES: readonly AnalyticsChartType[] = ['kpi', 'line', 'area', 'bar', 'donut', 'table', 'heatmap', 'combo', 'map']
 
 /** ⚠ 766 §C does not fix a definition shape; this is the web's proposal, mirroring `semantic_query`. */
 export interface AnalyticsFilter {
@@ -430,7 +441,11 @@ export type AnalyticsViewQuery = (
 export interface AnalyticsColumn {
   key: string
   /** ⚠ 825: `series` — the column holding each row's series id, when the view has named series. */
-  role: 'dimension' | 'measure' | 'series'
+  /**
+   * BackOffice 3638 (spec 3630 M13): `place` — on a map result only, four columns after the measures: `latitude`,
+   * `longitude` (numbers, or null when the store has no coordinates), `store_name` and `city`.
+   */
+  role: 'dimension' | 'measure' | 'series' | 'place'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
   /** Spec 3519 D2: set on a calculated column (role `measure`, shape `rate`, unit `percent`). */

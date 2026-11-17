@@ -36,6 +36,8 @@ export function toggleCrossFilter(current: CrossFilter | null | undefined, click
  * the view may be broken down by, except the ones the (drilled) view already shows or has drilled through.
  */
 export function drillTargets(view: AnalyticsViewDefinition, model: AnalyticsModel, steps: readonly DrillStep[]): string[] {
+  // 880 (BackOffice spec 3630 M23): a map has no drill — its one breakdown is the store, and it reports no point.
+  if (view.chart.type === 'map') return []
   const measures = view.query.measures.map((k) => measureOf(model, k))
   const used = new Set([...view.query.dimensions, ...steps.flatMap((s) => [s.dimension, s.into])])
   return model.dimensions

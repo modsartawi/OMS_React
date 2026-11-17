@@ -1,7 +1,8 @@
-import { memo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import ChartFrame from '@/core/charts/ChartFrame'
+import LazyMapPanel from '@/core/map/LazyMapPanel'
 import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import type { AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
@@ -14,6 +15,7 @@ import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
+import { drawsAsMap, mapPoints } from './map-chart'
 import ViewForm, { isViewForm } from './ViewForms'
 import { queryMeasureName } from './variants'
 import { dimensionOf } from './wire'
@@ -33,7 +35,7 @@ import { dimensionOf } from './wire'
 /** A clicked mark: the category dimension it stands for, and its member key (772). */
 export type PointHandler = (dimension: string, member: string) => void
 export function drawsHere(def: AnalyticsViewDefinition): boolean {
-  return drawsAsSeries(def) || isViewForm(def.chart.type) || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
+  return drawsAsMap(def) || drawsAsSeries(def) || isViewForm(def.chart.type) || (def.chart.type === 'bar' && (def.chart.orientation ?? 'vertical') === 'vertical')
 }
 
 /** A view's title, or — empty, as an AI view's is by default — one made from the model labels (766 §B). */
@@ -111,6 +113,9 @@ const ChartBody = memo(function ChartBody({
 }) {
   const { t: tc } = useTranslation('common')
   const type = definition.chart.type
+  // 880 (spec 3630): the map panel, through its lazy door, so a board without a map loads no map code (M35). A map
+  // reports no point: no cross-filter and no drill (M23).
+  if (drawsAsMap(definition)) return result.rows.length === 0 ? <Empty /> : <MapBody result={result} definition={definition} model={model} lang={lang} />
   if (drawsAsSeries(definition)) return <SeriesPanel result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} />
   // 769's forms: the donut, the table with cell bars, the heatmap and the combo.
   if (isViewForm(type)) return result.rows.length === 0 ? <Empty /> : <ViewForm type={type} result={result} definition={definition} model={model} lang={lang} onPoint={onPoint} selected={selected} />
@@ -130,6 +135,20 @@ const ChartBody = memo(function ChartBody({
     />
   )
 })
+
+/**
+ * A map view's body (880): the result's points on the map panel. When the screen cannot draw a map (no graphics, or
+ * the base map unreadable) the same answer is shown as a table instead, as the panel asks (879).
+ */
+function MapBody({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
+  const { t } = useTranslation('boards')
+  // A stable array per answer: a new identity restarts the map.
+  const points = useMemo(() => mapPoints(result), [result])
+  const [cannotDraw, setCannotDraw] = useState(false)
+  if (cannotDraw) return <ViewForm type="table" result={result} definition={{ ...definition, chart: { ...definition.chart, type: 'table' } }} model={model} lang={lang} />
+  const measure = saysIn(model.measures.find((m) => m.key === definition.query.measures[0])?.label, lang)
+  return <LazyMapPanel points={points} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+}
 
 function Empty() {
   const { t } = useTranslation('boards')

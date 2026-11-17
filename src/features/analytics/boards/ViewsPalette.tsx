@@ -1,6 +1,6 @@
 import { useMemo, useState, type ComponentType, type DragEvent, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartArea, ChartColumn, ChartLine, ChartNoAxesCombined, ChartPie, GripVertical, Grid3x3, Hash, Plus, Table2 } from 'lucide-react'
+import { ChartArea, ChartColumn, ChartLine, ChartNoAxesCombined, ChartPie, GripVertical, Grid3x3, Hash, MapPinned, Plus, Table2 } from 'lucide-react'
 import type { AnalyticsChartType, AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
 import Chip from '@/core/ui/Chip'
@@ -31,6 +31,7 @@ const CHART_ICON: Record<AnalyticsChartType, ComponentType<{ className?: string;
   table: Table2,
   heatmap: Grid3x3,
   combo: ChartNoAxesCombined,
+  map: MapPinned,
 }
 
 export default function ViewsPalette({

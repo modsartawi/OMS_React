@@ -23,6 +23,7 @@ import type {
   Bindings,
   Param,
 } from '@/core/models/analytics'
+import { ANALYTICS_CHART_TYPES } from '@/core/models/analytics'
 import {
   readCalculations,
   readColumnCalculation,
@@ -93,6 +94,8 @@ export function readModel(raw: Loose): AnalyticsModel {
       .map((a) => ({ ...a, key: str(a.key), available: a.available === true, unavailableReason: readReason(a.unavailableReason) })),
     measures: arr<unknown>(m.measures).map(readMeasure),
     dimensions: arr<unknown>(m.dimensions).map(readDimension),
+    // 880 (BackOffice 3638): the chart types the door accepts — the ones the web knows, in order; absent stays absent.
+    ...(Array.isArray(m.chartTypes) ? { chartTypes: ANALYTICS_CHART_TYPES.filter((type) => (m.chartTypes as unknown[]).includes(type)) } : {}),
   }
 }
 

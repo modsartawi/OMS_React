@@ -28,6 +28,9 @@ const MIN_VIEW: Record<AnalyticsChartType, Size> = {
   table: { w: 4, h: 3 },
   heatmap: { w: 4, h: 3 },
   combo: { w: 4, h: 4 },
+  // 880 (BackOffice spec 3630 M25): half the board's width, and 7 rows of 5rem (560 px) — the map and its legend
+  // together, so neither is squeezed into nonsense.
+  map: { w: 6, h: 7 },
 }
 /** A view whose chart is not known yet, or whose view was removed: the smallest any view may be. */
 const MIN_VIEW_UNKNOWN: Size = { w: 2, h: 2 }

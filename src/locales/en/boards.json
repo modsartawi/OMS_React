@@ -426,6 +426,7 @@
     "empty": "No data for this period.",
     "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
     "unsupported": "This chart type is not drawn here yet.",
+    "mapLabel": "Map of {{measure}} by store",
     "notFoundTitle": "Analytics view not found",
     "noAccessTitle": "No access to this analytics view",
     "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",
@@ -590,6 +591,9 @@
       "shorten": "Use {{period}} instead",
       "area": "This subject area is not available yet: {{reason}}"
     },
+    "mapSize": "Size: {{measure}}",
+    "mapColour": "Colour: {{measure}}",
+    "mapSwap": "Swap size and colour",
     "choice": {
       "kpi": "KPI",
       "line": "Line",
@@ -601,7 +605,8 @@
       "donut": "Donut",
       "table": "Table",
       "heatmap": "Heatmap",
-      "combo": "Combo"
+      "combo": "Combo",
+      "map": "Map"
     },
     "why": {
       "noMeasure": "Choose a measure first.",
@@ -619,7 +624,11 @@
       "comboShape": "A combo is one volume measure and one rate, by one breakdown.",
       "seriesShape": "With named series, this chart takes one measure over one breakdown.",
       "seriesStacked": "Named series are never stacked: a stack adds them up, and series may overlap.",
-      "seriesForm": "A donut or a heatmap takes no named series."
+      "seriesForm": "A donut or a heatmap takes no named series.",
+      "mapStore": "A map takes one breakdown: the store.",
+      "mapDate": "A map has no date breakdown: it shows the whole period.",
+      "mapMeasures": "A map takes one measure (the size) or two (the size, then the colour).",
+      "mapSeries": "A map takes no named series."
     },
     "formatName": {
       "auto": "Automatic",

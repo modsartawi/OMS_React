@@ -1,6 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, Ban, Info, Sparkles } from 'lucide-react'
+import { ArrowDown, ArrowLeftRight, ArrowUp, Ban, Info, Sparkles } from 'lucide-react'
 import type {
   AnalyticsChart,
   AnalyticsDimension,
@@ -11,6 +11,7 @@ import type {
   AnalyticsNumberFormat,
 } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
@@ -277,7 +278,13 @@ export function ChartFields({
   sortKeys,
   sortLocked = false,
   perParent = null,
+  onSwapMeasures,
 }: {
+  /**
+   * 880 (BackOffice spec 3630 M13): a map's first measure is each store's size, the second its colour; this swaps the
+   * two (the order the query holds). Shown only for a map of two measures.
+   */
+  onSwapMeasures?: () => void
   /** 863 (spec 3543 D3): a running share within a parent keeps the top N of each parent; its parents' names. */
   perParent?: string | null
   /** 862: the keys the sort may name — the measures and the calculated keys (`calculations-edit.sortKeys`). Absent: the measures. */
@@ -349,6 +356,16 @@ export function ChartFields({
               {t('editor.compareLastYear')}
             </Chip>
             <span className="text-xs text-muted-foreground">{t('editor.compareLastYearHint')}</span>
+          </div>
+        )}
+        {chosen === 'map' && measures.length === 2 && onSwapMeasures && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-editor-map-roles>
+            <span data-editor-map-size={measures[0]}>{t('editor.mapSize', { measure: fsi(measureName(measures[0])) })}</span>
+            <span data-editor-map-colour={measures[1]}>{t('editor.mapColour', { measure: fsi(measureName(measures[1])) })}</span>
+            <Button variant="secondary" onClick={onSwapMeasures} data-editor-map-swap>
+              <ArrowLeftRight className="size-3.5" aria-hidden />
+              {t('editor.mapSwap')}
+            </Button>
           </div>
         )}
         {offer?.offered && offer.folds && (

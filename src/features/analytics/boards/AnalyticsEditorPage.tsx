@@ -49,7 +49,8 @@ import { editorRefusal } from './editor-refusal'
 import { comparing } from './effective-query'
 import EditorRefusalNote from './EditorRefusalNote'
 import { SaveRefusalNote, SaveStanding } from './SaveNotes'
-import { chartFor, chartOffers, choiceOf, suggestChoice, type ChartChoice } from './shape-rules'
+import { swapMapMeasures } from './map-chart'
+import { chartFor, chartOffers, choiceOf, designerChoice, type ChartChoice } from './shape-rules'
 import { generatedTitle } from './title'
 import ReportDesignerPage from './ReportDesignerPage'
 import ViewChart from './ViewChart'
@@ -198,11 +199,9 @@ function ViewEditor({
   const allowed = useMemo(() => allowedDimensions(measures, model), [measures, model])
   const allowedKeys = useMemo(() => new Set(allowed.map((d) => d.key)), [allowed])
   const offers = chartOffers({ measures, dimensions, series: series.length, calculations: calculations.length }, model)
-  const offer = choice ? offers.find((o) => o.choice === choice) : undefined
   // A choice the new selection no longer fits is not drawn or saved; it comes back if the fit does. Until one is
   // picked (or while the pick does not fit) the builder picks the best fitting type, so the preview always draws.
-  const suggested = suggestChoice(offers, { measures, dimensions, series: series.length, calculations: calculations.length }, model)
-  const chosen = offer?.offered ? choice : suggested
+  const chosen = designerChoice(choice, offers, { measures, dimensions, series: series.length, calculations: calculations.length }, model)
   const keptGrain = grainFor(dimensions, model, grain)
 
   const settled = useMemo(() => {
@@ -399,6 +398,7 @@ function ViewEditor({
           sortKeys={definition ? sortKeys(definition) : measures}
           sortLocked={calculations.some((c) => c.kind === 'cumulativeShare')}
           perParent={calc.perParent}
+          onSwapMeasures={() => definition && setMeasures(swapMapMeasures(definition).query.measures)}
         />
         <VariantFields
           model={baseModel}

@@ -26,7 +26,15 @@ export const CHART_CHOICES = [
   'heatmap',
   'combo',
 ] as const
-export type ChartChoice = (typeof CHART_CHOICES)[number]
+/**
+ * The map (oms-react 880, BackOffice spec 3630 M13): a choice of its own, listed after the others and only when the
+ * server's model says the door accepts `map` (its `Analytics:MapChart` switch). With the switch off it is not listed.
+ */
+export const MAP_CHOICE = 'map' as const
+export type ChartChoice = (typeof CHART_CHOICES)[number] | typeof MAP_CHOICE
+
+/** The one breakdown a map takes: the store (spec 3630 M13; the server's `AnalyticsMapChart.Fits`). */
+export const MAP_DIMENSION = 'store'
 
 /** Why a choice is not offered: each is a `boards:editor.why.<reason>` key. */
 export type UnavailableReason =
@@ -49,6 +57,14 @@ export type UnavailableReason =
   | 'seriesStacked'
   /** 825: a donut or a heat map takes no named series. */
   | 'seriesForm'
+  /** 880 (spec 3630 M13): a map takes exactly one breakdown, the store. */
+  | 'mapStore'
+  /** 880: a map has no date. */
+  | 'mapDate'
+  /** 880: a map takes one measure (the size) or two (the size, then the colour). */
+  | 'mapMeasures'
+  /** 880 (M25): a map takes no named series. */
+  | 'mapSeries'
 
 export type ChartOffer =
   /** `folds` — the breakdown drawn as colours may hold more than the palette's five: the rest is "Other". */
@@ -94,6 +110,13 @@ export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOf
     const no = (reason: UnavailableReason): ChartOffer => ({ choice, offered: false, reason })
     const yes = (folds = false): ChartOffer => ({ choice, offered: true, folds })
     if (nM === 0) return no('noMeasure')
+    if (choice === MAP_CHOICE) {
+      // The server's shape (3638), in its order: series first, then the date, the store, the measure count.
+      if ((sel.series ?? 0) > 0) return no('mapSeries')
+      if (timeAt >= 0) return no('mapDate')
+      if (!(nD === 1 && sel.dimensions[0] === MAP_DIMENSION)) return no('mapStore')
+      return nM <= 2 ? yes() : no('mapMeasures')
+    }
     if ((sel.series ?? 0) > 0) {
       const one = nM === 1 && nD === 1
       switch (choice) {
@@ -157,8 +180,11 @@ export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOf
     }
   }
 
-  return CHART_CHOICES.map(rule)
+  return [...CHART_CHOICES, ...(acceptsMap(model) ? [MAP_CHOICE] : [])].map(rule)
 }
+
+/** The server's model lists `map` among the chart types its door accepts (`Analytics:MapChart` on). */
+export const acceptsMap = (model: Pick<AnalyticsModel, 'chartTypes'>): boolean => model.chartTypes?.includes('map') ?? false
 
 /** The choice a saved chart is. */
 export function choiceOf(chart: AnalyticsChart): ChartChoice {
@@ -186,6 +212,15 @@ export function chartFor(choice: ChartChoice, chart: AnalyticsChart): AnalyticsC
     default:
       return { ...rest, type: choice }
   }
+}
+
+/**
+ * The type the designer draws and saves: the author's pick while the selection still fits it (a saved view opens on its
+ * own type — a map as a map, 880), else the builder's suggestion ({@link suggestChoice}).
+ */
+export function designerChoice(choice: ChartChoice | null, offers: readonly ChartOffer[], sel: ShapeSelection, model: AnalyticsModel): ChartChoice | null {
+  const offer = choice ? offers.find((o) => o.choice === choice) : undefined
+  return offer?.offered ? choice : suggestChoice(offers, sel, model)
 }
 
 /**

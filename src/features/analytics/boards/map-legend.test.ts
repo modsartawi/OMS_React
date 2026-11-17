@@ -266,3 +266,31 @@ describe('the legend names both measures in the screen language, the size scale 
 function rawOf(r: typeof CHANGE_MAP) {
   return { columns: r.columns, rows: r.rows, legend: r.legend }
 }
+
+describe('the legend reads only the stores drawn on the map (review W11)', () => {
+  const raw = rawOf(CHANGE_MAP)
+
+  it('a hollow store with no place on the map does not put the hollow note in the legend', () => {
+    const rows = raw.rows.map((r) => (r.hollow === true ? { ...r, latitude: null, longitude: null } : r))
+    expect(mapLegendView(readResult({ ...raw, rows }), MODEL, 'en')!.size.hollow).toBe(false)
+  })
+
+  it('a hollow store on the map still does', () => {
+    expect(mapLegendView(CHANGE_MAP, MODEL, 'en')!.size.hollow).toBe(true)
+  })
+
+  it('every store hollow (no smallest or largest figure): the size scale is not drawn, only the hollow note', () => {
+    const rows = raw.rows.map((r) => ({ ...r, hollow: true }))
+    const legend = { ...raw.legend!, size: { ...raw.legend!.size, min: null, max: null } }
+    const view = mapLegendView(readResult({ ...raw, rows, legend }), MODEL, 'en')!
+    const html = renderToStaticMarkup(createElement(MapLegend, { view }))
+    expect(html).not.toContain('data-map-legend-scale')
+    expect(html).toContain('data-map-legend-hollow')
+    expect(html).toContain('Till sales')
+  })
+
+  it('a legend with a smallest and a largest figure draws its scale', () => {
+    const html = renderToStaticMarkup(createElement(MapLegend, { view: mapLegendView(CHANGE_MAP, MODEL, 'en')! }))
+    expect(html).toContain('data-map-legend-scale')
+  })
+})

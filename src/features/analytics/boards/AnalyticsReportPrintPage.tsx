@@ -15,7 +15,7 @@ import Refused from './Refused'
 import ReportDocument, { PAPER_PX } from './ReportDocument'
 import { FilterChips } from './TvMode'
 import { useReportRun } from './use-report-run'
-import { renderTicket, setRenderTicket, ticketOf } from './render-ticket'
+import { renderTicket, setRenderTicket, setTicketDocument, ticketOf } from './render-ticket'
 import { createPrintMaps, printReady } from './print-maps'
 import { PrintMapsContext } from './PrintMapsContext'
 
@@ -35,6 +35,8 @@ export default function AnalyticsReportPrintPage() {
   const ticket = ticketOf(search)
   if (ticket && renderTicket()?.ticket !== ticket) setRenderTicket({ ticket, lang: search.get('lang') === 'ar' ? 'ar' : 'en' })
   const lang = renderTicket()?.lang
+  // Review F2: set before the report draws (not in an effect), so the maps and the tables lay out in the run's direction.
+  if (lang && document.documentElement.dir !== (lang === 'ar' ? 'rtl' : 'ltr')) setTicketDocument(document.documentElement, lang)
   useEffect(() => {
     if (lang && i18n.language !== lang) void i18n.changeLanguage(lang)
   }, [lang])

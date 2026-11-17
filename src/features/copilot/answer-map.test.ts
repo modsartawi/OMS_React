@@ -72,4 +72,13 @@ describe("the answer's tables carry a map part (oms-react 884)", () => {
       expect('map' in tables[0]).toBe(false)
     }
   })
+
+  it('readingTheSameReplyTwice_givesTheSameTables_soTheMapIsNotRestartedOnEveryRender', () => {
+    // The panel reads its replies on every render (a keystroke in the ask box): a new table identity restarts each map.
+    const sent = { ...reply, tables: [mapped, { ...mapped, map: { legend: null } } as unknown as CopilotAnswerTable, plain] }
+    const first = copilotAnswerModel(sent).tables
+    const again = copilotAnswerModel(sent).tables
+    expect(again).toHaveLength(3)
+    again.forEach((t, i) => expect(t).toBe(first[i]))
+  })
 })

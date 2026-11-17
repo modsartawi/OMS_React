@@ -32,5 +32,15 @@ export function ticketOf(search: URLSearchParams): string | null {
   return (search.get('ticket') ?? '').trim() || null
 }
 
+/**
+ * Review F2: the page's direction and language from the run's (`document.documentElement` on the print page). Headless
+ * Chromium has no stored locale, so `index.html`'s pre-paint script leaves `<html dir>` empty: without this an Arabic
+ * run's PDF is laid out left to right.
+ */
+export function setTicketDocument(page: { dir: string; lang: string }, lang: RenderTicket['lang']) {
+  page.dir = lang === 'ar' ? 'rtl' : 'ltr'
+  page.lang = lang
+}
+
 /** The header a ticket door is called with. */
 export const ticketHeaders = (t: RenderTicket): Record<string, string> => ({ [RENDER_TICKET_HEADER]: t.ticket })

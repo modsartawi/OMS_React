@@ -644,7 +644,8 @@
       "mapStore": "A map takes one breakdown: the store.",
       "mapDate": "A map has no date breakdown: it shows the whole period.",
       "mapMeasures": "A map takes one measure (the size) or two (the size, then the colour).",
-      "mapSeries": "A map takes no named series."
+      "mapSeries": "A map takes no named series.",
+      "mapArea": "A map takes measures of one area only."
     },
     "formatName": {
       "auto": "Automatic",

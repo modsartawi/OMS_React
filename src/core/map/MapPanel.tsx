@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { maplibreEngine } from './maplibre-engine'
+import { placeCard } from './map-drawing'
 import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapPoint } from './map-panel'
 
 /**
@@ -40,6 +41,7 @@ const tokenOf = (el: Element, name: string) => getComputedStyle(el).getPropertyV
 export default function MapPanel({ points, grouping = null, ariaLabel, onDrawn, onCannotDraw, className = 'h-80 w-full' }: MapPanelProps) {
   const { i18n } = useTranslation()
   const box = useRef<HTMLDivElement>(null)
+  const frame = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<MapPanelState>('drawing')
   const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
@@ -76,10 +78,10 @@ export default function MapPanel({ points, grouping = null, ariaLabel, onDrawn, 
   const shown = card ? points.find((p) => p.id === card.id) : undefined
 
   return (
-    <div className={`relative overflow-hidden rounded-md border ${className}`} data-map-state={state}>
+    <div ref={frame} className={`relative overflow-hidden rounded-md border ${className}`} data-map-state={state}>
       {/* Fills the frame by size, not by `absolute`: MapLibre sets its container `position: relative`. */}
       <div ref={box} role="region" aria-label={ariaLabel} className="h-full w-full" />
-      {card && shown?.card && <PointCard card={shown.card} at={card} />}
+      {card && shown?.card && <PointCard card={shown.card} at={card} frame={frame} />}
       <div className="absolute bottom-0 end-0 z-10 bg-card/80 px-1.5 py-0.5 text-[10px] leading-tight text-muted-foreground">
         {/* The credit is one LTR value: under Arabic, unisolated, its "©" runs to the far end. */}
         <Ltr>
@@ -96,12 +98,22 @@ export default function MapPanel({ points, grouping = null, ariaLabel, onDrawn, 
  * A store's card (881, M23): its name and city, and its figures as the table formats them. Placed beside the point
  * pointed at, by the engine's pixel position: a physical `left`/`top`, since the canvas reports physical pixels in
  * either direction. Pointer events pass through, so the card never hides the point under it from the next tap.
+ * Review W4: the panel moves it with its store as the map moves, and it is held inside the panel (`placeCard`).
  */
-function PointCard({ card, at }: { card: NonNullable<MapPoint['card']>; at: NonNullable<MapCardState> }) {
+function PointCard({ card, at, frame }: { card: NonNullable<MapPoint['card']>; at: NonNullable<MapCardState>; frame: RefObject<HTMLDivElement | null> }) {
+  const self = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x + 12, top: at.y + 12 })
+  useLayoutEffect(() => {
+    const el = self.current
+    const box = frame.current
+    if (!el || !box) return
+    setPlace(placeCard(at, { width: box.clientWidth, height: box.clientHeight }, { width: el.offsetWidth, height: el.offsetHeight }))
+  }, [at, card, frame])
   return (
     <div
+      ref={self}
       className="pointer-events-none absolute z-20 max-w-60 rounded-md border bg-card px-2.5 py-1.5 text-xs text-card-foreground shadow-(--shadow-pop)"
-      style={{ left: at.x + 12, top: at.y + 12 }}
+      style={place}
       data-map-card={at.pinned ? 'pinned' : 'shown'}
     >
       <div className="font-medium">

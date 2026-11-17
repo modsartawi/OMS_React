@@ -1,5 +1,5 @@
 import type { StyleSpecification } from 'maplibre-gl'
-import { mapStyle, RTL_TEXT_PLUGIN_PATH } from './map-style'
+import { BASEMAP_SOURCE, mapStyle, RTL_TEXT_PLUGIN_PATH } from './map-style'
 import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
 
 export type { MapCard, MapCardState, MapFeature, MapGrouping, MapPoint, MapTarget } from './map-drawing'
@@ -44,6 +44,8 @@ export interface MapEngineStart {
   featuresAt(zoom: number): MapFeature[]
   /** The resolved ink of a group's words. */
   labelInk: string
+  /** The screen's language: an Arabic map is painted only once its letters are shaped (review W6). */
+  lang: MapLang
 }
 
 /** What the engine reports back. */
@@ -56,16 +58,56 @@ export interface MapEngineEvents {
   pointer(target: MapTarget | null, zoom: number): void
   /** A click or a tap on a feature, or on the map beside every feature (null). */
   tap(target: MapTarget | null, zoom: number): void
+  /** The map moved (a pan, a zoom): a card on show follows its store (review W4). */
+  moved(zoom: number): void
+  /**
+   * The map's box has this size, in pixels: once when the map has loaded, then on every resize (review W2). A map started
+   * in a box with no size yet (a dialog still opening) is fitted to its points when the box gets one.
+   */
+  sized(width: number, height: number): void
+  /** The browser took the map's graphics away (WebGL context lost): the canvas is blank (review W9). */
+  graphicsLost(): void
+}
+
+/** The engine once started. */
+export interface MapEngineRunning {
+  destroy(): void
+  zoomTo(lon: number, lat: number, zoom: number): void
+  /** Shows a view again, at once (no animation). */
+  fit(view: MapView): void
+  /** Where a place stands on the panel now, in physical pixels. */
+  project(lon: number, lat: number): { x: number; y: number }
 }
 
 export interface MapEngine {
   /** Starts drawing. Throws when the engine cannot start at all (no graphics support). */
-  start(start: MapEngineStart, events: MapEngineEvents): { destroy(): void; zoomTo(lon: number, lat: number, zoom: number): void }
+  start(start: MapEngineStart, events: MapEngineEvents): MapEngineRunning
 }
 
 export type MapLang = 'en' | 'ar'
 
 export type CannotDrawReason = 'no-graphics' | 'basemap-unreadable'
+
+/**
+ * Whether an engine error means the base-map file cannot be read (review W5): an error on the base map's own source that
+ * is not about one tile — the file or its header not read. One tile failing leaves the rest of the map drawn.
+ */
+export function isBasemapUnreadable(e: { sourceId?: string; tile?: unknown; error?: unknown }): boolean {
+  return e.sourceId === BASEMAP_SOURCE && e.tile == null
+}
+
+/** The text-shaping add-on's state, as MapLibre reports it (`unavailable`, `deferred`, `requested`, `loading`, `loaded`, `error`). */
+export type RtlTextStatus = string
+
+/**
+ * Whether the map is painted (879; review W6): the base map's tiles and the points are in, and on an Arabic screen its
+ * letters are shaped — the add-on has loaded (or failed to: unshaped labels are not an undrawn map). Until then the print
+ * page would print Arabic labels unjoined. On an English screen the add-on is not waited for.
+ */
+export function isPainted(p: { tilesLoaded: boolean; basemapLoaded: boolean; pointsLoaded: boolean; lang: MapLang; rtl: RtlTextStatus }): boolean {
+  if (!p.tilesLoaded || !p.basemapLoaded || !p.pointsLoaded) return false
+  return p.lang !== 'ar' || p.rtl === 'loaded' || p.rtl === 'error'
+}
 
 export interface OpenMapPanel {
   engine: MapEngine
@@ -114,13 +156,17 @@ export function fittedView(points: readonly MapPoint[]): MapView {
  * Nothing is signalled once the panel is closed.
  */
 export function openMapPanel(open: OpenMapPanel): { close(): void } {
-  let state: 'drawing' | 'ended' | 'closed' = 'drawing'
-  const end = (signal: () => void) => {
+  let state: 'drawing' | 'drawn' | 'ended' | 'closed' = 'drawing'
+  const end = (signal: () => void, to: 'drawn' | 'ended' = 'ended') => {
     if (state !== 'drawing') return
-    state = 'ended'
+    state = to
     signal()
   }
-  let running: ReturnType<MapEngine['start']> | null = null
+  const view = fittedView(open.points)
+  // Review W2: whether the box had no size when the map started, and whether it has been fitted since.
+  let sawNoSize = false
+  let sized = false
+  let running: MapEngineRunning | null = null
   const inkOf = open.inkOf ?? ((token: string) => token)
   // The features at each whole zoom, made once: the engine asks on every zoom change, and a tap reads them back.
   const drawn = new Map<number, MapFeature[]>()
@@ -130,7 +176,8 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf)))
     return f
   }
-  const featureOf = (target: MapTarget | null, zoom: number) => (target ? featuresOf(zoom).find((f) => f.id === target.id) : undefined)
+  // A target is read against the features it was drawn from (review W8): the zoom may have moved on since.
+  const featureOf = (target: MapTarget | null, zoom: number) => (target ? featuresOf(target.zoom ?? zoom).find((f) => f.id === target.id) : undefined)
   let card: MapCardState = null
   const cardOn = (event: { kind: 'point' | 'tap'; target: MapTarget | null }) => {
     if (state === 'closed') return
@@ -144,15 +191,16 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
       {
         container: open.container,
         points: open.points,
-        view: fittedView(open.points),
+        view,
         style: mapStyle(open.lang, open.origin),
         rtlTextPlugin: { url: open.origin + RTL_TEXT_PLUGIN_PATH, deferred: open.lang !== 'ar' },
         controlsCorner: open.dir === 'rtl' ? 'top-left' : 'top-right',
         featuresAt: featuresOf,
         labelInk: inkOf(GROUP_LABEL_INK),
+        lang: open.lang,
       },
       {
-        painted: () => end(open.onDrawn),
+        painted: () => end(open.onDrawn, 'drawn'),
         basemapUnreadable: () => end(() => open.onCannotDraw('basemap-unreadable')),
         // A group has no card: pointing at one is pointing at no store.
         pointer: (target, zoom) => cardOn({ kind: 'point', target: featureOf(target, zoom)?.kind === 'point' ? target : null }),
@@ -164,6 +212,36 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
             return
           }
           cardOn({ kind: 'tap', target: f ? target : null })
+        },
+        // Review W4: a card stands by its store, not where the store was when it was pointed at. A store joined into a
+        // group by a zoom out is no longer a point to stand by: its card closes.
+        sized: (width, height) => {
+          if (state === 'closed' || sized) return
+          if (width <= 0 || height <= 0) {
+            sawNoSize = true
+            return
+          }
+          sized = true
+          // The engine fitted the view to a box of no size, which fits nothing: fit it now the box has one.
+          if (sawNoSize) running?.fit(view)
+        },
+        // Review W9: a drawn map whose graphics are lost is a blank canvas, so it too falls back to the table.
+        graphicsLost: () => {
+          if (state !== 'drawing' && state !== 'drawn') return
+          state = 'ended'
+          open.onCannotDraw('no-graphics')
+        },
+        moved: (zoom) => {
+          if (state === 'closed' || !card || !running) return
+          const p = featuresOf(zoom).find((f) => f.id === card?.id && f.kind === 'point')
+          if (!p) {
+            card = null
+          } else {
+            const at = running.project(p.lon, p.lat)
+            if (at.x === card.x && at.y === card.y) return
+            card = { ...card, x: at.x, y: at.y }
+          }
+          open.onCard?.(card)
         },
       },
     )

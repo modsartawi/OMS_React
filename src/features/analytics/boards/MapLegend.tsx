@@ -17,12 +17,15 @@ export default function MapLegend({ view }: { view: MapLegendView }) {
     <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-2 text-xs text-muted-foreground" role="group" aria-label={t('view.mapLegend.label')} data-map-legend>
       <div className="flex flex-col gap-1" data-map-legend-size>
         <span className="font-medium text-foreground">{t('view.mapLegend.size', { measure: fsi(view.size.label) })}</span>
-        <span className="flex items-center gap-2">
-          <Dot radius={POINT_RADIUS.min} ink={PLAIN_INK} />
-          <Ltr>{view.size.min}</Ltr>
-          <Dot radius={POINT_RADIUS.max} ink={PLAIN_INK} />
-          <Ltr>{view.size.max}</Ltr>
-        </span>
+        {/* Review W11: with every store hollow the legend has no smallest or largest figure: no scale of blanks. */}
+        {(view.size.min !== '' || view.size.max !== '') && (
+          <span className="flex items-center gap-2" data-map-legend-scale>
+            <Dot radius={POINT_RADIUS.min} ink={PLAIN_INK} />
+            <Ltr>{view.size.min}</Ltr>
+            <Dot radius={POINT_RADIUS.max} ink={PLAIN_INK} />
+            <Ltr>{view.size.max}</Ltr>
+          </span>
+        )}
         {view.size.hollow && (
           <span className="flex items-center gap-2" data-map-legend-hollow>
             <Dot radius={POINT_RADIUS.min} ink={PLAIN_INK} hollow />

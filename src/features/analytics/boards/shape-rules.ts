@@ -65,6 +65,12 @@ export type UnavailableReason =
   | 'mapMeasures'
   /** 880 (M25): a map takes no named series. */
   | 'mapSeries'
+  /**
+   * Review W7: a map reads one area — the server's `AnalyticsMapChart.Fits` refuses a cross-area query. Its other test,
+   * `CanPlace` (the area's view carries the stores' coordinates), is view-side: the model sends nothing to mirror it by,
+   * so a measure of an area that cannot be placed is still offered Map here and refused by the server (`ANALYTICS-406`).
+   */
+  | 'mapArea'
 
 export type ChartOffer =
   /** `folds` — the breakdown drawn as colours may hold more than the palette's five: the rest is "Other". */
@@ -115,7 +121,9 @@ export function chartOffers(sel: ShapeSelection, model: AnalyticsModel): ChartOf
       if ((sel.series ?? 0) > 0) return no('mapSeries')
       if (timeAt >= 0) return no('mapDate')
       if (!(nD === 1 && sel.dimensions[0] === MAP_DIMENSION)) return no('mapStore')
-      return nM <= 2 ? yes() : no('mapMeasures')
+      if (nM > 2) return no('mapMeasures')
+      const areas = new Set(sel.measures.map((k) => measureOf(model, k)?.area).filter((a) => a !== undefined))
+      return areas.size > 1 ? no('mapArea') : yes()
     }
     if ((sel.series ?? 0) > 0) {
       const one = nM === 1 && nD === 1

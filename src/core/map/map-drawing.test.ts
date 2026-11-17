@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapPoint, type MapTarget } from './map-panel'
-import { cardAfter, GROUP_INK, pointRadius, POINT_RADIUS, type MapCardState } from './map-drawing'
+import { cardAfter, GROUP_INK, placeCard, pointRadius, POINT_RADIUS, type MapCardState } from './map-drawing'
 
 // Ticket 881 (BackOffice spec 3630 M15-M20, M23): what the panel would draw — each point's size, colour and hollow,
 // nearby stores joined into one group, and the card a point shows. The engine is a stand-in: the tests read the
@@ -12,16 +12,24 @@ function standIn() {
   const started: MapEngineStart[] = []
   let events: MapEngineEvents | null = null
   const zooms: { lon: number; lat: number; zoom: number }[] = []
+  /** Where the stand-in projects a place on the panel now: the test moves the map by changing it. */
+  const projection = { at: (lon: number, lat: number) => ({ x: lon, y: lat }) }
   const engine: MapEngine = {
     start(start, ev) {
       started.push(start)
       events = ev
-      return { destroy: () => {}, zoomTo: (lon, lat, zoom) => void zooms.push({ lon, lat, zoom }) }
+      return {
+        destroy: () => {},
+        zoomTo: (lon, lat, zoom) => void zooms.push({ lon, lat, zoom }),
+        fit: () => {},
+        project: (lon, lat) => projection.at(lon, lat),
+      }
     },
   }
   return {
     engine,
     zooms,
+    projection,
     get start() {
       return started[0]
     },
@@ -237,5 +245,57 @@ describe('pointing at a store shows its card; a tap pins it; a tap elsewhere clo
     const g = groupsOf(e.start, COUNTRY)[0]
     e.events.pointer({ id: g.id, x: 5, y: 5 }, COUNTRY)
     expect(cards).toEqual([])
+  })
+})
+
+describe('a tap reads the features the map was showing, not the zoom it has reached since (review W8)', () => {
+  it('a tap on a group, landing while the zoom moves on, still opens that group', () => {
+    const { e, cards } = open(STORES)
+    const g = groupsOf(e.start, COUNTRY)[0]
+    // The group was drawn at the country zoom; by the time the tap is read the map is at street zoom, where it is gone.
+    e.events.tap({ id: g.id, x: 10, y: 10, zoom: COUNTRY }, STREET)
+    expect(e.zooms).toHaveLength(1)
+    expect(e.zooms[0].zoom).toBeGreaterThan(COUNTRY)
+    expect(cards).toEqual([])
+  })
+
+  it('pointing at a store drawn at the earlier zoom still shows its card', () => {
+    const { e, cards } = open(STORES)
+    // R001 is its own point at street zoom, but inside the Olaya group at the country zoom the map has moved to.
+    e.events.pointer({ id: 'R001', x: 7, y: 9, zoom: STREET }, COUNTRY)
+    expect(cards).toEqual([{ id: 'R001', x: 7, y: 9, pinned: false }])
+  })
+})
+
+describe('the card follows its store when the map moves, and stays inside the panel (review W4)', () => {
+  it('after a pan the card stands where its store now is', () => {
+    const { e, cards } = open(STORES)
+    e.events.tap({ id: 'R001', x: 120, y: 80 }, STREET)
+    e.projection.at = () => ({ x: 300, y: 200 })
+    e.events.moved(STREET)
+    expect(cards.at(-1)).toEqual({ id: 'R001', x: 300, y: 200, pinned: true })
+  })
+
+  it('when a zoom out joins its store into a group the card closes: the store is no longer a point', () => {
+    const { e, cards } = open(STORES)
+    e.events.tap({ id: 'R001', x: 120, y: 80 }, STREET)
+    e.events.moved(COUNTRY)
+    expect(cards.at(-1)).toBeNull()
+  })
+
+  it('a move with no card shows none', () => {
+    const { e, cards } = open(STORES)
+    e.events.moved(STREET)
+    expect(cards).toEqual([])
+  })
+
+  it('beside the point, below and to the right, when it fits', () => {
+    expect(placeCard({ x: 100, y: 50 }, { width: 600, height: 400 }, { width: 150, height: 80 })).toEqual({ left: 112, top: 62 })
+  })
+
+  it('flipped to the left and above near the far corner, and never outside the panel', () => {
+    expect(placeCard({ x: 560, y: 380 }, { width: 600, height: 400 }, { width: 150, height: 80 })).toEqual({ left: 398, top: 288 })
+    // A point dragged off the panel: the card is held at the panel's edge.
+    expect(placeCard({ x: -50, y: 900 }, { width: 600, height: 400 }, { width: 150, height: 80 })).toEqual({ left: 0, top: 320 })
   })
 })

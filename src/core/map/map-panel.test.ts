@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart } from './map-panel'
+import { isBasemapUnreadable, isPainted, openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
 
 // Ticket 879 (BackOffice spec 3630, seam 6): the map panel, with the map engine replaced by a stand-in. The tests read
 // what the panel hands the engine and what it signals; they never touch MapLibre or pixels.
@@ -11,17 +11,19 @@ function standIn(opts: { throwOnStart?: Error } = {}) {
   const started: MapEngineStart[] = []
   let events: MapEngineEvents | null = null
   let destroyed = 0
+  const fits: MapView[] = []
   const engine: MapEngine = {
     start(start, ev) {
       if (opts.throwOnStart) throw opts.throwOnStart
       started.push(start)
       events = ev
-      return { destroy: () => void destroyed++, zoomTo: () => {} }
+      return { destroy: () => void destroyed++, zoomTo: () => {}, fit: (view) => void fits.push(view), project: (x, y) => ({ x, y }) }
     },
   }
   return {
     engine,
     started,
+    fits,
     get events() {
       if (!events) throw new Error('the engine was not started')
       return events
@@ -102,6 +104,7 @@ describe('place names follow the screen language', () => {
     const e = standIn()
     open(e.engine, { lang: 'ar', dir: 'rtl' })
     expect(e.started[0].rtlTextPlugin).toEqual({ url: `${ORIGIN}/map/rtl-text/mapbox-gl-rtl-text-0.3.0.js`, deferred: false })
+    expect(e.started[0].lang).toBe('ar')
   })
 
   it('on an English screen the add-on still comes from our own site, deferred until a label needs it', () => {
@@ -215,5 +218,92 @@ describe('the panel says when it cannot draw, so the caller can show the table',
     e.events.painted()
     e.events.basemapUnreadable()
     expect(signals).toEqual(['drawn'])
+  })
+})
+
+describe('a map opened in a box with no size yet is fitted once the box has one (review W2)', () => {
+  it('a box sized only after the map started (a dialog still opening) is fitted to the points then', () => {
+    const e = standIn()
+    open(e.engine)
+    e.events.sized(0, 0)
+    expect(e.fits).toEqual([])
+    e.events.sized(1100, 640)
+    expect(e.fits).toEqual([{ kind: 'bounds', west: 39.172, south: 21.543, east: 50.103, north: 26.434 }])
+    // Later resizes leave the reader's own pan and zoom alone.
+    e.events.sized(900, 500)
+    expect(e.fits).toHaveLength(1)
+  })
+
+  it('a box that had its size from the start is not fitted again', () => {
+    const e = standIn()
+    open(e.engine)
+    e.events.sized(800, 320)
+    e.events.sized(700, 320)
+    expect(e.fits).toEqual([])
+  })
+})
+
+describe('a map whose graphics are lost shows the table (review W9)', () => {
+  it('losing the graphics after the map is drawn signals "cannot draw": the blank canvas is not left as drawn', () => {
+    const e = standIn()
+    const { signals } = open(e.engine)
+    e.events.painted()
+    e.events.graphicsLost()
+    expect(signals).toEqual(['drawn', 'cannot-draw:no-graphics'])
+  })
+
+  it('losing them while drawing signals it once, and nothing after', () => {
+    const e = standIn()
+    const { signals } = open(e.engine)
+    e.events.graphicsLost()
+    e.events.graphicsLost()
+    e.events.painted()
+    expect(signals).toEqual(['cannot-draw:no-graphics'])
+  })
+
+  it('nothing is signalled once the panel is closed', () => {
+    const e = standIn()
+    const { panel, signals } = open(e.engine)
+    panel.close()
+    e.events.graphicsLost()
+    expect(signals).toEqual([])
+  })
+})
+
+describe('only the base-map file itself unread is "base map unreadable" (review W5)', () => {
+  it('the file or its header not read: unreadable', () => {
+    expect(isBasemapUnreadable({ sourceId: 'protomaps', error: new Error('404') })).toBe(true)
+  })
+
+  it('one tile failing is not: the rest of the map is drawn', () => {
+    expect(isBasemapUnreadable({ sourceId: 'protomaps', tile: {}, error: new Error('timeout') })).toBe(false)
+  })
+
+  it('an error on another source is not', () => {
+    expect(isBasemapUnreadable({ sourceId: 'points', error: new Error('x') })).toBe(false)
+    expect(isBasemapUnreadable({ error: new Error('x') })).toBe(false)
+  })
+})
+
+describe('an Arabic map is drawn only once its letters are shaped (review W6)', () => {
+  const loaded = { tilesLoaded: true, basemapLoaded: true, pointsLoaded: true }
+
+  it('on an Arabic screen, not before the text-shaping add-on has loaded', () => {
+    for (const rtl of ['unavailable', 'deferred', 'requested', 'loading'] as const) expect(isPainted({ ...loaded, lang: 'ar', rtl })).toBe(false)
+    expect(isPainted({ ...loaded, lang: 'ar', rtl: 'loaded' })).toBe(true)
+  })
+
+  it('an add-on that failed to load leaves the labels unshaped, not the map undrawn', () => {
+    expect(isPainted({ ...loaded, lang: 'ar', rtl: 'error' })).toBe(true)
+  })
+
+  it('on an English screen the add-on is not waited for', () => {
+    expect(isPainted({ ...loaded, lang: 'en', rtl: 'deferred' })).toBe(true)
+  })
+
+  it('never before the tiles and both sources are in', () => {
+    expect(isPainted({ ...loaded, tilesLoaded: false, lang: 'en', rtl: 'loaded' })).toBe(false)
+    expect(isPainted({ ...loaded, basemapLoaded: false, lang: 'en', rtl: 'loaded' })).toBe(false)
+    expect(isPainted({ ...loaded, pointsLoaded: false, lang: 'ar', rtl: 'loaded' })).toBe(false)
   })
 })

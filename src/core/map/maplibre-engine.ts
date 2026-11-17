@@ -1,7 +1,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
-import type { MapEngine, MapEngineEvents, MapEngineStart } from './map-panel'
+import { isBasemapUnreadable, isPainted, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
 import { BASEMAP_SOURCE } from './map-style'
 
 /**
@@ -27,6 +27,14 @@ function ensureRtlTextPlugin(plugin: MapEngineStart['rtlTextPlugin']) {
   maplibregl.setRTLTextPlugin(plugin.url, plugin.deferred).catch(() => {})
 }
 
+/** How a view is shown: a box fitted with a margin, or one place at its zoom. */
+const FIT = { padding: 40, maxZoom: 15 } as const
+
+/**
+ * An Arabic map is "painted" only once its letters are shaped (review W6, `isPainted`). Under an
+ * English-first session the add-on was set deferred; MapLibre loads it as soon as a tile carries Arabic text, which every
+ * tile of an Arabic map does, and redraws those tiles, so the gate below waits for that load rather than a second set.
+ */
 export function maplibreEngine(): MapEngine {
   return {
     start(start: MapEngineStart, events: MapEngineEvents) {
@@ -51,28 +59,33 @@ export function maplibreEngine(): MapEngine {
         pitchWithRotate: false,
         touchPitch: false,
         ...(view.kind === 'bounds'
-          ? { bounds: [view.west, view.south, view.east, view.north] as [number, number, number, number], fitBoundsOptions: { padding: 40, maxZoom: 15 } }
+          ? { bounds: [view.west, view.south, view.east, view.north] as [number, number, number, number], fitBoundsOptions: FIT }
           : { center: [view.lon, view.lat] as [number, number], zoom: view.zoom }),
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), start.controlsCorner)
 
-      map.on('error', (e: { sourceId?: string; error?: unknown }) => {
-        if (e.sourceId === BASEMAP_SOURCE) events.basemapUnreadable()
+      // Review W5: only the file (or its header) unread is "unreadable"; one tile failing leaves the rest drawn.
+      map.on('error', (e: { sourceId?: string; tile?: unknown; error?: unknown }) => {
+        if (isBasemapUnreadable(e)) events.basemapUnreadable()
       })
+      // Review W9: the browser can take the graphics away (too many maps, a GPU reset); the canvas is then blank.
+      map.on('webglcontextlost', () => events.graphicsLost())
 
       /** The features at a zoom as GeoJSON: each carries its own size, colours and words (`./map-drawing`). */
       const dataAt = (zoom: number) => ({
         type: 'FeatureCollection' as const,
         features: start.featuresAt(zoom).map((f) => ({
           type: 'Feature' as const,
-          properties: { id: f.id, kind: f.kind, radius: f.radius, fill: f.fill, fillOpacity: f.fillOpacity, stroke: f.stroke, strokeWidth: f.strokeWidth, label: f.label },
+          // `zoom`: the whole zoom these features were made at, so a hit is read against them (review W8).
+          properties: { id: f.id, kind: f.kind, radius: f.radius, fill: f.fill, fillOpacity: f.fillOpacity, stroke: f.stroke, strokeWidth: f.strokeWidth, label: f.label, zoom },
           geometry: { type: 'Point' as const, coordinates: [f.lon, f.lat] },
         })),
       })
       const targetOf = (e: { point: { x: number; y: number } }) => {
         const hit = map.queryRenderedFeatures([e.point.x, e.point.y], { layers: [POINTS_LAYER] })[0]
         const id = hit?.properties?.id
-        return typeof id === 'string' ? { id, x: e.point.x, y: e.point.y } : null
+        const zoom = hit?.properties?.zoom
+        return typeof id === 'string' ? { id, x: e.point.x, y: e.point.y, ...(typeof zoom === 'number' ? { zoom } : {}) } : null
       }
 
       map.on('load', () => {
@@ -122,8 +135,22 @@ export function maplibreEngine(): MapEngine {
         })
         map.on('mouseout', () => events.pointer(null, map.getZoom()))
         map.on('click', (e) => events.tap(targetOf(e), map.getZoom()))
+        map.on('move', () => events.moved(map.getZoom()))
+        const sizeNow = () => {
+          const canvas = map.getContainer()
+          events.sized(canvas.clientWidth, canvas.clientHeight)
+        }
+        map.on('resize', sizeNow)
+        sizeNow()
         const whenPainted = () => {
-          if (map.areTilesLoaded() && map.isSourceLoaded(BASEMAP_SOURCE) && map.isSourceLoaded(POINTS_SOURCE)) {
+          const painted = isPainted({
+            tilesLoaded: map.areTilesLoaded(),
+            basemapLoaded: map.isSourceLoaded(BASEMAP_SOURCE),
+            pointsLoaded: map.isSourceLoaded(POINTS_SOURCE),
+            lang: start.lang,
+            rtl: maplibregl.getRTLTextPluginStatus(),
+          })
+          if (painted) {
             map.off('idle', whenPainted)
             events.painted()
           }
@@ -131,7 +158,19 @@ export function maplibreEngine(): MapEngine {
         map.on('idle', whenPainted)
       })
 
-      return { destroy: () => map.remove(), zoomTo: (lon, lat, zoom) => void map.easeTo({ center: [lon, lat], zoom }) }
+      const fit = (v: MapView) =>
+        v.kind === 'bounds'
+          ? map.fitBounds([v.west, v.south, v.east, v.north], { ...FIT, animate: false })
+          : map.jumpTo({ center: [v.lon, v.lat], zoom: v.zoom })
+      return {
+        destroy: () => map.remove(),
+        zoomTo: (lon, lat, zoom) => void map.easeTo({ center: [lon, lat], zoom }),
+        fit: (v) => void fit(v),
+        project: (lon, lat) => {
+          const p = map.project([lon, lat])
+          return { x: p.x, y: p.y }
+        },
+      }
     },
   }
 }

@@ -245,7 +245,10 @@ const textOf = (row: AnalyticsRow, key: string): string => (typeof row[key] === 
 
 /** The legend as drawn (M17, M18): both labels in the screen's language, the size scale's ends, each step in words. */
 export interface MapLegendView {
-  /** The size measure, its smallest and largest figure as the table writes them, and whether any point is hollow. */
+  /**
+   * The size measure, its smallest and largest figure as the table writes them (empty when the legend has none: every
+   * store hollow), and whether any point drawn is hollow.
+   */
   size: { label: string; min: string; max: string; hollow: boolean }
   /** The colour measure and its steps, in the server's order; null with one measure (one colour, {@link PLAIN_INK}). */
   colour: { label: string; steps: { id: string; words: string; ink: string }[] } | null
@@ -262,7 +265,8 @@ export function mapLegendView(result: AnalyticsQueryResult, model: AnalyticsMode
       label: saysIn(legend.size.label, lang) || legend.size.key,
       min: formatValue(legend.size.min, unit, lang),
       max: formatValue(legend.size.max, unit, lang),
-      hollow: result.rows.some((r) => r[MAP_HOLLOW] === true),
+      // Review W11: only a store drawn on the map can be drawn hollow; one with no place is counted under it instead.
+      hollow: result.rows.some((r) => r[MAP_HOLLOW] === true && coordinate(r[MAP_LATITUDE]) !== null && coordinate(r[MAP_LONGITUDE]) !== null),
     },
     colour: colour
       ? { label: saysIn(colour.label, lang) || colour.key, steps: colour.steps.map((s) => ({ id: s.id, words: saysIn(s.label, lang), ink: stepInk(colour, s.id) })) }

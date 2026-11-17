@@ -83,4 +83,32 @@ describe('the print page waits for its maps', () => {
     maps.close()
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  // Review W3: React runs a child's effects before its parent's, so a map that cannot draw at all (no graphics) says so
+  // before its block has joined. That ending is the map's ending, not a signal to drop.
+  it('a "cannot draw" that arrives before the map joins is its ending: no 20-second wait', () => {
+    const maps = createPrintMaps()
+    maps.cannotDraw('m1')
+    maps.join('m1')
+    expect(maps.state('m1')).toBe('fell-back')
+    expect(maps.settled()).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('a "drawn" that arrives first is kept the same way', () => {
+    const maps = createPrintMaps()
+    maps.drawn('m1')
+    maps.join('m1')
+    expect(maps.state('m1')).toBe('drawn')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('an early ending is used once: the block that leaves and joins again waits afresh', () => {
+    const maps = createPrintMaps()
+    maps.cannotDraw('m1')
+    const leave = maps.join('m1')
+    leave()
+    maps.join('m1')
+    expect(maps.state('m1')).toBe('drawing')
+  })
 })

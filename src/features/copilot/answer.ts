@@ -436,10 +436,18 @@ const isTable = (v: unknown): v is CopilotAnswerTable =>
  */
 function withMapPart(table: CopilotAnswerTable): CopilotAnswerTable {
   if (!('map' in table)) return table
+  // Review W1: the panel reads its replies on every render, and a new table identity restarts that table's map (a
+  // WebGL map torn down and rebuilt on every keystroke). One read per table as sent, kept as long as the reply is.
+  const kept = mapPartRead.get(table)
+  if (kept) return kept
   const { map, ...rest } = table
   const legend = map && typeof map === 'object' ? (map as { legend?: unknown }).legend : null
-  return legend && typeof legend === 'object' ? { ...rest, map } : rest
+  const read = legend && typeof legend === 'object' ? table : rest
+  mapPartRead.set(table, read)
+  return read
 }
+
+const mapPartRead = new WeakMap<CopilotAnswerTable, CopilotAnswerTable>()
 
 const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 

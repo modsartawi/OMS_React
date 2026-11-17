@@ -87,6 +87,28 @@ describe('the designer offers Map when the query fits (M13, M25)', () => {
   })
 })
 
+describe("a map reads one area, as the server's shape does (review W7)", () => {
+  const TWO_AREAS: AnalyticsModel = {
+    ...MAP_ON,
+    areas: [...MAP_ON.areas, { key: 'stock', available: true }],
+    measures: [...MAP_ON.measures, { ...measure('stock_units'), area: 'stock' }],
+  }
+
+  it('measures from two areas are not offered a map, with its own reason', () => {
+    expect(reasonOf(mapOffer(TWO_AREAS, ['till_sales', 'stock_units'], ['store']))).toBe('mapArea')
+  })
+
+  it('two measures of one area still are', () => {
+    expect(mapOffer(TWO_AREAS, ['till_sales', 'orders'], ['store'])?.offered).toBe(true)
+    expect(mapOffer(TWO_AREAS, ['stock_units'], ['store'])?.offered).toBe(true)
+  })
+
+  it('the reason has its words in both languages', () => {
+    expect((en.editor.why as Record<string, string>).mapArea).toMatch(/\S/)
+    expect((ar.editor.why as Record<string, string>).mapArea).toMatch(/[\u0600-\u06FF]/)
+  })
+})
+
 describe('the model says which chart types the door accepts (3638 wire)', () => {
   it('reads chartTypes, keeping the types the web knows, in order; absent stays absent', () => {
     expect(readModel({ chartTypes: ['kpi', 'bar', 'map', 'sankey', 7] }).chartTypes).toEqual(['kpi', 'bar', 'map'])

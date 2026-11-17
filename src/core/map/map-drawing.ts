@@ -210,6 +210,11 @@ export interface MapTarget {
   id: string
   x: number
   y: number
+  /**
+   * The whole zoom the feature under the pointer was made at (review W8). The map's zoom moves on while its features
+   * are redrawn, so an id is read against the features it came from. Absent: the zoom the event reports.
+   */
+  zoom?: number
 }
 
 /** The card on show: whose, where on the panel, and whether a tap pinned it. Null: no card. */
@@ -225,4 +230,25 @@ export function cardAfter(state: MapCardState, event: { kind: 'point' | 'tap'; t
   if (event.kind === 'tap') return t ? { id: t.id, x: t.x, y: t.y, pinned: true } : null
   if (state?.pinned) return state
   return t ? { id: t.id, x: t.x, y: t.y, pinned: false } : null
+}
+
+/** How far the card stands from its point, in pixels. */
+export const CARD_GAP_PX = 12
+
+/**
+ * Where a card stands on the panel (review W4): beside its point, below and after it; flipped to the other side of the
+ * point on an axis where it would run past the panel's edge; and held inside the panel whatever the point's place (a
+ * point panned off the panel keeps its card at the edge). Physical pixels, as the engine reports them.
+ */
+export function placeCard(
+  at: { x: number; y: number },
+  box: { width: number; height: number },
+  card: { width: number; height: number },
+): { left: number; top: number } {
+  const along = (p: number, size: number, room: number) => {
+    const after = p + CARD_GAP_PX
+    const start = after + size <= room ? after : p - CARD_GAP_PX - size
+    return Math.max(0, Math.min(start, room - size))
+  }
+  return { left: along(at.x, card.width, box.width), top: along(at.y, card.height, box.height) }
 }

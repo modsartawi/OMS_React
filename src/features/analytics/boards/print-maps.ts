@@ -34,6 +34,9 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
   const states = new Map<string, MapPrintState>()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
   const listeners = new Set<() => void>()
+  // Review W3: an ending told before its map joined. React runs a child's effects before its parent's, so a map that
+  // cannot start (no graphics) reports it before its block joins; the join takes it as the map's ending, once.
+  const early = new Map<string, MapPrintState>()
   const tell = () => listeners.forEach((l) => l())
   const stopTimer = (id: string) => {
     const timer = timers.get(id)
@@ -42,6 +45,10 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
   }
   // Only a map still drawing moves: its first ending is its ending, and a late `drawn` after a fall-back changes nothing.
   const end = (id: string, to: MapPrintState) => {
+    if (!states.has(id)) {
+      if (!early.has(id)) early.set(id, to)
+      return
+    }
     if (states.get(id) !== 'drawing') return
     stopTimer(id)
     states.set(id, to)
@@ -50,15 +57,22 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
   return {
     join(id) {
       stopTimer(id)
-      states.set(id, 'drawing')
-      timers.set(
-        id,
-        setTimeout(() => end(id, 'fell-back'), timeoutMs),
-      )
+      const ended = early.get(id)
+      early.delete(id)
+      if (ended) {
+        states.set(id, ended)
+      } else {
+        states.set(id, 'drawing')
+        timers.set(
+          id,
+          setTimeout(() => end(id, 'fell-back'), timeoutMs),
+        )
+      }
       tell()
       return () => {
         stopTimer(id)
         states.delete(id)
+        early.delete(id)
         tell()
       }
     },
@@ -73,6 +87,7 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
     close() {
       ;[...timers.keys()].forEach(stopTimer)
       listeners.clear()
+      early.clear()
     },
   }
 }

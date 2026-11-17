@@ -3,6 +3,7 @@ import { formatTick, formatValue } from '@/core/charts/format'
 import type { AnalyticsMapLegend, AnalyticsModel, AnalyticsQueryResult, AnalyticsRow, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import { viewMeasureOf } from './view-model'
+import { toTableView, type TableColumn, type TableView, type TableViewOptions } from './view-model-forms'
 
 /**
  * The map chart's own rules on the web (oms-react 880, BackOffice spec 3630 M13, M22-M26; the door is 3638). Pure: no
@@ -53,11 +54,89 @@ export function mapPoints(result: AnalyticsQueryResult): MapPoint[] {
   return points
 }
 
-// ── 881: size, colour, groups, card and legend from the server's legend (BackOffice 3639) ───────────────────────────
+// ── 882 (BackOffice spec 3630 M21, M24): the stores not on the map, and the map as a table ─────────────────────────
 
-/** The `place` columns that name a store on its card (3638). */
+/** A row is on the map only with both coordinates. */
+const placed = (row: AnalyticsRow): boolean => coordinate(row[MAP_LATITUDE]) !== null && coordinate(row[MAP_LONGITUDE]) !== null
+
+/** The `place` columns a table of the map's rows shows beside the store: its name and city (free text, as sent). */
 export const MAP_STORE_NAME = 'store_name'
 export const MAP_CITY = 'city'
+
+/** The headers of the two text columns, in the screen's language. */
+export interface MapTableWords extends TableViewOptions {
+  storeName: string
+  city: string
+}
+
+/**
+ * The map's rows as a table (M24, "Show as table"; also the table drawn in place of the map): EVERY row of the result,
+ * placed or not, sorted and formatted as the table chart shows them (`toTableView`: the first measure, largest first,
+ * unless the view saved a sort) — never cut, since a map's top N is not a table's. The store, then its name and city,
+ * then the measures; the coordinates and the legend columns (3639 `hollow`, `colour_step`) are the map's, not the reader's.
+ */
+export function mapTableView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+  words: MapTableWords,
+): TableView {
+  const { storeName, city, ...options } = words
+  const asTable: AnalyticsViewDefinition = { ...definition, chart: { type: 'table', ...(definition.chart.sort ? { sort: definition.chart.sort } : {}) } }
+  const view = toTableView(result, asTable, model, lang, options)
+  const storeKey = definition.query.dimensions[0] ?? result.columns.find((c) => c.role === 'dimension')?.key ?? 'store'
+  const byStore = new Map(result.rows.map((r) => [String(r[storeKey] ?? ''), r]))
+  const text = (v: unknown): string => (v == null ? '' : String(v))
+  const rows = view.rows.map((r, i) => {
+    const source = byStore.get(view.members[i] ?? '')
+    const { [storeKey]: store, ...rest } = r
+    return { [storeKey]: store, [MAP_STORE_NAME]: text(source?.[MAP_STORE_NAME]), [MAP_CITY]: text(source?.[MAP_CITY]), ...rest }
+  })
+  const at = view.columns.findIndex((c) => c.key === storeKey) + 1
+  const columns: TableColumn[] = [
+    ...view.columns.slice(0, at),
+    { key: MAP_STORE_NAME, role: 'dimension', label: storeName },
+    { key: MAP_CITY, role: 'dimension', label: city },
+    ...view.columns.slice(at),
+  ]
+  return { ...view, columns, rows }
+}
+
+/** The list the not-on-map line opens (M21): the rows with no coordinates, as the map's table shows them. */
+export function notOnMapTableView(
+  result: AnalyticsQueryResult,
+  definition: AnalyticsViewDefinition,
+  model: AnalyticsModel,
+  lang: string,
+  words: MapTableWords,
+): TableView {
+  return mapTableView({ ...result, rows: result.rows.filter((r) => !placed(r)) }, definition, model, lang, words)
+}
+
+/** What a map body shows, the line under it, and the switch it offers ("Show as table" / "Show as map"). */
+export interface MapDisplay {
+  shows: 'map' | 'table'
+  line: 'notOnMap' | 'cannotDraw' | null
+  switchTo: 'table' | 'map' | null
+}
+
+/**
+ * - the panel cannot draw (879): the table, with "The map could not be drawn" — nothing to switch to;
+ * - no row has coordinates: the table in place of the map, with the not-on-map line;
+ * - "Show as table" chosen: the table, and a switch back to the map;
+ * - otherwise the map, a switch to the table, and the not-on-map line when the SERVER counted any (`notOnMap`).
+ */
+export function mapDisplay({ placed: onMap, notOnMap, cannotDraw, asTable }: { placed: number; notOnMap: number; cannotDraw: boolean; asTable: boolean }): MapDisplay {
+  if (cannotDraw) return { shows: 'table', line: 'cannotDraw', switchTo: null }
+  if (onMap === 0) return { shows: 'table', line: notOnMap > 0 ? 'notOnMap' : null, switchTo: null }
+  if (asTable) return { shows: 'table', line: null, switchTo: 'map' }
+  return { shows: 'map', line: notOnMap > 0 ? 'notOnMap' : null, switchTo: 'table' }
+}
+
+// ── 881: size, colour, groups, card and legend from the server's legend (BackOffice 3639) ───────────────────────────
+
+/** A store's card names it by its `place` columns {@link MAP_STORE_NAME} and {@link MAP_CITY} (3638; declared with 882's table). */
 /** The `legend` columns on each map row (3639): drawn hollow, and the id of the row's colour step. */
 export const MAP_HOLLOW = 'hollow'
 export const MAP_COLOUR_STEP = 'colour_step'

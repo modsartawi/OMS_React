@@ -111,7 +111,8 @@ export default memo(function PanelActions(p: PanelActionsProps) {
         <Action label={t('panel.refresh')} action="refresh" onClick={p.onRefresh}>
           <RefreshCw className="size-3.5" aria-hidden />
         </Action>
-        {p.definition.chart.type !== 'table' && (
+        {/* 882: a map carries its own "Show as table" under it (./ViewChart MapBody), so the panel offers no second one. */}
+        {p.definition.chart.type !== 'table' && p.definition.chart.type !== 'map' && (
           <Action label={t(p.table ? 'panel.hideTable' : 'panel.showTable')} action="table" onClick={p.onTable} pressed={p.table} disabled={!result}>
             {p.table ? <ChartColumn className="size-3.5" aria-hidden /> : <Table2 className="size-3.5" aria-hidden />}
           </Action>

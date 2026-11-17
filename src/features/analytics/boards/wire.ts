@@ -154,6 +154,8 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     ...(readFigureDimensions(r.notSplit) ? { notSplit: readFigureDimensions(r.notSplit) } : {}),
     ...(readFigureDimensions(r.notFiltered) ? { notFiltered: readFigureDimensions(r.notFiltered) } : {}),
     // 891 (BackOffice 3677): a SQL panel's answer; a Cube answer carries no engine and stays the shape it always was.
+    // 882 (BackOffice 3639, spec 3630 M21): a map answer's count of stores not on the map; absent stays absent.
+    ...(typeof obj(r.legend).notOnMap === 'number' ? { notOnMap: obj(r.legend).notOnMap as number } : {}),
     ...(r.engine === 'sql' ? { engine: 'sql' as const, sql: readSqlPanelAnswer(r.sql) } : {}),
   }
 }

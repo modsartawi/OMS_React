@@ -443,9 +443,10 @@ export interface AnalyticsColumn {
   /** ⚠ 825: `series` — the column holding each row's series id, when the view has named series. */
   /**
    * BackOffice 3638 (spec 3630 M13): `place` — on a map result only, four columns after the measures: `latitude`,
-   * `longitude` (numbers, or null when the store has no coordinates), `store_name` and `city`.
+   * `longitude` (numbers, or null when the store has no coordinates), `store_name` and `city`. BackOffice 3639: `legend`
+   * — after them, each row's `hollow` and `colour_step` (what the map draws; a table of the map's rows leaves them out).
    */
-  role: 'dimension' | 'measure' | 'series' | 'place'
+  role: 'dimension' | 'measure' | 'series' | 'place' | 'legend'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
   /** Spec 3519 D2: set on a calculated column (role `measure`, shape `rate`, unit `percent`). */
@@ -492,6 +493,11 @@ export interface AnalyticsQueryResult {
    * area holds the span, or when last year was not asked.
    */
   lastYearNotHeld?: AnalyticsLastYearNotHeld[]
+  /**
+   * BackOffice 3639 (spec 3630 M21; web 882): on a map answer, the server's count of rows with no coordinates — the
+   * stores not on the map (`legend.notOnMap`). The panel never counts them itself for the line. Absent on any other answer.
+   */
+  notOnMap?: number
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string

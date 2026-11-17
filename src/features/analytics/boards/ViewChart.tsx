@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import ChartFrame from '@/core/charts/ChartFrame'
 import LazyMapPanel from '@/core/map/LazyMapPanel'
+import { Map as MapIcon, Table2 } from 'lucide-react'
+import Button from '@/core/ui/Button'
 import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import type { AnalyticsItem, AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
@@ -15,7 +17,8 @@ import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
-import { drawsAsMap, mapPoints } from './map-chart'
+import { drawsAsMap, mapDisplay, mapPoints } from './map-chart'
+import MapTable, { MapLine } from './MapTable'
 import ViewForm, { isViewForm } from './ViewForms'
 import { queryMeasureName } from './variants'
 import { dimensionOf } from './wire'
@@ -137,17 +140,37 @@ const ChartBody = memo(function ChartBody({
 })
 
 /**
- * A map view's body (880): the result's points on the map panel. When the screen cannot draw a map (no graphics, or
- * the base map unreadable) the same answer is shown as a table instead, as the panel asks (879).
+ * A map view's body (880): the result's points on the map panel. 882 (spec 3630 M21, M24): "Show as table" switches to
+ * every row as a table and back; the stores not on the map are counted under it by the server's count and open as a
+ * list; with no row placed, or when the screen cannot draw a map (879: no graphics, or the base map unreadable), the
+ * table is drawn in place of the map with its line (`./map-chart` `mapDisplay`).
  */
 function MapBody({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
   const { t } = useTranslation('boards')
   // A stable array per answer: a new identity restarts the map.
   const points = useMemo(() => mapPoints(result), [result])
   const [cannotDraw, setCannotDraw] = useState(false)
-  if (cannotDraw) return <ViewForm type="table" result={result} definition={{ ...definition, chart: { ...definition.chart, type: 'table' } }} model={model} lang={lang} />
+  const [asTable, setAsTable] = useState(false)
+  const display = mapDisplay({ placed: points.length, notOnMap: result.notOnMap ?? 0, cannotDraw, asTable })
   const measure = saysIn(model.measures.find((m) => m.key === definition.query.measures[0])?.label, lang)
-  return <LazyMapPanel points={points} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+  return (
+    <div className="flex flex-col gap-1.5" data-map-body={display.shows}>
+      {display.switchTo && (
+        <div className="flex justify-end print:hidden">
+          <Button variant="ghost" onClick={() => setAsTable(display.switchTo === 'table')} data-map-switch={display.switchTo}>
+            {display.switchTo === 'table' ? <Table2 className="size-3.5" aria-hidden /> : <MapIcon className="size-3.5" aria-hidden />}
+            {t(display.switchTo === 'table' ? 'view.mapShowTable' : 'view.mapShowMap')}
+          </Button>
+        </div>
+      )}
+      {display.shows === 'map' ? (
+        <LazyMapPanel points={points} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+      ) : (
+        <MapTable result={result} definition={definition} model={model} lang={lang} />
+      )}
+      <MapLine line={display.line} result={result} definition={definition} model={model} lang={lang} />
+    </div>
+  )
 }
 
 function Empty() {

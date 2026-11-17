@@ -1451,6 +1451,13 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [883](883-the-print-page-waits-for-its-maps-and-falls-back-to-the-table.md) — The print page says it is ready only after its maps are drawn, and prints the table when a map is not ready in 20 seconds · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: 880
 - [884](884-the-copilot-panel-draws-a-map-above-its-table.md) — The copilot panel draws a map above its table · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: BackOffice 3641, 880
 
+**2026-11-17 — the engine moves to Google Maps everywhere** (owner, BackOffice ADR 0139, superseding ADR 0135). 879 to 884 stand as built on MapLibre; 908 to 911 move them to Google and retire MapLibre.
+
+- [908](908-the-map-panel-draws-with-google-maps.md) — The map panel draws with Google Maps: the key from the server, region Saudi Arabia, the screen's language, loaded only when a map is shown · *(ticket · BackOffice spec 3630, ADR 0139)* · **open** · blocked by: BackOffice 3986
+- [909](909-google-map-points-are-sized-and-coloured-and-nearby-stores-group-with-markerclusterer.md) — On Google's map, points are sized and coloured from the legend, nearby stores group with markerclusterer under our count, sum and neutral rules, and a point shows its card · *(ticket · BackOffice spec 3630, ADR 0139)* · **open** · blocked by: 908
+- [910](910-the-print-page-waits-for-googles-map-and-the-map-drives-run-on-google.md) — The print page waits for Google's map and falls back to the table when Google cannot be reached; the report-print and copilot map drives run on Google · *(ticket · BackOffice spec 3630, ADR 0139)* · **open** · blocked by: 908, 909
+- [911](911-maplibre-and-our-base-map-are-retired-and-the-map-build-gate-allows-only-googles-hosts.md) — MapLibre and our base map are retired from the web app, and the map build gate allows only Google's hosts · *(ticket · BackOffice spec 3630, ADR 0139)* · **open** · blocked by: 908, 909, 910
+
 ## The copilot's personal schedule (BackOffice spec 3631), filed 2026-11-11
 
 - [885](885-the-copilot-panel-draws-a-proposed-answer-as-a-confirm-card.md) — The copilot panel draws a `proposed` answer as a card the reader can change, confirm or cancel · *(ticket · BackOffice spec 3631)* · **done 2026-11-12** · blocked by: BackOffice 3663, BackOffice 3664

@@ -1,6 +1,6 @@
 /**
  * What the map panel draws (ticket 881, BackOffice spec 3630 M15-M20, M23): each point at its size and colour, nearby
- * stores joined into one group at a zoom, and the card a point shows. Pure: no React, no DOM, no MapLibre — the engine
+ * stores joined into one group at a zoom, and the card a point shows. Pure: no React, no DOM, no Google — the engine
  * is handed the features this module makes ({@link MapFeature}) and draws them as given.
  *
  * The panel compares no value with an edge (M18): a point arrives with its share of the size range, its hollow mark and
@@ -65,12 +65,18 @@ export const POINT_RADIUS = { min: 4, max: 20, plain: 6 } as const
 /** A group's smallest radius in pixels: a count alone fits it. */
 export const GROUP_RADIUS = 16
 
-/** How a group's words are set (the engine draws them so): the font size in pixels, and the line height in ems. */
-export const GROUP_LABEL_TEXT = { size: 11, lineHeight: 1.1 } as const
+/**
+ * How a group's words are set (the engine draws them so): the face (the app's own, IBM Plex Sans and Plex Sans Arabic —
+ * set on the marker, since Google's `.gm-style` would hand down Roboto), the font size in pixels, and the line height
+ * in ems.
+ */
+export const GROUP_LABEL_TEXT = { family: 'var(--font-sans)', size: 11, lineHeight: 1.1 } as const
 
 /**
- * The widest a character of a group's words is taken to be, in ems: above Noto Sans's digits (0.57), its `K` and the
- * Arabic letters of a sum's word, so the estimate errs on the wide side and the words never reach the circle's edge.
+ * The widest a character of a group's words is taken to be, in ems. Measured on the app's face (review G8, from the
+ * font files' advance widths): IBM Plex Sans's digits are 0.6, `.` 0.27, `K` 0.63; Plex Sans Arabic's letters of a sum's
+ * word are 0.24-0.92 alone and narrower joined. A sum's word mixes them, so 0.62 still errs on the wide side and the
+ * words never reach the circle's edge.
  */
 const LABEL_CHAR_EM = 0.62
 
@@ -117,9 +123,9 @@ export function pointRadius(share: number): number {
   return Math.sqrt(a + t * (b - a))
 }
 
-/** A point projected to web-mercator pixels at a zoom (MapLibre's 512-pixel tiles). */
-function pixelOf(p: MapPoint, zoom: number): { x: number; y: number } {
-  const world = 512 * 2 ** zoom
+/** A point projected to web-mercator pixels at a zoom (Google's 256-pixel tiles, 909). */
+function pixelOf(p: { lon: number; lat: number }, zoom: number): { x: number; y: number } {
+  const world = 256 * 2 ** zoom
   const phi = (Math.max(-85, Math.min(85, p.lat)) * Math.PI) / 180
   return {
     x: ((p.lon + 180) / 360) * world,
@@ -129,63 +135,129 @@ function pixelOf(p: MapPoint, zoom: number): { x: number; y: number } {
 
 export type MapGroupOrPoint = { kind: 'point'; point: MapPoint } | { kind: 'group'; id: string; lon: number; lat: number; members: MapPoint[] }
 
+/** A group's words: its count, and its sum on a second line when the size adds up (M19, M20). */
+function groupLabel(members: readonly MapPoint[], grouping: MapGrouping | null): string {
+  const count = String(members.length)
+  return grouping?.sums ? `${count}\n${grouping.formatSum(groupSum(members))}` : count
+}
+
+/** How wide the ring round each kind of circle is drawn, in pixels, outside its radius (881's look). */
+export const RING_WIDTH = { group: 2, hollow: 2, point: 1 } as const
+
+/** A point's drawn radius: the smallest for a hollow one, the plain one with no size, else by area (M15). */
+function radiusOfPoint(p: MapPoint): number {
+  if (p.hollow) return POINT_RADIUS.min
+  return p.size === undefined ? POINT_RADIUS.plain : pointRadius(p.size)
+}
+
+/** The middle of some stores: where their group stands. */
+function middleOf(ms: readonly MapPoint[]): { lon: number; lat: number } {
+  return { lon: ms.reduce((s, p) => s + p.lon, 0) / ms.length, lat: ms.reduce((s, p) => s + p.lat, 0) / ms.length }
+}
+
+/** Indexes of items by a square cell of `size` pixels: an item's neighbours within `size` are in its cell or the eight round it. */
+function cellsOf(at: readonly { x: number; y: number }[], size: number) {
+  const key = (p: { x: number; y: number }, dx = 0, dy = 0) => `${Math.floor(p.x / size) + dx}:${Math.floor(p.y / size) + dy}`
+  const cells = new Map<string, number[]>()
+  at.forEach((p, i) => {
+    const k = key(p)
+    const list = cells.get(k)
+    if (list) list.push(i)
+    else cells.set(k, [i])
+  })
+  return (p: { x: number; y: number }) => {
+    const near: number[] = []
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) near.push(...(cells.get(key(p, dx, dy)) ?? []))
+    return near
+  }
+}
+
 /**
- * The points as the reader sees them at a zoom: each point within {@link GROUP_DISTANCE_PX} of an earlier, unjoined
- * point joins its group; a point with no near neighbour stays a point. Greedy, in the order given, so the same points
- * group the same way every time. Past {@link MAX_GROUP_ZOOM} nothing joins.
+ * The points as the reader sees them at a zoom (881, 909). Two steps, both in the order given, so the same points group
+ * the same way every time:
+ *
+ * 1. each point within {@link GROUP_DISTANCE_PX} of an earlier, unjoined point joins its group (881);
+ * 2. then any group whose circle (sized from its words, `groupRadius`) would overlap another group's or a point's on
+ *    screen joins it, again until none does (909: the owner saw groups overlap in the MapLibre walk). A group stands at
+ *    the middle of its stores and grows with its words, so step 1 alone cannot promise that; step 2 does, whatever the
+ *    stores' layout. Rings count: they are drawn outside the radius. Two lone points are left as they are: step 1
+ *    left them more than twice the largest point apart (their rings may touch, as in 881).
+ *
+ * Past {@link MAX_GROUP_ZOOM} nothing joins. `grouping` decides a group's words, hence its size.
  */
-export function groupsAt(points: readonly MapPoint[], zoom: number): MapGroupOrPoint[] {
+export function groupsAt(points: readonly MapPoint[], zoom: number, grouping: MapGrouping | null = null): MapGroupOrPoint[] {
   const z = Math.floor(zoom)
   if (z >= MAX_GROUP_ZOOM) return points.map((point) => ({ kind: 'point', point }))
   const px = points.map((p) => pixelOf(p, z))
-  // A grid of cells one group distance wide: a point's neighbours are in its own cell or the eight round it.
-  const cells = new Map<string, number[]>()
-  const cellOf = (i: number) => [Math.floor(px[i].x / GROUP_DISTANCE_PX), Math.floor(px[i].y / GROUP_DISTANCE_PX)]
-  points.forEach((_, i) => {
-    const [cx, cy] = cellOf(i)
-    const key = `${cx}:${cy}`
-    const list = cells.get(key)
-    if (list) list.push(i)
-    else cells.set(key, [i])
-  })
+  // Step 1 (881).
+  const nearPoint = cellsOf(px, GROUP_DISTANCE_PX)
   const taken = new Array<boolean>(points.length).fill(false)
-  const out: MapGroupOrPoint[] = []
+  let clusters: number[][] = []
   for (let i = 0; i < points.length; i++) {
     if (taken[i]) continue
     taken[i] = true
     const members = [i]
-    const [cx, cy] = cellOf(i)
-    for (let dx = -1; dx <= 1; dx++)
-      for (let dy = -1; dy <= 1; dy++)
-        for (const j of cells.get(`${cx + dx}:${cy + dy}`) ?? []) {
-          if (taken[j]) continue
-          if (Math.hypot(px[j].x - px[i].x, px[j].y - px[i].y) <= GROUP_DISTANCE_PX) {
-            taken[j] = true
-            members.push(j)
-          }
-        }
-    if (members.length === 1) {
-      out.push({ kind: 'point', point: points[i] })
-      continue
+    for (const j of nearPoint(px[i])) {
+      if (taken[j]) continue
+      if (Math.hypot(px[j].x - px[i].x, px[j].y - px[i].y) <= GROUP_DISTANCE_PX) {
+        taken[j] = true
+        members.push(j)
+      }
     }
-    members.sort((a, b) => a - b)
-    const ms = members.map((k) => points[k])
-    out.push({
-      kind: 'group',
-      id: `group:${ms[0].id}:${ms.length}`,
-      lon: ms.reduce((s, p) => s + p.lon, 0) / ms.length,
-      lat: ms.reduce((s, p) => s + p.lat, 0) / ms.length,
-      members: ms,
-    })
+    clusters.push(members.sort((a, b) => a - b))
   }
-  return out
+  // Step 2 (909). Each pass joins every overlapping pair it finds; a join only lowers the count, so it ends.
+  for (;;) {
+    const circles = clusters.map((c) => {
+      const ms = c.map((k) => points[k])
+      // The outer edge: the ring is drawn outside the radius, so two rings must not meet either.
+      if (c.length === 1) return { at: px[c[0]], r: radiusOfPoint(ms[0]) + (ms[0].hollow ? RING_WIDTH.hollow : RING_WIDTH.point) }
+      return { at: pixelOf(middleOf(ms), z), r: groupRadius(groupLabel(ms, grouping)) + RING_WIDTH.group }
+    })
+    const parent = clusters.map((_, i) => i)
+    const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i])))
+    const near = cellsOf(
+      circles.map((c) => c.at),
+      2 * Math.max(...circles.map((c) => c.r)),
+    )
+    let joined = false
+    circles.forEach((a, i) => {
+      for (const j of near(a.at)) {
+        if (j <= i || (clusters[i].length === 1 && clusters[j].length === 1)) continue
+        const b = circles[j]
+        if (Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y) >= a.r + b.r) continue
+        const ri = root(i)
+        const rj = root(j)
+        if (ri === rj) continue
+        parent[Math.max(ri, rj)] = Math.min(ri, rj)
+        joined = true
+      }
+    })
+    if (!joined) break
+    const merged = new Map<number, number[]>()
+    clusters.forEach((c, i) => {
+      const r = root(i)
+      const list = merged.get(r)
+      if (list) list.push(...c)
+      else merged.set(r, [...c])
+    })
+    clusters = [...merged.values()].map((c) => c.sort((a, b) => a - b)).sort((a, b) => a[0] - b[0])
+  }
+  return clusters.map((c): MapGroupOrPoint => {
+    if (c.length === 1) return { kind: 'point', point: points[c[0]] }
+    const ms = c.map((k) => points[k])
+    return { kind: 'group', id: `group:${ms[0].id}:${ms.length}`, ...middleOf(ms), members: ms }
+  })
 }
 
-/** The first zoom past `zoom` at which these members are no longer one group: where a click on the group opens it. */
-export function openingZoom(points: readonly MapPoint[], memberIds: readonly string[], zoom: number): number {
+/**
+ * The first zoom past `zoom` at which these members are no longer one group: where a click on the group opens it. Give it
+ * the same `grouping` as the features drawn: a group's words decide its size, and so what it joins.
+ */
+export function openingZoom(points: readonly MapPoint[], memberIds: readonly string[], zoom: number, grouping: MapGrouping | null = null): number {
   const wanted = new Set(memberIds)
   for (let z = Math.floor(zoom) + 1; z < MAX_GROUP_ZOOM; z++) {
-    const together = groupsAt(points, z).some((g) => g.kind === 'group' && g.members.length === wanted.size && g.members.every((m) => wanted.has(m.id)))
+    const together = groupsAt(points, z, grouping).some((g) => g.kind === 'group' && g.members.length === wanted.size && g.members.every((m) => wanted.has(m.id)))
     if (!together) return z
   }
   return MAX_GROUP_ZOOM
@@ -203,10 +275,9 @@ export function groupSum(members: readonly MapPoint[]): number {
 
 /** The features the engine draws at a zoom, with each colour token resolved by `inkOf`. */
 export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: MapGrouping | null, inkOf: (token: string) => string): MapFeature[] {
-  return groupsAt(points, zoom).map((g): MapFeature => {
+  return groupsAt(points, zoom, grouping).map((g): MapFeature => {
     if (g.kind === 'group') {
-      const count = String(g.members.length)
-      const label = grouping?.sums ? `${count}\n${grouping.formatSum(groupSum(g.members))}` : count
+      const label = groupLabel(g.members, grouping)
       return {
         id: g.id,
         kind: 'group',
@@ -216,7 +287,7 @@ export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: 
         fill: inkOf(GROUP_INK),
         fillOpacity: 1,
         stroke: inkOf(GROUP_RING_INK),
-        strokeWidth: 2,
+        strokeWidth: RING_WIDTH.group,
         label,
         members: g.members.map((m) => m.id),
       }
@@ -224,8 +295,8 @@ export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: 
     const p = g.point
     const ink = inkOf(p.ink ?? PLAIN_INK)
     const base = { id: p.id, kind: 'point' as const, lon: p.lon, lat: p.lat, fill: ink, label: '' }
-    if (p.hollow) return { ...base, radius: POINT_RADIUS.min, fillOpacity: 0, stroke: ink, strokeWidth: 2 }
-    return { ...base, radius: p.size === undefined ? POINT_RADIUS.plain : pointRadius(p.size), fillOpacity: 1, stroke: inkOf(RING_INK), strokeWidth: 1 }
+    if (p.hollow) return { ...base, radius: POINT_RADIUS.min, fillOpacity: 0, stroke: ink, strokeWidth: RING_WIDTH.hollow }
+    return { ...base, radius: radiusOfPoint(p), fillOpacity: 1, stroke: inkOf(RING_INK), strokeWidth: RING_WIDTH.point }
   })
 }
 

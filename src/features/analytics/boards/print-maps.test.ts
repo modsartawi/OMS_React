@@ -15,7 +15,7 @@ describe('the print page waits for its maps', () => {
     const maps = createPrintMaps()
     maps.join('m1')
     maps.join('m2')
-    const ready = () => printReady({ idle: true, settled: true, maps })
+    const ready = () => printReady({ idle: true, settledAt: maps.revision(), maps })
     expect(ready()).toBe(false)
     maps.drawn('m1')
     expect(ready()).toBe(false)
@@ -32,7 +32,7 @@ describe('the print page waits for its maps', () => {
     maps.drawn('m1')
     maps.cannotDraw('m2')
     expect(maps.state('m2')).toBe('fell-back')
-    expect(printReady({ idle: true, settled: true, maps })).toBe(true)
+    expect(printReady({ idle: true, settledAt: maps.revision(), maps })).toBe(true)
   })
 
   it('a map that has not drawn after 20 seconds falls back the same way', () => {
@@ -42,15 +42,28 @@ describe('the print page waits for its maps', () => {
     maps.join('m1')
     vi.advanceTimersByTime(19_999)
     expect(maps.state('m1')).toBe('drawing')
-    expect(printReady({ idle: true, settled: true, maps })).toBe(false)
+    expect(printReady({ idle: true, settledAt: maps.revision(), maps })).toBe(false)
     vi.advanceTimersByTime(1)
     expect(maps.state('m1')).toBe('fell-back')
     expect(told.at(-1)).toBe('fell-back')
-    expect(printReady({ idle: true, settled: true, maps })).toBe(true)
+    expect(printReady({ idle: true, settledAt: maps.revision(), maps })).toBe(true)
     // A late "drawn" does not bring the map back: the table is what prints.
     maps.drawn('m1')
     expect(maps.state('m1')).toBe('fell-back')
     expect(MAP_PRINT_TIMEOUT_MS).toBe(20_000)
+  })
+
+  it('a map that falls back after it drew takes the ready marker down until the page has had its moment again (review G2)', () => {
+    const maps = createPrintMaps()
+    maps.join('m1')
+    maps.drawn('m1')
+    const latched = maps.revision()
+    expect(printReady({ idle: true, settledAt: latched, maps })).toBe(true)
+    // Google refuses the key after the tiles came: the map is swapped for its table, which must draw before the print.
+    maps.cannotDraw('m1')
+    expect(maps.settled()).toBe(true)
+    expect(printReady({ idle: true, settledAt: latched, maps })).toBe(false)
+    expect(printReady({ idle: true, settledAt: maps.revision(), maps })).toBe(true)
   })
 
   it('a map that drew in time is not changed by its 20 seconds running out', () => {
@@ -63,10 +76,10 @@ describe('the print page waits for its maps', () => {
 
   it('a report with no map is ready exactly when it was before: no request in flight and the draw moment passed', () => {
     const maps = createPrintMaps()
-    expect(printReady({ idle: false, settled: false, maps })).toBe(false)
-    expect(printReady({ idle: true, settled: false, maps })).toBe(false)
-    expect(printReady({ idle: false, settled: true, maps })).toBe(false)
-    expect(printReady({ idle: true, settled: true, maps })).toBe(true)
+    expect(printReady({ idle: false, settledAt: null, maps })).toBe(false)
+    expect(printReady({ idle: true, settledAt: null, maps })).toBe(false)
+    expect(printReady({ idle: false, settledAt: maps.revision(), maps })).toBe(false)
+    expect(printReady({ idle: true, settledAt: maps.revision(), maps })).toBe(true)
     expect(vi.getTimerCount()).toBe(0)
   })
 

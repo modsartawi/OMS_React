@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3459-every-oms-react-menu-area-has-an-access-door-and-executives-get-one-role.md
 blocked-by: BackOffice 3459
 ---
@@ -30,7 +30,7 @@ BackOffice 3459 adds the probes.
 - [x] Broadcast: `Notifications/Access` 404 → leaf hidden. (Same test file, stubbed at `@/core/api`; drive step 1.)
 - [x] Pending or errored probe → hidden (no flash-then-hide), as `accessProbe` already does. (Pending, errored,
       `{}`, `null` and malformed `"true"`/`1` answers all hide every leaf of the five.)
-- [ ] Staging walk: sign in as a no-role user and as a user holding only `EXECUTIVE` — the menu shows Home,
+- [x] Staging walk: sign in as a no-role user and as a user holding only `EXECUTIVE` — the menu shows Home,
       Analytics and the copilot button, and nothing from the five areas.
 
 ## Boundaries
@@ -101,3 +101,11 @@ Built against 3459's **proposed** wire; the staging walk is the only Proof line 
   - A shared "explicit true" predicate helper, a probe dedupe in `useVisibleMenu` (duplicate query keys predate
     this ticket: Collections, Materials and the rest share keys across leaves), and moving `accessProbe` to a leaf
     module so `menu-insurance-rules` needs no cast.
+
+**2026-11-17 - walked on the local stack, not staging** (SIS.Api pricing2 4bbb888a5, which carries BackOffice 3459 `6e30f2224`; this app at main 7daac778; Vite on 127.0.0.1:5173; local dev HQ DB). Two throwaway Ua users made for the walk in the local DB only: `T852NOROLE` (no role) and `T852EXEC` (only `EXECUTIVE`). Each signed in, in a fresh browser.
+
+- **No role:** the rail is empty, there is no copilot button, and Home reads "Nothing to show here yet". (The no-role user rightly gets no Analytics and no copilot either: those are EXECUTIVE's.) ![no role](assets/852-no-role.png)
+- **EXECUTIVE only:** the rail holds Analytics alone; Home shows the Analytics card; the header has **Ask the OMS**. ![executive](assets/852-executive.png)
+- **The four probes answered all-false for both users:** `Rules/Access` (`canAuthor`, `canApprove`, `canSupport`, `canSwitchEngine`), `InsuranceRules/Access` (every `can…`), `PrescriptionSessionWeb/Access` (`canView`, `canWriteOff`) and `Notifications/Access` (`canBroadcast`). So none of Campaigns, the engine switch, Insurance rules, Prescription sessions or Send Broadcast showed.
+
+🚩 Still true: do not deploy this app before 3459 is on the same SIS.Api, or every probe fails closed and those areas hide for everyone. Re-walk on staging once both are deployed, if wanted.

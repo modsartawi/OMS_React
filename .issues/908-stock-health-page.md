@@ -37,10 +37,10 @@ model/api (answer + access probe) · logic (header line, verdict → tone, AR re
 
 ## Proof
 
-- [ ] `the header reads All good only when every judged signal is good` · pure (null verdicts are not judged)
-- [ ] `noAnswer draws as did-not-answer, never as neutral` · pure
-- [ ] `an AR reason is picked by key and verdict, with the figures interpolated` · pure
-- [ ] drive (stubbed): tiles in order, a tile opens its link, refresh re-reads, no leaf without the grant
+- [x] `the header reads All good only when every judged signal is good` · pure (null verdicts are not judged) (`health.test.ts`)
+- [x] `noAnswer draws as did-not-answer, never as neutral` · pure (`health.test.ts`)
+- [x] `an AR reason is picked by key and verdict, with the figures interpolated` · pure (`health.test.ts`, a real i18next over the shipped locale files)
+- [x] drive (stubbed): tiles in order, a tile opens its link, refresh re-reads, no leaf without the grant (`tools/stock-health-drive.mjs`, 70/70)
 - [ ] staging walk: all green; SIS.Stock stopped shows No answer on S1-S4 only; a user without the role does not see
   the leaf (BackOffice 3994's open proof)
 
@@ -61,3 +61,33 @@ model/api (answer + access probe) · logic (header line, verdict → tone, AR re
 ## Open questions
 
 —
+
+## Comments
+
+**2026-11-18 — built (stubbed); the staging walk is owed.** Branch `spec/3991-stock-health`. Feature
+`src/features/oms/stock-health/` (`access.ts`, `api.ts`, `health.ts`, `StockHealthPage.tsx`), model
+`src/core/models/stock-health.ts`, `locales/{en,ar}/stock-health.json`, route `oms/stock-health`, OMS leaf right after Store
+stages (lucide `HeartPulse`).
+
+- Tones: good/watch/bad on the success/attention/danger grounds; `noAnswer` a 2px danger outline on the card ground with a
+  "Did not answer" pill; `null` the plain card. A verdict the page does not know draws as watch and counts as needing
+  attention (never green, never grey). An answer with no signal says so rather than "All good".
+- Reasons: the EN locale holds `{{reason}}` for each `reason.<key>.<verdict|none>`, so English shows the server's line and the
+  two locales mirror; AR interpolates figures by position (`{{f1}}`…, every figure, not only the four shown) and
+  `{{detail}}` (the server line, isolated) for noAnswer, so the failed door is still named. A key/verdict AR lacks falls
+  back to the server's English line. AR figure labels: `figure.<key>` maps the English label; an unknown label stays
+  English. Times are never parsed: `T` becomes a space.
+- S8 `drsQueue`: drawn when present (drive case 6, eight tiles, "All good"); its AR reasons are generic per verdict and it
+  has no AR figure labels yet - fill them when BackOffice 3993 settles its figures.
+- Typecheck green; `npm test` 11042/11042; lint gates grid-base, contrast, palette, controls, map-build green; the
+  boundary gate is red on the pre-existing `insurance-rules/aliases/door-shapes.test.ts` (on main too), not this diff.
+- The drive runs EN copy in both directions (`lng` stays `en` app-wide); the Arabic text is pinned by the pure tests.
+
+**Brief vs shipped door (for the walk):**
+- `storeStages` sends five figures when SIS.Stock's stage log answers (the four stages + "Seeding over N hours"); the page
+  shows four, so the stuck-seeding count is only in the reason line (the watch reason names the stores).
+- Some figure labels are not fixed strings: S1's are built from the feed watcher's config (`<feed name> age (minutes)`),
+  S7's fifth from `StockHealth:SeedingWatchHours`. The AR map holds the default spellings only; another value shows English.
+- AR reasons are one sentence per key + verdict, so they cannot carry every EN variant (S1 bad names which feeds;
+  S2 bad is either the alerts' text or the errored count; S7 `null` is either the stage summary or "the stage log did not
+  answer"). The AR line is the summary; the figures carry the detail.

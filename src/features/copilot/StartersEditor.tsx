@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { FlaskConical, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { CopilotReaderKind } from '@/core/models/copilot'
 import Button from '@/core/ui/Button'
@@ -150,7 +150,7 @@ export default function StartersEditor({
                           error={langError(lang)}
                           hint={
                             <span>
-                              {t('rules.editor.chars')} <Ltr>{formatCount(formatNumber(s[lang].trim().length), formatNumber(max))}</Ltr>
+                              <CharCount n={s[lang].trim().length} max={max} />
                             </span>
                           }
                         >
@@ -241,6 +241,15 @@ export function useStarterIssueText(): (issue: StarterIssue, frame: RulesFrame) 
       lang: issue.lang ? t(`rules.starters.lang.${issue.lang}`) : '',
       max: fsi(formatNumber(frame.starterMaxLength)),
     })
+}
+
+/**
+ * "Characters n / max" as one sentence, the count built as one string and isolated once. Its words and the value
+ * were two pieces; the sentence puts them in the locale's own order (ticket 790, the Arabic box).
+ */
+export function CharCount({ n, max }: { n: number; max: number }) {
+  const { t } = useTranslation('copilot')
+  return <Trans t={t} i18nKey="rules.editor.charCount" values={{ n: formatCount(formatNumber(n), formatNumber(max)) }} components={{ n: <Ltr /> }} />
 }
 
 /** One version's starters, read-only, for the history's side-by-side. */

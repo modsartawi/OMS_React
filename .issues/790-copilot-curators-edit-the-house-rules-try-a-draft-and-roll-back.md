@@ -184,3 +184,39 @@ host (both `COPILOT_USER` and `COPILOT_CURATOR` are needed, and SQL `004_create_
 **2026-11-17 - walked live with the owner watching** (local SIS.Api on pricing2 4bbb888a5 against the local dev HQ database, which held v1-v3 from the system seed). Seen: the core ("What the copilot always follows") and the active version; **save** (one line added) made v4 and the panel's next answer read *rules v4* (and named the store by code and name, the line added); **restore** of v3 made v5 *reverted from v3*; **two tabs**: a save posted from the page's own session as the other tab made v6, and saving the stale edit opened "Someone saved first - Version 6 was saved while you were editing" with Theirs / Yours, *Keep theirs* and *Save mine on top*; v3 restored again as v7, so the rules end as they began. The adapted boxes: the local history started at v3, so "version 1 / 2 / 3" read as v3 / v4 / v5.
 
 **Not ticked:** (a) no viewer without the grant was signed in; (b) the two rule-12 boxes - with the Tables rule removed from the draft, *Try* answered both a two-store and a two-period comparison with one column per compared thing, so today's fast model no longer shows the "Metric | Value" list the box expects; the Try draft itself works ("Draft. Not saved, not in your conversations"); (c) **Arabic fails**: under `oms.locale=ar` the page is laid out RTL but its strings stay English, so the version line reads "2026-11-17 20:44 on 14419 saved by 7 Version", "956 / 2000 Characters", "v3 reverted from", and full stops jump to the front. The house-rules textareas keep LTR correctly. Fix on branch `fix/790-rules-arabic`. Also seen: v2's seeded note reads "spec 3408 Â§I" - the `§` was stored double-encoded by its BackOffice seed script.
+
+### 2026-11-17 — the Arabic box: the screen had no Arabic (owner walk)
+
+**Seen:** with `oms.locale = 'ar'` the screen was RTL but English, so the mixed lines read backwards: "2026-11-17
+20:44 on 14419 saved by 7 Version", "956 / 2000 Characters", "v3 reverted from", and full stops at the start.
+
+**What was missing:**
+
+1. **The Arabic words.** `ar/copilot.json` had no `rules.*` at all, nor the Try answer's `answer.*`, `ask.*`, `box.*`,
+   most of `refusal.*` and `trace.*`, the `failed` fallback or the menu leaf. The namespace was loaded, but every
+   key fell back to English. `copilot` is a PARTIAL Arabic namespace, so it never had the en/ar mirror test that
+   the full namespaces have (`release-queue`, `doc-type-config`), and the copilot tests read only the English bundle.
+   Nothing failed.
+2. **The word order was made from pieces.** The version line was "Version", value, "saved by", value, "on", value as
+   separate items in a flex row, and the count was a word next to an isolate. Under RTL the flex row laid the pieces
+   out right to left. Each is now one `<Trans>` sentence with every value in its own `Ltr` slot:
+   `rules.editor.versionLine.{full,by,at,bare}` and `rules.editor.charCount` (shared by the starters, `CharCount`).
+   The old `rules.editor.version/savedBy/savedAt/chars` keys are gone.
+3. **The empty note and Try question.** Their `dir="auto"` resolved LTR while empty, so the Arabic placeholder's full
+   stop moved to its start. They now take the page's direction until something is typed, then `auto`.
+
+**Changed:** Arabic for every string on the screen: the gate, core, editor, default readings, starters, Try, the
+411 dialog, the history, the restore confirm, the toasts, the leave guard, the readers' counts (six plural forms)
+and the answer the Try panel draws. `src/features/copilot/rules-i18n.test.ts` fails when a key the screen's sources
+ask for (`t('…')`, `i18nKey`, the gate's `keyPrefix`) has no Arabic, or when those subtrees stop mirroring English.
+Its first run caught `ask.*` and `failed`.
+
+**Proof:** `tools/copilot-rules-drive.mjs` 100/100. It has a new Arabic pass that switches the app's i18n to `ar`,
+checks that the version, saver and time sit right to left, checks the count and *مُستعاد من v1*, checks that no
+English word is left outside data, and saves `.issues/assets/790-rules-ar.png`. The drive's three body checks were
+also updated for 874's `defaultReadings`; they failed before this change.
+
+🚩 **The box stays open for the owner's look, for one reason.** The app's `lng` is still hard-coded to `en`
+(`src/core/i18n.ts`). `oms.locale` sets only `dir`, as the other RTL drives note. So outside the drive, a real
+browser will still show this screen in English and mirrored until Arabic is switched on app-wide. That switch is not
+this ticket's. The screenshot shows the screen as it reads once the switch is made.

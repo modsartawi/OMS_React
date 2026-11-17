@@ -7,6 +7,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { mapPoints, mapRoles, swapMapMeasures } from './map-chart'
 import PanelBody from './PanelBody'
+import { PrintMapsContext } from './PrintMapsContext'
+import { createPrintMaps, type MapPrintState, type PrintMaps } from './print-maps'
 import { addedLayout, layoutReducer, minSizeOf, type LayoutState } from './layout'
 import { drillTargets } from './drill'
 import { readItem, readReport, readResult } from './wire'
@@ -184,6 +186,47 @@ describe('a board panel and a report block of type map draw the map panel', () =
 
   it('any other chart draws no map panel', () => {
     expect(body({ chart: { type: 'table' }, query: { measures: ['till_sales'], dimensions: ['store'], filters: [] } })).not.toMatch(/data-map-state/)
+  })
+})
+
+/** 883: a map block on the print page, given the state the page's maps hold for it. */
+const printed = (state: MapPrintState) => {
+  const maps: PrintMaps = { ...createPrintMaps(), state: () => state }
+  return renderToStaticMarkup(
+    createElement(
+      PrintMapsContext.Provider,
+      { value: maps },
+      createElement(PanelBody, {
+        result: MAP_ANSWER,
+        error: null,
+        busy: false,
+        definition: { chart: { type: 'map' }, query: { measures: ['till_sales'], dimensions: ['store'], filters: [] } },
+        model: MAP_ON,
+        lang: 'en',
+        table: false,
+        onRetry: () => {},
+      }),
+    ),
+  )
+}
+
+describe('on the print page a map that fell back prints its table and the line (883, M38)', () => {
+  it('a map still drawing, or drawn, is the map panel', () => {
+    expect(printed('drawing')).toMatch(/data-map-state="drawing"/)
+    expect(printed('drawn')).not.toMatch(/data-map-cannot-draw/)
+  })
+
+  it('a map that cannot draw, or ran out of its 20 seconds, is the table of the same rows under "The map could not be drawn"', () => {
+    const html = printed('fell-back')
+    expect(html).not.toMatch(/data-map-state/)
+    expect(html).toContain('The map could not be drawn')
+    // The table form of the same answer (its rows are AG Grid's, drawn in the browser).
+    expect(html).toMatch(/data-chart="table"/)
+  })
+
+  it('says the line in both languages', () => {
+    expect(en.view.mapCannotDraw).toBe('The map could not be drawn')
+    expect(ar.view.mapCannotDraw).toBe('تعذّر رسم الخريطة')
   })
 })
 

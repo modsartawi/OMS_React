@@ -68,3 +68,8 @@ Mutation-checked: counting the unplaced rows on the client instead of reading th
 - For 881: `MapBody` in `ViewChart.tsx` now wraps the panel in `data-map-body` with the switch above and `MapLine` below;
   the legend and the card slot in beside the `LazyMapPanel`. For 883: the cannot-draw path already draws the table with
   "The map could not be drawn" (`data-map-cannot-draw`); the 20-second rule can set the same state.
+- **Merged with 883** (`spec/3630-map-chart` 3e72a6de): the print page's fall-back (`print.state === 'fell-back'`) is the
+  same cannot-draw path in `mapDisplay`, so it prints the map's table under "The map could not be drawn" (the wrapper
+  keeps `data-map-fell-back`). A map with NO placed row tells the print page it has drawn at once (its table is its
+  drawing) instead of holding the ready marker for 20 seconds. After the merge: `npm test` 10,915/10,915, typecheck
+  and build green, lint gates as above.

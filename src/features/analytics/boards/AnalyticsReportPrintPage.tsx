@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useIsFetching } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,8 @@ import ReportDocument, { PAPER_PX } from './ReportDocument'
 import { FilterChips } from './TvMode'
 import { useReportRun } from './use-report-run'
 import { renderTicket, setRenderTicket, ticketOf } from './render-ticket'
+import { createPrintMaps, printReady } from './print-maps'
+import { PrintMapsContext } from './PrintMapsContext'
 
 /**
  * A report's print page at `/analytics/print/report/:id` (spec 819 §E, ticket 827) — outside the shell, so the paper
@@ -66,22 +68,28 @@ function PrintView({ report, model }: { report: AnalyticsReport; model: Analytic
   // Print once every answer — the panels' and the Words — has landed, and the charts had a moment to draw. Under a
   // render ticket the renderer prints (ADR 0125): the page only says it is ready (`data-print-ready`), never opens
   // the print dialog.
+  // 883 (spec 3630 M37, M38): and every map on the page has drawn, or fell back to its table (it cannot draw, or did
+  // not draw within 20 seconds). With no map on the page the rule is today's.
   const fetching = useIsFetching()
-  const ready = fetching === 0
   const ticketed = renderTicket() !== null
+  const [maps] = useState(createPrintMaps)
+  useEffect(() => () => maps.close(), [maps])
+  const mapsSettled = useSyncExternalStore(maps.subscribe, maps.settled, maps.settled)
+  const ready = fetching === 0 && mapsSettled
   const [drawn, setDrawn] = useState(false)
   useEffect(() => {
     if (!ready) return
     const timer = window.setTimeout(() => (ticketed ? setDrawn(true) : window.print()), 1200)
     return () => window.clearTimeout(timer)
   }, [ready, ticketed])
+  const printReadyNow = printReady({ idle: ready, settled: drawn, maps })
 
   const title = saysIn(report.title, lang)
   return (
     <div
       className="min-h-screen bg-muted/40 py-6 print:bg-card print:py-0"
       data-report-print-page={ready ? 'ready' : 'waiting'}
-      {...(drawn && ready ? { 'data-print-ready': '' } : {})}
+      {...(printReadyNow ? { 'data-print-ready': '' } : {})}
     >
       <div className="mx-auto mb-4 flex justify-end gap-2 print:hidden" style={{ width: PAPER_PX }}>
         <Link to={reportHref(report.id, params.toString())} className={buttonClass('secondary')} data-report-back>
@@ -103,16 +111,18 @@ function PrintView({ report, model }: { report: AnalyticsReport; model: Analytic
           )}
           <FilterChips params={declared} values={link.values} model={model} lang={lang} />
         </header>
-        <ReportDocument
-          report={report}
-          model={model}
-          lang={lang}
-          context={run.context}
-          role={run.role}
-          words={{ data: run.words.data, failed: !!run.words.error }}
-          onFetching={run.onFetching}
-          onParamNotice={run.onParamNotice}
-        />
+        <PrintMapsContext.Provider value={maps}>
+          <ReportDocument
+            report={report}
+            model={model}
+            lang={lang}
+            context={run.context}
+            role={run.role}
+            words={{ data: run.words.data, failed: !!run.words.error }}
+            onFetching={run.onFetching}
+            onParamNotice={run.onParamNotice}
+          />
+        </PrintMapsContext.Provider>
       </article>
     </div>
   )

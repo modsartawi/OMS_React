@@ -35,8 +35,9 @@ const OUT = '.issues/assets'
 const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
 const label = (en, ar) => ({ en, ar })
 const KEY = (process.env.GOOGLE_MAPS_KEY ?? '').trim()
-// Not a key of anyone's: Google answers it with `gm_authFailure` (InvalidKeyMapError), no map load billed.
-const REFUSED_KEY = 'AIzaSy-oms-react-910-not-a-key-0000000000'
+// Not a key of anyone's, and not shaped like one (so no secret scanner takes it for one): Google answers it with
+// `gm_authFailure` (InvalidKeyMapError), no map load billed.
+const REFUSED_KEY = 'oms-react-910-not-a-key'
 
 // Seven stores in central Riyadh (the box 879-883 drew: 46.60-46.80 E, 24.60-24.80 N).
 const STORES = [

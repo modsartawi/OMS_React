@@ -36,6 +36,7 @@ class StagedMap {
     for (const h of this.handlers.get(event) ?? []) h()
   }
   fitBounds() {}
+  setOptions() {}
   setCenter() {}
   setZoom() {}
   panTo() {}
@@ -83,6 +84,7 @@ function stageGoogle() {
     setGlobal: (name, value) => void (win[name] = value),
     setTimeout: (fn, ms) => setTimeout(fn, ms),
     clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+    mapsReady: () => win.google !== undefined,
   }
   vi.stubGlobal('window', win)
   vi.stubGlobal('document', { createElement: () => ({ style: {}, setAttribute() {}, replaceChildren() {}, appendChild() {}, remove() {} }) })
@@ -116,7 +118,7 @@ function mapBlock(google: ReturnType<typeof stageGoogle>, maps: PrintMaps, id: s
   maps.join(id)
   return openMapPanel({
     engine: googleEngine(google.loader),
-    container: { clientWidth: 688, clientHeight: 320 },
+    container: { clientWidth: 688, clientHeight: 320, appendChild() {} },
     points: RIYADH,
     lang: 'en',
     dir: 'ltr',
@@ -126,7 +128,7 @@ function mapBlock(google: ReturnType<typeof stageGoogle>, maps: PrintMaps, id: s
   })
 }
 
-const ready = (maps: PrintMaps) => printReady({ idle: true, settled: true, maps })
+const ready = (maps: PrintMaps) => printReady({ idle: true, settledAt: maps.revision(), maps })
 
 describe("the print page waits for Google's map and falls back to the table when Google cannot be reached", () => {
   beforeEach(() => vi.useFakeTimers())

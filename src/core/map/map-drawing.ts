@@ -65,12 +65,18 @@ export const POINT_RADIUS = { min: 4, max: 20, plain: 6 } as const
 /** A group's smallest radius in pixels: a count alone fits it. */
 export const GROUP_RADIUS = 16
 
-/** How a group's words are set (the engine draws them so): the font size in pixels, and the line height in ems. */
-export const GROUP_LABEL_TEXT = { size: 11, lineHeight: 1.1 } as const
+/**
+ * How a group's words are set (the engine draws them so): the face (the app's own, IBM Plex Sans and Plex Sans Arabic —
+ * set on the marker, since Google's `.gm-style` would hand down Roboto), the font size in pixels, and the line height
+ * in ems.
+ */
+export const GROUP_LABEL_TEXT = { family: 'var(--font-sans)', size: 11, lineHeight: 1.1 } as const
 
 /**
- * The widest a character of a group's words is taken to be, in ems: above Noto Sans's digits (0.57), its `K` and the
- * Arabic letters of a sum's word, so the estimate errs on the wide side and the words never reach the circle's edge.
+ * The widest a character of a group's words is taken to be, in ems. Measured on the app's face (review G8, from the
+ * font files' advance widths): IBM Plex Sans's digits are 0.6, `.` 0.27, `K` 0.63; Plex Sans Arabic's letters of a sum's
+ * word are 0.24-0.92 alone and narrower joined. A sum's word mixes them, so 0.62 still errs on the wide side and the
+ * words never reach the circle's edge.
  */
 const LABEL_CHAR_EM = 0.62
 

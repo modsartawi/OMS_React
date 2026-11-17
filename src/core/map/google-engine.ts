@@ -13,14 +13,20 @@ import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapV
  *
  * - Google's standard road map: no restyle, no street view, no map-type switch, no full-screen or camera control; the
  *   zoom buttons at the reading end. Google's logo and terms are drawn by Google, on screen and in print (M34).
- * - Raster tiles (`renderingType: RASTER`), so a headless print needs no graphics card. A served map ID brings its own
- *   rendering setting, which must be raster too (908's open question).
+ * - Raster tiles (`renderingType: RASTER`), so a headless print needs no graphics card. Set on the map, it wins over a
+ *   served map ID's own rendering setting (Google takes the map ID's only when the map sets none): BackOffice's
+ *   `MapPdfProofTests` prints with Google's vector `DEMO_MAP_ID` and gets raster tiles (review B3).
  * - Points and groups (909): the panel's features at the whole zoom (`start.featuresAt`), drawn as HTML elements on one
  *   `OverlayView` with `./map-markers`' look — no map ID needed, so the map stays raster with Google's default style.
  *   Redrawn when the whole zoom changes; the panel's own grouping is the one source, so a tap, a group's opening zoom
  *   and the card's fold all read the features drawn. A click on a group eases to the zoom where it opens.
  * - "Drawn": the points are put on the map before Google can report anything; the panel then waits for `tilesloaded` and
  *   `idle` (M37).
+ * - Google draws into an element of the adapter's own inside the panel's box, taken out again when the map is closed
+ *   (review G3): Google has no way to destroy a map, so a map started again in the same box (a new answer, StrictMode's
+ *   second mount) never draws over the old one's element and listeners.
+ * - A page Google has refused starts no map (review G10): a map made then would be a billed map load drawn grey.
+ * - A store's place on the panel is Google's own container pixel for it (review G9), from the first pointer on.
  */
 
 // The few shapes of Google's API this adapter uses: Google's script is not a package here, so its types are not either.
@@ -34,21 +40,20 @@ interface GListener {
 interface GMap {
   addListener(event: string, handler: () => void): GListener
   fitBounds(bounds: { west: number; south: number; east: number; north: number }, padding?: number): void
+  setOptions(options: Record<string, unknown>): void
   setCenter(at: LatLngLiteral): void
   setZoom(zoom: number): void
   panTo(at: LatLngLiteral): void
   getZoom(): number | undefined
-  getBounds(): { getNorthEast(): GLatLng; getSouthWest(): GLatLng } | undefined
-  getProjection(): { fromLatLngToPoint(at: LatLngLiteral): { x: number; y: number } | null } | undefined
 }
-interface GLatLng {
-  lat(): number
-  lng(): number
+interface GPixels {
+  fromLatLngToDivPixel(at: LatLngLiteral): { x: number; y: number } | null
+  fromLatLngToContainerPixel(at: LatLngLiteral): { x: number; y: number } | null
 }
 interface GOverlayView {
   setMap(map: GMap | null): void
   getPanes(): { overlayMouseTarget: HTMLElement } | null
-  getProjection(): { fromLatLngToDivPixel(at: LatLngLiteral): { x: number; y: number } | null } | undefined
+  getProjection(): GPixels | undefined | null
 }
 interface GOverlayViewClass {
   new (): GOverlayView
@@ -69,8 +74,9 @@ const googleMaps = () => (window as unknown as { google?: { maps?: GoogleMapsNs 
 export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
   return {
     start(start: MapEngineStart, events: MapEngineEvents): MapEngineRunning {
-      const container = start.container as HTMLElement
+      const box = start.container as HTMLElement
       let destroyed = false
+      let refused = false
       let ended = false
       let map: GMap | null = null
       let g: GoogleMapsNs | undefined
@@ -84,8 +90,17 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       }
       // Listened for before the script is asked for: a refusal can come before or after the map draws.
       const stopRefused = loader.onRefused(() => {
+        refused = true
         if (!destroyed) events.failed('refused')
       })
+      if (refused) {
+        // Already refused (told at once above): Google is asked for nothing more on this page.
+        return { destroy: () => void (destroyed = true), zoomTo: () => {}, fit: () => {}, project: () => ({ x: 0, y: 0 }) }
+      }
+      const container = document.createElement('div')
+      container.style.width = '100%'
+      container.style.height = '100%'
+      box.appendChild(container)
 
       const fit = (v: MapView) => {
         if (!map || !g) return
@@ -95,12 +110,10 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           return
         }
         const m = map
-        // Google fits as close as the box allows; two stores on one street would open at building level.
-        listeners.push(
-          g.event.addListenerOnce(m, 'bounds_changed', () => {
-            if ((m.getZoom() ?? 0) > FIT.maxZoom) m.setZoom(FIT.maxZoom)
-          }),
-        )
+        // Google fits as close as the box allows; two stores on one street would open at building level. The zoom is
+        // held at 15 while it fits, and let go once the map is idle (review G4): the reader's own zoom is never snapped.
+        m.setOptions({ maxZoom: FIT.maxZoom })
+        listeners.push(g.event.addListenerOnce(m, 'idle', () => m.setOptions({ maxZoom: null })))
         m.fitBounds({ west: v.west, south: v.south, east: v.east, north: v.north }, FIT.padding)
       }
 
@@ -108,7 +121,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         g = googleMaps()
         if (!g) throw new Error('Google Maps did not define google.maps')
         const { Map, RenderingType } = await g.importLibrary('maps')
-        if (destroyed) return
+        if (destroyed || refused) return
         const view = start.view
         try {
           map = new Map(container, {
@@ -135,7 +148,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         // The points are on the map before Google can report its tiles or idle: "drawn" then includes them.
         const m = map
         const hits = markerHits(events, () => m.getZoom() ?? 0)
-        overlay = markersOverlay(g, m, container, start, hits)
+        overlay = markersOverlay(g, m, start, hits, project)
         overlay.setMap(m)
         listeners.push(
           m.addListener('click', () => !destroyed && hits.mapClick()),
@@ -151,6 +164,9 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         sizeNow()
       }
 
+      // Where a place stands in the box, in Google's own container pixels (review G9).
+      const project = (lon: number, lat: number) => overlay?.getProjection()?.fromLatLngToContainerPixel({ lat, lng: lon }) ?? { x: 0, y: 0 }
+
       loader.load(start.key, start.lang).then(
         () => draw().catch(() => fail('unreachable')),
         () => fail('unreachable'),
@@ -165,6 +181,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           overlay?.setMap(null)
           overlay = null
           map = null
+          container.remove()
         },
         zoomTo: (lon, lat, zoom) => {
           map?.panTo({ lat, lng: lon })
@@ -172,18 +189,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         },
         fit: (v) => fit(v),
         project: (lon, lat) => {
-          // Where a place stands on the panel: its world point against the north-west corner's, at the zoom's scale.
-          const projection = map?.getProjection()
-          const bounds = map?.getBounds()
-          const zoom = map?.getZoom()
-          if (!projection || !bounds || zoom == null) return { x: 0, y: 0 }
-          const ne = bounds.getNorthEast()
-          const sw = bounds.getSouthWest()
-          const corner = projection.fromLatLngToPoint({ lat: ne.lat(), lng: sw.lng() })
-          const at = projection.fromLatLngToPoint({ lat, lng: lon })
-          if (!corner || !at) return { x: 0, y: 0 }
-          const scale = 2 ** zoom
-          return { x: (at.x - corner.x) * scale, y: (at.y - corner.y) * scale }
+          const at = project(lon, lat)
+          return { x: at.x, y: at.y }
         },
       }
     },
@@ -198,23 +205,26 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
 function markersOverlay(
   g: GoogleMapsNs,
   map: GMap,
-  container: HTMLElement,
   start: MapEngineStart,
   hits: ReturnType<typeof markerHits>,
+  project: (lon: number, lat: number) => { x: number; y: number },
 ): GOverlayView {
   const layer = document.createElement('div')
   layer.setAttribute('data-map-markers', '')
   let drawnZoom: number | null = null
   let shown: { f: MapFeature; el: HTMLElement }[] = []
-  // A hit's place in the panel's pixels, as the card is placed (physical, from the map box's own corner).
-  const placeOf = (e: MouseEvent) => {
-    const box = container.getBoundingClientRect()
-    return { x: e.clientX - box.left, y: e.clientY - box.top }
+  // A hit's place in the panel's pixels, as the card is placed: the store's own place (review G9), the same pixel the card
+  // is moved to as the map moves, so it never jumps from where the pointer happened to be.
+  const placeOf = (f: MapFeature) => {
+    const at = project(f.lon, f.lat)
+    return { x: at.x, y: at.y }
   }
   const make = (zoom: number) => {
     drawnZoom = zoom
     // The whole zoom the markers were made at, for the drives (as `data-map-state` is).
     layer.setAttribute('data-zoom', String(zoom))
+    // The marker under the pointer goes with no `pointerleave` (review G5).
+    hits.redrawn()
     layer.replaceChildren()
     shown = start.featuresAt(zoom).map((f) => {
       const el = document.createElement('div')
@@ -226,11 +236,11 @@ function markersOverlay(
         el.dir = 'auto'
         el.textContent = look.label
       }
-      el.addEventListener('pointerenter', (e) => hits.enter(f.id, zoom, placeOf(e)))
+      el.addEventListener('pointerenter', () => hits.enter(f.id, zoom, placeOf(f)))
       el.addEventListener('pointerleave', () => hits.leave(zoom))
       el.addEventListener('click', (e) => {
         e.stopPropagation()
-        hits.click(f.id, zoom, placeOf(e))
+        hits.click(f.id, zoom, placeOf(f))
       })
       g.OverlayView.preventMapHitsAndGesturesFrom(el)
       layer.appendChild(el)

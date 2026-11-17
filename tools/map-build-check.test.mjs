@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GOOGLE_MAP_HOSTS } from './google-map-hosts.mjs'
-import { googleNamedOutsideMap, keyShapedStrings, MAP_ADDRESS_ALLOWED, mapCodeLeaks, outsideAddresses, retiredEngineIn } from './map-build-check.mjs'
+import { bareHostLiterals, googleNamedOutsideMap, keyShapedStrings, MAP_ADDRESS_ALLOWED, mapChunkFiles, mapCodeLeaks, mapCssFiles, outsideAddresses, retiredEngineIn } from './map-build-check.mjs'
 
 // Ticket 879, rewritten by 911 for Google (BackOffice spec 3630 M29, M35 as amended 2026-11-17, ADR 0139; seam 7): the
 // checks on the built app, as pure functions over its text and its chunk graph. `check-map-build.mjs` runs them over a
@@ -67,7 +67,7 @@ describe('no key is in any built file', () => {
 })
 
 /** A chunk of the build, as the bundler reports it. */
-const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEntry = false, facade = null, code = '' } = {}) => ({
+const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEntry = false, facade = null, code = '', css = [] } = {}) => ({
   type: 'chunk',
   fileName,
   isEntry,
@@ -76,6 +76,7 @@ const chunk = (fileName, { modules = [], imports = [], dynamicImports = [], isEn
   imports,
   dynamicImports,
   code,
+  viteMetadata: { importedCss: new Set(css) },
 })
 
 const ROOT = 'C:/app'
@@ -122,13 +123,13 @@ describe('the map code is loaded only when a map is on screen', () => {
 
 describe('no Google script is named outside the map’s own chunk', () => {
   it('the map’s chunk naming Google’s script is fine', () => {
-    const chunks = [chunk('assets/MapPanel.js', { modules: [PANEL, LOADER], code: '"https://maps.googleapis.com/maps/api/js"' })]
+    const chunks = [chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL, LOADER], code: '"https://maps.googleapis.com/maps/api/js"' })]
     expect(googleNamedOutsideMap(chunks, ROOT)).toEqual([])
   })
 
   it('another chunk naming one of Google’s map hosts is found', () => {
     const chunks = [
-      chunk('assets/MapPanel.js', { modules: [PANEL, LOADER] }),
+      chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL, LOADER] }),
       chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], code: 's.src="https://maps.googleapis.com/maps/api/js?v=3"' }),
     ]
     expect(googleNamedOutsideMap(chunks, ROOT)).toEqual(['assets/AnalyticsBoardPage.js: names maps.googleapis.com'])
@@ -147,6 +148,56 @@ describe('no Google script is named outside the map’s own chunk', () => {
   it('a link to google.com’s map site (the call centre’s location card) is not a Google script', () => {
     const chunks = [chunk('assets/LocationCard.js', { code: '`https://www.google.com/maps/search/?api=1&query=${a}`' })]
     expect(googleNamedOutsideMap(chunks, ROOT)).toEqual([])
+  })
+})
+
+describe('the map’s chunks are those reached only through the map door’s dynamic import (review G6)', () => {
+  const ORDERS = `${ROOT}/src/features/orders/OrdersPage.tsx`
+
+  it('the panel’s chunk and what only it imports are the map’s; the app’s own chunks are not', () => {
+    const chunks = [
+      chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, dynamicImports: ['assets/AnalyticsBoardPage.js'] }),
+      chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], dynamicImports: ['assets/MapPanel.js'] }),
+      chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL], imports: ['assets/google-engine.js'] }),
+      chunk('assets/google-engine.js', { modules: [ENGINE, LOADER] }),
+    ]
+    expect([...mapChunkFiles(chunks, ROOT)].sort()).toEqual(['assets/MapPanel.js', 'assets/google-engine.js'])
+  })
+
+  it('a chunk holding the loader that another screen imports statically is not the map’s, and naming Google there is found', () => {
+    const chunks = [
+      chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, dynamicImports: ['assets/OrdersPage.js', 'assets/AnalyticsBoardPage.js'] }),
+      chunk('assets/OrdersPage.js', { facade: ORDERS, modules: [ORDERS], imports: ['assets/google-loader.js'] }),
+      chunk('assets/AnalyticsBoardPage.js', { facade: BOARD, modules: [BOARD], dynamicImports: ['assets/MapPanel.js'] }),
+      chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL, ENGINE], imports: ['assets/google-loader.js'] }),
+      chunk('assets/google-loader.js', { modules: [LOADER], code: '"https://maps.googleapis.com/maps/api/js"' }),
+    ]
+    expect([...mapChunkFiles(chunks, ROOT)]).toEqual(['assets/MapPanel.js'])
+    expect(googleNamedOutsideMap(chunks, ROOT)).toEqual(['assets/google-loader.js: names maps.googleapis.com'])
+  })
+})
+
+describe('the map’s stylesheets are scanned, and a host written without its scheme is found (review G7)', () => {
+  it('the stylesheets the map’s chunks bring are named for the scan', () => {
+    const chunks = [
+      chunk('assets/MapPanel.js', { facade: PANEL, modules: [PANEL], css: ['assets/MapPanel.css'] }),
+      chunk('assets/index.js', { isEntry: true, facade: `${ROOT}/index.html`, css: ['assets/index.css'] }),
+    ]
+    expect(mapCssFiles(chunks, mapChunkFiles(chunks, ROOT))).toEqual(['assets/MapPanel.css'])
+  })
+
+  it('a tile server in a stylesheet’s url() is found', () => {
+    expect(outsideAddresses('.m{background:url(https://tile.example.com/a.png)}', MAP_ADDRESS_ALLOWED)).toEqual(['https://tile.example.com/a.png'])
+  })
+
+  it('a host in a string of its own (joined to its scheme at run time) is found', () => {
+    expect(bareHostLiterals('const u="https://"+"tiles.example.com"+"/"+z', MAP_ADDRESS_ALLOWED)).toEqual(['tiles.example.com'])
+    expect(bareHostLiterals('`${proto}//${"cdn.example.net/pkg/x.js"}`', MAP_ADDRESS_ALLOWED)).toEqual(['cdn.example.net/pkg/x.js'])
+  })
+
+  it('Google’s own hosts, bare, pass; a word with a dot that is no host is not one', () => {
+    expect(bareHostLiterals('"maps.googleapis.com" "fonts.gstatic.com"', MAP_ADDRESS_ALLOWED)).toEqual([])
+    expect(bareHostLiterals('"e.g." "1.5" "data-map-markers" "google.maps" "./MapPanel.js" "a.b.css"', MAP_ADDRESS_ALLOWED)).toEqual([])
   })
 })
 

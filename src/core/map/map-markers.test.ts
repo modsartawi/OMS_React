@@ -87,6 +87,11 @@ describe("a group is drawn in one neutral colour with its count, and its sum onl
     expect(look.style.whiteSpace).toBe('pre')
   })
 
+  it('a group’s words are set in the app’s face, the one their room is measured for, not Google’s Roboto (review G8)', () => {
+    const { start } = opened()
+    expect(markerLook(groupOf(start), '').style.fontFamily).toBe('var(--font-sans)')
+  })
+
   it('a group is drawn above the points, so a point never covers its words', () => {
     const { start } = opened()
     const group = Number(markerLook(groupOf(start), '').style.zIndex)
@@ -136,6 +141,26 @@ describe("the card rules of 881 hold through the Google adapter's pointer and ta
     expect(cards).toEqual([])
     expect(zooms).toHaveLength(1)
     expect(zooms[0]).toBeGreaterThan(COUNTRY)
+  })
+
+  it('markers redrawn while one is pointed at take its card away: the element under the pointer is gone (review G5)', () => {
+    const { events, cards } = opened()
+    const hits = markerHits(events, () => STREET)
+    hits.enter('R001', STREET, { x: 7, y: 9 })
+    hits.redrawn()
+    expect(cards).toEqual([{ id: 'R001', x: 7, y: 9, pinned: false }, null])
+  })
+
+  it('markers redrawn with none pointed at, or after the pointer left, change nothing; a pinned card stays (review G5)', () => {
+    const { events, cards } = opened()
+    const hits = markerHits(events, () => STREET)
+    hits.redrawn()
+    hits.enter('R001', STREET, { x: 7, y: 9 })
+    hits.leave(STREET)
+    hits.redrawn()
+    hits.click('J001', STREET, { x: 3, y: 4 })
+    hits.redrawn()
+    expect(cards).toEqual([{ id: 'R001', x: 7, y: 9, pinned: false }, null, { id: 'J001', x: 3, y: 4, pinned: true }])
   })
 
   it('a hit is read against the zoom its marker was drawn at, not the zoom the map has reached since (review W8)', () => {

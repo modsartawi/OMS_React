@@ -31,21 +31,21 @@ export type MapView =
 /** The box a map with no point opens on: KSA and Bahrain (spec 3630 M8). */
 export const KSA_BH_BOX: MapView = { kind: 'bounds', west: 34, south: 15, east: 56, north: 33 }
 
-/** The zoom one point opens at: streets and districts are named (BackOffice 3634: zoom 13 draws them). */
-export const SINGLE_POINT_ZOOM = 13
+/**
+ * The zoom one point opens at: streets and districts are named. BackOffice 3634 measured zoom 13 on MapLibre's 512-pixel
+ * tiles; Google's tiles are 256 pixels, so the same ground at the same size is one zoom further in (review G8).
+ */
+export const SINGLE_POINT_ZOOM = 14
 
 /** What the panel hands the engine. */
 export interface MapEngineStart {
   /** Where to draw. Opaque here (an `HTMLElement` in the browser). */
   container: unknown
-  points: readonly MapPoint[]
   view: MapView
   /** Google's browser key, from the model's `maps` part. Never empty: with no key the engine is not started. */
   key: string
   /** The map ID from the model's `maps` part, when served. */
   mapId?: string
-  /** Always {@link MAP_REGION}. */
-  region: typeof MAP_REGION
   /** Where the zoom buttons stand: the top corner at the reading end. Physical corners. */
   controlsCorner: 'top-left' | 'top-right'
   /**
@@ -86,8 +86,6 @@ export interface MapEngineEvents {
    * in a box with no size yet (a dialog still opening) is fitted to its points when the box gets one.
    */
   sized(width: number, height: number): void
-  /** The browser took the map's graphics away (WebGL context lost): the canvas is blank (review W9). */
-  graphicsLost(): void
 }
 
 /** The engine once started. */
@@ -158,8 +156,9 @@ export function fittedView(points: readonly MapPoint[]): MapView {
  * - **drawn**, once Google has reported both its tiles loaded and the map idle, the points on it (908, M37). The print
  *   page waits on it (883). A later repaint (a pan, a zoom) signals nothing more.
  * - **cannot draw**, with its reason, so the caller can show the table instead (882, 883): no key (Google is then never
- *   asked), the key or the page refused, Google's script unreachable, or the map unable to start. A refusal or lost
- *   graphics after "drawn" still signals it: Google then greys the map out, which is not a drawn map (review W9).
+ *   asked), the key or the page refused, Google's script unreachable, or the map unable to start. A refusal after "drawn"
+ *   still signals it: Google then greys the map out, which is not a drawn map (review W9). (Google's raster map draws
+ *   no WebGL canvas, so it has no lost-graphics ending: review G8 took MapLibre's out.)
  *
  * Nothing is signalled once the panel is closed.
  */
@@ -181,7 +180,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
   const drawnWhenBoth = () => {
     if (tilesLoaded && idle) end(open.onDrawn, 'drawn')
   }
-  // A drawn map that is refused or loses its graphics is no longer drawn: it ends again, as cannot-draw (review W9).
+  // A drawn map that is refused is no longer drawn: it ends again, as cannot-draw (review W9).
   const fail = (reason: EngineFailure) => {
     if (state === 'drawn' && reason !== 'unreachable') {
       state = 'ended'
@@ -217,11 +216,9 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     running = open.engine.start(
       {
         container: open.container,
-        points: open.points,
         view,
         key,
         ...(open.maps?.mapId ? { mapId: open.maps.mapId } : {}),
-        region: MAP_REGION,
         controlsCorner: open.dir === 'rtl' ? 'top-left' : 'top-right',
         featuresAt: featuresOf,
         labelInk: inkOf(GROUP_LABEL_INK),
@@ -260,8 +257,6 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
           // The engine fitted the view to a box of no size, which fits nothing: fit it now the box has one.
           if (sawNoSize) running?.fit(view)
         },
-        // Review W9: a drawn map whose graphics are lost is a blank canvas, so it too falls back to the table.
-        graphicsLost: () => fail('no-graphics'),
         moved: (zoom) => {
           if (state === 'closed' || !card || !running) return
           const p = featuresOf(zoom).find((f) => f.id === card?.id && f.kind === 'point')

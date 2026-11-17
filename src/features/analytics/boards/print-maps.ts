@@ -24,6 +24,12 @@ export interface PrintMaps {
   state(id: string): MapPrintState
   /** Every joined map has drawn or fallen back. True with no map. */
   settled(): boolean
+  /**
+   * A count of the maps' changes (a join, a leave, an ending). The page's "the charts had their moment" is latched at
+   * one revision and holds only while it is current (review G2): a drawn map that falls back to its table swaps what is
+   * on the paper without changing `settled()`, so the page must wait its moment again.
+   */
+  revision(): number
   /** Told on every change of any map's state. */
   subscribe(listener: () => void): () => void
   /** The page left: every timer stops. */
@@ -37,7 +43,11 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
   // Review W3: an ending told before its map joined. React runs a child's effects before its parent's, so a map that
   // cannot start (no graphics) reports it before its block joins; the join takes it as the map's ending, once.
   const early = new Map<string, MapPrintState>()
-  const tell = () => listeners.forEach((l) => l())
+  let revision = 0
+  const tell = () => {
+    revision++
+    listeners.forEach((l) => l())
+  }
   const stopTimer = (id: string) => {
     const timer = timers.get(id)
     if (timer !== undefined) clearTimeout(timer)
@@ -83,6 +93,7 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
     cannotDraw: (id) => end(id, 'fell-back'),
     state: (id) => states.get(id) ?? 'drawing',
     settled: () => [...states.values()].every((s) => s !== 'drawing'),
+    revision: () => revision,
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -97,8 +108,9 @@ export function createPrintMaps(timeoutMs: number = MAP_PRINT_TIMEOUT_MS): Print
 
 /**
  * The print page's ready marker: today's rule (no request in flight, and the charts' moment to draw has passed) and,
- * on top of it, every map on the page drawn or fallen back.
+ * on top of it, every map on the page drawn or fallen back. `settledAt` is the maps' revision the charts' moment was
+ * latched at (null: not yet); a later change of the maps (review G2: a drawn map fell back to its table) needs a new one.
  */
-export function printReady({ idle, settled, maps }: { idle: boolean; settled: boolean; maps: Pick<PrintMaps, 'settled'> }): boolean {
-  return idle && settled && maps.settled()
+export function printReady({ idle, settledAt, maps }: { idle: boolean; settledAt: number | null; maps: Pick<PrintMaps, 'settled' | 'revision'> }): boolean {
+  return idle && settledAt === maps.revision() && maps.settled()
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MAP_REGION } from './map-panel'
 import { createGoogleLoader, GOOGLE_LOAD_TIMEOUT_MS, GOOGLE_MAPS_VERSION, googleMapsUrl, type LoaderPage } from './google-loader'
 
 // Ticket 908 (BackOffice spec 3630 M29, M35; ADR 0139): Google's script, fetched once per page when the first map is on
@@ -10,10 +11,12 @@ const KEY = 'planted-test-key'
 function stagePage() {
   const scripts: { src: string; fail: () => void }[] = []
   const globals = new Map<string, unknown>()
+  let mapsDefined = false
   let timers: { fn: () => void; ms: number; cleared: boolean }[] = []
   const page: LoaderPage = {
     addScript: (src, onError) => void scripts.push({ src, fail: onError }),
     setGlobal: (name, value) => void globals.set(name, value),
+    mapsReady: () => mapsDefined,
     setTimeout: (fn, ms) => {
       const t = { fn, ms, cleared: false }
       timers.push(t)
@@ -27,7 +30,12 @@ function stagePage() {
     page,
     scripts,
     /** Google's script arrived and called back. */
-    answer: () => (globals.get(scripts[0].src.match(/callback=([^&]+)/)![1]) as () => void)(),
+    answer: () => {
+      mapsDefined = true
+      ;(globals.get(scripts[scripts.length - 1].src.match(/callback=([^&]+)/)![1]) as () => void)()
+    },
+    /** Google's script ran (`google.maps` is defined) but its callback has not been called yet. */
+    defineMaps: () => void (mapsDefined = true),
     /** Google refused the key or the page. */
     authFailure: () => (globals.get('gm_authFailure') as () => void)(),
     /** The clock runs past every pending timer. */
@@ -76,6 +84,10 @@ describe("the loader's address carries the key, region SA, the language and a pi
   it('the version is a numbered release, pinned: never `weekly`, `quarterly`, `beta` or `alpha`', () => {
     expect(GOOGLE_MAPS_VERSION).toMatch(/^3\.\d+$/)
     expect(new URL(googleMapsUrl({ key: KEY, lang: 'en', callback: 'cb' })).searchParams.get('v')).toBe(GOOGLE_MAPS_VERSION)
+  })
+
+  it('the region is the map panel’s one region, Saudi Arabia (review G8)', () => {
+    expect(new URL(googleMapsUrl({ key: KEY, lang: 'en', callback: 'cb' })).searchParams.get('region')).toBe(MAP_REGION)
   })
 
   it('a key with characters an address reserves is carried intact', () => {
@@ -130,15 +142,48 @@ describe('a script that fails or does not arrive in time is "unreachable", once'
     expect(await settled(load)).toEqual({ failed: 'unreachable' })
   })
 
-  it('an answer after the time ran out changes nothing, and asks for no second script', async () => {
+  it('an answer after the time ran out reaches the next map, with no second script (review G1)', async () => {
     const p = stagePage()
     const loader = createGoogleLoader(p.page)
     const load = loader.load(KEY, 'en')
     p.elapse()
-    p.answer()
     expect(await settled(load)).toEqual({ failed: 'unreachable' })
-    expect(await settled(loader.load(KEY, 'en'))).toEqual({ failed: 'unreachable' })
+    p.answer()
+    expect(await settled(loader.load(KEY, 'en'))).toEqual({ ok: undefined })
     expect(p.scripts).toHaveLength(1)
+  })
+
+  it('a map asking while the slow script is still on its way waits for it, with time of its own and no second script (review G1)', async () => {
+    const p = stagePage()
+    const loader = createGoogleLoader(p.page)
+    void loader.load(KEY, 'en')
+    p.elapse()
+    const second = loader.load(KEY, 'en')
+    expect(await settled(second)).toBe('pending')
+    expect(p.scripts).toHaveLength(1)
+    p.answer()
+    expect(await settled(second)).toEqual({ ok: undefined })
+  })
+
+  it('Google defined when the time runs out is not unreachable: its callback was only late (review G1)', async () => {
+    const p = stagePage()
+    const load = createGoogleLoader(p.page).load(KEY, 'en')
+    p.defineMaps()
+    p.elapse()
+    expect(await settled(load)).toEqual({ ok: undefined })
+  })
+
+  it('a script that failed is tried again by the next map, with the key it brings (review G1)', async () => {
+    const p = stagePage()
+    const loader = createGoogleLoader(p.page)
+    const first = loader.load(KEY, 'en')
+    p.scripts[0].fail()
+    expect(await settled(first)).toEqual({ failed: 'unreachable' })
+    const again = loader.load('another-test-key', 'en')
+    expect(p.scripts).toHaveLength(2)
+    expect(new URL(p.scripts[1].src).searchParams.get('key')).toBe('another-test-key')
+    p.answer()
+    expect(await settled(again)).toEqual({ ok: undefined })
   })
 
   it('an answer in time stops the clock', async () => {

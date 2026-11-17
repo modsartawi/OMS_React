@@ -38,6 +38,24 @@ export function outsideAddresses(text, allowedHosts) {
   return found
 }
 
+// A string literal that is a host on its own, with its port and path if any (review G7): an address joined to its scheme
+// at run time (`"https://" + "tiles.example.com"`) has no scheme beside its host for {@link outsideAddresses} to find.
+// Taken as a host only when its last label is a top-level domain an address would use, so a module path ("./a.js"), a
+// property path ("google.maps") or a number ("1.5") is not one.
+const BARE_HOST =
+  /(?<=["'`])((?:[A-Za-z0-9-]+\.)+(?:com|net|org|io|dev|app|cloud|co|ai|xyz|info|biz|me|tech|site|online|gov|edu|sa|ae|bh|kw|om|qa|uk|de|fr|nl|ru|cn|jp|in|us|eu))(?::\d+)?(?:\/[^\s"'`]*)?(?=["'`])/g
+
+/** Every string literal in `text` that is a host `allowedHosts` does not name (with its path), in order, each once. */
+export function bareHostLiterals(text, allowedHosts) {
+  const found = []
+  for (const m of String(text).matchAll(BARE_HOST)) {
+    const [literal, host] = m
+    if (allowedHosts.has(host.toLowerCase()) || found.includes(literal)) continue
+    found.push(literal)
+  }
+  return found
+}
+
 // Google's API keys: `AIza` and 35 more of `[0-9A-Za-z_-]`. Any such run of 30 or more is taken as a key.
 const KEY_SHAPED = /AIza[0-9A-Za-z_-]{30,}/g
 
@@ -75,8 +93,37 @@ function modulesIn(chunk, root, list) {
   return names
 }
 
-/** Whether a chunk holds the map's own code: the map's chunk. */
-export const isMapChunk = (chunk, root) => modulesIn(chunk, root, MAP_MODULES).length > 0
+/**
+ * The map's chunks, by file (review G6): those reached from the map panel's chunk (`MapPanel.tsx`, the target of
+ * `LazyMapPanel`'s dynamic import) and from no entry by any road that does not pass through it. A chunk the app reaches
+ * another way (a screen importing the loader statically) is not the map's, so it gets no exemption for naming Google.
+ */
+export function mapChunkFiles(chunks, root) {
+  const byFile = new Map(chunks.filter((c) => c.type === 'chunk').map((c) => [c.fileName, c]))
+  const isPanel = (c) => posix(c.facadeModuleId ?? '').slice(posix(root).length + 1) === 'src/core/map/MapPanel.tsx'
+  const reach = (starts, stop) => {
+    const seen = new Set()
+    const todo = [...starts]
+    while (todo.length) {
+      const c = byFile.get(todo.pop())
+      if (!c || seen.has(c.fileName) || stop(c)) continue
+      seen.add(c.fileName)
+      todo.push(...(c.imports ?? []), ...(c.dynamicImports ?? []))
+    }
+    return seen
+  }
+  const all = [...byFile.values()]
+  const outside = reach(all.filter((c) => c.isEntry && !isPanel(c)).map((c) => c.fileName), isPanel)
+  const map = reach(all.filter(isPanel).map((c) => c.fileName), (c) => outside.has(c.fileName))
+  return map
+}
+
+/** The stylesheets the map's chunks bring (review G7): scanned for outside hosts like the chunks' code. */
+export function mapCssFiles(chunks, mapFiles) {
+  const css = []
+  for (const c of chunks) if (c.type === 'chunk' && mapFiles.has(c.fileName)) for (const f of c.viteMetadata?.importedCss ?? []) if (!css.includes(f)) css.push(f)
+  return css
+}
 
 /** A chunk that must load no map code: the app's entry, and every analytics (board, report) and copilot chunk. */
 function isWatched(chunk, root) {
@@ -127,8 +174,9 @@ const GOOGLE_SCRIPT_HOSTS = GOOGLE_MAP_HOSTS.filter((h) => h.startsWith('maps.')
  */
 export function googleNamedOutsideMap(chunks, root) {
   const found = []
+  const mapFiles = mapChunkFiles(chunks, root)
   for (const c of chunks) {
-    if (c.type !== 'chunk' || isMapChunk(c, root)) continue
+    if (c.type !== 'chunk' || mapFiles.has(c.fileName)) continue
     for (const host of GOOGLE_SCRIPT_HOSTS) if (String(c.code ?? '').includes(host)) found.push(`${c.fileName}: names ${host}`)
   }
   return found

@@ -43,6 +43,9 @@ export function markerLook(f: MapFeature, labelInk: string): MarkerLook {
       textAlign: 'center',
       whiteSpace: 'pre',
       color: labelInk,
+      // The app's own face, which `./map-drawing`'s room for the words is measured against — not the Roboto Google's
+      // `.gm-style` would otherwise hand down (review G8).
+      fontFamily: GROUP_LABEL_TEXT.family,
       fontSize: `${GROUP_LABEL_TEXT.size}px`,
       lineHeight: String(GROUP_LABEL_TEXT.lineHeight),
       fontWeight: '500',
@@ -61,11 +64,15 @@ const SAME_TAP_MS = 400
  */
 export function markerHits(events: Pick<MapEngineEvents, 'pointer' | 'tap'>, mapZoom: () => number, now: () => number = Date.now) {
   let markerTapAt = -Infinity
+  // Whether the pointer is over a marker: the browser tells no `pointerleave` for an element taken off the page.
+  let pointedAt = false
   return {
     enter(id: string, drawnZoom: number, at: { x: number; y: number }) {
+      pointedAt = true
       events.pointer({ id, x: at.x, y: at.y, zoom: drawnZoom }, mapZoom())
     },
     leave(_drawnZoom: number) {
+      pointedAt = false
       events.pointer(null, mapZoom())
     },
     click(id: string, drawnZoom: number, at: { x: number; y: number }) {
@@ -76,6 +83,15 @@ export function markerHits(events: Pick<MapEngineEvents, 'pointer' | 'tap'>, map
     mapClick() {
       if (now() - markerTapAt < SAME_TAP_MS) return
       events.tap(null, mapZoom())
+    },
+    /**
+     * The markers were made again (the whole zoom changed): the one under the pointer is gone with no `pointerleave`,
+     * so the pointer is off every marker and an unpinned card goes (review G5). A pinned card stays.
+     */
+    redrawn() {
+      if (!pointedAt) return
+      pointedAt = false
+      events.pointer(null, mapZoom())
     },
   }
 }

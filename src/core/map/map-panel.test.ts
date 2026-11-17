@@ -55,11 +55,11 @@ function open(engine: MapEngine, over: Partial<Parameters<typeof openMapPanel>[0
 }
 
 describe('the map panel hands the engine the points and a view fitted to them', () => {
-  it('passes every given point, as given', () => {
+  it('hands every given point on, through the features it draws at a zoom where none joins', () => {
     const e = standIn()
     open(e.engine)
     expect(e.started).toHaveLength(1)
-    expect(e.started[0].points).toEqual([RIYADH, JEDDAH, DAMMAM])
+    expect(e.started[0].featuresAt(18).map((f) => f.id).sort()).toEqual([RIYADH, JEDDAH, DAMMAM].map((p) => p.id).sort())
   })
 
   it('opens on the box that holds every point: Jeddah is the west edge, Dammam the east and the north, Jeddah the south', () => {
@@ -68,10 +68,10 @@ describe('the map panel hands the engine the points and a view fitted to them', 
     expect(e.started[0].view).toEqual({ kind: 'bounds', west: 39.172, south: 21.543, east: 50.103, north: 26.434 })
   })
 
-  it('opens on one point at street-and-district zoom, not on a box of no size', () => {
+  it('opens on one point at street-and-district zoom, not on a box of no size (Google’s 256-pixel tiles: 14, review G8)', () => {
     const e = standIn()
     open(e.engine, { points: [RIYADH] })
-    expect(e.started[0].view).toEqual({ kind: 'centre', lon: 46.675, lat: 24.713, zoom: 13 })
+    expect(e.started[0].view).toEqual({ kind: 'centre', lon: 46.675, lat: 24.713, zoom: 14 })
   })
 
   it('with no points, opens on the whole of KSA and Bahrain (spec M8)', () => {
@@ -93,14 +93,6 @@ describe('the panel hands the engine what Google needs: the key from the model, 
     const e = standIn()
     open(e.engine, { maps: { key: 'planted-test-key' } })
     expect(e.started[0].mapId).toBeUndefined()
-  })
-
-  it('the region is Saudi Arabia, whatever the screen language (KSA borders, "Arabian Gulf")', () => {
-    for (const lang of ['en', 'ar'] as const) {
-      const e = standIn()
-      open(e.engine, { lang, dir: lang === 'ar' ? 'rtl' : 'ltr' })
-      expect(e.started[0].region).toBe('SA')
-    }
   })
 
   it('the language is the screen’s', () => {
@@ -284,31 +276,3 @@ describe('a map opened in a box with no size yet is fitted once the box has one 
   })
 })
 
-describe('a map whose graphics are lost shows the table (review W9)', () => {
-  it('losing the graphics after the map is drawn signals "cannot draw": the blank map is not left as drawn', () => {
-    const e = standIn()
-    const { signals } = open(e.engine)
-    e.events.tilesLoaded()
-    e.events.idle()
-    e.events.graphicsLost()
-    expect(signals).toEqual(['drawn', 'cannot-draw:no-graphics'])
-  })
-
-  it('losing them while drawing signals it once, and nothing after', () => {
-    const e = standIn()
-    const { signals } = open(e.engine)
-    e.events.graphicsLost()
-    e.events.graphicsLost()
-    e.events.tilesLoaded()
-    e.events.idle()
-    expect(signals).toEqual(['cannot-draw:no-graphics'])
-  })
-
-  it('nothing is signalled once the panel is closed', () => {
-    const e = standIn()
-    const { panel, signals } = open(e.engine)
-    panel.close()
-    e.events.graphicsLost()
-    expect(signals).toEqual([])
-  })
-})

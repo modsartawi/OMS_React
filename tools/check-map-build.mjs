@@ -8,7 +8,8 @@
 //   1. M35 — the app's entry, and every analytics (board, report, print) and copilot chunk, reach no map code by
 //      STATIC imports: the map arrives by a dynamic import only, when a map is on screen. And no chunk but the map's
 //      names Google's map script hosts (`maps.googleapis.com`, `maps.gstatic.com`).
-//   2. M29 — the map's chunks name no outside host but Google's (`MAP_ADDRESS_ALLOWED`, the drives' named list).
+//   2. M29 — the map's chunks and their stylesheets name no outside host but Google's (`MAP_ADDRESS_ALLOWED`, the
+//      drives' named list): an address with its scheme, or a host in a string of its own (review G7).
 //   3. MapLibre, pmtiles and Protomaps are in no chunk; and the map's chunks hold the Google adapter (or the scan in 2
 //      would scan nothing).
 //   4. No built file, nor any file under `public/` (copied into dist/ as it is), holds a string shaped like a Google
@@ -19,7 +20,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { build } from 'vite'
-import { googleNamedOutsideMap, isMapChunk, keyShapedStrings, MAP_ADDRESS_ALLOWED, mapCodeLeaks, outsideAddresses, retiredEngineIn } from './map-build-check.mjs'
+import { bareHostLiterals, googleNamedOutsideMap, keyShapedStrings, MAP_ADDRESS_ALLOWED, mapChunkFiles, mapCodeLeaks, mapCssFiles, outsideAddresses, retiredEngineIn } from './map-build-check.mjs'
 
 const ROOT = resolve('.')
 const toPosix = (p) => p.split(sep).join('/')
@@ -46,9 +47,19 @@ for (const leak of mapCodeLeaks(chunks, ROOT)) failures.push(`map code loaded wi
 for (const named of googleNamedOutsideMap(chunks, ROOT)) failures.push(`Google named outside the map's chunk: ${named}`)
 
 // 2. No outside host but Google's in the map's chunks.
-// The map's chunks: the map's own (`isMapChunk`) and every chunk holding a module of `src/core/map/` (its drawing rules).
-const mapChunks = chunks.filter((c) => isMapChunk(c, ROOT) || c.moduleIds.some((id) => toPosix(id).includes('/src/core/map/')))
-for (const c of mapChunks) for (const address of outsideAddresses(c.code, MAP_ADDRESS_ALLOWED)) failures.push(`${c.fileName}: names ${address}`)
+// The map's chunks: the map's own (`mapChunkFiles`: reached only through the map door) and every chunk holding a module
+// of `src/core/map/` (its drawing rules); and the stylesheets the map's own bring.
+const mapFiles = mapChunkFiles(chunks, ROOT)
+const mapChunks = chunks.filter((c) => mapFiles.has(c.fileName) || c.moduleIds.some((id) => toPosix(id).includes('/src/core/map/')))
+const assetText = (name) => {
+  const a = outputs.find((o) => o.type === 'asset' && o.fileName === name)
+  return a ? (typeof a.source === 'string' ? a.source : Buffer.from(a.source).toString('utf8')) : null
+}
+const scanned = [...mapChunks.map((c) => [c.fileName, c.code]), ...mapCssFiles(chunks, mapFiles).map((f) => [f, assetText(f) ?? ''])]
+for (const [file, text] of scanned) {
+  for (const address of outsideAddresses(text, MAP_ADDRESS_ALLOWED)) failures.push(`${file}: names ${address}`)
+  for (const host of bareHostLiterals(text, MAP_ADDRESS_ALLOWED)) failures.push(`${file}: names the host ${host}`)
+}
 
 // 3. The retired engine is gone; the map's chunks hold the Google adapter.
 for (const c of retiredEngineIn(chunks, ROOT)) failures.push(`the retired map engine is in a chunk: ${c}`)
@@ -66,4 +77,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  ${f}`)
   process.exit(1)
 }
-console.log(`check-map-build: ok — ${mapChunks.length} map chunk(s) loaded only on demand, naming no host but Google's; no retired engine; no key in ${builtFiles.length} built file(s)`)
+console.log(`check-map-build: ok — ${mapChunks.length} map chunk(s) and ${scanned.length - mapChunks.length} stylesheet(s) loaded only on demand, naming no host but Google's; no retired engine; no key in ${builtFiles.length} built file(s)`)

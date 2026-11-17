@@ -1403,7 +1403,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Analytics drafts run with their parameters, filed 2026-11-07
 
-- [853](853-an-unsaved-report-or-board-runs-its-panels-with-their-bound-parameters.md) — An unsaved report or board runs its panels with their bound parameters · *(ticket)* · **open** · blocked by: —
+- [853](853-an-unsaved-report-or-board-runs-its-panels-with-their-bound-parameters.md) — An unsaved report or board runs its panels with their bound parameters · *(ticket)* · **done 2026-11-17** · blocked by: —
 
 ## Cancellation reasons + delivery cancel-by-request only (BackOffice spec 3461), filed 2026-11-08
 

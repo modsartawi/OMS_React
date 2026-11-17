@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: —
 blocked-by: —
 ---
@@ -47,7 +47,7 @@ Affected (every `inline: true` context):
 - [x] Drive: designer with one table panel, top Period → *Last 7 days*: the panel's request carries `values.period`
       and its rows change; untick the panel in Applies to → it goes back to its own period.
 - [x] Drive: Preview as a runner follows the viewer's Period; the unsaved board preview follows its parameters.
-- [ ] Live (local SIS.Api): the designer and the saved report show the same numbers for the same Period.
+- [x] Live (local SIS.Api): the designer and the saved report show the same numbers for the same Period.
 
 ## Boundaries
 
@@ -105,3 +105,5 @@ query refusal does.
   panel in the designer until it is fixed (the ticket's Boundaries accept this; the designer also lists the problem). A valid
   draft that turns invalid by an unrelated edit keeps its cached answers until a panel re-keys.
 - The designer and DraftPreview still drop `fellBack`/invalid notices (`onParamNotice: noop`), which predates this ticket.
+
+**2026-11-17 - walked live with the owner watching** (local SIS.Api on pricing2 4bbb888a5, local dev HQ database, Cube over a copy of production analytics). A new report "853 walk - period check" with Period = Last 7 days and the copied view "Top 20 Stores by Till Sales This Week": the unsaved designer showed B001 SAR 48,430.56, B002 SAR 25,079.49, P167 SAR 9,219.51 (and the rest); saved (06GYN4Y1GVXB672FW3DGRH1GG0) and opened on the runner page, the same table, row for row. Box ticked, ticket closed.

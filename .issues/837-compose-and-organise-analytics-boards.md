@@ -52,7 +52,7 @@ The owner spent two hours building boards and reports with the copilot (2026-11-
 ## Proof
 
 - [x] pure: library filters (who/kind/changed/folder/search), URL round trip, palette drop → layout cell · unit
-- [ ] stub drive: preview and back keeps the draft; drag a view onto the grid; file an item into a folder; a 416 delete
+- [x] stub drive: preview and back keeps the draft; drag a view onto the grid; file an item into a folder; a 416 delete
       lists the boards · flow (stub)
 - [ ] live on the local rig against BackOffice 3432 · flow (live)
 
@@ -61,3 +61,5 @@ The owner spent two hours building boards and reports with the copilot (2026-11-
 - Folders are personal and never shared; the copilot never files, deletes or restores.
 
 **2026-11-17 - test run on main 7daac778.** `npx vitest run src/core/ui/auto-scroll.test.ts src/features/analytics/`: 79 files, 1,104 tests, all pass (library, library-pages, layout, wire and the rest). The stub drive box is NOT ticked: `tools/analytics-drive.mjs` ran 484 PASS but did not finish - the browser crashed under load (page crashed, then every new context refused) and the 400 s limit stopped it. Re-run it on a quiet machine to tick the box.
+
+**2026-11-17 - stub drive box ticked.** Re-run on a quiet machine, `DRIVE_ONLY=837 node tools/analytics-drive.mjs` (app at main 7daac778 code; the analytics code is unchanged to main): **68/68 PASS**, en and ar. The old 837 scenario (36) proves Preview and Back to design keeping the draft, and a view dragged onto the grid. It never covered the other two parts of the box, so a new scenario `libraryAndSafeDelete837` (32 checks) and two opt-in stub doors in `tools/analytics-stubs.mjs` (`folders`: `GET Analytics/Folders` with live counts and `PUT Item/{id}/Folder`; `usedBy`: `GET Item/{id}/UsedBy`) prove: a row dragged onto a rail folder lights it and is filed there (and the folder counts it); "Move to folder" files without a mouse; picking a folder lists only its items and keeps `?folder=` in the link; a view's delete asks UsedBy first, a delete refused with `ANALYTICS-416` lists the blocking board and the "2 more you cannot open" and offers no Delete, and a view UsedBy already shows on a certified board offers no Delete and sends no DELETE. Mutation-checked: without the 416 refusal the scenario goes red. Seen, not caused here (same on the unchanged drive): 839's "eight leaves" check now finds nine (My schedules, 886) and four 778 scenarios time out. The live box stays open.

@@ -572,6 +572,7 @@
     "compare": "Compare with the previous period",
     "compareHintKpi": "The tile shows ▲▼ against the period before.",
     "compareHintLine": "The previous period is drawn as a dashed line.",
+    "compareHintMap": "Add a change from it to colour each store better, about the same or worse.",
     "compareLastYear": "Compare with the same weeks last year",
     "compareLastYearHint": "Last year is the same days, 364 days earlier, so every day falls on the same weekday.",
     "folds": "Past five members, the rest is drawn as “Other”.",

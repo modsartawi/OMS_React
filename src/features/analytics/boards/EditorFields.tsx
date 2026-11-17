@@ -346,7 +346,7 @@ export function ChartFields({
             <Chip on={compare} onClick={() => onCompare(!compare)} data-editor-compare={compare ? 'on' : 'off'}>
               {t('editor.compare')}
             </Chip>
-            <span className="text-xs text-muted-foreground">{t(chosen === 'kpi' ? 'editor.compareHintKpi' : 'editor.compareHintLine')}</span>
+            <span className="text-xs text-muted-foreground">{t(chosen === 'kpi' ? 'editor.compareHintKpi' : chosen === 'map' ? 'editor.compareHintMap' : 'editor.compareHintLine')}</span>
           </div>
         )}
         {comparesToPrevious(chosen) && (

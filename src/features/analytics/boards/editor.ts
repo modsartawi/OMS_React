@@ -117,9 +117,13 @@ export function colourMemberWords(
  * a KPI's ▲▼ against the previous figure, a line over time drawing the previous period beside it, and (BackOffice
  * spec 3519 review, owner decision) a table's "previous" column per measure and a bar's previous-period series.
  * 876: the comparison with the same weeks last year is offered on the same types ({@link withLastYear}).
+ * BackOffice spec 3630 M16 (live walk): a map too — it draws no earlier figure itself, but a change taken from either
+ * comparison colours its stores better, about the same or worse. The door's shape (`AnalyticsMapChart.Fits`) counts the
+ * change as one measure column and has no rule on a comparison, so without the switch on a map a change could not be
+ * kept there.
  */
 export const comparesToPrevious = (choice: ChartChoice | null): boolean =>
-  choice === 'kpi' || choice === 'line' || choice === 'table' || (choice?.startsWith('bar-') ?? false)
+  choice === 'kpi' || choice === 'line' || choice === 'table' || choice === 'map' || (choice?.startsWith('bar-') ?? false)
 
 /** The query with `compareToPrevious` stored when it is on and the chosen type offers it, and left out otherwise. */
 export function withCompare<Q extends AnalyticsSemanticQuery>(query: Q, choice: ChartChoice | null, on: boolean): Q {

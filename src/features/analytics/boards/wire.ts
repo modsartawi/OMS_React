@@ -8,6 +8,7 @@ import type {
   AnalyticsFolder,
   AnalyticsItem,
   AnalyticsLabel,
+  AnalyticsMapLegend,
   AnalyticsMeasure,
   AnalyticsMember,
   AnalyticsModel,
@@ -155,6 +156,35 @@ export function readResult(raw: Loose): AnalyticsQueryResult {
     ...(readFigureDimensions(r.notFiltered) ? { notFiltered: readFigureDimensions(r.notFiltered) } : {}),
     // 891 (BackOffice 3677): a SQL panel's answer; a Cube answer carries no engine and stays the shape it always was.
     ...(r.engine === 'sql' ? { engine: 'sql' as const, sql: readSqlPanelAnswer(r.sql) } : {}),
+    // 881 (BackOffice 3639): a map answer's legend; absent (or null) stays absent.
+    ...(r.legend && typeof r.legend === 'object' ? { legend: readMapLegend(r.legend) } : {}),
+  }
+}
+
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/**
+ * 881 (BackOffice 3639): a map answer's legend, read tolerantly — a step without an id is left out, an unknown colour kind
+ * reads as a scale, and an absent colour as none (one measure).
+ */
+export function readMapLegend(raw: unknown): AnalyticsMapLegend {
+  const l = obj(raw)
+  const size = obj(l.size)
+  const colour = l.colour && typeof l.colour === 'object' ? obj(l.colour) : null
+  return {
+    size: { key: str(size.key), label: said(size.label), min: numOrNull(size.min), max: numOrNull(size.max), additive: size.additive === true },
+    colour: colour
+      ? {
+          key: str(colour.key),
+          label: said(colour.label),
+          kind: colour.kind === 'change' ? 'change' : 'scale',
+          steps: arr<unknown>(colour.steps)
+            .map(obj)
+            .filter((s) => !!str(s.id))
+            .map((s) => ({ id: str(s.id), from: numOrNull(s.from), to: numOrNull(s.to), label: said(s.label) })),
+        }
+      : null,
+    notOnMap: typeof l.notOnMap === 'number' ? l.notOnMap : 0,
   }
 }
 

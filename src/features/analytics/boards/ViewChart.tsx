@@ -15,7 +15,8 @@ import TruncatedNote from './TruncatedNote'
 import UntilNote from './UntilNote'
 import { useCalculatedModel } from './use-calculations'
 import { toBarView } from './view-model'
-import { drawsAsMap, mapPoints } from './map-chart'
+import { drawsAsMap, mapDrawing, mapLegendView } from './map-chart'
+import MapLegend from './MapLegend'
 import ViewForm, { isViewForm } from './ViewForms'
 import { queryMeasureName } from './variants'
 import { dimensionOf } from './wire'
@@ -142,12 +143,19 @@ const ChartBody = memo(function ChartBody({
  */
 function MapBody({ result, definition, model, lang }: { result: AnalyticsQueryResult; definition: AnalyticsViewDefinition; model: AnalyticsModel; lang: string }) {
   const { t } = useTranslation('boards')
-  // A stable array per answer: a new identity restarts the map.
-  const points = useMemo(() => mapPoints(result), [result])
+  // 881: each point sized, coloured and carded from the server's legend. One stable drawing per answer and language:
+  // a new identity restarts the map.
+  const drawing = useMemo(() => mapDrawing(result, model, lang), [result, model, lang])
+  const legend = useMemo(() => mapLegendView(result, model, lang), [result, model, lang])
   const [cannotDraw, setCannotDraw] = useState(false)
   if (cannotDraw) return <ViewForm type="table" result={result} definition={{ ...definition, chart: { ...definition.chart, type: 'table' } }} model={model} lang={lang} />
   const measure = saysIn(model.measures.find((m) => m.key === definition.query.measures[0])?.label, lang)
-  return <LazyMapPanel points={points} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+  return (
+    <>
+      <LazyMapPanel points={drawing.points} grouping={drawing.grouping} ariaLabel={t('view.mapLabel', { measure: fsi(measure) })} onCannotDraw={() => setCannotDraw(true)} />
+      {legend && <MapLegend view={legend} />}
+    </>
+  )
 }
 
 function Empty() {

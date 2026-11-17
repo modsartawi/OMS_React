@@ -427,6 +427,12 @@
     "truncated": "Only the first rows are shown: the answer was cut at the row cap.",
     "unsupported": "This chart type is not drawn here yet.",
     "mapLabel": "Map of {{measure}} by store",
+    "mapLegend": {
+      "label": "Legend",
+      "size": "Size: {{measure}}",
+      "colour": "Colour: {{measure}}",
+      "hollow": "Hollow: zero, below zero or no figure"
+    },
     "notFoundTitle": "Analytics view not found",
     "noAccessTitle": "No access to this analytics view",
     "rateStacked": "{{measure}} is a rate, so it is never stacked. Draw it as a line or a grouped bar.",

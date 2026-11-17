@@ -312,6 +312,26 @@
   --chart-4: #d0628f;
   --chart-5: #8160d6;
 
+  /* The map chart's points (oms-react 881, BackOffice spec 3630 M16, M17, M19). The map is light only (M33), so
+     these are declared once and dark inherits them. A change: better / about the same / worse, where better and
+     worse differ in LIGHTNESS as well as hue (navy-blue against orange, 2:1 between them) so the map reads
+     without colour vision — and the legend names each in words. `--map-none` is the neutral "no earlier
+     figure". Any other measure: five shades of the chart teal, lightest first; a light shade keeps its edge
+     through `--map-ring`. A group of nearby stores is always `--map-group`, its count and sum in
+     `--map-group-ink`. The contrast gate holds every pair (tools/check-contrast.mjs, "map chart"). */
+  --map-better: #1d4e89;
+  --map-same: #7d828b;
+  --map-worse: #c4650f;
+  --map-none: #c9ccd1;
+  --map-scale-1: #bfe3e6;
+  --map-scale-2: #7fc6cd;
+  --map-scale-3: #3fa3ad;
+  --map-scale-4: #16767f;
+  --map-scale-5: #0b4a51;
+  --map-ring: #3d4450;
+  --map-group: #4b5563;
+  --map-group-ink: #ffffff;
+
   /* DMSCO shape (spec 590; 584, 585): 1rem makes an h-7 (28px) control a full
      pill at `rounded-md` (14px), and cards and panels take `rounded-lg` (16px).
      The grid wrapper's 8px is its own theme param (382); dialogs' 10px is
@@ -555,6 +575,20 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* The map chart's points (881): bridged for the legend's swatches; the map reads the token. */
+  --color-map-better: var(--map-better);
+  --color-map-same: var(--map-same);
+  --color-map-worse: var(--map-worse);
+  --color-map-none: var(--map-none);
+  --color-map-scale-1: var(--map-scale-1);
+  --color-map-scale-2: var(--map-scale-2);
+  --color-map-scale-3: var(--map-scale-3);
+  --color-map-scale-4: var(--map-scale-4);
+  --color-map-scale-5: var(--map-scale-5);
+  --color-map-ring: var(--map-ring);
+  --color-map-group: var(--map-group);
+  --color-map-group-ink: var(--map-group-ink);
 
   --color-brand-panel: var(--brand-panel);
   --color-brand-panel-foreground: var(--brand-panel-foreground);

@@ -445,7 +445,8 @@ export interface AnalyticsColumn {
    * BackOffice 3638 (spec 3630 M13): `place` — on a map result only, four columns after the measures: `latitude`,
    * `longitude` (numbers, or null when the store has no coordinates), `store_name` and `city`.
    */
-  role: 'dimension' | 'measure' | 'series' | 'place'
+  /** BackOffice 3639 (oms-react 881): `legend` — a map row's `hollow` and `colour_step`, after the `place` columns. */
+  role: 'dimension' | 'measure' | 'series' | 'place' | 'legend'
   shape?: MeasureShape | null
   unit?: MeasureUnit | null
   /** Spec 3519 D2: set on a calculated column (role `measure`, shape `rate`, unit `percent`). */
@@ -470,6 +471,26 @@ export interface AnalyticsLastYearNotHeld {
   measures: string[]
 }
 
+/**
+ * BackOffice 3639 (spec 3630 M15-M18, oms-react 881): a map answer's legend. The server sends the steps and each row's
+ * step (`colour_step`) and hollow mark (`hollow`); the web compares no value with an edge.
+ */
+export interface AnalyticsMapLegend {
+  /** The size measure: the result's smallest and largest value above zero (both null when none is), and whether it adds up. */
+  size: { key: string; label: AnalyticsLabel; min: number | null; max: number | null; additive: boolean }
+  /** The colour measure; null with one measure (every point one colour). */
+  colour: {
+    key: string
+    label: AnalyticsLabel
+    /** `change`: better / same / worse (+ none). `scale`: q1..qk, one colour light to dark (+ none). */
+    kind: 'change' | 'scale'
+    /** In value order, lowest first; `none` last, only when some row has no colour value. */
+    steps: { id: string; from: number | null; to: number | null; label: AnalyticsLabel }[]
+  } | null
+  /** Rows with no coordinates: not drawn (882 lists them). */
+  notOnMap: number
+}
+
 export interface AnalyticsQueryResult {
   columns: AnalyticsColumn[]
   rows: AnalyticsRow[]
@@ -492,6 +513,8 @@ export interface AnalyticsQueryResult {
    * area holds the span, or when last year was not asked.
    */
   lastYearNotHeld?: AnalyticsLastYearNotHeld[]
+  /** BackOffice 3639 (oms-react 881): a map answer's legend. Absent on every other answer. */
+  legend?: AnalyticsMapLegend
   fetchedAt: string
   /** The newest source event time of the last good run, from `mart_load_log`. */
   dataAsOf: string

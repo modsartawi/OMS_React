@@ -1,18 +1,14 @@
 import type { StyleSpecification } from 'maplibre-gl'
 import { mapStyle, RTL_TEXT_PLUGIN_PATH } from './map-style'
+import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
+
+export type { MapCard, MapCardState, MapFeature, MapGrouping, MapPoint, MapTarget } from './map-drawing'
 
 /**
  * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ADR 0135): what it hands the map
  * engine and what it signals back. Pure: no React, no DOM, no MapLibre. The engine is a port ({@link MapEngine}) so the
  * tests drive a stand-in and `./maplibre-engine` is the one place MapLibre is touched.
  */
-
-/** One point to draw: a store's id and where it stands. */
-export interface MapPoint {
-  id: string
-  lon: number
-  lat: number
-}
 
 /** The view the map opens on. */
 export type MapView =
@@ -41,6 +37,13 @@ export interface MapEngineStart {
   rtlTextPlugin: { url: string; deferred: boolean }
   /** Where the zoom buttons stand: the top corner at the reading end. MapLibre's corners are physical. */
   controlsCorner: 'top-left' | 'top-right'
+  /**
+   * What to draw at a zoom (881): each point at its size and colour, nearby points joined into groups. The engine asks
+   * again whenever the whole-number zoom changes.
+   */
+  featuresAt(zoom: number): MapFeature[]
+  /** The resolved ink of a group's words. */
+  labelInk: string
 }
 
 /** What the engine reports back. */
@@ -49,11 +52,15 @@ export interface MapEngineEvents {
   painted(): void
   /** The base-map file could not be read (missing, refused, or not answered by byte range). */
   basemapUnreadable(): void
+  /** The pointer moved over a feature (its id from {@link MapEngineStart.featuresAt}), or off every feature (null). */
+  pointer(target: MapTarget | null, zoom: number): void
+  /** A click or a tap on a feature, or on the map beside every feature (null). */
+  tap(target: MapTarget | null, zoom: number): void
 }
 
 export interface MapEngine {
   /** Starts drawing. Throws when the engine cannot start at all (no graphics support). */
-  start(start: MapEngineStart, events: MapEngineEvents): { destroy(): void }
+  start(start: MapEngineStart, events: MapEngineEvents): { destroy(): void; zoomTo(lon: number, lat: number, zoom: number): void }
 }
 
 export type MapLang = 'en' | 'ar'
@@ -70,6 +77,12 @@ export interface OpenMapPanel {
   origin: string
   onDrawn(): void
   onCannotDraw(reason: CannotDrawReason): void
+  /** A colour token's value on the page (MapLibre takes a colour, not a CSS variable). Absent: the token as written. */
+  inkOf?: (token: string) => string
+  /** How groups read (881). Absent: a group shows its count only. */
+  grouping?: MapGrouping | null
+  /** The card to show changed (881, M23): whose, where, pinned or not; null hides it. */
+  onCard?(card: MapCardState): void
 }
 
 /** The view that holds every point. */
@@ -107,7 +120,25 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     state = 'ended'
     signal()
   }
-  let running: { destroy(): void } | null = null
+  let running: ReturnType<MapEngine['start']> | null = null
+  const inkOf = open.inkOf ?? ((token: string) => token)
+  // The features at each whole zoom, made once: the engine asks on every zoom change, and a tap reads them back.
+  const drawn = new Map<number, MapFeature[]>()
+  const featuresOf = (zoom: number) => {
+    const z = Math.floor(zoom)
+    let f = drawn.get(z)
+    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf)))
+    return f
+  }
+  const featureOf = (target: MapTarget | null, zoom: number) => (target ? featuresOf(zoom).find((f) => f.id === target.id) : undefined)
+  let card: MapCardState = null
+  const cardOn = (event: { kind: 'point' | 'tap'; target: MapTarget | null }) => {
+    if (state === 'closed') return
+    const next = cardAfter(card, event)
+    if (next === card) return
+    card = next
+    open.onCard?.(card)
+  }
   try {
     running = open.engine.start(
       {
@@ -117,10 +148,23 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         style: mapStyle(open.lang, open.origin),
         rtlTextPlugin: { url: open.origin + RTL_TEXT_PLUGIN_PATH, deferred: open.lang !== 'ar' },
         controlsCorner: open.dir === 'rtl' ? 'top-left' : 'top-right',
+        featuresAt: featuresOf,
+        labelInk: inkOf(GROUP_LABEL_INK),
       },
       {
         painted: () => end(open.onDrawn),
         basemapUnreadable: () => end(() => open.onCannotDraw('basemap-unreadable')),
+        // A group has no card: pointing at one is pointing at no store.
+        pointer: (target, zoom) => cardOn({ kind: 'point', target: featureOf(target, zoom)?.kind === 'point' ? target : null }),
+        tap: (target, zoom) => {
+          const f = featureOf(target, zoom)
+          // A click on a group zooms in, centred on it, to where it opens (M19).
+          if (f?.kind === 'group') {
+            running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom))
+            return
+          }
+          cardOn({ kind: 'tap', target: f ? target : null })
+        },
       },
     )
   } catch {

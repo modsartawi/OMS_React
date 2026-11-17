@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { maplibreEngine } from './maplibre-engine'
-import { openMapPanel, type CannotDrawReason, type MapPoint } from './map-panel'
+import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapPoint } from './map-panel'
 
 /**
  * The map panel (ticket 879, BackOffice spec 3630; ADR 0135): given points, it draws them on our own base map of KSA
@@ -22,7 +22,10 @@ export const MAP_CREDIT = { text: '© OpenStreetMap', href: 'https://www.openstr
 export type MapPanelState = 'drawing' | 'drawn' | 'cannot-draw'
 
 export interface MapPanelProps {
+  /** The points, each at its size and colour (881). Pass a STABLE array: a new identity restarts the map. */
   points: readonly MapPoint[]
+  /** How a group of nearby stores reads (881): its count, and its sum when the size adds up. Stable, like `points`. */
+  grouping?: MapGrouping | null
   /** The map's accessible name, in the caller's words. */
   ariaLabel: string
   onDrawn?: () => void
@@ -34,10 +37,11 @@ export interface MapPanelProps {
 /** A token's value on the page (MapLibre takes a colour, not a CSS variable). */
 const tokenOf = (el: Element, name: string) => getComputedStyle(el).getPropertyValue(name).trim()
 
-export default function MapPanel({ points, ariaLabel, onDrawn, onCannotDraw, className = 'h-80 w-full' }: MapPanelProps) {
+export default function MapPanel({ points, grouping = null, ariaLabel, onDrawn, onCannotDraw, className = 'h-80 w-full' }: MapPanelProps) {
   const { i18n } = useTranslation()
   const box = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<MapPanelState>('drawing')
+  const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
   const handlers = useRef({ onDrawn, onCannotDraw })
   handlers.current = { onDrawn, onCannotDraw }
@@ -47,10 +51,14 @@ export default function MapPanel({ points, ariaLabel, onDrawn, onCannotDraw, cla
     const container = box.current
     if (!container) return
     setState('drawing')
+    setCard(null)
     const panel = openMapPanel({
-      engine: maplibreEngine({ fill: tokenOf(container, '--chart-1'), outline: tokenOf(container, '--card') }),
+      engine: maplibreEngine(),
       container,
       points,
+      grouping,
+      inkOf: (token) => tokenOf(container, token),
+      onCard: setCard,
       lang,
       dir: documentDirection(),
       origin: window.location.origin,
@@ -64,12 +72,14 @@ export default function MapPanel({ points, ariaLabel, onDrawn, onCannotDraw, cla
       },
     })
     return () => panel.close()
-  }, [points, lang])
+  }, [points, grouping, lang])
+  const shown = card ? points.find((p) => p.id === card.id) : undefined
 
   return (
     <div className={`relative overflow-hidden rounded-md border ${className}`} data-map-state={state}>
       {/* Fills the frame by size, not by `absolute`: MapLibre sets its container `position: relative`. */}
       <div ref={box} role="region" aria-label={ariaLabel} className="h-full w-full" />
+      {card && shown?.card && <PointCard card={shown.card} at={card} />}
       <div className="absolute bottom-0 end-0 z-10 bg-card/80 px-1.5 py-0.5 text-[10px] leading-tight text-muted-foreground">
         {/* The credit is one LTR value: under Arabic, unisolated, its "©" runs to the far end. */}
         <Ltr>
@@ -78,6 +88,36 @@ export default function MapPanel({ points, ariaLabel, onDrawn, onCannotDraw, cla
           </a>
         </Ltr>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A store's card (881, M23): its name and city, and its figures as the table formats them. Placed beside the point
+ * pointed at, by the engine's pixel position: a physical `left`/`top`, since the canvas reports physical pixels in
+ * either direction. Pointer events pass through, so the card never hides the point under it from the next tap.
+ */
+function PointCard({ card, at }: { card: NonNullable<MapPoint['card']>; at: NonNullable<MapCardState> }) {
+  return (
+    <div
+      className="pointer-events-none absolute z-20 max-w-60 rounded-md border bg-card px-2.5 py-1.5 text-xs text-card-foreground shadow-(--shadow-pop)"
+      style={{ left: at.x + 12, top: at.y + 12 }}
+      data-map-card={at.pinned ? 'pinned' : 'shown'}
+    >
+      <div className="font-medium">
+        <bdi>{card.title}</bdi>
+      </div>
+      {card.subtitle && (
+        <div className="text-muted-foreground">
+          <bdi>{card.subtitle}</bdi>
+        </div>
+      )}
+      {card.figures.map((f) => (
+        <div key={f.label} className="mt-0.5 flex justify-between gap-3">
+          <bdi className="text-muted-foreground">{f.label}</bdi>
+          <Ltr>{f.value}</Ltr>
+        </div>
+      ))}
     </div>
   )
 }

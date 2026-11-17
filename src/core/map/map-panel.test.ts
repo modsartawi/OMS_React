@@ -16,7 +16,7 @@ function standIn(opts: { throwOnStart?: Error } = {}) {
       if (opts.throwOnStart) throw opts.throwOnStart
       started.push(start)
       events = ev
-      return { destroy: () => void destroyed++ }
+      return { destroy: () => void destroyed++, zoomTo: () => {} }
     },
   }
   return {

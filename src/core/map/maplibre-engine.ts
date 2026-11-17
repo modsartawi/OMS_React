@@ -15,6 +15,7 @@ import { BASEMAP_SOURCE } from './map-style'
 
 const POINTS_SOURCE = 'points'
 const POINTS_LAYER = 'points'
+const GROUP_WORDS_LAYER = 'group-words'
 
 /** One protocol per page: MapLibre keeps the registration globally. */
 let protocolAdded = false
@@ -26,13 +27,7 @@ function ensureRtlTextPlugin(plugin: MapEngineStart['rtlTextPlugin']) {
   maplibregl.setRTLTextPlugin(plugin.url, plugin.deferred).catch(() => {})
 }
 
-/** The point's ink. Light only (M33), read from the page's tokens by the caller. */
-export interface PointInk {
-  fill: string
-  outline: string
-}
-
-export function maplibreEngine(ink: PointInk): MapEngine {
+export function maplibreEngine(): MapEngine {
   return {
     start(start: MapEngineStart, events: MapEngineEvents) {
       if (!protocolAdded) {
@@ -65,25 +60,68 @@ export function maplibreEngine(ink: PointInk): MapEngine {
         if (e.sourceId === BASEMAP_SOURCE) events.basemapUnreadable()
       })
 
+      /** The features at a zoom as GeoJSON: each carries its own size, colours and words (`./map-drawing`). */
+      const dataAt = (zoom: number) => ({
+        type: 'FeatureCollection' as const,
+        features: start.featuresAt(zoom).map((f) => ({
+          type: 'Feature' as const,
+          properties: { id: f.id, kind: f.kind, radius: f.radius, fill: f.fill, fillOpacity: f.fillOpacity, stroke: f.stroke, strokeWidth: f.strokeWidth, label: f.label },
+          geometry: { type: 'Point' as const, coordinates: [f.lon, f.lat] },
+        })),
+      })
+      const targetOf = (e: { point: { x: number; y: number } }) => {
+        const hit = map.queryRenderedFeatures([e.point.x, e.point.y], { layers: [POINTS_LAYER] })[0]
+        const id = hit?.properties?.id
+        return typeof id === 'string' ? { id, x: e.point.x, y: e.point.y } : null
+      }
+
       map.on('load', () => {
-        map.addSource(POINTS_SOURCE, {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: start.points.map((p) => ({
-              type: 'Feature' as const,
-              properties: { id: p.id },
-              geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
-            })),
-          },
-        })
-        // Plain points of one size and one colour; size, colour and groups are 881's.
+        let drawnZoom = Math.floor(map.getZoom())
+        map.addSource(POINTS_SOURCE, { type: 'geojson', data: dataAt(drawnZoom) })
+        // Each point drawn as the panel sized and coloured it (881); the larger beneath the smaller, so none hides.
         map.addLayer({
           id: POINTS_LAYER,
           type: 'circle',
           source: POINTS_SOURCE,
-          paint: { 'circle-radius': 6, 'circle-color': ink.fill, 'circle-stroke-color': ink.outline, 'circle-stroke-width': 1.5 },
+          layout: { 'circle-sort-key': ['-', 0, ['get', 'radius']] },
+          paint: {
+            'circle-radius': ['get', 'radius'],
+            'circle-color': ['get', 'fill'],
+            'circle-opacity': ['get', 'fillOpacity'],
+            'circle-stroke-color': ['get', 'stroke'],
+            'circle-stroke-width': ['get', 'strokeWidth'],
+          },
         })
+        // A group's count, and its sum when the size adds up, on the group itself.
+        map.addLayer({
+          id: GROUP_WORDS_LAYER,
+          type: 'symbol',
+          source: POINTS_SOURCE,
+          filter: ['==', ['get', 'kind'], 'group'],
+          layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['Noto Sans Medium'],
+            'text-size': 11,
+            'text-line-height': 1.1,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: { 'text-color': start.labelInk },
+        })
+        // Groups are made per whole zoom: a new one asks the panel again.
+        map.on('zoom', () => {
+          const z = Math.floor(map.getZoom())
+          if (z === drawnZoom) return
+          drawnZoom = z
+          ;(map.getSource(POINTS_SOURCE) as maplibregl.GeoJSONSource | undefined)?.setData(dataAt(z))
+        })
+        map.on('mousemove', (e) => {
+          const target = targetOf(e)
+          map.getCanvas().style.cursor = target ? 'pointer' : ''
+          events.pointer(target, map.getZoom())
+        })
+        map.on('mouseout', () => events.pointer(null, map.getZoom()))
+        map.on('click', (e) => events.tap(targetOf(e), map.getZoom()))
         const whenPainted = () => {
           if (map.areTilesLoaded() && map.isSourceLoaded(BASEMAP_SOURCE) && map.isSourceLoaded(POINTS_SOURCE)) {
             map.off('idle', whenPainted)
@@ -93,7 +131,7 @@ export function maplibreEngine(ink: PointInk): MapEngine {
         map.on('idle', whenPainted)
       })
 
-      return { destroy: () => map.remove() }
+      return { destroy: () => map.remove(), zoomTo: (lon, lat, zoom) => void map.easeTo({ center: [lon, lat], zoom }) }
     },
   }
 }

@@ -256,6 +256,19 @@ const darkOnly = [
 positives.push(...['--chart-1', '--chart-3', '--chart-4', '--chart-5'].map((c) => [c, '--card', UI]))
 darkOnly.push(['--chart-2', '--card', UI])
 
+// The map chart (oms-react 881, BackOffice spec 3630 M16, M17, M19). The map is light only (M33): its points sit on
+// the light base map whatever the theme, so these pairs are measured in LIGHT, on `--card` (the base map's ground is
+// paler still). Each step colour and the ring are meaningful graphics (3:1); a group's words are text on its fill
+// (4.5:1). Two more rules, below the run: better and worse differ in LIGHTNESS as well as hue, and the five scale
+// shades step darker one after another, so neither reading depends on hue alone.
+const mapLight = [
+  ...['--map-better', '--map-same', '--map-worse', '--map-ring', '--map-group'].map((t) => [t, '--card', UI]),
+  ['--map-group-ink', '--map-group', BODY],
+]
+const MAP_BETTER_WORSE_LIGHTNESS = 1.8
+const MAP_SCALE_STEP = 1.3
+const MAP_SCALE = ['--map-scale-1', '--map-scale-2', '--map-scale-3', '--map-scale-4', '--map-scale-5']
+
 // The negative assertion. R2 is not a preference — white genuinely fails on
 // every lifted dark chromatic fill, and this proves it rather than asserting it.
 const negatives = [
@@ -431,6 +444,42 @@ for (const theme of ['light', 'dark']) {
         detail: `${r.toFixed(2)}:1 — below the ${threshold}:1 floor (${ink.hex} on ${ground.hex})`,
       })
     }
+  }
+}
+
+for (const [inkName, groundName, threshold] of mapLight) {
+  const ink = resolve('light', inkName)
+  const ground = resolve('light', groundName)
+  const r = ratio(ink.hex, ground.hex)
+  checked++
+  if (r < threshold) {
+    failures.push({ line: ink.line, what: `light: ${inkName} on ${groundName}`, detail: `${r.toFixed(2)}:1 — below the ${threshold}:1 floor (${ink.hex} on ${ground.hex})` })
+  }
+}
+{
+  const better = resolve('light', '--map-better')
+  const worse = resolve('light', '--map-worse')
+  const r = ratio(better.hex, worse.hex)
+  checked++
+  if (r < MAP_BETTER_WORSE_LIGHTNESS) {
+    failures.push({
+      line: better.line,
+      what: 'light: --map-better against --map-worse',
+      detail: `${r.toFixed(2)}:1 — below ${MAP_BETTER_WORSE_LIGHTNESS}:1: better and worse must differ in lightness, not hue alone (spec 3630 M17)`,
+    })
+  }
+}
+for (let i = 1; i < MAP_SCALE.length; i++) {
+  const lighter = resolve('light', MAP_SCALE[i - 1])
+  const darker = resolve('light', MAP_SCALE[i])
+  const r = ratio(lighter.hex, darker.hex)
+  checked++
+  if (luminance(darker.hex) >= luminance(lighter.hex) || r < MAP_SCALE_STEP) {
+    failures.push({
+      line: darker.line,
+      what: `light: ${MAP_SCALE[i]} after ${MAP_SCALE[i - 1]}`,
+      detail: `${r.toFixed(2)}:1 — each scale shade must be darker than the one before by ${MAP_SCALE_STEP}:1 (spec 3630 M16)`,
+    })
   }
 }
 

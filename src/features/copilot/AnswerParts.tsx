@@ -39,9 +39,9 @@ import {
   type CopilotAnswerModel,
   type SuggestionButton,
 } from './answer'
-import { COPILOT_TOOLS, toolStepKey, traceRows } from './trace'
+import { traceRows } from './trace'
 import { copilotApi } from './api'
-import { pollSteps } from './steps'
+import { WALKED_STEP_TOOLS, pollSteps, walkedStepKey } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
 import { sqlEditLink } from './sql-save'
 import { canUseSqlMode, copilotSqlAccessQuery } from './access'
@@ -923,7 +923,7 @@ function useLiveStep(requestId: string | null): string | null {
 /**
  * The working state's step. With live steps (869) it is the step the server is on, in the panel's own words. With none
  * (a 404: the switch off, or nothing recorded yet) it is today's (D11): the panel cannot know which tool runs, so it
- * walks the same tool → label map's generic steps while the one call is out.
+ * walks the read-only tools' words of the same map ({@link WALKED_STEP_TOOLS}) while the one call is out.
  */
 export function WorkingStep({ requestId = null }: { requestId?: string | null }) {
   const { t } = useTranslation('copilot')
@@ -931,12 +931,12 @@ export function WorkingStep({ requestId = null }: { requestId?: string | null })
   const [i, setI] = useState(0)
   useEffect(() => {
     if (live !== null) return
-    const id = setInterval(() => setI((n) => (n + 1) % COPILOT_TOOLS.length), STEP_MS)
+    const id = setInterval(() => setI((n) => (n + 1) % WALKED_STEP_TOOLS.length), STEP_MS)
     return () => clearInterval(id)
   }, [live])
   return (
     <span className="text-xs" data-copilot-working-step data-copilot-live-step={live !== null || undefined}>
-      {t(live ?? toolStepKey(COPILOT_TOOLS[i]))}
+      {t(live ?? walkedStepKey(i))}
     </span>
   )
 }

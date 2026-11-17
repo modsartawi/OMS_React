@@ -22,6 +22,30 @@ export const STEP_POLL_GRACE = 3
 const isKnownTool = (tool: string): tool is CopilotTool => (COPILOT_TOOLS as readonly string[]).includes(tool)
 
 /**
+ * The tools whose words the working state walks while no live step is known (D11: the panel cannot know which tool
+ * runs). Only tools that READ: the walk is a guess, and a guess must never name a write. BackOffice 3630 walk fix: it
+ * walked every tool's words, so a read-only map question showed "Removing from the report". An allow-list, so a tool
+ * added later is not walked until someone decides its words fit any question. SQL mode's two tools are left out too:
+ * outside SQL mode "Running the SQL" is as untrue.
+ */
+export const WALKED_STEP_TOOLS: readonly CopilotTool[] = [
+  'order_timeline',
+  'order_delay_facts',
+  'orders_by_channel',
+  'sales_summary',
+  'callout_stats',
+  'sap_posting_backlog',
+  'store_lookup',
+  'sourcing_explain',
+  'sourcing_savings',
+  'describe_model',
+  'semantic_query',
+]
+
+/** The walked step's key at tick `n` of the walk (any `n`: it wraps). */
+export const walkedStepKey = (n: number): string => toolStepKey(WALKED_STEP_TOOLS[n % WALKED_STEP_TOOLS.length])
+
+/**
  * The step's words, as a key in the `copilot` namespace (en + ar), never the server's English `label`. A known tool
  * reuses the working state's `steps.<tool>` words; a tool this build does not know is "Looking up the data".
  */

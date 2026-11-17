@@ -51,7 +51,7 @@ The owner spent two hours building boards and reports with the copilot (2026-11-
 
 ## Proof
 
-- [ ] pure: library filters (who/kind/changed/folder/search), URL round trip, palette drop → layout cell · unit
+- [x] pure: library filters (who/kind/changed/folder/search), URL round trip, palette drop → layout cell · unit
 - [ ] stub drive: preview and back keeps the draft; drag a view onto the grid; file an item into a folder; a 416 delete
       lists the boards · flow (stub)
 - [ ] live on the local rig against BackOffice 3432 · flow (live)
@@ -59,3 +59,5 @@ The owner spent two hours building boards and reports with the copilot (2026-11-
 ## Boundaries
 
 - Folders are personal and never shared; the copilot never files, deletes or restores.
+
+**2026-11-17 - test run on main 7daac778.** `npx vitest run src/core/ui/auto-scroll.test.ts src/features/analytics/`: 79 files, 1,104 tests, all pass (library, library-pages, layout, wire and the rest). The stub drive box is NOT ticked: `tools/analytics-drive.mjs` ran 484 PASS but did not finish - the browser crashed under load (page crashed, then every new context refused) and the 400 s limit stopped it. Re-run it on a quiet machine to tick the box.

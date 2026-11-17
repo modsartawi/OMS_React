@@ -62,7 +62,7 @@ After using 837 the owner said:
 
 ## Proof
 
-- [ ] pure: `edgeSpeed`, separator keys with bounds and edge, `closeGaps` (all and one section, order kept,
+- [x] pure: `edgeSpeed`, separator keys with bounds and edge, `closeGaps` (all and one section, order kept,
       no-op), undo history (one step per gesture), duplicate placement, nearest-edge indicator · unit
 - [ ] drive (stub): a long board drag scrolls gradually; Close gaps; resize the list; undo/redo; Esc cancels;
       report indicator line and dragging a view into a section · flow (stub)
@@ -117,3 +117,5 @@ After using 837 the owner said:
 - **Drive.** `tools/report-designer-846-drive.mjs` gives 80/80 (en and ar), and `DRIVE_ONLY=828,829,831` 216/216.
 - **Open.** The palette's own hint says "onto the grid" in the designer. It needs an optional hint prop on
   `ViewsPalette` (board-owned). Clicking a block on the page does not select it; the edit tool or the outline does.
+
+**2026-11-17 - test run on main 7daac778.** Unit: the same vitest run (79 files, 1,104 tests, all pass, `auto-scroll` and `layout` included). Stub: `DRIVE_PORT=5173 node tools/report-designer-846-drive.mjs` 80/80 PASS, LTR and RTL (gradual edge scroll, the drop line, Views tab, "+" add, Delete/Undo, Ctrl+D, Esc, no page errors). That is the report-designer half of the stub box only; no drive covers the board half (long board drag, Close gaps, resizing the list), so the stub box stays open, as does the live box (the owner's Executive overview).

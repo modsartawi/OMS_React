@@ -1449,7 +1449,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [881](881-map-points-are-sized-and-coloured-nearby-stores-join-and-a-point-shows-its-card.md) — Map points are sized and coloured from the server's legend, nearby stores join into one point, and a point shows its card · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: BackOffice 3639, 880 · built 2026-11-17 (spec/3630-881); ⚠ only "seen by a person" (Riyadh groups on the local stack) owed
 - [882](882-stores-not-on-the-map-are-counted-and-listed-and-every-map-shows-as-a-table.md) — Stores not on the map are counted and listed, and every map can be shown as a table · *(ticket · BackOffice spec 3630)* · **done** · blocked by: BackOffice 3639, 880
 - [883](883-the-print-page-waits-for-its-maps-and-falls-back-to-the-table.md) — The print page says it is ready only after its maps are drawn, and prints the table when a map is not ready in 20 seconds · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: 880
-- [884](884-the-copilot-panel-draws-a-map-above-its-table.md) — The copilot panel draws a map above its table · *(ticket · BackOffice spec 3630)* · **open** · blocked by: BackOffice 3641, 880
+- [884](884-the-copilot-panel-draws-a-map-above-its-table.md) — The copilot panel draws a map above its table · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: BackOffice 3641, 880
 
 ## The copilot's personal schedule (BackOffice spec 3631), filed 2026-11-11
 

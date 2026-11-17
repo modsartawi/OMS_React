@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice C:\Work\DMSCO\BackOffice\.issues\3630-the-map-chart-stores-as-points-on-a-map-spec.md
 blocked-by: BackOffice 3641, 880
 ---
@@ -25,7 +25,7 @@ draws one, with or without the author grant.
 - [x] An answer without one renders as today · oms-react tests
 - [x] The answer's contract type gains the map part first, and an answer from a server without it still parses · oms-react tests
 - [x] When the map cannot draw, the table and the line are shown · oms-react tests
-- [ ] A reader with the view grant only sees the map on the local stack, in English and in Arabic · seen by a person, screenshot
+- [x] A reader with the view grant only sees the map on the local stack, in English and in Arabic · seen by a person, screenshot
 
 ## Boundaries
 
@@ -63,3 +63,5 @@ findings already on `spec/3630-map-chart`** (879's note), none from 884.
   `src/features/copilot/answer-map.test.ts`. Mutation-checked: dropping `tableBelow` reds the cannot-draw test; reading
   `hollow` as the raw string reds the points test.
 - **Left open:** the "seen by a person" box (view grant only, local stack, en + ar) — so the ticket stays `open`.
+
+**2026-11-17 — seen by the owner.** The owner looked at the `884-copilot-map-*.png` screenshots (view grant only, English and Arabic, taken by `tools/copilot-map-drive.mjs`) and asked for two fixes before closing: group figures spilled past their circles (now `groupRadius` sizes a group from its label) and the Larger map dialog had no close button (now `Modal` takes an optional `closeLabel`). Both fixed in 0400c298 and the screenshots re-taken; box ticked, ticket closed.

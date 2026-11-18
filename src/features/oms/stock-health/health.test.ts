@@ -248,24 +248,25 @@ describe('S9, the batch book against SAP (BackOffice spec 4013, door 4014)', () 
     expect(ar(good)).toBe('آخر مقارنة مع SAP نظيفة: 3 فرع، دون أي انحراف.')
   })
 
-  it('watch carries the drift and the failed stores, and keeps the server line', () => {
-    const reason = '15 of 1000 compared batch(es) drift from SAP (1.5%), at 2 store(s).'
-    expect(ar(s9('watch', reason, figures(3, 2, 15, 0, '2026-11-18T02:00:10')))).toBe(
-      `تنحرف 15 دفعة عن SAP في 2 فرع، وفشل 0 فرع في آخر مقارنة. (${reason})`,
+  it('watch is a generic headline with the figures, and keeps the server line (it may name stores not compared)', () => {
+    const reason = '1 store(s) in scope were not compared in the last comparison with SAP.'
+    expect(ar(s9('watch', reason, figures(3, 0, 0, 0, '2026-11-18T02:00:10')))).toBe(
+      `دفتر الدفعات مقابل SAP يستحق المتابعة: 0 دفعة منحرفة في 0 فرع، و0 فرع فشل؛ آخر تشغيل: 2026-11-18 02:00:10. (${reason})`,
     )
   })
 
-  it('bad keeps the server line, so "off", "never run" and "stale" each still read', () => {
+  it('bad is a generic headline with the figures, no limit of its own, and the server line says why', () => {
     for (const reason of [
       'The nightly comparison with SAP is off (BatchDrift:Nightly on the Stock Visibility worker).',
       'The comparison with SAP has never run.',
-      'No comparison with SAP has run for 30 hours (bad over 26).',
-      '20 of 1000 compared batch(es) drift from SAP (2%), at 2 store(s) (bad at 2%); 3 store(s) failed in the last comparison with SAP (bad over 1).',
+      'No comparison with SAP has run for 30 hours (bad over 12).',
+      '20 of 1000 compared batch(es) drift from SAP (2%), at 2 store(s) (bad at 2%); 1 store(s) failed and 1 store(s) in scope were not compared in the last comparison with SAP (bad over 1).',
     ]) {
-      const text = ar(s9('bad', reason, figures(3, 2, 20, 3, '2026-11-17T02:00:10')))
-      expect(text).toContain('المقارنة الليلية متوقفة')
-      expect(text).toContain('2026-11-17 02:00:10')
-      expect(text.endsWith(`(${reason})`)).toBe(true)
+      const text = ar(s9('bad', reason, figures(3, 2, 20, 1, '2026-11-17T02:00:10')))
+      expect(text).toBe(
+        `دفتر الدفعات مقابل SAP يحتاج إلى انتباه: 20 دفعة منحرفة في 2 فرع، و1 فرع فشل؛ آخر تشغيل: 2026-11-17 02:00:10. (${reason})`,
+      )
+      expect(text.replace(`(${reason})`, '')).not.toMatch(/(^|[^0-9-])26([^0-9-]|$)/)
     }
     expect(ar(s9('bad', 'The comparison with SAP has never run.'))).toContain('آخر تشغيل: —')
   })
@@ -306,10 +307,12 @@ describe('S10, negative stock and the dummy batch (BackOffice spec 4013, door 40
     )
   })
 
-  it('bad carries the Blocking negatives and keeps the server line, which names refusals the figures do not carry', () => {
-    const reason = '1 negative real batch(es) in Blocking stores; 2 take(s) refused today in Blocking stores; 3 negative real batch(es) in Seeded stores.'
-    const text = ar(s10('bad', reason, figures(4, 1, 0, 0, -2)))
-    expect(text).toBe(`مخزون سالب أو رفض في الفروع الحاجزة: 1 دفعة حقيقية سالبة فيها من أصل 4. (${reason})`)
+  it('bad names both possible causes without claiming which, and keeps the server line that says', () => {
+    const reason = '2 take(s) refused today in Blocking stores.'
+    const text = ar(s10('bad', reason, figures(0, 0, 0, 0, -2)))
+    expect(text).toBe(
+      `في الفروع الحاجزة دفعة حقيقية سالبة أو أخذ رُفض اليوم: الدفعات السالبة 0، منها 0 في الفروع الحاجزة. (${reason})`,
+    )
   })
 
   it('a signed figure reads as sent', () => {

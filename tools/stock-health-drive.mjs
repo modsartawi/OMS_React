@@ -110,7 +110,7 @@ const TEN = {
     s10('good', 'No real batch is negative and no take would have been refused today.', [0, 0, 0, -4.5, 0]),
   ],
   amber: [
-    s9('watch', '15 of 1000 compared batch(es) drift from SAP (1.5%), at 2 store(s); 1 store(s) failed in the last comparison with SAP.', [3, 2, 15, 1, '2026-11-17T02:00:10']),
+    s9('watch', '15 of 1000 compared batch(es) drift from SAP (1.5%), at 2 store(s); 1 store(s) in scope were not compared in the last comparison with SAP.', [3, 2, 15, 0, '2026-11-17T02:00:10']),
     s10('watch', '3 negative real batch(es) in Seeded stores; 2 take(s) would have been refused today in Seeded stores.', [3, 0, 2, -12.25, 1]),
   ],
   red: [
@@ -318,6 +318,9 @@ for (const dir of ['ltr', 'rtl']) {
         check(`${at}: S10's five figures in order`, f10.join('|') === S10_LABELS.join('|'), f10.join('|'))
       }
       if (name === 'red') check(`${at}: S9 says the nightly comparison is off`, /nightly comparison with SAP is off/.test(await s9t.locator('[data-health-reason]').innerText()))
+      // 913 review fixes (BackOffice 4013, 2026-11-18): S9's reason may name stores the night did not compare. (The
+      // Arabic lines are proven in health.test.ts; this drive's RTL pass mirrors the layout with the English text.)
+      if (name === 'amber') check(`${at}: S9 names the store not compared`, /1 store\(s\) in scope were not compared/.test(await s9t.locator('[data-health-reason]').innerText()))
       await page.screenshot({ path: `${SHOTS}/${dir}-${theme}-s9-s10-${name}.png`, fullPage: true })
       check(`${at}: no page errors`, errors.length === 0, errors.join(' | '))
       await context.close()

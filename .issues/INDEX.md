@@ -1519,3 +1519,11 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## One permissions answer (BackOffice spec 4002, brief C:\Work\DMSCO\BackOffice\.issues\assets\3995-oms-react-permissions-brief.md, filed 2026-11-18)
 
 - [914](914-one-permissions-answer-replaces-every-access-probe.md) — One permissions answer replaces every Access probe · *(ticket · BackOffice spec 4002; endpoint 4007)* · **open** · blocked by: BO 4007 (done; deploy before the walk)
+
+## Store database tab (BackOffice spec 4016, doors 4030-4039, filed 2026-11-18)
+
+- [915](915-the-store-database-tab-lists-the-fleet-by-state.md) — The Store database tab lists the fleet by state, with the needs-2019 ranking · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4030 · Store database tab: fleet list by state, filters, needs-2019 ranking
+- [916](916-the-store-page-shows-readings-history-and-largest-tables.md) — The store page shows readings, history chart, largest tables and Not checked · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4031, 915 · store page Readings panel: reading, forecast, history chart, largest tables
+- [917](917-the-store-page-shows-live-activity-and-health-check.md) — The store page's Live activity and Health check panels, and Check now · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4032, 916 · Live activity (refreshable), Health check, Check now
+- [918](918-space-backup-and-jobs-panels.md) — Space, Backup and Jobs panels: shrink log/data, back up now, schedule, run cleanup · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4034, BO 4035, BO 4036, BO 4037, 916 · Space/Backup/Jobs panels: shrink log/data, cleanup, back up now, schedules
+- [919](919-the-restore-panel-and-sp-blitz-controls.md) — The Restore panel: browse, side-copy restore and drop, plus sp_Blitz controls · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4038, BO 4039, 918 · Restore panel: browse, side copy, drop; sp_Blitz controls

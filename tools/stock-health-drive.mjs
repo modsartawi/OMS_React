@@ -15,7 +15,12 @@
 //      S8 null ("DRS holds are off": every instance switched off, figures still shown) is neutral and not counted;
 //      S8 judged per instance (two DRS instances, one slow): watch, the reason names the instance, header counts 1;
 //   7. a tile opens its link;
-//   8. no page errors.
+//   8. no page errors;
+//   9. S9 `batchBookVsSap` and S10 `negativeStock` (BackOffice spec 4013, door 4014, oms 913), in light and dark: ten tiles,
+//      the two last, each with its five figures in order; S10 links to the refusals leaf, S9 has no link; green (both
+//      good, "All good"), amber (both watch, header counts 2), red (S9 "the nightly comparison is off", S10 Blocking
+//      negatives: both bad), and noAnswer (an older Stock Visibility answers 404: both did-not-answer, every other
+//      signal still good, header counts 2).
 //
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/stock-health-drive.mjs
@@ -89,6 +94,34 @@ const ALL_GOOD_EIGHT = [
     { label: 'Last heartbeat', value: '2026-11-17T00:29:55' },
   ]),
 ]
+
+// S9/S10 (4014's shapes, the brief's 2026-11-18 (4014) "Changes" entry)
+const S9_LABELS = ['Stores compared', 'Stores drifting', 'Drifting batches', 'Failed stores', 'Last run']
+const S10_LABELS = ['Negative batches', 'In blocking stores', 'Would-be refusals today', 'Dummy batch quantity', 'Change since yesterday']
+const s9 = (verdict, reason, values, readAt = READ_AT) =>
+  sig('batchBookVsSap', verdict, reason, values.map((value, i) => ({ label: S9_LABELS[i], value })), null, readAt)
+const s10 = (verdict, reason, values, readAt = READ_AT) =>
+  sig('negativeStock', verdict, reason, values.map((value, i) => ({ label: S10_LABELS[i], value })), 'oms/held-stock-report/refusals', readAt)
+const noAnswer404 = (key, door, link) =>
+  sig(key, 'noAnswer', `Stock Visibility's ${door} did not answer: Stock Visibility's ${door} answered HTTP 404 Not Found.`, [], link, null)
+const TEN = {
+  green: [
+    s9('good', 'The last comparison with SAP is clean: 3 store(s), 1200 batch(es), no drift.', [3, 0, 0, 0, '2026-11-17T02:00:10']),
+    s10('good', 'No real batch is negative and no take would have been refused today.', [0, 0, 0, -4.5, 0]),
+  ],
+  amber: [
+    s9('watch', '15 of 1000 compared batch(es) drift from SAP (1.5%), at 2 store(s); 1 store(s) failed in the last comparison with SAP.', [3, 2, 15, 1, '2026-11-17T02:00:10']),
+    s10('watch', '3 negative real batch(es) in Seeded stores; 2 take(s) would have been refused today in Seeded stores.', [3, 0, 2, -12.25, 1]),
+  ],
+  red: [
+    s9('bad', 'The nightly comparison with SAP is off (BatchDrift:Nightly on the Stock Visibility worker).', [0, 0, 0, 0, null]),
+    s10('bad', '1 negative real batch(es) in Blocking stores; 2 take(s) refused today in Blocking stores; 3 negative real batch(es) in Seeded stores.', [4, 1, 0, -7, 2]),
+  ],
+  noAnswer: [
+    noAnswer404('batchBookVsSap', 'Stock/BatchDrift/Status', null),
+    noAnswer404('negativeStock', 'Stock/BatchBook/Negatives', 'oms/held-stock-report/refusals'),
+  ],
+}
 
 const browser = await chromium.launch()
 
@@ -251,6 +284,44 @@ for (const dir of ['ltr', 'rtl']) {
     await page.screenshot({ path: `${SHOTS}/${dir}-drs-watch.png`, fullPage: true })
     check(`${dir} 6c no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
+  }
+
+  // 9. S9 and S10 (spec 4013, door 4014): green, amber, red, noAnswer (404 from an older Stock Visibility), light and dark
+  for (const dark of [false, true]) {
+    const theme = dark ? 'dark' : 'light'
+    for (const [name, pair] of Object.entries(TEN)) {
+      const { context, page, errors } = await open(dir, { dark, signals: [...ALL_GOOD_EIGHT, ...pair] })
+      await page.goto(`${BASE}/oms/stock-health`)
+      await tiles(page).first().waitFor({ timeout: 15000 })
+      const at = `${dir}/${theme} 9 ${name}`
+      const order = await tileAttr(page, 'data-health-tile')
+      check(`${at}: ten tiles, S9 and S10 last`, order.length === 10 && order[8] === 'batchBookVsSap' && order[9] === 'negativeStock', order.join(','))
+      const tones = (await tileAttr(page, 'data-tone')).slice(8)
+      const want = { green: 'good,good', amber: 'watch,watch', red: 'bad,bad', noAnswer: 'noAnswer,noAnswer' }[name]
+      check(`${at}: tones`, tones.join(',') === want, tones.join(','))
+      check(`${at}: the other eight unchanged (good, or neutral where figure-only)`, (await tileAttr(page, 'data-tone')).slice(0, 8).join(',') === 'good,good,good,good,good,neutral,neutral,good')
+      const header = await page.locator('[data-health-header]').getAttribute('data-health-header')
+      const text = (await page.locator('[data-health-header]').innerText()).replace(/[\u2066-\u2069]/g, '')
+      check(`${at}: header`, name === 'green' ? header === 'allGood' : /2 need attention/.test(text), `${header} ${text}`)
+      const s9t = page.locator('[data-health-tile="batchBookVsSap"]')
+      const s10t = page.locator('[data-health-tile="negativeStock"]')
+      check(`${at}: S9 has no link, S10 is a link`, (await s9t.evaluate((e) => e.tagName)) === 'DIV' && (await s10t.evaluate((e) => e.tagName)) === 'A')
+      check(`${at}: S10 opens the refusals leaf`, (await s10t.getAttribute('href')) === '/oms/held-stock-report/refusals')
+      if (name === 'noAnswer') {
+        check(`${at}: S9 says did not answer`, (await s9t.locator('[data-health-verdict]').innerText()).trim() === 'Did not answer')
+        check(`${at}: S10 is outlined`, (await s10t.evaluate((e) => getComputedStyle(e).borderTopWidth)) === '2px')
+        check(`${at}: the reason names the door and the 404`, /Stock\/BatchBook\/Negatives.*404/.test(await s10t.locator('[data-health-reason]').innerText()))
+      } else {
+        const f9 = await s9t.locator('[data-health-figure]').evaluateAll((els) => els.map((e) => e.getAttribute('data-health-figure')))
+        const f10 = await s10t.locator('[data-health-figure]').evaluateAll((els) => els.map((e) => e.getAttribute('data-health-figure')))
+        check(`${at}: S9's five figures in order`, f9.join('|') === S9_LABELS.join('|'), f9.join('|'))
+        check(`${at}: S10's five figures in order`, f10.join('|') === S10_LABELS.join('|'), f10.join('|'))
+      }
+      if (name === 'red') check(`${at}: S9 says the nightly comparison is off`, /nightly comparison with SAP is off/.test(await s9t.locator('[data-health-reason]').innerText()))
+      await page.screenshot({ path: `${SHOTS}/${dir}-${theme}-s9-s10-${name}.png`, fullPage: true })
+      check(`${at}: no page errors`, errors.length === 0, errors.join(' | '))
+      await context.close()
+    }
   }
 }
 

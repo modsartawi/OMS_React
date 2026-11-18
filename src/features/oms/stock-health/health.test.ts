@@ -224,3 +224,99 @@ describe('S8, the DRS queue (BackOffice 3993, review fixes b9f6b3403)', () => {
     for (const f of figures) expect(figureLabel(translator('ar'), 'drsQueue', f.label)).not.toBe(f.label)
   })
 })
+
+describe('S9, the batch book against SAP (BackOffice spec 4013, door 4014)', () => {
+  const figures = (compared: number, drifting: number, batches: number, failed: number, lastRun: string | null) => [
+    { label: 'Stores compared', value: compared },
+    { label: 'Stores drifting', value: drifting },
+    { label: 'Drifting batches', value: batches },
+    { label: 'Failed stores', value: failed },
+    { label: 'Last run', value: lastRun },
+  ]
+  const s9 = (verdict: string | null, reason: string, f = figures(0, 0, 0, 0, null)) =>
+    signal('batchBookVsSap', verdict, { reason, figures: f })
+  const ar = (s: StockHealthSignal) => stripIsolates(reasonText(translator('ar'), s))
+
+  it('null: no store is Seeded or Blocking, so there is no book of ours to compare', () => {
+    expect(ar(s9(null, 'No store is Seeded or Blocking: there is no batch book of ours to compare with SAP yet.'))).toBe(
+      'لا يوجد فرع مؤسَّس أو حاجز: لا دفتر دفعات لنا نقارنه مع SAP بعد.',
+    )
+  })
+
+  it('good names the stores compared', () => {
+    const good = s9('good', 'The last comparison with SAP is clean: 3 store(s), 1200 batch(es), no drift.', figures(3, 0, 0, 0, '2026-11-18T02:00:10'))
+    expect(ar(good)).toBe('آخر مقارنة مع SAP نظيفة: 3 فرع، دون أي انحراف.')
+  })
+
+  it('watch carries the drift and the failed stores, and keeps the server line', () => {
+    const reason = '15 of 1000 compared batch(es) drift from SAP (1.5%), at 2 store(s).'
+    expect(ar(s9('watch', reason, figures(3, 2, 15, 0, '2026-11-18T02:00:10')))).toBe(
+      `تنحرف 15 دفعة عن SAP في 2 فرع، وفشل 0 فرع في آخر مقارنة. (${reason})`,
+    )
+  })
+
+  it('bad keeps the server line, so "off", "never run" and "stale" each still read', () => {
+    for (const reason of [
+      'The nightly comparison with SAP is off (BatchDrift:Nightly on the Stock Visibility worker).',
+      'The comparison with SAP has never run.',
+      'No comparison with SAP has run for 30 hours (bad over 26).',
+      '20 of 1000 compared batch(es) drift from SAP (2%), at 2 store(s) (bad at 2%); 3 store(s) failed in the last comparison with SAP (bad over 1).',
+    ]) {
+      const text = ar(s9('bad', reason, figures(3, 2, 20, 3, '2026-11-17T02:00:10')))
+      expect(text).toContain('المقارنة الليلية متوقفة')
+      expect(text).toContain('2026-11-17 02:00:10')
+      expect(text.endsWith(`(${reason})`)).toBe(true)
+    }
+    expect(ar(s9('bad', 'The comparison with SAP has never run.'))).toContain('آخر تشغيل: —')
+  })
+
+  it('every shipped figure label has its Arabic', () => {
+    for (const f of figures(0, 0, 0, 0, null)) expect(figureLabel(translator('ar'), 'batchBookVsSap', f.label)).not.toBe(f.label)
+  })
+})
+
+describe('S10, negative stock and the dummy batch (BackOffice spec 4013, door 4014)', () => {
+  const figures = (negative: number, inBlocking: number, wouldBe: number, dummy: number, change: number | null) => [
+    { label: 'Negative batches', value: negative },
+    { label: 'In blocking stores', value: inBlocking },
+    { label: 'Would-be refusals today', value: wouldBe },
+    { label: 'Dummy batch quantity', value: dummy },
+    { label: 'Change since yesterday', value: change },
+  ]
+  const s10 = (verdict: string | null, reason: string, f = figures(0, 0, 0, 0, null)) =>
+    signal('negativeStock', verdict, { reason, figures: f, link: 'oms/held-stock-report/refusals' })
+  const ar = (s: StockHealthSignal) => stripIsolates(reasonText(translator('ar'), s))
+
+  it('null: no store is Seeded or Blocking, so no negative stock is ours yet', () => {
+    expect(ar(s10(null, 'No store is Seeded or Blocking: no negative stock is ours to judge yet.'))).toBe(
+      'لا يوجد فرع مؤسَّس أو حاجز: لا مخزون سالب يخصّنا للحكم عليه بعد.',
+    )
+  })
+
+  it('good says no real batch is negative and no take would have been refused', () => {
+    expect(ar(s10('good', 'No real batch is negative and no take would have been refused today.', figures(0, 0, 0, -4.5, 0)))).toBe(
+      'لا توجد دفعة حقيقية سالبة، ولم يكن أي أخذ ليُرفض اليوم.',
+    )
+  })
+
+  it('watch carries the Seeded negatives and the would-be refusals, and keeps the server line', () => {
+    const reason = '3 negative real batch(es) in Seeded stores; 2 take(s) would have been refused today in Seeded stores.'
+    expect(ar(s10('watch', reason, figures(3, 0, 2, -12.25, 1)))).toBe(
+      `3 دفعة حقيقية سالبة في الفروع المؤسَّسة، و2 أخذ كان سيُرفض اليوم. (${reason})`,
+    )
+  })
+
+  it('bad carries the Blocking negatives and keeps the server line, which names refusals the figures do not carry', () => {
+    const reason = '1 negative real batch(es) in Blocking stores; 2 take(s) refused today in Blocking stores; 3 negative real batch(es) in Seeded stores.'
+    const text = ar(s10('bad', reason, figures(4, 1, 0, 0, -2)))
+    expect(text).toBe(`مخزون سالب أو رفض في الفروع الحاجزة: 1 دفعة حقيقية سالبة فيها من أصل 4. (${reason})`)
+  })
+
+  it('a signed figure reads as sent', () => {
+    expect(figureText(-12.25)).toBe('-12.25')
+  })
+
+  it('every shipped figure label has its Arabic', () => {
+    for (const f of figures(0, 0, 0, 0, null)) expect(figureLabel(translator('ar'), 'negativeStock', f.label)).not.toBe(f.label)
+  })
+})

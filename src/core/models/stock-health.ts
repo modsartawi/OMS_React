@@ -6,7 +6,7 @@
  * - `GET StockHealth/Access` → `{ screenAllowed }`, cookie only, not grant-gated (the menu leaf reads it).
  * - `GET StockHealth` → `{ readAt, signals[] }`, behind `BackOfficeScreen[StockHealth, 03]` (role `STOCK_HEALTH_VIEWER`).
  *
- * The server judges; the page draws. Signals arrive in the spec's order (S1..S8) and their count is NOT fixed: S8
+ * The server judges; the page draws. Signals arrive in the spec's order (S1..S10) and their count is NOT fixed: S8
  * (`drsQueue`) appears only once BackOffice 3993 ships, and a later signal may join.
  *
  * ⚠️ Times are the estate's local wall-clock, `"yyyy-MM-ddTHH:mm:ss"` with no offset; they stay strings and are never
@@ -17,7 +17,10 @@ export interface StockHealthAccess {
   screenAllowed: boolean
 }
 
-/** The keys 4012 sends (S1..S7) and the one 3993 adds (S8). A key this list does not name still draws, in English. */
+/**
+ * The keys 4012 sends (S1..S7), the one 3993 adds (S8), and the two 4014 adds (S9 `batchBookVsSap`, S10 `negativeStock`;
+ * BackOffice spec 4013, oms 913). A key this list does not name still draws, in English.
+ */
 export const STOCK_HEALTH_KEYS = [
   'feeds',
   'batchWorker',
@@ -27,6 +30,8 @@ export const STOCK_HEALTH_KEYS = [
   'holdSeamTills',
   'storeStages',
   'drsQueue',
+  'batchBookVsSap',
+  'negativeStock',
 ] as const
 export type StockHealthKey = (typeof STOCK_HEALTH_KEYS)[number]
 

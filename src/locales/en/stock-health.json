@@ -37,7 +37,9 @@
     "takeDoor": "Take door",
     "holdSeamTills": "Tills on the hold seam",
     "storeStages": "Store stages",
-    "drsQueue": "DRS queue"
+    "drsQueue": "DRS queue",
+    "batchBookVsSap": "Batch book against SAP",
+    "negativeStock": "Negative stock and dummy batch"
   },
   "tile": {
     "opens": "Open the screen behind this signal"
@@ -88,6 +90,20 @@
       "bad": "{{reason}}",
       "none": "{{reason}}",
       "noAnswer": "{{reason}}"
+    },
+    "batchBookVsSap": {
+      "none": "{{reason}}",
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "negativeStock": {
+      "none": "{{reason}}",
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
     }
   },
   "figure": {
@@ -137,6 +153,20 @@
       "Seeded": "Seeded",
       "Blocking": "Blocking",
       "Seeding over 24 hours": "Seeding over 24 hours"
+    },
+    "batchBookVsSap": {
+      "Stores compared": "Stores compared",
+      "Stores drifting": "Stores drifting",
+      "Drifting batches": "Drifting batches",
+      "Failed stores": "Failed stores",
+      "Last run": "Last run"
+    },
+    "negativeStock": {
+      "Negative batches": "Negative batches",
+      "In blocking stores": "In blocking stores",
+      "Would-be refusals today": "Would-be refusals today",
+      "Dummy batch quantity": "Dummy batch quantity",
+      "Change since yesterday": "Change since yesterday"
     }
   }
 }

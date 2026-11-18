@@ -14,7 +14,7 @@ import BackupPanel from './BackupPanel'
 
 import JobsPanel from './JobsPanel'
 
-// 919: import RestorePanel from './RestorePanel'
+import RestorePanel from './RestorePanel'
 
 /** What every store panel is handed: the page's `GET StoreDatabase/Store` answer (its `code` included). */
 export interface StoreDbPanelProps {
@@ -39,5 +39,5 @@ export const PANEL_VIEWS: Partial<Record<StoreDbPanel, ComponentType<StoreDbPane
 
   jobs: JobsPanel,
 
-  // restore: RestorePanel,
+  restore: RestorePanel,
 }

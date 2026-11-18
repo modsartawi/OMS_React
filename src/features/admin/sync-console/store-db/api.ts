@@ -12,6 +12,8 @@
 import { api } from '@/core/api'
 import type {
   StoreDbBackupSchedule,
+  StoreDbBackups,
+  StoreDbBlitz,
   StoreDbCheckNowBody,
   StoreDbFleetRow,
   StoreDbHealthCheck,
@@ -101,6 +103,19 @@ export const storeDbApi = {
   setBackupSchedule: (body: StoreDbScheduleRequest): Promise<unknown> => api.put<unknown>('StoreDatabase/BackupSchedule', body),
 
   // ── 919 Restore + Blitz ───────────────────────────────────────────────────────
+
+  /**
+   * `GET StoreDatabase/Backups?code=&folder=` (BO 4038) — View. The `.bak` files in a folder on the store's SQL
+   * machine with each one's header; no folder = the store's backup folder. A file the engine cannot read is listed with
+   * its error.
+   */
+  backups: async (code: string, folder: string | null): Promise<StoreDbBackups> => {
+    const data = await api.get<Partial<StoreDbBackups> | null>('StoreDatabase/Backups', { code, folder })
+    return { folder: data?.folder ?? folder ?? '', storeEngineVersion: data?.storeEngineVersion ?? null, files: data?.files ?? [], nextSideCopyName: data?.nextSideCopyName ?? null }
+  },
+
+  /** `GET StoreDatabase/Blitz?code=` (BO 4039) — View. Runs sp_Blitz (30 s); refused when it is not installed. */
+  blitz: (code: string): Promise<StoreDbBlitz> => api.get<StoreDbBlitz>('StoreDatabase/Blitz', { code }),
 }
 
 // ── 915 Fleet ───────────────────────────────────────────────────────────────────
@@ -180,3 +195,31 @@ export const storeDbScheduleQuery = (code: string) => ({
 })
 
 // ── 919 Restore + Blitz ─────────────────────────────────────────────────────────
+
+/** A Browse of one folder (`null` = the backup folder). Nested under the store, so the strip's Refresh browses again. */
+export const storeDbBackupsKey = (code: string, folder: string | null) => [...storeDbStoreKey(code), 'backups', folder ?? ''] as const
+
+/**
+ * Browse runs only when asked (`folder` `undefined` = not yet): it lists a folder and reads every file's header on
+ * the till's engine, so it is never polled nor re-run on window focus.
+ */
+export const storeDbBackupsQuery = (code: string, folder: string | null | undefined) => ({
+  queryKey: storeDbBackupsKey(code, folder ?? null),
+  queryFn: () => storeDbApi.backups(code, folder ?? null),
+  staleTime: STORE_DB_STALE_MS,
+  refetchOnWindowFocus: false,
+  retry: false,
+  enabled: code !== '' && folder !== undefined,
+})
+
+export const storeDbBlitzKey = (code: string) => [...storeDbStoreKey(code), 'blitz'] as const
+
+/** sp_Blitz runs only on Run (`asked`): it takes up to 30 s on the till. A refusal is final — never retried. */
+export const storeDbBlitzQuery = (code: string, asked: boolean) => ({
+  queryKey: storeDbBlitzKey(code),
+  queryFn: () => storeDbApi.blitz(code),
+  staleTime: STORE_DB_STALE_MS,
+  refetchOnWindowFocus: false,
+  retry: false,
+  enabled: code !== '' && asked,
+})

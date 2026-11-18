@@ -19,7 +19,7 @@ const SPACE_JOBS: readonly StoreDbJobKind[] = ['ShrinkLog', 'ShrinkData', 'Clean
 /**
  * The Space panel (oms 918): used vs free inside the data file and the log, from the page's reading; Shrink log,
  * Shrink data and Run cleanup now with the Act key (each through `JobDialog`, reason required); and the side copies
- * beside the live database (read-only here — 919 adds Drop).
+ * beside the live database, with Drop for the Restore key (919).
  */
 export default function SpacePanel({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
@@ -46,7 +46,7 @@ export default function SpacePanel({ store }: StoreDbPanelProps) {
         )}
       </section>
       {jobActionsVisible(permissions) && <JobButtons kinds={SPACE_JOBS} onPick={setKind} hint={t('storeDb.space.hint')} />}
-      <SideCopies copies={store.sideCopies} />
+      <SideCopies code={store.code} copies={store.sideCopies} />
       <JobDialog code={store.code} kind={kind} onClose={() => setKind(null)} />
     </div>
   )

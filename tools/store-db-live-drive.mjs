@@ -12,7 +12,7 @@
 //   5. Health check asks `GET StoreDatabase/HealthCheck?code=` and lists the findings most urgent first, with the
 //      check's words, the server's detail and the fix; an unknown check shows the server's own word;
 //   6. a check that faulted says so;
-//   7. the Health panel keeps a slot for 919's sp_Blitz;
+//   7. the Health panel carries 919's sp_Blitz section;
 //   8. a failed look / health check shows the server's message;
 //   9. Check now is hidden without StoreDatabase:06;
 //  10. Check now opens the reason dialog: Confirm stays off without a reason (and for white space);
@@ -136,7 +136,7 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   const faulted = page.locator('[data-health-finding="LastGoodCheckDb"]')
   check('6. a check that faulted says so', (await faulted.getAttribute('data-health-faulted')) === 'true' &&
     /This check could not run/.test(await text(faulted)) && (await faulted.locator('[data-health-fix]').count()) === 0)
-  check('7. the Health panel keeps a slot for sp_Blitz (919)', (await page.locator('[data-health-panel] [data-store-db-blitz-slot]').count()) === 1)
+  check('7. the Health panel carries sp_Blitz below the findings (919)', (await page.locator('[data-health-panel] [data-blitz]').count()) === 1)
   await page.screenshot({ path: `${SHOTS}/health.png`, fullPage: true })
   check('no page errors (health)', errors.length === 0, errors.join(' | '))
   await context.close()

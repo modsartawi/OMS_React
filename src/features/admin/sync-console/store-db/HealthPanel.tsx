@@ -11,13 +11,14 @@ import { formatDateTime } from '@/core/util/date-format'
 import { figure } from '../helpers'
 import Loading from '../Loading'
 import { storeDbHealthQuery } from './api'
+import BlitzSection from './BlitzSection'
 import { checkLabelKey, healthGroups, priorityBadge } from './health-helpers'
 import type { StoreDbPanelProps } from './panel-views'
 
 /**
  * The Health check panel (oms 917, BO 4032 door `GET StoreDatabase/HealthCheck`): the findings by priority, most
  * urgent first, each with its check, the server's detail and its plain-language fix. A check that faulted is a
- * finding too, and says so. Below them sits the room oms 919 fills with sp_Blitz (`data-store-db-blitz-slot`).
+ * finding too, and says so. Below them, sp_Blitz (oms 919, `BlitzSection`).
  */
 export default function HealthPanel({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
@@ -54,9 +55,7 @@ export default function HealthPanel({ store }: StoreDbPanelProps) {
           ))}
       </section>
 
-      {/* 919: sp_Blitz (install state, Run, its findings, Install / Remove) mounts in this slot, one line:
-          <BlitzSection store={store} /> */}
-      <div data-store-db-blitz-slot="" />
+      <BlitzSection store={store} />
     </div>
   )
 }

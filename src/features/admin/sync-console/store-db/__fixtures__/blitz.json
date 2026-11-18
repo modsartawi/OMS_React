@@ -1,0 +1,7 @@
+{
+  "findings": [
+    { "priority": 50, "findingsGroup": "Reliability", "finding": "Page Verification Not Optimal", "databaseName": "POS", "details": "Database [POS] has TORN_PAGE_DETECTION for page verification.", "url": "https://www.brentozar.com/go/torn" },
+    { "priority": 1, "findingsGroup": "Backup", "finding": "Backups Not Performed Recently", "databaseName": "master", "details": "Last backed up: never", "url": "https://www.brentozar.com/go/nobak" },
+    { "priority": 200, "findingsGroup": "Informational", "finding": "Collation is SQL_Latin1_General_CP1256_CI_AS", "databaseName": null, "details": "Collation differences between user databases and tempdb can cause conflicts.", "url": null }
+  ]
+}

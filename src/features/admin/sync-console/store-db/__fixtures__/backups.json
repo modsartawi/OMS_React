@@ -1,0 +1,10 @@
+{
+  "folder": "D:\\SQLBackup\\P104",
+  "storeEngineVersion": "10.50.6000",
+  "files": [
+    { "file": "D:\\SQLBackup\\P104\\POS_full.bak", "fileName": "POS_full.bak", "database": "POS", "backupDate": "2026-11-17T02:15:00", "sizeKb": 2936012, "engineVersion": "10.50.6000", "newerEngine": false, "error": null },
+    { "file": "D:\\SQLBackup\\P104\\POS_20261101.bak", "fileName": "POS_20261101.bak", "database": "POS", "backupDate": "2026-11-01T02:10:00", "sizeKb": 2809856, "engineVersion": "10.50.4000", "newerEngine": false, "error": null },
+    { "file": "D:\\SQLBackup\\P104\\POS_from_2019.bak", "fileName": "POS_from_2019.bak", "database": "POS", "backupDate": "2026-11-12T14:30:00", "sizeKb": 3014656, "engineVersion": "15.0.2000", "newerEngine": true, "error": null },
+    { "file": "D:\\SQLBackup\\P104\\half_copied.bak", "fileName": "half_copied.bak", "database": null, "backupDate": null, "sizeKb": null, "engineVersion": null, "error": "The media family on device 'D:\\SQLBackup\\P104\\half_copied.bak' is incorrectly formed." }
+  ]
+}

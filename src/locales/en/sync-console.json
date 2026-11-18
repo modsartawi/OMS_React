@@ -1788,8 +1788,63 @@
       }
     },
 
-    "restore": {},
+    "restore": {
+      "title": "Backups on the store",
+      "neverLive": "The live database is never replaced from here. A restore always creates a new side copy beside it, named POS_Restore_ and the day.",
+      "folder": "Folder",
+      "folderHint": "A folder on the store's SQL machine. Leave it empty for the store's backup folder.",
+      "folderPlaceholder": "The store's backup folder",
+      "browse": "Browse",
+      "notBrowsed": "Browse lists the backup files in the folder, each with its database, date, size and engine.",
+      "browsing": "Reading the folder…",
+      "failed": "The folder could not be read.",
+      "empty": "No backup files in this folder.",
+      "readFolder": "Files in <folder>{{folder}}</folder>",
+      "columns": {
+        "file": "File",
+        "database": "Database",
+        "backupDate": "Taken at",
+        "size": "Size",
+        "engine": "Engine",
+        "status": "Can be restored"
+      },
+      "why": {
+        "ok": "Yes",
+        "newerEngine": "No — taken on a newer engine than the store's.",
+        "unreadable": "No — the engine could not read this file.",
+        "unknownEngine": "No — its engine version is unknown."
+      },
+      "dialog": {
+        "file": "Backup <file>{{file}}</file>, taken <at>{{at}}</at>.",
+        "creates": "It will be restored as a new database, <name>{{name}}</name> (with a suffix if that name is taken when it runs)."
+      },
+      "drop": {
+        "which": "Drops <name>{{name}}</name> and deletes its files."
+      }
+    },
 
-    "blitz": {}
+    "blitz": {
+      "title": "sp_Blitz",
+      "intro": "sp_Blitz (First Responder Kit) checks the store's SQL Server more deeply. Running it is a read and takes up to 30 seconds.",
+      "installed": "Installed, version <v>{{version}}</v>",
+      "installedNoVersion": "Installed",
+      "notInstalled": "Not installed",
+      "unknown": "Install state not reported",
+      "run": "Run sp_Blitz",
+      "runAgain": "Run again",
+      "running": "Running sp_Blitz…",
+      "failed": "sp_Blitz could not be run.",
+      "notInstalledRefusal": "sp_Blitz is not installed on this store, so it cannot be run.",
+      "empty": "sp_Blitz found nothing.",
+      "hint": "Install and Remove ask for a reason and are queued as jobs; follow them on the Jobs panel.",
+      "more": "Read more",
+      "columns": {
+        "priority": "Priority",
+        "group": "Group",
+        "finding": "Finding",
+        "database": "Database",
+        "details": "Details"
+      }
+    }
   }
 }

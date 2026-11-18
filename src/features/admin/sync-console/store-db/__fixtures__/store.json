@@ -49,5 +49,6 @@
   ],
   "sideCopies": [
     { "name": "POS_Restore_20261110", "sizeKb": 2936012, "createdAt": "2026-11-10T11:20:00" }
-  ]
+  ],
+  "blitz": { "installed": true, "version": "8.19 (2008 build)" }
 }

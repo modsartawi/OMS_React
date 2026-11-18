@@ -310,3 +310,61 @@ export interface StoreDbScheduleRequest {
 }
 
 // ── 919 Restore + Blitz ─────────────────────────────────────────────────────────
+
+/** One `.bak` file Browse found, read with `RESTORE HEADERONLY` (BO 4038). GUESSED names. */
+export interface StoreDbBackupFile {
+  /** The full path on the store's SQL machine — what a restore is asked for. */
+  file: string
+  fileName: string
+  /** The database the backup was taken of. */
+  database: string | null
+  backupDate: string | null
+  sizeKb: number | null
+  /** The engine that took it (`10.50.6000`, from `SoftwareVersionMajor.Minor.Build`). */
+  engineVersion: string | null
+  /** The server judged it newer than the store's engine (BO 4038 refuses its restore). Absent = not judged. */
+  newerEngine?: boolean | null
+  /** The engine could not read the file: it is listed with this error (BO 4038). */
+  error: string | null
+}
+
+/** `GET StoreDatabase/Backups?code=&folder=` (BO 4038) — View. GUESSED shape. */
+export interface StoreDbBackups {
+  /** The folder actually read (the backup folder when none was typed). */
+  folder: string
+  /** The store engine's version, to judge "newer" by when a file carries no `newerEngine`. */
+  storeEngineVersion: string | null
+  files: StoreDbBackupFile[]
+  /** The side-copy name a restore would create, when the server says (else the client computes it). */
+  nextSideCopyName?: string | null
+}
+
+/** sp_Blitz's install state on one store (BO 4039: "recorded per store"). GUESSED: sent on the Store door. */
+export interface StoreDbBlitzState {
+  installed: boolean
+  version: string | null
+}
+
+/**
+ * GUESSED placement: the Store door (§916) carries the sp_Blitz install state as `blitz` (BO 4039 names no door for it).
+ * Declared here — TypeScript merges it into `StoreDbStore` — so 919 stays inside its own section. Absent = unknown.
+ */
+export interface StoreDbStore {
+  blitz?: StoreDbBlitzState | null
+}
+
+/** One row of sp_Blitz's own output, camelCased (BO 4039). GUESSED names. */
+export interface StoreDbBlitzFinding {
+  /** sp_Blitz's priority: `1` = most urgent; 200+ informational. */
+  priority: number
+  findingsGroup: string | null
+  finding: string
+  databaseName: string | null
+  details: string | null
+  url: string | null
+}
+
+/** `GET StoreDatabase/Blitz?code=` (BO 4039) — View; refused (`BLITZ_NOT_INSTALLED`, GUESSED) when absent. */
+export interface StoreDbBlitz {
+  findings: StoreDbBlitzFinding[]
+}

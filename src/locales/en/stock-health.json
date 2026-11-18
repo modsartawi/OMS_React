@@ -115,8 +115,9 @@
       "Last night's compare differences": "Last night's compare differences"
     },
     "takeDoor": {
-      "Takes today": "Takes today",
-      "Failed": "Failed",
+      "Takes": "Takes",
+      "Failed calls": "Failed calls",
+      "Failed calls per 100 takes": "Failed calls per 100 takes",
       "Skipped at the time limit": "Skipped at the time limit"
     },
     "holdSeamTills": {

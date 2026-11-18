@@ -109,3 +109,9 @@ names the slow or silent instance. No label changed (S7 and S8 alike). S7's reas
 Visibility's stage list, or PickStoreStage with four figures when that does not answer); the AR `none` line is the stage
 counts only and does not name the source. Drive: S8 holds-off with figures (neutral, not counted) and two instances
 (watch, reason names DRSWEB02, header counts 1). Drive 90/90; tests 11046/11046.
+
+**2026-11-18 — S5 wording (spec3991 ba6818ce4).** `takeDoor` figures are now `Takes`, `Failed calls`, `Failed calls per 100
+takes` (null with no take), `Skipped at the time limit`; AR labels follow. AR reasons speak of failed door calls, never a
+share of takes that failed: good "لم يفشل أي طلب عند الباب اليوم."; watch gives the failed calls, the takes and the per-100
+figure; bad gives the failed calls and the takes only, so the same line reads right when there was no take (the per-100
+figure is on the tile). Drive fixture on the new shape, plus the four labels in order: 94/94; tests 11047/11047.

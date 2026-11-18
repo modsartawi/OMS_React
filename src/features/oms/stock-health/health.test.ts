@@ -73,10 +73,11 @@ function translator(lng: 'en' | 'ar') {
 }
 
 const takeDoorBad = signal('takeDoor', 'bad', {
-  reason: '7 of 120 take(s) failed at the door today (5.83%).',
+  reason: '7 failed door call(s) against 120 take(s) today: 5.83 per 100 takes.',
   figures: [
-    { label: 'Takes today', value: 120 },
-    { label: 'Failed', value: 7 },
+    { label: 'Takes', value: 120 },
+    { label: 'Failed calls', value: 7 },
+    { label: 'Failed calls per 100 takes', value: 5.83 },
     { label: 'Skipped at the time limit', value: 0 },
   ],
   link: 'oms/held-stock-report/gates',
@@ -84,14 +85,30 @@ const takeDoorBad = signal('takeDoor', 'bad', {
 
 describe('the reason line', () => {
   it("in English it is the server's own line", () => {
-    expect(reasonText(translator('en'), takeDoorBad)).toBe('7 of 120 take(s) failed at the door today (5.83%).')
+    expect(reasonText(translator('en'), takeDoorBad)).toBe('7 failed door call(s) against 120 take(s) today: 5.83 per 100 takes.')
   })
 
   it('an AR reason is picked by key and verdict, with the figures interpolated', () => {
     const text = stripIsolates(reasonText(translator('ar'), takeDoorBad))
-    expect(text).toBe('فشلت 7 من 120 عملية أخذ عند الباب اليوم.')
+    expect(text).toBe('فشل 7 طلب عند الباب اليوم، وعمليات الأخذ اليوم 120.')
+    const watch = stripIsolates(reasonText(translator('ar'), { ...takeDoorBad, verdict: 'watch' }))
+    expect(watch).toBe('فشل 7 طلب عند الباب اليوم مقابل 120 عملية أخذ: 5.83 لكل 100 عملية أخذ.')
     const good = stripIsolates(reasonText(translator('ar'), { ...takeDoorBad, verdict: 'good' }))
-    expect(good).toBe('لم تفشل أي عملية أخذ عند الباب اليوم.')
+    expect(good).toBe('لم يفشل أي طلب عند الباب اليوم.')
+  })
+
+  it('S5 bad with no take still reads right, and never as a share of takes that failed', () => {
+    const none = signal('takeDoor', 'bad', {
+      reason: '3 failed door call(s) and no take today.',
+      figures: [
+        { label: 'Takes', value: 0 },
+        { label: 'Failed calls', value: 3 },
+        { label: 'Failed calls per 100 takes', value: null },
+        { label: 'Skipped at the time limit', value: 0 },
+      ],
+    })
+    expect(stripIsolates(reasonText(translator('ar'), none))).toBe('فشل 3 طلب عند الباب اليوم، وعمليات الأخذ اليوم 0.')
+    for (const v of ['good', 'watch', 'bad']) expect(ar.reason.takeDoor[v as 'good']).not.toMatch(/عملية أخذ عند الباب|فشلت/)
   })
 
   it('a figure-only signal is keyed as none, and a time figure keeps its wall-clock', () => {
@@ -134,9 +151,10 @@ describe('the figures', () => {
   })
 
   it('an AR label is keyed by the signal key and the English label; an unknown label stays English', () => {
-    expect(figureLabel(translator('ar'), 'takeDoor', 'Failed')).toBe('فشلت')
+    expect(figureLabel(translator('ar'), 'takeDoor', 'Failed calls')).toBe('طلبات فشلت')
+    expect(figureLabel(translator('ar'), 'takeDoor', 'Failed calls per 100 takes')).toBe('طلبات فشلت لكل 100 عملية أخذ')
     expect(figureLabel(translator('ar'), 'takeDoor', 'Something new')).toBe('Something new')
-    expect(figureLabel(translator('en'), 'takeDoor', 'Failed')).toBe('Failed')
+    expect(figureLabel(translator('en'), 'takeDoor', 'Failed calls')).toBe('Failed calls')
   })
 })
 

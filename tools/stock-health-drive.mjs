@@ -61,9 +61,10 @@ const SEVEN = [
     { label: "Yesterday's disagreements", value: 0 },
     { label: "Last night's compare differences", value: 4 },
   ]),
-  sig('takeDoor', 'good', 'No take failed at the door today.', [
-    { label: 'Takes today', value: 120 },
-    { label: 'Failed', value: 0 },
+  sig('takeDoor', 'good', 'No door call failed today.', [
+    { label: 'Takes', value: 120 },
+    { label: 'Failed calls', value: 0 },
+    { label: 'Failed calls per 100 takes', value: 0 },
     { label: 'Skipped at the time limit', value: 0 },
   ], 'oms/held-stock-report/gates'),
   sig('holdSeamTills', null, '42 till(s) at 17 store(s) heard on the hold seam in the last hour.', [
@@ -167,6 +168,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir}/${theme} 3 as of, unshifted`, asOf === 'as of 2026-11-17 00:30:05', asOf)
 
     // 4. figures + links
+    const s5 = await page.locator('[data-health-tile="takeDoor"] [data-health-figure]').evaluateAll((els) => els.map((e) => e.getAttribute('data-health-figure')))
+    check(`${dir}/${theme} 4 takeDoor's four figures in order`, s5.join('|') === 'Takes|Failed calls|Failed calls per 100 takes|Skipped at the time limit', s5.join('|'))
     check(`${dir}/${theme} 4 storeStages shows all five figures`, (await page.locator('[data-health-tile="storeStages"] [data-health-figure]').count()) === 5)
     const tags = await tiles(page).evaluateAll((els) => els.map((e) => e.tagName))
     check(`${dir}/${theme} 4 linked tiles are links`, tags.join(',') === 'A,DIV,A,DIV,A,A,A', tags.join(','))
